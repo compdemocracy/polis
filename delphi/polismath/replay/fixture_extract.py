@@ -50,7 +50,10 @@ from typing import Any, Iterable, Sequence
 
 from polismath.replay import prodclone as pc
 
-EVENT_STREAM_SCHEMA_VERSION = "certify-events/1"
+#: Bumped to /2 by the lossless correction: ``weight_x_32767`` and ``vote`` are
+#: NULLABLE in the stream. /1 coerced a NULL weight to 0, which silently
+#: rewrote a distinct storage fact.
+EVENT_STREAM_SCHEMA_VERSION = "certify-events/2"
 
 #: Raw storage sign of an AGREE vote (``server/postgres/migrations/000000_initial.sql``:
 #: "-1 = Agree, 1 = Disagree, 0 = Pass/Unsure"). The export CSV negates it.
@@ -86,24 +89,57 @@ def mint_opaque_dir(slug: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+#: Only a TOTAL, unconditional, always-defined unique key can promise that two
+#: extractions of the same rows tie-break identically. The catalog query is
+#: therefore narrow on purpose:
+#:
+#: * ``i.indisvalid AND i.indislive`` — an index still being built, or left
+#:   INVALID by a failed CONCURRENTLY build, enforces nothing;
+#: * ``i.indpred IS NULL`` — a PARTIAL unique index is unique only over the rows
+#:   it covers, so it is not a key for the table;
+#: * ``i.indexprs IS NULL`` — an EXPRESSION index keys a computed value, which
+#:   is not a column ordering the extractor can emit;
+#: * ``k.ord <= i.indnkeyatts`` — INCLUDE columns are payload, not key columns,
+#:   and must not be mistaken for part of the uniqueness guarantee;
+#: * ``bool_and(a.attnotnull)`` — in Postgres, NULLs are DISTINCT by default, so
+#:   a unique index over a nullable column does not exclude duplicate NULL rows.
+#:
+#: Anything that fails these tests leaves the guarantee at
+#: ``frozen-extract-order``, which is honest, rather than claiming a stronger
+#: one the schema does not provide.
 _SQL_UNIQUE_INDEXES = """
     SELECT i.indisprimary,
-           array_agg(a.attname ORDER BY k.ord) AS cols
+           array_agg(a.attname ORDER BY k.ord) AS cols,
+           bool_and(a.attnotnull) AS all_not_null
     FROM pg_index i
     JOIN pg_class c ON c.oid = i.indrelid
     JOIN pg_namespace n ON n.oid = c.relnamespace
     JOIN LATERAL unnest(i.indkey) WITH ORDINALITY AS k(attnum, ord) ON true
     JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = k.attnum
-    WHERE c.relname = %s AND n.nspname = 'public' AND i.indisunique
+    WHERE c.relname = %s AND n.nspname = 'public'
+      AND i.indisunique
+      AND i.indisvalid
+      AND i.indislive
+      AND i.indpred IS NULL
+      AND i.indexprs IS NULL
+      AND k.ord <= i.indnkeyatts
+      AND a.attnum > 0
+      AND NOT a.attisdropped
     GROUP BY i.indexrelid, i.indisprimary
+    HAVING bool_and(a.attnotnull)
     ORDER BY i.indisprimary DESC
 """
 
+#: An identity/serial DEFAULT is not a uniqueness constraint: a serial column
+#: accepts an explicit duplicate value and a NULL unless something else forbids
+#: it. A surrogate column is only accepted as the tie key when a qualifying
+#: unique index above is keyed on exactly that column.
 _SQL_SURROGATE_COLUMNS = """
     SELECT column_name
     FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = %s
       AND (is_identity = 'YES' OR column_default LIKE 'nextval(%%')
+      AND is_nullable = 'NO'
     ORDER BY ordinal_position
 """
 
@@ -120,17 +156,23 @@ def detect_tie_key(conn, table: str = "votes") -> dict[str, Any]:
         cur.execute(_SQL_SURROGATE_COLUMNS, (table,))
         surrogates = [r[0] for r in cur.fetchall()]
 
-    if surrogates:
-        col = surrogates[0]
-        return {
-            "available": True,
-            "columns": [col],
-            "method": "identity-or-serial-column",
-            "order_by": f"created ASC, {col} ASC",
-            "guarantee": "stable-tie-key",
-            "note": f"{table}.{col} is an identity/serial surrogate; it is a portable "
-                    "event identity and survives a re-restore of the snapshot.",
-        }
+    # A surrogate column is a tie key ONLY when a qualifying unique key is keyed
+    # on exactly that column. An identity/serial default alone guarantees
+    # nothing: an explicit INSERT can repeat the value.
+    unique_single_cols = {cols[0] for _, cols in uniques if len(cols) == 1}
+    for col in surrogates:
+        if col in unique_single_cols:
+            return {
+                "available": True,
+                "columns": [col],
+                "method": "identity-or-serial-column",
+                "order_by": f"created ASC, {col} ASC",
+                "guarantee": "stable-tie-key",
+                "note": f"{table}.{col} is an identity/serial surrogate AND is "
+                        "covered by a valid, unconditional, non-nullable unique "
+                        "index; it is a portable event identity and survives a "
+                        "re-restore of the snapshot.",
+            }
     for is_primary, cols in uniques:
         return {
             "available": True,
@@ -138,8 +180,28 @@ def detect_tie_key(conn, table: str = "votes") -> dict[str, Any]:
             "method": "primary-key" if is_primary else "unique-index",
             "order_by": "created ASC, " + ", ".join(f"{c} ASC" for c in cols),
             "guarantee": "stable-tie-key",
-            "note": f"{table} has a {'primary key' if is_primary else 'unique index'} "
-                    f"on {cols}; used as the portable tie key.",
+            "note": f"{table} has a valid, unconditional, non-partial, "
+                    f"non-expression, NOT NULL "
+                    f"{'primary key' if is_primary else 'unique index'} on {cols} "
+                    "(INCLUDE columns excluded); used as the portable tie key.",
+        }
+    if surrogates:
+        # Present but unqualified: say so, rather than silently reporting the
+        # generic no-key note and hiding the near miss from the next reviewer.
+        return {
+            "available": False,
+            "columns": [],
+            "method": "physical-ctid",
+            "order_by": "created ASC, ctid ASC",
+            "guarantee": "frozen-extract-order",
+            "note": (
+                f"{table} has identity/serial column(s) {surrogates} but NO valid, "
+                "unconditional, non-nullable unique index keyed on one of them, so "
+                "they are not a uniqueness guarantee and are NOT used as a tie key. "
+                "The extract order (created ASC, ctid ASC) is FROZEN into the bundle "
+                "bytes and is authoritative for every replay; re-restoring the "
+                "snapshot need not reproduce ctid order."
+            ),
         }
     return {
         "available": False,
@@ -222,8 +284,12 @@ def build_events(
             "created": int(row["created"]),
             "pid": int(row["pid"]),
             "tid": int(row["tid"]),
-            "vote": int(row["vote"]) if row["vote"] is not None else None,
-            "weight_x_32767": int(row["weight_x_32767"] or 0),
+            # NULL is a DISTINCT storage fact and survives as null. `or 0`
+            # collapsed NULL and 0 into the same value; a weight of 0 is also
+            # falsy, so it collapsed a real zero weight too.
+            "vote": None if row["vote"] is None else int(row["vote"]),
+            "weight_x_32767": (None if row["weight_x_32767"] is None
+                               else int(row["weight_x_32767"])),
             "src": {"table": "votes", "row": i},
         })
     for i, row in enumerate(comment_rows):
@@ -261,7 +327,18 @@ def equal_time_census(events: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "distinct_created_values": len(by_time),
         "created_values_with_ties": sum(1 for n in by_time.values() if n > 1),
         "cells_repeated_at_same_created": sum(1 for v in by_cell.values() if len(v) > 1),
-        "opposite_votes": sum(1 for v in by_cell.values() if len(set(v)) > 1),
+        # A NULL vote is an UNKNOWN value, not an opposite one: counting it as a
+        # disagreement would inflate the ambiguity census with rows that carry
+        # no direction at all. It is counted separately instead.
+        "opposite_votes": sum(
+            1 for v in by_cell.values()
+            if len({x for x in v if x is not None}) > 1),
+        "null_votes": sum(1 for v in by_cell.values() for x in v if x is None),
+        "cells_with_null_vote": sum(
+            1 for v in by_cell.values() if any(x is None for x in v)),
+        "unit": "(pid, tid, created) GROUPS, not vote events; "
+                "second-truncated collisions are a different, larger population "
+                "and are never measured from the compatibility CSVs",
     }
 
 
@@ -307,6 +384,19 @@ def stream_meta(
             "export_agree_value": EXPORT_AGREE_VALUE,
             "events_carry": "raw storage sign, unmodified",
             "compat_csv_carries": "negated sign, matching the production export",
+        },
+        "nullability": {
+            "vote": "NULLABLE. votes.vote has no NOT NULL constraint; a NULL "
+                    "survives into this stream as JSON null and is NEVER coerced "
+                    "to 0 (which would mean 'pass'). The compatibility CSV cannot "
+                    "represent it — see compat_csv.null_vote_policy.",
+            "weight_x_32767": "NULLABLE. A NULL weight survives as JSON null. It "
+                              "is a distinct storage fact from a weight of 0 and "
+                              "the two must not be merged. The compatibility CSV "
+                              "has no weight column at all, so the event stream "
+                              "is the only lossless carrier.",
+            "created": "NOT NULL in practice and required by the stream; an "
+                       "absent created would fail extraction rather than default.",
         },
         "moderation": {
             "source": "comments current state (mod, is_meta, modified)",
@@ -360,22 +450,64 @@ def write_participants_csv(path: Path, rows: Sequence[dict[str, Any]]) -> None:
             })
 
 
+#: What the compatibility CSV does with a NULL ``votes.vote``. The event stream
+#: keeps the null; the CSV cannot.
+COMPAT_NULL_VOTE_POLICY = "drop-counted"
+
+
 def compat_rows_from_events(
     events: Sequence[dict[str, Any]],
-) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+) -> tuple[list[dict[str, str]], list[dict[str, str]], dict[str, Any]]:
     """Derive the compatibility votes/comments CSV rows FROM the event stream
     (never from a second query), reusing the existing formatters so the export
-    format and the polarity flip stay in one place."""
+    format and the polarity flip stay in one place.
+
+    Returns ``(votes_rows, comments_rows, compat_census)``.
+
+    NULL VOTES. ``votes.vote`` is nullable in the production schema and the
+    event stream keeps the null verbatim. The compatibility CSV cannot: its only
+    consumers parse the column as an integer —
+    ``real_data.load_export_votes`` does ``int(row["vote"])`` and the Clojure
+    replay driver reads the same file — so an empty cell or a ``null`` marker
+    would be a parse error at every reader, and any placeholder integer would be
+    a FABRICATED vote (0 is "pass", not "unknown").
+
+    The policy is therefore ``drop-counted``: NULL-vote rows are OMITTED from
+    the compatibility CSV and COUNTED. The count is recorded in
+    ``events.meta.json`` and in the manifest role entry, and a nonzero count
+    makes the compatibility export NON-CERTIFYING — :func:`fixture_bundle.
+    admit_manifest` rejects the bundle unless an operator has explicitly
+    accepted the drop. NULL never becomes pass, and never silently disappears.
+    """
     vote_events = [e for e in events if e["kind"] == "vote"]
     comment_events = [e for e in events if e["kind"] == "comment"]
 
+    votable = [e for e in vote_events if e["vote"] is not None]
+    null_vote_events = [e for e in vote_events if e["vote"] is None]
+
     votes_rows = pc.format_votes_rows([
         {"tid": e["tid"], "pid": e["pid"], "vote": e["vote"], "created": e["created"]}
-        for e in vote_events
+        for e in votable
     ])
 
+    compat_census = {
+        "null_vote_policy": COMPAT_NULL_VOTE_POLICY,
+        "null_votes_dropped": len(null_vote_events),
+        "null_vote_ordinals": [e["ord"] for e in null_vote_events[:64]],
+        "null_vote_cells": sorted({(e["pid"], e["tid"]) for e in null_vote_events})[:64],
+        "vote_rows_written": len(votes_rows),
+        "certifying": not null_vote_events,
+        "note": "the authoritative event stream keeps every NULL vote; the "
+                "compatibility CSV omits them because its readers parse the "
+                "column as an integer, and a nonzero drop count makes this "
+                "export non-certifying",
+        "null_weight_mapping": "the compatibility CSV has NO weight column at "
+                               "all; weight (including NULL) lives only in the "
+                               "event stream, which is authoritative",
+    }
+
     counts: dict[int, list[int]] = {}
-    for e in vote_events:
+    for e in votable:
         entry = counts.setdefault(e["tid"], [0, 0])
         if e["vote"] == STORAGE_AGREE_VALUE:
             entry[0] += 1
@@ -388,7 +520,7 @@ def compat_rows_from_events(
          "mod": e["mod"], "is_meta": e["is_meta"], "modified": e["modified"]}
         for e in comment_events
     ], vote_counts)
-    return votes_rows, comments_rows
+    return votes_rows, comments_rows, compat_census
 
 
 # ---------------------------------------------------------------------------
@@ -434,7 +566,10 @@ def extract_conversation(
         json.dumps(meta, indent=2, sort_keys=True) + "\n")
     write_participants_csv(target / "participants.csv", raw["participants"])
 
-    votes_rows, comments_rows = compat_rows_from_events(events)
+    votes_rows, comments_rows, compat = compat_rows_from_events(events)
+    meta["compat_csv"] = compat
+    (target / "events.meta.json").write_text(
+        json.dumps(meta, indent=2, sort_keys=True) + "\n")
     pc.write_votes_csv(target / f"{dir_name}-votes.csv", votes_rows)
     pc.write_comments_csv(target / f"{dir_name}-comments.csv", comments_rows)
 
@@ -447,6 +582,10 @@ def extract_conversation(
         "logical_digest_sha256": meta["logical_digest_sha256"],
         "ordering_guarantee": meta["ordering"]["guarantee"],
         "equal_time_census": meta["equal_time_census"],
+        "compat": {k: v for k, v in compat.items()
+                   if k in ("null_vote_policy", "null_votes_dropped",
+                            "vote_rows_written", "certifying")},
+        "nullable": meta["nullability"],
     }
     if measured is not None:
         summary["measured_metrics"] = {k: v for k, v in measured.items() if k != "zid"}
@@ -494,17 +633,62 @@ def extract_from_config(
     selections = fs.resolve_roles(config, rows, accept_synthetic=accept_synthetic)
     tie_key = detect_tie_key(conn)
 
+    # A synthetic substitute is not a substitute until it EXISTS. Materialise
+    # every generator case a synthetic role depends on, whatever --no-generated
+    # or the non-heavy default would otherwise do, and pin its directory into
+    # the role entry so the manifest cannot record a role with dir:null.
+    required_cases = sorted({
+        sel.synthetic_replacement for sel in selections
+        if sel.zid is None and sel.synthetic_replacement
+    })
+    generated_summaries: list[dict[str, Any]] = fg.write_all(
+        config["generated"], payload_root, guard_root,
+        include_heavy=include_heavy,
+        only=None if include_generated else [],
+        force=required_cases,
+    )
+    case_by_id = {c["id"]: c for c in config["generated"]["cases"]}
+    substitute_dirs = {
+        case_id: fg.generate_case_dirs(case_by_id[case_id])[0]
+        for case_id in required_cases if case_id in case_by_id
+    }
+    substitute_metrics = {
+        case_id: next(
+            (s.get("measured_metrics", {}) for s in generated_summaries
+             if s.get("dir") == substitute_dirs.get(case_id)), {})
+        for case_id in required_cases
+    }
+
     role_summaries: list[dict[str, Any]] = []
     provenance_rows: list[dict[str, Any]] = []
     for sel in selections:
         if sel.zid is None:
+            case_id = sel.synthetic_replacement
+            case = case_by_id.get(case_id, {})
             role_summaries.append({
                 "slug": sel.slug, "role": sel.role, "group": sel.group,
-                "rank": sel.rank, "dir": None,
+                "rank": sel.rank,
+                "dir": substitute_dirs.get(case_id),
                 "source": "synthetic-replacement",
-                "synthetic_replacement": sel.synthetic_replacement,
+                "synthetic_replacement": case_id,
                 "approval": "explicitly accepted by the operator "
                             "(--accept-synthetic); production supplied no candidate",
+                "failed_production_predicate": [
+                    dict(p) for p in
+                    next((r["predicates"] for r in config["roles"]
+                          if r["slug"] == sel.slug), [])
+                ],
+                "generator": {
+                    "generator_id": config["generated"]["generator_id"],
+                    "generator_version": config["generated"]["generator_version"],
+                    "seed": config["generated"]["seed"],
+                    "case_id": case_id,
+                    "shape": case.get("shape"),
+                },
+                "measured_metrics": substitute_metrics.get(case_id, {}),
+                "coverage_limits":
+                    "SYNTHETIC. This case exercises the declared stress predicate; "
+                    "it is NOT evidence that production carries the same geometry.",
                 "n_candidates": sel.n_candidates,
             })
             continue
@@ -521,12 +705,6 @@ def extract_from_config(
         role_summaries.append(summary)
         provenance_rows.append({
             "role": sel.role, "slug": sel.slug, "dir": dir_name, "zid": sel.zid})
-
-    generated_summaries: list[dict[str, Any]] = []
-    if include_generated:
-        generated_summaries = fg.write_all(
-            config["generated"], payload_root, guard_root,
-            include_heavy=include_heavy)
 
     return {
         "survey": survey,
