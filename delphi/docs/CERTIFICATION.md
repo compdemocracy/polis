@@ -221,6 +221,11 @@ nothing about whether the bundle covers what it claims, so `push`, `pull` and
   that agrees with the drop count) — an OMITTED census is not a census of zero;
 - the config used to admit the bundle hashes to the `config_sha256` the manifest
   recorded, so a bundle is never admitted against a different rule revision.
+  This binding runs on EVERY path, including the library defaults: a caller
+  that passes neither `config` nor `config_bytes` gets the committed
+  `certify_datasets.json` bytes read and hashed, because a parsed config alone
+  cannot re-establish a byte digest. `push`, `pull` and `verify --admit` all
+  inherit it.
 
 Bundle CONSTRUCTION stays separate from release ADMISSION: a partial payload can
 still be inspected with `verify --no-admit`, which never certifies anything.

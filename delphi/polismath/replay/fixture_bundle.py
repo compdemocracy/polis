@@ -658,7 +658,7 @@ def push(
     store: ObjectStore, *, bundle_id: str, payload_root: Path,
     manifest: dict[str, Any], provenance: dict[str, Any],
     config: dict[str, Any] | None = None, config_bytes: bytes | None = None,
-    admit: bool = True,
+    config_path: Path | None = None, admit: bool = True,
 ) -> dict[str, Any]:
     """Publish a bundle immutably and return the pins record.
 
@@ -690,7 +690,8 @@ def push(
     objects: dict[str, dict[str, str]] = {}
 
     if admit:
-        admit_manifest(manifest, config=config, config_bytes=config_bytes)
+        admit_manifest(manifest, config=config, config_bytes=config_bytes,
+                       config_path=config_path)
 
     # 1. Pre-flight: verify EVERY payload digest against the manifest before a
     #    single byte is published.
@@ -936,7 +937,7 @@ def _is_count(value: Any) -> bool:
 
 def admit_manifest(
     manifest: dict[str, Any], *, config: dict[str, Any] | None = None,
-    config_bytes: bytes | None = None,
+    config_bytes: bytes | None = None, config_path: Path | None = None,
 ) -> None:
     """SEMANTIC admission. Raises :class:`AdmissionError` listing every defect.
 
@@ -949,10 +950,17 @@ def admit_manifest(
     on was declared at all. This function is that gate, and ``push``/``pull``
     both run it.
 
-    ``config`` — the selection config the bundle was BUILT from (defaults to
-    the committed one). ``config_bytes`` — its exact bytes; when given, they
-    must hash to the ``config_sha256`` the manifest recorded, so a bundle can
-    never be admitted against a different revision of the rules.
+    ``config`` — the selection config the bundle was BUILT from.
+    ``config_bytes`` — its exact bytes. The digest binding is NOT optional: the
+    bytes must hash to the ``config_sha256`` the manifest recorded, so a bundle
+    can never be admitted against a different revision of the rules. When a
+    caller supplies neither, both are loaded from ``config_path`` (default: the
+    committed ``certify_datasets.json``) and the check still runs — it used to
+    be skipped whenever ``config_bytes`` was absent, which is exactly the
+    library default, so every non-CLI caller of ``push``/``pull``/
+    ``admit_manifest`` silently dropped the binding. A PARSED config alone can
+    never re-establish a byte digest, so passing ``config`` without
+    ``config_bytes`` is checked against the committed file's bytes.
     """
     from polismath.replay import fixture_config as fc
 
@@ -988,13 +996,23 @@ def admit_manifest(
       "commits.extraction_commit is missing: a bundle with no source-commit "
       "evidence cannot become a certificate")
 
-    config = fc.load_config() if config is None else config
-    if config_bytes is not None:
-        actual = sha256_bytes(config_bytes)
-        P(actual == commits.get("config_sha256"),
-          f"config bytes hash to {actual}, manifest recorded "
-          f"{commits.get('config_sha256')}: this bundle was built from a "
-          "different revision of the selection rules")
+    # The config digest binding runs on EVERY path, including the defaults.
+    source = Path(config_path) if config_path is not None else fc.DEFAULT_CONFIG_PATH
+    if config_bytes is None:
+        try:
+            config_bytes = source.read_bytes()
+        except OSError as exc:
+            raise AdmissionError(
+                f"cannot read the selection config at {source} to bind its "
+                f"digest ({exc}); admission without a config digest is refused"
+            ) from exc
+    if config is None:
+        config = fc.load_config(source)
+    actual = sha256_bytes(config_bytes)
+    P(actual == commits.get("config_sha256"),
+      f"config bytes hash to {actual}, manifest recorded "
+      f"{commits.get('config_sha256')}: this bundle was built from a "
+      "different revision of the selection rules")
     P(config.get("config_version") == commits.get("config_version"),
       f"config_version {commits.get('config_version')!r} does not match the "
       f"config supplied for admission ({config.get('config_version')!r})")
@@ -1269,7 +1287,7 @@ def pull(
     pins: dict[str, Any] | None = None, with_provenance: bool = False,
     provenance_role: str | None = None,
     config: dict[str, Any] | None = None, config_bytes: bytes | None = None,
-    admit: bool = True,
+    config_path: Path | None = None, admit: bool = True,
 ) -> dict[str, Any]:
     """Download, ADMIT and VERIFY a bundle into an empty ``dest``.
 
@@ -1322,7 +1340,8 @@ def pull(
     # admitted must not leave a half-populated workspace behind that an engine
     # could pick up.
     if admit:
-        admit_manifest(manifest, config=config, config_bytes=config_bytes)
+        admit_manifest(manifest, config=config, config_bytes=config_bytes,
+                       config_path=config_path)
 
     payload_root = dest / "payload"
     payload_root.mkdir()
