@@ -8,8 +8,12 @@ into an informational `run_pins` block that the audit does not gate on; those
 hashes are true only of the producing host.
 
 Counts are derived from the run, never asserted against literals: adding a test
-must not make this recorder fail. It records only this candidate campaign, never
-G01-G16 conformance or Rust/Clojure equivalence.
+must not make this recorder fail. Deriving them is not the same as trusting them:
+each cargo invocation's exit status is captured beside its log, and every suite in
+a transcript must be a clean pass, so a failing suite after a passing one cannot
+be silently omitted from the total and `ignored` tests are never counted as
+passes. It records only this candidate campaign, never G01-G16 conformance or
+Rust/Clojure equivalence.
 """
 from collections import Counter
 import hashlib
@@ -32,6 +36,55 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+CARGO_PROFILES = ("default", "fault")
+CARGO_INVOCATIONS = ("cargo-default", "cargo-fault", "clippy-default", "clippy-fault",
+                     "release", "fault-build")
+
+
+def cargo_exit_status(artifacts, name):
+    """The captured exit status of one cargo invocation.
+
+    The recorder must never certify a run it did not see succeed. Reading the
+    transcript is not enough: cargo prints a `test result:` line per suite, so a
+    passing suite followed by a failing one still leaves passing lines in the log.
+    Each gate command therefore writes its own `$?` next to its log, and a missing
+    status file is malformed evidence, not a pass.
+    """
+    path = artifacts / f"s1-{name}.status"
+    assert path.exists(), f"no captured exit status for s1-{name}"
+    status = path.read_text().strip()
+    assert status == "0", f"s1-{name} exited {status}"
+    return status
+
+
+def rust_test_counts(artifacts):
+    """Total passing Rust tests per feature profile, or refuse the transcript.
+
+    Every suite in the transcript must be a clean pass. A failed suite after a
+    passing one fails the whole gate; `ignored` tests are not passes and are not
+    counted. Counts are derived from the run, never asserted against a literal.
+    """
+    counts = {}
+    for profile in CARGO_PROFILES:
+        cargo_exit_status(artifacts, f"cargo-{profile}")
+        log = (artifacts / f"s1-cargo-{profile}.log").read_text()
+        results = re.findall(r"^test result: (\w+)\. (\d+) passed; (\d+) failed; (\d+) ignored",
+                             log, re.M)
+        assert results, f"no cargo test result line in s1-cargo-{profile}.log"
+        assert len(results) == len(re.findall(r"^test result:", log, re.M)), \
+            f"malformed cargo test result line in s1-cargo-{profile}.log"
+        for outcome, passed, failed, ignored in results:
+            assert outcome == "ok", f"failed cargo suite in s1-cargo-{profile}.log: {outcome}"
+            assert failed == "0", f"{failed} failed cargo tests in s1-cargo-{profile}.log"
+            assert ignored == "0", f"{ignored} ignored cargo tests in s1-cargo-{profile}.log"
+        assert not re.search(r"^error(:|\[)", log, re.M), f"cargo error in s1-cargo-{profile}.log"
+        assert "uncertain_commit_requires_own_epoch_even_at_identical_tick_and_checkpoint ... ok" in log
+        counts[profile] = sum(int(passed) for _, passed, _, _ in results)
+    assert counts["default"] == counts["fault"], counts
+    assert counts["default"], "no Rust tests ran"
+    return counts
+
+
 def main():
     junit = ARTIFACTS / "s1-pytest.xml"
     suites = ET.parse(junit).getroot().findall("testsuite")
@@ -43,18 +96,11 @@ def main():
     assert cases, "empty JUnit report"
     for module in ("test_s1_identity", "test_adapter"):
         assert counts[module], f"{module} contributed no cases"
-    rust_counts = {}
-    for profile in ("default", "fault"):
-        log = (ARTIFACTS / f"s1-cargo-{profile}.log").read_text()
-        counts_in_log = re.findall(r"test result: ok\. (\d+) passed; 0 failed; 0 ignored", log)
-        assert counts_in_log, f"no cargo test result line in s1-cargo-{profile}.log"
-        assert "uncertain_commit_requires_own_epoch_even_at_identical_tick_and_checkpoint ... ok" in log
-        rust_counts[profile] = sum(map(int, counts_in_log))
-    assert rust_counts["default"] == rust_counts["fault"], rust_counts
-    assert rust_counts["default"], "no Rust tests ran"
-    for name in ("s1-clippy-default.log", "s1-clippy-fault.log", "s1-release.log", "s1-fault-build.log"):
-        log = (ARTIFACTS / name).read_text()
-        assert "Finished " in log and "error:" not in log, name
+    rust_counts = rust_test_counts(ARTIFACTS)
+    for name in ("clippy-default", "clippy-fault", "release", "fault-build"):
+        cargo_exit_status(ARTIFACTS, name)
+        log = (ARTIFACTS / f"s1-{name}.log").read_text()
+        assert "Finished " in log and not re.search(r"^error(:|\[)", log, re.M), name
     replay = json.loads((ARTIFACTS / "vw-equivalence.json").read_text())
     previous = json.loads((EVIDENCE / "vw-equivalence.json").read_text())
     assert len(replay["checkpoints"]) == 3 and replay["observer_errors"] == []
@@ -80,7 +126,8 @@ def main():
     # a hash gate on them would hold on the producing host and nowhere else.
     run_paths = [junit]
     run_paths += [ROOT / f"coordinator-rs/{name}" for name in ("target/release/polis-coordinator", "target/fault/debug/polis-coordinator")]
-    run_paths += [ARTIFACTS / name for name in ("s1-cargo-default.log", "s1-cargo-fault.log", "s1-clippy-default.log", "s1-clippy-fault.log", "s1-release.log", "s1-fault-build.log", "s1-pytest.log")]
+    run_paths += [ARTIFACTS / f"s1-{name}.log" for name in CARGO_INVOCATIONS] + [ARTIFACTS / "s1-pytest.log"]
+    run_paths += [ARTIFACTS / f"s1-{name}.status" for name in CARGO_INVOCATIONS]
     compose_project = os.environ.get("COMPOSE_PROJECT_NAME")
     postgres_port = os.environ.get("POLIS_RECOVERY_PG_PORT") or os.environ.get("RECOVERY_PG_PORT")
     if postgres_port is None:

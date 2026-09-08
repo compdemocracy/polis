@@ -83,5 +83,64 @@
       "old_result": "FAIL (source=8, evidence=7) - permanent once anything closes",
       "new_result": "PASS"
     }
+  },
+  "recorder_cargo_controls": {
+    "parser": "coordinator-rs/tools/record_s1.py rust_test_counts()",
+    "rule": "captured per-invocation cargo exit status must be 0; every suite in the transcript must be `ok` with 0 failed and 0 ignored; a malformed result line or a leading error: line is refused; only then are the passes summed. No fixed total is reinstated.",
+    "pinned_by": "delphi/tests/coordinator/test_recorder_controls.py (8 cases, in the Python set)",
+    "controls": [
+      {
+        "control": "multi-suite-success",
+        "expectation": "accepted",
+        "result": "accepted",
+        "counts": {
+          "default": 31,
+          "fault": 31
+        },
+        "reason": null
+      },
+      {
+        "control": "pass-then-fail (the reviewed defect)",
+        "expectation": "refused",
+        "result": "refused",
+        "counts": null,
+        "reason": "failed cargo suite in s1-cargo-default.log: FAILED"
+      },
+      {
+        "control": "ignored-test-not-a-pass",
+        "expectation": "refused",
+        "result": "refused",
+        "counts": null,
+        "reason": "1 ignored cargo tests in s1-cargo-default.log"
+      },
+      {
+        "control": "nonzero-cargo-exit-status",
+        "expectation": "refused",
+        "result": "refused",
+        "counts": null,
+        "reason": "s1-cargo-default exited 101"
+      },
+      {
+        "control": "missing-cargo-exit-status",
+        "expectation": "refused",
+        "result": "refused",
+        "counts": null,
+        "reason": "no captured exit status for s1-cargo-fault"
+      },
+      {
+        "control": "malformed-result-line",
+        "expectation": "refused",
+        "result": "refused",
+        "counts": null,
+        "reason": "malformed cargo test result line in s1-cargo-default.log"
+      },
+      {
+        "control": "no-result-line",
+        "expectation": "refused",
+        "result": "refused",
+        "counts": null,
+        "reason": "no cargo test result line in s1-cargo-default.log"
+      }
+    ]
   }
 }
