@@ -159,7 +159,7 @@ def _doc(engine: str, convention: str, stage_map: dict) -> dict:
     return {
         "comment_projection_axes": stages.COMMENT_PROJECTION_AXES,
         "engine": engine,
-        "input_digest": "sha256:deadbeef",
+        "input_digest": "sha256:" + "de" * 32,   # 64 hex digits, as required
         "schema": stages.STAGE_DUMP_SCHEMA,
         "stages": full,
         "step": 0,
@@ -645,7 +645,7 @@ def test_f5_a_manifest_that_disagrees_with_the_files_is_an_input_problem(tmp_pat
     (tmp_path / "stages-manifest.json").write_text(json.dumps(manifest))
     _, problems = sc.validate_recording(tmp_path)
     assert any("inventory" in p for p in problems)
-    assert any("missing file" in p for p in problems)
+    assert any("not a step file in this recording" in p for p in problems)
 
 
 def test_f5_a_missing_stage_is_reported_not_ignored(tmp_path):
@@ -957,3 +957,223 @@ def test_r2f4_both_sides_null_in_a_nullable_integer_field_still_matches():
         _doc("py", "delphi", {"R02_moderation": {"last-mod-timestamp": None}}))
     assert rep["stages"]["R02_moderation"]["keys"]["last-mod-timestamp"][
         "status"] == "MATCH"
+
+
+# ---------------------------------------------------------------------------
+# Round 4 — regressions for the four residual findings in the round-3 review
+# (R3-F1 … R3-F4).
+# ---------------------------------------------------------------------------
+def _rank_one_doc(engine, second_row):
+    """A valid rank-one document: one component, a 2-wide projection (Q16)."""
+    return _doc(engine, "delphi", {
+        "R01_ingest": {"tids": [1, 2]},
+        "R04_pca": {"pca": {"center": [0.2, 0.4], "comps": [[1.0, 0.0]],
+                            "comment-projection": [[0.0, 0.0], second_row],
+                            "comment-extremity": [0.0, 0.0]}}})
+
+
+def test_r3f1_the_padded_rank_one_projection_row_is_compared_not_zipped_away():
+    """The projection can be WIDER than `comps`. Zipping it against the
+    component signs dropped the padded row, so anything at all could hide
+    there."""
+    tampered = sc.compare_step(_rank_one_doc("clj", [0.0, 0.0]),
+                               _rank_one_doc("py", [999.0, 999.0]))
+    assert tampered["stages"]["R04_pca"]["keys"]["pca"]["status"] == "DIVERGENT"
+    assert tampered["first_diverging_stage"] == "R04_pca"
+
+    clean = sc.compare_step(_rank_one_doc("clj", [0.0, 0.0]),
+                            _rank_one_doc("py", [0.0, 0.0]))
+    assert clean["first_diverging_stage"] is None
+
+
+def test_r3f1_the_padded_row_must_satisfy_its_producer_invariant():
+    """Q16 says the padded component is all-zero. A non-zero value there is a
+    structural defect even when both engines agree on it — the row is preserved
+    AND its construction is checked."""
+    doc = _rank_one_doc("py", [1.0, 0.0])
+    k = sc.compare_step(doc, doc)["stages"]["R04_pca"]["keys"]["pca"]
+    assert k["status"] == "DIVERGENT"
+    assert any("all-zero (Q16)" in m for m in k["structural"])
+
+
+def test_r3f1_a_padded_sign_is_declared_not_incidental():
+    assert sc.PADDED_COMPONENT_SIGN == 1.0
+
+
+@pytest.mark.parametrize("mutate,expect", [
+    (lambda d: d["stages"].__setitem__("R01_ingest", None), "not an object"),
+    (lambda d: d["stages"].__setitem__("R01_ingest", []), "not an object"),
+    (lambda d: d.__setitem__("step", []), "non-integer step identity"),
+    (lambda d: d.__setitem__("stages", []), "no stages object"),
+])
+def test_r3f2_a_malformed_document_container_is_an_input_problem(
+        tmp_path, mutate, expect):
+    """Every container is type-validated before it is dereferenced or used as a
+    key. A null stage in particular must count as a MISSING stage, not be
+    skipped past every required-key check."""
+    # Written as a valid recording first, then corrupted on disk: the writer
+    # legitimately refuses some of these, and the point is that the READER
+    # survives them.
+    stages.write_stage_documents(
+        tmp_path, [_complete(_doc("py", "delphi", {}))], engine="py")
+    doc = json.loads((tmp_path / "step-000.stages.json").read_text())
+    mutate(doc)
+    (tmp_path / "step-000.stages.json").write_text(json.dumps(doc))
+    _, problems = sc.validate_recording(tmp_path)   # must not raise
+    assert any(expect in p for p in problems), problems
+
+
+def test_r3f2_a_null_stage_does_not_bypass_the_key_inventory(tmp_path):
+    doc = _complete(_doc("py", "delphi", {}))
+    doc["stages"]["R01_ingest"] = None
+    stages.write_stage_documents(tmp_path, [doc], engine="py")
+    _, problems = sc.validate_recording(tmp_path)
+    assert any("R01_ingest" in p and "no evidence" in p for p in problems)
+
+
+def test_r3f2_a_manifest_that_is_not_an_object_is_an_input_problem(tmp_path):
+    stages.write_stage_documents(
+        tmp_path, [_complete(_doc("py", "delphi", {}))], engine="py")
+    (tmp_path / "stages-manifest.json").write_text("[]")
+    _, problems = sc.validate_recording(tmp_path)   # must not raise
+    assert any("manifest is not an object" in p for p in problems)
+
+
+def test_r3f2_an_unhashable_step_identity_does_not_crash_the_comparer(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    good = _complete(_doc("py", "delphi", {}))
+    bad = _complete(_doc("py", "delphi", {}))
+    bad["step"] = []
+    stages.write_stage_documents(a, [good], engine="py")
+    stages.write_stage_documents(b, [good], engine="py")
+    (b / "step-000.stages.json").write_text(json.dumps(bad))
+    report = sc.compare_recordings(a, b)            # must not raise
+    assert report["headline_withheld"] is True
+
+
+def test_r3f3_a_manifest_row_naming_a_non_step_file_is_rejected(tmp_path):
+    stages.write_stage_documents(
+        tmp_path, [_complete(_doc("py", "delphi", {}))], engine="py")
+    manifest = json.loads((tmp_path / "stages-manifest.json").read_text())
+    manifest["steps"][0]["file"] = "stages-manifest.json"
+    (tmp_path / "stages-manifest.json").write_text(json.dumps(manifest))
+    _, problems = sc.validate_recording(tmp_path)
+    assert any("not a step-NNN.stages.json filename" in p for p in problems)
+
+
+def test_r3f3_a_step_file_missing_from_the_manifest_is_rejected(tmp_path):
+    stages.write_stage_documents(
+        tmp_path, [_complete(_doc("py", "delphi", {}))], engine="py")
+    manifest = json.loads((tmp_path / "stages-manifest.json").read_text())
+    manifest["steps"] = []
+    manifest["n_steps"] = 0
+    (tmp_path / "stages-manifest.json").write_text(json.dumps(manifest))
+    _, problems = sc.validate_recording(tmp_path)
+    assert any("not in the manifest" in p for p in problems)
+
+
+def test_r3f3_a_mixed_engine_recording_is_rejected(tmp_path):
+    a = _complete(_doc("py", "delphi", {}))
+    b = dict(_complete(_doc("py", "delphi", {})), step=1, engine="other")
+    stages.write_stage_documents(tmp_path, [a, b], engine="py")
+    _, problems = sc.validate_recording(tmp_path)
+    assert any("more than one engine" in p for p in problems)
+
+
+def test_r3f3_a_contradictory_manifest_polarity_is_rejected(tmp_path):
+    stages.write_stage_documents(
+        tmp_path, [_complete(_doc("py", "delphi", {}))], engine="py")
+    manifest = json.loads((tmp_path / "stages-manifest.json").read_text())
+    manifest["vote_sign_convention"] = "raw-db"
+    (tmp_path / "stages-manifest.json").write_text(json.dumps(manifest))
+    _, problems = sc.validate_recording(tmp_path)
+    assert any("contradicts" in p for p in problems)
+
+
+@pytest.mark.parametrize("digest", [
+    "sha256:x", "sha256:", "deadbeef", "sha256:" + "A" * 64, "sha256:" + "a" * 63,
+])
+def test_r3f3_a_malformed_digest_is_rejected(tmp_path, digest):
+    """64 lower-case hex digits, not merely a prefix."""
+    doc = _complete(_doc("py", "delphi", {}))
+    doc["input_digest"] = digest
+    stages.write_stage_documents(tmp_path, [doc], engine="py")
+    _, problems = sc.validate_recording(tmp_path)
+    assert any("well-formed sha256" in p for p in problems)
+
+
+def test_r3f3_the_manifest_rows_carry_every_identity_field(tmp_path):
+    out = stages.write_stage_documents(
+        tmp_path, [_complete(_doc("py", "delphi", {}))], engine="py")
+    row = json.loads((out / "stages-manifest.json").read_text())["steps"][0]
+    assert set(row) >= {"engine", "file", "index", "input_digest", "tick",
+                        "vote_sign_convention"}
+    assert not sc.validate_recording(out)[1]
+
+
+@pytest.mark.parametrize("value", [{}, [], {"a": 1}, [1, 2]])
+def test_r3f4_a_container_in_a_scalar_count_position_is_structural(value):
+    """`n` is a typed integer, not a tree that happens to contain no
+    disagreeing leaves."""
+    rep = sc.compare_step(_doc("clj", "delphi", {"R01_ingest": {"n": value}}),
+                          _doc("py", "delphi", {"R01_ingest": {"n": value}}))
+    k = rep["stages"]["R01_ingest"]["keys"]["n"]
+    assert k["status"] == "DIVERGENT"
+    assert any("must be a scalar" in m for m in k["structural"])
+
+
+def test_r3f4_a_scalar_in_an_array_position_is_structural():
+    rep = sc.compare_step(_doc("clj", "delphi", {"R03_eligibility":
+                                                 {"in-conv": 5}}),
+                          _doc("py", "delphi", {"R03_eligibility":
+                                                {"in-conv": 5}}))
+    k = rep["stages"]["R03_eligibility"]["keys"]["in-conv"]
+    assert k["status"] == "DIVERGENT"
+    assert any("must be a array" in m for m in k["structural"])
+
+
+def test_r3f4_a_container_in_a_nested_scalar_id_position_is_structural():
+    clusters = [{"id": {}, "members": [1], "center": [0.0, 0.0]}]
+    rep = sc.compare_step(_doc("clj", "delphi", {"R06_base_clusters":
+                                                 {"base-clusters": clusters}}),
+                          _doc("py", "delphi", {"R06_base_clusters":
+                                                {"base-clusters": clusters}}))
+    assert rep["stages"]["R06_base_clusters"]["keys"]["base-clusters"][
+        "status"] == "DIVERGENT"
+
+
+def test_r3f4_declared_containers_still_compare_normally():
+    """The shape rule applies at the declared position only, so an array of
+    arrays and an array of integers both still recurse."""
+    a = _doc("clj", "delphi", {
+        "R03_eligibility": {"in-conv": [1, 2, 3]},
+        "R06_base_clusters": {"bid-to-pid": [[1, 2], [3]]},
+        "R10_tallies": {"votes-base": {"7": {"A": [1, 0], "D": [0, 1],
+                                             "S": [1, 1]}}}})
+    assert sc.compare_step(a, a)["first_diverging_stage"] is None
+
+
+def test_r3f4_the_ads_tally_shape_is_key_scoped_not_field_scoped():
+    """A/D/S are per-base-cluster bucket ARRAYS in `votes-base` and per-group
+    SCALAR totals in `group-votes` (conversation.clj:600-624). A field-name-only
+    shape rule gets one of them wrong — this was caught by the battery run, not
+    by a synthetic control."""
+    tallies = {
+        "votes-base": {"7": {"A": [1, 0], "D": [0, 1], "S": [1, 1]}},
+        "group-votes": {"0": {"n-members": 2,
+                              "votes": {"7": {"A": 1, "D": 1, "S": 2}}}},
+    }
+    doc = _doc("py", "delphi", {"R10_tallies": tallies})
+    assert sc.compare_step(doc, doc)["first_diverging_stage"] is None
+
+    # And each is still rejected in the other's shape.
+    swapped = _doc("py", "delphi", {"R10_tallies": {
+        "votes-base": {"7": {"A": 1, "D": 1, "S": 2}},
+        "group-votes": {"0": {"n-members": 2,
+                              "votes": {"7": {"A": [1], "D": [1], "S": [2]}}}},
+    }})
+    rep = sc.compare_step(swapped, swapped)
+    assert rep["stages"]["R10_tallies"]["keys"]["votes-base"]["status"] == \
+        "DIVERGENT"
+    assert rep["stages"]["R10_tallies"]["keys"]["group-votes"]["status"] == \
+        "DIVERGENT"
