@@ -77,13 +77,15 @@ pub struct Declared {
     pub unit: Unit,
     /// The CloudWatch statistic the alarm should use.
     pub statistic: &'static str,
-    /// P-031 catalog row, or `""` when this metric is diagnostic only.
+    /// P-031 catalog row this metric actually satisfies, or `""`. Rev7's
+    /// observability admission: none of these *is* A01 `PollHealthy`,
+    /// A02 `PublishLagSeconds` or A03 `ObserverHealthy`, so no row claims one.
     pub alarm: &'static str,
     pub meaning: &'static str,
 }
 pub const CATALOG: &[Declared] = &[
-    Declared { name: "PollHealthy", unit: Unit::Count, statistic: "Minimum", alarm: "A01",
-        meaning: "1 only when a whole source pass completed; 0 on a failed pass, missing when the process is gone" },
+    Declared { name: "SourcePassHealthy", unit: Unit::Count, statistic: "Minimum", alarm: "",
+        meaning: "1 only when a whole source pass completed; 0 on a failed pass, missing when the process is gone. This is page-loop liveness. It is NOT P-031 A01 PollHealthy, which requires both the vote and the moderation poll to have succeeded recently: a pass in which every conversation failed still completes" },
     Declared { name: "SourcePassSeconds", unit: Unit::Seconds, statistic: "Maximum", alarm: "",
         meaning: "wall time of one bounded source pass" },
     Declared { name: "SourcePassConversations", unit: Unit::Count, statistic: "Sum", alarm: "",
@@ -98,14 +100,14 @@ pub const CATALOG: &[Declared] = &[
         meaning: "conversations that committed a new generation this pass" },
     Declared { name: "SourcePassDeferred", unit: Unit::Count, statistic: "Sum", alarm: "",
         meaning: "conversations deferred this pass with durable bounded backoff" },
-    Declared { name: "OldestReconciliationAgeSeconds", unit: Unit::Seconds, statistic: "Maximum", alarm: "A02",
-        meaning: "CO01 scan age: age of the oldest authoritative full source snapshot in this namespace; the incremental fast path is only sound while this is bounded" },
+    Declared { name: "OldestReconciliationAgeSeconds", unit: Unit::Seconds, statistic: "Maximum", alarm: "",
+        meaning: "CO01 scan age: age of the oldest authoritative full source snapshot for this shard's candidates, measured from before the source read. The incremental fast path is only sound while this is bounded. It is NOT P-031 A02 PublishLagSeconds: a quiet conversation's source age grows toward the ceiling with no pending math at all" },
     Declared { name: "ReconciliationBacklogConversations", unit: Unit::Count, statistic: "Maximum", alarm: "",
-        meaning: "CO01 backlog: conversations never reconciled, or overdue for reconciliation" },
+        meaning: "CO01 backlog: candidate conversations never reconciled, or overdue for reconciliation" },
     Declared { name: "FailureBacklogConversations", unit: Unit::Count, statistic: "Maximum", alarm: "",
-        meaning: "CO01 failures: conversations currently in durable backoff" },
-    Declared { name: "OldestUnrepairedAgeSeconds", unit: Unit::Seconds, statistic: "Maximum", alarm: "A02",
-        meaning: "CO06 oldest unrepaired age: how long the oldest still-failing conversation has been failing" },
+        meaning: "CO01 failures: candidate conversations currently in durable backoff; a conversation this shard/allowlist would never attempt is not counted" },
+    Declared { name: "OldestUnrepairedAgeSeconds", unit: Unit::Seconds, statistic: "Maximum", alarm: "",
+        meaning: "CO06 oldest unrepaired age: how long the oldest still-failing candidate conversation has been failing. Scoped to this shard and allowlist, like every other gauge here. Not P-031 A02" },
     Declared { name: "ConversationLatencySeconds", unit: Unit::Seconds, statistic: "Maximum", alarm: "",
         meaning: "per-zid probe -> source -> compute -> publish wall time" },
     Declared { name: "SourceReadSeconds", unit: Unit::Seconds, statistic: "Maximum", alarm: "",
@@ -159,7 +161,7 @@ pub struct Tally {
 impl Tally {
     pub fn data(&self, elapsed: Duration, healthy: bool) -> Vec<Datum> {
         vec![
-            count("PollHealthy", u32::from(healthy)),
+            count("SourcePassHealthy", u32::from(healthy)),
             seconds("SourcePassSeconds", elapsed),
             count("SourcePassConversations", self.visited),
             count("SourcePassProbed", self.probed),
@@ -333,6 +335,14 @@ pub fn catalog_json() -> Value {
         "namespace": NAMESPACE,
         "dimensions": ["Environment", "MathEnv"],
         "transport": "CloudWatch Embedded Metric Format records on a JSON-lines sink; no AWS client in this crate",
+        "p031_status": {
+            "coverage_claimed": [],
+            "not_implemented": ["A01 PollHealthy", "A02 PublishLagSeconds", "A03 ObserverHealthy"],
+            "note": "These are local diagnostics with no deployed publisher and no delivery proof. \
+A01 needs both poll loops to have succeeded, A02 needs initiated-but-unpublished work, and A03 needs \
+an independent observer; none of the series below is any of those. Scope: every gauge is scoped to \
+this shard and allowlist."
+        },
         "metrics": CATALOG.iter().map(|d| json!({
             "name": d.name,
             "unit": d.unit.as_str(),

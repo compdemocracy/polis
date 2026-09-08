@@ -16,7 +16,7 @@ import os
 import sys
 
 import pytest
-from conftest import assert_coherent, connect, lease, rows, seed, wait
+from coordinator.conftest import assert_coherent, connect, lease, rows, seed, wait
 
 
 def query(db, sql, args=()):
