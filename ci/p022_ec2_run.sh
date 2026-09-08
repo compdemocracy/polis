@@ -161,6 +161,19 @@ collect_reports() {
     status "$phase" reports_expected "$expected"
     return 1
   fi
+  # The plugin names each report <tag>-<pid>-<uuid>.xml. Distinct pids are what
+  # make these distinct pytest INVOCATIONS rather than copies of one run; the
+  # uuid alone would be satisfied by a loop inside a single process.
+  local pids
+  pids=$(find "$dir" -maxdepth 1 -name '*.xml' -exec basename {} \; \
+         | awk -F- '{print $2}' | sort -u | wc -l | tr -d ' ')
+  status "$phase" invocations "$pids"
+  echo "$pids" >"$STATE_DIR/${phase}_invocations"
+  if [ "$pids" -ne "$found" ]; then
+    status "$phase" reports_not_distinct "$pids"
+    return 1
+  fi
+
   mkdir -p "$ART_DIR/junit/$phase"
   cp "$dir"/*.xml "$ART_DIR/junit/$phase/" 2>/dev/null || true
   # A copy that loses a file to a name collision is the bug this replaced.
@@ -446,6 +459,15 @@ def counts(phase):
     return out
 
 
+# The schema version has exactly one definition, in ci/p022_check_summary.py.
+# Reading it here (rather than repeating the string) is what stops the writer
+# and the checker drifting apart again.
+schema_source = (repo / "ci" / "p022_check_summary.py").read_text()
+schema_match = re.search(r'^SCHEMA = "([^"]+)"', schema_source, re.M)
+if not schema_match:
+    raise SystemExit("cannot read SCHEMA from ci/p022_check_summary.py")
+SCHEMA = schema_match.group(1)
+
 sha = ""
 sha_file = pathlib.Path("/var/lib/polis-ci-sha")
 if sha_file.exists():
@@ -480,7 +502,7 @@ recovery_ok = (main_rc == 0 and races_rc == 0
 battery_ok = battery_rc == 0
 
 summary = {
-    "schema": "p022-synthetic/3",
+    "schema": SCHEMA,
     "kind": "synthetic-recovery-and-public-fixture-battery",
     "is_certification": False,
     "trust": "reviewed-recipe-self-reported",
