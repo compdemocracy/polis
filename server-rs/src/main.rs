@@ -732,16 +732,29 @@ async fn main() -> Result<(), Error> {
 /// B1 gate. Decodes stored `math_main.data` blobs through the pinned model and
 /// reports every key and type the model does not cover.
 ///
-/// It grades a corpus, so it fails closed: an unreadable directory, an unreadable
-/// or malformed file, a record that is not an object, a file it does not know how
-/// to grade, and an empty admitted set are all census FAILURES, never skips. A
-/// file may be left ungraded only by naming it in `census-exclusions.json` with a
+/// It grades a corpus against a declared inventory, so it fails closed. An
+/// unreadable directory, an unreadable or malformed file, a record that is not an
+/// object, a file it does not know how to grade, and an empty admitted set are all
+/// census FAILURES, never skips — and so is a file that yields fewer or more
+/// records than declared, including a file that yields none while another file
+/// supplies a blob. A globally nonzero total is not coverage.
+///
+/// `census-manifest.json` is required and declares the expectation:
+///
+/// ```json
+/// { "files": { "rows.jsonl": 12000 }, "environments": { "prod": 12000 } }
+/// ```
+///
+/// A declared `0` is the explicit reviewed zero-row declaration. A file may be
+/// left ungraded only by naming it in `census-exclusions.json` with a NON-BLANK
 /// reason, which is reported. `cargo test` reports the gate as ignored rather than
 /// as a pass, because a census with no corpus is not evidence:
 /// `P032_CENSUS_DIR=<dir> cargo test --locked -- --ignored census`.
 ///
-/// Records may be bare blobs or envelopes `{"source", "math_env", "data"}`, so a
-/// restored all-row dump can be graded and its coverage reported per math_env.
+/// Records may be bare blobs or envelopes `{"source", "math_env", "data"}`. An
+/// envelope's labels must be strings if present at all: a typed label never
+/// silently degrades to `(unlabelled)`, because that would hide exactly the
+/// per-environment coverage the inventory exists to assert.
 #[cfg(test)]
 mod census {
     use super::model::MathData;
@@ -756,13 +769,23 @@ mod census {
         "subgroup-clusters",
     ];
     const EXCLUSIONS: &str = "census-exclusions.json";
+    const MANIFEST: &str = "census-manifest.json";
+    /// The environment label for a bare blob, which carries none. It must still be
+    /// declared in the manifest, so an unlabelled corpus is visible, not implicit.
     const UNLABELLED: &str = "(unlabelled)";
+    #[derive(Default, serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Manifest {
+        files: BTreeMap<String, usize>,
+        environments: BTreeMap<String, usize>,
+    }
     #[derive(Default)]
     pub struct Report {
         pub graded: usize,
         pub records: usize,
         pub excluded: Vec<(String, String)>,
         pub coverage: BTreeMap<(String, String), usize>,
+        pub per_file: BTreeMap<String, usize>,
         pub keys: BTreeMap<String, BTreeSet<String>>,
         pub errors: Vec<String>,
     }
@@ -776,6 +799,9 @@ mod census {
             }
             for ((source, env), n) in &self.coverage {
                 println!("census coverage source={source} math_env={env} records={n}");
+            }
+            for (file, n) in &self.per_file {
+                println!("census file {file} records={n}");
             }
             for (file, reason) in &self.excluded {
                 println!("census excluded {file}: {reason}");
@@ -800,22 +826,39 @@ mod census {
             Value::Object(_) => "object",
         }
     }
+    fn read<T: serde::de::DeserializeOwned>(path: &Path, report: &mut Report) -> Option<T> {
+        let name = path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned();
+        match std::fs::read_to_string(path)
+            .map_err(|e| e.to_string())
+            .and_then(|t| serde_json::from_str::<T>(&t).map_err(|e| e.to_string()))
+        {
+            Ok(value) => Some(value),
+            Err(e) => {
+                report.fail(&name, e);
+                None
+            }
+        }
+    }
     fn exclusions(dir: &Path, report: &mut Report) -> BTreeMap<String, String> {
         let path = dir.join(EXCLUSIONS);
         if !path.exists() {
             return BTreeMap::new();
         }
-        match std::fs::read_to_string(&path)
-            .map_err(|e| e.to_string())
-            .and_then(|t| {
-                serde_json::from_str::<BTreeMap<String, String>>(&t).map_err(|e| e.to_string())
-            }) {
-            Ok(map) => map,
-            Err(e) => {
-                report.fail(EXCLUSIONS, e);
-                BTreeMap::new()
+        let map: BTreeMap<String, String> = read(&path, report).unwrap_or_default();
+        for (file, reason) in &map {
+            // An exclusion without a reason is an omission wearing a manifest.
+            if reason.trim().is_empty() {
+                report.fail(
+                    EXCLUSIONS,
+                    format!("{file} is excluded with a blank reason"),
+                );
             }
         }
+        map
     }
     /// Splits an envelope into its labels and the blob, or labels the record by file.
     fn unwrap_record(file: &str, value: Value) -> Result<(String, String, Value), String> {
@@ -829,14 +872,19 @@ mod census {
         if !envelope {
             return Ok((file.to_string(), UNLABELLED.to_string(), Value::Object(map)));
         }
-        let label = |k: &str, fallback: &str| {
-            map.get(k)
-                .and_then(Value::as_str)
-                .unwrap_or(fallback)
-                .to_string()
+        // A typed envelope's labels are asserted, not defaulted: a mistyped or
+        // blank label would otherwise vanish into the unlabelled bucket.
+        let label = |k: &str, fallback: Option<&str>| match (map.get(k), fallback) {
+            (Some(Value::String(s)), _) if !s.trim().is_empty() => Ok(s.clone()),
+            (Some(other), _) => Err(format!(
+                "envelope {k} is {}, expected a string",
+                kind(other)
+            )),
+            (None, Some(default)) => Ok(default.to_string()),
+            (None, None) => Err(format!("envelope is missing {k}")),
         };
-        let source = label("source", file);
-        let env = label("math_env", UNLABELLED);
+        let source = label("source", Some(file))?;
+        let env = label("math_env", None)?;
         Ok((source, env, map["data"].clone()))
     }
     fn grade(file: &str, index: Option<usize>, value: Value, report: &mut Report) {
@@ -855,6 +903,7 @@ mod census {
             );
         };
         report.records += 1;
+        *report.per_file.entry(file.to_string()).or_default() += 1;
         *report.coverage.entry((source, env)).or_default() += 1;
         for key in STRIPPED {
             object.remove(key);
@@ -880,6 +929,11 @@ mod census {
             }
         };
         let excluded = exclusions(dir, &mut report);
+        let manifest: Option<Manifest> = if dir.join(MANIFEST).exists() {
+            read(&dir.join(MANIFEST), &mut report)
+        } else {
+            None
+        };
         for entry in entries {
             let entry = match entry {
                 Ok(entry) => entry,
@@ -894,7 +948,7 @@ mod census {
                 .unwrap_or_default()
                 .to_string_lossy()
                 .into_owned();
-            if file == EXCLUSIONS {
+            if file == EXCLUSIONS || file == MANIFEST {
                 continue;
             }
             if let Some(reason) = excluded.get(&file) {
@@ -916,6 +970,15 @@ mod census {
                 }
             };
             report.graded += 1;
+            if matches!(
+                path.extension().and_then(|e| e.to_str()),
+                Some("json" | "jsonl")
+            ) {
+                // Register the file before parsing it, so a file that yields no
+                // records is still counted against the inventory rather than
+                // disappearing behind another file's blobs.
+                report.per_file.entry(file.clone()).or_default();
+            }
             match path.extension().and_then(|e| e.to_str()) {
                 Some("jsonl") => {
                     for (i, line) in text.lines().enumerate() {
@@ -949,6 +1012,43 @@ mod census {
                 "census admitted no blobs; an empty census is not evidence",
             );
         }
+        // The inventory is the point: a per-file and per-environment expectation,
+        // checked both ways, so neither a silently empty file nor an unexpected
+        // extra row can hide behind a nonzero global total.
+        let Some(manifest) = manifest else {
+            report.fail(
+                MANIFEST,
+                "a census must declare its expected per-file and per-environment inventory",
+            );
+            return report;
+        };
+        let mut per_env: BTreeMap<String, usize> = BTreeMap::new();
+        for ((_, env), n) in &report.coverage {
+            *per_env.entry(env.clone()).or_default() += n;
+        }
+        let per_file = report.per_file.clone();
+        let mut mismatches = Vec::new();
+        for (name, declared, observed) in [
+            ("file", &manifest.files, &per_file),
+            ("environment", &manifest.environments, &per_env),
+        ] {
+            for (key, expected) in declared {
+                let got = observed.get(key).copied().unwrap_or(0);
+                if got != *expected {
+                    mismatches.push(format!(
+                        "{name} {key}: declared {expected} records, graded {got}"
+                    ));
+                }
+            }
+            for key in observed.keys() {
+                if !declared.contains_key(key) {
+                    mismatches.push(format!("undeclared {name} {key}"));
+                }
+            }
+        }
+        for mismatch in mismatches {
+            report.fail(MANIFEST, mismatch);
+        }
         report
     }
     #[test]
@@ -973,11 +1073,30 @@ mod census {
     fn write(dir: &Path, name: &str, body: &str) {
         std::fs::write(dir.join(name), body).expect("scratch file");
     }
+    fn manifest(dir: &Path, files: &[(&str, usize)], envs: &[(&str, usize)]) {
+        let object = |pairs: &[(&str, usize)]| {
+            pairs
+                .iter()
+                .map(|(k, v)| format!("{}:{v}", serde_json::to_string(k).unwrap()))
+                .collect::<Vec<_>>()
+                .join(",")
+        };
+        write(
+            dir,
+            MANIFEST,
+            &format!(
+                r#"{{"files":{{{}}},"environments":{{{}}}}}"#,
+                object(files),
+                object(envs)
+            ),
+        );
+    }
     /// The grader must never report success for input it did not actually grade.
-    /// Each case here was a silent skip and a PASS before this change.
+    /// Each case here was a silent skip and a PASS before round 3.
     #[test]
     fn the_census_fails_closed() {
         let empty = scratch("empty");
+        manifest(&empty, &[], &[]);
         assert!(
             run(&empty)
                 .errors
@@ -994,6 +1113,11 @@ mod census {
         write(&mixed, "valid.json", "{}");
         write(&mixed, "bad.json", "{");
         write(&mixed, "scalar.json", "42");
+        manifest(
+            &mixed,
+            &[("valid.json", 1), ("bad.json", 0), ("scalar.json", 0)],
+            &[(UNLABELLED, 1)],
+        );
         let report = run(&mixed);
         assert_eq!(report.records, 1, "only the object is a record");
         assert_eq!(report.graded, 3, "every file is graded, not skipped");
@@ -1003,6 +1127,7 @@ mod census {
         let other = scratch("other");
         write(&other, "notes.txt", "not a blob");
         write(&other, "valid.json", "{}");
+        manifest(&other, &[("valid.json", 1)], &[(UNLABELLED, 1)]);
         let report = run(&other);
         assert!(
             report.errors.iter().any(|e| e.starts_with("notes.txt")),
@@ -1023,6 +1148,77 @@ mod census {
             let _ = std::fs::remove_dir_all(dir);
         }
     }
+    /// Astra round 3 #2. A globally nonzero record total is not coverage: an empty
+    /// input file, a blank exclusion reason and an undeclared or miscounted file
+    /// all passed while another file happened to supply a blob.
+    #[test]
+    fn a_nonzero_total_is_not_coverage() {
+        let dir = scratch("inventory");
+        write(&dir, "valid.json", "{}");
+        manifest(&dir, &[("valid.json", 1)], &[(UNLABELLED, 1)]);
+        assert!(run(&dir).errors.is_empty(), "the declared corpus is clean");
+        // An empty or whitespace-only file yields nothing and must be declared.
+        for body in ["", "\n \n"] {
+            write(&dir, "truncated.jsonl", body);
+            let report = run(&dir);
+            assert!(
+                report
+                    .errors
+                    .iter()
+                    .any(|e| e.contains("undeclared file truncated.jsonl")),
+                "an empty file must not vanish ({body:?}): {:?}",
+                report.errors
+            );
+        }
+        // Declared as a reviewed zero-row file, it is admitted and reported.
+        manifest(
+            &dir,
+            &[("valid.json", 1), ("truncated.jsonl", 0)],
+            &[(UNLABELLED, 1)],
+        );
+        assert!(
+            run(&dir).errors.is_empty(),
+            "an explicit zero declaration passes"
+        );
+        // A miscount is a failure in both directions.
+        manifest(
+            &dir,
+            &[("valid.json", 2), ("truncated.jsonl", 0)],
+            &[(UNLABELLED, 1)],
+        );
+        assert!(
+            run(&dir)
+                .errors
+                .iter()
+                .any(|e| e.contains("declared 2 records, graded 1")),
+            "a per-file miscount must fail"
+        );
+        std::fs::remove_file(dir.join("truncated.jsonl")).unwrap();
+        // A blank exclusion reason is an omission wearing a manifest.
+        write(&dir, "bad.json", "{");
+        write(&dir, EXCLUSIONS, r#"{"bad.json":"   "}"#);
+        manifest(&dir, &[("valid.json", 1)], &[(UNLABELLED, 1)]);
+        assert!(
+            run(&dir).errors.iter().any(|e| e.contains("blank reason")),
+            "a blank exclusion reason must fail"
+        );
+        write(
+            &dir,
+            EXCLUSIONS,
+            r#"{"bad.json":"unparseable dump fragment, reviewed"}"#,
+        );
+        assert!(run(&dir).errors.is_empty(), "a real reason passes");
+        // The manifest itself is required.
+        std::fs::remove_file(dir.join(MANIFEST)).unwrap();
+        assert!(
+            run(&dir)
+                .errors
+                .iter()
+                .any(|e| e.contains("expected per-file")),
+            "a census without an inventory is not evidence"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
     #[test]
     fn the_census_grades_shapes_and_reports_coverage() {
         let dir = scratch("coverage");
@@ -1038,6 +1234,7 @@ mod census {
                 "\n",
             ),
         );
+        manifest(&dir, &[("rows.jsonl", 3)], &[("prod", 2), ("other", 1)]);
         let report = run(&dir);
         assert_eq!(report.records, 3);
         assert_eq!(report.coverage[&("prodclone".into(), "prod".into())], 2);
@@ -1046,6 +1243,39 @@ mod census {
         assert!(!report.keys.contains_key("zid"));
         assert_eq!(report.errors.len(), 1, "{:?}", report.errors);
         assert!(report.errors[0].contains("a-future-key"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+    /// A typed envelope must carry a typed label; degrading to `(unlabelled)`
+    /// would hide exactly the per-environment coverage the inventory asserts.
+    #[test]
+    fn envelope_labels_are_asserted_not_defaulted() {
+        let dir = scratch("labels");
+        write(
+            &dir,
+            "rows.jsonl",
+            concat!(
+                r#"{"source":"prodclone","data":{"n":1}}"#,
+                "\n",
+                r#"{"source":"prodclone","math_env":7,"data":{"n":1}}"#,
+                "\n",
+            ),
+        );
+        manifest(&dir, &[("rows.jsonl", 0)], &[]);
+        let report = run(&dir);
+        assert_eq!(report.records, 0, "neither record is labelled");
+        assert!(
+            report.errors.iter().any(|e| e.contains("missing math_env")),
+            "{:?}",
+            report.errors
+        );
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.contains("math_env is integer")),
+            "{:?}",
+            report.errors
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 }
