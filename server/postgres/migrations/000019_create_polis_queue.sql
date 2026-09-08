@@ -4,8 +4,9 @@
 -- Design: cost-reduction/04-plans/P-024-queue-substrate.md (revision 4).
 -- Content below is cost-reduction/04-plans/P-024-queue-substrate-v1.sql, which
 -- carries the round-4 review's H1 overload guard and the catalog fingerprint
--- guards. Two additions are made here and marked in place: the post-apply
--- signature assertion, and the explicit granted-RPC allowlist assertion.
+-- guards. Three additions are made here, each numbered and marked in place:
+-- the post-apply signature assertion, the explicit granted-RPC allowlist
+-- assertion, and the observed-state DETAIL on a drift abort.
 --
 -- HOW TO APPLY
 -- ------------
