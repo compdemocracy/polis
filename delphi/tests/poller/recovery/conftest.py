@@ -76,6 +76,30 @@ non-required runs only.
 """
 
 
+@pytest.fixture(autouse=True)
+def _quiet_engine_logs():
+    """The engine logs a paragraph per compute at INFO; recovery tests run many
+    computes each.  Nothing here asserts on log output."""
+    import logging
+
+    # conversation.py:91 sets its OWN logger to INFO explicitly, so raising the
+    # parent's level is not enough — every already-created polismath logger has
+    # to be quieted individually.
+    import polismath.conversation.conversation  # noqa: F401  (force creation)
+
+    names = [n for n in logging.root.manager.loggerDict
+             if n == "polismath" or n.startswith(("polismath.", "sqlalchemy"))]
+    loggers = [logging.getLogger("polismath")] + [
+        logging.getLogger(n) for n in names
+    ]
+    previous = [(lg, lg.level) for lg in loggers]
+    for lg in loggers:
+        lg.setLevel(logging.WARNING)
+    yield
+    for lg, level in previous:
+        lg.setLevel(level)
+
+
 # --------------------------------------------------------------------------- #
 # Postgres plumbing
 # --------------------------------------------------------------------------- #
