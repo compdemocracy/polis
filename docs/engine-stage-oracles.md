@@ -111,24 +111,43 @@ uv run python -m polismath.replay.stagecompare \
 
 ```
 Stage comparison (clj vs py)
-  DIAGNOSTICS ONLY — certify on the final blob is the sole PASS/FAIL authority.
+  DIAGNOSTICS ONLY — certify never consumes these statuses; the final-blob
+  gate is untouched (P-030 §2.3).
   A: …/clj-stages  (1 steps)
   B: …/py-stages   (1 steps)
   first diverging stage: none — every stage within tolerance
   step 0: first diverging stage = none
-      [MATCH] R04_pca.pca (geom): 0/750 out of tolerance,
-              max_abs=9.031e-08 max_rel=1.739e-06
-              worst=pca.comment-projection.1.4
-      [CARVED C4] R13_ptpt_stats.ptpt-stats (exact): 52/134 out of tolerance,
-              max_abs=2.800e+01 max_rel=5.000e-01 worst=ptpt-stats.49.n-votes
+      [ENGINE_LOCAL] R13_ptpt_stats.participant-info-legacy: not graded
+                     (present on b)
 ```
 
-Per key you get: how many numeric pairs were compared, how many fell outside
-that key's tolerance, and the **max absolute and max relative error over every
-compared pair** with the path that produced the largest one. `max_abs` /
+and with `--verbose`, every key including the ones that matched:
+
+```
+      [MATCH] R04_pca.pca (geom-legacy): 0/750 out of tolerance,
+              max_abs=9.031e-08 max_rel=1.739e-06
+              worst=pca.comment-projection.1.i:4
+      [MATCH] R13_ptpt_stats.ptpt-stats (tight): 0/335 out of tolerance,
+              max_abs=1.186e-07 max_rel=2.004e-06
+              worst=ptpt-stats.i:66.centricness
+```
+
+Per key you get a **status** — `MATCH`, `DIVERGENT`, `CARVED`, `NONFINITE` or
+`ENGINE_LOCAL` — plus how many numeric pairs were compared, how many fell
+outside that key's tolerance, and the **max absolute and max relative error over
+every compared pair** with the path that produced the largest one. `max_abs` /
 `max_rel` are reported even when the key matches — on a matching key they are
 the headroom, i.e. how close that stage came to its bound. Exit status is always
 0; this tool does not fail a build.
+
+**`NONFINITE` is not a pass.** Two engines *agreeing* on a `NaN` or an infinity
+is not a divergence, but it is not clean data either. Such a key gets its own
+status, always prints (even without `--verbose`), and qualifies the headline:
+the report says how many non-finite values are present instead of "every stage
+within tolerance". A non-finite in an *integer-typed* field — a vote, an id, a
+count — is stronger still: it is a structural defect and a divergence, because
+those fields are never non-finite. Matching invalid data is never hidden behind
+a clean default.
 
 Two caveats when reading the numbers:
 
@@ -187,6 +206,11 @@ divergence, not a rounding), and it stops the float round trip from erasing a
 one-unit difference above 2^53. A non-integral value, or a boolean, in an
 integer-typed field is a structural defect, not a number. The two engines'
 legitimate spellings of the same integer — Clojure `-1`, Python `-1.0` — agree.
+
+The type is checked **before equality, on both sides**, so two *equally*
+malformed operands cannot slip through: `True` vs `True` for a count, `"1"` vs
+`"1"` for a tid, or a float-spelled cluster id `1.5` on both sides are all
+divergences, not matches.
 
 The remaining, genuinely continuous leaves get one of two bounds:
 
@@ -262,12 +286,25 @@ differences survive.
    data mean and is never flipped. This is `crosslang.canonicalize_blob`'s rule,
    applied one level deeper.
 
-   The axis orientation of `comment-projection` is **read from the dump's
-   declared `comment_projection_axes`, never inferred from array lengths**: when
-   a conversation has exactly as many comments as components, lengths cannot
-   distinguish an *n*×2 from a 2×*n*, and a comparer that guessed would silently
-   compare a transposed array. Both emitters write `comps-by-tids` and say so; a
+   The axis orientation of `comment-projection` is **fixed by the producer and
+   declared on the wire, never inferred from array lengths** — not in the
+   comparer and not in the emitter. `pca_project_cmnts` always returns
+   comments-by-components, so the Python emitter transposes *unconditionally*;
+   a transpose conditioned on a shape comparison would emit the wrong array
+   whenever a conversation has as many comments as components, while still
+   declaring the right axes. Both emitters write `comps-by-tids` and say so; a
    dump that does not declare it is refused.
+
+   The projection is **always at least two rows wide**, even when the PCA has a
+   single component: in that rank-one case Clojure's `[pc1 pc2]` destructure
+   truncates every comment to 0.0 on both components (Q16), and the Python port
+   matches. So the emitted array has `max(len(comps), 2)` rows, and the comparer
+   requires exactly that — an extra component row is a structural error, not a
+   row to drop.
+
+   When an emitter *cannot* verify a shape it refuses rather than guessing: it
+   writes a `__structural_error__` sentinel, which the comparer lifts into a
+   structural failure. A refusal is never graded as data.
 
 ---
 
@@ -282,7 +319,7 @@ are notes for the reader and suppress nothing.
 
 | id | scope | key | why it is expected |
 |---|---|---|---|
-| **C1** | `null` ↔ `[]` **only** | `mod-in`, `mod-out`, `meta-tids` | Clojure emits `nil` until a `mod-update` has written the set; Python emits an empty set. That exact value pair is suppressed and nothing else: `[1]` → `[2]`, `null` → `[2]`, a missing key or a wrong type all report as divergences. Python's own blob boundary already mirrors the Clojure rule via `moderation_applied`, and the stage emitter applies the same gate, so this rarely fires. |
+| **C1** | `null` ↔ `[]` **only**, type-checked | `mod-in`, `mod-out`, `meta-tids` | Clojure emits `nil` until a `mod-update` has written the set; Python emits an empty set. That exact pair is suppressed — one side literally `None`, the other literally an empty JSON *list* — and nothing adjacent to it: `[1]` → `[2]`, `null` → `[2]`, `null` → `{}`, a missing key or a wrong type all report as divergences. Python's own blob boundary already mirrors the Clojure rule via `moderation_applied`, and the stage emitter applies the same gate, so this rarely fires. |
 | **C2** | none — documented only | cluster ids / membership on warm chains | **Q13.** Warm-chain split-loop extraction order is knife-edge chaotic on tie-dense geometry: within-engine gaps at 2.5e-16 and 5.6e-17 against cross-engine projection noise at ~1e-5, eleven orders larger. Ledgered on `FP-912391ece7 / FP-c29173e1ba / FP-98dc728043`; carved in the *battery* by swapping `pc-revote-01` for `pc-revote-02`. |
 | **C3** | numeric **values** only | `group-clusterings-silhouettes` | The two engines score with **different estimators**: Clojure's `clusters/silhouette` over `bucket-dists`, Python's `calculate_silhouette_sklearn` over the base-cluster centers. Different numbers are expected. The candidate inventory (*which* k were scored), the argmax they feed, the smoother state and group membership are all **outside** the exception and compared normally — a missing k is a coverage problem, not an estimator difference. |
 | **C4** | none — documented only | `participant-info-legacy` | This engine's `participant_info` is a vote-correlation *report* statistic (`n_agree`/`n_disagree`/`n_pass`/`group_correlations`). It is not engine-contract surface and has no Clojure counterpart, so it rides along as an **engine-local** key, reported and never graded. It is **not** a waiver on `ptpt-stats`: see below. |
@@ -317,10 +354,22 @@ the comparer validates each recording and refuses to print a headline unless the
 two are a complete, aligned, same-input pair. It checks that:
 
 * both directories exist and carry a `stages-manifest.json`;
-* the manifest's schema, `stage_order` and `n_steps` are right, its inventory
-  matches the files actually on disk, and every file it names is present;
+* the manifest's schema, `stage_order`, `engine`, axes declaration and `n_steps`
+  are right, its inventory matches the files actually on disk, every file it
+  names is present, and **each manifest row agrees with the document it names**
+  on `tick` and `input_digest` — an inventory that disagrees with its own
+  contents is not an inventory of this recording;
+* every document carries a **typed** step identity, tick, `sha256:` digest and
+  engine — a null tick or a null digest is missing evidence, not a value that
+  happens to equal the other side's;
 * every document declares a supported `vote_sign_convention` and the expected
-  `comment_projection_axes`, and carries **all eleven stages**;
+  `comment_projection_axes`, and carries **all eleven stages, each with its full
+  declared key inventory**. A stage present but mapped to `{}` is a hole in the
+  recording, not eleven stages that happened to agree; an unknown stage or key
+  is reported too;
+* a malformed document — not an object, unparseable JSON, a non-object `stages`
+  container, a non-integer step — becomes an input problem rather than an
+  exception;
 * step identities are unique, and the two sides are aligned **by step identity**,
   not by position — two recordings that both hold "one step" are not comparable
   if one is step 0 and the other step 7;
