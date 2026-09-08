@@ -16,6 +16,15 @@ policy deliberately tolerates. The only PASS/FAIL authority remains
 :mod:`polismath.replay.certify` on the final blob. Nothing here is imported by
 ``certify``.
 
+**Captures vs reconstructions.** Where this engine persists a node, the stage
+function CAPTURES it. Where it does not, the stage function RECONSTRUCTS the node
+by calling the engine's own code on stored state — `mat` (the imputation block of
+``pca_project_dataframe``), ``pca.comment-projection`` / ``comment-extremity``
+(``pca_project_cmnts`` / ``compute_comment_extremity``), the base-cluster derived
+matrices, the per-k silhouettes, ``user-vote-counts``, and the R13 geometry
+(``math_writer.derive_ptptstats``). A reconstruction is faithful to the engine's
+code but is not evidence that the engine executed it during the tick.
+
 **Where the files go.** ``<recording>/py-stages/step-NNN.stages.json`` plus
 ``stages-manifest.json`` — a SIBLING of ``py/``, never inside it: ``certify``
 globs ``step-*`` / ``step-*.json`` inside the engine dir for its inventory and
@@ -42,7 +51,26 @@ each file is a faithful record of what that engine actually computed.
 * a named matrix is ``{"rownames": […], "colnames": […], "matrix": [[…]]}`` with
   missing cells as ``null``, so the diff keys cells by (rowname, colname) rather
   than by cross-engine-arbitrary position;
-* sets become sorted arrays.
+* sets become sorted arrays;
+* ``pca.comment-projection`` is ``n_comps`` rows of ``n_tids`` values on BOTH
+  engines, declared by ``comment_projection_axes`` in each document — an axis
+  orientation must never be inferred from array lengths.
+
+**Admitted value domain.** The encoding is lossless for finite binary64, JSON
+integers in the signed-64-bit range, strings, booleans, null, and the three
+non-finite tokens. It is NOT a general object serializer, and these limits are
+deliberate rather than incidental:
+
+* map keys are stringified, so integer ``1`` and string ``"1"`` collapse into one
+  key on both engines;
+* the JSON string ``"NaN"`` and the non-finite token for NaN are indistinguishable
+  on the wire;
+* Clojure ``Ratio`` (e.g. ``1/3``) is projected to the nearest double, and
+  keyword/set/type identity is projected away;
+* a pandas ``NaN`` cell in a vote matrix is a MISSING VOTE and becomes ``null``,
+  not a non-finite token — that is a field-level rule, not a number rule.
+
+A stage value outside that domain must be rejected by :func:`plain`, not coerced.
 """
 
 from __future__ import annotations
@@ -70,6 +98,7 @@ from polismath.pca_kmeans_rep.pca import (
     compute_comment_extremity,
     pca_project_cmnts,
 )
+from polismath.poller.math_writer import derive_ptptstats
 from polismath.replay import driver as _driver
 from polismath.replay import real_data, schedule as _schedule
 from polismath.replay.schedule import ReplayStep, ScheduleSpec
@@ -84,6 +113,12 @@ PY_STAGE_ENGINE = "py"
 
 #: Directory name for a stage recording, per engine. Sibling of the blob dir.
 STAGE_DIR_NAME = {"py": "py-stages", "clj": "clj-stages"}
+
+#: Axis orientation of ``pca.comment-projection``, declared rather than inferred
+#: (Astra F4): both engines emit ``n_comps`` rows of ``n_tids`` values, matching
+#: Clojure's ``with-proj-and-extremtiy``. A comparer must VALIDATE against this,
+#: never guess from lengths — a square case (n_tids == n_comps) is ambiguous.
+COMMENT_PROJECTION_AXES = "comps-by-tids"
 
 #: Zero-padded so that lexicographic key order IS pipeline order.
 STAGE_ORDER = [
@@ -282,9 +317,21 @@ def stage_r02_moderation(conv: Conversation) -> dict[str, Any]:
 
 def stage_r03_eligibility(conv: Conversation) -> dict[str, Any]:
     """R3 — ``user-vote-counts`` and the carried ``in-conv`` set
-    (conversation.clj:222-268). Both are exact-family."""
+    (conversation.clj:222-268). Both are exact-family.
+
+    Reads the CARRIED ``conv.in_conv`` that the tick already persisted rather
+    than calling ``_get_in_conv_participants()``, which assigns ``self.in_conv``
+    (conversation.py:2035) — an observer documented as read-only must not invoke
+    a state-changing computation. On a degenerate tick where ``_compute_clusters``
+    returned before reaching that call, ``conv.in_conv`` still holds the prior
+    tick's carried set, which is exactly what Clojure's carried ``:in-conv`` is.
+
+    ``user-vote-counts`` is a RECONSTRUCTION, not a capture: this engine has no
+    stored node for it, so the same ``_compute_user_vote_counts()`` its blob
+    calls is re-run here (it is pure over ``raw_rating_mat``).
+    """
     return {
-        "in-conv": plain(set(conv._get_in_conv_participants())),
+        "in-conv": plain(set(getattr(conv, "in_conv", None) or set())),
         "user-vote-counts": plain(conv._compute_user_vote_counts()),
     }
 
@@ -328,9 +375,18 @@ def stage_r04_pca(conv: Conversation) -> dict[str, Any]:
         pca["center"] = plain(center)
         pca["comps"] = plain(comps)
         if center.size and comps.size:
-            cmnt_proj = pca_project_cmnts(center, comps)
+            cmnt_proj = np.asarray(pca_project_cmnts(center, comps))
+            # AXES ARE NORMALIZED HERE, NOT INFERRED DOWNSTREAM. Clojure's
+            # with-proj-and-extremtiy emits comment-projection as
+            # n_comps x n_tids; pca_project_cmnts returns n_tids x n_comps.
+            # A comparer that guessed the orientation from lengths would read a
+            # square case (n_tids == n_comps) wrong, so the transpose happens
+            # once, here, and COMMENT_PROJECTION_AXES declares the result.
+            if cmnt_proj.ndim == 2 and cmnt_proj.shape[0] != comps.shape[0]:
+                cmnt_proj = cmnt_proj.T
             pca["comment-projection"] = plain(cmnt_proj)
-            pca["comment-extremity"] = plain(compute_comment_extremity(cmnt_proj))
+            pca["comment-extremity"] = plain(
+                compute_comment_extremity(np.asarray(pca_project_cmnts(center, comps))))
         else:
             pca["comment-projection"] = None
             pca["comment-extremity"] = None
@@ -487,31 +543,56 @@ def stage_r12_priorities(conv: Conversation) -> dict[str, Any]:
 
 
 def stage_r13_ptpt_stats(conv: Conversation) -> dict[str, Any]:
-    """R13 — participant stats (``:ptpt-stats``, repness.clj:372-381).
+    """R13 — participant stats (``:ptpt-stats``, repness.clj:383-413).
 
-    KNOWN STRUCTURAL DIVERGENCE (carve-out ``C4``): the two engines compute
-    DIFFERENT statistics under this name. Clojure emits
-    ``{pid, gid, n-votes, coreness, centricness, extremeness}`` — geometry over
-    the participant projection. This engine emits
-    ``{n_agree, n_disagree, n_pass, n_votes, group, group_correlations}``.
-    Only ``pid``, ``gid`` and ``n-votes`` are the same quantity, so those three
-    are re-keyed here and the rest is carried under its native names. The blob
-    key has no reader anywhere in Node or the clients (P-030 §5/R13), so this is
-    verification surface only.
+    Clojure's node is a LIST of per-participant row maps
+    ``{pid, gid, n-votes, centricness, coreness, extremeness}``; ``prep-ptpt-stats``
+    columnizes them afterwards (conv_man.clj:90-94). This engine's geometric
+    implementation is :func:`polismath.poller.math_writer.derive_ptptstats` — the
+    production output adapter, a verbatim port of ``repness/participant-stats``,
+    pinned against a live Clojure reference row. It is called here with the
+    already-computed RAW ``user-vote-counts`` (Clojure's ``n-votes`` is the raw
+    count, and the adapter takes it as an argument for exactly that reason), and
+    its columnar result is transposed back into the stage's row shape.
+
+    This is the statistic the engine contract names
+    (``P-022-G-engine-contract.md``: columnar pid / gid / n-votes / centricness /
+    coreness / extremeness, aligned lengths, nullable n-votes, finite numeric
+    stats) and it is compared as such — pid/gid/n-votes exact, the three
+    geometric floats tolerant, row coverage exact. There is no waiver here.
+
+    ``conv.participant_info`` is a DIFFERENT, Python-only statistic
+    (n_agree / n_disagree / n_pass / group_correlations, vote-correlation based).
+    ``math_writer`` has distinguished the two since 2026-07-24 and ``crosslang``
+    excludes ``participant_info`` from the parity surface. It is carried here
+    under the separate, engine-local key ``participant-info-legacy`` so the
+    report can still show it, explicitly NOT as engine-contract surface: it has
+    no Clojure counterpart, and the comparer refuses to grade it against one.
     """
-    info = getattr(conv, "participant_info", None) or {}
-    out = []
-    for pid, stats in info.items():
-        row = {"pid": plain(pid),
-               "gid": plain(stats.get("group")),
-               "n-votes": plain(stats.get("n_votes"))}
-        for k, v in stats.items():
-            if k in ("group", "n_votes"):
-                continue
-            row[k] = plain(v)
-        out.append(row)
-    out.sort(key=lambda r: (r["pid"] is None, str(r["pid"])))
-    return {"ptpt-stats": out}
+    columns = derive_ptptstats(
+        conv,
+        getattr(conv, "conversation_id", None),
+        conv._compute_user_vote_counts(),
+    )["ptptstats"]
+    rows: list[dict[str, Any]] = []
+    if columns:
+        names = list(columns)
+        length = len(columns[names[0]])
+        for i in range(length):
+            rows.append({name: plain(columns[name][i]) for name in names})
+
+    legacy = getattr(conv, "participant_info", None) or {}
+    legacy_rows = []
+    for pid, stats in legacy.items():
+        row = {"pid": plain(pid)}
+        row.update({k: plain(v) for k, v in stats.items()})
+        legacy_rows.append(row)
+    legacy_rows.sort(key=lambda r: (r["pid"] is None, str(r["pid"])))
+
+    return {
+        "ptpt-stats": rows,
+        "participant-info-legacy": legacy_rows,
+    }
 
 
 #: Stage name -> extractor. ``R10_tallies`` additionally accepts the cached blob.
@@ -542,6 +623,7 @@ def stage_document(conv: Conversation, *, step_index: int, digest: str,
         fn = STAGE_FUNCS[name]
         stages[name] = fn(conv, blob) if name == "R10_tallies" else fn(conv)
     return {
+        "comment_projection_axes": COMMENT_PROJECTION_AXES,
         "engine": engine,
         "input_digest": digest,
         "schema": STAGE_DUMP_SCHEMA,
@@ -576,6 +658,7 @@ def write_stage_documents(out_dir: str | Path, documents: Sequence[dict[str, Any
             "tick": doc["tick"],
         })
     (out / "stages-manifest.json").write_text(canonical_json({
+        "comment_projection_axes": COMMENT_PROJECTION_AXES,
         "engine": engine,
         "n_steps": len(rows),
         "schema": STAGE_DUMP_SCHEMA,
