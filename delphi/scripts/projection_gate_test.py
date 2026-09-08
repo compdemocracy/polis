@@ -359,36 +359,71 @@ def test_manifest_requires_replica_when_demanded(dsn: str) -> None:
     # A bare primary DSN is not proof of replica coverage.
     m = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID}, replica_dsn=None, require_replica=True)
     assert not m.ok and not m.replica_seen
-    # The SAME server passed twice is NOT a distinct replica (R3 defect 3).
-    m2 = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID}, replica_dsn=dsn, require_replica=True)
+    # The SAME server passed twice is not a bound standby (not in recovery).
+    m2 = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID}, replica_dsn=dsn, require_replica=True,
+                         channels=("preflight", "wire"))
     assert not m2.ok and m2.replica_seen and not m2.distinct_replica
-    # An explicitly approved same-cluster read pool is accepted (still populated).
-    m2b = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID}, replica_dsn=dsn,
-                          require_replica=True, approve_same_identity=True)
-    assert m2b.ok and len(m2b.runs) == 2
-    # An empty populated-required run fails the whole manifest.
-    m3 = pg.run_manifest(dsn, {"zid": -SYNTHETIC_ZID})
+    # All-empty primary evidence is rejected.
+    m3 = pg.run_manifest(dsn, {"zid": -SYNTHETIC_ZID}, allow_empty=list(pg.SITES))
     assert not m3.ok
 
 
-def test_manifest_rejects_same_server_replica_and_empty_coverage(dsn: str) -> None:
-    """R3 defect 3: same DSN as primary+replica, or an all-empty run, must FAIL."""
+def test_manifest_rejects_unrelated_primary_and_preflight_only(dsn: str) -> None:
+    """R4 defect 2: an unrelated primary is not a replica, and a preflight-only run
+    is not acceptance (no wire evidence)."""
     import unittest.mock as mock
 
-    same = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID}, replica_dsn=dsn, require_replica=True)
-    assert not same.ok and not same.distinct_replica
-    # Declaring both sites empty does not certify: no populated coverage.
-    empty = pg.run_manifest(dsn, {"zid": -SYNTHETIC_ZID}, replica_dsn=dsn,
-                            require_replica=True, allow_empty=list(pg.SITES),
-                            approve_same_identity=True)
-    assert not empty.ok and not empty.populated_ok
-    # A genuinely distinct replica (standby: pg_is_in_recovery() true) passes:
-    # patch the identity probe so the 2nd call (replica) reports a standby.
     primary_id = pg._server_identity(dsn)
-    standby_id = pg.ServerIdentity(primary_id.system_identifier, True, None)
+    unrelated = pg.ServerIdentity("9999999999999999999", False, None, None)  # diff id, not in recovery
+    with mock.patch.object(pg, "_server_identity", side_effect=[primary_id, unrelated]):
+        m = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID, "pid": 0}, replica_dsn=dsn,
+                            require_replica=True, channels=("preflight", "wire"))
+    assert not m.ok and not m.distinct_replica
+    # Preflight-only is not acceptance even with populated primary evidence.
+    pre = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID, "pid": 0}, channels=("preflight",))
+    assert not pre.ok and not pre.populated_ok
+
+
+def test_manifest_full_acceptance_requires_bound_standby_and_wire(dsn: str) -> None:
+    """R4 defect 2: acceptance needs a bound standby (in recovery, shared system id)
+    AND populated wire coverage on primary and replica."""
+    _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID, "pid": 0})  # skip if no node
+    import unittest.mock as mock
+
+    primary_id = pg._server_identity(dsn)
+    standby_id = pg.ServerIdentity(primary_id.system_identifier, True, None, "primary.host")
     with mock.patch.object(pg, "_server_identity", side_effect=[primary_id, standby_id]):
-        m = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID}, replica_dsn=dsn, require_replica=True)
-    assert m.distinct_replica and m.ok
+        m = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID, "pid": 0}, replica_dsn=dsn,
+                            require_replica=True, channels=("preflight", "wire"))
+    assert m.distinct_replica and m.populated_ok and m.ok
+
+
+def _fake_wire_report(name: str, rows: int, channel: str = "wire"):
+    return pg.SiteReport(
+        site=pg.SITES[name], filters={}, expected_columns=("x",), served_columns=("x",),
+        row_count_expected=rows, row_count_served=rows, identical_cells=rows, channel=channel,
+    )
+
+
+def test_manifest_populated_wire_coverage_per_target() -> None:
+    """R4 defect 2 (unit): empty replica wire, or preflight-only, is not covered."""
+    def manifest(runs):
+        return pg.Manifest(runs=runs, require_replica=True, replica_seen=True,
+                           requested_sites=tuple(pg.SITES),
+                           primary_identity=None, replica_identity=None, approve_same_identity=True)
+
+    prim_full = pg.ChannelRun("primary", "wire",
+                              [_fake_wire_report(n, 1) for n in pg.SITES])
+    repl_full = pg.ChannelRun("replica", "wire",
+                              [_fake_wire_report(n, 1) for n in pg.SITES])
+    repl_empty = pg.ChannelRun("replica", "wire",
+                               [_fake_wire_report(n, 0) for n in pg.SITES])
+    prim_pre = pg.ChannelRun("primary", "preflight",
+                             [_fake_wire_report(n, 1, "preflight") for n in pg.SITES])
+
+    assert manifest([prim_full, repl_full]).populated_ok
+    assert not manifest([prim_full, repl_empty]).populated_ok   # empty replica
+    assert not manifest([prim_pre]).populated_ok                # preflight only
 
 
 # --- P1: bind to the real served path (query builder + pg types + serializer) ---
@@ -479,10 +514,13 @@ def _copy_server_src(dst_root: str) -> str:
         pytest.skip("server/ not found")
     src = os.path.join(dst_root, "src")
     os.makedirs(os.path.join(src, "routes"), exist_ok=True)
+    os.makedirs(os.path.join(src, "db"), exist_ok=True)
     shutil.copy(os.path.join(server_dir, "src", "routes", "votes.ts"),
                 os.path.join(src, "routes", "votes.ts"))
     shutil.copy(os.path.join(server_dir, "src", "server-helpers.ts"),
                 os.path.join(src, "server-helpers.ts"))
+    shutil.copy(os.path.join(server_dir, "src", "db", "sql.ts"),
+                os.path.join(src, "db", "sql.ts"))
     return src
 
 
@@ -498,21 +536,27 @@ def test_wire_gate_is_source_bound(dsn: str, tmp_path) -> None:
 
     votes_ts = os.path.join(src, "routes", "votes.ts")
     helpers_ts = os.path.join(src, "server-helpers.ts")
+    sql_ts = os.path.join(src, "db", "sql.ts")
     with open(votes_ts) as f:
         votes_orig = f.read()
     with open(helpers_ts) as f:
         helpers_orig = f.read()
+    with open(sql_ts) as f:
+        sql_orig = f.read()
 
     def _write(path: str, text: str) -> None:
         with open(path, "w") as f:
             f.write(text)
+
+    def _findings(**flt):
+        return {r.site.name: r for r in _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID, "pid": 0}, **kw)}
 
     # Mutation A: flip the served vote sign in the ACTUAL route.
     assert "resolve(results.rows);" in votes_orig
     _write(votes_ts, votes_orig.replace(
         "resolve(results.rows);",
         "resolve(results.rows.map((r) => ({ ...r, vote: -r.vote })));"))
-    rA = {r.site.name: r for r in _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID, "pid": 0}, **kw)}
+    rA = _findings()
     assert not rA["votesGet"].ok
     assert any(f.cls is pg.CellClass.VALUE_DIFF and f.column == "vote"
                for f in rA["votesGet"].findings)
@@ -522,11 +566,45 @@ def test_wire_gate_is_source_bound(dsn: str, tmp_path) -> None:
     assert "delete items[i].zid;" in helpers_orig
     _write(helpers_ts, helpers_orig.replace(
         "delete items[i].zid;", "items[i].internal_probe = true;"))
-    rB = {r.site.name: r for r in _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID, "pid": 0}, **kw)}
+    rB = _findings()
     for name in ("votesGet", "handle_GET_votes_me"):
         assert not rB[name].ok
         extras = [f.column for f in rB[name].findings if f.cls is pg.CellClass.EXTRA_FIELD]
         assert "zid" in extras and "internal_probe" in extras, rB[name].findings
+    _write(helpers_ts, helpers_orig)  # restore
+
+    # Mutation C: change the ACTUAL SQL builder definition's table -> caught.
+    assert 'name: "votes_latest_unique"' in sql_orig
+    _write(sql_ts, sql_orig.replace('name: "votes_latest_unique"', 'name: "votes"'))
+    rC = _findings()
+    assert not rC["votesGet"].ok, rC["votesGet"].findings
+    _write(sql_ts, sql_orig)  # restore
+
+    # Refactor D: update the ACTUAL builder to the six frozen columns AND replace
+    # .star() with those explicit columns. This preserves the served bytes, so the
+    # gate this exists to guard must PASS (not falsely reject the correct refactor).
+    columns = ["zid", "pid", "tid", "vote", "weight_x_32767", "modified"]
+    columns_old = 'columns: ["zid", "tid", "pid", "modified", "vote", "weight", "high_priority"]'
+    assert columns_old in sql_orig
+    star_call = ".select(sql_votes_latest_unique.star())"
+    assert star_call in votes_orig
+    explicit = ".select(" + ", ".join(f"sql_votes_latest_unique.{c}" for c in columns) + ")"
+    _write(sql_ts, sql_orig.replace(columns_old, "columns: " + str(columns).replace("'", '"')))
+    _write(votes_ts, votes_orig.replace(star_call, explicit))
+    rD = _findings()
+    assert rD["votesGet"].ok, f"explicit refactor must PASS: {rD['votesGet'].findings}"
+    _write(sql_ts, sql_orig)
+    _write(votes_ts, votes_orig)
+
+    # Mutation E: change the ACTUAL finishArray response status 200 -> 201 -> caught.
+    assert "res.status(200).json(items);" in helpers_orig
+    _write(helpers_ts, helpers_orig.replace(
+        "res.status(200).json(items);", "res.status(201).json(items);"))
+    rE = _findings()
+    for name in ("votesGet", "handle_GET_votes_me"):
+        assert not rE[name].ok
+        assert any(f.column == "<http-status>" for f in rE[name].findings), rE[name].findings
+    _write(helpers_ts, helpers_orig)
 
 
 def test_wire_gate_absent_pid_reflects_real_handler(dsn: str) -> None:

@@ -1,27 +1,27 @@
 #!/usr/bin/env node
-// Projection-gate WIRE witness — SOURCE-BOUND.
+// Projection-gate WIRE witness — SOURCE-BOUND (route + serializer + SQL builder).
 //
-// The SERVED side is the ACTUAL pinned code: this loads the real function text of
+// The SERVED side is the ACTUAL pinned code: this loads, from disk, the real
+// `sql_votes_latest_unique` builder DEFINITION from server/src/db/sql.ts, the real
 // `votesGet` / `getVotesForSingleParticipant` / `handle_GET_votes` /
-// `handle_GET_votes_me` from server/src/routes/votes.ts and `addConversationIds` /
-// `finishArray` from server/src/server-helpers.ts (via the TypeScript compiler),
-// transpiles it, and runs it in a `vm` context wired to the installed `pg`, `sql`
-// and `underscore` — so a change to the real route or serializer (a flipped vote
-// sign, a retained `zid`, a missing `pid` filter) changes the SERVED output. It is
-// NOT a copy of the query/serializer (Astra round-2 defect 1).
+// `handle_GET_votes_me` from server/src/routes/votes.ts, and the real
+// `addConversationIds` / `finishArray` from server/src/server-helpers.ts (via the
+// TypeScript compiler), and runs them in a `vm` wired to the installed `pg`/`sql`/
+// `underscore`. So a change to the real route, serializer, OR the builder definition
+// changes the SERVED output. Nothing is a copy.
 //
 // The EXPECTED side is an INDEPENDENT frozen baseline: the frozen explicit column
 // projection put through a mirror of finishArray (delete zid, add conversation_id,
-// and the votes_me weight transform). Because EXPECTED does not re-run the (possibly
-// mutated) real code, a real-code divergence shows up as served != expected.
+// the votes_me weight transform), and — pinning the handler's contract — the SAME
+// pid gate the real route applies (absent pid -> []). Because EXPECTED does not
+// re-run the (possibly mutated) real code, a real-code divergence, an explicit
+// refactor that preserves bytes, and a builder change that alters bytes are all
+// classified correctly (identical bytes PASS; changed bytes FAIL).
 //
-// Read-only: one REPEATABLE READ READ ONLY transaction per site (served + expected
-// + the zinvites lookup share the snapshot). Emits JSON to stdout with the exact
-// served/expected JSON strings so byte spelling can be verified, not just parsed
-// objects.
+// Read-only: one REPEATABLE READ READ ONLY transaction per site. Emits JSON to
+// stdout with the exact served/expected JSON strings AND the response status.
 //
-// Deps (typescript, sql, pg, underscore) resolve from server/node_modules; run with
-// that on NODE_PATH when invoking from a worktree without an install.
+// Deps (typescript, sql, pg, underscore) resolve from server/node_modules.
 
 import { createRequire } from "module";
 import { fileURLToPath } from "url";
@@ -38,9 +38,6 @@ const FROZEN = {
   votes_latest_unique: ["zid", "pid", "tid", "vote", "weight_x_32767", "modified"],
   votes: ["zid", "pid", "tid", "vote", "weight_x_32767", "created", "high_priority"],
 };
-// vlu definition exactly as server/src/db/sql.ts declares it (so the real
-// votesGet's `.star()` renders the identical `"votes_latest_unique".*`).
-const VLU_SQLTS_COLUMNS = ["zid", "tid", "pid", "modified", "vote", "weight", "high_priority"];
 
 function parseArgs(argv) {
   const out = { pid: null, tid: null, sites: ["votesGet", "handle_GET_votes_me"], srcRoot: null };
@@ -71,11 +68,26 @@ function pickFunctions(file, names) {
   return picked.map((n) => n.getText(ast)).join("\n");
 }
 
-// Build a vm context that runs the REAL route + serializer text against `client`.
-function buildRealApp(routeText, serializerText, client, servedPidForGetPid, sqlLog) {
+// Extract the real `const <name> = <initializer>` initializer text from a source
+// file, so the ACTUAL builder definition is executed (not a copy).
+function pickVariableInitializer(file, name) {
+  const source = fs.readFileSync(file, "utf8");
+  const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+  for (const stmt of ast.statements) {
+    if (!ts.isVariableStatement(stmt)) continue;
+    for (const decl of stmt.declarationList.declarations) {
+      if (decl.name.getText(ast) === name && decl.initializer) {
+        return decl.initializer.getText(ast);
+      }
+    }
+  }
+  throw new Error(`variable ${name} not found in ${file}`);
+}
+
+function buildRealApp(defText, routeText, serializerText, client, servedPidForGetPid, sqlLog) {
   const context = {
     _,
-    sql_votes_latest_unique: sql.define({ name: "votes_latest_unique", columns: VLU_SQLTS_COLUMNS }),
+    sql, // the real builder definition runs against the real library
     pg: {
       query_readOnly: (text, a, b) => {
         const cb = typeof a === "function" ? a : b;
@@ -93,7 +105,6 @@ function buildRealApp(routeText, serializerText, client, servedPidForGetPid, sql
     failJson: (_res, _code, message) => {
       throw new Error(String(message));
     },
-    // getPid gates on pid >= 0 only; the handler uses req.p.pid for the query.
     getPid: (_zid, _uid, cb) => cb(null, servedPidForGetPid),
     Promise,
     console,
@@ -103,7 +114,8 @@ function buildRealApp(routeText, serializerText, client, servedPidForGetPid, sql
     Array,
   };
   vm.createContext(context);
-  const compiled = ts.transpileModule(routeText + "\n" + serializerText, {
+  const module = `const sql_votes_latest_unique = ${defText};\n${routeText}\n${serializerText}`;
+  const compiled = ts.transpileModule(module, {
     compilerOptions: { target: ts.ScriptTarget.ES2022 },
   }).outputText;
   vm.runInContext(compiled, context);
@@ -119,7 +131,7 @@ function driveHandler(context, handlerName, reqp) {
         return this;
       },
       json(rows) {
-        resolve(rows);
+        resolve({ status: this._code, rows });
       },
     };
     try {
@@ -130,25 +142,21 @@ function driveHandler(context, handlerName, reqp) {
   });
 }
 
-// Independent frozen baseline: frozen explicit columns + mirror of finishArray.
+// Independent frozen baseline: frozen explicit columns + mirror of finishArray,
+// pinning the handler's pid contract (absent pid -> []).
 async function frozenExpected(client, site, zid, pid, tid) {
+  if (pid === null) return []; // votesGet gates on pid; votes_me query is pid=NULL
   let rows;
   if (site === "votesGet") {
     const t = sql.define({ name: "votes_latest_unique", columns: FROZEN.votes_latest_unique });
-    let q = t.select.apply(t, FROZEN.votes_latest_unique.map((c) => t[c])).where(t.zid.equals(zid));
-    if (pid !== null) q = q.where(t.pid.equals(pid));
+    let q = t.select.apply(t, FROZEN.votes_latest_unique.map((c) => t[c])).where(t.zid.equals(zid)).where(t.pid.equals(pid));
     if (tid !== null) q = q.where(t.tid.equals(tid));
     rows = (await client.query(q.toString())).rows;
   } else {
     const cols = FROZEN.votes.map((c) => `"votes"."${c}"`).join(", ");
-    if (pid !== null) {
-      rows = (await client.query(`SELECT ${cols} FROM votes WHERE zid = ($1) AND pid = ($2)`, [zid, pid])).rows;
-    } else {
-      rows = (await client.query(`SELECT ${cols} FROM votes WHERE zid = ($1)`, [zid])).rows;
-    }
-    for (const r of rows) r.weight = r.weight / 32767; // handle_GET_votes_me does this
+    rows = (await client.query(`SELECT ${cols} FROM votes WHERE zid = ($1) AND pid = ($2)`, [zid, pid])).rows;
+    for (const r of rows) r.weight = r.weight / 32767;
   }
-  // finishArray mirror: addConversationIds (zinvites) then delete zid.
   const zids = [...new Set(rows.filter((r) => r.zid).map((r) => Number(r.zid)))];
   const map = {};
   if (zids.length) {
@@ -162,10 +170,10 @@ async function frozenExpected(client, site, zid, pid, tid) {
   return rows;
 }
 
-async function captureSite(client, site, a, routeText, serializerText) {
+async function captureSite(client, site, a, defText, routeText, serializerText) {
   const pid = a.pid;
   const sqlLog = { last: null };
-  const context = buildRealApp(routeText, serializerText, client, pid === null ? 0 : pid, sqlLog);
+  const context = buildRealApp(defText, routeText, serializerText, client, pid === null ? 0 : pid, sqlLog);
 
   let served;
   if (site === "votesGet") {
@@ -178,8 +186,10 @@ async function captureSite(client, site, a, routeText, serializerText) {
   const expected = await frozenExpected(client, site, a.zid, pid, a.tid);
   return {
     servedSql: sqlLog.last,
-    served,
-    servedJson: JSON.stringify(served),
+    servedStatus: served.status,
+    expectedStatus: 200,
+    served: served.rows,
+    servedJson: JSON.stringify(served.rows),
     expected,
     expectedJson: JSON.stringify(expected),
   };
@@ -189,6 +199,7 @@ async function main() {
   const a = parseArgs(process.argv.slice(2));
   const witnessDir = path.dirname(fileURLToPath(import.meta.url)); // server/scripts
   const srcRoot = a.srcRoot || path.join(witnessDir, "..", "src"); // server/src
+  const defText = pickVariableInitializer(path.join(srcRoot, "db", "sql.ts"), "sql_votes_latest_unique");
   const routeText = pickFunctions(path.join(srcRoot, "routes", "votes.ts"), [
     "votesGet",
     "getVotesForSingleParticipant",
@@ -207,7 +218,7 @@ async function main() {
     for (const site of a.sites) {
       await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
       try {
-        out[site] = await captureSite(client, site, a, routeText, serializerText);
+        out[site] = await captureSite(client, site, a, defText, routeText, serializerText);
         await client.query("ROLLBACK");
       } catch (e) {
         await client.query("ROLLBACK");
