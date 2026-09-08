@@ -174,6 +174,31 @@ def resolve_cut_slots(dataset: ReplayDataset, cuts: dict[str, Any]) -> Schedule:
     return schedule
 
 
+def resolved_cut_count(cuts: dict[str, Any]) -> int | None:
+    """How many steps :func:`slice_schedule` will produce for ``cuts``, when
+    that is knowable WITHOUT a dataset; ``None`` when it is not.
+
+    One step per resolved cut slot, so this is also the checkpoint count a
+    schedule pinned in a certification manifest must declare. It mirrors
+    :func:`resolve_cut_slots` exactly — degenerate 0-slots dropped, duplicates
+    collapsed — so the manifest's count is DERIVED from the same resolution the
+    replay driver runs, not asserted alongside it.
+
+    ``"end"``, ``timestamp`` and ``fraction`` all resolve against ``dataset.n``
+    and therefore return ``None``: only a real dataset can count those.
+    """
+    mode = cuts.get("mode")
+    if mode not in _VALID_MODES:
+        raise ValueError(
+            f"unknown cut mode {mode!r}; expected one of {sorted(_VALID_MODES)}")
+    if mode not in ("vote-count", "explicit-event-index"):
+        return None
+    at = cuts.get("at", [])
+    if any(a == _END for a in at):
+        return None
+    return len({int(a) for a in at if int(a) > 0})
+
+
 def _count_votes_up_to(votes: list[VoteEvent], t_ms: int) -> int:
     """#votes with ``t_ms <= T`` in a time-sorted list (linear; n is small)."""
     count = 0

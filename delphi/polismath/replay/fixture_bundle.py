@@ -1215,17 +1215,32 @@ def admit_manifest(
         P(bool(sched.get("sha256")), f"schedule {path!r} has no sha256")
         n_cuts = sched.get("n_cuts")
         expected = sched.get("expected_checkpoints")
-        P(isinstance(n_cuts, int) and n_cuts >= 1,
+        P(sched.get("cuts_resolvable_without_dataset") is True,
+          f"schedule {path!r} has cuts that only a dataset can resolve "
+          f"({sched.get('cuts_mode')!r}), so its checkpoint inventory was never "
+          "derived; a count nobody could compute cannot be certified")
+        P(_is_count(n_cuts) and n_cuts >= 1,
           f"schedule {path!r} declares no cuts")
         P(expected == n_cuts,
           f"schedule {path!r} declares {expected} expected checkpoint(s) but "
           f"{n_cuts} cut(s): the checkpoint count must be derived from the "
           "resolved cuts, not asserted")
+        # ZERO-BASED, the replay driver's convention: driver.run_replay compares
+        # step.index (0..steps-1) against restart_after and requires at least
+        # one step AFTER the seam, else the restart is never observed. The
+        # manifest previously used a one-based range, which both rejected the
+        # legal index 0 and admitted the nonexistent index n_cuts.
         restart = sched.get("restart_after")
-        if restart is not None and isinstance(n_cuts, int):
-            P(isinstance(restart, int) and 1 <= restart <= n_cuts,
-              f"schedule {path!r} restarts after cut {restart}, outside its "
-              f"{n_cuts} cut(s)")
+        if restart is not None:
+            P(sched.get("restart_index_base") == RESTART_INDEX_BASE,
+              f"schedule {path!r} does not declare the {RESTART_INDEX_BASE} "
+              "convention for restart_after")
+            P(_is_count(n_cuts) and _is_count(restart)
+              and 0 <= restart <= n_cuts - 2,
+              f"schedule {path!r} restarts after step {restart!r}: the replay "
+              f"driver takes a zero-based step index with at least one step "
+              f"after it, so with {n_cuts!r} checkpoint(s) the legal range is "
+              f"0..{(n_cuts - 2) if _is_count(n_cuts) else '?'}")
 
     if problems:
         raise AdmissionError(_admission_message(manifest, problems))
@@ -1451,9 +1466,30 @@ def scan_public_output(text: str, planted: Iterable[str]) -> list[str]:
     return scan_for_identifiers(_DIGEST_RE.sub("<digest>", text), planted)
 
 
+#: ``restart_after`` is a ZERO-BASED index into the replay driver's resolved
+#: steps, the convention ``polismath.replay.schedule.ReplayStep.index`` and
+#: ``driver.run_replay`` already use (``driver.py`` compares
+#: ``step.index == spec.restart_after``). The manifest and this module use the
+#: SAME convention: index 0 is a legal seam after the first step, and the last
+#: legal seam is ``expected_checkpoints - 2``, because a restart with no step
+#: after it can never be observed.
+RESTART_INDEX_BASE = "zero-based-step-index"
+
+
 def collect_schedule_hashes(schedules_dir: Path) -> list[dict[str, Any]]:
-    """Pin every FILE schedule, with its checkpoint count DERIVED from its own
-    resolved cuts rather than asserted.
+    """Pin every FILE schedule, with its checkpoint count DERIVED from the same
+    cut resolution the replay driver runs, rather than asserted.
+
+    ``expected_checkpoints`` comes from
+    :func:`polismath.replay.schedule.resolved_cut_count`, so duplicate and
+    degenerate cut entries collapse here exactly as they do in
+    :func:`~polismath.replay.schedule.slice_schedule`. Cut modes that resolve
+    against ``dataset.n`` (``"end"``, ``timestamp``, ``fraction``) cannot be
+    counted without the dataset; those entries record ``None`` and say so, and
+    admission refuses to certify a checkpoint inventory it could not derive.
+
+    ``restart_after`` is recorded and validated as a ZERO-BASED step index
+    (:data:`RESTART_INDEX_BASE`).
 
     Coverage limit, recorded in the manifest's ``admission.schedule_coverage``
     and re-stated here so it cannot be forgotten: the certification battery also
@@ -1461,23 +1497,27 @@ def collect_schedule_hashes(schedules_dir: Path) -> list[dict[str, Any]]:
     hashed by this function. Wiring the presets into the pinned inventory is
     section B's work; until then a bundle pins the file schedules only.
     """
+    from polismath.replay import schedule as sched
+
     out: list[dict[str, Any]] = []
     if not schedules_dir.is_dir():
         return out
     for path in sorted(schedules_dir.glob("*.json")):
         data = json.loads(path.read_text())
-        cuts = data.get("cuts", {}).get("at", [])
-        n_cuts = len(cuts)
+        cuts = data.get("cuts", {})
+        resolved = sched.resolved_cut_count(cuts)
         out.append({
             "path": f"schedules/{path.name}",
             "sha256": sha256_file(path),
             "schedule_id": data.get("schedule_id"),
             "dataset": data.get("dataset"),
-            "cuts_mode": data.get("cuts", {}).get("mode"),
-            "n_cuts": n_cuts,
-            # Derived, never asserted: one checkpoint per resolved cut.
-            "expected_checkpoints": n_cuts,
+            "cuts_mode": cuts.get("mode"),
+            "n_cuts": resolved,
+            # Derived by schedule.py's own resolution: one checkpoint per step.
+            "expected_checkpoints": resolved,
+            "cuts_resolvable_without_dataset": resolved is not None,
             "restart_after": data.get("restart_after"),
+            "restart_index_base": RESTART_INDEX_BASE,
             "moderation": data.get("moderation"),
         })
     return out
