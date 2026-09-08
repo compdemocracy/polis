@@ -4,6 +4,7 @@ use crate::{
     config::Config,
     fault::Fault,
     lease::{self, LeaseState},
+    metrics::{Metrics, Tally},
 };
 use anyhow::{Result, bail, ensure};
 use postgres::{Client, NoTls};
@@ -190,6 +191,12 @@ pub struct PgStore {
     pub config: Config,
     pub fault: Fault,
     pub cache: WarmCache,
+    /// CO01/CO06 observability. Emission never fails an operation.
+    pub metrics: Metrics,
+    /// Counters for the pass currently in flight.
+    pub tally: Tally,
+    /// When the bounded backlog aggregate last ran.
+    pub gauged: Option<std::time::Instant>,
 }
 impl PgStore {
     pub fn connect(config: Config) -> Result<Self> {
@@ -198,11 +205,16 @@ impl PgStore {
         client.batch_execute("SET statement_timeout='30s'; SET lock_timeout='5s'; SET application_name='p026-coordinator'")?;
         let fault = Fault::new(&mut client, &config.math_env)?;
         let cache = WarmCache::new(config.cache_capacity);
+        let metrics = Metrics::from_env(&config);
+        tracing::info!(sink = metrics.describe(), namespace = crate::metrics::NAMESPACE, "metrics sink");
         Ok(Self {
             client,
             config,
             fault,
             cache,
+            metrics,
+            tally: Tally::default(),
+            gauged: None,
         })
     }
     /// Restore the primary connection after a terminated backend, so ownership
@@ -362,6 +374,7 @@ impl ResultsStore for PgStore {
         let committed = tx.commit();
         if let Err(error) = committed {
             // Lost COMMIT response: reconnect and compare immutable identity.
+            self.tally.publish_uncertain += 1;
             self.client = Client::connect(&self.config.database_url, NoTls)?;
             if let Current::Coherent(bundle) = self.load_current(zid)?
                 && bundle.checkpoint == checkpoint
