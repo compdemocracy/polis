@@ -357,6 +357,31 @@ describe('reconcileTrackedJob', () => {
     expect(next).toBeNull();
   });
 
+  it('adopts a terminal row the server marks live, on reload', () => {
+    // R4-F3: with no previous state, a COMPLETED root whose checker is still
+    // running was ignored, so a reload lost the banner and the polling.
+    const adopted = reconcileTrackedJob(
+      null,
+      [{ jobId: 'root', status: 'COMPLETED', workLive: true }],
+      false,
+      'r-test'
+    );
+    expect(adopted).not.toBeNull();
+    expect(adopted.jobId).toBe('root');
+    expect(isTrackedJobLive(adopted)).toBe(true);
+  });
+
+  it('does not adopt a job with no queue row behind it', () => {
+    expect(
+      reconcileTrackedJob(
+        null,
+        [{ jobId: 'orphan', status: 'metadata_not_found', workLive: false }],
+        false,
+        'r-test'
+      )
+    ).toBeNull();
+  });
+
   it('does not carry a job across a report change', () => {
     expect(reconcileTrackedJob(acknowledged, [], false, 'r-other')).toBeNull();
   });

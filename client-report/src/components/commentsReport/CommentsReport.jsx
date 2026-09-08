@@ -42,12 +42,28 @@ const isTerminalJobStatus = (status) =>
 
 const isBatchReportJob = (job) => Boolean(job?.jobId?.includes("batch_report_"));
 
+// A listed job is worth adopting if its own status says it is running, or if
+// the server says work is still outstanding under it. The second half matters
+// on reload: a COMPLETED root whose checker is still going is reported
+// `workLive: true`, and ignoring that loses the banner and the polling for
+// exactly the case the server went to the trouble of computing.
+const isListedJobLive = (job) =>
+  ACTIVE_JOB_STATUSES.includes(job?.status) || responseWorkLive(job) === true;
+
 const findActiveJob = (jobs, wantBatch) =>
   (jobs || []).find(
-    (job) =>
-      ACTIVE_JOB_STATUSES.includes(job?.status) &&
-      isBatchReportJob(job) === wantBatch
+    (job) => isListedJobLive(job) && isBatchReportJob(job) === wantBatch
   ) || null;
+
+// The server's per-job effective-work answer, when the response carried one.
+// `undefined` means this response cannot speak to it. The server computes it
+// from a strongly-read sweep, so a `false` is evidence, not an index artefact.
+const responseWorkLive = (job) =>
+  typeof job?.workLive === "boolean"
+    ? job.workLive
+    : typeof job?.work_live === "boolean"
+      ? job.work_live
+      : undefined;
 
 // A tracked job is worth polling unless it is durably finished *and* the server
 // says nothing is outstanding under it. Anything the client cannot classify —
@@ -56,15 +72,6 @@ const findActiveJob = (jobs, wantBatch) =>
 export const isTrackedJobLive = (tracked) =>
   Boolean(tracked) &&
   (!isTerminalJobStatus(tracked.status) || Boolean(tracked.workLive));
-
-// The server's per-job effective-work answer, when the response carried one.
-// `undefined` means this response cannot speak to it.
-const responseWorkLive = (job) =>
-  typeof job?.workLive === "boolean"
-    ? job.workLive
-    : typeof job?.work_live === "boolean"
-      ? job.work_live
-      : undefined;
 
 /**
  * Reconcile a tracked job against a fresh durable job list.
