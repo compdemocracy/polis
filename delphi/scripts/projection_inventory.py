@@ -280,29 +280,69 @@ def _extract_string_literals(text: str, is_py: bool) -> list[tuple[int, str]]:
 
 
 # A wildcard SELECT whose FROM target is not a bare identifier we can resolve.
-_STAR_FROM_RE = re.compile(r"select\s+\*\s+from\b\s*", re.IGNORECASE | re.DOTALL)
 UNRESOLVED = "<unresolved-table>"
+
+# Reviewed allowlist: interpolated wildcards proven to never resolve to a vote
+# table, so they are cleared rather than reported NEEDS-GATE. Each entry matches by
+# file suffix + a case-insensitive substring of the decoded query. Keep this list
+# tiny and justified; a NEW interpolated wildcard NOT listed here fails the gate.
+CLEARED_UNRESOLVED: tuple[tuple[str, str, str], ...] = (
+    (
+        "delphi/polismath/replay/poller_equiv.py",
+        "select * from {table} where zid",
+        "replay harness; {table} is validated against EQUIV_TABLES = "
+        "(math_main, math_bidtopid, math_ptptstats) — never a vote table",
+    ),
+)
+
+# A wildcard projection (`SELECT *` or `<qual>.*`) immediately followed by FROM.
+_WILDCARD_FROM_RE = re.compile(
+    r'(?:select\s+\*|"?\w+"?\s*\.\s*\*)\s+from\b\s*', re.IGNORECASE | re.DOTALL
+)
+# Interpolation markers: ${...} / {...} (f-string, .format), %s/%d/%(name)s.
+_INTERP_RE = re.compile(r"\$\{|\{|%s|%d|%\(")
+_PLAIN_TABLE_RE = re.compile(r'"?[A-Za-z_][\w.\"]*"?$')
+
+
+def _from_target(after: str) -> str:
+    """The FROM target token (up to whitespace / , ; ) )."""
+    after = after.lstrip()
+    if not after:
+        return ""
+    if after[0] == "(":
+        return "("
+    m = re.match(r"[^\s,;)]+", after)
+    return m.group(0) if m else ""
+
+
+def _target_is_unresolved(target: str) -> bool:
+    if target == "":
+        return True  # dangling concatenation tail (`"... FROM " + x`)
+    if target == "(":
+        return False  # subquery over a derived table, not a table wildcard
+    if re.match(r'"?[A-Za-z_][\w."]*\(', target):
+        return False  # a table function (e.g. get_visible_comments($1)) — like a subquery
+    if _INTERP_RE.search(target):
+        return True  # template / f-string / %-format interpolation
+    if re.match(_TBL, target, re.IGNORECASE):
+        return False  # a recognizable vote table (already added by _SELECT_STAR_RE)
+    if _PLAIN_TABLE_RE.match(target):
+        return False  # a resolvable non-vote table (e.g. comments)
+    return True  # anything else -> conservatively unresolved
 
 
 def _sql_hits_in(content: str) -> list[tuple[str, str]]:
     """(table, kind) wildcard hits in one DECODED SQL string. A wildcard SELECT
-    whose table is a template/variable/concatenation (unresolvable statically) is
-    reported as an UNRESOLVED candidate rather than silently cleared."""
+    whose table/qualifier/schema-qualified target contains an interpolation
+    (`${}`, f-string `{}`, `%s`, concatenation) is UNRESOLVED and reported
+    NEEDS-GATE rather than silently cleared."""
     hits: list[tuple[str, str]] = []
     for m in _SELECT_STAR_RE.finditer(content):
         hits.append((m.group(1).lower(), "select-star"))
 
-    # `SELECT * FROM <x>` where <x> is not a recognizable table name and not a
-    # subquery -> unresolved (e.g. `${table}` template, or a dangling concatenation
-    # tail `"... FROM " + table`). A resolvable non-vote table or a subquery `(` is
-    # left alone.
-    for m in _STAR_FROM_RE.finditer(content):
-        after = content[m.end():]
-        if re.match(_TBL, after, re.IGNORECASE):
-            continue  # a recognizable table (vote tables already added above)
-        if after[:1] == "(":
-            continue  # subquery over a derived table, not a table wildcard
-        if after[:2] == "${" or after.strip() == "":
+    # Wildcard projections (bare or qualified) whose FROM target is unresolvable.
+    for m in _WILDCARD_FROM_RE.finditer(content):
+        if _target_is_unresolved(_from_target(content[m.end():])):
             hits.append((UNRESOLVED, "unresolved-table"))
 
     alias_table: dict[str, str] = {}
@@ -351,14 +391,23 @@ def _scan_text(rel: str, text: str, is_ts: bool) -> list[tuple[int, str, str, st
     return unique
 
 
+def _is_cleared_unresolved(rel: str, kind: str, raw: str) -> bool:
+    if kind != "unresolved-table":
+        return False
+    low = raw.lower()
+    return any(rel.endswith(f) and sig.lower() in low for f, sig, _note in CLEARED_UNRESOLVED)
+
+
 def _classify(rel: str, line: int, table: str, kind: str, raw: str) -> WildcardSite:
     low = raw.lower()
     for d in DISPOSITIONS:
         if rel.endswith(d.file_suffix) and d.table == table and d.signature.lower() in low:
             return WildcardSite(rel, line, table, kind, d.symbol, d.reaches_wire,
                                 d.classification, d.note)
-    return WildcardSite(rel, line, table, kind, "?", True, "NEEDS-GATE",
-                        "unreviewed wildcard over a vote table — classify and gate or narrow it")
+    note = ("unresolved wildcard table (template/variable/concatenation) — review it"
+            if kind == "unresolved-table"
+            else "unreviewed wildcard over a vote table — classify and gate or narrow it")
+    return WildcardSite(rel, line, table, kind, "?", True, "NEEDS-GATE", note)
 
 
 def _iter_source_files(root: str) -> list[str]:
@@ -401,6 +450,8 @@ def run_sweep(roots: Optional[Sequence[str]] = None, repo_root: Optional[str] = 
             if is_py:
                 text = _blank_python_docstrings(text)
             for line, table, kind, raw in _scan_text(rel, text, is_ts=not is_py):
+                if _is_cleared_unresolved(rel, kind, raw):
+                    continue  # reviewed non-vote interpolation (see CLEARED_UNRESOLVED)
                 sites.append(_classify(rel, line, table, kind, raw))
     sites.sort(key=lambda s: (s.file, s.line))
     return sites

@@ -147,13 +147,57 @@ def test_python_floor_division_is_not_a_comment(tmp_path) -> None:
     `SELECT *` on the same line is still found; a `#` comment wildcard is NOT."""
     delphi = tmp_path / "delphi"
     delphi.mkdir()
-    (delphi / "div.py").write_text('n = 10 // 2\nq = "SELECT * FROM votes"\n')
+    # Division and the query on ONE line separated by ';' (exercises the regression).
+    (delphi / "div.py").write_text('n = 10 // 2; q = "SELECT * FROM votes"\n')
     sites = inv.run_sweep(roots=[str(delphi)], repo_root=str(tmp_path))
     assert len(sites) == 1 and sites[0].table == "votes", sites
     (delphi / "div.py").unlink()
     # A `#` comment containing a wildcard must NOT count.
     (delphi / "cmt.py").write_text('q = "safe"  # SELECT * FROM votes\n')
     assert inv.run_sweep(roots=[str(delphi)], repo_root=str(tmp_path)) == []
+
+
+def test_interpolated_table_forms_are_needs_gate(tmp_path) -> None:
+    """R7: an interpolated table/qualifier/schema — f-string `{}`, template `${}`,
+    or `public.${}` — is UNRESOLVED and reported NEEDS-GATE, never cleared."""
+    cases = [
+        ("py", "delphi", "fstr.py", 'table = "votes"; q = f"SELECT * FROM {table}"'),
+        ("ts", "server/src", "qual.ts", 'const table="votes"; const q=`SELECT v.* FROM ${table} v`;'),
+        ("ts", "server/src", "schema.ts", 'const table="votes"; const q=`SELECT * FROM public.${table}`;'),
+    ]
+    for _lang, subdir, fn, source in cases:
+        root = tmp_path / subdir
+        root.mkdir(parents=True, exist_ok=True)
+        (root / fn).write_text(source + "\n")
+        sites = inv.run_sweep(roots=[str(root)], repo_root=str(tmp_path))
+        (root / fn).unlink()
+        assert len(sites) == 1, (fn, source, sites)
+        assert sites[0].classification == "NEEDS-GATE" and sites[0].kind == "unresolved-table"
+
+
+def test_table_function_from_is_not_unresolved(tmp_path) -> None:
+    """A wildcard over a table function (like a subquery) is a non-vote source."""
+    src = tmp_path / "server" / "src"
+    src.mkdir(parents=True)
+    (src / "fn.ts").write_text('const q = "SELECT * FROM get_visible_comments($1)";\n')
+    assert inv.run_sweep(roots=[str(src)], repo_root=str(tmp_path)) == []
+
+
+def test_cleared_allowlist_entry_is_not_flagged(tmp_path) -> None:
+    """The reviewed non-vote interpolation (validated against a fixed allowlist) is
+    cleared; the identical query in a non-allowlisted file is NEEDS-GATE."""
+    d = tmp_path / "delphi" / "polismath" / "replay"
+    d.mkdir(parents=True)
+    (d / "poller_equiv.py").write_text(
+        'table = "math_main"; q = f"SELECT * FROM {table} WHERE zid = 1"\n'
+    )
+    assert inv.run_sweep(roots=[str(tmp_path / "delphi")], repo_root=str(tmp_path)) == []
+    # Same query in a file NOT on the allowlist is still reported.
+    other = tmp_path / "delphi" / "other.py"
+    other.write_text('table = "math_main"; q = f"SELECT * FROM {table} WHERE zid = 1"\n')
+    (d / "poller_equiv.py").unlink()
+    hits = inv.run_sweep(roots=[str(tmp_path / "delphi")], repo_root=str(tmp_path))
+    assert len(hits) == 1 and hits[0].classification == "NEEDS-GATE"
 
 
 def test_voters_is_not_matched_as_votes(tmp_path) -> None:
