@@ -683,24 +683,81 @@ class ChannelRun:
         return bool(self.reports) and self.note is None and all(r.ok for r in self.reports)
 
 
+@dataclass(frozen=True)
+class ServerIdentity:
+    """The database cluster identity used to prove a replica is a distinct server."""
+
+    system_identifier: str
+    in_recovery: bool
+    server_addr: Optional[str]
+
+
+def _server_identity(dsn: str) -> ServerIdentity:
+    with read_only_connection(dsn) as conn:
+        with _read_only_cursor(conn) as cur:
+            _execute(
+                cur,
+                "SELECT (SELECT system_identifier::text FROM pg_control_system()), "
+                "pg_is_in_recovery(), inet_server_addr()::text",
+            )
+            sysid, in_recovery, addr = cur.fetchone()
+    return ServerIdentity(str(sysid), bool(in_recovery), addr)
+
+
 @dataclass
 class Manifest:
-    """A coverage manifest binding required runs and their results (P4).
+    """A coverage manifest binding required runs and their results (P4/R3).
 
     A bare ``--dsn`` is not proof of replica coverage: the manifest records which
-    labelled runs were demanded (e.g. primary AND replica) and fails if any
-    required run is missing, empty, or not PASS.
+    labelled runs were demanded, PROVES the replica is a distinct server (a
+    different ``pg_control_system()`` identifier, or ``pg_is_in_recovery()`` true —
+    unless the operator explicitly approves a same-cluster read pool), and requires
+    non-empty POPULATED coverage for every requested site (declaring everything
+    empty is not acceptance).
     """
 
     runs: list[ChannelRun]
     require_replica: bool
     replica_seen: bool
+    requested_sites: tuple[str, ...]
+    primary_identity: Optional[ServerIdentity] = None
+    replica_identity: Optional[ServerIdentity] = None
+    approve_same_identity: bool = False
+
+    @property
+    def distinct_replica(self) -> bool:
+        if not self.replica_seen or self.replica_identity is None or self.primary_identity is None:
+            return False
+        if self.approve_same_identity:
+            return True
+        return (
+            self.replica_identity.in_recovery
+            or self.replica_identity.system_identifier != self.primary_identity.system_identifier
+        )
+
+    @property
+    def populated_ok(self) -> bool:
+        """Every requested site is populated (row_count_served > 0) on the primary."""
+        primary = [r for run in self.runs if run.dsn_label == "primary" for r in run.reports]
+        if not primary:
+            return False
+        for name in self.requested_sites:
+            site_reports = [r for r in primary if r.site.name == name]
+            if not site_reports or not any(r.row_count_served > 0 for r in site_reports):
+                return False
+        return True
 
     @property
     def ok(self) -> bool:
+        if not self.runs:
+            return False
         if self.require_replica and not self.replica_seen:
             return False
-        return bool(self.runs) and all(run.ok for run in self.runs)
+        if self.require_replica and not self.distinct_replica:
+            return False
+        if not self.populated_ok:
+            return False
+        return all(run.ok for run in self.runs)
 
     def summary_line(self) -> str:
         verdict = "PASS" if self.ok else "FAIL"
@@ -708,8 +765,15 @@ class Manifest:
         for r in self.runs:
             v = "PASS" if r.ok else (f"UNAVAILABLE({r.note})" if r.note else "FAIL")
             parts.append(f"{r.dsn_label}/{r.channel}={v}")
-        rep = " (replica MISSING)" if self.require_replica and not self.replica_seen else ""
-        return f"MANIFEST {verdict}: {', '.join(parts)}{rep}"
+        reasons = []
+        if self.require_replica and not self.replica_seen:
+            reasons.append("replica MISSING")
+        elif self.require_replica and not self.distinct_replica:
+            reasons.append("replica NOT a distinct server")
+        if not self.populated_ok:
+            reasons.append("no populated coverage")
+        tail = (" [" + "; ".join(reasons) + "]") if reasons else ""
+        return f"MANIFEST {verdict}: {', '.join(parts)}{tail}"
 
 
 def run_manifest(
@@ -723,6 +787,7 @@ def run_manifest(
     channels: Sequence[str] = ("preflight",),
     server_dir: Optional[str] = None,
     node_modules: Optional[str] = None,
+    approve_same_identity: bool = False,
 ) -> Manifest:
     runs: list[ChannelRun] = []
 
@@ -745,9 +810,20 @@ def run_manifest(
                 runs.append(ChannelRun(label, "wire", [], note=str(exc)))
 
     add("primary", primary_dsn)
+    primary_identity = _server_identity(primary_dsn)
+    replica_identity: Optional[ServerIdentity] = None
     if replica_dsn:
         add("replica", replica_dsn)
-    return Manifest(runs=runs, require_replica=require_replica, replica_seen=bool(replica_dsn))
+        replica_identity = _server_identity(replica_dsn)
+    return Manifest(
+        runs=runs,
+        require_replica=require_replica,
+        replica_seen=bool(replica_dsn),
+        requested_sites=tuple(sites) if sites else tuple(SITES),
+        primary_identity=primary_identity,
+        replica_identity=replica_identity,
+        approve_same_identity=approve_same_identity,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -760,7 +836,9 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     p.add_argument("--dsn", required=True, help="primary Postgres connection string")
     p.add_argument("--replica-dsn", default=None, help="replica connection string (read-only; safe)")
     p.add_argument("--require-replica", action="store_true",
-                   help="fail the manifest unless a replica run is provided (acceptance item 3)")
+                   help="fail the manifest unless a DISTINCT replica run is provided (acceptance item 3)")
+    p.add_argument("--approve-same-identity", action="store_true",
+                   help="accept a replica DSN on the same cluster (an intentionally primary read pool)")
     p.add_argument("--zid", type=int, required=True, help="conversation id to project (synthetic in tests)")
     p.add_argument("--pid", type=int, default=None)
     p.add_argument("--tid", type=int, default=None)
@@ -802,6 +880,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         channels=channels,
         server_dir=args.server_dir,
         node_modules=args.node_modules,
+        approve_same_identity=args.approve_same_identity,
     )
     for run in manifest.runs:
         _print_run(run)

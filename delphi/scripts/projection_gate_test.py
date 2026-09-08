@@ -359,12 +359,36 @@ def test_manifest_requires_replica_when_demanded(dsn: str) -> None:
     # A bare primary DSN is not proof of replica coverage.
     m = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID}, replica_dsn=None, require_replica=True)
     assert not m.ok and not m.replica_seen
-    # Both a primary and a replica run present and populated -> manifest PASS.
+    # The SAME server passed twice is NOT a distinct replica (R3 defect 3).
     m2 = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID}, replica_dsn=dsn, require_replica=True)
-    assert m2.ok and m2.replica_seen and len(m2.runs) == 2
+    assert not m2.ok and m2.replica_seen and not m2.distinct_replica
+    # An explicitly approved same-cluster read pool is accepted (still populated).
+    m2b = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID}, replica_dsn=dsn,
+                          require_replica=True, approve_same_identity=True)
+    assert m2b.ok and len(m2b.runs) == 2
     # An empty populated-required run fails the whole manifest.
     m3 = pg.run_manifest(dsn, {"zid": -SYNTHETIC_ZID})
     assert not m3.ok
+
+
+def test_manifest_rejects_same_server_replica_and_empty_coverage(dsn: str) -> None:
+    """R3 defect 3: same DSN as primary+replica, or an all-empty run, must FAIL."""
+    import unittest.mock as mock
+
+    same = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID}, replica_dsn=dsn, require_replica=True)
+    assert not same.ok and not same.distinct_replica
+    # Declaring both sites empty does not certify: no populated coverage.
+    empty = pg.run_manifest(dsn, {"zid": -SYNTHETIC_ZID}, replica_dsn=dsn,
+                            require_replica=True, allow_empty=list(pg.SITES),
+                            approve_same_identity=True)
+    assert not empty.ok and not empty.populated_ok
+    # A genuinely distinct replica (standby: pg_is_in_recovery() true) passes:
+    # patch the identity probe so the 2nd call (replica) reports a standby.
+    primary_id = pg._server_identity(dsn)
+    standby_id = pg.ServerIdentity(primary_id.system_identifier, True, None)
+    with mock.patch.object(pg, "_server_identity", side_effect=[primary_id, standby_id]):
+        m = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID}, replica_dsn=dsn, require_replica=True)
+    assert m.distinct_replica and m.ok
 
 
 # --- P1: bind to the real served path (query builder + pg types + serializer) ---
@@ -452,6 +476,7 @@ def test_manifest_wire_channel_binds_replica(dsn: str) -> None:
     m = pg.run_manifest(
         dsn, {"zid": SYNTHETIC_ZID, "pid": 0}, replica_dsn=dsn,
         require_replica=True, channels=("preflight", "wire"),
+        approve_same_identity=True,  # same-cluster read pool, explicitly approved
     )
     assert m.ok
     channels = {(r.dsn_label, r.channel) for r in m.runs}
