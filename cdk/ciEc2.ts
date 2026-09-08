@@ -80,6 +80,16 @@ export interface CertificationCiEc2Props {
    * subject from some other one (review E3).
    */
   readonly githubEnvironment: string;
+  /**
+   * Exact `job_workflow_ref` values the token must carry — the reviewed
+   * workflow file at a reviewed branch. The environment subject binds neither
+   * the workflow nor the event (review R2-F5): a job in ANY workflow that
+   * references this environment gets the same subject. These claims do bind
+   * them, and they fail closed.
+   */
+  readonly githubWorkflowRefs: string[];
+  /** Exact `event_name` values admitted. Excludes `pull_request` at the token. */
+  readonly githubEventNames: string[];
   /** Default instance type baked into the template. */
   readonly instanceType: ec2.InstanceType;
   /** Must match `instanceType`'s architecture. */
@@ -256,6 +266,13 @@ export class CertificationCiEc2 extends Construct {
           'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
           'token.actions.githubusercontent.com:sub':
             `repo:${props.githubRepo}:environment:${props.githubEnvironment}`,
+          // The subject alone binds neither workflow nor event. These two
+          // claims do. A StringEquals against a list is an OR, so each is an
+          // explicit allowlist. Both must be validated against the repository's
+          // actual token claims before the first real run: a wrong claim name
+          // fails the assume, which is the correct direction to fail.
+          'token.actions.githubusercontent.com:job_workflow_ref': props.githubWorkflowRefs,
+          'token.actions.githubusercontent.com:event_name': props.githubEventNames,
         },
       }),
     });

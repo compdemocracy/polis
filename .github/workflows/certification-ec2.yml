@@ -88,16 +88,25 @@ jobs:
         with:
           persist-credentials: false
 
-      # Session 1: broad enough to launch. The role itself is pinned to one
-      # launch template, one instance profile and an IAM-enforced instance-type
-      # allowlist, so "broad" here still cannot select arbitrary spend.
-      - name: Assume the launch role
+      # Session 1 launches, and does ONLY that. The base role holds a
+      # tag-scoped SendCommand that reaches any concurrent campaign's box, and
+      # an identity policy cannot name an instance that does not exist yet — so
+      # instead no live session ever carries that grant: this session subtracts
+      # SSM entirely, and session 2 pins it to one instance ARN.
+      - name: Assume the launch role (launch-only session)
         uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: ${{ vars.CERTIFY_OIDC_ROLE_ARN }}
           aws-region: ${{ vars.CERTIFY_REGION || 'us-east-1' }}
           role-session-name: certify-launch-${{ github.run_id }}-${{ github.run_attempt }}
           role-duration-seconds: 3600
+          inline-session-policy: >-
+            {"Version":"2012-10-17","Statement":[
+              {"Sid":"LaunchOnly","Effect":"Allow",
+               "Action":["ec2:RunInstances","ec2:CreateTags","iam:PassRole",
+                         "ec2:DescribeInstances","ec2:DescribeInstanceStatus",
+                         "sts:GetCallerIdentity"],
+               "Resource":"*"}]}
 
       - name: Launch the disposable worker
         id: launch
