@@ -17,4 +17,49 @@ function comparable(c) {
   }
   return copy;
 }
-module.exports = { comparable };
+function firstDifference(expected, actual) {
+  const { firstDiff } = require("./core.cjs");
+  const a = comparable(expected),
+    b = comparable(actual);
+  // Name served fields before their serialized bytes and derived headers.
+  const field = firstDiff(a, b, "$", {
+    $: [
+      "response",
+      "effects",
+      "process",
+      "routeHits",
+      "orderedHeaders",
+      "wireBody",
+    ],
+    "$.response": ["body"],
+  });
+  if (!field || !firstDiff(a.response.body, b.response.body)) return field;
+  const consequences = [];
+  for (const [i, h] of a.orderedHeaders.entries()) {
+    const other = b.orderedHeaders[i],
+      name = h.name.toLowerCase();
+    if (
+      !other ||
+      other.name.toLowerCase() !== name ||
+      h.value === other.value ||
+      !["content-length", "etag"].includes(name)
+    )
+      continue;
+    const derive = (c) => {
+      const body = Buffer.from(c.wireBody, "base64");
+      return name === "content-length"
+        ? String(body.length)
+        : require("express/lib/utils").wetag(body);
+    };
+    // A mismatched header is not a consequence unless both derivations hold.
+    if (h.value === derive(a) && other.value === derive(b))
+      consequences.push(`$.orderedHeaders.${i}.value (${name})`);
+  }
+  return (
+    field +
+    (consequences.length
+      ? ` (body-derived consequences: ${consequences.join(", ")})`
+      : "")
+  );
+}
+module.exports = { comparable, firstDifference };

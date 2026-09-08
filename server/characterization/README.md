@@ -1,6 +1,6 @@
-# P-027 API characterization, corrections round 2
+# P-027 API characterization, corrections round 3
 
-This is a generated-data, validation-heavy characterization corpus. Record and fresh-stack replay each completed 533 cases with zero differences and zero oracle failures. Of 128 targeted registrations, 29 have a 2xx and 99 have none; 54 are role-invariant across their recorded scenarios (58 invariant scenario groups / 232 cases). There are 19 DB-effect cases, two participant creations and two verified client-visible JWTs. 339 responses are 400 and six are 500. Dispatch coverage is 129/201 with 72 exclusions. Dispatch of
+This is a generated-data, validation-heavy characterization corpus. Record and fresh-stack replay each completed 533 cases with zero differences and zero oracle failures. **307/533 bodies are the identical opaque "Bad Request" string (HTTP 400, trailing newline) under production serialization; 533 cases do not mean 533 distinct response shapes.** Of 128 targeted registrations, 29 have a 2xx and 99 have none; 54 are role-invariant across their recorded scenarios (58 invariant scenario groups / 232 cases). There are 19 DB-effect cases, two participant creations and two verified client-visible JWTs. 339 responses are 400 and six are 500. Dispatch coverage is 129/201 with 72 exclusions. Dispatch of
 129 registrations is not 129 successful authorization/effect contracts. The
 boundary requests retain three temporary defect workarounds: P-029/r11 (invalid
 UUID), P-029/r88 (empty UPDATE), P-029/r102 (NULL conversation on report creation).
@@ -26,11 +26,11 @@ ordinary admission. No egress exception was added.
 
 ## Isolated operation
 
-Use three unused host ports in 55970–55999 and a fresh random project suffix:
+Use three unused host ports in 55940–55949 and a fresh random project suffix:
 
 ```sh
-export COMPOSE_PROJECT_NAME=p027r2fix-$(openssl rand -hex 4)
-export POLIS_RECOVERY_PG_PORT=55970 P027_HTTP_PORT=55971 P027_CONTROL_PORT=55972
+export COMPOSE_PROJECT_NAME=p027r3fix-$(openssl rand -hex 4)
+export POLIS_RECOVERY_PG_PORT=55940 P027_HTTP_PORT=55941 P027_CONTROL_PORT=55942
 python3 server/characterization/run.py record recording
 python3 server/characterization/run.py down
 python3 server/characterization/run.py replay recording
@@ -108,6 +108,12 @@ The runtime route census observes all 302 Express 3 entries and preserves ALL
 origin IDs. Normalized tuples include path kind/source, regex flags, enabled
 condition and ordered callback fingerprints. Global middleware installation order
 is also recorded and compared before replay.
+
+Replay diagnostics visit semantic response body fields first, then effects/process and
+other response evidence. When the body differs, verified Content-Length/ETag
+derivations are reported as consequences of that body difference; header-only
+regressions still fail. Generated reports and coverage-stats.json include opaque-400
+counts for each targeted registration.
 
 ## Completion, ownership and scope
 

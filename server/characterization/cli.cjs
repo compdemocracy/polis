@@ -19,6 +19,7 @@ const {
   normalizeDump,
   coverage,
   coverageStats,
+  coverageTable,
   readRecording,
   oracle,
 } = require("./core.cjs");
@@ -423,7 +424,7 @@ async function runCase(c, tokens, tables, normalizer) {
     routeHits,
   };
 }
-const { comparable } = require("./compare.cjs");
+const { firstDifference } = require("./compare.cjs");
 function write(dir, name, x) {
   fs.writeFileSync(
     path.join(dir, name),
@@ -677,9 +678,7 @@ async function main() {
   for (let i = 0; i < planned.length; i++) {
     const actual = await runCase(planned[i], tokens, selected, norm);
     results.push(actual);
-    const field = expected
-      ? firstDiff(comparable(expected.cases[i]), comparable(actual))
-      : null;
+    const field = expected ? firstDifference(expected.cases[i], actual) : null;
     diffs.push({
       route: actual.routeId,
       auth: actual.auth,
@@ -783,7 +782,9 @@ async function main() {
   write(
     out,
     "report.md",
-    `Validation-heavy generated corpus: ${stats.cases} cases; ${stats.registrationsWith2xx}/${stats.targetRegistrations} targeted registrations with any 2xx; ${stats.roleInvariantRegistrations} role-invariant registrations; ${stats.dbEffectCases} DB-effect cases; ${stats.participantsCreated} participants and ${stats.jwtsIssued} verified client-visible JWTs. Three temporary P-029/r11,r88,r102 generator exceptions remain. Dispatch coverage is not API replacement admission.\n\n` +
+    `Validation-heavy generated corpus: ${stats.cases} cases; ${stats.opaque400Cases}/${stats.cases} bodies are the identical opaque "Bad Request" string (HTTP 400, trailing newline) under production serialization, not distinct response shapes; ${stats.registrationsWith2xx}/${stats.targetRegistrations} targeted registrations with any 2xx; ${stats.roleInvariantRegistrations} role-invariant registrations; ${stats.dbEffectCases} DB-effect cases; ${stats.participantsCreated} participants and ${stats.jwtsIssued} verified client-visible JWTs. Three temporary P-029/r11,r88,r102 generator exceptions remain. Dispatch coverage is not API replacement admission.\n\n` +
+      coverageTable(stats) +
+      "\n" +
       "| Route | Auth | Case | Result | First differing field |\n|---|---|---|---|---|\n" +
       diffs
         .map(
