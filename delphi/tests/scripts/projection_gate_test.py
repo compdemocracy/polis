@@ -16,7 +16,7 @@ classification for:
 If docker is unavailable, the whole module is skipped with a clear reason. Run just
 this module (nothing else):
 
-    <venv>/bin/python -m pytest delphi/scripts/projection_gate_test.py -q
+    <venv>/bin/python -m pytest delphi/tests/scripts/projection_gate_test.py -q
 
 ``selected_vote_event_id`` / ``vote_event_id`` do NOT exist on edge (verified: no
 migration 000000..000018 adds them; they arrive with P-047), so there is no legacy
@@ -39,16 +39,19 @@ import pytest
 
 # delphi/scripts is put on sys.path by conftest.py (the checkout locator); the
 # implementation lives there, this test lives under delphi/tests/scripts so the
-# Delphi CI job collects it. The import is guarded so the copied /app/tests layout
-# (no checkout on sys.path, or no psycopg2) FAILS CLOSED to a per-test skip instead
-# of erroring at collection.
+# Delphi CI job collects it. The import fails closed to a per-test skip ONLY when
+# the implementation MODULE itself is absent (no checkout on sys.path); any other
+# import-time failure — a missing dependency, a syntax error, a RuntimeError in a
+# LOCATED implementation — propagates as a test ERROR, not a green skip.
 try:
     import projection_gate as pg  # noqa: E402
-except Exception as _import_error:  # pragma: no cover - exercised only in CI layout
+except ModuleNotFoundError as _import_error:  # pragma: no cover - CI layout only
+    if _import_error.name != "projection_gate":
+        raise
     pg = None  # type: ignore[assignment]
     _GATE_SKIP = (
-        f"projection_gate unavailable ({type(_import_error).__name__}: {_import_error}); "
-        "needs a polis checkout on sys.path (see conftest) and psycopg2"
+        "projection_gate not found on sys.path (no polis checkout — see conftest); "
+        "set POLIS_CHECKOUT_DIR to run these tests"
     )
 else:
     _GATE_SKIP = None

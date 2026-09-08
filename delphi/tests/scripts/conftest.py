@@ -1,7 +1,7 @@
 """Checkout locator for the projection-gate scripts tests.
 
 The implementations live in ``delphi/scripts/`` (``projection_gate.py``,
-``projection_inventory.py``, ``projection-gate-witness.mjs``), which the Delphi CI
+``projection_inventory.py``; the Node witness is ``server/scripts/projection-gate-witness.mjs``). The Delphi CI
 job does NOT copy into ``/app/tests`` (it copies only ``delphi/tests``). So these
 test modules need a real polis CHECKOUT. This conftest locates it
 (``POLIS_CHECKOUT_DIR`` override, else walk up for
