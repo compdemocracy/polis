@@ -1,5 +1,9 @@
 //! CO04 v0: parent -> lease -> ticks -> bidtopid -> ptptstats -> main.
-use crate::{config::Config, fault::Fault};
+use crate::{
+    config::Config,
+    fault::Fault,
+    lease::{self, LeaseState},
+};
 use anyhow::{Result, bail, ensure};
 use postgres::{Client, NoTls};
 use serde::{Deserialize, Serialize};
@@ -151,7 +155,9 @@ pub enum Current {
 pub enum Publication {
     Committed(i64),
     Conflict,
-    Fenced,
+    /// Ownership was refused inside the publication transaction, with the
+    /// distinguishable lease state that refused it.
+    Refused(LeaseState),
 }
 #[derive(Debug, Serialize)]
 pub struct Metadata {
@@ -195,6 +201,16 @@ impl PgStore {
             fault,
         })
     }
+    /// Restore the primary connection after a terminated backend, so ownership
+    /// can still be released instead of being held for the rest of the window.
+    pub fn reconnect_if_closed(&mut self) -> Result<()> {
+        if self.client.is_closed() {
+            let mut client = Client::connect(&self.config.database_url, NoTls)?;
+            client.batch_execute("SET statement_timeout='30s'; SET lock_timeout='5s'; SET application_name='p026-coordinator'")?;
+            self.client = client;
+        }
+        Ok(())
+    }
     /// Explicit local migration command; never implicitly migrate on startup.
     pub fn migrate(&mut self) -> Result<()> {
         self.client
@@ -223,6 +239,12 @@ impl PgStore {
         tx.execute("UPDATE coordinator_leases SET expires_at=clock_timestamp() WHERE math_env=$1 AND zid=$2 AND owner_id=$3 AND owner_epoch=$4", &[&c.math_env,&zid,&c.owner,&epoch])?;
         tx.commit()?;
         Ok(())
+    }
+    /// Authoritative classification of our ownership right now.
+    /// `None` means the lease is still ours and unexpired.
+    pub fn lease_state(&mut self, zid: i32, epoch: i64) -> Result<Option<LeaseState>> {
+        let row = self.client.query_opt("SELECT owner_id,owner_epoch,expires_at>clock_timestamp() FROM coordinator_leases WHERE math_env=$1 AND zid=$2", &[&self.config.math_env,&zid])?;
+        Ok(lease::classify(row.as_ref(), &self.config, epoch))
     }
     pub fn current_tick(&mut self, zid: i32) -> Result<Option<i64>> {
         Ok(self
@@ -282,9 +304,9 @@ impl ResultsStore for PgStore {
             "SELECT zid FROM conversations WHERE zid=$1 FOR KEY SHARE",
             &[&zid],
         )?;
-        let owned = tx.query_opt("SELECT owner_id=$3 AND owner_epoch=$4 AND expires_at>clock_timestamp() FROM coordinator_leases WHERE math_env=$1 AND zid=$2 FOR UPDATE", &[&c.math_env,&zid,&c.owner,&epoch])?;
-        if !owned.is_some_and(|r| r.get::<_, bool>(0)) {
-            return Ok(Publication::Fenced);
+        let owned = tx.query_opt("SELECT owner_id,owner_epoch,expires_at>clock_timestamp() FROM coordinator_leases WHERE math_env=$1 AND zid=$2 FOR UPDATE", &[&c.math_env,&zid])?;
+        if let Some(state) = lease::classify(owned.as_ref(), c, epoch) {
+            return Ok(Publication::Refused(state));
         }
         let context = json!({"zid":zid,"math_env":c.math_env,"epoch":epoch,"checkpoint":checkpoint,
             "backend_pid":tx.query_one("SELECT pg_backend_pid()", &[])?.get::<_,i32>(0)});
@@ -327,9 +349,11 @@ impl ResultsStore for PgStore {
         self.fault.hit("before_commit", &context)?;
         // The lease row remains locked throughout publication; a transferee cannot
         // acquire an epoch while this transaction is still capable of committing.
+        // The lease row is still locked, so only our own elapsed lease can
+        // refuse here; a transferee cannot have taken it while we can commit.
         let unexpired: bool = tx.query_one("SELECT expires_at>clock_timestamp() FROM coordinator_leases WHERE math_env=$1 AND zid=$2", &[&c.math_env,&zid])?.get(0);
         if !unexpired {
-            return Ok(Publication::Fenced);
+            return Ok(Publication::Refused(LeaseState::Expired));
         }
         let committed = tx.commit();
         if let Err(error) = committed {
