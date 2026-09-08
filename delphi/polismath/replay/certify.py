@@ -734,14 +734,47 @@ def run_clj_driver(
         raise CertifyError("clj-driver-launch", str(exc)) from exc
 
 
+# Reject anything that would make the (dataset, schedule_id) -> path mapping
+# ambiguous or let it escape the scratch directory. "/" is the one delimiter
+# that cannot appear in either component, which is exactly what makes the
+# nested layout in _write_temp_schedule injective — so it must be rejected,
+# along with the platform separator, traversal and empty/dot names.
+def _validate_path_component(value: Any, field: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise CertifyError("schedule-path",
+                           f"{field} must be a nonempty string, got {value!r}")
+    if value in (".", "..") or "/" in value or os.sep in value or "\0" in value:
+        raise CertifyError("schedule-path",
+                           f"{field} must not contain a path separator or traversal: {value!r}")
+    return value
+
+
 def _write_temp_schedule(spec: sched.ScheduleSpec, root: Path) -> Path:
     """Write ``spec`` (with its final, collision-free schedule_id already
     baked in) to a scratch file used purely as the driver CLI's ``--schedule``
-    input — overwritten deterministically per (dataset, schedule_id)."""
-    tmp_dir = root / ".certify_cache" / "tmp_schedules"
+    input.
+
+    The path is UNAMBIGUOUS in (dataset, schedule_id). The previous
+    ``f"{dataset}__{schedule_id}.json"`` flattening was not: the valid pairs
+    ``("synthetic__a", "b-clojure-legacy")`` and ``("synthetic", "a__b-clojure-legacy")``
+    produced the same filename, so whichever entry wrote second silently handed
+    the OTHER entry's schedule to a producer (P-022 B1 review, P2). Distinct
+    recording directories do not isolate this shared input file.
+
+    Both components are validated to contain no path separator, so ``/`` — the
+    one delimiter that cannot occur inside either — makes the nested layout
+    ``<dataset>/<schedule_id>.json`` injective. The write is atomic (tmp +
+    ``os.replace``) so a concurrent battery worker reaching the same key can
+    never observe a torn file as its ``--schedule`` input.
+    """
+    dataset = _validate_path_component(spec.dataset, "schedule dataset")
+    schedule_id = _validate_path_component(spec.schedule_id, "schedule_id")
+    tmp_dir = root / ".certify_cache" / "tmp_schedules" / dataset
     tmp_dir.mkdir(parents=True, exist_ok=True)
-    p = tmp_dir / f"{spec.dataset}__{spec.schedule_id}.json"
-    spec.write_json(p)
+    p = tmp_dir / f"{schedule_id}.json"
+    staging = p.with_name(f"{schedule_id}.tmp-{os.getpid()}-{threading.get_ident()}")
+    spec.write_json(staging)
+    os.replace(staging, p)
     return p
 
 
