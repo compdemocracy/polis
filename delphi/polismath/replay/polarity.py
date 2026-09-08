@@ -325,18 +325,19 @@ class ConventionDescriptor:
 
     def __post_init__(self) -> None:
         validate_storage_agree_value(self.storage_agree_value)
-        if self.pair_side not in PAIR_SIDES:
-            raise PolarityError(f"unknown pair side {self.pair_side!r}")
-        if self.input_convention not in INPUT_CONVENTIONS:
-            raise PolarityError(
-                f"input convention {self.input_convention!r} is not one of "
-                f"{sorted(INPUT_CONVENTIONS)}: an unknown convention fails "
-                f"admission")
-        if self.output_convention not in OUTPUT_CONVENTIONS:
-            raise PolarityError(
-                f"output convention {self.output_convention!r} is not one of "
-                f"{sorted(OUTPUT_CONVENTIONS)}: an unknown convention fails "
-                f"admission")
+        # TYPE before membership (Astra review #2730 R2-F2): a container-valued
+        # convention or side raised a raw `TypeError: unhashable type` out of
+        # the set test instead of the named PolarityError this contract
+        # promises. A container is not a convention token.
+        for field, value, allowed in (
+            ("pair side", self.pair_side, PAIR_SIDES),
+            ("input convention", self.input_convention, INPUT_CONVENTIONS),
+            ("output convention", self.output_convention, OUTPUT_CONVENTIONS),
+        ):
+            if not isinstance(value, str) or value not in allowed:
+                raise PolarityError(
+                    f"{field} {value!r} ({type(value).__name__}) is not one of "
+                    f"{sorted(allowed)}: an unknown convention fails admission")
 
     def cache_fields(self) -> dict[str, Any]:
         return {
@@ -480,7 +481,7 @@ FAILING_CONTROLS: tuple[str, ...] = tuple(c for c in CONTROLS if c != CONTROL_NO
 
 def _apply_control(
     rows: Sequence[dict[str, Any]], s: int, control: str,
-) -> tuple[list[dict[str, Any]], int, bool]:
+) -> tuple[list[dict[str, Any]], int, str | None]:
     """Build the FLIPPED side under ``control``. Returns
     ``(rows_b, s_b, double_convert_side)`` where the third element names the
     side whose ingress converts twice (``None`` for every other control).

@@ -402,6 +402,43 @@ def test_N_refuses_a_malformed_marker_at_the_comparison_boundary(malformed):
         pol.vote_axis_involution(view)
 
 
+#: Marker values whose fields are CONTAINERS. These hashed before they were
+#: typed, so each raised a raw ``TypeError: unhashable type`` out of the set
+#: membership test — an ungraded crash at a gate that promises a named failure
+#: (Astra review #2730 R2-F2).
+NESTED_MARKER_VALUES = [
+    ("profile", []), ("profile", {}), ("vote_axis", {}), ("vote_axis", set()),
+    ("transforms", [[]]), ("transforms", [{}]),
+]
+
+
+@pytest.mark.parametrize("field,value", NESTED_MARKER_VALUES)
+def test_a_container_valued_marker_field_is_a_graded_failure(field, value):
+    """Every malformed shape is a NAMED gate failure, never an exception: the
+    three boundaries must grade it, not crash through it."""
+    bad = op.marker()
+    bad[field] = value
+    blob = {op.OUTPUT_PROFILE_KEY: bad}
+
+    with pytest.raises(op.OutputProfileError, match=field):
+        Conversation.from_dict(blob)
+    with pytest.raises(cert.CertifyError, match=field) as raised:
+        cert.validate_checkpoint_blob(blob, "nested marker")
+    assert raised.value.stage == "checkpoint-schema"
+    with pytest.raises(pol.PolarityError, match=field):
+        pol.vote_axis_involution(dict(_projected(GEOMETRY_BLOB),
+                                      **{op.OUTPUT_PROFILE_KEY: bad}))
+    assert any(field in problem for problem in op.marker_problems(bad))
+
+
+@pytest.mark.parametrize("field", ["input_convention", "output_convention",
+                                   "pair_side"])
+@pytest.mark.parametrize("value", [[], {}, set(), 1, None])
+def test_a_container_valued_convention_is_a_graded_failure(field, value):
+    with pytest.raises(pol.PolarityError, match="is not one of"):
+        pol.ConventionDescriptor(**{field: value})
+
+
 def test_a_well_formed_marker_round_trips_through_the_validator():
     view = _projected(GEOMETRY_BLOB)
     assert op.marker_problems(view[op.OUTPUT_PROFILE_KEY]) == []

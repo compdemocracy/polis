@@ -74,7 +74,9 @@ from polismath.utils.vote_convention import (
 #: /2 was the lossless correction: NULL ``weight_x_32767`` and NULL
 #: ``votes.vote`` survive extraction as nulls instead of becoming 0, and the
 #: manifest carries an ``admission`` block stating the release policy that
-#: :func:`admit_manifest` enforces. A /1 or /2 manifest is NOT admissible.
+#: :func:`admit_manifest` enforces. A /1 manifest is NOT admissible; a /2
+#: manifest IS, unchanged, on its original bytes — see
+#: :data:`ADMISSIBLE_MANIFEST_SCHEMA_VERSIONS`.
 MANIFEST_SCHEMA_VERSION = "certify-fixture-manifest/3"
 #: The PREVIOUS closed manifest schema. It stays verifiable and admissible
 #: BYTE-FOR-BYTE (Astra review #2730 F-compat): a /2 manifest carries no
@@ -392,7 +394,10 @@ def build_transform_block(
     manifest names the original's final digests, and the original — which was
     published first and is immutable — names nothing. A copied manifest with an
     edited sign and stale hashes is not an admitted pair, which is why the
-    original's ``root_digest`` AND its ``manifest.json`` digest are both bound.
+    original's ``root_digest`` AND its ``manifest.json`` digest are both bound
+    — as DECLARATIONS. Neither is independently fetched and re-derived here;
+    see :func:`build_derived_manifest` for what that deferral does and does not
+    leave certified.
 
     ``bijective_verified`` is NOT coerced (Astra review #2730 F3): ``bool("false")``
     is ``True``, so coercion turned an unverified — or misspelled — declaration
@@ -570,8 +575,20 @@ def build_derived_manifest(
 
     The original is never mutated and never learns about the derivative: the
     pair descriptor points one way only. ``source_manifest_sha256`` is the
-    digest of the original's published ``manifest.json`` bytes, which is what
-    makes a stale or hand-edited source detectable rather than merely claimed.
+    digest of the original's published ``manifest.json`` bytes.
+
+    DEFERRED, and NOT claimed by this function or by any round-trip test built
+    on it: the source digests recorded here are DECLARATIONS. Nothing in this
+    slice fetches the original bundle's bytes and re-derives those digests, and
+    nothing independently verifies that this payload really is the bijective
+    involution of the source payload. Admission checks the block's shape and
+    its cross-field consistency — opposite conventions, a non-circular binding,
+    a known transform id, a strictly boolean verification flag, and the origin
+    rules each derived role inherits. A verify/admit/push/pull round trip of a
+    derived bundle therefore proves that it is internally consistent and
+    publishable, NOT that its stated source is real or that the transform was
+    performed correctly. The independent source-fetch and bijection gate
+    remains required before certifying an actual derived bundle.
     """
     if source_manifest.get("schema_version") not in ADMISSIBLE_MANIFEST_SCHEMA_VERSIONS:
         raise BundleError(
@@ -1584,6 +1601,17 @@ def admit_manifest(
               f"role {slug!r} measured metrics do NOT satisfy the config "
               f"predicates it claims to have been selected under: "
               f"{_failed_predicates(metrics, rule['predicates'])}")
+        # The EFFECTIVE source: for a derived role, the source of the role it
+        # was derived FROM. Every rule that governed the original governs the
+        # derivation too (Astra review #2730 R2-F1) — retaining a binding that
+        # NAMES a synthetic origin, while skipping the offer/approval/generator
+        # rules that make a synthetic role admissible, let a manifest claim an
+        # origin its own policy forbids, and the whole verify/admit/push/pull
+        # path accepted it.
+        binding = entry.get("derived_from")
+        effective_source = source
+        if source == DERIVED_ROLE_SOURCE and isinstance(binding, dict):
+            effective_source = binding.get("source")
         if source == DERIVED_ROLE_SOURCE:
             # A derived role is admitted for ANY role, including the 15 whose
             # rule says on_missing:fail — because nothing was substituted. It
@@ -1591,7 +1619,6 @@ def admit_manifest(
             # measured metrics (checked above, unchanged by a sign flip) still
             # satisfy the rule it was selected under. What must be present is
             # the binding that keeps the original provenance visible.
-            binding = entry.get("derived_from")
             P(isinstance(binding, dict) and bool(binding),
               f"derived role {slug!r} carries no derived_from binding: a role "
               f"with no stated origin is an unprovenanced fixture, not a "
@@ -1619,26 +1646,31 @@ def admit_manifest(
                       f"{binding.get('bundle_id')!r}, but the transform block "
                       f"binds {expected_source!r}: one manifest cannot be "
                       f"derived from two different bundles")
-        if source == "synthetic-replacement":
+        if effective_source == "synthetic-replacement":
+            # Applied to a fresh substitute AND to a derivation of one: the
+            # involution changes vote signs, never whether a substitution was
+            # offered, approved, materialised or pinned to a generator.
+            origin = ("derived synthetic role" if source == DERIVED_ROLE_SOURCE
+                      else "synthetic role")
             replacement = rule.get("synthetic_replacement")
             P(rule.get("on_missing") == "fail_with_synthetic_replacement_offer",
               f"role {slug!r} is a synthetic replacement but its rule does not "
               "offer one")
             P(bool(entry.get("approval")),
-              f"synthetic role {slug!r} carries no recorded operator approval")
+              f"{origin} {slug!r} carries no recorded operator approval")
             P(entry.get("synthetic_replacement") == replacement,
-              f"synthetic role {slug!r} names generator case "
+              f"{origin} {slug!r} names generator case "
               f"{entry.get('synthetic_replacement')!r}, config offers "
               f"{replacement!r}")
             P(str(entry.get("synthetic_replacement")) in materialised_case_ids
               or str(directory) in dirs_present,
-              f"synthetic role {slug!r} substitutes generator case "
+              f"{origin} {slug!r} substitutes generator case "
               f"{entry.get('synthetic_replacement')!r}, which is NOT materialised "
               "in this bundle")
             P(bool(entry.get("coverage_limits")),
-              f"synthetic role {slug!r} does not state its coverage limits")
+              f"{origin} {slug!r} does not state its coverage limits")
             P(bool((entry.get("generator") or {}).get("case_id")),
-              f"synthetic role {slug!r} does not pin the generator that produced it")
+              f"{origin} {slug!r} does not pin the generator that produced it")
         # The role's own extract meta must not contradict the manifest-level
         # ordering declaration it was published under.
         P(entry.get("ordering_guarantee") == guarantee,
@@ -1662,10 +1694,21 @@ def admit_manifest(
         # +1 counted agreements as disagreements. Older censuses predate the
         # field and are unaffected.
         if "storage_agree_value" in compat:
-            P(compat.get("storage_agree_value") == declared_sign,
-              f"role {slug!r} compat census was counted under storage agree "
-              f"{compat.get('storage_agree_value')!r} but the manifest declares "
-              f"{declared_sign!r}")
+            census_sign = compat.get("storage_agree_value")
+            # TYPE before equality (Astra review #2730 R2-F2), the same
+            # strictness the C9 ids get: `True == 1` and `1.0 == 1`, so an
+            # equality test alone admitted a bool and a float as a declared
+            # convention.
+            if type(census_sign) is not int \
+                    or census_sign not in ADMISSIBLE_STORAGE_AGREE_VALUES:
+                P(False,
+                  f"role {slug!r} compat census storage_agree_value must be "
+                  f"exactly the integer -1 or +1 (bool, float and str "
+                  f"excluded), got {type(census_sign).__name__} {census_sign!r}")
+            else:
+                P(census_sign == declared_sign,
+                  f"role {slug!r} compat census was counted under storage agree "
+                  f"{census_sign!r} but the manifest declares {declared_sign!r}")
         P(compat.get("null_vote_policy") == REQUIRED_COMPAT_NULL_VOTE_POLICY,
           f"role {slug!r} compat census declares NULL-vote policy "
           f"{compat.get('null_vote_policy')!r}, expected "

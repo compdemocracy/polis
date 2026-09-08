@@ -1834,3 +1834,114 @@ def test_a_v3_manifest_must_state_the_transform_field(admitted, config):
     with pytest.raises(fb.AdmissionError,
                        match="missing required manifest field: transform"):
         _admit(broken, config)
+
+
+# --- round 3: the origin's rules travel with the derivation -----------------
+# Astra review #2730 R2-F1. A derived role RETAINED a binding naming a
+# synthetic origin while skipping every rule that makes a synthetic role
+# admissible — offer, approval, generator, coverage — so a manifest could claim
+# an origin its own policy forbids and still verify, admit, push and pull.
+
+def _synthetic_offer_rule(config):
+    """The one config role whose rule offers a synthetic replacement."""
+    return next(r for r in config["roles"]
+                if r["on_missing"] == "fail_with_synthetic_replacement_offer")
+
+
+def _fail_rule(config):
+    """A required role whose rule offers NO synthetic replacement."""
+    return next(r for r in config["roles"] if r["on_missing"] == "fail")
+
+
+def _make_synthetic(manifest, rule, *, approved=True):
+    """Turn one role of an ORIGINAL manifest into a valid approved synthetic
+    replacement, exactly as an operator-approved substitution records it."""
+    entry = next(r for r in manifest["roles"] if r["slug"] == rule["slug"])
+    entry["source"] = "synthetic-replacement"
+    entry["synthetic_replacement"] = rule["synthetic_replacement"]
+    entry["coverage_limits"] = "synthetic: generated boundary case, no real ptpts"
+    entry["generator"] = {"case_id": rule["synthetic_replacement"]}
+    if approved:
+        entry["approval"] = "operator: --accept-synthetic (test)"
+    return entry
+
+
+def test_an_approved_synthetic_role_derives_and_still_admits(
+        admitted, config, tmp_path):
+    """The positive: a legitimately approved synthetic origin keeps its
+    approval and generator through the involution, and admits on both sides."""
+    payload, manifest = admitted
+    original = copy.deepcopy(manifest)
+    _make_synthetic(original, _synthetic_offer_rule(config))
+    _admit(original, config)
+
+    derived_payload = _flip_payload(payload, tmp_path / "derived-payload")
+    derived = _derived_manifest(original, derived_payload)
+    entry = next(r for r in derived["roles"]
+                 if r["slug"] == _synthetic_offer_rule(config)["slug"])
+    assert entry["source"] == fb.DERIVED_ROLE_SOURCE
+    assert entry["derived_from"]["source"] == "synthetic-replacement"
+    assert entry["approval"] and entry["generator"]["case_id"]
+
+    fb.verify(derived_payload, derived)
+    _admit(derived, config)
+
+
+@pytest.mark.parametrize("break_it,needle", [
+    (lambda e: e.pop("approval"), "carries no recorded operator approval"),
+    (lambda e: e.pop("generator"), "does not pin the generator"),
+    (lambda e: e.pop("coverage_limits"), "does not state its coverage limits"),
+    (lambda e: e.update(synthetic_replacement="gen-v1-something-else"),
+     "names generator case"),
+])
+def test_a_derived_synthetic_origin_must_satisfy_the_origin_rules(
+        admitted, config, tmp_path, break_it, needle):
+    payload, manifest = admitted
+    original = copy.deepcopy(manifest)
+    _make_synthetic(original, _synthetic_offer_rule(config))
+    _admit(original, config)
+
+    derived = _derived_manifest(
+        original, _flip_payload(payload, tmp_path / "derived-payload"))
+    entry = next(r for r in derived["roles"]
+                 if r["slug"] == _synthetic_offer_rule(config)["slug"])
+    break_it(entry)
+    with pytest.raises(fb.AdmissionError, match=needle):
+        _admit(derived, config)
+
+
+def test_a_derived_role_cannot_claim_an_origin_its_rule_forbids(
+        derived_pair, config):
+    """Astra's witness, failing closed. Relabelling only the BINDING to a
+    synthetic origin, on a role whose rule offers no replacement and with no
+    approval or generator anywhere, previously passed the whole
+    verify/admit/push/pull path."""
+    _, derived = derived_pair
+    slug = _fail_rule(config)["slug"]
+    broken = copy.deepcopy(derived)
+    entry = next(r for r in broken["roles"] if r["slug"] == slug)
+    entry["derived_from"]["source"] = "synthetic-replacement"
+    assert not entry.get("approval") and not entry.get("generator")
+    with pytest.raises(fb.AdmissionError, match="rule does not offer one"):
+        _admit(broken, config)
+
+
+@pytest.mark.parametrize("bad", [True, False, 1.0, -1.0, "1", None, 0])
+def test_the_compat_census_sign_is_a_strict_integer(derived_pair, config, bad):
+    """R2-F2: `True == 1` and `1.0 == 1`, so an equality test alone admitted a
+    bool and a float as a declared convention."""
+    _, derived = derived_pair
+    broken = copy.deepcopy(derived)
+    broken["roles"][0]["compat"]["storage_agree_value"] = bad
+    with pytest.raises(fb.AdmissionError,
+                       match="compat census storage_agree_value must be"):
+        _admit(broken, config)
+
+
+def test_the_transform_block_states_what_it_does_not_verify():
+    """The digests are declarations. Independent source-fetch and bijection
+    verification are DEFERRED and are not claimed by the round trip."""
+    doc = fb.build_derived_manifest.__doc__
+    assert "DEFERRED" in doc
+    assert "NOT that its stated source is real" in doc
+    assert "DECLARATIONS" in fb.build_transform_block.__doc__
