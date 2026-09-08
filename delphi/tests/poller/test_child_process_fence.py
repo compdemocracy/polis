@@ -433,3 +433,198 @@ def test_normal_parent_exit_still_fences_the_tree(monkeypatch, exit_code):
     while _alive(grandchild_pid) and time.time() < deadline:
         time.sleep(0.05)
     assert not _alive(grandchild_pid)
+
+
+# --- Round 11: an incomplete or non-snapshot /proc read must not claim exit ---
+#
+# The round-10 zombie fix reads /proc to tell a live group member from a dead
+# entry. Two ways that read can be wrong were reported (Astra review, round 10);
+# both must resolve to "still live", never to an authorized exit:
+#
+#   1. An unreadable or malformed `/proc/<pid>/stat` (a pid vanishing mid-read,
+#      a permission error, a short read) was silently skipped, so a single
+#      uncounted live member made the group look empty.
+#   2. Enumeration is not a snapshot: the last live member can fork a successor
+#      and exit between listing `/proc` and reading the stats, so one pass
+#      reports empty while a live successor remains in the same group.
+#
+# These use the poller's own group-liveness helpers directly, mocking /proc so
+# they exercise the Linux path (and the same defect) on any host; a real-fork
+# variant guarded on /proc runs the exact interleaving under Linux CI.
+
+
+def _fresh_stat(mapping):
+    """An `open` replacement that yields a fresh reader per call.
+
+    `/proc/<pid>/stat` is read once per open; a single shared buffer would be
+    exhausted on a second pass, so each call gets its own BytesIO.
+    """
+
+    def _open(path, *args, **kwargs):
+        pid = path.split("/")[2]
+        return io.BytesIO(mapping[pid])
+
+    return _open
+
+
+def _stat_line(pid, state, pgid):
+    # comm deliberately contains spaces and a ')' to exercise the rpartition.
+    return f"{pid} (job proc) ) {state} 1 {pgid} 0".encode()
+
+
+def test_unreadable_member_does_not_authorize_exit(monkeypatch):
+    """Defect 1a: a member whose stat cannot be read is uncertainty, not absence.
+
+    A single live member the poller cannot read (permission error) must not let
+    `confirm_process_tree_gone` claim the tree is gone. On 955cca0a1 the read
+    error was skipped, the group looked empty and the exit was authorized.
+    """
+    monkeypatch.setattr("scripts.job_poller.CHILD_TERMINATE_GRACE_SECONDS", 0)
+    monkeypatch.setattr(os.path, "isdir", lambda path: True)
+    monkeypatch.setattr(os, "listdir", lambda path: ["101"])
+    monkeypatch.setattr(os, "killpg", lambda pgid, sig: None)
+
+    def _raise(path, *args, **kwargs):
+        raise PermissionError("synthetic unreadable member")
+
+    monkeypatch.setattr("builtins.open", _raise)
+
+    assert JobProcessor._live_group_members(77) is None
+    assert JobProcessor._process_group_alive(77) is True
+
+    worker = JobProcessor.__new__(JobProcessor)
+    assert worker.confirm_process_tree_gone(77, "synthetic") is False
+
+
+def test_malformed_stat_does_not_authorize_exit(monkeypatch):
+    """Defect 1b: a short/malformed stat read is uncertainty, not absence."""
+    monkeypatch.setattr("scripts.job_poller.CHILD_TERMINATE_GRACE_SECONDS", 0)
+    monkeypatch.setattr(os.path, "isdir", lambda path: True)
+    monkeypatch.setattr(os, "listdir", lambda path: ["101"])
+    monkeypatch.setattr(os, "killpg", lambda pgid, sig: None)
+    monkeypatch.setattr("builtins.open", _fresh_stat({"101": b"incomplete"}))
+
+    assert JobProcessor._live_group_members(77) is None
+    assert JobProcessor._process_group_alive(77) is True
+
+    worker = JobProcessor.__new__(JobProcessor)
+    assert worker.confirm_process_tree_gone(77, "synthetic") is False
+
+
+def test_vanished_member_is_confirmed_gone(monkeypatch):
+    """A pid that truly exited mid-scan is dropped — the fix stays conservative
+    only about genuine uncertainty, not about a confirmed disappearance."""
+    monkeypatch.setattr(os.path, "isdir", lambda path: True)
+    monkeypatch.setattr(os, "listdir", lambda path: ["101"])
+    monkeypatch.setattr(os, "killpg", lambda pgid, sig: None)
+
+    def _gone(path, *args, **kwargs):
+        raise FileNotFoundError("pid exited between listdir and open")
+
+    monkeypatch.setattr("builtins.open", _gone)
+    # os.kill(pid, 0) raising ProcessLookupError confirms it is really gone.
+    monkeypatch.setattr(
+        os, "kill", lambda pid, sig: (_ for _ in ()).throw(ProcessLookupError())
+    )
+
+    assert JobProcessor._live_group_members(77) == []
+    assert JobProcessor._process_group_alive(77) is False
+
+
+def test_successor_forked_between_scans_is_not_reported_empty(monkeypatch):
+    """Defect 2: enumeration is not a snapshot.
+
+    Pass one lists only the parent (already a zombie after forking) and misses
+    the live successor; pass two sees the successor. Two stable passes with a
+    killpg re-check between them keep the group alive. On 955cca0a1 the single
+    pass reported the group empty.
+    """
+    listings = iter([["201"], ["202"]])  # pass 1 misses 202; pass 2 sees it
+    stats = {
+        "201": _stat_line(201, "Z", 77),  # parent forked, then exited -> zombie
+        "202": _stat_line(202, "S", 77),  # forked successor, still running
+    }
+    monkeypatch.setattr(os.path, "isdir", lambda path: True)
+    monkeypatch.setattr(os, "listdir", lambda path: next(listings))
+    monkeypatch.setattr(os, "killpg", lambda pgid, sig: None)  # group still alive
+    monkeypatch.setattr("builtins.open", _fresh_stat(stats))
+
+    assert JobProcessor._process_group_alive(77) is True
+
+
+def test_zombie_only_group_is_still_reported_empty(monkeypatch):
+    """Round-10 behaviour preserved: a group holding only a zombie is empty.
+
+    Both stable passes see only the dead entry, so the two-pass rule must not
+    reintroduce the hang by keeping a reaped-to-PID1 zombie group alive forever.
+    """
+    monkeypatch.setattr(os.path, "isdir", lambda path: True)
+    monkeypatch.setattr(os, "listdir", lambda path: ["101"])
+    monkeypatch.setattr(os, "killpg", lambda pgid, sig: None)
+    monkeypatch.setattr("builtins.open", _fresh_stat({"101": _stat_line(101, "Z", 77)}))
+
+    assert JobProcessor._process_group_alive(77) is False
+
+
+def test_running_member_keeps_the_group_alive(monkeypatch):
+    """A single running member is enough to keep the group alive on pass one."""
+    monkeypatch.setattr(os.path, "isdir", lambda path: True)
+    monkeypatch.setattr(os, "listdir", lambda path: ["101"])
+    monkeypatch.setattr(os, "killpg", lambda pgid, sig: None)
+    monkeypatch.setattr("builtins.open", _fresh_stat({"101": _stat_line(101, "R", 77)}))
+
+    assert JobProcessor._live_group_members(77) == [101]
+    assert JobProcessor._process_group_alive(77) is True
+
+
+@pytest.mark.skipif(not os.path.isdir("/proc"), reason="needs Linux /proc")
+def test_real_successor_forked_between_scans_is_not_reported_empty(monkeypatch):
+    """Astra's exact real-process interleaving, under Linux CI.
+
+    Capture the /proc listing while the parent is alive, let it fork a sleeping
+    successor and exit before the stats are read, then inspect that stale list:
+    the successor is absent and the parent reads as gone. The next pass, with a
+    live killpg re-check, finds the successor in the same group.
+    """
+    code = (
+        "import subprocess,sys;"
+        "sys.stdin.readline();"
+        "p=subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)'],"
+        "stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);"
+        "print(p.pid,flush=True)"
+    )
+    parent = subprocess.Popen(
+        [sys.executable, "-c", code],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    successor = {"pid": None}
+    real_listdir = os.listdir
+    calls = {"n": 0}
+
+    def racing_listdir(path):
+        if path == "/proc" and calls["n"] == 0:
+            calls["n"] += 1
+            snapshot = real_listdir(path)  # parent listed and alive
+            parent.stdin.write("go\n")
+            parent.stdin.flush()
+            successor["pid"] = int(parent.stdout.readline())
+            parent.wait(timeout=5)  # parent exits -> gone, successor orphaned
+            return snapshot  # stale: missing the just-forked successor
+        return real_listdir(path)  # later passes see the successor
+
+    try:
+        monkeypatch.setattr(os, "listdir", racing_listdir)
+        assert JobProcessor._process_group_alive(parent.pid) is True
+        monkeypatch.undo()
+        assert os.getpgid(successor["pid"]) == parent.pid
+    finally:
+        try:
+            os.killpg(parent.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        parent.wait(timeout=5)
+        parent.stdin.close()
+        parent.stdout.close()
