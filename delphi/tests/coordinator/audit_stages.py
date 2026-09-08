@@ -39,13 +39,14 @@ open_conditions=[
     'C7 / polis-empty-served/1: the reference writer publishes no row for a zero-vote'
     ' conversation, the server synthesizes the approved-comment listing with a'
     ' request-clock lastVoteTimestamp, and a published empty generation lists no tids;'
-    ' the transition needs comparing under one clock and comment policy',
+    ' the transition must satisfy G\'s existing comment and clock preservation ruling,'
+    ' which is decided and is not reopened here',
     'CO01: the incremental probe is a hint bounded by P026_RECONCILE_SECONDS, measured'
-    ' from before the source read; the interval is an eligibility threshold, not a proven'
-    ' end-to-end repair deadline, and no pass/service budget has been measured',
-    'CO02/CO06: persisted payloads are revalidated once per ceiling interval, not on every'
-    ' pass; resident-cache reconciliation is single-threaded and no multi-worker or'
-    ' warm-worker cache campaign exists',
+    ' from before the source read; the interval makes a conversation eligible for'
+    ' reconciliation and is not a deadline, and no pass/service budget has been measured',
+    'CO02/CO06: persisted payloads become eligible for revalidation once the ceiling'
+    ' elapses, not on every pass; resident-cache reconciliation is single-threaded and'
+    ' no multi-worker or warm-worker cache campaign exists',
     'P-031: this crate implements none of A01 PollHealthy, A02 PublishLagSeconds or'
     ' A03 ObserverHealthy, has no deployed publisher and no delivery proof; the optional'
     ' synchronous sink can still block when enabled',
