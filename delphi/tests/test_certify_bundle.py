@@ -247,6 +247,7 @@ def _selections(config, payload: Path) -> list[dict]:
             "slug": rule["slug"], "role": rule["role"], "dir": dir_name,
             "source": "production", "group": rule["group"], "rank": rule["rank"],
             "measured_metrics": _satisfying_metrics(rule),
+            "ordering_guarantee": "frozen-extract-order",
             "compat": {"null_vote_policy": "drop-counted", "null_votes_dropped": 0,
                        "vote_rows_written": 1, "certifying": True},
         })
@@ -693,6 +694,85 @@ def test_admission_rejects(bundle, config, mutate, needle):
     mutate(broken)
     with pytest.raises(fb.AdmissionError, match=needle):
         fb.admit_manifest(broken, config=config)
+
+
+def test_the_compat_census_policy_token_has_one_definition(config, tmp_path):
+    """Admission must not import the extractor, so the policy string is
+    restated in ``fixture_bundle``; this is the check that keeps the two
+    copies from drifting into two different policies."""
+    assert fb.REQUIRED_COMPAT_NULL_VOTE_POLICY == fx.COMPAT_NULL_VOTE_POLICY
+
+
+def test_admission_rejects_a_tie_policy_that_contradicts_the_extract(bundle, config):
+    """Reviewer's r2 finding 2a: the admission policies only had to be TRUTHY,
+    so a manifest declaring ``frozen-extract-order`` in its ordering block and
+    "same-input ties may differ arbitrarily" as its tie policy was admitted."""
+    _, manifest, _, _ = bundle
+    assert manifest["ordering"]["guarantee"] == "frozen-extract-order"
+    assert manifest["admission"]["tie_order_policy"] == \
+        fb.TIE_ORDER_POLICIES["frozen-extract-order"]
+
+    prose = copy.deepcopy(manifest)
+    prose["admission"]["tie_order_policy"] = \
+        "same-input ties may differ arbitrarily"
+    with pytest.raises(fb.AdmissionError, match="not a checkable declaration"):
+        fb.admit_manifest(prose, config=config)
+
+    # A token that IS in the enum, but is the other guarantee's token.
+    swapped = copy.deepcopy(manifest)
+    swapped["admission"]["tie_order_policy"] = \
+        fb.TIE_ORDER_POLICIES["stable-tie-key"]
+    with pytest.raises(fb.AdmissionError, match="CONTRADICTS ordering.guarantee"):
+        fb.admit_manifest(swapped, config=config)
+
+    # ... and the ordering block cannot claim a tie key it also says is absent.
+    both = copy.deepcopy(manifest)
+    both["ordering"]["guarantee"] = "stable-tie-key"
+    both["admission"]["tie_order_policy"] = fb.TIE_ORDER_POLICIES["stable-tie-key"]
+    with pytest.raises(fb.AdmissionError, match="names no available tie key"):
+        fb.admit_manifest(both, config=config)
+
+
+def test_admission_rejects_a_role_whose_extract_disagrees_with_the_manifest(
+        bundle, config):
+    _, manifest, _, _ = bundle
+    broken = copy.deepcopy(manifest)
+    broken["roles"][0]["ordering_guarantee"] = "stable-tie-key"
+    with pytest.raises(fb.AdmissionError,
+                       match="the extract and the declaration disagree"):
+        fb.admit_manifest(broken, config=config)
+
+
+def test_admission_requires_a_null_vote_census_under_the_drop_counted_policy(
+        bundle, config):
+    """Reviewer's r2 finding 2b: a MISSING compatibility census defaulted to
+    zero drops and passed, so a role could lose NULL-vote rows silently."""
+    _, manifest, _, _ = bundle
+    assert manifest["admission"]["null_vote_policy"] == \
+        fb.COMPAT_DROP_COUNTED_POLICY
+
+    missing = copy.deepcopy(manifest)
+    missing["roles"][0].pop("compat")
+    with pytest.raises(fb.AdmissionError, match="not a census of zero"):
+        fb.admit_manifest(missing, config=config)
+
+    empty = copy.deepcopy(manifest)
+    empty["roles"][0]["compat"] = {}
+    with pytest.raises(fb.AdmissionError, match="not a census of zero"):
+        fb.admit_manifest(empty, config=config)
+
+    untyped = copy.deepcopy(manifest)
+    untyped["roles"][0]["compat"]["null_votes_dropped"] = "none"
+    with pytest.raises(fb.AdmissionError, match="integer null_votes_dropped"):
+        fb.admit_manifest(untyped, config=config)
+
+    # A census that counts drops AND calls itself certifying is a contradiction
+    # even when the operator accepted the drops.
+    lying = copy.deepcopy(manifest)
+    lying["roles"][0]["compat"].update(null_votes_dropped=3, certifying=True)
+    lying["admission"]["accepted_null_vote_drops"] = True
+    with pytest.raises(fb.AdmissionError, match="is NOT certifying"):
+        fb.admit_manifest(lying, config=config)
 
 
 def test_admission_rejects_a_config_that_is_not_the_one_the_bundle_was_built_from(

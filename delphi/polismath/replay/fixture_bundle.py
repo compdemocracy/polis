@@ -64,7 +64,11 @@ from typing import Any, Iterable, Sequence
 MANIFEST_SCHEMA_VERSION = "certify-fixture-manifest/2"
 PROVENANCE_SCHEMA_VERSION = "certify-fixture-provenance/1"
 PINS_SCHEMA_VERSION = "certify-fixture-pins/1"
-ADMISSION_SCHEMA_VERSION = "certify-fixture-admission/1"
+#: Bumped to /2 by the r2 admission correction: the policy fields carry CLOSED
+#: enum tokens (:data:`ADMISSION_POLICY_ENUMS`) instead of prose that only had
+#: to be truthy, the prose moved to ``admission.notes``, and the tie policy is
+#: derived from — and checked against — the ordering guarantee.
+ADMISSION_SCHEMA_VERSION = "certify-fixture-admission/2"
 
 DEFAULT_BUCKET = "polis-certification-data"
 
@@ -271,6 +275,7 @@ def build_manifest(
                                "(the compatibility CSVs remain second-resolution and "
                                "are derived from the millisecond stream)",
         "admission": _admission_block(
+            ordering_guarantee=tie_key["guarantee"],
             accepted_null_vote_drops=accepted_null_vote_drops),
         "polarity": {
             "storage_agree_value": REQUIRED_STORAGE_AGREE_VALUE,
@@ -825,9 +830,43 @@ MANIFEST_TOP_LEVEL_KEYS = frozenset({
     "admission",
 })
 
-ORDERING_GUARANTEES = frozenset({"stable-tie-key", "frozen-extract-order"})
+#: Ordering guarantee -> the ONE tie-order policy token that guarantee permits.
+#: Admission compares the two: a manifest that declares ``frozen-extract-order``
+#: in its ordering block and a different tie policy in its admission block is
+#: contradicting itself, and a contradiction is not a policy.
+TIE_ORDER_POLICIES: dict[str, str] = {
+    "frozen-extract-order": "frozen-extract-bytes-authoritative",
+    "stable-tie-key": "stable-tie-key-total-order",
+}
+
+ORDERING_GUARANTEES = frozenset(TIE_ORDER_POLICIES)
 
 ROLE_SOURCES = frozenset({"production", "synthetic-replacement"})
+
+#: The compatibility-CSV NULL-vote policy the extractor writes
+#: (``fixture_extract.COMPAT_NULL_VOTE_POLICY``). Restated here because
+#: admission must not import the extractor; a test asserts the two agree.
+REQUIRED_COMPAT_NULL_VOTE_POLICY = "drop-counted"
+
+#: Closed enums for the declared release policy. Every value is a VERSIONED
+#: token, not prose: a truthiness check on a free-text sentence admitted
+#: "same-input ties may differ arbitrarily" as a tie-order policy. The prose
+#: lives in ``admission.notes``, which no gate reads.
+ADMISSION_POLICY_ENUMS: dict[str, frozenset[str]] = {
+    "null_weight_policy": frozenset({"nullable-preserved"}),
+    "null_vote_policy": frozenset({
+        "event-stream-nullable+compat-csv-drop-counted"}),
+    "synthetic_substitution_policy": frozenset({
+        "explicit-approval-and-materialised"}),
+    "tie_order_policy": frozenset(TIE_ORDER_POLICIES.values()),
+    "equal_time_policy": frozenset({"census-counted-ambiguity"}),
+    "schedule_coverage": frozenset({"file-schedules-only"}),
+}
+
+#: The token in ``admission.null_vote_policy`` that says the compatibility CSV
+#: omits NULL votes under a COUNTED policy — which is what makes a per-role
+#: census mandatory rather than optional.
+COMPAT_DROP_COUNTED_POLICY = "event-stream-nullable+compat-csv-drop-counted"
 
 #: Raw storage sign of AGREE and the export sign it becomes. Declaring these in
 #: the manifest is mandatory; admission checks the declaration matches the one
@@ -836,32 +875,63 @@ REQUIRED_STORAGE_AGREE_VALUE = -1
 REQUIRED_EXPORT_AGREE_VALUE = 1
 
 
-def _admission_block(*, accepted_null_vote_drops: bool = False) -> dict[str, Any]:
-    """The manifest's declared, machine-checked release policy."""
+def _admission_block(*, ordering_guarantee: str,
+                     accepted_null_vote_drops: bool = False) -> dict[str, Any]:
+    """The manifest's declared, machine-checked release policy.
+
+    Every policy is a token from :data:`ADMISSION_POLICY_ENUMS`; the prose that
+    used to BE the policy value is demoted to ``notes``, which nothing checks.
+    ``tie_order_policy`` is derived from the ordering guarantee the extract
+    actually achieved, so the block cannot contradict the ordering block.
+    """
+    if ordering_guarantee not in TIE_ORDER_POLICIES:
+        raise BundleError(
+            f"unknown ordering guarantee {ordering_guarantee!r}; expected one of "
+            f"{sorted(TIE_ORDER_POLICIES)}")
     return {
         "schema_version": ADMISSION_SCHEMA_VERSION,
         "null_weight_policy": "nullable-preserved",
-        "null_vote_policy": "event-stream-nullable; compatibility-csv-drop-counted",
+        "null_vote_policy": COMPAT_DROP_COUNTED_POLICY,
         "accepted_null_vote_drops": bool(accepted_null_vote_drops),
-        "synthetic_substitution_policy":
-            "allowed only with an explicit --accept-synthetic approval, and only "
-            "when the replacement generator case is MATERIALISED and pinned in "
-            "this manifest; a dir:null substitute is an unfilled role",
-        "tie_order_policy":
-            "the frozen extract bytes are authoritative; equal-input ties resolve "
-            "identically on every engine given the same frozen order",
-        "equal_time_policy":
-            "historical same-millisecond opposite votes are a narrow, "
-            "census-counted ambiguity, never an invented order",
-        "schedule_coverage":
-            "file schedules under scripts/schedules only; the battery's inline "
-            "presets are NOT hashed here (section B)",
+        "synthetic_substitution_policy": "explicit-approval-and-materialised",
+        "tie_order_policy": TIE_ORDER_POLICIES[ordering_guarantee],
+        "equal_time_policy": "census-counted-ambiguity",
+        "schedule_coverage": "file-schedules-only",
+        "notes": {
+            "null_weight_policy":
+                "a NULL votes.weight_x_32767 survives as JSON null; it is a "
+                "distinct storage fact from a weight of 0",
+            "null_vote_policy":
+                "the event stream keeps every NULL votes.vote; the compatibility "
+                "CSV omits them and COUNTS them per role, which makes that export "
+                "non-certifying until an operator records an acceptance",
+            "synthetic_substitution_policy":
+                "allowed only with an explicit --accept-synthetic approval, and "
+                "only when the replacement generator case is MATERIALISED and "
+                "pinned in this manifest; a dir:null substitute is an unfilled "
+                "role",
+            "tie_order_policy":
+                "the frozen extract bytes are authoritative; equal-input ties "
+                "resolve identically on every engine given the same frozen order",
+            "equal_time_policy":
+                "historical same-millisecond opposite votes are a narrow, "
+                "census-counted ambiguity, never an invented order",
+            "schedule_coverage":
+                "file schedules under scripts/schedules only; the battery's "
+                "inline presets are NOT hashed here (section B)",
+        },
     }
 
 
 def _admission_problem(problems: list[str], cond: bool, message: str) -> None:
     if not cond:
         problems.append(message)
+
+
+def _is_count(value: Any) -> bool:
+    """A real non-negative integer count. ``bool`` is excluded on purpose: a
+    census field carrying ``True`` is a typing accident, not a count of one."""
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
 
 
 def admit_manifest(
@@ -962,17 +1032,42 @@ def admit_manifest(
       "polarity.boundaries must name the storage/export/ingress sites")
 
     # --- declared release policy ------------------------------------------
+    # Every policy is a CLOSED enum token, and the tie policy must agree with
+    # the ordering guarantee the extract actually achieved. A truthiness check
+    # on free text admitted "same-input ties may differ arbitrarily" as a
+    # policy; a contradiction between the two blocks is not a policy at all.
     admission = manifest["admission"]
     P(admission.get("schema_version") == ADMISSION_SCHEMA_VERSION,
       f"admission.schema_version is {admission.get('schema_version')!r}, expected "
       f"{ADMISSION_SCHEMA_VERSION!r}")
-    for field in ("null_weight_policy", "null_vote_policy",
-                  "synthetic_substitution_policy", "tie_order_policy",
-                  "equal_time_policy", "schedule_coverage"):
-        P(bool(admission.get(field)), f"admission.{field} is missing")
-    P(admission.get("null_weight_policy") == "nullable-preserved",
-      "admission.null_weight_policy must be 'nullable-preserved': a NULL weight "
-      "that became 0 is a lossy extraction")
+    for field, allowed in ADMISSION_POLICY_ENUMS.items():
+        P(admission.get(field) in allowed,
+          f"admission.{field} is {admission.get(field)!r}, which is not one of "
+          f"{sorted(allowed)}: a free-text policy is not a checkable declaration")
+    P(isinstance(admission.get("accepted_null_vote_drops"), bool),
+      "admission.accepted_null_vote_drops must be an explicit boolean")
+    notes = admission.get("notes")
+    P(isinstance(notes, dict)
+      and set(ADMISSION_POLICY_ENUMS) <= set(notes or {}),
+      "admission.notes must carry the prose for every declared policy")
+
+    guarantee = ordering.get("guarantee")
+    required_tie_policy = TIE_ORDER_POLICIES.get(str(guarantee))
+    P(required_tie_policy is not None
+      and admission.get("tie_order_policy") == required_tie_policy,
+      f"admission.tie_order_policy {admission.get('tie_order_policy')!r} "
+      f"CONTRADICTS ordering.guarantee {guarantee!r}, which admits only "
+      f"{required_tie_policy!r}")
+    if guarantee == "frozen-extract-order":
+        P(ordering.get("tie_key_available") is False,
+          "ordering.guarantee is 'frozen-extract-order' but "
+          "ordering.tie_key_available is not False: the manifest claims a frozen "
+          "byte order AND a source tie key at the same time")
+    elif guarantee == "stable-tie-key":
+        P(ordering.get("tie_key_available") is True
+          and bool(ordering.get("tie_key_columns")),
+          "ordering.guarantee is 'stable-tie-key' but the manifest names no "
+          "available tie key columns to order by")
 
     # --- generated cases ---------------------------------------------------
     generated = manifest["generated"]
@@ -1066,13 +1161,46 @@ def admit_manifest(
               f"synthetic role {slug!r} does not state its coverage limits")
             P(bool((entry.get("generator") or {}).get("case_id")),
               f"synthetic role {slug!r} does not pin the generator that produced it")
-        compat = entry.get("compat") or {}
-        dropped = compat.get("null_votes_dropped", 0) or 0
-        if dropped:
-            P(admission.get("accepted_null_vote_drops") is True,
-              f"role {slug!r} dropped {dropped} NULL-vote row(s) from its "
-              "compatibility CSV; that is a NON-CERTIFYING extraction and needs an "
-              "explicit recorded acceptance (admission.accepted_null_vote_drops)")
+        # The role's own extract meta must not contradict the manifest-level
+        # ordering declaration it was published under.
+        P(entry.get("ordering_guarantee") == guarantee,
+          f"role {slug!r} records ordering guarantee "
+          f"{entry.get('ordering_guarantee')!r}, but the manifest declares "
+          f"{guarantee!r}: the extract and the declaration disagree")
+
+        # A per-role NULL-vote census is MANDATORY under the counted drop
+        # policy. Omission previously defaulted to zero drops and passed, so a
+        # role could lose NULL votes from its compatibility CSV silently.
+        compat = entry.get("compat")
+        if admission.get("null_vote_policy") == COMPAT_DROP_COUNTED_POLICY:
+            P(isinstance(compat, dict) and bool(compat),
+              f"role {slug!r} carries NO compatibility census while the admission "
+              f"block declares {COMPAT_DROP_COUNTED_POLICY!r}: an omitted census "
+              "is not a census of zero")
+        if not isinstance(compat, dict):
+            continue
+        P(compat.get("null_vote_policy") == REQUIRED_COMPAT_NULL_VOTE_POLICY,
+          f"role {slug!r} compat census declares NULL-vote policy "
+          f"{compat.get('null_vote_policy')!r}, expected "
+          f"{REQUIRED_COMPAT_NULL_VOTE_POLICY!r}")
+        dropped = compat.get("null_votes_dropped")
+        P(_is_count(dropped),
+          f"role {slug!r} compat census has no integer null_votes_dropped "
+          f"(got {dropped!r})")
+        P(_is_count(compat.get("vote_rows_written")),
+          f"role {slug!r} compat census has no integer vote_rows_written "
+          f"(got {compat.get('vote_rows_written')!r})")
+        if _is_count(dropped):
+            P(compat.get("certifying") is (dropped == 0),
+              f"role {slug!r} compat census says certifying="
+              f"{compat.get('certifying')!r} with {dropped} dropped NULL vote(s): "
+              "a compatibility export that lost rows is NOT certifying")
+            if dropped:
+                P(admission.get("accepted_null_vote_drops") is True,
+                  f"role {slug!r} dropped {dropped} NULL-vote row(s) from its "
+                  "compatibility CSV; that is a NON-CERTIFYING extraction and "
+                  "needs an explicit recorded acceptance "
+                  "(admission.accepted_null_vote_drops)")
 
     # --- schedules and expected checkpoints --------------------------------
     schedules = manifest["schedules"]
