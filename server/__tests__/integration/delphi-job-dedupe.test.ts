@@ -627,19 +627,24 @@ describe("Delphi job submission deduplication", () => {
     expect(await listJobs()).toHaveLength(1);
   });
 
-  it("does not treat a superseded row as work", async () => {
-    const supersededId = `superseded-${Date.now()}`;
+  it("does not treat a withdrawn row as work", async () => {
+    // A withdrawn admission is recorded as FAILED with superseded_by, not with
+    // a status of its own: a new status would be an unknown-status anomaly to
+    // the S1 demand observer.
+    const withdrawnId = `withdrawn-${Date.now()}`;
     await docClient.send(
       new PutCommand({
         TableName: JOB_QUEUE_TABLE,
         Item: {
-          job_id: supersededId,
+          job_id: withdrawnId,
           conversation_id: zid,
           job_type: "FULL_PIPELINE",
-          status: "SUPERSEDED",
+          status: "FAILED",
           superseded_by: "some-other-root",
+          withdrawn_reason: "superseded_by_unguarded_producer",
           process_exit_confirmed: true,
-          created_at: new Date().toISOString(),
+          created_at: new Date(Date.now() - 86_400_000).toISOString(),
+          completed_at: new Date(Date.now() - 86_400_000).toISOString(),
         },
       })
     );

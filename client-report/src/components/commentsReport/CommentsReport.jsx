@@ -36,10 +36,42 @@ const ACTIVE_JOB_STATUSES = [
 // Only these two mean a job row is durably finished. Anything else — including
 // "unknown", which the visualizations endpoint returns for a row with no status
 // — is uncertainty and must not be read as completion.
-// SUPERSEDED is written by the server when it withdraws an admission it
-// lost a race for: the row stays so an id already handed out still
-// resolves, but nothing ran and nothing is outstanding.
-const TERMINAL_JOB_STATUSES = ["COMPLETED", "FAILED", "SUPERSEDED"];
+const TERMINAL_JOB_STATUSES = ["COMPLETED", "FAILED"];
+
+// How many `supersededBy` hops to follow before giving up. Withdrawal writes a
+// single hop, but a chain — or a cycle — must not spin.
+const MAX_SUPERSEDED_HOPS = 8;
+
+/**
+ * Follow a withdrawn job to the one that actually carries its work.
+ *
+ * When this server loses a race with an unguarded producer it marks the job it
+ * created as failed and records `superseded_by`. The id the client is holding
+ * therefore still resolves, but the work is somewhere else, and dropping the
+ * tracked job on the strength of that terminal row would stop the polling for
+ * a run that is still going. The successor is only followed once it is
+ * actually present in the response — the server adds it from a strongly-read
+ * sweep precisely so this does not depend on the index having caught up.
+ * Returns null when it cannot be resolved yet, which the caller reads as
+ * "keep waiting", never as "finished".
+ */
+const resolveSupersededJob = (job, jobs) => {
+  let current = job;
+  const seen = new Set();
+  for (let hop = 0; hop < MAX_SUPERSEDED_HOPS; hop++) {
+    const successorId = current?.supersededBy;
+    if (!successorId || seen.has(successorId)) {
+      return current === job ? null : current;
+    }
+    seen.add(successorId);
+    const successor = (jobs || []).find((entry) => entry?.jobId === successorId);
+    if (!successor) {
+      return null;
+    }
+    current = successor;
+  }
+  return null;
+};
 const isTerminalJobStatus = (status) =>
   TERMINAL_JOB_STATUSES.includes(status);
 
@@ -108,6 +140,21 @@ export const reconcileTrackedJob = (previous, jobs, wantBatch, reportId) => {
   }
 
   const durable = list.find((job) => job?.jobId === previous.jobId);
+  if (durable?.supersededBy) {
+    // This job was withdrawn in favour of another. Hand over only once the
+    // successor is actually in the response; until then the acknowledged id is
+    // still the best thing to be watching.
+    const successor = resolveSupersededJob(durable, list);
+    if (!successor) {
+      return previous;
+    }
+    return {
+      jobId: successor.jobId,
+      status: successor.status,
+      workLive: responseWorkLive(successor) ?? true,
+      reportId,
+    };
+  }
   if (!durable) {
     // Absence is uncertainty: this list comes from an eventually consistent
     // index, so a job it does not mention has not been shown to be finished.

@@ -18,6 +18,8 @@ import {
   IDEMPOTENCY_BINDING_WINDOW_MS,
   JobAdmissionStore,
   JobAdmissionUnavailableError,
+  WITHDRAWN_REASON,
+  WITHDRAWN_STATUS,
   dynamoJobAdmissionStore,
   scopeGuardKey,
 } from "../../src/routes/delphi/jobGuard";
@@ -784,6 +786,11 @@ describe("admitDelphiJob: round-5 review", () => {
       report_id: scope.reportId,
       status: "COMPLETED",
       process_exit_confirmed: true,
+      // Real completions carry a timestamp; that is what makes them cheaply
+      // prunable rather than candidates needing an anchored re-read.
+      completed_at: new Date(
+        Date.now() - 86_400_000 * (index + 1)
+      ).toISOString(),
     }));
     const store = makeStore({
       sweepConversation: jest.fn(async () => ({
@@ -1030,6 +1037,107 @@ describe("assessConversationLiveness: stable reads", () => {
 
     const { liveByJobId } = await assessConversationLiveness("4242", store);
     expect(liveByJobId.get("root")).toBe(true);
+  });
+});
+
+describe("admitDelphiJob: round-7 review", () => {
+  it("does not prune a root that finished while the sweep was running", async () => {
+    // The sweep's own observation cannot settle a row that became terminal
+    // during it: a page may already have passed the position where the child
+    // is being written. Only a demonstrably older terminal write is prunable.
+    const justFinished = {
+      job_id: "just-finished",
+      conversation_id: scope.conversationId,
+      job_type: scope.jobType,
+      report_id: scope.reportId,
+      status: "COMPLETED",
+      process_exit_confirmed: true,
+      completed_at: new Date().toISOString(),
+    };
+    const store = makeStore({
+      sweepConversation: jest.fn(async () => ({
+        kind: "found" as const,
+        value: [justFinished],
+      })),
+      readJob: jest.fn(async () => justFinished),
+      sweepLiveDescendants: jest.fn(async () => ({
+        kind: "found" as const,
+        value: "late-child",
+      })),
+    });
+
+    const result = await admitDelphiJob(
+      { scope, jobItem: jobItem() },
+      dynamoBackedBy(store)
+    );
+    expect(result).toMatchObject({
+      outcome: "deduplicated",
+      jobId: "just-finished",
+      adopted: true,
+    });
+  });
+
+  it("does not prune a terminal root with no timestamp to judge by", async () => {
+    const undated = {
+      job_id: "undated",
+      conversation_id: scope.conversationId,
+      job_type: scope.jobType,
+      report_id: scope.reportId,
+      status: "COMPLETED",
+      process_exit_confirmed: true,
+    };
+    const store = makeStore({
+      sweepConversation: jest.fn(async () => ({
+        kind: "found" as const,
+        value: [undated],
+      })),
+      readJob: jest.fn(async () => undated),
+      sweepLiveDescendants: jest.fn(async () => ({
+        kind: "found" as const,
+        value: "late-child",
+      })),
+    });
+
+    const result = await admitDelphiJob(
+      { scope, jobItem: jobItem() },
+      dynamoBackedBy(store)
+    );
+    expect(result).toMatchObject({ jobId: "undated", adopted: true });
+  });
+
+  it("still prunes an old terminal root cheaply", async () => {
+    const longFinished = {
+      job_id: "old",
+      conversation_id: scope.conversationId,
+      job_type: scope.jobType,
+      report_id: scope.reportId,
+      status: "COMPLETED",
+      process_exit_confirmed: true,
+      completed_at: new Date(Date.now() - 86_400_000).toISOString(),
+    };
+    const store = makeStore({
+      sweepConversation: jest.fn(async () => ({
+        kind: "found" as const,
+        value: [longFinished],
+      })),
+      readJob: jest.fn(async () => longFinished),
+    });
+
+    const result = await admitDelphiJob(
+      { scope, jobItem: jobItem() },
+      dynamoBackedBy(store)
+    );
+    expect(result).toMatchObject({ outcome: "created" });
+    // Pruned on the sweep alone: no anchored re-read was needed for it.
+    expect(store.sweepLiveDescendants).not.toHaveBeenCalled();
+  });
+
+  it("records a withdrawn admission as FAILED, not a status of its own", async () => {
+    // A new status would be an unknown-status anomaly to the S1 demand
+    // observer, which classifies COMPLETED and FAILED and fails closed on the
+    // rest. The meaning lives in superseded_by and withdrawn_reason instead.
+    expect(WITHDRAWN_STATUS).toBe("FAILED");
+    expect(WITHDRAWN_REASON).toBe("superseded_by_unguarded_producer");
   });
 });
 
