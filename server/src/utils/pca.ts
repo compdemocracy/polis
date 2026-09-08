@@ -319,10 +319,46 @@ async function ensureCompletePcaStructure(
   return mergedData;
 }
 
+export type GetPcaOptions = {
+  /**
+   * When a conversation has no `math_main` row at all, `getPca` synthesizes an
+   * empty presentation (`createEmptyPcaStructure`) for "latest" callers so
+   * reports still render. That synthesis costs a second query against
+   * `comments`.
+   *
+   * Internal callers that only want real math — comment routing, featured
+   * authors — set this false: they get the latest committed generation when one
+   * exists, and `undefined` after exactly one query when none does. Defaults to
+   * true, which is every pre-existing caller's behaviour.
+   */
+  synthesizeEmptyWhenMissing?: boolean;
+};
+
+/**
+ * The latest committed math generation for a conversation, or `undefined` when
+ * the conversation has no math row at all.
+ *
+ * Use this instead of the literal `getPca(zid, 0)`, which asks for a generation
+ * strictly newer than 0 and therefore silently discards a conversation's *first*
+ * committed generation — `math_ticks.math_tick` is `NOT NULL DEFAULT 0`, so
+ * generation 0 is real math with real `comment-priorities` and a real consensus.
+ *
+ * Unlike `getPca(zid)` this never synthesizes an empty presentation, so the
+ * no-math-row path stays at one query.
+ */
+export function getLatestExistingPca(
+  zid: number
+): Promise<PcaCacheItem | undefined> {
+  return getPca(zid, -1, { synthesizeEmptyWhenMissing: false });
+}
+
 export function getPca(
   zid?: number,
-  math_tick?: number
+  math_tick?: number,
+  options?: GetPcaOptions
 ): Promise<PcaCacheItem | undefined> {
+  const synthesizeEmptyWhenMissing =
+    options?.synthesizeEmptyWhenMissing !== false;
   const mathEnv = Config.mathEnv;
   let cached = pcaCache.get(pcaCacheKey(mathEnv, zid));
   if (cached && cached.expiration < Date.now()) {
@@ -382,8 +418,13 @@ export function getPca(
         );
 
         // If no PCA data exists and we're asking for the latest (math_tick -1 or undefined),
-        // return an empty structure instead of undefined to prevent report failures
-        if (math_tick === -1 || math_tick === undefined) {
+        // return an empty structure instead of undefined to prevent report failures.
+        // `synthesizeEmptyWhenMissing: false` opts out and keeps this path at
+        // one query — see getLatestExistingPca.
+        if (
+          synthesizeEmptyWhenMissing &&
+          (math_tick === -1 || math_tick === undefined)
+        ) {
           logger.info(
             "No PCA data found, returning empty structure for zid:",
             zid
