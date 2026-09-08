@@ -199,6 +199,17 @@ nothing about whether the bundle covers what it claims, so `push`, `pull` and
   cuts (and any `restart_after` falls inside them), and at least one schedule is
   pinned;
 - the storage/export polarity is declared, with its boundary sites;
+- every field of the `admission` block is a token from a CLOSED enum
+  (`fixture_bundle.ADMISSION_POLICY_ENUMS`) rather than prose — prose lives in
+  `admission.notes`, which no gate reads — and `admission.tie_order_policy` is
+  the one token `ordering.guarantee` admits, so the two blocks cannot
+  contradict each other (a `frozen-extract-order` extract may not also declare
+  that same-input ties are free to differ, and may not claim a source tie key);
+- every role's recorded `ordering_guarantee` equals the manifest's, and, while
+  the declared NULL-vote policy is the counted compatibility-CSV drop, every
+  role carries a typed census (`null_vote_policy`, integer
+  `null_votes_dropped`, integer `vote_rows_written`, and a `certifying` flag
+  that agrees with the drop count) — an OMITTED census is not a census of zero;
 - the config used to admit the bundle hashes to the `config_sha256` the manifest
   recorded, so a bundle is never admitted against a different rule revision.
 
