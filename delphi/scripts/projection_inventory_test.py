@@ -183,21 +183,73 @@ def test_table_function_from_is_not_unresolved(tmp_path) -> None:
     assert inv.run_sweep(roots=[str(src)], repo_root=str(tmp_path)) == []
 
 
-def test_cleared_allowlist_entry_is_not_flagged(tmp_path) -> None:
-    """The reviewed non-vote interpolation (validated against a fixed allowlist) is
-    cleared; the identical query in a non-allowlisted file is NEEDS-GATE."""
-    d = tmp_path / "delphi" / "polismath" / "replay"
-    d.mkdir(parents=True)
-    (d / "poller_equiv.py").write_text(
-        'table = "math_main"; q = f"SELECT * FROM {table} WHERE zid = 1"\n'
-    )
-    assert inv.run_sweep(roots=[str(tmp_path / "delphi")], repo_root=str(tmp_path)) == []
-    # Same query in a file NOT on the allowlist is still reported.
-    other = tmp_path / "delphi" / "other.py"
-    other.write_text('table = "math_main"; q = f"SELECT * FROM {table} WHERE zid = 1"\n')
-    (d / "poller_equiv.py").unlink()
-    hits = inv.run_sweep(roots=[str(tmp_path / "delphi")], repo_root=str(tmp_path))
-    assert len(hits) == 1 and hits[0].classification == "NEEDS-GATE"
+def test_mixed_projection_and_interpolated_qualifier_needs_gate(tmp_path) -> None:
+    """R8 d1: a wildcard item ANYWHERE in the projection list, or an interpolated
+    qualifier, is UNRESOLVED -> NEEDS-GATE — not only a leading `*`/`<q>.* FROM`."""
+    src = tmp_path / "server" / "src"
+    src.mkdir(parents=True)
+    for fn, source in {
+        "iq.ts": 'const table="votes", alias="v"; const q=`SELECT ${alias}.* FROM ${table} ${alias}`;',
+        "mix.ts": 'const table="votes"; const q=`SELECT v.*, 1 FROM ${table} v`;',
+    }.items():
+        (src / fn).write_text(source + "\n")
+        sites = inv.run_sweep(roots=[str(src)], repo_root=str(tmp_path))
+        (src / fn).unlink()
+        assert len(sites) == 1, (fn, source, sites)
+        assert sites[0].classification == "NEEDS-GATE" and sites[0].kind == "unresolved-table"
+    # A resolved mixed projection is still a (recognized) hit; a non-wildcard list is clean.
+    (src / "res.ts").write_text('const q = "SELECT v.*, 1 FROM votes v";\n')
+    assert len(inv.run_sweep(roots=[str(src)], repo_root=str(tmp_path))) == 1
+    (src / "res.ts").write_text('const q = "SELECT a, b FROM votes";\n')
+    assert inv.run_sweep(roots=[str(src)], repo_root=str(tmp_path)) == []
+
+
+# Path to the real replay-harness file that carries the reviewed exemption.
+_POLLER = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "..", "polismath", "replay", "poller_equiv.py",
+)
+
+
+def _sweep_poller_variant(tmp_path, text: str):
+    rel = "delphi/polismath/replay/poller_equiv.py"
+    p = tmp_path / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(text)
+    return inv.run_sweep(roots=[str(tmp_path / "delphi")], repo_root=str(tmp_path))
+
+
+def test_exemption_bound_to_guard_evidence(tmp_path) -> None:
+    """R8 d2: the exemption is bound to the query text, the guard, and the non-vote
+    guard set — re-verified from source. A changed set, an added unguarded query,
+    or a removed guard each fails the exemption."""
+    if not os.path.exists(_POLLER):
+        import pytest
+        pytest.skip("poller_equiv.py not found")
+    original = open(_POLLER).read()
+    # Baseline: the real guarded, non-vote interpolation is cleared.
+    assert _sweep_poller_variant(tmp_path, original) == []
+
+    old_set = 'EQUIV_TABLES: tuple[str, ...] = ("math_main", "math_bidtopid", "math_ptptstats")'
+    assert original.count(old_set) == 1
+    # (a) guard set now admits `votes` -> exemption void -> NEEDS-GATE.
+    admits = _sweep_poller_variant(tmp_path, original.replace(old_set, old_set[:-1] + ', "votes")'))
+    assert len(admits) == 1 and admits[0].classification == "NEEDS-GATE"
+
+    # (b) a second, unguarded query in the same file -> NEEDS-GATE (not auto-cleared).
+    added = original + ('\ndef added_query():\n    table = "votes"\n'
+                        '    return f"SELECT * FROM {table} WHERE zid = :zid"\n')
+    hits_b = _sweep_poller_variant(tmp_path, added)
+    assert any(h.classification == "NEEDS-GATE" for h in hits_b)
+
+    # (c) the guard removed from the exempted function -> NEEDS-GATE.
+    guard = ('    if table not in EQUIV_TABLES:\n'
+             '        raise ValueError(f"unknown equiv table {table!r}; '
+             'expected one of {EQUIV_TABLES}")\n    result = conn.execute(')
+    assert guard in original
+    removed = original.replace(guard, "    result = conn.execute(", 1)
+    hits_c = _sweep_poller_variant(tmp_path, removed)
+    assert any(h.classification == "NEEDS-GATE" for h in hits_c)
 
 
 def test_voters_is_not_matched_as_votes(tmp_path) -> None:

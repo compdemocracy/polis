@@ -282,26 +282,48 @@ def _extract_string_literals(text: str, is_py: bool) -> list[tuple[int, str]]:
 # A wildcard SELECT whose FROM target is not a bare identifier we can resolve.
 UNRESOLVED = "<unresolved-table>"
 
-# Reviewed allowlist: interpolated wildcards proven to never resolve to a vote
-# table, so they are cleared rather than reported NEEDS-GATE. Each entry matches by
-# file suffix + a case-insensitive substring of the decoded query. Keep this list
-# tiny and justified; a NEW interpolated wildcard NOT listed here fails the gate.
-CLEARED_UNRESOLVED: tuple[tuple[str, str, str], ...] = (
-    (
-        "delphi/polismath/replay/poller_equiv.py",
-        "select * from {table} where zid",
-        "replay harness; {table} is validated against EQUIV_TABLES = "
-        "(math_main, math_bidtopid, math_ptptstats) — never a vote table",
+
+@dataclass(frozen=True)
+class ClearedUnresolved:
+    """A reviewed exemption for one interpolated wildcard proven never to resolve to
+    a vote table. It is bound to its actual safety EVIDENCE — the exact query text,
+    the guard variable, and the fact that the guard set excludes every vote table —
+    all re-verified from source at scan time. A second/changed query, a guard set
+    that admits a vote table, or a removed guard therefore fails the exemption."""
+
+    file_suffix: str
+    query_text: str          # exact decoded query the exemption covers
+    guard_var: str           # the membership-guard variable, e.g. EQUIV_TABLES
+    forbidden_tables: frozenset[str]  # exemption void if the guard set intersects these
+    note: str
+
+
+CLEARED_UNRESOLVED: tuple[ClearedUnresolved, ...] = (
+    ClearedUnresolved(
+        file_suffix="delphi/polismath/replay/poller_equiv.py",
+        query_text="SELECT * FROM {table} WHERE zid = :zid AND math_env = :math_env",
+        guard_var="EQUIV_TABLES",
+        forbidden_tables=frozenset({"votes", "votes_latest_unique"}),
+        note="replay harness fetch_math_row; {table} guarded by `table not in "
+        "EQUIV_TABLES` (math_main/bidtopid/ptptstats) — never a vote table",
     ),
 )
 
-# A wildcard projection (`SELECT *` or `<qual>.*`) immediately followed by FROM.
-_WILDCARD_FROM_RE = re.compile(
-    r'(?:select\s+\*|"?\w+"?\s*\.\s*\*)\s+from\b\s*', re.IGNORECASE | re.DOTALL
-)
+# One `SELECT <projection-list> FROM <target>` segment.
+_SELECT_FROM_SEG_RE = re.compile(r"\bselect\b(.*?)\bfrom\b\s*", re.IGNORECASE | re.DOTALL)
+# A qualified star anywhere in a projection list: v.*, "v".*, ${a}.*, {a}.*.
+_QUAL_STAR_RE = re.compile(r'(?:"[^"]*"|\$\{[^}]*\}|\{[^}]*\}|\w+)\s*\.\s*\*')
+# A bare `*` that is a projection item (not `count(*)`).
+_BARE_STAR_ITEM_RE = re.compile(r"(?:^|,)\s*\*\s*(?:,|$)")
+# An INTERPOLATED qualifier before `.*`.
+_INTERP_QUAL_RE = re.compile(r'(?:\$\{[^}]*\}|\{[^}]*\})\s*\.\s*\*')
 # Interpolation markers: ${...} / {...} (f-string, .format), %s/%d/%(name)s.
 _INTERP_RE = re.compile(r"\$\{|\{|%s|%d|%\(")
 _PLAIN_TABLE_RE = re.compile(r'"?[A-Za-z_][\w.\"]*"?$')
+
+
+def _proj_has_wildcard(proj: str) -> bool:
+    return bool(_QUAL_STAR_RE.search(proj)) or bool(_BARE_STAR_ITEM_RE.search(proj.strip()))
 
 
 def _from_target(after: str) -> str:
@@ -340,9 +362,14 @@ def _sql_hits_in(content: str) -> list[tuple[str, str]]:
     for m in _SELECT_STAR_RE.finditer(content):
         hits.append((m.group(1).lower(), "select-star"))
 
-    # Wildcard projections (bare or qualified) whose FROM target is unresolvable.
-    for m in _WILDCARD_FROM_RE.finditer(content):
-        if _target_is_unresolved(_from_target(content[m.end():])):
+    # Scan each `SELECT <list> FROM <target>` segment: a wildcard item ANYWHERE in
+    # the projection list (not only a leading `*`/`<q>.*`) is unresolved when its
+    # qualifier is interpolated or the FROM target is unresolvable.
+    for m in _SELECT_FROM_SEG_RE.finditer(content):
+        proj = m.group(1)
+        if not _proj_has_wildcard(proj):
+            continue
+        if _INTERP_QUAL_RE.search(proj) or _target_is_unresolved(_from_target(content[m.end():])):
             hits.append((UNRESOLVED, "unresolved-table"))
 
     alias_table: dict[str, str] = {}
@@ -391,11 +418,55 @@ def _scan_text(rel: str, text: str, is_ts: bool) -> list[tuple[int, str, str, st
     return unique
 
 
-def _is_cleared_unresolved(rel: str, kind: str, raw: str) -> bool:
+def _has_membership_guard(fn: ast.AST, var: str) -> bool:
+    """The function guards `if <x> not in <var>: raise ...` (in any nested block)."""
+    for node in ast.walk(fn):
+        if isinstance(node, ast.If) and isinstance(node.test, ast.Compare):
+            has_not_in = any(isinstance(op, ast.NotIn) for op in node.test.ops)
+            names = [c.id for c in node.test.comparators if isinstance(c, ast.Name)]
+            if has_not_in and var in names and any(
+                isinstance(s, ast.Raise) for s in ast.walk(node)
+            ):
+                return True
+    return False
+
+
+def _is_cleared_unresolved(rel: str, kind: str, raw: str, source: str) -> bool:
+    """Clear an unresolved hit ONLY if a reviewed exemption's evidence still holds in
+    `source`: exact query text, a guard set (parsed) that excludes every vote table,
+    and a membership guard in the function that contains the query."""
     if kind != "unresolved-table":
         return False
-    low = raw.lower()
-    return any(rel.endswith(f) and sig.lower() in low for f, sig, _note in CLEARED_UNRESOLVED)
+    for entry in CLEARED_UNRESOLVED:
+        if not rel.endswith(entry.file_suffix):
+            continue
+        if raw.strip() != entry.query_text:
+            continue  # a different/changed query is not covered
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return False
+        # Guard set must exclude every vote table.
+        allowed: Optional[set[str]] = None
+        for node in ast.walk(tree):
+            targets = (node.targets if isinstance(node, ast.Assign)
+                       else [node.target] if isinstance(node, ast.AnnAssign) else [])
+            for t in targets:
+                if isinstance(t, ast.Name) and t.id == entry.guard_var:
+                    val = node.value
+                    if isinstance(val, (ast.Tuple, ast.List, ast.Set)):
+                        allowed = {e.value for e in val.elts
+                                   if isinstance(e, ast.Constant) and isinstance(e.value, str)}
+        if allowed is None or (allowed & entry.forbidden_tables):
+            return False
+        # The function containing the query must guard on the same variable.
+        for fn in ast.walk(tree):
+            if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                seg = ast.get_source_segment(source, fn) or ""
+                if entry.query_text in seg and _has_membership_guard(fn, entry.guard_var):
+                    return True
+        return False
+    return False
 
 
 def _classify(rel: str, line: int, table: str, kind: str, raw: str) -> WildcardSite:
@@ -443,15 +514,14 @@ def run_sweep(roots: Optional[Sequence[str]] = None, repo_root: Optional[str] = 
             rel = os.path.relpath(path, repo_root)
             try:
                 with open(path, encoding="utf-8", errors="replace") as fh:
-                    text = fh.read()
+                    original = fh.read()
             except OSError as exc:
                 raise InventoryScanError(f"unreadable file {path}: {exc}") from exc
             is_py = path.endswith(".py")
-            if is_py:
-                text = _blank_python_docstrings(text)
+            text = _blank_python_docstrings(original) if is_py else original
             for line, table, kind, raw in _scan_text(rel, text, is_ts=not is_py):
-                if _is_cleared_unresolved(rel, kind, raw):
-                    continue  # reviewed non-vote interpolation (see CLEARED_UNRESOLVED)
+                if _is_cleared_unresolved(rel, kind, raw, original):
+                    continue  # reviewed non-vote interpolation, guard re-verified from source
                 sites.append(_classify(rel, line, table, kind, raw))
     sites.sort(key=lambda s: (s.file, s.line))
     return sites
