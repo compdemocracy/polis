@@ -55,9 +55,11 @@ column). That is cheap and it closes the deleted-companion case, but it cannot
 see a mutated payload, so it is explicitly not complete integrity
 reconciliation: whenever the reconciliation ceiling expires the authoritative
 path re-reads and re-hashes the persisted generation with `load_current` and the
-resident bundle is discarded. Payload corruption that leaves metadata intact is
-therefore repaired within one ceiling interval instead of surviving behind a warm
-cache. Eviction is the CO07
+resident bundle is discarded. Payload corruption that leaves metadata intact therefore
+becomes eligible for repair once the ceiling elapses, instead of surviving behind
+a warm cache indefinitely. The ceiling is an eligibility threshold, not a measured
+deadline: page traversal, backoff, lease waits and compute all sit between
+eligibility and the repair, and no service budget has been measured here. Eviction is the CO07
 `cache_eviction_contends_with_same_zid_update` stage; that stage is the bounded
 Bundle-cache profile only, not a warm-worker, four-worker or Node cache profile.
 
@@ -321,7 +323,8 @@ backend PID. The barrier has a bounded deadline. A log alone is never an ack.
 cache-unit rewrite does not exist in the server, application boot/auth/report and
 the private served corpus are not executed, `getPca(zid, undefined)` misses a
 cold generation zero that the route itself serves, C7's
-published-versus-synthesized empty listing needs a ruling, the incremental probe
+published-versus-synthesized empty listing must satisfy the existing comment and
+clock preservation contract, the incremental probe
 is a bounded eligibility hint with no measured service budget, persisted payloads
 are revalidated once per ceiling rather than every pass, and this crate
 implements none of P-031's A01/A02/A03 — and it exits non-zero while any
