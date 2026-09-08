@@ -17,9 +17,14 @@
 //!    complete fair sweep stays the unconditional backstop.
 //! 3. `P026_INCREMENTAL=0` disables the fast path entirely and restores the
 //!    original behaviour: every pass takes the full authoritative snapshot.
-//! 4. The probe is captured **before** the snapshot it certifies. A row that
-//!    commits between the probe and the snapshot changes the *next* probe, so
-//!    a concurrent write can never be swallowed by a stored later probe.
+//! 4. The probe is captured **before** the snapshot it certifies, and the
+//!    database timestamp it carries is the one recorded as `reconciled_at`.
+//!    A row that commits between the probe and the snapshot changes the *next*
+//!    probe, so a concurrent write can never be swallowed by a stored later
+//!    probe; and because the stored age runs from *before* the source read
+//!    rather than from the end of publication, a long compute cannot reset the
+//!    advertised source age (Rev7 CO01: "a completion timestamp must not
+//!    masquerade as the age of the source observed").
 //! 5. The probe carries `ordering::algorithm_digest`, so the declared source
 //!    normalization and its storage agree-convention constant are part of the
 //!    change token: flipping the convention invalidates every conversation
@@ -31,14 +36,14 @@
 use crate::{ordering, store::PgStore};
 use anyhow::{Result, ensure};
 use serde_json::Value;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 /// Pinned so a stored probe from an older shape is never compared as equal.
 pub const SCHEMA: &str = "polis-source-probe/1";
 
 /// One statement, therefore one snapshot, over the three source tables.
 /// Aggregates only: no row is materialised and no payload is detoasted.
-const PROBE_SQL: &str = "SELECT jsonb_build_object(
+const PROBE_SQL: &str = "SELECT clock_timestamp(), jsonb_build_object(
  'schema',$3::text,
  'votes',(SELECT jsonb_build_object('n',count(*),'max_created',max(created),
     'min_created',min(created),'sum_created',COALESCE(sum(created),0),
@@ -61,20 +66,33 @@ pub struct Backlog {
     /// `conversations.created`, so a conversation the coordinator has never
     /// looked at cannot hide behind an empty table.
     pub oldest_reconciliation: Duration,
-    /// Conversations currently in durable backoff.
+    /// Conversations currently in durable backoff. Scoped to this shard and
+    /// allowlist, exactly like the source-age gauges: a failure this process
+    /// would never attempt is not this process's backlog (Rev7 observability).
     pub failures: i64,
     /// CO06 oldest unrepaired age.
     pub oldest_unrepaired: Duration,
 }
 
+/// A probe, with the database time at which it — and therefore, conservatively,
+/// the source snapshot it precedes — was observed.
+pub struct Probe {
+    pub value: Value,
+    pub observed_at: SystemTime,
+}
+
 impl PgStore {
-    /// The cheap change hint for one conversation.
-    pub fn probe(&mut self, zid: i32) -> Result<Value> {
+    /// The cheap change hint for one conversation, stamped with database time
+    /// taken in the same statement and therefore before the source read.
+    pub fn probe(&mut self, zid: i32) -> Result<Probe> {
         let algorithm = ordering::algorithm_digest(self.config.storage_agree_value)?;
-        Ok(self
+        let row = self
             .client
-            .query_one(PROBE_SQL, &[&zid, &algorithm, &SCHEMA])?
-            .get(0))
+            .query_one(PROBE_SQL, &[&zid, &algorithm, &SCHEMA])?;
+        Ok(Probe {
+            observed_at: row.get(0),
+            value: row.get(1),
+        })
     }
 
     /// The stored probe and the age of the authoritative snapshot it certifies.
@@ -93,11 +111,13 @@ impl PgStore {
     }
 
     /// Record that the authoritative snapshot was taken, with the probe that
-    /// was observed **before** it. Its own small transaction: this is a
-    /// discovery hint, and CO04 forbids adding it to the publication
-    /// transaction's lock set. Parent-first ordering still applies.
-    pub fn record_reconciliation(&mut self, zid: i32, probe: &Value) -> Result<()> {
-        ensure!(probe["schema"] == SCHEMA, "unrecognised probe shape");
+    /// was observed **before** it and the database time of that observation —
+    /// not the time this call happens, which is after compute and publication.
+    /// Its own small transaction: this is a discovery hint, and CO04 forbids
+    /// adding it to the publication transaction's lock set. Parent-first
+    /// ordering still applies.
+    pub fn record_reconciliation(&mut self, zid: i32, probe: &Probe) -> Result<()> {
+        ensure!(probe.value["schema"] == SCHEMA, "unrecognised probe shape");
         let mut tx = self.client.transaction()?;
         tx.query_one(
             "SELECT zid FROM conversations WHERE zid=$1 FOR KEY SHARE",
@@ -105,10 +125,15 @@ impl PgStore {
         )?;
         tx.execute(
             "INSERT INTO coordinator_reconciliation(math_env,zid,reconciled_at,source_probe)
-             VALUES($1,$2,clock_timestamp(),$3)
+             VALUES($1,$2,$4,$3)
              ON CONFLICT(math_env,zid) DO UPDATE
              SET reconciled_at=excluded.reconciled_at,source_probe=excluded.source_probe",
-            &[&self.config.math_env, &zid, probe],
+            &[
+                &self.config.math_env,
+                &zid,
+                &probe.value,
+                &probe.observed_at,
+            ],
         )?;
         tx.commit()?;
         Ok(())
@@ -136,9 +161,11 @@ impl PgStore {
              )
              SELECT COALESCE(count(*) FILTER (WHERE overdue),0)::bigint,
                     COALESCE(GREATEST(EXTRACT(EPOCH FROM clock_timestamp())-min(at),0),0)::float8,
-                    (SELECT count(*) FROM coordinator_failures WHERE math_env=$1)::bigint,
-                    (SELECT COALESCE(EXTRACT(EPOCH FROM clock_timestamp()-min(first_failed_at)),0)
-                       FROM coordinator_failures WHERE math_env=$1)::float8
+                    (SELECT count(*) FROM coordinator_failures f
+                      WHERE f.math_env=$1 AND EXISTS(SELECT 1 FROM mine m WHERE m.zid=f.zid))::bigint,
+                    (SELECT COALESCE(EXTRACT(EPOCH FROM clock_timestamp()-min(f.first_failed_at)),0)
+                       FROM coordinator_failures f
+                      WHERE f.math_env=$1 AND EXISTS(SELECT 1 FROM mine m WHERE m.zid=f.zid))::float8
                FROM state",
             &[
                 &c.math_env,

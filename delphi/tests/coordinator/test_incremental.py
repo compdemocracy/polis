@@ -11,7 +11,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from conftest import BINARY, assert_coherent, connect, rows, seed, wait
+from coordinator.conftest import BINARY, assert_coherent, connect, rows, seed, wait
 
 
 def query(db, sql, args=()):
@@ -144,7 +144,7 @@ def test_emitted_records_match_the_declared_catalog_and_p031_dimensions(db, laun
             assert entry["Unit"] == names[entry["Name"]]["unit"]
             assert isinstance(record[entry["Name"]], (int, float))
     pass_record = emf(metrics, "source_pass")[-1]
-    assert pass_record["PollHealthy"] == 1
+    assert pass_record["SourcePassHealthy"] == 1
     assert pass_record["LeaseAcquired"] == 1
     assert pass_record["PublishCommitted"] == 1
     assert pass_record["LeaseFenced"] == 0 and pass_record["PublishRefused"] == 0
@@ -183,7 +183,7 @@ def test_scan_age_and_backlog_are_exposed_and_drain(db, launch, tmp_path):
 
 def test_failures_appear_as_backlog_and_unrepaired_age_without_faking_health(db, launch, tmp_path):
     """CO06 oldest unrepaired age. A stuck conversation must be visible as
-    stuck; the pass itself still completed, and PollHealthy says only that."""
+    stuck; the pass itself still completed, and SourcePassHealthy says only that."""
     seed(db)
     metrics = tmp_path / "failures.jsonl"
     child = launch(db, "run", extra={"P026_METRICS": str(metrics),
@@ -196,5 +196,5 @@ def test_failures_appear_as_backlog_and_unrepaired_age_without_faking_health(db,
     stuck = [r for r in emf(metrics, "source_pass") if r.get("FailureBacklogConversations", 0) >= 1][-1]
     assert stuck["SourcePassDeferred"] >= 1
     assert stuck["OldestUnrepairedAgeSeconds"] >= 0
-    assert stuck["PollHealthy"] == 1, "the loop is alive; stuck work is a different signal"
+    assert stuck["SourcePassHealthy"] == 1, "the loop is alive; stuck work is a different signal"
     assert rows(db)["math_main"] is None, "nothing was published"
