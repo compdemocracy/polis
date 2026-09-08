@@ -3,9 +3,11 @@
 // stdio bridge enters ONLY our own driver container; it adds no network/egress.
 const net=require('node:net'),cp=require('node:child_process');
 const [project,pg,http,control,dynamo]=process.argv.slice(2);
-if(!/^rpca2x-[a-z0-9]+$/.test(project))throw Error('isolated project required');
+const prefix=process.env.P032_PROJECT_PREFIX||'rpca2x';
+if(!new RegExp('^'+prefix.replace(/[^a-z0-9]/g,'\\$&')+'-[a-z0-9]+$').test(project))throw Error('isolated project required');
 const ports=[pg,http,control,dynamo].map(Number);
-if(new Set(ports).size!==4||ports.some(p=>p<55720||p>55739))throw Error('isolated ports required');
+const min=Number(process.env.P032_PORT_MIN||55720),max=Number(process.env.P032_PORT_MAX||55739);
+if(new Set(ports).size!==4||ports.some(p=>p<min||p>max))throw Error('isolated ports required');
 const container=project+'-driver-1';
 const label=cp.execFileSync('docker',['inspect',container,'--format','{{index .Config.Labels "com.docker.compose.project"}}'],{encoding:'utf8'}).trim();
 if(label!==project)throw Error('container owner mismatch');

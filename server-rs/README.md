@@ -20,17 +20,35 @@ corroborate that. Generated participant tokens are verified by the replay adapte
 before all four recorded actors' actual credentials are sent to Rust.
 
 SQL lookup and the LRU key both include `(MATH_ENV, zid)`. The generation column
-wins over the engine-local blob tick, including at zero. Omitted tick means -1;
+wins over the engine-local blob tick, including at zero. **That is #2732's fixed
+behaviour, not `origin/stable`'s.** Unmodified `pca.ts:420` guards the assignment
+with `if (rowsArray[0].math_tick)`, so a committed column tick of 0 does not
+override the blob's own tick. Per P-040 §0 the two are observationally identical
+in the ordinary case, because production writes column and blob tick together;
+they differ only when the two disagree, which is what `tools/tick-zero.cjs`
+constructs. This crate must not merge ahead of #2732, or the two implementations
+disagree in the one cell the harness does not record. Omitted tick means -1;
 equal/newer ticks produce 304. Both branches of Node's `finishWith304or404` are
 304. A missing row in the selected environment synthesizes the ordered empty
 structure with approved tids; rows under a different environment do not count.
 The characterization feature injects the same fixed clock as the recorder;
 ordinary builds use wall time. The three-second cache uses a 300-entry LRU when
-`CACHE_MATH_RESULTS` is unset/blank/`true`, otherwise one entry.
+`CACHE_MATH_RESULTS` is unset/blank/`true`, otherwise one entry. It is filled on
+exactly the two paths `getPca` fills it on — a synthesized empty structure for a
+latest-requested miss, and a row whose tick beats the requested one — and not on
+the "row exists but tick not newer" or "no row and explicit tick" paths, where
+Node re-queries. `math.ts`'s `pcaResultsExistForZid` re-query from the latest
+sentinel is reproduced with it, since that is what warms the empty structure for
+the next request in the cold not-ready sequence.
 
 `src/model.rs` contains 24 generated structs/enums, explicit serde field order,
 typed numeric maps and a typed subset serializer. Optional fields reject explicit
-null; the observed null timestamp is a distinct unit/null type. There is no
+null. `lastModTimestamp` is typed from the source (`pca.ts:64`, `number | null`)
+rather than from the corpus, which only ever exhibits null. When the blob omits
+`mod-in`/`mod-out`/`meta-tids`, `ensureCompletePcaStructure` appends the key
+after every other extra rather than at its own position, and the model carries a
+second serialize-only field for each so that order is reproduced; every
+populated fixture carries all three, so the corpus is blind to this. There is no
 `serde_json::Value`, flattened arbitrary-success map, or raw-JSON success escape.
 `contract/empty.schema.json` is the supplied empty contract.
 `contract/populated.schema.json` is an **implementation candidate**, derived from
@@ -53,11 +71,23 @@ negative zero and exponent boundaries.
 ## Wire compatibility
 
 The comparator preserves header casing/order and gzip bytes. `src/transport.rs`
-uses Axum routing behind a small HTTP/1 writer to preserve the observed headers;
-it handles one request per connection. The recorded policy explicitly excludes
-Connection/Keep-Alive/Date. The writer bounds request size and rejects ambiguous
+uses Axum routing behind a small HTTP/1 writer to preserve the observed headers.
+Connections are persistent: this route is polled every 2.5s by every open client,
+so a connection per poll would be a throughput and tail-latency regression the
+byte gate cannot see. The `Connection: keep-alive` header is `writeDefaultHead`'s
+(`domain.ts:14-18`) and travels with the response headers; the writer closes the
+socket only on an explicit `Connection: close`, an idle keep-alive window, or a
+response it cannot delimit. The recorded policy still excludes
+Connection/Keep-Alive/Date, so this is source-read rather than gate-verified.
+The writer bounds request size and rejects ambiguous
 Content-Length/Transfer-Encoding framing. HTTP/2, streaming request bodies and
 production transport hardening are outside this candidate.
+
+`OPTIONS` under this path answers 204 as `middleware_check_if_options` does,
+before any parameter middleware, and `HEAD` runs the GET handler and writes its
+headers with no body, as Express's router and `res.send` do. The installed
+compression middleware refuses to transform a HEAD response, so a subset large
+enough to negotiate gzip on GET is served identity on HEAD.
 
 Ordinary 304s retain Content-Type and Vary and have no ETag. Express's wildcard
 freshness 304 removes Content-Type/Vary but keeps the explicit gzip coding and
@@ -94,6 +124,14 @@ cargo clippy --locked --all-targets --all-features -- -D warnings
 cargo build --locked --release
 ```
 
+`/health` is not a Node route. It leases a pooled connection, round-trips
+`select 1`, and reports pool depth, reconnect counts and the contract-violation
+counter, answering 200 or 503. The pool (`src/db.rs`) replaces the single client
+whose connection task called `process::exit(1)` on any error: a lost connection
+is logged, the dead client is discarded, and the next lease reconnects with five
+bounded, backing-off attempts. `PG_POOL_SIZE` bounds the idle set (default 16).
+TLS is still not implemented, so production RDS remains out of scope.
+
 The ordinary service needs `DATABASE_URL` and `MATH_ENV`; `MATH_ENV` has no
 default and the process refuses to start without it, because `Config.mathEnv`
 has none either and an unset variable would silently serve another namespace's
@@ -117,13 +155,16 @@ NODE_PATH=/Users/colinmegill/polis/server/node_modules \
 ```
 
 The script builds the characterization binary, chooses a fresh random
-`rpca2x-*` project and five free ports within 55720–55739, starts the six existing
+`$P032_PROJECT_PREFIX-*` project (default `rpca2x`) and five free ports within
+`$P032_PORT_MIN..$P032_PORT_MAX` (default 55720–55739), starts the six existing
 local images without pulling, seeds the exact SQL fixture and real Python math
 writer, installs the Dynamo page fixtures, runs schema/replay/control and six
 additional HTTP checks, then tears down only that project. Docker's sealed
 internal network suppresses published ports on this host; the owned driver's
 stdio bridge exposes only Postgres, the Node fixture authority and DynamoDB to
-loopback without changing the network's internal property. Rust handles all 336
+loopback without changing the network's internal property. Another reviewer or
+CI runs the same reproduction under its own assigned prefix and range by setting
+those three variables; nothing needs editing in the tools. Rust handles all 336
 route requests directly at its base URL. The Node server supplies generated
 tokens only; it never serializes or proxies a Rust response.
 
@@ -148,9 +189,13 @@ python3 server-rs/tools/generate-contract.py
 
 The 336 recorded cells and extra committed-zero witness are the conformance
 claim. The supplied contract explicitly left populated/client/numeric-boundary
-review open. Non-null `lastModTimestamp`, new populated fields, different
+review open. New populated fields, different
 publication shapes and numeric map keys outside the implemented u32 domain
-require additional typed evidence; the decoder fails closed. General Express
+require additional typed evidence; the decoder fails closed, and a blob it
+cannot describe is answered 502 `polis_err_pca2_contract_violation` — logged as
+a structured record and counted on `/health` — rather than 500. Run the B1
+census against a local corpus of stored `math_main.data` blobs with
+`P032_CENSUS_DIR=<dir> cargo test --locked census -- --nocapture`. General Express
 query-object/coercion variants, richer content negotiation, dynamic CORS and
 transport behavior outside these recordings are not certified by this run.
 Runtime failure responses outside the recorded 200/304/400 cells are also not
