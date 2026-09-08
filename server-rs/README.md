@@ -125,12 +125,17 @@ cargo build --locked --release
 ```
 
 `/health` is not a Node route. It leases a pooled connection, round-trips
-`select 1`, and reports pool depth, reconnect counts and the contract-violation
-counter, answering 200 or 503. The pool (`src/db.rs`) replaces the single client
-whose connection task called `process::exit(1)` on any error: a lost connection
-is logged, the dead client is discarded, and the next lease reconnects with five
-bounded, backing-off attempts. `PG_POOL_SIZE` bounds the idle set (default 16).
-TLS is still not implemented, so production RDS remains out of scope.
+`select 1`, and reports idle/live/max connections, reconnect counts, acquisition
+timeouts and the contract-violation counter, answering 200 or 503. The pool
+(`src/db.rs`) replaces the single client whose connection task called
+`process::exit(1)` on any error: a lost connection is logged, the dead client is
+discarded, and the next lease reconnects with five bounded, backing-off attempts.
+`PG_POOL_SIZE` (default 16) bounds **live** connections, not the idle list — a
+permit is held for the whole life of a lease, so N concurrent requests cannot
+reach more than `PG_POOL_SIZE` backends, and a saturated pool fails the request
+after `PG_ACQUIRE_TIMEOUT_MS` (default 5000) rather than queueing behind the
+database. TLS is still not implemented, so production RDS remains out of scope
+and that blocker stands.
 
 The ordinary service needs `DATABASE_URL` and `MATH_ENV`; `MATH_ENV` has no
 default and the process refuses to start without it, because `Config.mathEnv`
