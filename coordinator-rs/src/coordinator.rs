@@ -132,8 +132,19 @@ impl PgStore {
     fn process_owned(&mut self, zid: i32, epoch: i64, renewal: &Renewal) -> Result<bool> {
         let expected = self.current_tick(zid)?;
         // A warm entry is only usable while it still is the current generation.
+        // Rev6: a resident bundle is not evidence about the durable store. Its
+        // companions and checkpoint are reconciled independently on every pass
+        // that hits the cache, and any disagreement evicts it and repairs.
         let prior = match self.cache.take(zid, expected) {
-            Some(bundle) => Current::Coherent(bundle),
+            Some(bundle) if self.resident_is_intact(zid, &bundle)? => Current::Coherent(bundle),
+            Some(bundle) => {
+                tracing::warn!(
+                    zid,
+                    math_tick = bundle.math_tick,
+                    "resident bundle contradicted by the store; evicted, repairing"
+                );
+                self.load_current(zid)?
+            }
             None => self.load_current(zid)?,
         };
         // CO01 incremental discovery. The probe is captured *before* the
