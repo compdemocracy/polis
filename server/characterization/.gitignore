@@ -1,2 +1,4 @@
-artifacts/
+artifacts/*
+!artifacts/baseline.json.gz
+!artifacts/baseline.sha256
 __pycache__/

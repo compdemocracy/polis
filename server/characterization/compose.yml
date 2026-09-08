@@ -1,6 +1,6 @@
 # Dedicated generated-data topology derived from docker-compose.test.yml.
 # Build images before starting: internal networks cannot install packages at runtime.
-name: p027
+name: ${COMPOSE_PROJECT_NAME:?unique project required}
 services:
   postgres:
     image: p027-postgres
@@ -9,48 +9,64 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_HOST_AUTH_METHOD: trust
     networks: [sealed]
-    ports: ['127.0.0.1:55459:5432']
+    ports: ["127.0.0.1:${POLIS_RECOVERY_PG_PORT:?unique port required}:5432"]
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres -d p027']
+      test: ["CMD-SHELL", "pg_isready -U postgres -d p027"]
       interval: 2s
       timeout: 2s
       retries: 30
   dynamodb:
     image: amazon/dynamodb-local:latest
-    command: '-jar DynamoDBLocal.jar -sharedDb -inMemory'
+    command: "-jar DynamoDBLocal.jar -sharedDb -inMemory"
     networks: [sealed]
   file-server:
     image: p027-file-server:latest
     networks: [sealed]
   oidc-simulator:
     image: p027-oidc-simulator:latest
-    command: ['sh', '-c', 'openssl req -x509 -newkey rsa:2048 -nodes -keyout /root/.simulacrum/certs/localhost-key.pem -out /root/.simulacrum/certs/localhost.pem -days 2 -subj /CN=oidc-simulator -addext subjectAltName=DNS:oidc-simulator,DNS:localhost >/dev/null 2>&1 && node --require ./p027-seed.cjs dist/index.js']
-    volumes: ['certs:/root/.simulacrum/certs', './oidc-seed.cjs:/app/p027-seed.cjs:ro']
+    command:
+      [
+        "sh",
+        "-c",
+        "openssl req -x509 -newkey rsa:2048 -nodes -keyout /root/.simulacrum/certs/localhost-key.pem -out /root/.simulacrum/certs/localhost.pem -days 2 -subj /CN=oidc-simulator -addext subjectAltName=DNS:oidc-simulator,DNS:localhost >/dev/null 2>&1 && node --require ./p027-seed.cjs dist/index.js",
+      ]
+    volumes:
+      ["certs:/root/.simulacrum/certs", "./oidc-seed.cjs:/app/p027-seed.cjs:ro"]
     environment:
       AUTH_AUDIENCE: users
       AUTH_CLIENT_ID: dev-client-id
       AUTH_NAMESPACE: https://pol.is/
-      AUTH_SIMULATOR_PORT: '3000'
+      AUTH_SIMULATOR_PORT: "3000"
     networks: [sealed]
   server:
     image: p027-server
     working_dir: /app
-    command: ['node', 'characterization/entry.cjs']
-    volumes: ['..:/app/source:ro', './:/app/characterization:ro', '../app.ts:/app/app.ts:ro', '../index.ts:/app/index.ts:ro', '../src:/app/src:ro', './artifacts:/artifacts', 'certs:/certs:ro']
+    command: ["node", "characterization/entry.cjs"]
+    volumes:
+      [
+        "..:/app/source:ro",
+        "./:/app/characterization:ro",
+        "../app.ts:/app/app.ts:ro",
+        "../index.ts:/app/index.ts:ro",
+        "../src:/app/src:ro",
+        "./artifacts:/artifacts",
+        "certs:/certs:ro",
+      ]
     environment: &server-environment
-      P027_OBSERVE: '1'
-      P027_NETWORK_INTERNAL: '1'
-      P027_NEGATIVE_CONTROLS: '1'
-      DEV_MODE: 'true'
+      P027_OBSERVE: "1"
+      P027_NETWORK_INTERNAL: "1"
+      P027_NEGATIVE_CONTROLS: "${P027_NEGATIVE_CONTROLS:-0}"
+      P027_MARKERS: "${P027_MARKERS:-1}"
+      DEV_MODE: "true"
       NODE_ENV: development
       SERVER_LOG_LEVEL: error
       DATABASE_URL: postgres://postgres@postgres:5432/p027
-      DATABASE_SSL: 'false'
+      DATABASE_SSL: "false"
       DOMAIN_OVERRIDE: localhost
       SERVICE_URL: http://localhost
       EMBED_SERVICE_HOSTNAME: localhost
       STATIC_FILES_HOST: file-server
-      STATIC_FILES_PORT: '8080'
+      STATIC_FILES_PORT: "8080"
       MATH_ENV: p027
       NODE_EXTRA_CA_CERTS: /certs/localhost.pem
       AUTH_ISSUER: https://oidc-simulator:3000/
@@ -63,24 +79,33 @@ services:
       AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: generatedlocal
       AWS_SECRET_ACCESS_KEY: generatedlocal
-      AWS_EC2_METADATA_DISABLED: 'true'
+      AWS_EC2_METADATA_DISABLED: "true"
       SES_ENDPOINT: https://email.us-east-1.amazonaws.com
       POLIS_FROM_ADDRESS: sender@example.invalid
-      SHOULD_USE_TRANSLATION_API: 'false'
-      ADMIN_UIDS: '[2]'
+      SHOULD_USE_TRANSLATION_API: "false"
+      ADMIN_UIDS: "[2]"
       WEBSERVER_USERNAME: generated-worker
       WEBSERVER_PASS: generated-worker
-      TOPICAL_COMMENT_RATIO: '0'
+      TOPICAL_COMMENT_RATIO: "0"
     networks: [sealed]
-    ports: ['127.0.0.1:55027:5000', '127.0.0.1:55028:5001']
+    ports:
+      [
+        "127.0.0.1:${P027_HTTP_PORT:?unique port required}:5000",
+        "127.0.0.1:${P027_CONTROL_PORT:?unique port required}:5001",
+      ]
     depends_on:
-      oidc-simulator: {condition: service_healthy}
-      postgres: {condition: service_healthy}
+      oidc-simulator: { condition: service_healthy }
+      postgres: { condition: service_healthy }
   driver:
     image: p027-server
     working_dir: /app
-    command: ['tail', '-f', '/dev/null']
-    volumes: ['./:/app/characterization:ro', './artifacts:/artifacts', 'certs:/certs:ro']
+    command: ["tail", "-f", "/dev/null"]
+    volumes:
+      [
+        "./:/app/characterization:ro",
+        "./artifacts:/artifacts",
+        "certs:/certs:ro",
+      ]
     environment:
       <<: *server-environment
       P027_BASE_URL: http://server:5000

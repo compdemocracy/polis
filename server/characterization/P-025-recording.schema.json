@@ -1,0 +1,731 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:polis:api-recording:1",
+  "title": "Polis API characterization recording record /1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/manifest"
+    },
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/response"
+    },
+    {
+      "$ref": "#/$defs/effect"
+    },
+    {
+      "$ref": "#/$defs/external"
+    },
+    {
+      "$ref": "#/$defs/process"
+    }
+  ],
+  "$defs": {
+    "blob": {
+      "type": "object",
+      "properties": {
+        "base64": {
+          "type": "string"
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "base64",
+        "byte_length",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "header": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "credential_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "value",
+        "credential_ref"
+      ],
+      "additionalProperties": false
+    },
+    "chunk": {
+      "type": "object",
+      "properties": {
+        "sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "at_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bytes": {
+          "$ref": "#/$defs/blob"
+        }
+      },
+      "required": [
+        "sequence",
+        "at_ms",
+        "bytes"
+      ],
+      "additionalProperties": false
+    },
+    "manifest": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "manifest"
+        },
+        "schema_version": {
+          "const": "polis-api-recording/1"
+        },
+        "case_id": {
+          "type": "string"
+        },
+        "route_id": {
+          "type": "string"
+        },
+        "scenario_id": {
+          "type": "string"
+        },
+        "source_commit": {
+          "type": "string"
+        },
+        "image_digest": {
+          "type": "string"
+        },
+        "express_version": {
+          "const": "3.21.2"
+        },
+        "route_inventory_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "corpus_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "database_schema_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "column_policy_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "clock_seed": {
+          "type": "string"
+        },
+        "scheduler_seed": {
+          "type": "string"
+        },
+        "barriers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "request_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "actor_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "byte_length": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "path",
+              "byte_length",
+              "sha256"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "expected": {
+          "type": "object",
+          "properties": {
+            "completed_responses": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "process_errors": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "participants_created": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "jwts_issued": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "external_attempts": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "completed_responses",
+            "process_errors",
+            "participants_created",
+            "jwts_issued",
+            "external_attempts"
+          ],
+          "additionalProperties": false
+        },
+        "deadline_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "settle_deadline_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "normalization_policy": {
+          "type": "string"
+        },
+        "approved_differences": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "replacement_assertion": {
+                "type": "string"
+              },
+              "approver": {
+                "type": "string"
+              },
+              "decision_ref": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "paths",
+              "replacement_assertion",
+              "approver",
+              "decision_ref"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "case_id",
+        "route_id",
+        "scenario_id",
+        "source_commit",
+        "image_digest",
+        "express_version",
+        "route_inventory_sha256",
+        "corpus_sha256",
+        "database_schema_sha256",
+        "column_policy_sha256",
+        "clock_seed",
+        "scheduler_seed",
+        "barriers",
+        "request_ids",
+        "actor_refs",
+        "files",
+        "expected",
+        "deadline_ms",
+        "settle_deadline_ms",
+        "normalization_policy",
+        "approved_differences"
+      ],
+      "additionalProperties": false
+    },
+    "request": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "request"
+        },
+        "schema_version": {
+          "const": "polis-api-recording/1"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "actor_ref": {
+          "type": "string"
+        },
+        "auth_fixture_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "method": {
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/blob"
+        },
+        "headers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/header"
+          }
+        },
+        "body": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/chunk"
+          }
+        },
+        "encoding": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "request_id",
+        "actor_ref",
+        "auth_fixture_ref",
+        "sequence",
+        "method",
+        "target",
+        "headers",
+        "body",
+        "encoding"
+      ],
+      "additionalProperties": false
+    },
+    "response": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "response"
+        },
+        "schema_version": {
+          "const": "polis-api-recording/1"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 599
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "headers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/header"
+          }
+        },
+        "body": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/chunk"
+          }
+        },
+        "completed": {
+          "type": "boolean"
+        },
+        "termination": {
+          "enum": [
+            "end",
+            "aborted",
+            "deadline",
+            "process_exit"
+          ]
+        },
+        "first_byte_ms": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_byte_ms": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "process_alive_at_end": {
+          "type": "boolean"
+        },
+        "normalizations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "request_id",
+        "status",
+        "headers",
+        "body",
+        "completed",
+        "termination",
+        "first_byte_ms",
+        "last_byte_ms",
+        "process_alive_at_end",
+        "normalizations"
+      ],
+      "additionalProperties": false
+    },
+    "effect": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "effect"
+        },
+        "schema_version": {
+          "const": "polis-api-recording/1"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "barrier": {
+          "type": "string"
+        },
+        "effect_type": {
+          "enum": [
+            "db_row",
+            "participant_created",
+            "jwt_issued",
+            "job_enqueued",
+            "file_write",
+            "delayed_write"
+          ]
+        },
+        "identity": {
+          "type": "string"
+        },
+        "operation": {
+          "enum": [
+            "insert",
+            "update",
+            "delete",
+            "issue",
+            "write"
+          ]
+        },
+        "field_policy_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "before": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/blob"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "after": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/blob"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "committed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "sequence",
+        "request_id",
+        "barrier",
+        "effect_type",
+        "identity",
+        "operation",
+        "field_policy_refs",
+        "before",
+        "after",
+        "committed"
+      ],
+      "additionalProperties": false
+    },
+    "external": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "external"
+        },
+        "schema_version": {
+          "const": "polis-api-recording/1"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "boundary": {
+          "type": "string"
+        },
+        "correlation_ref": {
+          "type": "string"
+        },
+        "idempotency_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "request": {
+          "$ref": "#/$defs/blob"
+        },
+        "response": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/blob"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "termination": {
+          "enum": [
+            "end",
+            "timeout",
+            "connection_error",
+            "lost_ack"
+          ]
+        },
+        "at_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "sequence",
+        "request_id",
+        "boundary",
+        "correlation_ref",
+        "idempotency_ref",
+        "attempt",
+        "request",
+        "response",
+        "termination",
+        "at_ms"
+      ],
+      "additionalProperties": false
+    },
+    "process": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "process"
+        },
+        "schema_version": {
+          "const": "polis-api-recording/1"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "process_ref": {
+          "type": "string"
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "at_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "event": {
+          "enum": [
+            "ready",
+            "unhandledRejection",
+            "uncaughtException",
+            "exit",
+            "signal",
+            "deadline",
+            "egress_denied",
+            "unexpected_background_task",
+            "startup_file_write"
+          ]
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "exit_code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "detail_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "sequence",
+        "process_ref",
+        "request_id",
+        "at_ms",
+        "event",
+        "error_code",
+        "exit_code",
+        "detail_ref"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

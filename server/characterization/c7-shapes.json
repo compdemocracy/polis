@@ -1,0 +1,113 @@
+{
+  "source": "Synthetic reconstructions only from P-022-G-empty-oracle-inventory and P-022-G-engine-contract; no production rows or identifiers.",
+  "legacy": [
+    {
+      "zid": "synthetic-empty",
+      "base-clusters": {
+        "id": [],
+        "members": [],
+        "x": [],
+        "y": [],
+        "count": []
+      },
+      "lastModTimestamp": null,
+      "lastVoteTimestamp": 0,
+      "in-conv": [],
+      "meta-tids": [],
+      "mod-in": [],
+      "mod-out": []
+    },
+    {
+      "zid": "synthetic-empty",
+      "base-clusters": {
+        "id": [],
+        "members": [],
+        "x": [],
+        "y": [],
+        "count": []
+      },
+      "lastModTimestamp": null,
+      "lastVoteTimestamp": 0
+    },
+    {
+      "zid": "synthetic-empty",
+      "base-clusters": {
+        "id": [],
+        "members": [],
+        "x": [],
+        "y": [],
+        "count": []
+      },
+      "lastModTimestamp": null,
+      "lastVoteTimestamp": 0,
+      "in-conv": [],
+      "mod-out": []
+    },
+    {
+      "zid": "synthetic-empty",
+      "base-clusters": {
+        "id": [],
+        "members": [],
+        "x": [],
+        "y": [],
+        "count": []
+      },
+      "lastModTimestamp": null,
+      "lastVoteTimestamp": 0,
+      "in-conv": [],
+      "meta-tids": [],
+      "mod-out": []
+    },
+    {
+      "zid": "synthetic-empty",
+      "base-clusters": {
+        "id": [],
+        "members": [],
+        "x": [],
+        "y": [],
+        "count": []
+      },
+      "lastModTimestamp": null,
+      "lastVoteTimestamp": 0,
+      "meta-tids": [],
+      "mod-in": [],
+      "mod-out": []
+    }
+  ],
+  "corrected": {
+    "zid": "synthetic-empty",
+    "n": 0,
+    "n-cmts": 0,
+    "tids": [],
+    "in-conv": [],
+    "base-clusters": {
+      "id": [],
+      "members": [],
+      "x": [],
+      "y": [],
+      "count": []
+    },
+    "group-clusters": [],
+    "group-votes": {},
+    "votes-base": {},
+    "user-vote-counts": {},
+    "comment-priorities": {},
+    "consensus": {
+      "agree": [],
+      "disagree": []
+    },
+    "group-aware-consensus": {},
+    "repness": {},
+    "meta-tids": [],
+    "mod-in": [],
+    "mod-out": [],
+    "lastVoteTimestamp": 0,
+    "lastModTimestamp": null,
+    "pca": {
+      "center": [],
+      "comps": [[], []],
+      "comment-projection": [[], []],
+      "comment-extremity": []
+    }
+  }
+}
