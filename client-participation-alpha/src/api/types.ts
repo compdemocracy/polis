@@ -67,7 +67,9 @@ export interface PCAData {
   repness?: {
     [groupId: string]: RepnessItem[]
   }
-  mathTick?: number
+  // Wire field name is `math_tick` (P-032 slice-1 decoded contract,
+  // cost-reduction/04-plans/p032-slice1/decoded-empty.schema.json).
+  math_tick?: number
 }
 
 export interface Topic {

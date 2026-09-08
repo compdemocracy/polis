@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchComments } from '../api/comments'
-import { fetchPCAData } from '../api/pca'
+import { fetchPCAData, PCA_VISUALIZATION_KEYS } from '../api/pca'
 import type { Comment, PCAData } from '../api/types'
 import type { Translations } from '../strings/types'
 import { PCAVisualization } from './visualization'
@@ -36,31 +36,22 @@ export default function VisualizationContainer({
         }
         setError(null)
 
-        const pcaKeys: Array<keyof PCAData> = [
-          'base-clusters',
-          'group-clusters',
-          'group-aware-consensus',
-          'group-votes',
-          'repness',
-          'mathTick'
-        ]
-
         // Fetch both PCA data and comments in parallel
         const [pcaDataResult, commentsResult] = await Promise.all([
-          fetchPCAData(conversation_id, pcaKeys),
+          fetchPCAData(conversation_id, PCA_VISUALIZATION_KEYS),
           fetchComments(conversation_id)
         ])
 
-        // Check if mathTick has changed (skip update if unchanged)
+        // Check if math_tick has changed (skip update if unchanged)
         if (
-          pcaDataResult.mathTick !== undefined &&
-          pcaDataResult.mathTick === currentMathTick.current
+          pcaDataResult.math_tick !== undefined &&
+          pcaDataResult.math_tick === currentMathTick.current
         ) {
           // Math hasn't been recalculated yet, data is the same
           return
         }
 
-        currentMathTick.current = pcaDataResult.mathTick
+        currentMathTick.current = pcaDataResult.math_tick
         setPcaData(pcaDataResult)
         setComments(commentsResult)
       } catch (err) {
