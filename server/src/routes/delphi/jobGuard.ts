@@ -400,9 +400,25 @@ function isSubstrateMissing(error: any): boolean {
   return error?.name === "ResourceNotFoundException";
 }
 
+/**
+ * Exactly the attributes the guard and the readers need, and no more: the
+ * payload (`job_config`), the output (`job_results`) and the log buffer stay
+ * out of every read.
+ *
+ * `superseded_by` is here because the successor link is what a client follows
+ * after a withdrawal, and `completed_at`/`updated_at`/`created_at`/`started_at`
+ * because a terminal row with no timestamp cannot be pruned cheaply — without
+ * them every historical root becomes an adoption candidate and the budget runs
+ * out. A projection is not a formality: it is the data contract these paths
+ * read through.
+ */
 const JOB_PROJECTION =
-  "#s, #jid, batch_job_id, job_type, report_id, conversation_id, process_exit_confirmed, checker_schedule_failed";
-const JOB_PROJECTION_NAMES = { "#s": "status", "#jid": "job_id" };
+  "#s, #jid, batch_job_id, job_type, report_id, conversation_id, process_exit_confirmed, checker_schedule_failed, superseded_by, withdrawn_reason, created_at, started_at, completed_at, updated_at, #ver";
+const JOB_PROJECTION_NAMES = {
+  "#s": "status",
+  "#jid": "job_id",
+  "#ver": "version",
+};
 
 export const dynamoJobAdmissionStore: JobAdmissionStore = {
   async admit(request, guardItem, aliasItem) {
@@ -944,8 +960,10 @@ export async function assessConversationLiveness(
     }
     const live = new Map<string, boolean>();
     const anchors = new Map<string, string>();
+    const rows2 = new Map<string, any>();
     for (const row of all) {
       const jobId = String(row.job_id);
+      rows2.set(jobId, row);
       live.set(
         jobId,
         liveChildParents.has(jobId) ||
@@ -955,7 +973,7 @@ export async function assessConversationLiveness(
       );
       anchors.set(jobId, rowAnchor(row));
     }
-    return { ok: true as const, reason: "", live, anchors };
+    return { ok: true as const, reason: "", live, anchors, rows: rows2 };
   };
 
   const first = await sweep();
