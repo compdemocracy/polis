@@ -1,198 +1,314 @@
 #!/usr/bin/env bash
-# P-022 §E v1 — the on-instance half of .github/workflows/certification-ec2.yml.
+# P-022 §E — the on-instance half of .github/workflows/certification-ec2.yml.
 #
-# The workflow never runs this locally; it invokes one phase at a time over SSM
-# (AWS-RunShellScript, no SSH) on the disposable worker that cdk/ciEc2.ts
-# launches. Each phase writes its FULL output to /var/log/polis-ci/<phase>.log
-# and prints only a bounded tail to stdout, because SSM truncates
-# GetCommandInvocation output at 24000 characters — the tail is a progress
-# signal, never the evidence.
+# ## What this is, after Astra's #2715 review (round 2)
+#
+# A SYNTHETIC job: the recovery matrix plus the replay battery restricted to the
+# repository's PUBLIC fixtures. It is not private certification and its verdict
+# is named so it cannot be mistaken for one. Round 1 staged the private
+# prod-derived bundle here and then shipped the raw log back to public Actions
+# artifacts (review E1/E2). Round 2 removes the private data path entirely:
+# there is no fixture bucket, the instance role cannot read one, and nothing
+# prod-derived is ever present on this box.
+#
+# ## Output discipline
+#
+# Every phase prints ONLY allowlisted status lines through `status()`:
+#
+#     p022 <phase> <key>=<value>
+#
+# with values restricted to a fixed character class. Nothing else reaches SSM
+# stdout — no log tails, no greps of candidate output, no exception text. Round
+# 1's `grep -E 'VERDICT|PASS|FAIL'` was not a sanitizer: arbitrary candidate
+# text matches it. Full logs stay in /var/log/polis-ci and die with the box.
+#
+# What does come back is structured and bounded: a fixed-schema summary.json
+# built from parsed integers and enums, and pytest's JUnit XML. Both are
+# public-safe by construction here, because this instance has access to nothing
+# that is not already public in the repository.
 #
 # Phases:
-#   recovery  make test-recovery + make test-recovery-races (P-022 §C matrix)
-#   battery   scripts/certify.py over certify_battery.json, restricted to the
-#             datasets actually present. The private prod-derived bundle is NOT
-#             in the repo; it is fetched from S3 by THIS instance (the GitHub
-#             role has no read access to it). Absent bundle => the private
-#             cases are skipped cleanly, the public ones still run.
-#   bundle    build the public-safe artifact tarball
-#   chunk N   emit base64 chunk N of that tarball (the only channel back)
-#
-# Public-safe means: recovery JUnit/logs (synthetic fixtures only) and the
-# certify VERDICT lines. Raw battery output is prod-derived and goes to the
-# private evidence bucket when one is configured, never to an Actions artifact.
+#   recovery  make test-recovery, then make test-recovery-races
+#   battery   scripts/certify.py over the PUBLIC subset of certify_battery.json
+#   summary   write summary.json from the phase results
+#   bundle    build the artifact tarball, print its length and sha256
+#   chunk N   emit base64 chunk N of that tarball
 set -euo pipefail
 
 REPO_ROOT="${POLIS_CI_REPO_ROOT:-/opt/polis}"
 LOG_DIR=/var/log/polis-ci
 ART_DIR="$LOG_DIR/artifacts"
+STATE_DIR="$LOG_DIR/state"
 BUNDLE="$LOG_DIR/polis-ci-artifacts.tar.gz"
-# 24000 chars is SSM's cap; stay under it with room for the framing below.
+# SSM truncates GetCommandInvocation output at 24000 characters. Stay well
+# under it: these phases emit a handful of status lines, and the bundle is
+# returned in explicit, verified chunks.
 CHUNK_CHARS=18000
 MAX_CHUNKS=64
-TAIL_LINES=120
 
-mkdir -p "$LOG_DIR" "$ART_DIR"
+mkdir -p "$LOG_DIR" "$ART_DIR" "$STATE_DIR"
 
-log_tail() {
-  # $1 = phase log file. Bounded, so a runaway test log cannot blow the cap.
-  echo "----- tail -n ${TAIL_LINES} of $1 -----"
-  tail -n "$TAIL_LINES" "$1" || true
+# The ONLY way anything reaches stdout. Deny by default: a value carrying any
+# character outside the class is replaced wholesale, never partially echoed.
+status() {
+  local phase="$1" key="$2" value="${3-}"
+  case "$value" in
+    *[!A-Za-z0-9._:/=+-]*) value='<redacted>' ;;
+  esac
+  if [ "${#value}" -gt 96 ]; then value='<redacted>'; fi
+  printf 'p022 %s %s=%s\n' "$phase" "$key" "$value"
 }
 
 phase_recovery() {
-  local out="$LOG_DIR/recovery.log"
   cd "$REPO_ROOT"
 
-  # P-022 §C landed these targets. If the tested ref predates them, say so
-  # instead of failing with an opaque "No rule to make target".
   if ! make -n test-recovery >/dev/null 2>&1; then
-    echo "FATAL: this checkout has no 'test-recovery' target."
-    echo "P-022 §C (the R01-R12 recovery matrix) is not present at the tested ref."
-    exit 78
+    status recovery result missing-target
+    status recovery detail p022-section-C-not-in-this-ref
+    return 78
   fi
 
-  local rc=0
-  {
-    echo "=== make test-recovery ==="
-    date -u --iso-8601=seconds
-    make test-recovery
-    echo "=== make test-recovery-races ==="
-    date -u --iso-8601=seconds
-    make test-recovery-races
-    echo "=== done ==="
-    date -u --iso-8601=seconds
-  } >"$out" 2>&1 || rc=$?
+  # JUnit regardless of what the Makefile itself passes to pytest.
+  export PYTEST_ADDOPTS="--junitxml=$LOG_DIR/recovery-junit.xml ${PYTEST_ADDOPTS:-}"
 
-  # Collect whatever JUnit the suites produced, wherever they put it.
-  find "$REPO_ROOT" -name 'junit*.xml' -o -name '*junit.xml' -o -name 'pytest*.xml' \
-    2>/dev/null | head -50 | while read -r f; do
-      cp "$f" "$ART_DIR/$(echo "${f#"$REPO_ROOT"/}" | tr '/' '_')" || true
-    done
-  cp "$out" "$ART_DIR/recovery.log" || true
+  # Each command's status is captured on its own. Round 1 wrapped both makes in
+  # a `{ ...; date; } || rc=$?` group, where errexit is suppressed inside an
+  # OR-list and the trailing successful command set the group's status — both
+  # makes could fail with rc 0 reported (review E4).
+  local rc_main=0 rc_races=0
+  make test-recovery >"$LOG_DIR/recovery.log" 2>&1 || rc_main=$?
+  status recovery main_rc "$rc_main"
 
-  # P-022 §C's recorded baseline: 235 passed, 1 skipped, 12 xfailed.
-  grep -Eo '[0-9]+ (passed|failed|skipped|xfailed|xpassed|error[s]?)' "$out" \
-    | sort -u >"$ART_DIR/recovery-counts.txt" || true
+  make test-recovery-races >"$LOG_DIR/recovery-races.log" 2>&1 || rc_races=$?
+  status recovery races_rc "$rc_races"
 
-  log_tail "$out"
-  return "$rc"
+  echo "$rc_main" >"$STATE_DIR/recovery_main_rc"
+  echo "$rc_races" >"$STATE_DIR/recovery_races_rc"
+
+  if [ -f "$LOG_DIR/recovery-junit.xml" ]; then
+    cp "$LOG_DIR/recovery-junit.xml" "$ART_DIR/recovery-junit.xml"
+    status recovery junit present
+  else
+    # A green pytest with no report is not evidence of anything.
+    status recovery junit missing
+    echo 1 >"$STATE_DIR/recovery_junit_missing"
+  fi
+
+  if [ "$rc_main" -ne 0 ] || [ "$rc_races" -ne 0 ] || [ -f "$STATE_DIR/recovery_junit_missing" ]; then
+    status recovery result fail
+    return 1
+  fi
+  status recovery result pass
 }
 
 phase_battery() {
-  local out="$LOG_DIR/battery.log"
   local delphi="$REPO_ROOT/delphi"
   cd "$delphi"
 
-  # Optional private bundle. POLIS_CI_FIXTURE_S3 is an s3:// URI supplied by the
-  # workflow; only THIS instance's role can read it.
-  if [ -n "${POLIS_CI_FIXTURE_S3:-}" ]; then
-    echo "staging private fixture bundle" >>"$out"
-    mkdir -p "$delphi/real_data/.local"
-    if ! aws s3 cp --recursive --only-show-errors \
-        "$POLIS_CI_FIXTURE_S3" "$delphi/real_data/.local/" >>"$out" 2>&1; then
-      echo "WARN: fixture bundle fetch failed; private battery cases will be skipped" | tee -a "$out"
-    fi
-  else
-    echo "no POLIS_CI_FIXTURE_S3 set; private battery cases will be skipped" | tee -a "$out"
-  fi
-
-  # Restrict the battery to datasets that actually resolve on this box. A slug
-  # resolves as real_data/*-<slug> (public) or real_data/.local/*-<slug>
-  # (private) — the same rule polismath/replay/real_data.py uses.
-  python3 - "$delphi" >"$LOG_DIR/battery-filter.json" <<'PY'
+  # The battery is restricted to the fixtures declared public in
+  # certify_datasets.json and checked into the repository. There is no private
+  # bundle to fetch and no credential that could fetch one. A private battery
+  # needs the isolated worker design in P-022-E-ci-spec.md, not this box.
+  python3 - "$delphi" >"$STATE_DIR/battery-selection.json" <<'PY'
 import json, pathlib, sys
 delphi = pathlib.Path(sys.argv[1])
 root = delphi / "real_data"
-battery = json.loads((delphi / "scripts" / "certify_battery.json").read_text())
-def present(slug):
-    return bool(list(root.glob(f"*-{slug}")) or list(root.glob(f".local/*-{slug}")))
-kept, skipped = [], []
-for entry in battery:
-    slug = entry.get("dataset")
-    (kept if present(slug) else skipped).append(entry)
-json.dump({"kept": kept, "skipped": sorted({e.get("dataset") for e in skipped})},
-          sys.stdout, indent=1)
+scripts = delphi / "scripts"
+datasets = json.loads((scripts / "certify_datasets.json").read_text())
+public = {f["slug"] for f in datasets["public_fixtures"]}
+battery = json.loads((scripts / "certify_battery.json").read_text())
+
+
+def resolves(slug):
+    # Public fixtures only: real_data/*-<slug>. The .local private tree is
+    # deliberately NOT consulted; if one were ever left on a box, it must not
+    # silently enlarge a synthetic run.
+    return bool(list(root.glob(f"*-{slug}")))
+
+
+selected = [e for e in battery if e.get("dataset") in public]
+missing = sorted({e["dataset"] for e in selected if not resolves(e["dataset"])})
+json.dump({
+    "public_slugs": sorted(public),
+    "selected": selected,
+    "selected_count": len(selected),
+    "missing": missing,
+    "private_skipped": sorted({e.get("dataset") for e in battery
+                               if e.get("dataset") not in public}),
+}, sys.stdout, indent=1)
 PY
 
-  python3 - <<'PY' >"$delphi/scripts/certify_battery.ci.json"
-import json, sys
-sel = json.load(open("/var/log/polis-ci/battery-filter.json"))
-json.dump(sel["kept"], sys.stdout, indent=1)
-PY
+  cp "$STATE_DIR/battery-selection.json" "$ART_DIR/battery-selection.json"
+  local selected missing
+  selected=$(python3 -c 'import json;print(json.load(open("/var/log/polis-ci/state/battery-selection.json"))["selected_count"])')
+  missing=$(python3 -c 'import json;print(len(json.load(open("/var/log/polis-ci/state/battery-selection.json"))["missing"]))')
+  status battery selected "$selected"
+  status battery missing "$missing"
 
-  cp "$LOG_DIR/battery-filter.json" "$ART_DIR/battery-selection.json" || true
-  local kept
-  kept=$(python3 -c 'import json;print(len(json.load(open("/var/log/polis-ci/battery-filter.json"))["kept"]))')
-  echo "battery cases selected: $kept" | tee -a "$out"
-  if [ "$kept" -eq 0 ]; then
-    echo "SKIPPED: no battery dataset resolves on this instance" | tee -a "$out"
-    echo "SKIPPED" >"$ART_DIR/battery-status.txt"
-    cp "$out" "$ART_DIR/battery.log" || true
-    log_tail "$out"
-    return 0
+  # Round 1 returned success for an empty selection, so a battery that silently
+  # shrank to nothing still reported green (review E5). An empty or incomplete
+  # public inventory is a failure, not a smaller run.
+  if [ "$selected" -eq 0 ]; then
+    status battery result empty-inventory
+    echo 1 >"$STATE_DIR/battery_rc"
+    return 1
   fi
+  if [ "$missing" -ne 0 ]; then
+    status battery result missing-fixtures
+    echo 1 >"$STATE_DIR/battery_rc"
+    return 1
+  fi
+
+  python3 - >"$delphi/scripts/certify_battery.public.json" <<'PY'
+import json, sys
+sel = json.load(open("/var/log/polis-ci/state/battery-selection.json"))
+json.dump(sel["selected"], sys.stdout, indent=1)
+PY
 
   # certify shells out to `uv run python scripts/replay_driver.py` and to
-  # `clojure -M:replay` (polismath/replay/certify.py), so both toolchains have
-  # to exist before the first case runs.
-  command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh
+  # `clojure -M:replay` (polismath/replay/certify.py), so both toolchains must
+  # exist before the first case runs.
+  if ! command -v uv >/dev/null 2>&1; then
+    curl -LsSf https://astral.sh/uv/install.sh 2>>"$LOG_DIR/battery.log" | sh >>"$LOG_DIR/battery.log" 2>&1
+  fi
   export PATH="$HOME/.local/bin:$PATH"
   if ! command -v clojure >/dev/null 2>&1; then
-    # This script is invoked as root over SSM, so no sudo is needed (and a
-    # sudo here would not cover the redirect anyway).
-    dnf install -y java-21-amazon-corretto-headless rlwrap >>"$out" 2>&1
+    # This script runs as root over SSM; no sudo (which would not cover the
+    # redirect anyway).
+    dnf install -y java-21-amazon-corretto-headless rlwrap >>"$LOG_DIR/battery.log" 2>&1
     curl -fsSL -o /tmp/linux-install.sh https://download.clojure.org/install/linux-install.sh
     chmod +x /tmp/linux-install.sh
-    /tmp/linux-install.sh >>"$out" 2>&1
+    /tmp/linux-install.sh >>"$LOG_DIR/battery.log" 2>&1
   fi
-  uv sync >>"$out" 2>&1 || uv venv >>"$out" 2>&1
+  uv sync >>"$LOG_DIR/battery.log" 2>&1 || uv venv >>"$LOG_DIR/battery.log" 2>&1
 
-  # Serial workers and fixed BLAS threads: P-022 §E requires a correctness
-  # baseline, not a throughput measurement.
+  # Serial workers and fixed BLAS threads: this is a correctness baseline, not
+  # a throughput measurement.
   export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
-  local run_root="$LOG_DIR/certify-run"
   local rc=0
   uv run python scripts/certify.py run \
-      --battery scripts/certify_battery.ci.json \
+      --battery scripts/certify_battery.public.json \
       --refresh-clj --refresh-py --strict --workers 1 \
-      --root "$run_root" >>"$out" 2>&1 || rc=$?
-
-  # Verdict lines only. The run directory holds prod-derived comparisons and
-  # must not reach a public artifact.
-  grep -E '^certify:|VERDICT|PASS|FAIL|INCOMPLETE' "$out" \
-    | tail -n 200 >"$ART_DIR/battery-verdicts.txt" || true
-  echo "$rc" >"$ART_DIR/battery-status.txt"
-
-  if [ -n "${POLIS_CI_EVIDENCE_S3:-}" ]; then
-    tar -czf /tmp/certify-evidence.tar.gz -C "$LOG_DIR" certify-run battery.log 2>/dev/null || true
-    aws s3 cp --only-show-errors /tmp/certify-evidence.tar.gz \
-      "${POLIS_CI_EVIDENCE_S3%/}/${POLIS_CI_RUN:-unknown}/certify-evidence.tar.gz" \
-      >>"$out" 2>&1 || echo "WARN: evidence upload failed" | tee -a "$out"
+      --root "$LOG_DIR/certify-run" >>"$LOG_DIR/battery.log" 2>&1 || rc=$?
+  echo "$rc" >"$STATE_DIR/battery_rc"
+  status battery rc "$rc"
+  if [ "$rc" -ne 0 ]; then
+    status battery result fail
+    return "$rc"
   fi
+  status battery result pass
+}
 
-  cp "$out" "$ART_DIR/battery.log" || true
-  log_tail "$out"
-  return "$rc"
+phase_summary() {
+  # A fixed schema built from parsed integers, enums and known fixture slugs.
+  # Nothing free-form from any log reaches this file.
+  python3 - "$REPO_ROOT" "$LOG_DIR" >"$ART_DIR/summary.json" <<'PY'
+import json, pathlib, re, sys
+
+repo, logdir = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+state = logdir / "state"
+
+
+def read_int(name, default=None):
+    p = state / name
+    if not p.exists():
+        return default
+    try:
+        return int(p.read_text().strip())
+    except ValueError:
+        return default
+
+
+def counts(path):
+    """pytest's terminal tallies only: integers keyed by a fixed word list."""
+    out = {k: 0 for k in
+           ("passed", "failed", "skipped", "xfailed", "xpassed", "errors")}
+    if not path.exists():
+        return out
+    text = path.read_text(errors="replace")[-20000:]
+    for n, word in re.findall(
+            r"(\d+) (passed|failed|skipped|xfailed|xpassed|errors?)", text):
+        key = "errors" if word.startswith("error") else word
+        out[key] = max(out[key], int(n))
+    return out
+
+
+sha = ""
+sha_file = pathlib.Path("/var/lib/polis-ci-sha")
+if sha_file.exists():
+    m = re.fullmatch(r"[0-9a-f]{40}", sha_file.read_text().strip())
+    sha = m.group(0) if m else ""
+
+sel_path = state / "battery-selection.json"
+sel = json.loads(sel_path.read_text()) if sel_path.exists() else {}
+slug = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
+
+main_rc = read_int("recovery_main_rc")
+races_rc = read_int("recovery_races_rc")
+battery_rc = read_int("battery_rc")
+recovery_ok = main_rc == 0 and races_rc == 0 and not (state / "recovery_junit_missing").exists()
+battery_ok = battery_rc == 0
+
+summary = {
+    "schema": "p022-synthetic/1",
+    "kind": "synthetic-recovery-and-public-fixture-battery",
+    "is_certification": False,
+    "ref_sha": sha,
+    "recovery": {
+        "main_rc": main_rc,
+        "races_rc": races_rc,
+        "junit": (state / "recovery_junit_missing").exists() is False,
+        "counts": counts(logdir / "recovery.log"),
+        "races_counts": counts(logdir / "recovery-races.log"),
+        "status": "pass" if recovery_ok else "fail",
+    },
+    "battery": {
+        "rc": battery_rc,
+        "selected": int(sel.get("selected_count", 0)),
+        "missing": len(sel.get("missing", [])),
+        "datasets": sorted(s for s in set(
+            e.get("dataset") for e in sel.get("selected", [])) if s and slug.match(s)),
+        "private_cases": "not-run",
+        "status": "pass" if battery_ok else ("skipped" if battery_rc is None else "fail"),
+    },
+    "verdict": "SYNTHETIC-PASS" if (recovery_ok and battery_rc in (0, None))
+               else "SYNTHETIC-FAIL",
+}
+json.dump(summary, sys.stdout, indent=1, sort_keys=True)
+PY
+  local verdict
+  verdict=$(python3 -c 'import json;print(json.load(open("/var/log/polis-ci/artifacts/summary.json"))["verdict"])')
+  status summary verdict "$verdict"
 }
 
 phase_bundle() {
-  # Everything in ART_DIR is public-safe by construction (see the header).
-  tar -czf "$BUNDLE" -C "$ART_DIR" . 2>/dev/null || true
+  tar -czf "$BUNDLE" -C "$ART_DIR" . || { status bundle result tar-failed; return 1; }
   base64 -w0 "$BUNDLE" >"$LOG_DIR/artifacts.b64"
-  local chars chunks
+  local chars chunks digest
   chars=$(wc -c <"$LOG_DIR/artifacts.b64")
   chunks=$(( (chars + CHUNK_CHARS - 1) / CHUNK_CHARS ))
+  digest=$(sha256sum "$BUNDLE" | cut -d' ' -f1)
+  # Round 1 truncated an oversized bundle and still succeeded. Evidence that
+  # does not fit is missing evidence: fail rather than ship a partial tarball.
   if [ "$chunks" -gt "$MAX_CHUNKS" ]; then
-    echo "TRUNCATED: artifact bundle is $chars b64 chars, cap is $((MAX_CHUNKS * CHUNK_CHARS))"
-    chunks="$MAX_CHUNKS"
+    status bundle result too-large
+    status bundle chars "$chars"
+    return 1
   fi
-  echo "CHUNKS=$chunks"
+  status bundle chunks "$chunks"
+  status bundle chars "$chars"
+  status bundle sha256 "$digest"
 }
 
 phase_chunk() {
   local n="$1"
-  # cut is byte-oriented here, which is what we want: base64 is ASCII.
+  case "$n" in ''|*[!0-9]*) status chunk result bad-index; return 2 ;; esac
+  if [ "$n" -lt 1 ] || [ "$n" -gt "$MAX_CHUNKS" ]; then
+    status chunk result bad-index
+    return 2
+  fi
+  # base64 is ASCII, so character offsets are byte offsets. This is the one
+  # place that prints something other than a status line, by design.
   cut -c "$(( (n - 1) * CHUNK_CHARS + 1 ))-$(( n * CHUNK_CHARS ))" \
     "$LOG_DIR/artifacts.b64"
 }
@@ -200,7 +316,8 @@ phase_chunk() {
 case "${1:-}" in
   recovery) phase_recovery ;;
   battery)  phase_battery ;;
+  summary)  phase_summary ;;
   bundle)   phase_bundle ;;
   chunk)    phase_chunk "${2:?chunk index required}" ;;
-  *) echo "usage: $0 {recovery|battery|bundle|chunk N}" >&2; exit 2 ;;
+  *) echo "usage: $0 {recovery|battery|summary|bundle|chunk N}" >&2; exit 2 ;;
 esac
