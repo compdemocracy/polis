@@ -605,7 +605,9 @@ describe("admitDelphiJob: round-3 review", () => {
 
     expect(store.withdrawAdmission).toHaveBeenCalledWith(
       "job-1",
-      scopeGuardKey(scope)
+      scopeGuardKey(scope),
+      null,
+      "old-producer"
     );
     expect(result).toMatchObject({
       outcome: "deduplicated",
@@ -707,7 +709,7 @@ describe("admitDelphiJob: round-4 review", () => {
     expect(result.outcome).toBe("created");
   });
 
-  it("withdraws the alias along with the job it compensated away", async () => {
+  it("withdraws the alias and the guard with the job, in one transaction", async () => {
     const sweep = jest
       .fn()
       .mockResolvedValueOnce({ kind: "none" })
@@ -723,11 +725,11 @@ describe("admitDelphiJob: round-4 review", () => {
       store
     );
 
-    expect(store.clearAlias).toHaveBeenCalledWith(
-      expect.objectContaining({
-        guard_key: idempotencyGuardKey(scope, "raced"),
-        job_id: "job-1",
-      })
+    expect(store.withdrawAdmission).toHaveBeenCalledWith(
+      "job-1",
+      scopeGuardKey(scope),
+      idempotencyGuardKey(scope, "raced"),
+      "old-producer"
     );
   });
 });
@@ -850,6 +852,184 @@ describe("assessConversationLiveness", () => {
     );
     expect(complete).toBe(false);
     expect(liveByJobId.size).toBe(0);
+  });
+});
+
+describe("admitDelphiJob: round-6 review", () => {
+  it("keeps the guard on a COMPLETED root whose process exit was not confirmed", async () => {
+    // The worker can write a *successful* completion with the flag explicitly
+    // false, when the process group could not be verified. That is outstanding
+    // work whatever the status says.
+    const store = makeStore({
+      admit: jest.fn(async () => ({ outcome: "scope_taken" as const })),
+      readGuard: jest.fn(async () => liveGuard()),
+      readJob: jest.fn(async () => ({
+        status: "COMPLETED",
+        process_exit_confirmed: false,
+      })),
+    });
+
+    const result = await admitDelphiJob({ scope, jobItem: jobItem() }, store);
+    expect(result).toMatchObject({ outcome: "deduplicated", workLive: true });
+    expect(store.clearGuard).not.toHaveBeenCalled();
+  });
+
+  it("still releases a COMPLETED root written before the flag existed", async () => {
+    // Migration rule: an absent flag on COMPLETED is a legacy row, not a
+    // worker declining to confirm. Blocking those would wedge every historical
+    // scope forever.
+    const guards: (GuardRow | null)[] = [liveGuard(), null];
+    const store = makeStore({
+      admit: jest
+        .fn()
+        .mockResolvedValueOnce({ outcome: "scope_taken" })
+        .mockResolvedValueOnce({ outcome: "admitted" }),
+      readGuard: jest.fn(async () => guards.shift() ?? null),
+      readJob: jest.fn(async () => ({ status: "COMPLETED" })),
+    });
+
+    const result = await admitDelphiJob({ scope, jobItem: jobItem() }, store);
+    expect(store.clearGuard).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ outcome: "created" });
+  });
+
+  it("does not settle a root that only became terminal during the sweep", async () => {
+    // A strongly consistent Scan is not a snapshot. The anchor is what makes
+    // its silence mean anything: only a root that was *already* terminal before
+    // the first page can be trusted to have no later children.
+    let reads = 0;
+    const store = makeStore({
+      admit: jest.fn(async () => ({ outcome: "scope_taken" as const })),
+      readGuard: jest.fn(async () => liveGuard()),
+      readJob: jest.fn(async () => {
+        reads += 1;
+        return reads === 1
+          ? { status: "PROCESSING" }
+          : { status: "COMPLETED", process_exit_confirmed: true };
+      }),
+    });
+
+    const result = await admitDelphiJob({ scope, jobItem: jobItem() }, store);
+    expect(result).toMatchObject({ outcome: "deduplicated", workLive: true });
+    expect(store.clearGuard).not.toHaveBeenCalled();
+  });
+
+  it("does not settle a root that moved while its descendants were swept", async () => {
+    let reads = 0;
+    const store = makeStore({
+      admit: jest.fn(async () => ({ outcome: "scope_taken" as const })),
+      readGuard: jest.fn(async () => liveGuard()),
+      readJob: jest.fn(async () => {
+        reads += 1;
+        return {
+          status: "COMPLETED",
+          process_exit_confirmed: true,
+          // A write landed between the two reads.
+          version: reads,
+        } as any;
+      }),
+    });
+
+    const result = await admitDelphiJob({ scope, jobItem: jobItem() }, store);
+    expect(result).toMatchObject({ outcome: "deduplicated", workLive: true });
+    expect(store.clearGuard).not.toHaveBeenCalled();
+  });
+
+  it("marks a withdrawn job superseded instead of deleting it", async () => {
+    // An id that may already have gone out to a client has to keep resolving
+    // to something real.
+    const sweep = jest
+      .fn()
+      .mockResolvedValueOnce({ kind: "none" })
+      .mockResolvedValue({ kind: "found", value: "old-producer" });
+    const store = makeStore({
+      sweepUnguardedActiveRoot: sweep,
+      readJob: jest.fn(async () => ({ status: "PENDING" })),
+    });
+
+    await admitDelphiJob(
+      { scope, jobItem: jobItem(), idempotencyKey: "raced" },
+      store
+    );
+
+    // One transaction: the row is marked, the guard and alias are removed.
+    expect(store.withdrawAdmission).toHaveBeenCalledWith(
+      "job-1",
+      scopeGuardKey(scope),
+      idempotencyGuardKey(scope, "raced"),
+      "old-producer"
+    );
+  });
+});
+
+describe("assessConversationLiveness: stable reads", () => {
+  it("reports live when two sweeps disagree about a root", async () => {
+    // Astra's page schedule: the child is written between pages, past the
+    // point page one already read, and the root completes in the same window.
+    const sweeps = [
+      [{ job_id: "root", status: "COMPLETED", process_exit_confirmed: true }],
+      [
+        { job_id: "root", status: "COMPLETED", process_exit_confirmed: true },
+        { job_id: "child", status: "PENDING", batch_job_id: "root" },
+      ],
+    ];
+    const store = makeStore({
+      sweepConversation: jest.fn(async () => ({
+        kind: "found" as const,
+        value: sweeps.shift() || [],
+      })),
+    });
+
+    const { complete, liveByJobId } = await assessConversationLiveness(
+      "4242",
+      store
+    );
+    expect(complete).toBe(true);
+    expect(liveByJobId.get("root")).toBe(true);
+  });
+
+  it("reports live when the second sweep cannot be completed", async () => {
+    const results: any[] = [
+      { kind: "found", value: [{ job_id: "root", status: "COMPLETED" }] },
+      { kind: "unknown", reason: "synthetic" },
+    ];
+    const store = makeStore({
+      sweepConversation: jest.fn(async () => results.shift()),
+    });
+
+    const { complete } = await assessConversationLiveness("4242", store);
+    expect(complete).toBe(false);
+  });
+
+  it("does not sweep twice when nothing would be reported finished", async () => {
+    const store = makeStore({
+      sweepConversation: jest.fn(async () => ({
+        kind: "found" as const,
+        value: [{ job_id: "root", status: "PROCESSING" }],
+      })),
+    });
+
+    const { liveByJobId } = await assessConversationLiveness("4242", store);
+    expect(liveByJobId.get("root")).toBe(true);
+    expect(store.sweepConversation).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats an explicitly unconfirmed successful root as live", async () => {
+    const store = makeStore({
+      sweepConversation: jest.fn(async () => ({
+        kind: "found" as const,
+        value: [
+          {
+            job_id: "root",
+            status: "COMPLETED",
+            process_exit_confirmed: false,
+          },
+        ],
+      })),
+    });
+
+    const { liveByJobId } = await assessConversationLiveness("4242", store);
+    expect(liveByJobId.get("root")).toBe(true);
   });
 });
 

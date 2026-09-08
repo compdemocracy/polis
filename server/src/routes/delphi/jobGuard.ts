@@ -49,6 +49,18 @@ import logger from "../../utils/logger";
 import Config from "../../config";
 
 export const JOB_QUEUE_TABLE = "Delphi_JobQueue";
+
+/**
+ * Status written on a queue row this server withdraws after losing a race with
+ * a producer outside the guard transaction.
+ *
+ * The row is marked rather than deleted. An id that has already been handed to
+ * a client has to keep resolving to something real: deleting it left that
+ * client tracking an id nothing stood behind. A superseded row is terminal, is
+ * not work, and `job_poller.py`'s finder does not look for this status, so no
+ * worker will ever claim it.
+ */
+export const SUPERSEDED_STATUS = "SUPERSEDED";
 export const JOB_GUARD_TABLE = "Delphi_JobActiveGuard";
 
 /**
@@ -57,7 +69,36 @@ export const JOB_GUARD_TABLE = "Delphi_JobActiveGuard";
  * status — is treated as still possibly holding paid work. Mirrors
  * `delphi/scripts/job_poller.py` and `803_check_batch_status.py`.
  */
-const TERMINAL_STATUSES = new Set(["COMPLETED", "FAILED"]);
+const TERMINAL_STATUSES = new Set(["COMPLETED", "FAILED", SUPERSEDED_STATUS]);
+
+/**
+ * Does this terminal row's completion carry the worker's confirmation that the
+ * job's process tree is gone?
+ *
+ * `process_exit_confirmed === false` is the worker saying, explicitly, that it
+ * could not confirm — it can write that on a *successful* completion too, when
+ * the group could not be verified. That is outstanding work whatever the
+ * status, so it is treated the same way as an unconfirmed failure.
+ *
+ * The attribute being **absent** is a different thing: a row written before the
+ * flag existed. Blocking on those would wedge every historical scope forever,
+ * so the migration rule is asymmetric and deliberate — an absent flag is
+ * accepted on COMPLETED (nothing about it suggests an orphan) and still
+ * rejected on FAILED, where round 3 established that an unfenced failure is
+ * exactly where orphans come from.
+ */
+function terminalWriteIsResolved(row: {
+  status: string;
+  process_exit_confirmed?: boolean;
+}): boolean {
+  if (row.process_exit_confirmed === false) {
+    return false;
+  }
+  if (row.status === "FAILED") {
+    return row.process_exit_confirmed === true;
+  }
+  return true;
+}
 
 /**
  * Bounds on the strongly-consistent base-table sweeps. Reaching either bound is
@@ -231,13 +272,23 @@ export interface JobAdmissionStore {
   /** Delete an expired idempotency alias under an exact job condition. */
   clearAlias(alias: GuardRow): Promise<boolean>;
   /**
-   * Withdraw a queue row this request created *and* its scope guard, in one
-   * transaction, and only while the row is still unclaimed. The compensating
-   * action for losing a race with a producer that does not participate in the
-   * guard transaction. Atomic because a reader that catches the two halves
-   * apart sees a guard naming a row that no longer exists.
+   * Withdraw an admission this request made after losing a race with a producer
+   * outside the guard transaction: mark the queue row superseded and remove its
+   * scope guard and idempotency alias, in one transaction, and only while the
+   * row is still unclaimed.
+   *
+   * The row is marked, not deleted. Its id may already have gone out to a
+   * client, and an acknowledged id has to keep resolving to something real —
+   * deleting it left that client tracking nothing. Atomic because a reader
+   * catching the parts separately sees a guard or an alias naming a row that
+   * has moved on.
    */
-  withdrawAdmission(jobId: string, scopeKey: string): Promise<boolean>;
+  withdrawAdmission(
+    jobId: string,
+    scopeKey: string,
+    aliasKey: string | null,
+    supersededBy: string
+  ): Promise<boolean>;
 }
 
 function canonicalise(value: unknown): unknown {
@@ -470,7 +521,7 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
     const settledByScan = (row: any) =>
       TERMINAL_STATUSES.has(row.status) &&
       !row.checker_schedule_failed &&
-      (row.status !== "FAILED" || row.process_exit_confirmed === true);
+      terminalWriteIsResolved(row);
 
     for (const row of rows.value) {
       const jobId = String(row.job_id);
@@ -576,34 +627,51 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
     }
   },
 
-  async withdrawAdmission(jobId, scopeKey) {
-    try {
-      await docClient.transactWrite({
-        TransactItems: [
-          {
-            Delete: {
-              TableName: JOB_QUEUE_TABLE,
-              Key: { job_id: jobId },
-              // Only while no worker has taken it: `job_poller.py:claim_job`
-              // moves status to PROCESSING and stamps worker_id.
-              ConditionExpression: "#s = :pending AND #w = :unclaimed",
-              ExpressionAttributeNames: { "#s": "status", "#w": "worker_id" },
-              ExpressionAttributeValues: {
-                ":pending": "PENDING",
-                ":unclaimed": "none",
-              },
-            },
+  async withdrawAdmission(jobId, scopeKey, aliasKey, supersededBy) {
+    const now = new Date().toISOString();
+    const items: any[] = [
+      {
+        Update: {
+          TableName: JOB_QUEUE_TABLE,
+          Key: { job_id: jobId },
+          UpdateExpression:
+            "SET #s = :superseded, superseded_by = :winner, updated_at = :now, completed_at = :now, process_exit_confirmed = :confirmed",
+          // Only while no worker has taken it: `job_poller.py:claim_job` moves
+          // status to PROCESSING and stamps worker_id.
+          ConditionExpression: "#s = :pending AND #w = :unclaimed",
+          ExpressionAttributeNames: { "#s": "status", "#w": "worker_id" },
+          ExpressionAttributeValues: {
+            ":superseded": SUPERSEDED_STATUS,
+            ":winner": supersededBy,
+            ":now": now,
+            // Nothing ever ran, so there is no process to be uncertain about.
+            ":confirmed": true,
+            ":pending": "PENDING",
+            ":unclaimed": "none",
           },
-          {
-            Delete: {
-              TableName: JOB_GUARD_TABLE,
-              Key: { guard_key: scopeKey },
-              ConditionExpression: "job_id = :jid",
-              ExpressionAttributeValues: { ":jid": jobId },
-            },
-          },
-        ],
+        },
+      },
+      {
+        Delete: {
+          TableName: JOB_GUARD_TABLE,
+          Key: { guard_key: scopeKey },
+          ConditionExpression: "job_id = :jid",
+          ExpressionAttributeValues: { ":jid": jobId },
+        },
+      },
+    ];
+    if (aliasKey) {
+      items.push({
+        Delete: {
+          TableName: JOB_GUARD_TABLE,
+          Key: { guard_key: aliasKey },
+          ConditionExpression: "job_id = :jid",
+          ExpressionAttributeValues: { ":jid": jobId },
+        },
       });
+    }
+    try {
+      await docClient.transactWrite({ TransactItems: items });
       return true;
     } catch (error: any) {
       if (error?.name === "TransactionCanceledException") {
@@ -727,6 +795,18 @@ export async function assessJobLiveness(
     };
   }
 
+  // The sweep below is a multi-page read, and DynamoDB is explicit that a
+  // strongly-consistent Scan is not a snapshot: a child written between pages,
+  // at a position page one has already gone past, is invisible to it. The
+  // anchor is what makes the sweep's silence mean something — the writer only
+  // creates children while the root is non-terminal, so if the root was
+  // *already* terminal before the first page, no child can appear after it.
+  // A root that goes terminal during the sweep is uncertain this round.
+  const anchor = row ? rowAnchor(row) : null;
+  const rootWasTerminalBeforeSweep = Boolean(
+    row && TERMINAL_STATUSES.has(row.status)
+  );
+
   const descendants = await store.sweepLiveDescendants(jobId);
   if (descendants.kind === "found") {
     return {
@@ -754,6 +834,27 @@ export async function assessJobLiveness(
   if (!TERMINAL_STATUSES.has(row.status)) {
     return { status: row.status, live: true, reason: "root is not terminal" };
   }
+  if (!rootWasTerminalBeforeSweep) {
+    return {
+      status: row.status,
+      live: true,
+      reason: "root became terminal during the descendant sweep",
+    };
+  }
+  // Two agreeing reads: the root must not have moved while the sweep ran.
+  let after: JobRow | null;
+  try {
+    after = await store.readJob(jobId);
+  } catch {
+    after = null;
+  }
+  if (!after || rowAnchor(after) !== anchor) {
+    return {
+      status: row.status,
+      live: true,
+      reason: "the root changed while its descendants were being swept",
+    };
+  }
   if (row.checker_schedule_failed) {
     return {
       status: row.status,
@@ -761,12 +862,12 @@ export async function assessJobLiveness(
       reason: "the root could not schedule its checker after submitting work",
     };
   }
-  if (row.status === "FAILED" && !row.process_exit_confirmed) {
+  if (!terminalWriteIsResolved(row)) {
     return {
       status: row.status,
       live: true,
       reason:
-        "FAILED without a confirmed child-process exit; the worker may still be running",
+        "terminal without a confirmed process-tree exit; the worker may still be running",
     };
   }
   return { status: row.status, live: false, reason: "terminal and childless" };
@@ -790,32 +891,92 @@ export async function assessConversationLiveness(
   store: JobAdmissionStore = dynamoJobAdmissionStore
 ): Promise<{ complete: boolean; liveByJobId: Map<string, boolean> }> {
   const liveByJobId = new Map<string, boolean>();
-  const rows = await store.sweepConversation(conversationId);
-  if (rows.kind === "unknown") {
+
+  const sweep = async () => {
+    const rows = await store.sweepConversation(conversationId);
+    if (rows.kind === "unknown") {
+      return {
+        ok: false as const,
+        reason: rows.reason,
+        live: new Map<string, boolean>(),
+        anchors: new Map<string, string>(),
+      };
+    }
+    const all = rows.kind === "found" ? rows.value : [];
+    const liveChildParents = new Set<string>();
+    for (const row of all) {
+      if (row.batch_job_id && !TERMINAL_STATUSES.has(row.status)) {
+        liveChildParents.add(String(row.batch_job_id));
+      }
+    }
+    const live = new Map<string, boolean>();
+    const anchors = new Map<string, string>();
+    for (const row of all) {
+      const jobId = String(row.job_id);
+      live.set(
+        jobId,
+        liveChildParents.has(jobId) ||
+          !TERMINAL_STATUSES.has(row.status) ||
+          Boolean(row.checker_schedule_failed) ||
+          !terminalWriteIsResolved(row)
+      );
+      anchors.set(jobId, rowAnchor(row));
+    }
+    return { ok: true as const, reason: "", live, anchors };
+  };
+
+  const first = await sweep();
+  if (!first.ok) {
     logger.warn(
-      `Delphi conversation liveness incomplete: ${rows.reason}; reporting live`
+      `Delphi conversation liveness incomplete: ${first.reason}; reporting live`
     );
     return { complete: false, liveByJobId };
   }
-  const all = rows.kind === "found" ? rows.value : [];
+  if (![...first.live.values()].some((live) => !live)) {
+    // Nothing is about to be reported finished, so there is nothing a second
+    // read could make safer.
+    return { complete: true, liveByJobId: first.live };
+  }
 
-  const liveChildParents = new Set<string>();
-  for (const row of all) {
-    if (row.batch_job_id && !TERMINAL_STATUSES.has(row.status)) {
-      liveChildParents.add(String(row.batch_job_id));
+  // A multi-page strong scan is not a snapshot: a child written between pages,
+  // past the point page one already read, is invisible. Only a "not live"
+  // answer can do harm — a client stops polling on it — so confirm those with a
+  // second sweep and report live wherever the two disagree or a row moved.
+  const second = await sweep();
+  if (!second.ok) {
+    logger.warn(
+      `Delphi conversation liveness could not be confirmed: ${second.reason}; reporting live`
+    );
+    return { complete: false, liveByJobId };
+  }
+  for (const [jobId, live] of second.live) {
+    const agreed =
+      first.live.get(jobId) === live &&
+      first.anchors.get(jobId) === second.anchors.get(jobId);
+    liveByJobId.set(jobId, agreed ? live : true);
+  }
+  for (const jobId of first.live.keys()) {
+    if (!liveByJobId.has(jobId)) {
+      // Present in the first sweep and gone from the second: uncertain.
+      liveByJobId.set(jobId, true);
     }
   }
-
-  for (const row of all) {
-    const jobId = String(row.job_id);
-    const live =
-      liveChildParents.has(jobId) ||
-      !TERMINAL_STATUSES.has(row.status) ||
-      Boolean(row.checker_schedule_failed) ||
-      (row.status === "FAILED" && row.process_exit_confirmed !== true);
-    liveByJobId.set(jobId, live);
-  }
   return { complete: true, liveByJobId };
+}
+
+/**
+ * A cheap fingerprint of everything about a row that would change the answer.
+ * Two reads that produce the same anchor were not separated by a write.
+ */
+function rowAnchor(row: any): string {
+  return JSON.stringify([
+    row.status,
+    row.version ?? null,
+    row.updated_at ?? null,
+    row.completed_at ?? null,
+    row.process_exit_confirmed ?? null,
+    row.checker_schedule_failed ?? null,
+  ]);
 }
 
 function aliasIsExpired(alias: GuardRow, now: number): boolean {
@@ -1126,6 +1287,13 @@ export async function admitDelphiJob(
         );
         return null;
       }
+      // The guard is still held, so by construction this scope is not finished
+      // — whatever a fresh assessment says a moment later. Telling the caller
+      // "not live" here while refusing to release the scope would be two
+      // different answers to the same question, and the client stops polling on
+      // the first one.
+      const held = await assessJobLiveness(store, acknowledged.jobId);
+      return { ...acknowledged, jobStatus: held.status, workLive: true };
     } else if (!(await store.readJob(acknowledged.jobId))) {
       logger.warn(
         `Delphi scope ${logScope(scopeKey)}: job ${
@@ -1290,21 +1458,16 @@ export async function admitDelphiJob(
           String(jobItem.job_id)
         );
         if (raced.kind === "found") {
-          if (aliasKey) {
-            // Withdraw the alias *before* the row it names. The three writes
-            // cannot be one transaction here, so order them so that a reader
-            // arriving mid-compensation finds no alias rather than an alias
-            // pointing at a row that has already gone.
-            await store.clearAlias({
-              guard_key: aliasKey,
-              job_id: String(jobItem.job_id),
-            } as GuardRow);
-          }
-          // One transaction, so no reader can catch the guard naming a row
-          // that has already gone.
+          // One transaction, and it comes first: the row is marked superseded
+          // while its guard and alias are removed, so there is no ordering in
+          // which a reader can acknowledge this job and then find it gone. An
+          // acknowledgement that slipped through just before this still names a
+          // real, terminal, not-live row.
           const withdrawn = await store.withdrawAdmission(
             String(jobItem.job_id),
-            scopeKey
+            scopeKey,
+            aliasKey,
+            raced.value
           );
           if (withdrawn) {
             logger.warn(
