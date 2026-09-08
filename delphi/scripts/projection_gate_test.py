@@ -1,0 +1,229 @@
+"""Tests for the votes / votes_latest_unique projection gate.
+
+OPT-IN and self-skipping (mirrors tests/poller/test_integration_postgres.py): it
+starts a THROWAWAY ``postgres:17`` on a host port in 55970-55979 (NEVER the host's
+live 5432), applies the real server migrations ``000000_initial.sql`` through the
+latest in order, seeds a handful of synthetic votes, and asserts the gate's
+classification for:
+
+  1. the IDENTICAL case — today's schema matches the frozen column list exactly,
+     so every served cell classifies IDENTICAL and the gate PASSES;
+  2. the throwaway-column negative control — a scratch column added to ``votes``
+     and ``votes_latest_unique`` (DDL lives HERE, not in the gate tool) makes the
+     wildcard serve a column the frozen list does not, so the gate reports
+     EXTRA_FIELD and FAILS; the column is dropped afterwards.
+
+If docker is unavailable, the whole module is skipped with a clear reason. Run just
+this module (nothing else):
+
+    <venv>/bin/python -m pytest delphi/scripts/projection_gate_test.py -q
+
+``selected_vote_event_id`` / ``vote_event_id`` do NOT exist on edge (verified: no
+migration 000000..000018 adds them; they arrive with P-047), so there is no legacy
+NULL column to seed here — their future appearance is precisely the EXTRA_FIELD the
+negative control proves the gate would catch.
+"""
+
+from __future__ import annotations
+
+import glob
+import os
+import shutil
+import socket
+import subprocess
+import sys
+import time
+import uuid
+from typing import Iterator
+
+import pytest
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import projection_gate as pg  # noqa: E402
+
+pytestmark = pytest.mark.integration
+
+# Obviously-synthetic conversation id — never a real production zid.
+SYNTHETIC_ZID = 424242
+
+_MIGRATIONS_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "server", "postgres", "migrations")
+)
+_PORT_RANGE = range(55970, 55980)
+
+
+def _pick_port() -> int:
+    for port in _PORT_RANGE:
+        with socket.socket() as s:
+            try:
+                s.bind(("", port))
+                return port
+            except OSError:
+                continue
+    pytest.skip(f"no free host port in {_PORT_RANGE.start}-{_PORT_RANGE.stop - 1}")
+
+
+def _migration_files() -> list[str]:
+    files = sorted(glob.glob(os.path.join(_MIGRATIONS_DIR, "0*.sql")))
+    if not files:
+        pytest.skip(f"no migrations found under {_MIGRATIONS_DIR}")
+    return files
+
+
+@pytest.fixture(scope="module")
+def dsn() -> Iterator[str]:
+    docker = shutil.which("docker")
+    if not docker:
+        pytest.skip("docker not available")
+    migrations = _migration_files()
+    port = _pick_port()
+    name = f"projgate-{uuid.uuid4().hex[:8]}"
+    started = subprocess.run(
+        [docker, "run", "--rm", "-d", "--name", name,
+         "-p", f"{port}:5432", "-e", "POSTGRES_PASSWORD=test", "postgres:17"],
+        capture_output=True, text=True,
+    )
+    if started.returncode != 0:
+        pytest.skip(f"could not start postgres container: {started.stderr.strip()}")
+    cid = started.stdout.strip()
+    try:
+        deadline = time.time() + 60
+        while time.time() < deadline:
+            if subprocess.run(
+                [docker, "exec", cid, "pg_isready", "-U", "postgres"],
+                capture_output=True, text=True,
+            ).returncode == 0:
+                break
+            time.sleep(1)
+        else:
+            pytest.skip("postgres container did not become ready in time")
+
+        for path in migrations:
+            with open(path, "rb") as fh:
+                applied = subprocess.run(
+                    [docker, "exec", "-i", cid, "psql", "-v", "ON_ERROR_STOP=1",
+                     "-U", "postgres", "-d", "postgres"],
+                    stdin=fh, capture_output=True, text=True,
+                )
+            if applied.returncode != 0:
+                pytest.skip(
+                    f"migration {os.path.basename(path)} failed to apply: "
+                    f"{applied.stderr[-500:]}"
+                )
+        url = f"postgresql://postgres:test@localhost:{port}/postgres"
+        _seed(url)
+        yield url
+    finally:
+        # Tear down only our own container.
+        subprocess.run([docker, "stop", cid], capture_output=True, text=True)
+
+
+def _seed(url: str) -> None:
+    """Seed synthetic votes. Direct inserts fire the on-insert RULE, which
+    populates votes_latest_unique. Includes an equal-created pair."""
+    import psycopg2
+
+    rows = [
+        # (pid, tid, vote, weight_x_32767, created)
+        (0, 0, -1, 0, 1000),      # equal-created pair (same created=1000, ...
+        (0, 1, 1, 0, 1000),       #   ... different tid) -> deterministic ordering
+        (1, 0, -1, 0, 2000),      # revote base
+        (1, 0, 1, 0, 3000),       # revote -> vlu upserts to modified=3000, vote=1
+        (2, 0, 0, 30000, 4000),   # non-zero weight
+    ]
+    conn = psycopg2.connect(url)
+    try:
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            for pid, tid, vote, w, created in rows:
+                cur.execute(
+                    "INSERT INTO votes (zid, pid, tid, vote, weight_x_32767, created) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
+                    (SYNTHETIC_ZID, pid, tid, vote, w, created),
+                )
+    finally:
+        conn.close()
+
+
+def _run_ddl(url: str, statements: list[str]) -> None:
+    """Negative-control scaffolding ONLY. DDL never lives in the gate tool."""
+    import psycopg2
+
+    conn = psycopg2.connect(url)
+    try:
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            for s in statements:
+                cur.execute(s)
+    finally:
+        conn.close()
+
+
+def test_identical_case_passes(dsn: str) -> None:
+    reports = pg.gate_all(dsn, {"zid": SYNTHETIC_ZID})
+    assert len(reports) == 2
+    by_name = {r.site.name: r for r in reports}
+
+    for name in ("votesGet", "handle_GET_votes_me"):
+        r = by_name[name]
+        assert r.ok, f"{name} not IDENTICAL: {r.summary_line()} :: {r.findings}"
+        assert r.row_count_expected == r.row_count_served > 0
+        assert r.identical_cells > 0
+        counts = r.counts()
+        assert counts["IDENTICAL"] == r.identical_cells
+        assert counts["ORDER_ONLY"] == 0
+        assert counts["MISSING_FIELD"] == 0
+        assert counts["EXTRA_FIELD"] == 0
+        assert counts["VALUE_DIFF"] == 0
+
+    # votes projection carries all 5 raw rows; vlu carries 4 (revote coalesced).
+    assert by_name["handle_GET_votes_me"].row_count_served == 5
+    assert by_name["votesGet"].row_count_served == 4
+    # Frozen column lists are exactly what the sites are allowed to serve today.
+    assert by_name["handle_GET_votes_me"].served_columns == (
+        "zid", "pid", "tid", "vote", "weight_x_32767", "created", "high_priority",
+    )
+    assert by_name["votesGet"].served_columns == (
+        "zid", "pid", "tid", "vote", "weight_x_32767", "modified",
+    )
+
+
+def test_negative_control_reports_extra_field(dsn: str) -> None:
+    probe = "gate_probe_throwaway"
+    _run_ddl(dsn, [
+        f"ALTER TABLE votes ADD COLUMN {probe} integer",
+        f"ALTER TABLE votes_latest_unique ADD COLUMN {probe} integer",
+    ])
+    try:
+        reports = pg.gate_all(dsn, {"zid": SYNTHETIC_ZID})
+        by_name = {r.site.name: r for r in reports}
+        for name in ("votesGet", "handle_GET_votes_me"):
+            r = by_name[name]
+            assert not r.ok, f"{name} should FAIL with the throwaway column present"
+            extras = [f.column for f in r.findings if f.cls is pg.CellClass.EXTRA_FIELD]
+            assert probe in extras, f"{name} did not report EXTRA_FIELD: {r.findings}"
+            # The wildcard leaked the column; the frozen projection did not.
+            assert probe in r.served_columns
+            assert probe not in r.expected_columns
+            # Everything else is still byte-identical.
+            assert r.counts()["VALUE_DIFF"] == 0
+            assert r.counts()["MISSING_FIELD"] == 0
+    finally:
+        _run_ddl(dsn, [
+            f"ALTER TABLE votes DROP COLUMN {probe}",
+            f"ALTER TABLE votes_latest_unique DROP COLUMN {probe}",
+        ])
+
+    # After dropping the probe, the gate passes again.
+    reports = pg.gate_all(dsn, {"zid": SYNTHETIC_ZID})
+    assert all(r.ok for r in reports)
+
+
+def test_gate_refuses_non_select() -> None:
+    with pytest.raises(pg.GateReadOnlyViolation):
+        pg._assert_statement_allowed("UPDATE votes SET vote = 0")
+    with pytest.raises(pg.GateReadOnlyViolation):
+        pg._assert_statement_allowed("SELECT 1; DROP TABLE votes")
+    # A bare SELECT and the read-only control statement are allowed.
+    pg._assert_statement_allowed("SELECT * FROM votes")
+    pg._assert_statement_allowed("SET TRANSACTION READ ONLY")
