@@ -90,10 +90,17 @@ impl PgStore {
         // Source remains authoritative until identical provenance commits with math.
         self.fault.hit("after_input_checkpoint", &context)?;
         let expected = self.current_tick(zid)?;
-        let prior = self.load_current(zid)?;
-        if let Current::Coherent(bundle) = &prior
-            && bundle.checkpoint["source_fingerprint"] == source.fingerprint
-        {
+        // A warm entry is only usable while it still is the current generation.
+        let prior = match self.cache.take(zid, expected) {
+            Some(bundle) => Current::Coherent(bundle),
+            None => self.load_current(zid)?,
+        };
+        let unchanged = matches!(&prior,
+            Current::Coherent(b) if b.checkpoint["source_fingerprint"] == source.fingerprint);
+        if unchanged {
+            if let Current::Coherent(bundle) = prior {
+                self.cache.insert(&self.fault, zid, bundle)?;
+            }
             return Ok(false);
         }
         let old = match &prior {
