@@ -5,6 +5,7 @@ import { getPca } from "./utils/pca";
 import { failJson } from "./utils/fail";
 import logger from "./utils/logger";
 import { getCommentsWithClusters } from "./utils/commentClusters";
+import { presentPca } from "./utils/pcaPresentation";
 import { getCommentsCount } from "./comment";
 import type { XidRecord } from "./d";
 
@@ -621,7 +622,8 @@ export async function sendCommentGroupsSummary(
   const csvText = [];
   // Get PCA data to identify groups and get groupVotes
   // const pca = await getPca(zid, -1);
-  const pca = await getPca(zid);
+  // Presented, because this CSV zips `tids` against `comment-extremity` below.
+  const pca = await presentPca(zid, await getPca(zid));
   if (!pca?.asPOJO) {
     throw new Error("polis_error_no_pca_data");
   }

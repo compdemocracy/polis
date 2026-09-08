@@ -198,6 +198,11 @@ export function fetchAndCacheLatestPcaData() {
  * value on the no-math path; the corrected engine emits `[[], []]` in its own
  * blob, which wins the merge below), `lastVoteTimestamp: Date.now()` and
  * `math_tick: 0` (the no-row fallback's liveness/poll contract, out of scope here).
+ *
+ * This is the *engine-facing* shape. It is NOT what the API serves: served
+ * responses go through `presentPca` (src/utils/pcaPresentation.ts), which puts the
+ * historical comment/PCA defaults back on the wire from the `comments` table so
+ * already-loaded clients see byte-identical bytes. See `templateDefaultsFor`.
  */
 function createEmptyPcaStructure(): PcaCacheItem["asPOJO"] {
   return {
@@ -236,6 +241,65 @@ function createEmptyPcaStructure(): PcaCacheItem["asPOJO"] {
 }
 
 /**
+ * Which of the four comment/PCA fields a merged structure took from the template
+ * of absences rather than from the math blob.
+ *
+ * `edge` filled exactly these four from a `comments` query (or, for `center`, from
+ * a constant) whenever the blob did not carry them, and served the result. The
+ * presentation layer replays that fill at the response boundary, so it has to know
+ * which fields were the template's — after the merge an explicit `tids: []` in the
+ * blob is indistinguishable from the template's `tids: []`.
+ *
+ * Kept in a WeakMap rather than on the object: `handle_GET_participationInit`
+ * serializes the whole cache item, so any own enumerable property added here would
+ * land on the wire.
+ */
+export type PcaTemplateDefaults = {
+  tids: boolean;
+  nCmts: boolean;
+  center: boolean;
+  commentExtremity: boolean;
+};
+
+const templateDefaults = new WeakMap<object, PcaTemplateDefaults>();
+
+/**
+ * The template-defaulted fields of a merged structure, or undefined when the
+ * structure never went through `ensureCompletePcaStructure` (the prefetch path
+ * writes blobs to the cache untouched, and `edge` did not backfill those either).
+ */
+export function templateDefaultsFor(
+  pojo: object | undefined | null
+): PcaTemplateDefaults | undefined {
+  return pojo ? templateDefaults.get(pojo) : undefined;
+}
+
+/**
+ * `getPca` re-wraps the merged structure (`{...completeData, zid}`) before caching
+ * it, so the marking has to follow the copy that ends up as `asPOJO`.
+ */
+function carryTemplateDefaults<T extends object>(from: object, to: T): T {
+  const defaults = templateDefaults.get(from);
+  if (defaults) {
+    templateDefaults.set(to, defaults);
+  }
+  return to;
+}
+
+const ALL_TEMPLATE_DEFAULTS: PcaTemplateDefaults = {
+  tids: true,
+  nCmts: true,
+  center: true,
+  commentExtremity: true,
+};
+
+function hasOwn(o: any, key: string): boolean {
+  return (
+    !!o && typeof o === "object" && Object.prototype.hasOwnProperty.call(o, key)
+  );
+}
+
+/**
  * Ensures all required PCA fields exist by merging incomplete data with empty structure
  * This prevents client failures when PCA data exists but is missing required fields
  */
@@ -245,6 +309,7 @@ async function ensureCompletePcaStructure(
   const emptyStructure = createEmptyPcaStructure();
 
   if (!existingData) {
+    templateDefaults.set(emptyStructure, ALL_TEMPLATE_DEFAULTS);
     return emptyStructure;
   }
 
@@ -337,6 +402,20 @@ async function ensureCompletePcaStructure(
     mergedData.lastVoteTimestamp =
       existingData.lastVoteTimestamp || emptyStructure.lastVoteTimestamp;
   }
+
+  // Record which of the four presentation fields came from the template. Each
+  // predicate is the merge rule above read backwards, so it reproduces exactly
+  // when `edge` used its `comments`-backfilled value:
+  //   tids           `!Array.isArray(mergedData.tids)` at the guard above
+  //   n-cmts         `typeof mergedData["n-cmts"] !== "number"` at the guard above
+  //   center         `{...empty.pca, ...existingData.pca}` — the blob's key wins
+  //   comment-extremity  likewise
+  templateDefaults.set(mergedData, {
+    tids: !Array.isArray(existingData.tids),
+    nCmts: typeof existingData["n-cmts"] !== "number",
+    center: !hasOwn(existingData.pca, "center"),
+    commentExtremity: !hasOwn(existingData.pca, "comment-extremity"),
+  });
 
   return mergedData;
 }
@@ -466,7 +545,10 @@ export function getPca(
             zid
           );
           return ensureCompletePcaStructure().then((completeData) => {
-            const dataWithZid = { ...completeData, zid: zid };
+            const dataWithZid = carryTemplateDefaults(completeData, {
+              ...completeData,
+              zid: zid,
+            });
             // No committed row backs this presentation.
             return updatePcaCache(mathEnv, zid, dataWithZid, true);
           });
@@ -512,7 +594,10 @@ export function getPca(
 
       // Ensure all required fields exist by merging with empty structure if needed
       return ensureCompletePcaStructure(item).then((completeData) => {
-        const dataWithZid = { ...completeData, zid: zid };
+        const dataWithZid = carryTemplateDefaults(completeData, {
+          ...completeData,
+          zid: zid,
+        });
         return updatePcaCache(mathEnv, zid, dataWithZid);
       });
     });
