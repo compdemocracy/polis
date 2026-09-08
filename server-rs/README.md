@@ -91,26 +91,33 @@ headers with no body, as Express's router and `res.send` do. The installed
 compression middleware refuses to transform a HEAD response, so a subset large
 enough to negotiate gzip on GET is served identity on HEAD.
 
-Subset content coding is negotiated by `src/negotiate.rs`, which reproduces
-`negotiator@0.6.4`'s `preferredEncodings` over `compression@1.8.0`'s
-`SUPPORTED_ENCODING`/`PREFERRED_ENCODING` — both versions from
-`server/package-lock.json` — including q-values, the synthesized identity, the
-`*` wildcard, case folding and JS `parseFloat` prefix semantics.
-`contract/negotiation.json` pins 28 headers to the answers the actual installed
-middleware gives; `tools/negotiation-parity.cjs` regenerates and verifies it, and
-a Rust test replays the whole table. The lists depend on the runtime's brotli
-support, so the pinned profile assumes a brotli-capable Node and the parity tool
-refuses to generate a table without it.
+Subset content coding is negotiated by `src/negotiate.rs`, which reproduces the
+middleware `express.compress()` actually resolves to. That is **not** the
+top-level `compression`: `app.ts:310` calls `express.compress()`, which is
+`connect/lib/middleware/compress.js`, whose bare `require('compression')`
+resolves against `connect/` and finds the nested
+`connect/node_modules/compression@1.5.2`, whose `accepts@1.2.13` likewise
+resolves the nested `negotiator@0.5.3`. `tools/negotiation-parity.cjs` asserts
+that `express.compress` IS that module, records the resolved paths, versions and
+source hash, and then measures 36 `Accept-Encoding` headers through a real HTTP
+socket against a real Express app, checking the decoded body each time.
+`contract/negotiation.json` pins those observations and a Rust test replays the
+whole table, so a divergence fails there rather than on the wire.
 
-Because `p032-subset-gzip/1` declares gzip, and this candidate carries only the
-vendored Node gzip compressor, a negotiation that lands on **brotli or deflate**
-is refused with 502 `polis_err_pca2_unadmitted_encoding` and counted on
-`/health`, rather than answered with the wrong coding. That is a real limit, not
-a cosmetic one: a brotli-capable Node picks `br` for `Accept-Encoding: *` and for
-the `gzip, deflate, br` a browser sends, so **subset requests from ordinary
-browsers are unadmitted** until either brotli is implemented or the deployment
-pins a middleware profile without it. The recorded corpus only ever sends
-`Accept-Encoding: gzip`.
+`compression@1.5.2` offers `['gzip', 'deflate', 'identity']` and has no brotli
+branch, so **no `Accept-Encoding` can make it select `br`**: `br` alone
+negotiates to identity, and `*` and a browser's `gzip, deflate, br` both select
+gzip. `negotiator@0.5.3` takes no preferred list, so ordering is `compareSpecs`
+alone, and 1.5.2 then applies its own "we really don't prefer deflate" step.
+
+The slice's admitted coding set is explicitly **gzip/identity** — the
+mode-envelope enum and the revision-3 profiles say so — and this candidate
+carries only the vendored Node gzip compressor. Legacy deflate is the one coding
+1.5.2 can still select that falls outside that set (`Accept-Encoding: gzip;q=0,
+deflate`), so it is refused with 502 `polis_err_pca2_unadmitted_encoding`,
+logged and counted on `/health`, rather than answered with the wrong coding. A
+named refusal is an honest experimental limit, not byte parity and not authority
+to route those requests.
 
 Ordinary 304s retain Content-Type and Vary and have no ETag. Express's wildcard
 freshness 304 removes Content-Type/Vary but keeps the explicit gzip coding and

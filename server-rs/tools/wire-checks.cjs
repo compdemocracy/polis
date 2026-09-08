@@ -98,12 +98,22 @@ async function main(){
   const q0=await exchange(recorded,withAccept('gzip;q=0'));
   assert.equal(headers(q0)['content-encoding'],undefined,'a zero quality is a refusal');
   assert.ok(Number(headers(q0)['content-length'])>0);
-  // A brotli-capable Node selects br for the wildcard; this candidate has no
-  // brotli, so it must refuse under its own code rather than serve gzip.
+  // The resolved compression@1.5.2 has no brotli branch: the wildcard and a
+  // browser's header both select gzip, and br alone falls to identity.
   const wildcard=await exchange(recorded,withAccept('*'));
-  assert.ok(wildcard.startsWith('HTTP/1.1 502 Bad Gateway\r\n'),wildcard.slice(0,64));
-  assert.ok(JSON.parse(wildcard.split('\r\n\r\n')[1]).error==='polis_err_pca2_unadmitted_encoding');
-  checks.push('q-values, zero quality and the wildcard follow the pinned negotiator');
+  assert.equal(headers(wildcard)['content-encoding'],'gzip','* selects gzip under 1.5.2');
+  const browser=await exchange(recorded,withAccept('gzip, deflate, br'));
+  assert.equal(headers(browser)['content-encoding'],'gzip',"a browser's header selects gzip");
+  const brotli=await exchange(recorded,withAccept('br'));
+  assert.equal(headers(brotli)['content-encoding'],undefined,'br alone is identity');
+  checks.push('q-values, zero quality, wildcard and browser headers follow the resolved middleware');
+
+  // Legacy deflate is the one coding 1.5.2 can still select that falls outside
+  // the slice's admitted gzip/identity set, so it is refused, not mis-served.
+  const deflate=await exchange(recorded,withAccept('gzip;q=0, deflate'));
+  assert.ok(deflate.startsWith('HTTP/1.1 502 Bad Gateway\r\n'),deflate.slice(0,64));
+  assert.equal(JSON.parse(deflate.split('\r\n\r\n')[1]).error,'polis_err_pca2_unadmitted_encoding');
+  checks.push('legacy deflate is an explicit refusal, not a wrong coding');
 
   // Two requests, one connection: the writer no longer forces close.
   const reuse=await exchange(recorded,
