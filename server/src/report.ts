@@ -5,6 +5,7 @@ import { getPca } from "./utils/pca";
 import { failJson } from "./utils/fail";
 import logger from "./utils/logger";
 import { getCommentsWithClusters } from "./utils/commentClusters";
+import { getCommentsCount } from "./comment";
 import type { XidRecord } from "./d";
 
 type Formatters<T> = Record<string, (row: T) => string>;
@@ -232,19 +233,27 @@ export function formatCSV<T>(colFns: Formatters<T>, rows: T[]): string {
 }
 
 export async function loadConversationSummary(zid: number, siteUrl: string) {
-  const [zinvite, convoRows, commentersRow, pca] = await Promise.all([
-    getZinvite(zid),
-    pg.queryP_readOnly(
-      `SELECT topic, description FROM conversations WHERE zid = $1`,
-      [zid]
-    ),
-    pg.queryP_readOnly(
-      `SELECT COUNT(DISTINCT pid) FROM comments WHERE zid = $1`,
-      [zid]
-    ),
-    getPca(zid),
-    // getPca(zid, -1),
-  ]);
+  const [zinvite, convoRows, commentersRow, commentCount, pca] =
+    await Promise.all([
+      getZinvite(zid),
+      pg.queryP_readOnly(
+        `SELECT topic, description FROM conversations WHERE zid = $1`,
+        [zid]
+      ),
+      pg.queryP_readOnly(
+        `SELECT COUNT(DISTINCT pid) FROM comments WHERE zid = $1`,
+        [zid]
+      ),
+      // The `comments` column counts the conversation's comments, so it comes
+      // from the comments table with the conversation's own moderation and
+      // visibility rules applied -- exactly what the comment routes serve. It
+      // must not come from the math blob's `n-cmts`, which counts only the
+      // comments that are in the math and is legitimately 0 for a conversation
+      // with zero votes (see server/src/utils/pca.ts createEmptyPcaStructure).
+      getCommentsCount({ zid }),
+      getPca(zid),
+      // getPca(zid, -1),
+    ]);
   if (!zinvite || !convoRows || !commentersRow || !pca) {
     throw new Error("polis_error_data_unknown_report");
   }
@@ -257,7 +266,6 @@ export async function loadConversationSummary(zid: number, siteUrl: string) {
   // Handle incomplete PCA data gracefully
   const userVoteCounts = data["user-vote-counts"] || {};
   const inConv = data["in-conv"] || [];
-  const nCmts = data["n-cmts"] || 0;
   const groupClusters = data["group-clusters"] || [];
 
   return [
@@ -266,7 +274,7 @@ export async function loadConversationSummary(zid: number, siteUrl: string) {
     ["voters", Object.keys(userVoteCounts).length],
     ["voters-in-conv", inConv.length],
     ["commenters", commenters],
-    ["comments", nCmts],
+    ["comments", commentCount],
     [
       "groups",
       Array.isArray(groupClusters)
@@ -645,7 +653,12 @@ export async function sendCommentGroupsSummary(
   // Initialize stats map
   const commentStats = new Map<number, CommentGroupStats>();
 
-  // Create a mapping of tid to extremity index using math tids array
+  // Create a mapping of tid to extremity index using math tids array.
+  // `tids` here is the math's own comment index -- the comments that are in the
+  // math, positionally aligned with `comment-extremity`. It is not the
+  // conversation's comment list; the comment texts above come from `comments`.
+  // For a conversation with no math both arrays are empty, and every row below
+  // is emitted from group votes, of which there are none.
   const tidToExtremityIndex = new Map();
   const mathTids = pca.asPOJO.tids || []; // Array of tids in same order as extremity values
   commentExtremity.forEach((extremity, index) => {

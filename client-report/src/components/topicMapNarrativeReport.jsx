@@ -53,7 +53,7 @@ export default ({ conversation, report_id, ptptCountTotal, math, computeVoteTota
         </div>
         <div style={{ flex: 1, minWidth: "200px", border: "1px solid #333", padding: "1rem", textAlign: "center"}}>
           <h3>Comments</h3>
-          <p style={{ fontFamily: "'VT323', monospace", fontSize: "2.5rem", margin: 0}}>{math["n-cmts"]}</p>
+          <p style={{ fontFamily: "'VT323', monospace", fontSize: "2.5rem", margin: 0}}>{comments.length}</p>
         </div>
         <div style={{ flex: 1, minWidth: "200px", border: "1px solid #333", padding: "1rem", textAlign: "center"}}>
           <h3>Votes</h3>

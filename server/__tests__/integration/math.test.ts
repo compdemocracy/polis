@@ -281,9 +281,11 @@ describe("Math and Analysis Endpoints", () => {
     expect(status).toBe(200);
     expect(body).toBeDefined();
 
-    // Verify the response has the expected empty PCA structure
+    // Verify the response has the expected empty PCA structure.
+    // `center` is [] rather than a fabricated [0, 0]: zero logical dimensions
+    // mean zero coordinates. See server/src/utils/pca.ts createEmptyPcaStructure.
     expect(body.pca).toBeDefined();
-    expect(body.pca.center).toEqual([0, 0]);
+    expect(body.pca.center).toEqual([]);
     expect(body.pca.comps).toEqual([[], []]);
     expect(body.pca["comment-extremity"]).toEqual([]);
     expect(body.pca["comment-projection"]).toEqual({});
