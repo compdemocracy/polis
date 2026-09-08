@@ -560,8 +560,13 @@ describe("Astra: cache provenance must remain private over participationInit HTT
 });
 
 /**
- * A portable canonical form of participationInit's `response.pca`, which is the
- * WHOLE cache entry, not just `asPOJO`.
+ * A portable, NORMALIZED form of participationInit's `response.pca`, which is
+ * the WHOLE cache entry, not just `asPOJO`.
+ *
+ * Normalized, so hashing it is not a claim of compressed-wire byte equality:
+ * two of the served fields are deliberately not compared as sent (below).
+ * What this pins is the wrapper's key list and order, and every field's decoded
+ * value.
  *
  * Two fields are excluded by necessity, and only these two:
  *  - `expiration` is `Date.now() + 3000`, a clock;
@@ -585,10 +590,16 @@ function canonicalWrapper(pca: any) {
 
 // sha256 of canonicalWrapper(response.pca) for a tick-1 row, recorded by running
 // this exact test with src/utils/pca.ts at origin/edge (31a5c0921).
+//
+// This is equality of the NORMALIZED DECODED wrapper, not of the compressed
+// bytes on the wire: `expiration` is excluded and the gzip buffer is compared
+// decoded. Compressed-wire equality is established elsewhere, by Astra's
+// same-process before/after comparisons (44 positive-tick pairs), which is the
+// right instrument for it -- a cross-machine constant cannot be (see round 2).
 const EDGE_PARTICIPATION_WRAPPER_TICK1 =
   "267fc4b792e95eddb6cc3d161ac54ce37b1f4012ed427aa3ca53222a11c93af2";
 
-describe("participationInit's served wrapper is byte-identical to edge (Astra r3)", () => {
+describe("participationInit's served wrapper matches edge, decoded (Astra r3)", () => {
   // Astra's R3 finding: round 3 added an enumerable `synthesized` property to
   // the cache entry, and participationInit assigns that entire entry to
   // `response.pca` and serializes it. So the wire gained a field production
@@ -600,7 +611,7 @@ describe("participationInit's served wrapper is byte-identical to edge (Astra r3
     queryP_readOnly.mockReset();
   });
 
-  test("tick 1: the whole wrapper matches the pre-fix bytes", async () => {
+  test("tick 1: the whole decoded wrapper matches the pre-fix value", async () => {
     serveTick("1");
     const res = await request(participationApp(freshZid())).get("/route");
     expect(res.status).toBe(200);
