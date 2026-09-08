@@ -598,6 +598,32 @@ def terminate_backends(admin_url: str, dbname: str) -> int:
         conn.close()
 
 
+def terminate_backend_pid(admin_url: str, backend_pid: int) -> bool:
+    """Terminate ONE specific server-side backend, from a SECOND connection.
+
+    This is the form R01's connection-loss test needs: the caller latches an
+    ACTIVE transaction, learns its ``pg_backend_pid()``, and kills exactly that
+    backend while it is still holding the transaction open — so the next
+    statement or the COMMIT genuinely fails on the tested path.  Killing every
+    idle backend beforehand does not do that: a fresh connection or a pool
+    pre-ping can repair an idle killed connection with no failure ever reaching
+    the code under test.
+
+    Returns Postgres's own answer to ``pg_terminate_backend``.
+    """
+    import psycopg2
+
+    conn = psycopg2.connect(admin_url, connect_timeout=5)
+    conn.autocommit = True
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT pg_terminate_backend(%s)", (backend_pid,))
+            row = cur.fetchone()
+            return bool(row and row[0])
+    finally:
+        conn.close()
+
+
 def dbname_of(url: str) -> str:
     return _split_url(url)[1]
 
