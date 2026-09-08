@@ -52,5 +52,36 @@
     "full_contract_gate": "FAIL",
     "inventory_summary_identical_to_producing_host": true
   },
-  "audit_inventory_summary_agree": true
+  "audit_inventory_summary_agree": true,
+  "plan_checker_controls": {
+    "checker": "cost-reduction/scripts/p026-step4-plan-check.py (out of tree)",
+    "invariant": "len(open_conditions) + len(closed_conditions) == 8 declared conditions; a partial_conditions entry discharges nothing, so its condition must still be listed open",
+    "run_on_every_invocation": true,
+    "controls": [
+      {
+        "control": "condition-closed-and-recorded",
+        "expectation": "accepted",
+        "result": "accepted",
+        "reason": null
+      },
+      {
+        "control": "condition-dropped-entirely",
+        "expectation": "refused",
+        "result": "refused",
+        "reason": "control: 7 open + 0 closed != 8 declared (partial: 0); a condition was dropped or double-counted"
+      },
+      {
+        "control": "partial-removed-from-open",
+        "expectation": "refused",
+        "result": "refused",
+        "reason": "control: PARTIAL record discharges nothing, so its condition must stay in open_conditions: O8 remains OPEN and is at most PARTIAL: polis-candidate-input/1 is cla..."
+      }
+    ],
+    "latent_defect_regression": {
+      "shape": "c50f76216: 7 open + 1 closed, the audit having popped a discharged condition",
+      "old_check": "compared the 8-entry declaration to open_conditions directly",
+      "old_result": "FAIL (source=8, evidence=7) - permanent once anything closes",
+      "new_result": "PASS"
+    }
+  }
 }
