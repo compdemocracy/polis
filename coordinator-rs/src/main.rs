@@ -46,20 +46,29 @@ fn run() -> Result<()> {
             let zid: i32 = serde_json::from_value(v["zid"].clone())?;
             // Fixture ingress has no worker files. Preserve its explicitly supplied
             // bytes, or serialize the fixture values once as the fixture origin.
-            let raw = |key: &str| -> Result<Vec<u8>> {
+            // Synthesized bytes are NOT engine originals: they are re-encoded from
+            // the fixture's parsed values, so `validate_originals()` is tautological
+            // for those rows and proves nothing about worker output custody. The
+            // provenance is announced on stderr so a fixture row is never mistaken
+            // for an admitted worker byte stream.
+            let mut synthesized = Vec::new();
+            let mut raw = |key: &str| -> Result<Vec<u8>> {
                 if let Some(bytes) = v["payloads"]["originals"].get(key) {
                     Ok(serde_json::from_value(bytes.clone())?)
                 } else {
+                    synthesized.push(key.to_string());
                     Ok(serde_json::to_vec(&v["payloads"][key])?)
                 }
             };
-            let payloads = polis_coordinator::store::Payloads::from_originals(
-                polis_coordinator::store::OriginalPayloads {
-                    main: raw("main")?,
-                    bidtopid: raw("bidtopid")?,
-                    ptptstats: raw("ptptstats")?,
-                },
-            )?;
+            let originals = polis_coordinator::store::OriginalPayloads {
+                main: raw("main")?,
+                bidtopid: raw("bidtopid")?,
+                ptptstats: raw("ptptstats")?,
+            };
+            eprintln!(
+                "originals: synthesized={synthesized:?} (re-encoded fixture values, not engine originals)"
+            );
+            let payloads = polis_coordinator::store::Payloads::from_originals(originals)?;
             let mut checkpoint = v["checkpoint"].clone();
             if checkpoint.get("operation_id").is_none() {
                 checkpoint["operation_id"] = json!(uuid::Uuid::new_v4().to_string());
