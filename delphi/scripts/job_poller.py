@@ -395,14 +395,74 @@ EXIT_CODE_PROCESSING_CONTINUES = 3
 # before giving up on confirming it. See JobProcessor.stop_child_process.
 CHILD_TERMINATE_GRACE_SECONDS = 30
 
-# Deciding a process group is empty is not done from a single /proc pass:
-# enumeration is not a snapshot, so the group's last live member can fork a
-# successor and exit between the listing and the stat reads, leaving a live
-# process the pass never saw. Emptiness therefore requires this many consecutive
-# passes that all find no live member, with a short pause between them for a
-# just-forked successor to surface. See JobProcessor._process_group_alive.
+# Fallback only. When the poller cannot become a child-subreaper (macOS/BSD, or
+# prctl fails) it cannot reap a job's orphaned grandchildren, so process-group
+# emptiness is decided by a best-effort /proc scan. Enumeration is not a
+# snapshot — the group's last live member can fork a successor and exit between
+# the listing and the stat reads — so the scan requires this many consecutive
+# passes that all find no live member, with a short pause between them. This
+# still cannot beat an N-generation fork race; the subreaper path below is the
+# real fence. See JobProcessor._process_group_alive_by_scan.
 GROUP_EMPTY_STABLE_PASSES = 2
 GROUP_EMPTY_RECHECK_PAUSE_SECONDS = 0.05
+
+# PR_SET_CHILD_SUBREAPER from <linux/prctl.h>. Setting it makes this process the
+# reaper for its orphaned descendants (needs no capability).
+PR_SET_CHILD_SUBREAPER = 36
+
+# Set once mark_child_subreaper() succeeds. While True, process-group emptiness
+# is decided by the kernel (reap the group's dead members, then killpg(pgid, 0)
+# raising ESRCH proves it empty) instead of by scanning /proc.
+_child_subreaper_set = False
+
+
+def mark_child_subreaper() -> bool:
+    """Make the poller reap its orphaned descendants, so process-group emptiness
+    can be decided by the kernel rather than by scanning /proc.
+
+    Jobs are spawned by this process with ``start_new_session=True``; their
+    grandchildren, when orphaned, would normally re-parent to the container's
+    PID 1 — ``tail -f /dev/null`` under the CI compose file — which never reaps,
+    so their zombies pile up and keep ``killpg(pgid, 0)`` answering forever (the
+    round-10 hang). ``PR_SET_CHILD_SUBREAPER`` re-parents them here instead. The
+    exit confirmation can then reap them and trust that ``killpg`` raising ESRCH
+    means the group is truly empty: no lingering zombie fakes liveness, and a
+    just-forked successor is simply a live member that keeps ``killpg``
+    succeeding until it too exits and is reaped — so no enumeration race
+    (round 11) can hide it. Adding scan passes cannot make a scan race-free;
+    making the kernel the authority can.
+
+    Returns True if the poller is now a subreaper. On a platform without the
+    call (macOS/BSD) or if prctl fails, returns False and leaves the exit
+    confirmation on its best-effort /proc-scan fallback.
+    """
+    global _child_subreaper_set
+    if not sys.platform.startswith('linux'):
+        logger.info(
+            "child-subreaper unavailable on %s; process-exit confirmation is best-effort.",
+            sys.platform,
+        )
+        return False
+    try:
+        import ctypes
+        libc = ctypes.CDLL('libc.so.6', use_errno=True)
+        if libc.prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) != 0:
+            logger.warning(
+                "PR_SET_CHILD_SUBREAPER failed (errno %s); process-exit confirmation is best-effort.",
+                ctypes.get_errno(),
+            )
+            return False
+    except Exception as prctl_error:
+        logger.warning(
+            "Could not set child-subreaper (%s); process-exit confirmation is best-effort.",
+            prctl_error,
+        )
+        return False
+    _child_subreaper_set = True
+    logger.info(
+        "Poller marked as child-subreaper; orphaned job descendants re-parent here and are reaped."
+    )
+    return True
 
 
 def signal_handler(sig, frame):
@@ -821,25 +881,80 @@ class JobProcessor:
         return live
 
     @staticmethod
+    def _reap_group(pgid) -> None:
+        """Reap the poller's now-dead children in this process group.
+
+        With the poller a child-subreaper, a job's orphaned grandchildren
+        re-parent here; collecting their zombies keeps ``killpg(pgid, 0)`` an
+        honest witness of live membership — a zombie left unreaped would keep
+        the group answering ``killpg`` even though nothing in it can do work.
+        Scoped to the group with ``P_PGID`` so a worker confirming one job never
+        reaps another concurrent job's child (each job leads its own group). The
+        job's own session-leader child is reaped by its ``subprocess`` object
+        before any confirmation runs, so this only ever collects re-parented
+        descendants. Best-effort: any error leaves the reap for the next pass.
+        """
+        while True:
+            try:
+                info = os.waitid(os.P_PGID, pgid, os.WEXITED | os.WNOHANG)
+            except ChildProcessError:
+                return  # no children of ours remain in this group
+            except (OSError, ValueError):
+                return
+            except Exception:
+                return
+            if info is None:
+                # A child of ours is still in the group but has not exited.
+                return
+
+    @staticmethod
     def _process_group_alive(pgid) -> bool:
         """True while the group may still hold a process that can do work.
 
-        Returns ``False`` only for a group *proven* empty. Two things make that
-        proof more than a single /proc pass:
+        When the poller is a child-subreaper (``mark_child_subreaper`` succeeded,
+        Linux) the kernel is the authority: reap the group's dead members, then a
+        ``killpg(pgid, 0)`` that raises ESRCH proves the group empty. This is not
+        an enumeration and so has no snapshot race — a zombie cannot linger to
+        fake liveness (it is reaped), and a just-forked successor is a live member
+        that keeps ``killpg`` succeeding until it too exits and is reaped. Adding
+        scan passes could never make that guarantee; the kernel can.
 
-        * An incomplete observation is never emptiness. ``_live_group_members``
-          returns ``None`` when it cannot read a member, and that is reported as
-          alive rather than authorizing an exit on a partial scan.
-        * Enumeration is not a snapshot. The group's last live member can fork a
-          successor and exit between the ``/proc`` listing and the stat reads, so
-          one pass can report empty while a live process it never saw remains in
-          the group. Emptiness therefore requires ``GROUP_EMPTY_STABLE_PASSES``
-          consecutive passes that all find no live member. Between passes the
-          group is re-checked with ``killpg(pgid, 0)``: ESRCH proves it is gone
-          (empty immediately); EPERM means a live member not ours to signal
-          (alive); success means an entry remains — a zombie, which stays absent
-          from the live count on the next pass, or a just-forked successor, which
-          appears in it.
+        Without the subreaper (macOS/BSD, or prctl failed) orphaned grandchildren
+        re-parent to an init this process cannot reap through, so it falls back to
+        the best-effort ``_process_group_alive_by_scan``.
+        """
+        if pgid is None:
+            return False
+        if _child_subreaper_set:
+            JobProcessor._reap_group(pgid)
+            try:
+                os.killpg(pgid, 0)
+            except ProcessLookupError:
+                # ESRCH: nothing — live or zombie — remains. Proven empty.
+                return False
+            except PermissionError:
+                # A live member exists and is not ours to signal.
+                return True
+            except Exception:
+                return True
+            # killpg succeeded after reaping every dead member, so a live member
+            # remains.
+            return True
+        return JobProcessor._process_group_alive_by_scan(pgid)
+
+    @staticmethod
+    def _process_group_alive_by_scan(pgid) -> bool:
+        """Best-effort emptiness by /proc scan, used only without a subreaper.
+
+        Returns ``False`` only for a group that looks empty across
+        ``GROUP_EMPTY_STABLE_PASSES`` consecutive passes, each re-checked with
+        ``killpg(pgid, 0)``: ESRCH proves it gone; EPERM means a live member not
+        ours to signal; success means an entry remains — a zombie, absent from
+        the next live pass, or a successor a pass missed, present in it. An
+        incomplete scan (``_live_group_members`` returns ``None``) is reported as
+        alive, never as an authorized exit. This cannot defeat an N-generation
+        fork race — only the subreaper path can — so it is used solely where the
+        subreaper is unavailable, and the confirmation is documented best-effort.
         """
         if pgid is None:
             return False
@@ -885,7 +1000,8 @@ class JobProcessor:
         if not self._process_group_alive(pgid):
             return True
         logger.warning(
-            f"Job {job_id}: process group {pgid} still has members after the job's parent exited."
+            f"Job {job_id}: process group {pgid} still has members after the job's "
+            f"parent exited (live members: {self._live_group_members(pgid)})."
         )
         for sig, label in ((signal.SIGTERM, 'terminated'), (signal.SIGKILL, 'killed')):
             try:
@@ -1148,6 +1264,11 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
 
     logger.info("Starting Delphi Job Poller Service...")
+
+    # Become the reaper for orphaned job descendants before any job is spawned,
+    # so process-exit confirmation can trust the kernel (killpg -> ESRCH) instead
+    # of scanning /proc. Falls back to a best-effort scan where unavailable.
+    mark_child_subreaper()
 
     try:
         processor = JobProcessor(endpoint_url=args.endpoint_url, region=args.region)

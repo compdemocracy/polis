@@ -628,3 +628,195 @@ def test_real_successor_forked_between_scans_is_not_reported_empty(monkeypatch):
         parent.wait(timeout=5)
         parent.stdin.close()
         parent.stdout.close()
+
+
+# --- Round 12: the kernel, not a /proc scan, is the emptiness authority -------
+#
+# Astra (round 11) showed that adding scan passes cannot win: N generations each
+# forking and exiting after their own enumeration make N passes all come back
+# empty while a live successor remains in the group. Enumeration is not a
+# snapshot and never will be. The fix stops scanning for the exit authority: the
+# poller marks itself a child-subreaper (PR_SET_CHILD_SUBREAPER) so orphaned
+# grandchildren re-parent to it instead of the container's non-reaping PID 1;
+# the confirmation reaps the group's dead members and then trusts that
+# `killpg(pgid, 0)` raising ESRCH means the group is truly empty. A zombie can no
+# longer linger to fake liveness, and a live successor simply keeps killpg
+# succeeding until it too exits and is reaped. The /proc scan survives only as a
+# best-effort fallback where the subreaper is unavailable (macOS, prctl failure).
+
+
+@pytest.fixture(autouse=True)
+def _restore_subreaper_flag():
+    """Keep the module's subreaper flag from leaking between tests."""
+    import scripts.job_poller as jp
+
+    saved = getattr(jp, "_child_subreaper_set", None)
+    yield
+    if saved is not None:
+        jp._child_subreaper_set = saved
+
+
+def _install_fake_waitid(monkeypatch, fake):
+    """Make the kernel reap path callable on any host.
+
+    `os.waitid` and its `P_PGID`/`WEXITED` constants exist on Linux but not on
+    macOS; `raising=False` lets these deterministic tests exercise the
+    subreaper path (which production only takes on Linux) regardless of host.
+    """
+    monkeypatch.setattr(os, "P_PGID", getattr(os, "P_PGID", 2), raising=False)
+    monkeypatch.setattr(os, "WEXITED", getattr(os, "WEXITED", 4), raising=False)
+    monkeypatch.setattr(os, "WNOHANG", getattr(os, "WNOHANG", 1), raising=False)
+    monkeypatch.setattr(os, "waitid", fake, raising=False)
+
+
+def test_two_generation_fork_race_does_not_authorize_exit(monkeypatch):
+    """Astra's round-11 defect: two (or more) generations defeat the scan.
+
+    With the subreaper active the kernel is the authority: a live successor
+    keeps `killpg(pgid, 0)` succeeding even for the exact /proc schedule that
+    would come back empty. On 5f82a1047 there is no kernel path, so
+    `_process_group_alive` runs the scan, sees the empty passes and wrongly
+    reports the group empty — this assertion fails there.
+    """
+    monkeypatch.setattr("scripts.job_poller._child_subreaper_set", True, raising=False)
+    # A live member remains, so there is nothing to reap and the group still
+    # answers killpg.
+    _install_fake_waitid(monkeypatch, lambda idtype, gid, options: None)
+    monkeypatch.setattr(os, "killpg", lambda pgid, sig: None)
+    # The scan the pre-fix code would run reports empty for this schedule.
+    monkeypatch.setattr(os.path, "isdir", lambda path: True)
+    monkeypatch.setattr(os, "listdir", lambda path: ["101"])
+    monkeypatch.setattr("builtins.open", _fresh_stat({"101": _stat_line(101, "Z", 77)}))
+
+    assert JobProcessor._process_group_alive(77) is True
+
+
+def test_kernel_path_reaps_zombies_then_reports_empty(monkeypatch):
+    """The round-10 hang cannot return: reaped zombies leave killpg with ESRCH.
+
+    A group holding only dead members is reaped through `waitid(P_PGID)`, after
+    which `killpg` raises ESRCH and the group is proven empty — no accumulating
+    zombie keeps it alive forever.
+    """
+    monkeypatch.setattr("scripts.job_poller._child_subreaper_set", True, raising=False)
+    reaped = []
+    calls = {"n": 0}
+
+    def fake_waitid(idtype, gid, options):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            reaped.append(gid)
+            return SimpleNamespace(si_pid=999)  # collected one zombie
+        raise ChildProcessError()  # nothing of ours left in the group
+
+    _install_fake_waitid(monkeypatch, fake_waitid)
+
+    def esrch(pgid, sig):
+        raise ProcessLookupError()
+
+    monkeypatch.setattr(os, "killpg", esrch)
+
+    assert JobProcessor._process_group_alive(77) is False
+    assert reaped == [77]
+
+
+def test_kernel_path_live_member_keeps_group_alive(monkeypatch):
+    """A group still holding a live member is not empty."""
+    monkeypatch.setattr("scripts.job_poller._child_subreaper_set", True, raising=False)
+    _install_fake_waitid(monkeypatch, lambda idtype, gid, options: None)
+    monkeypatch.setattr(os, "killpg", lambda pgid, sig: None)  # group answers
+
+    assert JobProcessor._process_group_alive(77) is True
+
+
+def test_subreaper_unavailable_uses_scan_fallback(monkeypatch):
+    """Without a subreaper the decision delegates to the best-effort scan and
+    never reaps (there is nothing re-parented here to reap)."""
+    monkeypatch.setattr("scripts.job_poller._child_subreaper_set", False, raising=False)
+
+    def no_reap(*args, **kwargs):
+        raise AssertionError("waitid must not run without a subreaper")
+
+    _install_fake_waitid(monkeypatch, no_reap)
+    monkeypatch.setattr(os.path, "isdir", lambda path: True)
+    monkeypatch.setattr(os, "listdir", lambda path: ["101"])
+
+    # A running member -> the scan reports the group alive.
+    monkeypatch.setattr(os, "killpg", lambda pgid, sig: None)
+    monkeypatch.setattr("builtins.open", _fresh_stat({"101": _stat_line(101, "R", 77)}))
+    assert JobProcessor._process_group_alive(77) is True
+
+    # ESRCH -> the scan reports the group empty.
+    def esrch(pgid, sig):
+        raise ProcessLookupError()
+
+    monkeypatch.setattr(os, "killpg", esrch)
+    assert JobProcessor._process_group_alive(77) is False
+
+
+def test_mark_child_subreaper_is_linux_only(monkeypatch):
+    """On a non-Linux platform the subreaper is declined and the flag stays off,
+    so the confirmation falls back to the scan."""
+    import scripts.job_poller as jp
+
+    monkeypatch.setattr(jp.sys, "platform", "darwin")
+    monkeypatch.setattr(jp, "_child_subreaper_set", False, raising=False)
+    assert jp.mark_child_subreaper() is False
+    assert jp._child_subreaper_set is False
+
+
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"), reason="child-subreaper is Linux-only"
+)
+def test_real_two_generation_group_is_reaped_to_empty(monkeypatch):
+    """Astra's real interleaving, but decided by the kernel.
+
+    A session-leader forks a child that forks a grandchild; the two ancestors
+    exit, orphaning the live grandchild into the poller's (subreaper) care in the
+    same process group. While it lives the group is alive; once the group is
+    killed the grandchild is reaped here (not left a zombie under PID 1) and
+    killpg raises ESRCH, so the group is proven empty without any /proc scan.
+    """
+    import scripts.job_poller as jp
+
+    assert jp.mark_child_subreaper() is True
+    code = (
+        "import os,sys,time\n"
+        "for _ in range(2):\n"
+        "    pid = os.fork()\n"
+        "    if pid:\n"
+        "        print(pid, flush=True)\n"
+        "        os._exit(0)\n"
+        "time.sleep(60)\n"
+    )
+    parent = subprocess.Popen(
+        [sys.executable, "-c", code],
+        stdout=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        # Drain both intermediate pids; the process still printing is the live
+        # grandchild that will be orphaned into our care.
+        parent.stdout.readline()
+        deadline = time.time() + 5
+        while parent.poll() is None and time.time() < deadline:
+            time.sleep(0.02)
+        assert JobProcessor._process_group_alive(parent.pid) is True
+
+        os.killpg(parent.pid, signal.SIGKILL)
+        deadline = time.time() + 5
+        while JobProcessor._process_group_alive(parent.pid) and time.time() < deadline:
+            time.sleep(0.02)
+        assert JobProcessor._process_group_alive(parent.pid) is False
+    finally:
+        try:
+            os.killpg(parent.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        try:
+            parent.wait(timeout=5)
+        except Exception:
+            pass
+        if parent.stdout:
+            parent.stdout.close()
