@@ -12,6 +12,7 @@ from typing import Dict, List, Any, Optional
 from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
+from polismath.components.config import ConfigManager
 
 logger = logging.getLogger(__name__)
 
@@ -82,12 +83,15 @@ class GroupDataProcessor:
                 math_main
             WHERE 
                 zid = :zid
+                AND math_env = :math_env
             ORDER BY 
                 modified DESC
             LIMIT 1
             """
             
-            results = self.postgres_client.query(sql, {"zid": zid})
+            results = self.postgres_client.query(
+                sql, {"zid": zid, "math_env": ConfigManager.get_config().get('math-env')}
+            )
             
             if results and 'data' in results[0]:
                 # Parse JSON data if it's a string, or use as is if it's already parsed
