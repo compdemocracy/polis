@@ -1,11 +1,16 @@
 """R10: observable cycle failure, paced daemon recovery, and zid isolation."""
 
+import logging
 import threading
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 
-from polismath.poller.service import MathPollerService, PollerConfig
+from polismath.poller.service import (
+    MathPollerService,
+    PollerConfig,
+    PoolDrainTimeout,
+)
 from polismath.poller.worker_pool import VOTES
 from scripts import math_poller
 
@@ -17,23 +22,45 @@ def _service(**kwargs):
     return MathPollerService(pg, PollerConfig(**kwargs))
 
 
+def test_pool_drain_timeout_is_a_specific_timeout_type():
+    # The builtin TimeoutError is an OSError, so `except TimeoutError` around
+    # poll_once would also swallow socket/DB timeouts. The subclass keeps every
+    # existing handler matching while staying separately catchable.
+    assert issubclass(PoolDrainTimeout, TimeoutError)
+    assert not isinstance(TimeoutError("a socket timeout"), PoolDrainTimeout)
+
+
 @pytest.mark.parametrize("drained", [True, False])
-def test_once_cli_only_returns_success_after_pool_drains(monkeypatch, drained):
+def test_once_cli_only_returns_success_after_pool_drains(
+    monkeypatch, caplog, drained
+):
     svc = _service()
     svc._pool = MagicMock()
     svc._pool.parked_zids.return_value = set()
     svc._pool.join.return_value = drained
     monkeypatch.setattr(math_poller, "_build_service", lambda config: svc)
 
+    def errors():
+        return [
+            r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR
+        ]
+
     if drained:
         assert math_poller.main(["--once"]) == 0
-        svc._pool.shutdown.assert_called_once_with(wait=True)
+        assert errors() == []
     else:
-        # main's exception propagates through SystemExit(main()) as a nonzero
-        # CLI failure, just like a failed SELECT; it must never return zero.
-        with pytest.raises(TimeoutError, match="worker pool did not drain"):
-            math_poller.main(["--once"])
-        svc._pool.join.assert_called_once_with(timeout=120.0)
+        # A cycle that never drained is a CLI failure, just like a failed
+        # SELECT; it must never return zero. It is reported through the
+        # configured logger rather than as a bare excepthook traceback.
+        assert math_poller.main(["--once"]) == 1
+        assert errors() == [
+            "Single poll cycle did not complete: Poll cycle worker pool did "
+            "not drain within 120 seconds"
+        ]
+    assert svc._pool.join.call_args_list[0] == call(timeout=120.0)
+    # Either way the pool is shut down inside main(), not left to the
+    # concurrent.futures interpreter-exit hook.
+    svc._pool.shutdown.assert_called_once_with(wait=True)
 
 
 @pytest.mark.parametrize(
@@ -104,7 +131,7 @@ def test_stalled_zid_does_not_block_healthy_zid_or_hide_timeout(monkeypatch):
         {"zid": 1, "created": 1}, {"zid": 2, "created": 2}
     ]
     try:
-        with pytest.raises(TimeoutError, match="worker pool did not drain"):
+        with pytest.raises(PoolDrainTimeout, match="worker pool did not drain"):
             svc.poll_once()
         assert healthy.wait(5), "healthy zid starved behind stalled zid"
         assert not release.is_set()
