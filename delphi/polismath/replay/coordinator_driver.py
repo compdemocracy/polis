@@ -246,6 +246,21 @@ def parse_drivers(value: str) -> tuple[str, ...]:
 # ---------------------------------------------------------------------------
 # Reviewed policy (p045-policy/1).
 # ---------------------------------------------------------------------------
+_HEX = frozenset("0123456789abcdef")
+
+
+def _is_hex64(value: Any) -> bool:
+    return isinstance(value, str) and len(value) == 64 and set(value) <= _HEX
+
+
+#: The complete closed key set of a p045-policy/1 object. Unknown keys are
+#: rejected — a "closed" schema that silently ignores extra fields is not closed.
+_POLICY_KEYS: frozenset[str] = frozenset({
+    "schema", "profile", "field_policy_sha256", "approvals",
+    "replacement_assertions", "required_controls", "clock",
+})
+
+
 @dataclass(frozen=True)
 class Policy:
     schema: str
@@ -256,6 +271,11 @@ class Policy:
     required_controls: tuple[str, ...]
     clock: dict[str, Any]
     raw_sha256: str
+    #: The p045-policy/1 BODY is still undefined (slice 3, BLOCKED). This loader
+    #: validates shape only; it NEVER certifies a run. ``admitting`` stays False
+    #: until the reviewed policy schema exists, so nothing can mistake a
+    #: shape-valid file for slice-3 admission.
+    admitting: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -265,13 +285,17 @@ class Policy:
             "replacement_assertions": list(self.replacement_assertions),
             "required_controls": list(self.required_controls),
             "clock": self.clock, "raw_sha256": self.raw_sha256,
+            "admitting": self.admitting,
         }
 
 
 def load_policy(path: str | Path) -> Policy:
-    """Load and validate a closed ``p045-policy/1`` file. It is NEVER derived
-    from observed errors; a wrong schema/profile or a missing required field is a
-    hard configuration failure, not a downgrade."""
+    """Load and shape-validate a ``p045-policy/1`` file as NON-ADMITTING
+    scaffolding (the policy body is still undefined — slice 3, BLOCKED). It is
+    NEVER derived from observed errors; a wrong schema/profile, a missing or
+    mistyped field, a non-hex digest OR an unknown key is a hard configuration
+    failure. The returned Policy has ``admitting == False``: shape-valid is not
+    slice-3 admission."""
     p = Path(path)
     raw = p.read_bytes()
     try:
@@ -280,6 +304,9 @@ def load_policy(path: str | Path) -> Policy:
         raise BridgeError("policy", f"policy is not valid JSON: {exc}") from exc
     if not isinstance(obj, dict):
         raise BridgeError("policy", "policy must be a JSON object")
+    unknown = set(obj) - _POLICY_KEYS
+    if unknown:
+        raise BridgeError("policy", f"policy has unknown key(s): {sorted(unknown)}")
     if obj.get("schema") != POLICY_SCHEMA:
         raise BridgeError("policy", f"policy schema must be {POLICY_SCHEMA!r}, got {obj.get('schema')!r}")
     profile = obj.get("profile")
@@ -295,8 +322,8 @@ def load_policy(path: str | Path) -> Policy:
             raise BridgeError("policy", f"policy.{list_field} must be a list of strings")
     if not isinstance(obj["clock"], dict):
         raise BridgeError("policy", "policy.clock must be an object")
-    if not isinstance(obj["field_policy_sha256"], str) or len(obj["field_policy_sha256"]) != 64:
-        raise BridgeError("policy", "policy.field_policy_sha256 must be a 64-hex sha256")
+    if not _is_hex64(obj["field_policy_sha256"]):
+        raise BridgeError("policy", "policy.field_policy_sha256 must be a 64-char lowercase hex sha256")
     return Policy(
         schema=POLICY_SCHEMA, profile=profile,
         field_policy_sha256=obj["field_policy_sha256"],
@@ -305,6 +332,7 @@ def load_policy(path: str | Path) -> Policy:
         required_controls=tuple(obj["required_controls"]),
         clock=obj["clock"],
         raw_sha256=hashlib.sha256(raw).hexdigest(),
+        admitting=False,
     )
 
 
@@ -411,28 +439,60 @@ def three_producer_inventory(expected: cert.ExpectedEntry, profile: str) -> list
 # touched here and stays as it is on the S1 binary.
 # ===========================================================================
 
-#: Fields the closed S1 worker checkpoint must retain besides the five admission
-#: fields (brief §5). Presence + type are checked; values bind to the campaign
-#: sidecar, never mutated after the worker acknowledges them.
+#: S1's closed candidate-checkpoint wire values (engine_adapter.snapshot). The
+#: bridge BINDS these, not just key presence: the adapter emits exactly this
+#: versioned identity, and a changed worker must NEGOTIATE a new version.
+S1_CHECKPOINT_SCHEMA = "polis-candidate-checkpoint/1"
+S1_PROTOCOL = "polis-engine/1"
+S1_OUTPUT_SCHEMA = "polis-candidate-math-output/1"
+S1_STATE_SCHEMA = "rebuild-prefix/1"
+S1_PROFILE_WIRE = "candidate-profile"
+
+#: Retained checkpoint fields (brief §5), each with the concrete check applied.
+#: "str+" = nonempty string; "int" = int and not bool; "bool" = bool; a literal
+#: string = that exact value.
 S1_CHECKPOINT_FIELDS: tuple[str, ...] = (
     "protocol", "fixture_id", "run_id", "session_id", "compute_id",
     "checkpoint_id", "output_schema", "state_schema", "profile", "persistence",
 )
+_S1_CHECKPOINT_EXPECT: dict[str, Any] = {
+    "protocol": S1_PROTOCOL, "fixture_id": "int", "run_id": "str+",
+    "session_id": "str+", "compute_id": "str+", "checkpoint_id": "str+",
+    "output_schema": S1_OUTPUT_SCHEMA, "state_schema": S1_STATE_SCHEMA,
+    "profile": S1_PROFILE_WIRE, "persistence": "bool",
+}
+
+
+def _nonempty_str(v: Any) -> bool:
+    return isinstance(v, str) and len(v) > 0
+
+
+def _plain_int(v: Any) -> bool:
+    return isinstance(v, int) and not isinstance(v, bool)
 
 
 def validate_s1_identity(manifest: dict[str, Any]) -> list[str]:
-    """Check S1's closed identity on a candidate checkpoint manifest.
+    """Check S1's closed, VERSIONED identity on a candidate checkpoint manifest.
 
-    The five admission fields must be exact (candidate_schema/engine_version are
-    the pinned S1 constants; input_digest/schedule_digest/operation_id present and
-    string); the retained checkpoint fields must be present. A changed
-    worker/profile must NEGOTIATE a new version — this validator never accepts a
-    different engine_version as "implements a capability S1 never advertised".
-    Returns a list of human-readable failures (empty == identity intact)."""
+    Binds the checkpoint schema (``polis-candidate-checkpoint/1``); requires the
+    admission block to hold EXACTLY the five fields (no unknown keys) with
+    candidate_schema/engine_version at the pinned S1 constants and
+    input_digest/schedule_digest/operation_id NONEMPTY strings; and binds each
+    retained checkpoint field to its expected value/type (nonempty strings,
+    non-boolean fixture_id, boolean persistence, the pinned output/state/profile
+    wire values). A different engine_version is never accepted as "implements a
+    capability S1 never advertised". Returns failures (empty == identity intact).
+    """
     fails: list[str] = []
+    if manifest.get("schema") != S1_CHECKPOINT_SCHEMA:
+        fails.append(f"checkpoint schema must be {S1_CHECKPOINT_SCHEMA!r}, "
+                     f"got {manifest.get('schema')!r}")
     admission = manifest.get("admission")
     if not isinstance(admission, dict):
-        return ["admission block missing or not an object"]
+        return fails + ["admission block missing or not an object"]
+    unknown = set(admission) - set(S1_ADMISSION_FIELDS)
+    if unknown:
+        fails.append(f"admission has unknown key(s): {sorted(unknown)}")
     for f in S1_ADMISSION_FIELDS:
         if f not in admission:
             fails.append(f"admission missing {f}")
@@ -444,11 +504,21 @@ def validate_s1_identity(manifest: dict[str, Any]) -> list[str]:
                      f"got {admission.get('engine_version')!r} (negotiate a new "
                      f"version rather than claim S1 bytes)")
     for f in ("input_digest", "schedule_digest", "operation_id"):
-        if f in admission and not isinstance(admission[f], str):
-            fails.append(f"admission.{f} must be a string")
+        if f in admission and not _nonempty_str(admission[f]):
+            fails.append(f"admission.{f} must be a nonempty string")
     for f in S1_CHECKPOINT_FIELDS:
         if f not in manifest:
             fails.append(f"checkpoint missing {f}")
+            continue
+        expect, val = _S1_CHECKPOINT_EXPECT[f], manifest[f]
+        if expect == "str+" and not _nonempty_str(val):
+            fails.append(f"checkpoint.{f} must be a nonempty string, got {val!r}")
+        elif expect == "int" and not _plain_int(val):
+            fails.append(f"checkpoint.{f} must be a (non-boolean) integer, got {val!r}")
+        elif expect == "bool" and not isinstance(val, bool):
+            fails.append(f"checkpoint.{f} must be a boolean, got {val!r}")
+        elif expect not in ("str+", "int", "bool") and val != expect:
+            fails.append(f"checkpoint.{f} must be {expect!r}, got {val!r}")
     return fails
 
 
@@ -498,40 +568,82 @@ _COMPANIONS = ("bidtopid", "ptptstats")
 _PAYLOAD_TABLES = ("main", "bidtopid", "ptptstats")
 
 
+def _json_type_equal(a: Any, b: Any) -> bool:
+    """Type-aware JSON equality: PostgreSQL is allowed to normalize NUMBER
+    spelling (1 vs 1.0), but a JSON boolean is NEVER equal to an integer —
+    Python's ``1 == True`` must not launder a bool into a faithful integer
+    payload. Recurses structurally; dict key sets and list lengths must match."""
+    if isinstance(a, bool) or isinstance(b, bool):
+        return isinstance(a, bool) and isinstance(b, bool) and a == b
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return a == b
+    if isinstance(a, dict) and isinstance(b, dict):
+        return a.keys() == b.keys() and all(_json_type_equal(a[k], b[k]) for k in a)
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(_json_type_equal(x, y) for x, y in zip(a, b))
+    return type(a) is type(b) and a == b
+
+
 def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[int],
-                      operation_id: str, publisher_epoch: int) -> list[str]:
+                      operation_id: str, publisher_epoch: int,
+                      expected_zid: Optional[int] = None,
+                      expected_math_env: Optional[str] = None) -> list[str]:
     """Grade a Rust producer's own readback of the four math rows (brief §4).
 
-    Requires: all four math_tick agree; expected prior->next math_tick (first
-    publication 0 when ``expected_prior_tick is None``); both companions present;
-    checkpoint/epoch/operation binding; per-table original-byte hashes matching
-    both the row's own original_sha256 AND ticks.original_digests; and parsed
-    JSONB correspondence to those exact original bytes.
+    Requires: publication SCOPE (a non-boolean integer ``zid`` and a nonempty
+    ``math_env``, bound to ``expected_zid``/``expected_math_env`` when supplied);
+    all four ``math_tick`` present as NON-BOOLEAN integers and in agreement;
+    expected prior->next tick (first publication 0 when ``expected_prior_tick is
+    None``); both companions present with ``data``; epoch/operation binding;
+    per-table original-byte hashes matching the row's own ``original_sha256`` AND
+    ``ticks.original_digests``; and TYPE-AWARE JSONB correspondence to those exact
+    original bytes.
 
-    ``data::text`` is NEVER original evidence: a table missing ``original_bytes``
-    fails here rather than falling back to its JSONB rendering. caching_tick is
-    inspected only on math_main; neither companion carries one. Cross-producer
-    allocation values/owner UUIDs are out of scope (they need not match); the
-    logical cut mapping that must match is graded by the campaign sidecar."""
+    JSONB evidence (``data``) is REQUIRED per table; ``data::text`` is never
+    original evidence (a row without ``original_bytes`` fails rather than falling
+    back to its rendering). ``caching_tick`` is inspected only on ``math_main``;
+    neither companion carries one. Cross-producer allocation values/owner UUIDs
+    are out of scope (they need not match); the logical cut mapping that must
+    match is graded by the campaign sidecar."""
     fails: list[str] = []
+
+    # 0. publication scope
+    zid = bundle.get("zid")
+    if not _plain_int(zid):
+        fails.append(f"bundle zid must be a (non-boolean) integer, got {zid!r}")
+    elif expected_zid is not None and zid != expected_zid:
+        fails.append(f"bundle zid {zid!r} != expected {expected_zid!r}")
+    env = bundle.get("math_env")
+    if not _nonempty_str(env):
+        fails.append(f"bundle math_env must be a nonempty string, got {env!r}")
+    elif expected_math_env is not None and env != expected_math_env:
+        fails.append(f"bundle math_env {env!r} != expected {expected_math_env!r}")
+
     ticks = bundle.get("ticks") or {}
     tick_val = ticks.get("math_tick")
 
-    # 1. next-tick allocation
-    if expected_prior_tick is None:
+    # 1. next-tick allocation (non-boolean integer)
+    if not _plain_int(tick_val):
+        fails.append(f"ticks.math_tick must be a (non-boolean) integer, got {tick_val!r}")
+    elif expected_prior_tick is None:
         if tick_val != 0:
             fails.append(f"first publication math_tick must be 0, got {tick_val!r}")
-    elif not (isinstance(tick_val, int) and tick_val == expected_prior_tick + 1):
+    elif tick_val != expected_prior_tick + 1:
         fails.append(f"math_tick must be prior+1 ({expected_prior_tick}+1), got {tick_val!r}")
 
-    # 2. four-row tick agreement + companion presence
+    # 2. four-row tick agreement + companion presence + JSONB present
     for name in _PAYLOAD_TABLES:
         row = bundle.get(name)
         if not row:
             fails.append(f"{name}: row absent")
             continue
-        if row.get("math_tick") != tick_val:
-            fails.append(f"{name}: math_tick {row.get('math_tick')!r} != ticks {tick_val!r}")
+        rt = row.get("math_tick")
+        if not _plain_int(rt):
+            fails.append(f"{name}: math_tick must be a (non-boolean) integer, got {rt!r}")
+        elif rt != tick_val:
+            fails.append(f"{name}: math_tick {rt!r} != ticks {tick_val!r}")
+        if not isinstance(row.get("data"), (dict, list)):
+            fails.append(f"{name}: JSONB data (correspondence evidence) is required")
     for name in _COMPANIONS:
         row = bundle.get(name) or {}
         if row.get("caching_tick") is not None:
@@ -545,7 +657,7 @@ def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[i
     if ticks.get("publisher_epoch") != publisher_epoch:
         fails.append(f"ticks.publisher_epoch {ticks.get('publisher_epoch')!r} != {publisher_epoch!r}")
 
-    # 4. original-byte custody + JSONB correspondence, per table
+    # 4. original-byte custody + TYPE-AWARE JSONB correspondence, per table
     original_digests = ticks.get("original_digests") or {}
     for name in _PAYLOAD_TABLES:
         row = bundle.get(name)
@@ -566,35 +678,65 @@ def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[i
         except (ValueError, TypeError):
             fails.append(f"{name}: original_bytes is not valid JSON")
             continue
-        if "data" in row and parsed != row["data"]:
+        if "data" in row and not _json_type_equal(parsed, row["data"]):
             fails.append(f"{name}: JSONB data does not correspond to the original bytes")
     return fails
+
+
+def _valid_bid_index_pid(mapping: Any) -> bool:
+    """A bid->index->pid map: a NONEMPTY dict whose keys are integer bids and
+    whose values are lists of (non-boolean) integer pids. ``{"garbage":"..."}``
+    and an empty map are rejected."""
+    if not isinstance(mapping, dict) or not mapping:
+        return False
+    for k, v in mapping.items():
+        try:
+            int(k)
+        except (TypeError, ValueError):
+            return False
+        if not isinstance(v, list) or not all(_plain_int(x) for x in v):
+            return False
+    return True
 
 
 def observe_bundle_coherence(bundle: ReadbackBundle,
                              fold_check: Optional[Callable[..., list[str]]] = None) -> list[str]:
     """Independent post-cut coherence of a published bundle (brief §4/§5 observer).
 
-    Structural, producer-agnostic: one generation across all four rows and a
-    well-formed bid->index->pid mapping. ``fold_check`` (e.g. the recovery
-    oracle's ``check_published_against_fold``) is injected when a full latest-cell
-    fold is available, so the same invariants can be reused without importing a
-    pinned asset here. Returns failures (empty == coherent)."""
+    Refuses ABSENT evidence: ticks and all four rows must be present, each with a
+    non-boolean integer ``math_tick`` in one agreeing generation and JSONB
+    ``data``; an empty ``{}`` bundle fails rather than trivially passing four
+    absent-equals-absent ticks. It actually inspects the bid->index->pid mapping
+    (a well-formed dict of integer bids -> integer-pid lists), not merely a
+    list-typed member field. ``fold_check`` (e.g. the recovery oracle's
+    ``check_published_against_fold``) is the OPTIONAL full latest-cell fold,
+    injected so it can be reused without importing a pinned asset. Returns
+    failures (empty == coherent). A live mid-publication observer remains a
+    slice-3 integration obligation; this pure helper does not claim it."""
     fails: list[str] = []
-    ticks = bundle.get("ticks") or {}
-    tick_val = ticks.get("math_tick")
+    ticks = bundle.get("ticks")
+    if not isinstance(ticks, dict) or not _plain_int(ticks.get("math_tick")):
+        fails.append("observer: ticks.math_tick absent or not a non-boolean integer")
+        tick_val: Optional[int] = None
+    else:
+        tick_val = ticks["math_tick"]
     for name in _PAYLOAD_TABLES:
-        row = bundle.get(name) or {}
-        if row.get("math_tick") != tick_val:
+        row = bundle.get(name)
+        if not isinstance(row, dict) or not row:
+            fails.append(f"observer: {name} row absent")
+            continue
+        rt = row.get("math_tick")
+        if not _plain_int(rt):
+            fails.append(f"observer: {name} math_tick absent or not a non-boolean integer")
+        elif tick_val is not None and rt != tick_val:
             fails.append(f"observer: {name} at a different generation than ticks")
-    main = (bundle.get("main") or {}).get("data") or {}
-    bid = (bundle.get("bidtopid") or {}).get("data") or {}
-    if bid:
-        base = main.get("base-clusters") or main.get("base_clusters") or {}
-        members = base.get("members") if isinstance(base, dict) else None
-        if members is not None and not isinstance(members, list):
-            fails.append("observer: base-cluster members malformed")
-    if fold_check is not None and main:
+        if not isinstance(row.get("data"), (dict, list)):
+            fails.append(f"observer: {name} data absent")
+    bid = (bundle.get("bidtopid") or {}).get("data")
+    if not _valid_bid_index_pid(bid):
+        fails.append("observer: bidtopid is not a well-formed bid->index->pid mapping")
+    if fold_check is not None:
+        main = (bundle.get("main") or {}).get("data")
         try:
             fails.extend(fold_check(main) or [])
         except Exception as exc:  # noqa: BLE001 - a fold failure is a finding, not a crash
@@ -605,43 +747,92 @@ def observe_bundle_coherence(bundle: ReadbackBundle,
 # ---------------------------------------------------------------------------
 # Same-invocation stage sibling (p045-stage-binding/1) + stage context.
 # ---------------------------------------------------------------------------
+#: Full session/plan-scoped identity of one stage-context entry. Scoping to the
+#: complete identity (not the S1-reused compute-0/checkpoint-0 local names) is
+#: what stops two fresh sessions from colliding, and keeps the campaign plan
+#: digest distinct from S1's per-session schedule.
+StageContextKey = tuple[str, str, str, str]  # (plan_sha256, session_id, compute_id, checkpoint_id)
+
+
 class StageContextEntry(TypedDict, total=False):
+    plan_sha256: str
+    run_id: str
+    session_id: str
+    compute_id: str
+    checkpoint_id: str
     global_cut_index: int
     semantic_input_digest: str   # R-ORACLE digest the worker must reproduce
     profile: str
 
 
-def load_stage_context(path: str | Path) -> dict[tuple[str, str], StageContextEntry]:
-    """Load a closed ``p045-stage-context/1`` map: (compute_id, checkpoint_id) ->
-    expected {global_cut_index, semantic_input_digest, profile}. Trace-only, and
-    plan-bound; a wrong schema fails."""
+_STAGE_CONTEXT_REQUIRED = ("plan_sha256", "run_id", "session_id", "compute_id",
+                           "checkpoint_id", "global_cut_index", "semantic_input_digest",
+                           "profile")
+
+
+def load_stage_context(path: str | Path) -> dict[StageContextKey, StageContextEntry]:
+    """Load a closed ``p045-stage-context/1`` map keyed on the FULL identity
+    ``(plan_sha256, session_id, compute_id, checkpoint_id)``.
+
+    Each entry must carry every required field; ``global_cut_index`` must be a
+    non-boolean nonnegative integer; ``profile`` must be a known campaign profile;
+    ``semantic_input_digest`` a nonempty string. DUPLICATE keys are rejected
+    BEFORE insertion (S1 reuses compute-0/checkpoint-0 across fresh sessions, so a
+    permissive last-writer-wins loader would silently drop a cut). A wrong schema
+    fails."""
     obj = json.loads(Path(path).read_bytes())
     if not isinstance(obj, dict) or obj.get("schema") != STAGE_CONTEXT_SCHEMA:
         raise BridgeError("stage-context", f"stage context schema must be {STAGE_CONTEXT_SCHEMA!r}")
-    out: dict[tuple[str, str], StageContextEntry] = {}
-    for ent in obj.get("entries", []):
-        out[(ent["compute_id"], ent["checkpoint_id"])] = {
-            "global_cut_index": int(ent["global_cut_index"]),
-            "semantic_input_digest": ent["semantic_input_digest"],
-            "profile": ent.get("profile", ""),
+    out: dict[StageContextKey, StageContextEntry] = {}
+    for i, ent in enumerate(obj.get("entries", [])):
+        if not isinstance(ent, dict):
+            raise BridgeError("stage-context", f"entry {i} is not an object")
+        missing = [k for k in _STAGE_CONTEXT_REQUIRED if k not in ent]
+        if missing:
+            raise BridgeError("stage-context", f"entry {i} missing {missing}")
+        cut = ent["global_cut_index"]
+        if not _plain_int(cut) or cut < 0:
+            raise BridgeError("stage-context", f"entry {i} global_cut_index must be a nonnegative integer")
+        if ent["profile"] not in PROFILES:
+            raise BridgeError("stage-context", f"entry {i} profile {ent['profile']!r} not in {PROFILES}")
+        if not _nonempty_str(ent["semantic_input_digest"]):
+            raise BridgeError("stage-context", f"entry {i} semantic_input_digest must be nonempty")
+        key: StageContextKey = (ent["plan_sha256"], ent["session_id"],
+                                 ent["compute_id"], ent["checkpoint_id"])
+        if key in out:
+            raise BridgeError("stage-context", f"duplicate stage-context identity {key}")
+        out[key] = {
+            "plan_sha256": ent["plan_sha256"], "run_id": ent["run_id"],
+            "session_id": ent["session_id"], "compute_id": ent["compute_id"],
+            "checkpoint_id": ent["checkpoint_id"], "global_cut_index": cut,
+            "semantic_input_digest": ent["semantic_input_digest"], "profile": ent["profile"],
         }
     return out
 
 
-def check_stage_context(context: dict[tuple[str, str], StageContextEntry], *,
-                        compute_id: str, checkpoint_id: str,
-                        derived_semantic_digest: str) -> list[str]:
+def check_stage_context(context: dict[StageContextKey, StageContextEntry], *,
+                        plan_sha256: str, session_id: str, compute_id: str,
+                        checkpoint_id: str, derived_semantic_digest: str,
+                        expected_profile: Optional[str] = None,
+                        expected_cut_index: Optional[int] = None) -> list[str]:
     """The worker derives the semantic digest from the inputs it ACTUALLY applied
-    and checks it against the plan-bound context. A foreign (compute_id,
-    checkpoint_id) or a mismatched digest is rejected — the plan's expected hash
-    is never stamped onto an unverified source."""
-    entry = context.get((compute_id, checkpoint_id))
+    and checks it against the plan-bound context, addressed by the FULL identity.
+    A foreign identity, a mismatched digest, or (when supplied) a wrong
+    profile/cut is rejected — the plan's expected hash is never stamped onto an
+    unverified source."""
+    key: StageContextKey = (plan_sha256, session_id, compute_id, checkpoint_id)
+    entry = context.get(key)
     if entry is None:
-        return [f"foreign stage context: ({compute_id!r},{checkpoint_id!r}) not in the plan"]
+        return [f"foreign stage context: {key} not in the plan"]
+    fails: list[str] = []
     if entry["semantic_input_digest"] != derived_semantic_digest:
-        return [f"semantic input digest mismatch: derived {derived_semantic_digest!r} "
-                f"!= context {entry['semantic_input_digest']!r}"]
-    return []
+        fails.append(f"semantic input digest mismatch: derived {derived_semantic_digest!r} "
+                     f"!= context {entry['semantic_input_digest']!r}")
+    if expected_profile is not None and entry["profile"] != expected_profile:
+        fails.append(f"stage-context profile {entry['profile']!r} != expected {expected_profile!r}")
+    if expected_cut_index is not None and entry["global_cut_index"] != expected_cut_index:
+        fails.append(f"stage-context cut {entry['global_cut_index']!r} != expected {expected_cut_index!r}")
+    return fails
 
 
 def stage_binding_manifest(*, run_id: str, session_id: str, compute_id: str,
@@ -676,19 +867,44 @@ def stage_binding_manifest(*, run_id: str, session_id: str, compute_id: str,
 
 def capture_rust_stage_sibling(conv: Any, blob: dict[str, Any] | None, *,
                                step_index: int, semantic_input_digest: str,
-                               out_dir: str | Path, tick: Any = None) -> Path:
-    """Write ONE immutable operation directory holding the same-invocation stage
-    sibling for a Rust snapshot, using the very ``conv`` and already-emitted raw
-    ``blob`` from that operation (brief §5). Reuses ``stages.stage_document`` with
-    the ``py`` engine label; does NOT call ``write_stage_documents`` (which
-    deletes older step files) and does NOT call ``run_stage_dump`` afterwards.
-    Returns the path to the written stage document."""
+                               out_dir: str | Path, tick: Any = None,
+                               run_root: str | Path | None = None) -> Path:
+    """Write ONE IMMUTABLE stage sibling for a Rust snapshot, using the very
+    ``conv`` and already-emitted raw ``blob`` from that operation (brief §5).
+
+    Immutability is enforced, not just implied by distinct directories: the file
+    is created EXCLUSIVELY; if one already exists for this operation/cut, an
+    identical retry is idempotent but ANY differing content is refused (a second
+    snapshot for the same cut can never truncate and replace the first). When
+    ``run_root`` is given the operation directory must be confined within it.
+    Reuses ``stages.stage_document`` with the ``py`` engine label; never calls
+    ``write_stage_documents`` (delete-then-write) or ``run_stage_dump`` (a second
+    replay). Returns the path to the written stage document."""
     from polismath.replay import stages
+    if not _plain_int(step_index) or step_index < 0:
+        raise BridgeError("stage-evidence", f"step_index must be a nonnegative integer, got {step_index!r}")
     op_dir = Path(out_dir)
+    if run_root is not None:
+        rr = Path(run_root).resolve()
+        try:
+            op_dir.resolve().relative_to(rr)
+        except ValueError:
+            raise BridgeError("stage-evidence", f"operation dir {op_dir} escapes the run root {rr}")
     op_dir.mkdir(parents=True, exist_ok=True)
     doc = stages.stage_document(conv, step_index=step_index,
                                 digest=semantic_input_digest, tick=tick, blob=blob,
                                 engine=stages.PY_STAGE_ENGINE)
+    payload = stages.canonical_json(doc)
+    data = payload.encode() if isinstance(payload, str) else bytes(payload)
     dest = op_dir / f"step-{step_index:03d}.stages.json"
-    dest.write_text(stages.canonical_json(doc))
+    try:
+        with open(dest, "xb") as fh:
+            fh.write(data)
+    except FileExistsError:
+        if dest.read_bytes() != data:
+            raise BridgeError(
+                "stage-evidence",
+                f"refusing to overwrite immutable stage evidence at {dest}: a differing "
+                f"sibling already exists for this operation") from None
     return dest
+

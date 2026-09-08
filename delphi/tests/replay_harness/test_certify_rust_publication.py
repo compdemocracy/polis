@@ -149,3 +149,83 @@ def test_bundle_mutations_are_independent():
     a["main"]["math_tick"] = 99
     assert b["main"]["math_tick"] == 0
     assert copy.deepcopy(a) == a
+
+
+# ---------------------------------------------------------------------------
+# Round 2 (board [398]) correction 4: readback false accepts, inverted.
+# ---------------------------------------------------------------------------
+def test_missing_jsonb_evidence_rejected():
+    """Removing every table's `data` must fail (JSONB correspondence evidence
+    is required), not pass."""
+    b = _bundle(tick=0)
+    for name in ("main", "bidtopid", "ptptstats"):
+        del b[name]["data"]
+    assert cd.validate_readback(b, expected_prior_tick=None, operation_id="op-1", publisher_epoch=5)
+
+
+def test_boolean_math_ticks_rejected():
+    b = _bundle(tick=0)
+    for name in ("main", "bidtopid", "ptptstats", "ticks"):
+        b[name]["math_tick"] = False
+    fails = cd.validate_readback(b, expected_prior_tick=None, operation_id="op-1", publisher_epoch=5)
+    assert any("non-boolean" in f for f in fails)
+
+
+def test_publication_scope_absent_rejected():
+    b = _bundle(tick=0)
+    del b["zid"], b["math_env"]
+    fails = cd.validate_readback(b, expected_prior_tick=None, operation_id="op-1", publisher_epoch=5)
+    assert any("zid" in f for f in fails) and any("math_env" in f for f in fails)
+
+
+def test_integer_vs_boolean_correspondence_rejected():
+    """original `{"value":1}` vs JSONB `{"value":true}` must be a mismatch, not
+    laundered by Python's 1 == True."""
+    b = _bundle(tick=0)
+    b["main"]["original_bytes"] = '{"value": 1}'
+    b["main"]["original_sha256"] = __import__("hashlib").sha256(b'{"value": 1}').hexdigest()
+    b["ticks"]["original_digests"]["main"] = b["main"]["original_sha256"]
+    b["main"]["data"] = {"value": True}
+    assert any("correspond" in f for f in cd.validate_readback(
+        b, expected_prior_tick=None, operation_id="op-1", publisher_epoch=5))
+
+
+def test_expected_zid_and_env_binding():
+    b = _bundle(tick=0)
+    assert cd.validate_readback(b, expected_prior_tick=None, operation_id="op-1",
+                                publisher_epoch=5, expected_zid=1, expected_math_env="rustproto") == []
+    assert cd.validate_readback(b, expected_prior_tick=None, operation_id="op-1",
+                                publisher_epoch=5, expected_zid=999)
+    assert cd.validate_readback(b, expected_prior_tick=None, operation_id="op-1",
+                                publisher_epoch=5, expected_math_env="python")
+
+
+def test_pg_numeric_normalization_still_allowed():
+    """1 vs 1.0 is allowed PostgreSQL numeric normalization; only bool-vs-int is
+    rejected."""
+    b = _bundle(tick=0)
+    b["main"]["original_bytes"] = '{"x": 1}'
+    b["main"]["original_sha256"] = __import__("hashlib").sha256(b'{"x": 1}').hexdigest()
+    b["ticks"]["original_digests"]["main"] = b["main"]["original_sha256"]
+    b["main"]["data"] = {"x": 1.0}
+    assert cd.validate_readback(b, expected_prior_tick=None, operation_id="op-1", publisher_epoch=5) == []
+
+
+# ---------------------------------------------------------------------------
+# Correction 5: observer false accepts, inverted.
+# ---------------------------------------------------------------------------
+def test_observer_rejects_absent_bundle():
+    assert cd.observe_bundle_coherence({})
+
+
+def test_observer_rejects_garbage_bid_mapping():
+    b = _bundle(tick=0)
+    b["main"]["data"] = {"base-clusters": {"members": [[0]]}}
+    b["bidtopid"]["data"] = {"garbage": "not a bid-index-pid map"}
+    assert any("bid->index->pid" in f for f in cd.observe_bundle_coherence(b))
+
+
+def test_observer_requires_row_and_tick_presence():
+    b = _bundle(tick=0)
+    del b["ptptstats"]
+    assert any("ptptstats" in f for f in cd.observe_bundle_coherence(b))
