@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
+from polismath.database.postgres import encode_math_blob
 from polismath.utils.clj_hash import clojure_hash_map_key_order
 
 logger = logging.getLogger(__name__)
@@ -234,22 +235,33 @@ class MathWriter:
         if last_vote_timestamp is None:
             last_vote_timestamp = getattr(conv, "last_updated", None)
 
-        # Derive blobs before opening the transaction/holding any row locks.
+        # Derive AND encode all three blobs before opening the transaction, so
+        # neither derivation nor json.dumps of the (large) math_main blob runs
+        # while the (zid, math_env) row locks are held.
         bidtopid = derive_bidtopid(conv, zid)
         ptptstats = derive_ptptstats(conv, zid, data.get("user-vote-counts", {}))
+        main_json = encode_math_blob(data)
+        bidtopid_json = encode_math_blob(bidtopid)
+        ptptstats_json = encode_math_blob(ptptstats)
         with self._pg.transaction() as connection:
             # The tick upsert locks this (zid, math_env) until all three writes
             # commit. Other zids use independent connections on the shared client.
             math_tick = self._pg.increment_math_tick(zid, connection=connection)
-            self._pg.write_math_main(
-                zid, data, last_vote_timestamp=last_vote_timestamp,
-                math_tick=math_tick, connection=connection,
-            )
+            # math_main is written LAST, and deliberately so: it is the statement
+            # that allocates caching_tick with MAX(caching_tick)+1, and that
+            # allocation is not serializable (R12). Keeping it adjacent to the
+            # COMMIT keeps the allocate -> commit window as short as it was when
+            # each write autocommitted; the companions carry only the tick that
+            # was already minted above, so moving them earlier is free.
             self._pg.write_math_bidtopid(
-                zid, data=bidtopid, math_tick=math_tick, connection=connection,
+                zid, data=bidtopid_json, math_tick=math_tick, connection=connection,
             )
             self._pg.write_participant_stats(
-                zid, data=ptptstats, math_tick=math_tick, connection=connection,
+                zid, data=ptptstats_json, math_tick=math_tick, connection=connection,
+            )
+            self._pg.write_math_main(
+                zid, main_json, last_vote_timestamp=last_vote_timestamp,
+                math_tick=math_tick, connection=connection,
             )
 
         logger.info(

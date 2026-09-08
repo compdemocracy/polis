@@ -10,10 +10,11 @@ P-022 §C required matrix:
     gaps are not lost votes.
 
 Every failure is injected at the ``PostgresClient`` boundary that
-``MathWriter.write_conv_updates`` calls (``math_writer.py:238`` — three separate
-calls, each committing on its own ``engine.begin()``), so the code under test is
-the deployed code.  Three of the failures are genuine Postgres failures, not
-Python stand-ins:
+``MathWriter.write_conv_updates`` calls (``math_writer.py:227`` — the tick
+allocation and all three table writes now share ONE ``engine.begin()``, so a
+failure at any stage rolls the whole snapshot back, including the tick), so the
+code under test is the deployed code.  Three of the failures are genuine
+Postgres failures, not Python stand-ins:
 
 * **DB rollback** — a real ``NOT NULL`` violation inside the real upsert.
 * **connection loss** — ``pg_terminate_backend`` on the poller's own backend.
@@ -68,14 +69,15 @@ def _publish_and_check(engine, svc, zid=1):
 @pytest.mark.parametrize(
     "stage,after",
     [
+        # Writer order is tick -> bidtopid -> ptptstats -> main -> COMMIT.
         ("increment_math_tick", False),   # before tick allocation
         ("increment_math_tick", True),    # after tick allocation
-        ("write_math_main", False),       # before the main write
-        ("write_math_main", True),        # after the main write (lost ack)
         ("write_math_bidtopid", False),   # before the bidtopid write
         ("write_math_bidtopid", True),    # after the bidtopid write
         ("write_participant_stats", False),   # before the ptptstats write
-        ("write_participant_stats", True),    # after all three writes
+        ("write_participant_stats", True),    # after the ptptstats write
+        ("write_math_main", False),       # before the main write
+        ("write_math_main", True),        # after all three writes (lost ack)
     ],
 )
 def test_one_shot_stage_failure_recovers(engine, pg_url, make_service, stage, after):
