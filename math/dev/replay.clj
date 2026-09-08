@@ -354,6 +354,299 @@
     (when edn? (write-edn! dir s conv (->conv-votes (:votes s))))))
 
 ;; ---------------------------------------------------------------------------
+;; Stage dump (--stage-json) — R-ORACLE, P-030 §2.3.
+;;
+;; A SIBLING sink beside write-blob!/write-edn!. It writes one JSON file per
+;; step carrying the plumbing-graph node outputs the port plan enumerates, so a
+;; second engine can be localised to its FIRST DIVERGING STAGE instead of only
+;; being told that the final blob differs.
+;;
+;; Discipline (P-030 §2.3, the same B1 used for step-NNN.meta.json):
+;;   * harness-only — the recorded prep-main blob and the --edn dump are
+;;     untouched, and this sink is off unless --stage-json is passed;
+;;   * output lands in a SIBLING directory `<out>/clj-stages/`, never inside
+;;     `clj/`: certify globs `step-*` / `step-*.json` there for its inventory
+;;     and digest sets (certify.py:868,873,1283) and store.load_step_blobs
+;;     globs `step-*.json`, so a stage file inside an engine dir would be read
+;;     as a step payload;
+;;   * DIAGNOSTICS ONLY — never a gate. certify remains the sole PASS/FAIL
+;;     authority on the final blob.
+;;
+;; Encoding contract (schema `polis-stage-dump/1`), mirrored byte-for-byte by
+;; delphi/polismath/replay/stages.py:
+;;   * every JSON object's keys are sorted ascending as strings (map keys that
+;;     are integers/keywords are stringified FIRST, then sorted, so "10" < "2"
+;;     on both engines);
+;;   * integers (ids, counts, timestamps, vote values) are emitted as JSON
+;;     integers with no decimal point;
+;;   * doubles are emitted with Double/toString — the shortest decimal that
+;;     round-trips to the same double (JDK 19+ implements the correct shortest
+;;     repr; Python's repr(float) is the same shortest-round-trip rule). NO
+;;     rounding, ever: the compared numbers are the exact doubles;
+;;   * non-finite doubles become the JSON STRINGS "NaN"/"Infinity"/"-Infinity"
+;;     (JSON has no literal for them) so they survive the round trip visibly;
+;;   * a NamedMatrix becomes {"rownames":[…],"colnames":[…],"matrix":[[…]]}
+;;     with nil cells as null, so the diff can key cells by (rowname,colname)
+;;     rather than by cross-engine-arbitrary position;
+;;   * sets become sorted arrays; keywords become their bare name.
+;;
+;; VOTE-SIGN CONVENTION. This sink emits the engine's NATIVE numbers. Clojure
+;; computes in raw-DB convention (AGREE=-1, utils.clj:40-49) while the Python
+;; engine computes in Delphi convention (AGREE=+1) and negates only at its blob
+;; emission boundary (conversation.py:1767-1788), so the vote-valued and
+;; geometry stage nodes differ by sign BEFORE that boundary. The dump records
+;; `vote_sign_convention` and stagecompare.py applies the negation set; the
+;; emitter deliberately does not, so that the file is a faithful record of what
+;; this engine actually computed.
+;; ---------------------------------------------------------------------------
+
+(def stage-dump-schema "polis-stage-dump/1")
+
+(def stage-node-map
+  "Ordered [stage-name [[json-key graph-node-key] …]] — the node list P-030 §2.3
+  enumerates, grouped by the port plan's R-stage. Stage names are zero-padded so
+  that lexicographic key order (the encoding contract) IS pipeline order.
+
+  Omitted deliberately: :keep-votes and :customs (the fed batch, already covered
+  by input_digest), and the dead :subgroup-* trio (CLOJURE_QUIRKS Q7 — computed
+  and persisted but consumed nowhere; certify.py:87-88 drops them too)."
+  [["R01_ingest"          [["last-vote-timestamp" :last-vote-timestamp]
+                           ["n"                   :n]
+                           ["n-cmts"              :n-cmts]
+                           ["raw-rating-mat"      :raw-rating-mat]
+                           ["rating-mat"          :rating-mat]
+                           ["tids"                :tids]]]
+   ["R02_moderation"      [["last-mod-timestamp"  :last-mod-timestamp]
+                           ["meta-tids"           :meta-tids]
+                           ["mod-in"              :mod-in]
+                           ["mod-out"             :mod-out]]]
+   ["R03_eligibility"     [["in-conv"             :in-conv]
+                           ["user-vote-counts"    :user-vote-counts]]]
+   ["R04_pca"             [["mat"                 :mat]
+                           ["pca"                 :pca]]]
+   ["R05_projections"     [["proj"                :proj-nmat]]]
+   ["R06_base_clusters"   [["base-clusters"         :base-clusters]
+                           ["base-clusters-proj"    :base-clusters-proj]
+                           ["base-clusters-weights" :base-clusters-weights]
+                           ["bid-to-pid"            :bid-to-pid]
+                           ["bucket-dists"          :bucket-dists]]]
+   ["R09_group_clusters"  [["group-clusterings"             :group-clusterings]
+                           ["group-clusterings-silhouettes" :group-clusterings-silhouettes]
+                           ["group-clusters"                :group-clusters]
+                           ["group-k-smoother"              :group-k-smoother]]]
+   ["R10_tallies"         [["group-aware-consensus" :group-aware-consensus]
+                           ["group-votes"           :group-votes]
+                           ["votes-base"            :votes-base]]]
+   ["R11_repness"         [["consensus"           :consensus]
+                           ["repness"             :repness]]]
+   ["R12_priorities"      [["comment-priorities"  :comment-priorities]]]
+   ["R13_ptpt_stats"      [["ptpt-stats"          :ptpt-stats]]]])
+
+(def stage-order (mapv first stage-node-map))
+
+;; --- coercion: engine values -> plain data (sorted-maps / vectors / scalars) --
+
+(declare ->plain)
+
+(defn- plain-key
+  "Stringify a map key. Integer keys become their decimal form (NOT 12.0), so
+  the tid/pid/gid keys agree with Python's str(int(k))."
+  [k]
+  (cond
+    (keyword? k) (name k)
+    (string? k)  k
+    (integer? k) (str (bigint k))
+    (nil? k)     "null"
+    :else        (str k)))
+
+(defn- sort-plain-coll
+  "Deterministic ascending order for a set's elements: numerically when they are
+  all comparable, else by their printed form."
+  [coll]
+  (try (vec (sort coll))
+       (catch ClassCastException _ (vec (sort-by pr-str coll)))))
+
+(defn- nmat-rows
+  "Rows of a NamedMatrix's backing matrix as nested Clojure collections. The
+  backing store is a persistent vector-of-vectors whenever the matrix carries
+  nils (vectorz cannot hold nil) and a vectorz array otherwise."
+  [x]
+  (let [m (nm/get-matrix x)]
+    (if (instance? mikera.arrayz.INDArray m)
+      (matrix/to-nested-vectors m)
+      m)))
+
+(defn ->plain
+  "Coerce an engine value into plain data (sorted-map / vector / Long / Double /
+  String / Boolean / nil) ready for write-plain!. Throws on anything it does not
+  recognise rather than silently emitting a printed representation."
+  [x]
+  (cond
+    (nil? x)     nil
+    (boolean? x) x
+    (keyword? x) (name x)
+    (string? x)  x
+    (integer? x) (long x)
+    (number? x)  (double x)
+    ;; NamedMatrix is a deftype (not a map) — checked before map?/sequential?.
+    (satisfies? nm/PNamedMatrix x)
+    (sorted-map "colnames" (mapv ->plain (nm/colnames x))
+                "matrix"   (mapv (fn [row] (mapv ->plain row)) (nmat-rows x))
+                "rownames" (mapv ->plain (nm/rownames x)))
+    (instance? mikera.arrayz.INDArray x) (->plain (matrix/to-nested-vectors x))
+    (set? x)     (mapv ->plain (sort-plain-coll x))
+    (map? x)     (into (sorted-map)
+                       (map (fn [[k v]] [(plain-key k) (->plain v)]) x))
+    (or (sequential? x) (instance? java.util.List x)) (mapv ->plain x)
+    (instance? java.util.Map x)
+    (into (sorted-map) (map (fn [[k v]] [(plain-key k) (->plain v)]) x))
+    :else (throw (ex-info "stage-json: unsupported value type"
+                          {:type (str (type x)) :value (pr-str x)}))))
+
+;; --- the writer: canonical JSON with sorted keys and exact doubles ----------
+
+(defn- json-escape
+  ^String [^String s]
+  (let [sb (StringBuilder. (+ 2 (.length s)))]
+    (dotimes [i (.length s)]
+      (let [c (.charAt s i)]
+        (cond
+          (= c \")     (.append sb "\\\"")
+          (= c \\)     (.append sb "\\\\")
+          (= c \newline)  (.append sb "\\n")
+          (= c \return)   (.append sb "\\r")
+          (= c \tab)      (.append sb "\\t")
+          (= c \backspace)(.append sb "\\b")
+          (= c \formfeed) (.append sb "\\f")
+          (< (int c) 0x20) (.append sb (format "\\u%04x" (int c)))
+          :else (.append sb c))))
+    (.toString sb)))
+
+(defn double->json
+  "The shortest decimal that round-trips to this exact double (Double/toString;
+  JDK 19+ implements the correct shortest representation). Non-finite doubles
+  have no JSON literal, so they are emitted as quoted strings."
+  ^String [^double d]
+  (cond
+    (Double/isNaN d) "\"NaN\""
+    (= d Double/POSITIVE_INFINITY) "\"Infinity\""
+    (= d Double/NEGATIVE_INFINITY) "\"-Infinity\""
+    :else (Double/toString d)))
+
+(defn- write-plain!
+  [^StringBuilder sb x]
+  (cond
+    (nil? x)     (.append sb "null")
+    (true? x)    (.append sb "true")
+    (false? x)   (.append sb "false")
+    (string? x)  (doto sb (.append \") (.append (json-escape x)) (.append \"))
+    (integer? x) (.append sb (str (long x)))
+    (number? x)  (.append sb (double->json (double x)))
+    (map? x)     (do (.append sb \{)
+                     (loop [entries (seq x) first? true]
+                       (when-let [[k v] (first entries)]
+                         (when-not first? (.append sb \,))
+                         (doto sb (.append \") (.append (json-escape k)) (.append \")
+                                  (.append \:))
+                         (write-plain! sb v)
+                         (recur (next entries) false)))
+                     (.append sb \}))
+    (sequential? x) (do (.append sb \[)
+                        (loop [items (seq x) first? true]
+                          (when (seq items)
+                            (when-not first? (.append sb \,))
+                            (write-plain! sb (first items))
+                            (recur (next items) false)))
+                        (.append sb \]))
+    :else (throw (ex-info "stage-json: unwritable plain value"
+                          {:type (str (type x))}))))
+
+(defn stage-json-string
+  "Serialize already-plain data (see ->plain) as canonical stage-dump JSON."
+  ^String [plain]
+  (let [sb (StringBuilder.)]
+    (write-plain! sb plain)
+    (.toString sb)))
+
+;; --- input digest -----------------------------------------------------------
+
+(defn- sha256-hex
+  [^String s]
+  (let [md (MessageDigest/getInstance "SHA-256")]
+    (->> (.digest md (.getBytes s "UTF-8"))
+         (map #(format "%02x" (bit-and % 0xff)))
+         (apply str))))
+
+(defn step-input-digest
+  "sha256 over this step's fed inputs, in a form BOTH engines can reproduce.
+
+  Votes are digested in EXPORT/Delphi sign convention (AGREE=+1) — the sign the
+  CSV carries — not in the raw-DB convention conv-update consumes, so the clj
+  and py digests agree for the same batch. Rows keep fed order (the schedule
+  slicer's stable order); booleans are 0/1."
+  [step]
+  (let [votes (mapv (fn [{:keys [pid tid sign t-ms]}]
+                      [(long pid) (long tid) (long sign) (long t-ms)])
+                    (:votes step))
+        mods  (mapv (fn [{:keys [tid is_meta mod modified]}]
+                      [(long tid) (if is_meta 1 0) (long mod) (long modified)])
+                    (:mods step))]
+    (str "sha256:"
+         (sha256-hex (stage-json-string (sorted-map "mods" mods "votes" votes))))))
+
+;; --- the sink ---------------------------------------------------------------
+
+(defn stage-document
+  "The `polis-stage-dump/1` document for one step of one engine."
+  [step conv]
+  (sorted-map
+    "engine"       "clj"
+    "input_digest" (step-input-digest step)
+    "schema"       stage-dump-schema
+    "stages"       (into (sorted-map)
+                         (map (fn [[stage-name nodes]]
+                                [stage-name
+                                 (into (sorted-map)
+                                       (map (fn [[json-key node-key]]
+                                              [json-key (->plain (get conv node-key))])
+                                            nodes))])
+                              stage-node-map))
+    "step"         (long (:index step))
+    "tick"         (some-> (:last-vote-timestamp conv) long)
+    "vote_sign_convention" "raw-db"))
+
+(defn write-stage-json!
+  "Write `step-NNN.stages.json` and return this step's manifest row."
+  [dir step conv]
+  (let [doc  (stage-document step conv)
+        name (format "step-%03d.stages.json" (:index step))]
+    (spit (io/file dir name) (stage-json-string doc))
+    (sorted-map "file"         name
+                "index"        (long (:index step))
+                "input_digest" (get doc "input_digest")
+                "tick"         (get doc "tick"))))
+
+(defn write-stage-results!
+  "Write the whole stage recording (per-step dumps + stages-manifest.json) for
+  one replay pass into `dir` (a SIBLING of the engine's blob dir)."
+  [^java.io.File dir results]
+  (.mkdirs dir)
+  ;; A prior run with more steps would otherwise leave stale higher-index
+  ;; dumps that a reader globbing step-*.stages.json would mix in.
+  (doseq [^java.io.File stale (.listFiles dir)]
+    (when (re-matches #"step-\d+\.stages\.json" (.getName stale))
+      (.delete stale)))
+  (let [rows (mapv (fn [[s conv]] (write-stage-json! dir s conv)) results)]
+    (spit (io/file dir "stages-manifest.json")
+          (stage-json-string
+            (sorted-map "engine"      "clj"
+                        "n_steps"     (count rows)
+                        "schema"      stage-dump-schema
+                        "stage_order" stage-order
+                        "steps"       rows
+                        "vote_sign_convention" "raw-db")))))
+
+;; ---------------------------------------------------------------------------
 ;; Provenance.
 ;; ---------------------------------------------------------------------------
 
@@ -376,7 +669,7 @@
 
 (defn build-provenance
   [{:keys [schedule schedule-id source votes-path comments-path zid meta-tids
-           meta-tids-source warm-start repeats n-steps edn?
+           meta-tids-source warm-start repeats n-steps edn? stage-json?
            moderation n-mod-events n-mod-skipped restart-after]}]
   {:engine "clj"
    :moderation (or moderation "none")
@@ -391,6 +684,7 @@
    :n_steps n-steps
    :repeats repeats
    :edn edn?
+   :stage_json (boolean stage-json?)
    :warm_start warm-start
    :warm_start_note "chain is implicit: the reduce threads conv; :pca :comps seed the next step's start-vectors (conversation.clj:381-387)"
    :vote_sign_convention "raw-db"
@@ -495,6 +789,8 @@
    ["-r" "--repeats N" "Full-replay repeats for §9 self-jitter (default 1)."
     :default 1 :parse-fn #(Integer/parseInt %)]
    [nil "--edn" "Also write per-step full-state EDN (conv-update-dump shape)."]
+   [nil "--stage-json"
+    "Also write per-step stage dumps (polis-stage-dump/1) to <out>/clj-stages/."]
    ["-h" "--help"]])
 
 (defn -main [& args]
@@ -526,8 +822,13 @@
             zid         (or (:zid options) dataset)
             repeats     (:repeats options)
             edn?        (boolean (:edn options))
+            stage-json? (boolean (:stage-json options))
             out         (io/file (:out options))
-            clj-dir     (io/file out "clj")]
+            clj-dir     (io/file out "clj")
+            ;; SIBLING of clj/ on purpose — certify globs step-* inside the
+            ;; engine dir for its inventory/digest sets (certify.py:868,873,
+            ;; 1283) and store.load_step_blobs globs step-*.json there.
+            stage-root  (io/file out "clj-stages")]
 
         (when-not (contains? #{"none" "interleave-by-timestamp" nil} moderation)
           (throw (ex-info
@@ -608,12 +909,22 @@
           ;; cross-language surface); rep i>0 (and rep 0) go to clj/rep-i/.
           (dotimes [rep repeats]
             (let [results (run-once zid meta-tids steps restart-after)
-                  rep-dir (if (> repeats 1) (io/file clj-dir (str "rep-" rep)) clj-dir)]
+                  rep-dir (if (> repeats 1) (io/file clj-dir (str "rep-" rep)) clj-dir)
+                  stage-dir (if (> repeats 1)
+                              (io/file stage-root (str "rep-" rep))
+                              stage-root)]
               (write-results! rep-dir results edn?)
               (when (and (> repeats 1) (zero? rep))
                 (write-results! clj-dir results edn?))
+              (when stage-json?
+                (write-stage-results! stage-dir results)
+                (when (and (> repeats 1) (zero? rep))
+                  (write-stage-results! stage-root results)))
               (binding [*out* *err*]
-                (println (format "  rep %d/%d written → %s" (inc rep) repeats (str rep-dir))))))
+                (println (format "  rep %d/%d written → %s" (inc rep) repeats (str rep-dir)))
+                (when stage-json?
+                  (println (format "  rep %d/%d stage dumps → %s"
+                                   (inc rep) repeats (str stage-dir)))))))
 
           ;; Provenance (recording dir + a clj/ mirror so a later Python run's
           ;; provenance.json cannot clobber ours).
@@ -622,7 +933,7 @@
                         :votes-path (:votes options) :comments-path (:comments options)
                         :zid zid :meta-tids meta-tids :meta-tids-source meta-src
                         :warm-start warm-start :repeats repeats
-                        :n-steps (count steps) :edn? edn?
+                        :n-steps (count steps) :edn? edn? :stage-json? stage-json?
                         :moderation moderation
                         :n-mod-events (count mod-events)
                         :n-mod-skipped n-mod-skipped
