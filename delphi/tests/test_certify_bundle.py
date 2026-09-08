@@ -778,8 +778,65 @@ def test_admission_requires_a_null_vote_census_under_the_drop_counted_policy(
 def test_admission_rejects_a_config_that_is_not_the_one_the_bundle_was_built_from(
         bundle, config):
     _, manifest, _, _ = bundle
+    other = json.dumps(dict(config, config_version="v-elsewhere")).encode()
     with pytest.raises(fb.AdmissionError, match="different revision"):
+        fb.admit_manifest(manifest, config_bytes=other)
+    # Bytes that are not a config at all cannot admit anything either.
+    with pytest.raises(fb.AdmissionError, match="not a valid selection config"):
         fb.admit_manifest(manifest, config=config, config_bytes=b"{}")
+
+
+def test_the_hashed_config_bytes_are_the_only_rules_evaluated(bundle, config, tmp_path):
+    """Reviewer's r3 finding: the digest and the rules actually evaluated had
+    separate authorities. ``admit_manifest`` hashed ``config_bytes`` (or the
+    committed default) but evaluated the independently supplied ``config``, or
+    separately re-loaded ``config_path``. A caller could therefore keep the
+    committed file's digest on the certificate while admitting under a
+    schema-valid config whose predicate thresholds were weakened to ``>= 0``,
+    and the two bypass paths below are exactly the ones reproduced."""
+    _, manifest, _, _ = bundle
+
+    loose = copy.deepcopy(config)
+    for rule in loose["roles"]:
+        for pred in rule["predicates"]:
+            pred.update(op="ge", value=0)
+    fc.validate_config(loose)                    # the weakened rules ARE valid
+
+    zeroed = copy.deepcopy(manifest)
+    for role in zeroed["roles"]:
+        role["measured_metrics"] = {m: 0 for m in role["measured_metrics"]}
+
+    # Control: under the committed rules the all-zero metrics are rejected.
+    with pytest.raises(fb.AdmissionError):
+        fb.admit_manifest(zeroed)
+
+    # Bypass 1 — original bytes/digest, weakened PARSED config.
+    with pytest.raises(fb.AdmissionError, match="not the config whose bytes are hashed"):
+        fb.admit_manifest(zeroed, config=loose)
+
+    # Bypass 2 — original bytes/digest, weakened config_path.
+    loose_path = tmp_path / "loose.json"
+    loose_path.write_text(json.dumps(loose))
+    with pytest.raises(fb.AdmissionError, match="does not contain the config_bytes"):
+        fb.admit_manifest(zeroed, config_path=loose_path,
+                          config_bytes=fc.DEFAULT_CONFIG_PATH.read_bytes())
+
+    # ...and the same two shapes are refused through push, which delegates.
+    store = fb.LocalStore(tmp_path / "push-store")
+    for kwargs in ({"config": loose},
+                   {"config_path": loose_path,
+                    "config_bytes": fc.DEFAULT_CONFIG_PATH.read_bytes()}):
+        with pytest.raises(fb.AdmissionError):
+            fb.push(store, bundle_id=zeroed["bundle_id"], payload_root=tmp_path,
+                    manifest=zeroed,
+                    provenance={"bundle_id": zeroed["bundle_id"]}, **kwargs)
+
+    # A parsed config that IS the parse of the hashed bytes stays a valid
+    # convenience argument, key order and whitespace notwithstanding.
+    fb.admit_manifest(manifest, config=json.loads(
+        json.dumps(config, sort_keys=True)))
+    fb.admit_manifest(manifest, config_path=fc.DEFAULT_CONFIG_PATH,
+                      config_bytes=fc.DEFAULT_CONFIG_PATH.read_bytes())
 
 
 def test_the_config_digest_is_bound_on_the_library_default_path(bundle, config):
