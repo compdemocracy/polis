@@ -76,6 +76,15 @@ from polismath.utils.vote_convention import (
 #: manifest carries an ``admission`` block stating the release policy that
 #: :func:`admit_manifest` enforces. A /1 or /2 manifest is NOT admissible.
 MANIFEST_SCHEMA_VERSION = "certify-fixture-manifest/3"
+#: The PREVIOUS closed manifest schema. It stays verifiable and admissible
+#: BYTE-FOR-BYTE (Astra review #2730 F-compat): a /2 manifest carries no
+#: ``transform`` key at all and its polarity block already spells out the -1 it
+#: was pinned to, so the /3 rules evaluate on it unchanged once the absent
+#: ``transform`` is read as the "original capture" declaration it is. New
+#: bundles are always written at /3; nothing re-issues an existing bundle.
+LEGACY_MANIFEST_SCHEMA_VERSION = "certify-fixture-manifest/2"
+ADMISSIBLE_MANIFEST_SCHEMA_VERSIONS = (
+    LEGACY_MANIFEST_SCHEMA_VERSION, MANIFEST_SCHEMA_VERSION)
 PROVENANCE_SCHEMA_VERSION = "certify-fixture-provenance/1"
 PINS_SCHEMA_VERSION = "certify-fixture-pins/1"
 #: Bumped to /2 by the r2 admission correction: the policy fields carry CLOSED
@@ -384,12 +393,25 @@ def build_transform_block(
     published first and is immutable — names nothing. A copied manifest with an
     edited sign and stale hashes is not an admitted pair, which is why the
     original's ``root_digest`` AND its ``manifest.json`` digest are both bound.
+
+    ``bijective_verified`` is NOT coerced (Astra review #2730 F3): ``bool("false")``
+    is ``True``, so coercion turned an unverified — or misspelled — declaration
+    into a verified one. It must already be a real boolean, and admission
+    requires it to be ``True``.
     """
+    if type(bijective_verified) is not bool:
+        raise BundleError(
+            f"bijective_verified must be a real boolean, got "
+            f"{type(bijective_verified).__name__} {bijective_verified!r}: a "
+            f"declaration in a closed admission contract is never coerced")
+    if not isinstance(notes, str):
+        raise BundleError(f"transform notes must be a string, got "
+                          f"{type(notes).__name__}")
     return {
         "schema_version": TRANSFORM_SCHEMA_VERSION,
         "transform_id": transform_id,
         "involution": True,
-        "bijective_verified": bool(bijective_verified),
+        "bijective_verified": bijective_verified,
         "source": {
             "bundle_id": source_bundle_id,
             "root_digest": source_root_digest,
@@ -416,6 +438,15 @@ def _validate_transform_shape(
         problems.append(f"transform.{missing} is missing")
     for unknown in sorted(keys - TRANSFORM_KEYS):
         problems.append(f"unknown transform field (nothing validates it): {unknown}")
+    if transform.get("schema_version") != TRANSFORM_SCHEMA_VERSION:
+        problems.append(
+            f"transform.schema_version is {transform.get('schema_version')!r}, "
+            f"expected {TRANSFORM_SCHEMA_VERSION!r}: an unreviewed transform "
+            f"schema validates nothing")
+    if not isinstance(transform.get("notes", ""), str):
+        problems.append(
+            f"transform.notes must be a string, got "
+            f"{type(transform.get('notes')).__name__}")
     if transform.get("transform_id") not in KNOWN_TRANSFORMS:
         problems.append(
             f"transform.transform_id is {transform.get('transform_id')!r}, not one "
@@ -423,7 +454,8 @@ def _validate_transform_shape(
     if transform.get("involution") is not True:
         problems.append("transform.involution must be True: the declared "
                         "polarity transform is its own inverse")
-    if transform.get("bijective_verified") is not True:
+    if type(transform.get("bijective_verified")) is not bool \
+            or transform.get("bijective_verified") is not True:
         problems.append(
             "transform.bijective_verified must be True: both directions are "
             "verified independently BEFORE any engine launch, and an "
@@ -444,12 +476,12 @@ def _validate_transform_shape(
             problems.append(
                 f"transform.source.{digest_field} must be a sha256 hex digest; a "
                 f"stale or absent digest binds nothing")
+    if not isinstance(source.get("bundle_id"), str) or not source["bundle_id"]:
+        problems.append("transform.source.bundle_id must be a non-empty string")
     if source.get("bundle_id") == bundle_id:
         problems.append(
             "transform.source.bundle_id is this bundle: the pair descriptor must "
             "be non-circular, and a bundle is not derived from itself")
-    if not source.get("bundle_id"):
-        problems.append("transform.source.bundle_id is missing")
     src_sign = source.get("storage_agree_value")
     if type(src_sign) is not int or src_sign not in ADMISSIBLE_STORAGE_AGREE_VALUES:
         problems.append(
@@ -488,6 +520,93 @@ def build_provenance(
             for s in selections
         ],
     }
+
+
+def derived_role(entry: dict[str, Any], *, source_bundle_id: str) -> dict[str, Any]:
+    """One role of a DERIVED bundle: the same role, same directory, same
+    measured metrics, with its source recorded as :data:`DERIVED_ROLE_SOURCE`
+    and the original role's own source RETAINED under ``derived_from``.
+
+    The involution changes raw vote signs and nothing else — not the
+    conversation a role was selected from, not the metrics it was selected
+    under, not its coverage. So the derived role keeps all of that and adds the
+    binding that says where it came from; it never claims to be a fresh
+    production extraction or an approved synthetic replacement.
+    """
+    original_source = entry.get("source")
+    if original_source not in ORIGINAL_ROLE_SOURCES:
+        raise BundleError(
+            f"role {entry.get('slug')!r} has source {original_source!r}; only "
+            f"{sorted(ORIGINAL_ROLE_SOURCES)} can be derived from (a derived "
+            f"bundle is not itself a derivation source)")
+    derived = dict(entry)
+    derived["source"] = DERIVED_ROLE_SOURCE
+    derived["derived_from"] = {
+        "bundle_id": source_bundle_id,
+        "slug": entry.get("slug"),
+        "source": original_source,
+    }
+    compat = derived.get("compat")
+    if isinstance(compat, dict) and "storage_agree_value" in compat:
+        compat = dict(compat)
+        compat["storage_agree_value"] = -compat["storage_agree_value"]
+        derived["compat"] = compat
+    return derived
+
+
+def build_derived_manifest(
+    source_manifest: dict[str, Any], *, bundle_id: str, payload_root: Path,
+    source_manifest_sha256: str, bijective_verified: bool,
+    owner: str | None = None, notes: str = "",
+) -> dict[str, Any]:
+    """The manifest of the FLIPPED side of a P-023 polarity pair.
+
+    This is the derived-source path admission needs to have something to
+    accept: it takes an ADMITTED original manifest and the derived payload tree
+    (the same fixtures with every non-null raw vote negated), and produces a
+    manifest that declares the opposite convention, re-scans the derived files,
+    binds the original through :func:`build_transform_block`, and re-labels
+    every role through :func:`derived_role`.
+
+    The original is never mutated and never learns about the derivative: the
+    pair descriptor points one way only. ``source_manifest_sha256`` is the
+    digest of the original's published ``manifest.json`` bytes, which is what
+    makes a stale or hand-edited source detectable rather than merely claimed.
+    """
+    if source_manifest.get("schema_version") not in ADMISSIBLE_MANIFEST_SCHEMA_VERSIONS:
+        raise BundleError(
+            f"cannot derive from schema_version "
+            f"{source_manifest.get('schema_version')!r}")
+    if source_manifest.get("transform") is not None:
+        raise BundleError(
+            "cannot derive from a bundle that is itself derived: the pair is "
+            "two sides, not a chain")
+    source_sign = validate_storage_agree_value(
+        source_manifest["polarity"]["storage_agree_value"],
+        field="source polarity.storage_agree_value")
+
+    files = scan_files(payload_root)
+    derived = dict(source_manifest)
+    derived.update(
+        schema_version=MANIFEST_SCHEMA_VERSION,
+        bundle_id=bundle_id,
+        created_at=datetime.now(timezone.utc).isoformat(),
+        owner=owner or source_manifest["owner"],
+        files=files,
+        root_digest=root_digest(files),
+        polarity={**source_manifest["polarity"],
+                  "storage_agree_value": -source_sign},
+        roles=[derived_role(r, source_bundle_id=source_manifest["bundle_id"])
+               for r in source_manifest["roles"]],
+        transform=build_transform_block(
+            source_bundle_id=source_manifest["bundle_id"],
+            source_root_digest=source_manifest["root_digest"],
+            source_manifest_sha256=source_manifest_sha256,
+            source_storage_agree_value=source_sign,
+            bijective_verified=bijective_verified,
+            notes=notes),
+    )
+    return derived
 
 
 def canonical_json(obj: Any) -> bytes:
@@ -915,11 +1034,11 @@ def verify(payload_root: Path, manifest: dict[str, Any], *,
     if not isinstance(manifest, dict):
         raise VerificationError("manifest is not an object")
     version = manifest.get("schema_version")
-    if version != MANIFEST_SCHEMA_VERSION:
+    if version not in ADMISSIBLE_MANIFEST_SCHEMA_VERSIONS:
         raise VerificationError(
-            f"manifest schema_version is {version!r}, expected "
-            f"{MANIFEST_SCHEMA_VERSION!r}; an unversioned or foreign manifest is "
-            "not verifiable")
+            f"manifest schema_version is {version!r}, expected one of "
+            f"{list(ADMISSIBLE_MANIFEST_SCHEMA_VERSIONS)}; an unversioned or "
+            "foreign manifest is not verifiable")
     if not isinstance(manifest.get("bundle_id"), str) or not manifest["bundle_id"]:
         raise VerificationError("manifest has no bundle_id")
     if not isinstance(manifest.get("files"), list):
@@ -979,11 +1098,22 @@ MANIFEST_TOP_LEVEL_KEYS = frozenset({
     "schedules", "files", "root_digest", "archive", "redactions", "retention",
     "admission",
     # manifest/3 (P-023): the pair/transform provenance of a DERIVED fixture,
-    # explicitly null for an original capture. Required rather than optional —
-    # the set is closed in both directions, so "no transform block" has to be a
-    # stated fact, not an omission nobody noticed.
+    # explicitly null for an original capture. Required at /3 rather than
+    # optional — the set is closed in both directions, so "no transform block"
+    # has to be a stated fact, not an omission nobody noticed. A /2 manifest
+    # predates the field and is read with it ABSENT, which means the same
+    # thing: an original capture.
     "transform",
 })
+
+#: /3 fields the /2 schema did not have. Absent from a /2 manifest, and their
+#: /2 defaults are applied so an existing bundle admits on its original bytes.
+MANIFEST_KEYS_ADDED_IN_V3 = frozenset({"transform"})
+
+MANIFEST_TOP_LEVEL_KEYS_BY_VERSION: dict[str, frozenset[str]] = {
+    LEGACY_MANIFEST_SCHEMA_VERSION: MANIFEST_TOP_LEVEL_KEYS - MANIFEST_KEYS_ADDED_IN_V3,
+    MANIFEST_SCHEMA_VERSION: MANIFEST_TOP_LEVEL_KEYS,
+}
 
 #: Ordering guarantee -> the ONE tie-order policy token that guarantee permits.
 #: Admission compares the two: a manifest that declares ``frozen-extract-order``
@@ -996,7 +1126,27 @@ TIE_ORDER_POLICIES: dict[str, str] = {
 
 ORDERING_GUARANTEES = frozenset(TIE_ORDER_POLICIES)
 
-ROLE_SOURCES = frozenset({"production", "synthetic-replacement"})
+#: The role source of a DERIVED bundle: this role's fixture is the declared
+#: involution of an ADMITTED bundle's role, not a new production extraction and
+#: not an approved synthetic replacement (Astra review #2730 F1).
+#:
+#: Without it no flipped bundle could exist at all: 15 of the 17 required roles
+#: carry ``on_missing: fail``, so admission forbids substituting them, and the
+#: production release policy forbids a production-source role from declaring
+#: +1. Relabelling them "synthetic-replacement" only moves the failure. The
+#: derived source is the missing third case, and it is NOT a weakening: a
+#: derived role must name the transform's source bundle and RETAIN the original
+#: role's own source, so the provenance of the underlying capture survives the
+#: involution instead of being laundered by it.
+DERIVED_ROLE_SOURCE = "derived"
+
+#: What a derived role may have been derived FROM.
+ORIGINAL_ROLE_SOURCES = frozenset({"production", "synthetic-replacement"})
+
+ROLE_SOURCES = ORIGINAL_ROLE_SOURCES | frozenset({DERIVED_ROLE_SOURCE})
+
+#: Closed key set of a derived role's provenance binding.
+DERIVED_FROM_KEYS = frozenset({"bundle_id", "source", "slug"})
 
 #: The compatibility-CSV NULL-vote policy the extractor writes
 #: (``fixture_extract.COMPAT_NULL_VOTE_POLICY``). Restated here because
@@ -1151,13 +1301,19 @@ def admit_manifest(
     P = lambda cond, msg: _admission_problem(problems, cond, msg)  # noqa: E731
 
     # --- identity + closed field set -------------------------------------
-    P(manifest.get("schema_version") == MANIFEST_SCHEMA_VERSION,
-      f"schema_version is {manifest.get('schema_version')!r}, expected "
-      f"{MANIFEST_SCHEMA_VERSION!r}")
+    schema_version = manifest.get("schema_version")
+    P(schema_version in ADMISSIBLE_MANIFEST_SCHEMA_VERSIONS,
+      f"schema_version is {schema_version!r}, expected one of "
+      f"{list(ADMISSIBLE_MANIFEST_SCHEMA_VERSIONS)}")
+    # A /2 manifest is admitted on its ORIGINAL BYTES: its closed key set is the
+    # /2 one (no `transform`), and the /3 field it predates takes its /2 default
+    # below. Only /3 may carry a transform block at all.
+    expected_keys = MANIFEST_TOP_LEVEL_KEYS_BY_VERSION.get(
+        schema_version, MANIFEST_TOP_LEVEL_KEYS)
     keys = set(manifest)
-    for missing in sorted(MANIFEST_TOP_LEVEL_KEYS - keys):
+    for missing in sorted(expected_keys - keys):
         P(False, f"missing required manifest field: {missing}")
-    for unknown in sorted(keys - MANIFEST_TOP_LEVEL_KEYS):
+    for unknown in sorted(keys - expected_keys):
         P(False, f"unknown manifest field (nothing validates it): {unknown}")
     if problems:
         # Everything below indexes into fields whose presence is in doubt.
@@ -1272,13 +1428,17 @@ def admit_manifest(
     P(bool(polarity.get("boundaries")),
       "polarity.boundaries must name the storage/export/ingress sites")
 
-    # RELEASE POLICY, kept separate from the schema: a production capture must
+    # RELEASE POLICY, kept separate from the schema: a production CAPTURE must
     # still declare the production convention until the P-023 storage
-    # migration is separately approved. A derived pair fixture, which contains
-    # no production capture, is unaffected.
+    # migration is separately approved. A derived pair fixture, whose roles
+    # declare source "derived" and retain their original provenance, is not a
+    # capture and is unaffected.
     production_roles = sorted(
         str(r.get("slug")) for r in manifest["roles"]
         if isinstance(r, dict) and r.get("source") == "production")
+    derived_roles = sorted(
+        str(r.get("slug")) for r in manifest["roles"]
+        if isinstance(r, dict) and r.get("source") == DERIVED_ROLE_SOURCE)
     if production_roles and declared_sign in ADMISSIBLE_STORAGE_AGREE_VALUES:
         P(declared_sign == PRODUCTION_STORAGE_AGREE_VALUE,
           f"polarity.storage_agree_value is {declared_sign!r}, but this bundle "
@@ -1287,10 +1447,11 @@ def admit_manifest(
           f"capture may not declare the flipped convention before the storage "
           f"migration is approved (release policy, not schema)")
 
-    # manifest/3 pair provenance. `null` is the positive declaration that this
-    # is an ORIGINAL capture; a block must bind the original it was involuted
-    # from, with that original's final digests and the opposite convention.
-    transform = manifest["transform"]
+    # manifest/3 pair provenance. `null` — or, on a /2 manifest, the absent
+    # field — is the positive declaration that this is an ORIGINAL capture; a
+    # block must bind the original it was involuted from, with that original's
+    # final digests and the opposite convention.
+    transform = manifest.get("transform")
     if transform is not None:
         for problem in _validate_transform_shape(
                 transform,
@@ -1302,6 +1463,16 @@ def admit_manifest(
           f"this manifest declares a transform block AND production-source "
           f"role(s) {production_roles}: a derived fixture is built from an "
           f"admitted bundle's bytes, never re-extracted from production")
+        P(bool(derived_roles),
+          "this manifest declares a transform block but no role declares "
+          f"source {DERIVED_ROLE_SOURCE!r}: a derived bundle's roles are "
+          "derivations, and a transform nothing was derived under is not "
+          "provenance")
+    else:
+        P(not derived_roles,
+          f"role(s) {derived_roles} declare source {DERIVED_ROLE_SOURCE!r} but "
+          f"the manifest declares no transform block, so nothing says what they "
+          f"were derived from or under which transform")
 
     # --- declared release policy ------------------------------------------
     # Every policy is a CLOSED enum token, and the tie policy must agree with
@@ -1413,6 +1584,41 @@ def admit_manifest(
               f"role {slug!r} measured metrics do NOT satisfy the config "
               f"predicates it claims to have been selected under: "
               f"{_failed_predicates(metrics, rule['predicates'])}")
+        if source == DERIVED_ROLE_SOURCE:
+            # A derived role is admitted for ANY role, including the 15 whose
+            # rule says on_missing:fail — because nothing was substituted. It
+            # is the SAME fixture with its raw vote signs involuted, so its
+            # measured metrics (checked above, unchanged by a sign flip) still
+            # satisfy the rule it was selected under. What must be present is
+            # the binding that keeps the original provenance visible.
+            binding = entry.get("derived_from")
+            P(isinstance(binding, dict) and bool(binding),
+              f"derived role {slug!r} carries no derived_from binding: a role "
+              f"with no stated origin is an unprovenanced fixture, not a "
+              f"derivation")
+            if isinstance(binding, dict):
+                for unknown in sorted(set(binding) - DERIVED_FROM_KEYS):
+                    P(False, f"derived role {slug!r} derived_from carries "
+                             f"unknown field {unknown!r}")
+                for missing in sorted(DERIVED_FROM_KEYS - set(binding)):
+                    P(False, f"derived role {slug!r} derived_from is missing "
+                             f"{missing!r}")
+                P(binding.get("source") in ORIGINAL_ROLE_SOURCES,
+                  f"derived role {slug!r} derived_from.source is "
+                  f"{binding.get('source')!r}: it must RETAIN the original "
+                  f"role's own source, one of {sorted(ORIGINAL_ROLE_SOURCES)}")
+                P(binding.get("slug") == slug,
+                  f"derived role {slug!r} claims to derive from role "
+                  f"{binding.get('slug')!r}: the involution changes vote signs, "
+                  f"never which conversation filled a role")
+                if isinstance(transform, dict):
+                    expected_source = (transform.get("source") or {}).get(
+                        "bundle_id")
+                    P(binding.get("bundle_id") == expected_source,
+                      f"derived role {slug!r} names origin bundle "
+                      f"{binding.get('bundle_id')!r}, but the transform block "
+                      f"binds {expected_source!r}: one manifest cannot be "
+                      f"derived from two different bundles")
         if source == "synthetic-replacement":
             replacement = rule.get("synthetic_replacement")
             P(rule.get("on_missing") == "fail_with_synthetic_replacement_offer",
@@ -1451,6 +1657,15 @@ def admit_manifest(
               "is not a census of zero")
         if not isinstance(compat, dict):
             continue
+        # A sign-sensitive census is derived from the manifest's OWN declared
+        # sign (P-023 rev3). A role counted under -1 inside a bundle declaring
+        # +1 counted agreements as disagreements. Older censuses predate the
+        # field and are unaffected.
+        if "storage_agree_value" in compat:
+            P(compat.get("storage_agree_value") == declared_sign,
+              f"role {slug!r} compat census was counted under storage agree "
+              f"{compat.get('storage_agree_value')!r} but the manifest declares "
+              f"{declared_sign!r}")
         P(compat.get("null_vote_policy") == REQUIRED_COMPAT_NULL_VOTE_POLICY,
           f"role {slug!r} compat census declares NULL-vote policy "
           f"{compat.get('null_vote_policy')!r}, expected "
