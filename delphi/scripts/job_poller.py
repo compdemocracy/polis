@@ -765,6 +765,23 @@ class JobProcessor:
             self.complete_job(job, False, error=f"Critical poller error: {str(e)}")
 
 
+def should_process_job(instance_type: str, job_actual_size: str) -> bool:
+    """
+    Decide whether a worker of the given instance type should process a job of
+    the given size.
+
+    The dedicated "large" worker ASG is scaled to zero, so the normal/default
+    worker class now processes ALL job sizes. "large" remains an opt-in,
+    large-only class (set INSTANCE_SIZE=large) for anyone who re-enables that
+    ASG; "dev" processes anything. get_job_actual_size is still consulted for
+    logging/visibility.
+    """
+    if instance_type == "large":
+        return job_actual_size == "large"
+    # 'default', 'small', 'dev' and anything else: process every size.
+    return True
+
+
 def poll_and_process(processor: JobProcessor, interval: int = 10):
     """The main loop for a worker thread."""
     logger.info(f"Worker {processor.worker_id} starting job polling...")
@@ -782,19 +799,8 @@ def poll_and_process(processor: JobProcessor, interval: int = 10):
                 else:
                     job_actual_size = "normal"
 
-                can_process = False
                 instance_type = processor.instance_type
-
-                if instance_type == "large":
-                    # A large instance ONLY processes large jobs.
-                    can_process = job_actual_size == "large"
-                else:  # This covers 'small' and the 'default' type.
-                    # Small/default instances ONLY process normal-sized jobs.
-                    can_process = job_actual_size == "normal"
-
-                if instance_type == "dev":
-                    # Dev instances can process any job size.
-                    can_process = True
+                can_process = should_process_job(instance_type, job_actual_size)
 
                 if not can_process:
                     logger.info(f"Worker instance type '{instance_type}' cannot process job '{job_to_process['job_id']}' of size '{job_actual_size}'. Skipping for now.")
