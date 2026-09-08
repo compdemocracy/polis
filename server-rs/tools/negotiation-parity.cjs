@@ -45,6 +45,12 @@ const HEADERS=[
  'gzip, deflate, br','br','gzip, deflate, br, zstd',
  // The lazy token, and wildcards interacting with an explicit zero.
  ';q=1','gzip;q=0, *','identity;q=0, gzip','identity;q=0','*;q=0.5, gzip;q=0.5',
+ // JS parseFloat and the `||` fall-through: leading whitespace, a literal tab,
+ // Infinity, and a NaN quality that must fall through to header order rather
+ // than disqualify the coding. Legacy inputs, but the middleware accepts them.
+ 'gzip;q=0.5','gzip;q=0.5junk','gzip;q= 0.5','gzip;q=\t0.5','gzip;q=abc, gzip',
+ 'gzip;q=Infinity','gzip;q=-Infinity','gzip;q=+0.5','gzip;q=1e-1','gzip;q=.5',
+ 'gzip;q=1e','gzip;q=0x10','gzip;q=abc, deflate',
 ];
 // The route's own subset shape: JSON above the 1024-byte threshold with an ETag.
 const body=JSON.stringify({tids:Array.from({length:1024},(_,i)=>i)});

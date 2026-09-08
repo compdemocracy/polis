@@ -165,6 +165,58 @@
     [
       "*;q=0.5, gzip;q=0.5",
       "gzip"
+    ],
+    [
+      "gzip;q=0.5",
+      "gzip"
+    ],
+    [
+      "gzip;q=0.5junk",
+      "gzip"
+    ],
+    [
+      "gzip;q= 0.5",
+      "gzip"
+    ],
+    [
+      "gzip;q=\t0.5",
+      "gzip"
+    ],
+    [
+      "gzip;q=abc, gzip",
+      "gzip"
+    ],
+    [
+      "gzip;q=Infinity",
+      "gzip"
+    ],
+    [
+      "gzip;q=-Infinity",
+      "identity"
+    ],
+    [
+      "gzip;q=+0.5",
+      "gzip"
+    ],
+    [
+      "gzip;q=1e-1",
+      "gzip"
+    ],
+    [
+      "gzip;q=.5",
+      "gzip"
+    ],
+    [
+      "gzip;q=1e",
+      "gzip"
+    ],
+    [
+      "gzip;q=0x10",
+      "identity"
+    ],
+    [
+      "gzip;q=abc, deflate",
+      "deflate"
     ]
   ]
 }
