@@ -111,16 +111,25 @@ impl Cors {
             whitelist: whitelist.iter().map(|s| s.to_string()).collect(),
         }
     }
+    /// `req.get(name)` with Node's falsiness: an EMPTY header value is falsy in
+    /// `req.get("Origin") || req.get("Referer") || ""`, so it falls through rather
+    /// than resolving to an empty origin. `req.get("Referer")` is additionally an
+    /// alias that prefers the `referrer` spelling (`express/lib/request.js:50-58`).
+    fn header<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
+        headers
+            .get(name)
+            .and_then(|v| v.to_str().ok())
+            .filter(|v| !v.is_empty())
+    }
     /// `Ok(None)` means Node emits no CORS header at all for this request.
     pub fn resolve(&self, headers: &HeaderMap) -> Result<Option<String>, UnauthorizedDomain> {
         let origin = if let Some(domain) = &self.domain_override {
             format!("{}://{}", Self::protocol(headers), domain)
         } else {
             Self::clean(
-                headers
-                    .get("origin")
-                    .or_else(|| headers.get("referer"))
-                    .and_then(|v| v.to_str().ok())
+                Self::header(headers, "origin")
+                    .or_else(|| Self::header(headers, "referrer"))
+                    .or_else(|| Self::header(headers, "referer"))
                     .unwrap_or_default(),
             )
         };
@@ -189,6 +198,46 @@ mod tests {
             "https://embed.pol.is/x/y?q=1#frag",
         )]));
         assert_eq!(got.ok().flatten().as_deref(), Some("https://embed.pol.is"));
+    }
+    /// An empty `Origin` is falsy in Node, so the Referer fallback still runs —
+    /// both for the reflection and for the refusal.
+    #[test]
+    fn an_empty_origin_falls_through_to_referer() {
+        let c = cors(&["pol.is"]);
+        let got = c.resolve(&headers(&[
+            ("origin", ""),
+            ("referer", "https://pol.is/path"),
+        ]));
+        assert_eq!(got.ok().flatten().as_deref(), Some("https://pol.is"));
+        let refused = c.resolve(&headers(&[
+            ("origin", ""),
+            ("referer", "https://evil.example/x"),
+        ]));
+        assert_eq!(
+            refused
+                .expect_err("an unapproved Referer is still refused")
+                .origin,
+            "https://evil.example"
+        );
+        // Both empty is Node's `|| ""`: no origin, and so no CORS header.
+        let neither = c.resolve(&headers(&[("origin", ""), ("referer", "")]));
+        assert_eq!(neither.ok().flatten(), None);
+    }
+    /// `req.get("Referer")` prefers the `referrer` spelling and falls back to the
+    /// `referer` one, and an empty `referrer` is falsy too.
+    #[test]
+    fn the_referrer_spelling_wins_and_empty_falls_through() {
+        let c = cors(&["pol.is"]);
+        let got = c.resolve(&headers(&[
+            ("referrer", "https://a.pol.is"),
+            ("referer", "https://b.pol.is"),
+        ]));
+        assert_eq!(got.ok().flatten().as_deref(), Some("https://a.pol.is"));
+        let got = c.resolve(&headers(&[
+            ("referrer", ""),
+            ("referer", "https://b.pol.is"),
+        ]));
+        assert_eq!(got.ok().flatten().as_deref(), Some("https://b.pol.is"));
     }
     #[test]
     fn domain_override_pins_the_origin_to_the_forwarded_protocol() {
