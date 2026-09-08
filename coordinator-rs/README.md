@@ -41,8 +41,13 @@ this restart schedule. There is a bounded warm **bundle** cache
 (`P026_CACHE_CAP`, default 16, 0 disables): the last coherent published bundle of
 an unchanged conversation, so a quiet pass does not re-read the three results
 tables. Lookup and LRU touch are one operation, so an eviction can never
-interleave between them, and an entry is only usable while its `math_tick` is
-still the conversation's current generation. Eviction is the CO07
+interleave between them. A resident entry is **never** treated as evidence about
+the durable store: every hit re-verifies companion presence, every companion's
+generation and the committed checkpoint identity against the database
+(`resident_is_intact`, metadata and `input_checkpoint` only, no payload column),
+and any disagreement evicts the entry and repairs through the ordinary rebuild
+path. Without that, a deleted companion stayed missing across passes because the
+source fingerprint kept agreeing. Eviction is the CO07
 `cache_eviction_contends_with_same_zid_update` stage; that stage is the bounded
 Bundle-cache profile only, not a warm-worker, four-worker or Node cache profile.
 
@@ -126,8 +131,13 @@ hints. Sweep replay recovers a lost consumer response. This does not wire Node's
 existing caches to this reader.
 
 Publication order: parent `conversations FOR KEY SHARE`, lease, ticks, bidtopid,
-ptptstats, main. Ownership is checked under the lease lock and expiry is checked
-again immediately before commit. Reclaims increment the epoch; rows are expired,
+ptptstats, main. Ownership is checked under the lease lock, and the final
+authorization immediately before COMMIT re-reads owner, epoch and the
+**remaining** lease under that same row lock, refusing when less than
+`P026_COMMIT_MARGIN_SECONDS` is left rather than gambling that the COMMIT round
+trip beats the clock. That check does not prove the round trip finishes in time
+— nothing in-transaction can — so an uncertain COMMIT is still resolved by
+checkpoint identity, never by a wall-clock deadline. Reclaims increment the epoch; rows are expired,
 never deleted/recreated. Default lease duration is 120 seconds.
 
 ## Ownership outcomes
@@ -164,7 +174,10 @@ An unclean death leaves the lease live until it genuinely expires. A restarted
 process defers that conversation and keeps working; it never crash-loops, and it
 repairs without anyone expiring the dead owner's row by hand. A process that
 fails cleanly releases its own epoch immediately (the release is conditional on
-`(owner_id, owner_epoch)`, so a transferred row is untouched).
+`(owner_id, owner_epoch)`, so a transferred row is untouched). That release is
+best effort: a failure to reconnect, or a failure before the heartbeat is
+started, leaves the lease to expire on its own, so genuine DB-time expiry — not
+the release — is what the invariant rests on.
 
 Per-conversation error attempts are durable and capped at 30 for backoff. SQLSTATE
 40001/40P01 gets at most three whole-transaction attempts. Uncertain COMMIT checks
@@ -225,7 +238,8 @@ pass; `run` bounds each cycle by `P026_PAGE_SIZE` (default 16, range 1–1000).
 `POLL_ALLOWLIST`, `P026_WINDOW` (default 64, positive), `P026_LEASE_SECONDS`,
 `P026_POLL_MS`, `P026_CACHE_CAP` (default 16, 0-1024, 0 disables),
 `P026_INCREMENTAL` (default 1, 0 disables the probe fast path),
-`P026_RECONCILE_SECONDS` (default 3600, positive), `P026_METRICS`, `P026_ENVIRONMENT` (default
+`P026_RECONCILE_SECONDS` (default 3600, positive), `P026_COMMIT_MARGIN_SECONDS`
+(default 0.5, less than the lease), `P026_METRICS`, `P026_ENVIRONMENT` (default
 `synthetic`) and `P026_GAUGE_SECONDS` are configuration inputs.
 `PYTHONPATH` must include this checkout's `delphi` directory. No credentials are
 stored in the crate or report.
