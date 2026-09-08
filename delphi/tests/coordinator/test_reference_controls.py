@@ -3,7 +3,7 @@ import ast
 import json
 import pytest
 import sqlalchemy as sa
-from conftest import asset, seed
+from coordinator.conftest import asset, seed
 
 
 def controls():
