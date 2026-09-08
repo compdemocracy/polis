@@ -3,6 +3,15 @@
 BEGIN;
 ALTER TABLE math_ticks ADD COLUMN IF NOT EXISTS publisher_epoch bigint;
 ALTER TABLE math_ticks ADD COLUMN IF NOT EXISTS input_checkpoint jsonb;
+ALTER TABLE math_ticks ADD COLUMN IF NOT EXISTS operation_id text;
+-- Nullable for legacy rows. Rust requires all originals and digests on admission;
+-- a controlled migration never invents the bytes that JSONB has already lost.
+ALTER TABLE math_main ADD COLUMN IF NOT EXISTS original_bytes bytea;
+ALTER TABLE math_main ADD COLUMN IF NOT EXISTS original_sha256 text;
+ALTER TABLE math_bidtopid ADD COLUMN IF NOT EXISTS original_bytes bytea;
+ALTER TABLE math_bidtopid ADD COLUMN IF NOT EXISTS original_sha256 text;
+ALTER TABLE math_ptptstats ADD COLUMN IF NOT EXISTS original_bytes bytea;
+ALTER TABLE math_ptptstats ADD COLUMN IF NOT EXISTS original_sha256 text;
 CREATE TABLE IF NOT EXISTS coordinator_leases (
  math_env varchar(999) NOT NULL, zid integer NOT NULL REFERENCES conversations(zid),
  owner_id text NOT NULL, owner_epoch bigint NOT NULL CHECK(owner_epoch>0),

@@ -3,6 +3,11 @@ use polis_coordinator::store::{Payloads, digest};
 use serde_json::json;
 fn payload() -> Payloads {
     Payloads {
+        originals: polis_coordinator::store::OriginalPayloads {
+            main: vec![],
+            bidtopid: vec![],
+            ptptstats: vec![],
+        },
         main: json!({"zid":1,"lastVoteTimestamp":0,"base-clusters":{"id":[10,20],"members":[[1],[2]]}}),
         bidtopid: json!({"zid":1,"lastVoteTimestamp":0,"bidToPid":[[1],[2]]}),
         ptptstats: json!({"zid":1,"lastVoteTimestamp":0,"ptptstats":{"pid":[1,2],"gid":[0,1]}}),
@@ -84,11 +89,20 @@ fn declared_tie_key_is_over_the_semantic_vote() -> Result<()> {
     let names: Vec<_> = ordering::TERMS.iter().map(|t| t.name).collect();
     assert_eq!(
         names,
-        ["tid", "pid", "created_ms", "semantic_vote", "weight_x_32767"]
+        [
+            "tid",
+            "pid",
+            "created_ms",
+            "semantic_vote",
+            "weight_x_32767"
+        ]
     );
     let sql = ordering::order_by();
     // The polarity constant is bound, and the raw sign is never ordered on.
-    assert!(sql.contains(&format!("vote::bigint*{}::bigint", ordering::PARAMETER_BINDING)));
+    assert!(sql.contains(&format!(
+        "vote::bigint*{}::bigint",
+        ordering::PARAMETER_BINDING
+    )));
     assert!(!sql.split(',').any(|term| term.trim() == "vote"));
     assert!(sql.ends_with("weight_x_32767 NULLS FIRST"));
     let census = json!({"tied_groups":0});
@@ -118,12 +132,17 @@ fn census_records_only_ambiguous_tied_groups() {
     assert_eq!(tied["tied_groups"], 2);
     assert_eq!(tied["tied_rows"], 4);
     assert_eq!(tied["key"], json!(["tid", "pid", "created_ms"]));
-    assert_eq!(tied["resolved_by"], json!(["semantic_vote", "weight_x_32767"]));
+    assert_eq!(
+        tied["resolved_by"],
+        json!(["semantic_vote", "weight_x_32767"])
+    );
 }
 
 fn bundle(tick: i64) -> Box<polis_coordinator::store::Bundle> {
     Box::new(polis_coordinator::store::Bundle {
         payloads: payload(),
+        publisher_epoch: 1,
+        operation_id: "synthetic-operation".into(),
         math_tick: tick,
         caching_tick: tick,
         checkpoint: json!({"source_fingerprint": "synthetic"}),
@@ -258,7 +277,9 @@ fn every_emitted_metric_name_is_declared_in_the_catalog() {
     };
     for entry in &listed {
         assert!(
-            CATALOG.iter().any(|d| Some(d.name) == entry["Name"].as_str()),
+            CATALOG
+                .iter()
+                .any(|d| Some(d.name) == entry["Name"].as_str()),
             "undeclared metric {entry}"
         );
     }
@@ -304,7 +325,11 @@ fn no_catalog_row_claims_a_p031_alarm_it_does_not_implement() {
     assert_eq!(catalog["p031_status"]["coverage_claimed"], json!([]));
     assert_eq!(
         catalog["p031_status"]["not_implemented"],
-        json!(["A01 PollHealthy", "A02 PublishLagSeconds", "A03 ObserverHealthy"])
+        json!([
+            "A01 PollHealthy",
+            "A02 PublishLagSeconds",
+            "A03 ObserverHealthy"
+        ])
     );
     assert!(
         !polis_coordinator::metrics::CATALOG
