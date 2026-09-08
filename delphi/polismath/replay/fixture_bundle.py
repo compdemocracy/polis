@@ -445,13 +445,16 @@ def push(
     p = _put_immutable(store, f"{bundle_id}/{PROVENANCE_KEY}", provenance_bytes)
     objects[p.key] = {"version_id": p.version_id, "sha256": p.sha256}
 
+    # pins.json is a PURE FUNCTION of the published content (no wall-clock
+    # field): re-running an identical publication is idempotent, while any real
+    # content change still trips the immutability guard. The bundle's creation
+    # time lives in the manifest.
     pins = {
         "schema_version": PINS_SCHEMA_VERSION,
         "bundle_id": bundle_id,
         "root_digest": manifest["root_digest"],
         "manifest_sha256": m.sha256,
         "provenance_sha256": p.sha256,
-        "created_at": datetime.now(timezone.utc).isoformat(),
         "objects": objects,
     }
     pins_result = _put_immutable(store, f"{bundle_id}/{PINS_KEY}", canonical_json(pins))
