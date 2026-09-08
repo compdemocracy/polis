@@ -26,10 +26,22 @@ from .conftest import (
     tables_are_coherent,
 )
 from . import fold as F
+from polismath.poller import service as _service
 
 pytestmark = pytest.mark.recovery
 
 MATH_ENV = "recovery"
+
+# The join-timeout contract, named rather than inferred (astra review of #2708).
+#
+# #2708 introduces ``PoolDrainTimeout(TimeoutError)`` in
+# ``polismath/poller/service.py`` precisely so an exhausted POOL DRAIN is
+# distinguishable from a socket/DB ``TimeoutError`` (the builtin is an
+# ``OSError``, so a bare ``except TimeoutError`` would swallow both).  It does
+# not exist on this base, so the assertion resolves the class BY NAME and falls
+# back to the builtin: the test states the same contract before and after #2708
+# and needs no edit on rebase.
+POOL_DRAIN_TIMEOUT = getattr(_service, "PoolDrainTimeout", TimeoutError)
 
 
 def _assert_published(engine, zid):
@@ -239,7 +251,11 @@ def test_one_poison_zid_does_not_starve_healthy_zids(engine, pg_url,
         "conversation as a successful cycle. P-022 §C: 'Exhaust a join timeout: "
         "poll_once must surface failure, not successful completion.' The fix is "
         "to raise (or return a status) when join() is False; that is a separate "
-        "decision."
+        "decision (#2708 raises PoolDrainTimeout). The oracle requires the poll "
+        "thread to have COMPLETED and the failure to be that named class "
+        "(resolved by name, falling back to the builtin TimeoutError on this "
+        "base): a permanently hung observer used to satisfy the old "
+        "`raised is not None or not returned` form."
     ),
 )
 def test_poll_once_surfaces_a_join_timeout(engine, pg_url, make_service):
@@ -279,10 +295,24 @@ def test_poll_once_surfaces_a_join_timeout(engine, pg_url, make_service):
     thread.join(timeout=30)
 
     try:
-        assert result["raised"] is not None or not result["returned"], (
+        # "or not returned" alone was satisfied by an observer that simply
+        # HUNG — the very failure mode this row is about (astra review of
+        # #2708).  Require both halves of the contract instead.
+        assert not thread.is_alive(), (
+            "poll_once never came back at all: a permanently blocked cycle is "
+            "not a surfaced failure, and must not satisfy this assertion"
+        )
+        raised = result["raised"]
+        assert raised is not None and not result["returned"], (
             "poll_once returned normally after its pool join timed out with "
             "work still in flight — a stuck cycle is indistinguishable from a "
             "successful one"
+        )
+        assert isinstance(raised, POOL_DRAIN_TIMEOUT), (
+            f"the exhausted pool drain surfaced as "
+            f"{type(raised).__name__}: {raised!r}; it must be "
+            f"{POOL_DRAIN_TIMEOUT.__name__}, so a drain failure is separately "
+            "catchable from a socket/DB timeout"
         )
     finally:
         release.set()
@@ -295,6 +325,33 @@ def test_poll_once_surfaces_a_join_timeout(engine, pg_url, make_service):
 # Negative control for the poll/load failure class
 # --------------------------------------------------------------------------- #
 class TestNegativeControl:
+    def test_a_hung_observer_is_not_a_surfaced_failure(self):
+        """The join-timeout correction, controlled (astra review of #2708): a
+        poll thread that simply never comes back satisfied the old
+        ``raised is not None or not returned`` form.  The tightened oracle must
+        go red on it, and its class check must be real."""
+        hung = threading.Event()
+        thread = threading.Thread(target=lambda: hung.wait(30), daemon=True)
+        thread.start()
+        try:
+            result = {"returned": False, "raised": None}
+            # The old form: green on an observer that never returned at all.
+            assert result["raised"] is not None or not result["returned"]
+            # The tightened form: red, as it must be.
+            with pytest.raises(AssertionError):
+                assert not thread.is_alive(), "poll_once never came back"
+        finally:
+            hung.set()
+            thread.join(timeout=10)
+        assert not thread.is_alive()
+
+        # ...and the named class is not merely "any exception".
+        assert not isinstance(RuntimeError("boom"), POOL_DRAIN_TIMEOUT)
+        assert issubclass(POOL_DRAIN_TIMEOUT, TimeoutError), (
+            "PoolDrainTimeout must stay a TimeoutError subclass so existing "
+            "handlers keep matching"
+        )
+
     def test_a_watermark_that_advances_on_failure_is_caught(self, engine,
                                                             pg_url,
                                                             make_service):
