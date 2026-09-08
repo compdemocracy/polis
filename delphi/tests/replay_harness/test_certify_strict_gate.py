@@ -13,7 +13,7 @@ import pytest
 from click.testing import CliRunner
 
 from polismath.replay import certify as cert, schedule as sched
-from polismath.replay.crosslang import PREP_MAIN_KEYS
+from polismath.replay.crosslang import PREP_MAIN_KEYS, project_prep_main
 from polismath.replay.driver import run_replay
 from polismath.replay.types import ReplayDataset
 
@@ -744,32 +744,101 @@ def test_alias_collision_is_caught_before_the_lossy_canonical_dict():
             cert.validate_checkpoint_blob(blob, "clj: step-000")
 
 
-def test_declared_legacy_alias_twin_is_accepted_only_when_values_agree():
-    """``Conversation.to_dict`` emits ``group-clusters`` AND its legacy
-    ``group_clusters`` twin from the same value, so the real Python driver's
-    every checkpoint carries that pair — the policy admits it while the two
-    spellings agree, and rejects it the moment they do not."""
+#: The ``group-clusters`` / ``group_clusters`` pair EXACTLY as the real Python
+#: driver emitted it for the public vw dataset, battery entry
+#: ``{dataset: vw, preset: single-cut}``, step-000 — recorded so the defect that
+#: alias policy v1 could only show under ``RUN_CLJ_INTEGRATION=1`` reproduces in
+#: ordinary CI. The two views differ by construction (see
+#: :data:`certify._DECLARED_ALIAS_FIELDS`): folded base-cluster-id members with
+#: Clojure-sign centers under the kebab key, unfolded participant-id members
+#: with Delphi-sign centers under the snake one.
+REAL_DRIVER_GROUP_CLUSTER_TWINS = json.loads(
+    (Path(__file__).parent / "fixtures"
+     / "vw_single_cut_group_cluster_twins.json").read_text())
+
+
+def test_real_driver_group_cluster_twins_are_two_views_not_a_duplicate():
+    """Non-vacuity for the fixture: the recorded pair really does disagree
+    value-for-value, so alias policy v1's deep-equality rule really did reject
+    every checkpoint the real Python driver produces."""
+    kebab = REAL_DRIVER_GROUP_CLUSTER_TWINS["group-clusters"]
+    snake = REAL_DRIVER_GROUP_CLUSTER_TWINS["group_clusters"]
+    assert kebab != snake
+    assert [g["id"] for g in kebab] == [g["id"] for g in snake]
+    # Different member id-spaces (base-cluster ids vs participant ids) and
+    # opposite center signs — the declared role difference, nothing else.
+    assert any(g["members"] != h["members"] for g, h in zip(kebab, snake))
+    for g, h in zip(kebab, snake):
+        assert g["center"] == [-c for c in h["center"]]
+
+
+def test_declared_alias_pair_admits_the_real_driver_blob():
+    """Regression for the P-022 alias-twin real-driver defect: the pair the
+    real Python driver emits must certify, and it must do so on the RAW blob —
+    no Clojure flag needed to reproduce."""
     assert cert._ALIASED_CHECKPOINT_KEYS == frozenset({"group-clusters"})
-    groups = [{"id": 0, "members": [1, 2]}]
+    blob = {
+        **VALID_BASE,
+        "group-clusters": REAL_DRIVER_GROUP_CLUSTER_TWINS["group-clusters"],
+        "group_clusters": REAL_DRIVER_GROUP_CLUSTER_TWINS["group_clusters"],
+    }
+    cert.validate_checkpoint_blob(blob, "py: step-000")
+    # Insertion order must not matter either.
     cert.validate_checkpoint_blob(
-        {**VALID_BASE, "group-clusters": groups, "group_clusters": list(groups)},
-        "py: step-000")
-    with pytest.raises(cert.CertifyError, match="deeply equal"):
-        cert.validate_checkpoint_blob(
-            {**VALID_BASE, "group-clusters": groups, "group_clusters": []},
-            "py: step-000")
-    # A NaN never equals itself, so a duplicated non-finite twin is a value
-    # disagreement — it can never ride in on the exemption.
-    with pytest.raises(cert.CertifyError, match="deeply equal"):
+        {k: blob[k] for k in reversed(list(blob))}, "py: step-000")
+
+
+def test_declared_alias_pair_still_rejects_everything_v1_rejected():
+    """v2 keeps the property B1 was protecting: no raw value rides in by losing
+    the canonical collapse. Only the false equal-values premise is gone."""
+    groups = REAL_DRIVER_GROUP_CLUSTER_TWINS["group-clusters"]
+    # A twin that is not a group array at all — the losing spelling would
+    # otherwise escape the container check entirely.
+    for bad in ([], "not-a-list", {}, [1, 2], [{"members": [1]}],
+                groups[:-1], groups + [{"id": 99, "members": []}]):
+        with pytest.raises(cert.CertifyError, match="same groups"):
+            cert.validate_checkpoint_blob(
+                {**VALID_BASE, "group-clusters": groups, "group_clusters": bad},
+                "py: step-000")
+    # ...and in the other direction, with the malformed value under the
+    # CANONICAL spelling.
+    with pytest.raises(cert.CertifyError, match="same groups"):
         cert.validate_checkpoint_blob(
             {**VALID_BASE, "group-clusters": float("nan"),
              "group_clusters": float("nan")},
             "py: step-000")
-    # The exemption covers that ONE canonical key: no other collision inherits
-    # it, however equal the values.
+    # Same groups, but a NaN inside one view: the raw finiteness scan still
+    # names it (the twin can never launder a non-finite).
+    poisoned = [dict(g, center=[float("nan"), 0.0]) for g in groups]
+    with pytest.raises(cert.CertifyError, match="non-finite"):
+        cert.validate_checkpoint_blob(
+            {**VALID_BASE, "group-clusters": groups, "group_clusters": poisoned},
+            "py: step-000")
+    # The exemption covers that ONE canonical key and that ONE extra spelling:
+    # no other collision inherits it, however equal the values.
     with pytest.raises(cert.CertifyError, match="alias collisions are rejected"):
         cert.validate_checkpoint_blob(
             {**VALID_BASE, "base-clusters": {}, "base_clusters": {}}, "py: step-000")
+
+
+def test_canonical_view_reads_the_same_spelling_the_comparer_does():
+    """The gate must type-check the value the cross-engine comparison reads.
+    ``project_prep_main`` lets an exact kebab spelling win over a declared snake
+    alias; a last-writer-wins collapse would instead pick whichever spelling
+    ``to_dict`` emitted second — the Python-only view, for the real driver."""
+    kebab = REAL_DRIVER_GROUP_CLUSTER_TWINS["group-clusters"]
+    snake = REAL_DRIVER_GROUP_CLUSTER_TWINS["group_clusters"]
+    for order in (("group-clusters", "group_clusters"),
+                  ("group_clusters", "group-clusters")):
+        blob = {**VALID_BASE, **{k: (kebab if k == "group-clusters" else snake)
+                                 for k in order}}
+        assert cert._canonical_view(blob)["group-clusters"] == kebab
+        assert project_prep_main(blob)["group-clusters"] == kebab
+        # Last-writer-wins picks the Python-only view for one of the orders —
+        # non-vacuity for the arbitration.
+    assert {cert._kebab(k): v for k, v in
+            {"group-clusters": kebab, "group_clusters": snake}.items()
+            }["group-clusters"] == snake
 
 
 def test_single_spelling_blobs_are_untouched_by_the_alias_policy():

@@ -181,36 +181,82 @@ def _is_integral(value: Any) -> bool:
     return type(value) is int
 
 
-#: The versioned alias policy (P-022 B1 review round 3). ``_kebab`` maps a raw
-#: snake key onto its kebab spelling, so two DISTINCT raw keys can normalize to
-#: the same canonical name. Collapsing them into one dict silently drops one of
-#: the two values — and the dropped one never reaches the type/finiteness
-#: checks below, which is how ``{"n_cmts": "invalid-count", "n-cmts": 1}`` and
-#: ``{"hidden_value": NaN, "hidden-value": 0}`` certified PASS. Alias collisions
-#: are therefore rejected, with ONE declared exception: ``Conversation.to_dict``
-#: deliberately emits ``group-clusters`` AND its legacy ``group_clusters`` twin
-#: from the same value (conversation.py, "Legacy field for backward
-#: compatibility"), so that pair is admitted only while the two spellings carry
-#: DEEPLY EQUAL values. Anything else — an undeclared pair, a declared pair
-#: whose values disagree, a three-way collision — fails naming every raw
-#: spelling involved. When the legacy twin is finally dropped, delete the entry
-#: and this policy becomes "no collisions at all".
-_ALIAS_POLICY_VERSION = "v1"
-_ALIASED_CHECKPOINT_KEYS: frozenset[str] = frozenset({"group-clusters"})
+#: The versioned alias policy (P-022 B1 review round 3; role rule corrected in
+#: P-022 alias-twin-real-driver). ``_kebab`` maps a raw snake key onto its kebab
+#: spelling, so two DISTINCT raw keys can normalize to the same canonical name.
+#: Collapsing them into one dict silently drops one of the two values — and the
+#: dropped one never reaches the type/finiteness checks below, which is how
+#: ``{"n_cmts": "invalid-count", "n-cmts": 1}`` and ``{"hidden_value": NaN,
+#: "hidden-value": 0}`` certified PASS. Alias collisions are therefore rejected,
+#: with ONE declared exception, spelled out in :data:`_DECLARED_ALIAS_FIELDS`.
+#:
+#: v1 admitted that exception only while the two spellings carried DEEPLY EQUAL
+#: values, on the premise that ``Conversation.to_dict`` emits both from one
+#: value. That premise holds only for the pre-legacy-shape dict
+#: (conversation/conversation.py:2229-2233): ``_apply_legacy_blob_shape``
+#: (conversation/conversation.py:1781, called unconditionally at :2469) then
+#: OVERWRITES the kebab key with Clojure's folded form — members are
+#: BASE-CLUSTER ids and centers carry Clojure's sign — while the snake key keeps
+#: Python's unfolded view (members are PARTICIPANT ids, Delphi's sign), the view
+#: ``tests/test_serialization_unfolding.py`` pins. So the twins are DIFFERENT BY
+#: CONSTRUCTION in every blob the real Python driver emits, and v1 failed all of
+#: them at ``checkpoint-schema`` — invisible in CI, where the Clojure
+#: integration battery is off.
+#:
+#: v2 keeps the property B1 was actually protecting — no raw value may escape
+#: validation by losing the canonical collapse — and drops the false
+#: equal-values premise, exactly as the engine contract provides for
+#: (P-022-G-engine-contract rev4, "External canonicalization and comparison":
+#: *conflicting snake/kebab aliases fail unless the schema defines the two as
+#: distinct fields with distinct roles*). The declared pair's role is checked
+#: structurally — BOTH spellings must be group-cluster arrays describing THE
+#: SAME groups (equal length, equal ordered ``id`` sequence) — and both raw
+#: values go through the container discipline, so a malformed or extra/missing
+#: group under either spelling still fails. Anything else — an undeclared pair,
+#: a declared pair that is not two same-group views, a three-way collision —
+#: fails naming every raw spelling involved. When the legacy twin is finally
+#: dropped, delete the entry and this policy becomes "no collisions at all".
+_ALIAS_POLICY_VERSION = "v2"
+
+#: Canonical key -> (the ONE extra raw spelling admitted alongside it, the role
+#: that makes the two distinct fields rather than a lossy duplicate).
+_DECLARED_ALIAS_FIELDS: dict[str, tuple[str, str]] = {
+    "group-clusters": (
+        "group_clusters",
+        "Python-only unfolded view of the same groups (participant-id members, "
+        "Delphi-sign centers) alongside the Clojure-parity folded view",
+    ),
+}
+_ALIASED_CHECKPOINT_KEYS: frozenset[str] = frozenset(_DECLARED_ALIAS_FIELDS)
 
 
-def _deep_equal(a: Any, b: Any) -> bool:
-    """Structural equality with JSON-ish type strictness: ``True``/``1`` differ,
-    ``1``/``1.0`` differ, and NaN never equals itself (so a duplicated NaN alias
-    is a value disagreement, not a permitted twin)."""
-    if isinstance(a, dict) and isinstance(b, dict):
-        return len(a) == len(b) and all(
-            k in b and _deep_equal(v, b[k]) for k, v in a.items())
-    if isinstance(a, list) and isinstance(b, list):
-        return len(a) == len(b) and all(_deep_equal(x, y) for x, y in zip(a, b))
-    if type(a) is not type(b):
-        return False
-    return bool(a == b)
+def _group_cluster_ids(value: Any) -> list[Any] | None:
+    """The ordered ``id`` sequence of a group-cluster array, or ``None`` when
+    ``value`` is not an array of JSON objects that each carry an ``id``."""
+    if not isinstance(value, list):
+        return None
+    ids: list[Any] = []
+    for element in value:
+        if not isinstance(element, dict) or "id" not in element:
+            return None
+        ids.append(element["id"])
+    return ids
+
+
+def _canonical_view(blob: dict) -> dict[Any, Any]:
+    """Canonical-name view of ``blob``. An exact kebab spelling wins over a
+    declared snake alias — the SAME arbitration :func:`project_prep_main` uses
+    (crosslang.py) — so the value validated under a canonical name is the value
+    the cross-engine comparison actually reads. A plain
+    ``{_kebab(k): v for ...}`` comprehension is last-writer-wins, which for the
+    declared pair means whichever spelling ``to_dict`` happened to emit second.
+    """
+    canon: dict[Any, Any] = {}
+    for k, v in blob.items():
+        ck = _kebab(k)
+        if ck not in canon or k == ck:
+            canon[ck] = v
+    return canon
 
 
 def _raw_alias_groups(blob: dict) -> dict[Any, list[Any]]:
@@ -223,27 +269,37 @@ def _raw_alias_groups(blob: dict) -> dict[Any, list[Any]]:
 
 def _check_alias_collisions(blob: dict, label: str) -> None:
     """Reject aliased raw keys BEFORE the canonical dict is built (see
-    :data:`_ALIASED_CHECKPOINT_KEYS`). Snake-only and kebab-only blobs, which
-    have no collision at all, are unaffected."""
+    :data:`_ALIAS_POLICY_VERSION`). Snake-only and kebab-only blobs, which have
+    no collision at all, are unaffected."""
     for canonical, raw_keys in _raw_alias_groups(blob).items():
         if len(raw_keys) == 1:
             continue
         spellings = ", ".join(repr(k) for k in raw_keys)
         quantifier = "both" if len(raw_keys) == 2 else "all"
-        if canonical not in _ALIASED_CHECKPOINT_KEYS:
+        declared = _DECLARED_ALIAS_FIELDS.get(canonical)
+        if declared is None or set(raw_keys) != {canonical, declared[0]}:
             raise CertifyError(
                 "checkpoint-schema",
                 f"{label}: raw keys {spellings} {quantifier} normalize to {canonical!r}; "
                 f"alias collisions are rejected (alias policy "
                 f"{_ALIAS_POLICY_VERSION}) — one value would be dropped before "
                 f"validation")
-        first = blob[raw_keys[0]]
-        if len(raw_keys) > 2 or not all(_deep_equal(first, blob[k]) for k in raw_keys[1:]):
+        # Declared distinct-role pair: validate BOTH raw values here, so
+        # neither escapes by losing the canonical collapse. The two views may
+        # differ in member id-space and center sign — that IS the declared role
+        # difference — but they must describe the same groups.
+        ids = [_group_cluster_ids(blob[k]) for k in raw_keys]
+        if any(i is None for i in ids) or ids[0] != ids[1]:
+            shown = [
+                "not an array of group objects" if i is None else f"ids {i!r}"
+                for i in ids
+            ]
             raise CertifyError(
                 "checkpoint-schema",
                 f"{label}: raw keys {spellings} normalize to the declared alias "
-                f"{canonical!r} but do not carry deeply equal values (alias "
-                f"policy {_ALIAS_POLICY_VERSION})")
+                f"{canonical!r} ({declared[1]}) but do not describe the same "
+                f"groups (alias policy {_ALIAS_POLICY_VERSION}): "
+                f"{raw_keys[0]!r} {shown[0]}, {raw_keys[1]!r} {shown[1]}")
 
 
 def _find_nonfinite(value: Any, path: str) -> str | None:
@@ -305,10 +361,11 @@ def validate_checkpoint_blob(
             "checkpoint-schema",
             f"{label}: non-finite number (NaN/Infinity) at field '{nonfinite.lstrip('.')}'")
 
-    # Collision-free by the check above: every canonical key has exactly one
-    # raw value (or a declared, deeply-equal alias twin of it), so each accepted
-    # field is type-checked through its unique canonical identity.
-    canon = {_kebab(k): v for k, v in blob.items()}
+    # Collision-free by the check above: every canonical key has exactly one raw
+    # value, or the ONE declared distinct-role pair whose two spellings were
+    # both validated there. Each accepted field is type-checked through its
+    # unique canonical identity, reading the same spelling the comparer does.
+    canon = _canonical_view(blob)
 
     if require_keys:
         missing = [k for k in _REQUIRED_CHECKPOINT_KEYS if k not in canon]

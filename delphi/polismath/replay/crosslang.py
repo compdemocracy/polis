@@ -59,9 +59,16 @@ def _kebab(key: Any) -> Any:
 def project_prep_main(blob: dict[str, Any]) -> dict[str, Any]:
     """Project a math_main blob onto the prep-main 23-key whitelist, keys spelled
     in canonical kebab-case, pulling each key's value from whichever spelling the
-    blob carries. An exact kebab key always wins over a snake alias (Python's
-    to_dict() carries BOTH ``group-clusters`` and ``group_clusters``). Keys absent
-    from the whitelist are dropped on both sides."""
+    blob carries. An exact kebab key always wins over a snake alias, and that
+    arbitration is load-bearing rather than cosmetic: Python's to_dict() carries
+    BOTH ``group-clusters`` and ``group_clusters``, and they are two DIFFERENT
+    VIEWS of the same groups — the kebab key is Clojure's folded form
+    (base-cluster-id members, Clojure-sign centers) written by
+    ``_apply_legacy_blob_shape``, the snake key the Python unfolded view
+    (participant-id members, Delphi-sign centers). Only the kebab one is
+    comparable against Clojure. See ``certify._DECLARED_ALIAS_FIELDS``, which
+    declares the pair and validates both spellings. Keys absent from the
+    whitelist are dropped on both sides."""
     if not isinstance(blob, dict):
         raise TypeError(
             f"prep-main projection expects a dict blob, got {type(blob).__name__}"
