@@ -2,6 +2,7 @@ mod cors;
 mod db;
 mod json;
 mod model;
+mod negotiate;
 mod transport;
 use axum::{
     Router,
@@ -14,6 +15,7 @@ use base64::Engine;
 use cors::Cors;
 use db::Pool;
 use model::{MathData, PcaData, Subset};
+use negotiate::Coding;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, VecDeque},
@@ -41,6 +43,7 @@ impl std::error::Error for ContractViolation {}
 #[derive(Default)]
 struct Metrics {
     contract_violations: AtomicU64,
+    unadmitted_encodings: AtomicU64,
 }
 #[derive(Clone)]
 struct App {
@@ -421,14 +424,16 @@ fn fail(origin: Option<&str>, status: u16, message: &str) -> Response<Body> {
     add(&mut h, "Vary", "Accept-Encoding");
     response(status, body, h)
 }
-/// The installed `compression` middleware, in its own order: it never transforms a
-/// response that already carries an encoding (full mode sets one in the route), one
-/// below the 1024-byte threshold, or a HEAD (`compression/index.js:192`).
-fn should_compress(method: &Method, full: bool, len: usize, accept: Option<&str>) -> bool {
-    !full
-        && method != Method::HEAD
-        && len >= 1024
-        && accept.is_some_and(|v| v.split(',').any(|x| x.trim() == "gzip"))
+/// The coding the installed `compression` middleware would apply, in its own
+/// order: it never transforms a response that already carries an encoding (full
+/// mode sets one in the route), one below the 1024-byte threshold, or a HEAD
+/// (`compression/index.js:177-192`). Otherwise the coding is negotiated, and the
+/// negotiation is `negotiator@0.6.4`'s, not a bare token match.
+fn subset_coding(method: &Method, full: bool, len: usize, accept: Option<&str>) -> Coding {
+    if full || len < 1024 || method == Method::HEAD {
+        return Coding::Identity;
+    }
+    negotiate::encoding(accept)
 }
 async fn route(
     State(app): State<App>,
@@ -591,13 +596,34 @@ async fn handle(
             keys: &keys,
         })?
     };
-    let compress = should_compress(
+    let coding = subset_coding(
         method,
         full,
         bytes.len(),
         headers.get("accept-encoding").and_then(|v| v.to_str().ok()),
     );
-    if compress {
+    // `p032-subset-gzip/1` declares gzip. Brotli and deflate are inside the
+    // middleware's negotiation and outside this candidate's compressor, so they
+    // are refused under a named code rather than answered with the wrong coding:
+    // serving gzip, or identity, where Node serves br is exactly the silent
+    // divergence this whole exercise exists to prevent.
+    if matches!(coding, Coding::Brotli | Coding::Deflate) {
+        app.metrics
+            .unadmitted_encodings
+            .fetch_add(1, Ordering::Relaxed);
+        eprintln!(
+            "{}",
+            serde_json::json!({
+                "event": "pca2_unadmitted_encoding",
+                "accept_encoding": headers
+                    .get("accept-encoding")
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or_default(),
+            })
+        );
+        return Ok(fail(origin, 502, "polis_err_pca2_unadmitted_encoding"));
+    }
+    if coding == Coding::Gzip {
         add(&mut h, "Vary", "Accept-Encoding");
         add(&mut h, "Content-Encoding", "gzip");
         add(&mut h, "Transfer-Encoding", "chunked");
@@ -627,6 +653,8 @@ struct Health {
     pool_acquire_timeouts: u64,
     #[serde(rename = "contractViolations")]
     contract_violations: u64,
+    #[serde(rename = "unadmittedEncodings")]
+    unadmitted_encodings: u64,
 }
 /// Not a Node route. It exists so a reconnect, a pool starved of connections, and
 /// the contract-violation rate are observable rather than inferred from 5xx counts.
@@ -646,6 +674,7 @@ async fn health(State(app): State<App>) -> Response<Body> {
         pool_failed: pool.failed,
         pool_acquire_timeouts: pool.timeouts,
         contract_violations: app.metrics.contract_violations.load(Ordering::Relaxed),
+        unadmitted_encodings: app.metrics.unadmitted_encodings.load(Ordering::Relaxed),
     })
     .expect("health encodes");
     let mut h = vec![
@@ -1134,13 +1163,37 @@ mod tests {
         assert_eq!(value(h, "X-Content-Type-Options"), "nosniff");
     }
     #[test]
-    fn head_is_never_compressed_by_the_middleware() {
+    fn the_middleware_gates_come_before_negotiation() {
         let gzip = Some("gzip");
-        assert!(should_compress(&Method::GET, false, 2048, gzip));
-        assert!(!should_compress(&Method::HEAD, false, 2048, gzip));
-        assert!(!should_compress(&Method::GET, false, 1023, gzip));
-        assert!(!should_compress(&Method::GET, true, 2048, gzip));
-        assert!(!should_compress(&Method::GET, false, 2048, Some("deflate")));
+        assert_eq!(subset_coding(&Method::GET, false, 2048, gzip), Coding::Gzip);
+        assert_eq!(
+            subset_coding(&Method::HEAD, false, 2048, gzip),
+            Coding::Identity
+        );
+        assert_eq!(
+            subset_coding(&Method::GET, false, 1023, gzip),
+            Coding::Identity
+        );
+        assert_eq!(
+            subset_coding(&Method::GET, true, 2048, gzip),
+            Coding::Identity
+        );
+    }
+    /// Astra 5: the round-2 token match answered identity for `gzip;q=1`, which
+    /// the pinned negotiator selects as gzip, and had no notion of a zero quality
+    /// or a wildcard at all.
+    #[test]
+    fn negotiation_is_the_middlewares_not_a_token_match() {
+        let at = |accept| subset_coding(&Method::GET, false, 2048, Some(accept));
+        assert_eq!(at("gzip;q=1"), Coding::Gzip);
+        assert_eq!(at("gzip;q=0"), Coding::Identity);
+        assert_eq!(at("gzip;q=0, deflate"), Coding::Deflate);
+        assert_eq!(at("*"), Coding::Brotli);
+        assert_eq!(at("br;q=0.5, gzip;q=0.9"), Coding::Gzip);
+        assert_eq!(
+            subset_coding(&Method::GET, false, 2048, None),
+            Coding::Identity
+        );
     }
     /// B3: `app.all("/api/v3/*", middleware_check_if_options)` answers before the
     /// router, so a preflight never reaches the route's parameter middleware.

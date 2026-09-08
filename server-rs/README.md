@@ -91,6 +91,27 @@ headers with no body, as Express's router and `res.send` do. The installed
 compression middleware refuses to transform a HEAD response, so a subset large
 enough to negotiate gzip on GET is served identity on HEAD.
 
+Subset content coding is negotiated by `src/negotiate.rs`, which reproduces
+`negotiator@0.6.4`'s `preferredEncodings` over `compression@1.8.0`'s
+`SUPPORTED_ENCODING`/`PREFERRED_ENCODING` — both versions from
+`server/package-lock.json` — including q-values, the synthesized identity, the
+`*` wildcard, case folding and JS `parseFloat` prefix semantics.
+`contract/negotiation.json` pins 28 headers to the answers the actual installed
+middleware gives; `tools/negotiation-parity.cjs` regenerates and verifies it, and
+a Rust test replays the whole table. The lists depend on the runtime's brotli
+support, so the pinned profile assumes a brotli-capable Node and the parity tool
+refuses to generate a table without it.
+
+Because `p032-subset-gzip/1` declares gzip, and this candidate carries only the
+vendored Node gzip compressor, a negotiation that lands on **brotli or deflate**
+is refused with 502 `polis_err_pca2_unadmitted_encoding` and counted on
+`/health`, rather than answered with the wrong coding. That is a real limit, not
+a cosmetic one: a brotli-capable Node picks `br` for `Accept-Encoding: *` and for
+the `gzip, deflate, br` a browser sends, so **subset requests from ordinary
+browsers are unadmitted** until either brotli is implemented or the deployment
+pins a middleware profile without it. The recorded corpus only ever sends
+`Accept-Encoding: gzip`.
+
 Ordinary 304s retain Content-Type and Vary and have no ETag. Express's wildcard
 freshness 304 removes Content-Type/Vary but keeps the explicit gzip coding and
 ETag. Full 200s use `application/json`; subset/error JSON adds `charset=utf-8`.

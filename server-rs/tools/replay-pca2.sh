@@ -74,6 +74,7 @@ const images=Object.fromEntries(containers.map(c=>[c.Config.Labels['com.docker.c
 const digest=f=>crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
 fs.writeFileSync('server-rs/evidence/run.json',JSON.stringify({project,ports:['POLIS_RECOVERY_PG_PORT','P027_HTTP_PORT','P027_CONTROL_PORT','P032_HTTP_PORT','P032_DYNAMO_PORT','P032_WIRE_PORT'].map(k=>Number(process.env[k])),images,networkInternal:true,generatedOnly:true,sourceCommit:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),archiveSha256:digest('server/characterization/artifacts/baseline.json.gz'),binarySha256:digest('server-rs/target/debug/polis-api'),clock:1700000000000,mathEnv:process.env.MATH_ENV},null,2)+'\n');
 JS
+node server-rs/tools/negotiation-parity.cjs
 node server-rs/tools/replay.cjs
 node server-rs/tools/tick-zero.cjs
 node server-rs/tools/wire-checks.cjs
