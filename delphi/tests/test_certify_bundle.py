@@ -782,6 +782,76 @@ def test_admission_rejects_a_config_that_is_not_the_one_the_bundle_was_built_fro
         fb.admit_manifest(manifest, config=config, config_bytes=b"{}")
 
 
+def test_the_config_digest_is_bound_on_the_library_default_path(bundle, config):
+    """Reviewer's r2 finding 4: the digest was checked only when the caller
+    supplied ``config_bytes``, so the LIBRARY default — which loads the
+    committed config and passes no bytes — admitted a manifest built from a
+    different revision of the selection rules."""
+    _, manifest, _, _ = bundle
+    forged = copy.deepcopy(manifest)
+    forged["commits"]["config_sha256"] = "f" * 64
+
+    with pytest.raises(fb.AdmissionError, match="different revision"):
+        fb.admit_manifest(forged)                       # no config, no bytes
+    with pytest.raises(fb.AdmissionError, match="different revision"):
+        fb.admit_manifest(forged, config=config)        # parsed config, no bytes
+
+    # The default path is the committed config, so the honest manifest still
+    # passes with no arguments at all.
+    fb.admit_manifest(manifest)
+
+
+def test_push_and_pull_reject_a_foreign_config_digest_by_default(bundle, tmp_path):
+    """The omission propagated through the push/pull library defaults."""
+    payload, manifest, provenance, store = bundle
+    forged = copy.deepcopy(manifest)
+    forged["commits"]["config_sha256"] = "f" * 64
+    with pytest.raises(fb.AdmissionError, match="different revision"):
+        fb.push(store, bundle_id=forged["bundle_id"], payload_root=payload,
+                manifest=forged, provenance=provenance)
+    assert not store.exists(f"{manifest['bundle_id']}/{fb.MANIFEST_KEY}")
+
+    # Get the forged manifest into the store the only way it can get there —
+    # a construction-time push that skipped admission — then pull it with the
+    # library defaults.
+    fb.push(store, bundle_id=forged["bundle_id"], payload_root=payload,
+            manifest=forged, provenance=provenance, admit=False)
+    with pytest.raises(fb.AdmissionError, match="different revision"):
+        fb.pull(store, bundle_id=forged["bundle_id"], dest=tmp_path / "d")
+
+
+def test_verify_admit_cli_rejects_a_foreign_config_digest(bundle, tmp_path):
+    """``certify_data.py verify --admit`` on a manifest built with a different
+    config digest must exit nonzero and say so."""
+    import importlib.util
+
+    from click.testing import CliRunner
+
+    payload, manifest, _, _ = bundle
+    cli_path = Path(__file__).resolve().parents[1] / "scripts" / "certify_data.py"
+    spec = importlib.util.spec_from_file_location("certify_data_cli", cli_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    forged = copy.deepcopy(manifest)
+    forged["commits"]["config_sha256"] = "f" * 64
+    manifest_path = tmp_path / "forged-manifest.json"
+    manifest_path.write_text(json.dumps(forged))
+
+    runner = CliRunner()
+    bad = runner.invoke(mod.cli, ["verify", "--payload", str(payload),
+                                  "--manifest", str(manifest_path)])
+    assert bad.exit_code == 1, bad.output
+    assert "different revision of the selection rules" in bad.output
+
+    ok_path = tmp_path / "manifest.json"
+    ok_path.write_text(json.dumps(manifest))
+    good = runner.invoke(mod.cli, ["verify", "--payload", str(payload),
+                                   "--manifest", str(ok_path)])
+    assert good.exit_code == 0, good.output
+    assert "ADMITTED" in good.output
+
+
 def test_push_and_pull_both_run_admission(bundle, tmp_path):
     payload, manifest, provenance, store = bundle
     broken = copy.deepcopy(manifest)
