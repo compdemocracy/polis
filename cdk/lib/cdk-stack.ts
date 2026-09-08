@@ -12,7 +12,6 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
-import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 
 // custom constructs for code organization
 import createPolisVPC from '../vpc';
@@ -388,9 +387,7 @@ export class CdkStack extends cdk.Stack {
     // Off unless synthesized with `-c enableAlarms=true -c alarmEmail=...`.
     // Seven alarms on metrics that already exist, one SNS topic, and one
     // CodeDeploy failure rule. Nothing about any existing resource changes
-    // except that two db.ts alarms gain a second notification target. The
-    // missing-data settings passed for those two are the deployed ones,
-    // verified by describe-alarms; the health-pair check inside relies on them.
+    // except that two db.ts alarms gain a second notification target.
     if (alarmsEnabled(this)) {
       createOperationalAlarms(this, {
         email: requireAlarmEmail(this),
@@ -400,17 +397,12 @@ export class CdkStack extends cdk.Stack {
         webTargetGroupFullName: webTargetGroup.targetGroupFullName,
         codeDeployApplicationName: application.applicationName,
         codeDeployDeploymentGroupName: deploymentGroup.deploymentGroupName,
+        // A06 is notBreaching and A07 is ignore, as deployed. The health-pair
+        // check reads those settings off the synthesized alarms rather than
+        // taking them on trust from here.
         retargetAlarms: [
-          {
-            id: 'A06',
-            alarm: highCpuAlarm,
-            treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-          },
-          {
-            id: 'A07',
-            alarm: lowStorageAlarm,
-            treatMissingData: cloudwatch.TreatMissingData.IGNORE,
-          },
+          { id: 'A06', alarm: highCpuAlarm },
+          { id: 'A07', alarm: lowStorageAlarm },
         ],
       });
     }

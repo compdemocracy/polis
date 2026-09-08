@@ -17,9 +17,9 @@ import createOperationalAlarms, {
   MATH_WORKER_LIVENESS_ALARM_NAME,
   WEB_HEALTHY_HOSTS_ALARM_NAME,
   alarmsEnabled,
-  enforceHealthPairs,
+  findHealthPairViolations,
   requireAlarmEmail,
-  EnabledAlarmRecord,
+  ResolvedAlarmFacts,
 } from '../alarms';
 
 const ACCOUNT = '123456789012';
@@ -87,16 +87,8 @@ const synth = (overrides: { retarget?: boolean } = {}) => {
       overrides.retarget === false
         ? []
         : [
-            {
-              id: 'A06',
-              alarm: highCpuAlarm,
-              treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-            },
-            {
-              id: 'A07',
-              alarm: lowStorageAlarm,
-              treatMissingData: cloudwatch.TreatMissingData.IGNORE,
-            },
+            { id: 'A06', alarm: highCpuAlarm },
+            { id: 'A07', alarm: lowStorageAlarm },
           ],
   });
   return { template: Template.fromStack(stack), highCpuAlarm, lowStorageAlarm };
@@ -253,13 +245,31 @@ describe('alert path', () => {
     expect(cw.Principal).toEqual({ Service: 'cloudwatch.amazonaws.com' });
     expect(cw.Condition).toEqual({ StringEquals: { 'AWS:SourceAccount': ACCOUNT } });
 
-    // CDK's own events grant is unconditioned, so it is fenced by an explicit
-    // Deny rather than left open to any rule in any account.
-    const deny = statements.find((s: any) => s.Sid === 'DenyEventBridgeExceptTheCodeDeployRule');
-    expect(deny.Effect).toBe('Deny');
-    expect(deny.Principal).toEqual({ Service: 'events.amazonaws.com' });
-    expect(Object.keys(deny.Condition)).toEqual(['ArnNotEquals']);
-    expect(JSON.stringify(deny.Condition)).toContain('CodeDeployFailureRule');
+    // EventBridge authorizes through its own execution role, so the topic
+    // policy carries no `events.amazonaws.com` principal at all — and no
+    // condition key whose presence at delivery time would be a guess.
+    expect(JSON.stringify(statements)).not.toContain('events.amazonaws.com');
+    expect(statements.every((s: any) => s.Effect === 'Allow')).toBe(true);
+  });
+
+  test('EventBridge publishes through a role that can do nothing else', () => {
+    const { template } = synth();
+    const rules = Object.values(template.findResources('AWS::Events::Rule'));
+    const roleArn = (rules[0] as any).Properties.Targets[0].RoleArn;
+    expect(roleArn).toBeDefined();
+
+    const roles = Object.values(template.findResources('AWS::IAM::Role')).filter((r: any) =>
+      JSON.stringify(r.Properties.AssumeRolePolicyDocument).includes('events.amazonaws.com'),
+    );
+    expect(roles).toHaveLength(1);
+    expect((roles[0] as any).Properties.ManagedPolicyArns ?? []).toEqual([]);
+
+    const statements = Object.values(template.findResources('AWS::IAM::Policy'))
+      .filter((p: any) => JSON.stringify(p.Properties.Roles).includes('EventsRole'))
+      .flatMap((p: any) => p.Properties.PolicyDocument.Statement);
+    expect(statements).toHaveLength(1);
+    expect(statements[0].Action).toBe('sns:Publish');
+    expect(JSON.stringify(statements[0].Resource)).toContain('OperationalAlertsTopic');
   });
 
   test('every alarm notifies on both ALARM and OK', () => {
@@ -512,51 +522,37 @@ describe('A18 notification delivery failure', () => {
 // ---------------------------------------------------------------------------
 
 describe('synth-enforced health pairs', () => {
-  const record = (
+  const fact = (
     id: string,
-    treatMissingData: cloudwatch.TreatMissingData,
-    alarmActionCount = 1,
-  ): EnabledAlarmRecord => ({ id, alarmName: id, treatMissingData, alarmActionCount });
-
-  test('the slice as built satisfies every pair', () => {
-    expect(() => synth()).not.toThrow();
+    treatMissingData: string,
+    over: Partial<ResolvedAlarmFacts> = {},
+  ): ResolvedAlarmFacts => ({
+    id,
+    alarmName: id,
+    treatMissingData,
+    actionsEnabled: true,
+    notifiesTopic: true,
+    ...over,
   });
 
-  test('A07 without A04 is refused', () => {
-    expect(() =>
-      enforceHealthPairs([record('A07', cloudwatch.TreatMissingData.IGNORE)]),
-    ).toThrow(/A07 .*requires one of \[A04, A03\]/s);
-  });
+  // --- the predicate ------------------------------------------------------
 
-  test('A04 present but notifying nobody does not satisfy A07', () => {
-    // A health alarm with no action is decoration: it cannot tell anyone the
-    // publisher died.
-    expect(() =>
-      enforceHealthPairs([
-        record('A07', cloudwatch.TreatMissingData.IGNORE),
-        record('A04', cloudwatch.TreatMissingData.BREACHING, 0),
-      ]),
-    ).toThrow(/A07/);
-  });
-
-  test('A04 present but not breaching on missing data does not satisfy A07', () => {
-    expect(() =>
-      enforceHealthPairs([
-        record('A07', cloudwatch.TreatMissingData.IGNORE),
-        record('A04', cloudwatch.TreatMissingData.NOT_BREACHING),
-      ]),
-    ).toThrow(/A07/);
+  test('A07 without A04 is a violation', () => {
+    expect(findHealthPairViolations([fact('A07', 'ignore')])).toEqual([
+      expect.stringMatching(/A07 .*requires one of \[A04, A03\]/s),
+    ]);
   });
 
   test('either listed health alarm satisfies the pair', () => {
     for (const healthId of HEALTH_PAIRS.A07) {
-      expect(() =>
-        enforceHealthPairs([
-          record('A07', cloudwatch.TreatMissingData.IGNORE),
-          record(healthId, cloudwatch.TreatMissingData.BREACHING),
-        ]),
-      ).not.toThrow();
+      expect(
+        findHealthPairViolations([fact('A07', 'ignore'), fact(healthId, 'breaching')]),
+      ).toEqual([]);
     }
+  });
+
+  test('alarms with no pairing requirement pass on their own', () => {
+    expect(findHealthPairViolations([fact('A06', 'notBreaching')])).toEqual([]);
   });
 
   test('the rule table carries the constraints later slices inherit', () => {
@@ -571,10 +567,85 @@ describe('synth-enforced health pairs', () => {
     });
   });
 
-  test('alarms with no pairing requirement pass on their own', () => {
-    expect(() =>
-      enforceHealthPairs([record('A06', cloudwatch.TreatMissingData.NOT_BREACHING)]),
-    ).not.toThrow();
+  // --- the real gate: mutate the synthesized alarm, then synthesize -------
+  //
+  // Review F1. The earlier version of this check cached what the construct
+  // declared, so mutating A04 afterwards still synthesized clean. These build
+  // the actual construct, mutate the resolved CfnAlarm, and run a real synth.
+
+  const synthWithMutatedA04 = (mutate?: (cfn: cloudwatch.CfnAlarm) => void) => {
+    const app = new cdk.App();
+    const stack = new cdk.Stack(app, 'MutationStack', {
+      env: { account: ACCOUNT, region: REGION },
+    });
+    const vpc = new ec2.Vpc(stack, 'Vpc', { maxAzs: 2 });
+    const database = new rds.DatabaseInstance(stack, 'Database', {
+      engine: rds.DatabaseInstanceEngine.postgres({ version: rds.PostgresEngineVersion.VER_17 }),
+      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.LARGE),
+      vpc,
+    });
+    const lowStorageAlarm = new cloudwatch.Alarm(stack, 'LowStorageAlarm', {
+      alarmName: 'Polis-DB-LowFreeStorageSpace',
+      metric: database.metric('FreeStorageSpace', {
+        period: cdk.Duration.minutes(5),
+        statistic: 'Average',
+      }),
+      threshold: 4 * 1024 * 1024 * 1024,
+      comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.IGNORE,
+    });
+    const built = createOperationalAlarms(stack, {
+      email: 'ops@example.org',
+      mathWorkerAsgName: MATH_ASG,
+      database,
+      loadBalancerFullName: LB_FULL_NAME,
+      webTargetGroupFullName: TG_FULL_NAME,
+      codeDeployApplicationName: 'PolisApplication',
+      codeDeployDeploymentGroupName: 'PolisDeploymentGroup',
+      retargetAlarms: [{ id: 'A07', alarm: lowStorageAlarm }],
+    });
+    if (mutate) mutate(built.dbCreditBalance.node.defaultChild as cloudwatch.CfnAlarm);
+    return () => app.synth();
+  };
+
+  test('unmutated: the slice as built synthesizes', () => {
+    expect(synthWithMutatedA04()).not.toThrow();
+    expect(() => synth()).not.toThrow();
+  });
+
+  test('A04 with ActionsEnabled false fails the real synth', () => {
+    expect(synthWithMutatedA04((cfn) => {
+      cfn.actionsEnabled = false;
+    })).toThrow(/A07 .*requires one of \[A04, A03\]/s);
+  });
+
+  test('A04 with its actions removed fails the real synth', () => {
+    expect(synthWithMutatedA04((cfn) => {
+      cfn.alarmActions = [];
+    })).toThrow(/A07 .*requires one of \[A04, A03\]/s);
+  });
+
+  test('A04 pointed at some other topic fails the real synth', () => {
+    expect(synthWithMutatedA04((cfn) => {
+      cfn.alarmActions = ['arn:aws:sns:us-east-1:123456789012:somewhere-else'];
+    })).toThrow(/A07 .*requires one of \[A04, A03\]/s);
+  });
+
+  test("A04 with its missing-data setting changed fails the real synth", () => {
+    // A04 that stays OK when the database stops publishing is not a health
+    // alarm any more, whatever it is called.
+    expect(synthWithMutatedA04((cfn) => {
+      cfn.treatMissingData = cloudwatch.TreatMissingData.NOT_BREACHING;
+    })).toThrow(/A07 .*requires one of \[A04, A03\]/s);
+  });
+
+  test('ActionsEnabled left absent still counts as enabled', () => {
+    // CloudFormation defaults it to true, so an absent property must not be
+    // read as "disabled" and trip a false violation.
+    expect(synthWithMutatedA04((cfn) => {
+      cfn.actionsEnabled = undefined;
+    })).not.toThrow();
   });
 });
 
@@ -583,14 +654,17 @@ describe('synth-enforced health pairs', () => {
 // ---------------------------------------------------------------------------
 
 describe('what the construct does NOT add', () => {
-  test('exactly five alarms are created here; the other two are pre-existing', () => {
+  test('exactly four new alarms; A06 and A07 are pre-existing', () => {
     const { template } = synth();
-    // A17, A13, A04, A18 are new; A06/A07 are the db.ts stand-ins this test
-    // stack builds, and the construct only adds actions to them.
+    // A17, A13, A04 and A18 are new. A06/A07 are the db.ts stand-ins this test
+    // stack builds, and the construct only adds actions to them — which is why
+    // the selected metric set is six but the incremental count is four. A16 is
+    // an EventBridge rule, not an alarm, and must not be counted here.
     template.resourceCountIs('AWS::CloudWatch::Alarm', 6);
+    expect(6 - 2).toBe(4);
   });
 
-  test('no IAM role, no Lambda, no capacity mutation and no new publisher', () => {
+  test('no Lambda, no capacity mutation, no metric filter, no new publisher', () => {
     // Two independently built stacks rather than one synthesized twice: CDK
     // forbids mutating a tree after synthesis.
     const before = Template.fromStack(buildStack().stack).toJSON().Resources;
@@ -600,16 +674,18 @@ describe('what the construct does NOT add', () => {
         .filter((k) => !(k in before))
         .map((k) => after[k].Type),
     );
+    // The IAM role and policy are the EventBridge target's execution role and
+    // its single sns:Publish grant, asserted narrow above.
     expect([...addedTypes].sort()).toEqual([
       'AWS::CloudWatch::Alarm',
       'AWS::Events::Rule',
+      'AWS::IAM::Policy',
+      'AWS::IAM::Role',
       'AWS::SNS::Subscription',
       'AWS::SNS::Topic',
       'AWS::SNS::TopicPolicy',
     ]);
     for (const forbidden of [
-      'AWS::IAM::Role',
-      'AWS::IAM::Policy',
       'AWS::Lambda::Function',
       'AWS::AutoScaling::AutoScalingGroup',
       'AWS::AutoScaling::ScalingPolicy',
