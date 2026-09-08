@@ -26,6 +26,12 @@ full contract certification. See the P-026 report for executed coverage and gaps
 - `tools/node_reader.cjs`: the D4 harness that loads the **real** server modules
   `server/src/utils/pca.ts` and `server/src/utils/participants.ts` in one Node
   process and reports the bytes they serve for each namespace.
+- `tools/node_route_probe.cjs`: the real `handle_GET_math_pca2` mounted on a real
+  Express app over loopback HTTP, from Astra's round-2 review probe. Only the
+  parameter middleware is synthetic. It is what shows that the route serves a
+  committed generation of zero with 200 and ETag `"0"`, and a matching
+  conditional request 304, while `getPca(zid, undefined)` — a different caller
+  argument — misses it on a cold cache.
 - `src/fault.rs`: external arm/ack/release file barriers, debug feature only.
 - `migration.sql`: additive prototype metadata/leases/sequence; explicit command.
 - `../delphi/polismath/engine_adapter.py`: Conversation lifecycle and existing row
@@ -42,12 +48,16 @@ this restart schedule. There is a bounded warm **bundle** cache
 an unchanged conversation, so a quiet pass does not re-read the three results
 tables. Lookup and LRU touch are one operation, so an eviction can never
 interleave between them. A resident entry is **never** treated as evidence about
-the durable store: every hit re-verifies companion presence, every companion's
-generation and the committed checkpoint identity against the database
-(`resident_is_intact`, metadata and `input_checkpoint` only, no payload column),
-and any disagreement evicts the entry and repairs through the ordinary rebuild
-path. Without that, a deleted companion stayed missing across passes because the
-source fingerprint kept agreeing. Eviction is the CO07
+the durable store. On the fast path every hit re-verifies companion presence,
+every companion's generation and the committed checkpoint identity against the
+database (`resident_is_intact`, metadata and `input_checkpoint` only, no payload
+column). That is cheap and it closes the deleted-companion case, but it cannot
+see a mutated payload, so it is explicitly not complete integrity
+reconciliation: whenever the reconciliation ceiling expires the authoritative
+path re-reads and re-hashes the persisted generation with `load_current` and the
+resident bundle is discarded. Payload corruption that leaves metadata intact is
+therefore repaired within one ceiling interval instead of surviving behind a warm
+cache. Eviction is the CO07
 `cache_eviction_contends_with_same_zid_update` stage; that stage is the bounded
 Bundle-cache profile only, not a warm-worker, four-worker or Node cache profile.
 
@@ -61,9 +71,17 @@ probe (`src/probe.rs`) and compares it with the probe recorded, in
 that certified the published generation. A row committing between the probe and
 the snapshot therefore changes the *next* probe; it cannot be swallowed.
 
+`reconciled_at` is the probe's own database timestamp, taken in the same
+statement and therefore *before* the source read — not the time publication
+finished. A compute that outlasts the ceiling cannot reset the advertised source
+age and buy another fast-path interval.
+
 The probe can only skip a read. It never authorises a rebuild, and it is trusted
 only while that conversation's last authoritative reconciliation is younger than
-`P026_RECONCILE_SECONDS` (default 3600). Count and max are hints: a change that
+`P026_RECONCILE_SECONDS` (default 3600). That interval is an eligibility
+threshold, not a proven end-to-end repair deadline: page traversal, backoff,
+lease waits and compute all add latency, and no pass or service budget has been
+measured here. Count and max are hints: a change that
 leaves every aggregate identical really is invisible to them, and
 `test_the_aggregate_probe_is_weak_but_the_reconciliation_ceiling_repairs_it`
 stages exactly such a change to prove both halves. `P026_INCREMENTAL=0` disables
@@ -74,7 +92,7 @@ no source row moved.
 
 `OldestReconciliationAgeSeconds` is what makes this auditable: the fast path is
 sound only while that age stays bounded, so the metric is part of the mechanism
-rather than decoration.
+rather than decoration. It is not publication lag.
 
 ## Metrics
 
@@ -90,7 +108,15 @@ explicitly rather than having the coordinator stall on its own telemetry. `polis
 catalog, which is generated from the emitting code and checked into
 `evidence/metrics-catalog.json`.
 
-Per pass: `PollHealthy` (P-031 A01), `SourcePassSeconds`,
+**No row claims a P-031 alarm.** Rev7's observability admission is explicit:
+none of these series is A01 `PollHealthy` (which needs both poll loops to have
+succeeded), A02 `PublishLagSeconds` (initiated-but-unpublished work) or A03
+`ObserverHealthy` (an independent observer). The catalog carries a `p031_status`
+block saying so, a Rust test enforces that every row's alarm field is empty, and
+`audit_stages.py` re-checks it. Every gauge is scoped to this shard and
+allowlist, failures included.
+
+Per pass: `SourcePassHealthy`, `SourcePassSeconds`,
 `SourcePass{Conversations,Probed,Skipped,Reconciled,Published,Deferred}`. Gauges,
 at most once per `P026_GAUGE_SECONDS` and computed by one bounded aggregate that
 reads no payload column: `OldestReconciliationAgeSeconds` (CO01 scan age),
@@ -102,9 +128,9 @@ reads no payload column: `OldestReconciliationAgeSeconds` (CO01 scan age),
 `PublishConflict`, `PublishRefused`, `PublishRetried`, `PublishUncertain`. Plus
 `MetricsDropped`, because a lost record must be visible rather than silent.
 
-`PollHealthy` says the pass completed, and nothing more. A pass in which every
-conversation failed is still a completed pass; stuck work is the failure backlog
-and unrepaired age, exactly as P-031 splits A01 from the lag signals.
+`SourcePassHealthy` says the pass completed, and nothing more: it is page-loop
+liveness. A pass in which every conversation failed is still a completed pass;
+stuck work is the failure backlog and unrepaired age.
 
 Source order is the **declared** `polis-order/1` normalization
 `(tid,pid,created_ms,semantic_vote,weight_x_32767 NULLS FIRST)`, where
@@ -292,11 +318,14 @@ backend PID. The barrier has a bounded deadline. A log alone is never an ack.
 `audit_stages.py` reports two separate verdicts: `stage_inventory_gate` over the
 25 contract-required fault stages, and `full_contract_gate`, which is still
 **FAIL**. It names its open conditions explicitly — CO04's `loadBundle`/Bundle
-cache-unit rewrite does not exist in the server, HTTP routes and the private
-served corpus are not executed, a committed generation of 0 is not served by the
-real reader at all, C7's published-versus-synthesized empty listing needs a
-ruling, the incremental probe is a bounded hint, and the resident-cache
-reconciliation is single-threaded — and it exits non-zero while any remain.
+cache-unit rewrite does not exist in the server, application boot/auth/report and
+the private served corpus are not executed, `getPca(zid, undefined)` misses a
+cold generation zero that the route itself serves, C7's
+published-versus-synthesized empty listing needs a ruling, the incremental probe
+is a bounded eligibility hint with no measured service budget, persisted payloads
+are revalidated once per ceiling rather than every pass, and this crate
+implements none of P-031's A01/A02/A03 — and it exits non-zero while any
+remain.
 
 `evidence/` contains sanitized final summaries, fixture digests and the explicit
 coverage inventory. Runtime logs and detailed per-test artifacts are retained in

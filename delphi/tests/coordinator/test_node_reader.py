@@ -25,8 +25,8 @@ import time
 from pathlib import Path
 
 import pytest
-from conftest import ROOT, assert_coherent, connect, rows, seed
-from test_equivalence import python_checkpoint
+from coordinator.conftest import ROOT, assert_coherent, connect, rows, seed
+from coordinator.test_equivalence import python_checkpoint
 
 HARNESS = ROOT / "coordinator-rs/tools/node_reader.cjs"
 EVIDENCE = ROOT / "coordinator-rs/evidence"
@@ -54,9 +54,14 @@ def node_read(db, zid=1, envs=("python", "rustproto"), keys=("tids", "n", "repne
 
 
 def rust_and_python_publish(db, launch):
-    """One visibility checkpoint, both actual writers, two namespaces."""
+    """One visibility checkpoint, both actual writers, two namespaces — plus a
+    deliberately different third namespace, so that "the two agree" is only
+    evidence once "and a different one does not" is also true (Rev7)."""
     launch(db).done()
     python_checkpoint(db)
+    # Same source, opposite declared agree convention: a genuinely different
+    # generation for the same zid, in its own namespace.
+    launch(db, env="positive", extra={"STORAGE_AGREE_VALUE": "1"}).done()
     a, b = rows(db, env="rustproto"), rows(db, env="python")
     assert a["math_main"] is not None and b["math_main"] is not None
     assert a["math_main"]["math_tick"] == b["math_main"]["math_tick"]
@@ -67,9 +72,11 @@ def rust_and_python_publish(db, launch):
 def test_real_node_reader_serves_identical_bytes_for_both_writers(db, launch):
     seed(db)
     rust_and_python_publish(db, launch)
-    # A second checkpoint: the DB math_tick is then 1, and `getPca` overrides
-    # the blob's engine wall-clock field with the column (see the tick-0 note
-    # in test_generation_zero_...). Both namespaces advance together.
+    # A second checkpoint. This harness calls `getPca(zid, undefined)`, whose
+    # cold behaviour at a committed generation of zero is a documented reader
+    # asymmetry (test_step2_review_controls.py shows the real route serving
+    # generation zero with 200 and ETag "0"), so the comparison uses tick 1.
+    # Both namespaces advance together.
     c = connect(db)
     with c.cursor() as cur:
         cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,1,2000)")
@@ -99,6 +106,25 @@ def test_real_node_reader_serves_identical_bytes_for_both_writers(db, launch):
     joins = served["rustproto"]["pids_for_gid"]
     assert any(isinstance(v, list) and v for v in joins.values()), joins
 
+    # Rev7: two namespaces agreeing does not prove namespace isolation unless a
+    # deliberately different third namespace is served differently. Publish the
+    # same conversation under the opposite agree convention, which produces a
+    # genuinely different generation, and require the reader to tell them apart.
+    both = node_read(db, envs=("rustproto", "positive", "reader"))
+    foreign = both["positive"]
+    assert foreign["present"], foreign
+    assert foreign["asJSON_sha256"] != served["rustproto"]["asJSON_sha256"]
+    assert foreign["gzip_sha256"] != served["rustproto"]["gzip_sha256"]
+    assert foreign["keys_projection_sha256"] != served["rustproto"]["keys_projection_sha256"]
+    # The mirrored convention keeps the same clustering, so bidToPid is
+    # legitimately identical; recording that rather than asserting a difference
+    # that does not exist.
+    assert foreign["mapping_sha256"] == served["rustproto"]["mapping_sha256"]
+    # A namespace with no math rows for the same zid: the mapping query really
+    # is scoped by math_env, so it finds nothing while the populated one does.
+    assert both["reader"]["mapping_is_error"] is True
+    assert served["rustproto"]["mapping_is_error"] is False
+
 
 @requires_server_modules
 def test_published_empty_math_versus_the_servers_own_empty_presentation(db, launch):
@@ -125,8 +151,8 @@ def test_published_empty_math_versus_the_servers_own_empty_presentation(db, laun
     python_checkpoint(db)
     assert rows(db, env="python")["math_main"] is None, (
         "the reference writer publishes no generation for a zero-vote conversation")
-    # A second generation, because the real reader does not serve committed
-    # generation 0 at all (see the characterisation test below).
+    # A second generation, for the same reason as above: this harness's
+    # `getPca(zid, undefined)` caller does not return a cold generation zero.
     c = connect(db)
     with c.cursor() as cur:
         cur.execute("UPDATE comments SET mod=1 WHERE zid=1")
@@ -169,33 +195,3 @@ def test_published_empty_math_versus_the_servers_own_empty_presentation(db, laun
     assert abs(synthesized["last_vote_timestamp"] - now) < 600_000, (
         synthesized["last_vote_timestamp"], now)
     assert published["last_vote_timestamp"] != synthesized["last_vote_timestamp"]
-
-
-@requires_server_modules
-def test_committed_generation_zero_is_not_served_by_the_real_node_reader(db, launch):
-    """A D4 finding, pinned as a test rather than left as prose.
-
-    CO04 Rev5 permits a first generation of 0, and `#2704`/Clojure really do
-    start there. The real reader cannot serve it. `getPca` guards the column
-    override with `if (rowsArray[0].math_tick)` — falsy at 0 — and then drops
-    the row entirely on `item.math_tick <= (math_tick || 0)`. So a conversation
-    whose only committed generation is 0 is served as absent, and
-    `/api/v3/math/pca2` answers 304 for it.
-
-    This characterises today's behaviour for the contract owner; it is not an
-    assertion that it is correct, and it is why every equality check above uses
-    a second generation.
-    """
-    seed(db)
-    launch(db).done()
-    tables = rows(db, env="rustproto")
-    assert tables["math_main"]["math_tick"] == 0, "the committed generation is zero"
-    served = node_read(db, envs=("rustproto",), gids=())["rustproto"]
-    (EVIDENCE / "d4-generation-zero.json").write_text(json.dumps({
-        "committed_math_tick": tables["math_main"]["math_tick"],
-        "blob_math_tick": tables["math_main"]["data"].get("math_tick"),
-        "served": served,
-        "note": "getPca returns undefined; pca2 answers 304. If this ever starts "
-                "serving, replace this characterisation with an equality assertion.",
-    }, indent=2, sort_keys=True))
-    assert served["present"] is False

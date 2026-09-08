@@ -285,8 +285,35 @@ fn a_failing_metric_sink_is_counted_and_never_propagates() {
         }
     }
     let mut metrics = Metrics::new(Box::new(Broken), "synthetic", "rustproto");
-    metrics.emit("t", &[count("PollHealthy", 1u32)], json!({}));
+    metrics.emit("t", &[count("SourcePassHealthy", 1u32)], json!({}));
     assert_eq!(metrics.dropped(), 1, "a lost record must be visible");
+}
+
+#[test]
+fn no_catalog_row_claims_a_p031_alarm_it_does_not_implement() {
+    // Rev7: none of these series is A01 PollHealthy, A02 PublishLagSeconds or
+    // A03 ObserverHealthy, so no row may be labelled with one.
+    for declared in polis_coordinator::metrics::CATALOG {
+        assert_eq!(
+            declared.alarm, "",
+            "{} claims P-031 {}",
+            declared.name, declared.alarm
+        );
+    }
+    let catalog = polis_coordinator::metrics::catalog_json();
+    assert_eq!(catalog["p031_status"]["coverage_claimed"], json!([]));
+    assert_eq!(
+        catalog["p031_status"]["not_implemented"],
+        json!(["A01 PollHealthy", "A02 PublishLagSeconds", "A03 ObserverHealthy"])
+    );
+    assert!(
+        !polis_coordinator::metrics::CATALOG
+            .iter()
+            .any(|d| d.name == "PollHealthy"
+                || d.name == "PublishLagSeconds"
+                || d.name == "ObserverHealthy"),
+        "a P-031 alarm name must not be reused for a different signal"
+    );
 }
 
 #[test]

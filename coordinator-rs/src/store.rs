@@ -262,20 +262,20 @@ impl PgStore {
         let row = self.client.query_opt("SELECT owner_id,owner_epoch,expires_at>clock_timestamp() FROM coordinator_leases WHERE math_env=$1 AND zid=$2", &[&self.config.math_env,&zid])?;
         Ok(lease::classify(row.as_ref(), &self.config, epoch))
     }
-    /// Rev6 independent resident-cache integrity reconciliation.
-    ///
-    /// A bundle resident in the warm cache is **never** evidence that the
-    /// durable generation is still complete: a companion row can be deleted,
-    /// or its checkpoint changed, without the conversation's `math_tick`
-    /// moving, and the source fingerprint would then agree forever (F1). Every
-    /// pass that hits the cache re-verifies companion presence, every
-    /// companion's generation, and the committed checkpoint identity against
-    /// the store. This reads metadata and the small `input_checkpoint` only —
-    /// no `data` column is selected, so nothing is detoasted.
-    ///
-    /// Returns false when the store contradicts the resident bundle in any way,
-    /// which evicts it and forces the ordinary repair path.
-    pub fn resident_is_intact(&mut self, zid: i32, bundle: &Bundle) -> Result<bool> {
+}
+
+/// Metadata-only view of a persisted generation: no `data` column is read, so
+/// nothing is detoasted. `complete` means all three companions exist at the same
+/// tick as `math_ticks` and the provenance columns are present.
+struct GenerationMeta {
+    tick: i64,
+    caching_tick: Option<i64>,
+    checkpoint: Option<Value>,
+    complete: bool,
+}
+
+impl PgStore {
+    fn generation_meta(&mut self, zid: i32) -> Result<Option<GenerationMeta>> {
         let row = self.client.query_opt(
             "SELECT t.math_tick,t.publisher_epoch,t.input_checkpoint,
                     m.math_tick,m.caching_tick,b.math_tick,p.math_tick
@@ -287,16 +287,57 @@ impl PgStore {
             &[&self.config.math_env, &zid],
         )?;
         let Some(r) = row else {
-            return Ok(false);
+            return Ok(None);
         };
         let tick: i64 = r.get(0);
-        let companions: [Option<i64>; 3] = [r.get(3), r.get(5), r.get(6)];
         let checkpoint: Option<Value> = r.get(2);
-        Ok(tick == bundle.math_tick
-            && r.get::<_, Option<i64>>(1).is_some()
-            && checkpoint.as_ref() == Some(&bundle.checkpoint)
-            && r.get::<_, Option<i64>>(4) == Some(bundle.caching_tick)
-            && companions.iter().all(|t| *t == Some(tick)))
+        let companions: [Option<i64>; 3] = [r.get(3), r.get(5), r.get(6)];
+        let complete = r.get::<_, Option<i64>>(1).is_some()
+            && checkpoint.is_some()
+            && companions.iter().all(|t| *t == Some(tick));
+        Ok(Some(GenerationMeta {
+            tick,
+            caching_tick: r.get(4),
+            checkpoint,
+            complete,
+        }))
+    }
+
+    /// CO06 quiet repair, cheaply. True only when a complete generation is
+    /// persisted for this conversation. The incremental fast path must never
+    /// skip past an incomplete or missing generation, however fresh its source
+    /// reconciliation record is: an absent companion or missing checkpoint
+    /// provenance has to be repaired without waiting for future input.
+    ///
+    /// This is metadata only. It cannot see a mutated payload; that is what the
+    /// reconciliation ceiling's authoritative `load_current` is for.
+    pub fn generation_is_complete(&mut self, zid: i32) -> Result<bool> {
+        Ok(self.generation_meta(zid)?.is_some_and(|g| g.complete))
+    }
+
+    /// Rev6 independent resident-cache integrity reconciliation.
+    ///
+    /// A bundle resident in the warm cache is **never** evidence that the
+    /// durable generation is still complete: a companion row can be deleted,
+    /// or its checkpoint changed, without the conversation's `math_tick`
+    /// moving, and the source fingerprint would then agree forever (F1). Every
+    /// pass that hits the cache re-verifies companion presence, every
+    /// companion's generation, and the committed checkpoint identity against
+    /// the store, again without selecting any payload column.
+    ///
+    /// Rev7 is explicit that this is *not* complete integrity reconciliation:
+    /// it cannot validate persisted payload content. The authoritative path
+    /// re-reads and re-hashes the payloads once per reconciliation ceiling.
+    ///
+    /// Returns false when the store contradicts the resident bundle in any way,
+    /// which evicts it and forces the ordinary repair path.
+    pub fn resident_is_intact(&mut self, zid: i32, bundle: &Bundle) -> Result<bool> {
+        Ok(self.generation_meta(zid)?.is_some_and(|g| {
+            g.complete
+                && g.tick == bundle.math_tick
+                && g.caching_tick == Some(bundle.caching_tick)
+                && g.checkpoint.as_ref() == Some(&bundle.checkpoint)
+        }))
     }
     pub fn current_tick(&mut self, zid: i32) -> Result<Option<i64>> {
         Ok(self
