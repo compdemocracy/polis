@@ -1,13 +1,19 @@
 import { Request, Response } from "express";
 import logger from "../utils/logger";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import {
+  DynamoDBDocumentClient,
+  GetCommand,
+  QueryCommand,
+} from "@aws-sdk/lib-dynamodb";
 import {
   CloudWatchLogsClient,
   FilterLogEventsCommand,
   FilteredLogEvent,
 } from "@aws-sdk/client-cloudwatch-logs";
 import { getZidFromReport } from "../utils/parameter";
+import { getZidFromConversationId } from "../conversation";
+import { isModerator } from "../utils/common";
 import Config from "../config";
 
 const dynamoDBConfig: any = {
@@ -265,9 +271,80 @@ const getLogs = async (
   }
 };
 
+/**
+ * Resolves the conversation a Delphi job belongs to, as a numeric zid.
+ *
+ * Delphi_JobQueue rows store `conversation_id` as a string that is either the
+ * numeric zid (the topicAgenda/ConversationIndex convention) or the public
+ * conversation_id (zinvite) that the job was submitted with, so both are
+ * accepted here.
+ *
+ * @returns the zid, or null when the job does not exist / cannot be resolved.
+ */
+async function getZidForDelphiJob(job_id: string): Promise<number | null> {
+  const result = await docClient.send(
+    new GetCommand({
+      TableName: "Delphi_JobQueue",
+      Key: { job_id },
+    })
+  );
+
+  const raw = result.Item?.conversation_id;
+  if (raw === undefined || raw === null || raw === "") {
+    return null;
+  }
+
+  const asString = String(raw);
+  if (/^\d+$/.test(asString)) {
+    return Number(asString);
+  }
+
+  try {
+    const zid = await getZidFromConversationId(asString);
+    return zid === undefined || zid === null ? null : Number(zid);
+  } catch (err) {
+    logger.warn(
+      `Could not resolve conversation_id ${asString} for delphi job ${job_id}`,
+      err
+    );
+    return null;
+  }
+}
+
 export async function handle_GET_delphi_job_logs(req: Request, res: Response) {
   const job_id = req.query.job_id as string;
+  const uid = req.p?.uid as number | undefined;
   const threeHoursAgo = Date.now() - 3 * 3600 * 1000;
+
+  if (!job_id || typeof job_id !== "string") {
+    return res
+      .status(400)
+      .json({ status: "error", message: "job_id is required" });
+  }
+
+  // Logs may contain conversation content, so reading them requires ownership
+  // of the conversation the job was run for.
+  let zid: number | null;
+  try {
+    zid = await getZidForDelphiJob(job_id);
+  } catch (error) {
+    logger.error(`Failed to look up delphi job ${job_id}`, error);
+    return res
+      .status(500)
+      .json({ status: "error", message: "Failed to retrieve logs" });
+  }
+
+  if (zid === null) {
+    return res.status(404).json({ status: "error", message: "Job not found" });
+  }
+
+  const isMod = await isModerator(zid, uid);
+  if (!isMod) {
+    return res
+      .status(403)
+      .json({ status: "error", message: "polis_err_delphi_logs_auth" });
+  }
+
   try {
     const logs = await getLogs(
       Config.awsLogGroupName,
