@@ -210,7 +210,10 @@ def write_case(
         (target / "events.meta.json").write_text(
             json.dumps(meta, indent=2, sort_keys=True) + "\n")
         fx.write_participants_csv(target / "participants.csv", participants)
-        votes_rows, comments_rows = fx.compat_rows_from_events(events)
+        votes_rows, comments_rows, compat = fx.compat_rows_from_events(events)
+        meta["compat_csv"] = compat
+        (target / "events.meta.json").write_text(
+            json.dumps(meta, indent=2, sort_keys=True) + "\n")
         pc.write_votes_csv(target / f"{dir_name}-votes.csv", votes_rows)
         pc.write_comments_csv(target / f"{dir_name}-comments.csv", comments_rows)
 
@@ -219,6 +222,7 @@ def write_case(
             "role": f"generated:{case['id']}",
             "dir": dir_name,
             "generated": meta["generated"],
+            "measured_metrics": case_metrics(events, participants),
             "counts": meta["counts"],
             "logical_digest_sha256": meta["logical_digest_sha256"],
             "ordering_guarantee": meta["ordering"]["guarantee"],
@@ -227,17 +231,57 @@ def write_case(
     return summaries
 
 
+def case_metrics(
+    events: Sequence[dict[str, Any]], participants: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    """The same metrics the selector ranks production conversations on, measured
+    on a GENERATED case.
+
+    A synthetic substitute is only a substitute if it actually satisfies the
+    predicate the missing role was defined by, so the numbers have to be
+    measured rather than inferred from the case's name. ``density`` and
+    ``matrix_area`` are computed over LATEST DISTINCT (pid, tid) cells, never
+    over total revote rows, which would inflate a revote-heavy case into a dense
+    one.
+    """
+    vote_events = [e for e in events if e["kind"] == "vote"]
+    comment_events = [e for e in events if e["kind"] == "comment"]
+    cells = {(e["pid"], e["tid"]) for e in vote_events}
+    n_p = len(participants)
+    n_c = len(comment_events)
+    area = n_p * n_c
+    return {
+        "V": len(vote_events),
+        "U": len(cells),
+        "P": n_p,
+        "C": n_c,
+        "matrix_area": area,
+        "density": (len(cells) / area) if area else None,
+        "basis": "density and matrix_area over LATEST DISTINCT (pid, tid) cells",
+    }
+
+
 def write_all(
     generated: dict[str, Any], payload_root: Path, guard_root: Path, *,
     include_heavy: bool = False, only: Sequence[str] | None = None,
+    force: Sequence[str] = (),
 ) -> list[dict[str, Any]]:
     """Write every configured case. ``heavy`` cases are DECLARED in the returned
-    summaries but not materialised unless ``include_heavy`` is set."""
+    summaries but not materialised unless ``include_heavy`` is set.
+
+    ``force`` names case ids that MUST be materialised whatever ``only`` and
+    ``include_heavy`` say. It carries the rule that a synthetic role substitute
+    is not fulfilled until its generator output actually exists on disk: a role
+    standing in for a missing production conversation cannot be satisfied by a
+    case that generation was switched off for.
+    """
+    forced = set(force)
     summaries: list[dict[str, Any]] = []
     for case in generated["cases"]:
-        if only is not None and case["id"] not in only:
+        is_forced = case["id"] in forced
+        if only is not None and case["id"] not in only and not is_forced:
             continue
-        if case.get("heavy") and not include_heavy:
+        if case.get("heavy") and not include_heavy and not is_forced:
             summaries.append({
                 "slug": case["id"],
                 "role": f"generated:{case['id']}",

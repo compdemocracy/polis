@@ -33,6 +33,19 @@ import re
 from pathlib import Path
 from typing import Any, Iterable
 
+
+class NullVoteError(ValueError):
+    """A raw ``votes.vote`` was NULL where an export row was being formatted.
+
+    The export CSV column is parsed as an integer by every consumer
+    (``real_data.load_export_votes`` and the Clojure replay driver), and every
+    integer already means something — 0 is "pass", not "unknown" — so there is
+    no value that can stand in for a NULL. This is a typed refusal raised
+    BEFORE any row is written, not a ``TypeError`` from unary negation partway
+    through a file.
+    """
+
+
 # ---------------------------------------------------------------------------
 # Feature classes + thresholds (module constants — the single source of truth
 # for both the classifier and the prodclone_map.json "filters" audit trail).
@@ -360,6 +373,19 @@ def format_votes_rows(raw_rows: Iterable[dict[str, Any]]) -> list[dict[str, str]
     export's ``String(-row.vote)``."""
     out = []
     for row in raw_rows:
+        if row["vote"] is None:
+            # votes.vote is nullable. The export column is parsed as an integer
+            # by every consumer, so there is no honest CSV representation of an
+            # unknown vote: refuse loudly instead of raising TypeError from
+            # unary negation halfway through writing the file. Callers that have
+            # a declared policy filter first (see
+            # fixture_extract.compat_rows_from_events).
+            raise NullVoteError(
+                f"votes.vote is NULL for (tid={row.get('tid')}, "
+                f"pid={row.get('pid')}, created={row.get('created')}); the "
+                "compatibility CSV has no representation for it and must not "
+                "invent one. Apply an explicit NULL-vote policy before "
+                "formatting.")
         created = row["created"]
         out.append({
             "timestamp": str(created // 1000),
