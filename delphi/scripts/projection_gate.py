@@ -404,11 +404,13 @@ def classify(
 
     The raw ``votes`` order has same-cell/same-time ties (the accepted P-047
     census) and edge ``votes`` has no per-row unique key, so positional row
-    matching is not well defined. Instead, for each shared column, compare the
-    multiset (``Counter``) of that column's rendered values across all rows —
-    order-independent and multiplicity-preserving, so exact-duplicate votes match
-    and a tie ordering cannot manufacture a VALUE_DIFF. Column-set deviations
-    (extra/missing/reordered) are read from the column lists directly.
+    matching is not well defined. Instead compare WHOLE ROWS over the shared
+    columns as a multiset (``Counter`` of full row tuples) — order-independent and
+    multiplicity-preserving, so exact-duplicate votes and genuine permutations
+    match, while a change that swaps values BETWEEN rows (e.g. two comments'
+    votes) breaks the row tuple and is caught (Astra round-2 defect: independent
+    per-column bags missed this). Column-set deviations (extra/missing/reordered)
+    are read from the column lists directly.
     """
     report = SiteReport(
         site=site,
@@ -437,22 +439,41 @@ def classify(
         for c in shared:
             report.findings.append(Finding(CellClass.ORDER_ONLY, c))
 
-    # Per-column multiset value classification over shared columns.
-    for c in shared:
-        exp_vals = Counter(_cell_bytes(r[exp_idx[c]]) for r in expected_rows)
-        srv_vals = Counter(_cell_bytes(r[srv_idx[c]]) for r in served_rows)
-        report.identical_cells += sum((exp_vals & srv_vals).values())
-        if exp_vals != srv_vals:
-            only_exp = list((exp_vals - srv_vals).elements())
-            only_srv = list((srv_vals - exp_vals).elements())
-            report.findings.append(
-                Finding(
-                    CellClass.VALUE_DIFF,
-                    c,
-                    expected=only_exp[0] if only_exp else None,
-                    served=only_srv[0] if only_srv else None,
-                )
-            )
+    # Whole-row multiset over shared columns (associations survive).
+    def rowkey(row: tuple[Any, ...], idx: dict[str, int]) -> tuple[str, ...]:
+        return tuple(_cell_bytes(row[idx[c]]) for c in shared)
+
+    exp_ms = Counter(rowkey(r, exp_idx) for r in expected_rows)
+    srv_ms = Counter(rowkey(r, srv_idx) for r in served_rows)
+    report.identical_cells += sum((exp_ms & srv_ms).values()) * len(shared)
+    if exp_ms != srv_ms:
+        only_exp = list((exp_ms - srv_ms).elements())
+        only_srv = list((srv_ms - exp_ms).elements())
+        # Report the columns that differ, pairing leftover rows for a hint.
+        reported: set[str] = set()
+        for i, ek in enumerate(only_exp):
+            sk = only_srv[i] if i < len(only_srv) else None
+            for j, c in enumerate(shared):
+                if sk is None or ek[j] != sk[j]:
+                    if c not in reported:
+                        report.findings.append(
+                            Finding(
+                                CellClass.VALUE_DIFF,
+                                c,
+                                expected=ek[j],
+                                served=(sk[j] if sk is not None else None),
+                            )
+                        )
+                        reported.add(c)
+        # Extra served rows with no expected counterpart still count as a diff.
+        for i in range(len(only_exp), len(only_srv)):
+            sk = only_srv[i]
+            for j, c in enumerate(shared):
+                if c not in reported:
+                    report.findings.append(
+                        Finding(CellClass.VALUE_DIFF, c, expected=None, served=sk[j])
+                    )
+                    reported.add(c)
     return report
 
 
