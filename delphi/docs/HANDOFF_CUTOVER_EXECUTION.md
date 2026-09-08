@@ -10,18 +10,76 @@ the ENTRY POINT for the session that ships the cutover. Read order:
 
 ## Where things stand (evidence all in-repo)
 
-- Engine: ONE code path, Clojure-exact legacy semantics. Certified:
-  battery 20/20 MATCH pairs at every s7 milestone incl. the final tree;
-  live equivalence vw 8/8 + pc-meta-02 8/8 non-vacuous; goldens
-  re-recorded (comparer 7/7); suite 1171 green.
-- Performance solved: vectorized warm-start k-means (#2679,
-  bit-identical). r8g.4xlarge, 33,422×783/2.0M votes: cold 29.0s, warm
-  26.6s (was 519.6s / 1856.0s). Verdict: serial OK at every shape; no
+- Engine: ONE code path, Clojure-legacy semantics. Certified against a
+  Clojure ORACLE RERUN (not historical prod blobs) at a defined
+  TOLERANCE, not bit-for-bit: the battery reports MATCH when the accepted
+  projection agrees by canonical hash OR a tolerant compare (default abs
+  1e-6 / rel 0.01, sign-flip handling, looser tolerances on PCA lists);
+  canonicalization normalizes ordering/sign and omits the dropped
+  subgroup outputs. Read "20/20 MATCH" as "within tolerance on the
+  certified inputs", not "identical blobs". Live equivalence vw 8/8 +
+  pc-meta-02 8/8 non-vacuous; goldens re-recorded (comparer 7/7); suite
+  green.
+- Performance: vectorized warm-start k-means (#2679, matches within the
+  same tolerance). r8g.4xlarge, 33,422×783/2.0M votes: cold 29.0s, warm
+  26.6s (was 519.6s / 1856.0s) — author-reported on SYNTHESIZED shape
+  data, no measured RSS. Verdict: serial OK at every shape; no
   blocklisting (Julien ruling: never blocklist; warm start stays).
 - Naming: compose service `math-python`, profile `math-python`, env
   `MATH_PYTHON_ENV` (default math_env value 'python').
-- The ENTIRE stack is Draft/UNMERGED (spr-managed, ~#2613-#2682+).
-  Nothing is on `edge` yet, and prod deploys from `stable`.
+- Merge status: the stack is being landed onto `edge` bottom-up (spr).
+  Confirm the current HEAD with `git log origin/edge` before quoting a
+  status; the older "nothing is on edge yet" claim is stale. Prod still
+  deploys from `stable`.
+
+## P-019 review fixes (must-fix items M1–M5)
+
+The independent P-019 review (cost-reduction/04-plans/P-019-julien-stack-
+review.md) found defects that are now fixed on this branch. Probe:
+cost-reduction/scripts/p019-review-probes.py (adapted copy reads HEAD).
+
+- **M1 — park/unpark lost failed votes.** After retry exhaustion a parked
+  zid kept its stale cached conversation, so the interval that failed
+  stayed missing. Fix (poller/service.py, worker_pool.py): `_unpark`
+  invalidates the cache so the next batch rebuilds from full authoritative
+  Postgres history; a periodic reconciler
+  (`MATH_POLLER_RECONCILE_INTERVAL_MS`, default 60s) recovers a zid that
+  failed and then went quiet, via a new REBUILD pool message.
+- **M2 — retry at the queue tail overwrote a newer revote.**
+  `Conversation.update_votes` now resolves duplicate (pid, tid) by
+  `created` timestamp (stable-sort + keep-last), and `_run_engine` writes
+  BEFORE caching so a retry re-derives cleanly instead of re-advancing
+  temporal state.
+- **M3 — certification cache keys.** The Python recording manifest now
+  includes the comments CSV sha (as Clojure already did) and the schedule
+  hash includes `restart_after` + `clojure`; a bumped manifest version
+  invalidates existing cached recordings once.
+- **M4 — cache-cap/shard wiring.** `MATH_CONV_CACHE_CAP` defaults to a
+  FINITE 200 (negatives rejected; 0 = unlimited must be explicit), and
+  compose passes the cap, shard index/count, and reconciler interval
+  into the container (documented in example.env).
+- **M5 — participant-ban / mode-collapse behavior change (release note).**
+  See below; accepted by Colin, so this is a documentation item only.
+
+### M5 release note — report-engine behavior change (ACCEPTED)
+
+This stack removes the older Python implementation's participant-ban
+(`participants.mod`) filtering AND runs full-PCA at all conversation
+sizes, including above the Clojure production cutoff. Both are DELIBERATE,
+accepted decisions by Colin — not dead-code cleanup:
+
+- Participant bans are no longer applied to the rating matrix. Clojure
+  never honored them, but the deleted older Python path DID, so this is a
+  real change to existing Delphi REPORT output (run_delphi.py →
+  run_math_pipeline.py builds the same Conversation), not only a change to
+  the dormant new poller. The server still ingests `participants.mod`; it
+  is simply no longer applied by the math engine.
+- Large conversations run the full-PCA branch rather than the Clojure
+  cutoff/approximation. On very large inputs the shadow comparer will flag
+  these as "mode collapse"/Q10 divergences vs the Clojure rows; that is
+  the accepted, expected behavior of the new engine, not a defect. Do not
+  interpret those large-conversation differences as failures during the
+  shadow soak.
 
 ## OPEN RULINGS — get from Julien before the relevant PR
 
