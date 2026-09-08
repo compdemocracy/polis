@@ -31,7 +31,7 @@ code as root and could never have contained data it was given.
 | SSM send-and-wait helper, with the output allowlist | `ci/p022_ssm.sh` |
 | The phases that run on the worker | `ci/p022_ec2_run.sh` |
 | Teardown: terminate and prove it | `ci/p022_teardown.py` |
-| Fixed-schema summary validator | `ci/p022_check_summary.py` |
+| Fixed-schema summary validator, and the one definition of `SCHEMA` | `ci/p022_check_summary.py` |
 
 ## Enabling it
 
@@ -268,6 +268,14 @@ dataset slugs:
   than the pinned per-phase floor, or with **any single report** that executed
   nothing — a JUnit `tests` count includes skips, so an all-skipped run and
   nineteen empty race invocations both used to look healthy;
+- a report set that is not one report per pytest **invocation**. §C's race
+  target runs pytest twenty separate times; the plugin names each report
+  `<tag>-<pid>-<uuid>.xml` and the worker requires as many distinct pids as
+  reports, so twenty files written by one process is a failure rather than
+  twenty iterations. The expected counts (one matrix report, twenty race
+  reports) are pinned by this recipe and must be re-pinned if §C's loop count
+  changes — a mismatch fails the phase, it is never inferred from what turned
+  up;
 - any XPASS. A non-strict `@pytest.mark.xfail` that passes renders in JUnit as
   an ordinary pass, so `-o xfail_strict=true` and XML parsing between them
   cannot see it; the injected pytest plugin hooks the report itself, fails the
