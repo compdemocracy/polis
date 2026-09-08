@@ -37,12 +37,18 @@ MATH_ENV = "recovery"
 
 
 class LatchedCache(OrderedDict):
-    """An ``OrderedDict`` that can block INSIDE ``get`` for one named zid.
+    """An ``OrderedDict`` that can block INSIDE ``get`` for one named zid, and
+    that announces every eviction it performs.
 
     This is the "barrier between cache get / touch / store" the matrix asks
     for: it freezes a worker at the exact instant between
     ``self._convs.get(zid)`` returning a conversation and the following
-    ``self._convs.move_to_end(zid)`` LRU touch.
+    ``self._convs.move_to_end(zid)`` LRU touch.  The latch fires ONCE, so the
+    error path's own ``_convs.get`` cannot re-enter it.
+
+    ``evicted`` records which zids ``popitem`` actually removed, and
+    ``eviction_reached`` fires when a *concurrent* thread got as far as
+    mutating the cache — see :class:`ObservedLock` for the other half.
     """
 
     def __init__(self, *a, **kw):
@@ -50,13 +56,63 @@ class LatchedCache(OrderedDict):
         self.latch_zid = None
         self.arrived = threading.Event()
         self.release = threading.Event()
+        self.eviction_reached = threading.Event()
+        self.evicted = []
+        self._latched = False
 
     def get(self, key, default=None):
         value = super().get(key, default)
-        if key == self.latch_zid and value is not None:
+        if key == self.latch_zid and value is not None and not self._latched:
+            self._latched = True
             self.arrived.set()
             self.release.wait(timeout=30)
         return value
+
+    def popitem(self, last=True):
+        item = super().popitem(last=last)
+        self.evicted.append(item[0])
+        # Unblock the driver on UNLOCKED code: the evictor got all the way in.
+        self.eviction_reached.set()
+        return item
+
+
+class ObservedLock:
+    """A pass-through wrapper for the service's cache lock that reports real
+    CONTENTION.
+
+    The R06 race is staged from the LOCK BOUNDARY, not from inside ``get``
+    (R06-cache-lock-report should-fix): once ``_run_engine``'s lookup and LRU
+    touch run under ``_convs_lock``, a driver that calls ``svc._remember`` while
+    worker A is latched inside ``get`` blocks on that very lock, so the schedule
+    only unwinds when the latch's own 30 s timeout expires — after which the
+    touch happens *before* the eviction and the documented interleaving is never
+    staged at all.
+
+    So the driver waits for ``eviction_reached`` instead, which fires from
+    OUTSIDE the locked region in whichever way is possible:
+
+    * unlocked code — the evictor reaches ``LatchedCache.popitem`` and really
+      does remove the key in the window, exposing the ``KeyError``;
+    * locked code — the evictor is refused the lock and blocks here, proving it
+      arrived at the cache while worker A held the critical section.
+
+    Either way the driver releases in milliseconds and the outcome is decided by
+    the production code, not by a timeout.
+    """
+
+    def __init__(self, lock, reached: threading.Event):
+        self._lock = lock
+        self._reached = reached
+
+    def __enter__(self):
+        if not self._lock.acquire(blocking=False):
+            self._reached.set()
+            assert self._lock.acquire(timeout=30), "cache lock never released"
+        return self
+
+    def __exit__(self, *exc):
+        self._lock.release()
+        return False
 
 
 def _assert_all_published(engine, zids):
@@ -185,6 +241,16 @@ def test_lru_touch_racing_an_eviction_does_not_park_a_healthy_zid(
 
     Worker A is doing perfectly healthy work on real, valid input; only the
     cache bookkeeping is racing.  It must not fail, and it must not park.
+
+    The eviction runs on its OWN thread and the driver releases worker A as
+    soon as that thread has reached the cache — either by evicting (unlocked
+    code, which then loses the key under worker A and raises ``KeyError``) or by
+    blocking on the cache lock (locked code, where the compound get/touch is
+    atomic and nothing is lost).  Latching *inside* ``get`` and evicting from
+    the driver, as this test used to do, deadlocks against a locked cache until
+    the 30 s latch timeout expires and then stages the wrong order entirely
+    (R06-cache-lock-report should-fix).  This version decides in milliseconds
+    and is decided by the production code either way.
     """
     from polismath.poller.worker_pool import CoalescedBatch
 
@@ -197,6 +263,11 @@ def test_lru_touch_racing_an_eviction_does_not_park_a_healthy_zid(
     cache = LatchedCache(svc._convs)
     svc._convs = cache
     cache.latch_zid = 1
+    # Present on the fixed service, absent on today's; either way the evictor's
+    # arrival at the cache becomes observable from outside the critical section.
+    svc._convs_lock = ObservedLock(
+        getattr(svc, "_convs_lock", threading.Lock()), cache.eviction_reached
+    )
 
     errors = []
     newer = max(e["created"] for e in seeded.vote_events) + 1000
@@ -204,11 +275,13 @@ def test_lru_touch_racing_an_eviction_does_not_park_a_healthy_zid(
                                    "vote": F.ENGINE_DISAGREE,
                                    "created": newer}])
 
-    def worker_a():
-        try:
-            svc._handle_zid(1, batch)
-        except BaseException as exc:  # pragma: no cover - _handle_zid catches
-            errors.append(exc)
+    def collecting(fn):
+        def run():
+            try:
+                fn()
+            except BaseException as exc:  # pragma: no cover - handler catches
+                errors.append(exc)
+        return run
 
     real_error_handler = svc._on_engine_error
 
@@ -218,18 +291,28 @@ def test_lru_touch_racing_an_eviction_does_not_park_a_healthy_zid(
 
     svc._on_engine_error = recording_error
 
-    thread = threading.Thread(target=worker_a, daemon=True)
-    thread.start()
+    worker = threading.Thread(
+        target=collecting(lambda: svc._handle_zid(1, batch)), daemon=True)
+    evictor = threading.Thread(
+        target=collecting(lambda: svc._remember(2, object())), daemon=True)
+
+    worker.start()
     assert cache.arrived.wait(timeout=30), "worker A never reached cache-get"
-
-    # Worker A is frozen between get() and move_to_end(). Evict zid 1 from
-    # another thread, exactly as a concurrent _remember for zid 2 would.
-    svc._remember(2, object())
-    assert 1 not in cache, "the eviction must have removed zid 1"
+    # Worker A is frozen between get() and move_to_end(). A concurrent
+    # _remember for zid 2 now evicts that very key.
+    evictor.start()
+    assert cache.eviction_reached.wait(timeout=30), (
+        "the evicting thread never reached the cache at all"
+    )
     cache.release.set()
-    thread.join(timeout=30)
-    assert not thread.is_alive()
+    worker.join(timeout=60)
+    evictor.join(timeout=60)
+    assert not worker.is_alive() and not evictor.is_alive()
 
+    assert 1 in cache.evicted, (
+        "the in-flight zid was never actually evicted, so no race was staged: "
+        f"evicted={cache.evicted}"
+    )
     assert errors == [] and 1 not in svc._parked, (
         f"a healthy zid failed purely because of cache bookkeeping: "
         f"errors={errors!r} parked={set(svc._parked)!r}"
