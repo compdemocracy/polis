@@ -4,7 +4,7 @@ import signal
 import threading
 import time
 import pytest
-from conftest import (ARTIFACTS, FOLD, MAPPING, seed, rows, connect, assert_coherent, expire,
+from coordinator.conftest import (ARTIFACTS, FOLD, MAPPING, seed, rows, connect, assert_coherent, expire,
     lease, wait, repair_after_unclean_death)
 
 PUBLISH_STAGES=["after_lease","after_source_selection","after_input_checkpoint","before_worker_apply",
@@ -86,8 +86,13 @@ def test_r06_cache_eviction_contends_with_same_zid_update(db,launch,tmp_path):
     seed(db,1);seed(db,2)
     launch(db).done()
     launch(db,env="recovery",extra={"P026_CACHE_CAP":"0"}).done() # cold reference namespace
+    # P026_RECONCILE_SECONDS=1 so the authoritative path runs every second and
+    # actually loads bundles into the cache: the incremental fast path skips
+    # both the source read and the store read, so a cache with nothing resident
+    # would never fill and never evict.
     child=launch(db,"run",stage="cache_eviction_contends_with_same_zid_update",
-        directory=tmp_path/"cache",extra={"P026_CACHE_CAP":"1","P026_POLL_MS":"20"})
+        directory=tmp_path/"cache",extra={"P026_CACHE_CAP":"1","P026_POLL_MS":"20",
+        "P026_RECONCILE_SECONDS":"1"})
     ack=child.ack()
     context=ack["context"]
     # the race is staged, not assumed: this zid really is being evicted now
@@ -403,7 +408,7 @@ def test_database_error_rolls_back_all_publication_tables(db,launch):
 
 def test_r08_reference_warm_cache_negative_control(db,launch):
     import os,subprocess,sys
-    from conftest import ROOT
+    from coordinator.conftest import ROOT
     seed(db)
     env=dict(os.environ,DATABASE_URL=db,PYTHONPATH=str(ROOT/'delphi'),OMP_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',MKL_NUM_THREADS='1')
     ref=subprocess.run([sys.executable,str(ROOT/'delphi/tests/coordinator/reference_child.py'),'--warm-boundary'],env=env,capture_output=True,text=True,timeout=120)
