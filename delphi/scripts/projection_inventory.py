@@ -418,23 +418,100 @@ def _scan_text(rel: str, text: str, is_ts: bool) -> list[tuple[int, str, str, st
     return unique
 
 
-def _has_membership_guard(fn: ast.AST, var: str) -> bool:
-    """The function guards `if <x> not in <var>: raise ...` (in any nested block)."""
+def _joinedstr_text(node: "ast.JoinedStr") -> tuple[Optional[str], Optional[str]]:
+    """Reconstruct an f-string to `...{name}...` text plus the single interpolated
+    Name (or None if it interpolates zero/multiple values or a non-Name)."""
+    parts: list[str] = []
+    qvars: list[Optional[str]] = []
+    for v in node.values:
+        if isinstance(v, ast.Constant) and isinstance(v.value, str):
+            parts.append(v.value)
+        elif isinstance(v, ast.FormattedValue):
+            if isinstance(v.value, ast.Name):
+                parts.append("{" + v.value.id + "}")
+                qvars.append(v.value.id)
+            else:
+                parts.append("{?}")
+                qvars.append(None)
+        else:
+            return None, None
+    qvar = qvars[0] if len(qvars) == 1 and qvars[0] is not None else None
+    return "".join(parts), qvar
+
+
+def _guard_set_ok(tree: ast.AST, entry: ClearedUnresolved) -> bool:
+    """The guard set must be a LITERAL tuple/list/set of string constants only, with
+    no vote table. A non-literal element (e.g. a Name) voids the exemption."""
+    found = False
+    for n in ast.walk(tree):
+        targets = (n.targets if isinstance(n, ast.Assign)
+                   else [n.target] if isinstance(n, ast.AnnAssign) else [])
+        if not any(isinstance(t, ast.Name) and t.id == entry.guard_var for t in targets):
+            continue
+        found = True
+        val = getattr(n, "value", None)
+        if not isinstance(val, (ast.Tuple, ast.List, ast.Set)):
+            return False
+        vals: list[str] = []
+        for e in val.elts:
+            if not (isinstance(e, ast.Constant) and isinstance(e.value, str)):
+                return False  # dynamic / non-literal member
+            vals.append(e.value)
+        if set(vals) & entry.forbidden_tables:
+            return False
+    return found
+
+
+def _enclosing_function(tree: ast.AST, node: ast.AST):
+    best = None
+    for fn in ast.walk(tree):
+        if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)) and node in set(ast.walk(fn)):
+            best = fn
+    return best
+
+
+def _guard_flow_ok(fn: ast.AST, qvar: str, guard_var: str, query_node: ast.AST) -> bool:
+    """The query variable must be guarded by `if <qvar> not in <guard_var>: raise`
+    BEFORE the query, with NO write (assign/augment/annotate/del) to <qvar> between
+    the guard and the query."""
+    q_line = getattr(query_node, "lineno", None)
+    if q_line is None:
+        return False
+    guard_line = None
     for node in ast.walk(fn):
         if isinstance(node, ast.If) and isinstance(node.test, ast.Compare):
-            has_not_in = any(isinstance(op, ast.NotIn) for op in node.test.ops)
-            names = [c.id for c in node.test.comparators if isinstance(c, ast.Name)]
-            if has_not_in and var in names and any(
-                isinstance(s, ast.Raise) for s in ast.walk(node)
+            t = node.test
+            if (
+                isinstance(t.left, ast.Name) and t.left.id == qvar
+                and len(t.ops) == 1 and isinstance(t.ops[0], ast.NotIn)
+                and len(t.comparators) == 1 and isinstance(t.comparators[0], ast.Name)
+                and t.comparators[0].id == guard_var
+                and any(isinstance(s, ast.Raise) for s in ast.walk(node))
+                and node.lineno < q_line
             ):
-                return True
-    return False
+                guard_line = node.lineno if guard_line is None else max(guard_line, node.lineno)
+    if guard_line is None:
+        return False
+    # No rewrite of qvar between the guard and the query.
+    for node in ast.walk(fn):
+        targets: list[ast.AST] = []
+        if isinstance(node, ast.Assign):
+            targets = list(node.targets)
+        elif isinstance(node, (ast.AugAssign, ast.AnnAssign)):
+            targets = [node.target]
+        elif isinstance(node, ast.Delete):
+            targets = list(node.targets)
+        for t in targets:
+            if isinstance(t, ast.Name) and t.id == qvar and guard_line < getattr(node, "lineno", -1) <= q_line:
+                return False
+    return True
 
 
 def _is_cleared_unresolved(rel: str, kind: str, raw: str, source: str) -> bool:
-    """Clear an unresolved hit ONLY if a reviewed exemption's evidence still holds in
-    `source`: exact query text, a guard set (parsed) that excludes every vote table,
-    and a membership guard in the function that contains the query."""
+    """Clear an unresolved hit ONLY if a reviewed exemption's evidence still holds,
+    re-verified from source: exact query text; a LITERAL guard set with no vote
+    table; EXACTLY ONE AST occurrence of the query; and the query's interpolated
+    variable guarded by membership BEFORE the query with no rewrite in between."""
     if kind != "unresolved-table":
         return False
     for entry in CLEARED_UNRESOLVED:
@@ -446,26 +523,24 @@ def _is_cleared_unresolved(rel: str, kind: str, raw: str, source: str) -> bool:
             tree = ast.parse(source)
         except SyntaxError:
             return False
-        # Guard set must exclude every vote table.
-        allowed: Optional[set[str]] = None
-        for node in ast.walk(tree):
-            targets = (node.targets if isinstance(node, ast.Assign)
-                       else [node.target] if isinstance(node, ast.AnnAssign) else [])
-            for t in targets:
-                if isinstance(t, ast.Name) and t.id == entry.guard_var:
-                    val = node.value
-                    if isinstance(val, (ast.Tuple, ast.List, ast.Set)):
-                        allowed = {e.value for e in val.elts
-                                   if isinstance(e, ast.Constant) and isinstance(e.value, str)}
-        if allowed is None or (allowed & entry.forbidden_tables):
+        if not _guard_set_ok(tree, entry):
             return False
-        # The function containing the query must guard on the same variable.
-        for fn in ast.walk(tree):
-            if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                seg = ast.get_source_segment(source, fn) or ""
-                if entry.query_text in seg and _has_membership_guard(fn, entry.guard_var):
-                    return True
-        return False
+        # Bind to EXACTLY ONE AST occurrence of the query (a second -> not cleared).
+        occ = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.JoinedStr):
+                text, qvar = _joinedstr_text(node)
+                if text == entry.query_text:
+                    occ.append((node, qvar))
+        if len(occ) != 1:
+            return False
+        node, qvar = occ[0]
+        if qvar is None:
+            return False
+        fn = _enclosing_function(tree, node)
+        if fn is None:
+            return False
+        return _guard_flow_ok(fn, qvar, entry.guard_var, node)
     return False
 
 

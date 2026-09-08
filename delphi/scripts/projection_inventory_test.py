@@ -252,6 +252,38 @@ def test_exemption_bound_to_guard_evidence(tmp_path) -> None:
     assert any(h.classification == "NEEDS-GATE" for h in hits_c)
 
 
+def test_exemption_binds_occurrence_and_value(tmp_path) -> None:
+    """R9: the exemption binds THIS occurrence and its guarded value — a second
+    identical query, a table reassigned after the guard, or a non-literal guard-set
+    member each voids it."""
+    if not os.path.exists(_POLLER):
+        import pytest
+        pytest.skip("poller_equiv.py not found")
+    original = open(_POLLER).read()
+    exact = "SELECT * FROM {table} WHERE zid = :zid AND math_env = :math_env"
+    old_set = 'EQUIV_TABLES: tuple[str, ...] = ("math_main", "math_bidtopid", "math_ptptstats")'
+    anchor = '    result = conn.execute(\n        sa.text(f"' + exact + '")'
+    assert original.count(anchor) == 1
+
+    # (a) a SECOND identical, unguarded occurrence of the exact query.
+    dup = original + '\ndef added_query():\n    table = "votes"\n    return f"' + exact + '"\n'
+    hits_a = _sweep_poller_variant(tmp_path, dup)
+    assert hits_a and all(h.classification == "NEEDS-GATE" for h in hits_a)
+
+    # (b) table reassigned between the guard and the query.
+    rebound = original.replace(anchor, '    table = "votes"\n' + anchor)
+    hits_b = _sweep_poller_variant(tmp_path, rebound)
+    assert hits_b and all(h.classification == "NEEDS-GATE" for h in hits_b)
+
+    # (c) a non-literal (dynamic) member in the guard set.
+    dynamic = original.replace(old_set, 'VOTE_TABLE = "votes"\n' + old_set[:-1] + ", VOTE_TABLE)")
+    hits_c = _sweep_poller_variant(tmp_path, dynamic)
+    assert hits_c and all(h.classification == "NEEDS-GATE" for h in hits_c)
+
+    # The unmodified file is still cleared.
+    assert _sweep_poller_variant(tmp_path, original) == []
+
+
 def test_voters_is_not_matched_as_votes(tmp_path) -> None:
     """Word boundary: `voters` must not match `votes`."""
     src = tmp_path / "server" / "src"
