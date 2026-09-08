@@ -168,6 +168,17 @@ def _doc(engine: str, convention: str, stage_map: dict) -> dict:
     }
 
 
+def _complete(doc: dict) -> dict:
+    """Fill in every declared stage key so the document passes recording
+    validation. Round 3 requires an explicit key inventory, so a document built
+    for a single-key unit test is not a valid RECORDING on its own."""
+    for stage, inventory in stages.STAGE_KEYS.items():
+        body = doc["stages"].setdefault(stage, {})
+        for key in inventory["required"]:
+            body.setdefault(key, None)
+    return doc
+
+
 def test_polarity_negates_votes_and_geometry_but_not_comps():
     raw = _doc("clj", "raw-db", {
         "R01_ingest": {
@@ -176,8 +187,11 @@ def test_polarity_negates_votes_and_geometry_but_not_comps():
         },
         "R04_pca": {
             "mat": [[-1.0]],
+            # One comp with a 2-wide projection: the rank-one Q16 shape both
+            # engines emit (pca.py:470-478).
             "pca": {"center": [-0.5], "comps": [[1.0]],
-                    "comment-projection": [[-0.25]], "comment-extremity": [0.25]},
+                    "comment-projection": [[-0.25], [-0.75]],
+                    "comment-extremity": [0.25]},
         },
     })
     can = sc.canonicalize(raw)
@@ -658,14 +672,56 @@ def test_f6_non_finite_tokens_survive_raw_db_polarity_conversion():
     assert can["R01_ingest"]["rating-mat"][cell] == sc.NEG_INF_TOKEN
 
 
-def test_f6_matching_non_finite_geometry_compares_equal_across_polarity():
-    nm = {"rownames": [1], "colnames": [2], "matrix": [[sc.POS_INF_TOKEN]]}
-    flipped = {"rownames": [1], "colnames": [2], "matrix": [[sc.NEG_INF_TOKEN]]}
+def test_f6_matching_non_finite_geometry_is_reported_never_a_clean_match():
+    """Round 3 (R2-F5). Polarity conversion of the tokens still works — but two
+    engines AGREEING on an infinity is not clean data, and must never be hidden
+    behind a default "every stage within tolerance"."""
+    a = _doc("clj", "raw-db", {"R01_ingest": {"tids": [1]},
+                               "R04_pca": {"mat": [[sc.POS_INF_TOKEN]]}})
+    # raw-db carries the opposite vote sign; polarity conversion makes the two
+    # rating matrices agree, isolating the non-finite in `mat`.
+    a["stages"]["R01_ingest"]["rating-mat"] = {
+        "rownames": [9], "colnames": [1], "matrix": [[-1]]}
+    b = _doc("py", "delphi", {"R01_ingest": {"tids": [1]},
+                              "R04_pca": {"mat": [[sc.NEG_INF_TOKEN]]}})
+    b["stages"]["R01_ingest"]["rating-mat"] = {
+        "rownames": [9], "colnames": [1], "matrix": [[1]]}
+    rep = sc.compare_step(a, b)
+    k = rep["stages"]["R04_pca"]["keys"]["mat"]
+    # The raw-db "Infinity" became "-Infinity", so the two sides agree...
+    assert k["n_diff"] == 0 and k["n_nonfinite"] == 1
+    # ...but the status is NONFINITE, not MATCH, and it is not a divergence.
+    assert k["status"] == "NONFINITE"
+    assert rep["first_diverging_stage"] is None
+    assert rep["n_nonfinite"] == 1
+
+
+def test_f6_a_non_finite_in_an_integer_typed_field_is_structural():
+    """A vote, id or count is never NaN. Agreement on one is still invalid."""
+    nm = {"rownames": [1], "colnames": [2], "matrix": [[sc.NAN_TOKEN]]}
     rep = sc.compare_step(
-        _doc("clj", "raw-db", {"R01_ingest": {"rating-mat": nm}}),
-        _doc("py", "delphi", {"R01_ingest": {"rating-mat": flipped}}))
+        _doc("clj", "delphi", {"R01_ingest": {"rating-mat": nm}}),
+        _doc("py", "delphi", {"R01_ingest": {"rating-mat": nm}}))
     k = rep["stages"]["R01_ingest"]["keys"]["rating-mat"]
-    assert k["status"] == "MATCH" and k["n_nonfinite"] == 1
+    assert k["status"] == "DIVERGENT"
+    assert k["n_structural"] >= 1 and k["n_nonfinite"] == 1
+
+
+def test_f6_a_matching_non_finite_never_yields_a_clean_headline(tmp_path):
+    """End to end: the printed headline must say so."""
+    doc = _doc("py", "delphi", {"R01_ingest": {"tids": [1]},
+                               "R04_pca": {"mat": [[sc.NAN_TOKEN]]}})
+    doc["stages"]["R01_ingest"]["rating-mat"] = {
+        "rownames": [9], "colnames": [1], "matrix": [[1]]}
+    _complete(doc)
+    stages.write_stage_documents(tmp_path / "a", [doc], engine="py")
+    stages.write_stage_documents(tmp_path / "b", [doc], engine="py")
+    report = sc.compare_recordings(tmp_path / "a", tmp_path / "b")
+    assert report["input_valid"] is True, report["input_problems"]
+    assert report["headline_qualified"] is True
+    text = sc.format_report(report)
+    assert "every stage within tolerance" not in text
+    assert "NON-FINITE" in text and "[NONFINITE]" in text
 
 
 @pytest.mark.parametrize("a,b", [
@@ -710,3 +766,194 @@ def test_r03_reads_the_carried_in_conv_without_invoking_the_setter():
     conv._get_in_conv_participants = lambda: called.append(1) or set()
     assert stages.stage_r03_eligibility(conv)["in-conv"] == [1, 2, 3]
     assert called == []
+
+
+# ---------------------------------------------------------------------------
+# Round 3 — regressions for the five residual findings in the round-2 review
+# (R2-F1 … R2-F5). Each name says which finding it pins.
+# ---------------------------------------------------------------------------
+def _pca_conv(center, comps):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(pca={"center": center, "comps": comps})
+
+
+def _emit_pca(conv):
+    """Run the REAL emitter, stubbing only the unrelated imputation."""
+    from unittest.mock import patch
+
+    with patch.object(stages, "imputed_matrix", return_value=None):
+        return stages.stage_r04_pca(conv)["pca"]
+
+
+def test_r2f1_the_emitter_transposes_unconditionally_on_a_square_case():
+    """The producer always returns comments-by-components. When n_tids equals
+    n_components the two orientations are indistinguishable by shape, so a
+    conditional transpose emits the wrong array while declaring the right axes.
+    This drives the real emitter, not a hand-normalized document."""
+    conv = _pca_conv([0.2, 0.4], [[0.8, 0.6], [-0.6, 0.8]])
+    observed = np.array(_emit_pca(conv)["comment-projection"])
+    expected = stages.pca_project_cmnts(
+        np.asarray(conv.pca["center"]), np.asarray(conv.pca["comps"])).T
+    assert np.allclose(observed, expected)
+    assert observed.shape == (2, 2)
+
+
+def test_r2f1_the_emitter_transposes_unconditionally_on_a_nonsquare_case():
+    conv = _pca_conv([0.1, 0.2, 0.3], [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+    observed = np.array(_emit_pca(conv)["comment-projection"])
+    expected = stages.pca_project_cmnts(
+        np.asarray(conv.pca["center"]), np.asarray(conv.pca["comps"])).T
+    assert np.allclose(observed, expected)
+    assert observed.shape == (2, 3)
+
+
+def test_r2f1_the_rank_one_projection_is_two_wide_and_declared():
+    """Q16: with fewer than two comps the projection is still 2-wide on both
+    engines, so the emitted comps-by-tids array has max(len(comps), 2) rows."""
+    conv = _pca_conv([0.1, 0.2, 0.3], [[1.0, 0.0, 0.0]])
+    observed = np.array(_emit_pca(conv)["comment-projection"])
+    assert observed.shape == (stages.PROJECTION_WIDTH, 3)
+    assert np.allclose(observed, 0.0)
+    # And the comparer accepts that shape rather than calling it structural.
+    doc = _doc("py", "delphi", {
+        "R01_ingest": {"tids": [1, 2, 3]},
+        "R04_pca": {"pca": {"center": [0.1, 0.2, 0.3], "comps": [[1.0, 0.0, 0.0]],
+                            "comment-projection": observed.tolist(),
+                            "comment-extremity": [0.0, 0.0, 0.0]}}})
+    k = sc.compare_step(doc, doc)["stages"]["R04_pca"]["keys"]["pca"]
+    assert k["n_structural"] == 0
+
+
+def test_r2f1_an_emitter_structural_error_is_never_graded_as_data():
+    """When the emitter cannot verify a shape it refuses, and the refusal must
+    travel to the comparer as a structural failure — not as a guess."""
+    err = stages.structural_error("could not verify orientation")
+    assert stages.STRUCTURAL_ERROR_KEY in err
+    doc_a = _doc("clj", "delphi", {"R04_pca": {"pca": {"comps": [[1.0]],
+                                                       "center": [1.0]}},
+                                   "R01_ingest": {"tids": [1]}})
+    doc_b = json.loads(json.dumps(doc_a))
+    doc_b["stages"]["R04_pca"]["pca"]["comps"] = err
+    k = sc.compare_step(doc_a, doc_b)["stages"]["R04_pca"]["keys"]["pca"]
+    assert k["status"] == "DIVERGENT"
+    assert any("emitter:" in msg for msg in k["structural"])
+
+
+def test_r2f2_a_recording_of_empty_stages_is_not_a_match(tmp_path):
+    """Every required stage present but mapped to {} is missing evidence, not
+    eleven stages that happened to agree."""
+    doc = _doc("py", "delphi", {})           # every stage present, all empty
+    stages.write_stage_documents(tmp_path / "a", [doc], engine="py")
+    stages.write_stage_documents(tmp_path / "b", [doc], engine="py")
+    report = sc.compare_recordings(tmp_path / "a", tmp_path / "b")
+    assert report["input_valid"] is False
+    assert report["headline_withheld"] is True
+    assert any("missing required key" in p for p in report["input_problems"])
+    assert "every stage within tolerance" not in sc.format_report(report)
+
+
+@pytest.mark.parametrize("field", ["tick", "input_digest"])
+def test_r2f2_null_identity_evidence_fails_validation(tmp_path, field):
+    doc = _complete(_doc("py", "delphi", {}))
+    doc[field] = None
+    stages.write_stage_documents(tmp_path, [doc], engine="py")
+    _, problems = sc.validate_recording(tmp_path)
+    assert any(field.replace("_", "_") in p for p in problems), problems
+
+
+def test_r2f2_a_manifest_disagreeing_with_its_document_is_an_input_problem(tmp_path):
+    doc = _complete(_doc("py", "delphi", {}))
+    stages.write_stage_documents(tmp_path, [doc], engine="py")
+    manifest = json.loads((tmp_path / "stages-manifest.json").read_text())
+    manifest["steps"][0]["tick"] = 999999
+    (tmp_path / "stages-manifest.json").write_text(json.dumps(manifest))
+    _, problems = sc.validate_recording(tmp_path)
+    assert any("tick" in p and "!= document" in p for p in problems), problems
+
+
+def test_r2f2_an_unknown_stage_key_is_an_input_problem(tmp_path):
+    doc = _complete(_doc("py", "delphi", {}))
+    doc["stages"]["R01_ingest"]["surprise"] = 1
+    stages.write_stage_documents(tmp_path, [doc], engine="py")
+    _, problems = sc.validate_recording(tmp_path)
+    assert any("unknown key" in p for p in problems), problems
+
+
+def test_r2f2_a_malformed_document_becomes_an_input_problem_not_an_exception(
+        tmp_path):
+    (tmp_path / "step-000.stages.json").write_text("[1, 2, 3]")
+    _, problems = sc.validate_recording(tmp_path)
+    assert problems and any("not an object" in p for p in problems)
+
+    (tmp_path / "step-000.stages.json").write_text("{not json")
+    _, problems = sc.validate_recording(tmp_path)
+    assert problems and any("unreadable" in p for p in problems)
+
+
+def test_r2f2_a_non_object_stages_container_is_reported_not_crashed(tmp_path):
+    doc = _complete(_doc("py", "delphi", {}))
+    doc["stages"] = ["nope"]
+    stages.write_stage_documents(tmp_path, [doc], engine="py")
+    _, problems = sc.validate_recording(tmp_path)
+    assert any("no stages object" in p for p in problems)
+    # And canonicalize must not raise on it either.
+    assert sc.canonicalize(doc)["R01_ingest"]["__stage__"].reason
+
+
+@pytest.mark.parametrize("other", [{}, set(), "", 0, False])
+def test_r2f3_c1_covers_only_null_against_an_empty_list(other):
+    """C1 promises `null` <-> `[]`. Nothing adjacent to it — an empty object, a
+    falsy scalar — is the documented pair."""
+    assert sc._is_null_empty_pair(None, other) is False
+    rep = sc.compare_step(
+        _doc("clj", "delphi", {"R02_moderation": {"mod-out": None}}),
+        _doc("py", "delphi", {"R02_moderation": {"mod-out": other}}))
+    assert rep["stages"]["R02_moderation"]["keys"]["mod-out"]["status"] != "CARVED"
+
+
+def test_r2f3_the_documented_pair_is_still_carved_both_directions():
+    for a, b in ((None, []), ([], None)):
+        rep = sc.compare_step(
+            _doc("clj", "delphi", {"R02_moderation": {"mod-out": a}}),
+            _doc("py", "delphi", {"R02_moderation": {"mod-out": b}}))
+        assert rep["stages"]["R02_moderation"]["keys"]["mod-out"]["status"] == \
+            "CARVED"
+
+
+@pytest.mark.parametrize("value", [True, False, "1", "abc", 1.5])
+def test_r2f4_equal_but_wrongly_typed_integer_fields_are_structural(value):
+    """Type is validated BEFORE equality, on both sides: two equally-malformed
+    operands must not pass as a match."""
+    rep = sc.compare_step(_doc("clj", "delphi", {"R01_ingest": {"n": value}}),
+                          _doc("py", "delphi", {"R01_ingest": {"n": value}}))
+    k = rep["stages"]["R01_ingest"]["keys"]["n"]
+    assert k["status"] == "DIVERGENT"
+    assert k["n_structural"] >= 1
+
+
+def test_r2f4_an_equal_float_typed_cluster_id_is_a_divergence():
+    """A float-spelled id is a contract violation even when the two agree."""
+    a = [{"id": 1.5, "members": [1], "center": [0.0, 0.0]}]
+    rep = sc.compare_step(_doc("clj", "delphi", {"R06_base_clusters":
+                                                 {"base-clusters": a}}),
+                          _doc("py", "delphi", {"R06_base_clusters":
+                                                {"base-clusters": a}}))
+    k = rep["stages"]["R06_base_clusters"]["keys"]["base-clusters"]
+    assert k["status"] == "DIVERGENT" and k["n_structural"] >= 1
+
+
+def test_r2f4_legitimate_integral_spellings_still_match():
+    """The typing rule must not break the two engines' real behaviour."""
+    rep = sc.compare_step(_doc("clj", "delphi", {"R01_ingest": {"n": 3}}),
+                          _doc("py", "delphi", {"R01_ingest": {"n": 3.0}}))
+    assert rep["stages"]["R01_ingest"]["keys"]["n"]["status"] == "MATCH"
+
+
+def test_r2f4_both_sides_null_in_a_nullable_integer_field_still_matches():
+    """`n-votes` and the moderation watermark are declared nullable."""
+    rep = sc.compare_step(
+        _doc("clj", "delphi", {"R02_moderation": {"last-mod-timestamp": None}}),
+        _doc("py", "delphi", {"R02_moderation": {"last-mod-timestamp": None}}))
+    assert rep["stages"]["R02_moderation"]["keys"]["last-mod-timestamp"][
+        "status"] == "MATCH"
