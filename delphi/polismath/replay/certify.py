@@ -208,15 +208,36 @@ def _is_integral(value: Any) -> bool:
 #: equal-values premise, exactly as the engine contract provides for
 #: (P-022-G-engine-contract rev4, "External canonicalization and comparison":
 #: *conflicting snake/kebab aliases fail unless the schema defines the two as
-#: distinct fields with distinct roles*). The declared pair's role is checked
-#: structurally — BOTH spellings must be group-cluster arrays describing THE
-#: SAME groups (equal length, equal ordered ``id`` sequence) — and both raw
-#: values go through the container discipline, so a malformed or extra/missing
-#: group under either spelling still fails. Anything else — an undeclared pair,
-#: a declared pair that is not two same-group views, a three-way collision —
-#: fails naming every raw spelling involved. When the legacy twin is finally
-#: dropped, delete the entry and this policy becomes "no collisions at all".
+#: distinct fields with distinct roles*). The two roles and the mechanical
+#: relation between them are pinned here, in :data:`_DECLARED_ALIAS_FIELDS` and
+#: :func:`_check_declared_alias_pair`, and BOTH raw views are validated against
+#: the raw schema before projection — so nothing escapes validation by losing
+#: the canonical collapse. Anything else — an undeclared pair, a declared pair
+#: that fails the schema or the relation, a three-way collision — fails naming
+#: every raw spelling involved. When the legacy twin is finally dropped, delete
+#: the entry and this policy becomes "no collisions at all".
+#:
+#: v2 round 2 (P-022 alias-twin Astra review, F1/F2). Equal group ``id`` lists
+#: plus a prose role label are NOT the schema the contract asks for: a producer
+#: could still ship ``group_clusters`` entries with ``members="not-members"``,
+#: no ``center``, ``id=False`` beside a canonical ``id=0`` (``False == 0`` in
+#: Python), or well-typed but WRONG participant lists / un-flipped centers, and
+#: certify returned PASS with strict exit 0. Both views now go through
+#: :func:`_validate_group_cluster_view` (required fields, strict-int ids
+#: excluding bool, unique ids, integer member lists, finite 2-vector centers)
+#: and then through the producer's own relation: the unfolded members are the
+#: concatenation of the folded members' base-cluster member lists, in group and
+#: member order, and the unfolded centers are the exact sign negation of the
+#: folded ones. The relation is a deterministic serialization transform
+#: (``_unfolded_group_clusters`` at conversation/conversation.py:1042-1059 and
+#: the negation at :1781), so it is checked EXACTLY — no numeric tolerance.
 _ALIAS_POLICY_VERSION = "v2"
+
+#: The pinned geometry width of a group-cluster ``center`` in the legacy blob:
+#: the 2-D projection plane, the same plane ``base-clusters`` spells as x/y
+#: columns. Every committed oracle and both engines emit exactly two
+#: coordinates.
+_GROUP_CENTER_DIM = 2
 
 #: Canonical key -> (the ONE extra raw spelling admitted alongside it, the role
 #: that makes the two distinct fields rather than a lossy duplicate).
@@ -230,17 +251,187 @@ _DECLARED_ALIAS_FIELDS: dict[str, tuple[str, str]] = {
 _ALIASED_CHECKPOINT_KEYS: frozenset[str] = frozenset(_DECLARED_ALIAS_FIELDS)
 
 
-def _group_cluster_ids(value: Any) -> list[Any] | None:
-    """The ordered ``id`` sequence of a group-cluster array, or ``None`` when
-    ``value`` is not an array of JSON objects that each carry an ``id``."""
+def _validate_group_cluster_view(value: Any, key: str, label: str) -> list[dict]:
+    """Raw schema of ONE group-cluster array, canonical or aliased. Returns the
+    validated groups; raises :class:`CertifyError` naming ``key`` and the
+    offending index/field.
+
+    Required per group: ``id`` (strict int, ``bool`` rejected — ``False == 0``
+    would otherwise satisfy an id comparison against a real group 0), ``members``
+    (array of strict ints) and ``center`` (array of exactly
+    :data:`_GROUP_CENTER_DIM` finite reals). Group ids are unique and members are
+    unique within a group. An empty array is a legitimate state (a conversation
+    with no groups) and passes.
+    """
+    where = f"{label}: field {key!r}"
     if not isinstance(value, list):
-        return None
-    ids: list[Any] = []
-    for element in value:
-        if not isinstance(element, dict) or "id" not in element:
-            return None
-        ids.append(element["id"])
-    return ids
+        raise CertifyError(
+            "checkpoint-schema",
+            f"{where} must be a JSON array of group objects, got "
+            f"{type(value).__name__}")
+    groups: list[dict] = []
+    seen_ids: set[Any] = set()
+    for i, group in enumerate(value):
+        if not isinstance(group, dict):
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{where}[{i}] must be a JSON object, got {type(group).__name__}")
+        missing = [f for f in ("id", "members", "center") if f not in group]
+        if missing:
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{where}[{i}] is missing required field(s) {missing}")
+        gid = group["id"]
+        if not _is_integral(gid):
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{where}[{i}].id must be an integer group id, got "
+                f"{type(gid).__name__} {gid!r}")
+        if gid in seen_ids:
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{where}[{i}].id {gid!r} is a duplicate group id")
+        seen_ids.add(gid)
+        members = group["members"]
+        if not isinstance(members, list):
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{where}[{i}].members must be a JSON array of integer ids, got "
+                f"{type(members).__name__}")
+        for j, member in enumerate(members):
+            if not _is_integral(member):
+                raise CertifyError(
+                    "checkpoint-schema",
+                    f"{where}[{i}].members[{j}] must be an integer id, got "
+                    f"{type(member).__name__} {member!r}")
+        if len(set(members)) != len(members):
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{where}[{i}].members contains duplicate ids")
+        center = group["center"]
+        if not isinstance(center, list) or len(center) != _GROUP_CENTER_DIM:
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{where}[{i}].center must be an array of {_GROUP_CENTER_DIM} "
+                f"finite numbers, got "
+                f"{type(center).__name__}"
+                f"{'' if not isinstance(center, list) else f' of length {len(center)}'}")
+        for j, coord in enumerate(center):
+            if isinstance(coord, bool) or not isinstance(coord, (int, float)):
+                raise CertifyError(
+                    "checkpoint-schema",
+                    f"{where}[{i}].center[{j}] must be a finite number, got "
+                    f"{type(coord).__name__} {coord!r}")
+            if not math.isfinite(coord):
+                raise CertifyError(
+                    "checkpoint-schema",
+                    f"{where}[{i}].center[{j}] must be finite, got {coord!r}")
+        groups.append(group)
+    return groups
+
+
+def _bid_to_pids(blob: dict, label: str, where: str) -> dict[Any, list[Any]]:
+    """The blob's base-cluster id -> ordered participant ids mapping, read from
+    the columnar ``base-clusters`` the legacy blob emits (``_fold_base_clusters``:
+    ``{'id': [...], 'members': [[pid, ...], ...], 'x': [...], 'y': [...],
+    'count': [...]}``). Raises when it is absent or unusable, because without it
+    the declared unfolding relation cannot be evaluated at all — and an
+    unevaluated relation is exactly the hole this policy closes."""
+    bc = _canonical_view(blob).get("base-clusters")
+    if not isinstance(bc, dict) or not isinstance(bc.get("id"), list) \
+            or not isinstance(bc.get("members"), list) \
+            or len(bc["id"]) != len(bc["members"]):
+        raise CertifyError(
+            "checkpoint-schema",
+            f"{where}: the declared alias relation needs the blob's columnar "
+            f"'base-clusters' (id/members of equal length) to unfold "
+            f"base-cluster ids to participant ids; got "
+            f"{type(bc).__name__}")
+    mapping: dict[Any, list[Any]] = {}
+    for bid, members in zip(bc["id"], bc["members"]):
+        if bid in mapping:
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{where}: 'base-clusters' declares base-cluster id {bid!r} twice, "
+                f"so the unfolding relation is ambiguous")
+        if not isinstance(members, list):
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{where}: 'base-clusters'.members for base-cluster id {bid!r} "
+                f"must be a JSON array, got {type(members).__name__}")
+        mapping[bid] = list(members)
+    return mapping
+
+
+def _check_declared_alias_pair(
+    blob: dict, canonical: str, aliased: str, role: str, label: str,
+) -> None:
+    """The ONE declared distinct-role pair. Both raw views go through the raw
+    schema, then through the relation the serializer defines:
+
+    - ``group_clusters[i].members`` is the concatenation of
+      ``base-clusters.members[bid]`` for each ``bid`` in
+      ``group-clusters[i].members``, in group order and member order
+      (``Conversation._unfolded_group_clusters``);
+    - ``group_clusters[i].center`` is the exact coordinate-wise negation of
+      ``group-clusters[i].center`` (``_apply_legacy_blob_shape``).
+
+    Both are deterministic serialization transforms of one internal value, so
+    they are compared EXACTLY — widening a tolerance here would re-open the hole.
+    """
+    where = (f"{label}: raw keys {canonical!r}, {aliased!r} normalize to the "
+             f"declared alias {canonical!r} ({role}) [alias policy "
+             f"{_ALIAS_POLICY_VERSION}]")
+    folded = _validate_group_cluster_view(blob[canonical], canonical, label)
+    unfolded = _validate_group_cluster_view(blob[aliased], aliased, label)
+    if len(folded) != len(unfolded):
+        raise CertifyError(
+            "checkpoint-schema",
+            f"{where}: the two views describe a different number of groups "
+            f"({len(folded)} vs {len(unfolded)})")
+    if [g["id"] for g in folded] != [g["id"] for g in unfolded]:
+        raise CertifyError(
+            "checkpoint-schema",
+            f"{where}: the two views do not describe the same groups: "
+            f"{canonical!r} ids {[g['id'] for g in folded]!r}, "
+            f"{aliased!r} ids {[g['id'] for g in unfolded]!r}")
+    if not folded:
+        return
+    mapping = _bid_to_pids(blob, label, where)
+    for f, u in zip(folded, unfolded):
+        unknown = [b for b in f["members"] if b not in mapping]
+        if unknown:
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{where}: group {f['id']!r} of {canonical!r} names base-cluster "
+                f"id(s) {unknown!r} that 'base-clusters' does not declare, so the "
+                f"unfolding relation cannot hold")
+        expected: list[Any] = []
+        for bid in f["members"]:
+            expected.extend(mapping[bid])
+        if u["members"] != expected:
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{where}: group {f['id']!r} of {aliased!r} is not the unfolding "
+                f"of {canonical!r} through 'base-clusters' "
+                f"({len(u['members'])} participant id(s), expected "
+                f"{len(expected)}; first difference at index "
+                f"{_first_difference(u['members'], expected)})")
+        if u["center"] != [-c for c in f["center"]]:
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{where}: group {f['id']!r} of {aliased!r} has center "
+                f"{u['center']!r}, which is not the exact sign negation of "
+                f"{canonical!r}'s {f['center']!r}")
+
+
+def _first_difference(a: list, b: list) -> Any:
+    """Index of the first differing element of two lists, or their common
+    length when one is a prefix of the other. Diagnostics only."""
+    for i, (x, y) in enumerate(zip(a, b)):
+        if x != y:
+            return i
+    return min(len(a), len(b))
 
 
 def _canonical_view(blob: dict) -> dict[Any, Any]:
@@ -287,19 +478,9 @@ def _check_alias_collisions(blob: dict, label: str) -> None:
         # Declared distinct-role pair: validate BOTH raw values here, so
         # neither escapes by losing the canonical collapse. The two views may
         # differ in member id-space and center sign — that IS the declared role
-        # difference — but they must describe the same groups.
-        ids = [_group_cluster_ids(blob[k]) for k in raw_keys]
-        if any(i is None for i in ids) or ids[0] != ids[1]:
-            shown = [
-                "not an array of group objects" if i is None else f"ids {i!r}"
-                for i in ids
-            ]
-            raise CertifyError(
-                "checkpoint-schema",
-                f"{label}: raw keys {spellings} normalize to the declared alias "
-                f"{canonical!r} ({declared[1]}) but do not describe the same "
-                f"groups (alias policy {_ALIAS_POLICY_VERSION}): "
-                f"{raw_keys[0]!r} {shown[0]}, {raw_keys[1]!r} {shown[1]}")
+        # difference — but each must satisfy the raw group schema and the two
+        # must satisfy the relation the serializer defines between them.
+        _check_declared_alias_pair(blob, canonical, declared[0], declared[1], label)
 
 
 def _find_nonfinite(value: Any, path: str) -> str | None:
