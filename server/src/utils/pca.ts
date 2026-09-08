@@ -73,77 +73,76 @@ export type PcaCacheItem = {
 };
 
 const pcaCacheSize = Config.cacheMathResults ? 300 : 1;
-const pcaCache = new LruCache<number, PcaCacheItem>({
+const pcaCache = new LruCache<string, PcaCacheItem>({
   max: pcaCacheSize,
 });
 
-// this scheme might not last forever. For now, there are only a couple of MB worth of conversation pca data.
-let lastPrefetchedMathTick = -1;
+// Each namespace has an independent publication cursor and cache entries.
+const lastPrefetchedMathTicks = new Map<string, number>();
+
+function pcaCacheKey(mathEnv: string, zid: number): string {
+  return JSON.stringify([mathEnv, zid]);
+}
+
+// One batch, shared by the background loop and integration tests. Capture the
+// namespace before any async work so a config change cannot relabel its results.
+export async function prefetchLatestPcaData(): Promise<void> {
+  const mathEnv = Config.mathEnv;
+  let lastPrefetchedMathTick = lastPrefetchedMathTicks.get(mathEnv) ?? -1;
+  const rows = await pg.queryP_readOnly<
+    Array<{ data: any; math_tick: any; caching_tick: any; zid: number }>
+  >(
+    "select * from math_main where caching_tick > ($1) and math_env = ($2) order by caching_tick limit 10;",
+    [lastPrefetchedMathTick, mathEnv]
+  );
+
+  await Promise.all(
+    (
+      rows as Array<{
+        data: any;
+        math_tick: any;
+        caching_tick: any;
+        zid: number;
+      }>
+    ).map((row) => {
+      const item = row.data;
+      if (row.math_tick) {
+        item.math_tick = Number(row.math_tick);
+      }
+      if (row.caching_tick) {
+        item.caching_tick = Number(row.caching_tick);
+      }
+      logger.info("mathpoll updating", {
+        caching_tick: item.caching_tick,
+        zid: row.zid,
+      });
+      lastPrefetchedMathTick = Math.max(
+        lastPrefetchedMathTick,
+        Number(row.caching_tick)
+      );
+      processMathObject(item);
+      return updatePcaCache(mathEnv, row.zid, item);
+    })
+  );
+  lastPrefetchedMathTicks.set(
+    mathEnv,
+    Math.max(lastPrefetchedMathTicks.get(mathEnv) ?? -1, lastPrefetchedMathTick)
+  );
+}
 
 // Background polling function to proactively cache PCA data
 export function fetchAndCacheLatestPcaData() {
-  let lastPrefetchPollStartTime = Date.now();
-
-  function waitTime() {
-    const timePassed = Date.now() - lastPrefetchPollStartTime;
-    return Math.max(0, 2500 - timePassed);
-  }
-
-  function pollForLatestPcaData() {
-    lastPrefetchPollStartTime = Date.now();
-
-    pg.queryP_readOnly<
-      Array<{ data: any; math_tick: any; caching_tick: any; zid: number }>
-    >(
-      "select * from math_main where caching_tick > ($1) order by caching_tick limit 10;",
-      [lastPrefetchedMathTick]
-    )
-      .then((rows) => {
-        const rowsArray = rows as Array<{
-          data: any;
-          math_tick: any;
-          caching_tick: any;
-          zid: number;
-        }>;
-
-        if (!rowsArray || !rowsArray.length) {
-          // call again
-          setTimeout(pollForLatestPcaData, waitTime());
-          return;
-        }
-
-        const results = rowsArray.map((row) => {
-          const item = row.data;
-
-          if (row.math_tick) {
-            item.math_tick = Number(row.math_tick);
-          }
-          if (row.caching_tick) {
-            item.caching_tick = Number(row.caching_tick);
-          }
-
-          logger.info("mathpoll updating", {
-            caching_tick: item.caching_tick,
-            zid: row.zid,
-          });
-
-          if (item.caching_tick > lastPrefetchedMathTick) {
-            lastPrefetchedMathTick = item.caching_tick;
-          }
-
-          processMathObject(item);
-
-          return updatePcaCache(row.zid, item);
-        });
-
-        Promise.all(results).then(() => {
-          setTimeout(pollForLatestPcaData, waitTime());
-        });
-      })
-      .catch((err) => {
-        logger.error("mathpoll error", err);
-        setTimeout(pollForLatestPcaData, waitTime());
-      });
+  async function pollForLatestPcaData() {
+    const pollStart = Date.now();
+    try {
+      await prefetchLatestPcaData();
+    } catch (err) {
+      logger.error("mathpoll error", err);
+    }
+    setTimeout(
+      pollForLatestPcaData,
+      Math.max(0, 2500 - (Date.now() - pollStart))
+    );
   }
 
   // Start the polling process
@@ -321,7 +320,8 @@ export function getPca(
   zid?: number,
   math_tick?: number
 ): Promise<PcaCacheItem | undefined> {
-  let cached = pcaCache.get(zid);
+  const mathEnv = Config.mathEnv;
+  let cached = pcaCache.get(pcaCacheKey(mathEnv, zid));
   if (cached && cached.expiration < Date.now()) {
     cached = undefined;
   }
@@ -358,7 +358,7 @@ export function getPca(
   return pg
     .queryP_readOnly<Array<{ data: any; math_tick: any }>>(
       "select * from math_main where zid = ($1) and math_env = ($2);",
-      [zid, Config.mathEnv]
+      [zid, mathEnv]
     )
     .then((rows) => {
       const queryEnd = Date.now();
@@ -374,7 +374,7 @@ export function getPca(
           {
             zid,
             math_tick,
-            math_env: Config.mathEnv,
+            math_env: mathEnv,
           }
         );
 
@@ -387,7 +387,7 @@ export function getPca(
           );
           return ensureCompletePcaStructure(zid).then((completeData) => {
             const dataWithZid = { ...completeData, zid: zid };
-            return updatePcaCache(zid, dataWithZid);
+            return updatePcaCache(mathEnv, zid, dataWithZid);
           });
         }
 
@@ -416,12 +416,13 @@ export function getPca(
       // Ensure all required fields exist by merging with empty structure if needed
       return ensureCompletePcaStructure(zid, item).then((completeData) => {
         const dataWithZid = { ...completeData, zid: zid };
-        return updatePcaCache(zid, dataWithZid);
+        return updatePcaCache(mathEnv, zid, dataWithZid);
       });
     });
 }
 
 function updatePcaCache(
+  mathEnv: string,
   zid: number,
   item: { zid: number }
 ): Promise<PcaCacheItem> {
@@ -448,7 +449,7 @@ function updatePcaCache(
           repness: (item as any).repness || {},
         } as unknown as PcaCacheItem;
         // save in LRU cache, but don't update the lastPrefetchedMathTick
-        pcaCache.set(zid, o);
+        pcaCache.set(pcaCacheKey(mathEnv, zid), o);
         resolve(o);
       }
     );
