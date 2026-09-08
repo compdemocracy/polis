@@ -973,9 +973,12 @@ def test_pinned_checkpoints_match_what_the_replay_driver_actually_slices(
     spec_json = {
         "dataset": "synthetic-restart", "schedule_id": "uniform4-restart0",
         "source": "votes-csv",
-        # A duplicate and a degenerate 0 slot: schedule.py collapses both, so
-        # the manifest's derived count has to collapse them too.
-        "cuts": {"mode": "vote-count", "at": [0, 15, 15, 30, 45, n_votes]},
+        # A duplicate slot, collapsed under the explicit opt-in schedule.py now
+        # requires, so the manifest's derived count has to collapse it too.
+        # (A 0 slot is no longer degenerate: it is a real empty checkpoint and
+        # needs its own `empty_checkpoint` opt-in, covered separately.)
+        "cuts": {"mode": "vote-count", "at": [15, 15, 30, 45, n_votes],
+                 "deduplicate": True},
         "moderation": "none", "clojure": {"warm_start": "chain"}, "notes": "",
         "restart_after": 0,
     }

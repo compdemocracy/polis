@@ -197,7 +197,9 @@ nothing about whether the bundle covers what it claims, so `push`, `pull` and
   satisfy the same stress predicate the missing production role was defined by;
 - each pinned schedule's `expected_checkpoints` is DERIVED by
   `schedule.resolved_cut_count` — the same resolution `schedule.slice_schedule`
-  runs, so duplicate and degenerate cut entries collapse identically — and a
+  runs, so duplicate cut entries collapse identically and a `0` cut counts as
+  the real empty checkpoint it is whenever `empty_checkpoint: true` was
+  declared (only an undeclared `0` is degenerate and dropped) — and a
   schedule whose cuts only a dataset can resolve (`"end"`, `timestamp`,
   `fraction`) is refused rather than certified with a count nobody computed;
   at least one schedule is pinned;
