@@ -26,6 +26,10 @@ Message = Tuple[str, List[Any]]
 
 VOTES = "votes"
 MODERATION = "moderation"
+# A rebuild request (M1, P-019): force a full-history reload for this zid even
+# when the batch carries no votes/moderation. Used by the parked-zid reconciler
+# so an inactive conversation can be recovered without waiting for a new vote.
+REBUILD = "rebuild"
 
 
 @dataclass
@@ -34,9 +38,12 @@ class CoalescedBatch:
 
     votes: List[Any] = field(default_factory=list)
     moderation: List[Any] = field(default_factory=list)
+    # Set when any REBUILD message was coalesced: the consumer must invalidate the
+    # cached conversation and rebuild from authoritative history (M1 recovery).
+    rebuild: bool = False
 
     def has_work(self) -> bool:
-        return bool(self.votes) or bool(self.moderation)
+        return bool(self.votes) or bool(self.moderation) or self.rebuild
 
 
 def coalesce_messages(messages: List[Message]) -> CoalescedBatch:
@@ -50,14 +57,17 @@ def coalesce_messages(messages: List[Message]) -> CoalescedBatch:
     """
     votes: List[Any] = []
     moderation: List[Any] = []
+    rebuild = False
     for message_type, batch in messages:
         if message_type == VOTES:
             votes.extend(batch)
         elif message_type == MODERATION:
             moderation.extend(batch)
+        elif message_type == REBUILD:
+            rebuild = True
         else:  # pragma: no cover - defensive; unknown types ignored like Clojure
             logger.warning("Ignoring unknown message-type %r", message_type)
-    return CoalescedBatch(votes=votes, moderation=moderation)
+    return CoalescedBatch(votes=votes, moderation=moderation, rebuild=rebuild)
 
 
 class ConversationWorkerPool:

@@ -26,6 +26,7 @@ from polismath.poller.worker_pool import (
     CoalescedBatch,
     VOTES,
     MODERATION,
+    REBUILD,
 )
 
 logger = logging.getLogger(__name__)
@@ -139,7 +140,8 @@ class PollerConfig:
       worker_pool_size   MATH_WORKER_POOL_SIZE                       (default 4)
       dump_dir           MATH_POLLER_DUMP_DIR                        (default 'scratch/errorconv')
       retry_cap          MATH_POLLER_RETRY_CAP                       (default 1)
-      conv_cache_cap     MATH_CONV_CACHE_CAP                         (default 0 = unlimited)
+      conv_cache_cap     MATH_CONV_CACHE_CAP                (default 200; 0 = unlimited)
+      reconcile_interval_ms MATH_POLLER_RECONCILE_INTERVAL_MS        (default 60000)
     """
 
     database_url: Optional[str] = None
@@ -165,15 +167,37 @@ class PollerConfig:
     worker_pool_size: int = 4
     dump_dir: str = "scratch/errorconv"
     retry_cap: int = 1
-    # Max in-memory conversations before LRU-evicting the coldest. 0 = unlimited
-    # (the default preserves current behavior; the compose deploy memory limit is
-    # the hard backstop). Clojure's 4h reboot was the de-facto memory cap, which
-    # we dropped — set this to bound a long shadow soak; an evicted conv is
-    # reloaded from math_main + fully rebuilt on next touch (= Clojure restart).
-    conv_cache_cap: int = 0
+    # Max in-memory conversations before LRU-evicting the coldest. Defaults to a
+    # FINITE 200 (M4, P-019): an unbounded cache is not acceptable for prod —
+    # Clojure's 4h reboot was the de-facto memory cap, which we dropped, so a
+    # long shadow soak with no cap grows without bound. 0 = unlimited is retained
+    # but must be set EXPLICITLY (and is documented in example.env). An evicted
+    # conv is reloaded from math_main + fully rebuilt on next touch (= Clojure
+    # restart). Negative caps are rejected in __post_init__ (a negative cap would
+    # pop an empty cache forever).
+    conv_cache_cap: int = 200
+    # Parked-zid reconciler cadence (ms): every interval a background pass
+    # rebuilds each parked zid from authoritative history so a conversation that
+    # failed and received no subsequent vote is still recovered (M1, P-019).
+    reconcile_interval_ms: int = 60000
 
     def __post_init__(self) -> None:
         self._validate_shard()
+        self._validate_cache_cap()
+
+    def _validate_cache_cap(self) -> None:
+        """Reject a negative cache cap at construction time (M4, P-019).
+
+        A negative cap makes ``len(self._convs) > cap`` true even when empty, so
+        ``_remember`` would ``popitem`` a just-inserted conversation immediately —
+        a silently self-defeating cache. 0 = unlimited is a legitimate (documented)
+        value; any positive value is a real LRU bound.
+        """
+        if self.conv_cache_cap < 0:
+            raise ValueError(
+                f"conv_cache_cap must be >= 0, got {self.conv_cache_cap} "
+                "(0 = unlimited; a positive value LRU-evicts the coldest conv)"
+            )
 
     def _validate_shard(self) -> None:
         """Reject an unusable shard slice loudly, at construction time.
@@ -232,7 +256,10 @@ class PollerConfig:
             worker_pool_size=int(os.environ.get("MATH_WORKER_POOL_SIZE", "4")),
             dump_dir=os.environ.get("MATH_POLLER_DUMP_DIR", "scratch/errorconv"),
             retry_cap=int(os.environ.get("MATH_POLLER_RETRY_CAP", "1")),
-            conv_cache_cap=int(os.environ.get("MATH_CONV_CACHE_CAP", "0")),
+            conv_cache_cap=int(os.environ.get("MATH_CONV_CACHE_CAP", "200")),
+            reconcile_interval_ms=int(
+                os.environ.get("MATH_POLLER_RECONCILE_INTERVAL_MS", "60000")
+            ),
         )
 
 
@@ -274,6 +301,9 @@ class MathPollerService:
         self._threads = [
             threading.Thread(target=self._vote_loop, name="vote-poller", daemon=True),
             threading.Thread(target=self._mod_loop, name="mod-poller", daemon=True),
+            threading.Thread(
+                target=self._reconcile_loop, name="parked-reconciler", daemon=True
+            ),
         ]
         for t in self._threads:
             t.start()
@@ -314,6 +344,8 @@ class MathPollerService:
         self._ensure_runtime()
         self._poll_votes_once()
         self._poll_moderation_once()
+        # Recover any zids parked in earlier cycles even if they got no new votes.
+        self._reconcile_once()
         assert self._pool is not None
         self._pool.join(timeout=120.0)
 
@@ -333,19 +365,57 @@ class MathPollerService:
                 logger.exception("Moderation poll cycle failed")
             self._stop.wait(self.config.mod_interval_ms / 1000.0)
 
+    def _reconcile_loop(self) -> None:
+        while not self._stop.is_set():
+            self._stop.wait(self.config.reconcile_interval_ms / 1000.0)
+            if self._stop.is_set():
+                break
+            try:
+                self._reconcile_once()
+            except Exception:
+                logger.exception("Reconcile cycle failed")
+
+    def _reconcile_once(self) -> None:
+        """Recover parked zids from authoritative history WITHOUT waiting for a
+        new vote (M1, P-019).
+
+        The new-batch self-heal (`_unpark`) only fires when a parked conversation
+        receives more traffic; a conversation that failed and then goes quiet
+        would stay stale until an unrelated restart/eviction. This periodic pass
+        unparks each parked zid (which invalidates its cache) and enqueues a
+        REBUILD so the worker reloads the full vote history from Postgres and
+        re-persists — reprocessing the interval that was skipped when the global
+        watermark advanced past the failure."""
+        assert self._pool is not None
+        for zid in sorted(self._parked):
+            logger.info("Reconciler recovering parked zid=%s (M1)", zid)
+            self._unpark(zid)  # clears park + invalidates cache
+            self._pool.submit(zid, REBUILD, [])
+
     def _unpark(self, zid: int) -> None:
         """Self-heal a parked zid when a NEW batch arrives (Clojure retry-chan
         equivalent). Park is transient across cycles: a transient write blip must
         not leave a zid dead until process restart. Clears the retry counter so
-        the zid gets a fresh retry budget; the next batch reprocesses on the
-        last-good conv (or a rebuild if it was evicted)."""
+        the zid gets a fresh retry budget.
+
+        M1 (P-019): the cached conversation is INVALIDATED here so the next batch
+        rebuilds from authoritative history (`_load_or_init` reads the full vote
+        stream from Postgres, which still contains the interval that failed and
+        was skipped when the global watermark advanced). Reprocessing the new
+        batch on the stale cached conv would leave the failed interval missing
+        forever. Dropping the cache entry forces `_run_engine` down the
+        load-or-init path, which subsumes both the lost and the new votes."""
         if zid not in self._parked:
             return
         self._parked.discard(zid)
         self._retry_counts.pop(zid, None)
+        self._convs.pop(zid, None)  # invalidate → next touch rebuilds full history
         if self._pool is not None:
             self._pool.unpark(zid)
-        logger.info("Un-parked zid=%s: a new batch arrived (self-heal)", zid)
+        logger.info(
+            "Un-parked zid=%s: invalidated cache; next batch rebuilds full "
+            "history (M1 recovery)", zid,
+        )
 
     def _poll_votes_once(self) -> None:
         assert self._pool is not None
@@ -415,11 +485,23 @@ class MathPollerService:
         if conv is not None:
             self._convs.move_to_end(zid)  # LRU touch
 
+        # M1 (P-019): an explicit rebuild request (parked-zid reconciler) forces a
+        # full-history reload even when a cached conv exists — the cached state may
+        # be missing the interval that failed before the zid was parked.
+        if coalesced.rebuild:
+            conv = None
+
         if conv is None:
-            # First message for this zid: load-or-init (full rebuild + compute).
+            # First message (or forced rebuild) for this zid: load-or-init (full
+            # rebuild + compute from authoritative history).
+            #
+            # M1/M2 (P-019): write BEFORE caching. If the write fails, the cache
+            # keeps the last-good (persisted) state rather than an unpersisted
+            # rebuild, so a retry re-derives from Postgres and a park leaves a
+            # recoverable cache — never a phantom in-memory-only state.
             conv = self._load_or_init(zid)
-            self._remember(zid, conv)
             self._writer.write_conv_updates(zid, conv)
+            self._remember(zid, conv)
             # The triggering batch is subsumed by the full-history rebuild.
             return
 
@@ -439,8 +521,13 @@ class MathPollerService:
             conv = conv.update_moderation(mods, recompute=False)
 
         conv = conv.recompute()
-        self._remember(zid, conv)
+        # M2 (P-019): write BEFORE caching so a write failure does not leave the
+        # cache holding a state that was never persisted (which a retry would then
+        # apply the batch on top of, double-advancing the temporal state). On
+        # write failure the cache still holds the pre-batch conv, so the retry
+        # re-applies the (idempotent, created-sorted) batch cleanly.
         self._writer.write_conv_updates(zid, conv)
+        self._remember(zid, conv)
 
     def _load_or_init(self, zid: int) -> Conversation:
         """Mirror Clojure load-or-init (conv_man.clj:188-207).
