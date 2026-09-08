@@ -505,22 +505,11 @@ def process_layers_and_store_characteristics(
             ) as f:
                 json.dump(numeric_labels, f, indent=2)
 
-        # Store in DynamoDB if provided
-        if dynamo_storage:
-            # Convert and store cluster characteristics
-            logger.info(
-                f"Storing cluster characteristics for layer {layer_idx} in DynamoDB..."
-            )
-            characteristic_models = DataConverter.batch_convert_cluster_characteristics(
-                conversation_id, cluster_characteristics, layer_idx
-            )  # job_id is not directly part of characteristics PK, but good to have if we extend
-
-            result = dynamo_storage.batch_create_cluster_characteristics(
-                characteristic_models
-            )
-            logger.info(
-                f"Stored {result['success']} cluster characteristics with {result['failure']} failures"
-            )
+        # Cluster characteristics (TF-IDF features per cluster) used to be written
+        # to a DynamoDB table here. Nothing read it back -- the only reader had no
+        # callers -- so the table and this write were retired under P-011/P-033.
+        # The characteristics are still computed above and still drive topic
+        # naming and the hover text in the visualisations.
 
     logger.info("Processing of layers and storing characteristics complete!")
     return layer_data

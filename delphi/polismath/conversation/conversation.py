@@ -3093,10 +3093,10 @@ class Conversation:
         # this block was hardcoded empty, so the DynamoDB blob never carried the
         # D11 dict even when repness produced one. Falls back to the empty shape
         # when repness is missing or didn't produce consensus_comments.
-        # float_to_decimal is REQUIRED: entries carry float p-success/p-test and
-        # writer Site 1 puts this dict straight into the Delphi_PCAResults Item —
-        # boto3 rejects raw floats (caught by CI's e2e run, 2026-07-05; the
-        # legacy writer branch converts, the pre-formatted branch did not).
+        # float_to_decimal is kept: entries carry float p-success/p-test, and
+        # the Decimal shape is part of this serializer's contract (it was
+        # originally required because the retired DynamoDB export rejected raw
+        # floats; caught by CI's e2e run, 2026-07-05).
         result['consensus'] = float_to_decimal(
             self.repness.get('consensus_comments', {'agree': [], 'disagree': []})
             if self.repness else {'agree': [], 'disagree': []}
@@ -3168,27 +3168,3 @@ class Conversation:
         logger.info(f"[{time.time() - start_time:.2f}s] Conversion to DynamoDB format completed")
         return result
 
-    def export_to_dynamodb(self, dynamodb_client) -> bool:
-        """
-        Export conversation data directly to DynamoDB.
-        
-        Args:
-            dynamodb_client: An initialized DynamoDBClient instance
-            
-        Returns:
-            Success status
-        """
-        # Export the conversation data to DynamoDB
-        logger.info(f"Exporting conversation {self.conversation_id} to DynamoDB")
-        
-        try:
-            # Write everything in a single call, letting the DynamoDB client handle the details
-            success = dynamodb_client.write_conversation(self)
-            if not success:
-                logger.error(f"Failed to write conversation {self.conversation_id} to DynamoDB")
-            return success
-        except Exception as e:
-            logger.error(f"Exception during export to DynamoDB: {e}")
-            import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            return False

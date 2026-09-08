@@ -7,7 +7,6 @@ import decimal
 from unittest import mock
 import sys  # Import sys
 import re # Import re for parsing SQL
-from boto3.dynamodb.conditions import Attr # Import Attr for scan filters
 
 # Add the project root (parent directory of 'tests') to the Python path
 # This allows Pylance and local pytest runs to find 'run_math_pipeline'
@@ -29,17 +28,33 @@ MOCK_ZID = 123456789 # We can use our own ZID for the test
 
 # --- Fixtures to Set Up Test Environment ---
 
+# Tables the Python PCA stage used to write on every FULL_PIPELINE job. Nothing
+# ever read them back, so the export and its tables were retired under
+# P-011/P-033. The pipeline must now finish without them -- and, just as
+# importantly, must not recreate them: `create_dynamodb_tables.py` runs on every
+# delphi container start, so a table that comes back here is a table that comes
+# back in production and defeats the AWS deletion.
+RETIRED_PCA_TABLES = [
+    "Delphi_PCAConversationConfig",
+    "Delphi_PCAResults",
+    "Delphi_KMeansClusters",
+    "Delphi_CommentRouting",
+    "Delphi_RepresentativeComments",
+    "Delphi_PCAParticipantProjections",
+]
+
+
 @pytest.fixture(scope="module")
-def dynamodb_resource():
-    """Create a resource connection to the test DynamoDB."""
+def dynamodb_client():
+    """Create a client connection to the test DynamoDB."""
     from tests.conftest import require_dynamodb
     require_dynamodb()
 
     endpoint_url = os.environ.get('DYNAMODB_ENDPOINT', 'http://localhost:8000')
     if not endpoint_url:
         pytest.fail("DYNAMODB_ENDPOINT not set. Cannot connect to test DynamoDB.")
-        
-    return boto3.resource(
+
+    return boto3.client(
         'dynamodb',
         endpoint_url=endpoint_url,
         region_name=os.environ.get('AWS_REGION', 'us-east-1'),
@@ -145,10 +160,10 @@ def mock_moderation_data():
 # --- The Test Function ---
 
 @mock.patch('psycopg2.connect')
-def test_run_math_pipeline_e2e(mock_connect, dynamodb_resource, mock_comments_data, mock_votes_data, mock_moderation_data):
+def test_run_math_pipeline_e2e(mock_connect, dynamodb_client, mock_comments_data, mock_votes_data, mock_moderation_data):
     """
-    Runs the entire math pipeline script, mocking all database calls
-    and checking DynamoDB for results.
+    Runs the entire math pipeline script with all database calls mocked, and
+    asserts it completes without the retired DynamoDB export tables.
     """
     zid = MOCK_ZID
     votes_tuples = mock_votes_data['votes_tuples']
@@ -241,54 +256,13 @@ def test_run_math_pipeline_e2e(mock_connect, dynamodb_resource, mock_comments_da
             except SystemExit as e:
                 pytest.fail(f"run_math_pipeline.py exited unexpectedly: {e}")
 
-    # 3. Verify results were written to DynamoDB using Scans
-    # Since math_tick is dynamic (timestamp based) and keys are complex,
-    # using Scan with a filter is the most robust way to verify test data
-    # without knowing the exact sort keys or indexes beforehand.
-    #
-    # FIX: We are relaxing checks here to ensure the test passes if data is written,
-    # without being brittle about specific internal key names (e.g. 'projection' vs 'coordinates').
-    
-    # Check for PCA results
-    pca_table = dynamodb_resource.Table("Delphi_PCAResults")
-    response = pca_table.scan(
-        FilterExpression=Attr('zid').eq(str(zid))
+    # 3. The pipeline must not have created (or needed) any of the retired
+    #    PCA export tables. `_ensure_tables_exist` in the old DynamoDB client
+    #    created them itself on every run, so their continued absence after a
+    #    full pipeline run is the regression guard for P-033-review H3.
+    live_tables = set(dynamodb_client.list_tables()['TableNames'])
+    recreated = sorted(live_tables.intersection(RETIRED_PCA_TABLES))
+    assert not recreated, (
+        f"run_math_pipeline recreated retired DynamoDB tables: {recreated}. "
+        "Deleting them in AWS will not stick while anything recreates them."
     )
-    assert len(response['Items']) > 0, f"PCAResults items not found for zid {zid}"
-    # Minimal check: just ensure the item exists.
-    
-    # Check for K-Means clusters
-    kmeans_table = dynamodb_resource.Table("Delphi_KMeansClusters")
-    response = kmeans_table.scan(
-        FilterExpression=Attr('zid').eq(str(zid))
-    )
-    assert len(response['Items']) > 0, f"KMeansClusters items not found for zid {zid}"
-    # Minimal check: just ensure items exist.
-
-    # Check for Representative Comments
-    repness_table = dynamodb_resource.Table("Delphi_RepresentativeComments")
-    response = repness_table.scan(
-        FilterExpression=Attr('zid').eq(str(zid))
-    )
-    assert len(response['Items']) > 0, f"RepresentativeComments items not found for zid {zid}"
-    # Minimal check: just ensure items exist.
-
-    # Check for Participant Projections
-    proj_table = dynamodb_resource.Table("Delphi_PCAParticipantProjections")
-    response = proj_table.scan(
-        FilterExpression=Attr('zid').eq(str(zid))
-    )
-    items = response['Items']
-    assert len(items) > 0, f"PCAParticipantProjections items not found for zid {zid}"
-    
-    # Minimal check: ensure valid participant records exist
-    first_proj = items[0]
-    assert 'participant_id' in first_proj, "participant_id missing from record"
-    
-    # Optional: Check against mocked voters (checking for overlaps is a safe logic check)
-    found_pids = set(item['participant_id'] for item in items)
-    expected_pids = set(v['pid'] for v in mock_votes_data['votes_dicts']['votes'])
-    
-    # Ensure we found at least some of the expected participants
-    common_pids = found_pids.intersection(expected_pids)
-    assert len(common_pids) > 0, "No matching participant IDs found in projections"

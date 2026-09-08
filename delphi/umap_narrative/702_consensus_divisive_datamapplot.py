@@ -20,8 +20,6 @@ import traceback
 from decimal import Decimal
 from typing import Dict, List, Tuple, Any, Optional, Union
 from datetime import datetime
-from polismath_commentgraph.utils.storage import PostgresClient
-from polismath_commentgraph.utils.group_data import GroupDataProcessor
 
 # Configuration through environment variables with defaults
 DB_CONFIG = {
@@ -227,61 +225,25 @@ def get_postgres_connection():
 
 def load_comment_texts_and_extremity(zid, layer_num=0):
     """
-    Load comment texts from PostgreSQL and extremity values from DynamoDB.
-    
+    Load comment texts and extremity values from PostgreSQL.
+
+    The DynamoDB extremity cache this used to prefer was written by stage 501
+    into a table nothing else read; both were removed under P-011/P-033. Only
+    the PostgreSQL path below remains, which is what this script fell back to
+    whenever the cache was cold anyway.
+
     Args:
         zid: Conversation ID
         layer_num: Layer number (unused parameter but kept for API compatibility)
-        
+
     Returns:
         Tuple of (comment_texts, extremity_values)
     """
     logger.info(f'Loading comment texts and extremity data for conversation {zid}')
-    
-    # Initialize PostgreSQL client and GroupDataProcessor
-    postgres_client = PostgresClient()
-    group_processor = GroupDataProcessor(postgres_client)
-    
-    # Initialize return values
+
     comment_texts = {}
     extremity_values = {}
-    
-    try:
-        # First get comment texts from PostgreSQL
-        comments = postgres_client.get_comments_by_conversation(zid)
-        for comment in comments:
-            tid = comment.get('tid')
-            if tid is not None:
-                comment_texts[tid] = comment.get('txt', '')
-                
-        logger.info(f'Retrieved {len(comment_texts)} comment texts from PostgreSQL')
-        
-        # Then get extremity values from DynamoDB
-        extremity_values = group_processor.get_all_comment_extremity_values(zid)
-        
-        if extremity_values:
-            logger.info(f'Retrieved {len(extremity_values)} extremity values from DynamoDB')
-            
-            # Log some statistics
-            values_list = list(extremity_values.values())
-            min_val = min(values_list) if values_list else 0.0
-            max_val = max(values_list) if values_list else 0.0
-            mean_val = sum(values_list) / len(values_list) if values_list else 0.0
-            
-            logger.info(f'Extremity statistics from DynamoDB: range {min_val:.4f}-{max_val:.4f}, mean {mean_val:.4f}')
-            
-            # Return the values from DynamoDB
-            return comment_texts, extremity_values
-    except Exception as e:
-        logger.error(f'Error retrieving data from DynamoDB: {e}')
-        logger.error(traceback.format_exc())
-    finally:
-        # Clean up PostgreSQL connection
-        postgres_client.shutdown()
-    
-    # If we reach here, there was an issue with DynamoDB - fall back to PostgreSQL
-    logger.warning('Falling back to PostgreSQL for extremity values')
-    
+
     # Initialize regular PostgreSQL connection for fallback
     try:
         conn = get_postgres_connection()

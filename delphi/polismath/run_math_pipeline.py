@@ -385,32 +385,12 @@ def main():
         if conv.repness and 'comment_repness' in conv.repness:
             logger.info(f"Representativeness for {len(conv.repness['comment_repness'])} comments")
 
-        # Save results to DynamoDB using the DynamoDBClient, as in the Pakistan test
-        try:
-            logger.info(f"[{time.time() - start_time:.2f}s] Initializing DynamoDB client...")
-            from polismath.database.dynamodb import DynamoDBClient
-
-            # Use environment variables or sensible defaults for local/test
-            endpoint_url = os.environ.get('DYNAMODB_ENDPOINT')
-            region_name = os.environ.get('AWS_REGION', 'us-east-1')
-            aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID', 'dummy')
-            aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY', 'dummy')
-            dynamodb_client = DynamoDBClient(
-                endpoint_url=endpoint_url,
-                region_name=region_name,
-                aws_access_key_id=aws_access_key_id,
-                aws_secret_access_key=aws_secret_access_key
-            )
-            dynamodb_client.initialize()
-            logger.info(f"[{time.time() - start_time:.2f}s] DynamoDB client initialized")
-            logger.info(f"[{time.time() - start_time:.2f}s] Exporting conversation to DynamoDB...")
-            success = conv.export_to_dynamodb(dynamodb_client)
-            logger.info(f"[{time.time() - start_time:.2f}s] Export to DynamoDB {'succeeded' if success else 'failed'}")
-        except Exception as e:
-            logger.error(f"[{time.time() - start_time:.2f}s] Error exporting to DynamoDB: {e}")
-            import traceback
-
-            traceback.print_exc()
+        # The PCA/k-means/repness results used to be exported to six DynamoDB
+        # tables here. Nothing ever read them back (see
+        # cost-reduction/02-findings/delphi-pca-consumers.md); every math surface
+        # the product renders comes from the PostgreSQL `math_main` blob, which
+        # the poller in polismath/poller/ writes. The export was removed under
+        # P-011/P-033 along with its tables.
 
     except Exception as e:
         logger.error(f"Pipeline failed: {e}")
