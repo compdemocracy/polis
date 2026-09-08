@@ -135,6 +135,13 @@ def _seed(url: str) -> None:
     try:
         conn.autocommit = True
         with conn.cursor() as cur:
+            # A conversation + zinvite so the wire serializer (addConversationIds)
+            # attaches a conversation_id, exercising the real finishArray path.
+            cur.execute("INSERT INTO conversations (zid) VALUES (%s)", (SYNTHETIC_ZID,))
+            cur.execute(
+                "INSERT INTO zinvites (zid, zinvite) VALUES (%s, %s)",
+                (SYNTHETIC_ZID, "synthetic-conv-id"),
+            )
             for pid, tid, vote, w, created in rows:
                 cur.execute(
                     "INSERT INTO votes (zid, pid, tid, vote, weight_x_32767, created) "
@@ -345,3 +352,94 @@ def test_manifest_requires_replica_when_demanded(dsn: str) -> None:
     # An empty populated-required run fails the whole manifest.
     m3 = pg.run_manifest(dsn, {"zid": -SYNTHETIC_ZID})
     assert not m3.ok
+
+
+# --- P1: bind to the real served path (query builder + pg types + serializer) ---
+
+
+def test_classify_wire_is_type_and_order_sensitive() -> None:
+    site = pg.SITES["handle_GET_votes_me"]
+    # int8 wire "1000" (str) vs int4 1000 (number): the WIRE gate catches it ...
+    wire = pg.classify_wire(site, [{"created": "1000"}], [{"created": 1000}])
+    assert any(f.cls is pg.CellClass.VALUE_DIFF and f.column == "created" for f in wire.findings)
+    # ... while the DB preflight (typeless psycopg2 ints) does NOT — hence both.
+    pre = pg.classify(site, {}, ("created",), [(1000,)], ("created",), [(1000,)])
+    assert pre.ok
+    # key order in the JSON object is contract:
+    order = pg.classify_wire(site, [{"a": 1, "b": 2}], [{"b": 2, "a": 1}])
+    assert any(f.cls is pg.CellClass.ORDER_ONLY for f in order.findings)
+    assert not any(f.cls is pg.CellClass.VALUE_DIFF for f in order.findings)
+    # extra / missing key:
+    extra = pg.classify_wire(site, [{"a": 1}], [{"a": 1, "b": 2}])
+    assert any(f.cls is pg.CellClass.EXTRA_FIELD and f.column == "b" for f in extra.findings)
+    missing = pg.classify_wire(site, [{"a": 1, "b": 2}], [{"a": 1}])
+    assert any(f.cls is pg.CellClass.MISSING_FIELD and f.column == "b" for f in missing.findings)
+    # wrong-handler-query proxy: a served set of a different size cannot pass.
+    wrong = pg.classify_wire(site, [{"a": 1}], [{"a": 1}, {"a": 1}])
+    assert not wrong.ok
+
+
+def _wire_or_skip(dsn: str, filters: dict, **kw):
+    try:
+        return pg.gate_wire(dsn, filters, **kw)
+    except pg.WireWitnessUnavailable as exc:
+        pytest.skip(f"wire witness unavailable: {exc}")
+
+
+def test_wire_gate_binds_to_real_served_bytes(dsn: str) -> None:
+    """The served rows go through the ACTUAL serializer: zid deleted,
+    conversation_id added, weight added (votes_me), int8 as JSON strings. Served
+    (star) and frozen-explicit must be byte/type/order identical today."""
+    reports = _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID, "pid": 0})
+    by_name = {r.site.name: r for r in reports}
+    for name in ("votesGet", "handle_GET_votes_me"):
+        r = by_name[name]
+        assert r.channel == "wire"
+        assert r.ok, f"{name} wire not identical: {r.summary_line()} :: {r.findings}"
+        # zid never reaches the wire; conversation_id does.
+        assert "zid" not in r.served_columns
+        assert "conversation_id" in r.served_columns
+    # int8 columns are JSON STRINGS on the wire (the int8/int4 distinction the
+    # preflight loses). Re-run the raw witness to inspect a served row.
+    data = pg.run_wire_witness(dsn, {"zid": SYNTHETIC_ZID, "pid": 0})
+    vm = data["handle_GET_votes_me"]["served"][0]
+    assert isinstance(vm["created"], str)          # int8 -> "1000"
+    assert isinstance(vm["pid"], int)              # int4 -> 0
+    assert "weight" in vm and vm["weight"] is None  # NaN -> null, added by handler
+    assert "zid" not in vm
+    assert list(vm.keys())[-1] == "conversation_id"
+    vg = data["votesGet"]["served"][0]
+    assert isinstance(vg["modified"], str)         # int8 -> "1000"
+
+
+def test_wire_gate_negative_control_extra_field(dsn: str) -> None:
+    probe = "gate_probe_wire"
+    _run_ddl(dsn, [
+        f"ALTER TABLE votes ADD COLUMN {probe} integer",
+        f"ALTER TABLE votes_latest_unique ADD COLUMN {probe} integer",
+    ])
+    try:
+        reports = _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID, "pid": 0})
+        by_name = {r.site.name: r for r in reports}
+        for name in ("votesGet", "handle_GET_votes_me"):
+            r = by_name[name]
+            assert not r.ok, f"{name} wire should FAIL with the throwaway column"
+            extras = [f.column for f in r.findings if f.cls is pg.CellClass.EXTRA_FIELD]
+            assert probe in extras, f"{name} wire missed EXTRA_FIELD: {r.findings}"
+    finally:
+        _run_ddl(dsn, [
+            f"ALTER TABLE votes DROP COLUMN {probe}",
+            f"ALTER TABLE votes_latest_unique DROP COLUMN {probe}",
+        ])
+
+
+def test_manifest_wire_channel_binds_replica(dsn: str) -> None:
+    # Skip if the witness can't run in this environment.
+    _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID, "pid": 0})
+    m = pg.run_manifest(
+        dsn, {"zid": SYNTHETIC_ZID, "pid": 0}, replica_dsn=dsn,
+        require_replica=True, channels=("preflight", "wire"),
+    )
+    assert m.ok
+    channels = {(r.dsn_label, r.channel) for r in m.runs}
+    assert ("primary", "wire") in channels and ("replica", "wire") in channels

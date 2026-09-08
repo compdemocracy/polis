@@ -68,7 +68,11 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import json
+import os
 import re
+import shutil
+import subprocess
 import sys
 from collections import Counter
 from dataclasses import dataclass, field
@@ -492,6 +496,158 @@ def gate_all(
     return reports
 
 
+# ---------------------------------------------------------------------------
+# Served-wire gate (P1) — bind to the real handler/query/serializer via a Node
+# witness (server/scripts/projection-gate-witness.mjs). The DB gate above is
+# retained as the named "preflight"; this is the acceptance channel.
+# ---------------------------------------------------------------------------
+
+
+class WireWitnessUnavailable(RuntimeError):
+    """Raised when the Node wire witness cannot be run (no node / no server deps)."""
+
+
+def _resolve_server_dir() -> Optional[str]:
+    here = os.path.dirname(os.path.abspath(__file__))  # delphi/scripts
+    repo = os.path.abspath(os.path.join(here, "..", ".."))
+    cand = os.path.join(repo, "server")
+    return cand if os.path.isdir(cand) else None
+
+
+def _has_node_deps(node_modules: str) -> bool:
+    return os.path.isdir(os.path.join(node_modules, "sql")) and os.path.isdir(
+        os.path.join(node_modules, "pg")
+    )
+
+
+def _resolve_node_modules(server_dir: str) -> Optional[str]:
+    env = os.environ.get("PROJGATE_SERVER_NODE_MODULES")
+    if env and _has_node_deps(env):
+        return env
+    local = os.path.join(server_dir, "node_modules")
+    if _has_node_deps(local):
+        return local
+    # Fall back to the primary worktree's install (worktrees have no node_modules).
+    try:
+        common = subprocess.check_output(
+            ["git", "-C", server_dir, "rev-parse", "--git-common-dir"], text=True
+        ).strip()
+        common_abs = common if os.path.isabs(common) else os.path.join(server_dir, common)
+        primary = os.path.dirname(os.path.abspath(common_abs))
+        pnm = os.path.join(primary, "server", "node_modules")
+        if _has_node_deps(pnm):
+            return pnm
+    except Exception:
+        pass
+    return None
+
+
+def run_wire_witness(
+    dsn: str,
+    filters: dict[str, Any],
+    sites: Optional[Sequence[str]] = None,
+    server_dir: Optional[str] = None,
+    node_modules: Optional[str] = None,
+) -> dict[str, Any]:
+    node = shutil.which("node")
+    if not node:
+        raise WireWitnessUnavailable("node not found on PATH")
+    server_dir = server_dir or _resolve_server_dir()
+    if not server_dir:
+        raise WireWitnessUnavailable("server/ directory not found")
+    witness = os.path.join(server_dir, "scripts", "projection-gate-witness.mjs")
+    if not os.path.exists(witness):
+        raise WireWitnessUnavailable(f"witness missing: {witness}")
+    node_modules = node_modules or _resolve_node_modules(server_dir)
+    if not node_modules:
+        raise WireWitnessUnavailable("server node_modules (sql, pg) not resolvable")
+    names = list(sites) if sites else list(SITES)
+    args = [node, witness, "--dsn", dsn, "--zid", str(filters["zid"]), "--sites", ",".join(names)]
+    if filters.get("pid") is not None:
+        args += ["--pid", str(filters["pid"])]
+    if filters.get("tid") is not None:
+        args += ["--tid", str(filters["tid"])]
+    env = dict(os.environ, NODE_PATH=node_modules)
+    proc = subprocess.run(args, capture_output=True, text=True, env=env)
+    if proc.returncode != 0:
+        raise WireWitnessUnavailable(f"witness failed: {proc.stderr.strip()[-500:]}")
+    return json.loads(proc.stdout)
+
+
+def _wire_token(value: Any) -> str:
+    """Type-tagged rendering of a JSON cell so int8-as-string ("1000") and
+    int4-as-number (1000) — IDENTICAL to the psycopg2 preflight — are DISTINCT."""
+    return f"{type(value).__name__}:{json.dumps(value, sort_keys=True)}"
+
+
+def classify_wire(
+    site: ProjectionSite,
+    expected_rows: list[dict[str, Any]],
+    served_rows: list[dict[str, Any]],
+    filters: Optional[dict[str, Any]] = None,
+) -> SiteReport:
+    """Classify SERVED wire objects: positional (array order is contract), keys in
+    object order (ORDER_ONLY), type-sensitive values (VALUE_DIFF)."""
+    report = SiteReport(
+        site=site,
+        filters=dict(filters or {}),
+        expected_columns=tuple(expected_rows[0].keys()) if expected_rows else (),
+        served_columns=tuple(served_rows[0].keys()) if served_rows else (),
+        row_count_expected=len(expected_rows),
+        row_count_served=len(served_rows),
+        channel="wire",
+    )
+    extra: set[str] = set()
+    missing: set[str] = set()
+    order_cols: set[str] = set()
+    n = min(len(expected_rows), len(served_rows))
+    for i in range(n):
+        e = expected_rows[i]
+        s = served_rows[i]
+        ekeys = list(e.keys())
+        skeys = list(s.keys())
+        extra.update(k for k in skeys if k not in e)
+        missing.update(k for k in ekeys if k not in s)
+        shared = [k for k in ekeys if k in s]
+        shared_srv_order = [k for k in skeys if k in e]
+        if shared != shared_srv_order:
+            order_cols.update(shared)
+        for k in shared:
+            et, st = _wire_token(e[k]), _wire_token(s[k])
+            if et == st:
+                report.identical_cells += 1
+            else:
+                report.findings.append(
+                    Finding(CellClass.VALUE_DIFF, k, row_index=i, expected=et, served=st)
+                )
+    for k in sorted(extra):
+        report.findings.append(Finding(CellClass.EXTRA_FIELD, k))
+    for k in sorted(missing):
+        report.findings.append(Finding(CellClass.MISSING_FIELD, k))
+    for k in sorted(order_cols):
+        report.findings.append(Finding(CellClass.ORDER_ONLY, k))
+    return report
+
+
+def gate_wire(
+    dsn: str,
+    filters: dict[str, Any],
+    sites: Optional[Sequence[str]] = None,
+    require_populated: bool = True,
+    allow_empty: Sequence[str] = (),
+    server_dir: Optional[str] = None,
+    node_modules: Optional[str] = None,
+) -> list[SiteReport]:
+    data = run_wire_witness(dsn, filters, sites, server_dir, node_modules)
+    names = list(sites) if sites else list(SITES)
+    reports: list[SiteReport] = []
+    for name in names:
+        blob = data[name]
+        report = classify_wire(SITES[name], blob["expected"], blob["served"], filters)
+        reports.append(_apply_coverage(report, require_populated, allow_empty))
+    return reports
+
+
 @dataclass
 class ChannelRun:
     """One (dsn-label, channel) run over the requested sites."""
@@ -499,10 +655,11 @@ class ChannelRun:
     dsn_label: str
     channel: str
     reports: list[SiteReport]
+    note: Optional[str] = None  # e.g. why a wire run could not be produced
 
     @property
     def ok(self) -> bool:
-        return bool(self.reports) and all(r.ok for r in self.reports)
+        return bool(self.reports) and self.note is None and all(r.ok for r in self.reports)
 
 
 @dataclass
@@ -526,9 +683,12 @@ class Manifest:
 
     def summary_line(self) -> str:
         verdict = "PASS" if self.ok else "FAIL"
-        labels = ", ".join(f"{r.dsn_label}/{r.channel}={'PASS' if r.ok else 'FAIL'}" for r in self.runs)
-        rep = "" if self.replica_seen else " (replica MISSING)" if self.require_replica else ""
-        return f"MANIFEST {verdict}: {labels}{rep}"
+        parts = []
+        for r in self.runs:
+            v = "PASS" if r.ok else (f"UNAVAILABLE({r.note})" if r.note else "FAIL")
+            parts.append(f"{r.dsn_label}/{r.channel}={v}")
+        rep = " (replica MISSING)" if self.require_replica and not self.replica_seen else ""
+        return f"MANIFEST {verdict}: {', '.join(parts)}{rep}"
 
 
 def run_manifest(
@@ -539,22 +699,33 @@ def run_manifest(
     require_replica: bool = False,
     require_populated: bool = True,
     allow_empty: Sequence[str] = (),
+    channels: Sequence[str] = ("preflight",),
+    server_dir: Optional[str] = None,
+    node_modules: Optional[str] = None,
 ) -> Manifest:
-    runs: list[ChannelRun] = [
-        ChannelRun(
-            "primary",
-            "preflight",
-            gate_all(primary_dsn, filters, sites, require_populated, allow_empty),
-        )
-    ]
-    if replica_dsn:
-        runs.append(
-            ChannelRun(
-                "replica",
-                "preflight",
-                gate_all(replica_dsn, filters, sites, require_populated, allow_empty),
+    runs: list[ChannelRun] = []
+
+    def add(label: str, dsn: str) -> None:
+        if "preflight" in channels:
+            runs.append(
+                ChannelRun(
+                    label,
+                    "preflight",
+                    gate_all(dsn, filters, sites, require_populated, allow_empty),
+                )
             )
-        )
+        if "wire" in channels:
+            try:
+                reports = gate_wire(
+                    dsn, filters, sites, require_populated, allow_empty, server_dir, node_modules
+                )
+                runs.append(ChannelRun(label, "wire", reports))
+            except WireWitnessUnavailable as exc:
+                runs.append(ChannelRun(label, "wire", [], note=str(exc)))
+
+    add("primary", primary_dsn)
+    if replica_dsn:
+        add("replica", replica_dsn)
     return Manifest(runs=runs, require_replica=require_replica, replica_seen=bool(replica_dsn))
 
 
@@ -573,12 +744,19 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     p.add_argument("--pid", type=int, default=None)
     p.add_argument("--tid", type=int, default=None)
     p.add_argument("--site", choices=list(SITES) + ["all"], default="all")
+    p.add_argument("--channel", choices=["preflight", "wire", "both"], default="both",
+                   help="preflight = DB look-alike; wire = real served bytes via Node witness")
     p.add_argument("--allow-empty", action="append", default=[],
                    help="site name whose empty result is acceptable (repeatable)")
+    p.add_argument("--server-dir", default=None, help="path to server/ (for the wire witness)")
+    p.add_argument("--node-modules", default=None, help="path to server/node_modules (for the wire witness)")
     return p.parse_args(argv)
 
 
 def _print_run(run: ChannelRun) -> None:
+    if run.note:
+        print(f"  {run.dsn_label}/{run.channel}: UNAVAILABLE ({run.note})")
+        return
     for r in run.reports:
         print(f"  {run.dsn_label}: {r.summary_line()}")
         for f in r.findings:
@@ -592,6 +770,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = _parse_args(argv)
     filters = {"zid": args.zid, "pid": args.pid, "tid": args.tid}
     sites = None if args.site == "all" else [args.site]
+    channels = ("preflight", "wire") if args.channel == "both" else (args.channel,)
     manifest = run_manifest(
         args.dsn,
         filters,
@@ -599,6 +778,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         replica_dsn=args.replica_dsn,
         require_replica=args.require_replica,
         allow_empty=args.allow_empty,
+        channels=channels,
+        server_dir=args.server_dir,
+        node_modules=args.node_modules,
     )
     for run in manifest.runs:
         _print_run(run)
