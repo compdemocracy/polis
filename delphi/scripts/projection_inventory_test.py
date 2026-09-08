@@ -22,14 +22,31 @@ EXPECTED = {
 }
 
 
+_INTERP = f"(interpreter {sys.version.split()[0]})"
+
+
 def test_inventory_is_exactly_the_reviewed_set() -> None:
     sites = inv.run_sweep()
     got = {(s.file, s.table, s.classification, s.symbol) for s in sites}
-    needs = [s for s in sites if s.classification == "NEEDS-GATE"]
-    assert needs == [], f"unreviewed vote-table wildcard(s): {[ (s.file,s.line,s.table) for s in needs ]}"
-    assert got == EXPECTED, f"inventory drifted.\n got={got}\n expected={EXPECTED}"
+    needs = [(s.file, s.line, s.table, s.note) for s in sites if s.classification == "NEEDS-GATE"]
+    assert needs == [], f"{_INTERP} unreviewed vote-table wildcard(s): {needs}"
+    assert got == EXPECTED, f"{_INTERP} inventory drifted.\n got={got}\n expected={EXPECTED}"
     # Exactly four hits, all matched to a disposition.
-    assert len(sites) == 4
+    assert len(sites) == 4, f"{_INTERP} expected 4 sites, got {len(sites)}: {sites}"
+
+
+def test_exemption_digest_is_quote_style_independent() -> None:
+    """R12: the exemption digest is `ast.dump`-based (structural), so it is stable
+    across CPython 3.12.x — where `ast.unparse` f-string quoting differs. Two sources
+    differing only in quote style parse to the SAME AST and share the SAME digest,
+    while a structural change does not. Verified identical under 3.12.11 and 3.12.6."""
+    import ast
+
+    dq = ast.parse('q = f"SELECT * FROM {t}"')
+    sq = ast.parse("q = f'SELECT * FROM {t}'")  # only the quote style differs
+    assert inv._normalised_digest(dq) == inv._normalised_digest(sq)
+    changed = ast.parse('q = f"SELECT * FROM {other}"')  # structural change
+    assert inv._normalised_digest(dq) != inv._normalised_digest(changed)
 
 
 def test_new_wildcard_is_flagged_needs_gate(tmp_path) -> None:

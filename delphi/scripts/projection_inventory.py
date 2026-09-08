@@ -288,7 +288,7 @@ UNRESOLVED = "<unresolved-table>"
 class ClearedUnresolved:
     """A reviewed exemption for one interpolated wildcard proven never to resolve to
     a vote table. Rather than chase dataflow shapes, it pins a reviewed DIGEST of the
-    guarding function's normalised source (``ast.unparse`` — comments dropped,
+    guarding function's STRUCTURAL AST (``ast.dump`` — comments dropped,
     whitespace normalised) captured at review time, alongside the exact query text,
     the guard variable, and the fact that the guard set excludes every vote table.
     At scan time BOTH digests are recomputed. Any edit to the function (a moved/dead
@@ -303,8 +303,8 @@ class ClearedUnresolved:
     query_text: str          # exact decoded query the exemption covers
     guard_var: str           # the membership-guard variable, e.g. EQUIV_TABLES
     forbidden_tables: frozenset[str]  # exemption void if the guard set intersects these
-    function_digest: str     # sha256 of ast.unparse(function) at review time
-    module_digest: str       # sha256 of ast.unparse(module) at review time
+    function_digest: str     # sha256 of ast.dump(function) at review time
+    module_digest: str       # sha256 of ast.dump(module) at review time
     note: str
 
 
@@ -315,8 +315,8 @@ CLEARED_UNRESOLVED: tuple[ClearedUnresolved, ...] = (
         query_text="SELECT * FROM {table} WHERE zid = :zid AND math_env = :math_env",
         guard_var="EQUIV_TABLES",
         forbidden_tables=frozenset({"votes", "votes_latest_unique"}),
-        function_digest="cd5a6f07951a3e7a0f4ec249a2eff0440887f9788b4b89b4615db2ccf3eb0613",
-        module_digest="13b03d55b9f25e069fed406dc8946f6654775f160b9dbef6a89ba557812b5c06",
+        function_digest="048839c8fbbec1950c585b88303aace14c0daacac943f33e016e37d0168b3fbc",
+        module_digest="0cdb947d5fa50988f7abd46894defa376c9118e2a394c0143f358032d283f479",
         note="replay harness fetch_math_row; {table} guarded by `table not in "
         "EQUIV_TABLES` (math_main/bidtopid/ptptstats) — never a vote table",
     ),
@@ -523,10 +523,15 @@ def _guard_flow_ok(fn: ast.AST, qvar: str, guard_var: str, query_node: ast.AST) 
 
 
 def _normalised_digest(node: ast.AST) -> str:
-    """sha256 of the node's NORMALISED source (ast.unparse drops comments and
-    normalises whitespace), so a formatter/comment edit does not change it but any
-    structural change does. Used for both the function and the whole module."""
-    return hashlib.sha256(ast.unparse(node).encode("utf-8")).hexdigest()
+    """sha256 of the node's STRUCTURAL AST dump (``ast.dump`` with field names, no
+    line/col attributes). Comments and whitespace are absent from the AST, so a
+    formatter/comment edit does not change it, while any structural change does.
+    Unlike ``ast.unparse`` (whose f-string quoting differs across CPython 3.12.x
+    patch releases — an unstable digest), ``ast.dump`` records only structure and
+    string VALUES, so the digest is stable across interpreters."""
+    return hashlib.sha256(
+        ast.dump(node, annotate_fields=True, include_attributes=False).encode("utf-8")
+    ).hexdigest()
 
 
 def _exemption_status(rel: str, kind: str, raw: str, source: str) -> str:
