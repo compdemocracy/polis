@@ -435,9 +435,16 @@ export class CdkStack extends cdk.Stack {
     if (this.node.tryGetContext('enableCiEc2') === true ||
         this.node.tryGetContext('enableCiEc2') === 'true') {
       const ciArch = (this.node.tryGetContext('ciEc2Arch') as string | undefined) ?? 'arm64';
+      const ciAllowedTypes = (this.node.tryGetContext('ciEc2AllowedInstanceTypes') as string | undefined)
+        ?? 'r8g.4xlarge,r8g.2xlarge';
+      const ciShutdownMinutes = Number(this.node.tryGetContext('ciEc2ShutdownMinutes') ?? 480);
       new CertificationCiEc2(this, 'CertificationCi', {
         vpc,
         githubRepo: (this.node.tryGetContext('ciEc2GithubRepo') as string | undefined) ?? 'compdemocracy/polis',
+        // Must equal the `environment:` the workflow job declares. The trust
+        // policy admits this subject and nothing else.
+        githubEnvironment: (this.node.tryGetContext('ciEc2GithubEnvironment') as string | undefined)
+          ?? 'certification-synthetic',
         // r8g.4xlarge = 16 vCPU / 128 GiB, the class P-022 E asks for so that a
         // runner OOM cannot be mistaken for a correctness failure.
         instanceType: new ec2.InstanceType(
@@ -445,14 +452,16 @@ export class CdkStack extends cdk.Stack {
         cpuType: ciArch === 'arm64'
           ? ec2.AmazonLinuxCpuType.ARM_64
           : ec2.AmazonLinuxCpuType.X86_64,
+        // Enforced in IAM, so the workflow's instance-type input cannot select
+        // an arbitrary hourly rate.
+        allowedInstanceTypes: ciAllowedTypes.split(',').map((t) => t.trim()).filter(Boolean),
         volumeSizeGiB: Number(this.node.tryGetContext('ciEc2VolumeGiB') ?? 200),
         // Generous: the compute budget is 6 h, this is the backstop for a box
         // whose job died without terminating it.
-        shutdownMinutes: Number(this.node.tryGetContext('ciEc2ShutdownMinutes') ?? 480),
-        fixtureBucket: this.node.tryGetContext('ciEc2FixtureBucket') as string | undefined,
-        fixturePrefix: (this.node.tryGetContext('ciEc2FixturePrefix') as string | undefined) ?? 'p022/bundle/',
-        evidenceBucket: this.node.tryGetContext('ciEc2EvidenceBucket') as string | undefined,
-        evidencePrefix: (this.node.tryGetContext('ciEc2EvidencePrefix') as string | undefined) ?? 'p022/evidence/',
+        shutdownMinutes: ciShutdownMinutes,
+        // The independent sweeper runs behind the OS timer, not against it.
+        sweeperMaxAgeMinutes: Number(
+          this.node.tryGetContext('ciEc2SweeperMaxAgeMinutes') ?? ciShutdownMinutes + 60),
       });
     }
 

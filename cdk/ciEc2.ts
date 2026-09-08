@@ -1,78 +1,105 @@
 /**
- * P-022 §E v1 ("minimal") — disposable EC2 worker for the Delphi certification
- * battery and the recovery matrix.
+ * P-022 §E — disposable EC2 worker for the **synthetic** recovery matrix and
+ * the **public-fixture** replay battery.
  *
- * This construct is DORMANT by default. It is only instantiated when the CDK
- * context flag `enableCiEc2` is true:
+ * ## Scope, after Astra's #2715 review (round 2)
  *
- *     npx cdk synth                          # unchanged stack, nothing here
- *     npx cdk synth -c enableCiEc2=true      # adds the resources below
+ * This is NOT private certification and must never be described as one. Round 1
+ * attached the private fixture-bundle role to a box that GitHub could open a
+ * root shell on, which is not a data boundary at all (review E2). Round 2
+ * removes the private side outright rather than pretending an instance boundary
+ * contains root code:
  *
- * What it provisions (and nothing else):
+ *   - no fixture-bundle read anywhere in this construct,
+ *   - no evidence-bucket write anywhere in this construct,
+ *   - nothing prod-derived is ever staged on the worker,
+ *   - the workflow's verdict is named for what it is (`synthetic`), so it can
+ *     never be mistaken for a certificate.
  *
- *   1. `PolisCertifyGithubOidc` — an IAM role assumable **only** by GitHub
- *      Actions OIDC from this repository on `edge`, `stable` and pull-request
- *      refs. Its permissions are: RunInstances from exactly one launch
- *      template, the launch-time tags that make the instance findable and
- *      killable, PassRole for exactly the worker role, EC2 Describe, tag-scoped
- *      TerminateInstances, and SSM SendCommand/GetCommandInvocation against
- *      tag-scoped instances. No SSH key, no secrets, no S3 fixture read, no
- *      deployment permissions, no template mutation.
+ * Private certification (baked trusted AMI, cloud-init disabled, isolated
+ * account/VPC, endpoint-only egress, autonomous worker publishing a signed
+ * fixed-schema summary that GitHub reads but cannot influence) remains
+ * UNIMPLEMENTED. See cost-reduction/04-plans/P-022-E-ci-spec.md and the round-2
+ * section of P-022-E-implementation-notes.md.
  *
- *   2. `PolisCertifyWorker` — the instance role. SSM core only, plus (optional,
- *      context-gated) read of the private fixture-bundle prefix and write of
- *      the private evidence prefix. The GitHub role can read neither.
+ * ## Gate
  *
- *   3. `CertifyCiLaunchTemplate` — one disposable Graviton box: IMDSv2
- *      required, no public IP, no inbound rules, an encrypted gp3 root volume,
- *      `InstanceInitiatedShutdownBehavior=terminate`, and a user-data script
- *      whose *first* action is `shutdown -h +N` so the instance dies on a hard
- *      deadline even if every later step fails.
+ *     npx cdk synth                       # untouched stack; nothing here exists
+ *     npx cdk synth -c enableCiEc2=true   # adds the resources below
  *
- * Deliberately NOT here (P-022 §E v2, explicitly out of scope): the Lambda
- * admission controller, the JWT capability service, the baked trusted AMI, the
- * signed safe-summary publisher. See cost-reduction/04-plans/P-022-E-ci-spec.md.
+ * ## What it provisions
+ *
+ *   1. `polis-certify-github-oidc` — assumable only by this repository through
+ *      the GitHub **environment** subject (no branch subject, no fork/PR
+ *      subject). It may launch one pinned template at one of a pinned set of
+ *      instance types, tag that launch, Describe, terminate tagged CI boxes,
+ *      and SendCommand `AWS-RunShellScript` at tagged CI boxes. The workflow
+ *      narrows all of that to the single instance it launched with an inline
+ *      session policy at re-assume time.
+ *   2. `polis-certify-worker` — the instance role. An explicit minimal SSM
+ *      agent policy, NOT `AmazonSSMManagedInstanceCore` (which also grants
+ *      `ssm:GetParameter*` on `*` — review E6). No S3, no secrets, no KMS.
+ *   3. `polis-certify-ci` launch template — Graviton, IMDSv2 required, no
+ *      public IP, no inbound rules, encrypted gp3 root, shutdown-terminates,
+ *      and a hard deadline armed as the first user-data action.
+ *   4. An **independent EventBridge expiry sweeper** (review E7, BOARD [12]):
+ *      an hourly Lambda that terminates any `polis:ci=disposable` instance
+ *      older than the deadline, regardless of what GitHub did or failed to do.
  */
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 
-/** Tag key/value that every disposable CI instance must carry. Termination,
- *  SSM access and the manual "kill a stuck box" runbook are all scoped to it. */
+/** Tag key/value every disposable CI instance carries. It is the predicate for
+ *  the sweeper, for the operator runbook, and for the terminate/SendCommand
+ *  conditions. Nothing else in the account uses it. */
 export const CI_TAG_KEY = 'polis:ci';
 export const CI_TAG_VALUE = 'disposable';
-/** Launch-time tag the user-data reads (via IMDS instance tags) to learn which
- *  git ref to check out. Treated as untrusted input and validated in bash. */
+/** Launch-time tag the user-data reads (over IMDSv2) to learn which ref to
+ *  check out. Untrusted input; validated in bash before git sees it. */
 export const CI_REF_TAG_KEY = 'polis:ci-ref';
-/** Launch-time tag carrying `<run_id>-<attempt>`; diagnostics only. */
+/** Launch-time tag carrying `<run_id>-<attempt>` — run ownership for the
+ *  teardown's lost-ID sweep, and diagnostics for the sweeper. */
 export const CI_RUN_TAG_KEY = 'polis:ci-run';
 
 export interface CertificationCiEc2Props {
-  /** VPC to place the worker in. A PRIVATE_WITH_EGRESS subnet is used, so the
-   *  box reaches GitHub/PyPI/Maven/SSM through the existing NAT gateway and is
-   *  not reachable from the internet. */
+  /** VPC for the worker. A PRIVATE_WITH_EGRESS subnet is used. */
   readonly vpc: ec2.IVpc;
   /** `owner/repo` allowed to assume the OIDC role. */
   readonly githubRepo: string;
-  /** Instance type. Graviton (arm64) by default — see docs/ci-ec2.md. */
+  /**
+   * GitHub Actions **environment** whose subject is trusted. The workflow job
+   * declares the same name. Round 1 trusted branch and `pull_request` subjects
+   * while the job declared an environment, so the role could not actually be
+   * assumed by its own workflow and could have been assumed by a fork-visible
+   * subject from some other one (review E3).
+   */
+  readonly githubEnvironment: string;
+  /** Default instance type baked into the template. */
   readonly instanceType: ec2.InstanceType;
   /** Must match `instanceType`'s architecture. */
   readonly cpuType: ec2.AmazonLinuxCpuType;
+  /**
+   * Every instance type the OIDC role may launch. Enforced in IAM through
+   * `ec2:InstanceType`, so a dispatch input cannot select arbitrary spend
+   * (review E6 / divergence 4).
+   */
+  readonly allowedInstanceTypes: string[];
   /** Root volume size, GiB. */
   readonly volumeSizeGiB: number;
-  /** Hard deadline, minutes. `shutdown -h +N` + shutdown-behavior=terminate. */
+  /** Hard deadline, minutes: `shutdown -h +N` + shutdown-behavior=terminate. */
   readonly shutdownMinutes: number;
-  /** Optional: bucket holding the private prod-derived fixture bundle. The
-   *  WORKER may read it; the GitHub role may not. Absent → battery skipped. */
-  readonly fixtureBucket?: string;
-  /** Key prefix within `fixtureBucket`. */
-  readonly fixturePrefix: string;
-  /** Optional: bucket for raw private evidence. Worker writes, GitHub cannot
-   *  read (P-022 §E: no private artifact in a public Actions artifact). */
-  readonly evidenceBucket?: string;
-  /** Key prefix within `evidenceBucket`. */
-  readonly evidencePrefix: string;
+  /**
+   * Age, in minutes, past which the independent sweeper kills a CI instance.
+   * Must exceed `shutdownMinutes` so the sweeper is a backstop to the OS timer
+   * rather than a competitor to it.
+   */
+  readonly sweeperMaxAgeMinutes: number;
 }
 
 export class CertificationCiEc2 extends Construct {
@@ -83,46 +110,58 @@ export class CertificationCiEc2 extends Construct {
   constructor(scope: Construct, id: string, props: CertificationCiEc2Props) {
     super(scope, id);
 
+    if (props.sweeperMaxAgeMinutes <= props.shutdownMinutes) {
+      throw new Error(
+        'ciEc2SweeperMaxAgeMinutes must be greater than ciEc2ShutdownMinutes: ' +
+        'the sweeper is the backstop for the OS timer, not a race against it');
+    }
+    if (props.allowedInstanceTypes.length === 0) {
+      throw new Error('ciEc2AllowedInstanceTypes must not be empty');
+    }
+
     const stack = cdk.Stack.of(this);
     const { account, region, partition } = stack;
+    const instanceArnPattern = `arn:${partition}:ec2:${region}:${account}:instance/*`;
 
     // ---------------------------------------------------------------- worker
-    // Instance role. SSM core is what makes SendCommand work at all; it is the
-    // reason there is no SSH key, no public IP and no inbound security-group
-    // rule anywhere in this construct.
+    // Explicitly NOT AmazonSSMManagedInstanceCore. That managed policy grants
+    // ssm:GetParameter and ssm:GetParameters on "*" alongside the agent
+    // actions, so "SSM only, no secrets" would have been false: any plaintext
+    // Parameter Store value in the account would have been readable from the
+    // box (review E6). These are the agent's own actions and nothing else.
     this.workerRole = new iam.Role(this, 'WorkerRole', {
       roleName: 'polis-certify-worker',
-      description: 'P-022 E disposable certification worker (SSM only, no deploy rights)',
+      description: 'P-022 E synthetic CI worker: SSM agent actions only, no data access',
       assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'),
-      ],
     });
-
-    if (props.fixtureBucket) {
-      // Read-only, prefix-bound. No ListBucket over the whole bucket: the
-      // prefix condition is what stops a compromised worker enumerating
-      // anything else that happens to live there.
-      this.workerRole.addToPolicy(new iam.PolicyStatement({
-        sid: 'ReadPrivateFixtureBundle',
-        actions: ['s3:GetObject', 's3:GetObjectVersion'],
-        resources: [`arn:${partition}:s3:::${props.fixtureBucket}/${props.fixturePrefix}*`],
-      }));
-      this.workerRole.addToPolicy(new iam.PolicyStatement({
-        sid: 'ListPrivateFixturePrefix',
-        actions: ['s3:ListBucket'],
-        resources: [`arn:${partition}:s3:::${props.fixtureBucket}`],
-        conditions: { StringLike: { 's3:prefix': [`${props.fixturePrefix}*`] } },
-      }));
-    }
-
-    if (props.evidenceBucket) {
-      this.workerRole.addToPolicy(new iam.PolicyStatement({
-        sid: 'WritePrivateEvidence',
-        actions: ['s3:PutObject', 's3:AbortMultipartUpload'],
-        resources: [`arn:${partition}:s3:::${props.evidenceBucket}/${props.evidencePrefix}*`],
-      }));
-    }
+    this.workerRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'SsmAgentRegistration',
+      actions: [
+        'ssm:UpdateInstanceInformation',
+        'ssm:ListAssociations',
+        'ssm:ListInstanceAssociations',
+        'ssm:DescribeAssociation',
+        'ssm:GetDocument',
+        'ssm:DescribeDocument',
+      ],
+      resources: ['*'], // none of these six support resource-level authorization
+    }));
+    this.workerRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'SsmAgentChannels',
+      actions: [
+        'ssmmessages:CreateControlChannel',
+        'ssmmessages:CreateDataChannel',
+        'ssmmessages:OpenControlChannel',
+        'ssmmessages:OpenDataChannel',
+        'ec2messages:AcknowledgeMessage',
+        'ec2messages:DeleteMessage',
+        'ec2messages:FailMessage',
+        'ec2messages:GetEndpoint',
+        'ec2messages:GetMessages',
+        'ec2messages:SendReply',
+      ],
+      resources: ['*'],
+    }));
 
     const instanceProfile = new iam.InstanceProfile(this, 'WorkerInstanceProfile', {
       instanceProfileName: 'polis-certify-worker',
@@ -132,32 +171,25 @@ export class CertificationCiEc2 extends Construct {
     // ------------------------------------------------------------------- net
     const securityGroup = new ec2.SecurityGroup(this, 'WorkerSg', {
       vpc: props.vpc,
-      description: 'P-022 E certification worker: no inbound, egress only',
+      description: 'P-022 E synthetic CI worker: no inbound, egress only',
       allowAllOutbound: true,
     });
 
     // ------------------------------------------------------- launch template
-    const userData = buildUserData(props);
-
     this.launchTemplate = new ec2.LaunchTemplate(this, 'LaunchTemplate', {
       launchTemplateName: 'polis-certify-ci',
-      versionDescription: 'P-022 E v1 disposable certification worker',
+      versionDescription: 'P-022 E synthetic recovery + public-fixture battery worker',
       machineImage: new ec2.AmazonLinuxImage({
         generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2023,
         cpuType: props.cpuType,
       }),
       instanceType: props.instanceType,
       instanceProfile,
-      userData,
-      // Cost backstop #1: the OS shuts itself down on a hard deadline (see
-      // buildUserData) and the shutdown terminates rather than stops, so a
-      // wedged job cannot leave a running box or a stopped-but-billed volume.
+      userData: buildUserData(props),
       instanceInitiatedShutdownBehavior: ec2.InstanceInitiatedShutdownBehavior.TERMINATE,
       requireImdsv2: true,
       httpTokens: ec2.LaunchTemplateHttpTokens.REQUIRED,
       httpPutResponseHopLimit: 1,
-      // The user-data needs the ref tag; IMDS tags avoid granting the worker
-      // any ec2:DescribeTags. Hop limit 1 keeps containers off IMDS.
       instanceMetadataTags: true,
       detailedMonitoring: false,
       associatePublicIpAddress: false,
@@ -172,9 +204,6 @@ export class CertificationCiEc2 extends Construct {
       }],
     });
 
-    // Bake the subnet + security group into the template so the caller never
-    // supplies them. IAM also pins both by ARN, but a caller may still pass a
-    // *matching* value; baking them means the ordinary path passes nothing.
     const subnetId = props.vpc.selectSubnets({
       subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
     }).subnetIds[0];
@@ -186,11 +215,7 @@ export class CertificationCiEc2 extends Construct {
       AssociatePublicIpAddress: false,
       DeleteOnTermination: true,
     }]);
-    // NetworkInterfaces and top-level SecurityGroupIds are mutually exclusive.
     cfnLt.addPropertyDeletionOverride('LaunchTemplateData.SecurityGroupIds');
-    // Default tags on instance and volume, so a launch that forgets its own
-    // --tag-specifications is still terminable by tag. (RunInstances-supplied
-    // tag specs REPLACE these per resource type — the workflow re-sends them.)
     cfnLt.addPropertyOverride('LaunchTemplateData.TagSpecifications', [
       { ResourceType: 'instance', Tags: [{ Key: CI_TAG_KEY, Value: CI_TAG_VALUE }] },
       { ResourceType: 'volume', Tags: [{ Key: CI_TAG_KEY, Value: CI_TAG_VALUE }] },
@@ -203,37 +228,32 @@ export class CertificationCiEc2 extends Construct {
     };
 
     // ----------------------------------------------------------- github role
-    // Reuse the account's existing GitHub OIDC provider (the deploy workflows
-    // already authenticate through it); do not create a second one.
+    // The account's GitHub OIDC provider already exists (the deploy workflows
+    // authenticate through it); reference it, do not create a second one.
     const oidcProviderArn = `arn:${partition}:iam::${account}:oidc-provider/token.actions.githubusercontent.com`;
 
     this.githubRole = new iam.Role(this, 'GithubOidcRole', {
       roleName: 'polis-certify-github-oidc',
-      description: 'P-022 E: GitHub Actions launches/observes/terminates the certification worker',
-      // 6 h: the campaign budget is 6 h of compute, and configure-aws-credentials
-      // does not refresh. A 1 h session would expire mid-poll and orphan the box.
+      description: 'P-022 E: launches, drives and destroys the synthetic CI worker',
       maxSessionDuration: cdk.Duration.hours(6),
+      // ENVIRONMENT subject, exactly, and nothing else. No branch subject: an
+      // environment job's token carries the environment form, so a branch
+      // subject would not have matched anyway. No `pull_request`: fork-authored
+      // code must never be able to request this role from any workflow in the
+      // repository, whether or not THIS file has a pull_request trigger.
       assumedBy: new iam.WebIdentityPrincipal(oidcProviderArn, {
         StringEquals: {
           'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
-        },
-        StringLike: {
-          'token.actions.githubusercontent.com:sub': [
-            `repo:${props.githubRepo}:ref:refs/heads/edge`,
-            `repo:${props.githubRepo}:ref:refs/heads/stable`,
-            `repo:${props.githubRepo}:pull_request`,
-          ],
+          'token.actions.githubusercontent.com:sub':
+            `repo:${props.githubRepo}:environment:${props.githubEnvironment}`,
         },
       }),
     });
 
-    // (a) the instance itself: pinned template, pinned instance profile,
-    //     IMDSv2 required, and the disposable tag is mandatory at launch so
-    //     the tag-scoped terminate below can never fail to match.
     this.githubRole.addToPolicy(new iam.PolicyStatement({
       sid: 'LaunchApprovedInstance',
       actions: ['ec2:RunInstances'],
-      resources: [`arn:${partition}:ec2:${region}:${account}:instance/*`],
+      resources: [instanceArnPattern],
       conditions: {
         ArnEquals: {
           'ec2:LaunchTemplate': launchTemplateArn,
@@ -243,13 +263,19 @@ export class CertificationCiEc2 extends Construct {
         StringEquals: {
           'ec2:MetadataHttpTokens': 'required',
           [`aws:RequestTag/${CI_TAG_KEY}`]: CI_TAG_VALUE,
+          // Pinned in IAM, not merely defaulted in the template: a dispatch
+          // input must not be able to select an arbitrary hourly rate.
+          'ec2:InstanceType': props.allowedInstanceTypes,
         },
+        // Every launch must carry the run tag, so the teardown's lost-ID sweep
+        // and the sweeper's forensics always have an owner to name.
+        'ForAllValues:StringEquals': {
+          'aws:TagKeys': [CI_TAG_KEY, CI_REF_TAG_KEY, CI_RUN_TAG_KEY],
+        },
+        StringLike: { [`aws:RequestTag/${CI_RUN_TAG_KEY}`]: '?*' },
       },
     }));
 
-    // (b) the supporting resources the same call creates/consumes. Instance
-    //     configuration condition keys apply to the instance ARN, not to these,
-    //     so they are a separate statement (P-022-E-ci-spec.md).
     this.githubRole.addToPolicy(new iam.PolicyStatement({
       sid: 'ApprovedLaunchResources',
       actions: ['ec2:RunInstances'],
@@ -264,14 +290,11 @@ export class CertificationCiEc2 extends Construct {
       conditions: templateCondition,
     }));
 
-    // Launch-time tagging only. `ec2:CreateAction` pins this to RunInstances,
-    // so the role cannot retag anything that already exists; `aws:TagKeys`
-    // pins the exact three keys.
     this.githubRole.addToPolicy(new iam.PolicyStatement({
       sid: 'TagAtLaunchOnly',
       actions: ['ec2:CreateTags'],
       resources: [
-        `arn:${partition}:ec2:${region}:${account}:instance/*`,
+        instanceArnPattern,
         `arn:${partition}:ec2:${region}:${account}:volume/*`,
         `arn:${partition}:ec2:${region}:${account}:network-interface/*`,
       ],
@@ -280,14 +303,13 @@ export class CertificationCiEc2 extends Construct {
           'ec2:CreateAction': 'RunInstances',
           [`aws:RequestTag/${CI_TAG_KEY}`]: CI_TAG_VALUE,
         },
+        StringLike: { [`aws:RequestTag/${CI_RUN_TAG_KEY}`]: '?*' },
         'ForAllValues:StringEquals': {
           'aws:TagKeys': [CI_TAG_KEY, CI_REF_TAG_KEY, CI_RUN_TAG_KEY],
         },
       },
     }));
 
-    // Attaching an instance profile requires PassRole in addition to
-    // RunInstances. Exactly one role, only to EC2.
     this.githubRole.addToPolicy(new iam.PolicyStatement({
       sid: 'PassOnlyWorkerRole',
       actions: ['iam:PassRole'],
@@ -295,29 +317,31 @@ export class CertificationCiEc2 extends Construct {
       conditions: { StringEquals: { 'iam:PassedToService': 'ec2.amazonaws.com' } },
     }));
 
-    // EC2 Describe* has no resource-level authorization; it is read-only.
+    // EC2 Describe* has no resource-level authorization (confirmed against the
+    // service authorization reference); it is read-only metadata.
     this.githubRole.addToPolicy(new iam.PolicyStatement({
       sid: 'ObserveInstances',
-      actions: [
-        'ec2:DescribeInstances',
-        'ec2:DescribeInstanceStatus',
-        'ec2:DescribeTags',
-        'ec2:DescribeLaunchTemplates',
-        'ec2:DescribeLaunchTemplateVersions',
-      ],
+      actions: ['ec2:DescribeInstances', 'ec2:DescribeInstanceStatus'],
       resources: ['*'],
     }));
 
-    // The `if: always()` teardown, and the manual kill-by-tag runbook.
+    // `ec2:ResourceTag` IS a supported condition key for ec2:TerminateInstances
+    // on the instance resource. The workflow narrows this to the single
+    // instance it launched with an inline session policy; the tag condition is
+    // the floor, for the lost-ID sweep and the operator runbook.
     this.githubRole.addToPolicy(new iam.PolicyStatement({
-      sid: 'TerminateOwnDisposableInstances',
+      sid: 'TerminateDisposableCiInstances',
       actions: ['ec2:TerminateInstances'],
-      resources: [`arn:${partition}:ec2:${region}:${account}:instance/*`],
+      resources: [instanceArnPattern],
       conditions: { StringEquals: { [`ec2:ResourceTag/${CI_TAG_KEY}`]: CI_TAG_VALUE } },
     }));
 
-    // SendCommand is authorized against BOTH the document and the targets, so
-    // it takes two statements: only AWS-RunShellScript, only tagged instances.
+    // SendCommand authorizes against the document AND the target, so two
+    // statements. Round 1 used `ec2:ResourceTag/...` here, which the SSM
+    // service authorization reference does not list for this action — the
+    // instance resource type supports `aws:ResourceTag/${TagKey}` and
+    // `ssm:resourceTag/${TagKey}` only, so the intended target would have been
+    // denied (review E6). Corrected to `ssm:resourceTag/`.
     this.githubRole.addToPolicy(new iam.PolicyStatement({
       sid: 'RunShellScriptDocumentOnly',
       actions: ['ssm:SendCommand'],
@@ -326,20 +350,71 @@ export class CertificationCiEc2 extends Construct {
     this.githubRole.addToPolicy(new iam.PolicyStatement({
       sid: 'SendCommandToDisposableInstancesOnly',
       actions: ['ssm:SendCommand'],
-      resources: [`arn:${partition}:ec2:${region}:${account}:instance/*`],
-      conditions: { StringEquals: { [`ec2:ResourceTag/${CI_TAG_KEY}`]: CI_TAG_VALUE } },
+      resources: [instanceArnPattern],
+      conditions: { StringEquals: { [`ssm:resourceTag/${CI_TAG_KEY}`]: CI_TAG_VALUE } },
     }));
+    // ssm:GetCommandInvocation and ssm:DescribeInstanceInformation support NO
+    // resource types and NO condition keys (service authorization reference),
+    // so they cannot be narrowed here or in a session policy. That residual is
+    // why ListCommands/ListCommandInvocations/CancelCommand were dropped
+    // outright in round 2 rather than kept "for convenience", and why the
+    // account this runs in matters (review E6).
     this.githubRole.addToPolicy(new iam.PolicyStatement({
-      sid: 'ReadOwnCommandResults',
-      actions: [
-        'ssm:GetCommandInvocation',
-        'ssm:ListCommandInvocations',
-        'ssm:ListCommands',
-        'ssm:DescribeInstanceInformation',
-        'ssm:CancelCommand',
-      ],
+      sid: 'ReadCommandResults',
+      actions: ['ssm:GetCommandInvocation', 'ssm:DescribeInstanceInformation'],
       resources: ['*'],
     }));
+
+    // ------------------------------------------------------- expiry sweeper
+    // Independent of GitHub entirely: it runs whether or not a workflow ever
+    // reaches its teardown, whether or not the OS timer armed, and whether or
+    // not the instance's kernel is alive (review E7, BOARD [12]).
+    const sweeperRole = new iam.Role(this, 'SweeperRole', {
+      description: 'P-022 E expiry sweeper: kill overdue disposable CI instances',
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+    });
+    sweeperRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'FindOverdueCiInstances',
+      actions: ['ec2:DescribeInstances'],
+      resources: ['*'],
+    }));
+    sweeperRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'TerminateOverdueCiInstances',
+      actions: ['ec2:TerminateInstances'],
+      resources: [instanceArnPattern],
+      conditions: { StringEquals: { [`ec2:ResourceTag/${CI_TAG_KEY}`]: CI_TAG_VALUE } },
+    }));
+
+    // An explicit log group rather than the `logRetention` prop: that prop
+    // drags in a shared LogRetention custom-resource Lambda and its role, which
+    // is three extra account-wide resources for a retention setting.
+    const sweeperLogs = new logs.LogGroup(this, 'ExpirySweeperLogs', {
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+    sweeperLogs.grantWrite(sweeperRole);
+
+    const sweeper = new lambda.Function(this, 'ExpirySweeper', {
+      description: 'Terminates polis:ci=disposable instances older than the hard deadline',
+      runtime: lambda.Runtime.PYTHON_3_12,
+      architecture: lambda.Architecture.ARM_64,
+      handler: 'index.handler',
+      role: sweeperRole,
+      timeout: cdk.Duration.minutes(2),
+      logGroup: sweeperLogs,
+      environment: {
+        MAX_AGE_MINUTES: String(props.sweeperMaxAgeMinutes),
+        CI_TAG_KEY,
+        CI_TAG_VALUE,
+      },
+      code: lambda.Code.fromInline(SWEEPER_SOURCE),
+    });
+
+    new events.Rule(this, 'ExpirySweeperSchedule', {
+      description: 'Hourly expiry sweep for P-022 E disposable CI instances',
+      schedule: events.Schedule.rate(cdk.Duration.hours(1)),
+      targets: [new targets.LambdaFunction(sweeper)],
+    });
 
     // --------------------------------------------------------------- outputs
     new cdk.CfnOutput(this, 'CertifyOidcRoleArn', {
@@ -358,48 +433,102 @@ export class CertificationCiEc2 extends Construct {
 }
 
 /**
- * User data for the disposable worker.
+ * The expiry sweeper. Deliberately tiny, dependency-free and independent of the
+ * Actions run: it is the only teardown guarantee that survives a dead runner, a
+ * forced cancellation, an expired credential or a wedged kernel.
+ */
+const SWEEPER_SOURCE = `
+import datetime, os
+import boto3
+
+MAX_AGE = datetime.timedelta(minutes=int(os.environ["MAX_AGE_MINUTES"]))
+TAG_KEY = os.environ["CI_TAG_KEY"]
+TAG_VALUE = os.environ["CI_TAG_VALUE"]
+ACTIVE = ["pending", "running", "stopping", "stopped"]
+
+
+def handler(event, context):
+    ec2 = boto3.client("ec2")
+    now = datetime.datetime.now(datetime.timezone.utc)
+    overdue, seen = [], 0
+    paginator = ec2.get_paginator("describe_instances")
+    pages = paginator.paginate(Filters=[
+        {"Name": "tag:" + TAG_KEY, "Values": [TAG_VALUE]},
+        {"Name": "instance-state-name", "Values": ACTIVE},
+    ])
+    for page in pages:
+        for reservation in page["Reservations"]:
+            for inst in reservation["Instances"]:
+                seen += 1
+                age = now - inst["LaunchTime"]
+                if age > MAX_AGE:
+                    overdue.append(inst["InstanceId"])
+                    print("OVERDUE %s age=%s state=%s tags=%s" % (
+                        inst["InstanceId"], age, inst["State"]["Name"],
+                        {t["Key"]: t["Value"] for t in inst.get("Tags", [])}))
+    if overdue:
+        # Let a failure here raise: an unswept overdue instance must show up as
+        # a Lambda error metric, not as a silent success.
+        ec2.terminate_instances(InstanceIds=overdue)
+        print("TERMINATED %s" % overdue)
+    return {"seen": seen, "terminated": overdue}
+`;
+
+/**
+ * User data for the synthetic worker.
  *
- * Ordering matters: the shutdown timer is armed BEFORE anything that can fail,
- * so a broken bootstrap still costs at most `shutdownMinutes` of instance time.
+ * Two things in order matter here. First, the hard deadline is armed before
+ * anything that can fail, and — round 2 — a failure to arm it is fatal rather
+ * than swallowed by `|| true`: an instance that cannot promise to kill itself
+ * kills itself now. Second, a redundant in-process timer is started, so the
+ * deadline does not depend on a single `shutdown` implementation.
+ *
  * The git ref arrives as an instance tag read through IMDSv2 and is validated
- * against a strict character class before it is ever handed to git — it is
- * caller-controlled input and is never eval'd or interpolated into a shell
- * command that could break out of its quoting.
+ * against a strict character class before git sees it. Nothing prod-derived is
+ * ever staged here: there is no fixture bucket, and the instance role cannot
+ * read one.
  */
 function buildUserData(props: CertificationCiEc2Props): ec2.UserData {
   const ud = ec2.UserData.forLinux();
+  const deadlineSeconds = props.shutdownMinutes * 60;
   ud.addCommands(
     'set -euo pipefail',
     'exec > >(tee -a /var/log/polis-ci-userdata.log) 2>&1',
     'echo "polis-ci bootstrap starting at $(date -u --iso-8601=seconds)"',
     '',
-    '# --- cost backstop: arm the hard deadline before anything that can fail.',
-    '# The launch template sets InstanceInitiatedShutdownBehavior=terminate, so',
-    '# this halt is a termination, not a stop.',
-    `shutdown -h +${props.shutdownMinutes} "polis-ci hard deadline" || true`,
-    '',
     'fail() { echo "polis-ci bootstrap FAILED: $*" >&2; touch /var/lib/polis-ci-failed; exit 1; }',
     '',
-    '# --- docker + compose (v2 CLI plugin) + the tools the suites shell out to.',
+    '# --- cost backstop, armed before anything that can fail. The launch',
+    '# template sets InstanceInitiatedShutdownBehavior=terminate, so a halt is',
+    '# a termination. An instance that cannot arm its own deadline is a cost',
+    '# leak waiting to happen, so failing to arm it is fatal immediately.',
+    `if ! shutdown -h +${props.shutdownMinutes} "polis-ci hard deadline"; then`,
+    '  echo "could not arm the shutdown timer; terminating now" >&2',
+    '  poweroff -f',
+    '  exit 1',
+    'fi',
+    '# Redundant timer, independent of shutdown(8) and of this script surviving.',
+    `setsid bash -c 'sleep ${deadlineSeconds}; poweroff -f' </dev/null >/dev/null 2>&1 &`,
+    '',
+    '# --- docker + compose + the tools the suites shell out to.',
     'dnf update -y || true',
-    'dnf install -y docker git jq tar gzip make awscli-2 || dnf install -y docker git jq tar gzip',
-    'systemctl enable --now docker',
+    'dnf install -y docker git jq tar gzip make || fail "dnf install"',
+    'systemctl enable --now docker || fail "docker"',
     'usermod -a -G docker ec2-user',
-    '# $(uname -m) resolves to aarch64 on Graviton and x86_64 otherwise; a',
-    '# hardcoded arch here is how a boot script dies with "Exec format error".',
+    '# $(uname -m) is aarch64 on Graviton and x86_64 otherwise; a hardcoded',
+    '# arch here is how a boot script dies with "Exec format error".',
     'COMPOSE_VERSION=v2.40.0',
     'mkdir -p /usr/libexec/docker/cli-plugins',
-    'curl -fsSL "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-$(uname -m)" -o /usr/libexec/docker/cli-plugins/docker-compose',
+    'curl -fsSL "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-$(uname -m)" -o /usr/libexec/docker/cli-plugins/docker-compose || fail "compose download"',
     'chmod +x /usr/libexec/docker/cli-plugins/docker-compose',
     'ln -sf /usr/libexec/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose',
-    'docker compose version',
+    'docker compose version || fail "compose"',
     '',
     '# --- which ref to test: an instance tag, read over IMDSv2.',
     'IMDS_TOKEN="$(curl -fsS -X PUT http://169.254.169.254/latest/api/token -H "X-aws-ec2-metadata-token-ttl-seconds: 600")" || fail "no IMDSv2 token"',
     `POLIS_REF="$(curl -fsS -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" "http://169.254.169.254/latest/meta-data/tags/instance/${CI_REF_TAG_KEY}" || true)"`,
     'if [ -z "$POLIS_REF" ]; then POLIS_REF=edge; fi',
-    '# Untrusted input. Allow only ref-shaped characters, and no ".." segment.',
+    '# Untrusted input. Ref-shaped characters only, and no ".." segment.',
     'if ! printf %s "$POLIS_REF" | grep -Eq \'^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$\'; then fail "rejected ref"; fi',
     'case "$POLIS_REF" in *..*) fail "rejected ref" ;; esac',
     '',
@@ -411,7 +540,6 @@ function buildUserData(props: CertificationCiEc2Props): ec2.UserData {
     'chown -R ec2-user:ec2-user /opt/polis',
     '',
     'mkdir -p /var/log/polis-ci',
-    'chown ec2-user:ec2-user /var/log/polis-ci',
     '# The workflow polls for this marker before it sends any SSM command.',
     'touch /var/lib/polis-ci-ready',
     'echo "polis-ci bootstrap ready at $(date -u --iso-8601=seconds) sha=$(cat /var/lib/polis-ci-sha)"',
