@@ -14,15 +14,19 @@ import pytest
 
 # delphi/scripts is put on sys.path by conftest.py (the checkout locator); the
 # implementation lives there, this test lives under delphi/tests/scripts so the
-# Delphi CI job collects it. The import is guarded so the copied /app/tests layout
-# (no checkout on sys.path) FAILS CLOSED to a per-test skip instead of erroring.
+# Delphi CI job collects it. The import fails closed to a per-test skip ONLY when
+# the implementation MODULE itself is absent (no checkout on sys.path); any other
+# import-time failure — a missing dependency, a syntax error, a RuntimeError in a
+# LOCATED implementation — propagates as a test ERROR, not a green skip.
 try:
     import projection_inventory as inv  # noqa: E402
-except Exception as _import_error:  # pragma: no cover - exercised only in CI layout
+except ModuleNotFoundError as _import_error:  # pragma: no cover - CI layout only
+    if _import_error.name != "projection_inventory":
+        raise
     inv = None  # type: ignore[assignment]
     _INV_SKIP = (
-        f"projection_inventory unavailable ({type(_import_error).__name__}: "
-        f"{_import_error}); needs a polis checkout on sys.path (see conftest)"
+        "projection_inventory not found on sys.path (no polis checkout — see conftest); "
+        "set POLIS_CHECKOUT_DIR to run these tests"
     )
 else:
     _INV_SKIP = None
@@ -43,6 +47,43 @@ _INTERP = f"(interpreter {sys.version.split()[0]})"
 # The real-tree sweep scans <checkout>/server/src and <checkout>/delphi.
 _CHECKOUT = os.path.abspath(os.path.join(os.path.dirname(inv.__file__), "..", "..")) if inv else None
 _SERVER_SRC = os.path.join(_CHECKOUT, "server", "src") if _CHECKOUT else None
+
+
+def _guarded_import(name: str):
+    """The exact guard both test modules use: swallow a ModuleNotFoundError ONLY
+    when the named implementation module itself is absent; re-raise anything else."""
+    import importlib
+    try:
+        return importlib.import_module(name), None
+    except ModuleNotFoundError as exc:
+        if exc.name != name:
+            raise
+        return None, "module not found"
+
+
+def test_import_guard_reraises_defects_not_just_missing(tmp_path) -> None:
+    """R14 (Astra import-regression witness): a LOCATED implementation that raises
+    at import must FAIL the run, not turn green as a skip. Only a genuinely-absent
+    named module is swallowed to a skip."""
+    d = tmp_path / "guardpkg"
+    d.mkdir()
+    (d / "projgate_boom.py").write_text("raise RuntimeError('synthetic import regression')\n")
+    (d / "projgate_baddep.py").write_text("import nonexistent_dependency_xyz\n")
+    sys.path.insert(0, str(d))
+    try:
+        # A located implementation that raises -> propagates (test ERROR), not skip.
+        with pytest.raises(RuntimeError, match="synthetic import regression"):
+            _guarded_import("projgate_boom")
+        # A located implementation missing a dependency -> propagates.
+        with pytest.raises(ModuleNotFoundError):
+            _guarded_import("projgate_baddep")
+        # The named module genuinely absent -> swallowed to a skip.
+        mod, reason = _guarded_import("projgate_totally_absent_xyz")
+        assert mod is None and reason == "module not found"
+    finally:
+        sys.path.remove(str(d))
+        for _m in ("projgate_boom", "projgate_baddep"):
+            sys.modules.pop(_m, None)
 
 
 def test_inventory_is_exactly_the_reviewed_set() -> None:
