@@ -116,14 +116,20 @@ def marker_problems(value: Any) -> list[str]:
         problems.append(f"marker is missing {missing!r}")
     for unknown in sorted(set(value) - MARKER_KEYS):
         problems.append(f"marker carries unknown field {unknown!r}")
-    if value.get("profile") not in PROFILES:
+    # TYPE before membership at every lookup (Astra review #2730 R2-F2): an
+    # unhashable value (`profile: []`, `vote_axis: {}`) raised a raw
+    # `TypeError: unhashable type` out of the set test, escaping every gate
+    # that promised a named, graded failure. A container is simply not a token.
+    profile = value.get("profile")
+    if not isinstance(profile, str) or profile not in PROFILES:
         problems.append(
-            f"marker profile {value.get('profile')!r} is not one of "
-            f"{sorted(PROFILES)}")
-    if value.get("vote_axis") not in VOTE_AXES:
+            f"marker profile {profile!r} ({type(profile).__name__}) is not one "
+            f"of {sorted(PROFILES)}")
+    vote_axis = value.get("vote_axis")
+    if not isinstance(vote_axis, str) or vote_axis not in VOTE_AXES:
         problems.append(
-            f"marker vote_axis {value.get('vote_axis')!r} is not one of "
-            f"{sorted(VOTE_AXES)}")
+            f"marker vote_axis {vote_axis!r} ({type(vote_axis).__name__}) is "
+            f"not one of {sorted(VOTE_AXES)}")
     restorable = value.get("restorable")
     if type(restorable) is not bool or restorable is not False:
         problems.append(
@@ -136,10 +142,10 @@ def marker_problems(value: Any) -> list[str]:
             f"{type(transforms).__name__}")
     else:
         for i, name in enumerate(transforms):
-            if name not in TRANSFORMS:
+            if not isinstance(name, str) or name not in TRANSFORMS:
                 problems.append(
-                    f"marker transforms[{i}] is {name!r}, not one of "
-                    f"{sorted(TRANSFORMS)}")
+                    f"marker transforms[{i}] is {name!r} "
+                    f"({type(name).__name__}), not one of {sorted(TRANSFORMS)}")
     return problems
 
 
