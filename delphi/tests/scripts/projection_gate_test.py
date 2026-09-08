@@ -31,23 +31,40 @@ import os
 import shutil
 import socket
 import subprocess
-import sys
 import time
 import uuid
 from typing import Iterator
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import projection_gate as pg  # noqa: E402
+# delphi/scripts is put on sys.path by conftest.py (the checkout locator); the
+# implementation lives there, this test lives under delphi/tests/scripts so the
+# Delphi CI job collects it. The import is guarded so the copied /app/tests layout
+# (no checkout on sys.path, or no psycopg2) FAILS CLOSED to a per-test skip instead
+# of erroring at collection.
+try:
+    import projection_gate as pg  # noqa: E402
+except Exception as _import_error:  # pragma: no cover - exercised only in CI layout
+    pg = None  # type: ignore[assignment]
+    _GATE_SKIP = (
+        f"projection_gate unavailable ({type(_import_error).__name__}: {_import_error}); "
+        "needs a polis checkout on sys.path (see conftest) and psycopg2"
+    )
+else:
+    _GATE_SKIP = None
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration]
+if _GATE_SKIP:
+    pytestmark.append(pytest.mark.skip(reason=_GATE_SKIP))
 
 # Obviously-synthetic conversation id — never a real production zid.
 SYNTHETIC_ZID = 424242
 
-_MIGRATIONS_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "server", "postgres", "migrations")
+# Migrations live beside the server source the gate reproduces (checkout/server).
+_server_dir = pg._resolve_server_dir() if pg else None
+_MIGRATIONS_DIR = (
+    os.path.join(_server_dir, "postgres", "migrations") if _server_dir
+    else "/nonexistent/server/postgres/migrations"
 )
 _PORT_RANGE = range(55970, 55980)
 
