@@ -470,6 +470,75 @@ def test_wire_gate_negative_control_extra_field(dsn: str) -> None:
         ])
 
 
+def _copy_server_src(dst_root: str) -> str:
+    """Copy the two real source files the witness reads into <dst_root>/src."""
+    import shutil
+
+    server_dir = pg._resolve_server_dir()
+    if not server_dir:
+        pytest.skip("server/ not found")
+    src = os.path.join(dst_root, "src")
+    os.makedirs(os.path.join(src, "routes"), exist_ok=True)
+    shutil.copy(os.path.join(server_dir, "src", "routes", "votes.ts"),
+                os.path.join(src, "routes", "votes.ts"))
+    shutil.copy(os.path.join(server_dir, "src", "server-helpers.ts"),
+                os.path.join(src, "server-helpers.ts"))
+    return src
+
+
+def test_wire_gate_is_source_bound(dsn: str, tmp_path) -> None:
+    """Round-3 defect 1: SERVED is the REAL route/serializer executed from source,
+    so an on-disk change to votes.ts or server-helpers.ts is caught."""
+    src = _copy_server_src(str(tmp_path))
+    kw = dict(server_dir=pg._resolve_server_dir(), src_root=src)
+
+    # Baseline: unmutated real source == frozen expected -> PASS.
+    base = _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID, "pid": 0}, **kw)
+    assert all(r.ok for r in base), [r.summary_line() for r in base]
+
+    votes_ts = os.path.join(src, "routes", "votes.ts")
+    helpers_ts = os.path.join(src, "server-helpers.ts")
+    with open(votes_ts) as f:
+        votes_orig = f.read()
+    with open(helpers_ts) as f:
+        helpers_orig = f.read()
+
+    def _write(path: str, text: str) -> None:
+        with open(path, "w") as f:
+            f.write(text)
+
+    # Mutation A: flip the served vote sign in the ACTUAL route.
+    assert "resolve(results.rows);" in votes_orig
+    _write(votes_ts, votes_orig.replace(
+        "resolve(results.rows);",
+        "resolve(results.rows.map((r) => ({ ...r, vote: -r.vote })));"))
+    rA = {r.site.name: r for r in _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID, "pid": 0}, **kw)}
+    assert not rA["votesGet"].ok
+    assert any(f.cls is pg.CellClass.VALUE_DIFF and f.column == "vote"
+               for f in rA["votesGet"].findings)
+    _write(votes_ts, votes_orig)  # restore
+
+    # Mutation B: make the ACTUAL finishArray retain zid + add a field.
+    assert "delete items[i].zid;" in helpers_orig
+    _write(helpers_ts, helpers_orig.replace(
+        "delete items[i].zid;", "items[i].internal_probe = true;"))
+    rB = {r.site.name: r for r in _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID, "pid": 0}, **kw)}
+    for name in ("votesGet", "handle_GET_votes_me"):
+        assert not rB[name].ok
+        extras = [f.column for f in rB[name].findings if f.cls is pg.CellClass.EXTRA_FIELD]
+        assert "zid" in extras and "internal_probe" in extras, rB[name].findings
+
+
+def test_wire_gate_absent_pid_reflects_real_handler(dsn: str) -> None:
+    """Round-3 defect 1: without pid the REAL votesGet returns [] (via
+    getVotesForSingleParticipant), so the gate must NOT report a populated PASS."""
+    reports = _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID})  # no pid bound
+    by_name = {r.site.name: r for r in reports}
+    vg = by_name["votesGet"]
+    assert vg.row_count_served == 0     # real handler returned []
+    assert not vg.ok                    # not a populated PASS
+
+
 def test_manifest_wire_channel_binds_replica(dsn: str) -> None:
     # Skip if the witness can't run in this environment.
     _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID, "pid": 0})

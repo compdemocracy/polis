@@ -569,6 +569,7 @@ def run_wire_witness(
     sites: Optional[Sequence[str]] = None,
     server_dir: Optional[str] = None,
     node_modules: Optional[str] = None,
+    src_root: Optional[str] = None,
 ) -> dict[str, Any]:
     node = shutil.which("node")
     if not node:
@@ -581,13 +582,15 @@ def run_wire_witness(
         raise WireWitnessUnavailable(f"witness missing: {witness}")
     node_modules = node_modules or _resolve_node_modules(server_dir)
     if not node_modules:
-        raise WireWitnessUnavailable("server node_modules (sql, pg) not resolvable")
+        raise WireWitnessUnavailable("server node_modules (sql, pg, typescript) not resolvable")
     names = list(sites) if sites else list(SITES)
     args = [node, witness, "--dsn", dsn, "--zid", str(filters["zid"]), "--sites", ",".join(names)]
     if filters.get("pid") is not None:
         args += ["--pid", str(filters["pid"])]
     if filters.get("tid") is not None:
         args += ["--tid", str(filters["tid"])]
+    if src_root:
+        args += ["--src-root", src_root]
     env = dict(os.environ, NODE_PATH=node_modules)
     proc = subprocess.run(args, capture_output=True, text=True, env=env)
     if proc.returncode != 0:
@@ -606,9 +609,12 @@ def classify_wire(
     expected_rows: list[dict[str, Any]],
     served_rows: list[dict[str, Any]],
     filters: Optional[dict[str, Any]] = None,
+    served_json: Optional[str] = None,
+    expected_json: Optional[str] = None,
 ) -> SiteReport:
     """Classify SERVED wire objects: positional (array order is contract), keys in
-    object order (ORDER_ONLY), type-sensitive values (VALUE_DIFF)."""
+    object order (ORDER_ONLY), type-sensitive values (VALUE_DIFF). If the exact
+    served/expected JSON strings are supplied, a byte mismatch is caught too."""
     report = SiteReport(
         site=site,
         filters=dict(filters or {}),
@@ -647,6 +653,17 @@ def classify_wire(
         report.findings.append(Finding(CellClass.MISSING_FIELD, k))
     for k in sorted(order_cols):
         report.findings.append(Finding(CellClass.ORDER_ONLY, k))
+    # Exact wire bytes: if the raw JSON strings differ but per-cell classification
+    # found nothing (e.g. numeric spelling / escaping), record it as a VALUE_DIFF.
+    if (
+        served_json is not None
+        and expected_json is not None
+        and served_json != expected_json
+        and not report.findings
+    ):
+        report.findings.append(
+            Finding(CellClass.VALUE_DIFF, "<raw-json-bytes>", expected=expected_json[:120], served=served_json[:120])
+        )
     return report
 
 
@@ -658,13 +675,17 @@ def gate_wire(
     allow_empty: Sequence[str] = (),
     server_dir: Optional[str] = None,
     node_modules: Optional[str] = None,
+    src_root: Optional[str] = None,
 ) -> list[SiteReport]:
-    data = run_wire_witness(dsn, filters, sites, server_dir, node_modules)
+    data = run_wire_witness(dsn, filters, sites, server_dir, node_modules, src_root)
     names = list(sites) if sites else list(SITES)
     reports: list[SiteReport] = []
     for name in names:
         blob = data[name]
-        report = classify_wire(SITES[name], blob["expected"], blob["served"], filters)
+        report = classify_wire(
+            SITES[name], blob["expected"], blob["served"], filters,
+            served_json=blob.get("servedJson"), expected_json=blob.get("expectedJson"),
+        )
         reports.append(_apply_coverage(report, require_populated, allow_empty))
     return reports
 
@@ -788,6 +809,7 @@ def run_manifest(
     server_dir: Optional[str] = None,
     node_modules: Optional[str] = None,
     approve_same_identity: bool = False,
+    src_root: Optional[str] = None,
 ) -> Manifest:
     runs: list[ChannelRun] = []
 
@@ -803,7 +825,8 @@ def run_manifest(
         if "wire" in channels:
             try:
                 reports = gate_wire(
-                    dsn, filters, sites, require_populated, allow_empty, server_dir, node_modules
+                    dsn, filters, sites, require_populated, allow_empty,
+                    server_dir, node_modules, src_root,
                 )
                 runs.append(ChannelRun(label, "wire", reports))
             except WireWitnessUnavailable as exc:
