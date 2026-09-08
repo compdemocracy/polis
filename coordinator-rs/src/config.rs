@@ -15,6 +15,7 @@ pub struct Config {
     pub window: i64,
     pub lease_seconds: i32,
     pub poll_ms: u64,
+    pub cache_capacity: usize,
 }
 fn value<T: std::str::FromStr>(name: &str, default: &str) -> Result<T>
 where
@@ -44,6 +45,7 @@ impl Config {
             window: value("P026_WINDOW", "64")?,
             lease_seconds: value("P026_LEASE_SECONDS", "120")?,
             poll_ms: value("P026_POLL_MS", "1000")?,
+            cache_capacity: value("P026_CACHE_CAP", "16")?,
         };
         c.validate()?;
         Ok(c)
@@ -67,6 +69,7 @@ impl Config {
             !self.math_env.is_empty() && self.math_env.len() <= 999,
             "invalid namespace"
         );
+        ensure!(self.cache_capacity <= 1024, "invalid warm cache capacity");
         Ok(())
     }
     pub fn accepts(&self, zid: i32) -> bool {

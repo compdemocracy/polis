@@ -1,5 +1,6 @@
 //! CO04 v0: parent -> lease -> ticks -> bidtopid -> ptptstats -> main.
 use crate::{
+    cache::WarmCache,
     config::Config,
     fault::Fault,
     lease::{self, LeaseState},
@@ -188,6 +189,7 @@ pub struct PgStore {
     pub client: Client,
     pub config: Config,
     pub fault: Fault,
+    pub cache: WarmCache,
 }
 impl PgStore {
     pub fn connect(config: Config) -> Result<Self> {
@@ -195,10 +197,12 @@ impl PgStore {
         let mut client = Client::connect(&config.database_url, NoTls)?;
         client.batch_execute("SET statement_timeout='30s'; SET lock_timeout='5s'; SET application_name='p026-coordinator'")?;
         let fault = Fault::new(&mut client, &config.math_env)?;
+        let cache = WarmCache::new(config.cache_capacity);
         Ok(Self {
             client,
             config,
             fault,
+            cache,
         })
     }
     /// Restore the primary connection after a terminated backend, so ownership
