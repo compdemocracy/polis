@@ -57,11 +57,25 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
-#: Bumped to /2 by the lossless correction: NULL ``weight_x_32767`` and NULL
-#: ``votes.vote`` now survive extraction as nulls instead of becoming 0, and the
+from polismath.utils.vote_convention import (
+    ADMISSIBLE_STORAGE_AGREE_VALUES,
+    EXPORT_AGREE_VALUE,
+    STORAGE_AGREE_VALUE,
+    validate_storage_agree_value,
+)
+
+#: Bumped to /3 by P-023: ``polarity.storage_agree_value`` is now a DECLARED
+#: per-bundle value admitted for exactly -1 or +1 (it was hard-pinned to -1, so
+#: the flipped side of a compensated polarity pair was inadmissible by
+#: construction and could be neither pushed nor pulled), and the manifest
+#: carries a closed ``transform`` block binding a derived fixture to the
+#: original it was involuted from. Production-source bundles remain -1 by
+#: RELEASE POLICY — a separate predicate, not a schema pin.
+#: /2 was the lossless correction: NULL ``weight_x_32767`` and NULL
+#: ``votes.vote`` survive extraction as nulls instead of becoming 0, and the
 #: manifest carries an ``admission`` block stating the release policy that
-#: :func:`admit_manifest` enforces. A /1 manifest is NOT admissible.
-MANIFEST_SCHEMA_VERSION = "certify-fixture-manifest/2"
+#: :func:`admit_manifest` enforces. A /1 or /2 manifest is NOT admissible.
+MANIFEST_SCHEMA_VERSION = "certify-fixture-manifest/3"
 PROVENANCE_SCHEMA_VERSION = "certify-fixture-provenance/1"
 PINS_SCHEMA_VERSION = "certify-fixture-pins/1"
 #: Bumped to /2 by the r2 admission correction: the policy fields carry CLOSED
@@ -243,11 +257,26 @@ def build_manifest(
     source_commit: str | None = None, archive: dict[str, Any] | None = None,
     coverage_report: dict[str, Any] | None = None,
     accepted_null_vote_drops: bool = False,
+    storage_agree_value: int = STORAGE_AGREE_VALUE,
+    transform: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The PRIVATE manifest. It records everything P-022 A lists EXCEPT the
     role -> zid mapping, which lives in the separate restricted provenance
     object (:func:`build_provenance`) because ordinary test execution does not
-    need identities."""
+    need identities.
+
+    ``storage_agree_value`` is the bundle's OWN declared raw storage sign of
+    agreement, -1 or +1 (P-023). It defaults to the authoritative production
+    value and is validated here, so a manifest can never carry a convention
+    nobody declared. ``transform`` is :func:`build_transform_block` for a
+    DERIVED pair fixture and ``None`` for an original capture; a derived bundle
+    binds the original's digests, never the other way round.
+    """
+    validate_storage_agree_value(storage_agree_value)
+    if transform is not None:
+        bad = _validate_transform_shape(transform, storage_agree_value, bundle_id)
+        if bad:
+            raise BundleError("; ".join(bad))
     files = scan_files(payload_root)
     return {
         "schema_version": MANIFEST_SCHEMA_VERSION,
@@ -278,14 +307,17 @@ def build_manifest(
             ordering_guarantee=tie_key["guarantee"],
             accepted_null_vote_drops=accepted_null_vote_drops),
         "polarity": {
-            "storage_agree_value": REQUIRED_STORAGE_AGREE_VALUE,
+            "storage_agree_value": storage_agree_value,
             "export_agree_value": REQUIRED_EXPORT_AGREE_VALUE,
             "boundaries": [
                 "storage: server/postgres/migrations/000000_initial.sql votes.vote",
-                "export: polismath/replay/prodclone.py format_votes_rows negates the sign",
+                "export: polismath/replay/prodclone.py format_votes_rows converts "
+                "raw x storage_agree_value",
                 "ingress: polismath/database/postgres.py conversion site",
+                "convention: polismath/utils/vote_convention.py STORAGE_AGREE_VALUE",
             ],
         },
+        "transform": transform,
         "roles": list(selections),
         "generated": {
             "generator_id": config["generated"]["generator_id"],
@@ -312,6 +344,123 @@ def build_manifest(
                      "Retirement requires an explicit privacy-approved decision, "
                      "never a short artifact TTL.",
     }
+
+
+# ---------------------------------------------------------------------------
+# manifest/3: the pair/transform block (P-023).
+# ---------------------------------------------------------------------------
+
+TRANSFORM_SCHEMA_VERSION = "certify-fixture-transform/1"
+
+#: The ONE declared transform: T(V, s) = (-V, -s), negating every non-null raw
+#: vote leaf and re-declaring the convention, changing nothing else. It is its
+#: own inverse, which is what "involution" asserts here.
+VOTE_POLARITY_TRANSFORM = "vote-polarity-involution/1"
+KNOWN_TRANSFORMS = frozenset({VOTE_POLARITY_TRANSFORM})
+
+#: Closed key sets. A transform block is evidence, so an unreviewed field in it
+#: is exactly as bad as an unreviewed top-level manifest field.
+TRANSFORM_KEYS = frozenset({
+    "schema_version", "transform_id", "involution", "bijective_verified",
+    "source", "notes",
+})
+TRANSFORM_SOURCE_KEYS = frozenset({
+    "bundle_id", "root_digest", "manifest_sha256", "storage_agree_value",
+})
+
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+def build_transform_block(
+    *, transform_id: str = VOTE_POLARITY_TRANSFORM,
+    source_bundle_id: str, source_root_digest: str, source_manifest_sha256: str,
+    source_storage_agree_value: int, bijective_verified: bool,
+    notes: str = "",
+) -> dict[str, Any]:
+    """The derived fixture's binding to the fixture it was involuted from.
+
+    The binding is deliberately ONE-WAY and therefore non-circular: the derived
+    manifest names the original's final digests, and the original — which was
+    published first and is immutable — names nothing. A copied manifest with an
+    edited sign and stale hashes is not an admitted pair, which is why the
+    original's ``root_digest`` AND its ``manifest.json`` digest are both bound.
+    """
+    return {
+        "schema_version": TRANSFORM_SCHEMA_VERSION,
+        "transform_id": transform_id,
+        "involution": True,
+        "bijective_verified": bool(bijective_verified),
+        "source": {
+            "bundle_id": source_bundle_id,
+            "root_digest": source_root_digest,
+            "manifest_sha256": source_manifest_sha256,
+            "storage_agree_value": source_storage_agree_value,
+        },
+        "notes": notes,
+    }
+
+
+def _validate_transform_shape(
+    transform: Any, storage_agree_value: int, bundle_id: str,
+) -> list[str]:
+    """Structural + cross-field checks on a transform block. Returns the list
+    of problems (empty when the block is well formed) so both
+    :func:`build_manifest` (which raises) and :func:`admit_manifest` (which
+    collects) can use it."""
+    problems: list[str] = []
+    if not isinstance(transform, dict):
+        return [f"transform must be an object or null, got "
+                f"{type(transform).__name__}"]
+    keys = set(transform)
+    for missing in sorted(TRANSFORM_KEYS - keys - {"notes"}):
+        problems.append(f"transform.{missing} is missing")
+    for unknown in sorted(keys - TRANSFORM_KEYS):
+        problems.append(f"unknown transform field (nothing validates it): {unknown}")
+    if transform.get("transform_id") not in KNOWN_TRANSFORMS:
+        problems.append(
+            f"transform.transform_id is {transform.get('transform_id')!r}, not one "
+            f"of {sorted(KNOWN_TRANSFORMS)}")
+    if transform.get("involution") is not True:
+        problems.append("transform.involution must be True: the declared "
+                        "polarity transform is its own inverse")
+    if transform.get("bijective_verified") is not True:
+        problems.append(
+            "transform.bijective_verified must be True: both directions are "
+            "verified independently BEFORE any engine launch, and an "
+            "unverified transform is not a pair")
+    source = transform.get("source")
+    if not isinstance(source, dict):
+        problems.append("transform.source must be an object naming the original "
+                        "bundle and its final digests")
+        return problems
+    for missing in sorted(TRANSFORM_SOURCE_KEYS - set(source)):
+        problems.append(f"transform.source.{missing} is missing")
+    for unknown in sorted(set(source) - TRANSFORM_SOURCE_KEYS):
+        problems.append(
+            f"unknown transform.source field (nothing validates it): {unknown}")
+    for digest_field in ("root_digest", "manifest_sha256"):
+        value = source.get(digest_field)
+        if not isinstance(value, str) or not _SHA256_RE.match(value):
+            problems.append(
+                f"transform.source.{digest_field} must be a sha256 hex digest; a "
+                f"stale or absent digest binds nothing")
+    if source.get("bundle_id") == bundle_id:
+        problems.append(
+            "transform.source.bundle_id is this bundle: the pair descriptor must "
+            "be non-circular, and a bundle is not derived from itself")
+    if not source.get("bundle_id"):
+        problems.append("transform.source.bundle_id is missing")
+    src_sign = source.get("storage_agree_value")
+    if type(src_sign) is not int or src_sign not in ADMISSIBLE_STORAGE_AGREE_VALUES:
+        problems.append(
+            f"transform.source.storage_agree_value must be exactly the integer "
+            f"-1 or +1, got {type(src_sign).__name__} {src_sign!r}")
+    elif src_sign != -storage_agree_value:
+        problems.append(
+            f"transform.source.storage_agree_value is {src_sign!r} and this "
+            f"bundle declares {storage_agree_value!r}: the declared involution "
+            f"changes the convention, so the two must be opposite")
+    return problems
 
 
 def build_provenance(
@@ -829,6 +978,11 @@ MANIFEST_TOP_LEVEL_KEYS = frozenset({
     "roles", "generated", "workloads", "coverage_role_map", "coverage_report",
     "schedules", "files", "root_digest", "archive", "redactions", "retention",
     "admission",
+    # manifest/3 (P-023): the pair/transform provenance of a DERIVED fixture,
+    # explicitly null for an original capture. Required rather than optional —
+    # the set is closed in both directions, so "no transform block" has to be a
+    # stated fact, not an omission nobody noticed.
+    "transform",
 })
 
 #: Ordering guarantee -> the ONE tie-order policy token that guarantee permits.
@@ -869,11 +1023,23 @@ ADMISSION_POLICY_ENUMS: dict[str, frozenset[str]] = {
 #: census mandatory rather than optional.
 COMPAT_DROP_COUNTED_POLICY = "event-stream-nullable+compat-csv-drop-counted"
 
-#: Raw storage sign of AGREE and the export sign it becomes. Declaring these in
-#: the manifest is mandatory; admission checks the declaration matches the one
-#: definition the extractor uses.
-REQUIRED_STORAGE_AGREE_VALUE = -1
-REQUIRED_EXPORT_AGREE_VALUE = 1
+#: Raw storage sign of AGREE and the export sign it becomes.
+#:
+#: P-023 replaced the hard pin. ``storage_agree_value`` is now a DECLARED
+#: per-manifest value admitted for exactly the integer -1 or +1
+#: (``ADMISSIBLE_STORAGE_AGREE_VALUES``, bool excluded), because the flipped
+#: side of a compensated polarity pair is a legitimate fixture and the old
+#: ``== -1`` predicate made it inadmissible by construction: neither ``push``
+#: nor ``pull`` would accept it, so the pair could not be certified at all.
+#:
+#: What is NOT relaxed is the RELEASE POLICY: a bundle carrying a PRODUCTION
+#: capture must still declare -1 until the separately approved storage
+#: migration lands. That is a policy predicate over the declared roles, not a
+#: schema pin over every manifest — see :data:`PRODUCTION_STORAGE_AGREE_VALUE`.
+#: The export sign is unconditional: it is a separate tagged format and does
+#: not move with storage.
+PRODUCTION_STORAGE_AGREE_VALUE = STORAGE_AGREE_VALUE
+REQUIRED_EXPORT_AGREE_VALUE = EXPORT_AGREE_VALUE
 
 
 def _admission_block(*, ordering_guarantee: str,
@@ -1090,12 +1256,52 @@ def admit_manifest(
       "timestamp_precision must declare integer milliseconds")
 
     polarity = manifest["polarity"]
-    P(polarity.get("storage_agree_value") == REQUIRED_STORAGE_AGREE_VALUE,
-      f"polarity.storage_agree_value must be {REQUIRED_STORAGE_AGREE_VALUE}")
+    declared_sign = polarity.get("storage_agree_value")
+    # MATHEMATICAL admission: exactly the integer -1 or +1. `type(x) is int`
+    # rather than isinstance, because bool is an int subclass and `True == 1`
+    # would otherwise admit a convention nobody declared (P-023 control 7).
+    P(type(declared_sign) is int
+      and declared_sign in ADMISSIBLE_STORAGE_AGREE_VALUES,
+      f"polarity.storage_agree_value must be exactly the integer -1 or +1 "
+      f"(bool, float and str excluded), got "
+      f"{type(declared_sign).__name__} {declared_sign!r}")
     P(polarity.get("export_agree_value") == REQUIRED_EXPORT_AGREE_VALUE,
-      f"polarity.export_agree_value must be {REQUIRED_EXPORT_AGREE_VALUE}")
+      f"polarity.export_agree_value must be {REQUIRED_EXPORT_AGREE_VALUE}: the "
+      f"export is a separately tagged semantic format and does not move with "
+      f"storage")
     P(bool(polarity.get("boundaries")),
       "polarity.boundaries must name the storage/export/ingress sites")
+
+    # RELEASE POLICY, kept separate from the schema: a production capture must
+    # still declare the production convention until the P-023 storage
+    # migration is separately approved. A derived pair fixture, which contains
+    # no production capture, is unaffected.
+    production_roles = sorted(
+        str(r.get("slug")) for r in manifest["roles"]
+        if isinstance(r, dict) and r.get("source") == "production")
+    if production_roles and declared_sign in ADMISSIBLE_STORAGE_AGREE_VALUES:
+        P(declared_sign == PRODUCTION_STORAGE_AGREE_VALUE,
+          f"polarity.storage_agree_value is {declared_sign!r}, but this bundle "
+          f"carries production-source role(s) {production_roles} and production "
+          f"storage is still {PRODUCTION_STORAGE_AGREE_VALUE}: a production "
+          f"capture may not declare the flipped convention before the storage "
+          f"migration is approved (release policy, not schema)")
+
+    # manifest/3 pair provenance. `null` is the positive declaration that this
+    # is an ORIGINAL capture; a block must bind the original it was involuted
+    # from, with that original's final digests and the opposite convention.
+    transform = manifest["transform"]
+    if transform is not None:
+        for problem in _validate_transform_shape(
+                transform,
+                declared_sign if declared_sign in ADMISSIBLE_STORAGE_AGREE_VALUES
+                else PRODUCTION_STORAGE_AGREE_VALUE,
+                str(manifest["bundle_id"])):
+            P(False, problem)
+        P(not production_roles,
+          f"this manifest declares a transform block AND production-source "
+          f"role(s) {production_roles}: a derived fixture is built from an "
+          f"admitted bundle's bytes, never re-extracted from production")
 
     # --- declared release policy ------------------------------------------
     # Every policy is a CLOSED enum token, and the tie policy must agree with
