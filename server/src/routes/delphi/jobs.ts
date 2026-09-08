@@ -4,7 +4,11 @@ import logger from "../../utils/logger";
 import { getZidFromReport } from "../../utils/parameter";
 import Config from "../../config";
 import pg from "../../db/pg-query";
-import { admitDelphiJob, JOB_QUEUE_TABLE } from "./jobGuard";
+import {
+  admitDelphiJob,
+  JobAdmissionUnavailableError,
+  JOB_QUEUE_TABLE,
+} from "./jobGuard";
 
 // Handler for POST /api/v3/delphi/jobs - Create a new Delphi job
 export async function handle_POST_delphi_jobs(
@@ -134,18 +138,30 @@ export async function handle_POST_delphi_jobs(
         return;
       }
 
-      // Existing fields are unchanged for older clients; `deduplicated` and
-      // `job_status` are additive.
+      // Existing fields are unchanged for older clients; `deduplicated`,
+      // `job_status` and `work_live` are additive. `work_live` is the honest
+      // answer to "should the client keep polling": a root can be COMPLETED
+      // while a checker descendant of it is still running.
       res.json({
         status: "success",
         job_id: admission.jobId,
         job_status: admission.jobStatus,
         deduplicated: admission.outcome === "deduplicated",
-        ...(admission.outcome === "created" && admission.degraded
-          ? { dedupe_degraded: true }
-          : {}),
+        work_live: admission.workLive,
       });
     } catch (dbError) {
+      if (dbError instanceof JobAdmissionUnavailableError) {
+        // Fail closed. Writing the job without a guard is how a second paid
+        // provider run happens, so no job was created and none will be.
+        logger.error(`Delphi job admission unavailable: ${dbError.message}`);
+        res.status(503).json({
+          status: "error",
+          error:
+            "Delphi job admission is temporarily unavailable; no job was created. Retry once the job queue and guard tables are reachable.",
+          code: "JOB_ADMISSION_UNAVAILABLE",
+        });
+        return;
+      }
       logger.error(
         `Error writing to DynamoDB: ${
           dbError instanceof Error ? dbError.message : dbError
