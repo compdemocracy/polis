@@ -6,3 +6,7 @@ node_modules
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+
+# Python bytecode (observer Lambda handler and its tests)
+__pycache__/
+*.pyc

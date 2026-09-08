@@ -37,6 +37,7 @@ import createAutoScalingAndAlarms from '../autoscaling';
 import createCodedeployConfig from '../codedeploy';
 import createALBAndDNS from '../dns';
 import createSecretsAndDependencies from '../secrets';
+import createDelphiDemandObserver, { delphiDemandObserverEnabled } from '../delphiDemandObserver';
 import { ImportWorkerService } from './import-worker-service';
 
 interface PolisStackProps extends cdk.StackProps {
@@ -359,6 +360,14 @@ export class CdkStack extends cdk.Stack {
     });
 
     db.connections.allowFrom(lambda, ec2.Port.tcp(5432), 'Allow connection from backup Lambda');
+
+    // --- Delphi queue demand observer (P-003 slice S1, observe-only).
+    // Off unless synthesized with `-c enableDelphiDemandObserver=true`. It
+    // publishes queue-demand metrics and takes no scaling action; nothing
+    // about the Delphi ASGs changes either way.
+    if (delphiDemandObserverEnabled(this)) {
+      createDelphiDemandObserver(this);
+    }
 
     // ALB & DNS
     const {
