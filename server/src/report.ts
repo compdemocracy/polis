@@ -6,7 +6,6 @@ import { failJson } from "./utils/fail";
 import logger from "./utils/logger";
 import { getCommentsWithClusters } from "./utils/commentClusters";
 import { presentPca } from "./utils/pcaPresentation";
-import { getCommentsCount } from "./comment";
 import type { XidRecord } from "./d";
 
 type Formatters<T> = Record<string, (row: T) => string>;
@@ -234,27 +233,25 @@ export function formatCSV<T>(colFns: Formatters<T>, rows: T[]): string {
 }
 
 export async function loadConversationSummary(zid: number, siteUrl: string) {
-  const [zinvite, convoRows, commentersRow, commentCount, pca] =
-    await Promise.all([
-      getZinvite(zid),
-      pg.queryP_readOnly(
-        `SELECT topic, description FROM conversations WHERE zid = $1`,
-        [zid]
-      ),
-      pg.queryP_readOnly(
-        `SELECT COUNT(DISTINCT pid) FROM comments WHERE zid = $1`,
-        [zid]
-      ),
-      // The `comments` column counts the conversation's comments, so it comes
-      // from the comments table with the conversation's own moderation and
-      // visibility rules applied -- exactly what the comment routes serve. It
-      // must not come from the math blob's `n-cmts`, which counts only the
-      // comments that are in the math and is legitimately 0 for a conversation
-      // with zero votes (see server/src/utils/pca.ts createEmptyPcaStructure).
-      getCommentsCount({ zid }),
-      getPca(zid),
-      // getPca(zid, -1),
-    ]);
+  const [zinvite, convoRows, commentersRow, pca] = await Promise.all([
+    getZinvite(zid),
+    pg.queryP_readOnly(
+      `SELECT topic, description FROM conversations WHERE zid = $1`,
+      [zid]
+    ),
+    pg.queryP_readOnly(
+      `SELECT COUNT(DISTINCT pid) FROM comments WHERE zid = $1`,
+      [zid]
+    ),
+    // The presented blob, so the `comments` column keeps the count it has always
+    // had. For a conversation with math that is the math's own `n-cmts`; for one
+    // without, it is the `mod >= 1` count the empty-blob backfill supplied. That
+    // predicate is NOT the participant-visible one `getCommentsCount` applies,
+    // and it is NOT the report's `mod_gt = mod_level` one. Preserved as-is here;
+    // reconciling the three is P-025 work, not this change.
+    getPca(zid).then((data) => presentPca(zid, data)),
+    // getPca(zid, -1),
+  ]);
   if (!zinvite || !convoRows || !commentersRow || !pca) {
     throw new Error("polis_error_data_unknown_report");
   }
@@ -267,6 +264,7 @@ export async function loadConversationSummary(zid: number, siteUrl: string) {
   // Handle incomplete PCA data gracefully
   const userVoteCounts = data["user-vote-counts"] || {};
   const inConv = data["in-conv"] || [];
+  const nCmts = data["n-cmts"] || 0;
   const groupClusters = data["group-clusters"] || [];
 
   return [
@@ -275,7 +273,7 @@ export async function loadConversationSummary(zid: number, siteUrl: string) {
     ["voters", Object.keys(userVoteCounts).length],
     ["voters-in-conv", inConv.length],
     ["commenters", commenters],
-    ["comments", commentCount],
+    ["comments", nCmts],
     [
       "groups",
       Array.isArray(groupClusters)
