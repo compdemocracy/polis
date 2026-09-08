@@ -1,29 +1,29 @@
 {
+  "run": "P-026 step 1 (ownership liveness, R05/R06, declared ordering)",
   "python_full_suite": {
-    "passed": 77,
+    "passed": 83,
     "failed": 0,
     "errors": 0,
     "skipped": 0,
+    "seconds": 255.91,
     "by_module": {
       "test_adapter": 18,
-      "test_equivalence": 5,
-      "test_recovery": 47,
+      "test_equivalence": 6,
+      "test_recovery": 51,
       "test_reference_controls": 2,
-      "test_store": 5
+      "test_store": 6
     },
+    "new_since_the_review": [
+      "test_r05_unclean_death_restart_repairs[16 stages, no harness expire()]",
+      "test_r05_restart_inside_a_live_lease_defers_then_repairs",
+      "test_r05_expired_lease_restart_repairs[2 stages]",
+      "test_r06_cache_eviction_contends_with_same_zid_update",
+      "test_semantic_tie_key_is_a_declared_contract_term"
+    ],
     "junit": "artifacts/final-pytest.xml"
   },
-  "python_followup_store_suite": {
-    "passed": 6,
-    "failed": 0,
-    "skipped": 0,
-    "repeated_from_full_suite": 5,
-    "additional_test": "test_missing_checkpoint_metadata_is_repaired",
-    "log": "artifacts/final-store.log"
-  },
-  "python_distinct_tests_passed": 78,
   "rust_tests": {
-    "passed": 10,
+    "passed": 14,
     "failed": 0,
     "ignored": 0
   },
@@ -39,18 +39,32 @@
   "stage_audit": {
     "exit_code": 1,
     "required": 25,
-    "reached": 24,
+    "reached": 25,
+    "stage_inventory_gate": "PASS",
     "full_contract_gate": "FAIL",
-    "missing": [
-      "cache_eviction_contends_with_same_zid_update"
+    "open_conditions": [
+      "CO08/D4: actual Node Bundle route, cache join and C7 presentation checks",
+      "CO01: scan age / backlog / failure metrics are not exposed",
+      "polis-input/1 is claimed locally as a candidate profile, not a G01-G16 certificate"
     ]
+  },
+  "replay_comparison": {
+    "checkpoints": 3,
+    "deltas": [0, 0, 0],
+    "rust_equals_python_hash": [true, true, true],
+    "hashes_identical_to_previous_evidence": true,
+    "observer_errors": 0
+  },
+  "polarity": {
+    "fixtures": ["synthetic", "vw", "biodiversity", "rebuild-schedule"],
+    "artifacts_identical_to_previous_evidence": true,
+    "semantic_tie_key": "evidence/semantic-tie-key.json"
   },
   "scope": "Selected D0-D5 candidate profile; not full CO/G certification",
   "cleanup": {
-    "compose_project": "p026",
-    "down_v_exit": 0,
-    "remaining_project_containers": 0,
-    "committed": false,
+    "compose_project": "p026fix-7c3d",
+    "port": 55881,
+    "committed": true,
     "pushed": false
   }
 }
