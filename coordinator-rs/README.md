@@ -287,6 +287,26 @@ POLIS_TEST_POSTGRES_URL=postgresql://postgres@127.0.0.1:55458/p026 PYTHONPATH=de
 COMPOSE_PROJECT_NAME=p026 POLIS_RECOVERY_PG_PORT=55458 RECOVERY_PG_PORT=55458 docker compose -f coordinator-rs/compose.yml down -v
 ```
 
+`tools/record_s1.py` reads those cargo transcripts, so every cargo invocation in
+the recorded gate must save **both** its output and its own exit status — a
+transcript prints one `test result:` line per suite, and a passing suite followed
+by a failing one leaves passing lines behind. Run each from inside
+`coordinator-rs/` as
+
+```sh
+cargo test --locked                    > artifacts/s1-cargo-default.log 2>&1; echo $? > artifacts/s1-cargo-default.status
+cargo test --locked --features fault-injection > artifacts/s1-cargo-fault.log 2>&1; echo $? > artifacts/s1-cargo-fault.status
+cargo clippy --locked --all-targets -- -D warnings > artifacts/s1-clippy-default.log 2>&1; echo $? > artifacts/s1-clippy-default.status
+cargo clippy --locked --all-targets --features fault-injection -- -D warnings > artifacts/s1-clippy-fault.log 2>&1; echo $? > artifacts/s1-clippy-fault.status
+cargo build --locked --release         > artifacts/s1-release.log 2>&1; echo $? > artifacts/s1-release.status
+cargo build --locked --features fault-injection --target-dir target/fault > artifacts/s1-fault-build.log 2>&1; echo $? > artifacts/s1-fault-build.status
+```
+
+A missing `.status` file is malformed evidence, not a pass. The recorder refuses a
+non-zero status, any suite whose result is not `ok`, any non-zero `failed` **or**
+`ignored` count, a malformed result line and a leading `error:`/`error[` line, and
+only then sums the passes. `test_recorder_controls.py` pins those refusals.
+
 This test-only Compose service binds loopback and uses trust authentication without
 credentials. Each test creates a fresh database from a template built by applying
 **all repository SQL migrations**. The template removes `math_ticks.caching_tick`
