@@ -727,7 +727,50 @@ class JobProcessor:
         return pgid
 
     @staticmethod
+    def _live_group_members(pgid) -> Optional[List[int]]:
+        """PIDs still *running* in the group, or None if that cannot be read.
+
+        A zombie is an entry in the process table, not a running process: it has
+        already exited and cannot spend provider money or write a row. It stays
+        an entry until its parent reaps it, and a grandchild orphaned by the
+        job's parent is re-parented to PID 1 — which in a container is whatever
+        the image's command is (``tail -f /dev/null`` under the CI compose file,
+        `bash` under the delphi image's own CMD), not an init that reaps. So a
+        group emptied of live processes can keep answering ``killpg(pgid, 0)``
+        forever, and a wait for it to disappear would never return.
+
+        Returns None where /proc is unavailable (macOS, BSD), leaving the caller
+        with the ``killpg`` answer; those platforms have a reaping init.
+        """
+        if not os.path.isdir('/proc'):
+            return None
+        live = []
+        for entry in os.listdir('/proc'):
+            if not entry.isdigit():
+                continue
+            try:
+                with open(f'/proc/{entry}/stat', 'rb') as stat_file:
+                    # comm can contain spaces and parentheses; everything after
+                    # the last ')' is state, ppid, pgrp, ...
+                    fields = stat_file.read().rpartition(b')')[2].split()
+            except OSError:
+                # The process exited mid-scan, or is not ours to read.
+                continue
+            if len(fields) < 3:
+                continue
+            state, pgrp = fields[0], fields[2]
+            if state in (b'Z', b'X', b'x'):
+                continue
+            try:
+                if int(pgrp) == pgid:
+                    live.append(int(entry))
+            except ValueError:
+                continue
+        return live
+
+    @staticmethod
     def _process_group_alive(pgid) -> bool:
+        """True while the group still holds a process that can do work."""
         if pgid is None:
             return False
         try:
@@ -739,7 +782,10 @@ class JobProcessor:
             return True
         except Exception:
             return True
-        return True
+        live = JobProcessor._live_group_members(pgid)
+        if live is None:
+            return True
+        return bool(live)
 
     def confirm_process_tree_gone(self, pgid, job_id: str) -> bool:
         """True once nothing is left in the job's process group.
