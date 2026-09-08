@@ -75,7 +75,8 @@ export async function handle_POST_delphi_batch_reports(
     const max_batch_size = (req.body.max_batch_size as number) || 20;
     const no_cache = (req.body.no_cache as boolean) || false;
 
-    // No need to configure DynamoDB client here, it's done at module level
+    // No need to configure the DynamoDB client here; getDocClient() builds it
+    // on first use, inside this try block.
 
     // Generate job_id using report_id to avoid exposing ZID
     const timestamp = Math.floor(Date.now() / 1000);
