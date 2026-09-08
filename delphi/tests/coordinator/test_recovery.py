@@ -61,7 +61,9 @@ def test_r05_restart_inside_a_live_lease_defers_then_repairs(db,launch,tmp_path)
     assert_coherent(db)
     _,err=restart.kill()
     assert "LEASE-UNAVAILABLE" in err and "FENCED" not in err
-    assert lease(db)["owner_epoch"]==2 # monotone takeover, not a reused epoch
+    # The takeover is a strictly greater epoch, never a reused one; the daemon
+    # keeps cycling after the repair, so only monotonicity is asserted.
+    assert lease(db)["owner_epoch"]>=2
 
 
 @pytest.mark.parametrize("stage",["after_worker_compute","before_main"])
