@@ -413,15 +413,16 @@ def fetch_conversation(conn, zid: int, tie_key: dict[str, Any]) -> dict[str, lis
 
 
 def extract_conversation(
-    conn, *, zid: int, slug: str, role: str, out_root: Path, dir_name: str,
-    tie_key: dict[str, Any], measured: dict[str, Any] | None = None,
+    conn, *, zid: int, slug: str, role: str, payload_root: Path, guard_root: Path,
+    dir_name: str, tie_key: dict[str, Any], measured: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Extract ONE conversation into ``<out_root>/.local/<dir_name>/``.
+    """Extract ONE conversation into ``<payload_root>/<dir_name>/``.
 
-    Every write routes through ``prodclone.assert_under_local``. Returns a
-    manifest-safe summary — it contains NO zid.
+    ``guard_root`` is the real_data root whose ``.local/`` subtree every write
+    must stay inside; ``prodclone.assert_under_local`` is the hard guard and is
+    never bypassed. Returns a manifest-safe summary — it contains NO zid.
     """
-    target = pc.assert_under_local(out_root / ".local" / dir_name, out_root)
+    target = pc.assert_under_local(payload_root / dir_name, guard_root)
     raw = fetch_conversation(conn, zid, tie_key)
     events = build_events(raw["votes"], raw["comments"])
     meta = stream_meta(slug=slug, role=role, tie_key=tie_key, events=events,
@@ -450,3 +451,90 @@ def extract_conversation(
     if measured is not None:
         summary["measured_metrics"] = {k: v for k, v in measured.items() if k != "zid"}
     return summary
+
+
+# ---------------------------------------------------------------------------
+# Whole-config extraction: ONE transaction, survey -> select -> extract.
+# ---------------------------------------------------------------------------
+
+
+def extract_from_config(
+    conn, *, config: dict[str, Any], payload_root: Path, guard_root: Path,
+    snapshot_id: str | None = None, writers_disabled: bool = False,
+    dir_names: dict[str, str] | None = None,
+    accept_synthetic: Sequence[str] = (),
+    include_generated: bool = True, include_heavy: bool = False,
+) -> dict[str, Any]:
+    """Survey, select and extract every configured role in ONE read-only
+    repeatable-read transaction.
+
+    Doing all three inside a single transaction is what makes the manifest's
+    transaction guarantee true: the metrics a role was selected on and the rows
+    that were extracted come from exactly the same snapshot.
+
+    ``dir_names`` — the opaque directory assignment from a PREVIOUS manifest.
+    Supplying it makes a repeat extraction reuse the same names (and therefore
+    the same paths) so its bytes can be compared with the original; omitting it
+    mints fresh random names.
+
+    Returns a private result dict. It contains zids (in ``provenance_rows``) and
+    must be confined to ``real_data/.local/``.
+    """
+    from polismath.replay import fixture_generate as fg
+    from polismath.replay import fixture_survey as fs
+
+    dir_names = dict(dir_names or {})
+    guarantee = fs.open_readonly_repeatable_read(
+        conn, snapshot_id=snapshot_id, writers_disabled=writers_disabled)
+    rows = fs.fetch_metrics(conn)
+    migration_marker = None  # probing rolls back; do it outside this txn
+    survey = fs.build_survey(rows, guarantee, snapshot_id=snapshot_id,
+                             schema_version_marker=migration_marker)
+    coverage = fs.coverage_report(config, rows)
+    selections = fs.resolve_roles(config, rows, accept_synthetic=accept_synthetic)
+    tie_key = detect_tie_key(conn)
+
+    role_summaries: list[dict[str, Any]] = []
+    provenance_rows: list[dict[str, Any]] = []
+    for sel in selections:
+        if sel.zid is None:
+            role_summaries.append({
+                "slug": sel.slug, "role": sel.role, "group": sel.group,
+                "rank": sel.rank, "dir": None,
+                "source": "synthetic-replacement",
+                "synthetic_replacement": sel.synthetic_replacement,
+                "approval": "explicitly accepted by the operator "
+                            "(--accept-synthetic); production supplied no candidate",
+                "n_candidates": sel.n_candidates,
+            })
+            continue
+        dir_name = dir_names.setdefault(sel.slug, mint_opaque_dir(sel.slug))
+        summary = extract_conversation(
+            conn, zid=sel.zid, slug=sel.slug, role=sel.role,
+            payload_root=payload_root, guard_root=guard_root,
+            dir_name=dir_name, tie_key=tie_key, measured=sel.metrics,
+        )
+        summary.update({
+            "group": sel.group, "rank": sel.rank, "source": "production",
+            "n_candidates": sel.n_candidates, "overlaps_with": sel.overlaps_with,
+        })
+        role_summaries.append(summary)
+        provenance_rows.append({
+            "role": sel.role, "slug": sel.slug, "dir": dir_name, "zid": sel.zid})
+
+    generated_summaries: list[dict[str, Any]] = []
+    if include_generated:
+        generated_summaries = fg.write_all(
+            config["generated"], payload_root, guard_root,
+            include_heavy=include_heavy)
+
+    return {
+        "survey": survey,
+        "coverage_report": coverage,
+        "transaction_guarantee": guarantee,
+        "tie_key": tie_key,
+        "roles": role_summaries,
+        "generated": generated_summaries,
+        "dir_names": dir_names,
+        "provenance_rows": provenance_rows,
+    }

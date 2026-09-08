@@ -276,10 +276,14 @@ class Selection:
     slug: str
     group: str
     rank: int
-    zid: int
+    zid: int | None
     metrics: dict[str, Any]
     n_candidates: int
     overlaps_with: list[str] = field(default_factory=list)
+    #: Set only when production supplied no candidate AND an operator explicitly
+    #: accepted the config's deterministic synthetic replacement. Never a
+    #: silent downgrade: the approval is recorded here and in the manifest.
+    synthetic_replacement: str | None = None
 
     def manifest_metrics(self) -> dict[str, Any]:
         return {k: v for k, v in self.metrics.items() if k != "zid"}
@@ -301,6 +305,7 @@ def rank_candidates(
 
 def resolve_roles(
     config: dict[str, Any], rows: Sequence[dict[str, Any]],
+    accept_synthetic: Iterable[str] = (),
 ) -> list[Selection]:
     """Resolve every role in ``config`` against the survey ``rows``.
 
@@ -311,8 +316,15 @@ def resolve_roles(
 
     Raises :class:`RoleUnsatisfied` for the FIRST role with no candidate at its
     rank. There is no fallback, no downgrade and no skip.
+
+    ``accept_synthetic`` names role slugs whose synthetic replacement an
+    operator has EXPLICITLY approved. It applies only to roles whose
+    ``on_missing`` is ``fail_with_synthetic_replacement_offer``; approving a
+    slug that production DID satisfy has no effect, and approving a slug whose
+    rule offers no replacement is still a hard failure.
     """
     rows = list(rows)
+    accepted = set(accept_synthetic)
     selections: list[Selection] = []
     taken: dict[int, list[str]] = {}
     reserved: set[int] = set()
@@ -325,11 +337,21 @@ def resolve_roles(
             candidates = rank_candidates(rows, role, exclude=exclude)
             rank = role["rank"]
             if len(candidates) < rank:
+                replacement = role.get("synthetic_replacement")
+                if (replacement
+                        and role["on_missing"] == "fail_with_synthetic_replacement_offer"
+                        and role["slug"] in accepted):
+                    selections.append(Selection(
+                        role=role["role"], slug=role["slug"], group=group, rank=rank,
+                        zid=None, metrics={}, n_candidates=len(candidates),
+                        synthetic_replacement=replacement,
+                    ))
+                    continue
                 raise RoleUnsatisfied(
                     role["role"], role["slug"],
                     f"rule matched {len(candidates)} conversation(s) but rank {rank} "
                     "was required",
-                    synthetic_replacement=role.get("synthetic_replacement"),
+                    synthetic_replacement=replacement,
                 )
             chosen = candidates[rank - 1]
             zid = chosen["zid"]

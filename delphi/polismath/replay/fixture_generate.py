@@ -185,9 +185,10 @@ def generate_case_dirs(case: dict[str, Any]) -> list[str]:
 
 
 def write_case(
-    generated: dict[str, Any], case: dict[str, Any], out_root: Path,
+    generated: dict[str, Any], case: dict[str, Any],
+    payload_root: Path, guard_root: Path,
 ) -> list[dict[str, Any]]:
-    """Write every fixture directory for ``case`` under ``<out_root>/.local/``.
+    """Write every fixture directory for ``case`` under ``payload_root``.
 
     Returns one manifest-safe summary per written directory.
     """
@@ -203,7 +204,7 @@ def write_case(
         )
         meta["generated"] = case_identity(generated, case) | {"cohort_member": member}
 
-        target = pc.assert_under_local(out_root / ".local" / dir_name, out_root)
+        target = pc.assert_under_local(payload_root / dir_name, guard_root)
         target.mkdir(parents=True, exist_ok=True)
         fx.write_events_jsonl(target / "events.jsonl", events)
         (target / "events.meta.json").write_text(
@@ -227,8 +228,8 @@ def write_case(
 
 
 def write_all(
-    generated: dict[str, Any], out_root: Path, *, include_heavy: bool = False,
-    only: Sequence[str] | None = None,
+    generated: dict[str, Any], payload_root: Path, guard_root: Path, *,
+    include_heavy: bool = False, only: Sequence[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Write every configured case. ``heavy`` cases are DECLARED in the returned
     summaries but not materialised unless ``include_heavy`` is set."""
@@ -247,5 +248,5 @@ def write_all(
                 "generated": case_identity(generated, case),
             })
             continue
-        summaries.extend(write_case(generated, case, out_root))
+        summaries.extend(write_case(generated, case, payload_root, guard_root))
     return summaries
