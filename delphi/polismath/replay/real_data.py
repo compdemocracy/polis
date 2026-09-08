@@ -113,8 +113,26 @@ def load_export_votes(slug: str) -> ReplayDataset:
     votes_csvs = sorted(d.glob("*-votes.csv"))
     if not votes_csvs:
         raise FileNotFoundError(f"no *-votes.csv in {d.name}")
+
+    mod_events: list[ModEvent] = []
+    mod_events_skipped = 0
+    comments_csvs = sorted(d.glob("*-comments.csv"))
+    if comments_csvs:
+        mod_events, mod_events_skipped = _load_mod_events(comments_csvs[0])
+
+    dataset = load_votes_csv(votes_csvs[0], mod_events=mod_events)
+    dataset.mod_events_skipped = mod_events_skipped
+    return dataset
+
+
+def read_export_vote_rows(path: str | Path) -> list[tuple[int, int, int, int]]:
+    """Parse ONE export votes CSV into the raw ``(t_ms, pid, tid, sign)`` rows
+    :meth:`ReplayDataset.build` consumes. Second-resolution timestamps are
+    widened to milliseconds; the vote column is taken VERBATIM, because the
+    export format is already semantic (agree = +1) and negating it here would
+    be the double flip P-023 forbids."""
     raw: list[tuple[int, int, int, int]] = []
-    with open(votes_csvs[0], newline="") as fh:
+    with open(path, newline="") as fh:
         for row in csv.DictReader(fh):
             raw.append(
                 (
@@ -124,13 +142,16 @@ def load_export_votes(slug: str) -> ReplayDataset:
                     int(row["vote"]),
                 )
             )
+    return raw
 
-    mod_events: list[ModEvent] = []
-    mod_events_skipped = 0
-    comments_csvs = sorted(d.glob("*-comments.csv"))
-    if comments_csvs:
-        mod_events, mod_events_skipped = _load_mod_events(comments_csvs[0])
 
-    dataset = ReplayDataset.build(raw, mod_events=mod_events)
-    dataset.mod_events_skipped = mod_events_skipped
-    return dataset
+def load_votes_csv(
+    path: str | Path, *, mod_events: list[ModEvent] | None = None,
+) -> ReplayDataset:
+    """Load ONE export votes CSV (by path) into a ReplayDataset — the ingress
+    :func:`load_export_votes` performs, factored out so a caller holding a
+    freshly written CSV (e.g. the P-023 polarity pair, which formats raw rows
+    through ``prodclone.format_votes_rows`` under a declared storage
+    convention) runs the SAME parse rather than a copy of it."""
+    return ReplayDataset.build(read_export_vote_rows(path),
+                               mod_events=list(mod_events or []))
