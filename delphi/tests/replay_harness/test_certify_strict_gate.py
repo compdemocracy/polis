@@ -39,7 +39,27 @@ PAIRED_MALFORMED = {
     "list-pca": (lambda b: {**b, "pca": [1, 2]}, "pca"),
     "nested-nan": (lambda b: {**b, "pca": {"center": [0.0, float("nan")]}}, "pca.center[1]"),
     "nested-inf": (lambda b: {**b, "base-clusters": {"x": [float("inf")]}}, "base-clusters.x[0]"),
+    # P-022 B1 review, round 3 — alias collisions. `_kebab` collapsed two raw
+    # spellings into one canonical entry BEFORE any validation ran, so the
+    # dropped value was never type- or finiteness-checked and the pair still
+    # certified PASS. Both insertion orders, so a later valid alias cannot hide
+    # an invalid original (and vice versa), plus a three-way collision.
+    "alias-count-snake-first": (
+        lambda b: {"n_cmts": "invalid-count", **b}, "'n_cmts'"),
+    "alias-count-kebab-first": (
+        lambda b: {**b, "n_cmts": "invalid-count"}, "'n_cmts'"),
+    "alias-nan-extension-snake-first": (
+        lambda b: {"hidden_value": float("nan"), **b, "hidden-value": 0}, "'hidden_value'"),
+    "alias-nan-extension-kebab-first": (
+        lambda b: {"hidden-value": 0, **b, "hidden_value": float("nan")}, "'hidden_value'"),
+    "alias-three-way": (
+        lambda b: {**b, "a_b_c": 1, "a-b_c": 2, "a-b-c": 3}, "'a-b-c'"),
 }
+
+#: Raw key sets whose two spellings collapse onto one canonical key. Used by the
+#: direct-validation controls below (the end-to-end paired controls live in
+#: :data:`PAIRED_MALFORMED`).
+VALID_BASE = {"n": 1, "n-cmts": 1, "tids": [1], "in-conv": [1]}
 
 
 def latest_manifest(root):
@@ -544,7 +564,12 @@ def test_paired_malformed_blobs_would_have_hash_matched(battery):
         cert._canonical_hash(cert.project_acceptance(py))
 
 
-@pytest.mark.parametrize("mutation", ["nan-count", "string-count", "inf-count", "string-tid"])
+@pytest.mark.parametrize("mutation", [
+    "nan-count", "string-count", "inf-count", "string-tid",
+    "alias-count-snake-first", "alias-count-kebab-first",
+    "alias-nan-extension-snake-first", "alias-nan-extension-kebab-first",
+    "alias-three-way",
+])
 def test_compare_recording_pair_rejects_identical_malformed_blobs(tmp_path, mutation):
     """The standalone comparer entry point must reject them too — it is the
     function that owns the hash short-circuit."""
@@ -646,6 +671,145 @@ def test_checkpoint_contract_keys_come_from_the_crosslang_whitelist():
         | set(cert._ID_SCALAR_CHECKPOINT_KEYS)
     assert named <= PREP_MAIN_KEYS
     assert set(cert._REQUIRED_CHECKPOINT_KEYS) <= cert.ACCEPTANCE_KEYS
+
+
+# ---------------------------------------------------------------------------
+# P-022 B1 review, round 3 — alias collisions must be rejected on the UNTOUCHED
+# raw blob.
+#
+# `canon = {_kebab(k): v for k, v in blob.items()}` ran BEFORE every check, so
+# two raw keys that normalize to the same canonical name silently collapsed and
+# the loser's value reached nothing: `{"n_cmts": "invalid-count", "n-cmts": 1}`
+# and `{"hidden_value": NaN, "hidden-value": 0}` both certified PASS. Raw
+# validation now runs on `blob` itself and aliased keys fail naming EVERY raw
+# spelling involved.
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("blob,needles", [
+    # Both insertion orders of the two reproducers, an invalid FIRST spelling
+    # and an invalid SECOND spelling, plus a three-way collision.
+    ({"n_cmts": "invalid-count", **VALID_BASE}, ("n_cmts", "n-cmts")),
+    ({**VALID_BASE, "n_cmts": "invalid-count"}, ("n_cmts", "n-cmts")),
+    ({"hidden_value": float("nan"), **VALID_BASE, "hidden-value": 0},
+     ("hidden_value", "hidden-value")),
+    ({"hidden-value": 0, **VALID_BASE, "hidden_value": float("nan")},
+     ("hidden_value", "hidden-value")),
+    ({**VALID_BASE, "a_b_c": 1, "a-b_c": 2, "a-b-c": 3},
+     ("a_b_c", "a-b_c", "a-b-c")),
+    # Equal values do not make the collapse safe: the ambiguity is the defect.
+    ({**VALID_BASE, "hidden_value": 0, "hidden-value": 0},
+     ("hidden_value", "hidden-value")),
+    # ...and a canonical key of the CONTRACT is no different.
+    ({**VALID_BASE, "in_conv": [1]}, ("in_conv", "in-conv")),
+])
+def test_validate_checkpoint_blob_rejects_alias_collisions(blob, needles):
+    with pytest.raises(cert.CertifyError) as excinfo:
+        cert.validate_checkpoint_blob(blob, "clj: step-000")
+    assert excinfo.value.stage == "checkpoint-schema"
+    message = str(excinfo.value)
+    for needle in needles:
+        assert repr(needle) in message, message
+    assert "clj: step-000" in message
+
+
+def test_alias_collision_rejected_by_the_standalone_comparer_too():
+    """``require_keys=False`` (the standalone comparer / zero checkpoint) skips
+    only the presence check — the alias policy still runs."""
+    with pytest.raises(cert.CertifyError, match="n_cmts"):
+        cert.validate_checkpoint_blob(
+            {"n_cmts": "invalid-count", "n-cmts": 1}, "py: step-000",
+            require_keys=False)
+
+
+def test_alias_collision_is_caught_before_the_lossy_canonical_dict():
+    """Non-vacuity: every PRE-fix admission criterion still holds for the
+    reproducers. The canonical dict really does drop the invalid value, the
+    acceptance projection really is nonempty, and the two engines' projections
+    really do hash EQUAL — so only the raw alias check rejects them."""
+    hidden = {**VALID_BASE, "hidden_value": float("nan"), "hidden-value": 0}
+    count = {"n_cmts": "invalid-count", **VALID_BASE}
+    for blob in (hidden, count):
+        canon = {cert._kebab(k): v for k, v in blob.items()}
+        # The lossy collapse: the canonical dict is CLEAN, which is exactly why
+        # validating it instead of the raw blob certified PASS.
+        cert.validate_checkpoint_blob(canon, "clj: step-000")
+        assert cert._find_nonfinite(canon, "") is None
+        # ...and the invalid value is gone from the acceptance projection too,
+        # so both engines emitting this blob hash EQUAL to a valid recording's.
+        projection = cert.project_acceptance(blob)
+        assert projection == cert.project_acceptance(VALID_BASE)
+        assert cert._canonical_hash(projection) == \
+            cert._canonical_hash(cert.project_acceptance(VALID_BASE))
+        # Only the raw alias check rejects them.
+        with pytest.raises(cert.CertifyError, match="alias"):
+            cert.validate_checkpoint_blob(blob, "clj: step-000")
+
+
+def test_declared_legacy_alias_twin_is_accepted_only_when_values_agree():
+    """``Conversation.to_dict`` emits ``group-clusters`` AND its legacy
+    ``group_clusters`` twin from the same value, so the real Python driver's
+    every checkpoint carries that pair — the policy admits it while the two
+    spellings agree, and rejects it the moment they do not."""
+    assert cert._ALIASED_CHECKPOINT_KEYS == frozenset({"group-clusters"})
+    groups = [{"id": 0, "members": [1, 2]}]
+    cert.validate_checkpoint_blob(
+        {**VALID_BASE, "group-clusters": groups, "group_clusters": list(groups)},
+        "py: step-000")
+    with pytest.raises(cert.CertifyError, match="deeply equal"):
+        cert.validate_checkpoint_blob(
+            {**VALID_BASE, "group-clusters": groups, "group_clusters": []},
+            "py: step-000")
+    # A NaN never equals itself, so a duplicated non-finite twin is a value
+    # disagreement — it can never ride in on the exemption.
+    with pytest.raises(cert.CertifyError, match="deeply equal"):
+        cert.validate_checkpoint_blob(
+            {**VALID_BASE, "group-clusters": float("nan"),
+             "group_clusters": float("nan")},
+            "py: step-000")
+    # The exemption covers that ONE canonical key: no other collision inherits
+    # it, however equal the values.
+    with pytest.raises(cert.CertifyError, match="alias collisions are rejected"):
+        cert.validate_checkpoint_blob(
+            {**VALID_BASE, "base-clusters": {}, "base_clusters": {}}, "py: step-000")
+
+
+def test_single_spelling_blobs_are_untouched_by_the_alias_policy():
+    """Ordinary snake-only and kebab-only compatibility must survive."""
+    for blob in (
+        {"n": 0, "n_cmts": 0, "tids": [], "in_conv": [], "group_clusters": []},
+        {"n": 0, "n-cmts": 0, "tids": [], "in-conv": [], "group-clusters": []},
+    ):
+        cert.validate_checkpoint_blob(blob, "py: step-000")
+
+
+def test_committed_real_blobs_have_no_alias_collisions():
+    """The contract is grounded in the shapes the engines actually emit: no
+    committed blob relies on a collapse the policy now forbids."""
+    real_dir = Path(cert.__file__).resolve().parents[2] / "real_data"
+    blobs = sorted(real_dir.glob("*/*math_blob*.json"))
+    assert blobs
+    for path in blobs:
+        groups = cert._raw_alias_groups(json.loads(path.read_text()))
+        collisions = {c: ks for c, ks in groups.items() if len(ks) > 1}
+        assert not {c for c in collisions} - set(cert._ALIASED_CHECKPOINT_KEYS), \
+            f"{path.name}: undeclared alias collisions {collisions}"
+
+
+def test_cached_recordings_are_revalidated_for_alias_collisions(battery):
+    """Cache-hit control: an alias collision in an already-recorded checkpoint
+    fails on the cached path too, with no producer rerun."""
+    entry, state, root, ds, run = battery
+    assert_pass(run())
+    rec = root / entry.dataset / entry.schedule_id
+    for path in (rec / "clj" / "step-000.blob.json", rec / "py" / "step-000.json"):
+        payload = json.loads(path.read_text())
+        target = payload if path.name.endswith(".blob.json") else payload["blob"]
+        target["n_cmts"] = "invalid-count"
+        path.write_text(json.dumps(payload))
+    # No refresh: the cached recordings are re-validated, so this can never be
+    # served as a MATCH.
+    report = run()
+    assert report["verdict"] == "FAIL", report
+    assert report["battery"][0]["stage"] in ("recording-integrity", "checkpoint-schema")
 
 
 # ---------------------------------------------------------------------------
