@@ -432,6 +432,18 @@ def drain(svc, timeout: float = 60.0) -> None:
     )
 
 
+def pool_pending(pool, zid: int) -> bool:
+    """Queued-or-active work for one zid, read under the pool's OWN lock.
+
+    Used to assert that no queued request was dropped and that no handler is
+    still in flight.  Reads the pool's private bookkeeping deliberately: the
+    point IS the pool's internal accounting, and taking ``_lock`` means the
+    snapshot cannot tear against a concurrent submit/park.
+    """
+    with pool._lock:
+        return bool(pool._queues.get(zid)) or zid in pool._active
+
+
 def eventually(
     predicate: Callable[[], bool],
     *,
