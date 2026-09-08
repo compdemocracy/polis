@@ -159,3 +159,50 @@ def test_polarity_rebuild_schedule_with_revotes(db,launch):
         assert hash_blob(a)!=hash_blob(n)
         variants.append(dict(step=step,positive=hash_blob(a),paired=hash_blob(b),negative=hash_blob(n)))
     (ARTIFACTS/'polarity-rebuild-schedule.json').write_text(json.dumps(variants,indent=2))
+
+
+def test_semantic_tie_key_is_a_declared_contract_term(db,launch):
+    """Rev5 item 1. Two vote rows share (tid,pid,created) and differ only in the
+    raw sign, so the published generation is decided by the trailing tie term.
+    Ordering on the semantic vote (raw x storage_agree_value) keeps the mirrored
+    conversation identical; ordering on the raw sign would reverse that pair and
+    break the polarity property. The declaration and its census are recorded."""
+    seed(db)
+    c=connect(db)
+    with c.cursor() as cur:
+        cur.execute('SET session_replication_role=replica')
+        cur.execute('DELETE FROM votes WHERE zid=1 AND pid=0 AND tid=0')
+        for value in (1,-1):
+            cur.execute('INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,%s,1500)',(value,))
+    c.close()
+    launch(db).done()
+    a=canonical(rows(db))
+    declared=rows(db)['math_ticks']['input_checkpoint']['ordering']
+    assert declared['schema']=='polis-order/1'
+    assert declared['semantic_vote']=='raw_vote * storage_agree_value'
+    assert declared['storage_agree_value']==-1 and declared['algorithm_digest']
+    assert [t['name'] for t in declared['terms']]==['tid','pid','created_ms','semantic_vote','weight_x_32767']
+    assert declared['terms'][-1]['nulls']=='first'
+    census=declared['equal_time_census']
+    assert census['tied_groups']==1 and census['tied_rows']==2
+    assert census['key']==['tid','pid','created_ms']
+    assert census['resolved_by']==['semantic_vote','weight_x_32767']
+    c=connect(db)
+    with c.cursor() as cur:cur.execute('UPDATE votes SET vote=-vote WHERE zid=1')
+    c.close()
+    launch(db,env='positive',extra={'STORAGE_AGREE_VALUE':'1'}).done()
+    b=canonical(rows(db,env='positive'))
+    launch(db,env='negative').done()
+    negative=canonical(rows(db,env='negative'))
+    mirrored=rows(db,env='positive')['math_ticks']['input_checkpoint']['ordering']
+    assert mirrored['storage_agree_value']==1
+    # The pinned ordering algorithm is polarity-bound, so the two conventions
+    # cannot silently share one declaration.
+    assert mirrored['algorithm_digest']!=declared['algorithm_digest']
+    assert mirrored['equal_time_census']==census
+    (ARTIFACTS/'semantic-tie-key.json').write_text(json.dumps(dict(
+        declared=declared,mirrored_digest=mirrored['algorithm_digest'],
+        a=hash_blob(a),b=hash_blob(b),negative=hash_blob(negative),deltas=diff(a,b)),indent=2))
+    assert diff(a,b)==[]
+    assert hash_blob(a)==hash_blob(b)
+    assert hash_blob(a)!=hash_blob(negative)
