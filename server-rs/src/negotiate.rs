@@ -1,23 +1,26 @@
-//! `negotiator.encoding(SUPPORTED_ENCODING, PREFERRED_ENCODING)` reproduced.
+//! The content coding `express.compress()` selects, reproduced from the middleware
+//! the route actually resolves.
 //!
-//! The round-2 route recognized only the bare token `gzip`, so `gzip;q=1` — which
-//! the real negotiator selects — was served identity, and `gzip;q=0`, `*` and
-//! ordering were not modelled at all. `p032-subset-gzip/1` declares negotiated
-//! gzip, and negotiation is part of the profile, not a detail below it.
+//! Round 3 pinned this to the top-level `compression@1.8.0` over
+//! `negotiator@0.6.4` and was wrong. `app.ts:310` calls `express.compress()`,
+//! which is `connect/lib/middleware/compress.js`, whose bare
+//! `require('compression')` resolves against `connect/` and finds the NESTED
+//! `connect/node_modules/compression@1.5.2`; its `accepts@1.2.13` likewise
+//! resolves the nested `negotiator@0.5.3`. `tools/negotiation-parity.cjs` asserts
+//! that `express.compress` IS that module and measures the table over real HTTP,
+//! so the resolution is checked rather than assumed.
 //!
-//! Pinned to the versions in `server/package-lock.json`: `compression@1.8.0`
-//! (`node_modules/compression`, lock line 9489) over `negotiator@0.6.4` (lock line
-//! 13712), running on Node v22.x. `compression/index.js:37-45` selects its lists
-//! from `'createBrotliCompress' in zlib`, which is true on that runtime, so
-//! `SUPPORTED_ENCODING` is `['br','gzip','deflate','identity']` and
-//! `PREFERRED_ENCODING` is `['br','gzip']`. Both facts belong to the profile: a
-//! Node without brotli negotiates differently, and would be a contract change.
+//! Two consequences. 1.5.2 offers `['gzip','deflate','identity']` and has no
+//! brotli branch at all, so **no Accept-Encoding can make this middleware select
+//! br** — `br` alone negotiates to identity and a browser's `gzip, deflate, br`
+//! to gzip. And 0.5.3's `preferredEncodings` takes no preferred list, so ordering
+//! falls to `compareSpecs` alone; 1.5.2 then applies its own "we really don't
+//! prefer deflate" step on top.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Coding {
     Identity,
     Gzip,
     Deflate,
-    Brotli,
 }
 impl Coding {
     fn name(self) -> &'static str {
@@ -25,19 +28,11 @@ impl Coding {
             Self::Identity => "identity",
             Self::Gzip => "gzip",
             Self::Deflate => "deflate",
-            Self::Brotli => "br",
         }
     }
 }
-/// `SUPPORTED_ENCODING`, in the order compression passes it as `provided`.
-const SUPPORTED: [Coding; 4] = [
-    Coding::Brotli,
-    Coding::Gzip,
-    Coding::Deflate,
-    Coding::Identity,
-];
-/// `PREFERRED_ENCODING`.
-const PREFERRED: [Coding; 2] = [Coding::Brotli, Coding::Gzip];
+/// `accept.encoding(['gzip', 'deflate', 'identity'])` (`compression/index.js:163`).
+const PROVIDED: [Coding; 3] = [Coding::Gzip, Coding::Deflate, Coding::Identity];
 /// One parsed `Accept-Encoding` element, plus the synthesized identity.
 struct Spec {
     encoding: String,
@@ -47,7 +42,7 @@ struct Spec {
 /// One `provided` encoding's best match, mirroring `getEncodingPriority`.
 struct Priority {
     coding: Coding,
-    /// The provided-list index (`i` in negotiator).
+    /// The provided-list index (`i`).
     i: usize,
     /// The accept-header order of the matching spec (`o`).
     o: i64,
@@ -56,55 +51,60 @@ struct Priority {
     s: i64,
 }
 /// JS `parseFloat`: parses the longest numeric prefix, NaN when there is none.
-/// `q=abc` therefore yields NaN, which `isQuality` filters out, and `q=1.0junk`
-/// yields 1.0 — neither of which `str::parse` reproduces on its own.
+/// `q=abc` therefore yields NaN, which `isQuality` filters out, and `q=0.5junk`
+/// yields 0.5 — neither of which `str::parse` reproduces on its own.
 fn parse_float(text: &str) -> f64 {
     let bytes = text.as_bytes();
     let mut end = 0;
     let mut seen_digit = false;
-    let mut seen_dot = false;
-    let mut seen_exp = false;
     while end < bytes.len() {
         let c = bytes[end] as char;
         let ok = match c {
             '+' | '-' => end == 0 || matches!(bytes[end - 1] as char, 'e' | 'E'),
-            '.' => !seen_dot && !seen_exp,
-            'e' | 'E' => seen_digit && !seen_exp,
-            '0'..='9' => true,
+            '.' | 'e' | 'E' | '0'..='9' => true,
             _ => false,
         };
         if !ok {
             break;
         }
         seen_digit |= c.is_ascii_digit();
-        seen_dot |= c == '.';
-        seen_exp |= c == 'e' || c == 'E';
         end += 1;
     }
     if !seen_digit {
         return f64::NAN;
     }
-    // Trim a trailing exponent marker or sign the loop admitted but never completed.
+    // Shrink to the longest prefix Rust can parse, which is JS's prefix rule.
     let mut candidate = &text[..end];
     while !candidate.is_empty() && candidate.parse::<f64>().is_err() {
         candidate = &candidate[..candidate.len() - 1];
     }
     candidate.parse().unwrap_or(f64::NAN)
 }
-/// `simpleEncodingRegExp` = `/^\s*([^\s;]+)\s*(?:;(.*))?$/`.
+/// negotiator 0.5.3's `/^\s*(\S+?)\s*(?:;(.*))?$/`.
+///
+/// The token is LAZY, so it is the shortest run of non-space characters that
+/// leaves a tail of optional whitespace followed by either nothing or `;params`.
+/// That differs from a `[^\s;]+` reading: `";q=1"` has no such short token, and
+/// the lazy group grows until it swallows the whole string as the encoding name.
 fn parse_encoding(text: &str, i: usize) -> Option<Spec> {
     let rest = text.trim_start();
-    let token_end = rest.find([' ', '\t', ';']).unwrap_or(rest.len());
-    if token_end == 0 {
-        return None;
+    let mut token_end = None;
+    for (offset, c) in rest.char_indices() {
+        if c.is_whitespace() {
+            break;
+        }
+        let end = offset + c.len_utf8();
+        let tail = rest[end..].trim_start();
+        if tail.is_empty() || tail.starts_with(';') {
+            token_end = Some(end);
+            break;
+        }
     }
+    let token_end = token_end?;
     let encoding = &rest[..token_end];
-    let after = rest[token_end..].trim_start();
+    let tail = rest[token_end..].trim_start();
     let mut q = 1.0;
-    if !after.is_empty() {
-        // Anything between the token and the end that is not `;params` fails the
-        // anchored regex, and an unparsed element is dropped rather than accepted.
-        let params = after.strip_prefix(';')?;
+    if let Some(params) = tail.strip_prefix(';') {
         for param in params.split(';') {
             let mut parts = param.trim().split('=');
             if parts.next() == Some("q") {
@@ -119,7 +119,7 @@ fn parse_encoding(text: &str, i: usize) -> Option<Spec> {
         i,
     })
 }
-/// `specify`: named match scores 1, `*` scores 0, anything else does not match.
+/// `specify`: a named match scores 1, `*` scores 0, anything else does not match.
 fn specificity(coding: Coding, spec: &Spec) -> Option<i64> {
     if spec.encoding.eq_ignore_ascii_case(coding.name()) {
         Some(1)
@@ -191,79 +191,116 @@ fn priority(coding: Coding, accepts: &[Spec], index: usize) -> Priority {
     }
     best
 }
-/// The coding `compression` would select for this `Accept-Encoding`.
-///
-/// `None` means the header is absent, where compression falls back to
-/// `enforceEncoding` (`identity`) and does not transform.
-pub fn encoding(accept: Option<&str>) -> Coding {
-    let Some(accept) = accept else {
-        return Coding::Identity;
-    };
-    let accepts = parse_accept(accept);
-    let mut priorities: Vec<Priority> = SUPPORTED
+/// `accepts.encoding(list)`: `negotiator.encodings(list)[0] || false`.
+fn best(accepts: &[Spec], provided: &[Coding]) -> Option<Coding> {
+    let mut priorities: Vec<Priority> = provided
         .iter()
         .enumerate()
-        .map(|(index, coding)| priority(*coding, &accepts, index))
+        .map(|(index, coding)| priority(*coding, accepts, index))
         .filter(|p| p.q > 0.0)
         .collect();
-    // `preferredEncodings`'s comparator, over JS's stable sort.
+    // `compareSpecs`: 0.5.3 takes no preferred list, so this is the whole order.
     priorities.sort_by(|a, b| {
-        if a.q != b.q {
-            return b.q.total_cmp(&a.q);
-        }
-        let rank = |c: Coding| PREFERRED.iter().position(|p| *p == c);
-        match (rank(a.coding), rank(b.coding)) {
-            (None, None) => (b.s.cmp(&a.s)).then(a.o.cmp(&b.o)).then(a.i.cmp(&b.i)),
-            (Some(x), Some(y)) => x.cmp(&y),
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-        }
+        b.q.total_cmp(&a.q)
+            .then(b.s.cmp(&a.s))
+            .then(a.o.cmp(&b.o))
+            .then(a.i.cmp(&b.i))
     });
-    priorities.first().map_or(Coding::Identity, |p| p.coding)
+    priorities.first().map(|p| p.coding)
+}
+/// The coding `express.compress()` would apply. `None` is an absent header, which
+/// negotiator treats as the empty string.
+pub fn encoding(accept: Option<&str>) -> Coding {
+    let accepts = parse_accept(accept.unwrap_or_default());
+    let mut method = best(&accepts, &PROVIDED);
+    // compression/index.js:166-168 — "we really don't prefer deflate".
+    if method == Some(Coding::Deflate) && best(&accepts, &[Coding::Gzip]).is_some() {
+        method = best(&accepts, &[Coding::Gzip, Coding::Identity]);
+    }
+    match method {
+        Some(Coding::Gzip) => Coding::Gzip,
+        Some(Coding::Deflate) => Coding::Deflate,
+        // `!method || method === 'identity'` is nocompress.
+        _ => Coding::Identity,
+    }
 }
 #[cfg(test)]
 mod tests {
     use super::*;
-    /// Every row is the actual `negotiator@0.6.4` answer, regenerated by
-    /// `tools/negotiation-parity.cjs` against `server/node_modules` and pinned in
-    /// `contract/negotiation.json`. This test is the same table, so a divergence
-    /// from the middleware fails here rather than on the wire.
+    /// Every row is an observed `Content-Encoding` from a real HTTP response
+    /// through the resolved `express.compress()`, regenerated by
+    /// `tools/negotiation-parity.cjs` and pinned in `contract/negotiation.json`.
+    /// A divergence from the installed middleware fails here, not on the wire.
     #[test]
-    fn selection_matches_the_pinned_negotiator() {
+    fn selection_matches_the_resolved_middleware() {
         #[derive(serde::Deserialize)]
-        struct Pinned {
+        struct Versions {
             compression: String,
             negotiator: String,
-            #[serde(rename = "hasBrotliSupport")]
-            has_brotli_support: bool,
+        }
+        #[derive(serde::Deserialize)]
+        struct Resolution {
+            compression: String,
+            negotiator: String,
+        }
+        #[derive(serde::Deserialize)]
+        struct Pinned {
+            resolution: Resolution,
+            versions: Versions,
+            provided: Vec<String>,
+            #[serde(rename = "absentAcceptEncoding")]
+            absent: String,
             table: Vec<(String, String)>,
         }
         let pinned: Pinned = serde_json::from_str(include_str!("../contract/negotiation.json"))
             .expect("pinned table");
-        // The profile pins the middleware, not just its answers.
-        assert_eq!(pinned.compression, "1.8.0");
-        assert_eq!(pinned.negotiator, "0.6.4");
+        // The profile pins the resolution, not merely the answers.
+        assert_eq!(pinned.versions.compression, "1.5.2");
+        assert_eq!(pinned.versions.negotiator, "0.5.3");
         assert!(
-            pinned.has_brotli_support,
-            "SUPPORTED/PREFERRED assume brotli"
+            pinned
+                .resolution
+                .compression
+                .contains("connect/node_modules/compression"),
+            "the nested middleware is the one the route resolves: {}",
+            pinned.resolution.compression
         );
-        assert!(pinned.table.len() >= 20, "the table must cover the profile");
+        assert!(
+            pinned
+                .resolution
+                .negotiator
+                .contains("connect/node_modules/negotiator")
+        );
+        assert_eq!(pinned.provided, ["gzip", "deflate", "identity"]);
+        assert_eq!(encoding(None).name(), pinned.absent);
+        assert!(pinned.table.len() >= 28, "the table must cover the profile");
         for (accept, expected) in pinned.table {
-            let got = encoding(Some(&accept)).name();
-            assert_eq!(got, expected, "Accept-Encoding: {accept:?}");
+            assert_eq!(
+                encoding(Some(&accept)).name(),
+                expected,
+                "Accept-Encoding: {accept:?}"
+            );
         }
     }
+    /// The four rows the round-3 pin got wrong, and the two that show why the
+    /// brotli refusal was answering a case this middleware cannot produce.
     #[test]
-    fn the_defect_cases_select_what_node_selects() {
-        // The round-2 code compared the bare token, so this was identity.
+    fn the_corrected_rows() {
+        assert_eq!(encoding(Some("gzip, br")), Coding::Gzip);
+        assert_eq!(encoding(Some("br, gzip")), Coding::Gzip);
+        assert_eq!(encoding(Some("*")), Coding::Gzip);
+        assert_eq!(encoding(Some("*, gzip;q=0")), Coding::Deflate);
+        assert_eq!(encoding(Some("gzip, deflate, br")), Coding::Gzip);
+        assert_eq!(encoding(Some("br")), Coding::Identity);
+    }
+    #[test]
+    fn quality_rules() {
         assert_eq!(encoding(Some("gzip;q=1")), Coding::Gzip);
-        // A zero quality is a refusal, not a request.
         assert_eq!(encoding(Some("gzip;q=0")), Coding::Identity);
-        // A wildcard reaches brotli, which this candidate cannot produce.
-        assert_eq!(encoding(Some("*")), Coding::Brotli);
-        assert_eq!(encoding(Some("gzip, br")), Coding::Brotli);
-        // Quality outranks the preferred order.
-        assert_eq!(encoding(Some("br;q=0.5, gzip;q=0.9")), Coding::Gzip);
+        assert_eq!(encoding(Some("gzip;q=abc")), Coding::Identity);
+        // "we really don't prefer deflate": deflate wins the sort, gzip is checked,
+        // and here it is unavailable, so deflate stands.
+        assert_eq!(encoding(Some("gzip;q=0, deflate")), Coding::Deflate);
         assert_eq!(encoding(None), Coding::Identity);
     }
     #[test]
@@ -273,5 +310,20 @@ mod tests {
         assert!(parse_float("abc").is_nan());
         assert!(parse_float("").is_nan());
         assert_eq!(parse_float("1e-1"), 0.1);
+    }
+    /// The lazy `\S+?` token: with no short token that leaves `;params`, the group
+    /// grows until the whole element is the encoding name.
+    #[test]
+    fn the_token_is_lazy_not_semicolon_delimited() {
+        let spec = parse_encoding(";q=1", 0).expect("the whole element is the token");
+        assert_eq!(spec.encoding, ";q=1");
+        assert_eq!(spec.q, 1.0);
+        let spec = parse_encoding("gzip;q=0.5", 0).expect("ordinary element");
+        assert_eq!(spec.encoding, "gzip");
+        assert_eq!(spec.q, 0.5);
+        assert!(
+            parse_encoding("gzip x", 0).is_none(),
+            "an interior space fails the anchor"
+        );
     }
 }

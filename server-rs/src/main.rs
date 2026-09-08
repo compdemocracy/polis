@@ -602,12 +602,14 @@ async fn handle(
         bytes.len(),
         headers.get("accept-encoding").and_then(|v| v.to_str().ok()),
     );
-    // `p032-subset-gzip/1` declares gzip. Brotli and deflate are inside the
-    // middleware's negotiation and outside this candidate's compressor, so they
-    // are refused under a named code rather than answered with the wrong coding:
-    // serving gzip, or identity, where Node serves br is exactly the silent
-    // divergence this whole exercise exists to prevent.
-    if matches!(coding, Coding::Brotli | Coding::Deflate) {
+    // The slice's admitted coding set is explicitly gzip/identity — the
+    // mode-envelope enum and the revision-3 profiles say so — and this candidate
+    // carries only the vendored Node gzip compressor. Legacy deflate is the one
+    // coding the resolved `compression@1.5.2` can still select that falls outside
+    // that set, so it is refused under a named code rather than answered with the
+    // wrong coding. There is no brotli branch in 1.5.2 at all, so no
+    // Accept-Encoding reaches this refusal by asking for br.
+    if coding == Coding::Deflate {
         app.metrics
             .unadmitted_encodings
             .fetch_add(1, Ordering::Relaxed);
@@ -615,6 +617,7 @@ async fn handle(
             "{}",
             serde_json::json!({
                 "event": "pca2_unadmitted_encoding",
+                "coding": "deflate",
                 "accept_encoding": headers
                     .get("accept-encoding")
                     .and_then(|v| v.to_str().ok())
@@ -1180,15 +1183,18 @@ mod tests {
         );
     }
     /// Astra 5: the round-2 token match answered identity for `gzip;q=1`, which
-    /// the pinned negotiator selects as gzip, and had no notion of a zero quality
-    /// or a wildcard at all.
+    /// the resolved negotiator selects as gzip, and had no notion of a zero
+    /// quality or a wildcard at all. The wildcard and browser rows are the
+    /// round-3 corrections: `compression@1.5.2` selects gzip, never br.
     #[test]
     fn negotiation_is_the_middlewares_not_a_token_match() {
         let at = |accept| subset_coding(&Method::GET, false, 2048, Some(accept));
         assert_eq!(at("gzip;q=1"), Coding::Gzip);
         assert_eq!(at("gzip;q=0"), Coding::Identity);
         assert_eq!(at("gzip;q=0, deflate"), Coding::Deflate);
-        assert_eq!(at("*"), Coding::Brotli);
+        assert_eq!(at("*"), Coding::Gzip);
+        assert_eq!(at("gzip, deflate, br"), Coding::Gzip);
+        assert_eq!(at("br"), Coding::Identity);
         assert_eq!(at("br;q=0.5, gzip;q=0.9"), Coding::Gzip);
         assert_eq!(
             subset_coding(&Method::GET, false, 2048, None),
