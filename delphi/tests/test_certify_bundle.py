@@ -819,8 +819,97 @@ def test_schedule_checkpoints_are_derived_from_the_resolved_cuts():
     for entry in schedules:
         assert entry["n_cuts"] >= 1
         assert entry["expected_checkpoints"] == entry["n_cuts"]
+        assert entry["restart_index_base"] == fb.RESTART_INDEX_BASE
         if entry["restart_after"] is not None:
-            assert 1 <= entry["restart_after"] <= entry["n_cuts"]
+            # Zero-based step index with at least one step after the seam.
+            assert 0 <= entry["restart_after"] <= entry["n_cuts"] - 2
+
+
+def test_pinned_checkpoints_match_what_the_replay_driver_actually_slices(
+        bundle, config, tmp_path):
+    """Reviewer's r2 finding 3: the manifest validated ``restart_after`` as a
+    ONE-based index (``1 <= r <= n_cuts``) while the replay driver uses a
+    zero-based step index needing a following step (``0 <= r <= steps - 2``).
+    Index 0 was falsely rejected; the nonexistent index ``n_cuts`` was admitted.
+
+    The two conventions are pinned together here: the checkpoint count the
+    manifest derives must equal the number of steps ``schedule.slice_schedule``
+    produces, and the admission range must be the driver's range.
+    """
+    from polismath.replay import driver, schedule as sched
+    from polismath.replay.types import ReplayDataset
+
+    n_votes = 60
+    dataset = ReplayDataset.build(
+        [(1000 + i, 1 + i % 5, 1 + i % 4, 1) for i in range(n_votes)])
+
+    spec_json = {
+        "dataset": "synthetic-restart", "schedule_id": "uniform4-restart0",
+        "source": "votes-csv",
+        # A duplicate and a degenerate 0 slot: schedule.py collapses both, so
+        # the manifest's derived count has to collapse them too.
+        "cuts": {"mode": "vote-count", "at": [0, 15, 15, 30, 45, n_votes]},
+        "moderation": "none", "clojure": {"warm_start": "chain"}, "notes": "",
+        "restart_after": 0,
+    }
+    schedules_dir = tmp_path / "schedules"
+    schedules_dir.mkdir()
+    (schedules_dir / "synthetic-restart-uniform4.json").write_text(
+        json.dumps(spec_json))
+
+    entry = fb.collect_schedule_hashes(schedules_dir)[0]
+    spec = sched.ScheduleSpec.from_dict(spec_json)
+    steps = sched.slice_schedule(dataset, spec)
+
+    assert entry["expected_checkpoints"] == len(steps) == 4, entry
+    assert [s.index for s in steps] == [0, 1, 2, 3], "steps are zero-indexed"
+    assert entry["restart_after"] == steps[0].index
+
+    # The driver accepts exactly 0..len(steps)-2; admission must accept and
+    # reject exactly the same set.
+    accepted_by_driver = set()
+    for candidate in range(-1, len(steps) + 1):
+        try:
+            driver.run_replay(dataset,
+                              sched.ScheduleSpec.from_dict(
+                                  dict(spec_json, restart_after=candidate)))
+        except ValueError:
+            continue
+        except Exception:  # engine ran => the index was accepted
+            pass
+        accepted_by_driver.add(candidate)
+    assert accepted_by_driver == {0, 1, 2}, accepted_by_driver
+
+    # ... and real admission must accept and reject exactly the same set.
+    _, manifest, _, _ = bundle
+    accepted_by_admission = set()
+    for candidate in range(-1, len(steps) + 1):
+        probe = copy.deepcopy(manifest)
+        probe["schedules"] = [dict(entry, restart_after=candidate)]
+        try:
+            fb.admit_manifest(probe, config=config)
+        except fb.AdmissionError:
+            continue
+        accepted_by_admission.add(candidate)
+    assert accepted_by_admission == accepted_by_driver, (
+        "manifest admission and the replay driver disagree about which "
+        "restart_after indices exist")
+
+    # A SINGLE-cut schedule has no legal seam at all under this convention:
+    # index 0 would be the last step, so the restart could never be observed.
+    # driver.run_replay rejects it, and admission has to agree — "zero-based"
+    # does not mean "0 is always valid".
+    single = next(s for s in manifest["schedules"] if s["n_cuts"] == 1)
+    with pytest.raises(ValueError, match="at least one step after it"):
+        driver.run_replay(dataset, sched.ScheduleSpec.from_dict(
+            {"dataset": "d", "schedule_id": "one", "source": "votes-csv",
+             "cuts": {"mode": "vote-count", "at": [n_votes]},
+             "moderation": "none", "clojure": {}, "notes": "",
+             "restart_after": 0}))
+    probe = copy.deepcopy(manifest)
+    probe["schedules"] = [dict(single, restart_after=0)]
+    with pytest.raises(fb.AdmissionError, match="legal range is 0..-1"):
+        fb.admit_manifest(probe, config=config)
 
 
 # --- P1(1): the publisher cannot fail open and cannot race ------------------

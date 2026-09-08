@@ -195,9 +195,18 @@ nothing about whether the bundle covers what it claims, so `push`, `pull` and
   limits, and that case is MATERIALISED in this bundle — a role recorded with
   `dir: null` is unfilled, whatever it is named — and its measured metrics
   satisfy the same stress predicate the missing production role was defined by;
-- each pinned schedule's `expected_checkpoints` is DERIVED from its resolved
-  cuts (and any `restart_after` falls inside them), and at least one schedule is
-  pinned;
+- each pinned schedule's `expected_checkpoints` is DERIVED by
+  `schedule.resolved_cut_count` — the same resolution `schedule.slice_schedule`
+  runs, so duplicate and degenerate cut entries collapse identically — and a
+  schedule whose cuts only a dataset can resolve (`"end"`, `timestamp`,
+  `fraction`) is refused rather than certified with a count nobody computed;
+  at least one schedule is pinned;
+- `restart_after` is a **zero-based** step index, the convention
+  `ReplayStep.index` and `driver.run_replay` use (`driver.py` compares
+  `step.index == spec.restart_after`). The seam needs at least one step after
+  it or it is never observed, so with `k` checkpoints the legal range is
+  `0..k-2`: index `0` is legal and index `k` does not exist. Each pinned
+  schedule states the convention in `restart_index_base`;
 - the storage/export polarity is declared, with its boundary sites;
 - every field of the `admission` block is a token from a CLOSED enum
   (`fixture_bundle.ADMISSION_POLICY_ENUMS`) rather than prose — prose lives in
