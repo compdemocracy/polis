@@ -215,6 +215,9 @@ bandit-report.json
 # Test outputs (hidden directory for all test-generated files)
 .test_outputs/
 
+# Test-run sink for blobs derived from real conversation data (test_postgres_real_data.py, test_pakistan_conversation.py)
+real_data/postgres_output/
+
 # Local datasets (confidential or too large to commit)
 real_data/.local/
 !real_data/.local/.gitkeep
