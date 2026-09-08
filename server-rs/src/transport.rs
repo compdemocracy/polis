@@ -119,6 +119,12 @@ async fn one(mut socket: TcpStream, router: Router) -> Result<(), Error> {
     }
     output.push_str("Connection: close\r\n\r\n");
     socket.write_all(output.as_bytes()).await?;
+    // Express matches HEAD to the app.get route, runs the handler and calls
+    // `res.end()` with no chunk, so the headers stand and no body is written.
+    if method.eq_ignore_ascii_case("HEAD") {
+        socket.shutdown().await?;
+        return Ok(());
+    }
     if chunked {
         socket
             .write_all(format!("{:x}\r\n", body.len()).as_bytes())
@@ -130,4 +136,58 @@ async fn one(mut socket: TcpStream, router: Router) -> Result<(), Error> {
     }
     socket.shutdown().await?;
     Ok(())
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::OrderedHeaders;
+    use axum::{Router, response::Response, routing::get};
+    async fn hello() -> Response<Body> {
+        let mut r = Response::builder().body(Body::from("hello")).unwrap();
+        r.extensions_mut().insert(OrderedHeaders(vec![
+            ("Content-Type".into(), "text/plain".into()),
+            ("Content-Length".into(), "5".into()),
+        ]));
+        r
+    }
+    async fn listening() -> std::net::SocketAddr {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let router = Router::new().route("/x", get(hello).head(hello));
+        tokio::spawn(async move { serve(listener, router).await });
+        addr
+    }
+    async fn exchange(addr: std::net::SocketAddr, request: &str) -> String {
+        let mut socket = TcpStream::connect(addr).await.unwrap();
+        socket.write_all(request.as_bytes()).await.unwrap();
+        let mut out = String::new();
+        let mut buf = [0u8; 4096];
+        loop {
+            let n = socket.read(&mut buf).await.unwrap();
+            if n == 0 {
+                break;
+            }
+            out.push_str(std::str::from_utf8(&buf[..n]).unwrap());
+        }
+        out
+    }
+    #[tokio::test]
+    async fn head_sends_the_get_headers_and_no_body() {
+        let addr = listening().await;
+        let get = exchange(
+            addr,
+            "GET /x HTTP/1.1\r\nHost: t\r\nConnection: close\r\n\r\n",
+        )
+        .await;
+        let head = exchange(
+            addr,
+            "HEAD /x HTTP/1.1\r\nHost: t\r\nConnection: close\r\n\r\n",
+        )
+        .await;
+        assert!(get.ends_with("\r\n\r\nhello"), "{get:?}");
+        let (get_headers, _) = get.split_once("\r\n\r\n").unwrap();
+        let (head_headers, body) = head.split_once("\r\n\r\n").unwrap();
+        assert_eq!(get_headers, head_headers);
+        assert_eq!(body, "", "HEAD must carry the headers and no body");
+    }
 }

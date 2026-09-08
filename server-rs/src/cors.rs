@@ -102,6 +102,15 @@ impl Cors {
             .iter()
             .any(|p| host == p || host.ends_with(&format!(".{p}")))
     }
+    #[cfg(test)]
+    pub fn for_test(whitelist: &[&str]) -> Self {
+        Self {
+            domain_override: None,
+            dev_mode: false,
+            testing: false,
+            whitelist: whitelist.iter().map(|s| s.to_string()).collect(),
+        }
+    }
     /// `Ok(None)` means Node emits no CORS header at all for this request.
     pub fn resolve(&self, headers: &HeaderMap) -> Result<Option<String>, UnauthorizedDomain> {
         let origin = if let Some(domain) = &self.domain_override {
@@ -141,12 +150,7 @@ mod tests {
         h
     }
     fn cors(whitelist: &[&str]) -> Cors {
-        Cors {
-            domain_override: None,
-            dev_mode: false,
-            testing: false,
-            whitelist: whitelist.iter().map(|s| s.to_string()).collect(),
-        }
+        Cors::for_test(whitelist)
     }
     #[test]
     fn absent_origin_emits_no_cors_header() {
