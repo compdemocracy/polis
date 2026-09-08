@@ -99,6 +99,56 @@
 
 
 ;; ============================================================================
+;; Bug 2b: stale smoothed-k in :subgroup-k-smoother (issue #2575)
+;;
+;; The identical bug as Bug 2, one level down. #2536 clamped smoothed-k in
+;; group-k-smoother but NOT in :subgroup-k-smoother. A group's subgroup
+;; clustering runs k-means for k in (range 2 (inc M)), where M is count-based
+;; on the group's base-cluster count. When group membership drops below a /12
+;; boundary, M falls; the carried smoothed-k can exceed M; and downstream
+;; (get group-subgroup-clusterings smoothed-k) returns nil → an empty subgroup
+;; clustering → conv-repness crash. The fix mirrors #2536: clamp the carried
+;; smoothed-k to a key that exists in THIS group's current subgroup clusterings.
+;; ============================================================================
+
+(deftest stale-subgroup-smoothed-k-is-clamped-to-available-subgroup-clusters
+  (testing "subgroup smoothed-k is clamped per group so subgroup-clusters stays non-nil"
+    ;; Simulate: a group :g0 whose previous subgroup smoothed-k was 5, but whose
+    ;; current base-cluster count only supports subgroup k=2,3 (M stepped down).
+    (let [gid :g0
+          ;; Minimal subgroup clusterings for k=2 and k=3 for this group
+          dummy-clustering-k2 [{:id 0 :members [:b1]} {:id 1 :members [:b2]}]
+          dummy-clustering-k3 [{:id 0 :members [:b1]} {:id 1 :members [:b2]} {:id 2 :members []}]
+          group-subgroup-clusterings {2 dummy-clustering-k2
+                                      3 dummy-clustering-k3}
+          subgroup-clusterings {gid group-subgroup-clusterings}
+          ;; Best available k by silhouette is 3; but buffer hasn't been exceeded,
+          ;; so the smoother preserves the (stale) old smoothed-k of 5.
+          subgroup-clusterings-silhouettes {gid {2 0.6, 3 0.8}}
+          old-smoother {:last-k 5 :last-k-count 1 :smoothed-k 5}
+          smoother-fnk (:subgroup-k-smoother conversation/small-conv-update-graph)
+          new-smoother (smoother-fnk
+                         {:conv {:subgroup-k-smoother {gid old-smoother}}
+                          :subgroup-clusterings subgroup-clusterings
+                          :subgroup-clusterings-silhouettes subgroup-clusterings-silhouettes
+                          :opts' {:group-k-buffer 4}})
+          smoothed-k (get-in new-smoother [gid :smoothed-k])
+          ;; Downstream :subgroup-clusters does exactly this lookup per group.
+          subgroup-clusters (get group-subgroup-clusterings smoothed-k)]
+
+      ;; With the current (unfixed) code, smoothed-k stays at 5 and the lookup returns nil.
+      ;; After the fix, smoothed-k should be clamped to an available k.
+      (testing "smoothed-k should be a key that exists in this group's subgroup clusterings"
+        (is (contains? group-subgroup-clusterings smoothed-k)
+            (str "smoothed-k=" smoothed-k
+                 " not in " (keys group-subgroup-clusterings))))
+
+      (testing "subgroup-clusters lookup should not be nil"
+        (is (some? subgroup-clusters)
+            "subgroup-clusters lookup must not return nil")))))
+
+
+;; ============================================================================
 ;; Bug 3 (colleague's fix): agg-bucket-votes-for-tid with unknown pids
 ;;
 ;; When base-cluster members include pids not present in the rating matrix
@@ -125,3 +175,44 @@
       (is (= 1 (first result)))
       ;; bucket 1 has :p2 (voted) → count 1
       (is (= 1 (second result))))))
+
+
+;; ============================================================================
+;; Bug 4: comment-priorities collapsed every comment to META_PRIORITY^2 (=49)
+;;
+;; #1961 (2025-03-15) changed the meta-tid lookup in the :comment-priorities fnk
+;; from (meta-tids tid) to (get meta-tids tid 0). For a non-meta tid,
+;; (get meta-tids tid 0) returns 0 — and 0 is TRUTHY in Clojure — so
+;; priority-metric took the meta branch for EVERY comment, collapsing all
+;; priorities to meta-priority^2 = 49 and degrading routing to uniform-random.
+;; Fixed by passing a real boolean: (contains? meta-tids tid). See #2571.
+;; ============================================================================
+
+(deftest comment-priorities-only-meta-tids-get-meta-priority
+  (testing "only genuine meta tids get meta-priority^2; non-meta tids get varied importance-based priorities"
+    (let [priorities-fnk (:comment-priorities conversation/small-conv-update-graph)
+          tids [1 2 3]
+          meta-tids #{2}                       ; only tid 2 is a meta comment
+          group-votes {0 {:votes {1 {:A 5 :D 1 :S 8}
+                                   2 {:A 3 :D 0 :S 6}
+                                   3 {:A 1 :D 2 :S 7}}}
+                       1 {:votes {1 {:A 2 :D 1 :S 5}
+                                  2 {:A 1 :D 1 :S 4}
+                                  3 {:A 4 :D 0 :S 9}}}}
+          conv {:zid 1 :group-votes group-votes}
+          pca {:comment-extremity [0.5 1.2 0.8]}   ; one per tid, in tids order
+          meta-priority-sq (double (* conversation/meta-priority conversation/meta-priority))
+          priorities (priorities-fnk {:conv conv
+                                      :group-votes group-votes
+                                      :pca pca
+                                      :tids tids
+                                      :meta-tids meta-tids})]
+      (testing "the meta tid gets exactly meta-priority^2"
+        (is (== meta-priority-sq (double (get priorities 2)))))
+      ;; Regression guard for #1961: with the truthy-0 bug, non-meta tids also
+      ;; hit the meta branch and returned meta-priority^2.
+      (testing "non-meta tids do NOT get meta-priority^2"
+        (is (not (== meta-priority-sq (double (get priorities 1)))))
+        (is (not (== meta-priority-sq (double (get priorities 3))))))
+      (testing "non-meta priorities are varied, not a single constant"
+        (is (not (== (double (get priorities 1)) (double (get priorities 3)))))))))

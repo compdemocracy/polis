@@ -549,13 +549,21 @@
                     ; if seen > buffer many times, switch, OW, take last smoothed
                     smoothed-k   (if (>= this-k-count count-buffer)
                                    this-k
-                                   (if smoothed-k smoothed-k this-k))]
+                                   (if smoothed-k smoothed-k this-k))
+                    ; Clamp: if smoothed-k no longer exists in THIS group's current
+                    ; subgroup clusterings (e.g. the group's base-cluster count shrank,
+                    ; lowering M), fall back to the best available k by silhouette.
+                    ; Mirrors the group-k-smoother clamp added in #2536; see issue #2575.
+                    clamped-smoothed-k
+                                 (if (contains? group-subgroup-clusterings smoothed-k)
+                                   smoothed-k
+                                   this-k)]
                 ;; We return a map of key-value pairs that look like this:
                 ;; This is maybe where we could put information about whether the last count matches for the sake of subgroups...
                 [gid
                  {:last-k       this-k
                   :last-k-count this-k-count
-                  :smoothed-k   smoothed-k}]))
+                  :smoothed-k   clamped-smoothed-k}]))
             subgroup-clusterings)))
 
       ;; This is a little different from the group version above;
@@ -670,12 +678,12 @@
                     extremity (or (get extremities tid)
                                   (do
                                     (log/warn "No extremity for tid" tid "zid" (:zid conv))
-                                    0))
-                    ;; Use 0 as the default when meta-tids is null or doesn't contain the tid
-                    meta-tid-value (if meta-tids 
-                                   (get meta-tids tid 0)
-                                   0)]
-                (priority-metric meta-tid-value A P S extremity)))
+                                    0))]
+                ;; Pass a real boolean. (get meta-tids tid 0) defaults non-meta
+                ;; tids to 0, which is TRUTHY in Clojure, so priority-metric took
+                ;; the meta branch for every comment (regression #1961). See #2571
+                ;; and delphi/docs/MATH_ALGORITHM_HISTORY.md.
+                (priority-metric (contains? meta-tids tid) A P S extremity)))
             tids)))
 
 

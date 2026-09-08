@@ -1,0 +1,146 @@
+# HANDOFF: execute the Clojure→Python math cutover (steps 0-3 as WIP PRs)
+
+Written 2026-07-28 at the close of s7 (GOAL_CUTOVER_READY: DONE). This is
+the ENTRY POINT for the session that ships the cutover. Read order:
+1. This file.
+2. CUTOVER_RUNBOOK.md — canonical: evidence base, risk register with the
+   FINAL measured verdict, "Execution shape" (shadow analysis, PR plan,
+   CDK verdict), steps 0-3.
+3. GOAL_STATE.md (STATUS: DONE + walkthrough) if provenance is needed.
+
+## Where things stand (evidence all in-repo)
+
+- Engine: ONE code path, Clojure-legacy semantics. Certified against a
+  Clojure ORACLE RERUN (not historical prod blobs) at a defined
+  TOLERANCE, not bit-for-bit: the battery reports MATCH when the accepted
+  projection agrees by canonical hash OR a tolerant compare (default abs
+  1e-6 / rel 0.01, sign-flip handling, looser tolerances on PCA lists);
+  canonicalization normalizes ordering/sign and omits the dropped
+  subgroup outputs. Read "20/20 MATCH" as "within tolerance on the
+  certified inputs", not "identical blobs". Live equivalence vw 8/8 +
+  pc-meta-02 8/8 non-vacuous; goldens re-recorded (comparer 7/7); suite
+  green.
+- Performance: vectorized warm-start k-means (#2679, matches within the
+  same tolerance). r8g.4xlarge, 33,422×783/2.0M votes: cold 29.0s, warm
+  26.6s (was 519.6s / 1856.0s) — author-reported on SYNTHESIZED shape
+  data, no measured RSS. Verdict: serial OK at every shape; no
+  blocklisting (Julien ruling: never blocklist; warm start stays).
+- Naming: compose service `math-python`, profile `math-python`, env
+  `MATH_PYTHON_ENV` (default math_env value 'python').
+- Merge status: the stack is being landed onto `edge` bottom-up (spr).
+  Confirm the current HEAD with `git log origin/edge` before quoting a
+  status; the older "nothing is on edge yet" claim is stale. Prod still
+  deploys from `stable`.
+
+## P-019 review fixes (must-fix items M1–M5)
+
+The independent P-019 review (cost-reduction/04-plans/P-019-julien-stack-
+review.md) found defects that are now fixed on this branch. Probe:
+cost-reduction/scripts/p019-review-probes.py (adapted copy reads HEAD).
+
+- **M1 — park/unpark lost failed votes.** After retry exhaustion a parked
+  zid kept its stale cached conversation, so the interval that failed
+  stayed missing. Fix (poller/service.py, worker_pool.py): `_unpark`
+  invalidates the cache so the next batch rebuilds from full authoritative
+  Postgres history; a periodic reconciler
+  (`MATH_POLLER_RECONCILE_INTERVAL_MS`, default 60s) recovers a zid that
+  failed and then went quiet, via a new REBUILD pool message.
+- **M2 — retry at the queue tail overwrote a newer revote.**
+  `Conversation.update_votes` now resolves duplicate (pid, tid) by
+  `created` timestamp (stable-sort + keep-last), and `_run_engine` writes
+  BEFORE caching so a retry re-derives cleanly instead of re-advancing
+  temporal state.
+- **M3 — certification cache keys.** The Python recording manifest now
+  includes the comments CSV sha (as Clojure already did) and the schedule
+  hash includes `restart_after` + `clojure`; a bumped manifest version
+  invalidates existing cached recordings once.
+- **M4 — cache-cap/shard wiring.** `MATH_CONV_CACHE_CAP` defaults to a
+  FINITE 200 (negatives rejected; 0 = unlimited must be explicit), and
+  compose passes the cap, shard index/count, and reconciler interval
+  into the container (documented in example.env).
+- **M5 — participant-ban / mode-collapse behavior change (release note).**
+  See below; accepted by Colin, so this is a documentation item only.
+
+### M5 release note — report-engine behavior change (ACCEPTED)
+
+This stack removes the older Python implementation's participant-ban
+(`participants.mod`) filtering AND runs full-PCA at all conversation
+sizes, including above the Clojure production cutoff. Both are DELIBERATE,
+accepted decisions by Colin — not dead-code cleanup:
+
+- Participant bans are no longer applied to the rating matrix. Clojure
+  never honored them, but the deleted older Python path DID, so this is a
+  real change to existing Delphi REPORT output (run_delphi.py →
+  run_math_pipeline.py builds the same Conversation), not only a change to
+  the dormant new poller. The server still ingests `participants.mod`; it
+  is simply no longer applied by the math engine.
+- Large conversations run the full-PCA branch rather than the Clojure
+  cutoff/approximation. On very large inputs the shadow comparer will flag
+  these as "mode collapse"/Q10 divergences vs the Clojure rows; that is
+  the accepted, expected behavior of the new engine, not a defect. Do not
+  interpret those large-conversation differences as failures during the
+  shadow soak.
+
+## OPEN RULINGS — get from Julien before the relevant PR
+
+1. Shadow vs clean replace. Recommendation on file (runbook "Execution
+   shape"): time-boxed shadow 24-48h with the written exit checklist.
+2. Flip mechanism — pick ONE: poller MATH_ENV→'prod' vs server
+   mathEnv→'python'. Runbook step 2 demands it be written down.
+
+## The PRs
+
+- **PR-S0 — land + promote.** (a) Merge the stack bottom-up:
+  `jj spr merge --count <N>` — NEVER the GitHub UI (spr can't track UI
+  squashes). Julien decides the merge moment/team sign-off. (b) Promote
+  edge→stable: CHECK FIRST how stable has historically been advanced
+  (`git log origin/stable` — fast-forward vs PR; not verified in s7).
+  Prod's after_install.sh does `git reset --hard origin/stable`.
+- **PR-S1 — shadow wiring.** scripts/after_install.sh, math role branch
+  (`elif [ "$SERVICE_FROM_FILE" == "math" ]`, ~line 105-108): change
+  `up -d math` → `up -d math math-python`. Env: MATH_PYTHON_ENV +
+  MATH_CONV_CACHE_CAP must reach the instance .env — that comes from
+  Secrets Manager `polis-web-app-env-vars` (AWS-side edit, needs
+  Julien/elevated creds — NOT bench, NOT a repo change; coordinate).
+  Copy the exit checklist (runbook Execution shape) into the PR body.
+  MATH_CONV_CACHE_CAP: set it (LRU; eviction cost = certified restart
+  seam). Pre-soak verify item: read the clj container's actual -Xmx on
+  the host (`docker stats`); memory math says 128 GiB host / 16g python
+  cap / clj unchanged — wide margins, but cite real numbers.
+- **PR-S2 — flip.** One env change per ruling 2; revert instructions in
+  the PR body. Rollback semantics: both envs' rows coexist
+  (UNIQUE(zid, math_env)); caching_tick is MAX+1 so monotonicity
+  survives swaps in both directions; restart clj `math` to roll back.
+- **PR-S3 — decommission.** Remove `math` from docker-compose.yml AND
+  its `up -d math` line in after_install.sh; archive note for math/
+  (the Clojure tree stays as the certification oracle — do NOT delete).
+
+## Gotchas that will bite (all learned the hard way)
+
+- spr: one commit = one PR on the single stack bookmark. NEVER
+  `jj squash -m` into an spr commit (wipes the commit-id trailer →
+  garbage PRs); preserve trailers when re-describing; use
+  `--use-destination-message`. jj split gives BOTH halves the trailer —
+  rewrite the second half's description fresh and move the spr bookmark
+  back (`jj bookmark set spr/edge/<id> -r <first> --allow-backwards`).
+- jj-colocated: NEVER `git checkout --`/`git restore` a working file
+  (git index = parent commit; wipes uncommitted work).
+- Copilot review credits are EXHAUSTED — use independent review-agent
+  subagents per PR (the s7 pattern; all 15+ s7 PRs reviewed that way).
+- python-ci on spr branches needs manual `gh workflow run python-ci.yml
+  --ref <branch>` (dispatch at wind-down, check at next orientation).
+- Compose profiles gate DEV only; prod starts services BY NAME.
+- Battery cost model: no engine edit ~22s cached pair; engine edit
+  ~19min re-replay (run `cd delphi && uv run python scripts/certify.py
+  run`). The cutover PRs touch deploy/compose only → cached pairs.
+- Shadow comparer WILL flag the 7 historical large convs (Q10: clj rows
+  are unseeded-random there) — expected, not a defect (runbook risk 2).
+
+## Post-cutover (not this session, but adjacent)
+
+POST_CUTOVER_IMPROVEMENTS.md is the queue: parks on improvements/*
+bookmarks (items 2/4/5/8), item 12 (persist warm-start state — kills
+restart-induced K flips), item 9b optional. Candidate after the soak:
+downsize the math host (CDK cdk/ec2.ts instanceTypeMathWorker) once
+real utilization is measured — the vectorized engine likely doesn't
+need an r8g.4xlarge.

@@ -1,5 +1,7 @@
 # Handoff: PR 14 — Make Vectorized Code Readable + Blob Injection Tests
 
+> **Status (2026-06-11):** PR 14a (delete dead scalar paths in repness.py) is in the open spr stack as PR #2564. Tasks 14b (vectorized blob-injection tests) and 14c (readability refactor) remain open and are tracked in `PLAN_DISCREPANCY_FIXES.md`. The branch names and stack listing below are from the 2026-03/06 sessions and are stale — do not branch from them.
+
 ## Goal
 
 The scalar functions (`comment_stats`, `add_comparative_stats`, `repness_metric`,

@@ -8,7 +8,6 @@ like weighted clustering, silhouette coefficient, and cluster stability mechanis
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional, Tuple, Union, Any
-import random
 from copy import deepcopy
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
@@ -674,8 +673,15 @@ def calculate_silhouette_sklearn(data: np.ndarray,
     Returns:
         Silhouette coefficient (between -1 and 1, higher is better)
     """
-    # sklearn requires at least 2 clusters and 2 samples
-    if len(np.unique(labels)) <= 1 or data.shape[0] <= 1:
+    # sklearn's silhouette_score requires 2 <= n_labels <= n_samples - 1.
+    # When there are as many (or more) distinct labels as samples — e.g. only
+    # two base clusters fed into a k=2 group clustering (2 points / 2 labels) —
+    # the coefficient is undefined; return the neutral 0.0 sentinel instead of
+    # letting sklearn raise ValueError. (powerit PCA can collapse a small
+    # conversation to two base clusters; see #2591.)
+    n_labels = len(np.unique(labels))
+    n_samples = data.shape[0]
+    if n_labels <= 1 or n_labels >= n_samples:
         return 0.0
 
     return silhouette_score(data, labels, metric=metric)
@@ -762,9 +768,6 @@ def cluster_dataframe(df: pd.DataFrame,
         row_to_idx = {name: i for i, name in enumerate(df.index)}
         last_clusters_internal = clusters_from_dict(last_clusters, row_to_idx)
 
-    # Use fixed random seed for initialization to be more consistent
-    np.random.seed(42)
-
     # Perform clustering
     clusters_result = kmeans(
         matrix_data,
@@ -774,10 +777,15 @@ def cluster_dataframe(df: pd.DataFrame,
         weights_array
     )
 
-    # Sort clusters by size (descending) to match Clojure behavior
+    # NOTE: this size-descending sort + id reassignment does NOT match
+    # Clojure (the old comment here claimed it did). Clojure keeps
+    # first-k-distinct encounter-order ids and only ever sorts by :id —
+    # see the 2026-07-05 gid label-swap fix in conversation.py, which
+    # removed the same pattern from the LIVE path. This function is not
+    # on the production path (kmeans_sklearn is; sole caller is
+    # tests/test_clusters.py, whose expectations pin this ordering), so
+    # the behavior is kept as-is here rather than silently changed.
     clusters_result.sort(key=lambda x: len(x.members), reverse=True)
-
-    # Reassign IDs based on sorted order to match Clojure behavior
     for i, cluster in enumerate(clusters_result):
         cluster.id = i
 

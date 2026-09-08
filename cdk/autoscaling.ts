@@ -10,30 +10,37 @@ export default (
   self: Construct,
   vpc: cdk.aws_ec2.Vpc,
   instanceRole: cdk.aws_iam.Role,
-  ollamaLaunchTemplate: cdk.aws_ec2.LaunchTemplate,
+  ollamaLaunchTemplate: cdk.aws_ec2.LaunchTemplate | undefined,
   logGroup: cdk.aws_logs.LogGroup,
-  fileSystem: cdk.aws_efs.FileSystem,
+  fileSystem: cdk.aws_efs.FileSystem | undefined,
   webLaunchTemplate: cdk.aws_ec2.LaunchTemplate,
   mathWorkerLaunchTemplate: cdk.aws_ec2.LaunchTemplate,
   delphiSmallLaunchTemplate: cdk.aws_ec2.LaunchTemplate,
   delphiLargeLaunchTemplate: cdk.aws_ec2.LaunchTemplate,
   ollamaNamespace: string,
-  alarmTopic: cdk.aws_sns.Topic
+  alarmTopic: cdk.aws_sns.Topic,
+  enableOllama: boolean = false
 ) => {
   const commonAsgProps = { vpc, role: instanceRole };
 
-  // Ollama ASG
-  const asgOllama = new autoscaling.AutoScalingGroup(self, 'AsgOllama', {
-    vpc,
-    launchTemplate: ollamaLaunchTemplate,
-    minCapacity: 1,
-    maxCapacity: 3,
-    desiredCapacity: 1,
-    vpcSubnets: { subnetGroupName: 'PrivateWithEgress' },
-    healthCheck: autoscaling.HealthCheck.ec2({ grace: cdk.Duration.minutes(10) }),
-  });
-  asgOllama.node.addDependency(logGroup);
-  asgOllama.node.addDependency(fileSystem); // Ensure EFS is ready before instances start
+  // Ollama ASG (only when the GPU stack is enabled)
+  let asgOllama: autoscaling.AutoScalingGroup | undefined;
+  if (enableOllama) {
+    if (!ollamaLaunchTemplate || !fileSystem) {
+      throw new Error('enableOllama is true but ollamaLaunchTemplate/fileSystem were not provided to createAutoScalingAndAlarms');
+    }
+    asgOllama = new autoscaling.AutoScalingGroup(self, 'AsgOllama', {
+      vpc,
+      launchTemplate: ollamaLaunchTemplate,
+      minCapacity: 1,
+      maxCapacity: 3,
+      desiredCapacity: 1,
+      vpcSubnets: { subnetGroupName: 'PrivateWithEgress' },
+      healthCheck: autoscaling.HealthCheck.ec2({ grace: cdk.Duration.minutes(10) }),
+    });
+    asgOllama.node.addDependency(logGroup);
+    asgOllama.node.addDependency(fileSystem); // Ensure EFS is ready before instances start
+  }
 
   // Web ASG
   const asgWeb = new autoscaling.AutoScalingGroup(self, 'Asg', {
@@ -52,7 +59,10 @@ export default (
     launchTemplate: mathWorkerLaunchTemplate,
     minCapacity: 1,
     desiredCapacity: 1,
-    maxCapacity: 5,
+    // Keep at 1: every math worker polls every conversation and holds its own actors
+    // (math/src/polismath/components/{poller,conv_man}.clj); a second instance duplicates
+    // the computation and the writes rather than sharing the load.
+    maxCapacity: 1,
     vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
     healthCheck: autoscaling.HealthCheck.ec2({ grace: cdk.Duration.minutes(2) }),
   });
@@ -72,8 +82,11 @@ export default (
   const asgDelphiLarge = new autoscaling.AutoScalingGroup(self, 'AsgDelphiLarge', {
     vpc,
     launchTemplate: delphiLargeLaunchTemplate,
-    minCapacity: 1,
-    desiredCapacity: 1,
+    // Set to 0 in the console on 2026-07-31 (c7i.8xlarge, ~$1,040/mo, was idle). Match it here so a
+    // cdk deploy does not bring it back. NOTE: delphi/scripts/job_poller.py still routes >5000-comment
+    // jobs to this class, so until that gate is removed such jobs will wait; tracked in P-004/P-003.
+    minCapacity: 0,
+    desiredCapacity: 0,
     maxCapacity: 3,
     vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
     healthCheck: autoscaling.HealthCheck.ec2({ grace: cdk.Duration.minutes(5) }),
@@ -126,21 +139,23 @@ export default (
   const delphiSmallCpuMetric = createDelphiCpuScaling(asgDelphiSmall, 'DelphiSmall', 60); // Target 60% CPU
   const delphiLargeCpuMetric = createDelphiCpuScaling(asgDelphiLarge, 'DelphiLarge', 60); // Target 60% CPU
 
-  // Add Ollama GPU Scaling Policy
-  const ollamaGpuMetric = new cloudwatch.Metric({
-    namespace: ollamaNamespace, // Custom namespace from CW Agent config
-    metricName: 'utilization_gpu', // GPU utilization metric name from CW Agent config
-    dimensionsMap: { AutoScalingGroupName: asgOllama.autoScalingGroupName },
-    statistic: 'Average',
-    period: cdk.Duration.minutes(1),
-  });
-  asgOllama.scaleToTrackMetric('OllamaGpuScaling', {
-    metric: ollamaGpuMetric,
-    targetValue: 75,
-    cooldown: cdk.Duration.minutes(5), // Prevent flapping
-    disableScaleIn: false, // Allow scaling down
-    estimatedInstanceWarmup: cdk.Duration.minutes(5), // Time until instance contributes metrics meaningfully
-  });
+  // Add Ollama GPU Scaling Policy (only when the GPU stack is enabled)
+  if (enableOllama && asgOllama) {
+    const ollamaGpuMetric = new cloudwatch.Metric({
+      namespace: ollamaNamespace, // Custom namespace from CW Agent config
+      metricName: 'utilization_gpu', // GPU utilization metric name from CW Agent config
+      dimensionsMap: { AutoScalingGroupName: asgOllama.autoScalingGroupName },
+      statistic: 'Average',
+      period: cdk.Duration.minutes(1),
+    });
+    asgOllama.scaleToTrackMetric('OllamaGpuScaling', {
+      metric: ollamaGpuMetric,
+      targetValue: 75,
+      cooldown: cdk.Duration.minutes(5), // Prevent flapping
+      disableScaleIn: false, // Allow scaling down
+      estimatedInstanceWarmup: cdk.Duration.minutes(5), // Time until instance contributes metrics meaningfully
+    });
+  }
 
   return {
     asgOllama,

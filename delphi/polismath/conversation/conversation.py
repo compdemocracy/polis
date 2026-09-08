@@ -15,17 +15,71 @@ import sys
 from datetime import datetime
 from natsort import natsorted
 
-from polismath.pca_kmeans_rep.pca import pca_project_dataframe
+from polismath.pca_kmeans_rep.pca import (
+    pca_project_dataframe,
+    pca_project_cmnts,
+    compute_comment_extremity,
+)
 from polismath.pca_kmeans_rep.clusters import (
-    kmeans_sklearn,
     calculate_silhouette_sklearn
 )
 from polismath.pca_kmeans_rep.repness import conv_repness
 from polismath.pca_kmeans_rep.corr import compute_correlation
+from polismath.pca_kmeans_rep.group_k_smoother import group_k_smoother_update
+from polismath.pca_kmeans_rep.legacy_kmeans import (
+    _NamedData as _LegacyNamedData,
+    kmeans as legacy_kmeans,
+)
+from polismath.utils.clj_hash import clojure_hash_map_key_order
 
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+
+def _base_clusters_to_legacy(base_clusters: Optional[List[Dict[str, Any]]]) -> Optional[List[Dict[str, Any]]]:
+    """Convert stored base clusters ({id, center: list, members: pids}) into the
+    legacy_kmeans warm-start form ({id, members, center: np.ndarray}).
+
+    Returns None for empty/None input so the first tick cold-starts via
+    init-clusters (Clojure: a falsey :last-clusters -> init-clusters,
+    clusters.clj:305-307). PR-C warm-start plumbing for
+    :last-clusters (:base-clusters conv) (conversation.clj:409).
+    """
+    if not base_clusters:
+        return None
+    return [
+        {'id': c['id'],
+         'members': list(c['members']),
+         'center': np.asarray(c['center'], dtype=float)}
+        for c in base_clusters
+    ]
+
+
+def _labels_from_id_clusters(row_names: List[Any],
+                             clusters: List[Dict[str, Any]]) -> np.ndarray:
+    """Label array aligned with ``row_names`` for silhouette scoring: the index
+    (in ``clusters``) of the cluster that contains each name.
+
+    Used at the group level to score a legacy (id-carrying) clustering with
+    ``calculate_silhouette_sklearn``, so the smoother sees comparable
+    silhouettes. Every base cluster is assigned to exactly one
+    group cluster by ``cluster-step``; a name that (degenerately) appears in none
+    gets its own singleton label so it never silently merges into label 0.
+    """
+    label_by_name: Dict[Any, int] = {}
+    for label, c in enumerate(clusters):
+        for m in c['members']:
+            label_by_name[m] = label
+    next_label = len(clusters)
+    labels = []
+    for name in row_names:
+        if name in label_by_name:
+            labels.append(label_by_name[name])
+        else:
+            labels.append(next_label)
+            next_label += 1
+    return np.array(labels)
 
 # Set up default logging only if root logger is not configured
 # This prevents duplicate handlers when logging is configured externally
@@ -37,13 +91,89 @@ if not logging.root.handlers:
     logger.setLevel(logging.INFO)
 
 
+# =============================================================================
+# D12: Comment-priority metrics (Clojure parity)
+# =============================================================================
+#
+# Ports of `importance-metric` and `priority-metric` from Clojure
+# (math/src/polismath/math/conversation.clj:311-330). Public so they can be
+# unit-tested in isolation.
+
+META_PRIORITY = 7  # Clojure: meta-priority (conversation.clj:319). "TODO TUNE."
+
+
+def importance_metric(A: float, P: float, S: float, E: float) -> float:
+    """
+    Clojure importance-metric (conversation.clj:311-315).
+
+        (defn importance-metric
+          [A P S E]
+          (let [p (/ (+ P 1) (+ S 2))
+                a (/ (+ A 1) (+ S 2))]
+            (* (- 1 p) (+ E 1) a)))
+
+    Smoothed (Beta(2,2)) probability of pass `p`, smoothed agree `a`, with
+    extremity boost `(E + 1)`. Higher when fewer passes, more agrees, more
+    extreme (higher PCA extremity).
+
+    Args:
+        A: agree count (across all groups).
+        P: pass count = S - (A + D) across all groups.
+        S: seen count (total votes seen — agree + disagree + pass).
+        E: comment extremity (L2 norm of PCA projection).
+    """
+    p = (P + 1) / (S + 2)
+    a = (A + 1) / (S + 2)
+    return (1 - p) * (E + 1) * a
+
+
+def priority_metric(is_meta: bool,
+                    A: float, P: float, S: float, E: float) -> float:
+    """
+    Clojure priority-metric (conversation.clj:321-330).
+
+        (defn priority-metric
+          [is-meta A P S E]
+          (matrix/pow
+            (if is-meta
+              meta-priority
+              (* (importance-metric A P S E)
+                 (+ 1 (* 8 (matrix/pow 2 (/ S -5))))))
+            2))
+
+    Squared to deepen bias (toward extremes). Meta comments get a constant
+    `META_PRIORITY^2 = 49`. Non-meta comments get `importance * decay`, where
+    the decay factor `1 + 8 * 2^(-S/5)` lets new (low-S) comments bubble up
+    and fades as more votes accumulate.
+
+    History: this mirrored Clojure's #1961 truthy-0 bug (every tid took the
+    meta branch → all priorities 49; issue #2571) until 2026-07-22. Clojure
+    HEAD passes a real boolean since #2611 (conversation.clj:686), so the
+    real branching formula is both the correct AND the parity behavior, in
+    both engine modes.
+
+    Args:
+        is_meta: True for meta comments (treated as constant priority).
+        A, P, S, E: see `importance_metric`.
+
+    Returns:
+        Squared priority value.
+    """
+    if is_meta:
+        inner = META_PRIORITY
+    else:
+        decay_factor = 1 + 8 * (2 ** (-S / 5))
+        inner = importance_metric(A, P, S, E) * decay_factor
+    return inner ** 2
+
+
 class Conversation:
     """
     Manages the state and computation for a Pol.is conversation.
     """
     
     def __init__(self, 
-                conversation_id: str, 
+                conversation_id: Union[str, int],
                 last_updated: Optional[int] = None,
                 votes: Optional[Dict[str, Any]] = None):
         """
@@ -70,18 +200,47 @@ class Conversation:
         self.mod_in_tids = set()    # Featured comments
         self.meta_tids = set()      # Meta comments
         self.mod_out_ptpts = set()  # Excluded participants
+        # Clojure conv state carries no :mod-in/:mod-out (nil in the blob)
+        # until the poller delivers moderation; these two track that seam so
+        # clojure-legacy emission can distinguish "never moderated" (null)
+        # from "moderated to empty" ([]). See FP-2f5714ce9c / FP-2975bbfb04.
+        self.moderation_applied = False
+        self.last_mod_timestamp: Optional[int] = None
+        # Clojure named-matrix column order = first-vote arrival order per tid
+        # (update-nmat appends unseen colnames in encounter order); python's
+        # internal matrix is natsorted instead (update_votes). Tracked so
+        # clojure-legacy tie-breaking (stable sorts over column order) and
+        # blob tid emission can replicate Clojure exactly. Append-only.
+        self.tid_arrival_order = []
         
         # Clustering and projection state
         self.pca = None
         self.base_clusters = []
         self.group_clusters = []
         self.subgroup_clusters = {}
+
+        # Warm-start state threaded across ticks. Clojure carries these on the
+        # conv (conversation.clj:433-484): the per-k group clusterings and the
+        # group-k-smoother state {last_k, last_k_count, smoothed_k}. Cold
+        # default is empty (first tick); NOT persisted to/from dynamo — they
+        # thread in-memory only, exactly as Clojure's math_main whitelist omits
+        # them (conv_man.clj:52-74).
+        self.group_clusterings: Dict[Any, Any] = {}  # k -> (labels, centers, member_lists, silhouette)
+        self.group_k_smoother: Dict[str, Any] = {}   # {last_k, last_k_count, smoothed_k}
+        # Persistent in-conv set (PR-E). Clojure keeps in-conv on the conv
+        # and UNIONS into it every tick, so greedily-admitted participants
+        # never leave (conversation.clj:243-269). Empty on the first tick;
+        # threaded in-memory across update_votes (deepcopy in recompute),
+        # NOT persisted to dynamo — same lifetime as the other warm-start
+        # state.
+        self.in_conv: Set[Any] = set()
         self.proj = {}
         self.repness = None
         self.consensus = []
         self.participant_info = {}
         self.vote_stats = {}
         self.group_votes = {}  # Initialize group_votes to avoid attribute errors
+        self.comment_priorities: Dict[Any, float] = {}  # D12 (PR 11)
         
         # Initialize with votes if provided
         if votes:
@@ -188,8 +347,15 @@ class Conversation:
                     null_count += 1
                     continue
                 
-                # Add to batch updates list
-                vote_updates.append((ptpt_id, comment_id, vote_value))
+                # Add to batch updates list. `created` is carried so duplicate
+                # (row, col) resolution is by vote TIMESTAMP, not payload order
+                # (M2, P-019): a retried batch can arrive at the queue tail AFTER
+                # a newer revote, so payload order no longer implies temporal
+                # order. Sorting by `created` before drop_duplicates(keep='last')
+                # restores later-vote-wins regardless of arrival order. For an
+                # already-time-sorted stream (the replay/certification input) the
+                # stable sort is an identity, so certified outputs are unchanged.
+                vote_updates.append((ptpt_id, comment_id, vote_value, created))
                 
             except Exception as e:
                 logger.error(f"Error processing vote: {e}")
@@ -198,6 +364,15 @@ class Conversation:
         
         # Log validation results
         logger.info(f"[{time.time() - start_time:.2f}s] Vote processing summary: {len(vote_updates)} valid, {invalid_count} invalid, {null_count} null")
+
+        # Record first-vote arrival order for unseen tids (valid votes only,
+        # in payload order — the same order Clojure's update-nmat encounters
+        # them). See tid_arrival_order in __init__.
+        seen_tids = set(result.tid_arrival_order)
+        for _, comment_id, _, _ in vote_updates:
+            if comment_id not in seen_tids:
+                seen_tids.add(comment_id)
+                result.tid_arrival_order.append(comment_id)
 
         # Get existing row and column indices
         existing_rows = self.raw_rating_mat.index
@@ -209,10 +384,16 @@ class Conversation:
         # By now it contain only -1, +1, or 0 as values
         logger.info(f"[{time.time() - start_time:.2f}s] Converting updates to DataFrame...")
 
-        updates_df = pd.DataFrame(vote_updates, columns=['row', 'col', 'value'])
+        updates_df = pd.DataFrame(vote_updates, columns=['row', 'col', 'value', 'created'])
 
-        # Step 2: Keep only the most recent vote for each (participant, comment) pair
+        # Step 2: Keep only the most recent vote for each (participant, comment) pair.
+        # Sort by `created` FIRST (stable, so equal-timestamp ties keep payload /
+        # Clojure encounter order), then keep='last' — this resolves duplicates by
+        # timestamp rather than payload position (M2, P-019). Without the sort a
+        # retried batch appended at the queue tail could let an OLDER vote win over
+        # a newer revote that was queued during the failure.
         original_count = len(updates_df)
+        updates_df = updates_df.sort_values('created', kind='mergesort')
         updates_df = updates_df.drop_duplicates(subset=['row', 'col'], keep='last')
         superseded_votes = original_count - len(updates_df)
         logger.info(f"[{time.time() - start_time:.2f}s] Discarded {superseded_votes} superseded votes (sequential votes on same comment by same participant)")
@@ -240,7 +421,7 @@ class Conversation:
         # See delphi/docs/INVESTIGATION_K_DIVERGENCE.md for the full
         # analysis showing this is the root cause of k divergence on vw.
         new_rows_ordered = []
-        for pid, _, _ in vote_updates:
+        for pid, _, _, _ in vote_updates:
             if pid in new_rows and pid not in existing_rows_set:
                 existing_rows_set.add(pid)
                 new_rows_ordered.append(pid)
@@ -249,6 +430,11 @@ class Conversation:
         # Column order: natsort is fine — column permutation doesn't affect PCA
         # eigenvalues/vectors (only reorders the component loadings), so it has
         # no effect on clustering k.
+        # NB: in clojure-legacy mode this column order is now LOAD-BEARING for
+        # PCA warm-start alignment — the previous tick's component loadings are
+        # threaded in positionally, so the ordering must be STABLE tick-to-tick.
+        # Safe while tids are append-only (natsort keeps prior columns' relative
+        # order and appends new ones); revisit if columns can ever be removed.
         all_cols = natsorted(existing_cols.union(new_cols))
 
         logger.info(f"[{time.time() - start_time:.2f}s] Found {len(new_rows)} new rows and {len(new_cols)} new columns")
@@ -317,18 +503,21 @@ class Conversation:
         """
         Apply moderation settings to create filtered rating matrix.
 
-        Matches Clojure behavior (named_matrix.clj:214-230):
-        - Moderated-out participants are removed (rows dropped)
-        - Moderated-out comments are ZEROED OUT, not removed — the column
-          stays in the matrix with all values set to 0.  This preserves
-          matrix structure so that tids, column indices, and dimensions
-          match between Python and Clojure.
+        Comment moderation matches Clojure (named_matrix.clj:214-230):
+        moderated-out comments are ZEROED OUT, not removed — the column stays
+        in the matrix with all values set to 0. This preserves matrix
+        structure so that tids, column indices, and dimensions match between
+        Python and Clojure.
+
+        Participant bans (mod_out_ptpts) are NOT a Polis feature (Julien
+        ruling 2026-07-27, POST_CUTOVER_IMPROVEMENTS.md item 1 — dropped):
+        no engine has ever honored them — the Clojure worker's ingest path
+        has no participants.mod filter (CLOJURE_QUIRKS Q1). The set is
+        ingested but never applied to the matrix.
         """
-        # Filter out moderated participants (remove rows).
         # Preserve raw_rating_mat row order (vote encounter order) — see
         # update_votes() comment on why row order matters for Clojure parity.
-        keep_ptpts = [p for p in self.raw_rating_mat.index if p not in self.mod_out_ptpts]
-        self.rating_mat = self.raw_rating_mat.loc[keep_ptpts].copy()
+        self.rating_mat = self.raw_rating_mat.copy()
 
         # Zero out moderated-out comments (keep columns, set values to 0)
         # Clojure: (matrix/set-column m' i 0) — zeroes the column
@@ -446,6 +635,11 @@ class Conversation:
         mod_in_tids = moderation.get('mod_in_tids', [])
         meta_tids = moderation.get('meta_tids', [])
         mod_out_ptpts = moderation.get('mod_out_ptpts', [])
+
+        result.moderation_applied = True
+        result.last_mod_timestamp = moderation.get(
+            'lastModTimestamp', result.last_mod_timestamp
+        )
         
         # Update moderation sets
         if mod_out_tids:
@@ -469,15 +663,69 @@ class Conversation:
         # Recompute clustering if requested
         if recompute:
             result = result.recompute()
-        
+
         return result
-    
-    def _compute_pca(self, n_components: int = 2) -> None:
+
+    def mod_update(self, mods: List[Dict[str, Any]]) -> 'Conversation':
+        """Clojure ``mod-update`` parity (conversation.clj:846-884).
+
+        Reduces raw moderation rows ``{tid, is_meta, mod, modified}`` over the
+        current sets, in row order: mod-out conj when ``is_meta OR mod == -1``
+        else disj; mod-in conj when ``is_meta OR mod == 1`` else disj;
+        meta-tids conj when ``is_meta`` else disj. Consequences pinned by
+        tests/test_mod_update_parity.py: is_meta rows land in BOTH mod sets,
+        un-moderation REMOVES (which ``update_moderation`` cannot express),
+        and the last row per tid wins. Watermark:
+        ``last_mod_timestamp = max(existing or 0, *modified)``.
+
+        NO math recompute — Clojure's ``:moderation`` message handler runs
+        ``mod-update`` alone and re-emits the blob with updated sets and
+        unchanged math (conv_man.clj:274-276 + 328-345); the sets take effect
+        at the next votes recompute (``_apply_moderation`` runs inside
+        ``update_votes``). ``moderation_applied`` becomes True even for empty
+        ``mods``: any mod-update leaves Clojure's sets as real (possibly
+        empty) sets, which the blob emits as ``[]`` rather than ``null``.
+        """
+        result = deepcopy(self)
+        mod_out = set(result.mod_out_tids)
+        mod_in = set(result.mod_in_tids)
+        meta = set(result.meta_tids)
+        for row in mods:
+            tid = row['tid']
+            is_meta = bool(row.get('is_meta'))
+            mod = row.get('mod')
+            if is_meta or mod == -1:
+                mod_out.add(tid)
+            else:
+                mod_out.discard(tid)
+            if is_meta or mod == 1:
+                mod_in.add(tid)
+            else:
+                mod_in.discard(tid)
+            if is_meta:
+                meta.add(tid)
+            else:
+                meta.discard(tid)
+        result.mod_out_tids = mod_out
+        result.mod_in_tids = mod_in
+        result.meta_tids = meta
+        result.moderation_applied = True
+        result.last_mod_timestamp = max(
+            [result.last_mod_timestamp or 0]
+            + [row['modified'] for row in mods]
+        )
+        return result
+
+    def _compute_pca(self, n_components: int = 2,
+                     prev_pca: Optional[Dict[str, Any]] = None) -> None:
         """
         Compute PCA on the vote matrix.
 
         Args:
             n_components: Number of principal components
+            prev_pca: The previous tick's PCA result ({'center', 'comps'}) or
+                None. Consumed as the power-iteration warm start (Clojure
+                :start-vectors, conversation.clj:385).
         """
         import time
         start_time = time.time()
@@ -487,8 +735,14 @@ class Conversation:
         import numpy as np
         import pandas as pd
 
-        # Check if we have enough data
-        if self.rating_mat.shape[0] < 2 or self.rating_mat.shape[1] < 2:
+        # Check if we have enough data. Clojure runs the REAL math on any
+        # non-empty matrix — a 1x1 single-vote conversation yields center =
+        # the vote and a rank-capped zero component (every-vote step-0
+        # oracle, journal 2026-07-22) — so only a truly EMPTY dimension
+        # short-circuits. (The former improved-mode <2 guard is parked:
+        # POST_CUTOVER_IMPROVEMENTS.md item 2.)
+        empty = self.rating_mat.shape[0] == 0 or self.rating_mat.shape[1] == 0
+        if empty:
             # Not enough data for PCA, create minimal results
             cols = max(self.rating_mat.shape[1], 1)
             self.pca = {
@@ -503,7 +757,25 @@ class Conversation:
             # Make a clean copy of the rating matrix
             clean_matrix = self._get_clean_matrix()
 
-            pca_results, proj_dict = pca_project_dataframe(clean_matrix, n_components)
+            # Warm start (PR-B): thread the previous tick's unit components
+            # back in as the power-iteration start vectors (Clojure
+            # :start-vectors, conversation.clj:385) and require the
+            # power-iteration solver (sklearn cannot inject start vectors —
+            # the former improved-mode sklearn path is parked:
+            # POST_CUTOVER_IMPROVEMENTS.md item 8).
+            start_vectors = None
+            if prev_pca is not None and prev_pca.get('comps') is not None:
+                # Only warm-start from real components; a missing/None
+                # 'comps' (np.asarray(None) would be a size-1 object array,
+                # a garbage seed) or empty/cold state (first tick) falls
+                # through to the cold random draw.
+                prev_comps = np.asarray(prev_pca['comps'])
+                if prev_comps.size > 0:
+                    start_vectors = prev_comps
+
+            pca_results, proj_dict = pca_project_dataframe(
+                clean_matrix, n_components,
+                start_vectors=start_vectors, require_powerit=True)
 
             # Store results
             self.pca = pca_results
@@ -568,12 +840,28 @@ class Conversation:
 
         return pd.DataFrame(matrix_data, index=source.index, columns=source.columns)
     
-    def _compute_clusters(self) -> None:
+    def _compute_clusters(self,
+                          prev_base_clusters: Optional[List[Dict[str, Any]]] = None,
+                          prev_group_clusterings: Optional[Dict[Any, Any]] = None,
+                          prev_group_k_smoother: Optional[Dict[str, Any]] = None) -> None:
         """
         Compute two-level hierarchical clustering matching Clojure architecture.
 
         Level 1: Base clusters (participants → ~100 clusters)
         Level 2: Group clusters (base clusters → 2-5 groups with silhouette-based k selection)
+
+        Args:
+            prev_base_clusters: The previous tick's base clusters
+                (list of {id, center, members}), or None. Consumed as the
+                base-level k-means warm start (Clojure :last-clusters
+                (:base-clusters conv), conversation.clj:409).
+            prev_group_clusterings: The previous tick's per-k group
+                clusterings, or None: {k: [id-carrying cluster dicts]} — the
+                warm start for per-k group k-means (Clojure :last-clusters
+                (last-clusterings k), conversation.clj:441).
+            prev_group_k_smoother: The previous tick's group-k-smoother state
+                {last_k, last_k_count, smoothed_k}, or None
+                (conversation.clj:457).
         """
         import time
         start_time = time.time()
@@ -582,14 +870,21 @@ class Conversation:
         # Configuration (matching Clojure defaults)
         BASE_K = 100
         MAX_K = 5
-        BASE_ITERS = 100
-        GROUP_ITERS = 100
+        BASE_ITERS = 100        # Clojure :base-iters (conversation.clj:147)
+        # Group iterations: Clojure passes :cluster-iters — a key kmeans
+        # IGNORES — so the group level runs kmeans' DEFAULT max-iters of
+        # 20, not :group-iters (clusters.clj:303, conversation.clj:443).
+        GROUP_LEGACY_ITERS = 20
 
         # Check if we have projections
         if not self.proj:
             self.base_clusters = []
             self.group_clusters = []
             self.subgroup_clusters = {}
+            # P6a: no projections == the degenerate/empty conv. Clojure's
+            # conv-update SHORT-CIRCUITS a truly-empty conv (conversation.clj:807-811)
+            # and computes nothing, so the group-k smoother state is intentionally
+            # LEFT FROZEN here (no advance) — faithful to Clojure, not a divergence.
             logger.info(f"Clustering completed in {time.time() - start_time:.2f}s (no projections)")
             return
 
@@ -599,7 +894,15 @@ class Conversation:
         # Filter projections to only include in-conv participants
         in_conv_pids_list = [pid for pid in self.proj.keys() if pid in in_conv_pids]
 
-        if len(in_conv_pids_list) < 2:
+        # Degenerate-tick port (journal 2026-07-21 verdict): Clojure has NO
+        # <2-participants guard past the truly-empty short-circuit — with one
+        # in-conv participant its graph still runs the full base->group chain
+        # (one base cluster, k=2 group clustering of one point). The greedy
+        # floor (_get_in_conv_participants) keeps in-conv from dropping below
+        # 1 on warm ticks, so this 0-participant early return covers the
+        # cold/empty case only. (The former improved-mode <2 guard is parked:
+        # POST_CUTOVER_IMPROVEMENTS.md item 2.)
+        if len(in_conv_pids_list) == 0:
             logger.warning(f"Not enough participants meeting threshold ({len(in_conv_pids_list)})")
             self.base_clusters = []
             self.group_clusters = []
@@ -611,53 +914,56 @@ class Conversation:
         # Step 2: Base clustering (participants → ~100 base clusters)
         base_proj_values = np.array([self.proj[pid] for pid in in_conv_pids_list])
 
-        # Adjust BASE_K if we have fewer participants
+        # Adjust BASE_K if we have fewer participants. (Clojure always passes
+        # :base-k=100, but its kmeans caps clusters at the distinct-row count,
+        # so min() here is outcome-equivalent.)
         actual_base_k = min(BASE_K, len(in_conv_pids_list))
 
         logger.info(f"Computing base clusters with k={actual_base_k}...")
-        base_labels, base_centers, base_member_lists = kmeans_sklearn(
-            base_proj_values,
-            k=actual_base_k,
-            max_iters=BASE_ITERS
-        )
-
-        # Convert to dictionary format with participant IDs as members
-        base_clusters = []
-        for cluster_id, (center, member_indices) in enumerate(zip(base_centers, base_member_lists)):
-            # Map indices back to participant IDs
-            member_pids = [in_conv_pids_list[idx] for idx in member_indices]
-            base_clusters.append({
-                'id': cluster_id,
-                'center': center.tolist(),
-                'members': member_pids
-            })
-
-        # Keep base clusters in k-means ID order (matching Clojure's sort-by :id)
-        # Do NOT sort by size or reassign IDs — that would change the encounter
-        # order of centers used in group clustering's first-k-distinct initialization.
-        base_clusters.sort(key=lambda c: c['id'])
+        # PR-C: base-level warm start with lineage. Clojure threads the prior
+        # tick's base clusters into k-means as :last-clusters
+        # (conversation.clj:403-410 -> clusters.clj:301-312 -> clean-start-
+        # clusters), so base-cluster ids are STABLE across ticks, new ids
+        # strictly increase, and merges keep the larger side's id. The ported
+        # legacy_kmeans keys clusters to the current data by member NAME
+        # (participant id), which is what lets prior members be recentered or
+        # dropped. base-iters = 100 (conversation.clj:147). (The former
+        # improved-mode sklearn cold recompute is parked:
+        # POST_CUTOVER_IMPROVEMENTS.md item 8.)
+        base_data = _LegacyNamedData(in_conv_pids_list, base_proj_values)
+        last_base = _base_clusters_to_legacy(prev_base_clusters)
+        legacy_base = legacy_kmeans(
+            base_data, actual_base_k,
+            last_clusters=last_base, weights=None, max_iters=BASE_ITERS)
+        legacy_base.sort(key=lambda c: c['id'])  # Clojure sort-by :id (conversation.clj:406)
+        base_clusters = [
+            {'id': c['id'],
+             'center': np.asarray(c['center'], dtype=float).tolist(),
+             'members': list(c['members'])}
+            for c in legacy_base
+        ]
 
         logger.info(f"Created {len(base_clusters)} base clusters")
 
         # Step 3: Group clustering (base clusters → 2-5 groups)
-        if len(base_clusters) < 2:
-            logger.warning(f"Not enough base clusters for group clustering ({len(base_clusters)})")
-            self.base_clusters = base_clusters
-            # Maintain consistent group-cluster schema: members are base-cluster IDs
-            if len(base_clusters) == 1:
-                self.group_clusters = [{
-                    'id': 0,
-                    'center': base_clusters[0]['center'],
-                    'members': [base_clusters[0]['id']],
-                }]
-            else:
-                self.group_clusters = []
-            self.subgroup_clusters = {}
-            return
+        #
+        # Degenerate-tick port (journal 2026-07-21 verdict, supersedes the P6a
+        # sentinel-only advance): Clojure has NO <2-base-cluster guard. Its
+        # max-k-fn is (min max-max-k (+ 2 (int (/ n 12)))) -> ALWAYS >= 2
+        # (conversation.clj:274-279), so on a degenerate tick it still runs
+        # kmeans at k=2 on the single base-cluster center (clean-start caps
+        # clusters at the distinct-point count -> one cluster, lineage id
+        # preserved), stores the fresh 1-cluster :group-clusterings, and the
+        # next tick warm-starts from it — recovery splits mint ids via
+        # (inc (apply max ids)) (clusters.clj:267). We fall through to the
+        # normal per-k loop below, which reproduces all of that (max_k
+        # arithmetic yields range [2]; silhouette of a singleton clustering
+        # is 0.0, matching Clojure's singleton rule clusters.clj:350-353, so
+        # the smoother advance is unchanged from P6a). (The former improved-
+        # mode <2 early return is parked: POST_CUTOVER_IMPROVEMENTS.md item 2.)
 
-        # Prepare base cluster centers and weights
+        # Prepare base cluster centers (weights are keyed by id below)
         base_centers_array = np.array([c['center'] for c in base_clusters])
-        base_weights = np.array([len(c['members']) for c in base_clusters])
 
         # Calculate max_k for group clustering
         max_k = min(MAX_K, 2 + len(base_clusters) // 12)
@@ -665,50 +971,64 @@ class Conversation:
 
         logger.info(f"Computing group clusters with k range 2-{max_k}...")
 
-        # Try different k values and compute silhouette scores
-        best_k = 2
-        best_score = -1
-        group_clusterings = {}
+        # PR-C: group-level warm start with lineage + weighted recentering.
+        # Clojure clusters the BASE-CLUSTER CENTERS (base-clusters-proj),
+        # weighted by base-cluster member counts (:weights base-clusters-
+        # weights, conversation.clj:433-445), warm-starting each per-k
+        # clustering from the prior tick's k-clustering (:last-clusters
+        # (last-clusterings k), conversation.clj:441). (The former improved-
+        # mode sklearn cold recompute + best_k selection is parked:
+        # POST_CUTOVER_IMPROVEMENTS.md item 8.)
+        #
+        # Clojure passes :cluster-iters (a key kmeans does NOT destructure,
+        # clusters.clj:303), so the group level actually runs kmeans' DEFAULT
+        # max-iters (20), NOT :group-iters (100). We reproduce that
+        # (GROUP_LEGACY_ITERS below); well-separated data converges long
+        # before either bound, so on real conversations it is inert.
+        base_ids = [c['id'] for c in base_clusters]
+        base_weights_by_id = {c['id']: len(c['members']) for c in base_clusters}
+        group_data = _LegacyNamedData(base_ids, base_centers_array)
+        prev_gc = prev_group_clusterings or {}
 
+        legacy_group_clusterings: Dict[int, List[Dict[str, Any]]] = {}
+        silhouettes_by_k: Dict[int, float] = {}
         for k in range(2, max_k + 1):
-            group_labels, group_centers, group_member_lists = kmeans_sklearn(
-                base_centers_array,
-                k=k,
-                max_iters=GROUP_ITERS,
-                weights=base_weights
-            )
-
-            # Calculate silhouette score
-            score = calculate_silhouette_sklearn(base_centers_array, group_labels)
-            group_clusterings[k] = (group_labels, group_centers, group_member_lists, score)
-
+            gc = legacy_kmeans(
+                group_data, k,
+                last_clusters=prev_gc.get(k),
+                weights=base_weights_by_id,
+                max_iters=GROUP_LEGACY_ITERS)
+            gc.sort(key=lambda c: c['id'])  # Clojure sort-by :id (conversation.clj:437)
+            legacy_group_clusterings[k] = gc
+            # Score with the silhouette on the legacy assignment, so the
+            # smoother sees comparable numbers.
+            labels = _labels_from_id_clusters(base_ids, gc)
+            score = calculate_silhouette_sklearn(base_centers_array, labels)
+            silhouettes_by_k[k] = score
             logger.info(f"  k={k}: silhouette={score:.4f}")
 
-            if score > best_score:
-                best_score = score
-                best_k = k
+        # Group-K smoother (PR-D): damps K flicker (K only switches after
+        # :group-k-buffer=4 consecutive ticks agree) with Clojure's max-key
+        # HIGHER-k-wins tie-break, threading {last_k, last_k_count,
+        # smoothed_k}. self.group_clusterings holds the id-carrying cluster
+        # dicts — the warm start read next tick.
+        new_smoother_state, selected_k = group_k_smoother_update(
+            prev_group_k_smoother or {}, silhouettes_by_k)
+        self.group_clusterings = legacy_group_clusterings
+        self.group_k_smoother = new_smoother_state
+        logger.info(f"Legacy group-k-smoother: smoothed_k={selected_k} "
+                    f"state={new_smoother_state}")
 
-        logger.info(f"Selected k={best_k} with silhouette={best_score:.4f}")
-
-        # Use the best clustering
-        group_labels, group_centers, group_member_lists, _ = group_clusterings[best_k]
-
-        # Convert to dictionary format with base cluster IDs as members
-        group_clusters = []
-        for cluster_id, (center, member_indices) in enumerate(zip(group_centers, group_member_lists)):
-            # Members are base cluster IDs (not participant IDs!)
-            member_base_cluster_ids = [base_clusters[idx]['id'] for idx in member_indices]
-            group_clusters.append({
-                'id': cluster_id,
-                'center': center.tolist(),
-                'members': member_base_cluster_ids
-            })
-
-        # Sort group clusters by size (number of base clusters) for consistency
-        group_clusters.sort(key=lambda c: len(c['members']), reverse=True)
-        # Reassign IDs based on sorted order
-        for i, cluster in enumerate(group_clusters):
-            cluster['id'] = i
+        # Build production-form group_clusters from the selected clustering.
+        # Members are base-cluster ids; ids carry the group-cluster lineage.
+        selected = legacy_group_clusterings[selected_k]
+        group_clusters = [
+            {'id': c['id'],
+             'center': np.asarray(c['center'], dtype=float).tolist(),
+             'members': list(c['members'])}
+            for c in selected
+        ]
+        group_clusters.sort(key=lambda c: c['id'])
 
         logger.info(f"Created {len(group_clusters)} group clusters")
 
@@ -753,16 +1073,27 @@ class Conversation:
 
         # Check if we have groups
         if not self.group_clusters:
+            # B1 fix (D11 sub-agent review): consensus_comments must always be
+            # `{'agree': [], 'disagree': []}` (dict) post-D11, never `[]` (list).
             self.repness = {
                 'comment_ids': list(self.rating_mat.columns),
                 'group_repness': {},
-                'consensus_comments': []
+                'consensus_comments': {'agree': [], 'disagree': []}
             }
             logger.info(f"Representativeness completed in {time.time() - start_time:.2f}s (no groups)")
             return
 
-        # Compute representativeness (needs participant IDs, not base-cluster IDs)
-        self.repness = conv_repness(self.rating_mat, self._unfolded_group_clusters())
+        # Compute representativeness (needs participant IDs, not base-cluster IDs).
+        # `mod_out=self.mod_out_tids` forwards moderated-out tids to the rep + consensus
+        # selectors (Clojure parity per D11 / PR 9; matches repness.clj:222 and :296).
+        # tid_order carries the first-vote arrival order so exact-score ties
+        # resolve like Clojure's stable sorts over named-matrix column order
+        # (FP-eaea8c1b7f / FP-0d73f006f4).
+        tid_order = self.tid_arrival_order
+        self.repness = conv_repness(self.rating_mat,
+                                    self._unfolded_group_clusters(),
+                                    mod_out=self.mod_out_tids,
+                                    tid_order=tid_order)
         logger.info(f"Representativeness completed in {time.time() - start_time:.2f}s")
 
     def _compute_participant_info_optimized(self, vote_matrix: pd.DataFrame, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -992,20 +1323,156 @@ class Conversation:
         if result.rating_mat.size == 0:
             # Not enough data, return early
             return result
-        
+
+        # Capture the PREVIOUS tick's warm-start state BEFORE the compute steps
+        # overwrite it. `result` is a deepcopy of self, so result.pca /
+        # result.group_clusterings / result.group_k_smoother currently hold the
+        # prior tick's values (deepcopied snapshots). This mirrors Clojure,
+        # whose fnks read the incoming `conv` for :start-vectors
+        # (conversation.clj:385) and :group-k-smoother (conversation.clj:457).
+
+        prev_pca = result.pca
+        prev_base_clusters = getattr(result, 'base_clusters', [])
+        prev_group_clusterings = getattr(result, 'group_clusterings', {})
+        prev_group_k_smoother = getattr(result, 'group_k_smoother', {})
+        # Q2: Clojure's :comment-priorities shadows its current-tick input
+        # with (:group-votes conv) — the PREVIOUS tick's stored group-votes
+        # (conversation.clj:658). Captured here, consumed by
+        # _compute_comment_priorities (Q2).
+        prev_group_votes = getattr(result, 'group_votes', {})
+
+        # Q15: Clojure's conv-update is a plumbing-graph compile whose output
+        # has ONLY graph-node keys — :last-mod-timestamp is not one
+        # (conversation.clj:780-820), so every votes recompute DROPS the mod
+        # watermark; blobs carry lastModTimestamp only when the tick's last
+        # write was a mod-update. tests/test_mod_update_parity.py. (The
+        # former improved-mode persistent watermark is parked:
+        # POST_CUTOVER_IMPROVEMENTS.md item 4.)
+        result.last_mod_timestamp = None
+
         # Compute PCA and projections
-        result._compute_pca()
-        
+        result._compute_pca(prev_pca=prev_pca)
+
         # Compute clusters
-        result._compute_clusters()
+        result._compute_clusters(
+            prev_base_clusters=prev_base_clusters,
+            prev_group_clusterings=prev_group_clusterings,
+            prev_group_k_smoother=prev_group_k_smoother,
+        )
         
         # Compute representativeness
         result._compute_repness()
-        
+
+        # Compute comment priorities (D12 / PR 11). Needs PCA + group_votes.
+        result._compute_comment_priorities(prev_group_votes=prev_group_votes)
+
         # Compute participant info
         result._compute_participant_info()
-        
+
         return result
+
+    def _compute_comment_priorities(
+            self,
+            prev_group_votes: Optional[Dict[str, Any]] = None) -> Dict[Any, float]:
+        """
+        Compute per-tid comment priorities matching Clojure
+        `:comment-priorities` (conversation.clj:656-687).
+
+        Per-tid: sum A/D/S across all groups → P = S - (A + D) → call
+        `priority_metric(is_meta, A, P, S, E)` where E is the comment
+        extremity computed from the CURRENT tick's PCA.
+
+        The PREVIOUS tick's group-votes feed A/D/S (Q2): Clojure shadows
+        its current-tick group-votes input with `(:group-votes conv)` —
+        the previous tick's stored value (conversation.clj:658) — so
+        `prev_group_votes` is used (empty on the first tick, matching
+        Clojure's nil). The CURRENT tick's group-votes are stored on
+        `self.group_votes` for the next tick's capture — the in-memory
+        analogue of Clojure persisting :group-votes in math_main.
+
+        Stores the result on `self.comment_priorities` and also returns it.
+        TS server `nextComment.ts::getNextPrioritizedComment` consumes this
+        for weighted comment routing — pre-D12 Python emitted nothing, so
+        the server fell back to uniform random selection.
+        """
+        if self.pca is None or self.rating_mat is None or self.rating_mat.empty:
+            self.comment_priorities = {}
+            return self.comment_priorities
+
+        center = np.asarray(self.pca.get('center'))
+        comps = np.asarray(self.pca.get('comps'))
+        if center.size == 0 or comps.size == 0:
+            self.comment_priorities = {}
+            return self.comment_priorities
+
+        # Comment projection + extremity (Clojure with-proj-and-extremtiy,
+        # conversation.clj:341-352).
+        cmnt_proj = pca_project_cmnts(center, comps)
+        extremity_arr = compute_comment_extremity(cmnt_proj)
+
+        # Fail closed on desync: if the PCA vectors were computed on a
+        # different column set than the current rating_mat (e.g. moderation
+        # changed between recomputes), zip() would silently truncate and
+        # assign E=0 to the overflow tids — wrong priorities with no
+        # signal. Empty priorities degrade the TS server to uniform
+        # routing, which is honest; silently wrong extremities are not.
+        # (Copilot review 2026-07-04, g4.)
+        n_cols = len(self.rating_mat.columns)
+        if len(extremity_arr) != n_cols:
+            logger.error(
+                f"comment_priorities: extremity length {len(extremity_arr)} "
+                f"!= rating_mat column count {n_cols} (stale PCA?); "
+                f"skipping priorities for this tick")
+            self.comment_priorities = {}
+            return self.comment_priorities
+
+        # Column order of `center`/`comps`/`extremity_arr` matches
+        # `self.rating_mat.columns` (PCA is computed on rating_mat).
+        tid_extremity = dict(zip(self.rating_mat.columns, extremity_arr))
+
+        # Per-group A/D/S aggregation. `_compute_group_votes` returns
+        # {str(gid): {'n-members': N, 'votes': {tid: {A, D, S}}}}. S includes
+        # PASS (line ~1222: `np.sum(~np.isnan(votes))`), matching Clojure.
+        # PERF (deferred, Copilot on PR #2568): this is an O(groups ×
+        # comments × members) scan on every recompute; vectorize or reuse
+        # the repness-stage aggregation — tracked in the follow-up issue
+        # "delphi: _compute_comment_priorities recomputes group votes on
+        # every tick".
+        current_group_votes = self._compute_group_votes()
+        # Stored for the NEXT tick's prev capture (Clojure keeps :group-votes
+        # on the conv / in math_main) — like self.pca.
+        self.group_votes = current_group_votes
+        # Q2: comment priorities read the PREVIOUS tick's group-votes
+        # (conversation.clj:658); {} on the first tick == Clojure's nil
+        # (reduce over nothing → A/P/S all 0). (The former improved-mode
+        # current-tick read is parked: POST_CUTOVER_IMPROVEMENTS.md item 5.)
+        group_votes = prev_group_votes if prev_group_votes is not None else {}
+
+        priorities: Dict[Any, float] = {}
+        for tid in self.rating_mat.columns:
+            A_total = 0
+            D_total = 0
+            S_total = 0
+            for gv_data in group_votes.values():
+                votes_for_tid = gv_data.get('votes', {}).get(
+                    tid, {'A': 0, 'D': 0, 'S': 0})
+                A_total += votes_for_tid.get('A', 0)
+                D_total += votes_for_tid.get('D', 0)
+                S_total += votes_for_tid.get('S', 0)
+            # Clojure: P = S - (A + D)  (conversation.clj:661).
+            P_total = S_total - (A_total + D_total)
+            E = float(tid_extremity.get(tid, 0))
+            is_meta = tid in self.meta_tids
+            # Match key type with the rest of the codebase (int when possible).
+            try:
+                tid_key = int(tid)
+            except (ValueError, TypeError):
+                tid_key = tid
+            priorities[tid_key] = float(priority_metric(
+                is_meta, A_total, P_total, S_total, E))
+
+        self.comment_priorities = priorities
+        return priorities
     
     def get_summary(self) -> Dict[str, Any]:
         """
@@ -1159,7 +1626,179 @@ class Conversation:
                 votes_base[tid] = entry
 
         return votes_base
-    
+
+    def _compute_votes_base_buckets(self) -> Dict[str, Any]:
+        """
+        Clojure-exact votes-base: per-tid A/D/S vectors indexed by base-cluster
+        bucket, matching `agg-bucket-votes-for-tid` over `bid-to-pid`
+        (conversation.clj:593-608). Buckets are the base clusters SORTED BY
+        :id; the aggregation domain is each bucket's member pids only — votes
+        from unclustered participants never appear (this is why the former
+        improved-mode int totals ran up to +1 higher on some tids;
+        FP-81fda13ef6).
+
+        Values come from raw_rating_mat (D15 parity: the actual votes cast,
+        not post-moderation zeros), same as `_compute_votes_base`.
+
+        Returns:
+            {tid: {'A': [per-bucket count], 'D': [...], 'S': [...]}}.
+        """
+        mat = self.raw_rating_mat
+        values = mat.values
+        row_pos = {pid: i for i, pid in enumerate(mat.index)}
+        bucket_rows = [
+            np.asarray(
+                [row_pos[p] for p in c['members'] if p in row_pos], dtype=int
+            )
+            for c in sorted(self.base_clusters or [], key=lambda c: c['id'])
+        ]
+
+        agree_mask = np.abs(values - 1.0) < 0.001
+        disagree_mask = np.abs(values + 1.0) < 0.001
+        valid_mask = ~np.isnan(values)
+        per_bucket = [
+            (
+                agree_mask[rows].sum(axis=0),
+                disagree_mask[rows].sum(axis=0),
+                valid_mask[rows].sum(axis=0),
+            )
+            for rows in bucket_rows
+        ]
+
+        votes_base = {}
+        for j, tid in enumerate(mat.columns):
+            entry = {
+                'A': [int(a[j]) for a, _, _ in per_bucket],
+                'D': [int(d[j]) for _, d, _ in per_bucket],
+                'S': [int(s[j]) for _, _, s in per_bucket],
+            }
+            try:
+                votes_base[int(tid)] = entry
+            except (ValueError, TypeError):
+                votes_base[tid] = entry
+        return votes_base
+
+    @staticmethod
+    def _legacy_repness_entry(e: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        One repness entry in Clojure `finalize-cmt-stats` shape
+        (repness.clj:173-188): direction chosen by rat > rdt, stat fields
+        renamed to the blob spellings, repness-test cast through float32
+        (Clojure applies a literal `(float ...)`). Best-agree entries carry
+        the two extra keys per repness.clj:262-264.
+        """
+        repful = e.get('repful') or ('agree' if e['rat'] > e['rdt'] else 'disagree')
+        agree = repful == 'agree'
+        out = {
+            'tid': e['comment_id'],
+            'n-success': e['na'] if agree else e['nd'],
+            'n-trials': e['ns'],
+            'p-success': e['pa'] if agree else e['pd'],
+            'p-test': e['pat'] if agree else e['pdt'],
+            'repness': e['ra'] if agree else e['rd'],
+            'repness-test': float(np.float32(e['rat'] if agree else e['rdt'])),
+            'repful-for': repful,
+        }
+        if e.get('best_agree'):
+            out['best-agree'] = True
+            out['n-agree'] = e['n_agree']
+        return out
+
+    def _apply_legacy_blob_shape(self, result: Dict[str, Any]) -> None:
+        """
+        Clojure-exact emission overrides for clojure-legacy mode (mutates
+        ``result``). Improved-mode emission is untouched. Diagnosis and
+        fingerprints: docs/divergences.json + journal session 2026-07-22-3.
+
+        - Sign parity (FP-80ca42344a/FP-3781b5768f/FP-af281c8386/
+          FP-194ee5ad04): Delphi's rating matrix is the NEGATION of Clojure's
+          (AGREE=+1 vs AGREE=-1), so every mean/projection-derived float
+          (pca.center, base-clusters x/y, group-cluster centers,
+          comment-projection) negates at this boundary; comps are
+          covariance-derived and already equal — emitted unchanged.
+        - pca comment-projection/comment-extremity (FP-2393072de1): Clojure's
+          with-proj-and-extremtiy (conversation.clj:341-352); projection is
+          emitted TRANSPOSED (component-major), extremity is a norm and
+          therefore sign-invariant.
+        - group-clusters (FP-55e290562e): members are BASE-CLUSTER ids
+          (Clojure folded form); the unfolded-pids view stays available under
+          the snake alias ``group_clusters``.
+        - repness (FP-c3cee15f8b): {gid: [finalize-cmt-stats entries]}; the
+          internal dict moves to ``repness_full`` (python-only key) so
+          ``from_dict`` round-trips losslessly.
+        - moderation seam (FP-2f5714ce9c/FP-872f81716c/FP-2975bbfb04):
+          mod-in/mod-out/lastModTimestamp are null until moderation has been
+          applied.
+        """
+        # tids in Clojure column (first-vote arrival) order; tid-aligned pca
+        # arrays are permuted with them so the blob stays internally
+        # consistent. Falls back to emitted order for tids that predate the
+        # tracker (e.g. conversations restored from pre-tracker blobs).
+        emitted_tids = result.get('tids') or []
+        emitted_set = set(emitted_tids)
+        arrival = [t for t in self.tid_arrival_order if t in emitted_set]
+        arrival_set = set(arrival)
+        arrival += [t for t in emitted_tids if t not in arrival_set]
+        tid_pos = {t: i for i, t in enumerate(emitted_tids)}
+        perm = [tid_pos[t] for t in arrival]
+
+        if self.pca:
+            center = np.asarray(self.pca['center'], dtype=float)
+            comps = np.asarray(self.pca['comps'], dtype=float)
+            cmnt_proj = pca_project_cmnts(center, comps)  # Delphi sign, (n_cmts, n_comps)
+            if cmnt_proj.ndim == 2 and cmnt_proj.shape[1] < 2:
+                # comps are rank-capped (a 1-cmt conv has ONE component) but
+                # Clojure's comment-projection is always 2-row: the [pc1 pc2]
+                # destructure zero-fills the missing component
+                # (with-proj-and-extremtiy over sparsity-aware projection).
+                cmnt_proj = np.pad(
+                    cmnt_proj, ((0, 0), (0, 2 - cmnt_proj.shape[1]))
+                )
+            extremity = compute_comment_extremity(cmnt_proj)
+            pca_out = dict(result.get('pca', {}))
+            if len(perm) == center.shape[0]:
+                # Permute tids and every tid-aligned pca array TOGETHER so
+                # the blob stays internally consistent.
+                result['tids'] = arrival
+                center = center[perm]
+                comps = comps[:, perm]
+                cmnt_proj = cmnt_proj[perm, :]
+                extremity = extremity[perm]
+            pca_out['center'] = (-center).tolist()
+            pca_out['comps'] = comps.tolist()
+            pca_out['comment-projection'] = (-cmnt_proj.T).tolist()
+            pca_out['comment-extremity'] = extremity.tolist()
+            result['pca'] = pca_out
+        else:
+            # No tid-aligned arrays to keep in sync — reorder tids alone.
+            result['tids'] = arrival
+
+        bc = result.get('base-clusters')
+        if bc:
+            bc['x'] = [-v for v in bc['x']]
+            bc['y'] = [-v for v in bc['y']]
+
+        result['group-clusters'] = [
+            {
+                'id': g['id'],
+                'members': list(g['members']),
+                'center': [-c for c in g['center']],
+            }
+            for g in (self.group_clusters or [])
+        ]
+
+        if self.repness and self.repness.get('group_repness') is not None:
+            result['repness_full'] = self.repness
+            result['repness'] = {
+                gid: [self._legacy_repness_entry(e) for e in entries]
+                for gid, entries in self.repness['group_repness'].items()
+            }
+
+        if not self.moderation_applied:
+            result['mod-in'] = None
+            result['mod-out'] = None
+        result['lastModTimestamp'] = self.last_mod_timestamp
+
     def _compute_group_votes(self) -> Dict[str, Any]:
         """
         Compute group votes structure which maps group IDs to vote statistics by comment.
@@ -1174,6 +1813,14 @@ class Conversation:
 
         # Expand base-cluster IDs to participant IDs (matches Clojure group-votes)
         unfolded = self._unfolded_group_clusters()
+
+        # Clojure's group-votes aggregates votes-base, whose fnk reads
+        # RAW-rating-mat (conversation.clj:601-608): moderated-out comments
+        # report the ACTUAL votes cast and true seen-counts, not the
+        # post-zeroing pass-shaped columns (a zeroed column would tally
+        # A=0/D=0 with S = every member).
+        # tests/test_mod_update_parity.py TestGroupVotesTallyRawMatrix.
+        tally_mat = self.raw_rating_mat
 
         group_votes = {}
 
@@ -1194,7 +1841,7 @@ class Conversation:
             row_indices = []
             for member in members:
                 try:
-                    member_idx = self.rating_mat.index.get_loc(member)
+                    member_idx = tally_mat.index.get_loc(member)
                     row_indices.append(member_idx)
                 except ValueError:
                     # Skip members not found in matrix
@@ -1202,13 +1849,13 @@ class Conversation:
                     
             # Get the column index for this comment
             try:
-                col_idx = self.rating_mat.columns.get_loc(comment_id)
+                col_idx = tally_mat.columns.get_loc(comment_id)
             except ValueError:
                 # If comment not found, return 0
                 return 0
                 
             # Count votes of specified type
-            votes = self.rating_mat.values[row_indices, col_idx]
+            votes = tally_mat.values[row_indices, col_idx]
             
             if vote_type == 'A':  # Agree
                 return int(np.sum(np.abs(votes - 1.0) < 0.001))
@@ -1262,10 +1909,11 @@ class Conversation:
         import time
         start_time = time.time()
         # raw_rating_mat for the COLUMN view (preserves moderated-out comments — D15
-        # parity), but filtered to rating_mat.index for the ROW view so moderated-out
-        # *participants* (mod_out_ptpts, dropped by _apply_moderation) don't leak
-        # into vote counts. Both filters together give the moderation-applied state
-        # with un-zeroed values, matching what Clojure produces.
+        # parity), row view via rating_mat.index. Since the ban-filter drop
+        # (bans are not a Polis feature), rating_mat.index keeps banned rows
+        # (Q1), matching Clojure's unfiltered user-vote-counts. Both filters
+        # together give the moderation-applied state with un-zeroed values,
+        # matching what Clojure produces.
         mat = self.raw_rating_mat.loc[self.rating_mat.index]
         logger.info(f"Starting _compute_user_vote_counts for {mat.shape[0]} participants")
 
@@ -1304,11 +1952,15 @@ class Conversation:
 
         return vote_counts
 
-    def _get_in_conv_participants(self) -> Set[str]:
-        """
-        Get participants who have voted enough to be included in clustering.
+    # Clojure greedy in-conv floor: if fewer than this many participants clear
+    # the vote threshold, greedily admit the top voters up to this count
+    # (conversation.clj:259 `greedy-n 15`).
+    IN_CONV_GREEDY_N = 15
 
-        Matches Clojure's in-conv logic from conversation.clj lines 239-266.
+    def _get_in_conv_participants(self) -> Set[Any]:
+        """
+        Get participants to include in clustering (Clojure :in-conv,
+        conversation.clj:243-269).
 
         Threshold: participant must have voted on at least min(7, n_comments)
         comments (Clojure parity fix D2).
@@ -1323,20 +1975,67 @@ class Conversation:
         MUST be persisted to DynamoDB. See compdemocracy/polis#2358 and
         Clojure's approach in conv_man.clj:55, conversation.clj:244.
 
+        Beyond the threshold set, this ports the two Clojure steps the
+        Python pipeline was originally missing (conversation.clj:243-269):
+
+          1. CARRY: union into the PERSISTENT in-conv set carried on the conv
+             (`(or (:in-conv conv) #{})`, conversation.clj:247) so a participant,
+             once in, stays in — including greedy admits.
+          2. GREEDY FLOOR: if fewer than 15 participants are in, greedily admit
+             the top `15 - n_in` remaining participants by vote count descending
+             (conversation.clj:259-268), and PERSIST them in the carried set.
+
         Returns:
-            Set of participant IDs that meet the threshold
+            Set of participant IDs to feed base clustering.
         """
         n_cmts = len(self.raw_rating_mat.columns) if hasattr(self.raw_rating_mat, 'columns') else 0
         threshold = min(7, n_cmts)
 
-        # Get vote counts for all participants
+        # Get vote counts for all participants (raw_rating_mat, insertion/row
+        # order preserved — the deterministic greedy tie-break below relies on it).
         vote_counts = self._compute_user_vote_counts()
 
-        # Filter participants meeting threshold
-        in_conv = {pid for pid, count in vote_counts.items() if count >= threshold}
+        # Participants meeting the vote threshold (Clojure conversation.clj:249-256).
+        threshold_set = {pid for pid, count in vote_counts.items() if count >= threshold}
 
-        logger.info(f"Filtered {len(in_conv)}/{len(vote_counts)} participants meeting vote threshold {threshold:.1f}")
+        # Carry forward the persisted in-conv set, then union the threshold
+        # set into it (Clojure `(into in-conv ...)`, conversation.clj:247-256).
+        # The intersection with vote_counts is belt-and-braces: since the Q1
+        # ban-leak replication, rating_mat keeps banned rows, so
+        # vote_counts covers every carried pid and the intersection is inert
+        # (append-only votes mean a counted pid can never vanish). It stays as
+        # defense against any future row-view change re-opening the stale-carry
+        # trap #2623's T1 fixed (a carried pid missing from vote_counts would
+        # inflate the size check so the greedy floor never re-fires).
+        in_conv = (set(self.in_conv) & set(vote_counts.keys())) | threshold_set
 
+        # Greedy floor (conversation.clj:259-268): if under 15, admit the top
+        # remaining voters by count descending. Clojure sorts its hash-map with
+        # `(sort-by (comp - second))` — a STABLE sort — so equal-count ties keep
+        # the map's ITERATION order, which is deterministic (Murmur3 hashLong +
+        # HAMT chunk order; validated against three recorded-blob oracles, see
+        # polismath/utils/clj_hash.py). Candidates are therefore pre-ordered by
+        # Clojure hash-map order before the stable count sort. Non-int pids fall
+        # back to matrix row order (clojure_hash_map_key_order passthrough).
+        # The ≤8-entry array-map regime (insertion order) can't affect the pick:
+        # a tie only matters with ≥16 participants, which guarantees hash-map.
+        # Below-threshold participants ARE eligible here (the floor guarantees
+        # clustering has enough rows in tiny/early conversations).
+        greedy_n = self.IN_CONV_GREEDY_N
+        if len(in_conv) < greedy_n:
+            candidates = [
+                pid for pid in clojure_hash_map_key_order(vote_counts.keys())
+                if pid not in in_conv
+            ]
+            candidates.sort(key=lambda pid: -vote_counts[pid])  # stable -> clj-map ties
+            in_conv.update(candidates[:greedy_n - len(in_conv)])
+
+        # Persist for the next tick (Clojure returns this as the conv's new
+        # :in-conv; deepcopy in recompute threads it forward).
+        self.in_conv = set(in_conv)
+
+        logger.info(f"Legacy in-conv: {len(threshold_set)} over threshold "
+                    f"{threshold:.1f}, {len(in_conv)} after carry+greedy floor")
         return in_conv
 
     def _fold_base_clusters(self, clusters: List[Dict]) -> Dict:
@@ -1575,7 +2274,9 @@ class Conversation:
         # raw_rating_mat so that moderated-out columns report the actual votes cast,
         # not the post-D15 zeros (which would inflate every column's 'S' count).
         votes_base_start = time.time()
-        result['votes-base'] = self._compute_votes_base()
+        # Clojure-exact per-base-cluster bucket vectors (agg-bucket-votes-
+        # for-tid parity).
+        result['votes-base'] = self._compute_votes_base_buckets()
         logger.info(f"Votes base: {time.time() - votes_base_start:.4f}s")
         
         # Compute group votes with optimized approach
@@ -1588,8 +2289,14 @@ class Conversation:
             # Reuse the already-unfolded group clusters (computed above)
             unfolded_groups = unfolded_gc
 
+            # Same tally-source rule as _compute_group_votes: Clojure's
+            # group-votes aggregates votes-base, which reads RAW-rating-mat
+            # (conversation.clj:601-608) — moderated-out comments report the
+            # actual votes cast, not the zeroed pass-shaped columns.
+            tally_mat = self.raw_rating_mat
+
             # Precompute indices for each participant for faster lookups
-            ptpt_indices = {ptpt_id: i for i, ptpt_id in enumerate(self.rating_mat.index)}
+            ptpt_indices = {ptpt_id: i for i, ptpt_id in enumerate(tally_mat.index)}
 
             # Process each group
             for group in unfolded_groups:
@@ -1601,19 +2308,19 @@ class Conversation:
                 member_indices = []
                 for member in group.get('members', []):
                     idx = ptpt_indices.get(member)
-                    if idx is not None and idx < self.rating_mat.values.shape[0]:
+                    if idx is not None and idx < tally_mat.values.shape[0]:
                         member_indices.append(idx)
-                
+
                 # Skip groups with no valid members
                 if not member_indices:
                     continue
-                
+
                 # Get the vote submatrix for this group
-                group_matrix = self.rating_mat.values[member_indices, :]
-                
+                group_matrix = tally_mat.values[member_indices, :]
+
                 # Calculate vote stats for each comment using vectorized operations
                 votes = {}
-                for j, comment_id in enumerate(self.rating_mat.columns):
+                for j, comment_id in enumerate(tally_mat.columns):
                     if j >= group_matrix.shape[1]:
                         continue
                     
@@ -1663,25 +2370,26 @@ class Conversation:
                     tid_key = int(tid)
                 except (ValueError, TypeError):
                     tid_key = tid
-                
+
                 # Start with consensus value of 1
                 consensus_value = 1.0
                 has_data = False
-                
+
                 # Multiply probabilities from all groups (same as reduce * in Clojure)
                 for gid, gid_data in result['group-votes'].items():
                     votes_data = gid_data.get('votes', {})
-                    
+
                     if tid_key in votes_data:
                         vote_stats = votes_data[tid_key]
                         agree_count = vote_stats.get('A', 0)
                         total_count = vote_stats.get('S', 0)
-                        
-                        # Calculate probability with Laplace smoothing
-                        if total_count > 0:
-                            prob = (agree_count + 1.0) / (total_count + 2.0)
-                            consensus_value *= prob
-                            has_data = True
+
+                        # Clojure parity (conversation.clj:639-641,
+                        # FP-b3670cb052): every group's factor multiplies
+                        # in, `:or {A 0 S 0}` — a zero-S group contributes
+                        # (0+1)/(0+2) = 1/2, it is NOT skipped.
+                        consensus_value *= (agree_count + 1.0) / (total_count + 2.0)
+                        has_data = True
                 
                 # Only store if we have actual data
                 if has_data:
@@ -1692,15 +2400,23 @@ class Conversation:
         
         # Calculate in-conv participants
         in_conv_start = time.time()
-        
-        # Use pre-calculated vote counts to avoid recalculation
-        in_conv = []
-        min_votes = min(7, self.comment_count)
-        
-        for pid, count in result['user-vote-counts'].items():
-            if count >= min_votes:
-                in_conv.append(pid)  # pid is already converted to int where possible
-        
+
+        if self.in_conv:
+            # PR-E: serialize the PERSISTED carry+greedy set — exactly the
+            # participants that fed base clustering — so the blob's :in-conv
+            # matches the clustered rows (Clojure serializes its carried
+            # in-conv). Keyed off user-vote-counts (same source as self.in_conv)
+            # to preserve pid types and row order.
+            in_conv = [pid for pid in result['user-vote-counts'] if pid in self.in_conv]
+        else:
+            # Cold state (no clustering has persisted an in-conv set yet):
+            # threshold set only.
+            in_conv = []
+            min_votes = min(7, self.comment_count)
+            for pid, count in result['user-vote-counts'].items():
+                if count >= min_votes:
+                    in_conv.append(pid)  # pid is already converted to int where possible
+
         result['in-conv'] = in_conv
         logger.info(f"In-conv: {time.time() - in_conv_start:.4f}s")
         
@@ -1731,12 +2447,15 @@ class Conversation:
         # a list-of-dicts format that would break server/src/report.ts,
         # server/src/utils/pca.ts, and client-participation-alpha consumers.
 
-        # Add empty consensus structure for compatibility
-        result['consensus'] = {
-            'agree': [],
-            'disagree': [],
-            'comment-stats': {}
-        }
+        # Surface D11 consensus comments (Clojure parity: client-report's Majority
+        # view consumes result['consensus']). Pre-Investigation-B this block was
+        # hardcoded empty, which silently zeroed the Majority view regardless of
+        # the D11 selection. Falls back to the empty shape when repness is missing
+        # or did not produce a consensus_comments dict (older blobs, no-group convs).
+        result['consensus'] = (
+            self.repness.get('consensus_comments', {'agree': [], 'disagree': []})
+            if self.repness else {'agree': [], 'disagree': []}
+        )
         
         # Add math_tick value
         current_time = int(time.time())
@@ -1746,6 +2465,9 @@ class Conversation:
         
         # Add math_tick value and return
         result['math_tick'] = math_tick_value
+
+        self._apply_legacy_blob_shape(result)
+
         logger.info(f"Total to_dict time: {time.time() - overall_start_time:.4f}s")
         return result
     
@@ -1965,8 +2687,14 @@ class Conversation:
         Returns:
             Conversation instance
         """
-        # Create empty conversation
-        conv = cls(data.get('conversation_id', ''))
+        # Create empty conversation. to_dict emits the id under 'zid' (both
+        # modes — it renames conversation_id at emission), matching Clojure
+        # prep-main blobs; accept either key so a recorded blob round-trips
+        # with its id intact (restart-seam root, journal 2026-07-24).
+        # Key-presence check, not truthiness: a legitimately-falsy id (0)
+        # must not fall through to the other key (#2656 review).
+        conv = cls(data['conversation_id'] if 'conversation_id' in data
+                   else data.get('zid', ''))
         
         # Restore basic attributes
         conv.last_updated = data.get('last_updated', int(time.time() * 1000))
@@ -1982,13 +2710,45 @@ class Conversation:
         conv.mod_in_tids = set(moderation.get('mod_in_tids', []))
         conv.meta_tids = set(moderation.get('meta_tids', []))
         conv.mod_out_ptpts = set(moderation.get('mod_out_ptpts', []))
-        
+
+        # Best-effort inference (the blob carries no explicit flag): any
+        # restored moderation set implies moderation was applied. A
+        # moderated-then-emptied conversation restores as not-applied — the
+        # same information loss Clojure has on a cold restore.
+        conv.moderation_applied = bool(
+            conv.mod_out_tids or conv.mod_in_tids
+            or conv.meta_tids or conv.mod_out_ptpts
+        )
+        # Blobs emit the real (possibly null) mod watermark.
+        conv.last_mod_timestamp = data.get('lastModTimestamp')
+        # Blobs emit tids in Clojure column (arrival) order — restore the
+        # tracker so tie-breaking survives a warm restart.
+        conv.tid_arrival_order = list(data.get('tids', []))
+
         # Restore PCA data
         pca_data = data.get('pca')
         if pca_data:
+            center = np.array(pca_data['center'])
+            comps = np.array(pca_data['comps'])
+            # Inverse of the legacy emission sign parity: blobs carry the
+            # Clojure-convention (negated) center; internal state stays in
+            # Delphi convention (see _apply_legacy_blob_shape).
+            center = -center
+            # Inverse of the legacy emission ORDER parity: blobs emit tids
+            # (and every tid-aligned pca array) in Clojure ARRIVAL order,
+            # while internal state aligns with the natsorted matrix
+            # columns. Without un-permuting, a warm restore would seed the
+            # next PCA with column-misaligned center/comps (#2649 review).
+            blob_tids = data.get('tids') or []
+            if len(blob_tids) == center.shape[0]:
+                pos = {t: i for i, t in enumerate(blob_tids)}
+                perm = [pos[t] for t in natsorted(blob_tids)]
+                center = center[perm]
+                if comps.ndim == 2 and comps.shape[1] == len(perm):
+                    comps = comps[:, perm]
             conv.pca = {
-                'center': np.array(pca_data['center']),
-                'comps': np.array(pca_data['comps'])
+                'center': center,
+                'comps': comps
             }
         
         # Restore projection data
@@ -1998,9 +2758,59 @@ class Conversation:
         
         # Restore cluster data
         conv.group_clusters = data.get('group_clusters', [])
+
+        # Restore base clusters — the blob emits them in the Clojure folded
+        # column-store shape ({'id': [...], 'members': [...], 'x': [...],
+        # 'y': [...], 'count': [...]}); unfold to the internal row shape
+        # exactly as restructure-json-conv does (conv_man.clj:171-186 →
+        # clusters.clj:402-414 unfold-clusters: center := [x, y]). Without
+        # this, a warm restart cold-starts the base-cluster lineage and the
+        # first post-restart tick re-mints every id (restart-seam root,
+        # journal 2026-07-24). Legacy blobs carry emission-NEGATED x/y (see
+        # _apply_legacy_blob_shape) — un-negate back to the internal sign
+        # convention, mirroring the pca center restore above.
+        folded_bc = data.get('base-clusters')
+        if folded_bc:
+            unfolded_bc = conv._unfold_base_clusters(folded_bc)
+            for c in unfolded_bc:
+                c['center'] = [-v for v in c['center']]
+            conv.base_clusters = unfolded_bc
+
+        # Restore group-votes — restructure-json-conv keeps :group-votes
+        # (conv_man.clj:174) and the recovery tick's comment-priorities read
+        # it as the PREVIOUS tick's group-votes (Q2, conversation.clj:658);
+        # without this a warm restart computes priorities against empty prev
+        # group-votes (every comment looks unseen → inflated priorities —
+        # vw-restart4 step-5 divergence, journal 2026-07-24). A JSON
+        # round-trip stringifies the per-group vote tid keys; re-intify
+        # them, mirroring parse-blob-json turning numeric-string keys back
+        # into longs (postgres.clj:419-433). gid keys stay as emitted (the
+        # priorities reduce only iterates values). Improved mode is
+        # unaffected in practice: priorities there read the CURRENT tick's
+        # group-votes, and the recompute overwrites this attribute first.
+        def _numeric_key(k):
+            try:
+                return int(k)
+            except (ValueError, TypeError):
+                return k
+
+        blob_gv = data.get('group-votes')
+        if blob_gv:
+            conv.group_votes = {
+                gid: {
+                    **{k: v for k, v in g.items() if k != 'votes'},
+                    'votes': {
+                        _numeric_key(t): e
+                        for t, e in (g.get('votes') or {}).items()
+                    },
+                }
+                for gid, g in blob_gv.items()
+            }
         
-        # Restore representativeness data
-        conv.repness = data.get('repness')
+        # Restore representativeness data. Legacy blobs emit 'repness' in
+        # Clojure per-group shape and park the internal dict under
+        # 'repness_full' — prefer the lossless internal copy when present.
+        conv.repness = data.get('repness_full', data.get('repness'))
         
         # Restore participant info
         conv.participant_info = data.get('participant_info', {})
@@ -2139,9 +2949,16 @@ class Conversation:
             # Expand base-cluster IDs to participant IDs for vote counting
             unfolded_groups = self._unfolded_group_clusters()
 
+            # Same tally-source rule as _compute_group_votes / to_dict:
+            # Clojure's group-votes aggregates votes-base, which reads
+            # RAW-rating-mat (conversation.clj:601-608) — moderated-out
+            # comments report the actual votes cast, not the zeroed
+            # pass-shaped columns.
+            tally_mat = self.raw_rating_mat
+
             # Precompute indices for each participant
             ptpt_indices = {}
-            for i, ptpt_id in enumerate(self.rating_mat.index):
+            for i, ptpt_id in enumerate(tally_mat.index):
                 ptpt_indices[ptpt_id] = i
 
             # Process each group
@@ -2154,19 +2971,19 @@ class Conversation:
                 member_indices = []
                 for member in group.get('members', []):
                     idx = ptpt_indices.get(member)
-                    if idx is not None and idx < self.rating_mat.values.shape[0]:
+                    if idx is not None and idx < tally_mat.values.shape[0]:
                         member_indices.append(idx)
-                
+
                 # Skip groups with no valid members
                 if not member_indices:
                     continue
-                
+
                 # Get the submatrix for this group
-                group_matrix = self.rating_mat.values[member_indices, :]
-                
+                group_matrix = tally_mat.values[member_indices, :]
+
                 # Calculate votes for each comment
                 group_votes = {}
-                for j, comment_id in enumerate(self.rating_mat.columns):
+                for j, comment_id in enumerate(tally_mat.columns):
                     if j >= group_matrix.shape[1]:
                         continue
                         
@@ -2272,12 +3089,18 @@ class Conversation:
             }
             result['pca'] = float_to_decimal(pca_data)
         
-        # Add consensus structure
-        result['consensus'] = {
-            'agree': [],
-            'disagree': [],
-            'comment_stats': {}
-        }
+        # Surface D11 consensus comments (Clojure parity). Pre-Investigation-B
+        # this block was hardcoded empty, so the DynamoDB blob never carried the
+        # D11 dict even when repness produced one. Falls back to the empty shape
+        # when repness is missing or didn't produce consensus_comments.
+        # float_to_decimal is REQUIRED: entries carry float p-success/p-test and
+        # writer Site 1 puts this dict straight into the Delphi_PCAResults Item —
+        # boto3 rejects raw floats (caught by CI's e2e run, 2026-07-05; the
+        # legacy writer branch converts, the pre-formatted branch did not).
+        result['consensus'] = float_to_decimal(
+            self.repness.get('consensus_comments', {'agree': [], 'disagree': []})
+            if self.repness else {'agree': [], 'disagree': []}
+        )
         
         # Add math_tick value
         current_time = int(time.time())
@@ -2289,10 +3112,18 @@ class Conversation:
             logger.info(f"[{time.time() - start_time:.2f}s] Processing comment priorities...")
             priorities = {}
             for cid, priority in self.comment_priorities.items():
+                # Preserve the float VALUE as Decimal (boto3 rejects raw
+                # floats). The previous int() truncation was harmless while
+                # the D12.6 bug-mirror pins every priority to 49.0, but the
+                # real formula (restored when issue #2571 resolves) spans
+                # ~0.18–31.46 on real data: int() floors sub-1 priorities
+                # to 0, which the TS server's weighted routing treats as
+                # "no priority data" — those comments would never be routed.
+                value = float_to_decimal(float(priority))
                 try:
-                    priorities[int(cid)] = int(priority)
+                    priorities[int(cid)] = value
                 except (ValueError, TypeError):
-                    priorities[cid] = int(priority)
+                    priorities[cid] = value
             result['comment_priorities'] = priorities
         
         # Process repness data efficiently

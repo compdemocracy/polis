@@ -300,6 +300,23 @@ class DynamoDBClient:
             if analysis_table:
                 if dynamo_data:
                     # Use pre-formatted data
+                    # D11 cascade fix (Investigation B, Site 1), corrected
+                    # 2026-07-04: `to_dynamo_dict()` surfaces consensus at
+                    # TOP-LEVEL `result['consensus']` — its `repness` dict
+                    # carries only `comment_repness`. The previous read of
+                    # `repness.consensus_comments` matched a key that never
+                    # exists, so the writer always stored the empty default
+                    # (the round-trip test masked this by stubbing
+                    # to_dynamo_dict with the wrong nested shape).
+                    consensus_comments = dynamo_data.get(
+                        'consensus', {'agree': [], 'disagree': []}
+                    )
+                    # Belt-and-braces: to_dynamo_dict already emits Decimals,
+                    # but this Item write is the boto3 boundary — convert
+                    # defensively like the legacy branch below does
+                    # (idempotent on already-converted data).
+                    consensus_comments = self._replace_floats_with_decimals(
+                        self._numpy_to_list(consensus_comments))
                     analysis_table.put_item(Item={
                         'zid': zid,
                         'math_tick': math_tick,
@@ -308,7 +325,7 @@ class DynamoDBClient:
                         'comment_count': dynamo_data.get('comment_count', 0),
                         'group_count': dynamo_data.get('group_count', 0),
                         'pca': dynamo_data.get('pca', {}),
-                        'consensus_comments': dynamo_data.get('consensus', {}).get('agree', [])
+                        'consensus_comments': consensus_comments
                     })
                 else:
                     # Legacy format
@@ -321,11 +338,21 @@ class DynamoDBClient:
                         }
                         # Replace floats with Decimal for DynamoDB
                         pca_data = self._replace_floats_with_decimals(pca_data)
-                    
-                    # Create the analysis record with Decimal conversion
-                    consensus_comments = self._numpy_to_list(conv.consensus) if hasattr(conv, 'consensus') else []
+
+                    # D11 cascade fix (Investigation B, Site 2): the old code
+                    # sourced from `conv.consensus`, which is always `[]` post-D11
+                    # (the attribute was deprecated). Source from
+                    # `conv.repness['consensus_comments']` instead — the new shape
+                    # is `{'agree': [...], 'disagree': [...]}`.
+                    if hasattr(conv, 'repness') and conv.repness:
+                        consensus_comments = conv.repness.get(
+                            'consensus_comments', {'agree': [], 'disagree': []}
+                        )
+                    else:
+                        consensus_comments = {'agree': [], 'disagree': []}
+                    consensus_comments = self._numpy_to_list(consensus_comments)
                     consensus_comments = self._replace_floats_with_decimals(consensus_comments)
-                    
+
                     analysis_table.put_item(Item={
                         'zid': zid,
                         'math_tick': math_tick,
@@ -433,7 +460,13 @@ class DynamoDBClient:
                             batch.put_item(Item={
                                 'zid_tick': zid_tick,
                                 'comment_id': str(comment_id),
-                                'priority': comment_priorities.get(comment_id, 0),
+                                # Legacy branch reads conv.comment_priorities
+                                # directly (raw floats) — convert like the
+                                # stats/consensus_score fields above, or
+                                # boto3 rejects the write (Copilot
+                                # 2026-07-04, e).
+                                'priority': self._replace_floats_with_decimals(
+                                    comment_priorities.get(comment_id, 0)),
                                 'stats': stats,
                                 'consensus_score': consensus_score,
                                 'zid': zid,
@@ -840,7 +873,24 @@ class DynamoDBClient:
                         }
                     
                     # Set consensus
-                    result['consensus'] = analysis.get('consensus_comments', [])
+                    # D11 cascade fix (Investigation B, Site 3): default to the
+                    # new dict shape `{'agree': [], 'disagree': []}` rather than
+                    # the obsolete empty list `[]`, so downstream consumers
+                    # always receive a uniformly-shaped value.
+                    stored_consensus = analysis.get(
+                        'consensus_comments', {'agree': [], 'disagree': []}
+                    )
+                    # Normalize legacy/degenerate blobs (Copilot 2026-07-04
+                    # g3, and #2591): pre-D11 writers stored consensus as a
+                    # (hardcoded-empty) LIST, and a present-but-`None`
+                    # attribute makes `.get(..., default)` return None rather
+                    # than the default. Guard on "not a dict" so any
+                    # non-dict (list, None, str, ...) maps to the empty dict
+                    # shape — downstream consumers always receive
+                    # `{'agree': [], 'disagree': []}` with both keys present.
+                    if not isinstance(stored_consensus, dict):
+                        stored_consensus = {'agree': [], 'disagree': []}
+                    result['consensus'] = stored_consensus
             
             # 2. Get groups data
             groups_table = self.tables.get('Delphi_KMeansClusters')

@@ -12,3 +12,4 @@ prTemplateType: stack
 forceFetchTags: false
 showPrTitlesInStack: false
 branchPushIndividually: false
+createDraftPRs: true

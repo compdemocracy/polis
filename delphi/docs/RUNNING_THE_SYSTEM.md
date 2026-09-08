@@ -26,75 +26,25 @@ This document provides a comprehensive guide on how to set up, run, and test the
 # Navigate to the delphi directory
 cd delphi
 
-# Create a virtual environment
-python -m venv .venv
-
-# Activate the virtual environment
-# On Linux/macOS
-source .venv/bin/activate
-# On Windows
-.venv\Scripts\activate
+# Install all dependencies (creates delphi/.venv)
+uv sync
 ```
 
-## Package Installation
-
-Once your environment is set up, install the package in development mode:
-
-```bash
-# Make sure you're in the delphi directory
-pip install -e .
-```
-
-This will install all the required dependencies and make the `polismath` package available in your environment.
+Alternatively, `make venv` creates the venv and sets up the editor-discovery symlink at the repo root in one step.
 
 ## Running Tests
 
-### Using the Test Runner Script
-
-The most straightforward way to run tests is using the provided `run_tests.py` script:
+Use the standard pytest invocation (see `QUICK_START.md` for the full command with required `--ignore` flags):
 
 ```bash
-# Run all tests
-python run_tests.py
-
-# Run only unit tests
-python run_tests.py --unit
-
-# Run only real data tests
-python run_tests.py --real
-
-# Run only demo scripts
-python run_tests.py --demo
-
-# Run only simplified test scripts
-python run_tests.py --simplified
+cd delphi && uv run pytest tests/ -v --tb=short \
+  --ignore=tests/test_batch_id.py \
+  --ignore=tests/simplified_repness_test.py \
+  --ignore=tests/test_pakistan_conversation.py \
+  --ignore=tests/test_postgres_real_data.py \
+  --ignore=tests/test_minio_access.py \
+  --ignore=tests/test_math_pipeline_runs_e2e.py
 ```
-
-### Using pytest Directly
-
-For more control over test execution, you can use pytest directly:
-
-```bash
-# Run all tests
-python -m pytest tests/
-
-# Run a specific test file
-python -m pytest tests/test_pca.py
-
-# Run tests with coverage
-python -m pytest --cov=polismath tests/
-```
-
-### Understanding Test Output
-
-Test output will indicate whether each component passes its tests. The real data tests will provide additional information:
-
-- Number of participants and comments processed
-- Number of groups found
-- Top representative comments for each group
-- Comparison with Clojure output (where available)
-
-Test results for real data are saved to the `python_output` directory within each dataset's folder for manual inspection.
 
 ## Using the System
 
@@ -183,43 +133,6 @@ clusters = conv.group_clusters
 repness = conv.repness
 ```
 
-## Working with Notebooks
-
-The `eda_notebooks` directory contains Jupyter notebooks for exploratory data analysis and demonstrating system capabilities.
-
-### Running the Biodiversity Analysis Notebook
-
-1. Make sure your environment is set up and the package is installed
-2. Navigate to the `eda_notebooks` directory
-3. Start Jupyter Notebook or Jupyter Lab:
-
-```bash
-cd delphi/eda_notebooks
-jupyter notebook
-# or
-jupyter lab
-```
-
-4. Open `biodiversity_analysis.ipynb`
-5. Run all cells to see the complete analysis
-
-### Creating Your Own Analysis
-
-To create your own analysis:
-
-1. Copy one of the existing notebooks as a template
-2. Update the data paths to your own dataset
-3. Customize the analysis as needed
-
-### Helper Script
-
-You can use the included helper script to launch a notebook server:
-
-```bash
-cd delphi/eda_notebooks
-./launch_notebook.sh
-```
-
 ## Command-line Interface
 
 The package provides several CLI entry points:
@@ -242,38 +155,12 @@ delphi list
 
 See `pyproject.toml` for the full list of CLI entry points.
 
-## Running the Simplified Test Scripts
-
-The repository includes simplified versions of the core algorithms that can be run independently:
-
-```bash
-# Run the simplified PCA and clustering test
-python simplified_test.py
-
-# Run the simplified representativeness test
-python simplified_repness_test.py
-```
-
-These scripts demonstrate the core algorithms without depending on the full package structure and can be useful for understanding the underlying mathematics.
-
-## Running the Demo Scripts
-
-The repository includes demo scripts that demonstrate the system's capabilities:
-
-```bash
-# Run the simple demo
-python simple_demo.py
-
-# Run the final demo
-python final_demo.py
-```
-
 ## Troubleshooting
 
 ### Common Issues
 
 1. **ImportError or ModuleNotFoundError**
-   - Make sure you've installed the package with `pip install -e .`
+   - Make sure you've installed the package with `uv sync`
    - Check if your virtual environment is activated
 
 2. **File Not Found Errors**
@@ -296,4 +183,4 @@ If you encounter issues, check:
 
 This guide covers the basics of setting up, running, and testing the Pol.is math Python implementation. For more details on the implementation, refer to the README.md and the source code documentation.
 
-If you're new to the system, we recommend starting with the notebooks in the `eda_notebooks` directory, particularly `biodiversity_analysis.ipynb`, which provides a comprehensive demonstration of the system's capabilities.
+If you're new to the system, see `QUICK_START.md` for environment setup and the standard test invocation.

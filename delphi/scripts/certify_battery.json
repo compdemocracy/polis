@@ -1,0 +1,114 @@
+[
+  {
+    "dataset": "vw",
+    "preset": "uniform",
+    "n_cuts": 8,
+    "notes": "8 evenly-spaced recomputes over the full vw conversation"
+  },
+  {
+    "dataset": "vw",
+    "preset": "front-loaded",
+    "n_cuts": 6,
+    "notes": "6 front-loaded recomputes \u2014 early-conversation warm-start stress"
+  },
+  {
+    "dataset": "vw",
+    "preset": "single-cut",
+    "notes": "single cold-start recompute over all votes"
+  },
+  {
+    "dataset": "biodiversity",
+    "preset": "uniform",
+    "n_cuts": 8,
+    "notes": "8 evenly-spaced recomputes over the full biodiversity conversation"
+  },
+  {
+    "dataset": "FLI",
+    "preset": "uniform",
+    "n_cuts": 6,
+    "notes": "smallest private dataset (~91k votes) \u2014 pilot for the private-size regime; calibrates clj/py wall-clock before scheduling bg2018/pakistan/engage/bg2050"
+  },
+  {
+    "dataset": "bg2018",
+    "preset": "uniform",
+    "n_cuts": 8,
+    "notes": "~226k votes; revote-rich production conversation"
+  },
+  {
+    "dataset": "pakistan",
+    "preset": "uniform",
+    "n_cuts": 8,
+    "notes": "~400k votes"
+  },
+  {
+    "dataset": "engage",
+    "preset": "uniform",
+    "n_cuts": 8,
+    "notes": "~443k votes"
+  },
+  {
+    "dataset": "bg2050",
+    "preset": "uniform",
+    "n_cuts": 6,
+    "notes": "largest (~1.03M votes) \u2014 6 cuts to bound wall-clock"
+  },
+  {
+    "dataset": "vw",
+    "schedule": "schedules/vw-every-vote-56.json",
+    "notes": "every-vote prefix \u2014 see the schedule file for the Q11 truncation rationale; also the battery's degenerate-tick coverage: its early steps are 1-participant/1..N-comment ticks (goal-doc edge-case list)"
+  },
+  {
+    "dataset": "pc-revote-02",
+    "preset": "uniform",
+    "n_cuts": 6,
+    "notes": "prodclone: revote-heavy small conversation (~28% revotes, ~8.4k votes, 34 ptpts, 277 comments). Replaces pc-revote-01 (~56k votes, 97% revotes, 205 ptpts): its warm-chain split-loop hits a 4-way knife-edge tie (within-engine gaps <=2.5e-16 vs ~1e-5 cross-engine PCA noise) - extraction order irreducible cross-language; carved out per divergences.json + journal 2026-07-22 session 4."
+  },
+  {
+    "dataset": "pc-banned-01",
+    "preset": "uniform",
+    "n_cuts": 6,
+    "notes": "prodclone: banned participants present (participants.mod=-1; Q1 leak territory)"
+  },
+  {
+    "dataset": "pc-smallmix-01",
+    "preset": "uniform",
+    "n_cuts": 6,
+    "notes": "prodclone: small mixed conversation (~5k votes)"
+  },
+  {
+    "dataset": "pc-midmix-01",
+    "preset": "uniform",
+    "n_cuts": 6,
+    "notes": "prodclone: mid mixed conversation (~49k votes)"
+  },
+  {
+    "dataset": "pc-zerovote-01",
+    "preset": "single-cut",
+    "notes": "prodclone: zero-vote conversation \u2014 empty-conversation edge"
+  },
+  {
+    "dataset": "pc-modheavy-01",
+    "schedule": "schedules/pc-modheavy-01-single-cut-mod.json",
+    "notes": "prodclone: moderation-heavy (~81% modout, ~12k votes, 215 ptpts); single cold cut, full mod weave (Q18 carve - warm chain knife-edges; warm mod coverage: pc-meta-02)"
+  },
+  {
+    "dataset": "pc-meta-01",
+    "schedule": "schedules/pc-meta-01-single-cut-mod.json",
+    "notes": "prodclone: meta-rich (~25% is-meta, ~4.7k votes, 109 ptpts); single cold cut, full mod weave (Q18 carve - warm chain knife-edges; warm meta coverage: pc-meta-02)"
+  },
+  {
+    "dataset": "vw",
+    "schedule": "schedules/vw-uniform8-restart4.json",
+    "notes": "restart seam: uniform8 with load-or-init worker-restart replay after step 4"
+  },
+  {
+    "dataset": "pc-midmix-01",
+    "schedule": "schedules/pc-midmix-01-uniform6-restart3.json",
+    "notes": "restart seam: uniform6 with worker-restart replay after step 3 (medium prodclone)"
+  },
+  {
+    "dataset": "pc-meta-02",
+    "schedule": "schedules/pc-meta-02-uniform6-mod.json",
+    "notes": "prodclone: moderate mod density (20 modout + 15 meta of 146 cmts, 2.4k votes, 33 ptpts; ptpt-per-live 0.26); the Q18-safe warm-chain mod/meta entry"
+  }
+]

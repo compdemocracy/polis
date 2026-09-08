@@ -6,6 +6,7 @@ import * as path from 'path'; // Use * as path
 interface ExtendedStackProps extends cdk.StackProps {
   domainName?: string; // Make optional since we're not using it initially
   enableSSHAccess: boolean;
+  enableOllama: boolean; // Gate the (temporarily retired) Ollama GPU stack
   envFile: string;
   branch: string; // Make required
   sshAllowedIpRange?: string; // Optional, but required if enableSSHAccess is true
@@ -30,6 +31,10 @@ const props: ExtendedStackProps = {
   },
   domainName: process.env.CDK_DOMAIN_NAME,
   enableSSHAccess: parseBoolean(process.env.CDK_SSH_ACCESS),
+  // The Ollama GPU stack (ASG/GPU launch template/EFS/NLB/secret) is off by
+  // default. Set CDK_ENABLE_OLLAMA=true to recreate it (pair with
+  // LLM_PROVIDER=ollama in the app env for a self-hosted LLM).
+  enableOllama: parseBoolean(process.env.CDK_ENABLE_OLLAMA),
   envFile: resolvedEnvFilePath,
   branch: process.env.CDK_BRANCH || 'edge', // Provide a default branch
   sshAllowedIpRange: process.env.CDK_SSH_ALLOWED_IP_RANGE,

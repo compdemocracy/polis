@@ -145,6 +145,69 @@ services:
           cpus: ${DELPHI_CONTAINER_CPUS:-2}
     restart: unless-stopped
 
+  # Python math poller — the eventual replacement for the Clojure `math`
+  # container.  Profile-gated so it only runs when explicitly requested
+  # (`--profile math-python`).  Reuses the delphi build target and overrides the
+  # command to run the poller CLI.  Defaults to SHADOW mode: writes under a
+  # DISTINCT math_env (`python`) so its rows are invisible to the prod server
+  # (UNIQUE(zid, math_env)) — zero production risk while parity is validated.
+  # See delphi/docs/MATH_POLLER_DESIGN.md §4.
+  math-python:
+    image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
+    build:
+      context: ./delphi
+      target: final
+    labels:
+      polis_tag: ${TAG:-dev}
+    command: ["python", "scripts/math_poller.py"]
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_SSL_MODE=${DATABASE_SSL_MODE:-disable}
+      - POSTGRES_CONNECT_TIMEOUT=${POSTGRES_CONNECT_TIMEOUT:-30}
+      - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
+      # Shadow-mode math_env (distinct from the Clojure math service's MATH_ENV).
+      - MATH_ENV=${MATH_PYTHON_ENV:-python}
+      # Poll cadences (ms) and boot window (days).
+      - POLL_VOTE_INTERVAL_MS=${POLL_VOTE_INTERVAL_MS:-1000}
+      - POLL_MOD_INTERVAL_MS=${POLL_MOD_INTERVAL_MS:-1000}
+      - POLL_FROM_DAYS_AGO=${POLL_FROM_DAYS_AGO:-10}
+      # Optional zid allow/block lists (comma-separated).
+      - POLL_ALLOWLIST=${POLL_ALLOWLIST:-}
+      - POLL_BLOCKLIST=${POLL_BLOCKLIST:-}
+      # Per-zid serialized workers; concurrency across zids.
+      - MATH_WORKER_POOL_SIZE=${MATH_WORKER_POOL_SIZE:-4}
+      # Error dump dir + retry cap (dump -> retry -> park circuit breaker).
+      - MATH_POLLER_DUMP_DIR=${MATH_POLLER_DUMP_DIR:-scratch/errorconv}
+      - MATH_POLLER_RETRY_CAP=${MATH_POLLER_RETRY_CAP:-1}
+      # LRU conv-cache cap. FINITE by default (200) — an unbounded cache is not
+      # acceptable for a long shadow soak (P-019 M4). Set 0 ONLY to opt into
+      # unlimited; negative is rejected at startup. Tune from measured churn.
+      - MATH_CONV_CACHE_CAP=${MATH_CONV_CACHE_CAP:-200}
+      # Parked-zid reconciler cadence (ms): recover failed-then-quiet zids from
+      # authoritative history without waiting for a new vote (P-019 M1).
+      - MATH_POLLER_RECONCILE_INTERVAL_MS=${MATH_POLLER_RECONCILE_INTERVAL_MS:-60000}
+      # zid-sharding across PROCESSES (one shard = one process; threads do not
+      # parallelise this workload). Default unsharded. Set a UNIQUE index per
+      # replica before scaling out, or the shards duplicate every computation.
+      - POLL_SHARD_INDEX=${POLL_SHARD_INDEX:-0}
+      - POLL_SHARD_COUNT=${POLL_SHARD_COUNT:-1}
+    networks:
+      - "polis-net"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Hard memory backstop (mirrors the delphi service). The in-memory conv cache
+    # is LRU-bounded by MATH_CONV_CACHE_CAP (finite 200 by default, P-019 M4);
+    # this limit is the hard backstop below which the cap should keep the working
+    # set. Set MATH_CONV_CACHE_CAP=0 to opt into an unbounded cache (not advised
+    # for a long soak).
+    deploy:
+      resources:
+        limits:
+          memory: ${DELPHI_POLLER_CONTAINER_MEMORY:-16g}
+    restart: unless-stopped
+    profiles:
+      - math-python
+
   postgres:
     restart: always
     build:

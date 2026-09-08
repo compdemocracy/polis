@@ -8,7 +8,7 @@ export default (
   logGroup: cdk.aws_logs.LogGroup,
   ollamaNamespace: string,
   ollamaModelDirectory: string,
-  fileSystem: cdk.aws_efs.FileSystem,
+  fileSystem: cdk.aws_efs.FileSystem | undefined,
   machineImageWeb: ec2.IMachineImage,
   instanceTypeWeb: ec2.InstanceType,
   webSecurityGroup: ec2.ISecurityGroup,
@@ -25,10 +25,11 @@ export default (
   instanceTypeDelphiLarge: ec2.InstanceType,
   delphiSecurityGroup: ec2.ISecurityGroup,
   delphiLargeKeyPair: ec2.IKeyPair | undefined,
-  machineImageOllama: ec2.IMachineImage,
-  instanceTypeOllama: ec2.InstanceType,
+  machineImageOllama: ec2.IMachineImage | undefined,
+  instanceTypeOllama: ec2.InstanceType | undefined,
   ollamaKeyPair: ec2.IKeyPair | undefined,
-  ollamaSecurityGroup: ec2.ISecurityGroup
+  ollamaSecurityGroup: ec2.ISecurityGroup | undefined,
+  enableOllama: boolean = false
 ) => {
   const usrdata = (CLOUDWATCH_LOG_GROUP_NAME: string, service: string, instanceSize?: string) => {
     let ld: ec2.UserData;
@@ -58,6 +59,27 @@ export default (
       `export SERVICE=${service}`,
       instanceSize ? `export INSTANCE_SIZE=${instanceSize}` : '',
       CLOUDWATCH_LOG_GROUP_NAME ? `echo "${CLOUDWATCH_LOG_GROUP_NAME}" | sudo tee ${persistentConfigDir}/log_group_name.txt` : '',
+
+      // --- CloudWatch Agent: config + start, on EVERY instance ---
+      // The agent is installed above for all tiers, but until now only the
+      // ollama user-data configured and started it, so only the GPU box
+      // published memory. Memory is the binding resource on the math and delphi
+      // tiers (all three idle at 0.5-1.3% CPU), so without this there is no
+      // evidence on which to right-size them.
+      //
+      // Guarded with `|| true` because this function runs under `set -e`: a
+      // metrics agent must never be able to abort an instance boot. The
+      // nvidia_gpu section of the config collects nothing where there is no
+      // GPU, so this is a no-op difference for ollama.
+      'echo "Configuring CloudWatch Agent..."',
+      `aws s3 cp ${cwAgentConfigAsset.s3ObjectUrl} ${cwAgentTempPath} || echo "CW agent config download failed; continuing"`,
+      `sudo mkdir -p $(dirname ${cwAgentConfigPath}) || true`,
+      `sudo mv ${cwAgentTempPath} ${cwAgentConfigPath} || true`,
+      `sudo chmod 644 ${cwAgentConfigPath} || true`,
+      `sudo chown root:root ${cwAgentConfigPath} || true`,
+      'sudo systemctl enable amazon-cloudwatch-agent || true',
+      'sudo systemctl start amazon-cloudwatch-agent || echo "CW agent failed to start; continuing"',
+
       'exec 1>>/var/log/user-data.log 2>&1',
       'echo "Finished User Data Execution at $(date)"',
       'sudo mkdir -p /etc/docker',
@@ -78,9 +100,11 @@ EOF`,
     return ld;
   };
   
-  const ollamaUsrData = ec2.UserData.forLinux();
 // Define path for CloudWatch Agent config
 // --- CloudWatch Agent Config Asset ---
+// NOTE: this asset is shared by EVERY tier's user data (see usrdata() above),
+// not just Ollama, so it is created unconditionally even when the Ollama stack
+// is gated off.
 const cwAgentConfigAsset = new s3_assets.Asset(self, 'CwAgentConfigAsset', {
   path: 'config/amazon-cloudwatch-agent.json' // Adjust path relative to cdk project root
 });
@@ -89,74 +113,56 @@ const cwAgentConfigAsset = new s3_assets.Asset(self, 'CwAgentConfigAsset', {
 cwAgentConfigAsset.grantRead(instanceRole);
 const cwAgentConfigPath = '/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json';
 const cwAgentTempPath = '/tmp/amazon-cloudwatch-agent.json'; // Temporary download location
-const efsDnsName = `${fileSystem.fileSystemId}.efs.${cdk.Stack.of(self).region}.${cdk.Stack.of(self).urlSuffix}`;
 
-// Add commands to the Ollama UserData
-ollamaUsrData.addCommands(
-  // Spread the base user data commands
-  ...usrdata(logGroup.logGroupName, "ollama").render().split('\n').filter(line => line.trim() !== ''),
+// --- Ollama user data (only when the GPU stack is enabled) ---
+let ollamaUsrData: ec2.UserData | undefined;
+if (enableOllama) {
+  if (!fileSystem) {
+    throw new Error('enableOllama is true but no EFS fileSystem was provided to configureLaunchTemplates');
+  }
+  const efsDnsName = `${fileSystem.fileSystemId}.efs.${cdk.Stack.of(self).region}.${cdk.Stack.of(self).urlSuffix}`;
+  ollamaUsrData = ec2.UserData.forLinux();
+  ollamaUsrData.addCommands(
+    // Spread the base user data commands
+    ...usrdata(logGroup.logGroupName, "ollama").render().split('\n').filter(line => line.trim() !== ''),
 
-  // Install EFS utilities
-  'echo "Installing EFS utilities for Ollama..."',
-  'sudo dnf install -y amazon-efs-utils nfs-utils',
+    // Install EFS utilities
+    'echo "Installing EFS utilities for Ollama..."',
+    'sudo dnf install -y amazon-efs-utils nfs-utils',
 
-  // Start Ollama-specific setup
-  'echo "Starting Ollama specific setup..."',
-  'echo "Configuring CloudWatch Agent for GPU metrics..."',
+    // Start Ollama-specific setup
+    'echo "Starting Ollama specific setup..."',
 
-  // --- Download CW Agent config from S3 Asset ---
-  `echo "Downloading CW Agent config from S3..."`,
-  // Use aws cli to copy from the S3 location provided by the asset object
-  // The instance needs NAT access (which it has) and S3 permissions (granted above)
-  `aws s3 cp ${cwAgentConfigAsset.s3ObjectUrl} ${cwAgentTempPath}`,
-  // Ensure target directory exists and move the file into place
-  `sudo mkdir -p $(dirname ${cwAgentConfigPath})`,
-  `sudo mv ${cwAgentTempPath} ${cwAgentConfigPath}`,
-  `sudo chmod 644 ${cwAgentConfigPath}`,
-  `sudo chown root:root ${cwAgentConfigPath}`, // Ensure root ownership
-  'echo "CW Agent config downloaded and placed."',
+    // --- Mount EFS using standard NFSv4.1 ---
+    `echo "Mounting EFS filesystem using NFSv4.1 and DNS Name: ${efsDnsName}"...`,
+    `sudo mkdir -p ${ollamaModelDirectory}`,
+    `sudo mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${efsDnsName}:/ ${ollamaModelDirectory}`,
+    `echo "${efsDnsName}:/ ${ollamaModelDirectory} nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport,_netdev 0 0" | sudo tee -a /etc/fstab`,
+    `sudo chown ec2-user:ec2-user ${ollamaModelDirectory}`,
+    'echo "EFS mounted successfully."',
 
-  // --- Enable and Start the CloudWatch Agent Service ---
-  'echo "Enabling CloudWatch Agent service..."',
-  'sudo systemctl enable amazon-cloudwatch-agent',
-  'echo "Starting CloudWatch Agent service..."',
-  'sudo systemctl start amazon-cloudwatch-agent',
-  'echo "CloudWatch Agent service started."',
+    // --- Start Ollama container ---
+    'echo "Starting Ollama container..."',
+    'sudo docker run -d --name ollama \\',
+    '  --gpus all \\',
+    '  -p 0.0.0.0:11434:11434 \\',
+    `  -v ${ollamaModelDirectory}:/root/.ollama \\`,
+    '  --restart unless-stopped \\',
+    '  ollama/ollama serve',
 
-  // --- Mount EFS using standard NFSv4.1 ---
-  // Use the manually constructed EFS DNS name
-  `echo "Mounting EFS filesystem using NFSv4.1 and DNS Name: ${efsDnsName}"...`, // Use variable here
-  `sudo mkdir -p ${ollamaModelDirectory}`, // Ensure mount point exists
-  // Standard NFS mount command with recommended options for EFS
-  `sudo mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${efsDnsName}:/ ${ollamaModelDirectory}`, // Use variable here
-  // Update fstab to use NFS4 and the DNS name for persistence
-  `echo "${efsDnsName}:/ ${ollamaModelDirectory} nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport,_netdev 0 0" | sudo tee -a /etc/fstab`, // Use variable here
-  // Set ownership for the application user
-  `sudo chown ec2-user:ec2-user ${ollamaModelDirectory}`,
-  'echo "EFS mounted successfully."',
+    // --- Pull initial model in background ---
+    '(',
+    '  echo "Waiting for Ollama service (background task)..."',
+    '  sleep 60',
+    '  echo "Pulling default Ollama model (llama3.1:8b) in background..."',
+    '  sudo docker exec ollama ollama pull llama3.1:8b || echo "Failed to pull default model initially, may need manual pull later."',
+    '  echo "Background model pull task finished."',
+    ') &',
+    'disown',
+    'echo "Ollama setup script finished."'
+  );
+}
 
-  // --- Start Ollama container ---
-  'echo "Starting Ollama container..."',
-  'sudo docker run -d --name ollama \\',
-  '  --gpus all \\',
-  '  -p 0.0.0.0:11434:11434 \\',
-  `  -v ${ollamaModelDirectory}:/root/.ollama \\`,
-  '  --restart unless-stopped \\',
-  '  ollama/ollama serve',
-
-  // --- Pull initial model in background ---
-  '(',
-  '  echo "Waiting for Ollama service (background task)..."',
-  '  sleep 60',
-  '  echo "Pulling default Ollama model (llama3.1:8b) in background..."',
-  '  sudo docker exec ollama ollama pull llama3.1:8b || echo "Failed to pull default model initially, may need manual pull later."',
-  '  echo "Background model pull task finished."',
-  ') &',
-  'disown',
-  'echo "Ollama setup script finished."'
-); // End of ollamaUsrData.addCommands
-  
-  
   // --- Launch Templates
   const webLaunchTemplate = new ec2.LaunchTemplate(self, 'WebLaunchTemplate', {
     machineImage: machineImageWeb,
@@ -217,24 +223,27 @@ ollamaUsrData.addCommands(
       },
     ],
   });
-  // Ollama Launch Template
-  const ollamaLaunchTemplate = new ec2.LaunchTemplate(self, 'OllamaLaunchTemplate', {
-    machineImage: machineImageOllama,
-    userData: ollamaUsrData,
-    instanceType: instanceTypeOllama,
-    securityGroup: ollamaSecurityGroup,
-    keyPair: ollamaKeyPair,
-    role: instanceRole,
-    blockDevices: [
-      {
-        deviceName: '/dev/xvda', // Adjust if needed for DLAMI
-        volume: ec2.BlockDeviceVolume.ebs(100, {
-          volumeType: ec2.EbsDeviceVolumeType.GP3,
-          deleteOnTermination: true,
-        }),
-      },
-    ],
-  });
+  // Ollama Launch Template (only when the GPU stack is enabled)
+  let ollamaLaunchTemplate: ec2.LaunchTemplate | undefined;
+  if (enableOllama) {
+    ollamaLaunchTemplate = new ec2.LaunchTemplate(self, 'OllamaLaunchTemplate', {
+      machineImage: machineImageOllama,
+      userData: ollamaUsrData,
+      instanceType: instanceTypeOllama,
+      securityGroup: ollamaSecurityGroup,
+      keyPair: ollamaKeyPair,
+      role: instanceRole,
+      blockDevices: [
+        {
+          deviceName: '/dev/xvda', // Adjust if needed for DLAMI
+          volume: ec2.BlockDeviceVolume.ebs(100, {
+            volumeType: ec2.EbsDeviceVolumeType.GP3,
+            deleteOnTermination: true,
+          }),
+        },
+      ],
+    });
+  }
 
   return {
     webLaunchTemplate,

@@ -26,6 +26,23 @@ _skip_golden = pytest.mark.skipif(
     reason="Golden snapshot tests disabled (SKIP_GOLDEN=1)",
 )
 
+# PGR (Python golden record) deferral — per Julien's 2026-06-11 decision
+# (D10_D11_D12_GOLDENS_DECISIONS.md "Goldens re-record" + deferred-PRs
+# handoff): goldens shift on every Clojure-parity fix and only add noise
+# during the parity phase. The existing private-dataset goldens predate the
+# D10/D11/D12 stack, so these comparisons fail by design, not by regression.
+# REACTIVATION CONDITION: remove this mark and re-record all goldens
+# (`uv run python scripts/regression_recorder.py <dataset>`) when the
+# Python-vs-Python refactor comparison phase begins — i.e. after the gid
+# 0↔1 label-swap fix lands and batch outputs stabilize.
+# (S3-5 2026-06-11 claimed this mark was applied; it never was — added
+# 2026-07-04.)
+_goldens_deferred = pytest.mark.skip(
+    reason="PGR goldens deferred during Clojure-parity phase (2026-06-11 "
+           "decision); stored goldens predate the D10/D11/D12 stack. "
+           "Re-record + reactivate at the Python-vs-Python phase.",
+)
+
 
 def _check_golden_exists(dataset_name: str):
     """
@@ -56,6 +73,7 @@ def _check_golden_exists(dataset_name: str):
         )
 
 
+@_goldens_deferred
 @_skip_golden
 @pytest.mark.use_discovered_datasets
 def test_conversation_regression(dataset_name):
@@ -106,6 +124,7 @@ def test_conversation_regression(dataset_name):
     )
 
 
+@_goldens_deferred
 @_skip_golden
 @pytest.mark.use_discovered_datasets
 def test_conversation_stages_individually(dataset_name):

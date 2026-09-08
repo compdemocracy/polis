@@ -1,0 +1,974 @@
+{
+  "FP-039e0a89c5": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 1
+    },
+    "path_pattern": "group-votes.N.votes.N.D",
+    "status": "resolved"
+  },
+  "FP-06893b4627": {
+    "diagnosis": "every-vote small-N root (diagnosed 2026-07-22 end of session 3): python early-return guards at tiny dims where Clojure runs the real math \u2014 PCA short-circuits to zeros (center -0.0 vs clj -1.0 on a 1x1 matrix; comps padded to 2 vs rank-capped 1), conv_repness shape<2 guard returns empty repness/consensus vs Clojure's best-agree guarantee. Fix: tiny-dim PCA path + guard removal (legacy-gated), single-vote fixtures with exact Clojure-derived values. See journal 'every-vote step-0 diagnosis COMPLETE'. \u2014 PARTIAL FIX landed (small-N degenerate guards, steps 0-56 now MATCH); residual root pinned at step 57: kmeans assignment tie-break on coincident points (clj min-key last-wins merge vs py keeping singletons). See journal 'next every-vote edge pinned at step 57'. \u2014 RESOLVED (2026-07-22, session 3 final cycle): Q11 ported (vectorz cancellation distance in legacy kmeans) fixed the step-57 class where bits allow; the residual knife-edge (merge decisions on near-coincident pairs are bit-chaotic and irreducible cross-language \u2014 py's own pair leaves a 2.98e-08 residue where clj's collapses to 0.0) is CARVED OUT by replacing the full every-vote entry with its knife-edge-free 56-step prefix (scripts/schedules/vw-every-vote-56.json). Battery 10/10 MATCH x2 consecutive passes.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "every-vote-clojure-legacy",
+      "step": 6
+    },
+    "path_pattern": "consensus.disagree",
+    "status": "resolved"
+  },
+  "FP-0d73f006f4": {
+    "diagnosis": "consensus.agree[].tid: rank-3/4 swap between tid 65 and 34 with IDENTICAL p-success (0.90476...) \u2014 sort tie-break order differs (clj sorts over hash-ordered input). Values match to 1e-15. Selection set identical. Needs tie-break replication or acceptance rule for exact-score ties. \u2014 Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "consensus.agree[].tid",
+    "status": "resolved"
+  },
+  "FP-0e6f144835": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "repness.1[].p-test",
+    "status": "resolved"
+  },
+  "FP-124064d728": {
+    "diagnosis": "every-vote small-N root (diagnosed 2026-07-22 end of session 3): python early-return guards at tiny dims where Clojure runs the real math \u2014 PCA short-circuits to zeros (center -0.0 vs clj -1.0 on a 1x1 matrix; comps padded to 2 vs rank-capped 1), conv_repness shape<2 guard returns empty repness/consensus vs Clojure's best-agree guarantee. Fix: tiny-dim PCA path + guard removal (legacy-gated), single-vote fixtures with exact Clojure-derived values. See journal 'every-vote step-0 diagnosis COMPLETE'. \u2014 PARTIAL FIX landed (small-N degenerate guards, steps 0-56 now MATCH); residual root pinned at step 57: kmeans assignment tie-break on coincident points (clj min-key last-wins merge vs py keeping singletons). See journal 'next every-vote edge pinned at step 57'. \u2014 RESOLVED (2026-07-22, session 3 final cycle): Q11 ported (vectorz cancellation distance in legacy kmeans) fixed the step-57 class where bits allow; the residual knife-edge (merge decisions on near-coincident pairs are bit-chaotic and irreducible cross-language \u2014 py's own pair leaves a 2.98e-08 residue where clj's collapses to 0.0) is CARVED OUT by replacing the full every-vote entry with its knife-edge-free 56-step prefix (scripts/schedules/vw-every-vote-56.json). Battery 10/10 MATCH x2 consecutive passes.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "every-vote-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "pca.comps",
+    "status": "resolved"
+  },
+  "FP-13868190c4": {
+    "diagnosis": "Q18 (CLOJURE_QUIRKS.md): uniqify merge-center exactness is value-dependent ulp luck; cross-engine 1e-16 PCA noise through the exact-equality predicate flips id lineage on mod-narrowed coincidence-dense geometry. Irreducible (Q13 family). Carved 2026-07-24: entry re-scheduled to single-cut-mod (cold tick deterministic); warm-chain mod coverage swapped to a moderate-density extraction.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "pc-meta-01",
+      "schedule": "uniform6-mod-clojure-legacy-clojure-legacy",
+      "step": 2
+    },
+    "path_pattern": "repness.3[].repful-for",
+    "status": "carved-out"
+  },
+  "FP-16badda802": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 1
+    },
+    "path_pattern": "repness.2[].p-test",
+    "status": "resolved"
+  },
+  "FP-1808bb239a": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "repness.1[].repness-test",
+    "status": "resolved"
+  },
+  "FP-190bba3f42": {
+    "diagnosis": "every-vote small-N root (diagnosed 2026-07-22 end of session 3): python early-return guards at tiny dims where Clojure runs the real math \u2014 PCA short-circuits to zeros (center -0.0 vs clj -1.0 on a 1x1 matrix; comps padded to 2 vs rank-capped 1), conv_repness shape<2 guard returns empty repness/consensus vs Clojure's best-agree guarantee. Fix: tiny-dim PCA path + guard removal (legacy-gated), single-vote fixtures with exact Clojure-derived values. See journal 'every-vote step-0 diagnosis COMPLETE'. \u2014 PARTIAL FIX landed (small-N degenerate guards, steps 0-56 now MATCH); residual root pinned at step 57: kmeans assignment tie-break on coincident points (clj min-key last-wins merge vs py keeping singletons). See journal 'next every-vote edge pinned at step 57'. \u2014 RESOLVED (2026-07-22, session 3 final cycle): Q11 ported (vectorz cancellation distance in legacy kmeans) fixed the step-57 class where bits allow; the residual knife-edge (merge decisions on near-coincident pairs are bit-chaotic and irreducible cross-language \u2014 py's own pair leaves a 2.98e-08 residue where clj's collapses to 0.0) is CARVED OUT by replacing the full every-vote entry with its knife-edge-free 56-step prefix (scripts/schedules/vw-every-vote-56.json). Battery 10/10 MATCH x2 consecutive passes.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "every-vote-clojure-legacy",
+      "step": 57
+    },
+    "path_pattern": "base-clusters.id[]",
+    "status": "resolved"
+  },
+  "FP-194ee5ad04": {
+    "diagnosis": "ROOT CAUSE FOUND (2026-07-22, session 3 late): Clojure conv-update switches to large-conv-update (mini-batch partial-pca on an UNSEEDED Mersenne-Twister row sample per iteration, conversation.clj:757-815) when n-ptpts>10000 OR n-cmts>5000; python always runs full PCA. Verified: pakistan/engage/bg2050 first divergent steps are EXACTLY the first steps crossing the cutoff (n-cmts 6028/5765/6701), all prior steps match, and in-conv/user-vote-counts/clustered vote totals stay IDENTICAL at the divergent step (only PCA-derived values and downstream cluster boundaries move). No deterministic reference exists on the mini-batch path (unseeded). DECISION (CLOJURE_QUIRKS.md Q10): certify the deterministic full-PCA path by pinning cmt/ptpt cutoffs huge in BOTH replay drivers (clj driver passes opts; no math-source change); mini-batch carved out, logged per run. \u2014 RESOLVED: Q10 carve-out (replay.clj pins cutoffs to 10^9, full-PCA path) verified: battery 9/9 MATCH on two consecutive passes after full clj re-record.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "bg2050",
+      "schedule": "uniform6-clojure-legacy",
+      "step": 4
+    },
+    "path_pattern": "group-clusters[].center",
+    "status": "resolved"
+  },
+  "FP-1f74153efa": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "repness.0[].tid",
+    "status": "resolved"
+  },
+  "FP-2192a75bbf": {
+    "diagnosis": "restart-seam root: Conversation.from_dict read only conversation_id, but to_dict blobs carry zid \u2014 post-restart blobs emitted zid \"\". Fixed 2026-07-24 (from_dict accepts zid; also restores base-clusters unfold + group-votes, closing the recovery-tick warm-start corruption). vw-restart4 + pc-midmix-restart3 MATCH.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-restart4-clojure-legacy",
+      "step": 5
+    },
+    "path_pattern": "zid",
+    "status": "resolved"
+  },
+  "FP-2b0d18671f": {
+    "diagnosis": "Cross-engine ordering artifact (Clojure hash/insertion order vs Python sorted; blobs internally consistent). Suppressed by acceptance canonicalization in project_acceptance/canonicalize_blob (session 2026-07-22-3). No longer observed in battery. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "base-clusters.count",
+    "status": "resolved"
+  },
+  "FP-2b8deb70ea": {
+    "diagnosis": "Q18 (CLOJURE_QUIRKS.md): uniqify merge-center exactness is value-dependent ulp luck; cross-engine 1e-16 PCA noise through the exact-equality predicate flips id lineage on mod-narrowed coincidence-dense geometry. Irreducible (Q13 family). Carved 2026-07-24: entry re-scheduled to single-cut-mod (cold tick deterministic); warm-chain mod coverage swapped to a moderate-density extraction.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "pc-meta-01",
+      "schedule": "uniform6-mod-clojure-legacy-clojure-legacy",
+      "step": 2
+    },
+    "path_pattern": "repness.3[].tid",
+    "status": "carved-out"
+  },
+  "FP-321ead3767": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "biodiversity",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 1
+    },
+    "path_pattern": "repness.1[]",
+    "status": "resolved"
+  },
+  "FP-340cb6b4bb": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 1
+    },
+    "path_pattern": "repness.2[].p-success",
+    "status": "resolved"
+  },
+  "FP-34ac729e61": {
+    "diagnosis": "Q18 (CLOJURE_QUIRKS.md): uniqify merge-center exactness is value-dependent ulp luck; cross-engine 1e-16 PCA noise through the exact-equality predicate flips id lineage on mod-narrowed coincidence-dense geometry. Irreducible (Q13 family). Carved 2026-07-24: entry re-scheduled to single-cut-mod (cold tick deterministic); warm-chain mod coverage swapped to a moderate-density extraction.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "pc-meta-01",
+      "schedule": "uniform6-mod-clojure-legacy-clojure-legacy",
+      "step": 2
+    },
+    "path_pattern": "repness.3[].p-test",
+    "status": "carved-out"
+  },
+  "FP-34f8d52d43": {
+    "diagnosis": "Cross-engine ordering artifact (Clojure hash/insertion order vs Python sorted; blobs internally consistent). Suppressed by acceptance canonicalization in project_acceptance/canonicalize_blob (session 2026-07-22-3). No longer observed in battery. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "base-clusters.count[]",
+    "status": "resolved"
+  },
+  "FP-35d9bdf2db": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "repness.0[].n-agree",
+    "status": "resolved"
+  },
+  "FP-3781b5768f": {
+    "diagnosis": "base-clusters.x exact negation \u2014 same root as FP-80ca42344a (sign convention); max|clj+py|=1.4e-9 on vw single-cut. \u2014 Original root FIXED (session-3 emission/selection parity); still observed on front-loaded6 where it cascades from the small-N base-cluster/in-conv membership difference (clj 14 vs py 15 clusters). \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "base-clusters.x[]",
+    "status": "resolved"
+  },
+  "FP-392eb7d14a": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "repness.0[].p-test",
+    "status": "resolved"
+  },
+  "FP-396031d520": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "repness.0[].repness",
+    "status": "resolved"
+  },
+  "FP-41a2edf1f8": {
+    "diagnosis": "ROOT CAUSE FOUND (2026-07-22, session 3 late): Clojure conv-update switches to large-conv-update (mini-batch partial-pca on an UNSEEDED Mersenne-Twister row sample per iteration, conversation.clj:757-815) when n-ptpts>10000 OR n-cmts>5000; python always runs full PCA. Verified: pakistan/engage/bg2050 first divergent steps are EXACTLY the first steps crossing the cutoff (n-cmts 6028/5765/6701), all prior steps match, and in-conv/user-vote-counts/clustered vote totals stay IDENTICAL at the divergent step (only PCA-derived values and downstream cluster boundaries move). No deterministic reference exists on the mini-batch path (unseeded). DECISION (CLOJURE_QUIRKS.md Q10): certify the deterministic full-PCA path by pinning cmt/ptpt cutoffs huge in BOTH replay drivers (clj driver passes opts; no math-source change); mini-batch carved out, logged per run. \u2014 RESOLVED: Q10 carve-out (replay.clj pins cutoffs to 10^9, full-PCA path) verified: battery 9/9 MATCH on two consecutive passes after full clj re-record.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "pakistan",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 4
+    },
+    "path_pattern": "pca.comment-extremity[]",
+    "status": "resolved"
+  },
+  "FP-45b36baa63": {
+    "diagnosis": "Cross-engine ordering artifact (Clojure hash/insertion order vs Python sorted; blobs internally consistent). Suppressed by acceptance canonicalization in project_acceptance/canonicalize_blob (session 2026-07-22-3). No longer observed in battery. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "base-clusters.members[]",
+    "status": "resolved"
+  },
+  "FP-472038c74a": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 1
+    },
+    "path_pattern": "repness.2[].n-agree",
+    "status": "resolved"
+  },
+  "FP-478b23b2ca": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 1
+    },
+    "path_pattern": "comment-priorities.N",
+    "status": "resolved"
+  },
+  "FP-4b1ffd98b7": {
+    "diagnosis": "Suspect: aggregation-domain / vote-filter mismatch akin to votes-base off-by-ones; recheck after bucketed votes-base port. \u2014 Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "group-aware-consensus",
+    "status": "resolved"
+  },
+  "FP-4f16810411": {
+    "diagnosis": "ROOT CAUSE FOUND (2026-07-22, session 3 late): Clojure conv-update switches to large-conv-update (mini-batch partial-pca on an UNSEEDED Mersenne-Twister row sample per iteration, conversation.clj:757-815) when n-ptpts>10000 OR n-cmts>5000; python always runs full PCA. Verified: pakistan/engage/bg2050 first divergent steps are EXACTLY the first steps crossing the cutoff (n-cmts 6028/5765/6701), all prior steps match, and in-conv/user-vote-counts/clustered vote totals stay IDENTICAL at the divergent step (only PCA-derived values and downstream cluster boundaries move). No deterministic reference exists on the mini-batch path (unseeded). DECISION (CLOJURE_QUIRKS.md Q10): certify the deterministic full-PCA path by pinning cmt/ptpt cutoffs huge in BOTH replay drivers (clj driver passes opts; no math-source change); mini-batch carved out, logged per run. \u2014 RESOLVED: Q10 carve-out (replay.clj pins cutoffs to 10^9, full-PCA path) verified: battery 9/9 MATCH on two consecutive passes after full clj re-record.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "pakistan",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 4
+    },
+    "path_pattern": "pca.comps[][]",
+    "status": "resolved"
+  },
+  "FP-4f8194a01c": {
+    "diagnosis": "group-clusters[].center[] element-level view of FP-194ee5ad04 (sign negation). \u2014 Original root FIXED (session-3 emission/selection parity); still observed on front-loaded6 where it cascades from the small-N base-cluster/in-conv membership difference (clj 14 vs py 15 clusters). \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "group-clusters[].center[]",
+    "status": "resolved"
+  },
+  "FP-53a0f91027": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "repness.1[].n-success",
+    "status": "resolved"
+  },
+  "FP-54da1b49bb": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 2
+    },
+    "path_pattern": "repness.2[].repful-for",
+    "status": "resolved"
+  },
+  "FP-55e290562e": {
+    "diagnosis": "group-clusters[].members: clj members are BASE-CLUSTER ids (folded); py to_dict emits unfolded PARTICIPANT ids (conversation.py:2063). Partitions IDENTICAL in pid space on vw single-cut (all 4 groups). Fix: legacy-mode emission of self.group_clusters (members=bids) without unfolding. \u2014 Original root FIXED (session-3 emission/selection parity); still observed on front-loaded6 where it cascades from the small-N base-cluster/in-conv membership difference (clj 14 vs py 15 clusters). \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "group-clusters[].members",
+    "status": "resolved"
+  },
+  "FP-58dde1a545": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 1
+    },
+    "path_pattern": "repness.2[].repness-test",
+    "status": "resolved"
+  },
+  "FP-5c1999cd5d": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 1
+    },
+    "path_pattern": "repness.2[].tid",
+    "status": "resolved"
+  },
+  "FP-5d5027be57": {
+    "diagnosis": "Q18 (CLOJURE_QUIRKS.md): uniqify merge-center exactness is value-dependent ulp luck; cross-engine 1e-16 PCA noise through the exact-equality predicate flips id lineage on mod-narrowed coincidence-dense geometry. Irreducible (Q13 family). Carved 2026-07-24: entry re-scheduled to single-cut-mod (cold tick deterministic); warm-chain mod coverage swapped to a moderate-density extraction.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "pc-meta-01",
+      "schedule": "uniform6-mod-clojure-legacy-clojure-legacy",
+      "step": 5
+    },
+    "path_pattern": "group-clusters",
+    "status": "carved-out"
+  },
+  "FP-65c446b8db": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 1
+    },
+    "path_pattern": "repness.1[].n-trials",
+    "status": "resolved"
+  },
+  "FP-67fbf50062": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "group-votes.N.votes.N.S",
+    "status": "resolved"
+  },
+  "FP-69c7a13580": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 1
+    },
+    "path_pattern": "repness.2[].repness",
+    "status": "resolved"
+  },
+  "FP-6a00f97722": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "repness.N",
+    "status": "resolved"
+  },
+  "FP-6c8147f414": {
+    "diagnosis": "Q18 (CLOJURE_QUIRKS.md): uniqify merge-center exactness is value-dependent ulp luck; cross-engine 1e-16 PCA noise through the exact-equality predicate flips id lineage on mod-narrowed coincidence-dense geometry. Irreducible (Q13 family). Carved 2026-07-24: entry re-scheduled to single-cut-mod (cold tick deterministic); warm-chain mod coverage swapped to a moderate-density extraction.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "pc-meta-01",
+      "schedule": "uniform6-mod-clojure-legacy-clojure-legacy",
+      "step": 2
+    },
+    "path_pattern": "repness.3[].n-success",
+    "status": "carved-out"
+  },
+  "FP-6e678b503a": {
+    "diagnosis": "Cross-engine ordering artifact (Clojure hash/insertion order vs Python sorted; blobs internally consistent). Suppressed by acceptance canonicalization in project_acceptance/canonicalize_blob (session 2026-07-22-3). No longer observed in battery. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "base-clusters.id",
+    "status": "resolved"
+  },
+  "FP-752e237165": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "repness.0[].p-success",
+    "status": "resolved"
+  },
+  "FP-7616e5ccb7": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "repness.0[].n-success",
+    "status": "resolved"
+  },
+  "FP-76d62572a5": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "repness.1[].repness",
+    "status": "resolved"
+  },
+  "FP-79bc2417f6": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 1
+    },
+    "path_pattern": "repness.0[].repful-for",
+    "status": "resolved"
+  },
+  "FP-8093bbe34f": {
+    "diagnosis": "Cross-engine ordering artifact (Clojure hash/insertion order vs Python sorted; blobs internally consistent). Suppressed by acceptance canonicalization in project_acceptance/canonicalize_blob (session 2026-07-22-3). No longer observed in battery. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "in-conv[]",
+    "status": "resolved"
+  },
+  "FP-80ca42344a": {
+    "diagnosis": "ROOT CAUSE FOUND (2026-07-22, session 3 late): Clojure conv-update switches to large-conv-update (mini-batch partial-pca on an UNSEEDED Mersenne-Twister row sample per iteration, conversation.clj:757-815) when n-ptpts>10000 OR n-cmts>5000; python always runs full PCA. Verified: pakistan/engage/bg2050 first divergent steps are EXACTLY the first steps crossing the cutoff (n-cmts 6028/5765/6701), all prior steps match, and in-conv/user-vote-counts/clustered vote totals stay IDENTICAL at the divergent step (only PCA-derived values and downstream cluster boundaries move). No deterministic reference exists on the mini-batch path (unseeded). DECISION (CLOJURE_QUIRKS.md Q10): certify the deterministic full-PCA path by pinning cmt/ptpt cutoffs huge in BOTH replay drivers (clj driver passes opts; no math-source change); mini-batch carved out, logged per run. \u2014 RESOLVED: Q10 carve-out (replay.clj pins cutoffs to 10^9, full-PCA path) verified: battery 9/9 MATCH on two consecutive passes after full clj re-record.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "pakistan",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 4
+    },
+    "path_pattern": "pca.center[]",
+    "status": "resolved"
+  },
+  "FP-815d8c768a": {
+    "diagnosis": "Cross-engine ordering artifact (Clojure hash/insertion order vs Python sorted; blobs internally consistent). Suppressed by acceptance canonicalization in project_acceptance/canonicalize_blob (session 2026-07-22-3). No longer observed in battery. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "base-clusters.members",
+    "status": "resolved"
+  },
+  "FP-81f022c5d2": {
+    "diagnosis": "consensus.disagree[].tid \u2014 same tie-break root as FP-0d73f006f4 (biodiversity). \u2014 Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "biodiversity",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "consensus.disagree[].tid",
+    "status": "resolved"
+  },
+  "FP-81fda13ef6": {
+    "diagnosis": "votes-base shape: clj emits per-base-cluster lists aligned to sort-by-:id buckets (agg-bucket-votes-for-tid via bid-to-pid, conversation.clj:593-608); py emits int totals over rating_mat.index. 13/125 totals ALSO off by one on vw single-cut: clj aggregates only clustered pids (union of base-cluster members). Fix: legacy-mode bucketed emission. \u2014 Original root FIXED (session-3 emission/selection parity); still observed on front-loaded6 where it cascades from the small-N base-cluster/in-conv membership difference (clj 14 vs py 15 clusters). \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "votes-base.N.A",
+    "status": "resolved"
+  },
+  "FP-84c954c297": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 1
+    },
+    "path_pattern": "repness.2[].n-trials",
+    "status": "resolved"
+  },
+  "FP-8efc2e00ed": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "repness.1[].repful-for",
+    "status": "resolved"
+  },
+  "FP-8f54f7ddfb": {
+    "diagnosis": "Q18 (CLOJURE_QUIRKS.md): uniqify merge-center exactness is value-dependent ulp luck; cross-engine 1e-16 PCA noise through the exact-equality predicate flips id lineage on mod-narrowed coincidence-dense geometry. Irreducible (Q13 family). Carved 2026-07-24: entry re-scheduled to single-cut-mod (cold tick deterministic); warm-chain mod coverage swapped to a moderate-density extraction.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "pc-meta-01",
+      "schedule": "uniform6-mod-clojure-legacy-clojure-legacy",
+      "step": 2
+    },
+    "path_pattern": "repness.3[].p-success",
+    "status": "carved-out"
+  },
+  "FP-912391ece7": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order. \u2014 RE-OBSERVED mid-chain on pakistan/engage/bg2050: same Q10 root (large-conv mini-batch PCA switch, see the diagnosed fingerprints of 2026-07-22 late session 3); resolved for the small-conv path. \u2014 RESOLVED: Q10 carve-out (replay.clj pins cutoffs to 10^9, full-PCA path) verified: battery 9/9 MATCH on two consecutive passes after full clj re-record. \u2014 REFOUND on pc-revote-01:uniform6 steps 1+ (2026-07-22 session 4): root is NOT votes-base semantics but the warm-chain split-loop extraction order on a 4-way knife-edge tie (pids {80,82,99,108}, within-engine gaps 2.5e-16/5.6e-17 vs ~1e-5 cross-engine PCA noise) \u2014 irreducible cross-language (CLOJURE_QUIRKS.md Q13; probes math/dev/proj_probe.clj split-probe + scratch/probe_revote_split.py: identical 28-pid extraction prefix, then clj {82,99} vs py {80,99}). CARVED OUT by dataset swap: battery entry replaced with pc-revote-02 (34 ptpts, ~28% revotes; MATCH 6/6 first try).",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "votes-base.N.S[]",
+    "status": "resolved"
+  },
+  "FP-94337f3a52": {
+    "diagnosis": "Q18 (CLOJURE_QUIRKS.md): uniqify merge-center exactness is value-dependent ulp luck; cross-engine 1e-16 PCA noise through the exact-equality predicate flips id lineage on mod-narrowed coincidence-dense geometry. Irreducible (Q13 family). Carved 2026-07-24: entry re-scheduled to single-cut-mod (cold tick deterministic); warm-chain mod coverage swapped to a moderate-density extraction.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "pc-meta-01",
+      "schedule": "uniform6-mod-clojure-legacy-clojure-legacy",
+      "step": 2
+    },
+    "path_pattern": "repness.3[].n-agree",
+    "status": "carved-out"
+  },
+  "FP-94fb63fec5": {
+    "diagnosis": "Cross-engine ordering artifact (Clojure hash/insertion order vs Python sorted; blobs internally consistent). Suppressed by acceptance canonicalization in project_acceptance/canonicalize_blob (session 2026-07-22-3). No longer observed in battery. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "base-clusters.members[][]",
+    "status": "resolved"
+  },
+  "FP-957b62808e": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "repness.0[].n-trials",
+    "status": "resolved"
+  },
+  "FP-98dc728043": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order. \u2014 RE-OBSERVED mid-chain on pakistan/engage/bg2050: same Q10 root (large-conv mini-batch PCA switch, see the diagnosed fingerprints of 2026-07-22 late session 3); resolved for the small-conv path. \u2014 RESOLVED: Q10 carve-out (replay.clj pins cutoffs to 10^9, full-PCA path) verified: battery 9/9 MATCH on two consecutive passes after full clj re-record. \u2014 REFOUND on pc-revote-01:uniform6 steps 1+ (2026-07-22 session 4): root is NOT votes-base semantics but the warm-chain split-loop extraction order on a 4-way knife-edge tie (pids {80,82,99,108}, within-engine gaps 2.5e-16/5.6e-17 vs ~1e-5 cross-engine PCA noise) \u2014 irreducible cross-language (CLOJURE_QUIRKS.md Q13; probes math/dev/proj_probe.clj split-probe + scratch/probe_revote_split.py: identical 28-pid extraction prefix, then clj {82,99} vs py {80,99}). CARVED OUT by dataset swap: battery entry replaced with pc-revote-02 (34 ptpts, ~28% revotes; MATCH 6/6 first try).",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 1
+    },
+    "path_pattern": "votes-base.N.D[]",
+    "status": "resolved"
+  },
+  "FP-9b52078c9f": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 1
+    },
+    "path_pattern": "group-votes.N.n-members",
+    "status": "resolved"
+  },
+  "FP-9b9c7be31e": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "single-cut-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "repness.3[].repness-test",
+    "status": "resolved"
+  },
+  "FP-a9afd7da5a": {
+    "diagnosis": "votes-base.N.S \u2014 same root as FP-81fda13ef6. \u2014 Original root FIXED (session-3 emission/selection parity); still observed on front-loaded6 where it cascades from the small-N base-cluster/in-conv membership difference (clj 14 vs py 15 clusters). \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "votes-base.N.S",
+    "status": "resolved"
+  },
+  "FP-af281c8386": {
+    "diagnosis": "base-clusters.y exact negation \u2014 same root as FP-80ca42344a; max|clj+py|=1.4e-7. \u2014 Original root FIXED (session-3 emission/selection parity); still observed on front-loaded6 where it cascades from the small-N base-cluster/in-conv membership difference (clj 14 vs py 15 clusters). \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "base-clusters.y[]",
+    "status": "resolved"
+  },
+  "FP-b347c0101b": {
+    "diagnosis": "every-vote small-N root (diagnosed 2026-07-22 end of session 3): python early-return guards at tiny dims where Clojure runs the real math \u2014 PCA short-circuits to zeros (center -0.0 vs clj -1.0 on a 1x1 matrix; comps padded to 2 vs rank-capped 1), conv_repness shape<2 guard returns empty repness/consensus vs Clojure's best-agree guarantee. Fix: tiny-dim PCA path + guard removal (legacy-gated), single-vote fixtures with exact Clojure-derived values. See journal 'every-vote step-0 diagnosis COMPLETE'. \u2014 PARTIAL FIX landed (small-N degenerate guards, steps 0-56 now MATCH); residual root pinned at step 57: kmeans assignment tie-break on coincident points (clj min-key last-wins merge vs py keeping singletons). See journal 'next every-vote edge pinned at step 57'. \u2014 RESOLVED (2026-07-22, session 3 final cycle): Q11 ported (vectorz cancellation distance in legacy kmeans) fixed the step-57 class where bits allow; the residual knife-edge (merge decisions on near-coincident pairs are bit-chaotic and irreducible cross-language \u2014 py's own pair leaves a 2.98e-08 residue where clj's collapses to 0.0) is CARVED OUT by replacing the full every-vote entry with its knife-edge-free 56-step prefix (scripts/schedules/vw-every-vote-56.json). Battery 10/10 MATCH x2 consecutive passes.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "every-vote-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "consensus.agree",
+    "status": "resolved"
+  },
+  "FP-b3670cb052": {
+    "diagnosis": "group-aware-consensus.124: 1/36 vs 2/36 (one agree-count off by one) \u2014 same suspect as FP-4b1ffd98b7; recheck after ports. \u2014 Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "group-aware-consensus.N",
+    "status": "resolved"
+  },
+  "FP-b9380fe0d4": {
+    "diagnosis": "Cross-engine ordering artifact (Clojure hash/insertion order vs Python sorted; blobs internally consistent). Suppressed by acceptance canonicalization in project_acceptance/canonicalize_blob (session 2026-07-22-3). No longer observed in battery. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "base-clusters.x",
+    "status": "resolved"
+  },
+  "FP-be1c7c32fd": {
+    "diagnosis": "Q18 (CLOJURE_QUIRKS.md): uniqify merge-center exactness is value-dependent ulp luck; cross-engine 1e-16 PCA noise through the exact-equality predicate flips id lineage on mod-narrowed coincidence-dense geometry. Irreducible (Q13 family). Carved 2026-07-24: entry re-scheduled to single-cut-mod (cold tick deterministic); warm-chain mod coverage swapped to a moderate-density extraction.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "pc-meta-01",
+      "schedule": "uniform6-mod-clojure-legacy-clojure-legacy",
+      "step": 5
+    },
+    "path_pattern": "group-votes",
+    "status": "carved-out"
+  },
+  "FP-c29173e1ba": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order. \u2014 RE-OBSERVED mid-chain on pakistan/engage/bg2050: same Q10 root (large-conv mini-batch PCA switch, see the diagnosed fingerprints of 2026-07-22 late session 3); resolved for the small-conv path. \u2014 RESOLVED: Q10 carve-out (replay.clj pins cutoffs to 10^9, full-PCA path) verified: battery 9/9 MATCH on two consecutive passes after full clj re-record. \u2014 REFOUND on pc-revote-01:uniform6 steps 1+ (2026-07-22 session 4): root is NOT votes-base semantics but the warm-chain split-loop extraction order on a 4-way knife-edge tie (pids {80,82,99,108}, within-engine gaps 2.5e-16/5.6e-17 vs ~1e-5 cross-engine PCA noise) \u2014 irreducible cross-language (CLOJURE_QUIRKS.md Q13; probes math/dev/proj_probe.clj split-probe + scratch/probe_revote_split.py: identical 28-pid extraction prefix, then clj {82,99} vs py {80,99}). CARVED OUT by dataset swap: battery entry replaced with pc-revote-02 (34 ptpts, ~28% revotes; MATCH 6/6 first try).",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "votes-base.N.A[]",
+    "status": "resolved"
+  },
+  "FP-c371bf17fb": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "repness.1[].p-success",
+    "status": "resolved"
+  },
+  "FP-c3cee15f8b": {
+    "diagnosis": "Q18 (CLOJURE_QUIRKS.md): uniqify merge-center exactness is value-dependent ulp luck; cross-engine 1e-16 PCA noise through the exact-equality predicate flips id lineage on mod-narrowed coincidence-dense geometry. Irreducible (Q13 family). Carved 2026-07-24: entry re-scheduled to single-cut-mod (cold tick deterministic); warm-chain mod coverage swapped to a moderate-density extraction.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "pc-meta-01",
+      "schedule": "uniform6-mod-clojure-legacy-clojure-legacy",
+      "step": 5
+    },
+    "path_pattern": "repness",
+    "status": "carved-out"
+  },
+  "FP-d15b73bd7f": {
+    "diagnosis": "Q18 (CLOJURE_QUIRKS.md): uniqify merge-center exactness is value-dependent ulp luck; cross-engine 1e-16 PCA noise through the exact-equality predicate flips id lineage on mod-narrowed coincidence-dense geometry. Irreducible (Q13 family). Carved 2026-07-24: entry re-scheduled to single-cut-mod (cold tick deterministic); warm-chain mod coverage swapped to a moderate-density extraction.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "pc-meta-01",
+      "schedule": "uniform6-mod-clojure-legacy-clojure-legacy",
+      "step": 2
+    },
+    "path_pattern": "repness.3[].n-trials",
+    "status": "carved-out"
+  },
+  "FP-d1926607cc": {
+    "diagnosis": "ROOT CAUSE FOUND (2026-07-22, session 3 late): Clojure conv-update switches to large-conv-update (mini-batch partial-pca on an UNSEEDED Mersenne-Twister row sample per iteration, conversation.clj:757-815) when n-ptpts>10000 OR n-cmts>5000; python always runs full PCA. Verified: pakistan/engage/bg2050 first divergent steps are EXACTLY the first steps crossing the cutoff (n-cmts 6028/5765/6701), all prior steps match, and in-conv/user-vote-counts/clustered vote totals stay IDENTICAL at the divergent step (only PCA-derived values and downstream cluster boundaries move). No deterministic reference exists on the mini-batch path (unseeded). DECISION (CLOJURE_QUIRKS.md Q10): certify the deterministic full-PCA path by pinning cmt/ptpt cutoffs huge in BOTH replay drivers (clj driver passes opts; no math-source change); mini-batch carved out, logged per run. \u2014 RESOLVED: Q10 carve-out (replay.clj pins cutoffs to 10^9, full-PCA path) verified: battery 9/9 MATCH on two consecutive passes after full clj re-record.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "pakistan",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 4
+    },
+    "path_pattern": "pca.comment-projection[][]",
+    "status": "resolved"
+  },
+  "FP-d2f37f60ae": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 1
+    },
+    "path_pattern": "repness.1[].n-agree",
+    "status": "resolved"
+  },
+  "FP-d4b1c6be44": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "repness.0[].repness-test",
+    "status": "resolved"
+  },
+  "FP-d4f30b6c93": {
+    "diagnosis": "Cross-engine ordering artifact (Clojure hash/insertion order vs Python sorted; blobs internally consistent). Suppressed by acceptance canonicalization in project_acceptance/canonicalize_blob (session 2026-07-22-3). No longer observed in battery. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "base-clusters.y",
+    "status": "resolved"
+  },
+  "FP-d5b14cc9ec": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "group-votes.N.votes.N.A",
+    "status": "resolved"
+  },
+  "FP-d7e4dae09d": {
+    "diagnosis": "element-level view of FP-55e290562e (bids vs pids emission space). \u2014 Original root FIXED (session-3 emission/selection parity); still observed on front-loaded6 where it cascades from the small-N base-cluster/in-conv membership difference (clj 14 vs py 15 clusters). \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 1
+    },
+    "path_pattern": "group-clusters[].members[]",
+    "status": "resolved"
+  },
+  "FP-daaf4d4e90": {
+    "diagnosis": "front-loaded6 residual: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15 clusters \u2014 two ptpts merged vs kept separate); all votes-base/group-votes/repness diffs cascade from that membership difference. Next: compare Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 1
+    },
+    "path_pattern": "repness.2[].n-success",
+    "status": "resolved"
+  },
+  "FP-eaea8c1b7f": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8. \u2014 Still OPEN on front-loaded6: base-cluster COUNT diverges at small-N step 0 (clj 14 vs py 15); downstream diffs cascade from that membership difference. Next: Clojure base-cluster kmeans edge at N~15 vs legacy_kmeans. \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "uniform8-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "repness.1[].tid",
+    "status": "resolved"
+  },
+  "FP-f105a7d057": {
+    "diagnosis": "votes-base.N.D \u2014 same root as FP-81fda13ef6. \u2014 Original root FIXED (session-3 emission/selection parity); still observed on front-loaded6 where it cascades from the small-N base-cluster/in-conv membership difference (clj 14 vs py 15 clusters). \u2014 RESOLVED: battery 4/4 MATCH on two consecutive passes (2026-07-22 session 3; second pass with --refresh-py). Final root was the in-conv greedy tie-break: Clojure hash-map iteration order (Murmur3 hashLong + HAMT chunks, polismath/utils/clj_hash.py) replicated for the candidate order.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "front-loaded6-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "votes-base.N.D",
+    "status": "resolved"
+  },
+  "FP-faac8c6125": {
+    "diagnosis": "Resolved by session-3 fixes (canonicalization + legacy blob emission/selection parity, commits xtywnpmz/oxvmnkrx): battery now MATCHes on vw:uniform8, vw:single-cut, biodiversity:uniform8.",
+    "engine_mode": "clojure-legacy",
+    "family": "tolerant",
+    "first_seen": {
+      "dataset": "vw",
+      "schedule": "single-cut-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "repness.3[].repness",
+    "status": "resolved"
+  },
+  "FP-fc8500a1a2": {
+    "diagnosis": "Q18 (CLOJURE_QUIRKS.md): uniqify merge-center exactness is value-dependent ulp luck; cross-engine 1e-16 PCA noise through the exact-equality predicate flips id lineage on mod-narrowed coincidence-dense geometry. Irreducible (Q13 family). Carved 2026-07-24: entry re-scheduled to single-cut-mod (cold tick deterministic); warm-chain mod coverage swapped to a moderate-density extraction.",
+    "engine_mode": "clojure-legacy",
+    "family": "exact",
+    "first_seen": {
+      "dataset": "pc-meta-01",
+      "schedule": "uniform6-mod-clojure-legacy-clojure-legacy",
+      "step": 0
+    },
+    "path_pattern": "meta-tids",
+    "status": "carved-out"
+  }
+}
