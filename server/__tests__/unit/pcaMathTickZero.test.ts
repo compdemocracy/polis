@@ -44,7 +44,11 @@ jest.mock("../../src/utils/metered", () => ({
   MPromise: Promise,
 }));
 
-import { getPca, prefetchLatestPcaData } from "../../src/utils/pca";
+import {
+  getLatestExistingPca,
+  getPca,
+  prefetchLatestPcaData,
+} from "../../src/utils/pca";
 
 // sha256(asJSON):sha256(asBufferOfGzippedJson) for the tick-1 fixture below,
 // recorded against origin/edge BEFORE the tick-0 guard fix and unchanged after
@@ -277,5 +281,40 @@ describe("prefetchLatestPcaData column authority at zero", () => {
     const cached = await getPca(zid, -1);
     expect(cached?.asPOJO.math_tick).toBe(1);
     expect((cached?.asPOJO as any).caching_tick).toBe(7);
+  });
+});
+
+describe("getLatestExistingPca", () => {
+  beforeEach(() => {
+    queryP_readOnly.mockReset();
+  });
+
+  test("returns a committed generation 0", async () => {
+    serveRow("0");
+    const result = await getLatestExistingPca(freshZid());
+    expect(result?.asPOJO.math_tick).toBe(0);
+    expect(result?.asPOJO["comment-priorities"]).toEqual({
+      "0": 1.5,
+      "1": 2.5,
+    });
+  });
+
+  test("returns undefined after exactly one query when there is no math row", async () => {
+    // The cheap no-row path Astra required: never createEmptyPcaStructure's
+    // second query. Contrast with getPca(zid), which synthesizes.
+    serveNoRows();
+    expect(await getLatestExistingPca(freshZid())).toBeUndefined();
+    const sql = queryP_readOnly.mock.calls.map((c: any) => String(c[0]));
+    expect(sql.filter((s) => s.includes("from math_main"))).toHaveLength(1);
+    expect(
+      sql.filter((s) => s.includes("select tid from comments"))
+    ).toHaveLength(0);
+  });
+
+  test("getPca(zid) still synthesizes, so existing callers are untouched", async () => {
+    serveNoRows();
+    const result = await getPca(freshZid());
+    expect(result).toBeDefined();
+    expect(result?.asPOJO.n).toBe(0);
   });
 });

@@ -3,7 +3,7 @@ import { DynamoDBClient, DynamoDBClientConfig } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 
 import { GetCommentsParams } from "./d";
-import { getPca } from "./utils/pca";
+import { getLatestExistingPca } from "./utils/pca";
 import Config from "./config";
 import logger from "./utils/logger";
 import pg from "./db/pg-query";
@@ -69,7 +69,13 @@ async function getNextPrioritizedComment(
 
   const [comments, mathRaw, remainingRows] = (await Promise.all([
     getComments(params as GetCommentsParams),
-    getPca(zid, 0),
+    // The latest committed generation, NOT `getPca(zid, 0)`. A literal 0 asks
+    // for something strictly newer than generation 0, and generation 0 is a
+    // conversation's real first generation, so the old call silently threw away
+    // its `comment-priorities` and fell back to unprioritized routing for the
+    // whole first-generation window. `getLatestExistingPca` still returns
+    // undefined after a single query when there is no math row at all.
+    getLatestExistingPca(zid),
     getNumberOfCommentsRemaining(zid, pid),
   ])) as [
     CommentRow[],
