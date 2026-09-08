@@ -41,19 +41,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import pathlib
 import re
 import sys
+import xml.etree.ElementTree as ET
 
 MAX_BYTES = 64 * 1024
 MAX_INT = 1_000_000
 # The only fixture slugs this job may ever report; certify_datasets.json calls
 # these the public fixtures and they are the only data on the box.
 PUBLIC_SLUGS = {"vw", "biodiversity"}
-COUNT_KEYS = {"passed", "failed", "skipped", "xfailed", "xpassed", "errors"}
-# Counts that must be zero for a suite to be called "pass". `xfailed` is
-# expected (P-022 §C retains twelve strict xfails); `xpassed` is not — a strict
-# xfail that starts passing is a regression in the retained-regression set.
-MUST_BE_ZERO = ("failed", "errors", "xpassed")
+#: Aggregates over the phase's actual JUnit reports, not a log scrape.
+COUNT_KEYS = {"reports", "tests", "failures", "errors", "skipped"}
+MUST_BE_ZERO = ("failures", "errors")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SKIP_REASONS = {"not-run-in-this-job"}
 TRUST = "reviewed-recipe-self-reported"
@@ -66,6 +66,8 @@ DEFAULT_EXPECTED = {
     "main_reports": 1,
     "race_reports": 20,
     "sha": None,
+    "battery_digest": None,
+    "junit_dir": None,
 }
 
 
@@ -97,7 +99,35 @@ def check_counts(obj, name):
 
 def suite_clean(counts) -> bool:
     """A suite is clean only if it ran something and nothing went wrong."""
-    return counts["passed"] > 0 and all(counts[k] == 0 for k in MUST_BE_ZERO)
+    return counts["tests"] > 0 and all(counts[k] == 0 for k in MUST_BE_ZERO)
+
+
+def read_reports(directory: pathlib.Path):
+    """Independently aggregate the JUnit files the worker actually returned.
+
+    Round 3 believed the worker's claimed report count without opening a single
+    file, so a summary claiming twenty-one reports passed with zero XML present
+    (review R3-F4). These numbers are computed here, from the artifact, and must
+    equal the ones the summary asserts.
+    """
+    out = {k: 0 for k in COUNT_KEYS}
+    if not directory.is_dir():
+        return out, ["directory is missing"]
+    problems = []
+    for report in sorted(directory.glob("*.xml")):
+        out["reports"] += 1
+        try:
+            root = ET.parse(report).getroot()
+        except ET.ParseError as exc:
+            problems.append(f"{report.name}: {exc}")
+            continue
+        suites = [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
+        if not suites:
+            problems.append(f"{report.name}: no testsuite element")
+        for suite in suites:
+            for key in ("tests", "failures", "errors", "skipped"):
+                out[key] += int(suite.get(key, 0) or 0)
+    return out, problems
 
 
 def check(summary, expected=None) -> str:
@@ -107,7 +137,7 @@ def check(summary, expected=None) -> str:
     want(set(summary) == {"schema", "kind", "is_certification", "trust",
                           "ref_sha", "recovery", "battery", "verdict"},
          f"unexpected top-level keys: {sorted(summary)}")
-    want(summary["schema"] == "p022-synthetic/2",
+    want(summary["schema"] == "p022-synthetic/3",
          f"unknown schema: {summary['schema']!r}")
     want(summary["kind"] == "synthetic-recovery-and-public-fixture-battery",
          f"unknown kind: {summary['kind']!r}")
@@ -119,9 +149,11 @@ def check(summary, expected=None) -> str:
     sha = summary["ref_sha"]
     want(isinstance(sha, str) and SHA_RE.match(sha or ""),
          "ref_sha must be a 40-hex commit sha; an empty identity is not a result")
-    if exp["sha"]:
-        want(sha == exp["sha"],
-             f"ref_sha {sha} is not the ref the workflow asked for ({exp['sha']})")
+    # Not optional any more: without it any valid-looking 40-hex passes, and the
+    # workflow never supplied one (review R3-F4).
+    want(exp["sha"], "no expected commit was supplied; identity cannot be checked")
+    want(sha == exp["sha"],
+         f"ref_sha {sha} is not the commit the workflow resolved ({exp['sha']})")
 
     # ------------------------------------------------------------- recovery
     rec = summary["recovery"]
@@ -148,6 +180,20 @@ def check(summary, expected=None) -> str:
          f"worker expected {exp_races} race report(s), run scope says {exp['race_reports']}")
     reports_ok = (main_reports == exp_main > 0 and race_reports == exp_races > 0)
 
+    # Cross-check the claim against the artifacts themselves.
+    if exp["junit_dir"]:
+        root = pathlib.Path(exp["junit_dir"])
+        for phase, claimed, expected_count in (("recovery", main_counts, exp_main),
+                                               ("races", race_counts, exp_races)):
+            actual, problems = read_reports(root / phase)
+            want(not problems, f"{phase} JUnit unusable: {'; '.join(problems)[:200]}")
+            want(actual["reports"] == expected_count,
+                 f"{phase}: {actual['reports']} JUnit file(s) returned, "
+                 f"{expected_count} expected")
+            want(actual == claimed,
+                 f"{phase}: summary counts {claimed} do not match the returned "
+                 f"reports {actual}")
+
     counts_ok = suite_clean(main_counts) and suite_clean(race_counts)
     recovery_ok = main_rc == 0 and races_rc == 0 and reports_ok and counts_ok
     want((rec["status"] == "pass") == recovery_ok,
@@ -156,7 +202,7 @@ def check(summary, expected=None) -> str:
     # -------------------------------------------------------------- battery
     bat = summary["battery"]
     want(isinstance(bat, dict), "battery must be an object")
-    want(set(bat) == {"rc", "selected", "missing", "datasets",
+    want(set(bat) == {"rc", "selected", "missing", "datasets", "inventory_digest",
                       "private_cases", "skip_reason", "status"},
          f"unexpected battery keys: {sorted(bat)}")
     bat_rc = check_int(bat["rc"], "battery.rc", allow_none=True)
@@ -193,6 +239,13 @@ def check(summary, expected=None) -> str:
         want(sorted(bat["datasets"]) == sorted(exp["datasets"]),
              f"battery datasets {sorted(bat['datasets'])} != pinned {sorted(exp['datasets'])}")
         want(missing == 0, f"{missing} pinned fixture(s) missing")
+        # Case count and dataset names do not bind schedules, cuts or the
+        # restart seam; swapping the restart entry for an ordinary uniform run
+        # leaves both untouched (review R3-F4).
+        want(exp["battery_digest"],
+             "no expected battery inventory digest was supplied")
+        want(bat["inventory_digest"] == exp["battery_digest"],
+             "battery inventory digest does not match the admitted inventory")
         battery_ok = bat_rc == 0
         want((bat["status"] == "pass") == battery_ok,
              "battery.status disagrees with its return code")
@@ -217,6 +270,9 @@ def parse_args(argv):
     ap.add_argument("--expected-race-reports", type=int,
                     default=DEFAULT_EXPECTED["race_reports"])
     ap.add_argument("--expected-sha", default="")
+    ap.add_argument("--expected-battery-digest", default="")
+    ap.add_argument("--junit-dir", default="",
+                    help="directory holding the returned recovery/ and races/ reports")
     args = ap.parse_args(argv)
     return args, {
         "run_battery": args.run_battery.strip().lower() not in {"false", "0", "no"},
@@ -225,6 +281,8 @@ def parse_args(argv):
         "main_reports": args.expected_main_reports,
         "race_reports": args.expected_race_reports,
         "sha": args.expected_sha or None,
+        "battery_digest": args.expected_battery_digest or None,
+        "junit_dir": args.junit_dir or None,
     }
 
 

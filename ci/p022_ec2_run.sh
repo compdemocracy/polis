@@ -62,11 +62,37 @@ status() {
   printf 'p022 %s %s=%s\n' "$phase" "$key" "$value"
 }
 
-# An explicit target-existence oracle. `make -n` consults the catch-all pattern
-# rule and answers "yes" for anything; `make -qp` prints the rule database, in
-# which an explicitly declared target appears at the start of a line.
+# An explicit target-existence oracle.
+#
+# `make -n` consults the catch-all pattern rule and answers "yes" for anything,
+# so it cannot be used. `make -qp` prints the rule database, in which an
+# explicitly declared target appears at the start of a line — but round 3 piped
+# it into `grep -q` under `set -o pipefail`, and that rejected REAL targets two
+# ways (review R3-F2): question mode exits 1 when a target is out of date, and
+# `grep -q` closes the pipe early, killing make with SIGPIPE (141). Both looked
+# like an absent target.
+#
+# So: capture the whole database with no pipe, accept make's documented
+# question-mode statuses 0 and 1, treat anything else as a parse failure, and
+# search the captured bytes.
 has_target() {
-  make -qp 2>/dev/null | grep -Eq "^$1:( |\$)"
+  local db rc=0
+  db="$(mktemp)" || return 1
+  make -qp >"$db" 2>/dev/null || rc=$?
+  if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then
+    rm -f "$db"
+    return 1
+  fi
+  if [ ! -s "$db" ]; then
+    rm -f "$db"
+    return 1
+  fi
+  if grep -Eq "^$1:( |\$)" "$db"; then
+    rm -f "$db"
+    return 0
+  fi
+  rm -f "$db"
+  return 1
 }
 
 # One JUnit file per pytest process, named uniquely, so nothing is overwritten.
@@ -166,7 +192,7 @@ phase_battery() {
   # certify_datasets.json and checked into the repository. There is no private
   # bundle to fetch and no credential that could fetch one.
   python3 - "$delphi" >"$STATE_DIR/battery-selection.json" <<'PY'
-import json, pathlib, sys
+import hashlib, json, pathlib, sys
 delphi = pathlib.Path(sys.argv[1])
 root = delphi / "real_data"
 scripts = delphi / "scripts"
@@ -184,11 +210,19 @@ def resolves(slug):
 
 selected = [e for e in battery if e.get("dataset") in public]
 missing = sorted({e["dataset"] for e in selected if not resolves(e["dataset"])})
+# Inventory digest. Case count plus dataset names do not bind schedules, cuts
+# or the restart seam; this does. Kept byte-identical to
+# ci/p022_battery_digest.py, which the runner uses to compute the expectation.
+FIELDS = ("dataset", "preset", "n_cuts", "schedule")
+rows = sorted([[f, "" if e.get(f) is None else str(e.get(f))] for f in FIELDS]
+              for e in selected)
+canonical = json.dumps(rows, sort_keys=True, separators=(",", ":"))
 json.dump({
     "public_slugs": sorted(public),
     "selected": selected,
     "selected_count": len(selected),
     "missing": missing,
+    "inventory_digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
     "private_skipped": sorted({e.get("dataset") for e in battery
                                if e.get("dataset") not in public}),
 }, sys.stdout, indent=1)
@@ -260,10 +294,11 @@ phase_summary() {
   # Nothing free-form from any log reaches this file. It is NOT independent
   # execution evidence: every field is produced by the recipe running here, and
   # the runner-side validator checks coherence and inventory, not authenticity.
-  python3 - "$REPO_ROOT" "$LOG_DIR" "$STATE_DIR" >"$ART_DIR/summary.json" <<'PY'
+  python3 - "$REPO_ROOT" "$LOG_DIR" "$STATE_DIR" "$ART_DIR" >"$ART_DIR/summary.json" <<'PY'
 import json, pathlib, re, sys
+import xml.etree.ElementTree as ET
 
-repo, logdir, state = (pathlib.Path(p) for p in sys.argv[1:4])
+repo, logdir, state, artdir = (pathlib.Path(p) for p in sys.argv[1:5])
 
 
 def read_int(name, default=None):
@@ -276,17 +311,31 @@ def read_int(name, default=None):
         return default
 
 
-def counts(path):
-    """pytest's terminal tallies only: integers keyed by a fixed word list."""
-    out = {k: 0 for k in
-           ("passed", "failed", "skipped", "xfailed", "xpassed", "errors")}
-    if not path.exists():
+def counts(phase):
+    """Aggregate over the phase's ACTUAL JUnit reports.
+
+    Round 3 took the maximum tally seen in the last 20000 characters of the
+    log, so twenty iterations of "2 passed, 1 xfailed" reported 2/1 rather than
+    40/20 — a number that cannot detect a race loop that stopped early (review
+    R3-F4). These are sums of the reports' own attributes, and the runner
+    re-parses the same files and must get the same numbers.
+    """
+    out = {k: 0 for k in ("reports", "tests", "failures", "errors", "skipped")}
+    directory = artdir / "junit" / phase
+    if not directory.is_dir():
         return out
-    text = path.read_text(errors="replace")[-20000:]
-    for n, word in re.findall(
-            r"(\d+) (passed|failed|skipped|xfailed|xpassed|errors?)", text):
-        key = "errors" if word.startswith("error") else word
-        out[key] = max(out[key], int(n))
+    for report in sorted(directory.glob("*.xml")):
+        try:
+            root = ET.parse(report).getroot()
+        except ET.ParseError:
+            out["reports"] += 1  # counted, but contributes no results
+            continue
+        out["reports"] += 1
+        suites = ([root] if root.tag == "testsuite"
+                  else list(root.iter("testsuite")))
+        for suite in suites:
+            for key in ("tests", "failures", "errors", "skipped"):
+                out[key] += int(suite.get(key, 0) or 0)
     return out
 
 
@@ -303,18 +352,25 @@ slug = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
 main_rc = read_int("recovery_main_rc")
 races_rc = read_int("recovery_races_rc")
 battery_rc = read_int("battery_rc")
-main_reports = read_int("recovery_reports", 0)
-race_reports = read_int("races_reports", 0)
+main_counts = counts("recovery")
+race_counts = counts("races")
+main_reports = main_counts["reports"]
+race_reports = race_counts["reports"]
 expected_main = read_int("expected_main_reports", 0)
 expected_races = read_int("expected_race_reports", 0)
 
+def suite_clean(c):
+    return c["tests"] > 0 and c["failures"] == 0 and c["errors"] == 0
+
+
 recovery_ok = (main_rc == 0 and races_rc == 0
                and main_reports == expected_main and main_reports > 0
-               and race_reports == expected_races and race_reports > 0)
+               and race_reports == expected_races and race_reports > 0
+               and suite_clean(main_counts) and suite_clean(race_counts))
 battery_ok = battery_rc == 0
 
 summary = {
-    "schema": "p022-synthetic/2",
+    "schema": "p022-synthetic/3",
     "kind": "synthetic-recovery-and-public-fixture-battery",
     "is_certification": False,
     "trust": "reviewed-recipe-self-reported",
@@ -326,8 +382,8 @@ summary = {
         "race_reports": race_reports,
         "expected_main_reports": expected_main,
         "expected_race_reports": expected_races,
-        "counts": counts(logdir / "recovery.log"),
-        "races_counts": counts(logdir / "recovery-races.log"),
+        "counts": main_counts,
+        "races_counts": race_counts,
         "status": "pass" if recovery_ok else "fail",
     },
     "battery": {
@@ -336,6 +392,9 @@ summary = {
         "missing": len(sel.get("missing", [])),
         "datasets": sorted(s for s in set(
             e.get("dataset") for e in sel.get("selected", [])) if s and slug.match(s)),
+        "inventory_digest": (sel.get("inventory_digest", "")
+                             if re.fullmatch(r"[0-9a-f]{64}",
+                                             str(sel.get("inventory_digest", ""))) else ""),
         "private_cases": "not-run",
         "skip_reason": "" if battery_rc is not None else "not-run-in-this-job",
         "status": "pass" if battery_ok else ("skipped" if battery_rc is None else "fail"),
