@@ -34,6 +34,17 @@ logger = logging.getLogger(__name__)
 _MS_PER_DAY = 24 * 60 * 60 * 1000
 
 
+class PoolDrainTimeout(TimeoutError):
+    """``poll_once``'s worker pool did not drain within its join bound.
+
+    A ``TimeoutError`` subclass so existing ``except TimeoutError`` / ``except
+    Exception`` handlers (the daemon loops, the ``--once`` CLI) keep matching,
+    but distinguishable by type from the socket and database timeouts that
+    share the builtin — ``TimeoutError`` is an ``OSError``, so catching the
+    builtin alone would also swallow those.
+    """
+
+
 # --------------------------------------------------------------------------- #
 # Pure poll-loop helpers (unit-tested in isolation)
 # --------------------------------------------------------------------------- #
@@ -377,9 +388,10 @@ class MathPollerService:
     def poll_once(self) -> None:
         """Run one vote + one moderation cycle, blocking until processed.
 
-        Used by ``--once`` and the integration test. Raises ``TimeoutError``
-        if the worker pool has not drained within 120 seconds. A timeout does
-        not cancel in-flight work; callers must not treat it as completion.
+        Used by ``--once`` and the integration test. Raises
+        ``PoolDrainTimeout`` (a ``TimeoutError``) if the worker pool has not
+        drained within 120 seconds. A timeout does not cancel in-flight work;
+        callers must not treat it as completion.
         """
         self._ensure_runtime()
         self._repair_incomplete_snapshots()
@@ -389,7 +401,9 @@ class MathPollerService:
         self._reconcile_once()
         assert self._pool is not None
         if not self._pool.join(timeout=120.0):
-            raise TimeoutError("Poll cycle worker pool did not drain within 120 seconds")
+            raise PoolDrainTimeout(
+                "Poll cycle worker pool did not drain within 120 seconds"
+            )
 
     def _repair_incomplete_snapshots(self) -> None:
         """Schedule legacy partial generations even outside the boot lookback.

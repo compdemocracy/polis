@@ -18,7 +18,7 @@ import signal
 import sys
 
 from polismath.database.postgres import PostgresClient, PostgresConfig
-from polismath.poller.service import MathPollerService, PollerConfig
+from polismath.poller.service import MathPollerService, PollerConfig, PoolDrainTimeout
 
 
 def _configure_logging() -> None:
@@ -55,7 +55,20 @@ def main(argv=None) -> int:
 
     if args.once:
         log.info("Running a single poll cycle (--once)")
-        service.poll_once()
+        try:
+            service.poll_once()
+        except PoolDrainTimeout as exc:
+            # Report through the logger _configure_logging() just set up, the
+            # way _build_service reports its own failure, instead of letting
+            # the default excepthook print a bare traceback to stderr.
+            log.error("Single poll cycle did not complete: %s", exc)
+            # stop() here rather than leaving the pool to
+            # concurrent.futures' interpreter-exit hook: the shutdown is then
+            # inside main's control and logged. A worker stuck FOREVER still
+            # blocks — shutdown(wait=True) joins non-daemon executor threads
+            # either way, and forcing exit past that would need os._exit.
+            service.stop()
+            return 1
         service.stop()
         return 0
 
