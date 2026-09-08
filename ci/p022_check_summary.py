@@ -52,7 +52,11 @@ MAX_INT = 1_000_000
 # these the public fixtures and they are the only data on the box.
 PUBLIC_SLUGS = {"vw", "biodiversity"}
 #: Aggregates over the phase's actual JUnit reports, not a log scrape.
-COUNT_KEYS = {"reports", "tests", "failures", "errors", "skipped"}
+#: `executed` is tests minus skips; `min_executed` is the smallest executed
+#: count of any single report, which is what makes each invocation carry its
+#: weight rather than hiding behind a phase total (review R4-F1).
+COUNT_KEYS = {"reports", "tests", "failures", "errors", "skipped",
+              "executed", "min_executed"}
 MUST_BE_ZERO = ("failures", "errors")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SKIP_REASONS = {"not-run-in-this-job"}
@@ -68,6 +72,13 @@ DEFAULT_EXPECTED = {
     "sha": None,
     "battery_digest": None,
     "junit_dir": None,
+    # Minimum executed (non-skipped) tests. Pinned by the trusted control
+    # recipe, NOT inferred from the reports being judged. Conservative floors
+    # well under P-022 §C's recorded 235/1/12 matrix and its per-iteration race
+    # counts; re-pin them when §C merges.
+    "min_main_executed": 100,
+    "min_race_executed": 10,
+    "min_restart_cases": 1,
 }
 
 
@@ -97,9 +108,16 @@ def check_counts(obj, name):
     return obj
 
 
-def suite_clean(counts) -> bool:
-    """A suite is clean only if it ran something and nothing went wrong."""
-    return counts["tests"] > 0 and all(counts[k] == 0 for k in MUST_BE_ZERO)
+def suite_clean(counts, floor: int) -> bool:
+    """Clean means every report executed real tests and nothing went wrong.
+
+    `tests` includes skips, so round 4's `tests > 0` accepted an all-skipped
+    report, and a phase total accepted nineteen empty race invocations beside
+    one real test.
+    """
+    return (counts["executed"] >= floor
+            and counts["min_executed"] > 0
+            and all(counts[k] == 0 for k in MUST_BE_ZERO))
 
 
 def read_reports(directory: pathlib.Path):
@@ -114,19 +132,30 @@ def read_reports(directory: pathlib.Path):
     if not directory.is_dir():
         return out, ["directory is missing"]
     problems = []
+    per_report = []
     for report in sorted(directory.glob("*.xml")):
         out["reports"] += 1
         try:
             root = ET.parse(report).getroot()
         except ET.ParseError as exc:
             problems.append(f"{report.name}: {exc}")
+            per_report.append(0)
             continue
         suites = [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
         if not suites:
             problems.append(f"{report.name}: no testsuite element")
+        this_tests = this_skipped = 0
         for suite in suites:
             for key in ("tests", "failures", "errors", "skipped"):
                 out[key] += int(suite.get(key, 0) or 0)
+            this_tests += int(suite.get("tests", 0) or 0)
+            this_skipped += int(suite.get("skipped", 0) or 0)
+        executed = this_tests - this_skipped
+        per_report.append(executed)
+        if executed <= 0:
+            problems.append(f"{report.name}: no executed (non-skipped) tests")
+    out["executed"] = out["tests"] - out["skipped"]
+    out["min_executed"] = min(per_report) if per_report else 0
     return out, problems
 
 
@@ -137,7 +166,7 @@ def check(summary, expected=None) -> str:
     want(set(summary) == {"schema", "kind", "is_certification", "trust",
                           "ref_sha", "recovery", "battery", "verdict"},
          f"unexpected top-level keys: {sorted(summary)}")
-    want(summary["schema"] == "p022-synthetic/3",
+    want(summary["schema"] == "p022-synthetic/4",
          f"unknown schema: {summary['schema']!r}")
     want(summary["kind"] == "synthetic-recovery-and-public-fixture-battery",
          f"unknown kind: {summary['kind']!r}")
@@ -160,7 +189,7 @@ def check(summary, expected=None) -> str:
     want(isinstance(rec, dict), "recovery must be an object")
     want(set(rec) == {"main_rc", "races_rc", "main_reports", "race_reports",
                       "expected_main_reports", "expected_race_reports",
-                      "counts", "races_counts", "status"},
+                      "counts", "races_counts", "xpassed", "status"},
          f"unexpected recovery keys: {sorted(rec)}")
     main_rc = check_int(rec["main_rc"], "recovery.main_rc", allow_none=True)
     races_rc = check_int(rec["races_rc"], "recovery.races_rc", allow_none=True)
@@ -170,6 +199,12 @@ def check(summary, expected=None) -> str:
     exp_races = check_int(rec["expected_race_reports"], "recovery.expected_race_reports")
     main_counts = check_counts(rec["counts"], "recovery.counts")
     race_counts = check_counts(rec["races_counts"], "recovery.races_counts")
+    xpassed = check_int(rec["xpassed"], "recovery.xpassed")
+    # A non-strict xfail that passes renders in JUnit as an ordinary pass, so
+    # the XML totals cannot see it; the worker's pytest plugin reports the
+    # count and the phase fails on it (review R4-F2).
+    want(xpassed == 0, f"{xpassed} XPASS result(s): a strict-xfail regression "
+                       "must fail the phase, not be counted as a pass")
     want(rec["status"] in {"pass", "fail"}, f"bad recovery.status: {rec['status']!r}")
 
     # The worker's own expectation must equal the runner's, so a worker cannot
@@ -194,7 +229,10 @@ def check(summary, expected=None) -> str:
                  f"{phase}: summary counts {claimed} do not match the returned "
                  f"reports {actual}")
 
-    counts_ok = suite_clean(main_counts) and suite_clean(race_counts)
+    counts_ok = (suite_clean(main_counts, exp["min_main_executed"])
+                 and suite_clean(race_counts, exp["min_race_executed"] * exp_races)
+                 and main_counts["min_executed"] >= exp["min_main_executed"]
+                 and race_counts["min_executed"] >= exp["min_race_executed"])
     recovery_ok = main_rc == 0 and races_rc == 0 and reports_ok and counts_ok
     want((rec["status"] == "pass") == recovery_ok,
          "recovery.status disagrees with its return codes, report inventory or counts")
@@ -203,7 +241,7 @@ def check(summary, expected=None) -> str:
     bat = summary["battery"]
     want(isinstance(bat, dict), "battery must be an object")
     want(set(bat) == {"rc", "selected", "missing", "datasets", "inventory_digest",
-                      "private_cases", "skip_reason", "status"},
+                      "restart_cases", "private_cases", "skip_reason", "status"},
          f"unexpected battery keys: {sorted(bat)}")
     bat_rc = check_int(bat["rc"], "battery.rc", allow_none=True)
     selected = check_int(bat["selected"], "battery.selected")
@@ -213,6 +251,7 @@ def check(summary, expected=None) -> str:
          f"battery.datasets contains a non-public slug: {bat['datasets']}")
     want(bat["private_cases"] == "not-run",
          f"battery.private_cases must be 'not-run', got {bat['private_cases']!r}")
+    restart_cases = check_int(bat["restart_cases"], "battery.restart_cases")
     want(isinstance(bat["skip_reason"], str), "battery.skip_reason must be a string")
     want(bat["status"] in {"pass", "fail", "skipped"},
          f"bad battery.status: {bat['status']!r}")
@@ -246,6 +285,11 @@ def check(summary, expected=None) -> str:
              "no expected battery inventory digest was supplied")
         want(bat["inventory_digest"] == exp["battery_digest"],
              "battery inventory digest does not match the admitted inventory")
+        # A mechanical coverage floor: a candidate whose schedules no longer
+        # restart cannot quietly shrink the smoke to a no-restart battery.
+        want(restart_cases >= exp["min_restart_cases"],
+             f"{restart_cases} restart-seam case(s), at least "
+             f"{exp['min_restart_cases']} required")
         battery_ok = bat_rc == 0
         want((bat["status"] == "pass") == battery_ok,
              "battery.status disagrees with its return code")
@@ -273,6 +317,13 @@ def parse_args(argv):
     ap.add_argument("--expected-battery-digest", default="")
     ap.add_argument("--junit-dir", default="",
                     help="directory holding the returned recovery/ and races/ reports")
+    ap.add_argument("--min-main-executed", type=int,
+                    default=DEFAULT_EXPECTED["min_main_executed"])
+    ap.add_argument("--min-race-executed", type=int,
+                    default=DEFAULT_EXPECTED["min_race_executed"],
+                    help="minimum executed tests in EACH race invocation")
+    ap.add_argument("--min-restart-cases", type=int,
+                    default=DEFAULT_EXPECTED["min_restart_cases"])
     args = ap.parse_args(argv)
     return args, {
         "run_battery": args.run_battery.strip().lower() not in {"false", "0", "no"},
@@ -283,6 +334,9 @@ def parse_args(argv):
         "sha": args.expected_sha or None,
         "battery_digest": args.expected_battery_digest or None,
         "junit_dir": args.junit_dir or None,
+        "min_main_executed": args.min_main_executed,
+        "min_race_executed": args.min_race_executed,
+        "min_restart_cases": args.min_restart_cases,
     }
 
 

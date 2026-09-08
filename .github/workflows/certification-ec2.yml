@@ -121,11 +121,24 @@ jobs:
           # The admitted battery inventory, taken from the commit under test —
           # not from this checkout, which may differ.
           git fetch --depth 1 origin "$TARGET_SHA"
-          git show "$TARGET_SHA:delphi/scripts/certify_battery.json" > /tmp/p022-battery.json
-          git show "$TARGET_SHA:delphi/scripts/certify_datasets.json" > /tmp/p022-datasets.json
-          DIGEST=$(python3 ci/p022_battery_digest.py /tmp/p022-battery.json /tmp/p022-datasets.json)
+          # The whole scripts tree, not just the two JSON files: the digest now
+          # hashes the CONTENTS of every referenced schedule, so a same-name
+          # mutation that deletes a restart seam moves it (review R4-F3).
+          rm -rf /tmp/p022-scripts && mkdir -p /tmp/p022-scripts
+          git archive "$TARGET_SHA" delphi/scripts | tar -x -C /tmp/p022-scripts
+          INV=$(python3 ci/p022_battery_digest.py \
+                  /tmp/p022-scripts/delphi/scripts/certify_battery.json \
+                  /tmp/p022-scripts/delphi/scripts/certify_datasets.json \
+                  /tmp/p022-scripts/delphi/scripts)
+          DIGEST=$(printf %s "$INV" | python3 -c 'import json,sys; print(json.load(sys.stdin)["digest"])')
+          RESTARTS=$(printf %s "$INV" | python3 -c 'import json,sys; print(json.load(sys.stdin)["restart_cases"])')
+          if [ "$RESTARTS" -lt 1 ]; then
+            echo "::error::the admitted public battery declares no restart seam"
+            exit 1
+          fi
           echo "BATTERY_DIGEST=$DIGEST" >> "$GITHUB_ENV"
-          echo "scope run_battery=$RUN_BATTERY commit=$TARGET_SHA inventory=$DIGEST"
+          echo "BATTERY_RESTARTS=$RESTARTS" >> "$GITHUB_ENV"
+          echo "scope run_battery=$RUN_BATTERY commit=$TARGET_SHA inventory=$DIGEST restarts=$RESTARTS"
 
       # Session 1 launches, and does ONLY that. The base role holds a
       # tag-scoped SendCommand that reaches any concurrent campaign's box, and
@@ -320,7 +333,10 @@ jobs:
             --expected-datasets biodiversity,vw \
             --expected-main-reports 1 \
             --expected-race-reports 20 \
-            --junit-dir artifacts/junit
+            --junit-dir artifacts/junit \
+            --min-restart-cases "${BATTERY_RESTARTS}" \
+            --min-main-executed 100 \
+            --min-race-executed 10
 
       - name: Upload artifacts
         if: ${{ always() }}
