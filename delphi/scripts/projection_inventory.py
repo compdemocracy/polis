@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import os
 import re
 import sys
@@ -286,28 +287,38 @@ UNRESOLVED = "<unresolved-table>"
 @dataclass(frozen=True)
 class ClearedUnresolved:
     """A reviewed exemption for one interpolated wildcard proven never to resolve to
-    a vote table. It is bound to its actual safety EVIDENCE — the exact query text,
-    the guard variable, and the fact that the guard set excludes every vote table —
-    all re-verified from source at scan time. A second/changed query, a guard set
-    that admits a vote table, or a removed guard therefore fails the exemption."""
+    a vote table. Rather than chase dataflow shapes, it pins a reviewed DIGEST of the
+    guarding function's normalised source (``ast.unparse`` — comments dropped,
+    whitespace normalised) captured at review time, alongside the exact query text,
+    the guard variable, and the fact that the guard set excludes every vote table.
+    At scan time the digest is recomputed; ANY edit to the function (a moved/dead
+    guard, a caught exception, a destructuring rewrite, a changed query) changes the
+    digest -> the exemption is stale and the hit is NEEDS-GATE. A whitespace-only or
+    comment-only edit does not change the normalised digest."""
 
     file_suffix: str
+    function_name: str       # the reviewed guarding function
     query_text: str          # exact decoded query the exemption covers
     guard_var: str           # the membership-guard variable, e.g. EQUIV_TABLES
     forbidden_tables: frozenset[str]  # exemption void if the guard set intersects these
+    digest: str              # sha256 of ast.unparse(function) at review time
     note: str
 
 
 CLEARED_UNRESOLVED: tuple[ClearedUnresolved, ...] = (
     ClearedUnresolved(
         file_suffix="delphi/polismath/replay/poller_equiv.py",
+        function_name="fetch_math_row",
         query_text="SELECT * FROM {table} WHERE zid = :zid AND math_env = :math_env",
         guard_var="EQUIV_TABLES",
         forbidden_tables=frozenset({"votes", "votes_latest_unique"}),
+        digest="cd5a6f07951a3e7a0f4ec249a2eff0440887f9788b4b89b4615db2ccf3eb0613",
         note="replay harness fetch_math_row; {table} guarded by `table not in "
         "EQUIV_TABLES` (math_main/bidtopid/ptptstats) — never a vote table",
     ),
 )
+
+STALE_EXEMPTION_NOTE = "exemption evidence stale: re-review"
 
 # One `SELECT <projection-list> FROM <target>` segment.
 _SELECT_FROM_SEG_RE = re.compile(r"\bselect\b(.*?)\bfrom\b\s*", re.IGNORECASE | re.DOTALL)
@@ -507,25 +518,30 @@ def _guard_flow_ok(fn: ast.AST, qvar: str, guard_var: str, query_node: ast.AST) 
     return True
 
 
-def _is_cleared_unresolved(rel: str, kind: str, raw: str, source: str) -> bool:
-    """Clear an unresolved hit ONLY if a reviewed exemption's evidence still holds,
-    re-verified from source: exact query text; a LITERAL guard set with no vote
-    table; EXACTLY ONE AST occurrence of the query; and the query's interpolated
-    variable guarded by membership BEFORE the query with no rewrite in between."""
+def _function_digest(fn: ast.AST) -> str:
+    """sha256 of the function's NORMALISED source (ast.unparse drops comments and
+    normalises whitespace), so a formatter/comment edit does not change it but any
+    structural change does."""
+    return hashlib.sha256(ast.unparse(fn).encode("utf-8")).hexdigest()
+
+
+def _exemption_status(rel: str, kind: str, raw: str, source: str) -> str:
+    """Return 'cleared', 'stale', or 'none' for an unresolved hit against the
+    reviewed exemptions. 'stale' means an exemption covers this file+query but its
+    pinned safety evidence no longer holds (-> NEEDS-GATE, re-review)."""
     if kind != "unresolved-table":
-        return False
+        return "none"
     for entry in CLEARED_UNRESOLVED:
-        if not rel.endswith(entry.file_suffix):
+        if not rel.endswith(entry.file_suffix) or raw.strip() != entry.query_text:
             continue
-        if raw.strip() != entry.query_text:
-            continue  # a different/changed query is not covered
         try:
             tree = ast.parse(source)
         except SyntaxError:
-            return False
+            return "stale"
+        # Module-level guard set must be a literal tuple/set with no vote table.
         if not _guard_set_ok(tree, entry):
-            return False
-        # Bind to EXACTLY ONE AST occurrence of the query (a second -> not cleared).
+            return "stale"
+        # Exactly one AST occurrence of the query, interpolating one Name.
         occ = []
         for node in ast.walk(tree):
             if isinstance(node, ast.JoinedStr):
@@ -533,18 +549,26 @@ def _is_cleared_unresolved(rel: str, kind: str, raw: str, source: str) -> bool:
                 if text == entry.query_text:
                     occ.append((node, qvar))
         if len(occ) != 1:
-            return False
+            return "stale"
         node, qvar = occ[0]
         if qvar is None:
-            return False
+            return "stale"
         fn = _enclosing_function(tree, node)
-        if fn is None:
-            return False
-        return _guard_flow_ok(fn, qvar, entry.guard_var, node)
-    return False
+        if fn is None or getattr(fn, "name", None) != entry.function_name:
+            return "stale"
+        # Pinned digest of the guarding function's normalised source (the total
+        # binding — catches dead guards, caught exceptions, destructuring, etc.).
+        if _function_digest(fn) != entry.digest:
+            return "stale"
+        # Straight-line structural checks retained as belt-and-suspenders.
+        if not _guard_flow_ok(fn, qvar, entry.guard_var, node):
+            return "stale"
+        return "cleared"
+    return "none"
 
 
-def _classify(rel: str, line: int, table: str, kind: str, raw: str) -> WildcardSite:
+def _classify(rel: str, line: int, table: str, kind: str, raw: str,
+              note_override: Optional[str] = None) -> WildcardSite:
     low = raw.lower()
     for d in DISPOSITIONS:
         if rel.endswith(d.file_suffix) and d.table == table and d.signature.lower() in low:
@@ -553,7 +577,7 @@ def _classify(rel: str, line: int, table: str, kind: str, raw: str) -> WildcardS
     note = ("unresolved wildcard table (template/variable/concatenation) — review it"
             if kind == "unresolved-table"
             else "unreviewed wildcard over a vote table — classify and gate or narrow it")
-    return WildcardSite(rel, line, table, kind, "?", True, "NEEDS-GATE", note)
+    return WildcardSite(rel, line, table, kind, "?", True, "NEEDS-GATE", note_override or note)
 
 
 def _iter_source_files(root: str) -> list[str]:
@@ -595,9 +619,11 @@ def run_sweep(roots: Optional[Sequence[str]] = None, repo_root: Optional[str] = 
             is_py = path.endswith(".py")
             text = _blank_python_docstrings(original) if is_py else original
             for line, table, kind, raw in _scan_text(rel, text, is_ts=not is_py):
-                if _is_cleared_unresolved(rel, kind, raw, original):
-                    continue  # reviewed non-vote interpolation, guard re-verified from source
-                sites.append(_classify(rel, line, table, kind, raw))
+                status = _exemption_status(rel, kind, raw, original)
+                if status == "cleared":
+                    continue  # reviewed non-vote interpolation; digest + checks re-verified
+                override = STALE_EXEMPTION_NOTE if status == "stale" else None
+                sites.append(_classify(rel, line, table, kind, raw, note_override=override))
     sites.sort(key=lambda s: (s.file, s.line))
     return sites
 
