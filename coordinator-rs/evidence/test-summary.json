@@ -1,5 +1,5 @@
 {
-  "run": "P-026 step 4 / S1 (Astra)",
+  "run": "P-026 step 4 / S1",
   "python_full_suite": {
     "passed": 131,
     "failed": 0,
@@ -40,7 +40,8 @@
       "C7 / polis-empty-served/1: the Python comparison writer publishes no row for a zero-vote conversation, the server synthesizes the approved-comment listing with a request-clock lastVoteTimestamp, and a published empty generation lists no tids; the transition must preserve comment ownership; the contract owner must still admit a frozen clock or path-specific clock normalization before this gate closes",
       "CO01: the incremental probe is a hint bounded by P026_RECONCILE_SECONDS, measured from before the source read; the interval makes a conversation eligible for reconciliation and is not a deadline, and no pass/service budget has been measured",
       "CO02/CO06: persisted payloads become eligible for revalidation once the ceiling elapses, not on every pass; resident-cache reconciliation is single-threaded and no multi-worker or warm-worker cache campaign exists",
-      "P-031: this crate implements none of A01 PollHealthy, A02 PublishLagSeconds or A03 ObserverHealthy, has no deployed publisher and no delivery proof; the optional synchronous sink can still block when enabled"
+      "P-031: this crate implements none of A01 PollHealthy, A02 PublishLagSeconds or A03 ObserverHealthy, has no deployed publisher and no delivery proof; the optional synchronous sink can still block when enabled",
+      "O8 remains OPEN and is at most PARTIAL: polis-candidate-input/1 is claimed locally as a candidate profile, not a G01-G16 certificate. S1 records the distinct candidate schema id, strict adapter admission, original-byte digests with decoded correspondence, and the worker/engine pins; still outstanding are all applicable G01-G16 cases with their required negative controls, an immutable manifest, the distinction between fresh rebuild, exact resume and warm incremental output schedules, and a non-vacuous P-023 compensated pair with raw C9 validation"
     ],
     "condition_states": {
       "O1": "OPEN",
@@ -50,15 +51,30 @@
       "O5": "OPEN",
       "O6": "OPEN",
       "O7": "OPEN",
-      "O8": "CLOSED (S1 scope; no G01-G16 certificate)"
+      "O8": "PARTIAL (S1 identity/custody recorded; G01-G16 open)"
     },
-    "closed_conditions": [
+    "closed_conditions": [],
+    "partial_conditions": [
       {
         "id": "O8",
-        "prior_condition": "polis-input/1 is claimed locally as a candidate profile, not a G01-G16 certificate",
+        "state": "PARTIAL",
+        "standing_condition": "O8 remains OPEN and is at most PARTIAL: polis-candidate-input/1 is claimed locally as a candidate profile, not a G01-G16 certificate. S1 records the distinct candidate schema id, strict adapter admission, original-byte digests with decoded correspondence, and the worker/engine pins; still outstanding are all applicable G01-G16 cases with their required negative controls, an immutable manifest, the distinction between fresh rebuild, exact resume and warm incremental output schedules, and a non-vacuous P-023 compensated pair with raw C9 validation",
         "evidence": "coordinator-rs/evidence/s1-closure.json",
         "scope": "P-026 step-4 S1 candidate identity and original-byte custody",
-        "g01_g16_certified": false
+        "recorded": [
+          "distinct candidate schema id and strict adapter admission on both sides",
+          "original worker bytes and their digests stored atomically with the JSONB, with decoded original/JSONB correspondence checked on read",
+          "worker/engine identity re-verified at initialization and at snapshot",
+          "operation id and publisher epoch bound into the uncertain-COMMIT readback"
+        ],
+        "remaining_obligations": [
+          "all applicable G01-G16 cases and their required negative controls",
+          "an immutable manifest for the profile",
+          "fresh rebuild, exact resume and warm incremental output schedules distinguished",
+          "a non-vacuous P-023 compensated pair and raw C9 validation"
+        ],
+        "g01_g16_certified": false,
+        "run_pins_verified_here": false
       }
     ]
   },
@@ -71,12 +87,12 @@
     ],
     "hashes_identical_to_previous_evidence": true,
     "observer_errors": 0,
-    "observations": 196
+    "observations": 199
   },
   "polarity": "four artifacts and semantic tie control unchanged; compensated pairs equal, negative controls differ",
   "node_d4": "0 differences; generation-zero route 200 / ETag 0 / conditional 304; no loadBundle claim",
   "scope": "Rust versus Python rebuild-prefix campaign; Clojure remains the live production writer; no Rust/Clojure comparison",
-  "compose_project": "p026s1x-c84e",
-  "postgres_port": 55864,
-  "uncommitted": true
+  "compose_project": "s1fix-b7c2",
+  "postgres_port": 55886,
+  "uncommitted": false
 }
