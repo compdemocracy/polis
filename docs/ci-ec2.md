@@ -90,8 +90,8 @@ path at all.
 
 Create the `certification-synthetic` environment **before** the first run, with:
 
-- **Deployment branches and tags** limited to `edge` (and `stable` if you want
-  dispatches from there),
+- **Deployment branches and tags** limited to `edge` and `stable` (the trust
+  policy's `ref` allowlist admits both; keep the two in step),
 - a **required reviewer**,
 - no admin bypass where your plan supports disabling it.
 
@@ -102,11 +102,25 @@ An environment name in YAML is not an approval gate.
 
 The environment subject also does **not** by itself exclude pull-request jobs —
 a job that references an environment gets the environment subject even on a PR.
-Two things exclude them, and both are in place:
+Be precise about what excludes them, because the trust policy alone does not:
 
-1. the trust policy pins the `ref` claim to `refs/heads/edge` /
-   `refs/heads/stable` — a pull-request job's ref is `refs/pull/<n>/merge`;
-2. the job itself refuses any other ref, on every event.
+1. the `ref` claim pins `refs/heads/edge` / `refs/heads/stable`, which excludes
+   an **ordinary** pull-request job — its ref is `refs/pull/<n>/merge`;
+2. **this workflow file has no pull-request trigger at all**, only
+   `workflow_dispatch` and `schedule`;
+3. the environment's **deployment-branch rule and required reviewer** gate every
+   job that references it.
+
+(2) and (3) are load-bearing, not decoration. A `pull_request_target` job runs
+trusted default-branch code and can carry an allowed base-branch ref, and
+neither the repository claim nor the environment-form subject distinguishes it —
+so any *other* trusted workflow in this repository that references
+`certification-synthetic` could match this trust policy. Nothing in the role
+prevents that; reviewing what may use the environment does. If strict
+per-workflow isolation is ever required, the answer is a dedicated reviewed
+reusable-workflow boundary (whose token then really does carry
+`job_workflow_ref`) or a customized subject — not a claim key AWS does not
+support.
 
 An earlier revision pinned `job_workflow_ref` and `event_name` instead. Both
 were wrong and worth recording: `job_workflow_ref` is the claim a job gets when
@@ -214,7 +228,7 @@ workflow. Inputs:
 | Input | Default | Notes |
 |---|---|---|
 | `instance_type` | `r8g.4xlarge` | A dropdown, and IAM enforces the same allowlist. |
-| `ref` | the workflow's own ref | Git ref checked out **on the worker**. |
+| `ref` | the workflow's own ref | A branch **short name** (`edge`) or a full 40-hex commit. Fully-qualified refs and tags are rejected before launch; the value is resolved once to an immutable commit. |
 | `run_battery` | `true` | Only an **explicit manual false** selects recovery-only. A scheduled run has no inputs and always runs the full battery. |
 
 The nightly cron only proceeds on `edge`: GitHub runs a scheduled workflow from
@@ -250,7 +264,14 @@ the step rather than being quietly truncated.
 rejects, on top of extra keys, wrong types, control characters and non-public
 dataset slugs:
 
-- a "pass" with any `failed`, `errors` or `xpassed`, or with zero tests executed;
+- a "pass" with any failure or error, with fewer executed (non-skipped) tests
+  than the pinned per-phase floor, or with **any single report** that executed
+  nothing — a JUnit `tests` count includes skips, so an all-skipped run and
+  nineteen empty race invocations both used to look healthy;
+- any XPASS. A non-strict `@pytest.mark.xfail` that passes renders in JUnit as
+  an ordinary pass, so `-o xfail_strict=true` and XML parsing between them
+  cannot see it; the injected pytest plugin hooks the report itself, fails the
+  process, and reports the count;
 - a report inventory that is not exactly one JUnit file for the matrix and one
   per race iteration — so nineteen overwritten reports cannot look complete;
 - a battery shortened from the six pinned public cases, or with a dataset set
@@ -261,10 +282,14 @@ dataset slugs:
   resolved once, on the runner, to an immutable commit that is both the launch
   tag and the validation expectation, and the worker no longer falls back to
   `edge` if its tag read fails;
-- a battery whose **inventory digest** (dataset, preset, cut count, schedule
-  file over the public entries) is not the admitted one — six cases over two
-  datasets does not bind the `vw` restart seam, and swapping it for an ordinary
-  uniform run used to pass;
+- a battery whose **inventory digest** is not the admitted one. The digest
+  covers each public entry with its value **types preserved** (`8` and `"8"` are
+  different inventories) plus the canonical **contents** of every referenced
+  schedule file — so deleting `restart_after` from a same-named schedule moves
+  it — and the public fixture descriptors;
+- a battery that declares fewer restart seams than the admitted inventory does,
+  so a candidate whose schedules stopped restarting cannot quietly shrink the
+  smoke;
 - report counts that disagree with the JUnit files actually returned. The
   validator re-parses them: a summary claiming twenty-one reports with no XML
   present is rejected, and the counts are aggregates over every report rather
