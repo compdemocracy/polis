@@ -16,6 +16,24 @@ pub struct Config {
     pub lease_seconds: i32,
     pub poll_ms: u64,
     pub cache_capacity: usize,
+    /// CO01 fast path: consult the cheap change probe before the authoritative
+    /// snapshot. The probe never gates a rebuild on its own.
+    pub incremental: bool,
+    /// Maximum age of a conversation's authoritative full snapshot. Past it the
+    /// probe is ignored and the complete reconciliation runs regardless.
+    pub reconcile_seconds: i32,
+    /// `off` (default) | `stderr` | `stdout` | a filesystem path.
+    ///
+    /// The default is deliberately `off`. A long-running `run` whose stderr is
+    /// an undrained pipe blocks once the pipe buffer fills, and per-pass metric
+    /// records fill it an order of magnitude faster than the log lines do; a
+    /// coordinator must not stall because nobody is reading its telemetry. A
+    /// deployment chooses its sink explicitly.
+    pub metrics_sink: String,
+    /// P-031's `Environment` dimension. Never defaults to `prod`.
+    pub environment: String,
+    /// Minimum interval between the bounded backlog/scan-age aggregate.
+    pub gauge_seconds: u64,
 }
 fn value<T: std::str::FromStr>(name: &str, default: &str) -> Result<T>
 where
@@ -46,6 +64,11 @@ impl Config {
             lease_seconds: value("P026_LEASE_SECONDS", "120")?,
             poll_ms: value("P026_POLL_MS", "1000")?,
             cache_capacity: value("P026_CACHE_CAP", "16")?,
+            incremental: value::<i32>("P026_INCREMENTAL", "1")? != 0,
+            reconcile_seconds: value("P026_RECONCILE_SECONDS", "3600")?,
+            metrics_sink: env::var("P026_METRICS").unwrap_or_else(|_| "off".into()),
+            environment: env::var("P026_ENVIRONMENT").unwrap_or_else(|_| "synthetic".into()),
+            gauge_seconds: value("P026_GAUGE_SECONDS", "60")?,
         };
         c.validate()?;
         Ok(c)
@@ -70,6 +93,17 @@ impl Config {
             "invalid namespace"
         );
         ensure!(self.cache_capacity <= 1024, "invalid warm cache capacity");
+        // A non-positive reconciliation ceiling would let the weak hint become
+        // the only rebuild gate, which Rev5 forbids.
+        ensure!(
+            self.reconcile_seconds > 0,
+            "invalid reconciliation interval"
+        );
+        ensure!(!self.metrics_sink.is_empty(), "invalid metrics sink");
+        ensure!(
+            !self.environment.is_empty() && self.environment.len() <= 64,
+            "invalid environment dimension"
+        );
         Ok(())
     }
     pub fn accepts(&self, zid: i32) -> bool {
