@@ -71,8 +71,15 @@ export default (
   const asgDelphiSmall = new autoscaling.AutoScalingGroup(self, 'AsgDelphiSmall', {
     vpc,
     launchTemplate: delphiSmallLaunchTemplate,
-    minCapacity: 2,
-    desiredCapacity: 2,
+    // Halved 2026-09 (2 -> 1). 14 days of CloudWatch on this ASG show a 0.625% mean hourly CPU
+    // (max hourly average 1.082%), and the Delphi_JobQueue has had zero jobs created since
+    // 2026-08-01; lifetime demanded compute is 74 hours in 12.9 months. The second instance is not
+    // redundancy: delphi/scripts/job_poller.py is a single-threaded claimant behind a DynamoDB
+    // lease, so a second poller adds a competing claimant, not throughput. maxCapacity stays at 7
+    // so the CPU target-tracking policy below can still scale out under real load.
+    // Revert by setting both back to 2 and running cdk deploy.
+    minCapacity: 1,
+    desiredCapacity: 1,
     maxCapacity: 7,
     vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
     healthCheck: autoscaling.HealthCheck.ec2({ grace: cdk.Duration.minutes(5) }),
