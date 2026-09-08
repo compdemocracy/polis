@@ -42,6 +42,8 @@ import os
 import re
 import subprocess
 import threading
+import uuid
+from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -141,6 +143,8 @@ class BatteryEntry:
     n_cuts: int | None = None
     schedule_path: Path | None = None
     notes: str = ""
+    optional: bool = False
+    role: str | None = None
 
 
 def derive_schedule_id(
@@ -172,7 +176,18 @@ def parse_battery_entry(e: dict[str, Any], *, battery_dir: Path | None = None) -
     """Parse one battery entry — either ``{"schedule": "<path>"}`` (base id
     read verbatim from the referenced schedule.json) or ``{"preset": ...,
     "n_cuts": ...}``."""
+    if not isinstance(e, dict):
+        raise ValueError("battery entries must be objects")
+    unknown = set(e) - {"dataset", "schedule", "preset", "n_cuts", "notes", "optional", "role"}
+    if unknown:
+        raise ValueError(f"unknown battery fields: {sorted(unknown)}")
     dataset = e["dataset"]
+    st._safe_path_component(dataset, label="dataset")
+    if type(e.get("optional", False)) is not bool:
+        raise ValueError("optional must be boolean")
+    if "schedule" in e and "preset" in e:
+        raise ValueError("declare schedule or preset, not both")
+    extra = {"optional": e.get("optional", False), "role": e.get("role")}
 
     if "schedule" in e:
         schedule_path = Path(e["schedule"])
@@ -189,7 +204,7 @@ def parse_battery_entry(e: dict[str, Any], *, battery_dir: Path | None = None) -
         base_id = schedule_json["schedule_id"]
         schedule_id = derive_schedule_id(base_schedule_id=base_id)
         return BatteryEntry(dataset=dataset, schedule_id=schedule_id,
-                             schedule_path=schedule_path, notes=e.get("notes", ""))
+                             schedule_path=schedule_path, notes=e.get("notes", ""), **extra)
 
     preset = e.get("preset")
     if preset not in _VALID_PRESETS:
@@ -200,14 +215,18 @@ def parse_battery_entry(e: dict[str, Any], *, battery_dir: Path | None = None) -
     n_cuts = e.get("n_cuts")
     if preset in _NCUTS_PRESETS and n_cuts is None:
         raise ValueError(f"preset {preset!r} requires n_cuts in battery entry {e!r}")
+    if n_cuts is not None and (type(n_cuts) is not int or n_cuts <= 0):
+        raise ValueError("n_cuts must be a positive integer")
     schedule_id = derive_schedule_id(preset=preset, n_cuts=n_cuts)
     return BatteryEntry(dataset=dataset, schedule_id=schedule_id,
-                         preset=preset, n_cuts=n_cuts, notes=e.get("notes", ""))
+                         preset=preset, n_cuts=n_cuts, notes=e.get("notes", ""), **extra)
 
 
 def load_battery(path: str | Path = DEFAULT_BATTERY_PATH) -> list[BatteryEntry]:
     path = Path(path)
     data = json.loads(path.read_text())
+    if not isinstance(data, list) or not data:
+        raise ValueError("battery must be a nonempty list")
     return [parse_battery_entry(e, battery_dir=path.parent) for e in data]
 
 
@@ -328,6 +347,8 @@ def canonical_schedule_hash(spec: sched.ScheduleSpec) -> str:
         "source": spec.source,
         "restart_after": getattr(spec, "restart_after", None),
         "clojure": getattr(spec, "clojure", None),
+        "coverage": spec.coverage,
+        "empty_output": spec.empty_output,
     }
     return _canonical_hash(payload)
 
@@ -536,12 +557,25 @@ def _write_temp_schedule(spec: sched.ScheduleSpec, root: Path) -> Path:
 
 
 #: Recording-cache manifest schema version. BUMP this to invalidate every
-#: existing cached recording at once. Bumped to 2 for M3 (P-019): the py
+#: existing cached recording at once. Version 3 adds checkpoint content hashes
+#: and requires cursor metadata on both engines. Version 2 (M3/P-019): the py
 #: manifest now keys on the comments CSV (moderation events Python loads from
 #: it), and the schedule hash now covers restart_after/clojure — recordings made
 #: under the old keys must not be reused, or a comments-only or restart-only edit
 #: would compare a fresh run against a stale one and report its old MATCH.
-_RECORDING_MANIFEST_VERSION = 2
+_RECORDING_MANIFEST_VERSION = 3
+
+
+def _recording_hashes(directory: Path) -> dict[str, str]:
+    return {p.name: sha256_file(p) for p in sorted(directory.glob("step-*")) if p.is_file()}
+
+
+def _clear_recording(directory: Path) -> None:
+    """A producer must not inherit old steps or a success marker on failure."""
+    for p in directory.glob("step-*"):
+        if p.is_file():
+            p.unlink()
+    (directory / "cache_manifest.json").unlink(missing_ok=True)
 
 
 def _manifest_matches(manifest_path: Path, expected: dict[str, Any]) -> bool:
@@ -549,15 +583,28 @@ def _manifest_matches(manifest_path: Path, expected: dict[str, Any]) -> bool:
         return False
     try:
         existing = json.loads(manifest_path.read_text())
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError) as exc:
+        raise CertifyError("recording-manifest", f"malformed recording manifest: {manifest_path}") from exc
+    if not isinstance(existing, dict):
+        raise CertifyError("recording-manifest", "recording manifest must be an object")
+    # Old versions require a fresh producer run, never acceptance of old steps.
+    if existing.get("manifest_version") in (1, 2):
         return False
+    if type(existing.get("manifest_version")) is not int or existing["manifest_version"] != _RECORDING_MANIFEST_VERSION:
+        raise CertifyError("recording-manifest", "unknown or missing recording manifest version")
+    hashes = existing.pop("checkpoint_sha256", None)
+    if not isinstance(hashes, dict) or set(existing) != set(expected):
+        raise CertifyError("recording-manifest", "malformed recording manifest fields")
+    if hashes != _recording_hashes(manifest_path.parent):
+        raise CertifyError("recording-integrity", "checkpoint files differ from recording manifest")
     return existing == expected
 
 
 def _write_manifest(manifest_path: Path, manifest: dict[str, Any]) -> None:
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     with open(manifest_path, "w") as fh:
-        json.dump(manifest, fh, indent=2, sort_keys=True)
+        json.dump({**manifest, "checkpoint_sha256": _recording_hashes(manifest_path.parent)},
+                  fh, indent=2, sort_keys=True)
 
 
 #: Pure-harness paths (relative to ``polismath/``) excluded from the py
@@ -639,6 +686,7 @@ def ensure_py_recording(
         return py_dir, True
 
     tmp_schedule = _write_temp_schedule(spec, root)
+    _clear_recording(py_dir)
     result = run_py_driver(tmp_schedule, out_root=root)
     if result.returncode != 0:
         raise CertifyError(
@@ -681,6 +729,7 @@ def ensure_clj_recording(
         return clj_dir, True
 
     tmp_schedule = _write_temp_schedule(spec, root)
+    _clear_recording(clj_dir)
     rec_dir.mkdir(parents=True, exist_ok=True)
     result = run_clj_driver(tmp_schedule, votes_csv, out_dir=rec_dir, comments_csv=comments_csv)
     if result.returncode != 0:
@@ -712,7 +761,17 @@ def compare_recording_pair(
     """
     clj_blobs = load_clj_blobs(Path(clj_dir))
     py_blobs = st.load_step_blobs(Path(py_dir))
-    aligned = min(len(clj_blobs), len(py_blobs))
+    if not clj_blobs or not py_blobs:
+        raise CertifyError("empty-recording", "both engines must produce nonempty recordings")
+    if len(clj_blobs) != len(py_blobs):
+        raise CertifyError("step-count-mismatch",
+                           f"clj={len(clj_blobs)} steps, py={len(py_blobs)} steps")
+    # Even the standalone comparer/focuser must reject gaps and renamed copies.
+    for directory, suffix in ((Path(clj_dir), ".blob.json"), (Path(py_dir), ".json")):
+        names = sorted(p.name for p in directory.glob(f"step-*{suffix}"))
+        if names != sorted(f"step-{i:03d}{suffix}" for i in range(len(clj_blobs))):
+            raise CertifyError("checkpoint-identity", "checkpoint filenames must be contiguous")
+    aligned = len(clj_blobs)
     cmp = comparer if comparer is not None else _acceptance_projecting_comparer()
     cfg_hash = _comparer_cfg_hash(cmp)
     cache_root = Path(cache_root)
@@ -721,6 +780,8 @@ def compare_recording_pair(
     for i in range(aligned):
         clj_proj = project_acceptance(clj_blobs[i])
         py_proj = project_acceptance(py_blobs[i])
+        if not clj_proj or not py_proj:
+            raise CertifyError("checkpoint-schema", "empty acceptance blob")
         clj_hash = _canonical_hash(clj_proj)
         py_hash = _canonical_hash(py_proj)
 
@@ -810,32 +871,128 @@ def _summarize_divergences(cmp_result: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Per-entry certification.
 # ---------------------------------------------------------------------------
+@dataclass
+class ExpectedEntry:
+    entry: BatteryEntry
+    spec: sched.ScheduleSpec
+    votes_csv: Path
+    votes_sha: str
+    comments_csv: Path | None
+    comments_sha: str | None
+    stream_end: int
+    checkpoints: list[dict[str, int]]
+
+    def inventory(self) -> list[dict[str, Any]]:
+        return [{
+            "dataset": self.entry.dataset, "schedule_id": self.entry.schedule_id,
+            "role": self.entry.role or f"{self.entry.dataset}:{self.entry.schedule_id}",
+            "engine": engine, "coverage": self.spec.coverage,
+            "stream_end": self.stream_end, "checkpoints": self.checkpoints,
+        } for engine in ("clj", "py")]
+
+
+def prepare_entry(entry: BatteryEntry) -> ExpectedEntry:
+    """Resolve inputs and checkpoint identities before any producer can run."""
+    st.recording_dir(entry.dataset, entry.schedule_id)
+    if not dataset_available(entry.dataset):
+        raise CertifyError("dataset-unavailable", "dataset-unavailable")
+    votes_csv = votes_csv_path(entry.dataset)
+    if votes_csv is None:
+        raise CertifyError("dataset-unavailable", "no votes CSV found")
+    votes_sha = sha256_file(votes_csv)
+    ds = real_data.load_export_votes(entry.dataset)
+    spec = build_effective_spec(entry, ds)
+    if spec.dataset != entry.dataset:
+        raise CertifyError("inventory", "schedule dataset does not match battery")
+    steps = sched.slice_schedule(ds, spec)
+    if not steps:
+        raise CertifyError("inventory", "nonzero expected checkpoints required")
+    if spec.coverage not in ("full-stream", "prefix-diagnostic"):
+        raise CertifyError("inventory", "unknown schedule coverage")
+    if spec.coverage == "full-stream" and steps[-1].cut_slot != ds.n:
+        raise CertifyError("inventory", "final cut must reach stream end")
+    if spec.coverage == "full-stream" and len(sched._resolve_mod_events(ds, spec)) != sum(
+        len(s.mod_events) for s in steps
+    ):
+        raise CertifyError("inventory", "final cut leaves moderation events unconsumed")
+    if spec.restart_after is not None and (
+        type(spec.restart_after) is not int or not 0 <= spec.restart_after < len(steps) - 1
+    ):
+        raise CertifyError("inventory", "restart_after requires a subsequent checkpoint")
+    if steps[0].cut_slot == 0:
+        if not isinstance(spec.empty_output, dict) or not spec.empty_output:
+            raise CertifyError("inventory", "zero checkpoint requires a nonempty empty_output contract")
+        if not set(spec.empty_output) <= ACCEPTANCE_KEYS:
+            raise CertifyError("inventory", "empty_output must name acceptance fields")
+    comments = comments_csv_path(entry.dataset) if spec.moderation != "none" else None
+    if spec.moderation == "interleave-by-timestamp" and comments is None:
+        raise CertifyError("dataset-unavailable", "moderation schedule requires comments CSV")
+    checkpoints = [{"index": s.index, "prev_slot": s.prev_slot, "cut_slot": s.cut_slot,
+                    "batch_size": len(s.vote_events), "cut_time_ms": s.cut_time_ms}
+                   for s in steps]
+    # Pass resolved absolute cursors to BOTH engines. Neither driver gets to
+    # independently round fractions or silently change the expected inventory.
+    resolved = spec.to_dict()
+    resolved["cuts"] = {"mode": "vote-count", "at": [s.cut_slot for s in steps]}
+    if steps[0].cut_slot == 0:
+        resolved["cuts"]["empty_checkpoint"] = True
+    return ExpectedEntry(entry, sched.ScheduleSpec.from_dict(resolved), votes_csv, votes_sha,
+                         comments, sha256_file(comments) if comments else None, ds.n, checkpoints)
+
+
+def validate_recording_inventory(directory: Path, engine: str, expected: ExpectedEntry) -> None:
+    """Exact file and cursor equality, independently for each engine."""
+    suffixes = (".blob.json", ".meta.json") if engine == "clj" else (".json",)
+    names = {f"step-{c['index']:03d}{suffix}" for c in expected.checkpoints for suffix in suffixes}
+    actual = {p.name for p in directory.glob("step-*.json")}
+    if actual != names:
+        raise CertifyError("checkpoint-inventory",
+                           f"{engine}: missing={sorted(names - actual)}, unexpected={sorted(actual - names)}")
+    for checkpoint in expected.checkpoints:
+        stem = f"step-{checkpoint['index']:03d}"
+        meta_path = directory / (stem + (".meta.json" if engine == "clj" else ".json"))
+        meta = json.loads(meta_path.read_text())
+        if not isinstance(meta, dict) or any(
+            type(meta.get(k)) is not int or meta[k] != v for k, v in checkpoint.items()
+        ):
+            raise CertifyError("checkpoint-identity", f"{engine}: metadata differs at {stem}")
+        blob = (json.loads((directory / (stem + ".blob.json")).read_text())
+                if engine == "clj" else meta.get("blob"))
+        if not isinstance(blob, dict) or not project_acceptance(blob):
+            raise CertifyError("checkpoint-schema", f"{engine}: missing acceptance blob at {stem}")
+        if checkpoint["cut_slot"] == 0:
+            projected = project_acceptance(blob)
+            if any(k not in projected or projected[k] != v for k, v in expected.spec.empty_output.items()):
+                raise CertifyError("empty-output", f"{engine}: {stem} violates declared empty_output")
+
+
+def _entry_error(entry: BatteryEntry, exc: Exception) -> dict[str, Any]:
+    stage = exc.stage if isinstance(exc, CertifyError) else "setup"
+    optional_missing = entry.optional and stage == "dataset-unavailable"
+    return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
+            "verdict": "SKIPPED" if optional_missing else "ERROR",
+            "optional": entry.optional, "stage": stage, "reason": str(exc)}
+
+
 def _certify_entry_heavy(
     entry: BatteryEntry, *, root: Path, refresh_clj: bool = False, refresh_py: bool = False,
+    expected: ExpectedEntry | None = None,
 ) -> dict[str, Any]:
     """The parallel-safe part of certifying one entry: ensure both recordings
     and run the hash-first compare — NO ledger access, so a whole battery can
     fan these out across workers. Terminal verdicts (SKIPPED/ERROR/MATCH) come
     back complete; a divergence carries its summary under ``"_summary"`` for
     the strictly-serial ledger fold (:func:`_fold_entry_into_ledger`)."""
-    if not dataset_available(entry.dataset):
-        return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
-                "verdict": "SKIPPED", "reason": "dataset-unavailable"}
-
     try:
-        votes_csv = votes_csv_path(entry.dataset)
-        if votes_csv is None:
-            raise CertifyError("setup", f"no *-votes.csv found for dataset {entry.dataset!r}")
-        votes_sha = sha256_file(votes_csv)
-        ds = real_data.load_export_votes(entry.dataset)
-        spec = build_effective_spec(entry, ds)
+        expected = expected or prepare_entry(entry)
+        votes_csv, votes_sha, spec = expected.votes_csv, expected.votes_sha, expected.spec
 
         # --comments only when the schedule actually requests moderation
         # (interleaving or an explicit list) AND the dataset has a comments
         # CSV to weave from — existing moderation="none" entries never pass
         # it, so their recordings/caches are untouched (MOD_RESTART_PORT_
         # SPEC.md "Python ports" item 5).
-        comments_csv = comments_csv_path(entry.dataset) if spec.moderation != "none" else None
+        comments_csv = expected.comments_csv
 
         clj_dir, _ = ensure_clj_recording(entry, spec, votes_sha, votes_csv, root=root,
                                            refresh=refresh_clj, comments_csv=comments_csv)
@@ -843,20 +1000,15 @@ def _certify_entry_heavy(
         # must be part of the py cache key, mirroring the clj side above.
         py_dir, _ = ensure_py_recording(entry, spec, votes_sha, root=root,
                                         refresh=refresh_py, comments_csv=comments_csv)
-    except CertifyError as exc:
-        return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
-                "verdict": "ERROR", "stage": exc.stage, "reason": str(exc)}
+        if sha256_file(votes_csv) != votes_sha or (
+            comments_csv is not None and sha256_file(comments_csv) != expected.comments_sha
+        ):
+            raise CertifyError("input-changed", "inputs changed after inventory construction")
+        validate_recording_inventory(clj_dir, "clj", expected)
+        validate_recording_inventory(py_dir, "py", expected)
+        cmp_result = compare_recording_pair(clj_dir, py_dir, cache_root=root)
     except Exception as exc:  # noqa: BLE001 - one bad entry must not crash the battery
-        return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
-                "verdict": "ERROR", "stage": "setup", "reason": str(exc)}
-
-    cmp_result = compare_recording_pair(clj_dir, py_dir, cache_root=root)
-
-    if cmp_result["step_count_mismatch"]:
-        return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
-                "verdict": "ERROR", "stage": "step-count-mismatch",
-                "reason": f"clj={cmp_result['n_steps_clj']} steps, "
-                          f"py={cmp_result['n_steps_py']} steps"}
+        return _entry_error(entry, exc)
 
     div_steps = [s for s in cmp_result["per_step"] if not s["match"]]
     if not div_steps:
@@ -937,19 +1089,66 @@ def run_battery(
     root = root or st.replays_root()
     ledger_path = ledger_path or default_ledger_path()
     ledger = load_ledger(ledger_path)
-
-    if only:
-        entries = _filter_only(entries, only)
+    selected = _filter_only(entries, only) if only is not None else entries
+    prepared: dict[tuple[str, str], ExpectedEntry] = {}
+    errors: dict[tuple[str, str], dict[str, Any]] = {}
+    inventory = []
+    configuration_errors = []
+    if not entries:
+        configuration_errors.append("battery has zero entries")
+    if not selected:
+        configuration_errors.append("selection has zero entries")
+    seen = set()
+    # Resolve the WHOLE battery before dispatching even the first worker.
+    for entry in entries:
+        key = (entry.dataset, entry.schedule_id)
+        if key in seen:
+            configuration_errors.append(f"duplicate battery entry: {key}")
+            continue
+        seen.add(key)
+        try:
+            expected = prepare_entry(entry)
+            prepared[key] = expected
+            inventory.extend(expected.inventory())
+        except Exception as exc:
+            errors[key] = _entry_error(entry, exc)
+    full_datasets = {p.entry.dataset for p in prepared.values() if p.spec.coverage == "full-stream"}
+    for p in prepared.values():
+        if p.spec.coverage == "prefix-diagnostic" and p.entry.dataset not in full_datasets:
+            errors[(p.entry.dataset, p.entry.schedule_id)] = _entry_error(
+                p.entry, CertifyError("inventory", "prefix diagnostic requires a full-stream companion"))
+    run_id = str(uuid.uuid4())
+    started = datetime.now(timezone.utc).isoformat()
+    manifest = {
+        "schema": "polis-certification-run/1", "run_id": run_id, "started_at": started,
+        "entry_statuses": ["PASS", "FAIL", "INCONCLUSIVE", "APPROVED_DIFFERENCE"],
+        "finished_at": None, "verdict": "INCONCLUSIVE", "partial": only is not None,
+        "configuration": {"only": only, "refresh_clj": refresh_clj,
+                          "refresh_py": refresh_py, "workers": workers},
+        "configuration_errors": configuration_errors, "inventory": inventory,
+        "entries": [{"dataset": e.dataset, "schedule_id": e.schedule_id,
+                     "role": e.role or f"{e.dataset}:{e.schedule_id}", "optional": e.optional,
+                     "status": "INCONCLUSIVE", "reason": "not completed"} for e in entries],
+        "resolved_schedules": [{"dataset": p.entry.dataset, "schedule_id": p.entry.schedule_id,
+                                "schedule": p.spec.to_dict(), "votes_sha256": p.votes_sha,
+                                "comments_sha256": p.comments_sha} for p in prepared.values()],
+    }
+    _write_json(root / "run_manifest.json", manifest)
 
     def _heavy(entry: BatteryEntry) -> dict[str, Any]:
+        key = (entry.dataset, entry.schedule_id)
+        if key in errors:
+            return errors[key]
+        if configuration_errors:
+            return _entry_error(entry, CertifyError("inventory", "; ".join(configuration_errors)))
         return _certify_entry_heavy(entry, root=root, refresh_clj=refresh_clj,
-                                    refresh_py=refresh_py)
+                                    refresh_py=refresh_py, expected=prepared[key])
 
-    if workers > 1 and len(entries) > 1:
-        with ThreadPoolExecutor(max_workers=min(workers, len(entries))) as pool:
-            heavies = list(pool.map(_heavy, entries))
+    if workers > 1 and len(selected) > 1:
+        with ThreadPoolExecutor(max_workers=min(workers, len(selected))) as pool:
+            heavies = list(pool.map(_heavy, selected))
     else:
-        heavies = [_heavy(e) for e in entries]
+        heavies = [_heavy(e) for e in selected]
 
     results = []
     for heavy in heavies:
@@ -957,23 +1156,50 @@ def run_battery(
         results.append(result)
 
     save_ledger(ledger, ledger_path)
-    report = {"battery": results, "root": str(root)}
+    by_key = {(r["dataset"], r["schedule_id"]): r for r in results}
+    for item in manifest["entries"]:
+        result = by_key.get((item["dataset"], item["schedule_id"]))
+        if result is None:
+            item["reason"] = "not selected: PARTIAL RUN, NOT A GATE"
+        else:
+            item["status"] = {"MATCH": "PASS", "ERROR": "FAIL", "DIVERGENCE": "FAIL",
+                              "SKIPPED": "INCONCLUSIVE"}[result["verdict"]]
+            item["reason"] = result.get("reason", result["verdict"])
+            item["result"] = result
+    verdict = "PASS"
+    if configuration_errors or any(e["status"] == "FAIL" for e in manifest["entries"]):
+        verdict = "FAIL"
+    elif only is not None or any(e["status"] != "PASS" for e in manifest["entries"]):
+        verdict = "INCONCLUSIVE"
+    manifest.update(verdict=verdict, finished_at=datetime.now(timezone.utc).isoformat())
+    _write_json(root / "run_manifest.json", manifest)
+    report = {"battery": results, "root": str(root), "verdict": verdict,
+              "partial": only is not None, "inventory": inventory,
+              "configuration_errors": configuration_errors,
+              "run_manifest": str(root / "run_manifest.json")}
     _write_json(root / "certify_report.json", report)
     return report
 
 
-def battery_exit_code(results: list[dict[str, Any]], *, strict: bool) -> int:
-    bad = any(r["verdict"] in ("DIVERGENCE", "ERROR") for r in results)
-    if strict:
-        bad = bad or any(r["verdict"] == "SKIPPED" for r in results)
-    return 1 if bad else 0
+def battery_exit_code(results: list[dict[str, Any]] | dict[str, Any], *, strict: bool) -> int:
+    if isinstance(results, dict):
+        if strict:
+            return int(results.get("verdict") != "PASS" or results.get("partial", False))
+        return int(results.get("verdict") == "FAIL" or
+                   battery_exit_code(results["battery"], strict=False))
+    return int(not results or any(
+        r["verdict"] != "MATCH" and not (
+            not strict and r["verdict"] == "SKIPPED" and r.get("optional") is True
+        ) for r in results))
 
 
 def _write_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as fh:
+    tmp = path.with_suffix(f".tmp-{os.getpid()}-{threading.get_ident()}")
+    with open(tmp, "w") as fh:
         json.dump(data, fh, indent=2, sort_keys=True, default=str)
         fh.write("\n")
+    os.replace(tmp, path)
 
 
 # ---------------------------------------------------------------------------
@@ -1012,6 +1238,10 @@ def render_run_lines(report: dict[str, Any], *, max_lines: int = 40) -> list[str
     '+N more' line if the battery is too large to fit), and a footer."""
     header = [ACCEPTANCE_NOTICE, f"certify: {len(report['battery'])} entries  root={report['root']}"]
     footer = [_format_footer(report["battery"])]
+    if report.get("partial"):
+        header.append("PARTIAL RUN, NOT A GATE (--only)")
+    if "verdict" in report:
+        footer.append(f"gate verdict: {report['verdict']}  manifest={report.get('run_manifest')}")
     budget = max_lines - len(header) - len(footer)
     entries = report["battery"]
     if len(entries) <= budget:
@@ -1046,7 +1276,11 @@ def run_focus(
                 "reason": f"expected clj/ and py/ both present under {rec_dir}"}
 
     ledger = load_ledger(ledger_path)
-    cmp_result = compare_recording_pair(clj_dir, py_dir, cache_root=root)
+    try:
+        cmp_result = compare_recording_pair(clj_dir, py_dir, cache_root=root)
+    except (CertifyError, ValueError, TypeError, OSError) as exc:
+        return {"dataset": dataset, "schedule_id": schedule_id, "verdict": "ERROR",
+                "stage": getattr(exc, "stage", "recording-schema"), "reason": str(exc)}
     div_steps = [s for s in cmp_result["per_step"] if not s["match"]]
 
     _write_json(rec_dir / "focus-report.json", {

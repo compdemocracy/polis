@@ -149,11 +149,12 @@ class ReplayDataset:
             strict_moderation=strict_moderation,
         )
 
-    def validate_schedule(self, schedule: Schedule) -> None:
-        prev = 0
+    def validate_schedule(self, schedule: Schedule, *, allow_zero: bool = False) -> None:
+        minimum = 0 if allow_zero else 1
+        prev = minimum - 1
         for s in schedule:
-            if not 1 <= s <= self.n:
-                raise ValueError(f"cut slot {s} outside 1..{self.n}")
+            if not minimum <= s <= self.n:
+                raise ValueError(f"cut slot {s} outside {minimum}..{self.n}")
             if s <= prev:
                 raise ValueError(f"schedule not strictly increasing at slot {s}")
             prev = s

@@ -71,7 +71,7 @@ def test_run_skipped_ok_by_default_but_fails_with_strict(monkeypatch):
     mod = _module()
     report = {"battery": [
         {"dataset": "vw", "schedule_id": "x",
-         "verdict": "SKIPPED", "reason": "dataset-unavailable"},
+         "verdict": "SKIPPED", "reason": "dataset-unavailable", "optional": True},
     ], "root": "/tmp/x"}
     monkeypatch.setattr(mod.cert, "load_battery", lambda path: ["entry"])
     monkeypatch.setattr(mod.cert, "run_battery", lambda entries, **kw: report)
@@ -98,7 +98,8 @@ def test_run_passes_cli_flags_through_to_library(monkeypatch):
         mod.cli,
         ["run", "--only", "vw:uniform8-clojure-legacy", "--refresh-clj", "--refresh-py"],
     )
-    assert res.exit_code == 0, res.output
+    assert res.exit_code == 1, res.output  # zero entries cannot pass
+    assert "PARTIAL RUN, NOT A GATE" in res.output
     assert captured["only"] == "vw:uniform8-clojure-legacy"
     assert captured["refresh_clj"] is True
     assert captured["refresh_py"] is True
@@ -116,12 +117,12 @@ def test_run_passes_workers_through_and_defaults_to_six(monkeypatch):
     monkeypatch.setattr(mod.cert, "run_battery", fake_run_battery)
 
     res = CliRunner().invoke(mod.cli, ["run", "--workers", "3"])
-    assert res.exit_code == 0, res.output
+    assert res.exit_code == 1, res.output  # zero entries cannot pass
     assert captured["workers"] == 3
 
     captured.clear()
     res = CliRunner().invoke(mod.cli, ["run"])
-    assert res.exit_code == 0, res.output
+    assert res.exit_code == 1, res.output
     assert captured["workers"] == 6
 
 

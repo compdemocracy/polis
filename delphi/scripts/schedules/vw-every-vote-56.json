@@ -63,5 +63,6 @@
     ]
   },
   "moderation": "none",
-  "notes": "every-vote PREFIX (56 single-vote steps): maximal-density warm-start edge case, truncated BEFORE the first Q11 knife-edge (step 57's near-coincident pair, whose merge/no-merge decision is bit-chaotic and irreducible cross-language \u2014 CLOJURE_QUIRKS.md Q11, journal 2026-07-22)"
+  "notes": "every-vote PREFIX (56 single-vote steps): maximal-density warm-start edge case, truncated BEFORE the first Q11 knife-edge (step 57's near-coincident pair, whose merge/no-merge decision is bit-chaotic and irreducible cross-language \u2014 CLOJURE_QUIRKS.md Q11, journal 2026-07-22)",
+  "coverage": "prefix-diagnostic"
 }
