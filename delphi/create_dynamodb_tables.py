@@ -2,8 +2,17 @@
 """
 Create all DynamoDB tables for Delphi system.
 
-This script creates all necessary DynamoDB tables for both the Polis math system
-and the EVōC (Efficient Visualization of Clusters) pipeline.
+This script creates all necessary DynamoDB tables for the Delphi job queue and
+the EVōC (Efficient Visualization of Clusters) pipeline.
+
+It runs on every delphi container start (see Dockerfile), so a table listed here
+is recreated automatically wherever it is missing -- which is why the write-only
+Python-PCA export tables had to leave this file before they could be deleted in
+AWS. Nine such tables were retired under P-011/P-033; the list, the writers that
+were removed with them and the deletion runbook are in
+cost-reduction/04-plans/P-011-code-retirement-notes.md. Do not re-add them here.
+Topic-agenda selections live in the PostgreSQL `topic_agenda_selections` table,
+and the PCA/repness surfaces the product renders come from `math_main`.
 
 Usage:
     python create_dynamodb_tables.py [options]
@@ -12,8 +21,6 @@ Options:
     --endpoint-url ENDPOINT_URL   DynamoDB endpoint URL
     --region REGION               AWS region (default: us-east-1)
     --delete-existing             Delete existing tables before creating new ones
-    --evoc-only                   Create only EVōC tables
-    --polismath-only              Create only Polis math tables
     --aws-profile PROFILE         AWS profile to use (optional)
 """
 
@@ -26,154 +33,6 @@ import time
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-def create_polis_math_tables(dynamodb, delete_existing=False):
-    """
-    Create all tables for the Polis math system.
-    
-    Args:
-        dynamodb: boto3 DynamoDB resource
-        delete_existing: If True, delete existing tables before creating new ones
-    """
-    # Get list of existing tables
-    existing_tables = [t.name for t in dynamodb.tables.all()]
-    
-    # Define table schemas for Polis math
-    tables = {
-        # Main conversation metadata table
-        'Delphi_PCAConversationConfig': {
-            'KeySchema': [
-                {'AttributeName': 'zid', 'KeyType': 'HASH'}
-            ],
-            'AttributeDefinitions': [
-                {'AttributeName': 'zid', 'AttributeType': 'S'}
-            ],
-            'ProvisionedThroughput': {
-                'ReadCapacityUnits': 5,
-                'WriteCapacityUnits': 5
-            }
-        },
-        # PCA and cluster data
-        'Delphi_PCAResults': {
-            'KeySchema': [
-                {'AttributeName': 'zid', 'KeyType': 'HASH'},
-                {'AttributeName': 'math_tick', 'KeyType': 'RANGE'}
-            ],
-            'AttributeDefinitions': [
-                {'AttributeName': 'zid', 'AttributeType': 'S'},
-                {'AttributeName': 'math_tick', 'AttributeType': 'N'},
-            ],
-            'GlobalSecondaryIndexes': [
-                {
-                    'IndexName': 'zid-index',
-                    'KeySchema': [
-                        {'AttributeName': 'zid', 'KeyType': 'HASH'}
-                    ],
-                    'Projection': { 'ProjectionType': 'KEYS_ONLY' },
-                }
-            ],
-            'BillingMode': 'PAY_PER_REQUEST',
-        },
-        # Group data
-        'Delphi_KMeansClusters': {
-            'KeySchema': [
-                {'AttributeName': 'zid_tick', 'KeyType': 'HASH'},
-                {'AttributeName': 'group_id', 'KeyType': 'RANGE'}
-            ],
-            'AttributeDefinitions': [
-                {'AttributeName': 'zid_tick', 'AttributeType': 'S'},
-                {'AttributeName': 'group_id', 'AttributeType': 'N'},
-                {'AttributeName': 'zid', 'AttributeType': 'S'}
-            ],
-            'BillingMode': 'PAY_PER_REQUEST',
-            'GlobalSecondaryIndexes': [
-                {
-                    'IndexName': 'zid-index',
-                    'KeySchema': [
-                        {'AttributeName': 'zid', 'KeyType': 'HASH'}
-                    ],
-                    'Projection': { 'ProjectionType': 'KEYS_ONLY' },
-                }
-            ]
-        },
-        # Comment data with priorities
-        'Delphi_CommentRouting': {
-            'KeySchema': [
-                {'AttributeName': 'zid_tick', 'KeyType': 'HASH'},
-                {'AttributeName': 'comment_id', 'KeyType': 'RANGE'}
-            ],
-            'AttributeDefinitions': [
-                {'AttributeName': 'zid_tick', 'AttributeType': 'S'},
-                {'AttributeName': 'comment_id', 'AttributeType': 'S'},
-                {'AttributeName': 'zid', 'AttributeType': 'S'}
-            ],
-            'BillingMode': 'PAY_PER_REQUEST',
-            'GlobalSecondaryIndexes': [
-                {
-                    'IndexName': 'zid-index',
-                    'KeySchema': [
-                        {'AttributeName': 'zid', 'KeyType': 'HASH'}
-                    ],
-                    'Projection': { 'ProjectionType': 'ALL' },
-                }
-            ]
-        },
-        # Representativeness data
-        'Delphi_RepresentativeComments': {
-            'KeySchema': [
-                {'AttributeName': 'zid_tick_gid', 'KeyType': 'HASH'},
-                {'AttributeName': 'comment_id', 'KeyType': 'RANGE'}
-            ],
-            'AttributeDefinitions': [
-                {'AttributeName': 'zid_tick_gid', 'AttributeType': 'S'},
-                {'AttributeName': 'comment_id', 'AttributeType': 'S'},
-                {'AttributeName': 'zid', 'AttributeType': 'S'}
-            ],
-            'BillingMode': 'PAY_PER_REQUEST',
-            'GlobalSecondaryIndexes': [
-                {
-                    'IndexName': 'zid-index',
-                    'KeySchema': [
-                        {'AttributeName': 'zid', 'KeyType': 'HASH'}
-                    ],
-                    'Projection': { 'ProjectionType': 'KEYS_ONLY' },
-                }
-            ]
-        },
-        # Participant projection data
-        'Delphi_PCAParticipantProjections': {
-            'KeySchema': [
-                {'AttributeName': 'zid_tick', 'KeyType': 'HASH'},
-                {'AttributeName': 'participant_id', 'KeyType': 'RANGE'}
-            ],
-            'AttributeDefinitions': [
-                {'AttributeName': 'zid_tick', 'AttributeType': 'S'},
-                {'AttributeName': 'participant_id', 'AttributeType': 'S'},
-                {'AttributeName': 'zid', 'AttributeType': 'S'}
-            ],
-            'BillingMode': 'PAY_PER_REQUEST',
-            'GlobalSecondaryIndexes': [
-                {
-                    'IndexName': 'zid-index',
-                    'KeySchema': [
-                        {'AttributeName': 'zid', 'KeyType': 'HASH'}
-                    ],
-                    'Projection': { 'ProjectionType': 'KEYS_ONLY' },
-                }
-            ]
-        }
-    }
-    
-    # Handle table deletion if requested
-    if delete_existing:
-        _delete_tables(dynamodb, tables.keys(), existing_tables)
-        # Update list of existing tables
-        existing_tables = [t.name for t in dynamodb.tables.all()]
-    
-    # Create tables
-    created_tables = _create_tables(dynamodb, tables, existing_tables)
-    
-    return created_tables
 
 def create_job_queue_table(dynamodb, delete_existing=False):
     """
@@ -264,38 +123,6 @@ def create_evoc_tables(dynamodb, delete_existing=False):
     
     # Define table schemas for EVōC
     tables = {
-        # Comment extremity table
-        'Delphi_CommentExtremity': {
-            'KeySchema': [
-                {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
-                {'AttributeName': 'comment_id', 'KeyType': 'RANGE'}
-            ],
-            'AttributeDefinitions': [
-                {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
-                {'AttributeName': 'comment_id', 'AttributeType': 'S'},
-                {'AttributeName': 'calculation_method', 'AttributeType': 'S'}
-            ],
-            'GlobalSecondaryIndexes': [
-                {
-                    'IndexName': 'ByMethod',
-                    'KeySchema': [
-                        {'AttributeName': 'calculation_method', 'KeyType': 'HASH'},
-                        {'AttributeName': 'conversation_id', 'KeyType': 'RANGE'}
-                    ],
-                    'Projection': {'ProjectionType': 'ALL'},
-                },
-                {
-                    'IndexName': 'zid-index',
-                    'KeySchema': [
-                        {'AttributeName': 'conversation_id', 'KeyType': 'HASH'}
-                    ],
-                    'Projection': {
-                        'ProjectionType': 'ALL'
-                    },
-                }
-            ],
-            'BillingMode': 'PAY_PER_REQUEST'
-        },
         'Delphi_NarrativeReports': {
             'KeySchema': [
                 {'AttributeName': 'rid_section_model', 'KeyType': 'HASH'},
@@ -341,6 +168,11 @@ def create_evoc_tables(dynamodb, delete_existing=False):
             ],
             'BillingMode': 'PAY_PER_REQUEST'
         },
+        # P-033/H1: PAY_PER_REQUEST is deliberate. This table showed 700
+        # WriteThrottleEvents in 90 days at provisioned 5/5 in production; the
+        # prod table is converted with `aws dynamodb update-table
+        # --billing-mode PAY_PER_REQUEST` per the P-033 runbook. Do not pin it
+        # back to provisioned capacity here.
         'Delphi_CommentHierarchicalClusterAssignments': {
             'KeySchema': [
                 {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
@@ -363,6 +195,11 @@ def create_evoc_tables(dynamodb, delete_existing=False):
             ],
             'BillingMode': 'PAY_PER_REQUEST'
         },
+        # P-033/H1: PAY_PER_REQUEST is deliberate. This table showed 4,050
+        # WriteThrottleEvents in 90 days at provisioned 5/5 in production; the
+        # prod table is converted with `aws dynamodb update-table
+        # --billing-mode PAY_PER_REQUEST` per the P-033 runbook. Do not pin it
+        # back to provisioned capacity here.
         'Delphi_UMAPGraph': {
             'KeySchema': [
                 {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
@@ -374,19 +211,6 @@ def create_evoc_tables(dynamodb, delete_existing=False):
             ],
             'BillingMode': 'PAY_PER_REQUEST'
         },
-        
-        # Extended tables
-        'Delphi_CommentClustersFeatures': {
-            'KeySchema': [
-                {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
-                {'AttributeName': 'cluster_key', 'KeyType': 'RANGE'}
-            ],
-            'AttributeDefinitions': [
-                {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
-                {'AttributeName': 'cluster_key', 'AttributeType': 'S'}
-            ],
-            'BillingMode': 'PAY_PER_REQUEST'
-        },
         'Delphi_CommentClustersLLMTopicNames': {
             'KeySchema': [
                 {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
@@ -395,18 +219,6 @@ def create_evoc_tables(dynamodb, delete_existing=False):
             'AttributeDefinitions': [
                 {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
                 {'AttributeName': 'topic_key', 'AttributeType': 'S'}
-            ],
-            'BillingMode': 'PAY_PER_REQUEST'
-        },
-        # Topic Agenda table for storing user selections
-        'Delphi_TopicAgendaSelections': {
-            'KeySchema': [
-                {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
-                {'AttributeName': 'participant_id', 'KeyType': 'RANGE'}
-            ],
-            'AttributeDefinitions': [
-                {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
-                {'AttributeName': 'participant_id', 'AttributeType': 'S'}
             ],
             'BillingMode': 'PAY_PER_REQUEST'
         },
@@ -504,23 +316,20 @@ def _create_tables(dynamodb, tables, existing_tables):
     
     return created_tables
 
-def create_tables(endpoint_url=None, region_name='us-east-1', 
-                 delete_existing=False, evoc_only=False, polismath_only=False,
-                 aws_profile=None):
+def create_tables(endpoint_url=None, region_name='us-east-1',
+                 delete_existing=False, aws_profile=None):
     # Use the environment variable if endpoint_url is not provided
     if endpoint_url is None:
         endpoint_url = os.environ.get('DYNAMODB_ENDPOINT')
     
     logger.info(f"Creating tables with DynamoDB endpoint: {endpoint_url}")
     """
-    Create all necessary DynamoDB tables for both systems.
+    Create all necessary DynamoDB tables for the Delphi services.
     
     Args:
         endpoint_url: URL of the DynamoDB endpoint (local or AWS)
         region_name: AWS region name
         delete_existing: If True, delete existing tables before creating new ones
-        evoc_only: If True, create only EVōC tables
-        polismath_only: If True, create only Polis math tables
         aws_profile: AWS profile to use (optional)
     """
     # Set up environment variables for credentials if not already set (for local development)
@@ -553,17 +362,11 @@ def create_tables(endpoint_url=None, region_name='us-east-1',
     logger.info("Creating job queue table...")
     job_queue_tables = create_job_queue_table(dynamodb, delete_existing)
     created_tables.extend(job_queue_tables)
-    
-    # Create tables based on flags
-    if not polismath_only:
-        logger.info("Creating EVōC tables...")
-        evoc_tables = create_evoc_tables(dynamodb, delete_existing)
-        created_tables.extend(evoc_tables)
-    
-    if not evoc_only:
-        logger.info("Creating Polis math tables...")
-        polismath_tables = create_polis_math_tables(dynamodb, delete_existing)
-        created_tables.extend(polismath_tables)
+
+    logger.info("Creating EVōC tables...")
+    evoc_tables = create_evoc_tables(dynamodb, delete_existing)
+    created_tables.extend(evoc_tables)
+
     
     # Check that requested tables were created
     if created_tables:
@@ -586,10 +389,6 @@ def main():
                       help='AWS region (default: us-east-1)')
     parser.add_argument('--delete-existing', action='store_true',
                       help='Delete existing tables before creating new ones')
-    parser.add_argument('--evoc-only', action='store_true',
-                      help='Create only EVōC tables')
-    parser.add_argument('--polismath-only', action='store_true',
-                      help='Create only Polis math tables')
     parser.add_argument('--aws-profile', type=str,
                       help='AWS profile to use (optional)')
     args = parser.parse_args()
@@ -600,8 +399,6 @@ def main():
         endpoint_url=args.endpoint_url,
         region_name=args.region,
         delete_existing=args.delete_existing,
-        evoc_only=args.evoc_only,
-        polismath_only=args.polismath_only,
         aws_profile=args.aws_profile
     )
     elapsed_time = time.time() - start_time

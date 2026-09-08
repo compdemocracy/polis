@@ -1,5 +1,10 @@
 # Migration Plan: From Conversation ID to Job ID
 
+> **Superseded in part (P-011/P-033, 2026-09-08).** Nine write-only DynamoDB
+> tables and the Python stages that fed them have since been removed from the
+> code. Table names below are kept as a point-in-time record; see
+> `cost-reduction/04-plans/P-011-code-retirement-notes.md` for what still exists.
+
 ## Executive Summary
 
 This document outlines the comprehensive plan to migrate the Delphi system from using conversation ID (zid) as the primary key for results to using job ID. This change will allow multiple processing jobs on the same conversation to coexist without overwriting previous results.

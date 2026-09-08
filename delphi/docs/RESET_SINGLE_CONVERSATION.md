@@ -22,21 +22,12 @@ def reset_conversation_data(report_id):
     
     # All Delphi tables that might contain conversation data
     tables_to_check = [
-        # Math/PCA tables
-        'Delphi_PCAConversationConfig',
-        'Delphi_PCAResults', 
-        'Delphi_KMeansClusters',
-        'Delphi_CommentRouting',
-        'Delphi_RepresentativeComments',
-        'Delphi_PCAParticipantProjections',
-        
         # UMAP/Topic tables
         'Delphi_UMAPConversationConfig',
         'Delphi_CommentEmbeddings',
         'Delphi_CommentHierarchicalClusterAssignments',
         'Delphi_CommentClustersStructureKeywords',
         'Delphi_UMAPGraph',
-        'Delphi_CommentClustersFeatures',
         'Delphi_CommentClustersLLMTopicNames',
         
         # Narrative and job tables
@@ -172,12 +163,9 @@ docker exec polis-dev-delphi-1 python -c "$(cat reset_conversation_script)" 1234
 This script removes data from ALL Delphi tables:
 
 ### Math/PCA Pipeline Data
-- `Delphi_PCAConversationConfig` - Conversation metadata
-- `Delphi_PCAResults` - PCA analysis results  
-- `Delphi_KMeansClusters` - Cluster/group data
-- `Delphi_CommentRouting` - Comment routing data
-- `Delphi_RepresentativeComments` - Representative comment analysis
-- `Delphi_PCAParticipantProjections` - Participant projections
+
+Nothing: the Python PCA stage no longer writes DynamoDB (P-011/P-033). Math results
+live in the PostgreSQL `math_main` blob, which this script does not touch.
 
 ### UMAP/Topic Pipeline Data
 - `Delphi_UMAPConversationConfig` - UMAP configuration
@@ -185,7 +173,6 @@ This script removes data from ALL Delphi tables:
 - `Delphi_CommentHierarchicalClusterAssignments` - Cluster assignments
 - `Delphi_CommentClustersStructureKeywords` - Cluster keywords/structure
 - `Delphi_UMAPGraph` - UMAP graph data
-- `Delphi_CommentClustersFeatures` - Cluster features
 - `Delphi_CommentClustersLLMTopicNames` - LLM-generated topic names
 
 ### Narrative and Job Data

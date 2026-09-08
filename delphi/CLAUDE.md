@@ -209,8 +209,10 @@ Delphi now includes a distributed job queue system built on DynamoDB:
 
 ### Table Creation
 
-- Primary script: `/create_dynamodb_tables.py` - Creates BOTH Polis math and EVōC tables
-- This script is used in `run_delphi.py` and now integrated into `umap_narrative/run_pipeline.py`
+- Primary script: `/create_dynamodb_tables.py` - Creates the job queue and EVōC tables
+- It runs on every container start (`Dockerfile`), so anything listed there is
+  recreated automatically. Nine write-only tables were retired under P-011/P-033;
+  see `cost-reduction/04-plans/P-011-code-retirement-notes.md` before adding a table back.
 
 ### Schema Definitions
 
@@ -219,14 +221,11 @@ Delphi now includes a distributed job queue system built on DynamoDB:
 
 ### Key Tables
 
-#### Polis Math Tables (Now with Delphi\_ prefix)
+#### Polis Math Results
 
-- `Delphi_PCAConversationConfig` - Conversation metadata (formerly `PolisMathConversations`)
-- `Delphi_PCAResults` - PCA and cluster data (formerly `PolisMathAnalysis`)
-- `Delphi_KMeansClusters` - Group data (formerly `PolisMathGroups`)
-- `Delphi_CommentRouting` - Comment data with priorities (formerly `PolisMathComments`)
-- `Delphi_RepresentativeComments` - Representativeness data (formerly `PolisMathRepness`)
-- `Delphi_PCAParticipantProjections` - Participant projection data (formerly `PolisMathProjections`)
+The Python PCA/k-means/repness stage no longer writes DynamoDB at all. Every math
+result the product renders (`/api/v3/math/pca2`, `nextComment`, the report, and
+Delphi's own extremity/narrative stages) reads the PostgreSQL `math_main` blob.
 
 #### EVōC/UMAP Tables (Now with Delphi\_ prefix)
 
@@ -235,11 +234,14 @@ Delphi now includes a distributed job queue system built on DynamoDB:
 - `Delphi_CommentHierarchicalClusterAssignments` - Cluster assignments for comments (formerly `CommentClusters`)
 - `Delphi_CommentClustersStructureKeywords` - Topic information for clusters (formerly `ClusterTopics`)
 - `Delphi_UMAPGraph` - Graph structure and node positions (formerly `UMAPGraph`)
-- `Delphi_CommentClustersFeatures` - TF-IDF analysis for clusters (formerly `ClusterCharacteristics`)
 - `Delphi_CommentClustersLLMTopicNames` - LLM-generated topic names (formerly `LLMTopicNames`)
 - `Delphi_NarrativeReports` - Generated reports (formerly `report_narrative_store`)
 - `Delphi_JobQueue` - Job queue (formerly `DelphiJobQueue`)
 - `Delphi_CollectiveStatement` - Collective statements generated for topics
+
+> **Billing mode:** `Delphi_UMAPGraph` and `Delphi_CommentHierarchicalClusterAssignments`
+> are deliberately PAY_PER_REQUEST (they throttled at provisioned 5/5 — P-033/H1).
+> Do not pin them back to provisioned capacity.
 
 > **Note:** All table names now use the `Delphi_` prefix for consistency.
 > Table definitions in `create_dynamodb_tables.py` are the canonical reference for names and schemas.
