@@ -23,6 +23,7 @@ import path from "path";
 import request from "supertest";
 import ts from "typescript";
 import zlib from "zlib";
+import crypto from "crypto";
 
 const queryP_readOnly = jest.fn();
 
@@ -532,3 +533,99 @@ describe("cross-caller cache provenance over HTTP (Astra R2-F1)", () => {
     expect(queryP_readOnly).not.toHaveBeenCalled();
   });
 });
+
+describe("Astra: cache provenance must remain private over participationInit HTTP", () => {
+  test.each(["missing", "1"])(
+    "wrapper contains no synthesized key for %s",
+    async (state) => {
+      queryP_readOnly.mockReset();
+      if (state === "missing") serveNoRow();
+      else serveTick(state);
+      const response = await request(participationApp(freshZid())).get(
+        "/route"
+      );
+      expect(response.status).toBe(200);
+      expect(response.body.pca).not.toBeNull();
+      expect(Object.keys(response.body.pca)).toEqual([
+        "asPOJO",
+        "asJSON",
+        "asBufferOfGzippedJson",
+        "expiration",
+        "consensus",
+        "repness",
+      ]);
+      expect(response.body.pca).not.toHaveProperty("synthesized");
+    }
+  );
+});
+
+/**
+ * A portable canonical form of participationInit's `response.pca`, which is the
+ * WHOLE cache entry, not just `asPOJO`.
+ *
+ * Two fields are excluded by necessity, and only these two:
+ *  - `expiration` is `Date.now() + 3000`, a clock;
+ *  - `asBufferOfGzippedJson` serializes as raw gzip bytes, whose encoding
+ *    depends on the zlib build (see the CI failure recorded in round 2). It is
+ *    replaced by its DECODED text, which is portable and strictly stronger than
+ *    hashing the compressed form.
+ * Everything else, including the key list and its order, is compared verbatim.
+ */
+function canonicalWrapper(pca: any) {
+  const buffer = Buffer.from(pca.asBufferOfGzippedJson.data);
+  return JSON.stringify({
+    keys: Object.keys(pca),
+    entry: {
+      ...pca,
+      expiration: "<clock>",
+      asBufferOfGzippedJson: zlib.gunzipSync(buffer).toString("utf-8"),
+    },
+  });
+}
+
+// sha256 of canonicalWrapper(response.pca) for a tick-1 row, recorded by running
+// this exact test with src/utils/pca.ts at origin/edge (31a5c0921).
+const EDGE_PARTICIPATION_WRAPPER_TICK1 =
+  "267fc4b792e95eddb6cc3d161ac54ce37b1f4012ed427aa3ca53222a11c93af2";
+
+describe("participationInit's served wrapper is byte-identical to edge (Astra r3)", () => {
+  // Astra's R3 finding: round 3 added an enumerable `synthesized` property to
+  // the cache entry, and participationInit assigns that entire entry to
+  // `response.pca` and serializes it. So the wire gained a field production
+  // never sent -- for EVERY tick, including 1. Keeping asPOJO/asJSON/the gzip
+  // body clean did not protect the wrapper.
+  //
+  // Astra's own acceptance tests above pin the key list. This pins the bytes.
+  beforeEach(() => {
+    queryP_readOnly.mockReset();
+  });
+
+  test("tick 1: the whole wrapper matches the pre-fix bytes", async () => {
+    serveTick("1");
+    const res = await request(participationApp(freshZid())).get("/route");
+    expect(res.status).toBe(200);
+    expect(res.body.pca.asPOJO.math_tick).toBe(1);
+    expect(sha256Hex(canonicalWrapper(res.body.pca))).toBe(
+      EDGE_PARTICIPATION_WRAPPER_TICK1
+    );
+  });
+
+  test("the wrapper carries exactly the six keys production serves", async () => {
+    for (const tick of ["0", "1"]) {
+      serveTick(tick);
+      const res = await request(participationApp(freshZid())).get("/route");
+      expect(Object.keys(res.body.pca)).toEqual([
+        "asPOJO",
+        "asJSON",
+        "asBufferOfGzippedJson",
+        "expiration",
+        "consensus",
+        "repness",
+      ]);
+    }
+  });
+});
+
+function sha256Hex(text: string) {
+  return crypto.createHash("sha256").update(text).digest("hex");
+}
