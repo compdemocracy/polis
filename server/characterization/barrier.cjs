@@ -1,5 +1,30 @@
 "use strict";
 const { AsyncLocalStorage, createHook } = require("node:async_hooks");
+const exemptions = [
+  "node-tls-close-immediate",
+  "pg-pool-idle-client-timeout",
+  "node-http-keepalive-timeout",
+];
+function exemption(kind, stack, callback) {
+  if (
+    kind === "Immediate" &&
+    /at TLSSocket.onSocketCloseDestroySSL \(node:internal\/tls\/wrap:/.test(
+      stack
+    )
+  )
+    return exemptions[0];
+  if (
+    kind === "Timeout" &&
+    /remove idle client/.test(callback) &&
+    /pg-pool\/index\.js/.test(stack)
+  )
+    return exemptions[1];
+  if (kind === "Timeout" && /at resOnFinish \(node:_http_server:/.test(stack))
+    return exemptions[2];
+  return null;
+}
+// These release TLS state, an idle PG client or an already-completed HTTP socket;
+// they cannot perform request writes. runtime.test.cjs exercises actual resources.
 // Request ownership propagates through promises even though promises themselves are
 // not pending I/O. Track timers, filesystem work and explicit DB/provider operations.
 function createBarrier(unownedActive = () => false) {
@@ -18,26 +43,7 @@ function createBarrier(unownedActive = () => false) {
         late.push({ owner: "unclassified", kind, stack: new Error().stack });
       return () => {};
     }
-    // Node's TLS close callback releases SSL state after socket teardown; it cannot run application I/O.
-    // Do not attribute this documented runtime disposal Immediate to a later API case.
-    if (
-      kind === "Immediate" &&
-      /at TLSSocket.onSocketCloseDestroySSL \(node:internal\/tls\/wrap:/.test(
-        new Error().stack
-      )
-    )
-      return () => {};
-    if (
-      kind === "Timeout" &&
-      /remove idle client/.test(String(resource?._onTimeout)) &&
-      /pg-pool\/index\.js/.test(new Error().stack)
-    )
-      return () => {};
-    // Default Node HTTP keep-alive expiry disposes an already-completed socket.
-    if (
-      kind === "Timeout" &&
-      /at resOnFinish \(node:_http_server:/.test(new Error().stack)
-    )
+    if (exemption(kind, new Error().stack, String(resource?._onTimeout)))
       return () => {};
     if (closed.has(owner))
       late.push({ owner, kind, origin: new Error().stack });
@@ -91,4 +97,4 @@ function createBarrier(unownedActive = () => false) {
     close: () => hook.disable(),
   };
 }
-module.exports = { createBarrier };
+module.exports = { createBarrier, exemptions, exemption };

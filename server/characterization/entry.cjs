@@ -94,6 +94,11 @@ async function main() {
           return res.end(
             JSON.stringify({
               ready: state.ready,
+              serialization: require("./serialization.cjs").profile(app),
+              runtime: {
+                node: process.version,
+                exemptions: require("./barrier.cjs").exemptions,
+              },
               routes: Object.values(app.routes)
                 .flat()
                 .map((r) => r.__p027),
