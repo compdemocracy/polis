@@ -202,20 +202,34 @@ a missing row is not proof that a paid provider run ended. The scope then stays
 blocked and new submissions keep returning the vanished job.
 
 After a reset, delete the conversation's guard rows. The table has a single
-`guard_key` hash key and no index, so scan and filter:
+`guard_key` hash key and no index, so this is a **paginated** scan — a single
+`scan()` call returns one page and would silently leave rows behind:
 
 ```python
 guard = dynamodb.Table('Delphi_JobActiveGuard')
-scan = guard.scan(
-    FilterExpression='conversation_id = :cid',
-    ExpressionAttributeValues={':cid': str(conversation_id)},
-)
-for item in scan.get('Items', []):
-    guard.delete_item(Key={'guard_key': item['guard_key']})
+kwargs = {
+    # Scope rows and idempotency aliases both carry conversation_id.
+    'FilterExpression': Attr('conversation_id').eq(str(conversation_id)),
+}
+while True:
+    page = guard.scan(**kwargs)
+    for item in page.get('Items', []):
+        guard.delete_item(Key={'guard_key': item['guard_key']})
+    if 'LastEvaluatedKey' not in page:
+        break
+    kwargs['ExclusiveStartKey'] = page['LastEvaluatedKey']
 ```
 
-Only do this as part of a deliberate reset, and only once you are satisfied no
-provider work is still outstanding for that conversation.
+Two cautions:
+
+- This is a **repair procedure**, not routine cleanup. Run it only when you have
+  established that no provider work is still outstanding for the conversation —
+  the guard exists precisely to stop a second paid run being started next to a
+  live one.
+- Guard rows written before this pagination fix, or by an older build, may lack
+  `conversation_id`. If the filter finds nothing but a scope still refuses new
+  submissions, scan the table unfiltered and match on `report_id`/`job_id`
+  instead.
 
 ## Safe Usage
 
