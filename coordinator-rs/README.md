@@ -1,7 +1,7 @@
 # P-026 Rust coordinator experiment
 
-Uncommitted prototype, not a deployment or merge proposal. No math algorithms are
-changed. `polis-engine/1` is implemented as a **candidate-profile**, not a claim of
+Experimental crate on a branch; not a deployment or merge proposal. No math
+algorithms are changed. `polis-engine/1` is implemented as a **candidate-profile**, not a claim of
 full contract certification. See the P-026 report for executed coverage and gaps.
 
 ## Layout
@@ -15,9 +15,17 @@ full contract certification. See the P-026 report for executed coverage and gaps
 - `src/cache.rs`: bounded warm bundle cache with the LRU eviction stage.
 - `src/coordinator.rs`: complete source snapshot reconciliation, durable keyset
   cursor, bounded failure backoff, one active conversation and worker process.
+- `src/probe.rs`: the cheap per-conversation change probe, the durable per-zid
+  reconciliation cursor that bounds how long it may be trusted, and the CO01/CO06
+  backlog and scan-age aggregates.
+- `src/metrics.rs`: the declared metric catalog, the pluggable sink and the
+  CloudWatch Embedded Metric Format records in namespace `Polis/Math`.
 - `src/engine.rs`, `src/wire.rs`: bounded JSONL subprocess client, strict parsing,
   immutable file descriptors, identity/checkpoint validation, rebuild-prefix lifecycle.
 - `src/reader.rs`: metadata-first keyset sweep plus paginated trailing window.
+- `tools/node_reader.cjs`: the D4 harness that loads the **real** server modules
+  `server/src/utils/pca.ts` and `server/src/utils/participants.ts` in one Node
+  process and reports the bytes they serve for each namespace.
 - `src/fault.rs`: external arm/ack/release file barriers, debug feature only.
 - `migration.sql`: additive prototype metadata/leases/sequence; explicit command.
 - `../delphi/polismath/engine_adapter.py`: Conversation lifecycle and existing row
@@ -34,9 +42,64 @@ this restart schedule. There is a bounded warm **bundle** cache
 an unchanged conversation, so a quiet pass does not re-read the three results
 tables. Lookup and LRU touch are one operation, so an eviction can never
 interleave between them, and an entry is only usable while its `math_tick` is
-still the conversation's current generation — any other writer's update turns it
-into a miss instead of a lost update. Eviction is the CO07
-`cache_eviction_contends_with_same_zid_update` stage.
+still the conversation's current generation. Eviction is the CO07
+`cache_eviction_contends_with_same_zid_update` stage; that stage is the bounded
+Bundle-cache profile only, not a warm-worker, four-worker or Node cache profile.
+
+## Incremental discovery, and why it is only a filter
+
+Every pass still visits every admitted conversation independently of timestamps.
+What changed is what a visit costs. Before reading the full vote/comment/
+participant history, the coordinator takes a cheap single-statement aggregate
+probe (`src/probe.rs`) and compares it with the probe recorded, in
+`coordinator_reconciliation`, immediately **before** the authoritative snapshot
+that certified the published generation. A row committing between the probe and
+the snapshot therefore changes the *next* probe; it cannot be swallowed.
+
+The probe can only skip a read. It never authorises a rebuild, and it is trusted
+only while that conversation's last authoritative reconciliation is younger than
+`P026_RECONCILE_SECONDS` (default 3600). Count and max are hints: a change that
+leaves every aggregate identical really is invisible to them, and
+`test_the_aggregate_probe_is_weak_but_the_reconciliation_ceiling_repairs_it`
+stages exactly such a change to prove both halves. `P026_INCREMENTAL=0` disables
+the fast path entirely and restores the unconditional full sweep. The probe also
+carries `ordering::algorithm_digest`, so changing the declared normalization or
+the storage agree-convention constant invalidates every conversation even though
+no source row moved.
+
+`OldestReconciliationAgeSeconds` is what makes this auditable: the fast path is
+sound only while that age stays bounded, so the metric is part of the mechanism
+rather than decoration.
+
+## Metrics
+
+`src/metrics.rs` emits CloudWatch Embedded Metric Format records in namespace
+`Polis/Math` with P-031's two fixed dimensions `Environment` and `MathEnv`, and
+no per-conversation, per-run or per-instance dimension. There is **no AWS client
+and no AWS dependency**: a `Sink` receives finished records, and the prototype
+ships a JSON-lines sink (`P026_METRICS` = `off` (default), `stderr`, `stdout`, or
+a path) plus a null sink. The default is `off` deliberately: a long-running `run`
+whose stderr is an undrained pipe blocks once the pipe buffer fills, and per-pass
+records fill it far faster than the log lines do, so a deployment picks its sink
+explicitly rather than having the coordinator stall on its own telemetry. `polis-coordinator metrics` prints the declared
+catalog, which is generated from the emitting code and checked into
+`evidence/metrics-catalog.json`.
+
+Per pass: `PollHealthy` (P-031 A01), `SourcePassSeconds`,
+`SourcePass{Conversations,Probed,Skipped,Reconciled,Published,Deferred}`. Gauges,
+at most once per `P026_GAUGE_SECONDS` and computed by one bounded aggregate that
+reads no payload column: `OldestReconciliationAgeSeconds` (CO01 scan age),
+`ReconciliationBacklogConversations` (CO01 backlog),
+`FailureBacklogConversations`, `OldestUnrepairedAgeSeconds` (CO06). Per zid:
+`ConversationLatencySeconds`, `SourceReadSeconds`, `ComputeSeconds`,
+`PublishSeconds`. Lease outcomes: `LeaseAcquired`, `LeaseUnavailable`,
+`LeaseExpired`, `LeaseFenced`. Publication outcomes: `PublishCommitted`,
+`PublishConflict`, `PublishRefused`, `PublishRetried`, `PublishUncertain`. Plus
+`MetricsDropped`, because a lost record must be visible rather than silent.
+
+`PollHealthy` says the pass completed, and nothing more. A pass in which every
+conversation failed is still a completed pass; stuck work is the failure backlog
+and unrepaired age, exactly as P-031 splits A01 from the lag signals.
 
 Source order is the **declared** `polis-order/1` normalization
 `(tid,pid,created_ms,semantic_vote,weight_x_32767 NULLS FIRST)`, where
@@ -155,12 +218,15 @@ to exercise documented production drift, then applies the prototype migration.
 Do not point migration/test commands at an existing service database.
 
 Commands: `migrate`, `once`, `run`, `read <zid>`, `scan <after-zid>`,
-`poll <high-water>`, `reader <consumer-id>`, `stages`. `once` completes one full
+`poll <high-water>`, `reader <consumer-id>`, `stages`, `metrics`. `once` completes one full
 pass; `run` bounds each cycle by `P026_PAGE_SIZE` (default 16, range 1–1000).
 `MATH_ENV` defaults to `rustproto`. `DATABASE_URL`, `P026_PYTHON`,
 `STORAGE_AGREE_VALUE` (-1 or +1), `POLL_SHARD_INDEX`, `POLL_SHARD_COUNT`,
 `POLL_ALLOWLIST`, `P026_WINDOW` (default 64, positive), `P026_LEASE_SECONDS`,
-`P026_POLL_MS`, `P026_CACHE_CAP` (default 16, 0-1024, 0 disables) are configuration inputs.
+`P026_POLL_MS`, `P026_CACHE_CAP` (default 16, 0-1024, 0 disables),
+`P026_INCREMENTAL` (default 1, 0 disables the probe fast path),
+`P026_RECONCILE_SECONDS` (default 3600, positive), `P026_METRICS`, `P026_ENVIRONMENT` (default
+`synthetic`) and `P026_GAUGE_SECONDS` are configuration inputs.
 `PYTHONPATH` must include this checkout's `delphi` directory. No credentials are
 stored in the crate or report.
 
@@ -210,9 +276,13 @@ Write `arm.json` to `P026_FAULT_DIR` with protocol `polis-fault-control/1`,
 backend PID. The barrier has a bounded deadline. A log alone is never an ack.
 
 `audit_stages.py` reports two separate verdicts: `stage_inventory_gate` over the
-25 contract-required fault stages, and `full_contract_gate`, which stays FAIL
-while CO08/D4 (the actual Node Bundle route) and the CO01 metrics are open. It
-exits non-zero while the full gate fails.
+25 contract-required fault stages, and `full_contract_gate`, which is still
+**FAIL**. It names its open conditions explicitly — CO04's `loadBundle`/Bundle
+cache-unit rewrite does not exist in the server, HTTP routes and the private
+served corpus are not executed, a committed generation of 0 is not served by the
+real reader at all, C7's published-versus-synthesized empty listing needs a
+ruling, the incremental probe is a bounded hint, and the resident-cache
+reconciliation is single-threaded — and it exits non-zero while any remain.
 
 `evidence/` contains sanitized final summaries, fixture digests and the explicit
 coverage inventory. Runtime logs and detailed per-test artifacts are retained in
