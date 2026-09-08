@@ -39,16 +39,23 @@ FROZEN COLUMN LISTS (verified against edge migrations 000000..000018)
 ``000000``. ``vote_event_id`` / ``selected_vote_event_id`` do NOT exist on edge —
 they are introduced later by P-047, and catching them is the whole point of the gate.
 
-SAFETY (read-only, zero DDL, zero extra locks)
-----------------------------------------------
-This module issues nothing but ``SELECT`` (plus a ``SET TRANSACTION READ ONLY``
-guard). Enforcement is layered:
-  1. the connection is opened with ``set_session(readonly=True)`` so every
-     transaction is read-only at the server;
-  2. each transaction additionally begins with ``SET TRANSACTION READ ONLY``;
-  3. every statement is passed through a SELECT-only allowlist before execution
-     (``_assert_statement_allowed``), which rejects multi-statement strings and any
-     non-SELECT leading keyword.
+SAFETY (read-only, zero DDL, zero writes, no schema change)
+-----------------------------------------------------------
+This module issues nothing but ``SELECT`` (plus a read-only/isolation control
+statement). It does NOT take "zero locks" — a SELECT takes an ordinary
+``AccessShareLock`` on each relation it reads; what it takes is nothing beyond
+that, holds it only for the short read-only transaction, and rolls back promptly.
+Enforcement is layered (P2):
+  1. the connection is opened with ``default_transaction_read_only=on`` and
+     ``set_session(readonly=True, isolation_level=REPEATABLE READ)``;
+  2. each transaction additionally begins with
+     ``SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY`` (one snapshot
+     shared by both projections, P3);
+  3. every statement passes through a conservative structural guard
+     (``_assert_statement_allowed``) that rejects any comment token, any statement
+     separator, and anything but a single leading SELECT (or the closed set of
+     read-only control statements) — with no comment stripping, which is what the
+     round-1 guard was defeated by.
 There is no ``ALTER``/``CREATE``/``DROP``/``INSERT``/``UPDATE``/``DELETE`` anywhere
 in this file; the negative-control DDL lives only in the test harness.
 
@@ -63,6 +70,7 @@ import argparse
 import contextlib
 import re
 import sys
+from collections import Counter
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Iterator, Optional, Sequence
@@ -193,30 +201,44 @@ class GateReadOnlyViolation(RuntimeError):
 
 
 _SELECT_RE = re.compile(r"^\s*SELECT\b", re.IGNORECASE)
-_ALLOWED_CONTROL = frozenset({"SET TRANSACTION READ ONLY"})
-_LINE_COMMENT_RE = re.compile(r"--[^\n]*")
-_BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
-
-
-def _strip_comments(sql: str) -> str:
-    return _BLOCK_COMMENT_RE.sub("", _LINE_COMMENT_RE.sub("", sql)).strip()
+# Exact, closed set of non-SELECT control statements the gate is allowed to issue.
+# Nothing outside this set and a single leading SELECT is ever executed.
+_ALLOWED_CONTROL = frozenset({
+    "SET TRANSACTION READ ONLY",
+    "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY",
+    "SHOW transaction_isolation",
+})
 
 
 def _assert_statement_allowed(sql: str) -> None:
-    """SELECT-only allowlist. Rejects multi-statement strings and non-SELECT DML/DDL.
+    """Conservative structural read-only guard (P2).
 
-    The read-only transaction is the real server-side guarantee; this is defense in
-    depth so a bug in this tool cannot even attempt a write.
+    The round-1 guard stripped ``--`` comments before inspecting the string, so a
+    ``--`` inside a *string literal* hid a trailing multi-statement write
+    (Astra reproduced a committed INSERT through this). No comment stripping now:
+    a comment token, a statement separator, or anything but a single leading
+    SELECT is rejected outright. There is no ``pglast``/``sqlparse`` in the venv,
+    so this is the sanctioned conservative rejection rather than a full parse; it
+    is intentionally stricter than SQL (it rejects legitimate-but-unused forms
+    such as a literal containing ``--``), because the gate only ever issues its
+    own closed set of comment-free, single-statement queries.
+
+    This is defense in depth. The real guarantee is the database session: the
+    connection is opened read-only with ``default_transaction_read_only=on`` and
+    a REPEATABLE READ READ ONLY isolation level, and every statement here is a
+    single SELECT, so no write is expressible even if this check were bypassed.
     """
-    stripped = _strip_comments(sql)
-    if stripped.upper() in _ALLOWED_CONTROL:
+    if not isinstance(sql, str):
+        raise GateReadOnlyViolation(f"statement must be a string, got {type(sql)!r}")
+    normalized = sql.strip()
+    if normalized in _ALLOWED_CONTROL:
         return
-    # No embedded statement separators (a single trailing ';' is fine).
-    body = stripped[:-1] if stripped.endswith(";") else stripped
-    if ";" in body:
-        raise GateReadOnlyViolation(f"multiple statements are not allowed: {sql!r}")
-    if not _SELECT_RE.match(stripped):
-        raise GateReadOnlyViolation(f"only SELECT is allowed, got: {sql!r}")
+    if "--" in sql or "/*" in sql or "*/" in sql:
+        raise GateReadOnlyViolation(f"comments are not allowed: {sql!r}")
+    if ";" in sql:
+        raise GateReadOnlyViolation(f"statement separators are not allowed: {sql!r}")
+    if not _SELECT_RE.match(normalized):
+        raise GateReadOnlyViolation(f"only a single leading SELECT is allowed: {sql!r}")
 
 
 def _execute(cur: "psycopg2.extensions.cursor", sql: str, params: Sequence[Any] = ()) -> None:
@@ -226,11 +248,21 @@ def _execute(cur: "psycopg2.extensions.cursor", sql: str, params: Sequence[Any] 
 
 @contextlib.contextmanager
 def read_only_connection(dsn: str) -> Iterator["psycopg2.extensions.connection"]:
-    """Yield a connection on which every transaction is read-only."""
-    conn = psycopg2.connect(dsn)
+    """Yield a connection on which every transaction is read-only.
+
+    Read-only is enforced at the database level three ways: ``options`` sets
+    ``default_transaction_read_only=on`` for the whole session, ``set_session``
+    marks the session read-only and REPEATABLE READ (one snapshot per
+    transaction, P3), and each transaction additionally issues an explicit
+    ``SET TRANSACTION ... READ ONLY`` (see ``_read_only_cursor``).
+    """
+    conn = psycopg2.connect(dsn, options="-c default_transaction_read_only=on")
     try:
-        # Session-level: every future transaction is read only at the server.
-        conn.set_session(readonly=True, autocommit=False)
+        conn.set_session(
+            isolation_level=psycopg2.extensions.ISOLATION_LEVEL_REPEATABLE_READ,
+            readonly=True,
+            autocommit=False,
+        )
         yield conn
     finally:
         conn.rollback()
@@ -242,11 +274,13 @@ def _read_only_cursor(conn: "psycopg2.extensions.connection") -> Iterator["psyco
     conn.rollback()  # start from a clean transaction boundary
     cur = conn.cursor()
     try:
-        _execute(cur, "SET TRANSACTION READ ONLY")  # first stmt in the txn
+        # First statement of the transaction: fix isolation + read-only mode. The
+        # REPEATABLE READ snapshot itself is taken at the first query below.
+        _execute(cur, "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         yield cur
     finally:
         cur.close()
-        conn.rollback()  # SELECTs take no locks worth holding; release promptly
+        conn.rollback()  # a SELECT holds only an AccessShareLock; release promptly
 
 
 # ---------------------------------------------------------------------------
@@ -348,6 +382,16 @@ def classify(
     served_columns: tuple[str, ...],
     served_rows: list[tuple[Any, ...]],
 ) -> SiteReport:
+    """DB-preflight classification (P3): shared-column comparison as a MULTISET.
+
+    The raw ``votes`` order has same-cell/same-time ties (the accepted P-047
+    census) and edge ``votes`` has no per-row unique key, so positional row
+    matching is not well defined. Instead, for each shared column, compare the
+    multiset (``Counter``) of that column's rendered values across all rows —
+    order-independent and multiplicity-preserving, so exact-duplicate votes match
+    and a tie ordering cannot manufacture a VALUE_DIFF. Column-set deviations
+    (extra/missing/reordered) are read from the column lists directly.
+    """
     report = SiteReport(
         site=site,
         filters=dict(filters),
@@ -368,29 +412,29 @@ def classify(
         if c not in srv_idx:
             report.findings.append(Finding(CellClass.MISSING_FIELD, c))
 
-    # Shared columns, in frozen order. ORDER_ONLY: shared columns present in a
-    # different relative order in the served object than in the frozen contract.
+    # ORDER_ONLY: shared columns in a different relative order than the contract.
     shared = [c for c in expected_columns if c in srv_idx]
     served_shared_order = [c for c in served_columns if c in exp_idx]
     if shared != served_shared_order:
         for c in shared:
             report.findings.append(Finding(CellClass.ORDER_ONLY, c))
 
-    # Per-cell value classification over shared columns, positional row match
-    # (both projections used the same WHERE + ORDER BY).
-    n = min(len(expected_rows), len(served_rows))
-    for i in range(n):
-        erow = expected_rows[i]
-        srow = served_rows[i]
-        for c in shared:
-            ev = _cell_bytes(erow[exp_idx[c]])
-            sv = _cell_bytes(srow[srv_idx[c]])
-            if ev == sv:
-                report.identical_cells += 1
-            else:
-                report.findings.append(
-                    Finding(CellClass.VALUE_DIFF, c, row_index=i, expected=ev, served=sv)
+    # Per-column multiset value classification over shared columns.
+    for c in shared:
+        exp_vals = Counter(_cell_bytes(r[exp_idx[c]]) for r in expected_rows)
+        srv_vals = Counter(_cell_bytes(r[srv_idx[c]]) for r in served_rows)
+        report.identical_cells += sum((exp_vals & srv_vals).values())
+        if exp_vals != srv_vals:
+            only_exp = list((exp_vals - srv_vals).elements())
+            only_srv = list((srv_vals - exp_vals).elements())
+            report.findings.append(
+                Finding(
+                    CellClass.VALUE_DIFF,
+                    c,
+                    expected=only_exp[0] if only_exp else None,
+                    served=only_srv[0] if only_srv else None,
                 )
+            )
     return report
 
 
