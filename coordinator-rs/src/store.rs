@@ -262,6 +262,42 @@ impl PgStore {
         let row = self.client.query_opt("SELECT owner_id,owner_epoch,expires_at>clock_timestamp() FROM coordinator_leases WHERE math_env=$1 AND zid=$2", &[&self.config.math_env,&zid])?;
         Ok(lease::classify(row.as_ref(), &self.config, epoch))
     }
+    /// Rev6 independent resident-cache integrity reconciliation.
+    ///
+    /// A bundle resident in the warm cache is **never** evidence that the
+    /// durable generation is still complete: a companion row can be deleted,
+    /// or its checkpoint changed, without the conversation's `math_tick`
+    /// moving, and the source fingerprint would then agree forever (F1). Every
+    /// pass that hits the cache re-verifies companion presence, every
+    /// companion's generation, and the committed checkpoint identity against
+    /// the store. This reads metadata and the small `input_checkpoint` only —
+    /// no `data` column is selected, so nothing is detoasted.
+    ///
+    /// Returns false when the store contradicts the resident bundle in any way,
+    /// which evicts it and forces the ordinary repair path.
+    pub fn resident_is_intact(&mut self, zid: i32, bundle: &Bundle) -> Result<bool> {
+        let row = self.client.query_opt(
+            "SELECT t.math_tick,t.publisher_epoch,t.input_checkpoint,
+                    m.math_tick,m.caching_tick,b.math_tick,p.math_tick
+               FROM math_ticks t
+               LEFT JOIN math_main m ON m.zid=t.zid AND m.math_env=t.math_env
+               LEFT JOIN math_bidtopid b ON b.zid=t.zid AND b.math_env=t.math_env
+               LEFT JOIN math_ptptstats p ON p.zid=t.zid AND p.math_env=t.math_env
+              WHERE t.math_env=$1 AND t.zid=$2",
+            &[&self.config.math_env, &zid],
+        )?;
+        let Some(r) = row else {
+            return Ok(false);
+        };
+        let tick: i64 = r.get(0);
+        let companions: [Option<i64>; 3] = [r.get(3), r.get(5), r.get(6)];
+        let checkpoint: Option<Value> = r.get(2);
+        Ok(tick == bundle.math_tick
+            && r.get::<_, Option<i64>>(1).is_some()
+            && checkpoint.as_ref() == Some(&bundle.checkpoint)
+            && r.get::<_, Option<i64>>(4) == Some(bundle.caching_tick)
+            && companions.iter().all(|t| *t == Some(tick)))
+    }
     pub fn current_tick(&mut self, zid: i32) -> Result<Option<i64>> {
         Ok(self
             .client
@@ -363,12 +399,28 @@ impl ResultsStore for PgStore {
         tx.execute("INSERT INTO math_main(zid,math_env,math_tick,data,last_vote_timestamp,caching_tick) VALUES($1,$2,$3,$4::text::jsonb,$5,$6) ON CONFLICT(zid,math_env) DO UPDATE SET math_tick=excluded.math_tick,data=excluded.data,last_vote_timestamp=excluded.last_vote_timestamp,caching_tick=excluded.caching_tick,modified=now_as_millis()", &[&zid,&c.math_env,&tick,&main,&stamp,&cursor])?;
         self.fault.hit("after_main", &context)?;
         self.fault.hit("before_commit", &context)?;
-        // The lease row remains locked throughout publication; a transferee cannot
-        // acquire an epoch while this transaction is still capable of committing.
-        // The lease row is still locked, so only our own elapsed lease can
-        // refuse here; a transferee cannot have taken it while we can commit.
-        let unexpired: bool = tx.query_one("SELECT expires_at>clock_timestamp() FROM coordinator_leases WHERE math_env=$1 AND zid=$2", &[&c.math_env,&zid])?.get(0);
-        if !unexpired {
+        // Rev6 CO04 "remaining-lease final authorization under lock". The lease
+        // row is held `FOR UPDATE` for the whole publication, so the heartbeat
+        // cannot renew through it and a transferee cannot take an epoch while
+        // this transaction can still commit. The final authorization therefore
+        // re-reads owner, epoch and the **remaining** interval under that lock
+        // and requires a positive margin: reaching COMMIT with a lease about to
+        // elapse is refused rather than gambled on. This does not prove the
+        // COMMIT round trip finishes before expiry — nothing in-transaction can
+        // — so an uncertain COMMIT is still resolved by checkpoint identity
+        // below, never by a wall-clock deadline.
+        let final_row = tx.query_opt("SELECT owner_id,owner_epoch,expires_at>clock_timestamp(),EXTRACT(EPOCH FROM expires_at-clock_timestamp())::float8 FROM coordinator_leases WHERE math_env=$1 AND zid=$2 FOR UPDATE", &[&c.math_env,&zid])?;
+        if let Some(state) = lease::classify(final_row.as_ref(), c, epoch) {
+            return Ok(Publication::Refused(state));
+        }
+        let remaining = final_row.as_ref().map_or(0.0, |r| r.get::<_, f64>(3));
+        if remaining <= c.commit_margin_seconds {
+            tracing::error!(
+                zid,
+                remaining,
+                margin = c.commit_margin_seconds,
+                "remaining lease below the commit margin; rolling back"
+            );
             return Ok(Publication::Refused(LeaseState::Expired));
         }
         let committed = tx.commit();
