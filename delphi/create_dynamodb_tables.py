@@ -237,18 +237,41 @@ def create_job_queue_table(dynamodb, delete_existing=False):
                     'Projection': {'ProjectionType': 'ALL'},
                 }
             ],
+        },
+        # Server-side active-work guard (P-003 S3).
+        #
+        # One row per authorized submission scope (conversation + report +
+        # job type + job config). The server creates it in the SAME
+        # TransactWriteItems as the Delphi_JobQueue row, so a scope can own at
+        # most one active root job and an impatient resubmit cannot pay for a
+        # second provider run.
+        #
+        # It is a SEPARATE table on purpose: guard rows must never appear in
+        # Delphi_JobQueue, where they would look like missing-status anomalies
+        # to the queue observer. There is deliberately NO TTL: an automatic
+        # expiry could fire while paid provider work is still live. Rows are
+        # released by the server under an exact job_id + version condition once
+        # the root job is terminal and no checker descendant is outstanding.
+        'Delphi_JobActiveGuard': {
+            'KeySchema': [
+                {'AttributeName': 'guard_key', 'KeyType': 'HASH'}
+            ],
+            'AttributeDefinitions': [
+                {'AttributeName': 'guard_key', 'AttributeType': 'S'}
+            ],
+            'BillingMode': 'PAY_PER_REQUEST',
         }
     }
-    
+
     # Handle table deletion if requested
     if delete_existing:
         _delete_tables(dynamodb, tables.keys(), existing_tables)
         # Update list of existing tables
         existing_tables = [t.name for t in dynamodb.tables.all()]
-    
+
     # Create tables
     created_tables = _create_tables(dynamodb, tables, existing_tables)
-    
+
     return created_tables
 
 def create_evoc_tables(dynamodb, delete_existing=False):
