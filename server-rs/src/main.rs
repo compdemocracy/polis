@@ -682,14 +682,24 @@ async fn main() -> Result<(), Error> {
     transport::serve(listener, router).await
 }
 /// B1 gate. Decodes stored `math_main.data` blobs through the pinned model and
-/// reports every key and type the model does not cover. It reads blobs from
-/// `P032_CENSUS_DIR` (a directory of `.json` objects or `.jsonl` lines) so no
-/// production content is ever committed; without that variable the census is a
-/// no-op and the fixture below still exercises the decoder.
+/// reports every key and type the model does not cover.
+///
+/// It grades a corpus, so it fails closed: an unreadable directory, an unreadable
+/// or malformed file, a record that is not an object, a file it does not know how
+/// to grade, and an empty admitted set are all census FAILURES, never skips. A
+/// file may be left ungraded only by naming it in `census-exclusions.json` with a
+/// reason, which is reported. `cargo test` reports the gate as ignored rather than
+/// as a pass, because a census with no corpus is not evidence:
+/// `P032_CENSUS_DIR=<dir> cargo test --locked -- --ignored census`.
+///
+/// Records may be bare blobs or envelopes `{"source", "math_env", "data"}`, so a
+/// restored all-row dump can be graded and its coverage reported per math_env.
 #[cfg(test)]
 mod census {
     use super::model::MathData;
     use serde_json::Value;
+    use std::collections::{BTreeMap, BTreeSet};
+    use std::path::Path;
     // Mirrors the route's SQL projection: these four are stripped before the model sees them.
     const STRIPPED: [&str; 4] = [
         "zid",
@@ -697,90 +707,298 @@ mod census {
         "subgroup-repness",
         "subgroup-clusters",
     ];
-    fn blobs(dir: &std::path::Path) -> Vec<(String, Value)> {
-        let mut out = Vec::new();
-        for entry in std::fs::read_dir(dir)
-            .expect("census dir readable")
-            .flatten()
-        {
+    const EXCLUSIONS: &str = "census-exclusions.json";
+    const UNLABELLED: &str = "(unlabelled)";
+    #[derive(Default)]
+    pub struct Report {
+        pub graded: usize,
+        pub records: usize,
+        pub excluded: Vec<(String, String)>,
+        pub coverage: BTreeMap<(String, String), usize>,
+        pub keys: BTreeMap<String, BTreeSet<String>>,
+        pub errors: Vec<String>,
+    }
+    impl Report {
+        fn fail(&mut self, what: &str, why: impl std::fmt::Display) {
+            self.errors.push(format!("{what}: {why}"));
+        }
+        pub fn print(&self) {
+            for (key, kinds) in &self.keys {
+                println!("census key {key}: {kinds:?}");
+            }
+            for ((source, env), n) in &self.coverage {
+                println!("census coverage source={source} math_env={env} records={n}");
+            }
+            for (file, reason) in &self.excluded {
+                println!("census excluded {file}: {reason}");
+            }
+            println!(
+                "census files {} graded, {} excluded; records {}; failures {}",
+                self.graded,
+                self.excluded.len(),
+                self.records,
+                self.errors.len()
+            );
+        }
+    }
+    fn kind(value: &Value) -> &'static str {
+        match value {
+            Value::Null => "null",
+            Value::Bool(_) => "boolean",
+            Value::Number(n) if n.is_f64() && n.as_i64().is_none() => "number",
+            Value::Number(_) => "integer",
+            Value::String(_) => "string",
+            Value::Array(_) => "array",
+            Value::Object(_) => "object",
+        }
+    }
+    fn exclusions(dir: &Path, report: &mut Report) -> BTreeMap<String, String> {
+        let path = dir.join(EXCLUSIONS);
+        if !path.exists() {
+            return BTreeMap::new();
+        }
+        match std::fs::read_to_string(&path)
+            .map_err(|e| e.to_string())
+            .and_then(|t| {
+                serde_json::from_str::<BTreeMap<String, String>>(&t).map_err(|e| e.to_string())
+            }) {
+            Ok(map) => map,
+            Err(e) => {
+                report.fail(EXCLUSIONS, e);
+                BTreeMap::new()
+            }
+        }
+    }
+    /// Splits an envelope into its labels and the blob, or labels the record by file.
+    fn unwrap_record(file: &str, value: Value) -> Result<(String, String, Value), String> {
+        let Value::Object(map) = value else {
+            return Err(format!("record is {}, expected an object", kind(&value)));
+        };
+        let envelope = map.contains_key("data")
+            && map
+                .keys()
+                .all(|k| matches!(k.as_str(), "data" | "source" | "math_env"));
+        if !envelope {
+            return Ok((file.to_string(), UNLABELLED.to_string(), Value::Object(map)));
+        }
+        let label = |k: &str, fallback: &str| {
+            map.get(k)
+                .and_then(Value::as_str)
+                .unwrap_or(fallback)
+                .to_string()
+        };
+        let source = label("source", file);
+        let env = label("math_env", UNLABELLED);
+        Ok((source, env, map["data"].clone()))
+    }
+    fn grade(file: &str, index: Option<usize>, value: Value, report: &mut Report) {
+        let name = match index {
+            Some(i) => format!("{file}#{i}"),
+            None => file.to_string(),
+        };
+        let (source, env, mut blob) = match unwrap_record(file, value) {
+            Ok(parts) => parts,
+            Err(e) => return report.fail(&name, e),
+        };
+        let Some(object) = blob.as_object_mut() else {
+            return report.fail(
+                &name,
+                format!("blob is {}, expected an object", kind(&blob)),
+            );
+        };
+        report.records += 1;
+        *report.coverage.entry((source, env)).or_default() += 1;
+        for key in STRIPPED {
+            object.remove(key);
+        }
+        for (key, member) in object.iter() {
+            report
+                .keys
+                .entry(key.clone())
+                .or_default()
+                .insert(kind(member).to_string());
+        }
+        if let Err(e) = serde_json::from_value::<MathData>(blob) {
+            report.fail(&name, e);
+        }
+    }
+    pub fn run(dir: &Path) -> Report {
+        let mut report = Report::default();
+        let entries = match std::fs::read_dir(dir) {
+            Ok(entries) => entries,
+            Err(e) => {
+                report.fail(&dir.display().to_string(), e);
+                return report;
+            }
+        };
+        let excluded = exclusions(dir, &mut report);
+        for entry in entries {
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(e) => {
+                    report.fail("directory entry", e);
+                    continue;
+                }
+            };
             let path = entry.path();
-            let name = path
+            let file = path
                 .file_name()
                 .unwrap_or_default()
                 .to_string_lossy()
                 .into_owned();
-            let Ok(text) = std::fs::read_to_string(&path) else {
+            if file == EXCLUSIONS {
                 continue;
+            }
+            if let Some(reason) = excluded.get(&file) {
+                report.excluded.push((file, reason.clone()));
+                continue;
+            }
+            if path.is_dir() {
+                report.fail(
+                    &file,
+                    "directories are not graded; exclude it with a reason",
+                );
+                continue;
+            }
+            let text = match std::fs::read_to_string(&path) {
+                Ok(text) => text,
+                Err(e) => {
+                    report.fail(&file, e);
+                    continue;
+                }
             };
+            report.graded += 1;
             match path.extension().and_then(|e| e.to_str()) {
                 Some("jsonl") => {
-                    for (i, line) in text.lines().filter(|l| !l.trim().is_empty()).enumerate() {
-                        out.push((
-                            format!("{name}#{i}"),
-                            serde_json::from_str(line).expect("jsonl row"),
-                        ));
+                    for (i, line) in text.lines().enumerate() {
+                        if line.trim().is_empty() {
+                            continue;
+                        }
+                        match serde_json::from_str::<Value>(line) {
+                            Ok(value) => grade(&file, Some(i), value, &mut report),
+                            Err(e) => report.fail(&format!("{file}#{i}"), e),
+                        }
                     }
                 }
                 Some("json") => match serde_json::from_str::<Value>(&text) {
-                    Ok(Value::Array(rows)) => out.extend(
-                        rows.into_iter()
-                            .enumerate()
-                            .map(|(i, v)| (format!("{name}#{i}"), v)),
-                    ),
-                    Ok(value) => out.push((name, value)),
-                    Err(_) => {}
+                    Ok(Value::Array(rows)) => {
+                        for (i, value) in rows.into_iter().enumerate() {
+                            grade(&file, Some(i), value, &mut report);
+                        }
+                    }
+                    Ok(value) => grade(&file, None, value, &mut report),
+                    Err(e) => report.fail(&file, e),
                 },
-                _ => {}
+                _ => report.fail(
+                    &file,
+                    "unknown census input; use .json/.jsonl or exclude it with a reason",
+                ),
             }
         }
-        out
+        if report.records == 0 {
+            report.fail(
+                "corpus",
+                "census admitted no blobs; an empty census is not evidence",
+            );
+        }
+        report
     }
     #[test]
+    #[ignore = "needs a stored-blob corpus: P032_CENSUS_DIR=<dir> cargo test --locked -- --ignored census"]
     fn stored_blobs_decode_through_the_model() {
-        let Ok(dir) = std::env::var("P032_CENSUS_DIR") else {
-            eprintln!("census skipped: set P032_CENSUS_DIR to a directory of math_main blobs");
-            return;
-        };
-        let mut failures = Vec::new();
-        let mut census: std::collections::BTreeMap<String, std::collections::BTreeSet<String>> =
-            Default::default();
-        let mut total = 0usize;
-        for (name, mut value) in blobs(std::path::Path::new(&dir)) {
-            let Some(object) = value.as_object_mut() else {
-                continue;
-            };
-            total += 1;
-            for key in STRIPPED {
-                object.remove(key);
-            }
-            for (key, member) in object.iter() {
-                let kind = match member {
-                    Value::Null => "null",
-                    Value::Bool(_) => "boolean",
-                    Value::Number(n) if n.is_f64() && n.as_i64().is_none() => "number",
-                    Value::Number(_) => "integer",
-                    Value::String(_) => "string",
-                    Value::Array(_) => "array",
-                    Value::Object(_) => "object",
-                };
-                census
-                    .entry(key.clone())
-                    .or_default()
-                    .insert(kind.to_string());
-            }
-            if let Err(e) = serde_json::from_value::<MathData>(value) {
-                failures.push(format!("{name}: {e}"));
-            }
-        }
-        for (key, kinds) in &census {
-            println!("census key {key}: {kinds:?}");
-        }
-        println!("census blobs {total}, decode failures {}", failures.len());
+        let dir = std::env::var("P032_CENSUS_DIR")
+            .expect("P032_CENSUS_DIR must name a directory of stored math_main blobs");
+        let report = run(Path::new(&dir));
+        report.print();
         assert!(
-            failures.is_empty(),
-            "unmodelled stored shapes:\n{}",
-            failures.join("\n")
+            report.errors.is_empty(),
+            "census failures:\n{}",
+            report.errors.join("\n")
         );
+    }
+    fn scratch(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("p032-census-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("scratch dir");
+        dir
+    }
+    fn write(dir: &Path, name: &str, body: &str) {
+        std::fs::write(dir.join(name), body).expect("scratch file");
+    }
+    /// The grader must never report success for input it did not actually grade.
+    /// Each case here was a silent skip and a PASS before this change.
+    #[test]
+    fn the_census_fails_closed() {
+        let empty = scratch("empty");
+        assert!(
+            run(&empty)
+                .errors
+                .iter()
+                .any(|e| e.contains("admitted no blobs")),
+            "an empty corpus must fail"
+        );
+        let missing = empty.join("does-not-exist");
+        assert!(
+            !run(&missing).errors.is_empty(),
+            "an unreadable directory must fail"
+        );
+        let mixed = scratch("mixed");
+        write(&mixed, "valid.json", "{}");
+        write(&mixed, "bad.json", "{");
+        write(&mixed, "scalar.json", "42");
+        let report = run(&mixed);
+        assert_eq!(report.records, 1, "only the object is a record");
+        assert_eq!(report.graded, 3, "every file is graded, not skipped");
+        assert_eq!(report.errors.len(), 2, "{:?}", report.errors);
+        assert!(report.errors.iter().any(|e| e.starts_with("bad.json")));
+        assert!(report.errors.iter().any(|e| e.starts_with("scalar.json")));
+        let other = scratch("other");
+        write(&other, "notes.txt", "not a blob");
+        write(&other, "valid.json", "{}");
+        let report = run(&other);
+        assert!(
+            report.errors.iter().any(|e| e.starts_with("notes.txt")),
+            "an ungraded file must fail rather than vanish: {:?}",
+            report.errors
+        );
+        // ...unless it is excluded on the record, with a reason.
+        write(
+            &other,
+            EXCLUSIONS,
+            r#"{"notes.txt":"operator notes, not a blob"}"#,
+        );
+        let report = run(&other);
+        assert!(report.errors.is_empty(), "{:?}", report.errors);
+        assert_eq!(report.excluded.len(), 1);
+        assert_eq!(report.records, 1);
+        for dir in [empty, mixed, other] {
+            let _ = std::fs::remove_dir_all(dir);
+        }
+    }
+    #[test]
+    fn the_census_grades_shapes_and_reports_coverage() {
+        let dir = scratch("coverage");
+        write(
+            &dir,
+            "rows.jsonl",
+            concat!(
+                r#"{"source":"prodclone","math_env":"prod","data":{"n":1,"zid":9}}"#,
+                "\n",
+                r#"{"source":"prodclone","math_env":"other","data":{"n":2}}"#,
+                "\n",
+                r#"{"source":"prodclone","math_env":"prod","data":{"a-future-key":1}}"#,
+                "\n",
+            ),
+        );
+        let report = run(&dir);
+        assert_eq!(report.records, 3);
+        assert_eq!(report.coverage[&("prodclone".into(), "prod".into())], 2);
+        assert_eq!(report.coverage[&("prodclone".into(), "other".into())], 1);
+        // The route strips zid in SQL, so it must not count as an unmodelled key.
+        assert!(!report.keys.contains_key("zid"));
+        assert_eq!(report.errors.len(), 1, "{:?}", report.errors);
+        assert!(report.errors[0].contains("a-future-key"));
+        let _ = std::fs::remove_dir_all(dir);
     }
 }
 #[cfg(test)]
