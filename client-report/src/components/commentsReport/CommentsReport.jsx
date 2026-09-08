@@ -18,6 +18,30 @@ const hasDelphiEnabled = (token) => {
   return decoded && decoded[`${process.env.AUTH_NAMESPACE}delphi_enabled`]
 }
 
+// Durable Delphi job states in which work is still outstanding.
+//
+// PENDING is the one this component used to be blind to: the job is queued and
+// no worker has claimed it. That is the ordinary state during a cold start, and
+// rendering only PROCESSING meant a queued job looked like nothing had
+// happened, which is what pushed people into submitting the same report twice.
+// The others mirror delphi/scripts/job_poller.py and 803_check_batch_status.py.
+const QUEUED_JOB_STATUS = "PENDING";
+const ACTIVE_JOB_STATUSES = [
+  QUEUED_JOB_STATUS,
+  "PROCESSING",
+  "AWAITING_RECHECK",
+  "LOCKED_FOR_CHECKING",
+];
+
+const isBatchReportJob = (job) => Boolean(job?.jobId?.includes("batch_report_"));
+
+const findActiveJob = (jobs, wantBatch) =>
+  (jobs || []).find(
+    (job) =>
+      ACTIVE_JOB_STATUSES.includes(job?.status) &&
+      isBatchReportJob(job) === wantBatch
+  ) || null;
+
 const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, voteColors, showControls = true, authToken, reportModLevel }) => {
   const { report_id } = useReportId();
   const [loading, setLoading] = useState(true);
@@ -37,7 +61,9 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
     include_moderation: reportModLevel !== -2,
   };
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [jobInProgress, setJobInProgress] = useState(undefined);
+  // { jobId, status } for the outstanding pipeline job, taken from durable job
+  // state so it survives a reload rather than living only in this component.
+  const [activeJob, setActiveJob] = useState(null);
   const [jobCreationResult, setJobCreationResult] = useState(null);
   const [batchReportLoading, setBatchReportLoading] = useState(false);
   const [batchReportResult, setBatchReportResult] = useState(null);
@@ -131,10 +157,7 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
       .then((response) => {
 
         if (response && response.status === "success" && response.jobs) {
-          setVisualizationJobs(response.jobs);
-          if (response.jobs.find(job => job.status === "PROCESSING" && !job.jobId.includes("batch_report_"))) {
-            setJobInProgress(response.jobs.find(job => job.status === "PROCESSING" && !job.jobId.includes("batch_report_")));
-          }
+          applyJobsFromResponse(response.jobs);
         }
 
         setVisualizationsLoading(false);
@@ -191,26 +214,58 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
       });
   }, [report_id]);
 
-  useEffect(() => {
-    if (jobInProgress) {
-      setInterval(pollForLogs, 30000);
-    } else {
-      clearInterval(pollForLogs);
-    }
-  }, [jobInProgress]);
-
-  const pollForLogs = async => {
-    net.polisGet("/api/v3/delphi/logs", {
-      job_id: visualizationJobs.find(job => job.status === "PROCESSING" && !job.jobId.includes("batch_report_"))?.jobId || jobInProgress?.job_id
-    }, authToken)
-    .then(response => {
-      setProcessedLogs(response);
-      const isFinished = response?.find(m => m.message.includes("Results stored in DynamoDB for conversation"));
-      if (isFinished) {
-        setJobInProgress(false);
-        window.location.reload();
+  // Durable job state wins over anything this component remembers, except for a
+  // job we have just been handed: the visualizations query reads a secondary
+  // index that may not list it yet, and dropping it here would flip the queued
+  // banner back off a moment after the submission.
+  function applyJobsFromResponse(jobs) {
+    setVisualizationJobs(jobs);
+    setActiveJob((previous) => {
+      const active = findActiveJob(jobs, false);
+      if (active) {
+        return { jobId: active.jobId, status: active.status };
       }
+      if (!previous) {
+        return null;
+      }
+      return jobs.some((job) => job?.jobId === previous.jobId) ? null : previous;
     });
+  }
+
+  useEffect(() => {
+    if (!activeJob) return undefined;
+    const timer = setInterval(() => pollJobState(activeJob.jobId), 30000);
+    return () => clearInterval(timer);
+    // Poll is bound to the acknowledged job, not to whatever happens to be
+    // PROCESSING when the timer fires.
+  }, [activeJob?.jobId, report_id]);
+
+  const pollJobState = (jobId) => {
+    // Refresh the durable status so PENDING flips to Processing when a worker
+    // claims the job, and clears when it finishes.
+    net
+      .polisGet("/api/v3/delphi/visualizations", { report_id: report_id })
+      .then((response) => {
+        if (response && response.status === "success" && response.jobs) {
+          applyJobsFromResponse(response.jobs);
+        }
+      })
+      .catch((err) => {
+        console.error("Error refreshing Delphi job state:", err);
+      });
+
+    net.polisGet("/api/v3/delphi/logs", { job_id: jobId }, authToken)
+      .then(response => {
+        setProcessedLogs(response);
+        const isFinished = response?.find(m => m.message.includes("Results stored in DynamoDB for conversation"));
+        if (isFinished) {
+          setActiveJob(null);
+          window.location.reload();
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching Delphi job logs:", err);
+      });
   };
 
   // Handle job form submission
@@ -228,12 +283,22 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
       .then((response) => {
 
         if (response && response.status === "success") {
+          // The server deduplicates on an active (conversation, report, job
+          // type, config) scope, so a resubmit after a reload comes back as the
+          // job that is already queued rather than a second paid run. Say so
+          // instead of claiming a new job was created.
           setJobCreationResult({
             success: true,
-            message: `Job created successfully with ID: ${response.job_id}`,
+            message: response.deduplicated
+              ? `This report already has a job in progress (ID: ${response.job_id}); reusing it rather than starting another run.`
+              : `Job created successfully with ID: ${response.job_id}`,
             job_id: response.job_id,
+            deduplicated: Boolean(response.deduplicated),
           });
-          setJobInProgress(response);
+          setActiveJob({
+            jobId: response.job_id,
+            status: response.job_status || QUEUED_JOB_STATUS,
+          });
         } else {
           throw new Error(response?.error || "Unknown error creating job");
         }
@@ -247,10 +312,7 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
             })
             .then((response) => {
               if (response && response.status === "success" && response.jobs) {
-                setVisualizationJobs(response.jobs);
-                if (response.jobs.find(job => job.status === "PROCESSING" && !job.jobId.includes("batch_report_"))) {
-                  setJobInProgress(job);
-                }
+                applyJobsFromResponse(response.jobs);
               }
             })
             .catch((err) => {
@@ -267,6 +329,9 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
       })
       .finally(() => {
         setIsSubmitting(false);
+        // The queued/processing state no longer replaces the whole report, so
+        // the confirmation modal has to be dismissed explicitly.
+        setConfirmDelphiRunModalVisible(false);
       });
   };
 
@@ -469,6 +534,41 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
   // Handle report section selection change
   const handleReportSectionChange = (event) => {
     setSelectedReportSection(event.target.value);
+  };
+
+  // Render the outstanding-job banner.
+  //
+  // This replaces a full-screen takeover that only recognised PROCESSING. It is
+  // rendered above whatever the report already has, so a run that is queued or
+  // in flight never hides results from the previous run, and a queued job is
+  // reported honestly instead of looking like nothing happened.
+  const renderJobStatusBanner = () => {
+    if (!activeJob) {
+      return null;
+    }
+    const queued = activeJob.status === QUEUED_JOB_STATUS;
+    return (
+      <div className="job-status-banner" data-testid="delphi-job-status">
+        <h3>{queued ? "Queued — waiting for a worker" : "Processing"}</h3>
+        <p>
+          {queued
+            ? "This analysis is queued. No worker has picked it up yet, and one may still be starting up. Anything already on this page stays available until the new run finishes."
+            : "A worker is running this analysis. Anything already on this page stays available until it finishes."}
+        </p>
+        <p className="job-status-id">Job ID: {activeJob.jobId}</p>
+        {!queued && (
+          <pre className="log-output">
+            <code>
+              {processedLogs?.map((l, index) => (
+                <div key={l.timestamp || index} className="log-line">
+                  {l.message}
+                </div>
+              ))}
+            </code>
+          </pre>
+        )}
+      </div>
+    );
   };
 
   // Render layer switching buttons
@@ -953,60 +1053,6 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
     )
   }
 
-  if (visualizationJobs.find(job => job.status === "PROCESSING" && !job.jobId.includes("batch_report_")) || jobInProgress) {
-    return (
-      <div className="comments-report">
-        <style jsx>{`
-        .log-output {
-          background-color: #1e1e1e;
-          color: #d4d4d4;
-          font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
-          font-size: 0.85rem;
-          padding: 16px;
-          border-radius: 6px;
-          max-height: 600px;
-          overflow: auto;
-          white-space: pre-wrap; 
-          word-break: break-all;
-        }
-
-        .log-line {
-          display: block; 
-        }
-      `}</style>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            borderBottom: "1px solid #ccc",
-            marginBottom: 20,
-            paddingBottom: 10,
-          }}
-        >
-          <h1>Comments Report</h1>
-          <div>Report ID: {report_id}</div>
-        </div>
-        <div className="info-message">
-          <p>
-            A job with ID {visualizationJobs.find(job => job.status === "PROCESSING")?.jobId || jobInProgress.job_id} is currently in progress.
-          </p>
-          <div>
-            <pre className="log-output">
-              <code>
-                {processedLogs?.map((l, index) => (
-                  <div key={l.timestamp || index} className="log-line">
-                    {l.message}
-                  </div>
-                ))}
-              </code>
-            </pre>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   if (error) {
     console.log(error)
     return (
@@ -1025,6 +1071,7 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
           <h1>Comments Report</h1>
           <div>Report ID: {report_id}</div>
         </div>
+        {renderJobStatusBanner()}
         <div className="error-message">
           <h3>Not Available Yet</h3>
           <p>{error}</p>
@@ -1033,7 +1080,11 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
             this report will be available.
           </p>
           <div className="section-header-actions" style={{ marginTop: "20px" }}>
-            <button className="create-job-button" onClick={() => setConfirmDelphiRunModalVisible(true)}>
+            <button
+              className="create-job-button"
+              onClick={() => setConfirmDelphiRunModalVisible(true)}
+              disabled={Boolean(activeJob)}
+            >
               Run New Delphi Analysis
             </button>
           </div>
@@ -1058,6 +1109,7 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
         <h1>Comments Report</h1>
         <div>Report ID: {report_id}</div>
       </div>
+        {renderJobStatusBanner()}
         <div className="report-content">
           {/* Action buttons at the top */}
           {showControls && (
@@ -1067,19 +1119,28 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
                 <div className="action-button-group">
                   <h3>Data Processing</h3>
                   <div className="section-header-actions">
-                    <button className="create-job-button" onClick={() => setConfirmDelphiRunModalVisible(true)}>
+                    <button
+                      className="create-job-button"
+                      onClick={() => setConfirmDelphiRunModalVisible(true)}
+                      disabled={Boolean(activeJob)}
+                    >
                       Run New Delphi Analysis
                     </button>
                   </div>
+                  {jobCreationResult && (
+                    <div className={`result-message ${jobCreationResult.success ? "success" : "error"}`}> {/* eslint-disable-line quotes */}
+                      {jobCreationResult.message}
+                    </div>
+                  )}
                 </div>
-                
+
                 <div className="action-button-group">
                   <h3>Narrative Generation</h3>
                   <div className="section-header-actions">
                     <button
                       className="batch-report-button"
                       onClick={() => setConfirmDelphiRunModalVisible("batch")}
-                      disabled={batchReportLoading || visualizationJobs.find(job => job.status === "PROCESSING" && job.jobId.includes("batch_report_"))}
+                      disabled={batchReportLoading || Boolean(findActiveJob(visualizationJobs, true))}
                     >
                       {batchReportLoading ? "Generating..." : "Generate Batch Topics"}
                     </button>
@@ -1090,9 +1151,11 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
                     </div>
                   )}
                   {
-                    visualizationJobs.find(job => job.status === "PROCESSING" && job.jobId.includes("batch_report_")) && (
+                    findActiveJob(visualizationJobs, true) && (
                       <div className="result-message success">
-                        A batch job is currently in progress, please check back later
+                        {findActiveJob(visualizationJobs, true).status === QUEUED_JOB_STATUS
+                          ? "A batch job is queued — waiting for a worker; please check back later"
+                          : "A batch job is currently in progress, please check back later"}
                       </div>
                     )
                   }
