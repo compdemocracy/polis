@@ -61,11 +61,23 @@ const supersededBy = (job) => job?.supersededBy || job?.superseded_by;
 
 const resolveSupersededJob = (job, jobs) => {
   let current = job;
-  const seen = new Set();
+  const seen = new Set([job?.jobId]);
   for (let hop = 0; hop < MAX_SUPERSEDED_HOPS; hop++) {
     const successorId = supersededBy(current);
-    if (!successorId || seen.has(successorId)) {
+    if (!successorId) {
+      // Walked to the end of a real chain.
       return current === job ? null : current;
+    }
+    if (seen.has(successorId)) {
+      // A cycle is invalid lineage, not an answer. Stopping *anywhere* in it
+      // would hand back a terminal row and end the polling; the honest result
+      // is "unresolved", which keeps the acknowledged job.
+      console.warn(
+        "Delphi job supersession cycle at",
+        successorId,
+        "- keeping the acknowledged job"
+      );
+      return null;
     }
     seen.add(successorId);
     const successor = (jobs || []).find((entry) => entry?.jobId === successorId);
@@ -74,6 +86,7 @@ const resolveSupersededJob = (job, jobs) => {
     }
     current = successor;
   }
+  console.warn("Delphi job supersession chain too long - keeping the acknowledged job");
   return null;
 };
 const isTerminalJobStatus = (status) =>

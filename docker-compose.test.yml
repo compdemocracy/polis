@@ -214,6 +214,39 @@ services:
     command: tail -f /dev/null
     restart: unless-stopped
 
+  # S3 for the delphi visualization routes. The server's visualizations handler
+  # lists objects before it answers, so without an S3 endpoint to reach, its
+  # route-level tests cannot run at all.
+  minio:
+    image: minio/minio:latest
+    command: server /data
+    environment:
+      # Match the credentials test.env gives the server.
+      - MINIO_ROOT_USER=${AWS_ACCESS_KEY_ID:-DUMMYIDEXAMPLE}
+      - MINIO_ROOT_PASSWORD=${AWS_SECRET_ACCESS_KEY:-DUMMYEXAMPLEKEY}
+    ports:
+      - "9000:9000"
+    networks:
+      - polis-test
+    labels:
+      polis_tag: test
+
+  # One-time init container to create the visualization bucket.
+  minio-init:
+    image: minio/mc:latest
+    networks:
+      - polis-test
+    depends_on:
+      - minio
+    entrypoint: >
+      sh -c "
+        until mc alias set local http://minio:9000 ${AWS_ACCESS_KEY_ID:-DUMMYIDEXAMPLE} ${AWS_SECRET_ACCESS_KEY:-DUMMYEXAMPLEKEY}; do sleep 1; done &&
+        mc mb --ignore-existing local/${AWS_S3_BUCKET_NAME:-polis-delphi} &&
+        echo 'MinIO bucket ready'
+      "
+    labels:
+      polis_tag: test
+
   dynamodb:
     image: amazon/dynamodb-local:latest
     ports:

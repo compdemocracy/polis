@@ -83,7 +83,7 @@ jobs:
       run: |
         # Start only required services in detached mode (exclude server)
         docker compose -f docker-compose.test.yml --env-file test.env up -d \
-          math postgres file-server ses-local oidc-simulator dynamodb
+          math postgres file-server ses-local oidc-simulator dynamodb minio minio-init
         
         # Wait for services to be ready
         echo "Waiting for services to start..."
@@ -129,8 +129,10 @@ jobs:
         STATIC_FILES_HOST=localhost \
         DYNAMODB_ENDPOINT=http://localhost:8000 \
         SES_ENDPOINT=http://localhost:8005 \
-        AWS_ACCESS_KEY_ID=ses-local-key \
-        AWS_SECRET_ACCESS_KEY=ses-local-secret \
+        AWS_S3_ENDPOINT=http://localhost:9000 \
+        AWS_S3_BUCKET_NAME=polis-delphi \
+        AWS_ACCESS_KEY_ID=DUMMYIDEXAMPLE \
+        AWS_SECRET_ACCESS_KEY=DUMMYEXAMPLEKEY \
         AWS_REGION=us-east-1 \
         npm test -- --ci --coverage --maxWorkers=2
 
