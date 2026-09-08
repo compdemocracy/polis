@@ -935,6 +935,14 @@ def _is_count(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value >= 0
 
 
+def _canonical_config(config: Any) -> str:
+    """Canonical serialisation used to compare a caller's parsed config with the
+    parse of the hashed bytes. Key order and whitespace are not meaning; a
+    changed threshold is."""
+    return json.dumps(config, sort_keys=True, separators=(",", ":"),
+                      ensure_ascii=True)
+
+
 def admit_manifest(
     manifest: dict[str, Any], *, config: dict[str, Any] | None = None,
     config_bytes: bytes | None = None, config_path: Path | None = None,
@@ -950,17 +958,24 @@ def admit_manifest(
     on was declared at all. This function is that gate, and ``push``/``pull``
     both run it.
 
-    ``config`` — the selection config the bundle was BUILT from.
-    ``config_bytes`` — its exact bytes. The digest binding is NOT optional: the
-    bytes must hash to the ``config_sha256`` the manifest recorded, so a bundle
-    can never be admitted against a different revision of the rules. When a
-    caller supplies neither, both are loaded from ``config_path`` (default: the
-    committed ``certify_datasets.json``) and the check still runs — it used to
-    be skipped whenever ``config_bytes`` was absent, which is exactly the
-    library default, so every non-CLI caller of ``push``/``pull``/
-    ``admit_manifest`` silently dropped the binding. A PARSED config alone can
-    never re-establish a byte digest, so passing ``config`` without
-    ``config_bytes`` is checked against the committed file's bytes.
+    ``config_bytes`` — the exact bytes of the selection config the bundle was
+    BUILT from; ``config_path`` (default: the committed ``certify_datasets.json``)
+    is where they are read from when they are not passed. The digest binding is
+    NOT optional: the bytes must hash to the ``config_sha256`` the manifest
+    recorded, so a bundle can never be admitted against a different revision of
+    the rules.
+
+    There is exactly ONE authority here. That byte buffer is parsed and
+    validated once, and the resulting object is the rule set every predicate,
+    threshold and generator field below is evaluated against — the digest and
+    the rules actually applied cannot name different revisions. The optional
+    parsed ``config`` is a convenience only: it must be canonically equal to the
+    parse of the hashed bytes or admission fails, because a caller could
+    otherwise keep the committed file's digest on the certificate while
+    admitting under a schema-valid config whose thresholds were weakened. For
+    the same reason an explicit ``config_path`` supplied ALONGSIDE
+    ``config_bytes`` is read once and must contain those bytes, so the hashed
+    revision and the file supplying the predicates cannot diverge.
     """
     from polismath.replay import fixture_config as fc
 
@@ -996,7 +1011,8 @@ def admit_manifest(
       "commits.extraction_commit is missing: a bundle with no source-commit "
       "evidence cannot become a certificate")
 
-    # The config digest binding runs on EVERY path, including the defaults.
+    # The config digest binding runs on EVERY path, including the defaults, and
+    # the bytes that are hashed are the ONLY rules that get evaluated below.
     source = Path(config_path) if config_path is not None else fc.DEFAULT_CONFIG_PATH
     if config_bytes is None:
         try:
@@ -1006,8 +1022,40 @@ def admit_manifest(
                 f"cannot read the selection config at {source} to bind its "
                 f"digest ({exc}); admission without a config digest is refused"
             ) from exc
-    if config is None:
-        config = fc.load_config(source)
+    elif config_path is not None:
+        # An explicit path AND explicit bytes: the file is read ONCE, here, and
+        # must BE those bytes. Otherwise the digest names one revision of the
+        # rules while a different file supplies the predicates.
+        try:
+            on_disk = source.read_bytes()
+        except OSError as exc:
+            raise AdmissionError(
+                f"cannot read the selection config at {source} to confirm it is "
+                f"the buffer whose digest is being bound ({exc})"
+            ) from exc
+        if on_disk != config_bytes:
+            raise AdmissionError(
+                f"config_path {source} does not contain the config_bytes whose "
+                "digest is bound: the hashed revision of the selection rules and "
+                "the file supplying the predicates are different objects"
+            )
+    # Parse and validate the hashed buffer exactly once; this parsed object, and
+    # nothing else, is the rule set every predicate below is evaluated against.
+    try:
+        hashed_config = json.loads(config_bytes.decode("utf-8"))
+        fc.validate_config(hashed_config)
+    except (UnicodeDecodeError, json.JSONDecodeError, fc.ConfigError) as exc:
+        raise AdmissionError(
+            f"the config bytes being hashed are not a valid selection config "
+            f"({exc}); an unparseable rule set cannot admit anything"
+        ) from exc
+    if config is not None and _canonical_config(config) != _canonical_config(
+            hashed_config):
+        raise AdmissionError(
+            "the parsed config supplied for admission is not the config whose "
+            "bytes are hashed: a bundle cannot be admitted under one rule set "
+            "while its certificate names the digest of another")
+    config = hashed_config
     actual = sha256_bytes(config_bytes)
     P(actual == commits.get("config_sha256"),
       f"config bytes hash to {actual}, manifest recorded "
