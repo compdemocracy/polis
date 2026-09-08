@@ -649,6 +649,35 @@ def _clj_source_hashes() -> tuple[str, str]:
     )
 
 
+def run_provenance(root: Path, battery_path: str | Path | None = None) -> dict[str, Any]:
+    """Everything this runner can attest about WHAT produced a verdict: the
+    Clojure driver and math source it replayed against, the Python engine tree,
+    and the comparer configuration + code. A run manifest without these records
+    only that *a* verdict was reached, not by which engine, driver or comparer —
+    which is most of the manifest's purpose.
+
+    These are deliberately the SAME hashes the recording cache keys on
+    (:func:`ensure_clj_recording`, :func:`ensure_py_recording`,
+    :func:`_comparer_cfg_hash`), so a manifest and the recordings it judged
+    cannot silently disagree about their provenance.
+
+    Deliberately NOT attested here — P-022 defers them to a later slice:
+    interpreter/JVM/BLAS versions, architecture, container image digests and
+    dependency-lock fingerprints."""
+    replay_clj_sha256, math_src_sha256 = _clj_source_hashes()
+    return {
+        "engine_tree_sha256": _engine_tree_hash_cached(),
+        "replay_clj_sha256": replay_clj_sha256,
+        "math_src_sha256": math_src_sha256,
+        "comparer_cfg_sha256": _comparer_cfg_hash(_acceptance_projecting_comparer()),
+        "recording_manifest_version": _RECORDING_MANIFEST_VERSION,
+        "battery_path": str(battery_path) if battery_path is not None else None,
+        "root": str(root),
+        "deferred": ["runtime_versions", "architecture", "image_digest",
+                     "jvm", "blas", "dependency_lock_sha256"],
+    }
+
+
 def ensure_py_recording(
     entry: BatteryEntry, spec: sched.ScheduleSpec, votes_sha: str, *, root: Path,
     refresh: bool = False, comments_csv: Path | None = None,
@@ -962,8 +991,23 @@ def validate_recording_inventory(directory: Path, engine: str, expected: Expecte
             raise CertifyError("checkpoint-schema", f"{engine}: missing acceptance blob at {stem}")
         if checkpoint["cut_slot"] == 0:
             projected = project_acceptance(blob)
-            if any(k not in projected or projected[k] != v for k, v in expected.spec.empty_output.items()):
-                raise CertifyError("empty-output", f"{engine}: {stem} violates declared empty_output")
+            missing = sorted(k for k in expected.spec.empty_output if k not in projected)
+            wrong = sorted(k for k, v in expected.spec.empty_output.items()
+                           if k in projected and projected[k] != v)
+            if missing or wrong:
+                # Name the offending keys: the two engines' empty prep-main blobs
+                # genuinely disagree (Clojure omits n/n-cmts/tids/in-conv where
+                # Python emits their empty values), and that is an OUTPUT-CONTRACT
+                # question for P-022, not a harness defect. A bare "violates
+                # declared empty_output" reads like a regression; this does not.
+                raise CertifyError(
+                    "empty-output",
+                    f"{engine}: {stem} does not satisfy the schedule's declared "
+                    f"empty_output contract — absent keys {missing}, wrong values "
+                    f"{ {k: projected[k] for k in wrong} } (expected "
+                    f"{ {k: expected.spec.empty_output[k] for k in wrong} }). The "
+                    f"engines' empty-compute representations are not yet reconciled; "
+                    f"see the schedule's notes.")
 
 
 def _entry_error(entry: BatteryEntry, exc: Exception) -> dict[str, Any]:
@@ -994,12 +1038,16 @@ def _certify_entry_heavy(
         # SPEC.md "Python ports" item 5).
         comments_csv = expected.comments_csv
 
-        clj_dir, _ = ensure_clj_recording(entry, spec, votes_sha, votes_csv, root=root,
-                                           refresh=refresh_clj, comments_csv=comments_csv)
+        clj_dir, clj_cached = ensure_clj_recording(entry, spec, votes_sha, votes_csv, root=root,
+                                                   refresh=refresh_clj, comments_csv=comments_csv)
         # M3 (P-019): the comments CSV is an input to the PYTHON replay too, so it
         # must be part of the py cache key, mirroring the clj side above.
-        py_dir, _ = ensure_py_recording(entry, spec, votes_sha, root=root,
-                                        refresh=refresh_py, comments_csv=comments_csv)
+        py_dir, py_cached = ensure_py_recording(entry, spec, votes_sha, root=root,
+                                                refresh=refresh_py, comments_csv=comments_csv)
+        # Recorded in the run manifest: a verdict reached entirely from cache is
+        # a different provenance claim than one that re-ran both engines.
+        cache = {"clj": "hit" if clj_cached else "miss",
+                 "py": "hit" if py_cached else "miss"}
         if sha256_file(votes_csv) != votes_sha or (
             comments_csv is not None and sha256_file(comments_csv) != expected.comments_sha
         ):
@@ -1013,11 +1061,11 @@ def _certify_entry_heavy(
     div_steps = [s for s in cmp_result["per_step"] if not s["match"]]
     if not div_steps:
         return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
-                "verdict": "MATCH", "n_steps": cmp_result["aligned_steps"]}
+                "verdict": "MATCH", "n_steps": cmp_result["aligned_steps"], "cache": cache}
 
     summary = _summarize_divergences(cmp_result)
     return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
-            "verdict": "DIVERGENCE",
+            "verdict": "DIVERGENCE", "cache": cache,
             "first_div_step": summary["first_div_step"],
             "n_div_steps": summary["n_div_steps"], "_summary": summary}
 
@@ -1072,10 +1120,40 @@ def _filter_only(entries: list[BatteryEntry], only: str) -> list[BatteryEntry]:
     return [e for e in entries if e.dataset == only]
 
 
+#: Name of the pointer file naming the most recent run manifest in a root. The
+#: manifests themselves are per-run (:func:`run_manifest_path`) — a later debug
+#: run must never be able to destroy a release run's manifest.
+RUN_MANIFEST_LATEST = "run_manifest_latest.json"
+
+
+def run_manifest_path(root: Path, run_id: str) -> Path:
+    """``<root>/run_manifest-<run_id>.json``. Manifests are per-run and never
+    overwritten: a run against an already-used root (a debug re-run, a retry,
+    anything sharing the recording store) would otherwise silently clobber the
+    manifest that attested a release."""
+    return Path(root) / f"run_manifest-{run_id}.json"
+
+
+def _write_run_manifest(root: Path, manifest: dict[str, Any]) -> Path:
+    """Write the manifest under its own run id and repoint ``latest``. The
+    pointer is a convenience for humans and tooling; the per-run file is the
+    record of truth."""
+    path = run_manifest_path(root, manifest["run_id"])
+    _write_json(path, manifest)
+    _write_json(Path(root) / RUN_MANIFEST_LATEST, {
+        "schema": "polis-certification-run-pointer/1",
+        "run_id": manifest["run_id"],
+        "verdict": manifest["verdict"],
+        "finished_at": manifest["finished_at"],
+        "run_manifest": str(path),
+    })
+    return path
+
+
 def run_battery(
     entries: list[BatteryEntry], *, root: Path | None = None, refresh_clj: bool = False,
     refresh_py: bool = False, ledger_path: str | Path | None = None, only: str | None = None,
-    workers: int = 1,
+    workers: int = 1, battery_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Certify every (filtered) entry, persist the ledger once, and write the
     machine report to ``<root>/certify_report.json``. Does NOT print — see
@@ -1124,7 +1202,10 @@ def run_battery(
         "entry_statuses": ["PASS", "FAIL", "INCONCLUSIVE", "APPROVED_DIFFERENCE"],
         "finished_at": None, "verdict": "INCONCLUSIVE", "partial": only is not None,
         "configuration": {"only": only, "refresh_clj": refresh_clj,
-                          "refresh_py": refresh_py, "workers": workers},
+                          "refresh_py": refresh_py, "workers": workers,
+                          "battery_path": str(battery_path) if battery_path is not None else None,
+                          "root": str(root)},
+        "provenance": run_provenance(root, battery_path),
         "configuration_errors": configuration_errors, "inventory": inventory,
         "entries": [{"dataset": e.dataset, "schedule_id": e.schedule_id,
                      "role": e.role or f"{e.dataset}:{e.schedule_id}", "optional": e.optional,
@@ -1133,7 +1214,7 @@ def run_battery(
                                 "schedule": p.spec.to_dict(), "votes_sha256": p.votes_sha,
                                 "comments_sha256": p.comments_sha} for p in prepared.values()],
     }
-    _write_json(root / "run_manifest.json", manifest)
+    manifest_path = _write_run_manifest(root, manifest)
 
     def _heavy(entry: BatteryEntry) -> dict[str, Any]:
         key = (entry.dataset, entry.schedule_id)
@@ -1165,6 +1246,7 @@ def run_battery(
             item["status"] = {"MATCH": "PASS", "ERROR": "FAIL", "DIVERGENCE": "FAIL",
                               "SKIPPED": "INCONCLUSIVE"}[result["verdict"]]
             item["reason"] = result.get("reason", result["verdict"])
+            item["cache"] = result.get("cache")
             item["result"] = result
     verdict = "PASS"
     if configuration_errors or any(e["status"] == "FAIL" for e in manifest["entries"]):
@@ -1172,11 +1254,11 @@ def run_battery(
     elif only is not None or any(e["status"] != "PASS" for e in manifest["entries"]):
         verdict = "INCONCLUSIVE"
     manifest.update(verdict=verdict, finished_at=datetime.now(timezone.utc).isoformat())
-    _write_json(root / "run_manifest.json", manifest)
+    manifest_path = _write_run_manifest(root, manifest)
     report = {"battery": results, "root": str(root), "verdict": verdict,
               "partial": only is not None, "inventory": inventory,
               "configuration_errors": configuration_errors,
-              "run_manifest": str(root / "run_manifest.json")}
+              "run_id": run_id, "run_manifest": str(manifest_path)}
     _write_json(root / "certify_report.json", report)
     return report
 
