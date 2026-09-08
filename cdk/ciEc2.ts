@@ -141,10 +141,20 @@ export class CertificationCiEc2 extends Construct {
         'ssm:ListAssociations',
         'ssm:ListInstanceAssociations',
         'ssm:DescribeAssociation',
-        'ssm:GetDocument',
-        'ssm:DescribeDocument',
       ],
-      resources: ['*'], // none of these six support resource-level authorization
+      // These four have no resource types in the service authorization
+      // reference, so `*` is the only expressible scope.
+      resources: ['*'],
+    }));
+    // GetDocument and DescribeDocument DO take document ARNs, and GetDocument
+    // returns document CONTENT — round 2's comment claiming otherwise was
+    // wrong (review R2-F5). Scoped to the AWS-owned namespace (no account id in
+    // the ARN), which is what the agent needs; any private document this
+    // account owns is now out of reach from the box.
+    this.workerRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'ReadAwsOwnedDocumentsOnly',
+      actions: ['ssm:GetDocument', 'ssm:DescribeDocument'],
+      resources: [`arn:${partition}:ssm:${region}::document/AWS-*`],
     }));
     this.workerRole.addToPolicy(new iam.PolicyStatement({
       sid: 'SsmAgentChannels',
@@ -290,11 +300,34 @@ export class CertificationCiEc2 extends Construct {
       conditions: templateCondition,
     }));
 
+    // Two statements, not one. Round 2 required `aws:RequestTag/polis:ci-run`
+    // for CreateTags on instances, volumes AND network interfaces, but the
+    // launch template tags the root volume with `polis:ci` only — so the volume
+    // tagging half of the very launch this policy authorises would have been
+    // denied (review R2-F1). Run ownership is required where it means
+    // something, on the instance; volumes and ENIs may carry the same allowed
+    // keys without being forced to prove ownership. The workflow sends the run
+    // tag on volumes too, so in practice they carry it — but the authorisation
+    // no longer depends on a tag the template alone cannot supply.
     this.githubRole.addToPolicy(new iam.PolicyStatement({
-      sid: 'TagAtLaunchOnly',
+      sid: 'TagInstanceAtLaunchWithRunOwnership',
+      actions: ['ec2:CreateTags'],
+      resources: [instanceArnPattern],
+      conditions: {
+        StringEquals: {
+          'ec2:CreateAction': 'RunInstances',
+          [`aws:RequestTag/${CI_TAG_KEY}`]: CI_TAG_VALUE,
+        },
+        StringLike: { [`aws:RequestTag/${CI_RUN_TAG_KEY}`]: '?*' },
+        'ForAllValues:StringEquals': {
+          'aws:TagKeys': [CI_TAG_KEY, CI_REF_TAG_KEY, CI_RUN_TAG_KEY],
+        },
+      },
+    }));
+    this.githubRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'TagLaunchVolumesAndInterfaces',
       actions: ['ec2:CreateTags'],
       resources: [
-        instanceArnPattern,
         `arn:${partition}:ec2:${region}:${account}:volume/*`,
         `arn:${partition}:ec2:${region}:${account}:network-interface/*`,
       ],
@@ -303,7 +336,6 @@ export class CertificationCiEc2 extends Construct {
           'ec2:CreateAction': 'RunInstances',
           [`aws:RequestTag/${CI_TAG_KEY}`]: CI_TAG_VALUE,
         },
-        StringLike: { [`aws:RequestTag/${CI_RUN_TAG_KEY}`]: '?*' },
         'ForAllValues:StringEquals': {
           'aws:TagKeys': [CI_TAG_KEY, CI_REF_TAG_KEY, CI_RUN_TAG_KEY],
         },
@@ -355,10 +387,13 @@ export class CertificationCiEc2 extends Construct {
     }));
     // ssm:GetCommandInvocation and ssm:DescribeInstanceInformation support NO
     // resource types and NO condition keys (service authorization reference),
-    // so they cannot be narrowed here or in a session policy. That residual is
-    // why ListCommands/ListCommandInvocations/CancelCommand were dropped
-    // outright in round 2 rather than kept "for convenience", and why the
-    // account this runs in matters (review E6).
+    // so they cannot be narrowed here or in a session policy. State the reach
+    // plainly: GetCommandInvocation returns a command's stdout AND stderr, so
+    // for any command/instance id pair this role can guess or learn, it can
+    // read that command's output anywhere in the account. Dropping the List
+    // APIs removed discoverability, not authorisation. Only running this in an
+    // isolated account closes it, which is why that remains the activation
+    // gate (review E6, R2-F5).
     this.githubRole.addToPolicy(new iam.PolicyStatement({
       sid: 'ReadCommandResults',
       actions: ['ssm:GetCommandInvocation', 'ssm:DescribeInstanceInformation'],
@@ -537,6 +572,27 @@ function buildUserData(props: CertificationCiEc2Props): ec2.UserData {
     'git fetch --no-tags origin "$POLIS_REF" || fail "fetch $POLIS_REF"',
     'git checkout --detach FETCH_HEAD || fail "checkout"',
     'git rev-parse HEAD > /var/lib/polis-ci-sha',
+    'chown -R ec2-user:ec2-user /opt/polis',
+    '',
+    '',
+    '# --- the recovery runtime, BEFORE the ready marker. P-022 section C\'s',
+    '# target runs host `uv run --no-sync pytest`, so a box that has only',
+    '# docker and git cannot run the matrix at all; round 2 installed uv in the',
+    '# battery phase, which never ran with run_battery=false (review R2-F2).',
+    'export HOME=/root',
+    'curl -LsSf https://astral.sh/uv/install.sh -o /tmp/uv-install.sh || fail "uv download"',
+    'sh /tmp/uv-install.sh || fail "uv install"',
+    'install -m 0755 /root/.local/bin/uv /usr/local/bin/uv || fail "uv place"',
+    '(cd /opt/polis/delphi && uv sync) || fail "uv sync"',
+    '# The battery additionally shells out to `clojure -M:replay`.',
+    'dnf install -y java-21-amazon-corretto-headless rlwrap || fail "jvm"',
+    'curl -fsSL -o /tmp/clojure-install.sh https://download.clojure.org/install/linux-install.sh || fail "clj download"',
+    'chmod +x /tmp/clojure-install.sh && /tmp/clojure-install.sh || fail "clj install"',
+    '# Verify rather than assume: a phase must never silently repair a',
+    '# bootstrap that should have failed.',
+    'uv --version || fail "uv missing after install"',
+    'clojure --version || fail "clojure missing after install"',
+    'java -version || fail "java missing after install"',
     'chown -R ec2-user:ec2-user /opt/polis',
     '',
     'mkdir -p /var/log/polis-ci',
