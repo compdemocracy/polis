@@ -19,12 +19,6 @@ is what the duplicate-writer tests below establish, on real processes against
 real rows.
 """
 
-import os
-import subprocess
-import sys
-import threading
-import time
-
 import pytest
 import sqlalchemy as sa
 
@@ -36,11 +30,34 @@ from .conftest import (
 )
 from . import fold as F
 from polismath.poller.service import PollerConfig, should_process_zid
-from .test_r05_mid_batch_restart import Child, _DELPHI_ROOT
+from .test_r05_mid_batch_restart import (  # noqa: F401  (children is a fixture)
+    _spawn,
+    children,
+)
 
 pytestmark = pytest.mark.recovery
 
 MATH_ENV = "recovery"
+
+# The refusal contract, defined by the harness and asserted by name.
+#
+# "Nonzero exit" is NOT a refusal: an import error, a DB outage or two crashed
+# workers would all satisfy it (astra review finding 3).  A refusal is a
+# process that declined to run BECAUSE someone else owns this shard, and it
+# announces itself with this exit code and this marker
+# (``restart_child._is_ownership_refusal`` / ``OWNERSHIP_REFUSAL_MARKER``).
+# Nothing else is accepted, and any other nonzero exit is a HARD failure.
+OWNERSHIP_REFUSAL_EXIT = 3
+OWNERSHIP_REFUSAL_MARKER = "OWNERSHIP-REFUSED"
+
+
+class OwnershipNotFenced(AssertionError):
+    """Raised when duplicate writers were neither refused nor fenced.
+
+    A distinct type so the ``xfail`` below can name it with ``raises=``: any
+    OTHER failure — an unrelated crash, no healthy publisher, an incoherent
+    final generation — is then a real FAILURE and not a green xfail.
+    """
 
 
 # --------------------------------------------------------------------------- #
@@ -82,10 +99,19 @@ def test_out_of_range_shard_is_a_startup_refusal():
         PollerConfig(shard_count=0)
 
 
-def test_rolling_shard_count_change_leaves_no_zid_unowned(engine, pg_url,
-                                                          make_service):
+def test_rolling_shard_count_change_arithmetic_leaves_no_zid_unowned(
+    engine, pg_url, make_service
+):
     """A rolling shard-count change (2 -> 3) may DOUBLE-cover a zid mid-roll,
-    but it must never leave one unowned.  Assert both halves explicitly."""
+    but it must never leave one unowned.  Assert both halves explicitly.
+
+    LIMITATION, kept explicit (astra review finding 3): this evaluates two
+    complete arithmetic partitions side by side.  It is NOT a rolling ownership
+    handoff — no process starts, stops, or hands anything over, and nothing
+    here shows what the two generations of processes do to the same rows while
+    both are live.  A real handoff test needs process-level fencing and
+    reconfiguration to exist first; until then the duplicate-writer tests below
+    are the only process-level ownership evidence in this module."""
     zids = list(range(1, 61))
     old, new = 2, 3
     unowned, double = [], []
@@ -108,31 +134,87 @@ def test_rolling_shard_count_change_leaves_no_zid_unowned(engine, pg_url,
 # --------------------------------------------------------------------------- #
 # Duplicate writers — the ownership question
 # --------------------------------------------------------------------------- #
-def _run_two_children(pg_url, tmp_path, days=1.0):
-    """Start two identical poller processes at once (same shard, same math_env)
-    and wait for both to finish one cycle."""
-    env = dict(os.environ)
-    env["PYTHONPATH"] = _DELPHI_ROOT + os.pathsep + env.get("PYTHONPATH", "")
-    env["POLIS_RECOVERY_DUMP_DIR"] = str(tmp_path / "errorconv")
-    child = os.path.join(os.path.dirname(__file__), "restart_child.py")
-    procs = [
-        subprocess.Popen(
-            [sys.executable, child, "--pg-url", pg_url, "--math-env", MATH_ENV,
-             "--kill-stage", "none", "--poll-from-days-ago", str(days)],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-            env=env, cwd=_DELPHI_ROOT,
-        )
+def _advisory_locks(engine) -> list:
+    """Every advisory lock held on this database right now.
+
+    An "exclusive/fenced ownership" implementation would show up here (a
+    ``pg_advisory_lock`` lease per ``(math_env, shard)`` is the obvious form).
+    Read WHILE both duplicate writers hold their ownership latch, so an empty
+    result is real evidence that nothing was fenced rather than a timing
+    artefact."""
+    with engine.connect() as conn:
+        rows = conn.execute(sa.text(
+            "select locktype, classid, objid, objsubid, granted, pid "
+            "from pg_locks where locktype = 'advisory'"
+        )).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def _ownership_table_names(engine) -> list:
+    """Tables that would carry a durable lease / fencing token, if any existed."""
+    with engine.connect() as conn:
+        rows = conn.execute(sa.text(
+            "select table_name from information_schema.tables "
+            "where table_schema = 'public' and ("
+            "  table_name ilike '%owner%' or table_name ilike '%lease%' "
+            "  or table_name ilike '%fence%' or table_name ilike '%shard%')"
+        )).scalars().all()
+    return list(rows)
+
+
+def _run_two_latched_children(engine, pg_url, tmp_path, children, days=1.0):
+    """Two identical poller processes held CONCURRENTLY at their ownership
+    point, so "both ran" cannot be two one-shot processes running one after the
+    other (astra review finding 3).
+
+    Returns ``(kids, evidence)`` where ``evidence`` is what the database showed
+    while both were alive and holding.
+    """
+    latch_dir = tmp_path / "ownership"
+    kids = [
+        _spawn_latched(children, pg_url, tmp_path, latch_dir, days)
         for _ in range(2)
     ]
-    outs = []
-    for p in procs:
-        out, err = p.communicate(timeout=180)
-        outs.append((p.returncode, out, err))
-    return outs
+    for kid in kids:
+        kid.await_stage("OWNED", timeout=120)
+    assert all(kid.proc.poll() is None for kid in kids), (
+        "both duplicate processes must still be ALIVE while holding ownership"
+    )
+
+    evidence = {
+        "advisory_locks": _advisory_locks(engine),
+        "ownership_tables": _ownership_table_names(engine),
+        "held_concurrently": True,
+    }
+
+    (latch_dir / "release").write_text("go")
+    for kid in kids:
+        kid.proc.wait(timeout=180)
+    return kids, evidence
+
+
+def _spawn_latched(kids, pg_url, tmp_path, latch_dir, days):
+    return _spawn(kids, pg_url, "none", days=days, tmp_path=tmp_path,
+                  ownership_latch_dir=latch_dir)
+
+
+def _classify(kid):
+    """``'publisher'`` (exit 0, completed a cycle), ``'refusal'`` (the named
+    ownership refusal) or ``'crash'`` (anything else)."""
+    rc = kid.proc.returncode
+    stderr = kid.proc.stderr.read() if kid.proc.stderr else ""
+    if rc == 0 and "DONE" in kid.stages:
+        return "publisher", stderr
+    if rc == OWNERSHIP_REFUSAL_EXIT and any(
+        l.startswith(OWNERSHIP_REFUSAL_MARKER) for l in kid.lines
+    ):
+        return "refusal", stderr
+    return "crash", stderr
 
 
 @pytest.mark.xfail(
     strict=True,
+    raises=OwnershipNotFenced,
     reason=(
         "DEFECT (P-022 §C R07): nothing prevents or fences a duplicate writer. "
         "Two poller processes with the SAME POLL_SHARD_INDEX/POLL_SHARD_COUNT "
@@ -148,32 +230,90 @@ def _run_two_children(pg_url, tmp_path, days=1.0):
         "one replica, which is not observable from the database. A fix (a "
         "pg_advisory_lock lease per (math_env, shard) held for the process "
         "lifetime, or a fencing token checked in the writes) is a separate "
-        "decision."
+        "decision. NOTE the xfail names OwnershipNotFenced explicitly: an "
+        "unrelated crash, a missing healthy publisher or an incoherent final "
+        "generation is a REAL failure here, never a green xfail."
     ),
 )
-def test_duplicate_shard_start_is_refused_or_fenced(engine, pg_url, tmp_path):
-    """Two identical processes, same shard index and math env: one must refuse
-    to start, or ownership must be demonstrably exclusive."""
+def test_duplicate_shard_start_is_refused_or_fenced(engine, pg_url, tmp_path,
+                                                    children):
+    """Two identical processes, same shard index and math env, held ALIVE at
+    the same time: one must refuse to start for a named ownership reason, or
+    ownership must be demonstrably exclusive/fenced.
+
+    Every precondition is a plain assertion, so it fails for real:
+
+    * both processes were alive concurrently while holding ownership (two
+      one-shot children running sequentially would prove nothing);
+    * exactly one proven-healthy publisher exists (exit 0 with a completed
+      cycle);
+    * no process crashed for an unrelated reason — a nonzero exit only counts
+      as a refusal when it is ``OWNERSHIP_REFUSAL_EXIT`` with the marker;
+    * no losing process is left running;
+    * the final generation is coherent and matches the independent fold.
+
+    Only the ownership question itself raises :class:`OwnershipNotFenced`.
+    """
     seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
-    results = _run_two_children(pg_url, tmp_path)
-    exit_codes = [rc for rc, _out, _err in results]
-    refusals = [rc for rc in exit_codes if rc != 0]
-    assert refusals, (
-        "both duplicate processes started and completed a full write cycle "
-        f"(exit codes {exit_codes}); neither refused, and nothing fenced them"
+    kids, evidence = _run_two_latched_children(engine, pg_url, tmp_path,
+                                               children)
+    outcomes = [_classify(kid) for kid in kids]
+    kinds = [kind for kind, _err in outcomes]
+
+    assert evidence["held_concurrently"]
+    crashes = [(kid.proc.returncode, kid.lines, err)
+               for kid, (kind, err) in zip(kids, outcomes) if kind == "crash"]
+    assert not crashes, (
+        "a duplicate-writer process died for a reason that is NOT the named "
+        f"ownership refusal, which must never be read as fencing: {crashes}"
+    )
+    assert kinds.count("publisher") >= 1, (
+        f"no healthy publisher survived the duplicate start: {kinds}"
+    )
+    assert all(kid.proc.poll() is not None for kid in kids), (
+        "a losing process is still running"
     )
 
+    tables = read_math_tables(engine, 1, MATH_ENV)
+    assert tables_are_coherent(tables) == [], tables_are_coherent(tables)
+    fold = F.fold_votes(read_vote_events(engine, 1))
+    assert F.check_published_against_fold(tables["main"]["data"], fold) == []
 
-def test_duplicate_writers_both_write_the_same_rows(engine, pg_url, tmp_path):
+    refused = [kid for kid, (kind, _e) in zip(kids, outcomes)
+               if kind == "refusal"]
+    fenced = bool(evidence["advisory_locks"]) or bool(
+        evidence["ownership_tables"])
+    if not refused and not fenced:
+        raise OwnershipNotFenced(
+            "both duplicate processes started and completed a full write "
+            f"cycle (outcomes {kinds}); none refused with exit "
+            f"{OWNERSHIP_REFUSAL_EXIT}/{OWNERSHIP_REFUSAL_MARKER}, no advisory "
+            "lock was held while both were alive "
+            f"({evidence['advisory_locks']}) and no lease/fence table exists "
+            f"({evidence['ownership_tables']})"
+        )
+
+
+def test_duplicate_writers_both_write_the_same_rows(engine, pg_url, tmp_path,
+                                                    children):
     """The observable consequence, asserted directly so the defect above is
-    documented rather than inferred: two duplicate processes both advance the
-    same zid's math_tick.  (Both write authoritative full-history state, so the
-    CONTENT stays correct here — the hazard is unfenced concurrent ownership,
-    not a demonstrated corruption on this fixture.)"""
+    documented rather than inferred: two duplicate processes, proven ALIVE AT
+    THE SAME TIME by the ownership latch, both advance the same zid's
+    math_tick.  (Both write authoritative full-history state, so the CONTENT
+    stays correct here — the hazard is unfenced concurrent ownership, not a
+    demonstrated corruption on this fixture.)"""
     seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
-    results = _run_two_children(pg_url, tmp_path)
-    assert [rc for rc, _o, _e in results] == [0, 0], (
-        f"both duplicates were expected to run to completion: {results}"
+    kids, evidence = _run_two_latched_children(engine, pg_url, tmp_path,
+                                               children)
+    assert evidence["held_concurrently"]
+    assert [kid.proc.returncode for kid in kids] == [0, 0], (
+        "both duplicates were expected to run to completion: "
+        f"{[(k.proc.returncode, k.lines) for k in kids]}"
+    )
+    assert all("DONE" in kid.stages for kid in kids)
+    assert evidence["advisory_locks"] == [], (
+        "no advisory lock was taken while two duplicate writers were both "
+        f"alive: {evidence['advisory_locks']}"
     )
     with engine.connect() as conn:
         tick = conn.execute(
@@ -260,6 +400,45 @@ class TestNegativeControl:
             "NEGATIVE CONTROL FAILED: a shard filter that accepts everything "
             "still looked like an exactly-once partition"
         )
+
+    def test_an_unrelated_crash_is_not_classified_as_a_refusal(self, pg_url,
+                                                               tmp_path,
+                                                               children):
+        """The correction itself, controlled (astra review finding 3): a child
+        that dies of a DB outage — the very thing "any nonzero exit" used to
+        accept — must classify as a CRASH, never as an ownership refusal."""
+        kid = _spawn(children, pg_url.replace("/rec_", "/nope_does_not_exist_"),
+                     "none", tmp_path=tmp_path)
+        rc = kid.proc.wait(timeout=120)
+        assert rc != 0, "the unreachable-database child must fail"
+        assert rc != OWNERSHIP_REFUSAL_EXIT
+        kind, _err = _classify(kid)
+        assert kind == "crash", (
+            "NEGATIVE CONTROL FAILED: an unrelated process failure was "
+            f"classified as {kind!r}"
+        )
+        assert not any(l.startswith(OWNERSHIP_REFUSAL_MARKER)
+                       for l in kid.lines)
+
+    def test_the_refusal_classifier_recognises_a_real_refusal(self):
+        """...and the classifier is not merely always-false: the shapes an
+        ownership refusal would take ARE recognised, so the xfail above is
+        waiting on production, not on an unreachable assertion."""
+        from .restart_child import _is_ownership_refusal
+
+        class OwnershipRefused(RuntimeError):
+            pass
+
+        assert _is_ownership_refusal(OwnershipRefused("shard 0/2"))
+        assert _is_ownership_refusal(
+            RuntimeError("shard (recovery, 0/2) is already owned by pid 42"))
+        assert _is_ownership_refusal(
+            RuntimeError("ownership lease advisory lock not acquired"))
+        assert _is_ownership_refusal(RuntimeError("stale fence rejected"))
+        # ...and not by accident:
+        assert not _is_ownership_refusal(ImportError("no module named x"))
+        assert not _is_ownership_refusal(
+            RuntimeError("could not connect to server"))
 
     def test_a_shard_that_owns_nothing_would_be_caught(self):
         """A shard index outside its count owns no zid at all — the failure
