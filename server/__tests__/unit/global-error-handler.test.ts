@@ -59,7 +59,12 @@ function loadExpress(nodeEnv: string) {
  * ("after-router", the mounting `POLIS_REACHABLE_ERROR_HANDLER` adds).
  *
  * `/param-400` reproduces `src/utils/parameter.ts:146-149`, which sets the
- * status and hands a bare *string* to `next` without ever writing a body.
+ * status and hands a bare *string* to `next` without ever writing a body. That
+ * string carries no `.name`, `.stack`, `.message`, `.code` or `.constraint`, so
+ * enabling the flag recovers the `polis_err_*` identity neither in the response
+ * body nor in `globalErrorHandler`'s own structured log record — every field it
+ * logs about the error is `undefined`. Any `polis_err_*` text in the logs comes
+ * from `parameter.ts`'s separate `logger.error(s)`, not from this handler.
  */
 function buildApp(express: any, mounting: Mounting, handler: any) {
   const app = express();
