@@ -41,6 +41,7 @@ import { ImportWorkerService } from './import-worker-service';
 
 interface PolisStackProps extends cdk.StackProps {
   enableSSHAccess?: boolean; // Make optional, default to false
+  enableOllama?: boolean; // Gate the Ollama GPU stack (default false)
   envFile: string;
   branch?: string;
   sshAllowedIpRange?: string; // Add a property for SSH access control
@@ -56,6 +57,12 @@ export class CdkStack extends cdk.Stack {
     super(scope, id, props);
 
     const defaultSSHRange = '0.0.0.0/0';
+    // The Ollama GPU stack is temporarily retired to cut cost. Everything it
+    // needs (ASG, GPU launch template, EFS, internal NLB, service-URL secret,
+    // SG rules and outputs) is gated behind this flag (CDK_ENABLE_OLLAMA). The
+    // self-hosted-LLM feature stays supported: flip the flag and set
+    // LLM_PROVIDER=ollama to bring it all back.
+    const enableOllama = props.enableOllama ?? false;
     const ollamaPort = 11434;
     const ollamaModelDirectory = '/efs/ollama-models';
     const ollamaNamespace = 'OllamaMetrics'; // Custom namespace for GPU metrics
@@ -85,18 +92,22 @@ export class CdkStack extends cdk.Stack {
       efsSecurityGroup,
     } = createSecurityGroups(vpc, this);
 
-    // Allow Delphi -> Ollama
-    ollamaSecurityGroup.addIngressRule(
-      ec2.Peer.ipv4(vpc.vpcCidrBlock), // Allows traffic from any private IP within the VPC
-      ec2.Port.tcp(ollamaPort),
-      `Allow NLB traffic on ${ollamaPort} from VPC`
-    );
-    // Allow Ollama -> EFS
-    efsSecurityGroup.addIngressRule(
-      ollamaSecurityGroup,
-      ec2.Port.tcp(2049), // NFS port
-      'Allow NFS from Ollama instances'
-    );
+    // Ollama/EFS ingress rules (only when the GPU stack is enabled). The empty
+    // security groups themselves are left in place (harmless, no rules).
+    if (enableOllama) {
+      // Allow Delphi -> Ollama
+      ollamaSecurityGroup.addIngressRule(
+        ec2.Peer.ipv4(vpc.vpcCidrBlock), // Allows traffic from any private IP within the VPC
+        ec2.Port.tcp(ollamaPort),
+        `Allow NLB traffic on ${ollamaPort} from VPC`
+      );
+      // Allow Ollama -> EFS
+      efsSecurityGroup.addIngressRule(
+        ollamaSecurityGroup,
+        ec2.Port.tcp(2049), // NFS port
+        'Allow NFS from Ollama instances'
+      );
+    }
 
     // Conditional SSH Access
     if (props.enableSSHAccess) {
@@ -104,7 +115,9 @@ export class CdkStack extends cdk.Stack {
       webSecurityGroup.addIngressRule(sshPeer, ec2.Port.tcp(22), 'Allow SSH access');
       mathWorkerSecurityGroup.addIngressRule(sshPeer, ec2.Port.tcp(22), 'Allow SSH access');
       delphiSecurityGroup.addIngressRule(sshPeer, ec2.Port.tcp(22), 'Allow SSH access');
-      ollamaSecurityGroup.addIngressRule(sshPeer, ec2.Port.tcp(22), 'Allow SSH access');
+      if (enableOllama) {
+        ollamaSecurityGroup.addIngressRule(sshPeer, ec2.Port.tcp(22), 'Allow SSH access');
+      }
     }
 
     webSecurityGroup.addIngressRule(ec2.Peer.ipv4(props.sshAllowedIpRange || defaultSSHRange), ec2.Port.tcp(22), 'Allow SSH'); // Control SSH separately
@@ -123,7 +136,7 @@ export class CdkStack extends cdk.Stack {
     const mathWorkerKeyPair = getKeyPair('MathWorkerKeyPair', props.mathWorkerKeyPairName);
     const delphiSmallKeyPair = getKeyPair('DelphiSmallKeyPair', props.delphiSmallKeyPairName);
     const delphiLargeKeyPair = getKeyPair('DelphiLargeKeyPair', props.delphiLargeKeyPairName);
-    const ollamaKeyPair = getKeyPair('OllamaKeyPair', props.ollamaKeyPairName);
+    const ollamaKeyPair = enableOllama ? getKeyPair('OllamaKeyPair', props.ollamaKeyPairName) : undefined;
 
     const { instanceRole, codeDeployRole, dbBackupLambdaRole } = createRoles(this);
 
@@ -142,35 +155,38 @@ export class CdkStack extends cdk.Stack {
     // Create DB and related resources
     const { dbSubnetGroup, db, dbSecretArnParam, dbHostParam, dbPortParam } = createDBResources(this, vpc);
 
-    // --- EFS for Ollama Models
-    const fileSystemPolicyDocument = new iam.PolicyDocument({
-      statements: [
-        new iam.PolicyStatement({
-          effect: iam.Effect.ALLOW,
-          actions: [
-            "elasticfilesystem:ClientMount",
-            "elasticfilesystem:ClientWrite",
-            "elasticfilesystem:ClientRootAccess",
-          ],
-          principals: [new iam.AnyPrincipal()],
-          resources: ["*"], // Applies to the filesystem this policy is attached to
-          conditions: {
-            Bool: { "elasticfilesystem:AccessedViaMountTarget": "true" }
-          }
-        })
-      ]
-    });
-    const fileSystem = new efs.FileSystem(this, 'OllamaModelFileSystem', {
-      vpc,
-      encrypted: true,
-      lifecyclePolicy: efs.LifecyclePolicy.AFTER_14_DAYS,
-      performanceMode: efs.PerformanceMode.GENERAL_PURPOSE,
-      throughputMode: efs.ThroughputMode.ELASTIC,
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-      securityGroup: efsSecurityGroup,
-      vpcSubnets: { subnetGroupName: 'PrivateWithEgress' },
-      fileSystemPolicy: fileSystemPolicyDocument,
-    });
+    // --- EFS for Ollama Models (only when the GPU stack is enabled)
+    let fileSystem: efs.FileSystem | undefined;
+    if (enableOllama) {
+      const fileSystemPolicyDocument = new iam.PolicyDocument({
+        statements: [
+          new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: [
+              "elasticfilesystem:ClientMount",
+              "elasticfilesystem:ClientWrite",
+              "elasticfilesystem:ClientRootAccess",
+            ],
+            principals: [new iam.AnyPrincipal()],
+            resources: ["*"], // Applies to the filesystem this policy is attached to
+            conditions: {
+              Bool: { "elasticfilesystem:AccessedViaMountTarget": "true" }
+            }
+          })
+        ]
+      });
+      fileSystem = new efs.FileSystem(this, 'OllamaModelFileSystem', {
+        vpc,
+        encrypted: true,
+        lifecyclePolicy: efs.LifecyclePolicy.AFTER_14_DAYS,
+        performanceMode: efs.PerformanceMode.GENERAL_PURPOSE,
+        throughputMode: efs.ThroughputMode.ELASTIC,
+        removalPolicy: cdk.RemovalPolicy.RETAIN,
+        securityGroup: efsSecurityGroup,
+        vpcSubnets: { subnetGroupName: 'PrivateWithEgress' },
+        fileSystemPolicy: fileSystemPolicyDocument,
+      });
+    }
 
     // launch templates
     const {
@@ -203,7 +219,8 @@ export class CdkStack extends cdk.Stack {
       machineImageOllama,
       instanceTypeOllama,
       ollamaKeyPair,
-      ollamaSecurityGroup
+      ollamaSecurityGroup,
+      enableOllama
     );
 
     // Auto Scaling Groups and alarms
@@ -226,7 +243,8 @@ export class CdkStack extends cdk.Stack {
       delphiSmallLaunchTemplate,
       delphiLargeLaunchTemplate,
       ollamaNamespace,
-      alarmTopic
+      alarmTopic,
+      enableOllama
     );
 
     // --- DEPLOY STUFF
@@ -244,41 +262,49 @@ export class CdkStack extends cdk.Stack {
       codeDeployRole
     );
 
-    // --- Ollama Network Load Balancer (Internal, in Private+Egress)
-    const ollamaNlb = new elbv2.NetworkLoadBalancer(this, 'OllamaNlb', {
-      vpc,
-      internetFacing: false, // Internal only
-      crossZoneEnabled: true,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-    });
-    const ollamaListener = ollamaNlb.addListener('OllamaListener', {
-      port: ollamaPort,
-      protocol: elbv2.Protocol.TCP,
-    });
-    const ollamaTargetGroup = new elbv2.NetworkTargetGroup(this, 'OllamaTargetGroup', {
-      vpc,
-      port: ollamaPort,
-      protocol: elbv2.Protocol.TCP,
-      targetType: elbv2.TargetType.INSTANCE,
-      targets: [asgOllama],
-      healthCheck: {
+    // --- Ollama Network Load Balancer + service-URL secret (only when enabled)
+    let ollamaNlb: elbv2.NetworkLoadBalancer | undefined;
+    let ollamaServiceSecret: secretsmanager.Secret | undefined;
+    if (enableOllama) {
+      if (!asgOllama) {
+        throw new Error('enableOllama is true but asgOllama was not created');
+      }
+      // Internal, in Private+Egress
+      ollamaNlb = new elbv2.NetworkLoadBalancer(this, 'OllamaNlb', {
+        vpc,
+        internetFacing: false, // Internal only
+        crossZoneEnabled: true,
+        vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      });
+      const ollamaListener = ollamaNlb.addListener('OllamaListener', {
+        port: ollamaPort,
         protocol: elbv2.Protocol.TCP,
-        interval: cdk.Duration.seconds(30),
-        healthyThresholdCount: 2,
-        unhealthyThresholdCount: 2,
-      },
-      deregistrationDelay: cdk.Duration.seconds(60),
-    });
-    ollamaListener.addTargetGroups('OllamaTg', ollamaTargetGroup);
+      });
+      const ollamaTargetGroup = new elbv2.NetworkTargetGroup(this, 'OllamaTargetGroup', {
+        vpc,
+        port: ollamaPort,
+        protocol: elbv2.Protocol.TCP,
+        targetType: elbv2.TargetType.INSTANCE,
+        targets: [asgOllama],
+        healthCheck: {
+          protocol: elbv2.Protocol.TCP,
+          interval: cdk.Duration.seconds(30),
+          healthyThresholdCount: 2,
+          unhealthyThresholdCount: 2,
+        },
+        deregistrationDelay: cdk.Duration.seconds(60),
+      });
+      ollamaListener.addTargetGroups('OllamaTg', ollamaTargetGroup);
 
-    // Secret for Ollama NLB endpoint
-    const ollamaServiceSecret = new secretsmanager.Secret(this, 'OllamaServiceSecret', {
-      secretName: '/polis/ollama-service-url',
-      description: 'URL for the internal Ollama service endpoint (NLB)',
-      // Store the NLB DNS name and port
-      secretStringValue: cdk.SecretValue.unsafePlainText(`http://${ollamaNlb.loadBalancerDnsName}:${ollamaPort}`),
-    });
-    ollamaServiceSecret.grantRead(instanceRole);
+      // Secret for Ollama NLB endpoint
+      ollamaServiceSecret = new secretsmanager.Secret(this, 'OllamaServiceSecret', {
+        secretName: '/polis/ollama-service-url',
+        description: 'URL for the internal Ollama service endpoint (NLB)',
+        // Store the NLB DNS name and port
+        secretStringValue: cdk.SecretValue.unsafePlainText(`http://${ollamaNlb.loadBalancerDnsName}:${ollamaPort}`),
+      });
+      ollamaServiceSecret.grantRead(instanceRole);
+    }
 
     // --- DB Access Rules
     db.connections.allowFrom(asgWeb, ec2.Port.tcp(5432), 'Allow database access from web ASG');
@@ -371,8 +397,10 @@ export class CdkStack extends cdk.Stack {
 
     // --- Outputs
     new cdk.CfnOutput(this, 'LoadBalancerDNS', { value: lb.loadBalancerDnsName, description: 'Public DNS name of the Application Load Balancer' });
-    new cdk.CfnOutput(this, 'OllamaNlbDnsName', { value: ollamaNlb.loadBalancerDnsName, description: 'Internal DNS Name for the Ollama Network Load Balancer'});
-    new cdk.CfnOutput(this, 'OllamaServiceSecretArn', { value: ollamaServiceSecret.secretArn, description: 'ARN of the Secret containing the Ollama service URL' });
-    new cdk.CfnOutput(this, 'EfsFileSystemId', { value: fileSystem.fileSystemId, description: 'ID of the EFS File System for Ollama models' });
+    if (enableOllama && ollamaNlb && ollamaServiceSecret && fileSystem) {
+      new cdk.CfnOutput(this, 'OllamaNlbDnsName', { value: ollamaNlb.loadBalancerDnsName, description: 'Internal DNS Name for the Ollama Network Load Balancer'});
+      new cdk.CfnOutput(this, 'OllamaServiceSecretArn', { value: ollamaServiceSecret.secretArn, description: 'ARN of the Secret containing the Ollama service URL' });
+      new cdk.CfnOutput(this, 'EfsFileSystemId', { value: fileSystem.fileSystemId, description: 'ID of the EFS File System for Ollama models' });
+    }
   }
 }

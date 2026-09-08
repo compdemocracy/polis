@@ -70,18 +70,27 @@ def main():
 
     print(f"{GREEN}Processing conversation {zid}...{NC}")
 
-    # Set model
-    model = os.environ.get("OLLAMA_MODEL")
-    if not model:
-        print(f"{RED}Error: OLLAMA_MODEL environment variable not set.{NC}")
-        sys.exit(1)
-    print(f"{YELLOW}Using Ollama model: {model}{NC}")
+    # Select the topic-naming provider. Default is Anthropic (via the Batch API);
+    # OLLAMA_MODEL / OLLAMA_HOST are only required for a self-hosted Ollama setup.
+    llm_provider = os.environ.get("LLM_PROVIDER", "anthropic").lower()
+    if llm_provider == "ollama":
+        model = os.environ.get("OLLAMA_MODEL")
+        if not model:
+            print(f"{RED}Error: LLM_PROVIDER=ollama but OLLAMA_MODEL is not set.{NC}")
+            sys.exit(1)
+        os.environ["OLLAMA_HOST"] = os.environ.get("OLLAMA_HOST", "http://ollama:11434")
+        print(f"{YELLOW}Using Ollama model: {model} at {os.environ['OLLAMA_HOST']}{NC}")
+    else:
+        topic_model = (
+            os.environ.get("ANTHROPIC_TOPIC_MODEL")
+            or os.environ.get("ANTHROPIC_MODEL")
+            or "claude-haiku-4-5-20251001"
+        )
+        print(f"{YELLOW}Using {llm_provider} topic model: {topic_model}{NC}")
 
     # Set up environment for the pipeline
     app_path = os.environ.get('DELPHI_APP_PATH', '/app')
     os.environ["PYTHONPATH"] = f"{app_path}:{os.environ.get('PYTHONPATH', '')}"
-    os.environ["OLLAMA_HOST"] = os.environ.get("OLLAMA_HOST", "http://ollama:11434")
-    # OLLAMA_MODEL is already set and checked
     max_votes = os.environ.get("MAX_VOTES")
     max_votes_arg = f"--max-votes={max_votes}" if max_votes else ""
     if max_votes:
@@ -120,7 +129,7 @@ def main():
         f"--zid={zid}",
         f"--include_moderation={args.include_moderation}",
         f"--exclude_comment_selections={args.exclude_comment_selections}",
-        "--use-ollama"
+        "--name-topics"
     ]
     if verbose_arg:
         umap_command.append(verbose_arg)

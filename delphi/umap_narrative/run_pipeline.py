@@ -24,6 +24,11 @@ from polismath_commentgraph.utils.converter import DataConverter
 # Import from local modules
 from polismath_commentgraph.utils.storage import DynamoDBStorage, PostgresClient
 from sentence_transformers import SentenceTransformer
+from umap_narrative.topic_naming import (
+    generate_cluster_topic_labels,
+    resolve_model_name,
+    resolve_provider_type,
+)
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from umap import UMAP
 
@@ -274,235 +279,6 @@ def characterize_comment_clusters(cluster_layer, comment_texts):
         }
 
     return cluster_characteristics
-
-
-def generate_cluster_topic_labels(
-    cluster_characteristics,
-    comment_texts=None,
-    layer=None,
-    layer_idx=0,
-    conversation_name=None,
-    use_ollama=False,
-    document_map=None,
-):
-    """
-    Generate topic labels for clusters based on their characteristics.
-
-    Args:
-        cluster_characteristics: Dictionary with cluster characterizations
-        comment_texts: List of comment text strings (used for Ollama naming)
-        layer: Cluster assignments for the current layer (used for Ollama naming)
-        layer_idx: Index of the current layer
-        conversation_name: Name of the conversation (used for Ollama naming)
-        use_ollama: Whether to use Ollama for topic naming
-        document_map: 2D UMAP coordinates for selecting representative comments
-
-    Returns:
-        cluster_labels: Dictionary mapping cluster IDs to topic labels
-    """
-    cluster_labels = {}
-
-    # Check for Anthropic API key
-    anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not anthropic_api_key:
-        warning_message = (
-            "⚠️ ANTHROPIC_API_KEY not set. LLM-based narrative reports will be skipped."
-        )
-        logger.warning(warning_message)
-        # Print to stdout directly for better visibility in Docker logs
-        print(f"\033[0;33m{warning_message}\033[0m")
-        print(
-            "To generate narrative reports, set the ANTHROPIC_API_KEY environment variable."
-        )
-
-    # Check if we should use Ollama
-    if use_ollama and comment_texts is not None and layer is not None:
-        try:
-            import ollama
-
-            logger.info("Using Ollama for cluster naming")
-
-            # Function to get topic labels via Ollama
-            def get_topic_name(comments):
-                prompt = (
-                    "Read these comments and provide ONLY ONE short topic label (3–5 words) "
-                    "that captures their combined essence. Do not give one topic per comment. "
-                    "Do not include explanations, introductions, or multiple outputs. "
-                    "Reply with exactly one topic label, in quotation marks, on a single line.\n\n"
-                    "Comments:\n"
-                )
-                for j, comment in enumerate(
-                    comments[:5]
-                ):  # Use 5 pseudo-random comments as examples
-                    prompt += f"{j + 1}. {comment}\n"
-
-                try:
-                    # Get model name from environment variable or use default
-                    model_name = os.environ.get("OLLAMA_MODEL", "llama3.1:8b")
-                    logger.info(f"Using Ollama model from environment: {model_name}")
-                    response = ollama.chat(
-                        model=model_name, messages=[{"role": "user", "content": prompt}]
-                    )
-
-                    # Extract just the topic name with more thorough cleaning
-                    raw_response = response["message"]["content"].strip()
-
-                    # Clean up various prefixes - extended list from 600_generate_llm_topic_names.py
-                    prefixes_to_remove = [
-                        "Here is the list of topic labels:",
-                        "Here is the list of topic labels",
-                        "Here are the topic labels:",
-                        "Here are the topic labels",
-                        "Here is the topic label:",
-                        "Here is the topic label",
-                        "The topic label is:",
-                        "The topic label is",
-                        "Topic label:",
-                        "Here is a concise topic label:",
-                        "Here's a concise topic label:",
-                        "Concise topic label:",
-                        "Topic name:",
-                        "Topic name",
-                        "Topic:",
-                        "Label:",
-                        "Label",
-                    ]
-
-                    # First, check if there's already a layer_cluster prefix (like "1_2:") and remove it
-                    import re
-
-                    layer_prefix_match = re.match(r"^\d+_\d+:\s*", raw_response)
-                    if layer_prefix_match:
-                        raw_response = raw_response[layer_prefix_match.end() :]
-
-                    for prefix in prefixes_to_remove:
-                        if raw_response.startswith(prefix):
-                            raw_response = raw_response.replace(prefix, "", 1)
-
-                    # Strip all whitespace including newlines BEFORE splitting
-                    raw_response = raw_response.strip()
-
-                    # Get just the first line, as we only want the label
-                    topic = raw_response.split("\n")[0].strip()
-
-                    # Remove quotes if they're present (handle both double and single quotes)
-                    topic = topic.strip("\"'")
-
-                    # Remove common formats like "1. Topic Name" or "- Topic Name"
-                    if topic.startswith("1. ") or topic.startswith("- "):
-                        topic = topic[3:].strip()
-
-                    # Remove asterisks and other markdown formatting
-                    topic = topic.replace("*", "")
-
-                    # Check if we ended up with empty string after all the cleaning
-                    if not topic or not topic.strip():
-                        logger.warning(
-                            f"Empty topic name after cleaning for cluster - original response: '{raw_response}'"
-                        )
-                        return f"Topic {len(comments)}"  # Fallback
-                    if len(topic) > 50:  # If it's too long, truncate
-                        topic = topic[:50] + "..."
-                    return topic
-                except Exception as e:
-                    logger.error(f"Error generating topic with Ollama: {e}")
-                    return f"Topic {len(comments)}"
-
-            # Generate labels using Ollama
-            for cluster_id in cluster_characteristics.keys():
-                if cluster_id < 0:  # Skip noise points
-                    continue
-
-                # Get comments for this cluster
-                cluster_indices = np.where(layer == cluster_id)[0]
-
-                # Select the 5 most representative comments (closest to centroid)
-                if len(cluster_indices) > 5 and document_map is not None:
-                    # Calculate centroid of the cluster in document_map space
-                    centroid = np.mean(document_map[cluster_indices], axis=0)
-
-                    # Calculate distance from each comment to the centroid
-                    distances = np.sqrt(
-                        np.sum((document_map[cluster_indices] - centroid) ** 2, axis=1)
-                    )
-
-                    # Get indices of the 5 comments closest to centroid
-                    closest_indices = np.argsort(distances)[:5]
-                    selected_indices = cluster_indices[closest_indices].tolist()
-
-                    logger.info(
-                        f"Selected {len(selected_indices)} most representative comments "
-                        f"for layer {layer_idx}, cluster {cluster_id} "
-                        f"(distances: {distances[closest_indices]})"
-                    )
-                else:
-                    # If 5 or fewer comments, use all of them
-                    selected_indices = cluster_indices.tolist()
-
-                selected_comments = [comment_texts[i] for i in selected_indices]
-
-                # Get topic name
-                topic_name = get_topic_name(
-                    selected_comments,
-                )
-                # Add layer_cluster prefix to ensure uniqueness
-                # Use the passed layer_idx parameter, not the layer array
-                logger.info(
-                    f"DEBUG: Creating prefix for layer_idx={layer_idx}, cluster_id={cluster_id}, topic='{topic_name}'"
-                )
-                # Strip quotes again in case they were added back somehow
-                cleaned_topic_name = topic_name.strip().strip("\"'")
-                prefixed_topic_name = (
-                    f"{layer_idx}_{cluster_id}: {cleaned_topic_name}"
-                    if cleaned_topic_name
-                    else f"{layer_idx}_{cluster_id}:"
-                )
-                logger.info(f"DEBUG: Final prefixed name: '{prefixed_topic_name}'")
-                cluster_labels[cluster_id] = prefixed_topic_name
-
-                # Sleep briefly to avoid rate limiting
-                time.sleep(0.5)
-
-            logger.info(f"Generated {len(cluster_labels)} topic names using Ollama")
-            return cluster_labels
-
-        except ImportError:
-            logger.error("Ollama not installed. Using conventional topic naming.")
-            # Fall back to conventional naming
-        except Exception as e:
-            logger.error(f"Error using Ollama: {e}")
-            # Fall back to conventional naming
-
-    # Conventional topic naming (fallback or when Ollama is not requested)
-    for cluster_id, characteristics in cluster_characteristics.items():
-        top_words = characteristics.get("top_words", [])
-        sample_comments = characteristics.get("sample_comments", [])
-
-        label_parts = []
-
-        # Add top words
-        if len(top_words) > 0:
-            label_parts.append("Keywords: " + ", ".join(top_words[:5]))
-
-        # Add first sample comment (shortened)
-        if len(sample_comments) > 0:
-            first_comment = sample_comments[0]
-            if len(first_comment) > 50:
-                first_comment = first_comment[:47] + "..."
-            label_parts.append("Example: " + first_comment)
-
-        # Create the final label
-        if label_parts:
-            label = " | ".join(label_parts)
-            # Truncate if too long
-            if len(label) > 50:
-                label = label[:47] + "..."
-        else:
-            label = f"Topic {cluster_id}"
-
-        cluster_labels[cluster_id] = label
-
-    return cluster_labels
 
 
 def create_comment_hover_info(cluster_layer, cluster_characteristics, comment_texts):
@@ -1049,7 +825,7 @@ def process_layers_and_create_visualizations(
     cluster_layers,
     comment_texts,
     output_dir,
-    use_ollama=False,
+    name_topics=False,
     dynamo_storage=None,
     job_id=None,  # Added job_id
 ):
@@ -1063,7 +839,8 @@ def process_layers_and_create_visualizations(
         cluster_layers: Cluster assignments for each layer
         comment_texts: List of comment text strings
         output_dir: Directory to save visualizations
-        use_ollama: Whether to use Ollama for topic naming (deprecated, will be moved to separate script)
+        name_topics: Whether to generate LLM topic labels (provider chosen by
+            LLM_PROVIDER; default anthropic via the Batch API)
         dynamo_storage: Optional DynamoDBStorage object for storing in DynamoDB
         job_id: Job ID for this run
     """
@@ -1088,20 +865,22 @@ def process_layers_and_create_visualizations(
         layer_data=layer_data,
     )
 
-    # If Ollama is requested, warn that this is deprecated
-    if use_ollama:
-        logger.warning(
-            "Ollama topic naming is moving to a separate process to improve reliability. "
-            "Use the new update_with_ollama.py script to update topic names with LLM after processing."
+    # If topic naming is requested, generate LLM topic labels.
+    if name_topics:
+        provider_type = resolve_provider_type()
+        topic_model = resolve_model_name(provider_type)
+        logger.info(
+            f"Generating LLM topic names with provider={provider_type} "
+            f"model={topic_model}"
         )
 
-        # For backward compatibility, still run with Ollama if requested
         for layer_idx, cluster_layer in enumerate(cluster_layers):
             characteristics = layer_data[layer_idx]["characteristics"]
 
-            # Generate topic labels with Ollama
+            # Generate topic labels via the configured provider (Anthropic batch
+            # by default; Ollama one-by-one when LLM_PROVIDER=ollama).
             logger.info(
-                f"Generating LLM topic names for layer {layer_idx} with Ollama..."
+                f"Generating LLM topic names for layer {layer_idx}..."
             )
             cluster_labels = generate_cluster_topic_labels(
                 characteristics,
@@ -1109,7 +888,7 @@ def process_layers_and_create_visualizations(
                 layer=cluster_layer,
                 layer_idx=layer_idx,
                 conversation_name=conversation_name,
-                use_ollama=True,
+                name_topics=True,
                 document_map=document_map,
             )
 
@@ -1128,13 +907,13 @@ def process_layers_and_create_visualizations(
                 logger.info(
                     f"Storing LLM topic names for layer {layer_idx} in DynamoDB..."
                 )
-                # Get model name from environment variable or use default
-                model_name = os.environ.get("OLLAMA_MODEL", "llama3.1:8b")
+                # Record the model that actually produced these labels.
+                model_name = topic_model
                 llm_topic_models = DataConverter.batch_convert_llm_topic_names(
                     conversation_id,
                     cluster_labels,
                     layer_idx,
-                    model_name=model_name,  # Model used by Ollama
+                    model_name=model_name,  # Model used for topic naming
                     job_id=job_id,  # Pass job_id
                 )
                 result = dynamo_storage.batch_create_llm_topic_names(llm_topic_models)
@@ -1324,7 +1103,7 @@ def create_enhanced_multilayer_index(
 
 
 def process_conversation(
-    zid, export_dynamo=True, use_ollama=False, include_moderation=False, exclude_comment_selections=True
+    zid, export_dynamo=True, name_topics=False, include_moderation=False, exclude_comment_selections=True
 ):
     """
     Main function to process a conversation and generate visualizations.
@@ -1332,7 +1111,7 @@ def process_conversation(
     Args:
         zid: Conversation ID
         export_dynamo: Whether to export results to DynamoDB
-        use_ollama: Whether to use Ollama for topic naming
+        name_topics: Whether to generate LLM topic labels (provider via LLM_PROVIDER)
         include_moderation: Whether to filter out moderated comments (mod == -1)
         exclude_comment_selections: Whether to exclude comments that have selection == -1
             in report_comment_selections table (for any report in this conversation)
@@ -1462,7 +1241,7 @@ def process_conversation(
         cluster_layers,
         comment_texts,
         output_dir,
-        use_ollama=use_ollama,
+        name_topics=name_topics,
         dynamo_storage=dynamo_storage,
         job_id=job_id,  # Pass job_id
     )
@@ -1509,7 +1288,14 @@ def main():
         help="Use mock data instead of connecting to PostgreSQL",
     )
     parser.add_argument(
-        "--use-ollama", action="store_true", help="Use Ollama for topic naming"
+        "--name-topics",
+        action="store_true",
+        help="Generate LLM topic labels (provider via LLM_PROVIDER; default anthropic batch)",
+    )
+    parser.add_argument(
+        "--use-ollama",
+        action="store_true",
+        help="Deprecated alias for --name-topics that forces LLM_PROVIDER=ollama",
     )
     parser.add_argument(
         "--include_moderation",
@@ -1535,9 +1321,20 @@ def main():
         db_password=args.db_password,
     )
 
-    # Log Ollama usage
+    # Resolve topic-naming request. --use-ollama is a deprecated alias that both
+    # enables naming and forces the ollama provider.
     if args.use_ollama:
-        logger.info("Ollama will be used for topic naming")
+        logger.warning(
+            "--use-ollama is deprecated; use --name-topics with LLM_PROVIDER=ollama. "
+            "Forcing LLM_PROVIDER=ollama for this run."
+        )
+        os.environ["LLM_PROVIDER"] = "ollama"
+    name_topics = args.name_topics or args.use_ollama
+    if name_topics:
+        logger.info(
+            f"Topic naming enabled (provider={resolve_provider_type()}, "
+            f"model={resolve_model_name(resolve_provider_type())})"
+        )
 
     # Process conversation
     if args.use_mock_data:
@@ -1586,14 +1383,14 @@ def main():
             cluster_layers,
             comment_texts,
             output_dir,
-            use_ollama=args.use_ollama,
+            name_topics=name_topics,
         )
     else:
         # Process with real data from PostgreSQL
         process_conversation(
             args.zid,
             export_dynamo=not args.no_dynamo,
-            use_ollama=args.use_ollama,
+            name_topics=name_topics,
             include_moderation=args.include_moderation,
             exclude_comment_selections=args.exclude_comment_selections,
         )

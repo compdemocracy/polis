@@ -9,8 +9,9 @@ allowing for easy configuration and switching between model providers.
 import os
 import json
 import logging
+import time
 import requests
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Callable
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -98,7 +99,12 @@ def _check_response_for_issues(response_json: dict, model_name: Optional[str]) -
 
 class ModelProvider:
     """Base class for model providers."""
-    
+
+    # Whether this provider can process many prompts in a single asynchronous
+    # batch call. Subclasses that support the Anthropic Message Batches API set
+    # this to True; the default (e.g. Ollama) processes prompts one-by-one.
+    supports_batching: bool = False
+
     def get_response(self, system_message: str, user_message: str) -> str:
         """
         Get a response from the model.
@@ -245,6 +251,14 @@ class OllamaProvider(ModelProvider):
 class AnthropicProvider(ModelProvider):
     """Provider for Anthropic Claude models."""
 
+    # Anthropic supports the Message Batches API.
+    supports_batching: bool = True
+
+    # Base URL for the Message Batches API. NOTE the trailing "batches" (plural):
+    # the endpoint is POST/GET /v1/messages/batches[/{id}]. An earlier version of
+    # this file posted to the singular ".../batch", which does not exist (404).
+    BATCH_API_URL = "https://api.anthropic.com/v1/messages/batches"
+
     def __init__(self, model_name: Optional[str] = None, api_key: Optional[str] = None):
         """
         Initialize the Anthropic provider.
@@ -369,101 +383,155 @@ class AnthropicProvider(ModelProvider):
                 ]
             })
     
+    def _batch_headers(self) -> Dict[str, str]:
+        return {
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        }
+
     def get_batch_responses(self, batch_requests: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Submit a batch of requests to the Anthropic Batch API.
-        
+        Create a batch on the Anthropic Message Batches API.
+
         Args:
-            batch_requests: List of request objects, each containing:
-                - system: System message
-                - messages: List of message objects
-                - max_tokens: Maximum tokens for response
-                - metadata: Dictionary with request metadata
-                
+            batch_requests: List of request objects already in Batch API shape,
+                each a dict with:
+                - "custom_id": stable string used to correlate the result back to
+                  the caller (results come back in arbitrary order).
+                - "params": a Messages API params dict (model, messages,
+                  max_tokens, ...). If "model" is omitted, this provider's
+                  model_name is injected.
+
         Returns:
-            Dictionary with batch job metadata
+            The created batch object as returned by the API (contains "id",
+            "processing_status", and later "results_url"), or a dict with an
+            "error" key on failure.
+
+        Note: the server-side "fallbacks" param (used for claude-fable-5 refusal
+        recovery in the non-batch path) is rejected by the Batch API and must not
+        be added here — a refused item comes back with stop_reason "refusal".
         """
         if not self.api_key:
             logger.error("No Anthropic API key provided for batch requests")
             return {"error": "API key missing"}
-        
+
+        formatted_requests = []
+        for req in batch_requests:
+            params = dict(req.get("params", {}))
+            params.setdefault("model", self.model_name)
+            formatted_requests.append(
+                {"custom_id": req["custom_id"], "params": params}
+            )
+
         try:
-            logger.info(f"Submitting batch of {len(batch_requests)} requests to Anthropic API")
-            
-            # Use Anthropic Batch API endpoint
-            headers = {
-                "x-api-key": self.api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json"
-            }
-            
-            # Format requests for Batch API
-            # Note: the server-side "fallbacks" param (used for claude-fable-5
-            # refusal recovery elsewhere in this file) is rejected by the Batch
-            # API and must not be added here — a refused batch item just comes
-            # back with stop_reason "refusal" and needs to be resubmitted
-            # separately via the non-batch path.
-            formatted_requests = []
-            for i, request in enumerate(batch_requests):
-                req = {
-                    "model": self.model_name,
-                    "system": request.get("system", ""),
-                    "messages": request.get("messages", []),
-                    "max_tokens": request.get("max_tokens", 8000),
-                    "output_config": {"effort": "medium"}
-                }
-                
-                # Add request ID (for correlation on response)
-                req["request_id"] = f"req_{i}"
-                
-                formatted_requests.append(req)
-            
-            # Check if Batch API is available
-            try:
-                # Make a request to the Batch API endpoint
-                batch_request_data = {
-                    "requests": formatted_requests
-                }
-                
-                response = requests.post(
-                    "https://api.anthropic.com/v1/messages/batch",
-                    headers=headers,
-                    json=batch_request_data
-                )
-                
-                # Check if the response indicates Batch API is not available
-                if response.status_code == 404:
-                    logger.warning("Anthropic Batch API endpoint not found (404). Falling back to sequential processing.")
-                    return {"error": "Batch API not available", "fallback": "sequential"}
-                
-                # Raise for other errors
-                response.raise_for_status()
-                
-                # Get response data
-                response_data = response.json()
-                logger.info(f"Batch submitted successfully. Batch ID: {response_data.get('batch_id')}")
-                
-                # Add metadata mapping
-                response_data["request_metadata"] = {f"req_{i}": request.get("metadata", {}) for i, request in enumerate(batch_requests)}
-                
-                return response_data
-                
-            except requests.exceptions.HTTPError as e:
-                if e.response is not None and e.response.status_code == 404:
-                    logger.warning("Anthropic Batch API endpoint not found (404). Falling back to sequential processing.")
-                    return {"error": "Batch API not available", "fallback": "sequential"}
-                else:
-                    logger.error(f"HTTP error using Anthropic Batch API: {str(e)}")
-                    return {"error": f"HTTP error: {str(e)}"}
-                    
-            except Exception as e:
-                logger.error(f"Error using Anthropic Batch API: {str(e)}")
-                return {"error": str(e)}
-                
+            logger.info(
+                f"Submitting batch of {len(formatted_requests)} requests to "
+                f"{self.BATCH_API_URL}"
+            )
+            response = requests.post(
+                self.BATCH_API_URL,
+                headers=self._batch_headers(),
+                json={"requests": formatted_requests},
+            )
+            response.raise_for_status()
+            data = response.json()
+            logger.info(
+                f"Batch submitted successfully. Batch ID: {data.get('id')} "
+                f"status: {data.get('processing_status')}"
+            )
+            return data
         except Exception as e:
-            logger.error(f"Error preparing batch request: {str(e)}")
+            logger.error(f"Error using Anthropic Batch API: {str(e)}")
             return {"error": str(e)}
-    
+
+    def retrieve_batch(self, batch_id: str) -> Dict[str, Any]:
+        """Fetch the current state of a batch (GET /v1/messages/batches/{id})."""
+        response = requests.get(
+            f"{self.BATCH_API_URL}/{batch_id}",
+            headers=self._batch_headers(),
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def poll_batch(
+        self,
+        batch_id: str,
+        max_wait_seconds: float = 1800.0,
+        initial_interval: float = 5.0,
+        max_interval: float = 60.0,
+        sleep: Callable[[float], None] = time.sleep,
+        now: Callable[[], float] = time.monotonic,
+    ) -> Dict[str, Any]:
+        """
+        Poll a batch until its processing_status is "ended", with exponential
+        backoff. Raises TimeoutError if the batch does not end within
+        max_wait_seconds.
+
+        Returns the final (ended) batch object, which carries "results_url".
+        """
+        deadline = now() + max_wait_seconds
+        interval = initial_interval
+        while True:
+            batch = self.retrieve_batch(batch_id)
+            status = batch.get("processing_status")
+            if status == "ended":
+                return batch
+            remaining = deadline - now()
+            if remaining <= 0:
+                raise TimeoutError(
+                    f"Batch {batch_id} did not complete within {max_wait_seconds}s "
+                    f"(last status: {status})"
+                )
+            counts = batch.get("request_counts", {})
+            logger.info(
+                f"Batch {batch_id} status={status} counts={counts}; "
+                f"sleeping {min(interval, remaining):.0f}s"
+            )
+            sleep(min(interval, remaining))
+            interval = min(interval * 2, max_interval)
+
+    def get_batch_results(self, batch: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Download and parse the JSONL results of an ended batch.
+
+        Args:
+            batch: an ended batch object (must contain "results_url").
+
+        Returns:
+            A list of result records, each a dict with "custom_id" and "result".
+        """
+        results_url = batch.get("results_url")
+        if not results_url:
+            raise ValueError("Batch has no results_url; is it ended?")
+        response = requests.get(results_url, headers=self._batch_headers())
+        response.raise_for_status()
+        records = []
+        for line in response.text.splitlines():
+            line = line.strip()
+            if line:
+                records.append(json.loads(line))
+        return records
+
+    @staticmethod
+    def extract_text_from_result(record: Dict[str, Any]) -> Optional[str]:
+        """
+        Pull the assistant text out of a single batch result record.
+
+        Returns None if the request did not succeed (errored/canceled/expired/
+        refusal) or produced no text block.
+        """
+        result = record.get("result", {})
+        if result.get("type") != "succeeded":
+            return None
+        message = result.get("message", {})
+        if message.get("stop_reason") == "refusal":
+            return None
+        content = message.get("content", [])
+        text_blocks = [b.get("text", "") for b in content if b.get("type") == "text"]
+        return text_blocks[0] if text_blocks else None
+
+
     def list_available_models(self) -> List[str]:
         """
         List available Claude models.
@@ -612,7 +680,13 @@ def get_model_provider(provider_type: Optional[str] = None, model_name: Optional
     else:
         # Default to Ollama
         model_name = model_name or os.environ.get("OLLAMA_MODEL", "llama3")
-        endpoint = os.environ.get("OLLAMA_ENDPOINT", "http://localhost:11434")
+        # Honor OLLAMA_HOST (used by the ollama client and the rest of Delphi),
+        # falling back to the older OLLAMA_ENDPOINT name.
+        endpoint = (
+            os.environ.get("OLLAMA_HOST")
+            or os.environ.get("OLLAMA_ENDPOINT")
+            or "http://localhost:11434"
+        )
         logger.info(f"Using Ollama provider with model: {model_name} at {endpoint}")
         return OllamaProvider(model_name=model_name, endpoint=endpoint)
 
