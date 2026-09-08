@@ -347,8 +347,15 @@ class Conversation:
                     null_count += 1
                     continue
                 
-                # Add to batch updates list
-                vote_updates.append((ptpt_id, comment_id, vote_value))
+                # Add to batch updates list. `created` is carried so duplicate
+                # (row, col) resolution is by vote TIMESTAMP, not payload order
+                # (M2, P-019): a retried batch can arrive at the queue tail AFTER
+                # a newer revote, so payload order no longer implies temporal
+                # order. Sorting by `created` before drop_duplicates(keep='last')
+                # restores later-vote-wins regardless of arrival order. For an
+                # already-time-sorted stream (the replay/certification input) the
+                # stable sort is an identity, so certified outputs are unchanged.
+                vote_updates.append((ptpt_id, comment_id, vote_value, created))
                 
             except Exception as e:
                 logger.error(f"Error processing vote: {e}")
@@ -362,7 +369,7 @@ class Conversation:
         # in payload order — the same order Clojure's update-nmat encounters
         # them). See tid_arrival_order in __init__.
         seen_tids = set(result.tid_arrival_order)
-        for _, comment_id, _ in vote_updates:
+        for _, comment_id, _, _ in vote_updates:
             if comment_id not in seen_tids:
                 seen_tids.add(comment_id)
                 result.tid_arrival_order.append(comment_id)
@@ -377,10 +384,16 @@ class Conversation:
         # By now it contain only -1, +1, or 0 as values
         logger.info(f"[{time.time() - start_time:.2f}s] Converting updates to DataFrame...")
 
-        updates_df = pd.DataFrame(vote_updates, columns=['row', 'col', 'value'])
+        updates_df = pd.DataFrame(vote_updates, columns=['row', 'col', 'value', 'created'])
 
-        # Step 2: Keep only the most recent vote for each (participant, comment) pair
+        # Step 2: Keep only the most recent vote for each (participant, comment) pair.
+        # Sort by `created` FIRST (stable, so equal-timestamp ties keep payload /
+        # Clojure encounter order), then keep='last' — this resolves duplicates by
+        # timestamp rather than payload position (M2, P-019). Without the sort a
+        # retried batch appended at the queue tail could let an OLDER vote win over
+        # a newer revote that was queued during the failure.
         original_count = len(updates_df)
+        updates_df = updates_df.sort_values('created', kind='mergesort')
         updates_df = updates_df.drop_duplicates(subset=['row', 'col'], keep='last')
         superseded_votes = original_count - len(updates_df)
         logger.info(f"[{time.time() - start_time:.2f}s] Discarded {superseded_votes} superseded votes (sequential votes on same comment by same participant)")
@@ -408,7 +421,7 @@ class Conversation:
         # See delphi/docs/INVESTIGATION_K_DIVERGENCE.md for the full
         # analysis showing this is the root cause of k divergence on vw.
         new_rows_ordered = []
-        for pid, _, _ in vote_updates:
+        for pid, _, _, _ in vote_updates:
             if pid in new_rows and pid not in existing_rows_set:
                 existing_rows_set.add(pid)
                 new_rows_ordered.append(pid)
