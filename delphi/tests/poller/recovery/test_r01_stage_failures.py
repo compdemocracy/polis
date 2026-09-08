@@ -38,6 +38,7 @@ from .conftest import (
     read_vote_events,
     seed_conversation,
     tables_are_coherent,
+    terminate_backend_pid,
     terminate_backends,
 )
 from . import fold as F
@@ -182,25 +183,138 @@ def test_real_db_rollback_leaves_no_partial_main_row(engine, pg_url, make_servic
 
 def test_real_connection_loss_recovers(engine, pg_url, recovery_postgres_url,
                                        make_service):
-    """Terminate the poller's server-side backend mid-cycle (a REAL connection
-    loss), then require bounded eventual recovery with no lost votes."""
+    """Terminate the backend of an ACTIVE write transaction (a REAL connection
+    loss on the tested path), then require bounded eventual recovery with no
+    lost votes.
+
+    The earlier version of this test terminated every backend on the database
+    just BEFORE the next write and asserted only that its hook had run — which
+    proves nothing: a fresh connection, or SQLAlchemy's pre-ping, can repair an
+    idle killed connection without any failure ever reaching the retry path
+    (astra review finding 5).  So instead:
+
+    1. open a real transaction on the POLLER's own engine and latch its
+       ``pg_backend_pid()``;
+    2. run the real ``math_bidtopid`` upsert inside it (uncommitted);
+    3. from a SECOND connection, ``pg_terminate_backend`` exactly that pid, and
+       assert Postgres says it killed it;
+    4. assert the COMMIT fails with a real connection-loss SQLSTATE, and that
+       the failure propagated to the service (which retried the stage);
+    5. then require quiet recovery against the independent fold.
+    """
     seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
     svc = make_service(pg_url, math_env=MATH_ENV, retry_cap=3)
 
-    original = svc._pg.write_math_bidtopid
-    state = {"fired": 0}
+    original = svc._pg._write_returning
+    state = {"bidtopid_calls": 0, "killed_pid": None, "terminated": None,
+             "error": None, "pgcode": None}
 
-    def kill_then_write(zid, data, **kwargs):
-        if state["fired"] == 0:
-            state["fired"] = 1
-            terminate_backends(recovery_postgres_url, dbname_of(pg_url))
-        return original(zid, data, **kwargs)
+    def kill_the_active_backend(sql, params=None):
+        if "math_bidtopid" not in sql:
+            return original(sql, params)
+        state["bidtopid_calls"] += 1
+        if state["bidtopid_calls"] > 1:      # the retry: let it through
+            return original(sql, params)
 
-    svc._pg.write_math_bidtopid = kill_then_write
+        conn = svc._pg.engine.connect()
+        try:
+            trans = conn.begin()
+            state["killed_pid"] = conn.execute(
+                sa.text("select pg_backend_pid()")).scalar()
+            # The REAL upsert, in a REAL open transaction on the poller's own
+            # engine — not a raised stand-in.
+            conn.execute(sa.text(sql), params or {})
+            state["terminated"] = terminate_backend_pid(
+                recovery_postgres_url, state["killed_pid"])
+            try:
+                trans.commit()
+            except sa.exc.DBAPIError as exc:
+                state["error"] = exc
+                state["pgcode"] = getattr(exc.orig, "pgcode", None)
+                raise
+            raise AssertionError(
+                "the terminated backend committed anyway; this test would be "
+                "vacuous"
+            )
+        finally:
+            try:
+                conn.close()
+            except Exception:  # pragma: no cover - the backend is gone
+                pass
+
+    svc._pg._write_returning = kill_the_active_backend
+    try:
+        svc.poll_once()
+    finally:
+        svc._pg._write_returning = original
+
+    assert state["terminated"] is True, (
+        f"pg_terminate_backend({state['killed_pid']}) did not report a kill; "
+        "no connection was actually lost"
+    )
+    assert isinstance(state["error"], sa.exc.DBAPIError), (
+        f"expected a real DBAPI failure from the killed backend, got "
+        f"{state['error']!r}"
+    )
+    text = str(state["error"]).lower()
+    assert state["pgcode"] in ("57P01", "08006", "08003", "08000") or any(
+        marker in text for marker in (
+            "terminating connection", "server closed the connection",
+            "connection already closed", "consuming input failed",
+        )
+    ), (
+        f"the failure must be a connection loss, not something else: pgcode="
+        f"{state['pgcode']!r} error={state['error']!r}"
+    )
+    assert state["bidtopid_calls"] >= 2, (
+        "the connection failure never reached the service's retry path: the "
+        f"bidtopid stage was attempted {state['bidtopid_calls']} time(s)"
+    )
+
+    _publish_and_check(engine, svc, zid=1)
+
+
+def test_terminating_an_idle_backend_is_not_evidence_of_a_failed_write(
+    engine, pg_url, recovery_postgres_url, make_service
+):
+    """The control for the test above (astra review finding 5), asserted rather
+    than assumed: terminating the database's backends between cycles does NOT
+    surface any failure to the poller — the next cycle simply reconnects.
+
+    That is why "a hook ran and then everything recovered" cannot be read as
+    proof that a connection loss was handled."""
+    seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
+    svc = make_service(pg_url, math_env=MATH_ENV, retry_cap=3)
     svc.poll_once()
-    svc._pg.write_math_bidtopid = original
-    assert state["fired"] == 1
 
+    seen = {"errors": 0, "attempts": 0}
+    original = svc._pg._write_returning
+
+    def counting(sql, params=None):
+        seen["attempts"] += 1
+        try:
+            return original(sql, params)
+        except Exception:
+            seen["errors"] += 1
+            raise
+
+    svc._pg._write_returning = counting
+    killed = terminate_backends(recovery_postgres_url, dbname_of(pg_url))
+    assert killed >= 1, "the control needs at least one backend to kill"
+
+    from .conftest import commit_vote
+    events = read_vote_events(engine, 1)
+    commit_vote(engine, 1, 0, 0, 1, max(e["created"] for e in events) + 1000)
+    svc._vote_wm = 0
+    svc.poll_once()
+    svc._pg._write_returning = original
+
+    assert seen["attempts"] > 0
+    assert seen["errors"] == 0, (
+        "killing IDLE backends surfaced an error to the writer on this run; if "
+        "that ever becomes reliable, the connection-loss test above can be "
+        "simplified — but it must not be ASSUMED"
+    )
     _publish_and_check(engine, svc, zid=1)
 
 
@@ -270,10 +384,84 @@ def test_real_serialization_failure_recovers(engine, pg_url, make_service):
 # --------------------------------------------------------------------------- #
 # Cache / temporal invariants around a failed write
 # --------------------------------------------------------------------------- #
+# Object identity and `last_updated` are NOT enough: an in-place smoother or
+# PCA mutation would leave both unchanged (astra review finding 6).  These
+# helpers take a DEEP, comparable snapshot of every piece of cached state that
+# can advance with a computation, so "no extra temporal advancement" is checked
+# against the actual numerical state and not only against a timestamp.
+_TEMPORAL_ATTRS = (
+    "last_updated",          # the input watermark
+    "last_mod_timestamp",
+    "tid_arrival_order",     # column lineage
+    "comment_count",
+    "moderation_applied",
+    "mod_in_tids", "mod_out_tids", "meta_tids",
+    "raw_rating_mat", "rating_mat",   # the full vote cells, not aggregates
+    "pca",                   # centre/comps — the geometry a recompute advances
+    "proj",                  # per-participant projected positions
+    "base_clusters", "group_clusters", "in_conv",
+    "repness",
+)
+
+
+def _digest(value):
+    """A stable, ``==``-comparable representation of a conversation attribute.
+
+    NaN (an unvoted cell) is mapped to ``None`` so two identical matrices
+    compare equal; floats are rounded so an exactly-repeated computation is not
+    reported as a change by float noise alone.
+    """
+    import numpy as np
+    import pandas as pd
+
+    if isinstance(value, pd.DataFrame):
+        return ("dataframe",
+                [str(i) for i in value.index],
+                [str(c) for c in value.columns],
+                _digest(value.to_numpy(dtype=float)))
+    if isinstance(value, pd.Series):
+        return ("series", [str(i) for i in value.index],
+                _digest(value.to_numpy()))
+    if isinstance(value, np.ndarray):
+        flat = np.asarray(value, dtype=float).ravel()
+        return ("ndarray", list(value.shape),
+                [None if v != v else round(float(v), 10) for v in flat])
+    if isinstance(value, np.generic):
+        return _digest(value.item())
+    if isinstance(value, dict):
+        return {str(k): _digest(v)
+                for k, v in sorted(value.items(), key=lambda kv: str(kv[0]))}
+    if isinstance(value, (list, tuple)):
+        return [_digest(v) for v in value]
+    if isinstance(value, (set, frozenset)):
+        return sorted(str(v) for v in value)
+    if isinstance(value, float):
+        return None if value != value else round(value, 10)
+    return value
+
+
+def _temporal_snapshot(conv):
+    """Deep snapshot of the cached conversation's temporal + geometric state."""
+    return {name: _digest(getattr(conv, name, None))
+            for name in _TEMPORAL_ATTRS}
+
+
+def _snapshot_diff(before, after):
+    return sorted(k for k in before if before[k] != after.get(k))
+
+
 def test_failed_write_leaves_prior_cached_object_unchanged(engine, pg_url,
                                                            make_service):
     """Write-before-cache (M2): on a failed write the in-memory cache must still
-    hold the LAST PERSISTED conversation object — never an unpersisted one."""
+    hold the LAST PERSISTED conversation object — never an unpersisted one.
+
+    Checked three ways, because the first two are individually weak (astra
+    review finding 6): object identity, ``last_updated``, and a DEEP snapshot
+    of every temporal/geometric attribute (rating matrices cell by cell, PCA
+    centre and components, per-participant projections, base/group clusters,
+    in-conv, repness, moderation lineage).  An in-place smoother or PCA
+    mutation that left the identity and the timestamp untouched would still be
+    caught by the third."""
     from .conftest import commit_vote
 
     seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
@@ -282,6 +470,7 @@ def test_failed_write_leaves_prior_cached_object_unchanged(engine, pg_url,
     cached_before = svc._convs.get(1)
     assert cached_before is not None
     ts_before = cached_before.last_updated
+    snapshot_before = _temporal_snapshot(cached_before)
 
     events = read_vote_events(engine, 1)
     newer = max(e["created"] for e in events) + 1000
@@ -301,6 +490,12 @@ def test_failed_write_leaves_prior_cached_object_unchanged(engine, pg_url,
     assert cached_after.last_updated == ts_before, (
         "no temporal advancement from a computation that never committed"
     )
+    changed = _snapshot_diff(snapshot_before, _temporal_snapshot(cached_after))
+    assert changed == [], (
+        "a computation that never committed advanced the cached conversation's "
+        f"temporal/geometric state: {changed} differ.  Timestamp equality is "
+        "not enough — this is the in-place-mutation case."
+    )
     # And the persisted row is still the last good one.
     main = read_math_tables(engine, 1, MATH_ENV)["main"]
     assert main["last_vote_timestamp"] == ts_before
@@ -308,6 +503,66 @@ def test_failed_write_leaves_prior_cached_object_unchanged(engine, pg_url,
     # Bounded eventual progress once the stage is healthy again.
     svc._vote_wm = 0
     svc.poll_once()
+    tables, fold = _publish_and_check(engine, svc, zid=1)
+    assert tables["main"]["last_vote_timestamp"] == newer == fold.last_vote_timestamp
+
+
+def test_recovered_state_matches_a_clean_reference_computation(engine, pg_url,
+                                                               make_service):
+    """The successful retry's geometry and lineage must equal what a CLEAN run
+    of the same inputs produces (astra review finding 6).
+
+    The reference is a second service under its own math_env running the SAME
+    checkpoint/restore schedule — one cold cycle over the same rows, then one
+    warm cycle over the same new vote — with no failure anywhere.  The schedule
+    has to match: a cold full rebuild and a warm incremental update produce
+    different (both correct) geometry, because the poller does not persist warm
+    smoother state (see the poller package docstring's "load-or-init finding"),
+    so comparing warm-with-a-failure against cold would say nothing about the
+    failure.
+
+    Comparing the two cached conversations' deep temporal snapshots checks the
+    recovered state cell by cell, rather than only the aggregate vote/count
+    fields the independent fold already covers."""
+    from .conftest import commit_vote
+
+    seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
+    svc = make_service(pg_url, math_env=MATH_ENV, retry_cap=3)
+    ref = make_service(pg_url, math_env=MATH_ENV + "_reference", retry_cap=0)
+
+    # Checkpoint 1: the cold cycle, identical for both.
+    svc.poll_once()
+    ref.poll_once()
+    assert _snapshot_diff(_temporal_snapshot(ref._convs[1]),
+                          _temporal_snapshot(svc._convs[1])) == [], (
+        "precondition: the same inputs on the same schedule must give the same "
+        "state, or this comparison cannot mean anything"
+    )
+
+    events = read_vote_events(engine, 1)
+    newer = max(e["created"] for e in events) + 1000
+    commit_vote(engine, 1, 0, 0, 1, newer)
+
+    # Checkpoint 2: the warm cycle.  The subject's write fails once and the
+    # service retries it within the cycle; the reference's does not fail.
+    injector = FaultInjector(name="write_math_main", mode="once")
+    undo = fail_stage(svc._pg, "write_math_main", injector)
+    svc._vote_wm = 0
+    svc.poll_once()
+    undo()
+    assert injector.fired == 1, "the fault must actually have fired"
+    ref._vote_wm = 0
+    ref.poll_once()
+
+    recovered, clean = svc._convs.get(1), ref._convs.get(1)
+    assert recovered is not None and clean is not None
+    changed = _snapshot_diff(_temporal_snapshot(clean),
+                             _temporal_snapshot(recovered))
+    assert changed == [], (
+        "the recovered conversation differs from a clean run of the same "
+        f"schedule over the same input in: {changed}"
+    )
+
     tables, fold = _publish_and_check(engine, svc, zid=1)
     assert tables["main"]["last_vote_timestamp"] == newer == fold.last_vote_timestamp
 
@@ -391,6 +646,33 @@ class TestNegativeControl:
         assert F.check_published_against_fold(data, mutilated) != [], (
             "NEGATIVE CONTROL FAILED: the fold check accepted a stream that is "
             "missing a whole participant"
+        )
+
+    def test_the_temporal_snapshot_catches_an_in_place_mutation(
+        self, engine, pg_url, make_service
+    ):
+        """The correction itself, controlled (astra review finding 6): mutate
+        the cached conversation's PCA IN PLACE, leaving object identity and
+        ``last_updated`` untouched.  The identity/timestamp assertions stay
+        green; the deep snapshot must go red."""
+        import numpy as np
+
+        seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
+        svc = make_service(pg_url, math_env=MATH_ENV, retry_cap=0)
+        svc.poll_once()
+        conv = svc._convs.get(1)
+        before = _temporal_snapshot(conv)
+        identity_before, ts_before = conv, conv.last_updated
+
+        centre = np.asarray(conv.pca["center"], dtype=float)
+        conv.pca["center"] = (centre + 0.5).tolist()   # an in-place advance
+
+        assert svc._convs.get(1) is identity_before, "identity is unchanged"
+        assert conv.last_updated == ts_before, "the timestamp is unchanged"
+        changed = _snapshot_diff(before, _temporal_snapshot(conv))
+        assert changed == ["pca"], (
+            "NEGATIVE CONTROL FAILED: an in-place PCA mutation was invisible "
+            f"to the temporal snapshot (diff={changed})"
         )
 
     def test_injector_that_never_fires_is_detected(self, engine, pg_url,
