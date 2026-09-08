@@ -16,6 +16,31 @@ import pytest
 from scripts.job_poller import JobProcessor
 
 
+def _jump_the_clock(monkeypatch, seconds=10_000):
+    """Send the poller's clock far forward once, without freezing it.
+
+    The job timeout compares ``time.time()`` against the start it took on the
+    first call, so a single jump trips it. Pinning the clock to a constant
+    instead — which this file used to do — makes the poller's own bounded waits
+    (``deadline = time.time() + CHILD_TERMINATE_GRACE_SECONDS``) unable to
+    expire, so a group that does not empty spins forever. That was the CI hang.
+
+    The patch replaces the ``time`` module *in the poller's namespace* only;
+    setting ``scripts.job_poller.time.time`` would have doctored the clock of
+    the whole process, tests and libraries included.
+    """
+    real_time = time.time
+    calls = {'n': 0}
+
+    def jumped():
+        calls['n'] += 1
+        return real_time() + (0 if calls['n'] == 1 else seconds)
+
+    monkeypatch.setattr(
+        "scripts.job_poller.time", SimpleNamespace(time=jumped, sleep=time.sleep)
+    )
+
+
 class FakeProcess:
     """A child that does not die unless someone actually stops it."""
 
@@ -75,10 +100,7 @@ def run_process_job(monkeypatch, child, *, timed_out=False):
     )
     monkeypatch.setenv("ANTHROPIC_MODEL", "synthetic-model")
     if timed_out:
-        clock = iter([0, 10_000])
-        monkeypatch.setattr(
-            "scripts.job_poller.time.time", lambda: next(clock, 10_000)
-        )
+        _jump_the_clock(monkeypatch)
 
     worker.process_job(
         {
@@ -156,10 +178,7 @@ def run_process_job_with(monkeypatch, child, *, timed_out=False):
     monkeypatch.setattr("scripts.job_poller.subprocess.Popen", lambda *a, **kw: child)
     monkeypatch.setenv("ANTHROPIC_MODEL", "synthetic-model")
     if timed_out:
-        clock = iter([0, 10_000])
-        monkeypatch.setattr(
-            "scripts.job_poller.time.time", lambda: next(clock, 10_000)
-        )
+        _jump_the_clock(monkeypatch)
     worker.process_job(
         {
             "job_id": "synthetic-root",
@@ -274,11 +293,26 @@ def _reap(parent, grandchild_pid):
 
 
 def _alive(pid):
+    """Running — not merely still present in the process table.
+
+    A killed process stays a zombie until its parent reaps it, and a grandchild
+    orphaned by the job's parent is re-parented to PID 1, which in a container
+    is the image's command (the CI compose file runs `tail -f /dev/null`), not
+    a reaping init. `os.kill(pid, 0)` keeps succeeding for such a zombie, so
+    "the tree is gone" has to be asked of the process state, as the poller's
+    own `_live_group_members` asks it.
+    """
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
         return False
-    return True
+    try:
+        with open(f"/proc/{pid}/stat", "rb") as stat_file:
+            state = stat_file.read().rpartition(b")")[2].split()[0]
+    except (OSError, IndexError):
+        # No /proc (macOS): the platform's init reaps, so the probe is enough.
+        return True
+    return state not in (b"Z", b"X", b"x")
 
 
 def test_stopping_a_job_kills_its_grandchildren():
