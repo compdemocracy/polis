@@ -27,6 +27,7 @@ pub const STAGES: &[&str] = &[
     "after_sweep",
     "bundle_pinned",
     "before_companion_join",
+    "cache_eviction_contends_with_same_zid_update",
 ];
 #[derive(Default)]
 pub struct Fault {

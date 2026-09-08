@@ -215,6 +215,29 @@ def lease(url, zid=1, env="rustproto"):
     return dict(zip(("owner_id", "owner_epoch", "unexpired"), row)) if row else None
 
 
+def wait(predicate, timeout=90, alive=None, why="condition"):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        value = predicate()
+        if value:
+            return value
+        if alive is not None:
+            assert alive.proc.poll() is None, (why, alive.proc.poll())
+        time.sleep(.05)
+    pytest.fail(f"{why} not reached in {timeout}s")
+
+
+def repair_after_unclean_death(launch, db, predicate, lease_seconds="2", timeout=90, why="repair"):
+    """Restart after a SIGKILL without ever expiring the dead owner's lease.
+
+    The restarted process must defer the conversation while the dead owner's
+    lease is genuinely live and repair once it elapses in database time.
+    """
+    child = launch(db, "run", extra={"P026_LEASE_SECONDS": lease_seconds, "P026_POLL_MS": "50"})
+    wait(predicate, timeout=timeout, alive=child, why=why)
+    return child.kill()
+
+
 def expire(url):
     c = connect(url)
     with c.cursor() as cur:

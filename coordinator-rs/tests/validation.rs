@@ -75,3 +75,49 @@ fn strict_wire_rejects_duplicate_keys_and_nonfinite() {
         assert!(polis_coordinator::wire::parse(bytes).is_err());
     }
 }
+
+fn bundle(tick: i64) -> Box<polis_coordinator::store::Bundle> {
+    Box::new(polis_coordinator::store::Bundle {
+        payloads: payload(),
+        math_tick: tick,
+        caching_tick: tick,
+        checkpoint: json!({"source_fingerprint": "synthetic"}),
+    })
+}
+
+#[test]
+fn warm_cache_never_returns_a_stale_generation() -> Result<()> {
+    use polis_coordinator::{cache::WarmCache, fault::Fault};
+    let fault = Fault::default();
+    let mut cache = WarmCache::new(2);
+    cache.insert(&fault, 7, bundle(4))?;
+    // Another writer advanced the generation: the entry is a miss, not a
+    // silently reused prior, and it is dropped rather than kept.
+    assert!(cache.take(7, Some(5)).is_none());
+    assert!(!cache.contains(7));
+    cache.insert(&fault, 7, bundle(4))?;
+    assert!(cache.take(7, None).is_none());
+    cache.insert(&fault, 7, bundle(4))?;
+    assert!(cache.take(7, Some(4)).is_some());
+    assert!(cache.is_empty());
+    Ok(())
+}
+
+#[test]
+fn warm_cache_evicts_least_recently_used_within_capacity() -> Result<()> {
+    use polis_coordinator::{cache::WarmCache, fault::Fault};
+    let fault = Fault::default();
+    let mut cache = WarmCache::new(2);
+    for zid in [1, 2] {
+        cache.insert(&fault, zid, bundle(0))?;
+    }
+    // Re-inserting 1 makes it most recent, so 2 is the victim.
+    cache.insert(&fault, 1, bundle(0))?;
+    cache.insert(&fault, 3, bundle(0))?;
+    assert_eq!(cache.len(), 2);
+    assert!(cache.contains(1) && cache.contains(3) && !cache.contains(2));
+    let mut disabled = WarmCache::new(0);
+    disabled.insert(&fault, 1, bundle(0))?;
+    assert!(disabled.is_empty());
+    Ok(())
+}
