@@ -60,6 +60,8 @@ npx cdk synth -c enableCiEc2=true
 | `ciEc2ShutdownMinutes` | `480` | Hard-deadline self-termination (see "Cost backstops"). |
 | `ciEc2GithubRepo` | `compdemocracy/polis` | Repository allowed to assume the OIDC role. |
 | `ciEc2GithubEnvironment` | `certification-synthetic` | Must equal the workflow job's `environment:`. The trust policy admits this subject and no other. |
+| `ciEc2WorkflowRefs` | this workflow at `edge`,`stable` | Exact `job_workflow_ref` claim values. Empty is refused at synth: an empty allowlist would silently drop the condition. |
+| `ciEc2EventNames` | `workflow_dispatch,schedule` | Exact `event_name` claim values. This is what excludes `pull_request` at the token. |
 | `ciEc2AllowedInstanceTypes` | `r8g.4xlarge,r8g.2xlarge` | Enforced in IAM via `ec2:InstanceType`, so a dispatch input cannot select arbitrary spend. |
 | `ciEc2SweeperMaxAgeMinutes` | `ciEc2ShutdownMinutes + 60` | Age past which the independent sweeper kills a CI instance. Must exceed the OS deadline. |
 
@@ -85,10 +87,32 @@ Also set `CERTIFY_REGION` (variable) if the stack is not in `us-east-1`.
 There is **no fixture or evidence secret**: this workflow has no private-data
 path at all.
 
-Create the `certification-synthetic` environment with `edge` as its only
-selected branch before the first run. The environment is not optional — the
-role's trust policy admits only `repo:<repo>:environment:certification-synthetic`,
-so without it the job cannot obtain credentials at all.
+### The environment is a control you must configure, not a name
+
+Create the `certification-synthetic` environment **before** the first run, with:
+
+- **Deployment branches and tags** limited to `edge` (and `stable` if you want
+  dispatches from there),
+- a **required reviewer**,
+- no admin bypass where your plan supports disabling it.
+
+Round 2's claim that "without the environment the job cannot obtain credentials"
+was wrong, and the correction matters: GitHub **automatically creates a
+referenced environment that does not exist, with no protection rules at all**.
+An environment name in YAML is not an approval gate.
+
+The environment subject also does **not** by itself exclude pull-request jobs —
+a job that references an environment gets the environment subject even on a PR.
+Three things exclude them, and all three are in place:
+
+1. the trust policy pins `event_name` to `workflow_dispatch` and `schedule`;
+2. it pins `job_workflow_ref` to this workflow file at `edge` or `stable`;
+3. the job itself refuses any ref that is not `edge` or `stable`.
+
+Verify (1) and (2) against your repository's actual OIDC claims before the first
+run — if immutable IDs or a customized subject template are enabled, the exact
+strings change. A wrong claim name makes the assume fail, which is the right
+direction to fail, but it will look like a broken workflow.
 
 Because the flag is a CDK **context** value, everyone who deploys the stack must
 pass it. If it is omitted on a later deploy, CloudFormation deletes the role,
@@ -149,20 +173,26 @@ Three, layered, because each covers a failure the others do not:
 1. **The job's `if: always()` teardown** (`ci/p022_teardown.py`) terminates the
    instance and then *proves* it: every expected instance ID must be observed in
    state `terminated`. `shutting-down` keeps it polling; a missing ID, an
-   unrecognised state, or a `describe-instances` that fails outright all **fail
-   the job**. A failed discovery is unresolved ownership, not "nothing was
-   launched" — that conflation was a real bug in round 1. The job re-assumes its
-   role immediately before this step, so a long run cannot arrive here without
+   unrecognised state, blank output, or a `describe-instances` that fails
+   outright all **fail the job**. When the instance ID was lost, discovery
+   retries across the EC2 describe propagation window before concluding
+   anything, and "a launch was attempted but never resolved" is unresolved
+   ownership — a failure — not proof of absence. The job re-assumes its role
+   immediately before this step, so a long run cannot arrive here without
    credentials.
 2. **The instance kills itself.** `InstanceInitiatedShutdownBehavior=terminate`,
    and the *first* user-data command is `shutdown -h +480`. Failing to arm that
    timer is fatal — the box powers off immediately rather than continuing
    unbounded — and a second, independent in-process timer backs it up.
-3. **An independent EventBridge sweeper.** An hourly Lambda terminates any
-   `polis:ci=disposable` instance older than the deadline. It does not care
-   whether the Actions run finished, was cancelled, lost its runner, or whether
-   the instance's kernel is alive. This is the only one of the three that
-   survives a wedged host, and it is why the tag is mandatory at launch.
+3. **An independent EventBridge sweeper.** Its hourly cadence is *additional*
+   to the age threshold, so an overdue box can live up to an hour past the
+   deadline, and a failed invocation is an operational gate of its own — alarm
+   on it. An hourly Lambda terminates any
+   It terminates any `polis:ci=disposable` instance older than the deadline,
+   regardless of whether the Actions run finished, was cancelled, lost its
+   runner, or whether the instance's kernel is alive. This is the only one of
+   the three that survives a wedged host, and it is why the tag is mandatory at
+   launch.
 
 ## Running it manually
 
@@ -179,6 +209,16 @@ The nightly cron only proceeds on `edge`: GitHub runs a scheduled workflow from
 the **default branch**, so the job carries `if: github.ref == 'refs/heads/edge'`
 rather than assuming it.
 
+### The trust model
+
+The summary is produced by the same recipe that ran the tests, so it is
+**self-reported**. `ci/p022_check_summary.py` checks that the record is
+coherent, complete and matches the run's declared scope — it does not and cannot
+establish that the tests really ran. The artifact says so itself:
+`trust: reviewed-recipe-self-reported`. That is the trust appropriate to a
+synthetic smoke over public fixtures; an adversarial certificate needs the
+independent control boundary in `P-022-E-ci-spec.md`, which is not built.
+
 ### What comes back, and what does not
 
 Artifacts (`synthetic-ec2-<run>-<attempt>`) contain a fixed-schema
@@ -194,11 +234,18 @@ worker stderr is never printed at all. The bundle is returned base64 in bounded
 chunks with a declared length and sha256, and a short or corrupt bundle fails
 the step rather than being quietly truncated.
 
-`ci/p022_check_summary.py` then **recomputes** the verdict from the component
-return codes and rejects extra keys, wrong types, control characters,
-out-of-range integers and any dataset slug that is not a public fixture. A
-worker cannot declare its own PASS, and cannot smuggle text out through a field
-the schema does not allow.
+`ci/p022_check_summary.py` is then given the run's **declared scope** and
+rejects, on top of extra keys, wrong types, control characters and non-public
+dataset slugs:
+
+- a "pass" with any `failed`, `errors` or `xpassed`, or with zero tests executed;
+- a report inventory that is not exactly one JUnit file for the matrix and one
+  per race iteration — so nineteen overwritten reports cannot look complete;
+- a battery shortened from the six pinned public cases, or with a dataset set
+  that is not the pinned one;
+- an absent battery result claiming to be an intentional skip, unless the
+  *caller* declared `--run-battery false`;
+- a blank or mismatched candidate SHA.
 
 ## Killing a stuck instance by tag
 
@@ -248,14 +295,27 @@ Cannot: read any S3 object, use KMS, reach Secrets Manager, create a launch
 template version, attach a key pair, touch any deployment role, or terminate
 anything untagged.
 
-Two residuals are stated rather than hidden. `ssm:GetCommandInvocation` and
-`ssm:DescribeInstanceInformation` support no resource types and no condition
-keys in the AWS service authorization reference, so they cannot be narrowed by
-any policy — `ListCommands`, `ListCommandInvocations` and `CancelCommand` were
-dropped outright rather than kept on `*` for convenience. And the tag-scoped
-`TerminateInstances` on the base role can reach another concurrent campaign's
-box; the session policy removes that for the normal path, and the grant remains
-so the lost-ID sweep and the operator runbook still work.
+### Residuals, stated rather than hidden
+
+**`ssm:GetCommandInvocation` cannot be scoped.** It supports no resource types
+and no condition keys, and it returns a command's **stdout and stderr** — not
+just metadata. For any command-id/instance-id pair this role can guess or learn,
+it can read that command's output anywhere in the account. Dropping
+`ListCommands` and `ListCommandInvocations` removed discoverability, not
+authorisation. `ssm:DescribeInstanceInformation` is unscopable for the same
+reason. **Only running this in an isolated account closes it**, which is why
+that remains the activation gate.
+
+**The base role's SendCommand and TerminateInstances reach any instance sharing
+the CI tag**, because an identity policy cannot name an instance that does not
+exist yet. What is fixed is that no *live session* carries that reach: the
+launch session subtracts SSM entirely, the working session pins SendCommand and
+TerminateInstances to the one instance ARN, and the teardown session holds no
+SSM at all and pins terminate to the instance when its ID is known. A tag is
+still not a run-ownership fence.
+
+**The worker can read AWS-owned SSM documents** (`document/AWS-*`), which the
+agent needs. It can no longer read this account's private documents.
 
 The worker's role is an explicit minimal SSM-agent policy — deliberately **not**
 `AmazonSSMManagedInstanceCore`, which also grants `ssm:GetParameter` and
