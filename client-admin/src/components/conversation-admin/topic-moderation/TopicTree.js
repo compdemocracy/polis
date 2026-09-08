@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react'
 import { Box, Flex, Heading, Text, Button } from 'theme-ui'
 import { Link, useParams } from 'react-router-dom'
 import PropTypes from 'prop-types'
+import PolisNet from '../../../util/net'
 
 const TopicTree = ({ conversation_id }) => {
   const [selectedLayer, setSelectedLayer] = useState('0')
@@ -59,16 +60,17 @@ const TopicTree = ({ conversation_id }) => {
 
   const moderateTopic = async (topicKey, action) => {
     try {
+      const token = await PolisNet.getAccessTokenSilentlySPA()
       const response = await fetch('/api/v3/topicMod/moderate', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` })
         },
         body: JSON.stringify({
           conversation_id: conversation_id,
           topic_key: topicKey,
-          action: action,
-          moderator: 'admin' // TODO: Get from auth state
+          action: action
         })
       })
       const data = await response.json()

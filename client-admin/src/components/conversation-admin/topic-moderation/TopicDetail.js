@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Flex, Heading, Text, Button, Checkbox, Label } from 'theme-ui'
 import { Link, useParams } from 'react-router-dom'
+import PolisNet from '../../../util/net'
 
 const TopicDetail = () => {
   const [comments, setComments] = useState([])
@@ -69,14 +70,17 @@ const TopicDetail = () => {
     if (selectedComments.size === 0) return
 
     try {
+      const token = await PolisNet.getAccessTokenSilentlySPA()
       const response = await fetch('/api/v3/topicMod/moderate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` })
+        },
         body: JSON.stringify({
-          report_id: conversation_id,
+          conversation_id: conversation_id,
           comment_ids: Array.from(selectedComments),
-          action: action,
-          moderator: 'admin' // TODO: Get from auth state
+          action: action
         })
       })
       const data = await response.json()

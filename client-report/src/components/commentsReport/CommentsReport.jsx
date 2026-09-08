@@ -202,7 +202,7 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
   const pollForLogs = async => {
     net.polisGet("/api/v3/delphi/logs", {
       job_id: visualizationJobs.find(job => job.status === "PROCESSING" && !job.jobId.includes("batch_report_"))?.jobId || jobInProgress?.job_id
-    })
+    }, authToken)
     .then(response => {
       setProcessedLogs(response);
       const isFinished = response?.find(m => m.message.includes("Results stored in DynamoDB for conversation"));

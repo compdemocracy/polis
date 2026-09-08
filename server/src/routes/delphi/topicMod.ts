@@ -10,6 +10,8 @@ import {
 import Config from "../../config";
 import p from "../../db/pg-query";
 import { getClusterAssignmentsSimple } from "../../utils/commentClusters";
+import { isModerator } from "../../utils/common";
+import { failJson } from "../../utils/fail";
 
 // DynamoDB configuration (reuse from topics.ts)
 const dynamoDBConfig: DynamoDBClientConfig = {
@@ -258,12 +260,14 @@ export async function handle_POST_topicMod_moderate(
   res: Response
 ) {
   try {
-    const { topic_key, comment_ids, action, moderator } = req.body;
+    // Note: any `moderator` field in the request body is deliberately ignored.
+    // The acting moderator is derived from the authenticated user only.
+    const { topic_key, comment_ids, action } = req.body;
 
-    if (!action || !moderator) {
+    if (!action) {
       return res.json({
         status: "error",
-        message: "action and moderator are required",
+        message: "action is required",
       });
     }
 
@@ -275,6 +279,15 @@ export async function handle_POST_topicMod_moderate(
     }
 
     const zid = req.p.zid as number;
+    const uid = req.p.uid as number | undefined;
+
+    // Only a conversation owner/site moderator may moderate this conversation.
+    const isMod = await isModerator(zid, uid);
+    if (!isMod) {
+      return failJson(res, 403, "polis_err_topicMod_moderate_auth");
+    }
+
+    const moderator = String(uid);
     const moderate_conversation_id = zid.toString();
     const now = new Date().toISOString();
 
