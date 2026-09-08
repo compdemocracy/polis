@@ -55,11 +55,15 @@ const MAX_SUPERSEDED_HOPS = 8;
  * Returns null when it cannot be resolved yet, which the caller reads as
  * "keep waiting", never as "finished".
  */
+// The server sends `supersededBy`; accept the row's own `superseded_by` too, so
+// this reads the same whether it came through the API shape or the raw row.
+const supersededBy = (job) => job?.supersededBy || job?.superseded_by;
+
 const resolveSupersededJob = (job, jobs) => {
   let current = job;
   const seen = new Set();
   for (let hop = 0; hop < MAX_SUPERSEDED_HOPS; hop++) {
-    const successorId = current?.supersededBy;
+    const successorId = supersededBy(current);
     if (!successorId || seen.has(successorId)) {
       return current === job ? null : current;
     }
@@ -140,7 +144,7 @@ export const reconcileTrackedJob = (previous, jobs, wantBatch, reportId) => {
   }
 
   const durable = list.find((job) => job?.jobId === previous.jobId);
-  if (durable?.supersededBy) {
+  if (supersededBy(durable)) {
     // This job was withdrawn in favour of another. Hand over only once the
     // successor is actually in the response; until then the acknowledged id is
     // still the best thing to be watching.
