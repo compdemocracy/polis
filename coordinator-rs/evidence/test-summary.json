@@ -87,12 +87,12 @@
     ],
     "hashes_identical_to_previous_evidence": true,
     "observer_errors": 0,
-    "observations": 199
+    "observations": 201
   },
   "polarity": "four artifacts and semantic tie control unchanged; compensated pairs equal, negative controls differ",
   "node_d4": "0 differences; generation-zero route 200 / ETag 0 / conditional 304; no loadBundle claim",
   "scope": "Rust versus Python rebuild-prefix campaign; Clojure remains the live production writer; no Rust/Clojure comparison",
-  "compose_project": "s1fix-b7c2",
-  "postgres_port": 55886,
+  "compose_project": "s1fix-4d19",
+  "postgres_port": 55887,
   "uncommitted": false
 }
