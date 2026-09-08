@@ -181,8 +181,9 @@ impl PgStore {
         // *also* independently validate the persisted payloads, so the prior
         // generation is re-read and re-hashed from the store here and a
         // resident bundle is never the evidence. Payload corruption that leaves
-        // metadata intact is therefore repaired within one ceiling interval
-        // rather than surviving indefinitely behind a warm cache.
+        // metadata intact therefore becomes eligible for repair once the ceiling
+        // elapses, rather than surviving indefinitely behind a warm cache. The
+        // ceiling is an eligibility threshold, not a measured deadline.
         let prior = self.load_current(zid)?;
         let read = Instant::now();
         let source = self.source(zid)?;
