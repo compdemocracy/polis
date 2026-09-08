@@ -8,7 +8,7 @@ export default (
   logGroup: cdk.aws_logs.LogGroup,
   ollamaNamespace: string,
   ollamaModelDirectory: string,
-  fileSystem: cdk.aws_efs.FileSystem,
+  fileSystem: cdk.aws_efs.FileSystem | undefined,
   machineImageWeb: ec2.IMachineImage,
   instanceTypeWeb: ec2.InstanceType,
   webSecurityGroup: ec2.ISecurityGroup,
@@ -25,10 +25,11 @@ export default (
   instanceTypeDelphiLarge: ec2.InstanceType,
   delphiSecurityGroup: ec2.ISecurityGroup,
   delphiLargeKeyPair: ec2.IKeyPair | undefined,
-  machineImageOllama: ec2.IMachineImage,
-  instanceTypeOllama: ec2.InstanceType,
+  machineImageOllama: ec2.IMachineImage | undefined,
+  instanceTypeOllama: ec2.InstanceType | undefined,
   ollamaKeyPair: ec2.IKeyPair | undefined,
-  ollamaSecurityGroup: ec2.ISecurityGroup
+  ollamaSecurityGroup: ec2.ISecurityGroup | undefined,
+  enableOllama: boolean = false
 ) => {
   const usrdata = (CLOUDWATCH_LOG_GROUP_NAME: string, service: string, instanceSize?: string) => {
     let ld: ec2.UserData;
@@ -99,9 +100,11 @@ EOF`,
     return ld;
   };
   
-  const ollamaUsrData = ec2.UserData.forLinux();
 // Define path for CloudWatch Agent config
 // --- CloudWatch Agent Config Asset ---
+// NOTE: this asset is shared by EVERY tier's user data (see usrdata() above),
+// not just Ollama, so it is created unconditionally even when the Ollama stack
+// is gated off.
 const cwAgentConfigAsset = new s3_assets.Asset(self, 'CwAgentConfigAsset', {
   path: 'config/amazon-cloudwatch-agent.json' // Adjust path relative to cdk project root
 });
@@ -110,59 +113,56 @@ const cwAgentConfigAsset = new s3_assets.Asset(self, 'CwAgentConfigAsset', {
 cwAgentConfigAsset.grantRead(instanceRole);
 const cwAgentConfigPath = '/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json';
 const cwAgentTempPath = '/tmp/amazon-cloudwatch-agent.json'; // Temporary download location
-const efsDnsName = `${fileSystem.fileSystemId}.efs.${cdk.Stack.of(self).region}.${cdk.Stack.of(self).urlSuffix}`;
 
-// Add commands to the Ollama UserData
-ollamaUsrData.addCommands(
-  // Spread the base user data commands
-  ...usrdata(logGroup.logGroupName, "ollama").render().split('\n').filter(line => line.trim() !== ''),
+// --- Ollama user data (only when the GPU stack is enabled) ---
+let ollamaUsrData: ec2.UserData | undefined;
+if (enableOllama) {
+  if (!fileSystem) {
+    throw new Error('enableOllama is true but no EFS fileSystem was provided to configureLaunchTemplates');
+  }
+  const efsDnsName = `${fileSystem.fileSystemId}.efs.${cdk.Stack.of(self).region}.${cdk.Stack.of(self).urlSuffix}`;
+  ollamaUsrData = ec2.UserData.forLinux();
+  ollamaUsrData.addCommands(
+    // Spread the base user data commands
+    ...usrdata(logGroup.logGroupName, "ollama").render().split('\n').filter(line => line.trim() !== ''),
 
-  // Install EFS utilities
-  'echo "Installing EFS utilities for Ollama..."',
-  'sudo dnf install -y amazon-efs-utils nfs-utils',
+    // Install EFS utilities
+    'echo "Installing EFS utilities for Ollama..."',
+    'sudo dnf install -y amazon-efs-utils nfs-utils',
 
-  // Start Ollama-specific setup
-  'echo "Starting Ollama specific setup..."',
+    // Start Ollama-specific setup
+    'echo "Starting Ollama specific setup..."',
 
-  // NOTE: the CloudWatch agent's config download and `systemctl start` used to
-  // live here. They now run in the shared usrdata() above, for every tier, so
-  // this block would be a duplicate. The GPU metrics are unaffected: the same
-  // config file carries the nvidia_gpu section.
+    // --- Mount EFS using standard NFSv4.1 ---
+    `echo "Mounting EFS filesystem using NFSv4.1 and DNS Name: ${efsDnsName}"...`,
+    `sudo mkdir -p ${ollamaModelDirectory}`,
+    `sudo mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${efsDnsName}:/ ${ollamaModelDirectory}`,
+    `echo "${efsDnsName}:/ ${ollamaModelDirectory} nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport,_netdev 0 0" | sudo tee -a /etc/fstab`,
+    `sudo chown ec2-user:ec2-user ${ollamaModelDirectory}`,
+    'echo "EFS mounted successfully."',
 
-  // --- Mount EFS using standard NFSv4.1 ---
-  // Use the manually constructed EFS DNS name
-  `echo "Mounting EFS filesystem using NFSv4.1 and DNS Name: ${efsDnsName}"...`, // Use variable here
-  `sudo mkdir -p ${ollamaModelDirectory}`, // Ensure mount point exists
-  // Standard NFS mount command with recommended options for EFS
-  `sudo mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${efsDnsName}:/ ${ollamaModelDirectory}`, // Use variable here
-  // Update fstab to use NFS4 and the DNS name for persistence
-  `echo "${efsDnsName}:/ ${ollamaModelDirectory} nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport,_netdev 0 0" | sudo tee -a /etc/fstab`, // Use variable here
-  // Set ownership for the application user
-  `sudo chown ec2-user:ec2-user ${ollamaModelDirectory}`,
-  'echo "EFS mounted successfully."',
+    // --- Start Ollama container ---
+    'echo "Starting Ollama container..."',
+    'sudo docker run -d --name ollama \\',
+    '  --gpus all \\',
+    '  -p 0.0.0.0:11434:11434 \\',
+    `  -v ${ollamaModelDirectory}:/root/.ollama \\`,
+    '  --restart unless-stopped \\',
+    '  ollama/ollama serve',
 
-  // --- Start Ollama container ---
-  'echo "Starting Ollama container..."',
-  'sudo docker run -d --name ollama \\',
-  '  --gpus all \\',
-  '  -p 0.0.0.0:11434:11434 \\',
-  `  -v ${ollamaModelDirectory}:/root/.ollama \\`,
-  '  --restart unless-stopped \\',
-  '  ollama/ollama serve',
+    // --- Pull initial model in background ---
+    '(',
+    '  echo "Waiting for Ollama service (background task)..."',
+    '  sleep 60',
+    '  echo "Pulling default Ollama model (llama3.1:8b) in background..."',
+    '  sudo docker exec ollama ollama pull llama3.1:8b || echo "Failed to pull default model initially, may need manual pull later."',
+    '  echo "Background model pull task finished."',
+    ') &',
+    'disown',
+    'echo "Ollama setup script finished."'
+  );
+}
 
-  // --- Pull initial model in background ---
-  '(',
-  '  echo "Waiting for Ollama service (background task)..."',
-  '  sleep 60',
-  '  echo "Pulling default Ollama model (llama3.1:8b) in background..."',
-  '  sudo docker exec ollama ollama pull llama3.1:8b || echo "Failed to pull default model initially, may need manual pull later."',
-  '  echo "Background model pull task finished."',
-  ') &',
-  'disown',
-  'echo "Ollama setup script finished."'
-); // End of ollamaUsrData.addCommands
-  
-  
   // --- Launch Templates
   const webLaunchTemplate = new ec2.LaunchTemplate(self, 'WebLaunchTemplate', {
     machineImage: machineImageWeb,
@@ -223,24 +223,27 @@ ollamaUsrData.addCommands(
       },
     ],
   });
-  // Ollama Launch Template
-  const ollamaLaunchTemplate = new ec2.LaunchTemplate(self, 'OllamaLaunchTemplate', {
-    machineImage: machineImageOllama,
-    userData: ollamaUsrData,
-    instanceType: instanceTypeOllama,
-    securityGroup: ollamaSecurityGroup,
-    keyPair: ollamaKeyPair,
-    role: instanceRole,
-    blockDevices: [
-      {
-        deviceName: '/dev/xvda', // Adjust if needed for DLAMI
-        volume: ec2.BlockDeviceVolume.ebs(100, {
-          volumeType: ec2.EbsDeviceVolumeType.GP3,
-          deleteOnTermination: true,
-        }),
-      },
-    ],
-  });
+  // Ollama Launch Template (only when the GPU stack is enabled)
+  let ollamaLaunchTemplate: ec2.LaunchTemplate | undefined;
+  if (enableOllama) {
+    ollamaLaunchTemplate = new ec2.LaunchTemplate(self, 'OllamaLaunchTemplate', {
+      machineImage: machineImageOllama,
+      userData: ollamaUsrData,
+      instanceType: instanceTypeOllama,
+      securityGroup: ollamaSecurityGroup,
+      keyPair: ollamaKeyPair,
+      role: instanceRole,
+      blockDevices: [
+        {
+          deviceName: '/dev/xvda', // Adjust if needed for DLAMI
+          volume: ec2.BlockDeviceVolume.ebs(100, {
+            volumeType: ec2.EbsDeviceVolumeType.GP3,
+            deleteOnTermination: true,
+          }),
+        },
+      ],
+    });
+  }
 
   return {
     webLaunchTemplate,

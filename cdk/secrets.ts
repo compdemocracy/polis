@@ -12,8 +12,8 @@ export default (
   asgMathWorker: cdk.aws_autoscaling.AutoScalingGroup,
   asgDelphiSmall: cdk.aws_autoscaling.AutoScalingGroup,
   asgDelphiLarge: cdk.aws_autoscaling.AutoScalingGroup,
-  asgOllama: cdk.aws_autoscaling.AutoScalingGroup,
-  fileSystem: cdk.aws_efs.FileSystem
+  asgOllama: cdk.aws_autoscaling.AutoScalingGroup | undefined,
+  fileSystem: cdk.aws_efs.FileSystem | undefined
 ) => {
   const webAppEnvVarsSecret = new secretsmanager.Secret(self, 'WebAppEnvVarsSecret', {
     secretName: 'polis-web-app-env-vars',
@@ -38,13 +38,18 @@ export default (
   const addSecretDependency = (asg: autoscaling.IAutoScalingGroup) => asg.node.addDependency(webAppEnvVarsSecret);
 
   // Apply common dependencies to all ASGs
-  [asgWeb, asgMathWorker, asgDelphiSmall, asgDelphiLarge, asgOllama].forEach(asg => {
+  [asgWeb, asgMathWorker, asgDelphiSmall, asgDelphiLarge].forEach(asg => {
     addLogDependency(asg);
     addSecretDependency(asg);
-    // Only add DB dependency if the service needs it
-    if (asg !== asgOllama) {
-      addDbDependency(asg);
-    }
+    addDbDependency(asg);
   });
-  asgOllama.node.addDependency(fileSystem);
+
+  // Ollama dependencies (only when the GPU stack is enabled)
+  if (asgOllama) {
+    addLogDependency(asgOllama);
+    addSecretDependency(asgOllama);
+    if (fileSystem) {
+      asgOllama.node.addDependency(fileSystem);
+    }
+  }
 }
