@@ -96,10 +96,37 @@ def test_missing_checkpoint_field_rejected(field):
     ("fixture_id", True),      # bool is not a plain int
     ("fixture_id", "1"),
     ("persistence", "no"),
+    ("persistence", True),     # round 3: persistence must be EXACTLY False
     ("run_id", ""),
 ])
 def test_bound_checkpoint_value_rejected(field, bad):
     assert any(field in f for f in cd.validate_s1_identity(_manifest(**{field: bad})))
+
+
+# ---------------------------------------------------------------------------
+# Round 3 correction 2: per-run expected admission/identity binding.
+# ---------------------------------------------------------------------------
+_EXPECTED_ADMISSION = {"input_digest": "sha256:i", "schedule_digest": "sha256:s",
+                       "operation_id": "op-1"}
+_EXPECTED_IDENTITY = {"run_id": "r", "session_id": "s", "compute_id": "compute-0",
+                      "checkpoint_id": "checkpoint-0"}
+
+
+def test_expected_binding_accepts_matching_identity():
+    assert cd.validate_s1_identity(_manifest(), expected_admission=_EXPECTED_ADMISSION,
+                                   expected_identity=_EXPECTED_IDENTITY) == []
+
+
+def test_expected_binding_rejects_foreign_session():
+    fails = cd.validate_s1_identity(_manifest(session_id="foreign-session"),
+                                    expected_identity=_EXPECTED_IDENTITY)
+    assert any("session_id" in f and "expected" in f for f in fails)
+
+
+def test_expected_binding_rejects_changed_input_digest():
+    fails = cd.validate_s1_identity(_manifest(admission={"input_digest": "sha256:CHANGED"}),
+                                    expected_admission=_EXPECTED_ADMISSION)
+    assert any("input_digest" in f and "expected" in f for f in fails)
 
 
 def test_missing_admission_block():

@@ -256,6 +256,27 @@ def test_bridge_runner_emits_terminal_v2_report_with_rust_rows(tmp_path):
     assert (tmp_path / "certify_report_bridge.json").exists()
 
 
+def test_bridge_report_receipt_profile_agrees_with_rows(tmp_path):
+    """Round 3 correction 4: reference receipts must carry the selected profile,
+    not an empty string beneath a row that says snapshot-rebuild/1."""
+    report = cd.run_bridge_battery(_single_cut_entries(), root=tmp_path,
+                                   profile=cd.PROFILE_SNAPSHOT_REBUILD)
+    for r in report["producers"]:
+        if r["engine"] != "rust":
+            assert r["receipt"]["profile"] == cd.PROFILE_SNAPSHOT_REBUILD
+    assert report["drivers"] == ["clj", "py", "rust"]
+
+
+def test_bridge_runner_honors_a_driver_subset(tmp_path):
+    """Round 3 correction 4: a py-only selection reports and iterates ONLY py —
+    it does not silently invoke/emit clj and rust."""
+    report = cd.run_bridge_battery(_single_cut_entries(), root=tmp_path,
+                                   profile=cd.PROFILE_SNAPSHOT_REBUILD, drivers=("py",))
+    assert report["drivers"] == ["py"]
+    assert {r["engine"] for r in report["producers"]} == {"py"}
+    assert report["pairs"] == []  # a single producer has no pairs
+
+
 def test_bridge_runner_requires_both_references_for_rust(tmp_path):
     with pytest.raises(cd.BridgeError):
         cd.run_bridge_battery(_single_cut_entries(), root=tmp_path,
@@ -312,68 +333,71 @@ def _cli_module():
 
 
 # ---------------------------------------------------------------------------
-# Correction 2: the retained-recording comparison RUNS (no unconditional skip).
+# Correction 2 (round 3): additivity over the REAL retained clj<->py recordings.
 # ---------------------------------------------------------------------------
-def _write_retained_pair(root, blob):
+def _find_real_recording():
+    """Return (clj_dir, py_dir) for a real on-disk recording pair under the
+    standard recording root, or None. These are the gitignored artifacts the G12
+    measurement used (delphi/real_data/.local/replays/<dataset>/<sid>/{clj,py});
+    they exist only after an engine run has populated them."""
+    root = cert.st.replays_root()
+    if not root.exists():
+        return None
+    for clj in sorted(root.glob("*/*/clj")):
+        py = clj.parent / "py"
+        if (clj / "step-000.blob.json").exists() and (py / "step-000.json").exists():
+            return clj, py
+    return None
+
+
+def _compare_behavior(clj, py, cache_root):
+    """The legacy comparison's OBSERVABLE behavior over a recording: either its
+    canonical per-step verdict payload, or its deterministic CertifyError (a real
+    recording can trip an existing raw gate, e.g. an alias collision) — both are
+    stable functions of the bytes, which is what additivity asserts."""
     import json
-    clj = root / "clj"
-    py = root / "py"
-    clj.mkdir(parents=True, exist_ok=True)
-    py.mkdir(parents=True, exist_ok=True)
-    (clj / "step-000.blob.json").write_text(json.dumps(blob))
-    (clj / "step-000.meta.json").write_text(json.dumps({"index": 0, "cut_slot": 4683}))
-    (py / "step-000.json").write_text(json.dumps({"index": 0, "blob": blob}))
-    return clj, py
+    try:
+        res = cert.compare_recording_pair(clj, py, cache_root=cache_root)
+        return "ok", json.dumps(res["per_step"], sort_keys=True).encode()
+    except cert.CertifyError as exc:
+        return "err", f"{exc.stage}: {exc}".encode()
 
 
-def test_retained_recording_comparison_runs_and_is_bridge_stable(tmp_path):
-    """Brief rev2 :531, RUNNABLE half: run the UNCHANGED legacy comparison over
-    RETAINED recordings (no fresh engine re-record, so no JVM). Assert the verdict
-    payload bytes and the raw blob digests are deterministic across invocations,
-    and that the engine hash is stable — i.e. the bridge (an excluded harness
-    file) perturbs neither. No filtering of fields.
-
-    The genuine PINNED pre-change full-battery report is the ONE piece of evidence
-    still missing (operator-supplied); named here, not faked. When
-    P045_REFERENCE_RECORDING_ROOT is set it is compared too."""
+def test_additivity_over_real_retained_recordings(tmp_path):
+    """Round 3 correction 2: run the UNCHANGED legacy comparison over the REAL
+    retained clj<->py recordings on disk (no fresh re-record, so no JVM), and
+    assert its behavior + the raw blob digests are deterministic and the engine
+    hash is bridge-invariant — the excluded bridge file perturbs none of them,
+    on real bytes. Skips (naming the path) only when no real recording is present,
+    which is legitimate since the recordings are gitignored engine artifacts."""
     import hashlib
-    import json
-    blob = _acceptance_blob()
-    clj, py = _write_retained_pair(tmp_path / "rec", blob)
-    r1 = cert.compare_recording_pair(clj, py, cache_root=tmp_path / "c1")
-    r2 = cert.compare_recording_pair(clj, py, cache_root=tmp_path / "c2")
-    payload1 = json.dumps(r1["per_step"], sort_keys=True).encode()
-    payload2 = json.dumps(r2["per_step"], sort_keys=True).encode()
-    assert payload1 == payload2, "legacy verdict payload must be deterministic"
-    assert r1["per_step"][0]["match"] is True
-    # raw blob digests stable
-    d1 = hashlib.sha256((clj / "step-000.blob.json").read_bytes()).hexdigest()
-    d2 = hashlib.sha256((py / "step-000.json").read_bytes()).hexdigest()
-    assert d1 and d2
-    # engine hash stable with the bridge present
+    found = _find_real_recording()
+    if found is None:
+        pytest.skip(f"no real recording under {cert.st.replays_root()} "
+                    "(generate one with certify --refresh-clj --refresh-py)")
+    clj, py = found
+    kind1, payload1 = _compare_behavior(clj, py, tmp_path / "c1")
+    kind2, payload2 = _compare_behavior(clj, py, tmp_path / "c2")
+    assert (kind1, payload1) == (kind2, payload2), "legacy comparison must be deterministic on real bytes"
+    # raw blob digests are a pure function of the bytes
+    d_clj = hashlib.sha256((clj / "step-000.blob.json").read_bytes()).hexdigest()
+    d_py = hashlib.sha256((py / "step-000.json").read_bytes()).hexdigest()
+    assert len(d_clj) == 64 and len(d_py) == 64
+    # engine hash unchanged by the (excluded) bridge
     assert cert.run_provenance(cert.st.replays_root())["engine_tree_sha256"] == cert.engine_tree_hash()
 
     root = os.environ.get("P045_REFERENCE_RECORDING_ROOT")
     if root:
         from pathlib import Path
-        real = cert.compare_recording_pair(Path(root) / "clj", Path(root) / "py",
-                                           cache_root=tmp_path / "cr")
-        assert "per_step" in real
-
-
-def _acceptance_blob():
-    return {
-        "zid": "t", "n": 3, "n-cmts": 2, "in-conv": [1, 2, 3], "tids": [0, 1],
-        "pca": {"center": [0.1, 0.2], "comps": [[1.0, 0.0], [0.0, 1.0]]},
-        "base-clusters": {"id": [0, 1], "x": [0.1, -0.1], "y": [0.2, -0.2],
-                          "count": [1, 2], "members": [[1], [2, 3]]},
-        "repness": {},
-    }
+        pinned = Path(root)
+        assert _compare_behavior(pinned / "clj", pinned / "py", tmp_path / "cr") == \
+            _compare_behavior(pinned / "clj", pinned / "py", tmp_path / "cr2")
 
 
 @pytest.mark.skipif(os.environ.get("RUN_CLJ_INTEGRATION") != "1",
                     reason="needs the JVM + uv to FRESH re-record the two-driver battery")
 def test_legacy_two_driver_battery_fresh_rerecord_byte_identical():
-    # The fresh-re-record variant (as opposed to the retained comparison above)
-    # genuinely needs the engines; it stays gated on RUN_CLJ_INTEGRATION.
+    # The fresh-re-record variant genuinely needs the engines; it stays gated on
+    # RUN_CLJ_INTEGRATION. A pinned pre-change full-battery verdict remains the
+    # one operator-supplied artifact for a complete byte-identity proof.
     pytest.skip("fresh re-record needs the JVM + uv; see P-045 implementation notes")

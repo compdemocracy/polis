@@ -148,6 +148,16 @@ class DriverSpec:
         return profile in self.capabilities
 
 
+def _plan_profile(plan: Any) -> str:
+    """The selected profile, whether ``plan`` is the (dict) bridge plan or an
+    object with a ``.profile`` attribute. The runner passes a dict, so reading it
+    only as an attribute would leave every receipt profile empty beneath a row
+    that says snapshot-rebuild/1."""
+    if isinstance(plan, dict):
+        return plan.get("profile") or ""
+    return getattr(plan, "profile", "") or ""
+
+
 def _legacy_receipt(driver: str, loader: str, profile: str, entry: Any) -> DriverReceipt:
     """clj/py are the pinned references. Their real recording still runs through
     :func:`certify.ensure_clj_recording`/:func:`certify.ensure_py_recording`
@@ -173,7 +183,7 @@ def _rust_record(plan: Any, entry: Any, out_dir: Path) -> DriverReceipt:
     UNSUPPORTED_PROFILE with the reason named. This is the honest non-passing row
     the brief mandates, not a fabricated pass."""
     required = _required_cuts(entry)
-    profile = getattr(plan, "profile", None) or (plan.get("profile") if isinstance(plan, dict) else None) or ""
+    profile = _plan_profile(plan)
     reason = (
         "rust producer requires the slice-3 p045-replay-plan/1 schema and the "
         "plan-gated once --replay-plan forced-compute path, both BLOCKED on "
@@ -203,14 +213,12 @@ def _required_cuts(entry: Any) -> int:
 CLJ = DriverSpec(
     id="clj", loader="clj", implementation_digest="",
     capabilities=(PROFILE_BATTERY_CHAIN, PROFILE_SNAPSHOT_REBUILD),
-    record=lambda plan, entry, out_dir: _legacy_receipt(
-        "clj", "clj", getattr(plan, "profile", "") or "", entry),
+    record=lambda plan, entry, out_dir: _legacy_receipt("clj", "clj", _plan_profile(plan), entry),
 )
 PY = DriverSpec(
     id="py", loader="py", implementation_digest="",
     capabilities=(PROFILE_BATTERY_CHAIN, PROFILE_SNAPSHOT_REBUILD),
-    record=lambda plan, entry, out_dir: _legacy_receipt(
-        "py", "py", getattr(plan, "profile", "") or "", entry),
+    record=lambda plan, entry, out_dir: _legacy_receipt("py", "py", _plan_profile(plan), entry),
 )
 #: Rust advertises NO campaign profile today: its capabilities are empty until a
 #: reviewed build + capabilities --json reply pins them (slice 2/3). An empty
@@ -399,16 +407,19 @@ def bridge_cache_key(inputs: BridgeCacheInputs) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Three-producer inventory rows (never hashed; purely additive).
 # ---------------------------------------------------------------------------
-def three_producer_inventory(expected: cert.ExpectedEntry, profile: str) -> list[dict[str, Any]]:
-    """Per-entry inventory rows for clj/py/rust on ``profile``.
+def three_producer_inventory(expected: cert.ExpectedEntry, profile: str,
+                             drivers: tuple[str, ...] = DRIVER_IDS) -> list[dict[str, Any]]:
+    """Per-entry inventory rows for the SELECTED ``drivers`` on ``profile``.
 
-    The legacy two rows are byte-identical to ``ExpectedEntry.inventory()``; the
-    rust row is appended. A driver that does not advertise ``profile`` is marked
-    UNSUPPORTED_PROFILE up front so the row exists as a visible non-pass."""
+    With the default clj/py/rust the legacy two rows are byte-identical to
+    ``ExpectedEntry.inventory()`` and the rust row is appended; a narrower
+    selection emits exactly those producers (so the report never claims to have
+    invoked a driver the invocation did not select). A driver that does not
+    advertise ``profile`` is marked UNSUPPORTED_PROFILE up front."""
     if profile not in PROFILES:
         raise BridgeError("profile", f"unknown profile {profile!r} (allowed: {PROFILES})")
     rows: list[dict[str, Any]] = []
-    for engine in DRIVER_IDS:
+    for engine in drivers:
         spec = REGISTRY[engine]
         rows.append({
             "dataset": expected.entry.dataset,
@@ -459,8 +470,12 @@ _S1_CHECKPOINT_EXPECT: dict[str, Any] = {
     "protocol": S1_PROTOCOL, "fixture_id": "int", "run_id": "str+",
     "session_id": "str+", "compute_id": "str+", "checkpoint_id": "str+",
     "output_schema": S1_OUTPUT_SCHEMA, "state_schema": S1_STATE_SCHEMA,
-    "profile": S1_PROFILE_WIRE, "persistence": "bool",
+    "profile": S1_PROFILE_WIRE, "persistence": "false",
 }
+
+#: Identity fields the caller may bind expected values for (per-run, not global).
+S1_EXPECTED_IDENTITY_FIELDS = ("run_id", "session_id", "compute_id", "checkpoint_id")
+S1_EXPECTED_ADMISSION_FIELDS = ("input_digest", "schedule_digest", "operation_id")
 
 
 def _nonempty_str(v: Any) -> bool:
@@ -471,18 +486,27 @@ def _plain_int(v: Any) -> bool:
     return isinstance(v, int) and not isinstance(v, bool)
 
 
-def validate_s1_identity(manifest: dict[str, Any]) -> list[str]:
+def validate_s1_identity(manifest: dict[str, Any], *,
+                         expected_admission: Optional[dict[str, Any]] = None,
+                         expected_identity: Optional[dict[str, Any]] = None) -> list[str]:
     """Check S1's closed, VERSIONED identity on a candidate checkpoint manifest.
 
     Binds the checkpoint schema (``polis-candidate-checkpoint/1``); requires the
     admission block to hold EXACTLY the five fields (no unknown keys) with
     candidate_schema/engine_version at the pinned S1 constants and
     input_digest/schedule_digest/operation_id NONEMPTY strings; and binds each
-    retained checkpoint field to its expected value/type (nonempty strings,
-    non-boolean fixture_id, boolean persistence, the pinned output/state/profile
-    wire values). A different engine_version is never accepted as "implements a
-    capability S1 never advertised". Returns failures (empty == identity intact).
-    """
+    retained checkpoint field to its expected value/type — nonempty strings,
+    non-boolean fixture_id, ``persistence`` EXACTLY False (pinned engine.rs
+    requires false), and the pinned output/state/profile wire values.
+
+    Per-run EXPECTED identity is bound when supplied: ``expected_admission``
+    (``input_digest``/``schedule_digest``/``operation_id`` expected values) and
+    ``expected_identity`` (``run_id``/``session_id``/``compute_id``/
+    ``checkpoint_id`` expected values). Without them a manifest is validated for
+    the closed ENVELOPE only; a real acceptance MUST supply the operation
+    identity so a well-typed FOREIGN session/digest is rejected, not accepted.
+    A different engine_version is never accepted as "implements a capability S1
+    never advertised". Returns failures (empty == identity intact)."""
     fails: list[str] = []
     if manifest.get("schema") != S1_CHECKPOINT_SCHEMA:
         fails.append(f"checkpoint schema must be {S1_CHECKPOINT_SCHEMA!r}, "
@@ -503,7 +527,7 @@ def validate_s1_identity(manifest: dict[str, Any]) -> list[str]:
         fails.append(f"engine_version must be {S1_ENGINE_VERSION!r}, "
                      f"got {admission.get('engine_version')!r} (negotiate a new "
                      f"version rather than claim S1 bytes)")
-    for f in ("input_digest", "schedule_digest", "operation_id"):
+    for f in S1_EXPECTED_ADMISSION_FIELDS:
         if f in admission and not _nonempty_str(admission[f]):
             fails.append(f"admission.{f} must be a nonempty string")
     for f in S1_CHECKPOINT_FIELDS:
@@ -515,10 +539,19 @@ def validate_s1_identity(manifest: dict[str, Any]) -> list[str]:
             fails.append(f"checkpoint.{f} must be a nonempty string, got {val!r}")
         elif expect == "int" and not _plain_int(val):
             fails.append(f"checkpoint.{f} must be a (non-boolean) integer, got {val!r}")
-        elif expect == "bool" and not isinstance(val, bool):
-            fails.append(f"checkpoint.{f} must be a boolean, got {val!r}")
-        elif expect not in ("str+", "int", "bool") and val != expect:
+        elif expect == "false" and val is not False:
+            fails.append(f"checkpoint.{f} must be exactly False, got {val!r}")
+        elif expect not in ("str+", "int", "false") and val != expect:
             fails.append(f"checkpoint.{f} must be {expect!r}, got {val!r}")
+    # Per-run expected-identity binding (rejects a well-typed FOREIGN identity).
+    if expected_admission is not None:
+        for f in S1_EXPECTED_ADMISSION_FIELDS:
+            if f in expected_admission and admission.get(f) != expected_admission[f]:
+                fails.append(f"admission.{f} {admission.get(f)!r} != expected {expected_admission[f]!r}")
+    if expected_identity is not None:
+        for f in S1_EXPECTED_IDENTITY_FIELDS:
+            if f in expected_identity and manifest.get(f) != expected_identity[f]:
+                fails.append(f"checkpoint.{f} {manifest.get(f)!r} != expected {expected_identity[f]!r}")
     return fails
 
 
@@ -587,7 +620,8 @@ def _json_type_equal(a: Any, b: Any) -> bool:
 def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[int],
                       operation_id: str, publisher_epoch: int,
                       expected_zid: Optional[int] = None,
-                      expected_math_env: Optional[str] = None) -> list[str]:
+                      expected_math_env: Optional[str] = None,
+                      expected_input_checkpoint: Optional[dict[str, Any]] = None) -> list[str]:
     """Grade a Rust producer's own readback of the four math rows (brief §4).
 
     Requires: publication SCOPE (a non-boolean integer ``zid`` and a nonempty
@@ -651,11 +685,32 @@ def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[i
     if bundle.get("main") and "caching_tick" not in (bundle.get("main") or {}):
         fails.append("main: caching_tick absent where it must exist")
 
-    # 3. operation / epoch binding
+    # 3. operation / epoch binding (epoch TYPED before comparison: a JSON bool
+    # must not match an expected integer via Python's True == 1)
     if ticks.get("operation_id") != operation_id:
         fails.append(f"ticks.operation_id {ticks.get('operation_id')!r} != {operation_id!r}")
-    if ticks.get("publisher_epoch") != publisher_epoch:
-        fails.append(f"ticks.publisher_epoch {ticks.get('publisher_epoch')!r} != {publisher_epoch!r}")
+    epoch = ticks.get("publisher_epoch")
+    if not _plain_int(epoch):
+        fails.append(f"ticks.publisher_epoch must be a (non-boolean) integer, got {epoch!r}")
+    elif epoch != publisher_epoch:
+        fails.append(f"ticks.publisher_epoch {epoch!r} != {publisher_epoch!r}")
+
+    # 3b. full input_checkpoint custody. When present it must be a coherent
+    # checkpoint bound to THIS operation (and to the expected checkpoint, when
+    # supplied) — a foreign checkpoint object is rejected, not ignored.
+    if "input_checkpoint" in ticks or expected_input_checkpoint is not None:
+        ckpt = ticks.get("input_checkpoint")
+        if not isinstance(ckpt, dict):
+            fails.append(f"ticks.input_checkpoint must be an object, got {ckpt!r}")
+        else:
+            if ckpt.get("operation_id") != operation_id:
+                fails.append(f"input_checkpoint.operation_id {ckpt.get('operation_id')!r} "
+                             f"!= {operation_id!r}")
+            cdig = ckpt.get("original_digests")
+            if cdig is not None and cdig != (ticks.get("original_digests") or {}):
+                fails.append("input_checkpoint.original_digests disagree with ticks.original_digests")
+            if expected_input_checkpoint is not None and ckpt != expected_input_checkpoint:
+                fails.append("input_checkpoint does not equal the expected checkpoint")
 
     # 4. original-byte custody + TYPE-AWARE JSONB correspondence, per table
     original_digests = ticks.get("original_digests") or {}
@@ -683,20 +738,45 @@ def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[i
     return fails
 
 
-def _valid_bid_index_pid(mapping: Any) -> bool:
-    """A bid->index->pid map: a NONEMPTY dict whose keys are integer bids and
-    whose values are lists of (non-boolean) integer pids. ``{"garbage":"..."}``
-    and an empty map are rejected."""
-    if not isinstance(mapping, dict) or not mapping:
-        return False
-    for k, v in mapping.items():
-        try:
-            int(k)
-        except (TypeError, ValueError):
-            return False
-        if not isinstance(v, list) or not all(_plain_int(x) for x in v):
-            return False
-    return True
+#: The actual companion wrapper math_writer.derive_bidtopid emits (verified
+#: against math_writer.py:32-84): a positional vector of member vectors aligned
+#: to main.base-clusters.id, NOT a {bid: [pid]} dict.
+_BIDTOPID_KEYS = frozenset({"zid", "bidToPid", "lastVoteTimestamp"})
+
+
+def _check_bidtopid_against_main(main: Any, bid: Any, zid: Any) -> list[str]:
+    """Resolve bids through ``main.base-clusters.id`` into the real ``bidToPid``
+    wrapper and compare the ordered membership relationships. A wrapper that is
+    not the writer's ``{zid, bidToPid, lastVoteTimestamp}`` shape, or whose
+    positional buckets do not equal ``base-clusters.members``, does NOT belong to
+    this bundle and is rejected; an empty generation (no base clusters, empty
+    bidToPid) is valid."""
+    if not isinstance(bid, dict) or not isinstance(main, dict):
+        return ["observer: bidtopid/main data missing for bid->index->pid check"]
+    if set(bid) != _BIDTOPID_KEYS:
+        return [f"observer: bidtopid is not the writer wrapper {sorted(_BIDTOPID_KEYS)} "
+                f"(got keys {sorted(bid)})"]
+    btp = bid["bidToPid"]
+    base = main.get("base-clusters")
+    if not isinstance(base, dict):
+        return ["observer: main.base-clusters missing for bid->index->pid check"]
+    ids, members = base.get("id"), base.get("members")
+    if not (isinstance(btp, list) and isinstance(ids, list) and isinstance(members, list)):
+        return ["observer: bidToPid / base-clusters.id / base-clusters.members must be lists"]
+    if not (len(btp) == len(ids) == len(members)):
+        return [f"observer: bidToPid ({len(btp)}) not aligned to base-clusters "
+                f"id/members ({len(ids)}/{len(members)})"]
+    fails: list[str] = []
+    if zid is not None and bid.get("zid") != zid:
+        fails.append(f"observer: bidtopid.zid {bid.get('zid')!r} != bundle zid {zid!r}")
+    for i, (bucket, mem) in enumerate(zip(btp, members)):
+        if not isinstance(bucket, list) or not all(_plain_int(x) for x in bucket):
+            fails.append(f"observer: bidToPid[{i}] is not a list of integer pids")
+            continue
+        if list(bucket) != list(mem):
+            fails.append(f"observer: bidToPid[{i}]={bucket} != base-clusters.members[{i}]={mem} "
+                         f"(positional bid membership mismatch)")
+    return fails
 
 
 def observe_bundle_coherence(bundle: ReadbackBundle,
@@ -706,13 +786,15 @@ def observe_bundle_coherence(bundle: ReadbackBundle,
     Refuses ABSENT evidence: ticks and all four rows must be present, each with a
     non-boolean integer ``math_tick`` in one agreeing generation and JSONB
     ``data``; an empty ``{}`` bundle fails rather than trivially passing four
-    absent-equals-absent ticks. It actually inspects the bid->index->pid mapping
-    (a well-formed dict of integer bids -> integer-pid lists), not merely a
-    list-typed member field. ``fold_check`` (e.g. the recovery oracle's
-    ``check_published_against_fold``) is the OPTIONAL full latest-cell fold,
-    injected so it can be reused without importing a pinned asset. Returns
-    failures (empty == coherent). A live mid-publication observer remains a
-    slice-3 integration obligation; this pure helper does not claim it."""
+    absent-equals-absent ticks. It validates the ACTUAL serialized companion:
+    ``bidtopid.data`` is the writer's ``{zid, bidToPid, lastVoteTimestamp}``
+    wrapper, resolved positionally through ``main.base-clusters.id`` and required
+    to equal ``base-clusters.members`` bucket for bucket — so an unrelated invented
+    map and duplicate/overlapping buckets are rejected, and a legitimate empty
+    generation is accepted. ``fold_check`` (e.g. the recovery oracle's
+    ``check_published_against_fold``) is the OPTIONAL full latest-cell fold.
+    Returns failures (empty == coherent). A live mid-publication observer remains
+    a slice-3 integration obligation; this pure helper does not claim it."""
     fails: list[str] = []
     ticks = bundle.get("ticks")
     if not isinstance(ticks, dict) or not _plain_int(ticks.get("math_tick")):
@@ -732,11 +814,10 @@ def observe_bundle_coherence(bundle: ReadbackBundle,
             fails.append(f"observer: {name} at a different generation than ticks")
         if not isinstance(row.get("data"), (dict, list)):
             fails.append(f"observer: {name} data absent")
+    main = (bundle.get("main") or {}).get("data")
     bid = (bundle.get("bidtopid") or {}).get("data")
-    if not _valid_bid_index_pid(bid):
-        fails.append("observer: bidtopid is not a well-formed bid->index->pid mapping")
+    fails.extend(_check_bidtopid_against_main(main, bid, bundle.get("zid")))
     if fold_check is not None:
-        main = (bundle.get("main") or {}).get("data")
         try:
             fails.extend(fold_check(main) or [])
         except Exception as exc:  # noqa: BLE001 - a fold failure is a finding, not a crash
@@ -747,11 +828,15 @@ def observe_bundle_coherence(bundle: ReadbackBundle,
 # ---------------------------------------------------------------------------
 # Same-invocation stage sibling (p045-stage-binding/1) + stage context.
 # ---------------------------------------------------------------------------
-#: Full session/plan-scoped identity of one stage-context entry. Scoping to the
-#: complete identity (not the S1-reused compute-0/checkpoint-0 local names) is
-#: what stops two fresh sessions from colliding, and keeps the campaign plan
-#: digest distinct from S1's per-session schedule.
-StageContextKey = tuple[str, str, str, str]  # (plan_sha256, session_id, compute_id, checkpoint_id)
+#: Full run/session/plan-scoped identity of one stage-context entry. Scoping to
+#: the COMPLETE identity (including run_id, not just the S1-reused
+#: compute-0/checkpoint-0 local names) is what stops two fresh runs/sessions from
+#: colliding, and keeps the campaign plan digest distinct from S1's per-session
+#: schedule.
+StageContextKey = tuple[str, str, str, str, str]  # (plan_sha256, run_id, session_id, compute_id, checkpoint_id)
+
+#: The nonempty-string identity fields, in key order.
+_STAGE_CONTEXT_IDENTITY = ("plan_sha256", "run_id", "session_id", "compute_id", "checkpoint_id")
 
 
 class StageContextEntry(TypedDict, total=False):
@@ -765,31 +850,37 @@ class StageContextEntry(TypedDict, total=False):
     profile: str
 
 
-_STAGE_CONTEXT_REQUIRED = ("plan_sha256", "run_id", "session_id", "compute_id",
-                           "checkpoint_id", "global_cut_index", "semantic_input_digest",
-                           "profile")
+_STAGE_CONTEXT_KEYS = frozenset(_STAGE_CONTEXT_IDENTITY) | {
+    "global_cut_index", "semantic_input_digest", "profile"}
 
 
 def load_stage_context(path: str | Path) -> dict[StageContextKey, StageContextEntry]:
     """Load a closed ``p045-stage-context/1`` map keyed on the FULL identity
-    ``(plan_sha256, session_id, compute_id, checkpoint_id)``.
+    ``(plan_sha256, run_id, session_id, compute_id, checkpoint_id)``.
 
-    Each entry must carry every required field; ``global_cut_index`` must be a
-    non-boolean nonnegative integer; ``profile`` must be a known campaign profile;
-    ``semantic_input_digest`` a nonempty string. DUPLICATE keys are rejected
-    BEFORE insertion (S1 reuses compute-0/checkpoint-0 across fresh sessions, so a
-    permissive last-writer-wins loader would silently drop a cut). A wrong schema
-    fails."""
+    Every entry is fully TYPED before its key is built: the container is an
+    object, the key set is exactly the closed set (no missing/unknown keys), the
+    five identity fields are NONEMPTY strings (a null or a list-valued identity is
+    a graded BridgeError, never an ungraded TypeError), ``global_cut_index`` is a
+    non-boolean nonnegative integer, ``profile`` is a known campaign profile, and
+    ``semantic_input_digest`` is nonempty. DUPLICATE full identities are rejected
+    before insertion. A wrong schema fails."""
     obj = json.loads(Path(path).read_bytes())
     if not isinstance(obj, dict) or obj.get("schema") != STAGE_CONTEXT_SCHEMA:
         raise BridgeError("stage-context", f"stage context schema must be {STAGE_CONTEXT_SCHEMA!r}")
+    entries = obj.get("entries")
+    if not isinstance(entries, list):
+        raise BridgeError("stage-context", "entries must be a list")
     out: dict[StageContextKey, StageContextEntry] = {}
-    for i, ent in enumerate(obj.get("entries", [])):
+    for i, ent in enumerate(entries):
         if not isinstance(ent, dict):
             raise BridgeError("stage-context", f"entry {i} is not an object")
-        missing = [k for k in _STAGE_CONTEXT_REQUIRED if k not in ent]
-        if missing:
-            raise BridgeError("stage-context", f"entry {i} missing {missing}")
+        if set(ent) != _STAGE_CONTEXT_KEYS:
+            raise BridgeError("stage-context", f"entry {i} key set must be exactly "
+                              f"{sorted(_STAGE_CONTEXT_KEYS)}, got {sorted(ent)}")
+        for f in _STAGE_CONTEXT_IDENTITY:
+            if not _nonempty_str(ent[f]):
+                raise BridgeError("stage-context", f"entry {i} {f} must be a nonempty string")
         cut = ent["global_cut_index"]
         if not _plain_int(cut) or cut < 0:
             raise BridgeError("stage-context", f"entry {i} global_cut_index must be a nonnegative integer")
@@ -797,8 +888,7 @@ def load_stage_context(path: str | Path) -> dict[StageContextKey, StageContextEn
             raise BridgeError("stage-context", f"entry {i} profile {ent['profile']!r} not in {PROFILES}")
         if not _nonempty_str(ent["semantic_input_digest"]):
             raise BridgeError("stage-context", f"entry {i} semantic_input_digest must be nonempty")
-        key: StageContextKey = (ent["plan_sha256"], ent["session_id"],
-                                 ent["compute_id"], ent["checkpoint_id"])
+        key: StageContextKey = tuple(ent[f] for f in _STAGE_CONTEXT_IDENTITY)  # type: ignore[assignment]
         if key in out:
             raise BridgeError("stage-context", f"duplicate stage-context identity {key}")
         out[key] = {
@@ -813,14 +903,19 @@ def load_stage_context(path: str | Path) -> dict[StageContextKey, StageContextEn
 def check_stage_context(context: dict[StageContextKey, StageContextEntry], *,
                         plan_sha256: str, session_id: str, compute_id: str,
                         checkpoint_id: str, derived_semantic_digest: str,
+                        run_id: Optional[str] = None,
                         expected_profile: Optional[str] = None,
                         expected_cut_index: Optional[int] = None) -> list[str]:
     """The worker derives the semantic digest from the inputs it ACTUALLY applied
-    and checks it against the plan-bound context, addressed by the FULL identity.
-    A foreign identity, a mismatched digest, or (when supplied) a wrong
-    profile/cut is rejected — the plan's expected hash is never stamped onto an
-    unverified source."""
-    key: StageContextKey = (plan_sha256, session_id, compute_id, checkpoint_id)
+    and checks it against the plan-bound context, addressed by the FULL identity
+    INCLUDING run_id — a foreign run with the same local session/compute/checkpoint
+    names does not match. run binding is MANDATORY: omitting ``run_id`` fails
+    closed (an unbound consumer cannot certify a run). A foreign identity, a
+    mismatched digest, or (when supplied) a wrong profile/cut is rejected — the
+    plan's expected hash is never stamped onto an unverified source."""
+    if not _nonempty_str(run_id):
+        return ["stage context requires a nonempty run_id for run binding"]
+    key: StageContextKey = (plan_sha256, run_id, session_id, compute_id, checkpoint_id)
     entry = context.get(key)
     if entry is None:
         return [f"foreign stage context: {key} not in the plan"]
@@ -930,12 +1025,13 @@ BRIDGE_RUN_MANIFEST = "bridge_run_manifest-{run_id}.json"
 
 
 def _entry_producer_rows(expected: Optional["cert.ExpectedEntry"], entry: Any,
-                         profile: str, plan: dict[str, Any], out_root: Path
-                         ) -> list[dict[str, Any]]:
-    """Three producer rows for one entry: the inventory row joined to the
-    driver's DriverReceipt. Works whether or not the entry prepared."""
+                         profile: str, plan: dict[str, Any], out_root: Path,
+                         drivers: tuple[str, ...]) -> list[dict[str, Any]]:
+    """Producer rows for one entry, for EXACTLY the selected ``drivers`` — the
+    report must not iterate all three when a subset was requested. Works whether
+    or not the entry prepared."""
     if expected is not None:
-        inv = {r["engine"]: r for r in three_producer_inventory(expected, profile)}
+        inv = {r["engine"]: r for r in three_producer_inventory(expected, profile, drivers)}
     else:
         role = getattr(entry, "role", None) or f"{getattr(entry, 'dataset', '?')}:{getattr(entry, 'schedule_id', '?')}"
         inv = {eng: {"dataset": getattr(entry, "dataset", None),
@@ -945,9 +1041,9 @@ def _entry_producer_rows(expected: Optional["cert.ExpectedEntry"], entry: Any,
                      "advertised": REGISTRY[eng].supports(profile),
                      "status": (ProducerStatus.INCONCLUSIVE if REGISTRY[eng].supports(profile)
                                 else ProducerStatus.UNSUPPORTED_PROFILE).value}
-              for eng in DRIVER_IDS}
+              for eng in drivers}
     rows: list[dict[str, Any]] = []
-    for eng in DRIVER_IDS:
+    for eng in drivers:
         row = dict(inv[eng])
         receipt = REGISTRY[eng].record(plan, expected if expected is not None else entry,
                                        out_root / eng)
@@ -958,17 +1054,20 @@ def _entry_producer_rows(expected: Optional["cert.ExpectedEntry"], entry: Any,
 
 
 def _pair_rows(entry_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Three pair rows per entry (clj-py, clj-rust, py-rust). A pair is
+    """Pair rows for every UNORDERED pair among the producers actually present in
+    ``entry_rows`` (so a subset selection yields only its own pairs). A pair is
     non-passing unless BOTH sides produced a PASS producer row (none can today)."""
     by_eng = {r["engine"]: r for r in entry_rows}
+    present = [e for e in DRIVER_IDS if e in by_eng]
     pairs = []
-    for a, b in (("clj", "py"), ("clj", "rust"), ("py", "rust")):
-        sa, sb = by_eng[a]["status"], by_eng[b]["status"]
-        status = (ProducerStatus.PASS.value if sa == sb == ProducerStatus.PASS.value
-                  else ProducerStatus.UNSUPPORTED_PROFILE.value
-                  if ProducerStatus.UNSUPPORTED_PROFILE.value in (sa, sb)
-                  else ProducerStatus.INCONCLUSIVE.value)
-        pairs.append({"a": a, "b": b, "a_status": sa, "b_status": sb, "status": status})
+    for i, a in enumerate(present):
+        for b in present[i + 1:]:
+            sa, sb = by_eng[a]["status"], by_eng[b]["status"]
+            status = (ProducerStatus.PASS.value if sa == sb == ProducerStatus.PASS.value
+                      else ProducerStatus.UNSUPPORTED_PROFILE.value
+                      if ProducerStatus.UNSUPPORTED_PROFILE.value in (sa, sb)
+                      else ProducerStatus.INCONCLUSIVE.value)
+            pairs.append({"a": a, "b": b, "a_status": sa, "b_status": sb, "status": status})
     return pairs
 
 
@@ -1006,7 +1105,7 @@ def run_bridge_battery(entries: list[Any], *, root: str | Path, profile: str,
             plan_entry_err = str(exc)
         else:
             plan_entry_err = None
-        rows = _entry_producer_rows(expected, entry, profile, plan, root / run_id)
+        rows = _entry_producer_rows(expected, entry, profile, plan, root / run_id, drivers)
         if plan_entry_err is not None:
             for r in rows:
                 if r["engine"] != "rust":

@@ -148,8 +148,8 @@ def test_load_stage_context_requires_full_identity(tmp_path):
 
 def test_check_stage_context_ok_foreign_and_mismatch(tmp_path):
     ctx = cd.load_stage_context(_ctx_file(tmp_path, [_entry()]))
-    common = dict(plan_sha256="plan-1", session_id="sess-1", compute_id="compute-0",
-                  checkpoint_id="checkpoint-0")
+    common = dict(plan_sha256="plan-1", run_id="r", session_id="sess-1",
+                  compute_id="compute-0", checkpoint_id="checkpoint-0")
     assert cd.check_stage_context(ctx, derived_semantic_digest="a" * 64,
                                   expected_profile=cd.PROFILE_SNAPSHOT_REBUILD,
                                   expected_cut_index=0, **common) == []
@@ -163,3 +163,43 @@ def test_check_stage_context_ok_foreign_and_mismatch(tmp_path):
                                   expected_profile=cd.PROFILE_BATTERY_CHAIN, **common)
     assert cd.check_stage_context(ctx, derived_semantic_digest="a" * 64,
                                   expected_cut_index=7, **common)
+
+
+# ---------------------------------------------------------------------------
+# Round 3 correction 3: typed identity, run binding, graded malformed.
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("field", cd._STAGE_CONTEXT_IDENTITY)
+def test_null_stage_identity_rejected(tmp_path, field):
+    with pytest.raises(cd.BridgeError):
+        cd.load_stage_context(_ctx_file(tmp_path, [_entry(**{field: None})]))
+
+
+def test_malformed_list_identity_is_graded_not_typeerror(tmp_path):
+    """A list-valued session must raise a graded BridgeError, never an ungraded
+    TypeError during key construction."""
+    with pytest.raises(cd.BridgeError):
+        cd.load_stage_context(_ctx_file(tmp_path, [_entry(session_id=[])]))
+
+
+def test_unknown_stage_context_key_rejected(tmp_path):
+    with pytest.raises(cd.BridgeError):
+        cd.load_stage_context(_ctx_file(tmp_path, [dict(_entry(), surprise=1)]))
+
+
+def test_check_stage_context_binds_run(tmp_path):
+    """A foreign run with the same local session/compute/checkpoint/plan must NOT
+    match, and a consumer that omits run_id fails closed."""
+    ctx = cd.load_stage_context(_ctx_file(tmp_path, [_entry(run_id="foreign-run")]))
+    addr = dict(plan_sha256="plan-1", session_id="sess-1", compute_id="compute-0",
+                checkpoint_id="checkpoint-0", derived_semantic_digest="a" * 64)
+    # foreign run -> not found
+    assert cd.check_stage_context(ctx, run_id="r", **addr)
+    # right run -> found and clean
+    assert cd.check_stage_context(ctx, run_id="foreign-run", **addr) == []
+    # no run_id -> fails closed
+    assert any("run_id" in f for f in cd.check_stage_context(ctx, **addr))
+
+
+def test_distinct_runs_coexist(tmp_path):
+    two = _ctx_file(tmp_path, [_entry(run_id="run-1"), _entry(run_id="run-2")])
+    assert len(cd.load_stage_context(two)) == 2
