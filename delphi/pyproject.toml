@@ -104,8 +104,6 @@ run-delphi = "run_delphi:main"
 # Pipeline entry points
 run-math-pipeline = "polismath.run_math_pipeline:main"
 run-umap-pipeline = "umap_narrative.run_pipeline:main"
-calculate-extremity = "umap_narrative.501_calculate_comment_extremity:main"
-calculate-priorities = "umap_narrative.502_calculate_priorities:main"
 # Utility entry points
 reset-conversation = "umap_narrative.reset_conversation:main"
 create-datamapplot = "umap_narrative.700_datamapplot_for_layer:main"

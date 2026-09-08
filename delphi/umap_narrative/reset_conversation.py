@@ -205,10 +205,6 @@ def delete_dynamodb_data(conversation_id: str, report_id: str = None):
 
     # --- 1. Single-item tables (direct delete by primary key) ---
     single_key_tables = {
-        'Delphi_PCAConversationConfig': {
-            'key_name': 'zid',
-            'key_value': conversation_id
-        },
         'Delphi_UMAPConversationConfig': {
             'key_name': 'conversation_id',
             'key_value': conversation_id
@@ -233,25 +229,12 @@ def delete_dynamodb_data(conversation_id: str, report_id: str = None):
             'keys': ['conversation_id', 'cluster_key'],
             'partition_value': conversation_id
         },
-        'Delphi_CommentClustersFeatures': {
-            'keys': ['conversation_id', 'cluster_key'],
-            'partition_value': conversation_id
-        },
         'Delphi_CommentClustersLLMTopicNames': {
             'keys': ['conversation_id', 'topic_key'],
             'partition_value': conversation_id
         },
         'Delphi_UMAPGraph': {
             'keys': ['conversation_id', 'edge_id'],
-            'partition_value': conversation_id
-        },
-        'Delphi_CommentExtremity': {
-            'keys': ['conversation_id', 'comment_id'],
-            'partition_value': conversation_id
-        },
-        # This table's PK is 'zid', so it's queried directly.
-        'Delphi_PCAResults': {
-            'keys': ['zid', 'math_tick'],
             'partition_value': conversation_id
         },
     }
@@ -262,33 +245,9 @@ def delete_dynamodb_data(conversation_id: str, report_id: str = None):
 
     # --- 3. GSI Query-based tables (efficient query by GSI) ---
     gsi_query_tables = {
-        'Delphi_CommentRouting': {
-            'keys': ['zid_tick', 'comment_id'],
-            'gsi_name': 'zid-index',
-            'gsi_pk': 'zid',
-            'gsi_value': conversation_id
-        },
         'Delphi_CollectiveStatement': {
             'keys': ['zid_topic_jobid'],
             'gsi_name': 'zid-created_at-index',
-            'gsi_pk': 'zid',
-            'gsi_value': conversation_id
-        },
-        'Delphi_KMeansClusters': {
-            'keys': ['zid_tick', 'group_id'],
-            'gsi_name': 'zid-index',
-            'gsi_pk': 'zid',
-            'gsi_value': conversation_id
-        },
-        'Delphi_RepresentativeComments': {
-            'keys': ['zid_tick_gid', 'comment_id'],
-            'gsi_name': 'zid-index',
-            'gsi_pk': 'zid',
-            'gsi_value': conversation_id
-        },
-        'Delphi_PCAParticipantProjections': {
-            'keys': ['zid_tick', 'participant_id'],
-            'gsi_name': 'zid-index',
             'gsi_pk': 'zid',
             'gsi_value': conversation_id
         },

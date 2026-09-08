@@ -1,3 +1,4 @@
+import contextlib
 import os
 import time
 import pytest
@@ -7,7 +8,6 @@ import decimal
 from unittest import mock
 import sys  # Import sys
 import re # Import re for parsing SQL
-from boto3.dynamodb.conditions import Attr # Import Attr for scan filters
 
 # Add the project root (parent directory of 'tests') to the Python path
 # This allows Pylance and local pytest runs to find 'run_math_pipeline'
@@ -16,7 +16,9 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # Import the main function from the script we want to test
+from polismath.conversation.conversation import Conversation
 from polismath.run_math_pipeline import main as run_math_pipeline_main
+from tests.retired_tables import RETIRED_TABLES
 
 # --- Define Mock Data Paths ---
 # FIX: Corrected path inside the container. The 'delphi' part is removed
@@ -29,17 +31,55 @@ MOCK_ZID = 123456789 # We can use our own ZID for the test
 
 # --- Fixtures to Set Up Test Environment ---
 
+# The four real computation stages `main()` drives, in order. Recording them is
+# what makes the table-absence assertion below mean something: without a
+# positive control, an early return or a no-op `main()` would satisfy "none of
+# the retired tables exists" just as well as a successful run.
+PIPELINE_STAGES = (
+    "_compute_pca",
+    "_compute_clusters",
+    "_compute_repness",
+    "_compute_participant_info",
+)
+
+
+@contextlib.contextmanager
+def record_pipeline_stages():
+    """Wrap the real Conversation stages, passing through to the originals."""
+    observed = []
+    finished = []
+
+    def wrap(stage_name):
+        original = getattr(Conversation, stage_name)
+
+        def wrapped(self, *args, **kwargs):
+            result = original(self, *args, **kwargs)
+            observed.append(stage_name)
+            if stage_name == PIPELINE_STAGES[-1]:
+                # `update_votes` returns a new Conversation per batch, so the
+                # receiver of the last stage is the finished one.
+                finished.append(self)
+            return result
+
+        return wrapped
+
+    with contextlib.ExitStack() as stack:
+        for stage_name in PIPELINE_STAGES:
+            stack.enter_context(mock.patch.object(Conversation, stage_name, wrap(stage_name)))
+        yield observed, finished
+
+
 @pytest.fixture(scope="module")
-def dynamodb_resource():
-    """Create a resource connection to the test DynamoDB."""
+def dynamodb_client():
+    """Create a client connection to the test DynamoDB."""
     from tests.conftest import require_dynamodb
     require_dynamodb()
 
     endpoint_url = os.environ.get('DYNAMODB_ENDPOINT', 'http://localhost:8000')
     if not endpoint_url:
         pytest.fail("DYNAMODB_ENDPOINT not set. Cannot connect to test DynamoDB.")
-        
-    return boto3.resource(
+
+    return boto3.client(
         'dynamodb',
         endpoint_url=endpoint_url,
         region_name=os.environ.get('AWS_REGION', 'us-east-1'),
@@ -145,10 +185,10 @@ def mock_moderation_data():
 # --- The Test Function ---
 
 @mock.patch('psycopg2.connect')
-def test_run_math_pipeline_e2e(mock_connect, dynamodb_resource, mock_comments_data, mock_votes_data, mock_moderation_data):
+def test_run_math_pipeline_e2e(mock_connect, dynamodb_client, mock_comments_data, mock_votes_data, mock_moderation_data):
     """
-    Runs the entire math pipeline script, mocking all database calls
-    and checking DynamoDB for results.
+    Runs the entire math pipeline script with all database calls mocked, and
+    asserts it completes without the retired DynamoDB export tables.
     """
     zid = MOCK_ZID
     votes_tuples = mock_votes_data['votes_tuples']
@@ -235,60 +275,45 @@ def test_run_math_pipeline_e2e(mock_connect, dynamodb_resource, mock_comments_da
         ]
         
         with mock.patch.object(sys, 'argv', test_args):
-            # 2. Run the main function
-            try:
-                run_math_pipeline_main()
-            except SystemExit as e:
-                pytest.fail(f"run_math_pipeline.py exited unexpectedly: {e}")
+            # 2. Run the main function, recording the real computation stages
+            with record_pipeline_stages() as (observed_stages, finished):
+                try:
+                    run_math_pipeline_main()
+                except SystemExit as e:
+                    pytest.fail(f"run_math_pipeline.py exited unexpectedly: {e}")
 
-    # 3. Verify results were written to DynamoDB using Scans
-    # Since math_tick is dynamic (timestamp based) and keys are complex,
-    # using Scan with a filter is the most robust way to verify test data
-    # without knowing the exact sort keys or indexes beforehand.
-    #
-    # FIX: We are relaxing checks here to ensure the test passes if data is written,
-    # without being brittle about specific internal key names (e.g. 'projection' vs 'coordinates').
-    
-    # Check for PCA results
-    pca_table = dynamodb_resource.Table("Delphi_PCAResults")
-    response = pca_table.scan(
-        FilterExpression=Attr('zid').eq(str(zid))
+    # 3. Positive control: the job really computed something. Every stage ran,
+    #    in order, on a conversation of the expected shape with a non-empty PCA.
+    #    Without this, step 4 would pass just as happily for a `main()` that
+    #    returned immediately.
+    assert observed_stages == list(PIPELINE_STAGES), (
+        f"expected the four computation stages in order, observed {observed_stages}"
     )
-    assert len(response['Items']) > 0, f"PCAResults items not found for zid {zid}"
-    # Minimal check: just ensure the item exists.
-    
-    # Check for K-Means clusters
-    kmeans_table = dynamodb_resource.Table("Delphi_KMeansClusters")
-    response = kmeans_table.scan(
-        FilterExpression=Attr('zid').eq(str(zid))
-    )
-    assert len(response['Items']) > 0, f"KMeansClusters items not found for zid {zid}"
-    # Minimal check: just ensure items exist.
+    assert finished, "no conversation reached the final computation stage"
 
-    # Check for Representative Comments
-    repness_table = dynamodb_resource.Table("Delphi_RepresentativeComments")
-    response = repness_table.scan(
-        FilterExpression=Attr('zid').eq(str(zid))
+    conv = finished[-1]
+    # Derived from the tuples the batched SELECT mock actually returns --
+    # (created, tid, pid, vote) -- i.e. from what the pipeline really consumed.
+    expected_tids = {row[1] for row in mock_votes_data['votes_tuples']}
+    expected_pids = {row[2] for row in mock_votes_data['votes_tuples']}
+    assert conv.participant_count == len(expected_pids)
+    assert conv.comment_count == len(expected_tids)
+    assert conv.raw_rating_mat.shape == (len(expected_pids), len(expected_tids))
+    assert conv.pca, "pipeline produced an empty PCA"
+    assert conv.repness and conv.repness.get('comment_repness'), (
+        "pipeline produced no representativeness"
     )
-    assert len(response['Items']) > 0, f"RepresentativeComments items not found for zid {zid}"
-    # Minimal check: just ensure items exist.
 
-    # Check for Participant Projections
-    proj_table = dynamodb_resource.Table("Delphi_PCAParticipantProjections")
-    response = proj_table.scan(
-        FilterExpression=Attr('zid').eq(str(zid))
+    # 4. Negative control: having actually done the work, the job must not have
+    #    created -- or needed -- any of the NINE retired tables. The old
+    #    DynamoDB client's `_ensure_tables_exist` created six of them itself on
+    #    every run, and `create_dynamodb_tables.py` runs on every delphi
+    #    container start, so a table that comes back here is a table that comes
+    #    back in production and defeats the AWS deletion (P-033-review H3).
+    live_tables = set(dynamodb_client.list_tables()['TableNames'])
+    recreated = sorted(live_tables.intersection(RETIRED_TABLES))
+    assert not recreated, (
+        f"run_math_pipeline recreated retired DynamoDB tables: {recreated}. "
+        "Deleting them in AWS will not stick while anything recreates them; "
+        "see delphi/docs/RETIRED_DYNAMODB_TABLES.md."
     )
-    items = response['Items']
-    assert len(items) > 0, f"PCAParticipantProjections items not found for zid {zid}"
-    
-    # Minimal check: ensure valid participant records exist
-    first_proj = items[0]
-    assert 'participant_id' in first_proj, "participant_id missing from record"
-    
-    # Optional: Check against mocked voters (checking for overlaps is a safe logic check)
-    found_pids = set(item['participant_id'] for item in items)
-    expected_pids = set(v['pid'] for v in mock_votes_data['votes_dicts']['votes'])
-    
-    # Ensure we found at least some of the expected participants
-    common_pids = found_pids.intersection(expected_pids)
-    assert len(common_pids) > 0, "No matching participant IDs found in projections"

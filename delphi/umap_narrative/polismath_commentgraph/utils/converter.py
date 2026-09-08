@@ -11,7 +11,6 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from ..schemas.dynamo_models import (
-    ClusterCharacteristic,
     ClusterLayer,
     ClusterReference,
     ClusterTopic,
@@ -393,44 +392,6 @@ class DataConverter:
         return model
 
     @staticmethod
-    def create_cluster_characteristic(
-        conversation_id: str,
-        layer_id: int,
-        cluster_id: int,
-        size: int,
-        top_words: List[str],
-        top_tfidf_scores: List[float],
-        sample_comments: List[str],
-    ) -> ClusterCharacteristic:
-        """
-        Create a ClusterCharacteristic model from raw data.
-
-        Args:
-            conversation_id: ID of the conversation
-            layer_id: ID of the layer
-            cluster_id: ID of the cluster
-            size: Size of the cluster
-            top_words: List of top words in the cluster
-            top_tfidf_scores: List of TF-IDF scores for the top words
-            sample_comments: List of sample comments from the cluster
-
-        Returns:
-            ClusterCharacteristic model object
-        """
-        # Create the model
-        model = ClusterCharacteristic(
-            conversation_id=conversation_id,
-            layer_id=layer_id,
-            cluster_id=cluster_id,
-            size=size,
-            top_words=top_words,
-            top_tfidf_scores=top_tfidf_scores,
-            sample_comments=sample_comments,
-        )
-
-        return model
-
-    @staticmethod
     def create_enhanced_topic_name(
         conversation_id: str, layer_id: int, cluster_id: int, topic_name: str
     ) -> EnhancedTopicName:
@@ -499,47 +460,6 @@ class DataConverter:
         )
 
         return model
-
-    @staticmethod
-    def batch_convert_cluster_characteristics(
-        conversation_id: str,
-        characteristics_dict: Dict[str, Dict[str, Any]],
-        layer_id: int,
-    ) -> List[ClusterCharacteristic]:
-        """
-        Convert batch of cluster characteristics from dictionary to model objects.
-
-        Args:
-            conversation_id: ID of the conversation
-            characteristics_dict: Dictionary of cluster characteristics
-            layer_id: Layer ID for the characteristics
-
-        Returns:
-            List of ClusterCharacteristic model objects
-        """
-        characteristics = []
-
-        for cluster_id_str, characteristic_data in characteristics_dict.items():
-            try:
-                cluster_id = int(cluster_id_str)
-
-                characteristic = DataConverter.create_cluster_characteristic(
-                    conversation_id=conversation_id,
-                    layer_id=layer_id,
-                    cluster_id=cluster_id,
-                    size=characteristic_data.get("size", 0),
-                    top_words=characteristic_data.get("top_words", []),
-                    top_tfidf_scores=characteristic_data.get("top_tfidf_scores", []),
-                    sample_comments=characteristic_data.get("sample_comments", []),
-                )
-
-                characteristics.append(characteristic)
-            except (ValueError, KeyError) as e:
-                logger.error(
-                    f"Error converting cluster characteristic {cluster_id_str}: {e}"
-                )
-
-        return characteristics
 
     @staticmethod
     def batch_convert_enhanced_topic_names(

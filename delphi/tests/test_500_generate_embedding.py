@@ -55,7 +55,6 @@ def test_pipeline_flow_with_mocks(tmp_path):
         
         # Configure mocks to return simple, non-empty data.
         MockDataConverter.create_conversation_meta.return_value = "mock_meta_model"
-        MockDataConverter.batch_convert_cluster_characteristics.return_value = ["mock_char_model"]
         
         mock_dynamo_instance = mock.MagicMock()
         MockDynamoStorage.return_value = mock_dynamo_instance
@@ -73,14 +72,14 @@ def test_pipeline_flow_with_mocks(tmp_path):
     
     # Assert that the DataConverter was used for the methods called in the mock path.
     MockDataConverter.create_conversation_meta.assert_called_once()
-    assert MockDataConverter.batch_convert_cluster_characteristics.call_count == num_layers
 
     # Assert that the correct subset of DynamoDB methods were called.
     mock_dynamo_instance.create_conversation_meta.assert_called_with("mock_meta_model")
-    assert mock_dynamo_instance.batch_create_cluster_characteristics.call_count == num_layers
-    mock_dynamo_instance.batch_create_cluster_characteristics.assert_called_with(["mock_char_model"])
 
-    # Assert that methods NOT in the mock data path were NOT called.
+    # Assert that methods NOT in the mock data path were NOT called. The cluster
+    # characteristics write was removed with its table under P-011/P-033: the
+    # characteristics are still computed, they are simply no longer persisted.
+    mock_dynamo_instance.batch_create_cluster_characteristics.assert_not_called()
     mock_dynamo_instance.batch_create_comment_embeddings.assert_not_called()
     mock_dynamo_instance.batch_create_graph_edges.assert_not_called()
     mock_dynamo_instance.batch_create_comment_clusters.assert_not_called()

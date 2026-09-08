@@ -1,5 +1,12 @@
 # Consensus-Divisive Visualization Tool
 
+> **Superseded in part (P-011/P-033, 2026-09-08).** Nine write-only DynamoDB
+> tables and the Python stages that fed them have since been removed. They had
+> **no live product consumers** -- no route, report, client surface or pipeline
+> stage read them, in this repo or anywhere else -- so nothing user-visible
+> changed. Table names below are kept as a point-in-time record; see
+> `delphi/docs/RETIRED_DYNAMODB_TABLES.md` for what still exists.
+
 ## Overview
 `702_consensus_divisive_datamapplot.py` generates visualizations that highlight which comments in a Polis conversation have high consensus (green) versus high divisiveness (red).
 

@@ -46,7 +46,6 @@ def main():
     zid = args.zid
     rid = args.rid
     verbose_arg = "--verbose" if args.verbose else ""
-    force_arg = "--force" if args.force else ""
     # validate_arg is not used in the python script execution steps, but kept for parity with bash
     # validate_arg = "--validate" if args.validate else ""
 
@@ -137,41 +136,14 @@ def main():
     pipeline_process = subprocess.run(umap_command)
     pipeline_exit_code = pipeline_process.returncode
 
-    # Calculate and store comment extremity values
-    print(f"{GREEN}Calculating comment extremity values...{NC}")
-    extremity_command = [
-        "python", f"{app_path}/umap_narrative/501_calculate_comment_extremity.py",
-        f"--zid={zid}",
-        f"--include_moderation={args.include_moderation}",
-        f"--exclude_comment_selections={args.exclude_comment_selections}"
-    ]
-    if verbose_arg:
-        extremity_command.append(verbose_arg)
-    if force_arg:
-        extremity_command.append(force_arg)
-    
-    extremity_process = subprocess.run(extremity_command)
-    extremity_exit_code = extremity_process.returncode
-
-    if extremity_exit_code != 0:
-        print(f"{RED}Warning: Extremity calculation failed with exit code {extremity_exit_code}{NC}")
-        print("Continuing with priority calculation...")
-
-    # Calculate comment priorities using group-based extremity
-    print(f"{GREEN}Calculating comment priorities with group-based extremity...{NC}")
-    priority_command = [
-        "python", f"{app_path}/umap_narrative/502_calculate_priorities.py",
-        f"--conversation_id={zid}",
-    ]
-    if verbose_arg:
-        priority_command.append(verbose_arg)
-    
-    priority_process = subprocess.run(priority_command)
-    priority_exit_code = priority_process.returncode
-
-    if priority_exit_code != 0:
-        print(f"{RED}Warning: Priority calculation failed with exit code {priority_exit_code}{NC}")
-        print("Continuing with visualization...")
+    # Stages 501 (comment extremity) and 502 (comment priorities) were removed
+    # under P-011/P-033. 501 wrote a comment-extremity table that only 502 read;
+    # 502 read it and the comment-routing table through a GSI that does not
+    # exist in us-east-1, so it silently produced nothing and wrote its
+    # "priorities" back into a table no route consults. The narrative report
+    # (801) re-derives comment extremity from the PostgreSQL `math_main` blob,
+    # and comment routing reads `math_main` via /api/v3/math/pca2, so neither
+    # stage had a consumer. See delphi/docs/RETIRED_DYNAMODB_TABLES.md.
 
     if pipeline_exit_code == 0:
         print(f"{YELLOW}Creating visualizations with datamapplot...{NC}")

@@ -1,5 +1,12 @@
 # Delphi DynamoDB Table Naming Proposal
 
+> **Superseded in part (P-011/P-033, 2026-09-08).** Nine write-only DynamoDB
+> tables and the Python stages that fed them have since been removed. They had
+> **no live product consumers** -- no route, report, client surface or pipeline
+> stage read them, in this repo or anywhere else -- so nothing user-visible
+> changed. Table names below are kept as a point-in-time record; see
+> `delphi/docs/RETIRED_DYNAMODB_TABLES.md` for what still exists.
+
 ## Executive Summary
 
 This document proposes a systematic renaming of all DynamoDB tables used in the Delphi system to achieve better clarity, consistency, and maintainability. The proposal addresses the current inconsistent naming conventions and unclear table purposes by providing more descriptive names that directly reflect the data stored and establishing a consistent naming pattern.

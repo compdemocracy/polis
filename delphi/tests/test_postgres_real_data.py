@@ -13,7 +13,6 @@ import json
 from datetime import datetime
 import psycopg2
 from psycopg2 import extras
-import boto3
 import time
 import decimal
 
@@ -22,83 +21,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from polismath.conversation.conversation import Conversation
 from polismath.database.postgres import PostgresClient, PostgresConfig
-
-
-def init_dynamodb():
-    """
-    Initialize the DynamoDB client for testing.
-    
-    Returns:
-        Initialized DynamoDBClient
-    """
-    # Import the DynamoDB client
-    from polismath.database.dynamodb import DynamoDBClient
-    
-    print("Initializing DynamoDBClient")
-    
-    # Create and initialize the client
-    client = DynamoDBClient(
-        endpoint_url= os.environ.get('DYNAMODB_ENDPOINT', 'http://localhost:8000'),
-        region_name='us-east-1',
-        aws_access_key_id='dummy',
-        aws_secret_access_key='dummy'
-    )
-    
-    # Initialize the connection and tables
-    client.initialize()
-    print("DynamoDB client initialized with tables:", list(client.tables.keys()))
-    
-    return client
-
-
-def write_to_dynamodb(dynamodb_client, conversation_id, conv):
-    """
-    Write conversation data to DynamoDB using the new optimized schema.
-    This function ensures the optimized to_dynamo_dict method is used when available.
-    
-    Args:
-        dynamodb_client: Initialized DynamoDBClient
-        conversation_id: Conversation ID (zid)
-        conv: Conversation object
-        
-    Returns:
-        Success status
-    """
-    import time
-    try:
-        start_time = time.time()
-        print(f"Writing conversation {conversation_id} to DynamoDB using optimized schema")
-        
-        # Check if the conversation has the optimized method
-        has_optimized = hasattr(conv, 'to_dynamo_dict')
-        print(f"Using {'optimized' if has_optimized else 'standard'} conversion method")
-        
-        # Measure conversion time separately if using optimized method
-        if has_optimized:
-            conversion_start = time.time()
-            dynamo_data = conv.to_dynamo_dict()
-            conversion_time = time.time() - conversion_start
-            print(f"to_dynamo_dict conversion completed in {conversion_time:.2f}s with {len(dynamo_data)} top-level keys")
-        
-        # Use the optimized export_to_dynamodb method which leverages to_dynamo_dict
-        success = conv.export_to_dynamodb(dynamodb_client)
-        
-        # Log performance info
-        write_time = time.time() - start_time
-        if success:
-            print(f"Successfully exported conversation {conversation_id} to DynamoDB in {write_time:.2f}s")
-            # For large conversations like Pakistan, log additional stats
-            if hasattr(conv, 'participant_count') and conv.participant_count > 1000:
-                print(f"Exported {conv.participant_count} participants and {conv.comment_count} comments")
-        else:
-            print(f"Failed to export conversation {conversation_id} to DynamoDB after {write_time:.2f}s")
-            
-        return success
-    except Exception as e:
-        print(f"Error writing to DynamoDB: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
 
 
 def connect_to_db():
@@ -538,9 +460,6 @@ def test_conversation_from_postgres():
     """
     Test processing a conversation with data from PostgreSQL.
     """
-    from tests.conftest import require_dynamodb
-    require_dynamodb()
-
     import time
     start_time = time.time()
     
@@ -550,8 +469,11 @@ def test_conversation_from_postgres():
     print(f"[{time.time() - start_time:.2f}s] Connecting to database...")
     conn = connect_to_db()
     if not conn:
-        print(f"[{time.time() - start_time:.2f}s] Database connection failed")
-        pytest.fail("Could not connect to PostgreSQL database")
+        # Opt-in real-data test: it needs a populated Polis Postgres. Until the
+        # DynamoDB export was removed this was gated by `require_dynamodb()`,
+        # which skipped for the wrong reason; skip on the dependency it
+        # actually has.
+        pytest.skip("no reachable Polis PostgreSQL for the real-data test")
     
     try:
         # Get popular conversations
@@ -695,22 +617,6 @@ def test_conversation_from_postgres():
             
             print(f"[{time.time() - start_time:.2f}s] Saved results to {output_file} in {time.time() - save_start:.2f}s")
             
-            # Save to DynamoDB
-            try:
-                print(f"[{time.time() - start_time:.2f}s] Initializing DynamoDB connection...")
-                dynamo_start = time.time()
-                dynamodb_client = init_dynamodb()
-                print(f"[{time.time() - start_time:.2f}s] DynamoDB initialized in {time.time() - dynamo_start:.2f}s")
-                
-                print(f"[{time.time() - start_time:.2f}s] Writing to DynamoDB...")
-                write_start = time.time()
-                success = write_to_dynamodb(dynamodb_client, conv_id, conv)
-                print(f"[{time.time() - start_time:.2f}s] DynamoDB write {'succeeded' if success else 'failed'} in {time.time() - write_start:.2f}s")
-            except Exception as e:
-                print(f"[{time.time() - start_time:.2f}s] Error with DynamoDB: {e}")
-                import traceback
-                traceback.print_exc()
-            
             # Perform basic assertions
             print(f"[{time.time() - start_time:.2f}s] Running tests...")
             
@@ -821,265 +727,6 @@ def patched_poll_moderation(client, zid, since=None):
     }
 
 
-def test_dynamodb_direct():
-    """
-    Test writing directly to DynamoDB without PostgreSQL.
-    This is useful for directly testing the DynamoDB functionality.
-    """
-    from tests.conftest import require_dynamodb
-    require_dynamodb()
-    print("\nTesting direct DynamoDB write functionality with new schema")
-    
-    try:
-        # Create a dummy conversation
-        conv_id = "test_conversation_" + str(int(time.time()))
-        print(f"Creating dummy conversation {conv_id}")
-        
-        # Create a basic conversation
-        conv = Conversation(conv_id)
-        
-        # Add some dummy votes
-        dummy_votes = {
-            'votes': [
-                {'pid': '1', 'tid': '101', 'vote': 1.0},
-                {'pid': '1', 'tid': '102', 'vote': -1.0},
-                {'pid': '2', 'tid': '101', 'vote': -1.0},
-                {'pid': '2', 'tid': '102', 'vote': 1.0},
-                {'pid': '3', 'tid': '101', 'vote': 1.0}
-            ]
-        }
-        
-        # Update conversation with votes
-        print("Adding votes to conversation")
-        conv = conv.update_votes(dummy_votes)
-        
-        # Recompute to generate data
-        print("Recomputing conversation")
-        conv = conv.recompute()
-        
-        # Initialize DynamoDB client
-        print("Initializing DynamoDB client")
-        dynamodb_client = init_dynamodb()
-        
-        # Write to DynamoDB using the export method
-        print(f"Writing conversation {conv_id} to DynamoDB")
-        success = write_to_dynamodb(dynamodb_client, conv_id, conv)
-        
-        if success:
-            print("Successfully wrote test data to DynamoDB")
-            
-            # Verify the data was written by reading from PolisMathConversations table
-            conversations_table = dynamodb_client.tables.get('PolisMathConversations')
-            if conversations_table:
-                response = conversations_table.get_item(Key={'zid': conv_id})
-                
-                # Check if item exists
-                if 'Item' in response:
-                    print("Successfully retrieved conversation metadata from DynamoDB")
-                    conversation_item = response['Item']
-                    
-                    # Print conversation metadata for debugging
-                    print(f"Conversation metadata: {conversation_item}")
-                    
-                    # Get math tick to query other tables
-                    math_tick = conversation_item.get('latest_math_tick')
-                    if math_tick:
-                        print(f"Found math tick: {math_tick}")
-                        
-                        # Check if we can read from analysis table
-                        analysis_table = dynamodb_client.tables.get('PolisMathAnalysis')
-                        if analysis_table:
-                            analysis_response = analysis_table.get_item(
-                                Key={'zid': conv_id, 'math_tick': math_tick}
-                            )
-                            
-                            if 'Item' in analysis_response:
-                                print("Successfully retrieved analysis data")
-                                
-                                # Validate that we have PCA data
-                                analysis_item = analysis_response['Item']
-                                has_pca = 'pca' in analysis_item and isinstance(analysis_item['pca'], dict)
-                                
-                                if has_pca:
-                                    print("PCA data found in analysis")
-                                    # Check for components with Python-native naming
-                                    if 'components' in analysis_item['pca']:
-                                        print("   Using Python-native naming (components)")
-                                    # Check for legacy Clojure-compatible naming
-                                    elif 'comps' in analysis_item['pca']:
-                                        print("   Using legacy naming (comps)")
-                                else:
-                                    print("Warning: No PCA data found in analysis")
-                        
-                        # Check if groups were stored
-                        groups_table = dynamodb_client.tables.get('PolisMathGroups')
-                        if groups_table:
-                            zid_tick = f"{conv_id}:{math_tick}"
-                            groups_response = groups_table.query(
-                                KeyConditionExpression='zid_tick = :zid_tick',
-                                ExpressionAttributeValues={':zid_tick': zid_tick}
-                            )
-                            
-                            if 'Items' in groups_response and groups_response['Items']:
-                                print(f"Successfully retrieved {len(groups_response['Items'])} groups")
-                                
-                                # Check if we can read participant projections
-                                projections_table = dynamodb_client.tables.get('PolisMathProjections')
-                                if projections_table:
-                                    projections_response = projections_table.query(
-                                        KeyConditionExpression='zid_tick = :zid_tick',
-                                        ExpressionAttributeValues={':zid_tick': zid_tick},
-                                        Limit=5  # Just check a few
-                                    )
-                                    
-                                    if 'Items' in projections_response and projections_response['Items']:
-                                        print(f"Successfully retrieved participant projections")
-                                        print(f"Found {len(projections_response['Items'])} projections")
-                    
-                    # Basic validation
-                    assert 'participant_count' in conversation_item, "Missing participant_count in conversation metadata"
-                    assert 'comment_count' in conversation_item, "Missing comment_count in conversation metadata"
-                    
-                    print("Data validation successful")
-                    return True
-                else:
-                    print("Failed to retrieve data from DynamoDB")
-                    return False
-            else:
-                print("PolisMathConversations table not found")
-                return False
-        else:
-            print("Failed to write test data to DynamoDB")
-            return False
-            
-    except Exception as e:
-        print(f"Error in direct DynamoDB test: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-
-def inspect_dynamodb_data():
-    """Inspect data in DynamoDB tables using the new schema"""
-    print("\nInspecting DynamoDB data with new schema")
-    
-    # Initialize DynamoDB client
-    dynamodb_client = init_dynamodb()
-    
-    # Get list of available tables
-    available_tables = list(dynamodb_client.tables.keys())
-    print(f"\nAvailable tables: {available_tables}")
-    
-    # Scan the conversations table
-    conversations_table = dynamodb_client.tables.get('PolisMathConversations')
-    if not conversations_table:
-        print("PolisMathConversations table not found")
-        return False
-    
-    response = conversations_table.scan()
-    items = response.get('Items', [])
-    print(f"\nFound {len(items)} conversations:")
-    for item in items:
-        print(f"  - {item['zid']}: {item.get('participant_count', 0)} participants, "
-              f"{item.get('comment_count', 0)} comments, "
-              f"{item.get('group_count', 0)} groups")
-    
-    # Always show the most recent conversation automatically
-    if items:
-        # Sort by last_updated if available
-        items.sort(key=lambda x: x.get('last_updated', 0), reverse=True)
-        zid = items[0]['zid']
-        math_tick = items[0].get('latest_math_tick')
-        print(f"\nAutomatically showing conversation {zid} (most recent)")
-        
-        # Get analysis data
-        analysis_table = dynamodb_client.tables.get('PolisMathAnalysis')
-        if analysis_table and math_tick:
-            response = analysis_table.get_item(Key={'zid': zid, 'math_tick': math_tick})
-            item = response.get('Item')
-            if item:
-                print(f"\nConversation {zid} analysis summary:")
-                print(f"  - Math tick: {item.get('math_tick')}")
-                print(f"  - Participants: {item.get('participant_count', 0)}")
-                print(f"  - Comments: {item.get('comment_count', 0)}")
-                print(f"  - Group count: {item.get('group_count', 0)}")
-                
-                # Get group details
-                zid_tick = f"{zid}:{math_tick}"
-                groups_table = dynamodb_client.tables.get('PolisMathGroups')
-                if groups_table:
-                    groups_response = groups_table.query(
-                        KeyConditionExpression='zid_tick = :zid_tick',
-                        ExpressionAttributeValues={':zid_tick': zid_tick}
-                    )
-                    
-                    print("\nGroups:")
-                    for group in groups_response.get('Items', []):
-                        group_id = group.get('group_id')
-                        members_count = group.get('member_count', 0)
-                        print(f"  - Group {group_id}: {members_count} members")
-                        
-                        # Get representative comments for this group
-                        repness_table = dynamodb_client.tables.get('PolisMathRepness')
-                        if repness_table:
-                            zid_tick_gid = f"{zid}:{math_tick}:{group_id}"
-                            repness_response = repness_table.query(
-                                KeyConditionExpression='zid_tick_gid = :key',
-                                ExpressionAttributeValues={':key': zid_tick_gid},
-                                Limit=5  # Show top 5 comments
-                            )
-                            
-                            print(f"    Representative comments:")
-                            for i, rep_item in enumerate(repness_response.get('Items', [])):
-                                comment_id = rep_item.get('comment_id')
-                                # Check for both naming conventions for repness value
-                                repness = rep_item.get('repness', 0)
-                                group_id = rep_item.get('group_id')
-                                print(f"      {i+1}. Comment {comment_id} in group {group_id} (Repness: {repness:.4f})")
-            else:
-                print(f"No analysis data found for conversation {zid}")
-    else:
-        # If multiple conversations, try to get input but handle EOFError
-        try:
-            zid = input("\nEnter a conversation ID to inspect (or press Enter to skip): ")
-            if zid:
-                # Get conversation metadata
-                response = conversations_table.get_item(Key={'zid': zid})
-                item = response.get('Item')
-                if item:
-                    math_tick = item.get('latest_math_tick')
-                    
-                    print(f"\nConversation {zid} summary:")
-                    print(f"  - Participants: {item.get('participant_count', 0)}")
-                    print(f"  - Comments: {item.get('comment_count', 0)}")
-                    print(f"  - Groups: {item.get('group_count', 0)}")
-                    
-                    # Get detailed data
-                    if math_tick:
-                        # Get group details
-                        zid_tick = f"{zid}:{math_tick}"
-                        groups_table = dynamodb_client.tables.get('PolisMathGroups')
-                        if groups_table:
-                            groups_response = groups_table.query(
-                                KeyConditionExpression='zid_tick = :zid_tick',
-                                ExpressionAttributeValues={':zid_tick': zid_tick}
-                            )
-                            
-                            print("\nGroups:")
-                            for group in groups_response.get('Items', []):
-                                group_id = group.get('group_id')
-                                members_count = group.get('member_count', 0)
-                                print(f"  - Group {group_id}: {members_count} members")
-                else:
-                    print(f"Conversation {zid} not found")
-        except EOFError:
-            print("\nNon-interactive environment detected.")
-            # Just show the list of conversations already displayed
-    
-    return True
-
-
-
 # def test_conversation_client_api():
 #     """
 #     Test processing a conversation using the PostgresClient API.
@@ -1179,23 +826,6 @@ def inspect_dynamodb_data():
 #         # Save results directly to math_main table (optional, uncomment to enable)
 #         # client.write_math_main(zid, math_data)
 
-#         # Save to DynamoDB
-#         try:
-#             print("\nInitializing DynamoDB client...")
-#             dynamodb_client = init_dynamodb()
-#             print("DynamoDB client initialized")
-
-#             print(f"Writing conversation {zid} to DynamoDB with new schema...")
-#             success = write_to_dynamodb(dynamodb_client, zid, conv)
-#             if success:
-#                 print("Successfully wrote conversation data to DynamoDB")
-#             else:
-#                 print("Failed to write conversation data to DynamoDB")
-#         except Exception as e:
-#             print(f"Error with DynamoDB: {e}")
-#             import traceback
-#             traceback.print_exc()
-
 #         # Basic assertions
 #         assert group_count >= 0, "Group count should be non-negative"
 #         assert participant_count > 0, "Participant count should be positive"
@@ -1210,13 +840,7 @@ if __name__ == "__main__":
     
     # Check command line arguments
     if len(sys.argv) > 1:
-        if sys.argv[1] == 'dynamodb':
-            print("Testing DynamoDB directly:")
-            test_dynamodb_direct()
-        elif sys.argv[1] == 'inspect':
-            print("Inspecting DynamoDB data:")
-            inspect_dynamodb_data()
-        elif sys.argv[1] == 'limit' and len(sys.argv) > 2:
+        if sys.argv[1] == 'limit' and len(sys.argv) > 2:
             # Run with a specific vote limit
             import time
             start_time = time.time()
@@ -1295,10 +919,4 @@ if __name__ == "__main__":
         print("Usage:")
         print("  python test_postgres_real_data.py             # Test with PostgreSQL data")
         print("  python test_postgres_real_data.py client      # Test PostgresClient API")
-        print("  python test_postgres_real_data.py dynamodb    # Test DynamoDB directly")
-        print("  python test_postgres_real_data.py inspect     # Inspect DynamoDB data")
         print("  python test_postgres_real_data.py limit <n>   # Test with limited votes")
-        
-        # By default, run the direct DynamoDB test
-        print("\nRunning DynamoDB test by default:")
-        test_dynamodb_direct()

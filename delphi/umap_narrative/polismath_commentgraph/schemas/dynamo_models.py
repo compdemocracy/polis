@@ -117,25 +117,6 @@ class UMAPGraphEdge(BaseModel):
     position: Optional[Coordinates] = None  # Only present when source_id = target_id
 
 
-class ClusterCharacteristic(BaseModel):
-    """Characteristics of a cluster based on TF-IDF analysis."""
-    conversation_id: str
-    cluster_key: str  # format: "layer{layer_id}_{cluster_id}"
-    layer_id: int
-    cluster_id: int
-    size: int
-    top_words: List[str]
-    top_tfidf_scores: List[float]
-    sample_comments: List[str]
-    
-    @root_validator(pre=True)
-    def create_cluster_key(cls, values):
-        """Create the cluster_key if not provided."""
-        if "cluster_key" not in values and "layer_id" in values and "cluster_id" in values:
-            values["cluster_key"] = f"layer{values['layer_id']}_{values['cluster_id']}"
-        return values
-
-
 class EnhancedTopicName(BaseModel):
     """Enhanced topic name with keywords, based on TF-IDF analysis."""
     conversation_id: str

@@ -76,8 +76,6 @@ from tests.test_postgres_real_data import (
     fetch_votes, 
     fetch_comments, 
     fetch_moderation,
-    init_dynamodb,
-    write_to_dynamodb
 )
 
 # Constants
@@ -267,7 +265,7 @@ def test_pakistan_conversation_batch():
         output_dir = os.path.join(os.path.dirname(__file__), '..', 'real_data', 'postgres_output')
         os.makedirs(output_dir, exist_ok=True)
         
-        # Save the conversation data to file using optimized to_dynamo_dict method if available
+        # Save the conversation data to file
         output_file = os.path.join(output_dir, f'conversation_{PAKISTAN_ZINVITE}_result.json')
         to_dict_start = time.time()
         
@@ -288,38 +286,6 @@ def test_pakistan_conversation_batch():
             json.dump(json_ready_data, f, indent=2)
         
         logger.info(f"[{time.time() - start_time:.2f}s] Saved results to {output_file} in {time.time() - save_start:.2f}s")
-        
-        # Save to DynamoDB using optimized to_dynamo_dict method
-        try:
-            logger.info(f"[{time.time() - start_time:.2f}s] Initializing DynamoDB client...")
-            dynamo_start = time.time()
-            # Use already imported init_dynamodb and write_to_dynamodb functions
-            # They were imported at the top of the file
-            dynamodb_client = init_dynamodb()
-            logger.info(f"[{time.time() - start_time:.2f}s] DynamoDB client initialized in {time.time() - dynamo_start:.2f}s")
-            
-            # Ready to export conversation to DynamoDB
-            
-            logger.info(f"[{time.time() - start_time:.2f}s] Ready to write conversation data to DynamoDB")
-            
-            # Write to DynamoDB using the unified export method
-            logger.info(f"[{time.time() - start_time:.2f}s] Writing to DynamoDB...")
-            write_start = time.time()
-            
-            # Use the export_to_dynamodb method which automatically handles large conversations
-            logger.info(f"[{time.time() - start_time:.2f}s] Using unified export method for conversation")
-            success = conv.export_to_dynamodb(dynamodb_client)
-                
-            write_time = time.time() - write_start
-            logger.info(f"[{time.time() - start_time:.2f}s] DynamoDB write {'succeeded' if success else 'failed'} in {write_time:.2f}s")
-            
-            # Calculate write time
-            logger.info(f"[{time.time() - start_time:.2f}s] Write time: {write_time:.2f}s")
-            
-        except Exception as e:
-            logger.error(f"[{time.time() - start_time:.2f}s] Error with DynamoDB: {e}")
-            import traceback
-            traceback.print_exc()
         
         # Perform basic assertions
         logger.info(f"[{time.time() - start_time:.2f}s] Running tests...")
