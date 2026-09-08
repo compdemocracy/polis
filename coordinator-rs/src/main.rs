@@ -1,8 +1,8 @@
 use anyhow::{Result, bail};
 use polis_coordinator::{
     config::Config,
-    coordinator::OwnershipRefused,
     fault::Fault,
+    lease::LeaseState,
     store::{PgStore, ResultsStore},
 };
 use serde_json::json;
@@ -40,7 +40,7 @@ fn run() -> Result<()> {
             let zid: i32 = serde_json::from_value(v["zid"].clone())?;
             let payloads: polis_coordinator::store::Payloads =
                 serde_json::from_value(v["payloads"].clone())?;
-            let epoch = store.acquire(zid)?.ok_or(OwnershipRefused)?;
+            let epoch = store.acquire(zid)?.ok_or(LeaseState::Unavailable)?;
             let expected = v["expected_tick"].as_i64();
             let result = store.publish(zid, expected, epoch, v["checkpoint"].clone(), &payloads)?;
             store.release(zid, epoch)?;
@@ -97,7 +97,8 @@ fn run() -> Result<()> {
         }
         "run" => loop {
             if let Err(e) = store.cycle() {
-                if e.is::<OwnershipRefused>() {
+                // Only a superseded owner ends the daemon.
+                if LeaseState::of(&e).is_some_and(|s| !s.recoverable()) {
                     return Err(e);
                 }
                 tracing::error!(error=%e,"cycle failed; cursor retained for retry");
@@ -118,7 +119,7 @@ fn main() {
         .with_writer(std::io::stderr)
         .init();
     if let Err(e) = run() {
-        let code = if e.is::<OwnershipRefused>() { 3 } else { 1 };
+        let code = LeaseState::of(&e).map_or(1, LeaseState::exit_code);
         let sqlstate = e
             .downcast_ref::<postgres::Error>()
             .and_then(|e| e.code())

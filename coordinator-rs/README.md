@@ -8,6 +8,8 @@ full contract certification. See the P-026 report for executed coverage and gaps
 
 - `src/store.rs`: `ResultsStore` trait and PostgreSQL v0, coherent joined reads,
   expected-tick conflicts, lease fencing, JSONB integrity digests, atomic publication.
+- `src/lease.rs`: the three distinguishable ownership outcomes and the
+  conditional heartbeat renewal that keeps a long compute inside its lease.
 - `src/coordinator.rs`: complete source snapshot reconciliation, durable keyset
   cursor, bounded failure backoff, one active conversation and worker process.
 - `src/engine.rs`, `src/wire.rs`: bounded JSONL subprocess client, strict parsing,
@@ -45,8 +47,44 @@ existing caches to this reader.
 Publication order: parent `conversations FOR KEY SHARE`, lease, ticks, bidtopid,
 ptptstats, main. Ownership is checked under the lease lock and expiry is checked
 again immediately before commit. Reclaims increment the epoch; rows are expired,
-never deleted/recreated. Default lease duration is 120 seconds. Long computations
-that outlive it are fenced; renewal during computation is not implemented.
+never deleted/recreated. Default lease duration is 120 seconds.
+
+## Ownership outcomes
+
+Refusal is not one state. Each outcome has its own log token and process exit
+code, and only one of them is terminal:
+
+| Outcome | Token | Exit | Meaning | Response |
+| --- | --- | --- | --- | --- |
+| `LeaseState::Fenced` | `FENCED` | 3 | owner or epoch superseded | publication authority is gone; the daemon exits and this zid is not retried by this owner |
+| `LeaseState::Unavailable` | `LEASE-UNAVAILABLE` | 4 | another owner holds an unexpired lease | defer this zid with bounded backoff and keep sweeping the rest |
+| `LeaseState::Expired` | `LEASE-EXPIRED` | 5 | our own lease elapsed in DB time | do not publish; reacquire and recompute on a later pass |
+| any other failure | — | 1 | not an ownership question | durable backoff, cursor retained |
+
+Exit codes 4 and 5 are reachable only from `once` and `publish-fixture`, which
+are strict one-shot commands: a lease refusal ends that pass with its typed
+code. The `run` daemon exits only on `FENCED`.
+
+A compute that outlasts the lease renews instead of fencing itself. A heartbeat
+on its own connection extends `expires_at` every `lease/3`, conditional on
+`(owner_id, owner_epoch)` and on the lease still being unexpired in database
+time, so it can never resurrect an expired or transferred epoch. A renewal that
+fails definitively aborts the operation the worker is running and no publication
+follows; an uncertain renewal is not treated as ownership, and after one full
+lease without a confirmed renewal the work stops. Ownership is then classified
+once more against the lease row before anything is published, so a heartbeat the
+database contradicts does not invent a loss, and publication independently
+re-checks owner, epoch and expiry inside its own transaction. The heartbeat
+cannot renew while the publication transaction holds the lease row `FOR UPDATE`,
+so a publication must fit inside one lease window; the pre-commit expiry check is
+what enforces that, and it fails closed.
+
+An unclean death leaves the lease live until it genuinely expires. A restarted
+process defers that conversation and keeps working; it never crash-loops, and it
+repairs without anyone expiring the dead owner's row by hand. A process that
+fails cleanly releases its own epoch immediately (the release is conditional on
+`(owner_id, owner_epoch)`, so a transferred row is untouched).
+
 Per-conversation error attempts are durable and capped at 30 for backoff. SQLSTATE
 40001/40P01 gets at most three whole-transaction attempts. Uncertain COMMIT checks
 coherent persisted checkpoint identity before reporting success or failure.
@@ -103,7 +141,8 @@ Commands: `migrate`, `once`, `run`, `read <zid>`, `scan <after-zid>`,
 pass; `run` bounds each cycle by `P026_PAGE_SIZE` (default 16, range 1–1000).
 `MATH_ENV` defaults to `rustproto`. `DATABASE_URL`, `P026_PYTHON`,
 `STORAGE_AGREE_VALUE` (-1 or +1), `POLL_SHARD_INDEX`, `POLL_SHARD_COUNT`,
-`POLL_ALLOWLIST`, `P026_WINDOW` (default 64, positive), `P026_LEASE_SECONDS`, `P026_POLL_MS` are configuration inputs.
+`POLL_ALLOWLIST`, `P026_WINDOW` (default 64, positive), `P026_LEASE_SECONDS`,
+`P026_POLL_MS` are configuration inputs.
 `PYTHONPATH` must include this checkout's `delphi` directory. No credentials are
 stored in the crate or report.
 

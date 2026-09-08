@@ -4,7 +4,7 @@ import signal
 import threading
 import time
 import pytest
-from conftest import ARTIFACTS, FOLD, MAPPING, seed, rows, connect, assert_coherent, expire
+from conftest import ARTIFACTS, FOLD, MAPPING, seed, rows, connect, assert_coherent, expire, lease
 
 PUBLISH_STAGES=["after_lease","after_source_selection","after_input_checkpoint","before_worker_apply",
     "after_worker_compute","before_ticks","after_ticks","before_bidtopid","after_bidtopid",
@@ -40,8 +40,9 @@ def test_r07_duplicate_refused_healthy_winner(db,launch,tmp_path):
     winner=launch(db,stage="after_lease",directory=tmp_path/"owned")
     winner.ack()
     loser=launch(db)
-    _,err=loser.done(code=3)
-    assert "OWNERSHIP-REFUSED" in err
+    # A live owner is LEASE-UNAVAILABLE (recoverable), never FENCED.
+    _,err=loser.done(code=4)
+    assert "LEASE-UNAVAILABLE" in err and "FENCED" not in err
     assert winner.proc.poll() is None
     winner.release();winner.done()
     assert_coherent(db)
@@ -56,7 +57,7 @@ def test_r07_stale_owner_cannot_publish_after_transfer(db,launch,tmp_path):
     before=rows(db)
     old.release()
     _,err=old.done(code=3)
-    assert "OWNERSHIP-REFUSED" in err
+    assert "FENCED" in err # superseded owner/epoch, not a merely unavailable lease
     assert rows(db)==before
     assert_coherent(db)
 
@@ -183,7 +184,7 @@ def test_unmarked_kill_is_unclean(db,launch):
 def test_unrelated_failure_is_not_refusal(db,launch):
     broken=db.rsplit('/',1)[0]+'/p026_nonexistent'
     _,err=launch(broken).done(code=1)
-    assert "OWNERSHIP-REFUSED" not in err
+    assert not any(token in err for token in ("FENCED","LEASE-UNAVAILABLE","LEASE-EXPIRED"))
 
 
 @pytest.mark.parametrize("stage",["before_restore","after_restore"])
@@ -255,7 +256,8 @@ def test_r07_old_new_shard_overlap_is_fenced(db,launch,tmp_path):
     old=launch(db,stage='after_lease',directory=tmp_path/'old-shard',extra={'POLL_SHARD_INDEX':'0','POLL_SHARD_COUNT':'2','POLL_ALLOWLIST':'2'})
     old.ack()
     new=launch(db,extra={'POLL_SHARD_INDEX':'2','POLL_SHARD_COUNT':'3','POLL_ALLOWLIST':'2'})
-    _,err=new.done(code=3);assert 'OWNERSHIP-REFUSED' in err
+    # The old shard owner is still live, so the overlap is refused as unavailable.
+    _,err=new.done(code=4);assert 'LEASE-UNAVAILABLE' in err
     old.release();old.done()
     launch(db,extra={'POLL_SHARD_COUNT':'3','POLL_SHARD_INDEX':'0'}).done()
     launch(db,extra={'POLL_SHARD_COUNT':'3','POLL_SHARD_INDEX':'1'}).done()
@@ -316,7 +318,8 @@ def test_database_error_rolls_back_all_publication_tables(db,launch):
     assert 'coordinator failed' in err
     assert all(v is None for v in rows(db).values())
     with c.cursor() as cur:cur.execute('ALTER TABLE math_main DROP CONSTRAINT p026_reject')
-    expire(db);launch(db).done();assert_coherent(db);c.close()
+    assert lease(db)['unexpired'] is False
+    launch(db).done();assert_coherent(db);c.close()
 
 
 def test_r08_reference_warm_cache_negative_control(db,launch):
@@ -346,7 +349,8 @@ def test_actual_worker_sigkill_is_not_success(db,launch,tmp_path):
     os.kill(worker_pid,signal.SIGKILL)
     child.release();child.done(code=1)
     assert all(v is None for v in rows(db).values())
-    expire(db);launch(db).done();assert_coherent(db)
+    assert lease(db)['unexpired'] is False # a clean failure releases its own epoch
+    launch(db).done();assert_coherent(db)
 
 
 def test_terminate_actual_publication_backend_rolls_back(db,launch,tmp_path):
@@ -361,4 +365,5 @@ def test_terminate_actual_publication_backend_rolls_back(db,launch,tmp_path):
         cur.execute('SELECT pg_terminate_backend(%s)',(backend,));assert cur.fetchone()[0]
     child.release();child.done(code=1)
     assert all(v is None for v in rows(db).values())
-    expire(db);launch(db).done();assert_coherent(db);c.close()
+    assert lease(db)['unexpired'] is False
+    launch(db).done();assert_coherent(db);c.close()
