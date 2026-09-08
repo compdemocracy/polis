@@ -212,6 +212,14 @@ malformed operands cannot slip through: `True` vs `True` for a count, `"1"` vs
 `"1"` for a tid, or a float-spelled cluster id `1.5` on both sides are all
 divergences, not matches.
 
+So is the **shape**. An integer position is declared scalar or array and
+validated before any recursion, because `n = {}` on both sides is not a count
+that happens to agree — it is not a count. The declaration is *key-scoped* where
+it has to be: `A`/`D`/`S` are per-base-cluster bucket arrays in `votes-base` and
+per-group scalar totals in `group-votes`, so a rule keyed on the field name
+alone gets one of them wrong. It applies at the declared position only, so
+`bid-to-pid` remains an array of arrays.
+
 The remaining, genuinely continuous leaves get one of two bounds:
 
 | class | bound | applies to |
@@ -300,7 +308,11 @@ differences survive.
    truncates every comment to 0.0 on both components (Q16), and the Python port
    matches. So the emitted array has `max(len(comps), 2)` rows, and the comparer
    requires exactly that — an extra component row is a structural error, not a
-   row to drop.
+   row to drop. The **padded row is compared like any other**: it takes a
+   declared sign (`+1`, inert because it is all zeros) and its all-zero
+   construction is checked, so a stray value there is a structural defect even
+   when both engines carry it. It is never zipped away against a shorter list
+   of component signs.
 
    When an emitter *cannot* verify a shape it refuses rather than guessing: it
    writes a `__structural_error__` sentinel, which the comparer lifts into a
@@ -364,9 +376,15 @@ two are a complete, aligned, same-input pair. It checks that:
   happens to equal the other side's;
 * every document declares a supported `vote_sign_convention` and the expected
   `comment_projection_axes`, and carries **all eleven stages, each with its full
-  declared key inventory**. A stage present but mapped to `{}` is a hole in the
-  recording, not eleven stages that happened to agree; an unknown stage or key
-  is reported too;
+  declared key inventory**. A stage present but mapped to `{}`, to `null`, or to
+  an array is a hole in the recording, not a stage that happened to agree; an
+  unknown stage or key is reported too;
+* the digest is **64 lower-case hex digits**, not merely a `sha256:` prefix;
+* each manifest row **names a real step file** — matching `step-NNN.stages.json`,
+  unique, and present in the recording — and agrees with *that document* on all
+  five identity fields (index, tick, digest, engine, polarity); every step file
+  on disk appears in the manifest; and the recording declares **one** engine and
+  **one** polarity throughout, matching the manifest's;
 * a malformed document — not an object, unparseable JSON, a non-object `stages`
   container, a non-integer step — becomes an input problem rather than an
   exception;
