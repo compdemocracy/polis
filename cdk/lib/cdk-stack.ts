@@ -32,6 +32,7 @@ import createSecurityGroups from '../securityGroups';
 import createRoles from '../iamRoles';
 import createECRRepos from '../ecr';
 import createDBResources from '../db';
+import createDelphiTables from '../dynamodb';
 import configureLaunchTemplates from '../launchTemplates';
 import createAutoScalingAndAlarms from '../autoscaling';
 import createCodedeployConfig from '../codedeploy';
@@ -164,6 +165,10 @@ export class CdkStack extends cdk.Stack {
       lowStorageAlarm,
       highCpuAlarm,
     } = createDBResources(this, vpc);
+
+    // Delphi DynamoDB tables. Only the P-003 active-work guard is managed here;
+    // see cdk/dynamodb.ts for why the other Delphi_* tables are not.
+    createDelphiTables(this);
 
     // --- EFS for Ollama Models (only when the GPU stack is enabled)
     let fileSystem: efs.FileSystem | undefined;
