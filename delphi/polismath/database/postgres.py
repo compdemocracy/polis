@@ -26,6 +26,10 @@ import pandas as pd
 
 from polismath.utils.general import postgres_vote_to_delphi
 from polismath.utils.serialization import convert_numpy_types
+from polismath.utils.vote_convention import (
+    STORAGE_AGREE_VALUE,
+    validate_storage_agree_value,
+)
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -272,13 +276,24 @@ class WorkerTasks(Base):
 class PostgresClient:
     """PostgreSQL client for Pol.is math."""
 
-    def __init__(self, config: Optional[PostgresConfig] = None):
+    def __init__(
+        self,
+        config: Optional[PostgresConfig] = None,
+        storage_agree_value: int = STORAGE_AGREE_VALUE,
+    ):
         """
         Initialize PostgreSQL client.
 
         Args:
             config: PostgreSQL configuration
+            storage_agree_value: the DECLARED raw storage sign of AGREE in the
+                database this client reads, -1 or +1 (P-022-G rev4). Validated
+                here so an unknown convention fails at construction rather than
+                silently mis-signing every vote at ingress. Production remains
+                -1 until the P-023 storage migration.
         """
+        self.storage_agree_value = validate_storage_agree_value(
+            storage_agree_value)
         self.config = config or PostgresConfig.from_env()
         self.engine = None
         self.session_factory = None
@@ -544,7 +559,8 @@ class PostgresClient:
             {
                 "pid": v["pid"],
                 "tid": v["tid"],
-                "vote": postgres_vote_to_delphi(int(v["vote"])),
+                "vote": postgres_vote_to_delphi(
+                    int(v["vote"]), self.storage_agree_value),
                 "created": v["created"],
             }
             for v in votes
@@ -582,7 +598,8 @@ class PostgresClient:
                 "zid": int(v["zid"]),
                 "pid": v["pid"],
                 "tid": v["tid"],
-                "vote": postgres_vote_to_delphi(int(v["vote"])),
+                "vote": postgres_vote_to_delphi(
+                    int(v["vote"]), self.storage_agree_value),
                 "created": v["created"],
             }
             for v in rows

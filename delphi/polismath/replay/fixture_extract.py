@@ -49,6 +49,11 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 from polismath.replay import prodclone as pc
+from polismath.utils.vote_convention import (
+    EXPORT_AGREE_VALUE,
+    STORAGE_AGREE_VALUE,
+    validate_storage_agree_value,
+)
 
 #: Bumped to /2 by the lossless correction: ``weight_x_32767`` and ``vote`` are
 #: NULLABLE in the stream. /1 coerced a NULL weight to 0, which silently
@@ -56,9 +61,12 @@ from polismath.replay import prodclone as pc
 EVENT_STREAM_SCHEMA_VERSION = "certify-events/2"
 
 #: Raw storage sign of an AGREE vote (``server/postgres/migrations/000000_initial.sql``:
-#: "-1 = Agree, 1 = Disagree, 0 = Pass/Unsure"). The export CSV negates it.
-STORAGE_AGREE_VALUE = -1
-EXPORT_AGREE_VALUE = 1
+#: "-1 = Agree, 1 = Disagree, 0 = Pass/Unsure"), and the export CSV's own
+#: (semantic) sign. Both are RE-EXPORTED from the ONE authoritative definition
+#: (``polismath.utils.vote_convention``) rather than restated as literals here
+#: — P-022-G rev4 allows exactly one Python definition, and every consumer
+#: takes the value through a validated argument. Production extraction remains
+#: -1 until the separately approved P-023 storage migration.
 
 _OPAQUE_PREFIX_BYTES = 8  # 16 hex characters
 
@@ -360,6 +368,7 @@ def logical_digest(events: Sequence[dict[str, Any]]) -> str:
 def stream_meta(
     *, slug: str, role: str, tie_key: dict[str, Any],
     events: Sequence[dict[str, Any]], n_participants: int,
+    storage_agree_value: int = STORAGE_AGREE_VALUE,
 ) -> dict[str, Any]:
     vote_events = [e for e in events if e["kind"] == "vote"]
     comment_events = [e for e in events if e["kind"] == "comment"]
@@ -380,10 +389,11 @@ def stream_meta(
             "note": tie_key["note"],
         },
         "polarity": {
-            "storage_agree_value": STORAGE_AGREE_VALUE,
+            "storage_agree_value": storage_agree_value,
             "export_agree_value": EXPORT_AGREE_VALUE,
             "events_carry": "raw storage sign, unmodified",
-            "compat_csv_carries": "negated sign, matching the production export",
+            "compat_csv_carries": "semantic sign (raw x storage_agree_value), "
+                                  "matching the production export",
         },
         "nullability": {
             "vote": "NULLABLE. votes.vote has no NOT NULL constraint; a NULL "
@@ -457,6 +467,7 @@ COMPAT_NULL_VOTE_POLICY = "drop-counted"
 
 def compat_rows_from_events(
     events: Sequence[dict[str, Any]],
+    *, storage_agree_value: int = STORAGE_AGREE_VALUE,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]], dict[str, Any]]:
     """Derive the compatibility votes/comments CSV rows FROM the event stream
     (never from a second query), reusing the existing formatters so the export
@@ -485,13 +496,15 @@ def compat_rows_from_events(
     votable = [e for e in vote_events if e["vote"] is not None]
     null_vote_events = [e for e in vote_events if e["vote"] is None]
 
+    agree = validate_storage_agree_value(storage_agree_value)
     votes_rows = pc.format_votes_rows([
         {"tid": e["tid"], "pid": e["pid"], "vote": e["vote"], "created": e["created"]}
         for e in votable
-    ])
+    ], storage_agree_value=agree)
 
     compat_census = {
         "null_vote_policy": COMPAT_NULL_VOTE_POLICY,
+        "storage_agree_value": agree,
         "null_votes_dropped": len(null_vote_events),
         "null_vote_ordinals": [e["ord"] for e in null_vote_events[:64]],
         "null_vote_cells": sorted({(e["pid"], e["tid"]) for e in null_vote_events})[:64],
@@ -509,9 +522,9 @@ def compat_rows_from_events(
     counts: dict[int, list[int]] = {}
     for e in votable:
         entry = counts.setdefault(e["tid"], [0, 0])
-        if e["vote"] == STORAGE_AGREE_VALUE:
+        if e["vote"] == agree:
             entry[0] += 1
-        elif e["vote"] == -STORAGE_AGREE_VALUE:
+        elif e["vote"] == -agree:
             entry[1] += 1
     vote_counts = {tid: (a, d) for tid, (a, d) in counts.items()}
 
@@ -547,6 +560,7 @@ def fetch_conversation(conn, zid: int, tie_key: dict[str, Any]) -> dict[str, lis
 def extract_conversation(
     conn, *, zid: int, slug: str, role: str, payload_root: Path, guard_root: Path,
     dir_name: str, tie_key: dict[str, Any], measured: dict[str, Any] | None = None,
+    storage_agree_value: int = STORAGE_AGREE_VALUE,
 ) -> dict[str, Any]:
     """Extract ONE conversation into ``<payload_root>/<dir_name>/``.
 
@@ -558,7 +572,8 @@ def extract_conversation(
     raw = fetch_conversation(conn, zid, tie_key)
     events = build_events(raw["votes"], raw["comments"])
     meta = stream_meta(slug=slug, role=role, tie_key=tie_key, events=events,
-                       n_participants=len(raw["participants"]))
+                       n_participants=len(raw["participants"]),
+                       storage_agree_value=storage_agree_value)
 
     target.mkdir(parents=True, exist_ok=True)
     write_events_jsonl(target / "events.jsonl", events)
@@ -566,7 +581,8 @@ def extract_conversation(
         json.dumps(meta, indent=2, sort_keys=True) + "\n")
     write_participants_csv(target / "participants.csv", raw["participants"])
 
-    votes_rows, comments_rows, compat = compat_rows_from_events(events)
+    votes_rows, comments_rows, compat = compat_rows_from_events(
+        events, storage_agree_value=storage_agree_value)
     meta["compat_csv"] = compat
     (target / "events.meta.json").write_text(
         json.dumps(meta, indent=2, sort_keys=True) + "\n")
