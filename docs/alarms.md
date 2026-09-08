@@ -1,6 +1,7 @@
 # Operational alarms
 
-Seven CloudWatch alarms, one SNS topic and one CodeDeploy event rule. This is
+Six CloudWatch alarms — four of them new — plus one SNS topic and one CodeDeploy
+event rule. This is
 P-031 slice 1: the subset of the alarm catalog whose metrics already exist in
 the account, so nothing in `server/`, `math/` or `delphi/` had to change and no
 new metric publisher was added.
@@ -158,6 +159,19 @@ lifecycle event, and check whether instances were left in a partially deployed
 state. EventBridge delivery is best effort; the deploying workflow's own status
 remains the authoritative record.
 
+**Authorization.** The rule publishes through its own execution role rather than
+through an `events.amazonaws.com` principal on the topic policy, so the topic
+policy names no EventBridge principal at all. The alternative — a service
+principal fenced by an `aws:SourceArn` condition — depends on EventBridge
+supplying that condition key when it publishes to SNS, which is not something
+the synthesized template can demonstrate. If it did not, every deployment
+failure notification would be denied silently. The role has exactly one
+permission: `sns:Publish` on this topic.
+
+Both forms still need the same drill before A16 can be called working: a real
+matching deployment event reaches the inbox, a non-matching state does not, and
+CloudWatch alarm delivery is unaffected.
+
 ### Polis-Alerts-NotificationDeliveryFailed
 
 **Meaning:** SNS reported a failed delivery of an operational alert. **The alert
@@ -239,14 +253,16 @@ A07's `ignore` is only safe with it. Enabling A07's retarget without A04 fails
 
 ## Cost
 
-Roughly **$1/month**, and closer to **$0.50** in practice.
+Roughly **$0.40/month** incremental.
 
-- 7 alarms × $0.10 = **$0.70** for the selected set.
-- A06 and A07 already existed, so **$0.50 is the incremental** charge.
+- The selected set is **six metric alarms** — A17, A13, A04, A06, A07, A18 —
+  at $0.10 each, so **$0.60** gross. A16 is an EventBridge rule, not a metric
+  alarm, and carries no alarm charge; an earlier count wrongly included it.
+- A06 and A07 already existed, so only **four are new**: **$0.40 incremental**.
 - No new custom metric series, no metric filters, no Lambda, no dashboards, and
   no `GetMetricData` polling.
 - SNS email is free under 1,000 notifications/month. EventBridge rules matching
-  AWS service events are free.
+  AWS service events are free, as is the IAM role the rule uses to publish.
 - The ten-alarm free tier is already consumed by the account's existing 16
   alarms, so none of the above is discounted.
 

@@ -7,17 +7,17 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
-import { Construct } from 'constructs';
+import { Construct, IValidation } from 'constructs';
 
 /**
  * Operational alarms — P-031 slice 1, built against plan revision 2.
  *
- * Seven metric alarms plus one EventBridge rule. Every one reads a metric that
- * already exists: no new publisher, no log metric filter, no code in any
- * service. Six of the seven measured zero breaching periods over the four days
- * before the plan was written; the two sparse failure signals (A16, A18) have
- * no historical rule or topic to measure, so "no observed failures" is not a
- * false-positive guarantee for them.
+ * Six metric alarms — two of which already exist — plus one EventBridge rule.
+ * Every one reads a metric that already exists: no new publisher, no log metric
+ * filter, no code in any service. Five of the six measured zero breaching
+ * periods over the four days before the plan was written; the two sparse
+ * failure signals (A16, A18) have no historical rule or topic to measure, so
+ * "no observed failures" is not a false-positive guarantee for them.
  *
  *   A17  Math ASG missing-metric alarm      (new; the Sep-08 outage detector)
  *   A13  Web healthy host count
@@ -76,49 +76,110 @@ export const HEALTH_PAIRS: Readonly<Record<string, readonly string[]>> = {
   A14: ['A15'],
 };
 
-/** What the pair check needs to know about each enabled alarm. */
-export interface EnabledAlarmRecord {
+/**
+ * One enabled alarm, as the pair check sees it AFTER synthesis has resolved
+ * every mutation. These are read off the rendered `CfnAlarm`, never cached at
+ * construction: an earlier version of this check recorded what the construct
+ * *intended* to wire, so disabling or emptying A04's actions afterwards still
+ * synthesized clean. Review F1.
+ */
+export interface ResolvedAlarmFacts {
   /** Catalog id, e.g. `A07`. */
   id: string;
   /** Alarm name, for the failure message. */
   alarmName: string;
-  treatMissingData: cloudwatch.TreatMissingData;
-  /** Number of ALARM-state actions wired. Zero means it notifies nobody. */
-  alarmActionCount: number;
+  /** As rendered: `breaching`, `notBreaching`, `ignore`, `missing`. */
+  treatMissingData?: string;
+  /** `ActionsEnabled` absent means enabled, which is CloudFormation's default. */
+  actionsEnabled: boolean;
+  /** Whether an ALARM-state action actually points at the operations topic. */
+  notifiesTopic: boolean;
 }
 
+const BREACHING = cloudwatch.TreatMissingData.BREACHING as string;
+
 /**
- * Throws unless every silent-on-publisher-death alarm in `enabled` is covered
- * by an enabled health alarm that both treats missing data as breaching and
- * actually notifies someone. Presence alone is not enough: a health alarm with
- * no action, or one that itself stays OK on missing data, does not satisfy the
- * pair (plan rev2, "Check both alarm presence and effective missing-data/action
- * wiring, so a disabled health action does not satisfy pairing").
+ * Returns one message per silent-on-publisher-death alarm that is NOT covered
+ * by a health alarm which treats missing data as breaching, has its actions
+ * enabled, and actually notifies the operations topic. Presence alone is not
+ * enough: a health alarm with no action, with `ActionsEnabled: false`, or with
+ * its own missing-data setting changed, does not satisfy the pair (plan rev2,
+ * "Check both alarm presence and effective missing-data/action wiring, so a
+ * disabled health action does not satisfy pairing").
  */
-export const enforceHealthPairs = (enabled: readonly EnabledAlarmRecord[]): void => {
-  const byId = new Map(enabled.map((record) => [record.id, record]));
-  for (const record of enabled) {
-    const required = HEALTH_PAIRS[record.id];
+export const findHealthPairViolations = (facts: readonly ResolvedAlarmFacts[]): string[] => {
+  const byId = new Map(facts.map((fact) => [fact.id, fact]));
+  const violations: string[] = [];
+  for (const fact of facts) {
+    const required = HEALTH_PAIRS[fact.id];
     if (!required) continue;
-    const satisfiedBy = required.filter((healthId) => {
+    const satisfied = required.some((healthId) => {
       const health = byId.get(healthId);
       return (
         health !== undefined &&
-        health.treatMissingData === cloudwatch.TreatMissingData.BREACHING &&
-        health.alarmActionCount > 0
+        health.treatMissingData === BREACHING &&
+        health.actionsEnabled &&
+        health.notifiesTopic
       );
     });
-    if (satisfiedBy.length === 0) {
-      throw new Error(
-        `P-031 health pairing: ${record.id} (${record.alarmName}) treats missing data as ` +
-          `"${record.treatMissingData}", so it stays OK forever if its publisher dies. It ` +
+    if (!satisfied) {
+      violations.push(
+        `P-031 health pairing: ${fact.id} (${fact.alarmName}) treats missing data as ` +
+          `"${fact.treatMissingData}", so it stays OK forever if its publisher dies. It ` +
           `requires one of [${required.join(', ')}] to be enabled with ` +
-          'treatMissingData=breaching and at least one alarm action. Enable one of them, or ' +
-          `drop ${record.id} from this slice.`,
+          'treatMissingData=breaching, ActionsEnabled and an alarm action on the operations ' +
+          `topic. Fix that wiring, or drop ${fact.id} from this slice.`,
       );
     }
   }
+  return violations;
 };
+
+/** An alarm the pair check must inspect once synthesis has resolved it. */
+interface PairedAlarm {
+  id: string;
+  alarm: cloudwatch.Alarm;
+}
+
+/**
+ * Reads the final state of one alarm off its `CfnAlarm`, resolving tokens
+ * through the stack. Anything a later `node.defaultChild` mutation changed is
+ * visible here, which is the whole point.
+ */
+const resolveAlarmFacts = (entry: PairedAlarm, topicArn: string): ResolvedAlarmFacts => {
+  const stack = cdk.Stack.of(entry.alarm);
+  const cfn = entry.alarm.node.defaultChild as cloudwatch.CfnAlarm;
+  const actionsEnabled = stack.resolve(cfn.actionsEnabled);
+  const actions: unknown[] = stack.resolve(cfn.alarmActions) ?? [];
+  const resolvedTopicArn = JSON.stringify(stack.resolve(topicArn));
+  return {
+    id: entry.id,
+    alarmName: entry.alarm.alarmName,
+    treatMissingData: stack.resolve(cfn.treatMissingData),
+    // Absent means enabled — that is the CloudFormation default, so only an
+    // explicit false counts as disabled.
+    actionsEnabled: actionsEnabled !== false,
+    notifiesTopic: actions.some((action) => JSON.stringify(action) === resolvedTopicArn),
+  };
+};
+
+/**
+ * Synthesis-time gate. `Node.addValidation` runs after the construct tree is
+ * final, so this sees the alarms as CloudFormation will, not as they were
+ * declared.
+ */
+class HealthPairValidation implements IValidation {
+  constructor(
+    private readonly alarms: readonly PairedAlarm[],
+    private readonly topicArn: string,
+  ) {}
+
+  validate(): string[] {
+    return findHealthPairViolations(
+      this.alarms.map((entry) => resolveAlarmFacts(entry, this.topicArn)),
+    );
+  }
+}
 
 /**
  * Reads the `enableAlarms` context flag. Absent, or anything other than a
@@ -189,8 +250,6 @@ export interface RetargetedAlarm {
   /** Catalog id, e.g. `A06`. Used by the health-pair check. */
   id: string;
   alarm: cloudwatch.Alarm;
-  /** The alarm's deployed missing-data setting, verified by describe-alarms. */
-  treatMissingData: cloudwatch.TreatMissingData;
 }
 
 const runbook = (anchor: string) => `Runbook: docs/alarms.md#${anchor}`;
@@ -248,21 +307,18 @@ const createOperationalAlarms = (self: Construct, props: OperationalAlarmsProps)
     }),
   );
 
-  const enabled: EnabledAlarmRecord[] = [];
+  const enabled: PairedAlarm[] = [];
 
-  const notify = (
-    id: string,
-    alarm: cloudwatch.Alarm,
-    treatMissingData: cloudwatch.TreatMissingData,
-    alarmName: string,
-  ) => {
+  const notify = (id: string, alarm: cloudwatch.Alarm) => {
     const action = new cw_actions.SnsAction(topic);
     alarm.addAlarmAction(action);
     // OK is sent too: an operator who saw the ALARM email needs to know it
     // cleared without logging in. Email is not a paging system and SNS sends on
     // state transition only — a persisting ALARM does not re-notify.
     alarm.addOkAction(action);
-    enabled.push({ id, alarmName, treatMissingData, alarmActionCount: 1 });
+    // The reference is kept, not a snapshot of what was just wired: the pair
+    // check re-reads this alarm after synthesis has resolved every mutation.
+    enabled.push({ id, alarm });
     return alarm;
   };
 
@@ -312,8 +368,6 @@ const createOperationalAlarms = (self: Construct, props: OperationalAlarmsProps)
       datapointsToAlarm: 2,
       treatMissingData: cloudwatch.TreatMissingData.BREACHING,
     }),
-    cloudwatch.TreatMissingData.BREACHING,
-    MATH_WORKER_LIVENESS_ALARM_NAME,
   );
 
   // --- 3. Web healthy hosts (catalog A13) ------------------------------------
@@ -350,8 +404,6 @@ const createOperationalAlarms = (self: Construct, props: OperationalAlarmsProps)
       datapointsToAlarm: 2,
       treatMissingData: cloudwatch.TreatMissingData.BREACHING,
     }),
-    cloudwatch.TreatMissingData.BREACHING,
-    WEB_HEALTHY_HOSTS_ALARM_NAME,
   );
 
   // --- 4. A04: RDS CPU credit balance ---------------------------------------
@@ -391,8 +443,6 @@ const createOperationalAlarms = (self: Construct, props: OperationalAlarmsProps)
       evaluationPeriods: 3,
       treatMissingData: cloudwatch.TreatMissingData.BREACHING,
     }),
-    cloudwatch.TreatMissingData.BREACHING,
-    DB_CREDIT_BALANCE_ALARM_NAME,
   );
 
   // --- 5. A06 / A07 retarget -------------------------------------------------
@@ -409,12 +459,7 @@ const createOperationalAlarms = (self: Construct, props: OperationalAlarmsProps)
   // place on all three, delivery does not split — the shared topic is added,
   // not swapped in. See docs/alarms.md#existing-database-alarms.
   for (const retargeted of props.retargetAlarms ?? []) {
-    notify(
-      retargeted.id,
-      retargeted.alarm,
-      retargeted.treatMissingData,
-      retargeted.alarm.alarmName,
-    );
+    notify(retargeted.id, retargeted.alarm);
   }
 
   // --- 6. A16: CodeDeploy FAILURE/STOP ---------------------------------------
@@ -439,6 +484,17 @@ const createOperationalAlarms = (self: Construct, props: OperationalAlarmsProps)
     },
     targets: [
       new targets.SnsTopic(topic, {
+        // Authorize through a dedicated execution role rather than the
+        // `events.amazonaws.com` service principal on the topic policy. CDK
+        // 2.218.0 supports this, and it takes an untested conditional out of
+        // the delivery path: the service-principal form would have to be fenced
+        // with an `aws:SourceArn` condition, and if EventBridge does not
+        // actually supply that key when publishing to SNS, every A16
+        // notification is denied silently and nothing short of a live drill
+        // would reveal it. A role only this rule can be configured to pass is
+        // narrower than an unconditioned service grant and has no such
+        // uncertainty. Review F1 note (a).
+        authorizeUsingRole: true,
         message: events.RuleTargetInput.fromText(
           [
             `CodeDeploy ${events.EventField.fromPath('$.detail.state')}: ` +
@@ -455,22 +511,10 @@ const createOperationalAlarms = (self: Construct, props: OperationalAlarmsProps)
     ],
   });
 
-  // `targets.SnsTopic` grants events.amazonaws.com an unconditioned
-  // `sns:Publish`, which would let any EventBridge rule in any account publish
-  // here. CDK offers no hook to narrow that grant, so it is fenced with an
-  // explicit Deny instead: EventBridge may publish only on behalf of this one
-  // rule. `ArnNotEquals` also matches when the key is absent, so a request
-  // carrying no source ARN is denied too.
-  topic.addToResourcePolicy(
-    new iam.PolicyStatement({
-      sid: 'DenyEventBridgeExceptTheCodeDeployRule',
-      effect: iam.Effect.DENY,
-      principals: [new iam.ServicePrincipal('events.amazonaws.com')],
-      actions: ['sns:Publish'],
-      resources: [topic.topicArn],
-      conditions: { ArnNotEquals: { 'aws:SourceArn': codeDeployFailureRule.ruleArn } },
-    }),
-  );
+  // With `authorizeUsingRole`, no `events.amazonaws.com` principal appears on
+  // the topic policy at all — the grant lands on the rule's execution role
+  // instead. There is therefore nothing left to fence with a Deny, and no
+  // condition key whose presence at delivery time we would be guessing at.
 
   // --- 7. A18: who watches the watcher (review K6) ---------------------------
   //
@@ -504,15 +548,16 @@ const createOperationalAlarms = (self: Construct, props: OperationalAlarmsProps)
       evaluationPeriods: 1,
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     }),
-    cloudwatch.TreatMissingData.NOT_BREACHING,
-    ALERT_DELIVERY_ALARM_NAME,
   );
 
   // --- 8. Synth-enforced health pairing (plan rev2, review K2) ---------------
   //
-  // Runs last so it sees the whole enabled set. This throws during `cdk synth`,
-  // before anything can be deployed.
-  enforceHealthPairs(enabled);
+  // Attached as a construct validation rather than run inline, so it fires
+  // after the tree is final and reads each alarm's RESOLVED CloudFormation
+  // properties. Mutating A04 afterwards — `actionsEnabled = false`, emptied
+  // `alarmActions`, or a changed `treatMissingData` — fails `cdk synth`
+  // (review F1). An inline check could only see what was declared here.
+  self.node.addValidation(new HealthPairValidation(enabled, topic.topicArn));
 
   return {
     topic,
