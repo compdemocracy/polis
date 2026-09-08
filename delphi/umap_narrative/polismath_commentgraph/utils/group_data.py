@@ -67,10 +67,19 @@ class GroupDataProcessor:
     def get_math_main_by_conversation(self, zid: int) -> Dict[str, Any]:
         """
         Get math main data (group assignments) for a conversation.
-        
+
+        The read is scoped to the configured math_env (MATH_ENV, default `prod`).
+        If the conversation has math_main rows only under a *different* math_env,
+        this behaves exactly as if it had none: it falls through to the
+        vote-derived synthetic group assignments below, logging a warning rather
+        than failing. That fallback fabricates groups, so a mismatch between this
+        container's MATH_ENV and the one the math service writes under is silent
+        in the report output — every compose stack must give delphi the same
+        MATH_ENV as its math service.
+
         Args:
             zid: Conversation ID
-            
+
         Returns:
             Math data dictionary including group assignments
         """

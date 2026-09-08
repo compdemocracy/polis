@@ -203,6 +203,9 @@ services:
       - AWS_SECRET_ACCESS_KEY=minioadmin
       - AWS_S3_BUCKET_NAME=polis-delphi
       - LOG_LEVEL=DEBUG
+      # Must match the `math` service's MATH_ENV (line 67): the report pipeline
+      # reads math rows scoped by math_env, and the test stack's math writes dev.
+      - MATH_ENV=${MATH_ENV:-dev}
     networks:
       - "polis-test"
     depends_on:
