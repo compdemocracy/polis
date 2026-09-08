@@ -61,7 +61,7 @@ def _client_capturing():
     client = PostgresClient(PostgresConfig(url="postgresql://ignored/db", math_env="t3"))
     captured = {}
 
-    def _fake_write_returning(sql, params=None):
+    def _fake_write_returning(sql, params=None, *, connection=None):
         captured["params"] = params
         return []
 

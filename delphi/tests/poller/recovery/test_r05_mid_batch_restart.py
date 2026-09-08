@@ -12,14 +12,10 @@ The subject is ``restart_child.py``: a real ``MathPollerService`` in a real
 subprocess, which announces the named stage on stdout and then blocks so the
 TEST delivers ``SIGKILL``.  Nothing is simulated in-process.
 
-Two of these scenarios expose the seam P-022 predicted
-(``math_writer.py:238`` issues three separate calls, each committing on its own
-``engine.begin()`` — ``database/postgres.py:413``, ``:432``): a process killed
-between them leaves math_main published at a generation the other two tables
-never reach, and there is no parked marker to reconcile because the marker only
-ever lived in the dead process's memory.  With a recent conversation the next
-poll happens to repair it; with a DORMANT one (older than the boot lookback) it
-never does.
+The production writer now commits all three rows together. The legacy-writes
+child option intentionally restores separate commits ONLY for negative controls
+and the dormant-zid repair regression: old partial rows still need repair even
+though new publications can no longer produce them.
 """
 
 import os
@@ -53,8 +49,8 @@ _MS_PER_DAY = 24 * 60 * 60 * 1000
 STAGES = [
     "after_poll",
     "during_compute",
-    "after_main_commit",
-    "before_final_table_commit",
+    "after_main_write",
+    "before_final_table_write",
     "after_all_writes_before_cache",
 ]
 
@@ -68,7 +64,8 @@ class Child:
     """
 
     def __init__(self, pg_url, stage, days=1.0, tmp_path=None,
-                 ownership_latch_dir=None, math_env=MATH_ENV):
+                 ownership_latch_dir=None, math_env=MATH_ENV,
+                 legacy_writes=False):
         env = dict(os.environ)
         env["PYTHONPATH"] = _DELPHI_ROOT + os.pathsep + env.get("PYTHONPATH", "")
         if tmp_path is not None:
@@ -78,6 +75,8 @@ class Child:
                 "--poll-from-days-ago", str(days)]
         if ownership_latch_dir is not None:
             argv += ["--ownership-latch-dir", str(ownership_latch_dir)]
+        if legacy_writes:
+            argv += ["--legacy-writes"]
         self.proc = subprocess.Popen(
             argv,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
@@ -270,7 +269,7 @@ def test_after_poll_kill_point_is_latched_after_the_watermark_advance(
     assert F.check_published_against_fold(tables["main"]["data"], fold) == []
 
 
-def test_kill_after_main_commit_leaves_a_mixed_generation_before_restart(
+def test_legacy_kill_after_main_write_leaves_a_mixed_generation(
     engine, pg_url, children, tmp_path
 ):
     """The seam itself, asserted directly: a kill between the three writes DOES
@@ -279,8 +278,9 @@ def test_kill_after_main_commit_leaves_a_mixed_generation_before_restart(
     rather than inferred.)"""
     seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
 
-    victim = _spawn(children, pg_url, "after_main_commit", tmp_path=tmp_path)
-    victim.await_stage("after_main_commit")
+    victim = _spawn(children, pg_url, "after_main_write", tmp_path=tmp_path,
+                    legacy_writes=True)
+    victim.await_stage("after_main_write")
     victim.kill()
 
     tables = read_math_tables(engine, 1, MATH_ENV)
@@ -308,7 +308,7 @@ def _seed_dormant(engine, zid=2):
 def test_dormant_zid_is_outside_the_lookback(engine, pg_url, children,
                                              tmp_path):
     """Control: with a 1-day lookback a dormant conversation is genuinely never
-    polled, so the xfail below is about repair and not about a mis-seeded
+    polled, so the regression below is about repair and not about a mis-seeded
     fixture."""
     _seed_dormant(engine, zid=2)
     child = _spawn(children, pg_url, "none", days=1.0, tmp_path=tmp_path)
@@ -318,38 +318,18 @@ def test_dormant_zid_is_outside_the_lookback(engine, pg_url, children,
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "DEFECT (predicted by P-022 §C): a process killed between the three "
-        "non-atomic table writes leaves a permanently mixed generation for a "
-        "DORMANT conversation. polismath/poller/math_writer.py:238 issues "
-        "write_math_main / write_math_bidtopid / write_participant_stats as "
-        "three separate calls, each committing on its own engine.begin() "
-        "(polismath/database/postgres.py:413, :432), so a main-row watermark "
-        "is not proof of all-table completion. The only repair path is the "
-        "parked-zid reconciler (polismath/poller/service.py:393), which "
-        "iterates the pool's in-memory parked set — that set died with the "
-        "process, and the conversation's newest vote is older than the boot "
-        "lookback (service.py:55 initial_watermark), so nothing ever revisits "
-        "it. math_main stays published at math_tick N while math_bidtopid and "
-        "math_ptptstats are absent, indefinitely. Fixing this needs either a "
-        "transaction spanning all three writes or a durable "
-        "table-generation-completeness scan; both are a separate decision."
-    ),
-)
 def test_dormant_zid_partial_write_is_repaired_after_restart(
     engine, pg_url, children, tmp_path
 ):
-    """Kill the process after the main commit for a DORMANT conversation, then
-    restart with the production-like lookback and no new votes.  A correct
-    system repairs the mixed generation; this one cannot."""
+    """Kill the process after the main commit for a DORMANT conversation using the legacy writer, then
+    restart the production writer with no new votes. It must discover and repair
+    the preexisting mixed generation outside its lookback."""
     _seed_dormant(engine, zid=2)
 
     # The conversation was active when the poller last ran (wide lookback).
-    victim = _spawn(children, pg_url, "after_main_commit", days=30.0,
-                    tmp_path=tmp_path)
-    victim.await_stage("after_main_commit")
+    victim = _spawn(children, pg_url, "after_main_write", days=30.0,
+                    tmp_path=tmp_path, legacy_writes=True)
+    victim.await_stage("after_main_write")
     victim.kill()
     assert read_math_tables(engine, 2, MATH_ENV)["main"] is not None
 
@@ -359,6 +339,8 @@ def test_dormant_zid_partial_write_is_repaired_after_restart(
 
     tables = read_math_tables(engine, 2, MATH_ENV)
     assert tables_are_coherent(tables) == [], tables_are_coherent(tables)
+    fold = F.fold_votes(read_vote_events(engine, 2))
+    assert F.check_published_against_fold(tables["main"]["data"], fold) == []
 
 
 def test_dormant_zid_partial_write_is_repaired_with_a_wide_lookback(
@@ -369,9 +351,9 @@ def test_dormant_zid_partial_write_is_repaired_with_a_wide_lookback(
     durable repair path rather than to the write seam alone."""
     _seed_dormant(engine, zid=2)
 
-    victim = _spawn(children, pg_url, "after_main_commit", days=30.0,
-                    tmp_path=tmp_path)
-    victim.await_stage("after_main_commit")
+    victim = _spawn(children, pg_url, "after_main_write", days=30.0,
+                    tmp_path=tmp_path, legacy_writes=True)
+    victim.await_stage("after_main_write")
     victim.kill()
 
     survivor = _spawn(children, pg_url, "none", days=30.0, tmp_path=tmp_path)
@@ -395,7 +377,7 @@ class TestNegativeControl:
         seed_conversation(engine, zid=1, n_ptpts=4, n_cmts=3)
         child = _spawn(children, pg_url, "none", tmp_path=tmp_path)
         with pytest.raises(AssertionError):
-            child.await_stage("after_main_commit", timeout=5.0)
+            child.await_stage("after_main_write", timeout=5.0)
 
     def test_the_after_poll_latch_refuses_to_claim_an_unadvanced_watermark(
         self, engine, pg_url, children, tmp_path
@@ -433,3 +415,23 @@ class TestNegativeControl:
             "NEGATIVE CONTROL FAILED: the victim completed its poll cycle, so "
             "the kill did not interrupt anything"
         )
+
+
+@pytest.mark.parametrize("stage", ["after_main_write", "before_final_table_write"])
+@pytest.mark.parametrize("published_before", [False, True])
+def test_atomic_publish_kill_rolls_back_every_table(
+    engine, pg_url, children, tmp_path, stage, published_before
+):
+    """SIGKILL inside the shared transaction preserves ALL prior rows, including
+    both ticks; a first publication leaves no partial rows at all."""
+    seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
+    if published_before:
+        initial = _spawn(children, pg_url, "none", tmp_path=tmp_path)
+        initial.wait_done()
+    before = read_math_tables(engine, 1, MATH_ENV)
+    victim = _spawn(children, pg_url, stage, tmp_path=tmp_path)
+    victim.await_stage(stage)
+    # Uncommitted writes are invisible even before the backend notices the kill.
+    assert read_math_tables(engine, 1, MATH_ENV) == before
+    victim.kill()
+    assert read_math_tables(engine, 1, MATH_ENV) == before

@@ -282,6 +282,7 @@ class MathPollerService:
         self._stop = threading.Event()
         self._vote_wm: Optional[int] = None
         self._mod_wm: Optional[int] = None
+        self._startup_repair_done = False
 
     @property
     def _parked(self) -> set:
@@ -312,6 +313,7 @@ class MathPollerService:
 
     def start(self) -> None:
         self._ensure_runtime()
+        self._repair_incomplete_snapshots()
         self._stop.clear()
         self._threads = [
             threading.Thread(target=self._vote_loop, name="vote-poller", daemon=True),
@@ -357,12 +359,36 @@ class MathPollerService:
         Used by ``--once`` and the integration test.
         """
         self._ensure_runtime()
+        self._repair_incomplete_snapshots()
         self._poll_votes_once()
         self._poll_moderation_once()
         # Recover any zids parked in earlier cycles even if they got no new votes.
         self._reconcile_once()
         assert self._pool is not None
         self._pool.join(timeout=120.0)
+
+    def _repair_incomplete_snapshots(self) -> None:
+        """Schedule legacy partial generations even outside the boot lookback.
+
+        A scan failure must propagate, leaving the scan pending for the next
+        poll_once/start attempt. Once submitted, ordinary worker retry/park
+        reconciliation owns recovery, including a failed rebuild with no votes.
+        """
+        if self._startup_repair_done:
+            return
+        assert self._pool is not None
+        for zid in self._pg.find_incomplete_math_snapshots():
+            if should_process_zid(
+                zid, self.config.allowlist, self.config.blocklist,
+                self.config.shard_index, self.config.shard_count,
+            ):
+                logger.warning(
+                    "Startup repair: incomplete math snapshot for zid=%s "
+                    "math_env=%s (missing rows or mismatched math_tick); "
+                    "scheduling full rebuild", zid, self.config.math_env,
+                )
+                self._pool.submit(zid, REBUILD, [])
+        self._startup_repair_done = True
 
     def _vote_loop(self) -> None:
         while not self._stop.is_set():
@@ -569,6 +595,14 @@ class MathPollerService:
             row = self._pg.load_math_main(zid)
         except Exception:
             logger.exception("load_math_main failed for zid=%s; cold start", zid)
+            row = None
+
+        if row and row.get("snapshot_complete") is False:
+            logger.warning(
+                "load-or-init: incomplete math snapshot for zid=%s math_env=%s "
+                "(missing rows or mismatched math_tick); discarding persisted "
+                "state and rebuilding full history", zid, self.config.math_env,
+            )
             row = None
 
         if row and row.get("data"):

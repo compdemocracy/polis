@@ -277,7 +277,12 @@ class TestMathWriterSharedTick:
         writer.write_conv_updates(42, conv)
 
         # tick incremented exactly once for the zid
-        client.increment_math_tick.assert_called_once_with(42)
+        connection = client.transaction.return_value.__enter__.return_value
+        client.increment_math_tick.assert_called_once_with(42, connection=connection)
+        client.transaction.assert_called_once_with()
+        for method in (client.write_math_main, client.write_math_bidtopid,
+                       client.write_participant_stats):
+            assert method.call_args.kwargs["connection"] is connection
 
         # all three data writes carry the SAME tick value returned above
         assert client.write_math_main.call_args.kwargs.get("math_tick") == 77 \
@@ -338,7 +343,7 @@ class TestWriterSQLFidelity:
         client = PostgresClient(cfg)
         calls = []
 
-        def recorder(sql, params=None):
+        def recorder(sql, params=None, *, connection=None):
             calls.append((sql, params or {}))
             # increment_math_tick reads [0]["math_tick"] off the result
             return [{"math_tick": 5, "zid": 1}]
