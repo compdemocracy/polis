@@ -70,6 +70,17 @@ export type PcaCacheItem = {
   asJSON: string;
   asBufferOfGzippedJson: any;
   expiration: number;
+  /**
+   * True when this entry is `createEmptyPcaStructure`'s synthesized empty
+   * presentation for a conversation with NO committed math row, rather than a
+   * generation read from `math_main`.
+   *
+   * Provenance has to be carried, not inferred: a real published generation can
+   * legitimately be empty (tick 0, n 0, empty arrays), and such a row must stay
+   * returnable and cacheable. Lives on the cache entry, never inside `asPOJO`,
+   * so it cannot reach `asJSON` or the gzip body.
+   */
+  synthesized?: boolean;
 };
 
 const pcaCacheSize = Config.cacheMathResults ? 300 : 1;
@@ -364,6 +375,20 @@ export function getPca(
   if (cached && cached.expiration < Date.now()) {
     cached = undefined;
   }
+  // The [math_env, zid] cache is shared by every caller, so an entry may have
+  // been put there by an ordinary read that SYNTHESIZED an empty presentation
+  // for a conversation with no committed row. That is not an answer for a
+  // caller that asked for existing math only, and the provenance cannot be
+  // recovered by inspecting the payload -- a real published generation 0 can be
+  // legitimately empty. So the entry carries a `synthesized` flag and the
+  // existing-only path reads the store instead.
+  //
+  // Bypass, not evict: ordinary readers still want that entry, and dropping it
+  // would change their query pattern. Row-backed entries are always usable.
+  if (cached && !synthesizeEmptyWhenMissing && cached.synthesized) {
+    logger.silly("mathpoll bypassing synthesized cache entry", { zid });
+    cached = undefined;
+  }
   const cachedPOJO = cached && cached.asPOJO;
   if (cachedPOJO) {
     // When caller wants the latest data (math_tick undefined or -1), return cached data
@@ -431,7 +456,8 @@ export function getPca(
           );
           return ensureCompletePcaStructure(zid).then((completeData) => {
             const dataWithZid = { ...completeData, zid: zid };
-            return updatePcaCache(mathEnv, zid, dataWithZid);
+            // No committed row backs this presentation.
+            return updatePcaCache(mathEnv, zid, dataWithZid, true);
           });
         }
 
@@ -484,7 +510,8 @@ export function getPca(
 function updatePcaCache(
   mathEnv: string,
   zid: number,
-  item: { zid: number }
+  item: { zid: number },
+  synthesized = false
 ): Promise<PcaCacheItem> {
   return new Promise(function (
     resolve: (arg0: PcaCacheItem) => void,
@@ -507,6 +534,7 @@ function updatePcaCache(
           expiration: Date.now() + 3000,
           consensus: (item as any).consensus || { agree: {}, disagree: {} },
           repness: (item as any).repness || {},
+          synthesized,
         } as unknown as PcaCacheItem;
         // save in LRU cache, but don't update the lastPrefetchedMathTick
         pcaCache.set(pcaCacheKey(mathEnv, zid), o);

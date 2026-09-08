@@ -339,3 +339,104 @@ describe("getLatestExistingPca", () => {
     expect(result?.asPOJO.n).toBe(0);
   });
 });
+
+describe("latest-existing cache provenance (Astra R2-F1)", () => {
+  // The [math_env, zid] cache is shared. Before this fix the
+  // synthesizeEmptyWhenMissing option gated only the cold missing-row branch,
+  // so whichever caller warmed the cache first decided what the
+  // existing-only reader returned.
+  beforeEach(() => {
+    queryP_readOnly.mockReset();
+  });
+
+  test("Astra: latest-existing refuses a synthesized warm cache entry", async () => {
+    // Astra's acceptance test, verbatim in behaviour: ordinary latest
+    // synthesizes and caches an empty presentation for a conversation with no
+    // row; latest-existing must not adopt it.
+    serveNoRows();
+    const zid = freshZid();
+    expect(await getPca(zid)).toBeDefined();
+    queryP_readOnly.mockClear();
+    expect(await getLatestExistingPca(zid)).toBeUndefined();
+  });
+
+  test("it re-reads the store, so a first publication after the warm-up is visible", async () => {
+    // Astra's step 3: the synthetic entry must not hide a generation that was
+    // committed after it was cached.
+    const zid = freshZid();
+    serveNoRows();
+    expect(await getPca(zid)).toBeDefined();
+
+    serveRow("0");
+    const result = await getLatestExistingPca(zid);
+    expect(result?.asPOJO.math_tick).toBe(0);
+    expect(result?.asPOJO["comment-priorities"]).toEqual({
+      "0": 1.5,
+      "1": 2.5,
+    });
+  });
+
+  test("a REAL empty generation 0 stays valid, cacheable and warm-readable", async () => {
+    // Provenance is carried, never inferred: this row is empty in exactly the
+    // ways a synthesized entry is, and must still be returned and cached.
+    const zid = freshZid();
+    const realEmpty = {
+      ...mathBlob(),
+      n: 0,
+      tids: [],
+      "in-conv": [],
+      repness: {},
+      consensus: { agree: [], disagree: [] },
+      "comment-priorities": {},
+    };
+    queryP_readOnly.mockImplementation(((sql: string) => {
+      if (String(sql).includes("from math_main")) {
+        return Promise.resolve([{ data: realEmpty, math_tick: "0" }]);
+      }
+      if (String(sql).includes("from comments")) {
+        return Promise.resolve([]);
+      }
+      return Promise.resolve([]);
+    }) as never);
+
+    const first = await getLatestExistingPca(zid);
+    expect(first?.asPOJO.math_tick).toBe(0);
+    expect(first?.asPOJO.n).toBe(0);
+
+    // Second read is served from cache: row-backed entries are never bypassed.
+    queryP_readOnly.mockClear();
+    const second = await getLatestExistingPca(zid);
+    expect(second?.asPOJO.math_tick).toBe(0);
+    expect(queryP_readOnly).not.toHaveBeenCalled();
+  });
+
+  test("a row-backed warm entry costs zero queries", async () => {
+    const zid = freshZid();
+    serveRow("1");
+    expect((await getPca(zid))?.asPOJO.math_tick).toBe(1);
+    queryP_readOnly.mockClear();
+    expect((await getLatestExistingPca(zid))?.asPOJO.math_tick).toBe(1);
+    expect(queryP_readOnly).not.toHaveBeenCalled();
+  });
+
+  test("the synthesized entry is bypassed, not evicted: ordinary reads keep it", async () => {
+    const zid = freshZid();
+    serveNoRows();
+    const synthetic = await getPca(zid);
+    expect(synthetic).toBeDefined();
+    expect(await getLatestExistingPca(zid)).toBeUndefined();
+
+    // Still cached for the ordinary caller, still zero queries.
+    queryP_readOnly.mockClear();
+    const again = await getPca(zid);
+    expect(again).toBe(synthetic);
+    expect(queryP_readOnly).not.toHaveBeenCalled();
+  });
+
+  test("provenance does not leak into the served payload", async () => {
+    serveRow("1");
+    const result = await getPca(freshZid());
+    expect(result?.asJSON).not.toContain("synthesized");
+    expect(Object.keys(result!.asPOJO)).not.toContain("synthesized");
+  });
+});

@@ -124,6 +124,7 @@ jest.mock("../../src/server-helpers", () => ({
 
 import { handle_GET_bid, handle_GET_math_pca2 } from "../../src/routes/math";
 import { handle_GET_participationInit } from "../../src/routes/participation";
+import { getLatestExistingPca } from "../../src/utils/pca";
 
 function mathBlob() {
   return {
@@ -163,6 +164,19 @@ function mathBlob() {
 
 // node-pg returns BIGINT as a string: no int8 type parser is registered in
 // server/src/db/pg-query.ts.
+function serveNoRow() {
+  queryP_readOnly.mockImplementation(((sql: string) => {
+    const s = String(sql);
+    if (s.includes("from math_main")) {
+      return Promise.resolve([]);
+    }
+    if (s.includes("from comments")) {
+      return Promise.resolve([{ tid: 0 }, { tid: 1 }]);
+    }
+    return Promise.resolve([]);
+  }) as never);
+}
+
 function serveTick(tick: string) {
   queryP_readOnly.mockImplementation(((sql: string) => {
     const s = String(sql);
@@ -305,6 +319,24 @@ const bidApp = (zid: number) =>
 // Negative control: the pre-fix default, kept to pin the failure it caused.
 const bidAppWithOldDefault = (zid: number) => appFor(handle_GET_bid, zid, 0);
 
+/** The real participationInit handler on a real express route. */
+function participationApp(zid: number) {
+  const app = express();
+  app.get("/route", (req: any, res: any) => {
+    req.p = {
+      zid,
+      conversation_id: "abc123",
+      lang: "en",
+      pid: 11,
+      participantInfo: { uid: 7, pid: 11 },
+      uid: 7,
+      ptptoiLimit: 30,
+    };
+    handle_GET_participationInit(req, res);
+  });
+  return app;
+}
+
 describe("HTTP routes at a committed math generation of 0", () => {
   beforeEach(() => {
     queryP_readOnly.mockReset();
@@ -412,23 +444,6 @@ describe("GET /api/v3/participationInit at a committed math generation of 0", ()
     queryP_readOnly.mockReset();
   });
 
-  function participationApp(zid: number) {
-    const app = express();
-    app.get("/route", (req: any, res: any) => {
-      req.p = {
-        zid,
-        conversation_id: "abc123",
-        lang: "en",
-        pid: 11,
-        participantInfo: { uid: 7, pid: 11 },
-        uid: 7,
-        ptptoiLimit: 30,
-      };
-      handle_GET_participationInit(req, res);
-    });
-    return app;
-  }
-
   // This is the caller the pca.ts guard fix exists for. routes/participation.ts
   // calls getPca(zid, undefined) -- no route parameter is involved, so unlike
   // /api/v3/math/pca2 there is no -1 substitution to rescue it, and
@@ -449,5 +464,71 @@ describe("GET /api/v3/participationInit at a committed math generation of 0", ()
     expect(res.status).toBe(200);
     expect(res.body.pca.asPOJO.math_tick).toBe(1);
     expect(res.body.pca.asPOJO.n).toBe(1);
+  });
+});
+
+describe("cross-caller cache provenance over HTTP (Astra R2-F1)", () => {
+  // The defect Astra found: the [math_env, zid] cache is shared, so whichever
+  // route warmed it first decided what the existing-only reader returned.
+  // participationInit is a REAL route that synthesizes an empty presentation
+  // for a conversation with no committed row; the existing-only reader must
+  // not adopt it. Mounted on a thin route because no registered route calls
+  // getLatestExistingPca directly -- nextComment and doFamousQuery reach it
+  // through their own handlers, covered in pcaLatestExistingHttp.test.ts.
+  beforeEach(() => {
+    queryP_readOnly.mockReset();
+  });
+
+  function latestExistingApp(zid: number) {
+    const app = express();
+    app.get("/route", async (_req: any, res: any) => {
+      const result = await getLatestExistingPca(zid);
+      // `n` distinguishes the real fixture (1) from the synthesized empty
+      // presentation (0); math_tick alone cannot, since both are 0.
+      res
+        .status(200)
+        .json(
+          result
+            ? { math_tick: result.asPOJO.math_tick, n: result.asPOJO.n }
+            : null
+        );
+    });
+    return app;
+  }
+
+  test("participationInit's synthesized entry is not served as existing math", async () => {
+    const zid = freshZid();
+    serveNoRow();
+
+    const init = await request(participationApp(zid)).get("/route");
+    expect(init.status).toBe(200);
+    expect(init.body.pca).not.toBeNull();
+    expect(init.body.pca.asPOJO.n).toBe(0); // the synthesized presentation
+
+    const latest = await request(latestExistingApp(zid)).get("/route");
+    expect(latest.status).toBe(200);
+    expect(latest.body).toBeNull();
+  });
+
+  test("a first publication after that warm-up becomes visible", async () => {
+    const zid = freshZid();
+    serveNoRow();
+    await request(participationApp(zid)).get("/route");
+
+    serveTick("0");
+    const latest = await request(latestExistingApp(zid)).get("/route");
+    expect(latest.body).toEqual({ math_tick: 0, n: 1 });
+  });
+
+  test("a row-backed warm entry is still shared, not re-read", async () => {
+    const zid = freshZid();
+    serveTick("0");
+    const init = await request(participationApp(zid)).get("/route");
+    expect(init.body.pca.asPOJO.math_tick).toBe(0);
+
+    queryP_readOnly.mockClear();
+    const latest = await request(latestExistingApp(zid)).get("/route");
+    expect(latest.body).toEqual({ math_tick: 0, n: 1 });
+    expect(queryP_readOnly).not.toHaveBeenCalled();
   });
 });
