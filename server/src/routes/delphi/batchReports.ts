@@ -1,26 +1,8 @@
 import { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
-import { DynamoDB } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
 import logger from "../../utils/logger";
 import { getZidFromReport } from "../../utils/parameter";
-import { buildDynamoClientConfig } from "../../utils/dynamoClient";
-
-// DynamoDB client. Shared credential precedence: local endpoint -> real
-// configured keys -> default AWS credential provider chain (instance role).
-//
-// Built lazily on first use, not at module load: `buildDynamoClientConfig`
-// throws on a placeholder credential left in the environment, and a
-// misconfiguration should fail this one route rather than prevent the server
-// from starting. Memoized, so the client is still constructed once.
-let docClient: DynamoDBDocument | undefined;
-
-function getDocClient(): DynamoDBDocument {
-  if (!docClient) {
-    docClient = DynamoDBDocument.from(new DynamoDB(buildDynamoClientConfig()));
-  }
-  return docClient;
-}
+import { admitDelphiJob, JOB_QUEUE_TABLE } from "./jobGuard";
 
 /**
  * Handler for Delphi API route that generates batch narrative reports
@@ -75,8 +57,9 @@ export async function handle_POST_delphi_batch_reports(
     const max_batch_size = (req.body.max_batch_size as number) || 20;
     const no_cache = (req.body.no_cache as boolean) || false;
 
-    // No need to configure the DynamoDB client here; getDocClient() builds it
-    // on first use, inside this try block.
+    // No need to configure the DynamoDB client here; jobGuard.ts owns the
+    // DynamoDB client and admitDelphiJob() writes the job, inside this try
+    // block.
 
     // Generate job_id using report_id to avoid exposing ZID
     const timestamp = Math.floor(Date.now() / 1000);
@@ -131,7 +114,7 @@ export async function handle_POST_delphi_batch_reports(
 
     logger.info(
       `Putting narrative batch job in DynamoDB: ${JSON.stringify({
-        TableName: "Delphi_JobQueue",
+        TableName: JOB_QUEUE_TABLE,
         Item: {
           job_id: jobItem.job_id,
           conversation_id: jobItem.conversation_id,
@@ -139,23 +122,51 @@ export async function handle_POST_delphi_batch_reports(
       })}`
     );
 
-    await getDocClient().put({
-      TableName: "Delphi_JobQueue",
-      Item: jobItem,
+    // Same P-003 active-work guard as POST /delphi/jobs: this route is the
+    // other HTTP producer, and it is the one that submits Anthropic batches.
+    const admission = await admitDelphiJob({
+      scope: {
+        conversationId: conversation_id,
+        reportId: report_id,
+        jobType: "CREATE_NARRATIVE_BATCH",
+        jobConfig: jobItem.job_config,
+      },
+      jobItem,
+      idempotencyKey: (req.body.idempotency_key as string) || null,
     });
 
-    logger.info(`Successfully submitted job ${job_id} to Delphi_JobQueue`);
+    if (admission.outcome === "idempotency_conflict") {
+      return res.json({
+        status: "error",
+        message: "idempotency_key was already used for a different job payload",
+        report_id: report_id,
+        job_id: admission.jobId,
+      });
+    }
+
+    const deduplicated = admission.outcome === "deduplicated";
+    logger.info(
+      `Delphi narrative batch job ${admission.jobId} ${
+        deduplicated ? "reused" : "submitted"
+      } for report ${report_id}`
+    );
 
     return res.json({
       status: "success",
-      message:
-        "Batch report generation job submitted - this may take some time, refresh the page to check for results",
+      message: deduplicated
+        ? "A batch report job for this report is already queued or running - refresh the page to check for results"
+        : "Batch report generation job submitted - this may take some time, refresh the page to check for results",
       report_id: report_id,
-      job_id: job_id,
-      batch_id: job_id, // Include batch_id field for frontend compatibility
+      job_id: admission.jobId,
+      batch_id: admission.jobId, // Include batch_id field for frontend compatibility
       model: model,
       max_batch_size: max_batch_size,
       no_cache: no_cache,
+      job_status: admission.jobStatus,
+      deduplicated,
+      ...(admission.outcome === "created" && admission.degraded
+        ? { dedupe_degraded: true }
+        : {}),
     });
   } catch (err: any) {
     logger.error(`Error in delphi batch reports endpoint: ${err.message}`);

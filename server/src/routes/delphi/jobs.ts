@@ -1,38 +1,10 @@
 import { v4 as uuidv4 } from "uuid";
 import { Request, Response } from "express";
-import { DynamoDB } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
 import logger from "../../utils/logger";
 import { getZidFromReport } from "../../utils/parameter";
 import Config from "../../config";
 import pg from "../../db/pg-query";
-
-// Initialize DynamoDB client
-const dynamoDbConfig: any = {
-  region: Config.AWS_REGION || "us-east-1",
-};
-
-// If dynamoDbEndpoint is set, we're running locally (e.g., with Docker)
-if (Config.dynamoDbEndpoint) {
-  dynamoDbConfig.endpoint = Config.dynamoDbEndpoint;
-  // Use dummy credentials for local DynamoDB
-  dynamoDbConfig.credentials = {
-    accessKeyId: "DUMMYIDEXAMPLE",
-    secretAccessKey: "DUMMYEXAMPLEKEY",
-  };
-} else if (Config.AWS_ACCESS_KEY_ID && Config.AWS_SECRET_ACCESS_KEY) {
-  // Use real credentials from environment
-  dynamoDbConfig.credentials = {
-    accessKeyId: Config.AWS_ACCESS_KEY_ID,
-    secretAccessKey: Config.AWS_SECRET_ACCESS_KEY,
-  };
-}
-// If neither are set, the SDK will use default credential provider chain
-
-const dynamoDbClient = new DynamoDB(dynamoDbConfig);
-
-// Create DocumentClient
-const docClient = DynamoDBDocument.from(dynamoDbClient);
+import { admitDelphiJob, JOB_QUEUE_TABLE } from "./jobGuard";
 
 // Handler for POST /api/v3/delphi/jobs - Create a new Delphi job
 export async function handle_POST_delphi_jobs(
@@ -54,6 +26,7 @@ export async function handle_POST_delphi_jobs(
       job_type = "FULL_PIPELINE",
       priority = 50,
       include_moderation = false, // ignore comments that recieve a failing moderation score
+      idempotency_key = null,
     } = req.body;
 
     // Validate required parameters
@@ -128,11 +101,12 @@ export async function handle_POST_delphi_jobs(
       created_by: "api",
     };
 
-    // Put item in DynamoDB
+    // Put item in DynamoDB, behind the P-003 active-work guard: a scope that
+    // already has a live job gets that job back instead of a second paid run.
     try {
       logger.info(
         `Putting job item in DynamoDB: ${JSON.stringify({
-          TableName: "Delphi_JobQueue",
+          TableName: JOB_QUEUE_TABLE,
           Item: {
             job_id: jobItem.job_id,
             conversation_id: jobItem.conversation_id,
@@ -140,15 +114,36 @@ export async function handle_POST_delphi_jobs(
         })}`
       );
 
-      await docClient.put({
-        TableName: "Delphi_JobQueue",
-        Item: jobItem,
+      const admission = await admitDelphiJob({
+        scope: {
+          conversationId: jobItem.conversation_id,
+          reportId: report_id,
+          jobType: job_type,
+          jobConfig: jobItem.job_config,
+        },
+        jobItem,
+        idempotencyKey: idempotency_key,
       });
 
-      // Return success with job ID
+      if (admission.outcome === "idempotency_conflict") {
+        res.status(409).json({
+          status: "error",
+          error: "idempotency_key was already used for a different job payload",
+          job_id: admission.jobId,
+        });
+        return;
+      }
+
+      // Existing fields are unchanged for older clients; `deduplicated` and
+      // `job_status` are additive.
       res.json({
         status: "success",
-        job_id: job_id,
+        job_id: admission.jobId,
+        job_status: admission.jobStatus,
+        deduplicated: admission.outcome === "deduplicated",
+        ...(admission.outcome === "created" && admission.degraded
+          ? { dedupe_degraded: true }
+          : {}),
       });
     } catch (dbError) {
       logger.error(

@@ -239,6 +239,11 @@ Delphi now includes a distributed job queue system built on DynamoDB:
 - `Delphi_CommentClustersLLMTopicNames` - LLM-generated topic names (formerly `LLMTopicNames`)
 - `Delphi_NarrativeReports` - Generated reports (formerly `report_narrative_store`)
 - `Delphi_JobQueue` - Job queue (formerly `DelphiJobQueue`)
+- `Delphi_JobActiveGuard` - Server-side active-work guard for job submission; one row per
+  (conversation + report + job type + job config) scope, written in the same transaction as the
+  queue row so a resubmit cannot pay for a second provider run. Never holds queue rows, has no TTL,
+  and is released only after the root job and its checker descendants are terminal. See
+  `docs/JOB_QUEUE_SCHEMA.md` and `server/src/routes/delphi/jobGuard.ts`.
 - `Delphi_CollectiveStatement` - Collective statements generated for topics
 
 > **Note:** All table names now use the `Delphi_` prefix for consistency.
