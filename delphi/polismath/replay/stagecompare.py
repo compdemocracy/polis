@@ -48,10 +48,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Sequence
 
 from polismath.replay.stages import STAGE_DUMP_SCHEMA, STAGE_ORDER
 
@@ -484,6 +483,7 @@ class KeyResult:
     n_diff: int = 0
     max_abs: float = 0.0
     max_rel: float = 0.0
+    n_suppressed: int = 0
     worst_path: str | None = None
     structural: list[str] = None  # type: ignore[assignment]
     examples: list[dict[str, Any]] = None  # type: ignore[assignment]
@@ -498,6 +498,7 @@ class KeyResult:
         return {
             "n_compared": self.n_compared,
             "n_diff": self.n_diff,
+            "n_suppressed": self.n_suppressed,
             "max_abs": self.max_abs,
             "max_rel": self.max_rel,
             "worst_path": self.worst_path,
@@ -534,6 +535,7 @@ def _walk(a: Any, b: Any, path: str, tol: Tolerance, res: KeyResult,
         for k in sorted(set(a) | set(b)):
             if k not in a or k not in b:
                 if carved and (a.get(k) in (None, [], {}) or b.get(k) in (None, [], {})):
+                    res.n_suppressed += 1
                     continue
                 res.structural.append(f"{path}.{k}: present on only one side")
                 continue
@@ -548,9 +550,10 @@ def _walk(a: Any, b: Any, path: str, tol: Tolerance, res: KeyResult,
     if a is None or b is None:
         # C1: an empty collection and an absent one are the same emptiness for
         # the moderation sets only; anywhere else it is a real shape difference.
-        if carved and (a in (None, [], {}) and b in (None, [], {})):
-            return
-        if carved and ((a is None and b in ([], {})) or (b is None and a in ([], {}))):
+        # Exactly one side is None here (both-None returned at the top), so this
+        # is the null-vs-empty case C1 covers.
+        if carved and a in (None, [], {}) and b in (None, [], {}):
+            res.n_suppressed += 1
             return
         res.structural.append(f"{path}: {a!r} vs {b!r}")
         return
@@ -590,7 +593,11 @@ def compare_step(doc_a: dict[str, Any], doc_b: dict[str, Any]) -> dict[str, Any]
             diverged = bool(res.n_diff or res.structural)
             if carve is not None and carve in AUTO_CARVED:
                 entry["carve_out"] = carve
-                entry["status"] = "CARVED" if diverged else "MATCH"
+                # CARVED, not MATCH, whenever the carve-out actually did
+                # something: the reader must see that a difference was
+                # suppressed, not be told the key was clean.
+                entry["status"] = ("CARVED" if (diverged or res.n_suppressed)
+                                   else "MATCH")
             else:
                 entry["status"] = "DIVERGENT" if diverged else "MATCH"
                 stage_divergent = stage_divergent or diverged
