@@ -1,0 +1,184 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://polis.local/schemas/certify_datasets-v1.json",
+  "title": "Certification fixture selection config (P-022 A)",
+  "description": "Declarative, committed-before-inspection selection rules that map coverage ROLES to production conversations by numeric metrics only. Never contains zids, report ids, topics or text. Validated by polismath.replay.fixture_config.validate_config, which implements the Draft-07 subset used here plus the semantic rules the schema cannot express (see SEMANTIC RULES in that module).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "config_version",
+    "metrics",
+    "roles",
+    "workloads",
+    "generated"
+  ],
+  "properties": {
+    "schema_version": {"const": "certify-datasets/1"},
+    "config_version": {"type": "string", "minLength": 1},
+    "notes": {"type": "string"},
+    "public_fixtures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slug", "role"],
+        "properties": {
+          "slug": {"type": "string", "minLength": 1},
+          "role": {"type": "string", "minLength": 1},
+          "notes": {"type": "string"}
+        }
+      }
+    },
+    "coverage_role_map": {
+      "type": "object",
+      "description": "PUBLIC mapping of the retired Julien coverage role name -> the new neutral role name. Contains no identities.",
+      "additionalProperties": {"type": "string"}
+    },
+    "metrics": {
+      "type": "object",
+      "description": "Committed metric definitions. Each entry states the numerator/denominator in prose; the executable definition lives in polismath.replay.fixture_survey.METRIC_DEFINITIONS and the two are cross-checked by tests.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["definition"],
+        "properties": {
+          "definition": {"type": "string", "minLength": 1},
+          "denominator": {"type": "string"},
+          "null_when": {"type": "string"}
+        }
+      }
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/role"}
+    },
+    "workloads": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "references", "description"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "kind": {"enum": ["concurrent", "churn"]},
+          "references": {"type": "array", "items": {"type": "string"}},
+          "description": {"type": "string"},
+          "concurrency": {"type": "integer", "minimum": 1},
+          "small_job_stream": {"type": "array", "items": {"type": "string"}},
+          "cache_cap_plus_one_cohort": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["generator_case", "touch_after_eviction"],
+            "properties": {
+              "generator_case": {"type": "string"},
+              "touch_after_eviction": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "generated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generator_id", "generator_version", "seed", "cases"],
+      "properties": {
+        "generator_id": {"type": "string", "minLength": 1},
+        "generator_version": {"type": "string", "minLength": 1},
+        "seed": {"type": "integer", "minimum": 0},
+        "cases": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/definitions/generated_case"}
+        }
+      }
+    }
+  },
+  "definitions": {
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "slug", "group", "rank", "predicates", "order_by", "on_missing", "exercise"],
+      "properties": {
+        "role": {"type": "string", "minLength": 1},
+        "slug": {"type": "string", "pattern": "^pc-v1-[a-z0-9-]+$"},
+        "group": {
+          "enum": ["replacement", "stress"],
+          "description": "replacement = one of the thirteen unique-conversation roles; stress = added role that MAY reuse a conversation already taken (overlap is disclosed in the manifest)."
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based rank into the ordered candidate list after predicates."
+        },
+        "predicates": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/predicate"}
+        },
+        "order_by": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/definitions/sort_key"}
+        },
+        "on_missing": {
+          "enum": ["fail", "fail_with_synthetic_replacement_offer"],
+          "description": "fail = bundle construction stops naming the missing role. fail_with_synthetic_replacement_offer = stops the same way, but names the deterministic synthetic case an approver may explicitly accept instead. Neither ever silently downgrades."
+        },
+        "synthetic_replacement": {"type": "string"},
+        "exercise": {"type": "string", "minLength": 1},
+        "notes": {"type": "string"}
+      }
+    },
+    "predicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "op", "value"],
+      "properties": {
+        "metric": {"type": "string", "minLength": 1},
+        "op": {"enum": ["ge", "gt", "le", "lt", "eq", "ne"]},
+        "value": {"type": "number"}
+      }
+    },
+    "sort_key": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "direction"],
+      "properties": {
+        "metric": {"type": "string", "minLength": 1},
+        "direction": {"enum": ["asc", "desc"]}
+      }
+    },
+    "generated_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "boundary", "participants", "comments", "shape"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^gen-v1-[a-z0-9-]+$"},
+        "boundary": {"type": "string", "minLength": 1},
+        "participants": {"type": "integer", "minimum": 0},
+        "comments": {"type": "integer", "minimum": 0},
+        "shape": {
+          "enum": [
+            "dense-block", "sparse-strip", "all-pass", "constant-column",
+            "no-eligible-comments", "repeated-timestamps", "out-of-order-commits",
+            "dormant", "empty", "lru-cohort"
+          ]
+        },
+        "cohort_size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "lru-cohort only: how many sibling synthetic zids the case materialises (set to cache_cap + 1)."
+        },
+        "votes_per_participant": {"type": "integer", "minimum": 0},
+        "mod_out_all": {"type": "boolean"},
+        "dormant_age_days": {"type": "integer", "minimum": 0},
+        "heavy": {
+          "type": "boolean",
+          "description": "Scale control that is declared but NOT materialised unless --include-heavy is passed; its byte size makes it unsuitable for the default bundle."
+        },
+        "notes": {"type": "string"}
+      }
+    }
+  }
+}
