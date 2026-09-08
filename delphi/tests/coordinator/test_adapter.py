@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 import pytest
-from polismath.engine_adapter import Adapter, ProtocolError, descriptor, strict_json
+from polismath.engine_adapter import Adapter, ProtocolError, descriptor, strict_json, CANDIDATE_SCHEMA, ENGINE_VERSION
 
 
 def setup(tmp_path, votes=None, ops=None, sign=-1):
@@ -10,10 +10,13 @@ def setup(tmp_path, votes=None, ops=None, sign=-1):
     rows=[dict(slot=i+1,source_ordinal=i,stream_ordinal=i,created_ms=1000+i,pid=2,tid=3,raw_vote=v,weight_x_32767=None) for i,v in enumerate(votes)]
     (src/"votes.jsonl").write_text(''.join(json.dumps(v)+'\n' for v in rows))
     (src/"mods.jsonl").write_text('')
-    manifest=dict(schema="polis-input/1",fixture_id="synthetic-empty",storage_agree_value=sign,ordering="frozen-extract-order",votes=descriptor(src,"votes.jsonl"),moderation=descriptor(src,"mods.jsonl"),parent=None)
+    manifest=dict(schema=CANDIDATE_SCHEMA,fixture_id="synthetic-empty",storage_agree_value=sign,ordering="frozen-extract-order",votes=descriptor(src,"votes.jsonl"),moderation=descriptor(src,"mods.jsonl"),parent=None)
     (src/"manifest.json").write_text(json.dumps(manifest))
     (src/"schedule.json").write_text(json.dumps({"schema":"polis-schedule/1","operations":ops or []}))
     p=dict(input_manifest=descriptor(src,"manifest.json"),resolved_schedule=descriptor(src,"schedule.json"),required_capabilities=["rebuild-prefix/1"],config=dict(profile="candidate-profile",seed=42,pca_mode="powerit",empty_contract=True,init_vector="ones"))
+    p["admission"] = dict(candidate_schema=CANDIDATE_SCHEMA, engine_version=ENGINE_VERSION,
+                          input_digest=p["input_manifest"]["sha256"],
+                          schedule_digest=p["resolved_schedule"]["sha256"], operation_id="synthetic-operation")
     return Adapter(src,dst),p
 
 
@@ -94,3 +97,57 @@ def test_restore_rejects_wrong_parent(tmp_path):
     worker,p=setup(tmp_path,ops=ops);worker.handle(req('initialize',p))
     with pytest.raises(ProtocolError) as error:worker.handle(req('restore',ops[0]['payload'],2))
     assert error.value.code=='STATE_INCOMPATIBLE'
+
+
+@pytest.mark.parametrize("key,value,reason", [
+    ("candidate_schema", "polis-input/1", "CANDIDATE_SCHEMA_MISMATCH"),
+    ("engine_version", "foreign-engine/1", "ENGINE_VERSION_MISMATCH"),
+    ("input_digest", "0" * 64, "INPUT_DIGEST_MISMATCH"),
+    ("schedule_digest", "0" * 64, "SCHEDULE_DIGEST_MISMATCH"),
+    ("operation_id", None, "MALFORMED_CANDIDATE"),
+    ("engine_version", 1, "MALFORMED_CANDIDATE"),
+    ("unexpected", "field", "MALFORMED_CANDIDATE"),
+])
+def test_candidate_admission_refusals(tmp_path, key, value, reason):
+    worker, p = setup(tmp_path)
+    p["admission"][key] = value
+    with pytest.raises(ProtocolError) as error:
+        worker.handle(req("initialize", p))
+    assert error.value.code == reason
+    assert worker.state == "NEW" and not hasattr(worker, "conv")
+
+
+@pytest.mark.parametrize("value", [None, [], {}, {"candidate_schema": CANDIDATE_SCHEMA}])
+def test_malformed_candidate_admission(tmp_path, value):
+    worker, p = setup(tmp_path)
+    p["admission"] = value
+    with pytest.raises(ProtocolError) as error:
+        worker.handle(req("initialize", p))
+    assert error.value.code == "MALFORMED_CANDIDATE"
+    assert not hasattr(worker, "conv")
+
+
+def test_reserved_manifest_schema_rejected_even_with_matching_digest(tmp_path):
+    worker, p = setup(tmp_path)
+    path = worker.input_root / "manifest.json"
+    manifest = json.loads(path.read_text())
+    manifest["schema"] = "polis-input/1"
+    path.write_text(json.dumps(manifest))
+    p["input_manifest"] = descriptor(worker.input_root, "manifest.json")
+    p["admission"]["input_digest"] = p["input_manifest"]["sha256"]
+    with pytest.raises(ProtocolError) as error:
+        worker.handle(req("initialize", p))
+    assert error.value.code == "CANDIDATE_SCHEMA_MISMATCH"
+
+
+def test_candidate_identity_survives_snapshot(tmp_path):
+    ops = [dict(op="compute", payload=dict(compute_id="c", logical_clock=0)),
+           dict(op="snapshot", payload=dict(checkpoint_id="s"))]
+    worker, p = setup(tmp_path, ops=ops)
+    initialized = worker.handle(req("initialize", p))
+    assert initialized["admission"] == p["admission"]
+    for rid, op in enumerate(ops, 2):
+        worker.handle(req(op["op"], op["payload"], rid))
+    checkpoint = json.loads((worker.output_root / "s/manifest.json").read_bytes())
+    assert checkpoint["admission"] == p["admission"]
+    assert checkpoint["schema"] == "polis-candidate-checkpoint/1"

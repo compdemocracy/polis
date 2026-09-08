@@ -1,70 +1,82 @@
 {
-  "run": "P-026 step 1 (ownership liveness, R05/R06, declared ordering)",
+  "run": "P-026 step 4 / S1 (Astra)",
   "python_full_suite": {
-    "passed": 83,
+    "passed": 131,
     "failed": 0,
     "errors": 0,
     "skipped": 0,
-    "seconds": 255.91,
     "by_module": {
-      "test_adapter": 18,
+      "test_adapter": 31,
       "test_equivalence": 6,
+      "test_incremental": 6,
+      "test_node_reader": 2,
       "test_recovery": 51,
       "test_reference_controls": 2,
+      "test_s1_identity": 15,
+      "test_step1_review_controls": 6,
+      "test_step2_review_controls": 6,
       "test_store": 6
     },
-    "new_since_the_review": [
-      "test_r05_unclean_death_restart_repairs[16 stages, no harness expire()]",
-      "test_r05_restart_inside_a_live_lease_defers_then_repairs",
-      "test_r05_expired_lease_restart_repairs[2 stages]",
-      "test_r06_cache_eviction_contends_with_same_zid_update",
-      "test_semantic_tie_key_is_a_declared_contract_term"
-    ],
-    "junit": "artifacts/final-pytest.xml"
+    "junit": "coordinator-rs/artifacts/s1-pytest.xml"
   },
   "rust_tests": {
-    "passed": 14,
-    "failed": 0,
-    "ignored": 0
+    "default": 31,
+    "fault": 31
   },
-  "clippy": {
-    "default_all_targets": "PASS -D warnings",
-    "fault_injection_all_targets": "PASS -D warnings"
-  },
+  "clippy": "both feature sets: PASS --all-targets -D warnings",
   "builds": {
     "release": "PASS",
     "debug_fault_injection": "PASS",
-    "release_fault_injection": "EXPECTED REFUSAL; passing negative-control assertion"
+    "release_fault_injection": "EXPECTED REFUSAL asserted in Python suite"
   },
   "stage_audit": {
-    "exit_code": 1,
-    "required": 25,
     "reached": 25,
     "stage_inventory_gate": "PASS",
     "full_contract_gate": "FAIL",
     "open_conditions": [
-      "CO08/D4: actual Node Bundle route, cache join and C7 presentation checks",
-      "CO01: scan age / backlog / failure metrics are not exposed",
-      "polis-input/1 is claimed locally as a candidate profile, not a G01-G16 certificate"
+      "CO08/D4: the real Node reader (getPca + getBidIndexToPidMapping + getPidsForGid) serves identical Rust/Python bytes at generation one, and the real pca2 route serves generation zero, but CO04's loadBundle/Bundle cache-unit rewrite does not exist in the server and is untested here",
+      "CO08/D4: application boot, auth, report.ts/doFamousQuery and the private 2,884-case served corpus are not executed; the empty presentation is compared synthetically",
+      "CO08/D4 reader defect (server owner): getPca(zid, undefined) misses a cold committed generation zero and finds it once the route warms the cache; the route itself, which passes math_tick=-1, serves it with 200 and ETag \"0\"",
+      "C7 / polis-empty-served/1: the Python comparison writer publishes no row for a zero-vote conversation, the server synthesizes the approved-comment listing with a request-clock lastVoteTimestamp, and a published empty generation lists no tids; the transition must preserve comment ownership; the contract owner must still admit a frozen clock or path-specific clock normalization before this gate closes",
+      "CO01: the incremental probe is a hint bounded by P026_RECONCILE_SECONDS, measured from before the source read; the interval makes a conversation eligible for reconciliation and is not a deadline, and no pass/service budget has been measured",
+      "CO02/CO06: persisted payloads become eligible for revalidation once the ceiling elapses, not on every pass; resident-cache reconciliation is single-threaded and no multi-worker or warm-worker cache campaign exists",
+      "P-031: this crate implements none of A01 PollHealthy, A02 PublishLagSeconds or A03 ObserverHealthy, has no deployed publisher and no delivery proof; the optional synchronous sink can still block when enabled"
+    ],
+    "condition_states": {
+      "O1": "OPEN",
+      "O2": "OPEN",
+      "O3": "OPEN",
+      "O4": "OPEN",
+      "O5": "OPEN",
+      "O6": "OPEN",
+      "O7": "OPEN",
+      "O8": "CLOSED (S1 scope; no G01-G16 certificate)"
+    },
+    "closed_conditions": [
+      {
+        "id": "O8",
+        "prior_condition": "polis-input/1 is claimed locally as a candidate profile, not a G01-G16 certificate",
+        "evidence": "coordinator-rs/evidence/s1-closure.json",
+        "scope": "P-026 step-4 S1 candidate identity and original-byte custody",
+        "g01_g16_certified": false
+      }
     ]
   },
   "replay_comparison": {
     "checkpoints": 3,
-    "deltas": [0, 0, 0],
-    "rust_equals_python_hash": [true, true, true],
+    "deltas": [
+      0,
+      0,
+      0
+    ],
     "hashes_identical_to_previous_evidence": true,
-    "observer_errors": 0
+    "observer_errors": 0,
+    "observations": 196
   },
-  "polarity": {
-    "fixtures": ["synthetic", "vw", "biodiversity", "rebuild-schedule"],
-    "artifacts_identical_to_previous_evidence": true,
-    "semantic_tie_key": "evidence/semantic-tie-key.json"
-  },
-  "scope": "Selected D0-D5 candidate profile; not full CO/G certification",
-  "cleanup": {
-    "compose_project": "p026fix-7c3d",
-    "port": 55881,
-    "committed": true,
-    "pushed": false
-  }
+  "polarity": "four artifacts and semantic tie control unchanged; compensated pairs equal, negative controls differ",
+  "node_d4": "0 differences; generation-zero route 200 / ETag 0 / conditional 304; no loadBundle claim",
+  "scope": "Rust versus Python rebuild-prefix campaign; Clojure remains the live production writer; no Rust/Clojure comparison",
+  "compose_project": "p026s1x-c84e",
+  "postgres_port": 55864,
+  "uncommitted": true
 }
