@@ -430,7 +430,17 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      want("math_tick", getInt, assignToP, 0),
+      // -1, not 0: `handle_GET_bid` passes this straight to `getPca`, and a
+      // default of 0 means "only give me something newer than tick 0". A
+      // conversation's first committed generation IS tick 0
+      // (math_ticks.math_tick is NOT NULL DEFAULT 0), so getPca returned
+      // undefined and dereferencing `items[2].asPOJO` threw a 500 for the whole
+      // first-generation window. -1 is the "give me the latest" sentinel used
+      // by /api/v3/math/pca2 and /api/v3/votes/famous, and by
+      // getBidIndexToPidMapping's own `math_tick || -1`
+      // (src/utils/participants.ts:7), which this handler already calls.
+      // Identical behaviour for tick >= 1.
+      want("math_tick", getInt, assignToP, -1),
       handle_GET_bid
     );
 
