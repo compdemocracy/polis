@@ -1,19 +1,25 @@
-# Certification CI on a disposable EC2 worker
+# Synthetic recovery CI on a disposable EC2 worker
 
-The Delphi certification battery and the P-022 §C recovery matrix are too heavy
-and too data-sensitive for a GitHub-hosted runner: the battery replays real
-conversations against both the Clojure and the Python engine, and the fixture
-bundle it replays is private production-derived data that must never reach a
-public runner or a public artifact.
+> **This is not private certification.** It runs the P-022 §C recovery matrix
+> and the replay battery restricted to the repository's **public** fixtures
+> (`vw`, `biodiversity`), and its verdict is `SYNTHETIC-PASS` precisely so it
+> cannot be mistaken for a release certificate. Private certification — the
+> prod-derived fixture bundle, a baked trusted AMI, an isolated account and VPC,
+> and a signed summary GitHub reads but cannot influence — is specified in
+> `cost-reduction/04-plans/P-022-E-ci-spec.md` and **is not implemented**.
+
+The recovery matrix and the replay battery are too heavy for a GitHub-hosted
+runner: the battery replays conversations against both the Clojure and the
+Python engine.
 
 `.github/workflows/certification-ec2.yml` therefore launches **one disposable
 EC2 instance per run**, drives it over SSM, and destroys it. The instance is
-never registered as a GitHub runner, has no public IP, no inbound security-group
-rule and no SSH key.
-
-This is P-022 §E **v1 ("minimal")**. The v2 admission controller (Lambda,
-per-run JWT capabilities, a baked trusted AMI, a signed safe-summary publisher)
-is deliberately not built. See `cost-reduction/04-plans/P-022-E-ci-spec.md`.
+never registered as a GitHub runner, has no public IP, no inbound
+security-group rule and no SSH key. It also has **no credential that can reach
+private data**: there is no fixture bucket and no evidence bucket in this
+design, so there is nothing on the box that is not already public in this
+repository. That is the data boundary — not the instance, which runs repository
+code as root and could never have contained data it was given.
 
 ## Pieces
 
@@ -22,8 +28,10 @@ is deliberately not built. See `cost-reduction/04-plans/P-022-E-ci-spec.md`.
 | IAM role GitHub assumes, worker instance role, launch template | `cdk/ciEc2.ts` |
 | Wiring, behind the `enableCiEc2` context flag | `cdk/lib/cdk-stack.ts` |
 | The workflow | `.github/workflows/certification-ec2.yml` |
-| SSM send-and-wait helper (runs on the GitHub runner) | `ci/p022_ssm.sh` |
+| SSM send-and-wait helper, with the output allowlist | `ci/p022_ssm.sh` |
 | The phases that run on the worker | `ci/p022_ec2_run.sh` |
+| Teardown: terminate and prove it | `ci/p022_teardown.py` |
+| Fixed-schema summary validator | `ci/p022_check_summary.py` |
 
 ## Enabling it
 
@@ -37,7 +45,7 @@ cd cdk
 # unchanged stack (126 resources)
 npx cdk synth
 
-# with the CI worker (132 resources; the 6 additions are all under CertificationCi/)
+# with the CI worker (139 resources; the 13 additions are all under CertificationCi/)
 npx cdk synth -c enableCiEc2=true
 ```
 
@@ -51,17 +59,16 @@ npx cdk synth -c enableCiEc2=true
 | `ciEc2VolumeGiB` | `200` | Encrypted gp3 root volume. |
 | `ciEc2ShutdownMinutes` | `480` | Hard-deadline self-termination (see "Cost backstops"). |
 | `ciEc2GithubRepo` | `compdemocracy/polis` | Repository allowed to assume the OIDC role. |
-| `ciEc2FixtureBucket` / `ciEc2FixturePrefix` | unset / `p022/bundle/` | Private fixture bundle the **worker** may read. |
-| `ciEc2EvidenceBucket` / `ciEc2EvidencePrefix` | unset / `p022/evidence/` | Private raw evidence the **worker** may write. |
+| `ciEc2GithubEnvironment` | `certification-synthetic` | Must equal the workflow job's `environment:`. The trust policy admits this subject and no other. |
+| `ciEc2AllowedInstanceTypes` | `r8g.4xlarge,r8g.2xlarge` | Enforced in IAM via `ec2:InstanceType`, so a dispatch input cannot select arbitrary spend. |
+| `ciEc2SweeperMaxAgeMinutes` | `ciEc2ShutdownMinutes + 60` | Age past which the independent sweeper kills a CI instance. Must exceed the OS deadline. |
 
 ### One-time deploy
 
 ```bash
 cd cdk
 npx cdk diff   -c enableCiEc2=true      # read this before deploying
-npx cdk deploy -c enableCiEc2=true \
-  -c ciEc2FixtureBucket=<private-bundle-bucket> \
-  -c ciEc2EvidenceBucket=<private-evidence-bucket>
+npx cdk deploy -c enableCiEc2=true
 ```
 
 The deploy prints three outputs. Set the first two as **repository variables**
@@ -73,17 +80,15 @@ The deploy prints three outputs. Set the first two as **repository variables**
 | `CertifyLaunchTemplateId` | `CERTIFY_LAUNCH_TEMPLATE_ID` |
 | `CertifyWorkerRoleArn` | (record only — GitHub never assumes it) |
 
-Also set, if you have them:
+Also set `CERTIFY_REGION` (variable) if the stack is not in `us-east-1`.
 
-- `CERTIFY_REGION` (variable) — defaults to `us-east-1`.
-- `CERTIFY_FIXTURE_S3_URI` (**secret**) — `s3://bucket/prefix/` of the private
-  bundle. Unset is fine: the battery then runs only the public `vw` and
-  `biodiversity` fixtures and reports the private cases as skipped.
-- `CERTIFY_EVIDENCE_S3_URI` (variable) — `s3://bucket/prefix/` for raw run
-  evidence. The worker writes it; GitHub cannot read it back.
+There is **no fixture or evidence secret**: this workflow has no private-data
+path at all.
 
-Create the `certification-private` environment with a required reviewer and
-`edge` as its only selected branch before the first real run.
+Create the `certification-synthetic` environment with `edge` as its only
+selected branch before the first run. The environment is not optional — the
+role's trust policy admits only `repo:<repo>:environment:certification-synthetic`,
+so without it the job cannot obtain credentials at all.
 
 Because the flag is a CDK **context** value, everyone who deploys the stack must
 pass it. If it is omitted on a later deploy, CloudFormation deletes the role,
@@ -139,30 +144,34 @@ artifacts are kept 7 days.
 
 ## Cost backstops
 
-Two independent ones, because neither is sufficient alone:
+Three, layered, because each covers a failure the others do not:
 
-1. **The job's `if: always()` teardown** terminates the instance, polls until it
-   observes the instance leave `pending/running/stopping/stopped`, and **fails
-   the job** if it cannot confirm that — a green run with an unconfirmed
-   termination would be the expensive kind of green. If the launch step lost its
-   response, the teardown sweeps by the `polis:ci-run` tag first.
-2. **The instance kills itself.** The launch template sets
-   `InstanceInitiatedShutdownBehavior=terminate`, and the *first* command in
-   user-data — before docker, before the clone, before anything that can fail —
-   is `shutdown -h +480`. A cancelled Actions run, a dead runner or a broken
-   bootstrap therefore still costs at most the deadline.
-
-Neither covers a host whose kernel dies without terminating. P-022 §E flags an
-account-level expiry sweeper as a remaining requirement before private
-activation; this v1 does not provide one.
+1. **The job's `if: always()` teardown** (`ci/p022_teardown.py`) terminates the
+   instance and then *proves* it: every expected instance ID must be observed in
+   state `terminated`. `shutting-down` keeps it polling; a missing ID, an
+   unrecognised state, or a `describe-instances` that fails outright all **fail
+   the job**. A failed discovery is unresolved ownership, not "nothing was
+   launched" — that conflation was a real bug in round 1. The job re-assumes its
+   role immediately before this step, so a long run cannot arrive here without
+   credentials.
+2. **The instance kills itself.** `InstanceInitiatedShutdownBehavior=terminate`,
+   and the *first* user-data command is `shutdown -h +480`. Failing to arm that
+   timer is fatal — the box powers off immediately rather than continuing
+   unbounded — and a second, independent in-process timer backs it up.
+3. **An independent EventBridge sweeper.** An hourly Lambda terminates any
+   `polis:ci=disposable` instance older than the deadline. It does not care
+   whether the Actions run finished, was cancelled, lost its runner, or whether
+   the instance's kernel is alive. This is the only one of the three that
+   survives a wedged host, and it is why the tag is mandatory at launch.
 
 ## Running it manually
 
-Actions → **Certification (EC2)** → Run workflow. Inputs:
+Actions → **Synthetic recovery and public-fixture battery (EC2)** → Run
+workflow. Inputs:
 
 | Input | Default | Notes |
 |---|---|---|
-| `instance_type` | `r8g.4xlarge` | Must be arm64 unless the stack was deployed with `ciEc2Arch=x86_64`. |
+| `instance_type` | `r8g.4xlarge` | A dropdown, and IAM enforces the same allowlist. |
 | `ref` | the workflow's own ref | Git ref checked out **on the worker**. |
 | `run_battery` | `true` | Set false to run only the recovery matrix (much cheaper). |
 
@@ -170,9 +179,26 @@ The nightly cron only proceeds on `edge`: GitHub runs a scheduled workflow from
 the **default branch**, so the job carries `if: github.ref == 'refs/heads/edge'`
 rather than assuming it.
 
-Artifacts (`certification-ec2-<run>-<attempt>`) contain the recovery log, its
-JUnit XML, a counts summary and the certify verdict lines. They deliberately do
-**not** contain raw battery output.
+### What comes back, and what does not
+
+Artifacts (`synthetic-ec2-<run>-<attempt>`) contain a fixed-schema
+`summary.json`, pytest's JUnit XML and the battery's dataset selection. They do
+**not** contain any log. The worker prints only lines matching
+
+```
+p022 <phase> <key>=<value>
+```
+
+and `ci/p022_ssm.sh` drops anything that does not match rather than escaping it;
+worker stderr is never printed at all. The bundle is returned base64 in bounded
+chunks with a declared length and sha256, and a short or corrupt bundle fails
+the step rather than being quietly truncated.
+
+`ci/p022_check_summary.py` then **recomputes** the verdict from the component
+return codes and rejects extra keys, wrong types, control characters,
+out-of-range integers and any dataset slug that is not a public fixture. A
+worker cannot declare its own PASS, and cannot smuggle text out through a field
+the schema does not allow.
 
 ## Killing a stuck instance by tag
 
@@ -204,18 +230,34 @@ cannot touch the web, math, delphi or ollama tiers.
 
 ## What the GitHub role can and cannot do
 
-Can: `RunInstances` from **this one** launch template with **this one** instance
-profile and IMDSv2 required; tag that launch (three fixed keys, `RunInstances`
-only); `PassRole` for the worker role to EC2 only; EC2 `Describe*`;
-`TerminateInstances` on `polis:ci=disposable`; `ssm:SendCommand` with
-`AWS-RunShellScript` against `polis:ci=disposable` instances, and read those
-commands' results.
+Can: `RunInstances` from **this one** launch template, with **this one**
+instance profile, IMDSv2 required, an IAM-enforced instance-type allowlist and
+the `polis:ci=disposable` and `polis:ci-run` tags mandatory; tag that launch
+(three fixed keys, `RunInstances` only); `PassRole` for the worker role to EC2
+only; `ec2:DescribeInstances`/`DescribeInstanceStatus`; `TerminateInstances` on
+`polis:ci=disposable`; `ssm:SendCommand` with `AWS-RunShellScript` against
+instances tagged `ssm:resourceTag/polis:ci=disposable`; and
+`ssm:GetCommandInvocation`/`DescribeInstanceInformation`.
 
-Cannot: read the private fixture bundle or the evidence bucket, create a launch
-template version, attach a key pair, reach Secrets Manager, touch any deployment
-role, or terminate anything untagged.
+After the launch the workflow **re-assumes with an inline session policy** that
+pins SendCommand and TerminateInstances to the single instance ARN it just
+created, because a tag is shared by every concurrent campaign and was never
+proof of run ownership.
 
-The worker's own role is SSM core plus, when configured, prefix-bound read of
-the fixture bundle and prefix-bound write of the evidence prefix. The two roles
-are disjoint on purpose: private data is readable by the box, never by the
-runner.
+Cannot: read any S3 object, use KMS, reach Secrets Manager, create a launch
+template version, attach a key pair, touch any deployment role, or terminate
+anything untagged.
+
+Two residuals are stated rather than hidden. `ssm:GetCommandInvocation` and
+`ssm:DescribeInstanceInformation` support no resource types and no condition
+keys in the AWS service authorization reference, so they cannot be narrowed by
+any policy — `ListCommands`, `ListCommandInvocations` and `CancelCommand` were
+dropped outright rather than kept on `*` for convenience. And the tag-scoped
+`TerminateInstances` on the base role can reach another concurrent campaign's
+box; the session policy removes that for the normal path, and the grant remains
+so the lost-ID sweep and the operator runbook still work.
+
+The worker's role is an explicit minimal SSM-agent policy — deliberately **not**
+`AmazonSSMManagedInstanceCore`, which also grants `ssm:GetParameter` and
+`ssm:GetParameters` on `*`. It has no S3, no KMS and no Secrets Manager access
+of any kind.
