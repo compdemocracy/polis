@@ -86,6 +86,9 @@ async function readNamespace(zid, mathEnv, keys, gids) {
     keys_projection_sha256: sha256(projection),
     tids: item.asPOJO.tids,
     n: item.asPOJO.n,
+    // The server's synthesized empty presentation stamps Date.now() here
+    // (pca.ts createEmptyPcaStructure), so it is reported rather than assumed.
+    last_vote_timestamp: item.asPOJO.lastVoteTimestamp,
     repness_keys: Object.keys(item.repness || {}).sort(),
     consensus_shape: {
       agree: (item.consensus && item.consensus.agree && item.consensus.agree.length) || 0,
