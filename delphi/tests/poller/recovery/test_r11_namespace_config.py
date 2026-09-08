@@ -23,6 +23,7 @@ import sqlalchemy as sa
 from .conftest import (
     read_math_tables,
     read_vote_events,
+    require_repo_root,
     seed_conversation,
     tables_are_coherent,
 )
@@ -33,9 +34,6 @@ pytestmark = pytest.mark.recovery
 
 PROD_ENV = "prod"
 SHADOW_ENV = "python"
-_REPO_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
-)
 
 
 def _seed_prod_rows(engine, zid: int):
@@ -266,7 +264,8 @@ def test_effective_container_settings_reach_the_config(monkeypatch):
 def test_compose_math_python_service_passes_the_required_settings():
     """The container definition must actually forward the settings above, or
     the validated defaults never reach the deployed process."""
-    with open(os.path.join(_REPO_ROOT, "docker-compose.yml")) as fh:
+    repo_root = require_repo_root("docker-compose.yml")
+    with open(os.path.join(repo_root, "docker-compose.yml")) as fh:
         compose = fh.read()
     service = compose.split("  math-python:", 1)[1].split("\n  postgres:", 1)[0]
     for var in ("MATH_ENV", "MATH_CONV_CACHE_CAP",
