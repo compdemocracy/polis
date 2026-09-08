@@ -41,6 +41,28 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient, {
 export { dynamoClient, docClient };
 
 /**
+ * Create a table, tolerating a concurrent creator.
+ *
+ * Every `ensure*TableExists` helper below is a check-then-create against one
+ * DynamoDB Local shared by all Jest workers. Under `--maxWorkers=2` two suites
+ * can both see ResourceNotFoundException and both issue CreateTable; the loser
+ * gets ResourceInUseException and used to throw out of its `beforeAll`, failing
+ * that whole suite. The table exists either way, which is all the caller wants.
+ */
+async function createTableIgnoringRace(createParams: unknown): Promise<void> {
+  try {
+    await dynamoClient.send(new CreateTableCommand(createParams as any));
+  } catch (e: unknown) {
+    const err = e as { name?: string };
+    if (err.name === "ResourceInUseException") {
+      logger.info("Table was created concurrently by another worker");
+      return;
+    }
+    throw e;
+  }
+}
+
+/**
  * Ensures the Delphi_JobQueue table exists
  */
 export async function ensureJobQueueTableExists(): Promise<void> {
@@ -76,7 +98,7 @@ export async function ensureJobQueueTableExists(): Promise<void> {
         ],
       };
 
-      await dynamoClient.send(new CreateTableCommand(createTableParams as any));
+      await createTableIgnoringRace(createTableParams);
 
       // Wait for table to be active
       let tableActive = false;
@@ -337,7 +359,7 @@ export async function ensureDelphiTopicTablesExist(): Promise<void> {
           { AttributeName: "topic_key", AttributeType: "S" as const },
         ],
       };
-      await dynamoClient.send(new CreateTableCommand(createParams));
+      await createTableIgnoringRace(createParams);
       await new Promise((r) => setTimeout(r, 250));
     } else {
       logger.error(`Error checking topic names table: ${err.message}`);
@@ -369,7 +391,7 @@ export async function ensureDelphiTopicTablesExist(): Promise<void> {
           { AttributeName: "comment_id", AttributeType: "N" as const }, // comment_id is a number
         ],
       };
-      await dynamoClient.send(new CreateTableCommand(createParams));
+      await createTableIgnoringRace(createParams);
       await new Promise((r) => setTimeout(r, 250));
     } else {
       logger.error(`Error checking hierarchical table: ${err.message}`);
