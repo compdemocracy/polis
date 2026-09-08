@@ -36,7 +36,10 @@ const ACTIVE_JOB_STATUSES = [
 // Only these two mean a job row is durably finished. Anything else — including
 // "unknown", which the visualizations endpoint returns for a row with no status
 // — is uncertainty and must not be read as completion.
-const TERMINAL_JOB_STATUSES = ["COMPLETED", "FAILED"];
+// SUPERSEDED is written by the server when it withdraws an admission it
+// lost a race for: the row stays so an id already handed out still
+// resolves, but nothing ran and nothing is outstanding.
+const TERMINAL_JOB_STATUSES = ["COMPLETED", "FAILED", "SUPERSEDED"];
 const isTerminalJobStatus = (status) =>
   TERMINAL_JOB_STATUSES.includes(status);
 

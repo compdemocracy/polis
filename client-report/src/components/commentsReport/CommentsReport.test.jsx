@@ -382,6 +382,19 @@ describe('reconcileTrackedJob', () => {
     ).toBeNull();
   });
 
+  it('treats a superseded row as finished', () => {
+    // The server marks a withdrawn admission SUPERSEDED rather than deleting
+    // it, so an id already handed out still resolves — to nothing outstanding.
+    expect(
+      reconcileTrackedJob(
+        { jobId: 'job-a', status: 'PENDING', workLive: true, reportId: 'r-test' },
+        [{ jobId: 'job-a', status: 'SUPERSEDED', workLive: false }],
+        false,
+        'r-test'
+      )
+    ).toBeNull();
+  });
+
   it('does not carry a job across a report change', () => {
     expect(reconcileTrackedJob(acknowledged, [], false, 'r-other')).toBeNull();
   });

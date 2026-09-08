@@ -436,15 +436,27 @@ conversation's guard rows can be found without a join.
      `batch_job_id` descendant. A GSI query cannot serve here — a global
      secondary index is eventually consistent and does not accept
      `ConsistentRead`, so its silence is not evidence;
-   - a `FAILED` root carries `process_exit_confirmed`, which `job_poller.py`
-     writes only after it has stopped and joined the job's whole **process
-     tree**. Jobs are started with `start_new_session=True` and stopped by
-     signalling their process group, because a `FULL_PIPELINE` child is
+   - the terminal write is *resolved*. `job_poller.py` verifies the job's whole
+     **process group** is empty on every completion path and records the answer
+     as `process_exit_confirmed`. Jobs are started with `start_new_session=True`
+     and stopped by signalling their group, because a `FULL_PIPELINE` child is
      `run_delphi.py`, which launches subprocesses of its own; stopping the
-     direct child alone left those running. A root failed out from under live
-     processes can still grow a checker afterwards, so an unconfirmed failure is
-     not proof. Process exit is not provider reconciliation: that is what the
-     descendant sweep and `checker_schedule_failed` are for;
+     direct child alone left those running, and a parent that exits by itself —
+     with any status, including 0 — does not take them with it. An explicit
+     `false` means the worker could not confirm, and blocks release whatever the
+     status says, success included. An *absent* flag is a migration case, not a
+     refusal: accepted on `COMPLETED` (a row written before the flag existed),
+     still rejected on `FAILED`, which is where orphans come from. Process exit
+     is not provider reconciliation: that is what the descendant sweep and
+     `checker_schedule_failed` are for;
+   - the root was **already terminal before the descendant sweep began**, and
+     had not moved by the time it ended. A strongly-consistent `Scan` is not a
+     snapshot: a child written between pages, past a point page one already
+     read, is invisible to it. The anchor is what makes the sweep's silence mean
+     something — children are only created while the root is non-terminal, so a
+     root that was terminal before the first page can have no later ones. The
+     conversation-wide reader applies the same rule by sweeping twice and
+     reporting live wherever the two reads disagree;
    - the root does not carry `checker_schedule_failed`, which
      `801_narrative_report_batch.py` sets when it submitted a provider batch but
      could not schedule the checker row that would otherwise represent it.
@@ -472,6 +484,16 @@ conversation's guard rows can be found without a join.
   guard pointing at a row that no longer exists. That is treated as uncertainty
   and keeps the scope blocked, so the reset must delete the scope's guard rows
   too.
+
+### `SUPERSEDED`
+
+When this server loses a race with a producer outside the guard transaction, it
+withdraws the admission it just made: the queue row is **marked**
+`status = SUPERSEDED` with `superseded_by`, and its scope guard and idempotency
+alias are removed, in one transaction. The row is marked rather than deleted
+because its id may already have gone out to a client, and an acknowledged id has
+to keep resolving to something real. A superseded row is terminal, is not work,
+and `job_poller.py`'s finder never looks for that status, so no worker claims it.
 
 ### Effective work state for readers
 

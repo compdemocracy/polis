@@ -194,7 +194,12 @@ def test_pipe_error_stops_the_whole_job_tree(monkeypatch):
 
 
 def test_ordinary_completion_without_an_owned_group_is_not_claimed(monkeypatch):
-    """Joining the parent is not evidence about what the parent left running."""
+    """Joining the parent is not evidence about what the parent left running.
+
+    The server treats this — a successful completion carrying an explicit
+    `process_exit_confirmed=False` — as outstanding work, exactly as it treats
+    an unconfirmed failure.
+    """
     child = FakeProcess()
     completions = run_process_job(monkeypatch, child)
 
