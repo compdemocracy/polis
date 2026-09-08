@@ -205,7 +205,7 @@ def test_late_older_batch_does_not_regress_the_watermark(engine, pg_url,
     reason=(
         "DEFECT (latent, retained regression): merging an OLDER batch into "
         "already-newer conversation state overwrites the newer cell. "
-        "polismath/conversation/conversation.py:387 sorts by `created` WITHIN "
+        "polismath/conversation/conversation.py:396 sorts by `created` WITHIN "
         "one payload, but the merge into existing state at "
         "polismath/conversation/conversation.py:470 has NO per-cell timestamp "
         "guard, so a batch whose events are all older than the stored cell "
