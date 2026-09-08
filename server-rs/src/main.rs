@@ -644,8 +644,9 @@ struct Health {
     math_env: String,
     #[serde(rename = "poolIdle")]
     pool_idle: usize,
-    #[serde(rename = "poolLive")]
-    pool_live: usize,
+    /// Permits checked out. Open backends are `poolLeased + poolIdle`.
+    #[serde(rename = "poolLeased")]
+    pool_leased: usize,
     #[serde(rename = "poolMax")]
     pool_max: usize,
     #[serde(rename = "poolOpened")]
@@ -671,7 +672,7 @@ async fn health(State(app): State<App>) -> Response<Body> {
         status: if reachable { "ok" } else { "degraded" },
         math_env: app.math_env.clone(),
         pool_idle: pool.idle,
-        pool_live: pool.live,
+        pool_leased: pool.leased,
         pool_max: pool.max,
         pool_opened: pool.opened,
         pool_failed: pool.failed,
