@@ -51,16 +51,19 @@ import Config from "../../config";
 export const JOB_QUEUE_TABLE = "Delphi_JobQueue";
 
 /**
- * Status written on a queue row this server withdraws after losing a race with
- * a producer outside the guard transaction.
+ * How a withdrawn admission is recorded.
  *
- * The row is marked rather than deleted. An id that has already been handed to
- * a client has to keep resolving to something real: deleting it left that
- * client tracking an id nothing stood behind. A superseded row is terminal, is
- * not work, and `job_poller.py`'s finder does not look for this status, so no
- * worker will ever claim it.
+ * The row is marked rather than deleted: an id already handed to a client has
+ * to keep resolving to something real. It is marked **FAILED**, not with a
+ * status of its own — a new status would be an unknown-status anomaly to the
+ * P-003 S1 demand observer, which classifies COMPLETED and FAILED and treats
+ * everything else as unknown and fail-closed. Every compensation would
+ * manufacture one of those permanently. All the meaning lives in the fields
+ * instead: `superseded_by` names the job that won, `withdrawn_reason` says why,
+ * and `process_exit_confirmed` is true because nothing ever ran.
  */
-export const SUPERSEDED_STATUS = "SUPERSEDED";
+export const WITHDRAWN_STATUS = "FAILED";
+export const WITHDRAWN_REASON = "superseded_by_unguarded_producer";
 export const JOB_GUARD_TABLE = "Delphi_JobActiveGuard";
 
 /**
@@ -69,7 +72,7 @@ export const JOB_GUARD_TABLE = "Delphi_JobActiveGuard";
  * status — is treated as still possibly holding paid work. Mirrors
  * `delphi/scripts/job_poller.py` and `803_check_batch_status.py`.
  */
-const TERMINAL_STATUSES = new Set(["COMPLETED", "FAILED", SUPERSEDED_STATUS]);
+const TERMINAL_STATUSES = new Set(["COMPLETED", "FAILED"]);
 
 /**
  * Does this terminal row's completion carry the worker's confirmation that the
@@ -118,6 +121,15 @@ const MAX_ADMISSION_ATTEMPTS = 3;
  * understands, so it fails closed rather than picking one.
  */
 const ADOPTION_CANDIDATE_LIMIT = 25;
+
+/**
+ * How recently a terminal write has to be for adoption to refuse to prune it on
+ * the sweep's own word and insist on an anchored assessment instead. A sweep
+ * cannot take longer than this without hitting its own page cap first, so a
+ * root that finished before this window cannot have finished *during* the
+ * sweep — which is the only case where a single observation misleads.
+ */
+const RECENTLY_TERMINAL_MS = 10 * 60 * 1000;
 
 /**
  * How long a supplied idempotency key stays bound to the job it was
@@ -495,6 +507,7 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
     // confirmed process exit, or `checker_schedule_failed` — is outstanding
     // work that a status filter hides. Those are precisely the old-worker and
     // operator-reset states adoption exists for.
+    const sweepStartedAt = Date.now();
     const rows = await this.sweepConversation(scope.conversationId);
     if (rows.kind !== "found") {
       return rows;
@@ -514,14 +527,26 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
       }
     };
 
-    // A row the scan already shows as cleanly finished — terminal, resolved,
-    // no failed checker scheduling — cannot be outstanding work, so it neither
-    // needs a strong re-read nor consumes the candidate budget. This is what
-    // keeps a conversation's ordinary history from filling the cap.
-    const settledByScan = (row: any) =>
-      TERMINAL_STATUSES.has(row.status) &&
-      !row.checker_schedule_failed &&
-      terminalWriteIsResolved(row);
+    // Pruning on the sweep's own observation is only safe for rows that were
+    // *already* finished before the sweep began. A multi-page scan is not a
+    // snapshot: a root that goes terminal while the sweep runs, after a page
+    // has passed the position where its child is being written, looks settled
+    // and is not. So a row is pruned cheaply only when its terminal write is
+    // demonstrably older than this sweep; anything terminal-but-recent, or
+    // terminal with no timestamp to judge by, becomes a candidate and is
+    // decided by the anchored assessment below.
+    const settledBefore = sweepStartedAt - RECENTLY_TERMINAL_MS;
+    const settledByScan = (row: any) => {
+      if (
+        !TERMINAL_STATUSES.has(row.status) ||
+        row.checker_schedule_failed ||
+        !terminalWriteIsResolved(row)
+      ) {
+        return false;
+      }
+      const finishedAt = Date.parse(row.completed_at || row.updated_at || "");
+      return Number.isFinite(finishedAt) && finishedAt < settledBefore;
+    };
 
     for (const row of rows.value) {
       const jobId = String(row.job_id);
@@ -635,13 +660,14 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
           TableName: JOB_QUEUE_TABLE,
           Key: { job_id: jobId },
           UpdateExpression:
-            "SET #s = :superseded, superseded_by = :winner, updated_at = :now, completed_at = :now, process_exit_confirmed = :confirmed",
+            "SET #s = :superseded, superseded_by = :winner, withdrawn_reason = :reason, updated_at = :now, completed_at = :now, process_exit_confirmed = :confirmed",
           // Only while no worker has taken it: `job_poller.py:claim_job` moves
           // status to PROCESSING and stamps worker_id.
           ConditionExpression: "#s = :pending AND #w = :unclaimed",
           ExpressionAttributeNames: { "#s": "status", "#w": "worker_id" },
           ExpressionAttributeValues: {
-            ":superseded": SUPERSEDED_STATUS,
+            ":superseded": WITHDRAWN_STATUS,
+            ":reason": WITHDRAWN_REASON,
             ":winner": supersededBy,
             ":now": now,
             // Nothing ever ran, so there is no process to be uncertain about.
@@ -889,8 +915,14 @@ export async function assessJobLiveness(
 export async function assessConversationLiveness(
   conversationId: string,
   store: JobAdmissionStore = dynamoJobAdmissionStore
-): Promise<{ complete: boolean; liveByJobId: Map<string, boolean> }> {
+): Promise<{
+  complete: boolean;
+  liveByJobId: Map<string, boolean>;
+  /** Rows as the first sweep read them, for callers needing more than liveness. */
+  rowsByJobId: Map<string, any>;
+}> {
   const liveByJobId = new Map<string, boolean>();
+  let rowsByJobId = new Map<string, any>();
 
   const sweep = async () => {
     const rows = await store.sweepConversation(conversationId);
@@ -900,6 +932,7 @@ export async function assessConversationLiveness(
         reason: rows.reason,
         live: new Map<string, boolean>(),
         anchors: new Map<string, string>(),
+        rows: new Map<string, any>(),
       };
     }
     const all = rows.kind === "found" ? rows.value : [];
@@ -930,12 +963,13 @@ export async function assessConversationLiveness(
     logger.warn(
       `Delphi conversation liveness incomplete: ${first.reason}; reporting live`
     );
-    return { complete: false, liveByJobId };
+    return { complete: false, liveByJobId, rowsByJobId };
   }
+  rowsByJobId = first.rows;
   if (![...first.live.values()].some((live) => !live)) {
     // Nothing is about to be reported finished, so there is nothing a second
     // read could make safer.
-    return { complete: true, liveByJobId: first.live };
+    return { complete: true, liveByJobId: first.live, rowsByJobId };
   }
 
   // A multi-page strong scan is not a snapshot: a child written between pages,
@@ -947,7 +981,7 @@ export async function assessConversationLiveness(
     logger.warn(
       `Delphi conversation liveness could not be confirmed: ${second.reason}; reporting live`
     );
-    return { complete: false, liveByJobId };
+    return { complete: false, liveByJobId, rowsByJobId };
   }
   for (const [jobId, live] of second.live) {
     const agreed =
@@ -961,7 +995,7 @@ export async function assessConversationLiveness(
       liveByJobId.set(jobId, true);
     }
   }
-  return { complete: true, liveByJobId };
+  return { complete: true, liveByJobId, rowsByJobId };
 }
 
 /**

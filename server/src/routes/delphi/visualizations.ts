@@ -315,7 +315,12 @@ async function fetchJobMetadata(
     // Process the complete list of items, with liveness from a strongly-read
     // sweep rather than from this eventually consistent index.
     const liveness = await assessConversationLiveness(conversation_id);
-    return processJobItems(allItems, liveness.liveByJobId, liveness.complete);
+    return processJobItems(
+      allItems,
+      liveness.liveByJobId,
+      liveness.complete,
+      liveness.rowsByJobId
+    );
   } catch (err: any) {
     logger.error(`Error fetching job metadata via GSI Query: ${err.message}`);
     // Return an empty object so the main handler can continue without metadata if needed.
@@ -336,7 +341,8 @@ async function fetchJobMetadata(
 function processJobItems(
   items: any[],
   liveByJobId: Map<string, boolean>,
-  livenessComplete: boolean
+  livenessComplete: boolean,
+  rowsByJobId: Map<string, any>
 ): Record<string, any> {
   const jobMap: Record<string, any> = {};
 
@@ -365,6 +371,30 @@ function processJobItems(
       // work still outstanding underneath" without a second request. A false
       // here only ever comes from the authoritative sweep.
       workLive: livenessComplete ? liveByJobId.get(job_id) !== false : true,
+      // Set when this server withdrew the job after losing a race: it names the
+      // job that actually carries the work. The client follows it rather than
+      // dropping the id it was acknowledged with.
+      supersededBy: rowsByJobId.get(job_id)?.superseded_by,
+    };
+  }
+
+  // The rows above came through an eventually consistent index. Anything the
+  // authoritative sweep saw that the index has not caught up with is added
+  // here — otherwise a client whose job was superseded a moment ago cannot see
+  // the winner it is supposed to follow.
+  for (const [jobId, row] of rowsByJobId) {
+    if (jobMap[jobId]) {
+      continue;
+    }
+    jobMap[jobId] = {
+      jobId,
+      status: row.status || "unknown",
+      createdAt: row.created_at || null,
+      startedAt: row.started_at || null,
+      completedAt: row.completed_at || null,
+      results: null,
+      workLive: livenessComplete ? liveByJobId.get(jobId) !== false : true,
+      supersededBy: row.superseded_by,
     };
   }
 
