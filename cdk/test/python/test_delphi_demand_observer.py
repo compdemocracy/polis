@@ -51,6 +51,20 @@ def row(job_id, status=index.STATUS_PENDING, **overrides):
     return item
 
 
+def checker(job_id, parent, status=index.STATUS_PENDING, **overrides):
+    """A batch-status-check row pointing back at the parent it is checking.
+
+    Shape taken from 801_narrative_report_batch.py:1457-1470.
+    """
+    return row(
+        job_id,
+        status,
+        job_type="AWAITING_NARRATIVE_BATCH",
+        batch_job_id=parent,
+        **overrides,
+    )
+
+
 class TestStatusCoverage(unittest.TestCase):
     """Every status the poller and batch checker write, one fixture each."""
 
@@ -227,15 +241,17 @@ class TestComputeDemand(unittest.TestCase):
             row("c", index.STATUS_AWAITING_RECHECK, created_at=iso(45)),
             row("d", index.STATUS_PROCESSING),
             row("e", index.STATUS_LOCKED_FOR_CHECKING),
+            # e's live checker, which is what makes it a healthy locked parent.
+            checker("e-check", parent="e"),
             row("f", index.STATUS_COMPLETED),
             row("g", index.STATUS_FAILED),
         ]
         observation = index.compute_demand(rows, now=NOW)
         self.assertTrue(observation["complete"])
-        self.assertEqual(observation["WakeDemand"], 4)
+        self.assertEqual(observation["WakeDemand"], 5)
         self.assertEqual(observation["LockedForCheckingRows"], 1)
         self.assertEqual(observation["AnomalyRows"], 0)
-        self.assertEqual(observation["RowsScanned"], 7)
+        self.assertEqual(observation["RowsScanned"], 8)
         self.assertEqual(observation["SecondsToNextEligible"], 0.0)
         self.assertAlmostEqual(observation["OldestPendingAgeSeconds"], 5400.0)
 
@@ -258,6 +274,141 @@ class TestComputeDemand(unittest.TestCase):
         observation = index.compute_demand(rows, now=NOW)
         self.assertEqual(observation["RowsScanned"], 1)
         self.assertEqual(observation["WakeDemand"], 1)
+
+
+class TestDuplicateMerging(unittest.TestCase):
+    """A scan has no snapshot isolation, so arrival order is not authority.
+
+    Astra review of #2718, finding 1: taking the first-seen row for a job id
+    let a terminal observation erase a later pending one, making the result
+    order-dependent and, in one direction, optimistic. Demand and anomalies now
+    OR together and ages take the maximum.
+    """
+
+    def test_terminal_then_pending_keeps_the_demand(self):
+        rows = [row("j", index.STATUS_COMPLETED), row("j", index.STATUS_PENDING)]
+        self.assertEqual(index.compute_demand(rows, now=NOW)["WakeDemand"], 1)
+
+    def test_result_is_independent_of_arrival_order(self):
+        completed = row("j", index.STATUS_COMPLETED)
+        pending = row("j", index.STATUS_PENDING)
+        forwards = index.compute_demand([completed, pending], now=NOW)
+        backwards = index.compute_demand([pending, completed], now=NOW)
+        self.assertEqual(forwards["WakeDemand"], backwards["WakeDemand"])
+        self.assertEqual(forwards["AnomalyRows"], backwards["AnomalyRows"])
+        self.assertEqual(forwards["RowsScanned"], backwards["RowsScanned"])
+        self.assertEqual(forwards["WakeDemand"], 1)
+
+    def test_anomalies_union_across_observations(self):
+        rows = [
+            row("j", index.STATUS_COMPLETED),
+            {"job_id": "j"},  # same job seen with no attributes
+        ]
+        observation = index.compute_demand(rows, now=NOW)
+        self.assertEqual(observation["RowsScanned"], 1)
+        self.assertEqual(observation["AnomalyRows"], 1)
+        self.assertEqual(observation["AnomalyCounts"][index.ANOMALY_MISSING_STATUS], 1)
+
+    def test_ages_take_the_maximum(self):
+        rows = [
+            row("j", index.STATUS_PENDING, created_at=iso(5)),
+            row("j", index.STATUS_PENDING, created_at=iso(120)),
+        ]
+        observation = index.compute_demand(rows, now=NOW)
+        self.assertAlmostEqual(observation["OldestPendingAgeSeconds"], 7200.0)
+
+    def test_two_attribute_less_rows_do_not_collapse_into_one(self):
+        observation = index.compute_demand([{}, {}], now=NOW)
+        self.assertEqual(observation["RowsScanned"], 2)
+        self.assertEqual(observation["AnomalyRows"], 2)
+
+
+class TestLockedPairing(unittest.TestCase):
+    """Astra review of #2718, finding 2: an unpaired locked parent.
+
+    A LOCKED_FOR_CHECKING row is a parent waiting on a provider batch. Its
+    checker is a separate row pointing back at it through `batch_job_id`
+    (801_narrative_report_batch.py:1457-1470). If no live descendant references
+    it, nothing is going to advance it — and an unexpired lease proves nothing,
+    because nothing renews the lease once the checker is gone.
+    """
+
+    def test_locked_parent_with_a_live_checker_is_clean(self):
+        rows = [
+            row("parent", index.STATUS_LOCKED_FOR_CHECKING),
+            checker("parent-check", parent="parent"),
+        ]
+        observation = index.compute_demand(rows, now=NOW)
+        self.assertEqual(observation["AnomalyRows"], 0)
+        self.assertEqual(observation["LockedForCheckingRows"], 1)
+        # The checker itself is the demand; the locked parent is not.
+        self.assertEqual(observation["WakeDemand"], 1)
+
+    def test_unpaired_locked_parent_with_a_future_lease_is_an_anomaly(self):
+        # The exact case the stale-lease rule could not see.
+        rows = [row("parent", index.STATUS_LOCKED_FOR_CHECKING)]
+        observation = index.compute_demand(rows, now=NOW)
+        self.assertEqual(observation["WakeDemand"], 0)
+        self.assertEqual(observation["AnomalyRows"], 1)
+        self.assertEqual(
+            observation["AnomalyCounts"][index.ANOMALY_UNPAIRED_LOCKED], 1
+        )
+        self.assertEqual(observation["AnomalyCounts"][index.ANOMALY_STALE_LOCKED], 0)
+
+    def test_a_finished_checker_does_not_pair_its_parent(self):
+        rows = [
+            row("parent", index.STATUS_LOCKED_FOR_CHECKING),
+            checker("parent-check", parent="parent", status=index.STATUS_COMPLETED),
+        ]
+        observation = index.compute_demand(rows, now=NOW)
+        self.assertEqual(
+            observation["AnomalyCounts"][index.ANOMALY_UNPAIRED_LOCKED], 1
+        )
+
+    def test_an_unclassifiable_checker_is_assumed_live(self):
+        # Conservative: an unknown-status descendant might still be running, so
+        # it pairs the parent. It raises its own anomaly either way.
+        rows = [
+            row("parent", index.STATUS_LOCKED_FOR_CHECKING),
+            checker("parent-check", parent="parent", status="WAT"),
+        ]
+        observation = index.compute_demand(rows, now=NOW)
+        self.assertEqual(
+            observation["AnomalyCounts"][index.ANOMALY_UNPAIRED_LOCKED], 0
+        )
+        self.assertEqual(observation["AnomalyRows"], 1)  # the checker only
+
+    def test_stale_and_unpaired_are_reported_separately(self):
+        rows = [
+            row(
+                "parent",
+                index.STATUS_LOCKED_FOR_CHECKING,
+                lock_expires_at=iso(90),
+                last_checked=iso(90),
+            )
+        ]
+        observation = index.compute_demand(rows, now=NOW)
+        self.assertEqual(observation["AnomalyRows"], 1)
+        self.assertEqual(observation["AnomalyCounts"][index.ANOMALY_STALE_LOCKED], 1)
+        self.assertEqual(
+            observation["AnomalyCounts"][index.ANOMALY_UNPAIRED_LOCKED], 1
+        )
+
+    def test_a_checker_for_an_unrelated_parent_does_not_pair(self):
+        rows = [
+            row("parent", index.STATUS_LOCKED_FOR_CHECKING),
+            checker("other-check", parent="some-other-parent"),
+        ]
+        observation = index.compute_demand(rows, now=NOW)
+        self.assertEqual(
+            observation["AnomalyCounts"][index.ANOMALY_UNPAIRED_LOCKED], 1
+        )
+
+    def test_lineage_attribute_is_projected(self):
+        self.assertIn("batch_job_id", index.PROJECTION_ATTRIBUTES)
+        # The provider's own batch identifier is not needed for pairing and is
+        # deliberately left unprojected.
+        self.assertNotIn("batch_id", index.PROJECTION_ATTRIBUTES)
 
     def test_measured_five_row_anomaly_shape(self):
         """Reproduces the shape the reviewer measured on the live table.
@@ -285,6 +436,9 @@ class TestComputeDemand(unittest.TestCase):
         self.assertEqual(observation["LockedForCheckingRows"], 3)
         self.assertEqual(observation["AnomalyCounts"][index.ANOMALY_STALE_LOCKED], 3)
         self.assertEqual(observation["AnomalyCounts"][index.ANOMALY_MISSING_STATUS], 2)
+        # No job has been created since 2026-08, so those three locked parents
+        # have no live checker either: both rules fire, on the same 3 rows.
+        self.assertEqual(observation["AnomalyCounts"][index.ANOMALY_UNPAIRED_LOCKED], 3)
 
     def test_a_row_with_several_anomalies_counts_once(self):
         rows = [{"job_id": "z", "status": "WAT"}]

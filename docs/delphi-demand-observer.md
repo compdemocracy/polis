@@ -31,7 +31,7 @@ attribute, and the table currently holds exactly such rows. A scan sees them.
 | `PENDING` | Yes | Waiting for a claim. |
 | `AWAITING_RECHECK` | Yes | The poller has no due-time scheduling, so a recheck row needs a worker now. |
 | `PROCESSING`, any lease age | Yes | Recovering a vanished owner needs a worker even before the 15-minute lease expires. |
-| `LOCKED_FOR_CHECKING` | No, by itself | A parent/checker coordination state, not a ready unit of compute. Counted and aged separately. |
+| `LOCKED_FOR_CHECKING` | No, by itself | A parent/checker coordination state, not a ready unit of compute. Counted and aged separately, and paired against its checker (below). |
 | `COMPLETED` / `FAILED` | No | Terminal. |
 | Missing or unknown `status`, malformed scheduling/ownership fields | No | Counted as an anomaly. Unknown work must inhibit retirement, never be inferred as absent. |
 
@@ -41,11 +41,45 @@ Anomaly kinds, all of which contribute to `AnomalyRows`:
 - `unknown_status` — a status the poller does not write
 - `missing_created_at` — nothing to age the row by
 - `malformed_timestamp` — a timestamp field that will not parse
-- `stale_locked` — `LOCKED_FOR_CHECKING` whose lease is absent or expired, i.e. no checker is paired with it
+- `stale_locked` — `LOCKED_FOR_CHECKING` whose lease is absent or expired
+- `unpaired_locked` — `LOCKED_FOR_CHECKING` with no live checker descendant, whatever its lease says
 - `malformed_ownership` — `PROCESSING` with no `worker_id` or no lease
 
 A row with several anomalies counts once towards `AnomalyRows`; the per-kind
 breakdown goes to the log line.
+
+### Parent/checker pairing
+
+A `LOCKED_FOR_CHECKING` row is a parent waiting on a provider batch. Its checker
+is a *separate row* that points back at it: `801_narrative_report_batch.py`
+writes a row with `job_type=AWAITING_NARRATIVE_BATCH` and
+`batch_job_id=<parent job_id>`, and the poller runs that row against the parent.
+
+So a locked parent is classified by looking for a live descendant, not by its
+lease. If no non-terminal row references it, it is `unpaired_locked` — nothing
+is going to advance it. An unexpired lease is not evidence to the contrary,
+because nothing renews the lease once the checker is gone; that is why the
+stale-lease rule alone could not see this case.
+
+A descendant with an unknown or missing status counts as live, deliberately:
+assuming unclassifiable work has finished is the one error that loses jobs. It
+raises its own anomaly regardless.
+
+Pairing needs one extra projected attribute, `batch_job_id`, which costs
+nothing — see [Cost](#cost). The provider's own batch identifier is not
+projected; the in-table edge is all the pairing needs.
+
+### Duplicate observations
+
+A `Scan` has no snapshot isolation, so the same `job_id` can be returned more
+than once and in more than one state. Repeat observations of one job are merged
+conservatively — demand and anomalies OR together, ages take the maximum —
+rather than resolved by arrival order. Arrival order is not a state authority:
+a terminal row read before a pending row for the same job must not erase that
+job's demand. The result of an observation does not depend on the order rows
+came back in.
+
+No single scan, however complete, certifies that retirement is safe.
 
 ### Metrics
 
@@ -72,7 +106,11 @@ Two rules about absent samples:
   never publishes `WakeDemand=0`. A scan error must not be readable as an empty
   queue.
 - **Age gauges are omitted, not zeroed, when their set is empty.** Alarms built
-  on them must use `treatMissingData: notBreaching`.
+  on them must use `treatMissingData: notBreaching` — and note that this alone
+  does not immediately clear an alarm, since CloudWatch may still evaluate
+  older actual datapoints in the window. No automated action should key on an
+  omitted age alone; pair it with an explicit no-demand condition and with
+  fresh `ObserverHealthy` / `Errors` / missing-sample alarms.
 
 ### Which alarm detects a dead worker
 
@@ -163,11 +201,11 @@ At the measured table size (255 items, 1,134,230 bytes, PAY_PER_REQUEST) and a
 | Component | Basis | $/month |
 |---|---|---|
 | DynamoDB scans | 1.11 MB ÷ 8 KB ≈ **139 eventually-consistent read units** per scan × 43,200 = 6.0M RRU at $0.125/M | **0.75** |
-| CloudWatch custom metrics | 7 metrics on a quiet queue, up to 10 when the age gauges have samples, at $0.30 each | **2.10 – 3.00** |
+| CloudWatch custom metrics | 6 on a fully quiet queue (7 on today's table, which has locked rows), up to 10 when every age gauge has samples, at $0.30 each. Budget the full 10: a series published once can persist for the month. | **1.80 – 3.00** |
 | `PutMetricData` requests | 43,200 at $0.01 per 1,000 | **0.43** |
 | Lambda | 43,200 × 256 MB × ~1 s ≈ 10,800 GB-s (free tier usually absorbs this) | **0.00 – 0.19** |
 | CloudWatch Logs | ~13 MB ingest | **0.01** |
-| **Total** | | **≈ $3.30 – 4.40** |
+| **Total** | | **≈ $3.00 – 4.40** |
 
 Two things worth knowing about that DynamoDB line:
 
@@ -176,7 +214,8 @@ Two things worth knowing about that DynamoDB line:
   attributes limits what the observer can see but not what it pays. The
   projection is there because the observer has no business reading job payloads
   or `logs` blobs. Growth is bounded in bytes, from the reported consumed
-  capacity, for the same reason.
+  capacity, for the same reason — and adding an attribute to the projection,
+  as the parent/checker pairing does, costs nothing.
 - **Queue reads go down overall, not up.** Each running worker's poller today
   runs three fully paginated GSI queries *every 2 seconds*. One scan per minute
   is a small fraction of that.

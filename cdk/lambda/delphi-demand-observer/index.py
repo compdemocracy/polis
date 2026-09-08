@@ -80,6 +80,7 @@ ANOMALY_UNKNOWN_STATUS = "unknown_status"
 ANOMALY_MISSING_CREATED_AT = "missing_created_at"
 ANOMALY_MALFORMED_TIMESTAMP = "malformed_timestamp"
 ANOMALY_STALE_LOCKED = "stale_locked"
+ANOMALY_UNPAIRED_LOCKED = "unpaired_locked"
 ANOMALY_MALFORMED_OWNERSHIP = "malformed_ownership"
 
 ANOMALY_KINDS = (
@@ -88,6 +89,7 @@ ANOMALY_KINDS = (
     ANOMALY_MISSING_CREATED_AT,
     ANOMALY_MALFORMED_TIMESTAMP,
     ANOMALY_STALE_LOCKED,
+    ANOMALY_UNPAIRED_LOCKED,
     ANOMALY_MALFORMED_OWNERSHIP,
 )
 
@@ -105,6 +107,18 @@ PROJECTION_ATTRIBUTES = (
     "last_checked",
     "worker_id",
     "version",
+    # Lineage. A checker job row points at the parent it is checking:
+    # 801_narrative_report_batch.py:1457-1470 writes a row with
+    # job_type=AWAITING_NARRATIVE_BATCH and batch_job_id=<parent job_id>, and
+    # the poller runs it against that parent (job_poller.py:711). This is the
+    # only edge in the table, and it is what lets a LOCKED_FOR_CHECKING parent
+    # be paired with a live checker descendant.
+    #
+    # Adding an attribute to the projection costs nothing: DynamoDB bills a
+    # Scan on pre-projection item size, so the byte budget is unaffected.
+    # `batch_id` (the provider's batch identifier) is deliberately NOT
+    # projected — pairing needs only the in-table edge.
+    "batch_job_id",
 )
 
 
@@ -242,6 +256,12 @@ def classify_row(row: Mapping[str, Any], now: datetime) -> Dict[str, Any]:
     return {
         "demand": demand,
         "locked": locked,
+        # Not terminal, from this row's point of view. Unknown and missing
+        # statuses count as nonterminal on purpose: an unclassifiable row may
+        # still be live work, and assuming it is finished is the one error that
+        # loses jobs. Such a row raises its own anomaly regardless.
+        "nonterminal": status not in TERMINAL_STATUSES,
+        "parent_ref": row.get("batch_job_id") or None,
         "anomalies": anomalies,
         "actionable_age": actionable_age,
         "heartbeat_age": heartbeat_age,
@@ -259,56 +279,93 @@ def compute_demand(
     ``SecondsToNextEligible`` is 0 while there is demand and ``None`` when
     there is none — the null case is exported by omitting the sample, never by
     manufacturing a negative or zero delay.
+
+    A scan has no snapshot isolation, so the same ``job_id`` can appear more
+    than once and in more than one state. Repeat observations of one job are
+    **merged conservatively** — demand and anomalies OR together, ages take the
+    maximum — rather than resolved by arrival order. "First seen" is not a
+    state authority: a terminal row read before a pending row for the same job
+    must not erase that job's demand.
     """
     if now is None:
         now = datetime.now(timezone.utc)
 
-    seen_job_ids = set()
+    merged: Dict[Any, Dict[str, Any]] = {}
+    order: List[Any] = []
+
+    for position, row in enumerate(rows):
+        # job_id is the table's partition key, so it is present on every real
+        # row. The positional surrogate only keeps a malformed fixture from
+        # collapsing several distinct rows into one.
+        job_id = row.get("job_id")
+        key = job_id if job_id is not None else ("\0no-job-id", position)
+
+        result = classify_row(row, now)
+        previous = merged.get(key)
+        if previous is None:
+            merged[key] = result
+            order.append(key)
+            continue
+
+        previous["demand"] = previous["demand"] or result["demand"]
+        previous["locked"] = previous["locked"] or result["locked"]
+        previous["nonterminal"] = previous["nonterminal"] or result["nonterminal"]
+        previous["parent_ref"] = previous["parent_ref"] or result["parent_ref"]
+        for kind in result["anomalies"]:
+            if kind not in previous["anomalies"]:
+                previous["anomalies"].append(kind)
+        for field in ("actionable_age", "heartbeat_age", "locked_age"):
+            candidate = result[field]
+            if candidate is None:
+                continue
+            if previous[field] is None or candidate > previous[field]:
+                previous[field] = candidate
+
+    # Pairing pass. A LOCKED_FOR_CHECKING row is a parent waiting on a provider
+    # batch; its checker is a separate row pointing back at it via
+    # batch_job_id. A locked parent with no live descendant is unpaired: no
+    # process is going to advance it, whatever its lease says. Rev3 requires
+    # that this be an anomaly rather than silently non-demand, and an unexpired
+    # lease is not evidence of a live checker — nothing renews it once the
+    # checker is gone.
+    active_parent_refs = {
+        entry["parent_ref"]
+        for entry in merged.values()
+        if entry["nonterminal"] and entry["parent_ref"] is not None
+    }
+    for key in order:
+        entry = merged[key]
+        if entry["locked"] and key not in active_parent_refs:
+            if ANOMALY_UNPAIRED_LOCKED not in entry["anomalies"]:
+                entry["anomalies"].append(ANOMALY_UNPAIRED_LOCKED)
+
     wake_demand = 0
     locked_rows = 0
     anomaly_rows = 0
-    rows_scanned = 0
+    rows_scanned = len(order)
     anomaly_counts = {kind: 0 for kind in ANOMALY_KINDS}
     oldest_actionable: Optional[float] = None
     oldest_heartbeat: Optional[float] = None
     oldest_locked: Optional[float] = None
 
-    for row in rows:
-        # Count by full job_id so a row appearing on two pages, or moving
-        # state mid-scan, cannot be counted twice.
-        job_id = row.get("job_id")
-        if job_id is not None:
-            if job_id in seen_job_ids:
-                continue
-            seen_job_ids.add(job_id)
-        rows_scanned += 1
+    def _newer(current: Optional[float], candidate: Optional[float]):
+        if candidate is None:
+            return current
+        return candidate if current is None or candidate > current else current
 
-        result = classify_row(row, now)
-
-        if result["demand"]:
+    for key in order:
+        entry = merged[key]
+        if entry["demand"]:
             wake_demand += 1
-        if result["locked"]:
+        if entry["locked"]:
             locked_rows += 1
-        if result["anomalies"]:
+        if entry["anomalies"]:
             anomaly_rows += 1
-            for kind in result["anomalies"]:
+            for kind in entry["anomalies"]:
                 anomaly_counts[kind] += 1
-
-        for key, current in (
-            ("actionable_age", oldest_actionable),
-            ("heartbeat_age", oldest_heartbeat),
-            ("locked_age", oldest_locked),
-        ):
-            value = result[key]
-            if value is None:
-                continue
-            if current is None or value > current:
-                if key == "actionable_age":
-                    oldest_actionable = value
-                elif key == "heartbeat_age":
-                    oldest_heartbeat = value
-                else:
-                    oldest_locked = value
+        oldest_actionable = _newer(oldest_actionable, entry["actionable_age"])
+        oldest_heartbeat = _newer(oldest_heartbeat, entry["heartbeat_age"])
+        oldest_locked = _newer(oldest_locked, entry["locked_age"])
 
     return {
         "complete": True,
