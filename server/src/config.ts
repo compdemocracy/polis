@@ -13,6 +13,17 @@ const serverPort: number = parseInt(
 const shouldUseTranslationAPI: boolean = isTrue(
   process.env.SHOULD_USE_TRANSLATION_API
 );
+// P-038. When true, `globalErrorHandler` is additionally mounted AFTER the
+// router, which is the only position from which it can see errors handed to
+// `next(err)` by a route (Express 3 walks the app stack forward only).
+// Default OFF: turning it on changes served bytes on every error that reaches
+// finalhandler today (status, Content-Type and body all change) — see
+// cost-reduction/04-plans/P-038-global-error-handler-notes.md. The flag exists
+// so the characterization harness can re-record the difference before anyone
+// decides to adopt it.
+const reachableErrorHandler: boolean = isTrue(
+  process.env.POLIS_REACHABLE_ERROR_HANDLER
+);
 
 import("source-map-support").then((sourceMapSupport) => {
   sourceMapSupport.install();
@@ -21,6 +32,7 @@ import("source-map-support").then((sourceMapSupport) => {
 export default {
   domainOverride,
   isDevMode: devMode,
+  reachableErrorHandler,
   serverPort,
 
   getServerNameWithProtocol: (req: any): string => {
