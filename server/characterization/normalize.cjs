@@ -1,7 +1,27 @@
 "use strict";
 // This is normalization of nondeterminism in already-safe generated data, NOT PII redaction.
 const policy = {
-  version: 2,
+  version: 3,
+  wire: {
+    responseBody:
+      "concatenated bytes; lexical typed capability/bound URL substitution only",
+    credentialValues:
+      "verified JWT value -> $jwt:SHA256(normalized verified claims); surrounding JSON unchanged",
+    derivedHeaders:
+      "Content-Length/weak ETag exact, or validated before capability/credential substitution then derived from normalized bytes",
+    excludedEquality: [
+      "chunk boundaries",
+      "timings within bounds",
+      "date",
+      "connection",
+      "keep-alive",
+    ],
+    seededExact: [
+      "server clocks",
+      "nextComment.randomN",
+      "participationInit.nextComment.randomN",
+    ],
+  },
   entropy: {
     algorithm: "xorshift32",
     seed: "first 8 hex digits of case seed; zero maps to 0x270027",

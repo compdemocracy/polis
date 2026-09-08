@@ -328,15 +328,45 @@ async function runCase(c, tokens, tables, normalizer) {
   delete response.wire;
   const normalizedResponse = normalizer.normalize(response, "$.response");
   const issued = normalizer.issued.slice(issueStart);
-  // Token bytes must never enter persisted transport chunks. Substitution occurs only after verification.
-  if (issued.length)
+  // Verify byte-derived headers before erasing token bytes, and replace only
+  // verified token VALUES. Surrounding whitespace/key order remain wire evidence.
+  let credentialWireValidation;
+  if (issued.length) {
+    const { bytes, strings } = require("./wire.cjs");
+    const raw = bytes({ wire });
+    const header = (name) =>
+      wire.response.headers.find((h) => h.name.toLowerCase() === name)?.value;
+    const etag = require("express/lib/utils").wetag;
+    if (
+      header("content-length") !== String(raw.length) ||
+      header("etag") !== etag(raw)
+    )
+      throw Error("credential wire header derivation mismatch");
+    let replaced = 0;
+    const safe = strings(raw.toString("utf8"), (value, path, key) => {
+      if (
+        !/jwt|token/i.test(key) ||
+        !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value)
+      )
+        return value;
+      const verified = path.reduce((x, k) => x?.[k], normalizedResponse.body);
+      if (!verified || typeof verified !== "object")
+        throw Error("unverified wire credential");
+      replaced++;
+      return "$jwt:" + hash(verified);
+    });
+    if (replaced !== issued.length)
+      throw Error("credential substitution count mismatch");
+    credentialWireValidation = {
+      kind: "verified-jwt-values/1",
+      contentLength: header("content-length"),
+      etag: header("etag"),
+      count: replaced,
+    };
     wire.response.body = [
-      {
-        sequence: 0,
-        at_ms: wire.response.last_byte_ms,
-        bytes: blob(normalizedResponse.body),
-      },
+      { sequence: 0, at_ms: wire.response.last_byte_ms, bytes: blob(safe) },
     ];
+  }
   wire.response.process_alive_at_end = !observerUnavailable;
   if (observerUnavailable) wire.response.termination = "process_exit";
   const effects = {
@@ -385,6 +415,7 @@ async function runCase(c, tokens, tables, normalizer) {
     ...c,
     version: 1,
     wire,
+    ...(credentialWireValidation ? { credentialWireValidation } : {}),
     response: normalizedResponse,
     effects: normalizer.normalize(effects, "$.effects"),
     process: processErrors,
@@ -392,27 +423,7 @@ async function runCase(c, tokens, tables, normalizer) {
     routeHits,
   };
 }
-function comparable(c) {
-  const copy = JSON.parse(JSON.stringify(c));
-  delete copy.response.ttfbMs;
-  delete copy.response.ttlbMs;
-  copy.orderedHeaders = copy.wire.response.headers.filter(
-    (h) =>
-      !["date", "etag", "content-length", "connection", "keep-alive"].includes(
-        h.name.toLowerCase()
-      )
-  );
-  delete copy.wire;
-  for (const attempt of copy.effects.outbound) {
-    delete attempt.at_ms;
-    if (attempt.response?.$metadata) delete attempt.response.$metadata;
-  }
-  for (const event of copy.process) delete event.at_ms;
-  if (process.env.P027_MARKERS === "0") {
-    delete copy.routeHits;
-  }
-  return copy;
-}
+const { comparable } = require("./compare.cjs");
 function write(dir, name, x) {
   fs.writeFileSync(
     path.join(dir, name),
@@ -533,6 +544,7 @@ async function main() {
   }
   const dump = await get("/ready");
   const routes = normalizeDump(dump, inventory);
+  require("./serialization.cjs").assertProfile(dump.serialization);
   if (command === "probe-oracle") {
     const before = await get("/state");
     const response = await send(
@@ -638,6 +650,11 @@ async function main() {
             process.env.P027_ONLY.split(",").includes(c.caseId))
       );
   if (expected) {
+    if (
+      firstDiff(expected.manifest.serialization, dump.serialization) ||
+      firstDiff(expected.manifest.runtime, dump.runtime)
+    )
+      throw Error("serialization/runtime profile mismatch");
     const recordedDump = JSON.parse(
       fs.readFileSync(path.join(dir, "routes.json"))
     );
@@ -696,6 +713,8 @@ async function main() {
     const metadata = {
       version: 2,
       expressVersion: require("express/package.json").version,
+      serialization: dump.serialization,
+      runtime: dump.runtime,
       inventoryHash: hash(inventory),
       inventorySourceHash: inventory.source_sha256,
       appCommit: meta.commit,
@@ -729,7 +748,11 @@ async function main() {
         origin: "fixture.sql only; no imported data permitted",
         columns: schemaRows.map((r) => ({ ...r, policy: "generated-exact" })),
       },
-      "run.json": meta,
+      "run.json": {
+        ...meta,
+        serialization: dump.serialization,
+        runtime: dump.runtime,
+      },
       "recording-schema.json": require("./P-025-recording.schema.json"),
       "fixture.sql": fs.readFileSync(
         path.join(__dirname, "fixture.sql"),

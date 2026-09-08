@@ -58,7 +58,10 @@ services:
       P027_NEGATIVE_CONTROLS: "${P027_NEGATIVE_CONTROLS:-0}"
       P027_MARKERS: "${P027_MARKERS:-1}"
       DEV_MODE: "true"
-      NODE_ENV: development
+      NODE_ENV: production
+      # SDK endpoint override survives the production-only Config branch. No SQS
+      # emulator is claimed: an attempted call to this closed local port fails.
+      AWS_ENDPOINT_URL_SQS: http://server:4566
       SERVER_LOG_LEVEL: error
       DATABASE_URL: postgres://postgres@postgres:5432/p027
       DATABASE_SSL: "false"

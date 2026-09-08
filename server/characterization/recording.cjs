@@ -55,7 +55,7 @@ function records(c) {
     request_id,
     ...c.wire.response,
     normalizations: [
-      "p027/2:credential-symbols; decoded-json/gzip semantic projection in comparison.json; timing bounds",
+      "p027/3:verified credential-value symbols; lexical capability wire comparison; decoded-json/gzip semantic projection; timing bounds",
     ],
   });
   const effects = [];
@@ -154,6 +154,12 @@ function writeRecording(dir, meta, cases, shared) {
         )
       );
     artifacts.push(put(dest, "comparison.json", c));
+    artifacts.push(
+      put(dest, "settings.json", {
+        serialization: meta.serialization,
+        runtime: meta.runtime,
+      })
+    );
     const manifest = record("manifest", {
       case_id: c.caseId,
       route_id: String(c.routeId ?? "proxy-tail"),
@@ -179,7 +185,7 @@ function writeRecording(dir, meta, cases, shared) {
       deadline_ms: 2000,
       settle_deadline_ms: 3000,
       normalization_policy:
-        "p027/2:" + files.find((f) => f.path === "normalization.json").sha256,
+        "p027/3:" + files.find((f) => f.path === "normalization.json").sha256,
       approved_differences: [],
     });
     put(dest, "manifest.json", manifest);
@@ -237,6 +243,14 @@ function readRecording(dir, { allowArmed = false } = {}) {
     digest(Buffer.from(json(schema)))
   )
     throw Error("governing schema mismatch");
+  require("./serialization.cjs").assertProfile(index.meta.serialization);
+  const run = JSON.parse(fs.readFileSync(path.join(dir, "run.json")));
+  if (
+    JSON.stringify(run.serialization) !==
+      JSON.stringify(index.meta.serialization) ||
+    JSON.stringify(run.runtime) !== JSON.stringify(index.meta.runtime)
+  )
+    throw Error("run settings mismatch");
   const cases = [];
   for (const entry of index.cases) {
     verifyFiles(dir, [entry.manifest], [entry.path + "/manifest.json"]);
@@ -251,7 +265,19 @@ function readRecording(dir, { allowArmed = false } = {}) {
       "external.jsonl",
       "process.jsonl",
       "comparison.json",
+      "settings.json",
     ]);
+    const settings = JSON.parse(
+      fs.readFileSync(path.join(dest, "settings.json"))
+    );
+    if (
+      JSON.stringify(settings) !==
+      JSON.stringify({
+        serialization: index.meta.serialization,
+        runtime: index.meta.runtime,
+      })
+    )
+      throw Error("manifest settings mismatch");
     const c = JSON.parse(fs.readFileSync(path.join(dest, "comparison.json"))),
       r = records(c);
     if (

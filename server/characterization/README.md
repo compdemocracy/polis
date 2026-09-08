@@ -1,4 +1,4 @@
-# P-027 API characterization, corrections round 1
+# P-027 API characterization, corrections round 2
 
 This is a generated-data, validation-heavy characterization corpus. Record and fresh-stack replay each completed 533 cases with zero differences and zero oracle failures. Of 128 targeted registrations, 29 have a 2xx and 99 have none; 54 are role-invariant across their recorded scenarios (58 invariant scenario groups / 232 cases). There are 19 DB-effect cases, two participant creations and two verified client-visible JWTs. 339 responses are 400 and six are 500. Dispatch coverage is 129/201 with 72 exclusions. Dispatch of
 129 registrations is not 129 successful authorization/effect contracts. The
@@ -7,21 +7,34 @@ UUID), P-029/r88 (empty UPDATE), P-029/r102 (NULL conversation on report creatio
 The nominal diagnostic generator retains the failing variants. No API replacement
 is authorized; concurrency, consumers and production-shaped data remain separate
 admission requirements.
-The current baseline uses development JSON formatting. Production-format
-re-recording and explicit serialization settings remain required before deriving
-a production serializer contract (P-032 review C4).
+The baseline uses production-compact serialization: NODE_ENV and Express env are
+production; json spaces/replacer are unset (recorded as null), ETag is weak, and
+development-only error details are absent. Finalhandler also replaces internal
+error messages with standard HTTP status text under production (307 cases).
+Each case manifest pins settings.json;
+run.json and index metadata repeat and cross-check the effective settings and Node
+version. DEV_MODE=true separately retains generated auth/domain fixtures, request
+logging and stopped notifications; this is a production serialization profile,
+not a claim that all development-only application branches model production.
+The harness entrypoint does not import index.ts's production dd-trace bootstrap.
+Express compress() uses its installed defaults, with coding/Vary and exact gzip
+bytes recorded; the driver sends no Accept-Encoding. PCA's explicit gzip remains.
+AWS_ENDPOINT_URL_SQS resolves to a closed local server:4566 endpoint even under
+production (runtime.test.cjs probes the actual SDK resolver without transport).
+No SQS emulator/success coverage is claimed; any real SQS attempt still fails
+ordinary admission. No egress exception was added.
 
 ## Isolated operation
 
-Use three unused host ports in 55950–55999 and a fresh random project suffix:
+Use three unused host ports in 55970–55999 and a fresh random project suffix:
 
 ```sh
-export COMPOSE_PROJECT_NAME=p027fix-$(openssl rand -hex 4)
+export COMPOSE_PROJECT_NAME=p027r2fix-$(openssl rand -hex 4)
 export POLIS_RECOVERY_PG_PORT=55970 P027_HTTP_PORT=55971 P027_CONTROL_PORT=55972
 python3 server/characterization/run.py record recording
 python3 server/characterization/run.py down
 python3 server/characterization/run.py replay recording
-node --test server/characterization/test.cjs server/characterization/corrections.test.cjs server/characterization/recorded.test.cjs
+node --test server/characterization/test.cjs server/characterization/corrections.test.cjs server/characterization/recorded.test.cjs server/characterization/round2.test.cjs
 python3 -m unittest discover -s server/characterization -p 'test_pseudonymize.py'
 python3 server/characterization/run.py down
 ```
@@ -71,14 +84,23 @@ verification. JWT signing calls and client-visible verified tokens have separate
 integer counts. Participant effects retain row identities and counts.
 
 `comparison.json` is a named normalized projection, not a seventh P-025 record.
-Object-key order and JSON whitespace are intentionally not semantic. Response
+Object-key order and JSON whitespace are checked by the separate wire comparator. Response
 array order, vote sign, count/multiplicity, namespaces, cookies and DB timestamps
 are significant. Server Date and disposable SQL now_as_millis use the declared generated instant
 1700000000000; native timers and driver deadlines remain real. Only named
 server-minted response clocks are normalized, including
-PCA lastVoteTimestamp/lastModTimestamp. Date/ETag/content-length/connection/keep-alive
-headers and transport chunk boundaries are excluded from semantic equality; their
-raw evidence stays byte-pinned. Truncation still fails body/completion comparison.
+PCA lastVoteTimestamp/lastModTimestamp. Date/connection/keep-alive and transport chunk boundaries are excluded from
+equality; their raw evidence stays pinned. Concatenated response bytes compare
+exactly, including gzip, with only typed capability and bound URL substitutions
+applied lexically, without JSON reserialization. Content-Length and ETag compare
+exactly; for capability substitutions their original byte derivation must verify
+before comparing the corresponding derived normalized header. Seeded clocks and
+randomN remain exact in wire equality; this introduces no new random masking.
+JWT values are verified before replacement with a deterministic claims-digest
+symbol; surrounding JSON bytes are preserved. Original Content-Length and weak
+ETag are verified before substitution and retained as a pinned recorder assertion;
+replay compares the derived headers for the credential-safe bytes. Cookie behavior is uncharacterized: zero admitted responses
+issue Set-Cookie. The fail-closed cookie unit policy alone is not live evidence. Truncation still fails body/completion comparison.
 Required response timings stay in hashed artifacts and are checked against bounds;
 independent recordings need not have the same raw hash.
 
@@ -120,3 +142,26 @@ delayed work, blocked attempts and the actual PCA serializer's C7 failure class.
 The original small synthetic differ examples are labelled unit examples, not
 recorded migration gates. The historical eight live controls comprise six failure
 detectors and two successful egress-block assertions.
+
+## Repacking and runtime checks
+
+After a reviewed full recording, `node server/characterization/baseline.cjs pack
+server/characterization/artifacts/recording` packs only manifest/index-referenced
+files in sorted order and updates baseline.sha256. It uses UTF-8 JSON, gzip level
+9/windowBits 15/memLevel 8/default strategy, zero mtime, no filename and OS byte 3.
+`round2.test.cjs` unpacks and repacks twice to the committed digest. Do not repin
+merely to make a failing replay pass.
+
+Inside the running isolated stack, run `docker compose -f
+server/characterization/compose.yml exec -T driver node --test
+characterization/runtime.test.cjs`. This checks all three barrier exemptions
+against actual TLS/HTTP/pg-pool resources and verifies the SQS endpoint override.
+Replay rejects a changed Node version or exemption inventory. The standard npm
+lint commands now include .ts, .js and .cjs explicitly.
+
+P-032 C4's recording prerequisite is addressed here. Its broader C5 keyOrder
+artifacts, JS numeric-boundary cases and randomN portability policy, and C6's
+fail-closed classifier for unknown embedded encodings remain typed-contract work.
+The existing two admitted PCA codec paths are enumerated in normalization.json;
+round2.test.cjs verifies all five participationInit PCA cases agree across POJO,
+JSON-string and gzipped Buffer representations, before and after normalization.

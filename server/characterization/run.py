@@ -5,9 +5,9 @@ ROOT=pathlib.Path(__file__).resolve().parents[2]
 HERE=ROOT/'server/characterization'
 ENV=dict(os.environ)
 project=ENV.get('COMPOSE_PROJECT_NAME','')
-if not __import__('re').fullmatch(r'p027fix-[a-z0-9]+',project):raise RuntimeError('set unique COMPOSE_PROJECT_NAME=p027fix-<random>')
+if not __import__('re').fullmatch(r'[a-z0-9]+(?:[a-z0-9_-]*[a-z0-9])?',project):raise RuntimeError('set a non-empty unique COMPOSE_PROJECT_NAME (lowercase letters/digits/underscore/hyphen)')
 ports=[int(ENV[k]) for k in ['POLIS_RECOVERY_PG_PORT','P027_HTTP_PORT','P027_CONTROL_PORT']]
-if len(set(ports))!=3 or any(p<55950 or p>55999 for p in ports):raise RuntimeError('set three unique host ports in 55950–55999')
+if len(set(ports))!=3 or any(p<55970 or p>55999 for p in ports):raise RuntimeError('set three unique host ports in 55970–55999')
 ENV['RECOVERY_PG_PORT']=str(ports[0])
 ENV.setdefault('BUILDX_CONFIG','/private/tmp/'+project+'-buildx')
 COMPOSE=['docker','compose','-f',str(HERE/'compose.yml')]
@@ -59,7 +59,7 @@ def main():
   if len(sys.argv)>3 and sys.argv[3]=='nominal':dc('exec','-T','driver','node','characterization/cli.cjs','init-dynamo')
   dc('exec','-T','-e','P027_ONLY='+ENV.get('P027_ONLY',''),'-e','P027_PARITY_ONLY='+ENV.get('P027_PARITY_ONLY',''),'driver','node','characterization/cli.cjs',command,'/artifacts/'+(sys.argv[2] if len(sys.argv)>2 else 'recording'),sys.argv[3] if len(sys.argv)>3 else 'boundary',sys.argv[4] if len(sys.argv)>4 else '1')
  elif command=='coverage':dc('exec','-T','driver','node','characterization/cli.cjs','coverage')
- elif command=='test':dc('exec','-T','server','node','--test','characterization/test.cjs','characterization/corrections.test.cjs','characterization/recorded.test.cjs')
+ elif command=='test':dc('exec','-T','server','node','--test','characterization/test.cjs','characterization/corrections.test.cjs','characterization/recorded.test.cjs','characterization/round2.test.cjs','characterization/runtime.test.cjs')
  else:raise RuntimeError('unknown command')
 if __name__=='__main__':
  try:main()
