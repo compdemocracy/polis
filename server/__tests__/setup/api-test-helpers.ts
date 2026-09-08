@@ -375,10 +375,12 @@ async function setupAuthAndConvo(
   try {
     const currentWhitelistResponse = await agent
       .get("/api/v3/domainWhitelist")
-      .ok((res) => res.status < 500); // Don't throw on client errors
+      .ok(() => true); // Accept every status; a 5xx must reach the fallback too
 
     // If the read did not succeed we cannot tell what the row holds, so fall
-    // back to the unconditional clear (and to its warning) as before.
+    // back to the unconditional clear (and to its warning) as before. This is
+    // why the GET above accepts every status rather than throwing on 5xx: a
+    // rejected read would skip the clear entirely instead of falling back.
     const needsClear =
       currentWhitelistResponse.status !== 200 ||
       (currentWhitelistResponse.body?.domain_whitelist ?? "") !== "";

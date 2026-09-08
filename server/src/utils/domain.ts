@@ -324,6 +324,11 @@ async function setDomainWhitelist(
   // connection per call, so the old sequence had no isolation at all and two
   // concurrent updates to the same site could interleave freely.
   const client = await pg.connect();
+  // Set only when cleanup fails. A ROLLBACK that does not complete can leave
+  // the connection inside an aborted transaction, and a plain release() would
+  // return it to the pool for the next borrower to fail every query on with
+  // 25P02. Passing a truthy argument to release() destroys the client instead.
+  let releaseError: Error | true | undefined;
   try {
     await client.query("BEGIN");
 
@@ -352,26 +357,29 @@ async function setDomainWhitelist(
     try {
       await client.query("ROLLBACK");
     } catch (rollbackErr) {
+      releaseError = rollbackErr instanceof Error ? rollbackErr : true;
       logger.error("Failed to roll back domain whitelist write", rollbackErr);
     }
+    // Rethrow the original error, not the cleanup failure: callers dispatch on
+    // it and the response must not change.
     throw err;
   } finally {
-    client.release();
+    client.release(releaseError);
   }
 }
 
 async function getDomainWhitelist(uid: number): Promise<string> {
-  // A site can still have more than one row (see setDomainWhitelist: without a
-  // unique constraint on site_id, historical duplicates are possible), so pick
-  // deterministically rather than letting the planner decide. Most recently
-  // written first; the domain_whitelist tiebreak keeps the returned value
-  // stable even when the timestamps are equal.
+  // Deliberately left unordered. Without a unique constraint on site_id a site
+  // can hold duplicate rows, and this is not the only reader of them:
+  // isParentDomainWhitelisted runs its own unordered SELECT for enforcement.
+  // Ordering just this one would make the settings screen show a row that
+  // enforcement is not using. Making both deterministic is a real change in
+  // behaviour on duplicate data, so it belongs with the dedupe + UNIQUE
+  // (site_id) migration, not here.
   const rows = await pg.queryP(
-    `SELECT domain_whitelist
-     FROM site_domain_whitelist
-     WHERE site_id = (SELECT site_id FROM users WHERE uid = $1)
-     ORDER BY modified DESC, created DESC, domain_whitelist ASC
-     LIMIT 1`,
+    `SELECT domain_whitelist 
+     FROM site_domain_whitelist 
+     WHERE site_id = (SELECT site_id FROM users WHERE uid = $1)`,
     [uid]
   );
   return rows?.[0]?.domain_whitelist || "";
