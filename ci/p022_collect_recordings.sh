@@ -19,6 +19,7 @@
 set -euo pipefail
 
 : "${INSTANCE_ID:?INSTANCE_ID required}"
+: "${BATTERY_DIGEST:?BATTERY_DIGEST required}"
 OUT_DIR="${REC_OUT_DIR:-recordings}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -57,10 +58,13 @@ if ! echo "$DIGEST  recordings.tar" | sha256sum -c -; then
   echo "::error::recordings bundle digest mismatch"
   exit 1
 fi
-tar -xf recordings.tar -C "$OUT_DIR"
+
 
 # Re-hash every per-entry archive against the manifest the worker wrote. The
 # transfer digest above proves the tarball arrived intact; this proves the
 # manifest describes the archives inside it, which is what a downloader pins.
-python3 "$HERE/p022_recordings_manifest.py" --verify "$OUT_DIR"
+python3 "$HERE/p022_recordings_manifest.py" --verify "$OUT_DIR" \
+  --extract-bundle recordings.tar --expected-inventory-digest "$BATTERY_DIGEST" \
+  --battery /tmp/p022-scripts/delphi/scripts/certify_battery.json \
+  --datasets /tmp/p022-scripts/delphi/scripts/certify_datasets.json
 ls -la "$OUT_DIR" "$OUT_DIR/entries"

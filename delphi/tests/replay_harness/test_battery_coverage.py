@@ -56,7 +56,7 @@ def _record(root: Path, dataset: str, schedule_id: str, *, clj: int | None, py: 
     """Lay down a synthetic recording. ``None`` means that engine never ran."""
     rec = root / dataset / schedule_id
     rec.mkdir(parents=True, exist_ok=True)
-    (rec / "schedule.json").write_text(json.dumps({"schedule_id": schedule_id}))
+    (rec / "schedule.json").write_text(json.dumps({"schedule_id": schedule_id, "cuts": {"mode": "vote-count", "at": list(range(1, max(clj or 0, py or 0) + 1))}}))
     (rec / "provenance.json").write_text(json.dumps({"engine": "test"}))
     if clj is not None:
         _write_steps(rec / "clj", clj, ".blob.json")
@@ -256,3 +256,33 @@ def test_shipped_battery_enumerates_the_six_public_entries():
         "vw/every-vote-56-clojure-legacy",
         "vw/uniform8-restart4-clojure-legacy",
     ]
+
+@pytest.mark.parametrize("mutation", ["truncate", "shift", "missing-meta", "extra-meta"])
+def test_exact_schedule_file_sets(three_case_root, mutation):
+    battery, root = three_case_root
+    rec = root / "vw/uniform8-clojure-legacy"
+    if mutation == "truncate":
+        for engine in ("clj", "py"):
+            for path in (rec / engine).glob("step-007*"):
+                path.unlink()
+    elif mutation == "shift":
+        (rec / "py/step-007.json").rename(rec / "py/step-008.json")
+    elif mutation == "missing-meta":
+        (rec / "clj/step-007.meta.json").unlink()
+    else:
+        (rec / "clj/step-008.meta.json").write_text("{}")
+    report = bc.coverage(battery=battery, root=root)
+    assert "vw/uniform8-clojure-legacy" in report["missing_keys"]
+    assert any("step-set-mismatch" in reason for row in report["missing"]
+               if row["key"] == "vw/uniform8-clojure-legacy" for reason in row["reasons"])
+
+@pytest.mark.parametrize("component", ["dataset", "recording", "engine"])
+def test_directory_symlinks_never_count_as_coverage(three_case_root, tmp_path, component):
+    battery, root = three_case_root
+    path = root / {"dataset": "vw", "recording": "vw/uniform8-clojure-legacy",
+                   "engine": "vw/uniform8-clojure-legacy/clj"}[component]
+    outside = tmp_path / "outside"
+    path.rename(outside)
+    path.symlink_to(outside, target_is_directory=True)
+    report = bc.coverage(battery=battery, root=root)
+    assert "vw/uniform8-clojure-legacy" in report["missing_keys"]

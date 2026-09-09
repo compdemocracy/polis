@@ -11,7 +11,7 @@ reporting two of six after new recordings landed: an absent entry looked exactly
 like an entry nobody asked for.
 
 Coverage here means a *pair*: a Python step set, a Clojure step set, and the two
-agreeing on step count. Anything else is reported as missing WITH ITS REASON, so
+matching the resolved schedule’s exact indexed file sets. Anything else is reported as missing WITH ITS REASON, so
 a caller can distinguish "the run never produced it" from "the Clojure driver
 failed halfway" — never by inferring absence from a swallowed error.
 
@@ -223,17 +223,42 @@ def entry_coverage(ref: BatteryRef, root: Path) -> dict[str, Any]:
     ``step-count-mismatch``.
     """
     rec_dir = root / ref.dataset / ref.schedule_id
-    engines = {name: engine_coverage(rec_dir, name) for name in ENGINES}
+    # Check every directory component before traversing or reading any bytes.
+    unsafe = any(p.is_symlink() for p in (root, *root.parents, rec_dir.parent, rec_dir))
+    if not unsafe and rec_dir.exists():
+        unsafe = any(p.is_symlink() for p in rec_dir.rglob("*"))
+    engines = {name: (EngineCoverage(name, False, 0, 0) if unsafe else
+                      engine_coverage(rec_dir, name)) for name in ENGINES}
     reasons: list[str] = []
-    if not rec_dir.is_dir():
+    if unsafe:
+        reasons.append("symlink-recording")
+    elif not rec_dir.is_dir():
         reasons.append("no-recording-dir")
     for name in ENGINES:
         if not engines[name].present:
             reasons.append(f"missing-{name}")
     if not reasons and engines["clj"].steps != engines["py"].steps:
-        # certify refuses a pair whose step sets differ (certify.py:1415-1420);
-        # a half-written recording must not read as coverage here either.
         reasons.append("step-count-mismatch")
+    if not reasons:
+        try:
+            spec = json.loads((rec_dir / "schedule.json").read_text())
+            cuts = spec["cuts"]["at"]
+            if (spec.get("schedule_id") != ref.schedule_id or
+                    spec["cuts"]["mode"] != "vote-count" or not cuts or
+                    any(type(c) is not int or c < 0 for c in cuts) or
+                    cuts != sorted(set(cuts))):
+                raise ValueError("invalid resolved schedule")
+            count = len(cuts)
+            expected = {f"step-{i:03d}" for i in range(count)}
+            for engine in ENGINES:
+                suffixes = (".blob.json", ".meta.json") if engine == "clj" else (".json",)
+                actual = {p.name for p in (rec_dir / engine).glob("step-*.json")}
+                if actual != {name + suffix for name in expected for suffix in suffixes}:
+                    reasons.append(f"step-set-mismatch-{engine}")
+            if not (rec_dir / "provenance.json").is_file():
+                reasons.append("missing-provenance")
+        except (OSError, ValueError, KeyError, TypeError):
+            reasons.append("invalid-resolved-schedule")
     return {
         "key": ref.key,
         "entry": ref.as_dict(),
