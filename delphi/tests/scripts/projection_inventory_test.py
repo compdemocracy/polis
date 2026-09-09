@@ -49,6 +49,35 @@ _CHECKOUT = os.path.abspath(os.path.join(os.path.dirname(inv.__file__), "..", ".
 _SERVER_SRC = os.path.join(_CHECKOUT, "server", "src") if _CHECKOUT else None
 
 
+def test_ci_layout_traverses_delphi_and_catches_new_wildcard(tmp_path) -> None:
+    """R15 (CI coverage): the CI wiring copies the sweep's scan inputs as REAL,
+    traversable directories, so a NEW wildcard anywhere under the delphi tree is
+    caught (NEEDS-GATE). A symlinked input would be skipped by ``os.walk`` and evade
+    the sweep — which is exactly why the workflow copies real dirs, not symlinks."""
+    root = tmp_path / "projgate"
+    (root / "server" / "src").mkdir(parents=True)                  # empty server source
+    real_delphi = root / "delphi" / "polismath" / "replay"
+    real_delphi.mkdir(parents=True)
+    (real_delphi / "new_query.py").write_text('q = "SELECT * FROM votes"\n')
+
+    # Real directories -> os.walk descends -> the planted wildcard is NEEDS-GATE.
+    real_hits = inv.run_sweep(
+        roots=[str(root / "server" / "src"), str(root / "delphi")], repo_root=str(root)
+    )
+    assert any(s.classification == "NEEDS-GATE" and s.table == "votes" for s in real_hits), real_hits
+
+    # Contrast (why we copy, not symlink): a symlinked delphi input is NOT traversed
+    # by os.walk (followlinks=False), so the same wildcard would evade the sweep.
+    link_root = tmp_path / "linklayout"
+    (link_root / "server" / "src").mkdir(parents=True)
+    (link_root / "delphi").mkdir(parents=True)
+    os.symlink(root / "delphi" / "polismath", link_root / "delphi" / "polismath")
+    link_hits = inv.run_sweep(
+        roots=[str(link_root / "server" / "src"), str(link_root / "delphi")], repo_root=str(link_root)
+    )
+    assert link_hits == [], f"symlinked input must not be traversed: {link_hits}"
+
+
 def _guarded_import(name: str):
     """The exact guard both test modules use: swallow a ModuleNotFoundError ONLY
     when the named implementation module itself is absent; re-raise anything else."""
