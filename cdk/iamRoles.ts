@@ -61,3 +61,60 @@ export default (self: Construct) => {
 
   return { instanceRole, codeDeployRole, dbBackupLambdaRole }
 }
+
+/**
+ * Dedicated role for the Delphi queue demand observer (P-003 slice S1).
+ *
+ * Deliberately narrow, and deliberately NOT the shared `instanceRole`:
+ * P-003 requires that scaling permissions are never attached to the role the
+ * web/math/Delphi hosts share.
+ *
+ * Contains exactly three statements:
+ *   - `dynamodb:Scan` on the one queue table (no indexes: the observer reads
+ *     the base table so it can see rows absent from every GSI, and it has no
+ *     `Query` permission at all in S1).
+ *   - `cloudwatch:PutMetricData`. PutMetricData supports no resource-level
+ *     permissions, so `Resource: '*'` is unavoidable and is constrained by the
+ *     `cloudwatch:namespace` condition key instead. Written as a resource ARN
+ *     the policy would simply not work; written as a bare `*` it would grant
+ *     the whole account's metric namespace.
+ *   - Writes to its own log group only.
+ *
+ * There is no `autoscaling:*` permission of any kind. S1 is observe-only; the
+ * ASG-scoped `SetDesiredCapacity` grant belongs to slice S7.
+ */
+export const createDelphiObserverRole = (
+  self: Construct,
+  opts: { queueTableArn: string; logGroupArn: string; metricNamespace: string },
+) => {
+  const role = new iam.Role(self, 'DelphiDemandObserverRole', {
+    assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+    description: 'Read-only Delphi queue observer (P-003 S1). No scaling permissions.',
+  });
+
+  role.addToPolicy(new iam.PolicyStatement({
+    sid: 'ScanDelphiJobQueue',
+    effect: iam.Effect.ALLOW,
+    actions: ['dynamodb:Scan'],
+    resources: [opts.queueTableArn],
+  }));
+
+  role.addToPolicy(new iam.PolicyStatement({
+    sid: 'PublishDelphiQueueMetrics',
+    effect: iam.Effect.ALLOW,
+    actions: ['cloudwatch:PutMetricData'],
+    resources: ['*'],
+    conditions: {
+      StringEquals: { 'cloudwatch:namespace': opts.metricNamespace },
+    },
+  }));
+
+  role.addToPolicy(new iam.PolicyStatement({
+    sid: 'WriteOwnLogs',
+    effect: iam.Effect.ALLOW,
+    actions: ['logs:CreateLogStream', 'logs:PutLogEvents'],
+    resources: [opts.logGroupArn, `${opts.logGroupArn}:*`],
+  }));
+
+  return role;
+}
