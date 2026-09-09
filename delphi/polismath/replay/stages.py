@@ -115,7 +115,7 @@ PY_STAGE_ENGINE = "py"
 STAGE_DIR_NAME = {"py": "py-stages", "clj": "clj-stages"}
 
 #: Axis orientation of ``pca.comment-projection``, declared rather than inferred
-#: (Astra F4): both engines emit ``n_comps`` rows of ``n_tids`` values, matching
+#: (review F4): both engines emit ``n_comps`` rows of ``n_tids`` values, matching
 #: Clojure's ``with-proj-and-extremtiy``. A comparer must VALIDATE against this,
 #: never guess from lengths — a square case (n_tids == n_comps) is ambiguous.
 COMMENT_PROJECTION_AXES = "comps-by-tids"

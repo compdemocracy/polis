@@ -192,7 +192,7 @@ def test_both_engines_dump_stages_and_the_comparison_report_is_produced(tmp_path
     assert report["aligned_steps"] == 1
     assert report["step_count_mismatch"] is False
     # Two complete, step-identity-aligned, same-input recordings: the report is
-    # entitled to a headline (Astra F5 — an invalid input must withhold one).
+    # entitled to a headline (review F5 — an invalid input must withhold one).
     assert report["input_valid"] is True, report["input_problems"]
     assert report["headline_withheld"] is False
     step = report["per_step"][0]
@@ -208,7 +208,7 @@ def test_both_engines_dump_stages_and_the_comparison_report_is_produced(tmp_path
             assert "max_abs" in key and "max_rel" in key
 
     # The corrected R13 stage carries the engine contract's six geometric
-    # columns and is compared with no waiver (Astra F1). Its Python-only
+    # columns and is compared with no waiver (review F1). Its Python-only
     # correlation view rides along, explicitly ungraded.
     r13 = step["stages"]["R13_ptpt_stats"]["keys"]
     assert r13["ptpt-stats"]["n_compared"] > 0

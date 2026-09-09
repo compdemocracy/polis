@@ -95,7 +95,7 @@ def stamp(view: dict[str, Any], marker_value: dict[str, Any]) -> dict[str, Any]:
 def has_marker(blob: Any) -> bool:
     """True iff the reserved key is PRESENT, whatever its value.
 
-    The distinction matters at a gate (Astra review #2730 F2): a guard that
+    The distinction matters at a gate (review #2730 F2): a guard that
     only reacts to a well-formed dict treats ``{"__output_profile__": null}``,
     ``false``, a string or an array as unmarked raw data — so replacing a valid
     marker with any garbage walked a projected view straight through both
@@ -116,7 +116,7 @@ def marker_problems(value: Any) -> list[str]:
         problems.append(f"marker is missing {missing!r}")
     for unknown in sorted(set(value) - MARKER_KEYS):
         problems.append(f"marker carries unknown field {unknown!r}")
-    # TYPE before membership at every lookup (Astra review #2730 R2-F2): an
+    # TYPE before membership at every lookup (review #2730 R2-F2): an
     # unhashable value (`profile: []`, `vote_axis: {}`) raised a raw
     # `TypeError: unhashable type` out of the set test, escaping every gate
     # that promised a named, graded failure. A container is simply not a token.
@@ -199,7 +199,7 @@ def assert_restorable(blob: Any, *, label: str = "restore") -> None:
 
     Fails closed on PRESENCE, not on validity: a malformed marker value is a
     corrupted or hand-edited projected view, which is exactly the thing that
-    must not be restored (Astra review #2730 F2). An unmarked raw blob — every
+    must not be restored (review #2730 F2). An unmarked raw blob — every
     blob any producer actually emits — passes without inspection.
     """
     if not has_marker(blob):

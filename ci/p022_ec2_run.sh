@@ -19,7 +19,7 @@
 # logs stay in /var/log/polis-ci and die with the box. What comes back is a
 # fixed-schema summary.json plus one JUnit report per pytest invocation.
 #
-# ## Round 3 (Astra #2715 R2-F2/F3)
+# ## Round 3 (review #2715 R2-F2/F3)
 #
 #   * The recovery runtime is installed and VERIFIED in user-data, before the
 #     ready marker, because C's target runs host `uv run --no-sync pytest`. A

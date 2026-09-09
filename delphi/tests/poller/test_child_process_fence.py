@@ -466,7 +466,7 @@ def test_normal_parent_exit_still_fences_the_tree(monkeypatch, exit_code, kernel
 # --- Round 11: an incomplete or non-snapshot /proc read must not claim exit ---
 #
 # The round-10 zombie fix reads /proc to tell a live group member from a dead
-# entry. Two ways that read can be wrong were reported (Astra review, round 10);
+# entry. Two ways that read can be wrong were reported (review, round 10);
 # both must resolve to "still live", never to an authorized exit:
 #
 #   1. An unreadable or malformed `/proc/<pid>/stat` (a pid vanishing mid-read,
@@ -607,7 +607,7 @@ def test_running_member_keeps_the_group_alive(monkeypatch):
 
 @pytest.mark.skipif(not os.path.isdir("/proc"), reason="needs Linux /proc")
 def test_real_successor_forked_between_scans_is_not_reported_empty(monkeypatch):
-    """Astra's exact real-process interleaving, under Linux CI.
+    """The second reviewer's exact real-process interleaving, under Linux CI.
 
     Capture the /proc listing while the parent is alive, let it fork a sleeping
     successor and exit before the stats are read, then inspect that stale list:
@@ -660,7 +660,7 @@ def test_real_successor_forked_between_scans_is_not_reported_empty(monkeypatch):
 
 # --- Round 12: the kernel, not a /proc scan, is the emptiness authority -------
 #
-# Astra (round 11) showed that adding scan passes cannot win: N generations each
+# The second reviewer (round 11) showed that adding scan passes cannot win: N generations each
 # forking and exiting after their own enumeration make N passes all come back
 # empty while a live successor remains in the group. Enumeration is not a
 # snapshot and never will be. The fix stops scanning for the exit authority: the
@@ -698,7 +698,7 @@ def _install_fake_waitid(monkeypatch, fake):
 
 
 def test_two_generation_fork_race_does_not_authorize_exit(monkeypatch):
-    """Astra's round-11 defect: two (or more) generations defeat the scan.
+    """The second reviewer's round-11 defect: two (or more) generations defeat the scan.
 
     With the subreaper active the kernel is the authority: a live successor
     keeps `killpg(pgid, 0)` succeeding even for the exact /proc schedule that
@@ -797,7 +797,7 @@ def test_mark_child_subreaper_is_linux_only(monkeypatch):
     not sys.platform.startswith("linux"), reason="child-subreaper is Linux-only"
 )
 def test_real_two_generation_group_is_reaped_to_empty(monkeypatch):
-    """Astra's real interleaving, but decided by the kernel.
+    """The second reviewer's real interleaving, but decided by the kernel.
 
     A session-leader forks a child that forks a grandchild; the two ancestors
     exit, orphaning the live grandchild into the poller's (subreaper) care in the
@@ -852,7 +852,7 @@ def test_real_two_generation_group_is_reaped_to_empty(monkeypatch):
 
 # --- Round 13: without the kernel fence, exit confirmation fails CLOSED --------
 #
-# Astra (round 12) accepted the kernel path but showed that when subreaper setup
+# The second reviewer (round 12) accepted the kernel path but showed that when subreaper setup
 # FAILS the code fell back to the known-racy /proc scan and STILL claimed
 # process_exit_confirmed=True with a live successor in the group. "Logging
 # best-effort" does not protect the guard release. The fix: `confirm_process_tree_gone`
@@ -983,7 +983,7 @@ def test_startup_tolerates_non_linux_without_fence(monkeypatch):
     not sys.platform.startswith("linux"), reason="needs Linux /proc + fork"
 )
 def test_real_two_generation_without_fence_is_unconfirmed(monkeypatch):
-    """Astra's r12 defect case as a control: a failed/absent subreaper setup with
+    """The second reviewer's r12 defect case as a control: a failed/absent subreaper setup with
     a real two-generation live successor must return UNCONFIRMED, never confirm.
     """
     import scripts.job_poller as jp

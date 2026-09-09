@@ -79,7 +79,7 @@ from polismath.utils.vote_convention import (
 #: :data:`ADMISSIBLE_MANIFEST_SCHEMA_VERSIONS`.
 MANIFEST_SCHEMA_VERSION = "certify-fixture-manifest/3"
 #: The PREVIOUS closed manifest schema. It stays verifiable and admissible
-#: BYTE-FOR-BYTE (Astra review #2730 F-compat): a /2 manifest carries no
+#: BYTE-FOR-BYTE (review #2730 F-compat): a /2 manifest carries no
 #: ``transform`` key at all and its polarity block already spells out the -1 it
 #: was pinned to, so the /3 rules evaluate on it unchanged once the absent
 #: ``transform`` is read as the "original capture" declaration it is. New
@@ -399,7 +399,7 @@ def build_transform_block(
     see :func:`build_derived_manifest` for what that deferral does and does not
     leave certified.
 
-    ``bijective_verified`` is NOT coerced (Astra review #2730 F3): ``bool("false")``
+    ``bijective_verified`` is NOT coerced (review #2730 F3): ``bool("false")``
     is ``True``, so coercion turned an unverified — or misspelled — declaration
     into a verified one. It must already be a real boolean, and admission
     requires it to be ``True``.
@@ -1145,7 +1145,7 @@ ORDERING_GUARANTEES = frozenset(TIE_ORDER_POLICIES)
 
 #: The role source of a DERIVED bundle: this role's fixture is the declared
 #: involution of an ADMITTED bundle's role, not a new production extraction and
-#: not an approved synthetic replacement (Astra review #2730 F1).
+#: not an approved synthetic replacement (review #2730 F1).
 #:
 #: Without it no flipped bundle could exist at all: 15 of the 17 required roles
 #: carry ``on_missing: fail``, so admission forbids substituting them, and the
@@ -1603,7 +1603,7 @@ def admit_manifest(
               f"{_failed_predicates(metrics, rule['predicates'])}")
         # The EFFECTIVE source: for a derived role, the source of the role it
         # was derived FROM. Every rule that governed the original governs the
-        # derivation too (Astra review #2730 R2-F1) — retaining a binding that
+        # derivation too (review #2730 R2-F1) — retaining a binding that
         # NAMES a synthetic origin, while skipping the offer/approval/generator
         # rules that make a synthetic role admissible, let a manifest claim an
         # origin its own policy forbids, and the whole verify/admit/push/pull
@@ -1695,7 +1695,7 @@ def admit_manifest(
         # field and are unaffected.
         if "storage_agree_value" in compat:
             census_sign = compat.get("storage_agree_value")
-            # TYPE before equality (Astra review #2730 R2-F2), the same
+            # TYPE before equality (review #2730 R2-F2), the same
             # strictness the C9 ids get: `True == 1` and `1.0 == 1`, so an
             # equality test alone admitted a bool and a float as a declared
             # convention.

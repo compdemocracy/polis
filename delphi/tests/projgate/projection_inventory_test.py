@@ -66,7 +66,7 @@ def test_scan_inputs_declaration_present_in_layout() -> None:
 
 
 def test_umap_narrative_new_wildcard_is_caught(tmp_path) -> None:
-    """R16 (Astra control): a new wildcard under delphi/umap_narrative — a declared
+    """R16 (review control): a new wildcard under delphi/umap_narrative — a declared
     scan input that CI previously omitted — is caught (NEEDS-GATE) by the default,
     declaration-driven roots."""
     root = tmp_path / "projgate"
@@ -124,7 +124,7 @@ def _guarded_import(name: str):
 
 
 def test_import_guard_reraises_defects_not_just_missing(tmp_path) -> None:
-    """R14 (Astra import-regression witness): a LOCATED implementation that raises
+    """R14 (review import-regression witness): a LOCATED implementation that raises
     at import must FAIL the run, not turn green as a skip. Only a genuinely-absent
     named module is swallowed to a skip."""
     d = tmp_path / "guardpkg"
@@ -349,7 +349,7 @@ def test_mixed_projection_and_interpolated_qualifier_needs_gate(tmp_path) -> Non
 # Paths to the real replay-harness files — derived from the located implementation
 # (checkout/delphi/scripts), not this test's location, so they are correct wherever
 # the test tree is copied. The reviewed exemption now lives in the small isolated
-# ``equiv_query.py`` (P-042 projgate-isolation, Astra board [499]): it holds ONLY
+# ``equiv_query.py`` (P-042 projgate-isolation, per the second reviewer's board [499]): it holds ONLY
 # ``EQUIV_TABLES`` + ``fetch_math_row`` so the whole-module pin is disturbed only by
 # an edit to the query/guard. ``poller_equiv.py`` imports them and no longer carries
 # any wildcard SELECT.
@@ -517,7 +517,7 @@ def test_exemption_module_digest_binds_the_guard_set(tmp_path) -> None:
 
 
 def test_exemption_isolated_to_equiv_query_module(tmp_path) -> None:
-    """P-042 projgate-isolation (Astra board [499]): the exemption's query + guard
+    """P-042 projgate-isolation (per the second reviewer's board [499]): the exemption's query + guard
     set were moved verbatim out of the large ``poller_equiv.py`` into the small
     dedicated ``equiv_query.py``, whose WHOLE-module digest is the pin. The isolation
     boundary is proven both ways:

@@ -233,7 +233,7 @@ def _assert_statement_allowed(sql: str) -> None:
 
     The round-1 guard stripped ``--`` comments before inspecting the string, so a
     ``--`` inside a *string literal* hid a trailing multi-statement write
-    (Astra reproduced a committed INSERT through this). No comment stripping now:
+    (the second reviewer reproduced a committed INSERT through this). No comment stripping now:
     a comment token, a statement separator, or anything but a single leading
     SELECT is rejected outright. There is no ``pglast``/``sqlparse`` in the venv,
     so this is the sanctioned conservative rejection rather than a full parse; it
@@ -408,7 +408,7 @@ def classify(
     columns as a multiset (``Counter`` of full row tuples) — order-independent and
     multiplicity-preserving, so exact-duplicate votes and genuine permutations
     match, while a change that swaps values BETWEEN rows (e.g. two comments'
-    votes) breaks the row tuple and is caught (Astra round-2 defect: independent
+    votes) breaks the row tuple and is caught (review round-2 defect: independent
     per-column bags missed this). Column-set deviations (extra/missing/reordered)
     are read from the column lists directly.
     """

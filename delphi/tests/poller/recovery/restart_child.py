@@ -12,7 +12,7 @@ Stages (the P-022 §C R05 list):
 
 ``after_poll``
     after the poll cycle advanced the watermark, before any compute.  This one
-    is LATCHED, not merely hooked (astra review finding 4): see
+    is LATCHED, not merely hooked (review finding 4): see
     :func:`_install_after_poll_latch`.
 ``during_compute``
     inside ``Conversation.recompute``
@@ -40,7 +40,7 @@ import time
 
 # Exit codes with a specific meaning to the parent tests.  A crash for any
 # OTHER reason exits 1 (or dies by signal) and must never be mistaken for one
-# of these (astra review findings 3 and 4).
+# of these (review findings 3 and 4).
 EXIT_OK = 0
 EXIT_OWNERSHIP_REFUSED = 3
 EXIT_OWNERSHIP_LATCH_TIMEOUT = 4
@@ -96,14 +96,14 @@ def _install_after_poll_latch(svc) -> None:
     hooking ``_run_engine`` alone — what this child used to do — emits the stage
     marker from another thread at a moment that may PRECEDE the watermark
     assignment; the SIGKILL is real but the named ordering "after the poll cycle
-    advanced the watermark, before any compute" is unproven (astra review
+    advanced the watermark, before any compute" is unproven (review
     finding 4).
 
     The latch instead:
 
     1. gates ``_run_engine`` so no compute can start, and records that dispatch
        really happened (``GATE run_engine``).  The marker is WRITTEN AND FLUSHED
-       BEFORE ``dispatched`` is set (astra second-round review): setting the
+       BEFORE ``dispatched`` is set (second-round review): setting the
        event first lets the polling thread wake and print ``WM_ACK``/``STAGE``
        between the ``set()`` and the ``write()``, so the stdout ORDER the parent
        asserts would flake even though the watermark barrier itself is correct;
@@ -202,7 +202,7 @@ def main() -> int:
     # Startup is wrapped so that an OWNERSHIP refusal — a named, deliberate
     # refusal to run because someone else owns this shard — is reported with
     # its own exit code and marker, and can never be confused with an import
-    # error, a DB outage or any other crash (astra review finding 3).  The
+    # error, a DB outage or any other crash (review finding 3).  The
     # poller has no such path today; that absence is exactly what R07 asserts.
     try:
         pg = PostgresClient(

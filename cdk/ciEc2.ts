@@ -2,7 +2,7 @@
  * P-022 §E — disposable EC2 worker for the **synthetic** recovery matrix and
  * the **public-fixture** replay battery.
  *
- * ## Scope, after Astra's #2715 review (round 2)
+ * ## Scope, after the second reviewer's #2715 review (round 2)
  *
  * This is NOT private certification and must never be described as one. Round 1
  * attached the private fixture-bundle role to a box that GitHub could open a

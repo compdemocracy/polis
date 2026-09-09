@@ -377,7 +377,7 @@ MALFORMED_MARKERS = [
 @pytest.mark.parametrize("malformed", MALFORMED_MARKERS)
 def test_control_17b_a_malformed_marker_does_not_bypass_either_boundary(
         real_driver_blob, malformed):
-    """Astra #2730 F2. Both guards keyed on a well-formed dict, so replacing the
+    """Review #2730 F2. Both guards keyed on a well-formed dict, so replacing the
     marker value with null, false, a string or an array made the projected view
     read as unmarked RAW data: it passed the checkpoint gate and restored a
     conversation with zero groups. Malformed provenance is not the absence of
@@ -405,7 +405,7 @@ def test_N_refuses_a_malformed_marker_at_the_comparison_boundary(malformed):
 #: Marker values whose fields are CONTAINERS. These hashed before they were
 #: typed, so each raised a raw ``TypeError: unhashable type`` out of the set
 #: membership test — an ungraded crash at a gate that promises a named failure
-#: (Astra review #2730 R2-F2).
+#: (review #2730 R2-F2).
 NESTED_MARKER_VALUES = [
     ("profile", []), ("profile", {}), ("vote_axis", {}), ("vote_axis", set()),
     ("transforms", [[]]), ("transforms", [{}]),
@@ -480,7 +480,7 @@ def test_the_compensated_pair_holds_on_every_case_and_ingress(ingress, case_inde
 @pytest.mark.parametrize("ingress", pol.INGRESS_PATHS)
 @pytest.mark.parametrize("control", pol.FAILING_CONTROLS)
 def test_every_negative_control_reaches_its_gate_and_fails(ingress, control, declared):
-    """Under BOTH declarations (Astra #2730 F4). The double-conversion control
+    """Under BOTH declarations (review #2730 F4). The double-conversion control
     was injected unconditionally on the original side, which is the identity
     at s = +1: the "broken" pair passed on both ingress paths and the mandatory
     control proved nothing."""
@@ -543,7 +543,7 @@ def test_a_broken_ingress_conversion_fails_the_standing_property(monkeypatch):
     {"output_convention": ""},
     {"input_convention": ""},
     # "Unknown convention fails admission" is a predicate, not a sentiment:
-    # a truthiness check accepted these (Astra #2730 F2).
+    # a truthiness check accepted these (review #2730 F2).
     {"input_convention": "unknown-input/99"},
     {"output_convention": "unknown-output/99"},
 ])

@@ -260,12 +260,12 @@ def test_gate_refuses_non_select() -> None:
 
 
 def test_readonly_guard_rejects_literal_comment_write() -> None:
-    """Round-1 defect (Astra): a ``--`` inside a string literal was stripped as a
+    """Round-1 defect (review): a ``--`` inside a string literal was stripped as a
     comment, hiding a trailing multi-statement write. The guard must reject it."""
-    astra = ("SELECT '--'; COMMIT; BEGIN READ WRITE; "
-             "INSERT INTO astra_readonly_probe VALUES (1); COMMIT; --")
+    comment_trick_sql = ("SELECT '--'; COMMIT; BEGIN READ WRITE; "
+             "INSERT INTO readonly_probe VALUES (1); COMMIT; --")
     with pytest.raises(pg.GateReadOnlyViolation):
-        pg._assert_statement_allowed(astra)
+        pg._assert_statement_allowed(comment_trick_sql)
     for bad in (
         "SELECT 1 -- trailing comment",
         "SELECT 1 /* block */",
@@ -296,7 +296,7 @@ def test_readonly_enforced_at_database_level(dsn: str) -> None:
 
 
 def test_repeatable_read_shared_snapshot(dsn: str) -> None:
-    """Round-1 defect (Astra): under READ COMMITTED a commit between the two reads
+    """Round-1 defect (review): under READ COMMITTED a commit between the two reads
     produced a phantom VALUE_DIFF. Under one REPEATABLE READ snapshot it cannot."""
     import psycopg2
     from unittest.mock import patch
@@ -346,7 +346,7 @@ def test_multiset_matching_is_order_and_duplicate_safe() -> None:
 
 
 def test_preflight_catches_swapped_row_associations() -> None:
-    """Round-2 defect (Astra): independent per-column bags accepted a swap of
+    """Round-2 defect (review): independent per-column bags accepted a swap of
     values BETWEEN two rows. Whole-row multiset comparison rejects it."""
     site = pg.SITES["handle_GET_votes_me"]
     before = [(0, -1), (1, 1)]  # (tid, vote)
@@ -362,7 +362,7 @@ def test_preflight_catches_swapped_row_associations() -> None:
 
 
 def test_empty_run_is_inconclusive_not_pass(dsn: str) -> None:
-    """Round-1 defect (Astra): an absent zid returned full GATE PASS with zero
+    """Round-1 defect (review): an absent zid returned full GATE PASS with zero
     cells. Zero rows carry no evidence -> INCONCLUSIVE, not PASS."""
     reports = pg.gate_all(dsn, {"zid": -SYNTHETIC_ZID})  # absent conversation
     assert reports

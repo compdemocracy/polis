@@ -16,8 +16,8 @@ top-level ``scripts`` namespace package (``delphi/scripts``, e.g.
 It NEVER aborts the global pytest session: when no checkout is found it does nothing
 (each module fails closed to a per-test skip via its guarded import); when an
 EXPLICIT ``POLIS_CHECKOUT_DIR`` is set but unusable it records the reason in an env
-var that ``test_checkout_locator.py`` turns into a per-package FAILURE — Astra's
-fatal-on-bad-override requirement, scoped to this package rather than a session-wide
+var that ``test_checkout_locator.py`` turns into a per-package FAILURE — the second
+reviewer's fatal-on-bad-override requirement, scoped to this package rather than a session-wide
 ``UsageError``.
 """
 

@@ -2,7 +2,7 @@
 """P-022 §E — validate the worker's fixed-schema summary against the run's
 declared scope, on the runner, before anyone reads it.
 
-## What this is NOT (Astra #2715 R2-F4, divergence ruling 8)
+## What this is NOT (review #2715 R2-F4, divergence ruling 8)
 
 This is **not** independent execution evidence and does not make the result
 unforgeable. Every field it inspects is produced by the same recipe that ran the

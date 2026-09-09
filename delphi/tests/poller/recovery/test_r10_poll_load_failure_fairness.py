@@ -32,7 +32,7 @@ pytestmark = pytest.mark.recovery
 
 MATH_ENV = "recovery"
 
-# The join-timeout contract, named rather than inferred (astra review of #2708).
+# The join-timeout contract, named rather than inferred (review of #2708).
 #
 # #2708 introduces ``PoolDrainTimeout(TimeoutError)`` in
 # ``polismath/poller/service.py`` precisely so an exhausted POOL DRAIN is
@@ -277,7 +277,7 @@ def test_poll_once_surfaces_a_join_timeout(engine, pg_url, make_service):
 
     try:
         # "or not returned" alone was satisfied by an observer that simply
-        # HUNG — the very failure mode this row is about (astra review of
+        # HUNG — the very failure mode this row is about (review of
         # #2708).  Require both halves of the contract instead.
         assert not thread.is_alive(), (
             "poll_once never came back at all: a permanently blocked cycle is "
@@ -307,7 +307,7 @@ def test_poll_once_surfaces_a_join_timeout(engine, pg_url, make_service):
 # --------------------------------------------------------------------------- #
 class TestNegativeControl:
     def test_a_hung_observer_is_not_a_surfaced_failure(self):
-        """The join-timeout correction, controlled (astra review of #2708): a
+        """The join-timeout correction, controlled (review of #2708): a
         poll thread that simply never comes back satisfied the old
         ``raised is not None or not returned`` form.  The tightened oracle must
         go red on it, and its class check must be real."""

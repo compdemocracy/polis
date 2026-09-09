@@ -19,7 +19,7 @@ math_env = $2``) and ``server/src/utils/participants.ts:10``
 is D's job (see the notes file); what R09 needs is the exact query pair and the
 exact join, which is what is reproduced.
 
-What this module does and does NOT prove (astra review finding 2)
+What this module does and does NOT prove (review finding 2)
 -----------------------------------------------------------------
 :func:`read_generation` takes an observation in one of two modes:
 
@@ -244,7 +244,7 @@ def _mapping_problems(main_data, bid_data, pts_data=None):
 
     The pre-review version of this helper read those members as PIDS and only
     asked whether each appeared somewhere in the union of all ``bidToPid``
-    buckets.  That is wrong in both directions and the astra review (finding 1)
+    buckets.  That is wrong in both directions and the review (finding 1)
     reproduced both: with distinct bid/pid ranges it REJECTED a valid mapping,
     and it ACCEPTED a swap of two same-length buckets even though the swap
     routes every group to the wrong participants.  The checks below therefore
@@ -433,7 +433,7 @@ class ContinuousReader(threading.Thread):
 # Collected for the snapshot observer only.  ``#2704`` publishes all three
 # tables in ONE transaction, which guarantees a coherent generation *to a
 # snapshot reader* (``repeatable_read``) — and that is the only always-coherent
-# publication guarantee this atomic writer makes (astra review finding 1).  The
+# publication guarantee this atomic writer makes (review finding 1).  The
 # ``separate_statements`` observer is deliberately NOT collected here: a writer
 # commit can land BETWEEN its two independent autocommit SELECTs no matter how
 # atomically the writer publishes, so it MAY observe a mixed generation.  That
@@ -458,7 +458,7 @@ def test_reader_never_sees_a_mixed_generation(engine, pg_url, make_service,
     ``queryP_readOnly`` calls actually do — is NOT asserted coherent, because a
     commit can land between its two statements even under atomic publication;
     that hazard is witnessed deterministically by the two node-shaped-reader
-    tests below (see the module header, astra review finding 1). The body still
+    tests below (see the module header, review finding 1). The body still
     runs the coherence check for whatever ``mode`` it is CALLED with, so the
     review's scheduling witness can drive ``separate_statements`` directly and
     observe the mixed generation it must."""
@@ -605,7 +605,7 @@ def test_positional_bidtopid_contract_holds_for_a_complete_generation(
 def test_group_cluster_members_are_base_cluster_ids_not_pids(engine, pg_url,
                                                              make_service):
     """The namespace the checker depends on, asserted against a REAL published
-    blob (astra review finding 1): every ``group-clusters[*].members`` entry is
+    blob (review finding 1): every ``group-clusters[*].members`` entry is
     a ``base-clusters.id``, and the group's participants come out of the join,
     not out of the members list."""
     seed_conversation(engine, zid=1, n_ptpts=8, n_cmts=5)
@@ -639,7 +639,7 @@ def test_group_cluster_members_are_base_cluster_ids_not_pids(engine, pg_url,
 
 
 # --------------------------------------------------------------------------- #
-# The Node reader's OTHER hazard: a cached main blob (astra review finding 2)
+# The Node reader's OTHER hazard: a cached main blob (review finding 2)
 # --------------------------------------------------------------------------- #
 def _rebalance_one_participant(main_blob, bid_blob, pts_blob):
     """Move one pid from base cluster 0 to base cluster 1 in ALL THREE blobs —
@@ -820,7 +820,7 @@ class TestNegativeControl:
         non-atomic publication — the regression is about the WRITER, not
         about the check.
 
-        Scope, stated exactly (astra review finding 2): this is
+        Scope, stated exactly (review finding 2): this is
         writer-isolation evidence only.  It does NOT show that an atomic writer
         would make the SERVER's reader safe — see
         ``test_an_atomic_write_is_still_observed_mixed_by_a_node_shaped_reader``
@@ -887,7 +887,7 @@ class TestNegativeControl:
         """Swap two ``bidToPid`` buckets of a REAL published generation.  Every
         length and every id still resolves, so only the bid -> index -> pid
         join can see it — the exact corruption the pre-review checker accepted
-        (astra review finding 1)."""
+        (review finding 1)."""
         seed_conversation(engine, zid=1, n_ptpts=8, n_cmts=5)
         svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
         svc.poll_once()
@@ -910,7 +910,7 @@ class TestNegativeControl:
 
 
 # --------------------------------------------------------------------------- #
-# The astra review's synthetic mutation cases, as first-class controls.
+# The review's synthetic mutation cases, as first-class controls.
 #
 # These need no database: they are the exact observations
 # `cost-reduction/scripts/p022-review-2702-checks.py` makes, pinned so the
