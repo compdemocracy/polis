@@ -36,6 +36,10 @@ SEMANTIC RULES (all enforced by :func:`validate_config`):
 8. Roles sharing a ``selection_group`` must share identical ``predicates`` and
    ``order_by`` (they rank into ONE list) and must have DISTINCT ranks, must all
    be in the same ``group``, and must be contiguous in the array.
+9. The optional ``served_math`` block may name ``math_envs`` only when
+   ``capture`` is true, and those names must be non-empty and distinct — a
+   restriction list attached to a capture that never runs is a rule nobody
+   applies.
 """
 
 from __future__ import annotations
@@ -43,7 +47,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, NamedTuple
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
 DEFAULT_CONFIG_PATH = SCRIPTS_DIR / "certify_datasets.json"
@@ -73,6 +77,45 @@ _OPS = {
 
 class ConfigError(ValueError):
     """Raised for any structural or semantic defect in the selection config."""
+
+
+# ---------------------------------------------------------------------------
+# Served-math capture (P-052 §4.5) — optional, and ABSENT from the shipped
+# config.
+# ---------------------------------------------------------------------------
+
+
+class ServedMathOptions(NamedTuple):
+    """Whether an extraction also captures what the engine actually SERVED.
+
+    ``math_envs`` restricts the capture to the named environments; ``None``
+    means "every ``math_env`` the conversation has a row for".
+    """
+
+    capture: bool
+    math_envs: tuple[str, ...] | None
+
+
+#: The answer when the config carries no ``served_math`` block at all, which is
+#: the case for the shipped config. Keeping the block OPTIONAL rather than
+#: shipping ``{"capture": false}`` is deliberate: ``certify_datasets.json``
+#: keeps the exact bytes it has today, so ``commits.config_sha256`` in every
+#: manifest ever published is unchanged and an existing bundle re-extracts
+#: byte-for-byte. Turning the capture on is a reviewed config edit, which mints
+#: a new config version and therefore a new bundle version — the intended cost.
+SERVED_MATH_OFF = ServedMathOptions(capture=False, math_envs=None)
+
+
+def served_math_options(config: dict[str, Any]) -> ServedMathOptions:
+    """Read the served-math capture declaration. Absent block == off."""
+    block = config.get("served_math")
+    if not isinstance(block, dict):
+        return SERVED_MATH_OFF
+    envs = block.get("math_envs")
+    return ServedMathOptions(
+        capture=bool(block.get("capture", False)),
+        math_envs=None if envs is None else tuple(str(e) for e in envs),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -321,6 +364,28 @@ def _semantic_errors(config: dict[str, Any]) -> list[str]:
             errors.append(f"{where}: shape=lru-cohort requires cohort_size")
         if case.get("shape") != "lru-cohort" and "cohort_size" in case:
             errors.append(f"{where}: cohort_size is only meaningful for shape=lru-cohort")
+
+    # Rule 9 — served-math capture.
+    served = config.get("served_math")
+    if isinstance(served, dict):
+        capture = served.get("capture")
+        envs = served.get("math_envs")
+        if not isinstance(capture, bool):
+            errors.append(
+                f"$.served_math.capture must be an explicit boolean, got {capture!r}")
+        if envs is not None:
+            if capture is not True:
+                errors.append(
+                    "$.served_math.math_envs is only meaningful with capture=true; "
+                    "a restriction list attached to a capture that never runs is a "
+                    "rule nobody applies")
+            names = [e for e in envs if isinstance(e, str)]
+            if any(not e.strip() for e in names):
+                errors.append("$.served_math.math_envs: entries must be non-empty")
+            if len(set(names)) != len(names):
+                errors.append(
+                    f"$.served_math.math_envs: duplicate entries "
+                    f"{sorted({e for e in names if names.count(e) > 1})}")
 
     return errors
 

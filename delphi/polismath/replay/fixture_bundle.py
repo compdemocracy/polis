@@ -285,6 +285,13 @@ def build_manifest(
     binds the original's digests, never the other way round.
     """
     validate_storage_agree_value(storage_agree_value)
+    # P-052 §4.5. Derived from the role summaries rather than passed in, so no
+    # caller has to remember it and no caller can misdeclare it. When no role
+    # captured the served rows the manifest is byte-for-byte what it was before
+    # the capture existed.
+    served_math_captured = any(
+        isinstance(entry, dict) and entry.get("served_math")
+        for entry in selections)
     if transform is not None:
         bad = _validate_transform_shape(transform, storage_agree_value, bundle_id)
         if bad:
@@ -351,7 +358,23 @@ def build_manifest(
             "fixture directory names are RANDOM opaque prefixes assigned here, not a "
             "salted hash of the zid",
             "role -> zid mapping is confined to the restricted provenance object",
-        ],
+        ] + ([
+            # The blanket claim above is about what the EXTRACTOR selects and
+            # writes, and it stays true of every query: no served capture reads
+            # a zid column either. What a verbatim served blob CONTAINS is a
+            # different fact, and it would be dishonest to leave it implied by
+            # the line above, so it is stated here whenever such a blob is in
+            # the payload.
+            "served math_main blobs (served-math-NNN.blob.json) are captured "
+            "VERBATIM and therefore retain whatever Clojure's prep-main "
+            "whitelist published inside them, INCLUDING the conversation's own "
+            "'zid' key; they are private-tier payload, are never published, and "
+            "the qualifier above about payload files applies to the extractor's "
+            "own columns, not to the contents of a served blob",
+            "the served capture selects no zid column and writes none: "
+            "served_math.json carries math_env, the tick counters, the "
+            "watermark and digests only",
+        ] if served_math_captured else []),
         "retention": "Retained for the supported lifetime of the certificate. "
                      "Retirement requires an explicit privacy-approved decision, "
                      "never a short artifact TTL.",
@@ -1171,6 +1194,30 @@ DERIVED_FROM_KEYS = frozenset({"bundle_id", "source", "slug"})
 #: admission must not import the extractor; a test asserts the two agree.
 REQUIRED_COMPAT_NULL_VOTE_POLICY = "drop-counted"
 
+#: The served-math capture (P-052 §4.5) is OPTIONAL: a role entry either
+#: carries the block or does not, and an absent block means the bundle simply
+#: did not capture what the engine served. When the block IS present it is
+#: validated as strictly as everything else here — a closed key set, digests
+#: that name files the inventory actually holds, and the standing rule that the
+#: watermark consistency check is a DIAGNOSTIC and never a gate.
+#:
+#: Restated rather than imported, exactly like the NULL-vote policy above:
+#: admission does not import the extractor, and a test asserts the two agree.
+REQUIRED_SERVED_MATH_SCHEMA_VERSION = "certify-served-math/1"
+REQUIRED_SERVED_MATH_META_FILENAME = "served_math.json"
+
+#: Closed key set of a role's served-math block.
+SERVED_MATH_KEYS = frozenset({
+    "schema_version", "captured", "meta_file", "meta_sha256",
+    "logical_digest_sha256", "math_envs", "math_main_rows", "math_ticks_rows",
+    "blobs", "consistency",
+})
+
+#: Closed key set of one blob entry inside it.
+SERVED_MATH_BLOB_KEYS = frozenset({"math_env", "file", "sha256", "bytes"})
+
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+
 #: Closed enums for the declared release policy. Every value is a VERSIONED
 #: token, not prose: a truthiness check on a free-text sentence admitted
 #: "same-input ties may differ arbitrarily" as a tie-order policy. The prose
@@ -1418,6 +1465,12 @@ def admit_manifest(
         P(root_digest(files) == manifest["root_digest"],
           "root_digest does not match the file inventory")
     dirs_present = {str(p).split("/", 1)[0] for p in paths if "/" in str(p)}
+    # path -> recorded sha256, so a role's own digest claim can be checked
+    # against the inventory the root digest is computed over.
+    sha256_by_path = {
+        str(f.get("path")): f.get("sha256") for f in files
+        if isinstance(f, dict)
+    }
 
     # --- ordering, precision, polarity ------------------------------------
     ordering = manifest["ordering"]
@@ -1679,6 +1732,16 @@ def admit_manifest(
           f"{entry.get('ordering_guarantee')!r}, but the manifest declares "
           f"{guarantee!r}: the extract and the declaration disagree")
 
+        # OPTIONAL served-math capture (P-052 §4.5). An absent block is a
+        # complete statement — this bundle did not capture what the engine
+        # served — so nothing is required here. A block that IS present must
+        # bind real files with real digests.
+        if "served_math" in entry:
+            _admit_served_math(
+                problems, slug=str(slug), block=entry.get("served_math"),
+                directory=str(directory) if directory else None,
+                sha256_by_path=sha256_by_path)
+
         # A per-role NULL-vote census is MANDATORY under the counted drop
         # policy. Omission previously defaulted to zero drops and passed, so a
         # role could lose NULL votes from its compatibility CSV silently.
@@ -1775,6 +1838,130 @@ def admit_manifest(
 
     if problems:
         raise AdmissionError(_admission_message(manifest, problems))
+
+
+def _admit_served_math(
+    problems: list[str], *, slug: str, block: Any, directory: str | None,
+    sha256_by_path: dict[str, Any],
+) -> None:
+    """Admit one role's OPTIONAL served-math block (P-052 §4.5).
+
+    What is checked is what a later off-policy comparison would otherwise have
+    to take on trust: the block names a schema version this code understands,
+    its key set is closed, every file it claims is in the inventory under the
+    digest it claims, the per-``math_env`` counts agree with the blob list, and
+    the watermark consistency record still declares itself a DIAGNOSTIC. That
+    last check is the important one — a consistency record that quietly became
+    a gate would start failing extractions for the ordinary case of votes
+    arriving after the last publish.
+    """
+    P = lambda cond, msg: _admission_problem(problems, cond, msg)  # noqa: E731
+
+    if not isinstance(block, dict) or not block:
+        P(False, f"role {slug!r} carries an empty or non-object served_math "
+                 f"block; omit the block entirely to say the served rows were "
+                 f"not captured")
+        return
+    for unknown in sorted(set(block) - SERVED_MATH_KEYS):
+        P(False, f"role {slug!r} served_math carries unknown field {unknown!r} "
+                 "(nothing validates it)")
+    for missing in sorted(SERVED_MATH_KEYS - set(block)):
+        P(False, f"role {slug!r} served_math is missing {missing!r}")
+    P(block.get("schema_version") == REQUIRED_SERVED_MATH_SCHEMA_VERSION,
+      f"role {slug!r} served_math.schema_version is "
+      f"{block.get('schema_version')!r}, expected "
+      f"{REQUIRED_SERVED_MATH_SCHEMA_VERSION!r}")
+    P(block.get("captured") is True,
+      f"role {slug!r} served_math.captured is {block.get('captured')!r}: a "
+      "block that is present declares a capture that happened")
+    P(block.get("meta_file") == REQUIRED_SERVED_MATH_META_FILENAME,
+      f"role {slug!r} served_math.meta_file is {block.get('meta_file')!r}, "
+      f"expected {REQUIRED_SERVED_MATH_META_FILENAME!r}")
+
+    def _digest_binds(label: str, filename: Any, digest: Any) -> None:
+        P(isinstance(digest, str) and bool(_SHA256_RE.match(digest)),
+          f"role {slug!r} served_math {label} digest {digest!r} is not a "
+          "lower-case sha256")
+        if directory is None or not isinstance(filename, str):
+            P(False, f"role {slug!r} served_math {label} names no file inside a "
+                     "fixture directory")
+            return
+        assert_safe_relpath(filename)
+        rel = f"{directory}/{filename}"
+        recorded = sha256_by_path.get(rel)
+        P(recorded is not None,
+          f"role {slug!r} served_math {label} names {rel!r}, which is not in "
+          "the file inventory: the block is declared but not materialised")
+        if recorded is not None:
+            P(recorded == digest,
+              f"role {slug!r} served_math {label} claims digest {digest!r} for "
+              f"{rel!r}, the inventory records {recorded!r}")
+
+    _digest_binds("meta_file", block.get("meta_file"), block.get("meta_sha256"))
+    P(isinstance(block.get("logical_digest_sha256"), str)
+      and bool(_SHA256_RE.match(str(block.get("logical_digest_sha256")))),
+      f"role {slug!r} served_math.logical_digest_sha256 is not a lower-case "
+      f"sha256 (got {block.get('logical_digest_sha256')!r})")
+
+    blobs = block.get("blobs")
+    P(isinstance(blobs, list),
+      f"role {slug!r} served_math.blobs is not a list (got {type(blobs).__name__})")
+    blobs = blobs if isinstance(blobs, list) else []
+    envs = block.get("math_envs")
+    P(isinstance(envs, list),
+      f"role {slug!r} served_math.math_envs is not a list")
+    envs = envs if isinstance(envs, list) else []
+    P(len(set(map(str, envs))) == len(envs),
+      f"role {slug!r} served_math.math_envs repeats a math_env: math_main is "
+      "UNIQUE(zid, math_env), so one environment cannot have served two rows")
+    P(_is_count(block.get("math_main_rows"))
+      and block.get("math_main_rows") == len(blobs),
+      f"role {slug!r} served_math declares {block.get('math_main_rows')!r} "
+      f"math_main row(s) but lists {len(blobs)} blob(s): every served row "
+      "carries exactly one blob")
+    P(list(map(str, envs)) == [str(b.get("math_env")) for b in blobs
+                               if isinstance(b, dict)],
+      f"role {slug!r} served_math.math_envs {envs!r} does not match the blob "
+      "list's environments in order")
+    P(_is_count(block.get("math_ticks_rows")),
+      f"role {slug!r} served_math.math_ticks_rows is not a count "
+      f"(got {block.get('math_ticks_rows')!r})")
+
+    seen_files: set[str] = set()
+    for i, blob in enumerate(blobs):
+        where = f"blobs[{i}]"
+        if not isinstance(blob, dict):
+            P(False, f"role {slug!r} served_math {where} is not an object")
+            continue
+        for unknown in sorted(set(blob) - SERVED_MATH_BLOB_KEYS):
+            P(False, f"role {slug!r} served_math {where} carries unknown field "
+                     f"{unknown!r}")
+        for missing in sorted(SERVED_MATH_BLOB_KEYS - set(blob)):
+            P(False, f"role {slug!r} served_math {where} is missing {missing!r}")
+        name = blob.get("file")
+        P(name not in seen_files,
+          f"role {slug!r} served_math {where} names file {name!r} twice")
+        seen_files.add(str(name))
+        P(_is_count(blob.get("bytes")) and blob.get("bytes") != 0,
+          f"role {slug!r} served_math {where} declares {blob.get('bytes')!r} "
+          "bytes: an empty blob is not a served output")
+        _digest_binds(where, name, blob.get("sha256"))
+
+    consistency = block.get("consistency")
+    P(isinstance(consistency, dict),
+      f"role {slug!r} served_math.consistency is not an object")
+    if isinstance(consistency, dict):
+        P(consistency.get("gate") is False and consistency.get("kind") == "diagnostic",
+          f"role {slug!r} served_math.consistency declares "
+          f"kind={consistency.get('kind')!r} gate={consistency.get('gate')!r}: "
+          "the served watermark check is a DIAGNOSTIC and must never be "
+          "recorded as a gate — math_main is a latest-only upsert, so votes "
+          "arriving after the last publish are the ordinary production case")
+        per_env = consistency.get("per_math_env")
+        P(isinstance(per_env, list) and len(per_env) == len(blobs),
+          f"role {slug!r} served_math.consistency covers "
+          f"{len(per_env) if isinstance(per_env, list) else '?'} environment(s) "
+          f"for {len(blobs)} served row(s)")
 
 
 def _failed_predicates(

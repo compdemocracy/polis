@@ -12,11 +12,28 @@ sign verbatim and era-A runs on export data are marked diagnostic-only.
 
 Datasets are located by slug glob (``real_data/*-<slug>``) so report-id
 directory names never appear in code.
+
+SERVED MATH ROWS. A private fixture bundle extracted with the optional
+served-math capture (P-052 §4.5,
+:mod:`polismath.replay.fixture_extract`) also carries, per conversation
+directory, ``served_math.json`` and one verbatim ``served-math-NNN.blob.json``
+per ``math_env`` — what the Clojure engine actually PUBLISHED, as opposed to
+what it was fed. :func:`load_served_math` reads them back so certify-side code
+can compare a candidate engine's final blob against the served one, and
+:func:`check_served_math_against_dataset` re-derives the watermark consistency
+DIAGNOSTIC from the votes actually loaded. A dataset without the capture
+returns ``None``: an absent capture is a complete statement, not an error.
 """
 
+from __future__ import annotations
+
 import csv
+import hashlib
+import json
 import re
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from polismath.replay.types import ModEvent, ReplayDataset
 
@@ -155,3 +172,191 @@ def load_votes_csv(
     convention) runs the SAME parse rather than a copy of it."""
     return ReplayDataset.build(read_export_vote_rows(path),
                                mod_events=list(mod_events or []))
+
+
+# ---------------------------------------------------------------------------
+# Served math rows — the output side of a private fixture bundle (P-052 §4.5).
+# ---------------------------------------------------------------------------
+
+SERVED_MATH_META_FILENAME = "served_math.json"
+
+
+class ServedMathError(RuntimeError):
+    """A served-math capture is present but does not read back intact."""
+
+
+@dataclass(frozen=True)
+class ServedMathRow:
+    """One ``math_main`` row as production served it, for one ``math_env``.
+
+    ``blob_text`` is the blob VERBATIM — the exact bytes ``data::text`` handed
+    the extractor. :meth:`blob` parses it for convenience; the text is the
+    authority, and nothing here rewrites it.
+    """
+
+    math_env: str
+    last_vote_timestamp: int | None
+    math_tick: int | None
+    caching_tick: int | None
+    modified: int | None
+    blob_file: str
+    blob_sha256: str
+    blob_bytes: int
+    blob_last_vote_timestamp: int | None
+    blob_watermark_absent_because: str | None
+    blob_text: str
+
+    def blob(self) -> dict[str, Any]:
+        parsed = json.loads(self.blob_text)
+        if not isinstance(parsed, dict):
+            raise ServedMathError(
+                f"served blob for math_env {self.math_env!r} is a JSON "
+                f"{type(parsed).__name__}, not an object")
+        return parsed
+
+
+@dataclass(frozen=True)
+class ServedMathTick:
+    """One ``math_ticks`` row. ``math_tick`` counts PUBLISHES and defaults to
+    0, so after ``P`` publishes it reads ``P - 1``; the raw column value is
+    what is carried here."""
+
+    math_env: str
+    math_tick: int | None
+    caching_tick: int | None
+    modified: int | None
+
+
+@dataclass(frozen=True)
+class ServedMath:
+    """Everything one conversation's served-math capture holds."""
+
+    path: Path
+    schema_version: str
+    math_envs_present: tuple[str, ...]
+    math_envs_captured: tuple[str, ...]
+    rows: tuple[ServedMathRow, ...]
+    ticks: tuple[ServedMathTick, ...]
+    consistency: dict[str, Any]
+    meta: dict[str, Any]
+
+    def row(self, math_env: str) -> ServedMathRow | None:
+        """The served row for one environment, or ``None`` if not captured."""
+        return next((r for r in self.rows if r.math_env == math_env), None)
+
+    def tick(self, math_env: str) -> ServedMathTick | None:
+        return next((t for t in self.ticks if t.math_env == math_env), None)
+
+
+def read_served_math(
+    directory: str | Path, *, verify_digests: bool = True,
+) -> ServedMath | None:
+    """Read a served-math capture out of ONE fixture directory.
+
+    Returns ``None`` when the directory holds no capture. ``verify_digests``
+    re-hashes each blob file against the digest the capture recorded, so a
+    truncated or edited blob is caught at load rather than silently scored
+    against; pass ``False`` only for a deliberately partial workspace.
+    """
+    directory = Path(directory)
+    meta_path = directory / SERVED_MATH_META_FILENAME
+    if not meta_path.is_file():
+        return None
+    meta = json.loads(meta_path.read_text())
+    if not isinstance(meta, dict):
+        raise ServedMathError(f"{meta_path} does not hold a JSON object")
+
+    rows: list[ServedMathRow] = []
+    for entry in meta.get("math_main", []):
+        blob_file = str(entry["blob_file"])
+        # The capture names its blob files by row index, never by math_env, so
+        # a name is a plain component. Re-check rather than trust the file.
+        if "/" in blob_file or "\\" in blob_file or blob_file in (".", ".."):
+            raise ServedMathError(
+                f"{meta_path} names an unsafe blob file {blob_file!r}")
+        blob_path = directory / blob_file
+        if not blob_path.is_file():
+            raise ServedMathError(
+                f"{meta_path} names blob file {blob_file!r}, which is missing")
+        raw = blob_path.read_bytes()
+        if verify_digests:
+            actual = hashlib.sha256(raw).hexdigest()
+            if actual != entry.get("blob_sha256"):
+                raise ServedMathError(
+                    f"served blob {blob_path} hashes to {actual}, the capture "
+                    f"recorded {entry.get('blob_sha256')}")
+            if len(raw) != entry.get("blob_bytes"):
+                raise ServedMathError(
+                    f"served blob {blob_path} is {len(raw)} bytes, the capture "
+                    f"recorded {entry.get('blob_bytes')}")
+        rows.append(ServedMathRow(
+            math_env=str(entry["math_env"]),
+            last_vote_timestamp=entry.get("last_vote_timestamp"),
+            math_tick=entry.get("math_tick"),
+            caching_tick=entry.get("caching_tick"),
+            modified=entry.get("modified"),
+            blob_file=blob_file,
+            blob_sha256=str(entry.get("blob_sha256")),
+            blob_bytes=int(entry.get("blob_bytes", len(raw))),
+            blob_last_vote_timestamp=entry.get("blob_last_vote_timestamp"),
+            blob_watermark_absent_because=entry.get(
+                "blob_watermark_absent_because"),
+            blob_text=raw.decode("utf-8"),
+        ))
+
+    ticks = tuple(
+        ServedMathTick(
+            math_env=str(t["math_env"]), math_tick=t.get("math_tick"),
+            caching_tick=t.get("caching_tick"), modified=t.get("modified"))
+        for t in meta.get("math_ticks", [])
+    )
+    return ServedMath(
+        path=directory,
+        schema_version=str(meta.get("schema_version")),
+        math_envs_present=tuple(meta.get("math_envs_present") or ()),
+        math_envs_captured=tuple(meta.get("math_envs_captured") or ()),
+        rows=tuple(rows),
+        ticks=ticks,
+        consistency=dict(meta.get("consistency") or {}),
+        meta=meta,
+    )
+
+
+def load_served_math(
+    slug: str, *, verify_digests: bool = True,
+) -> ServedMath | None:
+    """Locate a dataset by slug and read its served-math capture, if any."""
+    directory = dataset_dir(slug)
+    if directory is None:
+        raise FileNotFoundError(f"no dataset directory matching *-{slug}")
+    return read_served_math(directory, verify_digests=verify_digests)
+
+
+def check_served_math_against_dataset(
+    served: ServedMath, dataset: ReplayDataset,
+) -> dict[str, Any]:
+    """Re-derive the served watermark DIAGNOSTIC from the votes actually loaded.
+
+    A DIAGNOSTIC, never a gate — the same rule the extractor records the
+    capture under, and for the same reason: ``math_main`` is a latest-only
+    upsert, so votes arriving after the last publish are ordinary. The value of
+    running it again here is that the capture's own record was computed against
+    the private millisecond event stream, while a replay may be driven from the
+    second-resolution compatibility CSV; a disagreement between the two is a
+    fact about the ingress, and it should be visible rather than assumed away.
+
+    Reuses the extractor's implementation so there is exactly one definition of
+    what "consistent" means.
+    """
+    from polismath.replay import fixture_extract as fx
+
+    rows = [{
+        "math_env": r.math_env,
+        "last_vote_timestamp": r.last_vote_timestamp,
+        "blob_last_vote_timestamp": r.blob_last_vote_timestamp,
+        "blob_watermark_absent_because": r.blob_watermark_absent_because,
+    } for r in served.rows]
+    result = fx.served_math_consistency(rows, [v.t_ms for v in dataset.votes])
+    result["recomputed_from"] = "the loaded ReplayDataset's vote timestamps"
+    result["capture_recorded"] = served.consistency
+    return result
