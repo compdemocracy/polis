@@ -1,7 +1,7 @@
 # Delphi Storage V2 — Reproducible Runs, Unified Schema, Dual-Backend Storage
 
 **Status:** DRAFT for review — 2026-07-06
-**Author:** Claude (host session "Fable JobID"), for Julien
+**Author:** Claude (the storage-v2 design host session), for Julien
 **Recon basis:** file:line pointers verified 2026-07-06 against `delphi/`, `server/`, and clients.
 
 ## 1. Problem

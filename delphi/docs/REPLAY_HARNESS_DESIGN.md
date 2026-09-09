@@ -1,7 +1,7 @@
 # Replay Harness (H) — Design
 
 **Status:** DRAFT for review — 2026-07-05
-**Author:** Claude (host session "Fable-polis-merge-then-replay"), for Julien
+**Author:** Claude (the merge-then-replay host session), for Julien
 **Recon basis:** file:line pointers verified 2026-07-05 against `math/` and `delphi/`.
 
 ## 1. Purpose
