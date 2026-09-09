@@ -24,6 +24,7 @@ themselves are covered by ``tests/test_certify_fixture_config.py``.
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from pathlib import Path
 
@@ -173,6 +174,32 @@ def _seed(engine):
                 {"zid": zid, "n_p": n_p, "n_c": n_c, "n": extra_revotes,
                  "t": BASE_MS})
 
+    def served_math(conn, zid, rows):
+        """A published math_main + math_ticks row per math_env — what the
+        engine SERVED, which is what the P-052 §4.5 capture reads back.
+        ``rows`` are ``(math_env, last_vote_timestamp, math_tick)`` triples.
+
+        The blob is a synthetic stand-in for the Clojure prep-main whitelist,
+        including its ``zid`` key, so the capture's verbatim handling and the
+        manifest's redaction claim are both exercised on something recognisable.
+        """
+        for env, last_vote_ms, math_tick in rows:
+            blob = json.dumps({
+                "zid": zid, "n": 3, "n-cmts": 3, "tids": [0, 1, 2],
+                "lastVoteTimestamp": last_vote_ms,
+                "pca": {"center": [0.1, -0.2], "comps": [[1.0, 0.0]]},
+            })
+            params = {"zid": zid, "env": env, "data": blob, "lvt": last_vote_ms,
+                      "ct": math_tick + 100, "mt": math_tick,
+                      "mod": last_vote_ms + 1000}
+            conn.execute(sa.text(
+                "INSERT INTO math_main (zid, math_env, data, last_vote_timestamp, "
+                "caching_tick, math_tick, modified) VALUES "
+                "(:zid, :env, CAST(:data AS jsonb), :lvt, :ct, :mt, :mod)"), params)
+            conn.execute(sa.text(
+                "INSERT INTO math_ticks (zid, math_tick, caching_tick, math_env, "
+                "modified) VALUES (:zid, :mt, :ct, :env, :mod)"), params)
+
     with engine.begin() as conn:
         # replica mode disables FK triggers, the tid/pid auto triggers and the
         # votes_latest_unique RULE, so bulk seeding stays fast. The schema
@@ -213,6 +240,21 @@ def _seed(engine):
         for i, zid in enumerate(LARGE_ZIDS):
             conv(conn, zid); ptpts(conn, zid, 20); cmts(conn, zid, 250)
             votes(conn, zid, 20, 250, extra_revotes=len(LARGE_ZIDS) - i)
+
+        # Served output for three shapes, so the P-052 §4.5 capture is
+        # exercised against every verdict its diagnostic can reach:
+        #   revote   — published before the 200 revotes arrived (a tail the
+        #              served blob never saw), and in TWO math_envs;
+        #   midmix   — published at the newest vote (consistent);
+        #   zerovote — a conversation with no votes at all.
+        # Every other seeded conversation has NO math_main row, which is the
+        # fourth case: a role whose capture is legitimately empty.
+        served_math(conn, Z["revote"], [
+            ("preprod", BASE_MS + 900000000, 5),
+            ("prod", BASE_MS + 900000100, 7),
+        ])
+        served_math(conn, Z["midmix"], [("prod", BASE_MS + 19199, 3)])
+        served_math(conn, Z["zerovote"], [("prod", 0, 0)])
 
         conn.execute(sa.text("SET session_replication_role = DEFAULT"))
 
@@ -466,6 +508,167 @@ def test_repeat_extraction_yields_identical_logical_events(seeded_db, extracted)
     # byte-identical too.
     assert fb.root_digest(fb.scan_files(payload)) \
         == fb.root_digest(fb.scan_files(second_payload))
+
+
+# ---------------------------------------------------------------------------
+# Served math rows (P-052 §4.5) against the REAL math_main / math_ticks tables.
+# ---------------------------------------------------------------------------
+
+
+def served_config() -> dict:
+    """The scaled config with the served-math capture turned on."""
+    cfg = scaled_config()
+    cfg["served_math"] = {
+        "capture": True,
+        "notes": "integration test: capture what the engine served",
+    }
+    fc.validate_config(cfg)
+    return cfg
+
+
+@pytest.fixture(scope="module")
+def extracted_served(seeded_db, tmp_path_factory):
+    """The same config-driven extraction, with the capture ON."""
+    import psycopg2
+
+    root = tmp_path_factory.mktemp("extract-served")
+    payload = root / ".local" / "payload"
+    payload.mkdir(parents=True)
+    conn = psycopg2.connect(seeded_db)
+    try:
+        result = fx.extract_from_config(
+            conn, config=served_config(), payload_root=payload, guard_root=root,
+            include_generated=False)
+    finally:
+        conn.close()
+    return root, payload, result
+
+
+def test_capture_off_reads_neither_served_table(extracted):
+    """The shipped path. Nothing in the payload, nothing in the summaries."""
+    _, payload, result = extracted
+    assert result["served_math"]["capture"] is False
+    assert not any("served_math" in role for role in result["roles"])
+    assert not list(payload.rglob("served_math.json"))
+    assert not list(payload.rglob("served-math-*.blob.json"))
+
+
+def test_the_capture_reads_the_real_math_main_columns(seeded_db):
+    """Straight at the production schema: every column P-052 §4.5 names is
+    selected, comes back typed, and no zid is among them."""
+    import psycopg2
+
+    conn = psycopg2.connect(seeded_db)
+    try:
+        served = fx.fetch_served_math(conn, Z["revote"])
+    finally:
+        conn.close()
+    assert served["math_envs_present"] == ["preprod", "prod"]
+    prod = next(r for r in served["math_main"] if r["math_env"] == "prod")
+    assert set(prod) == {"math_env", "data_text", "last_vote_timestamp",
+                         "caching_tick", "math_tick", "modified"}
+    # data::text, so the blob arrives as the bytes Postgres stores rather than
+    # as a Python object some later serialisation would have to re-render.
+    assert isinstance(prod["data_text"], str)
+    assert json.loads(prod["data_text"])["zid"] == Z["revote"]
+    assert prod["last_vote_timestamp"] == BASE_MS + 900000100
+    assert prod["math_tick"] == 7 and prod["caching_tick"] == 107
+    ticks = next(t for t in served["math_ticks"] if t["math_env"] == "prod")
+    assert ticks["math_tick"] == 7 and ticks["caching_tick"] == 107
+
+
+def test_the_capture_writes_one_blob_per_math_env(extracted_served):
+    _, payload, result = extracted_served
+    revote = next(r for r in result["roles"] if r["slug"] == "pc-v1-revote")
+    block = revote["served_math"]
+    assert block["math_envs"] == ["preprod", "prod"]
+    assert block["math_main_rows"] == 2 and block["math_ticks_rows"] == 2
+    directory = payload / revote["dir"]
+    for blob in block["blobs"]:
+        raw = (directory / blob["file"]).read_bytes()
+        assert hashlib.sha256(raw).hexdigest() == blob["sha256"]
+        assert len(raw) == blob["bytes"]
+        # Verbatim: this is what production served, zid key and all.
+        assert json.loads(raw)["zid"] == Z["revote"]
+
+
+def test_the_watermark_diagnostic_reaches_every_verdict(extracted_served):
+    _, _, result = extracted_served
+    by_slug = {r["slug"]: r for r in result["roles"]}
+
+    revote = by_slug["pc-v1-revote"]["served_math"]["consistency"]
+    assert revote["gate"] is False
+    prod = next(e for e in revote["per_math_env"] if e["math_env"] == "prod")
+    # 700 vote events, 200 of them revotes at BASE_MS + 900000000 + g; the
+    # publish happened at +900000100, so exactly 99 later revotes are the tail
+    # the served blob never saw.
+    assert prod["verdict"] == "votes-arrived-after-the-served-watermark"
+    assert prod["votes_after_watermark"] == 99
+    assert prod["column_matches_blob"] is True
+
+    midmix = by_slug["pc-v1-midmix"]["served_math"]["consistency"]
+    entry = midmix["per_math_env"][0]
+    assert entry["verdict"] == "consistent"
+    assert entry["votes_after_watermark"] == 0
+
+    zerovote = by_slug["pc-v1-zerovote"]["served_math"]["consistency"]
+    assert zerovote["per_math_env"][0]["verdict"] == "no-votes-extracted"
+    assert zerovote["vote_events"] == 0
+
+
+def test_a_conversation_production_never_published_captures_an_empty_document(
+        extracted_served):
+    _, payload, result = extracted_served
+    banned = next(r for r in result["roles"] if r["slug"] == "pc-v1-banned")
+    assert banned["served_math"]["math_main_rows"] == 0
+    assert banned["served_math"]["blobs"] == []
+    meta = json.loads(
+        (payload / banned["dir"] / "served_math.json").read_text())
+    assert meta["math_envs_present"] == [] and meta["captured"] is True
+
+
+def test_a_captured_bundle_verifies_admits_and_leaks_no_identity(
+        extracted_served, tmp_path_factory):
+    _, payload, result = extracted_served
+    config = served_config()
+    config_bytes = fb.canonical_json(config)
+    manifest = fb.build_manifest(
+        bundle_id="pcb-itest-served-0001", payload_root=payload, config=config,
+        config_bytes=config_bytes, selections=result["roles"],
+        generated_summaries=result["generated"],
+        snapshot={"identifier": "snap-itest", "created_at": "2026-09-07T00:00:00Z",
+                  "schema_migration_version": "000018"},
+        transaction_guarantee=result["transaction_guarantee"],
+        tie_key=result["tie_key"],
+        schedules=fb.collect_schedule_hashes(fc.SCRIPTS_DIR / "schedules"),
+        owner="polis-certification", extraction_commit="1" * 40,
+        source_commit="1" * 40, coverage_report=result["coverage_report"],
+    )
+    fb.verify(payload, manifest)
+    fb.admit_manifest(manifest, config=config, config_bytes=config_bytes)
+    # The blobs on disk carry the zid; the manifest must not, and it must say
+    # so rather than leaving the blanket redaction claim to cover for it.
+    assert not fb.scan_public_output(json.dumps(manifest), PLANTED)
+    assert any("VERBATIM" in line and "zid" in line
+               for line in manifest["redactions"])
+    assert not fb.scan_public_output(
+        json.dumps(fb.public_pin(manifest)), PLANTED)
+
+
+def test_the_loader_reads_the_served_rows_back(extracted_served):
+    from polismath.replay import real_data as rd
+
+    _, payload, result = extracted_served
+    revote = next(r for r in result["roles"] if r["slug"] == "pc-v1-revote")
+    served = rd.read_served_math(payload / revote["dir"])
+    assert served is not None
+    prod = served.row("prod")
+    assert prod is not None
+    assert prod.math_tick == 7 and prod.caching_tick == 107
+    assert prod.last_vote_timestamp == BASE_MS + 900000100
+    assert prod.blob()["lastVoteTimestamp"] == prod.last_vote_timestamp
+    assert prod.blob()["zid"] == Z["revote"]
+    assert served.tick("preprod") is not None
 
 
 def test_generated_cases_land_beside_the_extracted_ones(extracted):

@@ -254,6 +254,68 @@ The event stream is the authoritative artifact and is LOSSLESS:
   before any row is written, rather than a `TypeError` from unary negation
   partway through a file.
 
+### Served math rows (optional, off by default)
+
+Everything above captures a conversation's **inputs**. A bundle may also capture
+what the Clojure engine actually **served** — the prerequisite for any
+off-policy fidelity comparison of a replacement engine against the Clojure era,
+and for inferring the recompute schedule (P-052 section 4.5).
+
+- **What is read.** Two additional `SELECT`s per conversation, against tables
+  that already exist: `math_main` (one row per `math_env` — the published blob,
+  `last_vote_timestamp`, `math_tick`, `caching_tick`, `modified`) and
+  `math_ticks` (the publish counter). **This is an extraction change and
+  nothing else: no migration, no new column, no trigger, no write of any kind.**
+- **How it is turned on.** By the committed selection config, like every other
+  rule that decides what a bundle contains:
+  `"served_math": {"capture": true}`, optionally with
+  `"math_envs": ["prod"]` to restrict it. The block is **absent** from the
+  shipped `certify_datasets.json`, which is what keeps the capture off and keeps
+  that file byte-identical — so `commits.config_sha256` in every manifest
+  already published is unchanged, and an extraction with the capture off
+  reproduces its bundle byte-for-byte. Turning it on is a reviewed config edit
+  that mints a new config version and therefore a new bundle version.
+- **What is written**, into the same opaque fixture directory:
+  `served_math.json` (per-`math_env` scalars, blob digests, and the consistency
+  diagnostic) and one `served-math-NNN.blob.json` per `math_env`. Blob files are
+  named by **row index, never by `math_env`** — `math_env` is a free
+  `VARCHAR(999)` and a value carrying a separator would otherwise choose the
+  path.
+- **The blob is verbatim.** `data` is selected as `::text`, so Postgres' own
+  jsonb key order and number rendering are the bundle bytes; nothing
+  re-serialises it. The blob file holds that text and nothing else — no trailing
+  newline — so its digest is at once the digest of the blob and of the file.
+- **Redaction.** Neither query selects a `zid`, and `served_math.json` carries
+  none. A verbatim served blob, however, retains whatever Clojure's `prep-main`
+  whitelist published inside it, **including the conversation's own `zid` key**.
+  When any role captured served rows, the manifest's `redactions` list says so
+  explicitly rather than leaving the blanket claim to cover for it. The blob
+  files are private-tier payload and are never published; the manifest itself
+  still carries no identity.
+- **Admission.** The block is optional, so an absent one is a complete
+  statement — this bundle did not capture what the engine served. A block that
+  IS present is admitted as strictly as everything else: closed key set, a
+  schema version admission recognises, and every file it names must be in the
+  inventory under the digest it claims.
+- **The watermark check is a DIAGNOSTIC, never a gate**, and admission refuses a
+  bundle that records it as one. `math_main` is a latest-only UPSERT and the
+  extraction snapshot is taken after the last publish, so votes arriving after
+  the served watermark are the ordinary production case; what the diagnostic
+  reports is which prefix of the vote stream the served blob was computed from.
+  Its verdicts are `consistent`, `votes-arrived-after-the-served-watermark`,
+  `no-votes-extracted`, and the one worth investigating,
+  `watermark-ahead-of-every-extracted-vote` — a served row citing a vote the
+  extract does not contain.
+- **Reading it back.** `polismath.replay.real_data.load_served_math` /
+  `read_served_math` return the rows, the tick counters and the verbatim blob
+  text, re-hashing each blob against the recorded digest;
+  `check_served_math_against_dataset` re-derives the diagnostic from whatever a
+  replay actually loaded, which is how a millisecond-stream capture and a
+  second-resolution compatibility CSV are kept from quietly disagreeing.
+- **`math_ticks.math_tick` counts publishes and defaults to 0**, so after `P`
+  publishes it reads `P - 1`. The raw column value is recorded, never a
+  corrected count.
+
 ## Release record
 
 _Empty. Filled in per release with the candidate commit/image, oracle

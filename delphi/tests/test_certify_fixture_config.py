@@ -196,6 +196,47 @@ def test_selection_group_rejections(config, mutate, needle):
         fc.validate_config(_broken(config, mutate))
 
 
+# ---------------------------------------------------------------------------
+# Rule 9 — the optional served-math capture (P-052 §4.5).
+# ---------------------------------------------------------------------------
+
+
+def test_the_capture_block_is_optional_and_absent_from_the_shipped_config(config):
+    """Absent, not ``{"capture": false}``. That is what keeps the shipped
+    config's bytes — and therefore ``commits.config_sha256`` in every manifest
+    already published — unchanged by this feature."""
+    assert "served_math" not in config
+    assert fc.served_math_options(config) == fc.SERVED_MATH_OFF
+
+
+@pytest.mark.parametrize("block,capture,envs", [
+    ({"capture": False}, False, None),
+    ({"capture": True}, True, None),
+    ({"capture": True, "math_envs": ["prod", "preprod"]}, True,
+     ("prod", "preprod")),
+])
+def test_a_valid_capture_block_is_accepted_and_read_back(
+        config, block, capture, envs):
+    cfg = _broken(config, lambda c: c.update(served_math=block))
+    fc.validate_config(cfg)
+    options = fc.served_math_options(cfg)
+    assert options.capture is capture and options.math_envs == envs
+
+
+@pytest.mark.parametrize("block,needle", [
+    ({}, "missing required property 'capture'"),
+    ({"capture": "yes"}, "expected type boolean"),
+    ({"capture": True, "math_envs": []}, "0 items < minItems 1"),
+    ({"capture": True, "math_envs": [""]}, "shorter than minLength 1"),
+    ({"capture": True, "surprise": 1}, "unexpected property"),
+    ({"capture": False, "math_envs": ["prod"]}, "only meaningful with capture=true"),
+    ({"capture": True, "math_envs": ["prod", "prod"]}, "duplicate entries"),
+])
+def test_capture_block_rejections(config, block, needle):
+    with pytest.raises(fc.ConfigError, match=needle.replace("$", r"\$")):
+        fc.validate_config(_broken(config, lambda c: c.update(served_math=block)))
+
+
 def test_selection_group_members_rank_into_one_shared_list():
     """The spec's large-shape rule selects ranks 1/2/4/8/16 from ONE ordering;
     an earlier rank must not shift a later one."""
