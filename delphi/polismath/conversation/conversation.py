@@ -7,7 +7,7 @@ including votes, clustering, and representativeness calculation.
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Set, Tuple, Union, Any, Callable
+from typing import Dict, List, Mapping, Optional, Set, Tuple, Union, Any, Callable, TYPE_CHECKING
 from copy import deepcopy
 import time
 import logging
@@ -32,6 +32,9 @@ from polismath.pca_kmeans_rep.legacy_kmeans import (
 )
 from polismath.utils.clj_hash import clojure_hash_map_key_order
 from polismath.utils.output_profile import assert_restorable
+
+if TYPE_CHECKING:  # import cycle-free: annotation-only reference
+    from polismath.database.dynamodb import DynamoDBClient
 
 
 # Configure logging
@@ -176,7 +179,7 @@ class Conversation:
     def __init__(self, 
                 conversation_id: Union[str, int],
                 last_updated: Optional[int] = None,
-                votes: Optional[Dict[str, Any]] = None):
+                votes: Optional[Dict[str, Any]] = None) -> None:
         """
         Initialize a conversation.
         
@@ -248,7 +251,7 @@ class Conversation:
             self.update_votes(votes)
     
     def update_votes(self, 
-                    votes: Dict[str, Any],
+                    votes: Mapping[str, Any],
                     recompute: bool = True) -> 'Conversation':
         """
         Update the conversation with new votes.
@@ -616,7 +619,7 @@ class Conversation:
             }
     
     def update_moderation(self, 
-                         moderation: Dict[str, Any],
+                         moderation: Mapping[str, Any],
                          recompute: bool = True) -> 'Conversation':
         """
         Update moderation settings.
@@ -1826,7 +1829,7 @@ class Conversation:
         group_votes = {}
 
         # Helper to count votes of a specific type for a group
-        def count_votes_for_group(group_id, comment_id, vote_type):
+        def count_votes_for_group(group_id: Any, comment_id: Any, vote_type: str) -> int:
             group = next((g for g in unfolded if g.get('id') == group_id), None)
             if not group:
                 return 0
@@ -2176,7 +2179,7 @@ class Conversation:
         # Add PCA data efficiently
         if self.pca:
             # Function to safely convert numpy arrays to lists
-            def numpy_to_list(arr):
+            def numpy_to_list(arr: Any) -> Any:
                 if isinstance(arr, np.ndarray):
                     return arr.tolist()
                 elif isinstance(arr, list):
@@ -2472,7 +2475,7 @@ class Conversation:
         logger.info(f"Total to_dict time: {time.time() - overall_start_time:.4f}s")
         return result
     
-    def _convert_structure(self, data):
+    def _convert_structure(self, data: Any) -> Any:
         """
         Optimized conversion of nested data structures for Clojure compatibility.
         Much faster than the full recursive conversion.
@@ -2540,7 +2543,7 @@ class Conversation:
             'total': 0
         }
         
-        def _convert_inner(data, depth=0):
+        def _convert_inner(data: Any, depth: int = 0) -> Any:
             processed_count['total'] += 1
             
             # For immutable types, use memoization to avoid re-processing
@@ -2673,7 +2676,7 @@ class Conversation:
     
     # Reset the conversion cache whenever needed
     @staticmethod
-    def _reset_conversion_cache():
+    def _reset_conversion_cache() -> None:
         """Clear the conversion cache to free memory."""
         Conversation._conversion_cache = {}
     
@@ -2802,7 +2805,7 @@ class Conversation:
         # priorities reduce only iterates values). Improved mode is
         # unaffected in practice: priorities there read the CURRENT tick's
         # group-votes, and the recompute overwrites this attribute first.
-        def _numeric_key(k):
+        def _numeric_key(k: Any) -> Any:
             try:
                 return int(k)
             except (ValueError, TypeError):
@@ -2864,7 +2867,7 @@ class Conversation:
         }
         
         # Function to convert numpy arrays to lists
-        def numpy_to_list(obj):
+        def numpy_to_list(obj: Any) -> Any:
             if isinstance(obj, np.ndarray):
                 return obj.tolist()
             elif isinstance(obj, list):
@@ -2878,7 +2881,7 @@ class Conversation:
             return obj
         
         # Function to convert floats to Decimal for DynamoDB compatibility
-        def float_to_decimal(obj):
+        def float_to_decimal(obj: Any) -> Any:
             if isinstance(obj, float):
                 return decimal.Decimal(str(obj))
             elif isinstance(obj, dict):
@@ -3182,7 +3185,7 @@ class Conversation:
         logger.info(f"[{time.time() - start_time:.2f}s] Conversion to DynamoDB format completed")
         return result
 
-    def export_to_dynamodb(self, dynamodb_client) -> bool:
+    def export_to_dynamodb(self, dynamodb_client: "DynamoDBClient") -> bool:
         """
         Export conversation data directly to DynamoDB.
         
