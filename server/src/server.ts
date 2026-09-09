@@ -81,8 +81,12 @@ function initializePolisHelpers() {
           detectLanguage(c.txt).then((x: DetectLanguageResult[]) => {
             const firstResult = x[0];
             logger.debug("backfill " + firstResult.language + "\t\t" + c.txt);
+            // Stamp `modified` alongside the language columns: it is the only
+            // change signal the math pollers have for a comment row, and
+            // nothing maintains it on UPDATE. See `moderateCommentQuery` in
+            // `routes/comments.ts` for the full note.
             pg.queryP(
-              "update comments set lang = ($1), lang_confidence = ($2) where zid = ($3) and tid = ($4)",
+              "update comments set lang = ($1), lang_confidence = ($2), modified = now_as_millis() where zid = ($3) and tid = ($4)",
               [firstResult.language, firstResult.confidence, c.zid, c.tid]
             ).then(() => {
               doNext();

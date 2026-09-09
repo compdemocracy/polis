@@ -401,8 +401,14 @@ export async function handle_POST_topicMod_moderate(
     const moderatedTids = new Set<number>();
 
     const applyModeration = async (tid: unknown): Promise<void> => {
+      // `modified` is stamped in the same statement as the moderation state.
+      // Both math pollers discover moderation only through a strict
+      // `modified > watermark` query, and nothing else maintains the column on
+      // UPDATE, so a topic moderation that left it alone would be invisible to
+      // the engine for any comment already past the watermark. See the same
+      // note on `moderateCommentQuery` in `routes/comments.ts`.
       const updated = (await p.queryP(
-        "UPDATE comments SET mod = ($1), is_meta = ($2) WHERE zid = ($3) AND tid = ($4) RETURNING tid",
+        "UPDATE comments SET mod = ($1), is_meta = ($2), modified = now_as_millis() WHERE zid = ($3) AND tid = ($4) RETURNING tid",
         [moderationStatus, isMeta, zid, tid]
       )) as Array<{ tid: number }>;
       for (const row of updated || []) {
