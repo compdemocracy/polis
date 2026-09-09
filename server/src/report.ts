@@ -1,7 +1,10 @@
 import pg from "./db/pg-query";
 import { getZinvite } from "./utils/zinvite";
 import { getXids } from "./routes/xids";
-import { getPca } from "./utils/pca";
+// The report joins participants, groups and comments across several reads.
+// `getPcaFromBundle` pins every one of them to a single coherent math
+// generation; it is byte-identical to `getPca(zid)` for a coherent Bundle.
+import { getPcaFromBundle } from "./utils/pca";
 import { failJson } from "./utils/fail";
 import logger from "./utils/logger";
 import { getCommentsWithClusters } from "./utils/commentClusters";
@@ -184,7 +187,7 @@ async function loadParticipantExportContext(
       "SELECT tid, pid FROM comments WHERE zid = ($1) ORDER BY tid ASC, created ASC",
       [zid]
     ),
-    getPca(zid),
+    getPcaFromBundle(zid),
   ]);
 
   const commentRows = (commentRowsRaw as { tid: number; pid: number }[]) || [];
@@ -249,7 +252,7 @@ export async function loadConversationSummary(zid: number, siteUrl: string) {
     // predicate is NOT the participant-visible one `getCommentsCount` applies,
     // and it is NOT the report's `mod_gt = mod_level` one. Preserved as-is here;
     // reconciling the three is P-025 work, not this change.
-    getPca(zid).then((data) => presentPca(zid, data)),
+    getPcaFromBundle(zid).then((data) => presentPca(zid, data)),
     // getPca(zid, -1),
   ]);
   if (!zinvite || !convoRows || !commentersRow || !pca) {
@@ -621,7 +624,7 @@ export async function sendCommentGroupsSummary(
   // Get PCA data to identify groups and get groupVotes
   // const pca = await getPca(zid, -1);
   // Presented, because this CSV zips `tids` against `comment-extremity` below.
-  const pca = await presentPca(zid, await getPca(zid));
+  const pca = await presentPca(zid, await getPcaFromBundle(zid));
   if (!pca?.asPOJO) {
     throw new Error("polis_error_no_pca_data");
   }
@@ -932,7 +935,7 @@ export async function sendParticipantXidsSummary(
 ) {
   try {
     // const pca = await getPca(zid, -1);
-    const pca = await getPca(zid);
+    const pca = await getPcaFromBundle(zid);
     if (!pca?.asPOJO) {
       throw new Error("polis_error_no_pca_data");
     }

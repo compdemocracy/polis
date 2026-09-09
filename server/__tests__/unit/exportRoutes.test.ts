@@ -10,7 +10,8 @@ import {
 } from "../../src/report";
 import pg from "../../src/db/pg-query";
 import { getZinvite } from "../../src/utils/zinvite";
-import { getPca } from "../../src/utils/pca";
+// report.ts reads the latest generation through the coherent Bundle reader.
+import { getPcaFromBundle } from "../../src/utils/pca";
 import { getXids } from "../../src/routes/xids";
 import { jest } from "@jest/globals";
 import logger from "../../src/utils/logger";
@@ -181,7 +182,7 @@ describe("handle_GET_reportExport", () => {
           { topic: "Test Topic", description: "Test Description" },
         ] as never)
         .mockResolvedValueOnce([{ count: 10 }] as never);
-      (getPca as jest.Mock).mockResolvedValue({
+      (getPcaFromBundle as jest.Mock).mockResolvedValue({
         asPOJO: {
           "in-conv": [1, 2, 3],
           "user-vote-counts": { 1: 5, 2: 3 },
@@ -219,7 +220,7 @@ describe("handle_GET_reportExport", () => {
   describe("Participant XIDs summary", () => {
     it("sendParticipantXidsSummary should send the participant XIDs as CSV", async () => {
       // Mock the dependencies
-      (getPca as jest.Mock).mockResolvedValue({
+      (getPcaFromBundle as jest.Mock).mockResolvedValue({
         asPOJO: {
           "in-conv": [1, 2, 3],
           "user-vote-counts": { 1: 5, 2: 3, 3: 2 },
@@ -246,7 +247,7 @@ describe("handle_GET_reportExport", () => {
 
     it("sendParticipantXidsSummary should handle empty xids array", async () => {
       // Mock the dependencies
-      (getPca as jest.Mock).mockResolvedValue({
+      (getPcaFromBundle as jest.Mock).mockResolvedValue({
         asPOJO: {
           "in-conv": [],
           "user-vote-counts": {},
@@ -268,8 +269,8 @@ describe("handle_GET_reportExport", () => {
     it("sendParticipantXidsSummary should handle errors during export", async () => {
       const mockError = new Error("polis_error_no_pca_data");
 
-      // Mock getPca to throw an error
-      (getPca as jest.Mock).mockRejectedValue(mockError as never);
+      // Mock getPcaFromBundle to throw an error
+      (getPcaFromBundle as jest.Mock).mockRejectedValue(mockError as never);
 
       await sendParticipantXidsSummary(zid, mockRes as any);
 
@@ -416,8 +417,8 @@ describe("handle_GET_reportExport", () => {
         { tid: 3, pid: 2 },
       ] as never);
 
-      // Mock getPca to return properly structured PCA data
-      (getPca as jest.Mock).mockResolvedValue({
+      // Mock getPcaFromBundle to return properly structured PCA data
+      (getPcaFromBundle as jest.Mock).mockResolvedValue({
         asPOJO: basePcaData,
       } as never);
 
@@ -487,8 +488,8 @@ describe("handle_GET_reportExport", () => {
         },
       };
 
-      // Mock getPca with the modified data
-      (getPca as jest.Mock).mockResolvedValue({
+      // Mock getPcaFromBundle with the modified data
+      (getPcaFromBundle as jest.Mock).mockResolvedValue({
         asPOJO: modifiedPcaData,
       } as never);
 
@@ -530,7 +531,7 @@ describe("handle_GET_reportExport", () => {
         { tid: 104, pid: 40 }, // Participant 40 authored comment 104 (not in PCA)
       ] as never);
 
-      // 2. Mock PCA data (getPca)
+      // 2. Mock PCA data (getPcaFromBundle)
       const pcaDataWithNonSequentialBaseClusterIds = {
         "in-conv": [10, 20, 30], // Participants 10, 20, 30 are in the conversation
         "base-clusters": {
@@ -550,7 +551,7 @@ describe("handle_GET_reportExport", () => {
         ],
         "user-vote-counts": { 10: 1, 20: 1, 30: 1 },
       };
-      (getPca as jest.Mock).mockResolvedValue({
+      (getPcaFromBundle as jest.Mock).mockResolvedValue({
         asPOJO: pcaDataWithNonSequentialBaseClusterIds,
       } as never);
 
@@ -618,8 +619,8 @@ describe("handle_GET_reportExport", () => {
         { tid: 3, pid: 2 },
       ] as never);
 
-      // Mock getPca to return properly structured PCA data
-      (getPca as jest.Mock).mockResolvedValue({
+      // Mock getPcaFromBundle to return properly structured PCA data
+      (getPcaFromBundle as jest.Mock).mockResolvedValue({
         asPOJO: basePcaData,
       } as never);
 
@@ -653,8 +654,8 @@ describe("handle_GET_reportExport", () => {
         { tid: 2, pid: 1 },
       ] as never);
 
-      // Mock getPca to return properly structured PCA data
-      (getPca as jest.Mock).mockResolvedValue({
+      // Mock getPcaFromBundle to return properly structured PCA data
+      (getPcaFromBundle as jest.Mock).mockResolvedValue({
         asPOJO: basePcaData,
       } as never);
 
@@ -715,8 +716,8 @@ describe("handle_GET_reportExport", () => {
         "user-vote-counts": { 1: 1, 3: 1 },
       };
 
-      // Mock getPca with the modified data
-      (getPca as jest.Mock).mockResolvedValue({
+      // Mock getPcaFromBundle with the modified data
+      (getPcaFromBundle as jest.Mock).mockResolvedValue({
         asPOJO: modifiedPcaData,
       } as never);
 
