@@ -33,7 +33,7 @@ class ConversationComparer:
         outlier_fraction: float = 0.01,
         loose_abs_tolerance: float | None = None,
         loose_rel_tolerance: float | None = None,
-    ):
+    ) -> None:
         """
         Initialize the comparer with numeric tolerances.
 
@@ -507,7 +507,7 @@ class ConversationComparer:
                             perf_emoji = "⚠️"   # Significantly slower
 
                     # Format times in appropriate units
-                    def format_time(t):
+                    def format_time(t: float) -> str:
                         if t < 0.001:
                             return f"{t*1000000:.0f}µs"
                         elif t < 1.0:
@@ -583,7 +583,7 @@ class ConversationComparer:
             # This handles the case where golden snapshot has Python int/float but current has numpy int64/float64
             import numpy as np
 
-            def is_numeric(val):
+            def is_numeric(val: Any) -> bool:
                 """Check if value is any numeric type (Python or numpy)"""
                 return isinstance(val, (int, float, np.integer, np.floating))
 
@@ -608,7 +608,7 @@ class ConversationComparer:
         # Handle dictionaries
         if isinstance(golden, dict):
             # Normalize keys: JSON converts int keys to strings, so we need to handle both
-            def normalize_key(k):
+            def normalize_key(k: Any) -> str:
                 """Convert to string for comparison, as JSON stores dict keys as strings"""
                 return str(k)
 
@@ -973,7 +973,7 @@ class ConversationComparer:
             return result
 
         # Check if all elements are numeric
-        def is_numeric(val):
+        def is_numeric(val: Any) -> bool:
             return isinstance(val, (int, float, np.integer, np.floating))
 
         if not all(is_numeric(g) and is_numeric(c) for g, c in zip(golden, current)):
@@ -1046,7 +1046,7 @@ class ConversationComparer:
             return None
 
         # Check if all elements are numeric
-        def is_numeric(val):
+        def is_numeric(val: Any) -> bool:
             return isinstance(val, (int, float, np.integer, np.floating))
 
         if not all(is_numeric(g) and is_numeric(c) for g, c in zip(golden, current)):
@@ -1589,7 +1589,7 @@ class ConversationComparer:
         all_pass = pass_max_err and pass_mean_err and pass_r2_all and pass_r2_dims and pass_procrustes
 
         # Helper for emoji
-        def check(passed):
+        def check(passed: object) -> str:
             return "✅" if passed else "❌"
 
         # Log the metrics with pass/fail indicators
@@ -1779,7 +1779,7 @@ class ConversationComparer:
                         perf_emoji = "⚠️"   # Significantly slower
 
                 # Format times in appropriate units
-                def format_time(t):
+                def format_time(t: float) -> str:
                     if t < 0.001:
                         return f"{t*1000000:.0f}µs"
                     elif t < 1.0:

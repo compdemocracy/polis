@@ -32,7 +32,7 @@ class ClojureComparer:
         rel_tolerance: float = 1e-6,
         jaccard_threshold: float = 0.95,
         distribution_tolerance: float = 0.05,
-    ):
+    ) -> None:
         """
         Initialize with tolerance configuration.
 

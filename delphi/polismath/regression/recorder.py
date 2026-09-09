@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class ConversationRecorder:
     """Records golden snapshots of Conversation computations for regression testing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Golden snapshots are now stored in dataset-specific directories in real_data
         pass
 
