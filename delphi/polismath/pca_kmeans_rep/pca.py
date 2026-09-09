@@ -1,8 +1,18 @@
 """
 PCA (Principal Component Analysis) for Pol.is.
 
-This module wraps sklearn PCA with Pol.is-specific handling: mean imputation
-of missing votes (NaN) and sparsity-aware projection scaling.
+The production solver is a Clojure-parity power-iteration eigensolver
+(`powerit_pca` / `_power_iteration` below), warm-started each tick from the
+previous tick's unit components (see `pca_project_dataframe`'s
+`start_vectors` param and conversation.py:761-779). A single-shot sklearn
+PCA path also exists (`POLISMATH_PCA_IMPL=sklearn`), but it cannot accept a
+warm start, so `pca_project_dataframe` overrides it back to power iteration
+whenever `require_powerit=True` or `start_vectors` is supplied — which is
+always the case in production (conversation.py:1335, 1355) — making the
+sklearn path unreachable outside of direct/test-only calls with
+`require_powerit=False`. On top of whichever solver runs, this module also
+handles mean imputation of missing votes (NaN) and sparsity-aware
+projection scaling.
 """
 
 import logging
@@ -220,9 +230,16 @@ def pca_project_dataframe(df: pd.DataFrame,
     Perform PCA on a DataFrame and project participants into PCA space.
 
     Missing votes (NaN) are imputed with column means before PCA.
-    Uses sklearn PCA internally. Projections are scaled by the square root
-    of the proportion of comments each participant has seen, to account
-    for vote sparsity.
+    Solves via the power-iteration eigensolver (`powerit_pca`/
+    `_power_iteration` above), warm-started from `start_vectors` when given
+    (the previous tick's components in production). An sklearn PCA path is
+    also selectable (`POLISMATH_PCA_IMPL=sklearn`), but it has no
+    start-vector hook, so it is overridden back to power iteration whenever
+    `require_powerit=True` or `start_vectors` is provided (see below) —
+    which is always the case at the production call sites
+    (conversation.py:1335, 1355), making the sklearn path unreachable there.
+    Projections are scaled by the square root of the proportion of comments
+    each participant has seen, to account for vote sparsity.
 
     Args:
         df: DataFrame with participants as rows and comments as columns.
