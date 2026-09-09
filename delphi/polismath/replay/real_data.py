@@ -217,9 +217,9 @@ class ServedMathRow:
 
 @dataclass(frozen=True)
 class ServedMathTick:
-    """One ``math_ticks`` row. ``math_tick`` counts PUBLISHES and defaults to
-    0, so after ``P`` publishes it reads ``P - 1``; the raw column value is
-    what is carried here."""
+    """One raw ``math_ticks`` row. P-1 assumes default initialization and an
+    uninterrupted row lifecycle; it is not a recompute history. Missing optional
+    columns are distinguished from SQL NULL by ``ServedMath.meta.source_columns``."""
 
     math_env: str
     math_tick: int | None
@@ -254,41 +254,25 @@ def read_served_math(
     """Read a served-math capture out of ONE fixture directory.
 
     Returns ``None`` when the directory holds no capture. ``verify_digests``
-    re-hashes each blob file against the digest the capture recorded, so a
-    truncated or edited blob is caught at load rather than silently scored
-    against; pass ``False`` only for a deliberately partial workspace.
+    validates metadata, census and the event-timestamp diagnostic, then hashes
+    and sizes every blob. Pass ``False`` only to inspect changed blob bytes;
+    metadata and path validation remain required. Bundle verification separately
+    binds this metadata to the manifest.
     """
-    directory = Path(directory)
-    meta_path = directory / SERVED_MATH_META_FILENAME
-    if not meta_path.is_file():
-        return None
-    meta = json.loads(meta_path.read_text())
-    if not isinstance(meta, dict):
-        raise ServedMathError(f"{meta_path} does not hold a JSON object")
+    from polismath.replay.served_math import CaptureError, read_capture
 
+    directory = Path(directory)
+    try:
+        capture = read_capture(directory, verify_digests=verify_digests)
+    except CaptureError as exc:
+        raise ServedMathError(str(exc)) from exc
+    if capture is None:
+        return None
+    meta, raw_blobs = capture
     rows: list[ServedMathRow] = []
     for entry in meta.get("math_main", []):
         blob_file = str(entry["blob_file"])
-        # The capture names its blob files by row index, never by math_env, so
-        # a name is a plain component. Re-check rather than trust the file.
-        if "/" in blob_file or "\\" in blob_file or blob_file in (".", ".."):
-            raise ServedMathError(
-                f"{meta_path} names an unsafe blob file {blob_file!r}")
-        blob_path = directory / blob_file
-        if not blob_path.is_file():
-            raise ServedMathError(
-                f"{meta_path} names blob file {blob_file!r}, which is missing")
-        raw = blob_path.read_bytes()
-        if verify_digests:
-            actual = hashlib.sha256(raw).hexdigest()
-            if actual != entry.get("blob_sha256"):
-                raise ServedMathError(
-                    f"served blob {blob_path} hashes to {actual}, the capture "
-                    f"recorded {entry.get('blob_sha256')}")
-            if len(raw) != entry.get("blob_bytes"):
-                raise ServedMathError(
-                    f"served blob {blob_path} is {len(raw)} bytes, the capture "
-                    f"recorded {entry.get('blob_bytes')}")
+        raw = raw_blobs[blob_file]
         rows.append(ServedMathRow(
             math_env=str(entry["math_env"]),
             last_vote_timestamp=entry.get("last_vote_timestamp"),
@@ -346,7 +330,7 @@ def check_served_math_against_dataset(
     fact about the ingress, and it should be visible rather than assumed away.
 
     Reuses the extractor's implementation so there is exactly one definition of
-    what "consistent" means.
+    the timestamp relation.
     """
     from polismath.replay import fixture_extract as fx
 

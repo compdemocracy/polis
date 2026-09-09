@@ -1000,7 +1000,9 @@ def push(
 
     if admit:
         admit_manifest(manifest, config=config, config_bytes=config_bytes,
-                       config_path=config_path)
+                       config_path=config_path, payload_root=payload_root)
+
+    _verify_served_payloads(payload_root, manifest)
 
     # 1. Pre-flight: verify EVERY payload digest against the manifest before a
     #    single byte is published.
@@ -1119,10 +1121,34 @@ def verify(payload_root: Path, manifest: dict[str, Any], *,
         problems.append(
             f"root digest mismatch: expected {manifest['root_digest']}, got {digest}")
 
+    try:
+        _verify_served_payloads(payload_root, manifest)
+    except VerificationError as exc:
+        problems.append(str(exc))
+
     if problems:
         raise VerificationError(
             f"bundle {manifest['bundle_id']} failed verification:\n  - "
             + "\n  - ".join(problems))
+
+
+def _verify_served_payloads(payload_root: Path, manifest: dict[str, Any]) -> None:
+    from polismath.replay.served_math import CaptureError, read_capture
+
+    named = set()
+    for role in manifest.get("roles", []):
+        if "served_math" not in role:
+            continue
+        try:
+            directory = safe_join(payload_root, role["dir"])
+            read_capture(directory, expected_summary=role["served_math"])
+            named.add(f"{role['dir']}/served_math.json")
+        except (CaptureError, KeyError, TypeError, ValueError) as exc:
+            raise VerificationError(f"served_math: {exc}") from exc
+    actual = {p.relative_to(payload_root).as_posix()
+              for p in payload_root.rglob("served_math.json")}
+    if actual != named:
+        raise VerificationError("served metadata file census differs from manifest roles")
 
 
 # ---------------------------------------------------------------------------
@@ -1325,6 +1351,28 @@ def _canonical_config(config: Any) -> str:
 
 
 def admit_manifest(
+    manifest: dict[str, Any], *, config: dict[str, Any] | None = None,
+    config_bytes: bytes | None = None, config_path: Path | None = None,
+    payload_root: Path | None = None,
+) -> None:
+    """Admit structure and, when served capture is present, its actual payload.
+
+    A served logical digest cannot be verified from the manifest alone. The
+    private pull preflight checks structure before download; full admission
+    checks the downloaded payload before making it available to consumers.
+    """
+    _admit_manifest_structure(manifest, config=config, config_bytes=config_bytes,
+                              config_path=config_path)
+    if any("served_math" in row for row in manifest["roles"]):
+        if payload_root is None:
+            raise AdmissionError("served_math admission requires payload_root")
+        try:
+            verify(payload_root, manifest)
+        except VerificationError as exc:
+            raise AdmissionError(str(exc)) from exc
+
+
+def _admit_manifest_structure(
     manifest: dict[str, Any], *, config: dict[str, Any] | None = None,
     config_bytes: bytes | None = None, config_path: Path | None = None,
 ) -> None:
@@ -1939,7 +1987,7 @@ def _admit_served_math(
         for missing in sorted(SERVED_MATH_BLOB_KEYS - set(blob)):
             P(False, f"role {slug!r} served_math {where} is missing {missing!r}")
         name = blob.get("file")
-        P(name not in seen_files,
+        P(isinstance(name, str) and name not in seen_files,
           f"role {slug!r} served_math {where} names file {name!r} twice")
         seen_files.add(str(name))
         P(_is_count(blob.get("bytes")) and blob.get("bytes") != 0,
@@ -2040,8 +2088,8 @@ def pull(
     # admitted must not leave a half-populated workspace behind that an engine
     # could pick up.
     if admit:
-        admit_manifest(manifest, config=config, config_bytes=config_bytes,
-                       config_path=config_path)
+        _admit_manifest_structure(manifest, config=config, config_bytes=config_bytes,
+                                  config_path=config_path)
 
     payload_root = dest / "payload"
     payload_root.mkdir()

@@ -43,7 +43,7 @@ the extractor writes two more kinds of file into the SAME opaque directory:
     — no Python json round-trip, so Postgres' own jsonb key order and number
     rendering survive into the bundle bytes.
 
-This is an EXTRACTION change and nothing else: two additional ``SELECT``s
+This is an EXTRACTION change and nothing else: schema discovery plus two additional row ``SELECT``s
 against tables that already exist. No migration, no new column, no trigger,
 no write of any kind. It is off by default, and the shipped selection config
 does not carry the block at all, so an existing bundle's bytes — and its
@@ -78,6 +78,10 @@ if TYPE_CHECKING:  # psycopg2 is a runtime dependency of the CALLER, not of this
     from psycopg2.extensions import cursor as PgCursor
 
 from polismath.replay import prodclone as pc
+from polismath.replay.served_math import (
+    MAIN_COLUMNS, TICK_COLUMNS, blob_watermark, served_math_consistency,
+    served_math_logical_digest, served_math_summary,
+)
 from polismath.utils.vote_convention import (
     EXPORT_AGREE_VALUE,
     STORAGE_AGREE_VALUE,
@@ -346,21 +350,15 @@ def sql_math_main_rows() -> str:
     """
 
 
-def sql_math_ticks_rows() -> str:
-    """The publish counter for one conversation, one row per ``math_env``.
+def sql_math_ticks_rows(columns: Sequence[str] = TICK_COLUMNS) -> str:
+    """Read available tick columns; the schema may omit caching_tick.
 
-    ``math_ticks(zid, math_tick, caching_tick, math_env, modified)``,
-    ``UNIQUE(zid, math_env)`` (``000000_initial.sql``). The counter DEFAULTS to
-    0 and ``inc-math-tick`` increments on conflict, so after ``P`` publishes it
-    reads ``P - 1`` — recorded here as the raw column value, never as a
-    corrected publish count. READ ONLY.
+    The raw counter is not a recompute history. P-1 applies only with default
+    initialization and an uninterrupted row lifecycle.
     """
-    return """
-        SELECT math_env, math_tick, caching_tick, modified
-        FROM math_ticks
-        WHERE zid = %s
-        ORDER BY math_env ASC
-    """
+    if not set(columns) <= set(TICK_COLUMNS) or "math_env" not in columns:
+        raise ValueError("unsupported math_ticks columns")
+    return "SELECT " + ", ".join(columns) + "\nFROM math_ticks\nWHERE zid = %s\nORDER BY math_env ASC"
 
 
 # ---------------------------------------------------------------------------
@@ -534,129 +532,14 @@ def stream_meta(
 # ---------------------------------------------------------------------------
 
 
-def blob_watermark(blob_text: str) -> tuple[int | None, str | None]:
-    """The blob's own ``lastVoteTimestamp``, and why it is absent when it is.
-
-    The blob is captured verbatim and is NOT rewritten by this parse; the parse
-    exists only to read one scalar for the consistency diagnostic. A blob that
-    does not parse, or that carries a non-integer watermark, yields
-    ``(None, reason)`` and is reported — never silently coerced.
-    """
-    try:
-        parsed = json.loads(blob_text)
-    except (json.JSONDecodeError, ValueError) as exc:
-        return None, f"blob is not parseable JSON: {exc}"
-    if not isinstance(parsed, dict):
-        return None, f"blob is a JSON {type(parsed).__name__}, not an object"
-    if SERVED_BLOB_WATERMARK_KEY not in parsed:
-        return None, f"blob carries no {SERVED_BLOB_WATERMARK_KEY!r} key"
-    value = parsed[SERVED_BLOB_WATERMARK_KEY]
-    if isinstance(value, bool) or not isinstance(value, int):
-        return None, (f"blob {SERVED_BLOB_WATERMARK_KEY!r} is "
-                      f"{type(value).__name__} {value!r}, not an integer")
-    return value, None
-
-
-def served_math_consistency(
-    rows: Sequence[dict[str, Any]], vote_created_ms: Sequence[int],
-) -> dict[str, Any]:
-    """DIAGNOSTIC: is each served watermark consistent with the votes extracted?
-
-    NOT A GATE, and deliberately so. The served row is the latest UPSERT, while
-    the extraction snapshot is taken later, so votes arriving after the last
-    publish are the ORDINARY production case and must not fail an extraction.
-    What this reports is the shape of the disagreement, which is what an
-    off-policy replay needs in order to know which prefix of the vote stream
-    the served blob was computed from:
-
-    ``consistent``
-        the watermark is exactly the newest extracted vote — the served blob
-        saw the whole stream.
-    ``votes-arrived-after-the-served-watermark``
-        expected; ``votes_after_watermark`` is the size of the tail the served
-        blob never saw.
-    ``watermark-ahead-of-every-extracted-vote``
-        SUSPICIOUS: the served row cites a vote the extract does not contain
-        (a different snapshot, a deleted conversation row, a clock artefact).
-    ``no-votes-extracted``
-        the conversation has no votes at all; nothing to compare.
-
-    ``rows`` are the per-``math_env`` entries built by
-    :func:`build_served_math`, so the blob is parsed exactly once.
-    """
-    times = sorted(int(t) for t in vote_created_ms)
-    max_ms = times[-1] if times else None
-    per_env: list[dict[str, Any]] = []
-    for row in rows:
-        watermark = row.get("last_vote_timestamp")
-        blob_watermark_value = row.get("blob_last_vote_timestamp")
-        entry: dict[str, Any] = {
-            "math_env": row.get("math_env"),
-            "last_vote_timestamp": watermark,
-            "blob_last_vote_timestamp": blob_watermark_value,
-            "column_matches_blob": (
-                None if blob_watermark_value is None or watermark is None
-                else blob_watermark_value == watermark),
-            "blob_watermark_absent_because": row.get("blob_watermark_absent_because"),
-        }
-        if watermark is None:
-            entry.update({
-                "verdict": "no-watermark-column",
-                "votes_at_or_before_watermark": None,
-                "votes_after_watermark": None,
-                "watermark_minus_max_vote_ms": None,
-                "watermark_is_a_vote_timestamp": None,
-            })
-        elif not times:
-            entry.update({
-                "verdict": "no-votes-extracted",
-                "votes_at_or_before_watermark": 0,
-                "votes_after_watermark": 0,
-                "watermark_minus_max_vote_ms": None,
-                "watermark_is_a_vote_timestamp": False,
-            })
-        else:
-            at_or_before = sum(1 for t in times if t <= watermark)
-            after = len(times) - at_or_before
-            assert max_ms is not None
-            if after:
-                verdict = "votes-arrived-after-the-served-watermark"
-            elif watermark > max_ms:
-                verdict = "watermark-ahead-of-every-extracted-vote"
-            else:
-                verdict = "consistent"
-            entry.update({
-                "verdict": verdict,
-                "votes_at_or_before_watermark": at_or_before,
-                "votes_after_watermark": after,
-                "watermark_minus_max_vote_ms": watermark - max_ms,
-                "watermark_is_a_vote_timestamp": watermark in set(times),
-            })
-        per_env.append(entry)
-    return {
-        "kind": "diagnostic",
-        "gate": False,
-        "vote_events": len(times),
-        "min_vote_created_ms": times[0] if times else None,
-        "max_vote_created_ms": max_ms,
-        "per_math_env": per_env,
-        "note": "DIAGNOSTIC ONLY, never a gate. math_main is a latest-only "
-                "UPSERT and the extraction snapshot is taken after the last "
-                "publish, so a nonzero votes_after_watermark is the ordinary "
-                "production case and identifies the vote prefix the served "
-                "blob was computed from. Only "
-                "'watermark-ahead-of-every-extracted-vote' indicates the "
-                "served row and the extracted votes came from different "
-                "states.",
-    }
-
-
 def build_served_math(
     *, math_main_rows: Sequence[dict[str, Any]],
     math_ticks_rows: Sequence[dict[str, Any]],
     vote_created_ms: Sequence[int],
     requested_math_envs: Sequence[str] | None = None,
     math_envs_present: Sequence[str] | None = None,
+    source_columns: dict[str, list[str]] | None = None,
+    math_envs_present_by_table: dict[str, list[str]] | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
     """Build the served-math metadata document and the verbatim blob texts.
 
@@ -689,18 +572,23 @@ def build_served_math(
         })
         blob_texts.append(blob_text)
 
-    ticks = [{
-        "math_env": row["math_env"],
-        "math_tick": _optional_int(row.get("math_tick")),
-        "caching_tick": _optional_int(row.get("caching_tick")),
-        "modified": _optional_int(row.get("modified")),
-    } for row in math_ticks_rows]
+    if source_columns is None:
+        source_columns = {"math_main": list(MAIN_COLUMNS), "math_ticks": list(TICK_COLUMNS)}
+    ticks = [{"math_env": row["math_env"], **{
+        column: _optional_int(row[column]) for column in source_columns["math_ticks"]
+        if column != "math_env"}} for row in math_ticks_rows]
+    if math_envs_present_by_table is None:
+        math_envs_present_by_table = {
+            "math_main": sorted(r["math_env"] for r in math_main_rows),
+            "math_ticks": sorted(r["math_env"] for r in math_ticks_rows)}
 
     meta: dict[str, Any] = {
         "schema_version": SERVED_MATH_SCHEMA_VERSION,
         "captured": True,
         "source_tables": ["math_main", "math_ticks"],
-        "access": "READ ONLY: two SELECTs against tables that already exist. "
+        "source_columns": source_columns,
+        "math_envs_present_by_table": math_envs_present_by_table,
+        "access": "READ ONLY: schema discovery and two row SELECTs. "
                   "This capture makes no schema change of any kind — no "
                   "migration, no column, no trigger, no write.",
         "requested_math_envs": (None if requested_math_envs is None
@@ -729,8 +617,8 @@ def build_served_math(
             "are private-tier payload and are never published",
             "no comment text, topic, description, uid or report id is read by "
             "either query",
-            "math_ticks.math_tick counts PUBLISHES and defaults to 0, so it "
-            "reads P-1 after P publishes; the raw column value is recorded, "
+            "math_ticks.math_tick reads P-1 after P publishes only with default "
+            "initialization and an uninterrupted row lifecycle; the raw value is recorded, "
             "never a corrected count",
         ],
     }
@@ -745,60 +633,9 @@ def _optional_int(value: Any) -> int | None:
         return None
     if isinstance(value, bool):
         raise TypeError(f"expected an integer column value, got bool {value!r}")
-    return int(value)
-
-
-def served_math_logical_digest(meta: dict[str, Any]) -> str:
-    """SHA-256 over the served capture's LOGICAL content — the per-``math_env``
-    scalars and blob digests plus the tick rows, excluding the diagnostic and
-    the prose. Two extractions of the same snapshot agree on it; a changed
-    note does not move it, and a changed blob does."""
-    projection = {
-        "schema_version": meta["schema_version"],
-        "math_main": [{
-            "index": e["index"],
-            "math_env": e["math_env"],
-            "last_vote_timestamp": e["last_vote_timestamp"],
-            "math_tick": e["math_tick"],
-            "caching_tick": e["caching_tick"],
-            "modified": e["modified"],
-            "blob_sha256": e["blob_sha256"],
-            "blob_bytes": e["blob_bytes"],
-        } for e in meta["math_main"]],
-        "math_ticks": meta["math_ticks"],
-    }
-    return hashlib.sha256(json.dumps(
-        projection, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
-
-
-def served_math_summary(meta: dict[str, Any], meta_sha256: str) -> dict[str, Any]:
-    """The MANIFEST-SAFE projection of a served capture: digests, counts and
-    the diagnostic. Carries no zid and no blob content.
-
-    A blob file holds the verbatim blob text and NOTHING else — no trailing
-    newline — so ``blob_sha256`` is at once the digest of the blob and the
-    digest of the file that carries it, and there is no second number for the
-    two to disagree on. ``meta_sha256`` is the digest of ``served_math.json``
-    as written, which does end in a newline like every other JSON file here.
-    """
-    return {
-        "schema_version": meta["schema_version"],
-        "captured": True,
-        "meta_file": SERVED_MATH_META_FILENAME,
-        "meta_sha256": meta_sha256,
-        "logical_digest_sha256": meta["logical_digest_sha256"],
-        "math_envs": list(meta["math_envs_captured"]),
-        "math_main_rows": len(meta["math_main"]),
-        "math_ticks_rows": len(meta["math_ticks"]),
-        "blobs": [{
-            "math_env": entry["math_env"],
-            "file": entry["blob_file"],
-            "sha256": entry["blob_sha256"],
-            "bytes": entry["blob_bytes"],
-        } for entry in meta["math_main"]],
-        "consistency": meta["consistency"],
-    }
+    if type(value) is not int:
+        raise TypeError("expected an integer column value")
+    return value
 
 
 # ---------------------------------------------------------------------------
@@ -952,7 +789,7 @@ def fetch_conversation(conn: PgConnection, zid: int, tie_key: dict[str, Any]) ->
 def fetch_served_math(
     conn, zid: int, *, math_envs: Sequence[str] | None = None,
 ) -> dict[str, Any]:
-    """Read the SERVED rows for one conversation. Two ``SELECT``s, no writes.
+    """Read the SERVED rows with live tick-column discovery; no writes.
 
     ``math_envs`` restricts the capture to the named environments. The filter
     is applied in PYTHON rather than in SQL: an environment name is operator
@@ -965,10 +802,19 @@ def fetch_served_math(
     with conn.cursor() as cur:
         cur.execute(sql_math_main_rows(), (zid,))
         math_main = _rows_as_dicts(cur)
-        cur.execute(sql_math_ticks_rows(), (zid,))
+        cur.execute("""SELECT column_name FROM information_schema.columns
+                       WHERE table_schema = current_schema() AND table_name = %s""",
+                    ("math_ticks",))
+        available = {row[0] for row in cur.fetchall()}
+        columns = [column for column in TICK_COLUMNS if column in available]
+        if not {"math_env", "math_tick", "modified"} <= set(columns):
+            raise ValueError("math_ticks lacks required capture columns")
+        cur.execute(sql_math_ticks_rows(columns), (zid,))
         math_ticks = _rows_as_dicts(cur)
     present = sorted({str(r["math_env"]) for r in math_main}
                      | {str(r["math_env"]) for r in math_ticks})
+    present_by_table = {"math_main": sorted(r["math_env"] for r in math_main),
+                        "math_ticks": sorted(r["math_env"] for r in math_ticks)}
     if math_envs is not None:
         keep = set(math_envs)
         math_main = [r for r in math_main if str(r["math_env"]) in keep]
@@ -977,6 +823,8 @@ def fetch_served_math(
         "math_main": math_main,
         "math_ticks": math_ticks,
         "math_envs_present": present,
+        "math_envs_present_by_table": present_by_table,
+        "source_columns": {"math_main": list(MAIN_COLUMNS), "math_ticks": columns},
     }
 
 
@@ -1029,6 +877,8 @@ def extract_conversation(
             vote_created_ms=[e["created"] for e in events if e["kind"] == "vote"],
             requested_math_envs=served_math_envs,
             math_envs_present=served["math_envs_present"],
+            source_columns=served["source_columns"],
+            math_envs_present_by_table=served["math_envs_present_by_table"],
         )
         served_summary = served_math_summary(
             served_meta, write_served_math(target, served_meta, blob_texts))
