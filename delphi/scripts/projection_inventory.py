@@ -344,9 +344,12 @@ CLEARED_UNRESOLVED: tuple[ClearedUnresolved, ...] = (
         guard_var="EQUIV_TABLES",
         forbidden_tables=frozenset({"votes", "votes_latest_unique"}),
         function_digest="048839c8fbbec1950c585b88303aace14c0daacac943f33e016e37d0168b3fbc",
-        module_digest="0cdb947d5fa50988f7abd46894defa376c9118e2a394c0143f358032d283f479",
+        module_digest="2d86223bdaedb284250ff7598ddfdc16bd94d034624384aa97674b8010461f19",
         note="replay harness fetch_math_row; {table} guarded by `table not in "
-        "EQUIV_TABLES` (math_main/bidtopid/ptptstats) — never a vote table",
+        "EQUIV_TABLES` (math_main/bidtopid/ptptstats) — never a vote table. "
+        "Module digest re-recorded after edge commit e307602fa (P-023 slice 1, "
+        "vote-convention constant) edited insert_votes/imports — NOT fetch_math_row "
+        "or EQUIV_TABLES; function digest unchanged, structural re-review passed.",
     ),
 )
 
