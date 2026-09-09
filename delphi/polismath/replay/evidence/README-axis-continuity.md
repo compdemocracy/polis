@@ -45,7 +45,7 @@ uv run python -m polismath.replay.axis_continuity \
 ```
 
 **Result**: 8 checkpoints, 7 pairs, `flips=0 reordered=0
-excused_degenerate=0 undefined=0 subspace_rotations=5`. The warm chain
+undefined_components=0 subspace_rotations=5`. The warm chain
 (previous tick's real PCA components threaded in as the power-iteration
 start vector at every step after the first) holds orientation over the
 whole run — no PC flip, matching the "legacy holds orientation" half of
@@ -111,11 +111,11 @@ uv run python -m polismath.replay.axis_continuity \
 ```
 
 **Result**: 8 checkpoints, 7 pairs, `flips=1 reordered=0
-excused_degenerate=0 undefined=0 subspace_rotations=5`. The single flip is
+undefined_components=0 subspace_rotations=5`. The single flip is
 pair `006->007` (0-based `ReplayStep.index`, i.e. the 7th cut, vote count
 4098→4683): PC2's signed cosine goes from `+0.966821` (unflipped, same as
 the warm chain) to `-0.758356` — same subspace, opposite orientation,
-eigengap 0.437 (well above the 0.02 degeneracy floor, so not excused). This
+projection-energy gap proxy 0.437. The proxy does not establish spectral separation. This
 **reproduces the step-6 PC2 flip** `docs/PLAN_DISCREPANCY_FIXES.md:542`
 and the `axis_continuity` module docstring describe for cold/non-warm mode,
 under today's engine, via a schedule-level composition rather than a
@@ -135,15 +135,14 @@ uv run python -m polismath.replay.axis_continuity \
 Schedule: `explicit-event-index`, one recompute per vote for the first 56
 votes (prefix, truncated before the Q11 knife-edge at vote 57 — see the
 schedule file's `notes`). **Result**: 56 checkpoints, 55 pairs, `flips=2
-reordered=0 excused_degenerate=0 undefined=32 subspace_rotations=5`. The 32
-`UNDEFINED` pairs are early-conversation degenerate ticks (too few shared
-tids / near-zero components on 1-comment-at-a-time steps) — expected at
-this density, and never silently read as "stable" (module docstring, status
-`UNDEFINED`). The 2 flips are at pairs `041->042` and `044->045`, both
-exact antipodal PC2 flips (`cosine -1.000000`, `principal_angles_deg=[0,0]`
-— same subspace) at a *low* eigengap (0.099 / 0.088, still above the 0.02
-floor so not excused): even the warm chain is not immune to a flip when two
-eigenvalues are close and per-vote steps churn the ordering fast.
+reordered=0 undefined_components=32 subspace_rotations=5`. The 32
+`UNDEFINED` component comparisons occur in 32 pairs with a near-zero component
+on the shared tids; those pairs are excluded from the 21 aligned pairs. The
+remaining two pairs are raw PC2 flips at `041->042` and `044->045`, with signed
+cosines approximately -1 and unchanged subspaces. The energy gap proxies are
+0.099678 and 0.088356 respectively, with coverage at both endpoints. Scaled
+projection or centroid energy cannot establish the spectral gap, degeneracy,
+or the cause of either flip. Neither proxy changes the raw `FLIP` status.
 
 ## 4. `vw` / `front-loaded6`
 
@@ -159,7 +158,7 @@ uv run python -m polismath.replay.axis_continuity \
 Schedule id per `derive_schedule_id(preset="front-loaded", n_cuts=6)` →
 `front-loaded6`; cuts (quadratic spacing, dense early) are 130, 520, 1171,
 2081, 3252, 4683. **Result**: 6 checkpoints, 5 pairs, `flips=0 reordered=0
-excused_degenerate=0 undefined=0 subspace_rotations=5`. Warm chain holds
+undefined_components=0 subspace_rotations=5`. Warm chain holds
 here too; every pair carries a subspace-rotation note (principal angle
 >15°) since front-loading concentrates the early, sparsest, least-stable
 recomputes — expected instability in *which* axes span the space, not in
@@ -167,12 +166,21 @@ orientation.
 
 ## Summary
 
-| Recording | Checkpoints | Flips | Reordered | Excused | Undefined | Notes |
-|---|---|---|---|---|---|---|
-| `uniform8` (warm chain) | 8 | 0 | 0 | 0 | 0 | continuous |
-| `uniform8-coldcontrol` (negative control) | 8 | 1 | 0 | 0 | 0 | PC2 flip at pair 6→7, reproduces PLAN_DISCREPANCY_FIXES.md:542 |
-| `every-vote-56` | 56 | 2 | 0 | 0 | 32 | antipodal PC2 flips at low-but-nondegenerate eigengap |
-| `front-loaded6` | 6 | 0 | 0 | 0 | 0 | continuous; frequent subspace rotation |
+| Recording | Checkpoints | Raw flips | Reordered components | Undefined components | Undefined pairs | Aligned pairs | Notes |
+|---|---|---|---|---|---|---|---|
+| `uniform8` (warm chain) | 8 | 0 | 0 | 0 | 0 | 7 | continuous |
+| `uniform8-coldcontrol` (negative control) | 8 | 1 | 0 | 0 | 0 | 6 | PC2 flip at pair 6→7 |
+| `every-vote-56` | 56 | 2 | 0 | 32 | 32 | 21 | antipodal PC2 flips at 41→42 and 44→45; proxy reported separately |
+| `front-loaded6` | 6 | 0 | 0 | 0 | 0 | 5 | continuous; frequent subspace rotation |
+
+The four reports were regenerated from the existing recordings without running
+an engine. The engine provenance above remains the provenance of those original
+recordings. JSON retains the historical `eigengap` keys for the energy proxy,
+with endpoint values, `both` / `partial` / `none` coverage and low-proxy flags.
+Those annotations never change `ALIGNED`, `FLIP`, `REORDERED`, or `UNDEFINED`.
+An empty sequence has summary status `NO_PAIRS`; an undefined pair prevents a
+continuous summary. Neither the raw statuses nor the annotations are a gate or
+a certify obligation; the diagnostic exits 0.
 
 The negative control confirms the diagnostic can detect a real discontinuity
 under today's engine and isn't just reporting "no flip" by construction: the
