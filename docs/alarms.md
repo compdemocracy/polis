@@ -243,7 +243,6 @@ removed does not satisfy the pair.
 |---|---|
 | A02 math publish lag | A03 |
 | **A07 free storage** | **A04** or A03 |
-| A09 / A10 / A11 queue ages | A08 |
 | A12 ALB error ratio | A13 |
 | A14 overdue CI instances | A15 |
 
@@ -272,20 +271,23 @@ The full catalog is `cost-reduction/04-plans/P-031-cloudwatch-alarms.md`. Ten
 signals are not here, for three distinct reasons — none of them "we ran out of
 time".
 
-**Blocked on a publisher that does not exist.** `Polis/Math`,
-`Polis/DelphiQueue` and `Polis/Certification` all returned **zero** metrics from
-`list-metrics` at the time of writing. A01–A03 need the math poll-health log
-event and the publication sampler; A08–A10 need the P-003 S1 demand observer
-deployed; A14–A15 need the CI expiry sweeper to publish. Add the publisher
-first, watch the series for a week, then add the alarm.
+**Blocked on a publisher that does not exist.** `Polis/Math` and
+`Polis/Certification` both returned **zero** metrics from `list-metrics` at the
+time of writing. A01–A03 need the math poll-health log event and the publication
+sampler; A14–A15 need the CI expiry sweeper to publish. Add the publisher first,
+watch the series for a week, then add the alarm.
+
+**Dropped, not deferred.** The Delphi queue-demand alarms (A08–A11, namespace
+`Polis/DelphiQueue`) are removed from this catalog. They depended on the P-003 S1
+demand-observer Lambda, which will not be built (Colin's 2026-09-08 ruling: no
+Lambda in the platform). The queue-demand signal is to come from the Postgres
+queue substrate (P-024) and the coordinator's existing `Polis/Math` CloudWatch
+metrics instead; the corresponding alarms wait on those metrics, not a Lambda,
+and A11's anomaly-row triage moves with them.
 
 **Blocked on validation.** A12 is a metric-math alarm over three sparse ALB
 counters. Its expression needs checking against real sparse series, not
 arithmetic unit tests, before it can be trusted at low traffic.
-
-**Blocked on triage.** A11 (`AnomalyRows > 0`) will be in ALARM from the instant
-it is enabled, because the queue holds five known anomalous rows. The answer is
-to disposition those rows, not to raise the threshold.
 
 **Deliberately not an alarm.** A05 (`CPUSurplusCreditBalance > 0`) fires on
 essentially the same event as A04 and announces money already spent, with no
