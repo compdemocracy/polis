@@ -93,19 +93,28 @@ the down script must not trust names. In one transaction it:
 1. Locks the five queue tables `ACCESS EXCLUSIVE`, in a fixed order, **before**
    counting rows, and holds the locks through `COMMIT`.
 2. Verifies the installed schema against 000019's **own** catalog fingerprint
-   (the same table-md5 map, 21-signature array and function-body md5 that 000019
-   pins and asserts on itself). If anything queue-shaped exists but does not
-   match — an unrelated `pq_*` function, an added overload, a drifted table — it
-   **refuses** and names the mismatch, rather than dropping it.
+   (the table-md5 map, the 21-signature array, and a per-function digest that
+   hashes each `prosrc` **body** along with its result, argument types,
+   volatility, security-definer flag, config, owner and ACL). If anything
+   queue-shaped exists but does not match — an unrelated `pq_*` function, an
+   added overload, a drifted table, or a **body-only rewrite** of a function —
+   it **refuses** and names the mismatch, rather than dropping it.
 3. Drops its inventory in dependency order: the trigger, the 21 functions **by
    full argument signature**, the 9 explicit indexes, the 5 tables, then the
    schema grants and the `conversations` grant via `REVOKE`.
-4. Drops the two roles **only if**, after that removal, each owns nothing, holds
-   no other grant and has no membership (checked against `pg_shdepend` /
-   `pg_auth_members`) and carries no login/elevated attribute. A role with any
-   residual footprint is a role with another purpose: the script refuses and
-   names what remains. It never uses `DROP OWNED BY`, which would sweep away
-   unrelated objects a pre-existing role happens to own.
+4. Drops the two roles **only if** each role's ENTIRE live footprint equals what
+   000019 establishes — because 000019 *adopts* a pre-existing NOLOGIN role
+   (it `CREATE`s each only when absent), a role's mere existence is not proof it
+   is 000019's. The script compares the role's `pg_roles` attributes (must be a
+   default NOLOGIN), its `pg_db_role_setting` role-level settings (000019 sets
+   none), and every grant involving it on `public` and `conversations`
+   (`nspacl`/`relacl`/`attacl`) against 000019's exact expected set, plus
+   `pg_shdepend`/`pg_auth_members` for any other owned object, grant or
+   membership. **Any** extra attribute, setting or grant means the role was
+   adopted or altered: the script refuses, names the extras, and **revokes
+   nothing** — an operator's own grant on the role is never erased. Only a role
+   whose whole footprint is 000019's is dropped. It never uses `DROP OWNED BY`,
+   which would sweep away unrelated objects a pre-existing role happens to own.
 
 `public.conversations` and the `public` schema themselves are never touched.
 
@@ -149,9 +158,13 @@ database that never had 000019; (d) a non-empty queue is refused without `force`
 and dropped with it; (e) an unrelated same-named `pq_*` function on an
 un-installed database survives (refusal, not a silent drop); (f) an unrelated
 table owned by `polis_queue_owner` causes a refusal and survives; (g) a
-pre-existing `polis_queue_executor` role survives; and (h) a writer that commits
+pre-existing `polis_queue_executor` role survives; (h) a writer that commits
 a row concurrently is blocked by the lock and its row is seen and refused, never
-lost.
+lost; (i) an *adopted* executor role — pre-created with an extra schema grant
+and a role-level `statement_timeout` that 000019 then adopts — causes a refusal
+with the role, its grant and its setting all intact and nothing revoked; and
+(j) a body-only rewrite of `pq_backoff` is caught by the `prosrc` fingerprint
+and refused.
 
 ```sh
 bash server/postgres/migrations/down/test_000019_down.sh
