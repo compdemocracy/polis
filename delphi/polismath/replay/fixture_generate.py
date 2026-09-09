@@ -24,7 +24,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
+
+if TYPE_CHECKING:  # `random` stays the lazy, in-function import it already was
+    import random
 
 from polismath.replay import fixture_extract as fx
 from polismath.replay import prodclone as pc
@@ -39,7 +42,7 @@ DAY_MS = 86_400_000
 _VOTE_VALUES = (-1, 1, 0)  # raw storage signs: agree, disagree, pass
 
 
-def case_rng(generated: dict[str, Any], case_id: str):
+def case_rng(generated: dict[str, Any], case_id: str) -> random.Random:
     import random
 
     return random.Random(
@@ -89,7 +92,7 @@ def _participant_rows(n_participants: int, *, base_ms: int) -> list[dict[str, An
 
 
 def build_case_rows(
-    case: dict[str, Any], rng,
+    case: dict[str, Any], rng: random.Random,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     """Materialise one generated case. Returns raw ``(votes, comments,
     participants)`` rows shaped exactly like the DB rows the extractor reads."""

@@ -664,7 +664,7 @@ class _SubprocessRunner:
     def __init__(
         self, cmd: list[str], *, cwd: Path, env: dict[str, str],
         log_path: Optional[Path] = None,
-    ):
+    ) -> None:
         self.cmd = cmd
         self.cwd = cwd
         self.env = env
@@ -808,7 +808,7 @@ class CljContainerRunner(_SubprocessRunner):
         logging_level: str = "info",
         base_env: Optional[dict[str, str]] = None,
         log_path: Optional[Path] = None,
-    ):
+    ) -> None:
         env = build_clj_env(
             database_url=database_url,
             math_env=math_env,
@@ -873,7 +873,7 @@ class PyPollerRunner(_SubprocessRunner):
         database_ssl_mode: str = "disable",
         base_env: Optional[dict[str, str]] = None,
         log_path: Optional[Path] = None,
-    ):
+    ) -> None:
         env = build_py_env(
             database_url=database_url,
             math_env=math_env,

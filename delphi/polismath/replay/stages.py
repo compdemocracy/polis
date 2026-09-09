@@ -763,7 +763,7 @@ def run_stage_dump(dataset: ReplayDataset, spec: ScheduleSpec, *,
     """
     documents: list[dict[str, Any]] = []
 
-    def collect(step: ReplayStep, conv: Conversation, record) -> None:
+    def collect(step: ReplayStep, conv: Conversation, record: _driver.StepRecord) -> None:
         documents.append(stage_document(
             conv,
             step_index=step.index,

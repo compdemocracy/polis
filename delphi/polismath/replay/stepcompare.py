@@ -59,7 +59,7 @@ class StepComparer:
         outlier_fraction: float = 0.01,
         ignore_pca_sign_flip: bool = True,
         tolerant_stat_keys: frozenset[str] = DEFAULT_TOLERANT_STAT_KEYS,
-    ):
+    ) -> None:
         # One tolerant-configured comparer; PCA sign/scale handled internally.
         self._cmp = ConversationComparer(
             abs_tolerance=abs_tolerance,

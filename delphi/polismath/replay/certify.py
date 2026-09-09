@@ -47,6 +47,7 @@ import uuid
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -625,7 +626,7 @@ def validate_checkpoint_blob(
                 "checkpoint-schema",
                 f"{label}: checkpoint blob is missing required field(s) {missing}")
 
-    def present(keys: tuple[str, ...]):
+    def present(keys: tuple[str, ...]) -> Iterator[tuple[str, Any]]:
         for k in keys:
             if k in canon:
                 yield k, canon[k]
@@ -1064,7 +1065,7 @@ def annotate_by_key(ledger: dict[str, Any], key: str) -> str | None:
 class CertifyError(RuntimeError):
     """A battery entry failed at a specific stage (driver subprocess, setup)."""
 
-    def __init__(self, stage: str, message: str):
+    def __init__(self, stage: str, message: str) -> None:
         super().__init__(message)
         self.stage = stage
 
