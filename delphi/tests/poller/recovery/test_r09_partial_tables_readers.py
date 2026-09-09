@@ -37,12 +37,15 @@ What this module does and does NOT prove (astra review finding 2)
 
 So:
 
-* **Proved here.** The three tables are published NON-ATOMICALLY, and a reader
-  can observe math_main at generation N with the other two at N-1 or absent —
-  in both observer modes, because the window is the writer's.  A writer that
-  commits all three in ONE transaction closes that window *for the snapshot
-  observer* (``TestNegativeControl``), so the observer can tell atomic from
-  non-atomic publication.  That is WRITER-ISOLATION evidence and nothing more.
+* **Proved here.** The writer now publishes all three tables in ONE
+  transaction (#2704), so a snapshot observer (``repeatable_read``) never
+  observes math_main at generation N paired with the other two at N-1 or
+  absent — the publication window is closed *for that observer*
+  (``test_reader_never_sees_a_mixed_generation``, ``TestNegativeControl``).
+  The legacy, deliberately non-atomic writer still exposes that window
+  (``test_legacy_mixed_window_is_real_and_observable``), so the snapshot
+  observer can tell atomic from non-atomic publication.  That is
+  WRITER-ISOLATION evidence and nothing more.
 * **NOT proved here.** That an atomic writer makes the *Node* reader safe.  Two
   tests demonstrate the opposite, deterministically and without any race:
 
@@ -427,7 +430,19 @@ class ContinuousReader(threading.Thread):
                 if s[0] is not None and response_problems(*s)]
 
 
-@pytest.mark.parametrize("mode", READER_MODES)
+# Collected for the snapshot observer only.  ``#2704`` publishes all three
+# tables in ONE transaction, which guarantees a coherent generation *to a
+# snapshot reader* (``repeatable_read``) — and that is the only always-coherent
+# publication guarantee this atomic writer makes (astra review finding 1).  The
+# ``separate_statements`` observer is deliberately NOT collected here: a writer
+# commit can land BETWEEN its two independent autocommit SELECTs no matter how
+# atomically the writer publishes, so it MAY observe a mixed generation.  That
+# reader-side hazard is retained as its own deterministic witnesses below
+# (``test_an_atomic_write_is_still_observed_mixed_by_a_node_shaped_reader`` and
+# ``test_a_cached_main_blob_can_pair_with_a_newer_mapping_even_when_the_writer_is_atomic``);
+# the review's scheduling witness drives THIS function in ``separate_statements``
+# mode to reproduce the same mixed observation under a pinned interleaving.
+@pytest.mark.parametrize("mode", ["repeatable_read"])
 def test_reader_never_sees_a_mixed_generation(engine, pg_url, make_service,
                                               mode):
     """Pause the writer between the table writes — after bidtopid and ptptstats
@@ -435,11 +450,18 @@ def test_reader_never_sees_a_mixed_generation(engine, pg_url, make_service,
     a reader polls continuously. That is the widest window in which a reader
     could observe a mixed generation.
 
-    Run in BOTH observer modes: the REPEATABLE READ observer (writer-isolation
-    evidence, stronger than the server) and the separate-autocommit-statement
-    observer (what Node's two independent ``queryP_readOnly`` calls actually
-    do). Neither sees a mixed generation, because the three tables are now
-    published inside a single transaction."""
+    Asserted for the REPEATABLE READ (snapshot) observer only: because the
+    writer commits all three tables in one transaction (#2704), that observer
+    never sees a mixed generation, and any incoherence it did report would be
+    the WRITER's, never a torn read of the test's own making. The
+    separate-autocommit-statement observer — what Node's two independent
+    ``queryP_readOnly`` calls actually do — is NOT asserted coherent, because a
+    commit can land between its two statements even under atomic publication;
+    that hazard is witnessed deterministically by the two node-shaped-reader
+    tests below (see the module header, astra review finding 1). The body still
+    runs the coherence check for whatever ``mode`` it is CALLED with, so the
+    review's scheduling witness can drive ``separate_statements`` directly and
+    observe the mixed generation it must."""
     seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
     svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
     svc.poll_once()          # generation 1: complete
