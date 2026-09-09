@@ -27,18 +27,13 @@ from pathlib import Path
 import pytest
 from coordinator.conftest import ROOT, assert_coherent, connect, rows, seed
 from coordinator.test_equivalence import python_checkpoint
+from coordinator._node_gate import require_node
 
 HARNESS = ROOT / "coordinator-rs/tools/node_reader.cjs"
 EVIDENCE = ROOT / "coordinator-rs/evidence"
-SERVER_MODULES = ROOT / "server/node_modules"
 COMPARED = ("asJSON_sha256", "asJSON_bytes", "gzip_sha256", "gzip_bytes",
             "keys_projection_sha256", "tids", "n", "repness_keys", "consensus_shape",
             "mapping_sha256", "bid_to_pid", "pids_for_gid", "mapping_is_error")
-
-requires_server_modules = pytest.mark.skipif(
-    not SERVER_MODULES.exists(),
-    reason="server/node_modules is absent; install or link it to run the real Node reader",
-)
 
 
 def node_read(db, zid=1, envs=("python", "rustproto"), keys=("tids", "n", "repness"), gids=(0, 1)):
@@ -68,8 +63,8 @@ def rust_and_python_publish(db, launch):
     return a, b
 
 
-@requires_server_modules
 def test_real_node_reader_serves_identical_bytes_for_both_writers(db, launch):
+    require_node()
     seed(db)
     rust_and_python_publish(db, launch)
     # A second checkpoint. This harness calls `getPca(zid, undefined)`, whose
@@ -126,7 +121,6 @@ def test_real_node_reader_serves_identical_bytes_for_both_writers(db, launch):
     assert served["rustproto"]["mapping_is_error"] is False
 
 
-@requires_server_modules
 def test_published_empty_math_versus_the_servers_own_empty_presentation(db, launch):
     """D4's zero-vote-with-comments shape, and a C7 observation from it.
 
@@ -142,6 +136,7 @@ def test_published_empty_math_versus_the_servers_own_empty_presentation(db, laun
     synthesized empty presentation is NOT claimed: the full difference list is
     written to evidence for polis-empty-served/1 to rule on.
     """
+    require_node()
     seed(db, votes=False)
     c = connect(db)
     with c.cursor() as cur:

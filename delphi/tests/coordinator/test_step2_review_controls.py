@@ -21,14 +21,10 @@ import subprocess
 import pytest
 from coordinator.conftest import ROOT, assert_coherent, connect, lease, rows, seed, wait
 from coordinator.test_incremental import emf, query
+from coordinator._node_gate import require_node
 
 ROUTE_PROBE = ROOT / "coordinator-rs/tools/node_route_probe.cjs"
 EVIDENCE = ROOT / "coordinator-rs/evidence"
-
-requires_server_modules = pytest.mark.skipif(
-    not (ROOT / "server/node_modules").exists(),
-    reason="server/node_modules is absent; install or link it to run the real Node route",
-)
 
 
 @pytest.mark.parametrize("table", ["math_main", "math_bidtopid", "math_ptptstats"])
@@ -111,14 +107,17 @@ def test_failure_gauges_respect_candidate_scope(db, launch, tmp_path):
     assert r["OldestUnrepairedAgeSeconds"] >= 3600
 
 
-@requires_server_modules
 def test_actual_pca2_route_serves_generation_zero(db, launch, tmp_path):
-    """R2-F3, kept as the review wrote it. The route supplies math_tick = -1 and
+    """R2-F3, updated for the merged #2732. The route supplies math_tick = -1 and
     serves a committed generation of zero with 200 and ETag "0"; a matching
-    conditional gets 304. Only the cold `getPca(zid, undefined)` call misses it,
-    and it stops missing it once the route has warmed the cache. The PostgreSQL
-    bigint reaches this driver as the string "0", which is truthy, so the column
-    override is not skipped."""
+    conditional gets 304. The cold `getPca(zid, undefined)` miss this control once
+    pinned was the server-owner reader defect #2732 named; #2732 is now merged to
+    edge (`pca.ts` guards the column override with `row.math_tick != null`, not a
+    falsy check), so this rebased tree serves generation zero on the cold call as
+    well — `coldUndefinedPresent` is now True. The PostgreSQL bigint reaches this
+    driver as the string "0", which is truthy, so the column override is not
+    skipped."""
+    require_node()
     seed(db)
     launch(db).done()
     assert rows(db)["math_main"]["math_tick"] == 0
@@ -134,9 +133,10 @@ def test_actual_pca2_route_serves_generation_zero(db, launch, tmp_path):
         "committed_math_tick": 0,
         "route": evidence,
         "note": "the route requests latest with math_tick=-1 and serves generation zero; "
-                "getPca(zid, undefined) is a different branch and is cache-dependent. "
-                "That helper asymmetry is a reader defect for the server owner, "
-                "characterised here, not fixed here.",
+                "the cold getPca(zid, undefined) miss this control once recorded was the "
+                "server-owner reader defect #2732 named, and #2732 is now merged to edge, so "
+                "on this rebased tree the cold call also finds generation zero "
+                "(coldUndefinedPresent is True). The helper is fixed upstream, not here.",
     }, indent=2, sort_keys=True))
     assert evidence["pgTickType"] == "string"
     assert evidence["whole"]["status"] == 200
@@ -146,6 +146,8 @@ def test_actual_pca2_route_serves_generation_zero(db, launch, tmp_path):
     assert evidence["subset"]["status"] == 200
     assert evidence["subset"]["bodyTick"] == 0
     assert evidence["conditional"]["status"] == 304
-    # The helper's cold/warm asymmetry, characterised rather than endorsed.
-    assert evidence["coldUndefinedPresent"] is False
+    # #2732 (merged) fixed the cold getPca(zid, undefined) generation-zero miss:
+    # the cold call now finds it, so this rebased tree reports True, not the
+    # pre-#2732 False this control once pinned. warm has always found it.
+    assert evidence["coldUndefinedPresent"] is True
     assert evidence["warmUndefinedPresent"] is True

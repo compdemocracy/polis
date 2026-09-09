@@ -1,0 +1,33 @@
+{
+  "id": "O1",
+  "state": "PARTIAL",
+  "scope": "P-026 step-4 S2 reader: candidate loadBundle whole-Bundle atomicity",
+  "production_loadbundle_certified": false,
+  "rust_equals_clojure_claimed": false,
+  "recorded": [
+    "a candidate coherent-read loadBundle reads main + bidtopid + ptptstats + the math_ticks checkpoint in one REPEATABLE READ READ ONLY snapshot in the real Node runtime",
+    "the separate-read path (getPca then getBidIndexToPidMapping) is shown to tear under an interleaved publish while loadBundle stays coherent at one generation",
+    "a missing or tick-mismatched companion fails admission, and a valid replacement is observed once the coordinator republishes from source",
+    "the pure mapping accessor derives pids from the Bundle's own rows, and the reads are scoped by math_env",
+    "the Node D4 reader job is unconditional: absent server modules fail rather than skip",
+    "the existing real-Node getPca/getBidIndexToPidMapping byte-equality path is retained at 0 differences"
+  ],
+  "remaining_obligations": [
+    "the production server/src loadBundle: request-scoped Bundle threaded through getPidsForGid, doFamousQuery and report.ts, with a bounded whole-Bundle cache and the characterized 3s TTL / response order preserved",
+    "full application boot, auth, report/CSV joins and the private 2,884-case served corpus (S5)",
+    "the C7 no-row-to-published-empty transition once the contract owner admits the comparison clock (S5)"
+  ],
+  "candidate_reader": "coordinator-rs/tools/bundle_reader.cjs",
+  "witness": "coordinator-rs/evidence/d4-bundle-reader.json",
+  "integrity_model": "this is a candidate reader in the Node runtime for the experiment's harness, not the production server reader; the atomicity property is demonstrated against the real test PostgreSQL, it does not certify CO04's Bundle rewrite or the served corpus",
+  "pins_are_committed_sources": true,
+  "python_cases": 141,
+  "sha256": {
+    "coordinator-rs/tools/bundle_reader.cjs": "14df78683af4a295f05a4a71ede9996779ec3cfb02105eed4f5e791d8e1b2109",
+    "coordinator-rs/tools/record_s2.py": "96720ed4862d33391ad98a5ce2bfef568e43abd62f51168589bdad33f84975b1",
+    "delphi/tests/coordinator/_node_gate.py": "461813f1029115e5aac3205f4783678ae347b3b7f505b5af397308c38ae08072",
+    "delphi/tests/coordinator/audit_stages.py": "83de89b73ebc5258c4a4a7b434f423fc831f854101ea92385dc0aa7f7f0006af",
+    "delphi/tests/coordinator/test_bundle_reader.py": "cf8160231b0362af22858101fb42771bd2e7dfd57eef2c649d7e98e1d495861b",
+    "delphi/tests/coordinator/test_node_reader.py": "7db596d189489b7f1bbd0bbbde5c44909039779a983518c922cf74381c4fd077"
+  }
+}
