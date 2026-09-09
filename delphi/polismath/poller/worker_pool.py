@@ -82,7 +82,7 @@ class ConversationWorkerPool:
         self,
         process_fn: Callable[[int, CoalescedBatch], None],
         max_workers: int = 4,
-    ):
+    ) -> None:
         self._process_fn = process_fn
         self._executor = ThreadPoolExecutor(
             max_workers=max_workers, thread_name_prefix="conv-worker"

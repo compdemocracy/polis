@@ -159,7 +159,7 @@ class CommitOutcomeUnknown(RuntimeError):
     caller can reconcile the identity it already holds; never infer a rollback.
     """
 
-    def __init__(self, reply: Any):
+    def __init__(self, reply: Any) -> None:
         super().__init__("queue_commit_outcome_unknown")
         self.reply = reply
 
@@ -271,7 +271,7 @@ class Database:
     transaction outcome is uncertain must not be handed to the next statement.
     """
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings) -> None:
         settings.check()
         self.settings = settings
 
@@ -337,7 +337,7 @@ class Executor:
         env: str,
         sleep: Callable[[float], None] = time.sleep,
         lease_seconds: int = 60,
-    ):
+    ) -> None:
         if _ENV_NAMESPACE.fullmatch(env) is None:
             raise ExecutorRefused("queue_noop_environment")
         self.db = database

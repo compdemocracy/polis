@@ -280,7 +280,7 @@ class PollerConfig:
 class MathPollerService:
     """Owns the poll loops, the in-memory conv cache, the worker pool + writer."""
 
-    def __init__(self, pg_client: Any, config: PollerConfig):
+    def __init__(self, pg_client: Any, config: PollerConfig) -> None:
         self._pg = pg_client
         self.config = config
         self._writer = MathWriter(pg_client)

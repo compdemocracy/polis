@@ -222,7 +222,7 @@ def derive_ptptstats(
 class MathWriter:
     """Writes a computed conversation's results to Postgres for one cycle."""
 
-    def __init__(self, pg_client: Any):
+    def __init__(self, pg_client: Any) -> None:
         self._pg = pg_client
 
     def write_conv_updates(self, zid: int, conv: Any) -> int:
