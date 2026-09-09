@@ -1210,3 +1210,175 @@ describe("configFingerprint", () => {
     );
   });
 });
+
+/**
+ * The store's DynamoDB client is built through the shared
+ * `buildDynamoClientConfig`, lazily and once. The shared builder refuses to
+ * construct a client whose credentials the AWS SDK would resolve from the
+ * literal "local" placeholder that `config.ts` leaves for an unset variable.
+ * That refusal must reach the first admission — not module load, where it would
+ * take the whole server process down at startup — and it must fail the guarded
+ * route closed: {@link JobAdmissionUnavailableError}, no client, no write.
+ */
+describe("admitDelphiJob: lazy shared DynamoDB client construction", () => {
+  // The keys config.ts and the shared builder read to choose credential
+  // precedence. The suite owns them for the length of each test.
+  const MANAGED_KEYS = [
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_REGION",
+    "DYNAMODB_ENDPOINT",
+  ];
+  // eslint-disable-next-line no-restricted-properties
+  const env = process.env;
+  let savedEnv: Record<string, string | undefined>;
+
+  beforeEach(() => {
+    savedEnv = {};
+    for (const key of MANAGED_KEYS) {
+      savedEnv[key] = env[key];
+    }
+  });
+
+  afterEach(() => {
+    for (const key of MANAGED_KEYS) {
+      if (savedEnv[key] === undefined) {
+        delete env[key];
+      } else {
+        env[key] = savedEnv[key];
+      }
+    }
+    jest.dontMock("@aws-sdk/client-dynamodb");
+    jest.dontMock("@aws-sdk/lib-dynamodb");
+    jest.resetModules();
+  });
+
+  function applyEnv(overrides: Record<string, string | undefined>) {
+    for (const key of MANAGED_KEYS) {
+      if (overrides[key] === undefined) {
+        delete env[key];
+      } else {
+        env[key] = overrides[key];
+      }
+    }
+  }
+
+  // Exactly what config.ts snapshots when AWS_ACCESS_KEY_ID and
+  // AWS_SECRET_ACCESS_KEY are the literal "local" placeholder and no DynamoDB
+  // Local endpoint is set: the default credential chain would otherwise resolve
+  // "local" from the environment and send it to AWS.
+  const PLACEHOLDER_ENV = {
+    AWS_ACCESS_KEY_ID: "local",
+    AWS_SECRET_ACCESS_KEY: "local",
+    AWS_REGION: undefined,
+    DYNAMODB_ENDPOINT: undefined,
+  };
+
+  // A clean, production-shaped environment: real explicit credentials, no local
+  // endpoint. The builder returns a config without consulting the environment
+  // credential provider, so no placeholder refusal can fire.
+  const REAL_ENV = {
+    AWS_ACCESS_KEY_ID: "AKIAREALLOOKINGID",
+    AWS_SECRET_ACCESS_KEY: "realLookingSecret",
+    AWS_REGION: "us-east-1",
+    DYNAMODB_ENDPOINT: undefined,
+  };
+
+  // A fresh copy of the module under the current environment, so config.ts
+  // re-snapshots the AWS variables set above. `mocks` runs inside the isolated
+  // registry, before the require, so any doMock applies to this copy alone.
+  function loadGuard(mocks?: () => void) {
+    let mod: typeof import("../../src/routes/delphi/jobGuard") | undefined;
+    jest.isolateModules(() => {
+      if (mocks) mocks();
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      mod = require("../../src/routes/delphi/jobGuard");
+    });
+    return mod as typeof import("../../src/routes/delphi/jobGuard");
+  }
+
+  it("imports without throwing when a placeholder credential is set", () => {
+    applyEnv(PLACEHOLDER_ENV);
+
+    // The inline client this replaced was built at module load; the shared
+    // builder would reject the placeholder there and crash the process at
+    // startup. Lazily, importing must be inert.
+    let mod: typeof import("../../src/routes/delphi/jobGuard") | undefined;
+    expect(() => {
+      mod = loadGuard();
+    }).not.toThrow();
+    expect(typeof mod?.admitDelphiJob).toBe("function");
+  });
+
+  it("fails the first admission closed on a placeholder, constructing no client and writing nothing", async () => {
+    applyEnv(PLACEHOLDER_ENV);
+
+    const dynamoConstructor = jest.fn();
+    const mod = loadGuard(() => {
+      jest.doMock("@aws-sdk/client-dynamodb", () => ({
+        __esModule: true,
+        ...jest.requireActual("@aws-sdk/client-dynamodb"),
+        DynamoDB: dynamoConstructor,
+      }));
+    });
+
+    await expect(
+      mod.admitDelphiJob({
+        scope,
+        jobItem: jobItem(),
+        idempotencyKey: null,
+      })
+    ).rejects.toBeInstanceOf(mod.JobAdmissionUnavailableError);
+
+    // The builder refused before `new DynamoDB(...)` ran, so no client exists
+    // to write with: the guard cannot have put a row.
+    expect(dynamoConstructor).not.toHaveBeenCalled();
+  });
+
+  it("builds one client on first use and reuses it on the normal path", async () => {
+    applyEnv(REAL_ENV);
+
+    const dynamoConstructor = jest.fn(() => ({}));
+    const docStub = {
+      get: jest.fn(async () => ({})),
+      transactWrite: jest.fn(async () => ({})),
+      put: jest.fn(async () => ({})),
+      delete: jest.fn(async () => ({})),
+      scan: jest.fn(async () => ({ Items: [] })),
+    };
+    const from = jest.fn(() => docStub);
+
+    const mod = loadGuard(() => {
+      jest.doMock("@aws-sdk/client-dynamodb", () => ({
+        __esModule: true,
+        ...jest.requireActual("@aws-sdk/client-dynamodb"),
+        DynamoDB: dynamoConstructor,
+      }));
+      jest.doMock("@aws-sdk/lib-dynamodb", () => ({
+        __esModule: true,
+        ...jest.requireActual("@aws-sdk/lib-dynamodb"),
+        DynamoDBDocument: { from },
+      }));
+    });
+
+    // Nothing is constructed at import.
+    expect(dynamoConstructor).not.toHaveBeenCalled();
+
+    // Two independent store reads through the real default store.
+    await mod.dynamoJobAdmissionStore.readGuard("scope-key");
+    await mod.dynamoJobAdmissionStore.readJob("job-1");
+
+    // Built exactly once (lazy + memoised) and reused for the second read.
+    expect(dynamoConstructor).toHaveBeenCalledTimes(1);
+    expect(from).toHaveBeenCalledTimes(1);
+    expect(docStub.get).toHaveBeenCalledTimes(2);
+    // A clean environment takes the explicit-credentials branch, never the
+    // placeholder refusal.
+    expect(dynamoConstructor.mock.calls[0][0]).toMatchObject({
+      credentials: {
+        accessKeyId: REAL_ENV.AWS_ACCESS_KEY_ID,
+        secretAccessKey: REAL_ENV.AWS_SECRET_ACCESS_KEY,
+      },
+    });
+  });
+});

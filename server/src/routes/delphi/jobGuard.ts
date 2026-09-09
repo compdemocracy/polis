@@ -43,10 +43,13 @@
  * P-024 re-points both in the same cutover.
  */
 import { createHash, randomUUID } from "crypto";
-import { DynamoDB } from "@aws-sdk/client-dynamodb";
+import { DynamoDB, DynamoDBClientConfig } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
 import logger from "../../utils/logger";
-import Config from "../../config";
+import {
+  AwsCredentialsConfigurationError,
+  buildDynamoClientConfig,
+} from "../../utils/dynamoClient";
 
 export const JOB_QUEUE_TABLE = "Delphi_JobQueue";
 
@@ -369,24 +372,52 @@ function logScope(guardKey: string): string {
   return guardKey.slice(0, 14);
 }
 
-const dynamoDbConfig: any = {
-  region: Config.AWS_REGION || "us-east-1",
-};
+/**
+ * Lazily-built, memoised DynamoDB document client for the guard's store.
+ *
+ * Construction is deferred to the first store access and cached thereafter —
+ * never run at module load. It goes through {@link buildDynamoClientConfig}, the
+ * shared builder that gives every DynamoDB client in the server the same
+ * local-endpoint / explicit-credentials / default-chain precedence this module
+ * used to inline. Unlike that inline block, the shared builder also *refuses* to
+ * construct a client whose credentials the AWS SDK would resolve from the
+ * literal "local" placeholder that `config.ts` leaves in the environment for an
+ * unset variable — it raises {@link AwsCredentialsConfigurationError} rather
+ * than send `accessKeyId="local"` to AWS.
+ *
+ * That refusal is why the accessor is lazy. Running it at import time would let
+ * a misconfigured production environment throw while this module is first
+ * required, before any request is served, and take the whole server process
+ * down at startup. Deferring it makes a credential misconfiguration fail the
+ * *guarded route* instead: the builder's error is rethrown as
+ * {@link JobAdmissionUnavailableError}, which both producers already translate
+ * into a 503 that writes no job — the same fail-closed path they use for a
+ * missing guard table. No admission ever proceeds on a client that could not be
+ * built, so no un-deduplicated paid run can slip through a misconfiguration.
+ */
+let memoisedDocClient: DynamoDBDocument | null = null;
 
-if (Config.dynamoDbEndpoint) {
-  dynamoDbConfig.endpoint = Config.dynamoDbEndpoint;
-  dynamoDbConfig.credentials = {
-    accessKeyId: "DUMMYIDEXAMPLE",
-    secretAccessKey: "DUMMYEXAMPLEKEY",
-  };
-} else if (Config.AWS_ACCESS_KEY_ID && Config.AWS_SECRET_ACCESS_KEY) {
-  dynamoDbConfig.credentials = {
-    accessKeyId: Config.AWS_ACCESS_KEY_ID,
-    secretAccessKey: Config.AWS_SECRET_ACCESS_KEY,
-  };
+function docClient(): DynamoDBDocument {
+  if (memoisedDocClient) {
+    return memoisedDocClient;
+  }
+  let clientConfig: DynamoDBClientConfig;
+  try {
+    clientConfig = buildDynamoClientConfig();
+  } catch (error) {
+    if (error instanceof AwsCredentialsConfigurationError) {
+      // Fail the route, not the process: surface as the unavailability the
+      // producers already handle by returning 503 and writing nothing.
+      throw new JobAdmissionUnavailableError(
+        `Delphi job admission cannot construct a DynamoDB client: ${error.message}`,
+        error
+      );
+    }
+    throw error;
+  }
+  memoisedDocClient = DynamoDBDocument.from(new DynamoDB(clientConfig));
+  return memoisedDocClient;
 }
-
-const docClient = DynamoDBDocument.from(new DynamoDB(dynamoDbConfig));
 
 function cancellationCodes(error: any): string[] {
   const reasons = error?.CancellationReasons;
@@ -450,7 +481,7 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
     }
 
     try {
-      await docClient.transactWrite({ TransactItems: transactItems });
+      await docClient().transactWrite({ TransactItems: transactItems });
       return { outcome: "admitted" };
     } catch (error: any) {
       if (error?.name !== "TransactionCanceledException") {
@@ -473,7 +504,7 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
   },
 
   async readGuard(guardKey) {
-    const result = await docClient.get({
+    const result = await docClient().get({
       TableName: JOB_GUARD_TABLE,
       Key: { guard_key: guardKey },
       ConsistentRead: true,
@@ -482,7 +513,7 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
   },
 
   async readJob(jobId) {
-    const result = await docClient.get({
+    const result = await docClient().get({
       TableName: JOB_QUEUE_TABLE,
       Key: { job_id: jobId },
       ConsistentRead: true,
@@ -630,7 +661,7 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
 
   async clearGuard(guard) {
     try {
-      await docClient.delete({
+      await docClient().delete({
         TableName: JOB_GUARD_TABLE,
         Key: { guard_key: guard.guard_key },
         // `version` is a DynamoDB reserved word, hence the name placeholder.
@@ -653,7 +684,7 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
 
   async clearAlias(alias) {
     try {
-      await docClient.delete({
+      await docClient().delete({
         TableName: JOB_GUARD_TABLE,
         Key: { guard_key: alias.guard_key },
         ConditionExpression: "job_id = :jid",
@@ -713,7 +744,7 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
       });
     }
     try {
-      await docClient.transactWrite({ TransactItems: items });
+      await docClient().transactWrite({ TransactItems: items });
       return true;
     } catch (error: any) {
       if (error?.name === "TransactionCanceledException") {
@@ -730,7 +761,7 @@ async function conditionalPut(
   keyName: string
 ): Promise<boolean> {
   try {
-    await docClient.put({
+    await docClient().put({
       TableName: table,
       Item: item,
       ConditionExpression: `attribute_not_exists(${keyName})`,
@@ -770,7 +801,7 @@ async function baseTableSweep(
   const matches: any[] = [];
   try {
     for (let page = 0; page < SCAN_MAX_PAGES; page++) {
-      const result = await docClient.scan(params);
+      const result = await docClient().scan(params);
       if (result.Items?.length) {
         matches.push(...result.Items);
       }
