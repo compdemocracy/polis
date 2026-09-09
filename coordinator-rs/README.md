@@ -1,438 +1,249 @@
-# P-026 Rust coordinator experiment
+# coordinator-rs (`polis-coordinator`)
 
-Experimental crate on a branch; not a deployment or merge proposal. No math
-algorithms are changed. `polis-engine/1` is implemented as a **candidate-profile**, not a claim of
-full contract certification. See the P-026 report for executed coverage and gaps.
+An experimental crate, not a merge or deployment decision. It runs on branch
+`experiment/rust-coordinator` (draft PR #2727) and does not change any math
+algorithm and does not touch production traffic.
 
-## Layout
+Polis computes each conversation's clustering (PCA + k-means) in a background
+"math" pipeline that polls the database for new votes and comments, runs the
+math, and writes the result back for the API to serve. Today that pipeline
+is Python/Clojure. This crate is a from-scratch Rust rewrite of the
+coordination layer around it — deciding *which* conversation needs
+recomputing, *who* may compute it right now, and how the result is written
+durably — while the math itself stays untouched.
 
-- `src/store.rs`: `ResultsStore` trait and PostgreSQL v0, coherent joined reads,
-  expected-tick conflicts, lease fencing, JSONB integrity digests, atomic publication.
-- `src/lease.rs`: the three distinguishable ownership outcomes and the
-  conditional heartbeat renewal that keeps a long compute inside its lease.
-- `src/ordering.rs`: the declared `polis-order/1` source normalization and its
-  `equal_time_census`; the coordinator's ORDER BY is built from it.
-- `src/cache.rs`: bounded warm bundle cache with the LRU eviction stage.
-- `src/coordinator.rs`: complete source snapshot reconciliation, durable keyset
-  cursor, bounded failure backoff, one active conversation and worker process.
-- `src/probe.rs`: the cheap per-conversation change probe, the durable per-zid
-  reconciliation cursor that bounds how long it may be trusted, and the CO01/CO06
-  backlog and scan-age aggregates.
-- `src/metrics.rs`: the declared metric catalog, the pluggable sink and the
-  CloudWatch Embedded Metric Format records in namespace `Polis/Math`.
-- `src/engine.rs`, `src/wire.rs`: bounded JSONL subprocess client, strict parsing,
-  immutable file descriptors, identity/checkpoint validation, rebuild-prefix lifecycle.
-- `src/reader.rs`: metadata-first keyset sweep plus paginated trailing window.
-- `tools/node_reader.cjs`: the D4 harness that loads the **real** server modules
-  `server/src/utils/pca.ts` and `server/src/utils/participants.ts` in one Node
-  process and reports the bytes they serve for each namespace.
-- `tools/node_route_probe.cjs`: the real `handle_GET_math_pca2` mounted on a real
-  Express app over loopback HTTP, from Astra's round-2 review probe. Only the
-  parameter middleware is synthetic. It is what shows that the route serves a
-  committed generation of zero with 200 and ETag `"0"`, and a matching
-  conditional request 304, while `getPca(zid, undefined)` — a different caller
-  argument — misses it on a cold cache.
-- `src/fault.rs`: external arm/ack/release file barriers, debug feature only.
-- `migration.sql`: additive prototype metadata/leases/sequence; explicit command.
-- `../delphi/polismath/engine_adapter.py`: Conversation lifecycle and existing row
-  derivation, with explicit empty serialization and snapshot un-moderation handling.
-- `../delphi/tests/coordinator/`: process-neutral recovery/equivalence tests using
-  migrated PostgreSQL, pinned independent fold and R09 mapping assertions.
+## What this crate owns
 
-The coordinator rebuilds from persisted warm fields and the entire authoritative
-prefix for every changed source snapshot. This resets the smoother as the reference
-poller does on restart. There is still no warm *worker* (Conversation) cache, so
-this is not uninterrupted-warm equivalence and the live comparator uses exactly
-this restart schedule. There is a bounded warm **bundle** cache
-(`P026_CACHE_CAP`, default 16, 0 disables): the last coherent published bundle of
-an unchanged conversation, so a quiet pass does not re-read the three results
-tables. Lookup and LRU touch are one operation, so an eviction can never
-interleave between them. A resident entry is **never** treated as evidence about
-the durable store. On the fast path every hit re-verifies companion presence,
-every companion's generation and the committed checkpoint identity against the
-database (`resident_is_intact`, metadata and `input_checkpoint` only, no payload
-column). That is cheap and it closes the deleted-companion case, but it cannot
-see a mutated payload, so it is explicitly not complete integrity
-reconciliation: whenever the reconciliation ceiling expires the authoritative
-path re-reads and re-hashes the persisted generation with `load_current` and the
-resident bundle is discarded. Payload corruption that leaves metadata intact therefore
-becomes eligible for repair once the ceiling elapses, instead of surviving behind
-a warm cache indefinitely. The ceiling is an eligibility threshold, not a measured
-deadline: page traversal, backoff, lease waits and compute all sit between
-eligibility and the repair, and no service budget has been measured here. Eviction is the CO07
-`cache_eviction_contends_with_same_zid_update` stage; that stage is the bounded
-Bundle-cache profile only, not a warm-worker, four-worker or Node cache profile.
+- **Deciding what changed** — a background sweep visits every conversation
+  and cheaply checks whether its votes/comments/moderation changed since the
+  last computed result (`src/probe.rs`, `src/reader.rs`).
+- **Deciding who is allowed to compute it** — a *lease* (a time-boxed,
+  database-backed "I have this" claim) stops two workers from computing the
+  same conversation at once; an *epoch* (a counter bumped on every ownership
+  change) lets a takeover be detected after the fact, called *fencing*
+  (`src/lease.rs`).
+- **Running the actual math worker as a subprocess**, speaking a strict,
+  versioned line-protocol to it (`src/engine.rs`, `src/wire.rs`, plus the
+  Python-side adapter `../delphi/polismath/engine_adapter.py`, which is part
+  of this experiment though it lives outside `coordinator-rs/`).
+- **Writing the result durably and atomically** to the same three Postgres
+  results tables Node already reads (`src/store.rs`), with exact-byte custody
+  of what the worker produced, plus a bounded in-memory cache of each
+  conversation's last known-good result (`src/cache.rs`).
+- **Reporting numeric health signals** (how far behind the oldest
+  conversation is, how many are stuck) in a fixed, checked-in catalog
+  (`src/metrics.rs`), plus a test-only fault-injection harness for pausing
+  the process at named points (crash-testing lease loss, mid-publish kills),
+  behind a Cargo feature refused in release builds (`src/fault.rs`, `build.rs`).
 
-**Resident size after S1.** A resident `Bundle` now holds both the parsed JSONB
-values and the admitted original bytes (`Payloads::originals`), because exact
-byte replay and the decoded-correspondence check both need the originals. Each
-entry therefore costs roughly the original payload bytes *plus* their parsed
-`serde_json::Value` representation — about twice what it cost before S1, at the
-same `P026_CACHE_CAP`. The bound is still `cap ×` one generation, and eviction is
-unchanged, but the earlier bounded-memory statement was measured against the old
-per-entry constant: halve `P026_CACHE_CAP` to hold the previous ceiling. No new
-measurement has been taken here. Relatedly, `read` and `publish-fixture` now
-serialize originals as JSON integer arrays, so CLI stdout grows several-fold per
-payload byte; that is a fixture-scale format, not an interface to script against.
+## What this crate explicitly does not own
 
-## Incremental discovery, and why it is only a filter
+- **The math itself** — PCA, clustering, repness — unchanged, still in
+  Python/Clojure. This crate decides when to ask the worker to compute and
+  what to do with the answer; it never computes a result itself.
+- **The Node server's read path** — the `/api/v3/math/pca2` route and its
+  own cache belong to `server-rs/` and the existing Node server (see that
+  crate's README). This crate is verified *against* what that route serves
+  today (see "How it is judged") but does not change it.
+- **Production cutover** — nothing here replaces the Python poller or wires a
+  queue into the real deployment; "will own the Postgres queue substrate" is
+  a future goal this crate steps toward, not something it already does.
+- **A finished security story** — no TLS here either (same open item as
+  `server-rs/`); this only ever talks to a local, trusted Postgres.
 
-Every pass still visits every admitted conversation independently of timestamps.
-What changed is what a visit costs. Before reading the full vote/comment/
-participant history, the coordinator takes a cheap single-statement aggregate
-probe (`src/probe.rs`) and compares it with the probe recorded, in
-`coordinator_reconciliation`, immediately **before** the authoritative snapshot
-that certified the published generation. A row committing between the probe and
-the snapshot therefore changes the *next* probe; it cannot be swallowed.
+## What it promises
 
-`reconciled_at` is the probe's own database timestamp, taken in the same
-statement and therefore *before* the source read — not the time publication
-finished. A compute that outlasts the ceiling cannot reset the advertised source
-age and buy another fast-path interval.
+The contract this crate is scored against is a set of internal design notes,
+not shipped in this branch (see "Where the evidence lives"). The short
+version:
 
-The probe can only skip a read. It never authorises a rebuild, and it is trusted
-only while that conversation's last authoritative reconciliation is younger than
-`P026_RECONCILE_SECONDS` (default 3600). That interval is an eligibility
-threshold, not a proven end-to-end repair deadline: page traversal, backoff,
-lease waits and compute all add latency, and no pass or service budget has been
-measured here. Count and max are hints: a change that
-leaves every aggregate identical really is invisible to them, and
-`test_the_aggregate_probe_is_weak_but_the_reconciliation_ceiling_repairs_it`
-stages exactly such a change to prove both halves. `P026_INCREMENTAL=0` disables
-the fast path entirely and restores the unconditional full sweep. The probe also
-carries `ordering::algorithm_digest`, so changing the declared normalization or
-the storage agree-convention constant invalidates every conversation even though
-no source row moved.
+- **Exactly one worker computes a given conversation at a time.** A worker
+  that no longer holds the current epoch is *fenced*: it must stop, never
+  publish, and not be retried by that process. Four named outcomes, each
+  with its own log word and process exit code, are checked by `src/lease.rs`
+  and enforced again under a database row lock the instant before commit:
 
-`OldestReconciliationAgeSeconds` is what makes this auditable: the fast path is
-sound only while that age stays bounded, so the metric is part of the mechanism
-rather than decoration. It is not publication lag.
+  | Outcome | Exit | Meaning |
+  |---|---|---|
+  | Fenced | 3 | someone else now owns this; give up entirely |
+  | Lease unavailable | 4 | someone else holds it; try again later |
+  | Lease expired | 5 | our own claim timed out; re-claim and recompute |
+  | any other failure | 1 | not an ownership problem; back off and retry |
 
-## Metrics
+  A worker still computing as its lease nears expiry renews it (a
+  "heartbeat") instead of being killed mid-computation, but renewal can
+  never resurrect a lease that has already moved to someone else.
 
-`src/metrics.rs` emits CloudWatch Embedded Metric Format records in namespace
-`Polis/Math` with P-031's two fixed dimensions `Environment` and `MathEnv`, and
-no per-conversation, per-run or per-instance dimension. There is **no AWS client
-and no AWS dependency**: a `Sink` receives finished records, and the prototype
-ships a JSON-lines sink (`P026_METRICS` = `off` (default), `stderr`, `stdout`, or
-a path) plus a null sink. The default is `off` deliberately: a long-running `run`
-whose stderr is an undrained pipe blocks once the pipe buffer fills, and per-pass
-records fill it far faster than the log lines do, so a deployment picks its sink
-explicitly rather than having the coordinator stall on its own telemetry. `polis-coordinator metrics` prints the declared
-catalog, which is generated from the emitting code and checked into
-`evidence/metrics-catalog.json`.
+- **A published result is exactly what the worker produced, byte for byte.**
+  The original bytes are stored alongside the parsed/decoded form, with
+  digests (short fingerprints) checked on every read-back. This catches an
+  *accidentally* corrupted or partially-deleted result. It is explicitly
+  **not** tamper-evidence: anyone with write access to the database tables
+  could rewrite the bytes, digests, and parsed form together undetected —
+  stated plainly rather than implied.
 
-**No row claims a P-031 alarm.** Rev7's observability admission is explicit:
-none of these series is A01 `PollHealthy` (which needs both poll loops to have
-succeeded), A02 `PublishLagSeconds` (initiated-but-unpublished work) or A03
-`ObserverHealthy` (an independent observer). The catalog carries a `p031_status`
-block saying so, a Rust test enforces that every row's alarm field is empty, and
-`audit_stages.py` re-checks it. Every gauge is scoped to this shard and
-allowlist, failures included.
+- **Conversation generation zero is a real, meaningful first result**, not a
+  sentinel for "nothing yet" — matching the existing Python/Clojure writer.
 
-Per pass: `SourcePassHealthy`, `SourcePassSeconds`,
-`SourcePass{Conversations,Probed,Skipped,Reconciled,Published,Deferred}`. Gauges,
-at most once per `P026_GAUGE_SECONDS` and computed by one bounded aggregate that
-reads no payload column: `OldestReconciliationAgeSeconds` (CO01 scan age),
-`ReconciliationBacklogConversations` (CO01 backlog),
-`FailureBacklogConversations`, `OldestUnrepairedAgeSeconds` (CO06). Per zid:
-`ConversationLatencySeconds`, `SourceReadSeconds`, `ComputeSeconds`,
-`PublishSeconds`. Lease outcomes: `LeaseAcquired`, `LeaseUnavailable`,
-`LeaseExpired`, `LeaseFenced`. Publication outcomes: `PublishCommitted`,
-`PublishConflict`, `PublishRefused`, `PublishRetried`, `PublishUncertain`. Plus
-`MetricsDropped`, because a lost record must be visible rather than silent.
+- **A declared, versioned ordering rule** (`polis-order/1`, in
+  `src/ordering.rs`) fixes exactly how votes are sorted before being fed to
+  the math, so re-running a conversation twice gives the same answer — a
+  deliberate, checked-in choice, not "whatever order the database returns."
 
-`SourcePassHealthy` says the pass completed, and nothing more: it is page-loop
-liveness. A pass in which every conversation failed is still a completed pass;
-stuck work is the failure backlog and unrepaired age.
+- **A local-only "candidate" input format** (`polis-candidate-input/1`)
+  stands in for a not-yet-finalized general worker-input contract
+  (`polis-input/1`). It is explicitly a placeholder, not a certified format.
 
-Source order is the **declared** `polis-order/1` normalization
-`(tid,pid,created_ms,semantic_vote,weight_x_32767 NULLS FIRST)`, where
-`semantic_vote = raw_vote * storage_agree_value`. It is a contract term, not a
-literal in one query: `src/ordering.rs` owns the terms, the coordinator builds
-its ORDER BY from them, the same declaration (with its `algorithm_digest` and
-this conversation's `equal_time_census`) is the worker manifest's `ordering`
-value and is recorded in the published checkpoint, and the worker rejects a
-manifest whose declaration does not match its `storage_agree_value`. Ordering on
-the raw sign instead would break the polarity property. This is a declared
-content normalization, not historical encounter order. Exact duplicate
-multiplicity survives. The source fingerprint covers all vote rows, current
-comment metadata, participant moderation and that declaration. One
-REPEATABLE READ snapshot covers all three source queries. Every conversation is
-visited independently of event timestamps; a late commit behind a completed page
-is found on the next pass. Source rows are limited to 1,000,000 per table per
-conversation; exceeding that limit fails visibly, without acknowledging a prefix.
+## How it is judged
 
-`caching_tick` comes from a sequence. It is not commit ordered. The reader always
-reserves a metadata sweep page as the unconditional backstop. Its CLI has no
-payload cache; selected metadata are cache misses and load full coherent bundles.
-Positions survive process restart in `coordinator_cursors`, but remain delivery
-hints. Sweep replay recovers a lost consumer response. This does not wire Node's
-existing caches to this reader.
+There are three layers of check, and none of them alone is "done":
 
-Publication order: parent `conversations FOR KEY SHARE`, lease, ticks, bidtopid,
-ptptstats, main. Ownership is checked under the lease lock, and the final
-authorization immediately before COMMIT re-reads owner, epoch and the
-**remaining** lease under that same row lock, refusing when less than
-`P026_COMMIT_MARGIN_SECONDS` is left rather than gambling that the COMMIT round
-trip beats the clock. That check does not prove the round trip finishes in time
-— nothing in-transaction can — so an uncertain COMMIT is still resolved by
-operation, publisher epoch, tick and checkpoint identity, never by a wall-clock deadline. Reclaims increment the epoch; rows are expired,
-never deleted/recreated. Default lease duration is 120 seconds.
+1. **Rust checks** — `cargo test`, `cargo clippy -D warnings`, and a release
+   build, run twice: default feature set and the test-only `fault-injection`
+   feature. 31 Rust tests pass in each (verified locally, see below).
+   `unwrap()`/`expect()` are banned crate-wide (`Cargo.toml`'s
+   `[lints.clippy]`), so a real error can never silently become a panic.
+2. **Python integration tests against a real, disposable Postgres** — 139
+   tests in `delphi/tests/coordinator/` covering lease loss/recovery,
+   crash-and-restart, duplicate/overlapping work, byte-for-byte comparison
+   against the existing Python worker's output, and negative controls
+   (deliberately broken input that must be refused).
+3. **A named stage checklist** (`delphi/tests/coordinator/audit_stages.py`)
+   requiring every one of 25 required scenarios ("stages") to be actually
+   reached in a real run, not merely have a test with that name. This is the
+   *gate*: `stage_inventory_gate: PASS` once all 25 are reached, but
+   `full_contract_gate: FAIL` while any open item below remains, exiting
+   non-zero in that case. **A green run of this crate's own tests is not the
+   same as a passing full-contract gate.**
 
-## Ownership outcomes
+On top of that, a separate check (`tools/node_reader.cjs`,
+`tools/node_route_probe.cjs`) loads the *actual*, unmodified Node server
+modules that serve `/api/v3/math/pca2` today and compares what they serve
+for a result this crate published against the existing writer's result —
+zero byte differences currently (see evidence). This exercises today's real
+reader, not a rewritten one: the Node-side caching rewrite this project
+eventually wants does not exist yet and is not tested here.
 
-Refusal is not one state. Each outcome has its own log token and process exit
-code, and only one of them is terminal:
+## What is still open
 
-| Outcome | Token | Exit | Meaning | Response |
-| --- | --- | --- | --- | --- |
-| `LeaseState::Fenced` | `FENCED` | 3 | owner or epoch superseded | publication authority is gone; the daemon exits and this zid is not retried by this owner |
-| `LeaseState::Unavailable` | `LEASE-UNAVAILABLE` | 4 | another owner holds an unexpired lease | defer this zid with bounded backoff and keep sweeping the rest |
-| `LeaseState::Expired` | `LEASE-EXPIRED` | 5 | our own lease elapsed in DB time | do not publish; reacquire and recompute on a later pass |
-| any other failure | — | 1 | not an ownership question | durable backoff, cursor retained |
+The stage checklist names these explicitly (`evidence/test-summary.json`,
+`open_conditions`); none is hidden or waived:
 
-Exit codes 4 and 5 are reachable only from `once` and `publish-fixture`, which
-are strict one-shot commands: a lease refusal ends that pass with its typed
-code. The `run` daemon exits only on `FENCED`.
+- **O8 — candidate profile only.** The local input format
+  (`polis-candidate-input/1`) is not the finished, contract-owner-certified
+  general format (`polis-input/1`). Exact-byte custody and identity checks
+  are in place; the full required test-case set, an immutable input
+  manifest, and telling apart "rebuilt," "resumed," and "warm incremental"
+  output are not. (The design notes record this as PARTIAL, not OPEN; treat
+  a fresh `audit_stages.py` run as the live source of truth — see "How to run.")
+- **The Node caching rewrite doesn't exist yet**, so output is compared
+  against today's reader, not the eventual rewritten one; the private
+  ~2,884-case real corpus for that separate effort is not run here.
+- **A real server-side quirk, not fixed here:** Node's `getPca(zid,
+  undefined)` can miss a freshly-committed generation zero on a cold cache
+  even though the HTTP route itself serves it correctly — a finding for
+  whoever owns that server code.
+- **The staleness check is a time-boxed hint, not a proof**, and there is no
+  multi-worker or cross-conversation concurrency campaign — today's tests
+  exercise one worker process reconciling conversations one at a time.
+- **No production alerting hookup** — implements none of the three alerts a
+  separate, accepted design (P-031) calls for, and has no deployed publisher.
 
-A compute that outlasts the lease renews instead of fencing itself. A heartbeat
-on its own connection extends `expires_at` every `lease/3`, conditional on
-`(owner_id, owner_epoch)` and on the lease still being unexpired in database
-time, so it can never resurrect an expired or transferred epoch. A renewal that
-fails definitively aborts the operation the worker is running and no publication
-follows; an uncertain renewal is not treated as ownership, and after one full
-lease without a confirmed renewal the work stops. Ownership is then classified
-once more against the lease row before anything is published, so a heartbeat the
-database contradicts does not invent a loss, and publication independently
-re-checks owner, epoch and expiry inside its own transaction. The heartbeat
-cannot renew while the publication transaction holds the lease row `FOR UPDATE`,
-so a publication must fit inside one lease window; the pre-commit expiry check is
-what enforces that, and it fails closed.
+## How to run the checks locally
 
-An unclean death leaves the lease live until it genuinely expires. A restarted
-process defers that conversation and keeps working; it never crash-loops, and it
-repairs without anyone expiring the dead owner's row by hand. A process that
-fails cleanly releases its own epoch immediately (the release is conditional on
-`(owner_id, owner_epoch)`, so a transferred row is untouched). That release is
-best effort: a failure to reconnect, or a failure before the heartbeat is
-started, leaves the lease to expire on its own, so genuine DB-time expiry — not
-the release — is what the invariant rests on.
-
-Per-conversation error attempts are durable and capped at 30 for backoff. SQLSTATE
-40001/40P01 gets at most three whole-transaction attempts. Uncertain COMMIT checks
-coherent persisted operation/epoch/tick/checkpoint identity before reporting success or failure.
-
-Integrity digests are separate from harness semantic hashes. JSONB normalizes
-numeric spellings (`-0.0` and exponent notation). `storage_digest` expands decimal
-number tokens and removes insignificant zeroes, preserving JSON types and all
-payload fields. Hashing/encoding occurs before any publication lock. Each results row stores `original_bytes` (BYTEA) and `original_sha256` in the same
-publication transaction as `data` (JSONB). These are the admitted worker bytes,
-not JSON re-encoded from a parsed value. `load_current` verifies the raw digest,
-the checkpoint's raw and storage digests, and the decoded original/JSONB
-correspondence before returning a Bundle. The returned originals permit exact
-byte replay, including whitespace, negative zero and exponent spellings. Legacy
-rows receive nullable columns and fail admission until rebuilt; migration cannot
-recover bytes already lost to JSONB. The row-shape golden still compares
-`data::text` from the Rust and Python writers.
-
-**This identity scheme is self-certifying, not tamper-evident.** The digests and
-the decoded original/JSONB correspondence catch an *incoherent* generation — a
-mutated payload, a deleted companion, a JSONB that has drifted from its original
-bytes, another owner's identical content on an uncertain-COMMIT readback. They
-catch nothing about a *coherent* forgery: anyone with write access to the four
-math tables can rewrite bytes, JSONB, both digests and the checkpoint together,
-and this crate will accept the result. Nothing here is signed, and no key is
-involved. That is the same trust boundary CO04 v0 already has, and it is stated
-here so "original/JSONB mismatch is detectable" is never read as tamper-evidence.
-
-`publish-fixture` originals are **synthesized** unless the fixture supplies
-`payloads.originals` explicitly: the command re-encodes the fixture's parsed
-values, announces `originals: synthesized=[…]` on stderr, and for those rows
-`validate_originals()` is tautological. Fixture rows are not engine originals and
-are not evidence of worker byte custody; `test_s1_identity.py` supplies real
-bytes where the byte-replay claim is made.
-
-## Toolchain
-
-`rust-toolchain.toml` pins the crate to stable `1.98.1` with `clippy` and
-`rustfmt`, so every build here uses one known compiler. Run cargo from inside
-`coordinator-rs/` for the pin to apply; `--manifest-path` from the repository
-root bypasses it.
-
-`Cargo.toml` declares `rust-version = "1.88"` as the minimum supported Rust
-version. Edition 2024 alone needs 1.85, and the highest MSRV among the locked
-dependencies is also 1.85; 1.88 is required because `src/main.rs` uses a
-let-chain, stabilized in 1.88 for edition 2024. The MSRV is derived from the
-edition, that feature and the lockfile — it has not been exercised by building
-on a 1.88 toolchain. Raise it deliberately if newer language features land here.
-
-## Local build and test
-
-The sandbox refused writes to `$HOME/.cargo` and `.git/FETCH_HEAD`. Stable rustup
-was installed under `/private/tmp/p026-toolchain` with no profile changes. The
-Python environment is `/private/tmp/p026-venv`. Dependencies are recorded in
-`evidence/python-requirements.txt`; Rust dependencies are in `Cargo.lock`.
+Run every command from inside `coordinator-rs/` unless noted. All re-run and
+confirmed working for this README.
 
 ```sh
 export CARGO_HOME=/private/tmp/p026-toolchain/cargo
 export RUSTUP_HOME=/private/tmp/p026-toolchain/rustup
 export PATH="$CARGO_HOME/bin:$PATH"
-cargo clippy --manifest-path coordinator-rs/Cargo.toml -- -D warnings
-cargo test --manifest-path coordinator-rs/Cargo.toml
-cargo build --manifest-path coordinator-rs/Cargo.toml --release
-cargo build --manifest-path coordinator-rs/Cargo.toml --features fault-injection --target-dir coordinator-rs/target/fault
-COMPOSE_PROJECT_NAME=p026 POLIS_RECOVERY_PG_PORT=55458 RECOVERY_PG_PORT=55458 docker compose -f coordinator-rs/compose.yml up -d --wait
-POLIS_TEST_POSTGRES_URL=postgresql://postgres@127.0.0.1:55458/p026 PYTHONPATH=delphi PYTHONDONTWRITEBYTECODE=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 /private/tmp/p026-venv/bin/python -m pytest -o addopts='' --confcutdir=delphi/tests/coordinator delphi/tests/coordinator -q
-COMPOSE_PROJECT_NAME=p026 POLIS_RECOVERY_PG_PORT=55458 RECOVERY_PG_PORT=55458 docker compose -f coordinator-rs/compose.yml down -v
+
+cargo clippy --locked --all-targets -- -D warnings
+cargo clippy --locked --all-targets --features fault-injection -- -D warnings
+cargo test --locked
+cargo build --locked --release
+cargo build --locked --features fault-injection --target-dir target/fault
 ```
 
-`tools/record_s1.py` reads those cargo transcripts, so every cargo invocation in
-the recorded gate must save **both** its output and its own exit status — a
-transcript prints one `test result:` line per suite, and a passing suite followed
-by a failing one leaves passing lines behind. Run each from inside
-`coordinator-rs/` as
+`rust-toolchain.toml` pins the exact compiler (`1.98.1`), picked up
+automatically by running `cargo` inside this directory. With no system Rust,
+install one first (e.g. `rustup-init` with a scratch `CARGO_HOME`/
+`RUSTUP_HOME` as above, not your real `~/.cargo`).
+
+A release build with `fault-injection` on must fail (`build.rs`'s point):
+`cargo build --locked --release --features fault-injection --target-dir target/fault-release`
+should print `fault-injection is forbidden in release builds` and exit
+non-zero — confirmed.
+
+The Python integration suite needs a disposable, local-only Postgres. Use a
+compose project name and port that are yours alone so two runs never collide
+— the numbers below match `compose.yml`'s defaults; pick your own if running
+alongside someone else's:
 
 ```sh
-cargo test --locked                    > artifacts/s1-cargo-default.log 2>&1; echo $? > artifacts/s1-cargo-default.status
-cargo test --locked --features fault-injection > artifacts/s1-cargo-fault.log 2>&1; echo $? > artifacts/s1-cargo-fault.status
-cargo clippy --locked --all-targets -- -D warnings > artifacts/s1-clippy-default.log 2>&1; echo $? > artifacts/s1-clippy-default.status
-cargo clippy --locked --all-targets --features fault-injection -- -D warnings > artifacts/s1-clippy-fault.log 2>&1; echo $? > artifacts/s1-clippy-fault.status
-cargo build --locked --release         > artifacts/s1-release.log 2>&1; echo $? > artifacts/s1-release.status
-cargo build --locked --features fault-injection --target-dir target/fault > artifacts/s1-fault-build.log 2>&1; echo $? > artifacts/s1-fault-build.status
+COMPOSE_PROJECT_NAME=p026 POLIS_RECOVERY_PG_PORT=55458 RECOVERY_PG_PORT=55458 \
+  docker compose -f coordinator-rs/compose.yml up -d --wait
+
+POLIS_TEST_POSTGRES_URL=postgresql://postgres@127.0.0.1:55458/p026 \
+  PYTHONPATH=delphi PYTHONDONTWRITEBYTECODE=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+  python -m pytest -o addopts='' --confcutdir=delphi/tests/coordinator delphi/tests/coordinator -q
+
+COMPOSE_PROJECT_NAME=p026 POLIS_RECOVERY_PG_PORT=55458 RECOVERY_PG_PORT=55458 \
+  docker compose -f coordinator-rs/compose.yml down -v
 ```
 
-A missing `.status` file is malformed evidence, not a pass. The recorder refuses a
-non-zero status, any suite whose result is not `ok`, any non-zero `failed` **or**
-`ignored` count, a malformed result line and a leading `error:`/`error[` line, and
-only then sums the passes. `test_recorder_controls.py` pins those refusals.
+Re-run from a clean checkout: `cargo test --locked` 31/31; both `cargo
+clippy` invocations clean; release and fault-injection builds succeed and
+release+fault-injection correctly refuses to build; `docker compose up`
+starts a healthy Postgres in seconds; Python suite **136/139, 3 skipped**
+(skips are the D4 Node-reader tests, which additionally need
+`server/node_modules` linked read-only into this checkout — not done for
+this quick run; see `requires_server_modules` in `test_node_reader.py` and
+`test_step2_review_controls.py`). `python -m pytest` assumes Python 3.12
+with this project's `delphi` dependencies (`evidence/python-requirements.txt`)
+and `PYTHONPATH=delphi` pointing at this checkout's `delphi/` directory.
 
-This test-only Compose service binds loopback and uses trust authentication without
-credentials. Each test creates a fresh database from a template built by applying
-**all repository SQL migrations**. The template removes `math_ticks.caching_tick`
-to exercise documented production drift, then applies the prototype migration.
-Do not point migration/test commands at an existing service database.
+To see the full stage-by-stage gate result:
 
-Commands: `migrate`, `once`, `run`, `read <zid>`, `scan <after-zid>`,
-`poll <high-water>`, `reader <consumer-id>`, `stages`, `metrics`. `once` completes one full
-pass; `run` bounds each cycle by `P026_PAGE_SIZE` (default 16, range 1–1000).
-`MATH_ENV` defaults to `rustproto`. `DATABASE_URL`, `P026_PYTHON`,
-`STORAGE_AGREE_VALUE` (-1 or +1), `POLL_SHARD_INDEX`, `POLL_SHARD_COUNT`,
-`POLL_ALLOWLIST`, `P026_WINDOW` (default 64, positive), `P026_LEASE_SECONDS`,
-`P026_POLL_MS`, `P026_CACHE_CAP` (default 16, 0-1024, 0 disables),
-`P026_INCREMENTAL` (default 1, 0 disables the probe fast path),
-`P026_RECONCILE_SECONDS` (default 3600, positive), `P026_COMMIT_MARGIN_SECONDS`
-(default 0.5, less than the lease), `P026_METRICS`, `P026_ENVIRONMENT` (default
-`synthetic`) and `P026_GAUGE_SECONDS` are configuration inputs.
-`PYTHONPATH` must include this checkout's `delphi` directory. No credentials are
-stored in the crate or report.
+```sh
+python delphi/tests/coordinator/audit_stages.py
+```
 
-## Candidate wire profile
+Confirmed: exits 1 on purpose (`full_contract_gate: FAIL`, 25/25 stages
+reached) as long as any item in "What is still open" remains open — that is
+not a bug in the checker.
 
-S1 reserves `polis-input/1` for the complete reviewed contract. This local
-profile uses `polis-candidate-input/1`, `polis-candidate-checkpoint/1` and
-`polis-candidate-math-output/1`; none is a G01–G16 certificate.
+## Where the evidence lives
 
-Initialization also requires the exact admission tuple documented in
-`schemas/candidate-admission.schema.json`: candidate schema id, declared engine
-version `python-conversation/p026-s1`, SHA256 of the immutable input manifest,
-SHA256 of the resolved schedule, and a fresh coordinator operation id. The input
-manifest transitively binds vote/moderation files and parent provenance. The
-worker validates these before creating Conversation state, returns the tuple at
-initialization and in its checkpoint, and Rust compares both against its request.
-The engine version is a local adapter revision, not a certified release or a
-substitute for the source/dependency hashes recorded in the campaign evidence.
+- `coordinator-rs/evidence/*.json` — checked-in, sanitized summaries: test
+  counts, stage reachability, byte-hash comparisons against the existing
+  writer and the real Node reader, and the metric catalog. No production
+  data or credentials are in these files.
+- `cost-reduction/04-plans/P-026-rust-coordinator-report.md` and
+  `P-022-G-coordinator-contract.md` — the accepted design notes this README
+  summarizes; they live outside this branch and are the authoritative
+  record of why each decision was made and who signed off.
+- Raw logs and per-run artifacts go to a git-ignored `artifacts/` directory,
+  not checked in; only the sanitized `evidence/` summaries are.
 
-Admission refusals are typed: `MALFORMED_CANDIDATE`,
-`CANDIDATE_SCHEMA_MISMATCH`, `ENGINE_VERSION_MISMATCH`,
-`INPUT_DIGEST_MISMATCH`, `SCHEDULE_DIGEST_MISMATCH`, and (at coordinator
-readback of the candidate) `OPERATION_ID_MISMATCH`. File checksum refusal remains
-`CHECKSUM_MISMATCH`; existing input/sequence/resource errors remain terminal.
-Unknown checkpoint or admission fields fail closed.
+## Glossary
 
-The operation id survives whole-transaction retries. Publication writes it and
-`publisher_epoch` both in `math_ticks` and the checkpoint; `Bundle` exposes both.
-An uncertain COMMIT returns own success only for a coherent current Bundle with
-matching operation, publisher epoch, tick, complete checkpoint and all digests.
-A different or overwritten publication is `UNCERTAIN_COMMIT_LOST`, never evidence
-of our own success. In-place rows provide no historical operation receipt: an
-operation overwritten before readback is conservatively lost/unknown.
-
-Initialization requires descriptors `{path,bytes,sha256}` for an input manifest
-and resolved schedule, a `config`, and `required_capabilities`. Dedicated input
-and output roots are process arguments. Symlinks/traversal, duplicate keys, invalid
-votes (including NULL), foreign identities and checksum errors fail closed.
-The control line limit is 64 KiB; each admitted bulk file is bounded at 256 MiB.
-The client operation timeout is 120 seconds and failure kills/discards the worker.
-
-Local manifest keys: `schema:"polis-candidate-input/1"`, `fixture_id`,
-`storage_agree_value`, `ordering`, `votes`, `moderation`, `parent`. `ordering` is
-either the `polis-order/1` declaration above (live profile) or the pinned name of
-a frozen replay order; a live declaration must agree with `storage_agree_value`
-and must declare the semantic tie term, or initialization fails.
-Vote lines use the contract's eight-field normalized example. Moderation lines
-are `{slot,state}`, where state is the existing poller snapshot with four
-moderation sets and `lastModTimestamp`. Current poller snapshot semantics leave
-the latter null. This profile records real comment `modified` values in source
-fingerprints; it does not fabricate historical moderation events.
-Schedule: `{schema:"polis-schedule/1",operations:[{op,payload},...]}`. Every
-post-initialize operation must match the admitted list exactly. Config keys:
-`profile:"candidate-profile"`, `seed:42`, `pca_mode:"powerit"`,
-`empty_contract:true`, `init_vector:"engine-default"` (also supports `ones`).
-`apply_votes` and `apply_moderation` consume contiguous ranges without compute;
-`compute`, `snapshot`, `restore`, `close` are separate operations. Snapshot emits
-a manifest last, referring to main, bidtopid, ptptstats and full restore payloads.
-The exhaustive B-owned raw schema, source/transform/units manifest, certified
-worker provenance and a persisted operation-history restore attestation remain
-contract-admission gaps. The local schema must not be advertised as a completed
-G01–G16 certificate.
-
-## Fault seam and evidence
-
-Build with `fault-injection` into a separate target directory so default builds
-cannot replace the running test binary. An attempted release+feature build fails
-in `build.rs`. Release binaries reject `P026_FAULT_DIR` before connecting to DB.
-The test-enabled binary additionally requires a row for the namespace in
-`p026_test_marker` in the target synthetic DB and rejects prod/preprod/dev.
-
-Write `arm.json` to `P026_FAULT_DIR` with protocol `polis-fault-control/1`,
-`run_id`, `operation_id`, `stage`. At the real stage the process atomically writes
-`ack.json` carrying PID, context, and `state:"reached-and-blocked"`; it waits for
-`release` or an external SIGKILL. Publication contexts contain the actual PG
-backend PID. The barrier has a bounded deadline. A log alone is never an ack.
-
-`audit_stages.py` reports two separate verdicts: `stage_inventory_gate` over the
-25 contract-required fault stages, and `full_contract_gate`, which is still
-**FAIL**. It names its open conditions explicitly — CO04's `loadBundle`/Bundle
-cache-unit rewrite does not exist in the server, application boot/auth/report and
-the private served corpus are not executed, `getPca(zid, undefined)` misses a
-cold generation zero that the route itself serves, C7's
-published-versus-synthesized empty listing must satisfy the existing comment and
-clock preservation contract, the incremental probe
-is a bounded eligibility hint with no measured service budget, persisted payloads
-are revalidated once per ceiling rather than every pass, and this crate
-implements none of P-031's A01/A02/A03 — and it exits non-zero while any
-remain.
-
-O8 is the eighth condition and it stays **open**. `evidence/s1-closure.json`
-records the S1 work as `state: "PARTIAL"`, and the audit writes
-`O8: PARTIAL (S1 identity/custody recorded; G01-G16 open)` into
-`condition_states` while leaving the standing "`polis-candidate-input/1` is a
-candidate profile, not a G01–G16 certificate" disclaimer in `open_conditions`.
-The record names what is still outstanding — the G01–G16 case set with its
-negative controls, an immutable manifest, fresh-rebuild versus exact-resume
-versus warm-incremental output schedules, and a non-vacuous P-023 compensated
-pair with raw C9 validation. `closed_conditions` is empty; nothing here closes.
-
-The record pins **committed** inputs only — source, migration, schemas, tests —
-and the audit re-hashes every one of them and refuses the record if a pin is
-stale, missing, or points into gitignored `target/` or `artifacts/`. Binary and
-log hashes are still recorded, in a `run_pins` block flagged
-`verifiable_on_producing_host_only`, which the audit deliberately does not gate
-on: a committed inventory must be reproducible from a clean checkout of the same
-commit, not only in the directory that produced it.
-
-`evidence/` contains sanitized final summaries, fixture digests and the explicit
-coverage inventory. Runtime logs and detailed per-test artifacts are retained in
-ignored `artifacts/`. A registry with no missing implemented markers does not
-claim the absent cache/Node profile stage is covered.
+- **Lease** — a time-boxed database row meaning "I own this conversation's
+  computation right now, until this timestamp." Stops two workers from
+  computing the same thing at once.
+- **Fence / fenced / epoch** — once a lease moves to a new owner (a new
+  *epoch*, a counter bumped on every ownership change), the old owner is
+  fenced: its writes are refused even if it doesn't know yet.
+- **Tick / generation** — the version number of a computed result. Tick 0 is
+  a real, valid first result, not "nothing yet."
+- **`math_env`** — a namespace label (`python`, `rustproto`) keeping results
+  from different engines/experiments from colliding in one database.
+- **Checkpoint** — the durable record of exactly what inputs and worker
+  version produced a given tick.
+- **Replay / oracle** — re-running recorded input through a worker (or two)
+  and comparing outputs; the *oracle* decides pass/fail from that comparison.
+- **Census** — an exhaustive count-and-classify pass over real data, checking
+  every shape a decoder might see is accounted for (see `server-rs/README.md`).
+- **Contract** — a written, versioned description of what a component
+  promises to produce or accept, independent of implementation.
