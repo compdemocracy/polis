@@ -1,7 +1,7 @@
 {
   "schema": "polis-axis-continuity/1",
   "grading": "DIAGNOSTICS ONLY \u2014 certify never consumes these statuses; the PCA parity gate is untouched (stages.py:11-17).",
-  "eigengap_note": "Eigenvalues are ESTIMATED from the recorded projections (sparsity-scaled Rayleigh quotient), not read from the engine; gaps are relative to the leading component. See the module docstring.",
+  "eigengap_note": "Projection/centroid energy gap PROXY only; scaled coordinates do not establish the true spectral gap or degeneracy. Endpoint coverage is reported separately and never changes raw orientation statuses.",
   "recording": "real_data/.local/replays/vw/every-vote-56",
   "step_dir": "real_data/.local/replays/vw/every-vote-56/py",
   "dataset": "vw",
@@ -881,6 +881,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -906,6 +915,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -931,6 +949,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -956,6 +983,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -981,6 +1017,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1006,6 +1051,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1031,6 +1085,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1056,6 +1119,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1081,6 +1153,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1106,6 +1187,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1131,6 +1221,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1156,6 +1255,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1181,6 +1289,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1206,6 +1323,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1231,6 +1357,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1256,6 +1391,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1281,6 +1425,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1306,6 +1459,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1331,6 +1493,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1356,6 +1527,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1381,6 +1561,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1406,6 +1595,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1431,6 +1629,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": null
+          },
+          "eigengap_coverage": "none",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": null
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1455,7 +1662,16 @@
           "best_match": null,
           "best_match_abs_cosine": null,
           "cross_cosines": [],
-          "eigengap": 1.0,
+          "eigengap": null,
+          "eigengap_endpoints": {
+            "from": null,
+            "to": 1.0
+          },
+          "eigengap_coverage": "partial",
+          "low_proxy_endpoints": {
+            "from": null,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1486,6 +1702,15 @@
             null
           ],
           "eigengap": 1.0,
+          "eigengap_endpoints": {
+            "from": 1.0,
+            "to": 1.0
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -1498,6 +1723,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": 0.0,
+          "eigengap_endpoints": {
+            "from": 0.0,
+            "to": 0.0
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": true,
+            "to": true
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1528,6 +1762,15 @@
             null
           ],
           "eigengap": 1.0,
+          "eigengap_endpoints": {
+            "from": 1.0,
+            "to": 1.0
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -1540,6 +1783,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": 0.0,
+          "eigengap_endpoints": {
+            "from": 0.0,
+            "to": 0.0
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": true,
+            "to": true
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1570,6 +1822,15 @@
             null
           ],
           "eigengap": 1.0,
+          "eigengap_endpoints": {
+            "from": 1.0,
+            "to": 1.0
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -1582,6 +1843,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": 0.0,
+          "eigengap_endpoints": {
+            "from": 0.0,
+            "to": 0.0
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": true,
+            "to": true
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1612,6 +1882,15 @@
             null
           ],
           "eigengap": 1.0,
+          "eigengap_endpoints": {
+            "from": 1.0,
+            "to": 1.0
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -1624,6 +1903,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": 0.0,
+          "eigengap_endpoints": {
+            "from": 0.0,
+            "to": 0.0
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": true,
+            "to": true
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1656,6 +1944,15 @@
             null
           ],
           "eigengap": 1.0,
+          "eigengap_endpoints": {
+            "from": 1.0,
+            "to": 1.0
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -1668,6 +1965,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": 0.0,
+          "eigengap_endpoints": {
+            "from": 0.0,
+            "to": 0.0
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": true,
+            "to": true
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1698,6 +2004,15 @@
             null
           ],
           "eigengap": 1.0,
+          "eigengap_endpoints": {
+            "from": 1.0,
+            "to": 1.0
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -1710,6 +2025,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": 0.0,
+          "eigengap_endpoints": {
+            "from": 0.0,
+            "to": 0.0
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": true,
+            "to": true
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1740,6 +2064,15 @@
             null
           ],
           "eigengap": 1.0,
+          "eigengap_endpoints": {
+            "from": 1.0,
+            "to": 1.0
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -1752,6 +2085,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": 0.0,
+          "eigengap_endpoints": {
+            "from": 0.0,
+            "to": 0.0
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": true,
+            "to": true
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1782,6 +2124,15 @@
             0.09081258457570385
           ],
           "eigengap": 0.9379614069728182,
+          "eigengap_endpoints": {
+            "from": 1.0,
+            "to": 0.9379614069728182
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -1794,6 +2145,15 @@
           "best_match_abs_cosine": null,
           "cross_cosines": [],
           "eigengap": 0.0,
+          "eigengap_endpoints": {
+            "from": 0.0,
+            "to": 0.062038593027181836
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": true,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "UNDEFINED",
           "note": "component is near-zero on the shared columns; orientation undefined"
@@ -1824,6 +2184,15 @@
             -0.0462643544763159
           ],
           "eigengap": 0.7605919559354972,
+          "eigengap_endpoints": {
+            "from": 0.9379614069728182,
+            "to": 0.7605919559354972
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -1839,6 +2208,15 @@
             0.998929231479833
           ],
           "eigengap": 0.062038593027181836,
+          "eigengap_endpoints": {
+            "from": 0.062038593027181836,
+            "to": 0.2394080440645028
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -1870,6 +2248,15 @@
             -0.14923410929669517
           ],
           "eigengap": 0.7605919559354972,
+          "eigengap_endpoints": {
+            "from": 0.7605919559354972,
+            "to": 0.7638568534771886
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -1885,6 +2272,15 @@
             0.9058062358764959
           ],
           "eigengap": 0.23614314652281138,
+          "eigengap_endpoints": {
+            "from": 0.2394080440645028,
+            "to": 0.23614314652281138
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -1918,6 +2314,15 @@
             0.03496756410834685
           ],
           "eigengap": 0.7638568534771886,
+          "eigengap_endpoints": {
+            "from": 0.7638568534771886,
+            "to": 0.7926768708689931
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -1933,6 +2338,15 @@
             0.9855273808042284
           ],
           "eigengap": 0.20732312913100687,
+          "eigengap_endpoints": {
+            "from": 0.23614314652281138,
+            "to": 0.20732312913100687
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -1964,6 +2378,15 @@
             0.013130063289251799
           ],
           "eigengap": 0.7926768708689931,
+          "eigengap_endpoints": {
+            "from": 0.7926768708689931,
+            "to": 0.9261043836349807
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -1979,6 +2402,15 @@
             0.9185918728078675
           ],
           "eigengap": 0.07389561636501932,
+          "eigengap_endpoints": {
+            "from": 0.20732312913100687,
+            "to": 0.07389561636501932
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2012,6 +2444,15 @@
             6.8019260310896605e-12
           ],
           "eigengap": 0.9212032613153454,
+          "eigengap_endpoints": {
+            "from": 0.9261043836349807,
+            "to": 0.9212032613153454
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2027,6 +2468,15 @@
             1.0
           ],
           "eigengap": 0.07389561636501932,
+          "eigengap_endpoints": {
+            "from": 0.07389561636501932,
+            "to": 0.07879673868465464
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2058,6 +2508,15 @@
             1.6891464700676076e-17
           ],
           "eigengap": 0.9212032613153454,
+          "eigengap_endpoints": {
+            "from": 0.9212032613153454,
+            "to": 0.9266390263227477
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2073,6 +2532,15 @@
             1.0000000000000002
           ],
           "eigengap": 0.07336097367725218,
+          "eigengap_endpoints": {
+            "from": 0.07879673868465464,
+            "to": 0.07336097367725218
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2104,6 +2572,15 @@
             6.19103226434587e-17
           ],
           "eigengap": 0.9223909364146777,
+          "eigengap_endpoints": {
+            "from": 0.9266390263227477,
+            "to": 0.9223909364146777
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2119,6 +2596,15 @@
             1.0000000000000002
           ],
           "eigengap": 0.07336097367725218,
+          "eigengap_endpoints": {
+            "from": 0.07336097367725218,
+            "to": 0.07760906358532228
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2150,6 +2636,15 @@
             0.16846197019918377
           ],
           "eigengap": 0.89895812158646,
+          "eigengap_endpoints": {
+            "from": 0.9223909364146777,
+            "to": 0.89895812158646
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2165,6 +2660,15 @@
             0.9411961383578636
           ],
           "eigengap": 0.07760906358532228,
+          "eigengap_endpoints": {
+            "from": 0.07760906358532228,
+            "to": 0.10104187841353986
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2198,6 +2702,15 @@
             3.5298616744161826e-14
           ],
           "eigengap": 0.89895812158646,
+          "eigengap_endpoints": {
+            "from": 0.89895812158646,
+            "to": 0.9003216424851662
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2213,6 +2726,15 @@
             1.0000000000000002
           ],
           "eigengap": 0.09967835751483371,
+          "eigengap_endpoints": {
+            "from": 0.10104187841353986,
+            "to": 0.09967835751483371
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2244,6 +2766,15 @@
             5.341228536431098e-13
           ],
           "eigengap": 0.8998979815434627,
+          "eigengap_endpoints": {
+            "from": 0.9003216424851662,
+            "to": 0.8998979815434627
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2259,9 +2790,18 @@
             -1.0000000000000002
           ],
           "eigengap": 0.09967835751483371,
+          "eigengap_endpoints": {
+            "from": 0.09967835751483371,
+            "to": 0.10010201845653735
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "FLIP",
-          "note": "orientation reversed at a well-separated checkpoint"
+          "note": "orientation reversed; energy proxy does not establish its cause"
         }
       ],
       "principal_angles_deg": [
@@ -2290,6 +2830,15 @@
             -0.020529201132511787
           ],
           "eigengap": 0.8998979815434627,
+          "eigengap_endpoints": {
+            "from": 0.8998979815434627,
+            "to": 0.9069246478480514
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2305,6 +2854,15 @@
             0.9997456760003898
           ],
           "eigengap": 0.09307535215194865,
+          "eigengap_endpoints": {
+            "from": 0.10010201845653735,
+            "to": 0.09307535215194865
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2336,6 +2894,15 @@
             -8.003356422166416e-11
           ],
           "eigengap": 0.9069246478480514,
+          "eigengap_endpoints": {
+            "from": 0.9069246478480514,
+            "to": 0.911643645467391
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2351,6 +2918,15 @@
             1.0000000000000002
           ],
           "eigengap": 0.08835635453260902,
+          "eigengap_endpoints": {
+            "from": 0.09307535215194865,
+            "to": 0.08835635453260902
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2382,6 +2958,15 @@
             -5.563232491762174e-14
           ],
           "eigengap": 0.9088010199346279,
+          "eigengap_endpoints": {
+            "from": 0.911643645467391,
+            "to": 0.9088010199346279
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2397,9 +2982,18 @@
             -1.0
           ],
           "eigengap": 0.08835635453260902,
+          "eigengap_endpoints": {
+            "from": 0.08835635453260902,
+            "to": 0.0911989800653721
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "FLIP",
-          "note": "orientation reversed at a well-separated checkpoint"
+          "note": "orientation reversed; energy proxy does not establish its cause"
         }
       ],
       "principal_angles_deg": [
@@ -2428,6 +3022,15 @@
             6.024989771740767e-14
           ],
           "eigengap": 0.9088010199346279,
+          "eigengap_endpoints": {
+            "from": 0.9088010199346279,
+            "to": 0.9098127367422023
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2443,6 +3046,15 @@
             1.0000000000000002
           ],
           "eigengap": 0.0901872632577976,
+          "eigengap_endpoints": {
+            "from": 0.0911989800653721,
+            "to": 0.0901872632577976
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2474,6 +3086,15 @@
             0.008014401078722318
           ],
           "eigengap": 0.9098127367422023,
+          "eigengap_endpoints": {
+            "from": 0.9098127367422023,
+            "to": 0.9129338012394052
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2489,6 +3110,15 @@
             0.999962604176279
           ],
           "eigengap": 0.08706619876059489,
+          "eigengap_endpoints": {
+            "from": 0.0901872632577976,
+            "to": 0.08706619876059489
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2520,6 +3150,15 @@
             2.4528505926984426e-15
           ],
           "eigengap": 0.9126556263718806,
+          "eigengap_endpoints": {
+            "from": 0.9129338012394052,
+            "to": 0.9126556263718806
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2535,6 +3174,15 @@
             1.0
           ],
           "eigengap": 0.08706619876059489,
+          "eigengap_endpoints": {
+            "from": 0.08706619876059489,
+            "to": 0.0873443736281194
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2566,6 +3214,15 @@
             -0.038193990550358374
           ],
           "eigengap": 0.8142279635967502,
+          "eigengap_endpoints": {
+            "from": 0.9126556263718806,
+            "to": 0.8142279635967502
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2581,6 +3238,15 @@
             0.32514366503253644
           ],
           "eigengap": 0.0873443736281194,
+          "eigengap_endpoints": {
+            "from": 0.0873443736281194,
+            "to": 0.18577203640324985
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2614,6 +3280,15 @@
             -1.6248343025582418e-10
           ],
           "eigengap": 0.8126125667863219,
+          "eigengap_endpoints": {
+            "from": 0.8142279635967502,
+            "to": 0.8126125667863219
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2629,6 +3304,15 @@
             1.0000000000000002
           ],
           "eigengap": 0.18577203640324985,
+          "eigengap_endpoints": {
+            "from": 0.18577203640324985,
+            "to": 0.18738743321367812
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2660,6 +3344,15 @@
             -1.1866027453396165e-15
           ],
           "eigengap": 0.808562386421021,
+          "eigengap_endpoints": {
+            "from": 0.8126125667863219,
+            "to": 0.808562386421021
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2675,6 +3368,15 @@
             1.0
           ],
           "eigengap": 0.18738743321367812,
+          "eigengap_endpoints": {
+            "from": 0.18738743321367812,
+            "to": 0.19143761357897904
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2706,6 +3408,15 @@
             0.02020919177039548
           ],
           "eigengap": 0.7728049820401549,
+          "eigengap_endpoints": {
+            "from": 0.808562386421021,
+            "to": 0.7728049820401549
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2721,6 +3432,15 @@
             0.9993883595179869
           ],
           "eigengap": 0.19143761357897904,
+          "eigengap_endpoints": {
+            "from": 0.19143761357897904,
+            "to": 0.22719501795984504
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2752,6 +3472,15 @@
             7.376984457980516e-16
           ],
           "eigengap": 0.7728049820401549,
+          "eigengap_endpoints": {
+            "from": 0.7728049820401549,
+            "to": 0.8063932574746697
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2767,6 +3496,15 @@
             1.0
           ],
           "eigengap": 0.19360674252533028,
+          "eigengap_endpoints": {
+            "from": 0.22719501795984504,
+            "to": 0.19360674252533028
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2798,6 +3536,15 @@
             -4.307801192816275e-17
           ],
           "eigengap": 0.7978370454725683,
+          "eigengap_endpoints": {
+            "from": 0.8063932574746697,
+            "to": 0.7978370454725683
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2813,6 +3560,15 @@
             1.0000000000000002
           ],
           "eigengap": 0.19360674252533028,
+          "eigengap_endpoints": {
+            "from": 0.19360674252533028,
+            "to": 0.20216295452743166
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2844,6 +3600,15 @@
             9.949469926114131e-17
           ],
           "eigengap": 0.7943360696778781,
+          "eigengap_endpoints": {
+            "from": 0.7978370454725683,
+            "to": 0.7943360696778781
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2859,6 +3624,15 @@
             1.0000000000000002
           ],
           "eigengap": 0.20216295452743166,
+          "eigengap_endpoints": {
+            "from": 0.20216295452743166,
+            "to": 0.20566393032212194
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -2878,7 +3652,6 @@
     "n_pairs": 55,
     "n_flips": 2,
     "n_reordered": 0,
-    "n_excused_degenerate": 0,
     "n_undefined": 32,
     "n_flips_without_eigengap": 0,
     "n_subspace_rotations": 5,
@@ -2900,6 +3673,9 @@
         "eigengap": 0.08835635453260902
       }
     ],
+    "n_aligned_pairs": 21,
+    "n_undefined_pairs": 32,
+    "status": "FLIP",
     "continuous": false
   }
 }

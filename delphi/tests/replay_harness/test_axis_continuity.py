@@ -9,7 +9,7 @@ step-NNN.json``, ``store.py:1-23``). Four chains carry the load:
 * PC1/PC2 swapped from one step on — the principal angles stay ~0 (the useful
   subspace is unchanged) while the per-component signed cosines go to ~0, which
   is precisely the case per-component cosines alone would misread;
-* a near-degenerate spectrum — the same negation, excused.
+* near-equal projection energies — the same negation remains a raw flip.
 
 Plus the guards that keep the diagnostic honest: tid-keyed (not positional)
 alignment when a comment is added, UNDEFINED rather than "stable" for a
@@ -158,7 +158,6 @@ def test_one_negated_component_is_one_flip(tmp_path):
     summary = report["summary"]
     assert summary["n_flips"] == 1
     assert summary["n_reordered"] == 0
-    assert summary["n_excused_degenerate"] == 0
     assert summary["continuous"] is False
     assert _statuses(report) == [
         [ac.STATUS_ALIGNED, ac.STATUS_ALIGNED],
@@ -224,46 +223,31 @@ def test_a_real_subspace_rotation_is_reported_as_one(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# 4. A flip at a degenerate checkpoint is excused.
+# 4. Energy proxies never change raw orientation.
 # ---------------------------------------------------------------------------
-def test_flip_at_a_degenerate_eigengap_is_excused(tmp_path):
-    negated = [-v for v in _PC2]
-    near_tied = (100.0, 99.9)  # relative gap 0.001 < the 0.02 default floor
-    blobs = [
-        _blob([_PC1, _PC2], _TIDS, energies=near_tied),
-        _blob([_PC1, negated], _TIDS, energies=near_tied),
-    ]
+def test_low_proxy_does_not_excuse_flip(tmp_path):
+    blobs = [_blob([_PC1, _PC2], _TIDS, energies=(100., 99.9)),
+             _blob([_PC1, [-v for v in _PC2]], _TIDS, energies=(100., 99.9))]
     report = ac.analyse_recording(_write(tmp_path, blobs))
-    summary = report["summary"]
-
-    assert summary["n_flips"] == 0
-    assert summary["n_excused_degenerate"] == 1
-    assert summary["continuous"] is True
-    assert summary["findings"] == []
+    assert report["summary"]["n_flips"] == 1
+    assert report["summary"]["continuous"] is False
     comp = report["pairs"][0]["components"][1]
-    assert comp["status"] == ac.STATUS_FLIP_EXCUSED
-    assert comp["eigengap"] == pytest.approx(0.001)
-    assert "degenerate" in (comp["note"] or "")
-
-    # The excuse is a THRESHOLD, not a verdict: drop the floor below the gap
-    # and the same recording reports the flip.
-    strict = ac.analyse_recording(
-        _write(tmp_path, blobs, schedule_id="axis-strict"),
-        thresholds=ac.Thresholds(eigengap_floor=1e-6),
-    )
-    assert strict["summary"]["n_flips"] == 1
+    assert comp["status"] == ac.STATUS_FLIP
+    assert comp["eigengap"] == pytest.approx(.001)
+    assert comp["eigengap_coverage"] == "both"
+    assert comp["low_proxy_endpoints"] == {"from": True, "to": True}
+    strict = ac.analyse_recording(_write(tmp_path, blobs),
+                                 thresholds=ac.Thresholds(eigengap_floor=1e-6))
+    assert _statuses(strict) == _statuses(report)
+    assert strict["pairs"][0]["components"][1]["low_proxy_endpoints"] == {"from": False, "to": False}
 
 
-def test_a_swap_at_a_degenerate_checkpoint_is_excused_too(tmp_path):
-    tied = (100.0, 100.0)
-    blobs = [
-        _blob([_PC1, _PC2], _TIDS, energies=tied),
-        _blob([_PC2, _PC1], _TIDS, energies=tied),
-    ]
+def test_swap_with_equal_energies_remains_reordered(tmp_path):
+    blobs = [_blob([_PC1, _PC2], _TIDS, energies=(100., 100.)),
+             _blob([_PC2, _PC1], _TIDS, energies=(100., 100.))]
     report = ac.analyse_recording(_write(tmp_path, blobs))
-    assert report["pairs"][0]["status"] == ac.STATUS_REORDERED_EXCUSED
-    assert report["summary"]["n_reordered"] == 0
-    assert report["summary"]["n_excused_degenerate"] == 2
+    assert report["pairs"][0]["status"] == ac.STATUS_REORDERED
+    assert report["summary"]["n_reordered"] == 2
 
 
 # ---------------------------------------------------------------------------
@@ -412,3 +396,45 @@ def test_the_module_states_and_keeps_the_grading_promise():
     assert "axis_continuity" not in certify_src
     stepcompare_src = Path(ac.__file__).with_name("stepcompare.py").read_text()
     assert "axis_continuity" not in stepcompare_src
+
+
+@pytest.mark.parametrize("unknown_endpoint", [False, True])
+def test_separated_true_spectrum_with_equal_scaled_energies_is_raw_flip(unknown_endpoint):
+    import numpy as np
+    x = np.array([[10., 0.], [-10., 0.], [0., 1.], [0., -1.]])
+    assert np.linalg.eigvalsh(x.T @ x).tolist() == [2., 200.]
+    scaled = x * np.array([1., 1., 10., 10.])[:, None]
+    base = {"tids": [0, 1], "pca": {"comps": [[1., 0.], [0., 1.]]},
+            "proj": {str(i): row.tolist() for i, row in enumerate(scaled)}}
+    a = ac.checkpoint_from_blob(0, base)
+    assert a.energies == [200., 200.]
+    base["pca"]["comps"][1] = [0., -1.]
+    if unknown_endpoint:
+        del base["proj"]
+    b = ac.checkpoint_from_blob(1, base)
+    comp = ac.compare_checkpoints(a, b, ac.Thresholds())["components"][1]
+    assert comp["status"] == ac.STATUS_FLIP
+    assert comp["cosine"] == pytest.approx(-1.)
+    assert comp["eigengap_coverage"] == ("partial" if unknown_endpoint else "both")
+    assert comp["eigengap_endpoints"] == {"from": 0., "to": None if unknown_endpoint else 0.}
+    assert comp["eigengap"] == (None if unknown_endpoint else 0.)
+
+
+def test_no_pairs_cannot_be_continuous():
+    summary = ac.summarize([])
+    assert summary["continuous"] is False
+    assert summary["status"] == "NO_PAIRS"
+    assert summary["n_aligned_pairs"] == 0
+
+@pytest.mark.parametrize("missing_pca", [False, True])
+def test_undefined_pair_excluded_from_aligned_count(tmp_path, missing_pca):
+    before = _blob([_PC1, _PC2], _TIDS)
+    after = _blob([[0.] * 4, [0.] * 4], _TIDS)
+    if missing_pca:
+        del after["pca"]
+    summary = ac.analyse_recording(_write(tmp_path, [before, after]))["summary"]
+    assert summary["continuous"] is False
+    assert summary["status"] == ac.STATUS_UNDEFINED
+    assert summary["n_aligned_pairs"] == 0
+    assert summary["n_undefined_pairs"] == 1
+    assert summary["n_undefined"] == (0 if missing_pca else 2)

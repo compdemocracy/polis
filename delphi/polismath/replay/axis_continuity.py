@@ -57,60 +57,29 @@ misalign.
   principal angles: the useful subspace is unchanged, only the labelling of the
   axes inside it moved. Conversely, principal angles alone hide a pure sign
   flip, which is why both are reported.
-* **Eigengap** at each checkpoint, as a degeneracy annotation: when two
-  eigenvalues are near-tied, the orientation of the axes spanning that
-  eigenspace is not well defined and a flip or swap there is not a defect.
+* **Projection-energy gap proxy** at each endpoint, with explicit coverage.
+  Stored participant projections are scaled; centroid energies lose additional
+  information. Neither establishes the true spectrum, degeneracy, or why an
+  orientation changed. These annotations never alter an orientation status.
 
-The eigengap is an ESTIMATE, and the report says so
----------------------------------------------------
-The engine's power iteration computes an eigenvalue estimate (``pca.py:108``) but
-does not persist it: the blob carries ``pca.center``, ``pca.comps``,
-``pca.comment-projection`` and ``pca.comment-extremity``, no spectrum. Rather
-than change the engine to emit one — this is a read-only diagnostic — the
-eigenvalue is estimated from what the recording does carry, as the **projection
-energy** of each component:
-
-    E_i = Σ_p proj_p[i]²
-
-For centered data ``X`` and a unit component ``v_i``, ``‖X v_i‖² = v_iᵀXᵀX v_i``
-is exactly the eigenvalue, so ``E_i`` is a Rayleigh quotient read off the stored
-projections. Two caveats, both recorded in the report's ``eigengap_source`` and
-``eigengap_note`` fields rather than hidden:
-
-* the stored projections are scaled by the square root of the fraction of
-  comments each participant has seen (``pca.py:222-224``), so ``E_i`` is a
-  sparsity-weighted eigenvalue, not the engine's own estimate;
-* when ``proj`` is absent the fallback is the count-weighted spread of the
-  ``base-clusters`` x/y coordinates, which are k-means centroids of those same
-  projections and therefore a further-attenuated proxy.
-
-Only the *relative* gap is used, which is scale-free:
-
-    gap_i = min over adjacent j of |E_i − E_j| / E_0
-            (the last component also takes E_last / E_0, its distance from the
-             noise floor)
-
-and the pair's gap for component *i* is ``min(gap_i(t), gap_i(t+1))`` — a flip is
-excused only if BOTH endpoints are degenerate there. Where no eigengap can be
-estimated at all, a flip is reported and counted separately
-(``n_flips_without_eigengap``); an unknown gap never silently excuses anything.
+The proxy uses ``E_i = Σ_p proj_p[i]²``, falling back to count-weighted
+base-cluster centroid coordinates. Adjacent energy differences (and the last
+component's energy) are normalized by ``E_0``. The pair minimum is reported only
+when BOTH endpoint proxies are known; endpoint values and coverage remain
+separate. The historical ``eigengap`` JSON keys name this proxy, not a measured
+spectral gap. ``eigengap_floor`` annotates low proxy values only.
 
 Statuses (per component, per pair)
 ----------------------------------
-``ALIGNED``
-    Signed cosine at or above the threshold and the component still continues
-    its own predecessor.
-``FLIP``
-    Signed cosine below the threshold, correspondence intact, eigengap at or
-    above the floor. This is the defect the module exists to find.
-``FLIP_EXCUSED_DEGENERATE``
-    Same, but the eigengap is below the floor at one endpoint — orientation was
-    not well defined there.
-``REORDERED`` / ``REORDERED_EXCUSED_DEGENERATE``
-    Component *i* at *t+1* best matches a DIFFERENT component at *t* (a swap).
-``UNDEFINED``
-    No shared tids, a near-zero component on the shared columns, a missing
-    ``pca`` block, or a comps/tids length mismatch. Never a pass.
+``ALIGNED``: signed cosine at or above the threshold, correspondence intact.
+``FLIP``: signed cosine below the threshold, correspondence intact.
+``REORDERED``: component best matches a different component across the pair.
+``UNDEFINED``: no shared tids, near-zero component, missing PCA, or malformed
+component/tid dimensions. Empty input has overall status ``NO_PAIRS``; any
+undefined pair prevents a continuous summary and is excluded from aligned
+pairs. Undefined component counts and undefined pair counts are separate.
+No proxy value excuses or establishes a defect. This tool records orientation;
+it does not impose a certify obligation.
 
 A pair that straddles a declared ``restart_after`` seam is annotated
 ``restart_seam: true``: the restart rebuilds the conversation from its own blob
@@ -144,17 +113,16 @@ GRADING_NOTE = (
 )
 
 EIGENGAP_NOTE = (
-    "Eigenvalues are ESTIMATED from the recorded projections (sparsity-scaled "
-    "Rayleigh quotient), not read from the engine; gaps are relative to the "
-    "leading component. See the module docstring."
+    "Projection/centroid energy gap PROXY only; scaled coordinates do not "
+    "establish the true spectral gap or degeneracy. Endpoint coverage is "
+    "reported separately and never changes raw orientation statuses."
 )
 
 #: Signed cosine at or above this is continuous; below it is a flip. The
 #: default is the sign boundary itself: any negative signed cosine is a flip.
 DEFAULT_COS_THRESHOLD = 0.0
 
-#: Relative eigengap below which a checkpoint's axis orientation is treated as
-#: not well defined, so a flip or swap there is excused rather than reported.
+#: Low projection-energy gap annotation threshold; never changes a status.
 DEFAULT_EIGENGAP_FLOOR = 0.02
 
 #: |cos| below this makes the per-component correspondence not credible on its
@@ -171,13 +139,10 @@ NEAR_ZERO_NORM = 1e-12
 
 STATUS_ALIGNED = "ALIGNED"
 STATUS_FLIP = "FLIP"
-STATUS_FLIP_EXCUSED = "FLIP_EXCUSED_DEGENERATE"
 STATUS_REORDERED = "REORDERED"
-STATUS_REORDERED_EXCUSED = "REORDERED_EXCUSED_DEGENERATE"
 STATUS_UNDEFINED = "UNDEFINED"
 
 _FLIP_STATUSES = frozenset({STATUS_FLIP, STATUS_REORDERED})
-_EXCUSED_STATUSES = frozenset({STATUS_FLIP_EXCUSED, STATUS_REORDERED_EXCUSED})
 
 
 # ---------------------------------------------------------------------------
@@ -311,12 +276,12 @@ def checkpoint_from_blob(index: int, blob: dict[str, Any]) -> Checkpoint:
 def component_energies(
     blob: dict[str, Any], *, n_comps: int
 ) -> tuple[list[float], str]:
-    """Per-component projection energy ``Σ_p proj_p[i]²`` — the eigenvalue proxy.
+    """Per-component projection energy ``Σ_p proj_p[i]²`` — a scaled-coordinate energy proxy.
 
     Prefers the per-participant ``proj`` map; falls back to the count-weighted
     spread of ``base-clusters`` x/y (k-means centroids of those same
     projections, so a further-attenuated proxy). Returns ``([], "none")`` when
-    neither is usable — an unknown eigengap never excuses a flip.
+    neither is usable — missing proxy coverage does not change orientation status.
     """
     proj = blob.get("proj")
     if isinstance(proj, dict) and proj:
@@ -358,12 +323,11 @@ def component_energies(
 
 
 def relative_eigengaps(energies: Sequence[float]) -> list[float | None]:
-    """Adjacent relative eigengap per component, normalized by the leading one.
+    """Adjacent relative energy gap proxy, normalized by the leading energy.
 
     ``gap_i = min_j |E_i − E_j| / E_0`` over adjacent ``j``; the last component
-    also takes ``E_last / E_0``, its distance from the noise floor, because a
-    component with no energy left has no defined orientation. Returns ``None``
-    entries when the spectrum is unusable (empty, or a non-positive leader).
+    also takes ``E_last / E_0``, its distance from the noise floor, as a descriptive energy-floor statistic. Returns ``None``
+    entries when the energy proxy is unusable (empty, or a non-positive leader).
     """
     if not energies:
         return []
@@ -379,8 +343,7 @@ def relative_eigengaps(energies: Sequence[float]) -> list[float | None]:
         if i + 1 < n:
             candidates.append(abs(float(energies[i]) - float(energies[i + 1])))
         if i == n - 1:
-            # Distance from the floor: a trailing near-zero component is
-            # degenerate against the noise, not against a neighbour.
+            # Distance from the energy floor; no spectral interpretation.
             candidates.append(abs(float(energies[i])))
         gaps.append(min(candidates) / lead if candidates else None)
     return gaps
@@ -503,12 +466,6 @@ def compare_checkpoints(
         )
     elif STATUS_UNDEFINED in statuses:
         pair["status"] = STATUS_UNDEFINED
-    elif statuses & _EXCUSED_STATUSES:
-        pair["status"] = (
-            STATUS_REORDERED_EXCUSED
-            if STATUS_REORDERED_EXCUSED in statuses
-            else STATUS_FLIP_EXCUSED
-        )
     else:
         pair["status"] = STATUS_ALIGNED
     return pair
@@ -524,6 +481,7 @@ def _compare_one_component(
     cur: Checkpoint,
     thresholds: Thresholds,
 ) -> dict[str, Any]:
+    endpoints = [cp.eigengaps[i] if i < len(cp.eigengaps) else None for cp in (prev, cur)]
     gap = _pair_eigengap(prev, cur, i)
     comp: dict[str, Any] = {
         "component": i,
@@ -533,6 +491,11 @@ def _compare_one_component(
         "best_match_abs_cosine": None,
         "cross_cosines": [],
         "eigengap": gap,
+        "eigengap_endpoints": dict(zip(("from", "to"), endpoints)),
+        "eigengap_coverage": ("both" if all(v is not None for v in endpoints) else
+                              "none" if all(v is None for v in endpoints) else "partial"),
+        "low_proxy_endpoints": dict(zip(("from", "to"),
+            [v < thresholds.eigengap_floor if v is not None else None for v in endpoints])),
         "eigengap_source": _pair_eigengap_source(prev, cur),
         "status": STATUS_UNDEFINED,
         "note": None,
@@ -564,12 +527,8 @@ def _compare_one_component(
     comp["best_match"] = best_j
     comp["best_match_abs_cosine"] = abs(best_c)
 
-    degenerate = gap is not None and gap < thresholds.eigengap_floor
-
     if best_j != i and abs(best_c) >= thresholds.match_floor:
-        comp["status"] = (
-            STATUS_REORDERED_EXCUSED if degenerate else STATUS_REORDERED
-        )
+        comp["status"] = STATUS_REORDERED
         comp["note"] = (
             f"predecessor component {i} is continued by successor component "
             f"{best_j} (|cos|={abs(best_c):.6f}); the per-component cosine "
@@ -578,19 +537,8 @@ def _compare_one_component(
         return comp
 
     if cosine < thresholds.cos_threshold:
-        comp["status"] = STATUS_FLIP_EXCUSED if degenerate else STATUS_FLIP
-        if degenerate:
-            comp["note"] = (
-                f"orientation reversed at a degenerate checkpoint "
-                f"(relative eigengap {gap:.6g} < {thresholds.eigengap_floor})"
-            )
-        elif gap is None:
-            comp["note"] = (
-                "orientation reversed; no eigengap could be estimated from the "
-                "recording, so degeneracy could not be ruled out"
-            )
-        else:
-            comp["note"] = "orientation reversed at a well-separated checkpoint"
+        comp["status"] = STATUS_FLIP
+        comp["note"] = "orientation reversed; energy proxy does not establish its cause"
         return comp
 
     comp["status"] = STATUS_ALIGNED
@@ -598,14 +546,9 @@ def _compare_one_component(
 
 
 def _pair_eigengap(prev: Checkpoint, cur: Checkpoint, i: int) -> float | None:
-    """``min(gap_i(t), gap_i(t+1))`` — excused only if BOTH ends are degenerate."""
-    values: list[float] = []
-    for cp in (prev, cur):
-        if i < len(cp.eigengaps):
-            g = cp.eigengaps[i]
-            if g is not None:
-                values.append(g)
-    return min(values) if values else None
+    """Minimum proxy only when both endpoints have a value."""
+    values = [cp.eigengaps[i] if i < len(cp.eigengaps) else None for cp in (prev, cur)]
+    return min(values) if all(v is not None for v in values) else None
 
 
 def _pair_eigengap_source(prev: Checkpoint, cur: Checkpoint) -> str:
@@ -657,7 +600,6 @@ def analyse_checkpoints(
 def summarize(pairs: Sequence[dict[str, Any]]) -> dict[str, Any]:
     n_flips = 0
     n_reordered = 0
-    n_excused = 0
     n_undefined = 0
     n_no_eigengap = 0
     flip_steps: list[dict[str, Any]] = []
@@ -691,20 +633,22 @@ def summarize(pairs: Sequence[dict[str, Any]]) -> dict[str, Any]:
                         "eigengap": comp["eigengap"],
                     }
                 )
-            elif status in _EXCUSED_STATUSES:
-                n_excused += 1
             elif status == STATUS_UNDEFINED:
                 n_undefined += 1
     return {
         "n_pairs": len(pairs),
         "n_flips": n_flips,
         "n_reordered": n_reordered,
-        "n_excused_degenerate": n_excused,
         "n_undefined": n_undefined,
         "n_flips_without_eigengap": n_no_eigengap,
         "n_subspace_rotations": sum(1 for p in pairs if p["subspace_rotation"]),
         "findings": flip_steps,
-        "continuous": n_flips == 0 and n_reordered == 0,
+        "n_aligned_pairs": sum(p["status"] == STATUS_ALIGNED for p in pairs),
+        "n_undefined_pairs": sum(p["status"] == STATUS_UNDEFINED for p in pairs),
+        "status": ("NO_PAIRS" if not pairs else STATUS_REORDERED if n_reordered else
+                   STATUS_FLIP if n_flips else STATUS_UNDEFINED if
+                   any(p["status"] == STATUS_UNDEFINED for p in pairs) else STATUS_ALIGNED),
+        "continuous": bool(pairs) and all(p["status"] == STATUS_ALIGNED for p in pairs),
     }
 
 
@@ -810,7 +754,8 @@ def format_report(report: dict[str, Any], *, verbose: bool = False) -> str:
             f"  step {pair['from_index']:03d}->{pair['to_index']:03d} "
             f"[{pair['status']}] shared_tids={pair['n_shared_tids']} "
             f"cos=[{cosines}] princ_angles_deg=[{angles}] "
-            f"eigengap=[{gaps}]{flags}"
+            f"energy_gap_proxy=[{gaps}] "
+            f"proxy_coverage={[c['eigengap_coverage'] for c in pair['components']]}{flags}"
         )
         for comp in pair["components"]:
             if comp["note"] and (verbose or comp["status"] != STATUS_ALIGNED):
@@ -820,14 +765,13 @@ def format_report(report: dict[str, Any], *, verbose: bool = False) -> str:
 
     lines.append(
         f"  summary: flips={s['n_flips']} reordered={s['n_reordered']} "
-        f"excused_degenerate={s['n_excused_degenerate']} "
-        f"undefined={s['n_undefined']} "
+        f"undefined_components={s['n_undefined']} undefined_pairs={s['n_undefined_pairs']} "
+        f"aligned_pairs={s['n_aligned_pairs']} status={s['status']} "
         f"subspace_rotations={s['n_subspace_rotations']}"
     )
     if s["n_flips_without_eigengap"]:
         lines.append(
-            f"  {s['n_flips_without_eigengap']} flip(s) had no estimable "
-            f"eigengap — degeneracy could not be ruled out"
+            f"  {s['n_flips_without_eigengap']} flip(s) lacked proxy coverage at one or both endpoints"
         )
     return "\n".join(lines)
 
@@ -857,8 +801,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     help="Signed cosine below this is a flip "
                          f"(default: {DEFAULT_COS_THRESHOLD}).")
     ap.add_argument("--eigengap-floor", type=float, default=DEFAULT_EIGENGAP_FLOOR,
-                    help="Relative eigengap below which a flip is excused as "
-                         f"degenerate (default: {DEFAULT_EIGENGAP_FLOOR}).")
+                    help="Low projection-energy gap annotation floor; never changes a status "
+                         f"(default: {DEFAULT_EIGENGAP_FLOOR}).")
     ap.add_argument("--match-floor", type=float, default=DEFAULT_MATCH_FLOOR,
                     help="|cos| a cross-match needs before a swap is reported "
                          f"(default: {DEFAULT_MATCH_FLOOR}).")

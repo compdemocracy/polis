@@ -1,7 +1,7 @@
 {
   "schema": "polis-axis-continuity/1",
   "grading": "DIAGNOSTICS ONLY \u2014 certify never consumes these statuses; the PCA parity gate is untouched (stages.py:11-17).",
-  "eigengap_note": "Eigenvalues are ESTIMATED from the recorded projections (sparsity-scaled Rayleigh quotient), not read from the engine; gaps are relative to the leading component. See the module docstring.",
+  "eigengap_note": "Projection/centroid energy gap PROXY only; scaled coordinates do not establish the true spectral gap or degeneracy. Endpoint coverage is reported separately and never changes raw orientation statuses.",
   "recording": "real_data/.local/replays/vw/uniform8",
   "step_dir": "real_data/.local/replays/vw/uniform8/py",
   "dataset": "vw",
@@ -164,6 +164,15 @@
             0.00936896440479474
           ],
           "eigengap": 0.2227933901283595,
+          "eigengap_endpoints": {
+            "from": 0.42933485690781165,
+            "to": 0.2227933901283595
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -179,6 +188,15 @@
             0.773406101731729
           ],
           "eigengap": 0.2227933901283595,
+          "eigengap_endpoints": {
+            "from": 0.42933485690781165,
+            "to": 0.2227933901283595
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -212,6 +230,15 @@
             -0.06719659163632986
           ],
           "eigengap": 0.2227933901283595,
+          "eigengap_endpoints": {
+            "from": 0.2227933901283595,
+            "to": 0.35939443067512983
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -227,6 +254,15 @@
             0.9330307412766962
           ],
           "eigengap": 0.2227933901283595,
+          "eigengap_endpoints": {
+            "from": 0.2227933901283595,
+            "to": 0.35939443067512983
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -260,6 +296,15 @@
             -0.1720327009829156
           ],
           "eigengap": 0.35939443067512983,
+          "eigengap_endpoints": {
+            "from": 0.35939443067512983,
+            "to": 0.5015837066380496
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -275,6 +320,15 @@
             0.9334776068449124
           ],
           "eigengap": 0.35939443067512983,
+          "eigengap_endpoints": {
+            "from": 0.35939443067512983,
+            "to": 0.49841629336195037
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -308,6 +362,15 @@
             -0.5606779136949281
           ],
           "eigengap": 0.5015837066380496,
+          "eigengap_endpoints": {
+            "from": 0.5015837066380496,
+            "to": 0.5643209132673219
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -323,6 +386,15 @@
             0.34717559236003226
           ],
           "eigengap": 0.4356790867326781,
+          "eigengap_endpoints": {
+            "from": 0.49841629336195037,
+            "to": 0.4356790867326781
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -356,6 +428,15 @@
             0.01571811834405662
           ],
           "eigengap": 0.5643209132673219,
+          "eigengap_endpoints": {
+            "from": 0.5643209132673219,
+            "to": 0.5880106162714556
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -371,6 +452,15 @@
             0.9785077877125011
           ],
           "eigengap": 0.41198938372854443,
+          "eigengap_endpoints": {
+            "from": 0.4356790867326781,
+            "to": 0.41198938372854443
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -402,6 +492,15 @@
             -0.054922390593529956
           ],
           "eigengap": 0.5538531376670641,
+          "eigengap_endpoints": {
+            "from": 0.5880106162714556,
+            "to": 0.5538531376670641
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -417,6 +516,15 @@
             0.9753574559975798
           ],
           "eigengap": 0.41198938372854443,
+          "eigengap_endpoints": {
+            "from": 0.41198938372854443,
+            "to": 0.44614686233293593
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -448,6 +556,15 @@
             -0.16983121434990867
           ],
           "eigengap": 0.5538531376670641,
+          "eigengap_endpoints": {
+            "from": 0.5538531376670641,
+            "to": 0.5626426288681897
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -463,6 +580,15 @@
             0.7583556135181186
           ],
           "eigengap": 0.4373573711318102,
+          "eigengap_endpoints": {
+            "from": 0.44614686233293593,
+            "to": 0.4373573711318102
+          },
+          "eigengap_coverage": "both",
+          "low_proxy_endpoints": {
+            "from": false,
+            "to": false
+          },
           "eigengap_source": "proj",
           "status": "ALIGNED",
           "note": null
@@ -484,11 +610,13 @@
     "n_pairs": 7,
     "n_flips": 0,
     "n_reordered": 0,
-    "n_excused_degenerate": 0,
     "n_undefined": 0,
     "n_flips_without_eigengap": 0,
     "n_subspace_rotations": 5,
     "findings": [],
+    "n_aligned_pairs": 7,
+    "n_undefined_pairs": 0,
+    "status": "ALIGNED",
     "continuous": true
   }
 }
