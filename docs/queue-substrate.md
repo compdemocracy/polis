@@ -81,6 +81,54 @@ Then update `QUEUE_SQL_SHA256` in **both** adapters
 (`server/src/queue/protocol.ts` and `delphi/polismath/queue/executor.py`); two
 tests fail until you do.
 
+## Reversal
+
+There is a down script, and having a tested one is a precondition for ever
+applying 000019 to production. It is
+`server/postgres/migrations/down/000019_drop_polis_queue.sql`, and it removes
+**exactly** what 000019 created, in dependency order (trigger, the 21 `pq_`
+functions, the 9 explicit indexes, the 5 tables, the `conversations` grant via
+`REVOKE`, then the two roles via `DROP OWNED BY` and `DROP ROLE`). It touches no
+object 000019 did not create: `public.conversations` and the `public` schema
+themselves are left alone.
+
+Run it alone, as a superuser (or a login that can drop the queue owner's
+objects and `DROP ROLE` both roles), exactly as
+[docs/migrations.md](migrations.md) applies a file:
+
+```sh
+docker exec -i polis-dev-postgres-1 psql -v ON_ERROR_STOP=1 -U postgres -d polis-dev \
+  < server/postgres/migrations/down/000019_drop_polis_queue.sql
+```
+
+It **refuses** to run if any `polis_queue_*` table holds rows, so a live queue
+is never dropped by accident. Override that deliberately, and only then, with
+`-v force=1`:
+
+```sh
+docker exec -i polis-dev-postgres-1 psql -v ON_ERROR_STOP=1 -v force=1 -U postgres \
+  -d polis-dev < server/postgres/migrations/down/000019_drop_polis_queue.sql
+```
+
+It is one transaction and idempotent: running it when 000019 was never applied
+is a no-op that emits a `NOTICE`, and running it twice is safe. `DROP OWNED BY`
+acts only in the current database, which is the only one 000019 touched; if a
+queue role were ever given objects in another database, that database would need
+its own `DROP OWNED BY` before the shared role could be dropped.
+
+The reversal is proven by
+`server/postgres/migrations/down/test_000019_down.sh`, which stands up a
+throwaway `postgres:17` and asserts four things: (a) applying 000000..000019 then
+the down script leaves a catalog identical to 000000..000018 (`pg_dump
+--schema-only`, plus the `polis_queue_*` roles via `pg_roles`); (b) apply → down
+→ apply again succeeds; (c) the down script is a no-op notice on a database that
+never had 000019; and (d) a non-empty queue is refused without `force` and
+dropped with it.
+
+```sh
+bash server/postgres/migrations/down/test_000019_down.sh
+```
+
 ## The flag
 
 `POLIS_QUEUE_SUBSTRATE_ENABLED` (default off) makes
