@@ -45,7 +45,7 @@ def _write_steps(step_dir: Path, count: int, suffix: str) -> None:
 def _record(root: Path, dataset: str, schedule_id: str, *, clj: int | None, py: int | None) -> Path:
     rec = root / dataset / schedule_id
     rec.mkdir(parents=True, exist_ok=True)
-    (rec / "schedule.json").write_text(json.dumps({"schedule_id": schedule_id}))
+    (rec / "schedule.json").write_text(json.dumps({"schedule_id": schedule_id, "cuts": {"mode": "vote-count", "at": list(range(1, max(clj or 0, py or 0) + 1))}}))
     (rec / "provenance.json").write_text(json.dumps({"engine": "test"}))
     if clj is not None:
         _write_steps(rec / "clj", clj, ".blob.json")
@@ -66,6 +66,8 @@ def scene(tmp_path: Path):
         {"dataset": "vw", "preset": "front-loaded", "n_cuts": 6},
         {"dataset": "pakistan", "preset": "uniform", "n_cuts": 8},
     ]))
+    datasets = tmp_path / "datasets.json"
+    datasets.write_text(json.dumps({"public_fixtures": [{"slug": "vw"}, {"slug": "biodiversity"}]}))
     selection = tmp_path / "battery-selection.json"
     selection.write_text(json.dumps({
         "public_slugs": ["biodiversity", "vw"],
@@ -75,13 +77,21 @@ def scene(tmp_path: Path):
         ],
         "selected_count": 2,
         "missing": [],
-        "inventory_digest": "a" * 64,
+        "inventory_digest": pack._inventory(battery, datasets)[0],
     }))
     root = tmp_path / "certify-run"
     _record(root, "vw", "uniform8-clojure-legacy", clj=3, py=3)
     _record(root, "vw", "front-loaded6-clojure-legacy", clj=None, py=2)
     _record(root, "pakistan", "uniform8-clojure-legacy", clj=2, py=2)
     return battery, selection, root, tmp_path / "out"
+
+
+def _verify(scene, **overrides):
+    battery, selection, root, out = scene
+    args = dict(expected_inventory_digest=json.loads(selection.read_text())["inventory_digest"],
+                battery=battery, datasets=battery.parent / "datasets.json")
+    args.update(overrides)
+    return pack.verify(out, **args)
 
 
 def test_packs_only_covered_admitted_entries(scene):
@@ -182,7 +192,7 @@ def test_battery_inventory_digest_is_carried_verbatim(scene):
     battery, selection, root, out = scene
     manifest, _ = pack.build(replays_root=root, out_dir=out, battery=battery,
                              selection=selection, require_complete=False)
-    assert manifest["battery_inventory_digest"] == "a" * 64
+    assert manifest["battery_inventory_digest"] == json.loads(selection.read_text())["inventory_digest"]
     assert manifest["battery_selected_count"] == 2
 
 
@@ -190,11 +200,11 @@ def test_verify_accepts_a_faithful_bundle_and_rejects_a_tampered_one(scene, caps
     battery, selection, root, out = scene
     manifest, _ = pack.build(replays_root=root, out_dir=out, battery=battery,
                              selection=selection, require_complete=False)
-    assert pack.verify(out) == 0
+    assert _verify(scene) == 0
 
     archive = out / manifest["entries"][0]["archive"]
     archive.write_bytes(archive.read_bytes() + b"tamper")
-    assert pack.verify(out) == 1
+    assert _verify(scene) == 1
     assert "DIGEST MISMATCH" in capsys.readouterr().err
 
 
@@ -203,7 +213,7 @@ def test_verify_reports_a_missing_archive_rather_than_passing(scene):
     manifest, _ = pack.build(replays_root=root, out_dir=out, battery=battery,
                              selection=selection, require_complete=False)
     (out / manifest["entries"][0]["archive"]).unlink()
-    assert pack.verify(out) == 1
+    assert _verify(scene) == 1
 
 
 def test_archive_digest_is_stable_across_repacks(scene):
@@ -225,3 +235,112 @@ def test_without_a_selection_every_battery_entry_is_enumerated(scene):
     assert manifest["skipped_not_in_inventory"] == []
     assert {e["dataset"] for e in manifest["entries"]} == {"vw", "pakistan"}
     assert manifest["battery_inventory_digest"] == ""
+
+
+def test_selected_entry_absent_from_battery_is_missing(scene):
+    battery, selection, root, out = scene
+    battery.write_text(json.dumps(json.loads(battery.read_text())[1:]))
+    manifest, rc = pack.build(replays_root=root, out_dir=out, battery=battery,
+                              selection=selection, require_complete=True)
+    assert rc == 1
+    assert any("selected-entry-absent-from-battery" in row["reasons"] for row in manifest["missing"])
+
+@pytest.mark.parametrize("field", ["manifest_digest", "file_sha256", "inventory", "empty", "census", "steps", "bytes"])
+@pytest.mark.parametrize("resign", [False, True])
+def test_manifest_mutations_refused(scene, field, resign):
+    battery, selection, root, out = scene
+    manifest, _ = pack.build(replays_root=root, out_dir=out, battery=battery,
+                             selection=selection, require_complete=False)
+    entry = manifest["entries"][0]
+    if field == "manifest_digest":
+        manifest["manifest_digest"] = "0" * 64
+    elif field == "file_sha256":
+        entry["engines"]["py"]["file_sha256"]["py/step-000.json"] = "0" * 64
+    elif field == "inventory":
+        manifest["battery_inventory_digest"] = "0" * 64
+    elif field == "empty":
+        manifest["entries"] = []
+    elif field == "census":
+        manifest["missing"] = []
+    elif field == "steps":
+        entry["engines"]["clj"]["steps"] = 99
+    else:
+        entry["bytes"] += 1
+    if resign and field != "manifest_digest":
+        manifest["manifest_digest"] = pack.manifest_digest(manifest)
+    (out / pack.MANIFEST_NAME).write_text(json.dumps(manifest))
+    assert _verify(scene) == 1
+
+
+def test_verifier_requires_independent_inventory_anchor(scene):
+    battery, selection, root, out = scene
+    pack.build(replays_root=root, out_dir=out, battery=battery,
+               selection=selection, require_complete=False)
+    assert _verify(scene, expected_inventory_digest=None) == 1
+    assert _verify(scene, expected_inventory_digest="0" * 64) == 1
+
+@pytest.mark.parametrize("component", ["dataset", "recording", "engine"])
+def test_packer_refuses_directory_symlinks(scene, component):
+    battery, selection, root, out = scene
+    path = root / {"dataset": "vw", "recording": "vw/uniform8-clojure-legacy",
+                   "engine": "vw/uniform8-clojure-legacy/clj"}[component]
+    outside = root.parent / "outside"
+    path.rename(outside)
+    path.symlink_to(outside, target_is_directory=True)
+    manifest, rc = pack.build(replays_root=root, out_dir=out, battery=battery,
+                              selection=selection, require_complete=True)
+    assert rc == 1
+    assert not manifest["entries"]
+    assert not list(out.rglob("*.tar.gz"))
+
+@pytest.mark.parametrize("kind", ["parent", "absolute", "symlink", "hardlink", "duplicate"])
+def test_transport_rejects_unsafe_members_before_extraction(tmp_path, kind):
+    import io
+    archive = tmp_path / "transport.tar"
+    with tarfile.open(archive, "w") as tar:
+        names = ["recordings-manifest.json", {"parent": "../escape", "absolute": "/escape"}.get(kind, "entries/a__b.tar.gz")]
+        if kind == "duplicate":
+            names[-1] = names[0]
+        for index, name in enumerate(names):
+            info = tarfile.TarInfo(name)
+            if index and kind in ("symlink", "hardlink"):
+                info.type = tarfile.SYMTYPE if kind == "symlink" else tarfile.LNKTYPE
+                info.linkname = "../escape"
+            else:
+                info.size = 2
+            tar.addfile(info, io.BytesIO(b"{}"))
+    destination = tmp_path / "out"
+    assert pack.extract_bundle(archive, destination) == 1
+    assert not destination.exists()
+    assert not (tmp_path / "escape").exists()
+
+
+def test_safe_transport_is_verified_then_extracted(scene):
+    battery, selection, root, out = scene
+    pack.build(replays_root=root, out_dir=out, battery=battery,
+               selection=selection, require_complete=False)
+    transport = out.parent / "transport.tar"
+    with tarfile.open(transport, "w") as tar:
+        tar.add(out, arcname=".")
+    destination = out.parent / "download"
+    assert pack.extract_bundle(transport, destination,
+        expected_inventory_digest=json.loads(selection.read_text())["inventory_digest"],
+        battery=battery, datasets=battery.parent / "datasets.json") == 0
+    assert (destination / pack.MANIFEST_NAME).read_bytes() == (out / pack.MANIFEST_NAME).read_bytes()
+
+
+def test_inner_archive_traversal_rejected_even_with_updated_digests(scene):
+    import io
+    battery, selection, root, out = scene
+    manifest, _ = pack.build(replays_root=root, out_dir=out, battery=battery,
+                             selection=selection, require_complete=False)
+    entry = manifest["entries"][0]
+    archive = out / entry["archive"]
+    with tarfile.open(archive, "w:gz") as tar:
+        info = tarfile.TarInfo("vw/uniform8-clojure-legacy/../../escape")
+        info.size = 2
+        tar.addfile(info, io.BytesIO(b"{}"))
+    entry["archive_sha256"] = pack.sha256_file(archive)
+    manifest["manifest_digest"] = pack.manifest_digest(manifest)
+    (out / pack.MANIFEST_NAME).write_text(json.dumps(manifest))
+    assert _verify(scene) == 1
