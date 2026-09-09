@@ -347,6 +347,27 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      # The battery's Clojure/Python recordings are the only output of this run
+      # that cannot be recomputed without paying for another instance, and they
+      # used to die with the box: certify writes them under the log directory
+      # and the evidence bundle tars the artifact directory. All the logic is in
+      # ci/p022_collect_recordings.sh; this must run before teardown.
+      - name: Collect the battery recordings
+        if: ${{ always() && env.INSTANCE_ID != '' && env.RUN_BATTERY == 'true' }}
+        run: bash ci/p022_collect_recordings.sh
+
+      # Separate artifact, longer retention: ~1.5-3 MB of public-fixture
+      # recordings that a later measurement run consumes, versus a 7-day
+      # evidence bundle read while the run is still fresh.
+      - name: Upload the battery recordings
+        if: ${{ always() && env.RUN_BATTERY == 'true' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: certification-recordings-${{ github.run_id }}-${{ github.run_attempt }}
+          path: recordings/
+          if-no-files-found: warn
+          retention-days: 90
+
       # ---------------------------------------------------------------- teardown
       # Re-assume first: a long run's launch-session credentials may be minutes
       # from expiry by now, and the one step that must not fail for lack of
