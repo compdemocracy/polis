@@ -559,9 +559,6 @@ describe('synth-enforced health pairs', () => {
     expect(HEALTH_PAIRS).toEqual({
       A02: ['A03'],
       A07: ['A04', 'A03'],
-      A09: ['A08'],
-      A10: ['A08'],
-      A11: ['A08'],
       A12: ['A13'],
       A14: ['A15'],
     });

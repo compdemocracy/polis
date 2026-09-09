@@ -34,10 +34,17 @@ import { Construct, IValidation } from 'constructs';
  * an alarm with no delivery path is worse than no alarm, because it looks
  * like coverage.
  *
- * The remaining catalog alarms (A01–A03, A05, A08–A12, A14, A15) are NOT here.
- * Nine of them have no publisher in the account today; A05 is demoted to a
- * periodic cost review because it fires on the same event as A04 and announces
- * money already spent. See docs/alarms.md for how to add the rest.
+ * The remaining catalog alarms (A01–A03, A05, A12, A14, A15) are NOT here.
+ * Most have no publisher in the account today; A05 is demoted to a periodic
+ * cost review because it fires on the same event as A04 and announces money
+ * already spent.
+ *
+ * The Delphi queue-demand alarms (A08–A11, namespace `Polis/DelphiQueue`) are
+ * DROPPED, not deferred: they depended on the P-003 S1 demand-observer Lambda,
+ * which will not be built (Colin's 2026-09-08 ruling: no Lambda in the
+ * platform). That demand signal is to come from the Postgres queue substrate
+ * (P-024) instead, so those alarms wait on the substrate's metrics, not a
+ * Lambda. See docs/alarms.md for how to add the rest.
  */
 
 export const ALARMS_ENABLED_CONTEXT = 'enableAlarms';
@@ -69,9 +76,6 @@ export const CODEDEPLOY_FAILURE_RULE_NAME = 'Polis-CodeDeploy-DeploymentFailure'
 export const HEALTH_PAIRS: Readonly<Record<string, readonly string[]>> = {
   A02: ['A03'],
   A07: ['A04', 'A03'],
-  A09: ['A08'],
-  A10: ['A08'],
-  A11: ['A08'],
   A12: ['A13'],
   A14: ['A15'],
 };
@@ -228,7 +232,7 @@ class HealthPairValidation implements IValidation {
 /**
  * Reads the `enableAlarms` context flag. Absent, or anything other than a
  * literal `true`, means off — an enable flag must default to off when it is
- * not present (the same rule delphiDemandObserver.ts follows).
+ * not present, the default-off convention this repo's CDK context flags follow.
  */
 export const alarmsEnabled = (scope: Construct): boolean => {
   const raw = scope.node.tryGetContext(ALARMS_ENABLED_CONTEXT);
