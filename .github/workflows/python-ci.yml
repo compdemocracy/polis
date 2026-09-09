@@ -112,8 +112,10 @@ jobs:
         # a test asserts every declared input is present under /app/projgate.
         echo "Wiring projection-gate scan inputs (derived from the scanner declaration)..."
         docker compose -f docker-compose.test.yml exec -T delphi mkdir -p /app/projgate
-        python3 delphi/scripts/projection_inventory.py --print-scan-inputs | while read -r rel; do
-          [ -n "$rel" ] || continue
+        # Iterate a CAPTURED list, not `... | while read`: a `docker compose exec`
+        # inside a while-read loop drains the piped stdin and truncates the list to
+        # its first item (observed: only server/src copied).
+        for rel in $(python3 delphi/scripts/projection_inventory.py --print-scan-inputs); do
           docker compose -f docker-compose.test.yml exec -T delphi mkdir -p "/app/projgate/$(dirname "$rel")"
           docker compose -f docker-compose.test.yml cp "$rel" "delphi:/app/projgate/$rel" \
             || { echo "failed to copy scan input: $rel"; exit 1; }
