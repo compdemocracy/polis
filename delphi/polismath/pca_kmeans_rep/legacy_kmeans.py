@@ -61,7 +61,7 @@ class _NamedData:
     behaviour, named_matrix.clj:258-265).
     """
 
-    def __init__(self, row_names: Sequence[Any], matrix: np.ndarray):
+    def __init__(self, row_names: Sequence[Any], matrix: np.ndarray) -> None:
         self.row_names: List[Any] = list(row_names)
         self.matrix: np.ndarray = np.asarray(matrix, dtype=float)
         if self.matrix.ndim != 2 or self.matrix.shape[0] != len(self.row_names):
