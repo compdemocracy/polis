@@ -85,15 +85,31 @@ tests fail until you do.
 
 There is a down script, and having a tested one is a precondition for ever
 applying 000019 to production. It is
-`server/postgres/migrations/down/000019_drop_polis_queue.sql`, and it removes
-**exactly** what 000019 created, in dependency order (trigger, the 21 `pq_`
-functions, the 9 explicit indexes, the 5 tables, the `conversations` grant via
-`REVOKE`, then the two roles via `DROP OWNED BY` and `DROP ROLE`). It touches no
-object 000019 did not create: `public.conversations` and the `public` schema
-themselves are left alone.
+`server/postgres/migrations/down/000019_drop_polis_queue.sql`. It removes only
+what 000019 **provably** created — the up migration accepts a *pre-existing*
+NOLOGIN owner/executor role and does not require it to be otherwise empty, so
+the down script must not trust names. In one transaction it:
 
-Run it alone, as a superuser (or a login that can drop the queue owner's
-objects and `DROP ROLE` both roles), exactly as
+1. Locks the five queue tables `ACCESS EXCLUSIVE`, in a fixed order, **before**
+   counting rows, and holds the locks through `COMMIT`.
+2. Verifies the installed schema against 000019's **own** catalog fingerprint
+   (the same table-md5 map, 21-signature array and function-body md5 that 000019
+   pins and asserts on itself). If anything queue-shaped exists but does not
+   match — an unrelated `pq_*` function, an added overload, a drifted table — it
+   **refuses** and names the mismatch, rather than dropping it.
+3. Drops its inventory in dependency order: the trigger, the 21 functions **by
+   full argument signature**, the 9 explicit indexes, the 5 tables, then the
+   schema grants and the `conversations` grant via `REVOKE`.
+4. Drops the two roles **only if**, after that removal, each owns nothing, holds
+   no other grant and has no membership (checked against `pg_shdepend` /
+   `pg_auth_members`) and carries no login/elevated attribute. A role with any
+   residual footprint is a role with another purpose: the script refuses and
+   names what remains. It never uses `DROP OWNED BY`, which would sweep away
+   unrelated objects a pre-existing role happens to own.
+
+`public.conversations` and the `public` schema themselves are never touched.
+
+Run it alone, as a superuser (`postgres`), exactly as
 [docs/migrations.md](migrations.md) applies a file:
 
 ```sh
@@ -102,7 +118,8 @@ docker exec -i polis-dev-postgres-1 psql -v ON_ERROR_STOP=1 -U postgres -d polis
 ```
 
 It **refuses** to run if any `polis_queue_*` table holds rows, so a live queue
-is never dropped by accident. Override that deliberately, and only then, with
+is never dropped by accident. `force` overrides **only** this live-queue guard —
+never a drift or provenance refusal. Override deliberately, and only then, with
 `-v force=1`:
 
 ```sh
@@ -110,20 +127,31 @@ docker exec -i polis-dev-postgres-1 psql -v ON_ERROR_STOP=1 -v force=1 -U postgr
   -d polis-dev < server/postgres/migrations/down/000019_drop_polis_queue.sql
 ```
 
-It is one transaction and idempotent: running it when 000019 was never applied
-is a no-op that emits a `NOTICE`, and running it twice is safe. `DROP OWNED BY`
-acts only in the current database, which is the only one 000019 touched; if a
-queue role were ever given objects in another database, that database would need
-its own `DROP OWNED BY` before the shared role could be dropped.
+The `ACCESS EXCLUSIVE` lock is a guard, not a substitute for operations: stop or
+drain the queue's writers before reversing in production. `lock_timeout`
+(default `5s`, override `-v lock_timeout=...`) bounds the wait, so a busy table
+fails and rolls back rather than blocking indefinitely. The script is one
+transaction and idempotent: when no queue table, `pq_*` function or queue role
+exists it is a no-op that emits a `NOTICE`, and re-running after a successful
+down is the same no-op.
+
+Every refusal — live queue, drift/collision, or an un-clean role — rolls the
+whole transaction back and drops nothing; the operator resolves what the message
+names and re-runs.
 
 The reversal is proven by
 `server/postgres/migrations/down/test_000019_down.sh`, which stands up a
-throwaway `postgres:17` and asserts four things: (a) applying 000000..000019 then
-the down script leaves a catalog identical to 000000..000018 (`pg_dump
---schema-only`, plus the `polis_queue_*` roles via `pg_roles`); (b) apply → down
-→ apply again succeeds; (c) the down script is a no-op notice on a database that
-never had 000019; and (d) a non-empty queue is refused without `force` and
-dropped with it.
+throwaway `postgres:17` and asserts, on isolated databases: (a) applying
+000000..000019 then the down script leaves a catalog identical to
+000000..000018 (`pg_dump --schema-only`, plus the `polis_queue_*` roles via
+`pg_roles`); (b) apply → down → apply again succeeds; (c) a no-op notice on a
+database that never had 000019; (d) a non-empty queue is refused without `force`
+and dropped with it; (e) an unrelated same-named `pq_*` function on an
+un-installed database survives (refusal, not a silent drop); (f) an unrelated
+table owned by `polis_queue_owner` causes a refusal and survives; (g) a
+pre-existing `polis_queue_executor` role survives; and (h) a writer that commits
+a row concurrently is blocked by the lock and its row is seen and refused, never
+lost.
 
 ```sh
 bash server/postgres/migrations/down/test_000019_down.sh

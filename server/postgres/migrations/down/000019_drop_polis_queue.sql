@@ -5,39 +5,61 @@
 -- applying 000019 to production. This is that script. See the "Reversal"
 -- section of docs/queue-substrate.md for the runbook.
 --
--- WHAT IT REMOVES
--- ---------------
--- Exactly what 000019 created, and nothing else:
+-- WHAT IT REMOVES, AND ONLY WHAT 000019 PROVABLY CREATED
+-- -----------------------------------------------------
+-- The up migration ACCEPTS pre-existing NOLOGIN owner/executor roles and does
+-- not require that they own nothing else. So this script does NOT trust names.
+-- It removes an object only after proving the installed schema matches 000019's
+-- OWN catalog fingerprint (the same md5/signature pins 000019 asserts on itself),
+-- then drops exactly its enumerated inventory by full signature:
 --   * the trigger pq_no_regression on public.polis_queue_heads
---   * the 21 public.pq_* functions
+--   * the 21 public.pq_* functions (dropped by full argument signature)
 --   * the 9 explicitly-created indexes (the rest go with their tables)
 --   * the 5 tables polis_queue_{runs,heads,jobs,attempts,requests}
---   * the GRANT on public.conversations to polis_queue_owner (via REVOKE)
---   * the schema-level grants to both roles and every grant either role made
---     (via DROP OWNED BY)
---   * the two NOLOGIN roles polis_queue_owner and polis_queue_executor
--- It does NOT touch public.conversations itself, the public schema, or any
--- object 000019 did not create.
+--   * the schema-level grants 000019 made, and the conversations grant, via REVOKE
+--   * the two NOLOGIN roles -- ONLY if, after that removal, each role owns nothing
+--     and holds/carries no other grant or membership (checked against
+--     pg_shdepend / pg_auth_members). A role with any residual footprint, any
+--     login/elevated attribute, or any membership is a role with another purpose:
+--     the script REFUSES and names what remains rather than dropping it.
+-- It touches no object 000019 did not create; public.conversations and the
+-- public schema themselves are left alone.
+--
+-- REFUSALS (all roll the whole transaction back, drop nothing)
+-- -----------------------------------------------------------
+--   * Live queue: any polis_queue_* table holds rows, without -v force=1.
+--   * Drift / collision: queue-named objects exist but do not match 000019's
+--     fingerprint (e.g. an unrelated public.pq_* function, or an altered table).
+--   * Provenance: a role still owns an object, holds a grant, or has a
+--     membership after 000019's inventory is removed -- named in the message.
+-- force overrides ONLY the live-queue refusal. It never overrides a provenance
+-- or drift refusal.
+--
+-- CONCURRENCY
+-- -----------
+-- The five tables are locked ACCESS EXCLUSIVE, in a fixed order, BEFORE the row
+-- count, and held through COMMIT. A concurrent writer therefore either committed
+-- before the count (and is seen, causing refusal) or cannot insert until the
+-- reversal finishes; a counted-empty table cannot be populated behind the count.
+-- lock_timeout bounds the wait (default 5s, override -v lock_timeout=...).
+-- Stop/drain the operational writers too; the lock is a guard, not a substitute.
 --
 -- HOW TO APPLY
 -- ------------
--- Run THIS FILE ALONE, manually, as a superuser (postgres) or as a login that
--- can drop the queue owner's objects and DROP ROLE both roles. Exactly as
--- docs/migrations.md applies a migration, but with ON_ERROR_STOP and the down
--- file:
+-- Run THIS FILE ALONE, manually, as a superuser (postgres), exactly as
+-- docs/migrations.md applies a file:
 --
 --   docker exec -i polis-dev-postgres-1 psql -v ON_ERROR_STOP=1 -U postgres -d polis-dev \
 --     < server/postgres/migrations/down/000019_drop_polis_queue.sql
 --
--- SAFETY: it REFUSES to run if any polis_queue_* table contains rows, so a live
--- queue is never dropped by accident. Override deliberately with -v force=1:
+-- Deliberate override of the live-queue guard only:
 --
 --   docker exec -i polis-dev-postgres-1 psql -v ON_ERROR_STOP=1 -v force=1 -U postgres \
 --     -d polis-dev < server/postgres/migrations/down/000019_drop_polis_queue.sql
 --
--- IDEMPOTENCE: safe to run when 000019 was never applied. It is a no-op that
--- emits a NOTICE. Every drop is guarded (IF EXISTS or an existence check), so
--- re-running after a successful down is also a clean no-op.
+-- IDEMPOTENCE: one transaction. When no queue table, no pq_ function and no
+-- queue role exist, it is a no-op that emits a NOTICE. Re-running after a
+-- successful down is the same no-op.
 
 \set ON_ERROR_STOP on
 
@@ -47,14 +69,62 @@
   \set force 0
 \endif
 
+-- Bounded wait for the destructive table locks.
+\if :{?lock_timeout}
+\else
+  \set lock_timeout '5s'
+\endif
+
 BEGIN;
 
--- ---------------------------------------------------------------------------
--- Preflight: refuse to drop tables that still hold rows, unless force=1.
--- Counts only the queue tables that actually exist, so this is also correct
--- when 000019 was never applied (total = 0, nothing refused).
--- ---------------------------------------------------------------------------
-DO $preflight$
+SET LOCAL lock_timeout = :'lock_timeout';
+
+-- Mirror of 000019's pq_catalog (000019:116-128): the per-table catalog
+-- fingerprint source. Identical code + PostgreSQL 17 + fixed search_path give
+-- the identical md5 that 000019 pins and asserts on itself, so a table that
+-- matches here is provably the table 000019 created.
+CREATE FUNCTION pg_temp.pqd_catalog(p_table oid) RETURNS jsonb
+LANGUAGE sql SET search_path=pg_catalog,pg_temp AS $catalog$
+SELECT jsonb_build_object(
+ 'columns',(SELECT jsonb_agg(jsonb_build_array(a.attname,format_type(a.atttypid,a.atttypmod),a.attnotnull,a.attidentity,a.attgenerated,co.collname,pg_get_expr(d.adbin,d.adrelid),NULLIF(a.attacl::text,'{}')) ORDER BY a.attnum)
+ FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum LEFT JOIN pg_collation co ON co.oid=a.attcollation
+ WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped),
+ 'constraints',(SELECT jsonb_agg(jsonb_build_array(conname,pg_get_constraintdef(oid),convalidated,connoinherit) ORDER BY conname) FROM pg_constraint WHERE conrelid=c.oid),
+ 'indexes',(SELECT jsonb_agg(jsonb_build_array(ic.relname,pg_get_indexdef(i.indexrelid),i.indisvalid,i.indisready) ORDER BY ic.relname) FROM pg_index i JOIN pg_class ic ON ic.oid=i.indexrelid WHERE i.indrelid=c.oid),
+ 'triggers',(SELECT jsonb_agg(jsonb_build_array(t.tgname,pg_get_triggerdef(t.oid),t.tgenabled) ORDER BY t.tgname) FROM pg_trigger t WHERE t.tgrelid=c.oid AND NOT t.tgisinternal),
+ 'owner',pg_get_userbyid(c.relowner),'kind',c.relkind,'rls',c.relrowsecurity,'force_rls',c.relforcerowsecurity,'options',c.reloptions,
+ 'acl',(SELECT jsonb_agg(jsonb_build_array(CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(x.grantee) END,x.privilege_type,x.is_grantable) ORDER BY x.grantee=0,pg_get_userbyid(x.grantee),x.privilege_type,x.is_grantable) FROM aclexplode(COALESCE(c.relacl,acldefault('r',c.relowner))) x)
+ ) FROM pg_class c WHERE c.oid=p_table
+$catalog$;
+
+-- -------------------------------------------------------------------------
+-- PHASE 1: lock every present queue table against writers, in a fixed order,
+-- BEFORE counting. Held to COMMIT. (Astra P2: count-before-lock races.)
+--
+-- Order is CHILDREN BEFORE PARENTS (requests/attempts, then jobs/heads, then
+-- runs). A writer inserting a child row holds ROW EXCLUSIVE on that child and
+-- then needs a KEY/ROW SHARE lock on the parent for FK validation. Locking the
+-- parents last means this reversal never holds a parent's ACCESS EXCLUSIVE lock
+-- while a writer, holding the child, waits for that parent -- which would
+-- deadlock. Locking parents-first does deadlock; this order does not.
+-- -------------------------------------------------------------------------
+DO $lock$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY[
+    'polis_queue_requests','polis_queue_attempts','polis_queue_jobs',
+    'polis_queue_heads','polis_queue_runs']
+  LOOP
+    IF to_regclass('public.'||t) IS NOT NULL THEN
+      EXECUTE format('LOCK TABLE public.%I IN ACCESS EXCLUSIVE MODE', t);
+    END IF;
+  END LOOP;
+END $lock$;
+
+-- -------------------------------------------------------------------------
+-- PHASE 2: row count UNDER the lock; refuse a live queue unless force=1.
+-- -------------------------------------------------------------------------
+DO $count$
 DECLARE total bigint := 0; n bigint; t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY[
@@ -66,9 +136,8 @@ BEGIN
       total := total + n;
     END IF;
   END LOOP;
-  -- Transaction-local so it cannot leak into the session.
   PERFORM set_config('polis_queue.down_rowcount', total::text, true);
-END $preflight$;
+END $count$;
 
 SELECT current_setting('polis_queue.down_rowcount')::bigint AS pq_rows \gset
 SELECT CASE WHEN (:pq_rows > 0 AND :'force' <> '1') THEN 'true' ELSE 'false' END
@@ -84,135 +153,195 @@ BEGIN
 END $refuse$;
 \endif
 
--- ---------------------------------------------------------------------------
--- No-op notice: if 000019 was never applied there is nothing to remove.
--- ---------------------------------------------------------------------------
-DO $noop$
+-- -------------------------------------------------------------------------
+-- PHASE 3: provenance gate, then bounded removal. One block so the decision
+-- and the drops share a transaction and roll back together.
+-- -------------------------------------------------------------------------
+DO $main$
+DECLARE
+  -- 000019's own pins (000019:131,153,179). A match here proves provenance.
+  expected_tables jsonb := '{"polis_queue_attempts": "4bf01840303c3447650ada377d535bee", "polis_queue_heads": "cf987d5673228e6ca6d6f3b86b7e77e5", "polis_queue_jobs": "d8367b8bdaa7701b9c377450d23b5db5", "polis_queue_requests": "cae8fcd4db4562b9936b7d33cf598f1e", "polis_queue_runs": "8e7fd316c23320c229387822146eebec"}'::jsonb;
+  expected_signatures text[] := ARRAY['pq_backoff(uuid, integer)','pq_cancel(text, uuid, bigint)','pq_claim(text, smallint, uuid, uuid, integer)','pq_due(text, uuid, integer)','pq_end_attempt(text, uuid, uuid, uuid, bigint, text, text)','pq_enqueue(text, integer, text, text, text, text, uuid, uuid, text, text, text, text, smallint, integer)','pq_fail(text, uuid, uuid, uuid, bigint, boolean, text)','pq_finalize(text, uuid, uuid, uuid, bigint, text, text)','pq_head_status(text, text)','pq_heartbeat(text, uuid, uuid, uuid, bigint, integer)','pq_job_status(text, uuid)','pq_lock(text, uuid, boolean, boolean)','pq_no_regression()','pq_owns(public.polis_queue_jobs, uuid, uuid, bigint)','pq_park(text, uuid, uuid, uuid, bigint, text)','pq_publish_allowed(public.polis_queue_heads, public.polis_queue_runs)','pq_reap(text, uuid, integer)','pq_reap_one(text, uuid)','pq_release(text, uuid, uuid, uuid, bigint)','pq_result(text, public.polis_queue_jobs, boolean)','pq_terminate_attempt(public.polis_queue_jobs, text, text, text, boolean)'];
+  expected_function_md5 constant text := 'f27901140fda2363181773810f5fbfa5';
+  -- The 12 functions 000019 grants EXECUTE to the executor (000019:574).
+  granted_execute constant text[] := ARRAY[
+    'pq_cancel','pq_claim','pq_due','pq_enqueue','pq_fail','pq_finalize','pq_head_status',
+    'pq_heartbeat','pq_job_status','pq_park','pq_reap_one','pq_release'];
+
+  present_tables text[]; present_sigs text[];
+  roles_present boolean; actual_fn_md5 text; entry record; onward text[];
+  rname text; rid oid; bad_attr boolean; residual text; memberships bigint;
 BEGIN
-  IF to_regclass('public.polis_queue_jobs') IS NULL
-     AND to_regclass('public.polis_queue_runs') IS NULL
-     AND NOT EXISTS (
-       SELECT 1 FROM pg_roles
-       WHERE rolname IN ('polis_queue_owner','polis_queue_executor'))
-  THEN
+  -- 000019 computes its signature/function fingerprints under this exact
+  -- search_path (its guard functions carry SET search_path=pg_catalog,pg_temp),
+  -- which is what makes oidvectortypes schema-qualify public row-types as
+  -- "public.polis_queue_jobs". Match it, or the fingerprints will never agree.
+  -- Every object reference below is fully schema-qualified, so this is safe.
+  PERFORM set_config('search_path', 'pg_catalog, pg_temp', true);
+
+  SELECT array_agg(relname::text ORDER BY relname) INTO present_tables FROM pg_class
+   WHERE relnamespace='public'::regnamespace AND starts_with(relname,'polis_queue_')
+     AND relkind IN ('r','p','v','m','f');
+  SELECT array_agg(proname || '(' || oidvectortypes(proargtypes) || ')'
+                   ORDER BY proname || '(' || oidvectortypes(proargtypes) || ')')
+    INTO present_sigs FROM pg_proc
+   WHERE pronamespace='public'::regnamespace AND starts_with(proname,'pq_');
+  roles_present := EXISTS (SELECT 1 FROM pg_roles
+                           WHERE rolname IN ('polis_queue_owner','polis_queue_executor'));
+
+  -- (i) Truly absent: nothing queue-shaped anywhere -> genuine no-op.
+  IF present_tables IS NULL AND present_sigs IS NULL AND NOT roles_present THEN
     RAISE NOTICE
       'polis_queue objects not present; 000019 was never applied. Nothing to drop.';
+    RETURN;
   END IF;
-END $noop$;
 
--- ---------------------------------------------------------------------------
--- 1. Trigger (depends on pq_no_regression; guarded so an absent table is a
---    no-op rather than a "relation does not exist" error).
--- ---------------------------------------------------------------------------
-DO $trg$
-BEGIN
-  IF to_regclass('public.polis_queue_heads') IS NOT NULL THEN
-    DROP TRIGGER IF EXISTS pq_no_regression ON public.polis_queue_heads;
+  -- (ii) Something queue-shaped exists: it must PROVABLY be 000019's, or refuse.
+  IF present_tables IS DISTINCT FROM ARRAY(SELECT jsonb_object_keys(expected_tables) ORDER BY 1) THEN
+    RAISE EXCEPTION 'refusing: public.polis_queue_* tables do not match 000019'
+      USING DETAIL = 'found tables: ' || COALESCE(array_to_string(present_tables, ', '), '(none)') ||
+                     '; 000019 defines exactly its five. Resolve by hand.';
   END IF;
-END $trg$;
+  FOR entry IN SELECT * FROM jsonb_each_text(expected_tables) LOOP
+    IF md5(pg_temp.pqd_catalog(to_regclass('public.'||entry.key))::text) IS DISTINCT FROM entry.value THEN
+      RAISE EXCEPTION 'refusing: table public.% does not match 000019''s fingerprint (drift). Resolve by hand.', entry.key;
+    END IF;
+  END LOOP;
+  IF present_sigs IS DISTINCT FROM expected_signatures THEN
+    RAISE EXCEPTION 'refusing: public.pq_* functions do not match 000019'
+      USING DETAIL = 'found signatures: ' || COALESCE(array_to_string(present_sigs, ', '), '(none)') ||
+                     '; 000019 defines exactly its 21. An unrelated pq_* function or overload must be resolved by hand.';
+  END IF;
+  SELECT md5((SELECT jsonb_agg(jsonb_build_object(
+   'signature',p.proname || '(' || oidvectortypes(p.proargtypes) || ')',
+   'result',pg_get_function_result(p.oid),'defaults',pg_get_expr(p.proargdefaults,0),
+   'language',l.lanname,'kind',p.prokind,'security_definer',p.prosecdef,
+   'volatility',p.provolatile,'parallel',p.proparallel,'strict',p.proisstrict,
+   'config',p.proconfig,'owner',pg_get_userbyid(p.proowner),
+   'acl',(SELECT jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,a.is_grantable)
+   ORDER BY a.grantee=0,pg_get_userbyid(a.grantee),a.privilege_type,a.is_grantable)
+   FROM aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a)
+   ) ORDER BY p.proname) FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang
+   WHERE p.pronamespace='public'::regnamespace AND starts_with(p.proname,'pq_'))::text)
+   INTO actual_fn_md5;
+  IF actual_fn_md5 IS DISTINCT FROM expected_function_md5 THEN
+    RAISE EXCEPTION 'refusing: pq_* function bodies/owners/ACLs do not match 000019''s fingerprint (drift). Resolve by hand.';
+  END IF;
 
--- ---------------------------------------------------------------------------
--- 2. Functions. All 21 are dropped by bare name: 000019 guarantees exactly one
---    overload of each (its signature guard enforces this), so the name is
---    unambiguous, and a bare name never references the table row-types that
---    four of these take as arguments -- which keeps the no-op case (types
---    absent) from raising "type does not exist". Function bodies are string-
---    quoted, so there are no inter-function dependencies and order is free;
---    they are dropped before the tables because four depend on the table
---    row-types. If drift left a stale overload, a bare-name drop fails loudly
---    ("is not unique") -- a human decision, exactly as 000019 intends.
--- ---------------------------------------------------------------------------
-DROP FUNCTION IF EXISTS public.pq_enqueue;
-DROP FUNCTION IF EXISTS public.pq_claim;
-DROP FUNCTION IF EXISTS public.pq_heartbeat;
-DROP FUNCTION IF EXISTS public.pq_finalize;
-DROP FUNCTION IF EXISTS public.pq_fail;
-DROP FUNCTION IF EXISTS public.pq_release;
-DROP FUNCTION IF EXISTS public.pq_park;
-DROP FUNCTION IF EXISTS public.pq_due;
-DROP FUNCTION IF EXISTS public.pq_reap_one;
-DROP FUNCTION IF EXISTS public.pq_reap;
-DROP FUNCTION IF EXISTS public.pq_cancel;
-DROP FUNCTION IF EXISTS public.pq_job_status;
-DROP FUNCTION IF EXISTS public.pq_head_status;
-DROP FUNCTION IF EXISTS public.pq_end_attempt;
-DROP FUNCTION IF EXISTS public.pq_terminate_attempt;
-DROP FUNCTION IF EXISTS public.pq_publish_allowed;
-DROP FUNCTION IF EXISTS public.pq_lock;
-DROP FUNCTION IF EXISTS public.pq_owns;
-DROP FUNCTION IF EXISTS public.pq_backoff;
-DROP FUNCTION IF EXISTS public.pq_result;
-DROP FUNCTION IF EXISTS public.pq_no_regression;
+  -- Provably 000019's schema. Remove its inventory in dependency order.
+  DROP TRIGGER IF EXISTS pq_no_regression ON public.polis_queue_heads;
 
--- ---------------------------------------------------------------------------
--- 3. Indexes. Only the 9 explicitly created by 000019; the primary-key and
---    unique-constraint indexes go with their tables in step 4. DROP INDEX
---    IF EXISTS on an absent name is a guarded no-op.
--- ---------------------------------------------------------------------------
-DROP INDEX IF EXISTS public.polis_queue_ready;
-DROP INDEX IF EXISTS public.polis_queue_running;
-DROP INDEX IF EXISTS public.polis_queue_exhausted;
-DROP INDEX IF EXISTS public.polis_queue_parked;
-DROP INDEX IF EXISTS public.polis_queue_heads_zid;
-DROP INDEX IF EXISTS public.polis_queue_runs_zid;
-DROP INDEX IF EXISTS public.polis_queue_runs_history;
-DROP INDEX IF EXISTS public.polis_queue_requests_run;
-DROP INDEX IF EXISTS public.polis_queue_requests_job;
+  -- Functions by FULL signature (row-type args resolve: the tables still exist).
+  DROP FUNCTION IF EXISTS public.pq_enqueue(text, integer, text, text, text, text, uuid, uuid, text, text, text, text, smallint, integer);
+  DROP FUNCTION IF EXISTS public.pq_claim(text, smallint, uuid, uuid, integer);
+  DROP FUNCTION IF EXISTS public.pq_heartbeat(text, uuid, uuid, uuid, bigint, integer);
+  DROP FUNCTION IF EXISTS public.pq_finalize(text, uuid, uuid, uuid, bigint, text, text);
+  DROP FUNCTION IF EXISTS public.pq_fail(text, uuid, uuid, uuid, bigint, boolean, text);
+  DROP FUNCTION IF EXISTS public.pq_release(text, uuid, uuid, uuid, bigint);
+  DROP FUNCTION IF EXISTS public.pq_park(text, uuid, uuid, uuid, bigint, text);
+  DROP FUNCTION IF EXISTS public.pq_due(text, uuid, integer);
+  DROP FUNCTION IF EXISTS public.pq_reap_one(text, uuid);
+  DROP FUNCTION IF EXISTS public.pq_reap(text, uuid, integer);
+  DROP FUNCTION IF EXISTS public.pq_cancel(text, uuid, bigint);
+  DROP FUNCTION IF EXISTS public.pq_job_status(text, uuid);
+  DROP FUNCTION IF EXISTS public.pq_head_status(text, text);
+  DROP FUNCTION IF EXISTS public.pq_end_attempt(text, uuid, uuid, uuid, bigint, text, text);
+  DROP FUNCTION IF EXISTS public.pq_terminate_attempt(public.polis_queue_jobs, text, text, text, boolean);
+  DROP FUNCTION IF EXISTS public.pq_publish_allowed(public.polis_queue_heads, public.polis_queue_runs);
+  DROP FUNCTION IF EXISTS public.pq_lock(text, uuid, boolean, boolean);
+  DROP FUNCTION IF EXISTS public.pq_owns(public.polis_queue_jobs, uuid, uuid, bigint);
+  DROP FUNCTION IF EXISTS public.pq_backoff(uuid, integer);
+  DROP FUNCTION IF EXISTS public.pq_result(text, public.polis_queue_jobs, boolean);
+  DROP FUNCTION IF EXISTS public.pq_no_regression();
 
--- ---------------------------------------------------------------------------
--- 4. Tables. All five listed in one statement (no CASCADE), so the inter-table
---    foreign keys resolve because every referencing table is in the drop set.
---    None of these are referenced by anything 000019 did not create, and
---    public.conversations is a parent (referenced BY them), so it is untouched.
--- ---------------------------------------------------------------------------
-DROP TABLE IF EXISTS
-  public.polis_queue_requests,
-  public.polis_queue_attempts,
-  public.polis_queue_jobs,
-  public.polis_queue_heads,
-  public.polis_queue_runs;
+  -- The 9 explicit indexes (PK/UNIQUE indexes go with their tables below).
+  DROP INDEX IF EXISTS public.polis_queue_ready;
+  DROP INDEX IF EXISTS public.polis_queue_running;
+  DROP INDEX IF EXISTS public.polis_queue_exhausted;
+  DROP INDEX IF EXISTS public.polis_queue_parked;
+  DROP INDEX IF EXISTS public.polis_queue_heads_zid;
+  DROP INDEX IF EXISTS public.polis_queue_runs_zid;
+  DROP INDEX IF EXISTS public.polis_queue_runs_history;
+  DROP INDEX IF EXISTS public.polis_queue_requests_run;
+  DROP INDEX IF EXISTS public.polis_queue_requests_job;
 
--- ---------------------------------------------------------------------------
--- 5. The GRANT on public.conversations to polis_queue_owner, via REVOKE.
---    Mirror of line 99 of 000019. Guarded on role existence so the no-op case
---    does not raise "role does not exist".
--- ---------------------------------------------------------------------------
-DO $revoke_conv$
-BEGIN
+  -- The five tables (one statement; inter-table FKs resolve within the set). No
+  -- CASCADE: an outside dependency (e.g. a view) fails here and rolls back.
+  DROP TABLE IF EXISTS
+    public.polis_queue_requests,
+    public.polis_queue_attempts,
+    public.polis_queue_jobs,
+    public.polis_queue_heads,
+    public.polis_queue_runs;
+
+  -- The grants 000019 made. 000019 gives owner a grantable USAGE on public
+  -- (from the database owner) plus CREATE, then, AS owner, grants USAGE onward
+  -- to owner itself (a redundant self-grant) and to executor (000019:97,98,560).
+  -- Only owner (the grantor) can revoke those onward grants, so revoking owner's
+  -- own USAGE with CASCADE is what removes them -- and it removes exactly them.
+  -- Before cascading, assert owner's onward schema grants go ONLY to the two
+  -- roles 000019 targets; an onward grant to any third party is refused, not
+  -- silently swept, which keeps the single CASCADE bounded to 000019's grants.
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='polis_queue_owner') THEN
-    REVOKE SELECT, REFERENCES(zid), UPDATE(topic)
-      ON public.conversations FROM polis_queue_owner;
+    SELECT array_agg(DISTINCT pg_get_userbyid(a.grantee)::text
+                     ORDER BY pg_get_userbyid(a.grantee)::text)
+      INTO onward
+      FROM pg_namespace n, aclexplode(n.nspacl) a
+     WHERE n.nspname='public'
+       AND a.grantor = (SELECT oid FROM pg_roles WHERE rolname='polis_queue_owner');
+    IF onward IS NOT NULL
+       AND NOT (onward <@ ARRAY['polis_queue_owner','polis_queue_executor']) THEN
+      RAISE EXCEPTION 'refusing: polis_queue_owner granted schema public USAGE onward to %, which 000019 did not create. Resolve by hand.',
+        array_to_string(onward, ', ');
+    END IF;
+    -- CASCADE clears owner's grantable USAGE and the onward grants that depend
+    -- on it (owner-self and executor). No other privilege depends on it.
+    REVOKE USAGE, CREATE ON SCHEMA public FROM polis_queue_owner CASCADE;
+    REVOKE SELECT, REFERENCES(zid), UPDATE(topic) ON public.conversations FROM polis_queue_owner;
   END IF;
-END $revoke_conv$;
+  -- Executor's only schema grant came from owner and is gone with the CASCADE
+  -- above; its 12 EXECUTE grants went with the functions. If the executor role
+  -- exists without the owner (a partial/hand-edited state), clear any residual
+  -- schema USAGE it still holds so the provenance check below can pass or name it.
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='polis_queue_executor')
+     AND has_schema_privilege('polis_queue_executor','public','USAGE') THEN
+    REVOKE USAGE ON SCHEMA public FROM polis_queue_executor;
+  END IF;
 
--- ---------------------------------------------------------------------------
--- 6. The roles. A role cannot be dropped while it owns objects or holds/made
---    any grant. Steps 1-5 removed the owner's objects and the conversations
---    grant, but both roles still hold schema-level grants (USAGE/CREATE on
---    public), and polis_queue_owner is the grantor of polis_queue_executor's
---    schema USAGE. DROP OWNED BY, applied to BOTH roles together, revokes every
---    privilege granted TO either role and every privilege either role GRANTED,
---    in this database -- which is the only database 000019 touched. It then
---    leaves nothing for DROP ROLE to trip over. Guarded so the no-op case skips.
--- ---------------------------------------------------------------------------
-DO $roles$
-DECLARE has_owner boolean; has_exec boolean;
-BEGIN
-  has_owner := EXISTS (SELECT 1 FROM pg_roles WHERE rolname='polis_queue_owner');
-  has_exec  := EXISTS (SELECT 1 FROM pg_roles WHERE rolname='polis_queue_executor');
-  IF has_owner AND has_exec THEN
-    DROP OWNED BY polis_queue_owner, polis_queue_executor;
-  ELSIF has_owner THEN
-    DROP OWNED BY polis_queue_owner;
-  ELSIF has_exec THEN
-    DROP OWNED BY polis_queue_executor;
-  END IF;
-  IF has_exec THEN
-    DROP ROLE polis_queue_executor;
-  END IF;
-  IF has_owner THEN
-    DROP ROLE polis_queue_owner;
-  END IF;
-END $roles$;
+  -- Roles last, and ONLY when nothing of theirs remains. A residual owned
+  -- object, grant, membership or elevated attribute means the role has another
+  -- purpose (the up migration accepts a pre-existing role): refuse and name it,
+  -- never DROP OWNED, never a blanket drop.
+  FOREACH rname IN ARRAY ARRAY['polis_queue_executor','polis_queue_owner'] LOOP
+    SELECT oid INTO rid FROM pg_roles WHERE rolname=rname;
+    IF rid IS NULL THEN CONTINUE; END IF;
+
+    SELECT (rolcanlogin OR rolsuper OR rolcreaterole OR rolcreatedb OR rolreplication OR rolbypassrls)
+      INTO bad_attr FROM pg_roles WHERE oid=rid;
+
+    SELECT string_agg(
+             CASE WHEN classid='pg_class'::regclass THEN
+                    COALESCE(objid::regclass::text, 'pg_class#'||objid::text)
+                  ELSE classid::regclass::text || '#' || objid::text END
+             || ' [' || deptype::text || ']', ', ' ORDER BY 1)
+      INTO residual
+      FROM pg_shdepend
+     WHERE refclassid='pg_authid'::regclass AND refobjid=rid
+       AND dbid IN (0, (SELECT oid FROM pg_database WHERE datname=current_database()));
+
+    SELECT count(*) INTO memberships FROM pg_auth_members WHERE roleid=rid OR member=rid;
+
+    IF bad_attr OR residual IS NOT NULL OR memberships > 0 THEN
+      RAISE EXCEPTION 'refusing to drop role %: 000019 provenance not clean', rname
+        USING DETAIL = concat_ws('; ',
+          CASE WHEN bad_attr THEN 'role has a login or elevated attribute (000019 creates NOLOGIN only)' END,
+          CASE WHEN residual IS NOT NULL THEN 'still owns/holds: ' || residual END,
+          CASE WHEN memberships > 0 THEN memberships || ' membership grant(s) present' END),
+           HINT = 'The up migration accepts a pre-existing role; this is not 000019''s to drop. Resolve by hand.';
+    END IF;
+
+    EXECUTE format('DROP ROLE %I', rname);
+  END LOOP;
+END $main$;
 
 COMMIT;
