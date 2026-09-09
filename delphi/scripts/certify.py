@@ -57,8 +57,41 @@ def cli() -> None:
 @click.option("--workers", type=int, default=6, show_default=True,
               help="Parallel battery entries (drivers + compare); the ledger "
                    "fold stays serial, so results match --workers 1 exactly.")
-def run(battery_path, only, refresh_clj, refresh_py, strict, root, workers):
-    """Certify every entry in the battery (or a filtered subset)."""
+@click.option("--drivers", default="clj,py", show_default=True,
+              help="Comma-separated producer ids (clj,py[,rust]). The default "
+                   "clj,py is the unchanged legacy two-driver run; selecting rust "
+                   "(or any non-default set) routes to the P-045 bridge, which "
+                   "emits a polis-certification-run/2 report with per-entry "
+                   "clj/py/rust rows. rust requires both references.")
+@click.option("--profile", "profile", default=None,
+              help="Bridge campaign profile (battery-chain/1 or "
+                   "snapshot-rebuild/1); mandatory when rust is selected.")
+def run(battery_path, only, refresh_clj, refresh_py, strict, root, workers, drivers, profile):
+    """Certify every entry in the battery (or a filtered subset).
+
+    ``--drivers clj,py`` with no ``--profile`` is the legacy two-driver path,
+    byte-for-byte unchanged. Any other driver set routes to the additive P-045
+    bridge, whose rust rows are UNSUPPORTED_PROFILE until the slice-3
+    forced-compute path exists (exit 2 / INCONCLUSIVE, never a fabricated PASS).
+    """
+    if drivers != "clj,py" or profile is not None:
+        from polismath.replay import coordinator_driver as cdrv
+        try:
+            selected = cdrv.parse_drivers(drivers)
+            if profile is None:
+                raise cdrv.BridgeError("profile", "--profile is required for a bridge run")
+            entries = cert.load_battery(battery_path)
+            if only is not None:
+                entries = cert._filter_only(entries, only)
+            report = cdrv.run_bridge_battery(
+                entries, root=root or cert.st.replays_root(), profile=profile,
+                drivers=selected, battery_path=battery_path)
+        except (cdrv.BridgeError, ValueError, KeyError, TypeError, OSError) as exc:
+            click.echo(f"certify: bridge FAIL [configuration] {exc}")
+            sys.exit(2)
+        for line in cdrv.render_bridge_lines(report):
+            click.echo(line)
+        sys.exit(cdrv.bridge_exit_code(report))
     try:
         entries = cert.load_battery(battery_path)
         report = cert.run_battery(entries, root=root, refresh_clj=refresh_clj,

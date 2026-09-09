@@ -1190,6 +1190,7 @@ def _write_manifest(manifest_path: Path, manifest: dict[str, Any]) -> None:
 _ENGINE_TREE_EXCLUDE: tuple[str, ...] = (
     "poller/",
     "replay/certify.py",
+    "replay/coordinator_driver.py",  # P-045 bridge: harness-only, like certify.py
     "replay/poller_equiv.py",
     "replay/prodclone.py",
     "replay/shard_bench.py",
