@@ -178,3 +178,70 @@ exclude = [
 venvPath = "."
 venv = ".venv"
 pythonVersion = "3.12"
+
+# Strictness.
+#
+# `typeCheckingMode` was previously unset, which meant "whatever this pyright
+# release defaults to". Pinning it makes an upgrade a deliberate change rather
+# than a silent one. It applies to everything in `include` above.
+typeCheckingMode = "standard"
+
+# `polismath/` is annotated to 100% of parameters and returns, so it is held to
+# a higher bar than the rest of `include`. The rules below are pyright's
+# `strict`-mode settings that ALREADY hold across `polismath/` with zero
+# diagnostics, promoted to errors so they stay held. The load-bearing one is
+# `reportMissingParameterType`: it is what stops the annotation coverage
+# regressing one unannotated parameter at a time.
+#
+# Scoped to `polismath/` deliberately. `umap_narrative/`, `tests/` and
+# `scripts/` are NOT annotated to the same level yet (2742 parameters there
+# still have no annotation), so promoting these repo-wide would fail on day
+# one. Widening the root is the follow-on once those are annotated too.
+[[tool.pyright.executionEnvironments]]
+root = "polismath"
+reportMissingParameterType = "error"
+reportUntypedFunctionDecorator = "error"
+reportUntypedClassDecorator = "error"
+reportUntypedBaseClass = "error"
+reportUntypedNamedTuple = "error"
+reportTypeCommentUsage = "error"
+reportConstantRedefinition = "error"
+reportDeprecated = "error"
+reportInconsistentOverload = "error"
+reportOverlappingOverload = "error"
+reportInvalidStubStatement = "error"
+reportIncompleteStub = "error"
+reportInvalidTypeVarUse = "error"
+reportUnnecessaryCast = "error"
+reportUnnecessaryContains = "error"
+reportUnusedExpression = "error"
+reportAssertAlwaysTrue = "error"
+reportSelfClsParameterName = "error"
+reportMatchNotExhaustive = "error"
+reportShadowedImports = "error"
+reportUninitializedInstanceVariable = "error"
+
+# NOT enabled for `polismath/` either, with the reason. Each number is the
+# diagnostic count that rule adds on top of `standard` today; none can be
+# cleared by annotation alone, so none is silenced with an `Any` or an ignore
+# comment.
+#
+#   reportUnknownVariableType      976 |
+#   reportUnknownMemberType        913 | numpy / pandas / sqlalchemy inference.
+#   reportUnknownArgumentType      791 | An `ndarray` element or a DataFrame
+#   reportMissingTypeArgument      141 | column is `Any` at the library
+#   reportUnknownParameterType     129 | boundary; annotating our side does
+#   reportUnknownLambdaType         79 | not make the library's side known.
+#
+#   reportUnusedImport              61 | Dead-import cleanup: a behaviour-safe
+#   reportUnusedVariable             6 | but separate change (some are
+#   reportDuplicateImport            1 | re-exports).
+#   reportPrivateUsage              39 | The replay/regression harnesses reach
+#                                      | into engine internals on purpose.
+#   reportImplicitOverride          18 | Needs `@override` decorators added.
+#   reportUnnecessaryIsInstance     18 | Defensive isinstance chains on values
+#   reportUnnecessaryComparison     13 | typed narrower than they arrive.
+#   reportMissingTypeStubs          10 | Third-party packages ship no stubs.
+#
+# Blanket `strict` on `polismath/` reports 3192 today; `standard` reports 130.
+# Neither is reachable by adding annotations — closing them means editing logic.
