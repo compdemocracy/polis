@@ -63,6 +63,36 @@
 -- COMMIT has been severed, and there is no backup/restore rehearsal yet.
 
 BEGIN;
+-- P-024 round 3: installation provenance snapshot. BEFORE this migration creates
+-- or adopts its roles or adds any grant, capture which of its two roles already
+-- exist and which of the exact grant entries it is about to add already exist.
+-- The end of the transaction records this into public.polis_queue_install (one
+-- row), so the reversal can drop only the roles THIS migration created and
+-- revoke only the grants it added -- preserving anything a pre-existing (adopted)
+-- role brought with it, INCLUDING a grant identical to one this migration also
+-- adds, which coalesces into a single catalog entry and cannot otherwise be
+-- attributed. Stored in transaction-local GUCs (readable after SET ROLE, unlike
+-- an applier-owned temp table).
+DO $prov_pre$ BEGIN
+ PERFORM set_config('polis_queue.pre_roles',
+   COALESCE((SELECT jsonb_agg(rolname ORDER BY rolname) FROM pg_catalog.pg_roles
+             WHERE rolname IN ('polis_queue_owner','polis_queue_executor')),'[]'::jsonb)::text, true);
+ PERFORM set_config('polis_queue.pre_grants',
+   COALESCE((SELECT jsonb_agg(jsonb_build_object('object',object,'grantee',grantee,'grantor',grantor,'privilege',privilege,'grantable',grantable)
+              ORDER BY object,grantee,grantor,privilege) FROM (
+       SELECT 'public' object, pg_catalog.pg_get_userbyid(a.grantee) grantee, pg_catalog.pg_get_userbyid(a.grantor) grantor, a.privilege_type privilege, a.is_grantable grantable
+         FROM pg_catalog.pg_namespace n, pg_catalog.aclexplode(n.nspacl) a
+        WHERE n.nspname='public' AND pg_catalog.pg_get_userbyid(a.grantee) IN ('polis_queue_owner','polis_queue_executor')
+       UNION ALL
+       SELECT 'conversations', pg_catalog.pg_get_userbyid(a.grantee), pg_catalog.pg_get_userbyid(a.grantor), a.privilege_type, a.is_grantable
+         FROM pg_catalog.pg_class c, pg_catalog.aclexplode(c.relacl) a
+        WHERE c.oid='public.conversations'::regclass AND pg_catalog.pg_get_userbyid(a.grantee) IN ('polis_queue_owner','polis_queue_executor')
+       UNION ALL
+       SELECT 'conversations.'||att.attname, pg_catalog.pg_get_userbyid(a.grantee), pg_catalog.pg_get_userbyid(a.grantor), a.privilege_type, a.is_grantable
+         FROM pg_catalog.pg_attribute att, pg_catalog.aclexplode(att.attacl) a
+        WHERE att.attrelid='public.conversations'::regclass AND att.attnum>0 AND pg_catalog.pg_get_userbyid(a.grantee) IN ('polis_queue_owner','polis_queue_executor')
+     ) g),'[]'::jsonb)::text, true);
+END $prov_pre$;
 DO $$ BEGIN
  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreaterole))
     AND (NOT EXISTS (SELECT FROM pg_roles WHERE rolname='polis_queue_owner')
@@ -128,7 +158,7 @@ SELECT jsonb_build_object(
 $catalog$;
 CREATE OR REPLACE FUNCTION pg_temp.pq_assert_catalog(p_fresh boolean) RETURNS void
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $guard$
-DECLARE expected jsonb='{"polis_queue_attempts": "4bf01840303c3447650ada377d535bee", "polis_queue_heads": "cf987d5673228e6ca6d6f3b86b7e77e5", "polis_queue_jobs": "d8367b8bdaa7701b9c377450d23b5db5", "polis_queue_requests": "cae8fcd4db4562b9936b7d33cf598f1e", "polis_queue_runs": "8e7fd316c23320c229387822146eebec"}'::jsonb;
+DECLARE expected jsonb='{"polis_queue_attempts": "4bf01840303c3447650ada377d535bee", "polis_queue_heads": "cf987d5673228e6ca6d6f3b86b7e77e5", "polis_queue_install": "47d90bf481bea018547d70029498bbb4", "polis_queue_jobs": "d8367b8bdaa7701b9c377450d23b5db5", "polis_queue_requests": "cae8fcd4db4562b9936b7d33cf598f1e", "polis_queue_runs": "8e7fd316c23320c229387822146eebec"}'::jsonb;
  entry record; actual text; names text[];
 BEGIN
  SELECT array_agg(relname::text ORDER BY relname) INTO names FROM pg_class
@@ -267,6 +297,19 @@ CREATE INDEX IF NOT EXISTS polis_queue_runs_zid ON public.polis_queue_runs(zid);
 CREATE INDEX IF NOT EXISTS polis_queue_runs_history ON public.polis_queue_runs(env,zid,created_at,run_id);
 CREATE INDEX IF NOT EXISTS polis_queue_requests_run ON public.polis_queue_requests(env,run_id);
 CREATE INDEX IF NOT EXISTS polis_queue_requests_job ON public.polis_queue_requests(env,job_id);
+-- Installation provenance (P-024 round 3). One row, written at the end of this
+-- transaction. NOT a queue data table: the reversal never counts its row as a
+-- live queue, and drops it last. Its structure is part of the catalog fingerprint
+-- (added to pq_assert_catalog's map); owned by polis_queue_owner like the others,
+-- so its fingerprint is stable across applying logins.
+CREATE TABLE IF NOT EXISTS public.polis_queue_install (
+ singleton boolean NOT NULL DEFAULT true PRIMARY KEY CHECK (singleton),
+ created_roles text[] NOT NULL,
+ adopted_roles text[] NOT NULL,
+ added_grants jsonb NOT NULL,
+ applied_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+ catalog_fingerprint text NOT NULL
+);
 
 CREATE OR REPLACE FUNCTION public.pq_no_regression() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp SET TimeZone='UTC' AS $$
 BEGIN
@@ -561,7 +604,7 @@ GRANT USAGE ON SCHEMA public TO polis_queue_owner,polis_queue_executor;
 -- UPDATE(topic) above exists solely for parent FOR KEY SHARE; never grant UPDATE(zid).
 DO $$ DECLARE x record; BEGIN
  FOR x IN SELECT c.oid::regclass AS name FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-  WHERE n.nspname='public' AND c.relkind='r' AND c.relname IN ('polis_queue_runs','polis_queue_heads','polis_queue_jobs','polis_queue_attempts','polis_queue_requests')
+  WHERE n.nspname='public' AND c.relkind='r' AND c.relname IN ('polis_queue_runs','polis_queue_heads','polis_queue_jobs','polis_queue_attempts','polis_queue_requests','polis_queue_install')
  LOOP
   EXECUTE format('ALTER TABLE %s OWNER TO polis_queue_owner',x.name);
   EXECUTE format('REVOKE ALL ON %s FROM PUBLIC, polis_queue_executor',x.name);
@@ -576,6 +619,44 @@ DO $$ DECLARE x record; BEGIN
   END IF;
  END LOOP;
 END $$;
+-- P-024 round 3: record the provenance. added_grants is the exact set of grant
+-- entries this migration ADDED = the end-state grants involving the roles minus
+-- the pre-existing snapshot, so a coalescing operator grant (present before, and
+-- re-granted here into the same catalog entry) is NOT recorded as added and the
+-- reversal will not revoke it. One row; a re-apply preserves the first row.
+DO $prov_rec$
+DECLARE pre_roles jsonb := current_setting('polis_queue.pre_roles')::jsonb;
+        pre_grants jsonb := current_setting('polis_queue.pre_grants')::jsonb;
+        v_created text[]; v_adopted text[]; v_added jsonb; v_fp text;
+BEGIN
+ v_adopted := ARRAY(SELECT jsonb_array_elements_text(pre_roles) ORDER BY 1);
+ v_created := ARRAY(SELECT r FROM unnest(ARRAY['polis_queue_owner','polis_queue_executor']) r
+                    WHERE NOT (v_adopted @> ARRAY[r]) ORDER BY r);
+ WITH endset AS (
+     SELECT 'public' object, pg_get_userbyid(a.grantee) grantee, pg_get_userbyid(a.grantor) grantor, a.privilege_type privilege, a.is_grantable grantable
+       FROM pg_namespace n, aclexplode(n.nspacl) a
+      WHERE n.nspname='public' AND pg_get_userbyid(a.grantee) IN ('polis_queue_owner','polis_queue_executor')
+     UNION ALL
+     SELECT 'conversations', pg_get_userbyid(a.grantee), pg_get_userbyid(a.grantor), a.privilege_type, a.is_grantable
+       FROM pg_class c, aclexplode(c.relacl) a
+      WHERE c.oid='public.conversations'::regclass AND pg_get_userbyid(a.grantee) IN ('polis_queue_owner','polis_queue_executor')
+     UNION ALL
+     SELECT 'conversations.'||att.attname, pg_get_userbyid(a.grantee), pg_get_userbyid(a.grantor), a.privilege_type, a.is_grantable
+       FROM pg_attribute att, aclexplode(att.attacl) a
+      WHERE att.attrelid='public.conversations'::regclass AND att.attnum>0 AND pg_get_userbyid(a.grantee) IN ('polis_queue_owner','polis_queue_executor')),
+   preset AS (SELECT e->>'object' object, e->>'grantee' grantee, e->>'grantor' grantor, e->>'privilege' privilege, (e->>'grantable')::boolean grantable
+                FROM jsonb_array_elements(pre_grants) e),
+   added AS (SELECT * FROM endset EXCEPT SELECT * FROM preset)
+ SELECT COALESCE(jsonb_agg(jsonb_build_object('object',object,'grantee',grantee,'grantor',grantor,'privilege',privilege,'grantable',grantable)
+                  ORDER BY object,grantee,grantor,privilege),'[]'::jsonb)
+   INTO v_added FROM added;
+ SELECT md5(string_agg(t.name||'='||md5(pg_temp.pq_catalog(to_regclass('public.'||t.name))::text),'|' ORDER BY t.name))
+   INTO v_fp FROM (SELECT relname AS name FROM pg_class
+                   WHERE relnamespace='public'::regnamespace AND starts_with(relname,'polis_queue_') AND relkind='r') t;
+ INSERT INTO public.polis_queue_install(singleton,created_roles,adopted_roles,added_grants,catalog_fingerprint)
+ VALUES(true, v_created, v_adopted, v_added, v_fp)
+ ON CONFLICT (singleton) DO NOTHING;
+END $prov_rec$;
 SELECT pg_temp.pq_assert_catalog(false);
 SELECT pg_temp.pq_assert_functions(false);
 -- Migration addition 1: the pre-apply signature assertion above compares the
