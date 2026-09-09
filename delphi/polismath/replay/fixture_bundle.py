@@ -55,6 +55,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from collections.abc import Iterator
 from typing import Any, Iterable, Sequence
 
 from polismath.utils.vote_convention import (
@@ -677,7 +678,7 @@ class LocalStore(ObjectStore):
     orchestrator. Version ids are content digests, which is exactly the pinning
     property the S3 VersionId provides."""
 
-    def __init__(self, root: Path):
+    def __init__(self, root: Path) -> None:
         self.root = Path(root)
 
     def _path(self, key: str) -> Path:
@@ -754,7 +755,7 @@ _IF_NONE_MATCH_HOOK_ID = "certify-if-none-match"
 _conditional_put = threading.local()
 
 
-def _stamp_if_none_match(request, **_kwargs) -> None:
+def _stamp_if_none_match(request: Any, **_kwargs: Any) -> None:
     """Signing-time hook: stamp ``If-None-Match: *`` on the PutObject this
     thread is issuing as a conditional create, and on nothing else.
 
@@ -800,7 +801,7 @@ class S3Store(ObjectStore):
       never be sufficient to read identities.
     """
 
-    def __init__(self, bucket: str, prefix: str = "", client=None):
+    def __init__(self, bucket: str, prefix: str = "", client: Any = None) -> None:
         import boto3
 
         self.bucket = bucket
@@ -853,7 +854,7 @@ class S3Store(ObjectStore):
                          sha256=sha256_bytes(data))
 
     @contextmanager
-    def _if_none_match(self):
+    def _if_none_match(self) -> Iterator[None]:
         """Add ``If-None-Match: *`` to the PutObject inside this block, on this
         thread, REGARDLESS of what other threads are doing to the same client.
 

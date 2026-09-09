@@ -46,7 +46,12 @@ import json
 import secrets
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import TYPE_CHECKING, Any, Iterable, Sequence
+
+if TYPE_CHECKING:  # psycopg2 is a runtime dependency of the CALLER, not of this
+    # module: it only ever receives an already-open connection/cursor.
+    from psycopg2.extensions import connection as PgConnection
+    from psycopg2.extensions import cursor as PgCursor
 
 from polismath.replay import prodclone as pc
 from polismath.utils.vote_convention import (
@@ -152,7 +157,7 @@ _SQL_SURROGATE_COLUMNS = """
 """
 
 
-def detect_tie_key(conn, table: str = "votes") -> dict[str, Any]:
+def detect_tie_key(conn: PgConnection, table: str = "votes") -> dict[str, Any]:
     """Inspect the LIVE schema for a stable tie key on ``table``.
 
     Returns ``{"available", "columns", "method", "order_by", "guarantee",
@@ -541,12 +546,12 @@ def compat_rows_from_events(
 # ---------------------------------------------------------------------------
 
 
-def _rows_as_dicts(cur) -> list[dict[str, Any]]:
+def _rows_as_dicts(cur: PgCursor) -> list[dict[str, Any]]:
     columns = [d[0] for d in cur.description]
     return [dict(zip(columns, row)) for row in cur.fetchall()]
 
 
-def fetch_conversation(conn, zid: int, tie_key: dict[str, Any]) -> dict[str, list]:
+def fetch_conversation(conn: PgConnection, zid: int, tie_key: dict[str, Any]) -> dict[str, list]:
     with conn.cursor() as cur:
         cur.execute(sql_vote_events(tie_key["order_by"]), (zid,))
         votes = _rows_as_dicts(cur)
@@ -558,7 +563,7 @@ def fetch_conversation(conn, zid: int, tie_key: dict[str, Any]) -> dict[str, lis
 
 
 def extract_conversation(
-    conn, *, zid: int, slug: str, role: str, payload_root: Path, guard_root: Path,
+    conn: PgConnection, *, zid: int, slug: str, role: str, payload_root: Path, guard_root: Path,
     dir_name: str, tie_key: dict[str, Any], measured: dict[str, Any] | None = None,
     storage_agree_value: int = STORAGE_AGREE_VALUE,
 ) -> dict[str, Any]:
@@ -614,7 +619,7 @@ def extract_conversation(
 
 
 def extract_from_config(
-    conn, *, config: dict[str, Any], payload_root: Path, guard_root: Path,
+    conn: PgConnection, *, config: dict[str, Any], payload_root: Path, guard_root: Path,
     snapshot_id: str | None = None, writers_disabled: bool = False,
     dir_names: dict[str, str] | None = None,
     accept_synthetic: Sequence[str] = (),

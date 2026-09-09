@@ -31,7 +31,12 @@ import hashlib
 import json
 import re
 from pathlib import Path
-from typing import Any, Iterable
+from typing import TYPE_CHECKING, Any, Iterable
+
+if TYPE_CHECKING:  # psycopg2 is a runtime dependency of the CALLER, not of this
+    # module: it only ever receives an already-open connection/cursor.
+    from psycopg2.extensions import connection as PgConnection
+    from psycopg2.extensions import cursor as PgCursor
 
 from polismath.utils.vote_convention import (
     STORAGE_AGREE_VALUE,
@@ -515,37 +520,37 @@ def save_prodclone_map(path: Path, data: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _rows_as_dicts(cur) -> list[dict[str, Any]]:
+def _rows_as_dicts(cur: PgCursor) -> list[dict[str, Any]]:
     columns = [d[0] for d in cur.description]
     return [dict(zip(columns, row)) for row in cur.fetchall()]
 
 
-def fetch_conversation_stats(conn) -> list[dict[str, Any]]:
+def fetch_conversation_stats(conn: PgConnection) -> list[dict[str, Any]]:
     """Run :func:`sql_conversation_stats` and return one dict per conversation."""
     with conn.cursor() as cur:
         cur.execute(sql_conversation_stats())
         return _rows_as_dicts(cur)
 
 
-def fetch_votes(conn, zid: int) -> list[dict[str, Any]]:
+def fetch_votes(conn: PgConnection, zid: int) -> list[dict[str, Any]]:
     with conn.cursor() as cur:
         cur.execute(sql_votes_export(), (zid,))
         return _rows_as_dicts(cur)
 
 
-def fetch_comments(conn, zid: int) -> list[dict[str, Any]]:
+def fetch_comments(conn: PgConnection, zid: int) -> list[dict[str, Any]]:
     with conn.cursor() as cur:
         cur.execute(sql_comments_export(), (zid,))
         return _rows_as_dicts(cur)
 
 
-def fetch_comment_vote_counts(conn, zid: int) -> dict[int, tuple[int, int]]:
+def fetch_comment_vote_counts(conn: PgConnection, zid: int) -> dict[int, tuple[int, int]]:
     with conn.cursor() as cur:
         cur.execute(sql_comment_vote_counts(), (zid,))
         return {row["tid"]: (row["agrees"], row["disagrees"]) for row in _rows_as_dicts(cur)}
 
 
-def run_survey(conn, limit: int) -> dict[str, Any]:
+def run_survey(conn: PgConnection, limit: int) -> dict[str, Any]:
     """Fetch stats for every conversation, classify, and return the full
     survey result (candidates per feature + size-class counts + the
     threshold constants used, for the audit-trail JSON)."""
@@ -566,7 +571,7 @@ def run_survey(conn, limit: int) -> dict[str, Any]:
 
 
 def run_extract(
-    conn, *, zid: int, feature: str, out_root: Path, map_path: Path | None = None,
+    conn: PgConnection, *, zid: int, feature: str, out_root: Path, map_path: Path | None = None,
 ) -> dict[str, Any]:
     """Extract one conversation's votes + comments into
     ``<out_root>/.local/<fake-prefix>-<slug>/`` and merge-update

@@ -27,7 +27,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Iterable, Sequence
+from typing import TYPE_CHECKING, Any, Iterable, Sequence
+
+if TYPE_CHECKING:  # psycopg2 is a runtime dependency of the CALLER, not of this
+    # module: it only ever receives an already-open connection/cursor.
+    from psycopg2.extensions import connection as PgConnection
+    from psycopg2.extensions import cursor as PgCursor
 
 from polismath.replay.fixture_config import evaluate_predicates, sort_key_for
 
@@ -64,7 +69,7 @@ class RoleUnsatisfied(RuntimeError):
     """
 
     def __init__(self, role: str, slug: str, reason: str,
-                 synthetic_replacement: str | None = None):
+                 synthetic_replacement: str | None = None) -> None:
         self.role = role
         self.slug = slug
         self.reason = reason
@@ -194,7 +199,7 @@ def derive_metrics(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def open_readonly_repeatable_read(
-    conn, *, snapshot_id: str | None = None, writers_disabled: bool = False,
+    conn: PgConnection, *, snapshot_id: str | None = None, writers_disabled: bool = False,
 ) -> dict[str, Any]:
     """Begin ONE read-only repeatable-read transaction on ``conn`` and return
     the guarantee record for the manifest.
@@ -226,12 +231,12 @@ def open_readonly_repeatable_read(
     }
 
 
-def _rows_as_dicts(cur) -> list[dict[str, Any]]:
+def _rows_as_dicts(cur: PgCursor) -> list[dict[str, Any]]:
     columns = [d[0] for d in cur.description]
     return [dict(zip(columns, row)) for row in cur.fetchall()]
 
 
-def fetch_metrics(conn) -> list[dict[str, Any]]:
+def fetch_metrics(conn: PgConnection) -> list[dict[str, Any]]:
     """Run :func:`sql_conversation_metrics` and derive every committed metric.
 
     MUST be called inside the transaction opened by
@@ -243,7 +248,7 @@ def fetch_metrics(conn) -> list[dict[str, Any]]:
     return [derive_metrics(row) for row in raw]
 
 
-def schema_migration_version(conn) -> str | None:
+def schema_migration_version(conn: PgConnection) -> str | None:
     """Best-effort migration marker for the manifest: the highest applied
     migration recorded by the server's migration table, when one exists.
     Returns ``None`` (recorded as unknown) rather than failing the run."""
