@@ -149,7 +149,7 @@ class Config:
     Configuration manager for Pol.is math.
     """
     
-    def __init__(self, overrides: Optional[Dict[str, Any]] = None):
+    def __init__(self, overrides: Optional[Dict[str, Any]] = None) -> None:
         """
         Initialize configuration.
         
@@ -294,7 +294,7 @@ class Config:
         config = deepcopy(config)
         
         # Helper function for deep update
-        def deep_update(d, u):
+        def deep_update(d: Dict[str, Any], u: Dict[str, Any]) -> Dict[str, Any]:
             for k, v in u.items():
                 if isinstance(v, dict) and k in d and isinstance(d[k], dict):
                     d[k] = deep_update(d[k], v)

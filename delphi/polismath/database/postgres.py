@@ -14,11 +14,12 @@ from typing import Dict, List, Optional, Tuple, Union, Any, Callable
 from datetime import datetime
 import re
 import urllib.parse
+from collections.abc import Iterator
 from contextlib import contextmanager
 import asyncio
 
 import sqlalchemy as sa
-from sqlalchemy.orm import DeclarativeBase, sessionmaker, scoped_session
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker, scoped_session
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import text
 import numpy as np
@@ -72,7 +73,7 @@ class PostgresConfig:
         max_overflow: Optional[int] = None,
         ssl_mode: Optional[str] = None,
         math_env: Optional[str] = None,
-    ):
+    ) -> None:
         """
         Initialize PostgreSQL configuration.
 
@@ -198,7 +199,7 @@ class MathMain(Base):
     math_tick = sa.Column(sa.BigInteger, nullable=False, default=-1)
     modified = sa.Column(sa.BigInteger, server_default=text("now_as_millis()"))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<MathMain(zid={self.zid}, math_env='{self.math_env}')>"
 
 
@@ -215,7 +216,7 @@ class MathTicks(Base):
         sa.BigInteger, nullable=False, server_default=text("now_as_millis()")
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<MathTicks(zid={self.zid}, math_env='{self.math_env}', math_tick={self.math_tick})>"
 
 
@@ -230,7 +231,7 @@ class MathPtptStats(Base):
     data = sa.Column(JSONB, nullable=False)
     modified = sa.Column(sa.BigInteger, server_default=text("now_as_millis()"))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<MathPtptStats(zid={self.zid}, math_env='{self.math_env}')>"
 
 
@@ -247,7 +248,7 @@ class MathBidToPid(Base):
     data = sa.Column(JSONB, nullable=False)
     modified = sa.Column(sa.BigInteger, server_default=text("now_as_millis()"))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<MathBidToPid(zid={self.zid}, math_env='{self.math_env}')>"
 
 
@@ -262,7 +263,7 @@ class MathReportCorrelationMatrix(Base):
     math_tick = sa.Column(sa.BigInteger, nullable=False, default=-1)
     modified = sa.Column(sa.BigInteger, server_default=text("now_as_millis()"))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"<MathReportCorrelationMatrix(rid={self.rid}, math_env='{self.math_env}')>"
         )
@@ -284,7 +285,7 @@ class WorkerTasks(Base):
     task_bucket = sa.Column(sa.BigInteger)
     finished_time = sa.Column(sa.BigInteger)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<WorkerTasks(task_type='{self.task_type}', finished_time={self.finished_time})"
 
 
@@ -295,7 +296,7 @@ class PostgresClient:
         self,
         config: Optional[PostgresConfig] = None,
         storage_agree_value: int = STORAGE_AGREE_VALUE,
-    ):
+    ) -> None:
         """
         Initialize PostgreSQL client.
 
@@ -383,7 +384,7 @@ class PostgresClient:
             logger.info("Shut down PostgreSQL connection")
 
     @contextmanager
-    def session(self):
+    def session(self) -> Iterator[Session]:
         """
         Get a database session context.
 
@@ -445,7 +446,7 @@ class PostgresClient:
             return result.rowcount
 
     @contextmanager
-    def transaction(self):
+    def transaction(self) -> Iterator[sa.Connection]:
         """One commit/rollback boundary; the connection belongs to the caller.
 
         Never store it on this shared client: different zid workers must use
