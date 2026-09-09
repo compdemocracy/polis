@@ -49,6 +49,39 @@ _CHECKOUT = os.path.abspath(os.path.join(os.path.dirname(inv.__file__), "..", ".
 _SERVER_SRC = os.path.join(_CHECKOUT, "server", "src") if _CHECKOUT else None
 
 
+def test_scan_inputs_declaration_present_in_layout() -> None:
+    """R16 (CI inputs): every declared scan input must be present in the LIVE tree
+    the sweep runs against (in CI, /app/projgate). Fails if any declared input is
+    missing — e.g. CI forgot to copy umap_narrative. The workflow copy step derives
+    from the SAME declaration (`--print-scan-inputs`), so they cannot diverge."""
+    checkout = inv._repo_root()
+    missing_dirs = [p for p in inv.SCAN_INPUT_DIRS if not os.path.isdir(os.path.join(checkout, p))]
+    assert not missing_dirs, f"declared scan-input dirs missing under {checkout}: {missing_dirs}"
+    resolved = inv.scan_inputs(checkout)
+    # The top-level delphi runtime *.py glob must resolve to at least one file.
+    assert [p for p in resolved if p not in inv.SCAN_INPUT_DIRS], \
+        f"no top-level delphi runtime .py under {checkout} (SCAN_INPUT_GLOBS)"
+    for rel in resolved:
+        assert os.path.exists(os.path.join(checkout, rel)), f"declared scan input missing: {rel}"
+
+
+def test_umap_narrative_new_wildcard_is_caught(tmp_path) -> None:
+    """R16 (Astra control): a new wildcard under delphi/umap_narrative — a declared
+    scan input that CI previously omitted — is caught (NEEDS-GATE) by the default,
+    declaration-driven roots."""
+    root = tmp_path / "projgate"
+    (root / "server" / "src").mkdir(parents=True)
+    for d in ("polismath", "umap_narrative", "scripts"):
+        (root / "delphi" / d).mkdir(parents=True)
+    (root / "delphi" / "umap_narrative" / "leak.py").write_text('q = "SELECT * FROM votes"\n')
+    # roots=None -> the DECLARED scan inputs resolved against this repo_root.
+    sites = inv.run_sweep(repo_root=str(root))
+    assert any(
+        s.classification == "NEEDS-GATE" and s.table == "votes" and "umap_narrative" in s.file
+        for s in sites
+    ), sites
+
+
 def test_ci_layout_traverses_delphi_and_catches_new_wildcard(tmp_path) -> None:
     """R15 (CI coverage): the CI wiring copies the sweep's scan inputs as REAL,
     traversable directories, so a NEW wildcard anywhere under the delphi tree is
