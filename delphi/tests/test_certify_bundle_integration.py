@@ -600,15 +600,15 @@ def test_the_watermark_diagnostic_reaches_every_verdict(extracted_served):
     assert revote["gate"] is False
     prod = next(e for e in revote["per_math_env"] if e["math_env"] == "prod")
     # 700 vote events, 200 of them revotes at BASE_MS + 900000000 + g; the
-    # publish happened at +900000100, so exactly 99 later revotes are the tail
-    # the served blob never saw.
-    assert prod["verdict"] == "votes-arrived-after-the-served-watermark"
+    # watermark is +900000100, so exactly 99 revote timestamps fall after it.
+    # This relation does not establish which events the engine consumed.
+    assert prod["verdict"] == "vote-timestamps-after-the-served-watermark"
     assert prod["votes_after_watermark"] == 99
     assert prod["column_matches_blob"] is True
 
     midmix = by_slug["pc-v1-midmix"]["served_math"]["consistency"]
     entry = midmix["per_math_env"][0]
-    assert entry["verdict"] == "consistent"
+    assert entry["verdict"] == "watermark-equals-max-vote-timestamp"
     assert entry["votes_after_watermark"] == 0
 
     zerovote = by_slug["pc-v1-zerovote"]["served_math"]["consistency"]
@@ -645,7 +645,8 @@ def test_a_captured_bundle_verifies_admits_and_leaks_no_identity(
         source_commit="1" * 40, coverage_report=result["coverage_report"],
     )
     fb.verify(payload, manifest)
-    fb.admit_manifest(manifest, config=config, config_bytes=config_bytes)
+    fb.admit_manifest(manifest, payload_root=payload, config=config,
+                      config_bytes=config_bytes)
     # The blobs on disk carry the zid; the manifest must not, and it must say
     # so rather than leaving the blanket redaction claim to cover for it.
     assert not fb.scan_public_output(json.dumps(manifest), PLANTED)
