@@ -730,7 +730,9 @@ def _row(created: int, pid: int, tid: int, vote: int | None) -> dict[str, Any]:
     return {"created": created, "pid": pid, "tid": tid, "vote": vote}
 
 
-def _grid_rows(n_ptpt: int = 8, n_cmt: int = 6, t0: int = 1_600_000_000_000) -> list[dict[str, Any]]:
+def _grid_rows(
+    n_ptpt: int = 8, n_cmt: int = 6, t0: int = 1_600_000_000_000
+) -> list[dict[str, Any]]:
     """A dense, deterministic agree/disagree/pass grid with revotes."""
     rows = []
     t = t0

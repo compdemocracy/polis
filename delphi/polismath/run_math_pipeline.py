@@ -24,7 +24,7 @@ from polismath.utils.general import postgres_vote_to_delphi
 from polismath.utils.vote_convention import STORAGE_AGREE_VALUE
 
 if TYPE_CHECKING:  # psycopg2 stays a lazy, in-function import at runtime
-    import psycopg2.extensions
+    from psycopg2.extensions import connection as PgConnection
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -54,7 +54,7 @@ def prepare_for_json(obj: Any) -> Any:
         return obj
 
 
-def connect_to_db() -> Optional["psycopg2.extensions.connection"]:
+def connect_to_db() -> Optional["PgConnection"]:
     """Connect to PostgreSQL database using environment variables or defaults."""
     import psycopg2
     import urllib.parse
@@ -88,7 +88,11 @@ def connect_to_db() -> Optional["psycopg2.extensions.connection"]:
         return None
 
 
-def fetch_votes(conn: "psycopg2.extensions.connection", conversation_id: int, storage_agree_value: int = STORAGE_AGREE_VALUE) -> VotesPayload:
+def fetch_votes(
+    conn: "PgConnection",
+    conversation_id: int,
+    storage_agree_value: int = STORAGE_AGREE_VALUE,
+) -> VotesPayload:
     """
     Fetch votes for a specific conversation from PostgreSQL.
     Returns a dictionary containing votes in the format expected by Conversation.
@@ -140,7 +144,7 @@ def fetch_votes(conn: "psycopg2.extensions.connection", conversation_id: int, st
     return {"votes": votes_list}
 
 
-def fetch_comments(conn: "psycopg2.extensions.connection", conversation_id: int) -> CommentsPayload:
+def fetch_comments(conn: "PgConnection", conversation_id: int) -> CommentsPayload:
     """
     Fetch comments for a specific conversation from PostgreSQL.
     Returns a dictionary containing comments in the format expected by Conversation.
@@ -182,7 +186,9 @@ def fetch_comments(conn: "psycopg2.extensions.connection", conversation_id: int)
         })
     return {'comments': comments_list}
 
-def fetch_moderation(conn: "psycopg2.extensions.connection", conversation_id: int) -> ModerationPayload:
+def fetch_moderation(
+    conn: "PgConnection", conversation_id: int
+) -> ModerationPayload:
     """
     Fetch moderation data for a specific conversation from PostgreSQL.
     Returns a dictionary containing moderation data in the format expected by Conversation.
