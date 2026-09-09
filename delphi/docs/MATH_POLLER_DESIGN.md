@@ -1,6 +1,6 @@
 # Python Math Poller — Clojure math-container replacement design
 
-**Status:** Design + phase-1 implementation — 2026-07-18 (overnight session "Fable-Pyclj-Parity")
+**Status:** Design + phase-1 implementation — 2026-07-18 (the overnight Pyclj-parity session)
 **Recon basis:** every file:line below verified against the working tree on 2026-07-18
 (full recon in journal session entry). Companions: `SEQUENTIAL_BITS_PORT_SPEC.md` (the
 warm-started engine this poller hosts), `REPLAY_HARNESS_DESIGN.md` (validation),

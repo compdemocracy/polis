@@ -1672,7 +1672,7 @@ Re-record vw + biodiversity Python golden snapshots (PR-stack tip).
 
 ## Session: Copilot triage, review-fix PR #2586, merge prep (2026-07-04/05)
 
-Host session ("Fable-polis-merge-then-replay"). Goal: assess and execute the
+Host session (the merge-then-replay session). Goal: assess and execute the
 merge of the open 7-PR stack. Outcome: stack is code-complete, gate-green,
 review-resolved, and pushed — **merge deliberately NOT executed** (edge
 frozen for a prod issue; Julien: push PRs, merge nothing).
@@ -2005,7 +2005,7 @@ noted above.
 
 ## Session: Overnight orchestration — replay harness H-A, sequential-bits A/B/D′, input-fidelity fixes (2026-07-17→18)
 
-Host session "Fable-Pyclj-Parity". Julien handed over for the night with a new
+Host session (the Pyclj-parity session). Julien handed over for the night with a new
 directive: proceed autonomously on math-core with careful per-change notes and a
 morning walkthrough (recorded in project memory; see
 `scratch/MORNING_WALKTHROUGH_2026-07-18.md` for the full walkthrough — a local,

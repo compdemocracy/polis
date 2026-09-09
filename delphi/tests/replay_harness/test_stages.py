@@ -417,7 +417,7 @@ def test_certify_does_not_import_the_stage_oracle():
 
 
 # ---------------------------------------------------------------------------
-# Round 2 — regressions for the six findings in P-030-R-ORACLE-review.md.
+# Round 2 — regressions for the six findings from the R-ORACLE review round.
 # Each name says which finding it pins.
 # ---------------------------------------------------------------------------
 def test_f1_r13_emits_the_contract_geometry_from_the_production_adapter():

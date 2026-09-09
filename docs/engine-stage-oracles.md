@@ -518,12 +518,12 @@ sides — key order, integer formatting, exact double round-trip over a 5 000-va
 random sample, non-finite handling, named-matrix shape — plus the comparer's
 canonicalization, tolerance classes and carve-outs.
 
-The `test_f1_…` through `test_f6_…` group is the regression set for the six
-findings in `cost-reduction/04-plans/P-030-R-ORACLE-review.md`, one
-behaviour per name: the contract geometry at R13, C1's narrow scope, integer
-identities never seeing a tolerance, malformed matrices and undeclared axes
-becoming structural errors, incomplete input withholding the headline, and the
-non-finite tokens surviving polarity conversion.
+The `test_f1_…` through `test_f6_…` group is the regression set for six
+R-ORACLE review findings, one behaviour per name: the contract geometry at
+R13, C1's narrow scope, integer identities never seeing a tolerance,
+malformed matrices and undeclared axes becoming structural errors, incomplete
+input withholding the headline, and the non-finite tokens surviving polarity
+conversion.
 
 `test_stage_oracle_e2e.py` runs the whole loop on the smallest public battery
 case (`vw:single-cut`). The Clojure half is opt-in behind
