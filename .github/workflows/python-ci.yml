@@ -112,15 +112,19 @@ jobs:
 
         # Wire a checkout-shaped root so delphi/tests/scripts collects AND RUNS the
         # pure-Python inventory sweep + the DB-free gate unit tests (the conftest
-        # locator resolves POLIS_CHECKOUT_DIR). The sweep's scan inputs are copied in
-        # as REAL, traversable directories (NOT symlinks — os.walk would skip those,
-        # so a new wildcard under the delphi tree would go undetected): server/src,
-        # delphi/scripts and delphi/polismath, read-only.
-        echo "Wiring projection-gate sources for the inventory + DB-free gate tests..."
-        docker compose -f docker-compose.test.yml exec -T delphi mkdir -p /app/projgate/delphi /app/projgate/server
-        docker compose -f docker-compose.test.yml cp delphi/scripts delphi:/app/projgate/delphi/scripts
-        docker compose -f docker-compose.test.yml cp delphi/polismath delphi:/app/projgate/delphi/polismath
-        docker compose -f docker-compose.test.yml cp server/src delphi:/app/projgate/server/src
+        # locator resolves POLIS_CHECKOUT_DIR). The scan inputs are copied in as REAL,
+        # traversable directories (NOT symlinks — os.walk would skip those). The set
+        # of inputs is DERIVED from the scanner's own declaration
+        # (`--print-scan-inputs`) so it can never diverge from what the sweep scans;
+        # a test asserts every declared input is present under /app/projgate.
+        echo "Wiring projection-gate scan inputs (derived from the scanner declaration)..."
+        docker compose -f docker-compose.test.yml exec -T delphi mkdir -p /app/projgate
+        python3 delphi/scripts/projection_inventory.py --print-scan-inputs | while read -r rel; do
+          [ -n "$rel" ] || continue
+          docker compose -f docker-compose.test.yml exec -T delphi mkdir -p "/app/projgate/$(dirname "$rel")"
+          docker compose -f docker-compose.test.yml cp "$rel" "delphi:/app/projgate/$rel" \
+            || { echo "failed to copy scan input: $rel"; exit 1; }
+        done
 
         echo "Running tests and generating coverage report..."
         docker compose \

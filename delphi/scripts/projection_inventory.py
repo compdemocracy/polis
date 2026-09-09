@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import glob
 import hashlib
 import os
 import re
@@ -71,6 +72,33 @@ _EXCLUDE_FILES = {
     "projection_inventory_test.py",
     "projection-gate-witness.mjs",
 }
+
+# ---------------------------------------------------------------------------
+# The single source of truth for WHAT the sweep scans (repo-relative). Both
+# run_sweep's default roots AND the Delphi CI copy step derive from this (via
+# `python projection_inventory.py --print-scan-inputs`), so the set of files the
+# scanner reads can never silently diverge from the set CI ships. Runtime /
+# served-path source only — test/doc/notebook/real_data trees are not served and
+# are deliberately excluded. Add a new served subtree here (never in the workflow).
+SCAN_INPUT_DIRS: tuple[str, ...] = (
+    "server/src",
+    "delphi/polismath",
+    "delphi/umap_narrative",
+    "delphi/scripts",
+)
+# Top-level delphi runtime entry points (a glob, so a new one is auto-included).
+SCAN_INPUT_GLOBS: tuple[str, ...] = ("delphi/*.py",)
+
+
+def scan_inputs(repo_root: str) -> list[str]:
+    """The repo-relative scan inputs (declared dirs + glob-expanded files)."""
+    inputs = list(SCAN_INPUT_DIRS)
+    for pattern in SCAN_INPUT_GLOBS:
+        for match in sorted(glob.glob(os.path.join(repo_root, pattern))):
+            rel = os.path.relpath(match, repo_root)
+            if os.path.basename(rel) not in _EXCLUDE_FILES:
+                inputs.append(rel)
+    return inputs
 
 
 @dataclass(frozen=True)
@@ -617,26 +645,33 @@ class InventoryScanError(RuntimeError):
 def run_sweep(roots: Optional[Sequence[str]] = None, repo_root: Optional[str] = None) -> list[WildcardSite]:
     repo_root = repo_root or _repo_root()
     if roots is None:
-        roots = [os.path.join(repo_root, "server", "src"), os.path.join(repo_root, "delphi")]
-    sites: list[WildcardSite] = []
+        roots = [os.path.join(repo_root, p) for p in scan_inputs(repo_root)]
+    # Each root is a directory (walked) or a single file (scanned directly). A
+    # declared input that is missing is a hard error, never an empty-success proof.
+    paths: list[str] = []
     for root in roots:
-        if not os.path.isdir(root):
-            raise InventoryScanError(f"scan root missing/unreadable: {root}")
-        for path in _iter_source_files(root):
-            rel = os.path.relpath(path, repo_root)
-            try:
-                with open(path, encoding="utf-8", errors="replace") as fh:
-                    original = fh.read()
-            except OSError as exc:
-                raise InventoryScanError(f"unreadable file {path}: {exc}") from exc
-            is_py = path.endswith(".py")
-            text = _blank_python_docstrings(original) if is_py else original
-            for line, table, kind, raw in _scan_text(rel, text, is_ts=not is_py):
-                status = _exemption_status(rel, kind, raw, original)
-                if status == "cleared":
-                    continue  # reviewed non-vote interpolation; digest + checks re-verified
-                override = STALE_EXEMPTION_NOTE if status == "stale" else None
-                sites.append(_classify(rel, line, table, kind, raw, note_override=override))
+        if os.path.isdir(root):
+            paths.extend(_iter_source_files(root))
+        elif os.path.isfile(root):
+            paths.append(root)
+        else:
+            raise InventoryScanError(f"scan input missing/unreadable: {root}")
+    sites: list[WildcardSite] = []
+    for path in paths:
+        rel = os.path.relpath(path, repo_root)
+        try:
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                original = fh.read()
+        except OSError as exc:
+            raise InventoryScanError(f"unreadable file {path}: {exc}") from exc
+        is_py = path.endswith(".py")
+        text = _blank_python_docstrings(original) if is_py else original
+        for line, table, kind, raw in _scan_text(rel, text, is_ts=not is_py):
+            status = _exemption_status(rel, kind, raw, original)
+            if status == "cleared":
+                continue  # reviewed non-vote interpolation; digest + checks re-verified
+            override = STALE_EXEMPTION_NOTE if status == "stale" else None
+            sites.append(_classify(rel, line, table, kind, raw, note_override=override))
     sites.sort(key=lambda s: (s.file, s.line))
     return sites
 
@@ -656,8 +691,17 @@ def format_report(sites: Sequence[WildcardSite]) -> str:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--root", action="append", default=None, help="scan root (repeatable)")
+    p.add_argument("--repo-root", default=None, help="repo root the scan inputs resolve against")
+    p.add_argument("--print-scan-inputs", action="store_true",
+                   help="print the repo-relative scan inputs (one per line) and exit; the "
+                        "Delphi CI copy step derives from this so it can never diverge")
     args = p.parse_args(argv)
-    sites = run_sweep(roots=args.root)
+    repo_root = args.repo_root or _repo_root()
+    if args.print_scan_inputs:
+        for rel in scan_inputs(repo_root):
+            print(rel)
+        return 0
+    sites = run_sweep(roots=args.root, repo_root=repo_root)
     print(format_report(sites))
     return 1 if any(s.classification == "NEEDS-GATE" for s in sites) else 0
 
