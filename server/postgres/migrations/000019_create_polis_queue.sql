@@ -74,7 +74,6 @@ BEGIN;
 -- attributed. Stored in transaction-local GUCs (readable after SET ROLE, unlike
 -- an applier-owned temp table).
 DO $prov_pre$
-DECLARE has_record boolean;
 BEGIN
  PERFORM set_config('polis_queue.pre_roles',
    COALESCE((SELECT jsonb_agg(rolname ORDER BY rolname) FROM pg_catalog.pg_roles
@@ -94,25 +93,6 @@ BEGIN
          FROM pg_catalog.pg_attribute att, pg_catalog.aclexplode(att.attacl) a
         WHERE att.attrelid='public.conversations'::regclass AND att.attnum>0 AND pg_catalog.pg_get_userbyid(a.grantee) IN ('polis_queue_owner','polis_queue_executor')
      ) g),'[]'::jsonb)::text, true);
- -- Replay admission (P-024 round 5). A genuine re-apply preserves the original
- -- provenance row (INSERT ... ON CONFLICT DO NOTHING at the end). But if the
- -- queue objects already exist WITHOUT that row -- someone deleted it -- the true
- -- created/adopted/added history is lost, and reconstructing it from the final
- -- state would invent "everything adopted, nothing added". Abort the replay here,
- -- before any change, rather than manufacture history.
- IF pg_catalog.to_regclass('public.polis_queue_jobs') IS NOT NULL THEN
-  -- Dynamic, so this never references polis_queue_install at plan time on a
-  -- fresh apply where the table does not yet exist.
-  IF pg_catalog.to_regclass('public.polis_queue_install') IS NULL THEN
-   has_record := false;
-  ELSE
-   EXECUTE 'SELECT EXISTS (SELECT 1 FROM public.polis_queue_install)' INTO has_record;
-  END IF;
-  IF NOT has_record THEN
-   RAISE EXCEPTION 'refusing to re-apply 000019 over an installed queue whose provenance record is missing'
-     USING HINT='The polis_queue_install record is required to reverse this install; restore it or resolve by hand.';
-  END IF;
- END IF;
 END $prov_pre$;
 DO $$ BEGIN
  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreaterole))
@@ -151,6 +131,32 @@ GRANT SELECT, REFERENCES(zid), UPDATE(topic) ON public.conversations TO polis_qu
 -- Create AND replay as the object owner, not merely a role allowed to transfer it.
 SET LOCAL ROLE polis_queue_owner;
 SET LOCAL search_path=pg_catalog,pg_temp;
+-- Check replay provenance only after the readable role preconditions, as the
+-- owner that can read the installation record. The pre-grant snapshot above
+-- remains before role provisioning so adopted roles and grants stay preserved.
+DO $prov_replay$
+DECLARE has_record boolean;
+BEGIN
+ -- Replay admission (P-024 round 5). A genuine re-apply preserves the original
+ -- provenance row (INSERT ... ON CONFLICT DO NOTHING at the end). But if the
+ -- queue objects already exist WITHOUT that row -- someone deleted it -- the true
+ -- created/adopted/added history is lost, and reconstructing it from the final
+ -- state would invent "everything adopted, nothing added". Abort the replay here,
+ -- before any change, rather than manufacture history.
+ IF pg_catalog.to_regclass('public.polis_queue_jobs') IS NOT NULL THEN
+  -- Dynamic, so this never references polis_queue_install at plan time on a
+  -- fresh apply where the table does not yet exist.
+  IF pg_catalog.to_regclass('public.polis_queue_install') IS NULL THEN
+   has_record := false;
+  ELSE
+   EXECUTE 'SELECT EXISTS (SELECT 1 FROM public.polis_queue_install)' INTO has_record;
+  END IF;
+  IF NOT has_record THEN
+   RAISE EXCEPTION 'refusing to re-apply 000019 over an installed queue whose provenance record is missing'
+     USING HINT='The polis_queue_install record is required to reverse this install; restore it or resolve by hand.';
+  END IF;
+ END IF;
+END $prov_replay$;
 -- H1: known unshipped signatures must not survive as ambiguous overloads.
 -- No CASCADE: unexpected dependencies fail the transaction for review.
 DROP FUNCTION IF EXISTS public.pq_lock(text,uuid,boolean);
