@@ -73,7 +73,9 @@ BEGIN;
 -- adds, which coalesces into a single catalog entry and cannot otherwise be
 -- attributed. Stored in transaction-local GUCs (readable after SET ROLE, unlike
 -- an applier-owned temp table).
-DO $prov_pre$ BEGIN
+DO $prov_pre$
+DECLARE has_record boolean;
+BEGIN
  PERFORM set_config('polis_queue.pre_roles',
    COALESCE((SELECT jsonb_agg(rolname ORDER BY rolname) FROM pg_catalog.pg_roles
              WHERE rolname IN ('polis_queue_owner','polis_queue_executor')),'[]'::jsonb)::text, true);
@@ -92,6 +94,25 @@ DO $prov_pre$ BEGIN
          FROM pg_catalog.pg_attribute att, pg_catalog.aclexplode(att.attacl) a
         WHERE att.attrelid='public.conversations'::regclass AND att.attnum>0 AND pg_catalog.pg_get_userbyid(a.grantee) IN ('polis_queue_owner','polis_queue_executor')
      ) g),'[]'::jsonb)::text, true);
+ -- Replay admission (P-024 round 5). A genuine re-apply preserves the original
+ -- provenance row (INSERT ... ON CONFLICT DO NOTHING at the end). But if the
+ -- queue objects already exist WITHOUT that row -- someone deleted it -- the true
+ -- created/adopted/added history is lost, and reconstructing it from the final
+ -- state would invent "everything adopted, nothing added". Abort the replay here,
+ -- before any change, rather than manufacture history.
+ IF pg_catalog.to_regclass('public.polis_queue_jobs') IS NOT NULL THEN
+  -- Dynamic, so this never references polis_queue_install at plan time on a
+  -- fresh apply where the table does not yet exist.
+  IF pg_catalog.to_regclass('public.polis_queue_install') IS NULL THEN
+   has_record := false;
+  ELSE
+   EXECUTE 'SELECT EXISTS (SELECT 1 FROM public.polis_queue_install)' INTO has_record;
+  END IF;
+  IF NOT has_record THEN
+   RAISE EXCEPTION 'refusing to re-apply 000019 over an installed queue whose provenance record is missing'
+     USING HINT='The polis_queue_install record is required to reverse this install; restore it or resolve by hand.';
+  END IF;
+ END IF;
 END $prov_pre$;
 DO $$ BEGIN
  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreaterole))
@@ -647,9 +668,15 @@ BEGIN
    preset AS (SELECT e->>'object' object, e->>'grantee' grantee, e->>'grantor' grantor, e->>'privilege' privilege, (e->>'grantable')::boolean grantable
                 FROM jsonb_array_elements(pre_grants) e),
    added AS (SELECT * FROM endset EXCEPT SELECT * FROM preset)
- SELECT COALESCE(jsonb_agg(jsonb_build_object('object',object,'grantee',grantee,'grantor',grantor,'privilege',privilege,'grantable',grantable)
-                  ORDER BY object,grantee,grantor,privilege),'[]'::jsonb)
-   INTO v_added FROM added;
+ -- option_only marks an added entry that only added the GRANT OPTION to a
+ -- privilege that already existed (the same object/grantee/grantor/privilege was
+ -- present, non-grantable, before). The reversal downgrades those with
+ -- REVOKE GRANT OPTION FOR rather than removing the operator's original privilege.
+ SELECT COALESCE(jsonb_agg(jsonb_build_object('object',a.object,'grantee',a.grantee,'grantor',a.grantor,'privilege',a.privilege,'grantable',a.grantable,
+     'option_only', a.grantable AND EXISTS (SELECT 1 FROM preset p
+        WHERE p.object=a.object AND p.grantee=a.grantee AND p.grantor=a.grantor AND p.privilege=a.privilege AND p.grantable=false))
+                  ORDER BY a.object,a.grantee,a.grantor,a.privilege),'[]'::jsonb)
+   INTO v_added FROM added a;
  SELECT md5(string_agg(t.name||'='||md5(pg_temp.pq_catalog(to_regclass('public.'||t.name))::text),'|' ORDER BY t.name))
    INTO v_fp FROM (SELECT relname AS name FROM pg_class
                    WHERE relnamespace='public'::regnamespace AND starts_with(relname,'polis_queue_') AND relkind='r') t;

@@ -56,7 +56,7 @@ SCHEMA_VERSION = "polis-queue/1"
 #: the SQL so that neither is silently upgraded by a schema change; the Node
 #: adapter pins the same value in ``server/src/queue/protocol.ts``. This pins
 #: the repository file, and is not runtime attestation about the live catalog.
-QUEUE_SQL_SHA256 = "4bf9f43ad74682674d2582319e85e2a85ebd4b1f83e6182b2424e44f0d282972"
+QUEUE_SQL_SHA256 = "e550c06d01fe58a13fb2c2ae3573c6c813b532fe360b50bb9ea87f8074311f83"
 
 #: The fixed synthetic input descriptor of the /1 noop stage. The enqueuer pins
 #: it and this executor refuses anything else.
