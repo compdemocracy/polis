@@ -338,18 +338,22 @@ class ClearedUnresolved:
 
 CLEARED_UNRESOLVED: tuple[ClearedUnresolved, ...] = (
     ClearedUnresolved(
-        file_suffix="delphi/polismath/replay/poller_equiv.py",
+        file_suffix="delphi/polismath/replay/equiv_query.py",
         function_name="fetch_math_row",
         query_text="SELECT * FROM {table} WHERE zid = :zid AND math_env = :math_env",
         guard_var="EQUIV_TABLES",
         forbidden_tables=frozenset({"votes", "votes_latest_unique"}),
         function_digest="048839c8fbbec1950c585b88303aace14c0daacac943f33e016e37d0168b3fbc",
-        module_digest="2d86223bdaedb284250ff7598ddfdc16bd94d034624384aa97674b8010461f19",
+        module_digest="193c083870237c567378d86dd1847598102c90a475f677fde63c832a1f4731ae",
         note="replay harness fetch_math_row; {table} guarded by `table not in "
         "EQUIV_TABLES` (math_main/bidtopid/ptptstats) — never a vote table. "
-        "Module digest re-recorded after edge commit e307602fa (P-023 slice 1, "
-        "vote-convention constant) edited insert_votes/imports — NOT fetch_math_row "
-        "or EQUIV_TABLES; function digest unchanged, structural re-review passed.",
+        "Query + guard set isolated into delphi/polismath/replay/equiv_query.py "
+        "(P-042 projgate-isolation; per Astra board [499]) so the whole-module pin "
+        "is disturbed only by an edit to the query/guard, not by unrelated edits to "
+        "poller_equiv.py. Function digest UNCHANGED across the verbatim move "
+        "(048839c8…); module digest recorded against the new isolated module; "
+        "structural re-review (guard set, single occurrence, enclosing fn, "
+        "guard-flow) passed.",
     ),
 )
 

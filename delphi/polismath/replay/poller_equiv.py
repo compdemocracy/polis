@@ -135,6 +135,7 @@ import sqlalchemy as sa
 from polismath.replay import real_data
 from polismath.replay import schedule as sched
 from polismath.replay.certify import _acceptance_projecting_comparer, normalize_path
+from polismath.replay.equiv_query import EQUIV_TABLES, fetch_math_row
 from polismath.replay.stepcompare import DEFAULT_TOLERANT_STAT_KEYS, StepComparer
 from polismath.replay.store import _safe_path_component
 from polismath.replay.types import ModEvent, ReplayDataset
@@ -1039,11 +1040,12 @@ def wait_for_first_poll_cycle(
 # Stage C — feeder + comparer.
 # =============================================================================
 # The three data tables the feeder snapshots per (math_env, batch); the same
-# three tables the spec's "compare" bullet names. Fixed constants ONLY — never
-# interpolate a caller-supplied string into the SQL built from this tuple
-# (:func:`fetch_math_row`) or the filesystem path built from it
-# (:func:`snapshot_path`).
-EQUIV_TABLES: tuple[str, ...] = ("math_main", "math_bidtopid", "math_ptptstats")
+# three tables the spec's "compare" bullet names. ``EQUIV_TABLES`` (the guard
+# set) and ``fetch_math_row`` (the ONE guarded ``SELECT * FROM {table}`` wildcard)
+# now live in :mod:`polismath.replay.equiv_query`, isolated there so the
+# projection-gate exemption's whole-module digest is disturbed only by an edit to
+# that query/guard — not by unrelated edits to this module. Imported at the top;
+# :func:`snapshot_path` and the runners below use them unchanged.
 
 
 # ---------------------------------------------------------------------------
@@ -1322,22 +1324,6 @@ def load_manifest(out_dir: str | Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     return json.loads(path.read_text())
-
-
-def fetch_math_row(conn: Any, table: str, zid: int, math_env: str) -> dict[str, Any] | None:
-    """``SELECT * FROM <table> WHERE zid=:zid AND math_env=:math_env`` — same
-    connection interface as :func:`wait_for_tick` (``.execute(text, params)``
-    -> ``Result.mappings().first()``). ``table`` MUST be one of
-    :data:`EQUIV_TABLES` — those are the only values ever interpolated into
-    the SQL text (never a caller-supplied string)."""
-    if table not in EQUIV_TABLES:
-        raise ValueError(f"unknown equiv table {table!r}; expected one of {EQUIV_TABLES}")
-    result = conn.execute(
-        sa.text(f"SELECT * FROM {table} WHERE zid = :zid AND math_env = :math_env"),
-        {"zid": zid, "math_env": math_env},
-    )
-    row = result.mappings().first()
-    return dict(row) if row is not None else None
 
 
 class PollerEquivStreamError(RuntimeError):
