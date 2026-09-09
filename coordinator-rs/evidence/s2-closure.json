@@ -6,28 +6,31 @@
   "rust_equals_clojure_claimed": false,
   "recorded": [
     "a candidate coherent-read loadBundle reads main + bidtopid + ptptstats + the math_ticks checkpoint in one REPEATABLE READ READ ONLY snapshot in the real Node runtime",
-    "the separate-read path (getPca then getBidIndexToPidMapping) is shown to tear under an interleaved publish while loadBundle stays coherent at one generation",
-    "a missing or tick-mismatched companion fails admission, and a valid replacement is observed once the coordinator republishes from source",
-    "the pure mapping accessor derives pids from the Bundle's own rows, and the reads are scoped by math_env",
-    "the Node D4 reader job is unconditional: absent server modules fail rather than skip",
-    "the existing real-Node getPca/getBidIndexToPidMapping byte-equality path is retained at 0 differences"
+    "under an interleaved publish the reader returns snapshot generation A exactly (all four row ticks equal, and A's exact per-group pids), not the B the interleave committed; a later read returns B exactly, and A and B are distinguishable",
+    "the returned per-group pids are compared against an independent Python re-derivation over the published blobs, so a reader that fabricates pids fails",
+    "a missing or tick-mismatched companion fails admission, a valid replacement is observed after republication, the reads are scoped by math_env, and a wrong-namespace companion does not leak in",
+    "the Node reader tests are a local failure guard (absent server modules fail rather than skip); the existing real-module getPca/getBidIndexToPidMapping byte-equality path is retained at 0 differences"
   ],
   "remaining_obligations": [
-    "the production server/src loadBundle: request-scoped Bundle threaded through getPidsForGid, doFamousQuery and report.ts, with a bounded whole-Bundle cache and the characterized 3s TTL / response order preserved",
-    "full application boot, auth, report/CSV joins and the private 2,884-case served corpus (S5)",
-    "the C7 no-row-to-published-empty transition once the contract owner admits the comparison clock (S5)"
+    "S2 remainder (separately dispatched, still open, NOT deferred to S5): the production server/src loadBundle, request-scoped and threaded through getPidsForGid/doFamousQuery/report.ts, with a bounded whole-Bundle cache and the characterized 3s TTL / response order preserved, and the comment-owned empty presentation",
+    "the torn baseline here is a copied SQL-shaped autocommit model on one client, not a call through the real getPca/getBidIndexToPidMapping (which dispatch via Promise.all)",
+    "S5 (later): the combined full-app/auth/report/CSV campaign and the private 2,884-case served corpus; the C7 comparison clock is already admitted (plan rev2 C2, freeze then advance the logical request clock), only its execution campaign is open"
+  ],
+  "outstanding_required_ci": [
+    "no workflow is changed by this slice: _node_gate.py fails absent modules locally, but there is no coordinator-rs CI job, no pinned server-module provisioning, and no enforced zero-skip required run",
+    "the exact HTTP and Bundle case set is not asserted present by a required job; a selected subset plus old evidence must not be treated as required-job completion"
   ],
   "candidate_reader": "coordinator-rs/tools/bundle_reader.cjs",
   "witness": "coordinator-rs/evidence/d4-bundle-reader.json",
   "integrity_model": "this is a candidate reader in the Node runtime for the experiment's harness, not the production server reader; the atomicity property is demonstrated against the real test PostgreSQL, it does not certify CO04's Bundle rewrite or the served corpus",
   "pins_are_committed_sources": true,
-  "python_cases": 141,
+  "python_cases": 142,
   "sha256": {
-    "coordinator-rs/tools/bundle_reader.cjs": "14df78683af4a295f05a4a71ede9996779ec3cfb02105eed4f5e791d8e1b2109",
-    "coordinator-rs/tools/record_s2.py": "96720ed4862d33391ad98a5ce2bfef568e43abd62f51168589bdad33f84975b1",
+    "coordinator-rs/tools/bundle_reader.cjs": "406ae287970b1c69b39c947fbcb9576fe0c2a736f8e6761047326effe3687691",
+    "coordinator-rs/tools/record_s2.py": "8be7b4781c332e97719a18187a5cca0aa2ead1644fff3777734c67cde0244c7c",
     "delphi/tests/coordinator/_node_gate.py": "461813f1029115e5aac3205f4783678ae347b3b7f505b5af397308c38ae08072",
-    "delphi/tests/coordinator/audit_stages.py": "83de89b73ebc5258c4a4a7b434f423fc831f854101ea92385dc0aa7f7f0006af",
-    "delphi/tests/coordinator/test_bundle_reader.py": "cf8160231b0362af22858101fb42771bd2e7dfd57eef2c649d7e98e1d495861b",
+    "delphi/tests/coordinator/audit_stages.py": "da41f879bb151ce31cc28b1f8d67a86c912786571bd1ae630fd19d1efe7834ce",
+    "delphi/tests/coordinator/test_bundle_reader.py": "3c5d16504581e8236adcb17115bdc63107f82c7f3340e6c14752254a21cebaef",
     "delphi/tests/coordinator/test_node_reader.py": "7db596d189489b7f1bbd0bbbde5c44909039779a983518c922cf74381c4fd077"
   }
 }
