@@ -437,7 +437,10 @@ function translateAndStoreComment(
 ): Promise<CommentTranslationRow | null> {
   logger.debug("polis_debug_translateAndStoreComment", { zid, tid, txt, lang });
   if (useTranslateApi) {
-    return translateString(txt, lang).then((results: any[]) => {
+    return translateString(txt, lang).then((results: any[] | null) => {
+      if (!results) {
+        return null;
+      }
       const translation = results[0];
       const src = -1; // Google Translate of txt with no added context
       return pg
@@ -457,25 +460,104 @@ function translateAndStoreComment(
   return Promise.resolve(null);
 }
 
-function translateString(txt: any, target_lang: any): Promise<any[] | null> {
-  if (useTranslateApi) {
-    return translateClient.translate(txt, target_lang);
-  }
-  return Promise.resolve(null);
+// Language metadata is optional. Bound our wait for the provider, including its
+// retries, so an outage cannot hold comment creation indefinitely. This does not
+// cancel the SDK request; Promise.race also observes any late rejection.
+const TRANSLATION_TIMEOUT_MS = 5000;
+
+function logTranslationFailure(event: string, err: unknown): void {
+  const error = err as {
+    name?: unknown;
+    message?: unknown;
+    code?: unknown;
+    errors?: Array<{ reason?: unknown }>;
+  } | null;
+  const bounded = (value: unknown) =>
+    typeof value === "string" ? value.slice(0, 256) : undefined;
+  // Google ApiError also carries the full response (including headers). Keep
+  // only diagnostic scalars, once per failed call; never log that response.
+  logger.warn(event, {
+    name: bounded(error?.name),
+    message: bounded(error?.message),
+    code: typeof error?.code === "number" ? error.code : bounded(error?.code),
+    reason: bounded(error?.errors?.[0]?.reason),
+  });
 }
 
-function detectLanguage(
+async function withTranslationTimeout<T>(call: () => Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  try {
+    return await Promise.race([
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("Translation provider timed out")),
+          TRANSLATION_TIMEOUT_MS
+        );
+      }),
+      Promise.resolve().then(call),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function translateString(
+  txt: any,
+  target_lang: any
+): Promise<any[] | null> {
+  if (useTranslateApi) {
+    try {
+      const results = await withTranslationTimeout<any[]>(() =>
+        translateClient.translate(txt, target_lang)
+      );
+      if (
+        !Array.isArray(results) ||
+        typeof results[0] !== "string" ||
+        results[0].length === 0
+      ) {
+        throw new Error("Translation provider returned an invalid translation");
+      }
+      return results;
+    } catch (err) {
+      logTranslationFailure("polis_warn_translation_failed", err);
+    }
+  }
+  return null;
+}
+
+async function detectLanguage(
   txt: any
 ): Promise<Array<{ confidence: any; language: any }>> {
   if (useTranslateApi) {
-    return translateClient.detect(txt);
+    try {
+      const results = await withTranslationTimeout<any[]>(() =>
+        translateClient.detect(txt)
+      );
+      const detection = Array.isArray(results) ? results[0] : null;
+      if (
+        !detection ||
+        typeof detection.language !== "string" ||
+        detection.language.trim().length === 0 ||
+        detection.language.length > 10 ||
+        detection.language.includes("\0") ||
+        typeof detection.confidence !== "number" ||
+        !Number.isFinite(detection.confidence) ||
+        detection.confidence < 0 ||
+        detection.confidence > 1
+      ) {
+        throw new Error("Translation provider returned an invalid detection");
+      }
+      return results;
+    } catch (err) {
+      logTranslationFailure("polis_warn_language_detection_failed", err);
+    }
   }
-  return Promise.resolve([
+  return [
     {
       confidence: null,
       language: null,
     },
-  ]);
+  ];
 }
 
 export {
