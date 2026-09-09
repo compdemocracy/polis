@@ -174,29 +174,40 @@ NODE_PATH=/Users/colinmegill/polis/server/node_modules \
 
 **Isolation rule:** this script (and any manual run) must use a compose
 project name and a port range that belong to nobody else, so concurrent runs
-never collide. The script's own defaults (project prefix `rpca2x`, ports
-`55720`–`55739`) **did not pass this repo's isolation guard when tried against
-this exact commit**: `server/characterization/isolation.py` — a shared file,
-not owned by this crate — requires the compose project name to start with
-`p027` and the three forwarded ports to sit inside `$P027_PORT_MIN..MAX`
-(default `55930..55939`). Overriding `P032_PROJECT_PREFIX=p027x`,
-`P032_PORT_MIN=55930`, `P032_PORT_MAX=55939`, `P027_PORT_MIN=55930`,
-`P027_PORT_MAX=55939` got past that guard. The script always tears down its
-own project on exit or failure (confirmed: no leftover containers, networks,
-or volumes after either a passing or a failing run) and never pulls images.
+never collide. `server/characterization/isolation.py` — a shared file, not
+owned by this crate — requires the compose project name to start with `p027`
+and the three forwarded ports to sit inside `$P027_PORT_MIN..MAX` (default
+`55930..55939`). The script's defaults now satisfy that guard out of the box:
+project prefix `p027rs` and ports `55930`–`55939` (it also exports
+`P027_PORT_MIN`/`P027_PORT_MAX` to mirror `P032_PORT_MIN`/`P032_PORT_MAX`, so
+the guard's own defaults changing later can't silently reopen this gap).
+Override `P032_PROJECT_PREFIX`/`P032_PORT_MIN`/`P032_PORT_MAX` (and, if
+needed, `P027_PORT_MIN`/`P027_PORT_MAX`) when another concurrent run already
+owns this range. The script always tears down its own project on exit or
+failure (confirmed: no leftover containers, networks, or volumes after
+either a passing or a failing run) and never pulls images.
 
-With that override, the stack came up, seeded, and the header-parity check
-(criterion 2 above) passed — **49/49**, matching what's recorded. The 336-case
-byte comparison (`tools/replay.cjs`) then **failed on this exact checkout**,
-not on a difference in this crate: it hard-codes an expectation of exactly
-869 total recorded cases before selecting its 336, and the shared
-`server/characterization/artifacts/baseline.json.gz` archive here holds
-1,265 — a later, unrelated recording round (commit `867d83f76`, a different
+`tools/replay.cjs` also used to hard-code an expectation of exactly 869 total
+recorded cases before selecting its 336 pca2 cases. The shared
+`server/characterization/artifacts/baseline.json.gz` archive now holds 1,265
+— a later, unrelated recording round (commit `867d83f76`, a different
 slice's comments recordings) appended to that same shared archive after this
-crate's evidence was pinned to the 869-case one. This is a stale pin in
-shared harness code, not a byte mismatch in the route, and it means the
-336-case replay is **not currently runnable end-to-end** without first
-reconciling that pin — reported here rather than worked around.
+crate's evidence was pinned to the 869-case one. The census check now reads
+the archive's own manifest (`index.meta.caseCount`, exposed as
+`recording.manifest.caseCount`) instead of a literal, so later recording
+rounds appended to the shared baseline archive don't desync this pin again.
+The 336-case pca2 selection is still asserted as a literal and still fails
+loudly if that selection count ever changes.
+
+With the isolation-safe defaults and the manifest-derived census, the full
+run (`server-rs/tools/replay-pca2.sh`, project `p027rs-100eda5d`, ports
+`55930`–`55939`) passed end-to-end against this exact checkout: header parity
+**49/49**, baseline and Rust schema **336/336** each, byte-exact replay
+**336/336 matched, 0 oracle failures**, the key-reorder control passed as
+designed (schema pass, replay fail on `$.wireBody`), tick-zero/scope checks
+**6/6**, and CORS/OPTIONS/HEAD/keep-alive checks **7/7** — matching the
+checked-in `evidence/results.json` byte for byte. The stack tore down
+cleanly afterward with no leftover containers, networks, or volumes.
 
 Regenerate the typed model from the pinned recorded wire, then format:
 `python3 server-rs/tools/generate-contract.py && (cd server-rs && cargo fmt)`.

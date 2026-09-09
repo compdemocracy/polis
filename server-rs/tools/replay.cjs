@@ -17,7 +17,13 @@ async function main(){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rpca2-baseline-'));
  let recording;
  try{require('../../server/characterization/baseline.cjs').unpack(dir);recording=readRecording(dir);}finally{fs.rmSync(dir,{recursive:true,force:true});}
- assert.equal(recording.cases.length,869);
+ // Census comes from the archive's own manifest (index.meta.caseCount, set at
+ // record time from results.length in server/characterization/cli.cjs), not a
+ // literal here, so later recording rounds appended to the shared baseline
+ // archive don't desync this pin. The pca2 selection count stays asserted
+ // literally: this tool only ever replays the 336 pca2 cases and must still
+ // fail loudly if that selection changes.
+ assert.equal(recording.cases.length,recording.manifest.caseCount,'recording case count does not match archive manifest caseCount');
  const planned=recording.cases.filter(c=>c.caseId.includes('/pca2/'));assert.equal(planned.length,336);
  const full=new Map();
  const fixture=c=>c.request.query.conversation_id;

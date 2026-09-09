@@ -3,10 +3,15 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$root"
 # Isolation bounds are configurable so another reviewer or CI can run this under
-# its own assigned prefix and port range without editing the tools. The defaults
-# are the round-4 values.
-export P032_PROJECT_PREFIX=${P032_PROJECT_PREFIX:-rpca2x}
-export P032_PORT_MIN=${P032_PORT_MIN:-55720} P032_PORT_MAX=${P032_PORT_MAX:-55739}
+# its own assigned prefix and port range without editing the tools. The
+# defaults satisfy server/characterization/isolation.py out of the box: a
+# project name starting with "p027" and a port range matching that guard's
+# own default P027_PORT_MIN..MAX (55930..55939). P027_PORT_MIN/MAX are also
+# exported here (mirroring P032_PORT_MIN/MAX) so the guard's own defaults
+# changing later can't silently break this script's isolation.
+export P032_PROJECT_PREFIX=${P032_PROJECT_PREFIX:-p027rs}
+export P032_PORT_MIN=${P032_PORT_MIN:-55930} P032_PORT_MAX=${P032_PORT_MAX:-55939}
+export P027_PORT_MIN=${P027_PORT_MIN:-$P032_PORT_MIN} P027_PORT_MAX=${P027_PORT_MAX:-$P032_PORT_MAX}
 export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-$P032_PROJECT_PREFIX-$(openssl rand -hex 4)}
 [[ "$COMPOSE_PROJECT_NAME" =~ ^${P032_PROJECT_PREFIX}-[a-z0-9]+$ ]] || { echo "isolated $P032_PROJECT_PREFIX project required" >&2; exit 1; }
 # Reserve six distinct ports within the user-assigned range. No other project's
