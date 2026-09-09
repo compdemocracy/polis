@@ -12,7 +12,10 @@ import os
 import logging
 import json
 import numpy as np
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
+
+if TYPE_CHECKING:  # import cycle-free: annotation-only reference
+    from polismath.conversation.conversation import Conversation
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -25,7 +28,7 @@ class DynamoDBClient:
                 endpoint_url: Optional[str] = None,
                 region_name: str = 'us-east-1',
                 aws_access_key_id: Optional[str] = None,
-                aws_secret_access_key: Optional[str] = None):
+                aws_secret_access_key: Optional[str] = None) -> None:
         """
         Initialize DynamoDB client.
         
@@ -43,7 +46,7 @@ class DynamoDBClient:
         self.dynamodb = None
         self.tables = {}
         
-    def initialize(self):
+    def initialize(self) -> None:
         """Initialize DynamoDB connection and create tables if needed."""
         # Set up environment variables for credentials if not provided and not already set
         if not self.aws_access_key_id and not os.environ.get('AWS_ACCESS_KEY_ID'):
@@ -69,7 +72,7 @@ class DynamoDBClient:
         # Create tables if they don't exist
         self._ensure_tables_exist()
     
-    def _ensure_tables_exist(self):
+    def _ensure_tables_exist(self) -> None:
         """Ensure all required tables exist."""
         # List existing tables
         existing_tables = [t.name for t in self.dynamodb.tables.all()]
@@ -189,7 +192,7 @@ class DynamoDBClient:
             except Exception as e:
                 logger.error(f"Error creating table {table_name}: {e}")
     
-    def _numpy_to_list(self, obj):
+    def _numpy_to_list(self, obj: Any) -> Any:
         """Convert numpy arrays to lists for JSON serialization."""
         import decimal
         
@@ -209,7 +212,7 @@ class DynamoDBClient:
             return decimal.Decimal(str(obj))
         return obj
     
-    def _replace_floats_with_decimals(self, obj):
+    def _replace_floats_with_decimals(self, obj: Any) -> Any:
         """
         Recursively replace all float values with Decimal objects.
         This is needed for DynamoDB compatibility.
@@ -233,7 +236,7 @@ class DynamoDBClient:
         else:
             return obj
             
-    def write_conversation(self, conv) -> bool:
+    def write_conversation(self, conv: "Conversation") -> bool:
         """
         Write a conversation's mathematical analysis data to DynamoDB,
         including all projections for all participants.
@@ -617,7 +620,7 @@ class DynamoDBClient:
             traceback.print_exc()
             return False
             
-    def write_projections_separately(self, conv) -> bool:
+    def write_projections_separately(self, conv: "Conversation") -> bool:
         """
         Write participant projections separately for large conversations.
         This method optimizes for reliability with very large conversations (10,000+ participants)
