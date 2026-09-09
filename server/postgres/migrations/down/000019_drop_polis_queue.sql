@@ -318,10 +318,17 @@ BEGIN
       USING DETAIL = 'created={'||COALESCE(array_to_string(v_created,','),'')||'} adopted={'||COALESCE(array_to_string(v_adopted,','),'')||'}',
             HINT = 'Resolve by hand.';
   END IF;
-  -- Grants: every entry's (object,grantee,grantor,privilege) must be one 000019
-  -- itself adds, and its grantable/option_only fields must be booleans. The
-  -- applier-made grants record the object owner as grantor; owner's own onward
-  -- grants record polis_queue_owner.
+  -- Grants: EVERY entry must have all six fields present and correctly typed --
+  -- object/grantee/grantor/privilege as strings, grantable/option_only as
+  -- booleans -- and its (object,grantee,grantor,privilege) must be one 000019
+  -- itself adds. The check is NULL-safe: a missing field makes jsonb_typeof NULL
+  -- and a missing string makes the tuple key NULL, so the per-entry validity is
+  -- tested with a single boolean whose non-TRUE (FALSE or NULL) result flags the
+  -- entry. It does NOT rely on aggregates that drop NULLs -- the offending rows
+  -- are collected by their raw jsonb text (never NULL), which is why a stripped
+  -- option_only, a missing grantor, or a missing grantable is caught here rather
+  -- than silently mis-handled by the revoke. (The applier-made grants record the
+  -- object owner as grantor; owner's own onward grants record polis_queue_owner.)
   pubowner  := pg_get_userbyid((SELECT nspowner FROM pg_namespace WHERE nspname='public'));
   convowner := pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='public.conversations'::regclass));
   allowed := ARRAY[
@@ -332,14 +339,19 @@ BEGIN
     'conversations|polis_queue_owner|'||convowner||'|SELECT',
     'conversations.topic|polis_queue_owner|'||convowner||'|UPDATE',
     'conversations.zid|polis_queue_owner|'||convowner||'|REFERENCES'];
-  SELECT string_agg((e->>'object')||'|'||(e->>'grantee')||'|'||(e->>'grantor')||'|'||(e->>'privilege'), '; ')
+  SELECT string_agg(e::text, '; ')
     INTO bad
     FROM jsonb_array_elements(v_added) e
-   WHERE jsonb_typeof(e->'grantable') <> 'boolean'
-      OR jsonb_typeof(e->'option_only') <> 'boolean'
-      OR (e->>'object')||'|'||(e->>'grantee')||'|'||(e->>'grantor')||'|'||(e->>'privilege') <> ALL (allowed);
+   WHERE (jsonb_typeof(e->'object')     = 'string'
+      AND jsonb_typeof(e->'grantee')    = 'string'
+      AND jsonb_typeof(e->'grantor')    = 'string'
+      AND jsonb_typeof(e->'privilege')  = 'string'
+      AND jsonb_typeof(e->'grantable')  = 'boolean'
+      AND jsonb_typeof(e->'option_only')= 'boolean'
+      AND (e->>'object')||'|'||(e->>'grantee')||'|'||(e->>'grantor')||'|'||(e->>'privilege') = ANY (allowed)
+         ) IS NOT TRUE;
   IF bad IS NOT NULL THEN
-    RAISE EXCEPTION 'refusing: the provenance record lists a grant outside 000019''s closed inventory'
+    RAISE EXCEPTION 'refusing: the provenance record has a malformed or out-of-inventory added-grant entry'
       USING DETAIL = 'offending: '||bad, HINT = 'Resolve by hand.';
   END IF;
 

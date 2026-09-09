@@ -40,6 +40,9 @@
 #       in added_grants, or emptied arrays -- each refused, nothing removed.
 #   (r) replay after the record is deleted: the re-apply aborts rather than
 #       manufacture history from final state.
+#   (s) malformed added-grant fields (NULL-safe validation): a stripped
+#       option_only, a missing grantor, or a missing grantable is refused in both
+#       force modes with nothing removed.
 #
 # This is a shell script rather than a delphi/tests pytest because the checks
 # are schema-diff shaped (pg_dump of a full migration chain in an isolated
@@ -48,7 +51,7 @@
 # needs only docker and is self-contained.
 #
 # Usage:  bash server/postgres/migrations/down/test_000019_down.sh
-# Exit 0 iff all eighteen checks (a..r) pass.
+# Exit 0 iff all nineteen checks (a..s) pass.
 
 set -euo pipefail
 
@@ -348,7 +351,7 @@ q_setup sc_q
 docker exec "$CONTAINER" psql -v ON_ERROR_STOP=1 -U postgres -d sc_q -c \
   "UPDATE public.polis_queue_install SET added_grants = added_grants || '[{\"object\":\"conversations\",\"grantee\":\"postgres\",\"grantor\":\"postgres\",\"privilege\":\"SELECT\",\"grantable\":false,\"option_only\":false}]'::jsonb" >/dev/null
 set +e; OUT_Q="$(run_down sc_q)"; RC_Q=$?; set -e
-[ "$RC_Q" -ne 0 ] && echo "$OUT_Q" | grep -qi "outside 000019" || fail "(q2) unrelated grant in added_grants was not refused"
+[ "$RC_Q" -ne 0 ] && echo "$OUT_Q" | grep -qi "out-of-inventory" || fail "(q2) unrelated grant in added_grants was not refused"
 [ "$(queue_object_count sc_q)" -gt 0 ] || fail "(q2) refusal did not roll back"
 q_teardown sc_q
 # q3: both role arrays and the grant array emptied
@@ -379,7 +382,60 @@ echo "$OUT_R" | grep -qi "refusing to re-apply" || fail "(r) expected a re-apply
 docker exec "$CONTAINER" psql -U postgres -c "DROP DATABASE sc_r WITH (FORCE)" >/dev/null
 docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_owner" >/dev/null
 docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_executor" >/dev/null
-echo "   (r) PASS (re-apply aborts when the provenance record is missing)"
+# --- (s) malformed added-grant fields (NULL-safe validation): a stripped
+#     option_only, a missing grantor, or a missing grantable must be refused --
+#     in BOTH force modes -- with nothing removed. Without the NULL-safe check
+#     these slip past validation and mis-handle the revoke.
+echo "== check (s): malformed added-grant fields -> refuse (both force modes) =="
+s_refuses_both() {  # s_refuses_both <db> <label>; the record is already tampered
+  local db="$1" label="$2" out rc
+  set +e; out="$(run_down "$db")"; rc=$?; set -e
+  { [ "$rc" -ne 0 ] && echo "$out" | grep -qi "malformed or out-of-inventory"; } \
+    || fail "($label) not refused without force"
+  set +e; out="$(run_down "$db" force)"; rc=$?; set -e
+  { [ "$rc" -ne 0 ] && echo "$out" | grep -qi "malformed or out-of-inventory"; } \
+    || fail "($label) not refused with -v force=1"
+  [ "$(queue_object_count "$db")" -gt 0 ] || fail "($label) refusal did not preserve the queue"
+}
+# (s-a) strip option_only from the grant-option-upgrade entry: the down must not
+#       silently full-revoke and erase the operator's original USAGE.
+docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_owner" >/dev/null
+docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_executor" >/dev/null
+createdb sc_s
+apply_upto sc_s "$MAX_BASE"
+docker exec -i "$CONTAINER" psql -v ON_ERROR_STOP=1 -U postgres -d sc_s >/dev/null <<'SQL'
+REVOKE USAGE ON SCHEMA public FROM PUBLIC;
+CREATE ROLE polis_queue_owner NOLOGIN;
+GRANT USAGE ON SCHEMA public TO polis_queue_owner;
+SQL
+apply_one sc_s 000019_create_polis_queue.sql
+docker exec "$CONTAINER" psql -v ON_ERROR_STOP=1 -U postgres -d sc_s -c \
+  "UPDATE public.polis_queue_install SET added_grants=(SELECT jsonb_agg(CASE WHEN (e->>'option_only')::boolean THEN e-'option_only' ELSE e END) FROM jsonb_array_elements(added_grants) e)" >/dev/null
+s_refuses_both sc_s "s-a stripped option_only"
+[ "$(docker exec "$CONTAINER" psql -U postgres -d sc_s -Atc "SELECT has_schema_privilege('polis_queue_owner','public','USAGE')")" = "t" ] \
+  || fail "(s-a) the operator's original USAGE was erased"
+docker exec "$CONTAINER" psql -U postgres -c "DROP DATABASE sc_s WITH (FORCE)" >/dev/null
+docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_owner" >/dev/null
+docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_executor" >/dev/null
+# (s-b) a missing grantor field.
+createdb sc_s
+apply_upto sc_s "$MAX_FULL"
+docker exec "$CONTAINER" psql -v ON_ERROR_STOP=1 -U postgres -d sc_s -c \
+  "UPDATE public.polis_queue_install SET added_grants=(SELECT jsonb_agg(CASE WHEN ord=1 THEN e-'grantor' ELSE e END) FROM jsonb_array_elements(added_grants) WITH ORDINALITY t(e,ord))" >/dev/null
+s_refuses_both sc_s "s-b missing grantor"
+docker exec "$CONTAINER" psql -U postgres -c "DROP DATABASE sc_s WITH (FORCE)" >/dev/null
+docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_owner" >/dev/null
+docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_executor" >/dev/null
+# (s-c) a missing grantable field.
+createdb sc_s
+apply_upto sc_s "$MAX_FULL"
+docker exec "$CONTAINER" psql -v ON_ERROR_STOP=1 -U postgres -d sc_s -c \
+  "UPDATE public.polis_queue_install SET added_grants=(SELECT jsonb_agg(CASE WHEN ord=1 THEN e-'grantable' ELSE e END) FROM jsonb_array_elements(added_grants) WITH ORDINALITY t(e,ord))" >/dev/null
+s_refuses_both sc_s "s-c missing grantable"
+docker exec "$CONTAINER" psql -U postgres -c "DROP DATABASE sc_s WITH (FORCE)" >/dev/null
+docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_owner" >/dev/null
+docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_executor" >/dev/null
+echo "   (s) PASS (stripped option_only, missing grantor, missing grantable each refused in both force modes)"
 
 # --- (a) apply 000019 then down; catalog must equal the 000018 baseline -------
 echo "== check (a): apply 000000..$MAX_FULL, down, compare to baseline =="
@@ -506,4 +562,4 @@ echo "$OUT_H" | grep -qi "refusing to drop a live queue" || fail "(h) expected l
 echo "   (h) PASS (row committed under the lock is seen and refused, not lost)"
 
 echo
-echo "ALL CHECKS PASSED (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r)"
+echo "ALL CHECKS PASSED (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s)"
