@@ -1,12 +1,13 @@
 {
   "run": "P-026 step 4 / S1",
   "python_full_suite": {
-    "passed": 139,
+    "passed": 141,
     "failed": 0,
     "errors": 0,
     "skipped": 0,
     "by_module": {
       "test_adapter": 31,
+      "test_bundle_reader": 2,
       "test_equivalence": 6,
       "test_incremental": 6,
       "test_node_reader": 2,
@@ -35,7 +36,7 @@
     "stage_inventory_gate": "PASS",
     "full_contract_gate": "FAIL",
     "open_conditions": [
-      "CO08/D4: the real Node reader (getPca + getBidIndexToPidMapping + getPidsForGid) serves identical Rust/Python bytes at generation one, and the real pca2 route serves generation zero, but CO04's loadBundle/Bundle cache-unit rewrite does not exist in the server and is untested here",
+      "CO08/D4: the real Node reader (getPca + getBidIndexToPidMapping + getPidsForGid) serves identical Rust/Python bytes at generation one, the real pca2 route serves generation zero, and a candidate coherent-read loadBundle closes the old-main/new-mapping torn read in the D4 harness; CO04's Bundle rewrite in server/src threaded through getPidsForGid/doFamousQuery/report.ts with a bounded whole-Bundle cache, and full application boot, do not exist in the server and remain open",
       "CO08/D4: application boot, auth, report.ts/doFamousQuery and the private 2,884-case served corpus are not executed; the empty presentation is compared synthetically",
       "CO08/D4 reader defect (server owner): getPca(zid, undefined) misses a cold committed generation zero and finds it once the route warms the cache; the route itself, which passes math_tick=-1, serves it with 200 and ETag \"0\"",
       "C7 / polis-empty-served/1: the Python comparison writer publishes no row for a zero-vote conversation, the server synthesizes the approved-comment listing with a request-clock lastVoteTimestamp, and a published empty generation lists no tids; the transition must preserve comment ownership; the contract owner must still admit a frozen clock or path-specific clock normalization before this gate closes",
@@ -45,7 +46,7 @@
       "O8 remains OPEN and is at most PARTIAL: polis-candidate-input/1 is claimed locally as a candidate profile, not a G01-G16 certificate. S1 records the distinct candidate schema id, strict adapter admission, original-byte digests with decoded correspondence, and the worker/engine pins; still outstanding are all applicable G01-G16 cases with their required negative controls, an immutable manifest, the distinction between fresh rebuild, exact resume and warm incremental output schedules, and a non-vacuous P-023 compensated pair with raw C9 validation"
     ],
     "condition_states": {
-      "O1": "OPEN",
+      "O1": "PARTIAL (S2 candidate loadBundle atomicity recorded; server rewrite and app boot open)",
       "O2": "OPEN",
       "O3": "OPEN",
       "O4": "OPEN",
@@ -76,6 +77,28 @@
         ],
         "g01_g16_certified": false,
         "run_pins_verified_here": false
+      },
+      {
+        "id": "O1",
+        "state": "PARTIAL",
+        "standing_condition": "CO08/D4: the real Node reader (getPca + getBidIndexToPidMapping + getPidsForGid) serves identical Rust/Python bytes at generation one, the real pca2 route serves generation zero, and a candidate coherent-read loadBundle closes the old-main/new-mapping torn read in the D4 harness; CO04's Bundle rewrite in server/src threaded through getPidsForGid/doFamousQuery/report.ts with a bounded whole-Bundle cache, and full application boot, do not exist in the server and remain open",
+        "evidence": "coordinator-rs/evidence/s2-closure.json",
+        "scope": "P-026 step-4 S2 reader: candidate loadBundle whole-Bundle atomicity",
+        "recorded": [
+          "a candidate coherent-read loadBundle reads main + bidtopid + ptptstats + the math_ticks checkpoint in one REPEATABLE READ READ ONLY snapshot in the real Node runtime",
+          "the separate-read path (getPca then getBidIndexToPidMapping) is shown to tear under an interleaved publish while loadBundle stays coherent at one generation",
+          "a missing or tick-mismatched companion fails admission, and a valid replacement is observed once the coordinator republishes from source",
+          "the pure mapping accessor derives pids from the Bundle's own rows, and the reads are scoped by math_env",
+          "the Node D4 reader job is unconditional: absent server modules fail rather than skip",
+          "the existing real-Node getPca/getBidIndexToPidMapping byte-equality path is retained at 0 differences"
+        ],
+        "remaining_obligations": [
+          "the production server/src loadBundle: request-scoped Bundle threaded through getPidsForGid, doFamousQuery and report.ts, with a bounded whole-Bundle cache and the characterized 3s TTL / response order preserved",
+          "full application boot, auth, report/CSV joins and the private 2,884-case served corpus (S5)",
+          "the C7 no-row-to-published-empty transition once the contract owner admits the comparison clock (S5)"
+        ],
+        "production_loadbundle_certified": false,
+        "run_pins_verified_here": false
       }
     ]
   },
@@ -88,12 +111,27 @@
     ],
     "hashes_identical_to_previous_evidence": true,
     "observer_errors": 0,
-    "observations": 200
+    "observations": 211
   },
   "polarity": "four artifacts and semantic tie control unchanged; compensated pairs equal, negative controls differ",
   "node_d4": "0 differences; generation-zero route 200 / ETag 0 / conditional 304; no loadBundle claim",
   "scope": "Rust versus Python rebuild-prefix campaign; Clojure remains the live production writer; no Rust/Clojure comparison",
-  "compose_project": "s1fix-e5a8",
-  "postgres_port": 55888,
-  "uncommitted": false
+  "compose_project": "p026s2-374845",
+  "postgres_port": 56060,
+  "uncommitted": false,
+  "s2_reader": {
+    "slice": "P-026 step 4 / S2 reader",
+    "candidate_loadBundle": true,
+    "node_job_unconditional": true,
+    "witness": "coordinator-rs/evidence/d4-bundle-reader.json",
+    "torn_read_shown": true,
+    "coherent_bundle": true,
+    "admission_refusals": [
+      "missing math_bidtopid",
+      "math_ptptstats at generation 10, main at 3"
+    ],
+    "node_d4_differences": 0,
+    "O1": "PARTIAL",
+    "python_cases": 141
+  }
 }

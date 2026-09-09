@@ -1,9 +1,9 @@
 {
   "committed_math_tick": 0,
-  "note": "the route requests latest with math_tick=-1 and serves generation zero; getPca(zid, undefined) is a different branch and is cache-dependent. That helper asymmetry is a reader defect for the server owner, characterised here, not fixed here.",
+  "note": "the route requests latest with math_tick=-1 and serves generation zero; the cold getPca(zid, undefined) miss this control once recorded was the server-owner reader defect #2732 named, and #2732 is now merged to edge, so on this rebased tree the cold call also finds generation zero (coldUndefinedPresent is True). The helper is fixed upstream, not here.",
   "profile": "real handle_GET_math_pca2 on a real Express app over loopback HTTP, real reader/cache/PostgreSQL; only the parameter middleware is synthetic",
   "route": {
-    "coldUndefinedPresent": false,
+    "coldUndefinedPresent": true,
     "conditional": {
       "bodyTick": null,
       "contentEncoding": "identity",

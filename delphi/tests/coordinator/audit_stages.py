@@ -29,9 +29,11 @@ assert not set(compiled)-set(required), 'unreviewed compiled marker'
 # every fault stage does not certify CO08/D4, which need the actual Node route.
 open_conditions=[
     'CO08/D4: the real Node reader (getPca + getBidIndexToPidMapping + getPidsForGid) serves'
-    ' identical Rust/Python bytes at generation one, and the real pca2 route serves'
-    ' generation zero, but CO04\'s loadBundle/Bundle cache-unit rewrite does not exist in'
-    ' the server and is untested here',
+    ' identical Rust/Python bytes at generation one, the real pca2 route serves generation'
+    ' zero, and a candidate coherent-read loadBundle closes the old-main/new-mapping torn read'
+    ' in the D4 harness; CO04\'s Bundle rewrite in server/src threaded through'
+    ' getPidsForGid/doFamousQuery/report.ts with a bounded whole-Bundle cache, and full'
+    ' application boot, do not exist in the server and remain open',
     'CO08/D4: application boot, auth, report.ts/doFamousQuery and the private 2,884-case'
     ' served corpus are not executed; the empty presentation is compared synthetically',
     'CO08/D4 reader defect (server owner): getPca(zid, undefined) misses a cold committed'
@@ -101,6 +103,38 @@ if closure_path.exists():
     except (AssertionError, KeyError, OSError, ValueError) as error:
         print(f'S1 partial record refused: {error}', file=sys.stderr)
 
+# S2 records the reader half of O1: a candidate coherent-read loadBundle that
+# closes the old-main/new-mapping torn read the existing separate-read server
+# reader allows, with missing/mismatched-companion admission and env scoping.
+# It does NOT close O1: the production server/src Bundle rewrite (threaded
+# through getPidsForGid/doFamousQuery/report.ts with a bounded whole-Bundle
+# cache) and full application boot are still open, so the best state this
+# script writes for O1 is PARTIAL and O1 stays in open_conditions.
+s2_closure_path = root/'coordinator-rs/evidence/s2-closure.json'
+if s2_closure_path.exists():
+    closure = json.loads(s2_closure_path.read_text())
+    try:
+        assert closure['id'] == 'O1' and closure['scope'] == 'P-026 step-4 S2 reader: candidate loadBundle whole-Bundle atomicity'
+        assert closure['state'] == 'PARTIAL' and closure['production_loadbundle_certified'] is False
+        assert closure['remaining_obligations'], 'a PARTIAL record must name what is still open'
+        required_pins = {
+            'coordinator-rs/tools/bundle_reader.cjs', 'coordinator-rs/tools/record_s2.py',
+            'delphi/tests/coordinator/test_bundle_reader.py', 'delphi/tests/coordinator/test_node_reader.py',
+            'delphi/tests/coordinator/_node_gate.py', 'delphi/tests/coordinator/audit_stages.py',
+        }
+        assert required_pins <= closure['sha256'].keys(), 'missing S2 source pins'
+        for name, expected in sorted(closure['sha256'].items()):
+            assert not name.startswith(IGNORED_PREFIXES), f'gitignored build output pinned as a source: {name}'
+            assert hashlib.sha256((root/name).read_bytes()).hexdigest() == expected, name
+        partial_conditions.append(dict(id='O1', state='PARTIAL',
+            standing_condition=open_conditions[0], evidence=str(s2_closure_path.relative_to(root)),
+            scope=closure['scope'], recorded=closure['recorded'],
+            remaining_obligations=closure['remaining_obligations'],
+            production_loadbundle_certified=False, run_pins_verified_here=False))
+        condition_states['O1'] = 'PARTIAL (S2 candidate loadBundle atomicity recorded; server rewrite and app boot open)'
+    except (AssertionError, KeyError, OSError, ValueError) as error:
+        print(f'S2 partial record refused: {error}', file=sys.stderr)
+
 metrics=json.loads(subprocess.check_output([str(root/'coordinator-rs/target/fault/debug/polis-coordinator'),'metrics'],text=True))
 assert metrics['namespace']=='Polis/Math' and metrics['dimensions']==['Environment','MathEnv']
 # Rev7 observability admission: no row may claim a P-031 alarm this crate does not implement.
@@ -115,8 +149,9 @@ result=dict(protocol='polis-fault-control/1',compiled_stages=len(compiled),requi
     condition_states=condition_states,closed_conditions=[],partial_conditions=partial_conditions,
     full_contract_gate='FAIL',
     profile='Rust coordinator + Python worker + CLI Bundle reader, the real Node '
-            'getPca/getBidIndexToPidMapping reader in-process, and the real pca2 route '
-            'over loopback HTTP; no loadBundle, no application boot')
+            'getPca/getBidIndexToPidMapping reader in-process, the real pca2 route '
+            'over loopback HTTP, and a candidate coherent-read loadBundle atomicity '
+            'witness in the D4 harness; no server/src loadBundle rewrite, no application boot')
 path=root/'coordinator-rs/evidence/stage-inventory.json'
 path.write_text(json.dumps(result,indent=2)+'\n')
 print(json.dumps({k:v for k,v in result.items() if k!='stages'}))

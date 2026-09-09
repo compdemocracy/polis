@@ -1,0 +1,53 @@
+{
+  "load_bundle": {
+    "admission": "ok",
+    "bidtopid_tick": 1,
+    "coherent": true,
+    "main_tick": 1,
+    "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
+    "math_env": "rustproto",
+    "math_tick": 1,
+    "operation_id": "8234b8c7-71c9-4ad5-9c17-6c4429de2559",
+    "pids_for_gid": {
+      "0": [
+        0,
+        2,
+        3,
+        5
+      ],
+      "1": [
+        1,
+        4
+      ]
+    },
+    "present": true,
+    "ptptstats_tick": 1,
+    "publisher_epoch": 2,
+    "ticks_tick": 1
+  },
+  "mismatched_companion_refused": {
+    "admission": "REFUSED",
+    "math_env": "rustproto",
+    "present": true,
+    "reason": "math_ptptstats at generation 10, main at 3"
+  },
+  "missing_companion_refused": {
+    "admission": "REFUSED",
+    "math_env": "rustproto",
+    "present": true,
+    "reason": "missing math_bidtopid"
+  },
+  "profile": "real Node runtime, bundle_reader.cjs, one publish interleaved between the reader's first and later reads, one test PostgreSQL",
+  "repaired_after_republish": {
+    "admission": "ok",
+    "coherent": true,
+    "math_tick": 3
+  },
+  "separate_read_path": {
+    "bidtopid_tick": 1,
+    "main_tick": 0,
+    "math_env": "rustproto",
+    "present": true,
+    "torn": true
+  }
+}
