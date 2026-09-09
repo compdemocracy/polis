@@ -346,17 +346,28 @@ def test_mixed_projection_and_interpolated_qualifier_needs_gate(tmp_path) -> Non
     assert inv.run_sweep(roots=[str(src)], repo_root=str(tmp_path)) == []
 
 
-# Path to the real replay-harness file that carries the reviewed exemption —
-# derived from the located implementation (checkout/delphi/scripts), not this test's
-# location, so it is correct wherever the test tree is copied.
+# Paths to the real replay-harness files — derived from the located implementation
+# (checkout/delphi/scripts), not this test's location, so they are correct wherever
+# the test tree is copied. The reviewed exemption now lives in the small isolated
+# ``equiv_query.py`` (P-042 projgate-isolation, Astra board [499]): it holds ONLY
+# ``EQUIV_TABLES`` + ``fetch_math_row`` so the whole-module pin is disturbed only by
+# an edit to the query/guard. ``poller_equiv.py`` imports them and no longer carries
+# any wildcard SELECT.
+_EQUIV = os.path.join(
+    os.path.dirname(os.path.abspath(inv.__file__)),
+    "..", "polismath", "replay", "equiv_query.py",
+) if inv else "/nonexistent/equiv_query.py"
 _POLLER = os.path.join(
     os.path.dirname(os.path.abspath(inv.__file__)),
     "..", "polismath", "replay", "poller_equiv.py",
 ) if inv else "/nonexistent/poller_equiv.py"
 
 
-def _sweep_poller_variant(tmp_path, text: str):
-    rel = "delphi/polismath/replay/poller_equiv.py"
+def _sweep_equiv_variant(tmp_path, text: str):
+    """Sweep a delphi tree whose ONLY file is a variant of the exemption-bearing
+    ``equiv_query.py``. The exemption is pinned to that module, so mutating it here
+    exercises the digest/guard/occurrence checks."""
+    rel = "delphi/polismath/replay/equiv_query.py"
     p = tmp_path / rel
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(text)
@@ -367,23 +378,23 @@ def test_exemption_bound_to_guard_evidence(tmp_path) -> None:
     """R8 d2: the exemption is bound to the query text, the guard, and the non-vote
     guard set — re-verified from source. A changed set, an added unguarded query,
     or a removed guard each fails the exemption."""
-    if not os.path.exists(_POLLER):
+    if not os.path.exists(_EQUIV):
         import pytest
-        pytest.skip("poller_equiv.py not found")
-    original = open(_POLLER).read()
+        pytest.skip("equiv_query.py not found")
+    original = open(_EQUIV).read()
     # Baseline: the real guarded, non-vote interpolation is cleared.
-    assert _sweep_poller_variant(tmp_path, original) == []
+    assert _sweep_equiv_variant(tmp_path, original) == []
 
     old_set = 'EQUIV_TABLES: tuple[str, ...] = ("math_main", "math_bidtopid", "math_ptptstats")'
     assert original.count(old_set) == 1
     # (a) guard set now admits `votes` -> exemption void -> NEEDS-GATE.
-    admits = _sweep_poller_variant(tmp_path, original.replace(old_set, old_set[:-1] + ', "votes")'))
+    admits = _sweep_equiv_variant(tmp_path, original.replace(old_set, old_set[:-1] + ', "votes")'))
     assert len(admits) == 1 and admits[0].classification == "NEEDS-GATE"
 
     # (b) a second, unguarded query in the same file -> NEEDS-GATE (not auto-cleared).
     added = original + ('\ndef added_query():\n    table = "votes"\n'
                         '    return f"SELECT * FROM {table} WHERE zid = :zid"\n')
-    hits_b = _sweep_poller_variant(tmp_path, added)
+    hits_b = _sweep_equiv_variant(tmp_path, added)
     assert any(h.classification == "NEEDS-GATE" for h in hits_b)
 
     # (c) the guard removed from the exempted function -> NEEDS-GATE.
@@ -392,7 +403,7 @@ def test_exemption_bound_to_guard_evidence(tmp_path) -> None:
              'expected one of {EQUIV_TABLES}")\n    result = conn.execute(')
     assert guard in original
     removed = original.replace(guard, "    result = conn.execute(", 1)
-    hits_c = _sweep_poller_variant(tmp_path, removed)
+    hits_c = _sweep_equiv_variant(tmp_path, removed)
     assert any(h.classification == "NEEDS-GATE" for h in hits_c)
 
 
@@ -400,10 +411,10 @@ def test_exemption_binds_occurrence_and_value(tmp_path) -> None:
     """R9: the exemption binds THIS occurrence and its guarded value — a second
     identical query, a table reassigned after the guard, or a non-literal guard-set
     member each voids it."""
-    if not os.path.exists(_POLLER):
+    if not os.path.exists(_EQUIV):
         import pytest
-        pytest.skip("poller_equiv.py not found")
-    original = open(_POLLER).read()
+        pytest.skip("equiv_query.py not found")
+    original = open(_EQUIV).read()
     exact = "SELECT * FROM {table} WHERE zid = :zid AND math_env = :math_env"
     old_set = 'EQUIV_TABLES: tuple[str, ...] = ("math_main", "math_bidtopid", "math_ptptstats")'
     anchor = '    result = conn.execute(\n        sa.text(f"' + exact + '")'
@@ -411,21 +422,21 @@ def test_exemption_binds_occurrence_and_value(tmp_path) -> None:
 
     # (a) a SECOND identical, unguarded occurrence of the exact query.
     dup = original + '\ndef added_query():\n    table = "votes"\n    return f"' + exact + '"\n'
-    hits_a = _sweep_poller_variant(tmp_path, dup)
+    hits_a = _sweep_equiv_variant(tmp_path, dup)
     assert hits_a and all(h.classification == "NEEDS-GATE" for h in hits_a)
 
     # (b) table reassigned between the guard and the query.
     rebound = original.replace(anchor, '    table = "votes"\n' + anchor)
-    hits_b = _sweep_poller_variant(tmp_path, rebound)
+    hits_b = _sweep_equiv_variant(tmp_path, rebound)
     assert hits_b and all(h.classification == "NEEDS-GATE" for h in hits_b)
 
     # (c) a non-literal (dynamic) member in the guard set.
     dynamic = original.replace(old_set, 'VOTE_TABLE = "votes"\n' + old_set[:-1] + ", VOTE_TABLE)")
-    hits_c = _sweep_poller_variant(tmp_path, dynamic)
+    hits_c = _sweep_equiv_variant(tmp_path, dynamic)
     assert hits_c and all(h.classification == "NEEDS-GATE" for h in hits_c)
 
     # The unmodified file is still cleared.
-    assert _sweep_poller_variant(tmp_path, original) == []
+    assert _sweep_equiv_variant(tmp_path, original) == []
 
 
 def test_exemption_digest_catches_flow_edits_survives_formatting(tmp_path) -> None:
@@ -435,10 +446,10 @@ def test_exemption_digest_catches_flow_edits_survives_formatting(tmp_path) -> No
     comment-only edit does NOT change the normalised digest -> still cleared."""
     import ast as _ast
 
-    if not os.path.exists(_POLLER):
+    if not os.path.exists(_EQUIV):
         import pytest
-        pytest.skip("poller_equiv.py not found")
-    original = open(_POLLER).read()
+        pytest.skip("equiv_query.py not found")
+    original = open(_EQUIV).read()
     exact = "SELECT * FROM {table} WHERE zid = :zid AND math_env = :math_env"
     guard = ('    if table not in EQUIV_TABLES:\n'
              '        raise ValueError(f"unknown equiv table {table!r}; '
@@ -458,7 +469,7 @@ def test_exemption_digest_catches_flow_edits_survives_formatting(tmp_path) -> No
     destructured = original.replace(anchor, '    table, = ("votes",)\n' + anchor)
 
     def is_stale(text: str) -> bool:
-        hits = _sweep_poller_variant(tmp_path, text)
+        hits = _sweep_equiv_variant(tmp_path, text)
         return bool(hits) and all(
             h.classification == "NEEDS-GATE" and h.note == inv.STALE_EXEMPTION_NOTE for h in hits
         )
@@ -469,27 +480,27 @@ def test_exemption_digest_catches_flow_edits_survives_formatting(tmp_path) -> No
 
     # Whitespace-only and comment-only edits normalise away -> still cleared.
     whitespace = original.replace(anchor, "\n" + anchor)
-    assert _sweep_poller_variant(tmp_path, whitespace) == []
+    assert _sweep_equiv_variant(tmp_path, whitespace) == []
     commented = original.replace(
         "    if table not in EQUIV_TABLES:",
         "    # reviewer note added\n    if table not in EQUIV_TABLES:",
     )
-    assert _sweep_poller_variant(tmp_path, commented) == []
+    assert _sweep_equiv_variant(tmp_path, commented) == []
 
 
 def test_exemption_module_digest_binds_the_guard_set(tmp_path) -> None:
     """R11: the exemption also pins a digest of the WHOLE module, so a module-level
     change to the guard set — outside the function, leaving the function digest
     unchanged — is NEEDS-GATE. A module-level whitespace/comment edit still clears."""
-    if not os.path.exists(_POLLER):
+    if not os.path.exists(_EQUIV):
         import pytest
-        pytest.skip("poller_equiv.py not found")
-    original = open(_POLLER).read()
+        pytest.skip("equiv_query.py not found")
+    original = open(_EQUIV).read()
     old_set = 'EQUIV_TABLES: tuple[str, ...] = ("math_main", "math_bidtopid", "math_ptptstats")'
     assert original.count(old_set) == 1
 
     def is_stale(text: str) -> bool:
-        hits = _sweep_poller_variant(tmp_path, text)
+        hits = _sweep_equiv_variant(tmp_path, text)
         return bool(hits) and all(
             h.classification == "NEEDS-GATE" and h.note == inv.STALE_EXEMPTION_NOTE for h in hits
         )
@@ -499,10 +510,57 @@ def test_exemption_module_digest_binds_the_guard_set(tmp_path) -> None:
     # (b) rebinding the guard set after its definition.
     assert is_stale(original.replace(old_set, old_set + '\nEQUIV_TABLES = ("votes",)'))
     # (c) module-level comment-only and whitespace-only edits still clear.
-    assert _sweep_poller_variant(
+    assert _sweep_equiv_variant(
         tmp_path, original.replace(old_set, "# reviewer module note\n" + old_set)
     ) == []
-    assert _sweep_poller_variant(tmp_path, original.replace(old_set, old_set + "\n")) == []
+    assert _sweep_equiv_variant(tmp_path, original.replace(old_set, old_set + "\n")) == []
+
+
+def test_exemption_isolated_to_equiv_query_module(tmp_path) -> None:
+    """P-042 projgate-isolation (Astra board [499]): the exemption's query + guard
+    set were moved verbatim out of the large ``poller_equiv.py`` into the small
+    dedicated ``equiv_query.py``, whose WHOLE-module digest is the pin. The isolation
+    boundary is proven both ways:
+
+      * an edit to ``poller_equiv.py`` OUTSIDE the pinned module does NOT stale the
+        exemption (this is exactly the innocent edit — e307602fa's vote-convention
+        constant — that reddened edge before the isolation);
+      * an edit INSIDE ``equiv_query.py`` DOES stale it (whole-module pin retained).
+    """
+    if not (os.path.exists(_EQUIV) and os.path.exists(_POLLER)):
+        pytest.skip("equiv_query.py / poller_equiv.py not found")
+    equiv_src = open(_EQUIV).read()
+    poller_src = open(_POLLER).read()
+
+    def sweep(equiv_text: str, poller_text: str):
+        base = tmp_path / "delphi" / "polismath" / "replay"
+        base.mkdir(parents=True, exist_ok=True)
+        (base / "equiv_query.py").write_text(equiv_text)
+        (base / "poller_equiv.py").write_text(poller_text)
+        return inv.run_sweep(roots=[str(tmp_path / "delphi")], repo_root=str(tmp_path))
+
+    # Baseline: both real files present -> the isolated exemption clears -> 0 sites.
+    # (poller_equiv.py carries no wildcard SELECT any more; the ONE guarded wildcard
+    # lives in equiv_query.py and is cleared by the reviewed pin.)
+    assert sweep(equiv_src, poller_src) == []
+
+    # (a) an unrelated edit to poller_equiv.py (a new import + a new function, OUTSIDE
+    # the pinned module) leaves the equiv_query.py pin untouched -> still 0 sites.
+    edited_poller = poller_src + (
+        "\n\nimport os as _os_isolation_probe  # unrelated edit outside the pinned module\n"
+        "def _isolation_probe() -> int:\n    return 42\n"
+    )
+    assert edited_poller != poller_src
+    assert sweep(equiv_src, edited_poller) == []
+
+    # (b) a module-level edit INSIDE equiv_query.py changes the whole-module digest
+    # -> exemption stale -> NEEDS-GATE 're-review'. The query/guard are untouched, so
+    # this is purely the whole-module pin doing its job.
+    edited_equiv = equiv_src + "\n_ISOLATION_PROBE_CONSTANT = 1\n"
+    hits = sweep(edited_equiv, poller_src)
+    assert hits and all(
+        h.classification == "NEEDS-GATE" and h.note == inv.STALE_EXEMPTION_NOTE for h in hits
+    ), hits
 
 
 def test_voters_is_not_matched_as_votes(tmp_path) -> None:
