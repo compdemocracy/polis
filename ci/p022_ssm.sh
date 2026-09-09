@@ -46,8 +46,20 @@ note "ssm[$LABEL] command=$command_id instance=$INSTANCE_ID"
 deadline=$(( $(date +%s) + TIMEOUT + 300 ))
 inv=''
 status=''
+# Poll fast first, then settle at 15s. A flat 15s pre-sleep is invisible next to
+# a multi-hour battery, but the recordings stream is hundreds of `cut` commands
+# that each finish in milliseconds — paying 15s of sleep per chunk turned a
+# ~3 MB transfer into hours. The ceiling is unchanged, so the long phases poll
+# exactly as before.
+interval=2
 while :; do
-  sleep 15
+  sleep "$interval"
+  if [ "$interval" -lt 15 ]; then
+    interval=$(( interval * 2 ))
+  fi
+  if [ "$interval" -gt 15 ]; then
+    interval=15
+  fi
   if [ "$(date +%s)" -gt "$deadline" ]; then
     # No CancelCommand: the role no longer holds it (it cannot be scoped to a
     # single command), and the instance's own hard deadline plus the expiry
@@ -77,7 +89,12 @@ case "$MODE" in
   *)
     dropped=0
     while IFS= read -r line; do
-      if printf '%s' "$line" | grep -Eq '^p022 [a-z-]{1,24} [a-z_]{1,24}=[A-Za-z0-9._:/=+-]{1,96}$'; then
+      # The key class must admit digits: the bundle phase's own key is `sha256`
+      # (p022_ec2_run.sh `_bundle_stream`), and a `[a-z_]`-only class dropped
+      # that line — so the collector never saw a digest, declared the bundle
+      # incomplete and failed every collection. Still an allowlist: lowercase,
+      # digits and underscore, nothing else.
+      if printf '%s' "$line" | grep -Eq '^p022 [a-z-]{1,24} [a-z0-9_]{1,24}=[A-Za-z0-9._:/=+-]{1,96}$'; then
         printf '%s\n' "$line"
       else
         dropped=$((dropped + 1))

@@ -17,7 +17,22 @@
 # with values restricted to a fixed character class. Nothing else reaches SSM
 # stdout — no log tails, no greps of candidate output, no exception text. Full
 # logs stay in /var/log/polis-ci and die with the box. What comes back is a
-# fixed-schema summary.json plus one JUnit report per pytest invocation.
+# fixed-schema summary.json plus one JUnit report per pytest invocation, and —
+# separately — the battery's recordings.
+#
+# ## Two return streams
+#
+# `bundle`/`chunk` carry the EVIDENCE tree ($ART_DIR: summary.json, JUnit,
+# battery-selection.json), capped at 64 chunks because that tree must stay tiny.
+#
+# `recordings`/`rec-bundle`/`rec-chunk` carry the battery's Clojure/Python
+# RECORDINGS ($LOG_DIR/certify-run, the canonical replay-store layout). Round 5
+# ran the battery and then destroyed the only copy of its recordings, so a
+# dispatch returned a verdict and nothing to measure. Recordings of PUBLIC
+# fixtures carry no private data — the instance role cannot read any — so this
+# is a scope change, not a data-boundary change: the packer is still restricted
+# to the entries battery-selection.json admitted, still ships an allowlist of
+# file names, and still fails rather than shipping a partial bundle.
 #
 # ## Round 3 (review #2715 R2-F2/F3)
 #
@@ -41,6 +56,13 @@ ART_DIR="${ART_DIR:-$LOG_DIR/artifacts}"
 STATE_DIR="${STATE_DIR:-$LOG_DIR/state}"
 JUNIT_DIR="${JUNIT_DIR:-$LOG_DIR/junit}"
 BUNDLE="$LOG_DIR/polis-ci-artifacts.tar.gz"
+# The battery's recording store, and the packed copy of it that leaves the box.
+# `certify.py run --root` writes the canonical replay layout here
+# (polismath/replay/store.py:1-23); until this stream existed it died with the
+# instance, so a dispatch returned a verdict and no recordings.
+REC_SRC="${REC_SRC:-$LOG_DIR/certify-run}"
+REC_DIR="${REC_DIR:-$LOG_DIR/recordings}"
+REC_BUNDLE="$LOG_DIR/polis-ci-recordings.tar"
 # How many pytest invocations each phase must produce. C's race target loops
 # twenty times; the collector fails if it does not see exactly that many.
 EXPECTED_MAIN_REPORTS="${P022_EXPECTED_MAIN_REPORTS:-1}"
@@ -48,6 +70,19 @@ EXPECTED_RACE_REPORTS="${P022_EXPECTED_RACE_REPORTS:-20}"
 # SSM truncates GetCommandInvocation output at 24000 characters.
 CHUNK_CHARS=18000
 MAX_CHUNKS=64
+# The recordings stream is bigger than the evidence bundle and gets its own
+# budget rather than raising the evidence bundle's — a summary.json that grew to
+# megabytes would be a bug, and must keep failing at 64 chunks.
+#
+# Sizing (public battery, six entries): the step blob is the same shape as the
+# checked-in math blobs — 507 KB for vw, 1.36 MB for biodiversity, both ~17-21x
+# gzippable because they are dominated by integer arrays. Steps per engine:
+# uniform8 8, front-loaded6 6, single-cut 1, uniform8-restart4 8, every-vote-56
+# 56 (its cuts are the first 56 vote EVENTS, so those blobs are tiny) and
+# biodiversity/uniform8 8 — about 1.5-3 MB gzipped for both engines together.
+# 512 chunks is 9.2M base64 characters ~= 6.9 MB, i.e. 2-4x headroom; a run that
+# exceeds it fails as `too-large` rather than shipping a partial tarball.
+REC_MAX_CHUNKS="${P022_RECORDINGS_MAX_CHUNKS:-512}"
 
 mkdir -p "$LOG_DIR" "$ART_DIR" "$STATE_DIR"
 
@@ -544,43 +579,140 @@ PY
   status summary verdict "$verdict"
 }
 
-phase_bundle() {
-  tar -czf "$BUNDLE" -C "$ART_DIR" . || { status bundle result tar-failed; return 1; }
-  base64 -w0 "$BUNDLE" >"$LOG_DIR/artifacts.b64"
-  local chars chunks digest
-  chars=$(wc -c <"$LOG_DIR/artifacts.b64")
-  chunks=$(( (chars + CHUNK_CHARS - 1) / CHUNK_CHARS ))
-  digest=$(sha256sum "$BUNDLE" | cut -d' ' -f1)
-  # Evidence that does not fit is missing evidence: fail rather than ship a
-  # partial tarball.
-  if [ "$chunks" -gt "$MAX_CHUNKS" ]; then
-    status bundle result too-large
-    status bundle chars "$chars"
+# Pack the battery's Clojure/Python recordings into per-entry gzipped tarballs
+# plus an inventory manifest, so the one output of the run that cannot be
+# recomputed without paying for another instance leaves with it.
+#
+# Scope is the PUBLIC battery inventory and nothing else: the packer is handed
+# battery-selection.json and refuses to ship an entry that inventory did not
+# admit, and it copies that file's inventory_digest into the manifest so a
+# downloader can bind the recordings to the battery summary.json declares.
+phase_recordings() {
+  if [ ! -d "$REC_SRC" ]; then
+    # Never inferred: with the battery run, an absent recording root is a
+    # failure; the caller only invokes this phase when the battery ran.
+    status recordings result no-recording-root
     return 1
   fi
-  status bundle chunks "$chunks"
-  status bundle chars "$chars"
-  status bundle sha256 "$digest"
+  rm -rf "$REC_DIR"
+  mkdir -p "$REC_DIR"
+
+  # Fail closed on an incomplete inventory only when the battery actually
+  # passed. A recovery-only or failed-battery run has nothing to be complete
+  # about, and must not be failed for shipping less than six entries.
+  local battery_rc='' rc=0
+  if [ -f "$STATE_DIR/battery_rc" ]; then
+    battery_rc=$(cat "$STATE_DIR/battery_rc")
+  fi
+  local require=()
+  if [ "$battery_rc" = "0" ]; then
+    require=(--require-complete)
+  fi
+
+  python3 "$REPO_ROOT/ci/p022_recordings_manifest.py" \
+    --replays-root "$REC_SRC" \
+    --out "$REC_DIR" \
+    --battery "$REPO_ROOT/delphi/scripts/certify_battery.json" \
+    --selection "$STATE_DIR/battery-selection.json" \
+    ${require[@]+"${require[@]}"} \
+    >>"$LOG_DIR/recordings.log" 2>&1 || rc=$?
+
+  local manifest="$REC_DIR/recordings-manifest.json"
+  if [ ! -f "$manifest" ]; then
+    status recordings result no-manifest
+    return 1
+  fi
+  local entries missing steps bytes digest
+  entries=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["totals"]["entries"])' "$manifest")
+  missing=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["totals"]["missing"])' "$manifest")
+  steps=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["totals"]["step_files"])' "$manifest")
+  bytes=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["totals"]["archive_bytes"])' "$manifest")
+  digest=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["manifest_digest"])' "$manifest")
+  status recordings entries "$entries"
+  status recordings missing "$missing"
+  status recordings steps "$steps"
+  status recordings bytes "$bytes"
+  status recordings digest "$digest"
+  echo "$rc" >"$STATE_DIR/recordings_rc"
+  if [ "$rc" -ne 0 ]; then
+    status recordings result fail
+    return "$rc"
+  fi
+  status recordings result pass
 }
 
-phase_chunk() {
-  local n="$1"
-  case "$n" in ''|*[!0-9]*) status chunk result bad-index; return 2 ;; esac
-  if [ "$n" -lt 1 ] || [ "$n" -gt "$MAX_CHUNKS" ]; then
-    status chunk result bad-index
+# One bundling implementation, two streams. `phase` is the status-line label;
+# `compress` is `gzip` for the evidence tree and `store` for the recordings
+# (whose members are already gzipped per entry, so a second pass buys nothing).
+_bundle_stream() {
+  local phase="$1" src="$2" bundle="$3" b64="$4" max="$5" compress="$6"
+  if [ "$compress" = "gzip" ]; then
+    tar -czf "$bundle" -C "$src" . || { status "$phase" result tar-failed; return 1; }
+  else
+    tar -cf "$bundle" -C "$src" . || { status "$phase" result tar-failed; return 1; }
+  fi
+  base64 -w0 "$bundle" >"$b64"
+  local chars chunks digest
+  # `tr -d ' '`: some wc implementations pad the count, and a padded value is
+  # outside status()'s character class, so the declared length would come back
+  # as `<redacted>` and the collector would reject its own bundle.
+  chars=$(wc -c <"$b64" | tr -d ' ')
+  chunks=$(( (chars + CHUNK_CHARS - 1) / CHUNK_CHARS ))
+  digest=$(sha256sum "$bundle" | cut -d' ' -f1)
+  # Evidence that does not fit is missing evidence: fail rather than ship a
+  # partial tarball.
+  if [ "$chunks" -gt "$max" ]; then
+    status "$phase" result too-large
+    status "$phase" chars "$chars"
+    return 1
+  fi
+  status "$phase" chunks "$chunks"
+  status "$phase" chars "$chars"
+  status "$phase" sha256 "$digest"
+}
+
+_chunk_stream() {
+  local phase="$1" b64="$2" max="$3" n="$4"
+  case "$n" in ''|*[!0-9]*) status "$phase" result bad-index; return 2 ;; esac
+  if [ "$n" -lt 1 ] || [ "$n" -gt "$max" ]; then
+    status "$phase" result bad-index
+    return 2
+  fi
+  if [ ! -f "$b64" ]; then
+    status "$phase" result no-bundle
     return 2
   fi
   # base64 is ASCII, so character offsets are byte offsets. This is the one
   # place that prints something other than a status line, by design.
-  cut -c "$(( (n - 1) * CHUNK_CHARS + 1 ))-$(( n * CHUNK_CHARS ))" \
-    "$LOG_DIR/artifacts.b64"
+  cut -c "$(( (n - 1) * CHUNK_CHARS + 1 ))-$(( n * CHUNK_CHARS ))" "$b64"
+}
+
+phase_bundle() {
+  _bundle_stream bundle "$ART_DIR" "$BUNDLE" "$LOG_DIR/artifacts.b64" "$MAX_CHUNKS" gzip
+}
+
+phase_chunk() {
+  _chunk_stream chunk "$LOG_DIR/artifacts.b64" "$MAX_CHUNKS" "$1"
+}
+
+phase_rec_bundle() {
+  _bundle_stream rec-bundle "$REC_DIR" "$REC_BUNDLE" "$LOG_DIR/recordings.b64" \
+    "$REC_MAX_CHUNKS" store
+}
+
+phase_rec_chunk() {
+  _chunk_stream rec-chunk "$LOG_DIR/recordings.b64" "$REC_MAX_CHUNKS" "$1"
 }
 
 case "${1:-}" in
-  recovery) phase_recovery ;;
-  battery)  phase_battery ;;
-  summary)  phase_summary ;;
-  bundle)   phase_bundle ;;
-  chunk)    phase_chunk "${2:?chunk index required}" ;;
-  *) echo "usage: $0 {recovery|battery|summary|bundle|chunk N}" >&2; exit 2 ;;
+  recovery)     phase_recovery ;;
+  battery)      phase_battery ;;
+  summary)      phase_summary ;;
+  bundle)       phase_bundle ;;
+  chunk)        phase_chunk "${2:?chunk index required}" ;;
+  recordings)   phase_recordings ;;
+  rec-bundle)   phase_rec_bundle ;;
+  rec-chunk)    phase_rec_chunk "${2:?chunk index required}" ;;
+  *) echo "usage: $0 {recovery|battery|summary|bundle|chunk N|recordings|rec-bundle|rec-chunk N}" >&2
+     exit 2 ;;
 esac

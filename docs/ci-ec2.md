@@ -32,6 +32,9 @@ code as root and could never have contained data it was given.
 | The phases that run on the worker | `ci/p022_ec2_run.sh` |
 | Teardown: terminate and prove it | `ci/p022_teardown.py` |
 | Fixed-schema summary validator, and the one definition of `SCHEMA` | `ci/p022_check_summary.py` |
+| Packing the battery's recordings + their inventory manifest | `ci/p022_recordings_manifest.py` |
+| Pulling that bundle off the worker, verified | `ci/p022_collect_recordings.sh` |
+| Which battery entries have a Clojure↔Python pair on disk | `delphi/scripts/battery_coverage.py` |
 
 ## Enabling it
 
@@ -247,8 +250,10 @@ independent control boundary in `P-022-E-ci-spec.md`, which is not built.
 
 ### What comes back, and what does not
 
-Artifacts (`synthetic-ec2-<run>-<attempt>`) contain a fixed-schema
-`summary.json`, pytest's JUnit XML and the battery's dataset selection. They do
+A run with the battery enabled uploads **two** artifacts.
+
+`synthetic-ec2-<run>-<attempt>` (7 days) is the evidence bundle: a fixed-schema
+`summary.json`, pytest's JUnit XML and the battery's dataset selection. It does
 **not** contain any log. The worker prints only lines matching
 
 ```
@@ -259,6 +264,47 @@ and `ci/p022_ssm.sh` drops anything that does not match rather than escaping it;
 worker stderr is never printed at all. The bundle is returned base64 in bounded
 chunks with a declared length and sha256, and a short or corrupt bundle fails
 the step rather than being quietly truncated.
+
+### Fetching the recordings and putting them where certify looks
+
+`certification-recordings-<run>-<attempt>` (90 days) is the second artifact: the
+battery's Clojure↔Python **recordings**, the one output of the run that cannot
+be recomputed without paying for another instance. Until this existed the
+battery wrote them under `/var/log/polis-ci/certify-run` and the box was then
+terminated with them still on it, so a dispatch came back with a verdict and
+nothing to measure. It holds one gzipped tar per battery entry under `entries/`
+plus a `recordings-manifest.json` naming, for every entry, its dataset, schedule
+id, per-engine step count, the sha256 of every step file, total bytes, and the
+battery `inventory_digest` that binds it to the run's own `summary.json`. Only
+entries the public inventory admitted are packed, and only an allowlist of file
+names inside each recording directory (`schedule.json`, `provenance.json`,
+`{clj,py}/step-*`, `{clj,py}/cache_manifest.json`); a `provenance.json` records
+the worker's own repository path, which is the only path information that
+leaves. Expect roughly 1.5–3 MB compressed for the six public entries. To fetch
+one and drop it into the canonical store (`polismath/replay/store.py`), from the
+repository root:
+
+```bash
+RUN=<run-id>; ATTEMPT=1
+gh run download "$RUN" --name "certification-recordings-$RUN-$ATTEMPT" --dir /tmp/certify-recordings
+
+# Re-hash every archive against the manifest before trusting a byte of it.
+python3 ci/p022_recordings_manifest.py --verify /tmp/certify-recordings
+
+# Each archive's members are already <dataset>/<schedule_id>/..., so this
+# reproduces real_data/.local/replays/<dataset>/<schedule_id>/{clj,py}/ exactly.
+mkdir -p delphi/real_data/.local/replays
+for a in /tmp/certify-recordings/entries/*.tar.gz; do
+  tar -xzf "$a" -C delphi/real_data/.local/replays
+done
+
+# Which battery entries now have a usable clj+py pair, and which still do not.
+python3 delphi/scripts/battery_coverage.py
+```
+
+`--verify` fails on a missing or altered archive, and prints the manifest's own
+list of entries that have **no** recording — so an incomplete download and an
+incomplete run are told apart, and neither is inferred from silence.
 
 `ci/p022_check_summary.py` is then given the run's **declared scope** and
 rejects, on top of extra keys, wrong types, control characters and non-public
