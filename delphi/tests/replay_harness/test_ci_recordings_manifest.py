@@ -13,13 +13,17 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 import tarfile
 from pathlib import Path
 
 import pytest
 
-_REPO = Path(__file__).resolve().parents[3]
+# CI copies tests to /app/tests and the checkout inputs to /app/projgate.
+# Use the same explicit root as the projection-gate tests; a missing input
+# remains a collection failure so this acceptance suite cannot silently skip.
+_REPO = Path(os.environ.get("POLIS_CHECKOUT_DIR", Path(__file__).resolve().parents[3]))
 _MODULE_PATH = _REPO / "ci" / "p022_recordings_manifest.py"
 
 
