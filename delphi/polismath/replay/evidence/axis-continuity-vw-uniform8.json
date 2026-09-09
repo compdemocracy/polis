@@ -1,0 +1,494 @@
+{
+  "schema": "polis-axis-continuity/1",
+  "grading": "DIAGNOSTICS ONLY \u2014 certify never consumes these statuses; the PCA parity gate is untouched (stages.py:11-17).",
+  "eigengap_note": "Eigenvalues are ESTIMATED from the recorded projections (sparsity-scaled Rayleigh quotient), not read from the engine; gaps are relative to the leading component. See the module docstring.",
+  "recording": "real_data/.local/replays/vw/uniform8",
+  "step_dir": "real_data/.local/replays/vw/uniform8/py",
+  "dataset": "vw",
+  "schedule_id": "uniform8",
+  "restart_after": null,
+  "engine_commit": "78e80c2154a132792a4114528937fb1d3c8b0037",
+  "thresholds": {
+    "cos_threshold": 0.0,
+    "eigengap_floor": 0.02,
+    "match_floor": 0.5,
+    "subspace_warn_deg": 15.0,
+    "near_zero_norm": 1e-12
+  },
+  "n_checkpoints": 8,
+  "checkpoints": [
+    {
+      "index": 0,
+      "n_tids": 72,
+      "n_comps": 2,
+      "energies": [
+        94.3784598443662,
+        53.85849729190559
+      ],
+      "eigengaps": [
+        0.42933485690781165,
+        0.42933485690781165
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.42933485690781165,
+      "error": null
+    },
+    {
+      "index": 1,
+      "n_tids": 92,
+      "n_comps": 2,
+      "energies": [
+        139.92346333360828,
+        108.74944057901249
+      ],
+      "eigengaps": [
+        0.2227933901283595,
+        0.2227933901283595
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.2227933901283595,
+      "error": null
+    },
+    {
+      "index": 2,
+      "n_tids": 99,
+      "n_comps": 2,
+      "energies": [
+        172.90182045605525,
+        110.76186913055776
+      ],
+      "eigengaps": [
+        0.35939443067512983,
+        0.35939443067512983
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.35939443067512983,
+      "error": null
+    },
+    {
+      "index": 3,
+      "n_tids": 102,
+      "n_comps": 2,
+      "energies": [
+        292.2130686910265,
+        145.6437545689024
+      ],
+      "eigengaps": [
+        0.5015837066380496,
+        0.49841629336195037
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.49841629336195037,
+      "error": null
+    },
+    {
+      "index": 4,
+      "n_tids": 105,
+      "n_comps": 2,
+      "energies": [
+        429.55263717655254,
+        187.14710066869384
+      ],
+      "eigengaps": [
+        0.5643209132673219,
+        0.4356790867326781
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.4356790867326781,
+      "error": null
+    },
+    {
+      "index": 5,
+      "n_tids": 116,
+      "n_comps": 2,
+      "energies": [
+        499.88217151921253,
+        205.94614778108692
+      ],
+      "eigengaps": [
+        0.5880106162714556,
+        0.41198938372854443
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.41198938372854443,
+      "error": null
+    },
+    {
+      "index": 6,
+      "n_tids": 124,
+      "n_comps": 2,
+      "energies": [
+        489.543293405137,
+        218.4082043288337
+      ],
+      "eigengaps": [
+        0.5538531376670641,
+        0.44614686233293593
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.44614686233293593,
+      "error": null
+    },
+    {
+      "index": 7,
+      "n_tids": 125,
+      "n_comps": 2,
+      "energies": [
+        553.1920419562007,
+        241.94261720100198
+      ],
+      "eigengaps": [
+        0.5626426288681897,
+        0.4373573711318102
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.4373573711318102,
+      "error": null
+    }
+  ],
+  "pairs": [
+    {
+      "from_index": 0,
+      "to_index": 1,
+      "restart_seam": false,
+      "n_shared_tids": 72,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 0.788729128687065,
+          "abs_cosine": 0.788729128687065,
+          "best_match": 0,
+          "best_match_abs_cosine": 0.788729128687065,
+          "cross_cosines": [
+            0.788729128687065,
+            0.00936896440479474
+          ],
+          "eigengap": 0.2227933901283595,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 0.773406101731729,
+          "abs_cosine": 0.773406101731729,
+          "best_match": 1,
+          "best_match_abs_cosine": 0.773406101731729,
+          "cross_cosines": [
+            0.01832964768523527,
+            0.773406101731729
+          ],
+          "eigengap": 0.2227933901283595,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        37.39562479271372,
+        39.85842479203911
+      ],
+      "max_principal_angle_deg": 39.85842479203911,
+      "subspace_rotation": true,
+      "status": "ALIGNED",
+      "notes": [
+        "subspace rotated: max principal angle 39.858\u00b0 > 15.0\u00b0"
+      ]
+    },
+    {
+      "from_index": 1,
+      "to_index": 2,
+      "restart_seam": false,
+      "n_shared_tids": 92,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 0.9118003513655414,
+          "abs_cosine": 0.9118003513655414,
+          "best_match": 0,
+          "best_match_abs_cosine": 0.9118003513655414,
+          "cross_cosines": [
+            0.9118003513655414,
+            -0.06719659163632986
+          ],
+          "eigengap": 0.2227933901283595,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 0.9330307412766962,
+          "abs_cosine": 0.9330307412766962,
+          "best_match": 1,
+          "best_match_abs_cosine": 0.9330307412766962,
+          "cross_cosines": [
+            0.04767602897367563,
+            0.9330307412766962
+          ],
+          "eigengap": 0.2227933901283595,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        20.03373288460762,
+        24.640171586847018
+      ],
+      "max_principal_angle_deg": 24.640171586847018,
+      "subspace_rotation": true,
+      "status": "ALIGNED",
+      "notes": [
+        "subspace rotated: max principal angle 24.640\u00b0 > 15.0\u00b0"
+      ]
+    },
+    {
+      "from_index": 2,
+      "to_index": 3,
+      "restart_seam": false,
+      "n_shared_tids": 99,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 0.9375007536544977,
+          "abs_cosine": 0.9375007536544977,
+          "best_match": 0,
+          "best_match_abs_cosine": 0.9375007536544977,
+          "cross_cosines": [
+            0.9375007536544977,
+            -0.1720327009829156
+          ],
+          "eigengap": 0.35939443067512983,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 0.9334776068449124,
+          "abs_cosine": 0.9334776068449124,
+          "best_match": 1,
+          "best_match_abs_cosine": 0.9334776068449124,
+          "cross_cosines": [
+            0.13767033571343804,
+            0.9334776068449124
+          ],
+          "eigengap": 0.35939443067512983,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        14.652462244531057,
+        21.714113423664852
+      ],
+      "max_principal_angle_deg": 21.714113423664852,
+      "subspace_rotation": true,
+      "status": "ALIGNED",
+      "notes": [
+        "subspace rotated: max principal angle 21.714\u00b0 > 15.0\u00b0"
+      ]
+    },
+    {
+      "from_index": 3,
+      "to_index": 4,
+      "restart_seam": false,
+      "n_shared_tids": 102,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 0.7816843602296039,
+          "abs_cosine": 0.7816843602296039,
+          "best_match": 0,
+          "best_match_abs_cosine": 0.7816843602296039,
+          "cross_cosines": [
+            0.7816843602296039,
+            -0.5606779136949281
+          ],
+          "eigengap": 0.5015837066380496,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 0.34717559236003226,
+          "abs_cosine": 0.34717559236003226,
+          "best_match": 1,
+          "best_match_abs_cosine": 0.34717559236003226,
+          "cross_cosines": [
+            0.1392564357325906,
+            0.34717559236003226
+          ],
+          "eigengap": 0.4356790867326781,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        15.133665633718051,
+        68.77591968799855
+      ],
+      "max_principal_angle_deg": 68.77591968799855,
+      "subspace_rotation": true,
+      "status": "ALIGNED",
+      "notes": [
+        "subspace rotated: max principal angle 68.776\u00b0 > 15.0\u00b0"
+      ]
+    },
+    {
+      "from_index": 4,
+      "to_index": 5,
+      "restart_seam": false,
+      "n_shared_tids": 105,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 0.9958918579291297,
+          "abs_cosine": 0.9958918579291297,
+          "best_match": 0,
+          "best_match_abs_cosine": 0.9958918579291297,
+          "cross_cosines": [
+            0.9958918579291297,
+            0.01571811834405662
+          ],
+          "eigengap": 0.5643209132673219,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 0.9785077877125011,
+          "abs_cosine": 0.9785077877125011,
+          "best_match": 1,
+          "best_match_abs_cosine": 0.9785077877125011,
+          "cross_cosines": [
+            -0.014132901484325236,
+            0.9785077877125011
+          ],
+          "eigengap": 0.41198938372854443,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        5.117272713480761,
+        11.871681359158837
+      ],
+      "max_principal_angle_deg": 11.871681359158837,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    },
+    {
+      "from_index": 5,
+      "to_index": 6,
+      "restart_seam": false,
+      "n_shared_tids": 116,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 0.9797615989057339,
+          "abs_cosine": 0.9797615989057339,
+          "best_match": 0,
+          "best_match_abs_cosine": 0.9797615989057339,
+          "cross_cosines": [
+            0.9797615989057339,
+            -0.054922390593529956
+          ],
+          "eigengap": 0.5538531376670641,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 0.9753574559975798,
+          "abs_cosine": 0.9753574559975798,
+          "best_match": 1,
+          "best_match_abs_cosine": 0.9753574559975798,
+          "cross_cosines": [
+            0.02430547761079139,
+            0.9753574559975798
+          ],
+          "eigengap": 0.41198938372854443,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        8.648609964125956,
+        14.53057512709357
+      ],
+      "max_principal_angle_deg": 14.53057512709357,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    },
+    {
+      "from_index": 6,
+      "to_index": 7,
+      "restart_seam": false,
+      "n_shared_tids": 124,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 0.9668210004400858,
+          "abs_cosine": 0.9668210004400858,
+          "best_match": 0,
+          "best_match_abs_cosine": 0.9668210004400858,
+          "cross_cosines": [
+            0.9668210004400858,
+            -0.16983121434990867
+          ],
+          "eigengap": 0.5538531376670641,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 0.7583556135181186,
+          "abs_cosine": 0.7583556135181186,
+          "best_match": 1,
+          "best_match_abs_cosine": 0.7583556135181186,
+          "cross_cosines": [
+            0.03687705945310401,
+            0.7583556135181186
+          ],
+          "eigengap": 0.4373573711318102,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        7.080004299147196,
+        41.828987980451934
+      ],
+      "max_principal_angle_deg": 41.828987980451934,
+      "subspace_rotation": true,
+      "status": "ALIGNED",
+      "notes": [
+        "subspace rotated: max principal angle 41.829\u00b0 > 15.0\u00b0"
+      ]
+    }
+  ],
+  "summary": {
+    "n_pairs": 7,
+    "n_flips": 0,
+    "n_reordered": 0,
+    "n_excused_degenerate": 0,
+    "n_undefined": 0,
+    "n_flips_without_eigengap": 0,
+    "n_subspace_rotations": 5,
+    "findings": [],
+    "continuous": true
+  }
+}

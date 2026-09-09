@@ -1,0 +1,2905 @@
+{
+  "schema": "polis-axis-continuity/1",
+  "grading": "DIAGNOSTICS ONLY \u2014 certify never consumes these statuses; the PCA parity gate is untouched (stages.py:11-17).",
+  "eigengap_note": "Eigenvalues are ESTIMATED from the recorded projections (sparsity-scaled Rayleigh quotient), not read from the engine; gaps are relative to the leading component. See the module docstring.",
+  "recording": "real_data/.local/replays/vw/every-vote-56",
+  "step_dir": "real_data/.local/replays/vw/every-vote-56/py",
+  "dataset": "vw",
+  "schedule_id": "every-vote-56",
+  "restart_after": null,
+  "engine_commit": "78e80c2154a132792a4114528937fb1d3c8b0037",
+  "thresholds": {
+    "cos_threshold": 0.0,
+    "eigengap_floor": 0.02,
+    "match_floor": 0.5,
+    "subspace_warn_deg": 15.0,
+    "near_zero_norm": 1e-12
+  },
+  "n_checkpoints": 56,
+  "checkpoints": [
+    {
+      "index": 0,
+      "n_tids": 1,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 1,
+      "n_tids": 2,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 2,
+      "n_tids": 3,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 3,
+      "n_tids": 4,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 4,
+      "n_tids": 5,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 5,
+      "n_tids": 6,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 6,
+      "n_tids": 7,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 7,
+      "n_tids": 8,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 8,
+      "n_tids": 9,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 9,
+      "n_tids": 10,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 10,
+      "n_tids": 11,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 11,
+      "n_tids": 12,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 12,
+      "n_tids": 13,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 13,
+      "n_tids": 14,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 14,
+      "n_tids": 15,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 15,
+      "n_tids": 16,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 16,
+      "n_tids": 17,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 17,
+      "n_tids": 18,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 18,
+      "n_tids": 19,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 19,
+      "n_tids": 20,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 20,
+      "n_tids": 21,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 21,
+      "n_tids": 22,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 22,
+      "n_tids": 23,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 23,
+      "n_tids": 24,
+      "n_comps": 1,
+      "energies": [
+        0.0
+      ],
+      "eigengaps": [
+        null
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": null,
+      "error": null
+    },
+    {
+      "index": 24,
+      "n_tids": 24,
+      "n_comps": 2,
+      "energies": [
+        24.999999999999996,
+        0.0
+      ],
+      "eigengaps": [
+        1.0,
+        0.0
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.0,
+      "error": null
+    },
+    {
+      "index": 25,
+      "n_tids": 24,
+      "n_comps": 2,
+      "energies": [
+        13.000000000000002,
+        0.0
+      ],
+      "eigengaps": [
+        1.0,
+        0.0
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.0,
+      "error": null
+    },
+    {
+      "index": 26,
+      "n_tids": 24,
+      "n_comps": 2,
+      "energies": [
+        8.999999999999998,
+        0.0
+      ],
+      "eigengaps": [
+        1.0,
+        0.0
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.0,
+      "error": null
+    },
+    {
+      "index": 27,
+      "n_tids": 24,
+      "n_comps": 2,
+      "energies": [
+        6.999999999999999,
+        0.0
+      ],
+      "eigengaps": [
+        1.0,
+        0.0
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.0,
+      "error": null
+    },
+    {
+      "index": 28,
+      "n_tids": 24,
+      "n_comps": 2,
+      "energies": [
+        7.249999999999999,
+        0.0
+      ],
+      "eigengaps": [
+        1.0,
+        0.0
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.0,
+      "error": null
+    },
+    {
+      "index": 29,
+      "n_tids": 24,
+      "n_comps": 2,
+      "energies": [
+        7.249999999999999,
+        0.0
+      ],
+      "eigengaps": [
+        1.0,
+        0.0
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.0,
+      "error": null
+    },
+    {
+      "index": 30,
+      "n_tids": 24,
+      "n_comps": 2,
+      "energies": [
+        6.250000000000001,
+        0.0
+      ],
+      "eigengaps": [
+        1.0,
+        0.0
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.0,
+      "error": null
+    },
+    {
+      "index": 31,
+      "n_tids": 25,
+      "n_comps": 2,
+      "energies": [
+        5.766369047619047,
+        0.0
+      ],
+      "eigengaps": [
+        1.0,
+        0.0
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.0,
+      "error": null
+    },
+    {
+      "index": 32,
+      "n_tids": 25,
+      "n_comps": 2,
+      "energies": [
+        12.731174522301583,
+        0.789824154947094
+      ],
+      "eigengaps": [
+        0.9379614069728182,
+        0.062038593027181836
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.062038593027181836,
+      "error": null
+    },
+    {
+      "index": 33,
+      "n_tids": 25,
+      "n_comps": 2,
+      "energies": [
+        13.594025836956824,
+        3.254519136588149
+      ],
+      "eigengaps": [
+        0.7605919559354972,
+        0.2394080440645028
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.2394080440645028,
+      "error": null
+    },
+    {
+      "index": 34,
+      "n_tids": 25,
+      "n_comps": 2,
+      "energies": [
+        12.989569401317473,
+        3.067397790403539
+      ],
+      "eigengaps": [
+        0.7638568534771886,
+        0.23614314652281138
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.23614314652281138,
+      "error": null
+    },
+    {
+      "index": 35,
+      "n_tids": 25,
+      "n_comps": 2,
+      "energies": [
+        17.270294032048753,
+        3.580531399736901
+      ],
+      "eigengaps": [
+        0.7926768708689931,
+        0.20732312913100687
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.20732312913100687,
+      "error": null
+    },
+    {
+      "index": 36,
+      "n_tids": 25,
+      "n_comps": 2,
+      "energies": [
+        18.027686152942987,
+        1.3321669799068458
+      ],
+      "eigengaps": [
+        0.9261043836349807,
+        0.07389561636501932
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.07389561636501932,
+      "error": null
+    },
+    {
+      "index": 37,
+      "n_tids": 25,
+      "n_comps": 2,
+      "energies": [
+        16.898315808939504,
+        1.3315321750077747
+      ],
+      "eigengaps": [
+        0.9212032613153454,
+        0.07879673868465464
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.07879673868465464,
+      "error": null
+    },
+    {
+      "index": 38,
+      "n_tids": 25,
+      "n_comps": 2,
+      "energies": [
+        16.386577847781524,
+        1.202135306151344
+      ],
+      "eigengaps": [
+        0.9266390263227477,
+        0.07336097367725218
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.07336097367725218,
+      "error": null
+    },
+    {
+      "index": 39,
+      "n_tids": 25,
+      "n_comps": 2,
+      "energies": [
+        15.483081572550327,
+        1.20162746226079
+      ],
+      "eigengaps": [
+        0.9223909364146777,
+        0.07760906358532228
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.07760906358532228,
+      "error": null
+    },
+    {
+      "index": 40,
+      "n_tids": 25,
+      "n_comps": 2,
+      "energies": [
+        65.91660834559472,
+        6.660337925888509
+      ],
+      "eigengaps": [
+        0.89895812158646,
+        0.10104187841353986
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.10104187841353986,
+      "error": null
+    },
+    {
+      "index": 41,
+      "n_tids": 25,
+      "n_comps": 2,
+      "energies": [
+        60.953957267203386,
+        6.075790344424195
+      ],
+      "eigengaps": [
+        0.9003216424851662,
+        0.09967835751483371
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.09967835751483371,
+      "error": null
+    },
+    {
+      "index": 42,
+      "n_tids": 26,
+      "n_comps": 2,
+      "energies": [
+        62.83707425520463,
+        6.2901179668493015
+      ],
+      "eigengaps": [
+        0.8998979815434627,
+        0.10010201845653735
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.10010201845653735,
+      "error": null
+    },
+    {
+      "index": 43,
+      "n_tids": 26,
+      "n_comps": 2,
+      "energies": [
+        73.96053371779973,
+        6.883902721130282
+      ],
+      "eigengaps": [
+        0.9069246478480514,
+        0.09307535215194865
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.09307535215194865,
+      "error": null
+    },
+    {
+      "index": 44,
+      "n_tids": 26,
+      "n_comps": 2,
+      "energies": [
+        49.932250635601186,
+        4.411831639770271
+      ],
+      "eigengaps": [
+        0.911643645467391,
+        0.08835635453260902
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.08835635453260902,
+      "error": null
+    },
+    {
+      "index": 45,
+      "n_tids": 27,
+      "n_comps": 2,
+      "energies": [
+        50.094295815361974,
+        4.56854868545405
+      ],
+      "eigengaps": [
+        0.9088010199346279,
+        0.0911989800653721
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.0911989800653721,
+      "error": null
+    },
+    {
+      "index": 46,
+      "n_tids": 27,
+      "n_comps": 2,
+      "energies": [
+        46.10190416430761,
+        4.157804567552167
+      ],
+      "eigengaps": [
+        0.9098127367422023,
+        0.0901872632577976
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.0901872632577976,
+      "error": null
+    },
+    {
+      "index": 47,
+      "n_tids": 27,
+      "n_comps": 2,
+      "energies": [
+        50.246276719873805,
+        4.374752315872384
+      ],
+      "eigengaps": [
+        0.9129338012394052,
+        0.08706619876059489
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.08706619876059489,
+      "error": null
+    },
+    {
+      "index": 48,
+      "n_tids": 27,
+      "n_comps": 2,
+      "energies": [
+        49.74758181917641,
+        4.345171373509585
+      ],
+      "eigengaps": [
+        0.9126556263718806,
+        0.0873443736281194
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.0873443736281194,
+      "error": null
+    },
+    {
+      "index": 49,
+      "n_tids": 27,
+      "n_comps": 2,
+      "energies": [
+        48.560940487106556,
+        9.021264803946808
+      ],
+      "eigengaps": [
+        0.8142279635967502,
+        0.18577203640324985
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.18577203640324985,
+      "error": null
+    },
+    {
+      "index": 50,
+      "n_tids": 27,
+      "n_comps": 2,
+      "energies": [
+        48.13887031081918,
+        9.020619345350541
+      ],
+      "eigengaps": [
+        0.8126125667863219,
+        0.18738743321367812
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.18738743321367812,
+      "error": null
+    },
+    {
+      "index": 51,
+      "n_tids": 27,
+      "n_comps": 2,
+      "energies": [
+        47.113511529498446,
+        9.019298214532897
+      ],
+      "eigengaps": [
+        0.808562386421021,
+        0.19143761357897904
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.19143761357897904,
+      "error": null
+    },
+    {
+      "index": 52,
+      "n_tids": 27,
+      "n_comps": 2,
+      "energies": [
+        38.914662268126655,
+        8.841217392908339
+      ],
+      "eigengaps": [
+        0.7728049820401549,
+        0.22719501795984504
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.22719501795984504,
+      "error": null
+    },
+    {
+      "index": 53,
+      "n_tids": 27,
+      "n_comps": 2,
+      "energies": [
+        38.47552335135243,
+        7.449120743012623
+      ],
+      "eigengaps": [
+        0.8063932574746697,
+        0.19360674252533028
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.19360674252533028,
+      "error": null
+    },
+    {
+      "index": 54,
+      "n_tids": 27,
+      "n_comps": 2,
+      "energies": [
+        36.72684950523143,
+        7.424808406461927
+      ],
+      "eigengaps": [
+        0.7978370454725683,
+        0.20216295452743166
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.20216295452743166,
+      "error": null
+    },
+    {
+      "index": 55,
+      "n_tids": 27,
+      "n_comps": 2,
+      "energies": [
+        36.101514836868475,
+        7.42477943193277
+      ],
+      "eigengaps": [
+        0.7943360696778781,
+        0.20566393032212194
+      ],
+      "eigengap_source": "proj",
+      "min_eigengap": 0.20566393032212194,
+      "error": null
+    }
+  ],
+  "pairs": [
+    {
+      "from_index": 0,
+      "to_index": 1,
+      "restart_seam": false,
+      "n_shared_tids": 1,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 1,
+      "to_index": 2,
+      "restart_seam": false,
+      "n_shared_tids": 2,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 2,
+      "to_index": 3,
+      "restart_seam": false,
+      "n_shared_tids": 3,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 3,
+      "to_index": 4,
+      "restart_seam": false,
+      "n_shared_tids": 4,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 4,
+      "to_index": 5,
+      "restart_seam": false,
+      "n_shared_tids": 5,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 5,
+      "to_index": 6,
+      "restart_seam": false,
+      "n_shared_tids": 6,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 6,
+      "to_index": 7,
+      "restart_seam": false,
+      "n_shared_tids": 7,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 7,
+      "to_index": 8,
+      "restart_seam": false,
+      "n_shared_tids": 8,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 8,
+      "to_index": 9,
+      "restart_seam": false,
+      "n_shared_tids": 9,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 9,
+      "to_index": 10,
+      "restart_seam": false,
+      "n_shared_tids": 10,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 10,
+      "to_index": 11,
+      "restart_seam": false,
+      "n_shared_tids": 11,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 11,
+      "to_index": 12,
+      "restart_seam": false,
+      "n_shared_tids": 12,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 12,
+      "to_index": 13,
+      "restart_seam": false,
+      "n_shared_tids": 13,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 13,
+      "to_index": 14,
+      "restart_seam": false,
+      "n_shared_tids": 14,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 14,
+      "to_index": 15,
+      "restart_seam": false,
+      "n_shared_tids": 15,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 15,
+      "to_index": 16,
+      "restart_seam": false,
+      "n_shared_tids": 16,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 16,
+      "to_index": 17,
+      "restart_seam": false,
+      "n_shared_tids": 17,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 17,
+      "to_index": 18,
+      "restart_seam": false,
+      "n_shared_tids": 18,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 18,
+      "to_index": 19,
+      "restart_seam": false,
+      "n_shared_tids": 19,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 19,
+      "to_index": 20,
+      "restart_seam": false,
+      "n_shared_tids": 20,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 20,
+      "to_index": 21,
+      "restart_seam": false,
+      "n_shared_tids": 21,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 21,
+      "to_index": 22,
+      "restart_seam": false,
+      "n_shared_tids": 22,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 22,
+      "to_index": 23,
+      "restart_seam": false,
+      "n_shared_tids": 23,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": null,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 23,
+      "to_index": 24,
+      "restart_seam": false,
+      "n_shared_tids": 24,
+      "components": [
+        {
+          "component": 0,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": 1.0,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [],
+      "max_principal_angle_deg": null,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": [
+        "component count changed: 1 -> 2; comparing the first 1"
+      ]
+    },
+    {
+      "from_index": 24,
+      "to_index": 25,
+      "restart_seam": false,
+      "n_shared_tids": 24,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0,
+          "abs_cosine": 1.0,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0,
+          "cross_cosines": [
+            1.0,
+            null
+          ],
+          "eigengap": 1.0,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": 0.0,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [
+        0.0
+      ],
+      "max_principal_angle_deg": 0.0,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 25,
+      "to_index": 26,
+      "restart_seam": false,
+      "n_shared_tids": 24,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0,
+          "abs_cosine": 1.0,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0,
+          "cross_cosines": [
+            1.0,
+            null
+          ],
+          "eigengap": 1.0,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": 0.0,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [
+        0.0
+      ],
+      "max_principal_angle_deg": 0.0,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 26,
+      "to_index": 27,
+      "restart_seam": false,
+      "n_shared_tids": 24,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0,
+          "abs_cosine": 1.0,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0,
+          "cross_cosines": [
+            1.0,
+            null
+          ],
+          "eigengap": 1.0,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": 0.0,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [
+        0.0
+      ],
+      "max_principal_angle_deg": 0.0,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 27,
+      "to_index": 28,
+      "restart_seam": false,
+      "n_shared_tids": 24,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 0.894427190999916,
+          "abs_cosine": 0.894427190999916,
+          "best_match": 0,
+          "best_match_abs_cosine": 0.894427190999916,
+          "cross_cosines": [
+            0.894427190999916,
+            null
+          ],
+          "eigengap": 1.0,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": 0.0,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [
+        26.565051177078008
+      ],
+      "max_principal_angle_deg": 26.565051177078008,
+      "subspace_rotation": true,
+      "status": "UNDEFINED",
+      "notes": [
+        "subspace rotated: max principal angle 26.565\u00b0 > 15.0\u00b0"
+      ]
+    },
+    {
+      "from_index": 28,
+      "to_index": 29,
+      "restart_seam": false,
+      "n_shared_tids": 24,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0000000000000002,
+          "abs_cosine": 1.0000000000000002,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0000000000000002,
+          "cross_cosines": [
+            1.0000000000000002,
+            null
+          ],
+          "eigengap": 1.0,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": 0.0,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [
+        1.4787793334710982e-06
+      ],
+      "max_principal_angle_deg": 1.4787793334710982e-06,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 29,
+      "to_index": 30,
+      "restart_seam": false,
+      "n_shared_tids": 24,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0000000000000002,
+          "abs_cosine": 1.0000000000000002,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0000000000000002,
+          "cross_cosines": [
+            1.0000000000000002,
+            null
+          ],
+          "eigengap": 1.0,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": 0.0,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [
+        1.4787793334710982e-06
+      ],
+      "max_principal_angle_deg": 1.4787793334710982e-06,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 30,
+      "to_index": 31,
+      "restart_seam": false,
+      "n_shared_tids": 24,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0000000000000002,
+          "abs_cosine": 1.0000000000000002,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0000000000000002,
+          "cross_cosines": [
+            1.0000000000000002,
+            null
+          ],
+          "eigengap": 1.0,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": 0.0,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [
+        1.4787793334710982e-06
+      ],
+      "max_principal_angle_deg": 1.4787793334710982e-06,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 31,
+      "to_index": 32,
+      "restart_seam": false,
+      "n_shared_tids": 25,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 0.9958680005315368,
+          "abs_cosine": 0.9958680005315368,
+          "best_match": 0,
+          "best_match_abs_cosine": 0.9958680005315368,
+          "cross_cosines": [
+            0.9958680005315368,
+            0.09081258457570385
+          ],
+          "eigengap": 0.9379614069728182,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": null,
+          "abs_cosine": null,
+          "best_match": null,
+          "best_match_abs_cosine": null,
+          "cross_cosines": [],
+          "eigengap": 0.0,
+          "eigengap_source": "proj",
+          "status": "UNDEFINED",
+          "note": "component is near-zero on the shared columns; orientation undefined"
+        }
+      ],
+      "principal_angles_deg": [
+        8.537736462515939e-07
+      ],
+      "max_principal_angle_deg": 8.537736462515939e-07,
+      "subspace_rotation": false,
+      "status": "UNDEFINED",
+      "notes": []
+    },
+    {
+      "from_index": 32,
+      "to_index": 33,
+      "restart_seam": false,
+      "n_shared_tids": 25,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 0.998929231479833,
+          "abs_cosine": 0.998929231479833,
+          "best_match": 0,
+          "best_match_abs_cosine": 0.998929231479833,
+          "cross_cosines": [
+            0.998929231479833,
+            -0.0462643544763159
+          ],
+          "eigengap": 0.7605919559354972,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 0.998929231479833,
+          "abs_cosine": 0.998929231479833,
+          "best_match": 1,
+          "best_match_abs_cosine": 0.998929231479833,
+          "cross_cosines": [
+            0.046264354476315904,
+            0.998929231479833
+          ],
+          "eigengap": 0.062038593027181836,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        0.0
+      ],
+      "max_principal_angle_deg": 0.0,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    },
+    {
+      "from_index": 33,
+      "to_index": 34,
+      "restart_seam": false,
+      "n_shared_tids": 25,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 0.9396362813713509,
+          "abs_cosine": 0.9396362813713509,
+          "best_match": 0,
+          "best_match_abs_cosine": 0.9396362813713509,
+          "cross_cosines": [
+            0.9396362813713509,
+            -0.14923410929669517
+          ],
+          "eigengap": 0.7605919559354972,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 0.9058062358764959,
+          "abs_cosine": 0.9058062358764959,
+          "best_match": 1,
+          "best_match_abs_cosine": 0.9058062358764959,
+          "cross_cosines": [
+            0.005027876716475876,
+            0.9058062358764959
+          ],
+          "eigengap": 0.23614314652281138,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        31.58339739684604
+      ],
+      "max_principal_angle_deg": 31.58339739684604,
+      "subspace_rotation": true,
+      "status": "ALIGNED",
+      "notes": [
+        "subspace rotated: max principal angle 31.583\u00b0 > 15.0\u00b0"
+      ]
+    },
+    {
+      "from_index": 34,
+      "to_index": 35,
+      "restart_seam": false,
+      "n_shared_tids": 25,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 0.9993395767835516,
+          "abs_cosine": 0.9993395767835516,
+          "best_match": 0,
+          "best_match_abs_cosine": 0.9993395767835516,
+          "cross_cosines": [
+            0.9993395767835516,
+            0.03496756410834685
+          ],
+          "eigengap": 0.7638568534771886,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 0.9855273808042284,
+          "abs_cosine": 0.9855273808042284,
+          "best_match": 1,
+          "best_match_abs_cosine": 0.9855273808042284,
+          "cross_cosines": [
+            -0.032839536876831284,
+            0.9855273808042284
+          ],
+          "eigengap": 0.20732312913100687,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        9.590101262145543
+      ],
+      "max_principal_angle_deg": 9.590101262145543,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    },
+    {
+      "from_index": 35,
+      "to_index": 36,
+      "restart_seam": false,
+      "n_shared_tids": 25,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 0.9997126953712584,
+          "abs_cosine": 0.9997126953712584,
+          "best_match": 0,
+          "best_match_abs_cosine": 0.9997126953712584,
+          "cross_cosines": [
+            0.9997126953712584,
+            0.013130063289251799
+          ],
+          "eigengap": 0.7926768708689931,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 0.9185918728078675,
+          "abs_cosine": 0.9185918728078675,
+          "best_match": 1,
+          "best_match_abs_cosine": 0.9185918728078675,
+          "cross_cosines": [
+            -0.004137643823229436,
+            0.9185918728078675
+          ],
+          "eigengap": 0.07389561636501932,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        23.30928282618463
+      ],
+      "max_principal_angle_deg": 23.30928282618463,
+      "subspace_rotation": true,
+      "status": "ALIGNED",
+      "notes": [
+        "subspace rotated: max principal angle 23.309\u00b0 > 15.0\u00b0"
+      ]
+    },
+    {
+      "from_index": 36,
+      "to_index": 37,
+      "restart_seam": false,
+      "n_shared_tids": 25,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0,
+          "abs_cosine": 1.0,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0,
+          "cross_cosines": [
+            1.0,
+            6.8019260310896605e-12
+          ],
+          "eigengap": 0.9212032613153454,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 1.0,
+          "abs_cosine": 1.0,
+          "best_match": 1,
+          "best_match_abs_cosine": 1.0,
+          "cross_cosines": [
+            -6.802280030682902e-12,
+            1.0
+          ],
+          "eigengap": 0.07389561636501932,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        1.2074182697257333e-06
+      ],
+      "max_principal_angle_deg": 1.2074182697257333e-06,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    },
+    {
+      "from_index": 37,
+      "to_index": 38,
+      "restart_seam": false,
+      "n_shared_tids": 25,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0000000000000002,
+          "abs_cosine": 1.0000000000000002,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0000000000000002,
+          "cross_cosines": [
+            1.0000000000000002,
+            1.6891464700676076e-17
+          ],
+          "eigengap": 0.9212032613153454,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 1.0000000000000002,
+          "abs_cosine": 1.0000000000000002,
+          "best_match": 1,
+          "best_match_abs_cosine": 1.0000000000000002,
+          "cross_cosines": [
+            -4.630440548809465e-17,
+            1.0000000000000002
+          ],
+          "eigengap": 0.07336097367725218,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        0.0
+      ],
+      "max_principal_angle_deg": 0.0,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    },
+    {
+      "from_index": 38,
+      "to_index": 39,
+      "restart_seam": false,
+      "n_shared_tids": 25,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0,
+          "abs_cosine": 1.0,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0,
+          "cross_cosines": [
+            1.0,
+            6.19103226434587e-17
+          ],
+          "eigengap": 0.9223909364146777,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 1.0000000000000002,
+          "abs_cosine": 1.0000000000000002,
+          "best_match": 1,
+          "best_match_abs_cosine": 1.0000000000000002,
+          "cross_cosines": [
+            -1.0864110914952838e-17,
+            1.0000000000000002
+          ],
+          "eigengap": 0.07336097367725218,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        1.4787793334710982e-06
+      ],
+      "max_principal_angle_deg": 1.4787793334710982e-06,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    },
+    {
+      "from_index": 39,
+      "to_index": 40,
+      "restart_seam": false,
+      "n_shared_tids": 25,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 0.9855451740815108,
+          "abs_cosine": 0.9855451740815108,
+          "best_match": 0,
+          "best_match_abs_cosine": 0.9855451740815108,
+          "cross_cosines": [
+            0.9855451740815108,
+            0.16846197019918377
+          ],
+          "eigengap": 0.89895812158646,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 0.9411961383578636,
+          "abs_cosine": 0.9411961383578636,
+          "best_match": 1,
+          "best_match_abs_cosine": 0.9411961383578636,
+          "cross_cosines": [
+            -0.15542537924268923,
+            0.9411961383578636
+          ],
+          "eigengap": 0.07760906358532228,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        17.489016570025363
+      ],
+      "max_principal_angle_deg": 17.489016570025363,
+      "subspace_rotation": true,
+      "status": "ALIGNED",
+      "notes": [
+        "subspace rotated: max principal angle 17.489\u00b0 > 15.0\u00b0"
+      ]
+    },
+    {
+      "from_index": 40,
+      "to_index": 41,
+      "restart_seam": false,
+      "n_shared_tids": 25,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0000000000000002,
+          "abs_cosine": 1.0000000000000002,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0000000000000002,
+          "cross_cosines": [
+            1.0000000000000002,
+            3.5298616744161826e-14
+          ],
+          "eigengap": 0.89895812158646,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 1.0000000000000002,
+          "abs_cosine": 1.0000000000000002,
+          "best_match": 1,
+          "best_match_abs_cosine": 1.0000000000000002,
+          "cross_cosines": [
+            -3.53068958012313e-14,
+            1.0000000000000002
+          ],
+          "eigengap": 0.09967835751483371,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        1.4787793334710982e-06
+      ],
+      "max_principal_angle_deg": 1.4787793334710982e-06,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    },
+    {
+      "from_index": 41,
+      "to_index": 42,
+      "restart_seam": false,
+      "n_shared_tids": 25,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0000000000000002,
+          "abs_cosine": 1.0000000000000002,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0000000000000002,
+          "cross_cosines": [
+            1.0000000000000002,
+            5.341228536431098e-13
+          ],
+          "eigengap": 0.8998979815434627,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": -1.0000000000000002,
+          "abs_cosine": 1.0000000000000002,
+          "best_match": 1,
+          "best_match_abs_cosine": 1.0000000000000002,
+          "cross_cosines": [
+            5.342554155754179e-13,
+            -1.0000000000000002
+          ],
+          "eigengap": 0.09967835751483371,
+          "eigengap_source": "proj",
+          "status": "FLIP",
+          "note": "orientation reversed at a well-separated checkpoint"
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        8.537736462515939e-07
+      ],
+      "max_principal_angle_deg": 8.537736462515939e-07,
+      "subspace_rotation": false,
+      "status": "FLIP",
+      "notes": []
+    },
+    {
+      "from_index": 42,
+      "to_index": 43,
+      "restart_seam": false,
+      "n_shared_tids": 26,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 0.9997870829940941,
+          "abs_cosine": 0.9997870829940941,
+          "best_match": 0,
+          "best_match_abs_cosine": 0.9997870829940941,
+          "cross_cosines": [
+            0.9997870829940941,
+            -0.020529201132511787
+          ],
+          "eigengap": 0.8998979815434627,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 0.9997456760003898,
+          "abs_cosine": 0.9997456760003898,
+          "best_match": 1,
+          "best_match_abs_cosine": 0.9997456760003898,
+          "cross_cosines": [
+            0.020508805747003096,
+            0.9997456760003898
+          ],
+          "eigengap": 0.09307535215194865,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        0.5505036967853972
+      ],
+      "max_principal_angle_deg": 0.5505036967853972,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    },
+    {
+      "from_index": 43,
+      "to_index": 44,
+      "restart_seam": false,
+      "n_shared_tids": 26,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0,
+          "abs_cosine": 1.0,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0,
+          "cross_cosines": [
+            1.0,
+            -8.003356422166416e-11
+          ],
+          "eigengap": 0.9069246478480514,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 1.0000000000000002,
+          "abs_cosine": 1.0000000000000002,
+          "best_match": 1,
+          "best_match_abs_cosine": 1.0000000000000002,
+          "cross_cosines": [
+            8.003347504353705e-11,
+            1.0000000000000002
+          ],
+          "eigengap": 0.08835635453260902,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        8.537736462515939e-07,
+        1.2074182697257333e-06
+      ],
+      "max_principal_angle_deg": 1.2074182697257333e-06,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    },
+    {
+      "from_index": 44,
+      "to_index": 45,
+      "restart_seam": false,
+      "n_shared_tids": 26,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0,
+          "abs_cosine": 1.0,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0,
+          "cross_cosines": [
+            1.0,
+            -5.563232491762174e-14
+          ],
+          "eigengap": 0.9088010199346279,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": -1.0,
+          "abs_cosine": 1.0,
+          "best_match": 1,
+          "best_match_abs_cosine": 1.0,
+          "cross_cosines": [
+            -5.577687769059261e-14,
+            -1.0
+          ],
+          "eigengap": 0.08835635453260902,
+          "eigengap_source": "proj",
+          "status": "FLIP",
+          "note": "orientation reversed at a well-separated checkpoint"
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        1.4787793334710982e-06
+      ],
+      "max_principal_angle_deg": 1.4787793334710982e-06,
+      "subspace_rotation": false,
+      "status": "FLIP",
+      "notes": []
+    },
+    {
+      "from_index": 45,
+      "to_index": 46,
+      "restart_seam": false,
+      "n_shared_tids": 27,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0,
+          "abs_cosine": 1.0,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0,
+          "cross_cosines": [
+            1.0,
+            6.024989771740767e-14
+          ],
+          "eigengap": 0.9088010199346279,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 1.0000000000000002,
+          "abs_cosine": 1.0000000000000002,
+          "best_match": 1,
+          "best_match_abs_cosine": 1.0000000000000002,
+          "cross_cosines": [
+            -6.021697117875137e-14,
+            1.0000000000000002
+          ],
+          "eigengap": 0.0901872632577976,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        1.4787793334710982e-06
+      ],
+      "max_principal_angle_deg": 1.4787793334710982e-06,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    },
+    {
+      "from_index": 46,
+      "to_index": 47,
+      "restart_seam": false,
+      "n_shared_tids": 27,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 0.9999675699963154,
+          "abs_cosine": 0.9999675699963154,
+          "best_match": 0,
+          "best_match_abs_cosine": 0.9999675699963154,
+          "cross_cosines": [
+            0.9999675699963154,
+            0.008014401078722318
+          ],
+          "eigengap": 0.9098127367422023,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 0.999962604176279,
+          "abs_cosine": 0.999962604176279,
+          "best_match": 1,
+          "best_match_abs_cosine": 0.999962604176279,
+          "cross_cosines": [
+            -0.00801178024028019,
+            0.999962604176279
+          ],
+          "eigengap": 0.08706619876059489,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        1.2074182697257333e-06,
+        0.19200498282172654
+      ],
+      "max_principal_angle_deg": 0.19200498282172654,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    },
+    {
+      "from_index": 47,
+      "to_index": 48,
+      "restart_seam": false,
+      "n_shared_tids": 27,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0000000000000002,
+          "abs_cosine": 1.0000000000000002,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0000000000000002,
+          "cross_cosines": [
+            1.0000000000000002,
+            2.4528505926984426e-15
+          ],
+          "eigengap": 0.9126556263718806,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 1.0,
+          "abs_cosine": 1.0,
+          "best_match": 1,
+          "best_match_abs_cosine": 1.0,
+          "cross_cosines": [
+            -1.722569921880585e-15,
+            1.0
+          ],
+          "eigengap": 0.08706619876059489,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        0.0
+      ],
+      "max_principal_angle_deg": 0.0,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    },
+    {
+      "from_index": 48,
+      "to_index": 49,
+      "restart_seam": false,
+      "n_shared_tids": 27,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 0.9992269574769946,
+          "abs_cosine": 0.9992269574769946,
+          "best_match": 0,
+          "best_match_abs_cosine": 0.9992269574769946,
+          "cross_cosines": [
+            0.9992269574769946,
+            -0.038193990550358374
+          ],
+          "eigengap": 0.8142279635967502,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 0.32514366503253644,
+          "abs_cosine": 0.32514366503253644,
+          "best_match": 1,
+          "best_match_abs_cosine": 0.32514366503253644,
+          "cross_cosines": [
+            0.003756271075366859,
+            0.32514366503253644
+          ],
+          "eigengap": 0.0873443736281194,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.09490332408144064,
+        71.03223013396651
+      ],
+      "max_principal_angle_deg": 71.03223013396651,
+      "subspace_rotation": true,
+      "status": "ALIGNED",
+      "notes": [
+        "subspace rotated: max principal angle 71.032\u00b0 > 15.0\u00b0"
+      ]
+    },
+    {
+      "from_index": 49,
+      "to_index": 50,
+      "restart_seam": false,
+      "n_shared_tids": 27,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0,
+          "abs_cosine": 1.0,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0,
+          "cross_cosines": [
+            1.0,
+            -1.6248343025582418e-10
+          ],
+          "eigengap": 0.8126125667863219,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 1.0000000000000002,
+          "abs_cosine": 1.0000000000000002,
+          "best_match": 1,
+          "best_match_abs_cosine": 1.0000000000000002,
+          "cross_cosines": [
+            1.6248339859928142e-10,
+            1.0000000000000002
+          ],
+          "eigengap": 0.18577203640324985,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        1.7075472925031877e-06
+      ],
+      "max_principal_angle_deg": 1.7075472925031877e-06,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    },
+    {
+      "from_index": 50,
+      "to_index": 51,
+      "restart_seam": false,
+      "n_shared_tids": 27,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0,
+          "abs_cosine": 1.0,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0,
+          "cross_cosines": [
+            1.0,
+            -1.1866027453396165e-15
+          ],
+          "eigengap": 0.808562386421021,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 1.0,
+          "abs_cosine": 1.0,
+          "best_match": 1,
+          "best_match_abs_cosine": 1.0,
+          "cross_cosines": [
+            1.1933818141483727e-15,
+            1.0
+          ],
+          "eigengap": 0.18738743321367812,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        0.0
+      ],
+      "max_principal_angle_deg": 0.0,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    },
+    {
+      "from_index": 51,
+      "to_index": 52,
+      "restart_seam": false,
+      "n_shared_tids": 27,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 0.9988706176499599,
+          "abs_cosine": 0.9988706176499599,
+          "best_match": 0,
+          "best_match_abs_cosine": 0.9988706176499599,
+          "cross_cosines": [
+            0.9988706176499599,
+            0.02020919177039548
+          ],
+          "eigengap": 0.7728049820401549,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 0.9993883595179869,
+          "abs_cosine": 0.9993883595179869,
+          "best_match": 1,
+          "best_match_abs_cosine": 0.9993883595179869,
+          "cross_cosines": [
+            -0.021155886515011584,
+            0.9993883595179869
+          ],
+          "eigengap": 0.19143761357897904,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.8762912051919818,
+        2.8024765521913237
+      ],
+      "max_principal_angle_deg": 2.8024765521913237,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    },
+    {
+      "from_index": 52,
+      "to_index": 53,
+      "restart_seam": false,
+      "n_shared_tids": 27,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0000000000000004,
+          "abs_cosine": 1.0000000000000004,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0000000000000004,
+          "cross_cosines": [
+            1.0000000000000004,
+            7.376984457980516e-16
+          ],
+          "eigengap": 0.7728049820401549,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 1.0,
+          "abs_cosine": 1.0,
+          "best_match": 1,
+          "best_match_abs_cosine": 1.0,
+          "cross_cosines": [
+            -5.629832846460069e-16,
+            1.0
+          ],
+          "eigengap": 0.19360674252533028,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        8.537736462515939e-07
+      ],
+      "max_principal_angle_deg": 8.537736462515939e-07,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    },
+    {
+      "from_index": 53,
+      "to_index": 54,
+      "restart_seam": false,
+      "n_shared_tids": 27,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0000000000000002,
+          "abs_cosine": 1.0000000000000002,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0000000000000002,
+          "cross_cosines": [
+            1.0000000000000002,
+            -4.307801192816275e-17
+          ],
+          "eigengap": 0.7978370454725683,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 1.0000000000000002,
+          "abs_cosine": 1.0000000000000002,
+          "best_match": 1,
+          "best_match_abs_cosine": 1.0000000000000002,
+          "cross_cosines": [
+            1.230053045427722e-16,
+            1.0000000000000002
+          ],
+          "eigengap": 0.19360674252533028,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        1.2074182697257333e-06
+      ],
+      "max_principal_angle_deg": 1.2074182697257333e-06,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    },
+    {
+      "from_index": 54,
+      "to_index": 55,
+      "restart_seam": false,
+      "n_shared_tids": 27,
+      "components": [
+        {
+          "component": 0,
+          "cosine": 1.0000000000000002,
+          "abs_cosine": 1.0000000000000002,
+          "best_match": 0,
+          "best_match_abs_cosine": 1.0000000000000002,
+          "cross_cosines": [
+            1.0000000000000002,
+            9.949469926114131e-17
+          ],
+          "eigengap": 0.7943360696778781,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        },
+        {
+          "component": 1,
+          "cosine": 1.0000000000000002,
+          "abs_cosine": 1.0000000000000002,
+          "best_match": 1,
+          "best_match_abs_cosine": 1.0000000000000002,
+          "cross_cosines": [
+            -4.307801192816275e-17,
+            1.0000000000000002
+          ],
+          "eigengap": 0.20216295452743166,
+          "eigengap_source": "proj",
+          "status": "ALIGNED",
+          "note": null
+        }
+      ],
+      "principal_angles_deg": [
+        0.0,
+        1.2074182697257333e-06
+      ],
+      "max_principal_angle_deg": 1.2074182697257333e-06,
+      "subspace_rotation": false,
+      "status": "ALIGNED",
+      "notes": []
+    }
+  ],
+  "summary": {
+    "n_pairs": 55,
+    "n_flips": 2,
+    "n_reordered": 0,
+    "n_excused_degenerate": 0,
+    "n_undefined": 32,
+    "n_flips_without_eigengap": 0,
+    "n_subspace_rotations": 5,
+    "findings": [
+      {
+        "from_index": 41,
+        "to_index": 42,
+        "component": 1,
+        "status": "FLIP",
+        "cosine": -1.0000000000000002,
+        "eigengap": 0.09967835751483371
+      },
+      {
+        "from_index": 44,
+        "to_index": 45,
+        "component": 1,
+        "status": "FLIP",
+        "cosine": -1.0,
+        "eigengap": 0.08835635453260902
+      }
+    ],
+    "continuous": false
+  }
+}
