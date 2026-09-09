@@ -124,7 +124,7 @@ class _Disposition:
     note: str
 
 
-# Reviewed dispositions (agree with Astra's P-042-wildcard-inventory.md). A hit
+# Reviewed dispositions (agree with the second reviewer's P-042-wildcard-inventory.md). A hit
 # that matches none of these is reported NEEDS-GATE and fails the inventory test.
 DISPOSITIONS: tuple[_Disposition, ...] = (
     _Disposition(
@@ -155,7 +155,7 @@ def _blank_comments(text: str, line_token: str, allow_block: bool) -> str:
     """Blank comments while PRESERVING string literals (', ", `) and line numbers.
 
     A char scanner, not a regex, so a `//` inside a string (e.g. an ``https://``
-    URL) is not mistaken for a comment (Astra round-3 defect 3). Comment characters
+    URL) is not mistaken for a comment (review round-3 defect 3). Comment characters
     are replaced by spaces; newlines are kept so offsets map to the right line.
     """
     out: list[str] = []
@@ -348,7 +348,7 @@ CLEARED_UNRESOLVED: tuple[ClearedUnresolved, ...] = (
         note="replay harness fetch_math_row; {table} guarded by `table not in "
         "EQUIV_TABLES` (math_main/bidtopid/ptptstats) — never a vote table. "
         "Query + guard set isolated into delphi/polismath/replay/equiv_query.py "
-        "(P-042 projgate-isolation; per Astra board [499]) so the whole-module pin "
+        "(P-042 projgate-isolation; per the second reviewer's board [499]) so the whole-module pin "
         "is disturbed only by an edit to the query/guard, not by unrelated edits to "
         "poller_equiv.py. Function digest UNCHANGED across the verbatim move "
         "(048839c8…); module digest recorded against the new isolated module; "
@@ -646,7 +646,7 @@ def _repo_root() -> str:
 
 class InventoryScanError(RuntimeError):
     """A requested scan root is missing/unreadable — an ungraded FAIL, never an
-    empty-success proof (Astra round-2 defect 4)."""
+    empty-success proof (review round-2 defect 4)."""
 
 
 def run_sweep(roots: Optional[Sequence[str]] = None, repo_root: Optional[str] = None) -> list[WildcardSite]:

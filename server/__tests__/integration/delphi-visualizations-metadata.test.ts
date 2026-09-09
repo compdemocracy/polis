@@ -226,7 +226,7 @@ describe("Delphi visualizations job metadata", () => {
   });
 
   it("returns an index-invisible live row alongside indexed ones", async () => {
-    // Astra's second half: adding one indexed terminal row must not be what
+    // The second reviewer's second half: adding one indexed terminal row must not be what
     // makes the hidden row visible.
     const hiddenId = `viz-sparse2-${Date.now()}`;
     written.push(hiddenId);

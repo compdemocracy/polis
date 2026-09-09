@@ -44,7 +44,7 @@ MATH_ENV = "recovery"
 # The refusal contract, defined by the harness and asserted by name.
 #
 # "Nonzero exit" is NOT a refusal: an import error, a DB outage or two crashed
-# workers would all satisfy it (astra review finding 3).  A refusal is a
+# workers would all satisfy it (review finding 3).  A refusal is a
 # process that declined to run BECAUSE someone else owns this shard, and it
 # announces itself with this exit code and this marker
 # (``restart_child._is_ownership_refusal`` / ``OWNERSHIP_REFUSAL_MARKER``).
@@ -52,7 +52,7 @@ MATH_ENV = "recovery"
 OWNERSHIP_REFUSAL_EXIT = 3
 OWNERSHIP_REFUSAL_MARKER = "OWNERSHIP-REFUSED"
 
-# The FENCE contract, likewise defined by name (astra second-round review).
+# The FENCE contract, likewise defined by name (second-round review).
 #
 # "Any advisory lock, or any table whose name contains owner/lease/fence/shard"
 # is NOT a fence: creating an unrelated `lease_notes` table, or holding an
@@ -140,7 +140,7 @@ def test_rolling_shard_count_change_arithmetic_leaves_no_zid_unowned(
     """A rolling shard-count change (2 -> 3) may DOUBLE-cover a zid mid-roll,
     but it must never leave one unowned.  Assert both halves explicitly.
 
-    LIMITATION, kept explicit (astra review finding 3): this evaluates two
+    LIMITATION, kept explicit (review finding 3): this evaluates two
     complete arithmetic partitions side by side.  It is NOT a rolling ownership
     handoff — no process starts, stops, or hands anything over, and nothing
     here shows what the two generations of processes do to the same rows while
@@ -208,7 +208,7 @@ def _zid_ownership_leases(engine, zid: int) -> list:
     A candidate table qualifies only if its COLUMNS make it a lease — a zid
     column, an owner column and a version/epoch/fence-token column — and only
     if it actually holds a row for this zid with a non-null owner.  A table that
-    merely has "lease" in its name contributes nothing (astra second-round
+    merely has "lease" in its name contributes nothing (second-round
     review: ``unrelated_lease_notes`` used to flip this green)."""
     found = []
     with engine.connect() as conn:
@@ -296,7 +296,7 @@ def _await_ownership_outcome(kid, timeout=120.0):
         it exited without saying either — never a fence, always a real failure.
 
     Waiting for OWNED from BOTH children, which this helper used to do, makes
-    the PASSING shape unreachable (astra second-round review): a correctly
+    the PASSING shape unreachable (second-round review): a correctly
     refused startup exits before ``_hold_ownership`` and can never emit OWNED,
     so the helper timed out before the classifier ever saw the valid refusal."""
     deadline = time.monotonic() + timeout
@@ -329,7 +329,7 @@ def _run_two_latched_children(engine, pg_url, tmp_path, children, days=1.0,
                               zid=1):
     """Two identical poller processes driven to their ownership decision, held
     CONCURRENTLY if they both take ownership — so "both ran" cannot be two
-    one-shot processes running one after the other (astra review finding 3).
+    one-shot processes running one after the other (review finding 3).
 
     BOTH contract shapes are reachable from here:
 
@@ -447,7 +447,7 @@ def test_duplicate_shard_start_is_refused_or_fenced(engine, pg_url, tmp_path,
       :func:`_zid_keyed_advisory_locks`).  A zid-keyed lock is necessary but
       not sufficient: two processes that both completed a full write cycle were
       not exclusively owned no matter what the catalog holds, so the publisher
-      count is required as well (astra second-round review).
+      count is required as well (second-round review).
 
     Only the ownership question itself raises :class:`OwnershipNotFenced`.
     """
@@ -630,7 +630,7 @@ class TestNegativeControl:
     def test_an_unrelated_crash_is_not_classified_as_a_refusal(self, pg_url,
                                                                tmp_path,
                                                                children):
-        """The correction itself, controlled (astra review finding 3): a child
+        """The correction itself, controlled (review finding 3): a child
         that dies of a DB outage — the very thing "any nonzero exit" used to
         accept — must classify as a CRASH, never as an ownership refusal."""
         kid = _spawn(children, pg_url.replace("/rec_", "/nope_does_not_exist_"),
@@ -666,7 +666,7 @@ class TestNegativeControl:
         assert not _is_ownership_refusal(
             RuntimeError("could not connect to server"))
 
-    # -- the fence detector itself (astra second-round review) -------------- #
+    # -- the fence detector itself (second-round review) -------------- #
     def test_an_unrelated_lease_named_table_is_not_a_fence(self, engine):
         """The correction, controlled: a table whose NAME merely matches
         lease/owner/fence/shard used to flip the acceptance green with the same

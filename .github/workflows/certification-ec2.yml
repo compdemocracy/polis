@@ -4,7 +4,7 @@ name: Synthetic recovery and public-fixture battery (EC2)
 # repository's PUBLIC fixtures on one disposable EC2 worker, then destroys it.
 #
 # THIS IS NOT PRIVATE CERTIFICATION and its verdict (`SYNTHETIC-PASS`) must
-# never be read as one. Astra's #2715 review found that round 1 staged the
+# never be read as one. The second reviewer's #2715 review found that round 1 staged the
 # private prod-derived bundle on a box GitHub could open a root shell on, and
 # returned its raw log to public Actions artifacts. Round 2 removes the private
 # data path outright: there is no fixture bucket, no evidence bucket, and the

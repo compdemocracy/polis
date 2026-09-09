@@ -190,7 +190,7 @@ def vote_axis_involution(view: dict[str, Any]) -> dict[str, Any]:
     it is currently on, independently of the input storage sign.
     """
     # The COMPARISON boundary validates the marker's own values, not merely its
-    # presence (Astra review #2730 F2): an unknown profile or axis is a
+    # presence (review #2730 F2): an unknown profile or axis is a
     # corrupted view, and N must not translate one.
     if not has_marker(view):
         raise PolarityError(
@@ -304,7 +304,7 @@ PAIR_SIDE_FLIPPED = "flipped"
 
 #: Closed enums. "Unknown convention fails admission" (P-023 rev3) is a
 #: predicate, not a sentiment: a truthiness check accepted `unknown-input/99`
-#: (Astra review #2730 F2).
+#: (review #2730 F2).
 INPUT_CONVENTIONS: frozenset[str] = frozenset(
     {INPUT_CONVENTION_EXPORT_SEMANTIC, INPUT_CONVENTION_RAW_STORAGE})
 OUTPUT_CONVENTIONS: frozenset[str] = frozenset({OUTPUT_CONVENTION_AS_EMITTED})
@@ -325,7 +325,7 @@ class ConventionDescriptor:
 
     def __post_init__(self) -> None:
         validate_storage_agree_value(self.storage_agree_value)
-        # TYPE before membership (Astra review #2730 R2-F2): a container-valued
+        # TYPE before membership (review #2730 R2-F2): a container-valued
         # convention or side raised a raw `TypeError: unhashable type` out of
         # the set test instead of the named PolarityError this contract
         # promises. A container is not a convention token.
@@ -487,7 +487,7 @@ def _apply_control(
     side whose ingress converts twice (``None`` for every other control).
 
     Which side ``double-negate-ingress`` must break depends on the DECLARED
-    convention, and getting it wrong makes the control vacuous (Astra review
+    convention, and getting it wrong makes the control vacuous (review
     #2730 F4). A double conversion is arithmetically the identity
     (``s**2 == 1``), so a doubly-converted side emits raw ``V`` while the
     correct side emits ``V x s``: the two differ only when ``s == -1``.

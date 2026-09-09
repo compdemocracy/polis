@@ -210,7 +210,7 @@ def test_after_poll_kill_point_is_latched_after_the_watermark_advance(
     engine, pg_url, children, tmp_path
 ):
     """The R05 "after poll/watermark advance, before any compute" kill point is
-    ORDERED, not hoped for (astra review finding 4).
+    ORDERED, not hoped for (review finding 4).
 
     ``_poll_votes_once`` submits to the pool BEFORE assigning ``_vote_wm``
     (``polismath/poller/service.py:437-448``) and ``_run_engine`` runs on a pool
@@ -225,7 +225,7 @@ def test_after_poll_kill_point_is_latched_after_the_watermark_advance(
     the event first — which it used to do — allowed the polling thread to
     interleave its two lines between the ``set()`` and the ``write()``, making
     this assertion flake on a harness detail rather than on the barrier it is
-    testing (astra second-round review)."""
+    testing (second-round review)."""
     seeded = seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
     expected_wm = max(e["created"] for e in seeded.vote_events)
 

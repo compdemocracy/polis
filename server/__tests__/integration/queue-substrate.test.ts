@@ -826,7 +826,7 @@ describeProvisioned(
 
     it("never pools a session whose principal it could not verify", async () => {
       requireProvisioning();
-      // Astra's 22012 injection: the verification read fails AFTER SET ROLE has
+      // The second reviewer's 22012 injection: the verification read fails AFTER SET ROLE has
       // succeeded. The connection is fine, so "the query failed" is not
       // evidence that the socket is gone - the session is simply still acting
       // as the helper, and returning it to the pool hands that identity to the

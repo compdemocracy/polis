@@ -337,10 +337,10 @@ def test_a_carved_key_does_not_hide_a_real_shape_difference_elsewhere():
 
 def test_only_carve_outs_with_a_rule_are_auto_applied():
     """AUTO_CARVED must be derived from the rules that exist, so the docs can
-    never claim a suppression the comparer does not implement (Astra F6/C5)."""
+    never claim a suppression the comparer does not implement (review F6/C5)."""
     assert sc.KEY_CARVE_OUT[("R09_group_clusters",
                              "group-clusterings-silhouettes")] == "C3"
-    # The contract geometry has NO waiver any more (Astra F1).
+    # The contract geometry has NO waiver any more (review F1).
     assert ("R13_ptpt_stats", "ptpt-stats") not in sc.KEY_CARVE_OUT
     assert set(sc.AUTO_CARVED) == {"C1", "C3"}
     for cid in sc.AUTO_CARVED:
@@ -417,7 +417,7 @@ def test_certify_does_not_import_the_stage_oracle():
 
 
 # ---------------------------------------------------------------------------
-# Round 2 — regressions for the six findings in P-030-R-ORACLE-astra-review.md.
+# Round 2 — regressions for the six findings in P-030-R-ORACLE-review.md.
 # Each name says which finding it pins.
 # ---------------------------------------------------------------------------
 def test_f1_r13_emits_the_contract_geometry_from_the_production_adapter():
@@ -1181,7 +1181,7 @@ def test_r3f4_the_ads_tally_shape_is_key_scoped_not_field_scoped():
 
 # ---------------------------------------------------------------------------
 # Round 5 — regressions for the two residual findings in the round-4 review
-# (R4-F1, R4-F2). Astra's seven reproductions, plus the cases they imply.
+# (R4-F1, R4-F2). The second reviewer's seven reproductions, plus the cases they imply.
 # ---------------------------------------------------------------------------
 def _recording_pair(tmp_path, mutate_b, *, target="doc"):
     """Two real on-disk recordings, the second corrupted. Exercises the PUBLIC

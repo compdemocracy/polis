@@ -519,7 +519,7 @@ random sample, non-finite handling, named-matrix shape — plus the comparer's
 canonicalization, tolerance classes and carve-outs.
 
 The `test_f1_…` through `test_f6_…` group is the regression set for the six
-findings in `cost-reduction/04-plans/P-030-R-ORACLE-astra-review.md`, one
+findings in `cost-reduction/04-plans/P-030-R-ORACLE-review.md`, one
 behaviour per name: the contract geometry at R13, C1's narrow scope, integer
 identities never seeing a tolerance, malformed matrices and undeclared axes
 becoming structural errors, incomplete input withholding the headline, and the

@@ -227,7 +227,7 @@ def _is_integral(value: Any) -> bool:
 #: every raw spelling involved. When the legacy twin is finally dropped, delete
 #: the entry and this policy becomes "no collisions at all".
 #:
-#: v2 round 2 (P-022 alias-twin Astra review, F1/F2). Equal group ``id`` lists
+#: v2 round 2 (P-022 alias-twin review, F1/F2). Equal group ``id`` lists
 #: plus a prose role label are NOT the schema the contract asks for: a producer
 #: could still ship ``group_clusters`` entries with ``members="not-members"``,
 #: no ``center``, ``id=False`` beside a canonical ``id=0`` (``False == 0`` in
@@ -349,7 +349,7 @@ def _bid_to_pids(blob: dict, label: str, where: str) -> dict[Any, list[Any]]:
     unevaluated relation is exactly the hole this policy closes.
 
     The mapping is the relation's TRUSTED INPUT, so it is typed with exactly the
-    same strictness as the two group views (Astra review round 2, R2-F1). Left
+    same strictness as the two group views (review round 2, R2-F1). Left
     untyped, ``False == 0`` and ``0.0 == 0`` reappeared one level below the
     views — a folded member ``0`` resolved a base-cluster ``id`` of ``False`` or
     ``0.0``, and an unfolded participant ``0`` matched a mapped ``False``, so all
@@ -581,8 +581,8 @@ def validate_checkpoint_blob(
     # Conversation.from_dict.
     # Presence, not validity: a malformed marker value is a corrupted projected
     # view, and treating it as unmarked raw data is how all four of
-    # {null, false, "projected", []} walked straight through this gate (Astra
-    # review #2730 F2). The reserved key is refused whenever it appears.
+    # {null, false, "projected", []} walked straight through this gate (review
+    # #2730 F2). The reserved key is refused whenever it appears.
     if has_marker(blob):
         marked = blob[OUTPUT_PROFILE_KEY]
         problems = marker_problems(marked)

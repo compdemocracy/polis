@@ -12,8 +12,8 @@
 //
 // These tests mount the real exported handlers on a real express app and drive
 // them with real HTTP requests, replicating only app.ts's parameter binding.
-// Confirms Astra's independent probe (cost-reduction/scripts/p2727-r2-node-review.cjs,
-// review cost-reduction/04-plans/P-026-step2-astra-review.md): pca2 answers 200
+// Confirms the second reviewer's independent probe (cost-reduction/scripts/p2727-r2-node-review.cjs,
+// review cost-reduction/04-plans/P-026-step2-review.md): pca2 answers 200
 // with ETag "0" at a committed generation 0.
 
 import { beforeEach, describe, expect, jest, test } from "@jest/globals";
@@ -205,7 +205,7 @@ function freshZid() {
  * Reads the `math_tick` default straight out of a route's real registration in
  * server/app.ts, via TypeScript's AST.
  *
- * Astra's review (F1) caught the earlier version of this file hardcoding -1,
+ * The second reviewer's review (F1) caught the earlier version of this file hardcoding -1,
  * which meant reverting the app.ts fix left every test passing. Binding to the
  * registration closes that: change `want("math_tick", getInt, assignToP, -1)`
  * back to `0` and the /api/v3/bid positive test below fails.
@@ -344,7 +344,7 @@ describe("HTTP routes at a committed math generation of 0", () => {
   });
 
   test('GET /api/v3/math/pca2 serves generation 0 with status 200 and ETag "0"', async () => {
-    // Astra's probe result, reproduced here as a route test: the route has no
+    // The second reviewer's probe result, reproduced here as a route test: the route has no
     // math_tick default, so routes/math.ts:82 substitutes -1 and the row is
     // served. This route was never broken by the tick-0 guard.
     serveTick("0");
@@ -401,7 +401,7 @@ describe("HTTP routes at a committed math generation of 0", () => {
   test("GET /api/v3/bid serves generation 0 using its REGISTERED math_tick default", async () => {
     // Bound to server/app.ts's actual want("math_tick", getInt, assignToP, -1).
     // Reverting that argument to 0 makes this test fail, which is the whole
-    // point (Astra F1).
+    // point (review F1).
     //
     // With the old default of 0, handle_GET_bid called getPca(zid, 0), got
     // undefined, and dereferencing items[2].asPOJO threw into the .catch ->
@@ -468,8 +468,8 @@ describe("GET /api/v3/participationInit at a committed math generation of 0", ()
   });
 });
 
-describe("cross-caller cache provenance over HTTP (Astra R2-F1)", () => {
-  // The defect Astra found: the [math_env, zid] cache is shared, so whichever
+describe("cross-caller cache provenance over HTTP (review R2-F1)", () => {
+  // The defect the second reviewer found: the [math_env, zid] cache is shared, so whichever
   // route warmed it first decided what the existing-only reader returned.
   // participationInit is a REAL route that synthesizes an empty presentation
   // for a conversation with no committed row; the existing-only reader must
@@ -534,7 +534,7 @@ describe("cross-caller cache provenance over HTTP (Astra R2-F1)", () => {
   });
 });
 
-describe("Astra: cache provenance must remain private over participationInit HTTP", () => {
+describe("Review: cache provenance must remain private over participationInit HTTP", () => {
   test.each(["missing", "1"])(
     "wrapper contains no synthesized key for %s",
     async (state) => {
@@ -593,20 +593,20 @@ function canonicalWrapper(pca: any) {
 //
 // This is equality of the NORMALIZED DECODED wrapper, not of the compressed
 // bytes on the wire: `expiration` is excluded and the gzip buffer is compared
-// decoded. Compressed-wire equality is established elsewhere, by Astra's
+// decoded. Compressed-wire equality is established elsewhere, by the second reviewer's
 // same-process before/after comparisons (44 positive-tick pairs), which is the
 // right instrument for it -- a cross-machine constant cannot be (see round 2).
 const EDGE_PARTICIPATION_WRAPPER_TICK1 =
   "267fc4b792e95eddb6cc3d161ac54ce37b1f4012ed427aa3ca53222a11c93af2";
 
-describe("participationInit's served wrapper matches edge, decoded (Astra r3)", () => {
-  // Astra's R3 finding: round 3 added an enumerable `synthesized` property to
+describe("participationInit's served wrapper matches edge, decoded (review r3)", () => {
+  // The second reviewer's R3 finding: round 3 added an enumerable `synthesized` property to
   // the cache entry, and participationInit assigns that entire entry to
   // `response.pca` and serializes it. So the wire gained a field production
   // never sent -- for EVERY tick, including 1. Keeping asPOJO/asJSON/the gzip
   // body clean did not protect the wrapper.
   //
-  // Astra's own acceptance tests above pin the key list. This pins the bytes.
+  // The second reviewer's own acceptance tests above pin the key list. This pins the bytes.
   beforeEach(() => {
     queryP_readOnly.mockReset();
   });

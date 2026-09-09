@@ -642,7 +642,7 @@ describe('synth-enforced health pairs', () => {
   // Review r2. `addPropertyOverride` writes into the resource's raw overrides,
   // which are merged in at render time and leave the typed getters untouched.
   // A gate reading `cfn.alarmActions` therefore passes while the EMITTED alarm
-  // carries the harmful value. These are Astra's three reproductions, inverted:
+  // carries the harmful value. These are the second reviewer's three reproductions, inverted:
   // each must now fail synth.
 
   test('A04 with ActionsEnabled overridden to false fails the real synth', () => {

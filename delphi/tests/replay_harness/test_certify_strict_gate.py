@@ -751,7 +751,7 @@ def test_alias_collision_is_caught_before_the_lossy_canonical_dict():
 #: step-000 — recorded so a defect that could otherwise only show under
 #: ``RUN_CLJ_INTEGRATION=1`` reproduces in ordinary CI. ``vw`` folds one
 #: participant per base cluster; ``biodiversity`` folds up to nine, so it is the
-#: fixture that can actually prove the unfolding relation (Astra review F2).
+#: fixture that can actually prove the unfolding relation (review F2).
 REAL_DRIVER_TWINS = json.loads(
     (Path(__file__).parent / "fixtures"
      / "real_driver_group_cluster_twins.json").read_text())
@@ -789,7 +789,7 @@ def test_real_driver_group_cluster_twins_are_two_views_not_a_duplicate(name):
 
 def test_biodiversity_fixture_actually_folds_many_participants_per_cluster():
     """The vw fold is one-to-one, so it cannot distinguish "unfolded through
-    base-clusters" from "relabelled"; biodiversity can (Astra review F2)."""
+    base-clusters" from "relabelled"; biodiversity can (review F2)."""
     assert REAL_DRIVER_GROUP_CLUSTER_TWINS["max_participants_per_base_cluster"] == 1
     assert FOLDED_TWINS["max_participants_per_base_cluster"] > 1
     folded, unfolded = FOLDED_TWINS["group-clusters"], FOLDED_TWINS["group_clusters"]
@@ -811,7 +811,7 @@ def test_declared_alias_pair_admits_the_real_driver_blob(name):
 
 
 def test_declared_alias_pair_admits_the_empty_and_singleton_group_states():
-    """Explicit empty/singleton behavior (Astra review F1): a conversation with
+    """Explicit empty/singleton behavior (review F1): a conversation with
     no groups is a legitimate state and needs no base-clusters to unfold, and a
     one-group one-member pair is admitted on its own terms."""
     cert.validate_checkpoint_blob(
@@ -825,12 +825,12 @@ def test_declared_alias_pair_admits_the_empty_and_singleton_group_states():
         "py: step-000")
 
 
-#: The six mutations Astra's probe (``cost-reduction/scripts/p2725-alias-review.py``)
+#: The six mutations the second reviewer's probe (``cost-reduction/scripts/p2725-alias-review.py``)
 #: drove through raw validation AND a full strict ``run_battery`` to PASS/exit 0
 #: under the first cut of policy v2: four raw-schema escapes (F1) and two
 #: well-typed but WRONG unfolded values (F2). Each mutates the UNFOLDED view of
 #: an otherwise-valid recorded pair. ``(mutate, needle)``.
-ASTRA_BAD_TWIN_MUTATIONS = {
+BAD_TWIN_MUTATIONS = {
     "string members": (lambda g: dict(g, members="not-members"), "members"),
     "string center": (lambda g: dict(g, center="not-geometry"), "center"),
     "missing members": (lambda g: {k: v for k, v in g.items() if k != "members"},
@@ -845,13 +845,13 @@ ASTRA_BAD_TWIN_MUTATIONS = {
 }
 
 
-@pytest.mark.parametrize("name", sorted(ASTRA_BAD_TWIN_MUTATIONS))
+@pytest.mark.parametrize("name", sorted(BAD_TWIN_MUTATIONS))
 @pytest.mark.parametrize("dataset", ["vw", "biodiversity"])
-def test_astra_bad_twin_controls_are_rejected(name, dataset):
-    """The six controls from the Astra review must FAIL the gate. `id=False`
+def test_bad_twin_controls_are_rejected(name, dataset):
+    """The six controls from the review must FAIL the gate. `id=False`
     matters on its own: Python's ``False == 0`` satisfied the old ordered-id
     comparison against a real group 0."""
-    mutate, needle = ASTRA_BAD_TWIN_MUTATIONS[name]
+    mutate, needle = BAD_TWIN_MUTATIONS[name]
     fixture = REAL_DRIVER_TWINS[dataset]
     unfolded = list(fixture["group_clusters"])
     unfolded[0] = mutate(unfolded[0])
@@ -865,7 +865,7 @@ def test_astra_bad_twin_controls_are_rejected(name, dataset):
 
 @pytest.mark.parametrize("dataset", ["vw", "biodiversity"])
 def test_membership_omission_and_duplication_break_the_unfolding_relation(dataset):
-    """Astra review F2: dropping or duplicating participants must fail the
+    """Review F2: dropping or duplicating participants must fail the
     relation rather than quietly shrinking/growing the unfolded view."""
     fixture = REAL_DRIVER_TWINS[dataset]
     unfolded = list(fixture["group_clusters"])
@@ -886,7 +886,7 @@ def test_folded_view_is_held_to_the_same_raw_schema_as_the_unfolded_one():
     """F1 applies to BOTH roles: the canonical view is not exempt just because
     it is the one the comparer reads."""
     fixture = FOLDED_TWINS
-    for mutate, needle in ASTRA_BAD_TWIN_MUTATIONS.values():
+    for mutate, needle in BAD_TWIN_MUTATIONS.values():
         folded = list(fixture["group-clusters"])
         mutated = mutate(folded[0])
         if mutated == folded[0]:
@@ -898,12 +898,12 @@ def test_folded_view_is_held_to_the_same_raw_schema_as_the_unfolded_one():
         assert excinfo.value.stage == "checkpoint-schema"
 
 
-#: Astra review round 2 (R2-F1): the relation's TRUSTED INPUT — the columnar
+#: Review round 2 (R2-F1): the relation's TRUSTED INPUT — the columnar
 #: ``base-clusters`` bid -> pid mapping — was not typed, so ``False == 0`` and
 #: ``0.0 == 0`` reappeared one level below the views. Each entry mutates a valid
 #: many-to-one blob and must now fail at ``checkpoint-schema`` with the named
 #: reason. ``(mutate, needle)``; ``mutate`` edits the blob in place.
-ASTRA_R2_BAD_MAPPINGS = {
+R2_BAD_MAPPINGS = {
     "boolean base id": (
         lambda b: b["base-clusters"].__setitem__("id", [False]),
         "must be an integer base-cluster id"),
@@ -936,7 +936,7 @@ ASTRA_R2_BAD_MAPPINGS = {
 
 def _many_to_one_twin_blob():
     """A minimal VALID many-to-one pair: one base cluster folding two
-    participants, one group, exact sign negation. Astra's r2 probe base."""
+    participants, one group, exact sign negation. The second reviewer's r2 probe base."""
     return copy.deepcopy({
         **VALID_BASE,
         "n": 2,
@@ -953,12 +953,12 @@ def test_many_to_one_mapping_baseline_is_admitted():
     cert.validate_checkpoint_blob(_many_to_one_twin_blob(), "py: step-000")
 
 
-@pytest.mark.parametrize("name", sorted(ASTRA_R2_BAD_MAPPINGS))
-def test_astra_r2_bad_mapping_controls_are_rejected(name):
+@pytest.mark.parametrize("name", sorted(R2_BAD_MAPPINGS))
+def test_r2_bad_mapping_controls_are_rejected(name):
     """The relation's mapping input is typed exactly as strictly as the views:
     strict integer bids and participant ids (``bool`` rejected), no unhashable
     id crash, and a fold that is a real partition."""
-    mutate, needle = ASTRA_R2_BAD_MAPPINGS[name]
+    mutate, needle = R2_BAD_MAPPINGS[name]
     blob = _many_to_one_twin_blob()
     mutate(blob)
     with pytest.raises(cert.CertifyError) as excinfo:
@@ -967,12 +967,12 @@ def test_astra_r2_bad_mapping_controls_are_rejected(name):
     assert needle in str(excinfo.value), str(excinfo.value)
 
 
-@pytest.mark.parametrize("name", sorted(ASTRA_R2_BAD_MAPPINGS))
-def test_astra_r2_bad_mappings_raise_no_bare_exception(name):
+@pytest.mark.parametrize("name", sorted(R2_BAD_MAPPINGS))
+def test_r2_bad_mappings_raise_no_bare_exception(name):
     """Every non-conforming mapping shape is a gate failure with a named
     reason, NEVER an exception escaping the gate (an array bid used to raise
     TypeError at dict membership)."""
-    mutate, _ = ASTRA_R2_BAD_MAPPINGS[name]
+    mutate, _ = R2_BAD_MAPPINGS[name]
     blob = _many_to_one_twin_blob()
     mutate(blob)
     try:
@@ -984,7 +984,7 @@ def test_astra_r2_bad_mappings_raise_no_bare_exception(name):
 
 
 @pytest.mark.parametrize("name", ["unknown bid", "wrong order", "wrong sign"])
-def test_astra_r2_positive_relation_rejections_still_hold(name):
+def test_r2_positive_relation_rejections_still_hold(name):
     """The r2 probe's three positive controls: the relation itself keeps
     rejecting an unknown bid, a permuted unfolding and an unflipped center."""
     blob = _many_to_one_twin_blob()

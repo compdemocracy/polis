@@ -971,7 +971,7 @@ describe("admitDelphiJob: round-6 review", () => {
 
 describe("assessConversationLiveness: stable reads", () => {
   it("reports live when two sweeps disagree about a root", async () => {
-    // Astra's page schedule: the child is written between pages, past the
+    // The second reviewer's page schedule: the child is written between pages, past the
     // point page one already read, and the root completes in the same window.
     const sweeps = [
       [{ job_id: "root", status: "COMPLETED", process_exit_confirmed: true }],

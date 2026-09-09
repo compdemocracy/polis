@@ -243,7 +243,7 @@ describe("getPca and a committed math generation of tick 0", () => {
 });
 
 describe("prefetchLatestPcaData column authority at zero", () => {
-  // Astra's review noted the prefetch guards had no direct committed test.
+  // The second reviewer's review noted the prefetch guards had no direct committed test.
   // These pin both of them, and the ONE place where the fix intentionally
   // changes bytes even at a positive math_tick.
   beforeEach(() => {
@@ -281,8 +281,8 @@ describe("prefetchLatestPcaData column authority at zero", () => {
   test("a numeric column caching_tick of 0 overrides the blob -- an INTENTIONAL byte change", async () => {
     // This is the one qualifier to "tick >= 1 bytes are identical". With a
     // numeric int8 parser, math_tick 1 and column caching_tick 0, prefetch now
-    // emits the column's 0 where it used to leave the blob's 34808. Astra
-    // reproduced this independently (34808 -> 0). It is the intended
+    // emits the column's 0 where it used to leave the blob's 34808. The second
+    // reviewer reproduced this independently (34808 -> 0). It is the intended
     // column-authority repair, not a regression: under the CURRENT
     // string-returning BIGINT parser no such row occurs, because "0" is truthy
     // and the column already won.
@@ -321,7 +321,7 @@ describe("getLatestExistingPca", () => {
   });
 
   test("returns undefined after exactly one query when there is no math row", async () => {
-    // The cheap no-row path Astra required: never createEmptyPcaStructure's
+    // The cheap no-row path the second reviewer required: never createEmptyPcaStructure's
     // second query. Contrast with getPca(zid), which synthesizes.
     serveNoRows();
     expect(await getLatestExistingPca(freshZid())).toBeUndefined();
@@ -340,7 +340,7 @@ describe("getLatestExistingPca", () => {
   });
 });
 
-describe("latest-existing cache provenance (Astra R2-F1)", () => {
+describe("latest-existing cache provenance (review R2-F1)", () => {
   // The [math_env, zid] cache is shared. Before this fix the
   // synthesizeEmptyWhenMissing option gated only the cold missing-row branch,
   // so whichever caller warmed the cache first decided what the
@@ -349,8 +349,8 @@ describe("latest-existing cache provenance (Astra R2-F1)", () => {
     queryP_readOnly.mockReset();
   });
 
-  test("Astra: latest-existing refuses a synthesized warm cache entry", async () => {
-    // Astra's acceptance test, verbatim in behaviour: ordinary latest
+  test("Review: latest-existing refuses a synthesized warm cache entry", async () => {
+    // The second reviewer's acceptance test, verbatim in behaviour: ordinary latest
     // synthesizes and caches an empty presentation for a conversation with no
     // row; latest-existing must not adopt it.
     serveNoRows();
@@ -361,7 +361,7 @@ describe("latest-existing cache provenance (Astra R2-F1)", () => {
   });
 
   test("it re-reads the store, so a first publication after the warm-up is visible", async () => {
-    // Astra's step 3: the synthetic entry must not hide a generation that was
+    // The second reviewer's step 3: the synthetic entry must not hide a generation that was
     // committed after it was cached.
     const zid = freshZid();
     serveNoRows();

@@ -12,7 +12,7 @@
 //   server-helpers.ts:287   lost the consensus/repness tids -> no featured
 //                           comment authors at all
 //
-// Astra's review rejected treating that as a cost-authorized waiver, and asked
+// The second reviewer's review rejected treating that as a cost-authorized waiver, and asked
 // for a latest-EXISTING read that still returns undefined after a single query
 // when a conversation has no math row. That is `getLatestExistingPca`.
 //
@@ -147,7 +147,7 @@ import { getNextComment } from "../../src/nextComment";
 import { doFamousQuery } from "../../src/server-helpers";
 
 // Priorities that make the choice observable: with them, tid 0 wins; without
-// them every comment defaults to weight 1 and tid 1 wins. Astra's review used
+// them every comment defaults to weight 1 and tid 1 wins. The second reviewer's review used
 // exactly this shape ({0:100, 1:1}, random fraction 0.75).
 const PRIORITIES = { "0": 100, "1": 1 };
 const FIXED_RANDOM = 0.75;
@@ -264,7 +264,7 @@ describe("nextComment over HTTP reads the latest EXISTING generation", () => {
   });
 
   test("a conversation with no math row still routes, and still costs one query", async () => {
-    // The cheap path Astra asked to preserve: no `math_main` row means one
+    // The cheap path the second reviewer asked to preserve: no `math_main` row means one
     // query and an immediate undefined -- never createEmptyPcaStructure's
     // second `select tid from comments` synthesis.
     installPg(null);

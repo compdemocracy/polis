@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """P-022 §E — terminate the disposable CI worker and PROVE it.
 
-Astra's #2715 review (E7) broke the round-1 shell version two ways, and both
+The second reviewer's #2715 review (E7) broke the round-1 shell version two ways, and both
 were the same mistake: treating the absence of evidence as evidence.
 
   * a failed ``describe-instances`` produced empty output, which the lost-ID

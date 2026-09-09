@@ -1561,7 +1561,7 @@ def test_generated_case_metrics_use_latest_distinct_cells_not_revote_rows():
 # block, and the DERIVED role source that makes a flipped bundle admissible.
 #
 # Every test here runs the REAL admission gate end to end: no filtered problem
-# list (Astra review #2730 F1 — filtering hid the fact that no role source
+# list (review #2730 F1 — filtering hid the fact that no role source
 # existed under which a flipped bundle could be admitted at all), so an
 # unrelated admission error fails the test rather than being discarded.
 #
@@ -1806,7 +1806,7 @@ def _as_legacy_v2(manifest):
 
 def test_an_existing_manifest_v2_still_verifies_and_admits_unchanged(
         admitted, config):
-    """Astra #2730: a /2 manifest that verified and admitted under the parent
+    """Review #2730: a /2 manifest that verified and admitted under the parent
     implementation must not be invalidated by this bump. Its absent transform
     field IS the 'original capture' declaration, and its bytes are untouched."""
     payload, manifest = admitted
@@ -1837,7 +1837,7 @@ def test_a_v3_manifest_must_state_the_transform_field(admitted, config):
 
 
 # --- round 3: the origin's rules travel with the derivation -----------------
-# Astra review #2730 R2-F1. A derived role RETAINED a binding naming a
+# Review #2730 R2-F1. A derived role RETAINED a binding naming a
 # synthetic origin while skipping every rule that makes a synthetic role
 # admissible — offer, approval, generator, coverage — so a manifest could claim
 # an origin its own policy forbids and still verify, admit, push and pull.
@@ -1912,7 +1912,7 @@ def test_a_derived_synthetic_origin_must_satisfy_the_origin_rules(
 
 def test_a_derived_role_cannot_claim_an_origin_its_rule_forbids(
         derived_pair, config):
-    """Astra's witness, failing closed. Relabelling only the BINDING to a
+    """The second reviewer's witness, failing closed. Relabelling only the BINDING to a
     synthetic origin, on a role whose rule offers no replacement and with no
     approval or generator anywhere, previously passed the whole
     verify/admit/push/pull path."""

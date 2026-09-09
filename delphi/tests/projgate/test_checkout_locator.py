@@ -12,7 +12,7 @@ import pytest
 
 
 def test_checkout_override_is_usable_when_set() -> None:
-    """Astra's fatal-on-bad-override, scoped to this package: an EXPLICIT but
+    """The second reviewer's fatal-on-bad-override, scoped to this package: an EXPLICIT but
     unusable POLIS_CHECKOUT_DIR is a per-package FAILURE (the conftest records the
     reason), never a session-wide UsageError."""
     fatal = os.environ.get("PROJGATE_LOCATE_FATAL")

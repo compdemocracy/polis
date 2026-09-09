@@ -193,7 +193,7 @@ def test_real_connection_loss_recovers(engine, pg_url, recovery_postgres_url,
     just BEFORE the next write and asserted only that its hook had run — which
     proves nothing: a fresh connection, or SQLAlchemy's pre-ping, can repair an
     idle killed connection without any failure ever reaching the retry path
-    (astra review finding 5).  So instead:
+    (review finding 5).  So instead:
 
     1. open a real transaction on the POLLER's own engine and latch its
        ``pg_backend_pid()``;
@@ -279,7 +279,7 @@ def test_real_connection_loss_recovers(engine, pg_url, recovery_postgres_url,
 def test_terminating_an_idle_backend_is_not_evidence_of_a_failed_write(
     engine, pg_url, recovery_postgres_url, make_service
 ):
-    """The control for the test above (astra review finding 5), asserted rather
+    """The control for the test above (review finding 5), asserted rather
     than assumed: terminating the database's backends between cycles does NOT
     surface any failure to the poller — the next cycle simply reconnects.
 
@@ -387,7 +387,7 @@ def test_real_serialization_failure_recovers(engine, pg_url, make_service):
 # Cache / temporal invariants around a failed write
 # --------------------------------------------------------------------------- #
 # Object identity and `last_updated` are NOT enough: an in-place smoother or
-# PCA mutation would leave both unchanged (astra review finding 6).  These
+# PCA mutation would leave both unchanged (review finding 6).  These
 # helpers take a DEEP, comparable snapshot of every piece of cached state that
 # can advance with a computation, so "no extra temporal advancement" is checked
 # against the actual numerical state and not only against a timestamp.
@@ -457,8 +457,8 @@ def test_failed_write_leaves_prior_cached_object_unchanged(engine, pg_url,
     """Write-before-cache (M2): on a failed write the in-memory cache must still
     hold the LAST PERSISTED conversation object — never an unpersisted one.
 
-    Checked three ways, because the first two are individually weak (astra
-    review finding 6): object identity, ``last_updated``, and a DEEP snapshot
+    Checked three ways, because the first two are individually weak (review
+    finding 6): object identity, ``last_updated``, and a DEEP snapshot
     of every temporal/geometric attribute (rating matrices cell by cell, PCA
     centre and components, per-participant projections, base/group clusters,
     in-conv, repness, moderation lineage).  An in-place smoother or PCA
@@ -512,7 +512,7 @@ def test_failed_write_leaves_prior_cached_object_unchanged(engine, pg_url,
 def test_recovered_state_matches_a_clean_reference_computation(engine, pg_url,
                                                                make_service):
     """The successful retry's geometry and lineage must equal what a CLEAN run
-    of the same inputs produces (astra review finding 6).
+    of the same inputs produces (review finding 6).
 
     The reference is a second service under its own math_env running the SAME
     checkpoint/restore schedule — one cold cycle over the same rows, then one
@@ -656,7 +656,7 @@ class TestNegativeControl:
     def test_the_temporal_snapshot_catches_an_in_place_mutation(
         self, engine, pg_url, make_service
     ):
-        """The correction itself, controlled (astra review finding 6): mutate
+        """The correction itself, controlled (review finding 6): mutate
         the cached conversation's PCA IN PLACE, leaving object identity and
         ``last_updated`` untouched.  The identity/timestamp assertions stay
         green; the deep snapshot must go red."""

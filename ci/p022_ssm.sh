@@ -10,7 +10,7 @@
 #          POLIS_SSM_TIMEOUT         execution timeout, seconds (default 21600)
 #          POLIS_SSM_MODE            status | base64   (default status)
 #
-# ## Output discipline (Astra #2715 E1)
+# ## Output discipline (review #2715 E1)
 #
 # Worker stdout is never echoed verbatim. In `status` mode only lines matching
 # the fixed `p022 <phase> <key>=<value>` grammar are printed; anything else is
