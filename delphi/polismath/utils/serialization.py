@@ -7,10 +7,12 @@ blob may carry numpy scalar/array types. It lives here (rather than nested insid
 share the exact same coercion.
 """
 
+from typing import Any
+
 import numpy as np
 
 
-def convert_numpy_types(obj):
+def convert_numpy_types(obj: Any) -> Any:
     """Convert numpy scalar/array types to JSON-native Python types.
 
     Use as the ``default=`` callback for ``json.dumps``. Without it, a blob that
