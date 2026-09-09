@@ -28,6 +28,12 @@
 #       its grant and its setting all survive, nothing revoked. (Astra r2 P1.)
 #   (j) body drift: a body-only rewrite of pq_backoff -> refusal, caught by the
 #       prosrc-inclusive function fingerprint. (Astra r2 P2.)
+#   (k..n) coalescing witnesses: an operator pre-creates polis_queue_owner already
+#       holding one grant 000019 also adds (conversations SELECT / UPDATE(topic),
+#       public CREATE / USAGE WITH GRANT OPTION). The ACL entries coalesce; the
+#       recorded provenance lets the reversal preserve the adopted owner and its
+#       grant and drop only the created executor. (Astra r3 P1.)
+#   (o) provenance missing: the polis_queue_install record is deleted -> refusal.
 #
 # This is a shell script rather than a delphi/tests pytest because the checks
 # are schema-diff shaped (pg_dump of a full migration chain in an isolated
@@ -36,7 +42,7 @@
 # needs only docker and is self-contained.
 #
 # Usage:  bash server/postgres/migrations/down/test_000019_down.sh
-# Exit 0 iff all ten checks (a..j) pass.
+# Exit 0 iff all fifteen checks (a..o) pass.
 
 set -euo pipefail
 
@@ -169,9 +175,11 @@ docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_ex
 echo "   (g) PASS (pre-existing role survives)"
 
 # --- (i) adopted role: pre-created executor with an extra grant + a role-level
-#         setting; 000019 ADOPTS it. Down must REFUSE and revoke/lose nothing.
-#         Runs on the clean role state (g) restored, and cleans up after itself.
-echo "== check (i): adopted executor (extra grant + statement_timeout) -> refuse, keep all =="
+#         setting; 000019 ADOPTS it (recording it as adopted). The down PRESERVES
+#         the adopted executor, its grant and its setting, revoking only what
+#         000019 added and dropping only the created owner + the queue. Runs on
+#         the clean role state (g) restored, and cleans up after itself.
+echo "== check (i): adopted executor (extra grant + statement_timeout) -> preserved =="
 docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_executor" >/dev/null
 docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_owner" >/dev/null
 createdb sc_i
@@ -182,23 +190,20 @@ GRANT USAGE ON SCHEMA public TO polis_queue_executor;
 ALTER ROLE polis_queue_executor SET statement_timeout = '5min';
 SQL
 apply_one sc_i 000019_create_polis_queue.sql
-set +e
-OUT_I="$(run_down sc_i)"; RC_I=$?
-set -e
-[ "$RC_I" -ne 0 ] || fail "(i) down did NOT refuse an adopted role"
-echo "$OUT_I" | grep -qi "refusing" || fail "(i) expected a refusal, got: $OUT_I"
+run_down sc_i >/dev/null || fail "(i) down failed on an adopted-executor install"
 [ "$(docker exec "$CONTAINER" psql -U postgres -Atc "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='polis_queue_executor')")" = "t" ] \
   || fail "(i) adopted executor role was dropped"
+[ "$(docker exec "$CONTAINER" psql -U postgres -Atc "SELECT NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='polis_queue_owner')")" = "t" ] \
+  || fail "(i) created owner role was not dropped"
 [ "$(docker exec "$CONTAINER" psql -U postgres -Atc "SELECT count(*) FROM pg_db_role_setting WHERE setrole=(SELECT oid FROM pg_roles WHERE rolname='polis_queue_executor')")" = "1" ] \
   || fail "(i) role-level setting was lost"
 [ "$(docker exec "$CONTAINER" psql -U postgres -d sc_i -Atc "SELECT has_schema_privilege('polis_queue_executor','public','USAGE')")" = "t" ] \
-  || fail "(i) executor schema USAGE grant was revoked"
-[ "$(queue_object_count sc_i)" -gt 0 ] || fail "(i) refusal did not roll the inventory drops back"
-# Clean up the pinned global roles for the scenarios that follow.
+  || fail "(i) executor's own schema USAGE grant was revoked"
+[ "$(queue_object_count sc_i)" = "0" ] || fail "(i) queue objects survived the down"
 docker exec "$CONTAINER" psql -U postgres -c "DROP DATABASE sc_i WITH (FORCE)" >/dev/null
 docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_executor" >/dev/null
 docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_owner" >/dev/null
-echo "   (i) PASS (adopted role, grant and setting all survive; refusal, nothing revoked)"
+echo "   (i) PASS (adopted executor + its grant + its setting preserved; created owner + queue dropped)"
 
 # --- (j) body drift: a body-only rewrite of pq_backoff must be caught by the
 #         function fingerprint (which now hashes prosrc) -> refuse, restore.
@@ -220,6 +225,63 @@ docker exec "$CONTAINER" psql -U postgres -c "DROP DATABASE sc_j WITH (FORCE)" >
 docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_executor" >/dev/null
 docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_owner" >/dev/null
 echo "   (j) PASS (body drift caught by the prosrc fingerprint)"
+
+# --- (k..n) coalescing witnesses: an operator pre-creates polis_queue_owner
+#     already holding one grant 000019 also adds (same grantee, grantor,
+#     privilege). The ACL entries coalesce; only the recorded provenance can tell
+#     the reversal not to revoke it. Down must PRESERVE the adopted owner and its
+#     grant, and drop only the created executor. Each runs on a clean role state.
+coalescing_witness() {  # <tag> <db> <grant-sql> <verify-sql> <desc>
+  local tag="$1" db="$2" grant="$3" verify="$4" desc="$5"
+  echo "== check ($tag): coalescing witness -- $desc =="
+  docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_owner" >/dev/null
+  docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_executor" >/dev/null
+  createdb "$db"
+  apply_upto "$db" "$MAX_BASE"
+  docker exec -i "$CONTAINER" psql -v ON_ERROR_STOP=1 -U postgres -d "$db" >/dev/null <<SQL
+CREATE ROLE polis_queue_owner NOLOGIN;
+$grant
+SQL
+  apply_one "$db" 000019_create_polis_queue.sql
+  run_down "$db" >/dev/null || fail "($tag) down failed on an adopted-owner install"
+  [ "$(docker exec "$CONTAINER" psql -U postgres -Atc "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='polis_queue_owner')")" = "t" ] \
+    || fail "($tag) the adopted owner role was dropped"
+  [ "$(docker exec "$CONTAINER" psql -U postgres -Atc "SELECT NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='polis_queue_executor')")" = "t" ] \
+    || fail "($tag) the created executor role was not dropped"
+  [ "$(docker exec "$CONTAINER" psql -U postgres -d "$db" -Atc "$verify")" = "t" ] \
+    || fail "($tag) the pre-existing (coalescing) grant was revoked"
+  [ "$(queue_object_count "$db")" = "0" ] || fail "($tag) queue objects survived the down"
+  docker exec "$CONTAINER" psql -U postgres -c "DROP DATABASE $db WITH (FORCE)" >/dev/null
+  docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_owner" >/dev/null
+  docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_executor" >/dev/null
+  echo "   ($tag) PASS ($desc preserved; owner adopted, executor dropped)"
+}
+coalescing_witness k sc_k "GRANT SELECT ON public.conversations TO polis_queue_owner;" \
+  "SELECT has_table_privilege('polis_queue_owner','public.conversations','SELECT')" "conversations SELECT"
+coalescing_witness l sc_l "GRANT UPDATE(topic) ON public.conversations TO polis_queue_owner;" \
+  "SELECT has_column_privilege('polis_queue_owner','public.conversations','topic','UPDATE')" "conversations UPDATE(topic)"
+coalescing_witness m sc_m "GRANT CREATE ON SCHEMA public TO polis_queue_owner;" \
+  "SELECT has_schema_privilege('polis_queue_owner','public','CREATE')" "public CREATE"
+coalescing_witness n sc_n "GRANT USAGE ON SCHEMA public TO polis_queue_owner WITH GRANT OPTION;" \
+  "SELECT has_schema_privilege('polis_queue_owner','public','USAGE WITH GRANT OPTION')" "public USAGE WITH GRANT OPTION"
+
+# --- (o) provenance record missing -> refuse (never guess) --------------------
+echo "== check (o): provenance record deleted -> refuse =="
+docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_owner" >/dev/null
+docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_executor" >/dev/null
+createdb sc_o
+apply_upto sc_o "$MAX_FULL"
+docker exec "$CONTAINER" psql -v ON_ERROR_STOP=1 -U postgres -d sc_o -c "DELETE FROM public.polis_queue_install" >/dev/null
+set +e
+OUT_O="$(run_down sc_o)"; RC_O=$?
+set -e
+[ "$RC_O" -ne 0 ] || fail "(o) down did NOT refuse with the provenance record missing"
+echo "$OUT_O" | grep -qi "provenance is missing" || fail "(o) expected a provenance-missing refusal, got: $OUT_O"
+[ "$(queue_object_count sc_o)" -gt 0 ] || fail "(o) refusal did not roll back"
+docker exec "$CONTAINER" psql -U postgres -c "DROP DATABASE sc_o WITH (FORCE)" >/dev/null
+docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_owner" >/dev/null
+docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_executor" >/dev/null
+echo "   (o) PASS (missing provenance is refused, queue intact)"
 
 # --- (a) apply 000019 then down; catalog must equal the 000018 baseline -------
 echo "== check (a): apply 000000..$MAX_FULL, down, compare to baseline =="
@@ -346,4 +408,4 @@ echo "$OUT_H" | grep -qi "refusing to drop a live queue" || fail "(h) expected l
 echo "   (h) PASS (row committed under the lock is seen and refused, not lost)"
 
 echo
-echo "ALL CHECKS PASSED (a, b, c, d, e, f, g, h, i, j)"
+echo "ALL CHECKS PASSED (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o)"

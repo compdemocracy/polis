@@ -105,6 +105,20 @@ SELECT jsonb_build_object(
  ) FROM pg_class c WHERE c.oid=p_table
 $catalog$;
 
+-- Build the REVOKE statement for one recorded added-grant entry
+-- {object,grantee,grantor,privilege,grantable}. object is 'public',
+-- 'conversations', or 'conversations.<column>'.
+CREATE FUNCTION pg_temp.pqd_revoke(g jsonb) RETURNS text LANGUAGE sql AS $revoke$
+ SELECT CASE
+   WHEN g->>'object' = 'public' THEN
+     format('REVOKE %s ON SCHEMA public FROM %I', g->>'privilege', g->>'grantee')
+   WHEN g->>'object' = 'conversations' THEN
+     format('REVOKE %s ON public.conversations FROM %I', g->>'privilege', g->>'grantee')
+   WHEN g->>'object' LIKE 'conversations.%' THEN
+     format('REVOKE %s(%I) ON public.conversations FROM %I', g->>'privilege', split_part(g->>'object','.',2), g->>'grantee')
+ END
+$revoke$;
+
 -- -------------------------------------------------------------------------
 -- PHASE 1: lock every present queue table against writers, in a fixed order,
 -- BEFORE counting. Held to COMMIT. (Astra P2: count-before-lock races.)
@@ -167,8 +181,9 @@ END $refuse$;
 -- -------------------------------------------------------------------------
 DO $main$
 DECLARE
-  -- 000019's own pins (000019:131,153,179). A match here proves provenance.
-  expected_tables jsonb := '{"polis_queue_attempts": "4bf01840303c3447650ada377d535bee", "polis_queue_heads": "cf987d5673228e6ca6d6f3b86b7e77e5", "polis_queue_jobs": "d8367b8bdaa7701b9c377450d23b5db5", "polis_queue_requests": "cae8fcd4db4562b9936b7d33cf598f1e", "polis_queue_runs": "8e7fd316c23320c229387822146eebec"}'::jsonb;
+  -- 000019's own pins (000019:131,153,179). A match here proves the schema is
+  -- 000019's. polis_queue_install (the provenance table) is included.
+  expected_tables jsonb := '{"polis_queue_attempts": "4bf01840303c3447650ada377d535bee", "polis_queue_heads": "cf987d5673228e6ca6d6f3b86b7e77e5", "polis_queue_install": "47d90bf481bea018547d70029498bbb4", "polis_queue_jobs": "d8367b8bdaa7701b9c377450d23b5db5", "polis_queue_requests": "cae8fcd4db4562b9936b7d33cf598f1e", "polis_queue_runs": "8e7fd316c23320c229387822146eebec"}'::jsonb;
   expected_signatures text[] := ARRAY['pq_backoff(uuid, integer)','pq_cancel(text, uuid, bigint)','pq_claim(text, smallint, uuid, uuid, integer)','pq_due(text, uuid, integer)','pq_end_attempt(text, uuid, uuid, uuid, bigint, text, text)','pq_enqueue(text, integer, text, text, text, text, uuid, uuid, text, text, text, text, smallint, integer)','pq_fail(text, uuid, uuid, uuid, bigint, boolean, text)','pq_finalize(text, uuid, uuid, uuid, bigint, text, text)','pq_head_status(text, text)','pq_heartbeat(text, uuid, uuid, uuid, bigint, integer)','pq_job_status(text, uuid)','pq_lock(text, uuid, boolean, boolean)','pq_no_regression()','pq_owns(public.polis_queue_jobs, uuid, uuid, bigint)','pq_park(text, uuid, uuid, uuid, bigint, text)','pq_publish_allowed(public.polis_queue_heads, public.polis_queue_runs)','pq_reap(text, uuid, integer)','pq_reap_one(text, uuid)','pq_release(text, uuid, uuid, uuid, bigint)','pq_result(text, public.polis_queue_jobs, boolean)','pq_terminate_attempt(public.polis_queue_jobs, text, text, text, boolean)'];
   -- Body-inclusive per-function digest. 000019's own pin covers signature,
   -- result, volatility, security_definer, config, owner and ACL but NOT prosrc,
@@ -184,7 +199,12 @@ DECLARE
 
   present_tables text[]; present_sigs text[];
   roles_present boolean; actual_fn_md5 text; entry record;
-  pubowner text; convowner text; actual_acl text[]; expected_acl text[]; onward text;
+  -- Recorded installation provenance (public.polis_queue_install, written by
+  -- 000019): what THIS migration created and added, as opposed to what a
+  -- pre-existing (adopted) role brought with it.
+  v_created text[]; v_adopted text[]; v_added jsonb; v_fp_rec text; v_fp_live text;
+  install_rows bigint; stmt text; owner_stmts text[]; owner_present boolean;
+  -- Second belt, applied only to roles 000019 created before dropping them.
   rname text; rid oid; attr_txt text; settings_txt text; extradep text; memberships bigint;
 BEGIN
   -- 000019 computes its signature/function fingerprints under this exact
@@ -243,6 +263,31 @@ BEGIN
     RAISE EXCEPTION 'refusing: a pq_* function''s body, result, volatility, config, owner or ACL does not match 000019''s fingerprint (drift). Resolve by hand.';
   END IF;
 
+  -- -------------------------------------------------------------------------
+  -- Installation provenance. When a pre-existing role already holds a grant
+  -- 000019 also adds (same grantee, grantor, privilege), the ACL entries
+  -- coalesce into one and no final-state comparison can attribute it. So the
+  -- reversal relies on the record 000019 wrote: it drops only the roles listed
+  -- as created and revokes only the grants listed as added, preserving
+  -- everything adopted. A missing record, or a fingerprint that no longer
+  -- matches the live catalog, is refused.
+  -- -------------------------------------------------------------------------
+  SELECT count(*) INTO install_rows FROM public.polis_queue_install;
+  IF install_rows <> 1 THEN
+    RAISE EXCEPTION 'refusing: public.polis_queue_install holds % row(s), expected exactly 1; installation provenance is missing or corrupt', install_rows
+      USING HINT = 'Only 000019 writes this record. Resolve by hand.';
+  END IF;
+  SELECT created_roles, adopted_roles, added_grants, catalog_fingerprint
+    INTO v_created, v_adopted, v_added, v_fp_rec
+    FROM public.polis_queue_install WHERE singleton;
+  SELECT md5(string_agg(t.name||'='||md5(pg_temp.pqd_catalog(to_regclass('public.'||t.name))::text),'|' ORDER BY t.name))
+    INTO v_fp_live FROM (SELECT relname AS name FROM pg_class
+                         WHERE relnamespace='public'::regnamespace AND starts_with(relname,'polis_queue_') AND relkind='r') t;
+  IF v_fp_live IS DISTINCT FROM v_fp_rec THEN
+    RAISE EXCEPTION 'refusing: the recorded installation fingerprint does not match the live catalog (the schema changed since install)'
+      USING HINT = 'Resolve by hand.';
+  END IF;
+
   -- Provably 000019's schema. Remove its inventory in dependency order.
   DROP TRIGGER IF EXISTS pq_no_regression ON public.polis_queue_heads;
 
@@ -290,80 +335,39 @@ BEGIN
     public.polis_queue_runs;
 
   -- ---------------------------------------------------------------------
-  -- Role provenance. 000019 ADOPTS a pre-existing NOLOGIN owner/executor
-  -- (it CREATEs each only when absent), so a role's mere existence does not
-  -- make it 000019's. A role is 000019's to drop ONLY if its ENTIRE live
-  -- footprint equals what 000019 establishes: a default NOLOGIN role with no
-  -- role-level settings, owning nothing beyond the (fingerprint-verified) queue
-  -- objects just dropped, and holding exactly 000019's grants -- USAGE + CREATE
-  -- on public and, for owner, SELECT/UPDATE(topic)/REFERENCES(zid) on
-  -- conversations. ANY extra attribute, setting, or grant means the role was
-  -- adopted or altered: REFUSE, name the extras, and revoke NOTHING. All of this
-  -- is checked BEFORE any revoke, so an adopted grant is never erased.
+  -- Provenance-driven grant revocation. Revoke ONLY the grants 000019 recorded
+  -- as added; anything a pre-existing (adopted) role brought with it -- even a
+  -- grant identical to one 000019 also added, which coalesced into one entry --
+  -- is not in the record and is preserved. Grants 000019 made AS the owner role
+  -- (grantor = polis_queue_owner: its redundant self-USAGE and the executor
+  -- USAGE) can only be revoked by that role, so those go first under SET ROLE;
+  -- doing them first also clears the dependents of owner's grantable USAGE, so
+  -- the applier-made revokes that follow need no CASCADE.
   -- ---------------------------------------------------------------------
-  pubowner  := pg_get_userbyid((SELECT nspowner FROM pg_namespace WHERE nspname='public'));
-  convowner := pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='public.conversations'::regclass));
-
-  -- 000019's exact grant footprint involving the roles, on the objects it
-  -- touches outside the queue objects: schema public and conversations. Owner's
-  -- own onward grants are BY owner; the applier-made grants record the object's
-  -- OWNER as grantor (a superuser GRANT records the object owner). Entries render
-  -- as  object|grantee|grantor|privilege|grantable.
-  expected_acl := ARRAY[]::text[];
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='polis_queue_owner') THEN
-    expected_acl := expected_acl || ARRAY[
-      'public|polis_queue_owner|'||pubowner||'|USAGE|true',
-      'public|polis_queue_owner|'||pubowner||'|CREATE|false',
-      'public|polis_queue_owner|polis_queue_owner|USAGE|false',
-      'conversations|polis_queue_owner|'||convowner||'|SELECT|false',
-      'conversations.topic|polis_queue_owner|'||convowner||'|UPDATE|false',
-      'conversations.zid|polis_queue_owner|'||convowner||'|REFERENCES|false'];
+  owner_present := EXISTS (SELECT 1 FROM pg_roles WHERE rolname='polis_queue_owner');
+  IF owner_present THEN
+    SELECT array_agg(pg_temp.pqd_revoke(e)) INTO owner_stmts
+      FROM jsonb_array_elements(v_added) e WHERE e->>'grantor'='polis_queue_owner';
+    IF owner_stmts IS NOT NULL THEN
+      EXECUTE 'SET ROLE polis_queue_owner';
+      FOREACH stmt IN ARRAY owner_stmts LOOP EXECUTE stmt; END LOOP;
+      EXECUTE 'RESET ROLE';
+    END IF;
   END IF;
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='polis_queue_executor') THEN
-    expected_acl := expected_acl || ARRAY['public|polis_queue_executor|polis_queue_owner|USAGE|false'];
-  END IF;
+  FOR stmt IN SELECT pg_temp.pqd_revoke(e)
+                FROM jsonb_array_elements(v_added) e WHERE e->>'grantor'<>'polis_queue_owner' LOOP
+    EXECUTE stmt;
+  END LOOP;
 
-  SELECT COALESCE(array_agg(e ORDER BY e), ARRAY[]::text[]) INTO actual_acl FROM (
-    SELECT 'public|'||pg_get_userbyid(a.grantee)||'|'||pg_get_userbyid(a.grantor)||'|'||a.privilege_type||'|'||a.is_grantable::text AS e
-      FROM pg_namespace n, aclexplode(n.nspacl) a
-     WHERE n.nspname='public' AND pg_get_userbyid(a.grantee) IN ('polis_queue_owner','polis_queue_executor')
-    UNION ALL
-    SELECT 'conversations|'||pg_get_userbyid(a.grantee)||'|'||pg_get_userbyid(a.grantor)||'|'||a.privilege_type||'|'||a.is_grantable::text
-      FROM pg_class c, aclexplode(c.relacl) a
-     WHERE c.oid='public.conversations'::regclass AND pg_get_userbyid(a.grantee) IN ('polis_queue_owner','polis_queue_executor')
-    UNION ALL
-    SELECT 'conversations.'||att.attname||'|'||pg_get_userbyid(a.grantee)||'|'||pg_get_userbyid(a.grantor)||'|'||a.privilege_type||'|'||a.is_grantable::text
-      FROM pg_attribute att, aclexplode(att.attacl) a
-     WHERE att.attrelid='public.conversations'::regclass AND att.attnum>0
-       AND pg_get_userbyid(a.grantee) IN ('polis_queue_owner','polis_queue_executor')
-  ) s;
+  -- The provenance table, dropped last among the schema objects (its record was
+  -- read above). Owned by polis_queue_owner, so it must go before that role.
+  DROP TABLE IF EXISTS public.polis_queue_install;
 
-  -- Set comparison (order-independent): the symmetric difference must be empty.
-  IF EXISTS (SELECT unnest(actual_acl) EXCEPT SELECT unnest(expected_acl))
-     OR EXISTS (SELECT unnest(expected_acl) EXCEPT SELECT unnest(actual_acl)) THEN
-    RAISE EXCEPTION 'refusing: a queue role holds a public/conversations grant 000019 did not establish (adopted or altered role)'
-      USING DETAIL = 'extra: '||COALESCE(NULLIF(array_to_string(ARRAY(SELECT unnest(actual_acl) EXCEPT SELECT unnest(expected_acl)),'; '),''),'(none)')
-                   ||' | missing: '||COALESCE(NULLIF(array_to_string(ARRAY(SELECT unnest(expected_acl) EXCEPT SELECT unnest(actual_acl)),'; '),''),'(none)'),
-           HINT = 'The up migration adopts a pre-existing role; extra grants are the operator''s. Resolve by hand; nothing was revoked.';
-  END IF;
-
-  -- A queue role must not be the GRANTOR of any public grant to a third party
-  -- (000019's only onward grants are owner->owner and owner->executor). Such a
-  -- grant would be swept by the CASCADE below, so refuse instead.
-  SELECT string_agg(DISTINCT pg_get_userbyid(a.grantee), ', ') INTO onward
-    FROM pg_namespace n, aclexplode(n.nspacl) a
-   WHERE n.nspname='public'
-     AND pg_get_userbyid(a.grantor) IN ('polis_queue_owner','polis_queue_executor')
-     AND pg_get_userbyid(a.grantee) NOT IN ('polis_queue_owner','polis_queue_executor');
-  IF onward IS NOT NULL THEN
-    RAISE EXCEPTION 'refusing: a queue role granted schema public onward to %, which 000019 did not do', onward
-      USING HINT = 'Resolve by hand; nothing was revoked.';
-  END IF;
-
-  -- Per role: exactly a default NOLOGIN role, no role-level settings, no
-  -- ownership of or grant on any object beyond public/conversations (the queue
-  -- objects were dropped above), and no memberships. Any extra -> refuse.
-  FOREACH rname IN ARRAY ARRAY['polis_queue_executor','polis_queue_owner'] LOOP
+  -- Drop ONLY the roles 000019 recorded as created; preserve every adopted role.
+  -- Second belt: a created role, once its added grants are revoked and its
+  -- objects dropped, must be a bare default NOLOGIN owning/holding nothing --
+  -- else something unexpected happened, so refuse rather than drop.
+  FOREACH rname IN ARRAY COALESCE(v_created, ARRAY[]::text[]) LOOP
     SELECT oid INTO rid FROM pg_roles WHERE rolname=rname;
     IF rid IS NULL THEN CONTINUE; END IF;
 
@@ -391,35 +395,21 @@ BEGIN
       INTO extradep
       FROM pg_shdepend
      WHERE refclassid='pg_authid'::regclass AND refobjid=rid
-       AND dbid IN (0, (SELECT oid FROM pg_database WHERE datname=current_database()))
-       AND NOT (classid='pg_namespace'::regclass AND objid='public'::regnamespace)
-       AND NOT (classid='pg_class'::regclass AND objid='public.conversations'::regclass);
+       AND dbid IN (0, (SELECT oid FROM pg_database WHERE datname=current_database()));
 
     SELECT count(*) INTO memberships FROM pg_auth_members WHERE roleid=rid OR member=rid;
 
     IF attr_txt IS NOT NULL OR settings_txt IS NOT NULL OR extradep IS NOT NULL OR memberships > 0 THEN
-      RAISE EXCEPTION 'refusing to drop role %: it was adopted or altered, not established by 000019', rname
+      RAISE EXCEPTION 'refusing to drop role % (000019 recorded it as created): it has an unexpected residual footprint', rname
         USING DETAIL = concat_ws('; ',
-          CASE WHEN attr_txt     IS NOT NULL THEN 'extra attribute(s): '||attr_txt END,
+          CASE WHEN attr_txt     IS NOT NULL THEN 'attribute(s): '||attr_txt END,
           CASE WHEN settings_txt IS NOT NULL THEN 'role-level setting(s): '||settings_txt END,
-          CASE WHEN extradep     IS NOT NULL THEN 'owns/holds beyond 000019: '||extradep END,
+          CASE WHEN extradep     IS NOT NULL THEN 'still owns/holds: '||extradep END,
           CASE WHEN memberships  > 0 THEN memberships||' membership grant(s)' END),
-           HINT = 'The up migration adopts a pre-existing role; this footprint is not 000019''s. Resolve by hand; nothing was revoked.';
+           HINT = 'Resolve by hand.';
     END IF;
-  END LOOP;
 
-  -- Every role is provably 000019's and nothing else. NOW revoke 000019's exact
-  -- grants and drop. The CASCADE clears owner's grantable USAGE and the onward
-  -- grants that depend on it (owner-self and executor) -- verified above to be
-  -- 000019's only onward grants, so it sweeps nothing the operator added.
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='polis_queue_owner') THEN
-    REVOKE USAGE, CREATE ON SCHEMA public FROM polis_queue_owner CASCADE;
-    REVOKE SELECT, REFERENCES(zid), UPDATE(topic) ON public.conversations FROM polis_queue_owner;
-  END IF;
-  FOREACH rname IN ARRAY ARRAY['polis_queue_executor','polis_queue_owner'] LOOP
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname=rname) THEN
-      EXECUTE format('DROP ROLE %I', rname);
-    END IF;
+    EXECUTE format('DROP ROLE %I', rname);
   END LOOP;
 END $main$;
 
