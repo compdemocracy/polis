@@ -100,41 +100,55 @@ the down script must not trust names. In one transaction it:
    added overload, a drifted table, or a **body-only rewrite** of a function —
    it **refuses** and names the mismatch, rather than dropping it.
 3. Reads the **installation provenance** 000019 recorded (see below) — refusing
-   if that record is missing/corrupt or its fingerprint no longer matches the
-   live catalog — so it knows which roles 000019 *created* versus *adopted*, and
-   exactly which grants it *added*.
+   if that record is missing/multiple, if its fingerprint no longer matches the
+   live catalog, or if its contents name a role/grant outside 000019's closed
+   inventory (the roles must be a disjoint complete partition of the two role
+   names; every added grant must be one 000019 itself adds). This content
+   validation is a separate trust boundary from the schema fingerprint.
 4. Drops its inventory in dependency order: the trigger, the 21 functions **by
    full argument signature**, the 9 explicit indexes, the 5 data tables.
 5. Revokes **only the grants 000019 recorded as added**, leaving anything a
    pre-existing (adopted) role brought with it — including a grant identical to
    one 000019 also added, which coalesces into a single catalog entry and is
-   otherwise impossible to attribute. Grants 000019 made *as* the owner role are
-   revoked under `SET ROLE`; the rest as the current login. Then drops the
-   provenance table.
+   otherwise impossible to attribute. An add that only upgraded an existing
+   privilege to `WITH GRANT OPTION` is **downgraded** with `REVOKE GRANT OPTION
+   FOR`, never removing the operator's original privilege. Grants 000019 made
+   *as* the owner role are revoked under `SET ROLE`; the rest as the current
+   login. Then drops the provenance table.
 6. Drops **only the roles 000019 recorded as created**, and preserves every
    adopted role untouched. A second belt still checks that each created role,
    once its added grants are revoked and its objects dropped, is a bare default
    NOLOGIN owning/holding nothing — otherwise it refuses rather than drop. It
    never uses `DROP OWNED BY`, which would sweep away unrelated objects.
 
-`public.conversations` and the `public` schema themselves are never touched.
+`public.conversations` and the `public` schema themselves are never touched. A
+reversal that preserved an adopted role leaves that role behind, so re-running
+the down then refuses (a queue role without the schema) rather than being a
+no-op; the operator drops the role by hand if they want it gone.
 
 **Why a recorded provenance.** 000019 *adopts* a pre-existing NOLOGIN
 owner/executor role (it `CREATE`s each only when absent) and does not require it
 to be empty. When such a role already holds a grant 000019 also adds — same
-grantee, grantor and privilege — the two ACL entries **coalesce** into one, so no
-after-the-fact comparison of the final catalog can tell who created the grant or
-the role. So 000019 itself records the truth at install time: immediately after
-`BEGIN`, before it creates or grants anything, it snapshots which of its roles
-already exist and which of the exact grants it is about to add already exist, and
-at the end writes one row to `public.polis_queue_install`
-(`created_roles[]`, `adopted_roles[]`, `added_grants` — each
-`{object,grantee,grantor,privilege,grantable}`, computed as the end-state grants
-minus the snapshot — `applied_at`, and a catalog fingerprint). The table is
-part of 000019's own catalog fingerprint, so drift detection covers it, and the
-insert is idempotent (`ON CONFLICT DO NOTHING`). The reversal trusts this record
-rather than guessing. (000019 has not been applied to any environment; every
-apply gets the recorded provenance.)
+grantee, grantor and privilege — the two ACL entries **coalesce** into one (and a
+plain grant it upgrades to `WITH GRANT OPTION` is a single entry that only
+changed its grantable flag), so no after-the-fact comparison of the final
+catalog can tell who created the grant or the role. So 000019 itself records the
+truth at install time: immediately after `BEGIN`, before it creates or grants
+anything, it snapshots which of its roles already exist and which of the exact
+grants it is about to add already exist, and at the end writes one row to
+`public.polis_queue_install` (`created_roles[]`, `adopted_roles[]`,
+`added_grants` — each `{object,grantee,grantor,privilege,grantable,option_only}`,
+computed as the end-state grants minus the snapshot, with `option_only` marking
+an add that only introduced the grant option — `applied_at`, and a catalog
+fingerprint). The table is part of 000019's own catalog fingerprint, so drift
+detection covers it. The record is written once and preserved on re-apply
+(`ON CONFLICT DO NOTHING`); a re-apply over an installed queue whose record has
+been **deleted** is **aborted** rather than allowed to reconstruct false
+"everything adopted" history from the final state. The reversal trusts this
+record — after validating its contents — rather than guessing. (000019 has not
+been applied to any persistent environment; every apply gets the recorded
+provenance. Any persistent old install would need a separately reviewed
+preservation path, not this amendment replayed over it.)
 
 Run it alone, as a superuser (`postgres`), exactly as
 [docs/migrations.md](migrations.md) applies a file:
@@ -185,7 +199,11 @@ its grant and setting intact while the created owner and the queue are dropped;
 and refused; (k–n) the four coalescing witnesses — an owner pre-holding
 `conversations` SELECT / `UPDATE(topic)`, or `public` CREATE / USAGE WITH GRANT
 OPTION, one 000019 also adds — are preserved on the adopted owner while the
-created executor is dropped; and (o) a deleted provenance record is refused.
+created executor is dropped; (o) a deleted provenance record is refused;
+(p) a plain USAGE that 000019 upgrades to WITH GRANT OPTION is downgraded on
+reversal, not revoked; (q) a record whose contents name an unrelated role or
+grant, or whose arrays are emptied, is refused with nothing removed; and (r) a
+re-apply over an installed queue whose provenance record was deleted is aborted.
 
 ```sh
 bash server/postgres/migrations/down/test_000019_down.sh
