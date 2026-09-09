@@ -259,12 +259,16 @@ The event stream is the authoritative artifact and is LOSSLESS:
 Everything above captures a conversation's **inputs**. A bundle may also capture
 what the Clojure engine actually **served** — the prerequisite for any
 off-policy fidelity comparison of a replacement engine against the Clojure era,
-and for inferring the recompute schedule (P-052 section 4.5).
+and an input to the schedule ensemble in P-052 section 4.5. A latest-only
+served row cannot identify the consumed prefix or actual recompute schedule.
 
-- **What is read.** Two additional `SELECT`s per conversation, against tables
+- **What is read.** Live `information_schema.columns` discovery for `math_ticks`,
+  followed by two row `SELECT`s per conversation against tables
   that already exist: `math_main` (one row per `math_env` — the published blob,
   `last_vote_timestamp`, `math_tick`, `caching_tick`, `modified`) and
-  `math_ticks` (the publish counter). **This is an extraction change and
+  `math_ticks` (the publish counter). Only available tick columns are selected;
+  `source_columns` records the actual column set, so absent `caching_tick`
+  differs from a captured SQL NULL. **This is an extraction change and
   nothing else: no migration, no new column, no trigger, no write of any kind.**
 - **How it is turned on.** By the committed selection config, like every other
   rule that decides what a bundle contains:
@@ -292,29 +296,31 @@ and for inferring the recompute schedule (P-052 section 4.5).
   explicitly rather than leaving the blanket claim to cover for it. The blob
   files are private-tier payload and are never published; the manifest itself
   still carries no identity.
-- **Admission.** The block is optional, so an absent one is a complete
-  statement — this bundle did not capture what the engine served. A block that
-  IS present is admitted as strictly as everything else: closed key set, a
-  schema version admission recognises, and every file it names must be in the
-  inventory under the digest it claims.
-- **The watermark check is a DIAGNOSTIC, never a gate**, and admission refuses a
-  bundle that records it as one. `math_main` is a latest-only UPSERT and the
-  extraction snapshot is taken after the last publish, so votes arriving after
-  the served watermark are the ordinary production case; what the diagnostic
-  reports is which prefix of the vote stream the served blob was computed from.
-  Its verdicts are `consistent`, `votes-arrived-after-the-served-watermark`,
-  `no-votes-extracted`, and the one worth investigating,
-  `watermark-ahead-of-every-extracted-vote` — a served row citing a vote the
-  extract does not contain.
+- **Admission.** Capture is optional. When present, `admit_manifest` requires
+  `payload_root`: it checks the metadata schema, strict scalar types, actual
+  columns, environment/row/file census, recomputed logical digest, blob lengths
+  and digests, and the entire manifest summary. `verify` performs the same
+  payload checks. Pull checks manifest structure before download and verifies
+  the payload before returning; push checks before publishing anything.
+- **The watermark check is a DIAGNOSTIC, never a gate.** Its counts describe
+  extracted event timestamps at/before or after the recorded watermark.
+  `watermark-equals-max-vote-timestamp` means timestamp equality only;
+  `vote-timestamps-after-the-served-watermark` means a positive timestamp tail.
+  Other relations are `no-votes-extracted`, `no-watermark-column`, and
+  `watermark-ahead-of-every-extracted-vote`. None establishes transaction
+  visibility, same-ms ordering, historical moderation, consumed vote prefix,
+  or a recompute schedule. P-052 must model those uncertainties across an
+  ensemble; an actual schedule needs a retained execution/publication trace.
 - **Reading it back.** `polismath.replay.real_data.load_served_math` /
   `read_served_math` return the rows, the tick counters and the verbatim blob
-  text, re-hashing each blob against the recorded digest;
+  text after validating metadata, paths, census, blob hashes and lengths, and
+  re-deriving the diagnostic from the retained millisecond event stream;
   `check_served_math_against_dataset` re-derives the diagnostic from whatever a
   replay actually loaded, which is how a millisecond-stream capture and a
   second-resolution compatibility CSV are kept from quietly disagreeing.
-- **`math_ticks.math_tick` counts publishes and defaults to 0**, so after `P`
-  publishes it reads `P - 1`. The raw column value is recorded, never a
-  corrected count.
+- **The raw `math_ticks.math_tick` counter** reads `P - 1` after `P` publishes
+  only with default initialization and an uninterrupted row lifecycle. It is
+  not a full history or an independent recompute count.
 
 ## Release record
 

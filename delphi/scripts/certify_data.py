@@ -232,7 +232,8 @@ def push(bundle_id: str, payload: Path, extract_json: Path, provenance_json: Pat
     )
     fb.verify(payload, manifest)
     try:
-        fb.admit_manifest(manifest, config=config, config_bytes=config_bytes)
+        fb.admit_manifest(manifest, config=config, config_bytes=config_bytes,
+                          payload_root=payload)
     except fb.AdmissionError as exc:
         raise click.ClickException(str(exc)) from exc
 
@@ -334,7 +335,7 @@ def verify(payload: Path, manifest_path: Path, config_path: Path | None,
         fb.verify(Path(payload), manifest)
         if admit:
             fb.admit_manifest(manifest, config=fc.load_config(config_path),
-                              config_bytes=Path(config_path).read_bytes())
+                              config_bytes=Path(config_path).read_bytes(), payload_root=Path(payload))
     except fb.BundleError as exc:
         click.echo(str(exc), err=True)
         sys.exit(1)

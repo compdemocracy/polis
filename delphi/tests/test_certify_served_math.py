@@ -8,7 +8,7 @@ participants). It did not capture the *output* the production engine published
 without that there is nothing for an off-policy fidelity comparison to be
 scored against.
 
-This module covers the extraction change, which is READ ONLY: two additional
+This module covers the extraction change, which is READ ONLY: schema discovery and two additional row
 ``SELECT``s against tables that already exist. No migration, no new column, no
 trigger.
 
@@ -132,7 +132,7 @@ class _FakeCursor:
     """Answers whichever table the executed statement selects FROM.
 
     Dispatching on the SQL rather than on a fixed result queue keeps the fake
-    honest when the extractor runs three queries (capture off) or five
+    honest when the extractor runs three queries (capture off) or six
     (capture on), and makes an unexpected statement a loud failure instead of
     a silently mismatched result set.
     """
@@ -149,6 +149,12 @@ class _FakeCursor:
     def execute(self, sql: str, params: Any = None) -> None:
         self.statements.append(sql)
         self.params.append(params)
+        if "information_schema.columns" in sql:
+            rows = self._rows_by_table["math_ticks"]
+            columns = list(rows[0]) if rows else list(fx.TICK_COLUMNS)
+            self.description = [("column_name",)]
+            self._current = [{"column_name": column} for column in columns]
+            return
         table = next(
             (t for t in self._TABLES if f"FROM {t}\n" in sql or sql.rstrip().endswith(f"FROM {t}")),
             None,
@@ -402,8 +408,8 @@ def captured(tmp_path):
 
 
 def test_the_queries_read_only_and_never_select_a_zid(captured):
-    """An extraction change, not a schema change: two SELECTs, no writes, and
-    no zid column in either of them."""
+    """An extraction change, not a schema change: two row SELECTs plus schema discovery,
+    no writes, and no zid column in the captured rows."""
     _, _, conn = captured
     statements = [s for cur in conn.cursors for s in cur.statements]
     served = [s for s in statements if "math_main" in s or "math_ticks" in s]
@@ -478,9 +484,8 @@ def test_blob_files_are_named_by_index_never_by_math_env(tmp_path):
     assert summary["served_math"]["math_envs"] == ["../../escape"]
 
 
-def test_the_watermark_diagnostic_locates_the_prefix_the_blob_saw(captured):
-    """``prod`` published at the fourth vote, so the last two votes arrived
-    after it — the ordinary production case, reported and never failed."""
+def test_the_watermark_diagnostic_counts_relative_event_timestamps(captured):
+    """Two timestamps exceed the watermark; publication visibility is unknown."""
     directory, _, _ = captured
     consistency = json.loads(
         (directory / "served_math.json").read_text())["consistency"]
@@ -488,7 +493,7 @@ def test_the_watermark_diagnostic_locates_the_prefix_the_blob_saw(captured):
     assert consistency["vote_events"] == 6
     assert consistency["max_vote_created_ms"] == BASE_MS + 600
     prod = next(e for e in consistency["per_math_env"] if e["math_env"] == "prod")
-    assert prod["verdict"] == "votes-arrived-after-the-served-watermark"
+    assert prod["verdict"] == "vote-timestamps-after-the-served-watermark"
     assert prod["votes_at_or_before_watermark"] == 4
     assert prod["votes_after_watermark"] == 2
     assert prod["watermark_minus_max_vote_ms"] == -200
@@ -499,7 +504,7 @@ def test_the_watermark_diagnostic_locates_the_prefix_the_blob_saw(captured):
     assert prod["blob_last_vote_timestamp"] == BASE_MS + 400
 
 
-def test_a_watermark_matching_the_last_vote_reads_consistent(tmp_path):
+def test_a_watermark_matching_the_last_vote_reports_timestamp_equality(tmp_path):
     rows = [dict(SYNTH_MATH_MAIN[1], last_vote_timestamp=BASE_MS + 600,
                  data_text='{"lastVoteTimestamp": 1600000000600}')]
     directory, _, _ = _extract(tmp_path, capture_served_math=True,
@@ -507,14 +512,13 @@ def test_a_watermark_matching_the_last_vote_reads_consistent(tmp_path):
     consistency = json.loads(
         (directory / "served_math.json").read_text())["consistency"]
     entry = consistency["per_math_env"][0]
-    assert entry["verdict"] == "consistent"
+    assert entry["verdict"] == "watermark-equals-max-vote-timestamp"
     assert entry["votes_after_watermark"] == 0
     assert entry["watermark_minus_max_vote_ms"] == 0
 
 
 def test_a_watermark_past_every_extracted_vote_is_called_out(tmp_path):
-    """The one shape that means the served row and the extracted votes came
-    from different states. Still a diagnostic — but a named one."""
+    """A watermark beyond the extracted timestamp range is described literally."""
     rows = [dict(SYNTH_MATH_MAIN[1], last_vote_timestamp=BASE_MS + 9_000,
                  data_text='{"lastVoteTimestamp": 1600000009000}')]
     directory, _, _ = _extract(tmp_path, capture_served_math=True,
@@ -635,7 +639,7 @@ def test_a_captured_bundle_is_admissible(captured, tmp_path):
 
     directory, summary, _ = captured
     manifest = _build_manifest(directory.parent, summary)
-    fb.admit_manifest(manifest, config=BASELINE_CONFIG,
+    fb.admit_manifest(manifest, payload_root=directory.parent, config=BASELINE_CONFIG,
                       config_bytes=fb.canonical_json(BASELINE_CONFIG))
 
 
@@ -669,7 +673,7 @@ def test_admission_rejects_a_served_block_that_does_not_bind(
     manifest = _build_manifest(directory.parent, summary)
     mutate(manifest["roles"][0]["served_math"])
     with pytest.raises(fb.AdmissionError, match=re.escape(expected)):
-        fb.admit_manifest(manifest, config=BASELINE_CONFIG,
+        fb.admit_manifest(manifest, payload_root=directory.parent, config=BASELINE_CONFIG,
                           config_bytes=fb.canonical_json(BASELINE_CONFIG))
 
 
@@ -681,7 +685,7 @@ def test_admission_still_accepts_a_bundle_that_captured_nothing(tmp_path):
     directory, summary, _ = _extract(tmp_path)
     manifest = _build_manifest(directory.parent, summary)
     assert "served_math" not in manifest["roles"][0]
-    fb.admit_manifest(manifest, config=BASELINE_CONFIG,
+    fb.admit_manifest(manifest, payload_root=directory.parent, config=BASELINE_CONFIG,
                       config_bytes=fb.canonical_json(BASELINE_CONFIG))
 
 
@@ -726,7 +730,7 @@ def test_the_loader_refuses_a_tampered_blob(captured):
 def test_the_loader_refuses_a_missing_blob(captured):
     directory, _, _ = captured
     (directory / "served-math-001.blob.json").unlink()
-    with pytest.raises(rd.ServedMathError, match="which is missing"):
+    with pytest.raises(rd.ServedMathError, match="missing"):
         rd.read_served_math(directory)
 
 
@@ -751,3 +755,174 @@ def test_the_diagnostic_can_be_re_derived_from_a_loaded_dataset(captured):
     assert prod["votes_at_or_before_watermark"] == 6
     assert prod["votes_after_watermark"] == 0
     assert served.consistency["per_math_env"][1]["votes_after_watermark"] == 2
+
+
+@pytest.mark.parametrize("has_caching_tick", [False, True])
+def test_live_schema_discovery_captures_both_tick_shapes(has_caching_tick):
+    import os
+    import psycopg2
+    url = os.environ.get("SERVED_MATH_TEST_DATABASE_URL")
+    if not url:
+        pytest.skip("set SERVED_MATH_TEST_DATABASE_URL to an isolated test PostgreSQL")
+    with psycopg2.connect(url) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("CREATE TEMP TABLE math_main (zid int, math_env text, data jsonb, last_vote_timestamp bigint, caching_tick int, math_tick int, modified bigint)")
+            extra = ", caching_tick int" if has_caching_tick else ""
+            cursor.execute("CREATE TEMP TABLE math_ticks (zid int, math_env text, math_tick int, modified bigint" + extra + ")")
+            cursor.execute("SET LOCAL search_path = pg_temp")
+            cursor.execute("INSERT INTO math_main VALUES (424242, 'prod', '{\"lastVoteTimestamp\": 123}', 123, 2, 3, 456)")
+            cursor.execute("INSERT INTO math_ticks (zid, math_env, math_tick, modified) VALUES (424242, 'prod', 3, 456)")
+        fetched = fx.fetch_served_math(conn, 424242)
+        assert ("caching_tick" in fetched["source_columns"]["math_ticks"]) is has_caching_tick
+        assert ("caching_tick" in fetched["math_ticks"][0]) is has_caching_tick
+        if has_caching_tick:
+            assert fetched["math_ticks"][0]["caching_tick"] is None
+        meta, _ = fx.build_served_math(math_main_rows=fetched["math_main"],
+            math_ticks_rows=fetched["math_ticks"], vote_created_ms=[123],
+            source_columns=fetched["source_columns"],
+            math_envs_present_by_table=fetched["math_envs_present_by_table"])
+        assert ("caching_tick" in meta["math_ticks"][0]) is has_caching_tick
+        assert meta["source_columns"] == fetched["source_columns"]
+
+
+def test_absent_tick_column_is_not_recorded_as_sql_null(tmp_path):
+    ticks = [{k: v for k, v in row.items() if k != "caching_tick"} for row in SYNTH_MATH_TICKS]
+    directory, summary, _ = _extract(tmp_path, capture_served_math=True, math_ticks=ticks)
+    served = rd.read_served_math(directory)
+    assert "caching_tick" not in served.meta["source_columns"]["math_ticks"]
+    assert all("caching_tick" not in row for row in served.meta["math_ticks"])
+    from polismath.replay import fixture_bundle as fb
+    fb.admit_manifest(_build_manifest(directory.parent, summary), payload_root=directory.parent,
+                      config=BASELINE_CONFIG, config_bytes=fb.canonical_json(BASELINE_CONFIG))
+
+
+@pytest.mark.parametrize("mutate", [
+    lambda b: b.update(logical_digest_sha256="0" * 64),
+    lambda b: b["blobs"][0].update(bytes=999999),
+    lambda b: b.update(math_ticks_rows=123),
+    lambda b: b["consistency"].update(per_math_env=[{}, {}]),
+    lambda b: b["blobs"][0].update(file=[]),
+    lambda b: b["consistency"].update(vote_events=99),
+])
+def test_manifest_semantics_require_payload_agreement(captured, mutate):
+    from polismath.replay import fixture_bundle as fb
+    directory, summary, _ = captured
+    manifest = _build_manifest(directory.parent, summary)
+    mutate(manifest["roles"][0]["served_math"])
+    with pytest.raises(fb.AdmissionError):
+        fb.admit_manifest(manifest, payload_root=directory.parent,
+                          config=BASELINE_CONFIG, config_bytes=fb.canonical_json(BASELINE_CONFIG))
+    with pytest.raises(fb.VerificationError):
+        fb.verify(directory.parent, manifest)
+
+
+_METADATA_MUTATIONS = [
+    ("schema", lambda m: m.update(schema_version="unknown/99")),
+    ("captured", lambda m: m.update(captured=False)),
+    ("gate", lambda m: m["consistency"].update(gate=True)),
+    ("gate-number", lambda m: m["consistency"].update(gate=0)),
+    ("logical-digest", lambda m: m.update(logical_digest_sha256="0" * 64)),
+    ("blob-bytes", lambda m: m["math_main"][0].update(blob_bytes=999)),
+    ("blob-filename", lambda m: m["math_main"][0].update(blob_file=[])),
+    ("blob-hash", lambda m: m["math_main"][0].update(blob_sha256="0" * 64)),
+    ("index-bool", lambda m: m["math_main"][0].update(index=False)),
+    ("present", lambda m: m.update(math_envs_present=["invented"])),
+    ("present-by-table", lambda m: m["math_envs_present_by_table"].update(math_ticks=[])),
+    ("captured-envs", lambda m: m.update(math_envs_captured=["invented"])),
+    ("requested-envs", lambda m: m.update(requested_math_envs=["invented"])),
+    ("tick-census", lambda m: m["math_ticks"].pop()),
+    ("columns", lambda m: m["source_columns"]["math_ticks"].remove("caching_tick")),
+    ("diagnostic-empty", lambda m: m["consistency"].update(per_math_env=[{}, {}])),
+    ("diagnostic-count", lambda m: m["consistency"].update(vote_events="6")),
+    ("diagnostic-row-count", lambda m: m["consistency"]["per_math_env"][0].update(votes_after_watermark=999)),
+    ("blob-watermark", lambda m: m["math_main"][0].update(blob_last_vote_timestamp=123)),
+    ("blob-reason", lambda m: m["math_main"][0].update(blob_watermark_absent_because=True)),
+] + [(f"{table}-{field}", lambda m, table=table, field=field: m[table][0].update({field: "7"}))
+     for table, fields in (("math_main", ("last_vote_timestamp", "math_tick", "caching_tick", "modified")),
+                            ("math_ticks", ("math_tick", "caching_tick", "modified"))) for field in fields]
+
+
+@pytest.mark.parametrize("name,mutate", _METADATA_MUTATIONS, ids=[m[0] for m in _METADATA_MUTATIONS])
+def test_rehashed_metadata_mutations_refused_by_loader_admission_and_verifier(captured, name, mutate):
+    from polismath.replay import fixture_bundle as fb
+    directory, summary, _ = captured
+    path = directory / "served_math.json"
+    meta = json.loads(path.read_text())
+    mutate(meta)
+    # Refresh the logical digest too: structural/content checks must still hold.
+    if name != "logical-digest":
+        meta["logical_digest_sha256"] = fx.served_math_logical_digest(meta)
+    path.write_text(json.dumps(meta))
+    summary["served_math"] = fx.served_math_summary(meta, hashlib.sha256(path.read_bytes()).hexdigest())
+    manifest = _build_manifest(directory.parent, summary)
+    with pytest.raises(rd.ServedMathError):
+        rd.read_served_math(directory)
+    with pytest.raises(fb.VerificationError):
+        fb.verify(directory.parent, manifest)
+    with pytest.raises(fb.AdmissionError):
+        fb.admit_manifest(manifest, payload_root=directory.parent,
+                          config=BASELINE_CONFIG, config_bytes=fb.canonical_json(BASELINE_CONFIG))
+
+
+@pytest.mark.parametrize("filename", ["served_math.json", "served-math-000.blob.json", "events.jsonl"])
+def test_loader_refuses_symlinked_capture_members(captured, tmp_path, filename):
+    directory, _, _ = captured
+    path = directory / filename
+    outside = tmp_path / "outside"
+    path.rename(outside)
+    path.symlink_to(outside)
+    with pytest.raises(rd.ServedMathError, match="symlink"):
+        rd.read_served_math(directory)
+
+
+def test_present_empty_metadata_is_invalid(captured):
+    directory, _, _ = captured
+    (directory / "served_math.json").write_text("{}")
+    with pytest.raises(rd.ServedMathError):
+        rd.read_served_math(directory)
+
+
+def test_same_ms_votes_do_not_identify_visibility_or_consumed_prefix():
+    rows = [{"math_env": "prod", "last_vote_timestamp": 200, "blob_last_vote_timestamp": 200}]
+    a = fx.served_math_consistency(rows, [100, 200])
+    b = fx.served_math_consistency(rows, [100, 200, 200])
+    assert a["per_math_env"][0]["verdict"] == b["per_math_env"][0]["verdict"] == "watermark-equals-max-vote-timestamp"
+    assert b["per_math_env"][0]["votes_at_or_before_watermark"] == 3
+    assert "do not establish" in b["note"]
+    assert b["gate"] is False
+
+
+def test_served_admission_requires_payload(captured):
+    from polismath.replay import fixture_bundle as fb
+    directory, summary, _ = captured
+    with pytest.raises(fb.AdmissionError, match="requires payload_root"):
+        fb.admit_manifest(_build_manifest(directory.parent, summary), config=BASELINE_CONFIG,
+                          config_bytes=fb.canonical_json(BASELINE_CONFIG))
+
+
+def test_served_capture_local_bundle_roundtrip(captured, tmp_path):
+    from polismath.replay import fixture_bundle as fb
+    directory, summary, _ = captured
+    manifest = _build_manifest(directory.parent, summary)
+    store = fb.LocalStore(tmp_path / "store")
+    provenance = {"bundle_id": manifest["bundle_id"]}
+    fb.push(store, bundle_id=manifest["bundle_id"], payload_root=directory.parent,
+            manifest=manifest, provenance=provenance, config=BASELINE_CONFIG,
+            config_bytes=fb.canonical_json(BASELINE_CONFIG))
+    destination = tmp_path / "pulled"
+    fb.pull(store, bundle_id=manifest["bundle_id"], dest=destination,
+            config=BASELINE_CONFIG, config_bytes=fb.canonical_json(BASELINE_CONFIG))
+    assert rd.read_served_math(destination / "payload" / DIR_NAME).row("prod").blob_text == SERVED_BLOB_PROD_TEXT
+
+
+def test_invalid_capture_refused_before_local_publication_even_without_release_admission(captured, tmp_path):
+    from polismath.replay import fixture_bundle as fb
+    directory, summary, _ = captured
+    manifest = _build_manifest(directory.parent, summary)
+    manifest["roles"][0]["served_math"]["logical_digest_sha256"] = "0" * 64
+    store_dir = tmp_path / "store"
+    store = fb.LocalStore(store_dir)
+    with pytest.raises(fb.VerificationError):
+        fb.push(store, bundle_id=manifest["bundle_id"], payload_root=directory.parent,
+                manifest=manifest, provenance={"bundle_id": manifest["bundle_id"]}, admit=False)
+    assert not [p for p in store_dir.rglob("*") if p.is_file()]
