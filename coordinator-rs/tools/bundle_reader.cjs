@@ -155,8 +155,12 @@ async function loadBundle(client, zid, env, gids, pause) {
   };
 }
 
-// The naive separate-read path: main and mapping read on their own, exactly as
-// the two server functions do, so a publication between them tears the result.
+// The naive separate-read path, as a COPIED SQL-shaped model on one client — NOT
+// a call through the real getPca / getBidIndexToPidMapping. The real getPidsForGid
+// dispatches its two reads via Promise.all (participants.ts), i.e. concurrently,
+// not sequentially; independent statement snapshots still permit the same race, so
+// this reproduces the hazard but is not the real reader. The real-module byte
+// equality is exercised separately by tools/node_reader.cjs / test_node_reader.py.
 async function tornRead(client, zid, env, pause) {
   const main = await selectRow(client, "math_main", zid, env);
   await reachAndWait(pause, { stage: "after_main", main_tick: main ? main.math_tick : null });

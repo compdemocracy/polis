@@ -104,11 +104,11 @@
     "delphi/polismath/utils/serialization.py": "01e242cabe578ff6bf48801d4260e9be7c5619d503a45d7eed8eb0fb43d7a746",
     "delphi/tests/coordinator/__init__.py": "8c61334c3002c625a92e457ffb6e37f23ace4f1fa9045d0e90b5dff269f442b0",
     "delphi/tests/coordinator/_node_gate.py": "461813f1029115e5aac3205f4783678ae347b3b7f505b5af397308c38ae08072",
-    "delphi/tests/coordinator/audit_stages.py": "83de89b73ebc5258c4a4a7b434f423fc831f854101ea92385dc0aa7f7f0006af",
+    "delphi/tests/coordinator/audit_stages.py": "da41f879bb151ce31cc28b1f8d67a86c912786571bd1ae630fd19d1efe7834ce",
     "delphi/tests/coordinator/conftest.py": "a7f1ee919cb80f2709897b1c2684a3257c53965cffaafc0058d4f81557cd50af",
     "delphi/tests/coordinator/reference_child.py": "add6c53bbe9bcb4b384bdb1a80b31ca51dcce0eabe1ead4d31d2b3376a25f6f5",
     "delphi/tests/coordinator/test_adapter.py": "715d4cc08658df077e96842ee69008771bd33e911639f1c5e9705b8107f75ec6",
-    "delphi/tests/coordinator/test_bundle_reader.py": "cf8160231b0362af22858101fb42771bd2e7dfd57eef2c649d7e98e1d495861b",
+    "delphi/tests/coordinator/test_bundle_reader.py": "3c5d16504581e8236adcb17115bdc63107f82c7f3340e6c14752254a21cebaef",
     "delphi/tests/coordinator/test_equivalence.py": "a8b4978adfcba99dbdd91a805c8878cff713667771d189190ca496fcefc91670",
     "delphi/tests/coordinator/test_incremental.py": "dfc47a73aab6553cdf792b7578970639726e4877ee55255f1079081366e8391b",
     "delphi/tests/coordinator/test_node_reader.py": "7db596d189489b7f1bbd0bbbde5c44909039779a983518c922cf74381c4fd077",
@@ -123,7 +123,7 @@
   "run_pins": {
     "verifiable_on_producing_host_only": true,
     "junit": "coordinator-rs/artifacts/s1-pytest.xml",
-    "python_tests": 141,
+    "python_tests": 142,
     "rust_tests": {
       "default": 31,
       "fault": 31
@@ -153,7 +153,7 @@
       "coordinator-rs/artifacts/s1-clippy-fault.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
       "coordinator-rs/artifacts/s1-fault-build.log": "0d9b21acfe9641aafdc5a642649e7e968b91c682d36b45154039c29d41c322f2",
       "coordinator-rs/artifacts/s1-fault-build.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
-      "coordinator-rs/artifacts/s1-pytest.xml": "8bed702d26e40004539ba1e8c1cf223bf14ae72b0671abad5bbd113b30447d3d",
+      "coordinator-rs/artifacts/s1-pytest.xml": "7022f4717e0722a1221e51d1405c3bd857ceb9056ac0aac7b8b8f1f66f06e5e7",
       "coordinator-rs/artifacts/s1-release.log": "895d62b0ce00f3d31b21ded61dad3f07245fd65313781e23ee412b6d0ca9abad",
       "coordinator-rs/artifacts/s1-release.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
       "coordinator-rs/target/fault/debug/polis-coordinator": "2aeacd3c93eb1ffc24f12f001f1e1dfa12fc353bd278a6a251cdaf80fe3dfb1a",
