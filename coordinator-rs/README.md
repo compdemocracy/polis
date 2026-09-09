@@ -147,12 +147,16 @@ The stage checklist names these explicitly (`evidence/test-summary.json`,
   manifest, and telling apart "rebuilt," "resumed," and "warm incremental"
   output are not. (The design notes record this as PARTIAL, not OPEN; treat
   a fresh `audit_stages.py` run as the live source of truth — see "How to run.")
-- **The Node Bundle reader is a candidate witness only (O1, PARTIAL).**
-  Step-4 S2 shows a coherent-read `loadBundle` closing the torn read in the D4
-  harness and makes the Node reader job unconditional, but the production
-  `server/src` rewrite — threaded through getPidsForGid/doFamousQuery/report.ts
-  with a bounded whole-Bundle cache and the 3s TTL preserved — plus full
-  application boot and the private ~2,884-case real corpus are not done here.
+- **S2's reader is only partly delivered (O1, PARTIAL) — S2 is not complete.**
+  This delivers the *candidate-reader portion*: a coherent-read `loadBundle`
+  that serves one snapshot generation's exact mapping (closing the torn read) in
+  the D4 harness, plus a local Node-reader failure guard. The **open S2
+  remainder**, dispatched separately (its code may live in `server-rs`/the Node
+  server, but the acceptance obligation is still S2, not S5): the production
+  `loadBundle` threaded through getPidsForGid/doFamousQuery/report.ts, a bounded
+  whole-Bundle cache with the 3s TTL preserved, and the comment-owned empty
+  presentation. Only the combined full-app / private ~2,884-case campaigns are
+  S5. There is also no required CI job here (the failure guard is local only).
 - **A real server-side quirk, fixed upstream not here:** Node's `getPca(zid,
   undefined)` once missed a freshly-committed generation zero on a cold cache
   while the HTTP route served it correctly. #2732 (merged to edge, in this

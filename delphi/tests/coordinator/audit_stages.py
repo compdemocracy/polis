@@ -30,20 +30,22 @@ assert not set(compiled)-set(required), 'unreviewed compiled marker'
 open_conditions=[
     'CO08/D4: the real Node reader (getPca + getBidIndexToPidMapping + getPidsForGid) serves'
     ' identical Rust/Python bytes at generation one, the real pca2 route serves generation'
-    ' zero, and a candidate coherent-read loadBundle closes the old-main/new-mapping torn read'
-    ' in the D4 harness; CO04\'s Bundle rewrite in server/src threaded through'
-    ' getPidsForGid/doFamousQuery/report.ts with a bounded whole-Bundle cache, and full'
-    ' application boot, do not exist in the server and remain open',
+    ' zero, and a candidate coherent-read loadBundle serves one snapshot generation exactly'
+    ' (closing the old-main/new-mapping torn read) in the D4 harness; the production server/src'
+    ' loadBundle threaded through getPidsForGid/doFamousQuery/report.ts with a bounded'
+    ' whole-Bundle cache is the open S2 remainder (dispatched separately, not deferred to S5)',
     'CO08/D4: application boot, auth, report.ts/doFamousQuery and the private 2,884-case'
-    ' served corpus are not executed; the empty presentation is compared synthetically',
-    'CO08/D4 reader defect (server owner): getPca(zid, undefined) misses a cold committed'
-    ' generation zero and finds it once the route warms the cache; the route itself,'
-    ' which passes math_tick=-1, serves it with 200 and ETag "0"',
+    ' served corpus are not executed; the empty presentation is compared synthetically (S5)',
+    'CO08/D4 (server owner): the getPca(zid, undefined) cold generation-zero miss is fixed'
+    ' upstream by #2732 (merged to edge), so the cold call now finds generation zero and pca2'
+    ' serves it with 200 / ETag "0" / conditional 304; the combined-build full-app coverage of'
+    ' generation zero across all callers is still outstanding',
     'C7 / polis-empty-served/1: the Python comparison writer publishes no row for a zero-vote'
     ' conversation, the server synthesizes the approved-comment listing with a'
     ' request-clock lastVoteTimestamp, and a published empty generation lists no tids;'
-    ' the transition must preserve comment ownership; the contract owner must still'
-    ' admit a frozen clock or path-specific clock normalization before this gate closes',
+    ' the transition must preserve comment ownership; the comparison clock is admitted'
+    ' (plan rev2 C2: freeze the logical request clock, advance it, preserve the response'
+    ' dependency), and the empty-transition campaign that exercises it is still open',
     'CO01: the incremental probe is a hint bounded by P026_RECONCILE_SECONDS, measured'
     ' from before the source read; the interval makes a conversation eligible for'
     ' reconciliation and is not a deadline, and no pass/service budget has been measured',
@@ -103,13 +105,14 @@ if closure_path.exists():
     except (AssertionError, KeyError, OSError, ValueError) as error:
         print(f'S1 partial record refused: {error}', file=sys.stderr)
 
-# S2 records the reader half of O1: a candidate coherent-read loadBundle that
-# closes the old-main/new-mapping torn read the existing separate-read server
-# reader allows, with missing/mismatched-companion admission and env scoping.
-# It does NOT close O1: the production server/src Bundle rewrite (threaded
-# through getPidsForGid/doFamousQuery/report.ts with a bounded whole-Bundle
-# cache) and full application boot are still open, so the best state this
-# script writes for O1 is PARTIAL and O1 stays in open_conditions.
+# S2 records the candidate-reader portion of O1: a candidate coherent-read
+# loadBundle that serves one snapshot generation exactly (closing the
+# old-main/new-mapping torn read), with admission refusals and env scoping.
+# It does NOT close O1: the production server/src loadBundle (threaded through
+# getPidsForGid/doFamousQuery/report.ts with a bounded whole-Bundle cache) is the
+# open S2 remainder, dispatched separately and NOT deferred to S5; only the
+# combined full-app/private campaign is S5. So the best state this script writes
+# for O1 is PARTIAL and O1 stays in open_conditions.
 s2_closure_path = root/'coordinator-rs/evidence/s2-closure.json'
 if s2_closure_path.exists():
     closure = json.loads(s2_closure_path.read_text())
@@ -131,7 +134,7 @@ if s2_closure_path.exists():
             scope=closure['scope'], recorded=closure['recorded'],
             remaining_obligations=closure['remaining_obligations'],
             production_loadbundle_certified=False, run_pins_verified_here=False))
-        condition_states['O1'] = 'PARTIAL (S2 candidate loadBundle atomicity recorded; server rewrite and app boot open)'
+        condition_states['O1'] = 'PARTIAL (S2 candidate reader recorded; production server/src loadBundle remainder open)'
     except (AssertionError, KeyError, OSError, ValueError) as error:
         print(f'S2 partial record refused: {error}', file=sys.stderr)
 

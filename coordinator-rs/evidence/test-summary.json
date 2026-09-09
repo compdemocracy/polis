@@ -1,13 +1,13 @@
 {
   "run": "P-026 step 4 / S1",
   "python_full_suite": {
-    "passed": 141,
+    "passed": 142,
     "failed": 0,
     "errors": 0,
     "skipped": 0,
     "by_module": {
       "test_adapter": 31,
-      "test_bundle_reader": 2,
+      "test_bundle_reader": 3,
       "test_equivalence": 6,
       "test_incremental": 6,
       "test_node_reader": 2,
@@ -36,17 +36,17 @@
     "stage_inventory_gate": "PASS",
     "full_contract_gate": "FAIL",
     "open_conditions": [
-      "CO08/D4: the real Node reader (getPca + getBidIndexToPidMapping + getPidsForGid) serves identical Rust/Python bytes at generation one, the real pca2 route serves generation zero, and a candidate coherent-read loadBundle closes the old-main/new-mapping torn read in the D4 harness; CO04's Bundle rewrite in server/src threaded through getPidsForGid/doFamousQuery/report.ts with a bounded whole-Bundle cache, and full application boot, do not exist in the server and remain open",
-      "CO08/D4: application boot, auth, report.ts/doFamousQuery and the private 2,884-case served corpus are not executed; the empty presentation is compared synthetically",
-      "CO08/D4 reader defect (server owner): getPca(zid, undefined) misses a cold committed generation zero and finds it once the route warms the cache; the route itself, which passes math_tick=-1, serves it with 200 and ETag \"0\"",
-      "C7 / polis-empty-served/1: the Python comparison writer publishes no row for a zero-vote conversation, the server synthesizes the approved-comment listing with a request-clock lastVoteTimestamp, and a published empty generation lists no tids; the transition must preserve comment ownership; the contract owner must still admit a frozen clock or path-specific clock normalization before this gate closes",
+      "CO08/D4: the real Node reader (getPca + getBidIndexToPidMapping + getPidsForGid) serves identical Rust/Python bytes at generation one, the real pca2 route serves generation zero, and a candidate coherent-read loadBundle serves one snapshot generation exactly (closing the old-main/new-mapping torn read) in the D4 harness; the production server/src loadBundle threaded through getPidsForGid/doFamousQuery/report.ts with a bounded whole-Bundle cache is the open S2 remainder (dispatched separately, not deferred to S5)",
+      "CO08/D4: application boot, auth, report.ts/doFamousQuery and the private 2,884-case served corpus are not executed; the empty presentation is compared synthetically (S5)",
+      "CO08/D4 (server owner): the getPca(zid, undefined) cold generation-zero miss is fixed upstream by #2732 (merged to edge), so the cold call now finds generation zero and pca2 serves it with 200 / ETag \"0\" / conditional 304; the combined-build full-app coverage of generation zero across all callers is still outstanding",
+      "C7 / polis-empty-served/1: the Python comparison writer publishes no row for a zero-vote conversation, the server synthesizes the approved-comment listing with a request-clock lastVoteTimestamp, and a published empty generation lists no tids; the transition must preserve comment ownership; the comparison clock is admitted (plan rev2 C2: freeze the logical request clock, advance it, preserve the response dependency), and the empty-transition campaign that exercises it is still open",
       "CO01: the incremental probe is a hint bounded by P026_RECONCILE_SECONDS, measured from before the source read; the interval makes a conversation eligible for reconciliation and is not a deadline, and no pass/service budget has been measured",
       "CO02/CO06: persisted payloads become eligible for revalidation once the ceiling elapses, not on every pass; resident-cache reconciliation is single-threaded and no multi-worker or warm-worker cache campaign exists",
       "P-031: this crate implements none of A01 PollHealthy, A02 PublishLagSeconds or A03 ObserverHealthy, has no deployed publisher and no delivery proof; the optional synchronous sink can still block when enabled",
       "O8 remains OPEN and is at most PARTIAL: polis-candidate-input/1 is claimed locally as a candidate profile, not a G01-G16 certificate. S1 records the distinct candidate schema id, strict adapter admission, original-byte digests with decoded correspondence, and the worker/engine pins; still outstanding are all applicable G01-G16 cases with their required negative controls, an immutable manifest, the distinction between fresh rebuild, exact resume and warm incremental output schedules, and a non-vacuous P-023 compensated pair with raw C9 validation"
     ],
     "condition_states": {
-      "O1": "PARTIAL (S2 candidate loadBundle atomicity recorded; server rewrite and app boot open)",
+      "O1": "PARTIAL (S2 candidate reader recorded; production server/src loadBundle remainder open)",
       "O2": "OPEN",
       "O3": "OPEN",
       "O4": "OPEN",
@@ -81,21 +81,20 @@
       {
         "id": "O1",
         "state": "PARTIAL",
-        "standing_condition": "CO08/D4: the real Node reader (getPca + getBidIndexToPidMapping + getPidsForGid) serves identical Rust/Python bytes at generation one, the real pca2 route serves generation zero, and a candidate coherent-read loadBundle closes the old-main/new-mapping torn read in the D4 harness; CO04's Bundle rewrite in server/src threaded through getPidsForGid/doFamousQuery/report.ts with a bounded whole-Bundle cache, and full application boot, do not exist in the server and remain open",
+        "standing_condition": "CO08/D4: the real Node reader (getPca + getBidIndexToPidMapping + getPidsForGid) serves identical Rust/Python bytes at generation one, the real pca2 route serves generation zero, and a candidate coherent-read loadBundle serves one snapshot generation exactly (closing the old-main/new-mapping torn read) in the D4 harness; the production server/src loadBundle threaded through getPidsForGid/doFamousQuery/report.ts with a bounded whole-Bundle cache is the open S2 remainder (dispatched separately, not deferred to S5)",
         "evidence": "coordinator-rs/evidence/s2-closure.json",
         "scope": "P-026 step-4 S2 reader: candidate loadBundle whole-Bundle atomicity",
         "recorded": [
           "a candidate coherent-read loadBundle reads main + bidtopid + ptptstats + the math_ticks checkpoint in one REPEATABLE READ READ ONLY snapshot in the real Node runtime",
-          "the separate-read path (getPca then getBidIndexToPidMapping) is shown to tear under an interleaved publish while loadBundle stays coherent at one generation",
-          "a missing or tick-mismatched companion fails admission, and a valid replacement is observed once the coordinator republishes from source",
-          "the pure mapping accessor derives pids from the Bundle's own rows, and the reads are scoped by math_env",
-          "the Node D4 reader job is unconditional: absent server modules fail rather than skip",
-          "the existing real-Node getPca/getBidIndexToPidMapping byte-equality path is retained at 0 differences"
+          "under an interleaved publish the reader returns snapshot generation A exactly (all four row ticks equal, and A's exact per-group pids), not the B the interleave committed; a later read returns B exactly, and A and B are distinguishable",
+          "the returned per-group pids are compared against an independent Python re-derivation over the published blobs, so a reader that fabricates pids fails",
+          "a missing or tick-mismatched companion fails admission, a valid replacement is observed after republication, the reads are scoped by math_env, and a wrong-namespace companion does not leak in",
+          "the Node reader tests are a local failure guard (absent server modules fail rather than skip); the existing real-module getPca/getBidIndexToPidMapping byte-equality path is retained at 0 differences"
         ],
         "remaining_obligations": [
-          "the production server/src loadBundle: request-scoped Bundle threaded through getPidsForGid, doFamousQuery and report.ts, with a bounded whole-Bundle cache and the characterized 3s TTL / response order preserved",
-          "full application boot, auth, report/CSV joins and the private 2,884-case served corpus (S5)",
-          "the C7 no-row-to-published-empty transition once the contract owner admits the comparison clock (S5)"
+          "S2 remainder (separately dispatched, still open, NOT deferred to S5): the production server/src loadBundle, request-scoped and threaded through getPidsForGid/doFamousQuery/report.ts, with a bounded whole-Bundle cache and the characterized 3s TTL / response order preserved, and the comment-owned empty presentation",
+          "the torn baseline here is a copied SQL-shaped autocommit model on one client, not a call through the real getPca/getBidIndexToPidMapping (which dispatch via Promise.all)",
+          "S5 (later): the combined full-app/auth/report/CSV campaign and the private 2,884-case served corpus; the C7 comparison clock is already admitted (plan rev2 C2, freeze then advance the logical request clock), only its execution campaign is open"
         ],
         "production_loadbundle_certified": false,
         "run_pins_verified_here": false
@@ -111,7 +110,7 @@
     ],
     "hashes_identical_to_previous_evidence": true,
     "observer_errors": 0,
-    "observations": 211
+    "observations": 197
   },
   "polarity": "four artifacts and semantic tie control unchanged; compensated pairs equal, negative controls differ",
   "node_d4": "0 differences; generation-zero route 200 / ETag 0 / conditional 304; no loadBundle claim",
@@ -120,18 +119,17 @@
   "postgres_port": 56060,
   "uncommitted": false,
   "s2_reader": {
-    "slice": "P-026 step 4 / S2 reader",
+    "slice": "P-026 step 4 / S2 reader (candidate-reader portion; production reader still open)",
     "candidate_loadBundle": true,
-    "node_job_unconditional": true,
+    "node_local_failure_guard": true,
+    "required_ci_job": false,
     "witness": "coordinator-rs/evidence/d4-bundle-reader.json",
-    "torn_read_shown": true,
-    "coherent_bundle": true,
-    "admission_refusals": [
-      "missing math_bidtopid",
-      "math_ptptstats at generation 10, main at 3"
-    ],
+    "snapshot_returns_a_exactly": true,
+    "later_read_returns_b_exactly": true,
+    "a_and_b_distinguishable": true,
+    "wrong_namespace_unaffected": true,
     "node_d4_differences": 0,
     "O1": "PARTIAL",
-    "python_cases": 141
+    "python_cases": 142
   }
 }
