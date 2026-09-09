@@ -267,29 +267,36 @@ Roughly **$0.40/month** incremental.
 
 ## Adding the remaining catalog alarms
 
-The full catalog is `cost-reduction/04-plans/P-031-cloudwatch-alarms.md`. Ten
-signals are not here, for three distinct reasons — none of them "we ran out of
-time".
+The full catalog is `cost-reduction/04-plans/P-031-cloudwatch-alarms.md` (rev2).
+Its rows **A08–A11 are historical**: they were dropped on 2026-09-09 per the
+no-Lambda ruling and now need the Postgres queue substrate's metrics (P-024),
+not the demand-observer Lambda they were written against — read them there as a
+record, not a to-do.
 
-**Blocked on a publisher that does not exist.** `Polis/Math` and
-`Polis/Certification` both returned **zero** metrics from `list-metrics` at the
-time of writing. A01–A03 need the math poll-health log event and the publication
-sampler; A14–A15 need the CI expiry sweeper to publish. Add the publisher first,
-watch the series for a week, then add the alarm.
+Of the catalog's 17 active rows, seven are in this slice (A04, A06, A07, A13,
+A16, A17, A18) and four are dropped (A08–A11), which leaves **six** signals not
+here yet, for two distinct reasons — neither of them "we ran out of time". A05
+is separately a deliberate non-alarm.
 
-**Dropped, not deferred.** The Delphi queue-demand alarms (A08–A11, namespace
-`Polis/DelphiQueue`) are removed from this catalog. They depended on the P-003 S1
+**Blocked on a publisher that does not exist (A01–A03, A14–A15).** `Polis/Math`
+and `Polis/Certification` both returned **zero** metrics from `list-metrics` at
+the time of writing. A01–A03 need the math poll-health log event and the
+publication sampler; A14–A15 need the CI expiry sweeper to publish. Add the
+publisher first, watch the series for a week, then add the alarm.
+
+**Blocked on validation (A12).** A12 is a metric-math alarm over three sparse
+ALB counters. Its expression needs checking against real sparse series, not
+arithmetic unit tests, before it can be trusted at low traffic.
+
+**Dropped, not deferred (A08–A11).** The Delphi queue-demand alarms (namespace
+`Polis/DelphiQueue`) are removed from the catalog. They depended on the P-003 S1
 demand-observer Lambda, which will not be built (Colin's 2026-09-08 ruling: no
 Lambda in the platform). The queue-demand signal is to come from the Postgres
 queue substrate (P-024) and the coordinator's existing `Polis/Math` CloudWatch
 metrics instead; the corresponding alarms wait on those metrics, not a Lambda,
 and A11's anomaly-row triage moves with them.
 
-**Blocked on validation.** A12 is a metric-math alarm over three sparse ALB
-counters. Its expression needs checking against real sparse series, not
-arithmetic unit tests, before it can be trusted at low traffic.
-
-**Deliberately not an alarm.** A05 (`CPUSurplusCreditBalance > 0`) fires on
+**Deliberately not an alarm (A05).** A05 (`CPUSurplusCreditBalance > 0`) fires on
 essentially the same event as A04 and announces money already spent, with no
 minute-scale action available. It belongs in a periodic cost review.
 
