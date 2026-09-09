@@ -35,6 +35,14 @@ durably — while the math itself stays untouched.
   (`src/metrics.rs`), plus a test-only fault-injection harness for pausing
   the process at named points (crash-testing lease loss, mid-publish kills),
   behind a Cargo feature refused in release builds (`src/fault.rs`, `build.rs`).
+- **Proving its results survive a coherent reader** — the step-4 S2 slice adds
+  a candidate `loadBundle` (`tools/bundle_reader.cjs`) that reads all three
+  results tables plus the checkpoint in one database snapshot in the real Node
+  runtime, and a witness that this closes the "old main, new mapping" torn read
+  the current separate-read reader allows, with missing/mismatched-companion
+  admission and math_env scoping. This is a verification witness against a real
+  reader, **not** the production read path (that rewrite still belongs to
+  `server-rs/` and the Node server).
 
 ## What this crate explicitly does not own
 
@@ -121,8 +129,11 @@ On top of that, a separate check (`tools/node_reader.cjs`,
 modules that serve `/api/v3/math/pca2` today and compares what they serve
 for a result this crate published against the existing writer's result —
 zero byte differences currently (see evidence). This exercises today's real
-reader, not a rewritten one: the Node-side caching rewrite this project
-eventually wants does not exist yet and is not tested here.
+reader, not a rewritten one. The step-4 S2 slice adds a candidate coherent-read
+`loadBundle` witness (`tools/bundle_reader.cjs`) and makes the Node job
+unconditional (a missing `server/node_modules` now fails rather than skips),
+but the production Node-side Bundle rewrite this project eventually wants still
+does not exist and is not shipped here.
 
 ## What is still open
 
@@ -136,13 +147,18 @@ The stage checklist names these explicitly (`evidence/test-summary.json`,
   manifest, and telling apart "rebuilt," "resumed," and "warm incremental"
   output are not. (The design notes record this as PARTIAL, not OPEN; treat
   a fresh `audit_stages.py` run as the live source of truth — see "How to run.")
-- **The Node caching rewrite doesn't exist yet**, so output is compared
-  against today's reader, not the eventual rewritten one; the private
-  ~2,884-case real corpus for that separate effort is not run here.
-- **A real server-side quirk, not fixed here:** Node's `getPca(zid,
-  undefined)` can miss a freshly-committed generation zero on a cold cache
-  even though the HTTP route itself serves it correctly — a finding for
-  whoever owns that server code.
+- **The Node Bundle reader is a candidate witness only (O1, PARTIAL).**
+  Step-4 S2 shows a coherent-read `loadBundle` closing the torn read in the D4
+  harness and makes the Node reader job unconditional, but the production
+  `server/src` rewrite — threaded through getPidsForGid/doFamousQuery/report.ts
+  with a bounded whole-Bundle cache and the 3s TTL preserved — plus full
+  application boot and the private ~2,884-case real corpus are not done here.
+- **A real server-side quirk, fixed upstream not here:** Node's `getPca(zid,
+  undefined)` once missed a freshly-committed generation zero on a cold cache
+  while the HTTP route served it correctly. #2732 (merged to edge, in this
+  rebased tree) fixes the cold miss; the review-control test is updated to that
+  behaviour. The eventual `getPca` refactor still belongs to whoever owns that
+  server code.
 - **The staleness check is a time-boxed hint, not a proof**, and there is no
   multi-worker or cross-conversation concurrency campaign — today's tests
   exercise one worker process reconciling conversations one at a time.
@@ -196,11 +212,12 @@ COMPOSE_PROJECT_NAME=p026 POLIS_RECOVERY_PG_PORT=55458 RECOVERY_PG_PORT=55458 \
 Re-run from a clean checkout: `cargo test --locked` 31/31; both `cargo
 clippy` invocations clean; release and fault-injection builds succeed and
 release+fault-injection correctly refuses to build; `docker compose up`
-starts a healthy Postgres in seconds; Python suite **136/139, 3 skipped**
-(skips are the D4 Node-reader tests, which additionally need
-`server/node_modules` linked read-only into this checkout — not done for
-this quick run; see `requires_server_modules` in `test_node_reader.py` and
-`test_step2_review_controls.py`). `python -m pytest` assumes Python 3.12
+starts a healthy Postgres in seconds; Python suite **141/141, 0 skipped**
+with `server/node_modules` linked read-only into this checkout so the Node
+reader tests run. As of step-4 S2 that Node reader job is unconditional: a
+missing `server/node_modules` makes the D4/route tests **fail**, not skip
+(`require_node` in `_node_gate.py`), so a quick run without them must set
+`P026_NODE_READER_OPTIONAL=1` to skip them on purpose. `python -m pytest` assumes Python 3.12
 with this project's `delphi` dependencies (`evidence/python-requirements.txt`)
 and `PYTHONPATH=delphi` pointing at this checkout's `delphi/` directory.
 
