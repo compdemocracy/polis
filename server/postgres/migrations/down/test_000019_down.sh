@@ -23,6 +23,11 @@
 #   (h) race: a writer that commits a row concurrently is blocked by the
 #       ACCESS EXCLUSIVE lock, its row is seen, and the queue is refused, not
 #       lost. (Astra P2.)
+#   (i) adopted role: a pre-created executor with an extra schema grant and a
+#       role-level statement_timeout that 000019 ADOPTS -> refusal; the role,
+#       its grant and its setting all survive, nothing revoked. (Astra r2 P1.)
+#   (j) body drift: a body-only rewrite of pq_backoff -> refusal, caught by the
+#       prosrc-inclusive function fingerprint. (Astra r2 P2.)
 #
 # This is a shell script rather than a delphi/tests pytest because the checks
 # are schema-diff shaped (pg_dump of a full migration chain in an isolated
@@ -31,7 +36,7 @@
 # needs only docker and is self-contained.
 #
 # Usage:  bash server/postgres/migrations/down/test_000019_down.sh
-# Exit 0 iff all eight checks (a..h) pass.
+# Exit 0 iff all ten checks (a..j) pass.
 
 set -euo pipefail
 
@@ -163,6 +168,59 @@ echo "$OUT_G" | grep -qi "refusing" || fail "(g) expected a refusal message, got
 docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_executor" >/dev/null
 echo "   (g) PASS (pre-existing role survives)"
 
+# --- (i) adopted role: pre-created executor with an extra grant + a role-level
+#         setting; 000019 ADOPTS it. Down must REFUSE and revoke/lose nothing.
+#         Runs on the clean role state (g) restored, and cleans up after itself.
+echo "== check (i): adopted executor (extra grant + statement_timeout) -> refuse, keep all =="
+docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_executor" >/dev/null
+docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_owner" >/dev/null
+createdb sc_i
+apply_upto sc_i "$MAX_BASE"
+docker exec -i "$CONTAINER" psql -v ON_ERROR_STOP=1 -U postgres -d sc_i >/dev/null <<'SQL'
+CREATE ROLE polis_queue_executor NOLOGIN;
+GRANT USAGE ON SCHEMA public TO polis_queue_executor;
+ALTER ROLE polis_queue_executor SET statement_timeout = '5min';
+SQL
+apply_one sc_i 000019_create_polis_queue.sql
+set +e
+OUT_I="$(run_down sc_i)"; RC_I=$?
+set -e
+[ "$RC_I" -ne 0 ] || fail "(i) down did NOT refuse an adopted role"
+echo "$OUT_I" | grep -qi "refusing" || fail "(i) expected a refusal, got: $OUT_I"
+[ "$(docker exec "$CONTAINER" psql -U postgres -Atc "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='polis_queue_executor')")" = "t" ] \
+  || fail "(i) adopted executor role was dropped"
+[ "$(docker exec "$CONTAINER" psql -U postgres -Atc "SELECT count(*) FROM pg_db_role_setting WHERE setrole=(SELECT oid FROM pg_roles WHERE rolname='polis_queue_executor')")" = "1" ] \
+  || fail "(i) role-level setting was lost"
+[ "$(docker exec "$CONTAINER" psql -U postgres -d sc_i -Atc "SELECT has_schema_privilege('polis_queue_executor','public','USAGE')")" = "t" ] \
+  || fail "(i) executor schema USAGE grant was revoked"
+[ "$(queue_object_count sc_i)" -gt 0 ] || fail "(i) refusal did not roll the inventory drops back"
+# Clean up the pinned global roles for the scenarios that follow.
+docker exec "$CONTAINER" psql -U postgres -c "DROP DATABASE sc_i WITH (FORCE)" >/dev/null
+docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_executor" >/dev/null
+docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_owner" >/dev/null
+echo "   (i) PASS (adopted role, grant and setting all survive; refusal, nothing revoked)"
+
+# --- (j) body drift: a body-only rewrite of pq_backoff must be caught by the
+#         function fingerprint (which now hashes prosrc) -> refuse, restore.
+echo "== check (j): body-drifted pq_backoff -> refuse (function fingerprint) =="
+createdb sc_j
+apply_upto sc_j "$MAX_FULL"
+docker exec "$CONTAINER" psql -v ON_ERROR_STOP=1 -U postgres -d sc_j -c \
+  "CREATE OR REPLACE FUNCTION public.pq_backoff(p_attempt uuid,p_count integer) RETURNS integer LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp SET TimeZone='UTC' AS 'SELECT 777'" >/dev/null
+set +e
+OUT_J="$(run_down sc_j)"; RC_J=$?
+set -e
+[ "$RC_J" -ne 0 ] || fail "(j) down did NOT refuse a body-drifted function"
+echo "$OUT_J" | grep -qi "refusing" || fail "(j) expected a refusal, got: $OUT_J"
+echo "$OUT_J" | grep -qi "function" || fail "(j) refusal did not name the function-fingerprint drift, got: $OUT_J"
+[ "$(queue_object_count sc_j)" -gt 0 ] || fail "(j) refusal did not roll back"
+[ "$(docker exec "$CONTAINER" psql -U postgres -d sc_j -Atc "SELECT public.pq_backoff('00000000-0000-0000-0000-000000000000'::uuid, 1)")" = "777" ] \
+  || fail "(j) the drifted body was not preserved by the rollback"
+docker exec "$CONTAINER" psql -U postgres -c "DROP DATABASE sc_j WITH (FORCE)" >/dev/null
+docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_executor" >/dev/null
+docker exec "$CONTAINER" psql -U postgres -c "DROP ROLE IF EXISTS polis_queue_owner" >/dev/null
+echo "   (j) PASS (body drift caught by the prosrc fingerprint)"
+
 # --- (a) apply 000019 then down; catalog must equal the 000018 baseline -------
 echo "== check (a): apply 000000..$MAX_FULL, down, compare to baseline =="
 createdb sc_a
@@ -288,4 +346,4 @@ echo "$OUT_H" | grep -qi "refusing to drop a live queue" || fail "(h) expected l
 echo "   (h) PASS (row committed under the lock is seen and refused, not lost)"
 
 echo
-echo "ALL CHECKS PASSED (a, b, c, d, e, f, g, h)"
+echo "ALL CHECKS PASSED (a, b, c, d, e, f, g, h, i, j)"
