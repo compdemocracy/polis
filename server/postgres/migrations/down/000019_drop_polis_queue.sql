@@ -5,43 +5,45 @@
 -- applying 000019 to production. This is that script. See the "Reversal"
 -- section of docs/queue-substrate.md for the runbook.
 --
--- WHAT IT REMOVES, AND ONLY WHAT 000019 PROVABLY CREATED
--- -----------------------------------------------------
--- The up migration ACCEPTS pre-existing NOLOGIN owner/executor roles and does
--- not require that they own nothing else. So this script does NOT trust names.
--- It removes an object only after proving the installed schema matches 000019's
--- OWN catalog fingerprint -- the table-md5 map, the 21-signature array, and a
--- per-function digest that hashes each prosrc BODY along with its result,
--- argument types, volatility, security-definer flag, config, owner and ACL --
--- then drops exactly its enumerated inventory by full signature:
---   * the trigger pq_no_regression on public.polis_queue_heads
---   * the 21 public.pq_* functions (dropped by full argument signature)
---   * the 9 explicitly-created indexes (the rest go with their tables)
---   * the 5 tables polis_queue_{runs,heads,jobs,attempts,requests}
---   * the schema-level grants 000019 made, and the conversations grant, via REVOKE
---   * the two NOLOGIN roles -- ONLY if each role's ENTIRE footprint equals what
---     000019 establishes. Because the up migration ADOPTS a pre-existing role,
---     existence is not provenance: the script compares the live role's pg_roles
---     attributes (default NOLOGIN), its pg_db_role_setting settings (000019 sets
---     none), and every grant involving it on public/conversations against
---     000019's exact expected set, plus pg_shdepend/pg_auth_members for any
---     other owned object, grant or membership. ANY extra attribute, setting or
---     grant means the role was adopted or altered: REFUSE, name the extras, and
---     revoke NOTHING (an operator's own grant is never erased).
+-- WHAT IT REMOVES, AND ONLY WHAT 000019 RECORDED IT CREATED
+-- ---------------------------------------------------------
+-- The up migration ADOPTS pre-existing NOLOGIN owner/executor roles and records,
+-- at install time, which roles it created versus adopted and exactly which
+-- grants it added (public.polis_queue_install; see the migration and
+-- docs/queue-substrate.md). So this script does NOT trust names or infer from
+-- final catalog state -- a grant a pre-existing role already held coalesces with
+-- one 000019 adds and cannot be told apart afterwards. It removes an object only
+-- after proving the installed schema matches 000019's OWN catalog fingerprint
+-- (the table-md5 map, the 21-signature array, and a per-function digest that
+-- hashes each prosrc BODY with its result, argument types, volatility,
+-- security-definer flag, config, owner and ACL) AND validating the provenance
+-- record's contents against 000019's closed inventory. Then:
+--   * drops the trigger, the 21 pq_* functions (by full signature), the 9 explicit
+--     indexes, the 5 data tables;
+--   * revokes ONLY the grants the record lists as added -- an option-only upgrade
+--     is downgraded with REVOKE GRANT OPTION FOR, never removing the original
+--     privilege -- preserving everything an adopted role brought with it;
+--   * drops the provenance table;
+--   * drops ONLY the roles the record lists as created, preserving every adopted
+--     role; a second belt requires each created role to be a bare default NOLOGIN
+--     owning/holding nothing before it is dropped.
 -- It touches no object 000019 did not create; public.conversations and the
 -- public schema themselves are left alone.
 --
 -- REFUSALS (all roll the whole transaction back, drop nothing)
 -- -----------------------------------------------------------
---   * Live queue: any polis_queue_* table holds rows, without -v force=1.
+--   * Live queue: any polis_queue_* data table holds rows, without -v force=1.
 --   * Drift / collision: queue-named objects exist but do not match 000019's
 --     fingerprint (an unrelated public.pq_* function, an added overload, an
 --     altered table, or a body-only rewrite of a function).
---   * Adopted role: a queue role carries an attribute, a role-level setting, or
---     a grant/ownership/membership beyond exactly what 000019 establishes --
---     named in the message; nothing is revoked or dropped.
--- force overrides ONLY the live-queue refusal. It never overrides a drift or
--- adopted-role refusal.
+--   * Provenance: the polis_queue_install record is missing/multiple, its
+--     fingerprint no longer matches the live catalog, or its contents name a
+--     role/grant outside 000019's closed inventory (not a disjoint complete
+--     partition of the two role names, or a grant not in the added-grant
+--     allowlist).
+--   * Created-role belt: a role the record lists as created is not, after its
+--     added grants are revoked and its objects dropped, a bare default NOLOGIN.
+-- force overrides ONLY the live-queue refusal, never a drift or provenance one.
 --
 -- CONCURRENCY
 -- -----------
@@ -66,8 +68,12 @@
 --     -d polis-dev < server/postgres/migrations/down/000019_drop_polis_queue.sql
 --
 -- IDEMPOTENCE: one transaction. When no queue table, no pq_ function and no
--- queue role exist, it is a no-op that emits a NOTICE. Re-running after a
--- successful down is the same no-op.
+-- queue role exist, it is a no-op that emits a NOTICE. Re-running after a down
+-- that dropped everything is the same no-op -- but a down that PRESERVED an
+-- adopted role leaves that role behind, so a re-run then sees a queue role
+-- without the schema and refuses (as it does for any pre-existing role), rather
+-- than a no-op. That refusal is safe; the operator drops the role by hand if
+-- they want it gone.
 
 \set ON_ERROR_STOP on
 
@@ -106,22 +112,26 @@ SELECT jsonb_build_object(
 $catalog$;
 
 -- Build the REVOKE statement for one recorded added-grant entry
--- {object,grantee,grantor,privilege,grantable}. object is 'public',
--- 'conversations', or 'conversations.<column>'.
+-- {object,grantee,grantor,privilege,grantable,option_only}. object is 'public',
+-- 'conversations', or 'conversations.<column>'. option_only means 000019 only
+-- upgraded an already-present privilege to WITH GRANT OPTION, so the reversal
+-- downgrades it with REVOKE GRANT OPTION FOR rather than removing the operator's
+-- original privilege. The caller validates every field against 000019's closed
+-- inventory before this runs.
 CREATE FUNCTION pg_temp.pqd_revoke(g jsonb) RETURNS text LANGUAGE sql AS $revoke$
- SELECT CASE
-   WHEN g->>'object' = 'public' THEN
-     format('REVOKE %s ON SCHEMA public FROM %I', g->>'privilege', g->>'grantee')
-   WHEN g->>'object' = 'conversations' THEN
-     format('REVOKE %s ON public.conversations FROM %I', g->>'privilege', g->>'grantee')
-   WHEN g->>'object' LIKE 'conversations.%' THEN
-     format('REVOKE %s(%I) ON public.conversations FROM %I', g->>'privilege', split_part(g->>'object','.',2), g->>'grantee')
- END
+ SELECT 'REVOKE '
+   || CASE WHEN (g->>'option_only')::boolean THEN 'GRANT OPTION FOR ' ELSE '' END
+   || (g->>'privilege')
+   || CASE WHEN g->>'object' LIKE 'conversations.%'
+           THEN '(' || quote_ident(split_part(g->>'object','.',2)) || ')' ELSE '' END
+   || CASE WHEN g->>'object' = 'public' THEN ' ON SCHEMA public'
+           ELSE ' ON public.conversations' END
+   || ' FROM ' || quote_ident(g->>'grantee')
 $revoke$;
 
 -- -------------------------------------------------------------------------
 -- PHASE 1: lock every present queue table against writers, in a fixed order,
--- BEFORE counting. Held to COMMIT. (Astra P2: count-before-lock races.)
+-- BEFORE counting. Held to COMMIT (guards the count-before-lock race).
 --
 -- Order is CHILDREN BEFORE PARENTS (requests/attempts, then jobs/heads, then
 -- runs). A writer inserting a child row holds ROW EXCLUSIVE on that child and
@@ -204,6 +214,7 @@ DECLARE
   -- pre-existing (adopted) role brought with it.
   v_created text[]; v_adopted text[]; v_added jsonb; v_fp_rec text; v_fp_live text;
   install_rows bigint; stmt text; owner_stmts text[]; owner_present boolean;
+  pubowner text; convowner text; allowed text[]; bad text;
   -- Second belt, applied only to roles 000019 created before dropping them.
   rname text; rid oid; attr_txt text; settings_txt text; extradep text; memberships bigint;
 BEGIN
@@ -235,7 +246,7 @@ BEGIN
   IF present_tables IS DISTINCT FROM ARRAY(SELECT jsonb_object_keys(expected_tables) ORDER BY 1) THEN
     RAISE EXCEPTION 'refusing: public.polis_queue_* tables do not match 000019'
       USING DETAIL = 'found tables: ' || COALESCE(array_to_string(present_tables, ', '), '(none)') ||
-                     '; 000019 defines exactly its five. Resolve by hand.';
+                     '; 000019 defines exactly its six (5 data tables + polis_queue_install). Resolve by hand.';
   END IF;
   FOR entry IN SELECT * FROM jsonb_each_text(expected_tables) LOOP
     IF md5(pg_temp.pqd_catalog(to_regclass('public.'||entry.key))::text) IS DISTINCT FROM entry.value THEN
@@ -286,6 +297,50 @@ BEGIN
   IF v_fp_live IS DISTINCT FROM v_fp_rec THEN
     RAISE EXCEPTION 'refusing: the recorded installation fingerprint does not match the live catalog (the schema changed since install)'
       USING HINT = 'Resolve by hand.';
+  END IF;
+
+  -- -------------------------------------------------------------------------
+  -- Validate the record's CONTENTS against 000019's closed inventory, BEFORE
+  -- acting on any of it. The catalog fingerprint proves the schema; this is a
+  -- separate trust boundary proving the record names only 000019's own roles and
+  -- grants, so a hand-edited row cannot make the reversal drop an unrelated role
+  -- or revoke an unrelated grant.
+  -- -------------------------------------------------------------------------
+  -- Roles: created and adopted must be a disjoint, complete partition of exactly
+  -- the two permitted role names.
+  IF (SELECT array_agg(DISTINCT r ORDER BY r) FROM (
+        SELECT unnest(COALESCE(v_created, '{}'::text[])) r
+        UNION ALL SELECT unnest(COALESCE(v_adopted, '{}'::text[]))) u)
+     IS DISTINCT FROM ARRAY['polis_queue_executor','polis_queue_owner']
+     OR EXISTS (SELECT 1 FROM unnest(COALESCE(v_created,'{}'::text[])) c
+                WHERE c = ANY (COALESCE(v_adopted,'{}'::text[]))) THEN
+    RAISE EXCEPTION 'refusing: the provenance record''s roles are not a disjoint, complete partition of {polis_queue_owner, polis_queue_executor}'
+      USING DETAIL = 'created={'||COALESCE(array_to_string(v_created,','),'')||'} adopted={'||COALESCE(array_to_string(v_adopted,','),'')||'}',
+            HINT = 'Resolve by hand.';
+  END IF;
+  -- Grants: every entry's (object,grantee,grantor,privilege) must be one 000019
+  -- itself adds, and its grantable/option_only fields must be booleans. The
+  -- applier-made grants record the object owner as grantor; owner's own onward
+  -- grants record polis_queue_owner.
+  pubowner  := pg_get_userbyid((SELECT nspowner FROM pg_namespace WHERE nspname='public'));
+  convowner := pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='public.conversations'::regclass));
+  allowed := ARRAY[
+    'public|polis_queue_owner|'||pubowner||'|USAGE',
+    'public|polis_queue_owner|'||pubowner||'|CREATE',
+    'public|polis_queue_owner|polis_queue_owner|USAGE',
+    'public|polis_queue_executor|polis_queue_owner|USAGE',
+    'conversations|polis_queue_owner|'||convowner||'|SELECT',
+    'conversations.topic|polis_queue_owner|'||convowner||'|UPDATE',
+    'conversations.zid|polis_queue_owner|'||convowner||'|REFERENCES'];
+  SELECT string_agg((e->>'object')||'|'||(e->>'grantee')||'|'||(e->>'grantor')||'|'||(e->>'privilege'), '; ')
+    INTO bad
+    FROM jsonb_array_elements(v_added) e
+   WHERE jsonb_typeof(e->'grantable') <> 'boolean'
+      OR jsonb_typeof(e->'option_only') <> 'boolean'
+      OR (e->>'object')||'|'||(e->>'grantee')||'|'||(e->>'grantor')||'|'||(e->>'privilege') <> ALL (allowed);
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION 'refusing: the provenance record lists a grant outside 000019''s closed inventory'
+      USING DETAIL = 'offending: '||bad, HINT = 'Resolve by hand.';
   END IF;
 
   -- Provably 000019's schema. Remove its inventory in dependency order.
