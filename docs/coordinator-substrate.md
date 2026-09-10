@@ -154,7 +154,7 @@ publication, because receipts retain the original operation. A mismatched replay
 raises `OPERATION_IDENTITY_CONFLICT`. A fresh expected-tick conflict writes nothing.
 
 `pc_publish` prepares and hashes the three original byte streams before locks,
-then locks parent → lease → namespace budget → operation → ticks and writes bidtopid → ptptstats → main, followed
+then locks parent → lease → operation → ticks and writes bidtopid → ptptstats → main, followed
 by the new receipt rows. It rechecks DB time with the dispatcher's positive
 margin while holding the lease lock. Its returned timestamp is recorded before
 COMMIT, not the physical commit time. The caller must commit immediately and
@@ -243,3 +243,22 @@ normal down also refuses profiles, operations or floor data. Rev4 is amended in
 place because earlier revisions were applied nowhere. Replaying onto an older
 installed catalog fails its seal rather than upgrading it implicitly. Any bridge
 built against an older byte pin must be reviewed and updated before activation.
+
+### Rev5: independent publications within a namespace
+
+Publication never locks the namespace budget. Its separately committed
+reservation has already charged the full count/byte allowance; publication
+changes no accounting. It locks its own parent, lease and operation and checks
+that the serialized result fits that reservation. Admission keeps the short
+namespace budget lock for its capacity arithmetic and reservation insertion.
+Cleanup/reconciliation retain their established lock order and accounting.
+
+A paused publication for one conversation must allow another conversation in
+the same namespace to admit and publish. Completion can be out of caching
+sequence order; readers still need overlap and metadata sweeps (R12). The sealed
+rehearsal exercises both newly admitted and already admitted second conversations
+while the first is paused after its main write. An old-budget-lock mutation must
+block that same admission schedule. No test bypasses or relaxes the R12 contract.
+
+This amends 000021 in place under the applied-nowhere rule. The catalog seal and
+up/down byte pins change; consumers must adopt the reviewed rev5 pin before use.

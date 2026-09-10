@@ -664,6 +664,83 @@ def main():
         finally:sql(db,original)
     publication_case('negative control: removed admission bound overbooks capacity',budget_mutant)
 
+    def independent_publication(db, preadmitted=False, old_lock=False):
+        """Real after-main latch; another zid must finish before its release."""
+        arm(db)
+        sql(db,"""INSERT INTO conversations(zid) VALUES(990002);
+        INSERT INTO polis_coordinator_leases SELECT math_env,990002,owner_id,owner_epoch,expires_at,
+        'op-b',dispatch_capability_sha256,dispatch_checkpoint_sha256,dispatch_expected_tick,dispatch_margin_ms
+        FROM polis_coordinator_leases WHERE zid=990001;""")
+        admit_b="SELECT pc_admit('generated',990002,'owner-a',1,'op-b',repeat('a',64),2097152);"
+        if preadmitted:
+            control(db,admit_b)
+        original=sql(db,"SELECT pg_get_functiondef('pc_publish(text,integer,text,bigint,text,bytea,bigint,jsonb,bytea,bytea,bytea)'::regprocedure);").stdout
+        if old_lock:
+            marker=" SELECT * INTO op FROM public.polis_coordinator_operations WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation FOR UPDATE;"
+            assert original.count(marker)==1
+            sql(db,original.replace(marker," PERFORM 1 FROM public.polis_coordinator_budgets WHERE math_env=p_env FOR UPDATE;\n"+marker))
+        sql(db,"""CREATE FUNCTION p027_m21_after_main() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN IF NEW.zid=990001 THEN PERFORM pg_advisory_xact_lock(210025); END IF; RETURN NEW; END$$;
+        CREATE TRIGGER p027_m21_after_main AFTER INSERT ON math_main FOR EACH ROW EXECUTE FUNCTION p027_m21_after_main();""")
+        def process(user):
+            return subprocess.Popen(['docker','exec','-i',CONTAINER,'psql','-X','-At','-v','ON_ERROR_STOP=1',
+                                     '-U',user,'-d',db],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        def publish_text(zid,operation):
+            payload=f'{{"zid":{zid},"lastVoteTimestamp":0}}'
+            return f"SELECT * FROM pc_publish('generated',{zid},'owner-a',1,'{operation}',decode(repeat('ab',32),'hex'),NULL,'{{}}'," + ','.join(f"convert_to('{payload}','UTF8')" for _ in range(3))+');'
+        gate=process('postgres');first=None
+        gate.stdin.write('SELECT pg_advisory_lock(210025);\n');gate.stdin.flush()
+        try:
+            for _ in range(100):
+                if sql(db,"SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND objid=210025 AND granted;").stdout.strip()=='1':break
+                time.sleep(.02)
+            else:raise AssertionError('after-main gate not held')
+            first=process('p027_m21_publisher')
+            first.stdin.write("SET statement_timeout='30s'; "+publish_text(990001,'op-a')+'\n')
+            first.stdin.close();first.stdin=None
+            for _ in range(100):
+                if sql(db,"SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND objid=210025 AND NOT granted;").stdout.strip()=='1':break
+                time.sleep(.02)
+            else:raise AssertionError('first publication did not reach its actual after-main trigger')
+            assert first.poll() is None
+            assert sql(db,"SELECT count(*) FROM math_main;").stdout.strip()=='0'
+            # Admission happens in its own transaction, with the real namespace
+            # arithmetic; publication happens through the restricted login.
+            if not preadmitted:
+                admitted=control(db,"SET lock_timeout='1s'; "+admit_b,ok=False)
+                if old_lock:
+                    assert admitted.returncode and 'lock timeout' in admitted.stderr,admitted.stdout+admitted.stderr
+                    assert sql(db,"SELECT count(*) FROM polis_coordinator_operations;").stdout.strip()=='1'
+                else:
+                    assert admitted.returncode==0,admitted.stdout+admitted.stderr
+            if not old_lock:
+                second=sql(db,"SET lock_timeout='1s'; "+publish_text(990002,'op-b'),user='p027_m21_publisher')
+                assert 'committed|0|2' in second.stdout,second.stdout
+                assert first.poll() is None
+                assert sql(db,"SELECT zid,math_tick,caching_tick FROM math_main;").stdout.strip()=='990002|0|2'
+                assert sql(db,"SELECT count(*),sum(reserved_bytes) FROM polis_coordinator_operations;").stdout.strip()=='2|4194304'
+                assert sql(db,"SELECT count(DISTINCT math_tick),count(*) FROM (SELECT math_tick FROM math_ticks UNION ALL SELECT math_tick FROM math_main UNION ALL SELECT math_tick FROM math_bidtopid UNION ALL SELECT math_tick FROM math_ptptstats) r;").stdout.strip()=='1|4'
+        finally:
+            gate.stdin.write('SELECT pg_advisory_unlock(210025);\n');gate.stdin.close();gate.stdin=None
+            gout,gerr=gate.communicate(timeout=10)
+            if first is not None:
+                aout,aerr=first.communicate(timeout=15)
+            sql(db,"DROP TRIGGER p027_m21_after_main ON math_main; DROP FUNCTION p027_m21_after_main();")
+            if old_lock:sql(db,original)
+        assert gate.returncode==0,gout+gerr
+        assert first.returncode==0 and 'committed|0|1' in aout,aout+aerr
+        if not old_lock:
+            assert sql(db,"SELECT zid,caching_tick FROM math_main ORDER BY zid;").stdout.strip()=='990001|1\n990002|2'
+            assert sql(db,"SELECT count(*) FROM polis_coordinator_payloads;").stdout.strip()=='6'
+        (WORK/f'r12-{preadmitted}-{old_lock}.json').write_text(json.dumps({
+            'first_paused_after_actual_main_insert':True,'second_preadmitted':preadmitted,
+            'old_namespace_lock_mutation':old_lock,'second_completed_before_first':not old_lock,
+            'old_lock_rejected_by_same_admission_oracle':old_lock,'reservation_bytes':2097152,
+            'first_cursor':1,'second_cursor':None if old_lock else 2},indent=2)+'\n')
+    publication_case('R12: paused main write does not block another zid admission and publication',independent_publication)
+    publication_case('R12: two admitted zids may publish and commit out of sequence order',lambda db:independent_publication(db,preadmitted=True))
+    publication_case('negative control: old publication budget lock fails the R12 admission oracle',lambda db:independent_publication(db,old_lock=True))
+
     def maximum_metadata(db):
         arm(db)
         sql(db,"""INSERT INTO polis_coordinator_budgets VALUES(repeat(chr(128512),999),1,2097152);

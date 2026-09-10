@@ -119,7 +119,7 @@ DO $admit$
 BEGIN
  IF EXISTS(SELECT FROM pg_class WHERE relnamespace='public'::regnamespace AND starts_with(relname,'polis_coordinator_'))
  OR EXISTS(SELECT FROM pg_proc WHERE pronamespace='public'::regnamespace AND starts_with(proname,'pc_')) THEN
-  IF pg_temp.pc_catalog() IS DISTINCT FROM 'dd88a9711bbdac72155d4e8862052c4b' THEN
+  IF pg_temp.pc_catalog() IS DISTINCT FROM '8fcc7f6605f428177843f2593b876c62' THEN
    RAISE EXCEPTION 'refusing: coordinator catalog drift before replay' USING DETAIL=pg_temp.pc_catalog(); END IF;
   PERFORM set_config('polis_coordinator.replay','true',true);
  ELSE PERFORM set_config('polis_coordinator.replay','false',true);
@@ -383,7 +383,10 @@ BEGIN
   RAISE EXCEPTION USING ERRCODE='P2010',MESSAGE='DISPATCH_IDENTITY_CONFLICT'; END IF;
  -- Durable admission is mandatory before any science write. A caller must
  -- COMMIT pc_admit before spawning its child; no adapter is activated here.
- PERFORM 1 FROM public.polis_coordinator_budgets WHERE math_env=p_env FOR UPDATE;
+ -- Admission has already charged the full immutable reservation under its short
+ -- namespace budget lock. Publication changes no accounting and must not take
+ -- that lock: unrelated conversations may admit and commit while this one waits.
+ -- Parent/lease/operation locks still exclude cleanup of this exact reservation.
  SELECT * INTO op FROM public.polis_coordinator_operations WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE='P2020',MESSAGE='OPERATION_NOT_ADMITTED'; END IF;
  SELECT xmin INTO admission_xid FROM public.polis_coordinator_operations WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation;
@@ -635,7 +638,7 @@ BEGIN
   INSERT INTO public.polis_coordinator_install(singleton,migration_id,catalog_fingerprint,provenance_fingerprint,sequence_start,installed_by)
   VALUES(true,'000021',pg_temp.pc_catalog(),pg_temp.pc_provenance_hash(),(SELECT seqstart FROM pg_sequence WHERE seqrelid='public.polis_coordinator_caching_tick'::regclass),session_user);
  END IF;
- IF pg_temp.pc_catalog() IS DISTINCT FROM 'dd88a9711bbdac72155d4e8862052c4b' THEN
+ IF pg_temp.pc_catalog() IS DISTINCT FROM '8fcc7f6605f428177843f2593b876c62' THEN
   RAISE EXCEPTION 'refusing: coordinator catalog assertion' USING DETAIL=pg_temp.pc_catalog(); END IF;
  PERFORM pg_temp.pc_assert_provenance();
 END $record$;
