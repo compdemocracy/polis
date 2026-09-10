@@ -36,8 +36,15 @@
 -- grants (including pre-existing grant options). This file never upgrades a
 -- grant option. Down removes only recorded additions, never DROP OWNED/CASCADE.
 -- PostgreSQL 17 catalog deparse is pinned; profile drift requires reviewed repin.
--- Local rehearsals use disposable synthetic clusters ONLY. No persistent,
+-- Local rehearsals use disposable public-fixture clusters ONLY. No persistent,
 -- development, shared or production database has permission from this file.
+-- Rev6: runtime logins require an operator-provisioned name/OID-to-namespace
+-- mapping. RLS covers NEW coordinator tables only; fixed mutation functions
+-- check session_user explicitly before privileged work. No mapping is installed.
+-- A separately provisioned transition capability records bounded exact receipts,
+-- advances Python's destination floor before real publication, or coherently
+-- reticks existing legacy rows without fabricating a Python generation receipt.
+-- Existing broad legacy writers require external drain and isolated shadow DBs.
 BEGIN;
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
@@ -70,6 +77,7 @@ SELECT md5(jsonb_build_object(
    FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum LEFT JOIN pg_collation co ON co.oid=a.attcollation WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped),
   'constraints',(SELECT jsonb_agg(jsonb_build_array(conname,pg_get_constraintdef(oid),convalidated,connoinherit) ORDER BY conname) FROM pg_constraint WHERE conrelid=c.oid),
   'indexes',(SELECT jsonb_agg(jsonb_build_array(ic.relname,pg_get_indexdef(i.indexrelid),i.indisvalid,i.indisready) ORDER BY ic.relname) FROM pg_index i JOIN pg_class ic ON ic.oid=i.indexrelid WHERE i.indrelid=c.oid),
+  'policies',(SELECT jsonb_agg(jsonb_build_array(polname,polcmd,polpermissive,ARRAY(SELECT pg_get_userbyid(x) FROM unnest(polroles) x ORDER BY pg_get_userbyid(x)),pg_get_expr(polqual,polrelid),pg_get_expr(polwithcheck,polrelid)) ORDER BY polname) FROM pg_policy WHERE polrelid=c.oid),
   'triggers',(SELECT jsonb_agg(jsonb_build_array(t.tgname,pg_get_triggerdef(t.oid),t.tgenabled) ORDER BY t.tgname) FROM pg_trigger t WHERE t.tgrelid=c.oid AND NOT t.tgisinternal),
   'sequence',(SELECT jsonb_build_array(format_type(seqtypid,NULL),seqincrement,seqmin,seqmax,seqcache,seqcycle) FROM pg_sequence WHERE seqrelid=c.oid),
   'acl',(SELECT jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable) ORDER BY a.grantee=0,pg_get_userbyid(a.grantee),pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable)
@@ -119,7 +127,7 @@ DO $admit$
 BEGIN
  IF EXISTS(SELECT FROM pg_class WHERE relnamespace='public'::regnamespace AND starts_with(relname,'polis_coordinator_'))
  OR EXISTS(SELECT FROM pg_proc WHERE pronamespace='public'::regnamespace AND starts_with(proname,'pc_')) THEN
-  IF pg_temp.pc_catalog() IS DISTINCT FROM '8fcc7f6605f428177843f2593b876c62' THEN
+  IF pg_temp.pc_catalog() IS DISTINCT FROM 'f73a5d5136d1e0e4ed371f0b05329d6c' THEN
    RAISE EXCEPTION 'refusing: coordinator catalog drift before replay' USING DETAIL=pg_temp.pc_catalog(); END IF;
   PERFORM set_config('polis_coordinator.replay','true',true);
  ELSE PERFORM set_config('polis_coordinator.replay','false',true);
@@ -150,6 +158,35 @@ BEGIN
  SELECT greatest(coalesce(max(caching_tick),0)+1,1) INTO sequence_start FROM public.math_main;
  IF sequence_start>9007199254740991 THEN RAISE EXCEPTION 'coordinator caching tick exceeds exact consumer range'; END IF;
  EXECUTE format('CREATE SEQUENCE public.polis_coordinator_caching_tick AS bigint MINVALUE 1 MAXVALUE 9007199254740991 START WITH %s CACHE 1 NO CYCLE',sequence_start);
+ CREATE TABLE public.polis_coordinator_namespaces (
+  math_env varchar(999) PRIMARY KEY CHECK(length(math_env)>0),
+  writer_kind text NOT NULL CHECK(writer_kind IN ('python','legacy')),
+  max_transitions integer NOT NULL CHECK(max_transitions BETWEEN 1 AND 10000)
+ );
+ CREATE TABLE public.polis_coordinator_principals (
+  principal_oid oid PRIMARY KEY, principal_name name NOT NULL UNIQUE,
+  math_env varchar(999) NOT NULL REFERENCES public.polis_coordinator_namespaces(math_env),
+  can_transition boolean NOT NULL DEFAULT false
+ );
+ CREATE TABLE public.polis_coordinator_transitions (
+  math_env varchar(999) NOT NULL REFERENCES public.polis_coordinator_namespaces(math_env),
+  transition_id text NOT NULL CHECK(length(transition_id) BETWEEN 1 AND 128),
+  zid integer NOT NULL REFERENCES public.conversations(zid),
+  source_env varchar(999) NOT NULL CHECK(length(source_env)>0 AND source_env<>math_env),
+  principal_oid oid NOT NULL, principal_name name NOT NULL,
+  last_served_tick bigint CHECK(last_served_tick BETWEEN 0 AND 9007199254740990),
+  source_tick bigint CHECK(source_tick BETWEEN 0 AND 9007199254740991),
+  destination_tick bigint CHECK(destination_tick BETWEEN 0 AND 9007199254740991),
+  floor_tick bigint NOT NULL CHECK(floor_tick BETWEEN 0 AND 9007199254740990),
+  result_tick bigint CHECK(result_tick=floor_tick+1),
+  caching_tick bigint NOT NULL CHECK(caching_tick BETWEEN 1 AND 9007199254740991),
+  writer_kind text NOT NULL CHECK(writer_kind IN ('python','legacy')),
+  CHECK((writer_kind='legacy')=(result_tick IS NOT NULL)),
+  exclusion_sha256 text NOT NULL CHECK(exclusion_sha256 ~ '^[0-9a-f]{64}$'),
+  committed_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  PRIMARY KEY(math_env,transition_id)
+ );
+ CREATE INDEX polis_coordinator_transitions_zid ON public.polis_coordinator_transitions(math_env,zid);
  CREATE TABLE public.polis_coordinator_leases (
   math_env varchar(999) NOT NULL CHECK(length(math_env)>0), zid integer NOT NULL REFERENCES public.conversations(zid),
   owner_id text NOT NULL CHECK(length(owner_id) BETWEEN 1 AND 128),
@@ -284,6 +321,10 @@ BEGIN
  GRANT SELECT,UPDATE ON public.polis_coordinator_budgets,public.polis_coordinator_operations TO polis_coordinator_publication_owner;
  GRANT SELECT,INSERT,UPDATE ON public.polis_coordinator_floors TO polis_coordinator_publication_owner;
  GRANT USAGE ON SEQUENCE public.polis_coordinator_caching_tick TO polis_coordinator_publication_owner;
+ GRANT SELECT ON public.polis_coordinator_namespaces,public.polis_coordinator_principals TO polis_coordinator_publication_owner;
+ GRANT UPDATE ON public.polis_coordinator_namespaces TO polis_coordinator_publication_owner;
+ GRANT SELECT,INSERT ON public.polis_coordinator_transitions TO polis_coordinator_publication_owner;
+ GRANT SELECT ON public.polis_coordinator_transitions TO polis_coordinator_control,polis_coordinator_publisher;
  INSERT INTO public.polis_coordinator_install_roles
  SELECT r.rolname,r.oid,b.oid IS NULL FROM pg_roles r LEFT JOIN pc_before_roles b ON b.oid=r.oid
  WHERE r.rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher');
@@ -292,6 +333,136 @@ BEGIN
  FROM pg_temp.pc_grant_spec() s JOIN pg_temp.pc_external_acl() a USING(object_kind,object_name,column_name,grantee,privilege)
  LEFT JOIN pc_before_acl b USING(object_kind,object_name,column_name,grantee,grantor,privilege);
  EXECUTE $authority$
+-- The login identity is session_user, not current_user (which changes under
+-- SET ROLE and SECURITY DEFINER). Pin the OID as well as the name: recreating
+-- an operator-provisioned login must not inherit a stale namespace assignment.
+CREATE FUNCTION public.pc_namespace_allowed(p_env text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $namespace$
+ SELECT EXISTS(SELECT FROM public.polis_coordinator_principals p JOIN pg_roles r
+ ON r.oid=p.principal_oid AND r.rolname=p.principal_name
+ WHERE r.rolname=session_user AND r.rolcanlogin AND p.math_env=p_env)
+$namespace$;
+CREATE FUNCTION public.pc_assert_namespace(p_env text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $assert_namespace$
+BEGIN
+ IF NOT public.pc_namespace_allowed(p_env) THEN
+  RAISE EXCEPTION USING ERRCODE='P2030',MESSAGE='NAMESPACE_AUTHORITY_REQUIRED'; END IF;
+END $assert_namespace$;
+ALTER FUNCTION public.pc_namespace_allowed(text) OWNER TO polis_coordinator_owner;
+ALTER FUNCTION public.pc_assert_namespace(text) OWNER TO polis_coordinator_owner;
+REVOKE ALL ON FUNCTION public.pc_namespace_allowed(text),public.pc_assert_namespace(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.pc_namespace_allowed(text),public.pc_assert_namespace(text)
+ TO polis_coordinator_control,polis_coordinator_publisher,polis_coordinator_publication_owner;
+
+-- Transition is a distinct operator capability. The ordinary runtime mapping
+-- has can_transition=false. Destination authority does not allow arbitrary
+-- source publication. External legacy publishers MUST be drained independently:
+-- no new policy or grant is installed on their existing tables.
+CREATE FUNCTION public.pc_transition(p_source text,p_env text,p_zid integer,
+ p_transition text,p_last_served bigint,p_exclusion_sha256 text)
+RETURNS TABLE(outcome text,floor_tick bigint,result_tick bigint,caching_tick bigint)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp
+ SET lock_timeout='1s' AS $transition$
+DECLARE
+ principal public.polis_coordinator_principals;
+ profile public.polis_coordinator_namespaces;
+ receipt public.polis_coordinator_transitions;
+ source_tick bigint; destination_tick bigint; base_tick bigint; next_tick bigint;
+ next_cursor bigint; coherent_tick bigint;
+BEGIN
+ PERFORM public.pc_assert_namespace(p_env);
+ SELECT p.* INTO principal FROM public.polis_coordinator_principals p
+ WHERE p.principal_name=session_user;
+ IF NOT principal.can_transition THEN
+  RAISE EXCEPTION USING ERRCODE='P2030',MESSAGE='TRANSITION_AUTHORITY_REQUIRED'; END IF;
+ IF p_source IS NULL OR p_source=p_env OR length(p_source) NOT BETWEEN 1 AND 999
+ OR p_zid IS NULL OR p_transition IS NULL OR length(p_transition) NOT BETWEEN 1 AND 128
+ OR (p_last_served IS NOT NULL AND p_last_served NOT BETWEEN 0 AND 9007199254740990)
+ OR p_exclusion_sha256 IS NULL OR p_exclusion_sha256 !~ '^[0-9a-f]{64}$' THEN
+  RAISE EXCEPTION USING ERRCODE='P2031',MESSAGE='INVALID_TRANSITION'; END IF;
+ IF NOT EXISTS(SELECT FROM public.polis_coordinator_namespaces WHERE math_env=p_source) THEN
+  RAISE EXCEPTION USING ERRCODE='P2031',MESSAGE='UNKNOWN_SOURCE_NAMESPACE'; END IF;
+ -- Same-zid publisher exclusion, including absent lease inserts through the
+ -- parent FK. Ordinary publications take KEY SHARE; other zids stay independent.
+ PERFORM zid FROM public.conversations WHERE zid=p_zid FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE='P2031',MESSAGE='UNKNOWN_CONVERSATION'; END IF;
+ PERFORM 1 FROM public.polis_coordinator_leases WHERE zid=p_zid AND math_env IN (p_source,p_env)
+ ORDER BY math_env FOR UPDATE;
+ SELECT * INTO profile FROM public.polis_coordinator_namespaces WHERE math_env=p_env FOR UPDATE;
+ SELECT * INTO receipt FROM public.polis_coordinator_transitions t
+ WHERE t.math_env=p_env AND t.transition_id=p_transition;
+ IF FOUND THEN
+  IF receipt.source_env IS DISTINCT FROM p_source OR receipt.zid IS DISTINCT FROM p_zid
+  OR receipt.last_served_tick IS DISTINCT FROM p_last_served
+  OR receipt.exclusion_sha256 IS DISTINCT FROM p_exclusion_sha256
+  OR receipt.principal_oid IS DISTINCT FROM principal.principal_oid
+  OR receipt.principal_name IS DISTINCT FROM principal.principal_name THEN
+   RAISE EXCEPTION USING ERRCODE='P2031',MESSAGE='TRANSITION_IDENTITY_CONFLICT'; END IF;
+  RETURN QUERY SELECT 'already_committed'::text,receipt.floor_tick,receipt.result_tick,receipt.caching_tick;
+  RETURN;
+ END IF;
+ IF (SELECT count(*) FROM public.polis_coordinator_transitions WHERE math_env=p_env)>=profile.max_transitions THEN
+  RAISE EXCEPTION USING ERRCODE='P2032',MESSAGE='TRANSITION_CAPACITY'; END IF;
+ -- Lock both namespaces in fixed table/key order before reading their clocks.
+ -- No science values are copied between namespaces or changed by this API.
+ PERFORM 1 FROM public.math_ticks WHERE zid=p_zid AND math_env IN (p_source,p_env) ORDER BY math_env FOR UPDATE;
+ PERFORM 1 FROM public.math_bidtopid WHERE zid=p_zid AND math_env IN (p_source,p_env) ORDER BY math_env FOR UPDATE;
+ PERFORM 1 FROM public.math_ptptstats WHERE zid=p_zid AND math_env IN (p_source,p_env) ORDER BY math_env FOR UPDATE;
+ PERFORM 1 FROM public.math_main WHERE zid=p_zid AND math_env IN (p_source,p_env) ORDER BY math_env FOR UPDATE;
+ SELECT max(v) INTO source_tick FROM (
+  SELECT math_tick v FROM public.math_ticks WHERE zid=p_zid AND math_env=p_source
+  UNION ALL SELECT math_tick FROM public.math_main WHERE zid=p_zid AND math_env=p_source
+  UNION ALL SELECT math_tick FROM public.math_bidtopid WHERE zid=p_zid AND math_env=p_source
+  UNION ALL SELECT math_tick FROM public.math_ptptstats WHERE zid=p_zid AND math_env=p_source
+  UNION ALL SELECT max(math_tick) FROM public.polis_coordinator_generations WHERE zid=p_zid AND math_env=p_source
+  UNION ALL SELECT math_tick FROM public.polis_coordinator_floors WHERE zid=p_zid AND math_env=p_source) s;
+ SELECT max(v) INTO destination_tick FROM (
+  SELECT math_tick v FROM public.math_ticks WHERE zid=p_zid AND math_env=p_env
+  UNION ALL SELECT math_tick FROM public.math_main WHERE zid=p_zid AND math_env=p_env
+  UNION ALL SELECT math_tick FROM public.math_bidtopid WHERE zid=p_zid AND math_env=p_env
+  UNION ALL SELECT math_tick FROM public.math_ptptstats WHERE zid=p_zid AND math_env=p_env
+  UNION ALL SELECT max(math_tick) FROM public.polis_coordinator_generations WHERE zid=p_zid AND math_env=p_env
+  UNION ALL SELECT math_tick FROM public.polis_coordinator_floors WHERE zid=p_zid AND math_env=p_env) s;
+ base_tick:=greatest(source_tick,destination_tick,p_last_served,0);
+ IF base_tick>=9007199254740991 THEN
+  RAISE EXCEPTION USING ERRCODE='P2031',MESSAGE='TRANSITION_TICK_EXHAUSTED'; END IF;
+ IF profile.writer_kind='legacy' THEN
+  SELECT t.math_tick INTO coherent_tick FROM public.math_ticks t
+  JOIN public.math_main m USING(zid,math_env,math_tick)
+  JOIN public.math_bidtopid b USING(zid,math_env,math_tick)
+  JOIN public.math_ptptstats s USING(zid,math_env,math_tick)
+  WHERE t.zid=p_zid AND t.math_env=p_env;
+  IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE='P2031',MESSAGE='LEGACY_COHERENT_REBUILD_REQUIRED'; END IF;
+  next_tick:=base_tick+1;
+ END IF;
+ next_cursor:=nextval('public.polis_coordinator_caching_tick');
+ -- Revoking every outstanding dispatch keeps a previously armed child from
+ -- publishing after the floor changes. Historical exact readback still works.
+ UPDATE public.polis_coordinator_leases SET expires_at=clock_timestamp(),
+  dispatch_operation_id=NULL,dispatch_capability_sha256=NULL,dispatch_checkpoint_sha256=NULL,
+  dispatch_expected_tick=NULL,dispatch_margin_ms=NULL
+ WHERE zid=p_zid AND math_env IN (p_source,p_env);
+ IF profile.writer_kind='legacy' THEN
+  UPDATE public.math_ticks SET math_tick=next_tick,modified=public.now_as_millis() WHERE zid=p_zid AND math_env=p_env;
+  UPDATE public.math_bidtopid SET math_tick=next_tick,modified=public.now_as_millis() WHERE zid=p_zid AND math_env=p_env;
+  UPDATE public.math_ptptstats SET math_tick=next_tick,modified=public.now_as_millis() WHERE zid=p_zid AND math_env=p_env;
+  UPDATE public.math_main SET math_tick=next_tick,caching_tick=next_cursor,modified=public.now_as_millis() WHERE zid=p_zid AND math_env=p_env;
+ END IF;
+ INSERT INTO public.polis_coordinator_floors(math_env,zid,math_tick,caching_tick)
+ VALUES(p_env,p_zid,coalesce(next_tick,base_tick),next_cursor)
+ ON CONFLICT(math_env,zid) DO UPDATE SET math_tick=excluded.math_tick,caching_tick=excluded.caching_tick;
+ INSERT INTO public.polis_coordinator_transitions(math_env,transition_id,zid,source_env,
+  principal_oid,principal_name,last_served_tick,source_tick,destination_tick,floor_tick,
+  result_tick,caching_tick,writer_kind,exclusion_sha256)
+ VALUES(p_env,p_transition,p_zid,p_source,principal.principal_oid,principal.principal_name,
+  p_last_served,source_tick,destination_tick,base_tick,next_tick,next_cursor,profile.writer_kind,p_exclusion_sha256);
+ RETURN QUERY SELECT CASE WHEN next_tick IS NULL THEN 'publication_required' ELSE 'legacy_reticked' END,
+ base_tick,next_tick,next_cursor;
+END $transition$;
+ALTER FUNCTION public.pc_transition(text,text,integer,text,bigint,text) OWNER TO polis_coordinator_publication_owner;
+REVOKE ALL ON FUNCTION public.pc_transition(text,text,integer,text,bigint,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.pc_transition(text,text,integer,text,bigint,text) TO polis_coordinator_control;
+
 -- Fixed statements only. Payload preparation and integrity hashes precede locks.
 -- SECURITY DEFINER owner is a dedicated NOLOGIN role, never a service login.
 CREATE FUNCTION public.pc_canonical(p_value jsonb) RETURNS text
@@ -315,6 +486,7 @@ DECLARE
  lease public.polis_coordinator_leases; receipt public.polis_coordinator_generations;
  current_tick bigint; new_tick bigint; new_cursor bigint; recorded_checkpoint jsonb;
 BEGIN
+ PERFORM public.pc_assert_namespace(p_env);
  IF p_env IS NULL OR length(p_env) NOT BETWEEN 1 AND 999 OR p_zid IS NULL
  OR p_owner IS NULL OR length(p_owner) NOT BETWEEN 1 AND 128
  OR p_epoch IS NULL OR p_epoch<=0 OR p_operation IS NULL OR length(p_operation) NOT BETWEEN 1 AND 128
@@ -451,6 +623,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $admit_o
 DECLARE lease public.polis_coordinator_leases; budget public.polis_coordinator_budgets;
  op public.polis_coordinator_operations; n bigint; used numeric;
 BEGIN
+ PERFORM public.pc_assert_namespace(p_env);
  IF p_source_sha256 IS NULL OR p_source_sha256 !~ '^[0-9a-f]{64}$'
  OR p_reserved_bytes IS NULL OR p_reserved_bytes NOT BETWEEN 1048576 AND 1099511627776 THEN
   RAISE EXCEPTION USING ERRCODE='P2020',MESSAGE='INVALID_ADMISSION'; END IF;
@@ -492,6 +665,7 @@ CREATE FUNCTION public.pc_reconcile(p_env text,p_zid integer,p_operation text) R
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $reconcile_operation$
 DECLARE op public.polis_coordinator_operations; receipt public.polis_coordinator_generations;
 BEGIN
+ PERFORM public.pc_assert_namespace(p_env);
  PERFORM zid FROM public.conversations WHERE zid=p_zid FOR KEY SHARE;
  PERFORM 1 FROM public.polis_coordinator_leases WHERE math_env=p_env AND zid=p_zid FOR UPDATE;
  PERFORM 1 FROM public.polis_coordinator_budgets WHERE math_env=p_env FOR UPDATE;
@@ -516,6 +690,7 @@ END $reconcile_operation$;
 CREATE FUNCTION public.pc_protect(p_env text,p_zid integer,p_operation text,p_protected boolean) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $protect_operation$
 BEGIN
+ PERFORM public.pc_assert_namespace(p_env);
  IF p_protected IS NULL THEN RAISE EXCEPTION USING ERRCODE='P2020',MESSAGE='INVALID_PROTECTION'; END IF;
  PERFORM zid FROM public.conversations WHERE zid=p_zid FOR KEY SHARE;
  PERFORM 1 FROM public.polis_coordinator_leases WHERE math_env=p_env AND zid=p_zid FOR UPDATE;
@@ -526,6 +701,7 @@ END $protect_operation$;
 CREATE FUNCTION public.pc_reference(p_env text,p_zid integer,p_operation text,p_reference text,p_present boolean) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $reference_operation$
 BEGIN
+ PERFORM public.pc_assert_namespace(p_env);
  IF p_reference IS NULL OR length(p_reference) NOT BETWEEN 1 AND 128 OR p_present IS NULL THEN
   RAISE EXCEPTION USING ERRCODE='P2020',MESSAGE='INVALID_REFERENCE'; END IF;
  PERFORM zid FROM public.conversations WHERE zid=p_zid FOR KEY SHARE;
@@ -548,6 +724,7 @@ CREATE FUNCTION public.pc_cleanup(p_env text,p_zid integer,p_operation text) RET
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $cleanup_operation$
 DECLARE op public.polis_coordinator_operations; receipt public.polis_coordinator_generations;
 BEGIN
+ PERFORM public.pc_assert_namespace(p_env);
  PERFORM zid FROM public.conversations WHERE zid=p_zid FOR KEY SHARE;
  PERFORM 1 FROM public.polis_coordinator_leases WHERE math_env=p_env AND zid=p_zid FOR UPDATE;
  PERFORM 1 FROM public.polis_coordinator_budgets WHERE math_env=p_env FOR UPDATE;
@@ -584,6 +761,15 @@ REVOKE ALL ON FUNCTION public.pc_admit(text,integer,text,bigint,text,text,bigint
 GRANT EXECUTE ON FUNCTION public.pc_admit(text,integer,text,bigint,text,text,bigint),public.pc_reconcile(text,integer,text),public.pc_protect(text,integer,text,boolean),public.pc_cleanup(text,integer,text) TO polis_coordinator_control;
 
 $authority$;
+ FOR g IN SELECT relname FROM pg_class WHERE relnamespace='public'::regnamespace
+ AND relname IN ('polis_coordinator_leases','polis_coordinator_cursors','polis_coordinator_failures',
+ 'polis_coordinator_reconciliation','polis_coordinator_generations','polis_coordinator_payloads',
+ 'polis_coordinator_budgets','polis_coordinator_operations','polis_coordinator_references',
+ 'polis_coordinator_floors','polis_coordinator_transitions') LOOP
+  EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',g.relname);
+  EXECUTE format('CREATE POLICY pc_namespace ON public.%I TO polis_coordinator_control,polis_coordinator_publisher USING (public.pc_namespace_allowed(math_env)) WITH CHECK (public.pc_namespace_allowed(math_env))',g.relname);
+  EXECUTE format('CREATE POLICY pc_publication ON public.%I TO polis_coordinator_publication_owner USING (true) WITH CHECK (true)',g.relname);
+ END LOOP;
 END $create$;
 CREATE OR REPLACE FUNCTION pg_temp.pc_provenance_hash() RETURNS text
 LANGUAGE sql SET search_path=pg_catalog,pg_temp AS $hash$
@@ -638,7 +824,7 @@ BEGIN
   INSERT INTO public.polis_coordinator_install(singleton,migration_id,catalog_fingerprint,provenance_fingerprint,sequence_start,installed_by)
   VALUES(true,'000021',pg_temp.pc_catalog(),pg_temp.pc_provenance_hash(),(SELECT seqstart FROM pg_sequence WHERE seqrelid='public.polis_coordinator_caching_tick'::regclass),session_user);
  END IF;
- IF pg_temp.pc_catalog() IS DISTINCT FROM '8fcc7f6605f428177843f2593b876c62' THEN
+ IF pg_temp.pc_catalog() IS DISTINCT FROM 'f73a5d5136d1e0e4ed371f0b05329d6c' THEN
   RAISE EXCEPTION 'refusing: coordinator catalog assertion' USING DETAIL=pg_temp.pc_catalog(); END IF;
  PERFORM pg_temp.pc_assert_provenance();
 END $record$;

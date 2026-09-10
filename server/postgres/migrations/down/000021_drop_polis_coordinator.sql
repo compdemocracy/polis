@@ -36,6 +36,7 @@ SELECT md5(jsonb_build_object(
    FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum LEFT JOIN pg_collation co ON co.oid=a.attcollation WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped),
   'constraints',(SELECT jsonb_agg(jsonb_build_array(conname,pg_get_constraintdef(oid),convalidated,connoinherit) ORDER BY conname) FROM pg_constraint WHERE conrelid=c.oid),
   'indexes',(SELECT jsonb_agg(jsonb_build_array(ic.relname,pg_get_indexdef(i.indexrelid),i.indisvalid,i.indisready) ORDER BY ic.relname) FROM pg_index i JOIN pg_class ic ON ic.oid=i.indexrelid WHERE i.indrelid=c.oid),
+  'policies',(SELECT jsonb_agg(jsonb_build_array(polname,polcmd,polpermissive,ARRAY(SELECT pg_get_userbyid(x) FROM unnest(polroles) x ORDER BY pg_get_userbyid(x)),pg_get_expr(polqual,polrelid),pg_get_expr(polwithcheck,polrelid)) ORDER BY polname) FROM pg_policy WHERE polrelid=c.oid),
   'triggers',(SELECT jsonb_agg(jsonb_build_array(t.tgname,pg_get_triggerdef(t.oid),t.tgenabled) ORDER BY t.tgname) FROM pg_trigger t WHERE t.tgrelid=c.oid AND NOT t.tgisinternal),
   'sequence',(SELECT jsonb_build_array(format_type(seqtypid,NULL),seqincrement,seqmin,seqmax,seqcache,seqcycle) FROM pg_sequence WHERE seqrelid=c.oid),
   'acl',(SELECT jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable) ORDER BY a.grantee=0,pg_get_userbyid(a.grantee),pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable)
@@ -89,7 +90,7 @@ SELECT NOT EXISTS(SELECT FROM pg_class WHERE relnamespace='public'::regnamespace
 \else
  DO $catalog$
  BEGIN
-  IF pg_temp.pc_catalog() IS DISTINCT FROM '8fcc7f6605f428177843f2593b876c62' THEN
+  IF pg_temp.pc_catalog() IS DISTINCT FROM 'f73a5d5136d1e0e4ed371f0b05329d6c' THEN
    RAISE EXCEPTION 'refusing: coordinator catalog drift' USING DETAIL=pg_temp.pc_catalog(); END IF;
  END $catalog$;
  -- Child before parent; count only AFTER ACCESS EXCLUSIVE locks. The provenance
@@ -98,7 +99,10 @@ SELECT NOT EXISTS(SELECT FROM pg_class WHERE relnamespace='public'::regnamespace
  public.polis_coordinator_cursors,public.polis_coordinator_failures,
  public.polis_coordinator_reconciliation,public.polis_coordinator_leases,
  public.polis_coordinator_install_grants,public.polis_coordinator_install_roles,
- public.polis_coordinator_install IN ACCESS EXCLUSIVE MODE;
+ public.polis_coordinator_install,public.polis_coordinator_references,
+ public.polis_coordinator_operations,public.polis_coordinator_budgets,
+ public.polis_coordinator_floors,public.polis_coordinator_transitions,
+ public.polis_coordinator_principals,public.polis_coordinator_namespaces IN ACCESS EXCLUSIVE MODE;
 CREATE OR REPLACE FUNCTION pg_temp.pc_provenance_hash() RETURNS text
 LANGUAGE sql SET search_path=pg_catalog,pg_temp AS $hash$
  SELECT md5(jsonb_build_object(
@@ -161,12 +165,19 @@ END $assert$;
    +(SELECT count(*) FROM public.polis_coordinator_references)
    +(SELECT count(*) FROM public.polis_coordinator_operations)
    +(SELECT count(*) FROM public.polis_coordinator_budgets)
-   +(SELECT count(*) FROM public.polis_coordinator_floors) INTO total;
+   +(SELECT count(*) FROM public.polis_coordinator_floors)
+   +(SELECT count(*) FROM public.polis_coordinator_transitions)
+   +(SELECT count(*) FROM public.polis_coordinator_principals)
+   +(SELECT count(*) FROM public.polis_coordinator_namespaces) INTO total;
   IF current_setting('polis_coordinator.force') <> '1' AND (total>0 OR (SELECT is_called FROM public.polis_coordinator_caching_tick)) THEN
    RAISE EXCEPTION 'refusing: coordinator contains data or used sequence; force=1 overrides only this guard'; END IF;
   -- Snapshot validated provenance before dropping its tables.
   CREATE TEMP TABLE pc_remove_roles ON COMMIT DROP AS SELECT * FROM public.polis_coordinator_install_roles WHERE created;
   CREATE TEMP TABLE pc_remove_grants ON COMMIT DROP AS SELECT * FROM public.polis_coordinator_install_grants WHERE NOT prior_present;
+  DROP FUNCTION public.pc_transition(text,text,integer,text,bigint,text);
+  DROP TABLE public.polis_coordinator_transitions;
+  DROP TABLE public.polis_coordinator_principals;
+  DROP TABLE public.polis_coordinator_namespaces;
   DROP FUNCTION public.pc_reference(text,integer,text,text,boolean);
   DROP TABLE public.polis_coordinator_references;
   DROP FUNCTION public.pc_admit(text,integer,text,bigint,text,text,bigint);
@@ -184,6 +195,8 @@ END $assert$;
   DROP TABLE public.polis_coordinator_failures;
   DROP TABLE public.polis_coordinator_reconciliation;
   DROP TABLE public.polis_coordinator_leases;
+  DROP FUNCTION public.pc_assert_namespace(text);
+  DROP FUNCTION public.pc_namespace_allowed(text);
   DROP SEQUENCE public.polis_coordinator_caching_tick;
   DROP TABLE public.polis_coordinator_install_grants;
   DROP TABLE public.polis_coordinator_install_roles;
