@@ -79,7 +79,8 @@ class CommitProxy:
     backend has committed; the coordinator remains awaiting its reply until release.
     Subsequent connections (including readback and heartbeat) pass through.
     """
-    def __init__(self, db):
+    def __init__(self, db, query=b"SELECT * FROM public.pc_publish("):
+        self.query = query
         parsed = urlsplit(db)
         self.target = (parsed.hostname, parsed.port)
         self.listener = socket.socket()
@@ -134,7 +135,7 @@ class CommitProxy:
                     kind = self.read(client, 1)
                     size = self.read(client, 4)
                     body = self.read(client, struct.unpack("!I", size)[0] - 4)
-                    if kind in (b"P", b"Q") and b"SELECT * FROM public.pc_publish(" in body:
+                    if kind in (b"P", b"Q") and self.query in body:
                         publication.set()
                     server.sendall(kind + size + body)
             except (EOFError, OSError):
