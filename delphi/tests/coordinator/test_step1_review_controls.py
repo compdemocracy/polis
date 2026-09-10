@@ -1,7 +1,7 @@
-"""Astra's step-1 review controls (board [256]), re-pinned against the fixes.
+"""Step-1 review controls, re-pinned against the fixes.
 
-`cost-reduction/scripts/p2727-step1-astra-review.py` characterised two defects
-at 910ba8a15 and two ownership positives. The two defect assertions are inverted
+The review characterised two defects at 910ba8a15 and two ownership positives.
+The two defect assertions are inverted
 here — they now assert the required behaviour — and the two positive controls
 are kept as the review wrote them, so the same four seams stay covered.
 
@@ -35,7 +35,8 @@ def test_resident_cache_does_not_hide_a_deleted_companion(db, launch):
     reconciled against the store's generation and companion existence on every
     hit, so the daemon repairs with no new input and no restart."""
     seed(db)
-    child = launch(db, "run", extra={"P026_POLL_MS": "50", "P026_CACHE_CAP": "2"})
+    child = launch(db, "run", extra={"P026_POLL_MS": "50", "P026_CACHE_CAP": "2",
+                                     "P026_LEASE_SECONDS": "5"})
     wait(lambda: lease(db) and lease(db)["owner_epoch"] >= 4, alive=child,
          why="cache warmed across passes")
     before = rows(db)["math_main"]["math_tick"]
@@ -50,6 +51,10 @@ def test_resident_cache_does_not_hide_a_deleted_companion(db, launch):
 
     # Control from the review, retained: a cache-disabled run of the same
     # corruption also repairs, so the fix did not merely move the problem.
+    # SIGKILL may interrupt publication before lease release. Wait for genuine
+    # database-time expiry before this independent writer; never expire it by SQL.
+    wait(lambda: not lease(db)["unexpired"],
+         why="killed cache owner's lease expires before the independent control")
     query(db, "DELETE FROM math_ptptstats WHERE math_env='rustproto' AND zid=1")
     launch(db, extra={"P026_CACHE_CAP": "0"}).done()
     assert_coherent(db)

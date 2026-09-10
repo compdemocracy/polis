@@ -20,7 +20,7 @@
   ],
   "fixture_originals": "publish-fixture synthesizes original bytes by re-encoding the fixture's parsed values when no explicit originals are supplied; those rows are labelled synthesized on stderr and validate_originals() is tautological for them. They are not engine originals.",
   "integrity_model": "self-certifying, not tamper-evident: a writer with access to the four math tables can rewrite bytes, JSONB, both digests and the checkpoint coherently and is not detected. Digests bind an honest writer's own output; they are not an authentication scheme.",
-  "pins_are_committed_sources": true,
+  "pins_are_committed_sources": false,
   "sha256": {
     "coordinator-rs/Cargo.lock": "308d38666623b7bc9a0f5f09ae2084dfeef667c977a9ee241df3003d6e1306bf",
     "coordinator-rs/Cargo.toml": "b368a7e118a13200d5fc95e86a0324a3a3d5f0f233b1b01688b0f62d3fd30187",
@@ -127,7 +127,7 @@
     "delphi/tests/coordinator/test_recovery.py": "44a1396ec474ad0a3ff00954b715d45016346313a534dc3fffd036e93e84dd44",
     "delphi/tests/coordinator/test_reference_controls.py": "7d7c424359aa62e7901743f074ded8257077b8882cdba3cd09dc08f8d63c963b",
     "delphi/tests/coordinator/test_s1_identity.py": "6eeeeca5972b8ab25fb49f45b3024c2269f0e8f566fd6cf33a75e4465aa5134c",
-    "delphi/tests/coordinator/test_step1_review_controls.py": "a614c81f3f5c61e21e5c0fc148e3f425a40cf881724e62588f627fd38e1986e9",
+    "delphi/tests/coordinator/test_step1_review_controls.py": "c2c8f42ce2d51ad82168b95323a0d2c743800c0c3e2f4f31457eb94723d45db3",
     "delphi/tests/coordinator/test_step2_review_controls.py": "07aa39208bb01b9356ec96daf2d0b06f9b29f4a7f5a274f536f29884a9fb9320",
     "delphi/tests/coordinator/test_store.py": "70688832fdb8b091ebdeecea87359b304c897973564d27ceccc599ea7329540d"
   },
@@ -171,5 +171,15 @@
       "coordinator-rs/target/fault/debug/polis-coordinator": "f9f957244027f3b6c87115e58c412b9b3236f95a12d8a05a45f4545087313c66",
       "coordinator-rs/target/release/polis-coordinator": "580a69f0471b2195b28f5338e162fe66edf009ebfbaf28005ffea6bd2ea6c0ee"
     }
+  },
+  "source_pin_reconciliation": {
+    "scope": "One test synchronization repair; historical run_pins are preserved and do not certify the new source.",
+    "base_commit": "b4be3f8cd",
+    "source": "delphi/tests/coordinator/test_step1_review_controls.py",
+    "previous_sha256": "a614c81f3f5c61e21e5c0fc148e3f425a40cf881724e62588f627fd38e1986e9",
+    "current_sha256": "c2c8f42ce2d51ad82168b95323a0d2c743800c0c3e2f4f31457eb94723d45db3",
+    "reason": "Bound the warm-cache daemon lease to five seconds and observe its genuine database-time expiry after SIGKILL before the independent cache-disabled writer. Preserve all coherence and generation assertions. Remove internal review names from the module docstring.",
+    "candidate_run": "Separate required CI receipt; no historical campaign relabeling.",
+    "committed": false
   }
 }
