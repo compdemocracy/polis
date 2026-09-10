@@ -1,8 +1,8 @@
 {
-  "run": "P-026 S1 revalidation on rebased stack",
+  "run": "P-026 step 4 / S1",
   "python_full_suite": {
-    "passed": 150,
-    "failed": 1,
+    "passed": 151,
+    "failed": 0,
     "errors": 0,
     "skipped": 0,
     "by_module": {
@@ -20,8 +20,7 @@
       "test_step2_review_controls": 6,
       "test_store": 6
     },
-    "junit": "coordinator-rs/artifacts/s1-pytest.xml",
-    "by_module_counts": "collected and executed cases, including one failure"
+    "junit": "coordinator-rs/artifacts/s1-pytest.xml"
   },
   "rust_tests": {
     "default": 31,
@@ -41,24 +40,73 @@
       "CO08/D4: candidate coherent-read atomicity and the production reader local slice are recorded; BOARD[633] accepts the production implementation and public1265/0/2 replay. O1 remains partial: required pinned-module CI with exact case inventory/zero skips and the combined S5 build/corpus campaigns remain open",
       "CO08/D4: the combined immutable-build/full-app/auth/report/CSV campaign and private served corpus remain open; accepted public reader evidence does not complete S5",
       "CO08/D4 (server owner): the getPca(zid, undefined) cold generation-zero miss is fixed upstream by #2732 (merged to edge), so the cold call now finds generation zero and pca2 serves it with 200 / ETag \"0\" / conditional 304; the combined-build full-app coverage of generation zero across all callers is still outstanding",
-      "C7 / polis-empty-served/1: the Python comparison writer publishes no row for a zero-vote conversation, the server synthesizes the approved-comment listing with a request-clock lastVoteTimestamp, and a published empty generation lists no tids; the transition must preserve comment ownership; the comparison clock is admitted (plan rev2 C2: freeze the logical request clock, advance it, preserve the response dependency), and the empty-transition campaign that exercises it is still open",
+      "C7 / polis-empty-served/1: the Python comparison writer publishes no row for a zero-vote conversation, the server synthesizes the approved-comment listing with a request-clock lastVoteTimestamp; both raw rows retain empty tids while presentPca supplies approved comments for both; the transition must preserve comment ownership; the comparison clock is admitted (plan rev2 C2: freeze the logical request clock, advance it, preserve the response dependency), and the empty-transition campaign that exercises it is still open",
       "CO01: the incremental probe is a hint bounded by P026_RECONCILE_SECONDS, measured from before the source read; the interval makes a conversation eligible for reconciliation and is not a deadline, and no pass/service budget has been measured",
       "CO02/CO06: persisted payloads become eligible for revalidation once the ceiling elapses, not on every pass; resident-cache reconciliation is single-threaded and no multi-worker or warm-worker cache campaign exists",
       "P-031: this crate implements none of A01 PollHealthy, A02 PublishLagSeconds or A03 ObserverHealthy, has no deployed publisher and no delivery proof; the optional synchronous sink can still block when enabled",
       "O8 remains OPEN and is at most PARTIAL: polis-candidate-input/1 is claimed locally as a candidate profile, not a G01-G16 certificate. S1 records the distinct candidate schema id, strict adapter admission, original-byte digests with decoded correspondence, and the worker/engine pins; still outstanding are all applicable G01-G16 cases with their required negative controls, an immutable manifest, the distinction between fresh rebuild, exact resume and warm incremental output schedules, and a non-vacuous P-023 compensated pair with raw C9 validation"
     ],
     "condition_states": {
-      "O1": "OPEN",
+      "O1": "PARTIAL (S2 production reader locally proven; required CI and combined S5 open)",
       "O2": "OPEN",
       "O3": "OPEN",
       "O4": "OPEN",
       "O5": "OPEN",
       "O6": "OPEN",
       "O7": "OPEN",
-      "O8": "OPEN"
+      "O8": "PARTIAL (S1 identity/custody recorded; G01-G16 open)"
     },
     "closed_conditions": [],
-    "partial_conditions": []
+    "partial_conditions": [
+      {
+        "id": "O8",
+        "state": "PARTIAL",
+        "standing_condition": "O8 remains OPEN and is at most PARTIAL: polis-candidate-input/1 is claimed locally as a candidate profile, not a G01-G16 certificate. S1 records the distinct candidate schema id, strict adapter admission, original-byte digests with decoded correspondence, and the worker/engine pins; still outstanding are all applicable G01-G16 cases with their required negative controls, an immutable manifest, the distinction between fresh rebuild, exact resume and warm incremental output schedules, and a non-vacuous P-023 compensated pair with raw C9 validation",
+        "evidence": "coordinator-rs/evidence/s1-closure.json",
+        "scope": "P-026 step-4 S1 candidate identity and original-byte custody",
+        "recorded": [
+          "distinct candidate schema id and strict adapter admission on both sides",
+          "original worker bytes and their digests stored atomically with the JSONB, with decoded original/JSONB correspondence checked on read",
+          "worker/engine identity re-verified at initialization and at snapshot",
+          "operation id and publisher epoch bound into the uncertain-COMMIT readback"
+        ],
+        "remaining_obligations": [
+          "all applicable G01-G16 cases and their required negative controls",
+          "an immutable manifest for the profile",
+          "fresh rebuild, exact resume and warm incremental output schedules distinguished",
+          "a non-vacuous P-023 compensated pair and raw C9 validation"
+        ],
+        "g01_g16_certified": false,
+        "run_pins_verified_here": false
+      },
+      {
+        "id": "O1",
+        "state": "PARTIAL",
+        "standing_condition": "CO08/D4: candidate coherent-read atomicity and the production reader local slice are recorded; BOARD[633] accepts the production implementation and public1265/0/2 replay. O1 remains partial: required pinned-module CI with exact case inventory/zero skips and the combined S5 build/corpus campaigns remain open",
+        "evidence": "coordinator-rs/evidence/s2-closure.json",
+        "scope": "P-026 step-4 S2 reader: candidate loadBundle whole-Bundle atomicity",
+        "recorded": [
+          "a candidate coherent-read loadBundle reads main + bidtopid + ptptstats + the math_ticks checkpoint in one REPEATABLE READ READ ONLY snapshot in the real Node runtime",
+          "under an interleaved publish the reader returns snapshot generation A exactly (all four row ticks equal, and A's exact per-group pids), not the B the interleave committed; a later read returns B exactly, and A and B are distinguishable",
+          "the returned per-group pids are compared against an independent Python re-derivation over the published blobs, so a reader that fabricates pids fails",
+          "a missing or tick-mismatched companion fails admission, a valid replacement is observed after republication, the reads are scoped by math_env, and a wrong-namespace companion does not leak in",
+          "the Node reader tests are a local failure guard (absent server modules fail rather than skip); the existing real-module getPca/getBidIndexToPidMapping byte-equality path is retained at 0 differences",
+          "Production joined loadBundle, bounded whole-Bundle LRU, namespace-scoped admission and caller propagation are implemented.",
+          "Featured-author main/mapping share one owned read; derived presentation cannot extend the source cache deadline; C7 presentation is retained.",
+          "The accepted public replay completed1265/0/2 with only complete-row permutations at r19/r20;24 direct checks verified full row bytes/multiplicity and own-body ETags.",
+          "Strict route census302/302: zero changed callback fingerprints. Reader changes are transitive helpers."
+        ],
+        "remaining_obligations": [
+          "Required CI must provision pinned server modules and enforce the exact HTTP/Bundle case inventory with zero skips.",
+          "S5: combined immutable-build/full-app/auth/report/CSV/interleaving campaign and owned private served corpus remain open; this public corpus does not prove every cross-handler publication race.",
+          "Full O1/CO04 admission and rollout remain conditional on writer fencing, coherent publication and the broader gates; this receipt closes only the assigned production-reader slice."
+        ],
+        "production_loadbundle_certified": false,
+        "production_reader_obligation_state": "CLOSED",
+        "production_reader_evidence": "coordinator-rs/evidence/s2-production-reader.json",
+        "run_pins_verified_here": false
+      }
+    ]
   },
   "replay_comparison": {
     "checkpoints": 3,
@@ -69,17 +117,19 @@
     ],
     "hashes_identical_to_previous_evidence": true,
     "observer_errors": 0,
-    "observations": 225
+    "observations": 215
   },
   "polarity": "four artifacts and semantic tie control unchanged; compensated pairs equal, negative controls differ",
-  "node_d4": "Populated raw getPca comparison: 0 differences; empty helper assertion fails after #2709 moved comment defaults to presentPca. Historical served-boundary claims were not re-admitted.",
+  "node_d4": "0 differences through getPca + presentPca; raw empty rows remain empty; generation-zero route 200 / ETag 0 / conditional 304; combined full-app campaign remains open",
   "scope": "Rust versus Python rebuild-prefix campaign; Clojure remains the live production writer; no Rust/Clojure comparison",
-  "compose_project": "p026-s1-682",
-  "postgres_port": 56114,
+  "compose_project": "p026-s1s2-687",
+  "postgres_port": 56117,
   "uncommitted": true,
   "s2_reader": {
-    "slice": "P-026 step4/S2 production reader locally proven; required CI and combined S5 open",
+    "slice": "P-026 step 4 / S2 reader (production reader locally proven; CI and S5 open)",
     "candidate_loadBundle": true,
+    "production_reader_obligation_state": "CLOSED",
+    "production_reader_evidence": "coordinator-rs/evidence/s2-production-reader.json",
     "node_local_failure_guard": true,
     "required_ci_job": false,
     "witness": "coordinator-rs/evidence/d4-bundle-reader.json",
@@ -88,84 +138,7 @@
     "a_and_b_distinguishable": true,
     "wrong_namespace_unaffected": true,
     "node_d4_differences": 0,
-    "O1": "OPEN",
-    "python_cases": 151,
-    "production_reader_obligation_state": "CLOSED",
-    "production_reader_evidence": "coordinator-rs/evidence/s2-production-reader.json",
-    "current_audit_refusal": "Two historical test-source hashes moved in the CI repair; accepted historical production replay not rerun."
-  },
-  "s3_publication_telemetry": {
-    "scope": "S3 publication-outcome telemetry only",
-    "required_cases": [
-      "test_confirmed_commit_emits_no_ambiguous_outcome",
-      "test_failed_readback_is_unresolved_and_alarmable[once-absent]",
-      "test_failed_readback_is_unresolved_and_alarmable[once-inconsistent]",
-      "test_failed_readback_is_unresolved_and_alarmable[once-read]",
-      "test_failed_readback_is_unresolved_and_alarmable[once-reconnect]",
-      "test_failed_readback_is_unresolved_and_alarmable[publish-fixture-absent]",
-      "test_failed_readback_is_unresolved_and_alarmable[publish-fixture-inconsistent]",
-      "test_failed_readback_is_unresolved_and_alarmable[publish-fixture-read]",
-      "test_failed_readback_is_unresolved_and_alarmable[publish-fixture-reconnect]",
-      "test_uncertain_commit_readback_binds_publishing_epoch[False]",
-      "test_uncertain_commit_readback_binds_publishing_epoch[True]"
-    ],
-    "required_cases_passed": 11,
-    "python_full_suite_passed": 151,
-    "alarm": {
-      "comparison": "GreaterThanOrEqualToThreshold",
-      "datapoints_to_alarm": 1,
-      "deployed": false,
-      "evaluation_periods": 1,
-      "metric": "PublishUnresolvedLost",
-      "note": "Sparse outcome events, not a heartbeat. Missing events cannot establish health or resolution; independent producer/sink observation and delivery remain required. A later resolved-own event does not cancel an earlier unresolved-lost operation.",
-      "period_seconds": 60,
-      "statistic": "Sum",
-      "threshold": 1,
-      "treat_missing_data": "notBreaching"
-    },
-    "observations": [
-      "real COMMIT reply severed; exact own identity resolves",
-      "same tick/content/operation at a replacement epoch stays unresolved",
-      "absent/inconsistent rows and reconnect/read failures stay unresolved",
-      "once and publish-fixture emit at operation boundary, without double counting",
-      "local observer: any unresolved outcome alarms; attempts, missing data and other namespace cannot prove resolution; later own cannot erase lost",
-      "confirmed COMMIT emits no ambiguous outcome"
-    ],
-    "intended_writer": "certified Python poller, with Clojure fenced before transfer",
-    "production_fencing_changed": false,
-    "cloud_delivery_verified": false,
-    "O7": "OPEN",
-    "remaining": [
-      "bounded nonblocking transport and independent producer/sink observer",
-      "deployed publisher, missing-data alarms and delivery drill",
-      "paced rebuild/transfer rehearsal and writer exclusion proof",
-      "remaining S3 fairness/capacity and full-contract obligations"
-    ],
-    "sha256": {
-      "coordinator-rs/src/store.rs": "d2e7f6b0cade81f0ac818c3aa76285d540986d97e2e1b2a541324f5f24a02a0b",
-      "coordinator-rs/src/metrics.rs": "23033ddecea83dbcc668f1d660112f8fff1bfead68ed2fcf89edf6d5d071d773",
-      "coordinator-rs/tests/validation.rs": "70c051eb391d2c2f32859a6fdf419a3c3776d43e16246b0471b11d4c6088efe4",
-      "coordinator-rs/tools/record_s3.py": "f0f1f3e967a6de78e5b2508b6a5925d77e8007e569d681a3471171c96d74a022",
-      "delphi/tests/coordinator/test_s1_identity.py": "6eeeeca5972b8ab25fb49f45b3024c2269f0e8f566fd6cf33a75e4465aa5134c",
-      "delphi/tests/coordinator/test_publication_metrics.py": "8bca756a2f8a10f717834560225ab883fa8bcc6434c0759995eb21acc9d342cd"
-    },
-    "evidence_origin": "Historical S3 receipt retained unchanged in s3-publication-telemetry.json; not regenerated from this failed full campaign."
-  },
-  "current_evidence_review": {
-    "board": 633,
-    "runtime_rerun": false,
-    "reader_replay_head": "1b10038f3ced75114e2735841b40ec9cccde2b5b",
-    "S1_source_pins": "32 source mismatches introduced by rebase; audit metadata changed separately; old pins retained and current O8 admission refused",
-    "historical_python_cases": 151,
-    "current_full_python_suite_run": false
-  },
-  "revalidation": {
-    "evidence": "coordinator-rs/evidence/s1-revalidation.json",
-    "result": "NOT_REPRODUCED",
-    "failed_case": {
-      "module": "tests.coordinator.test_node_reader",
-      "name": "test_published_empty_math_versus_the_servers_own_empty_presentation"
-    },
-    "source_pins_updated": false
+    "O1": "PARTIAL",
+    "python_cases": 151
   }
 }

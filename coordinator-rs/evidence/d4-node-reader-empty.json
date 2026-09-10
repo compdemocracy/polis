@@ -1,28 +1,24 @@
 {
   "differences": {
     "asJSON_bytes": [
-      753,
+      765,
       455
     ],
     "asJSON_sha256": [
-      "fa78e3c4a1cbacb495960da1fcb9b1a834ffc0d825361b968e9e2eadb2670050",
-      "c9dd91459d6fbd017362d26a02c6b6214b975668042cbd7ce11f0d6a11c83dcf"
+      "4738deb83b9468498ee32c49c5eecfd785d0bac64d5966814f089723286e5a75",
+      "6a14f43bd751a8f332e5564aa5eb97990a159f04d76b7e7fdab9177a83ddfd32"
     ],
     "bid_to_pid": [
       [],
       null
     ],
     "gzip_bytes": [
-      343,
-      265
+      352,
+      266
     ],
     "gzip_sha256": [
-      "666e7e9f166083dfc4cf0489725d1be564b371049fc0a3779bdcf67db8cb76f9",
-      "0fa5d21cac2aaf4e8600c392a4adaaca24f6ed8f44fd0b011b354b8d43e52a90"
-    ],
-    "keys_projection_sha256": [
-      "5e21b0f6fec91b0e609a968a8c308d8c57e58062a487dbff98628b8206acfac7",
-      "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31"
+      "ce3c0c17c0fd3238eb1b2a9450c5c2105296ef6d19ae7e101a1fc1e0cb12b163",
+      "8378b1ace0aab281b5d26280628ac5c126c87ee873f3d86f8f800355b9007675"
     ],
     "mapping_is_error": [
       false,
@@ -31,15 +27,6 @@
     "mapping_sha256": [
       "a5558a1314571ed26f6afdea59f81a24ab0cc942ac84485892f8a36f7ac16315",
       null
-    ],
-    "tids": [
-      [],
-      [
-        0,
-        1,
-        2,
-        3
-      ]
     ]
   },
   "note": "the synthesized empty presentation stamps lastVoteTimestamp with Date.now(), so it is not reproducible across servers or requests; the published empty generation is",
@@ -48,26 +35,44 @@
   "served": {
     "python": {
       "asJSON_bytes": 455,
-      "asJSON_sha256": "c9dd91459d6fbd017362d26a02c6b6214b975668042cbd7ce11f0d6a11c83dcf",
+      "asJSON_sha256": "6a14f43bd751a8f332e5564aa5eb97990a159f04d76b7e7fdab9177a83ddfd32",
       "bid_to_pid": null,
+      "comment_extremity": [
+        0,
+        0,
+        0,
+        0
+      ],
       "consensus_shape": {
         "agree": 0,
         "disagree": 0
       },
       "etag_math_tick": 0,
-      "gzip_bytes": 265,
-      "gzip_sha256": "0fa5d21cac2aaf4e8600c392a4adaaca24f6ed8f44fd0b011b354b8d43e52a90",
+      "gzip_bytes": 266,
+      "gzip_sha256": "8378b1ace0aab281b5d26280628ac5c126c87ee873f3d86f8f800355b9007675",
       "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
-      "last_vote_timestamp": 1789001039309,
+      "last_vote_timestamp": 1789023934903,
       "mapping_is_error": true,
       "mapping_math_tick": null,
       "mapping_sha256": null,
       "math_env": "python",
       "n": 0,
+      "n_cmts": 4,
+      "pca_center": [
+        0,
+        0
+      ],
       "pids_for_gid": {
         "0": []
       },
       "present": true,
+      "raw": {
+        "asJSON_sha256": "984f044ceda39d882aa2f676d8894d069f038c5f1ec7f453e009930f61b4a45d",
+        "gzip_sha256": "92281482f045d57043fe920eed3d902cb244dacd6ec40089f4a7644b54bbbb23",
+        "n_cmts": 0,
+        "tids": [],
+        "unchanged_after_presentation": true
+      },
       "repness_keys": [],
       "tids": [
         0,
@@ -77,28 +82,51 @@
       ]
     },
     "rustproto": {
-      "asJSON_bytes": 753,
-      "asJSON_sha256": "fa78e3c4a1cbacb495960da1fcb9b1a834ffc0d825361b968e9e2eadb2670050",
+      "asJSON_bytes": 765,
+      "asJSON_sha256": "4738deb83b9468498ee32c49c5eecfd785d0bac64d5966814f089723286e5a75",
       "bid_to_pid": [],
+      "comment_extremity": [
+        0,
+        0,
+        0,
+        0
+      ],
       "consensus_shape": {
         "agree": 0,
         "disagree": 0
       },
       "etag_math_tick": 1,
-      "gzip_bytes": 343,
-      "gzip_sha256": "666e7e9f166083dfc4cf0489725d1be564b371049fc0a3779bdcf67db8cb76f9",
-      "keys_projection_sha256": "5e21b0f6fec91b0e609a968a8c308d8c57e58062a487dbff98628b8206acfac7",
+      "gzip_bytes": 352,
+      "gzip_sha256": "ce3c0c17c0fd3238eb1b2a9450c5c2105296ef6d19ae7e101a1fc1e0cb12b163",
+      "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
       "last_vote_timestamp": 0,
       "mapping_is_error": false,
       "mapping_sha256": "a5558a1314571ed26f6afdea59f81a24ab0cc942ac84485892f8a36f7ac16315",
       "math_env": "rustproto",
       "n": 0,
+      "n_cmts": 4,
+      "pca_center": [
+        0,
+        0
+      ],
       "pids_for_gid": {
         "0": []
       },
       "present": true,
+      "raw": {
+        "asJSON_sha256": "fa78e3c4a1cbacb495960da1fcb9b1a834ffc0d825361b968e9e2eadb2670050",
+        "gzip_sha256": "666e7e9f166083dfc4cf0489725d1be564b371049fc0a3779bdcf67db8cb76f9",
+        "n_cmts": 0,
+        "tids": [],
+        "unchanged_after_presentation": true
+      },
       "repness_keys": [],
-      "tids": []
+      "tids": [
+        0,
+        1,
+        2,
+        3
+      ]
     }
   }
 }
