@@ -912,6 +912,30 @@ def extract_conversation(
 # ---------------------------------------------------------------------------
 
 
+def select_representative_from_config(
+    conn: PgConnection, *, config: dict[str, Any], snapshot_id: str | None = None,
+    writers_disabled: bool = False,
+) -> dict[str, Any]:
+    """Selection-only entry point; private provenance never belongs in payload.
+
+    Reads one snapshot, without resolving/changing any existing coverage recipe
+    or extracting new sample payloads. Zero population is reported as a census,
+    never accepted as a representative campaign.
+    """
+    from polismath.replay import fixture_config as fcfg
+    from polismath.replay import fixture_survey as fs
+    from polismath.replay.fixture_selection import SelectionError, select_representative
+
+    seed = fcfg.representative_seed(config)
+    if seed is None:
+        raise SelectionError("SELECTION_NOT_CONFIGURED")
+    guarantee = fs.open_readonly_repeatable_read(
+        conn, snapshot_id=snapshot_id, writers_disabled=writers_disabled)
+    selected = select_representative(fs.fetch_metrics(conn), seed)
+    return {"report": selected.report, "provenance_rows": list(selected.provenance),
+            "transaction_guarantee": guarantee}
+
+
 def extract_from_config(
     conn: PgConnection, *, config: dict[str, Any], payload_root: Path, guard_root: Path,
     snapshot_id: str | None = None, writers_disabled: bool = False,
@@ -943,10 +967,17 @@ def extract_from_config(
     # reviewed edit that mints a new bundle version rather than an operator
     # flag. Absent from the config means off.
     served_math = fcfg.served_math_options(config)
+    representative_seed = fcfg.representative_seed(config)
     dir_names = dict(dir_names or {})
     guarantee = fs.open_readonly_repeatable_read(
         conn, snapshot_id=snapshot_id, writers_disabled=writers_disabled)
     rows = fs.fetch_metrics(conn)
+    representative = None
+    if representative_seed is not None:
+        from polismath.replay.fixture_selection import SelectionError, select_representative
+        representative = select_representative(rows, representative_seed)
+        if not rows:
+            raise SelectionError("EMPTY_POPULATION")
     migration_marker = None  # probing rolls back; do it outside this txn
     survey = fs.build_survey(rows, guarantee, snapshot_id=snapshot_id,
                              schema_version_marker=migration_marker)
@@ -1029,7 +1060,7 @@ def extract_from_config(
         provenance_rows.append({
             "role": sel.role, "slug": sel.slug, "dir": dir_name, "zid": sel.zid})
 
-    return {
+    result = {
         "survey": survey,
         "coverage_report": coverage,
         "transaction_guarantee": guarantee,
@@ -1045,3 +1076,8 @@ def extract_from_config(
         "dir_names": dir_names,
         "provenance_rows": provenance_rows,
     }
+
+    if representative is not None:
+        result["representative_selection"] = representative.report
+        result["representative_provenance"] = list(representative.provenance)
+    return result
