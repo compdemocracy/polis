@@ -14,7 +14,7 @@ impl PgStore {
         let position = self
             .client
             .query_opt(
-                "SELECT position FROM coordinator_cursors WHERE math_env=$1 AND consumer=$2",
+                "SELECT position FROM polis_coordinator_cursors WHERE math_env=$1 AND consumer=$2",
                 &[&self.config.math_env, &key],
             )?
             .map(|r| r.get::<_, Value>(0))
@@ -70,7 +70,7 @@ impl PgStore {
         }
         let next = json!({"high":if next_fast.is_some(){high}else{maximum},"maximum":maximum,
             "after_tick":next_fast.map_or(-1,|p|p.0),"after_zid":next_fast.map_or(0,|p|p.1),"sweep":next_sweep});
-        self.client.execute("INSERT INTO coordinator_cursors(math_env,consumer,position) VALUES($1,$2,$3) ON CONFLICT(math_env,consumer) DO UPDATE SET position=excluded.position",&[&self.config.math_env,&key,&next])?;
+        self.client.execute("INSERT INTO polis_coordinator_cursors(math_env,consumer,position) VALUES($1,$2,$3) ON CONFLICT(math_env,consumer) DO UPDATE SET position=excluded.position",&[&self.config.math_env,&key,&next])?;
         self.fault.hit("after_cursor", &next)?;
         Ok(bundles)
     }

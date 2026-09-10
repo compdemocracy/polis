@@ -1,0 +1,156 @@
+{
+  "added": {
+    "coordinator-rs/bridge.md": "05e1226d015a025162a81a69c7c434fd467512944c6f3b189bf6d56d9e3e2b45",
+    "coordinator-rs/ci/inventory-v2.json": "08a7b012955de8942d7a0a4eb4b99fbdd1d8a17df2508ef7452df2cd78b091f1",
+    "coordinator-rs/ci/required_inventory.py": "e02d7e5f72600d1af05d6e3682e88768ae33ef6ee10d5d53714170d49269f6c5",
+    "coordinator-rs/ci/run.py": "88eae576c03a767169dd6ace046c95f49483a2049a214e6c12bcd134dcc01dca",
+    "coordinator-rs/ci/tests/test_required_campaign.py": "ac591c23e15640aa7f978384a17646939f7299ad64ffffb3ccaed3a229ca1094",
+    "coordinator-rs/ci/verify.py": "c387be20125e1c1228e121a4979ad03aa23dcc5fddc6e5722526032afd534b97",
+    "coordinator-rs/schemas/poller-engine-v1.json": "b295c3e7c649b38768c4eeb69c7cb3bf59d33c0077c22c84853a44d216aa0028",
+    "coordinator-rs/src/bridge.rs": "5f36c8b44c22f67961562c0191d0b8b89edc4b58e978224311ccb492dc3bd52f",
+    "delphi/polismath/poller/coordinator_bridge.py": "953f5ba1e3ac5611bc22d1e7ca90fb1ebfeb513b4ae16bf53ab35c37a4d14346",
+    "delphi/tests/coordinator/bridge_faults.sql": "0298db263dd891b55b50b6af488a3fe5ea6676bb6085ca65b1269aaf058d5f2d",
+    "delphi/tests/coordinator/test_bridge.py": "4b7c7db3b0dc9e2a72d863ba951f483f9c5436f4623c37c7f3a708d72ad63a51",
+    "server/postgres/migrations/000021_create_polis_coordinator.sql": "a7d537a1a912f7b73edd6409274c8922f30b29589ad4da4125a9c41a5ce4a3b5",
+    "server/postgres/migrations/down/000021-files.sha256": "1c57bbe1e600a6b1218386c05b8e11719f0e0182ae1e63d62fbac378c9ab78b4",
+    "server/postgres/migrations/down/000021_drop_polis_coordinator.sql": "5a66893dea1d50d11664236d44879bd6606dc1d71e0060ec7e2e6b6ebb628d00"
+  },
+  "base_commit": "020c0a705d780af4d04fd8fdbc0255368322c8de",
+  "changed": {
+    "coordinator-rs/src/coordinator.rs": {
+      "new_sha256": "080163f13bf2a9dae76f7b17628d433a4bce9a9e0e319511c3fe4785237706bb",
+      "old_sha256": "e2604e9eb9e9e41f65647a59bb8ed91e28ca4002952dff3acdf6a22c29ba7e53",
+      "reason": "000021 metadata/authority or actual-poller dispatch and its regression harness"
+    },
+    "coordinator-rs/src/fault.rs": {
+      "new_sha256": "64b5f2c002d166ece9c665a09b91bb5ab749a5756acd2bd8f08376fe4abc959a",
+      "old_sha256": "e90c29508b3785fc9208882fcb69f7d3dad16d761be3118d65b24ab874faa059",
+      "reason": "000021 metadata/authority or actual-poller dispatch and its regression harness"
+    },
+    "coordinator-rs/src/lease.rs": {
+      "new_sha256": "91f63ceb515bc613e1bb5ac3be7709e3c85ca71a3c9c37a64dcb561f3215775c",
+      "old_sha256": "e282ff4105abbef0b3aad3bec52652a5174e0383100c636eb7815ed9bcf6d784",
+      "reason": "000021 metadata/authority or actual-poller dispatch and its regression harness"
+    },
+    "coordinator-rs/src/lib.rs": {
+      "new_sha256": "1b270697a48fe9fc0c6e60d32c8996f3f4250fa5f22b1c66be6f0576903d7246",
+      "old_sha256": "7037d045d4badf7a3a1266f2322e2d4b701040e5042637e0cbf6b2980a50d467",
+      "reason": "000021 metadata/authority or actual-poller dispatch and its regression harness"
+    },
+    "coordinator-rs/src/probe.rs": {
+      "new_sha256": "e62d8ce17f0de34021ec7ed9d50dd78e4bfa0d3b51527a64c55e3dedec3d39d7",
+      "old_sha256": "f6a8310647f798db60c8638deb690a8f8a71e0b0777adc7162715f60ef63fdfe",
+      "reason": "000021 metadata/authority or actual-poller dispatch and its regression harness"
+    },
+    "coordinator-rs/src/reader.rs": {
+      "new_sha256": "d8e7e216b0df7551a717415a0911db0b3889d45126ec7344783692a4b6edfe25",
+      "old_sha256": "07f70f308dc018fdd9b95c6deda5a0c38053e049acb391e774d4d70401dd412c",
+      "reason": "000021 metadata/authority or actual-poller dispatch and its regression harness"
+    },
+    "coordinator-rs/src/store.rs": {
+      "new_sha256": "88e4accc9aba58692e7c12c94f7b8a3d8ab6e2a4cec59358290c0bcdb66d252f",
+      "old_sha256": "d2e7f6b0cade81f0ac818c3aa76285d540986d97e2e1b2a541324f5f24a02a0b",
+      "reason": "000021 metadata/authority or actual-poller dispatch and its regression harness"
+    },
+    "coordinator-rs/tools/bundle_reader.cjs": {
+      "new_sha256": "a8aa555974b2131c68cfaed550bf0378cd11cf573aeac6baca171c86d95a341e",
+      "old_sha256": "406ae287970b1c69b39c947fbcb9576fe0c2a736f8e6761047326effe3687691",
+      "reason": "000021 metadata/authority or actual-poller dispatch and its regression harness"
+    },
+    "delphi/polismath/engine_adapter.py": {
+      "new_sha256": "47619e86c5d640ebb2049cfcd8febfeee87171446fb6292af6a74fda8324a22f",
+      "old_sha256": "6ade0aac5cc3da947b3c3377473a96b91cb67945cf4eedfba3f1fbf037b74d63",
+      "reason": "000021 metadata/authority or actual-poller dispatch and its regression harness"
+    },
+    "delphi/polismath/poller/math_writer.py": {
+      "new_sha256": "317816bcfb9d74d4111e9a5906c5a63d255cffa80a8a8ddfe09342d57e8736a6",
+      "old_sha256": "92fe058b4d29b1f7284f1d4a6ee528286cddb25b7074a35bf1508ea36b36797f",
+      "reason": "000021 metadata/authority or actual-poller dispatch and its regression harness"
+    },
+    "delphi/polismath/poller/service.py": {
+      "new_sha256": "65ed2739baed4eb6d507a57dcb4b29ab11afa74a09dd7b25d711c3fa59465bef",
+      "old_sha256": "1d07b713c4534a68a8eee6bfdd9d74c559aa1ddd03abb5bbda60a99d76565755",
+      "reason": "000021 metadata/authority or actual-poller dispatch and its regression harness"
+    },
+    "delphi/tests/coordinator/conftest.py": {
+      "new_sha256": "1fc3b25dab5548c16bb7f182cfabbcd86769de2627b6900497cfa7884a0a6fdf",
+      "old_sha256": "33ebf4216bd103b3bb1a5d24e9ac4ffb8d8b84be87158e2e1e21295ecc5065fa",
+      "reason": "000021 metadata/authority or actual-poller dispatch and its regression harness"
+    },
+    "delphi/tests/coordinator/test_publication_metrics.py": {
+      "new_sha256": "791b26630409229425693dee863953d597037e480611e49d5009c57a0724baf8",
+      "old_sha256": "8bca756a2f8a10f717834560225ab883fa8bcc6434c0759995eb21acc9d342cd",
+      "reason": "000021 metadata/authority or actual-poller dispatch and its regression harness"
+    },
+    "delphi/tests/coordinator/test_recovery.py": {
+      "new_sha256": "99370a211d6f9bd70b1f483d3c4cec2a6fd5f30a18333ce19eca5c3108e865bf",
+      "old_sha256": "44a1396ec474ad0a3ff00954b715d45016346313a534dc3fffd036e93e84dd44",
+      "reason": "000021 metadata/authority or actual-poller dispatch and its regression harness"
+    },
+    "delphi/tests/coordinator/test_s1_identity.py": {
+      "new_sha256": "ffeba9deadc1160947b711072facc1729b4bea0fd7e45c4cdc7a035aea3ea3aa",
+      "old_sha256": "6eeeeca5972b8ab25fb49f45b3024c2269f0e8f566fd6cf33a75e4465aa5134c",
+      "reason": "000021 metadata/authority or actual-poller dispatch and its regression harness"
+    },
+    "delphi/tests/coordinator/test_step1_review_controls.py": {
+      "new_sha256": "fe3d3c752e550cecec3a9da1f8af5d8d0ccc4dd33f225e8215b7df7ecc2f44a7",
+      "old_sha256": "c2c8f42ce2d51ad82168b95323a0d2c743800c0c3e2f4f31457eb94723d45db3",
+      "reason": "000021 metadata/authority or actual-poller dispatch and its regression harness"
+    },
+    "delphi/tests/coordinator/test_step2_review_controls.py": {
+      "new_sha256": "63fe5234f43ec6d6f612cdbe24dc7cbebcd265abd46d4120a1a8bc6831d5c2e5",
+      "old_sha256": "07aa39208bb01b9356ec96daf2d0b06f9b29f4a7f5a274f536f29884a9fb9320",
+      "reason": "000021 metadata/authority or actual-poller dispatch and its regression harness"
+    },
+    "delphi/tests/coordinator/test_store.py": {
+      "new_sha256": "5d86f7cbe747c0b12fccb6c153e661dc5637c0f6d898adb9c7bee6e47ce65542",
+      "old_sha256": "70688832fdb8b091ebdeecea87359b304c897973564d27ceccc599ea7329540d",
+      "reason": "000021 metadata/authority or actual-poller dispatch and its regression harness"
+    }
+  },
+  "full_contract_gate": "FAIL",
+  "historical_receipts": {
+    "s1-closure.json": {
+      "run_pins_sha256": "2af95d95510f7d5ccc7e462c7db883a0f2c0519feafaa98d0e5793e5982995a4",
+      "sha256": "2ade0d491584d264f333a48def4ac6a9a93820b8720d15fde9f3e50509449c57"
+    },
+    "s2-closure.json": {
+      "run_pins_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "sha256": "2eaf006b343ea58ff4cc90981bb3767c8818cbd79937e0bc8fcfd8ce2b64d3fe"
+    },
+    "s2-production-reader.json": {
+      "run_pins_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "sha256": "bcab0b270b7d47569221dbe1ebc6cdc728436d04cd815fc9db57078c96131af0"
+    }
+  },
+  "inventory": {
+    "baseline_cases": 151,
+    "bridge_cases": 55,
+    "jest_cases": 37,
+    "path": "coordinator-rs/ci/inventory-v2.json",
+    "required_fresh_outcome": "not established by source repinning",
+    "rust_per_profile": 31,
+    "stages": 25,
+    "total_cases": 206
+  },
+  "oracle_changes": {
+    "corruption": "New database hash constraints are first required to reject corruption, then a scratch guard removal exercises independent reader refusal",
+    "margin": "Pause after math_main inside the RPC, before its final check; prove the lease is live but below its margin rather than assert an obsolete log string",
+    "metadata": "Original test identities retained; new-table metadata is explicitly projected by the test row helper",
+    "renewal": "The actual poller recompute call replaces the former engine-adapter hook; heartbeat and fencing oracles retained",
+    "sql_stages": "Disposable triggers pause the active publication function backend; original paused statement state was idle in transaction",
+    "uncertain_commit": "Durable receipts survive newer generations; missing/corrupt/unreadable receipts retain unresolved/alarm refusal"
+  },
+  "receipt_history_repair": {
+    "final_up_sha256": "a7d537a1a912f7b73edd6409274c8922f30b29589ad4da4125a9c41a5ce4a3b5",
+    "new_controls": [
+      "deleted current rows",
+      "regressed current tick"
+    ],
+    "rev2_campaign": "204 cases passed before this correction; retained separately, not relabeled",
+    "rev2_up_sha256": "b0cb6fc2bd3b49b56e96c5310cc620b7da6f735372529593d7547db82540d55e",
+    "scope": "Deleted/regressed current pointers advance from max(current tick, retained history); exact old operation readback remains valid"
+  },
+  "schema": "polis-coordinator-bridge-repin/1",
+  "scope": "Source reconciliation for the actual Python poller bridge; historical runtime receipts are unchanged and do not certify this implementation"
+}

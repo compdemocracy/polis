@@ -66,12 +66,12 @@ fn renew(client: &mut Client, c: &Config, zid: i32, epoch: i64) -> Result<Option
         "SELECT zid FROM conversations WHERE zid=$1 FOR KEY SHARE",
         &[&zid],
     )?;
-    let renewed = tx.execute("UPDATE coordinator_leases SET expires_at=clock_timestamp()+make_interval(secs=>$5::int) WHERE math_env=$1 AND zid=$2 AND owner_id=$3 AND owner_epoch=$4 AND expires_at>clock_timestamp()", &[&c.math_env,&zid,&c.owner,&epoch,&c.lease_seconds])?;
+    let renewed = tx.execute("UPDATE polis_coordinator_leases SET expires_at=clock_timestamp()+make_interval(secs=>$5::int) WHERE math_env=$1 AND zid=$2 AND owner_id=$3 AND owner_epoch=$4 AND expires_at>clock_timestamp()", &[&c.math_env,&zid,&c.owner,&epoch,&c.lease_seconds])?;
     if renewed == 1 {
         tx.commit()?;
         return Ok(None);
     }
-    let observed = tx.query_opt("SELECT owner_id,owner_epoch,expires_at>clock_timestamp() FROM coordinator_leases WHERE math_env=$1 AND zid=$2", &[&c.math_env,&zid])?;
+    let observed = tx.query_opt("SELECT owner_id,owner_epoch,expires_at>clock_timestamp() FROM polis_coordinator_leases WHERE math_env=$1 AND zid=$2", &[&c.math_env,&zid])?;
     tx.commit()?;
     match classify(observed.as_ref(), c, epoch) {
         Some(state) => Ok(Some(state)),
@@ -126,7 +126,10 @@ impl Renewal {
                     if thread_stop.load(Ordering::SeqCst) {
                         return;
                     }
-                    thread::sleep(Duration::from_millis(10).min(wake.saturating_duration_since(Instant::now())));
+                    thread::sleep(
+                        Duration::from_millis(10)
+                            .min(wake.saturating_duration_since(Instant::now())),
+                    );
                 }
                 match renew(&mut client, &config, zid, epoch) {
                     Ok(None) => confirmed = Instant::now(),

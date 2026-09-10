@@ -76,9 +76,13 @@ def test_resident_cache_still_skips_the_store_when_the_generation_is_intact(db, 
 def fixture_file(tmp_path, db):
     r = rows(db)
     payloads = {name: r["math_" + name]["data"] for name in ("main", "bidtopid", "ptptstats")}
+    import uuid
+    checkpoint={k:v for k,v in r["math_ticks"]["input_checkpoint"].items()
+                if k not in ("operation_id","publisher_epoch","original_digests","payload_digests")}
+    checkpoint["operation_id"]=uuid.uuid4().hex # a distinct publication attempt
     p = tmp_path / "publish.json"
     p.write_text(json.dumps({"zid": 1, "expected_tick": r["math_ticks"]["math_tick"],
-                             "checkpoint": r["math_ticks"]["input_checkpoint"],
+                             "checkpoint": checkpoint,
                              "payloads": payloads}))
     return p
 
@@ -121,32 +125,32 @@ def test_publication_refuses_when_the_remaining_lease_is_below_the_commit_margin
     launch(db).done()
     before = rows(db)
     p = fixture_file(tmp_path, db)
-    child = launch(db, "publish-fixture", args=(p,), stage="before_commit",
+    child = launch(db, "publish-fixture", args=(p,), stage="after_main",
                    directory=tmp_path / "margin", extra={"P026_LEASE_SECONDS": "10",
                                                          "P026_COMMIT_MARGIN_SECONDS": "9.99"})
     child.ack()
+    assert query(db,"SELECT expires_at>clock_timestamp() AND expires_at-clock_timestamp()<interval '9.99 seconds' FROM polis_coordinator_leases WHERE zid=1 AND math_env='rustproto'")[0][0]
     child.release()
     out, err = child.done(code=5)
     assert "Refused(Expired)" in out
     # Refused while the lease was still unexpired: this is the margin, not expiry.
-    assert "remaining lease below the commit margin" in err
+    assert "LEASE-EXPIRED" in err
     assert rows(db) == before
 
 
 def slow_worker(tmp_path):
     script = tmp_path / "slow-worker"
     script.write_text(f'''#!{sys.executable}
-import os,sys,time
+import os,time
 from pathlib import Path
-from polismath import engine_adapter as a
-original=a.Adapter.handle
-def handle(self,req):
-    if req.get('op')=='compute':
-        Path(os.environ['P026_WORKER_READY']).write_text(str(os.getpid()))
-        while not Path(os.environ['P026_WORKER_GO']).exists():time.sleep(.02)
-    return original(self,req)
-a.Adapter.handle=handle
-sys.argv=[sys.argv[0]]+sys.argv[3:]
+from polismath.poller import coordinator_bridge as a
+from polismath.conversation.conversation import Conversation
+original=Conversation.recompute
+def recompute(self,*args,**kwargs):
+    Path({str(tmp_path/'ready')!r}).write_text(str(os.getpid()))
+    while not Path({str(tmp_path/'go')!r}).exists():time.sleep(.02)
+    return original(self,*args,**kwargs)
+Conversation.recompute=recompute
 raise SystemExit(a.main())
 ''')
     script.chmod(0o700)
@@ -166,7 +170,7 @@ def test_renewal_during_pending_worker_call(db, launch, tmp_path, transfer):
     wait(ready.exists, alive=child, why="actual worker waiting inside compute call")
     pid = int(ready.read_text())
     if transfer:
-        query(db, "UPDATE coordinator_leases SET owner_id='synthetic-successor',"
+        query(db, "UPDATE polis_coordinator_leases SET owner_id='synthetic-successor',"
                   "owner_epoch=owner_epoch+1,expires_at=clock_timestamp()+interval '20 seconds' "
                   "WHERE zid=1 AND math_env='rustproto'")
         _, err = child.done(code=3)
@@ -174,10 +178,10 @@ def test_renewal_during_pending_worker_call(db, launch, tmp_path, transfer):
         with pytest.raises(ProcessLookupError):
             os.kill(pid, 0)
     else:
-        initial = query(db, "SELECT expires_at FROM coordinator_leases "
+        initial = query(db, "SELECT expires_at FROM polis_coordinator_leases "
                             "WHERE zid=1 AND math_env='rustproto'")[0][0]
         wait(lambda: query(db, "SELECT expires_at > %s + interval '3 seconds' FROM "
-                               "coordinator_leases WHERE zid=1 AND math_env='rustproto'",
+                               "polis_coordinator_leases WHERE zid=1 AND math_env='rustproto'",
                            (initial,))[0][0],
              alive=child, why="renewal extends beyond original lease window")
         assert lease(db)["unexpired"] and all(v is None for v in rows(db).values())

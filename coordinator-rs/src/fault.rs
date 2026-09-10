@@ -69,6 +69,32 @@ impl Fault {
             Ok(Self {})
         }
     }
+    /// Only the fault build may enable Python's synthetic-database latches.
+    pub fn bridge_control(&self) -> Result<serde_json::Value> {
+        #[cfg(feature = "fault-injection")]
+        if let Some(dir) = &self.directory {
+            let arm = dir.join("arm.json");
+            if arm.exists() {
+                return Ok(serde_json::from_slice(&std::fs::read(arm)?)?);
+            }
+        }
+        Ok(serde_json::Value::Null)
+    }
+    pub fn bridge_resumed(&self, stage: &str, worker_pid: u32) -> Result<()> {
+        #[cfg(feature = "fault-injection")]
+        if let Some(dir) = &self.directory {
+            std::fs::write(
+                dir.join("bridge-resumed.tmp"),
+                serde_json::to_vec(&serde_json::json!({"stage":stage,"worker_pid":worker_pid}))?,
+            )?;
+            std::fs::rename(
+                dir.join("bridge-resumed.tmp"),
+                dir.join("bridge-resumed.json"),
+            )?;
+        }
+        let _ = (stage, worker_pid);
+        Ok(())
+    }
     pub fn hit(&self, stage: &str, context: &serde_json::Value) -> Result<()> {
         #[cfg(feature = "fault-injection")]
         if let Some(dir) = &self.directory {

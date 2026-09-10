@@ -22,14 +22,14 @@ durably — while the math itself stays untouched.
   same conversation at once; an *epoch* (a counter bumped on every ownership
   change) lets a takeover be detected after the fact, called *fencing*
   (`src/lease.rs`).
-- **Running the actual math worker as a subprocess**, speaking a strict,
-  versioned line-protocol to it (`src/engine.rs`, `src/wire.rs`, plus the
-  Python-side adapter `../delphi/polismath/engine_adapter.py`, which is part
-  of this experiment though it lives outside `coordinator-rs/`).
-- **Writing the result durably and atomically** to the same three Postgres
-  results tables Node already reads (`src/store.rs`), with exact-byte custody
-  of what the worker produced, plus a bounded in-memory cache of each
-  conversation's last known-good result (`src/cache.rs`).
+- **Dispatching the actual Python poller** through `src/bridge.rs` and
+  `delphi/polismath/poller/coordinator_bridge.py`. A bound source snapshot goes
+  through the poller's rebuild, compute, serialization and write-before-cache
+  path. The older `engine.rs` adapter remains a comparison/contract fixture.
+- **Verifying publication receipts and coherent reads** (`src/store.rs`).
+  Python alone invokes the restricted `pc_publish` function. Rust receives a
+  receipt, reads the new coordinator metadata tables, and keeps a bounded
+  cache of the last coherent generation. See [the bridge contract](bridge.md).
 - **Reporting numeric health signals** (how far behind the oldest
   conversation is, how many are stuck) in a fixed, checked-in catalog
   (`src/metrics.rs`), plus a test-only fault-injection harness for pausing
@@ -111,8 +111,8 @@ There are three layers of check, and none of them alone is "done":
    feature. 31 Rust tests pass in each (verified locally, see below).
    `unwrap()`/`expect()` are banned crate-wide (`Cargo.toml`'s
    `[lints.clippy]`), so a real error can never silently become a panic.
-2. **Python integration tests against a real, disposable Postgres** — 151
-   tests in `delphi/tests/coordinator/` covering lease loss/recovery,
+2. **Python integration tests against a real, disposable Postgres** — 206
+   required test identities (the original 151 plus 55 bridge controls) in `delphi/tests/coordinator/` covering lease loss/recovery,
    crash-and-restart, duplicate/overlapping work, byte-for-byte comparison
    against the existing Python worker's output, and negative controls
    (deliberately broken input that must be refused).
@@ -143,8 +143,10 @@ poller. This slice changes no writer routing, lease policy or deployment.
 
 A lost COMMIT response emits `PublishUncertain=1` before readback. Readback
 then emits exactly one of `PublishResolvedOwn=1` or `PublishUnresolvedLost=1`.
-Only this operation's coherent checkpoint, epoch and tick establish ownership.
-An overwritten receipt, missing/inconsistent rows, or a reconnect/read failure
+Only this operation's coherent checkpoint, epoch, capability and tick establish
+ownership. Newer math can overwrite the current four math rows without erasing
+that operation's receipt in the new coordinator tables.
+A missing/corrupt operation receipt or a reconnect/read failure
 is unresolved; it does not prove that the transaction rolled back. Signals are
 emitted at the operation boundary, including failed one-shot commands, and are
 not emitted again with the source-pass totals. Operation identity is log context,
@@ -205,6 +207,15 @@ The stage checklist names these explicitly (`evidence/test-summary.json`,
   exercise one worker process reconciling conversations one at a time.
 - **No production alerting hookup** — implements none of the three alerts a
   separate, accepted design (P-031) calls for, and has no deployed publisher.
+
+## Bridge schema and credentials
+
+Apply reviewed migration `000021_create_polis_coordinator.sql` separately in an
+authorized environment. The CLI `migrate` path refuses automatic application;
+`migration.sql` is retained only as historical prototype input. Set `DATABASE_URL`
+to the restricted control login and `COORDINATOR_PUBLISHER_DATABASE_URL` to the
+restricted publisher login. Neither may use legacy direct math-write credentials.
+This implementation does not activate a deployment or revoke existing writers.
 
 ## How to run the checks locally
 

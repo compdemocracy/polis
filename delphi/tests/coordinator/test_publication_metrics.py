@@ -85,12 +85,12 @@ def test_failed_readback_is_unresolved_and_alarmable(db, launch, tmp_path, fault
             try:
                 with c.cursor() as cur:
                     if fault == "absent":
-                        for table in ("math_main", "math_bidtopid", "math_ptptstats", "math_ticks"):
-                            cur.execute(f"DELETE FROM {table} WHERE math_env='rustproto'")
+                        cur.execute("DELETE FROM polis_coordinator_payloads WHERE math_env='rustproto'")
+                        cur.execute("DELETE FROM polis_coordinator_generations WHERE math_env='rustproto'")
                     elif fault == "inconsistent":
-                        cur.execute("UPDATE math_bidtopid SET math_tick=math_tick+1 WHERE math_env='rustproto'")
+                        cur.execute("UPDATE polis_coordinator_payloads SET storage_sha256=repeat('0',64) WHERE math_env='rustproto' AND payload_kind='bidtopid'")
                     else:
-                        cur.execute("ALTER TABLE math_main RENAME TO s3_hidden_main")
+                        cur.execute("ALTER TABLE polis_coordinator_generations RENAME TO s3_hidden_generations")
                         renamed = True
             finally:
                 c.close()
@@ -107,7 +107,7 @@ def test_failed_readback_is_unresolved_and_alarmable(db, launch, tmp_path, fault
         if renamed:
             c = connect(db)
             with c.cursor() as cur:
-                cur.execute("ALTER TABLE s3_hidden_main RENAME TO math_main")
+                cur.execute("ALTER TABLE s3_hidden_generations RENAME TO polis_coordinator_generations")
             c.close()
 
 
