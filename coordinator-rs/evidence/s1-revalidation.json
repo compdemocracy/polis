@@ -1,0 +1,1117 @@
+{
+  "schema": "polis-s1-revalidation/1",
+  "sourceHead": "087c51fb42859c74a368fb39c445c526d466e878",
+  "result": "NOT_REPRODUCED",
+  "O8": "OPEN",
+  "partialReadmission": false,
+  "sourcePinsUpdated": false,
+  "previousS1ClosureSha256": "54ed818dd2a9a76e3eedd21745bd088d7c0d410e9b385a0abe583345ec03b243",
+  "python": {
+    "total": 151,
+    "passed": 150,
+    "failed": 1,
+    "errors": 0,
+    "skipped": 0,
+    "exactHistoricalCaseSet": true,
+    "failures": [
+      {
+        "module": "tests.coordinator.test_node_reader",
+        "name": "test_published_empty_math_versus_the_servers_own_empty_presentation"
+      }
+    ]
+  },
+  "rust": {
+    "defaultPassed": 31,
+    "faultPassed": 31,
+    "failed": 0,
+    "ignored": 0,
+    "clippyDefaultExit": 0,
+    "clippyFaultExit": 0,
+    "releaseExit": 0,
+    "faultBuildExit": 0
+  },
+  "stageAudit": {
+    "reached": 25,
+    "stage_inventory_gate": "PASS",
+    "full_contract_gate": "FAIL",
+    "condition_states": {
+      "O1": "OPEN",
+      "O2": "OPEN",
+      "O3": "OPEN",
+      "O4": "OPEN",
+      "O5": "OPEN",
+      "O6": "OPEN",
+      "O7": "OPEN",
+      "O8": "OPEN"
+    },
+    "closed_conditions": [],
+    "partial_conditions": []
+  },
+  "recorderExit": 1,
+  "recorderRefusal": "Full-suite JUnit has one failed test; no receipt was refreshed.",
+  "replay": {
+    "pairedCheckpoints": 3,
+    "deltas": [
+      0,
+      0,
+      0
+    ],
+    "checkpointHashesUnchanged": true,
+    "observerReads": 225,
+    "observerErrors": 0,
+    "polarityArtifactsUnchanged": 4,
+    "tieControlUnchanged": true
+  },
+  "emptyReaderObservation": {
+    "scope": "Raw getPca helper, not current response-boundary presentPca output",
+    "publishedRawTids": [],
+    "synthesizedRawTids": [],
+    "historicalExpectedSynthesizedTids": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "presentationChangePullRequest": 2709,
+    "testAssertionChanged": false
+  },
+  "sourceChanges": [
+    {
+      "path": "delphi/polismath/benchmarks/bench_pca.py",
+      "previousSha256": "98f0e73cbf06b3859ec530f0a94427794748d8d27d66e2ecfe10801d5293d340",
+      "currentSha256": "7107b64acac29e3dd498cd2ffc7e2fff08656e2b227170928ac2db8b2bd68814",
+      "previousMatchingCommit": "6ad9548895899bdd2ef3daa4cd4bd17592396c06",
+      "introducingCommits": [
+        {
+          "commit": "638713e1e834c53250d913beb346f9a33dd57e3f",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/benchmarks/bench_repness.py",
+      "previousSha256": "27582505d8140e8efd0e7c3edf035baad48ecc63cda9e4c668dfbdfeff8eef6f",
+      "currentSha256": "d6f1122fb0578e14f7bb6b9a0578ad84381a0a7cbcf5e0ec022e3a596dcecaae",
+      "previousMatchingCommit": "6ad9548895899bdd2ef3daa4cd4bd17592396c06",
+      "introducingCommits": [
+        {
+          "commit": "638713e1e834c53250d913beb346f9a33dd57e3f",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/benchmarks/bench_update_votes.py",
+      "previousSha256": "614a49137e2e49f4b21b523d3ceee14132a0fa3cad24ac5acbda7a3f152eb23e",
+      "currentSha256": "2ca212a48905a025ab52adbe7a2f7b3d925f92cdc3408fc120dd2572c7e61d2b",
+      "previousMatchingCommit": "7b605c6b8dddf57918fae7d48f483eac773537ac",
+      "introducingCommits": [
+        {
+          "commit": "638713e1e834c53250d913beb346f9a33dd57e3f",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/components/config.py",
+      "previousSha256": "d703d2af8eddf9b4ce10273fe5971821f6a28f6d737a1b818fc2ea57647c73b7",
+      "currentSha256": "0bc3f67921582376bd7c6db84727ff18d2912834f00913d767eb9fb1305fc87d",
+      "previousMatchingCommit": "f84d4ddcb3af183e83df1c869ba45438dee4612e",
+      "introducingCommits": [
+        {
+          "commit": "6dcb4606ef12bd5fbeee3fd6bdbb7a3c2b35356b",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/conversation/conversation.py",
+      "previousSha256": "f4625456f42d7dbbdcdebd7fc8acf8dcb59377c77cd6030bbfaca4d924db7f22",
+      "currentSha256": "e738f9b89bb8acaf6b81485feb49081e40120293d04aa328b996416567d9d049",
+      "previousMatchingCommit": "a4d2fca9d67e2169cefcd8c860d917b3fcf48fa0",
+      "introducingCommits": [
+        {
+          "commit": "dba9d022f154ce58664e6721e9d22501bdfc3b22",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        },
+        {
+          "commit": "06cfb98982bdfbe28598db483397981d1dec8212",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/conversation/manager.py",
+      "previousSha256": "5ab0d705c141f0c0e96472750e0fbe92bdb86ab65049889041cd198801d80059",
+      "currentSha256": "63fdafb15b831de2e21ba4ed51ebb7c2c8c3e49ca8ac15806a1c0e74c8697132",
+      "previousMatchingCommit": "0ff8e3e523cc0256918fed8a2f075404889de0c8",
+      "introducingCommits": [
+        {
+          "commit": "06cfb98982bdfbe28598db483397981d1dec8212",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/database/dynamodb.py",
+      "previousSha256": "8d79e40b81d7986c849cacca93481eafe35e6432174c6f31b57c1d107e69db3b",
+      "currentSha256": "891370577a1ebc8fdbfe8e1b9d0162b58f22171a7930326f7a00e4f2a0c30d5f",
+      "previousMatchingCommit": "6ad9548895899bdd2ef3daa4cd4bd17592396c06",
+      "introducingCommits": [
+        {
+          "commit": "6dcb4606ef12bd5fbeee3fd6bdbb7a3c2b35356b",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/database/postgres.py",
+      "previousSha256": "371b8177fbe0b49f8cbbc5ba37911cd98bd69178630dd5611630d9849111efec",
+      "currentSha256": "b690dc8cb97124b98b64de200818f95fd1dc21400a47484ddca7d0927d18cbc2",
+      "previousMatchingCommit": "d2cd91bab6068f57a1a2e284c4c919e747e65dd1",
+      "introducingCommits": [
+        {
+          "commit": "e307602fa93eab1c6f5383a746e4b1c2d72aa7f5",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        },
+        {
+          "commit": "212b4e889d35f499097dc3db9ff474a283dcc455",
+          "pullRequest": 2742,
+          "mergedAt": "2026-09-09T07:00:42Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2742"
+        },
+        {
+          "commit": "31f55fa48c6d575e2a215fccee29cb8b3d38b80e",
+          "pullRequest": 2742,
+          "mergedAt": "2026-09-09T07:00:42Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2742"
+        },
+        {
+          "commit": "6dcb4606ef12bd5fbeee3fd6bdbb7a3c2b35356b",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/pca_kmeans_rep/clusters.py",
+      "previousSha256": "8d1d1278fdc6788443772a8bcf16ea06d6453493f62a4d857ed6ce2481a4485b",
+      "currentSha256": "d2eb4fe4591496eefffe58f2d02852d37f965aef059a96ed20d07eae88732584",
+      "previousMatchingCommit": "6ad9548895899bdd2ef3daa4cd4bd17592396c06",
+      "introducingCommits": [
+        {
+          "commit": "d4a7771fb8824b0f1171caf5616afc70548eb76c",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/pca_kmeans_rep/legacy_kmeans.py",
+      "previousSha256": "fdb92c9fb56dff603833434911a19759fc0720ec00ee6175c8ffeb846dc6b767",
+      "currentSha256": "595a4d50d1da057132d9ecdf1f8a0e0574a9bb51c26672f526d9d681376f1ef9",
+      "previousMatchingCommit": "49660ed627a5d3328722a928800cf321dc79bef2",
+      "introducingCommits": [
+        {
+          "commit": "d4a7771fb8824b0f1171caf5616afc70548eb76c",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/pca_kmeans_rep/pca.py",
+      "previousSha256": "bb3635863a31f78387fae2b74dcf011e01c91ebd5e3aaa29a3ade55f3951e696",
+      "currentSha256": "f73712aa7ea3847e4de0d4954f4ec1fda84c233e2b8575f9f2c784ce815e4376",
+      "previousMatchingCommit": "4b5f04bed317716a0ef46a9a4a2b6936d540c874",
+      "introducingCommits": [
+        {
+          "commit": "3cfdc699bb9e6d865f3155879c7a62b722ada862",
+          "pullRequest": 2751,
+          "mergedAt": "2026-09-09T23:38:35Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2751"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/poller/math_writer.py",
+      "previousSha256": "aa0da037647c9a14d962cd826e2cec50edcf48a56941cc054e3253ea1725b6c6",
+      "currentSha256": "92fe058b4d29b1f7284f1d4a6ee528286cddb25b7074a35bf1508ea36b36797f",
+      "previousMatchingCommit": "d2cd91bab6068f57a1a2e284c4c919e747e65dd1",
+      "introducingCommits": [
+        {
+          "commit": "212b4e889d35f499097dc3db9ff474a283dcc455",
+          "pullRequest": 2742,
+          "mergedAt": "2026-09-09T07:00:42Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2742"
+        },
+        {
+          "commit": "31f55fa48c6d575e2a215fccee29cb8b3d38b80e",
+          "pullRequest": 2742,
+          "mergedAt": "2026-09-09T07:00:42Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2742"
+        },
+        {
+          "commit": "d4a7771fb8824b0f1171caf5616afc70548eb76c",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/poller/service.py",
+      "previousSha256": "bdff3fc84f76fdfb7bfb594274884b77e4b8c6cbb6840c8243750e659406cf17",
+      "currentSha256": "1d07b713c4534a68a8eee6bfdd9d74c559aa1ddd03abb5bbda60a99d76565755",
+      "previousMatchingCommit": "1d68328283ff486076bf3749310715d5d4281d8d",
+      "introducingCommits": [
+        {
+          "commit": "212b4e889d35f499097dc3db9ff474a283dcc455",
+          "pullRequest": 2742,
+          "mergedAt": "2026-09-09T07:00:42Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2742"
+        },
+        {
+          "commit": "31f55fa48c6d575e2a215fccee29cb8b3d38b80e",
+          "pullRequest": 2742,
+          "mergedAt": "2026-09-09T07:00:42Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2742"
+        },
+        {
+          "commit": "b987e6493856eb4d6ec6c5115da6b8d751f6378f",
+          "pullRequest": 2742,
+          "mergedAt": "2026-09-09T07:00:42Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2742"
+        },
+        {
+          "commit": "648faa25d5c408c1b5b15cbdf0a74a1a215366d8",
+          "pullRequest": 2747,
+          "mergedAt": "2026-09-09T07:41:36Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2747"
+        },
+        {
+          "commit": "12873635e0de94f452b1f15020b4079ad3a6f948",
+          "pullRequest": 2747,
+          "mergedAt": "2026-09-09T07:41:36Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2747"
+        },
+        {
+          "commit": "00f27254d2e99333bb829dcf064f808aed26a572",
+          "pullRequest": 2750,
+          "mergedAt": "2026-09-09T08:01:47Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2750"
+        },
+        {
+          "commit": "d4a7771fb8824b0f1171caf5616afc70548eb76c",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/poller/worker_pool.py",
+      "previousSha256": "0a3d35f91b75768db1e9e049a8ee2fc88c5b8614b823e214d6a7f3f57812ce5b",
+      "currentSha256": "e87030bd5649da8e16273543bea229713f3503d8cc5f163d30facd29f0accc3d",
+      "previousMatchingCommit": "1d68328283ff486076bf3749310715d5d4281d8d",
+      "introducingCommits": [
+        {
+          "commit": "d4a7771fb8824b0f1171caf5616afc70548eb76c",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/regression/clojure_comparer.py",
+      "previousSha256": "b9feab2e4bda2301e515c7e8ed11d9e85332451b8f2469542facbd9aab197cb1",
+      "currentSha256": "f387413d397ae1c553e1ed62e59ffebcbe8016fea75168e83e9d1e472c90c0cd",
+      "previousMatchingCommit": "a2cee0741e3d0612819ea84aad5029c27e9c293b",
+      "introducingCommits": [
+        {
+          "commit": "638713e1e834c53250d913beb346f9a33dd57e3f",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/regression/comparer.py",
+      "previousSha256": "a98f17a03a2c513581b423965f204e006e363ba5899cb84979ef997adff8eb4a",
+      "currentSha256": "e0d27b43355de890596f089abde3dd8fd36bd479997a33519ea106aa024e018e",
+      "previousMatchingCommit": "99ed694fb385187f7bfc547429e0be65e17ad598",
+      "introducingCommits": [
+        {
+          "commit": "638713e1e834c53250d913beb346f9a33dd57e3f",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/regression/recorder.py",
+      "previousSha256": "13c9b47a6f5514b64ab6df3c41c8a0cc13220c1fcdad6d007ab4e19b1e10f456",
+      "currentSha256": "8ea5193e7077166cbe9162d3ff31b0746a7c5ae20e4ef5a91c7ae65d6aa43788",
+      "previousMatchingCommit": "ee24452b9b043cb442018e7e7f23564f19714c5b",
+      "introducingCommits": [
+        {
+          "commit": "638713e1e834c53250d913beb346f9a33dd57e3f",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/replay/certify.py",
+      "previousSha256": "0d9e044e7d86bb84fcb68c70cdfd6c9dc7095cb05ef5fcdc04614ab093fea530",
+      "currentSha256": "809277f648962791831ccace780f0cdf81e73e7968c11bdcf331e333190edf5f",
+      "previousMatchingCommit": "70e988b8dadb7fb69614a9050d7c38984e0cf626",
+      "introducingCommits": [
+        {
+          "commit": "dba9d022f154ce58664e6721e9d22501bdfc3b22",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        },
+        {
+          "commit": "f2fe5b50029181c7d989b8daac21f493199ce2da",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        },
+        {
+          "commit": "c0f2bd2213521b09a35275be52f910281e63c620",
+          "pullRequest": 2749,
+          "mergedAt": "2026-09-09T08:08:23Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2749"
+        },
+        {
+          "commit": "f6bd581ca6c19ef3e7550c32c9a7ef8d71d915df",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/replay/crosslang.py",
+      "previousSha256": "6c0cacdb1317c52d8c430b6236dd8374196c42af2945e33a92d4987ef7f0508a",
+      "currentSha256": "23530a15b05fa1af36775330bbcd64dfe6b5dcfacf23d0dbaa2e3821ce88cb17",
+      "previousMatchingCommit": "3afc0e4290149b10b86447db59d840e0d7dfe381",
+      "introducingCommits": [
+        {
+          "commit": "f6bd581ca6c19ef3e7550c32c9a7ef8d71d915df",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/replay/fixture_bundle.py",
+      "previousSha256": "acdc3ffe5d6662a1280528c0c22f75bc6e8ee519289635dbff4357d7ad3d4b75",
+      "currentSha256": "4c51e4ec5539857a274cc9a49f687ce607ef9825b13bfb2826ada5b8b1e3eb6e",
+      "previousMatchingCommit": "5e7b0a0546e63ccceaa3f8d96f45c06cfe8b91e1",
+      "introducingCommits": [
+        {
+          "commit": "4a14b84ed14c8f43b9659eb4e3fe366db52544eb",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        },
+        {
+          "commit": "f2fe5b50029181c7d989b8daac21f493199ce2da",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        },
+        {
+          "commit": "3e9a88252d86926b8e87e453db917dc28565b600",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        },
+        {
+          "commit": "c0f2bd2213521b09a35275be52f910281e63c620",
+          "pullRequest": 2749,
+          "mergedAt": "2026-09-09T08:08:23Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2749"
+        },
+        {
+          "commit": "f6bd581ca6c19ef3e7550c32c9a7ef8d71d915df",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        },
+        {
+          "commit": "697f25d3d6a8204e2491431da42acf3f76c7a2ad",
+          "pullRequest": 2756,
+          "mergedAt": "2026-09-09T23:38:26Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2756"
+        },
+        {
+          "commit": "5e6b68af243ec9ce83a9560dd93e215abba6b040",
+          "pullRequest": 2756,
+          "mergedAt": "2026-09-09T23:38:26Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2756"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/replay/fixture_config.py",
+      "previousSha256": "c97bab89066cb60b98d31c72a0c67769c38376e88b96b56f5608151c4928ce02",
+      "currentSha256": "0ae1596367a0ae8c1bb96d6160d1e8afd4c613bd229dd80c3274b6070f4bdd4f",
+      "previousMatchingCommit": "7b59b04802d3322d1f51bc45bd055d14d2efb11a",
+      "introducingCommits": [
+        {
+          "commit": "697f25d3d6a8204e2491431da42acf3f76c7a2ad",
+          "pullRequest": 2756,
+          "mergedAt": "2026-09-09T23:38:26Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2756"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/replay/fixture_extract.py",
+      "previousSha256": "155208de5cd59f684ff7b15fcfe7eeabeec1de880efa0b44a8f51c5c20623497",
+      "currentSha256": "9a34125440246b2fea1114f5cfa7ad14a6b2a7bde31d3d7e11bb0d82ea74b090",
+      "previousMatchingCommit": "5130f1909b62f5bdafad91f6f8cd3d6b56f92413",
+      "introducingCommits": [
+        {
+          "commit": "e307602fa93eab1c6f5383a746e4b1c2d72aa7f5",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        },
+        {
+          "commit": "f6bd581ca6c19ef3e7550c32c9a7ef8d71d915df",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        },
+        {
+          "commit": "697f25d3d6a8204e2491431da42acf3f76c7a2ad",
+          "pullRequest": 2756,
+          "mergedAt": "2026-09-09T23:38:26Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2756"
+        },
+        {
+          "commit": "5e6b68af243ec9ce83a9560dd93e215abba6b040",
+          "pullRequest": 2756,
+          "mergedAt": "2026-09-09T23:38:26Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2756"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/replay/fixture_generate.py",
+      "previousSha256": "4e5fc181a6ffafbea1e954ffce146ca328a85fe781479c6722c190d7b25b1344",
+      "currentSha256": "3bb1c309a9a0c87200f6f4067f356e425d743bc0189ee41ade879dd74423ccec",
+      "previousMatchingCommit": "5130f1909b62f5bdafad91f6f8cd3d6b56f92413",
+      "introducingCommits": [
+        {
+          "commit": "f6bd581ca6c19ef3e7550c32c9a7ef8d71d915df",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/replay/fixture_survey.py",
+      "previousSha256": "79a54ea38835327c5a4593f5b005ec2b0bc0dd1380d4dd6dbfa8d4f72e92478b",
+      "currentSha256": "ec72cc4b2d4ce4bc02e40c2820b96f7b7971505ea2275dbfae126617d1fe0781",
+      "previousMatchingCommit": "7b59b04802d3322d1f51bc45bd055d14d2efb11a",
+      "introducingCommits": [
+        {
+          "commit": "f6bd581ca6c19ef3e7550c32c9a7ef8d71d915df",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/replay/poller_equiv.py",
+      "previousSha256": "6eaa5cc80c30c1983bfa0ff3e72fdf4b153d6f01cce128d618c16c45b8451986",
+      "currentSha256": "646689fd5400dc0854d093ab262b47c5d11bd5aca3ac212e94e0f7448e465289",
+      "previousMatchingCommit": "6d01166c9c3850c89696f635c19865242d7daa4e",
+      "introducingCommits": [
+        {
+          "commit": "e307602fa93eab1c6f5383a746e4b1c2d72aa7f5",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        },
+        {
+          "commit": "91c8b014ba5b92ccf9449fda5c97144656c60b25",
+          "pullRequest": 2745,
+          "mergedAt": "2026-09-09T06:48:48Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2745"
+        },
+        {
+          "commit": "f6bd581ca6c19ef3e7550c32c9a7ef8d71d915df",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/replay/prodclone.py",
+      "previousSha256": "718a012ad266dc173d5c46338b362f186b1f13e0d0e34d28b5a7747fdbb55384",
+      "currentSha256": "1f2fe3e9a5a91a423b4b5d627500cd34e798a206c7ec57ced6c3ce9befd880a3",
+      "previousMatchingCommit": "5130f1909b62f5bdafad91f6f8cd3d6b56f92413",
+      "introducingCommits": [
+        {
+          "commit": "e307602fa93eab1c6f5383a746e4b1c2d72aa7f5",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        },
+        {
+          "commit": "f6bd581ca6c19ef3e7550c32c9a7ef8d71d915df",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/replay/real_data.py",
+      "previousSha256": "884efcd81ab82364fcf462cb55c6007414f3486e15fc5fe21be1ba9c09af0946",
+      "currentSha256": "740aed817bcdbc82a1cc50751d161864c2ceffd8f420305188a5a1e1985d4329",
+      "previousMatchingCommit": "4b5f04bed317716a0ef46a9a4a2b6936d540c874",
+      "introducingCommits": [
+        {
+          "commit": "dba9d022f154ce58664e6721e9d22501bdfc3b22",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        },
+        {
+          "commit": "697f25d3d6a8204e2491431da42acf3f76c7a2ad",
+          "pullRequest": 2756,
+          "mergedAt": "2026-09-09T23:38:26Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2756"
+        },
+        {
+          "commit": "5e6b68af243ec9ce83a9560dd93e215abba6b040",
+          "pullRequest": 2756,
+          "mergedAt": "2026-09-09T23:38:26Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2756"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/replay/stages.py",
+      "previousSha256": "bdada86f8b6bfbfeb6aaa7469b1a9f73adf4ce4c8b08cef893c0bc86d687d0ec",
+      "currentSha256": "f3faf38d28cfcad4926e56590860cc749525a7160f3eec114277234d4a3af5d5",
+      "previousMatchingCommit": "e0bed06ee06db781c08660f71090fed3b0350e29",
+      "introducingCommits": [
+        {
+          "commit": "c0f2bd2213521b09a35275be52f910281e63c620",
+          "pullRequest": 2749,
+          "mergedAt": "2026-09-09T08:08:23Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2749"
+        },
+        {
+          "commit": "f6bd581ca6c19ef3e7550c32c9a7ef8d71d915df",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/replay/stepcompare.py",
+      "previousSha256": "959b589bbf570e0d79005f4dac7056d0a4ba6b0a9f3e2cdf3ddbcd282f32e15c",
+      "currentSha256": "a4847d293015e5aeed124293f4cdad8206f7a4976123bda5dda915744aada1b7",
+      "previousMatchingCommit": "b06c74e712bd4673f04fc1d085edbb755a801528",
+      "introducingCommits": [
+        {
+          "commit": "f6bd581ca6c19ef3e7550c32c9a7ef8d71d915df",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/run_math_pipeline.py",
+      "previousSha256": "39c16083c720dfadae9f93304eeb95f2d04a852f6464bef618ff444c7ee6a069",
+      "currentSha256": "feebceb39badf4cebc96ff9c8dc37bc416048812aa44081e7203d0711d7b53f2",
+      "previousMatchingCommit": "2dce7385f16839b86ec03c2ac299a59018739071",
+      "introducingCommits": [
+        {
+          "commit": "e307602fa93eab1c6f5383a746e4b1c2d72aa7f5",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        },
+        {
+          "commit": "5feaec744ce00c28de9fdaee9ec31cf82a6d5a95",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        },
+        {
+          "commit": "fd4b8545de485e2ad60d1e6227f513187c965aad",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/utils/general.py",
+      "previousSha256": "6199ec4cb7a038315d33583e2ef18ea1c151ff6904404ab47c5e47157e36390c",
+      "currentSha256": "ea284ae7c1b9bf0d6d1131a42b1059d0528ceefa946eaadc583d2801c20edf88",
+      "previousMatchingCommit": "0ff8e3e523cc0256918fed8a2f075404889de0c8",
+      "introducingCommits": [
+        {
+          "commit": "e307602fa93eab1c6f5383a746e4b1c2d72aa7f5",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/utils/serialization.py",
+      "previousSha256": "01e242cabe578ff6bf48801d4260e9be7c5619d503a45d7eed8eb0fb43d7a746",
+      "currentSha256": "5a27fbc9c99adc46f072d4b54e1375a5e8bea728825029cfb19e0d57c9825935",
+      "previousMatchingCommit": "eb195eb59217f2fe323ca07d8350a03acdfa2c26",
+      "introducingCommits": [
+        {
+          "commit": "5feaec744ce00c28de9fdaee9ec31cf82a6d5a95",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/tests/coordinator/audit_stages.py",
+      "previousSha256": "da41f879bb151ce31cc28b1f8d67a86c912786571bd1ae630fd19d1efe7834ce",
+      "currentSha256": "c02201382bfa28afdbd84586d0da9c1b3f146e0e8ea66837586cfbfec0458e5d",
+      "previousMatchingCommit": "045daf1e5d2d44ddcf8cefc4908cf8868e3ff8e6",
+      "introducingCommits": [
+        {
+          "commit": "9be7178c932729c2a2e78919fcbb34fa4ff165c6",
+          "pullRequest": 2727,
+          "mergedAt": null,
+          "url": "https://github.com/compdemocracy/polis/pull/2727"
+        }
+      ]
+    },
+    {
+      "path": "delphi/tests/coordinator/conftest.py",
+      "previousSha256": "a7f1ee919cb80f2709897b1c2684a3257c53965cffaafc0058d4f81557cd50af",
+      "currentSha256": "33ebf4216bd103b3bb1a5d24e9ac4ffb8d8b84be87158e2e1e21295ecc5065fa",
+      "previousMatchingCommit": "99520c442ed638a33943d44ffa0b07ce325fda3c",
+      "introducingCommits": [
+        {
+          "commit": "087c51fb42859c74a368fb39c445c526d466e878",
+          "pullRequest": 2727,
+          "mergedAt": null,
+          "url": "https://github.com/compdemocracy/polis/pull/2727"
+        }
+      ]
+    }
+  ],
+  "newUnadmittedSources": [
+    {
+      "path": "delphi/polismath/queue/__init__.py",
+      "currentSha256": "d5a362eeefaa82bb5f55b0c824ab1f71ef7439adaf061b7255d3e57550fb1945",
+      "introducingCommits": [
+        {
+          "commit": "ada7cee64d9201e01194cc3dd2452aaf49876334",
+          "pullRequest": 2720,
+          "mergedAt": "2026-09-09T06:19:38Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2720"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/queue/executor.py",
+      "currentSha256": "344e95a5aaea309cdd3a98cccbba8b3e41da539ebc0729254dee3e85123db511",
+      "introducingCommits": [
+        {
+          "commit": "ada7cee64d9201e01194cc3dd2452aaf49876334",
+          "pullRequest": 2720,
+          "mergedAt": "2026-09-09T06:19:38Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2720"
+        },
+        {
+          "commit": "2d690acf8c06fd9f53e5d73b6d3f23990ce598ea",
+          "pullRequest": 2720,
+          "mergedAt": "2026-09-09T06:19:38Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2720"
+        },
+        {
+          "commit": "d4a7771fb8824b0f1171caf5616afc70548eb76c",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        },
+        {
+          "commit": "c50215bcab43bb3b28e6dab32fd19d9cb318c181",
+          "pullRequest": 2746,
+          "mergedAt": "2026-09-09T23:42:45Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2746"
+        },
+        {
+          "commit": "eca9d676bb5e01235e02b8136dc494323e08b016",
+          "pullRequest": 2746,
+          "mergedAt": "2026-09-09T23:42:45Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2746"
+        },
+        {
+          "commit": "b430fa661461efbc4edb152793c2f421d167e6c8",
+          "pullRequest": 2746,
+          "mergedAt": "2026-09-09T23:42:45Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2746"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/replay/axis_continuity.py",
+      "currentSha256": "6b7b498a8605132d0b79a6db8c0685cb87b81847bd7d1c12413bfa9e60e2a938",
+      "introducingCommits": [
+        {
+          "commit": "7d0a2efefc57a6f0bacd8b69b1417d00a603806c",
+          "pullRequest": 2754,
+          "mergedAt": "2026-09-09T23:38:19Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2754"
+        },
+        {
+          "commit": "f5732b3a6a11c9cf96e6a47230e8b25e83d42380",
+          "pullRequest": 2754,
+          "mergedAt": "2026-09-09T23:38:19Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2754"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/replay/equiv_query.py",
+      "currentSha256": "eceee9e9eb46ffddd523c4d0b82b9e3d5e5271265d39a1ce19581306275ddef8",
+      "introducingCommits": [
+        {
+          "commit": "91c8b014ba5b92ccf9449fda5c97144656c60b25",
+          "pullRequest": 2745,
+          "mergedAt": "2026-09-09T06:48:48Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2745"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/replay/polarity.py",
+      "currentSha256": "de9df9c0f3dbd80e4ced2c45c8f80facbdbd18a803d9431dcb0fcbf9134e3e1c",
+      "introducingCommits": [
+        {
+          "commit": "dba9d022f154ce58664e6721e9d22501bdfc3b22",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        },
+        {
+          "commit": "f2fe5b50029181c7d989b8daac21f493199ce2da",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        },
+        {
+          "commit": "3e9a88252d86926b8e87e453db917dc28565b600",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        },
+        {
+          "commit": "c0f2bd2213521b09a35275be52f910281e63c620",
+          "pullRequest": 2749,
+          "mergedAt": "2026-09-09T08:08:23Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2749"
+        },
+        {
+          "commit": "f6bd581ca6c19ef3e7550c32c9a7ef8d71d915df",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        },
+        {
+          "commit": "fd4b8545de485e2ad60d1e6227f513187c965aad",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/replay/served_math.py",
+      "currentSha256": "a6c8868683a0f5fcf980f64ac15a7340e4037769ef53860e12c2511613420625",
+      "introducingCommits": [
+        {
+          "commit": "5e6b68af243ec9ce83a9560dd93e215abba6b040",
+          "pullRequest": 2756,
+          "mergedAt": "2026-09-09T23:38:26Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2756"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/types.py",
+      "currentSha256": "823ed2ead8dc3be7ed79478ba2c36af0caef0c0c2716bb5a4d8b3d33dfc1b62f",
+      "introducingCommits": [
+        {
+          "commit": "5feaec744ce00c28de9fdaee9ec31cf82a6d5a95",
+          "pullRequest": 2752,
+          "mergedAt": "2026-09-09T09:44:18Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2752"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/utils/output_profile.py",
+      "currentSha256": "b556d45582658e76f3e168789d190cb4de62b1c858afc28e0d48284fb2b7c71e",
+      "introducingCommits": [
+        {
+          "commit": "dba9d022f154ce58664e6721e9d22501bdfc3b22",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        },
+        {
+          "commit": "f2fe5b50029181c7d989b8daac21f493199ce2da",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        },
+        {
+          "commit": "3e9a88252d86926b8e87e453db917dc28565b600",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        },
+        {
+          "commit": "c0f2bd2213521b09a35275be52f910281e63c620",
+          "pullRequest": 2749,
+          "mergedAt": "2026-09-09T08:08:23Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2749"
+        }
+      ]
+    },
+    {
+      "path": "delphi/polismath/utils/vote_convention.py",
+      "currentSha256": "98bb6504b2f7b5969aac3dba57ad243e4300690d1d66278a2fd0f70c4b6dbdc6",
+      "introducingCommits": [
+        {
+          "commit": "e307602fa93eab1c6f5383a746e4b1c2d72aa7f5",
+          "pullRequest": 2730,
+          "mergedAt": "2026-09-09T03:58:17Z",
+          "url": "https://github.com/compdemocracy/polis/pull/2730"
+        }
+      ]
+    }
+  ],
+  "currentSourceHashes": {
+    "coordinator-rs/Cargo.lock": "308d38666623b7bc9a0f5f09ae2084dfeef667c977a9ee241df3003d6e1306bf",
+    "coordinator-rs/Cargo.toml": "b368a7e118a13200d5fc95e86a0324a3a3d5f0f233b1b01688b0f62d3fd30187",
+    "coordinator-rs/evidence/python-requirements.txt": "6bd7073c45722296d4ababbf7c635c3346067b4ef30f9893cfc7bed55a0166e5",
+    "coordinator-rs/migration.sql": "e53f42cc858d064b8280f6f7dcad63dd272de8260633581520e488a6b47b0a55",
+    "coordinator-rs/rust-toolchain.toml": "0d8f9ab90bbeff10ce949b8ecaaf947712feca7320411a53f44d400e4ecb4860",
+    "coordinator-rs/schemas/candidate-admission.schema.json": "fa641bac10932404ec40ea3441585f5f9d72e8be6facc61b650ee5f2d82fcb46",
+    "coordinator-rs/src/cache.rs": "3aac2ad841b28e98a8adfb01975cdfb2ab39beff87d189e549cc534d3300ccf5",
+    "coordinator-rs/src/config.rs": "a0e15de96c79a03d4659e763ea2275d4f1371d218cd75792e910c6b1254506d9",
+    "coordinator-rs/src/coordinator.rs": "e2604e9eb9e9e41f65647a59bb8ed91e28ca4002952dff3acdf6a22c29ba7e53",
+    "coordinator-rs/src/engine.rs": "e2467cb0c68986cd76782245be9576bdb97026d27d5d6f8b128a9ff93079f2b2",
+    "coordinator-rs/src/fault.rs": "e90c29508b3785fc9208882fcb69f7d3dad16d761be3118d65b24ab874faa059",
+    "coordinator-rs/src/lease.rs": "e282ff4105abbef0b3aad3bec52652a5174e0383100c636eb7815ed9bcf6d784",
+    "coordinator-rs/src/lib.rs": "7037d045d4badf7a3a1266f2322e2d4b701040e5042637e0cbf6b2980a50d467",
+    "coordinator-rs/src/main.rs": "bb9fb3ad9bbe0f046cd208e7d8a658369036a6d9b7441bb83e7cae27c739a2fb",
+    "coordinator-rs/src/metrics.rs": "23033ddecea83dbcc668f1d660112f8fff1bfead68ed2fcf89edf6d5d071d773",
+    "coordinator-rs/src/ordering.rs": "16e4e867a82917e15857855e80ef59b992f280b237e46432279092c51a61bfd7",
+    "coordinator-rs/src/probe.rs": "f6a8310647f798db60c8638deb690a8f8a71e0b0777adc7162715f60ef63fdfe",
+    "coordinator-rs/src/reader.rs": "07f70f308dc018fdd9b95c6deda5a0c38053e049acb391e774d4d70401dd412c",
+    "coordinator-rs/src/store.rs": "d2e7f6b0cade81f0ac818c3aa76285d540986d97e2e1b2a541324f5f24a02a0b",
+    "coordinator-rs/src/wire.rs": "5065d751edbd17987222b3cf18c262a669ec7df96afa25979c88422288972013",
+    "coordinator-rs/tests/s1_admission.rs": "729a351dcaa6aab1a57895073d6c5ccf03f75a34852be566097f1c27e9c4ae18",
+    "coordinator-rs/tests/validation.rs": "70c051eb391d2c2f32859a6fdf419a3c3776d43e16246b0471b11d4c6088efe4",
+    "coordinator-rs/tools/node_reader.cjs": "586e30376f12b82454359b689cf509522367da4734152d3c049b474da492ce76",
+    "coordinator-rs/tools/record_s1.py": "61a63ad00a4fd4f1a358453fbf73fb3f3a119c68bdf07e789773a69869f26f26",
+    "delphi/polismath/__init__.py": "77261d0fc27172aa576a06d9947330f2d5b1bcd8d14721df98eac7c5f305f16b",
+    "delphi/polismath/benchmarks/__init__.py": "ac90a49e001cba824dc10b56e6f67d671087eaf458d6ff5616c017dedd4b7a98",
+    "delphi/polismath/benchmarks/bench_pca.py": "7107b64acac29e3dd498cd2ffc7e2fff08656e2b227170928ac2db8b2bd68814",
+    "delphi/polismath/benchmarks/bench_repness.py": "d6f1122fb0578e14f7bb6b9a0578ad84381a0a7cbcf5e0ec022e3a596dcecaae",
+    "delphi/polismath/benchmarks/bench_update_votes.py": "2ca212a48905a025ab52adbe7a2f7b3d925f92cdc3408fc120dd2572c7e61d2b",
+    "delphi/polismath/benchmarks/benchmark_utils.py": "73455f256a3f48a8be736faf8c704e5bbe3bc327f92463595210f09d11ccc961",
+    "delphi/polismath/components/__init__.py": "19f991f755b893897858c2f3cf0d4be8f56db72fd3c4aa3c24221c4357a52bea",
+    "delphi/polismath/components/config.py": "0bc3f67921582376bd7c6db84727ff18d2912834f00913d767eb9fb1305fc87d",
+    "delphi/polismath/conversation/__init__.py": "af4a23759af7e52732e2da8e4e0ce3371c8657d45bd70ade366693e64a4115c7",
+    "delphi/polismath/conversation/conversation.py": "e738f9b89bb8acaf6b81485feb49081e40120293d04aa328b996416567d9d049",
+    "delphi/polismath/conversation/manager.py": "63fdafb15b831de2e21ba4ed51ebb7c2c8c3e49ca8ac15806a1c0e74c8697132",
+    "delphi/polismath/database/__init__.py": "26a51d925716a172271fa53538b0209fe4ab96fa690a9f23ac4e46664502dd9a",
+    "delphi/polismath/database/dynamodb.py": "891370577a1ebc8fdbfe8e1b9d0162b58f22171a7930326f7a00e4f2a0c30d5f",
+    "delphi/polismath/database/postgres.py": "b690dc8cb97124b98b64de200818f95fd1dc21400a47484ddca7d0927d18cbc2",
+    "delphi/polismath/engine_adapter.py": "6ade0aac5cc3da947b3c3377473a96b91cb67945cf4eedfba3f1fbf037b74d63",
+    "delphi/polismath/pca_kmeans_rep/__init__.py": "780ed50145152784fdd316c58fe59e3535607fedcc78414d6d0e37b6b3f8d3b1",
+    "delphi/polismath/pca_kmeans_rep/clusters.py": "d2eb4fe4591496eefffe58f2d02852d37f965aef059a96ed20d07eae88732584",
+    "delphi/polismath/pca_kmeans_rep/corr.py": "00012b15a71f31a291df12e3e35c9a81b956e0e5d9a1956ebf54253645016892",
+    "delphi/polismath/pca_kmeans_rep/group_k_smoother.py": "c204a25f41623c9d2e64f30ee27ac260340320f50b97c164639ae204b1f47bb6",
+    "delphi/polismath/pca_kmeans_rep/legacy_kmeans.py": "595a4d50d1da057132d9ecdf1f8a0e0574a9bb51c26672f526d9d681376f1ef9",
+    "delphi/polismath/pca_kmeans_rep/pca.py": "f73712aa7ea3847e4de0d4954f4ec1fda84c233e2b8575f9f2c784ce815e4376",
+    "delphi/polismath/pca_kmeans_rep/repness.py": "767ed4936a18d1113d07f81e73e0da3c43926e3bb0d54103d8811e65499e54fd",
+    "delphi/polismath/poller/__init__.py": "444822bdc04f3acefbc3225a740689060a7482ae6e9519d9520e15f4c93471d3",
+    "delphi/polismath/poller/math_writer.py": "92fe058b4d29b1f7284f1d4a6ee528286cddb25b7074a35bf1508ea36b36797f",
+    "delphi/polismath/poller/service.py": "1d07b713c4534a68a8eee6bfdd9d74c559aa1ddd03abb5bbda60a99d76565755",
+    "delphi/polismath/poller/worker_pool.py": "e87030bd5649da8e16273543bea229713f3503d8cc5f163d30facd29f0accc3d",
+    "delphi/polismath/queue/__init__.py": "d5a362eeefaa82bb5f55b0c824ab1f71ef7439adaf061b7255d3e57550fb1945",
+    "delphi/polismath/queue/executor.py": "344e95a5aaea309cdd3a98cccbba8b3e41da539ebc0729254dee3e85123db511",
+    "delphi/polismath/regression/__init__.py": "93b935e0fd403562a661dbb75f5ff4af456441c9e7d6ec6505262e1e2a773647",
+    "delphi/polismath/regression/clojure_comparer.py": "f387413d397ae1c553e1ed62e59ffebcbe8016fea75168e83e9d1e472c90c0cd",
+    "delphi/polismath/regression/comparer.py": "e0d27b43355de890596f089abde3dd8fd36bd479997a33519ea106aa024e018e",
+    "delphi/polismath/regression/datasets.py": "8a6cda9f927a6769fc103b98617ef9d7d9946512c808b2d53df69289de7d7f1b",
+    "delphi/polismath/regression/recorder.py": "8ea5193e7077166cbe9162d3ff31b0746a7c5ae20e4ef5a91c7ae65d6aa43788",
+    "delphi/polismath/regression/utils.py": "b095da8892c12ac22d741aa43021d72bfa8c41901571711ef1e9612e7e81c2d8",
+    "delphi/polismath/replay/__init__.py": "72caea29707841d12cdbd7900ac4b0e7f9037060c212a2d2053d6528ddd9f7e7",
+    "delphi/polismath/replay/axis_continuity.py": "6b7b498a8605132d0b79a6db8c0685cb87b81847bd7d1c12413bfa9e60e2a938",
+    "delphi/polismath/replay/certify.py": "809277f648962791831ccace780f0cdf81e73e7968c11bdcf331e333190edf5f",
+    "delphi/polismath/replay/crosslang.py": "23530a15b05fa1af36775330bbcd64dfe6b5dcfacf23d0dbaa2e3821ce88cb17",
+    "delphi/polismath/replay/driver.py": "5c2de429ca21e55131a1005995641750c9f959c11c60253b96a04671cd3cff59",
+    "delphi/polismath/replay/equiv_query.py": "eceee9e9eb46ffddd523c4d0b82b9e3d5e5271265d39a1ce19581306275ddef8",
+    "delphi/polismath/replay/fixture_bundle.py": "4c51e4ec5539857a274cc9a49f687ce607ef9825b13bfb2826ada5b8b1e3eb6e",
+    "delphi/polismath/replay/fixture_config.py": "0ae1596367a0ae8c1bb96d6160d1e8afd4c613bd229dd80c3274b6070f4bdd4f",
+    "delphi/polismath/replay/fixture_extract.py": "9a34125440246b2fea1114f5cfa7ad14a6b2a7bde31d3d7e11bb0d82ea74b090",
+    "delphi/polismath/replay/fixture_generate.py": "3bb1c309a9a0c87200f6f4067f356e425d743bc0189ee41ade879dd74423ccec",
+    "delphi/polismath/replay/fixture_survey.py": "ec72cc4b2d4ce4bc02e40c2820b96f7b7971505ea2275dbfae126617d1fe0781",
+    "delphi/polismath/replay/polarity.py": "de9df9c0f3dbd80e4ced2c45c8f80facbdbd18a803d9431dcb0fcbf9134e3e1c",
+    "delphi/polismath/replay/poller_equiv.py": "646689fd5400dc0854d093ab262b47c5d11bd5aca3ac212e94e0f7448e465289",
+    "delphi/polismath/replay/prodclone.py": "1f2fe3e9a5a91a423b4b5d627500cd34e798a206c7ec57ced6c3ce9befd880a3",
+    "delphi/polismath/replay/real_data.py": "740aed817bcdbc82a1cc50751d161864c2ceffd8f420305188a5a1e1985d4329",
+    "delphi/polismath/replay/schedule.py": "0bb6eb29ca8724c329a8d0a45e4662257ae63e5e9f2c0d042155bbe58f603e91",
+    "delphi/polismath/replay/served_math.py": "a6c8868683a0f5fcf980f64ac15a7340e4037769ef53860e12c2511613420625",
+    "delphi/polismath/replay/shard_bench.py": "9253180770096ef0fdc33ef67ea46efb3104803426b709f08e0c1d3b52c92afe",
+    "delphi/polismath/replay/stagecompare.py": "5b5534bf5ce8b90ef6ed6f7a40deabbb26d706fb591a402293ed838b2e293baf",
+    "delphi/polismath/replay/stages.py": "f3faf38d28cfcad4926e56590860cc749525a7160f3eec114277234d4a3af5d5",
+    "delphi/polismath/replay/stepcompare.py": "a4847d293015e5aeed124293f4cdad8206f7a4976123bda5dda915744aada1b7",
+    "delphi/polismath/replay/store.py": "1c837f7c32fbc8cc2cdeaa16c43a7ab025fe23fca2ad9fa6430e1376527d3b10",
+    "delphi/polismath/replay/types.py": "a9be8e851240af070875997848cada2fce45ea0c4fd45903d3cc12efa30622da",
+    "delphi/polismath/run_math_pipeline.py": "feebceb39badf4cebc96ff9c8dc37bc416048812aa44081e7203d0711d7b53f2",
+    "delphi/polismath/types.py": "823ed2ead8dc3be7ed79478ba2c36af0caef0c0c2716bb5a4d8b3d33dfc1b62f",
+    "delphi/polismath/utils/__init__.py": "4e1f746e69359e282c9de9a255f24feb3cbeb0c6e5564c09bbb30413178313ce",
+    "delphi/polismath/utils/clj_hash.py": "c81b4a39da41e04cb6cb7379a8e41d27603e5e094205397f121f6be2f58e9c99",
+    "delphi/polismath/utils/env_flags.py": "c3eae80667781cc9b491d673923ec947cdb9827678f653803cab0b93194a51e7",
+    "delphi/polismath/utils/general.py": "ea284ae7c1b9bf0d6d1131a42b1059d0528ceefa946eaadc583d2801c20edf88",
+    "delphi/polismath/utils/output_profile.py": "b556d45582658e76f3e168789d190cb4de62b1c858afc28e0d48284fb2b7c71e",
+    "delphi/polismath/utils/serialization.py": "5a27fbc9c99adc46f072d4b54e1375a5e8bea728825029cfb19e0d57c9825935",
+    "delphi/polismath/utils/vote_convention.py": "98bb6504b2f7b5969aac3dba57ad243e4300690d1d66278a2fd0f70c4b6dbdc6",
+    "delphi/tests/coordinator/__init__.py": "8c61334c3002c625a92e457ffb6e37f23ace4f1fa9045d0e90b5dff269f442b0",
+    "delphi/tests/coordinator/_node_gate.py": "461813f1029115e5aac3205f4783678ae347b3b7f505b5af397308c38ae08072",
+    "delphi/tests/coordinator/audit_stages.py": "c02201382bfa28afdbd84586d0da9c1b3f146e0e8ea66837586cfbfec0458e5d",
+    "delphi/tests/coordinator/conftest.py": "33ebf4216bd103b3bb1a5d24e9ac4ffb8d8b84be87158e2e1e21295ecc5065fa",
+    "delphi/tests/coordinator/reference_child.py": "add6c53bbe9bcb4b384bdb1a80b31ca51dcce0eabe1ead4d31d2b3376a25f6f5",
+    "delphi/tests/coordinator/test_adapter.py": "715d4cc08658df077e96842ee69008771bd33e911639f1c5e9705b8107f75ec6",
+    "delphi/tests/coordinator/test_bundle_reader.py": "3c5d16504581e8236adcb17115bdc63107f82c7f3340e6c14752254a21cebaef",
+    "delphi/tests/coordinator/test_equivalence.py": "a8b4978adfcba99dbdd91a805c8878cff713667771d189190ca496fcefc91670",
+    "delphi/tests/coordinator/test_incremental.py": "dfc47a73aab6553cdf792b7578970639726e4877ee55255f1079081366e8391b",
+    "delphi/tests/coordinator/test_node_reader.py": "7db596d189489b7f1bbd0bbbde5c44909039779a983518c922cf74381c4fd077",
+    "delphi/tests/coordinator/test_publication_metrics.py": "8bca756a2f8a10f717834560225ab883fa8bcc6434c0759995eb21acc9d342cd",
+    "delphi/tests/coordinator/test_recorder_controls.py": "7694f50b0796f6bf3dbe6a1e3c4477a64010af67431acde102cd867ee4118813",
+    "delphi/tests/coordinator/test_recovery.py": "44a1396ec474ad0a3ff00954b715d45016346313a534dc3fffd036e93e84dd44",
+    "delphi/tests/coordinator/test_reference_controls.py": "7d7c424359aa62e7901743f074ded8257077b8882cdba3cd09dc08f8d63c963b",
+    "delphi/tests/coordinator/test_s1_identity.py": "6eeeeca5972b8ab25fb49f45b3024c2269f0e8f566fd6cf33a75e4465aa5134c",
+    "delphi/tests/coordinator/test_step1_review_controls.py": "a614c81f3f5c61e21e5c0fc148e3f425a40cf881724e62588f627fd38e1986e9",
+    "delphi/tests/coordinator/test_step2_review_controls.py": "07aa39208bb01b9356ec96daf2d0b06f9b29f4a7f5a274f536f29884a9fb9320",
+    "delphi/tests/coordinator/test_store.py": "70688832fdb8b091ebdeecea87359b304c897973564d27ceccc599ea7329540d",
+    "server/src/utils/pca.ts": "5434c3137c90d8a5c99257f9a44dce77b3b6f32dc88d6c672ceb36f292c9a919",
+    "server/src/utils/pcaPresentation.ts": "8cba45f563a5a1d070691f63a2edf25537a07032ba4f9fa063acffa7a64b7f98"
+  },
+  "s2StalePins": [
+    "server/__tests__/integration/math-bundle-coherence.test.ts",
+    "server/__tests__/unit/mathBundleRequests.test.ts"
+  ],
+  "limits": [
+    "Historical S1/S2 source and run pins remain unchanged.",
+    "This does not certify the private corpus, G01-G16, Rust/Clojure parity or writer transfer.",
+    "The accepted historical S2 production replay was not rerun.",
+    "Current audit refuses S2 partial admission because two tests changed in the CI repair.",
+    "A reviewed raw-versus-presented Node harness correction and a fresh complete campaign precede source repinning."
+  ],
+  "runPins": {
+    "verifiableOnProducingHostOnly": true,
+    "composeProject": "p026-s1-682",
+    "postgresPort": 56114,
+    "sha256": {
+      "coordinator-rs/artifacts/polarity-biodiversity.json": "4152924ccbd2f98130c58ef4e5da7b6c92f30628fb72eef0d3588d46b8e27c97",
+      "coordinator-rs/artifacts/polarity-rebuild-schedule.json": "60a052dece98383b63afc3fc783db0cbcfa8aff3f343ed557e9e3ba4885b1f46",
+      "coordinator-rs/artifacts/polarity-synthetic.json": "9c2de163655f5225a3d2ba246455cb3ad6db8ae34f2f7ba5ca4bdbf0dab79c95",
+      "coordinator-rs/artifacts/polarity-vw.json": "d92b9f4eab8c718de0ae3cdd3942f027d767c851f5e7f075f9788f31c2ae230a",
+      "coordinator-rs/artifacts/s1-cargo-default.log": "ac55be8e7ad538eb00e263d54af667081e127fde2bd6f9963d13619c606aff25",
+      "coordinator-rs/artifacts/s1-cargo-default.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "coordinator-rs/artifacts/s1-cargo-fault.log": "40a697ea4d148d2b702b0a145dfddc466355e312994792df50b494b507ad8989",
+      "coordinator-rs/artifacts/s1-cargo-fault.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "coordinator-rs/artifacts/s1-clippy-default.log": "48360ebd7a07a2f23e2a5f571c3a657841174f9106aaf3bd1bed22408b70faf5",
+      "coordinator-rs/artifacts/s1-clippy-default.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "coordinator-rs/artifacts/s1-clippy-fault.log": "ddc2e641e23b195e84cebaaee336c70ff7086ae888cbfe4582df68dc99b56a58",
+      "coordinator-rs/artifacts/s1-clippy-fault.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "coordinator-rs/artifacts/s1-fault-build.log": "aa804a20ea43520902866b9ce94cfde985954ecb2237aff4095433ceb8b92294",
+      "coordinator-rs/artifacts/s1-fault-build.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "coordinator-rs/artifacts/s1-pytest.log": "2580777dea8ef6f4ff847fd21488c660fdb52db276ba987be6bd9562e69835ec",
+      "coordinator-rs/artifacts/s1-pytest.xml": "b08f7edcb90c3a6d4b3a4682769efe96cd1e6a97988b698b3a70bdfe2779c24a",
+      "coordinator-rs/artifacts/s1-release.log": "e3aeab827bdb0186ecbc2fe33855ba0bf377ca35336fbb612552a2fcc14910e8",
+      "coordinator-rs/artifacts/s1-release.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "coordinator-rs/artifacts/semantic-tie-key.json": "a35a27ec58ee9bd8d557546ce1dfbae0d9e5c7ad140b6d4ff215ba3cb55920d5",
+      "coordinator-rs/artifacts/stage-after_ack.json": "1d7b38e63e8086c091ead1a7872a15a2bac19144d66e40c1e78fc066437cf07d",
+      "coordinator-rs/artifacts/stage-after_bidtopid.json": "aef07802f1f1a87ac68509a986c13a60b315be5b8de0db5e2bd15921a3a17edf",
+      "coordinator-rs/artifacts/stage-after_commit.json": "6b0010ddc86b4e5e6e68dce04dc8539d452f4dd0ca65db87006e5a47b404ca01",
+      "coordinator-rs/artifacts/stage-after_cursor.json": "9f013dc32f5ed4aa205fdefe0ab3154ef90ce1bccfb92dd49290258178ae51b9",
+      "coordinator-rs/artifacts/stage-after_input_checkpoint.json": "6deb74af17c9017805cb18edbe11c5031b598bbaf6d23b58694c85649fb898b1",
+      "coordinator-rs/artifacts/stage-after_lease.json": "ecc65c0f335456c7a415b6fdc37d295b570068d338e510e6d063d2f96f33434f",
+      "coordinator-rs/artifacts/stage-after_main.json": "72e586f7dfc172a6a161324a1ad8d6ee236ae6275c8e99eee29f809f2fdb93df",
+      "coordinator-rs/artifacts/stage-after_ptptstats.json": "f5c80130815921edd8658a30d651ea845f99de4704b148c22660ed0cd1514309",
+      "coordinator-rs/artifacts/stage-after_restore.json": "13daeb7d0b5770f646e40f0e8da215a0cd15f81dd8683fca20119a37cac2ac73",
+      "coordinator-rs/artifacts/stage-after_source_selection.json": "9fbb9760a02c55b2d423a25690c7c469576fc38bb6648aa313cabd75d4111d04",
+      "coordinator-rs/artifacts/stage-after_sweep.json": "edf807395c10e5dc6af7cac482614affb400c36d52b4b057a40bf42b3c79f993",
+      "coordinator-rs/artifacts/stage-after_ticks.json": "a4cdb01235171c14f30fd5fc579b68d0e4e8c9da6b7111b7e87803eb2c9a5033",
+      "coordinator-rs/artifacts/stage-after_worker_compute.json": "1d58050ef06118cb89e56ee5b6baee69ef27d77ab1b14a9e997b4d0442b38038",
+      "coordinator-rs/artifacts/stage-before_bidtopid.json": "16210bd000299e5baee04e91ba3ed247130c0c2385a0863db81723aba22923fb",
+      "coordinator-rs/artifacts/stage-before_commit.json": "78fdf09b45522b8c5df35f88ab08dd93f7d04efe9917ba33a8eae0625202593c",
+      "coordinator-rs/artifacts/stage-before_companion_join.json": "0884c1f83f94a463dcc0a3238d8589d25ead2b817c6d0931b3961905dc2e9487",
+      "coordinator-rs/artifacts/stage-before_cursor.json": "aeae35c0b5a10ba44c076957f1b932aab27f3ab1b696961183eda614243e4cff",
+      "coordinator-rs/artifacts/stage-before_main.json": "162e785547d76d627952222b658d758fbabfce374cca60cb994619afa95cae23",
+      "coordinator-rs/artifacts/stage-before_ptptstats.json": "3f7e17ae750188ba8478e13321b285d9d96bdb7754062870fc71e04d6da6dd08",
+      "coordinator-rs/artifacts/stage-before_restore.json": "56f036249421d483399f2835a509b299b60e06f8747745fbb50e84870d75841f",
+      "coordinator-rs/artifacts/stage-before_sweep.json": "6441fd7c1b453ece0c7c5403678c4f030afcadb2d1c9a0ce8ca3388b7bfbb5bb",
+      "coordinator-rs/artifacts/stage-before_ticks.json": "c010b5852f0e64ff7b5062db208cd707da4d31fbaa8f83608a663b4785008a44",
+      "coordinator-rs/artifacts/stage-before_worker_apply.json": "13f35bd6daddef49a58eb0bf25d51de4dbc8bf77c14b8fd18f95cf9bf91b350a",
+      "coordinator-rs/artifacts/stage-bundle_pinned.json": "64c736bfcdb17c881b57d743dc3893676942e3f299ee6920b85b0fd0d51f0611",
+      "coordinator-rs/artifacts/stage-cache_eviction_contends_with_same_zid_update.json": "6844fc80e9f31d8d251768a73e39e9bd5e300da574f32b54714cfd4e52d54a69",
+      "coordinator-rs/artifacts/vw-equivalence.json": "8a7af627365a187ad71299d3d14a2a2e6a6bf3cf6bafdcdc94f609321d40f3f4"
+    }
+  }
+}
