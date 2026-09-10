@@ -1,6 +1,6 @@
 """Synthetic-only snapshot selection, disclosure boundary and extraction wiring.
 
-Selection is not admission of extra payloads or battery recipes.
+Selection-only and whole-config extraction have separate completion contracts.
 """
 from __future__ import annotations
 
@@ -219,7 +219,7 @@ def test_missing_opt_in_refuses_before_database_access(monkeypatch):
 
 
 @pytest.mark.parametrize('enabled',[False,True])
-def test_whole_extraction_shares_census_and_keeps_recipe_payloads_unchanged(tmp_path,monkeypatch,enabled):
+def test_whole_extraction_shares_census_and_preserves_existing_recipe_resolution(tmp_path,monkeypatch,enabled):
     rows=[metric(i) for i in range(25)]
     calls=mock_snapshot(monkeypatch,rows)
     config=configured() if enabled else fc.load_config()
@@ -228,9 +228,15 @@ def test_whole_extraction_shares_census_and_keeps_recipe_payloads_unchanged(tmp_
     monkeypatch.setattr(fs,'resolve_roles',lambda cfg,r,**kw:seen.append(('roles',cfg,r)) or [])
     monkeypatch.setattr(fx,'detect_tie_key',lambda conn:{'guarantee':'synthetic'})
     monkeypatch.setattr(fg,'write_all',lambda *a,**kw:[])
+    captured=[]
+    def capture(conn,**kw):
+        captured.append(kw)
+        return dict(slug=kw['slug'],role=kw['role'],dir=kw['dir_name'],measured_metrics=kw['measured'])
+    monkeypatch.setattr(fx,'extract_conversation',capture)
     result=fx.extract_from_config(object(),config=config,payload_root=tmp_path,guard_root=tmp_path,snapshot_id='synthetic')
     assert len(calls)==2 and all(cfg is config and r is rows for _,cfg,r in seen)
-    assert result['roles']==result['generated']==result['provenance_rows']==[]
+    assert result['generated']==[]
+    assert len(result['roles'])==len(result['provenance_rows'])==len(captured)==(20 if enabled else 0)
     assert not list(tmp_path.iterdir())
     assert ('representative_selection' in result)==enabled
     assert ('representative_provenance' in result)==enabled

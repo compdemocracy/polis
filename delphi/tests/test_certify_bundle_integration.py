@@ -101,6 +101,45 @@ def test_scaled_config_is_still_valid():
     scaled_config()
 
 
+def test_representative_payloads_share_real_snapshot_and_admit_all_selected_rows(seeded_db, tmp_path, monkeypatch):
+    """Real SQL census/extraction with scaled synthetic shapes; no engine claim."""
+    import psycopg2
+    from polismath.replay import fixture_samples, fixture_selection
+
+    cfg=scaled_config()
+    cfg['representative_selection']=dict(algorithm=fixture_selection.VERSION,target=20,seed='01'*32)
+    fc.validate_config(cfg)
+    original=fx.fetch_conversation;fetched=[]
+    def fetch(conn,zid,tie_key):
+        fetched.append(zid)
+        return original(conn,zid,tie_key)
+    monkeypatch.setattr(fx,'fetch_conversation',fetch)
+    payload=tmp_path/'.local/payload';payload.mkdir(parents=True)
+    conn=psycopg2.connect(seeded_db)
+    try:
+        result=fx.extract_from_config(conn,config=cfg,payload_root=payload,guard_root=tmp_path)
+    finally:
+        conn.close()
+    chosen=result['representative_provenance']
+    assert len(chosen)==len({r['zid'] for r in chosen})==20
+    assert len(fetched)==len(set(fetched))
+    assert set(fetched)=={r['zid'] for r in result['provenance_rows']}
+    assert len(result['roles'])==len(cfg['roles'])+20
+    assert result['transaction_guarantee']['single_transaction'] is True
+    encoded=json.dumps(cfg).encode()
+    manifest=fb.build_manifest(bundle_id='synthetic-sampled-snapshot',payload_root=payload,
+        config=cfg,config_bytes=encoded,selections=result['roles'],generated_summaries=result['generated'],
+        snapshot=dict(identifier='synthetic-snapshot',created_at='2026-09-10T00:00:00Z',schema_migration_version='000006'),
+        transaction_guarantee=result['transaction_guarantee'],tie_key=result['tie_key'],
+        schedules=fb.collect_schedule_hashes(fc.SCRIPTS_DIR/'schedules'),owner='synthetic-test',
+        extraction_commit='0'*40,source_commit='0'*40,coverage_report=result['coverage_report'],
+        representative_report=result['representative_selection'])
+    fb.verify(payload,manifest)
+    fb.admit_manifest(manifest,config=cfg,config_bytes=encoded,payload_root=payload)
+    assert len(fixture_samples.admitted_rules(manifest,cfg,payload))==20
+    assert fb.scan_public_output(json.dumps(result['representative_selection']),PLANTED)==[]
+
+
 # ---------------------------------------------------------------------------
 # Seeding.
 # ---------------------------------------------------------------------------

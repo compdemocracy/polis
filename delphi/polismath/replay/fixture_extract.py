@@ -1013,6 +1013,25 @@ def extract_from_config(
 
     role_summaries: list[dict[str, Any]] = []
     provenance_rows: list[dict[str, Any]] = []
+    extracted = {}
+    def capture(zid, slug, role, metrics):
+        import copy
+        if representative is not None and zid in extracted:
+            summary = copy.deepcopy(extracted[zid])
+            summary.update(slug=slug, role=role)
+            dir_names[slug] = summary["dir"]
+            return summary
+        directory = dir_names.setdefault(slug, mint_opaque_dir(slug))
+        summary = extract_conversation(
+            conn, zid=zid, slug=slug, role=role,
+            payload_root=payload_root, guard_root=guard_root,
+            dir_name=directory, tie_key=tie_key, measured=metrics,
+            capture_served_math=served_math.capture,
+            served_math_envs=served_math.math_envs,
+        )
+        extracted[zid] = copy.deepcopy(summary)
+        return summary
+
     for sel in selections:
         if sel.zid is None:
             case_id = sel.synthetic_replacement
@@ -1044,21 +1063,27 @@ def extract_from_config(
                 "n_candidates": sel.n_candidates,
             })
             continue
-        dir_name = dir_names.setdefault(sel.slug, mint_opaque_dir(sel.slug))
-        summary = extract_conversation(
-            conn, zid=sel.zid, slug=sel.slug, role=sel.role,
-            payload_root=payload_root, guard_root=guard_root,
-            dir_name=dir_name, tie_key=tie_key, measured=sel.metrics,
-            capture_served_math=served_math.capture,
-            served_math_envs=served_math.math_envs,
-        )
+        summary = capture(sel.zid, sel.slug, sel.role, sel.metrics)
         summary.update({
             "group": sel.group, "rank": sel.rank, "source": "production",
             "n_candidates": sel.n_candidates, "overlaps_with": sel.overlaps_with,
         })
         role_summaries.append(summary)
         provenance_rows.append({
-            "role": sel.role, "slug": sel.slug, "dir": dir_name, "zid": sel.zid})
+            "role": sel.role, "slug": sel.slug, "dir": summary["dir"], "zid": sel.zid})
+
+    if representative is not None:
+        from polismath.replay import fixture_samples as samples
+        metrics_by_zid = {row["zid"]: row for row in rows}
+        if {samples.slug(p["ordinal"]) for p in representative.provenance} & {s.slug for s in selections}:
+            raise SelectionError("SAMPLE_ROLE_COLLISION")
+        for chosen in representative.provenance:
+            zid = chosen["zid"]
+            name = samples.slug(chosen["ordinal"])
+            summary = capture(zid, name, name, metrics_by_zid[zid])
+            summary.update(group="representative", rank=None, source="production")
+            role_summaries.append(summary)
+            provenance_rows.append(dict(role=name, slug=name, dir=summary["dir"], zid=zid))
 
     result = {
         "survey": survey,

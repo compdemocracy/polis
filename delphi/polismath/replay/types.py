@@ -92,8 +92,9 @@ class ReplayDataset:
     # no moderation-history columns at all (nothing was skipped — there was
     # nothing to parse).
     mod_events_skipped: int = 0
-    # Original authoritative rows, including comments and source provenance.
-    input_events: tuple[dict, ...] = ()
+    # None means compatibility input; an empty tuple is an authoritative
+    # empty stream. Keep those distinct for source-state replay admission.
+    input_events: tuple[dict, ...] | None = None
 
     @property
     def n(self) -> int:

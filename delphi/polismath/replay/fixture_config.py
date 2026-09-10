@@ -119,7 +119,7 @@ def served_math_options(config: dict[str, Any]) -> ServedMathOptions:
 
 
 def representative_seed(config: dict[str, Any]) -> str | None:
-    """Optional, frozen selection-only declaration; reject malformed direct calls.
+    """Optional, frozen representative selection; reject malformed direct calls.
 
     The shipped recipes/config remain byte-identical. A reviewed opt-in creates
     a new config version; it does not admit additional payloads or battery rows.
