@@ -96,7 +96,7 @@ export class ProbeBox extends Construct {
     new ec2.CfnSecurityGroupIngress(this,'SecretProvisionIngress',{groupId:endpointSg.attrGroupId,sourceSecurityGroupId:provisionSg.attrGroupId,ipProtocol:'tcp',fromPort:443,toPort:443});
     const vpc=ec2.Vpc.fromVpcAttributes(this,'ExistingVpc',{vpcId:a.vpcId,availabilityZones:[a.availabilityZone]});
     const provision=new lambda.Function(this,'ProvisionLogin',{runtime:lambda.Runtime.PYTHON_3_12,architecture:lambda.Architecture.ARM_64,
-      handler:'provision_login.handler',code:lambda.Code.fromAsset(path.join(__dirname,'../ci/probe_box'),{exclude:['test_*','__pycache__']}),
+      handler:'provision_login.handler',code:lambda.Code.fromAsset(path.join(__dirname,'../ci/probe_box'),{exclude:['test_*','__pycache__','layer','layer/**']}),
       layers:[lambda.LayerVersion.fromLayerVersionArn(this,'PostgresLayer',a.postgresLayerArn)],
       vpc,vpcSubnets:{subnets:[ec2.Subnet.fromSubnetId(this,'ProvisionSubnet',subnet.ref)]},
       securityGroups:[ec2.SecurityGroup.fromSecurityGroupId(this,'ProvisionSecurityGroup',provisionSg.attrGroupId)],
@@ -165,7 +165,7 @@ export class ProbeBox extends Construct {
     const logGroup=new logs.LogGroup(this,'ControlLogs',{retention:logs.RetentionDays.ONE_MONTH});
     logGroup.grantWrite(controller);
     const fn=new lambda.Function(this,'ControlFunction',{runtime:lambda.Runtime.PYTHON_3_12,architecture:lambda.Architecture.ARM_64,
-      handler:'controller.handler',code:lambda.Code.fromAsset(path.join(__dirname,'../ci/probe_box'),{exclude:['test_*','__pycache__']}),
+      handler:'controller.handler',code:lambda.Code.fromAsset(path.join(__dirname,'../ci/probe_box'),{exclude:['test_*','__pycache__','layer','layer/**']}),
       role:controller,logGroup,timeout:cdk.Duration.minutes(5),reservedConcurrentExecutions:1,environment:{
         BOX_ID:a.id,ACCOUNT:a.account,REGION:a.region,AMI:a.ami,CONTROL_BUCKET:control.bucketName,EVIDENCE_BUCKET:evidence.bucketName,
         ASSET_BUCKET:assets.bucketName,CONTROL_KEY:key.keyArn,TEMPLATE:template.ref,TEMPLATE_VERSION:template.attrLatestVersionNumber,

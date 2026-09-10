@@ -69,6 +69,8 @@ creates a generated Secrets Manager credential and invokes this code via a
 separate custom-resource Lambda with a separate security group and admin-secret
 permission. The probe worker never receives the primary connection or admin secret.
 The reviewed ARM64 Lambda layer must contain psycopg2 and `/opt/rds-ca.pem`.
+The [pinned Python 3.12 ARM64 recipe](../ci/probe_box/layer/README.md) builds and
+checks that ZIP locally and prints the operator-only SSO publication command.
 
 It creates `polis_probe_reader` with no superuser, inheritance, role/database
 creation, replication or RLS bypass; four connections; read-only and statement
