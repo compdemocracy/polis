@@ -1620,6 +1620,510 @@
     "udt_name": "int8"
   },
   {
+    "table_name": "polis_coordinator_budgets",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "polis_coordinator_budgets",
+    "column_name": "max_operations",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "polis_coordinator_budgets",
+    "column_name": "max_bytes",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_cursors",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "polis_coordinator_cursors",
+    "column_name": "consumer",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_cursors",
+    "column_name": "position",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "polis_coordinator_failures",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "polis_coordinator_failures",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "polis_coordinator_failures",
+    "column_name": "attempts",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "polis_coordinator_failures",
+    "column_name": "first_failed_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_coordinator_failures",
+    "column_name": "next_attempt",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_coordinator_floors",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "polis_coordinator_floors",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "polis_coordinator_floors",
+    "column_name": "math_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_floors",
+    "column_name": "caching_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_generations",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "polis_coordinator_generations",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "polis_coordinator_generations",
+    "column_name": "math_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_generations",
+    "column_name": "caching_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_generations",
+    "column_name": "owner_id",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_generations",
+    "column_name": "publisher_epoch",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_generations",
+    "column_name": "operation_id",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_generations",
+    "column_name": "capability_sha256",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_generations",
+    "column_name": "expected_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_generations",
+    "column_name": "input_checkpoint",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "polis_coordinator_generations",
+    "column_name": "committed_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_coordinator_install",
+    "column_name": "singleton",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "polis_coordinator_install",
+    "column_name": "migration_id",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_install",
+    "column_name": "catalog_fingerprint",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_install",
+    "column_name": "provenance_fingerprint",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_install",
+    "column_name": "sequence_start",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_install",
+    "column_name": "installed_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_coordinator_install",
+    "column_name": "installed_by",
+    "data_type": "name",
+    "udt_name": "name"
+  },
+  {
+    "table_name": "polis_coordinator_install_grants",
+    "column_name": "object_kind",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_install_grants",
+    "column_name": "object_name",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_install_grants",
+    "column_name": "column_name",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_install_grants",
+    "column_name": "grantee",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_install_grants",
+    "column_name": "grantor",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_install_grants",
+    "column_name": "privilege",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_install_grants",
+    "column_name": "prior_present",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "polis_coordinator_install_grants",
+    "column_name": "prior_grantable",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "polis_coordinator_install_roles",
+    "column_name": "role_name",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_install_roles",
+    "column_name": "role_oid",
+    "data_type": "oid",
+    "udt_name": "oid"
+  },
+  {
+    "table_name": "polis_coordinator_install_roles",
+    "column_name": "created",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "polis_coordinator_leases",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "polis_coordinator_leases",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "polis_coordinator_leases",
+    "column_name": "owner_id",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_leases",
+    "column_name": "owner_epoch",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_leases",
+    "column_name": "expires_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_coordinator_leases",
+    "column_name": "dispatch_operation_id",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_leases",
+    "column_name": "dispatch_capability_sha256",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_leases",
+    "column_name": "dispatch_checkpoint_sha256",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_leases",
+    "column_name": "dispatch_expected_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_leases",
+    "column_name": "dispatch_margin_ms",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "polis_coordinator_operations",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "polis_coordinator_operations",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "polis_coordinator_operations",
+    "column_name": "operation_id",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_operations",
+    "column_name": "owner_id",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_operations",
+    "column_name": "owner_epoch",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_operations",
+    "column_name": "expected_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_operations",
+    "column_name": "capability_sha256",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_operations",
+    "column_name": "checkpoint_sha256",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_operations",
+    "column_name": "source_sha256",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_operations",
+    "column_name": "reserved_bytes",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_operations",
+    "column_name": "state",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_operations",
+    "column_name": "protected",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "polis_coordinator_operations",
+    "column_name": "admitted_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_coordinator_operations",
+    "column_name": "reconciled_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_coordinator_operations",
+    "column_name": "resolved_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_payloads",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "polis_coordinator_payloads",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "polis_coordinator_payloads",
+    "column_name": "math_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_payloads",
+    "column_name": "payload_kind",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_payloads",
+    "column_name": "original_bytes",
+    "data_type": "bytea",
+    "udt_name": "bytea"
+  },
+  {
+    "table_name": "polis_coordinator_payloads",
+    "column_name": "original_sha256",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_payloads",
+    "column_name": "storage_sha256",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_reconciliation",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "polis_coordinator_reconciliation",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "polis_coordinator_reconciliation",
+    "column_name": "reconciled_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_coordinator_reconciliation",
+    "column_name": "source_probe",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "polis_coordinator_references",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "polis_coordinator_references",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "polis_coordinator_references",
+    "column_name": "operation_id",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_references",
+    "column_name": "reference_name",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
     "table_name": "polis_queue_attempts",
     "column_name": "env",
     "data_type": "text",

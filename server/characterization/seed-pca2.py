@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate independent synthetic SQL inputs, then run the real engine + writer.
+"""Generate independent public-fixture SQL inputs, then run the real engine + writer.
 
 Only the sealed compose postgres service and database p027.
 No stored math blob is fabricated or imported. The engine's wall clock is pinned
