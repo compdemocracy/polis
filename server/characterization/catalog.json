@@ -1620,6 +1620,432 @@
     "udt_name": "int8"
   },
   {
+    "table_name": "polis_queue_attempts",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_attempts",
+    "column_name": "attempt_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "polis_queue_attempts",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "polis_queue_attempts",
+    "column_name": "owner_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "polis_queue_attempts",
+    "column_name": "lease_epoch",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_queue_attempts",
+    "column_name": "started_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_queue_attempts",
+    "column_name": "ended_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_queue_attempts",
+    "column_name": "outcome",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_attempts",
+    "column_name": "error_code",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_attempts",
+    "column_name": "output_sha256",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_heads",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_heads",
+    "column_name": "product_key",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_heads",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "polis_queue_heads",
+    "column_name": "requested_generation",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_queue_heads",
+    "column_name": "desired_run_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "polis_queue_heads",
+    "column_name": "published_run_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "polis_queue_heads",
+    "column_name": "published_generation",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_queue_heads",
+    "column_name": "published_sha256",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_heads",
+    "column_name": "version",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_queue_install",
+    "column_name": "singleton",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "polis_queue_install",
+    "column_name": "created_roles",
+    "data_type": "ARRAY",
+    "udt_name": "_text"
+  },
+  {
+    "table_name": "polis_queue_install",
+    "column_name": "adopted_roles",
+    "data_type": "ARRAY",
+    "udt_name": "_text"
+  },
+  {
+    "table_name": "polis_queue_install",
+    "column_name": "added_grants",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "polis_queue_install",
+    "column_name": "applied_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_queue_install",
+    "column_name": "catalog_fingerprint",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "run_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "stage",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "stage_instance",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "state",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "priority",
+    "data_type": "smallint",
+    "udt_name": "int2"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "eligible_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "attempt_count",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "parked_attempt_count",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "max_attempts",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "lease_epoch",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "version",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "mgmt_version",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "owner_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "attempt_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "locked_until",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "terminal_attempt_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "first_parked_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "last_error_code",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_jobs",
+    "column_name": "output_sha256",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_requests",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_requests",
+    "column_name": "actor_scope",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_requests",
+    "column_name": "product_key",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_requests",
+    "column_name": "request_key",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_requests",
+    "column_name": "request_sha256",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_requests",
+    "column_name": "run_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "polis_queue_requests",
+    "column_name": "job_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "polis_queue_requests",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "polis_queue_runs",
+    "column_name": "env",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_runs",
+    "column_name": "run_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "polis_queue_runs",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "polis_queue_runs",
+    "column_name": "product_key",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_runs",
+    "column_name": "requested_generation",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_queue_runs",
+    "column_name": "input_uri",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_runs",
+    "column_name": "input_sha256",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_runs",
+    "column_name": "expected_output_uri",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_runs",
+    "column_name": "expected_output_sha256",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_runs",
+    "column_name": "config_sha256",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_runs",
+    "column_name": "code_image_digest",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_runs",
+    "column_name": "contract_version",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_runs",
+    "column_name": "state",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_runs",
+    "column_name": "output_sha256",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_queue_runs",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
     "table_name": "pwreset_tokens",
     "column_name": "uid",
     "data_type": "integer",
