@@ -129,12 +129,12 @@ def test_import_guard_reraises_defects_not_just_missing(tmp_path) -> None:
     named module is swallowed to a skip."""
     d = tmp_path / "guardpkg"
     d.mkdir()
-    (d / "projgate_boom.py").write_text("raise RuntimeError('synthetic import regression')\n")
+    (d / "projgate_boom.py").write_text("raise RuntimeError('public-fixture import regression')\n")
     (d / "projgate_baddep.py").write_text("import nonexistent_dependency_xyz\n")
     sys.path.insert(0, str(d))
     try:
         # A located implementation that raises -> propagates (test ERROR), not skip.
-        with pytest.raises(RuntimeError, match="synthetic import regression"):
+        with pytest.raises(RuntimeError, match="public-fixture import regression"):
             _guarded_import("projgate_boom")
         # A located implementation missing a dependency -> propagates.
         with pytest.raises(ModuleNotFoundError):
@@ -224,7 +224,7 @@ def test_catches_qualified_quoted_and_url_bearing_wildcards(tmp_path) -> None:
     cases = {
         "tqual.ts": 'const q = "SELECT votes.* FROM votes";\n',
         "quoted.ts": "const q = 'SELECT v.* FROM \"votes\" AS v';\n",
-        "url.ts": 'const u = "https://synthetic.invalid"; const q = "SELECT * FROM votes";\n',
+        "url.ts": 'const u = "https://public-fixture.invalid"; const q = "SELECT * FROM votes";\n',
     }
     for fn, source in cases.items():
         (src / fn).write_text(source)

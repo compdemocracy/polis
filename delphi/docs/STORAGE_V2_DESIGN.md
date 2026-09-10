@@ -533,7 +533,7 @@ Two different meanings of "replay", deliberately kept separate:
 
 Convergences to exploit: both reuse `ConversationComparer` tolerance machinery (the
 `artifact_diff.py` extraction in §5 serves both); H's per-step recording could later
-write into `run_inputs`/`artifacts` under synthetic job_ids; and once V2 manifests exist,
+write into `run_inputs`/`artifacts` under public-fixture job_ids; and once V2 manifests exist,
 R2-style schedule inference becomes unnecessary for post-V2 data (the schedule is
 recorded, not latent).
 

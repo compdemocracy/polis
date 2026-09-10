@@ -71,7 +71,7 @@ class GroupDataProcessor:
         The read is scoped to the configured math_env (MATH_ENV, default `prod`).
         If the conversation has math_main rows only under a *different* math_env,
         this behaves exactly as if it had none: it falls through to the
-        vote-derived synthetic group assignments below, logging a warning rather
+        vote-derived group assignments below, logging a warning rather
         than failing. That fallback fabricates groups, so a mismatch between this
         container's MATH_ENV and the one the math service writes under is silent
         in the report output — every compose stack must give delphi the same
@@ -324,7 +324,7 @@ class GroupDataProcessor:
                         
             # If no group assignments found anywhere, generate them
             if not group_assignments:
-                logger.warning("No group assignments found in math data, generating synthetic groups based on voting patterns")
+                logger.warning("No group assignments found in math data, generating groups based on voting patterns")
                     
             logger.debug(f"Found {len(group_assignments)} group assignments in math data")
             

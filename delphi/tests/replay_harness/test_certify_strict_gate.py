@@ -1,4 +1,4 @@
-"""Negative controls: a passing synthetic battery must fail when coverage breaks.
+"""Negative controls: a passing public-fixture battery must fail when coverage breaks.
 
 Producers are local fakes, but schedule resolution, store validation, cache
 manifests, numeric comparison, run manifest and CLI exit paths are real.
@@ -74,14 +74,14 @@ def latest_manifest(root):
 @pytest.fixture
 def battery(tmp_path, monkeypatch):
     ds = ReplayDataset.build([(10, 1, 1, 1), (20, 2, 1, -1)])
-    votes = tmp_path / "synthetic-votes.csv"
+    votes = tmp_path / "public-fixture-votes.csv"
     votes.write_text("timestamp,participant,comment,vote\n10,1,1,1\n20,2,1,-1\n")
-    monkeypatch.setattr(cert, "dataset_available", lambda name: name == "synthetic")
+    monkeypatch.setattr(cert, "dataset_available", lambda name: name == "public-fixture")
     monkeypatch.setattr(cert, "votes_csv_path", lambda name: votes)
     monkeypatch.setattr(cert.real_data, "load_export_votes", lambda name: ds)
     monkeypatch.setattr(cert, "_clj_source_hashes", lambda: ("clj-source", "math-source"))
     monkeypatch.setattr(cert, "_engine_tree_hash_cached", lambda: "python-source")
-    entry = cert.parse_battery_entry({"dataset": "synthetic", "preset": "every-vote"})
+    entry = cert.parse_battery_entry({"dataset": "public-fixture", "preset": "every-vote"})
     state = {"mutation": None, "calls": 0}
     root = tmp_path / "recordings"
 
@@ -95,9 +95,9 @@ def battery(tmp_path, monkeypatch):
         out = root / spec.dataset / spec.schedule_id / engine
         out.mkdir(parents=True, exist_ok=True)
         if state["mutation"] == "timeout":
-            raise subprocess.TimeoutExpired("synthetic-producer", 1)
+            raise subprocess.TimeoutExpired("public-fixture-producer", 1)
         if state["mutation"] == "producer-failure":
-            return subprocess.CompletedProcess([], 1, "", "synthetic failure")
+            return subprocess.CompletedProcess([], 1, "", "public-fixture failure")
         for step in steps:
             meta = {"index": step.index, "prev_slot": step.prev_slot,
                     "cut_slot": step.cut_slot, "batch_size": len(step.vote_events),
@@ -223,7 +223,7 @@ def test_missing_dataset_required_fails_optional_is_inconclusive(battery, monkey
     report = run()
     assert report["verdict"] == "FAIL"
     assert report["battery"][0]["stage"] == "dataset-unavailable"
-    optional = cert.parse_battery_entry({"dataset": "synthetic", "preset": "every-vote", "optional": True})
+    optional = cert.parse_battery_entry({"dataset": "public-fixture", "preset": "every-vote", "optional": True})
     report = run([optional])
     assert report["verdict"] == "INCONCLUSIVE"
     assert report["battery"][0]["verdict"] == "SKIPPED"
@@ -242,7 +242,7 @@ def test_empty_and_duplicate_batteries_rejected_before_producers(battery):
 def test_only_is_partial_even_if_filter_selects_entire_battery(battery):
     entry, state, root, ds, run = battery
     assert_pass(run())
-    report = run(only="synthetic")
+    report = run(only="public-fixture")
     assert report["partial"] is True
     assert report["verdict"] == "INCONCLUSIVE"
     assert cert.battery_exit_code(report, strict=True) == 1
@@ -252,9 +252,9 @@ def test_only_is_partial_even_if_filter_selects_entire_battery(battery):
 
 def make_schedule(tmp_path, at, **extra):
     path = tmp_path / "schedule.json"
-    path.write_text(json.dumps({"dataset": "synthetic", "schedule_id": "custom",
+    path.write_text(json.dumps({"dataset": "public-fixture", "schedule_id": "custom",
                                "cuts": {"mode": "vote-count", "at": at}, **extra}))
-    return cert.parse_battery_entry({"dataset": "synthetic", "schedule": str(path)})
+    return cert.parse_battery_entry({"dataset": "public-fixture", "schedule": str(path)})
 
 
 def test_zero_vote_requires_explicit_checkpoint_and_empty_contract(battery, tmp_path):
@@ -295,7 +295,7 @@ def test_zero_checkpoint_checks_declared_output(battery, tmp_path):
 
 
 def test_real_python_driver_records_zero_compute():
-    spec = sched.ScheduleSpec("synthetic", "empty", {"mode": "vote-count", "at": [0], "empty_checkpoint": True}, empty_output=EMPTY)
+    spec = sched.ScheduleSpec("public-fixture", "empty", {"mode": "vote-count", "at": [0], "empty_checkpoint": True}, empty_output=EMPTY)
     records = run_replay(ReplayDataset.build([]), spec)
     assert len(records) == 1
     assert records[0].cut_slot == 0 and records[0].batch_size == 0
@@ -335,14 +335,14 @@ def test_cli_strict_partial_fails_with_manifest(battery, monkeypatch):
     module = cli_module()
     monkeypatch.setattr(module.cert, "load_battery", lambda path: [entry])
     monkeypatch.setattr(module.cert, "default_ledger_path", lambda: root / "ledger.json")
-    result = CliRunner().invoke(module.cli, ["run", "--strict", "--root", str(root), "--only", "synthetic"])
+    result = CliRunner().invoke(module.cli, ["run", "--strict", "--root", str(root), "--only", "public-fixture"])
     assert result.exit_code == 1, result.output
     assert "PARTIAL RUN, NOT A GATE" in result.output
     manifest = latest_manifest(root)
     assert manifest["partial"] and manifest["verdict"] == "INCONCLUSIVE"
 
 
-@pytest.mark.parametrize("config", [[], {}, [{"dataset": "synthetic", "preset": "single-cut", "typo": True}], "{"])
+@pytest.mark.parametrize("config", [[], {}, [{"dataset": "public-fixture", "preset": "single-cut", "typo": True}], "{"])
 def test_cli_malformed_battery_writes_failure_manifest(tmp_path, config):
     path = tmp_path / "battery.json"
     path.write_text(config if isinstance(config, str) else json.dumps(config))
@@ -354,7 +354,7 @@ def test_cli_malformed_battery_writes_failure_manifest(tmp_path, config):
 
 @pytest.mark.parametrize("counts", [(0, 0), (1, 0), (1, 2)])
 def test_standalone_compare_and_focus_reject_empty_or_unequal(tmp_path, counts):
-    rec = tmp_path / "synthetic" / "single"
+    rec = tmp_path / "public-fixture" / "single"
     for engine, count in zip(("clj", "py"), counts):
         directory = rec / engine; directory.mkdir(parents=True)
         for index in range(count):
@@ -363,7 +363,7 @@ def test_standalone_compare_and_focus_reject_empty_or_unequal(tmp_path, counts):
             (directory / f"step-{index:03d}{suffix}").write_text(json.dumps(payload))
     with pytest.raises(cert.CertifyError, match="nonempty|steps"):
         cert.compare_recording_pair(rec / "clj", rec / "py", cache_root=tmp_path)
-    assert cert.run_focus("synthetic", "single", root=tmp_path, ledger_path=tmp_path / "ledger.json")["verdict"] == "ERROR"
+    assert cert.run_focus("public-fixture", "single", root=tmp_path, ledger_path=tmp_path / "ledger.json")["verdict"] == "ERROR"
 
 
 def test_missing_manifest_version_is_malformed(battery):
@@ -387,8 +387,8 @@ def test_empty_acceptance_blobs_do_not_match(tmp_path):
 
 def test_only_keeps_full_inventory_and_marks_unselected_entries(battery):
     entry, state, root, ds, run = battery
-    companion = cert.parse_battery_entry({"dataset": "synthetic", "preset": "single-cut"})
-    report = run([entry, companion], only=f"synthetic:{entry.schedule_id}")
+    companion = cert.parse_battery_entry({"dataset": "public-fixture", "preset": "single-cut"})
+    report = run([entry, companion], only=f"public-fixture:{entry.schedule_id}")
     assert len(report["inventory"]) == 4
     manifest = latest_manifest(root)
     assert [e["status"] for e in manifest["entries"]] == ["PASS", "INCONCLUSIVE"]
@@ -424,8 +424,8 @@ def _stamp(*parts):
 def input_change(tmp_path, monkeypatch):
     """A green battery whose fake producers stamp every input into the recorded
     blob. Returns ``(run, state, root, blob_stamps)``."""
-    votes = tmp_path / "synthetic-votes.csv"
-    comments = tmp_path / "synthetic-comments.csv"
+    votes = tmp_path / "public-fixture-votes.csv"
+    comments = tmp_path / "public-fixture-comments.csv"
     schedule = tmp_path / "input-change.json"
     root = tmp_path / "recordings"
     state = {"calls": 0, "polarity": -1, "restart_after": 0}
@@ -435,7 +435,7 @@ def input_change(tmp_path, monkeypatch):
         votes.write_text("timestamp,participant,comment,vote\n"
                          f"10,1,1,1\n20,2,1,{state['polarity']}\n30,3,1,1\n40,4,1,1\n")
         schedule.write_text(json.dumps({
-            "dataset": "synthetic", "schedule_id": "input-change",
+            "dataset": "public-fixture", "schedule_id": "input-change",
             "cuts": {"mode": "vote-count", "at": [2, 3, 4]},
             "moderation": [{"t_ms": 15, "tid": 1, "mod": 1}],
             "restart_after": state["restart_after"], "coverage": "full-stream",
@@ -446,7 +446,7 @@ def input_change(tmp_path, monkeypatch):
                                     (30, 3, 1, 1), (40, 4, 1, 1)])
 
     write_inputs()
-    monkeypatch.setattr(cert, "dataset_available", lambda name: name == "synthetic")
+    monkeypatch.setattr(cert, "dataset_available", lambda name: name == "public-fixture")
     monkeypatch.setattr(cert, "votes_csv_path", lambda name: votes)
     monkeypatch.setattr(cert, "comments_csv_path", lambda name: comments)
     monkeypatch.setattr(cert.real_data, "load_export_votes", dataset)
@@ -477,11 +477,11 @@ def input_change(tmp_path, monkeypatch):
     monkeypatch.setattr(cert, "run_py_driver", lambda spec, **kw: produce(spec, "py"))
 
     def run():
-        entry = cert.parse_battery_entry({"dataset": "synthetic", "schedule": str(schedule)})
+        entry = cert.parse_battery_entry({"dataset": "public-fixture", "schedule": str(schedule)})
         return cert.run_battery([entry], root=root, ledger_path=tmp_path / "ledger.json")
 
     def stamps():
-        recorded = sorted((root / "synthetic").rglob("step-*.blob.json"))
+        recorded = sorted((root / "public-fixture").rglob("step-*.blob.json"))
         assert recorded, "no clj checkpoints recorded"
         return {json.loads(p.read_text())["n-cmts"] for p in recorded}
 
@@ -652,7 +652,7 @@ def test_validate_checkpoint_blob_accepts_nullable_and_snake_spellings():
     cert.validate_checkpoint_blob(
         {"n": 0, "n_cmts": 0, "tids": [], "in_conv": [], "mod-in": None,
          "mod-out": None, "meta-tids": None, "lastModTimestamp": None,
-         "zid": "synthetic"},
+         "zid": "public-fixture"},
         "py: step-000")
 
 
@@ -1136,24 +1136,24 @@ def test_temp_schedule_path_does_not_collide_for_valid_component_pairs(tmp_path)
     """``f"{dataset}__{schedule_id}.json"`` mapped these two VALID pairs onto one
     path, so the second entry's write silently handed its schedule to the
     first entry's producer."""
-    a = _spec("synthetic__a", "b-clojure-legacy")
-    b = _spec("synthetic", "a__b-clojure-legacy")
+    a = _spec("public_fixture__a", "b-clojure-legacy")
+    b = _spec("public-fixture", "a__b-clojure-legacy")
     pa = cert._write_temp_schedule(a, tmp_path)
     pb = cert._write_temp_schedule(b, tmp_path)
     assert pa != pb
-    assert json.loads(pa.read_text())["dataset"] == "synthetic__a"
-    assert json.loads(pb.read_text())["dataset"] == "synthetic"
+    assert json.loads(pa.read_text())["dataset"] == "public_fixture__a"
+    assert json.loads(pb.read_text())["dataset"] == "public-fixture"
     assert json.loads(pa.read_text())["schedule_id"] == "b-clojure-legacy"
     assert json.loads(pb.read_text())["schedule_id"] == "a__b-clojure-legacy"
 
 
 def test_temp_schedule_path_is_stable_for_the_same_pair(tmp_path):
-    a = _spec("synthetic", "every-vote-clojure-legacy")
+    a = _spec("public-fixture", "every-vote-clojure-legacy")
     assert cert._write_temp_schedule(a, tmp_path) == cert._write_temp_schedule(a, tmp_path)
 
 
 def test_temp_schedule_write_leaves_no_staging_files(tmp_path):
-    cert._write_temp_schedule(_spec("synthetic", "s"), tmp_path)
+    cert._write_temp_schedule(_spec("public-fixture", "s"), tmp_path)
     tmp_dir = tmp_path / ".certify_cache" / "tmp_schedules"
     assert [p.name for p in sorted(tmp_dir.rglob("*")) if p.is_file()] == ["s.json"]
 

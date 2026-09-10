@@ -17,8 +17,8 @@ def recipe(role):
     return {'schema': 'polis-private-image-recipe/1', 'role': role,
             'sourceCommit': ('a' if role == 'producer' else 'b') * 40,
             'candidateSha': 'c' * 40, 'oracleSha': 'd' * 40, 'policySha256': 'e' * 64,
-            'runtimeImage': 'localhost/synthetic-runtime@sha256:' + 'f' * 64,
-            'entrypoint': 'gate.py', 'files': {'gate.py': hashlib.sha256(b'# synthetic test only\n').hexdigest()},
+            'runtimeImage': 'localhost/public-fixture-runtime@sha256:' + 'f' * 64,
+            'entrypoint': 'gate.py', 'files': {'gate.py': hashlib.sha256(b'# public-fixture test only\n').hexdigest()},
             'gates': sorted(images.GATES)}
 
 
@@ -43,7 +43,7 @@ def tar_bytes(files):
 def oci(path, r, *, config_patch=None, platform='arm64', source_patch=None, extra=False, corrupt=False):
     files = {'opt/polis-private-image/recipe.json': encoded(r),
              'opt/polis-private-image/launcher.py': (Path(images.__file__).parent / 'images/launcher.py').read_bytes(),
-             'opt/polis-private-image/payload/gate.py': b'# synthetic test only\n'}
+             'opt/polis-private-image/payload/gate.py': b'# public-fixture test only\n'}
     files.update(source_patch or {})
     layer = tar_bytes(files)
     image_config = config(r)
@@ -125,7 +125,7 @@ class ImageTests(unittest.TestCase):
 
     def test_wrong_entrypoint_user_and_ambient_env_rejected(self):
         for change in ({'User': '0'}, {'Entrypoint': ['/bin/sh']}, {'Cmd': ['produce']},
-                       {'Volumes': {'/host': {}}}, {'Env': ['AWS_ACCESS_KEY_ID=synthetic']},
+                       {'Volumes': {'/host': {}}}, {'Env': ['AWS_ACCESS_KEY_ID=public-fixture']},
                        {'OnBuild': ['RUN anything']}):
             with self.subTest(change=change):
                 oci(self.paths['producer'], self.recipes['producer'], config_patch=change)
@@ -238,7 +238,7 @@ class ImageTests(unittest.TestCase):
         spec.loader.exec_module(stage)
         source = self.root / 'source'
         source.mkdir()
-        raw = b'# synthetic test only\n'
+        raw = b'# public-fixture test only\n'
         (source / 'gate.py').write_bytes(raw)
         (source / 'ambient.txt').write_bytes(b'must not enter image')
         r = self.recipes['verifier']

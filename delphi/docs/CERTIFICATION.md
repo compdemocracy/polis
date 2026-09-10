@@ -36,7 +36,7 @@ uv run python scripts/certify_data.py pin \
 
 `certify_data.py pin` is limited by construction to the keys in
 `fixture_bundle.PUBLIC_PIN_KEYS`; `tests/test_certify_bundle.py` and
-`tests/test_certify_bundle_integration.py` assert that a planted synthetic zid,
+`tests/test_certify_bundle_integration.py` assert that a planted public-fixture zid,
 uid, topic or comment body never reaches its output. Measured metrics are also
 withheld: a `(V, U, P, C)` tuple can fingerprint a conversation.
 
@@ -96,15 +96,15 @@ the same manifest.
   missing role. It never silently picks a smaller case, skips the role, or
   reuses an older result. A threshold or rank change requires a reviewed config
   edit and a new bundle version.
-- The `pc-v1-dense*` roles alone may fall back to a deterministic synthetic
+- The `pc-v1-dense*` roles alone may fall back to a deterministic public-fixture
   stress case (`gen-v1-dense-stress`), and only under an explicitly recorded
-  approval (`--accept-synthetic`), which the manifest stores. The substitution
+  approval (`--accept-public-fixture`), which the manifest stores. The substitution
   is not fulfilled by the approval: the generator case is force-materialised
   even when generation is otherwise off, its directory is pinned in the role
   entry, and its measured `U/P/C/V/density` (computed over LATEST DISTINCT
   `(pid, tid)` cells, never over total revote rows) must satisfy the same
   predicate the missing production role was defined by. Coverage limits are
-  recorded with it: a synthetic case is scoped stress coverage, never evidence
+  recorded with it: a public-fixture case is scoped stress coverage, never evidence
   that production carries the same geometry.
 - Survey and extraction run inside ONE read-only repeatable-read transaction (or
   against a clone with all writers disabled). The manifest records which.
@@ -191,7 +191,7 @@ nothing about whether the bundle covers what it claims, so `push`, `pull` and
 - EVERY role in the selection config is present, backed by a directory that
   actually holds bytes, and carries measured metrics that satisfy the config
   predicates it claims to have been selected under;
-- a synthetic substitute names its approval, its generator case, its coverage
+- a public-fixture substitute names its approval, its generator case, its coverage
   limits, and that case is MATERIALISED in this bundle — a role recorded with
   `dir: null` is unfilled, whatever it is named — and its measured metrics
   satisfy the same stress predicate the missing production role was defined by;

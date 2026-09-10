@@ -910,7 +910,7 @@ class TestNegativeControl:
 
 
 # --------------------------------------------------------------------------- #
-# The review's synthetic mutation cases, as first-class controls.
+# The review's public-fixture mutation cases, as first-class controls.
 #
 # These need no database: they are the exact observations
 # `cost-reduction/scripts/p022-review-2702-checks.py` makes, pinned so the

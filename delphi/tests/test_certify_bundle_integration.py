@@ -7,7 +7,7 @@ CI ``postgres`` service from ``docker-compose.test.yml`` when
 ephemeral port with ``server/postgres/migrations/000000_initial.sql`` +
 ``000006_update_votes_rule.sql`` applied).
 
-EVERYTHING here is synthetic. Every zid, uid, comment body and vote below was
+EVERYTHING here is public-fixture. Every zid, uid, comment body and vote below was
 invented for this file; the planted identifiers exist precisely so the
 redaction assertions have something recognisable to fail on.
 
@@ -39,13 +39,13 @@ from tests.conftest import require_polis_postgres
 pytestmark = pytest.mark.integration
 
 # ---------------------------------------------------------------------------
-# Planted synthetic identifiers — the redaction assertions look for these.
+# Planted public-fixture identifiers — the redaction assertions look for these.
 # ---------------------------------------------------------------------------
 
 PLANTED_TOPIC = "PLANTEDTOPICzzq"
 PLANTED_TEXT = "PLANTEDCOMMENTBODYzzq"
 PLANTED_UID = 1990001234
-Z = {  # role -> synthetic zid
+Z = {  # role -> public-fixture zid
     "revote": 1990000001,
     "banned": 1990000002,
     "zerovote": 1990000003,
@@ -218,7 +218,7 @@ def _seed(engine):
         engine SERVED, which is what the P-052 §4.5 capture reads back.
         ``rows`` are ``(math_env, last_vote_timestamp, math_tick)`` triples.
 
-        The blob is a synthetic stand-in for the Clojure prep-main whitelist,
+        The blob is a public-fixture stand-in for the Clojure prep-main whitelist,
         including its ``zid`` key, so the capture's verbatim handling and the
         manifest's redaction claim are both exercised on something recognisable.
         """
@@ -716,7 +716,7 @@ def test_generated_cases_land_beside_the_extracted_ones(extracted):
     assert result["generated"]
     for case in result["generated"]:
         assert (payload / case["dir"]).is_dir()
-        assert case["generated"]["provenance"].startswith("SYNTHETIC")
+        assert case["generated"]["provenance"].startswith("PUBLIC_FIXTURE")
 
 
 # ---------------------------------------------------------------------------

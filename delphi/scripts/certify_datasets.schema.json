@@ -154,10 +154,10 @@
           "items": {"$ref": "#/definitions/sort_key"}
         },
         "on_missing": {
-          "enum": ["fail", "fail_with_synthetic_replacement_offer"],
+          "enum": ["fail", "fail_with_public_fixture_replacement_offer"],
           "description": "A missing role stops bundle construction. The replacement-offer mode names the deterministic public fixture an approver may explicitly accept instead. Neither mode silently downgrades."
         },
-        "synthetic_replacement": {"type": "string"},
+        "public_fixture_replacement": {"type": "string"},
         "exercise": {"type": "string", "minLength": 1},
         "notes": {"type": "string"}
       }

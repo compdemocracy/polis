@@ -27,7 +27,7 @@ losing publication leaves an unadmitted prefix, not a mixed bundle.
 :func:`verify` proves bytes: it fails on corrupted, truncated, missing AND extra
 files, and refuses an unversioned or empty manifest outright.
 :func:`admit_manifest` proves MEANING — schema version, closed field set, every
-configured role present, materialised and inside the rule it claims, synthetic
+configured role present, materialised and inside the rule it claims, public-fixture
 substitutes actually generated and pinned, checkpoint counts derived from the
 schedules, polarity declared. Both run on push and on pull; hashes alone never
 certify coverage.
@@ -565,7 +565,7 @@ def derived_role(entry: dict[str, Any], *, source_bundle_id: str) -> dict[str, A
     conversation a role was selected from, not the metrics it was selected
     under, not its coverage. So the derived role keeps all of that and adds the
     binding that says where it came from; it never claims to be a fresh
-    production extraction or an approved synthetic replacement.
+    production extraction or an approved public-fixture replacement.
     """
     original_source = entry.get("source")
     if original_source not in ORIGINAL_ROLE_SOURCES:
@@ -1204,12 +1204,12 @@ ORDERING_GUARANTEES = frozenset(TIE_ORDER_POLICIES)
 
 #: The role source of a DERIVED bundle: this role's fixture is the declared
 #: involution of an ADMITTED bundle's role, not a new production extraction and
-#: not an approved synthetic replacement (review #2730 F1).
+#: not an approved public-fixture replacement (review #2730 F1).
 #:
 #: Without it no flipped bundle could exist at all: 15 of the 17 required roles
 #: carry ``on_missing: fail``, so admission forbids substituting them, and the
 #: production release policy forbids a production-source role from declaring
-#: +1. Relabelling them "synthetic-replacement" only moves the failure. The
+#: +1. Relabelling them "public-fixture-replacement" only moves the failure. The
 #: derived source is the missing third case, and it is NOT a weakening: a
 #: derived role must name the transform's source bundle and RETAIN the original
 #: role's own source, so the provenance of the underlying capture survives the
@@ -1217,7 +1217,7 @@ ORDERING_GUARANTEES = frozenset(TIE_ORDER_POLICIES)
 DERIVED_ROLE_SOURCE = "derived"
 
 #: What a derived role may have been derived FROM.
-ORIGINAL_ROLE_SOURCES = frozenset({"production", "synthetic-replacement"})
+ORIGINAL_ROLE_SOURCES = frozenset({"production", "public-fixture-replacement"})
 
 ROLE_SOURCES = ORIGINAL_ROLE_SOURCES | frozenset({DERIVED_ROLE_SOURCE})
 
@@ -1261,7 +1261,7 @@ ADMISSION_POLICY_ENUMS: dict[str, frozenset[str]] = {
     "null_weight_policy": frozenset({"nullable-preserved"}),
     "null_vote_policy": frozenset({
         "event-stream-nullable+compat-csv-drop-counted"}),
-    "synthetic_substitution_policy": frozenset({
+    "public_fixture_substitution_policy": frozenset({
         "explicit-approval-and-materialised"}),
     "tie_order_policy": frozenset(TIE_ORDER_POLICIES.values()),
     "equal_time_policy": frozenset({"census-counted-ambiguity"}),
@@ -1310,7 +1310,7 @@ def _admission_block(*, ordering_guarantee: str,
         "null_weight_policy": "nullable-preserved",
         "null_vote_policy": COMPAT_DROP_COUNTED_POLICY,
         "accepted_null_vote_drops": bool(accepted_null_vote_drops),
-        "synthetic_substitution_policy": "explicit-approval-and-materialised",
+        "public_fixture_substitution_policy": "explicit-approval-and-materialised",
         "tie_order_policy": TIE_ORDER_POLICIES[ordering_guarantee],
         "equal_time_policy": "census-counted-ambiguity",
         "schedule_coverage": "file-schedules-only",
@@ -1322,10 +1322,10 @@ def _admission_block(*, ordering_guarantee: str,
                 "the event stream keeps every NULL votes.vote; the compatibility "
                 "CSV omits them and COUNTS them per role, which makes that export "
                 "non-certifying until an operator records an acceptance",
-            "synthetic_substitution_policy":
+            "public_fixture_substitution_policy":
                 # Historical manifest bytes are pinned, including this old CLI
                 # spelling. The current CLI uses --accept-public-fixture.
-                "allowed only with an explicit --accept-synthetic approval, and "
+                "allowed only with an explicit --accept-public-fixture approval, and "
                 "only when the replacement generator case is MATERIALISED and "
                 "pinned in this manifest; a dir:null substitute is an unfilled "
                 "role",
@@ -1395,7 +1395,7 @@ def _admit_manifest_structure(
     :func:`verify` proves the bytes on disk are the bytes the manifest names.
     That is necessary and nowhere near sufficient: it says nothing about which
     roles the bundle claims, whether the conversation behind a role actually
-    satisfies the rule it was selected under, whether a synthetic substitute
+    satisfies the rule it was selected under, whether a public-fixture substitute
     was ever materialised, whether the declared checkpoint counts match the
     schedules, or whether the polarity that every downstream comparison depends
     on was declared at all. This function is that gate, and ``push``/``pull``
@@ -1712,7 +1712,7 @@ def _admit_manifest_structure(
             P(str(directory) in dirs_present,
               f"role {slug!r} names directory {directory!r}, which holds no file in "
               "the inventory: the role is declared but not materialised")
-        # Both a production conversation and a synthetic substitute have to be
+        # Both a production conversation and a public-fixture substitute have to be
         # MEASURED inside the rule the role is named for. A substitute claimed
         # from a case's name, without numbers, is not a substitute.
         metrics = entry.get("measured_metrics")
@@ -1727,8 +1727,8 @@ def _admit_manifest_structure(
         # The EFFECTIVE source: for a derived role, the source of the role it
         # was derived FROM. Every rule that governed the original governs the
         # derivation too (review #2730 R2-F1) — retaining a binding that
-        # NAMES a synthetic origin, while skipping the offer/approval/generator
-        # rules that make a synthetic role admissible, let a manifest claim an
+        # NAMES a public-fixture origin, while skipping the offer/approval/generator
+        # rules that make a public-fixture role admissible, let a manifest claim an
         # origin its own policy forbids, and the whole verify/admit/push/pull
         # path accepted it.
         binding = entry.get("derived_from")
@@ -1769,26 +1769,26 @@ def _admit_manifest_structure(
                       f"{binding.get('bundle_id')!r}, but the transform block "
                       f"binds {expected_source!r}: one manifest cannot be "
                       f"derived from two different bundles")
-        if effective_source == "synthetic-replacement":
+        if effective_source == "public-fixture-replacement":
             # Applied to a fresh substitute AND to a derivation of one: the
             # involution changes vote signs, never whether a substitution was
             # offered, approved, materialised or pinned to a generator.
-            origin = ("derived synthetic role" if source == DERIVED_ROLE_SOURCE
-                      else "synthetic role")
-            replacement = rule.get("synthetic_replacement")
-            P(rule.get("on_missing") == "fail_with_synthetic_replacement_offer",
-              f"role {slug!r} is a synthetic replacement but its rule does not "
+            origin = ("derived public-fixture role" if source == DERIVED_ROLE_SOURCE
+                      else "public-fixture role")
+            replacement = rule.get("public_fixture_replacement")
+            P(rule.get("on_missing") == "fail_with_public_fixture_replacement_offer",
+              f"role {slug!r} is a public-fixture replacement but its rule does not "
               "offer one")
             P(bool(entry.get("approval")),
               f"{origin} {slug!r} carries no recorded operator approval")
-            P(entry.get("synthetic_replacement") == replacement,
+            P(entry.get("public_fixture_replacement") == replacement,
               f"{origin} {slug!r} names generator case "
-              f"{entry.get('synthetic_replacement')!r}, config offers "
+              f"{entry.get('public_fixture_replacement')!r}, config offers "
               f"{replacement!r}")
-            P(str(entry.get("synthetic_replacement")) in materialised_case_ids
+            P(str(entry.get("public_fixture_replacement")) in materialised_case_ids
               or str(directory) in dirs_present,
               f"{origin} {slug!r} substitutes generator case "
-              f"{entry.get('synthetic_replacement')!r}, which is NOT materialised "
+              f"{entry.get('public_fixture_replacement')!r}, which is NOT materialised "
               "in this bundle")
             P(bool(entry.get("coverage_limits")),
               f"{origin} {slug!r} does not state its coverage limits")
@@ -2244,9 +2244,9 @@ _DIGEST_RE = re.compile(r"\b[0-9a-f]{16,}\b")
 
 
 def scan_for_identifiers(text: str, planted: Iterable[str]) -> list[str]:
-    """Return every planted synthetic identifier that appears in ``text``.
+    """Return every planted public-fixture identifier that appears in ``text``.
 
-    Used by the redaction tests: seed the DB with recognisable synthetic zids /
+    Used by the redaction tests: seed the DB with recognisable public-fixture zids /
     report ids, then assert this returns EMPTY for every public output.
     """
     return [needle for needle in planted if needle and needle in text]

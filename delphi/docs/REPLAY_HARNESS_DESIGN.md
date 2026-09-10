@@ -15,7 +15,7 @@ The harness serves four consumers, in order:
 1. **Gap measurement** — quantify Python(full-recompute) vs
    Clojure(sequential) divergence per pipeline stage, to size the
    sequential-bits work (warm-start `last-clusters`, k-smoothers, dispatcher).
-2. **R1 — sequential parity validation** on schedules WE define (synthetic
+2. **R1 — sequential parity validation** on schedules WE define (public-fixture
    and historic-with-chosen-cut-points): record schedule CCRs from Clojure,
    run Python on the same schedule, compare.
 3. **R2 — the inverse problem**: prodclone keeps NO history of math states
@@ -278,7 +278,7 @@ exclusively.
   sized by H-C.
 - **Phase H-A (Python side + spine, pure Python):** schedule spec + slicer
   (sorting/revote handling per §5), Python driver, store layout,
-  comparer repointing. Small; unblocks synthetic-schedule R1 for
+  comparer repointing. Small; unblocks public-fixture-schedule R1 for
   Python-vs-Python-expectation tests immediately. This driver IS the
   future R2 forward model (§1.3).
 - **Phase H-B (Clojure Mode A):** `dev/replay.clj` + blob-per-step

@@ -6,7 +6,7 @@ entry nobody had recorded looked exactly like an entry nobody had asked for.
 These tests pin the enumeration that replaces it — the battery is the list, the
 disk decides coverage, and BOTH halves are reported by name.
 
-Synthetic recording roots only: no engine, no dataset, no CI. The three cases
+Public-fixture recording roots only: no engine, no dataset, no CI. The three cases
 the G12 consumer actually hits are `present`, `missing clj` and `missing py`.
 """
 
@@ -53,7 +53,7 @@ def _write_steps(step_dir: Path, count: int, suffix: str) -> None:
 
 
 def _record(root: Path, dataset: str, schedule_id: str, *, clj: int | None, py: int | None) -> Path:
-    """Lay down a synthetic recording. ``None`` means that engine never ran."""
+    """Lay down a public-fixture recording. ``None`` means that engine never ran."""
     rec = root / dataset / schedule_id
     rec.mkdir(parents=True, exist_ok=True)
     (rec / "schedule.json").write_text(json.dumps({"schedule_id": schedule_id, "cuts": {"mode": "vote-count", "at": list(range(1, max(clj or 0, py or 0) + 1))}}))
@@ -88,7 +88,7 @@ def test_derive_schedule_id_requires_n_cuts_for_cut_presets():
 # ---------------------------------------------------------------------------
 @pytest.fixture()
 def three_case_root(tmp_path: Path) -> tuple[Path, Path]:
-    """A battery of three entries, one per outcome, over synthetic recordings."""
+    """A battery of three entries, one per outcome, over public-fixture recordings."""
     battery = _write_battery(tmp_path, [
         {"dataset": "vw", "preset": "uniform", "n_cuts": 8},
         {"dataset": "vw", "preset": "front-loaded", "n_cuts": 6},

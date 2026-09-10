@@ -174,7 +174,7 @@ _MAPPING_CHECKPOINT_KEYS: tuple[str, ...] = (
 _SEQUENCE_CHECKPOINT_KEYS: tuple[str, ...] = ("group-clusters",)
 
 #: ``zid`` is an identifier, not a number to compute with: int or str, never a
-#: float/container. (The battery's synthetic fixtures use string zids.)
+#: float/container. (The battery's public-fixture fixtures use string zids.)
 _ID_SCALAR_CHECKPOINT_KEYS: tuple[str, ...] = ("zid",)
 
 # Every name above must be a real prep-main key: no ad-hoc field invented here
@@ -1146,7 +1146,7 @@ def _write_temp_schedule(spec: sched.ScheduleSpec, root: Path) -> Path:
 
     The path is UNAMBIGUOUS in (dataset, schedule_id). The previous
     ``f"{dataset}__{schedule_id}.json"`` flattening was not: the valid pairs
-    ``("synthetic__a", "b-clojure-legacy")`` and ``("synthetic", "a__b-clojure-legacy")``
+    ``("public_fixture__a", "b-clojure-legacy")`` and ``("public-fixture", "a__b-clojure-legacy")``
     produced the same filename, so whichever entry wrote second silently handed
     the OTHER entry's schedule to a producer (P-022 B1 review, P2). Distinct
     recording directories do not isolate this shared input file.
