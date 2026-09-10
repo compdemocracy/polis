@@ -32,6 +32,15 @@ test('ARM bootstrap installs the noninteractive JVM without unavailable rlwrap',
   expect(source).toContain('clojure --version');
 });
 
+test('ARM source-build toolchain is installed before the locked Python environment', () => {
+  const source = script();
+  const toolchain = source.indexOf('dnf install -y gcc gcc-c++ make || fail "python build tools"');
+  expect(toolchain).toBeGreaterThan(0);
+  expect(toolchain).toBeLessThan(source.indexOf('uv sync --locked --extra dev'));
+  expect(source).not.toContain('--no-build-isolation');
+  expect(source).not.toContain('--no-install-package');
+});
+
 test('test extras are installed and verified before the ready marker', () => {
   const source = script();
   expect(source).toContain('uv sync --locked --extra dev');
