@@ -201,7 +201,9 @@ function pcaEnv(engineRow, { mutateBackfill = false } = {}) {
             },
           ],
   };
-  const context = { Buffer, console, setTimeout, process, URL, structuredClone };
+  const context = { Buffer, console, setTimeout, process, URL, structuredClone,
+    Date: class extends Date { static now() { return 1700000000000; } },
+  };
   vm.createContext(context);
   const modules = {};
   context.require = (n) =>
@@ -213,7 +215,7 @@ function pcaEnv(engineRow, { mutateBackfill = false } = {}) {
           __esModule: true,
         }
       : n === "./logger"
-      ? { default: { info() {}, silly() {}, error() {} }, __esModule: true }
+      ? { default: { info() {}, silly() {}, error() {}, debug() {} }, __esModule: true }
       : n === "./metered"
       ? { addInRamMetric() {} }
       : n === "./pca"
@@ -228,9 +230,7 @@ function pcaEnv(engineRow, { mutateBackfill = false } = {}) {
     }).outputText;
     const module = { exports: {} };
     modules[key] = module;
-    context.module = module;
-    context.exports = module.exports;
-    vm.runInContext(code, context, { filename });
+    vm.runInContext("(function(exports, require, module) {\n" + code + "\n})", context, { filename })(module.exports, context.require, module);
     return module.exports;
   };
   build("../src/utils/pca.ts", "pca");
@@ -252,6 +252,28 @@ function pcaEnv(engineRow, { mutateBackfill = false } = {}) {
   return {
     getPca: modules.pca.exports.getPca,
     presentPca: presentation.presentPca,
+    route(name) {
+      const baseRequire = context.require;
+      // Only non-math collaborators are controlled. Both HTTP handlers and the
+      // entire getPca -> presentPca -> Express response path execute real code.
+      const collaborators = {
+        "../utils/pca": modules.pca.exports,
+        "../utils/pcaPresentation": presentation,
+        "../utils/logger": baseRequire("./logger"),
+        "../utils/fail": {failJson: (res, status, message, error) => { res.status(status).json({error: String(error || message)}); }},
+        "../user": {getUser: async () => ({uid: 7, pid: 1})},
+        "../nextComment": {getNextComment: async () => ({tid: 0, txt: "synthetic", zid: 1})},
+        "./votes": {getVotesForSingleParticipant: async () => [{pid: 1, tid: 0, vote: 1, zid: 1}]},
+        "../server-helpers": {
+          getOneConversation: async () => ({zid: 1, topic: "synthetic C7"}),
+          doFamousQuery: async () => ({}),
+        },
+      };
+      context.require = n => Object.hasOwn(collaborators, n) ? collaborators[n]
+        : ["../db/pg-query", "../config"].includes(n) ? baseRequire(n)
+        : n.startsWith(".") ? {} : require(n);
+      return build(`../src/routes/${name}.ts`, name);
+    },
   };
 }
 
@@ -361,6 +383,29 @@ test("F4: actual PCA serializer exposes C7 empty-engine regression against appro
   }
 });
 
+// The exception applies ONLY to positions of these three empty top-level keys.
+const C7_POSITION_KEYS = ["meta-tids", "mod-in", "mod-out"];
+function assertC7NamedPair(legacy, corrected) {
+  const a = decodePresented(legacy), b = decodePresented(corrected);
+  for (const item of [legacy, corrected]) {
+    assert.equal(item.asJSON, JSON.stringify(item.asPOJO));
+    assert.equal(zlib.gunzipSync(item.asBufferOfGzippedJson).toString(), item.asJSON);
+  }
+  assert.deepEqual(a, b, "C7 complete values");
+  for (const key of C7_POSITION_KEYS) {
+    assert.deepEqual(a[key], [], `legacy ${key} must be empty`);
+    assert.deepEqual(b[key], [], `corrected ${key} must be empty`);
+  }
+  assert.deepEqual(
+    Object.keys(a).filter(k => !C7_POSITION_KEYS.includes(k)),
+    Object.keys(b).filter(k => !C7_POSITION_KEYS.includes(k)),
+    "C7 non-exempt top-level order"
+  );
+  for (const key of Object.keys(a)) {
+    assert.equal(JSON.stringify(a[key]), JSON.stringify(b[key]), `C7 exact nested bytes: ${key}`);
+  }
+}
+
 test("C7: engine-cutover key-order-only replacement for the two named empty shapes", async () => {
   // BOARD [488] / DECISIONS.md: Colin approved a NARROW replacement for the
   // empty-math engine cutover. Across the engine change the served body's ONLY
@@ -372,7 +417,7 @@ test("C7: engine-cutover key-order-only replacement for the two named empty shap
   // and /api/v3/participationInit (routes/participation.ts:
   // `response.pca = pcaData`, i.e. `$.response.body.pca.asJSON`). It is NOT a
   // global sort: shapes 1/2/5 stay byte-identical below.
-  const APPENDED = ["meta-tids", "mod-in", "mod-out"];
+  const APPENDED = C7_POSITION_KEYS;
   const shapes = require("./c7-shapes.json");
   // legacy[2] = shape 3 (in-conv, mod-out); legacy[3] = shape 4 (in-conv,
   // meta-tids, mod-out): the two that carry mod-out without mod-in and so land
@@ -412,6 +457,7 @@ test("C7: engine-cutover key-order-only replacement for the two named empty shap
     assert.deepEqual(dl.pca.center, [0, 0]);
     assert.deepEqual(dl.pca["comment-extremity"], [0, 0]);
     if (NAMED.has(i)) {
+      assertC7NamedPair(legacy, corrected);
       // The two named shapes: the key order differs, and (per the checks above)
       // only in the appended keys.
       assert.notDeepEqual(a, b);
@@ -427,6 +473,135 @@ test("C7: engine-cutover key-order-only replacement for the two named empty shap
     }
   }
   assert.equal(named, 2);
+});
+
+test("C7: named replacement rejects semantic, nested-byte and non-exempt-order mutations", async () => {
+  const shape = require("./c7-shapes.json").legacy[2];
+  const corrected = await presentServed(CORRECTED);
+  const legacy = await presentServed(shape);
+  const rawMutation = structuredClone(shape);
+  rawMutation.lastVoteTimestamp = 123;
+  const changedTimestamp = await presentServed(rawMutation);
+  assert.throws(() => assertC7NamedPair(changedTimestamp, corrected), /complete values/);
+  const mutate = (item, change) => {
+    const asPOJO = JSON.parse(item.asJSON); change(asPOJO);
+    const asJSON = JSON.stringify(asPOJO);
+    return {asPOJO, asJSON, asBufferOfGzippedJson: zlib.gzipSync(asJSON)};
+  };
+  for (const change of [
+    x => { x.math_tick++; },
+    x => { x.pca.center[0] = 99; },
+    x => { x.pca = Object.fromEntries(Object.entries(x.pca).reverse()); },
+    x => { const value = x.tids; delete x.tids; x.tids = value; },
+  ]) {
+    assert.throws(() => assertC7NamedPair(mutate(legacy, change), corrected));
+  }
+  for (const key of C7_POSITION_KEYS) {
+    // Even equal nonempty values on BOTH sides must be refused.
+    const change = x => { x[key] = [1]; };
+    assert.throws(() => assertC7NamedPair(mutate(legacy, change), mutate(corrected, change)), /must be empty/);
+    assert.throws(() => assertC7NamedPair(legacy, mutate(corrected, change)));
+  }
+});
+
+async function c7Http(engineRow, endpoint) {
+  const http = require("node:http"), express = require("express");
+  const env = pcaEnv(jsonbCanon(engineRow));
+  const math = endpoint === "/api/v3/math/pca2";
+  const route = env.route(math ? "math" : "participation");
+  const handler = math ? route.handle_GET_math_pca2 : route.handle_GET_participationInit;
+  assert.equal(typeof handler, "function");
+  const app = express();
+  app.set("env", "production"); app.set("json spaces", undefined); app.set("etag", "weak");
+  app.get(endpoint, (req, res) => {
+    res.set("Date", "Tue, 14 Nov 2023 22:13:20 GMT");
+    req.p = {zid: 1, math_tick: -1, conversation_id: "synthetic-c7", lang: "en", includePCA: true};
+    return handler(req, res);
+  });
+  const server = http.createServer(app);
+  try {
+    await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+    return await new Promise((resolve, reject) => {
+      http.get({hostname: "127.0.0.1", port: server.address().port, path: endpoint, agent: false, timeout: 5000}, res => {
+        const chunks = [];
+        res.on("data", b => chunks.push(b));
+        res.on("error", reject);
+        res.on("end", () => resolve({status: res.statusCode, headers: res.headers, orderedHeaders: res.rawHeaders, body: Buffer.concat(chunks)}));
+      }).on("error", reject).on("timeout", function () { this.destroy(new Error("C7 HTTP timeout")); });
+    });
+  } finally { await new Promise(resolve => server.close(resolve)); }
+}
+
+function assertC7HttpBody(response, math) {
+  assert.equal(response.status, 200, response.body.toString());
+  assert.equal(response.headers["content-length"], String(response.body.length));
+  if (math) {
+    assert.equal(response.headers["content-encoding"], "gzip");
+    const payload = JSON.parse(zlib.gunzipSync(response.body));
+    // This route's ETag is a generation tag, NOT a body digest.
+    assert.equal(response.headers.etag, '"' + payload.math_tick + '"');
+    return {asPOJO: payload, asJSON: zlib.gunzipSync(response.body).toString(), asBufferOfGzippedJson: response.body};
+  }
+  assert.equal(response.headers["content-encoding"], undefined);
+  assert.equal(response.headers.etag, require("express/lib/utils").wetag(response.body));
+  const body = JSON.parse(response.body);
+  assert.equal(response.body.toString(), JSON.stringify(body));
+  assert.deepEqual(body.pca.asBufferOfGzippedJson.type, "Buffer");
+  return {...body.pca, asBufferOfGzippedJson: Buffer.from(body.pca.asBufferOfGzippedJson.data)};
+}
+
+function assertC7HttpPair(legacy, corrected, math) {
+  const a = assertC7HttpBody(legacy, math), b = assertC7HttpBody(corrected, math);
+  assertC7NamedPair(a, b);
+  // Complete ordered headers: only independently validated body-derived fields
+  // may change. math/pca2's generation ETag is retained exactly.
+  const stable = r => {
+    const pairs = [];
+    for (let i = 0; i < r.orderedHeaders.length; i += 2) {
+      const name = r.orderedHeaders[i], value = r.orderedHeaders[i+1];
+      pairs.push([name, name.toLowerCase() === "content-length" || (!math && name.toLowerCase() === "etag") ? "<verified-own-body>" : value]);
+    }
+    return pairs;
+  };
+  assert.deepEqual(stable(legacy), stable(corrected));
+  if (!math) {
+    const expected = JSON.parse(legacy.body), actual = JSON.parse(corrected.body);
+    // Replace only the THREE checked encodings. Every other response/PCA field
+    // and its position, including expiration, ticks, user, votes and comments,
+    // must serialize exactly as before.
+    for (const key of ["asPOJO", "asJSON", "asBufferOfGzippedJson"]) expected.pca[key] = actual.pca[key];
+    assert.equal(JSON.stringify(expected), corrected.body.toString());
+  }
+}
+
+test("C7: both named shapes traverse actual response paths with complete wire and own-body headers", async () => {
+  const shapes = require("./c7-shapes.json");
+  for (const endpoint of ["/api/v3/math/pca2", "/api/v3/participationInit"]) {
+    const math = endpoint.endsWith("pca2");
+    const corrected = await c7Http(CORRECTED, endpoint);
+    for (const index of [2, 3]) {
+      const legacy = await c7Http(shapes.legacy[index], endpoint);
+      assertC7HttpPair(legacy, corrected, math);
+      const receipt = r => ({bytes: r.body.length,
+        sha256: crypto.createHash("sha256").update(r.body).digest("hex"),
+        contentLength: r.headers["content-length"], etag: r.headers.etag});
+      console.log(JSON.stringify({c7Wire: endpoint, shape: index + 1,
+        legacy: receipt(legacy), corrected: receipt(corrected)}));
+      assert(!legacy.body.equals(corrected.body), "named transition changes wire bytes");
+      const badLength = {...corrected, headers: {...corrected.headers, "content-length": "0"}};
+      assert.throws(() => assertC7HttpPair(legacy, badLength, math));
+      const badTag = {...corrected, headers: {...corrected.headers, etag: '"wrong"'}};
+      assert.throws(() => assertC7HttpPair(legacy, badTag, math));
+      const badUnrelated = {...corrected, orderedHeaders: [...corrected.orderedHeaders, "X-Unapproved", "changed"]};
+      assert.throws(() => assertC7HttpPair(legacy, badUnrelated, math));
+      if (!math) {
+        const changed = JSON.parse(corrected.body); changed.votes[0].vote = -1;
+        const bytes = Buffer.from(JSON.stringify(changed));
+        const headers = {...corrected.headers, "content-length": String(bytes.length), etag: require("express/lib/utils").wetag(bytes)};
+        assert.throws(() => assertC7HttpPair(legacy, {...corrected, body: bytes, headers}, math));
+      }
+    }
+  }
 });
 
 test("A2: unref does not exempt application delayed work", async () => {
