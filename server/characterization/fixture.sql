@@ -7,7 +7,7 @@ INSERT INTO users(uid,hname,email,is_owner,site_id,created) VALUES
  (3,'Generated Participant','participant@example.invalid',false,'p027-participant',1700000000000);
 SELECT setval('users_uid_seq',3,true);
 INSERT INTO conversations(zid,owner,topic,description,is_active,is_draft,is_public,profanity_filter,spam_filter,created,modified)
- VALUES(1,1,'Generated characterization conversation','Synthetic inputs only',true,false,true,false,false,1700000000000,1700000000000);
+ VALUES(1,1,'Generated characterization conversation','Public-fixture inputs only',true,false,true,false,false,1700000000000,1700000000000);
 INSERT INTO conversations(zid,owner,topic,created,modified) VALUES(0,1,'Generated reserved-id sentinel',1700000000000,1700000000000);
 SELECT setval('conversations_zid_seq',1,true);
 INSERT INTO zinvites(zid,zinvite,created) VALUES(1,'2p027generated',1700000000000);

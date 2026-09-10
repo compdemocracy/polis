@@ -2,7 +2,7 @@
 const { fixtures, actors } = require("./comments-cases.cjs");
 const { hash } = require("./core.cjs");
 const CLOCK = 1700000000000;
-// Synthetic INPUT rows only. Response bodies are always produced by the real app.
+// Public-fixture INPUT rows only. Response bodies are always produced by the real app.
 function rows(f) {
   const shape = f.shape,
     r = f.replicate;
