@@ -273,7 +273,7 @@ impl Metrics {
     }
     /// `P026_METRICS` selects the sink: `off` (default), `stderr`, `stdout`, or
     /// a filesystem path. `P026_ENVIRONMENT` is P-031's `Environment` dimension
-    /// and defaults to `synthetic`, never to `prod`.
+    /// and defaults to `public-fixture`, never to `prod`.
     ///
     /// `off` is the default on purpose: writing records into a pipe that no
     /// reader is draining blocks the writer once the pipe buffer fills, and a

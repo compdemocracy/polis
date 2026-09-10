@@ -157,7 +157,7 @@ def comparisons(artifacts, evidence, baseline, replay_pin):
     if pin["system"] == "Darwin" and pin["machine"] == "arm64":
         require(all(json.loads(baseline[name]) == witness for name, witness in witnesses.items()),
                 "REPLAY_LAPTOP_WITNESS_DRIFT")
-    for name in ("polarity-synthetic.json", "polarity-vw.json", "polarity-biodiversity.json",
+    for name in ("polarity-public-fixture.json", "polarity-vw.json", "polarity-biodiversity.json",
                  "polarity-rebuild-schedule.json", "semantic-tie-key.json"):
         current = json.loads((artifacts / name).read_text())
         if name == "polarity-rebuild-schedule.json":

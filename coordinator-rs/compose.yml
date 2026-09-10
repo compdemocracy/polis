@@ -1,4 +1,4 @@
-# Synthetic local test database only. Always COMPOSE_PROJECT_NAME=p026.
+# Public fixture local test database only. Always COMPOSE_PROJECT_NAME=p026.
 services:
   postgres:
     image: postgres:17-alpine

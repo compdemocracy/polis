@@ -36,9 +36,9 @@ def diff(a,b,path=""):
     return out
 
 
-@pytest.mark.parametrize("fixture",["synthetic","vw","biodiversity"])
+@pytest.mark.parametrize("fixture",["public-fixture","vw","biodiversity"])
 def test_polarity_through_actual_database_ingress(db,launch,fixture):
-    if fixture=="synthetic":seed(db)
+    if fixture=="public-fixture":seed(db)
     else:seed_vw(db,slug=fixture)
     launch(db).done()
     a=canonical(rows(db))
@@ -69,7 +69,7 @@ def seed_vw(db,limit=None,slug="vw"):
     with c.cursor() as cur:
         cur.execute("SET session_replication_role=replica")
         for p in pids:cur.execute("INSERT INTO participants(zid,pid,uid,mod) VALUES(1,%s,%s,0)",(p,100000+p))
-        for t in tids:cur.execute("INSERT INTO comments(zid,tid,pid,uid,txt,mod,is_meta,created,modified) VALUES(1,%s,0,100000,%s,0,false,1000,1000)",(t,f'Synthetic comment {t}'))
+        for t in tids:cur.execute("INSERT INTO comments(zid,tid,pid,uid,txt,mod,is_meta,created,modified) VALUES(1,%s,0,100000,%s,0,false,1000,1000)",(t,f'Public fixture comment {t}'))
     c.close()
     insert_events(db,events[:limit] if limit is not None else events)
     return events

@@ -39,13 +39,6 @@
         "blas": "not recorded in historical receipt"
       },
       "witnesses": {
-        "polarity-synthetic.json": {
-          "fixture": "synthetic",
-          "a": "2fb950bae8230a3e781feb724ffa27569eacb80ec3c786113750deed1cbd642e",
-          "b": "2fb950bae8230a3e781feb724ffa27569eacb80ec3c786113750deed1cbd642e",
-          "negative": "959731736e87e7e23c20261dda26937c6d3474b1e4c8d5267ee11c20e3558202",
-          "deltas": []
-        },
         "polarity-vw.json": {
           "fixture": "vw",
           "a": "d401fc7095d77708eb56aa45aa49f5dc819425a5c03e85bac8894f43cbee8b5c",
@@ -426,16 +419,30 @@
               ]
             }
           }
+        },
+        "polarity-public-fixture.json": {
+          "fixture": "public-fixture",
+          "a": "2fb950bae8230a3e781feb724ffa27569eacb80ec3c786113750deed1cbd642e",
+          "b": "2fb950bae8230a3e781feb724ffa27569eacb80ec3c786113750deed1cbd642e",
+          "negative": "959731736e87e7e23c20261dda26937c6d3474b1e4c8d5267ee11c20e3558202",
+          "deltas": []
         }
       },
       "witness_sha256": {
-        "polarity-synthetic.json": "9c2de163655f5225a3d2ba246455cb3ad6db8ae34f2f7ba5ca4bdbf0dab79c95",
         "polarity-vw.json": "d92b9f4eab8c718de0ae3cdd3942f027d767c851f5e7f075f9788f31c2ae230a",
         "polarity-biodiversity.json": "4152924ccbd2f98130c58ef4e5da7b6c92f30628fb72eef0d3588d46b8e27c97",
         "polarity-rebuild-schedule.json": "60a052dece98383b63afc3fc783db0cbcfa8aff3f343ed557e9e3ba4885b1f46",
         "semantic-tie-key.json": "a35a27ec58ee9bd8d557546ce1dfbae0d9e5c7ad140b6d4ff215ba3cb55920d5",
         "d4-node-reader.json": "8eb6c5f1a50f8670b3c1af98d3522c92e3adaf045a3305e47177a79093b1bd0e",
-        "d4-node-reader-empty.json": "7a4bee2958575cf8bd34c641014de786864088ca8d1fffc0e3dd11bb54432e0d"
+        "d4-node-reader-empty.json": "7a4bee2958575cf8bd34c641014de786864088ca8d1fffc0e3dd11bb54432e0d",
+        "polarity-public-fixture.json": "9c2de163655f5225a3d2ba246455cb3ad6db8ae34f2f7ba5ca4bdbf0dab79c95"
+      },
+      "label_remap": {
+        "scope": "fixture label and witness filename only; science unchanged",
+        "witness": "polarity-public-fixture.json",
+        "original_sha256": "9c2de163655f5225a3d2ba246455cb3ad6db8ae34f2f7ba5ca4bdbf0dab79c95",
+        "renamed_sha256": "91cfee6f884c36a814983256bb76b479fc492d7b74069359c06f7f1e8dbd9cd9",
+        "renamed_canonical_sha256": "4a5b3b2404f355f33b5c05018294d7151111d4f9b273e547bfd68bfd5349c08a"
       }
     },
     {
@@ -486,13 +493,6 @@
         }
       },
       "witnesses": {
-        "polarity-synthetic.json": {
-          "fixture": "synthetic",
-          "a": "1fb79df4f8f44ba3f38a41a583ee8a3747f940cdf9e843bf4f906a9e2f4c3137",
-          "b": "1fb79df4f8f44ba3f38a41a583ee8a3747f940cdf9e843bf4f906a9e2f4c3137",
-          "negative": "df01ead4484453f8d23c713622273cee2f3a9b3975e7f121a31fa0efbe8d7aa4",
-          "deltas": []
-        },
         "polarity-vw.json": {
           "fixture": "vw",
           "a": "816b9e8b1da597c00257489498bff6d6100b783d3e0829ab8c6eac7e7131050d",
@@ -873,16 +873,30 @@
               ]
             }
           }
+        },
+        "polarity-public-fixture.json": {
+          "fixture": "public-fixture",
+          "a": "1fb79df4f8f44ba3f38a41a583ee8a3747f940cdf9e843bf4f906a9e2f4c3137",
+          "b": "1fb79df4f8f44ba3f38a41a583ee8a3747f940cdf9e843bf4f906a9e2f4c3137",
+          "negative": "df01ead4484453f8d23c713622273cee2f3a9b3975e7f121a31fa0efbe8d7aa4",
+          "deltas": []
         }
       },
       "witness_sha256": {
-        "polarity-synthetic.json": "53f0f1579bd63ae145d7b3e4ede6feb38824bcbe4a7c41d31e10e7c0e6c0421e",
         "polarity-vw.json": "e787133ad3e3e3b1051b1d15f52709558890d750b0d71280503f0368f2442b15",
         "polarity-biodiversity.json": "a2d42af26139cdfdbe6f1e4627b48be2fc4df1f0f6210bbf21e1f1c12a2399d0",
         "polarity-rebuild-schedule.json": "631c020b2541a2926669d560aacf8a78aec7a192b95fbab44305faee2f821954",
         "semantic-tie-key.json": "85bf07c03ee1cfa7d3764da389329a65f27b4d79458a685347eeddc847efd413",
         "d4-node-reader.json": "ea69b373afcd2260592243c38e5a4878fffe8492b494dc03cf437050f3714d26",
-        "d4-node-reader-empty.json": "568a6e72905211bad5202e6d39c1950c61b0f423d4b620f98d2ec775befb56fb"
+        "d4-node-reader-empty.json": "568a6e72905211bad5202e6d39c1950c61b0f423d4b620f98d2ec775befb56fb",
+        "polarity-public-fixture.json": "53f0f1579bd63ae145d7b3e4ede6feb38824bcbe4a7c41d31e10e7c0e6c0421e"
+      },
+      "label_remap": {
+        "scope": "fixture label and witness filename only; science unchanged",
+        "witness": "polarity-public-fixture.json",
+        "original_sha256": "53f0f1579bd63ae145d7b3e4ede6feb38824bcbe4a7c41d31e10e7c0e6c0421e",
+        "renamed_sha256": "2bf4b28e2263b5657e2f327b6e8f7b379ee8159f81592c34a082ffe8933ad2f5",
+        "renamed_canonical_sha256": "b73e4a38153e3366298dec629ad8ce4136fb4beeac35277842f0b7466e6471c8"
       }
     }
   ]

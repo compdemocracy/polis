@@ -20,7 +20,7 @@ def observe(records):
                         comparison="GreaterThanOrEqualToThreshold", period_seconds=60,
                         evaluation_periods=1, datapoints_to_alarm=1,
                         treat_missing_data="notBreaching", deployed=False, note=rule["note"])
-    scoped = [r for r in records if r["Environment"] == "synthetic" and r["MathEnv"] == "rustproto"]
+    scoped = [r for r in records if r["Environment"] == "public-fixture" and r["MathEnv"] == "rustproto"]
     attempts = sum(r.get("PublishUncertain", 0) for r in scoped)
     own = sum(r.get("PublishResolvedOwn", 0) for r in scoped)
     lost = sum(r.get(rule["metric"], 0) for r in scoped)

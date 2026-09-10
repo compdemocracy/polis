@@ -5,7 +5,7 @@ The immutable reference identities, full upstream commits, upstream SHA256s and
 vendored SHA256s are recorded in `../inventory-v2.json` under `reference_assets`.
 The fold oracle and four other assets preserve the original bytes exactly. The
 R09 test module and Postgres adapter have only internal reviewer-name/doc-path
-scrubbing in comments/docstrings; executable ASTs are unchanged. Their separate
+scrubbing in comments/docstrings, including public-fixture terminology; executable ASTs are unchanged. Their separate
 upstream hashes retain the original provenance without pretending byte identity.
 
 `reference_assets.load_asset` requires the committed vendored bytes to match

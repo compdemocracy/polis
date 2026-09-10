@@ -117,18 +117,23 @@ def reconcile(copy: Path) -> dict[str, dict[str, str]]:
 
 
 def prepare(root: Path, destination: Path, *, allow_local: bool = False,
-            local_files: tuple[str, ...] = ()) -> dict[str, object]:
+            local_files: tuple[str, ...] = (), local_removed: tuple[str, ...] = ()) -> dict[str, object]:
     root = root.resolve(strict=True)
     if destination.exists() or destination.resolve().is_relative_to(root):
         raise ValueError("source workspace must be new and outside checkout")
     head = git(root, "rev-parse", "HEAD").decode().strip()
     tracked = {p.decode() for p in git(root, "ls-files", "-z").split(b"\0") if p}
     dirty = [p.decode() for p in git(root, "diff", "HEAD", "--name-only", "-z").split(b"\0") if p]
-    if (dirty or local_files) and not allow_local:
+    if (dirty or local_files or local_removed) and not allow_local:
         raise ValueError("uncommitted source requires explicit local campaign mode")
     if allow_local and __import__("os").environ.get("GITHUB_ACTIONS") == "true":
         raise ValueError("local source mode is forbidden in hosted CI")
-    names = sorted(tracked | set(local_files))
+    removed = set(local_removed)
+    if (len(removed) != len(local_removed) or not removed <= tracked or
+            not removed <= set(dirty) or removed & set(local_files) or
+            any((root / name).exists() or (root / name).is_symlink() for name in removed)):
+        raise ValueError("local removal must name a missing tracked source change")
+    names = sorted((tracked - removed) | set(local_files))
     source = {name: digest(regular(root, name).read_bytes()) for name in names}
     historical: dict[str, dict[str, str]] = {}
     for filename in CLOSURES:
@@ -168,6 +173,7 @@ def prepare(root: Path, destination: Path, *, allow_local: bool = False,
     report = {"schema": "polis-coordinator-source-reconciliation/1", "source_head": head,
               "source_sha256": source, "historical_pins": historical, "drift": drift,
               "metadata_transforms": transforms, "local_changes": sorted(set(dirty) | (set(local_files) - tracked)),
+              "local_removed": sorted(removed),
               "behavioral_expectations_changed": False,
               "historical_results_recertified": False}
     return report

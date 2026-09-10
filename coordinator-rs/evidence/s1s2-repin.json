@@ -1255,7 +1255,7 @@
     "sha256": {
       "coordinator-rs/artifacts/polarity-biodiversity.json": "4152924ccbd2f98130c58ef4e5da7b6c92f30628fb72eef0d3588d46b8e27c97",
       "coordinator-rs/artifacts/polarity-rebuild-schedule.json": "60a052dece98383b63afc3fc783db0cbcfa8aff3f343ed557e9e3ba4885b1f46",
-      "coordinator-rs/artifacts/polarity-synthetic.json": "9c2de163655f5225a3d2ba246455cb3ad6db8ae34f2f7ba5ca4bdbf0dab79c95",
+      "coordinator-rs/artifacts/polarity-public-fixture.json": "9c2de163655f5225a3d2ba246455cb3ad6db8ae34f2f7ba5ca4bdbf0dab79c95",
       "coordinator-rs/artifacts/polarity-vw.json": "d92b9f4eab8c718de0ae3cdd3942f027d767c851f5e7f075f9788f31c2ae230a",
       "coordinator-rs/artifacts/s1-cargo-default.log": "12143d33f1a7899d2cb824cc87b8822c3de27e51e61997cd4a7ad996472d765a",
       "coordinator-rs/artifacts/s1-cargo-default.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",

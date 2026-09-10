@@ -142,10 +142,10 @@ fn bundle(tick: i64) -> Box<polis_coordinator::store::Bundle> {
     Box::new(polis_coordinator::store::Bundle {
         payloads: payload(),
         publisher_epoch: 1,
-        operation_id: "synthetic-operation".into(),
+        operation_id: "public-fixture-operation".into(),
         math_tick: tick,
         caching_tick: tick,
-        checkpoint: json!({"source_fingerprint": "synthetic"}),
+        checkpoint: json!({"source_fingerprint": "public-fixture"}),
     })
 }
 
@@ -215,7 +215,7 @@ fn captured(sink: &Captured) -> Vec<serde_json::Value> {
 fn metric_record_carries_only_the_two_permitted_dimensions() {
     use polis_coordinator::metrics::{Metrics, NAMESPACE, count, seconds};
     let sink = Captured::default();
-    let mut metrics = Metrics::new(Box::new(sink.clone()), "synthetic", "rustproto");
+    let mut metrics = Metrics::new(Box::new(sink.clone()), "public-fixture", "rustproto");
     metrics.emit(
         "source_pass",
         &[
@@ -234,7 +234,7 @@ fn metric_record_carries_only_the_two_permitted_dimensions() {
         r["_aws"]["CloudWatchMetrics"][0]["Dimensions"],
         json!([["Environment", "MathEnv"]])
     );
-    assert_eq!(r["Environment"], "synthetic");
+    assert_eq!(r["Environment"], "public-fixture");
     assert_eq!(r["MathEnv"], "rustproto");
     assert_eq!(r["SourcePassPublished"], 2.0);
     assert_eq!(r["SourcePassSeconds"], 1.5);
@@ -246,7 +246,7 @@ fn metric_record_carries_only_the_two_permitted_dimensions() {
 fn every_emitted_metric_name_is_declared_in_the_catalog() {
     use polis_coordinator::metrics::{CATALOG, Metrics, Tally};
     let sink = Captured::default();
-    let mut metrics = Metrics::new(Box::new(sink.clone()), "synthetic", "rustproto");
+    let mut metrics = Metrics::new(Box::new(sink.clone()), "public-fixture", "rustproto");
     // The whole per-pass tally plus every per-zid and gauge name.
     let mut data = Tally::default().data(std::time::Duration::from_secs(1), true);
     data.extend([
@@ -308,7 +308,7 @@ fn a_failing_metric_sink_is_counted_and_never_propagates() {
             "broken".into()
         }
     }
-    let mut metrics = Metrics::new(Box::new(Broken), "synthetic", "rustproto");
+    let mut metrics = Metrics::new(Box::new(Broken), "public-fixture", "rustproto");
     metrics.emit("t", &[count("SourcePassHealthy", 1u32)], json!({}));
     assert_eq!(metrics.dropped(), 1, "a lost record must be visible");
 }

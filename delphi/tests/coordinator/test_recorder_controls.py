@@ -5,7 +5,7 @@ total. Deriving is not trusting: a transcript carries one `test result:` line pe
 suite, so a passing suite followed by a failing one still leaves passing lines
 behind, and a total assembled from those lines alone would certify a failed run.
 These controls pin the refusals. They touch no database, no cargo and no engine —
-only synthetic transcripts and status files in a tmp directory.
+only public-fixture transcripts and status files in a tmp directory.
 """
 import importlib.util
 from pathlib import Path

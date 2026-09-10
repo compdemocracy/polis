@@ -8,7 +8,7 @@ from coordinator.conftest import ROOT,seed,connect,rows,assert_coherent
 
 def fixture_file(tmp_path,payloads,expected=None):
     path=tmp_path/'payload.json'
-    path.write_text(json.dumps(dict(zid=1,expected_tick=expected,checkpoint={'fixture':'synthetic-golden'},payloads=payloads),allow_nan=False))
+    path.write_text(json.dumps(dict(zid=1,expected_tick=expected,checkpoint={'fixture':'public-fixture-golden'},payloads=payloads),allow_nan=False))
     return path
 
 
@@ -50,7 +50,7 @@ def test_expected_tick_conflict_preserves_current(db,launch,tmp_path):
 
 def test_release_binary_rejects_fault_descriptor_before_db():
     binary=ROOT/'coordinator-rs/target/release/polis-coordinator'
-    env=dict(os.environ,P026_FAULT_DIR='/nonexistent/synthetic-control')
+    env=dict(os.environ,P026_FAULT_DIR='/nonexistent/public-fixture-control')
     env.pop('DATABASE_URL',None)
     r=subprocess.run([str(binary),'once'],env=env,capture_output=True,text=True)
     assert r.returncode==1 and 'FAULT-CONTROL-REFUSED' in r.stderr
