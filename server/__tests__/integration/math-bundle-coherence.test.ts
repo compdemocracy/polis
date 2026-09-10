@@ -30,6 +30,7 @@ import {
   getPidsForGid,
 } from "../../src/utils/participants";
 import { getBidsForPids } from "../../src/routes/math";
+import { presentPca } from "../../src/utils/pcaPresentation";
 import {
   clearMathBundleCache,
   getMathBundle,
@@ -505,8 +506,11 @@ describe("coherent math Bundle reader", () => {
         "insert into comments (zid, pid, uid, txt, mod) values ($1, $2, $3, 'bundle statement one', 1)",
         [zid, pid, uid]
       );
-      const first = await getPcaFromBundle(zid);
+      const firstRaw = await getPcaFromBundle(zid);
+      const first = await presentPca(zid, firstRaw);
+      expect(firstRaw!.asPOJO.tids).toEqual([]);
       expect(first!.asPOJO.tids).toEqual([0]);
+      expect(first!.asPOJO["n-cmts"]).toBe(1);
 
       // Approve a second statement. The math generation does NOT move.
       await pool.query(
@@ -521,11 +525,13 @@ describe("coherent math Bundle reader", () => {
       // what governs it, exactly as before this change.
       expect(JSON.stringify(bundleRead)).not.toContain("bundle statement");
       await new Promise((resolve) => setTimeout(resolve, 3100));
-      const second = await getPcaFromBundle(zid);
-      // `tids` is the comment-owned listing and it moved. (`n-cmts` is
-      // math-owned: `ensureCompletePcaStructure` lets the math blob's own
-      // value win, and this fixture's generation still says 0. That split is
-      // pre-existing behaviour and is deliberately not changed here.)
+      const secondRaw = await getPcaFromBundle(zid);
+      const second = await presentPca(zid, secondRaw);
+      // Edge composes comment-owned defaults at the response boundary.
+      // The raw math stays empty while the served listing and count advance.
+      expect(secondRaw!.asPOJO.tids).toEqual([]);
+      expect(secondRaw!.asPOJO["n-cmts"]).toBe(0);
+      expect(second!.asPOJO["n-cmts"]).toBe(2);
       expect(second!.asPOJO.tids).toEqual([0, 1]);
       expect(first!.asPOJO.tids).toEqual([0]);
     } finally {
