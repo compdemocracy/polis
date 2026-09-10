@@ -3,7 +3,7 @@
 name: ${COMPOSE_PROJECT_NAME:?unique project required}
 services:
   postgres:
-    image: p027-postgres
+    image: ${P027_POSTGRES_IMAGE:-p027-postgres}
     environment:
       POSTGRES_DB: p027
       POSTGRES_USER: postgres

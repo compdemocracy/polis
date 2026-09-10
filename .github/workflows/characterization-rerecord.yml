@@ -1,0 +1,100 @@
+name: Characterization corpus re-record
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Target commit or ref (empty uses the immutable dispatch SHA)
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: characterization-rerecord-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  record:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      COMPOSE_PROJECT_NAME: p027-rerecord-${{ github.run_id }}-${{ github.run_attempt }}
+      P027_PORT_MIN: '55930'
+      P027_PORT_MAX: '55939'
+      POLIS_RECOVERY_PG_PORT: '55930'
+      RECOVERY_PG_PORT: '55930'
+      P027_HTTP_PORT: '55931'
+      P027_CONTROL_PORT: '55932'
+    steps:
+      # Keep the job/accounting code from the dispatch separately from the target.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          path: control
+          persist-credentials: false
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.target || github.sha }}
+          path: target
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install accounting dependencies and linters
+        working-directory: target
+        run: |
+          npm ci --prefix server --ignore-scripts
+          sudo apt-get update
+          sudo apt-get install -y shellcheck yamllint
+      - name: Validate the dispatch tools
+        working-directory: control
+        env:
+          P027_ACCOUNTING_REPO: ${{ github.workspace }}/target
+        run: |
+          shellcheck ci/p027_rerecord.sh ci/p027_rerecord_build.sh
+          yamllint -d '{extends: default, rules: {line-length: disable, truthy: disable, document-start: disable}}' .github/workflows/characterization-rerecord.yml
+          node --test server/characterization/rerecord-accounting.test.cjs
+      - name: Record, account, fresh replay, controls and repack
+        working-directory: target
+        run: bash ../control/ci/p027_rerecord.sh
+      - name: Remove only this job's stack
+        if: always()
+        working-directory: target
+        run: python3 server/characterization/run.py down
+      - name: Show review summary
+        if: always()
+        working-directory: target
+        run: |
+          python3 - <<'PYCODE'
+          import json, os
+          from pathlib import Path
+          root = Path('server/characterization/artifacts/rerecord-job')
+          summary = root / 'summary.json'
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
+              if summary.exists():
+                  out.write('```json\n' + summary.read_text() + '```\n')
+              else:
+                  out.write('No eligible candidate summary; inspect the stage logs in the artifact.\n')
+              stages = {p.stem: int(p.read_text()) for p in root.glob('*.exit')}
+              out.write('Stage exit codes: `' + json.dumps(stages, sort_keys=True) + '`\n')
+          PYCODE
+      - name: Upload candidate and review evidence (including failed runs)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: characterization-rerecord-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            target/server/characterization/artifacts/rerecord-job/*.json
+            target/server/characterization/artifacts/rerecord-job/*.jsonl
+            target/server/characterization/artifacts/rerecord-job/*.log
+            target/server/characterization/artifacts/rerecord-job/*.exit
+            target/server/characterization/artifacts/rerecord-job/baseline.json.gz
+            target/server/characterization/artifacts/rerecord-job/baseline.sha256
+            target/server/characterization/artifacts/rerecord-job/previous.json.gz
+            target/server/characterization/artifacts/rerecord-job/previous.sha256
+          retention-days: 14
+          if-no-files-found: error
