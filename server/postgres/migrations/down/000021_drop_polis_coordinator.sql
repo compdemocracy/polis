@@ -52,6 +52,7 @@ VALUES ('schema','public','','polis_coordinator_owner','USAGE'),
 ('schema','public','','polis_coordinator_control','USAGE'),
 ('schema','public','','polis_coordinator_publisher','USAGE'),
 ('table','conversations','','polis_coordinator_owner','SELECT'),
+('table','math_ticks','','polis_coordinator_owner','SELECT'),('table','math_main','','polis_coordinator_owner','SELECT'),('table','math_bidtopid','','polis_coordinator_owner','SELECT'),('table','math_ptptstats','','polis_coordinator_owner','SELECT'),
 ('column','conversations','zid','polis_coordinator_owner','REFERENCES'),
 ('column','conversations','topic','polis_coordinator_owner','UPDATE'),
 ('schema','public','','polis_coordinator_publication_owner','USAGE'),
@@ -88,7 +89,7 @@ SELECT NOT EXISTS(SELECT FROM pg_class WHERE relnamespace='public'::regnamespace
 \else
  DO $catalog$
  BEGIN
-  IF pg_temp.pc_catalog() IS DISTINCT FROM 'ad11429a737605ab9cf51ec7ea2a64ec' THEN
+  IF pg_temp.pc_catalog() IS DISTINCT FROM 'dd88a9711bbdac72155d4e8862052c4b' THEN
    RAISE EXCEPTION 'refusing: coordinator catalog drift' USING DETAIL=pg_temp.pc_catalog(); END IF;
  END $catalog$;
  -- Child before parent; count only AFTER ACCESS EXCLUSIVE locks. The provenance
@@ -119,7 +120,8 @@ BEGIN
  WHERE s.seqstart=i.sequence_start)
  OR (SELECT last_value FROM public.polis_coordinator_caching_tick) < greatest(
   (SELECT sequence_start FROM public.polis_coordinator_install),
-  coalesce((SELECT max(caching_tick) FROM public.polis_coordinator_generations),1)) THEN
+  coalesce((SELECT max(caching_tick) FROM public.polis_coordinator_generations),1),
+  coalesce((SELECT max(caching_tick) FROM public.polis_coordinator_floors),1)) THEN
   RAISE EXCEPTION 'refusing: coordinator sequence initialization or state drift';
  END IF;
  IF (SELECT array_agg(role_name ORDER BY role_name) FROM public.polis_coordinator_install_roles)
@@ -155,12 +157,25 @@ END $assert$;
    +(SELECT count(*) FROM public.polis_coordinator_failures)
    +(SELECT count(*) FROM public.polis_coordinator_reconciliation)
    +(SELECT count(*) FROM public.polis_coordinator_generations)
-   +(SELECT count(*) FROM public.polis_coordinator_payloads) INTO total;
+   +(SELECT count(*) FROM public.polis_coordinator_payloads)
+   +(SELECT count(*) FROM public.polis_coordinator_references)
+   +(SELECT count(*) FROM public.polis_coordinator_operations)
+   +(SELECT count(*) FROM public.polis_coordinator_budgets)
+   +(SELECT count(*) FROM public.polis_coordinator_floors) INTO total;
   IF current_setting('polis_coordinator.force') <> '1' AND (total>0 OR (SELECT is_called FROM public.polis_coordinator_caching_tick)) THEN
    RAISE EXCEPTION 'refusing: coordinator contains data or used sequence; force=1 overrides only this guard'; END IF;
   -- Snapshot validated provenance before dropping its tables.
   CREATE TEMP TABLE pc_remove_roles ON COMMIT DROP AS SELECT * FROM public.polis_coordinator_install_roles WHERE created;
   CREATE TEMP TABLE pc_remove_grants ON COMMIT DROP AS SELECT * FROM public.polis_coordinator_install_grants WHERE NOT prior_present;
+  DROP FUNCTION public.pc_reference(text,integer,text,text,boolean);
+  DROP TABLE public.polis_coordinator_references;
+  DROP FUNCTION public.pc_admit(text,integer,text,bigint,text,text,bigint);
+  DROP FUNCTION public.pc_reconcile(text,integer,text);
+  DROP FUNCTION public.pc_protect(text,integer,text,boolean);
+  DROP FUNCTION public.pc_cleanup(text,integer,text);
+  DROP TABLE public.polis_coordinator_operations;
+  DROP TABLE public.polis_coordinator_budgets;
+  DROP TABLE public.polis_coordinator_floors;
   DROP FUNCTION public.pc_publish(text,integer,text,bigint,text,bytea,bigint,jsonb,bytea,bytea,bytea);
   DROP FUNCTION public.pc_canonical(jsonb);
   DROP TABLE public.polis_coordinator_payloads;

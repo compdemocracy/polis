@@ -114,17 +114,17 @@ def main():
 
     def live(db):
         apply(db)
-        sql(db, "INSERT INTO conversations(zid,topic) VALUES (990001,'synthetic 000021'); INSERT INTO polis_coordinator_leases(math_env,zid,owner_id,owner_epoch,expires_at) VALUES ('synthetic',990001,'owner-a',1,clock_timestamp()+interval '1 minute');")
+        sql(db, "INSERT INTO conversations(zid,topic) VALUES (990001,'generated 000021'); INSERT INTO polis_coordinator_leases(math_env,zid,owner_id,owner_epoch,expires_at) VALUES ('generated',990001,'owner-a',1,clock_timestamp()+interval '1 minute');")
         p = down(db, ok=False)
         assert p.returncode and "contains data" in p.stderr
         assert sql(db, "SELECT count(*) FROM polis_coordinator_leases;").stdout.strip() == "1"
         down(db, True)
-        assert sql(db, "SELECT topic FROM conversations WHERE zid=990001;").stdout.strip() == "synthetic 000021"
+        assert sql(db, "SELECT topic FROM conversations WHERE zid=990001;").stdout.strip() == "generated 000021"
         assert dump(db) == baseline
     case("live data refuses normally; force preserves source conversation", live)
 
     def sequence(db):
-        sql(db, "INSERT INTO conversations(zid) VALUES (990001); INSERT INTO math_main(zid,math_env,caching_tick,data,last_vote_timestamp) VALUES(990001,'synthetic',734,'{}',0);")
+        sql(db, "INSERT INTO conversations(zid) VALUES (990001); INSERT INTO math_main(zid,math_env,caching_tick,data,last_vote_timestamp) VALUES(990001,'generated',734,'{}',0);")
         apply(db)
         assert sql(db, "SELECT nextval('polis_coordinator_caching_tick');").stdout.strip() == "735"
         apply(db)
@@ -236,11 +236,11 @@ def main():
 
     def originals(db):
         apply(db)
-        sql(db, "INSERT INTO conversations(zid) VALUES(990001); INSERT INTO polis_coordinator_generations(math_env,zid,math_tick,caching_tick,owner_id,publisher_epoch,operation_id,capability_sha256,expected_tick,input_checkpoint) VALUES('synthetic',990001,0,1,'owner-a',1,'op-a',repeat('a',64),NULL,'{}');")
-        p = sql(db, "INSERT INTO polis_coordinator_payloads VALUES('synthetic',990001,0,'main',convert_to('{}','UTF8'),repeat('0',64),repeat('a',64));", ok=False)
+        sql(db, "INSERT INTO conversations(zid) VALUES(990001); INSERT INTO polis_coordinator_generations(math_env,zid,math_tick,caching_tick,owner_id,publisher_epoch,operation_id,capability_sha256,expected_tick,input_checkpoint) VALUES('generated',990001,0,1,'owner-a',1,'op-a',repeat('a',64),NULL,'{}');")
+        p = sql(db, "INSERT INTO polis_coordinator_payloads VALUES('generated',990001,0,'main',convert_to('{}','UTF8'),repeat('0',64),repeat('a',64));", ok=False)
         assert p.returncode and "check constraint" in p.stderr
-        sql(db, "INSERT INTO polis_coordinator_payloads VALUES('synthetic',990001,0,'main',convert_to('{}','UTF8'),encode(sha256(convert_to('{}','UTF8')),'hex'),repeat('a',64));")
-        assert sql(db, "INSERT INTO polis_coordinator_generations(math_env,zid,math_tick,caching_tick,owner_id,publisher_epoch,operation_id,capability_sha256,expected_tick,input_checkpoint) VALUES('synthetic',990001,1,2,'owner-a',1,'op-a',repeat('a',64),0,'{}');", ok=False).returncode
+        sql(db, "INSERT INTO polis_coordinator_payloads VALUES('generated',990001,0,'main',convert_to('{}','UTF8'),encode(sha256(convert_to('{}','UTF8')),'hex'),repeat('a',64));")
+        assert sql(db, "INSERT INTO polis_coordinator_generations(math_env,zid,math_tick,caching_tick,owner_id,publisher_epoch,operation_id,capability_sha256,expected_tick,input_checkpoint) VALUES('generated',990001,1,2,'owner-a',1,'op-a',repeat('a',64),0,'{}');", ok=False).returncode
         assert sql(db, "INSERT INTO polis_coordinator_payloads SELECT math_env,zid,9,payload_kind,original_bytes,original_sha256,storage_sha256 FROM polis_coordinator_payloads;", ok=False).returncode
         down(db, True)
     case("original byte integrity, operation uniqueness and generation FK controls", originals)
@@ -249,7 +249,7 @@ def main():
         apply(db)
         sql(db, "INSERT INTO conversations(zid) VALUES(990001);")
         proc = subprocess.Popen(["docker", "exec", "-i", CONTAINER, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", db], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        proc.stdin.write("BEGIN; INSERT INTO polis_coordinator_leases(math_env,zid,owner_id,owner_epoch,expires_at) VALUES('synthetic',990001,'owner-a',1,clock_timestamp()+interval '1 minute'); SELECT pg_sleep(2); COMMIT;\n")
+        proc.stdin.write("BEGIN; INSERT INTO polis_coordinator_leases(math_env,zid,owner_id,owner_epoch,expires_at) VALUES('generated',990001,'owner-a',1,clock_timestamp()+interval '1 minute'); SELECT pg_sleep(2); COMMIT;\n")
         proc.stdin.close()
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
@@ -267,7 +267,7 @@ def main():
 
     def bypass_live(db):
         apply(db)
-        sql(db, "INSERT INTO conversations(zid) VALUES(990001); INSERT INTO polis_coordinator_leases(math_env,zid,owner_id,owner_epoch,expires_at) VALUES('synthetic',990001,'owner-a',1,clock_timestamp()+interval '1 minute');")
+        sql(db, "INSERT INTO conversations(zid) VALUES(990001); INSERT INTO polis_coordinator_leases(math_env,zid,owner_id,owner_epoch,expires_at) VALUES('generated',990001,'owner-a',1,clock_timestamp()+interval '1 minute');")
         assert down(db, ok=False).returncode
         mutated = DOWN.read_text().replace("current_setting('polis_coordinator.force') <> '1' AND", "false AND")
         assert mutated != DOWN.read_text()
@@ -291,15 +291,20 @@ def main():
         sql(db, f"""INSERT INTO conversations(zid) VALUES(990001) ON CONFLICT DO NOTHING;
         INSERT INTO polis_coordinator_leases(math_env,zid,owner_id,owner_epoch,expires_at,
          dispatch_operation_id,dispatch_capability_sha256,dispatch_checkpoint_sha256,dispatch_expected_tick,dispatch_margin_ms)
-        VALUES('synthetic',990001,'{owner}',{epoch},clock_timestamp()+{duration},'{operation}',
+        VALUES('generated',990001,'{owner}',{epoch},clock_timestamp()+{duration},'{operation}',
          encode(sha256(decode(repeat('ab',32),'hex')),'hex'),encode(sha256(convert_to('{{}}'::jsonb::text,'UTF8')),'hex'),{expected},{margin})
         ON CONFLICT(math_env,zid) DO UPDATE SET owner_id=excluded.owner_id,owner_epoch=excluded.owner_epoch,
          expires_at=excluded.expires_at,dispatch_operation_id=excluded.dispatch_operation_id,
          dispatch_capability_sha256=excluded.dispatch_capability_sha256,dispatch_checkpoint_sha256=excluded.dispatch_checkpoint_sha256,
          dispatch_expected_tick=excluded.dispatch_expected_tick,dispatch_margin_ms=excluded.dispatch_margin_ms;""")
+        sql(db,"INSERT INTO polis_coordinator_budgets VALUES('generated',8,16777216) ON CONFLICT DO NOTHING;")
+        admitted=sql(db,f"SET ROLE polis_coordinator_control; SELECT pc_admit('generated',990001,'{owner}',{epoch},'{operation}',repeat('a',64),2097152);",ok=False)
+        if admitted.returncode:
+            assert 'ADMISSION_TICK_CONFLICT' in admitted.stderr or 'LEASE-EXPIRED' in admitted.stderr,admitted.stderr
+
 
     def call(db, operation="op-a", epoch=1, owner="owner-a", expected="NULL", capability="ab", checkpoint="{}", ok=True):
-        return sql(db, f"""SELECT * FROM pc_publish('synthetic',990001,'{owner}',{epoch},'{operation}',
+        return sql(db, f"""SELECT * FROM pc_publish('generated',990001,'{owner}',{epoch},'{operation}',
          decode(repeat('{capability}',32),'hex'),{expected},'{checkpoint}',
          convert_to('{{"zid":990001,"lastVoteTimestamp":0,"value":1.0}}','UTF8'),
          convert_to('{{"zid":990001,"lastVoteTimestamp":0}}','UTF8'),
@@ -326,7 +331,7 @@ def main():
         for table in ("math_ticks", "math_main", "math_bidtopid", "math_ptptstats", "polis_coordinator_leases", "polis_coordinator_generations", "polis_coordinator_payloads"):
             assert sql(db, f"DELETE FROM {table};", ok=False, user="p027_m21_publisher").returncode
         assert sql(db, "SELECT nextval('polis_coordinator_caching_tick');",ok=False,user="p027_m21_publisher").returncode
-        assert sql(db, "SET ROLE polis_coordinator_control; SELECT * FROM pc_publish('synthetic',990001,'owner-a',1,'op-a',decode(repeat('ab',32),'hex'),NULL,'{}','{}','{}','{}');",ok=False).returncode
+        assert sql(db, "SET ROLE polis_coordinator_control; SELECT * FROM pc_publish('generated',990001,'owner-a',1,'op-a',decode(repeat('ab',32),'hex'),NULL,'{}','{}','{}','{}');",ok=False).returncode
     publication_case("real restricted publisher commits coherent rows/receipts and retries idempotently; direct writes denied", published)
 
     def history_floor(db, mode):
@@ -350,7 +355,7 @@ def main():
         arm(db);assert call(db).stdout.strip().startswith("committed|0|")
         sql(db,"DELETE FROM math_ticks;")
         arm(db,operation="op-b",epoch=2)
-        assert call(db,operation="op-b",epoch=2).stdout.strip().startswith("conflict|0|")
+        assert "OPERATION_NOT_ADMITTED" in call(db,operation="op-b",epoch=2,ok=False).stderr
         assert sql(db,"SELECT count(*) FROM math_ticks;").stdout.strip()=="0"
         assert sql(db,"SELECT count(*) FROM polis_coordinator_generations;").stdout.strip()=="1"
     publication_case("missing current pointer cannot reset expected tick below retained history",absent_stale_expected)
@@ -361,7 +366,9 @@ def main():
         original=sql(db,"SELECT pg_get_functiondef('pc_publish(text,integer,text,bigint,text,bytea,bigint,jsonb,bytea,bytea,bytea)'::regprocedure);").stdout
         line=" SELECT greatest(current_tick,max(g.math_tick)) INTO current_tick\n FROM public.polis_coordinator_generations g WHERE g.zid=p_zid AND g.math_env=p_env;"
         assert original.count(line)==1
-        sql(db,original.replace(line," -- scratch history-floor mutation"))
+        floor=" SELECT greatest(current_tick,(SELECT f.math_tick FROM public.polis_coordinator_floors f WHERE f.math_env=p_env AND f.zid=p_zid)) INTO current_tick;"
+        assert original.count(floor)==1
+        sql(db,original.replace(line," -- scratch history-floor mutation").replace(floor," -- scratch compact-floor mutation"))
         try:
             arm(db,operation="op-b",epoch=2,expected="0")
             result=call(db,operation="op-b",epoch=2,expected="0")
@@ -418,7 +425,7 @@ def main():
 
     def actual_conflict(db):
         arm(db)
-        sql(db,"INSERT INTO math_ticks(zid,math_env,math_tick) VALUES(990001,'synthetic',7);")
+        sql(db,"INSERT INTO math_ticks(zid,math_env,math_tick) VALUES(990001,'generated',7);")
         assert call(db).stdout.strip()=='conflict|7|'
         assert sql(db,"SELECT count(*) FROM math_main;").stdout.strip()=="0"
     publication_case("expected-tick conflict performs no writes",actual_conflict)
@@ -461,11 +468,214 @@ def main():
         for raw in ['{"zid":990001,"zid":990001,"lastVoteTimestamp":0}',
                     '{"zid":990001,"lastVoteTimestamp":NaN}',
                     '{"zid":990002,"lastVoteTimestamp":0}']:
-            p=sql(db,f"""SELECT * FROM pc_publish('synthetic',990001,'owner-a',1,'op-a',decode(repeat('ab',32),'hex'),NULL,'{{}}',
+            p=sql(db,f"""SELECT * FROM pc_publish('generated',990001,'owner-a',1,'op-a',decode(repeat('ab',32),'hex'),NULL,'{{}}',
               convert_to('{raw}','UTF8'),convert_to('{{"zid":990001,"lastVoteTimestamp":0}}','UTF8'),convert_to('{{"zid":990001,"lastVoteTimestamp":0}}','UTF8'));""",ok=False,user='p027_m21_publisher')
             assert p.returncode and ('INVALID_ORIGINAL_JSON' in p.stderr or 'FOREIGN_OR_INCONSISTENT_PAYLOAD' in p.stderr),p.stderr
         assert sql(db,"SELECT count(*) FROM math_main;").stdout.strip()=="0"
     publication_case("duplicate/nonfinite/foreign original payloads refused before writes",malformed_json)
+
+    def control(db, text, ok=True):
+        return sql(db, 'SET ROLE polis_coordinator_control; '+text, ok=ok)
+
+    def no_admission(db):
+        arm(db)
+        sql(db,"DELETE FROM polis_coordinator_operations;")
+        assert 'OPERATION_NOT_ADMITTED' in call(db,ok=False).stderr
+        assert sql(db,"SELECT count(*) FROM math_main;").stdout.strip()=='0'
+    publication_case('publication requires durable operation admission',no_admission)
+
+    def profile_required(db):
+        arm(db)
+        sql(db,"DELETE FROM polis_coordinator_operations; DELETE FROM polis_coordinator_budgets;")
+        r=control(db,"SELECT pc_admit('generated',990001,'owner-a',1,'op-a',repeat('a',64),2097152);",False)
+        assert 'ADMISSION_PROFILE_REQUIRED' in r.stderr
+    publication_case('no implicit admission profile; explicit operator limits required',profile_required)
+
+    def limits(db,kind):
+        arm(db)
+        if kind=='count':
+            sql(db,"UPDATE polis_coordinator_budgets SET max_operations=1;")
+        else:
+            sql(db,"UPDATE polis_coordinator_budgets SET max_bytes=2097152;")
+        sql(db,"UPDATE polis_coordinator_leases SET dispatch_operation_id='op-b';")
+        r=control(db,"SELECT pc_admit('generated',990001,'owner-a',1,'op-b',repeat('a',64),2097152);",False)
+        assert 'ADMISSION_CAPACITY' in r.stderr
+        assert sql(db,"SELECT count(*),sum(reserved_bytes) FROM polis_coordinator_operations;").stdout.strip()=='1|2097152'
+        # Reconciliation is still permitted at capacity and remains unresolved.
+        assert control(db,"SELECT pc_reconcile('generated',990001,'op-a');").stdout.strip().endswith('unresolved')
+    for kind in ('count','bytes'):
+        publication_case(f'{kind} capacity refuses new work and preserves reconciliation',lambda db,kind=kind:limits(db,kind))
+
+    def byte_limit(db):
+        arm(db)
+        sql(db,"UPDATE polis_coordinator_operations SET reserved_bytes=1048576;")
+        assert 'PUBLICATION_BYTE_CAPACITY' in call(db,ok=False).stderr
+        assert sql(db,"SELECT count(*) FROM math_main;").stdout.strip()=='0'
+    publication_case('publication cannot exceed its reserved logical byte ceiling',byte_limit)
+
+    def admission_identity(db):
+        arm(db)
+        assert control(db,"SELECT pc_admit('generated',990001,'owner-a',1,'op-a',repeat('a',64),2097152);").stdout.strip().endswith('already_admitted')
+        for value in ("repeat('b',64),2097152", "repeat('a',64),4194304"):
+            assert 'ADMISSION_IDENTITY_CONFLICT' in control(db,f"SELECT pc_admit('generated',990001,'owner-a',1,'op-a',{value});",False).stderr
+    publication_case('admission retry preserves exact source identity and reservation',admission_identity)
+
+    def resumed(db):
+        arm(db)
+        assert control(db,"SELECT pc_reconcile('generated',990001,'op-a');").stdout.strip().endswith('unresolved')
+        # Each sql() uses a new real connection; no process-local catalog exists.
+        assert sql(db,"SELECT state,resolved_tick,reconciled_at>'-infinity' FROM polis_coordinator_operations;").stdout.strip()=='unresolved||t'
+        assert control(db,"SELECT pc_cleanup('generated',990001,'op-a');").stdout.strip().endswith('f')
+        assert call(db).stdout.startswith('committed|0|')
+        arm(db,operation='op-b',epoch=2,expected='0'); assert call(db,operation='op-b',epoch=2,expected='0').stdout.startswith('committed|1|')
+        assert control(db,"SELECT pc_reconcile('generated',990001,'op-a');").stdout.strip().endswith('resolved')
+        assert sql(db,"SELECT resolved_tick FROM polis_coordinator_operations WHERE operation_id='op-a';").stdout.strip()=='0'
+    publication_case('new controller connection enumerates missing receipt and resolves exact older commit',resumed)
+
+    def cleanup_ready(db):
+        arm(db);assert call(db).stdout.startswith('committed|0|')
+        control(db,"SELECT pc_reconcile('generated',990001,'op-a');")
+        arm(db,operation='op-b',epoch=2,expected='0');assert call(db,operation='op-b',epoch=2,expected='0').stdout.startswith('committed|1|')
+        control(db,"SELECT pc_reconcile('generated',990001,'op-b');")
+        sql(db,"UPDATE polis_coordinator_leases SET dispatch_operation_id=NULL,dispatch_capability_sha256=NULL,dispatch_checkpoint_sha256=NULL,dispatch_expected_tick=NULL,dispatch_margin_ms=NULL;")
+
+    def cleaned_floor(db,mode):
+        cleanup_ready(db)
+        control(db,"SELECT pc_protect('generated',990001,'op-a',true);")
+        assert control(db,"SELECT pc_cleanup('generated',990001,'op-a');").stdout.strip().endswith('f')
+        control(db,"SELECT pc_protect('generated',990001,'op-a',false);")
+        assert control(db,"SELECT pc_cleanup('generated',990001,'op-a');").stdout.strip().endswith('t')
+        assert sql(db,"SELECT count(*),sum(reserved_bytes) FROM polis_coordinator_operations;").stdout.strip()=='1|2097152'
+        assert sql(db,"SELECT count(*) FROM polis_coordinator_payloads;").stdout.strip()=='3'
+        if mode=='deleted':
+            for table in ('math_ticks','math_main','math_bidtopid','math_ptptstats'):
+                sql(db,f'DELETE FROM {table};')
+        else:
+            sql(db,'UPDATE math_ticks SET math_tick=0;')
+        assert control(db,"SELECT pc_cleanup('generated',990001,'op-b');").stdout.strip().endswith('f')
+        arm(db,operation='op-c',epoch=3,expected='1');assert call(db,operation='op-c',epoch=3,expected='1').stdout.startswith('committed|2|')
+        assert sql(db,"SELECT math_tick,caching_tick FROM polis_coordinator_floors;").stdout.strip()=='2|3'
+    for mode in ('deleted','regressed'):
+        publication_case(f'protected cleanup releases capacity and {mode} pointers retain generation/cursor floor',lambda db,mode=mode:cleaned_floor(db,mode))
+
+    def pending_reference(db):
+        cleanup_ready(db)
+        # Model an unresolved earlier attempt whose expected generation is 0.
+        sql(db,"INSERT INTO polis_coordinator_operations SELECT math_env,zid,'op-pending',owner_id,owner_epoch,0,capability_sha256,checkpoint_sha256,source_sha256,reserved_bytes,'unresolved',false,admitted_at,reconciled_at,NULL FROM polis_coordinator_operations WHERE operation_id='op-a';")
+        assert control(db,"SELECT pc_cleanup('generated',990001,'op-a');").stdout.strip().endswith('f')
+        assert sql(db,"SELECT count(*) FROM polis_coordinator_payloads;").stdout.strip()=='6'
+    publication_case('unresolved expected-generation reference forbids historical deletion',pending_reference)
+
+    def direct_denied(db):
+        arm(db)
+        for table in ('polis_coordinator_operations','polis_coordinator_budgets','polis_coordinator_floors','polis_coordinator_generations','polis_coordinator_payloads'):
+            assert control(db,f'DELETE FROM {table};',False).returncode
+            assert sql(db,f'DELETE FROM {table};',False,user='p027_m21_publisher').returncode
+        assert sql(db,"SELECT pc_cleanup('generated',990001,'op-a');",False,user='p027_m21_publisher').returncode
+        assert control(db,"UPDATE polis_coordinator_budgets SET max_operations=999999;",False).returncode
+    publication_case('control DELETE is function-scoped; publisher and direct metadata writes denied',direct_denied)
+
+    def false_receipt(db):
+        arm(db);assert call(db).stdout.startswith('committed|0|')
+        sql(db,"UPDATE polis_coordinator_generations SET owner_id='foreign-owner';")
+        assert 'RECEIPT_IDENTITY_CONFLICT' in control(db,"SELECT pc_reconcile('generated',990001,'op-a');",False).stderr
+        assert sql(db,"SELECT state FROM polis_coordinator_operations;").stdout.strip()=='pending'
+    publication_case('reconciliation refuses a foreign receipt without resolving the operation',false_receipt)
+
+    def cleanup_mutant(db):
+        cleanup_ready(db)
+        control(db,"SELECT pc_protect('generated',990001,'op-a',true);")
+        original=sql(db,"SELECT pg_get_functiondef('pc_cleanup(text,integer,text)'::regprocedure);").stdout
+        assert original.count(' OR op.protected')==1
+        mutant=original.replace(' OR op.protected','').replace("(state<>'resolved' OR protected)","(state<>'resolved')")
+        sql(db,mutant)
+        try:
+            assert control(db,"SELECT pc_cleanup('generated',990001,'op-a');").stdout.strip().endswith('t')
+            # The intact protected-deletion refusal oracle rejects this result.
+        finally:
+            sql(db,original)
+    publication_case('negative control: removed protection permits forbidden receipt deletion',cleanup_mutant)
+
+    def named_references(db):
+        cleanup_ready(db)
+        for name in ('consumer-a','consumer-b'):
+            control(db,f"SELECT pc_reference('generated',990001,'op-a','{name}',true);")
+        control(db,"SELECT pc_reference('generated',990001,'op-a','consumer-a',false);")
+        assert control(db,"SELECT pc_cleanup('generated',990001,'op-a');").stdout.strip().endswith('f')
+        control(db,"SELECT pc_reference('generated',990001,'op-a','consumer-b',false);")
+        assert control(db,"SELECT pc_cleanup('generated',990001,'op-a');").stdout.strip().endswith('t')
+    publication_case('named references must all release before receipt cleanup',named_references)
+
+    def reference_bound(db):
+        arm(db)
+        control(db,"SELECT pc_reference('generated',990001,'op-a','ref-'||g,true) FROM generate_series(1,128) g;")
+        assert 'REFERENCE_CAPACITY' in control(db,"SELECT pc_reference('generated',990001,'op-a','overflow',true);",False).stderr
+        control(db,"SELECT pc_reference('generated',990001,'op-a','ref-1',true);")
+        assert sql(db,"SELECT count(*) FROM polis_coordinator_references;").stdout.strip()=='128'
+    publication_case('reference catalog is bounded and duplicate registration is idempotent',reference_bound)
+
+    def admission_commit(db):
+        arm(db)
+        sql(db,"DELETE FROM polis_coordinator_operations;")
+        r=sql(db,"""BEGIN; SET LOCAL ROLE polis_coordinator_control;
+        SELECT pc_admit('generated',990001,'owner-a',1,'op-a',repeat('a',64),2097152);
+        RESET ROLE; SET LOCAL ROLE polis_coordinator_publisher;
+        SELECT * FROM pc_publish('generated',990001,'owner-a',1,'op-a',decode(repeat('ab',32),'hex'),NULL,'{}',
+         convert_to('{"zid":990001,"lastVoteTimestamp":0}','UTF8'),
+         convert_to('{"zid":990001,"lastVoteTimestamp":0}','UTF8'),
+         convert_to('{"zid":990001,"lastVoteTimestamp":0}','UTF8')); COMMIT;""",False)
+        assert 'ADMISSION_NOT_DURABLE' in r.stderr
+        assert sql(db,"SELECT count(*) FROM polis_coordinator_operations;").stdout.strip()=='0'
+        assert sql(db,"SELECT count(*) FROM math_main;").stdout.strip()=='0'
+    publication_case('same-transaction admission and publication is refused atomically',admission_commit)
+
+    def concurrent_capacity(db):
+        arm(db)
+        sql(db,"""DELETE FROM polis_coordinator_operations; UPDATE polis_coordinator_budgets SET max_operations=1;
+        INSERT INTO conversations(zid) VALUES(990002);
+        INSERT INTO polis_coordinator_leases SELECT math_env,990002,owner_id,owner_epoch,expires_at,
+        'op-b',dispatch_capability_sha256,dispatch_checkpoint_sha256,dispatch_expected_tick,dispatch_margin_ms FROM polis_coordinator_leases;""")
+        first=subprocess.Popen(['docker','exec','-i',CONTAINER,'psql','-X','-At','-v','ON_ERROR_STOP=1','-U','postgres','-d',db],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        first.stdin.write("BEGIN; SET LOCAL ROLE polis_coordinator_control; SELECT pc_admit('generated',990001,'owner-a',1,'op-a',repeat('a',64),2097152); SELECT pg_advisory_xact_lock(210024); SELECT pg_sleep(3); COMMIT;")
+        first.stdin.close();first.stdin=None
+        try:
+            for _ in range(100):
+                if sql(db,"SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND objid=210024 AND granted;").stdout.strip()=='1':break
+                time.sleep(0.02)
+            else:raise AssertionError('first admission never reached its reservation lock')
+            r=control(db,"SELECT pc_admit('generated',990002,'owner-a',1,'op-b',repeat('a',64),2097152);",False)
+            assert 'ADMISSION_CAPACITY' in r.stderr
+        finally:
+            output,error=first.communicate(timeout=15)
+            assert first.returncode==0,output+error
+        assert sql(db,"SELECT count(*),sum(reserved_bytes) FROM polis_coordinator_operations;").stdout.strip()=='1|2097152'
+    publication_case('two concurrent conversations cannot overbook the final namespace slot',concurrent_capacity)
+
+    def budget_mutant(db):
+        arm(db)
+        sql(db,"UPDATE polis_coordinator_budgets SET max_operations=1; UPDATE polis_coordinator_leases SET dispatch_operation_id='op-b';")
+        original=sql(db,"SELECT pg_get_functiondef('pc_admit(text,integer,text,bigint,text,text,bigint)'::regprocedure);").stdout
+        predicate='IF n>=budget.max_operations OR used+p_reserved_bytes>budget.max_bytes THEN'
+        assert original.count(predicate)==1
+        sql(db,original.replace(predicate,'IF false THEN'))
+        try:
+            control(db,"SELECT pc_admit('generated',990001,'owner-a',1,'op-b',repeat('a',64),2097152);")
+            assert sql(db,"SELECT count(*) FROM polis_coordinator_operations;").stdout.strip()=='2'
+        finally:sql(db,original)
+    publication_case('negative control: removed admission bound overbooks capacity',budget_mutant)
+
+    def maximum_metadata(db):
+        arm(db)
+        sql(db,"""INSERT INTO polis_coordinator_budgets VALUES(repeat(chr(128512),999),1,2097152);
+        INSERT INTO polis_coordinator_leases SELECT repeat(chr(128512),999),zid,owner_id,owner_epoch,expires_at,
+        repeat(chr(128512),128),dispatch_capability_sha256,dispatch_checkpoint_sha256,dispatch_expected_tick,dispatch_margin_ms FROM polis_coordinator_leases;""")
+        control(db,"SELECT pc_admit(repeat(chr(128512),999),990001,'owner-a',1,repeat(chr(128512),128),repeat('a',64),2097152);")
+        control(db,"SELECT pc_reference(repeat(chr(128512),999),990001,repeat(chr(128512),128),repeat(chr(128512),124)||g,true) FROM generate_series(1,128) g;")
+        size=sql(db,"SELECT sum(octet_length(math_env)+octet_length(operation_id)+octet_length(reference_name)+4) FROM polis_coordinator_references;").stdout.strip()
+        assert 600000<int(size)<1048576,size
+        assert 'REFERENCE_CAPACITY' in control(db,"SELECT pc_reference(repeat(chr(128512),999),990001,repeat(chr(128512),128),'overflow',true);",False).stderr
+        assert sql(db,"SELECT count(*) FROM polis_coordinator_references;").stdout.strip()=='128'
+    publication_case('maximum UTF8 reference keys fit the reserved metadata allowance',maximum_metadata)
 
     def prototype(db):
         sql(db, "ALTER TABLE math_ticks ADD COLUMN publisher_epoch bigint;")

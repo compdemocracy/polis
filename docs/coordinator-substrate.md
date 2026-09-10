@@ -22,6 +22,10 @@ an adapter contract, not an assertion that original bytes equal JSONB text.
 | `polis_coordinator_reconciliation` | Source observation time and probe, `(math_env,zid)`; age index |
 | `polis_coordinator_generations` | Durable operation/owner/epoch/checkpoint receipt, `(math_env,zid,math_tick)`; unique operation per conversation/namespace |
 | `polis_coordinator_payloads` | Exact bytes and original/storage digests, `(math_env,zid,math_tick,payload_kind)`; FK to the generation |
+| `polis_coordinator_budgets` | Operator-provisioned namespace count and reserved logical-byte ceilings; no default profile |
+| `polis_coordinator_operations` | Durable exact dispatch identity, reservation, state and reconciliation position, `(math_env,zid,operation_id)` |
+| `polis_coordinator_references` | Up to 128 independent named holds per admitted operation; FK prevents unreferenced deletion |
+| `polis_coordinator_floors` | Monotonic published generation and caching cursor, `(math_env,zid)`; never removed by cleanup |
 | `polis_coordinator_caching_tick` | Bounded bigint sequence, initialized above the existing main maximum |
 | `polis_coordinator_install` | Singleton migration identity, catalog/provenance seals |
 | `polis_coordinator_install_roles` | Created versus adopted role and its original OID |
@@ -41,9 +45,9 @@ The per-generation identity leaves room for typed job/run/attempt joins and type
 result-specific child tables when Delphi's queue and results move to Postgres.
 There are no speculative nullable job columns or generic JSON result envelopes
 in this change. Queue 000019 remains noop-only. Durable math receipts can survive
-later publications; queue finalization, uncertain-operation admission, retention
-and deletion policy still require the separate D03/D04 implementation and tests.
-No automatic receipt deletion or retention promise is implemented here.
+later publications. Rev4 adds the SQL admission/reconciliation/cleanup boundary
+below; runtime scheduling, queue finalization and the D04/D05 transfer rehearsal
+remain separate. Installation activates no automatic cleanup or dispatcher.
 
 ## Roles and authority boundary
 
@@ -54,10 +58,12 @@ grants role membership or creates a login/password.
 
 * `polis_coordinator_owner` owns the new state objects. Its external privileges are
   public-schema USAGE/CREATE and conversations SELECT/REFERENCES(zid)/UPDATE(topic)
-  for the parent lock/FK boundary. It receives no existing math write grant.
+  for the parent lock/FK boundary, plus SELECT on the four existing math tables
+  for admission and current-generation protection. It receives no existing math write grant.
 * `polis_coordinator_control` can maintain leases, cursors, failures and
   reconciliation and read receipt tables. It cannot insert receipts or use the
-  publication sequence.
+  publication sequence. It executes the fixed admission, reconciliation,
+  protection and cleanup functions; direct DELETE of receipts stays denied.
 * `polis_coordinator_publication_owner` is the new NOLOGIN owner of the fixed
   `pc_publish` SECURITY DEFINER function and its private `pc_canonical` helper.
   It has SELECT/INSERT/UPDATE on only the four existing math tables, public schema
@@ -148,7 +154,7 @@ publication, because receipts retain the original operation. A mismatched replay
 raises `OPERATION_IDENTITY_CONFLICT`. A fresh expected-tick conflict writes nothing.
 
 `pc_publish` prepares and hashes the three original byte streams before locks,
-then locks parent → lease → ticks and writes bidtopid → ptptstats → main, followed
+then locks parent → lease → namespace budget → operation → ticks and writes bidtopid → ptptstats → main, followed
 by the new receipt rows. It rechecks DB time with the dispatcher's positive
 margin while holding the lease lock. Its returned timestamp is recorded before
 COMMIT, not the physical commit time. The caller must commit immediately and
@@ -169,9 +175,71 @@ silent alteration of an accepted schema item.
 ## Recovery after current-row loss
 
 The expected generation is the greater of the current math_ticks pointer and
-retained receipt history. The publication function reads this indexed maximum
+retained receipt history and the durable floor. The publication function reads this indexed maximum
 under the parent/lease locks. Deleting or regressing the latest pointer therefore
 advances to a fresh generation instead of reusing an immutable receipt identity.
 A caller whose expected tick ignores retained history gets a conflict. Exact
 operation readback still proves a past commit without promising that current
 math rows have survived; a new repair operation restores those rows.
+
+## Rev4 durable admission and cleanup
+
+A reviewed operator profile inserts one `polis_coordinator_budgets` row per
+namespace with `max_operations` and `max_bytes`. Installation inserts none.
+The control and publisher roles cannot change the limits. Every retained
+operation, including resolved history, consumes one slot and its full byte
+reservation until cleanup succeeds. New work is refused at either ceiling;
+reconciliation and cleanup remain available. This is a bound on reserved logical
+receipt bytes, not PostgreSQL filesystem size: indexes, WAL, MVCC/vacuum and
+per-conversation floor rows still need an independently sized storage profile.
+
+The controller arms the lease, calls `pc_admit`, commits that transaction, then
+dispatches the child. Publication rejects an admission row written in its own
+transaction, so a combined admit/publish cannot bypass this durable boundary. Admission captures namespace/conversation/operation,
+owner/epoch, expected tick, capability/checkpoint/source digests and byte ceiling.
+It checks the current generation floor and serializes capacity accounting on the
+namespace budget row. The source digest is supplied by the trusted controller;
+the checkpoint digest binds the exact checkpoint consumed by `pc_publish`.
+Reusing an admitted operation with another identity or reservation refuses.
+Caller-generated operation identifiers must be unique. A compacted exact retry
+cannot bypass the generation floor, but expired history is no longer available
+as an exact receipt and must not be represented as verified.
+
+Publication requires the admitted identity. The byte charge is the three
+original byte lengths, retained checkpoint text length and 1048576 bytes reserved
+for bounded metadata. Request checkpoints are limited to 65536 bytes and cannot
+supply the function's reserved receipt fields. Oversized publication raises
+`PUBLICATION_BYTE_CAPACITY` before science writes. The full reservation stays
+charged after publication; it cannot be reduced to evade capacity accounting.
+
+New operations are `pending`. `pc_reconcile` checks the exact historical receipt,
+all identity fields and three companion rows, then records `resolved` and its
+exact generation. An absent receipt becomes `unresolved`, even on a replacement
+controller connection or after lease takeover. It remains charged and protected;
+there is no timeout that converts absence into proof or deletes the reservation.
+The partial `(math_env,reconciled_at,zid,operation_id)` index lets the caller
+resume oldest-first reconciliation. Commit each bounded pass; no durable scan
+cursor depends on process memory. Terminal absence/release is deliberately not
+an admitted transition in this schema.
+
+`pc_protect` places or removes the controller's explicit hold on an admitted
+operation. `pc_reference` registers/releases an independent named hold, with an
+idempotent key and a hard ceiling of 128 names per operation. Releasing one name
+does not release another caller's hold; the metadata allowance includes the
+bounded reference catalog.
+`pc_cleanup` addresses one exact operation, locks parent/lease/budget/operation,
+and deletes only a resolved, unprotected, noncurrent receipt with no named hold, pending or
+unresolved expected-generation reference and no live lease reference. It keeps
+the maximum receipt and the monotonic floor row. It deletes companions before
+the generation and operation in one transaction, releasing capacity atomically.
+An unsafe cleanup returns false without deletion. These functions are the
+control role's scoped DELETE authority; the login has no direct receipt DELETE,
+publication permission, arbitrary SQL or identifier input.
+
+The existing math tables receive no columns, triggers or migration-time data
+changes. The NOLOGIN state owner gains only recorded SELECT grants on them.
+Provenance and both down modes cover the new catalog, functions and grants;
+normal down also refuses profiles, operations or floor data. Rev4 is amended in
+place because earlier revisions were applied nowhere. Replaying onto an older
+installed catalog fails its seal rather than upgrading it implicitly. Any bridge
+built against an older byte pin must be reviewed and updated before activation.

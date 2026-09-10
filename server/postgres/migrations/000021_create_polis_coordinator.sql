@@ -86,6 +86,7 @@ VALUES ('schema','public','','polis_coordinator_owner','USAGE'),
 ('schema','public','','polis_coordinator_control','USAGE'),
 ('schema','public','','polis_coordinator_publisher','USAGE'),
 ('table','conversations','','polis_coordinator_owner','SELECT'),
+('table','math_ticks','','polis_coordinator_owner','SELECT'),('table','math_main','','polis_coordinator_owner','SELECT'),('table','math_bidtopid','','polis_coordinator_owner','SELECT'),('table','math_ptptstats','','polis_coordinator_owner','SELECT'),
 ('column','conversations','zid','polis_coordinator_owner','REFERENCES'),
 ('column','conversations','topic','polis_coordinator_owner','UPDATE'),
 ('schema','public','','polis_coordinator_publication_owner','USAGE'),
@@ -118,7 +119,7 @@ DO $admit$
 BEGIN
  IF EXISTS(SELECT FROM pg_class WHERE relnamespace='public'::regnamespace AND starts_with(relname,'polis_coordinator_'))
  OR EXISTS(SELECT FROM pg_proc WHERE pronamespace='public'::regnamespace AND starts_with(proname,'pc_')) THEN
-  IF pg_temp.pc_catalog() IS DISTINCT FROM 'ad11429a737605ab9cf51ec7ea2a64ec' THEN
+  IF pg_temp.pc_catalog() IS DISTINCT FROM 'dd88a9711bbdac72155d4e8862052c4b' THEN
    RAISE EXCEPTION 'refusing: coordinator catalog drift before replay' USING DETAIL=pg_temp.pc_catalog(); END IF;
   PERFORM set_config('polis_coordinator.replay','true',true);
  ELSE PERFORM set_config('polis_coordinator.replay','false',true);
@@ -205,6 +206,47 @@ BEGIN
   PRIMARY KEY(math_env,zid,math_tick,payload_kind),
   FOREIGN KEY(math_env,zid,math_tick) REFERENCES public.polis_coordinator_generations(math_env,zid,math_tick)
  );
+ -- No profiles are installed: an operator must review explicit per-namespace
+ -- count/logical-byte ceilings before admission. Reservations remain charged
+ -- until protected cleanup removes a resolved operation and its receipt.
+ CREATE TABLE public.polis_coordinator_budgets (
+  math_env varchar(999) PRIMARY KEY CHECK(length(math_env)>0),
+  max_operations integer NOT NULL CHECK(max_operations BETWEEN 1 AND 1000000),
+  max_bytes bigint NOT NULL CHECK(max_bytes BETWEEN 1048576 AND 1099511627776)
+ );
+ CREATE TABLE public.polis_coordinator_operations (
+  math_env varchar(999) NOT NULL REFERENCES public.polis_coordinator_budgets(math_env),
+  zid integer NOT NULL REFERENCES public.conversations(zid),
+  operation_id text NOT NULL CHECK(length(operation_id) BETWEEN 1 AND 128),
+  owner_id text NOT NULL CHECK(length(owner_id) BETWEEN 1 AND 128),
+  owner_epoch bigint NOT NULL CHECK(owner_epoch>0),
+  expected_tick bigint CHECK(expected_tick BETWEEN 0 AND 9007199254740990),
+  capability_sha256 text NOT NULL CHECK(capability_sha256 ~ '^[0-9a-f]{64}$'),
+  checkpoint_sha256 text NOT NULL CHECK(checkpoint_sha256 ~ '^[0-9a-f]{64}$'),
+  source_sha256 text NOT NULL CHECK(source_sha256 ~ '^[0-9a-f]{64}$'),
+  reserved_bytes bigint NOT NULL CHECK(reserved_bytes BETWEEN 1048576 AND 1099511627776),
+  state text NOT NULL DEFAULT 'pending' CHECK(state IN ('pending','unresolved','resolved')),
+  protected boolean NOT NULL DEFAULT false,
+  admitted_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  reconciled_at timestamptz NOT NULL DEFAULT '-infinity',
+  resolved_tick bigint CHECK(resolved_tick BETWEEN 0 AND 9007199254740991),
+  CHECK((state='resolved')=(resolved_tick IS NOT NULL)),
+  PRIMARY KEY(math_env,zid,operation_id)
+ );
+ CREATE INDEX polis_coordinator_operations_reconcile ON public.polis_coordinator_operations(math_env,reconciled_at,zid,operation_id) WHERE state<>'resolved';
+ CREATE INDEX polis_coordinator_operations_references ON public.polis_coordinator_operations(math_env,zid,expected_tick) WHERE state<>'resolved' OR protected;
+ CREATE TABLE public.polis_coordinator_references (
+  math_env varchar(999) NOT NULL, zid integer NOT NULL, operation_id text NOT NULL,
+  reference_name text NOT NULL CHECK(length(reference_name) BETWEEN 1 AND 128),
+  PRIMARY KEY(math_env,zid,operation_id,reference_name),
+  FOREIGN KEY(math_env,zid,operation_id) REFERENCES public.polis_coordinator_operations(math_env,zid,operation_id)
+ );
+ CREATE TABLE public.polis_coordinator_floors (
+  math_env varchar(999) NOT NULL, zid integer NOT NULL REFERENCES public.conversations(zid),
+  math_tick bigint NOT NULL CHECK(math_tick BETWEEN 0 AND 9007199254740991),
+  caching_tick bigint NOT NULL CHECK(caching_tick BETWEEN 1 AND 9007199254740991),
+  PRIMARY KEY(math_env,zid)
+ );
  CREATE TABLE public.polis_coordinator_install (
   singleton boolean PRIMARY KEY CHECK(singleton), migration_id text NOT NULL CHECK(migration_id='000021'),
   catalog_fingerprint text NOT NULL CHECK(catalog_fingerprint ~ '^[0-9a-f]{32}$'),
@@ -237,6 +279,10 @@ BEGIN
  GRANT SELECT ON public.polis_coordinator_install TO polis_coordinator_control,polis_coordinator_publisher;
  GRANT SELECT,UPDATE ON public.polis_coordinator_leases TO polis_coordinator_publication_owner;
  GRANT SELECT,INSERT ON public.polis_coordinator_generations,public.polis_coordinator_payloads TO polis_coordinator_publication_owner;
+ GRANT SELECT ON public.polis_coordinator_references TO polis_coordinator_control;
+ GRANT SELECT ON public.polis_coordinator_budgets,public.polis_coordinator_operations,public.polis_coordinator_floors TO polis_coordinator_control,polis_coordinator_publisher;
+ GRANT SELECT,UPDATE ON public.polis_coordinator_budgets,public.polis_coordinator_operations TO polis_coordinator_publication_owner;
+ GRANT SELECT,INSERT,UPDATE ON public.polis_coordinator_floors TO polis_coordinator_publication_owner;
  GRANT USAGE ON SEQUENCE public.polis_coordinator_caching_tick TO polis_coordinator_publication_owner;
  INSERT INTO public.polis_coordinator_install_roles
  SELECT r.rolname,r.oid,b.oid IS NULL FROM pg_roles r LEFT JOIN pc_before_roles b ON b.oid=r.oid
@@ -263,6 +309,7 @@ CREATE FUNCTION public.pc_publish(
 ) RETURNS TABLE(outcome text,math_tick bigint,caching_tick bigint)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $publish$
 DECLARE
+ op public.polis_coordinator_operations; admission_xid xid;
  main_data jsonb; bid_data jsonb; stats_data jsonb; stamp bigint;
  capability_hash text; checkpoint_hash text; originals jsonb; storage_hashes jsonb;
  lease public.polis_coordinator_leases; receipt public.polis_coordinator_generations;
@@ -274,6 +321,8 @@ BEGIN
  OR p_capability IS NULL OR octet_length(p_capability)<>32
  OR (p_expected_tick IS NOT NULL AND (p_expected_tick<0 OR p_expected_tick>=9007199254740991))
  OR jsonb_typeof(p_checkpoint) IS DISTINCT FROM 'object'
+ OR p_checkpoint ?| ARRAY['operation_id','publisher_epoch','original_digests','payload_digests']
+ OR octet_length(p_checkpoint::text)>65536
  OR p_main IS NULL OR p_bidtopid IS NULL OR p_ptptstats IS NULL THEN
   RAISE EXCEPTION USING ERRCODE='P2010',MESSAGE='INVALID_PUBLICATION_REQUEST';
  END IF;
@@ -332,12 +381,27 @@ BEGIN
  OR lease.dispatch_checkpoint_sha256 IS DISTINCT FROM checkpoint_hash
  OR lease.dispatch_expected_tick IS DISTINCT FROM p_expected_tick THEN
   RAISE EXCEPTION USING ERRCODE='P2010',MESSAGE='DISPATCH_IDENTITY_CONFLICT'; END IF;
+ -- Durable admission is mandatory before any science write. A caller must
+ -- COMMIT pc_admit before spawning its child; no adapter is activated here.
+ PERFORM 1 FROM public.polis_coordinator_budgets WHERE math_env=p_env FOR UPDATE;
+ SELECT * INTO op FROM public.polis_coordinator_operations WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE='P2020',MESSAGE='OPERATION_NOT_ADMITTED'; END IF;
+ SELECT xmin INTO admission_xid FROM public.polis_coordinator_operations WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation;
+ IF admission_xid=pg_current_xact_id()::text::xid THEN
+  RAISE EXCEPTION USING ERRCODE='P2020',MESSAGE='ADMISSION_NOT_DURABLE'; END IF;
+ IF op.owner_id IS DISTINCT FROM p_owner OR op.owner_epoch IS DISTINCT FROM p_epoch
+ OR op.expected_tick IS DISTINCT FROM p_expected_tick OR op.capability_sha256 IS DISTINCT FROM capability_hash
+ OR op.checkpoint_sha256 IS DISTINCT FROM checkpoint_hash OR op.state='resolved' THEN
+  RAISE EXCEPTION USING ERRCODE='P2020',MESSAGE='ADMISSION_IDENTITY_CONFLICT'; END IF;
+ IF octet_length(p_main)::bigint+octet_length(p_bidtopid)+octet_length(p_ptptstats)+octet_length(recorded_checkpoint::text)+1048576>op.reserved_bytes THEN
+  RAISE EXCEPTION USING ERRCODE='P2021',MESSAGE='PUBLICATION_BYTE_CAPACITY'; END IF;
  SELECT t.math_tick INTO current_tick FROM public.math_ticks t WHERE t.zid=p_zid AND t.math_env=p_env FOR UPDATE;
  -- Receipt history is the generation floor even if the latest pointer was
  -- deleted or regressed. The held parent/lease locks serialize this namespace
  -- and zid; this bounded indexed maximum reads no science payloads.
  SELECT greatest(current_tick,max(g.math_tick)) INTO current_tick
  FROM public.polis_coordinator_generations g WHERE g.zid=p_zid AND g.math_env=p_env;
+ SELECT greatest(current_tick,(SELECT f.math_tick FROM public.polis_coordinator_floors f WHERE f.math_env=p_env AND f.zid=p_zid)) INTO current_tick;
  IF current_tick IS DISTINCT FROM p_expected_tick THEN
   RETURN QUERY SELECT 'conflict'::text,current_tick,NULL::bigint; RETURN; END IF;
  new_tick:=coalesce(current_tick+1,0);
@@ -356,6 +420,9 @@ BEGIN
  VALUES(p_env,p_zid,new_tick,'main',p_main,originals->>'main',storage_hashes->>'main'),
  (p_env,p_zid,new_tick,'bidtopid',p_bidtopid,originals->>'bidtopid',storage_hashes->>'bidtopid'),
  (p_env,p_zid,new_tick,'ptptstats',p_ptptstats,originals->>'ptptstats',storage_hashes->>'ptptstats');
+ INSERT INTO public.polis_coordinator_floors(math_env,zid,math_tick,caching_tick) VALUES(p_env,p_zid,new_tick,new_cursor)
+ ON CONFLICT(math_env,zid) DO UPDATE SET math_tick=greatest(polis_coordinator_floors.math_tick,excluded.math_tick),caching_tick=greatest(polis_coordinator_floors.caching_tick,excluded.caching_tick);
+ -- Remain pending until the controller reconciles the durable exact receipt.
  -- The final authorization remains under the same lease lock; renewal cannot
  -- extend through it. An exception rolls back every write in this call. It does
  -- NOT promise the caller's COMMIT completes before expiry. The caller must
@@ -372,6 +439,146 @@ ALTER FUNCTION public.pc_publish(text,integer,text,bigint,text,bytea,bigint,json
 REVOKE ALL ON FUNCTION public.pc_canonical(jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.pc_publish(text,integer,text,bigint,text,bytea,bigint,jsonb,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.pc_publish(text,integer,text,bigint,text,bytea,bigint,jsonb,bytea,bytea,bytea) TO polis_coordinator_publisher;
+
+-- Control-only admission and reconciliation. The lock order is parent, lease,
+-- namespace budget, operation. Namespace serialization also covers cleanup.
+CREATE FUNCTION public.pc_admit(p_env text,p_zid integer,p_owner text,p_epoch bigint,p_operation text,
+ p_source_sha256 text,p_reserved_bytes bigint) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $admit_operation$
+DECLARE lease public.polis_coordinator_leases; budget public.polis_coordinator_budgets;
+ op public.polis_coordinator_operations; n bigint; used numeric;
+BEGIN
+ IF p_source_sha256 IS NULL OR p_source_sha256 !~ '^[0-9a-f]{64}$'
+ OR p_reserved_bytes IS NULL OR p_reserved_bytes NOT BETWEEN 1048576 AND 1099511627776 THEN
+  RAISE EXCEPTION USING ERRCODE='P2020',MESSAGE='INVALID_ADMISSION'; END IF;
+ PERFORM zid FROM public.conversations WHERE zid=p_zid FOR KEY SHARE;
+ SELECT * INTO lease FROM public.polis_coordinator_leases WHERE math_env=p_env AND zid=p_zid FOR UPDATE;
+ IF lease.owner_id IS DISTINCT FROM p_owner OR lease.owner_epoch IS DISTINCT FROM p_epoch
+ OR lease.dispatch_operation_id IS DISTINCT FROM p_operation OR lease.dispatch_operation_id IS NULL THEN
+  RAISE EXCEPTION USING ERRCODE='P2020',MESSAGE='ADMISSION_IDENTITY_CONFLICT'; END IF;
+ SELECT * INTO budget FROM public.polis_coordinator_budgets WHERE math_env=p_env FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE='P2021',MESSAGE='ADMISSION_PROFILE_REQUIRED'; END IF;
+ SELECT * INTO op FROM public.polis_coordinator_operations WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation;
+ IF FOUND THEN
+  IF op.owner_id IS DISTINCT FROM p_owner OR op.owner_epoch IS DISTINCT FROM p_epoch
+  OR op.expected_tick IS DISTINCT FROM lease.dispatch_expected_tick
+  OR op.capability_sha256 IS DISTINCT FROM lease.dispatch_capability_sha256
+  OR op.checkpoint_sha256 IS DISTINCT FROM lease.dispatch_checkpoint_sha256
+  OR op.source_sha256 IS DISTINCT FROM p_source_sha256 OR op.reserved_bytes IS DISTINCT FROM p_reserved_bytes THEN
+   RAISE EXCEPTION USING ERRCODE='P2020',MESSAGE='ADMISSION_IDENTITY_CONFLICT'; END IF;
+  RETURN 'already_admitted';
+ END IF;
+ IF lease.expires_at<=clock_timestamp() THEN RAISE EXCEPTION USING ERRCODE='P2005',MESSAGE='LEASE-EXPIRED'; END IF;
+ -- A compacted operation cannot be replayed at or below its generation floor.
+ -- The same floor check is repeated by publication under these same locks.
+ IF lease.dispatch_expected_tick IS DISTINCT FROM
+  greatest((SELECT math_tick FROM public.math_ticks WHERE math_env=p_env AND zid=p_zid),
+   (SELECT max(math_tick) FROM public.polis_coordinator_generations WHERE math_env=p_env AND zid=p_zid),
+   (SELECT f.math_tick FROM public.polis_coordinator_floors f WHERE f.math_env=p_env AND f.zid=p_zid)) THEN
+  RAISE EXCEPTION USING ERRCODE='P2020',MESSAGE='ADMISSION_TICK_CONFLICT'; END IF;
+ SELECT count(*),coalesce(sum(reserved_bytes),0) INTO n,used FROM public.polis_coordinator_operations WHERE math_env=p_env;
+ IF n>=budget.max_operations OR used+p_reserved_bytes>budget.max_bytes THEN
+  RAISE EXCEPTION USING ERRCODE='P2021',MESSAGE='ADMISSION_CAPACITY'; END IF;
+ INSERT INTO public.polis_coordinator_operations(math_env,zid,operation_id,owner_id,owner_epoch,expected_tick,
+  capability_sha256,checkpoint_sha256,source_sha256,reserved_bytes)
+ VALUES(p_env,p_zid,p_operation,p_owner,p_epoch,lease.dispatch_expected_tick,
+  lease.dispatch_capability_sha256,lease.dispatch_checkpoint_sha256,p_source_sha256,p_reserved_bytes);
+ RETURN 'admitted';
+END $admit_operation$;
+CREATE FUNCTION public.pc_reconcile(p_env text,p_zid integer,p_operation text) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $reconcile_operation$
+DECLARE op public.polis_coordinator_operations; receipt public.polis_coordinator_generations;
+BEGIN
+ PERFORM zid FROM public.conversations WHERE zid=p_zid FOR KEY SHARE;
+ PERFORM 1 FROM public.polis_coordinator_leases WHERE math_env=p_env AND zid=p_zid FOR UPDATE;
+ PERFORM 1 FROM public.polis_coordinator_budgets WHERE math_env=p_env FOR UPDATE;
+ SELECT * INTO op FROM public.polis_coordinator_operations WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE='P2020',MESSAGE='OPERATION_NOT_ADMITTED'; END IF;
+ SELECT * INTO receipt FROM public.polis_coordinator_generations WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation;
+ IF FOUND THEN
+  IF receipt.owner_id IS DISTINCT FROM op.owner_id OR receipt.publisher_epoch IS DISTINCT FROM op.owner_epoch
+  OR receipt.capability_sha256 IS DISTINCT FROM op.capability_sha256 OR receipt.expected_tick IS DISTINCT FROM op.expected_tick
+  OR encode(sha256(convert_to((receipt.input_checkpoint-ARRAY['operation_id','publisher_epoch','original_digests','payload_digests'])::text,'UTF8')),'hex') IS DISTINCT FROM op.checkpoint_sha256
+  OR (SELECT count(*) FROM public.polis_coordinator_payloads WHERE math_env=p_env AND zid=p_zid AND math_tick=receipt.math_tick)<>3 THEN
+   RAISE EXCEPTION USING ERRCODE='P2020',MESSAGE='RECEIPT_IDENTITY_CONFLICT'; END IF;
+  UPDATE public.polis_coordinator_operations SET state='resolved',resolved_tick=receipt.math_tick,reconciled_at=clock_timestamp()
+  WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation;
+  RETURN 'resolved';
+ END IF;
+ -- An absent receipt never becomes proof that a dispatch did not commit.
+ UPDATE public.polis_coordinator_operations SET state='unresolved',resolved_tick=NULL,reconciled_at=clock_timestamp()
+ WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation;
+ RETURN 'unresolved';
+END $reconcile_operation$;
+CREATE FUNCTION public.pc_protect(p_env text,p_zid integer,p_operation text,p_protected boolean) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $protect_operation$
+BEGIN
+ IF p_protected IS NULL THEN RAISE EXCEPTION USING ERRCODE='P2020',MESSAGE='INVALID_PROTECTION'; END IF;
+ PERFORM zid FROM public.conversations WHERE zid=p_zid FOR KEY SHARE;
+ PERFORM 1 FROM public.polis_coordinator_leases WHERE math_env=p_env AND zid=p_zid FOR UPDATE;
+ PERFORM 1 FROM public.polis_coordinator_budgets WHERE math_env=p_env FOR UPDATE;
+ UPDATE public.polis_coordinator_operations SET protected=p_protected WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation;
+ IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE='P2020',MESSAGE='OPERATION_NOT_ADMITTED'; END IF;
+END $protect_operation$;
+CREATE FUNCTION public.pc_reference(p_env text,p_zid integer,p_operation text,p_reference text,p_present boolean) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $reference_operation$
+BEGIN
+ IF p_reference IS NULL OR length(p_reference) NOT BETWEEN 1 AND 128 OR p_present IS NULL THEN
+  RAISE EXCEPTION USING ERRCODE='P2020',MESSAGE='INVALID_REFERENCE'; END IF;
+ PERFORM zid FROM public.conversations WHERE zid=p_zid FOR KEY SHARE;
+ PERFORM 1 FROM public.polis_coordinator_leases WHERE math_env=p_env AND zid=p_zid FOR UPDATE;
+ PERFORM 1 FROM public.polis_coordinator_budgets WHERE math_env=p_env FOR UPDATE;
+ PERFORM 1 FROM public.polis_coordinator_operations WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE='P2020',MESSAGE='OPERATION_NOT_ADMITTED'; END IF;
+ IF NOT p_present THEN
+  DELETE FROM public.polis_coordinator_references WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation AND reference_name=p_reference;
+ ELSIF NOT EXISTS(SELECT FROM public.polis_coordinator_references WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation AND reference_name=p_reference) THEN
+  IF (SELECT count(*) FROM public.polis_coordinator_references WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation)>=128 THEN
+   RAISE EXCEPTION USING ERRCODE='P2021',MESSAGE='REFERENCE_CAPACITY'; END IF;
+  INSERT INTO public.polis_coordinator_references VALUES(p_env,p_zid,p_operation,p_reference);
+ END IF;
+END $reference_operation$;
+ALTER FUNCTION public.pc_reference(text,integer,text,text,boolean) OWNER TO polis_coordinator_owner;
+REVOKE ALL ON FUNCTION public.pc_reference(text,integer,text,text,boolean) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.pc_reference(text,integer,text,text,boolean) TO polis_coordinator_control;
+CREATE FUNCTION public.pc_cleanup(p_env text,p_zid integer,p_operation text) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $cleanup_operation$
+DECLARE op public.polis_coordinator_operations; receipt public.polis_coordinator_generations;
+BEGIN
+ PERFORM zid FROM public.conversations WHERE zid=p_zid FOR KEY SHARE;
+ PERFORM 1 FROM public.polis_coordinator_leases WHERE math_env=p_env AND zid=p_zid FOR UPDATE;
+ PERFORM 1 FROM public.polis_coordinator_budgets WHERE math_env=p_env FOR UPDATE;
+ SELECT * INTO op FROM public.polis_coordinator_operations WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation FOR UPDATE;
+ IF NOT FOUND OR op.state<>'resolved' OR op.protected THEN RETURN false; END IF;
+ IF EXISTS(SELECT FROM public.polis_coordinator_references WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation) THEN RETURN false; END IF;
+ SELECT * INTO receipt FROM public.polis_coordinator_generations WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation;
+ IF NOT FOUND OR receipt.math_tick IS DISTINCT FROM op.resolved_tick THEN RETURN false; END IF;
+ -- Protect every actual current pointer, the durable floor, active expected
+ -- generations and explicit operation references. Missing/regressed current
+ -- rows cannot erase the maximum ever published generation or caching cursor.
+ IF receipt.math_tick >= (SELECT f.math_tick FROM public.polis_coordinator_floors f WHERE f.math_env=p_env AND f.zid=p_zid)
+ OR EXISTS(SELECT FROM public.math_ticks WHERE math_env=p_env AND zid=p_zid AND math_tick=receipt.math_tick)
+ OR EXISTS(SELECT FROM public.math_main WHERE math_env=p_env AND zid=p_zid AND math_tick=receipt.math_tick)
+ OR EXISTS(SELECT FROM public.math_bidtopid WHERE math_env=p_env AND zid=p_zid AND math_tick=receipt.math_tick)
+ OR EXISTS(SELECT FROM public.math_ptptstats WHERE math_env=p_env AND zid=p_zid AND math_tick=receipt.math_tick)
+ OR EXISTS(SELECT FROM public.polis_coordinator_operations WHERE math_env=p_env AND zid=p_zid
+   AND (state<>'resolved' OR protected) AND (expected_tick=receipt.math_tick OR resolved_tick=receipt.math_tick))
+ OR EXISTS(SELECT FROM public.polis_coordinator_leases WHERE math_env=p_env AND zid=p_zid AND dispatch_expected_tick=receipt.math_tick AND expires_at>clock_timestamp()) THEN
+  RETURN false;
+ END IF;
+ IF NOT EXISTS(SELECT FROM public.polis_coordinator_floors WHERE math_env=p_env AND zid=p_zid AND math_tick>receipt.math_tick AND caching_tick>receipt.caching_tick) THEN
+  RETURN false; END IF;
+ DELETE FROM public.polis_coordinator_payloads WHERE math_env=p_env AND zid=p_zid AND math_tick=receipt.math_tick;
+ DELETE FROM public.polis_coordinator_generations WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation;
+ DELETE FROM public.polis_coordinator_operations WHERE math_env=p_env AND zid=p_zid AND operation_id=p_operation;
+ RETURN true;
+END $cleanup_operation$;
+ALTER FUNCTION public.pc_admit(text,integer,text,bigint,text,text,bigint) OWNER TO polis_coordinator_owner;
+ALTER FUNCTION public.pc_reconcile(text,integer,text) OWNER TO polis_coordinator_owner;
+ALTER FUNCTION public.pc_protect(text,integer,text,boolean) OWNER TO polis_coordinator_owner;
+ALTER FUNCTION public.pc_cleanup(text,integer,text) OWNER TO polis_coordinator_owner;
+REVOKE ALL ON FUNCTION public.pc_admit(text,integer,text,bigint,text,text,bigint),public.pc_reconcile(text,integer,text),public.pc_protect(text,integer,text,boolean),public.pc_cleanup(text,integer,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.pc_admit(text,integer,text,bigint,text,text,bigint),public.pc_reconcile(text,integer,text),public.pc_protect(text,integer,text,boolean),public.pc_cleanup(text,integer,text) TO polis_coordinator_control;
 
 $authority$;
 END $create$;
@@ -396,7 +603,8 @@ BEGIN
  WHERE s.seqstart=i.sequence_start)
  OR (SELECT last_value FROM public.polis_coordinator_caching_tick) < greatest(
   (SELECT sequence_start FROM public.polis_coordinator_install),
-  coalesce((SELECT max(caching_tick) FROM public.polis_coordinator_generations),1)) THEN
+  coalesce((SELECT max(caching_tick) FROM public.polis_coordinator_generations),1),
+  coalesce((SELECT max(caching_tick) FROM public.polis_coordinator_floors),1)) THEN
   RAISE EXCEPTION 'refusing: coordinator sequence initialization or state drift';
  END IF;
  IF (SELECT array_agg(role_name ORDER BY role_name) FROM public.polis_coordinator_install_roles)
@@ -427,7 +635,7 @@ BEGIN
   INSERT INTO public.polis_coordinator_install(singleton,migration_id,catalog_fingerprint,provenance_fingerprint,sequence_start,installed_by)
   VALUES(true,'000021',pg_temp.pc_catalog(),pg_temp.pc_provenance_hash(),(SELECT seqstart FROM pg_sequence WHERE seqrelid='public.polis_coordinator_caching_tick'::regclass),session_user);
  END IF;
- IF pg_temp.pc_catalog() IS DISTINCT FROM 'ad11429a737605ab9cf51ec7ea2a64ec' THEN
+ IF pg_temp.pc_catalog() IS DISTINCT FROM 'dd88a9711bbdac72155d4e8862052c4b' THEN
   RAISE EXCEPTION 'refusing: coordinator catalog assertion' USING DETAIL=pg_temp.pc_catalog(); END IF;
  PERFORM pg_temp.pc_assert_provenance();
 END $record$;
