@@ -40,6 +40,7 @@ import pg from "../../src/db/pg-query";
 const CLOCK_MARGIN_MS = 25;
 
 interface CommentRow {
+  zid: number;
   tid: number;
   modified: string | number;
   mod: number;
@@ -52,10 +53,12 @@ describe("comment moderation advances comments.modified", () => {
   let commentIds: number[];
   let zid: number;
   let ownerAgent: any;
+  let otherConversationId: string;
+  let otherZid: number;
 
   const readComments = async (): Promise<Map<number, CommentRow>> => {
     const rows = (await pg.queryP_readOnly(
-      "select tid, modified, mod, active, is_meta from comments where zid = ($1);",
+      "select zid, tid, modified, mod, active, is_meta from comments where zid = ($1);",
       [zid]
     )) as CommentRow[];
     return new Map(rows.map((row) => [Number(row.tid), row]));
@@ -101,6 +104,27 @@ describe("comment moderation advances comments.modified", () => {
     });
   };
 
+  /** Put a same-tid row from another conversation in the global sweep. It
+   * must neither stand in for the target nor inflate the target's row count. */
+  const moderateOtherConversation = async (tid: number, since: number) => {
+    await wait(CLOCK_MARGIN_MS);
+    const response = await ownerAgent.put("/api/v3/comments").send({
+      conversation_id: otherConversationId,
+      tid,
+      velocity: 1,
+      active: true,
+      mod: 1,
+      is_meta: false,
+    });
+    expect(response.status).toBe(200);
+    const sweep = await pollModerationSince(since);
+    const other = sweep.filter(
+      (row) => Number(row.zid) === otherZid && Number(row.tid) === tid
+    );
+    expect(other).toHaveLength(1);
+    expect(Number(other[0].modified)).toBeGreaterThan(since);
+  };
+
   beforeAll(async () => {
     const convo = await setupAuthAndConvo({
       createConvo: true,
@@ -118,6 +142,22 @@ describe("comment moderation advances comments.modified", () => {
     )) as Array<{ zid: number }>;
     zid = zidRows?.[0]?.zid;
     expect(typeof zid).toBe("number");
+
+    const other = await setupAuthAndConvo({
+      createConvo: true,
+      commentCount: 3,
+      userData: convo.testUser,
+    });
+    otherConversationId = other.conversationId;
+    // Both fresh conversations must actually contain the same tids.
+    expect(other.commentIds).toEqual(commentIds);
+    const otherZidRows = (await pg.queryP_readOnly(
+      "select zid from zinvites where zinvite = ($1) limit 1;",
+      [otherConversationId]
+    )) as Array<{ zid: number }>;
+    otherZid = otherZidRows?.[0]?.zid;
+    expect(typeof otherZid).toBe("number");
+    expect(otherZid).not.toBe(zid);
   });
 
   test("every fixture comment has a usable timestamp to move", async () => {
@@ -256,9 +296,14 @@ describe("comment moderation advances comments.modified", () => {
       // conversation: its watermark is the newest timestamp in the table for
       // these comments, so `modified > since` currently excludes all of them.
       const since = await watermark();
+      // Negative collision control: only the other conversation's same-tid
+      // row is newer than the watermark. It cannot witness this target.
+      await moderateOtherConversation(tid, since);
       const beforeModeration = await pollModerationSince(since);
       expect(
-        beforeModeration.filter((row) => Number(row.tid) === tid)
+        beforeModeration.filter(
+          (row) => Number(row.zid) === zid && Number(row.tid) === tid
+        )
       ).toHaveLength(0);
 
       const response = await moderate(tid, {
@@ -271,8 +316,12 @@ describe("comment moderation advances comments.modified", () => {
       // This is the assertion the bug failed: before the fix the row's
       // `modified` stayed at its creation time, so the poller's next sweep
       // returned nothing and the engine kept the stale moderation state.
+      // Positive collision control: both conversations now contribute this
+      // tid, but exactly one row belongs to the target.
       const discovered = await pollModerationSince(since);
-      const found = discovered.filter((row) => Number(row.tid) === tid);
+      const found = discovered.filter(
+        (row) => Number(row.zid) === zid && Number(row.tid) === tid
+      );
       expect(found).toHaveLength(1);
       expect(found[0].mod).toBe(1);
       expect(Number(found[0].modified)).toBeGreaterThan(since);
@@ -281,9 +330,10 @@ describe("comment moderation advances comments.modified", () => {
     test("a topic moderation write is discoverable the same way", async () => {
       const tid = commentIds[2];
       const since = await watermark();
+      await moderateOtherConversation(tid, since);
       expect(
         (await pollModerationSince(since)).filter(
-          (row) => Number(row.tid) === tid
+          (row) => Number(row.zid) === zid && Number(row.tid) === tid
         )
       ).toHaveLength(0);
 
@@ -296,7 +346,7 @@ describe("comment moderation advances comments.modified", () => {
       expect(response.status).toBe(200);
 
       const found = (await pollModerationSince(since)).filter(
-        (row) => Number(row.tid) === tid
+        (row) => Number(row.zid) === zid && Number(row.tid) === tid
       );
       expect(found).toHaveLength(1);
       expect(found[0].is_meta).toBe(true);
@@ -307,6 +357,7 @@ describe("comment moderation advances comments.modified", () => {
       // a stamped row must not keep re-appearing on every subsequent sweep.
       const tid = commentIds[1];
       const since = await watermark();
+      await moderateOtherConversation(tid, since);
 
       const response = await moderate(tid, {
         active: true,
@@ -316,11 +367,18 @@ describe("comment moderation advances comments.modified", () => {
       expect(response.status).toBe(200);
 
       const sweep = await pollModerationSince(since);
-      expect(sweep.some((row) => Number(row.tid) === tid)).toBe(true);
+      expect(
+        sweep.some((row) => Number(row.zid) === zid && Number(row.tid) === tid)
+      ).toBe(true);
 
       const advanced = Math.max(...sweep.map((row) => Number(row.modified)));
+      // A later same-tid update elsewhere must not look like rediscovery of
+      // the target after its watermark has advanced.
+      await moderateOtherConversation(tid, advanced);
       const next = await pollModerationSince(advanced);
-      expect(next.some((row) => Number(row.tid) === tid)).toBe(false);
+      expect(
+        next.some((row) => Number(row.zid) === zid && Number(row.tid) === tid)
+      ).toBe(false);
     });
   });
 });
