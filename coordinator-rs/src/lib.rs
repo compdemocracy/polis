@@ -6,6 +6,7 @@ pub mod engine;
 pub mod fault;
 pub mod lease;
 pub mod metrics;
+pub mod operations;
 pub mod ordering;
 pub mod probe;
 pub mod reader;

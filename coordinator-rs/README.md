@@ -162,6 +162,43 @@ No alarm is deployed here. Bounded nonblocking transport, independent producer
 and sink observation, delivery verification and the transfer rehearsal remain
 open. O7 stays OPEN; this is not completion of the broader S3 slice.
 
+## Rev5 operation admission
+
+The bridge consumes migration 000021 rev5. Before starting Python it commits a
+control-only `pc_admit` reservation bound to the lease epoch, operation,
+capability, checkpoint, source digest and expected generation. A lost admission
+COMMIT reply stops dispatch; it never authorizes a worker launch.
+
+Dispatch requires an explicitly configured `P026_RESERVATION_BYTES` (1 MiB to
+1 TiB) and an independently provisioned namespace budget. The default is zero,
+which disables dispatch. Runtime never inserts or enlarges budget profiles.
+Tests alone install synthetic profiles and request 64 MiB per operation. The
+reservation must cover the three original payloads, receipt checkpoint and the
+schema's 1 MiB accounting overhead. Both namespace operation count and logical
+bytes remain charged for pending, unresolved and resolved operations.
+
+Each completed dispatch reconciles its exact operation over a fresh control
+connection. Each one-shot/daemon pass also visits at most `P026_PAGE_SIZE`
+nonterminal operations, oldest reconciliation first, avoiding live workers
+unless a receipt already exists. The fixed reconciliation RPC acquires its
+locks; Rust independently checks all three original payloads and digests before
+committing that state transition. Absent receipts stay unresolved and charged.
+Corrupt receipts retain their prior state and capacity; repair is required and
+repeated corruption can occupy the bounded reconciliation page.
+
+Publication locks its own conversation and reservation, while admission holds
+the namespace budget lock only for its short accounting transaction. Independent
+conversations may finish out of caching sequence order; the original R12 overlap
+and metadata-sweep controls remain required.
+
+Runtime performs no automatic cleanup. Reviewed control callers may use
+`pc_protect`, `pc_reference` and `pc_cleanup`; rev4 refuses deletion of active,
+current, maximum, unresolved or referenced operations. Retained floors prevent
+generation/caching cursor reuse after cleanup. Rust rejects current bundles
+below the retained generation floor even when all four pointers agree.
+Terminal release of absent operations, physical disk/WAL/MVCC limits and
+production activation remain separate work.
+
 ## What is still open
 
 The stage checklist names these explicitly (`evidence/test-summary.json`,

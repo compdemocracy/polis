@@ -23,6 +23,7 @@ def test_schema_consumers_are_byte_pinned():
     sql=ROOT/"server/postgres/migrations/000021_create_polis_coordinator.sql"
     assert hashlib.sha256(sql.read_bytes()).hexdigest()==COORDINATOR_SQL_SHA256
     assert COORDINATOR_SQL_SHA256 in (ROOT/"coordinator-rs/src/bridge.rs").read_text()
+    assert COORDINATOR_SQL_SHA256 in (ROOT/"coordinator-rs/tools/bundle_reader.cjs").read_text()
     assert COORDINATOR_SQL_SHA256 in (ROOT/"server/postgres/migrations/down/000021-files.sha256").read_text()
 
 

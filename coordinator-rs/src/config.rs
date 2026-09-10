@@ -37,6 +37,9 @@ pub struct Config {
     /// Rev6 CO04: the remaining lease a publication must still hold at its
     /// final in-transaction authorization, immediately before COMMIT.
     pub commit_margin_seconds: f64,
+    /// Explicit logical receipt reservation; zero disables new dispatch.
+    /// The separately installed namespace budget remains the authority.
+    pub reservation_bytes: i64,
 }
 fn value<T: std::str::FromStr>(name: &str, default: &str) -> Result<T>
 where
@@ -73,6 +76,7 @@ impl Config {
             environment: env::var("P026_ENVIRONMENT").unwrap_or_else(|_| "synthetic".into()),
             gauge_seconds: value("P026_GAUGE_SECONDS", "60")?,
             commit_margin_seconds: value("P026_COMMIT_MARGIN_SECONDS", "0.5")?,
+            reservation_bytes: value("P026_RESERVATION_BYTES", "0")?,
         };
         c.validate()?;
         Ok(c)
@@ -97,6 +101,11 @@ impl Config {
             "invalid namespace"
         );
         ensure!(self.cache_capacity <= 1024, "invalid warm cache capacity");
+        ensure!(
+            self.reservation_bytes == 0
+                || (1_048_576..=1_099_511_627_776).contains(&self.reservation_bytes),
+            "invalid receipt reservation"
+        );
         // A non-positive reconciliation ceiling would let the weak hint become
         // the only rebuild gate, which Rev5 forbids.
         ensure!(

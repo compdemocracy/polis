@@ -176,6 +176,21 @@
     "tests/coordinator/test_recovery.py::test_unrelated_failure_is_not_refusal",
     "tests/coordinator/test_reference_controls.py::test_original_r12_controls[equal-ticks-many-zids]",
     "tests/coordinator/test_reference_controls.py::test_original_r12_controls[sequence-alone-sees-two]",
+    "tests/coordinator/test_rev4_admission.py::test_concurrent_admission_and_resolved_retention_are_bounded[bytes]",
+    "tests/coordinator/test_rev4_admission.py::test_concurrent_admission_and_resolved_retention_are_bounded[count]",
+    "tests/coordinator/test_rev4_admission.py::test_lost_admission_commit_reply_never_launches_worker",
+    "tests/coordinator/test_rev4_admission.py::test_missing_explicit_admission_refuses_before_worker[profile]",
+    "tests/coordinator/test_rev4_admission.py::test_missing_explicit_admission_refuses_before_worker[reservation]",
+    "tests/coordinator/test_rev4_admission.py::test_payload_larger_than_reservation_stays_unresolved",
+    "tests/coordinator/test_rev4_admission.py::test_protected_cleanup_and_floor_survive_pointer_damage[coherent_regression]",
+    "tests/coordinator/test_rev4_admission.py::test_protected_cleanup_and_floor_survive_pointer_damage[floor_only]",
+    "tests/coordinator/test_rev4_admission.py::test_replacement_reconciles_durable_operation_without_replaying_zid[after_commit]",
+    "tests/coordinator/test_rev4_admission.py::test_replacement_reconciles_durable_operation_without_replaying_zid[after_worker_compute]",
+    "tests/coordinator/test_rev4_admission.py::test_reservation_is_committed_before_worker_computes",
+    "tests/coordinator/test_rev4_admission.py::test_rev4_extra_authority_is_refused[control_operations]",
+    "tests/coordinator/test_rev4_admission.py::test_rev4_extra_authority_is_refused[publisher_admit]",
+    "tests/coordinator/test_rev4_admission.py::test_rev4_extra_authority_is_refused[publisher_floors]",
+    "tests/coordinator/test_rev4_admission.py::test_uncertainty_is_emitted_before_blocked_reconciliation",
     "tests/coordinator/test_s1_identity.py::test_exact_worker_bytes_and_numeric_spelling_survive_publication",
     "tests/coordinator/test_s1_identity.py::test_original_jsonb_corruption_is_detected[digest-math_bidtopid]",
     "tests/coordinator/test_s1_identity.py::test_original_jsonb_corruption_is_detected[digest-math_main]",
@@ -904,6 +919,66 @@
       "test_original_r12_controls[sequence-alone-sees-two]"
     ],
     [
+      "tests.coordinator.test_rev4_admission",
+      "test_concurrent_admission_and_resolved_retention_are_bounded[bytes]"
+    ],
+    [
+      "tests.coordinator.test_rev4_admission",
+      "test_concurrent_admission_and_resolved_retention_are_bounded[count]"
+    ],
+    [
+      "tests.coordinator.test_rev4_admission",
+      "test_lost_admission_commit_reply_never_launches_worker"
+    ],
+    [
+      "tests.coordinator.test_rev4_admission",
+      "test_missing_explicit_admission_refuses_before_worker[profile]"
+    ],
+    [
+      "tests.coordinator.test_rev4_admission",
+      "test_missing_explicit_admission_refuses_before_worker[reservation]"
+    ],
+    [
+      "tests.coordinator.test_rev4_admission",
+      "test_payload_larger_than_reservation_stays_unresolved"
+    ],
+    [
+      "tests.coordinator.test_rev4_admission",
+      "test_protected_cleanup_and_floor_survive_pointer_damage[coherent_regression]"
+    ],
+    [
+      "tests.coordinator.test_rev4_admission",
+      "test_protected_cleanup_and_floor_survive_pointer_damage[floor_only]"
+    ],
+    [
+      "tests.coordinator.test_rev4_admission",
+      "test_replacement_reconciles_durable_operation_without_replaying_zid[after_commit]"
+    ],
+    [
+      "tests.coordinator.test_rev4_admission",
+      "test_replacement_reconciles_durable_operation_without_replaying_zid[after_worker_compute]"
+    ],
+    [
+      "tests.coordinator.test_rev4_admission",
+      "test_reservation_is_committed_before_worker_computes"
+    ],
+    [
+      "tests.coordinator.test_rev4_admission",
+      "test_rev4_extra_authority_is_refused[control_operations]"
+    ],
+    [
+      "tests.coordinator.test_rev4_admission",
+      "test_rev4_extra_authority_is_refused[publisher_admit]"
+    ],
+    [
+      "tests.coordinator.test_rev4_admission",
+      "test_rev4_extra_authority_is_refused[publisher_floors]"
+    ],
+    [
+      "tests.coordinator.test_rev4_admission",
+      "test_uncertainty_is_emitted_before_blocked_reconciliation"
+    ],
+    [
       "tests.coordinator.test_s1_identity",
       "test_exact_worker_bytes_and_numeric_spelling_survive_publication"
     ],
@@ -1308,6 +1383,26 @@
         "tests/coordinator/test_bridge.py::test_stale_python_child_after_parent_death_is_fenced[9]"
       ],
       "oracle_migration": "bridge.md; schema-specific metadata/corruption/readback changes require review"
+    },
+    {
+      "name": "rev4 durable admission and reconciliation",
+      "added_nodeids": [
+        "tests/coordinator/test_rev4_admission.py::test_concurrent_admission_and_resolved_retention_are_bounded[bytes]",
+        "tests/coordinator/test_rev4_admission.py::test_concurrent_admission_and_resolved_retention_are_bounded[count]",
+        "tests/coordinator/test_rev4_admission.py::test_lost_admission_commit_reply_never_launches_worker",
+        "tests/coordinator/test_rev4_admission.py::test_missing_explicit_admission_refuses_before_worker[profile]",
+        "tests/coordinator/test_rev4_admission.py::test_missing_explicit_admission_refuses_before_worker[reservation]",
+        "tests/coordinator/test_rev4_admission.py::test_payload_larger_than_reservation_stays_unresolved",
+        "tests/coordinator/test_rev4_admission.py::test_protected_cleanup_and_floor_survive_pointer_damage[coherent_regression]",
+        "tests/coordinator/test_rev4_admission.py::test_protected_cleanup_and_floor_survive_pointer_damage[floor_only]",
+        "tests/coordinator/test_rev4_admission.py::test_replacement_reconciles_durable_operation_without_replaying_zid[after_commit]",
+        "tests/coordinator/test_rev4_admission.py::test_replacement_reconciles_durable_operation_without_replaying_zid[after_worker_compute]",
+        "tests/coordinator/test_rev4_admission.py::test_reservation_is_committed_before_worker_computes",
+        "tests/coordinator/test_rev4_admission.py::test_rev4_extra_authority_is_refused[control_operations]",
+        "tests/coordinator/test_rev4_admission.py::test_rev4_extra_authority_is_refused[publisher_admit]",
+        "tests/coordinator/test_rev4_admission.py::test_rev4_extra_authority_is_refused[publisher_floors]",
+        "tests/coordinator/test_rev4_admission.py::test_uncertainty_is_emitted_before_blocked_reconciliation"
+      ]
     }
   ],
   "control_junit": [

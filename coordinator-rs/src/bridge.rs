@@ -15,7 +15,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub const SQL_SHA256: &str = "a7d537a1a912f7b73edd6409274c8922f30b29589ad4da4125a9c41a5ce4a3b5";
+pub const SQL_SHA256: &str = "df4b0a1a2df69a666ffd4894b4e231f121ac7d67da7c533738f5dd4a8ddef695";
 pub const ENGINE_SHA256: &str = "b295c3e7c649b38768c4eeb69c7cb3bf59d33c0077c22c84853a44d216aa0028";
 const ENGINE_MANIFEST: &str = include_str!("../schemas/poller-engine-v1.json");
 pub const PROTOCOL: &str = "polis-poller-bridge/1";
@@ -79,6 +79,10 @@ pub fn admit_control(client: &mut Client) -> Result<()> {
             "math_ptptstats",
             "polis_coordinator_generations",
             "polis_coordinator_payloads",
+            "polis_coordinator_operations",
+            "polis_coordinator_budgets",
+            "polis_coordinator_references",
+            "polis_coordinator_floors",
         ] {
             ensure!(!client.query_one("SELECT has_table_privilege($1,$2,'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER') OR has_any_column_privilege($1,$2,'INSERT,UPDATE')", &[&name,&format!("public.{table}")])?.get::<_,bool>(0), "DIRECT_CONTROL_DML_REFUSED");
         }
@@ -86,7 +90,7 @@ pub fn admit_control(client: &mut Client) -> Result<()> {
     let row=client.query_one("SELECT migration_id,catalog_fingerprint FROM public.polis_coordinator_install WHERE singleton", &[])?;
     ensure!(
         row.get::<_, String>(0) == "000021"
-            && row.get::<_, String>(1) == "ad11429a737605ab9cf51ec7ea2a64ec",
+            && row.get::<_, String>(1) == "8fcc7f6605f428177843f2593b876c62",
         "COORDINATOR_SCHEMA_MISMATCH"
     );
     Ok(())
@@ -169,13 +173,33 @@ fn dispatch(
 ) -> Result<Publication> {
     store.poller_timings = None;
     admit_control(&mut store.client)?;
+    ensure!(
+        store.config.reservation_bytes > 0,
+        "RECEIPT_RESERVATION_REQUIRED"
+    );
     let publisher_url = std::env::var("COORDINATOR_PUBLISHER_DATABASE_URL")
         .map_err(|_| anyhow::anyhow!("PUBLISHER_CREDENTIAL_REQUIRED"))?;
     let operation = checkpoint["operation_id"]
         .as_str()
         .map(str::to_owned)
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-    checkpoint["operation_id"] = json!(operation);
+    // Rev4 hashes the caller checkpoint before pc_publish adds receipt-owned
+    // identity/digest fields. Keep operation identity in its dedicated column.
+    checkpoint
+        .as_object_mut()
+        .ok_or_else(|| anyhow::anyhow!("CHECKPOINT_OBJECT_REQUIRED"))?
+        .remove("operation_id");
+    ensure!(
+        ["publisher_epoch", "original_digests", "payload_digests"]
+            .iter()
+            .all(|k| checkpoint.get(k).is_none()),
+        "RECEIPT_FIELDS_IN_CHECKPOINT"
+    );
+    let source_hash = if let Some(input) = frame["input_bytes"].as_str() {
+        digest(input.as_bytes())
+    } else {
+        digest(&serde_json::to_vec(&frame)?)
+    };
     // Independent UUIDs supply 244 random bits. No raw capability in argv/logs/DB.
     let capability = format!(
         "{}{}",
@@ -192,12 +216,57 @@ fn dispatch(
         margin.is_finite() && (1.0..=60000.0).contains(&margin),
         "INVALID_DISPATCH_MARGIN"
     );
-    let changed=store.client.execute("UPDATE public.polis_coordinator_leases SET dispatch_operation_id=$5,dispatch_capability_sha256=$6,dispatch_checkpoint_sha256=encode(sha256(convert_to($7::jsonb::text,'UTF8')),'hex'),dispatch_expected_tick=$8,dispatch_margin_ms=$9 WHERE math_env=$1 AND zid=$2 AND owner_id=$3 AND owner_epoch=$4 AND expires_at>clock_timestamp()",&[&store.config.math_env,&zid,&store.config.owner,&epoch,&operation,&cap_hash,&checkpoint,&expected,&(margin as i32)])?;
+    let mut admission = store.client.transaction()?;
+    admission.query(
+        "SELECT zid FROM public.conversations WHERE zid=$1 FOR KEY SHARE",
+        &[&zid],
+    )?;
+    let changed=admission.execute("UPDATE public.polis_coordinator_leases SET dispatch_operation_id=$5,dispatch_capability_sha256=$6,dispatch_checkpoint_sha256=encode(sha256(convert_to($7::jsonb::text,'UTF8')),'hex'),dispatch_expected_tick=$8,dispatch_margin_ms=$9 WHERE math_env=$1 AND zid=$2 AND owner_id=$3 AND owner_epoch=$4 AND expires_at>clock_timestamp()",&[&store.config.math_env,&zid,&store.config.owner,&epoch,&operation,&cap_hash,&checkpoint,&expected,&(margin as i32)])?;
     if changed != 1 {
+        admission.rollback()?;
         return Ok(Publication::Refused(
             store.lease_state(zid, epoch)?.unwrap_or(LeaseState::Fenced),
         ));
     }
+    let admitted = admission.query_one(
+        "SELECT public.pc_admit($1,$2,$3,$4,$5,$6,$7)",
+        &[
+            &store.config.math_env,
+            &zid,
+            &store.config.owner,
+            &epoch,
+            &operation,
+            &source_hash,
+            &store.config.reservation_bytes,
+        ],
+    );
+    match admitted {
+        Ok(row) => ensure!(
+            matches!(
+                row.get::<_, String>(0).as_str(),
+                "admitted" | "already_admitted"
+            ),
+            "ADMISSION_REPLY"
+        ),
+        Err(error) => {
+            admission.rollback()?;
+            if error.as_db_error().is_some_and(|e| {
+                e.code().code() == "P2020" && e.message() == "ADMISSION_TICK_CONFLICT"
+            }) {
+                return Ok(Publication::Conflict);
+            }
+            if error
+                .as_db_error()
+                .is_some_and(|e| e.code().code() == "P2005")
+            {
+                return Ok(Publication::Refused(LeaseState::Expired));
+            }
+            return Err(error.into());
+        }
+    }
+    // A lost COMMIT reply cannot lead to a child launch. Durable pending state
+    // remains charged and is reconciled by a replacement process.
+    admission.commit()?;
     let fault = store.fault.bridge_control()?;
     for (key,value) in json!({"protocol":PROTOCOL,"schema_sha256":SQL_SHA256,"namespace":store.config.math_env,
         "zid":zid,"owner":store.config.owner,"epoch":epoch,"operation":operation,"capability":capability,
@@ -304,6 +373,29 @@ fn dispatch(
     if let Some(at) = publication_started {
         store.poller_timings = Some((at.duration_since(dispatch_started), at.elapsed()));
     }
+    // Verify even successful acknowledgements against the durable operation,
+    // which remains identifiable after a later generation overwrites math rows.
+    let refused = matches!(&result, Ok(r) if r["outcome"]=="conflict" || r["code"]=="FENCED" || r["code"]=="LEASE-EXPIRED");
+    let ambiguous = publishing
+        && !refused
+        && (!matches!(&result,Ok(r) if r["outcome"]=="committed" || r["outcome"]=="already_committed")
+            || !matches!(&status,Ok(s) if s.success()));
+    let mut context = json!({"zid":zid,"epoch":epoch,"operation_id":operation,
+        "math_tick":expected.map_or(0,|n|n+1)});
+    if ambiguous {
+        store.metrics.emit(
+            "publication_ambiguous",
+            &[count("PublishUncertain", 1u32)],
+            context.clone(),
+        );
+    }
+    // Reconcile every admitted dispatch, including pre-publication failures.
+    // No receipt means durable unresolved capacity, never permission to free it.
+    let receipt = (|| -> Result<Option<i64>> {
+        let mut client = Client::connect(&store.config.database_url, NoTls)?;
+        client.batch_execute("SET statement_timeout='30s'; SET lock_timeout='5s'")?;
+        crate::operations::reconcile_one(&mut client, &store.config.math_env, zid, &operation)
+    })();
     if let Ok(reply) = &result {
         if matches!(
             reply["outcome"].as_str(),
@@ -316,70 +408,30 @@ fn dispatch(
             store.tally.publish_retried += retries as u32;
         }
         if reply["outcome"] == "conflict" {
-            return Ok(Publication::Conflict);
+            return Ok(receipt?.map_or(Publication::Conflict, Publication::Committed));
         }
         if reply["code"] == "FENCED" {
-            return Ok(Publication::Refused(LeaseState::Fenced));
+            return Ok(receipt?.map_or(
+                Publication::Refused(LeaseState::Fenced),
+                Publication::Committed,
+            ));
         }
         if reply["code"] == "LEASE-EXPIRED" {
-            return Ok(Publication::Refused(LeaseState::Expired));
+            return Ok(receipt?.map_or(
+                Publication::Refused(LeaseState::Expired),
+                Publication::Committed,
+            ));
         }
     }
     if !publishing {
+        if let Some(tick) = receipt? {
+            return Ok(Publication::Committed(tick));
+        }
         if let Err(error) = result {
             return Err(error);
         }
         anyhow::bail!("BRIDGE_COMPUTE_OR_ADMISSION_FAILED");
     }
-    // Verify even successful acknowledgements against the durable operation,
-    // which remains identifiable after a later generation overwrites math rows.
-    let ambiguous = !matches!(&result,Ok(r) if r["outcome"]=="committed" || r["outcome"]=="already_committed")
-        || !matches!(&status,Ok(s) if s.success());
-    let mut context = json!({"zid":zid,"epoch":epoch,"operation_id":operation,
-        "math_tick":expected.map_or(0,|n|n+1)});
-    if ambiguous {
-        store.metrics.emit(
-            "publication_ambiguous",
-            &[count("PublishUncertain", 1u32)],
-            context.clone(),
-        );
-    }
-    let receipt = (|| -> Result<Option<i64>> {
-        // A fresh connection resolves an ambiguous transaction independently of
-        // any dead connection or open transaction left on the dispatch path.
-        if ambiguous {
-            let mut client = Client::connect(&store.config.database_url, NoTls)?;
-            client.batch_execute("SET statement_timeout='30s'; SET lock_timeout='5s'")?;
-            store.client = client;
-        }
-        let row=store.client.query_opt("SELECT math_tick,input_checkpoint FROM public.polis_coordinator_generations WHERE math_env=$1 AND zid=$2 AND owner_id=$3 AND publisher_epoch=$4 AND operation_id=$5 AND capability_sha256=$6 AND expected_tick IS NOT DISTINCT FROM $7 AND input_checkpoint-ARRAY['publisher_epoch','payload_digests','original_digests']::text[]=$8::jsonb",&[&store.config.math_env,&zid,&store.config.owner,&epoch,&operation,&cap_hash,&expected,&checkpoint])?;
-        let Some(row) = row else {
-            return Ok(None);
-        };
-        let tick: i64 = row.get(0);
-        let saved: Value = row.get(1);
-        if saved["publisher_epoch"] != epoch || saved["operation_id"] != operation {
-            return Ok(None);
-        }
-        let parts=store.client.query("SELECT payload_kind,original_bytes,original_sha256,storage_sha256 FROM public.polis_coordinator_payloads WHERE math_env=$1 AND zid=$2 AND math_tick=$3 ORDER BY payload_kind",&[&store.config.math_env,&zid,&tick])?;
-        if parts.len() != 3 {
-            return Ok(None);
-        }
-        for part in parts {
-            let name: String = part.get(0);
-            let raw: Vec<u8> = part.get(1);
-            let raw_hash = digest(&raw);
-            let stored: String = part.get(3);
-            if part.get::<_, String>(2) != raw_hash
-                || saved["original_digests"][&name] != raw_hash
-                || saved["payload_digests"][&name] != stored
-                || crate::store::storage_digest(&crate::wire::parse(&raw)?)? != stored
-            {
-                return Ok(None);
-            }
-        }
-        Ok(Some(tick))
-    })();
     if ambiguous {
         let own = matches!(receipt, Ok(Some(_)));
         context["outcome"] = json!(if own {

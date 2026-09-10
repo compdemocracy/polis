@@ -311,9 +311,9 @@ def test_inventory_preserves_the_reviewed_baseline_without_replacement():
 def test_bridge_inventory_preserves_every_baseline_identity():
     extended=json.loads((CI/"inventory-v2.json").read_text())
     assert set(INV["python_nodeids"]) < set(extended["python_nodeids"])
-    assert len(extended["python_nodeids"])==206
+    assert len(extended["python_nodeids"])==221
     assert len(extended["python_nodeids"])==len(set(extended["python_nodeids"]))
-    assert len(extended["python_junit"])==206
+    assert len(extended["python_junit"])==221
     assert extended["rust_tests"]==INV["rust_tests"]
     assert extended["jest_cases"]==INV["jest_cases"]
     assert extended["stages"]==INV["stages"]
@@ -325,8 +325,12 @@ def test_bridge_inventory_requires_twenty_each_schedule():
     for name in ("test_stale_python_child_after_parent_death_is_fenced",
                  "test_final_python_margin_after_rpc_rolls_back"):
         assert {f"tests/coordinator/test_bridge.py::{name}[{i}]" for i in range(20)} <= added
-    assert len(added)==55
-    assert sorted(added)==extended["extensions"][0]["added_nodeids"]
+    rev4={n for n in added if "/test_rev4_admission.py::" in n}
+    assert len(rev4)==15
+    assert sorted(rev4)==extended["extensions"][1]["added_nodeids"]
+    bridge=added-rev4
+    assert len(bridge)==55
+    assert sorted(bridge)==extended["extensions"][0]["added_nodeids"]
 
 
 def test_collection_accepts_only_the_extended_campaign():

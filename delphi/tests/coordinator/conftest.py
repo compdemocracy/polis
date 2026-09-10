@@ -171,6 +171,8 @@ def db(template):
     with c.cursor() as cur:
         for env in ("rustproto", "python", "positive", "negative", "reader", "recovery"):
             cur.execute("INSERT INTO p026_test_marker VALUES(%s)", (env,))
+            # Explicit synthetic-only profile; runtime never installs budgets.
+            cur.execute("INSERT INTO polis_coordinator_budgets VALUES(%s,128,8589934592)", (env,))
     c.close()
     yield url
     with admin.cursor() as cur:
@@ -251,7 +253,8 @@ class Child:
         process_env = dict(os.environ, DATABASE_URL=restricted("p027_bridge_control"),
             COORDINATOR_PUBLISHER_DATABASE_URL=restricted("p027_bridge_publisher"), MATH_ENV=env, P026_PYTHON=sys.executable,
             PYTHONPATH=str(ROOT/"delphi"), OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1",
-            PYTHONDONTWRITEBYTECODE="1", P026_PAGE_SIZE="2", P026_WINDOW="1", P026_LEASE_SECONDS="120")
+            PYTHONDONTWRITEBYTECODE="1", P026_PAGE_SIZE="2", P026_WINDOW="1", P026_LEASE_SECONDS="120",
+            P026_RESERVATION_BYTES="67108864")
         process_env.pop("P026_FAULT_DIR",None)
         if extra:
             process_env.update(extra)
