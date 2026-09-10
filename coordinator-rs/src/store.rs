@@ -4,7 +4,7 @@ use crate::{
     config::Config,
     fault::Fault,
     lease::{self, LeaseState},
-    metrics::{Metrics, Tally},
+    metrics::{Metrics, Tally, count},
 };
 use anyhow::{Result, ensure};
 use postgres::{Client, NoTls};
@@ -592,20 +592,58 @@ impl ResultsStore for PgStore {
         }
         let committed = tx.commit();
         if let Err(error) = committed {
-            // Lost COMMIT response: reconnect and compare immutable identity.
-            self.tally.publish_uncertain += 1;
-            self.client = Client::connect(&self.config.database_url, NoTls)?;
-            if let CommitReadback::Own(tick) = classify_commit(
-                &self.load_current(zid)?,
-                &checkpoint,
-                epoch,
-                &operation_id,
-                tick,
-            ) {
-                return Ok(Publication::Committed(tick));
+            // Emit at the operation boundary, not at pass completion: fixture
+            // commands and failed passes must expose the same outcome, exactly
+            // once. An ambiguous attempt is not evidence that it was resolved.
+            let context = json!({"zid":zid, "epoch":epoch, "math_tick":tick,
+                "operation_id":operation_id});
+            self.metrics.emit(
+                "publication_ambiguous",
+                &[count("PublishUncertain", 1u32)],
+                context.clone(),
+            );
+            let readback = (|| -> Result<CommitReadback> {
+                let mut client = Client::connect(&self.config.database_url, NoTls)?;
+                client.batch_execute("SET statement_timeout='30s'; SET lock_timeout='5s'; SET application_name='p026-coordinator'")?;
+                self.client = client;
+                Ok(classify_commit(
+                    &self.load_current(zid)?,
+                    &checkpoint,
+                    epoch,
+                    &operation_id,
+                    tick,
+                ))
+            })();
+            let own = matches!(readback, Ok(CommitReadback::Own(_)));
+            let mut context = context;
+            context["outcome"] = json!(if own {
+                "resolved-own"
+            } else {
+                "unresolved-lost"
+            });
+            context["readback"] = json!(match &readback {
+                Ok(CommitReadback::Own(_)) => "own",
+                Ok(CommitReadback::Lost) => "identity-not-observed",
+                Err(_) => "readback-failed",
+            });
+            self.metrics.emit(
+                "publication_readback",
+                &[
+                    count("PublishResolvedOwn", u32::from(own)),
+                    count("PublishUnresolvedLost", u32::from(!own)),
+                ],
+                context,
+            );
+            match readback {
+                Ok(CommitReadback::Own(tick)) => return Ok(Publication::Committed(tick)),
+                Ok(CommitReadback::Lost) => {
+                    tracing::error!(%error, "uncertain COMMIT identity not observed");
+                    return Err(CommitLost.into());
+                }
+                // Preserve the original failure type and existing retry policy;
+                // the outcome event still says that no ownership proof exists.
+                Err(readback_error) => return Err(readback_error),
             }
-            tracing::error!(%error, "uncertain COMMIT identity not observed");
-            return Err(CommitLost.into());
         }
         self.fault.hit("after_commit", &context)?;
         Ok(Publication::Committed(tick))

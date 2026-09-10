@@ -133,7 +133,11 @@ pub const CATALOG: &[Declared] = &[
     Declared { name: "PublishRetried", unit: Unit::Count, statistic: "Sum", alarm: "",
         meaning: "CO04 publication outcome: whole-transaction retry after 40001/40P01" },
     Declared { name: "PublishUncertain", unit: Unit::Count, statistic: "Sum", alarm: "",
-        meaning: "CO04 publication outcome: lost COMMIT response resolved by checkpoint identity" },
+        meaning: "CO04 ambiguous COMMIT attempts, counted before readback; not evidence of resolution" },
+    Declared { name: "PublishResolvedOwn", unit: Unit::Count, statistic: "Sum", alarm: "",
+        meaning: "CO04 ambiguous COMMIT resolved by coherent readback of this exact operation, epoch, tick and checkpoint" },
+    Declared { name: "PublishUnresolvedLost", unit: Unit::Count, statistic: "Sum", alarm: "",
+        meaning: "CO04 ambiguous COMMIT without proof of this operation: missing, inconsistent or superseded identity, or failed reconnect/readback. Does not prove rollback; any nonzero sum requires investigation" },
     Declared { name: "MetricsDropped", unit: Unit::Count, statistic: "Sum", alarm: "",
         meaning: "records this process failed to write; a nonzero value means the other series are incomplete" },
 ];
@@ -156,7 +160,6 @@ pub struct Tally {
     pub publish_conflict: u32,
     pub publish_refused: u32,
     pub publish_retried: u32,
-    pub publish_uncertain: u32,
 }
 impl Tally {
     pub fn data(&self, elapsed: Duration, healthy: bool) -> Vec<Datum> {
@@ -177,7 +180,6 @@ impl Tally {
             count("PublishConflict", self.publish_conflict),
             count("PublishRefused", self.publish_refused),
             count("PublishRetried", self.publish_retried),
-            count("PublishUncertain", self.publish_uncertain),
         ]
     }
 }
@@ -335,6 +337,13 @@ pub fn catalog_json() -> Value {
         "namespace": NAMESPACE,
         "dimensions": ["Environment", "MathEnv"],
         "transport": "CloudWatch Embedded Metric Format records on a JSON-lines sink; no AWS client in this crate",
+        "publication_readback_alarm": {
+            "metric": "PublishUnresolvedLost", "statistic": "Sum", "threshold": 1,
+            "comparison": "GreaterThanOrEqualToThreshold", "period_seconds": 60,
+            "evaluation_periods": 1, "datapoints_to_alarm": 1,
+            "treat_missing_data": "notBreaching", "deployed": false,
+            "note": "Sparse outcome events, not a heartbeat. Missing events cannot establish health or resolution; independent producer/sink observation and delivery remain required. A later resolved-own event does not cancel an earlier unresolved-lost operation."
+        },
         "p031_status": {
             "coverage_claimed": [],
             "not_implemented": ["A01 PollHealthy", "A02 PublishLagSeconds", "A03 ObserverHealthy"],
