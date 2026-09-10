@@ -169,7 +169,8 @@ def _votes_dict(step: ReplayStep) -> dict[str, Any]:
     deterministically. Signs pass through in Delphi convention (see module doc).
     """
     votes = [
-        {"pid": v.pid, "tid": v.tid, "vote": v.sign, "created": v.t_ms}
+        {"pid": v.pid, "tid": v.tid, "vote": v.sign, "created": v.t_ms,
+         **({"weight_x_32767": v.weight_x_32767} if v.source_ord is not None else {})}
         for v in step.vote_events
     ]
     return {"votes": votes, "lastVoteTimestamp": step.cut_time_ms}
@@ -215,7 +216,8 @@ def _restart_conversation(
     restored = Conversation.from_dict(blob)
 
     all_votes = [
-        {"pid": v.pid, "tid": v.tid, "vote": v.sign, "created": v.t_ms}
+        {"pid": v.pid, "tid": v.tid, "vote": v.sign, "created": v.t_ms,
+         **({"weight_x_32767": v.weight_x_32767} if v.source_ord is not None else {})}
         for v in dataset.votes[:cut_slot]
     ]
     restored = restored.update_votes(

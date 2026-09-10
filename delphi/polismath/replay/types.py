@@ -40,8 +40,10 @@ class VoteEvent:
     t_ms: int
     pid: int
     tid: int
-    sign: int
+    sign: int | None
     is_revote: bool
+    weight_x_32767: int | None = None
+    source_ord: int | None = None
 
 
 @dataclass(frozen=True)
@@ -90,6 +92,8 @@ class ReplayDataset:
     # no moderation-history columns at all (nothing was skipped — there was
     # nothing to parse).
     mod_events_skipped: int = 0
+    # Original authoritative rows, including comments and source provenance.
+    input_events: tuple[dict, ...] = ()
 
     @property
     def n(self) -> int:

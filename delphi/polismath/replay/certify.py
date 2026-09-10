@@ -815,6 +815,8 @@ def votes_csv_path(dataset: str) -> Path | None:
     d = real_data.dataset_dir(dataset)
     if d is None:
         return None
+    if (d / "events.jsonl").exists():
+        return d / "events.jsonl"
     hits = sorted(d.glob("*-votes.csv"))
     return hits[0] if hits else None
 
@@ -1083,7 +1085,7 @@ def _run_subprocess(cmd: list[str], *, cwd: Path, env: dict[str, str],
                           text=True, timeout=timeout)
 
 
-def run_py_driver(spec_path: Path, *, out_root: Path) -> subprocess.CompletedProcess:
+def run_py_driver(spec_path: Path, *, out_root: Path, events: Path | None = None) -> subprocess.CompletedProcess:
     """Runs ``scripts/replay_driver.py run --schedule <spec_path> --out
     <out_root>`` in a SUBPROCESS (cwd=delphi/) with ``OMP_NUM_THREADS`` /
     ``OPENBLAS_NUM_THREADS`` pinned to 1."""
@@ -1092,6 +1094,8 @@ def run_py_driver(spec_path: Path, *, out_root: Path) -> subprocess.CompletedPro
     env["OPENBLAS_NUM_THREADS"] = "1"
     cmd = ["uv", "run", "python", "scripts/replay_driver.py", "run",
            "--schedule", str(spec_path), "--out", str(out_root)]
+    if events is not None:
+        cmd += ["--events", str(events)]
     try:
         return _run_subprocess(cmd, cwd=_DELPHI_ROOT, env=env)
     except OSError as exc:
@@ -1109,7 +1113,8 @@ def run_clj_driver(
     item 5). Omitted (``None``, the default) for every schedule that doesn't
     request moderation interleaving, so existing recordings' invocation is
     byte-for-byte unchanged."""
-    cmd = ["clojure", "-M:replay", "--schedule", str(spec_path), "--votes", str(votes_csv),
+    cmd = ["clojure", "-M:replay", "--schedule", str(spec_path),
+           "--events" if votes_csv.name == "events.jsonl" else "--votes", str(votes_csv),
            "--out", str(out_dir)]
     if comments_csv is not None:
         cmd += ["--comments", str(comments_csv)]
@@ -1298,6 +1303,7 @@ def ensure_py_recording(
     entry: BatteryEntry, spec: sched.ScheduleSpec, votes_sha: str, *, root: Path,
     refresh: bool = False, comments_csv: Path | None = None,
     conventions: ConventionDescriptor = DEFAULT_CONVENTIONS,
+    events: Path | None = None,
 ) -> tuple[Path, bool]:
     """Reuse ``<root>/<ds>/<sid>/py/`` iff its cache manifest matches (votes
     sha256, schedule hash, ENGINE-scoped tree hash, and — when ``comments_csv``
@@ -1327,6 +1333,9 @@ def ensure_py_recording(
         "engine_tree_sha256": _engine_tree_hash_cached(),
         **conventions.cache_fields(),
     }
+    if events is not None:
+        from polismath.replay.event_ingress import input_hashes
+        expected.update(input_hashes(events))
     if comments_csv is not None:
         expected["comments_csv_sha256"] = sha256_file(comments_csv)
     if not refresh and _manifest_matches(manifest_path, expected):
@@ -1334,7 +1343,8 @@ def ensure_py_recording(
 
     tmp_schedule = _write_temp_schedule(spec, root)
     _clear_recording(py_dir)
-    result = run_py_driver(tmp_schedule, out_root=root)
+    result = (run_py_driver(tmp_schedule, out_root=root, events=events) if events is not None
+              else run_py_driver(tmp_schedule, out_root=root))
     if result.returncode != 0:
         raise CertifyError(
             "py-driver", (result.stderr or result.stdout or "non-zero exit").strip()[:1000]
@@ -1372,6 +1382,9 @@ def ensure_clj_recording(
         "math_src_sha256": math_src_sha256,
         **conventions.cache_fields(),
     }
+    if votes_csv.name == "events.jsonl":
+        from polismath.replay.event_ingress import input_hashes
+        expected.update(input_hashes(votes_csv))
     if comments_csv is not None:
         expected["comments_csv_sha256"] = sha256_file(comments_csv)
     if not refresh and _manifest_matches(manifest_path, expected):
@@ -1539,6 +1552,7 @@ class ExpectedEntry:
     comments_sha: str | None
     stream_end: int
     checkpoints: list[dict[str, int]]
+    events_meta_sha: str | None = None
 
     def inventory(self) -> list[dict[str, Any]]:
         return [{
@@ -1582,8 +1596,9 @@ def prepare_entry(entry: BatteryEntry) -> ExpectedEntry:
             raise CertifyError("inventory", "zero checkpoint requires a nonempty empty_output contract")
         if not set(spec.empty_output) <= ACCEPTANCE_KEYS:
             raise CertifyError("inventory", "empty_output must name acceptance fields")
-    comments = comments_csv_path(entry.dataset) if spec.moderation != "none" else None
-    if spec.moderation == "interleave-by-timestamp" and comments is None:
+    is_events = votes_csv.name == "events.jsonl"
+    comments = comments_csv_path(entry.dataset) if spec.moderation != "none" and not is_events else None
+    if spec.moderation == "interleave-by-timestamp" and comments is None and not is_events:
         raise CertifyError("dataset-unavailable", "moderation schedule requires comments CSV")
     checkpoints = [{"index": s.index, "prev_slot": s.prev_slot, "cut_slot": s.cut_slot,
                     "batch_size": len(s.vote_events), "cut_time_ms": s.cut_time_ms}
@@ -1591,11 +1606,14 @@ def prepare_entry(entry: BatteryEntry) -> ExpectedEntry:
     # Pass resolved absolute cursors to BOTH engines. Neither driver gets to
     # independently round fractions or silently change the expected inventory.
     resolved = spec.to_dict()
+    if is_events:
+        resolved["source"] = "events-jsonl"
     resolved["cuts"] = {"mode": "vote-count", "at": [s.cut_slot for s in steps]}
     if steps[0].cut_slot == 0:
         resolved["cuts"]["empty_checkpoint"] = True
     return ExpectedEntry(entry, sched.ScheduleSpec.from_dict(resolved), votes_csv, votes_sha,
-                         comments, sha256_file(comments) if comments else None, ds.n, checkpoints)
+                         comments, sha256_file(comments) if comments else None, ds.n, checkpoints,
+                         sha256_file(votes_csv.with_name("events.meta.json")) if is_events else None)
 
 
 def validate_recording_inventory(directory: Path, engine: str, expected: ExpectedEntry) -> None:
@@ -1679,11 +1697,16 @@ def _certify_entry_heavy(
         # M3 (P-019): the comments CSV is an input to the PYTHON replay too, so it
         # must be part of the py cache key, mirroring the clj side above.
         py_dir, py_cached = ensure_py_recording(entry, spec, votes_sha, root=root,
-                                                refresh=refresh_py, comments_csv=comments_csv)
+                                                refresh=refresh_py, comments_csv=comments_csv,
+                                                **({"events": votes_csv} if expected.events_meta_sha else {}))
         # Recorded in the run manifest: a verdict reached entirely from cache is
         # a different provenance claim than one that re-ran both engines.
         cache = {"clj": "hit" if clj_cached else "miss",
                  "py": "hit" if py_cached else "miss"}
+        if expected.events_meta_sha and sha256_file(
+            votes_csv.with_name("events.meta.json")
+        ) != expected.events_meta_sha:
+            raise CertifyError("input-changed", "event metadata changed after inventory")
         if sha256_file(votes_csv) != votes_sha or (
             comments_csv is not None and sha256_file(comments_csv) != expected.comments_sha
         ):
@@ -1888,7 +1911,9 @@ def run_battery(
                      "status": "INCONCLUSIVE", "reason": "not completed"} for e in entries],
         "resolved_schedules": [{"dataset": p.entry.dataset, "schedule_id": p.entry.schedule_id,
                                 "schedule": p.spec.to_dict(), "votes_sha256": p.votes_sha,
-                                "comments_sha256": p.comments_sha} for p in prepared.values()],
+                                "comments_sha256": p.comments_sha,
+                                **({"events_meta_sha256": p.events_meta_sha} if p.events_meta_sha else {})}
+                               for p in prepared.values()],
     }
     manifest_path = _write_run_manifest(root, manifest)
 
