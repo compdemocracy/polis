@@ -181,11 +181,13 @@ jobs:
           # The run tag goes on the volume as well as the instance: an orphan
           # volume with no owner is as hard to reconcile as an orphan instance.
           VOLTAGS="ResourceType=volume,Tags=[{Key=polis:ci,Value=disposable},{Key=polis:ci-run,Value=$RUN_TAG}]"
-          # Version=1 is pinned here; note that this is a caller choice, not an
-          # IAM restriction -- the role could select another version of the same
-          # template if one ever existed. Only the CDK deploy creates versions.
+          # $Latest: every CDK deploy of the construct creates a new launch-template
+          # version (user data, packages) and does not move the default, so a
+          # fixed version number would boot stale user data forever. This is a
+          # caller choice, not an IAM restriction. Only the CDK deploy creates
+          # versions, so $Latest is always the last deployed one.
           INSTANCE_ID=$(aws ec2 run-instances \
-            --launch-template "LaunchTemplateId=${LAUNCH_TEMPLATE_ID},Version=1" \
+            --launch-template "LaunchTemplateId=${LAUNCH_TEMPLATE_ID},Version=\$Latest" \
             --instance-type "$INSTANCE_TYPE" \
             --count 1 \
             --client-token "$TOKEN" \
