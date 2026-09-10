@@ -322,3 +322,74 @@ The six-file Node command remains the runner/README source of truth; round 6 add
 two comments tests within the existing pca2.test.cjs file. The round-5 maintenance
 alone passed 80/80 before this expansion. Host audit commands require the existing
 server Node dependencies (or run their equivalents inside the sealed driver).
+
+## Dispatchable corpus re-record
+
+The **Characterization corpus re-record** Actions workflow accepts `target`, a
+commit or ref in this repository. Empty means the immutable SHA of the dispatching
+ref. The workflow must first be present on the default branch for dispatch to be
+available. It keeps its dispatch tools separate from the resolved target checkout,
+uses read-only repository permissions, and persists no checkout credentials.
+It does not create or merge a PR.
+
+The job builds the test images explicitly on an ephemeral `ubuntu-24.04` runner,
+including the CPU Delphi `final` image used only by `math-seed`. It builds the
+repository's Postgres, server, file-server and OIDC images, then starts the existing
+six-service internal-network topology. Build-time package downloads precede sealed
+execution. No EC2 worker, production data, provider job or cloud credentials are
+needed. Sequential builds limit peak resource use; the build log records image
+sizes and available disk. The public runner has 4 CPUs, 16 GB RAM and 14 GB SSD
+([GitHub runner reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)).
+A hosted cold-build capacity measurement is still required; local image reuse is
+not evidence that the whole build fits that disk budget.
+
+`ci/p027_rerecord.sh` runs the complete `round6` profile, verifies and retains the
+committed archive, and writes `artifacts/rerecord-job/`. It records, computes the
+offline old/new accounting, packs the candidate, verifies an exact unpack/repack,
+destroys the owned stack, then replays the candidate on a fresh stack. Node and
+Python characterization tests and all eight live negative controls follow even
+when replay reports differences. r19/r20 remain exact-order-sensitive: either
+residual makes the job red. No difference is waived by this automation.
+
+The upload retains the old/new archives and SHA files, accounting, replay results
+and comparisons, repack receipt, per-stage logs/exit codes and final summary for
+14 days, including failed runs. Ordinary failures stop before packing a partial
+recording. Teardown runs on failure/cancellation, only for the unique `p027` project.
+The script restores the original tracked archive and SHA file on exit; the new
+candidate lives only in the artifact. Reviewers apply its two candidate files
+explicitly after reviewing the evidence.
+
+`rerecord-accounting.cjs` reads both P-025 recordings with integrity and inventory
+admission (the historical reader is loaded from its recorded commit, preserving
+its own required inventory). Cases are keyed by identity, with independent
+unchanged/changed/added/removed counts, serial-order and exact request-artifact
+checks. The served comparator is `compare.cjs::firstDifference`; checker changes
+are reported and prevent automatic eligibility. Shared-file hashes remain visible.
+The archive's source commit must be an ancestor of the target HEAD.
+
+The census preserves registration/verb identities, ordered callbacks and global
+middleware. A changed callback is attributed only when both runtime hashes match
+one named function in the old and new TypeScript output. Its parent/commit hash
+transitions are listed from Git history, without executing historical application
+code. Anonymous/dependency wrappers, ambiguous function identities and unavailable
+history remain explicitly unattributed. Commit subjects alone never justify a
+fingerprint. `reviewEligible` requires unchanged cases and requests, unchanged
+route structure/middleware/runtime, attributed callback changes, unchanged
+checkers and shared fixtures/schema, and all live checks passing. New fixtures or
+schema still produce an artifact for review; their presence makes the job red. It is a review convenience, not API migration admission.
+
+For a local check with already reviewed images, use fresh ports/project per the
+isolation section and `bash ci/p027_rerecord.sh --reuse-images`. The optional
+`P027_POSTGRES_IMAGE` selects a uniquely named local test image without retagging
+another agent's shared image. The fresh-image builder deliberately refuses to run
+outside an ephemeral GitHub-hosted runner because its historical tags are shared.
+Do not reuse an existing `rerecord-job` directory.
+
+The former recording catalog described 423 columns and no `polis_queue` tables.
+A fresh database with migration `000019` exposed 71 additional columns in six
+queue/provenance tables. The catalog now includes those columns; all 423 existing
+entries are unchanged. The shared historical Postgres image omitted that migration
+and masked the incompatibility. The hosted job therefore always builds Postgres
+from the target's migrations; it never reuses a historical database image or
+regenerates the catalog automatically. Any future schema mismatch still requires
+an explicit catalog review before recording.
