@@ -1,9 +1,22 @@
-# P-027 API characterization, corrections round 6
+# P-027 API characterization
 
-The generated-data corpus records and replays **1,265 cases with zero differences
-and zero oracle failures**, including all 869 prior requests and 396 comments
-requests. All **3,873 P-025 records** validate. Baseline SHA-256:
-`bd1034cf4575d7129736bcc8769d9b8471fc9594b3540e39cca3b69d7abab69f`.
+The current public-fixture reference was recorded for #2753 at
+`58d95a60375a7f6f31ff88af1245680af5a69fec`. Recording and a fresh full replay
+each completed **1,265 cases with zero differences and zero oracle failures**,
+including all 869 prior requests and 396 comments requests. All **3,873 P-025
+records** validate. Baseline SHA-256:
+`961b3c0703758bd61ef25262a3b939e65091e271c9c5cacd47477cce67814b8b`.
+
+Against the round-7 reference (`e9fcf5cf73ba5008f3e7a8af6a568942b99c2bd4a684a80a58687d09922b5c1b`),
+all 1,265 request artifacts are byte-identical and all comparable outcomes match.
+The census retains 302 entries and identical middleware; the sole changed
+callback fingerprint is `handle_POST_topicMod_moderate`, attributed to #2753.
+
+**The standing r19/r20 ordering issue remains open.** Round 7's fresh replay had
+two order-only differences; this replay happened to match both complete response
+bodies. Those queries still lack `ORDER BY`. This observation does not retire the
+earlier residuals or waive exact-order comparison. Reference refresh and full
+migration admission remain separate decisions.
 
 **340/1,265 bodies are the identical opaque "Bad Request" string (HTTP 400,
 trailing newline); case counts are not distinct response shapes.** Of 128 targeted
