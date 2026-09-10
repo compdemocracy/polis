@@ -2,13 +2,14 @@
 
 Collection safety. The Delphi CI job copies `delphi/tests` into the delphi image
 at `/app/tests`, where neither `coordinator-rs/` nor a repository checkout
-exists. Everything here needs both — the crate's built binary, the crate's
-migration, and a read-only `git show` of the pinned reference fold/mapping
+exists. The projection-gate CI uses `POLIS_CHECKOUT_DIR` for a partial scan
+root; that is deliberately not the coordinator override. Everything here needs
+both — the crate's built binary, the crate's migration, and a read-only `git show` of the pinned reference fold/mapping
 assets — so this conftest locates the checkout by walking up for
-`coordinator-rs/Cargo.toml` (override: `POLIS_CHECKOUT_DIR`) and, when it cannot,
-ignores this whole directory with a clear reason instead of raising while
-collecting. An explicit `POLIS_CHECKOUT_DIR` that does not resolve is a hard
-error rather than a silent skip. When the checkout IS present nothing here is
+`coordinator-rs/Cargo.toml` (override: `POLIS_COORDINATOR_CHECKOUT_DIR`) and,
+when it cannot, ignores this whole directory with a clear reason instead of raising while
+collecting. An explicit `POLIS_COORDINATOR_CHECKOUT_DIR` that does not resolve
+is a hard error rather than a silent skip. When the checkout IS present nothing here is
 weakened: every fixture and assertion behaves exactly as before.
 """
 import ast
@@ -33,13 +34,13 @@ _MARKER = "coordinator-rs/Cargo.toml"
 
 def _locate_checkout():
     """Return (root, skip_reason, fatal_reason). Never raises, never exits."""
-    override = os.environ.get("POLIS_CHECKOUT_DIR")
+    override = os.environ.get("POLIS_COORDINATOR_CHECKOUT_DIR")
     if override:
         root = Path(override).expanduser()
         if (root / _MARKER).is_file():
             return root.resolve(), None, None
         return None, None, (
-            f"POLIS_CHECKOUT_DIR={override!r} does not contain {_MARKER}; unset it "
+            f"POLIS_COORDINATOR_CHECKOUT_DIR={override!r} does not contain {_MARKER}; unset it "
             "or point it at a polis checkout"
         )
     for candidate in _HERE.parents:
@@ -48,7 +49,7 @@ def _locate_checkout():
     return None, (
         f"no polis checkout containing {_MARKER} above {_HERE.parent}: these tests need "
         "the coordinator-rs crate, its migration and the pinned git reference assets "
-        "(set POLIS_CHECKOUT_DIR to run them from a copied test tree)"
+        "(set POLIS_COORDINATOR_CHECKOUT_DIR to run them from a copied test tree)"
     ), None
 
 

@@ -242,6 +242,12 @@ COMPOSE_PROJECT_NAME=p026 POLIS_RECOVERY_PG_PORT=55458 RECOVERY_PG_PORT=55458 \
   docker compose -f coordinator-rs/compose.yml down -v
 ```
 
+When running from a copied test tree, set `POLIS_COORDINATOR_CHECKOUT_DIR` to
+its full source checkout. A bad explicit coordinator override fails the run.
+`POLIS_CHECKOUT_DIR` belongs to the projection/recordings test inputs and may
+point to the partial `/app/projgate` tree in Delphi CI; it does not select the
+coordinator checkout. Automatic ancestor discovery still works in a full checkout.
+
 Re-run from a clean checkout: `cargo test --locked` 31/31; both `cargo
 clippy` invocations clean; release and fault-injection builds succeed and
 release+fault-injection correctly refuses to build; `docker compose up`
