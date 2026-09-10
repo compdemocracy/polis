@@ -9,12 +9,16 @@
     "under an interleaved publish the reader returns snapshot generation A exactly (all four row ticks equal, and A's exact per-group pids), not the B the interleave committed; a later read returns B exactly, and A and B are distinguishable",
     "the returned per-group pids are compared against an independent Python re-derivation over the published blobs, so a reader that fabricates pids fails",
     "a missing or tick-mismatched companion fails admission, a valid replacement is observed after republication, the reads are scoped by math_env, and a wrong-namespace companion does not leak in",
-    "the Node reader tests are a local failure guard (absent server modules fail rather than skip); the existing real-module getPca/getBidIndexToPidMapping byte-equality path is retained at 0 differences"
+    "the Node reader tests are a local failure guard (absent server modules fail rather than skip); the existing real-module getPca/getBidIndexToPidMapping byte-equality path is retained at 0 differences",
+    "Production joined loadBundle, bounded whole-Bundle LRU, namespace-scoped admission and caller propagation are implemented.",
+    "Featured-author main/mapping share one owned read; derived presentation cannot extend the source cache deadline; C7 presentation is retained.",
+    "The accepted public replay completed1265/0/2 with only complete-row permutations at r19/r20;24 direct checks verified full row bytes/multiplicity and own-body ETags.",
+    "Strict route census302/302: zero changed callback fingerprints. Reader changes are transitive helpers."
   ],
   "remaining_obligations": [
-    "S2 remainder (separately dispatched, still open, NOT deferred to S5): the production server/src loadBundle, request-scoped and threaded through getPidsForGid/doFamousQuery/report.ts, with a bounded whole-Bundle cache and the characterized 3s TTL / response order preserved, and the comment-owned empty presentation",
-    "the torn baseline here is a copied SQL-shaped autocommit model on one client, not a call through the real getPca/getBidIndexToPidMapping (which dispatch via Promise.all)",
-    "S5 (later): the combined full-app/auth/report/CSV campaign and the private 2,884-case served corpus; the C7 comparison clock is already admitted (plan rev2 C2, freeze then advance the logical request clock), only its execution campaign is open"
+    "Required CI must provision pinned server modules and enforce the exact HTTP/Bundle case inventory with zero skips.",
+    "S5: combined immutable-build/full-app/auth/report/CSV/interleaving campaign and owned private served corpus remain open; this public corpus does not prove every cross-handler publication race.",
+    "Full O1/CO04 admission and rollout remain conditional on writer fencing, coherent publication and the broader gates; this receipt closes only the assigned production-reader slice."
   ],
   "outstanding_required_ci": [
     "no workflow is changed by this slice: _node_gate.py fails absent modules locally, but there is no coordinator-rs CI job, no pinned server-module provisioning, and no enforced zero-skip required run",
@@ -22,15 +26,32 @@
   ],
   "candidate_reader": "coordinator-rs/tools/bundle_reader.cjs",
   "witness": "coordinator-rs/evidence/d4-bundle-reader.json",
-  "integrity_model": "this is a candidate reader in the Node runtime for the experiment's harness, not the production server reader; the atomicity property is demonstrated against the real test PostgreSQL, it does not certify CO04's Bundle rewrite or the served corpus",
+  "integrity_model": "Candidate atomicity witness plus accepted production-reader local proof; required CI and combined S5 campaigns remain open. No full-contract certificate.",
   "pins_are_committed_sources": true,
   "python_cases": 151,
   "sha256": {
     "coordinator-rs/tools/bundle_reader.cjs": "406ae287970b1c69b39c947fbcb9576fe0c2a736f8e6761047326effe3687691",
-    "coordinator-rs/tools/record_s2.py": "8be7b4781c332e97719a18187a5cca0aa2ead1644fff3777734c67cde0244c7c",
+    "coordinator-rs/tools/record_s2.py": "28207c0b0ae76e318bccc72fe3f5fe201d2b43a29d4423c41bba2e9adc4ba596",
     "delphi/tests/coordinator/_node_gate.py": "461813f1029115e5aac3205f4783678ae347b3b7f505b5af397308c38ae08072",
-    "delphi/tests/coordinator/audit_stages.py": "da41f879bb151ce31cc28b1f8d67a86c912786571bd1ae630fd19d1efe7834ce",
+    "delphi/tests/coordinator/audit_stages.py": "c02201382bfa28afdbd84586d0da9c1b3f146e0e8ea66837586cfbfec0458e5d",
     "delphi/tests/coordinator/test_bundle_reader.py": "3c5d16504581e8236adcb17115bdc63107f82c7f3340e6c14752254a21cebaef",
-    "delphi/tests/coordinator/test_node_reader.py": "7db596d189489b7f1bbd0bbbde5c44909039779a983518c922cf74381c4fd077"
-  }
+    "delphi/tests/coordinator/test_node_reader.py": "7db596d189489b7f1bbd0bbbde5c44909039779a983518c922cf74381c4fd077",
+    "server/src/utils/mathBundle.ts": "611f15d80461f86a52a84cf27420d19614430fb9150746015e121bed1250cd3f",
+    "server/src/utils/pca.ts": "5434c3137c90d8a5c99257f9a44dce77b3b6f32dc88d6c672ceb36f292c9a919",
+    "server/src/utils/pcaPresentation.ts": "8cba45f563a5a1d070691f63a2edf25537a07032ba4f9fa063acffa7a64b7f98",
+    "server/src/server-helpers.ts": "9bbe279ff7dff0220397b3e42c677c2f209845b9c8d358201154046c1729fa66",
+    "server/src/report.ts": "a6a103ade3caf5efcb18bb27ffc7964f0506359b8e7f45adaf8e8253817638ee",
+    "server/src/routes/math.ts": "fed3f4a913d9c540e733cf251980ad308ec22efa3111d93e1b8f87fb0d20dd0b",
+    "server/src/routes/participation.ts": "9ca96183bb723960fc5630d62226076bced0f6e591682ded92a4a097ee6d8ac7",
+    "server/__tests__/unit/mathBundle.test.ts": "49ddca4a1f03cb13ef4416ad7f5da9b627171fe13024708602c14453afa5d3db",
+    "server/__tests__/unit/mathBundleRequests.test.ts": "7a08c12034f82c4bf51452cc67b2e7ba514f083af2a1e4401211c5a3dade4b6c",
+    "server/__tests__/unit/pcaMathTickZero.test.ts": "5bb2add18031c19eeb65029807661af2a86a69de31a97876430819e5f0db1ee6",
+    "server/__tests__/unit/exportRoutes.test.ts": "5038dd30417447f59e332a43c5a203e3a9fe2e6f865c5314ccc4725c10fc8694",
+    "server/__tests__/integration/math-bundle-coherence.test.ts": "dfd17ef06a45c1ea37bd355b4aa66b9558c22c7a4e4fdc43da22dc75f0bcdc93",
+    "server/__tests__/integration/math-env-isolation.test.ts": "da56bbf9e2d03611280148acd715da685b36393d4ad8e4426fd66bd8bd5a50d7",
+    "coordinator-rs/evidence/s2-production-reader.json": "1afde75b6c01f90c11cac4a615753223e1d13db59628e441b575bb4c3d8c3956",
+    "coordinator-rs/tools/record_s2_production.py": "1b846433366eee59790fc1fd50cded92f74465084a56ff5d2e423a32834eb389"
+  },
+  "production_reader_obligation_state": "CLOSED",
+  "production_reader_evidence": "coordinator-rs/evidence/s2-production-reader.json"
 }

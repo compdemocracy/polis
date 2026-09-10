@@ -41,8 +41,8 @@ durably — while the math itself stays untouched.
   runtime, and a witness that this closes the "old main, new mapping" torn read
   the current separate-read reader allows, with missing/mismatched-companion
   admission and math_env scoping. This is a verification witness against a real
-  reader, **not** the production read path (that rewrite still belongs to
-  `server-rs/` and the Node server).
+  reader. The production Node reader now also lives in this tree; its scoped
+  local proof is recorded separately in `evidence/s2-production-reader.json`.
 
 ## What this crate explicitly does not own
 
@@ -132,8 +132,9 @@ zero byte differences currently (see evidence). This exercises today's real
 reader, not a rewritten one. The step-4 S2 slice adds a candidate coherent-read
 `loadBundle` witness (`tools/bundle_reader.cjs`) and makes the Node job
 unconditional (a missing `server/node_modules` now fails rather than skips),
-but the production Node-side Bundle rewrite this project eventually wants still
-does not exist and is not shipped here.
+and the production Node reader is now implemented in this tree. BOARD[633]
+accepts its local1265/0/2 public replay proof. The two r19/r20 row-order
+residuals remain unwaived; required CI and the combined S5 campaigns stay open.
 
 ## Publication outcome telemetry (S3 slice)
 
@@ -171,16 +172,20 @@ The stage checklist names these explicitly (`evidence/test-summary.json`,
   manifest, and telling apart "rebuilt," "resumed," and "warm incremental"
   output are not. (The design notes record this as PARTIAL, not OPEN; treat
   a fresh `audit_stages.py` run as the live source of truth — see "How to run.")
-- **S2's reader is only partly delivered (O1, PARTIAL) — S2 is not complete.**
-  This delivers the *candidate-reader portion*: a coherent-read `loadBundle`
-  that serves one snapshot generation's exact mapping (closing the torn read) in
-  the D4 harness, plus a local Node-reader failure guard. The **open S2
-  remainder**, dispatched separately (its code may live in `server-rs`/the Node
-  server, but the acceptance obligation is still S2, not S5): the production
-  `loadBundle` threaded through getPidsForGid/doFamousQuery/report.ts, a bounded
-  whole-Bundle cache with the 3s TTL preserved, and the comment-owned empty
-  presentation. Only the combined full-app / private ~2,884-case campaigns are
-  S5. There is also no required CI job here (the failure guard is local only).
+- **S2 production-reader slice complete; overall O1 PARTIAL.** The joined
+  production loadBundle, bounded whole-Bundle cache, caller propagation,
+  owned featured-author response, source-deadline TTL and C7 presentation
+  are implemented. The accepted local public replay completed1265 cases,
+  zero oracle failures and two standing r19/r20 row-order differences;
+  24 direct audit checks passed and all302 route fingerprints matched.
+  `evidence/s2-production-reader.json` records that scoped proof. Required
+  pinned-module CI/exact case-set/zero-skip enforcement and combined S5
+  full-app/private campaigns remain open. This is no full-contract certificate.
+- **S1 evidence needs revalidation after the edge rebase.**32 pinned Delphi
+  source files differ from the historical S1 run, and the audit metadata also
+  changed for this closure update. The existing S1 pins are retained, so current
+  audit refuses O8 partial admission. Historical151-case results are not a fresh
+  run on this tree. Current accounting is8 open/0 closed/1 partial (O1).
 - **A real server-side quirk, fixed upstream not here:** Node's `getPca(zid,
   undefined)` once missed a freshly-committed generation zero on a cold cache
   while the HTTP route served it correctly. #2732 (merged to edge, in this
