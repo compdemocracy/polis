@@ -268,6 +268,11 @@ impl PgStore {
     /// every conversation failed still completes, and the failure backlog and
     /// unrepaired age are what say so.
     pub fn cycle(&mut self) -> Result<usize> {
+        crate::operations::reconcile_pending(
+            &mut self.client,
+            &self.config.math_env,
+            self.config.page_size,
+        )?;
         let started = Instant::now();
         self.tally = Tally::default();
         let result = self.cycle_pass();
@@ -394,6 +399,11 @@ impl PgStore {
     pub fn once(&mut self) -> Result<usize> {
         let started = Instant::now();
         self.tally = Tally::default();
+        crate::operations::reconcile_pending(
+            &mut self.client,
+            &self.config.math_env,
+            self.config.page_size,
+        )?;
         let result = self.once_pass();
         let mut data = self.tally.data(started.elapsed(), result.is_ok());
         match self.backlog() {

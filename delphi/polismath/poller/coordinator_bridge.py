@@ -20,12 +20,15 @@ import psycopg2
 from psycopg2.extras import Json
 
 # Repository-byte pin, not an attestation of an arbitrary live database.
-COORDINATOR_SQL_SHA256 = "a7d537a1a912f7b73edd6409274c8922f30b29589ad4da4125a9c41a5ce4a3b5"
+COORDINATOR_SQL_SHA256 = "df4b0a1a2df69a666ffd4894b4e231f121ac7d67da7c533738f5dd4a8ddef695"
 COORDINATOR_ENGINE_SHA256 = "b295c3e7c649b38768c4eeb69c7cb3bf59d33c0077c22c84853a44d216aa0028"
-CATALOG_FINGERPRINT = "ad11429a737605ab9cf51ec7ea2a64ec"
+CATALOG_FINGERPRINT = "8fcc7f6605f428177843f2593b876c62"
 PROTOCOL = "polis-poller-bridge/1"
 MAX_INPUT_BYTES = 256 * 1024 * 1024
 RPC = "public.pc_publish(text,integer,text,bigint,text,bytea,bigint,jsonb,bytea,bytea,bytea)"
+CONTROL_RPCS = ("public.pc_admit(text,integer,text,bigint,text,text,bigint)",
+                "public.pc_reconcile(text,integer,text)", "public.pc_protect(text,integer,text,boolean)",
+                "public.pc_reference(text,integer,text,text,boolean)", "public.pc_cleanup(text,integer,text)")
 MATH_TABLES = ("math_ticks", "math_bidtopid", "math_ptptstats", "math_main")
 OWNERS = ("polis_coordinator_owner", "polis_coordinator_publication_owner")
 
@@ -79,7 +82,13 @@ def admit_connection(connection):
         for role, broad in reachable:
             if broad:
                 raise BridgeError("BROAD_PUBLISHER_ROLE_REACHABILITY")
-            for table in MATH_TABLES + ("polis_coordinator_leases", "polis_coordinator_generations", "polis_coordinator_payloads"):
+            for rpc in CONTROL_RPCS:
+                cur.execute("SELECT has_function_privilege(%s,%s,'EXECUTE')", (role,rpc))
+                if cur.fetchone()[0]:
+                    raise BridgeError("PUBLISHER_CONTROL_AUTHORITY_REFUSED")
+            for table in MATH_TABLES + ("polis_coordinator_leases", "polis_coordinator_generations", "polis_coordinator_payloads",
+                                       "polis_coordinator_operations", "polis_coordinator_budgets",
+                                       "polis_coordinator_references", "polis_coordinator_floors"):
                 cur.execute("""SELECT has_table_privilege(%s,%s,'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')
                   OR has_any_column_privilege(%s,%s,'INSERT,UPDATE')""", (role,"public." + table,role,"public." + table))
                 if cur.fetchone()[0]:
@@ -165,6 +174,15 @@ class Publisher:
                         raise BridgeError("LEASE-EXPIRED")
                     if row[3:] != (d.operation, hashlib.sha256(d.capability).hexdigest(), True, True):
                         raise BridgeError("DISPATCH_IDENTITY_CONFLICT")
+                    cur.execute("""SELECT owner_id,owner_epoch,capability_sha256,
+                      checkpoint_sha256=encode(sha256(convert_to(%s::jsonb::text,'UTF8')),'hex'),
+                      expected_tick IS NOT DISTINCT FROM %s::bigint,state
+                      FROM public.polis_coordinator_operations WHERE math_env=%s AND zid=%s AND operation_id=%s""",
+                      (Json(d.checkpoint),d.expected_tick,d.namespace,d.zid,d.operation))
+                    admitted=cur.fetchone()
+                    if (not admitted or admitted[:5] != (d.owner,d.epoch,hashlib.sha256(d.capability).hexdigest(),True,True)
+                            or admitted[5] not in ('pending','unresolved')):
+                        raise BridgeError("OPERATION_NOT_ADMITTED")
 
     def execute_rpc(self, connection, cur, query, args):
         """SQL latches exist only in the disposable test schema's triggers.
