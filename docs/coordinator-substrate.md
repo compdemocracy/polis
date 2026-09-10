@@ -262,3 +262,87 @@ block that same admission schedule. No test bypasses or relaxes the R12 contract
 
 This amends 000021 in place under the applied-nowhere rule. The catalog seal and
 up/down byte pins change; consumers must adopt the reviewed rev5 pin before use.
+
+
+### Rev6: namespace authority and transition receipts
+
+Every runtime login needs a reviewed `polis_coordinator_namespaces` profile and
+one `polis_coordinator_principals` mapping before it can acquire a lease, admit
+work or publish. Installation provisions neither. The mapping records both the
+login name and PostgreSQL role OID, its one `math_env`, and a separate
+`can_transition` flag (false for ordinary runtimes). Recreating a login requires
+new provisioning. A session setting or `SET ROLE` cannot change its assignment:
+the authority uses `session_user` and the matching OID. Runtime roles cannot edit
+profiles or mappings. Operator changes require publisher exclusion and review.
+
+Row-level policies restrict direct control writes and runtime reads on the new
+coordinator tables. Every privileged admission, reconciliation, protection,
+reference, cleanup and publication entry point also authenticates the namespace
+before reading an exact receipt or doing privileged work. A publisher retains
+its capability/lease checks and cannot write math directly. The dedicated
+NOLOGIN function owners remain trusted; do not give service logins membership
+in those owners, superuser, BYPASSRLS or role-management privileges. Policy
+expressions and role lists are included in the up/down catalog seal.
+
+Nothing changes the policies, triggers, columns or grants on existing math
+tables beyond the already reviewed publication-owner grants. Existing Clojure
+credentials are **not** fenced by this schema. Use the isolated shadow database
+option; externally drain legacy writers and prevent reconnect before transition.
+Keep shadow side effects isolated. The namespace mapping protects coordinator
+and Python authority, not an old broad-credential legacy connection.
+
+`pc_transition(source_env, destination_env, zid, transition_id,
+last_served_tick, exclusion_sha256)` is an operator capability, separately
+provisioned with `can_transition=true` and the control role. It is bound to the
+operator login's destination namespace. The digest binds the operator's external
+exclusion evidence; it is not a database proof that legacy processes stopped.
+The immutable operation ID, source/destination, conversation, caller identity,
+last client clock and exclusion digest identify the exact receipt. A mismatch
+refuses, while an exact retry returns the historical result without new writes,
+even at capacity. The result describes that commit, not current readiness.
+
+The API locks the conversation exclusively, then both namespace lease rows in
+key order, the destination transition profile and the four math tables in their
+fixed publication order. A live same-conversation publication prevents the
+transition; lock waits are bounded to one second. Other conversations still
+publish independently (the rev5 publication path takes no namespace budget or
+transition-profile lock). Call and commit immediately, with an operator-selected
+statement/transaction deadline. Draining writers and clearing old reader
+processes remain mandatory beyond the database transaction.
+
+A namespace profile declares `writer_kind` (`python` or `legacy`) and an explicit
+`max_transitions` in 1..10000. Retained transition receipts count toward this
+ceiling; there is no runtime deletion, timeout, or automatic enlargement. Text
+fields and numeric clocks have fixed bounds. This is a logical receipt bound,
+not a physical PostgreSQL storage/WAL/MVCC bound. The dedicated receipt catalog
+does not consume or release uncertain publication reservations.
+
+For a Python destination the API records the greater of the source and
+destination current/retained clocks, the last served client tick, and zero in
+`polis_coordinator_floors`. It returns `publication_required`. It does not
+retick existing Python output or create a generation receipt. The bridge must
+read that floor as its expected tick, acquire a fresh dispatch and commit an
+actual Python publication at floor + 1 before any reader switches. Missing,
+zero and stored-empty source rows do not reset the client clock.
+
+For a legacy destination the API requires all four existing math rows at one
+coherent tick. Missing, partial or mixed-generation output refuses; an actual
+legacy rebuild is required first. It atomically reticks those four rows above
+all observed and last-served math ticks, and gives main a fresh sequence cursor.
+Science payloads and original-byte archives stay unchanged. No Python generation
+receipt is invented for the legacy result: historical receipts stay at their
+historical keys. A fresh legacy process must read the database tick when it
+resumes. Client clocks at the exact-number ceiling refuse instead of wrapping.
+
+Both modes expire outstanding source/destination leases and clear their armed
+dispatches. The floor, legacy retick if selected, dispatch revocations and exact
+transition receipt commit together; errors roll them all back (sequence values
+may be consumed). Absent publication receipts remain unresolved and charged.
+A transition does not authorize queue finalization or erase publication history.
+
+The transition does not route traffic or reset caches. D05 must retire old
+prefetch/Bundle processes and cursors, verify namespace configuration on every
+consumer, and prove the complete real-app L→P→L sequence with old client ETags,
+comment changes, reports/CSV/auth and continued input. Cross-namespace cache
+cursors are not interchangeable. Runtime bridge pins and login provisioning are
+adopted in that separate handoff; this schema rehearsal alone is not D05 PASS.

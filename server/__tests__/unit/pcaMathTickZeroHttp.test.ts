@@ -181,6 +181,14 @@ function serveNoRow() {
 function serveTick(tick: string) {
   queryP_readOnly.mockImplementation(((sql: string) => {
     const s = String(sql);
+    if (s.includes("as main_data")) {
+      return Promise.resolve([{
+        main_data: mathBlob(), main_math_tick: tick, main_caching_tick: tick,
+        last_vote_timestamp: 1700000000000,
+        bidtopid_data: { bidToPid: [[11]] }, bidtopid_math_tick: tick,
+        ptptstats_data: {}, ptptstats_math_tick: tick, ticks_math_tick: tick,
+      }]);
+    }
     if (s.includes("from math_main")) {
       return Promise.resolve([{ data: mathBlob(), math_tick: tick }]);
     }
@@ -341,6 +349,15 @@ function participationApp(zid: number) {
 describe("HTTP routes at a committed math generation of 0", () => {
   beforeEach(() => {
     queryP_readOnly.mockReset();
+  });
+
+  test("GET /api/v3/bid preserves absent-row latest and nonnegative-cursor outcomes", async () => {
+    serveNoRow();
+    const latest = await request(bidApp(freshZid())).get("/route");
+    expect(latest.status).toBe(200);
+    expect(latest.body).toEqual({});
+    const conditional = await request(bidAppWithOldDefault(freshZid())).get("/route");
+    expect(conditional.status).toBe(500);
   });
 
   test('GET /api/v3/math/pca2 serves generation 0 with status 200 and ETag "0"', async () => {

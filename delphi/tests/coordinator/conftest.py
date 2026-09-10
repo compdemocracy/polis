@@ -116,6 +116,15 @@ if not _UNAVAILABLE:
     MAPPING = _scope["_mapping_problems"]
 
 
+NAMESPACES = ("rustproto", "python", "positive", "negative", "reader", "recovery")
+
+
+def runtime_role(kind, namespace="rustproto"):
+    if namespace not in NAMESPACES:
+        raise ValueError("unprovisioned test namespace")
+    return f"p027_bridge_{kind}" + ("" if namespace == "rustproto" else f"_{namespace}")
+
+
 def connect(url):
     c = psycopg2.connect(url)
     c.autocommit = True
@@ -140,13 +149,15 @@ def template():
             cur.execute("ALTER TABLE math_ticks DROP COLUMN caching_tick")
             # The production 000021 migration above supplies all ownership state;
             # the prototype ALTER-math migration is deliberately never applied.
-            cur.execute("CREATE ROLE p027_bridge_control LOGIN; CREATE ROLE p027_bridge_publisher LOGIN")
-            cur.execute("GRANT polis_coordinator_control TO p027_bridge_control; GRANT polis_coordinator_publisher TO p027_bridge_publisher")
-            cur.execute("GRANT USAGE ON SCHEMA public TO p027_bridge_control,p027_bridge_publisher")
-            cur.execute("GRANT SELECT ON conversations,participants,comments,votes,math_ticks,math_main,math_bidtopid,math_ptptstats TO p027_bridge_control")
-            cur.execute("GRANT UPDATE(topic) ON conversations TO p027_bridge_control")
             cur.execute("CREATE TABLE p026_test_marker(namespace text primary key)")
-            cur.execute("GRANT SELECT ON p026_test_marker TO p027_bridge_control,p027_bridge_publisher")
+            for namespace in NAMESPACES:
+                control, publisher = (runtime_role(k, namespace) for k in ("control", "publisher"))
+                cur.execute(f"CREATE ROLE {control} LOGIN; CREATE ROLE {publisher} LOGIN")
+                cur.execute(f"GRANT polis_coordinator_control TO {control}; GRANT polis_coordinator_publisher TO {publisher}")
+                cur.execute(f"GRANT USAGE ON SCHEMA public TO {control},{publisher}")
+                cur.execute(f"GRANT SELECT ON conversations,participants,comments,votes,math_ticks,math_main,math_bidtopid,math_ptptstats TO {control}")
+                cur.execute(f"GRANT UPDATE(topic) ON conversations TO {control}")
+                cur.execute(f"GRANT SELECT ON p026_test_marker TO {control},{publisher}")
             cur.execute((ROOT / "delphi/tests/coordinator/bridge_faults.sql").read_text())
         c.close()
         yield base, name
@@ -155,7 +166,8 @@ def template():
         admin = connect(base)
         with admin.cursor() as cur:
             cur.execute(f'DROP DATABASE "{name}" WITH (FORCE)')
-            cur.execute("DROP ROLE IF EXISTS p027_bridge_control,p027_bridge_publisher")
+            roles = [runtime_role(k, n) for n in NAMESPACES for k in ("control", "publisher")]
+            cur.execute("DROP ROLE IF EXISTS " + ",".join(roles))
         admin.close()
 
 
@@ -169,10 +181,15 @@ def db(template):
     url = base.rsplit("/", 1)[0] + "/" + name
     c = connect(url)
     with c.cursor() as cur:
-        for env in ("rustproto", "python", "positive", "negative", "reader", "recovery"):
+        for env in NAMESPACES:
             cur.execute("INSERT INTO p026_test_marker VALUES(%s)", (env,))
-            # Explicit synthetic-only profile; runtime never installs budgets.
+            cur.execute("INSERT INTO polis_coordinator_namespaces VALUES(%s,'python',64)", (env,))
+            for kind in ("control", "publisher"):
+                cur.execute("INSERT INTO polis_coordinator_principals SELECT oid,rolname,%s,false FROM pg_roles WHERE rolname=%s", (env, runtime_role(kind, env)))
+            # Explicit public-fixture profile; runtime never installs budgets.
             cur.execute("INSERT INTO polis_coordinator_budgets VALUES(%s,128,8589934592)", (env,))
+        # Administrative fixture calls still exercise the real session mapping.
+        cur.execute("INSERT INTO polis_coordinator_principals SELECT oid,rolname,'rustproto',false FROM pg_roles WHERE rolname=current_user")
     c.close()
     yield url
     with admin.cursor() as cur:
@@ -250,8 +267,8 @@ class Child:
         parsed=urlsplit(url)
         def restricted(role):
             return urlunsplit(parsed._replace(netloc=role+"@"+parsed.netloc.split("@")[-1],query=urlencode(dict(parse_qsl(parsed.query),sslmode="disable"))))
-        process_env = dict(os.environ, DATABASE_URL=restricted("p027_bridge_control"),
-            COORDINATOR_PUBLISHER_DATABASE_URL=restricted("p027_bridge_publisher"), MATH_ENV=env, P026_PYTHON=sys.executable,
+        process_env = dict(os.environ, DATABASE_URL=restricted(runtime_role("control", env)),
+            COORDINATOR_PUBLISHER_DATABASE_URL=restricted(runtime_role("publisher", env)), MATH_ENV=env, P026_PYTHON=sys.executable,
             PYTHONPATH=str(ROOT/"delphi"), OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1",
             PYTHONDONTWRITEBYTECODE="1", P026_PAGE_SIZE="2", P026_WINDOW="1", P026_LEASE_SECONDS="120",
             P026_RESERVATION_BYTES="67108864")

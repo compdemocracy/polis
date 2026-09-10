@@ -271,7 +271,7 @@ impl PgStore {
         let mut client = Client::connect(&config.database_url, NoTls)?;
         client.batch_execute("SET statement_timeout='30s'; SET lock_timeout='5s'; SET application_name='p026-coordinator'")?;
         let fault = Fault::new(&mut client, &config.math_env)?;
-        crate::bridge::admit_control(&mut client)?;
+        crate::bridge::admit_control(&mut client, &config.math_env)?;
         let cache = WarmCache::new(config.cache_capacity);
         let metrics = Metrics::from_env(&config);
         tracing::info!(
@@ -351,12 +351,16 @@ struct GenerationMeta {
 
 impl PgStore {
     fn generation_meta(&mut self, zid: i32) -> Result<Option<GenerationMeta>> {
+        // A transition receipt requires a fresh publication strictly above its
+        // floor, even when the durable input and existing generation agree.
+        // Historical receipt-retention floors keep their inclusive semantics.
         let row = self.client.query_opt(
             "SELECT t.math_tick,g.publisher_epoch,g.input_checkpoint,
                     m.math_tick,m.caching_tick,b.math_tick,p.math_tick,g.operation_id,
                     (SELECT count(*)=3 FROM polis_coordinator_payloads x
                       WHERE x.math_env=t.math_env AND x.zid=t.zid AND x.math_tick=t.math_tick)
                     AND t.math_tick >= COALESCE((SELECT f.math_tick FROM polis_coordinator_floors f WHERE f.math_env=t.math_env AND f.zid=t.zid),t.math_tick)
+                    AND t.math_tick > COALESCE((SELECT max(x.floor_tick) FROM polis_coordinator_transitions x WHERE x.math_env=t.math_env AND x.zid=t.zid AND x.writer_kind='python'),-1)
                FROM math_ticks t
                LEFT JOIN math_main m ON m.zid=t.zid AND m.math_env=t.math_env
                LEFT JOIN math_bidtopid b ON b.zid=t.zid AND b.math_env=t.math_env
@@ -439,7 +443,8 @@ impl ResultsStore for PgStore {
     fn load_current(&mut self, zid: i32) -> Result<Current> {
         let row = self.client.query_opt("SELECT m.data,b.data,p.data,m.math_tick,m.caching_tick,g.input_checkpoint,
           COALESCE(m.math_tick=b.math_tick AND m.math_tick=p.math_tick AND m.math_tick=t.math_tick AND g.publisher_epoch IS NOT NULL AND g.caching_tick=m.caching_tick
-          AND m.math_tick >= COALESCE((SELECT f.math_tick FROM polis_coordinator_floors f WHERE f.math_env=m.math_env AND f.zid=m.zid),m.math_tick),false),
+          AND m.math_tick >= COALESCE((SELECT f.math_tick FROM polis_coordinator_floors f WHERE f.math_env=m.math_env AND f.zid=m.zid),m.math_tick)
+          AND m.math_tick > COALESCE((SELECT max(x.floor_tick) FROM polis_coordinator_transitions x WHERE x.math_env=m.math_env AND x.zid=m.zid AND x.writer_kind='python'),-1),false),
           g.publisher_epoch,g.operation_id,om.original_bytes,ob.original_bytes,op.original_bytes,om.original_sha256,ob.original_sha256,op.original_sha256
           FROM (SELECT zid FROM math_main WHERE math_env=$1 AND zid=$2 UNION SELECT zid FROM math_bidtopid WHERE math_env=$1 AND zid=$2 UNION SELECT zid FROM math_ptptstats WHERE math_env=$1 AND zid=$2 UNION SELECT zid FROM math_ticks WHERE math_env=$1 AND zid=$2) k
           LEFT JOIN math_main m ON m.zid=k.zid AND m.math_env=$1

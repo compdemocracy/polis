@@ -147,7 +147,7 @@ def main():
         ("added column", "ALTER TABLE polis_coordinator_leases ADD COLUMN alien text;"),
         ("dropped constraint", "ALTER TABLE polis_coordinator_payloads DROP CONSTRAINT polis_coordinator_payloads_check;"),
         ("added index", "CREATE INDEX polis_coordinator_extra ON polis_coordinator_leases(owner_epoch);"),
-        ("RLS", "ALTER TABLE polis_coordinator_leases ENABLE ROW LEVEL SECURITY;"),
+        ("RLS", "ALTER TABLE polis_coordinator_leases DISABLE ROW LEVEL SECURITY;"),
         ("ACL", "GRANT UPDATE ON polis_coordinator_generations TO polis_coordinator_control;"),
         ("sequence start", "ALTER SEQUENCE polis_coordinator_caching_tick START WITH 777;"),
         ("sequence definition", "ALTER SEQUENCE polis_coordinator_caching_tick CACHE 5;"),
@@ -314,6 +314,7 @@ def main():
         def wrapped(db):
             apply(db)
             sql(db, "CREATE ROLE p027_m21_publisher LOGIN IN ROLE polis_coordinator_publisher;")
+            sql(db, "INSERT INTO polis_coordinator_namespaces VALUES('generated','python',128); INSERT INTO polis_coordinator_principals SELECT oid,rolname,'generated',false FROM pg_roles WHERE rolname IN ('postgres','p027_m21_publisher');")
             try:
                 body(db)
             finally:
@@ -664,7 +665,7 @@ def main():
         finally:sql(db,original)
     publication_case('negative control: removed admission bound overbooks capacity',budget_mutant)
 
-    def independent_publication(db, preadmitted=False, old_lock=False):
+    def independent_publication(db, preadmitted=False, old_lock=False, transition_attempt=False):
         """Real after-main latch; another zid must finish before its release."""
         arm(db)
         sql(db,"""INSERT INTO conversations(zid) VALUES(990002);
@@ -704,6 +705,11 @@ def main():
             else:raise AssertionError('first publication did not reach its actual after-main trigger')
             assert first.poll() is None
             assert sql(db,"SELECT count(*) FROM math_main;").stdout.strip()=='0'
+            if transition_attempt:
+                r=transition(db,ok=False)
+                assert r.returncode and 'lock timeout' in r.stderr,r.stderr
+                assert sql(db,'SELECT count(*) FROM polis_coordinator_transitions;').stdout.strip()=='0'
+                assert first.poll() is None
             # Admission happens in its own transaction, with the real namespace
             # arithmetic; publication happens through the restricted login.
             if not preadmitted:
@@ -732,7 +738,7 @@ def main():
         if not old_lock:
             assert sql(db,"SELECT zid,caching_tick FROM math_main ORDER BY zid;").stdout.strip()=='990001|1\n990002|2'
             assert sql(db,"SELECT count(*) FROM polis_coordinator_payloads;").stdout.strip()=='6'
-        (WORK/f'r12-{preadmitted}-{old_lock}.json').write_text(json.dumps({
+        (WORK/f'r12-{preadmitted}-{old_lock}-{transition_attempt}.json').write_text(json.dumps({
             'first_paused_after_actual_main_insert':True,'second_preadmitted':preadmitted,
             'old_namespace_lock_mutation':old_lock,'second_completed_before_first':not old_lock,
             'old_lock_rejected_by_same_admission_oracle':old_lock,'reservation_bytes':2097152,
@@ -746,6 +752,7 @@ def main():
         sql(db,"""INSERT INTO polis_coordinator_budgets VALUES(repeat(chr(128512),999),1,2097152);
         INSERT INTO polis_coordinator_leases SELECT repeat(chr(128512),999),zid,owner_id,owner_epoch,expires_at,
         repeat(chr(128512),128),dispatch_capability_sha256,dispatch_checkpoint_sha256,dispatch_expected_tick,dispatch_margin_ms FROM polis_coordinator_leases;""")
+        sql(db,"INSERT INTO polis_coordinator_namespaces VALUES(repeat(chr(128512),999),'python',128); UPDATE polis_coordinator_principals SET math_env=repeat(chr(128512),999) WHERE principal_name='postgres';")
         control(db,"SELECT pc_admit(repeat(chr(128512),999),990001,'owner-a',1,repeat(chr(128512),128),repeat('a',64),2097152);")
         control(db,"SELECT pc_reference(repeat(chr(128512),999),990001,repeat(chr(128512),128),repeat(chr(128512),124)||g,true) FROM generate_series(1,128) g;")
         size=sql(db,"SELECT sum(octet_length(math_env)+octet_length(operation_id)+octet_length(reference_name)+4) FROM polis_coordinator_references;").stdout.strip()
@@ -775,6 +782,226 @@ def main():
         assert p.returncode and "requires superuser installer" in p.stderr
         assert dump(db) == baseline and role_state() == ""
     case("explicit non-superuser precondition is atomic", non_super)
+
+    def namespace_case(name, body):
+        def wrapped(db):
+            logins = ('p027_m21_python_control', 'p027_m21_legacy_control',
+                      'p027_m21_python_transition', 'p027_m21_legacy_transition')
+            for login in logins:
+                sql(db, f'CREATE ROLE {login} LOGIN IN ROLE polis_coordinator_control;')
+            sql(db, "INSERT INTO polis_coordinator_namespaces VALUES('legacy','legacy',128);")
+            for login in logins:
+                env = 'legacy' if '_legacy_' in login else 'generated'
+                allowed = 'true' if login.endswith('_transition') else 'false'
+                sql(db, f"INSERT INTO polis_coordinator_principals SELECT oid,rolname,'{env}',{allowed} FROM pg_roles WHERE rolname='{login}';")
+            try:
+                body(db)
+            finally:
+                for login in logins:
+                    sql(db, f'DROP ROLE {login};')
+        publication_case(name, wrapped)
+
+    def transition(db, source='legacy', dest='generated', ident='transfer-a', last='100', ok=True):
+        who = 'legacy' if dest == 'legacy' else 'python'
+        return sql(db, f"SELECT * FROM pc_transition('{source}','{dest}',990001,'{ident}',{last},repeat('e',64));",
+                   ok=ok, user=f'p027_m21_{who}_transition')
+
+    def seed_legacy(db, tick=100):
+        # Public fixture only. No generation/original-byte receipt is fabricated.
+        for table in ('math_ticks','math_bidtopid','math_ptptstats','math_main'):
+            if table == 'math_ticks':
+                q = f"INSERT INTO {table}(zid,math_env,math_tick) VALUES(990001,'legacy',{tick});"
+            elif table == 'math_main':
+                q = f"INSERT INTO {table}(zid,math_env,math_tick,data,last_vote_timestamp,caching_tick) VALUES(990001,'legacy',{tick},'{{}}',0,0);"
+            else:
+                q = f"INSERT INTO {table}(zid,math_env,math_tick,data) VALUES(990001,'legacy',{tick},'{{}}');"
+            sql(db, q)
+
+    def namespace_leases(db):
+        sql(db, 'INSERT INTO conversations(zid) VALUES(990001);')
+        for own, foreign, who in [('generated','legacy','python'),('legacy','generated','legacy')]:
+            user = f'p027_m21_{who}_control'
+            def insert(env):
+                return f"INSERT INTO polis_coordinator_leases(math_env,zid,owner_id,owner_epoch,expires_at) VALUES('{env}',990001,'test-owner',1,clock_timestamp()+interval '1 minute');"
+            assert sql(db, insert(own), user=user).returncode == 0
+            r = sql(db, 'BEGIN; '+insert(foreign)+' COMMIT;', ok=False, user=user)
+            assert r.returncode and 'row-level security' in r.stderr, r.stderr
+            r = sql(db, f"UPDATE polis_coordinator_leases SET math_env='{foreign}' WHERE math_env='{own}';", ok=False, user=user)
+            assert r.returncode and 'row-level security' in r.stderr, r.stderr
+            assert sql(db, 'SELECT math_env FROM polis_coordinator_leases;', user=user).stdout.strip() == own
+        assert sql(db,'SELECT count(*) FROM polis_coordinator_leases;').stdout.strip() == '2'
+    namespace_case('actual Python and legacy control logins commit only their own namespace leases', namespace_leases)
+
+    def namespace_functions(db):
+        arm(db)
+        calls = ["pc_admit('legacy',990001,'owner-a',1,'op-a',repeat('a',64),2097152)",
+                 "pc_reconcile('legacy',990001,'op-a')", "pc_protect('legacy',990001,'op-a',true)",
+                 "pc_reference('legacy',990001,'op-a','reader',true)", "pc_cleanup('legacy',990001,'op-a')"]
+        for expr in calls:
+            r = sql(db, 'SELECT '+expr+';', False, 'p027_m21_python_control')
+            assert r.returncode and 'NAMESPACE_AUTHORITY_REQUIRED' in r.stderr, r.stderr
+        # Even valid stolen public dispatch metadata and the correct capability
+        # cannot authorize a publisher in the foreign namespace.
+        q = "SELECT * FROM pc_publish('legacy',990001,'owner-a',1,'op-a',decode(repeat('ab',32),'hex'),NULL,'{}','{}','{}','{}');"
+        r = sql(db,q,False,'p027_m21_publisher')
+        assert r.returncode and 'NAMESPACE_AUTHORITY_REQUIRED' in r.stderr
+        assert call(db).stdout.startswith('committed|0|')
+        assert sql(db, 'SELECT math_env FROM polis_coordinator_generations;',user='p027_m21_publisher').stdout.strip() == 'generated'
+    namespace_case('all six privileged mutation entry points refuse foreign namespace before readback', namespace_functions)
+
+    def namespace_spoof(db):
+        arm(db)
+        sql(db, 'GRANT polis_coordinator_control TO p027_m21_publisher;')
+        q = "SET ROLE polis_coordinator_control; SET polis_coordinator.math_env='legacy'; SELECT pc_admit('legacy',990001,'owner-a',1,'op-a',repeat('a',64),2097152);"
+        r=sql(db,q,False,'p027_m21_publisher')
+        assert r.returncode and 'NAMESPACE_AUTHORITY_REQUIRED' in r.stderr
+        for table in ('polis_coordinator_principals','polis_coordinator_namespaces'):
+            assert sql(db,f'DELETE FROM {table};',False,'p027_m21_python_control').returncode
+        sql(db, 'DROP ROLE p027_m21_python_control; CREATE ROLE p027_m21_python_control LOGIN IN ROLE polis_coordinator_control;')
+        q="INSERT INTO polis_coordinator_leases(math_env,zid,owner_id,owner_epoch,expires_at) VALUES('generated',990002,'owner',1,clock_timestamp());"
+        sql(db,'INSERT INTO conversations(zid) VALUES(990002);')
+        r=sql(db,q,False,'p027_m21_python_control')
+        assert r.returncode and 'row-level security' in r.stderr
+    namespace_case('SET ROLE and custom settings cannot change namespace; recreated login OID is refused', namespace_spoof)
+
+    def namespace_mutant(db):
+        arm(db)
+        original=sql(db,"SELECT pg_get_functiondef('pc_namespace_allowed(text)'::regprocedure);").stdout
+        sql(db,"CREATE OR REPLACE FUNCTION pc_namespace_allowed(p_env text) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS 'SELECT true';")
+        try:
+            q="INSERT INTO polis_coordinator_leases(math_env,zid,owner_id,owner_epoch,expires_at) VALUES('legacy',990001,'owner',1,clock_timestamp()+interval '1 minute');"
+            assert sql(db,q,user='p027_m21_python_control').returncode == 0
+            assert sql(db,"SELECT count(*) FROM polis_coordinator_leases WHERE math_env='legacy';").stdout.strip()=='1'
+        finally: sql(db,original)
+    namespace_case('negative control: removed session mapping permits forbidden foreign lease', namespace_mutant)
+
+    namespace_case('paused actual publication blocks same-zid transition while unrelated zid completes',lambda db:independent_publication(db,transition_attempt=True))
+
+    def namespace_publish_mutant(db):
+        arm(db)
+        sql(db,"INSERT INTO polis_coordinator_budgets VALUES('legacy',8,16777216); INSERT INTO polis_coordinator_leases SELECT 'legacy',zid,owner_id,owner_epoch,expires_at,dispatch_operation_id,dispatch_capability_sha256,dispatch_checkpoint_sha256,dispatch_expected_tick,dispatch_margin_ms FROM polis_coordinator_leases;")
+        sql(db,"SELECT pc_admit('legacy',990001,'owner-a',1,'op-a',repeat('a',64),2097152);",user='p027_m21_legacy_control')
+        payload='{"zid":990001,"lastVoteTimestamp":0}'
+        q="SELECT * FROM pc_publish('legacy',990001,'owner-a',1,'op-a',decode(repeat('ab',32),'hex'),NULL,'{}',"+','.join(f"convert_to('{payload}','UTF8')" for _ in range(3))+');'
+        r=sql(db,q,False,'p027_m21_publisher')
+        assert r.returncode and 'NAMESPACE_AUTHORITY_REQUIRED' in r.stderr,r.stderr
+        assert sql(db,'SELECT count(*) FROM math_main;').stdout.strip()=='0'
+        original=sql(db,"SELECT pg_get_functiondef('pc_namespace_allowed(text)'::regprocedure);").stdout
+        sql(db,"CREATE OR REPLACE FUNCTION pc_namespace_allowed(p_env text) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS 'SELECT true';")
+        try:
+            assert sql(db,q,user='p027_m21_publisher').stdout.startswith('committed|0|')
+            assert sql(db,"SELECT math_env FROM math_main;").stdout.strip()=='legacy'
+        finally:sql(db,original)
+    namespace_case('negative control: valid foreign capability still needs mapping; removing it permits forbidden publication',namespace_publish_mutant)
+
+    def transition_roundtrip(db):
+        arm(db); assert call(db).stdout.startswith('committed|0|'); seed_legacy(db)
+        originals=sql(db,"SELECT original_sha256 FROM polis_coordinator_payloads ORDER BY payload_kind;").stdout
+        r=transition(db)
+        assert r.stdout.strip()=='publication_required|100||2',r.stdout
+        assert sql(db,"SELECT math_tick FROM math_main WHERE math_env='generated';").stdout.strip()=='0'
+        assert sql(db,"SELECT bool_and(expires_at<=clock_timestamp() AND dispatch_operation_id IS NULL) FROM polis_coordinator_leases;").stdout.strip()=='t'
+        assert transition(db).stdout.strip()=='already_committed|100||2'
+        arm(db,operation='op-b',epoch=2,expected='100')
+        assert call(db,operation='op-b',epoch=2,expected='100').stdout.startswith('committed|101|3')
+        assert transition(db,source='generated',dest='legacy',ident='fallback',last='101').stdout.strip()=='legacy_reticked|101|102|4'
+        assert sql(db,"SELECT count(DISTINCT math_tick),min(math_tick),count(*) FROM (SELECT math_tick FROM math_ticks WHERE math_env='legacy' UNION ALL SELECT math_tick FROM math_main WHERE math_env='legacy' UNION ALL SELECT math_tick FROM math_bidtopid WHERE math_env='legacy' UNION ALL SELECT math_tick FROM math_ptptstats WHERE math_env='legacy') t;").stdout.strip()=='1|102|4'
+        assert sql(db,"SELECT count(*) FROM polis_coordinator_generations WHERE math_env='legacy';").stdout.strip()=='0'
+        assert sql(db,"SELECT original_sha256 FROM polis_coordinator_payloads WHERE math_tick=0 ORDER BY payload_kind;").stdout==originals
+        assert sql(db,"SELECT data FROM math_main WHERE math_env='legacy';").stdout.strip()=='{}'
+        assert transition(db,source='generated',dest='legacy',ident='fallback',last='101').stdout.strip()=='already_committed|101|102|4'
+        assert sql(db,"SELECT last_value FROM polis_coordinator_caching_tick;").stdout.strip()=='4'
+        assert transition(db).stdout.strip()=='already_committed|100||2'
+        assert sql(db,"SELECT math_tick FROM polis_coordinator_floors WHERE math_env='generated';").stdout.strip()=='101'
+    namespace_case('L to P to L advances old client clocks with exact retry and preserves raw originals',transition_roundtrip)
+
+    for source_mode in ('absent','zero','empty'):
+        def absent_zero_empty(db,mode=source_mode):
+            arm(db)
+            if mode!='absent':seed_legacy(db,0)
+            if mode=='zero':
+                sql(db,"UPDATE math_main SET data='{\"n\":1}' WHERE math_env='legacy';")
+            assert transition(db,last='0').stdout.strip()=='publication_required|0||1'
+            arm(db,operation='op-b',epoch=2,expected='0')
+            assert call(db,operation='op-b',epoch=2,expected='0').stdout.startswith('committed|1|2')
+        namespace_case(f'{source_mode} source rows preserve zero-token transition floor before real Python publish',absent_zero_empty)
+
+    def legacy_incomplete(db):
+        arm(db); assert call(db).stdout.startswith('committed|0|')
+        for count in range(4):
+            if count==1:seed_legacy(db,0);sql(db,"DELETE FROM math_bidtopid WHERE math_env='legacy';")
+            if count==2:sql(db,"INSERT INTO math_bidtopid(zid,math_env,math_tick,data) VALUES(990001,'legacy',7,'{}');")
+            if count==3:sql(db,"UPDATE math_bidtopid SET math_tick=0 WHERE math_env='legacy';")
+            r=transition(db,source='generated',dest='legacy',last='0',ok=False)
+            if count<3:
+                assert r.returncode and 'LEGACY_COHERENT_REBUILD_REQUIRED' in r.stderr
+                assert sql(db,'SELECT count(*) FROM polis_coordinator_transitions;').stdout.strip()=='0'
+            else:assert r.stdout.strip()=='legacy_reticked|0|1|2'
+    namespace_case('legacy absent partial and mixed-generation rows refuse; coherent stored-empty rows retick',legacy_incomplete)
+
+    def transition_permissions(db):
+        arm(db)
+        q="SELECT * FROM pc_transition('legacy','generated',990001,'transfer-a',100,repeat('e',64));"
+        r=sql(db,q,False,'p027_m21_python_control')
+        assert r.returncode and 'TRANSITION_AUTHORITY_REQUIRED' in r.stderr
+        r=sql(db,q,False,'p027_m21_legacy_transition')
+        assert r.returncode and 'NAMESPACE_AUTHORITY_REQUIRED' in r.stderr
+        assert sql(db,'DELETE FROM polis_coordinator_transitions;',False,'p027_m21_python_transition').returncode
+        assert sql(db,'UPDATE polis_coordinator_floors SET math_tick=100;',False,'p027_m21_python_transition').returncode
+    namespace_case('transition is separately provisioned and destination-bound with no direct receipt or floor write',transition_permissions)
+
+    def transition_limits(db):
+        arm(db); seed_legacy(db)
+        sql(db,"UPDATE polis_coordinator_namespaces SET max_transitions=1 WHERE math_env='generated';")
+        assert transition(db).stdout.startswith('publication_required|100|')
+        r=transition(db,ident='new-transfer',ok=False)
+        assert r.returncode and 'TRANSITION_CAPACITY' in r.stderr
+        assert transition(db).stdout.startswith('already_committed|100|')
+        r=transition(db,last='99',ok=False)
+        assert r.returncode and 'TRANSITION_IDENTITY_CONFLICT' in r.stderr
+        assert sql(db,'SELECT count(*) FROM polis_coordinator_transitions;').stdout.strip()=='1'
+    namespace_case('bounded retained transition receipts refuse new work but preserve exact old acknowledgments',transition_limits)
+
+    def transition_overflow(db):
+        arm(db);seed_legacy(db,9007199254740991)
+        r=transition(db,ok=False)
+        assert r.returncode and 'TRANSITION_TICK_EXHAUSTED' in r.stderr
+        assert sql(db,'SELECT count(*) FROM polis_coordinator_transitions;').stdout.strip()=='0'
+        assert sql(db,'SELECT is_called FROM polis_coordinator_caching_tick;').stdout.strip()=='f'
+    namespace_case('exhausted source math clock refuses atomically before sequence and receipt writes',transition_overflow)
+
+    def transition_rollback(db):
+        arm(db);seed_legacy(db)
+        sql(db,"CREATE FUNCTION p027_m21_fail_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'receipt fault'; END $$; CREATE TRIGGER p027_m21_fail_receipt BEFORE INSERT ON polis_coordinator_transitions FOR EACH ROW EXECUTE FUNCTION p027_m21_fail_receipt();")
+        try:
+            r=transition(db,source='generated',dest='legacy',last='100',ok=False)
+            assert r.returncode and 'receipt fault' in r.stderr
+            assert sql(db,"SELECT math_tick FROM math_main WHERE math_env='legacy';").stdout.strip()=='100'
+            assert sql(db,'SELECT count(*) FROM polis_coordinator_floors;').stdout.strip()=='0'
+            assert sql(db,"SELECT dispatch_operation_id FROM polis_coordinator_leases;").stdout.strip()=='op-a'
+        finally:
+            sql(db,'DROP TRIGGER p027_m21_fail_receipt ON polis_coordinator_transitions; DROP FUNCTION p027_m21_fail_receipt();')
+    namespace_case('receipt insertion fault rolls back legacy retick floor and dispatch revocation atomically',transition_rollback)
+
+    def transition_floor_mutant(db):
+        arm(db);seed_legacy(db)
+        original=sql(db,"SELECT pg_get_functiondef('pc_transition(text,text,integer,text,bigint,text)'::regprocedure);").stdout
+        needle='base_tick:=greatest(source_tick,destination_tick,p_last_served,0);'
+        assert original.count(needle)==1
+        sql(db,original.replace(needle,'base_tick:=greatest(destination_tick,0);'))
+        try:
+            r=transition(db)
+            assert r.stdout.startswith('publication_required|0|'),r.stdout
+            # The intact old-client floor oracle requires 100 and rejects this.
+        finally:sql(db,original)
+    namespace_case('negative control: ignoring source and client clocks fails the monotonic floor oracle',transition_floor_mutant)
+
+    def policy_drift(db):
+        apply(db)
+        sql(db,'ALTER POLICY pc_namespace ON polis_coordinator_leases USING (true) WITH CHECK (true);')
+        refuses_both(db)
+        assert apply(db,ok=False).returncode
+    case('namespace policy expression drift is sealed in catalog for replay and both down modes',policy_drift)
 
     summary = {"schema": "polis-coordinator-migration-test/1", "passed": len(RESULTS) - len(FAILURES), "failed": len(FAILURES), "failures": FAILURES,
                "skipped": 0, "cases": RESULTS, "migration_count_before_000021": len(migrations),
