@@ -1,0 +1,72 @@
+{
+  "scope": "S2 production reader implementation and accepted local served-bytes proof",
+  "state": "CLOSED",
+  "accepted_by": "Claude, BOARD [633], following Astra [632]",
+  "head": "1b10038f3ced75114e2735841b40ec9cccde2b5b",
+  "overall_O1": "PARTIAL",
+  "full_contract_certified": false,
+  "archive_sha256": "e9fcf5cf73ba5008f3e7a8af6a568942b99c2bd4a684a80a58687d09922b5c1b",
+  "replay": {
+    "cases": 1265,
+    "oracle_failures": 0,
+    "differences": 2,
+    "exit_code": 1,
+    "difference_cases": [
+      "r19/admin/boundary",
+      "r20/admin/boundary"
+    ],
+    "differences_waived": false,
+    "audit_checks": 24,
+    "coverage": {
+      "recorded": 129,
+      "excluded": 72,
+      "missing": 0
+    }
+  },
+  "census": {
+    "before": 302,
+    "after": 302,
+    "changed_fingerprints": 0,
+    "ordered_middleware_equal": true
+  },
+  "recorded": [
+    "Production joined loadBundle, bounded whole-Bundle LRU, namespace-scoped admission and caller propagation are implemented.",
+    "Featured-author main/mapping share one owned read; derived presentation cannot extend the source cache deadline; C7 presentation is retained.",
+    "The accepted public replay completed1265/0/2 with only complete-row permutations at r19/r20;24 direct checks verified full row bytes/multiplicity and own-body ETags.",
+    "Strict route census302/302: zero changed callback fingerprints. Reader changes are transitive helpers."
+  ],
+  "remaining_obligations": [
+    "Required CI must provision pinned server modules and enforce the exact HTTP/Bundle case inventory with zero skips.",
+    "S5: combined immutable-build/full-app/auth/report/CSV/interleaving campaign and owned private served corpus remain open; this public corpus does not prove every cross-handler publication race.",
+    "Full O1/CO04 admission and rollout remain conditional on writer fencing, coherent publication and the broader gates; this receipt closes only the assigned production-reader slice."
+  ],
+  "limits": [
+    "The earlier torn-read comparator is a copied SQL-shaped baseline; its provenance is unchanged.",
+    "No Rust equals Clojure claim, private-corpus certificate, cloud action or transfer authorization."
+  ],
+  "proof_notes": [
+    "P-026-production-reader-replay-621.md",
+    "P-026-production-reader-replay-621-audit.json",
+    "P-026-production-reader-replay-621-census.json"
+  ],
+  "proof_sha256": {
+    "P-026-production-reader-replay-621.md": "7048e16c4be75344bd523f9d0a8998f642a590d9638eba7d8ef613c672633dab",
+    "P-026-production-reader-replay-621-audit.json": "d180268d8bd98c24640524c613bdff1c1c2e7e10201821ea39dfd818031e592e",
+    "P-026-production-reader-replay-621-census.json": "d923373d77796ecd0f0ff01e07bf1e20e7910f254d213d2128c6e13ca47c77ec"
+  },
+  "sha256": {
+    "server/src/utils/mathBundle.ts": "611f15d80461f86a52a84cf27420d19614430fb9150746015e121bed1250cd3f",
+    "server/src/utils/pca.ts": "5434c3137c90d8a5c99257f9a44dce77b3b6f32dc88d6c672ceb36f292c9a919",
+    "server/src/utils/pcaPresentation.ts": "8cba45f563a5a1d070691f63a2edf25537a07032ba4f9fa063acffa7a64b7f98",
+    "server/src/server-helpers.ts": "9bbe279ff7dff0220397b3e42c677c2f209845b9c8d358201154046c1729fa66",
+    "server/src/report.ts": "a6a103ade3caf5efcb18bb27ffc7964f0506359b8e7f45adaf8e8253817638ee",
+    "server/src/routes/math.ts": "fed3f4a913d9c540e733cf251980ad308ec22efa3111d93e1b8f87fb0d20dd0b",
+    "server/src/routes/participation.ts": "9ca96183bb723960fc5630d62226076bced0f6e591682ded92a4a097ee6d8ac7",
+    "server/__tests__/unit/mathBundle.test.ts": "49ddca4a1f03cb13ef4416ad7f5da9b627171fe13024708602c14453afa5d3db",
+    "server/__tests__/unit/mathBundleRequests.test.ts": "7a08c12034f82c4bf51452cc67b2e7ba514f083af2a1e4401211c5a3dade4b6c",
+    "server/__tests__/unit/pcaMathTickZero.test.ts": "5bb2add18031c19eeb65029807661af2a86a69de31a97876430819e5f0db1ee6",
+    "server/__tests__/unit/exportRoutes.test.ts": "5038dd30417447f59e332a43c5a203e3a9fe2e6f865c5314ccc4725c10fc8694",
+    "server/__tests__/integration/math-bundle-coherence.test.ts": "dfd17ef06a45c1ea37bd355b4aa66b9558c22c7a4e4fdc43da22dc75f0bcdc93",
+    "server/__tests__/integration/math-env-isolation.test.ts": "da56bbf9e2d03611280148acd715da685b36393d4ad8e4426fd66bd8bd5a50d7"
+  }
+}

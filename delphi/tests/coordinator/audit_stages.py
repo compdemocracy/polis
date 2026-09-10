@@ -28,14 +28,12 @@ assert not set(compiled)-set(required), 'unreviewed compiled marker'
 # The stage inventory and the full contract gate are separate verdicts: reaching
 # every fault stage does not certify CO08/D4, which need the actual Node route.
 open_conditions=[
-    'CO08/D4: the real Node reader (getPca + getBidIndexToPidMapping + getPidsForGid) serves'
-    ' identical Rust/Python bytes at generation one, the real pca2 route serves generation'
-    ' zero, and a candidate coherent-read loadBundle serves one snapshot generation exactly'
-    ' (closing the old-main/new-mapping torn read) in the D4 harness; the production server/src'
-    ' loadBundle threaded through getPidsForGid/doFamousQuery/report.ts with a bounded'
-    ' whole-Bundle cache is the open S2 remainder (dispatched separately, not deferred to S5)',
-    'CO08/D4: application boot, auth, report.ts/doFamousQuery and the private 2,884-case'
-    ' served corpus are not executed; the empty presentation is compared synthetically (S5)',
+    'CO08/D4: candidate coherent-read atomicity and the production reader local slice are'
+    ' recorded; BOARD[633] accepts the production implementation and public1265/0/2 replay.'
+    ' O1 remains partial: required pinned-module CI with exact case inventory/zero skips'
+    ' and the combined S5 build/corpus campaigns remain open',
+    'CO08/D4: the combined immutable-build/full-app/auth/report/CSV campaign and private'
+    ' served corpus remain open; accepted public reader evidence does not complete S5',
     'CO08/D4 (server owner): the getPca(zid, undefined) cold generation-zero miss is fixed'
     ' upstream by #2732 (merged to edge), so the cold call now finds generation zero and pca2'
     ' serves it with 200 / ETag "0" / conditional 304; the combined-build full-app coverage of'
@@ -105,14 +103,8 @@ if closure_path.exists():
     except (AssertionError, KeyError, OSError, ValueError) as error:
         print(f'S1 partial record refused: {error}', file=sys.stderr)
 
-# S2 records the candidate-reader portion of O1: a candidate coherent-read
-# loadBundle that serves one snapshot generation exactly (closing the
-# old-main/new-mapping torn read), with admission refusals and env scoping.
-# It does NOT close O1: the production server/src loadBundle (threaded through
-# getPidsForGid/doFamousQuery/report.ts with a bounded whole-Bundle cache) is the
-# open S2 remainder, dispatched separately and NOT deferred to S5; only the
-# combined full-app/private campaign is S5. So the best state this script writes
-# for O1 is PARTIAL and O1 stays in open_conditions.
+# S2 production implementation/local proof is closed by BOARD[633].
+# O1 remains PARTIAL: required CI and combined S5 campaigns are not certified.
 s2_closure_path = root/'coordinator-rs/evidence/s2-closure.json'
 if s2_closure_path.exists():
     closure = json.loads(s2_closure_path.read_text())
@@ -120,8 +112,11 @@ if s2_closure_path.exists():
         assert closure['id'] == 'O1' and closure['scope'] == 'P-026 step-4 S2 reader: candidate loadBundle whole-Bundle atomicity'
         assert closure['state'] == 'PARTIAL' and closure['production_loadbundle_certified'] is False
         assert closure['remaining_obligations'], 'a PARTIAL record must name what is still open'
+        assert closure['production_reader_obligation_state'] == 'CLOSED'
+        assert closure['production_reader_evidence'] == 'coordinator-rs/evidence/s2-production-reader.json'
         required_pins = {
             'coordinator-rs/tools/bundle_reader.cjs', 'coordinator-rs/tools/record_s2.py',
+            'coordinator-rs/evidence/s2-production-reader.json', 'coordinator-rs/tools/record_s2_production.py',
             'delphi/tests/coordinator/test_bundle_reader.py', 'delphi/tests/coordinator/test_node_reader.py',
             'delphi/tests/coordinator/_node_gate.py', 'delphi/tests/coordinator/audit_stages.py',
         }
@@ -133,8 +128,9 @@ if s2_closure_path.exists():
             standing_condition=open_conditions[0], evidence=str(s2_closure_path.relative_to(root)),
             scope=closure['scope'], recorded=closure['recorded'],
             remaining_obligations=closure['remaining_obligations'],
-            production_loadbundle_certified=False, run_pins_verified_here=False))
-        condition_states['O1'] = 'PARTIAL (S2 candidate reader recorded; production server/src loadBundle remainder open)'
+            production_loadbundle_certified=False, production_reader_obligation_state="CLOSED",
+            production_reader_evidence=closure["production_reader_evidence"], run_pins_verified_here=False))
+        condition_states['O1'] = 'PARTIAL (S2 production reader locally proven; required CI and combined S5 open)'
     except (AssertionError, KeyError, OSError, ValueError) as error:
         print(f'S2 partial record refused: {error}', file=sys.stderr)
 
@@ -154,7 +150,7 @@ result=dict(protocol='polis-fault-control/1',compiled_stages=len(compiled),requi
     profile='Rust coordinator + Python worker + CLI Bundle reader, the real Node '
             'getPca/getBidIndexToPidMapping reader in-process, the real pca2 route '
             'over loopback HTTP, and a candidate coherent-read loadBundle atomicity '
-            'witness in the D4 harness; no server/src loadBundle rewrite, no application boot')
+            'witness in the D4 harness; production reader local proof accepted; no combined S5/private certificate')
 path=root/'coordinator-rs/evidence/stage-inventory.json'
 path.write_text(json.dumps(result,indent=2)+'\n')
 print(json.dumps({k:v for k,v in result.items() if k!='stages'}))

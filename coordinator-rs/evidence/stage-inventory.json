@@ -1540,8 +1540,8 @@
   "unreached": [],
   "stage_inventory_gate": "PASS",
   "open_conditions": [
-    "CO08/D4: the real Node reader (getPca + getBidIndexToPidMapping + getPidsForGid) serves identical Rust/Python bytes at generation one, the real pca2 route serves generation zero, and a candidate coherent-read loadBundle serves one snapshot generation exactly (closing the old-main/new-mapping torn read) in the D4 harness; the production server/src loadBundle threaded through getPidsForGid/doFamousQuery/report.ts with a bounded whole-Bundle cache is the open S2 remainder (dispatched separately, not deferred to S5)",
-    "CO08/D4: application boot, auth, report.ts/doFamousQuery and the private 2,884-case served corpus are not executed; the empty presentation is compared synthetically (S5)",
+    "CO08/D4: candidate coherent-read atomicity and the production reader local slice are recorded; BOARD[633] accepts the production implementation and public1265/0/2 replay. O1 remains partial: required pinned-module CI with exact case inventory/zero skips and the combined S5 build/corpus campaigns remain open",
+    "CO08/D4: the combined immutable-build/full-app/auth/report/CSV campaign and private served corpus remain open; accepted public reader evidence does not complete S5",
     "CO08/D4 (server owner): the getPca(zid, undefined) cold generation-zero miss is fixed upstream by #2732 (merged to edge), so the cold call now finds generation zero and pca2 serves it with 200 / ETag \"0\" / conditional 304; the combined-build full-app coverage of generation zero across all callers is still outstanding",
     "C7 / polis-empty-served/1: the Python comparison writer publishes no row for a zero-vote conversation, the server synthesizes the approved-comment listing with a request-clock lastVoteTimestamp, and a published empty generation lists no tids; the transition must preserve comment ownership; the comparison clock is admitted (plan rev2 C2: freeze the logical request clock, advance it, preserve the response dependency), and the empty-transition campaign that exercises it is still open",
     "CO01: the incremental probe is a hint bounded by P026_RECONCILE_SECONDS, measured from before the source read; the interval makes a conversation eligible for reconciliation and is not a deadline, and no pass/service budget has been measured",
@@ -1550,42 +1550,21 @@
     "O8 remains OPEN and is at most PARTIAL: polis-candidate-input/1 is claimed locally as a candidate profile, not a G01-G16 certificate. S1 records the distinct candidate schema id, strict adapter admission, original-byte digests with decoded correspondence, and the worker/engine pins; still outstanding are all applicable G01-G16 cases with their required negative controls, an immutable manifest, the distinction between fresh rebuild, exact resume and warm incremental output schedules, and a non-vacuous P-023 compensated pair with raw C9 validation"
   ],
   "condition_states": {
-    "O1": "PARTIAL (S2 candidate reader recorded; production server/src loadBundle remainder open)",
+    "O1": "PARTIAL (S2 production reader locally proven; required CI and combined S5 open)",
     "O2": "OPEN",
     "O3": "OPEN",
     "O4": "OPEN",
     "O5": "OPEN",
     "O6": "OPEN",
     "O7": "OPEN",
-    "O8": "PARTIAL (S1 identity/custody recorded; G01-G16 open)"
+    "O8": "OPEN"
   },
   "closed_conditions": [],
   "partial_conditions": [
     {
-      "id": "O8",
-      "state": "PARTIAL",
-      "standing_condition": "O8 remains OPEN and is at most PARTIAL: polis-candidate-input/1 is claimed locally as a candidate profile, not a G01-G16 certificate. S1 records the distinct candidate schema id, strict adapter admission, original-byte digests with decoded correspondence, and the worker/engine pins; still outstanding are all applicable G01-G16 cases with their required negative controls, an immutable manifest, the distinction between fresh rebuild, exact resume and warm incremental output schedules, and a non-vacuous P-023 compensated pair with raw C9 validation",
-      "evidence": "coordinator-rs/evidence/s1-closure.json",
-      "scope": "P-026 step-4 S1 candidate identity and original-byte custody",
-      "recorded": [
-        "distinct candidate schema id and strict adapter admission on both sides",
-        "original worker bytes and their digests stored atomically with the JSONB, with decoded original/JSONB correspondence checked on read",
-        "worker/engine identity re-verified at initialization and at snapshot",
-        "operation id and publisher epoch bound into the uncertain-COMMIT readback"
-      ],
-      "remaining_obligations": [
-        "all applicable G01-G16 cases and their required negative controls",
-        "an immutable manifest for the profile",
-        "fresh rebuild, exact resume and warm incremental output schedules distinguished",
-        "a non-vacuous P-023 compensated pair and raw C9 validation"
-      ],
-      "g01_g16_certified": false,
-      "run_pins_verified_here": false
-    },
-    {
       "id": "O1",
       "state": "PARTIAL",
-      "standing_condition": "CO08/D4: the real Node reader (getPca + getBidIndexToPidMapping + getPidsForGid) serves identical Rust/Python bytes at generation one, the real pca2 route serves generation zero, and a candidate coherent-read loadBundle serves one snapshot generation exactly (closing the old-main/new-mapping torn read) in the D4 harness; the production server/src loadBundle threaded through getPidsForGid/doFamousQuery/report.ts with a bounded whole-Bundle cache is the open S2 remainder (dispatched separately, not deferred to S5)",
+      "standing_condition": "CO08/D4: candidate coherent-read atomicity and the production reader local slice are recorded; BOARD[633] accepts the production implementation and public1265/0/2 replay. O1 remains partial: required pinned-module CI with exact case inventory/zero skips and the combined S5 build/corpus campaigns remain open",
       "evidence": "coordinator-rs/evidence/s2-closure.json",
       "scope": "P-026 step-4 S2 reader: candidate loadBundle whole-Bundle atomicity",
       "recorded": [
@@ -1593,17 +1572,23 @@
         "under an interleaved publish the reader returns snapshot generation A exactly (all four row ticks equal, and A's exact per-group pids), not the B the interleave committed; a later read returns B exactly, and A and B are distinguishable",
         "the returned per-group pids are compared against an independent Python re-derivation over the published blobs, so a reader that fabricates pids fails",
         "a missing or tick-mismatched companion fails admission, a valid replacement is observed after republication, the reads are scoped by math_env, and a wrong-namespace companion does not leak in",
-        "the Node reader tests are a local failure guard (absent server modules fail rather than skip); the existing real-module getPca/getBidIndexToPidMapping byte-equality path is retained at 0 differences"
+        "the Node reader tests are a local failure guard (absent server modules fail rather than skip); the existing real-module getPca/getBidIndexToPidMapping byte-equality path is retained at 0 differences",
+        "Production joined loadBundle, bounded whole-Bundle LRU, namespace-scoped admission and caller propagation are implemented.",
+        "Featured-author main/mapping share one owned read; derived presentation cannot extend the source cache deadline; C7 presentation is retained.",
+        "The accepted public replay completed1265/0/2 with only complete-row permutations at r19/r20;24 direct checks verified full row bytes/multiplicity and own-body ETags.",
+        "Strict route census302/302: zero changed callback fingerprints. Reader changes are transitive helpers."
       ],
       "remaining_obligations": [
-        "S2 remainder (separately dispatched, still open, NOT deferred to S5): the production server/src loadBundle, request-scoped and threaded through getPidsForGid/doFamousQuery/report.ts, with a bounded whole-Bundle cache and the characterized 3s TTL / response order preserved, and the comment-owned empty presentation",
-        "the torn baseline here is a copied SQL-shaped autocommit model on one client, not a call through the real getPca/getBidIndexToPidMapping (which dispatch via Promise.all)",
-        "S5 (later): the combined full-app/auth/report/CSV campaign and the private 2,884-case served corpus; the C7 comparison clock is already admitted (plan rev2 C2, freeze then advance the logical request clock), only its execution campaign is open"
+        "Required CI must provision pinned server modules and enforce the exact HTTP/Bundle case inventory with zero skips.",
+        "S5: combined immutable-build/full-app/auth/report/CSV/interleaving campaign and owned private served corpus remain open; this public corpus does not prove every cross-handler publication race.",
+        "Full O1/CO04 admission and rollout remain conditional on writer fencing, coherent publication and the broader gates; this receipt closes only the assigned production-reader slice."
       ],
       "production_loadbundle_certified": false,
+      "production_reader_obligation_state": "CLOSED",
+      "production_reader_evidence": "coordinator-rs/evidence/s2-production-reader.json",
       "run_pins_verified_here": false
     }
   ],
   "full_contract_gate": "FAIL",
-  "profile": "Rust coordinator + Python worker + CLI Bundle reader, the real Node getPca/getBidIndexToPidMapping reader in-process, the real pca2 route over loopback HTTP, and a candidate coherent-read loadBundle atomicity witness in the D4 harness; no server/src loadBundle rewrite, no application boot"
+  "profile": "Rust coordinator + Python worker + CLI Bundle reader, the real Node getPca/getBidIndexToPidMapping reader in-process, the real pca2 route over loopback HTTP, and a candidate coherent-read loadBundle atomicity witness in the D4 harness; production reader local proof accepted; no combined S5/private certificate"
 }

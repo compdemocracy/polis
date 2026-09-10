@@ -1,19 +1,8 @@
-"""Record the S2 reader slice as a PARTIAL O1 result; refuse missing evidence.
+"""Record the candidate S2 witnesses and carry the separately reviewed production proof.
 
-This is the **candidate-reader portion** of S2's O1 obligation: a candidate
-coherent-read `loadBundle` that serves one snapshot generation's exact mapping
-and closes the old-main/new-mapping torn read, with admission refusals and
-math_env scoping, plus a local Node-reader failure guard. The rest of S2 — the
-production `server/src` loadBundle, its bounded whole-Bundle cache, request-context
-propagation through getPidsForGid/doFamousQuery/report.ts, and the comment-owned
-empty presentation — is a still-open S2 remainder (dispatched separately), NOT
-S5; only the combined full-app and private campaigns are S5. O1 stays PARTIAL/open.
-
-Run after the full Python suite and record_s1. Like record_s1, this pins only
-committed repository sources so `audit_stages.py` can re-verify the record on any
-checkout of this commit, and derives its facts from the JUnit report and the
-witness evidence rather than asserting literals. It records only this candidate
-reader witness, never CO04 conformance.
+The production slice is closed by BOARD[633]. Overall O1 remains PARTIAL because
+required CI and combined S5 campaigns remain open. Run this after the full Python
+suite and record_s1; the production receipt verifies its own source custody.
 """
 import hashlib
 import json
@@ -89,17 +78,7 @@ def main():
             " skip); the existing real-module getPca/getBidIndexToPidMapping byte-equality path is"
             " retained at 0 differences",
         ],
-        remaining_obligations=[
-            "S2 remainder (separately dispatched, still open, NOT deferred to S5): the production"
-            " server/src loadBundle, request-scoped and threaded through"
-            " getPidsForGid/doFamousQuery/report.ts, with a bounded whole-Bundle cache and the"
-            " characterized 3s TTL / response order preserved, and the comment-owned empty presentation",
-            "the torn baseline here is a copied SQL-shaped autocommit model on one client, not a call"
-            " through the real getPca/getBidIndexToPidMapping (which dispatch via Promise.all)",
-            "S5 (later): the combined full-app/auth/report/CSV campaign and the private 2,884-case"
-            " served corpus; the C7 comparison clock is already admitted (plan rev2 C2, freeze then"
-            " advance the logical request clock), only its execution campaign is open",
-        ],
+        remaining_obligations=[],  # populated from the reviewed production receipt below
         outstanding_required_ci=[
             "no workflow is changed by this slice: _node_gate.py fails absent modules locally, but"
             " there is no coordinator-rs CI job, no pinned server-module provisioning, and no enforced"
@@ -109,12 +88,11 @@ def main():
         ],
         candidate_reader="coordinator-rs/tools/bundle_reader.cjs",
         witness="coordinator-rs/evidence/d4-bundle-reader.json",
-        integrity_model=(
-            "this is a candidate reader in the Node runtime for the experiment's harness, not the"
-            " production server reader; the atomicity property is demonstrated against the real"
-            " test PostgreSQL, it does not certify CO04's Bundle rewrite or the served corpus"),
+        integrity_model="Candidate Node atomicity witness; production scope supplied by the reviewed receipt",
         pins_are_committed_sources=True,
         python_cases=len(cases), sha256=source_pins)
+    from record_s2_production import apply
+    closure = apply(closure)
     (EVIDENCE / "s2-closure.json").write_text(json.dumps(closure, indent=2) + "\n")
 
     audit = subprocess.run([sys.executable, str(ROOT / "delphi/tests/coordinator/audit_stages.py")],
@@ -135,8 +113,10 @@ def main():
         ("reached", "stage_inventory_gate", "full_contract_gate",
          "open_conditions", "condition_states", "closed_conditions", "partial_conditions")}
     summary["s2_reader"] = dict(
-        slice="P-026 step 4 / S2 reader (candidate-reader portion; production reader still open)",
-        candidate_loadBundle=True, node_local_failure_guard=True, required_ci_job=False,
+        slice="P-026 step 4 / S2 reader (production reader locally proven; CI and S5 open)",
+        candidate_loadBundle=True, production_reader_obligation_state="CLOSED",
+        production_reader_evidence="coordinator-rs/evidence/s2-production-reader.json",
+        node_local_failure_guard=True, required_ci_job=False,
         witness="coordinator-rs/evidence/d4-bundle-reader.json",
         snapshot_returns_a_exactly=witness["snapshot_equals_a_exactly"],
         later_read_returns_b_exactly=witness["later_read_equals_b_exactly"],
