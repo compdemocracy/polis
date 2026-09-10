@@ -1,6 +1,7 @@
 """Synthetic source rows through extraction, manifest, plan and independent gate."""
 import copy
 import json
+import os
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -13,7 +14,7 @@ from polismath.replay import event_ingress, schedule
 from tests.test_representative_selection import configured, mock_snapshot, SEED
 from tests.test_certify_bundle import _generate, _manifest, _selections
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(os.environ.get('POLIS_CHECKOUT_DIR', Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(ROOT / 'ci/private_cert/images'))
 import gate
 import probe
