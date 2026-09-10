@@ -188,6 +188,15 @@ function installPg(mathRow: { math_tick: string } | null) {
   const impl = ((sql: string) => {
     const s = String(sql);
     sqlSeen.push(s);
+    if (s.includes("from math_main m")) {
+      return Promise.resolve(mathRow ? [{
+        main_data: mathBlob(), main_math_tick: mathRow.math_tick,
+        main_caching_tick: mathRow.math_tick, last_vote_timestamp: 0,
+        bidtopid_data: {bidToPid: []}, bidtopid_math_tick: mathRow.math_tick,
+        ptptstats_data: {}, ptptstats_math_tick: mathRow.math_tick,
+        ticks_math_tick: mathRow.math_tick,
+      }] : []);
+    }
     if (s.includes("from math_main")) {
       return Promise.resolve(
         mathRow ? [{ data: mathBlob(), math_tick: mathRow.math_tick }] : []
