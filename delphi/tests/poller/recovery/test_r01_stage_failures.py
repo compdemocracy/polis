@@ -24,6 +24,7 @@ Postgres failures, not Python stand-ins:
 Final state is checked against the INDEPENDENT fold in ``fold.py``.
 """
 
+from contextlib import contextmanager
 import threading
 
 import pytest
@@ -195,61 +196,63 @@ def test_real_connection_loss_recovers(engine, pg_url, recovery_postgres_url,
     idle killed connection without any failure ever reaching the retry path
     (review finding 5).  So instead:
 
-    1. open a real transaction on the POLLER's own engine and latch its
+    1. use the writer's supplied publication transaction and latch its
        ``pg_backend_pid()``;
     2. run the real ``math_bidtopid`` upsert inside it (uncommitted);
     3. from a SECOND connection, ``pg_terminate_backend`` exactly that pid, and
        assert Postgres says it killed it;
-    4. assert the COMMIT fails with a real connection-loss SQLSTATE, and that
-       the failure propagated to the service (which retried the stage);
+    4. assert a later statement or COMMIT fails with a real connection-loss
+       error that propagates to the service (which retries the stage);
     5. then require quiet recovery against the independent fold.
     """
     seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
     svc = make_service(pg_url, math_env=MATH_ENV, retry_cap=3)
 
     original = svc._pg._write_returning
+    original_transaction = svc._pg.transaction
     state = {"bidtopid_calls": 0, "killed_pid": None, "terminated": None,
-             "error": None, "pgcode": None}
+             "error": None, "pgcode": None, "retry_pid": None}
 
-    def kill_the_active_backend(sql, params=None):
-        if "math_bidtopid" not in sql:
-            return original(sql, params)
-        state["bidtopid_calls"] += 1
-        if state["bidtopid_calls"] > 1:      # the retry: let it through
-            return original(sql, params)
-
-        conn = svc._pg.engine.connect()
+    @contextmanager
+    def observe_transaction():
+        # Observe the real writer's statement/COMMIT failure and re-raise it
+        # unchanged, so the service must handle it through its normal retry.
         try:
-            trans = conn.begin()
-            state["killed_pid"] = conn.execute(
-                sa.text("select pg_backend_pid()")).scalar()
-            # The REAL upsert, in a REAL open transaction on the poller's own
-            # engine — not a raised stand-in.
-            conn.execute(sa.text(sql), params or {})
-            state["terminated"] = terminate_backend_pid(
-                recovery_postgres_url, state["killed_pid"])
-            try:
-                trans.commit()
-            except sa.exc.DBAPIError as exc:
-                state["error"] = exc
-                state["pgcode"] = getattr(exc.orig, "pgcode", None)
-                raise
-            raise AssertionError(
-                "the terminated backend committed anyway; this test would be "
-                "vacuous"
-            )
-        finally:
-            try:
-                conn.close()
-            except Exception:  # pragma: no cover - the backend is gone
-                pass
+            with original_transaction() as connection:
+                yield connection
+        except sa.exc.DBAPIError as exc:
+            state["error"] = exc
+            state["pgcode"] = getattr(exc.orig, "pgcode", None)
+            raise
 
+    def kill_the_active_backend(sql, params=None, *, connection=None):
+        if "math_bidtopid" not in sql:
+            return original(sql, params, connection=connection)
+        state["bidtopid_calls"] += 1
+        assert connection is not None and connection.in_transaction(), (
+            "the kill witness must use the writer's active publication transaction"
+        )
+        pid = connection.execute(sa.text("select pg_backend_pid()")).scalar_one()
+        assert isinstance(pid, int) and pid > 0
+        result = original(sql, params, connection=connection)
+        if state["bidtopid_calls"] == 1:
+            # The real bidtopid upsert has run but is still uncommitted. Kill
+            # this exact transaction; never create/commit a side transaction.
+            state["killed_pid"] = pid
+            state["terminated"] = terminate_backend_pid(recovery_postgres_url, pid)
+        else:
+            state["retry_pid"] = pid
+        return result
+
+    svc._pg.transaction = observe_transaction
     svc._pg._write_returning = kill_the_active_backend
     try:
         svc.poll_once()
     finally:
         svc._pg._write_returning = original
+        svc._pg.transaction = original_transaction
 
+    assert state["bidtopid_calls"] > 0, "the active-write hook was never reached"
     assert state["terminated"] is True, (
         f"pg_terminate_backend({state['killed_pid']}) did not report a kill; "
         "no connection was actually lost"
@@ -272,6 +275,9 @@ def test_real_connection_loss_recovers(engine, pg_url, recovery_postgres_url,
         "the connection failure never reached the service's retry path: the "
         f"bidtopid stage was attempted {state['bidtopid_calls']} time(s)"
     )
+    assert state["retry_pid"] != state["killed_pid"], (
+        "the retry must publish through a new backend after the connection loss"
+    )
 
     _publish_and_check(engine, svc, zid=1)
 
@@ -292,24 +298,26 @@ def test_terminating_an_idle_backend_is_not_evidence_of_a_failed_write(
     seen = {"errors": 0, "attempts": 0}
     original = svc._pg._write_returning
 
-    def counting(sql, params=None):
+    def counting(sql, params=None, *, connection=None):
         seen["attempts"] += 1
         try:
-            return original(sql, params)
+            return original(sql, params, connection=connection)
         except Exception:
             seen["errors"] += 1
             raise
 
     svc._pg._write_returning = counting
-    killed = terminate_backends(recovery_postgres_url, dbname_of(pg_url))
-    assert killed >= 1, "the control needs at least one backend to kill"
+    try:
+        killed = terminate_backends(recovery_postgres_url, dbname_of(pg_url))
+        assert killed >= 1, "the control needs at least one backend to kill"
 
-    from .conftest import commit_vote
-    events = read_vote_events(engine, 1)
-    commit_vote(engine, 1, 0, 0, 1, max(e["created"] for e in events) + 1000)
-    svc._vote_wm = 0
-    svc.poll_once()
-    svc._pg._write_returning = original
+        from .conftest import commit_vote
+        events = read_vote_events(engine, 1)
+        commit_vote(engine, 1, 0, 0, 1, max(e["created"] for e in events) + 1000)
+        svc._vote_wm = 0
+        svc.poll_once()
+    finally:
+        svc._pg._write_returning = original
 
     assert seen["attempts"] > 0
     assert seen["errors"] == 0, (
