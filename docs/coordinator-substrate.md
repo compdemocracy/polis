@@ -32,8 +32,10 @@ lease must not destroy the evidence for an older committed operation. Original
 payloads reference their generation, so they cannot become independent orphan
 receipts. Publishing must atomically insert all three originals plus generation
 metadata and the four existing math rows. A table row by itself is not a complete
-publication certificate. The bridge must verify all companions, original and
-storage hashes, exact operation/checkpoint/owner/epoch, and the final lease check.
+publication certificate. The publication function verifies original JSON identity/timestamps and hashes,
+then writes the four rows and receipts under the final lease check. The bridge
+must also perform its science/output-schema validation and verify all companions
+and exact operation/checkpoint/owner/epoch on readback.
 
 The per-generation identity leaves room for typed job/run/attempt joins and typed
 result-specific child tables when Delphi's queue and results move to Postgres.
@@ -50,18 +52,25 @@ uses the same installer class as the down rehearsal instead of introducing a new
 non-superuser role-administration protocol in this schema item. Neither script
 grants role membership or creates a login/password.
 
-* `polis_coordinator_owner` owns the new objects. Its external privileges are
+* `polis_coordinator_owner` owns the new state objects. Its external privileges are
   public-schema USAGE/CREATE and conversations SELECT/REFERENCES(zid)/UPDATE(topic)
   for the parent lock/FK boundary. It receives no existing math write grant.
 * `polis_coordinator_control` can maintain leases, cursors, failures and
   reconciliation and read receipt tables. It cannot insert receipts or use the
   publication sequence.
-* `polis_coordinator_publisher` can read leases, allocate a sequence value, and
-  read/insert receipts. It cannot acquire/renew leases or update/delete receipts.
+* `polis_coordinator_publication_owner` is the new NOLOGIN owner of the fixed
+  `pc_publish` SECURITY DEFINER function and its private `pc_canonical` helper.
+  It has SELECT/INSERT/UPDATE on only the four existing math tables, public schema
+  USAGE, conversations SELECT/UPDATE(topic), lease SELECT/UPDATE, receipt
+  SELECT/INSERT and sequence USAGE. Its function fixes
+  `search_path=pg_catalog,pg_temp` and fully qualifies application objects.
+* `polis_coordinator_publisher` gets EXECUTE on `pc_publish` and metadata reads.
+  It has no direct math, lease, receipt or sequence write privilege. The control
+  role cannot execute `pc_publish`. Both can read the installation fingerprint.
 
 These are schema capabilities, **not admitted runtime service credentials**.
-The restricted publication API and final in-transaction owner/epoch/DB-time
-margin check are the next bridge handoff. Existing Python and Clojure writers
+The restricted publication API performs the final in-transaction owner/epoch/DB-time
+margin check; integrating its Rust/Python callers is the next bridge handoff. Existing Python and Clojure writers
 remain unfenced by installation alone. Do not grant these roles to a live login
 or enable dispatch as part of this schema installation. Namespace restrictions,
 legacy writer exclusion and the complete D05 transfer rehearsal remain required.
@@ -128,7 +137,29 @@ that it owns it. Reapplication can adopt the role again with fresh provenance.
 ## Bridge integration follows separately
 
 The first schema handoff preserves the prototype and all historical S1/S2
-records. No runtime adapter reads 000021 yet; the prototype still reads its
+records. The dispatcher records a single operation, expected tick, positive commit
+margin and checkpoint SHA256 on the lease, together with the SHA256 of a fresh
+32-byte random capability. Only the child receives the capability itself, through
+its private process input; it must never be logged or passed as an argv value.
+Reading a newer public owner/epoch from the lease does not let a stale child
+forge that dispatch. All request bindings are checked by `pc_publish`. Exact
+capability/owner/epoch/checkpoint/bytes readback is idempotent even after a newer
+publication, because receipts retain the original operation. A mismatched replay
+raises `OPERATION_IDENTITY_CONFLICT`. A fresh expected-tick conflict writes nothing.
+
+`pc_publish` prepares and hashes the three original byte streams before locks,
+then locks parent → lease → ticks and writes bidtopid → ptptstats → main, followed
+by the new receipt rows. It rechecks DB time with the dispatcher's positive
+margin while holding the lease lock. Its returned timestamp is recorded before
+COMMIT, not the physical commit time. The caller must commit immediately and
+reconcile any ambiguous COMMIT; the margin does not promise a bounded COMMIT
+round trip. These are fixed SQL statements, with no caller-supplied identifiers
+or dynamic SQL in the publication function. Its SQLSTATEs distinguish FENCED,
+LEASE-EXPIRED, invalid dispatch, and operation-identity conflict. Numeric storage
+hashes use the prototype's normalized numeric JSON convention through
+`pc_canonical`; original byte hashes remain independently checked.
+
+No runtime adapter reads 000021 yet; the prototype still reads its
 separate prototype SQL. When the bridge's Rust/Python readers are introduced,
 each must validate the exact shared 000021 byte pin before consuming its schema
 contract. The migration test loader validates the up/down pair now. Any future

@@ -19,7 +19,7 @@ if not re.fullmatch(r"[0-9a-f]{64}|p027-m21-[a-z0-9-]+-postgres-1", CONTAINER):
 ROOT = Path(__file__).resolve().parent.parent
 UP = ROOT / "000021_create_polis_coordinator.sql"
 DOWN = ROOT / "down/000021_drop_polis_coordinator.sql"
-ROLES = ("polis_coordinator_control", "polis_coordinator_owner", "polis_coordinator_publisher")
+ROLES = ("polis_coordinator_control", "polis_coordinator_owner", "polis_coordinator_publication_owner", "polis_coordinator_publisher")
 RESULTS = []
 FAILURES = []
 
@@ -114,7 +114,7 @@ def main():
 
     def live(db):
         apply(db)
-        sql(db, "INSERT INTO conversations(zid,topic) VALUES (990001,'synthetic 000021'); INSERT INTO polis_coordinator_leases VALUES ('synthetic',990001,'owner-a',1,clock_timestamp()+interval '1 minute');")
+        sql(db, "INSERT INTO conversations(zid,topic) VALUES (990001,'synthetic 000021'); INSERT INTO polis_coordinator_leases(math_env,zid,owner_id,owner_epoch,expires_at) VALUES ('synthetic',990001,'owner-a',1,clock_timestamp()+interval '1 minute');")
         p = down(db, ok=False)
         assert p.returncode and "contains data" in p.stderr
         assert sql(db, "SELECT count(*) FROM polis_coordinator_leases;").stdout.strip() == "1"
@@ -151,6 +151,7 @@ def main():
         ("ACL", "GRANT UPDATE ON polis_coordinator_generations TO polis_coordinator_control;"),
         ("sequence start", "ALTER SEQUENCE polis_coordinator_caching_tick START WITH 777;"),
         ("sequence definition", "ALTER SEQUENCE polis_coordinator_caching_tick CACHE 5;"),
+        ("function body", "CREATE OR REPLACE FUNCTION pc_canonical(p_value jsonb) RETURNS text LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS 'SELECT ''drift''::text';"),
         ("public function collision", "CREATE FUNCTION pc_collision(integer) RETURNS integer LANGUAGE sql AS 'SELECT $1';"),
     ]:
         case(f"catalog {name} drift: both downs and replay refuse", drift_case(statement))
@@ -201,6 +202,12 @@ def main():
         ("control schema USAGE and unrelated grant", "polis_coordinator_control", "GRANT USAGE ON SCHEMA public TO polis_coordinator_control; GRANT SELECT ON votes TO polis_coordinator_control"),
         ("publisher schema USAGE", "polis_coordinator_publisher", "GRANT USAGE ON SCHEMA public TO polis_coordinator_publisher"),
     ]
+    for table in ("math_ticks", "math_bidtopid", "math_ptptstats", "math_main"):
+        for privilege in ("SELECT", "INSERT", "UPDATE"):
+            witnesses.append((f"publication owner {table} {privilege}", "polis_coordinator_publication_owner",
+                              f"GRANT {privilege} ON {table} TO polis_coordinator_publication_owner"))
+    witnesses.append(("publication owner math grant option", "polis_coordinator_publication_owner",
+                      "GRANT UPDATE ON math_main TO polis_coordinator_publication_owner WITH GRANT OPTION"))
     for name, role, grant in witnesses:
         def witness(db, role=role, grant=grant):
             sql(db, f"CREATE ROLE {role} NOLOGIN; ALTER ROLE {role} SET statement_timeout='3s'; {grant};")
@@ -229,11 +236,11 @@ def main():
 
     def originals(db):
         apply(db)
-        sql(db, "INSERT INTO conversations(zid) VALUES(990001); INSERT INTO polis_coordinator_generations(math_env,zid,math_tick,caching_tick,owner_id,publisher_epoch,operation_id,input_checkpoint) VALUES('synthetic',990001,0,1,'owner-a',1,'op-a','{}');")
+        sql(db, "INSERT INTO conversations(zid) VALUES(990001); INSERT INTO polis_coordinator_generations(math_env,zid,math_tick,caching_tick,owner_id,publisher_epoch,operation_id,capability_sha256,expected_tick,input_checkpoint) VALUES('synthetic',990001,0,1,'owner-a',1,'op-a',repeat('a',64),NULL,'{}');")
         p = sql(db, "INSERT INTO polis_coordinator_payloads VALUES('synthetic',990001,0,'main',convert_to('{}','UTF8'),repeat('0',64),repeat('a',64));", ok=False)
         assert p.returncode and "check constraint" in p.stderr
         sql(db, "INSERT INTO polis_coordinator_payloads VALUES('synthetic',990001,0,'main',convert_to('{}','UTF8'),encode(sha256(convert_to('{}','UTF8')),'hex'),repeat('a',64));")
-        assert sql(db, "INSERT INTO polis_coordinator_generations(math_env,zid,math_tick,caching_tick,owner_id,publisher_epoch,operation_id,input_checkpoint) VALUES('synthetic',990001,1,2,'owner-a',1,'op-a','{}');", ok=False).returncode
+        assert sql(db, "INSERT INTO polis_coordinator_generations(math_env,zid,math_tick,caching_tick,owner_id,publisher_epoch,operation_id,capability_sha256,expected_tick,input_checkpoint) VALUES('synthetic',990001,1,2,'owner-a',1,'op-a',repeat('a',64),0,'{}');", ok=False).returncode
         assert sql(db, "INSERT INTO polis_coordinator_payloads SELECT math_env,zid,9,payload_kind,original_bytes,original_sha256,storage_sha256 FROM polis_coordinator_payloads;", ok=False).returncode
         down(db, True)
     case("original byte integrity, operation uniqueness and generation FK controls", originals)
@@ -242,7 +249,7 @@ def main():
         apply(db)
         sql(db, "INSERT INTO conversations(zid) VALUES(990001);")
         proc = subprocess.Popen(["docker", "exec", "-i", CONTAINER, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", db], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        proc.stdin.write("BEGIN; INSERT INTO polis_coordinator_leases VALUES('synthetic',990001,'owner-a',1,clock_timestamp()+interval '1 minute'); SELECT pg_sleep(2); COMMIT;\n")
+        proc.stdin.write("BEGIN; INSERT INTO polis_coordinator_leases(math_env,zid,owner_id,owner_epoch,expires_at) VALUES('synthetic',990001,'owner-a',1,clock_timestamp()+interval '1 minute'); SELECT pg_sleep(2); COMMIT;\n")
         proc.stdin.close()
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
@@ -260,7 +267,7 @@ def main():
 
     def bypass_live(db):
         apply(db)
-        sql(db, "INSERT INTO conversations(zid) VALUES(990001); INSERT INTO polis_coordinator_leases VALUES('synthetic',990001,'owner-a',1,clock_timestamp()+interval '1 minute');")
+        sql(db, "INSERT INTO conversations(zid) VALUES(990001); INSERT INTO polis_coordinator_leases(math_env,zid,owner_id,owner_epoch,expires_at) VALUES('synthetic',990001,'owner-a',1,clock_timestamp()+interval '1 minute');")
         assert down(db, ok=False).returncode
         mutated = DOWN.read_text().replace("current_setting('polis_coordinator.force') <> '1' AND", "false AND")
         assert mutated != DOWN.read_text()
@@ -279,6 +286,144 @@ def main():
         assert sql(db, mutated).returncode == 0
         # Both-force corruption cases would fail their refusal assertion.
     case("negative control: removing provenance guard permits corrupt down", bypass_provenance)
+
+    def arm(db, operation="op-a", epoch=1, owner="owner-a", expected="NULL", duration="interval '1 minute'", margin=500):
+        sql(db, f"""INSERT INTO conversations(zid) VALUES(990001) ON CONFLICT DO NOTHING;
+        INSERT INTO polis_coordinator_leases(math_env,zid,owner_id,owner_epoch,expires_at,
+         dispatch_operation_id,dispatch_capability_sha256,dispatch_checkpoint_sha256,dispatch_expected_tick,dispatch_margin_ms)
+        VALUES('synthetic',990001,'{owner}',{epoch},clock_timestamp()+{duration},'{operation}',
+         encode(sha256(decode(repeat('ab',32),'hex')),'hex'),encode(sha256(convert_to('{{}}'::jsonb::text,'UTF8')),'hex'),{expected},{margin})
+        ON CONFLICT(math_env,zid) DO UPDATE SET owner_id=excluded.owner_id,owner_epoch=excluded.owner_epoch,
+         expires_at=excluded.expires_at,dispatch_operation_id=excluded.dispatch_operation_id,
+         dispatch_capability_sha256=excluded.dispatch_capability_sha256,dispatch_checkpoint_sha256=excluded.dispatch_checkpoint_sha256,
+         dispatch_expected_tick=excluded.dispatch_expected_tick,dispatch_margin_ms=excluded.dispatch_margin_ms;""")
+
+    def call(db, operation="op-a", epoch=1, owner="owner-a", expected="NULL", capability="ab", checkpoint="{}", ok=True):
+        return sql(db, f"""SELECT * FROM pc_publish('synthetic',990001,'{owner}',{epoch},'{operation}',
+         decode(repeat('{capability}',32),'hex'),{expected},'{checkpoint}',
+         convert_to('{{"zid":990001,"lastVoteTimestamp":0,"value":1.0}}','UTF8'),
+         convert_to('{{"zid":990001,"lastVoteTimestamp":0}}','UTF8'),
+         convert_to('{{"zid":990001,"lastVoteTimestamp":0}}','UTF8'));""",ok=ok,user="p027_m21_publisher")
+
+    def publication_case(name, body):
+        def wrapped(db):
+            apply(db)
+            sql(db, "CREATE ROLE p027_m21_publisher LOGIN IN ROLE polis_coordinator_publisher;")
+            try:
+                body(db)
+            finally:
+                sql(db, "DROP ROLE p027_m21_publisher;")
+            down(db, True)
+        case(name, wrapped)
+
+    def published(db):
+        arm(db)
+        assert call(db).stdout.strip().startswith("committed|0|")
+        assert sql(db, "SELECT count(*) FROM polis_coordinator_payloads;").stdout.strip() == "3"
+        assert sql(db, "SELECT count(DISTINCT math_tick) FROM (SELECT math_tick FROM math_ticks UNION ALL SELECT math_tick FROM math_main UNION ALL SELECT math_tick FROM math_bidtopid UNION ALL SELECT math_tick FROM math_ptptstats) r;").stdout.strip() == "1"
+        assert call(db).stdout.strip().startswith("already_committed|0|")
+        assert sql(db, "SELECT last_value FROM polis_coordinator_caching_tick;").stdout.strip() == "1"
+        for table in ("math_ticks", "math_main", "math_bidtopid", "math_ptptstats", "polis_coordinator_leases", "polis_coordinator_generations", "polis_coordinator_payloads"):
+            assert sql(db, f"DELETE FROM {table};", ok=False, user="p027_m21_publisher").returncode
+        assert sql(db, "SELECT nextval('polis_coordinator_caching_tick');",ok=False,user="p027_m21_publisher").returncode
+        assert sql(db, "SET ROLE polis_coordinator_control; SELECT * FROM pc_publish('synthetic',990001,'owner-a',1,'op-a',decode(repeat('ab',32),'hex'),NULL,'{}','{}','{}','{}');",ok=False).returncode
+    publication_case("real restricted publisher commits coherent rows/receipts and retries idempotently; direct writes denied", published)
+
+    def refused(db, changes, code):
+        arm(db)
+        p = call(db,ok=False,**changes)
+        assert p.returncode and code in p.stderr,p.stderr
+        assert sql(db,"SELECT count(*) FROM math_main;").stdout.strip()=="0"
+        assert sql(db,"SELECT count(*) FROM polis_coordinator_generations;").stdout.strip()=="0"
+    for label,changes,code in [
+        ("stale owner", {"owner":"owner-b"}, "FENCED"),
+        ("stale epoch", {"epoch":2}, "FENCED"),
+        ("wrong capability", {"capability":"cd"}, "DISPATCH_IDENTITY_CONFLICT"),
+        ("changed operation", {"operation":"op-b"}, "DISPATCH_IDENTITY_CONFLICT"),
+        ("changed checkpoint", {"checkpoint":'{"source":"wrong"}'}, "DISPATCH_IDENTITY_CONFLICT"),
+        ("changed expected tick", {"expected":"0"}, "DISPATCH_IDENTITY_CONFLICT"),
+    ]:
+        publication_case(f"publication refuses {label} without writes",lambda db, changes=changes,code=code: refused(db,changes,code))
+
+    def expired(db):
+        arm(db,duration="interval '-1 second'")
+        p=call(db,ok=False)
+        assert p.returncode and 'LEASE-EXPIRED' in p.stderr
+        assert sql(db,"SELECT count(*) FROM math_main;").stdout.strip()=="0"
+    publication_case("expired lease refuses publication",expired)
+
+    def final_margin(db):
+        arm(db,duration="interval '30 seconds'",margin=60000)
+        p=call(db,ok=False)
+        assert p.returncode and 'LEASE-EXPIRED' in p.stderr
+        assert sql(db,"SELECT count(*) FROM math_main;").stdout.strip()=="0"
+        assert sql(db,"SELECT count(*) FROM polis_coordinator_generations;").stdout.strip()=="0"
+        # nextval is nontransactional: this proves the write sequence reached the
+        # final check and rolled back, rather than refusing at admission.
+        assert sql(db,"SELECT is_called FROM polis_coordinator_caching_tick;").stdout.strip()=="t"
+    publication_case("positive but insufficient final lease margin rolls back all writes",final_margin)
+
+    def overwritten(db):
+        arm(db); assert call(db).stdout.startswith('committed|0|')
+        arm(db,operation='op-b',epoch=2,expected='0')
+        assert call(db,operation='op-b',epoch=2,expected='0').stdout.startswith('committed|1|')
+        assert call(db).stdout.startswith('already_committed|0|')
+        p=call(db,capability='cd',ok=False)
+        assert p.returncode and 'OPERATION_IDENTITY_CONFLICT' in p.stderr
+        assert sql(db,"SELECT math_tick FROM math_main;").stdout.strip()=="1"
+        assert sql(db,"SELECT count(*) FROM polis_coordinator_generations;").stdout.strip()=="2"
+    publication_case("exact lost-ack proof survives newer publication/takeover; forged retry refused",overwritten)
+
+    def actual_conflict(db):
+        arm(db)
+        sql(db,"INSERT INTO math_ticks(zid,math_env,math_tick) VALUES(990001,'synthetic',7);")
+        assert call(db).stdout.strip()=='conflict|7|'
+        assert sql(db,"SELECT count(*) FROM math_main;").stdout.strip()=="0"
+    publication_case("expected-tick conflict performs no writes",actual_conflict)
+
+    def canonical(db):
+        value='{"z":-0.0,"nested":[1.000,1e3,1e-3],"a":"é"}'
+        result=sql(db,f"SELECT pc_canonical('{value}');").stdout.strip()
+        assert result=='{"a":"é","nested":[1,1000,0.001],"z":0}',result
+    publication_case("storage canonicalization keeps numeric equality distinct from original bytes",canonical)
+
+    def expires_inside(db):
+        sql(db,"CREATE FUNCTION p027_m21_delay() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN PERFORM pg_sleep(2); RETURN NULL; END$$; CREATE TRIGGER p027_m21_delay AFTER INSERT ON polis_coordinator_payloads FOR EACH STATEMENT EXECUTE FUNCTION p027_m21_delay();")
+        try:
+            arm(db,duration="interval '1 second'",margin=50)
+            p=call(db,ok=False)
+            assert p.returncode and 'LEASE-EXPIRED' in p.stderr,p.stderr
+            assert sql(db,"SELECT count(*) FROM math_main;").stdout.strip()=="0"
+            assert sql(db,"SELECT count(*) FROM polis_coordinator_generations;").stdout.strip()=="0"
+        finally:
+            sql(db,"DROP TRIGGER p027_m21_delay ON polis_coordinator_payloads; DROP FUNCTION p027_m21_delay();")
+    publication_case("real DB-time expiry during write rolls back payloads and receipts",expires_inside)
+
+    def missing_final_check(db):
+        original=sql(db,"SELECT pg_get_functiondef('pc_publish(text,integer,text,bigint,text,bytea,bigint,jsonb,bytea,bytea,bytea)'::regprocedure);").stdout
+        mutant=original.replace('IF lease.expires_at<=clock_timestamp()+make_interval','IF false AND lease.expires_at<=clock_timestamp()+make_interval')
+        assert mutant!=original
+        sql(db,mutant)
+        try:
+            arm(db,duration="interval '30 seconds'",margin=60000)
+            # The same positive-but-insufficient-margin case above now violates
+            # the policy and commits. Its rollback assertion rejects this mutant.
+            assert call(db).stdout.startswith('committed|0|')
+            assert sql(db,"SELECT count(*) FROM math_main;").stdout.strip()=="1"
+        finally:
+            sql(db,original)
+    publication_case("negative control: removing final margin check commits forbidden publication",missing_final_check)
+
+    def malformed_json(db):
+        arm(db)
+        for raw in ['{"zid":990001,"zid":990001,"lastVoteTimestamp":0}',
+                    '{"zid":990001,"lastVoteTimestamp":NaN}',
+                    '{"zid":990002,"lastVoteTimestamp":0}']:
+            p=sql(db,f"""SELECT * FROM pc_publish('synthetic',990001,'owner-a',1,'op-a',decode(repeat('ab',32),'hex'),NULL,'{{}}',
+              convert_to('{raw}','UTF8'),convert_to('{{"zid":990001,"lastVoteTimestamp":0}}','UTF8'),convert_to('{{"zid":990001,"lastVoteTimestamp":0}}','UTF8'));""",ok=False,user='p027_m21_publisher')
+            assert p.returncode and ('INVALID_ORIGINAL_JSON' in p.stderr or 'FOREIGN_OR_INCONSISTENT_PAYLOAD' in p.stderr),p.stderr
+        assert sql(db,"SELECT count(*) FROM math_main;").stdout.strip()=="0"
+    publication_case("duplicate/nonfinite/foreign original payloads refused before writes",malformed_json)
 
     def prototype(db):
         sql(db, "ALTER TABLE math_ticks ADD COLUMN publisher_epoch bigint;")
