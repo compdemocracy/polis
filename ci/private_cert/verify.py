@@ -63,6 +63,9 @@ def verify(s3, admission, manifest_key, manifest_version, workspace):
     if receipt_path.is_symlink() or receipt_path.stat().st_size > 8192:
         raise ValueError('RECEIPT_SIZE')
     receipt = validate_receipt(json.loads(receipt_path.read_bytes()), a, m['archiveSha256'])
+    controls_path = output / 'negative-controls.json'
+    if controls_path.is_symlink() or controls_path.stat().st_size > 8192 or file_sha(controls_path) != receipt['negativeControlsSha256']:
+        raise ValueError('NEGATIVE_CONTROLS_BINDING')
     if receipt != m['gateReceipt']:
         raise ValueError('INDEPENDENT_GATE_DISAGREEMENT')
     control = f'ppc-{a["account"]}-{a["id"]}-control'
@@ -82,6 +85,8 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('--admission', type=Path, required=True)
     p.add_argument('--trusted-public-key', type=Path, required=True)
+    p.add_argument('--image-lock', type=Path, required=True)
+    p.add_argument('--runtime-lock', type=Path, required=True)
     p.add_argument('--manifest-key', required=True)
     p.add_argument('--manifest-version', required=True)
     p.add_argument('--private-workspace', type=Path, required=True)
@@ -95,6 +100,11 @@ def main():
         raise ValueError('UNTRUSTED_ADMISSION_KEY')
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
     Ed25519PublicKey.from_public_bytes(bytes.fromhex(a['signerPublicKey'])).verify(bytes.fromhex(p2), encoded({k: v for k, v in a.items() if k != 'signature'}))
+    # Independent reviewer checks the admitted verifier BEFORE evidence downloads.
+    from image_admission import bind_runtime_lock, check_preloaded, json_bytes
+    image_lock = json_bytes(args.image_lock.read_bytes())
+    bind_runtime_lock(image_lock, json_bytes(args.runtime_lock.read_bytes()), a)
+    check_preloaded(image_lock, a, verifier_only=True)
     args.private_workspace.mkdir(mode=0o700, parents=True, exist_ok=False)
     result = verify(boto3.client('s3', region_name=a['region']), a, args.manifest_key, args.manifest_version, args.private_workspace)
     with args.summary.open('xb') as f:

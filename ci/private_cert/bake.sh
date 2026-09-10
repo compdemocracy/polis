@@ -5,11 +5,13 @@ set -euo pipefail
 [ "$(id -u)" = 0 ]
 [ "$(uname -m)" = aarch64 ]
 : "${PRIVATE_CERT_BOOTSTRAP:?path to public bootstrap JSON required}"
+: "${PRIVATE_CERT_IMAGE_LOCK:?reviewed canonical image-lock.json required}"
 for tool in podman nft python3 mkfs.ext4 mount systemctl; do command -v "$tool" >/dev/null; done
 python3 -c 'import boto3, cryptography'
 install -d -m 0755 /opt/polis-private
 install -m 0444 "$PRIVATE_CERT_BOOTSTRAP" /opt/polis-private/bootstrap.json
-for file in worker.py control.py dns.py; do install -m 0444 "$(dirname "$0")/$file" "/opt/polis-private/$file"; done
+install -m 0444 "$PRIVATE_CERT_IMAGE_LOCK" /opt/polis-private/image-lock.json
+for file in worker.py control.py dns.py image_admission.py; do install -m 0444 "$(dirname "$0")/$file" "/opt/polis-private/$file"; done
 # No remote commands, cloud-init, SSM, SSH or serial interactive console.
 for unit in cloud-init-local cloud-init cloud-config cloud-final sshd amazon-ssm-agent serial-getty@ttyS0; do systemctl mask "$unit.service"; done
 systemctl mask swap.target
@@ -102,7 +104,11 @@ python3 - <<'PYLOCK'
 import hashlib, json
 from pathlib import Path
 root = Path('/opt/polis-private')
-names = ['bootstrap.json', 'control.py', 'dns.py', 'start.sh', 'firewall.nft']
+names = ['bootstrap.json', 'control.py', 'dns.py', 'start.sh', 'firewall.nft',
+         'image_admission.py', 'image-lock.json']
+# Require canonical bytes so the runtime lock and reviewer use the same digest.
+image_bytes = (root/'image-lock.json').read_bytes()
+assert image_bytes == json.dumps(json.loads(image_bytes), sort_keys=True, separators=(',', ':')).encode()
 lock = {n: hashlib.sha256((root/n).read_bytes()).hexdigest() for n in names}
 raw = json.dumps(lock, sort_keys=True, separators=(',', ':')).encode()
 (root/'runtime-lock.json').write_bytes(raw)
