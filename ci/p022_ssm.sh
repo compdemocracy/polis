@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# P-022 §E — send one command to the disposable synthetic CI worker over SSM and
+# P-022 §E — send one command to the disposable public battery CI worker over SSM and
 # block until it finishes. There is no SSH path to that box: the security group
 # has no inbound rules, the instance has no public IP and the launch template
 # carries no key pair.

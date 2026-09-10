@@ -79,7 +79,7 @@ class RoleUnsatisfied(RuntimeError):
             msg += (
                 f"; the config offers deterministic synthetic case "
                 f"{synthetic_replacement!r} as a replacement, which requires an "
-                "explicit recorded approval (--accept-synthetic)"
+                "explicit recorded approval (--accept-public-fixture)"
             )
         super().__init__(msg)
 
@@ -310,7 +310,7 @@ def rank_candidates(
 
 def resolve_roles(
     config: dict[str, Any], rows: Sequence[dict[str, Any]],
-    accept_synthetic: Iterable[str] = (),
+    accept_public_fixture: Iterable[str] = (),
 ) -> list[Selection]:
     """Resolve every role in ``config`` against the survey ``rows``.
 
@@ -322,14 +322,14 @@ def resolve_roles(
     Raises :class:`RoleUnsatisfied` for the FIRST role with no candidate at its
     rank. There is no fallback, no downgrade and no skip.
 
-    ``accept_synthetic`` names role slugs whose synthetic replacement an
+    ``accept_public_fixture`` names role slugs whose synthetic replacement an
     operator has EXPLICITLY approved. It applies only to roles whose
     ``on_missing`` is ``fail_with_synthetic_replacement_offer``; approving a
     slug that production DID satisfy has no effect, and approving a slug whose
     rule offers no replacement is still a hard failure.
     """
     rows = list(rows)
-    accepted = set(accept_synthetic)
+    accepted = set(accept_public_fixture)
     selections: list[Selection] = []
     taken: dict[int, list[str]] = {}
     reserved: set[int] = set()

@@ -3,7 +3,7 @@
 #
 # ## What this is
 #
-# A SYNTHETIC job: the recovery matrix plus the replay battery restricted to the
+# A Public battery job: the recovery matrix plus the replay battery restricted to the
 # repository's PUBLIC fixtures. It is not private certification. There is no
 # fixture bucket, the instance role cannot read one, and nothing prod-derived is
 # ever present on this box.
@@ -295,7 +295,7 @@ battery = json.loads((scripts / "certify_battery.json").read_text())
 def resolves(slug):
     # Public fixtures only: real_data/*-<slug>. The .local private tree is
     # deliberately NOT consulted; a stray private directory must not silently
-    # enlarge a synthetic run.
+    # enlarge a public battery run.
     return bool(list(root.glob(f"*-{slug}")))
 
 
@@ -541,7 +541,7 @@ battery_ok = battery_rc == 0
 
 summary = {
     "schema": SCHEMA,
-    "kind": "synthetic-recovery-and-public-fixture-battery",
+    "kind": "public-recovery-and-public-fixture-battery",
     "is_certification": False,
     "trust": "reviewed-recipe-self-reported",
     "ref_sha": sha,
@@ -571,8 +571,8 @@ summary = {
         "skip_reason": "" if battery_rc is not None else "not-run-in-this-job",
         "status": "pass" if battery_ok else ("skipped" if battery_rc is None else "fail"),
     },
-    "verdict": "SYNTHETIC-PASS" if (recovery_ok and battery_rc in (0, None))
-               else "SYNTHETIC-FAIL",
+    "verdict": "PUBLIC-BATTERY-PASS" if (recovery_ok and battery_rc in (0, None))
+               else "PUBLIC-BATTERY-FAIL",
 }
 json.dump(summary, sys.stdout, indent=1, sort_keys=True)
 PY

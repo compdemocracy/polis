@@ -916,7 +916,7 @@ def extract_from_config(
     conn: PgConnection, *, config: dict[str, Any], payload_root: Path, guard_root: Path,
     snapshot_id: str | None = None, writers_disabled: bool = False,
     dir_names: dict[str, str] | None = None,
-    accept_synthetic: Sequence[str] = (),
+    accept_public_fixture: Sequence[str] = (),
     include_generated: bool = True, include_heavy: bool = False,
 ) -> dict[str, Any]:
     """Survey, select and extract every configured role in ONE read-only
@@ -951,7 +951,7 @@ def extract_from_config(
     survey = fs.build_survey(rows, guarantee, snapshot_id=snapshot_id,
                              schema_version_marker=migration_marker)
     coverage = fs.coverage_report(config, rows)
-    selections = fs.resolve_roles(config, rows, accept_synthetic=accept_synthetic)
+    selections = fs.resolve_roles(config, rows, accept_public_fixture=accept_public_fixture)
     tie_key = detect_tie_key(conn)
 
     # A synthetic substitute is not a substitute until it EXISTS. Materialise

@@ -37,7 +37,7 @@ The plan test pins the governing notes plan and also compares its current file w
 available; set P027_NOTES_ROOT to require that external-checkout comparison explicitly.
 
 The 336 PCA2 requests cover 112 cells with three independent fixtures each,
-using 60 conversations and 4,450 synthetic votes. They add no DB, filesystem,
+using 60 conversations and 4,450 public fixture votes. They add no DB, filesystem,
 JWT-issuance or provider effects. Populated data comes from 36 real Python-engine
 conversations (72 writer publications); 12 are scoped only to a different math_env.
 The original three temporary generator workarounds remain: P-029/r11 invalid UUID,
@@ -111,8 +111,8 @@ held-out fixture. The `pca2` profile generates exactly this slice, so it can be
 recorded and replayed independently while retaining strict required-inventory
 admission. Global coverage gaps remain visible for that scoped profile.
 
-`pca2-fixtures.json` declares 60 independent synthetic conversations. Each has
-its own seeded votes and distinct input hash. Synthetic user site IDs are explicit;
+`pca2-fixtures.json` declares 60 independent public fixture conversations. Each has
+its own seeded votes and distinct input hash. Public fixture user site IDs are explicit;
 the random database default is never used by this seed. `seed-pca2.py` reads the SQL votes
 and moderation, runs the actual Python Conversation engine, and uses MathWriter
 for two publications (ticks 0 then 1). There are 36 populated conversations,
@@ -245,7 +245,7 @@ precondition, explicitly repins test-only semantic mutants, and requires a named
 case/field difference. Integrity mutations separately delete or alter each required
 artifact. `corrections.test.cjs` covers JWT corruption/wrong binding/extra issuance,
 delayed work, blocked attempts and the actual PCA serializer's C7 failure class.
-The original small synthetic differ examples are labelled unit examples, not
+The original small public fixture differ examples are labelled unit examples, not
 recorded migration gates. The historical eight live controls comprise six failure
 detectors and two successful egress-block assertions.
 
@@ -287,7 +287,7 @@ and appends them, for 1,265 requests. Both profiles use checked inventory admiss
 actors, but each cell uses three different conversations, owners and input digests
 (two derivation, one held out). Empty conversations intentionally have no votes.
 Three owner credentials are distinct; the separate site-sharing moderator is uid
-200004, foreign owner uid 4, and global admin uid 2. They are synthetic SQL
+200004, foreign owner uid 4, and global admin uid 2. They are public fixture SQL
 identities mapped to real local OIDC simulator tokens. Bound participant JWTs
 exercise pid zero and nonzero in separate cells. An expired token is locally
 signed, signature/binding-verified at its historical clock, and then sent expired;

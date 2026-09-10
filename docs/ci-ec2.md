@@ -1,8 +1,8 @@
-# Synthetic recovery CI on a disposable EC2 worker
+# Public battery recovery CI on a disposable EC2 worker
 
 > **This is not private certification.** It runs the P-022 §C recovery matrix
 > and the replay battery restricted to the repository's **public** fixtures
-> (`vw`, `biodiversity`), and its verdict is `SYNTHETIC-PASS` precisely so it
+> (`vw`, `biodiversity`), and its verdict is `PUBLIC-BATTERY-PASS` precisely so it
 > cannot be mistaken for a release certificate. Private certification — the
 > prod-derived fixture bundle, a baked trusted AMI, an isolated account and VPC,
 > and a signed summary GitHub reads but cannot influence — is specified in
@@ -62,7 +62,7 @@ npx cdk synth -c enableCiEc2=true
 | `ciEc2VolumeGiB` | `200` | Encrypted gp3 root volume. |
 | `ciEc2ShutdownMinutes` | `480` | Hard-deadline self-termination (see "Cost backstops"). |
 | `ciEc2GithubRepo` | `compdemocracy/polis` | Repository allowed to assume the OIDC role. |
-| `ciEc2GithubEnvironment` | `certification-synthetic` | Must equal the workflow job's `environment:`. The trust policy admits this subject and no other. |
+| `ciEc2GithubEnvironment` | `certification-public` | Must equal the workflow job's `environment:`. The trust policy admits this subject and no other. |
 | `ciEc2Refs` | `refs/heads/edge,refs/heads/stable` | Exact `ref` claim values. This is what excludes pull-request jobs at the token. Empty or non-branch entries are refused at synth. |
 | `ciEc2AllowedInstanceTypes` | `r8g.4xlarge,r8g.2xlarge` | Enforced in IAM via `ec2:InstanceType`, so a dispatch input cannot select arbitrary spend. |
 | `ciEc2SweeperMaxAgeMinutes` | `ciEc2ShutdownMinutes + 60` | Age past which the independent sweeper kills a CI instance. Must exceed the OS deadline. |
@@ -91,7 +91,7 @@ path at all.
 
 ### The environment is a control you must configure, not a name
 
-Create the `certification-synthetic` environment **before** the first run, with:
+Create the `certification-public` environment **before** the first run, with:
 
 - **Deployment branches and tags** limited to `edge` and `stable` (the trust
   policy's `ref` allowlist admits both; keep the two in step),
@@ -118,7 +118,7 @@ Be precise about what excludes them, because the trust policy alone does not:
 trusted default-branch code and can carry an allowed base-branch ref, and
 neither the repository claim nor the environment-form subject distinguishes it —
 so any *other* trusted workflow in this repository that references
-`certification-synthetic` could match this trust policy. Nothing in the role
+`certification-public` could match this trust policy. Nothing in the role
 prevents that; reviewing what may use the environment does. If strict
 per-workflow isolation is ever required, the answer is a dedicated reviewed
 reusable-workflow boundary (whose token then really does carry
@@ -225,7 +225,7 @@ Three, layered, because each covers a failure the others do not:
 
 ## Running it manually
 
-Actions → **Synthetic recovery and public-fixture battery (EC2)** → Run
+Actions → **Public battery certification (EC2)** → Run
 workflow. Inputs:
 
 | Input | Default | Notes |
@@ -245,14 +245,14 @@ The summary is produced by the same recipe that ran the tests, so it is
 coherent, complete and matches the run's declared scope — it does not and cannot
 establish that the tests really ran. The artifact says so itself:
 `trust: reviewed-recipe-self-reported`. That is the trust appropriate to a
-synthetic smoke over public fixtures; an adversarial certificate needs the
+public battery smoke over public fixtures; an adversarial certificate needs the
 independent control boundary in `P-022-E-ci-spec.md`, which is not built.
 
 ### What comes back, and what does not
 
 A run with the battery enabled uploads **two** artifacts.
 
-`synthetic-ec2-<run>-<attempt>` (7 days) is the evidence bundle: a fixed-schema
+`public-battery-ec2-<run>-<attempt>` (7 days) is the evidence bundle: a fixed-schema
 `summary.json`, pytest's JUnit XML and the battery's dataset selection. It does
 **not** contain any log. The worker prints only lines matching
 

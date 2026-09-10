@@ -362,13 +362,13 @@ def test_missing_role_fails_loudly_and_names_the_role():
         fs.resolve_roles(_MINI_CONFIG, rows)
     assert exc.value.role == "impossible"
     assert exc.value.synthetic_replacement == "gen-v1-dense-stress"
-    assert "--accept-synthetic" in str(exc.value)
+    assert "--accept-public-fixture" in str(exc.value)
 
 
 def test_synthetic_replacement_requires_explicit_acceptance():
     rows = [_row(11, V=500), _row(12, V=400)]
     sels = fs.resolve_roles(_MINI_CONFIG, rows,
-                            accept_synthetic=["pc-v1-impossible"])
+                            accept_public_fixture=["pc-v1-impossible"])
     sub = next(s for s in sels if s.slug == "pc-v1-impossible")
     assert sub.zid is None
     assert sub.synthetic_replacement == "gen-v1-dense-stress"

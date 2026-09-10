@@ -927,7 +927,7 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
                    help="same-cluster read pool profile (still requires an equal system identifier)")
     p.add_argument("--expected-system-identifier", default=None,
                    help="bound profile: both primary and replica must report this pg_control_system() id")
-    p.add_argument("--zid", type=int, required=True, help="conversation id to project (synthetic in tests)")
+    p.add_argument("--zid", type=int, required=True, help="conversation id to project (public fixture in tests)")
     p.add_argument("--pid", type=int, default=None)
     p.add_argument("--tid", type=int, default=None)
     p.add_argument("--site", choices=list(SITES) + ["all"], default="all")
