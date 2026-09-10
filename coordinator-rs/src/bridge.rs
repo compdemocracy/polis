@@ -15,7 +15,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub const SQL_SHA256: &str = "df4b0a1a2df69a666ffd4894b4e231f121ac7d67da7c533738f5dd4a8ddef695";
+pub const SQL_SHA256: &str = "a3a85e24e69e281adbe04831b9e02525c292a1960461cae12d048f7c2d9e89a8";
 pub const ENGINE_SHA256: &str = "b295c3e7c649b38768c4eeb69c7cb3bf59d33c0077c22c84853a44d216aa0028";
 const ENGINE_MANIFEST: &str = include_str!("../schemas/poller-engine-v1.json");
 pub const PROTOCOL: &str = "polis-poller-bridge/1";
@@ -24,7 +24,7 @@ const SQL: &str =
 const RPC: &str =
     "public.pc_publish(text,integer,text,bigint,text,bytea,bigint,jsonb,bytea,bytea,bytea)";
 
-pub fn admit_control(client: &mut Client) -> Result<()> {
+pub fn admit_control(client: &mut Client, math_env: &str) -> Result<()> {
     ensure!(
         digest(SQL.as_bytes()) == SQL_SHA256,
         "COORDINATOR_SCHEMA_BYTE_PIN"
@@ -83,6 +83,9 @@ pub fn admit_control(client: &mut Client) -> Result<()> {
             "polis_coordinator_budgets",
             "polis_coordinator_references",
             "polis_coordinator_floors",
+            "polis_coordinator_namespaces",
+            "polis_coordinator_principals",
+            "polis_coordinator_transitions",
         ] {
             ensure!(!client.query_one("SELECT has_table_privilege($1,$2,'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER') OR has_any_column_privilege($1,$2,'INSERT,UPDATE')", &[&name,&format!("public.{table}")])?.get::<_,bool>(0), "DIRECT_CONTROL_DML_REFUSED");
         }
@@ -90,8 +93,14 @@ pub fn admit_control(client: &mut Client) -> Result<()> {
     let row=client.query_one("SELECT migration_id,catalog_fingerprint FROM public.polis_coordinator_install WHERE singleton", &[])?;
     ensure!(
         row.get::<_, String>(0) == "000021"
-            && row.get::<_, String>(1) == "8fcc7f6605f428177843f2593b876c62",
+            && row.get::<_, String>(1) == "f73a5d5136d1e0e4ed371f0b05329d6c",
         "COORDINATOR_SCHEMA_MISMATCH"
+    );
+    ensure!(
+        client
+            .query_one("SELECT public.pc_namespace_allowed($1)", &[&math_env])?
+            .get::<_, bool>(0),
+        "NAMESPACE_AUTHORITY_REQUIRED"
     );
     Ok(())
 }
@@ -172,7 +181,7 @@ fn dispatch(
     renewal: Option<&Renewal>,
 ) -> Result<Publication> {
     store.poller_timings = None;
-    admit_control(&mut store.client)?;
+    admit_control(&mut store.client, &store.config.math_env)?;
     ensure!(
         store.config.reservation_bytes > 0,
         "RECEIPT_RESERVATION_REQUIRED"

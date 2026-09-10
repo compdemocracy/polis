@@ -20,15 +20,16 @@ import psycopg2
 from psycopg2.extras import Json
 
 # Repository-byte pin, not an attestation of an arbitrary live database.
-COORDINATOR_SQL_SHA256 = "df4b0a1a2df69a666ffd4894b4e231f121ac7d67da7c533738f5dd4a8ddef695"
+COORDINATOR_SQL_SHA256 = "a3a85e24e69e281adbe04831b9e02525c292a1960461cae12d048f7c2d9e89a8"
 COORDINATOR_ENGINE_SHA256 = "b295c3e7c649b38768c4eeb69c7cb3bf59d33c0077c22c84853a44d216aa0028"
-CATALOG_FINGERPRINT = "8fcc7f6605f428177843f2593b876c62"
+CATALOG_FINGERPRINT = "f73a5d5136d1e0e4ed371f0b05329d6c"
 PROTOCOL = "polis-poller-bridge/1"
 MAX_INPUT_BYTES = 256 * 1024 * 1024
 RPC = "public.pc_publish(text,integer,text,bigint,text,bytea,bigint,jsonb,bytea,bytea,bytea)"
 CONTROL_RPCS = ("public.pc_admit(text,integer,text,bigint,text,text,bigint)",
                 "public.pc_reconcile(text,integer,text)", "public.pc_protect(text,integer,text,boolean)",
-                "public.pc_reference(text,integer,text,text,boolean)", "public.pc_cleanup(text,integer,text)")
+                "public.pc_reference(text,integer,text,text,boolean)", "public.pc_cleanup(text,integer,text)",
+                "public.pc_transition(text,text,integer,text,bigint,text)")
 MATH_TABLES = ("math_ticks", "math_bidtopid", "math_ptptstats", "math_main")
 OWNERS = ("polis_coordinator_owner", "polis_coordinator_publication_owner")
 
@@ -64,7 +65,7 @@ def admit_engine(manifest_text, root=None):
             raise BridgeError("ENGINE_SOURCE_MISMATCH")
 
 
-def admit_connection(connection):
+def admit_connection(connection, namespace):
     """Check effective table AND column privileges, including inherited grants."""
     with connection.cursor() as cur:
         cur.execute("SELECT rolsuper,rolcreaterole,rolcreatedb,rolreplication,rolbypassrls FROM pg_roles WHERE rolname=current_user")
@@ -88,7 +89,9 @@ def admit_connection(connection):
                     raise BridgeError("PUBLISHER_CONTROL_AUTHORITY_REFUSED")
             for table in MATH_TABLES + ("polis_coordinator_leases", "polis_coordinator_generations", "polis_coordinator_payloads",
                                        "polis_coordinator_operations", "polis_coordinator_budgets",
-                                       "polis_coordinator_references", "polis_coordinator_floors"):
+                                       "polis_coordinator_references", "polis_coordinator_floors",
+                                       "polis_coordinator_namespaces", "polis_coordinator_principals",
+                                       "polis_coordinator_transitions"):
                 cur.execute("""SELECT has_table_privilege(%s,%s,'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')
                   OR has_any_column_privilege(%s,%s,'INSERT,UPDATE')""", (role,"public." + table,role,"public." + table))
                 if cur.fetchone()[0]:
@@ -96,6 +99,9 @@ def admit_connection(connection):
         cur.execute("SELECT migration_id,catalog_fingerprint FROM public.polis_coordinator_install WHERE singleton")
         if cur.fetchone() != ("000021", CATALOG_FINGERPRINT):
             raise BridgeError("COORDINATOR_SCHEMA_MISMATCH")
+        cur.execute("SELECT public.pc_namespace_allowed(%s)", (namespace,))
+        if not cur.fetchone()[0]:
+            raise BridgeError("NAMESPACE_AUTHORITY_REQUIRED")
 
 
 @dataclass(frozen=True)
@@ -157,7 +163,7 @@ class Publisher:
         d = self.dispatch
         with contextlib.closing(psycopg2.connect(self.url, connect_timeout=5)) as connection:
             with connection:
-                admit_connection(connection)
+                admit_connection(connection, d.namespace)
                 if self.fault:
                     self.admit_test(connection)
                 with connection.cursor() as cur:
@@ -244,7 +250,7 @@ class Publisher:
             raise BridgeError("FOREIGN_PUBLICATION")
         with contextlib.closing(psycopg2.connect(self.url, connect_timeout=5)) as connection:
             with connection:
-                admit_connection(connection)
+                admit_connection(connection, d.namespace)
                 if self.fault:
                     self.admit_test(connection)
                 with connection.cursor() as cur:
