@@ -62,6 +62,7 @@
             [clojure.string :as str]
             [clojure.tools.cli :as cli]
             [cheshire.core :as json]
+            [cheshire.factory :as json-factory]
             [com.stuartsierra.component :as component]
             [clojure.core.matrix :as matrix]
             [polismath.math.conversation :as conv]
@@ -95,6 +96,66 @@
                :tid  (Long/parseLong (str/trim (nth r ci)))
                :sign (Long/parseLong (str/trim (nth r si)))})
             (rest rows)))))
+
+(declare sha256-hex)
+
+(defn parse-event-json [text]
+  (binding [json-factory/*json-factory*
+            (json-factory/make-json-factory {:strict-duplicate-detection true
+                                            :allow-unquoted-control-chars false})]
+    (json/parse-string text)))
+
+(defn read-event-stream
+  "Read extraction order and nullable raw storage fields without CSV conversion."
+  [path]
+  (let [meta (parse-event-json (slurp (io/file (.getParentFile (io/file path)) "events.meta.json")))
+        s (get-in meta ["polarity" "storage_agree_value"])
+        events (with-open [r (io/reader path)] (mapv parse-event-json (line-seq r)))
+        votes (filterv #(= "vote" (get % "kind")) events)
+        comments (filterv #(= "comment" (get % "kind")) events)
+        int64? #(and (integer? %) (<= Long/MIN_VALUE % Long/MAX_VALUE))
+        nullable? #(or (nil? %) (int64? %))]
+    (when-not (and (= "certify-events/2" (get meta "schema_version"))
+                   (integer? s) (#{-1 1} s))
+      (throw (ex-info "invalid event schema/convention" {})))
+    (doseq [[i e] (map-indexed vector events)]
+      (let [kind (get e "kind")
+            fields (into #{"ord" "kind" "created" "pid" "tid" "src"}
+                         (if (= kind "vote") ["vote" "weight_x_32767"] ["modified" "mod" "is_meta"]))]
+        (when-not (and (= fields (set (keys e))) (= i (get e "ord"))
+                       (integer? (get e "ord")) (#{"vote" "comment"} kind)
+                       (every? #(int64? (get e %)) ["created" "pid" "tid"])
+                       (if (= kind "vote")
+                         (and (nullable? (get e "vote"))
+                              (contains? #{nil -1 0 1} (get e "vote"))
+                              (nullable? (get e "weight_x_32767")))
+                         (and (nullable? (get e "modified"))
+                              (integer? (get e "mod")) (#{-1 0 1} (get e "mod"))
+                              (instance? Boolean (get e "is_meta")))))
+          (throw (ex-info "invalid event fields/order" {})))))
+    (doseq [[rows table] [[votes "votes"] [comments "comments"]]]
+      (doseq [[i e] (map-indexed vector rows)]
+        (when-not (and (= {"table" table "row" i} (get e "src"))
+                       (integer? (get-in e ["src" "row"])))
+          (throw (ex-info "invalid event source order" {})))))
+    (when-not (and (= events (into votes comments))
+                   (apply <= (cons Long/MIN_VALUE (map #(get % "created") votes)))
+                   (or (empty? comments) (apply < (map #(get % "tid") comments)))
+                   (every? (fn [[k n]] (and (integer? (get-in meta ["counts" k]))
+                                            (= n (get-in meta ["counts" k]))))
+                           [["events" (count events)] ["vote_events" (count votes)]
+                            ["comment_events" (count comments)]]))
+      (throw (ex-info "event order/census mismatch" {})))
+    (let [logical (apply str (map #(str (json/generate-string (into (sorted-map) (dissoc % "src"))) "\n") events))]
+      (when-not (= (sha256-hex logical) (get meta "logical_digest_sha256"))
+        (throw (ex-info "event logical digest mismatch" {}))))
+    {:votes (mapv (fn [e] {:t-ms (get e "created") :pid (get e "pid") :tid (get e "tid")
+                           :sign (when-some [v (get e "vote")] (* v s))
+                           :weight_x_32767 (get e "weight_x_32767") :source-ord (get e "ord")}) votes)
+     :mods {:events (mapv (fn [e] {:tid (get e "tid") :mod (get e "mod")
+                                  :is_meta (get e "is_meta") :modified (get e "modified")})
+                         (filter #(some? (get % "modified")) comments))
+            :n-skipped (count (filter #(nil? (get % "modified")) comments))}}))
 
 (defn build-dataset
   "Sort raw file-order vote maps stably by (t_ms, input index) and 1-index them.
@@ -210,8 +271,9 @@
 
 (defn ->conv-votes
   [batch]
-  (mapv (fn [{:keys [pid tid sign t-ms]}]
-          {:pid pid :tid tid :vote (- (long sign)) :created t-ms})
+  (mapv (fn [{:keys [pid tid sign t-ms source-ord weight_x_32767]}]
+          (cond-> {:pid pid :tid tid :vote (when (some? sign) (- (long sign))) :created t-ms}
+            (some? source-ord) (assoc :weight_x_32767 weight_x_32767)))
         batch))
 
 ;; ---------------------------------------------------------------------------
@@ -272,7 +334,7 @@
         (assoc :raw-rating-mat
                (nm/update-nmat (nm/named-matrix)
                                (mapv (fn [{:keys [pid tid sign]}]
-                                       [pid tid (- (long sign))])
+                                       [pid tid (when (some? sign) (- (long sign)))])
                                      votes-so-far)))
         (conv/mod-update (vec mods-so-far)))))
 
@@ -595,7 +657,7 @@
   slicer's stable order); booleans are 0/1."
   [step]
   (let [votes (mapv (fn [{:keys [pid tid sign t-ms]}]
-                      [(long pid) (long tid) (long sign) (long t-ms)])
+                      [(long pid) (long tid) (when (some? sign) (long sign)) (long t-ms)])
                     (:votes step))
         mods  (mapv (fn [{:keys [tid is_meta mod modified]}]
                       [(long tid) (if is_meta 1 0) (long mod) (long modified)])
@@ -798,6 +860,7 @@
 (def cli-options
   [["-s" "--schedule PATH" "Path to the schedule JSON (§4)."]
    ["-v" "--votes PATH" "Path to the export votes CSV."]
+   [nil "--events PATH" "Authoritative events.jsonl with sibling events.meta.json."]
    ["-o" "--out DIR" "Recording dir (…/<dataset>/<schedule_id>); clj/ is written under it."]
    [nil "--comments PATH" "Optional comments CSV (meta-tids via is-meta column)."]
    [nil "--zid ZID" "Conversation id to seed (default: schedule dataset name)."]
@@ -820,9 +883,11 @@
       (do (binding [*out* *err*] (doseq [e errors] (println e)) (println summary))
           (System/exit 1))
 
-      (some nil? [(:schedule options) (:votes options) (:out options)])
+      (or (some nil? [(:schedule options) (:out options)])
+          (= (boolean (:votes options)) (boolean (:events options)))
+          (and (:events options) (:comments options)))
       (do (binding [*out* *err*]
-            (println "ERROR: --schedule, --votes and --out are all required.")
+            (println "ERROR: --schedule, --out and exactly one of --votes/--events required; --events excludes --comments.")
             (println summary))
           (System/exit 1))
 
@@ -845,6 +910,8 @@
             ;; 1283) and store.load_step_blobs globs step-*.json there.
             stage-root  (io/file out "clj-stages")]
 
+        (when (and (= source "events-jsonl") (nil? (:events options)))
+          (throw (ex-info "events-jsonl schedule requires --events" {})))
         (when-not (contains? #{"none" "interleave-by-timestamp" nil} moderation)
           (throw (ex-info
                    (str "Unknown moderation mode " (pr-str moderation)
@@ -852,7 +919,7 @@
                         "(mod rows from --comments, woven by modified timestamp).")
                    {:moderation moderation})))
         (when (and (= moderation "interleave-by-timestamp")
-                   (nil? (:comments options)))
+                   (nil? (:comments options)) (nil? (:events options)))
           (throw (ex-info "moderation=interleave-by-timestamp requires --comments"
                           {:moderation moderation})))
 
@@ -873,13 +940,14 @@
         (component/start
           (cmb/create-core-matrix-booter {:config {:math {:matrix-implementation :vectorz}}}))
 
-        (let [raw   (read-votes-csv (:votes options))
+        (let [event-input (when (:events options) (read-event-stream (:events options)))
+              raw   (if event-input (:votes event-input) (read-votes-csv (:votes options)))
               votes (build-dataset raw)
               slots (resolve-cut-slots votes cuts)
               restart-after (get schedule "restart_after")
               {mod-events :events n-mod-skipped :n-skipped}
               (if (= moderation "interleave-by-timestamp")
-                (read-mod-events (:comments options))
+                (if event-input (:mods event-input) (read-mod-events (:comments options)))
                 {:events [] :n-skipped 0})
               steps (slice-schedule votes slots mod-events)
               ;; Under interleave moderation, meta-tids enter EXCLUSIVELY via
@@ -944,8 +1012,8 @@
           ;; Provenance (recording dir + a clj/ mirror so a later Python run's
           ;; provenance.json cannot clobber ours).
           (let [prov (build-provenance
-                       {:schedule schedule :schedule-id schedule-id :source source
-                        :votes-path (:votes options) :comments-path (:comments options)
+                       {:schedule schedule :schedule-id schedule-id :source (if (:events options) "events-jsonl" source)
+                        :votes-path (or (:events options) (:votes options)) :comments-path (:comments options)
                         :zid zid :meta-tids meta-tids :meta-tids-source meta-src
                         :warm-start warm-start :repeats repeats
                         :n-steps (count steps) :edn? edn? :stage-json? stage-json?
@@ -953,6 +1021,10 @@
                         :n-mod-events (count mod-events)
                         :n-mod-skipped n-mod-skipped
                         :restart-after restart-after})
+                prov (if (:events options)
+                       (assoc prov :events_meta_sha256
+                              (sha256-file (io/file (.getParentFile (io/file (:events options))) "events.meta.json")))
+                       prov)
                 prov-json (json/generate-string prov {:pretty true})]
             (spit (io/file out "provenance.json") prov-json)
             (spit (io/file clj-dir "provenance.json") prov-json))

@@ -30,6 +30,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -105,9 +106,20 @@ def dataset_dir(slug: str) -> Path | None:
     match wins a slug collision."""
     if not _SLUG_RE.match(slug):
         return None
+    mapping = os.environ.get("POLIS_REPLAY_INPUT_MAP")
+    if mapping:
+        bindings = json.loads(Path(mapping).read_text())
+        if not isinstance(bindings, dict) or slug not in bindings:
+            raise ValueError("input map must bind every requested dataset")
+        path = Path(bindings[slug])
+        if not path.is_absolute() or not path.is_dir():
+            raise ValueError("input map values must be existing absolute directories")
+        return path
     hits = sorted(REAL_DATA_ROOT.glob(f"*-{slug}"))
     if not hits:
         hits = sorted(REAL_DATA_ROOT.glob(f".local/*-{slug}"))
+    if len(hits) > 1:
+        raise ValueError("ambiguous dataset directory")
     return hits[0] if hits else None
 
 
@@ -127,6 +139,9 @@ def load_export_votes(slug: str) -> ReplayDataset:
     d = dataset_dir(slug)
     if d is None:
         raise FileNotFoundError(f"no dataset directory matching *-{slug}")
+    if (d / "events.jsonl").exists():
+        from polismath.replay.event_ingress import load_events
+        return load_events(d / "events.jsonl")
     votes_csvs = sorted(d.glob("*-votes.csv"))
     if not votes_csvs:
         raise FileNotFoundError(f"no *-votes.csv in {d.name}")

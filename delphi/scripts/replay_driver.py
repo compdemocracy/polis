@@ -81,19 +81,24 @@ def cli() -> None:
 @click.option("--out", "out_root", type=click.Path(path_type=Path), default=None,
               help="Store root (default: real_data/.local/replays).")
 @click.option("--verbose", is_flag=True, help="Show driver progress logging.")
-def run(dataset, schedule_path, preset, n_cuts, schedule_id, out_root, verbose):
+@click.option("--events", type=click.Path(exists=True, path_type=Path), default=None,
+              help="Exact events.jsonl; requires sibling events.meta.json.")
+def run(dataset, schedule_path, preset, n_cuts, schedule_id, out_root, verbose, events):
     """Run a (dataset, schedule) replay and write the recording store."""
     if not verbose:
         # logging.disable is process-global: restore it in _run's finally so an
         # in-process caller (CliRunner tests) isn't silenced past this command.
         logging.disable(logging.CRITICAL)
     try:
-        _run_impl(dataset, schedule_path, preset, n_cuts, schedule_id, out_root, verbose)
+        _run_impl(dataset, schedule_path, preset, n_cuts, schedule_id, out_root, verbose, events)
     finally:
         logging.disable(logging.NOTSET)
 
 
-def _run_impl(dataset, schedule_path, preset, n_cuts, schedule_id, out_root, verbose):
+def _run_impl(dataset, schedule_path, preset, n_cuts, schedule_id, out_root, verbose, events=None):
+    from polismath.replay.event_ingress import load_events, input_hashes
+    def load(slug):
+        return load_events(events) if events else load_export_votes(slug)
     ds: ReplayDataset | None = None
     loaded_slug: str | None = None
     if schedule_path is not None:
@@ -102,7 +107,7 @@ def _run_impl(dataset, schedule_path, preset, n_cuts, schedule_id, out_root, ver
     elif preset is not None:
         if not dataset:
             raise click.UsageError("--dataset is required with --preset")
-        ds = load_export_votes(dataset)
+        ds = load(dataset)
         loaded_slug = dataset
         spec = _spec_from_preset(preset, dataset, ds, n_cuts=n_cuts,
                                  schedule_id=schedule_id)
@@ -112,14 +117,26 @@ def _run_impl(dataset, schedule_path, preset, n_cuts, schedule_id, out_root, ver
     # Reuse the dataset already loaded to build a preset spec instead of loading
     # it a second time; only the --schedule path (or a slug mismatch) needs a load.
     if ds is None or loaded_slug != spec.dataset:
-        ds = load_export_votes(spec.dataset)
+        ds = load(spec.dataset)
+    if events is None:
+        from polismath.replay.real_data import dataset_dir
+        directory = dataset_dir(spec.dataset)
+        if directory is not None and (directory / "events.jsonl").exists():
+            events = directory / "events.jsonl"
+    if spec.source == "events-jsonl" and events is None:
+        raise click.UsageError("events-jsonl schedule requires authoritative events")
+    if events is not None:
+        raw = spec.to_dict()
+        raw["source"] = "events-jsonl"
+        spec = sched.ScheduleSpec.from_dict(raw)
     click.echo(f"dataset={spec.dataset} n_votes={ds.n} schedule={spec.schedule_id}", err=True)
 
     def _progress(i: int, total: int) -> None:
         click.echo(f"  step {i + 1}/{total} …", err=True)
 
     records = run_replay(ds, spec, progress=_progress if verbose else None)
-    out_dir = st.write_recording(records, spec, root=out_root)
+    out_dir = st.write_recording(records, spec, root=out_root,
+                                 **({"extra_provenance": input_hashes(events)} if events else {}))
     click.echo(f"wrote {len(records)} steps → {out_dir}")
 
 
