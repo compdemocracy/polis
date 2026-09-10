@@ -13,6 +13,7 @@ CI = Path(__file__).resolve().parents[1]
 ROOT = CI.parents[1]
 sys.path.insert(0, str(CI))
 from verify import comparisons, empty_observations, exact, jest_cases, python_cases, rust_cases, sha, source_pins, stage_audit
+from replay_pins import select_pin
 
 INV = json.loads((CI / "inventory-v1.json").read_text())
 
@@ -184,7 +185,8 @@ def test_comparison_requires_fresh_complete_unchanged_evidence(tmp_path, mutatio
     else:
         (fresh / "d4-node-reader.json").write_text('{"differences": {}}')
     with pytest.raises((ValueError, FileNotFoundError)):
-        comparisons(artifacts, fresh, baseline)
+        comparisons(artifacts, fresh, baseline, select_pin(
+            {"system": "Darwin", "machine": "arm64"}, CI / "replay-pins.json"))
 
 
 @pytest.mark.parametrize("mutation", ["stable-field", "published-byte", "inconsistent-observation", "missing-hash"])

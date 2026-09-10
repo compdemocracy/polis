@@ -19,6 +19,7 @@ import uuid
 
 from verify import comparisons, jest_cases, python_cases, require, rust_cases, sha, source_pins, stage_audit
 from source_workspace import prepare, regular
+from replay_pins import select_pin
 
 ROOT = Path(__file__).resolve().parents[2]
 CI = ROOT / "coordinator-rs/ci"
@@ -139,6 +140,9 @@ def main():
                 require(receipt["packages"][name] == version, f"Python dependency mismatch: {name}")
         receipt["node"] = subprocess.check_output(["node", "--version"], text=True).strip()
         require(receipt["node"].startswith("v24."), "Node 24 required")
+        receipt["replay_runtime"] = json.loads(subprocess.check_output(
+            [sys.executable, "-B", str(CI / "replay_pins.py")], env=env, text=True))
+        receipt["replay_pin"] = select_pin(receipt["replay_runtime"], CI / "replay-pins.json")
         receipt["rustc"] = run("rustc", ["rustc", "--version", "--verbose"], ROOT / "coordinator-rs")
         run("controls", [sys.executable, "-m", "pytest", "-o", "addopts=", "-p", "no:cacheprovider",
                          "--confcutdir=coordinator-rs/ci/tests", "coordinator-rs/ci/tests", "-q",
@@ -195,7 +199,7 @@ def main():
                      "--runInBand", "--runTestsByPath", *files, "--json", f"--outputFile={output / 'jest.json'}"],
             ROOT / "server", command_env=jest_env)
         receipt["jest_tests"] = jest_cases(json.loads((output / "jest.json").read_text()), inventory)
-        receipt["comparisons"] = comparisons(ART, EVIDENCE, baseline)
+        receipt["comparisons"] = comparisons(ART, EVIDENCE, baseline, receipt["replay_pin"])
         run("stage-audit", [sys.executable, "delphi/tests/coordinator/audit_stages.py"], expected=1)
         receipt["stages"] = stage_audit(json.loads((EVIDENCE / "stage-inventory.json").read_text()), inventory)
         require(source_pins(ROOT) == receipt["source_pins"], "reviewed sources changed during campaign")
