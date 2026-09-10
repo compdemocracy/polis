@@ -93,7 +93,7 @@ const evidencePass = record.cases > 0 && record.failures === 0 &&
   replay.cases === record.cases && replay.failures === 0 && replay.differences === 0 &&
   replay.coverage.missing === 0 && controls.length === expectedControls.length &&
   controls.every((c,i) => c.control === expectedControls[i] && c.exit === (i < 6 ? 1 : 0));
-const result = {target: a.target, base: a.base, record: {cases: record.cases, failures: record.failures},
+const result = {target: a.target, base: a.base, baseResolution: a.baseResolution, record: {cases: record.cases, failures: record.failures},
   replay: {cases: replay.cases, failures: replay.failures, differences: replay.differences},
   negativeControls: controls.length, evidencePass, archiveSha256: fs.readFileSync(path.join(out,'baseline.sha256'),'utf8').trim(),
   counts: a.counts, checks, reviewEligible: a.reviewEligible && failed === '0' && evidencePass, autoMerge: false};
