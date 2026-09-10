@@ -112,6 +112,15 @@ engine options and checkpoint count remain bound by the verifier. Incompatible
 role selection or collapsed cuts fail admission; the pipeline never shortens the
 battery or accepts a partial result to obtain PASS.
 
+A reviewed `representative_selection` config also extracts the selected sample
+in that same replica transaction. Manifest/4 and paired-plan/2 require every
+sample alongside the 14 existing private entries. The gate orders actual sizes,
+preserves restart pairs, and reconstructs the sample's ceiling-six full-stream
+cuts and final-source-state moderation in both engines. Empty or unsupported
+inputs remain required and can fail the gate. Payloads, maps and byte census
+remain box-only; receipt/2 exports only the closed numeric selection report.
+See [representative payload admission](../delphi/docs/representative-selection.md).
+
 Bake the supervisor with `ci/probe_box/bake.sh` on the reviewed offline ARM64 builder.
 The launch template carries JSON boot configuration only, never executable commands.
 Set `enableProbeBox=true` and `PROBE_BOX_CONFIG` only when reviewing the separate
