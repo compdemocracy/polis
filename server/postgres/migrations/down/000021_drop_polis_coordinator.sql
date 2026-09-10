@@ -88,7 +88,7 @@ SELECT NOT EXISTS(SELECT FROM pg_class WHERE relnamespace='public'::regnamespace
 \else
  DO $catalog$
  BEGIN
-  IF pg_temp.pc_catalog() IS DISTINCT FROM '762ab4ea71d7e314494ddd0b3290e6c1' THEN
+  IF pg_temp.pc_catalog() IS DISTINCT FROM 'ad11429a737605ab9cf51ec7ea2a64ec' THEN
    RAISE EXCEPTION 'refusing: coordinator catalog drift' USING DETAIL=pg_temp.pc_catalog(); END IF;
  END $catalog$;
  -- Child before parent; count only AFTER ACCESS EXCLUSIVE locks. The provenance

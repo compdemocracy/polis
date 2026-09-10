@@ -165,3 +165,13 @@ each must validate the exact shared 000021 byte pin before consuming its schema
 contract. The migration test loader validates the up/down pair now. Any future
 schema/API change requires a new reviewed pin and down rehearsal, rather than a
 silent alteration of an accepted schema item.
+
+## Recovery after current-row loss
+
+The expected generation is the greater of the current math_ticks pointer and
+retained receipt history. The publication function reads this indexed maximum
+under the parent/lease locks. Deleting or regressing the latest pointer therefore
+advances to a fresh generation instead of reusing an immutable receipt identity.
+A caller whose expected tick ignores retained history gets a conflict. Exact
+operation readback still proves a past commit without promising that current
+math rows have survived; a new repair operation restores those rows.
