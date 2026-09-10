@@ -249,13 +249,7 @@ jobs:
           [ "${online:-None}" = "Online" ] || { echo "worker never registered with SSM" >&2; exit 1; }
           # user-data writes the ready marker last, after docker/compose and the
           # clone at the requested ref; the failed marker short-circuits.
-          POLIS_SSM_TIMEOUT=1800 bash ci/p022_ssm.sh bootstrap-wait '
-            for i in $(seq 1 120); do
-              if [ -f /var/lib/polis-ci-failed ]; then echo "p022 bootstrap result=failed"; exit 1; fi
-              if [ -f /var/lib/polis-ci-ready ]; then echo "p022 bootstrap result=ready"; exit 0; fi
-              sleep 15
-            done
-            echo "p022 bootstrap result=timeout"; exit 1'
+          bash ci/p022_wait_bootstrap.sh
 
       - name: Recovery matrix (make test-recovery, make test-recovery-races)
         run: |
@@ -273,6 +267,10 @@ jobs:
           # on the box rather than shrinking the run (review E5).
           POLIS_SSM_TIMEOUT=21600 bash ci/p022_ssm.sh battery \
             'sudo env POLIS_CI_REPO_ROOT=/opt/polis bash /opt/polis/ci/p022_ec2_run.sh battery'
+
+      - name: Collect the complete filtered bootstrap log
+        if: ${{ always() && env.INSTANCE_ID != '' }}
+        run: bash ci/p022_collect_bootstrap.sh artifacts
 
       - name: Collect the fixed-schema summary and JUnit
         if: ${{ always() && env.INSTANCE_ID != '' }}

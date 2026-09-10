@@ -15,8 +15,11 @@
 #     p022 <phase> <key>=<value>
 #
 # with values restricted to a fixed character class. Nothing else reaches SSM
-# stdout — no log tails, no greps of candidate output, no exception text. Full
-# logs stay in /var/log/polis-ci and die with the box. What comes back is a
+# stdout — no greps of candidate output or exception text. Raw phase logs
+# stay in /var/log/polis-ci and die with the box. The standalone bootstrap
+# collector adds the complete credential-filtered bootstrap.log to ART_DIR
+# before this evidence bundle is packed; its bounded tail has a dedicated
+# SSM mode and does not relax this phase status grammar. What comes back is a
 # fixed-schema summary.json plus one JUnit report per pytest invocation, and —
 # separately — the battery's recordings.
 #

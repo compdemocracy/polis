@@ -423,3 +423,27 @@ The worker's role is an explicit minimal SSM-agent policy — deliberately **not
 `AmazonSSMManagedInstanceCore`, which also grants `ssm:GetParameter` and
 `ssm:GetParameters` on `*`. It has no S3, no KMS and no Secrets Manager access
 of any kind.
+
+
+## Bootstrap failure evidence
+
+The wait command returns a bounded, credential-filtered tail on failure or
+timeout. An EXIT trap records the current phase and creates the failed marker
+for unexpected shell failures; it never prints shell commands or environment
+values. The independent collector sends its stdlib-only helper from the control
+checkout, so a failed clone does not prevent log recovery. It places the complete
+filtered `bootstrap.log` in both the worker evidence directory and the uploaded
+artifact directory, checking transfer length, SHA-256 and decompression bounds.
+Oversized transfers fail explicitly. Raw logs stay on the worker; credential
+lines, private-key blocks and opaque tokens are redacted before transport.
+
+The ARM64 AL2023 package repository lacks `rlwrap`; the noninteractive battery
+invokes `clojure`, so bootstrap installs Corretto without that interactive wrapper
+dependency. Python synchronization includes the locked `dev` extra and verifies
+`pytest`/`xdist` before the ready marker. The failed historical run's exact phase
+cannot be recovered after termination; local package reproduction establishes a
+concrete bootstrap defect, not the missing historical log.
+
+Both the workflow/helper merge and a CDK redeploy are required: the latter updates
+launch-template user data for future instances. No IAM permission expansion is
+needed for diagnostics. A local test pass does not attest an entire ARM cloud boot.
