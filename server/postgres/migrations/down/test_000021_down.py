@@ -329,6 +329,48 @@ def main():
         assert sql(db, "SET ROLE polis_coordinator_control; SELECT * FROM pc_publish('synthetic',990001,'owner-a',1,'op-a',decode(repeat('ab',32),'hex'),NULL,'{}','{}','{}','{}');",ok=False).returncode
     publication_case("real restricted publisher commits coherent rows/receipts and retries idempotently; direct writes denied", published)
 
+    def history_floor(db, mode):
+        arm(db);assert call(db).stdout.strip().startswith("committed|0|")
+        arm(db,operation="op-b",epoch=2,expected="0")
+        assert call(db,operation="op-b",epoch=2,expected="0").stdout.strip().startswith("committed|1|")
+        if mode == "deleted":
+            for table in ("math_ticks","math_main","math_bidtopid","math_ptptstats"):
+                sql(db,f"DELETE FROM {table};")
+        else:
+            sql(db,"UPDATE math_ticks SET math_tick=0;")
+        arm(db,operation="op-c",epoch=3,expected="1")
+        assert call(db,operation="op-c",epoch=3,expected="1").stdout.strip().startswith("committed|2|")
+        assert sql(db,"SELECT count(*),min(math_tick),max(math_tick) FROM polis_coordinator_generations;").stdout.strip()=="3|0|2"
+        assert sql(db,"SELECT count(*) FROM polis_coordinator_payloads;").stdout.strip()=="9"
+        assert sql(db,"SELECT count(DISTINCT math_tick),min(math_tick) FROM (SELECT math_tick FROM math_ticks UNION ALL SELECT math_tick FROM math_main UNION ALL SELECT math_tick FROM math_bidtopid UNION ALL SELECT math_tick FROM math_ptptstats) t;").stdout.strip()=="1|2"
+    for mode in ("deleted","regressed"):
+        publication_case(f"retained history repairs {mode} current generation without tick reuse",lambda db,mode=mode:history_floor(db,mode))
+
+    def absent_stale_expected(db):
+        arm(db);assert call(db).stdout.strip().startswith("committed|0|")
+        sql(db,"DELETE FROM math_ticks;")
+        arm(db,operation="op-b",epoch=2)
+        assert call(db,operation="op-b",epoch=2).stdout.strip().startswith("conflict|0|")
+        assert sql(db,"SELECT count(*) FROM math_ticks;").stdout.strip()=="0"
+        assert sql(db,"SELECT count(*) FROM polis_coordinator_generations;").stdout.strip()=="1"
+    publication_case("missing current pointer cannot reset expected tick below retained history",absent_stale_expected)
+
+    def history_mutant(db):
+        arm(db);assert call(db).stdout.strip().startswith("committed|0|")
+        sql(db,"DELETE FROM math_ticks;")
+        original=sql(db,"SELECT pg_get_functiondef('pc_publish(text,integer,text,bigint,text,bytea,bigint,jsonb,bytea,bytea,bytea)'::regprocedure);").stdout
+        line=" SELECT greatest(current_tick,max(g.math_tick)) INTO current_tick\n FROM public.polis_coordinator_generations g WHERE g.zid=p_zid AND g.math_env=p_env;"
+        assert original.count(line)==1
+        sql(db,original.replace(line," -- scratch history-floor mutation"))
+        try:
+            arm(db,operation="op-b",epoch=2,expected="0")
+            result=call(db,operation="op-b",epoch=2,expected="0")
+            assert not result.stdout.strip().startswith("committed|1|") # intact repair oracle fails
+            assert result.stdout.strip().startswith("conflict|")
+        finally:
+            sql(db,original)
+    publication_case("negative control: removed history floor fails the missing-pointer repair oracle",history_mutant)
+
     def refused(db, changes, code):
         arm(db)
         p = call(db,ok=False,**changes)

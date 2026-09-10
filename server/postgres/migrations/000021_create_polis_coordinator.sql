@@ -118,7 +118,7 @@ DO $admit$
 BEGIN
  IF EXISTS(SELECT FROM pg_class WHERE relnamespace='public'::regnamespace AND starts_with(relname,'polis_coordinator_'))
  OR EXISTS(SELECT FROM pg_proc WHERE pronamespace='public'::regnamespace AND starts_with(proname,'pc_')) THEN
-  IF pg_temp.pc_catalog() IS DISTINCT FROM '762ab4ea71d7e314494ddd0b3290e6c1' THEN
+  IF pg_temp.pc_catalog() IS DISTINCT FROM 'ad11429a737605ab9cf51ec7ea2a64ec' THEN
    RAISE EXCEPTION 'refusing: coordinator catalog drift before replay' USING DETAIL=pg_temp.pc_catalog(); END IF;
   PERFORM set_config('polis_coordinator.replay','true',true);
  ELSE PERFORM set_config('polis_coordinator.replay','false',true);
@@ -333,6 +333,11 @@ BEGIN
  OR lease.dispatch_expected_tick IS DISTINCT FROM p_expected_tick THEN
   RAISE EXCEPTION USING ERRCODE='P2010',MESSAGE='DISPATCH_IDENTITY_CONFLICT'; END IF;
  SELECT t.math_tick INTO current_tick FROM public.math_ticks t WHERE t.zid=p_zid AND t.math_env=p_env FOR UPDATE;
+ -- Receipt history is the generation floor even if the latest pointer was
+ -- deleted or regressed. The held parent/lease locks serialize this namespace
+ -- and zid; this bounded indexed maximum reads no science payloads.
+ SELECT greatest(current_tick,max(g.math_tick)) INTO current_tick
+ FROM public.polis_coordinator_generations g WHERE g.zid=p_zid AND g.math_env=p_env;
  IF current_tick IS DISTINCT FROM p_expected_tick THEN
   RETURN QUERY SELECT 'conflict'::text,current_tick,NULL::bigint; RETURN; END IF;
  new_tick:=coalesce(current_tick+1,0);
@@ -422,7 +427,7 @@ BEGIN
   INSERT INTO public.polis_coordinator_install(singleton,migration_id,catalog_fingerprint,provenance_fingerprint,sequence_start,installed_by)
   VALUES(true,'000021',pg_temp.pc_catalog(),pg_temp.pc_provenance_hash(),(SELECT seqstart FROM pg_sequence WHERE seqrelid='public.polis_coordinator_caching_tick'::regclass),session_user);
  END IF;
- IF pg_temp.pc_catalog() IS DISTINCT FROM '762ab4ea71d7e314494ddd0b3290e6c1' THEN
+ IF pg_temp.pc_catalog() IS DISTINCT FROM 'ad11429a737605ab9cf51ec7ea2a64ec' THEN
   RAISE EXCEPTION 'refusing: coordinator catalog assertion' USING DETAIL=pg_temp.pc_catalog(); END IF;
  PERFORM pg_temp.pc_assert_provenance();
 END $record$;
