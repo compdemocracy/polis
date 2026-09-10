@@ -181,11 +181,16 @@ The stage checklist names these explicitly (`evidence/test-summary.json`,
   `evidence/s2-production-reader.json` records that scoped proof. Required
   pinned-module CI/exact case-set/zero-skip enforcement and combined S5
   full-app/private campaigns remain open. This is no full-contract certificate.
-- **S1 evidence needs revalidation after the edge rebase.**32 pinned Delphi
-  source files differ from the historical S1 run, and the audit metadata also
-  changed for this closure update. The existing S1 pins are retained, so current
-  audit refuses O8 partial admission. Historical151-case results are not a fresh
-  run on this tree. Current accounting is8 open/0 closed/1 partial (O1).
+- **S1 revalidation did not reproduce the historical pass.** The fresh run on
+  `087c51fb4` executed the same151 cases:150 passed,1 failed,0 skipped. The empty
+  Node harness still calls raw `getPca` and expects comment defaults that #2709
+  moved to `presentPca`. Both Rust profiles pass31 tests and all25 fault stages
+  were reached. The recorder refuses the failed suite; the32 moved Delphi pins
+  and2 later test/audit pins remain unchanged. Two S2 test pins also moved in the
+  CI repair, so the current audit refuses both partial records:8 open/0 closed/
+  0 partial. `evidence/s1-revalidation.json` records the failure and per-file PR
+  attribution. A reviewed response-boundary harness correction and a fresh full
+  campaign precede repinning; the accepted historical S2 replay is not rerun here.
 - **A real server-side quirk, fixed upstream not here:** Node's `getPca(zid,
   undefined)` once missed a freshly-committed generation zero on a cold cache
   while the HTTP route served it correctly. #2732 (merged to edge, in this
@@ -248,7 +253,7 @@ its full source checkout. A bad explicit coordinator override fails the run.
 point to the partial `/app/projgate` tree in Delphi CI; it does not select the
 coordinator checkout. Automatic ancestor discovery still works in a full checkout.
 
-Re-run from a clean checkout: `cargo test --locked` 31/31; both `cargo
+Historical S3 campaign before the rebase: `cargo test --locked` 31/31; both `cargo
 clippy` invocations clean; release and fault-injection builds succeed and
 release+fault-injection correctly refuses to build; `docker compose up`
 starts a healthy Postgres in seconds; Python suite **151/151, 0 skipped**
@@ -266,9 +271,9 @@ To see the full stage-by-stage gate result:
 python delphi/tests/coordinator/audit_stages.py
 ```
 
-Confirmed: exits 1 on purpose (`full_contract_gate: FAIL`, 25/25 stages
-reached) as long as any item in "What is still open" remains open — that is
-not a bug in the checker.
+The fresh revalidation audit exits1 (`full_contract_gate: FAIL`,25/25 stages
+reached). The failed Python case and stale S1/S2 source pins remain explicit;
+stage reachability alone does not restore either partial record.
 
 ## Where the evidence lives
 
