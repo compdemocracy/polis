@@ -11,7 +11,7 @@
  * Three guards, all required:
  *   1. Config.queueSubstrateEnabled (POLIS_QUEUE_SUBSTRATE_ENABLED), default
  *      off and forced off when NODE_ENV is production.
- *   2. The env namespace must be dev or test, so a synthetic job cannot be
+ *   2. The env namespace must be dev or test, so a public-fixture job cannot be
  *      addressed at some other environment's product heads.
  *   3. The migration must have been applied. It is not applied automatically to
  *      an existing database; see docs/queue-substrate.md.
@@ -23,7 +23,7 @@
  *     caller. A dedicated service login with executor membership is separate,
  *     separately reviewed provisioning work. The Python executor does require
  *     the restricted login.
- *   - The input descriptor is fixed and synthetic, and is built here rather
+ *   - The input descriptor is fixed and public-fixture, and is built here rather
  *     than accepted from the caller. /1 enqueue pins expected_output_uri and
  *     expected_output_sha256 to that descriptor, and the noop stage returns it
  *     unchanged. Admitting a real captured artifact is Q21 plus a reviewed
@@ -45,15 +45,15 @@ import {
 export const QUEUE_SUBSTRATE_FLAG = "POLIS_QUEUE_SUBSTRATE_ENABLED";
 
 /**
- * The fixed synthetic input descriptor of the /1 noop stage. Not caller
+ * The fixed public-fixture input descriptor of the /1 noop stage. Not caller
  * supplied: the enqueuer pins it, and the executor refuses any job whose
  * descriptor differs.
  */
-export const NOOP_INPUT_URI = "synthetic:polis-queue-noop/1";
+export const NOOP_INPUT_URI = "public-fixture:polis-queue-noop/1";
 export const NOOP_INPUT_SHA256 = createHash("sha256")
   .update("polis-queue-noop/1\n")
   .digest("hex");
-export const NOOP_IMAGE_DIGEST = "synthetic-noop/1";
+export const NOOP_IMAGE_DIGEST = "public-fixture-noop/1";
 
 /** dev or test, optionally suffixed for per-run isolation in tests. */
 const ENV_NAMESPACE = /^(dev|test)(-[a-z0-9][a-z0-9-]{0,48})?$/;

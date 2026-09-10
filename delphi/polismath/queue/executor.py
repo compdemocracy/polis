@@ -1,4 +1,4 @@
-"""Standalone transitional executor for polis-queue/1 synthetic ``noop`` jobs.
+"""Standalone transitional executor for polis-queue/1 public-fixture ``noop`` jobs.
 
 P-024 first slice. Claims a job with ``pq_claim``, renews its lease with
 ``pq_heartbeat``, and finalizes with ``pq_finalize``; reserves one bounded
@@ -10,10 +10,10 @@ Boundaries this module keeps, all of them deliberate:
 * It touches neither existing poller. ``polismath.poller`` and
   ``scripts/job_poller.py`` neither import this nor are imported by it, so
   rollback is stopping a process.
-* The stage is ``noop`` and its output is exactly its fixed synthetic input
+* The stage is ``noop`` and its output is exactly its fixed public-fixture input
   descriptor. It never follows the input URI, reads a file named by a job,
   starts a child process, loads science code or calls a provider. A job whose
-  descriptor is not the expected synthetic one is failed permanently rather
+  descriptor is not the expected public-fixture one is failed permanently rather
   than executed.
 * It refuses to run on a broad database login. Every connection asserts
   membership in ``polis_queue_executor``, the absence of ANY table-level or
@@ -56,13 +56,13 @@ SCHEMA_VERSION = "polis-queue/1"
 #: the SQL so that neither is silently upgraded by a schema change; the Node
 #: adapter pins the same value in ``server/src/queue/protocol.ts``. This pins
 #: the repository file, and is not runtime attestation about the live catalog.
-QUEUE_SQL_SHA256 = "2d8e205f1d36e0e2e6a4fc63d1d03cbf8837ca57ccaac503c88238fa2a14a055"
+QUEUE_SQL_SHA256 = "240d445ecc88c0ddb3b24ba2d62a8ad00316fe4381dadb566d2c5d1f48c2c1bc"
 
-#: The fixed synthetic input descriptor of the /1 noop stage. The enqueuer pins
+#: The fixed public-fixture input descriptor of the /1 noop stage. The enqueuer pins
 #: it and this executor refuses anything else.
-NOOP_URI = "synthetic:polis-queue-noop/1"
+NOOP_URI = "public-fixture:polis-queue-noop/1"
 NOOP_SHA256 = hashlib.sha256(b"polis-queue-noop/1\n").hexdigest()
-NOOP_IMAGE = "synthetic-noop/1"
+NOOP_IMAGE = "public-fixture-noop/1"
 
 #: Repeating weighted lane slots. 0 is most urgent; the cycle guarantees lane 2
 #: is visited at least once every six claim opportunities.
@@ -453,11 +453,11 @@ class Executor:
             or job["input"] != expected
         ):
             # Refuse rather than execute: this executor admits exactly one
-            # synthetic descriptor and never dereferences a job-supplied URI.
+            # public-fixture descriptor and never dereferences a job-supplied URI.
             return str(
                 self.call(
                     "pq_fail",
-                    self.token(job) + [True, "invalid_synthetic_descriptor"],
+                    self.token(job) + [True, "invalid_public_fixture_descriptor"],
                 )["outcome"]
             )
         renewed = self.call("pq_heartbeat", self.token(job) + [self.lease_seconds])

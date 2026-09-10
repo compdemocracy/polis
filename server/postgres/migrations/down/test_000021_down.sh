@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Own disposable synthetic cluster only. No target connection string accepted.
+# Own disposable public-fixture cluster only. No target connection string accepted.
 set -euo pipefail
 : "${COMPOSE_PROJECT_NAME:?set a unique project name}"
 : "${POLIS_RECOVERY_PG_PORT:?set a unique port}"
