@@ -8,14 +8,16 @@
 #   env:   INSTANCE_ID   (required)  the worker
 #          AWS_REGION    (required)  set by configure-aws-credentials
 #          POLIS_SSM_TIMEOUT         execution timeout, seconds (default 21600)
-#          POLIS_SSM_MODE            status | base64   (default status)
+#          POLIS_SSM_MODE            status | base64 | bootstrap (default status)
 #
 # ## Output discipline (review #2715 E1)
 #
 # Worker stdout is never echoed verbatim. In `status` mode only lines matching
 # the fixed `p022 <phase> <key>=<value>` grammar are printed; anything else is
 # counted and dropped. In `base64` mode only base64 characters are accepted.
-# Both are allowlists — a line that does not match is discarded, not truncated
+# Bootstrap mode accepts only the log helper's bounded, filtered lines and
+# prefixes them before printing. All modes are allowlists; an unmatched line
+# is discarded, not truncated
 # or escaped. Worker stderr is never printed at all: it is the one channel most
 # likely to carry arbitrary text, and nothing on the box needs it to be public.
 set -euo pipefail
@@ -81,6 +83,11 @@ code=$(echo "$inv" | jq -r '.ResponseCode // 1')
 out=$(echo "$inv" | jq -r '.StandardOutputContent // ""')
 
 case "$MODE" in
+  bootstrap)
+    # Only the bootstrap helper's bounded, credential-filtered diagnostics.
+    [ "$LABEL" = "bootstrap-wait" ] || { note "invalid bootstrap label"; exit 1; }
+    python3 "$(dirname "$0")/p022_bootstrap_log.py" --filter-ssm <<<"$out"
+    ;;
   base64)
     # Only base64 characters survive; anything else means the worker printed
     # something it should not have, and the caller's digest check will fail.
