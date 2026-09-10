@@ -229,7 +229,7 @@ class WorkerTests(unittest.TestCase):
         with self.assertRaises(ValueError): self.extract([('x', tarfile.REGTYPE, b'1')], members=0)
     def receipt(self):
         a = admission()
-        return {'schema': 'polis-private-gate/1', 'admissionSha256': sha(a), 'evidenceSha256': 'f'*64,
+        return {'schema': 'polis-private-gate/2', 'negativeControlsSha256': 'a'*64, 'admissionSha256': sha(a), 'evidenceSha256': 'f'*64,
                 'inventorySha256': a['inventorySha256'], 'scheduleSha256': a['scheduleSha256'], 'policySha256': a['policySha256'],
                 'checks': 3, 'verdict': 'PASS', 'reason': 'COMPLETE'}
     def test_complete_bound_receipt(self): self.assertEqual(validate_receipt(self.receipt(), admission(), 'f'*64)['verdict'], 'PASS')
@@ -270,7 +270,7 @@ class VerifyTests(unittest.TestCase):
         bucket = f'ppc-{a["account"]}-{a["id"]}-evidence'
         raw = WorkerTests().tar([('output.json', tarfile.REGTYPE, b'{}')])
         digest = hashlib.sha256(raw).hexdigest()
-        receipt = {**WorkerTests().receipt(), 'evidenceSha256': digest}
+        receipt = {**WorkerTests().receipt(), 'evidenceSha256': digest, 'negativeControlsSha256': sha({'synthetic': True})}
         m = {'schema': 'polis-private-evidence/1', 'admissionSha256': sha(a), 'archiveSha256': digest,
              'archiveBytes': len(raw), 'instanceArn': arn,
              'chunks': [{'key': prefix+'chunks/00000000', 'version': 'v1', 'bytes': len(raw), 'sha256': digest}], 'gateReceipt': receipt}
@@ -279,7 +279,9 @@ class VerifyTests(unittest.TestCase):
         control = f'ppc-{a["account"]}-{a["id"]}-control'
         s.objects[control, f'control/{a["id"]}/clean.json'] = encoded({'status': 'CLEAN', 'admissionSha256': sha(a),
                     'instanceId': 'i-test', 'fixtureVersions': 0, 'volumes': ['vol-a', 'vol-b']})
-        def gate(*args): (Path(tmp)/'verdict'/'receipt.json').write_bytes(encoded(receipt))
+        def gate(*args):
+            (Path(tmp)/'verdict'/'receipt.json').write_bytes(encoded(receipt))
+            (Path(tmp)/'verdict'/'negative-controls.json').write_bytes(encoded({'synthetic': True}))
         return a, s, m, prefix, bucket, control, gate
     def test_private_reverification_and_cleanup_allow_only_closed_public_schema(self):
         with tempfile.TemporaryDirectory() as tmp:

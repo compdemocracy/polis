@@ -112,15 +112,17 @@ def validate_receipt(receipt, admission, evidence_sha):
     strict comparison. This transport validator is deliberately not that gate.
     """
     keys = {'schema', 'admissionSha256', 'evidenceSha256', 'inventorySha256',
-            'scheduleSha256', 'policySha256', 'checks', 'verdict', 'reason'}
+            'scheduleSha256', 'policySha256', 'checks', 'verdict', 'reason', 'negativeControlsSha256'}
     if type(receipt) is not dict or set(receipt) != keys:
         raise ValueError('RECEIPT_SCHEMA')
-    if (receipt['schema'] != 'polis-private-gate/1' or receipt['admissionSha256'] != sha(admission)
+    if (receipt['schema'] != 'polis-private-gate/2' or receipt['admissionSha256'] != sha(admission)
             or receipt['evidenceSha256'] != evidence_sha):
         raise ValueError('RECEIPT_BINDING')
     for key in ('inventorySha256', 'scheduleSha256', 'policySha256'):
         if receipt[key] != admission[key]:
             raise ValueError('RECEIPT_BINDING')
+    if not isinstance(receipt['negativeControlsSha256'], str) or not __import__('re').fullmatch(r'[a-f0-9]{64}', receipt['negativeControlsSha256']):
+        raise ValueError('NEGATIVE_CONTROLS_BINDING')
     if type(receipt['checks']) is not int or not 0 <= receipt['checks'] <= admission['expectedChecks']:
         raise ValueError('RECEIPT_COUNTS')
     allowed = {'PASS': 'COMPLETE', 'FAIL': 'COMPARISON', 'INCOMPLETE': 'MISSING_EVIDENCE', 'INCONCLUSIVE': 'UNRESOLVED_POLICY'}
@@ -188,12 +190,18 @@ def run():
             or boot['admissionSha256'] != sha(a)):
         raise ValueError('BOOT_ADMISSION')
     lock = json.loads((ROOT / 'runtime-lock.json').read_bytes())
-    if set(lock) != {'bootstrap.json', 'control.py', 'dns.py', 'start.sh', 'firewall.nft'} or sha(lock) != a['runtimeSha256'] or file_sha(ROOT / 'worker.py') != a['supervisorSha256']:
+    if set(lock) != {'bootstrap.json', 'control.py', 'dns.py', 'start.sh', 'firewall.nft',
+                     'image_admission.py', 'image-lock.json'} or sha(lock) != a['runtimeSha256'] or file_sha(ROOT / 'worker.py') != a['supervisorSha256']:
         raise ValueError('RUNTIME_BINDING')
     for rel, digest in lock.items():
         p = ROOT / rel
         if p.resolve().parent != ROOT or file_sha(p) != digest:
             raise ValueError('RUNTIME_FILE')
+    # Before fixture access, require the reviewed lock and both local OCI closures.
+    from image_admission import bind_runtime_lock, check_preloaded
+    image_lock = json.loads((ROOT / 'image-lock.json').read_bytes())
+    bind_runtime_lock(image_lock, lock, a)
+    check_preloaded(image_lock, a)
     expires = __import__('datetime').datetime.fromisoformat(a['expiresAt'].replace('Z', '+00:00')).timestamp()
     if time.time() >= expires or expires - boot['started'] > 12 * 3600:
         raise ValueError('EXPIRED_OR_OVER_BUDGET')
@@ -242,7 +250,17 @@ def run():
         inputs.chmod(0o555)
         for d in (output, verify):
             os.chown(d, 65534, 65534)
-        sandbox(a['runnerImage'], 'produce', [(work / 'fixture', '/fixture', 'ro'), (inputs, '/admission', 'ro'), (output, '/output', 'rw')],
+        # Producer/candidate processes receive data commitments only. The full
+        # control admission, identity, signature and object coordinates are never
+        # mounted in their filesystem; only the independent verifier gets them.
+        run_spec = work / 'run-spec'
+        run_spec.mkdir(mode=0o755)
+        projection = {k: a[k] for k in ('candidateSha', 'oracleSha', 'policySha256',
+                      'scheduleSha256', 'inventorySha256', 'expectedChecks')}
+        (run_spec / 'inputs.json').write_bytes(encoded(projection))
+        (run_spec / 'inputs.json').chmod(0o444)
+        run_spec.chmod(0o555)
+        sandbox(a['runnerImage'], 'produce', [(work / 'fixture', '/fixture', 'ro'), (run_spec, '/run-spec', 'ro'), (output, '/output', 'rw')],
                 work / 'producer.log', max(1, int(expires - time.time() - 300)))
         # Trusted root repackages only regular output; candidate-created links,
         # devices and duplicate paths cannot select host files for publication.
@@ -263,6 +281,9 @@ def run():
         if receipt_path.is_symlink() or receipt_path.stat().st_size > 8192:
             raise ValueError('UNSAFE_RECEIPT')
         receipt = validate_receipt(json.loads(receipt_path.read_bytes()), a, evidence_sha)
+        controls_path = verify / 'negative-controls.json'
+        if controls_path.is_symlink() or controls_path.stat().st_size > 8192 or file_sha(controls_path) != receipt['negativeControlsSha256']:
+            raise ValueError('NEGATIVE_CONTROLS_BINDING')
         prefix, manifest = upload_chunks(s3, archive, boot, instance_arn)
         manifest['gateReceipt'] = receipt
         # Manifest LAST. Private verifier re-downloads each version and re-runs

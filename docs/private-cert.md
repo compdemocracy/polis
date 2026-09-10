@@ -7,10 +7,12 @@ function. **It does not launch an instance or stage private data during deploy.*
 Only a scoped operator invocation launches the one admitted instance. There is
 no GitHub/OIDC role, SSM access, SSH key, public IP, NAT or production connection.
 
-This is infrastructure and the trusted execution/collection boundary, not a new
-mathematical certification gate. The admitted producer and independent verifier
-images must implement the ABI below using the reviewed current certify/strict
-gate interfaces. An arbitrary image that prints PASS is not admissible. No private
+The trusted execution/collection boundary uses the step-2 paired-recording gate
+(certify + G12, absolute 1e-6, relative 1e-4, zero outliers), per the orchestrator
+ruling in BOARD [677]. Stage comparisons are diagnostic only; recovery and
+consumption inference belong to the separate shadow-run diagnostic. The
+[image implementation and admission](../ci/private_cert/images/README.md) defines
+the producer, independent verifier, offline dependency closure and digest pins. An arbitrary image that prints PASS is not admissible. No private
 certificate, ARM boot, capacity fit, IAM simulation or cloud canary is established
 by the local unit tests and synth comparison.
 
@@ -44,9 +46,10 @@ security group, instance type and tag. A tag by itself never authorizes cleanup.
 Use the existing private ARM64 image-builder process. `ci/private_cert/bake.sh`
 performs offline installation/hardening only; it does not build an AMI or download
 packages. Preinstall and independently pin Linux/systemd, Python 3.12, boto3,
-cryptography, podman, nftables, ebsnvme-id, and all engine/JVM/BLAS/local-Postgres
-runtime dependencies in the OCI images. Preload the OCI images and verify their
-manifest digests. Verify the base image's root mapping is `/dev/xvda` and its root
+cryptography, podman, nftables and ebsnvme-id on the host. Put the pinned
+engine/JVM/BLAS dependency closure in the OCI images; paired replay needs no
+Postgres service. Preload the OCI images and verify their manifest digests against the reviewed
+`image-lock.json`; pass its path to the bake as `PRIVATE_CERT_IMAGE_LOCK`. Verify the base image's root mapping is `/dev/xvda` and its root
 filesystem accommodates those dependencies in 32 GiB. No credentials or fixture
 bytes belong in the AMI or image-builder snapshots.
 
@@ -57,7 +60,10 @@ Run the bake script as root only on that disposable builder. It installs the
 supervisor/service, masks cloud-init/SSM/SSH/serial login/swap, disables cores,
 installs the DNS/IMDS firewall and outputs the actual supervisor/runtime digests.
 Save those digests in the private admission. The runtime lock hashes the installed
-bootstrap, control module, DNS forwarder, start script and firewall. The AMI itself
+bootstrap, control module, DNS forwarder, start script, firewall,
+`image_admission.py` and canonical `image-lock.json`. Before fetching fixtures the
+supervisor checks preloaded manifest/config digests, platform and execution
+configuration against this signed runtime binding. The AMI itself
 binds all other installed bytes; admit its provenance before signing.
 
 The supervisor cannot have a final AMI ID baked into itself: that ID does not
@@ -181,27 +187,32 @@ private run record until disposal is verified.
 
 ## Admitted image ABI and independent publication
 
-The producer image entrypoint accepts the literal `produce`, with `/fixture`
-read-only, `/admission/admission.json` read-only, and `/output` writable. It owns a
-fresh local Postgres and sequential engine processes inside the disconnected
-container. It must validate the manifest/census and schedule **contents**, use the
-current strict certify driver/admission APIs, run every admitted entry/checkpoint,
-polarity/approved-difference checks and declared recovery/consumption gates, and
-emit complete raw evidence, producer exits and peak-memory/disk/OOM evidence.
-`delphi/scripts/certify.py run --strict --workers 1` is the current battery CLI;
-its success alone does not substitute for the other private admission obligations.
-Do not use `--only`, permissive mode, reused recordings, shortened schedules or a
-hand-built inventory as a private certificate. The driver must not expose its
-trusted verifier/control inputs to untrusted candidate subprocesses.
+The producer accepts `produce`, with `/fixture` read-only, only the six data
+commitments in `/run-spec/inputs.json` read-only, and `/output` writable. It has no
+admission/control mount, credentials, object keys, signatures, host sockets or
+verifier output. It validates the original bundle manifest/configuration and the
+complete planned scope, resolves lossless private event inputs, and runs the two
+engines serially from a fresh directory. It retains every raw checkpoint, engine
+exit and child peak RSS/output byte count. Nonzero exits or missing evidence are
+INCOMPLETE. An OOM that kills the collector is retained by the supervisor's
+failure path; capacity still needs measurement on the admitted host.
 
-The separately admitted verifier image accepts `verify`, with the complete
-`/evidence` read-only, `/admission` read-only (including `evidence-sha256`), and
-`/verdict` writable. It recomputes the gate from complete evidence and writes one
-bounded `receipt.json` with the exact `polis-private-gate/1` schema enforced by
-`validate_receipt`. This schema has fixed reason enums, count and digest bindings;
-it cannot independently prove the mathematics. The verifier implementation and
-its negative controls are part of the admitted runtime review, not a candidate's
-self-assertion. Missing images/receipts/checkpoints cannot yield a public PASS.
+The verifier is built separately from independently reviewed source, and pinned
+by its own OCI manifest digest. It accepts `verify`, with `/evidence` read-only,
+`/admission` read-only (including `evidence-sha256`), and `/verdict` writable. It
+independently admits the bundle, derives schedules/checkpoints and file inventory,
+validates both raw schemas, and runs certify + G12. Stage comparisons cannot
+change the verdict. The bounded `receipt.json` uses `polis-private-gate/2`, with
+fixed reasons, count and admission/evidence/inventory/schedule/policy digests plus
+`negativeControlsSha256`. The corresponding `negative-controls.json` contains the
+17 G12 controls and four checkpoint schema/inventory controls. The supervisor
+checks that artifact's actual bytes against the receipt. Missing checkpoints,
+short entry inventories or failed controls cannot yield PASS.
+
+Image release admission additionally requires the reviewed source closure and
+synthetic wrapper/isolation controls described in the image README. Labels and
+a successful build cannot establish correctness or reviewer independence. A
+paired-recording PASS does not confer writer transfer or close shadow diagnostics.
 
 The supervisor uploads bounded create-only 16-MiB chunks, records exact VersionIds
 and SHA256s, and uploads the private manifest last. Failure envelopes/log chunks
@@ -212,7 +223,10 @@ The private reviewer retrieves the exact manifest key/version from its private r
 record. It runs `ci/private_cert/verify.py` on an isolated private Linux verifier
 host with the admitted verifier image preloaded, passing `--admission`,
 `--trusted-public-key` (file containing the independently admitted hex key),
-`--manifest-key`, `--manifest-version`, a fresh `--private-workspace`, and `--summary`.
+`--manifest-key`, `--manifest-version`, the reviewed `--image-lock` and
+`--runtime-lock`, a fresh `--private-workspace`, and `--summary`. The CLI binds the
+image lock to the signed runtime digest and inspects the preloaded verifier
+before it downloads evidence.
 This downloads and hashes every exact chunk version, safely extracts the complete
 evidence, **reruns** the independent gate, requires agreement with the bound private
 receipt, and reads the matching immutable CLEAN record before writing any summary.
