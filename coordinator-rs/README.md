@@ -181,16 +181,19 @@ The stage checklist names these explicitly (`evidence/test-summary.json`,
   `evidence/s2-production-reader.json` records that scoped proof. Required
   pinned-module CI/exact case-set/zero-skip enforcement and combined S5
   full-app/private campaigns remain open. This is no full-contract certificate.
-- **S1 revalidation did not reproduce the historical pass.** The fresh run on
-  `087c51fb4` executed the same151 cases:150 passed,1 failed,0 skipped. The empty
-  Node harness still calls raw `getPca` and expects comment defaults that #2709
-  moved to `presentPca`. Both Rust profiles pass31 tests and all25 fault stages
-  were reached. The recorder refuses the failed suite; the32 moved Delphi pins
-  and2 later test/audit pins remain unchanged. Two S2 test pins also moved in the
-  CI repair, so the current audit refuses both partial records:8 open/0 closed/
-  0 partial. `evidence/s1-revalidation.json` records the failure and per-file PR
-  attribution. A reviewed response-boundary harness correction and a fresh full
-  campaign precede repinning; the accepted historical S2 replay is not rerun here.
+- **S1/S2 revalidated after the response-boundary harness repair.** On
+  `97a6cca5a` plus the recorded harness/metadata edits, the same151 cases pass
+  with zero failures/skips; both Rust profiles pass31 tests and all25 fault
+  stages have fresh witnesses. `getPca` remains raw; `presentPca` supplies the
+  served comment defaults. Both bypassing presentation and mutating the raw row
+  are rejected by the repaired test. Three replay checkpoints and all polarity
+  controls reproduce; the populated D4 compared bytes remain unchanged.
+  `evidence/s1s2-repin.json` attributes all32 moved Delphi sources to merged PRs,
+  inventories9 additional Python files, and identifies the local harness repairs.
+  The two S2 test pins are reconciled separately with37 passing tests; the
+  historical public replay is preserved, not rerun. Current accounting is8 open,
+  0 closed,2 partial (O1/O8); the full gate still fails. The earlier150/1 run
+  remains in `evidence/s1-revalidation.json` as historical evidence.
 - **A real server-side quirk, fixed upstream not here:** Node's `getPca(zid,
   undefined)` once missed a freshly-committed generation zero on a cold cache
   while the HTTP route served it correctly. #2732 (merged to edge, in this
@@ -272,8 +275,9 @@ python delphi/tests/coordinator/audit_stages.py
 ```
 
 The fresh revalidation audit exits1 (`full_contract_gate: FAIL`,25/25 stages
-reached). The failed Python case and stale S1/S2 source pins remain explicit;
-stage reachability alone does not restore either partial record.
+reached). S1/S2 source pins now verify after the complete successful campaign;
+O8 and O1 are PARTIAL, with their remaining obligations explicit. Stage
+reachability alone does not close any condition.
 
 ## Where the evidence lives
 

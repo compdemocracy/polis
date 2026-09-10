@@ -7,6 +7,9 @@
     "keys_projection_sha256",
     "tids",
     "n",
+    "n_cmts",
+    "pca_center",
+    "comment_extremity",
     "repness_keys",
     "consensus_shape",
     "mapping_sha256",
@@ -16,7 +19,7 @@
   ],
   "differences": {},
   "math_tick": 1,
-  "profile": "real server/src/utils/pca.ts + participants.ts, in-process, one Node process",
+  "profile": "real getPca + presentPca + participants.ts, in-process, one Node process",
   "served": {
     "python": {
       "asJSON_bytes": 6467,
@@ -37,6 +40,12 @@
           3
         ]
       ],
+      "comment_extremity": [
+        1.4280971859724134,
+        1.6329931618554518,
+        1.4467439646937967,
+        1.44674396469377
+      ],
       "consensus_shape": {
         "agree": 0,
         "disagree": 0
@@ -48,6 +57,13 @@
       "mapping_is_error": false,
       "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
       "n": 6,
+      "n_cmts": 4,
+      "pca_center": [
+        0.3333333333333333,
+        0,
+        0,
+        0
+      ],
       "pids_for_gid": {
         "0": [
           0,
@@ -90,6 +106,12 @@
           3
         ]
       ],
+      "comment_extremity": [
+        1.4280971859724134,
+        1.6329931618554518,
+        1.4467439646937967,
+        1.44674396469377
+      ],
       "consensus_shape": {
         "agree": 0,
         "disagree": 0
@@ -101,6 +123,13 @@
       "mapping_is_error": false,
       "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
       "n": 6,
+      "n_cmts": 4,
+      "pca_center": [
+        0.3333333333333333,
+        0,
+        0,
+        0
+      ],
       "pids_for_gid": {
         "0": [
           0,

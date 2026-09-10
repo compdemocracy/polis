@@ -19,8 +19,8 @@
             "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
             "zid": 1
           },
-          "operation_id": "f4940eb0ec864795a8a06ea516b7dcdb",
-          "pid": 34139,
+          "operation_id": "47ee67ada32a4ef3a3652377d5ce347d",
+          "pid": 48670,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_source_selection",
@@ -30,7 +30,7 @@
         "exit": -9,
         "restart": "passed",
         "manual_lease_expiry": false,
-        "repaired_epoch": 2,
+        "repaired_epoch": 3,
         "math_tick": 0,
         "postcondition": "coherent; independent fold exact; dead owner's lease never expired by the harness"
       }
@@ -48,8 +48,8 @@
             "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
             "zid": 1
           },
-          "operation_id": "f83e80dffcbe47c2ac542357c26a472f",
-          "pid": 34159,
+          "operation_id": "068643883a4f48aa892f2397b94f1e76",
+          "pid": 48684,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_input_checkpoint",
@@ -73,12 +73,12 @@
           "context": {
             "fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
             "math_env": "rustproto",
-            "operation_id": "52d8675e-9473-493e-933f-6cca1bf0f723",
-            "worker_pid": 34896,
+            "operation_id": "5645c08a-074b-4856-bddd-dc73208d0eb2",
+            "worker_pid": 48878,
             "zid": 1
           },
-          "operation_id": "186dfef17417417f8d053599a51a2f53",
-          "pid": 34895,
+          "operation_id": "3b245997a4534602a442e5b21d511bd4",
+          "pid": 48844,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_worker_apply",
@@ -102,12 +102,12 @@
           "context": {
             "fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
             "math_env": "rustproto",
-            "operation_id": "97f82ae8-cd3c-4caa-be05-8b047f458fdf",
-            "worker_pid": 34927,
+            "operation_id": "5290f251-78a8-4676-ba6b-1aa9727ac5a5",
+            "worker_pid": 49011,
             "zid": 1
           },
-          "operation_id": "df7a3694ac8946e88e6fbff15e96ae70",
-          "pid": 34926,
+          "operation_id": "07e922462384414daf31348a7fd5ec9a",
+          "pid": 49010,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_worker_compute",
@@ -133,8 +133,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "1517d2f1a5f64849ab5ad90e07e64952",
-          "pid": 34118,
+          "operation_id": "5b799c5652484f89bfc737af2eb82592",
+          "pid": 48635,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_lease",
@@ -156,13 +156,13 @@
         "stage": "before_ticks",
         "ack": {
           "context": {
-            "backend_pid": 2095,
+            "backend_pid": 2122,
             "checkpoint": {
               "admission": {
                 "candidate_schema": "polis-candidate-input/1",
                 "engine_version": "python-conversation/p026-s1",
                 "input_digest": "2820016178151e192b3275ea16b7a11ba5b23aa03df2c30e7962500695a1d2e6",
-                "operation_id": "114f53de-17ac-4483-a4e8-7d6245109c10",
+                "operation_id": "d761ce9c-a5cb-4851-93df-a1d57e831217",
                 "schedule_digest": "b17a696486862dd98cace0d095db54aebfe1c7953ebb97cf0c274e548c93fd24"
               },
               "cursors": {
@@ -177,7 +177,7 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
-              "operation_id": "114f53de-17ac-4483-a4e8-7d6245109c10",
+              "operation_id": "d761ce9c-a5cb-4851-93df-a1d57e831217",
               "ordering": {
                 "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
                 "equal_time_census": {
@@ -230,12 +230,12 @@
               },
               "original_digests": {
                 "bidtopid": "686510fe4d2b41c10c6741bc311eddd0d6d1cfe9deb64c9b917bf7f654079d62",
-                "main": "784abf2395cfd6a2e13cc5bf6d7c7a5df5798194e27b08528b5d23f1980109bf",
+                "main": "2f2125b91e1d08cf50beb4473f3aad1c5db7d4fdd20bc3e9c28b14e8985347bf",
                 "ptptstats": "a1408b463176888e8dd41fb1c107f7333db9b7df9073d4438a9c7a102625aa5f"
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "006b331cdc49798f9cd7a646776312d22d88807d9688b710c4d63cba281d2d37",
+                "main": "8f90147616ecad91789ef1e1dd720fa0d4e7250e57305831640eab7a8d5aa083",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -248,8 +248,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "fde43dcf51f54ff1957e1cc8fcbb94b9",
-          "pid": 34970,
+          "operation_id": "564a6a0e584a419a84a246e08cd5671a",
+          "pid": 49038,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_ticks",
@@ -271,13 +271,13 @@
         "stage": "after_ticks",
         "ack": {
           "context": {
-            "backend_pid": 2209,
+            "backend_pid": 2241,
             "checkpoint": {
               "admission": {
                 "candidate_schema": "polis-candidate-input/1",
                 "engine_version": "python-conversation/p026-s1",
                 "input_digest": "2820016178151e192b3275ea16b7a11ba5b23aa03df2c30e7962500695a1d2e6",
-                "operation_id": "99e5b691-b753-4fd6-bd38-2c3b95fc97d9",
+                "operation_id": "28677482-5392-4305-a64e-b8d059384ef9",
                 "schedule_digest": "b17a696486862dd98cace0d095db54aebfe1c7953ebb97cf0c274e548c93fd24"
               },
               "cursors": {
@@ -292,7 +292,7 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
-              "operation_id": "99e5b691-b753-4fd6-bd38-2c3b95fc97d9",
+              "operation_id": "28677482-5392-4305-a64e-b8d059384ef9",
               "ordering": {
                 "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
                 "equal_time_census": {
@@ -345,12 +345,12 @@
               },
               "original_digests": {
                 "bidtopid": "686510fe4d2b41c10c6741bc311eddd0d6d1cfe9deb64c9b917bf7f654079d62",
-                "main": "df2aedf683f27dac6f7e92b0f5e95a9b70f2d92799801cd5992d4f9deeccfeaf",
+                "main": "b165bbe5111b9e48b39e430e40a091cfe591949a7241920918cfd8616333e88e",
                 "ptptstats": "a1408b463176888e8dd41fb1c107f7333db9b7df9073d4438a9c7a102625aa5f"
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "7bc7e6e3eaaf09343107db0a6d1591dc74a0d4e9ac7736df6f7ccb5828c78d43",
+                "main": "b5e4b211967dcd295a332f29a0ca19ba1d3b4fb32ce5b6ad7f4b7a9cff8f6893",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -363,8 +363,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "cfb528425d0c4133b148b02f3d260149",
-          "pid": 34991,
+          "operation_id": "7dadca8c27c74a79bde7878f3b6a1645",
+          "pid": 49311,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_ticks",
@@ -386,13 +386,13 @@
         "stage": "before_bidtopid",
         "ack": {
           "context": {
-            "backend_pid": 2325,
+            "backend_pid": 2355,
             "checkpoint": {
               "admission": {
                 "candidate_schema": "polis-candidate-input/1",
                 "engine_version": "python-conversation/p026-s1",
                 "input_digest": "2820016178151e192b3275ea16b7a11ba5b23aa03df2c30e7962500695a1d2e6",
-                "operation_id": "2647ec1e-4616-4c7f-896c-5f05aca8111d",
+                "operation_id": "dbf4da61-bfee-47f2-a7ba-d0cee143692e",
                 "schedule_digest": "b17a696486862dd98cace0d095db54aebfe1c7953ebb97cf0c274e548c93fd24"
               },
               "cursors": {
@@ -407,7 +407,7 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
-              "operation_id": "2647ec1e-4616-4c7f-896c-5f05aca8111d",
+              "operation_id": "dbf4da61-bfee-47f2-a7ba-d0cee143692e",
               "ordering": {
                 "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
                 "equal_time_census": {
@@ -460,12 +460,12 @@
               },
               "original_digests": {
                 "bidtopid": "686510fe4d2b41c10c6741bc311eddd0d6d1cfe9deb64c9b917bf7f654079d62",
-                "main": "d60c83fcc0682cf40a3f65918e2e0085716a43d97ea23f87e35a853016c111c5",
+                "main": "50e5c29e08d565f0b8d43cb619b937f5fbe63d2362bf7e489bde83252fa3bd7f",
                 "ptptstats": "a1408b463176888e8dd41fb1c107f7333db9b7df9073d4438a9c7a102625aa5f"
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "d23a86969ec949db48839e62925bd32eeadef7a2bd0fb826100bf80d80df4fe1",
+                "main": "a7a7d8960dd31a386b90c53585300be99311f65d82ed7de48375b0778bda8c4c",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -478,8 +478,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "09e0b73f7e334a26aabca8505b95864e",
-          "pid": 35713,
+          "operation_id": "7a6c842da86841849113ca4b73315607",
+          "pid": 49347,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_bidtopid",
@@ -501,13 +501,13 @@
         "stage": "after_bidtopid",
         "ack": {
           "context": {
-            "backend_pid": 2441,
+            "backend_pid": 2470,
             "checkpoint": {
               "admission": {
                 "candidate_schema": "polis-candidate-input/1",
                 "engine_version": "python-conversation/p026-s1",
                 "input_digest": "2820016178151e192b3275ea16b7a11ba5b23aa03df2c30e7962500695a1d2e6",
-                "operation_id": "efa4c18d-b211-4df3-bde6-47bba669b839",
+                "operation_id": "c253855b-3d06-4649-abcb-378d2fbd1760",
                 "schedule_digest": "b17a696486862dd98cace0d095db54aebfe1c7953ebb97cf0c274e548c93fd24"
               },
               "cursors": {
@@ -522,7 +522,7 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
-              "operation_id": "efa4c18d-b211-4df3-bde6-47bba669b839",
+              "operation_id": "c253855b-3d06-4649-abcb-378d2fbd1760",
               "ordering": {
                 "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
                 "equal_time_census": {
@@ -575,12 +575,12 @@
               },
               "original_digests": {
                 "bidtopid": "686510fe4d2b41c10c6741bc311eddd0d6d1cfe9deb64c9b917bf7f654079d62",
-                "main": "0ca957da15562205e1192552335cc77c3d6aee8c94930af3fe4e754f7aa0c3b1",
+                "main": "d727115ee13c9da2e1413092f600a313e5cfc6a17f6b9be18ad3818a10dd82cd",
                 "ptptstats": "a1408b463176888e8dd41fb1c107f7333db9b7df9073d4438a9c7a102625aa5f"
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "0e4471bdd31b5ff9611b94f241f360ec205a04b7a2f65cc71b3d8ac613e90658",
+                "main": "b1cbca6316be46643cf39d7ae45ef9f6ba2b68d9e3ae73457489547d1f841bb6",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -593,8 +593,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "ddbeab7a1df64edeae85803a7a47557a",
-          "pid": 35758,
+          "operation_id": "fb5ca3e1d93545af8ff970410c4b63f2",
+          "pid": 49409,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_bidtopid",
@@ -616,13 +616,13 @@
         "stage": "before_ptptstats",
         "ack": {
           "context": {
-            "backend_pid": 2557,
+            "backend_pid": 2583,
             "checkpoint": {
               "admission": {
                 "candidate_schema": "polis-candidate-input/1",
                 "engine_version": "python-conversation/p026-s1",
                 "input_digest": "2820016178151e192b3275ea16b7a11ba5b23aa03df2c30e7962500695a1d2e6",
-                "operation_id": "68904a9a-9476-4c18-8a30-26021c3c548c",
+                "operation_id": "b5063974-3725-4b69-b616-2ad1fc94ab46",
                 "schedule_digest": "b17a696486862dd98cace0d095db54aebfe1c7953ebb97cf0c274e548c93fd24"
               },
               "cursors": {
@@ -637,7 +637,7 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
-              "operation_id": "68904a9a-9476-4c18-8a30-26021c3c548c",
+              "operation_id": "b5063974-3725-4b69-b616-2ad1fc94ab46",
               "ordering": {
                 "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
                 "equal_time_census": {
@@ -690,12 +690,12 @@
               },
               "original_digests": {
                 "bidtopid": "686510fe4d2b41c10c6741bc311eddd0d6d1cfe9deb64c9b917bf7f654079d62",
-                "main": "dfec83211691db91d7e5f4105692375f63cf687c47a9d9eb69adf42355a394c4",
+                "main": "71eb68ec2fa436321538e181a062c3ab606e5bdcb2dad77becaa6f40fa76883a",
                 "ptptstats": "a1408b463176888e8dd41fb1c107f7333db9b7df9073d4438a9c7a102625aa5f"
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "a89a6fb2b9f2bb89a4775bdbb8a855501ce91e72062946f92d0ff603b967bb3c",
+                "main": "b4827e01e07c71dc4269013f3b29420bd28750a320169fa8786096ef85444aa4",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -708,8 +708,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "39ec38d27788459b895ecbf378c9b083",
-          "pid": 35791,
+          "operation_id": "d9342aef222e44799ad8da6df9356c8e",
+          "pid": 49663,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_ptptstats",
@@ -731,13 +731,13 @@
         "stage": "after_ptptstats",
         "ack": {
           "context": {
-            "backend_pid": 2673,
+            "backend_pid": 2704,
             "checkpoint": {
               "admission": {
                 "candidate_schema": "polis-candidate-input/1",
                 "engine_version": "python-conversation/p026-s1",
                 "input_digest": "2820016178151e192b3275ea16b7a11ba5b23aa03df2c30e7962500695a1d2e6",
-                "operation_id": "c2f90677-99b7-4254-85f5-f74523e3f923",
+                "operation_id": "c9f78028-e826-42bc-9a9d-bca447f012b1",
                 "schedule_digest": "b17a696486862dd98cace0d095db54aebfe1c7953ebb97cf0c274e548c93fd24"
               },
               "cursors": {
@@ -752,7 +752,7 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
-              "operation_id": "c2f90677-99b7-4254-85f5-f74523e3f923",
+              "operation_id": "c9f78028-e826-42bc-9a9d-bca447f012b1",
               "ordering": {
                 "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
                 "equal_time_census": {
@@ -805,12 +805,12 @@
               },
               "original_digests": {
                 "bidtopid": "686510fe4d2b41c10c6741bc311eddd0d6d1cfe9deb64c9b917bf7f654079d62",
-                "main": "c1f1f4baeb4dcf9aada4ac80ee59aaccb9d94c571ef593280adf99afd65dca36",
+                "main": "2961167d3c88d71b1812f1dc9e833deae55514507c6ed6a4019f8dad22f98358",
                 "ptptstats": "a1408b463176888e8dd41fb1c107f7333db9b7df9073d4438a9c7a102625aa5f"
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "0548480ed8e70b6498d0f57881b42d9f9c15550ffdd9dd07ea4f4875ea885852",
+                "main": "c5f4e71c26ca5452c16c79e5cfa1517737b349ab9c974dd4f45520fe7370125d",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -823,8 +823,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "c5850785413e47be8fc4edf9e10da5bc",
-          "pid": 35832,
+          "operation_id": "d59b32af0d4a466286456a03d0aca35f",
+          "pid": 49685,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_ptptstats",
@@ -846,13 +846,13 @@
         "stage": "before_main",
         "ack": {
           "context": {
-            "backend_pid": 2790,
+            "backend_pid": 2817,
             "checkpoint": {
               "admission": {
                 "candidate_schema": "polis-candidate-input/1",
                 "engine_version": "python-conversation/p026-s1",
                 "input_digest": "2820016178151e192b3275ea16b7a11ba5b23aa03df2c30e7962500695a1d2e6",
-                "operation_id": "ca0ef67f-8e5a-46ba-9347-f35cf5f29e5a",
+                "operation_id": "2e8b47cf-7773-42b0-946a-558a4db2b2cc",
                 "schedule_digest": "b17a696486862dd98cace0d095db54aebfe1c7953ebb97cf0c274e548c93fd24"
               },
               "cursors": {
@@ -867,7 +867,7 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
-              "operation_id": "ca0ef67f-8e5a-46ba-9347-f35cf5f29e5a",
+              "operation_id": "2e8b47cf-7773-42b0-946a-558a4db2b2cc",
               "ordering": {
                 "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
                 "equal_time_census": {
@@ -920,12 +920,12 @@
               },
               "original_digests": {
                 "bidtopid": "686510fe4d2b41c10c6741bc311eddd0d6d1cfe9deb64c9b917bf7f654079d62",
-                "main": "0a3c6f27ba7fe961b7961626112f078c2e4701198c053956865fb2e811211290",
+                "main": "9d0d99b58c4331cd43645ac343f50893940f978069037c8bb6ebfcb384584cf7",
                 "ptptstats": "a1408b463176888e8dd41fb1c107f7333db9b7df9073d4438a9c7a102625aa5f"
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "a9194be92d835cff77a99c418b45d5b90b325088243f8f7a3aa5ba855ecc5ed9",
+                "main": "793e7636e9135387840357b00525ec5054785aa859cdc7a2c88457d271995544",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -938,8 +938,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "a4543833d1994482a62e79ef25d7e43d",
-          "pid": 35874,
+          "operation_id": "9a251ab250ea430e82a7e994c9232f4d",
+          "pid": 49738,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_main",
@@ -961,13 +961,13 @@
         "stage": "after_main",
         "ack": {
           "context": {
-            "backend_pid": 2914,
+            "backend_pid": 2933,
             "checkpoint": {
               "admission": {
                 "candidate_schema": "polis-candidate-input/1",
                 "engine_version": "python-conversation/p026-s1",
                 "input_digest": "2820016178151e192b3275ea16b7a11ba5b23aa03df2c30e7962500695a1d2e6",
-                "operation_id": "22f24354-aef4-40ea-91c6-3a59fb1a5d2e",
+                "operation_id": "150729fb-07f7-4971-b64d-1137574f8896",
                 "schedule_digest": "b17a696486862dd98cace0d095db54aebfe1c7953ebb97cf0c274e548c93fd24"
               },
               "cursors": {
@@ -982,7 +982,7 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
-              "operation_id": "22f24354-aef4-40ea-91c6-3a59fb1a5d2e",
+              "operation_id": "150729fb-07f7-4971-b64d-1137574f8896",
               "ordering": {
                 "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
                 "equal_time_census": {
@@ -1035,12 +1035,12 @@
               },
               "original_digests": {
                 "bidtopid": "686510fe4d2b41c10c6741bc311eddd0d6d1cfe9deb64c9b917bf7f654079d62",
-                "main": "2ff333a0452ddc1b7b902ce5f23ee6003f237bc1f267ba6f199c1639f8539bec",
+                "main": "4772e41c75f2bb0e171e9069c0191b34667d696dd25581a575715b0909ed0009",
                 "ptptstats": "a1408b463176888e8dd41fb1c107f7333db9b7df9073d4438a9c7a102625aa5f"
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "f5fbed54c6efe1103367092b7997d9f158b56de5b93366c15d1cd889b7d258b8",
+                "main": "0be2a4b3c66e55b9a4d073b7ba92de9fdb91454be40513843006d6799e16a212",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -1053,8 +1053,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "7e923658354d40918ea75967e11cb54b",
-          "pid": 35934,
+          "operation_id": "d97dd7e0b7ff42a79a16b9fc93ed32b1",
+          "pid": 50020,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_main",
@@ -1076,13 +1076,13 @@
         "stage": "before_commit",
         "ack": {
           "context": {
-            "backend_pid": 3030,
+            "backend_pid": 3047,
             "checkpoint": {
               "admission": {
                 "candidate_schema": "polis-candidate-input/1",
                 "engine_version": "python-conversation/p026-s1",
                 "input_digest": "2820016178151e192b3275ea16b7a11ba5b23aa03df2c30e7962500695a1d2e6",
-                "operation_id": "105fdb73-d472-47c5-b772-362f1c077c0e",
+                "operation_id": "bb1e0dc4-339e-420d-9c20-85757ee486bc",
                 "schedule_digest": "b17a696486862dd98cace0d095db54aebfe1c7953ebb97cf0c274e548c93fd24"
               },
               "cursors": {
@@ -1097,7 +1097,7 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
-              "operation_id": "105fdb73-d472-47c5-b772-362f1c077c0e",
+              "operation_id": "bb1e0dc4-339e-420d-9c20-85757ee486bc",
               "ordering": {
                 "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
                 "equal_time_census": {
@@ -1150,12 +1150,12 @@
               },
               "original_digests": {
                 "bidtopid": "686510fe4d2b41c10c6741bc311eddd0d6d1cfe9deb64c9b917bf7f654079d62",
-                "main": "3dfc53c4c779496ee820718d71cd7cbf408d5ce3db3fe3478b93b34b31f828ff",
+                "main": "7f071ae04d3a758f39594b070ba4d152ddcbc41316d888edb379aa2385cdd38b",
                 "ptptstats": "a1408b463176888e8dd41fb1c107f7333db9b7df9073d4438a9c7a102625aa5f"
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "1cc1deea5ebb0ee293b82e6ef0aa6d0d4a49ea1617b4e268deaf7bde4b723101",
+                "main": "3130b649ce1707896b1c02cdc1aa78bc5c5eec6ea4dd332da72dd84ef5690682",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -1168,8 +1168,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "d4d69690da8a42a7897aad67ce40725b",
-          "pid": 36227,
+          "operation_id": "90689b74a6134d2281abb489484c78fd",
+          "pid": 50076,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_commit",
@@ -1191,13 +1191,13 @@
         "stage": "after_commit",
         "ack": {
           "context": {
-            "backend_pid": 3148,
+            "backend_pid": 3160,
             "checkpoint": {
               "admission": {
                 "candidate_schema": "polis-candidate-input/1",
                 "engine_version": "python-conversation/p026-s1",
                 "input_digest": "2820016178151e192b3275ea16b7a11ba5b23aa03df2c30e7962500695a1d2e6",
-                "operation_id": "a015a155-f214-42b2-badd-778e8907feb3",
+                "operation_id": "faf063de-dd31-4bb6-a251-2f64f458f4c3",
                 "schedule_digest": "b17a696486862dd98cace0d095db54aebfe1c7953ebb97cf0c274e548c93fd24"
               },
               "cursors": {
@@ -1212,7 +1212,7 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
-              "operation_id": "a015a155-f214-42b2-badd-778e8907feb3",
+              "operation_id": "faf063de-dd31-4bb6-a251-2f64f458f4c3",
               "ordering": {
                 "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
                 "equal_time_census": {
@@ -1265,12 +1265,12 @@
               },
               "original_digests": {
                 "bidtopid": "686510fe4d2b41c10c6741bc311eddd0d6d1cfe9deb64c9b917bf7f654079d62",
-                "main": "004138eb2418edeb490a1b3af87407270c55e15e050fa5229247394782bb96e1",
+                "main": "8263a57c1ef99ae9f4596214083246254514957c3acd1733ad94bf2ce90a7ccf",
                 "ptptstats": "a1408b463176888e8dd41fb1c107f7333db9b7df9073d4438a9c7a102625aa5f"
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "174e4abeca313b6bbbc0cf34d993704ef367d746c6db6d783b70428bbe3757f4",
+                "main": "0a4c7d523fa238334f6ed4f8b4e2bda2aebecc702b71182fec82f6f16c073b13",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -1283,8 +1283,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "d88dafeac78d4ccab459fda868aca5d2",
-          "pid": 36255,
+          "operation_id": "57756180dca84647aff2025306ecb3cc",
+          "pid": 50098,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_commit",
@@ -1312,8 +1312,8 @@
             "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
             "zid": 1
           },
-          "operation_id": "8ad07f9c781842c9b3755f4fe18791ca",
-          "pid": 36291,
+          "operation_id": "15dbb803456046feb0d1e813cbc67d8c",
+          "pid": 50394,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_ack",
@@ -1337,12 +1337,12 @@
           "context": {
             "fingerprint": "c96dd4fdf8ca7b7b09176eae1abf6fd32adbacd0378b24cf46c9b250e0be32be",
             "math_env": "rustproto",
-            "operation_id": "19661e05-70ef-4b8f-9fc2-5ab5073d6c62",
-            "worker_pid": 36764,
+            "operation_id": "e75fb8d2-e19c-4cb3-b9d4-5cdd79608c52",
+            "worker_pid": 51551,
             "zid": 1
           },
-          "operation_id": "0c5b43bd4b1a4bf0af1b5d84b6eb5b54",
-          "pid": 36763,
+          "operation_id": "0bf799b610224f7994ce408a50367953",
+          "pid": 51550,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_restore",
@@ -1363,12 +1363,12 @@
           "context": {
             "fingerprint": "c96dd4fdf8ca7b7b09176eae1abf6fd32adbacd0378b24cf46c9b250e0be32be",
             "math_env": "rustproto",
-            "operation_id": "2ad8146f-fa60-4ac2-aeaf-1fa0680b98e8",
-            "worker_pid": 37037,
+            "operation_id": "6c3c943a-8423-4e09-a114-89d0414c8f39",
+            "worker_pid": 51582,
             "zid": 1
           },
-          "operation_id": "aa2c1b25d5074dc390d63b72dee2f0b1",
-          "pid": 37036,
+          "operation_id": "18d09fa5632f4a60adbd864ad90432ed",
+          "pid": 51581,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_restore",
@@ -1387,8 +1387,8 @@
         "stage": "before_cursor",
         "ack": {
           "context": {},
-          "operation_id": "070956c7863b4d95a33e9d231a19d303",
-          "pid": 37081,
+          "operation_id": "9fb6d1f7deff48e6981786e13d4f08f8",
+          "pid": 51618,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_cursor",
@@ -1412,8 +1412,8 @@
             "maximum": 1,
             "sweep": 0
           },
-          "operation_id": "71e5bfd07dfe4d6dbbef1198ab16b3cf",
-          "pid": 37092,
+          "operation_id": "3b861b1fd764423b880eb792f238dc58",
+          "pid": 51630,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_cursor",
@@ -1431,8 +1431,8 @@
         "stage": "before_sweep",
         "ack": {
           "context": {},
-          "operation_id": "ba09ddd0f26e42d89e766bac5e6300a3",
-          "pid": 37125,
+          "operation_id": "0f745bc556cb4120a6d88033b70963f1",
+          "pid": 51642,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_sweep",
@@ -1459,8 +1459,8 @@
               }
             ]
           },
-          "operation_id": "b0b5755a318c4eef978cfb9f52aba57b",
-          "pid": 37138,
+          "operation_id": "83e6896e44cd435e83830a3808bccc91",
+          "pid": 51669,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_sweep",
@@ -1481,8 +1481,8 @@
             "tick": 0,
             "zid": 1
           },
-          "operation_id": "a05bfc935fdb49479eb8a614e50b23c0",
-          "pid": 37145,
+          "operation_id": "cd94a798d0404d1c8631a2ba64e529f6",
+          "pid": 51682,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "bundle_pinned",
@@ -1502,8 +1502,8 @@
             "tick": 0,
             "zid": 1
           },
-          "operation_id": "9e601063d22d4bf2a34c17faa8fa4a3c",
-          "pid": 37164,
+          "operation_id": "eb68675f6b544284977ca80a40b1123f",
+          "pid": 51698,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_companion_join",
@@ -1525,8 +1525,8 @@
             "evicted_zid": 1,
             "inserted_zid": 2
           },
-          "operation_id": "8dfd2c6aaa89449687de22f4e674a9da",
-          "pid": 36465,
+          "operation_id": "7f7700425fc34f2e9c7c49415bb07cef",
+          "pid": 50847,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "cache_eviction_contends_with_same_zid_update",
@@ -1543,24 +1543,73 @@
     "CO08/D4: candidate coherent-read atomicity and the production reader local slice are recorded; BOARD[633] accepts the production implementation and public1265/0/2 replay. O1 remains partial: required pinned-module CI with exact case inventory/zero skips and the combined S5 build/corpus campaigns remain open",
     "CO08/D4: the combined immutable-build/full-app/auth/report/CSV campaign and private served corpus remain open; accepted public reader evidence does not complete S5",
     "CO08/D4 (server owner): the getPca(zid, undefined) cold generation-zero miss is fixed upstream by #2732 (merged to edge), so the cold call now finds generation zero and pca2 serves it with 200 / ETag \"0\" / conditional 304; the combined-build full-app coverage of generation zero across all callers is still outstanding",
-    "C7 / polis-empty-served/1: the Python comparison writer publishes no row for a zero-vote conversation, the server synthesizes the approved-comment listing with a request-clock lastVoteTimestamp, and a published empty generation lists no tids; the transition must preserve comment ownership; the comparison clock is admitted (plan rev2 C2: freeze the logical request clock, advance it, preserve the response dependency), and the empty-transition campaign that exercises it is still open",
+    "C7 / polis-empty-served/1: the Python comparison writer publishes no row for a zero-vote conversation, the server synthesizes the approved-comment listing with a request-clock lastVoteTimestamp; both raw rows retain empty tids while presentPca supplies approved comments for both; the transition must preserve comment ownership; the comparison clock is admitted (plan rev2 C2: freeze the logical request clock, advance it, preserve the response dependency), and the empty-transition campaign that exercises it is still open",
     "CO01: the incremental probe is a hint bounded by P026_RECONCILE_SECONDS, measured from before the source read; the interval makes a conversation eligible for reconciliation and is not a deadline, and no pass/service budget has been measured",
     "CO02/CO06: persisted payloads become eligible for revalidation once the ceiling elapses, not on every pass; resident-cache reconciliation is single-threaded and no multi-worker or warm-worker cache campaign exists",
     "P-031: this crate implements none of A01 PollHealthy, A02 PublishLagSeconds or A03 ObserverHealthy, has no deployed publisher and no delivery proof; the optional synchronous sink can still block when enabled",
     "O8 remains OPEN and is at most PARTIAL: polis-candidate-input/1 is claimed locally as a candidate profile, not a G01-G16 certificate. S1 records the distinct candidate schema id, strict adapter admission, original-byte digests with decoded correspondence, and the worker/engine pins; still outstanding are all applicable G01-G16 cases with their required negative controls, an immutable manifest, the distinction between fresh rebuild, exact resume and warm incremental output schedules, and a non-vacuous P-023 compensated pair with raw C9 validation"
   ],
   "condition_states": {
-    "O1": "OPEN",
+    "O1": "PARTIAL (S2 production reader locally proven; required CI and combined S5 open)",
     "O2": "OPEN",
     "O3": "OPEN",
     "O4": "OPEN",
     "O5": "OPEN",
     "O6": "OPEN",
     "O7": "OPEN",
-    "O8": "OPEN"
+    "O8": "PARTIAL (S1 identity/custody recorded; G01-G16 open)"
   },
   "closed_conditions": [],
-  "partial_conditions": [],
+  "partial_conditions": [
+    {
+      "id": "O8",
+      "state": "PARTIAL",
+      "standing_condition": "O8 remains OPEN and is at most PARTIAL: polis-candidate-input/1 is claimed locally as a candidate profile, not a G01-G16 certificate. S1 records the distinct candidate schema id, strict adapter admission, original-byte digests with decoded correspondence, and the worker/engine pins; still outstanding are all applicable G01-G16 cases with their required negative controls, an immutable manifest, the distinction between fresh rebuild, exact resume and warm incremental output schedules, and a non-vacuous P-023 compensated pair with raw C9 validation",
+      "evidence": "coordinator-rs/evidence/s1-closure.json",
+      "scope": "P-026 step-4 S1 candidate identity and original-byte custody",
+      "recorded": [
+        "distinct candidate schema id and strict adapter admission on both sides",
+        "original worker bytes and their digests stored atomically with the JSONB, with decoded original/JSONB correspondence checked on read",
+        "worker/engine identity re-verified at initialization and at snapshot",
+        "operation id and publisher epoch bound into the uncertain-COMMIT readback"
+      ],
+      "remaining_obligations": [
+        "all applicable G01-G16 cases and their required negative controls",
+        "an immutable manifest for the profile",
+        "fresh rebuild, exact resume and warm incremental output schedules distinguished",
+        "a non-vacuous P-023 compensated pair and raw C9 validation"
+      ],
+      "g01_g16_certified": false,
+      "run_pins_verified_here": false
+    },
+    {
+      "id": "O1",
+      "state": "PARTIAL",
+      "standing_condition": "CO08/D4: candidate coherent-read atomicity and the production reader local slice are recorded; BOARD[633] accepts the production implementation and public1265/0/2 replay. O1 remains partial: required pinned-module CI with exact case inventory/zero skips and the combined S5 build/corpus campaigns remain open",
+      "evidence": "coordinator-rs/evidence/s2-closure.json",
+      "scope": "P-026 step-4 S2 reader: candidate loadBundle whole-Bundle atomicity",
+      "recorded": [
+        "a candidate coherent-read loadBundle reads main + bidtopid + ptptstats + the math_ticks checkpoint in one REPEATABLE READ READ ONLY snapshot in the real Node runtime",
+        "under an interleaved publish the reader returns snapshot generation A exactly (all four row ticks equal, and A's exact per-group pids), not the B the interleave committed; a later read returns B exactly, and A and B are distinguishable",
+        "the returned per-group pids are compared against an independent Python re-derivation over the published blobs, so a reader that fabricates pids fails",
+        "a missing or tick-mismatched companion fails admission, a valid replacement is observed after republication, the reads are scoped by math_env, and a wrong-namespace companion does not leak in",
+        "the Node reader tests are a local failure guard (absent server modules fail rather than skip); the existing real-module getPca/getBidIndexToPidMapping byte-equality path is retained at 0 differences",
+        "Production joined loadBundle, bounded whole-Bundle LRU, namespace-scoped admission and caller propagation are implemented.",
+        "Featured-author main/mapping share one owned read; derived presentation cannot extend the source cache deadline; C7 presentation is retained.",
+        "The accepted public replay completed1265/0/2 with only complete-row permutations at r19/r20;24 direct checks verified full row bytes/multiplicity and own-body ETags.",
+        "Strict route census302/302: zero changed callback fingerprints. Reader changes are transitive helpers."
+      ],
+      "remaining_obligations": [
+        "Required CI must provision pinned server modules and enforce the exact HTTP/Bundle case inventory with zero skips.",
+        "S5: combined immutable-build/full-app/auth/report/CSV/interleaving campaign and owned private served corpus remain open; this public corpus does not prove every cross-handler publication race.",
+        "Full O1/CO04 admission and rollout remain conditional on writer fencing, coherent publication and the broader gates; this receipt closes only the assigned production-reader slice."
+      ],
+      "production_loadbundle_certified": false,
+      "production_reader_obligation_state": "CLOSED",
+      "production_reader_evidence": "coordinator-rs/evidence/s2-production-reader.json",
+      "run_pins_verified_here": false
+    }
+  ],
   "full_contract_gate": "FAIL",
   "profile": "Rust coordinator + Python worker + CLI Bundle reader, the real Node getPca/getBidIndexToPidMapping reader in-process, the real pca2 route over loopback HTTP, and a candidate coherent-read loadBundle atomicity witness in the D4 harness; production reader local proof accepted; no combined S5/private certificate"
 }
