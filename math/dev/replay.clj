@@ -51,8 +51,8 @@
     the public vw export has no such column, so the set is empty (documented in
     provenance meta_tids_source).
 
-  Moderation: vw has none. `moderation` other than \"none\" raises a clear
-  not-implemented error (Mode A mod-update interleaving is deferred, design §5).
+  Moderation supports none, timestamp interleaving, and an explicit final
+  snapshot state from authoritative events. The latter never invents history.
 
   Run:  cd math && clojure -M:replay --schedule <s.json> --votes <v.csv> \\
                         --out <dir> [--repeats N] [--edn] [--zid Z] [--comments c.csv]"
@@ -152,6 +152,8 @@
     {:votes (mapv (fn [e] {:t-ms (get e "created") :pid (get e "pid") :tid (get e "tid")
                            :sign (when-some [v (get e "vote")] (* v s))
                            :weight_x_32767 (get e "weight_x_32767") :source-ord (get e "ord")}) votes)
+     :final-mods (mapv (fn [e] {:tid (get e "tid") :mod (get e "mod")
+                               :is_meta (get e "is_meta") :modified (or (get e "modified") 0)}) comments)
      :mods {:events (mapv (fn [e] {:tid (get e "tid") :mod (get e "mod")
                                   :is_meta (get e "is_meta") :modified (get e "modified")})
                          (filter #(some? (get % "modified")) comments))
@@ -264,6 +266,15 @@
                            :votes (subvec votes prev cut)     ; (prev, cut] 0-based
                            :mods mods
                            :cut-time-ms cut-time})))))))
+
+(defn final-state-steps
+  "Apply captured current moderation only at the final checkpoint, even with
+  tied vote times. This is an explicit snapshot-state recipe, not a timeline."
+  [votes slots mod-events]
+  (let [plain (slice-schedule votes slots [])]
+    (if (seq plain)
+      (assoc-in plain [(dec (count plain)) :mods] mod-events)
+      plain)))
 
 ;; ---------------------------------------------------------------------------
 ;; Feeding conv-update: FLIP the export sign to raw-DB (design §5).
@@ -912,12 +923,14 @@
 
         (when (and (= source "events-jsonl") (nil? (:events options)))
           (throw (ex-info "events-jsonl schedule requires --events" {})))
-        (when-not (contains? #{"none" "interleave-by-timestamp" nil} moderation)
+        (when-not (contains? #{"none" "interleave-by-timestamp" "source-final-state" nil} moderation)
           (throw (ex-info
                    (str "Unknown moderation mode " (pr-str moderation)
-                        ". Use \"none\" or \"interleave-by-timestamp\" "
+                        ". Use \"none\", \"interleave-by-timestamp\" or \"source-final-state\" "
                         "(mod rows from --comments, woven by modified timestamp).")
                    {:moderation moderation})))
+        (when (and (= moderation "source-final-state") (nil? (:events options)))
+          (throw (ex-info "source-final-state requires lossless events" {})))
         (when (and (= moderation "interleave-by-timestamp")
                    (nil? (:comments options)) (nil? (:events options)))
           (throw (ex-info "moderation=interleave-by-timestamp requires --comments"
@@ -946,10 +959,16 @@
               slots (resolve-cut-slots votes cuts)
               restart-after (get schedule "restart_after")
               {mod-events :events n-mod-skipped :n-skipped}
-              (if (= moderation "interleave-by-timestamp")
+              (cond
+                (= moderation "source-final-state") {:events (:final-mods event-input) :n-skipped 0}
+                (= moderation "interleave-by-timestamp")
                 (if event-input (:mods event-input) (read-mod-events (:comments options)))
-                {:events [] :n-skipped 0})
-              steps (slice-schedule votes slots mod-events)
+                :else {:events [] :n-skipped 0})
+              steps (if (= moderation "source-final-state")
+                      ;; Current source state, not a reconstructed timeline.
+                      ;; Apply only on the final step even when vote times tie.
+                      (final-state-steps votes slots mod-events)
+                      (slice-schedule votes slots mod-events))
               ;; Under interleave moderation, meta-tids enter EXCLUSIVELY via
               ;; the woven mod-update rows (the production-reachable route) —
               ;; seeding them at conv creation as well would front-load every
@@ -959,7 +978,7 @@
               ;; creation-time seed remains for moderation="none" runs with
               ;; --comments (the original vw-compat path).
               [meta-tids meta-src]
-              (if (= moderation "interleave-by-timestamp")
+              (if (contains? #{"interleave-by-timestamp" "source-final-state"} moderation)
                 [#{} "empty (interleave moderation: meta-tids via mod-update only)"]
                 (read-meta-tids (:comments options)))]
 
