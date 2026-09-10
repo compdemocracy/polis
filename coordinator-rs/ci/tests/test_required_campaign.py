@@ -217,6 +217,46 @@ def test_real_pytest_selected_subset_is_rejected_before_execution(tmp_path):
     (tmp_path / "selected-subset.log").write_text(result.stdout + result.stderr)
     assert result.returncode == 4, result.stdout + result.stderr
     assert "collection: missing=" in result.stderr
+    assert "fatal:" not in result.stderr
+
+
+def reference_asset_function(root, reference):
+    """Load the real loader without importing the DB/process fixture setup."""
+    import ast
+    tree = ast.parse((ROOT / "delphi/tests/coordinator/conftest.py").read_text())
+    function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "asset")
+    scope = dict(ROOT=root, REFERENCE=reference, subprocess=subprocess, pytest=pytest)
+    exec(compile(ast.Module(body=[function], type_ignores=[]), "reference-loader", "exec"), scope)
+    return scope["asset"]
+
+
+@pytest.mark.parametrize("reference", ["HEAD", "0" * 40])
+def test_reference_missing_at_ref_refuses_even_with_untracked_disk_copy(tmp_path, reference):
+    # Point a disposable directory at the read-only repository. No Git mutation,
+    # alternate object store, or locally available historical oracle is needed.
+    git_dir = subprocess.check_output(["git", "rev-parse", "--absolute-git-dir"], cwd=ROOT, text=True).strip()
+    (tmp_path / ".git").write_text(f"gitdir: {git_dir}\n")
+    name = "synthetic-untracked-oracle-761.py"
+    path = "delphi/tests/poller/recovery/" + name
+    disk_copy = tmp_path / path
+    disk_copy.parent.mkdir(parents=True)
+    disk_copy.write_text("raise AssertionError('disk fallback must never execute')\n")
+    with pytest.raises(pytest.UsageError) as error:
+        reference_asset_function(tmp_path, reference)(name)
+    assert str(error.value) == f"collection: missing={[f'{reference}:{path}']}; pinned reference unavailable"
+    assert disk_copy.read_text().startswith("raise AssertionError")
+
+
+def test_reference_loader_preserves_exact_git_bytes(tmp_path, monkeypatch):
+    raw = "# pinned oracle\nanswer = 42\n"
+    calls = []
+    def show(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return raw
+    monkeypatch.setattr(subprocess, "check_output", show)
+    assert reference_asset_function(tmp_path, "reviewed-ref")("fold.py") == raw
+    assert calls == [(["git", "show", "reviewed-ref:delphi/tests/poller/recovery/fold.py"],
+                      dict(cwd=tmp_path, text=True, stderr=subprocess.PIPE))]
 
 
 @pytest.mark.parametrize("opt", ["P026_NODE_READER_OPTIONAL", "PYTEST_ADDOPTS", "PYTHONOPTIMIZE"])

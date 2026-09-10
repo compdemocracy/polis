@@ -91,7 +91,18 @@ if not _UNAVAILABLE:
 
 
 def asset(name):
-    return subprocess.check_output(["git", "show", f"{REFERENCE}:delphi/tests/poller/recovery/{name}"], cwd=ROOT, text=True)
+    path = f"delphi/tests/poller/recovery/{name}"
+    try:
+        return subprocess.check_output(
+            ["git", "show", f"{REFERENCE}:{path}"], cwd=ROOT, text=True,
+            stderr=subprocess.PIPE,
+        )
+    except subprocess.CalledProcessError as error:
+        # A working-tree copy (including an ignored/generated one) is not the
+        # pinned oracle. Refuse collection without falling back to its bytes.
+        raise pytest.UsageError(
+            f"collection: missing={[f'{REFERENCE}:{path}']}; pinned reference unavailable"
+        ) from error
 
 
 def oracle_module():
