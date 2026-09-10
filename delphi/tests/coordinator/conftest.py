@@ -4,7 +4,7 @@ Collection safety. The Delphi CI job copies `delphi/tests` into the delphi image
 at `/app/tests`, where neither `coordinator-rs/` nor a repository checkout
 exists. The projection-gate CI uses `POLIS_CHECKOUT_DIR` for a partial scan
 root; that is deliberately not the coordinator override. Everything here needs
-both — the crate's built binary, the crate's migration, and a read-only `git show` of the pinned reference fold/mapping
+both — the crate's built binary, the crate's migration, and the committed, digest-pinned reference fold/mapping
 assets — so this conftest locates the checkout by walking up for
 `coordinator-rs/Cargo.toml` (override: `POLIS_COORDINATOR_CHECKOUT_DIR`) and,
 when it cannot, ignores this whole directory with a clear reason instead of raising while
@@ -48,7 +48,7 @@ def _locate_checkout():
             return candidate, None, None
     return None, (
         f"no polis checkout containing {_MARKER} above {_HERE.parent}: these tests need "
-        "the coordinator-rs crate, its migration and the pinned git reference assets "
+        "the coordinator-rs crate, its migration and the pinned reference assets "
         "(set POLIS_COORDINATOR_CHECKOUT_DIR to run them from a copied test tree)"
     ), None
 
@@ -61,9 +61,6 @@ if ROOT is not None and _SKIP is None:
             and not (ROOT / "coordinator-rs/target/fault/debug/polis-coordinator").exists()):
         _SKIP = ("neither cargo nor a built coordinator-rs fault binary is available, so the "
                  "process these tests launch cannot exist here")
-    elif shutil.which("git") is None or not (ROOT / ".git").exists():
-        _SKIP = (f"git or {ROOT}/.git is unavailable, so the pinned independent fold and "
-                 "R09 mapping assets cannot be read")
 _UNAVAILABLE = _SKIP or _FATAL
 if _UNAVAILABLE:
     # Nothing in this directory is collected, so no test module imports the
@@ -91,18 +88,11 @@ if not _UNAVAILABLE:
 
 
 def asset(name):
-    path = f"delphi/tests/poller/recovery/{name}"
+    from reference_assets import load_asset
     try:
-        return subprocess.check_output(
-            ["git", "show", f"{REFERENCE}:{path}"], cwd=ROOT, text=True,
-            stderr=subprocess.PIPE,
-        )
-    except subprocess.CalledProcessError as error:
-        # A working-tree copy (including an ignored/generated one) is not the
-        # pinned oracle. Refuse collection without falling back to its bytes.
-        raise pytest.UsageError(
-            f"collection: missing={[f'{REFERENCE}:{path}']}; pinned reference unavailable"
-        ) from error
+        return load_asset(ROOT, REFERENCE, f"delphi/tests/poller/recovery/{name}").decode()
+    except ValueError as error:
+        raise pytest.UsageError(str(error)) from error
 
 
 def oracle_module():
@@ -114,9 +104,10 @@ def oracle_module():
 
 
 # Guarded only so that an uncollectable tree (see the module docstring) cannot
-# raise from `git show` while pytest is still importing conftests.
+# load assets while pytest is still importing conftests.
 FOLD = MAPPING = None
 if not _UNAVAILABLE:
+    sys.path.insert(0, str(ROOT / "coordinator-rs/ci"))
     FOLD = oracle_module()
     _tree = ast.parse(asset("test_r09_partial_tables_readers.py"))
     _mapping = next(n for n in _tree.body if isinstance(n, ast.FunctionDef) and n.name == "_mapping_problems")
