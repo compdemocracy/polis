@@ -27,7 +27,7 @@ export const QUEUE_STAGE = "noop";
  * migration's own catalog fingerprints cover that.
  */
 export const QUEUE_SQL_SHA256 =
-  "2d8e205f1d36e0e2e6a4fc63d1d03cbf8837ca57ccaac503c88238fa2a14a055";
+  "240d445ecc88c0ddb3b24ba2d62a8ad00316fe4381dadb566d2c5d1f48c2c1bc";
 
 export const QUEUE_MIGRATION_PATH = path.join(
   __dirname,

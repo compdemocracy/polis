@@ -508,7 +508,7 @@ createdb sc_f
 apply_upto sc_f "$MAX_FULL"
 docker exec -i "$CONTAINER" psql -v ON_ERROR_STOP=1 -U postgres -d sc_f >/dev/null <<'SQL'
 CREATE TABLE public.unrelated_f(value text);
-INSERT INTO public.unrelated_f VALUES ('synthetic unrelated data');
+INSERT INTO public.unrelated_f VALUES ('public-fixture unrelated data');
 ALTER TABLE public.unrelated_f OWNER TO polis_queue_owner;
 SQL
 set +e

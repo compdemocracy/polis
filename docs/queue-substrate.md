@@ -218,7 +218,7 @@ does not add a route and does not change any served bytes; it only lets
 dev/test code call `enqueueNoopJob`.
 
 The env namespace is restricted to `dev` or `test`, optionally suffixed
-(`test-p024-3f2a`), so a synthetic job cannot be addressed at another
+(`test-p024-3f2a`), so a public-fixture job cannot be addressed at another
 environment's product heads.
 
 The Node enqueuer runs on the server's existing broad read-write login. The
@@ -248,10 +248,10 @@ POLIS_QUEUE_SUBSTRATE_ENABLED=true python -m polismath.queue.executor \
   --env dev --once
 ```
 
-It executes nothing. The noop stage's output is exactly its fixed synthetic
+It executes nothing. The noop stage's output is exactly its fixed public-fixture
 input descriptor; the executor never follows the input URI, reads a job-named
 file, starts a child process, loads science code or calls a provider. A job
-whose descriptor is not the expected synthetic one is failed permanently.
+whose descriptor is not the expected public-fixture one is failed permanently.
 
 Two behaviours are worth knowing because they are not obvious:
 

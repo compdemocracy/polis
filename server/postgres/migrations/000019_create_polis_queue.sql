@@ -488,7 +488,7 @@ BEGIN
   RETURN public.pq_result('already_succeeded',j,COALESCE(h.published_run_id=r.run_id,false));
  END IF;
  IF NOT public.pq_owns(j,p_owner,p_attempt,p_epoch) THEN RETURN public.pq_result('fenced',j); END IF;
- -- Admission target is data. /1 enqueue fixes it to synthetic input; Q21 may change only that assignment.
+ -- Admission target is data. /1 enqueue fixes it to public-fixture input; Q21 may change only that assignment.
  IF p_output_sha IS DISTINCT FROM r.expected_output_sha256 OR p_output_uri IS DISTINCT FROM r.expected_output_uri THEN
   RETURN public.pq_result('invalid_output',j);
  END IF;

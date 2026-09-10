@@ -104,7 +104,7 @@ describe("withTransaction", () => {
   it.each(["BEGIN", "SET LOCAL"])(
     "rolls back and never runs the callback when %s fails",
     async (seam) => {
-      const boom = new Error("synthetic");
+      const boom = new Error("public-fixture");
       const client = scripted((text) => {
         if (text.startsWith(seam)) throw boom;
         return undefined;
