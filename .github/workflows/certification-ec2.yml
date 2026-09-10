@@ -187,7 +187,7 @@ jobs:
           INSTANCE_ID=$(aws ec2 run-instances \
             --launch-template "LaunchTemplateId=${LAUNCH_TEMPLATE_ID},Version=1" \
             --instance-type "$INSTANCE_TYPE" \
-            --min-count 1 --max-count 1 \
+            --count 1 \
             --client-token "$TOKEN" \
             --tag-specifications "$TAGS" "$VOLTAGS" \
             --query 'Instances[0].InstanceId' --output text)
