@@ -9,7 +9,7 @@ import pg from "../db/pg-query";
 import Config from "../config";
 import logger from "./logger";
 import { addInRamMetric } from "./metered";
-import { getMathBundle, invalidateMathBundleForTick } from "./mathBundle";
+import { CachedMathBundleRead, getMathBundle, invalidateMathBundleForTick } from "./mathBundle";
 
 export type PcaCacheItem = {
   asPOJO: {
@@ -422,7 +422,7 @@ export function getPca(
     options?.synthesizeEmptyWhenMissing !== false;
   const mathEnv = Config.mathEnv;
   let cached = pcaCache.get(pcaCacheKey(mathEnv, zid));
-  if (cached && cached.expiration < Date.now()) {
+  if (cached && cached.expiration <= Date.now()) {
     cached = undefined;
   }
   // The [math_env, zid] cache is shared by every caller, so an entry may have
@@ -570,7 +570,8 @@ export function getPca(
 function presentMathMainRow(
   mathEnv: string,
   zid: number,
-  item: PcaCacheItem["asPOJO"]
+  item: PcaCacheItem["asPOJO"],
+  sourceExpiration?: number
 ): Promise<PcaCacheItem> {
   processMathObject(item);
 
@@ -579,7 +580,7 @@ function presentMathMainRow(
     // Preserve the WeakSet merge mark that presentPca checks. Spreading into
     // a new object would silently skip C7's comment-owned presentation.
     const dataWithZid = Object.assign(completeData, { zid: zid });
-    return updatePcaCache(mathEnv, zid, dataWithZid);
+    return updatePcaCache(mathEnv, zid, dataWithZid, false, sourceExpiration);
   });
 }
 
@@ -588,9 +589,9 @@ function presentMathMainRow(
  *
  * `getPca(zid)` reads `math_main` on its own, so a report that also joins
  * participants to groups could mix generations across its several reads. This
- * takes the whole Bundle instead, which pins the report to one generation and
- * lets a companion-level incoherence be seen and logged rather than silently
- * joined.
+ * consults the shared presentation cache first, then loads a Bundle on a
+ * miss. Only that miss observes companion admission; this main-only helper
+ * does not establish request-wide coherence for other independent reads.
  *
  * It is deliberately byte-identical to `getPca(zid)`:
  *
@@ -615,7 +616,7 @@ export async function getPcaFromBundle(
 ): Promise<PcaCacheItem | undefined> {
   const mathEnv = Config.mathEnv;
   let cached = pcaCache.get(pcaCacheKey(mathEnv, zid));
-  if (cached && cached.expiration < Date.now()) {
+  if (cached && cached.expiration <= Date.now()) {
     cached = undefined;
   }
   if (cached && cached.asPOJO) {
@@ -628,22 +629,29 @@ export async function getPcaFromBundle(
     return getPca(zid);
   }
 
+  return presentExistingMathBundle(zid, mathEnv, read);
+}
+
+/** Present the request's own main, without consulting the independent PCA cache. */
+export function presentExistingMathBundle(
+  zid: number,
+  mathEnv: string,
+  read: CachedMathBundleRead
+): Promise<PcaCacheItem | undefined> {
+  if (!read.present || read.mathTick <= -1) return Promise.resolve(undefined);
   // The cached Bundle is shared by every concurrent reader and
   // `processMathObject` mutates in place, so present a copy.
   const item = structuredClone(read.main) as PcaCacheItem["asPOJO"];
   item.math_tick = read.mathTick;
-  if (item.math_tick <= -1) {
-    logger.silly("bundle main row carries no committed generation", { zid });
-    return undefined;
-  }
-  return presentMathMainRow(mathEnv, zid, item);
+  return presentMathMainRow(mathEnv, zid, item, read.expiration);
 }
 
 function updatePcaCache(
   mathEnv: string,
   zid: number,
   item: { zid: number },
-  synthesized = false
+  synthesized = false,
+  sourceExpiration = Infinity
 ): Promise<PcaCacheItem> {
   return new Promise(function (
     resolve: (arg0: PcaCacheItem) => void,
@@ -663,7 +671,7 @@ function updatePcaCache(
           asPOJO: item,
           asJSON: asJSON,
           asBufferOfGzippedJson: jsondGzipdPcaBuffer,
-          expiration: Date.now() + 3000,
+          expiration: Math.min(Date.now() + 3000, sourceExpiration),
           consensus: (item as any).consensus || { agree: {}, disagree: {} },
           repness: (item as any).repness || {},
         } as unknown as PcaCacheItem;
