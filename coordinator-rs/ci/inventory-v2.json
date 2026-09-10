@@ -1445,6 +1445,18 @@
     ],
     [
       "coordinator-rs.ci.tests.test_required_campaign",
+      "test_reference_loader_preserves_exact_git_bytes"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_required_campaign",
+      "test_reference_missing_at_ref_refuses_even_with_untracked_disk_copy[0000000000000000000000000000000000000000]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_required_campaign",
+      "test_reference_missing_at_ref_refuses_even_with_untracked_disk_copy[HEAD]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_required_campaign",
       "test_runner_refuses_skip_and_assertion_escape_before_starting_docker[P026_NODE_READER_OPTIONAL]"
     ],
     [
