@@ -157,7 +157,7 @@ class Publisher:
             cur.execute("SELECT EXISTS(SELECT 1 FROM public.p026_test_marker WHERE namespace=%s)",
                         (self.dispatch.namespace,))
             if not cur.fetchone()[0]:
-                raise BridgeError("SYNTHETIC_MARKER_REQUIRED")
+                raise BridgeError("TEST_MARKER_REQUIRED")
 
     def authorize(self):
         d = self.dispatch

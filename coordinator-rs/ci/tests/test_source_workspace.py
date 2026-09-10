@@ -151,3 +151,42 @@ def test_added_package_sources_enter_the_fresh_engine_inventory(tmp_path):
     sw.reconcile(tmp_path)
     value = json.loads((tmp_path / sw.ENGINE).read_bytes())
     assert value["sha256"]["polismath/new_module.py"] == hashlib.sha256(b"pass\n").hexdigest()
+
+
+@pytest.mark.parametrize("mode", ["rename", "undeclared", "hosted", "still-present", "pinned", "untracked", "symlink"])
+def test_local_rename_is_explicit_and_cannot_drop_a_required_source(tmp_path, monkeypatch, mode):
+    root, dest = tmp_path / "original", tmp_path / "campaign"
+    fixture(root)
+    old, new = "coordinator-rs/evidence/old-label.json", "coordinator-rs/evidence/public-fixture.json"
+    if mode == "pinned":
+        old = "delphi/polismath/science.py"
+    else:
+        write(root, old, b'{}\n')
+    fake_git(monkeypatch, root)
+    original_git = sw.git
+
+    def query(directory, *args):
+        return old.encode() + b"\0" if args[0] == "diff" else original_git(directory, *args)
+
+    monkeypatch.setattr(sw, "git", query)
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    if mode == "hosted":
+        monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    write(root, new, (root / old).read_bytes())
+    if mode != "still-present":
+        (root / old).unlink()
+    if mode == "symlink":
+        (root / old).symlink_to(root / new)
+    removal = () if mode == "undeclared" else ("unknown.json",) if mode == "untracked" else (old,)
+    kwargs = dict(allow_local=True, local_files=(new,), local_removed=removal)
+    if mode == "rename":
+        report = sw.prepare(root, dest, **kwargs)
+        assert report["local_removed"] == [old]
+        assert set(report["local_changes"]) == {old, new}
+        assert (dest / new).read_bytes() == b'{}\n' and not (dest / old).exists()
+        assert old not in report["source_sha256"] and new in report["source_sha256"]
+    else:
+        expected = {"undeclared": "nonregular source", "hosted": "forbidden in hosted",
+                    "pinned": "historical source missing"}.get(mode, "local removal must name")
+        with pytest.raises(ValueError, match=expected):
+            sw.prepare(root, dest, **kwargs)

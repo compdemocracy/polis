@@ -10,18 +10,18 @@ def setup(tmp_path, votes=None, ops=None, sign=-1):
     rows=[dict(slot=i+1,source_ordinal=i,stream_ordinal=i,created_ms=1000+i,pid=2,tid=3,raw_vote=v,weight_x_32767=None) for i,v in enumerate(votes)]
     (src/"votes.jsonl").write_text(''.join(json.dumps(v)+'\n' for v in rows))
     (src/"mods.jsonl").write_text('')
-    manifest=dict(schema=CANDIDATE_SCHEMA,fixture_id="synthetic-empty",storage_agree_value=sign,ordering="frozen-extract-order",votes=descriptor(src,"votes.jsonl"),moderation=descriptor(src,"mods.jsonl"),parent=None)
+    manifest=dict(schema=CANDIDATE_SCHEMA,fixture_id="public-fixture-empty",storage_agree_value=sign,ordering="frozen-extract-order",votes=descriptor(src,"votes.jsonl"),moderation=descriptor(src,"mods.jsonl"),parent=None)
     (src/"manifest.json").write_text(json.dumps(manifest))
     (src/"schedule.json").write_text(json.dumps({"schema":"polis-schedule/1","operations":ops or []}))
     p=dict(input_manifest=descriptor(src,"manifest.json"),resolved_schedule=descriptor(src,"schedule.json"),required_capabilities=["rebuild-prefix/1"],config=dict(profile="candidate-profile",seed=42,pca_mode="powerit",empty_contract=True,init_vector="ones"))
     p["admission"] = dict(candidate_schema=CANDIDATE_SCHEMA, engine_version=ENGINE_VERSION,
                           input_digest=p["input_manifest"]["sha256"],
-                          schedule_digest=p["resolved_schedule"]["sha256"], operation_id="synthetic-operation")
+                          schedule_digest=p["resolved_schedule"]["sha256"], operation_id="public-fixture-operation")
     return Adapter(src,dst),p
 
 
 def req(op,p,rid=1):
-    return dict(protocol="polis-engine/1",run_id="synthetic-run-001",session_id="synthetic-session-001",request_id=rid,op=op,payload=p)
+    return dict(protocol="polis-engine/1",run_id="public-fixture-run-001",session_id="public-fixture-session-001",request_id=rid,op=op,payload=p)
 
 
 def test_contract_apply_votes_example(tmp_path):
@@ -41,7 +41,7 @@ def test_contract_empty_snapshot(tmp_path):
     main=json.loads((worker.output_root/"checkpoint-000/main.json").read_text())
     assert main["n"]==0 and main["tids"]==[] and main["pca"]["center"]==[]
     assert main["lastVoteTimestamp"]==0
-    assert json.loads((worker.output_root/"checkpoint-000/bidtopid.json").read_text())==dict(zid="synthetic-empty",bidToPid=[],lastVoteTimestamp=0)
+    assert json.loads((worker.output_root/"checkpoint-000/bidtopid.json").read_text())==dict(zid="public-fixture-empty",bidToPid=[],lastVoteTimestamp=0)
 
 
 @pytest.mark.parametrize("vote",[None,True,2,"-1"])

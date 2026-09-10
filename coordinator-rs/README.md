@@ -172,7 +172,7 @@ COMMIT reply stops dispatch; it never authorizes a worker launch.
 Dispatch requires an explicitly configured `P026_RESERVATION_BYTES` (1 MiB to
 1 TiB) and an independently provisioned namespace budget. The default is zero,
 which disables dispatch. Runtime never inserts or enlarges budget profiles.
-Tests alone install synthetic profiles and request 64 MiB per operation. The
+Tests alone install public-fixture profiles and request 64 MiB per operation. The
 reservation must cover the three original payloads, receipt checkpoint and the
 schema's 1 MiB accounting overhead. Both namespace operation count and logical
 bytes remain charged for pending, unresolved and resolved operations.
@@ -361,7 +361,7 @@ python coordinator-rs/ci/run.py --output /tmp/coordinator-campaign-unique
 ```
 
 The runner owns its disposable PostgreSQL project and applies the unchanged
-repository migration chain to a fresh synthetic Bundle database. The historical
+repository migration chain to a fresh public-fixture Bundle database. The historical
 Python fixtures continue to apply the existing **prototype** coordinator schema
 to their own test databases. This adds no migration or production schema scope.
 The receipt records exact commands, actual runtime/image identities, source and

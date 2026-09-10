@@ -101,7 +101,7 @@ def jest_report():
                   numPassedTests=37, numTotalTests=37, numPassedTestSuites=3, numTotalTestSuites=3,
                   testResults=[])
     for file in sorted({p for p, _ in INV["jest_cases"]}):
-        report["testResults"].append(dict(name="/synthetic/server/" + file, status="passed",
+        report["testResults"].append(dict(name="/public-fixture/server/" + file, status="passed",
              assertionResults=[dict(fullName=n, status="passed", failureMessages=[]) for p, n in INV["jest_cases"] if p == file]))
     return report
 
@@ -175,7 +175,7 @@ def test_comparison_requires_fresh_complete_unchanged_evidence(tmp_path, mutatio
         replay["observations"] = 0
         (artifacts / "vw-equivalence.json").write_text(json.dumps(replay))
     elif mutation == "changed-replay":
-        replay["checkpoints"][0]["deltas"] = ["synthetic drift"]
+        replay["checkpoints"][0]["deltas"] = ["public-fixture drift"]
         (artifacts / "vw-equivalence.json").write_text(json.dumps(replay))
     elif mutation == "changed-polarity":
         (artifacts / "polarity-vw.json").write_text("{}")
@@ -238,7 +238,7 @@ def test_reference_missing_at_ref_refuses_even_with_untracked_disk_copy(tmp_path
     # alternate object store, or locally available historical oracle is needed.
     git_dir = subprocess.check_output(["git", "rev-parse", "--absolute-git-dir"], cwd=ROOT, text=True).strip()
     (tmp_path / ".git").write_text(f"gitdir: {git_dir}\n")
-    name = "synthetic-untracked-oracle-761.py"
+    name = "public-fixture-untracked-oracle-761.py"
     path = "delphi/tests/poller/recovery/" + name
     disk_copy = tmp_path / path
     disk_copy.parent.mkdir(parents=True)
@@ -256,7 +256,7 @@ def test_reference_loader_preserves_exact_git_bytes(tmp_path, monkeypatch):
     target = tmp_path / name
     target.parent.mkdir(parents=True)
     target.write_bytes(raw)
-    (tmp_path / ".git").write_text("synthetic read-only history marker")
+    (tmp_path / ".git").write_text("public-fixture read-only history marker")
     digest = hashlib.sha256(raw).hexdigest()
     pin = {"path": name, "sha256": digest, "upstream_sha256": digest, "commit": "a" * 40}
     (tmp_path / "coordinator-rs/ci/inventory-v2.json").write_text(json.dumps({"reference_assets": {

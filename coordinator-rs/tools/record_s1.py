@@ -106,7 +106,7 @@ def main():
     assert len(replay["checkpoints"]) == 3 and replay["observer_errors"] == []
     assert all(c["deltas"] == [] and c["rust"] == c["python"] for c in replay["checkpoints"])
     assert [c["rust"] for c in replay["checkpoints"]] == [c["rust"] for c in previous["checkpoints"]]
-    for name in ("polarity-synthetic.json", "polarity-vw.json", "polarity-biodiversity.json", "polarity-rebuild-schedule.json", "semantic-tie-key.json"):
+    for name in ("polarity-public-fixture.json", "polarity-vw.json", "polarity-biodiversity.json", "polarity-rebuild-schedule.json", "semantic-tie-key.json"):
         assert json.loads((ARTIFACTS / name).read_text()) == json.loads((EVIDENCE / name).read_text()), name
     assert json.loads((EVIDENCE / "d4-node-reader.json").read_text())["differences"] == {}
     (EVIDENCE / "vw-equivalence.json").write_bytes((ARTIFACTS / "vw-equivalence.json").read_bytes())

@@ -6,7 +6,7 @@ from pathlib import Path
 import platform
 import re
 
-WITNESSES = {"polarity-synthetic.json", "polarity-vw.json", "polarity-biodiversity.json",
+WITNESSES = {"polarity-public-fixture.json", "polarity-vw.json", "polarity-biodiversity.json",
              "polarity-rebuild-schedule.json", "semantic-tie-key.json",
              "d4-node-reader.json", "d4-node-reader-empty.json"}
 

@@ -14,7 +14,7 @@ Bundle's own rows, and refuses admission when a companion is missing or at a
 different generation. The tests below assert the reader returns the snapshot
 generation's **exact** participant mapping — not merely a non-empty one — using an
 independent Python re-derivation over the published blobs as the oracle, so a
-reader that fabricates pids (e.g. returns a synthetic pid for every group) fails.
+reader that fabricates pids (e.g. returns a public-fixture pid for every group) fails.
 
 Attribution, stated honestly:
 - The "torn baseline" here is a copied SQL-shaped autocommit model on one client

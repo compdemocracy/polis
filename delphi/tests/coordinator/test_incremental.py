@@ -137,7 +137,7 @@ def test_emitted_records_match_the_declared_catalog_and_p031_dimensions(db, laun
         # P-031: "Math uses only fixed Environment=prod, MathEnv=prod ... No
         # conversation/job/report/run/instance dimensions."
         assert block["Dimensions"] == [["Environment", "MathEnv"]]
-        assert record["Environment"] == "synthetic" and record["MathEnv"] == "rustproto"
+        assert record["Environment"] == "public-fixture" and record["MathEnv"] == "rustproto"
         assert isinstance(record["_aws"]["Timestamp"], int)
         for entry in block["Metrics"]:
             assert entry["Name"] in names, entry

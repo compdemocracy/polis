@@ -1,11 +1,11 @@
 /*
- * CO08/D4 first-generation route coverage, from Astra's round-2 review probe
+ * CO08/D4 first-generation route coverage, from the second reviewer's round-2 probe
  * (cost-reduction/scripts/p2727-r2-node-review.cjs), committed unchanged in
  * substance.
  *
  * It mounts the REAL `handle_GET_math_pca2` on a real Express app over loopback
  * HTTP against the real reader, cache and PostgreSQL. Only the parameter
- * middleware is replaced by a synthetic zid binding; the route, reader, cache,
+ * middleware is replaced by a public-fixture zid binding; the route, reader, cache,
  * database and HTTP response implementation are the shipped ones. It does not
  * cover application boot, auth, or the whole request-validation matrix.
  *
@@ -32,7 +32,7 @@ async function main() {
   const app = express();
   app.set('env', 'production');
   app.get('/api/v3/math/pca2', (r,s) => {
-    // Only the parameter middleware is replaced by a synthetic zid binding.
+    // Only the parameter middleware is replaced by a public-fixture zid binding.
     r.p={zid:1, math_tick:undefined, ifNoneMatch:r.headers['if-none-match'],
       keys:r.query.keys === undefined ? undefined : r.query.keys.split(',')};
     routes.handle_GET_math_pca2(r,s);

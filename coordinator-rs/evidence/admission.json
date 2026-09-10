@@ -9,14 +9,14 @@
       "vote_rows": 4683,
       "source_format": "public export CSV",
       "normalization": "replay.real_data.load_export_votes; storage vote=-semantic sign; timestamps in milliseconds",
-      "synthetic_zid": 1
+      "public-fixture_zid": 1
     },
     "biodiversity": {
       "sha256": "9b6c1847bcd2e93c2cc349e79676f8be3ffe49a7e5f79f0d2e19412f0be29f94",
       "vote_rows": 29802,
       "source_format": "public export CSV",
       "normalization": "replay.real_data.load_export_votes; storage vote=-semantic sign; timestamps in milliseconds",
-      "synthetic_zid": 1
+      "public-fixture_zid": 1
     }
   },
   "files": {

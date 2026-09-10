@@ -59,6 +59,7 @@ def main():
     parser.add_argument("--output", required=True, type=Path, help="new directory for this invocation")
     parser.add_argument("--allow-local-changes", action="store_true", help="local review only; forbidden in Actions")
     parser.add_argument("--local-file", action="append", default=[], help="explicit untracked local review source")
+    parser.add_argument("--local-remove", action="append", default=[], help="explicit deleted tracked local review source")
     args = parser.parse_args()
     output = args.output.resolve()
     require(not output.exists() and not output.is_relative_to(ROOT), "output must be new and outside checkout")
@@ -112,7 +113,7 @@ def main():
 
     try:
         source_report = prepare(original_root, workspace, allow_local=args.allow_local_changes,
-                                local_files=tuple(args.local_file))
+                                local_files=tuple(args.local_file), local_removed=tuple(args.local_remove))
         (output / "source-reconciliation.json").write_text(json.dumps(source_report, indent=2) + "\n")
         ROOT, CI = workspace, workspace / "coordinator-rs/ci"
         ART, EVIDENCE = ROOT / "coordinator-rs/artifacts", ROOT / "coordinator-rs/evidence"
@@ -191,7 +192,7 @@ def main():
         (ART / "s1-pytest.log").write_text(log)
         receipt["python_tests"] = python_cases(ART / "s1-pytest.xml", inventory)
         jest_env = dict(env, DATABASE_URL=bundle_url, NODE_ENV="test", AWS_REGION="us-east-1",
-                        AWS_ACCESS_KEY_ID="synthetic", AWS_SECRET_ACCESS_KEY="synthetic", AWS_EC2_METADATA_DISABLED="true",
+                        AWS_ACCESS_KEY_ID="public-fixture", AWS_SECRET_ACCESS_KEY="public-fixture", AWS_EC2_METADATA_DISABLED="true",
                         DYNAMODB_ENDPOINT="http://127.0.0.1:1", AWS_S3_ENDPOINT="http://127.0.0.1:1",
                         SES_ENDPOINT="http://127.0.0.1:1", DD_TRACE_ENABLED="false")
         files = sorted({p for p, _ in inventory["jest_cases"]})
@@ -206,6 +207,8 @@ def main():
         require(inputs() == receipt["source_sha256"], "campaign inputs changed during execution")
         require(all(sha(regular(original_root, p)) == expected for p, expected in
                     source_report["source_sha256"].items()), "original source changed during campaign")
+        require(all(not (original_root / p).exists() and not (original_root / p).is_symlink()
+                    for p in source_report["local_removed"]), "removed source reappeared during campaign")
         receipt["candidate_gate"] = "PASS"
     except Exception as error:
         receipt["error"] = str(error)

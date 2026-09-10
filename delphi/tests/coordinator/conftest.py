@@ -201,11 +201,11 @@ def seed(url, zid=1, n_ptpts=6, n_cmts=4, votes=True):
     c = connect(url)
     with c.cursor() as cur:
         cur.execute("SET session_replication_role=replica")
-        cur.execute("INSERT INTO conversations(zid,topic) VALUES(%s,'Synthetic P026')", (zid,))
+        cur.execute("INSERT INTO conversations(zid,topic) VALUES(%s,'Public fixture P026')", (zid,))
         for pid in range(n_ptpts):
             cur.execute("INSERT INTO participants(zid,pid,uid,mod) VALUES(%s,%s,%s,0)", (zid,pid,100000*zid+pid))
         for tid in range(n_cmts):
-            cur.execute("INSERT INTO comments(zid,tid,pid,uid,txt,mod,is_meta,created,modified) VALUES(%s,%s,0,100000,%s,0,false,1000,1000)", (zid,tid,f'Synthetic {tid}'))
+            cur.execute("INSERT INTO comments(zid,tid,pid,uid,txt,mod,is_meta,created,modified) VALUES(%s,%s,0,100000,%s,0,false,1000,1000)", (zid,tid,f'Public fixture {tid}'))
         if votes:
             for pid in range(n_ptpts):
                 for tid in range(n_cmts):
@@ -278,7 +278,7 @@ class Child:
         if stage:
             self.directory.mkdir(parents=True,exist_ok=True)
             (self.directory/"arm.json").write_text(json.dumps({"protocol":"polis-fault-control/1",
-                "stage":stage,"run_id":"synthetic-test","operation_id":uuid.uuid4().hex}))
+                "stage":stage,"run_id":"public-fixture-test","operation_id":uuid.uuid4().hex}))
             process_env["P026_FAULT_DIR"] = str(self.directory)
         self.proc = subprocess.Popen([str(BINARY),mode,*map(str,args)], env=process_env,
             stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,cwd=ROOT/"delphi",start_new_session=True)

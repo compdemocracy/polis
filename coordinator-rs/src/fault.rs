@@ -59,7 +59,7 @@ impl Fault {
                         &[&namespace],
                     )?
                     .get(0);
-                ensure!(marker, "synthetic database/namespace marker required");
+                ensure!(marker, "public-fixture database/namespace marker required");
             }
             Ok(Self { directory })
         }
@@ -69,7 +69,7 @@ impl Fault {
             Ok(Self {})
         }
     }
-    /// Only the fault build may enable Python's synthetic-database latches.
+    /// Only the fault build may enable Python's public-fixture-database latches.
     pub fn bridge_control(&self) -> Result<serde_json::Value> {
         #[cfg(feature = "fault-injection")]
         if let Some(dir) = &self.directory {

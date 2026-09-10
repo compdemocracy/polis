@@ -39,7 +39,7 @@
     "tests/coordinator/test_bundle_reader.py::test_loadbundle_torn_baseline_and_admission",
     "tests/coordinator/test_equivalence.py::test_polarity_rebuild_schedule_with_revotes",
     "tests/coordinator/test_equivalence.py::test_polarity_through_actual_database_ingress[biodiversity]",
-    "tests/coordinator/test_equivalence.py::test_polarity_through_actual_database_ingress[synthetic]",
+    "tests/coordinator/test_equivalence.py::test_polarity_through_actual_database_ingress[public-fixture]",
     "tests/coordinator/test_equivalence.py::test_polarity_through_actual_database_ingress[vw]",
     "tests/coordinator/test_equivalence.py::test_semantic_tie_key_is_a_declared_contract_term",
     "tests/coordinator/test_equivalence.py::test_vw_dual_namespace_live_equivalence",
@@ -302,7 +302,7 @@
     ],
     [
       "tests.coordinator.test_equivalence",
-      "test_polarity_through_actual_database_ingress[synthetic]"
+      "test_polarity_through_actual_database_ingress[public-fixture]"
     ],
     [
       "tests.coordinator.test_equivalence",

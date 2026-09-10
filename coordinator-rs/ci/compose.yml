@@ -1,4 +1,4 @@
-# Disposable synthetic CI only. No default shared project or host port.
+# Disposable public-fixture CI only. No default shared project or host port.
 services:
   postgres:
     image: postgres:17-alpine

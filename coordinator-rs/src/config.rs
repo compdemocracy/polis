@@ -73,7 +73,7 @@ impl Config {
             incremental: value::<i32>("P026_INCREMENTAL", "1")? != 0,
             reconcile_seconds: value("P026_RECONCILE_SECONDS", "3600")?,
             metrics_sink: env::var("P026_METRICS").unwrap_or_else(|_| "off".into()),
-            environment: env::var("P026_ENVIRONMENT").unwrap_or_else(|_| "synthetic".into()),
+            environment: env::var("P026_ENVIRONMENT").unwrap_or_else(|_| "public-fixture".into()),
             gauge_seconds: value("P026_GAUGE_SECONDS", "60")?,
             commit_margin_seconds: value("P026_COMMIT_MARGIN_SECONDS", "0.5")?,
             reservation_bytes: value("P026_RESERVATION_BYTES", "0")?,
