@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import shutil
 from coordinator.conftest import ROOT,seed,connect,rows,assert_coherent
 
 
@@ -66,8 +67,11 @@ def test_coherent_point_read_and_quiet_noop(db,launch):
 
 
 def test_release_build_cannot_enable_fault_feature():
-    env=dict(os.environ,CARGO_HOME='/private/tmp/p026-toolchain/cargo',RUSTUP_HOME='/private/tmp/p026-toolchain/rustup')
-    r=subprocess.run(['/private/tmp/p026-toolchain/cargo/bin/cargo','check','--manifest-path',str(ROOT/'coordinator-rs/Cargo.toml'),'--release','--features','fault-injection'],env=env,capture_output=True,text=True,timeout=90)
+    cargo = shutil.which('cargo')
+    assert cargo is not None, 'cargo must be provisioned on PATH'
+    r = subprocess.run([cargo, 'check', '--locked', '--release', '--features', 'fault-injection'],
+                       cwd=ROOT/'coordinator-rs', env=dict(os.environ),
+                       capture_output=True, text=True, timeout=90)
     assert r.returncode!=0 and 'fault-injection is forbidden in release builds' in r.stderr
 
 

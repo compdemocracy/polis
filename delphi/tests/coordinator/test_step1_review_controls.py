@@ -94,9 +94,12 @@ def test_publish_fixture_reports_expiry_with_the_typed_exit_code(db, launch, tmp
     launch(db).done()
     before = rows(db)
     p = fixture_file(tmp_path, db)
+    # Give cold worker startup its own margin; expiry is observed in DB time
+    # only after the real publication transaction owns the lease lock.
     child = launch(db, "publish-fixture", args=(p,), stage="before_commit",
-                   directory=tmp_path / "expiry", extra={"P026_LEASE_SECONDS": "2"})
+                   directory=tmp_path / "expiry", extra={"P026_LEASE_SECONDS": "30"})
     child.ack()
+    assert lease(db)["unexpired"], "the actual commit seam must be reached while live"
     wait(lambda: not lease(db)["unexpired"], alive=child,
          why="genuine DB expiry during publication")
     child.release()
@@ -108,8 +111,9 @@ def test_publish_fixture_reports_expiry_with_the_typed_exit_code(db, launch, tmp
     # Control from the review, retained: the same seam through `once`.
     query(db, "INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,1,2000)")
     control = launch(db, stage="before_commit", directory=tmp_path / "normal",
-                     extra={"P026_LEASE_SECONDS": "2"})
+                     extra={"P026_LEASE_SECONDS": "30"})
     control.ack()
+    assert lease(db)["unexpired"], "the actual commit seam must be reached while live"
     wait(lambda: not lease(db)["unexpired"], alive=control,
          why="normal once publication expires")
     control.release()
