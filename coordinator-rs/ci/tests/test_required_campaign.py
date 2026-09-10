@@ -248,15 +248,25 @@ def test_reference_missing_at_ref_refuses_even_with_untracked_disk_copy(tmp_path
 
 
 def test_reference_loader_preserves_exact_git_bytes(tmp_path, monkeypatch):
-    raw = "# pinned oracle\nanswer = 42\n"
+    import hashlib
+    raw = b"# pinned oracle\nanswer = 42\n"
+    name = "coordinator-rs/ci/pinned/fold.py.txt"
+    target = tmp_path / name
+    target.parent.mkdir(parents=True)
+    target.write_bytes(raw)
+    (tmp_path / ".git").write_text("synthetic read-only history marker")
+    digest = hashlib.sha256(raw).hexdigest()
+    pin = {"path": name, "sha256": digest, "upstream_sha256": digest, "commit": "a" * 40}
+    (tmp_path / "coordinator-rs/ci/inventory-v2.json").write_text(json.dumps({"reference_assets": {
+        "reviewed-ref:delphi/tests/poller/recovery/fold.py": pin}}))
     calls = []
     def show(argv, **kwargs):
         calls.append((argv, kwargs))
-        return raw
-    monkeypatch.setattr(subprocess, "check_output", show)
-    assert reference_asset_function(tmp_path, "reviewed-ref")("fold.py") == raw
-    assert calls == [(["git", "show", "reviewed-ref:delphi/tests/poller/recovery/fold.py"],
-                      dict(cwd=tmp_path, text=True, stderr=subprocess.PIPE))]
+        return subprocess.CompletedProcess(argv, 0, raw, b"")
+    monkeypatch.setattr(subprocess, "run", show)
+    assert reference_asset_function(tmp_path, "reviewed-ref")("fold.py") == raw.decode()
+    assert calls == [(["git", "show", "a" * 40 + ":delphi/tests/poller/recovery/fold.py"],
+                      dict(cwd=tmp_path, capture_output=True, check=False))]
 
 
 @pytest.mark.parametrize("opt", ["P026_NODE_READER_OPTIONAL", "PYTEST_ADDOPTS", "PYTHONOPTIMIZE"])

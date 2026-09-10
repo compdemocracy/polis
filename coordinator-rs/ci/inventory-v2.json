@@ -1312,6 +1312,66 @@
   ],
   "control_junit": [
     [
+      "coordinator-rs.ci.tests.test_reference_assets",
+      "test_all_committed_oracles_match_the_reviewed_content_pin_without_history[aaaf7ca5c93f9a758b28e7a361c3b9544e24305a:delphi/tests/poller/recovery/fold.py]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_reference_assets",
+      "test_all_committed_oracles_match_the_reviewed_content_pin_without_history[aaaf7ca5c93f9a758b28e7a361c3b9544e24305a:delphi/tests/poller/recovery/test_r09_partial_tables_readers.py]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_reference_assets",
+      "test_all_committed_oracles_match_the_reviewed_content_pin_without_history[aaaf7ca5c93f9a758b28e7a361c3b9544e24305a:delphi/tests/poller/recovery/test_r12_publication_cursor.py]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_reference_assets",
+      "test_all_committed_oracles_match_the_reviewed_content_pin_without_history[b3262008f:delphi/polismath/database/postgres.py]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_reference_assets",
+      "test_all_committed_oracles_match_the_reviewed_content_pin_without_history[b3262008f:delphi/polismath/poller/math_writer.py]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_reference_assets",
+      "test_all_committed_oracles_match_the_reviewed_content_pin_without_history[b3262008f:delphi/polismath/poller/service.py]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_reference_assets",
+      "test_all_committed_oracles_match_the_reviewed_content_pin_without_history[b3262008f:delphi/polismath/poller/worker_pool.py]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_reference_assets",
+      "test_available_history_checks_upstream_pin_and_unavailable_history_is_optional"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_reference_assets",
+      "test_oracle_refuses_missing_tampered_or_foreign_sources[bad-digest]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_reference_assets",
+      "test_oracle_refuses_missing_tampered_or_foreign_sources[changed]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_reference_assets",
+      "test_oracle_refuses_missing_tampered_or_foreign_sources[missing]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_reference_assets",
+      "test_oracle_refuses_missing_tampered_or_foreign_sources[path-escape]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_reference_assets",
+      "test_oracle_refuses_missing_tampered_or_foreign_sources[symlink]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_reference_assets",
+      "test_oracle_refuses_missing_tampered_or_foreign_sources[untracked-substitute]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_reference_assets",
+      "test_oracle_refuses_missing_tampered_or_foreign_sources[upstream-disagreement]"
+    ],
+    [
       "coordinator-rs.ci.tests.test_required_campaign",
       "test_bridge_inventory_preserves_every_baseline_identity"
     ],
@@ -1567,5 +1627,49 @@
       "coordinator-rs.ci.tests.test_source_workspace",
       "test_no_drift_keeps_every_metadata_byte"
     ]
-  ]
+  ],
+  "reference_assets": {
+    "aaaf7ca5c93f9a758b28e7a361c3b9544e24305a:delphi/tests/poller/recovery/fold.py": {
+      "path": "coordinator-rs/ci/pinned/aaaf7ca5c93f9a758b28e7a361c3b9544e24305a/delphi/tests/poller/recovery/fold.py.txt",
+      "sha256": "cb1ad9c251c40d23dbc3f959195b049139bdf7501d618ddd8edbae560c5f0a9c",
+      "upstream_sha256": "cb1ad9c251c40d23dbc3f959195b049139bdf7501d618ddd8edbae560c5f0a9c",
+      "commit": "aaaf7ca5c93f9a758b28e7a361c3b9544e24305a"
+    },
+    "aaaf7ca5c93f9a758b28e7a361c3b9544e24305a:delphi/tests/poller/recovery/test_r09_partial_tables_readers.py": {
+      "path": "coordinator-rs/ci/pinned/aaaf7ca5c93f9a758b28e7a361c3b9544e24305a/delphi/tests/poller/recovery/test_r09_partial_tables_readers.py.txt",
+      "sha256": "8c98484c14811e9f05047a56189cf9f2bc8f5b255b8ca3f2d00f7696328d1064",
+      "upstream_sha256": "0e90c9e2ef2f19d9c7d91de072a486cdc8b731aa94a0305b3264277ff4aaebd9",
+      "commit": "aaaf7ca5c93f9a758b28e7a361c3b9544e24305a"
+    },
+    "aaaf7ca5c93f9a758b28e7a361c3b9544e24305a:delphi/tests/poller/recovery/test_r12_publication_cursor.py": {
+      "path": "coordinator-rs/ci/pinned/aaaf7ca5c93f9a758b28e7a361c3b9544e24305a/delphi/tests/poller/recovery/test_r12_publication_cursor.py.txt",
+      "sha256": "837143d27d0d7c6f7d5f70c686f75774ed2619ad1cf49cc0a4c07337c3ed591c",
+      "upstream_sha256": "837143d27d0d7c6f7d5f70c686f75774ed2619ad1cf49cc0a4c07337c3ed591c",
+      "commit": "aaaf7ca5c93f9a758b28e7a361c3b9544e24305a"
+    },
+    "b3262008f:delphi/polismath/database/postgres.py": {
+      "path": "coordinator-rs/ci/pinned/b3262008f/delphi/polismath/database/postgres.py.txt",
+      "sha256": "2b16c16debf8a1338f485b70fe56f8403ab2effb9fd40e3f0bee3342a7f7bc08",
+      "upstream_sha256": "52769a7cd1fcc7f5765fe199064246b48497449f85dd61248aa69f95a0fd1fa5",
+      "commit": "b3262008f862d155c193b71d7af92b3d8e3d37f8"
+    },
+    "b3262008f:delphi/polismath/poller/service.py": {
+      "path": "coordinator-rs/ci/pinned/b3262008f/delphi/polismath/poller/service.py.txt",
+      "sha256": "511682ea4d936b495a1621105abe409651b6ae311a058f5d3c3fefa275e8dce2",
+      "upstream_sha256": "511682ea4d936b495a1621105abe409651b6ae311a058f5d3c3fefa275e8dce2",
+      "commit": "b3262008f862d155c193b71d7af92b3d8e3d37f8"
+    },
+    "b3262008f:delphi/polismath/poller/worker_pool.py": {
+      "path": "coordinator-rs/ci/pinned/b3262008f/delphi/polismath/poller/worker_pool.py.txt",
+      "sha256": "0a3d35f91b75768db1e9e049a8ee2fc88c5b8614b823e214d6a7f3f57812ce5b",
+      "upstream_sha256": "0a3d35f91b75768db1e9e049a8ee2fc88c5b8614b823e214d6a7f3f57812ce5b",
+      "commit": "b3262008f862d155c193b71d7af92b3d8e3d37f8"
+    },
+    "b3262008f:delphi/polismath/poller/math_writer.py": {
+      "path": "coordinator-rs/ci/pinned/b3262008f/delphi/polismath/poller/math_writer.py.txt",
+      "sha256": "01ff052e2744b82c0d1dd71650f8db001a7e588eb70bfea26abd20a37e7fa309",
+      "upstream_sha256": "01ff052e2744b82c0d1dd71650f8db001a7e588eb70bfea26abd20a37e7fa309",
+      "commit": "b3262008f862d155c193b71d7af92b3d8e3d37f8"
+    }
+  }
 }

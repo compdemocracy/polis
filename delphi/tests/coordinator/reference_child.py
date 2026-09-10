@@ -7,12 +7,13 @@ import importlib
 import logging
 import os
 from pathlib import Path
-import subprocess
 import sys
 import tempfile
 
 ROOT=Path(__file__).resolve().parents[3]
 REF="b3262008f"
+sys.path.insert(0,str(ROOT/"coordinator-rs/ci"))
+from reference_assets import load_asset
 logging.disable(logging.CRITICAL)
 with tempfile.TemporaryDirectory(prefix="p026-reference-") as tmp:
     tmp=Path(tmp)
@@ -21,7 +22,7 @@ with tempfile.TemporaryDirectory(prefix="p026-reference-") as tmp:
     for folder,names in [("database",["postgres.py"]),("poller",["service.py","worker_pool.py","math_writer.py"])]:
         dest=tmp/folder;dest.mkdir()
         for name in names:
-            (dest/name).write_bytes(subprocess.check_output(["git","show",f"{REF}:delphi/polismath/{folder}/{name}"],cwd=ROOT))
+            (dest/name).write_bytes(load_asset(ROOT,REF,f"delphi/polismath/{folder}/{name}"))
         getattr(polismath,folder).__path__.insert(0,str(dest))
     for name in ("polismath.database.postgres", "polismath.poller.worker_pool", "polismath.poller.math_writer", "polismath.poller.service"):
         sys.modules.pop(name,None)
