@@ -24,7 +24,7 @@
   "witness": "coordinator-rs/evidence/d4-bundle-reader.json",
   "integrity_model": "this is a candidate reader in the Node runtime for the experiment's harness, not the production server reader; the atomicity property is demonstrated against the real test PostgreSQL, it does not certify CO04's Bundle rewrite or the served corpus",
   "pins_are_committed_sources": true,
-  "python_cases": 142,
+  "python_cases": 151,
   "sha256": {
     "coordinator-rs/tools/bundle_reader.cjs": "406ae287970b1c69b39c947fbcb9576fe0c2a736f8e6761047326effe3687691",
     "coordinator-rs/tools/record_s2.py": "8be7b4781c332e97719a18187a5cca0aa2ead1644fff3777734c67cde0244c7c",

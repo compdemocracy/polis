@@ -1,0 +1,56 @@
+{
+  "scope": "S3 publication-outcome telemetry only",
+  "required_cases": [
+    "test_confirmed_commit_emits_no_ambiguous_outcome",
+    "test_failed_readback_is_unresolved_and_alarmable[once-absent]",
+    "test_failed_readback_is_unresolved_and_alarmable[once-inconsistent]",
+    "test_failed_readback_is_unresolved_and_alarmable[once-read]",
+    "test_failed_readback_is_unresolved_and_alarmable[once-reconnect]",
+    "test_failed_readback_is_unresolved_and_alarmable[publish-fixture-absent]",
+    "test_failed_readback_is_unresolved_and_alarmable[publish-fixture-inconsistent]",
+    "test_failed_readback_is_unresolved_and_alarmable[publish-fixture-read]",
+    "test_failed_readback_is_unresolved_and_alarmable[publish-fixture-reconnect]",
+    "test_uncertain_commit_readback_binds_publishing_epoch[False]",
+    "test_uncertain_commit_readback_binds_publishing_epoch[True]"
+  ],
+  "required_cases_passed": 11,
+  "python_full_suite_passed": 151,
+  "alarm": {
+    "comparison": "GreaterThanOrEqualToThreshold",
+    "datapoints_to_alarm": 1,
+    "deployed": false,
+    "evaluation_periods": 1,
+    "metric": "PublishUnresolvedLost",
+    "note": "Sparse outcome events, not a heartbeat. Missing events cannot establish health or resolution; independent producer/sink observation and delivery remain required. A later resolved-own event does not cancel an earlier unresolved-lost operation.",
+    "period_seconds": 60,
+    "statistic": "Sum",
+    "threshold": 1,
+    "treat_missing_data": "notBreaching"
+  },
+  "observations": [
+    "real COMMIT reply severed; exact own identity resolves",
+    "same tick/content/operation at a replacement epoch stays unresolved",
+    "absent/inconsistent rows and reconnect/read failures stay unresolved",
+    "once and publish-fixture emit at operation boundary, without double counting",
+    "local observer: any unresolved outcome alarms; attempts, missing data and other namespace cannot prove resolution; later own cannot erase lost",
+    "confirmed COMMIT emits no ambiguous outcome"
+  ],
+  "intended_writer": "certified Python poller, with Clojure fenced before transfer",
+  "production_fencing_changed": false,
+  "cloud_delivery_verified": false,
+  "O7": "OPEN",
+  "remaining": [
+    "bounded nonblocking transport and independent producer/sink observer",
+    "deployed publisher, missing-data alarms and delivery drill",
+    "paced rebuild/transfer rehearsal and writer exclusion proof",
+    "remaining S3 fairness/capacity and full-contract obligations"
+  ],
+  "sha256": {
+    "coordinator-rs/src/store.rs": "d2e7f6b0cade81f0ac818c3aa76285d540986d97e2e1b2a541324f5f24a02a0b",
+    "coordinator-rs/src/metrics.rs": "23033ddecea83dbcc668f1d660112f8fff1bfead68ed2fcf89edf6d5d071d773",
+    "coordinator-rs/tests/validation.rs": "70c051eb391d2c2f32859a6fdf419a3c3776d43e16246b0471b11d4c6088efe4",
+    "coordinator-rs/tools/record_s3.py": "f0f1f3e967a6de78e5b2508b6a5925d77e8007e569d681a3471171c96d74a022",
+    "delphi/tests/coordinator/test_s1_identity.py": "6eeeeca5972b8ab25fb49f45b3024c2269f0e8f566fd6cf33a75e4465aa5134c",
+    "delphi/tests/coordinator/test_publication_metrics.py": "8bca756a2f8a10f717834560225ab883fa8bcc6434c0759995eb21acc9d342cd"
+  }
+}
