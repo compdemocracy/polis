@@ -72,158 +72,53 @@ async function getOrCreateUserIDFromOidcSub(
   // Use a single transaction to handle the entire user creation/mapping process
   // This prevents race conditions by ensuring atomicity
   try {
-    const result = await new Promise<number>((resolve, reject) => {
-      pg.query("BEGIN", [], (beginErr: any) => {
-        if (beginErr) {
-          logger.error("Failed to begin transaction:", beginErr);
-          return reject(beginErr);
+    const result = await pg.withTransaction(async (client) => {
+      const mapping = await client.query(
+        "SELECT uid FROM oidc_user_mappings WHERE oidc_sub = $1",
+        [oidcSub]
+      );
+      if (mapping.rows.length > 0) return mapping.rows[0].uid;
+
+      const user = await client.query(
+        `INSERT INTO users (email, hname, username, is_owner, created)
+         VALUES ($1, $2, $3, $4, now_as_millis())
+         ON CONFLICT (email) DO UPDATE SET
+           hname = EXCLUDED.hname,
+           username = EXCLUDED.username
+         RETURNING uid`,
+        [email, displayName, username, true]
+      );
+      if (!user.rows.length) throw new Error("Failed to create or find user");
+      const uid = user.rows[0].uid;
+      const existingMapping = await client.query(
+        "SELECT oidc_sub FROM oidc_user_mappings WHERE uid = $1",
+        [uid]
+      );
+      if (existingMapping.rows.length > 0) {
+        const existingOidcSub = existingMapping.rows[0].oidc_sub;
+        if (existingOidcSub === oidcSub) {
+          logger.info(`Mapping already exists for OIDC sub ${oidcSub}: uid ${uid}`);
+          return uid;
         }
-
-        // First, try to get existing mapping
-        pg.query(
-          "SELECT uid FROM oidc_user_mappings WHERE oidc_sub = $1",
-          [oidcSub],
-          (mappingErr: any, mappingResult: { rows: any[] }) => {
-            if (mappingErr) {
-              return pg.query("ROLLBACK", [], () => reject(mappingErr));
-            }
-
-            if (mappingResult.rows.length > 0) {
-              // Mapping exists, commit and return
-              const uid = mappingResult.rows[0].uid;
-              return pg.query("COMMIT", [], (commitErr: any) => {
-                if (commitErr) return reject(commitErr);
-                resolve(uid);
-              });
-            }
-
-            // No mapping exists, so we need to create user and/or mapping
-            // Use improved upsert approach that handles constraint violations better
-            const upsertUserQuery = `
-              INSERT INTO users (email, hname, username, is_owner, created) 
-              VALUES ($1, $2, $3, $4, now_as_millis())
-              ON CONFLICT (email) DO UPDATE SET
-                hname = EXCLUDED.hname,
-                username = EXCLUDED.username
-              RETURNING uid
-            `;
-
-            pg.query(
-              upsertUserQuery,
-              [email, displayName, username, true],
-              (userErr: any, userResult: { rows: { uid: number }[] }) => {
-                if (userErr) {
-                  return pg.query("ROLLBACK", [], () => reject(userErr));
-                }
-
-                if (!userResult.rows.length) {
-                  return pg.query("ROLLBACK", [], () =>
-                    reject(new Error("Failed to create or find user"))
-                  );
-                }
-
-                const uid = userResult.rows[0].uid;
-
-                // Check if this uid already has a mapping to a different oidc_sub
-                pg.query(
-                  "SELECT oidc_sub FROM oidc_user_mappings WHERE uid = $1",
-                  [uid],
-                  (
-                    existingMappingErr: any,
-                    existingMappingResult: { rows: any[] }
-                  ) => {
-                    if (existingMappingErr) {
-                      return pg.query("ROLLBACK", [], () =>
-                        reject(existingMappingErr)
-                      );
-                    }
-
-                    if (existingMappingResult.rows.length > 0) {
-                      const existingOidcSub =
-                        existingMappingResult.rows[0].oidc_sub;
-                      if (existingOidcSub === oidcSub) {
-                        // Same mapping already exists, just return the uid
-                        return pg.query("COMMIT", [], (commitErr: any) => {
-                          if (commitErr) return reject(commitErr);
-                          logger.info(
-                            `Mapping already exists for OIDC sub ${oidcSub}: uid ${uid}`
-                          );
-                          resolve(uid);
-                        });
-                      } else {
-                        // Different OIDC user is already mapped to this local user.
-                        // This can happen if a user changes the email on their social login,
-                        // or deletes and recreates their account. We want the new login to win.
-                        logger.warn(
-                          `Local user ${uid} (${email}) was mapped to old OIDC sub ${existingOidcSub}. Overwriting with new mapping for ${oidcSub}.`
-                        );
-
-                        // To prevent unique constraint violations on either uid or oidc_sub,
-                        // we must first remove any existing mappings that would conflict.
-                        const cleanupQuery =
-                          "DELETE FROM oidc_user_mappings WHERE oidc_sub = $1 OR uid = $2";
-
-                        pg.query(
-                          cleanupQuery,
-                          [oidcSub, uid],
-                          (deleteErr: any) => {
-                            if (deleteErr) {
-                              return pg.query("ROLLBACK", [], () =>
-                                reject(deleteErr)
-                              );
-                            }
-
-                            // Now that the coast is clear, insert the new mapping.
-                            pg.query(
-                              "INSERT INTO oidc_user_mappings (oidc_sub, uid, created) VALUES ($1, $2, now_as_millis())",
-                              [oidcSub, uid],
-                              (insertErr: any) => {
-                                if (insertErr) {
-                                  return pg.query("ROLLBACK", [], () =>
-                                    reject(insertErr)
-                                  );
-                                }
-
-                                // Success, commit.
-                                pg.query("COMMIT", [], (commitErr: any) => {
-                                  if (commitErr) return reject(commitErr);
-                                  resolve(uid);
-                                });
-                              }
-                            );
-                          }
-                        );
-                      }
-                    } else {
-                      // No existing mapping for this uid, create new one
-                      pg.query(
-                        "INSERT INTO oidc_user_mappings (oidc_sub, uid, created) VALUES ($1, $2, now_as_millis()) ON CONFLICT (oidc_sub) DO NOTHING",
-                        [oidcSub, uid],
-                        (mappingInsertErr: any) => {
-                          if (mappingInsertErr) {
-                            return pg.query("ROLLBACK", [], () =>
-                              reject(mappingInsertErr)
-                            );
-                          }
-
-                          // Commit the transaction
-                          pg.query("COMMIT", [], (commitErr: any) => {
-                            if (commitErr) return reject(commitErr);
-                            logger.info(
-                              `Successfully created/linked user for OIDC sub ${oidcSub}: uid ${uid}`
-                            );
-                            resolve(uid);
-                          });
-                        }
-                      );
-                    }
-                  }
-                );
-              }
-            );
-          }
+        // Preserve the existing policy: a new social login for this email wins.
+        logger.warn(
+          `Local user ${uid} (${email}) was mapped to old OIDC sub ${existingOidcSub}. Overwriting with new mapping for ${oidcSub}.`
         );
-      });
+        await client.query(
+          "DELETE FROM oidc_user_mappings WHERE oidc_sub = $1 OR uid = $2",
+          [oidcSub, uid]
+        );
+        await client.query(
+          "INSERT INTO oidc_user_mappings (oidc_sub, uid, created) VALUES ($1, $2, now_as_millis())",
+          [oidcSub, uid]
+        );
+      } else {
+        await client.query(
+          "INSERT INTO oidc_user_mappings (oidc_sub, uid, created) VALUES ($1, $2, now_as_millis()) ON CONFLICT (oidc_sub) DO NOTHING",
+          [oidcSub, uid]
+        );
+      }
+      return uid;
     });
 
     return result;
