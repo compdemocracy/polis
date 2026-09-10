@@ -103,7 +103,7 @@ Ambiguity metrics are emitted only after a publication phase was entered.
 ## Fault and regression evidence
 
 The release build refuses fault control and fixture publication. The fault build
-can request a named pause only in a marked synthetic database and a non-serving
+can request a named pause only in a marked public-fixture database and a non-serving
 namespace. Python verifies the marker before enabling its latches or fixture
 input. `publish-fixture` uses Python and the same restricted RPC; it is never an
 alternate Rust publisher.

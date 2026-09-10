@@ -174,7 +174,7 @@ def test_renewal_during_pending_worker_call(db, launch, tmp_path, transfer):
     wait(ready.exists, alive=child, why="actual worker waiting inside compute call")
     pid = int(ready.read_text())
     if transfer:
-        query(db, "UPDATE polis_coordinator_leases SET owner_id='synthetic-successor',"
+        query(db, "UPDATE polis_coordinator_leases SET owner_id='public-fixture-successor',"
                   "owner_epoch=owner_epoch+1,expires_at=clock_timestamp()+interval '20 seconds' "
                   "WHERE zid=1 AND math_env='rustproto'")
         _, err = child.done(code=3)

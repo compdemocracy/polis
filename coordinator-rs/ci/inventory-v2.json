@@ -94,7 +94,7 @@
     "tests/coordinator/test_bundle_reader.py::test_loadbundle_torn_baseline_and_admission",
     "tests/coordinator/test_equivalence.py::test_polarity_rebuild_schedule_with_revotes",
     "tests/coordinator/test_equivalence.py::test_polarity_through_actual_database_ingress[biodiversity]",
-    "tests/coordinator/test_equivalence.py::test_polarity_through_actual_database_ingress[synthetic]",
+    "tests/coordinator/test_equivalence.py::test_polarity_through_actual_database_ingress[public-fixture]",
     "tests/coordinator/test_equivalence.py::test_polarity_through_actual_database_ingress[vw]",
     "tests/coordinator/test_equivalence.py::test_semantic_tie_key_is_a_declared_contract_term",
     "tests/coordinator/test_equivalence.py::test_vw_dual_namespace_live_equivalence",
@@ -594,7 +594,7 @@
     ],
     [
       "tests.coordinator.test_equivalence",
-      "test_polarity_through_actual_database_ingress[synthetic]"
+      "test_polarity_through_actual_database_ingress[public-fixture]"
     ],
     [
       "tests.coordinator.test_equivalence",
@@ -1951,6 +1951,34 @@
     [
       "coordinator-rs.ci.tests.test_replay_pins",
       "test_existing_empty_clock_observation_remains_observation[Linux-x86_64]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_local_rename_is_explicit_and_cannot_drop_a_required_source[rename]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_local_rename_is_explicit_and_cannot_drop_a_required_source[undeclared]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_local_rename_is_explicit_and_cannot_drop_a_required_source[hosted]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_local_rename_is_explicit_and_cannot_drop_a_required_source[still-present]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_local_rename_is_explicit_and_cannot_drop_a_required_source[pinned]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_local_rename_is_explicit_and_cannot_drop_a_required_source[untracked]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_local_rename_is_explicit_and_cannot_drop_a_required_source[symlink]"
     ]
   ],
   "reference_assets": {
@@ -1962,7 +1990,7 @@
     },
     "aaaf7ca5c93f9a758b28e7a361c3b9544e24305a:delphi/tests/poller/recovery/test_r09_partial_tables_readers.py": {
       "path": "coordinator-rs/ci/pinned/aaaf7ca5c93f9a758b28e7a361c3b9544e24305a/delphi/tests/poller/recovery/test_r09_partial_tables_readers.py.txt",
-      "sha256": "8c98484c14811e9f05047a56189cf9f2bc8f5b255b8ca3f2d00f7696328d1064",
+      "sha256": "b71c2c6c8dd3ae133c4a28aa426e507fa8996da5fe647539531aa64c906810be",
       "upstream_sha256": "0e90c9e2ef2f19d9c7d91de072a486cdc8b731aa94a0305b3264277ff4aaebd9",
       "commit": "aaaf7ca5c93f9a758b28e7a361c3b9544e24305a"
     },

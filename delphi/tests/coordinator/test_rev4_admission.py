@@ -127,9 +127,9 @@ def test_protected_cleanup_and_floor_survive_pointer_damage(db, launch, damage):
     query(db, "SET ROLE p027_bridge_control; SELECT pc_protect('rustproto',1,%s,true)", (old,))
     assert query(db, "SET ROLE p027_bridge_control; SELECT pc_cleanup('rustproto',1,%s)", (old,)) == [(False,)]
     query(db, "SET ROLE p027_bridge_control; SELECT pc_protect('rustproto',1,%s,false)", (old,))
-    query(db, "SET ROLE p027_bridge_control; SELECT pc_reference('rustproto',1,%s,'synthetic-reader',true)", (old,))
+    query(db, "SET ROLE p027_bridge_control; SELECT pc_reference('rustproto',1,%s,'public-fixture-reader',true)", (old,))
     assert query(db, "SET ROLE p027_bridge_control; SELECT pc_cleanup('rustproto',1,%s)", (old,)) == [(False,)]
-    query(db, "SET ROLE p027_bridge_control; SELECT pc_reference('rustproto',1,%s,'synthetic-reader',false)", (old,))
+    query(db, "SET ROLE p027_bridge_control; SELECT pc_reference('rustproto',1,%s,'public-fixture-reader',false)", (old,))
     latest = operations(db)[-1][0]
     assert query(db, "SET ROLE p027_bridge_control; SELECT pc_cleanup('rustproto',1,%s)", (latest,)) == [(False,)]
     if damage == "floor_only":

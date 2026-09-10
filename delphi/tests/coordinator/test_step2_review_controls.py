@@ -124,7 +124,7 @@ def test_actual_pca2_route_serves_generation_zero(db, launch, tmp_path):
     evidence = json.loads(result.stdout)
     (EVIDENCE / "d4-generation-zero.json").write_text(json.dumps({
         "profile": "real handle_GET_math_pca2 on a real Express app over loopback HTTP, "
-                   "real reader/cache/PostgreSQL; only the parameter middleware is synthetic",
+                   "real reader/cache/PostgreSQL; only the parameter middleware is public-fixture",
         "committed_math_tick": 0,
         "route": evidence,
         "note": "the route requests latest with math_tick=-1 and serves generation zero; "

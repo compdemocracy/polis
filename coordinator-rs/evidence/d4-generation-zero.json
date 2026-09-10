@@ -1,7 +1,7 @@
 {
   "committed_math_tick": 0,
   "note": "the route requests latest with math_tick=-1 and serves generation zero; the cold getPca(zid, undefined) miss this control once recorded was the server-owner reader defect #2732 named, and #2732 is now merged to edge, so on this rebased tree the cold call also finds generation zero (coldUndefinedPresent is True). The helper is fixed upstream, not here.",
-  "profile": "real handle_GET_math_pca2 on a real Express app over loopback HTTP, real reader/cache/PostgreSQL; only the parameter middleware is synthetic",
+  "profile": "real handle_GET_math_pca2 on a real Express app over loopback HTTP, real reader/cache/PostgreSQL; only the parameter middleware is public-fixture",
   "route": {
     "coldUndefinedPresent": true,
     "conditional": {

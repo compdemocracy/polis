@@ -19,7 +19,7 @@ def test_original_jsonb_corruption_is_detected(db, launch, table, corrupt):
     c = connect(db)
     with c.cursor() as cur:
         if corrupt == "jsonb":
-            cur.execute(f"UPDATE {table} SET data=data || '{{\"synthetic_corruption\":true}}'::jsonb")
+            cur.execute(f"UPDATE {table} SET data=data || '{{\"test_corruption\":true}}'::jsonb")
         else:
             kind=table.removeprefix("math_")
             # First demonstrate the new database hash constraint, then remove
@@ -35,7 +35,7 @@ def test_original_jsonb_corruption_is_detected(db, launch, table, corrupt):
                 cur.execute("UPDATE polis_coordinator_payloads SET original_sha256=%s WHERE payload_kind=%s",("0"*64,kind))
             else:
                 cur.execute("SELECT original_bytes FROM polis_coordinator_payloads WHERE payload_kind=%s",(kind,))
-                raw=json.loads(bytes(cur.fetchone()[0]));raw["synthetic_corruption"]=True
+                raw=json.loads(bytes(cur.fetchone()[0]));raw["test_corruption"]=True
                 raw=json.dumps(raw).encode()
                 cur.execute("UPDATE polis_coordinator_payloads SET original_bytes=%s WHERE payload_kind=%s",(raw,kind))
                 if corrupt == "original_with_digest":
@@ -55,7 +55,7 @@ def test_exact_worker_bytes_and_numeric_spelling_survive_publication(db, launch,
     payloads = {key: before["math_" + key]["data"] for key in ("main", "bidtopid", "ptptstats")}
     raw = {key: json.dumps(value, indent=2).encode() + b"\n" for key, value in payloads.items()}
     # A lexical representation which JSONB will erase, including negative zero.
-    raw["main"] = raw["main"].rstrip()[:-1] + b', "synthetic_lexical": [-0.0, 1e-7, 1.000]}\n'
+    raw["main"] = raw["main"].rstrip()[:-1] + b', "test_lexical": [-0.0, 1e-7, 1.000]}\n'
     payloads["originals"] = {key: list(value) for key, value in raw.items()}
     launch(db, "publish-fixture", args=(fixture_file(tmp_path, payloads, expected=0),)).done()
     out, _ = launch(db, "read", args=(1,)).done()
@@ -128,7 +128,7 @@ class CommitProxy:
         publication = threading.Event()
         def upstream():
             try:
-                # No TLS in this synthetic trust-authenticated fixture.
+                # No TLS in this public-fixture trust-authenticated fixture.
                 size = self.read(client, 4)
                 server.sendall(size + self.read(client, struct.unpack("!I", size)[0] - 4))
                 while True:

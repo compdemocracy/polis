@@ -5,7 +5,7 @@ use polis_coordinator::{
 use serde_json::{Value, json};
 fn requested() -> Value {
     json!({"candidate_schema":CANDIDATE_SCHEMA,"engine_version":ENGINE_VERSION,
-        "input_digest":"a".repeat(64),"schedule_digest":"b".repeat(64),"operation_id":"synthetic-op"})
+        "input_digest":"a".repeat(64),"schedule_digest":"b".repeat(64),"operation_id":"public-fixture-op"})
 }
 #[test]
 fn matching_candidate_is_admitted() {
@@ -72,12 +72,12 @@ fn current(epoch: i64, operation: &str) -> Current {
         operation_id: operation.into(),
         math_tick: 0,
         caching_tick: 1,
-        checkpoint: json!({"synthetic":"identical deterministic checkpoint"}),
+        checkpoint: json!({"public-fixture":"identical deterministic checkpoint"}),
     }))
 }
 #[test]
 fn uncertain_commit_requires_own_epoch_even_at_identical_tick_and_checkpoint() {
-    let checkpoint = json!({"synthetic":"identical deterministic checkpoint"});
+    let checkpoint = json!({"public-fixture":"identical deterministic checkpoint"});
     assert_eq!(
         classify_commit(&current(7, "op"), &checkpoint, 7, "op", 0),
         CommitReadback::Own(0)
@@ -89,7 +89,7 @@ fn uncertain_commit_requires_own_epoch_even_at_identical_tick_and_checkpoint() {
 }
 #[test]
 fn uncertain_commit_requires_own_operation_tick_and_checkpoint() {
-    let checkpoint = json!({"synthetic":"identical deterministic checkpoint"});
+    let checkpoint = json!({"public-fixture":"identical deterministic checkpoint"});
     assert_eq!(
         classify_commit(&current(7, "other"), &checkpoint, 7, "op", 0),
         CommitReadback::Lost

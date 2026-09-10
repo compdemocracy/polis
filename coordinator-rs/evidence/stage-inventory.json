@@ -22,7 +22,7 @@
           "operation_id": "47ee67ada32a4ef3a3652377d5ce347d",
           "pid": 48670,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "after_source_selection",
           "state": "reached-and-blocked"
         },
@@ -51,7 +51,7 @@
           "operation_id": "068643883a4f48aa892f2397b94f1e76",
           "pid": 48684,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "after_input_checkpoint",
           "state": "reached-and-blocked"
         },
@@ -80,7 +80,7 @@
           "operation_id": "3b245997a4534602a442e5b21d511bd4",
           "pid": 48844,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "before_worker_apply",
           "state": "reached-and-blocked"
         },
@@ -109,7 +109,7 @@
           "operation_id": "07e922462384414daf31348a7fd5ec9a",
           "pid": 49010,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "after_worker_compute",
           "state": "reached-and-blocked"
         },
@@ -136,7 +136,7 @@
           "operation_id": "5b799c5652484f89bfc737af2eb82592",
           "pid": 48635,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "after_lease",
           "state": "reached-and-blocked"
         },
@@ -251,7 +251,7 @@
           "operation_id": "564a6a0e584a419a84a246e08cd5671a",
           "pid": 49038,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "before_ticks",
           "state": "reached-and-blocked"
         },
@@ -366,7 +366,7 @@
           "operation_id": "7dadca8c27c74a79bde7878f3b6a1645",
           "pid": 49311,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "after_ticks",
           "state": "reached-and-blocked"
         },
@@ -481,7 +481,7 @@
           "operation_id": "7a6c842da86841849113ca4b73315607",
           "pid": 49347,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "before_bidtopid",
           "state": "reached-and-blocked"
         },
@@ -596,7 +596,7 @@
           "operation_id": "fb5ca3e1d93545af8ff970410c4b63f2",
           "pid": 49409,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "after_bidtopid",
           "state": "reached-and-blocked"
         },
@@ -711,7 +711,7 @@
           "operation_id": "d9342aef222e44799ad8da6df9356c8e",
           "pid": 49663,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "before_ptptstats",
           "state": "reached-and-blocked"
         },
@@ -826,7 +826,7 @@
           "operation_id": "d59b32af0d4a466286456a03d0aca35f",
           "pid": 49685,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "after_ptptstats",
           "state": "reached-and-blocked"
         },
@@ -941,7 +941,7 @@
           "operation_id": "9a251ab250ea430e82a7e994c9232f4d",
           "pid": 49738,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "before_main",
           "state": "reached-and-blocked"
         },
@@ -1056,7 +1056,7 @@
           "operation_id": "d97dd7e0b7ff42a79a16b9fc93ed32b1",
           "pid": 50020,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "after_main",
           "state": "reached-and-blocked"
         },
@@ -1171,7 +1171,7 @@
           "operation_id": "90689b74a6134d2281abb489484c78fd",
           "pid": 50076,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "before_commit",
           "state": "reached-and-blocked"
         },
@@ -1286,7 +1286,7 @@
           "operation_id": "57756180dca84647aff2025306ecb3cc",
           "pid": 50098,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "after_commit",
           "state": "reached-and-blocked"
         },
@@ -1315,7 +1315,7 @@
           "operation_id": "15dbb803456046feb0d1e813cbc67d8c",
           "pid": 50394,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "after_ack",
           "state": "reached-and-blocked"
         },
@@ -1344,7 +1344,7 @@
           "operation_id": "0bf799b610224f7994ce408a50367953",
           "pid": 51550,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "before_restore",
           "state": "reached-and-blocked"
         },
@@ -1370,7 +1370,7 @@
           "operation_id": "18d09fa5632f4a60adbd864ad90432ed",
           "pid": 51581,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "after_restore",
           "state": "reached-and-blocked"
         },
@@ -1390,7 +1390,7 @@
           "operation_id": "9fb6d1f7deff48e6981786e13d4f08f8",
           "pid": 51618,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "before_cursor",
           "state": "reached-and-blocked"
         },
@@ -1415,7 +1415,7 @@
           "operation_id": "3b861b1fd764423b880eb792f238dc58",
           "pid": 51630,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "after_cursor",
           "state": "reached-and-blocked"
         },
@@ -1434,7 +1434,7 @@
           "operation_id": "0f745bc556cb4120a6d88033b70963f1",
           "pid": 51642,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "before_sweep",
           "state": "reached-and-blocked"
         },
@@ -1462,7 +1462,7 @@
           "operation_id": "83e6896e44cd435e83830a3808bccc91",
           "pid": 51669,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "after_sweep",
           "state": "reached-and-blocked"
         },
@@ -1484,7 +1484,7 @@
           "operation_id": "cd94a798d0404d1c8631a2ba64e529f6",
           "pid": 51682,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "bundle_pinned",
           "state": "reached-and-blocked"
         },
@@ -1505,7 +1505,7 @@
           "operation_id": "eb68675f6b544284977ca80a40b1123f",
           "pid": 51698,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "before_companion_join",
           "state": "reached-and-blocked"
         },
@@ -1528,7 +1528,7 @@
           "operation_id": "7f7700425fc34f2e9c7c49415bb07cef",
           "pid": 50847,
           "protocol": "polis-fault-control/1",
-          "run_id": "synthetic-test",
+          "run_id": "public-fixture-test",
           "stage": "cache_eviction_contends_with_same_zid_update",
           "state": "reached-and-blocked"
         },

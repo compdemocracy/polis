@@ -183,7 +183,7 @@ def test_retryable_publication_rolls_back_and_retries_same_operation(db,launch,t
           SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
           BEGIN
            IF nextval('public.p027_retry_attempt')<=2 THEN
-            RAISE EXCEPTION USING ERRCODE=TG_ARGV[0],MESSAGE='synthetic retry';
+            RAISE EXCEPTION USING ERRCODE=TG_ARGV[0],MESSAGE='public-fixture retry';
            END IF;
            RETURN NEW;
           END $$""")
