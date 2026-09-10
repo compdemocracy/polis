@@ -39,6 +39,7 @@ from polismath.replay import fixture_bundle as fb
 from polismath.replay import fixture_config as fc
 from polismath.replay import fixture_extract as fx
 from polismath.replay import fixture_survey as fs
+from polismath.replay.fixture_selection import validate_report
 from polismath.replay import prodclone as pc
 from polismath.replay.real_data import REAL_DATA_ROOT
 
@@ -133,6 +134,48 @@ def extract(database_url: str, zid: int, feature: str, out_root: Path | None) ->
 # ---------------------------------------------------------------------------
 
 
+@cli.command("select-representative")
+@click.option("--database-url", required=True)
+@click.option("--from-config", "config_path", type=click.Path(path_type=Path), required=True)
+@click.option("--out", "out_path", type=click.Path(path_type=Path), required=True,
+              help="Box-only provenance file, beneath real_data/.local/; never a payload member.")
+@click.option("--snapshot-id", default=None)
+@click.option("--writers-disabled", is_flag=True, default=False)
+def select_representative(database_url: str, config_path: Path, out_path: Path,
+                          snapshot_id: str | None, writers_disabled: bool) -> None:
+    """Emit only seed/bucket counts/selected sizes; retain identities in the box.
+
+    Selection-only: no new payload, recipe, schedule or battery is admitted.
+    Exit 2 with an empty census report when the snapshot has no conversations.
+    """
+    try:
+        config = fc.load_config(config_path)
+        if fc.representative_seed(config) is None:
+            raise ValueError("SELECTION_NOT_CONFIGURED")
+        target = out_path.resolve()
+        parts = target.parts
+        if ".local" not in parts:
+            raise ValueError("PRIVATE_PATH_REQUIRED")
+        guard = Path(*parts[:parts.index(".local")])
+        target = pc.assert_under_local(target, guard)
+        conn = psycopg2.connect(database_url)
+        try:
+            result = fx.select_representative_from_config(
+                conn, config=config, snapshot_id=snapshot_id,
+                writers_disabled=writers_disabled)
+        finally:
+            conn.close()
+        validate_report(result["report"])
+        target.parent.mkdir(parents=True, exist_ok=True)
+        fb.os_umask_safe_write(target, fb.canonical_json(result))
+    except Exception:
+        # Connection/config/path/raw database errors can contain private data.
+        raise click.ClickException("REPRESENTATIVE_SELECTION_FAILED") from None
+    click.echo(fb.canonical_json(result["report"]).decode().strip())
+    if result["report"]["bucket_counts"]["population"] == 0:
+        raise click.exceptions.Exit(2)
+
+
 @cli.command("from-config")
 @click.option("--database-url", required=True,
               help="Postgres connection URL for the prodclone database.")
@@ -168,7 +211,23 @@ def from_config(database_url: str, config_path: Path | None, out_dir: Path,
 
     Prints counts only — no zid, no report id, no directory-to-role mapping.
     """
-    config = fc.load_config(config_path)
+    try:
+        config = fc.load_config(config_path)
+    except Exception:
+        raise click.ClickException("INVALID_SELECTION_CONFIG") from None
+    try:
+        _extract_config(config, database_url, out_dir, snapshot_id, writers_disabled,
+                        reuse_dirs, accept_public_fixture, no_generated, include_heavy)
+    except Exception:
+        if "representative_selection" in config:
+            raise click.ClickException("REPRESENTATIVE_EXTRACTION_FAILED") from None
+        raise
+
+
+def _extract_config(config: dict, database_url: str, out_dir: Path,
+                    snapshot_id: str | None, writers_disabled: bool,
+                    reuse_dirs: Path | None, accept_public_fixture: tuple[str, ...],
+                    no_generated: bool, include_heavy: bool) -> None:
     payload_root = Path(out_dir).resolve()
     # Derive the real_data root from the caller's path so assert_under_local can
     # re-check every single write. --out may be "<root>/.local" itself or a
@@ -189,7 +248,12 @@ def from_config(database_url: str, config_path: Path | None, out_dir: Path,
         else:
             dir_names = dict(loaded)
 
-    conn = psycopg2.connect(database_url)
+    try:
+        conn = psycopg2.connect(database_url)
+    except Exception:
+        if "representative_selection" in config:
+            raise click.ClickException("REPRESENTATIVE_EXTRACTION_FAILED") from None
+        raise
     try:
         result = fx.extract_from_config(
             conn, config=config, payload_root=payload_root, guard_root=guard_root,
@@ -198,10 +262,22 @@ def from_config(database_url: str, config_path: Path | None, out_dir: Path,
             accept_public_fixture=accept_public_fixture,
             include_generated=not no_generated, include_heavy=include_heavy,
         )
-    except fs.RoleUnsatisfied as exc:
-        raise click.ClickException(str(exc)) from exc
+    except Exception as exc:
+        if "representative_selection" in config:
+            raise click.ClickException("REPRESENTATIVE_EXTRACTION_FAILED") from None
+        if isinstance(exc, fs.RoleUnsatisfied):
+            raise click.ClickException(str(exc)) from exc
+        raise
     finally:
         conn.close()
+
+    if "representative_selection" in config:
+        try:
+            if "representative_provenance" not in result:
+                raise ValueError("MISSING_SELECTION_PROVENANCE")
+            validate_report(result["representative_selection"])
+        except Exception:
+            raise click.ClickException("REPRESENTATIVE_REPORT_INVALID") from None
 
     # Side-car artefacts live BESIDE the payload, never inside it: the payload
     # tree is what gets hashed into the bundle, and the survey/provenance files
@@ -215,7 +291,18 @@ def from_config(database_url: str, config_path: Path | None, out_dir: Path,
     fb.os_umask_safe_write(provenance_path, fb.canonical_json(result["provenance_rows"]))
     extract_path = pc.assert_under_local(sidecar / "certify_extract.json", guard_root)
     fb.os_umask_safe_write(extract_path, fb.canonical_json({
-        k: v for k, v in result.items() if k not in ("survey", "provenance_rows")}))
+        k: v for k, v in result.items() if k not in ("survey", "provenance_rows", "representative_provenance")}))
+
+    if "representative_selection" in result:
+        representative_path = pc.assert_under_local(
+            sidecar / "representative_selection.private.json", guard_root)
+        fb.os_umask_safe_write(representative_path, fb.canonical_json({
+            "report": result["representative_selection"],
+            "provenance_rows": result["representative_provenance"],
+            "transaction_guarantee": result["transaction_guarantee"],
+        }))
+        click.echo(fb.canonical_json(result["representative_selection"]).decode().strip())
+        return
 
     click.echo(
         f"transaction: {result['transaction_guarantee']['isolation_level']} / "

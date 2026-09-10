@@ -49,6 +49,17 @@
         }
       }
     },
+    "representative_selection": {
+      "type": "object",
+      "description": "Optional snapshot selection/report stage only. Does not add payloads, change existing recipes or admit representative replay. A reviewed config/version fixes the seed before candidate output is inspected; absence preserves existing extraction behavior.",
+      "additionalProperties": false,
+      "required": ["algorithm", "target", "seed"],
+      "properties": {
+        "algorithm": {"type": "string", "const": "representative-logpv/1"},
+        "target": {"type": "integer", "const": 20},
+        "seed": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
     "served_math": {
       "type": "object",
       "description": "OPTIONAL (P-052 section 4.5). When present with capture=true, each extracted conversation additionally captures what the Clojure engine actually SERVED: the math_main row per math_env (blob verbatim, last_vote_timestamp, math_tick, caching_tick, modified) and the math_ticks row. This is an EXTRACTION change only - two additional SELECTs against tables that already exist, no migration, no new column, no trigger, no write. The block is ABSENT from the shipped config, which is what keeps the capture off by default and keeps certify_datasets.json byte-identical (and therefore every published manifest's commits.config_sha256 unchanged). Turning it on is a reviewed edit that mints a new config version.",

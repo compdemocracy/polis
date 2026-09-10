@@ -118,6 +118,24 @@ def served_math_options(config: dict[str, Any]) -> ServedMathOptions:
     )
 
 
+def representative_seed(config: dict[str, Any]) -> str | None:
+    """Optional, frozen selection-only declaration; reject malformed direct calls.
+
+    The shipped recipes/config remain byte-identical. A reviewed opt-in creates
+    a new config version; it does not admit additional payloads or battery rows.
+    """
+    if "representative_selection" not in config:
+        return None
+    block = config["representative_selection"]
+    schema = load_schema()["properties"]["representative_selection"]
+    if validate_against_schema(block, schema):
+        raise ConfigError("Invalid representative selection declaration")
+    # JSON Schema's/Python's $ anchor also matches before a final newline.
+    if re.fullmatch(r"[0-9a-f]{64}", block["seed"]) is None:
+        raise ConfigError("Invalid representative selection seed")
+    return block["seed"]
+
+
 # ---------------------------------------------------------------------------
 # Minimal JSON Schema (Draft-07 subset) interpreter.
 # ---------------------------------------------------------------------------
@@ -386,6 +404,11 @@ def _semantic_errors(config: dict[str, Any]) -> list[str]:
                 errors.append(
                     f"$.served_math.math_envs: duplicate entries "
                     f"{sorted({e for e in names if names.count(e) > 1})}")
+
+    try:
+        representative_seed(config)
+    except ConfigError:
+        errors.append("$.representative_selection: invalid declaration or seed")
 
     return errors
 
