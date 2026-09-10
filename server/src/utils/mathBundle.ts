@@ -312,13 +312,15 @@ export const MATH_BUNDLE_CACHE_MAX = Config.cacheMathResults ? 100 : 1;
 
 /**
  * Freshness bound, in ms. The same characterized TTL `updatePcaCache` uses, so
- * a Bundle never outlives the presentation built from it and the observable
- * staleness window of the math tables is unchanged.
+ * a derived presentation never outlives its source Bundle. Its original
+ * expiration travels with the read, so a second cache cannot renew old math.
  */
 export const MATH_BUNDLE_TTL_MS = 3000;
 
+export type CachedMathBundleRead = MathBundleRead & { readonly expiration: number };
+
 type BundleCacheEntry = {
-  read: MathBundleRead;
+  read: CachedMathBundleRead;
   /** The generation this entry describes; -1 when there is no main row. */
   mathTick: number;
   expiration: number;
@@ -374,13 +376,14 @@ export function clearMathBundleCache(): void {
 export async function getMathBundle(
   zid: number,
   mathEnv: string = Config.mathEnv
-): Promise<MathBundleRead> {
+): Promise<CachedMathBundleRead> {
   const key = bundleCacheKey(mathEnv, zid);
   const cached = bundleCache.get(key);
   if (cached && cached.expiration > Date.now()) {
     return cached.read;
   }
-  const read = await loadBundle(zid, mathEnv);
+  const loaded = await loadBundle(zid, mathEnv);
+  const read = { ...loaded, expiration: Date.now() + MATH_BUNDLE_TTL_MS };
   if (read.present === false) {
     logger.silly("math bundle absent", { zid, math_env: mathEnv });
   } else if (read.admitted === false) {
@@ -394,7 +397,7 @@ export async function getMathBundle(
   bundleCache.set(key, {
     read,
     mathTick: readTick(read),
-    expiration: Date.now() + MATH_BUNDLE_TTL_MS,
+    expiration: read.expiration,
   });
   return read;
 }
