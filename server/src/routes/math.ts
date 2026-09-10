@@ -6,7 +6,7 @@ import pg from "../db/pg-query";
 import Utils from "../utils/common";
 import { getZidForRid } from "../utils/zinvite";
 import { getBidIndexToPidMapping } from "../utils/participants";
-import { bidsForPids, getMathBundle } from "../utils/mathBundle";
+import { bidsForPids, getMathBundle, MathBundleRead } from "../utils/mathBundle";
 import Config from "../config";
 import logger from "../utils/logger";
 import { getPidPromise } from "../user";
@@ -318,10 +318,11 @@ function handle_GET_bidToPid(
 async function getBidsForPids(
   zid: number,
   math_tick: number,
-  pids: number[]
+  pids: number[],
+  ownedRead?: MathBundleRead
 ): Promise<Record<number, number | undefined>> {
   const requested = typeof math_tick === "number" ? math_tick : -1;
-  const read = await getMathBundle(zid);
+  const read = ownedRead ?? await getMathBundle(zid);
   if (read.present && read.mathTick <= requested) {
     throw new Error("polis_err_math_bundle_not_new");
   }

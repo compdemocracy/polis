@@ -5,7 +5,8 @@ import { failJson } from "./utils/fail";
 import { getBidsForPids } from "./routes/math";
 import { getConversationHasMetadata } from "./routes/metadata";
 import { getConversationInfo } from "./conversation";
-import { getLatestExistingPca } from "./utils/pca";
+import { presentExistingMathBundle } from "./utils/pca";
+import { getMathBundle } from "./utils/mathBundle";
 import { getSocialParticipants } from "./participant";
 import { getUserInfoForUid2 } from "./user";
 import { getZinvite, getZinvites } from "./utils/zinvite";
@@ -266,7 +267,7 @@ function finishArray(
     });
 }
 
-function doFamousQuery(o?: {
+async function doFamousQuery(o?: {
   uid?: number;
   zid: number;
   math_tick: any;
@@ -283,11 +284,14 @@ function doFamousQuery(o?: {
   // let ALLOW_NON_FRIENDS_WHEN_EMPTY_SOCIAL_RESULT = true;
   const mod = 0; // for now, assume all conversations will show unmoderated and approved participants.
 
+  const mathEnv = Config.mathEnv;
+  const ownedRead = await getMathBundle(zid, mathEnv);
+
   function getAuthorUidsOfFeaturedComments() {
     // The latest committed generation, NOT `getPca(zid, 0)`: a literal 0
     // discards a conversation's first committed generation (tick 0) and made
     // this return no featured-comment authors at all for that window.
-    return getLatestExistingPca(zid).then(
+    return presentExistingMathBundle(zid, mathEnv, ownedRead).then(
       (pcaResult: PcaCacheItem | unknown) => {
         if (
           !pcaResult ||
@@ -386,7 +390,7 @@ function doFamousQuery(o?: {
       return getVotesForZidPidsWithTimestampCheck(zid, pids, math_tick).then(
         function (vectors: any) {
           // TODO parallelize with above query
-          return getBidsForPids(zid, -1, pids).then(
+          return getBidsForPids(zid, -1, pids, ownedRead).then(
             function (pidsToBids: { [x: string]: any }) {
               _.each(vectors, function (value: any, pid: number) {
                 const bid = pidsToBids[pid];
