@@ -144,7 +144,7 @@
         },
         "on_missing": {
           "enum": ["fail", "fail_with_synthetic_replacement_offer"],
-          "description": "fail = bundle construction stops naming the missing role. fail_with_synthetic_replacement_offer = stops the same way, but names the deterministic synthetic case an approver may explicitly accept instead. Neither ever silently downgrades."
+          "description": "A missing role stops bundle construction. The replacement-offer mode names the deterministic public fixture an approver may explicitly accept instead. Neither mode silently downgrades."
         },
         "synthetic_replacement": {"type": "string"},
         "exercise": {"type": "string", "minLength": 1},
@@ -189,7 +189,7 @@
         "cohort_size": {
           "type": "integer",
           "minimum": 1,
-          "description": "lru-cohort only: how many sibling synthetic zids the case materialises (set to cache_cap + 1)."
+          "description": "lru-cohort only: how many sibling public fixture zids the case materialises (set to cache_cap + 1)."
         },
         "votes_per_participant": {"type": "integer", "minimum": 0},
         "mod_out_all": {"type": "boolean"},

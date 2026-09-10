@@ -152,8 +152,8 @@ def extract(database_url: str, zid: int, feature: str, out_root: Path | None) ->
 @click.option("--reuse-dirs", type=click.Path(path_type=Path), default=None,
               help="A previous manifest (or dir_names JSON) whose opaque directory "
                    "assignment is reused, for a byte-comparable repeat extraction.")
-@click.option("--accept-synthetic", multiple=True,
-              help="Role slug whose deterministic synthetic replacement is EXPLICITLY "
+@click.option("--accept-public-fixture", multiple=True,
+              help="Role slug whose deterministic public fixture replacement is EXPLICITLY "
                    "approved because production supplied no candidate. Repeatable.")
 @click.option("--no-generated", is_flag=True, default=False,
               help="Skip the generated boundary cases (production roles only).")
@@ -161,7 +161,7 @@ def extract(database_url: str, zid: int, feature: str, out_root: Path | None) ->
               help="Materialise the heavy generated scale control as well.")
 def from_config(database_url: str, config_path: Path | None, out_dir: Path,
                 snapshot_id: str | None, writers_disabled: bool,
-                reuse_dirs: Path | None, accept_synthetic: tuple[str, ...],
+                reuse_dirs: Path | None, accept_public_fixture: tuple[str, ...],
                 no_generated: bool, include_heavy: bool) -> None:
     """Survey, select and extract EVERY configured role in one repeatable-read
     transaction, into opaque fixture directories under OUT.
@@ -195,7 +195,7 @@ def from_config(database_url: str, config_path: Path | None, out_dir: Path,
             conn, config=config, payload_root=payload_root, guard_root=guard_root,
             snapshot_id=snapshot_id,
             writers_disabled=writers_disabled, dir_names=dir_names,
-            accept_synthetic=accept_synthetic,
+            accept_public_fixture=accept_public_fixture,
             include_generated=not no_generated, include_heavy=include_heavy,
         )
     except fs.RoleUnsatisfied as exc:

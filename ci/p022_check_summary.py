@@ -8,7 +8,7 @@ This is **not** independent execution evidence and does not make the result
 unforgeable. Every field it inspects is produced by the same recipe that ran the
 tests: a worker that wanted to lie could emit a fully self-consistent record.
 The trust here is explicit and named — `summary.trust` must say
-`reviewed-recipe-self-reported` — and it is the trust appropriate to a synthetic
+`reviewed-recipe-self-reported` — and it is the trust appropriate to a public battery
 smoke over public fixtures. An adversarial certificate needs the independent
 control boundary specified in P-022-E-ci-spec.md, which is not built.
 
@@ -50,7 +50,7 @@ import xml.etree.ElementTree as ET
 #: line out of this file rather than carrying its own copy: round 5 shipped a
 #: writer emitting /3 against a checker requiring /4, so every otherwise valid
 #: run would have been rejected (review R5-F1). One constant, two readers.
-SCHEMA = "p022-synthetic/4"
+SCHEMA = "p022-public-battery/4"
 
 MAX_BYTES = 64 * 1024
 MAX_INT = 1_000_000
@@ -174,7 +174,7 @@ def check(summary, expected=None) -> str:
          f"unexpected top-level keys: {sorted(summary)}")
     want(summary["schema"] == SCHEMA,
          f"unknown schema: {summary['schema']!r} (expected {SCHEMA!r})")
-    want(summary["kind"] == "synthetic-recovery-and-public-fixture-battery",
+    want(summary["kind"] == "public-recovery-and-public-fixture-battery",
          f"unknown kind: {summary['kind']!r}")
     want(summary["is_certification"] is False,
          "is_certification must be false for this workflow")
@@ -300,8 +300,8 @@ def check(summary, expected=None) -> str:
         want((bat["status"] == "pass") == battery_ok,
              "battery.status disagrees with its return code")
 
-    expected_verdict = ("SYNTHETIC-PASS" if (recovery_ok and battery_ok)
-                        else "SYNTHETIC-FAIL")
+    expected_verdict = ("PUBLIC-BATTERY-PASS" if (recovery_ok and battery_ok)
+                        else "PUBLIC-BATTERY-FAIL")
     want(summary["verdict"] == expected_verdict,
          f"verdict {summary['verdict']!r} disagrees with recomputed {expected_verdict!r}")
     return expected_verdict
@@ -363,8 +363,8 @@ def main(argv: list[str]) -> int:
         return 1
     print(f"summary.json valid against the declared scope; verdict={verdict}")
     print(f"trust model: {TRUST} (not independent execution evidence)")
-    if verdict != "SYNTHETIC-PASS":
-        print("::error::synthetic run did not pass")
+    if verdict != "PUBLIC-BATTERY-PASS":
+        print("::error::public battery run did not pass")
         return 1
     return 0
 

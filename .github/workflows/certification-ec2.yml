@@ -1,9 +1,9 @@
-name: Synthetic recovery and public-fixture battery (EC2)
+name: Public battery certification (EC2)
 
 # P-022 §E. Runs the recovery matrix and the replay battery restricted to the
 # repository's PUBLIC fixtures on one disposable EC2 worker, then destroys it.
 #
-# THIS IS NOT PRIVATE CERTIFICATION and its verdict (`SYNTHETIC-PASS`) must
+# THIS IS NOT PRIVATE CERTIFICATION and its verdict (`PUBLIC-BATTERY-PASS`) must
 # never be read as one. The second reviewer's #2715 review found that round 1 staged the
 # private prod-derived bundle on a box GitHub could open a root shell on, and
 # returned its raw log to public Actions artifacts. Round 2 removes the private
@@ -56,13 +56,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  synthetic:
-    name: Synthetic recovery matrix and public-fixture battery
+  public-battery:
+    name: Public recovery matrix and fixture battery
     # The environment subject does NOT by itself exclude pull-request jobs: a
     # job that references an environment gets the environment subject even on a
     # PR, and GitHub silently creates a referenced-but-missing environment with
     # NO protection rules. So the ref is checked here as well, on every event.
-    # This is defence in depth, not the control: the `certification-synthetic`
+    # This is defence in depth, not the control: the `certification-public`
     # environment must be configured with edge as its only deployment branch
     # and a required reviewer (docs/ci-ec2.md).
     if: github.ref == 'refs/heads/edge' || github.ref == 'refs/heads/stable'
@@ -72,7 +72,7 @@ jobs:
     # maximum-length run necessarily lost its credentials before cleanup
     # (review E7). The job also re-assumes before teardown.
     timeout-minutes: 300
-    environment: certification-synthetic
+    environment: certification-public
     permissions:
       contents: read
       id-token: write
@@ -340,7 +340,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: synthetic-ec2-${{ github.run_id }}-${{ github.run_attempt }}
+          name: public-battery-ec2-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/
           if-no-files-found: warn
           retention-days: 7

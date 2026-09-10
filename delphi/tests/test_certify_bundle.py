@@ -1487,7 +1487,7 @@ def _dense_only_config(config):
 @pytest.mark.parametrize("include_generated", [True, False])
 def test_a_synthetic_substitute_is_materialised_and_pinned(
         config, tmp_path, monkeypatch, include_generated):
-    """``--accept-synthetic`` is an approval, not a fulfilment.
+    """``--accept-public-fixture`` is an approval, not a fulfilment.
 
     The substitute's generator case is force-materialised even when generation
     is otherwise switched off, its directory is pinned into the role entry so
@@ -1513,7 +1513,7 @@ def test_a_synthetic_substitute_is_materialised_and_pinned(
     payload.mkdir(parents=True)
     result = fx.extract_from_config(
         object(), config=cfg, payload_root=payload, guard_root=tmp_path,
-        accept_synthetic=["pc-v1-dense", "pc-v1-dense-max"],
+        accept_public_fixture=["pc-v1-dense", "pc-v1-dense-max"],
         include_generated=include_generated)
 
     assert result["provenance_rows"] == [], "a substitute has no zid to record"

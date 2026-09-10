@@ -449,7 +449,7 @@ export class CdkStack extends cdk.Stack {
         // Must equal the `environment:` the workflow job declares. The trust
         // policy admits this subject and nothing else.
         githubEnvironment: (this.node.tryGetContext('ciEc2GithubEnvironment') as string | undefined)
-          ?? 'certification-synthetic',
+          ?? 'certification-public',
         // The environment-form subject carries no ref and is issued to
         // pull-request jobs too; the `ref` claim is what excludes them.
         githubRefs: ((this.node.tryGetContext('ciEc2Refs') as string | undefined)
