@@ -111,7 +111,7 @@ There are three layers of check, and none of them alone is "done":
    feature. 31 Rust tests pass in each (verified locally, see below).
    `unwrap()`/`expect()` are banned crate-wide (`Cargo.toml`'s
    `[lints.clippy]`), so a real error can never silently become a panic.
-2. **Python integration tests against a real, disposable Postgres** — 139
+2. **Python integration tests against a real, disposable Postgres** — 151
    tests in `delphi/tests/coordinator/` covering lease loss/recovery,
    crash-and-restart, duplicate/overlapping work, byte-for-byte comparison
    against the existing Python worker's output, and negative controls
@@ -134,6 +134,30 @@ reader, not a rewritten one. The step-4 S2 slice adds a candidate coherent-read
 unconditional (a missing `server/node_modules` now fails rather than skips),
 but the production Node-side Bundle rewrite this project eventually wants still
 does not exist and is not shipped here.
+
+## Publication outcome telemetry (S3 slice)
+
+The intended transfer fences Clojure out in favour of the certified Python
+poller. This slice changes no writer routing, lease policy or deployment.
+
+A lost COMMIT response emits `PublishUncertain=1` before readback. Readback
+then emits exactly one of `PublishResolvedOwn=1` or `PublishUnresolvedLost=1`.
+Only this operation's coherent checkpoint, epoch and tick establish ownership.
+An overwritten receipt, missing/inconsistent rows, or a reconnect/read failure
+is unresolved; it does not prove that the transaction rolled back. Signals are
+emitted at the operation boundary, including failed one-shot commands, and are
+not emitted again with the source-pass totals. Operation identity is log context,
+never a metric dimension. `PublishCommitted` retains its source-pass meaning.
+
+The catalog declares a local alarm rule: `PublishUnresolvedLost` Sum >= 1 in
+one 60-second period, with the existing Environment/MathEnv dimensions. Missing
+sparse events do not breach that event alarm, but do not prove health or
+resolution either. A later resolved operation never cancels an unresolved one.
+Real PostgreSQL tests sever the actual COMMIT response and exercise both
+classifications plus failed readback; the local observer applies this rule.
+No alarm is deployed here. Bounded nonblocking transport, independent producer
+and sink observation, delivery verification and the transfer rehearsal remain
+open. O7 stays OPEN; this is not completion of the broader S3 slice.
 
 ## What is still open
 
@@ -216,7 +240,7 @@ COMPOSE_PROJECT_NAME=p026 POLIS_RECOVERY_PG_PORT=55458 RECOVERY_PG_PORT=55458 \
 Re-run from a clean checkout: `cargo test --locked` 31/31; both `cargo
 clippy` invocations clean; release and fault-injection builds succeed and
 release+fault-injection correctly refuses to build; `docker compose up`
-starts a healthy Postgres in seconds; Python suite **141/141, 0 skipped**
+starts a healthy Postgres in seconds; Python suite **151/151, 0 skipped**
 with `server/node_modules` linked read-only into this checkout so the Node
 reader tests run. As of step-4 S2 that Node reader job is unconditional: a
 missing `server/node_modules` makes the D4/route tests **fail**, not skip

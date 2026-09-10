@@ -36,14 +36,14 @@
     "coordinator-rs/src/lease.rs": "e282ff4105abbef0b3aad3bec52652a5174e0383100c636eb7815ed9bcf6d784",
     "coordinator-rs/src/lib.rs": "7037d045d4badf7a3a1266f2322e2d4b701040e5042637e0cbf6b2980a50d467",
     "coordinator-rs/src/main.rs": "bb9fb3ad9bbe0f046cd208e7d8a658369036a6d9b7441bb83e7cae27c739a2fb",
-    "coordinator-rs/src/metrics.rs": "97c37d9c77962d2f66d46cc22c43c623d974b4b39c99eec8e1e7748f0fef6eef",
+    "coordinator-rs/src/metrics.rs": "23033ddecea83dbcc668f1d660112f8fff1bfead68ed2fcf89edf6d5d071d773",
     "coordinator-rs/src/ordering.rs": "16e4e867a82917e15857855e80ef59b992f280b237e46432279092c51a61bfd7",
     "coordinator-rs/src/probe.rs": "f6a8310647f798db60c8638deb690a8f8a71e0b0777adc7162715f60ef63fdfe",
     "coordinator-rs/src/reader.rs": "07f70f308dc018fdd9b95c6deda5a0c38053e049acb391e774d4d70401dd412c",
-    "coordinator-rs/src/store.rs": "ab6f2c2fb0b9c902e3e63abec9bf80f636f8c58b9a87b67b05eb090da380364f",
+    "coordinator-rs/src/store.rs": "d2e7f6b0cade81f0ac818c3aa76285d540986d97e2e1b2a541324f5f24a02a0b",
     "coordinator-rs/src/wire.rs": "5065d751edbd17987222b3cf18c262a669ec7df96afa25979c88422288972013",
     "coordinator-rs/tests/s1_admission.rs": "729a351dcaa6aab1a57895073d6c5ccf03f75a34852be566097f1c27e9c4ae18",
-    "coordinator-rs/tests/validation.rs": "d2a6230752d78dbc57c57d2dca1c88ff887ff1200303b02bfc0f87e4c03fe7d5",
+    "coordinator-rs/tests/validation.rs": "70c051eb391d2c2f32859a6fdf419a3c3776d43e16246b0471b11d4c6088efe4",
     "coordinator-rs/tools/record_s1.py": "61a63ad00a4fd4f1a358453fbf73fb3f3a119c68bdf07e789773a69869f26f26",
     "delphi/polismath/__init__.py": "77261d0fc27172aa576a06d9947330f2d5b1bcd8d14721df98eac7c5f305f16b",
     "delphi/polismath/benchmarks/__init__.py": "ac90a49e001cba824dc10b56e6f67d671087eaf458d6ff5616c017dedd4b7a98",
@@ -112,10 +112,11 @@
     "delphi/tests/coordinator/test_equivalence.py": "a8b4978adfcba99dbdd91a805c8878cff713667771d189190ca496fcefc91670",
     "delphi/tests/coordinator/test_incremental.py": "dfc47a73aab6553cdf792b7578970639726e4877ee55255f1079081366e8391b",
     "delphi/tests/coordinator/test_node_reader.py": "7db596d189489b7f1bbd0bbbde5c44909039779a983518c922cf74381c4fd077",
+    "delphi/tests/coordinator/test_publication_metrics.py": "8bca756a2f8a10f717834560225ab883fa8bcc6434c0759995eb21acc9d342cd",
     "delphi/tests/coordinator/test_recorder_controls.py": "7694f50b0796f6bf3dbe6a1e3c4477a64010af67431acde102cd867ee4118813",
     "delphi/tests/coordinator/test_recovery.py": "44a1396ec474ad0a3ff00954b715d45016346313a534dc3fffd036e93e84dd44",
     "delphi/tests/coordinator/test_reference_controls.py": "7d7c424359aa62e7901743f074ded8257077b8882cdba3cd09dc08f8d63c963b",
-    "delphi/tests/coordinator/test_s1_identity.py": "88a1b87bc5804d16b063d30270cdc7dd2528b6d03c818f5875f3c2f511bfec8a",
+    "delphi/tests/coordinator/test_s1_identity.py": "6eeeeca5972b8ab25fb49f45b3024c2269f0e8f566fd6cf33a75e4465aa5134c",
     "delphi/tests/coordinator/test_step1_review_controls.py": "a614c81f3f5c61e21e5c0fc148e3f425a40cf881724e62588f627fd38e1986e9",
     "delphi/tests/coordinator/test_step2_review_controls.py": "07aa39208bb01b9356ec96daf2d0b06f9b29f4a7f5a274f536f29884a9fb9320",
     "delphi/tests/coordinator/test_store.py": "70688832fdb8b091ebdeecea87359b304c897973564d27ceccc599ea7329540d"
@@ -123,13 +124,13 @@
   "run_pins": {
     "verifiable_on_producing_host_only": true,
     "junit": "coordinator-rs/artifacts/s1-pytest.xml",
-    "python_tests": 142,
+    "python_tests": 151,
     "rust_tests": {
       "default": 31,
       "fault": 31
     },
-    "compose_project": "p026s2-374845",
-    "postgres_port": 56060,
+    "compose_project": "p026-s3-612",
+    "postgres_port": 56092,
     "platform": "macOS-15.7.4-arm64-arm-64bit",
     "runtime": {
       "python": "3.12.11",
@@ -143,21 +144,22 @@
       }
     },
     "sha256": {
-      "coordinator-rs/artifacts/s1-cargo-default.log": "0abb702455b9e00f9465f2df81f2629c1dc864ba7c961fdb6e42d0890b2f9912",
+      "coordinator-rs/artifacts/s1-cargo-default.log": "816604f36390eb10dd71ed4ee702a984a7ee085d9384fd814d5fd2f500fe6663",
       "coordinator-rs/artifacts/s1-cargo-default.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
-      "coordinator-rs/artifacts/s1-cargo-fault.log": "0914bda670d5c9856db410828be46b4dced5f5ed62bcab022f72f360e0cf1cbc",
+      "coordinator-rs/artifacts/s1-cargo-fault.log": "401429f1338dbfbed2ba5056613a20479875ac74412d7e93d4154cb399b77d0f",
       "coordinator-rs/artifacts/s1-cargo-fault.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
-      "coordinator-rs/artifacts/s1-clippy-default.log": "df71e5e7ef0a193d8e0b11f3466013c3500ec4e7a780e5970e3b83a90c90f4ca",
+      "coordinator-rs/artifacts/s1-clippy-default.log": "feb4940689b6c18e6c7f6b1455430a456698ec3773323cf273191de3740485ae",
       "coordinator-rs/artifacts/s1-clippy-default.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
-      "coordinator-rs/artifacts/s1-clippy-fault.log": "46559c300675a27b72b268da6947e84cde1286b781a05ab6d8a77a0bfe59badd",
+      "coordinator-rs/artifacts/s1-clippy-fault.log": "0097a05964e0c6d67c34f570954ef11da6f19b13c02735c4709e17846353d45c",
       "coordinator-rs/artifacts/s1-clippy-fault.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
-      "coordinator-rs/artifacts/s1-fault-build.log": "0d9b21acfe9641aafdc5a642649e7e968b91c682d36b45154039c29d41c322f2",
+      "coordinator-rs/artifacts/s1-fault-build.log": "167de809f3050a5758b6b91fab0db890b74bdef205182eacd4d7bdb82e7a96e1",
       "coordinator-rs/artifacts/s1-fault-build.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
-      "coordinator-rs/artifacts/s1-pytest.xml": "7022f4717e0722a1221e51d1405c3bd857ceb9056ac0aac7b8b8f1f66f06e5e7",
-      "coordinator-rs/artifacts/s1-release.log": "895d62b0ce00f3d31b21ded61dad3f07245fd65313781e23ee412b6d0ca9abad",
+      "coordinator-rs/artifacts/s1-pytest.log": "dfb7cafa7a1f89bdef84387b782dccb7b1e6cc15a8bca1e324105ff451dc0e0d",
+      "coordinator-rs/artifacts/s1-pytest.xml": "37a4183bef492d8d0ecc55cb057c6cb4f262a25b591fb329559d9fed82f62676",
+      "coordinator-rs/artifacts/s1-release.log": "4f3427705e3346b769e8ba4891ce20d5dafb9d7b5d13411a8b1ec9571a0264d9",
       "coordinator-rs/artifacts/s1-release.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
-      "coordinator-rs/target/fault/debug/polis-coordinator": "2aeacd3c93eb1ffc24f12f001f1e1dfa12fc353bd278a6a251cdaf80fe3dfb1a",
-      "coordinator-rs/target/release/polis-coordinator": "e1a219c545bee43910d703142d0a6a97db51d5986e80f155b2850dd21c980af3"
+      "coordinator-rs/target/fault/debug/polis-coordinator": "fa835bc2be35138eedde804e139de853a55565d7b7e65f09b56fd5a42042812a",
+      "coordinator-rs/target/release/polis-coordinator": "580a69f0471b2195b28f5338e162fe66edf009ebfbaf28005ffea6bd2ea6c0ee"
     }
   }
 }

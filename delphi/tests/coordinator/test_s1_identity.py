@@ -79,6 +79,7 @@ class CommitProxy:
         self.listener.listen()
         self.listener.settimeout(.2)
         self.url = urlunsplit(parsed._replace(netloc=f"postgres@127.0.0.1:{self.listener.getsockname()[1]}"))
+        self.reject_connections = False
         self.committed = threading.Event()
         self.release = threading.Event()
         self.stop = threading.Event()
@@ -106,6 +107,9 @@ class CommitProxy:
                 continue
             except OSError:
                 break
+            if self.reject_connections:
+                client.close()
+                continue
             server = socket.create_connection(self.target, timeout=10)
             server.settimeout(None)
             self.sockets.extend([client, server])
@@ -159,7 +163,8 @@ def test_uncertain_commit_readback_binds_publishing_epoch(db, launch, tmp_path, 
     seed(db)
     proxy = CommitProxy(db)
     try:
-        child = launch(proxy.url)
+        metrics = tmp_path / "outcomes.jsonl"
+        child = launch(proxy.url, extra={"P026_METRICS": str(metrics)})
         assert proxy.committed.wait(30), "publication COMMIT not intercepted"
         original = rows(db)
         assert original["math_ticks"]["math_tick"] == 0
@@ -195,6 +200,8 @@ def test_uncertain_commit_readback_binds_publishing_epoch(db, launch, tmp_path, 
         else:
             assert json.loads(out)["published"] == 1
             assert rows(db) == original
+        from coordinator.test_publication_metrics import assert_outcome
+        assert_outcome(metrics, original, own=not replacement)
         assert not proxy.errors
     finally:
         proxy.close()
