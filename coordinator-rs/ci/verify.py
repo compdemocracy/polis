@@ -133,21 +133,53 @@ def empty_observations(current, previous):
     return observations
 
 
-def comparisons(artifacts, evidence, baseline):
+def comparisons(artifacts, evidence, baseline, replay_pin):
     replay = json.loads((artifacts / "vw-equivalence.json").read_text())
     old = json.loads(baseline["vw-equivalence.json"])
     require(len(replay["checkpoints"]) == 3 and replay["observations"] > 0 and
             replay["observer_errors"] == [], "missing replay/observer")
-    for current, previous in zip(replay["checkpoints"], old["checkpoints"], strict=True):
-        require(current["deltas"] == [] and current["rust"] == current["python"] == previous["rust"], "replay drift")
+    pin = replay_pin["pin"]
+    for current, previous, pinned in zip(replay["checkpoints"], old["checkpoints"], pin["checkpoints"], strict=True):
+        require(current["deltas"] == [] and current["rust"] == current["python"],
+                "REPLAY_FRESH_ENGINE_MISMATCH")
+        require({k: current[k] for k in ("cut", "tick", "rust")} == pinned,
+                f"REPLAY_HISTORICAL_DRIFT: {pin['id']}")
+        # Only the two output digests vary by platform. Keep checkpoint identity,
+        # fold witnesses, and the scope of the historical experiment unchanged.
+        require({k: v for k, v in current.items() if k not in ("rust", "python")} ==
+                {k: v for k, v in previous.items() if k not in ("rust", "python")},
+                "REPLAY_STABLE_FIELDS_DRIFT")
+        if pin["system"] == "Darwin" and pin["machine"] == "arm64":
+            require(previous["rust"] == previous["python"] == pinned["rust"],
+                    "REPLAY_LAPTOP_PIN_DRIFT")
+    require(replay["profile"] == old["profile"], "REPLAY_PROFILE_DRIFT")
+    witnesses = pin["witnesses"]
+    if pin["system"] == "Darwin" and pin["machine"] == "arm64":
+        require(all(json.loads(baseline[name]) == witness for name, witness in witnesses.items()),
+                "REPLAY_LAPTOP_WITNESS_DRIFT")
     for name in ("polarity-synthetic.json", "polarity-vw.json", "polarity-biodiversity.json",
                  "polarity-rebuild-schedule.json", "semantic-tie-key.json"):
-        require(json.loads((artifacts / name).read_text()) == json.loads(baseline[name]), f"comparison drift: {name}")
+        current = json.loads((artifacts / name).read_text())
+        if name == "polarity-rebuild-schedule.json":
+            require(len(current) == 3 and all(row["positive"] == row["paired"] != row["negative"]
+                                            for row in current), f"POLARITY_FRESH_MISMATCH: {name}")
+        else:
+            require(isinstance(current, dict) and {"deltas", "a", "b", "negative"} <= current.keys() and
+                    current["deltas"] == [] and current["a"] == current["b"] != current["negative"],
+                    f"POLARITY_FRESH_MISMATCH: {name}")
+        require(current == witnesses[name], f"comparison drift: {name}: {pin['id']}")
     # These witnesses are deleted before pytest. Stable summaries must reproduce.
     for name in ("d4-node-reader.json", "d4-bundle-reader.json", "d4-generation-zero.json"):
-        require(json.loads((evidence / name).read_text()) == json.loads(baseline[name]), f"D4 drift: {name}")
+        current = json.loads((evidence / name).read_text())
+        if name == "d4-node-reader.json":
+            require({"differences", "served"} <= current.keys() and current["differences"] == {} and
+                    current["served"]["python"] == current["served"]["rustproto"],
+                    "D4_FRESH_ENGINE_MISMATCH")
+        previous = witnesses[name] if name in witnesses else json.loads(baseline[name])
+        require(current == previous, f"D4 drift: {name}: {pin['id']}")
     observed = empty_observations(json.loads((evidence / "d4-node-reader-empty.json").read_text()),
-                                  json.loads(baseline["d4-node-reader-empty.json"]))
-    return {"checkpoints": 3, "observer_reads": replay["observations"], "observer_errors": 0,
+                                  witnesses["d4-node-reader-empty.json"])
+    return {"checkpoints": 3, "replay_pin": replay_pin,
+            "observer_reads": replay["observations"], "observer_errors": 0,
             "polarity_and_tie": 5, "d4_witnesses": 4,
             "synthesized_empty_byte_equality_claimed": False, "empty_observations": observed}
