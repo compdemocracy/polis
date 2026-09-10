@@ -1,4 +1,4 @@
-"""Run the required synthetic candidate campaign and retain a separate receipt.
+"""Run the required public candidate campaign and retain a separate receipt.
 
 No closure recorder is called. Reviewed evidence and prior local artifacts are
 restored even on failure; fresh run output is retained in a new output directory.
@@ -18,6 +18,7 @@ import time
 import uuid
 
 from verify import comparisons, jest_cases, python_cases, require, rust_cases, sha, source_pins, stage_audit
+from source_workspace import prepare, regular
 
 ROOT = Path(__file__).resolve().parents[2]
 CI = ROOT / "coordinator-rs/ci"
@@ -52,8 +53,11 @@ def inputs():
 
 
 def main():
+    global ROOT, CI, ART, EVIDENCE
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path, help="new directory for this invocation")
+    parser.add_argument("--allow-local-changes", action="store_true", help="local review only; forbidden in Actions")
+    parser.add_argument("--local-file", action="append", default=[], help="explicit untracked local review source")
     args = parser.parse_args()
     output = args.output.resolve()
     require(not output.exists() and not output.is_relative_to(ROOT), "output must be new and outside checkout")
@@ -72,8 +76,11 @@ def main():
         found = subprocess.check_output(["docker", *args_list, "--filter", f"label=com.docker.compose.project={project}"], text=True)
         require(not found.strip(), f"project already owns {resource}s; select another project")
     output.mkdir(parents=True)
+    original_root = ROOT
+    workspace = output / "source-workspace"
+    source_report = None
     inventory = json.loads((CI / "inventory-v2.json").read_text())
-    baseline = {p.name: p.read_bytes() for p in EVIDENCE.iterdir() if p.is_file()}
+    baseline = {}
     receipt = {"schema": "polis-coordinator-ci-receipt/1", "run_id": uuid.uuid4().hex,
                "candidate_gate": "FAIL", "full_contract_gate": "FAIL", "hosted_stack_ci": "NOT_EVALUATED",
                "run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"), "github_run_id": os.environ.get("GITHUB_RUN_ID"),
@@ -89,7 +96,9 @@ def main():
     changed_artifacts = False
     started = False
 
-    def run(name, argv, cwd=ROOT, expected=0, command_env=env):
+    def run(name, argv, cwd=None, expected=0, command_env=None):
+        cwd = ROOT if cwd is None else cwd
+        command_env = env if command_env is None else command_env
         print(f"Running {name}", flush=True)
         start = time.time()
         with (output / f"{name}.log").open("w") as log:
@@ -101,6 +110,24 @@ def main():
         return (output / f"{name}.log").read_text()
 
     try:
+        source_report = prepare(original_root, workspace, allow_local=args.allow_local_changes,
+                                local_files=tuple(args.local_file))
+        (output / "source-reconciliation.json").write_text(json.dumps(source_report, indent=2) + "\n")
+        ROOT, CI = workspace, workspace / "coordinator-rs/ci"
+        ART, EVIDENCE = ROOT / "coordinator-rs/artifacts", ROOT / "coordinator-rs/evidence"
+        baseline = {p.name: p.read_bytes() for p in EVIDENCE.iterdir() if p.is_file()}
+        # Retain the historical receipts and exact transformed metadata separately.
+        for name in source_report["metadata_transforms"]:
+            for label, base in (("historical-metadata", original_root), ("campaign-metadata", ROOT)):
+                target = output / label / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(base / name, target)
+        compose = ["docker", "compose", "-f", str(CI / "compose.yml")]
+        env.update(POLIS_COORDINATOR_CHECKOUT_DIR=str(ROOT),
+                   PYTHONPATH=os.pathsep.join((str(CI), str(ROOT / "delphi"))))
+        receipt["source_reconciliation_sha256"] = sha(output / "source-reconciliation.json")
+        receipt["historical_pin_drift"] = source_report["drift"]
+        receipt["local_source_changes"] = source_report["local_changes"]
         receipt["source_pins"] = source_pins(ROOT)
         receipt["source_sha256"] = inputs()
         receipt["historical_evidence_sha256"] = {p: sha(EVIDENCE / p) for p in baseline}
@@ -173,6 +200,8 @@ def main():
         receipt["stages"] = stage_audit(json.loads((EVIDENCE / "stage-inventory.json").read_text()), inventory)
         require(source_pins(ROOT) == receipt["source_pins"], "reviewed sources changed during campaign")
         require(inputs() == receipt["source_sha256"], "campaign inputs changed during execution")
+        require(all(sha(regular(original_root, p)) == expected for p, expected in
+                    source_report["source_sha256"].items()), "original source changed during campaign")
         receipt["candidate_gate"] = "PASS"
     except Exception as error:
         receipt["error"] = str(error)
@@ -197,6 +226,9 @@ def main():
         for name, data in baseline.items():
             (EVIDENCE / name).write_bytes(data)
         receipt["evidence_restored"] = all((EVIDENCE / name).read_bytes() == data for name, data in baseline.items())
+        if workspace.exists():
+            shutil.rmtree(workspace)
+        receipt["source_workspace_removed"] = not workspace.exists()
         receipt["artifact_sha256"] = {str(p.relative_to(output)): sha(p) for p in sorted(output.rglob("*")) if p.is_file()}
         (output / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
     print(json.dumps({k: receipt[k] for k in ("candidate_gate", "full_contract_gate", "hosted_stack_ci")}))

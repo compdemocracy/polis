@@ -1498,6 +1498,62 @@
     [
       "coordinator-rs.ci.tests.test_required_campaign",
       "test_workflow_cannot_filter_out_the_required_job_or_skip_failure"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_added_package_sources_enter_the_fresh_engine_inventory"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_attribution_does_not_invent_pr_links[Merge a into b-None]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_attribution_does_not_invent_pr_links[Merge pull request #2770 from example/branch-2770]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_attribution_does_not_invent_pr_links[fix replay (#2770)-2770]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_attribution_does_not_invent_pr_links[reference issue #2770-None]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_bad_closure_or_runtime_binding_is_not_refreshed[circular]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_bad_closure_or_runtime_binding_is_not_refreshed[constant]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_bad_closure_or_runtime_binding_is_not_refreshed[digest]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_bad_closure_or_runtime_binding_is_not_refreshed[missing]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_bad_closure_or_runtime_binding_is_not_refreshed[outside]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_bad_closure_or_runtime_binding_is_not_refreshed[symlink]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_local_changes_explicit_and_never_hosted"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_merge_drift_runs_current_bytes_and_retains_original_receipts"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_source_workspace",
+      "test_no_drift_keeps_every_metadata_byte"
     ]
   ]
 }
