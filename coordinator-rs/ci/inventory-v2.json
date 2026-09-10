@@ -1,7 +1,7 @@
 {
   "schema": "polis-coordinator-ci-inventory/2",
   "baseline_commit": "06bc6996d1b47d34ff020551cf1bbe120a96bb0a",
-  "scope": "000021 actual Python-poller bridge; original 151 identities plus 55 bridge controls; no full-contract/private admission",
+  "scope": "000021 actual Python-poller bridge; prior 221 identities plus 2 slow-latch controls; no full-contract/private admission",
   "python_nodeids": [
     "tests/coordinator/test_adapter.py::test_candidate_admission_refusals[candidate_schema-polis-input/1-CANDIDATE_SCHEMA_MISMATCH]",
     "tests/coordinator/test_adapter.py::test_candidate_admission_refusals[engine_version-1-MALFORMED_CANDIDATE]",
@@ -98,6 +98,8 @@
     "tests/coordinator/test_equivalence.py::test_polarity_through_actual_database_ingress[vw]",
     "tests/coordinator/test_equivalence.py::test_semantic_tie_key_is_a_declared_contract_term",
     "tests/coordinator/test_equivalence.py::test_vw_dual_namespace_live_equivalence",
+    "tests/coordinator/test_hosted_controls.py::test_after_main_pause_outlives_normal_lock_budget[False]",
+    "tests/coordinator/test_hosted_controls.py::test_after_main_pause_outlives_normal_lock_budget[True]",
     "tests/coordinator/test_incremental.py::test_disabling_the_fast_path_restores_the_unconditional_full_sweep",
     "tests/coordinator/test_incremental.py::test_emitted_records_match_the_declared_catalog_and_p031_dimensions",
     "tests/coordinator/test_incremental.py::test_failures_appear_as_backlog_and_unrepaired_age_without_faking_health",
@@ -605,6 +607,14 @@
     [
       "tests.coordinator.test_equivalence",
       "test_vw_dual_namespace_live_equivalence"
+    ],
+    [
+      "tests.coordinator.test_hosted_controls",
+      "test_after_main_pause_outlives_normal_lock_budget[False]"
+    ],
+    [
+      "tests.coordinator.test_hosted_controls",
+      "test_after_main_pause_outlives_normal_lock_budget[True]"
     ],
     [
       "tests.coordinator.test_incremental",
@@ -1403,6 +1413,14 @@
         "tests/coordinator/test_rev4_admission.py::test_rev4_extra_authority_is_refused[publisher_floors]",
         "tests/coordinator/test_rev4_admission.py::test_uncertainty_is_emitted_before_blocked_reconciliation"
       ]
+    },
+    {
+      "id": "hosted-latch",
+      "added_nodeids": [
+        "tests/coordinator/test_hosted_controls.py::test_after_main_pause_outlives_normal_lock_budget[False]",
+        "tests/coordinator/test_hosted_controls.py::test_after_main_pause_outlives_normal_lock_budget[True]"
+      ],
+      "scope": "actual advisory pause beyond normal lock timeout; unchanged five-second real publication budget and old-latch failure"
     }
   ],
   "control_junit": [
