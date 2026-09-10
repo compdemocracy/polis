@@ -1,0 +1,17 @@
+# Disposable synthetic CI only. No default shared project or host port.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: p026
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "127.0.0.1:${POLIS_RECOVERY_PG_PORT:?choose a unique local port}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d p026"]
+      interval: 1s
+      timeout: 3s
+      retries: 40
