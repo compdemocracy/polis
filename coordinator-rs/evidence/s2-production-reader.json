@@ -1,7 +1,7 @@
 {
   "scope": "S2 production reader implementation and accepted local served-bytes proof",
   "state": "CLOSED",
-  "accepted_by": "Claude, BOARD [633], following Astra [632]",
+  "accepted_by": "BOARD [633], following [632]",
   "head": "1b10038f3ced75114e2735841b40ec9cccde2b5b",
   "overall_O1": "PARTIAL",
   "full_contract_certified": false,
@@ -63,10 +63,44 @@
     "server/src/routes/math.ts": "fed3f4a913d9c540e733cf251980ad308ec22efa3111d93e1b8f87fb0d20dd0b",
     "server/src/routes/participation.ts": "9ca96183bb723960fc5630d62226076bced0f6e591682ded92a4a097ee6d8ac7",
     "server/__tests__/unit/mathBundle.test.ts": "49ddca4a1f03cb13ef4416ad7f5da9b627171fe13024708602c14453afa5d3db",
-    "server/__tests__/unit/mathBundleRequests.test.ts": "7a08c12034f82c4bf51452cc67b2e7ba514f083af2a1e4401211c5a3dade4b6c",
+    "server/__tests__/unit/mathBundleRequests.test.ts": "e9d5f74078eb8009809b1ecb61aa83d2e1e7a6ce0d65087ef8233d565b1d3fbd",
     "server/__tests__/unit/pcaMathTickZero.test.ts": "5bb2add18031c19eeb65029807661af2a86a69de31a97876430819e5f0db1ee6",
     "server/__tests__/unit/exportRoutes.test.ts": "5038dd30417447f59e332a43c5a203e3a9fe2e6f865c5314ccc4725c10fc8694",
-    "server/__tests__/integration/math-bundle-coherence.test.ts": "dfd17ef06a45c1ea37bd355b4aa66b9558c22c7a4e4fdc43da22dc75f0bcdc93",
+    "server/__tests__/integration/math-bundle-coherence.test.ts": "44a3eaf4822b097c02ced64776162777d0e568ccfcdf42ea0a32ef9e9f8a2281",
     "server/__tests__/integration/math-env-isolation.test.ts": "da56bbf9e2d03611280148acd715da685b36393d4ad8e4426fd66bd8bd5a50d7"
+  },
+  "test_pin_reconciliation": {
+    "source_head": "97a6cca5ae333db0005ea4c7d948f81a85485d94",
+    "authorization": "BOARD [687]",
+    "files": [
+      {
+        "path": "server/__tests__/unit/mathBundleRequests.test.ts",
+        "previous_sha256": "7a08c12034f82c4bf51452cc67b2e7ba514f083af2a1e4401211c5a3dade4b6c",
+        "current_sha256": "e9d5f74078eb8009809b1ecb61aa83d2e1e7a6ce0d65087ef8233d565b1d3fbd",
+        "commit": "087c51fb42859c74a368fb39c445c526d466e878",
+        "pull_request": 2727,
+        "reason": "Remove an unused describe import; no assertion or runtime change."
+      },
+      {
+        "path": "server/__tests__/integration/math-bundle-coherence.test.ts",
+        "previous_sha256": "dfd17ef06a45c1ea37bd355b4aa66b9558c22c7a4e4fdc43da22dc75f0bcdc93",
+        "current_sha256": "44a3eaf4822b097c02ced64776162777d0e568ccfcdf42ea0a32ef9e9f8a2281",
+        "commit": "087c51fb42859c74a368fb39c445c526d466e878",
+        "pull_request": 2727,
+        "reason": "Exercise presentPca for the served comment list and retain raw-empty assertions after #2709 moved response defaults."
+      }
+    ],
+    "validation": {
+      "command_receipt": "s2-jest-command.json",
+      "tests_passed": 37,
+      "suites_passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "node_version": "v24.20.0",
+      "results_sha256": "e52e762f74cfa9ec1efef40491242486e8ab3cf0defc8f3b49b2bd6e3005e512",
+      "log_sha256": "246ee182db60d16d48f43148caf6cd3083f1eec89ef87181331ac344908e97e2"
+    },
+    "historical_replay_rerun": false,
+    "scope": "Only the two CI-repaired test pins change. Production source pins and the accepted historical replay/census bytes remain unchanged; the fresh run validates the current tests, not a new full-app replay."
   }
 }
