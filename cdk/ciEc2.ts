@@ -1,5 +1,5 @@
 /**
- * P-022 §E — disposable EC2 worker for the **synthetic** recovery matrix and
+ * P-022 §E — disposable EC2 worker for the **public battery** recovery matrix and
  * the **public-fixture** replay battery.
  *
  * ## Scope, after the second reviewer's #2715 review (round 2)
@@ -13,7 +13,7 @@
  *   - no fixture-bundle read anywhere in this construct,
  *   - no evidence-bucket write anywhere in this construct,
  *   - nothing prod-derived is ever staged on the worker,
- *   - the workflow's verdict is named for what it is (`synthetic`), so it can
+ *   - the workflow's verdict is named for what it is (`public battery`), so it can
  *     never be mistaken for a certificate.
  *
  * Private certification (baked trusted AMI, cloud-init disabled, isolated
@@ -161,7 +161,7 @@ export class CertificationCiEc2 extends Construct {
     // box (review E6). These are the agent's own actions and nothing else.
     this.workerRole = new iam.Role(this, 'WorkerRole', {
       roleName: 'polis-certify-worker',
-      description: 'P-022 E synthetic CI worker: SSM agent actions only, no data access',
+      description: 'P-022 E public battery CI worker: SSM agent actions only, no data access',
       assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
     });
     this.workerRole.addToPolicy(new iam.PolicyStatement({
@@ -218,7 +218,7 @@ export class CertificationCiEc2 extends Construct {
     // ------------------------------------------------------- launch template
     this.launchTemplate = new ec2.LaunchTemplate(this, 'LaunchTemplate', {
       launchTemplateName: 'polis-certify-ci',
-      versionDescription: 'P-022 E synthetic recovery + public-fixture battery worker',
+      versionDescription: 'P-022 E public battery recovery + public-fixture battery worker',
       machineImage: new ec2.AmazonLinuxImage({
         generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2023,
         cpuType: props.cpuType,
@@ -274,7 +274,7 @@ export class CertificationCiEc2 extends Construct {
 
     this.githubRole = new iam.Role(this, 'GithubOidcRole', {
       roleName: 'polis-certify-github-oidc',
-      description: 'P-022 E: launches, drives and destroys the synthetic CI worker',
+      description: 'P-022 E: launches, drives and destroys the public battery CI worker',
       maxSessionDuration: cdk.Duration.hours(6),
       // ENVIRONMENT subject, exactly, and nothing else. No branch subject: an
       // environment job's token carries the environment form, so a branch
@@ -547,7 +547,7 @@ def handler(event, context):
 `;
 
 /**
- * User data for the synthetic worker.
+ * User data for the public battery worker.
  *
  * Two things in order matter here. First, the hard deadline is armed before
  * anything that can fail, and — round 2 — a failure to arm it is fatal rather
@@ -626,6 +626,12 @@ function buildUserData(props: CertificationCiEc2Props): ec2.UserData {
     '# target runs host `uv run --no-sync pytest`, so a box that has only',
     '# docker and git cannot run the matrix at all; round 2 installed uv in the',
     '# battery phase, which never ran with run_battery=false (review R2-F2).',
+    'BOOTSTRAP_PHASE=python-build-tools',
+    '# hdbscan has no Linux ARM64 wheel in the lockfile. Keep the locked',
+    '# dependency set; its isolated build installs Cython and NumPy headers.',
+    '# uv-managed Python supplies matching 3.12 headers (AL2023 python3-devel',
+    '# is for the system interpreter and must not stand in for those).',
+    'dnf install -y gcc gcc-c++ make || fail "python build tools"',
     'BOOTSTRAP_PHASE=python',
     'export HOME=/root',
     'curl -LsSf https://astral.sh/uv/install.sh -o /tmp/uv-install.sh || fail "uv download"',
