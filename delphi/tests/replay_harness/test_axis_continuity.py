@@ -1,6 +1,6 @@
 """Axis-continuity diagnostic tests (``polismath.replay.axis_continuity``).
 
-Synthetic recordings, written through the real store so the on-disk layout is
+Public-fixture recordings, written through the real store so the on-disk layout is
 the one the tool must read (``real_data/.local/replays/<dataset>/<schedule>/py/
 step-NNN.json``, ``store.py:1-23``). Four chains carry the load:
 
@@ -52,7 +52,7 @@ def _blob(
     energies: Sequence[float] = (100.0, 25.0),
 ) -> dict[str, Any]:
     return {
-        "zid": "synthetic",
+        "zid": "public-fixture",
         "math_tick": 1,
         "n": len(_PROJ_SIGNS),
         "n-cmts": len(tids),
@@ -73,7 +73,7 @@ def _write(
     restart_after: int | None = None,
 ) -> Path:
     spec_dict: dict[str, Any] = {
-        "dataset": "synthetic",
+        "dataset": "public-fixture",
         "schedule_id": schedule_id,
         "source": "votes-csv",
         "cuts": {"mode": "vote-count", "at": [1, "end"]},

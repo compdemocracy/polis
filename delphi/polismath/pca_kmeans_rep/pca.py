@@ -441,7 +441,7 @@ def pca_project_cmnts(center: np.ndarray, comps: np.ndarray) -> np.ndarray:
     Project each comment into the 2D PCA space.
 
     Clojure (`pca-project-cmnts`, pca.clj:167-178) calls
-    `sparsity-aware-project-ptpts` on a synthetic vote matrix where row `i`
+    `sparsity-aware-project-ptpts` on a unit-vote matrix where row `i`
     has a single AGREE vote at column `i` and `nil` everywhere else.
 
     For comment `i`, the sparsity-aware reduce (pca.clj:134-157) collapses to:

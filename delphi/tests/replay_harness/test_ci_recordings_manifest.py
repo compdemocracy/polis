@@ -2,7 +2,7 @@
 
 `ci/p022_recordings_manifest.py` is what makes a certification dispatch return
 the recordings it produced instead of destroying them with the box. These tests
-run it over synthetic recording roots — no engine, no instance, no AWS.
+run it over public-fixture recording roots — no engine, no instance, no AWS.
 
 The properties that matter are all refusals: it packs only entries the battery
 inventory admitted, only allowlisted file names, and it fails rather than

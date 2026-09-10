@@ -3,7 +3,7 @@
 Unit tests for the faithful Clojure k-means port (PR-C, legacy_kmeans.py).
 
 Every expected value is hand-derived from the Clojure rules in
-math/src/polismath/math/clusters.clj (cited per test), on tiny synthetic
+math/src/polismath/math/clusters.clj (cited per test), on tiny public-fixture
 matrices — NOT recomputed from the code under test. Covers the lineage
 semantics that make this a DIFFERENT algorithm from clusters.py's warm start:
 first-k-distinct cold init, drop-vanished, (inc max-id) new ids,
@@ -383,7 +383,7 @@ class TestQ11DistanceCancellation:
 
         # The REAL vw every-vote step-57 pair (journal 2026-07-22): the
         # cancellation collapses their 4.66e-15 separation to exactly 0.0.
-        # (Not every near-coincident synthetic pair does — the residue of
+        # (Not every near-coincident public-fixture pair does — the residue of
         # |a|²+|b|²−2ab can land on either side of zero bit-by-bit.)
         a = [-1.7765256006253405, 0.65139331269767860]
         b = [-1.7765256006253405, 0.65139331269767400]

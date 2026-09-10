@@ -985,13 +985,13 @@ def extract_from_config(
     selections = fs.resolve_roles(config, rows, accept_public_fixture=accept_public_fixture)
     tie_key = detect_tie_key(conn)
 
-    # A synthetic substitute is not a substitute until it EXISTS. Materialise
-    # every generator case a synthetic role depends on, whatever --no-generated
+    # A public-fixture substitute is not a substitute until it EXISTS. Materialise
+    # every generator case a public-fixture role depends on, whatever --no-generated
     # or the non-heavy default would otherwise do, and pin its directory into
     # the role entry so the manifest cannot record a role with dir:null.
     required_cases = sorted({
-        sel.synthetic_replacement for sel in selections
-        if sel.zid is None and sel.synthetic_replacement
+        sel.public_fixture_replacement for sel in selections
+        if sel.zid is None and sel.public_fixture_replacement
     })
     generated_summaries: list[dict[str, Any]] = fg.write_all(
         config["generated"], payload_root, guard_root,
@@ -1034,16 +1034,16 @@ def extract_from_config(
 
     for sel in selections:
         if sel.zid is None:
-            case_id = sel.synthetic_replacement
+            case_id = sel.public_fixture_replacement
             case = case_by_id.get(case_id, {})
             role_summaries.append({
                 "slug": sel.slug, "role": sel.role, "group": sel.group,
                 "rank": sel.rank,
                 "dir": substitute_dirs.get(case_id),
-                "source": "synthetic-replacement",
-                "synthetic_replacement": case_id,
+                "source": "public-fixture-replacement",
+                "public_fixture_replacement": case_id,
                 "approval": "explicitly accepted by the operator "
-                            "(--accept-synthetic); production supplied no candidate",
+                            "(--accept-public-fixture); production supplied no candidate",
                 "failed_production_predicate": [
                     dict(p) for p in
                     next((r["predicates"] for r in config["roles"]
@@ -1058,7 +1058,7 @@ def extract_from_config(
                 },
                 "measured_metrics": substitute_metrics.get(case_id, {}),
                 "coverage_limits":
-                    "SYNTHETIC. This case exercises the declared stress predicate; "
+                    "PUBLIC_FIXTURE. This case exercises the declared stress predicate; "
                     "it is NOT evidence that production carries the same geometry.",
                 "n_candidates": sel.n_candidates,
             })

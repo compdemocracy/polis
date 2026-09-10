@@ -613,7 +613,7 @@ def test_the_pair_holds_through_the_real_clojure_driver(tmp_path):
        test reports INCONCLUSIVE rather than a PASS or a false FAIL.
 
     Observed while writing this (2026-09-08, local clojure CLI): on the small
-    synthetic grid the Clojure driver's step 0 is stable (the pinned cold-start
+    public-fixture grid the Clojure driver's step 0 is stable (the pinned cold-start
     PCA) but its warm ticks are NOT bit-repeatable across runs of identical
     input, so this test reports INCONCLUSIVE there. The Python side of the
     property, which is deterministic, is certified by the tests above.

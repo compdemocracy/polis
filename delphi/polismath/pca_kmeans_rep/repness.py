@@ -587,7 +587,7 @@ def select_rep_comments_df(stats_df: pd.DataFrame,
     sufficient: List[Dict[str, Any]] = []
     best: Optional[Dict[str, Any]] = None
     # Track best's max(rat, rdt) as a sidecar scalar so we never have to mutate
-    # `best` itself with synthetic comparison keys. Avoids the leak/pop dance
+    # `best` itself with constructed comparison keys. Avoids the leak/pop dance
     # of stashing a `_max_rt` inside the finalized dict (decision D10.8.4).
     best_max_rt: Optional[float] = None
     best_agree: Optional[Dict[str, Any]] = None
@@ -684,7 +684,7 @@ def _assemble_rep_comments(stats_df: pd.DataFrame,
 
     Decision S2: `select_rep_comments_df` returns a `(rep_df, best_agree_dict)`
     tuple so the DataFrame stays clean (no NaN extra-key columns). Most
-    callers — including `conv_repness` and the D10 synthetic tests — want
+    callers — including `conv_repness` and the D10 public-fixture tests — want
     the flat List[Dict] form, so we keep one place that does the prepend
     and the final agrees-before-disagrees stable partition.
     """

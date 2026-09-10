@@ -249,7 +249,7 @@ def test_run_all_runs_in_ascending_order(mod, tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# fit_power_law — synthetic power-law recovery.
+# fit_power_law — public-fixture power-law recovery.
 # ---------------------------------------------------------------------------
 
 def test_fit_power_law_recovers_exponent_within_tolerance(mod):

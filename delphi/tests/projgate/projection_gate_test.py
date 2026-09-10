@@ -3,7 +3,7 @@
 OPT-IN and self-skipping (mirrors tests/poller/test_integration_postgres.py): it
 starts a THROWAWAY ``postgres:17`` on a host port in 55970-55979 (NEVER the host's
 live 5432), applies the real server migrations ``000000_initial.sql`` through the
-latest in order, seeds a handful of synthetic votes, and asserts the gate's
+latest in order, seeds a handful of public-fixture votes, and asserts the gate's
 classification for:
 
   1. the IDENTICAL case — today's schema matches the frozen column list exactly,
@@ -60,8 +60,8 @@ pytestmark = [pytest.mark.integration]
 if _GATE_SKIP:
     pytestmark.append(pytest.mark.skip(reason=_GATE_SKIP))
 
-# Obviously-synthetic conversation id — never a real production zid.
-SYNTHETIC_ZID = 424242
+# Obviously-public-fixture conversation id — never a real production zid.
+PUBLIC_FIXTURE_ZID = 424242
 
 # Migrations live beside the server source the gate reproduces (checkout/server).
 _server_dir = pg._resolve_server_dir() if pg else None
@@ -139,7 +139,7 @@ def dsn() -> Iterator[str]:
 
 
 def _seed(url: str) -> None:
-    """Seed synthetic votes. Direct inserts fire the on-insert RULE, which
+    """Seed public-fixture votes. Direct inserts fire the on-insert RULE, which
     populates votes_latest_unique. Includes an equal-created pair."""
     import psycopg2
 
@@ -157,16 +157,16 @@ def _seed(url: str) -> None:
         with conn.cursor() as cur:
             # A conversation + zinvite so the wire serializer (addConversationIds)
             # attaches a conversation_id, exercising the real finishArray path.
-            cur.execute("INSERT INTO conversations (zid) VALUES (%s)", (SYNTHETIC_ZID,))
+            cur.execute("INSERT INTO conversations (zid) VALUES (%s)", (PUBLIC_FIXTURE_ZID,))
             cur.execute(
                 "INSERT INTO zinvites (zid, zinvite) VALUES (%s, %s)",
-                (SYNTHETIC_ZID, "synthetic-conv-id"),
+                (PUBLIC_FIXTURE_ZID, "public-fixture-conv-id"),
             )
             for pid, tid, vote, w, created in rows:
                 cur.execute(
                     "INSERT INTO votes (zid, pid, tid, vote, weight_x_32767, created) "
                     "VALUES (%s, %s, %s, %s, %s, %s)",
-                    (SYNTHETIC_ZID, pid, tid, vote, w, created),
+                    (PUBLIC_FIXTURE_ZID, pid, tid, vote, w, created),
                 )
     finally:
         conn.close()
@@ -187,7 +187,7 @@ def _run_ddl(url: str, statements: list[str]) -> None:
 
 
 def test_identical_case_passes(dsn: str) -> None:
-    reports = pg.gate_all(dsn, {"zid": SYNTHETIC_ZID})
+    reports = pg.gate_all(dsn, {"zid": PUBLIC_FIXTURE_ZID})
     assert len(reports) == 2
     by_name = {r.site.name: r for r in reports}
 
@@ -222,7 +222,7 @@ def test_negative_control_reports_extra_field(dsn: str) -> None:
         f"ALTER TABLE votes_latest_unique ADD COLUMN {probe} integer",
     ])
     try:
-        reports = pg.gate_all(dsn, {"zid": SYNTHETIC_ZID})
+        reports = pg.gate_all(dsn, {"zid": PUBLIC_FIXTURE_ZID})
         by_name = {r.site.name: r for r in reports}
         for name in ("votesGet", "handle_GET_votes_me"):
             r = by_name[name]
@@ -242,7 +242,7 @@ def test_negative_control_reports_extra_field(dsn: str) -> None:
         ])
 
     # After dropping the probe, the gate passes again.
-    reports = pg.gate_all(dsn, {"zid": SYNTHETIC_ZID})
+    reports = pg.gate_all(dsn, {"zid": PUBLIC_FIXTURE_ZID})
     assert all(r.ok for r in reports)
 
 
@@ -302,7 +302,7 @@ def test_repeatable_read_shared_snapshot(dsn: str) -> None:
     from unittest.mock import patch
 
     site = pg.SITES["handle_GET_votes_me"]
-    filters = {"zid": SYNTHETIC_ZID}
+    filters = {"zid": PUBLIC_FIXTURE_ZID}
     original = pg.served_projection
     writer = psycopg2.connect(dsn)
     writer.autocommit = True
@@ -310,7 +310,7 @@ def test_repeatable_read_shared_snapshot(dsn: str) -> None:
     def change_between(cur, s, f):  # type: ignore[no-untyped-def]
         writer.cursor().execute(
             "UPDATE votes SET high_priority = TRUE WHERE zid=%s AND pid=0 AND tid=0",
-            (SYNTHETIC_ZID,),
+            (PUBLIC_FIXTURE_ZID,),
         )
         return original(cur, s, f)
 
@@ -326,7 +326,7 @@ def test_repeatable_read_shared_snapshot(dsn: str) -> None:
         assert not any(f.cls is pg.CellClass.VALUE_DIFF for f in result.findings)
     finally:
         writer.cursor().execute(
-            "UPDATE votes SET high_priority = FALSE WHERE zid=%s", (SYNTHETIC_ZID,)
+            "UPDATE votes SET high_priority = FALSE WHERE zid=%s", (PUBLIC_FIXTURE_ZID,)
         )
         writer.close()
 
@@ -364,27 +364,27 @@ def test_preflight_catches_swapped_row_associations() -> None:
 def test_empty_run_is_inconclusive_not_pass(dsn: str) -> None:
     """Round-1 defect (review): an absent zid returned full GATE PASS with zero
     cells. Zero rows carry no evidence -> INCONCLUSIVE, not PASS."""
-    reports = pg.gate_all(dsn, {"zid": -SYNTHETIC_ZID})  # absent conversation
+    reports = pg.gate_all(dsn, {"zid": -PUBLIC_FIXTURE_ZID})  # absent conversation
     assert reports
     for r in reports:
         assert r.row_count_served == 0 and r.identical_cells == 0
         assert not r.ok
         assert r.status == "INCONCLUSIVE" and r.inconclusive_reason
     # A separately declared empty case is a legitimate individual case.
-    declared = pg.gate_all(dsn, {"zid": -SYNTHETIC_ZID}, allow_empty=list(pg.SITES))
+    declared = pg.gate_all(dsn, {"zid": -PUBLIC_FIXTURE_ZID}, allow_empty=list(pg.SITES))
     assert all(r.status == "PASS" for r in declared)
 
 
 def test_manifest_requires_replica_when_demanded(dsn: str) -> None:
     # A bare primary DSN is not proof of replica coverage.
-    m = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID}, replica_dsn=None, require_replica=True)
+    m = pg.run_manifest(dsn, {"zid": PUBLIC_FIXTURE_ZID}, replica_dsn=None, require_replica=True)
     assert not m.ok and not m.replica_seen
     # The SAME server passed twice is not a bound standby (not in recovery).
-    m2 = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID}, replica_dsn=dsn, require_replica=True,
+    m2 = pg.run_manifest(dsn, {"zid": PUBLIC_FIXTURE_ZID}, replica_dsn=dsn, require_replica=True,
                          channels=("preflight", "wire"))
     assert not m2.ok and m2.replica_seen and not m2.distinct_replica
     # All-empty primary evidence is rejected.
-    m3 = pg.run_manifest(dsn, {"zid": -SYNTHETIC_ZID}, allow_empty=list(pg.SITES))
+    m3 = pg.run_manifest(dsn, {"zid": -PUBLIC_FIXTURE_ZID}, allow_empty=list(pg.SITES))
     assert not m3.ok
 
 
@@ -396,24 +396,24 @@ def test_manifest_rejects_unrelated_primary_and_preflight_only(dsn: str) -> None
     primary_id = pg._server_identity(dsn)
     unrelated = pg.ServerIdentity("9999999999999999999", False, None, None)  # diff id, not in recovery
     with mock.patch.object(pg, "_server_identity", side_effect=[primary_id, unrelated]):
-        m = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID, "pid": 0}, replica_dsn=dsn,
+        m = pg.run_manifest(dsn, {"zid": PUBLIC_FIXTURE_ZID, "pid": 0}, replica_dsn=dsn,
                             require_replica=True, channels=("preflight", "wire"))
     assert not m.ok and not m.distinct_replica
     # Preflight-only is not acceptance even with populated primary evidence.
-    pre = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID, "pid": 0}, channels=("preflight",))
+    pre = pg.run_manifest(dsn, {"zid": PUBLIC_FIXTURE_ZID, "pid": 0}, channels=("preflight",))
     assert not pre.ok and not pre.populated_ok
 
 
 def test_manifest_full_acceptance_requires_bound_standby_and_wire(dsn: str) -> None:
     """R4 defect 2: acceptance needs a bound standby (in recovery, shared system id)
     AND populated wire coverage on primary and replica."""
-    _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID, "pid": 0})  # skip if no node
+    _wire_or_skip(dsn, {"zid": PUBLIC_FIXTURE_ZID, "pid": 0})  # skip if no node
     import unittest.mock as mock
 
     primary_id = pg._server_identity(dsn)
     standby_id = pg.ServerIdentity(primary_id.system_identifier, True, None, "primary.host")
     with mock.patch.object(pg, "_server_identity", side_effect=[primary_id, standby_id]):
-        m = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID, "pid": 0}, replica_dsn=dsn,
+        m = pg.run_manifest(dsn, {"zid": PUBLIC_FIXTURE_ZID, "pid": 0}, replica_dsn=dsn,
                             require_replica=True, channels=("preflight", "wire"))
     assert m.distinct_replica and m.populated_ok and m.ok
 
@@ -516,7 +516,7 @@ def test_wire_gate_binds_to_real_served_bytes(dsn: str) -> None:
     """The served rows go through the ACTUAL serializer: zid deleted,
     conversation_id added, weight added (votes_me), int8 as JSON strings. Served
     (star) and frozen-explicit must be byte/type/order identical today."""
-    reports = _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID, "pid": 0})
+    reports = _wire_or_skip(dsn, {"zid": PUBLIC_FIXTURE_ZID, "pid": 0})
     by_name = {r.site.name: r for r in reports}
     for name in ("votesGet", "handle_GET_votes_me"):
         r = by_name[name]
@@ -527,7 +527,7 @@ def test_wire_gate_binds_to_real_served_bytes(dsn: str) -> None:
         assert "conversation_id" in r.served_columns
     # int8 columns are JSON STRINGS on the wire (the int8/int4 distinction the
     # preflight loses). Re-run the raw witness to inspect a served row.
-    data = pg.run_wire_witness(dsn, {"zid": SYNTHETIC_ZID, "pid": 0})
+    data = pg.run_wire_witness(dsn, {"zid": PUBLIC_FIXTURE_ZID, "pid": 0})
     vm = data["handle_GET_votes_me"]["served"][0]
     assert isinstance(vm["created"], str)          # int8 -> "1000"
     assert isinstance(vm["pid"], int)              # int4 -> 0
@@ -545,7 +545,7 @@ def test_wire_gate_negative_control_extra_field(dsn: str) -> None:
         f"ALTER TABLE votes_latest_unique ADD COLUMN {probe} integer",
     ])
     try:
-        reports = _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID, "pid": 0})
+        reports = _wire_or_skip(dsn, {"zid": PUBLIC_FIXTURE_ZID, "pid": 0})
         by_name = {r.site.name: r for r in reports}
         for name in ("votesGet", "handle_GET_votes_me"):
             r = by_name[name]
@@ -585,7 +585,7 @@ def test_wire_gate_is_source_bound(dsn: str, tmp_path) -> None:
     kw = dict(server_dir=pg._resolve_server_dir(), src_root=src)
 
     # Baseline: unmutated real source == frozen expected -> PASS.
-    base = _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID, "pid": 0}, **kw)
+    base = _wire_or_skip(dsn, {"zid": PUBLIC_FIXTURE_ZID, "pid": 0}, **kw)
     assert all(r.ok for r in base), [r.summary_line() for r in base]
 
     votes_ts = os.path.join(src, "routes", "votes.ts")
@@ -603,7 +603,7 @@ def test_wire_gate_is_source_bound(dsn: str, tmp_path) -> None:
             f.write(text)
 
     def _findings(**flt):
-        return {r.site.name: r for r in _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID, "pid": 0}, **kw)}
+        return {r.site.name: r for r in _wire_or_skip(dsn, {"zid": PUBLIC_FIXTURE_ZID, "pid": 0}, **kw)}
 
     # Mutation A: flip the served vote sign in the ACTUAL route.
     assert "resolve(results.rows);" in votes_orig
@@ -664,7 +664,7 @@ def test_wire_gate_is_source_bound(dsn: str, tmp_path) -> None:
 def test_wire_gate_absent_pid_reflects_real_handler(dsn: str) -> None:
     """Round-3 defect 1: without pid the REAL votesGet returns [] (via
     getVotesForSingleParticipant), so the gate must NOT report a populated PASS."""
-    reports = _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID})  # no pid bound
+    reports = _wire_or_skip(dsn, {"zid": PUBLIC_FIXTURE_ZID})  # no pid bound
     by_name = {r.site.name: r for r in reports}
     vg = by_name["votesGet"]
     assert vg.row_count_served == 0     # real handler returned []
@@ -673,9 +673,9 @@ def test_wire_gate_absent_pid_reflects_real_handler(dsn: str) -> None:
 
 def test_manifest_wire_channel_binds_replica(dsn: str) -> None:
     # Skip if the witness can't run in this environment.
-    _wire_or_skip(dsn, {"zid": SYNTHETIC_ZID, "pid": 0})
+    _wire_or_skip(dsn, {"zid": PUBLIC_FIXTURE_ZID, "pid": 0})
     m = pg.run_manifest(
-        dsn, {"zid": SYNTHETIC_ZID, "pid": 0}, replica_dsn=dsn,
+        dsn, {"zid": PUBLIC_FIXTURE_ZID, "pid": 0}, replica_dsn=dsn,
         require_replica=True, channels=("preflight", "wire"),
         approve_same_identity=True,  # same-cluster read pool, explicitly approved
     )

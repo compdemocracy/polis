@@ -86,7 +86,7 @@ class FakeProcess:
             self.stdout = io.StringIO("still running\n")
 
     def _raise_read_error(self):
-        raise OSError("synthetic pipe failure")
+        raise OSError("public-fixture pipe failure")
 
     def poll(self):
         return None if self.alive else self.returncode
@@ -106,7 +106,7 @@ class FakeProcess:
         self.calls.append("wait")
         if self.alive:
             if self._ignore_terminate and "kill" not in self.calls:
-                raise subprocess.TimeoutExpired("synthetic", timeout or 0)
+                raise subprocess.TimeoutExpired("public-fixture", timeout or 0)
             self.alive = False
             self.returncode = self._exit_code
         return self.returncode
@@ -116,7 +116,7 @@ def run_process_job(monkeypatch, child, *, timed_out=False):
     """Drive the real process_job against an inert child and store."""
     completions = []
     worker = JobProcessor.__new__(JobProcessor)
-    worker.worker_id = "synthetic-worker"
+    worker.worker_id = "public-fixture-worker"
     worker.update_job_logs = lambda *args, **kwargs: None
     worker.complete_job = lambda job, success, **kwargs: completions.append(
         (success, kwargs.get("process_exited"))
@@ -126,13 +126,13 @@ def run_process_job(monkeypatch, child, *, timed_out=False):
     monkeypatch.setattr(
         "scripts.job_poller.subprocess.Popen", lambda *a, **kw: child
     )
-    monkeypatch.setenv("ANTHROPIC_MODEL", "synthetic-model")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "public-fixture-model")
     if timed_out:
         _jump_the_clock(monkeypatch)
 
     worker.process_job(
         {
-            "job_id": "synthetic-root",
+            "job_id": "public-fixture-root",
             "job_type": "CREATE_NARRATIVE_BATCH",
             "conversation_id": "1",
             "timeout_seconds": 1,
@@ -175,7 +175,7 @@ class NestedRealProcess:
             self.stdout = self._proc.stdout
 
     def _raise_read_error(self):
-        raise OSError("synthetic pipe failure")
+        raise OSError("public-fixture pipe failure")
 
     @property
     def pid(self):
@@ -197,19 +197,19 @@ class NestedRealProcess:
 def run_process_job_with(monkeypatch, child, *, timed_out=False):
     completions = []
     worker = JobProcessor.__new__(JobProcessor)
-    worker.worker_id = "synthetic-worker"
+    worker.worker_id = "public-fixture-worker"
     worker.update_job_logs = lambda *args, **kwargs: None
     worker.complete_job = lambda job, success, **kwargs: completions.append(
         (success, kwargs.get("process_exited"))
     )
     worker.release_lock = lambda *args, **kwargs: None
     monkeypatch.setattr("scripts.job_poller.subprocess.Popen", lambda *a, **kw: child)
-    monkeypatch.setenv("ANTHROPIC_MODEL", "synthetic-model")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "public-fixture-model")
     if timed_out:
         _jump_the_clock(monkeypatch)
     worker.process_job(
         {
-            "job_id": "synthetic-root",
+            "job_id": "public-fixture-root",
             "job_type": "CREATE_NARRATIVE_BATCH",
             "conversation_id": "1",
             "timeout_seconds": 1,
@@ -265,14 +265,14 @@ def test_complete_job_records_the_exit_claim(success):
     worker.update_job_logs = lambda *args, **kwargs: None
 
     worker.complete_job(
-        {"job_id": "synthetic-root", "version": 1}, success, process_exited=True
+        {"job_id": "public-fixture-root", "version": 1}, success, process_exited=True
     )
 
     assert "process_exit_confirmed" in captured["UpdateExpression"]
     assert captured["ExpressionAttributeValues"][":process_exited"] is True
 
     captured.clear()
-    worker.complete_job({"job_id": "synthetic-root", "version": 1}, success)
+    worker.complete_job({"job_id": "public-fixture-root", "version": 1}, success)
     assert captured["ExpressionAttributeValues"][":process_exited"] is False
 
 
@@ -347,7 +347,7 @@ def test_stopping_a_job_kills_its_grandchildren(kernel_fence):
     worker = JobProcessor.__new__(JobProcessor)
     parent, grandchild_pid = _spawn_nested(new_session=True)
     try:
-        assert _is_confirmed(worker.stop_child_process(parent, "synthetic-root")) is True
+        assert _is_confirmed(worker.stop_child_process(parent, "public-fixture-root")) is True
         assert parent.poll() is not None
         # The point of the whole change: the grandchild goes too.
         deadline = time.time() + 5
@@ -367,7 +367,7 @@ def test_a_child_without_its_own_group_is_not_claimed():
     worker = JobProcessor.__new__(JobProcessor)
     parent, grandchild_pid = _spawn_nested(new_session=False)
     try:
-        assert _is_confirmed(worker.stop_child_process(parent, "synthetic-root")) is False
+        assert _is_confirmed(worker.stop_child_process(parent, "public-fixture-root")) is False
     finally:
         _reap(parent, grandchild_pid)
 
@@ -386,16 +386,16 @@ def test_process_job_starts_the_child_in_its_own_session(monkeypatch):
         return child
 
     monkeypatch.setattr("scripts.job_poller.subprocess.Popen", fake_popen)
-    monkeypatch.setenv("ANTHROPIC_MODEL", "synthetic-model")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "public-fixture-model")
 
     worker = JobProcessor.__new__(JobProcessor)
-    worker.worker_id = "synthetic-worker"
+    worker.worker_id = "public-fixture-worker"
     worker.update_job_logs = lambda *a, **kw: None
     worker.complete_job = lambda *a, **kw: None
     worker.release_lock = lambda *a, **kw: None
     worker.process_job(
         {
-            "job_id": "synthetic-root",
+            "job_id": "public-fixture-root",
             "job_type": "CREATE_NARRATIVE_BATCH",
             "conversation_id": "1",
             "timeout_seconds": 1,
@@ -423,18 +423,18 @@ def _run_nested_to_completion(monkeypatch, exit_code):
     grandchild_pid = int(parent.stdout.readline())
     completions = []
     worker = JobProcessor.__new__(JobProcessor)
-    worker.worker_id = "synthetic-worker"
+    worker.worker_id = "public-fixture-worker"
     worker.update_job_logs = lambda *a, **kw: None
     worker.complete_job = lambda job, success, **kw: completions.append(
         (success, kw.get("process_exited"))
     )
     worker.release_lock = lambda *a, **kw: None
     monkeypatch.setattr("scripts.job_poller.subprocess.Popen", lambda *a, **kw: parent)
-    monkeypatch.setenv("ANTHROPIC_MODEL", "synthetic-model")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "public-fixture-model")
     try:
         worker.process_job(
             {
-                "job_id": "synthetic-root",
+                "job_id": "public-fixture-root",
                 "job_type": "CREATE_NARRATIVE_BATCH",
                 "conversation_id": "1",
                 "timeout_seconds": 30,
@@ -513,7 +513,7 @@ def test_unreadable_member_does_not_authorize_exit(monkeypatch):
     monkeypatch.setattr(os, "killpg", lambda pgid, sig: None)
 
     def _raise(path, *args, **kwargs):
-        raise PermissionError("synthetic unreadable member")
+        raise PermissionError("public-fixture unreadable member")
 
     monkeypatch.setattr("builtins.open", _raise)
 
@@ -521,7 +521,7 @@ def test_unreadable_member_does_not_authorize_exit(monkeypatch):
     assert JobProcessor._process_group_alive(77) is True
 
     worker = JobProcessor.__new__(JobProcessor)
-    assert _is_confirmed(worker.confirm_process_tree_gone(77, "synthetic")) is False
+    assert _is_confirmed(worker.confirm_process_tree_gone(77, "public-fixture")) is False
 
 
 def test_malformed_stat_does_not_authorize_exit(monkeypatch):
@@ -536,7 +536,7 @@ def test_malformed_stat_does_not_authorize_exit(monkeypatch):
     assert JobProcessor._process_group_alive(77) is True
 
     worker = JobProcessor.__new__(JobProcessor)
-    assert _is_confirmed(worker.confirm_process_tree_gone(77, "synthetic")) is False
+    assert _is_confirmed(worker.confirm_process_tree_gone(77, "public-fixture")) is False
 
 
 def test_vanished_member_is_confirmed_gone(monkeypatch):
@@ -879,7 +879,7 @@ def test_fallback_with_live_successor_is_not_confirmed(monkeypatch):
     monkeypatch.setattr("builtins.open", _fresh_stat({"101": _stat_line(101, "Z", 77)}))
 
     worker = JobProcessor.__new__(JobProcessor)
-    assert _is_confirmed(worker.confirm_process_tree_gone(77, "synthetic")) is False
+    assert _is_confirmed(worker.confirm_process_tree_gone(77, "public-fixture")) is False
 
 
 def test_fallback_empty_group_is_still_not_confirmed(monkeypatch):
@@ -897,7 +897,7 @@ def test_fallback_empty_group_is_still_not_confirmed(monkeypatch):
     monkeypatch.setattr(os, "listdir", lambda path: [])
 
     worker = JobProcessor.__new__(JobProcessor)
-    result = worker.confirm_process_tree_gone(77, "synthetic")
+    result = worker.confirm_process_tree_gone(77, "public-fixture")
     assert _is_confirmed(result) is False
     assert result is jp.ExitConfirmation.UNCONFIRMED
 
@@ -915,7 +915,7 @@ def test_kernel_path_still_confirms_empty_group(monkeypatch):
     monkeypatch.setattr(os, "killpg", esrch)
 
     worker = JobProcessor.__new__(JobProcessor)
-    result = worker.confirm_process_tree_gone(77, "synthetic")
+    result = worker.confirm_process_tree_gone(77, "public-fixture")
     assert result is jp.ExitConfirmation.CONFIRMED
     assert _is_confirmed(result) is True
 
@@ -931,7 +931,7 @@ def test_unconfirmed_completion_records_note_and_withholds_release():
     worker.update_job_logs = lambda *args, **kwargs: None
 
     worker._complete_with_confirmation(
-        {"job_id": "synthetic-root", "version": 1}, True, ExitConfirmation.UNCONFIRMED
+        {"job_id": "public-fixture-root", "version": 1}, True, ExitConfirmation.UNCONFIRMED
     )
 
     values = captured["ExpressionAttributeValues"]
@@ -950,7 +950,7 @@ def test_confirmed_completion_releases_the_guard():
     worker.update_job_logs = lambda *args, **kwargs: None
 
     worker._complete_with_confirmation(
-        {"job_id": "synthetic-root", "version": 1}, True, ExitConfirmation.CONFIRMED
+        {"job_id": "public-fixture-root", "version": 1}, True, ExitConfirmation.CONFIRMED
     )
 
     values = captured["ExpressionAttributeValues"]
@@ -1010,7 +1010,7 @@ def test_real_two_generation_without_fence_is_unconfirmed(monkeypatch):
         deadline = time.time() + 5
         while parent.poll() is None and time.time() < deadline:
             time.sleep(0.02)
-        result = worker.confirm_process_tree_gone(parent.pid, "synthetic")
+        result = worker.confirm_process_tree_gone(parent.pid, "public-fixture")
         assert result is jp.ExitConfirmation.UNCONFIRMED
         assert _is_confirmed(result) is False
     finally:

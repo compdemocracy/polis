@@ -2,7 +2,7 @@
 
 No database, no network, no real S3: the object store is the filesystem
 stand-in (``fixture_bundle.LocalStore``), with an optional moto-backed
-``S3Store`` pass when moto is installed. All data is SYNTHETIC and generated
+``S3Store`` pass when moto is installed. All data is PUBLIC_FIXTURE and generated
 here or by ``polismath.replay.fixture_generate``.
 
 What the negative controls prove:
@@ -69,7 +69,7 @@ def test_generated_cases_declare_their_own_identity(config, tmp_path):
         ident = s["generated"]
         assert ident["generator_id"] == config["generated"]["generator_id"]
         assert ident["seed"] == config["generated"]["seed"]
-        assert "SYNTHETIC" in ident["provenance"]
+        assert "PUBLIC_FIXTURE" in ident["provenance"]
 
 
 def test_all_pass_case_has_only_pass_votes(config, tmp_path):
@@ -552,7 +552,7 @@ def test_s3_store_roundtrip_under_moto(bundle, tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # Post-review corrections. Each block below is a defect an independent review
 # reproduced against this branch; the test is the thing that stops it coming
-# back. Everything here is synthetic and offline.
+# back. Everything here is public-fixture and offline.
 # ---------------------------------------------------------------------------
 
 # --- P1(2): NULL weight and NULL vote survive extraction -------------------
@@ -971,7 +971,7 @@ def test_pinned_checkpoints_match_what_the_replay_driver_actually_slices(
         [(1000 + i, 1 + i % 5, 1 + i % 4, 1) for i in range(n_votes)])
 
     spec_json = {
-        "dataset": "synthetic-restart", "schedule_id": "uniform4-restart0",
+        "dataset": "public-fixture-restart", "schedule_id": "uniform4-restart0",
         "source": "votes-csv",
         # A duplicate slot, collapsed under the explicit opt-in schedule.py now
         # requires, so the manifest's derived count has to collapse it too.
@@ -984,7 +984,7 @@ def test_pinned_checkpoints_match_what_the_replay_driver_actually_slices(
     }
     schedules_dir = tmp_path / "schedules"
     schedules_dir.mkdir()
-    (schedules_dir / "synthetic-restart-uniform4.json").write_text(
+    (schedules_dir / "public-fixture-restart-uniform4.json").write_text(
         json.dumps(spec_json))
 
     entry = fb.collect_schedule_hashes(schedules_dir)[0]
@@ -1088,20 +1088,20 @@ class _DeniedHeadClient(_EmittingClient):
         self.puts = 0
 
     def head_object(self, **kwargs):
-        raise PermissionError("synthetic HEAD denied")
+        raise PermissionError("public-fixture HEAD denied")
 
     def put_object(self, **kwargs):
         self.puts += 1
         self.headers = self._sign()
         self.data = kwargs["Body"]
-        return {"VersionId": "synthetic-v2"}
+        return {"VersionId": "public-fixture-v2"}
 
 
 def test_publisher_fails_closed_when_the_store_cannot_answer():
     client = _DeniedHeadClient()
-    store = fb.S3Store("synthetic-offline-bucket", client=client)
+    store = fb.S3Store("public-fixture-offline-bucket", client=client)
     with pytest.raises(fb.StoreUnavailableError, match="not an absent key"):
-        fb._put_immutable(store, "synthetic-bundle/manifest.json", b"replacement")
+        fb._put_immutable(store, "public-fixture-bundle/manifest.json", b"replacement")
     assert client.data == b"original" and client.puts == 0
 
 
@@ -1115,8 +1115,8 @@ def test_a_genuinely_absent_key_is_still_absent():
             raise err
 
     client = _Missing()
-    store = fb.S3Store("synthetic-offline-bucket", client=client)
-    result = fb._put_immutable(store, "synthetic-bundle/manifest.json", b"new")
+    store = fb.S3Store("public-fixture-offline-bucket", client=client)
+    result = fb._put_immutable(store, "public-fixture-bundle/manifest.json", b"new")
     assert client.data == b"new" and result.sha256 == fb.sha256_bytes(b"new")
 
 
@@ -1210,12 +1210,12 @@ def test_concurrent_conditional_puts_each_carry_the_precondition():
     import threading
 
     client = _RacingS3Client()
-    store = fb.S3Store("synthetic-bucket", client=client)
+    store = fb.S3Store("public-fixture-bucket", client=client)
     errors: list[BaseException] = []
 
     def write(body):
         try:
-            store.put_if_absent("synthetic-key", body)
+            store.put_if_absent("public-fixture-key", body)
         except BaseException as exc:  # noqa: BLE001 - reported, not swallowed
             errors.append(exc)
         finally:
@@ -1242,7 +1242,7 @@ def test_an_ordinary_unconditional_put_is_not_given_the_precondition():
     client = _RacingS3Client()
     client.b_entered.set()
     client.a_done.set()
-    store = fb.S3Store("synthetic-bucket", client=client)
+    store = fb.S3Store("public-fixture-bucket", client=client)
     store.put_if_absent("k", b"A")
     store.put("k", b"B")
     assert client.headers[b"A"].get("If-None-Match") == "*"
@@ -1267,7 +1267,7 @@ def test_conditional_put_refuses_a_client_that_cannot_carry_the_precondition():
             return {"VersionId": "v"}
 
     client = _NoEvents()
-    store = fb.S3Store("synthetic-offline-bucket", client=client)
+    store = fb.S3Store("public-fixture-offline-bucket", client=client)
     with pytest.raises(fb.StoreUnavailableError, match="UNCONDITIONAL"):
         store.put_if_absent("k", b"bytes")
     assert client.puts == 0
@@ -1368,11 +1368,11 @@ def test_pins_are_written_last_so_an_interrupted_push_is_not_admitted(
     class _FailsBeforePins(fb.LocalStore):
         def put_if_absent(self, key, data):
             if key.endswith(fb.PINS_KEY):
-                raise RuntimeError("synthetic interruption before the commit marker")
+                raise RuntimeError("public-fixture interruption before the commit marker")
             return super().put_if_absent(key, data)
 
     interrupted = _FailsBeforePins(tmp_path / "interrupted")
-    with pytest.raises(RuntimeError, match="synthetic interruption"):
+    with pytest.raises(RuntimeError, match="public-fixture interruption"):
         fb.push(interrupted, bundle_id=manifest["bundle_id"], payload_root=payload,
                 manifest=manifest, provenance=provenance)
     assert interrupted.exists(f"{manifest['bundle_id']}/{fb.MANIFEST_KEY}")
@@ -1459,7 +1459,7 @@ def test_no_key_at_all_freezes_the_extract_order():
     assert "need not reproduce ctid order" in result["note"]
 
 
-# --- The decision: a synthetic substitute must be MATERIALISED and pinned ---
+# --- The decision: a public-fixture substitute must be MATERIALISED and pinned ---
 
 
 def _dense_only_config(config):
@@ -1485,7 +1485,7 @@ def _dense_only_config(config):
 
 
 @pytest.mark.parametrize("include_generated", [True, False])
-def test_a_synthetic_substitute_is_materialised_and_pinned(
+def test_a_public_fixture_substitute_is_materialised_and_pinned(
         config, tmp_path, monkeypatch, include_generated):
     """``--accept-public-fixture`` is an approval, not a fulfilment.
 
@@ -1518,13 +1518,13 @@ def test_a_synthetic_substitute_is_materialised_and_pinned(
 
     assert result["provenance_rows"] == [], "a substitute has no zid to record"
     for role in result["roles"]:
-        assert role["source"] == "synthetic-replacement"
+        assert role["source"] == "public-fixture-replacement"
         assert role["dir"] == "gen-v1-dense-stress", \
             "an approved substitute recorded with dir:null is not fulfilled"
         assert (payload / role["dir"] / "events.jsonl").is_file()
         assert role["generator"]["case_id"] == "gen-v1-dense-stress"
         assert role["generator"]["seed"] == cfg["generated"]["seed"]
-        assert role["coverage_limits"].startswith("SYNTHETIC")
+        assert role["coverage_limits"].startswith("PUBLIC_FIXTURE")
         assert role["failed_production_predicate"]
         metrics = role["measured_metrics"]
         assert metrics["P"] == 20 and metrics["C"] == 5
@@ -1545,7 +1545,7 @@ def test_generated_case_metrics_use_latest_distinct_cells_not_revote_rows():
     ], [])
     metrics = fg.case_metrics(events, participants=[{"pid": 1}, {"pid": 2}])
     assert metrics["V"] == 8 and metrics["U"] == 4
-    assert metrics["C"] == 0  # no comment events in this synthetic stream
+    assert metrics["C"] == 0  # no comment events in this public-fixture stream
     metrics = fg.case_metrics(
         events + fx.build_events([], [
             {"tid": t, "pid": 1, "created": 1, "modified": None, "mod": 0,
@@ -1838,49 +1838,49 @@ def test_a_v3_manifest_must_state_the_transform_field(admitted, config):
 
 # --- round 3: the origin's rules travel with the derivation -----------------
 # Review #2730 R2-F1. A derived role RETAINED a binding naming a
-# synthetic origin while skipping every rule that makes a synthetic role
+# public-fixture origin while skipping every rule that makes a public-fixture role
 # admissible — offer, approval, generator, coverage — so a manifest could claim
 # an origin its own policy forbids and still verify, admit, push and pull.
 
-def _synthetic_offer_rule(config):
-    """The one config role whose rule offers a synthetic replacement."""
+def _public_fixture_offer_rule(config):
+    """The one config role whose rule offers a public-fixture replacement."""
     return next(r for r in config["roles"]
-                if r["on_missing"] == "fail_with_synthetic_replacement_offer")
+                if r["on_missing"] == "fail_with_public_fixture_replacement_offer")
 
 
 def _fail_rule(config):
-    """A required role whose rule offers NO synthetic replacement."""
+    """A required role whose rule offers NO public-fixture replacement."""
     return next(r for r in config["roles"] if r["on_missing"] == "fail")
 
 
-def _make_synthetic(manifest, rule, *, approved=True):
-    """Turn one role of an ORIGINAL manifest into a valid approved synthetic
+def _make_public_fixture(manifest, rule, *, approved=True):
+    """Turn one role of an ORIGINAL manifest into a valid approved public-fixture
     replacement, exactly as an operator-approved substitution records it."""
     entry = next(r for r in manifest["roles"] if r["slug"] == rule["slug"])
-    entry["source"] = "synthetic-replacement"
-    entry["synthetic_replacement"] = rule["synthetic_replacement"]
-    entry["coverage_limits"] = "synthetic: generated boundary case, no real ptpts"
-    entry["generator"] = {"case_id": rule["synthetic_replacement"]}
+    entry["source"] = "public-fixture-replacement"
+    entry["public_fixture_replacement"] = rule["public_fixture_replacement"]
+    entry["coverage_limits"] = "public-fixture: generated boundary case, no real ptpts"
+    entry["generator"] = {"case_id": rule["public_fixture_replacement"]}
     if approved:
-        entry["approval"] = "operator: --accept-synthetic (test)"
+        entry["approval"] = "operator: --accept-public-fixture (test)"
     return entry
 
 
-def test_an_approved_synthetic_role_derives_and_still_admits(
+def test_an_approved_public_fixture_role_derives_and_still_admits(
         admitted, config, tmp_path):
-    """The positive: a legitimately approved synthetic origin keeps its
+    """The positive: a legitimately approved public-fixture origin keeps its
     approval and generator through the involution, and admits on both sides."""
     payload, manifest = admitted
     original = copy.deepcopy(manifest)
-    _make_synthetic(original, _synthetic_offer_rule(config))
+    _make_public_fixture(original, _public_fixture_offer_rule(config))
     _admit(original, config)
 
     derived_payload = _flip_payload(payload, tmp_path / "derived-payload")
     derived = _derived_manifest(original, derived_payload)
     entry = next(r for r in derived["roles"]
-                 if r["slug"] == _synthetic_offer_rule(config)["slug"])
+                 if r["slug"] == _public_fixture_offer_rule(config)["slug"])
     assert entry["source"] == fb.DERIVED_ROLE_SOURCE
-    assert entry["derived_from"]["source"] == "synthetic-replacement"
+    assert entry["derived_from"]["source"] == "public-fixture-replacement"
     assert entry["approval"] and entry["generator"]["case_id"]
 
     fb.verify(derived_payload, derived)
@@ -1891,20 +1891,20 @@ def test_an_approved_synthetic_role_derives_and_still_admits(
     (lambda e: e.pop("approval"), "carries no recorded operator approval"),
     (lambda e: e.pop("generator"), "does not pin the generator"),
     (lambda e: e.pop("coverage_limits"), "does not state its coverage limits"),
-    (lambda e: e.update(synthetic_replacement="gen-v1-something-else"),
+    (lambda e: e.update(public_fixture_replacement="gen-v1-something-else"),
      "names generator case"),
 ])
-def test_a_derived_synthetic_origin_must_satisfy_the_origin_rules(
+def test_a_derived_public_fixture_origin_must_satisfy_the_origin_rules(
         admitted, config, tmp_path, break_it, needle):
     payload, manifest = admitted
     original = copy.deepcopy(manifest)
-    _make_synthetic(original, _synthetic_offer_rule(config))
+    _make_public_fixture(original, _public_fixture_offer_rule(config))
     _admit(original, config)
 
     derived = _derived_manifest(
         original, _flip_payload(payload, tmp_path / "derived-payload"))
     entry = next(r for r in derived["roles"]
-                 if r["slug"] == _synthetic_offer_rule(config)["slug"])
+                 if r["slug"] == _public_fixture_offer_rule(config)["slug"])
     break_it(entry)
     with pytest.raises(fb.AdmissionError, match=needle):
         _admit(derived, config)
@@ -1913,14 +1913,14 @@ def test_a_derived_synthetic_origin_must_satisfy_the_origin_rules(
 def test_a_derived_role_cannot_claim_an_origin_its_rule_forbids(
         derived_pair, config):
     """The second reviewer's witness, failing closed. Relabelling only the BINDING to a
-    synthetic origin, on a role whose rule offers no replacement and with no
+    public-fixture origin, on a role whose rule offers no replacement and with no
     approval or generator anywhere, previously passed the whole
     verify/admit/push/pull path."""
     _, derived = derived_pair
     slug = _fail_rule(config)["slug"]
     broken = copy.deepcopy(derived)
     entry = next(r for r in broken["roles"] if r["slug"] == slug)
-    entry["derived_from"]["source"] = "synthetic-replacement"
+    entry["derived_from"]["source"] = "public-fixture-replacement"
     assert not entry.get("approval") and not entry.get("generator")
     with pytest.raises(fb.AdmissionError, match="rule does not offer one"):
         _admit(broken, config)

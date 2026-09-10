@@ -18,7 +18,7 @@ reviewed new config version before inspecting candidate outputs, adding:
 }
 ```
 
-The seed above is a synthetic example, not an operator's chosen production seed.
+The seed above is a public-fixture example, not an operator's chosen production seed.
 The schema requires exactly these three fields, this version/target and 64
 lowercase hexadecimal seed characters. Absence disables this stage; null or
 malformed declarations refuse. No activity, outcome, resource-fit or old-role
@@ -165,7 +165,7 @@ container memory peaks, retained recording growth, scratch high-water and OOM
 evidence still require the actual private capacity run. Unknown resource
 measurements are not reported as zero. No public output policy is widened.
 
-The tests use synthetic populations, including a deliberately defective allocator,
+The tests use public-fixture populations, including a deliberately defective allocator,
 small/empty/uncovered populations, reordered inputs, ignored outcome fields,
 report leakage/tampering and whole-extraction/CLI wiring. Selection evidence
 cannot replace actual private payload, replay, capacity or cleanup admission.
