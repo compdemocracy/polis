@@ -41,7 +41,7 @@ const PLACEHOLDER_ENV = {
 
 describe("buildDynamoClientConfig credential precedence", () => {
   describe("branch 1: explicit endpoint (DynamoDB Local)", () => {
-    it("uses the endpoint with synthetic credentials", () => {
+    it("uses the endpoint with public-fixture credentials", () => {
       const config = buildDynamoClientConfig(
         {
           endpoint: "http://host.docker.internal:8000",

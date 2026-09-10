@@ -133,7 +133,7 @@ admin secret ARN, asset publisher, reviewer roles and notification topic.
 Before private use, retain actual target receipts for the AMI/OCI source admission,
 read-only replica login, DNS/metadata/egress isolation, cancellation/lost launch,
 boot failure, killed supervisor and observed disk disposal. Local mocks and
-synthetic data establish code behavior; they do not establish those AWS facts.
+public-fixture data establish code behavior; they do not establish those AWS facts.
 The old signed-admission, fixture-upload and download-to-verify runbook is superseded.
 No migration, image release, deployment or private run is authorized by local tests.
 

@@ -26,7 +26,7 @@ import {
 
 const scope = {
   conversationId: "4242",
-  reportId: "r-synthetic",
+  reportId: "r-public-fixture",
   jobType: "FULL_PIPELINE",
   jobConfig: JSON.stringify({ include_moderation: false }),
 };
@@ -113,7 +113,7 @@ describe("admitDelphiJob: substrate failures fail closed", () => {
     const store = makeStore({
       sweepUnguardedActiveRoot: jest.fn(async () => ({
         kind: "unknown" as const,
-        reason: "synthetic",
+        reason: "public-fixture",
       })),
     });
 
@@ -147,7 +147,7 @@ describe("admitDelphiJob: release needs authoritative proof", () => {
       })),
       sweepLiveDescendants: jest.fn(async () => ({
         kind: "unknown" as const,
-        reason: "synthetic read failure",
+        reason: "public-fixture read failure",
       })),
     });
 
@@ -849,7 +849,7 @@ describe("assessConversationLiveness", () => {
     const store = makeStore({
       sweepConversation: jest.fn(async () => ({
         kind: "unknown" as const,
-        reason: "synthetic",
+        reason: "public-fixture",
       })),
     });
 
@@ -998,7 +998,7 @@ describe("assessConversationLiveness: stable reads", () => {
   it("reports live when the second sweep cannot be completed", async () => {
     const results: any[] = [
       { kind: "found", value: [{ job_id: "root", status: "COMPLETED" }] },
-      { kind: "unknown", reason: "synthetic" },
+      { kind: "unknown", reason: "public-fixture" },
     ];
     const store = makeStore({
       sweepConversation: jest.fn(async () => results.shift()),

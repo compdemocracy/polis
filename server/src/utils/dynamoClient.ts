@@ -7,7 +7,7 @@ import logger from "./logger";
  *
  * Every DynamoDB client in the server must resolve credentials the same way:
  *
- *   1. `DYNAMODB_ENDPOINT` set  -> DynamoDB Local. Send synthetic credentials;
+ *   1. `DYNAMODB_ENDPOINT` set  -> DynamoDB Local. Send public-fixture credentials;
  *      DynamoDB Local accepts any syntactically valid pair and never validates
  *      them, so no real credential is ever needed (or leaked) locally.
  *   2. Real `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` -> use them explicitly.

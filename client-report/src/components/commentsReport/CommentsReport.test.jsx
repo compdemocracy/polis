@@ -131,7 +131,7 @@ describe('CommentsReport Delphi job status', () => {
       deduplicated: false,
     });
 
-    render(<CommentsReport {...props} showControls authToken="synthetic-token" />);
+    render(<CommentsReport {...props} showControls authToken="public-fixture-token" />);
     await waitFor(() => expect(net.polisGet).toHaveBeenCalled());
 
     fireEvent.click(screen.getAllByRole('button', { name: /Generate Batch Topics/ })[0]);

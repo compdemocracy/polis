@@ -2,14 +2,14 @@ import * as cdk from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
 import { ProbeBox, ProbeConfig, validateProbeConfig } from '../probeBox';
 const config: ProbeConfig = {
- schema:'polis-probe-box/1',id:'synthetic',account:'111111111111',region:'us-east-1',ami:'ami-'+'1'.repeat(17),
+ schema:'polis-probe-box/1',id:'public-fixture',account:'111111111111',region:'us-east-1',ami:'ami-'+'1'.repeat(17),
  vpcId:'vpc-12345678',subnetCidr:'10.0.240.0/24',availabilityZone:'us-east-1a',resolverAddress:'10.0.0.2',
- replicaHost:'synthetic-replica.abc.us-east-1.rds.amazonaws.com',replicaSecurityGroupId:'sg-12345678',database:'polis',
- primaryHost:'synthetic-primary.abc.us-east-1.rds.amazonaws.com',primarySecurityGroupId:'sg-87654321',
- adminSecretArn:'arn:aws:secretsmanager:us-east-1:111111111111:secret:synthetic-admin',
- postgresLayerArn:'arn:aws:lambda:us-east-1:111111111111:layer:synthetic-postgres:1',s3PrefixListId:'pl-12345678',
- reviewerRoleArns:['arn:aws:iam::111111111111:role/synthetic-reader'],assetPublisherRoleArn:'arn:aws:iam::111111111111:role/synthetic-publisher',
- githubRepo:'example/example',githubEnvironment:'probe-box',githubRef:'refs/heads/edge',notificationTopicArn:'arn:aws:sns:us-east-1:111111111111:synthetic'};
+ replicaHost:'public-fixture-replica.abc.us-east-1.rds.amazonaws.com',replicaSecurityGroupId:'sg-12345678',database:'polis',
+ primaryHost:'public-fixture-primary.abc.us-east-1.rds.amazonaws.com',primarySecurityGroupId:'sg-87654321',
+ adminSecretArn:'arn:aws:secretsmanager:us-east-1:111111111111:secret:public-fixture-admin',
+ postgresLayerArn:'arn:aws:lambda:us-east-1:111111111111:layer:public-fixture-postgres:1',s3PrefixListId:'pl-12345678',
+ reviewerRoleArns:['arn:aws:iam::111111111111:role/public-fixture-reader'],assetPublisherRoleArn:'arn:aws:iam::111111111111:role/public-fixture-publisher',
+ githubRepo:'example/example',githubEnvironment:'probe-box',githubRef:'refs/heads/edge',notificationTopicArn:'arn:aws:sns:us-east-1:111111111111:public-fixture'};
 function build(){const app=new cdk.App();const stack=new cdk.Stack(app,'Probe',{env:{account:config.account,region:config.region}});new ProbeBox(stack,'Box',config);return Template.fromStack(stack);}
 const resources=(j:any,t:string):any[]=>Object.values(j.Resources).filter((r:any)=>r.Type===t);
 function named(j:any,prefix:string,type?:string):any{return (Object.entries(j.Resources).find(([id,r]:any)=>id.startsWith(prefix)&&(!type||r.Type===type))![1] as any).Properties;}

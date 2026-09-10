@@ -10,7 +10,7 @@ import { pool, closePool } from "../setup/db-test-helpers";
 describe("OIDC transaction ownership", () => {
   const suffix = randomUUID();
   const email = `oidc-tx-${suffix}@example.invalid`;
-  const sub = `synthetic-oidc-tx-${suffix}`;
+  const sub = `public-fixture-oidc-tx-${suffix}`;
   let uid: number;
   let zid: number;
   let pid: number;
@@ -18,7 +18,7 @@ describe("OIDC transaction ownership", () => {
   beforeAll(async () => {
     uid = (await pool.query("INSERT INTO users (email) VALUES ($1) RETURNING uid", [email])).rows[0].uid;
     await pool.query("INSERT INTO oidc_user_mappings (oidc_sub,uid) VALUES ($1,$2)", [sub, uid]);
-    zid = (await pool.query("INSERT INTO conversations (owner,topic) VALUES ($1,$2) RETURNING zid", [uid, "Synthetic OIDC transaction witness"])).rows[0].zid;
+    zid = (await pool.query("INSERT INTO conversations (owner,topic) VALUES ($1,$2) RETURNING zid", [uid, "Public-fixture OIDC transaction witness"])).rows[0].zid;
     pid = (await pool.query("INSERT INTO participants (uid,zid) VALUES ($1,$2) RETURNING pid", [uid,zid])).rows[0].pid;
   });
   afterAll(async () => {
@@ -53,13 +53,13 @@ describe("OIDC transaction ownership", () => {
       "INSERT INTO comments (pid,zid,uid,txt,is_seed) VALUES ($1,$2,$3,$4,true) RETURNING tid",
       [pid,zid,uid,txt]
     ) as Promise<{tid: number}[]>;
-    const [seed] = await insert("Synthetic acknowledged seed");
+    const [seed] = await insert("Public-fixture acknowledged seed");
     // Observe through a different pool, then deterministically evict the last
     // application session (the same rollback as idle eviction, without a timer).
     const visibleBefore = await pool.query("SELECT tid FROM comments WHERE zid=$1 AND tid=$2", [zid,seed.tid]);
     const lastClient = await pg.connect();
     lastClient.release(true);
-    const [next] = await insert("Synthetic subsequent seed");
+    const [next] = await insert("Public-fixture subsequent seed");
     const visibleAfter = await pool.query("SELECT tid FROM comments WHERE zid=$1 ORDER BY tid", [zid]);
     expect(visibleBefore.rows).toEqual([{tid: seed.tid}]);
     expect(next.tid).toBeGreaterThan(seed.tid);
