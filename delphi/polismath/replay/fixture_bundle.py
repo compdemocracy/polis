@@ -1314,7 +1314,9 @@ def _admission_block(*, ordering_guarantee: str,
                 "CSV omits them and COUNTS them per role, which makes that export "
                 "non-certifying until an operator records an acceptance",
             "synthetic_substitution_policy":
-                "allowed only with an explicit --accept-public-fixture approval, and "
+                # Historical manifest bytes are pinned, including this old CLI
+                # spelling. The current CLI uses --accept-public-fixture.
+                "allowed only with an explicit --accept-synthetic approval, and "
                 "only when the replacement generator case is MATERIALISED and "
                 "pinned in this manifest; a dir:null substitute is an unfilled "
                 "role",
