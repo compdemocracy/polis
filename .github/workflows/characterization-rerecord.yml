@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: Target commit or ref (empty uses the immutable dispatch SHA)
+        description: Full 40-character target SHA (empty uses the immutable dispatch SHA)
         type: string
         required: false
         default: ''
@@ -44,6 +44,12 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
+      - name: Fetch the authenticated archive source object
+        working-directory: target
+        run: |
+          pin=$(node ../control/server/characterization/rerecord-accounting.cjs --archive-pin "$PWD")
+          git fetch --no-tags origin "$pin"
+          test "$(git rev-parse --verify "$pin^{commit}")" = "$pin"
       - name: Install accounting dependencies and linters
         working-directory: target
         run: |

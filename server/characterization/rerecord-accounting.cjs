@@ -10,7 +10,7 @@ const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const read = (dir, name) => fs.readFileSync(path.join(dir, name));
 const json = (dir, name) => JSON.parse(read(dir, name));
 function git(repo, ...args) {
-  return cp.execFileSync("git", args, {
+  return cp.execFileSync("git", ["--no-replace-objects", ...args], {
     cwd: repo,
     encoding: "utf8",
     maxBuffer: 32 * 1024 * 1024,
@@ -21,6 +21,101 @@ function commit(repo, value) {
   if (git(repo, "rev-parse", "--verify", `${value}^{commit}`).trim() !== value)
     throw Error("commit unavailable");
   return value;
+}
+// Read only authenticated archive bytes before asking Git for the historical object.
+function archivePin(repo) {
+  const dir = path.join(repo, "server/characterization/artifacts");
+  const bytes = read(dir, "baseline.json.gz");
+  if (sha(bytes) !== read(dir, "baseline.sha256").toString().trim())
+    throw Error("trusted baseline archive digest mismatch");
+  const files = JSON.parse(require("node:zlib").gunzipSync(bytes));
+  const index = JSON.parse(files["index.json"]);
+  const pin = index.meta.appCommit;
+  if (!/^[a-f0-9]{40}$/.test(pin)) throw Error("expected full commit SHA");
+  if (
+    index.cases.some(
+      (c) => JSON.parse(files[c.manifest.path]).source_commit !== pin
+    ) ||
+    index.meta.stack.commit !== pin ||
+    JSON.parse(files["run.json"]).commit !== pin
+  )
+    throw Error("archive run/source pin mismatch");
+  return pin;
+}
+function isAncestor(repo, base, target) {
+  try {
+    git(repo, "merge-base", "--is-ancestor", base, target);
+    return true;
+  } catch (error) {
+    if (error.status === 1) return false;
+    throw error;
+  }
+}
+const patchOptions = [
+  "--no-ext-diff",
+  "--no-textconv",
+  "--no-renames",
+  "--full-index",
+  "--binary",
+  "--diff-algorithm=myers",
+  "--unified=3",
+  "--no-color",
+];
+function resolveBase(repo, pin, target) {
+  commit(repo, pin);
+  commit(repo, target);
+  if (git(repo, "rev-parse", "--is-shallow-repository").trim() !== "false")
+    throw Error("complete history required for archive pin resolution");
+  if (isAncestor(repo, pin, target))
+    return { pin, resolvedCommit: pin, method: "ancestor", patchId: null };
+  const parents = git(repo, "rev-list", "--parents", "-n", "1", pin)
+    .trim()
+    .split(" ")
+    .slice(1);
+  if (parents.length !== 1)
+    throw Error("rebased archive pin must have exactly one parent");
+  const patch = git(repo, "show", "--format=%H", ...patchOptions, pin);
+  const patchId = cp
+    .execFileSync("git", ["patch-id", "--stable"], {
+      cwd: repo,
+      input: patch,
+      encoding: "utf8",
+    })
+    .trim()
+    .split(/\s+/)[0];
+  if (!/^[a-f0-9]{40}$/.test(patchId))
+    throw Error("rebased archive pin has no patch identity");
+  // Stream the complete history: do not buffer repository-wide diffs or truncate
+  // the search at the first match. Only the already validated SHA is an argument.
+  const rows = cp
+    .execFileSync(
+      "bash",
+      [
+        "-o",
+        "pipefail",
+        "-c",
+        "git --no-replace-objects log --first-parent --no-merges --root --format=%H -p " +
+          patchOptions.join(" ") +
+          ' "$1" | git patch-id --stable',
+        "p027-patch-history",
+        target,
+      ],
+      { cwd: repo, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 }
+    )
+    .trim();
+  const matches = rows
+    .split("\n")
+    .filter(Boolean)
+    .map((row) => row.trim().split(/\s+/))
+    .filter(([id]) => id === patchId)
+    .map(([, id]) => id);
+  if (matches.length !== 1)
+    throw Error(
+      `archive pin patch equivalence requires exactly one first-parent candidate; found ${matches.length}`
+    );
+  const resolvedCommit = commit(repo, matches[0]);
+  git(repo, "merge-base", "--is-ancestor", resolvedCommit, target);
+  return { pin, resolvedCommit, method: "stable-patch-id", patchId };
 }
 function indexed(items, key) {
   const result = new Map();
@@ -141,7 +236,7 @@ function functions(source, file, ts, options) {
   visit(ast);
   return out;
 }
-function attributor(repo, base, target) {
+function attributor(repo, base, target, historyBase = base) {
   const ts = require(path.join(repo, "server/node_modules/typescript"));
   const config = ts.readConfigFile(
     path.join(repo, "server/tsconfig.json"),
@@ -207,12 +302,20 @@ function attributor(repo, base, target) {
     };
     if (matches.length === 1) {
       const [a] = matches[0];
+      const resolved = snapshot(historyBase, a.file).filter(
+        (f) => f.name === a.name
+      );
+      if (resolved.length !== 1 || resolved[0].sha256 !== before) {
+        result.reason = "recorded callback differs at resolved history base";
+        memo.set(pair, result);
+        return result;
+      }
       const range = git(
         repo,
         "rev-list",
         "--reverse",
         "--ancestry-path",
-        `${base}..${target}`
+        `${historyBase}..${target}`
       )
         .trim()
         .split("\n")
@@ -329,7 +432,7 @@ function account(repo, beforeDir, afterDir) {
   const target = commit(repo, b.manifest.appCommit);
   if (target !== git(repo, "rev-parse", "HEAD").trim())
     throw Error("recording does not pin target HEAD");
-  git(repo, "merge-base", "--is-ancestor", base, target);
+  const baseResolution = resolveBase(repo, base, target);
   if (
     json(beforeDir, "run.json").commit !== base ||
     json(afterDir, "run.json").commit !== target
@@ -346,12 +449,13 @@ function account(repo, beforeDir, afterDir) {
     version: "p027-rerecord-accounting/1",
     base,
     target,
+    baseResolution,
     cases: caseDelta(a.cases, b.cases, firstDifference),
     requestArtifactChanges: [],
     census: censusDelta(
       json(beforeDir, "routes.json"),
       json(afterDir, "routes.json"),
-      attributor(repo, base, target)
+      attributor(repo, base, target, baseResolution.resolvedCommit)
     ),
     sharedFiles: [],
     checkerChanges: [],
@@ -373,6 +477,8 @@ function account(repo, beforeDir, afterDir) {
     if (before !== after)
       report.sharedFiles.push({ path: name, before, after });
   }
+  // Compare the ORIGINAL recording source, not its patch-equivalent history
+  // anchor: equal patch IDs do not prove equal trees (or even whitespace).
   // A changed comparator/seed/profile needs explicit review, even if its own comparison says equal.
   const checkers = git(
     repo,
@@ -399,7 +505,9 @@ function account(repo, beforeDir, afterDir) {
   );
   return report;
 }
-if (require.main === module) {
+if (require.main === module && process.argv[2] === "--archive-pin") {
+  console.log(archivePin(path.resolve(process.argv[3])));
+} else if (require.main === module) {
   const [repo, before, after, output] = process.argv.slice(2);
   if (!output)
     throw Error("usage: rerecord-accounting.cjs REPO BEFORE AFTER OUTPUT");
@@ -420,4 +528,6 @@ module.exports = {
   eligible,
   account,
   attributor,
+  archivePin,
+  resolveBase,
 };

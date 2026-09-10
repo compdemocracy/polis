@@ -326,9 +326,9 @@ server Node dependencies (or run their equivalents inside the sealed driver).
 ## Dispatchable corpus re-record
 
 The **Characterization corpus re-record** Actions workflow accepts `target`, a
-commit or ref in this repository. Empty means the immutable SHA of the dispatching
-ref. The workflow must first be present on the default branch for dispatch to be
-available. It keeps its dispatch tools separate from the resolved target checkout,
+full 40-character commit SHA in this repository (short hashes are not supported).
+Empty means the immutable SHA of the dispatching ref. The workflow must first be
+present on the default branch for dispatch to be available. It keeps its dispatch tools separate from the resolved target checkout,
 uses read-only repository permissions, and persists no checkout credentials.
 It does not create or merge a PR.
 
@@ -365,7 +365,20 @@ its own required inventory). Cases are keyed by identity, with independent
 unchanged/changed/added/removed counts, serial-order and exact request-artifact
 checks. The served comparator is `compare.cjs::firstDifference`; checker changes
 are reported and prevent automatic eligibility. Shared-file hashes remain visible.
-The archive's source commit must be an ancestor of the target HEAD.
+Before self-tests, the workflow verifies the archive digest and agreement of its
+source/run pins, then fetches that exact object from origin. Fetch failure is
+fatal; no historical reader is substituted. The archive's source commit must be
+an ancestor of target HEAD, or a nonempty single-parent commit with exactly one
+`git patch-id --stable` equivalent on the target's complete first-parent history
+(merge commits are not candidates). Missing, empty, ambiguous or shallow history
+refuses resolution. `baseResolution` in accounting and summary records the original
+pin, resolved commit, method and patch ID; ancestral pins retain their identity.
+
+Patch identity proves a changeset, not the whole recorded source tree. Historical
+admission, old callback fingerprints and checker-file diffs still use the original
+pin. Only ancestry and attribution traversal use the resolved commit. A callback
+whose recorded hash differs at that history anchor remains unattributed; rebase
+context or whitespace differences cannot silently disappear through the mapping.
 
 The census preserves registration/verb identities, ordered callbacks and global
 middleware. A changed callback is attributed only when both runtime hashes match
