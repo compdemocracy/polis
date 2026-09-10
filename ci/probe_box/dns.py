@@ -9,7 +9,7 @@ import socket
 from pathlib import Path
 
 
-def question(packet):
+def question(packet: bytes) -> str:
     if len(packet) < 17 or packet[4:6] != b'\x00\x01' or packet[6:12] != b'\x00' * 6:
         raise ValueError('DNS_SHAPE')
     at, labels = 12, []
@@ -24,9 +24,9 @@ def question(packet):
     return '.'.join(labels)
 
 
-def run():
-    b = json.loads(Path('/opt/polis-private/bootstrap.json').read_bytes())
-    allowed = {f'ppc-{b["account"]}-{b["id"]}-{suffix}.s3.{b["region"]}.amazonaws.com' for suffix in ('fixtures', 'evidence', 'control')}
+def run() -> None:
+    b = json.loads(Path('/opt/polis-probe/bootstrap.json').read_bytes())
+    allowed = set(b['dnsNames'])
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(('127.0.0.1', 53))
     while True:
@@ -36,7 +36,7 @@ def run():
                 raise ValueError('DNS_DENIED')
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as upstream:
                 upstream.settimeout(3)
-                upstream.connect(('10.253.0.2', 53))
+                upstream.connect((b['resolver'], 53))
                 upstream.send(packet)
                 response = upstream.recv(65535)
                 if response[:2] != packet[:2]:

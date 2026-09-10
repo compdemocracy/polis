@@ -3,7 +3,7 @@ import * as cdk from 'aws-cdk-lib';
 import { CdkStack } from '../lib/cdk-stack';
 import * as path from 'path'; // Use * as path
 import * as fs from 'fs';
-import { PrivateCertBox, PrivateAdmission } from '../privateCertBox';
+import { ProbeBox, ProbeConfig } from '../probeBox';
 
 interface ExtendedStackProps extends cdk.StackProps {
   domainName?: string; // Make optional since we're not using it initially
@@ -59,15 +59,13 @@ if (props.enableSSHAccess) {
 
 
 new CdkStack(app, 'CdkStack', props);
-// P-053 is a sibling stack. OFF does not read admission/configuration or change
-// CdkStack, including its role policies, logical IDs and assets.
-if (app.node.tryGetContext('enablePrivateCertBox') === true ||
-    app.node.tryGetContext('enablePrivateCertBox') === 'true') {
-  const filename = process.env.PRIVATE_CERT_CONFIG;
-  if (!filename) throw new Error('PRIVATE_CERT_CONFIG must name a private admission JSON file');
-  const admission: PrivateAdmission = JSON.parse(fs.readFileSync(filename, 'utf8'));
-  const privateStack = new cdk.Stack(app, 'PrivateCertStack', {
-    env: { account: admission.account, region: admission.region },
+// Default-off: existing CdkStack resources and assets are unchanged.
+if ([true, 'true'].includes(app.node.tryGetContext('enableProbeBox'))) {
+  const filename = process.env.PROBE_BOX_CONFIG;
+  if (!filename) throw new Error('PROBE_BOX_CONFIG is required');
+  const config: ProbeConfig = JSON.parse(fs.readFileSync(filename, 'utf8'));
+  const probeStack = new cdk.Stack(app, 'ProbeStack', {
+    env: { account: config.account, region: config.region },
   });
-  new PrivateCertBox(privateStack, 'Box', admission);
+  new ProbeBox(probeStack, 'Box', config);
 }

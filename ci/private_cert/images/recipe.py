@@ -18,6 +18,7 @@ def source_files(root):
     names = {
         'ci/private_cert/control.py', 'ci/private_cert/image_admission.py',
         'ci/private_cert/images/gate.py', 'ci/private_cert/images/g12.py',
+        'ci/private_cert/images/probe.py', 'ci/probe_box/contracts.py', 'ci/probe_box/receipt.py',
         'delphi/scripts/replay_driver.py', 'delphi/scripts/certify_battery.json',
         'delphi/scripts/certify_datasets.json', 'delphi/scripts/certify_datasets.schema.json',
         'math/dev/replay.clj', 'math/deps.edn',
@@ -43,7 +44,7 @@ def main():
     recipe = {'schema': 'polis-private-image-recipe/1', 'role': a.role, 'sourceCommit': head,
               'candidateSha': a.candidate, 'oracleSha': a.oracle, 'policySha256': a.policy_sha256,
               'runtimeImage': a.runtime_image, 'files': source_files(a.source),
-              'entrypoint': 'ci/private_cert/images/gate.py', 'gates': sorted(GATES)}
+              'entrypoint': 'ci/private_cert/images/probe.py', 'gates': sorted(GATES)}
     validate_recipe(recipe)
     with a.out.open('xb') as f:
         f.write(encoded(recipe))
