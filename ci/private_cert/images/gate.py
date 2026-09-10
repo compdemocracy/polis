@@ -190,8 +190,8 @@ def produce(fixture=Path('/fixture'), output=Path('/output'), inputs_path=Path('
     with tempfile.TemporaryDirectory(prefix='paired-producer-') as tmp:
         scratch = Path(tmp)
         prepared, inventory = prepare(fixture, inputs, scratch)
-        # Verifier derives the same inventory from the same original bytes.
-        shutil.copytree(fixture, output / 'fixture')
+        # Original fixtures stay in a separate read-only box-local mount. They
+        # never become part of the producer's evidence/output directory.
         runs = []
         for expected in prepared:
             entry = expected.entry
@@ -227,8 +227,8 @@ def produce(fixture=Path('/fixture'), output=Path('/output'), inputs_path=Path('
     # this trusted collector can finish normally without fabricating success.
 
 
-def verify_recordings(evidence, inputs, scratch):
-    prepared, inventory = prepare(evidence / 'fixture', inputs, scratch)
+def verify_recordings(evidence, inputs, scratch, fixture=Path('/fixture')):
+    prepared, inventory = prepare(fixture, inputs, scratch)
     result = read(evidence / 'producer.json')
     if set(result) != {'schema', 'inputs', 'inventory', 'runs', 'resources', 'files'} or result['schema'] != 'polis-private-paired-output/1':
         raise ValueError('PRODUCER_SCHEMA')
@@ -316,13 +316,13 @@ def checkpoint_controls(expected, recordings, scratch):
     return result
 
 
-def verify(evidence=Path('/evidence'), admission_dir=Path('/admission'), verdict_dir=Path('/verdict')):
+def verify(evidence=Path('/evidence'), admission_dir=Path('/admission'), verdict_dir=Path('/verdict'), fixture=Path('/fixture')):
     a = read(admission_dir / 'admission.json')
     inputs = {k: a[k] for k in INPUT_KEYS}
     report = {'verdict': 'INCOMPLETE', 'checks': 0}
     try:
         with tempfile.TemporaryDirectory(prefix='paired-verifier-') as tmp:
-            report = verify_recordings(evidence, inputs, Path(tmp))
+            report = verify_recordings(evidence, inputs, Path(tmp), fixture)
     except Exception as exc:
         report['private_error_type'] = type(exc).__name__
     controls = report.get('negative_controls', {'schema': 'polis-private-controls/1', 'status': 'NOT_COMPLETED'})

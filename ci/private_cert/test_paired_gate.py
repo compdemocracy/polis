@@ -104,6 +104,8 @@ class PairedGateTests(unittest.TestCase):
             gate.produce(self.fixture, output, input_path)
         self.assertEqual(engines, ['clj', 'py'] * 6)
         self.assertEqual(len(gate.read(output / 'producer.json')['runs']), 12)
+        self.assertFalse((output / 'fixture').exists())
+        self.assertFalse(any(p.name == 'events.jsonl' for p in output.rglob('*')))
         with self.assertRaisesRegex(ValueError, 'FRESH_OUTPUT'):
             gate.produce(self.fixture, output, input_path)
 

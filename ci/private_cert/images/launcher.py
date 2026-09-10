@@ -15,17 +15,17 @@ ROOT = Path('/opt/polis-private-image')
 
 def main():
     recipe = json.loads((ROOT / 'recipe.json').read_bytes())
-    action = {'producer': 'produce', 'verifier': 'verify'}[recipe['role']]
-    if sys.argv[1:] != [action]:
+    allowed = {'producer': {'extract', 'produce'}, 'verifier': {'verify'}}[recipe['role']]
+    if len(sys.argv) != 2 or sys.argv[1] not in allowed:
         raise ValueError('IMAGE_ACTION')
-    # Admission is immutable under the supervisor's fixed mount contract.
-    input_path = '/run-spec/inputs.json' if action == 'produce' else '/admission/admission.json'
-    if action == 'produce' and Path('/admission').exists():
+    action = sys.argv[1]
+    if action != 'extract':
+        admission = json.loads(Path('/run-spec/inputs.json').read_bytes())
+        for key in ('candidateSha', 'oracleSha', 'policySha256'):
+            if recipe[key] != admission[key]:
+                raise ValueError('IMAGE_ADMISSION')
+    if recipe['role'] == 'producer' and Path('/job').exists():
         raise ValueError('PRODUCER_CONTROL_MOUNT')
-    admission = json.loads(Path(input_path).read_bytes())
-    for key in ('candidateSha', 'oracleSha', 'policySha256'):
-        if recipe[key] != admission[key]:
-            raise ValueError('IMAGE_ADMISSION')
     payload = ROOT / 'payload'
     actual = set()
     for path in payload.rglob('*'):
@@ -44,7 +44,7 @@ def main():
     # PYTHONPATH. -I disables caller-controlled Python import/config sources.
     env = {key: value for key, value in os.environ.items() if key in {
         'PATH', 'OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS',
-        'NUMEXPR_NUM_THREADS', 'LANG', 'LC_ALL'}}
+        'NUMEXPR_NUM_THREADS', 'LANG', 'LC_ALL', 'PGSERVICEFILE'}}
     env.update(HOME='/tmp', PYTHONDONTWRITEBYTECODE='1', PYTHONNOUSERSITE='1',
                UV_OFFLINE='1', PIP_NO_INDEX='1')
     os.chdir(payload)
