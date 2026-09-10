@@ -29,7 +29,35 @@ def receipt():
         digests=dict(producer='1'*64,verifier='2'*64,inputs='3'*64,recordings='4'*64,policy='5'*64))
 
 
+def sampled_receipt():
+    r=receipt();r['schema']='polis-probe-receipt/2'
+    r['selection']={'seed':'01'*32,'bucket_counts':{
+        'population':1,'target':20,'selected':1,'shortfall':19,'occupied':1,'covered':1,'uncovered':0,
+        'cells':[dict(p_bin=p,v_bin=v,population=int(p==v==1),selected=int(p==v==1))
+                 for p in range(2) for v in range(2)]},
+        'chosen_entry_sizes':[dict(P=3,V=7,C=2,U=6,matrix_area=6,registered_participants=4,all_comments=2,p_bin=1,v_bin=1)]}
+    return r
+
+
 class BoundaryTests(unittest.TestCase):
+    def test_v2_receipt_retains_full_hex_seed_and_numeric_report(self):
+        r=sampled_receipt()
+        self.assertEqual(validate_receipt(r,job()),r)
+
+    def test_v2_selection_census_tamper_and_private_fields_refuse(self):
+        for mutation in ['missing','extra','seed','count','cell','size','order','old-version']:
+            with self.subTest(mutation=mutation):
+                r=sampled_receipt();s=r['selection']
+                if mutation=='missing':r['selection']=None
+                elif mutation=='extra':s['chosen_entry_sizes'][0]['path']='synthetic private value'
+                elif mutation=='seed':s['seed']=42
+                elif mutation=='count':s['bucket_counts']['population']=True
+                elif mutation=='cell':s['bucket_counts']['cells'].pop()
+                elif mutation=='size':s['chosen_entry_sizes'][0]['V']=0
+                elif mutation=='order':s['bucket_counts']['cells'].reverse()
+                elif mutation=='old-version':r['schema']='polis-probe-receipt/1'
+                with self.assertRaises(ValueError):validate_receipt(r,job())
+
     def test_valid_receipt_and_numeric_selection(self):
         r=receipt();r['selection']={'seed':42,'bucket_counts':[[0,1,20]],'selected_sizes':[[3,8]]}
         self.assertEqual(validate_receipt(r,job()),r)

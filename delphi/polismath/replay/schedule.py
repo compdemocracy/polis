@@ -275,6 +275,8 @@ def slice_schedule(dataset: ReplayDataset, spec: ScheduleSpec) -> list[ReplaySte
             for m in mod_events
             if m.t_ms <= cut_time_ms and (prev_time is None or m.t_ms > prev_time)
         )
+        if spec.moderation == "source-final-state":
+            step_mods = tuple(mod_events) if i == len(slots) - 1 else ()
         steps.append(
             ReplayStep(
                 index=i,
@@ -295,6 +297,15 @@ def _resolve_mod_events(dataset: ReplayDataset, spec: ScheduleSpec) -> list[ModE
         return []
     if mode == "interleave-by-timestamp":
         return sorted(dataset.mod_events, key=lambda m: m.t_ms)
+    if mode == "source-final-state":
+        if dataset.input_events is None:
+            raise ValueError("source-final-state requires lossless events")
+        # Source state is applied at the final checkpoint, never inferred as
+        # a history. Unknown modification timestamps use the empty watermark
+        # sentinel; the original NULL remains in the bound event payload.
+        return [ModEvent(e["modified"] if e["modified"] is not None else 0,
+                         e["tid"], e["mod"], e["is_meta"])
+                for e in dataset.input_events if e["kind"] == "comment"]
     if isinstance(mode, (list, tuple)):
         parsed = [
             m if isinstance(m, ModEvent) else ModEvent(
