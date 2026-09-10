@@ -4,7 +4,7 @@ use crate::{
     config::Config,
     fault::Fault,
     lease::{self, LeaseState},
-    metrics::{Metrics, Tally, count},
+    metrics::{Metrics, Tally},
 };
 use anyhow::{Result, ensure};
 use postgres::{Client, NoTls};
@@ -263,6 +263,7 @@ pub struct PgStore {
     pub tally: Tally,
     /// When the bounded backlog aggregate last ran.
     pub gauged: Option<std::time::Instant>,
+    pub poller_timings: Option<(std::time::Duration, std::time::Duration)>,
 }
 impl PgStore {
     pub fn connect(config: Config) -> Result<Self> {
@@ -270,6 +271,7 @@ impl PgStore {
         let mut client = Client::connect(&config.database_url, NoTls)?;
         client.batch_execute("SET statement_timeout='30s'; SET lock_timeout='5s'; SET application_name='p026-coordinator'")?;
         let fault = Fault::new(&mut client, &config.math_env)?;
+        crate::bridge::admit_control(&mut client)?;
         let cache = WarmCache::new(config.cache_capacity);
         let metrics = Metrics::from_env(&config);
         tracing::info!(
@@ -285,6 +287,7 @@ impl PgStore {
             metrics,
             tally: Tally::default(),
             gauged: None,
+            poller_timings: None,
         })
     }
     /// Restore the primary connection after a terminated backend, so ownership
@@ -299,9 +302,9 @@ impl PgStore {
     }
     /// Explicit local migration command; never implicitly migrate on startup.
     pub fn migrate(&mut self) -> Result<()> {
-        self.client
-            .batch_execute(include_str!("../migration.sql"))?;
-        Ok(())
+        anyhow::bail!(
+            "SCHEMA_OPERATOR_REQUIRED: apply the reviewed, pinned 000021 migration separately"
+        )
     }
     pub fn acquire(&mut self, zid: i32) -> Result<Option<i64>> {
         let c = &self.config;
@@ -310,7 +313,7 @@ impl PgStore {
             "SELECT zid FROM conversations WHERE zid=$1 FOR KEY SHARE",
             &[&zid],
         )?;
-        let rows = tx.query("INSERT INTO coordinator_leases (math_env,zid,owner_id,owner_epoch,expires_at) VALUES($1,$2,$3,1,clock_timestamp()+make_interval(secs=>$4::int)) ON CONFLICT(math_env,zid) DO UPDATE SET owner_id=excluded.owner_id,owner_epoch=coordinator_leases.owner_epoch+1,expires_at=excluded.expires_at WHERE coordinator_leases.expires_at<=clock_timestamp() OR coordinator_leases.owner_id=$3 RETURNING owner_epoch", &[&c.math_env,&zid,&c.owner,&c.lease_seconds])?;
+        let rows = tx.query("INSERT INTO polis_coordinator_leases (math_env,zid,owner_id,owner_epoch,expires_at) VALUES($1,$2,$3,1,clock_timestamp()+make_interval(secs=>$4::int)) ON CONFLICT(math_env,zid) DO UPDATE SET owner_id=excluded.owner_id,owner_epoch=polis_coordinator_leases.owner_epoch+1,expires_at=excluded.expires_at,dispatch_operation_id=NULL,dispatch_capability_sha256=NULL,dispatch_checkpoint_sha256=NULL,dispatch_expected_tick=NULL,dispatch_margin_ms=NULL WHERE polis_coordinator_leases.expires_at<=clock_timestamp() OR polis_coordinator_leases.owner_id=$3 RETURNING owner_epoch", &[&c.math_env,&zid,&c.owner,&c.lease_seconds])?;
         let epoch = rows.first().map(|r| r.get(0));
         tx.commit()?;
         Ok(epoch)
@@ -322,14 +325,14 @@ impl PgStore {
             "SELECT zid FROM conversations WHERE zid=$1 FOR KEY SHARE",
             &[&zid],
         )?;
-        tx.execute("UPDATE coordinator_leases SET expires_at=clock_timestamp() WHERE math_env=$1 AND zid=$2 AND owner_id=$3 AND owner_epoch=$4", &[&c.math_env,&zid,&c.owner,&epoch])?;
+        tx.execute("UPDATE polis_coordinator_leases SET expires_at=clock_timestamp() WHERE math_env=$1 AND zid=$2 AND owner_id=$3 AND owner_epoch=$4", &[&c.math_env,&zid,&c.owner,&epoch])?;
         tx.commit()?;
         Ok(())
     }
     /// Authoritative classification of our ownership right now.
     /// `None` means the lease is still ours and unexpired.
     pub fn lease_state(&mut self, zid: i32, epoch: i64) -> Result<Option<LeaseState>> {
-        let row = self.client.query_opt("SELECT owner_id,owner_epoch,expires_at>clock_timestamp() FROM coordinator_leases WHERE math_env=$1 AND zid=$2", &[&self.config.math_env,&zid])?;
+        let row = self.client.query_opt("SELECT owner_id,owner_epoch,expires_at>clock_timestamp() FROM polis_coordinator_leases WHERE math_env=$1 AND zid=$2", &[&self.config.math_env,&zid])?;
         Ok(lease::classify(row.as_ref(), &self.config, epoch))
     }
 }
@@ -349,15 +352,15 @@ struct GenerationMeta {
 impl PgStore {
     fn generation_meta(&mut self, zid: i32) -> Result<Option<GenerationMeta>> {
         let row = self.client.query_opt(
-            "SELECT t.math_tick,t.publisher_epoch,t.input_checkpoint,
-                    m.math_tick,m.caching_tick,b.math_tick,p.math_tick,t.operation_id,
-                    m.original_bytes IS NOT NULL AND m.original_sha256 IS NOT NULL
-                    AND b.original_bytes IS NOT NULL AND b.original_sha256 IS NOT NULL
-                    AND p.original_bytes IS NOT NULL AND p.original_sha256 IS NOT NULL
+            "SELECT t.math_tick,g.publisher_epoch,g.input_checkpoint,
+                    m.math_tick,m.caching_tick,b.math_tick,p.math_tick,g.operation_id,
+                    (SELECT count(*)=3 FROM polis_coordinator_payloads x
+                      WHERE x.math_env=t.math_env AND x.zid=t.zid AND x.math_tick=t.math_tick)
                FROM math_ticks t
                LEFT JOIN math_main m ON m.zid=t.zid AND m.math_env=t.math_env
                LEFT JOIN math_bidtopid b ON b.zid=t.zid AND b.math_env=t.math_env
                LEFT JOIN math_ptptstats p ON p.zid=t.zid AND p.math_env=t.math_env
+               LEFT JOIN polis_coordinator_generations g ON g.zid=t.zid AND g.math_env=t.math_env AND g.math_tick=t.math_tick AND g.caching_tick=m.caching_tick
               WHERE t.math_env=$1 AND t.zid=$2",
             &[&self.config.math_env, &zid],
         )?;
@@ -421,18 +424,29 @@ impl PgStore {
         }))
     }
     pub fn current_tick(&mut self, zid: i32) -> Result<Option<i64>> {
-        Ok(self
-            .client
-            .query_opt(
-                "SELECT math_tick FROM math_ticks WHERE math_env=$1 AND zid=$2",
-                &[&self.config.math_env, &zid],
-            )?
-            .map(|r| r.get(0)))
+        // Immutable receipt history survives loss/regression of the latest
+        // pointer. The publication function repeats this floor under its lock.
+        let row=self.client.query_one(
+            "SELECT greatest((SELECT math_tick FROM math_ticks WHERE math_env=$1 AND zid=$2),
+             (SELECT max(math_tick) FROM polis_coordinator_generations WHERE math_env=$1 AND zid=$2))",
+            &[&self.config.math_env,&zid])?;
+        Ok(row.get(0))
     }
 }
 impl ResultsStore for PgStore {
     fn load_current(&mut self, zid: i32) -> Result<Current> {
-        let row = self.client.query_opt("SELECT m.data,b.data,p.data,m.math_tick,m.caching_tick,t.input_checkpoint,COALESCE(m.math_tick=b.math_tick AND m.math_tick=p.math_tick AND m.math_tick=t.math_tick AND t.publisher_epoch IS NOT NULL AND t.input_checkpoint IS NOT NULL,false),t.publisher_epoch,t.operation_id,m.original_bytes,b.original_bytes,p.original_bytes,m.original_sha256,b.original_sha256,p.original_sha256 FROM (SELECT zid FROM math_main WHERE math_env=$1 AND zid=$2 UNION SELECT zid FROM math_bidtopid WHERE math_env=$1 AND zid=$2 UNION SELECT zid FROM math_ptptstats WHERE math_env=$1 AND zid=$2 UNION SELECT zid FROM math_ticks WHERE math_env=$1 AND zid=$2) k LEFT JOIN math_main m ON m.zid=k.zid AND m.math_env=$1 LEFT JOIN math_bidtopid b ON b.zid=k.zid AND b.math_env=$1 LEFT JOIN math_ptptstats p ON p.zid=k.zid AND p.math_env=$1 LEFT JOIN math_ticks t ON t.zid=k.zid AND t.math_env=$1", &[&self.config.math_env,&zid])?;
+        let row = self.client.query_opt("SELECT m.data,b.data,p.data,m.math_tick,m.caching_tick,g.input_checkpoint,
+          COALESCE(m.math_tick=b.math_tick AND m.math_tick=p.math_tick AND m.math_tick=t.math_tick AND g.publisher_epoch IS NOT NULL AND g.caching_tick=m.caching_tick,false),
+          g.publisher_epoch,g.operation_id,om.original_bytes,ob.original_bytes,op.original_bytes,om.original_sha256,ob.original_sha256,op.original_sha256
+          FROM (SELECT zid FROM math_main WHERE math_env=$1 AND zid=$2 UNION SELECT zid FROM math_bidtopid WHERE math_env=$1 AND zid=$2 UNION SELECT zid FROM math_ptptstats WHERE math_env=$1 AND zid=$2 UNION SELECT zid FROM math_ticks WHERE math_env=$1 AND zid=$2) k
+          LEFT JOIN math_main m ON m.zid=k.zid AND m.math_env=$1
+          LEFT JOIN math_bidtopid b ON b.zid=k.zid AND b.math_env=$1
+          LEFT JOIN math_ptptstats p ON p.zid=k.zid AND p.math_env=$1
+          LEFT JOIN math_ticks t ON t.zid=k.zid AND t.math_env=$1
+          LEFT JOIN polis_coordinator_generations g ON g.zid=k.zid AND g.math_env=$1 AND g.math_tick=t.math_tick
+          LEFT JOIN polis_coordinator_payloads om ON om.zid=g.zid AND om.math_env=g.math_env AND om.math_tick=g.math_tick AND om.payload_kind='main'
+          LEFT JOIN polis_coordinator_payloads ob ON ob.zid=g.zid AND ob.math_env=g.math_env AND ob.math_tick=g.math_tick AND ob.payload_kind='bidtopid'
+          LEFT JOIN polis_coordinator_payloads op ON op.zid=g.zid AND op.math_env=g.math_env AND op.math_tick=g.math_tick AND op.payload_kind='ptptstats'", &[&self.config.math_env,&zid])?;
         let Some(r) = row else {
             return Ok(Current::Absent);
         };
@@ -487,166 +501,12 @@ impl ResultsStore for PgStore {
         zid: i32,
         expected_tick: Option<i64>,
         epoch: i64,
-        mut checkpoint: Value,
+        checkpoint: Value,
         payload: &Payloads,
     ) -> Result<Publication> {
-        payload.validate(zid)?;
-        payload.validate_originals()?;
-        let operation_id = checkpoint["operation_id"]
-            .as_str()
-            .filter(|s| !s.is_empty() && s.len() <= 128)
-            .ok_or_else(|| anyhow::anyhow!("missing publication operation id"))?
-            .to_owned();
-        checkpoint["publisher_epoch"] = json!(epoch);
-        checkpoint["original_digests"] = payload.originals.hashes();
-        checkpoint["payload_digests"] = payload.hashes()?; // before ANY lock
-        let encoded =
-            [&payload.main, &payload.bidtopid, &payload.ptptstats].map(serde_json::to_string);
-        let [main, bid, stats] = encoded;
-        let (main, bid, stats) = (main?, bid?, stats?);
-        let stamp = payload.main["lastVoteTimestamp"]
-            .as_i64()
-            .ok_or_else(|| anyhow::anyhow!("invalid timestamp"))?;
-        let c = &self.config;
-        let mut tx = self.client.transaction()?;
-        tx.query_one(
-            "SELECT zid FROM conversations WHERE zid=$1 FOR KEY SHARE",
-            &[&zid],
-        )?;
-        let owned = tx.query_opt("SELECT owner_id,owner_epoch,expires_at>clock_timestamp() FROM coordinator_leases WHERE math_env=$1 AND zid=$2 FOR UPDATE", &[&c.math_env,&zid])?;
-        if let Some(state) = lease::classify(owned.as_ref(), c, epoch) {
-            return Ok(Publication::Refused(state));
-        }
-        let context = json!({"zid":zid,"math_env":c.math_env,"epoch":epoch,"checkpoint":checkpoint,
-            "backend_pid":tx.query_one("SELECT pg_backend_pid()", &[])?.get::<_,i32>(0)});
-        self.fault.hit("before_ticks", &context)?;
-        let current = tx
-            .query_opt(
-                "SELECT math_tick FROM math_ticks WHERE math_env=$1 AND zid=$2 FOR UPDATE",
-                &[&c.math_env, &zid],
-            )?
-            .map(|r| r.get::<_, i64>(0));
-        if current != expected_tick {
-            return Ok(Publication::Conflict);
-        }
-        let tick = match current {
-            Some(n) => n
-                .checked_add(1)
-                .ok_or_else(|| anyhow::anyhow!("tick overflow"))?,
-            None => 0,
-        };
-        tx.execute("INSERT INTO math_ticks(zid,math_env,math_tick,publisher_epoch,input_checkpoint,operation_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(zid,math_env) DO UPDATE SET math_tick=excluded.math_tick,publisher_epoch=excluded.publisher_epoch,input_checkpoint=excluded.input_checkpoint,operation_id=excluded.operation_id,modified=now_as_millis()", &[&zid,&c.math_env,&tick,&epoch,&checkpoint,&operation_id])?;
-        self.fault.hit("after_ticks", &context)?;
-        for (table, name, data, original) in [
-            (
-                "math_bidtopid",
-                "bidtopid",
-                bid,
-                &payload.originals.bidtopid,
-            ),
-            (
-                "math_ptptstats",
-                "ptptstats",
-                stats,
-                &payload.originals.ptptstats,
-            ),
-        ] {
-            self.fault.hit(&format!("before_{name}"), &context)?;
-            tx.execute(&format!("INSERT INTO {table}(zid,math_env,math_tick,data,original_bytes,original_sha256) VALUES($1,$2,$3,$4::text::jsonb,$5,$6) ON CONFLICT(zid,math_env) DO UPDATE SET math_tick=excluded.math_tick,data=excluded.data,original_bytes=excluded.original_bytes,original_sha256=excluded.original_sha256,modified=now_as_millis()"), &[&zid,&c.math_env,&tick,&data,original,&checkpoint["original_digests"][name].as_str()])?;
-            self.fault.hit(&format!("after_{name}"), &context)?;
-        }
-        self.fault.hit("before_main", &context)?;
-        let cursor: i64 = tx
-            .query_one("SELECT nextval('coordinator_caching_tick')", &[])?
-            .get(0);
-        ensure!(
-            cursor <= 9_007_199_254_740_991,
-            "cursor exceeds exact Node integer range"
-        );
-        tx.execute("INSERT INTO math_main(zid,math_env,math_tick,data,last_vote_timestamp,caching_tick,original_bytes,original_sha256) VALUES($1,$2,$3,$4::text::jsonb,$5,$6,$7,$8) ON CONFLICT(zid,math_env) DO UPDATE SET math_tick=excluded.math_tick,data=excluded.data,last_vote_timestamp=excluded.last_vote_timestamp,caching_tick=excluded.caching_tick,original_bytes=excluded.original_bytes,original_sha256=excluded.original_sha256,modified=now_as_millis()", &[&zid,&c.math_env,&tick,&main,&stamp,&cursor,&payload.originals.main,&checkpoint["original_digests"]["main"].as_str()])?;
-        self.fault.hit("after_main", &context)?;
-        self.fault.hit("before_commit", &context)?;
-        // Rev6 CO04 "remaining-lease final authorization under lock". The lease
-        // row is held `FOR UPDATE` for the whole publication, so the heartbeat
-        // cannot renew through it and a transferee cannot take an epoch while
-        // this transaction can still commit. The final authorization therefore
-        // re-reads owner, epoch and the **remaining** interval under that lock
-        // and requires a positive margin: reaching COMMIT with a lease about to
-        // elapse is refused rather than gambled on. This does not prove the
-        // COMMIT round trip finishes before expiry — nothing in-transaction can
-        // — so an uncertain COMMIT is still resolved by checkpoint identity
-        // below, never by a wall-clock deadline.
-        let final_row = tx.query_opt("SELECT owner_id,owner_epoch,expires_at>clock_timestamp(),EXTRACT(EPOCH FROM expires_at-clock_timestamp())::float8 FROM coordinator_leases WHERE math_env=$1 AND zid=$2 FOR UPDATE", &[&c.math_env,&zid])?;
-        if let Some(state) = lease::classify(final_row.as_ref(), c, epoch) {
-            return Ok(Publication::Refused(state));
-        }
-        let remaining = final_row.as_ref().map_or(0.0, |r| r.get::<_, f64>(3));
-        if remaining <= c.commit_margin_seconds {
-            tracing::error!(
-                zid,
-                remaining,
-                margin = c.commit_margin_seconds,
-                "remaining lease below the commit margin; rolling back"
-            );
-            return Ok(Publication::Refused(LeaseState::Expired));
-        }
-        let committed = tx.commit();
-        if let Err(error) = committed {
-            // Emit at the operation boundary, not at pass completion: fixture
-            // commands and failed passes must expose the same outcome, exactly
-            // once. An ambiguous attempt is not evidence that it was resolved.
-            let context = json!({"zid":zid, "epoch":epoch, "math_tick":tick,
-                "operation_id":operation_id});
-            self.metrics.emit(
-                "publication_ambiguous",
-                &[count("PublishUncertain", 1u32)],
-                context.clone(),
-            );
-            let readback = (|| -> Result<CommitReadback> {
-                let mut client = Client::connect(&self.config.database_url, NoTls)?;
-                client.batch_execute("SET statement_timeout='30s'; SET lock_timeout='5s'; SET application_name='p026-coordinator'")?;
-                self.client = client;
-                Ok(classify_commit(
-                    &self.load_current(zid)?,
-                    &checkpoint,
-                    epoch,
-                    &operation_id,
-                    tick,
-                ))
-            })();
-            let own = matches!(readback, Ok(CommitReadback::Own(_)));
-            let mut context = context;
-            context["outcome"] = json!(if own {
-                "resolved-own"
-            } else {
-                "unresolved-lost"
-            });
-            context["readback"] = json!(match &readback {
-                Ok(CommitReadback::Own(_)) => "own",
-                Ok(CommitReadback::Lost) => "identity-not-observed",
-                Err(_) => "readback-failed",
-            });
-            self.metrics.emit(
-                "publication_readback",
-                &[
-                    count("PublishResolvedOwn", u32::from(own)),
-                    count("PublishUnresolvedLost", u32::from(!own)),
-                ],
-                context,
-            );
-            match readback {
-                Ok(CommitReadback::Own(tick)) => return Ok(Publication::Committed(tick)),
-                Ok(CommitReadback::Lost) => {
-                    tracing::error!(%error, "uncertain COMMIT identity not observed");
-                    return Err(CommitLost.into());
-                }
-                // Preserve the original failure type and existing retry policy;
-                // the outcome event still says that no ownership proof exists.
-                Err(readback_error) => return Err(readback_error),
-            }
-        }
-        self.fault.hit("after_commit", &context)?;
-        Ok(Publication::Committed(tick))
+        // Diagnostic fixture ingress still uses the restricted Python publisher.
+        // The live coordinator calls dispatch_poller and never handles fresh output.
+        crate::bridge::publish_fixture(self, zid, expected_tick, epoch, checkpoint, payload)
     }
     fn scan_current(&mut self, after_zid: i32, limit: i64) -> Result<Vec<Metadata>> {
         ensure!((1..=1000).contains(&limit), "invalid page limit");

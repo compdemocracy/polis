@@ -371,7 +371,7 @@ def test_failed_zid_does_not_starve_source_sweep(db,launch):
         time.sleep(.05)
     assert_coherent(db,2)
     with c.cursor() as cur:
-        cur.execute("SELECT attempts FROM coordinator_failures WHERE zid=1 AND math_env='rustproto'")
+        cur.execute("SELECT attempts FROM polis_coordinator_failures WHERE zid=1 AND math_env='rustproto'")
         assert cur.fetchone()[0]>=1
         cur.execute('UPDATE votes SET vote=-1 WHERE zid=1 AND pid=0 AND tid=0')
     deadline=time.monotonic()+30
@@ -445,7 +445,9 @@ def test_terminate_actual_publication_backend_rolls_back(db,launch,tmp_path):
     with c.cursor() as cur:
         cur.execute('SELECT state,xact_start,query FROM pg_stat_activity WHERE pid=%s',(backend,))
         state,start,query=cur.fetchone()
-        assert state=='idle in transaction' and start is not None and 'math_bidtopid' in query
+        assert state=='active' and start is not None and 'public.pc_publish(' in query
+        cur.execute("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE pid=%s AND relation='math_bidtopid'::regclass AND granted AND mode='RowExclusiveLock')",(backend,))
+        assert cur.fetchone()[0] # actual function backend has performed the write
         cur.execute('SELECT pg_terminate_backend(%s)',(backend,));assert cur.fetchone()[0]
     child.release();child.done(code=1)
     assert all(v is None for v in rows(db).values())

@@ -41,6 +41,10 @@ const serverRequire = createRequire(path.join(server, "package.json"));
 const { Client } = serverRequire("pg");
 
 const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex");
+const COORDINATOR_SQL_SHA256 = "a7d537a1a912f7b73edd6409274c8922f30b29589ad4da4125a9c41a5ce4a3b5";
+if (sha256(fs.readFileSync(path.join(server, "postgres/migrations/000021_create_polis_coordinator.sql"))) !== COORDINATOR_SQL_SHA256) {
+  throw new Error("COORDINATOR_SCHEMA_BYTE_PIN");
+}
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // The server's exact per-table query shape, one table at a time — what
@@ -59,8 +63,10 @@ async function selectRow(client, table, zid, env) {
 
 async function selectCheckpoint(client, zid, env) {
   const result = await client.query(
-    "select math_tick, publisher_epoch, operation_id, input_checkpoint" +
-      " from math_ticks where zid = $1 and math_env = $2",
+    "select t.math_tick, g.publisher_epoch, g.operation_id, g.input_checkpoint" +
+      " from math_ticks t left join polis_coordinator_generations g" +
+      " on g.zid=t.zid and g.math_env=t.math_env and g.math_tick=t.math_tick" +
+      " where t.zid = $1 and t.math_env = $2",
     [zid, env]
   );
   if (!result.rows.length) return null;

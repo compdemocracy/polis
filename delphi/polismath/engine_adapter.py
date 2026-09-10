@@ -92,18 +92,8 @@ def emit_payloads(conv, zid, empty_contract=True):
     stats = derive_ptptstats(conv, zid, main.get("user-vote-counts", {}))
     if empty_contract and conv.raw_rating_mat.empty:
         # Serialization-only correction; the engine's internal seed is unchanged.
-        main.update({"zid": zid, "n": 0, "n-cmts": 0, "tids": [], "in-conv": [],
-            "base-clusters": {k: [] for k in ("id", "members", "x", "y", "count")},
-            "group-clusters": [], "group-votes": {}, "votes-base": {},
-            "user-vote-counts": {}, "comment-priorities": {},
-            "consensus": {"agree": [], "disagree": []}, "group-aware-consensus": {},
-            "repness": {}, "meta-tids": sorted(conv.meta_tids),
-            "mod-in": sorted(conv.mod_in_tids), "mod-out": sorted(conv.mod_out_tids),
-            "lastVoteTimestamp": 0, "lastModTimestamp": conv.last_mod_timestamp,
-            "pca": {"center": [], "comps": [[], []],
-                    "comment-projection": [[], []], "comment-extremity": []}})
-        bid = {"zid": zid, "bidToPid": [], "lastVoteTimestamp": 0}
-        stats = {"zid": zid, "ptptstats": {}, "lastVoteTimestamp": 0}
+        from polismath.poller.math_writer import empty_contract_payloads
+        main, bid, stats = empty_contract_payloads(conv, zid, main)
     return strict_json(json.dumps({"main": main, "bidtopid": bid, "ptptstats": stats},
                                   default=convert_numpy_types, allow_nan=False))
 

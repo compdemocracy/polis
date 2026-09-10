@@ -27,10 +27,10 @@
   "candidate_reader": "coordinator-rs/tools/bundle_reader.cjs",
   "witness": "coordinator-rs/evidence/d4-bundle-reader.json",
   "integrity_model": "Candidate atomicity witness plus accepted production-reader local proof; required CI and combined S5 campaigns remain open. No full-contract certificate.",
-  "pins_are_committed_sources": true,
+  "pins_are_committed_sources": false,
   "python_cases": 151,
   "sha256": {
-    "coordinator-rs/tools/bundle_reader.cjs": "406ae287970b1c69b39c947fbcb9576fe0c2a736f8e6761047326effe3687691",
+    "coordinator-rs/tools/bundle_reader.cjs": "a8aa555974b2131c68cfaed550bf0378cd11cf573aeac6baca171c86d95a341e",
     "coordinator-rs/tools/node_reader.cjs": "6d6932af6d790e53183912aa018176ac8fb83a88d50da27ca84fff081edbf5b1",
     "coordinator-rs/tools/record_s2.py": "a4493d39e4f538775d4a98d6ecc89250bf9fb00ce89249ddcc3072c2ec862538",
     "delphi/tests/coordinator/_node_gate.py": "461813f1029115e5aac3205f4783678ae347b3b7f505b5af397308c38ae08072",
@@ -54,5 +54,13 @@
     "coordinator-rs/tools/record_s2_production.py": "1b846433366eee59790fc1fd50cded92f74465084a56ff5d2e423a32834eb389"
   },
   "production_reader_obligation_state": "CLOSED",
-  "production_reader_evidence": "coordinator-rs/evidence/s2-production-reader.json"
+  "production_reader_evidence": "coordinator-rs/evidence/s2-production-reader.json",
+  "bridge_reconciliation": {
+    "record": "coordinator-rs/evidence/bridge-repin.json",
+    "source_only": true,
+    "historical_run_pins_preserved": true,
+    "runtime": "python-math-poller/1",
+    "schema": "000021",
+    "fresh_candidate_admission": "separate required CI receipt"
+  }
 }

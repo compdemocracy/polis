@@ -20,20 +20,28 @@ def test_original_jsonb_corruption_is_detected(db, launch, table, corrupt):
     with c.cursor() as cur:
         if corrupt == "jsonb":
             cur.execute(f"UPDATE {table} SET data=data || '{{\"synthetic_corruption\":true}}'::jsonb")
-        elif corrupt == "digest":
-            cur.execute(f"UPDATE {table} SET original_sha256=%s", ("0" * 64,))
         else:
-            cur.execute(f"SELECT original_bytes FROM {table}")
-            raw = json.loads(bytes(cur.fetchone()[0]))
-            raw["synthetic_corruption"] = True
-            raw = json.dumps(raw).encode()
-            cur.execute(f"UPDATE {table} SET original_bytes=%s", (raw,))
-            if corrupt == "original_with_digest":
-                # Defeat both raw-hash checks; decoded correspondence still fails.
-                digest = hashlib.sha256(raw).hexdigest()
-                cur.execute(f"UPDATE {table} SET original_sha256=%s", (digest,))
-                cur.execute("UPDATE math_ticks SET input_checkpoint=jsonb_set(input_checkpoint,%s,to_jsonb(%s::text))",
-                            (["original_digests", table.removeprefix("math_")], digest))
+            kind=table.removeprefix("math_")
+            # First demonstrate the new database hash constraint, then remove
+            # only that guard in this disposable corruption witness so the
+            # independent Rust reader must still detect the forged state.
+            cur.execute("SELECT conname FROM pg_constraint WHERE conrelid='polis_coordinator_payloads'::regclass AND contype='c' AND pg_get_constraintdef(oid) LIKE '%sha256(original_bytes)%'")
+            constraint=cur.fetchone()[0]
+            with pytest.raises(Exception) as rejected:
+                cur.execute("UPDATE polis_coordinator_payloads SET original_sha256=%s WHERE payload_kind=%s",("0"*64,kind))
+            assert rejected.value.pgcode=="23514"
+            cur.execute(f'ALTER TABLE polis_coordinator_payloads DROP CONSTRAINT "{constraint}"')
+            if corrupt == "digest":
+                cur.execute("UPDATE polis_coordinator_payloads SET original_sha256=%s WHERE payload_kind=%s",("0"*64,kind))
+            else:
+                cur.execute("SELECT original_bytes FROM polis_coordinator_payloads WHERE payload_kind=%s",(kind,))
+                raw=json.loads(bytes(cur.fetchone()[0]));raw["synthetic_corruption"]=True
+                raw=json.dumps(raw).encode()
+                cur.execute("UPDATE polis_coordinator_payloads SET original_bytes=%s WHERE payload_kind=%s",(raw,kind))
+                if corrupt == "original_with_digest":
+                    digest=hashlib.sha256(raw).hexdigest()
+                    cur.execute("UPDATE polis_coordinator_payloads SET original_sha256=%s WHERE payload_kind=%s",(digest,kind))
+                    cur.execute("UPDATE polis_coordinator_generations SET input_checkpoint=jsonb_set(input_checkpoint,%s,to_jsonb(%s::text))",(["original_digests",kind],digest))
     c.close()
     launch(db, "read", args=(1,)).done(code=1)
     launch(db, extra={"P026_INCREMENTAL": "0"}).done()
@@ -126,7 +134,7 @@ class CommitProxy:
                     kind = self.read(client, 1)
                     size = self.read(client, 4)
                     body = self.read(client, struct.unpack("!I", size)[0] - 4)
-                    if kind in (b"P", b"Q") and b"INSERT INTO math_ticks" in body:
+                    if kind in (b"P", b"Q") and b"SELECT * FROM public.pc_publish(" in body:
                         publication.set()
                     server.sendall(kind + size + body)
             except (EOFError, OSError):
@@ -169,39 +177,29 @@ def test_uncertain_commit_readback_binds_publishing_epoch(db, launch, tmp_path, 
         original = rows(db)
         assert original["math_ticks"]["math_tick"] == 0
         if replacement:
-            # Another real publisher acquires the next epoch and fills the same
-            # tick after loss of current rows, with identical content and op id.
-            # This models exactly the content-only readback hole, without using
-            # the production implementation to construct the expected verdict.
-            c = connect(db)
+            # New receipts reject reuse of an operation by a different epoch.
+            # A genuine later publication leaves the first receipt intact.
+            c=connect(db)
             with c.cursor() as cur:
-                for table in ("math_main", "math_bidtopid", "math_ptptstats", "math_ticks"):
-                    cur.execute(f"DELETE FROM {table} WHERE math_env='rustproto'")
-                cur.execute("UPDATE coordinator_leases SET expires_at=clock_timestamp()-interval '1 second'")
+                cur.execute("UPDATE polis_coordinator_leases SET expires_at=clock_timestamp()-interval '1 second'")
             c.close()
-            payloads = {key: original["math_" + key]["data"] for key in ("main", "bidtopid", "ptptstats")}
-            payloads["originals"] = {key: list(bytes(original["math_" + key]["original_bytes"]))
-                                     for key in payloads}
-            path = fixture_file(tmp_path, payloads)
-            fixture = json.loads(path.read_text())
-            fixture["checkpoint"] = original["math_ticks"]["input_checkpoint"]
-            path.write_text(json.dumps(fixture))
-            launch(db, "publish-fixture", args=(path,)).done()
-            successor = rows(db)
-            assert successor["math_ticks"]["math_tick"] == 0
-            assert successor["math_ticks"]["publisher_epoch"] > original["math_ticks"]["publisher_epoch"]
-            assert successor["math_ticks"]["operation_id"] == original["math_ticks"]["operation_id"]
-            assert successor["math_main"]["data"] == original["math_main"]["data"]
+            payloads={key:original["math_"+key]["data"] for key in ("main","bidtopid","ptptstats")}
+            path=fixture_file(tmp_path,payloads,expected=0)
+            launch(db,"publish-fixture",args=(path,)).done()
+            successor=rows(db)
+            assert successor["math_ticks"]["math_tick"]==1
+            assert successor["math_ticks"]["publisher_epoch"]>original["math_ticks"]["publisher_epoch"]
+            assert successor["math_ticks"]["operation_id"]!=original["math_ticks"]["operation_id"]
+            assert successor["math_main"]["data"]==original["math_main"]["data"]
         proxy.release.set()
-        out, err = child.done(code=1 if replacement else 0)
+        out, err = child.done(code=0)
         if replacement:
-            assert "UNCERTAIN_COMMIT_LOST" in err
             assert rows(db) == successor
         else:
             assert json.loads(out)["published"] == 1
             assert rows(db) == original
         from coordinator.test_publication_metrics import assert_outcome
-        assert_outcome(metrics, original, own=not replacement)
+        assert_outcome(metrics, original, own=True)
         assert not proxy.errors
     finally:
         proxy.close()

@@ -256,3 +256,36 @@ def test_inventory_preserves_the_reviewed_baseline_without_replacement():
     assert len(INV["rust_tests"]) == 31 and len(INV["jest_cases"]) == 37 and len(INV["stages"]) == 25
     assert INV["extensions"] == []
     exact(INV["python_nodeids"], INV["python_nodeids"], "unique inventory")
+
+
+def test_bridge_inventory_preserves_every_baseline_identity():
+    extended=json.loads((CI/"inventory-v2.json").read_text())
+    assert set(INV["python_nodeids"]) < set(extended["python_nodeids"])
+    assert len(extended["python_nodeids"])==206
+    assert len(extended["python_nodeids"])==len(set(extended["python_nodeids"]))
+    assert len(extended["python_junit"])==206
+    assert extended["rust_tests"]==INV["rust_tests"]
+    assert extended["jest_cases"]==INV["jest_cases"]
+    assert extended["stages"]==INV["stages"]
+
+
+def test_bridge_inventory_requires_twenty_each_schedule():
+    extended=json.loads((CI/"inventory-v2.json").read_text())
+    added=set(extended["python_nodeids"])-set(INV["python_nodeids"])
+    for name in ("test_stale_python_child_after_parent_death_is_fenced",
+                 "test_final_python_margin_after_rpc_rolls_back"):
+        assert {f"tests/coordinator/test_bridge.py::{name}[{i}]" for i in range(20)} <= added
+    assert len(added)==55
+    assert sorted(added)==extended["extensions"][0]["added_nodeids"]
+
+
+def test_collection_accepts_only_the_extended_campaign():
+    spec=importlib.util.spec_from_file_location("required_inventory",CI/"required_inventory.py")
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    from types import SimpleNamespace
+    def session(nodes):
+        return SimpleNamespace(items=[SimpleNamespace(nodeid=n) for n in nodes])
+    extended=json.loads((CI/"inventory-v2.json").read_text())
+    module.pytest_collection_finish(session(extended["python_nodeids"]))
+    with pytest.raises(pytest.UsageError,match="collection"):
+        module.pytest_collection_finish(session(INV["python_nodeids"]))
