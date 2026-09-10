@@ -46,7 +46,7 @@ def inputs():
                  "coordinator-rs/evidence/python-requirements.txt", "server/package.json",
                  "server/package-lock.json", "server/tsconfig.json", ".github/workflows/coordinator-ci.yml"):
         paths.add(ROOT / name)
-    inv = json.loads((CI / "inventory-v1.json").read_text())
+    inv = json.loads((CI / "inventory-v2.json").read_text())
     paths.update(ROOT / "server" / p for p, _ in inv["jest_cases"])
     return {str(p.relative_to(ROOT)): sha(p) for p in sorted(paths)}
 
@@ -72,7 +72,7 @@ def main():
         found = subprocess.check_output(["docker", *args_list, "--filter", f"label=com.docker.compose.project={project}"], text=True)
         require(not found.strip(), f"project already owns {resource}s; select another project")
     output.mkdir(parents=True)
-    inventory = json.loads((CI / "inventory-v1.json").read_text())
+    inventory = json.loads((CI / "inventory-v2.json").read_text())
     baseline = {p.name: p.read_bytes() for p in EVIDENCE.iterdir() if p.is_file()}
     receipt = {"schema": "polis-coordinator-ci-receipt/1", "run_id": uuid.uuid4().hex,
                "candidate_gate": "FAIL", "full_contract_gate": "FAIL", "hosted_stack_ci": "NOT_EVALUATED",

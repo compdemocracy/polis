@@ -280,10 +280,12 @@ class PollerConfig:
 class MathPollerService:
     """Owns the poll loops, the in-memory conv cache, the worker pool + writer."""
 
-    def __init__(self, pg_client: Any, config: PollerConfig) -> None:
+    def __init__(self, pg_client: Any, config: PollerConfig, publisher: Any = None) -> None:
         self._pg = pg_client
         self.config = config
-        self._writer = MathWriter(pg_client)
+        self._writer = MathWriter(pg_client, publisher=publisher)
+        self._bridge_stage = publisher.stage if publisher is not None else lambda stage: None
+        self._coordinator_rebuild = publisher is not None
         # LRU order: most-recently-touched zid last, so popitem(last=False) evicts
         # the coldest (see _remember).
         self._convs: "OrderedDict[int, Conversation]" = OrderedDict()
@@ -707,6 +709,7 @@ class MathPollerService:
 
         if row and row.get("data"):
             try:
+                self._bridge_stage("before_restore")
                 conv = Conversation.from_dict(row["data"])
                 # Prefer the persisted last_vote_timestamp column over the blob's
                 # last_updated (which a prior wall-clock write may have poisoned).
@@ -757,7 +760,13 @@ class MathPollerService:
             )
 
         mods = self._pg.poll_moderation(zid, None)
+        if self._coordinator_rebuild:
+            # Snapshot replacement must carry un-moderation across a restore.
+            for key in ("mod_out_tids", "mod_in_tids", "meta_tids", "mod_out_ptpts"):
+                setattr(conv, key, set())
         conv = conv.update_moderation(mods, recompute=False)
+        if self._coordinator_rebuild and row and row.get("data"):
+            self._bridge_stage("after_restore")
 
         conv = conv.recompute()
         return conv

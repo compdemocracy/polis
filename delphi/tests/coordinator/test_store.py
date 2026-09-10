@@ -75,7 +75,10 @@ def test_missing_checkpoint_metadata_is_repaired(db,launch):
     seed(db);launch(db).done()
     c=connect(db)
     with c.cursor() as cur:
-        cur.execute("UPDATE math_ticks SET input_checkpoint=NULL WHERE zid=1 AND math_env='rustproto'")
+        # New schema rejects a null checkpoint. Remove its separate receipt to
+        # exercise the same missing-metadata repair without weakening NOT NULL.
+        cur.execute("DELETE FROM polis_coordinator_payloads WHERE zid=1 AND math_env='rustproto'")
+        cur.execute("DELETE FROM polis_coordinator_generations WHERE zid=1 AND math_env='rustproto'")
     c.close()
     launch(db,'read',args=(1,)).done(code=1)
     launch(db).done()

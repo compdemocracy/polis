@@ -99,7 +99,7 @@ impl PgStore {
     pub fn reconciliation(&mut self, zid: i32) -> Result<Option<(Value, Duration)>> {
         let row = self.client.query_opt(
             "SELECT source_probe,EXTRACT(EPOCH FROM clock_timestamp()-reconciled_at)::float8
-             FROM coordinator_reconciliation WHERE math_env=$1 AND zid=$2",
+             FROM polis_coordinator_reconciliation WHERE math_env=$1 AND zid=$2",
             &[&self.config.math_env, &zid],
         )?;
         Ok(row.map(|r| {
@@ -124,7 +124,7 @@ impl PgStore {
             &[&zid],
         )?;
         tx.execute(
-            "INSERT INTO coordinator_reconciliation(math_env,zid,reconciled_at,source_probe)
+            "INSERT INTO polis_coordinator_reconciliation(math_env,zid,reconciled_at,source_probe)
              VALUES($1,$2,$4,$3)
              ON CONFLICT(math_env,zid) DO UPDATE
              SET reconciled_at=excluded.reconciled_at,source_probe=excluded.source_probe",
@@ -156,15 +156,15 @@ impl PgStore {
                         OR r.reconciled_at <= clock_timestamp()-make_interval(secs=>$5::int)
                         AS overdue
                  FROM mine m
-                 LEFT JOIN coordinator_reconciliation r
+                 LEFT JOIN polis_coordinator_reconciliation r
                         ON r.math_env=$1 AND r.zid=m.zid
              )
              SELECT COALESCE(count(*) FILTER (WHERE overdue),0)::bigint,
                     COALESCE(GREATEST(EXTRACT(EPOCH FROM clock_timestamp())-min(at),0),0)::float8,
-                    (SELECT count(*) FROM coordinator_failures f
+                    (SELECT count(*) FROM polis_coordinator_failures f
                       WHERE f.math_env=$1 AND EXISTS(SELECT 1 FROM mine m WHERE m.zid=f.zid))::bigint,
                     (SELECT COALESCE(EXTRACT(EPOCH FROM clock_timestamp()-min(f.first_failed_at)),0)
-                       FROM coordinator_failures f
+                       FROM polis_coordinator_failures f
                       WHERE f.math_env=$1 AND EXISTS(SELECT 1 FROM mine m WHERE m.zid=f.zid))::float8
                FROM state",
             &[

@@ -1,9 +1,4 @@
-"""Astra's round-2 review controls (board [276]), re-pinned against the fixes.
-
-`cost-reduction/scripts/p2727-r2-astra-review.py` characterised three defects at
-ef0679de0 and one actual-route control. The defect assertions are inverted here —
-they now assert the required behaviour — and the route control is kept as written,
-driven by the committed copy of its Node harness.
+"""Round-2 regression controls at ef0679de0, retained across schema changes.
 
 R2-F1: persisted payload corruption in any of the three published tables must be
        repaired by the full-source ceiling, not survive behind a resident bundle.
@@ -72,7 +67,7 @@ def test_recorded_source_age_starts_before_the_source_read(db, launch, tmp_path)
     child.release()
     child.done()
     # The record is stamped at or before the snapshot, never at completion.
-    assert query(db, "SELECT reconciled_at <= %s FROM coordinator_reconciliation "
+    assert query(db, "SELECT reconciled_at <= %s FROM polis_coordinator_reconciliation "
                      "WHERE zid=1 AND math_env='rustproto'", (taken,))[0][0]
     before = rows(db)["math_main"]["math_tick"]
     out = tmp_path / "age.jsonl"
@@ -90,7 +85,7 @@ def test_failure_gauges_respect_candidate_scope(db, launch, tmp_path):
     this process's backlog."""
     seed(db, 1)
     seed(db, 2)
-    query(db, "INSERT INTO coordinator_failures(math_env,zid,attempts,first_failed_at,next_attempt) "
+    query(db, "INSERT INTO polis_coordinator_failures(math_env,zid,attempts,first_failed_at,next_attempt) "
               "VALUES('rustproto',2,1,clock_timestamp()-interval '1 hour',clock_timestamp())")
     output = tmp_path / "scoped.jsonl"
     launch(db, extra={"POLL_ALLOWLIST": "1", "P026_METRICS": str(output)}).done()

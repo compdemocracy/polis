@@ -1,5 +1,5 @@
 use crate::{
-    engine::{self, Source},
+    engine::Source,
     lease::{LeaseState, Renewal},
     metrics::{Tally, count, seconds},
     ordering,
@@ -26,9 +26,15 @@ impl PgStore {
             ordering::PARAMETER_BINDING == "$2",
             "declared ordering parameter is not bound at $2"
         );
-        let votes_sql = format!("SELECT jsonb_build_object('pid',pid,'tid',tid,'vote',vote,'created',created,'weight_x_32767',weight_x_32767) FROM votes WHERE zid=$1 ORDER BY {} LIMIT 1000001", ordering::order_by());
+        let votes_sql = format!(
+            "SELECT jsonb_build_object('pid',pid,'tid',tid,'vote',vote,'created',created,'weight_x_32767',weight_x_32767) FROM votes WHERE zid=$1 ORDER BY {} LIMIT 1000001",
+            ordering::order_by()
+        );
         let votes: Vec<Value> = tx
-            .query(votes_sql.as_str(), &[&zid, &self.config.storage_agree_value])?
+            .query(
+                votes_sql.as_str(),
+                &[&zid, &self.config.storage_agree_value],
+            )?
             .iter()
             .map(|r| r.get(0))
             .collect();
@@ -52,10 +58,8 @@ impl PgStore {
             "meta_tids":comments.iter().filter(|r|r["is_meta"]==true).map(|r|r["tid"].clone()).collect::<Vec<_>>(),
             "mod_out_ptpts":participants.iter().filter(|r|r["mod"] == -1).map(|r|r["pid"].clone()).collect::<Vec<_>>(),
             "lastModTimestamp":Value::Null}); // exact Python poller snapshot profile
-        let ordering = ordering::manifest(
-            self.config.storage_agree_value,
-            ordering::census(&votes),
-        )?;
+        let ordering =
+            ordering::manifest(self.config.storage_agree_value, ordering::census(&votes))?;
         // The declared normalization is part of the source identity: changing a
         // term or the polarity constant must discard warm state.
         let fingerprint = digest(&serde_json::to_vec(
@@ -107,7 +111,10 @@ impl PgStore {
         // is untouched, epoch history is preserved, and a clean local failure
         // does not hold the conversation for the rest of the lease window.
         // Only an unclean death leaves a live lease behind, as R05 requires.
-        if let Err(error) = self.reconnect_if_closed().and_then(|()| self.release(zid, epoch)) {
+        if let Err(error) = self
+            .reconnect_if_closed()
+            .and_then(|()| self.release(zid, epoch))
+        {
             tracing::warn!(zid, epoch, error=%error, "lease release failed; expiry still bounds it");
         }
         result
@@ -124,7 +131,11 @@ impl PgStore {
                 Err(state.into())
             }
             None => {
-                tracing::warn!(zid, epoch, "uncertain renewal contradicted by the lease row");
+                tracing::warn!(
+                    zid,
+                    epoch,
+                    "uncertain renewal contradicted by the lease row"
+                );
                 Ok(())
             }
         }
@@ -209,47 +220,19 @@ impl PgStore {
             Current::Coherent(b) => Some(b.as_ref()),
             _ => None,
         };
-        let guard = || -> Result<()> {
-            match renewal.state() {
-                Some(state) => Err(state.into()),
-                None => Ok(()),
-            }
-        };
-        let compute_started = Instant::now();
-        let computed = engine::compute(&self.config, &self.fault, zid, &source, old, &guard);
-        let compute_seconds = compute_started.elapsed();
-        // Ownership is decided authoritatively here, before any publication, so
-        // an abort inside compute reports the state the database actually holds.
         self.lease_guard(zid, epoch, renewal)?;
-        let (payloads, checkpoint) = computed?;
-        let publish_started = Instant::now();
-        let mut attempts = 0;
-        let published = loop {
-            match self.publish(zid, expected, epoch, checkpoint.clone(), &payloads) {
-                Ok(result) => break result,
-                Err(error) => {
-                    let retryable = error
-                        .downcast_ref::<postgres::Error>()
-                        .and_then(|e| e.code())
-                        .is_some_and(|code| matches!(code.code(), "40001" | "40P01"));
-                    if !retryable || attempts >= 2 {
-                        return Err(error);
-                    }
-                    attempts += 1;
-                    self.tally.publish_retried += 1;
-                    tracing::warn!(zid, attempts, "retrying whole publication transaction");
-                    std::thread::sleep(Duration::from_millis(50 * attempts));
-                }
-            }
-        };
-        let publish_seconds = publish_started.elapsed();
+        let published =
+            crate::bridge::dispatch_poller(self, zid, expected, epoch, &source, old, renewal)?;
+        let mut timings = vec![seconds("SourceReadSeconds", source_seconds)];
+        if let Some((compute, publish)) = self.poller_timings {
+            timings.extend([
+                seconds("ComputeSeconds", compute),
+                seconds("PublishSeconds", publish),
+            ]);
+        }
         self.metrics.emit(
             "reconciliation",
-            &[
-                seconds("SourceReadSeconds", source_seconds),
-                seconds("ComputeSeconds", compute_seconds),
-                seconds("PublishSeconds", publish_seconds),
-            ],
+            &timings,
             json!({"zid":zid,"events":source.votes.len(),"publication":format!("{published:?}")}),
         );
         match published {
@@ -299,7 +282,10 @@ impl PgStore {
                 Ok(backlog) => {
                     self.gauged = Some(Instant::now());
                     data.extend([
-                        seconds("OldestReconciliationAgeSeconds", backlog.oldest_reconciliation),
+                        seconds(
+                            "OldestReconciliationAgeSeconds",
+                            backlog.oldest_reconciliation,
+                        ),
                         count("ReconciliationBacklogConversations", backlog.overdue as f64),
                         count("FailureBacklogConversations", backlog.failures as f64),
                         seconds("OldestUnrepairedAgeSeconds", backlog.oldest_unrepaired),
@@ -329,7 +315,7 @@ impl PgStore {
         let mut cursor = self
             .client
             .query_opt(
-                "SELECT position FROM coordinator_cursors WHERE math_env=$1 AND consumer=$2",
+                "SELECT position FROM polis_coordinator_cursors WHERE math_env=$1 AND consumer=$2",
                 &[&self.config.math_env, &name],
             )?
             .and_then(|r| r.get::<_, Value>(0)["zid"].as_i64())
@@ -343,7 +329,7 @@ impl PgStore {
             let zid: i32 = r.get(0);
             if self.config.accepts(zid) {
                 self.tally.visited += 1;
-                let ready = self.client.query_opt("SELECT next_attempt<=clock_timestamp() FROM coordinator_failures WHERE math_env=$1 AND zid=$2", &[&self.config.math_env,&zid])?.is_none_or(|r|r.get::<_,bool>(0));
+                let ready = self.client.query_opt("SELECT next_attempt<=clock_timestamp() FROM polis_coordinator_failures WHERE math_env=$1 AND zid=$2", &[&self.config.math_env,&zid])?.is_none_or(|r|r.get::<_,bool>(0));
                 if ready {
                     match self.process(zid) {
                         Ok(changed) => {
@@ -352,7 +338,7 @@ impl PgStore {
                                 self.tally.published += 1;
                             }
                             self.client.execute(
-                                "DELETE FROM coordinator_failures WHERE math_env=$1 AND zid=$2",
+                                "DELETE FROM polis_coordinator_failures WHERE math_env=$1 AND zid=$2",
                                 &[&self.config.math_env, &zid],
                             )?;
                         }
@@ -364,8 +350,12 @@ impl PgStore {
                         }
                         Err(e) => {
                             match LeaseState::of(&e) {
-                                Some(state) => tracing::warn!(zid,state=%state,"lease deferred; bounded backoff, sweep continues"),
-                                None => tracing::error!(zid,error=%e,"conversation failed; durable retry scheduled"),
+                                Some(state) => {
+                                    tracing::warn!(zid,state=%state,"lease deferred; bounded backoff, sweep continues")
+                                }
+                                None => {
+                                    tracing::error!(zid,error=%e,"conversation failed; durable retry scheduled")
+                                }
                             }
                             self.tally.deferred += 1;
                             self.defer(zid)?;
@@ -378,7 +368,7 @@ impl PgStore {
         if rows.len() < self.config.page_size as usize {
             cursor = 0;
         }
-        self.client.execute("INSERT INTO coordinator_cursors(math_env,consumer,position) VALUES($1,$2,$3) ON CONFLICT(math_env,consumer) DO UPDATE SET position=excluded.position", &[&self.config.math_env,&name,&json!({"zid":cursor})])?;
+        self.client.execute("INSERT INTO polis_coordinator_cursors(math_env,consumer,position) VALUES($1,$2,$3) ON CONFLICT(math_env,consumer) DO UPDATE SET position=excluded.position", &[&self.config.math_env,&name,&json!({"zid":cursor})])?;
         tracing::info!(
             page_rows = rows.len(),
             published = count,
@@ -395,7 +385,7 @@ impl PgStore {
             "SELECT zid FROM conversations WHERE zid=$1 FOR KEY SHARE",
             &[&zid],
         )?;
-        tx.execute("INSERT INTO coordinator_failures(math_env,zid,attempts,next_attempt) VALUES($1,$2,1,clock_timestamp()+interval '1 second') ON CONFLICT(math_env,zid) DO UPDATE SET attempts=LEAST(coordinator_failures.attempts+1,30),next_attempt=clock_timestamp()+make_interval(secs=>LEAST(coordinator_failures.attempts+1,30))", &[&self.config.math_env,&zid])?;
+        tx.execute("INSERT INTO polis_coordinator_failures(math_env,zid,attempts,next_attempt) VALUES($1,$2,1,clock_timestamp()+interval '1 second') ON CONFLICT(math_env,zid) DO UPDATE SET attempts=LEAST(polis_coordinator_failures.attempts+1,30),next_attempt=clock_timestamp()+make_interval(secs=>LEAST(polis_coordinator_failures.attempts+1,30))", &[&self.config.math_env,&zid])?;
         tx.commit()?;
         Ok(())
     }
@@ -408,7 +398,10 @@ impl PgStore {
         let mut data = self.tally.data(started.elapsed(), result.is_ok());
         match self.backlog() {
             Ok(backlog) => data.extend([
-                seconds("OldestReconciliationAgeSeconds", backlog.oldest_reconciliation),
+                seconds(
+                    "OldestReconciliationAgeSeconds",
+                    backlog.oldest_reconciliation,
+                ),
                 count("ReconciliationBacklogConversations", backlog.overdue as f64),
                 count("FailureBacklogConversations", backlog.failures as f64),
                 seconds("OldestUnrepairedAgeSeconds", backlog.oldest_unrepaired),

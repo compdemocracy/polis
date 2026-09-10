@@ -85,7 +85,7 @@ ROOT = ROOT if ROOT is not None else _HERE.parents[2]
 BINARY = ROOT / "coordinator-rs/target/fault/debug/polis-coordinator"
 REFERENCE = "aaaf7ca5c93f9a758b28e7a361c3b9544e24305a"
 WRITER_REF = "b3262008f"
-ARTIFACTS = ROOT / "coordinator-rs/artifacts"
+ARTIFACTS = Path(os.environ.get("P027_BRIDGE_ARTIFACTS", ROOT / "coordinator-rs/artifacts"))
 if not _UNAVAILABLE:
     ARTIFACTS.mkdir(exist_ok=True)
 
@@ -136,8 +136,16 @@ def template():
                 cur.execute(path.read_text())
             # Exercise the production drift named in CO04: ticks lacks this column.
             cur.execute("ALTER TABLE math_ticks DROP COLUMN caching_tick")
-            cur.execute((ROOT / "coordinator-rs/migration.sql").read_text())
+            # The production 000021 migration above supplies all ownership state;
+            # the prototype ALTER-math migration is deliberately never applied.
+            cur.execute("CREATE ROLE p027_bridge_control LOGIN; CREATE ROLE p027_bridge_publisher LOGIN")
+            cur.execute("GRANT polis_coordinator_control TO p027_bridge_control; GRANT polis_coordinator_publisher TO p027_bridge_publisher")
+            cur.execute("GRANT USAGE ON SCHEMA public TO p027_bridge_control,p027_bridge_publisher")
+            cur.execute("GRANT SELECT ON conversations,participants,comments,votes,math_ticks,math_main,math_bidtopid,math_ptptstats TO p027_bridge_control")
+            cur.execute("GRANT UPDATE(topic) ON conversations TO p027_bridge_control")
             cur.execute("CREATE TABLE p026_test_marker(namespace text primary key)")
+            cur.execute("GRANT SELECT ON p026_test_marker TO p027_bridge_control,p027_bridge_publisher")
+            cur.execute((ROOT / "delphi/tests/coordinator/bridge_faults.sql").read_text())
         c.close()
         yield base, name
     finally:
@@ -145,6 +153,7 @@ def template():
         admin = connect(base)
         with admin.cursor() as cur:
             cur.execute(f'DROP DATABASE "{name}" WITH (FORCE)')
+            cur.execute("DROP ROLE IF EXISTS p027_bridge_control,p027_bridge_publisher")
         admin.close()
 
 
@@ -193,6 +202,19 @@ def rows(url, zid=1, env="rustproto"):
             cur.execute(f"SELECT * FROM {table} WHERE zid=%s AND math_env=%s", (zid,env))
             r = cur.fetchone()
             result[table] = dict(zip([d[0] for d in cur.description], r)) if r else None
+        # Compatibility projection for the original assertion suite: metadata
+        # now comes from new tables, not added columns on the math tables.
+        for table, row in result.items():
+            if not row:
+                continue
+            if table == "math_ticks":
+                cur.execute("SELECT publisher_epoch,input_checkpoint,operation_id FROM polis_coordinator_generations WHERE zid=%s AND math_env=%s AND math_tick=%s",(zid,env,row["math_tick"]))
+                meta=cur.fetchone()
+                row.update(dict(zip(("publisher_epoch","input_checkpoint","operation_id"),meta or (None,None,None))))
+            else:
+                cur.execute("SELECT original_bytes,original_sha256 FROM polis_coordinator_payloads WHERE zid=%s AND math_env=%s AND math_tick=%s AND payload_kind=%s",(zid,env,row["math_tick"],table.removeprefix("math_")))
+                meta=cur.fetchone()
+                row.update(dict(zip(("original_bytes","original_sha256"),meta or (None,None))))
         cur.execute("COMMIT")
     c.close()
     return result
@@ -220,7 +242,12 @@ class Child:
     def __init__(self, url, mode="once", env="rustproto", stage=None, directory=None, extra=None, args=()):
         self.directory = Path(directory) if directory else None
         self.out = self.err = None
-        process_env = dict(os.environ, DATABASE_URL=url, MATH_ENV=env, P026_PYTHON=sys.executable,
+        from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+        parsed=urlsplit(url)
+        def restricted(role):
+            return urlunsplit(parsed._replace(netloc=role+"@"+parsed.netloc.split("@")[-1],query=urlencode(dict(parse_qsl(parsed.query),sslmode="disable"))))
+        process_env = dict(os.environ, DATABASE_URL=restricted("p027_bridge_control"),
+            COORDINATOR_PUBLISHER_DATABASE_URL=restricted("p027_bridge_publisher"), MATH_ENV=env, P026_PYTHON=sys.executable,
             PYTHONPATH=str(ROOT/"delphi"), OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1",
             PYTHONDONTWRITEBYTECODE="1", P026_PAGE_SIZE="2", P026_WINDOW="1", P026_LEASE_SECONDS="120")
         process_env.pop("P026_FAULT_DIR",None)
@@ -232,7 +259,7 @@ class Child:
                 "stage":stage,"run_id":"synthetic-test","operation_id":uuid.uuid4().hex}))
             process_env["P026_FAULT_DIR"] = str(self.directory)
         self.proc = subprocess.Popen([str(BINARY),mode,*map(str,args)], env=process_env,
-            stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,cwd=ROOT/"delphi")
+            stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,cwd=ROOT/"delphi",start_new_session=True)
 
     def ack(self):
         deadline = time.monotonic()+150
@@ -258,7 +285,9 @@ class Child:
         return out,err
 
     def kill(self):
-        self.proc.kill()
+        # Existing crash cases terminate the whole component. Dedicated bridge
+        # cases kill only the parent to exercise a surviving stale Python child.
+        os.killpg(self.proc.pid,signal.SIGKILL)
         self.out, self.err = self.proc.communicate(timeout=10)
         assert self.proc.returncode == -signal.SIGKILL
         return self.out, self.err
@@ -281,7 +310,7 @@ def lease(url, zid=1, env="rustproto"):
     """The durable lease row exactly as a competing process would observe it."""
     c = connect(url)
     with c.cursor() as cur:
-        cur.execute("SELECT owner_id,owner_epoch,expires_at>clock_timestamp() FROM coordinator_leases WHERE math_env=%s AND zid=%s", (env, zid))
+        cur.execute("SELECT owner_id,owner_epoch,expires_at>clock_timestamp() FROM polis_coordinator_leases WHERE math_env=%s AND zid=%s", (env, zid))
         row = cur.fetchone()
     c.close()
     return dict(zip(("owner_id", "owner_epoch", "unexpired"), row)) if row else None
@@ -313,5 +342,5 @@ def repair_after_unclean_death(launch, db, predicate, lease_seconds="2", timeout
 def expire(url):
     c = connect(url)
     with c.cursor() as cur:
-        cur.execute("UPDATE coordinator_leases SET expires_at=clock_timestamp()-interval '1 second'")
+        cur.execute("UPDATE polis_coordinator_leases SET expires_at=clock_timestamp()-interval '1 second'")
     c.close()
