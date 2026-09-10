@@ -25,7 +25,7 @@ class LoginTests(unittest.TestCase):
         with self.conn.cursor() as c:
             c.execute('SELECT 1 FROM pg_roles WHERE rolname=%s',(ROLE,));return bool(c.fetchone())
 
-    def install(self,owner='synthetic-owned-stack'):
+    def install(self,owner='public-fixture-owned-stack'):
         provision(self.conn,self.password,self.database,owner)
 
     def test_create_select_and_no_dml(self):

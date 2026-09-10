@@ -39,7 +39,7 @@ class BoundaryTests(unittest.TestCase):
             for location in ['root','entry','selection','digests']:
                 with self.subTest(key=key,location=location):
                     r=receipt();node={'root':r,'entry':r['entries'][0],'digests':r['digests'],'selection':r}[location]
-                    node[key]='synthetic private value'
+                    node[key]='public-fixture private value'
                     with self.assertRaises(ValueError):validate_receipt(r,job())
 
     def test_false_pass_nonfinite_boolean_or_negative_rejected(self):
@@ -62,7 +62,7 @@ class BoundaryTests(unittest.TestCase):
         for stream in [None,1,2]:
             with self.subTest(stream=stream):
                 code="import os;os.write(1,b'PASS\\n')"
-                if stream:code+=f";os.write({stream},b'synthetic-private-value\\n')"
+                if stream:code+=f";os.write({stream},b'public-fixture-private-value\\n')"
                 def run(*args,**kw):return actual_run([sys.executable,'-c',code],**kw)
                 out=SimpleNamespace(buffer=io.BytesIO())
                 with patch.object(dispatch.subprocess,'run',run),patch.object(dispatch.sys,'stdout',out):

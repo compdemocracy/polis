@@ -211,6 +211,7 @@ export class CertificationCiEc2 extends Construct {
     // ------------------------------------------------------------------- net
     const securityGroup = new ec2.SecurityGroup(this, 'WorkerSg', {
       vpc: props.vpc,
+      // Frozen deployed description: changing it replaces the security group.
       description: 'P-022 E synthetic CI worker: no inbound, egress only',
       allowAllOutbound: true,
     });

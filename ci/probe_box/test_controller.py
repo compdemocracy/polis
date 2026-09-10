@@ -205,5 +205,5 @@ class HandlerTests(unittest.TestCase):
             key='results/arn:aws:ec2:us-east-1:111111111111:instance/i-test/receipt.json'
             s.objects['evidence',key]=encoded(receipt())
             self.assertEqual(controller.handler({'action':'status','run_id':'a'*32},None),{'run_id':'a'*32,'complete':True,'passed':True})
-            bad=receipt();bad['rows']=[{'synthetic':1}];s.objects['evidence',key]=encoded(bad)
+            bad=receipt();bad['rows']=[{'public-fixture':1}];s.objects['evidence',key]=encoded(bad)
             self.assertFalse(controller.handler({'action':'status','run_id':'a'*32},None)['passed'])

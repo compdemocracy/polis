@@ -30,7 +30,7 @@ describe.each(["post", "put"] as const)(
     let conversationId: string;
     let zid: string;
     let jobIds: string[];
-    const selections = [{ topic_id: "synthetic-topic", priority: 1 }];
+    const selections = [{ topic_id: "public-fixture-topic", priority: 1 }];
 
     beforeAll(async () => {
       await ensureJobQueueTableExists();
@@ -220,7 +220,7 @@ describe.each(["post", "put"] as const)(
           command: any
         ): any {
           if (command instanceof QueryCommand && ++queryCount === 2) {
-            return Promise.reject(new Error("Synthetic DynamoDB page failure"));
+            return Promise.reject(new Error("Public-fixture DynamoDB page failure"));
           }
           return originalSend.call(this, command);
         });
