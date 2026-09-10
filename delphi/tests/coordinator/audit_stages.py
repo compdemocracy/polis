@@ -40,7 +40,8 @@ open_conditions=[
     ' generation zero across all callers is still outstanding',
     'C7 / polis-empty-served/1: the Python comparison writer publishes no row for a zero-vote'
     ' conversation, the server synthesizes the approved-comment listing with a'
-    ' request-clock lastVoteTimestamp, and a published empty generation lists no tids;'
+    ' request-clock lastVoteTimestamp; both raw rows retain empty tids while presentPca'
+    ' supplies approved comments for both;'
     ' the transition must preserve comment ownership; the comparison clock is admitted'
     ' (plan rev2 C2: freeze the logical request clock, advance it, preserve the response'
     ' dependency), and the empty-transition campaign that exercises it is still open',
@@ -89,6 +90,7 @@ if closure_path.exists():
             'delphi/polismath/engine_adapter.py', 'delphi/tests/coordinator/test_s1_identity.py',
             'delphi/tests/coordinator/test_adapter.py', 'delphi/tests/coordinator/audit_stages.py',
             'coordinator-rs/tests/s1_admission.rs', 'coordinator-rs/tools/record_s1.py',
+            'coordinator-rs/tools/node_reader.cjs',
         }
         assert required_pins <= closure['sha256'].keys(), 'missing S1 source pins'
         for name, expected in sorted(closure['sha256'].items()):
@@ -116,6 +118,7 @@ if s2_closure_path.exists():
         assert closure['production_reader_evidence'] == 'coordinator-rs/evidence/s2-production-reader.json'
         required_pins = {
             'coordinator-rs/tools/bundle_reader.cjs', 'coordinator-rs/tools/record_s2.py',
+            'coordinator-rs/tools/node_reader.cjs',
             'coordinator-rs/evidence/s2-production-reader.json', 'coordinator-rs/tools/record_s2_production.py',
             'delphi/tests/coordinator/test_bundle_reader.py', 'delphi/tests/coordinator/test_node_reader.py',
             'delphi/tests/coordinator/_node_gate.py', 'delphi/tests/coordinator/audit_stages.py',

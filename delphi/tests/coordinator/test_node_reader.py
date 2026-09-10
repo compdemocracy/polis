@@ -11,11 +11,11 @@ artefacts are compared byte for byte:
   * the `_.pick(asPOJO, keys)` projection that route serves with `?keys=`,
   * `getBidIndexToPidMapping`, and the `getPidsForGid` join over both.
 
-Scope, stated honestly: there is no `loadBundle` in the server today — #2703
-scoped the existing reader by `[math_env, zid]`, it did not introduce CO04's
-Bundle. This exercises the consumer that exists, in-process rather than over
-HTTP, and it does not close the CO04 Node cache-unit rewrite or the private
-2,884-case served corpus.
+The real response-boundary presentPca runs after getPca; raw fields and hashes
+are reported separately so approved-comment presentation cannot hide mutation
+of the engine row. This runs in-process rather than over HTTP. The separate
+S2 witnesses exercise Bundle atomicity; the combined full-app/private corpus
+remains outstanding.
 """
 import json
 import os
@@ -32,7 +32,8 @@ from coordinator._node_gate import require_node
 HARNESS = ROOT / "coordinator-rs/tools/node_reader.cjs"
 EVIDENCE = ROOT / "coordinator-rs/evidence"
 COMPARED = ("asJSON_sha256", "asJSON_bytes", "gzip_sha256", "gzip_bytes",
-            "keys_projection_sha256", "tids", "n", "repness_keys", "consensus_shape",
+            "keys_projection_sha256", "tids", "n", "n_cmts", "pca_center",
+            "comment_extremity", "repness_keys", "consensus_shape",
             "mapping_sha256", "bid_to_pid", "pids_for_gid", "mapping_is_error")
 
 
@@ -67,10 +68,8 @@ def test_real_node_reader_serves_identical_bytes_for_both_writers(db, launch):
     require_node()
     seed(db)
     rust_and_python_publish(db, launch)
-    # A second checkpoint. This harness calls `getPca(zid, undefined)`, whose
-    # cold behaviour at a committed generation of zero is a documented reader
-    # asymmetry (test_step2_review_controls.py shows the real route serving
-    # generation zero with 200 and ETag "0"), so the comparison uses tick 1.
+    # Retain the historical tick-1 checkpoint. Generation zero is exercised
+    # separately by test_step2_review_controls.py; #2732 fixed its cold reader.
     # Both namespaces advance together.
     c = connect(db)
     with c.cursor() as cur:
@@ -84,13 +83,14 @@ def test_real_node_reader_serves_identical_bytes_for_both_writers(db, launch):
     assert set(served) == {"python", "rustproto"}
     for namespace in served.values():
         assert namespace["present"], namespace
+        assert namespace["raw"]["unchanged_after_presentation"] is True
         assert namespace["mapping_is_error"] is False
         assert namespace["etag_math_tick"] == 1
     differences = {field: (served["rustproto"][field], served["python"][field])
                    for field in COMPARED
                    if served["rustproto"][field] != served["python"][field]}
     (EVIDENCE / "d4-node-reader.json").write_text(json.dumps({
-        "profile": "real server/src/utils/pca.ts + participants.ts, in-process, one Node process",
+        "profile": "real getPca + presentPca + participants.ts, in-process, one Node process",
         "zid": 1, "math_tick": 1, "compared_fields": list(COMPARED),
         "differences": differences,
         "served": {env: {k: v for k, v in ns.items() if k in COMPARED or k == "etag_math_tick"}
@@ -146,8 +146,8 @@ def test_published_empty_math_versus_the_servers_own_empty_presentation(db, laun
     python_checkpoint(db)
     assert rows(db, env="python")["math_main"] is None, (
         "the reference writer publishes no generation for a zero-vote conversation")
-    # A second generation, for the same reason as above: this harness's
-    # `getPca(zid, undefined)` caller does not return a cold generation zero.
+    # Retain the historical second generation after all comments are approved.
+    # The generation-zero caller regression is covered separately.
     c = connect(db)
     with c.cursor() as cur:
         cur.execute("UPDATE comments SET mod=1 WHERE zid=1")
@@ -175,13 +175,20 @@ def test_published_empty_math_versus_the_servers_own_empty_presentation(db, laun
     assert published["mapping_is_error"] is False
     # The mapping is the one place the synthesized path has nothing to serve.
     assert synthesized["mapping_is_error"] is True
-    # C7, observed rather than argued: the published math blob lists no
-    # comments, while the server's own empty presentation lists the approved
-    # ones straight from `comments`. The contract's ruling is that the server
-    # must own that listing; this is the two behaviours side by side.
-    assert published["tids"] == []
-    assert synthesized["tids"] == [0, 1, 2, 3]
-    assert "tids" in differences
+    # C7: both raw getPca paths are empty; only the actual response-boundary
+    # presenter supplies approved-comment fields, without mutating either row.
+    for namespace in (published, synthesized):
+        assert namespace["raw"]["tids"] == []
+        assert namespace["raw"]["n_cmts"] == 0
+        assert namespace["raw"]["unchanged_after_presentation"] is True
+        assert namespace["tids"] == [0, 1, 2, 3]
+        assert namespace["n_cmts"] == 4
+        assert namespace["pca_center"] == [0, 0]
+        assert namespace["comment_extremity"] == [0, 0, 0, 0]
+        assert namespace["asJSON_sha256"] != namespace["raw"]["asJSON_sha256"]
+        assert namespace["gzip_sha256"] != namespace["raw"]["gzip_sha256"]
+    assert "tids" not in differences
+    assert "n_cmts" not in differences
     # And the synthesized presentation is not even reproducible: pca.ts's
     # createEmptyPcaStructure stamps `lastVoteTimestamp: Date.now()`, so two
     # servers answering the same request for the same conversation serve

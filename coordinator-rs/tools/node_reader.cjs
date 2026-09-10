@@ -16,10 +16,10 @@
  *   - `mapping`: `getBidIndexToPidMapping`'s returned data.
  *   - `pids_for_gid`: the `getPca` + mapping join, per group.
  *
- * There is no `loadBundle` in the server today; PR #2703 scoped the existing
- * reader by `[math_env, zid]` rather than introducing one. This harness
- * therefore exercises the reader that actually exists. It is a real-consumer
- * equality check, not a claim that CO04's Bundle rewrite has been done.
+ * The response-boundary presenter owns approved-comment defaults; raw getPca
+ * bytes are reported separately and checked for mutation. The current server
+ * uses loadBundle internally; this in-process check does not replace the S2
+ * interleaving witnesses or the combined full-app campaign.
  *
  * Usage: node node_reader.cjs '<json spec>' where the spec is
  *   {"zid":1,"envs":["python","rustproto"],"keys":["tids","n"],"gids":[0,1]}
@@ -50,6 +50,7 @@ serverRequire("ts-node").register({
 
 const Config = serverRequire("./src/config").default;
 const { getPca } = serverRequire("./src/utils/pca");
+const { presentPca } = serverRequire("./src/utils/pcaPresentation");
 const participants = serverRequire("./src/utils/participants");
 const _ = serverRequire("underscore");
 
@@ -58,7 +59,9 @@ const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex"
 async function readNamespace(zid, mathEnv, keys, gids) {
   // The sanctioned pattern from server/__tests__/integration/math-env-isolation.test.ts.
   Config.mathEnv = mathEnv;
-  const item = await getPca(zid, undefined);
+  const raw = await getPca(zid, undefined);
+  const rawBefore = raw ? JSON.stringify(raw.asPOJO) : null;
+  const item = await presentPca(zid, raw);
   if (!item) {
     return { math_env: mathEnv, present: false };
   }
@@ -76,6 +79,16 @@ async function readNamespace(zid, mathEnv, keys, gids) {
   return {
     math_env: mathEnv,
     present: true,
+    raw: {
+      tids: raw.asPOJO.tids,
+      n_cmts: raw.asPOJO["n-cmts"],
+      asJSON_sha256: sha256(raw.asJSON),
+      gzip_sha256: sha256(raw.asBufferOfGzippedJson),
+      unchanged_after_presentation: rawBefore === JSON.stringify(raw.asPOJO),
+    },
+    n_cmts: item.asPOJO["n-cmts"],
+    pca_center: item.asPOJO.pca.center,
+    comment_extremity: item.asPOJO.pca["comment-extremity"],
     // The math_tick the route puts in the ETag.
     etag_math_tick: item.asPOJO.math_tick,
     asJSON_sha256: sha256(item.asJSON),

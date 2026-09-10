@@ -53,6 +53,7 @@ def main():
     # Committed inputs only, so the record re-verifies on any checkout of this commit.
     paths = [
         ROOT / "coordinator-rs/tools/bundle_reader.cjs",
+        ROOT / "coordinator-rs/tools/node_reader.cjs",
         ROOT / "coordinator-rs/tools/record_s2.py",
         ROOT / "delphi/tests/coordinator/test_bundle_reader.py",
         ROOT / "delphi/tests/coordinator/test_node_reader.py",
