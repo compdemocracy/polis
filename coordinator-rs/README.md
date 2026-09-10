@@ -281,6 +281,60 @@ reachability alone does not close any condition.
 
 ## Where the evidence lives
 
+### Dedicated candidate CI (D02)
+
+`.github/workflows/coordinator-ci.yml` adds the stable check
+`Coordinator S1/S2 required` on every PR, edge/stable push, merge group and manual
+run. It provisions a full history checkout, Python dependencies from the retained
+exact requirements, Node 24 modules with `npm ci`, and the crate's pinned Rust
+toolchain. It needs no credentials or private fixtures. Repository branch rules
+must require this check separately; adding a workflow does not configure those
+rules. A hosted run of this new job must pass before its required-CI obligation
+can be accepted. Existing stack lint, server, Delphi and full-app jobs remain
+separate required evidence on the same proposed build.
+
+The runner executes both locked Rust test/clippy profiles, release and fault
+builds, the historical 151 Python cases (including replay, polarity, actual Node
+reader and release+fault refusal), all 25 stage witnesses, and the 37-case,
+three-suite production Bundle selection. `ci/inventory-v1.json` fixes exact case
+identities as well as counts. A pytest collection hook refuses a subset before
+execution; JUnit, Cargo and Jest admission also rejects skips, duplicates,
+substitutions and missing outcomes. The separate control suite has its own exact
+inventory. New bridge cases need an explicitly reviewed inventory revision that
+preserves the historical case set; they cannot replace old cases silently.
+
+From a fully provisioned checkout, run this local-only command with an unused
+project, port and output directory (the output must be outside the checkout):
+
+```sh
+COMPOSE_PROJECT_NAME=coordinator-local-unique \
+POLIS_RECOVERY_PG_PORT=55492 RECOVERY_PG_PORT=55492 \
+python coordinator-rs/ci/run.py --output /tmp/coordinator-campaign-unique
+```
+
+The runner owns its disposable PostgreSQL project and applies the unchanged
+repository migration chain to a fresh synthetic Bundle database. The historical
+Python fixtures continue to apply the existing **prototype** coordinator schema
+to their own test databases. This adds no migration or production schema scope.
+The receipt records exact commands, actual runtime/image identities, source and
+artifact hashes, counts, failure controls and cleanup. There is no private run,
+deployment, activation or transfer in this job.
+
+Old artifacts are parked before execution and restored afterward. Four D4
+summaries are removed before the tests, requiring fresh witnesses. Fresh replay
+and polarity results are compared to the reviewed baseline; existing source pins
+are verified without calling either closure recorder. All historical evidence is
+restored byte for byte, and the fresh receipt is retained separately. The
+published-empty bytes and stable D4 fields must reproduce. Synthesized-empty
+request-clock and associated JSON/gzip observations retain their existing
+non-certifying scope: nine precisely named values are retained in the receipt,
+with no synthesized-empty byte-equality or clock-only-causation claim. Changes
+to stable fields, published bytes or inconsistent observations fail admission.
+The
+candidate gate may PASS while the full-contract gate remains FAIL with O1/O8
+PARTIAL. The earlier closure records describe their historical slice; this new
+plumbing does not silently rewrite or close those obligations.
+
 - `coordinator-rs/evidence/*.json` — checked-in, sanitized summaries: test
   counts, stage reachability, byte-hash comparisons against the existing
   writer and the real Node reader, and the metric catalog. No production
