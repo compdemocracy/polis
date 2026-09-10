@@ -13,10 +13,17 @@
 -- Apply THIS FILE ALONE only after separate operator approval, tested reversal,
 -- backup/restore and publisher exclusion. Never replay the migration directory.
 -- This migration requires a superuser installer on PostgreSQL 17. It provisions
--- three NOLOGIN roles; it grants NO login membership, NO existing math-table
--- write privileges, and wires NO adapter. The bridge's restricted publication
--- API/authority is a separate reviewed handoff; these tables alone do not fence
--- any current Python/Clojure writer. The control role cannot write receipts.
+-- four NOLOGIN roles; it grants NO login membership and wires NO adapter. A new
+-- NOLOGIN
+-- polis_coordinator_publication_owner receives SELECT/INSERT/UPDATE on only
+-- math_ticks, math_bidtopid, math_ptptstats and math_main; conversations SELECT
+-- and UPDATE(topic) allow the parent lock. Public schema USAGE only. Every
+-- external grant is recorded/reversed without adding a grant option.
+-- pc_publish has fixed SQL, SECURITY DEFINER and search_path=pg_catalog,pg_temp.
+-- It alone writes math and receipts under the final owner/epoch/margin check.
+-- The Python publisher role gets EXECUTE only (plus metadata reads); the Rust
+-- control role gets no EXECUTE and no math write permission. These privileges
+-- do not fence existing broad-credential writers; exclude them before activation.
 --
 -- Sequence initialization reads the old main maximum under SHARE lock. That
 -- lock lasts to COMMIT, not forever: publisher exclusion must last until the
@@ -44,12 +51,12 @@ BEGIN
  IF EXISTS(SELECT FROM pg_class WHERE relnamespace='public'::regnamespace AND starts_with(relname,'coordinator_'))
  OR EXISTS(SELECT FROM pg_attribute WHERE attrelid=ANY(ARRAY['public.math_ticks'::regclass,'public.math_main'::regclass,'public.math_bidtopid'::regclass,'public.math_ptptstats'::regclass]) AND NOT attisdropped AND attname IN ('publisher_epoch','input_checkpoint','operation_id','original_bytes','original_sha256')) THEN
   RAISE EXCEPTION 'refusing: prototype coordinator schema must be isolated, not adopted'; END IF;
- IF EXISTS(SELECT FROM pg_roles WHERE rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publisher') AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)) THEN
+ IF EXISTS(SELECT FROM pg_roles WHERE rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher') AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)) THEN
   RAISE EXCEPTION 'refusing: unsafe coordinator role attributes'; END IF;
  -- Memberships could make a control/publisher login inherit the owner role.
  -- Adoption with unrelated grants/settings is safe; role hierarchies require a
  -- separate operator review. Provisioning runtime memberships happens later.
- IF EXISTS(SELECT FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publisher')) THEN
+ IF EXISTS(SELECT FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher')) THEN
   RAISE EXCEPTION 'refusing: coordinator roles inherit another role'; END IF;
 END $pre$;
 -- Shared guard body is byte-identical in up/down; only pg_temp functions.
@@ -68,7 +75,7 @@ SELECT md5(jsonb_build_object(
   'acl',(SELECT jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable) ORDER BY a.grantee=0,pg_get_userbyid(a.grantee),pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable)
    FROM aclexplode(COALESCE(c.relacl,acldefault(CASE WHEN c.relkind='S' THEN 'S'::"char" ELSE 'r'::"char" END,c.relowner))) a)
  ) ORDER BY c.relname) FROM pg_class c WHERE c.relnamespace='public'::regnamespace AND starts_with(c.relname,'polis_coordinator_')),
- 'functions',(SELECT jsonb_agg(jsonb_build_array(p.proname,oidvectortypes(p.proargtypes),pg_get_function_result(p.oid),p.prosrc,p.probin,p.proconfig,p.prosecdef,p.provolatile,p.proisstrict,p.proparallel,p.proacl::text,pg_get_userbyid(p.proowner)) ORDER BY p.proname,oidvectortypes(p.proargtypes)) FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND starts_with(p.proname,'pc_'))
+ 'functions',(SELECT jsonb_agg(jsonb_build_array(p.proname,oidvectortypes(p.proargtypes),pg_get_function_result(p.oid),p.prosrc,p.probin,(SELECT lanname FROM pg_language WHERE oid=p.prolang),p.prokind,pg_get_function_arguments(p.oid),p.proconfig,p.prosecdef,p.provolatile,p.proisstrict,p.proparallel,p.proacl::text,pg_get_userbyid(p.proowner)) ORDER BY p.proname,oidvectortypes(p.proargtypes)) FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND starts_with(p.proname,'pc_'))
 )::text)
 $catalog$;
 CREATE OR REPLACE FUNCTION pg_temp.pc_grant_spec()
@@ -80,7 +87,22 @@ VALUES ('schema','public','','polis_coordinator_owner','USAGE'),
 ('schema','public','','polis_coordinator_publisher','USAGE'),
 ('table','conversations','','polis_coordinator_owner','SELECT'),
 ('column','conversations','zid','polis_coordinator_owner','REFERENCES'),
-('column','conversations','topic','polis_coordinator_owner','UPDATE')
+('column','conversations','topic','polis_coordinator_owner','UPDATE'),
+('schema','public','','polis_coordinator_publication_owner','USAGE'),
+('table','conversations','','polis_coordinator_publication_owner','SELECT'),
+('column','conversations','topic','polis_coordinator_publication_owner','UPDATE'),
+('table','math_ticks','','polis_coordinator_publication_owner','SELECT'),
+('table','math_ticks','','polis_coordinator_publication_owner','INSERT'),
+('table','math_ticks','','polis_coordinator_publication_owner','UPDATE'),
+('table','math_main','','polis_coordinator_publication_owner','SELECT'),
+('table','math_main','','polis_coordinator_publication_owner','INSERT'),
+('table','math_main','','polis_coordinator_publication_owner','UPDATE'),
+('table','math_bidtopid','','polis_coordinator_publication_owner','SELECT'),
+('table','math_bidtopid','','polis_coordinator_publication_owner','INSERT'),
+('table','math_bidtopid','','polis_coordinator_publication_owner','UPDATE'),
+('table','math_ptptstats','','polis_coordinator_publication_owner','SELECT'),
+('table','math_ptptstats','','polis_coordinator_publication_owner','INSERT'),
+('table','math_ptptstats','','polis_coordinator_publication_owner','UPDATE')
 $spec$;
 CREATE OR REPLACE FUNCTION pg_temp.pc_external_acl()
 RETURNS TABLE(object_kind text,object_name text,column_name text,grantee text,grantor text,privilege text,grantable boolean)
@@ -88,7 +110,7 @@ LANGUAGE sql SET search_path=pg_catalog,pg_temp AS $acl$
  SELECT 'schema',n.nspname::text,'',pg_get_userbyid(a.grantee),pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable
  FROM pg_namespace n CROSS JOIN LATERAL aclexplode(n.nspacl) a WHERE n.nspname='public'
  UNION ALL SELECT 'table',c.relname::text,'',pg_get_userbyid(a.grantee),pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable
- FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE c.oid='public.conversations'::regclass
+ FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE c.oid=ANY(ARRAY['public.conversations'::regclass,'public.math_ticks'::regclass,'public.math_main'::regclass,'public.math_bidtopid'::regclass,'public.math_ptptstats'::regclass])
  UNION ALL SELECT 'column','conversations',att.attname::text,pg_get_userbyid(a.grantee),pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable
  FROM pg_attribute att CROSS JOIN LATERAL aclexplode(att.attacl) a WHERE att.attrelid='public.conversations'::regclass AND att.attnum>0
 $acl$;
@@ -96,7 +118,7 @@ DO $admit$
 BEGIN
  IF EXISTS(SELECT FROM pg_class WHERE relnamespace='public'::regnamespace AND starts_with(relname,'polis_coordinator_'))
  OR EXISTS(SELECT FROM pg_proc WHERE pronamespace='public'::regnamespace AND starts_with(proname,'pc_')) THEN
-  IF pg_temp.pc_catalog() IS DISTINCT FROM '9b49e569942fb328509a560141cdd203' THEN
+  IF pg_temp.pc_catalog() IS DISTINCT FROM '762ab4ea71d7e314494ddd0b3290e6c1' THEN
    RAISE EXCEPTION 'refusing: coordinator catalog drift before replay' USING DETAIL=pg_temp.pc_catalog(); END IF;
   PERFORM set_config('polis_coordinator.replay','true',true);
  ELSE PERFORM set_config('polis_coordinator.replay','false',true);
@@ -104,12 +126,12 @@ BEGIN
 END $admit$;
 -- Snapshot before adding any external privileges. No membership grants occur.
 CREATE TEMP TABLE pc_before_roles ON COMMIT DROP AS SELECT oid,rolname FROM pg_roles
- WHERE rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publisher');
+ WHERE rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher');
 CREATE TEMP TABLE pc_before_acl ON COMMIT DROP AS SELECT * FROM pg_temp.pc_external_acl();
 DO $roles$
 DECLARE r text;
 BEGIN
- FOREACH r IN ARRAY ARRAY['polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publisher'] LOOP
+ FOREACH r IN ARRAY ARRAY['polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher'] LOOP
   IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname=r) THEN EXECUTE format('CREATE ROLE %I NOLOGIN',r); END IF;
  END LOOP;
 END $roles$;
@@ -131,6 +153,14 @@ BEGIN
   math_env varchar(999) NOT NULL CHECK(length(math_env)>0), zid integer NOT NULL REFERENCES public.conversations(zid),
   owner_id text NOT NULL CHECK(length(owner_id) BETWEEN 1 AND 128),
   owner_epoch bigint NOT NULL CHECK(owner_epoch>0), expires_at timestamptz NOT NULL CHECK(isfinite(expires_at)),
+  dispatch_operation_id text, dispatch_capability_sha256 text, dispatch_checkpoint_sha256 text,
+  dispatch_expected_tick bigint, dispatch_margin_ms integer,
+  CHECK ((dispatch_operation_id IS NULL AND dispatch_capability_sha256 IS NULL AND dispatch_checkpoint_sha256 IS NULL AND dispatch_expected_tick IS NULL AND dispatch_margin_ms IS NULL)
+   OR (dispatch_operation_id IS NOT NULL AND length(dispatch_operation_id) BETWEEN 1 AND 128
+    AND dispatch_capability_sha256 IS NOT NULL AND dispatch_capability_sha256 ~ '^[0-9a-f]{64}$'
+    AND dispatch_checkpoint_sha256 IS NOT NULL AND dispatch_checkpoint_sha256 ~ '^[0-9a-f]{64}$'
+    AND (dispatch_expected_tick IS NULL OR dispatch_expected_tick BETWEEN 0 AND 9007199254740990)
+    AND dispatch_margin_ms IS NOT NULL AND dispatch_margin_ms BETWEEN 1 AND 60000)),
   PRIMARY KEY(math_env,zid)
  );
  CREATE TABLE public.polis_coordinator_cursors (
@@ -159,6 +189,9 @@ BEGIN
   caching_tick bigint NOT NULL CHECK(caching_tick BETWEEN 1 AND 9007199254740991),
   owner_id text NOT NULL CHECK(length(owner_id) BETWEEN 1 AND 128), publisher_epoch bigint NOT NULL CHECK(publisher_epoch>0),
   operation_id text NOT NULL CHECK(length(operation_id) BETWEEN 1 AND 128),
+  capability_sha256 text NOT NULL CHECK(capability_sha256 ~ '^[0-9a-f]{64}$'),
+  expected_tick bigint CHECK(expected_tick BETWEEN 0 AND 9007199254740990),
+  CHECK(math_tick=coalesce(expected_tick+1,0)),
   input_checkpoint jsonb NOT NULL CHECK(jsonb_typeof(input_checkpoint)='object'),
   committed_at timestamptz NOT NULL DEFAULT clock_timestamp() CHECK(isfinite(committed_at)),
   PRIMARY KEY(math_env,zid,math_tick), UNIQUE(math_env,zid,operation_id)
@@ -180,13 +213,13 @@ BEGIN
   installed_at timestamptz NOT NULL DEFAULT clock_timestamp(), installed_by name NOT NULL
  );
  CREATE TABLE public.polis_coordinator_install_roles (
-  role_name text PRIMARY KEY CHECK(role_name IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publisher')),
+  role_name text PRIMARY KEY CHECK(role_name IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher')),
   role_oid oid NOT NULL, created boolean NOT NULL
  );
  CREATE TABLE public.polis_coordinator_install_grants (
   object_kind text NOT NULL CHECK(object_kind IN ('schema','table','column')),
   object_name text NOT NULL, column_name text NOT NULL, grantee text NOT NULL, grantor text NOT NULL,
-  privilege text NOT NULL CHECK(privilege IN ('USAGE','CREATE','SELECT','REFERENCES','UPDATE')),
+  privilege text NOT NULL CHECK(privilege IN ('USAGE','CREATE','SELECT','REFERENCES','UPDATE','INSERT')),
   prior_present boolean NOT NULL, prior_grantable boolean NOT NULL,
   CHECK(prior_present OR NOT prior_grantable),
   PRIMARY KEY(object_kind,object_name,column_name,grantee,privilege)
@@ -200,15 +233,142 @@ BEGIN
  GRANT SELECT,INSERT,UPDATE,DELETE ON public.polis_coordinator_leases,public.polis_coordinator_cursors,public.polis_coordinator_failures,public.polis_coordinator_reconciliation TO polis_coordinator_control;
  GRANT SELECT ON public.polis_coordinator_generations,public.polis_coordinator_payloads TO polis_coordinator_control;
  GRANT SELECT ON public.polis_coordinator_leases TO polis_coordinator_publisher;
- GRANT SELECT,INSERT ON public.polis_coordinator_generations,public.polis_coordinator_payloads TO polis_coordinator_publisher;
- GRANT USAGE ON SEQUENCE public.polis_coordinator_caching_tick TO polis_coordinator_publisher;
+ GRANT SELECT ON public.polis_coordinator_generations,public.polis_coordinator_payloads TO polis_coordinator_publisher;
+ GRANT SELECT ON public.polis_coordinator_install TO polis_coordinator_control,polis_coordinator_publisher;
+ GRANT SELECT,UPDATE ON public.polis_coordinator_leases TO polis_coordinator_publication_owner;
+ GRANT SELECT,INSERT ON public.polis_coordinator_generations,public.polis_coordinator_payloads TO polis_coordinator_publication_owner;
+ GRANT USAGE ON SEQUENCE public.polis_coordinator_caching_tick TO polis_coordinator_publication_owner;
  INSERT INTO public.polis_coordinator_install_roles
  SELECT r.rolname,r.oid,b.oid IS NULL FROM pg_roles r LEFT JOIN pc_before_roles b ON b.oid=r.oid
- WHERE r.rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publisher');
+ WHERE r.rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher');
  INSERT INTO public.polis_coordinator_install_grants(object_kind,object_name,column_name,grantee,grantor,privilege,prior_present,prior_grantable)
  SELECT s.object_kind,s.object_name,s.column_name,s.grantee,a.grantor,s.privilege,b.grantor IS NOT NULL,coalesce(b.grantable,false)
  FROM pg_temp.pc_grant_spec() s JOIN pg_temp.pc_external_acl() a USING(object_kind,object_name,column_name,grantee,privilege)
  LEFT JOIN pc_before_acl b USING(object_kind,object_name,column_name,grantee,grantor,privilege);
+ EXECUTE $authority$
+-- Fixed statements only. Payload preparation and integrity hashes precede locks.
+-- SECURITY DEFINER owner is a dedicated NOLOGIN role, never a service login.
+CREATE FUNCTION public.pc_canonical(p_value jsonb) RETURNS text
+LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $canonical$
+ SELECT CASE jsonb_typeof(p_value)
+ WHEN 'object' THEN '{'||coalesce((SELECT string_agg(to_jsonb(key)::text||':'||public.pc_canonical(value),',' ORDER BY key COLLATE "C") FROM jsonb_each(p_value)),'')||'}'
+ WHEN 'array' THEN '['||coalesce((SELECT string_agg(public.pc_canonical(value),',' ORDER BY ord) FROM jsonb_array_elements(p_value) WITH ORDINALITY a(value,ord)),'')||']'
+ WHEN 'number' THEN CASE WHEN p_value::text::numeric=0 THEN '0' ELSE trim_scale(p_value::text::numeric)::text END
+ ELSE p_value::text END
+$canonical$;
+CREATE FUNCTION public.pc_publish(
+ p_env text,p_zid integer,p_owner text,p_epoch bigint,p_operation text,
+ p_capability bytea,p_expected_tick bigint,p_checkpoint jsonb,
+ p_main bytea,p_bidtopid bytea,p_ptptstats bytea
+) RETURNS TABLE(outcome text,math_tick bigint,caching_tick bigint)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $publish$
+DECLARE
+ main_data jsonb; bid_data jsonb; stats_data jsonb; stamp bigint;
+ capability_hash text; checkpoint_hash text; originals jsonb; storage_hashes jsonb;
+ lease public.polis_coordinator_leases; receipt public.polis_coordinator_generations;
+ current_tick bigint; new_tick bigint; new_cursor bigint; recorded_checkpoint jsonb;
+BEGIN
+ IF p_env IS NULL OR length(p_env) NOT BETWEEN 1 AND 999 OR p_zid IS NULL
+ OR p_owner IS NULL OR length(p_owner) NOT BETWEEN 1 AND 128
+ OR p_epoch IS NULL OR p_epoch<=0 OR p_operation IS NULL OR length(p_operation) NOT BETWEEN 1 AND 128
+ OR p_capability IS NULL OR octet_length(p_capability)<>32
+ OR (p_expected_tick IS NOT NULL AND (p_expected_tick<0 OR p_expected_tick>=9007199254740991))
+ OR jsonb_typeof(p_checkpoint) IS DISTINCT FROM 'object'
+ OR p_main IS NULL OR p_bidtopid IS NULL OR p_ptptstats IS NULL THEN
+  RAISE EXCEPTION USING ERRCODE='P2010',MESSAGE='INVALID_PUBLICATION_REQUEST';
+ END IF;
+ -- PostgreSQL 17 rejects malformed/duplicate-key JSON before JSONB can collapse
+ -- it; the original supplied byte stream is retained and hashed unchanged.
+ IF NOT (convert_from(p_main,'UTF8') IS JSON OBJECT WITH UNIQUE KEYS)
+ OR NOT (convert_from(p_bidtopid,'UTF8') IS JSON OBJECT WITH UNIQUE KEYS)
+ OR NOT (convert_from(p_ptptstats,'UTF8') IS JSON OBJECT WITH UNIQUE KEYS) THEN
+  RAISE EXCEPTION USING ERRCODE='P2010',MESSAGE='INVALID_ORIGINAL_JSON';
+ END IF;
+ main_data:=convert_from(p_main,'UTF8')::jsonb;
+ bid_data:=convert_from(p_bidtopid,'UTF8')::jsonb;
+ stats_data:=convert_from(p_ptptstats,'UTF8')::jsonb;
+ IF main_data->'zid' IS DISTINCT FROM to_jsonb(p_zid)
+ OR bid_data->'zid' IS DISTINCT FROM to_jsonb(p_zid)
+ OR stats_data->'zid' IS DISTINCT FROM to_jsonb(p_zid)
+ OR jsonb_typeof(main_data->'lastVoteTimestamp') IS DISTINCT FROM 'number'
+ OR main_data->'lastVoteTimestamp' IS DISTINCT FROM bid_data->'lastVoteTimestamp'
+ OR main_data->'lastVoteTimestamp' IS DISTINCT FROM stats_data->'lastVoteTimestamp' THEN
+  RAISE EXCEPTION USING ERRCODE='P2010',MESSAGE='FOREIGN_OR_INCONSISTENT_PAYLOAD';
+ END IF;
+ IF (main_data->>'lastVoteTimestamp')::numeric <> trunc((main_data->>'lastVoteTimestamp')::numeric) THEN
+  RAISE EXCEPTION USING ERRCODE='P2010',MESSAGE='INVALID_VOTE_TIMESTAMP'; END IF;
+ stamp:=(main_data->>'lastVoteTimestamp')::numeric::bigint;
+ capability_hash:=encode(sha256(p_capability),'hex');
+ checkpoint_hash:=encode(sha256(convert_to(p_checkpoint::text,'UTF8')),'hex');
+ originals:=jsonb_build_object('main',encode(sha256(p_main),'hex'),'bidtopid',encode(sha256(p_bidtopid),'hex'),'ptptstats',encode(sha256(p_ptptstats),'hex'));
+ storage_hashes:=jsonb_build_object('main',encode(sha256(convert_to(public.pc_canonical(main_data),'UTF8')),'hex'),'bidtopid',encode(sha256(convert_to(public.pc_canonical(bid_data),'UTF8')),'hex'),'ptptstats',encode(sha256(convert_to(public.pc_canonical(stats_data),'UTF8')),'hex'));
+ recorded_checkpoint:=p_checkpoint||jsonb_build_object('operation_id',p_operation,'publisher_epoch',p_epoch,'original_digests',originals,'payload_digests',storage_hashes);
+ -- Parent first, then lease. Locking the lease serializes this exact operation
+ -- with renewal, takeover and another publication. One zid per transaction.
+ PERFORM zid FROM public.conversations WHERE zid=p_zid FOR KEY SHARE;
+ IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE='P2010',MESSAGE='UNKNOWN_CONVERSATION'; END IF;
+ SELECT * INTO lease FROM public.polis_coordinator_leases WHERE math_env=p_env AND zid=p_zid FOR UPDATE;
+ -- Durable exact-attempt readback remains possible after a newer generation or
+ -- lease exists. A different capability/checkpoint/payload is never a lost-ack
+ -- retry of the original operation. It cannot overwrite an old receipt.
+ SELECT * INTO receipt FROM public.polis_coordinator_generations g WHERE g.math_env=p_env AND g.zid=p_zid AND g.operation_id=p_operation;
+ IF FOUND THEN
+  IF receipt.owner_id IS DISTINCT FROM p_owner OR receipt.publisher_epoch IS DISTINCT FROM p_epoch
+  OR receipt.capability_sha256 IS DISTINCT FROM capability_hash
+  OR receipt.expected_tick IS DISTINCT FROM p_expected_tick
+  OR receipt.input_checkpoint IS DISTINCT FROM recorded_checkpoint
+  OR (SELECT count(*) FROM public.polis_coordinator_payloads r WHERE r.math_env=p_env AND r.zid=p_zid AND r.math_tick=receipt.math_tick
+      AND r.original_sha256=originals->>r.payload_kind AND r.storage_sha256=storage_hashes->>r.payload_kind)<>3 THEN
+   RAISE EXCEPTION USING ERRCODE='P2011',MESSAGE='OPERATION_IDENTITY_CONFLICT'; END IF;
+  RETURN QUERY SELECT 'already_committed'::text,receipt.math_tick,receipt.caching_tick;
+  RETURN;
+ END IF;
+ IF lease.owner_id IS DISTINCT FROM p_owner OR lease.owner_epoch IS DISTINCT FROM p_epoch THEN
+  RAISE EXCEPTION USING ERRCODE='P2003',MESSAGE='FENCED'; END IF;
+ IF lease.expires_at<=clock_timestamp() THEN
+  RAISE EXCEPTION USING ERRCODE='P2005',MESSAGE='LEASE-EXPIRED'; END IF;
+ IF lease.dispatch_operation_id IS DISTINCT FROM p_operation
+ OR lease.dispatch_capability_sha256 IS DISTINCT FROM capability_hash
+ OR lease.dispatch_checkpoint_sha256 IS DISTINCT FROM checkpoint_hash
+ OR lease.dispatch_expected_tick IS DISTINCT FROM p_expected_tick THEN
+  RAISE EXCEPTION USING ERRCODE='P2010',MESSAGE='DISPATCH_IDENTITY_CONFLICT'; END IF;
+ SELECT t.math_tick INTO current_tick FROM public.math_ticks t WHERE t.zid=p_zid AND t.math_env=p_env FOR UPDATE;
+ IF current_tick IS DISTINCT FROM p_expected_tick THEN
+  RETURN QUERY SELECT 'conflict'::text,current_tick,NULL::bigint; RETURN; END IF;
+ new_tick:=coalesce(current_tick+1,0);
+ INSERT INTO public.math_ticks(zid,math_env,math_tick) VALUES(p_zid,p_env,new_tick)
+ ON CONFLICT(zid,math_env) DO UPDATE SET math_tick=excluded.math_tick,modified=public.now_as_millis();
+ INSERT INTO public.math_bidtopid(zid,math_env,math_tick,data) VALUES(p_zid,p_env,new_tick,bid_data)
+ ON CONFLICT(zid,math_env) DO UPDATE SET math_tick=excluded.math_tick,data=excluded.data,modified=public.now_as_millis();
+ INSERT INTO public.math_ptptstats(zid,math_env,math_tick,data) VALUES(p_zid,p_env,new_tick,stats_data)
+ ON CONFLICT(zid,math_env) DO UPDATE SET math_tick=excluded.math_tick,data=excluded.data,modified=public.now_as_millis();
+ new_cursor:=nextval('public.polis_coordinator_caching_tick');
+ INSERT INTO public.math_main(zid,math_env,math_tick,data,last_vote_timestamp,caching_tick) VALUES(p_zid,p_env,new_tick,main_data,stamp,new_cursor)
+ ON CONFLICT(zid,math_env) DO UPDATE SET math_tick=excluded.math_tick,data=excluded.data,last_vote_timestamp=excluded.last_vote_timestamp,caching_tick=excluded.caching_tick,modified=public.now_as_millis();
+ INSERT INTO public.polis_coordinator_generations(math_env,zid,math_tick,caching_tick,owner_id,publisher_epoch,operation_id,capability_sha256,expected_tick,input_checkpoint)
+ VALUES(p_env,p_zid,new_tick,new_cursor,p_owner,p_epoch,p_operation,capability_hash,p_expected_tick,recorded_checkpoint);
+ INSERT INTO public.polis_coordinator_payloads(math_env,zid,math_tick,payload_kind,original_bytes,original_sha256,storage_sha256)
+ VALUES(p_env,p_zid,new_tick,'main',p_main,originals->>'main',storage_hashes->>'main'),
+ (p_env,p_zid,new_tick,'bidtopid',p_bidtopid,originals->>'bidtopid',storage_hashes->>'bidtopid'),
+ (p_env,p_zid,new_tick,'ptptstats',p_ptptstats,originals->>'ptptstats',storage_hashes->>'ptptstats');
+ -- The final authorization remains under the same lease lock; renewal cannot
+ -- extend through it. An exception rolls back every write in this call. It does
+ -- NOT promise the caller's COMMIT completes before expiry. The caller must
+ -- commit immediately and reconcile an ambiguous COMMIT by exact receipt.
+ SELECT * INTO lease FROM public.polis_coordinator_leases WHERE math_env=p_env AND zid=p_zid FOR UPDATE;
+ IF lease.owner_id IS DISTINCT FROM p_owner OR lease.owner_epoch IS DISTINCT FROM p_epoch THEN
+  RAISE EXCEPTION USING ERRCODE='P2003',MESSAGE='FENCED'; END IF;
+ IF lease.expires_at<=clock_timestamp()+make_interval(secs=>lease.dispatch_margin_ms::double precision/1000) THEN
+  RAISE EXCEPTION USING ERRCODE='P2005',MESSAGE='LEASE-EXPIRED'; END IF;
+ RETURN QUERY SELECT 'committed'::text,new_tick,new_cursor;
+END $publish$;
+ALTER FUNCTION public.pc_canonical(jsonb) OWNER TO polis_coordinator_publication_owner;
+ALTER FUNCTION public.pc_publish(text,integer,text,bigint,text,bytea,bigint,jsonb,bytea,bytea,bytea) OWNER TO polis_coordinator_publication_owner;
+REVOKE ALL ON FUNCTION public.pc_canonical(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.pc_publish(text,integer,text,bigint,text,bytea,bigint,jsonb,bytea,bytea,bytea) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.pc_publish(text,integer,text,bigint,text,bytea,bigint,jsonb,bytea,bytea,bytea) TO polis_coordinator_publisher;
+
+$authority$;
 END $create$;
 CREATE OR REPLACE FUNCTION pg_temp.pc_provenance_hash() RETURNS text
 LANGUAGE sql SET search_path=pg_catalog,pg_temp AS $hash$
@@ -235,7 +395,7 @@ BEGIN
   RAISE EXCEPTION 'refusing: coordinator sequence initialization or state drift';
  END IF;
  IF (SELECT array_agg(role_name ORDER BY role_name) FROM public.polis_coordinator_install_roles)
-  IS DISTINCT FROM ARRAY['polis_coordinator_control','polis_coordinator_owner','polis_coordinator_publisher']
+  IS DISTINCT FROM ARRAY['polis_coordinator_control','polis_coordinator_owner','polis_coordinator_publication_owner','polis_coordinator_publisher']
  OR EXISTS(SELECT FROM public.polis_coordinator_install_roles r LEFT JOIN pg_roles p ON p.rolname=r.role_name WHERE p.oid IS DISTINCT FROM r.role_oid) THEN
   RAISE EXCEPTION 'refusing: coordinator role provenance inventory or identity';
  END IF;
@@ -251,7 +411,7 @@ BEGIN
  WHERE a.grantable IS DISTINCT FROM g.prior_grantable
  OR g.grantor IS DISTINCT FROM CASE WHEN g.object_kind='schema'
   THEN pg_get_userbyid((SELECT nspowner FROM pg_namespace WHERE nspname='public'))
-  ELSE pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='public.conversations'::regclass)) END
+  ELSE pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=to_regclass('public.'||g.object_name))) END
  ) INTO bad;
  IF bad THEN RAISE EXCEPTION 'refusing: external grant drift or malformed provenance'; END IF;
 END $assert$;
@@ -262,7 +422,7 @@ BEGIN
   INSERT INTO public.polis_coordinator_install(singleton,migration_id,catalog_fingerprint,provenance_fingerprint,sequence_start,installed_by)
   VALUES(true,'000021',pg_temp.pc_catalog(),pg_temp.pc_provenance_hash(),(SELECT seqstart FROM pg_sequence WHERE seqrelid='public.polis_coordinator_caching_tick'::regclass),session_user);
  END IF;
- IF pg_temp.pc_catalog() IS DISTINCT FROM '9b49e569942fb328509a560141cdd203' THEN
+ IF pg_temp.pc_catalog() IS DISTINCT FROM '762ab4ea71d7e314494ddd0b3290e6c1' THEN
   RAISE EXCEPTION 'refusing: coordinator catalog assertion' USING DETAIL=pg_temp.pc_catalog(); END IF;
  PERFORM pg_temp.pc_assert_provenance();
 END $record$;

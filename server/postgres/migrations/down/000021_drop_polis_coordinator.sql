@@ -41,7 +41,7 @@ SELECT md5(jsonb_build_object(
   'acl',(SELECT jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable) ORDER BY a.grantee=0,pg_get_userbyid(a.grantee),pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable)
    FROM aclexplode(COALESCE(c.relacl,acldefault(CASE WHEN c.relkind='S' THEN 'S'::"char" ELSE 'r'::"char" END,c.relowner))) a)
  ) ORDER BY c.relname) FROM pg_class c WHERE c.relnamespace='public'::regnamespace AND starts_with(c.relname,'polis_coordinator_')),
- 'functions',(SELECT jsonb_agg(jsonb_build_array(p.proname,oidvectortypes(p.proargtypes),pg_get_function_result(p.oid),p.prosrc,p.probin,p.proconfig,p.prosecdef,p.provolatile,p.proisstrict,p.proparallel,p.proacl::text,pg_get_userbyid(p.proowner)) ORDER BY p.proname,oidvectortypes(p.proargtypes)) FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND starts_with(p.proname,'pc_'))
+ 'functions',(SELECT jsonb_agg(jsonb_build_array(p.proname,oidvectortypes(p.proargtypes),pg_get_function_result(p.oid),p.prosrc,p.probin,(SELECT lanname FROM pg_language WHERE oid=p.prolang),p.prokind,pg_get_function_arguments(p.oid),p.proconfig,p.prosecdef,p.provolatile,p.proisstrict,p.proparallel,p.proacl::text,pg_get_userbyid(p.proowner)) ORDER BY p.proname,oidvectortypes(p.proargtypes)) FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND starts_with(p.proname,'pc_'))
 )::text)
 $catalog$;
 CREATE OR REPLACE FUNCTION pg_temp.pc_grant_spec()
@@ -53,7 +53,22 @@ VALUES ('schema','public','','polis_coordinator_owner','USAGE'),
 ('schema','public','','polis_coordinator_publisher','USAGE'),
 ('table','conversations','','polis_coordinator_owner','SELECT'),
 ('column','conversations','zid','polis_coordinator_owner','REFERENCES'),
-('column','conversations','topic','polis_coordinator_owner','UPDATE')
+('column','conversations','topic','polis_coordinator_owner','UPDATE'),
+('schema','public','','polis_coordinator_publication_owner','USAGE'),
+('table','conversations','','polis_coordinator_publication_owner','SELECT'),
+('column','conversations','topic','polis_coordinator_publication_owner','UPDATE'),
+('table','math_ticks','','polis_coordinator_publication_owner','SELECT'),
+('table','math_ticks','','polis_coordinator_publication_owner','INSERT'),
+('table','math_ticks','','polis_coordinator_publication_owner','UPDATE'),
+('table','math_main','','polis_coordinator_publication_owner','SELECT'),
+('table','math_main','','polis_coordinator_publication_owner','INSERT'),
+('table','math_main','','polis_coordinator_publication_owner','UPDATE'),
+('table','math_bidtopid','','polis_coordinator_publication_owner','SELECT'),
+('table','math_bidtopid','','polis_coordinator_publication_owner','INSERT'),
+('table','math_bidtopid','','polis_coordinator_publication_owner','UPDATE'),
+('table','math_ptptstats','','polis_coordinator_publication_owner','SELECT'),
+('table','math_ptptstats','','polis_coordinator_publication_owner','INSERT'),
+('table','math_ptptstats','','polis_coordinator_publication_owner','UPDATE')
 $spec$;
 CREATE OR REPLACE FUNCTION pg_temp.pc_external_acl()
 RETURNS TABLE(object_kind text,object_name text,column_name text,grantee text,grantor text,privilege text,grantable boolean)
@@ -61,19 +76,19 @@ LANGUAGE sql SET search_path=pg_catalog,pg_temp AS $acl$
  SELECT 'schema',n.nspname::text,'',pg_get_userbyid(a.grantee),pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable
  FROM pg_namespace n CROSS JOIN LATERAL aclexplode(n.nspacl) a WHERE n.nspname='public'
  UNION ALL SELECT 'table',c.relname::text,'',pg_get_userbyid(a.grantee),pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable
- FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE c.oid='public.conversations'::regclass
+ FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE c.oid=ANY(ARRAY['public.conversations'::regclass,'public.math_ticks'::regclass,'public.math_main'::regclass,'public.math_bidtopid'::regclass,'public.math_ptptstats'::regclass])
  UNION ALL SELECT 'column','conversations',att.attname::text,pg_get_userbyid(a.grantee),pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable
  FROM pg_attribute att CROSS JOIN LATERAL aclexplode(att.attacl) a WHERE att.attrelid='public.conversations'::regclass AND att.attnum>0
 $acl$;
 SELECT NOT EXISTS(SELECT FROM pg_class WHERE relnamespace='public'::regnamespace AND starts_with(relname,'polis_coordinator_'))
  AND NOT EXISTS(SELECT FROM pg_proc WHERE pronamespace='public'::regnamespace AND starts_with(proname,'pc_'))
- AND NOT EXISTS(SELECT FROM pg_roles WHERE rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publisher')) AS pc_absent \gset
+ AND NOT EXISTS(SELECT FROM pg_roles WHERE rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher')) AS pc_absent \gset
 \if :pc_absent
  DO $$ BEGIN RAISE NOTICE 'coordinator schema never installed or completely removed; nothing to drop'; END $$;
 \else
  DO $catalog$
  BEGIN
-  IF pg_temp.pc_catalog() IS DISTINCT FROM '9b49e569942fb328509a560141cdd203' THEN
+  IF pg_temp.pc_catalog() IS DISTINCT FROM '762ab4ea71d7e314494ddd0b3290e6c1' THEN
    RAISE EXCEPTION 'refusing: coordinator catalog drift' USING DETAIL=pg_temp.pc_catalog(); END IF;
  END $catalog$;
  -- Child before parent; count only AFTER ACCESS EXCLUSIVE locks. The provenance
@@ -108,7 +123,7 @@ BEGIN
   RAISE EXCEPTION 'refusing: coordinator sequence initialization or state drift';
  END IF;
  IF (SELECT array_agg(role_name ORDER BY role_name) FROM public.polis_coordinator_install_roles)
-  IS DISTINCT FROM ARRAY['polis_coordinator_control','polis_coordinator_owner','polis_coordinator_publisher']
+  IS DISTINCT FROM ARRAY['polis_coordinator_control','polis_coordinator_owner','polis_coordinator_publication_owner','polis_coordinator_publisher']
  OR EXISTS(SELECT FROM public.polis_coordinator_install_roles r LEFT JOIN pg_roles p ON p.rolname=r.role_name WHERE p.oid IS DISTINCT FROM r.role_oid) THEN
   RAISE EXCEPTION 'refusing: coordinator role provenance inventory or identity';
  END IF;
@@ -124,7 +139,7 @@ BEGIN
  WHERE a.grantable IS DISTINCT FROM g.prior_grantable
  OR g.grantor IS DISTINCT FROM CASE WHEN g.object_kind='schema'
   THEN pg_get_userbyid((SELECT nspowner FROM pg_namespace WHERE nspname='public'))
-  ELSE pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid='public.conversations'::regclass)) END
+  ELSE pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid=to_regclass('public.'||g.object_name))) END
  ) INTO bad;
  IF bad THEN RAISE EXCEPTION 'refusing: external grant drift or malformed provenance'; END IF;
 END $assert$;
@@ -146,6 +161,8 @@ END $assert$;
   -- Snapshot validated provenance before dropping its tables.
   CREATE TEMP TABLE pc_remove_roles ON COMMIT DROP AS SELECT * FROM public.polis_coordinator_install_roles WHERE created;
   CREATE TEMP TABLE pc_remove_grants ON COMMIT DROP AS SELECT * FROM public.polis_coordinator_install_grants WHERE NOT prior_present;
+  DROP FUNCTION public.pc_publish(text,integer,text,bigint,text,bytea,bigint,jsonb,bytea,bytea,bytea);
+  DROP FUNCTION public.pc_canonical(jsonb);
   DROP TABLE public.polis_coordinator_payloads;
   DROP TABLE public.polis_coordinator_generations;
   DROP TABLE public.polis_coordinator_cursors;
