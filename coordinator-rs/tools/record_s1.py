@@ -117,7 +117,8 @@ def main():
     paths += list((ROOT / "coordinator-rs/schemas").glob("*.json"))
     paths += list((ROOT / "delphi/tests/coordinator").glob("*.py"))
     paths += list((ROOT / "delphi/polismath").rglob("*.py"))
-    paths += [ROOT / "coordinator-rs/evidence/python-requirements.txt", Path(__file__)]
+    paths += [ROOT / "coordinator-rs/evidence/python-requirements.txt", Path(__file__),
+              ROOT / "coordinator-rs/tools/node_reader.cjs"]
     paths += [ROOT / f"coordinator-rs/{name}" for name in ("migration.sql", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml")]
     ignored = ("coordinator-rs/target/", "coordinator-rs/artifacts/")
     source_pins = {str(path.relative_to(ROOT)): sha(path) for path in sorted(set(paths))}
@@ -183,9 +184,9 @@ def main():
             hashes_identical_to_previous_evidence=True,
             observer_errors=len(replay["observer_errors"]), observations=replay["observations"]),
         polarity="four artifacts and semantic tie control unchanged; compensated pairs equal, negative controls differ",
-        node_d4="0 differences; generation-zero route 200 / ETag 0 / conditional 304; no loadBundle claim",
+        node_d4="0 differences through getPca + presentPca; raw empty rows remain empty; generation-zero route 200 / ETag 0 / conditional 304; combined full-app campaign remains open",
         scope="Rust versus Python rebuild-prefix campaign; Clojure remains the live production writer; no Rust/Clojure comparison",
-        compose_project=compose_project, postgres_port=run_pins["postgres_port"], uncommitted=False)
+        compose_project=compose_project, postgres_port=run_pins["postgres_port"], uncommitted=bool(subprocess.check_output(["git", "diff", "--name-only"], cwd=ROOT, text=True).strip()))
     (EVIDENCE / "test-summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     print(json.dumps(dict(python=len(cases), rust=rust_counts, stages="25/25",
         replay="/".join(str(len(c["deltas"])) for c in replay["checkpoints"]),
