@@ -268,6 +268,9 @@ fn every_emitted_metric_name_is_declared_in_the_catalog() {
         polis_coordinator::metrics::seconds("ComputeSeconds", std::time::Duration::from_secs(0)),
         polis_coordinator::metrics::seconds("PublishSeconds", std::time::Duration::from_secs(0)),
         polis_coordinator::metrics::count("MetricsDropped", 0u32),
+        polis_coordinator::metrics::count("PublishUncertain", 1u32),
+        polis_coordinator::metrics::count("PublishResolvedOwn", 1u32),
+        polis_coordinator::metrics::count("PublishUnresolvedLost", 0u32),
     ]);
     metrics.emit("all", &data, json!({}));
     let records = captured(&sink);
