@@ -9,8 +9,26 @@ import pytest
 
 CI = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(CI))
-from replay_pins import runtime_identity, select_pin
+from replay_pins import kernel_environment, runtime_identity, select_pin, validate_kernel
 from verify import comparisons
+
+
+def runtime(system, machine):
+    requested='Haswell' if (system,machine)==('Linux','x86_64') else 'not-forced'
+    return dict(system=system,machine=machine,forced_kernel=requested,blas=[
+        dict(prefix=p,internal_api='openblas',architecture='Haswell',num_threads=1)
+        for p in ('libopenblas','libscipy_openblas')])
+
+
+def fixture_registry(tmp_path):
+    # Unit-only Linux pin to exercise the unchanged exact comparators. These
+    # retired bytes are NOT promoted by the production registry or campaign.
+    registry=json.loads((CI/'replay-pins.json').read_text())
+    fake=copy.deepcopy(registry['retired_pins'][0]);fake['forced_kernel']='Haswell'
+    fake.pop('retirement');fake['id']='unit-only-linux-forced-fixture'
+    registry['pins'].append(fake)
+    path=tmp_path/'unit-only-pins.json';path.write_text(json.dumps(registry))
+    return path
 
 
 def fixture(tmp_path, system, machine):
@@ -22,7 +40,7 @@ def fixture(tmp_path, system, machine):
     for name, raw in baseline.items():
         (artifacts / name).write_bytes(raw)
         (fresh / name).write_bytes(raw)
-    selected = select_pin({"system": system, "machine": machine}, CI / "replay-pins.json")
+    selected = select_pin(runtime(system,machine), fixture_registry(tmp_path))
     for name, witness in selected["pin"]["witnesses"].items():
         directory = fresh if name.startswith("d4") else artifacts
         (directory / name).write_text(json.dumps(witness))
@@ -66,7 +84,7 @@ def test_platform_admission_preserves_fresh_and_historical_checks(tmp_path, syst
         row["rust"] = row["python"] = "0" * 64
     elif mutation == "other-platform":
         other = {"system": "Linux", "machine": "x86_64"} if system == "Darwin" else {"system": "Darwin", "machine": "arm64"}
-        row["rust"] = row["python"] = select_pin(other, CI / "replay-pins.json")["pin"]["checkpoints"][0]["rust"]
+        row["rust"] = row["python"] = select_pin(runtime(**other), fixture_registry(tmp_path))["pin"]["checkpoints"][0]["rust"]
     elif mutation in ("cut", "tick"):
         row[mutation] += 1
     elif mutation == "fold":
@@ -81,7 +99,7 @@ def test_platform_admission_preserves_fresh_and_historical_checks(tmp_path, syst
 @pytest.mark.parametrize("system,machine", [("Linux", "aarch64"), ("Darwin", "x86_64"), ("Windows", "AMD64"), ("", "")])
 def test_unknown_platform_fails_closed(system, machine):
     with pytest.raises(ValueError, match="REPLAY_PLATFORM_UNADMITTED"):
-        select_pin({"system": system, "machine": machine}, CI / "replay-pins.json")
+        select_pin(runtime(system,machine), CI / "replay-pins.json")
 
 
 @pytest.mark.parametrize("mutation", ["duplicate", "empty", "digest", "checkpoint", "schema"])
@@ -100,7 +118,7 @@ def test_bad_pin_registry_refused(tmp_path, mutation):
     path = tmp_path / "pins.json"
     path.write_text(json.dumps(registry))
     with pytest.raises(ValueError, match="REPLAY_PLATFORM_PINS_INVALID"):
-        select_pin({"system": "Darwin", "machine": "arm64"}, path)
+        select_pin(runtime("Darwin","arm64"), path)
 
 
 def test_runtime_records_actual_os_machine_and_blas():
@@ -179,3 +197,58 @@ def test_existing_empty_clock_observation_remains_observation(tmp_path, system, 
     result = comparisons(artifacts, fresh, baseline, selected)
     assert result["synthesized_empty_byte_equality_claimed"] is False
     assert len(result["empty_observations"]) == 9
+
+
+@pytest.mark.parametrize('system,machine,expected',[('Linux','x86_64','Haswell'),('Darwin','arm64',None)])
+def test_campaign_environment_overrides_inherited_kernel_before_children(system,machine,expected):
+    incoming={'OPENBLAS_CORETYPE':'Cooperlake','UNCHANGED':'value'}
+    result=kernel_environment(incoming,system,machine)
+    assert result.get('OPENBLAS_CORETYPE')==expected
+    assert result['UNCHANGED']=='value' and incoming['OPENBLAS_CORETYPE']=='Cooperlake'
+
+
+@pytest.mark.parametrize('mutation',['numpy-kernel','scipy-kernel','missing-library','extra-library','other-api','threads','requested','missing-request','unforced-linux'])
+def test_forced_kernel_refuses_unhonoured_observation(mutation):
+    r=runtime('Linux','x86_64')
+    if mutation=='numpy-kernel':r['blas'][0]['architecture']='Cooperlake'
+    elif mutation=='scipy-kernel':r['blas'][1]['architecture']='SkylakeX'
+    elif mutation=='missing-library':r['blas'].pop()
+    elif mutation=='extra-library':r['blas'].append(copy.deepcopy(r['blas'][0]))
+    elif mutation=='other-api':r['blas'][0]['internal_api']='mkl'
+    elif mutation=='threads':r['blas'][0]['num_threads']=2
+    elif mutation=='requested':r['forced_kernel']='Cooperlake'
+    elif mutation=='missing-request':r.pop('forced_kernel')
+    else:r['forced_kernel']='not-forced'
+    with pytest.raises(ValueError,match='REPLAY_KERNEL_NOT_HONOURED'):validate_kernel(r)
+
+
+def test_shipped_registry_does_not_relabel_unforced_linux_as_forced():
+    r=runtime('Linux','x86_64')
+    validate_kernel(r)
+    with pytest.raises(ValueError,match='REPLAY_PLATFORM_UNADMITTED.*forced_kernel=Haswell'):
+        select_pin(r,CI/'replay-pins.json')
+    reg=json.loads((CI/'replay-pins.json').read_text())
+    assert reg['retired_pins'][0]['forced_kernel']=='not-forced'
+    assert all(p['system']!='Linux' for p in reg['pins'])
+
+
+def test_kernel_is_part_of_registry_key_and_receipt(tmp_path):
+    selected=select_pin(runtime('Linux','x86_64'),fixture_registry(tmp_path))
+    assert selected['key_fields']==['system','machine','forced_kernel']
+    assert selected['pin']['forced_kernel']=='Haswell'
+    assert selected['runtime']['blas'][1]['architecture']=='Haswell'
+
+
+def test_historical_refusal_occurs_after_fresh_artifacts_and_before_pass():
+    import ast
+    tree=ast.parse((CI/'run.py').read_text())
+    calls={}
+    for node in ast.walk(tree):
+        if isinstance(node,ast.Call) and isinstance(node.func,ast.Name):calls.setdefault(node.func.id,[]).append(node.lineno)
+    assert min(calls['validate_kernel']) < min(calls['select_pin'])
+    assert max(calls['stage_audit']) < min(calls['select_pin']) < min(calls['comparisons'])
+    for node in ast.walk(tree):
+        if (isinstance(node,ast.Assign) and isinstance(node.value,ast.Constant) and node.value.value=='PASS'
+                and any(isinstance(t,ast.Subscript) and isinstance(t.slice,ast.Constant)
+                        and t.slice.value=='candidate_gate' for t in node.targets)):
+            assert node.lineno > min(calls['comparisons'])
