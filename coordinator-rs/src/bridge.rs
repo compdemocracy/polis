@@ -16,7 +16,7 @@ use std::{
 };
 
 pub const SQL_SHA256: &str = "d50f169ad7afe12d14582a6a746c622d402ecafd8131aae246812263bf2d5e82";
-pub const ENGINE_SHA256: &str = "b295c3e7c649b38768c4eeb69c7cb3bf59d33c0077c22c84853a44d216aa0028";
+pub const ENGINE_SHA256: &str = "9e21523267ffef0d60d03c7e18a1da8ea62d33f986879a601ed389179cb95e90";
 const ENGINE_MANIFEST: &str = include_str!("../schemas/poller-engine-v1.json");
 pub const PROTOCOL: &str = "polis-poller-bridge/1";
 const SQL: &str =

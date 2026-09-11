@@ -1,8 +1,9 @@
 # coordinator-rs (`polis-coordinator`)
 
-An experimental crate, not a merge or deployment decision. It runs on branch
-`experiment/rust-coordinator` (draft PR #2727) and does not change any math
-algorithm and does not touch production traffic.
+A Rust coordination layer around the existing Python math poller. It changes no
+math algorithm. The coordinator has no production startup wiring; deploying the
+server does activate the coherent math reader described below. Production writer
+transfer remains subject to separate operational and certification gates.
 
 Polis computes each conversation's clustering (PCA + k-means) in a background
 "math" pipeline that polls the database for new votes and comments, runs the
@@ -50,9 +51,9 @@ durably — while the math itself stays untouched.
   Python/Clojure. This crate decides when to ask the worker to compute and
   what to do with the answer; it never computes a result itself.
 - **The Node server's read path** — the `/api/v3/math/pca2` route and its
-  own cache belong to `server-rs/` and the existing Node server (see that
-  crate's README). This crate is verified *against* what that route serves
-  today (see "How it is judged") but does not change it.
+  own cache execute in the existing Node server. This branch changes its mapping
+  and report helpers to use coherent Bundles. The Rust coordinator does not
+  replace the HTTP server; its checks exercise the actual Node implementation.
 - **Production cutover** — nothing here replaces the Python poller or wires a
   queue into the real deployment; "will own the Postgres queue substrate" is
   a future goal this crate steps toward, not something it already does.
@@ -108,11 +109,11 @@ There are three layers of check, and none of them alone is "done":
 
 1. **Rust checks** — `cargo test`, `cargo clippy -D warnings`, and a release
    build, run twice: default feature set and the test-only `fault-injection`
-   feature. 31 Rust tests pass in each (verified locally, see below).
+   feature. The current required inventory contains 34 Rust tests in each profile.
    `unwrap()`/`expect()` are banned crate-wide (`Cargo.toml`'s
    `[lints.clippy]`), so a real error can never silently become a panic.
-2. **Python integration tests against a real, disposable Postgres** — 206
-   required test identities (the original 151 plus 55 bridge controls) in `delphi/tests/coordinator/` covering lease loss/recovery,
+2. **Python integration tests against a real, disposable Postgres** — 291
+   required test identities (the original 151 plus additive bridge/observer controls) in `delphi/tests/coordinator/` covering lease loss/recovery,
    crash-and-restart, duplicate/overlapping work, byte-for-byte comparison
    against the existing Python worker's output, and negative controls
    (deliberately broken input that must be refused).
@@ -128,13 +129,14 @@ On top of that, a separate check (`tools/node_reader.cjs`,
 `tools/node_route_probe.cjs`) loads the *actual*, unmodified Node server
 modules that serve `/api/v3/math/pca2` today and compares what they serve
 for a result this crate published against the existing writer's result —
-zero byte differences currently (see evidence). This exercises today's real
-reader, not a rewritten one. The step-4 S2 slice adds a candidate coherent-read
+zero differences in the populated cross-writer witness (see evidence). This
+exercises the actual Node modules, including this branch's reader changes. The step-4 S2 slice adds a candidate coherent-read
 `loadBundle` witness (`tools/bundle_reader.cjs`) and makes the Node job
 unconditional (a missing `server/node_modules` now fails rather than skips),
 and the production Node reader is now implemented in this tree. BOARD[633]
 accepts its local1265/0/2 public replay proof. The two r19/r20 row-order
-residuals remain unwaived; required CI and the combined S5 campaigns stay open.
+residuals remain reported. Exact-inventory required CI now exists; combined
+full-app/private certification remains open.
 
 ## Publication outcome telemetry (S3 slice)
 
@@ -158,13 +160,16 @@ sparse events do not breach that event alarm, but do not prove health or
 resolution either. A later resolved operation never cancels an unresolved one.
 Real PostgreSQL tests sever the actual COMMIT response and exercise both
 classifications plus failed readback; the local observer applies this rule.
-No alarm is deployed here. Bounded nonblocking transport, independent producer
-and sink observation, delivery verification and the transfer rehearsal remain
-open. O7 stays OPEN; this is not completion of the broader S3 slice.
+No alarm is deployed here. Bounded nonblocking transport and independent
+producer/current-table observation are implemented, with public transfer and
+rollback rehearsals under `tools/d05` and `tools/d07`. Operator notification
+delivery remains unproved. O7 stays OPEN; local observations are not deployed
+coverage.
 
-## Rev5 operation admission
+## Rev7 operation admission
 
-The bridge consumes migration 000021 rev5. Before starting Python it commits a
+The bridge consumes the amended migration 000021 rev7, including observer
+math-table access and per-conversation revocable writer authority. Before starting Python it commits a
 control-only `pc_admit` reservation bound to the lease epoch, operation,
 capability, checkpoint, source digest and expected generation. A lost admission
 COMMIT reply stops dispatch; it never authorizes a worker launch.
@@ -192,7 +197,7 @@ conversations may finish out of caching sequence order; the original R12 overlap
 and metadata-sweep controls remain required.
 
 Runtime performs no automatic cleanup. Reviewed control callers may use
-`pc_protect`, `pc_reference` and `pc_cleanup`; rev4 refuses deletion of active,
+`pc_protect`, `pc_reference` and `pc_cleanup`; the substrate refuses deletion of active,
 current, maximum, unresolved or referenced operations. Retained floors prevent
 generation/caching cursor reuse after cleanup. Rust rejects current bundles
 below the retained generation floor even when all four pointers agree.
@@ -218,8 +223,8 @@ The stage checklist names these explicitly (`evidence/test-summary.json`,
   zero oracle failures and two standing r19/r20 row-order differences;
   24 direct audit checks passed and all302 route fingerprints matched.
   `evidence/s2-production-reader.json` records that scoped proof. Required
-  pinned-module CI/exact case-set/zero-skip enforcement and combined S5
-  full-app/private campaigns remain open. This is no full-contract certificate.
+  pinned-module CI with exact case-set/zero-skip enforcement is implemented.
+  Combined immutable-build/full-app/private certification remains open. This is no full-contract certificate.
 - **S1/S2 revalidated after the response-boundary harness repair.** On
   `97a6cca5a` plus the recorded harness/metadata edits, the same151 cases pass
   with zero failures/skips; both Rust profiles pass31 tests and all25 fault
@@ -239,11 +244,13 @@ The stage checklist names these explicitly (`evidence/test-summary.json`,
   rebased tree) fixes the cold miss; the review-control test is updated to that
   behaviour. The eventual `getPca` refactor still belongs to whoever owns that
   server code.
-- **The staleness check is a time-boxed hint, not a proof**, and there is no
-  multi-worker or cross-conversation concurrency campaign — today's tests
-  exercise one worker process reconciling conversations one at a time.
-- **No production alerting hookup** — implements none of the three alerts a
-  separate, accepted design (P-031) calls for, and has no deployed publisher.
+- **The staleness check is a time-boxed hint, not a proof**, and measured production service
+  budgets remain unadmitted. Tests cover competing owners and unrelated
+  publications, but do not certify a new multi-worker or warm-science profile.
+- **No production alerting hookup** — the independent observer supplies
+  PollHealthy, PublishLagSeconds and ObserverHealthy with local alarm checks.
+  Transport, deployed dimensions, missing-data handling and notification
+  arrival at an operator destination still require operational evidence.
 
 ## Bridge schema and credentials
 
@@ -254,10 +261,37 @@ to the restricted control login and `COORDINATOR_PUBLISHER_DATABASE_URL` to the
 restricted publisher login. Neither may use legacy direct math-write credentials.
 This implementation does not activate a deployment or revoke existing writers.
 
+## Deployment boundary and build identity
+
+An ordinary edge deployment activates the Node Bundle reader in the existing
+server, using that server's configured `MATH_ENV`; it does not build or launch a
+coordinator service. Coordinator source is present, and a separately built binary
+runs only when an operator explicitly launches `polis-coordinator once` or `run`.
+Migrations 000019/000021 are present in the repository; applying them requires the
+separate reviewed migration procedure and go, and is not authorized by this merge.
+The ordinary poller remains on its existing writer until launched through the
+lease bridge: that requires restricted `DATABASE_URL` and
+`COORDINATOR_PUBLISHER_DATABASE_URL` logins, mapped namespace authority, an
+installed namespace budget, a positive `P026_RESERVATION_BYTES`, a pinned Python
+runtime and the explicit coordinator launch. Serving that namespace additionally
+requires replacing every serving replica with the destination `MATH_ENV` after
+writer exclusion, drain and a recorded transition. The observer is separately
+launched with `tools/d06/observer.py --profile ... --output ...` and its restricted
+`COORDINATOR_OBSERVER_DATABASE_URL`; it does not configure notification delivery.
+
+The checked-in engine manifest and bridge constants must bind the ordinary source
+checkout. Campaigns still isolate their execution in a source snapshot, but a
+current checkout requires zero metadata transformations. The retained mechanical
+reconciliation helper reports any future source drift; such a transformed run
+must not be represented as validation of an unchanged deployment build. Freeze
+and review the manifest and actual executable/runtime before activation. These
+source identity checks do not close full-contract, notification or capacity gates.
+
 ## How to run the checks locally
 
-Run every command from inside `coordinator-rs/` unless noted. All re-run and
-confirmed working for this README.
+Run Rust commands from `coordinator-rs/`; run Python and Compose commands from
+the repository root. Test results below distinguish historical runs from the
+current required inventory.
 
 ```sh
 export CARGO_HOME=/private/tmp/p026-toolchain/cargo
@@ -342,10 +376,10 @@ can be accepted. Existing stack lint, server, Delphi and full-app jobs remain
 separate required evidence on the same proposed build.
 
 The runner executes both locked Rust test/clippy profiles, release and fault
-builds, the historical 151 Python cases (including replay, polarity, actual Node
-reader and release+fault refusal), all 25 stage witnesses, and the 37-case,
-three-suite production Bundle selection. `ci/inventory-v1.json` fixes exact case
-identities as well as counts. A pytest collection hook refuses a subset before
+builds, all 291 Python cases (including the original 151), 164 campaign controls,
+all 25 stage witnesses, and the 37-case, three-suite production Bundle selection.
+`ci/inventory-v2.json` fixes exact identities and preserves the historical v1
+inventory. A pytest collection hook refuses a subset before
 execution; JUnit, Cargo and Jest admission also rejects skips, duplicates,
 substitutions and missing outcomes. The separate control suite has its own exact
 inventory. New bridge cases need an explicitly reviewed inventory revision that
@@ -361,9 +395,10 @@ python coordinator-rs/ci/run.py --output /tmp/coordinator-campaign-unique
 ```
 
 The runner owns its disposable PostgreSQL project and applies the unchanged
-repository migration chain to a fresh public-fixture Bundle database. The historical
-Python fixtures continue to apply the existing **prototype** coordinator schema
-to their own test databases. This adds no migration or production schema scope.
+repository migration chain to a fresh public-fixture Bundle database. The
+Python fixtures also use the reviewed coordinator substrate in their disposable
+databases. The retained prototype SQL is not applied by the runtime. This adds
+no production schema application.
 The receipt records exact commands, actual runtime/image identities, source and
 artifact hashes, counts, failure controls and cleanup. There is no private run,
 deployment, activation or transfer in this job.

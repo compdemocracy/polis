@@ -31,7 +31,7 @@ open_conditions=[
     'CO08/D4: candidate coherent-read atomicity and the production reader local slice are'
     ' recorded; BOARD[633] accepts the production implementation and public1265/0/2 replay.'
     ' O1 remains partial: required pinned-module CI with exact case inventory/zero skips'
-    ' and the combined S5 build/corpus campaigns remain open',
+    ' is implemented; combined immutable-build/full-app/private certification remains open',
     'CO08/D4: the combined immutable-build/full-app/auth/report/CSV campaign and private'
     ' served corpus remain open; accepted public reader evidence does not complete S5',
     'CO08/D4 (server owner): the getPca(zid, undefined) cold generation-zero miss is fixed'
@@ -51,9 +51,10 @@ open_conditions=[
     'CO02/CO06: persisted payloads become eligible for revalidation once the ceiling'
     ' elapses, not on every pass; resident-cache reconciliation is single-threaded and'
     ' no multi-worker or warm-worker cache campaign exists',
-    'P-031: this crate implements none of A01 PollHealthy, A02 PublishLagSeconds or'
-    ' A03 ObserverHealthy, has no deployed publisher and no delivery proof; the optional'
-    ' synchronous sink can still block when enabled',
+    'P-031: bounded nonblocking telemetry and an independent observer now provide local'
+    ' PollHealthy, PublishLagSeconds and ObserverHealthy evidence, including current-table'
+    ' consistency; deployed transport, dimensions, missing-data alarms and notification'
+    ' delivery remain unproved',
     'O8 remains OPEN and is at most PARTIAL: polis-candidate-input/1 is claimed locally as a'
     ' candidate profile, not a G01-G16 certificate. S1 records the distinct candidate schema id,'
     ' strict adapter admission, original-byte digests with decoded correspondence, and the'
@@ -106,7 +107,7 @@ if closure_path.exists():
         print(f'S1 partial record refused: {error}', file=sys.stderr)
 
 # S2 production implementation/local proof is closed by BOARD[633].
-# O1 remains PARTIAL: required CI and combined S5 campaigns are not certified.
+# O1 remains PARTIAL: combined immutable-build/full-app/private certification is open.
 s2_closure_path = root/'coordinator-rs/evidence/s2-closure.json'
 if s2_closure_path.exists():
     closure = json.loads(s2_closure_path.read_text())
@@ -133,7 +134,7 @@ if s2_closure_path.exists():
             remaining_obligations=closure['remaining_obligations'],
             production_loadbundle_certified=False, production_reader_obligation_state="CLOSED",
             production_reader_evidence=closure["production_reader_evidence"], run_pins_verified_here=False))
-        condition_states['O1'] = 'PARTIAL (S2 production reader locally proven; required CI and combined S5 open)'
+        condition_states['O1'] = 'PARTIAL (production reader and required CI implemented; combined certification open)'
     except (AssertionError, KeyError, OSError, ValueError) as error:
         print(f'S2 partial record refused: {error}', file=sys.stderr)
 
