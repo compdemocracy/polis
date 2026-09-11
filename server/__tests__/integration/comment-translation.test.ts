@@ -50,7 +50,7 @@ describe("POST comments with unavailable language detection", () => {
     async (scenario) => {
       if (scenario === "rejection")
         mockDetect.mockRejectedValue(
-          new Error("synthetic provider unavailable")
+          new Error("public-fixture provider unavailable")
         );
       else if (scenario === "malformed") mockDetect.mockResolvedValue([]);
       else if (scenario === "timeout")
@@ -64,7 +64,7 @@ describe("POST comments with unavailable language detection", () => {
       const conversationId = await createConversation(agent, {
         is_active: true,
       });
-      const txt = `Synthetic translation ${scenario}`;
+      const txt = `Public-fixture translation ${scenario}`;
       const response = await agent
         .post("/api/v3/comments")
         .send({ conversation_id: conversationId, txt, is_seed: true });

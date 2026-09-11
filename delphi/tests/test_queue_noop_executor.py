@@ -111,7 +111,7 @@ def require_migration():
 
 ENV = "test-p024-py"
 PRODUCT = "product-noop"
-ACTOR = "synthetic-actor"
+ACTOR = "public-fixture-actor"
 LOCAL_ROLE_PASSWORD = "pq-local-test"
 
 
@@ -435,7 +435,7 @@ def test_claims_heartbeats_and_finalizes_one_noop_job(queue_db):
     assert job["owner_id"] is None
 
 
-def test_permanently_fails_a_job_whose_descriptor_is_not_the_synthetic_one(queue_db):
+def test_permanently_fails_a_job_whose_descriptor_is_not_the_public_fixture_one(queue_db):
     """It never dereferences a job-supplied URI; it refuses the job instead."""
     reply = _enqueue(
         queue_db,
@@ -449,7 +449,7 @@ def test_permanently_fails_a_job_whose_descriptor_is_not_the_synthetic_one(queue
     assert executor.run_once() == "dead"
     job = executor.call("pq_job_status", [queue_db["env"], reply["job_id"]])
     assert job["state"] == "dead"
-    assert job["last_error_code"] == "invalid_synthetic_descriptor"
+    assert job["last_error_code"] == "invalid_public_fixture_descriptor"
 
 
 def test_reaper_recovers_an_expired_lease_without_a_new_enqueue(queue_db):
@@ -674,7 +674,7 @@ def test_reaper_pages_101_parked_jobs_and_resets_its_cursor(queue_db):
         )
         assert job["outcome"] == "owned"
         assert (
-            executor.call("pq_park", executor.token(job) + ["synthetic"])["outcome"]
+            executor.call("pq_park", executor.token(job) + ["public-fixture"])["outcome"]
             == "parked"
         )
     _admin(
@@ -802,10 +802,10 @@ def test_a_mid_setup_failure_releases_only_what_it_created(queue_db, monkeypatch
             sys.modules[__name__],
             "_executor_dsn",
             lambda *args, **kwargs: (_ for _ in ()).throw(
-                RuntimeError("synthetic setup failure")
+                RuntimeError("public-fixture setup failure")
             ),
         )
-        with pytest.raises(RuntimeError, match="synthetic setup failure"):
+        with pytest.raises(RuntimeError, match="public-fixture setup failure"):
             next(_provision_queue_db())
         assert counts() == before
     finally:

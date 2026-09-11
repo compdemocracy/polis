@@ -30,7 +30,7 @@ sys.path.insert(0, str(HERE.parent))
 from control import encoded, sha
 from image_admission import file_digest, json_bytes, regular_path
 import g12
-from polismath.replay import certify, fixture_bundle, real_data, schedule, store
+from polismath.replay import certify, fixture_bundle, fixture_samples, real_data, schedule, store
 from polismath.replay.event_ingress import input_hashes
 
 POLICY = {'schema': 'polis-private-paired-policy/1', 'absolute': 1e-6,
@@ -66,7 +66,7 @@ def prepare(fixture, inputs, scratch, *, bind=True):
         raise ValueError('PAIRED_POLICY_BINDING')
     plan = read(fixture / 'plan.json')
     if (set(plan) != {'schema', 'scope', 'manifestSha256', 'configSha256', 'entries'}
-            or plan['schema'] != 'polis-private-paired-plan/1'
+            or plan['schema'] not in ('polis-private-paired-plan/1', fixture_samples.PLAN_VERSION)
             or plan['scope'] not in ('public', 'private', 'all')):
         raise ValueError('PLAN_SCHEMA')
     manifest_path, config_path = fixture / 'manifest.json', fixture / 'config.json'
@@ -76,6 +76,11 @@ def prepare(fixture, inputs, scratch, *, bind=True):
     payload = fixture / 'payload'
     fixture_bundle.verify(payload, manifest)
     fixture_bundle.admit_manifest(manifest, config=config, config_bytes=config_path.read_bytes(), payload_root=payload)
+    samples = fixture_samples.admitted_rules(manifest, config)
+    if plan['schema'] != (fixture_samples.PLAN_VERSION if samples else 'polis-private-paired-plan/1'):
+        raise ValueError('SAMPLE_PLAN_VERSION')
+    if samples and plan['scope'] == 'public':
+        raise ValueError('SAMPLE_FULL_CAMPAIGN_REQUIRED')
     if regular_tree(fixture).keys() != {'plan.json', 'manifest.json', 'config.json'} | {
         'payload/' + f['path'] for f in manifest['files']}:
         raise ValueError('FIXTURE_EXTRA_FILES')
@@ -83,6 +88,7 @@ def prepare(fixture, inputs, scratch, *, bind=True):
     battery = certify.load_battery(REPO / 'delphi/scripts/certify_battery.json')
     required = {(e.dataset, e.schedule_id) for e in battery
                 if plan['scope'] == 'all' or (e.dataset in public) == (plan['scope'] == 'public')}
+    required.update((alias, fixture_samples.SCHEDULE_ID) for alias in samples)
     if not required or not isinstance(plan['entries'], list):
         raise ValueError('EMPTY_BATTERY')
     roles = {}
@@ -102,6 +108,8 @@ def prepare(fixture, inputs, scratch, *, bind=True):
         alias = item['dataset']
         expected_role = next((r['role'] for r in config['public_fixtures'] if r['slug'] == alias),
                              config['coverage_role_map'].get(alias))
+        if alias in samples:
+            expected_role = samples[alias]['role']
         role = roles.get(expected_role)
         if item['role'] != expected_role or (alias not in public and (
             role is None or item['directory'] != role['dir'])):
@@ -142,8 +150,13 @@ def prepare(fixture, inputs, scratch, *, bind=True):
         entry = certify.BatteryEntry(item['dataset'], item['schedule_id'], schedule_path=spec_path,
                                      role=item['role'])
         expected = certify.prepare_entry(entry)
-        original = next(e for e in battery if (e.dataset, e.schedule_id) == (entry.dataset, entry.schedule_id))
-        recipe = certify.build_effective_spec(original, real_data.load_export_votes(entry.dataset))
+        if entry.dataset in samples:
+            recipe = fixture_samples.resolved_spec(entry.dataset, real_data.load_export_votes(entry.dataset))
+            if spec.to_dict() != recipe.to_dict():
+                raise ValueError('SAMPLE_SCHEDULE_RECIPE_CHANGED')
+        else:
+            original = next(e for e in battery if (e.dataset, e.schedule_id) == (entry.dataset, entry.schedule_id))
+            recipe = certify.build_effective_spec(original, real_data.load_export_votes(entry.dataset))
         if (spec.moderation != recipe.moderation or spec.restart_after != recipe.restart_after
                 or spec.clojure != recipe.clojure or spec.coverage != recipe.coverage):
             raise ValueError('SCHEDULE_RECIPE_CHANGED')
@@ -153,6 +166,8 @@ def prepare(fixture, inputs, scratch, *, bind=True):
         if expected.spec.coverage != 'full-stream' and plan['scope'] != 'public':
             raise ValueError('PRIVATE_FULL_STREAM_REQUIRED')
         prepared.append(expected)
+    if samples:
+        prepared = fixture_samples.ordered_prepared(prepared)
     full = {p.entry.dataset for p in prepared if p.spec.coverage == 'full-stream'}
     if any(p.entry.dataset not in full for p in prepared):
         raise ValueError('PREFIX_WITHOUT_FULL_COMPANION')

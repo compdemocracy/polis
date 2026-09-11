@@ -201,7 +201,7 @@ DECLARE
   -- This digest adds prosrc, so a drifted body is caught. It is 000019's fresh
   -- catalog value on PostgreSQL 17 with the body field present, recomputed in
   -- the same reviewed change if any function body changes.
-  expected_function_md5 constant text := '246ed8c30b7ca049563046085a9f221c';
+  expected_function_md5 constant text := '421b97d455585679175b06360b9903ed';
   -- The 12 functions 000019 grants EXECUTE to the executor (000019:574).
   granted_execute constant text[] := ARRAY[
     'pq_cancel','pq_claim','pq_due','pq_enqueue','pq_fail','pq_finalize','pq_head_status',

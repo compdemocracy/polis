@@ -1157,7 +1157,7 @@ def test_r3f4_the_ads_tally_shape_is_key_scoped_not_field_scoped():
     """A/D/S are per-base-cluster bucket ARRAYS in `votes-base` and per-group
     SCALAR totals in `group-votes` (conversation.clj:600-624). A field-name-only
     shape rule gets one of them wrong — this was caught by the battery run, not
-    by a synthetic control."""
+    by a public-fixture control."""
     tallies = {
         "votes-base": {"7": {"A": [1, 0], "D": [0, 1], "S": [1, 1]}},
         "group-votes": {"0": {"n-members": 2,

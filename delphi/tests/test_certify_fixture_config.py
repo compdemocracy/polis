@@ -5,7 +5,7 @@ dependency-free Draft-07 subset validator and the seven semantic rules in
 ``polismath.replay.fixture_config``, plus the deterministic rule resolution in
 ``polismath.replay.fixture_survey``.
 
-Everything here runs on SYNTHETIC metric rows invented for this file. No real
+Everything here runs on PUBLIC_FIXTURE metric rows invented for this file. No real
 zid, report id, topic or vote appears anywhere.
 """
 
@@ -77,7 +77,7 @@ def test_config_contains_no_identifiers(config):
     for role in config["roles"]:
         assert set(role) <= {
             "role", "slug", "group", "rank", "selection_group", "predicates",
-            "order_by", "on_missing", "synthetic_replacement", "exercise", "notes",
+            "order_by", "on_missing", "public_fixture_replacement", "exercise", "notes",
         }
         for pred in role["predicates"]:
             assert isinstance(pred["value"], (int, float))
@@ -147,11 +147,11 @@ def test_structural_rejections(config, schema, mutate, needle):
     # Rule 3 — duplicate slug.
     (lambda c: c["roles"][1].update(slug=c["roles"][0]["slug"]),
      "duplicate slug"),
-    # Rule 4 — synthetic replacement discipline.
+    # Rule 4 — public-fixture replacement discipline.
     (lambda c: c["roles"][0].update(
-        on_missing="fail_with_synthetic_replacement_offer"),
-     "requires synthetic_replacement"),
-    (lambda c: c["roles"][0].update(synthetic_replacement="gen-v1-one-voter"),
+        on_missing="fail_with_public_fixture_replacement_offer"),
+     "requires public_fixture_replacement"),
+    (lambda c: c["roles"][0].update(public_fixture_replacement="gen-v1-one-voter"),
      "only meaningful with"),
     # Rule 5 — a replacement role may not follow a stress role.
     (lambda c: c["roles"].insert(0, dict(c["roles"][-1], slug="pc-v1-early-stress",
@@ -252,11 +252,11 @@ def test_selection_group_members_rank_into_one_shared_list():
     assert sels == {"pc-v1-r1": 1, "pc-v1-r2": 2, "pc-v1-r4": 4}
 
 
-def test_unknown_synthetic_replacement_is_rejected(config):
+def test_unknown_public_fixture_replacement_is_rejected(config):
     def mutate(c):
         role = next(r for r in c["roles"]
-                    if r["on_missing"] == "fail_with_synthetic_replacement_offer")
-        role["synthetic_replacement"] = "gen-v1-does-not-exist"
+                    if r["on_missing"] == "fail_with_public_fixture_replacement_offer")
+        role["public_fixture_replacement"] = "gen-v1-does-not-exist"
 
     with pytest.raises(fc.ConfigError, match="is not a generated case id"):
         fc.validate_config(_broken(config, mutate))
@@ -328,8 +328,8 @@ _MINI_CONFIG = {
          "predicates": [{"metric": "V", "op": "ge", "value": 10 ** 9}],
          "order_by": [{"metric": "V", "direction": "desc"},
                       {"metric": "zid", "direction": "asc"}],
-         "on_missing": "fail_with_synthetic_replacement_offer",
-         "synthetic_replacement": "gen-v1-dense-stress", "exercise": "x"},
+         "on_missing": "fail_with_public_fixture_replacement_offer",
+         "public_fixture_replacement": "gen-v1-dense-stress", "exercise": "x"},
     ],
     "workloads": [],
     "generated": {"generator_id": "t", "generator_version": "1", "seed": 1,
@@ -361,17 +361,17 @@ def test_missing_role_fails_loudly_and_names_the_role():
     with pytest.raises(fs.RoleUnsatisfied) as exc:
         fs.resolve_roles(_MINI_CONFIG, rows)
     assert exc.value.role == "impossible"
-    assert exc.value.synthetic_replacement == "gen-v1-dense-stress"
+    assert exc.value.public_fixture_replacement == "gen-v1-dense-stress"
     assert "--accept-public-fixture" in str(exc.value)
 
 
-def test_synthetic_replacement_requires_explicit_acceptance():
+def test_public_fixture_replacement_requires_explicit_acceptance():
     rows = [_row(11, V=500), _row(12, V=400)]
     sels = fs.resolve_roles(_MINI_CONFIG, rows,
                             accept_public_fixture=["pc-v1-impossible"])
     sub = next(s for s in sels if s.slug == "pc-v1-impossible")
     assert sub.zid is None
-    assert sub.synthetic_replacement == "gen-v1-dense-stress"
+    assert sub.public_fixture_replacement == "gen-v1-dense-stress"
 
 
 def test_rank_indexes_into_the_remaining_ordered_list():

@@ -7,7 +7,7 @@ CI ``postgres`` service from ``docker-compose.test.yml`` when
 ephemeral port with ``server/postgres/migrations/000000_initial.sql`` +
 ``000006_update_votes_rule.sql`` applied).
 
-EVERYTHING here is synthetic. Every zid, uid, comment body and vote below was
+EVERYTHING here is public-fixture. Every zid, uid, comment body and vote below was
 invented for this file; the planted identifiers exist precisely so the
 redaction assertions have something recognisable to fail on.
 
@@ -39,13 +39,13 @@ from tests.conftest import require_polis_postgres
 pytestmark = pytest.mark.integration
 
 # ---------------------------------------------------------------------------
-# Planted synthetic identifiers — the redaction assertions look for these.
+# Planted public-fixture identifiers — the redaction assertions look for these.
 # ---------------------------------------------------------------------------
 
 PLANTED_TOPIC = "PLANTEDTOPICzzq"
 PLANTED_TEXT = "PLANTEDCOMMENTBODYzzq"
 PLANTED_UID = 1990001234
-Z = {  # role -> synthetic zid
+Z = {  # role -> public-fixture zid
     "revote": 1990000001,
     "banned": 1990000002,
     "zerovote": 1990000003,
@@ -99,6 +99,45 @@ def scaled_config() -> dict:
 
 def test_scaled_config_is_still_valid():
     scaled_config()
+
+
+def test_representative_payloads_share_real_snapshot_and_admit_all_selected_rows(seeded_db, tmp_path, monkeypatch):
+    """Real SQL census/extraction with scaled public-fixture shapes; no engine claim."""
+    import psycopg2
+    from polismath.replay import fixture_samples, fixture_selection
+
+    cfg=scaled_config()
+    cfg['representative_selection']=dict(algorithm=fixture_selection.VERSION,target=20,seed='01'*32)
+    fc.validate_config(cfg)
+    original=fx.fetch_conversation;fetched=[]
+    def fetch(conn,zid,tie_key):
+        fetched.append(zid)
+        return original(conn,zid,tie_key)
+    monkeypatch.setattr(fx,'fetch_conversation',fetch)
+    payload=tmp_path/'.local/payload';payload.mkdir(parents=True)
+    conn=psycopg2.connect(seeded_db)
+    try:
+        result=fx.extract_from_config(conn,config=cfg,payload_root=payload,guard_root=tmp_path)
+    finally:
+        conn.close()
+    chosen=result['representative_provenance']
+    assert len(chosen)==len({r['zid'] for r in chosen})==20
+    assert len(fetched)==len(set(fetched))
+    assert set(fetched)=={r['zid'] for r in result['provenance_rows']}
+    assert len(result['roles'])==len(cfg['roles'])+20
+    assert result['transaction_guarantee']['single_transaction'] is True
+    encoded=json.dumps(cfg).encode()
+    manifest=fb.build_manifest(bundle_id='public-fixture-sampled-snapshot',payload_root=payload,
+        config=cfg,config_bytes=encoded,selections=result['roles'],generated_summaries=result['generated'],
+        snapshot=dict(identifier='public-fixture-snapshot',created_at='2026-09-10T00:00:00Z',schema_migration_version='000006'),
+        transaction_guarantee=result['transaction_guarantee'],tie_key=result['tie_key'],
+        schedules=fb.collect_schedule_hashes(fc.SCRIPTS_DIR/'schedules'),owner='public-fixture-test',
+        extraction_commit='0'*40,source_commit='0'*40,coverage_report=result['coverage_report'],
+        representative_report=result['representative_selection'])
+    fb.verify(payload,manifest)
+    fb.admit_manifest(manifest,config=cfg,config_bytes=encoded,payload_root=payload)
+    assert len(fixture_samples.admitted_rules(manifest,cfg,payload))==20
+    assert fb.scan_public_output(json.dumps(result['representative_selection']),PLANTED)==[]
 
 
 # ---------------------------------------------------------------------------
@@ -179,7 +218,7 @@ def _seed(engine):
         engine SERVED, which is what the P-052 §4.5 capture reads back.
         ``rows`` are ``(math_env, last_vote_timestamp, math_tick)`` triples.
 
-        The blob is a synthetic stand-in for the Clojure prep-main whitelist,
+        The blob is a public-fixture stand-in for the Clojure prep-main whitelist,
         including its ``zid`` key, so the capture's verbatim handling and the
         manifest's redaction claim are both exercised on something recognisable.
         """
@@ -677,7 +716,7 @@ def test_generated_cases_land_beside_the_extracted_ones(extracted):
     assert result["generated"]
     for case in result["generated"]:
         assert (payload / case["dir"]).is_dir()
-        assert case["generated"]["provenance"].startswith("SYNTHETIC")
+        assert case["generated"]["provenance"].startswith("PUBLIC_FIXTURE")
 
 
 # ---------------------------------------------------------------------------

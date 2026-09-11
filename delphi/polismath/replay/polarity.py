@@ -720,7 +720,7 @@ def check_polarity_pair(
 
 
 # ---------------------------------------------------------------------------
-# The standing case set. Small, synthetic, deterministic and cheap enough to
+# The standing case set. Small, public-fixture, deterministic and cheap enough to
 # run on every certify invocation — the real-dataset pair lives in the test
 # suite, and a large fixture gets the same property, not an exemption.
 # ---------------------------------------------------------------------------

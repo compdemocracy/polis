@@ -985,13 +985,13 @@ def extract_from_config(
     selections = fs.resolve_roles(config, rows, accept_public_fixture=accept_public_fixture)
     tie_key = detect_tie_key(conn)
 
-    # A synthetic substitute is not a substitute until it EXISTS. Materialise
-    # every generator case a synthetic role depends on, whatever --no-generated
+    # A public-fixture substitute is not a substitute until it EXISTS. Materialise
+    # every generator case a public-fixture role depends on, whatever --no-generated
     # or the non-heavy default would otherwise do, and pin its directory into
     # the role entry so the manifest cannot record a role with dir:null.
     required_cases = sorted({
-        sel.synthetic_replacement for sel in selections
-        if sel.zid is None and sel.synthetic_replacement
+        sel.public_fixture_replacement for sel in selections
+        if sel.zid is None and sel.public_fixture_replacement
     })
     generated_summaries: list[dict[str, Any]] = fg.write_all(
         config["generated"], payload_root, guard_root,
@@ -1013,18 +1013,37 @@ def extract_from_config(
 
     role_summaries: list[dict[str, Any]] = []
     provenance_rows: list[dict[str, Any]] = []
+    extracted = {}
+    def capture(zid, slug, role, metrics):
+        import copy
+        if representative is not None and zid in extracted:
+            summary = copy.deepcopy(extracted[zid])
+            summary.update(slug=slug, role=role)
+            dir_names[slug] = summary["dir"]
+            return summary
+        directory = dir_names.setdefault(slug, mint_opaque_dir(slug))
+        summary = extract_conversation(
+            conn, zid=zid, slug=slug, role=role,
+            payload_root=payload_root, guard_root=guard_root,
+            dir_name=directory, tie_key=tie_key, measured=metrics,
+            capture_served_math=served_math.capture,
+            served_math_envs=served_math.math_envs,
+        )
+        extracted[zid] = copy.deepcopy(summary)
+        return summary
+
     for sel in selections:
         if sel.zid is None:
-            case_id = sel.synthetic_replacement
+            case_id = sel.public_fixture_replacement
             case = case_by_id.get(case_id, {})
             role_summaries.append({
                 "slug": sel.slug, "role": sel.role, "group": sel.group,
                 "rank": sel.rank,
                 "dir": substitute_dirs.get(case_id),
-                "source": "synthetic-replacement",
-                "synthetic_replacement": case_id,
+                "source": "public-fixture-replacement",
+                "public_fixture_replacement": case_id,
                 "approval": "explicitly accepted by the operator "
-                            "(--accept-synthetic); production supplied no candidate",
+                            "(--accept-public-fixture); production supplied no candidate",
                 "failed_production_predicate": [
                     dict(p) for p in
                     next((r["predicates"] for r in config["roles"]
@@ -1039,26 +1058,32 @@ def extract_from_config(
                 },
                 "measured_metrics": substitute_metrics.get(case_id, {}),
                 "coverage_limits":
-                    "SYNTHETIC. This case exercises the declared stress predicate; "
+                    "PUBLIC_FIXTURE. This case exercises the declared stress predicate; "
                     "it is NOT evidence that production carries the same geometry.",
                 "n_candidates": sel.n_candidates,
             })
             continue
-        dir_name = dir_names.setdefault(sel.slug, mint_opaque_dir(sel.slug))
-        summary = extract_conversation(
-            conn, zid=sel.zid, slug=sel.slug, role=sel.role,
-            payload_root=payload_root, guard_root=guard_root,
-            dir_name=dir_name, tie_key=tie_key, measured=sel.metrics,
-            capture_served_math=served_math.capture,
-            served_math_envs=served_math.math_envs,
-        )
+        summary = capture(sel.zid, sel.slug, sel.role, sel.metrics)
         summary.update({
             "group": sel.group, "rank": sel.rank, "source": "production",
             "n_candidates": sel.n_candidates, "overlaps_with": sel.overlaps_with,
         })
         role_summaries.append(summary)
         provenance_rows.append({
-            "role": sel.role, "slug": sel.slug, "dir": dir_name, "zid": sel.zid})
+            "role": sel.role, "slug": sel.slug, "dir": summary["dir"], "zid": sel.zid})
+
+    if representative is not None:
+        from polismath.replay import fixture_samples as samples
+        metrics_by_zid = {row["zid"]: row for row in rows}
+        if {samples.slug(p["ordinal"]) for p in representative.provenance} & {s.slug for s in selections}:
+            raise SelectionError("SAMPLE_ROLE_COLLISION")
+        for chosen in representative.provenance:
+            zid = chosen["zid"]
+            name = samples.slug(chosen["ordinal"])
+            summary = capture(zid, name, name, metrics_by_zid[zid])
+            summary.update(group="representative", rank=None, source="production")
+            role_summaries.append(summary)
+            provenance_rows.append(dict(role=name, slug=name, dir=summary["dir"], zid=zid))
 
     result = {
         "survey": survey,

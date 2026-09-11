@@ -70,7 +70,7 @@ function post(seed = true) {
   const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
   const done = handle_POST_comments(
     {
-      p: { zid: 7, uid: 11, pid: 0, txt: "A synthetic comment", is_seed: seed },
+      p: { zid: 7, uid: 11, pid: 0, txt: "A public-fixture comment", is_seed: seed },
       headers: {},
     },
     res
@@ -115,7 +115,7 @@ describe("comment creation during translation failures", () => {
   test.each([true, false])(
     "provider rejection preserves comment creation (seed=%s)",
     async (seed) => {
-      const err = new Error("synthetic provider authentication failure");
+      const err = new Error("public-fixture provider authentication failure");
       mockDetect.mockRejectedValue(err);
       const { res, done } = post(seed);
       await done;
@@ -169,7 +169,7 @@ describe("comment creation during translation failures", () => {
           },
         ],
         response: {
-          headers: { "x-synthetic-private-header": "must not be logged" },
+          headers: { "x-public-fixture-private-header": "must not be logged" },
         },
       });
       mockDetect.mockRejectedValue(err);
@@ -217,7 +217,7 @@ describe("comment creation during translation failures", () => {
       { provider: "response" },
     ];
     mockDetect.mockResolvedValue(result);
-    expect(await detectLanguage("synthetic")).toBe(result);
+    expect(await detectLanguage("public-fixture")).toBe(result);
     expect(jest.getTimerCount()).toBe(0);
     const { res, done } = post();
     await done;
@@ -230,7 +230,7 @@ describe("comment creation during translation failures", () => {
     mockDetect.mockImplementation(() => {
       throw new Error("sync provider failure");
     });
-    expect(await detectLanguage("synthetic")).toEqual(nullDetection);
+    expect(await detectLanguage("public-fixture")).toEqual(nullDetection);
     expect(jest.getTimerCount()).toBe(0);
     expect(mockWarn).toHaveBeenCalledTimes(1);
   });
@@ -256,7 +256,7 @@ describe("comment creation during translation failures", () => {
       {
         p: { zid: 7, uid: 11, pid: 0, is_seed: true },
         body: {
-          csv: "comment_text,original_id\nA synthetic seed,00000000-0000-4000-8000-000000000001",
+          csv: "comment_text,original_id\nA public-fixture seed,00000000-0000-4000-8000-000000000001",
         },
       },
       res
@@ -272,7 +272,7 @@ describe("comment creation during translation failures", () => {
       currentPid: 0,
       results: [
         {
-          txt: "A synthetic seed",
+          txt: "A public-fixture seed",
           status: "success",
           tid: 3,
           original_id: "00000000-0000-4000-8000-000000000001",
@@ -285,9 +285,9 @@ describe("comment creation during translation failures", () => {
 
 describe("optional stored translations", () => {
   test("provider rejection logs once and does not write a translation", async () => {
-    const err = new Error("synthetic translation failure");
+    const err = new Error("public-fixture translation failure");
     mockTranslate.mockRejectedValue(err);
-    expect(await translateAndStoreComment(7, 3, "synthetic", "fr")).toBeNull();
+    expect(await translateAndStoreComment(7, 3, "public-fixture", "fr")).toBeNull();
     expect(mockQuery).not.toHaveBeenCalled();
     expect(mockWarn).toHaveBeenCalledTimes(1);
     expect(mockWarn).toHaveBeenCalledWith(
@@ -299,7 +299,7 @@ describe("optional stored translations", () => {
     [null, [], [null], [{}], [""], [["nested"]]].map((value) => [value])
   )("invalid translation %p is not stored", async (value) => {
     mockTranslate.mockResolvedValue(value);
-    expect(await translateAndStoreComment(7, 3, "synthetic", "fr")).toBeNull();
+    expect(await translateAndStoreComment(7, 3, "public-fixture", "fr")).toBeNull();
     expect(mockQuery).not.toHaveBeenCalled();
     expect(mockWarn).toHaveBeenCalledTimes(1);
   });
@@ -310,7 +310,7 @@ describe("optional stored translations", () => {
         resolveProvider = resolve;
       })
     );
-    const done = translateAndStoreComment(7, 3, "synthetic", "fr");
+    const done = translateAndStoreComment(7, 3, "public-fixture", "fr");
     await jest.advanceTimersByTimeAsync(5000);
     expect(await done).toBeNull();
     resolveProvider!(["late translation"]);
@@ -322,7 +322,7 @@ describe("optional stored translations", () => {
   test("success stores the original translation and returns the database row", async () => {
     const row = { zid: 7, tid: 3, txt: "A translation", lang: "fr", src: -1 };
     mockQuery.mockResolvedValue([row]);
-    expect(await translateAndStoreComment(7, 3, "synthetic", "fr")).toBe(row);
+    expect(await translateAndStoreComment(7, 3, "public-fixture", "fr")).toBe(row);
     expect(mockQuery).toHaveBeenCalledWith(
       expect.stringContaining("insert into comment_translations"),
       [7, 3, "A translation", "fr", -1]
@@ -334,7 +334,7 @@ describe("optional stored translations", () => {
     const err = new Error("database write failure");
     mockQuery.mockRejectedValue(err);
     await expect(
-      translateAndStoreComment(7, 3, "synthetic", "fr")
+      translateAndStoreComment(7, 3, "public-fixture", "fr")
     ).rejects.toBe(err);
     expect(mockWarn).not.toHaveBeenCalled();
   });
@@ -346,11 +346,11 @@ describe("optional stored translations", () => {
     try {
       jest.isolateModules(() => {
         const helpers = require("../../src/comment");
-        detectionResult = helpers.detectLanguage("synthetic");
+        detectionResult = helpers.detectLanguage("public-fixture");
         translationResult = helpers.translateAndStoreComment(
           7,
           3,
-          "synthetic",
+          "public-fixture",
           "fr"
         );
       });

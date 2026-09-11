@@ -361,7 +361,7 @@ describe("latest-existing cache provenance (review R2-F1)", () => {
   });
 
   test("it re-reads the store, so a first publication after the warm-up is visible", async () => {
-    // The second reviewer's step 3: the synthetic entry must not hide a generation that was
+    // The second reviewer's step 3: the fallback entry must not hide a generation that was
     // committed after it was cached.
     const zid = freshZid();
     serveNoRows();
@@ -422,14 +422,14 @@ describe("latest-existing cache provenance (review R2-F1)", () => {
   test("the synthesized entry is bypassed, not evicted: ordinary reads keep it", async () => {
     const zid = freshZid();
     serveNoRows();
-    const synthetic = await getPca(zid);
-    expect(synthetic).toBeDefined();
+    const fallback = await getPca(zid);
+    expect(fallback).toBeDefined();
     expect(await getLatestExistingPca(zid)).toBeUndefined();
 
     // Still cached for the ordinary caller, still zero queries.
     queryP_readOnly.mockClear();
     const again = await getPca(zid);
-    expect(again).toBe(synthetic);
+    expect(again).toBe(fallback);
     expect(queryP_readOnly).not.toHaveBeenCalled();
   });
 

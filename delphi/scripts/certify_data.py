@@ -229,6 +229,7 @@ def push(bundle_id: str, payload: Path, extract_json: Path, provenance_json: Pat
             "sha256": archive_sha256, "object_version": archive_object_version},
         coverage_report=extract.get("coverage_report"),
         accepted_null_vote_drops=accept_null_vote_drops,
+        representative_report=extract.get("representative_selection"),
     )
     fb.verify(payload, manifest)
     try:

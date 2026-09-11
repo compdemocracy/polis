@@ -1,7 +1,8 @@
 """Seeded representative selection inside the private snapshot box.
 
-No payload or battery admission: this stage returns a counts-only report and a
-separate private identity map. Raw rows and rank hashes must never be logged.
+This module returns a counts-only report and a separate private identity map.
+Whole extraction/admission is in fixture_samples. Raw rows and rank hashes must
+never be logged.
 """
 from __future__ import annotations
 
@@ -169,6 +170,8 @@ def validate_report(report: dict[str, Any]) -> None:
         # Use the same numeric consistency checks without accepting an identity.
         checked = _population([dict(row, zid=0)])[0]
         _require(checked == row, "REPORT_SIZE")
+    _require(cell_rows == sorted(cell_rows, key=_cell) and sizes == sorted(
+        sizes, key=lambda s: tuple(s[k] for k in ("p_bin", "v_bin", *SIZE_FIELDS))), "REPORT_ORDER")
     actual = Counter(_cell(row) for row in sizes)
     _require(all(actual[_cell(row)] == row["selected"] for row in cell_rows) and
              set(actual) <= seen and sum(row["population"] for row in cell_rows) == counts["population"] and

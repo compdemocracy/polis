@@ -1,7 +1,7 @@
 """Report readers must isolate engines in the migrated, real Postgres schema.
 
 Uses POLIS_TEST_POSTGRES_URL (the docker-compose.test.yml postgres service),
-with the existing throwaway-Postgres helper as a local fallback. Only synthetic
+with the existing throwaway-Postgres helper as a local fallback. Only public-fixture
 conversations are inserted; each test removes its own rows. DynamoDB and LLM
 work are bypassed, while the production readers execute their SQL unchanged.
 """
@@ -81,7 +81,7 @@ def seeded_conversation(postgres_url):
     zid = -(uuid4().int % 1_000_000_000 + 1)
     with conn, conn.cursor() as cursor:
         cursor.execute("INSERT INTO conversations (zid, topic) VALUES (%s, %s)",
-                       (zid, "Synthetic report environment isolation"))
+                       (zid, "Public-fixture report environment isolation"))
 
     def seed(reader, reverse):
         envs = list(ENV_VALUES)

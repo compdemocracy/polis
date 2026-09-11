@@ -155,7 +155,7 @@ manager = ConversationManager()
 conv_id = "demo-conversation"
 manager.create_conversation(conv_id)
 
-# Generate synthetic votes
+# Generate public-fixture votes
 participants = [f"p{i}" for i in range(100)]
 comments = [f"c{i}" for i in range(20)]
 

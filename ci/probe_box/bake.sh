@@ -4,15 +4,27 @@
 set -euo pipefail
 [ "$(id -u)" = 0 ]
 [ "$(uname -m)" = aarch64 ]
-for tool in podman nft python3 mkfs.ext4 mount systemctl; do command -v "$tool" >/dev/null; done
-python3 -c 'import boto3, psycopg2'
+for tool in docker dockerd containerd runc skopeo mountpoint nft mkfs.ext4 mount systemctl unshare lsblk swapoff shutdown; do command -v "$tool" >/dev/null; done
+[ -x /sbin/ebsnvme-id ]
+[ -x /opt/polis-probe/venv/bin/python ]
+/opt/polis-probe/venv/bin/python -c 'import sys, boto3, psycopg2; assert sys.version_info[:2] == (3, 12)'
 : "${PROBE_RDS_CA:?path to the reviewed RDS CA bundle required}"
+# Validate the reviewed CA before writing any boot configuration.
+/opt/polis-probe/venv/bin/python - "$(dirname "$0")/ami/rds-ca.json" <<'PYCA'
+import hashlib, json, os
+from pathlib import Path
+import sys
+ca = json.loads(Path(sys.argv[1]).read_bytes())['ca']
+raw = Path(os.environ['PROBE_RDS_CA']).read_bytes()
+if len(raw) != ca['bytes'] or hashlib.sha256(raw).hexdigest() != ca['sha256']:
+    raise SystemExit('RDS_CA_PIN_MISMATCH')
+PYCA
 install -d -m 0755 /opt/polis-probe
 install -m 0444 "$PROBE_RDS_CA" /opt/polis-probe/rds-ca.pem
-for file in worker.py contracts.py receipt.py replica.py dns.py; do install -m 0444 "$(dirname "$0")/$file" "/opt/polis-probe/$file"; done
+for file in worker.py contracts.py receipt.py replica.py dns.py provision.py provision_login.py; do install -m 0444 "$(dirname "$0")/$file" "/opt/polis-probe/$file"; done
 # No remote commands, cloud-init, SSM, SSH or serial interactive console.
 for unit in cloud-init-local cloud-init cloud-config cloud-final sshd amazon-ssm-agent serial-getty@ttyS0; do systemctl mask "$unit.service"; done
-systemctl mask swap.target
+systemctl mask swap.target docker.service docker.socket containerd.service
 printf '* hard core 0\n* soft core 0\n' > /etc/security/limits.d/90-probe-box.conf
 printf 'kernel.core_pattern=|/bin/false\nvm.swappiness=0\n' > /etc/sysctl.d/90-probe-box.conf
 id private-dns >/dev/null 2>&1 || useradd --system --no-create-home --shell /sbin/nologin private-dns
@@ -42,37 +54,72 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ExecStart=/usr/bin/python3 /opt/polis-probe/dns.py
+ExecStart=/opt/polis-probe/venv/bin/python /opt/polis-probe/dns.py
 Restart=on-failure
 StandardOutput=null
 StandardError=null
 [Install]
 WantedBy=multi-user.target
 UNIT
+# Skopeo may read only a local OCI archive; identity is checked independently by
+# worker.py. Every other transport is refused by this baked policy.
+cat > /opt/polis-probe/image-policy.json <<'POLICY'
+{"default":[{"type":"reject"}],"transports":{"oci-archive":{"":[{"type":"insecureAcceptAnything"}]}}}
+POLICY
+# Docker 25 uses overlay2 and its own managed containerd. Do not connect to the
+# distro containerd socket (which would put image/state data on the root disk).
+cat > /opt/polis-probe/docker.json <<'DOCKER'
+{"data-root":"/probe-work/container-store","exec-root":"/probe-work/container-run","pidfile":"/probe-work/docker.pid","hosts":["unix:///probe-work/docker.sock"],"group":"root","storage-driver":"overlay2","bridge":"none","iptables":false,"ip6tables":false,"ip-forward":false,"ip-masq":false,"userland-proxy":false,"log-driver":"none"}
+DOCKER
+dockerd --validate --config-file=/opt/polis-probe/docker.json
+cat > /etc/systemd/system/polis-probe-container.service <<'UNIT'
+[Unit]
+Description=Probe-only Docker on disposable storage
+ConditionPathIsMountPoint=/probe-work
+PartOf=polis-probe-worker.service
+[Service]
+Type=notify
+ExecStartPre=/usr/bin/mountpoint -q /probe-work
+ExecStart=/usr/bin/dockerd --config-file=/opt/polis-probe/docker.json
+Environment=DOCKER_TMPDIR=/probe-work/tmp TMPDIR=/probe-work/tmp
+Delegate=yes
+KillMode=process
+TimeoutStartSec=120
+LimitCORE=0
+UMask=0077
+StandardOutput=null
+StandardError=null
+UNIT
 cat > /opt/polis-probe/start.sh <<'START'
 #!/usr/bin/env bash
 set -euo pipefail
 # Arm termination before any mount, DNS or supervisor work can fail. EC2's
-# independent sweeper enforces absolute admission expiry and missing heartbeat.
+# active operator observes absolute admission expiry and missing heartbeat.
 shutdown -h +300
 trap 'systemctl poweroff' EXIT
 swapoff -a
 ulimit -c 0
 # User-data is JSON only; cloud-init execution is disabled. This step runs
 # before any probe or private database access and reads no credential.
-python3 - <<'BOOT'
+/opt/polis-probe/venv/bin/python - <<'BOOT'
 import json,sys
 from pathlib import Path
 sys.path.insert(0,'/opt/polis-probe')
 from worker import metadata
 b=json.loads(metadata('user-data'))
-if set(b)!={'account','region','controlBucket','dnsNames','resolver'}: raise ValueError('BOOT_CONFIG')
+if set(b)!={'mode','account','region','controlBucket','dnsNames','resolver'} or b['mode'] not in ('worker','provision'): raise ValueError('BOOT_CONFIG')
 Path('/opt/polis-probe/bootstrap.json').write_text(json.dumps(b))
 Path('/opt/polis-probe/bootstrap.json').chmod(0o444)
 BOOT
 nft -f /opt/polis-probe/firewall.nft
 printf 'nameserver 127.0.0.1\noptions timeout:2 attempts:2\n' > /etc/resolv.conf
 systemctl start polis-probe-dns.service
+mode="$(/opt/polis-probe/venv/bin/python -c 'import json; print(json.load(open("/opt/polis-probe/bootstrap.json"))["mode"])')"
+if [ "$mode" = provision ]; then
+  shutdown -h +15
+  /opt/polis-probe/venv/bin/python /opt/polis-probe/provision.py
+  exit 0
+fi
 # Match the EBS launch-template device name, never guess an NVMe disk number.
 private_disk=''
 for dev in /dev/nvme*n1; do
@@ -84,7 +131,10 @@ mkfs.ext4 -F "$private_disk" >/dev/null
 mkdir -p /probe-work
 mount -o nodev,nosuid,noexec "$private_disk" /probe-work
 chmod 0700 /probe-work
-python3 /opt/polis-probe/worker.py
+mkdir -m 0700 /probe-work/tmp /probe-work/docker-client
+export TMPDIR=/probe-work/tmp DOCKER_CONFIG=/probe-work/docker-client
+systemctl start polis-probe-container.service
+/opt/polis-probe/venv/bin/python /opt/polis-probe/worker.py
 START
 chmod 0500 /opt/polis-probe/start.sh
 cat > /etc/systemd/system/polis-probe-worker.service <<'UNIT'
@@ -103,6 +153,9 @@ StandardError=null
 [Install]
 WantedBy=multi-user.target
 UNIT
+systemctl daemon-reload
+systemd-analyze verify /etc/systemd/system/polis-probe-{dns,container,worker}.service
+# Do not start any of these services on the builder.
 systemctl enable polis-probe-worker.service
 # Only digest-pinned OCI archives are loaded at runtime from the private assets
 # bucket. The AMI supervisor and CA bundle are reviewed in the image build.

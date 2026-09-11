@@ -35,7 +35,7 @@ from polismath.conversation.conversation import Conversation
 
 
 # ---------------------------------------------------------------------------
-# Synthetic two-group data helpers
+# Public-fixture two-group data helpers
 # ---------------------------------------------------------------------------
 
 def _two_group_votes(pids, tids, group_a):

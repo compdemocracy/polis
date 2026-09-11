@@ -23,7 +23,7 @@ our work, while commit messages and PR descriptions serve reviewers.
 - 185 passed, 11 failed, 3 skipped, 6 xfailed
 - Pre-existing failures (not caused by this work, inherited from stacked PRs):
   - `test_clusters.py::test_init_clusters` — `init_clusters()` doesn't populate members when k > n_points
-  - `test_conversation.py::test_recompute` — clustering threshold (7.2) filters out all 20 participants in synthetic data
+  - `test_conversation.py::test_recompute` — clustering threshold (7.2) filters out all 20 participants in public-fixture data
   - `test_conversation.py::test_data_persistence` — same threshold issue
   - `test_datasets.py` × 4 — DatasetInfo API changed (added `has_cold_start_blob`), tests use old 8-arg constructor
   - `test_edge_cases.py::test_insufficient_data_for_pca` — repness returns empty dict for no-group case
@@ -100,7 +100,7 @@ After rebase onto updated `origin/kmeans_analysis_docs`:
 | `TestD11ConsensusSelection` | D11 | 1 (per dataset) | xfail |
 | `TestD12CommentPriorities` | D12 | 1 (per dataset) | xfail |
 | `TestD15ModerationHandling` | D15 | 1 (per dataset) | skipped (no mod-out data) |
-| `TestSyntheticEdgeCases` | multiple | 5 | 2 xfail (D4, D9), 3 pass |
+| `TestPublicFixtureEdgeCases` | multiple | 5 | 2 xfail (D4, D9), 3 pass |
 
 ---
 
@@ -352,7 +352,7 @@ Will re-record after those are resolved and rebased.
 
 ### TDD steps
 1. **Baseline**: 25 passed, 3 skipped, 28 xfailed (discrepancy tests)
-2. **Red**: Removed xfail from 3 D4 tests → 6 failures (constant check, pa values × 4 datasets, synthetic)
+2. **Red**: Removed xfail from 3 D4 tests → 6 failures (constant check, pa values × 4 datasets, public-fixture)
 3. **Fix**: `PSEUDO_COUNT = 1.5` → `2.0` in `repness.py`
 4. **Green**: All 6 D4 tests pass
 5. **Full suite**: 258 passed, 3 skipped, 30 xfailed, 0 failures (public datasets)
@@ -813,7 +813,7 @@ them out (`matrix/set-column m' i 0`), preserving matrix structure.
 
 ### Tests
 
-**New synthetic tests** (`TestD15SyntheticModeration`, 5 tests):
+**New public-fixture tests** (`TestD15PublicFixtureModeration`, 5 tests):
 - `test_zeroing_preserves_columns` — moderated columns still present
 - `test_zeroed_columns_are_all_zero` — moderated column values are 0.0
 - `test_non_moderated_columns_unchanged` — other columns retain original values
@@ -975,8 +975,8 @@ state, D8 repful classification recovered, D15 downstream `to_math_blob` /
      `raw: bool = False` parameter on `_get_clean_matrix` (default False
      preserves PCA/clustering behavior).
 
-   Added 3 tests in `TestD15SyntheticModeration` pinning the new behavior on
-   a synthetic conversation with moderation:
+   Added 3 tests in `TestD15PublicFixtureModeration` pinning the new behavior on
+   a public-fixture conversation with moderation:
    - `test_user_vote_counts_uses_raw_rating_mat` — pid 3 with NaN on the
      moderated tid 0 stays at count 3 (would have inflated to 4 with the old bug).
    - `test_votes_base_uses_raw_rating_mat` — moderated tid 0 reports
@@ -1121,7 +1121,7 @@ returned 13 substantive comments. Triage + fixes:
   including pass"), matching Polis pipeline convention and what Clojure
   passes as `n-trials`.
 - **PR #2520** — three `succ > pop` test cases flagged as "impossible
-  inputs". Kept as-is: they're synthetic stress tests for the pi_hat==1
+  inputs". Kept as-is: they're public-fixture stress tests for the pi_hat==1
   guard and the no-short-circuit behavior; the comment trail in the test
   already explains why. Replied + resolved on the threads.
 - **PR #2521** — `repness_metric` docstring softened: instead of "negative
@@ -1156,7 +1156,7 @@ returned 13 substantive comments. Triage + fixes:
      Audit + Recovery downstream-fix entry.
   5. **End-to-end serialization shape regression test** added —
      `test_to_dict_and_to_dynamo_dict_serialize_user_vote_counts_and_votes_base`.
-     Calls both `to_dict()` and `to_dynamo_dict()` on a synthetic conv, pins
+     Calls both `to_dict()` and `to_dynamo_dict()` on a public-fixture conv, pins
      the result-key naming (`user-vote-counts` / `votes-base` hyphenated for
      to_dict, `user_vote_counts` / `votes_base` underscored for the DynamoDB
      serializer), per-comment value-key shape (Clojure `A/D/S` vs DynamoDB
@@ -1266,8 +1266,8 @@ shrinks the test surface by ~35 obsolete unit tests.
 - MIGRATE `TestD7RepnessMetric::test_metric_formula_is_product` to hand-computed
   reference values (`1.3*1.8*0.8*2.5 = 4.68` for agree, `0.7*-0.9*0.2*-1.5 = 0.189`
   for disagree — signed product).
-- DELETE redundant scalar-formula tests in `TestSyntheticEdgeCases`
-  (test_prop_test_matches_clojure_formula_synthetic — duplicated by migrated
+- DELETE redundant scalar-formula tests in `TestPublicFixtureEdgeCases`
+  (test_prop_test_matches_clojure_formula_public_fixture — duplicated by migrated
   TestD5ProportionTest; test_clojure_repness_metric_product — duplicated by
   TestD7RepnessMetric; test_clojure_repful_uses_rat_vs_rdt — purely tautological).
 - Rename misleading `test_compute_group_comment_stats_matches_scalar` →
@@ -1327,7 +1327,7 @@ PR 14a unblocks (in stack order):
    proposal (this session). Helpers `passes_by_test`, `beats_best_by_test`,
    `beats_best_agr` go top-level in `repness.py`; reduce structure uses
    `df.to_dict('records')` iteration with mutable `{sufficient, best, best_agree}`
-   state. Boundary cases identified for synthetic test fixtures.
+   state. Boundary cases identified for public-fixture test fixtures.
 2. **D11** — Consensus selection. Research agent produced a fix proposal:
    needs new `consensus_stats_df(vote_matrix_df) -> pd.DataFrame` (whole-data,
    not per-group), plus rewrite of `select_consensus_comments_df` with the
@@ -1480,14 +1480,14 @@ selection (overlap rises from 0% to ~20% on vw cold_start), but
 per-(gid, tid) stats still mismatch because Python and Clojure put
 different participants in the "same" group ID. That's upstream
 PCA/KMeans group-membership divergence (D14 / D1), not D10. D10 is
-verified via the 18 synthetic helper + boundary tests above.
+verified via the 18 public-fixture helper + boundary tests above.
 
 ### Suite delta (pre/post D10)
 
 - Pre (post-14a): 295 passed, 12 skipped, 58 xfailed.
 - Post (this PR): 313 passed, 12 skipped, 58 xfailed.
 - Delta: +18 passed, 0 failed, 0 new xfailed. The +18 matches the 18 new
-  D10 synthetic tests exactly.
+  D10 public-fixture tests exactly.
 
 ### Decisions made autonomously (under `/goal` mode)
 
@@ -1550,7 +1550,7 @@ Landed in `/goal` mode. Decisions documented in
 
 - Pre (post-D10): 313 passed, 12 skipped, 58 xfailed.
 - Post (this PR): 325 passed, 12 skipped, 58 xfailed.
-- Delta: +12 (the 12 new D11 synthetic tests). Zero regressions.
+- Delta: +12 (the 12 new D11 public-fixture tests). Zero regressions.
 
 ### DISCOVERY: ns-PASS divergence
 
@@ -1578,7 +1578,7 @@ included, matching Clojure" was a misreading of `count-votes`.
   re-recording goldens.
 
 D11 real-data test xfailed with the right reason. Logic pinned by the
-12 synthetic tests (which never exercise PASS, so they don't show the
+12 public-fixture tests (which never exercise PASS, so they don't show the
 divergence).
 
 This is now the top item under "Pending — needs team discussion" in
@@ -1661,7 +1661,7 @@ Logged for batch review. Python may be more correct than Clojure here.
 
 - Pre (post-D11): 325 passed, 12 skipped, 58 xfailed.
 - Post (this PR): 336 passed, 12 skipped, 56 xfailed, 2 xpassed.
-- Delta: +11 (the 11 new D12 synthetic tests), 0 failed, -2 xfailed
+- Delta: +11 (the 11 new D12 public-fixture tests), 0 failed, -2 xfailed
   (those became xpassed — the 2 cold_start `test_comment_priorities_exist`
   variants run cleanly now; the new xfail is on a different basis).
 
@@ -1791,7 +1791,7 @@ first-k-distinct encounter order over base-cluster centers
 and only ever `sort-by :id`. The base level already preserved k-means id
 order (K-inv) with a comment warning against exactly this; the group
 level did the forbidden thing three steps later. Fix: remove the re-sort
-+ reassignment; pin with a synthetic first-encountered-is-id-0 test
++ reassignment; pin with a public-fixture first-encountered-is-id-0 test
 (RED under any size sort).
 
 Harvest (verified on a full --include-local run, then re-validated —
@@ -1883,7 +1883,7 @@ once we move to improving the Python implementation" — per Julien).
 ### Silhouette guard for the powerit-PCA default (#2591)
 
 Making `POLISMATH_PCA_IMPL=powerit` the default (#2591) surfaced a latent
-crash — a robustness gap, not a parity defect. On small/synthetic
+crash — a robustness gap, not a parity defect. On small/public-fixture
 conversations the powerit projection collapses to exactly **two base
 clusters**, and group-cluster k-selection (`conversation.py`) then calls
 `calculate_silhouette_sklearn` on 2 points / 2 labels. sklearn requires
@@ -1956,7 +1956,7 @@ varied-value / rank-parity assertion.
 
 **Bug.** `pca_project_cmnts` (`polismath/pca_kmeans_rep/pca.py`) computed
 `coefs = -scale * (1.0 + center)` — a literal, untranslated copy of Clojure's
-synthetic vote value `-1` (`math/src/polismath/math/pca.clj:167-178`). In Clojure
+unit-vote value `-1` (`math/src/polismath/math/pca.clj:167-178`). In Clojure
 that `-1` is correct because Clojure stays in raw-Postgres convention throughout,
 where AGREE = -1 and `center` is a mean in that same convention. Delphi flips
 votes to its own convention at the Postgres ingress (`postgres_vote_to_delphi`),
@@ -1969,7 +1969,7 @@ near-unanimous-DISAGREE comment (`center → −1`) should be maximal but report
 The consensus↔extremity relationship was reversed.
 
 **Fix.** `coefs = scale * (AGREE - center)` (AGREE = +1, imported from
-`utils.general`). Faithful Delphi-convention port of the Clojure synthetic-AGREE
+`utils.general`). Faithful Delphi-convention port of the Clojure unit-AGREE
 projection. Docstring rewritten to explain the convention translation.
 
 **Why no test caught it.** (1) The old `test_pca_project_cmnts_formula` was
@@ -2623,7 +2623,7 @@ The ~1,000 step-0 divergences decompose into exactly SIX roots:
 ### Change landed: acceptance canonicalization (harness, TDD)
 
 RED first: tests/replay_harness/test_certify_canonicalization.py (9 tests) —
-synthetic clj-ordered vs py-sorted blob pair; observed 2 RED (ordering
+public-fixture clj-ordered vs py-sorted blob pair; observed 2 RED (ordering
 divergences + hash mismatch) before the fix, real-difference tests green.
 Fix: `canonicalize_blob()` in polismath/replay/crosslang.py, applied inside
 `project_acceptance` (both engines, hashing AND diffing): tids sorted with
@@ -2745,7 +2745,7 @@ hasheq for Long). Hypothesis validated against three recorded-blob oracles
 (raw JSON key order of user-vote-counts: n=18 exact, n=30 exact, n=98
 exact) — Clojure map iteration order is now REPLICABLE in python.
 
-Port (commit `qwnrpnzk`, TDD, RED observed on the synthetic tie fixture):
+Port (commit `qwnrpnzk`, TDD, RED observed on the public-fixture tie fixture):
 `polismath/utils/clj_hash.py` (hashLong + HAMT key order; int keys only,
 documented row-order fallback otherwise) + the legacy greedy candidate
 order in `_get_in_conv_participants` (the PR-E "non-deterministic tie"
@@ -3367,7 +3367,7 @@ db/load-conv's longs-else-keywords JSON key-fn postgres.clj:419-433):
 Closing the s4 review finding on #2653 (only 1x1 tested) with
 Clojure-referenced tiny-shape tests: 1xN expectations extracted from the
 every-vote-56 clj recording step-002 (public vw data — committable
-literals); Nx1 from a SYNTHETIC 3-ptpt x 1-comment fixture run through
+literals); Nx1 from a PUBLIC_FIXTURE 3-ptpt x 1-comment fixture run through
 the clj replay driver (scratchpad, votes +1/+1/-1). The Nx1 test FAILED
 against python: comment-projection [[-2/3],[-0.0]] and TWO base clusters
 where Clojure emits [[0.0],[0.0]] and ONE cluster (members [10 11 12],

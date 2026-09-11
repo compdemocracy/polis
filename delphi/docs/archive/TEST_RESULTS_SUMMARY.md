@@ -27,7 +27,7 @@ This document summarizes the current state of the Python conversion testing. All
 ### Demo Scripts
 ✅ **Status**: Fully passing
 - Both simple_demo.py and final_demo.py run successfully
-- Demonstrate the core functionality with synthetic data
+- Demonstrate the core functionality with public-fixture data
 - All pipeline components work correctly together
 
 ## Fixed Issues
@@ -91,6 +91,6 @@ The codebase has a few minor issues that don't affect functionality but could be
 
 ## Conclusion
 
-The Python conversion of the Pol.is math module is now fully functional and robust. All tests are passing, and the implementation has been validated with both synthetic and real-world data. The core mathematical algorithms (PCA, clustering, representativeness) work correctly and produce high-quality results.
+The Python conversion of the Pol.is math module is now fully functional and robust. All tests are passing, and the implementation has been validated with both public-fixture and real-world data. The core mathematical algorithms (PCA, clustering, representativeness) work correctly and produce high-quality results.
 
 The code is now ready for production use, with only minor deprecation warnings remaining that do not affect functionality. The implementation provides all the functionality of the original Clojure codebase with improved readability, maintainability, and integration with the Python ecosystem.

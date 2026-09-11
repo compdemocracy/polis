@@ -1,11 +1,11 @@
 # Representative snapshot selection
 
 The optional `representative_selection` config block selects up to 20 distinct
-conversations and produces a numeric census report. This is a **selection-only
-stage**: it does not extract extra sample payloads, add replay/schedule/battery
-entries, or change payload admission. Existing coverage recipes remain intact.
-A later reviewed extension must materialize and admit the sampled conversations
-before a full representative private campaign can run.
+conversations and produces a numeric census report. Whole-config extraction
+materializes those conversations in the same snapshot as the existing roles.
+Manifest/4 and the probe's paired-plan/2 admit every sampled payload and its
+full-stream recipe alongside the existing private battery. The standalone
+`select-representative` command remains selection-only.
 
 The shipped `scripts/certify_datasets.json` and battery are unchanged. Make a
 reviewed new config version before inspecting candidate outputs, adding:
@@ -18,7 +18,7 @@ reviewed new config version before inspecting candidate outputs, adding:
 }
 ```
 
-The seed above is a synthetic example, not an operator's chosen production seed.
+The seed above is a public-fixture example, not an operator's chosen production seed.
 The schema requires exactly these three fields, this version/target and 64
 lowercase hexadecimal seed characters. Absence disables this stage; null or
 malformed declarations refuse. No activity, outcome, resource-fit or old-role
@@ -59,7 +59,8 @@ unbiased production failure-rate estimate.
 
 From `delphi/`, using the already authorized restored-clone connection and a
 reviewed config. All real values, credentials, raw surveys and sidecars stay in
-that box; the certification worker gets no database or snapshot permission.
+that box. In ProbeBox, only the reader receives the restricted replica socket;
+the producer and verifier receive separate local mounts without network access.
 
 ```sh
 uv run python scripts/prodclone_extract.py select-representative \
@@ -89,13 +90,56 @@ does not disable writers or relax transaction isolation.
 
 Alternatively, the existing `from-config` extraction command with that same
 optional config performs selection over the **same fetched census and transaction**
-as its unchanged old-role resolution/extraction. It writes
+as its unchanged old-role resolution. It extracts each selected identity once,
+reusing those bytes when an existing role overlaps, while retaining every role
+and replay obligation. New sample aliases are private ordinals `sample-001`
+through `sample-020`; directories retain random prefixes. It writes
 `representative_selection.private.json` beside the payload, under the existing
 `.private` sidecar directory. `certify_extract.json` contains the safe report but
 excludes the representative identity map. Existing survey/role provenance stays
 in its own restricted sidecars. With selection enabled stdout contains only the
 new report; without the block, original extraction behavior/output is retained.
 Failures never substitute the sample for a missing old recipe.
+
+## Payload and replay admission
+
+The opt-in config requires manifest `certify-fixture-manifest/4` with a closed
+`representative` block binding the unchanged numeric report. Every selected
+ordinal must have a distinct materialized directory; an old role may share that
+directory. Admission recounts P, V, C, U, registered participants and comments
+from lossless events and participant rows and compares the complete size census
+with the report. Missing, substituted, duplicated, unknown or unconfigured sample
+roles fail. Existing role predicates, public-fixture approval, generated cases and
+NULL-drop policy still apply. Configs without sampling retain manifest/3 and
+the original battery; historical manifest/2 remains supported.
+
+The box freezes all 14 existing private entries plus the selected sample entries
+(normally 34 total). Each sample uses `representative-uniform6-clojure-legacy`,
+with distinct integer cuts `ceil(k*V/6)` for k=1..6. Tiny inputs have fewer than
+six cuts; zero votes have one explicit bootstrap checkpoint and the existing
+strict empty-output contract. The independent gate reconstructs every required
+entry, schedule and checkpoint from the original read-only fixture. Omitting a
+sample, dropping a checkpoint, truncating a stream or declaring a public-only
+subset cannot pass this campaign. Ordinary/restart obligations remain separate.
+Execution sorts by actual V, then actual P×C, then the private dataset key;
+ordinary/restart schedules stay adjacent, ordinary first.
+
+Sample schedules use the explicit `source-final-state` moderation mode in both
+replay drivers. All captured current comment flags enter only the final step,
+including timestamps after the last vote and missing timestamps. Tied vote times
+cannot move these rows to an earlier checkpoint. Known modification timestamps
+are retained; unknown timestamps use the empty watermark sentinel 0 while the
+original NULL remains in the bound events. This is a declared snapshot-state
+application, not a reconstructed moderation history. The established engine
+batch order remains votes/recompute, then moderation sets/watermark; the final
+math is therefore not claimed to have recomputed under those newly applied flags.
+Existing interleaved moderation and restart recipes are unchanged.
+
+Sampled payloads and identity maps are box-only. The legacy object-store
+push/pull and public-pin paths refuse manifest/4, including admission-bypass
+pushes. The box verifier exports only a closed `polis-probe-receipt/2` with the
+validated numeric selection report; ordinary unsampled receipts retain /1.
+Public dispatch output remains exactly run ID plus PASS/FAIL.
 
 ## Report boundary and measurements
 
@@ -112,12 +156,16 @@ and size census before publication.
 No zid, report ID, role/alias, directory/path, snapshot/timestamp, rank/hash,
 source text, outcome or raw exception belongs in this report. Sidecars remain
 in the extraction box and are excluded from tar/log/public outputs. This stage
-measures database cardinalities only. It does **not** claim extracted byte sizes,
-RSS or scratch capacity for the sampled conversations. Those require the later
-payload/capacity stage; unknown byte measurements are not reported as zero.
-No change is made to the private box's independent public-summary policy.
+keeps its database-cardinality schema. A separate box-only payload census records
+actual unique file bytes/member count, per-sample payload bytes, entry count and
+checkpoint count. Admission rejects over 180 GiB expanded payload or 1,000,000
+files without replacing the sample. No archive is exported by this box ABI.
+These are input measurements and ceilings, not proof of production fit: host and
+container memory peaks, retained recording growth, scratch high-water and OOM
+evidence still require the actual private capacity run. Unknown resource
+measurements are not reported as zero. No public output policy is widened.
 
-The tests use synthetic populations, including a deliberately defective allocator,
+The tests use public-fixture populations, including a deliberately defective allocator,
 small/empty/uncovered populations, reordered inputs, ignored outcome fields,
 report leakage/tampering and whole-extraction/CLI wiring. Selection evidence
 cannot replace actual private payload, replay, capacity or cleanup admission.

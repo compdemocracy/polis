@@ -240,7 +240,7 @@ def _build_conv_with_moderation(
     mod_out_tids: list | None = None,
     participant_votes: dict | None = None,
 ) -> Conversation:
-    """Build a synthetic Conversation with moderation applied.
+    """Build a public-fixture Conversation with moderation applied.
 
     Args:
         n_comments: Total number of comments (tids 0..n_comments-1).
@@ -1196,11 +1196,11 @@ class TestD10RepCommentSelection:
 
 
 # ----------------------------------------------------------------------------
-# D10 — Synthetic unit tests for the new selection helpers
+# D10 — Public-fixture unit tests for the new selection helpers
 # ----------------------------------------------------------------------------
 #
 # Pin the Clojure-parity semantics of `passes_by_test`, `beats_best_by_test`,
-# `beats_best_agr`, and `select_rep_comments_df`. Synthetic 1-group fixtures
+# `beats_best_agr`, and `select_rep_comments_df`. Public-fixture 1-group fixtures
 # only — no real datasets, no Clojure blob dependency.
 #
 # References:
@@ -2123,7 +2123,7 @@ class TestD12PCAProjectComments:
     def test_pca_project_cmnts_formula(self):
         """Clojure-parity: proj[i] = sqrt(n_cmnts) * (AGREE - center[i]) * [pc1[i], pc2[i]].
 
-        Clojure (`pca-project-cmnts`, pca.clj:167-178) projects a synthetic vote
+        Clojure (`pca-project-cmnts`, pca.clj:167-178) projects a unit vote
         of `-1` because Clojure stays in raw-Postgres convention where AGREE = -1.
         Delphi fits PCA in its OWN convention (AGREE = +1, via the
         `postgres_vote_to_delphi` ingress flip), so the faithful port projects
@@ -2321,9 +2321,9 @@ class TestD15ModerationHandling:
                 )
 
 
-class TestD15SyntheticModeration:
+class TestD15PublicFixtureModeration:
     """
-    Synthetic tests for D15 moderation handling.
+    Public-fixture tests for D15 moderation handling.
 
     Clojure zeros out moderated columns (named_matrix.clj:214-230).
     Python must match: _apply_moderation() zeros columns, not removes them.
@@ -2342,7 +2342,7 @@ class TestD15SyntheticModeration:
         }
         votes_df = pd.DataFrame(data, index=[0, 1, 2, 3, 4])
 
-        conv = Conversation("synthetic_d15")
+        conv = Conversation("public_fixture_d15")
         conv.raw_rating_mat = votes_df.copy()
         conv.rating_mat = votes_df.copy()
         conv.participant_count, conv.comment_count = votes_df.shape
@@ -2406,7 +2406,7 @@ class TestD15SyntheticModeration:
     def test_user_vote_counts_uses_raw_rating_mat(self):
         """user-vote-counts must reflect actual votes, not the post-D15 zeros.
 
-        Synthetic conv has pid 3 with raw NaN on tid 0 (didn't vote). After
+        Public-fixture conv has pid 3 with raw NaN on tid 0 (didn't vote). After
         moderating tid 0, the OLD bug (reading from rating_mat) counts the
         zeroed cell as a vote → pid 3 inflates from 3 to 4. The fix routes
         through raw_rating_mat to match Clojure (conversation.clj:220-228).
@@ -2476,7 +2476,7 @@ class TestD15SyntheticModeration:
             3: [np.nan, 0.0, 1.0, 1.0, -1.0],
         }
         votes_df = pd.DataFrame(data, index=[0, 1, 2, 3, 4])
-        conv = Conversation("synthetic_d15_mod_ptpts")
+        conv = Conversation("public_fixture_d15_mod_ptpts")
         conv.raw_rating_mat = votes_df.copy()
         conv.rating_mat = votes_df.copy()
         conv.participant_count, conv.comment_count = votes_df.shape
@@ -2545,7 +2545,7 @@ class TestD15SyntheticModeration:
         try:
             blob = conv.to_dict()
         except Exception as e:  # pragma: no cover
-            pytest.fail(f"to_dict() raised on synthetic conv: {e!r}")
+            pytest.fail(f"to_dict() raised on public-fixture conv: {e!r}")
 
         assert 'user-vote-counts' in blob, "to_dict must produce 'user-vote-counts' (hyphen) key"
         assert 'votes-base' in blob, "to_dict must produce 'votes-base' (hyphen) key"
@@ -2580,7 +2580,7 @@ class TestD15SyntheticModeration:
         try:
             dyn = conv.to_dynamo_dict()
         except Exception as e:  # pragma: no cover
-            pytest.fail(f"to_dynamo_dict() raised on synthetic conv: {e!r}")
+            pytest.fail(f"to_dynamo_dict() raised on public-fixture conv: {e!r}")
 
         assert 'user_vote_counts' in dyn, "to_dynamo_dict must produce 'user_vote_counts' (underscore)"
         assert 'votes_base' in dyn, "to_dynamo_dict must produce 'votes_base' (underscore)"
@@ -2630,12 +2630,12 @@ class TestD15SyntheticModeration:
 
 
 # ============================================================================
-# Synthetic edge-case tests (not dataset-dependent)
+# Public-fixture edge-case tests (not dataset-dependent)
 # ============================================================================
 
-class TestSyntheticEdgeCases:
+class TestPublicFixtureEdgeCases:
     """
-    Synthetic tests with made-up data to verify specific formulas
+    Public-fixture tests with made-up data to verify specific formulas
     independently of any real dataset. These document intent clearly
     and prevent regressions.
     """

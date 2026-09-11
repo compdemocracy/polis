@@ -661,8 +661,8 @@
           "direction": "asc"
         }
       ],
-      "on_missing": "fail_with_synthetic_replacement_offer",
-      "synthetic_replacement": "gen-v1-dense-stress",
+      "on_missing": "fail_with_public_fixture_replacement_offer",
+      "public_fixture_replacement": "gen-v1-dense-stress",
       "exercise": "Dense-matrix memory/time stress at maximum matrix area."
     },
     {
@@ -697,8 +697,8 @@
           "direction": "asc"
         }
       ],
-      "on_missing": "fail_with_synthetic_replacement_offer",
-      "synthetic_replacement": "gen-v1-dense-stress",
+      "on_missing": "fail_with_public_fixture_replacement_offer",
+      "public_fixture_replacement": "gen-v1-dense-stress",
       "exercise": "Retain the maximum-density eligible case alongside the maximum-area one."
     }
   ],
@@ -730,7 +730,7 @@
         "generator_case": "gen-v1-lru-cohort",
         "touch_after_eviction": "pc-v1-large-r1"
       },
-      "description": "A deterministic generated cohort of cache_cap + 1 distinct synthetic zids cycles the LRU; the large role's zid is touched again after it has been evicted."
+      "description": "A deterministic generated cohort of cache_cap + 1 distinct public-fixture zids cycles the LRU; the large role's zid is touched again after it has been evicted."
     }
   ],
   "generated": {
@@ -862,7 +862,7 @@
       },
       {
         "id": "gen-v1-lru-cohort",
-        "boundary": "cache_cap + 1 distinct synthetic zids for LRU cycling",
+        "boundary": "cache_cap + 1 distinct public-fixture zids for LRU cycling",
         "participants": 12,
         "comments": 6,
         "shape": "lru-cohort",

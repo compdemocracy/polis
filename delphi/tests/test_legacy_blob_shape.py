@@ -393,7 +393,7 @@ def test_from_dict_preserves_falsy_conversation_id():
     # #2656 review finding 2: `data.get('conversation_id') or data.get('zid')`
     # would discard a legitimately-falsy id (e.g. 0) — the key-presence check
     # must win, not truthiness. (Real to_dict blobs always carry 'zid'; this
-    # pins the synthetic/hand-built-blob path.)
+    # pins the public-fixture/hand-built-blob path.)
     restored = Conversation.from_dict({"conversation_id": 0})
     assert restored.conversation_id == 0
 
@@ -550,7 +550,7 @@ def test_legacy_from_dict_round_trips_center_sign(conv, legacy):
 # Clojure outputs (Q14):
 #   1xN — vw every-vote-56 clj recording step-002 (public data: pid 1's first
 #         three AGREEs on tids 24/19/47; recorded with the Q12 pinned start);
-#   Nx1 — a synthetic 3-ptpt x 1-comment fixture run through the clj replay
+#   Nx1 — a public-fixture 3-ptpt x 1-comment fixture run through the clj replay
 #         driver 2026-07-22 s4 (votes +1/+1/-1 on tid 0; same pinned start).
 # ---------------------------------------------------------------------------
 def _pinned_conv(name):

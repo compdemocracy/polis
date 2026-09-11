@@ -29,7 +29,7 @@ from polismath.poller.math_writer import derive_bidtopid, derive_ptptstats
 
 
 def _two_group_conv():
-    """A synthetic conversation with two opposing camps -> 2 groups + repness."""
+    """A public-fixture conversation with two opposing camps -> 2 groups + repness."""
     votes = []
     n_per, n_cmts = 8, 8
     for p in range(n_per * 2):

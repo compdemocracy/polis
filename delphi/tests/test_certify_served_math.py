@@ -12,7 +12,7 @@ This module covers the extraction change, which is READ ONLY: schema discovery a
 ``SELECT``s against tables that already exist. No migration, no new column, no
 trigger.
 
-EVERYTHING here is synthetic. The votes, comments, participants, blobs and
+Everything here belongs to a public fixture. The votes, comments, participants, blobs and
 tick counters below were invented for this file; no production identifier,
 conversation or blob appears anywhere in it.
 
@@ -25,9 +25,14 @@ selection config does not carry the block at all, so:
 * an extraction with the option off writes exactly the five files it wrote
   before, with exactly the bytes it wrote before — pinned as
   :data:`BASELINE_FILE_SHA256`, computed by running the pre-change extractor on
-  the synthetic conversation below;
+  the public-fixture conversation below;
 * the manifest built from such an extraction is byte-for-byte the manifest the
   pre-change code built — pinned as :data:`BASELINE_MANIFEST_SHA256`.
+
+The later public-fixture terminology update remaps labels, metadata keys and
+paths in these baselines and re-pins them. It leaves the votes, comments,
+participants and millisecond event bytes unchanged. The exact assertions below
+apply to that remapped baseline; historical manifests retain their original pins.
 """
 
 from __future__ import annotations
@@ -45,7 +50,7 @@ from polismath.replay import fixture_extract as fx
 from polismath.replay import real_data as rd
 
 # ---------------------------------------------------------------------------
-# Synthetic conversation.
+# Public-fixture conversation.
 # ---------------------------------------------------------------------------
 
 BASE_MS = 1_600_000_000_000
@@ -116,11 +121,11 @@ TIE_KEY: dict[str, Any] = {
     "method": "physical-ctid",
     "order_by": "created ASC, ctid ASC",
     "guarantee": "frozen-extract-order",
-    "note": "synthetic fixture: votes has no portable event identity, so the "
+    "note": "public-fixture fixture: votes has no portable event identity, so the "
             "extract order is frozen into the bundle bytes.",
 }
 
-DIR_NAME = "0123456789abcdef-pc-v1-synthetic"
+DIR_NAME = "0123456789abcdef-pc-v1-public-fixture"
 
 
 # ---------------------------------------------------------------------------
@@ -226,7 +231,7 @@ def _extract(tmp_path: Path, **kwargs: Any) -> tuple[Path, dict[str, Any], _Fake
     conn = _FakeConn(math_main=kwargs.pop("math_main", None),
                      math_ticks=kwargs.pop("math_ticks", None))
     summary = fx.extract_conversation(
-        conn, zid=424242, slug="pc-v1-synthetic", role="synthetic-role",
+        conn, zid=424242, slug="pc-v1-public-fixture", role="public-fixture-role",
         payload_root=payload, guard_root=root, dir_name=DIR_NAME,
         tie_key=TIE_KEY, **kwargs,
     )
@@ -241,9 +246,13 @@ def _file_digests(directory: Path) -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
-# Baseline pins — the bytes the PRE-CHANGE extractor produced.
+# Capture-off pins — original payloads with the public-fixture label remap.
 # ---------------------------------------------------------------------------
 
+#: Terminology-only label/key remap re-pinned config, metadata and manifest.
+#: Votes, comments and participant bytes are unchanged. Historical pins remain
+#: in Git history; the capture-off boundary remains exact on this vocabulary.
+#:
 #: SHA-256 of ``delphi/scripts/certify_datasets.json``. Served-math capture is
 #: declared by an OPTIONAL block that the shipped config does not carry, so
 #: this digest — which every published manifest records as
@@ -251,19 +260,19 @@ def _file_digests(directory: Path) -> dict[str, str]:
 #: the shipped config is a reviewed edit that mints a new bundle version, which
 #: is exactly the intended cost.
 SHIPPED_CONFIG_SHA256 = (
-    "37a637e3d273990265f990259f4306dc78d41e23e02742584acd0274e81db396")
+    "75254b64dc5d9fcb178bb458f930db85ccb0e57b5103e0174840bd34dfef4067")
 
 #: The five payload files an extraction wrote before served-math capture
-#: existed, and their exact bytes, for the synthetic conversation above.
+#: existed, and their exact bytes, for the public-fixture conversation above.
 BASELINE_FILE_SHA256: dict[str, str] = {
-    "0123456789abcdef-pc-v1-synthetic-comments.csv":
+    "0123456789abcdef-pc-v1-public-fixture-comments.csv":
         "2aa2fc4757f2e6beb2f2e4df138d76745eba3263b0f5d05f082bf563b38d5b79",
-    "0123456789abcdef-pc-v1-synthetic-votes.csv":
+    "0123456789abcdef-pc-v1-public-fixture-votes.csv":
         "20c7b05940afd15440be109c785194b8dca1e4c32a05f6ff06dfcd85f4702917",
     "events.jsonl":
         "d3b936b7ddcde200493fab3c0f376390310fe7ff27524bf3391255af2d9c2fe1",
     "events.meta.json":
-        "02372a06ebe67c81360cc13a26e79152ec789755556c032e340cea62d337ede3",
+        "2da970c44a33abec05d900594c4739f6be555cd84b209a83dc4e704d00545869",
     "participants.csv":
         "f164d7404eba122bdf9b44b4ffe4d0c089b70c8feded352e5d8657abe49c411e",
 }
@@ -272,21 +281,21 @@ BASELINE_FILE_SHA256: dict[str, str] = {
 #: manifest built from the resulting role summary with ``created_at`` (a
 #: wall-clock stamp, and the only non-deterministic field) removed.
 BASELINE_ROOT_DIGEST = (
-    "f79b6ef07a79155cd974f84dc4874d61aca96b8b23a8858a4cdc2b187611892b")
+    "ff9db5dd6be37a627da03e3029a8cbb39adfa253d8ff7b79f626007d3a3c8fc9")
 BASELINE_MANIFEST_SHA256 = (
-    "00cbfb2829bcbe5f71198455f1cdb1541e7821effa949aa1d9173a8b88153491")
+    "c62f3e63d64f96be5a2603d00bd264a5f4ce9c5052bb0063562d69a1e8ce9a13")
 
 #: A minimal, self-contained selection config for the manifest pins. The
 #: shipped config selects on production scale and would need a production-scale
 #: seed; what is under test here is the manifest bytes, not the rule set.
 BASELINE_CONFIG: dict[str, Any] = {
     "schema_version": "certify-datasets/1",
-    "config_version": "synthetic-v1",
+    "config_version": "public-fixture-v1",
     "metrics": {"V": {"definition": "vote events"}, "zid": {"definition": "id"}},
     "roles": [{
-        "slug": "pc-v1-synthetic", "role": "synthetic-role", "group": "replacement",
+        "slug": "pc-v1-public-fixture", "role": "public-fixture-role", "group": "replacement",
         "rank": 1, "on_missing": "fail",
-        "exercise": "the served-math capture, on a synthetic conversation",
+        "exercise": "the served-math capture, on a public-fixture conversation",
         "predicates": [{"metric": "V", "op": "ge", "value": 1}],
         "order_by": [{"metric": "V", "direction": "desc"},
                      {"metric": "zid", "direction": "asc"}],
@@ -315,7 +324,7 @@ def _build_manifest(payload_root: Path, summary: dict[str, Any]) -> dict[str, An
     from polismath.replay import fixture_bundle as fb
 
     return fb.build_manifest(
-        bundle_id="synthetic-0001", payload_root=payload_root,
+        bundle_id="public-fixture-0001", payload_root=payload_root,
         config=BASELINE_CONFIG, config_bytes=fb.canonical_json(BASELINE_CONFIG),
         selections=[_role_entry(summary)], generated_summaries=[],
         snapshot={"identifier": "snap", "created_at": "2026-01-01T00:00:00Z",
@@ -371,7 +380,8 @@ def test_extraction_with_the_capture_off_writes_the_pre_change_bytes(tmp_path):
     """THE BYTE-IDENTITY PROOF, file by file.
 
     The digests on the right were produced by running the extractor as it stood
-    BEFORE served-math capture existed, on the synthetic conversation above. An
+    BEFORE served-math capture existed, with the later terminology-only remap
+    applied to metadata and paths. An
     extraction with the option off must reproduce them exactly: same file set,
     same bytes, same ``root_digest``.
     """
@@ -748,7 +758,7 @@ def test_the_diagnostic_can_be_re_derived_from_a_loaded_dataset(captured):
     assert result["vote_events"] == len(dataset.votes) == 6
     assert result["capture_recorded"] == served.consistency
     prod = next(e for e in result["per_math_env"] if e["math_env"] == "prod")
-    # Second-resolution CSV timestamps: every vote in this synthetic
+    # Second-resolution CSV timestamps: every vote in this public-fixture
     # conversation truncates to the same second, so the whole stream lands at
     # or before the millisecond watermark. That is precisely the ingress fact
     # this re-derivation exists to expose.

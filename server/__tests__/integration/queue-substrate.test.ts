@@ -15,7 +15,7 @@
  *     wire, lock and privilege check runs against the REAL public.conversations
  *     shape. Rows are namespaced by a per-run env prefix and removed afterwards.
  *
- *   * A scratch database created for this run, holding the harness's synthetic
+ *   * A scratch database created for this run, holding the harness's public-fixture
  *     parent fixture. The fresh non-superuser apply and the two plan checks at
  *     20,000 rows live there: they insert 20,000 conversations and 20,000 jobs
  *     and delete parent rows, which must not happen in a shared test database.
@@ -83,7 +83,7 @@ const ROLE_STRANGER = `pq_t_str_${RUN_ID}`;
 const ROLE_PASSWORD = `pq-local-test-${RUN_ID}`;
 
 const H = "1".repeat(64);
-const URI = "synthetic-input";
+const URI = "public-fixture-input";
 const OWNER = randomUUID();
 
 const describeProvisioned = SKIP_PROVISIONING ? describe.skip : describe;
@@ -121,7 +121,7 @@ const created = {
 };
 /** Real conversations.zid used by every protocol check. */
 let zid = 0;
-/** Synthetic parent zid inside the scratch database. */
+/** Public-fixture parent zid inside the scratch database. */
 const SCRATCH_ZID = 1;
 
 // ---------------------------------------------------------------- primitives
@@ -307,7 +307,7 @@ function enqueue(
       env,
       options.zid ?? (pool === scratchPool ? SCRATCH_ZID : zid),
       options.product ?? "product",
-      "synthetic-actor",
+      "public-fixture-actor",
       options.key ?? "request",
       options.requestSha ?? H,
       randomUUID(),
@@ -315,7 +315,7 @@ function enqueue(
       URI,
       H,
       H,
-      "synthetic-image",
+      "public-fixture-image",
       1,
       options.maxAttempts ?? 3,
     ]
@@ -712,7 +712,7 @@ async function provision(): Promise<void> {
       "description VARCHAR(50000), UNIQUE(zid))"
   );
   await scratchPool.query(
-    "INSERT INTO public.conversations VALUES (1,'synthetic',NULL),(2,'synthetic',NULL)"
+    "INSERT INTO public.conversations VALUES (1,'public-fixture',NULL),(2,'public-fixture',NULL)"
   );
 }
 
@@ -1016,7 +1016,7 @@ describe("P-024 queue substrate protocol", () => {
           mainPool,
           "pq_fail",
           [...TOKEN_CASTS, "boolean", "text"],
-          [...token(old), false, "synthetic"]
+          [...token(old), false, "public-fixture"]
         )
       ).outcome
     ).toBe("fenced");
@@ -1062,7 +1062,7 @@ describe("P-024 queue substrate protocol", () => {
           mainPool,
           "pq_fail",
           [...TOKEN_CASTS, "boolean", "text"],
-          [...token(j), false, "synthetic"]
+          [...token(j), false, "public-fixture"]
         )
       ).outcome
     ).toBe("dead");
@@ -1079,7 +1079,7 @@ describe("P-024 queue substrate protocol", () => {
           mainPool,
           "pq_park",
           [...TOKEN_CASTS, "text"],
-          [...token(j), "synthetic"]
+          [...token(j), "public-fixture"]
         )
       ).outcome
     ).toBe("parked");
@@ -1273,16 +1273,16 @@ describe("P-024 queue substrate protocol", () => {
     // Owner-only control standing in for a Q21 enqueuer change, not an
     // executor mutation: the executor has no table write at all.
     await mainPool.query(
-      "UPDATE public.polis_queue_runs SET expected_output_uri = 'synthetic-output', " +
+      "UPDATE public.polis_queue_runs SET expected_output_uri = 'public-fixture-output', " +
         "expected_output_sha256 = $2 WHERE env = $1",
       [env, "3".repeat(64)]
     );
     expect((await finalize(mainPool, j)).outcome).toBe("invalid_output");
     expect(
-      (await finalize(mainPool, j, "synthetic-output", "3".repeat(64))).outcome
+      (await finalize(mainPool, j, "public-fixture-output", "3".repeat(64))).outcome
     ).toBe("succeeded");
     expect(
-      (await finalize(mainPool, j, "synthetic-output", "3".repeat(64))).outcome
+      (await finalize(mainPool, j, "public-fixture-output", "3".repeat(64))).outcome
     ).toBe("already_succeeded");
   }, 60000);
 
@@ -1299,7 +1299,7 @@ describe("P-024 queue substrate protocol", () => {
           mainPool,
           "pq_fail",
           [...TOKEN_CASTS, "boolean", "text"],
-          [...token(fresh), true, "synthetic_failure"]
+          [...token(fresh), true, "public_fixture_failure"]
         )
       ).outcome
     ).toBe("dead");
@@ -1348,7 +1348,7 @@ describe("P-024 queue substrate protocol", () => {
 
   it.each([
     ["pq_release", [] as unknown[], ["retry_wait"]],
-    ["pq_fail", [false, "synthetic"], ["retry_wait"]],
+    ["pq_fail", [false, "public-fixture"], ["retry_wait"]],
     ["pq_park", ["dependency"], ["parked"]],
   ])(
     "31-33. %s succeeds under a held head while the full-prefix finalize control blocks",
@@ -1456,7 +1456,7 @@ describe("P-024 queue substrate protocol", () => {
       mainPool,
       "pq_fail",
       [...TOKEN_CASTS, "boolean", "text"],
-      [...token(j), false, "synthetic"]
+      [...token(j), false, "public-fixture"]
     );
     expect(failed.outcome).toBe("retry_wait");
     expect(
@@ -1628,7 +1628,7 @@ describe("P-024 queue substrate protocol", () => {
       env,
       zid,
       productKey: "product",
-      actorScope: "synthetic-actor",
+      actorScope: "public-fixture-actor",
       requestKey: "adapter",
       priority: 1,
       maxAttempts: 3,
@@ -1708,7 +1708,7 @@ describe("P-024 queue substrate protocol", () => {
         env: "prod",
         zid,
         productKey: "product",
-        actorScope: "synthetic-actor",
+        actorScope: "public-fixture-actor",
         requestKey: "rejected",
       })
     ).rejects.toThrow(/env must be/);
@@ -1752,7 +1752,7 @@ describeProvisioned(
     it("38. uses a zid index for both parent lookups at 20,000 rows and restricts parent deletion", async () => {
       requireProvisioning();
       await scratchPool.query(
-        "INSERT INTO public.conversations(zid,topic) SELECT g,'synthetic' FROM generate_series(3,20002) g"
+        "INSERT INTO public.conversations(zid,topic) SELECT g,'public-fixture' FROM generate_series(3,20002) g"
       );
       await scratchPool.query(
         "INSERT INTO public.polis_queue_heads(env,product_key,zid) " +
@@ -1762,8 +1762,8 @@ describeProvisioned(
         "INSERT INTO public.polis_queue_runs(env,run_id,zid,product_key,requested_generation," +
           "input_uri,input_sha256,expected_output_uri,expected_output_sha256,config_sha256," +
           "code_image_digest,contract_version) " +
-          "SELECT 'r4-fk',gen_random_uuid(),g,g::text,1,'synthetic',$1,'synthetic',$1,$1," +
-          "'synthetic','polis-queue/1' FROM generate_series(3,20002) g",
+          "SELECT 'r4-fk',gen_random_uuid(),g,g::text,1,'public-fixture',$1,'public-fixture',$1,$1," +
+          "'public-fixture','polis-queue/1' FROM generate_series(3,20002) g",
         [H]
       );
       for (const table of ["heads", "runs"]) {
@@ -1786,7 +1786,7 @@ describeProvisioned(
         "23503"
       );
       await scratchPool.query(
-        "INSERT INTO public.conversations(zid,topic) VALUES (20003,'synthetic')"
+        "INSERT INTO public.conversations(zid,topic) VALUES (20003,'public-fixture')"
       );
       const deleted = await scratchPool.query(
         "DELETE FROM public.conversations WHERE zid=20003"

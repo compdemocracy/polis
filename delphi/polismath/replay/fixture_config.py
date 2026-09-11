@@ -22,8 +22,8 @@ SEMANTIC RULES (all enforced by :func:`validate_config`):
    one and only tie-break, and it is applied inside the private selection
    process.
 3. Slugs are unique; role names are unique.
-4. ``on_missing`` = ``fail_with_synthetic_replacement_offer`` REQUIRES a
-   ``synthetic_replacement`` naming an existing generated case id (and the
+4. ``on_missing`` = ``fail_with_public_fixture_replacement_offer`` REQUIRES a
+   ``public_fixture_replacement`` naming an existing generated case id (and the
    plain ``fail`` variant must NOT carry one).
 5. Roles are ordered replacement-group-first: no ``group=stress`` role may
    precede a ``group=replacement`` role, because replacement roles are resolved
@@ -119,7 +119,7 @@ def served_math_options(config: dict[str, Any]) -> ServedMathOptions:
 
 
 def representative_seed(config: dict[str, Any]) -> str | None:
-    """Optional, frozen selection-only declaration; reject malformed direct calls.
+    """Optional, frozen representative selection; reject malformed direct calls.
 
     The shipped recipes/config remain byte-identical. A reviewed opt-in creates
     a new config version; it does not admit additional payloads or battery rows.
@@ -305,19 +305,19 @@ def _semantic_errors(config: dict[str, Any]) -> list[str]:
                     errors.append(
                         f"{where}.order_by[{j}]: zid may only appear as the final tie-break")
 
-        # Rule 4 — synthetic replacement offers.
+        # Rule 4 — public-fixture replacement offers.
         on_missing = role.get("on_missing")
-        replacement = role.get("synthetic_replacement")
-        if on_missing == "fail_with_synthetic_replacement_offer":
+        replacement = role.get("public_fixture_replacement")
+        if on_missing == "fail_with_public_fixture_replacement_offer":
             if not replacement:
-                errors.append(f"{where}: on_missing={on_missing} requires synthetic_replacement")
+                errors.append(f"{where}: on_missing={on_missing} requires public_fixture_replacement")
             elif replacement not in gen_ids:
                 errors.append(
-                    f"{where}.synthetic_replacement: {replacement!r} is not a generated case id")
+                    f"{where}.public_fixture_replacement: {replacement!r} is not a generated case id")
         elif replacement is not None:
             errors.append(
-                f"{where}: synthetic_replacement is only meaningful with "
-                "on_missing=fail_with_synthetic_replacement_offer")
+                f"{where}: public_fixture_replacement is only meaningful with "
+                "on_missing=fail_with_public_fixture_replacement_offer")
 
     # Rule 3 — unique slugs / role names.
     for label, values in (("slug", slugs), ("role", names)):

@@ -69,16 +69,16 @@ class RoleUnsatisfied(RuntimeError):
     """
 
     def __init__(self, role: str, slug: str, reason: str,
-                 synthetic_replacement: str | None = None) -> None:
+                 public_fixture_replacement: str | None = None) -> None:
         self.role = role
         self.slug = slug
         self.reason = reason
-        self.synthetic_replacement = synthetic_replacement
+        self.public_fixture_replacement = public_fixture_replacement
         msg = f"missing role {role!r} (slug {slug}): {reason}"
-        if synthetic_replacement:
+        if public_fixture_replacement:
             msg += (
-                f"; the config offers deterministic synthetic case "
-                f"{synthetic_replacement!r} as a replacement, which requires an "
+                f"; the config offers deterministic public-fixture case "
+                f"{public_fixture_replacement!r} as a replacement, which requires an "
                 "explicit recorded approval (--accept-public-fixture)"
             )
         super().__init__(msg)
@@ -286,9 +286,9 @@ class Selection:
     n_candidates: int
     overlaps_with: list[str] = field(default_factory=list)
     #: Set only when production supplied no candidate AND an operator explicitly
-    #: accepted the config's deterministic synthetic replacement. Never a
+    #: accepted the config's deterministic public-fixture replacement. Never a
     #: silent downgrade: the approval is recorded here and in the manifest.
-    synthetic_replacement: str | None = None
+    public_fixture_replacement: str | None = None
 
     def manifest_metrics(self) -> dict[str, Any]:
         return {k: v for k, v in self.metrics.items() if k != "zid"}
@@ -322,9 +322,9 @@ def resolve_roles(
     Raises :class:`RoleUnsatisfied` for the FIRST role with no candidate at its
     rank. There is no fallback, no downgrade and no skip.
 
-    ``accept_public_fixture`` names role slugs whose synthetic replacement an
+    ``accept_public_fixture`` names role slugs whose public-fixture replacement an
     operator has EXPLICITLY approved. It applies only to roles whose
-    ``on_missing`` is ``fail_with_synthetic_replacement_offer``; approving a
+    ``on_missing`` is ``fail_with_public_fixture_replacement_offer``; approving a
     slug that production DID satisfy has no effect, and approving a slug whose
     rule offers no replacement is still a hard failure.
     """
@@ -346,22 +346,22 @@ def resolve_roles(
             for role in batch:
                 rank = role["rank"]
                 if len(candidates) < rank:
-                    replacement = role.get("synthetic_replacement")
+                    replacement = role.get("public_fixture_replacement")
                     if (replacement
-                            and role["on_missing"] == "fail_with_synthetic_replacement_offer"
+                            and role["on_missing"] == "fail_with_public_fixture_replacement_offer"
                             and role["slug"] in accepted):
                         selections.append(Selection(
                             role=role["role"], slug=role["slug"], group=group,
                             rank=rank, zid=None, metrics={},
                             n_candidates=len(candidates),
-                            synthetic_replacement=replacement,
+                            public_fixture_replacement=replacement,
                         ))
                         continue
                     raise RoleUnsatisfied(
                         role["role"], role["slug"],
                         f"rule matched {len(candidates)} conversation(s) but rank "
                         f"{rank} was required",
-                        synthetic_replacement=replacement,
+                        public_fixture_replacement=replacement,
                     )
                 chosen = candidates[rank - 1]
                 zid = chosen["zid"]

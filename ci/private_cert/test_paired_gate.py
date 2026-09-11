@@ -1,6 +1,6 @@
 """Gate intake controls. Requires the lossless-ingress change in the source tree.
 
-The existing bundle test factory makes explicitly synthetic role metadata; no
+The existing bundle test factory makes explicitly public-fixture role metadata; no
 private data or engine run is part of these intake tests. Public CSVs are the
 committed fixtures and are verified against the independent source copy.
 """
@@ -98,7 +98,7 @@ class PairedGateTests(unittest.TestCase):
             else:
                 engines.append('py')
                 json.loads(raw)
-            log.write_bytes(b'synthetic driver control')
+            log.write_bytes(b'public-fixture driver control')
             return 0
         with patch.object(gate, 'run_engine', side_effect=run):
             gate.produce(self.fixture, output, input_path)

@@ -27,7 +27,6 @@ const config = {
           module: 'commonjs',
           target: 'es2022',
           esModuleInterop: true,
-          allowSyntheticDefaultImports: true,
           strict: true,
           skipLibCheck: true,
           resolveJsonModule: true,

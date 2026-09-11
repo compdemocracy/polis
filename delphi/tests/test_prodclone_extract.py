@@ -3,15 +3,15 @@ delphi/polismath/replay/prodclone.py).
 
 Unit tests exercise the PURE building blocks (SQL builders, feature
 classifiers, CSV row formatters, slug minting, path-safety guard, map
-merging) with synthetic in-memory data — no database required.
+merging) with public-fixture in-memory data — no database required.
 
 ONE integration test spins up a temp Postgres (via the existing
 ``require_polis_postgres`` fixture from tests/conftest.py — self-skips if
-docker/a service is unavailable), seeds ~30 synthetic rows covering every
+docker/a service is unavailable), seeds ~30 public-fixture rows covering every
 feature class, and round-trips survey → extract → ``load_export_votes``.
 
 Privacy: no real zids/report-ids/vote content appear anywhere here — every
-seeded zid/pid/tid/vote below is synthetic, invented for this test only.
+seeded zid/pid/tid/vote below is public-fixture, invented for this test only.
 """
 
 from __future__ import annotations
@@ -598,7 +598,7 @@ def test_sql_comment_vote_counts_has_zid_placeholder():
 
 
 def _seed(cur, zid, uid_start, *, votes, comments, participants, banned_pids=()):
-    """Seed one synthetic conversation.
+    """Seed one public-fixture conversation.
 
     Assumes the CALLER has already run ``SET session_replication_role =
     replica`` on this session — that suppresses FK-enforcement triggers (so we
@@ -625,7 +625,7 @@ def _seed(cur, zid, uid_start, *, votes, comments, participants, banned_pids=())
         cur.execute(
             "INSERT INTO comments (zid, tid, pid, uid, created, txt, mod, is_meta) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-            (zid, tid, pid, uid + pid, created, f"synthetic comment {zid}-{tid}",
+            (zid, tid, pid, uid + pid, created, f"public-fixture comment {zid}-{tid}",
              mod, is_meta),
         )
     for pid, tid, vote, created in votes:
