@@ -20,9 +20,9 @@ import psycopg2
 from psycopg2.extras import Json
 
 # Repository-byte pin, not an attestation of an arbitrary live database.
-COORDINATOR_SQL_SHA256 = "a3a85e24e69e281adbe04831b9e02525c292a1960461cae12d048f7c2d9e89a8"
+COORDINATOR_SQL_SHA256 = "09dcc6f3d9812a526dbdc0d997fae9e93828fd1e3565cf96a8173337b3589a37"
 COORDINATOR_ENGINE_SHA256 = "b295c3e7c649b38768c4eeb69c7cb3bf59d33c0077c22c84853a44d216aa0028"
-CATALOG_FINGERPRINT = "f73a5d5136d1e0e4ed371f0b05329d6c"
+CATALOG_FINGERPRINT = "b497500ab5652f3d24775f4895736c01"
 PROTOCOL = "polis-poller-bridge/1"
 MAX_INPUT_BYTES = 256 * 1024 * 1024
 RPC = "public.pc_publish(text,integer,text,bigint,text,bytea,bigint,jsonb,bytea,bytea,bytea)"
@@ -91,7 +91,7 @@ def admit_connection(connection, namespace):
                                        "polis_coordinator_operations", "polis_coordinator_budgets",
                                        "polis_coordinator_references", "polis_coordinator_floors",
                                        "polis_coordinator_namespaces", "polis_coordinator_principals",
-                                       "polis_coordinator_transitions"):
+                                       "polis_coordinator_transitions", "polis_coordinator_writer_authority"):
                 cur.execute("""SELECT has_table_privilege(%s,%s,'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')
                   OR has_any_column_privilege(%s,%s,'INSERT,UPDATE')""", (role,"public." + table,role,"public." + table))
                 if cur.fetchone()[0]:
@@ -167,6 +167,9 @@ class Publisher:
                 if self.fault:
                     self.admit_test(connection)
                 with connection.cursor() as cur:
+                    # Namespace admission is process-wide; writer admission is
+                    # per conversation and holds the parent lock for this tx.
+                    cur.execute("SELECT public.pc_assert_writer(%s,%s)", (d.namespace,d.zid))
                     cur.execute("""SELECT owner_id,owner_epoch,expires_at>clock_timestamp(),
                      dispatch_operation_id,dispatch_capability_sha256,
                      dispatch_checkpoint_sha256=encode(sha256(convert_to(%s::jsonb::text,'UTF8')),'hex'),
@@ -256,6 +259,9 @@ class Publisher:
                 with connection.cursor() as cur:
                     cur.execute("SET LOCAL statement_timeout='120s'; SET LOCAL lock_timeout='5s'")
                     self.backend_pid = connection.get_backend_pid()
+                    # pc_publish asserts current writer authority itself, after
+                    # its exact historical readback branch. Do not pre-assert
+                    # here: a withdrawn writer may still reconcile its receipt.
                     self.execute_rpc(connection, cur, "SELECT * FROM public.pc_publish(%s::text,%s::integer,%s::text,%s::bigint,%s::text,%s::bytea,%s::bigint,%s::jsonb,%s::bytea,%s::bytea,%s::bytea)",
                                 (d.namespace, d.zid, d.owner, d.epoch, d.operation, d.capability,
                                  d.expected_tick, Json(d.checkpoint), main.encode("utf-8"),
@@ -398,6 +404,9 @@ def main():
             token = "FENCED"
         elif state == "P2005":
             token = "LEASE-EXPIRED"
+        elif state == "P2033" and error.diag.message_primary in (
+                "WRITER_AUTHORITY_REQUIRED", "WRITER_READ_COMMITTED_REQUIRED"):
+            token = error.diag.message_primary
         if token == "PUBLICATION_CONFLICT":
             print(json.dumps({"protocol": PROTOCOL, "outcome": "conflict"}), flush=True)
             return 0

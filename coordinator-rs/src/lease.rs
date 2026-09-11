@@ -62,10 +62,16 @@ impl std::error::Error for LeaseState {}
 /// unexpired, so an expired or transferred epoch cannot be resurrected.
 fn renew(client: &mut Client, c: &Config, zid: i32, epoch: i64) -> Result<Option<LeaseState>> {
     let mut tx = client.transaction()?;
-    tx.query_one(
-        "SELECT zid FROM conversations WHERE zid=$1 FOR KEY SHARE",
-        &[&zid],
-    )?;
+    if !tx
+        .query_one(
+            "SELECT public.pc_writer_allowed($1,$2)",
+            &[&c.math_env, &zid],
+        )?
+        .get::<_, bool>(0)
+    {
+        tx.rollback()?;
+        return Ok(Some(LeaseState::Unavailable));
+    }
     let renewed = tx.execute("UPDATE polis_coordinator_leases SET expires_at=clock_timestamp()+make_interval(secs=>$5::int) WHERE math_env=$1 AND zid=$2 AND owner_id=$3 AND owner_epoch=$4 AND expires_at>clock_timestamp()", &[&c.math_env,&zid,&c.owner,&epoch,&c.lease_seconds])?;
     if renewed == 1 {
         tx.commit()?;
