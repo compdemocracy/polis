@@ -406,3 +406,13 @@ and masked the incompatibility. The hosted job therefore always builds Postgres
 from the target's migrations; it never reuses a historical database image or
 regenerates the catalog automatically. Any future schema mismatch still requires
 an explicit catalog review before recording.
+
+The current catalog was regenerated from all 21 migrations, including `000021`
+rev6. Its 600 descriptors preserve all 578 entries from the rev5 catalog
+(494 earlier columns plus 84 coordinator columns). The 22 additions are in
+`polis_coordinator_namespaces` (3), `polis_coordinator_principals` (4), and
+`polis_coordinator_transitions` (15); no existing descriptor or type changed.
+The production-clone policy skeleton now covers the same 600 columns, up from
+423: 71 queue/provenance and 106 coordinator entries were missing. Every entry
+remains `REVIEW`, with `reviewed: false` and an empty reason. This inventory update
+does not admit production data or replace the historical recording archive.

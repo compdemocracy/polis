@@ -1429,6 +1429,935 @@
       "reason": ""
     }
   },
+  "polis_coordinator_budgets": {
+    "math_env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "max_operations": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "max_bytes": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_coordinator_cursors": {
+    "math_env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "consumer": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "position": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_coordinator_failures": {
+    "math_env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "zid": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "attempts": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "first_failed_at": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "next_attempt": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_coordinator_floors": {
+    "math_env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "zid": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "math_tick": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "caching_tick": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_coordinator_generations": {
+    "math_env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "zid": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "math_tick": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "caching_tick": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "owner_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "publisher_epoch": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "operation_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "capability_sha256": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "expected_tick": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "input_checkpoint": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "committed_at": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_coordinator_install": {
+    "singleton": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "migration_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "catalog_fingerprint": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "provenance_fingerprint": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "sequence_start": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "installed_at": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "installed_by": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_coordinator_install_grants": {
+    "object_kind": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "object_name": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "column_name": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "grantee": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "grantor": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "privilege": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "prior_present": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "prior_grantable": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_coordinator_install_roles": {
+    "role_name": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "role_oid": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "created": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_coordinator_leases": {
+    "math_env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "zid": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "owner_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "owner_epoch": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "expires_at": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "dispatch_operation_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "dispatch_capability_sha256": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "dispatch_checkpoint_sha256": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "dispatch_expected_tick": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "dispatch_margin_ms": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_coordinator_namespaces": {
+    "math_env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "writer_kind": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "max_transitions": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_coordinator_operations": {
+    "math_env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "zid": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "operation_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "owner_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "owner_epoch": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "expected_tick": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "capability_sha256": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "checkpoint_sha256": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "source_sha256": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "reserved_bytes": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "state": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "protected": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "admitted_at": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "reconciled_at": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "resolved_tick": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_coordinator_payloads": {
+    "math_env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "zid": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "math_tick": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "payload_kind": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "original_bytes": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "original_sha256": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "storage_sha256": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_coordinator_principals": {
+    "principal_oid": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "principal_name": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "math_env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "can_transition": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_coordinator_reconciliation": {
+    "math_env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "zid": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "reconciled_at": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "source_probe": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_coordinator_references": {
+    "math_env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "zid": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "operation_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "reference_name": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_coordinator_transitions": {
+    "math_env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "transition_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "zid": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "source_env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "principal_oid": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "principal_name": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "last_served_tick": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "source_tick": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "destination_tick": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "floor_tick": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "result_tick": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "caching_tick": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "writer_kind": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "exclusion_sha256": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "committed_at": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_queue_attempts": {
+    "env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "attempt_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "job_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "owner_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "lease_epoch": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "started_at": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "ended_at": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "outcome": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "error_code": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "output_sha256": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_queue_heads": {
+    "env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "product_key": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "zid": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "requested_generation": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "desired_run_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "published_run_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "published_generation": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "published_sha256": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "version": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_queue_install": {
+    "singleton": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "created_roles": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "adopted_roles": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "added_grants": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "applied_at": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "catalog_fingerprint": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_queue_jobs": {
+    "env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "job_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "run_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "stage": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "stage_instance": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "state": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "priority": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "eligible_at": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "created_at": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "updated_at": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "attempt_count": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "parked_attempt_count": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "max_attempts": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "lease_epoch": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "version": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "mgmt_version": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "owner_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "attempt_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "locked_until": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "terminal_attempt_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "first_parked_at": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "last_error_code": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "output_sha256": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_queue_requests": {
+    "env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "actor_scope": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "product_key": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "request_key": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "request_sha256": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "run_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "job_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "created_at": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
+  "polis_queue_runs": {
+    "env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "run_id": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "zid": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "product_key": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "requested_generation": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "input_uri": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "input_sha256": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "expected_output_uri": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "expected_output_sha256": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "config_sha256": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "code_image_digest": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "contract_version": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "state": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "output_sha256": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "created_at": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
   "pwreset_tokens": {
     "uid": {
       "action": "REVIEW",
