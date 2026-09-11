@@ -1,4 +1,4 @@
-"""Synthetic source rows through extraction, manifest, plan and independent gate."""
+"""Public-fixture source rows through extraction, manifest, plan and independent gate."""
 import copy
 import json
 import os
@@ -20,7 +20,7 @@ import gate
 import probe
 
 TIE = dict(available=False, columns=[], method='physical-ctid', order_by='created ASC, ctid ASC',
-           guarantee='frozen-extract-order', note='synthetic')
+           guarantee='frozen-extract-order', note='public-fixture')
 
 
 def raw_rows(n, *, tied=False, late=False):
@@ -44,7 +44,7 @@ def extract_one(payload, root, raw, name, monkeypatch):
 
 
 def bundle(root, monkeypatch, n=20):
-    """Old role metadata is the existing synthetic admission factory's stub.
+    """Old role metadata is the existing public-fixture admission factory's stub.
 
     Both old and sampled payloads are real extractor output, never production
     data. Tiny old-role bytes do not claim production predicate evidence.
@@ -84,7 +84,7 @@ def test_complete_sample_payload_census_and_manifest_version(tmp_path,monkeypatc
 
 
 @pytest.mark.parametrize('mutation',['missing','duplicate','shared-dir','wrong-size','bad-seed','extra-report',
-                                   'old-version','synthetic','extra-role','missing-old-role','payload-count'])
+                                   'old-version','public-fixture','extra-role','missing-old-role','payload-count'])
 def test_sample_manifest_refuses_omitted_or_substituted_obligations(tmp_path,monkeypatch,mutation):
     fixture,config,m=bundle(tmp_path,monkeypatch)
     row=next(r for r in m['roles'] if r['slug']=='sample-001')
@@ -93,9 +93,9 @@ def test_sample_manifest_refuses_omitted_or_substituted_obligations(tmp_path,mon
     elif mutation=='shared-dir':next(r for r in m['roles'] if r['slug']=='sample-002')['dir']=row['dir']
     elif mutation=='wrong-size':row['measured_metrics']['V']+=1
     elif mutation=='bad-seed':m['representative']['report']['seed']='02'*32
-    elif mutation=='extra-report':m['representative']['report']['zid']='SYNTHETIC_PRIVATE'
+    elif mutation=='extra-report':m['representative']['report']['zid']='PUBLIC_FIXTURE_PRIVATE'
     elif mutation=='old-version':m['schema_version']='certify-fixture-manifest/3'
-    elif mutation=='synthetic':row['source']='synthetic-replacement'
+    elif mutation=='public-fixture':row['source']='public-fixture-replacement'
     elif mutation=='extra-role':m['roles'].append(dict(row,slug='sample-021'))
     elif mutation=='missing-old-role':m['roles'].pop(0)
     elif mutation=='payload-count':
@@ -203,9 +203,9 @@ def test_receipt_selection_cannot_export_private_fields(field,level):
     validate_selection(report)
     target={'report':report,'counts':report['bucket_counts'],'cell':report['bucket_counts']['cells'][0],
             'size':report['chosen_entry_sizes'][0]}[level]
-    target[field]='SYNTHETIC_PRIVATE_VALUE'
+    target[field]='PUBLIC_FIXTURE_PRIVATE_VALUE'
     with pytest.raises(ValueError) as exc:validate_selection(report)
-    assert 'SYNTHETIC_PRIVATE_VALUE' not in str(exc.value)
+    assert 'PUBLIC_FIXTURE_PRIVATE_VALUE' not in str(exc.value)
 
 
 @pytest.mark.parametrize('n',[1,19,20,25])

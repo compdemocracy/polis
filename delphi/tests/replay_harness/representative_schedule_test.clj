@@ -1,4 +1,4 @@
-;; Synthetic final-source-state replay controls; no production data.
+;; Public-fixture final-source-state replay controls; no production data.
 (load-file "dev/replay.clj")
 (require '[clojure.test :refer :all] '[cheshire.core :as json] '[clojure.java.io :as io])
 
