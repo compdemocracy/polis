@@ -33,10 +33,18 @@ cleanup() {
 }
 trap cleanup EXIT
 stage() {
-  local label=$1 rc=0
+  local label=$1 rc=0 started
+  started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   shift
   "$@" >"$out/$label.log" 2>&1 || rc=$?
   printf '%s\n' "$rc" >"$out/$label.exit"
+  python3 - "$out/stage-timing.jsonl" "$label" "$started" "$rc" <<'PYTIME'
+import datetime,json,sys
+path,label,started,code=sys.argv[1:]
+end=datetime.datetime.now(datetime.timezone.utc)
+begin=datetime.datetime.fromisoformat(started.replace('Z','+00:00'))
+with open(path,'a') as f:f.write(json.dumps({'stage':label,'started':started,'finished':end.isoformat(),'elapsedSeconds':(end-begin).total_seconds(),'exit':int(code)})+'\n')
+PYTIME
   tail -n 8 "$out/$label.log"
   return "$rc"
 }
@@ -55,7 +63,7 @@ cp "$harness/artifacts/baseline.json.gz" "$out/baseline.json.gz"
 cp "$harness/artifacts/baseline.sha256" "$out/baseline.sha256"
 # Exact round trip of the candidate, independently of the baseline unit suite.
 node "$harness/baseline.cjs" "$out/repacked"
-node - "$target_root" "$out" <<'JS'
+stage repack node - "$target_root" "$out" <<'JS'
 const fs = require('node:fs'), path = require('node:path');
 const [root, out] = process.argv.slice(2);
 const {pack} = require(path.join(root, 'server/characterization/baseline.cjs'));
@@ -71,6 +79,11 @@ if [[ -f "$harness/artifacts/rerecord-fresh-replay/results.json" ]]; then
   cp "$harness/artifacts/rerecord-fresh-replay/results.json" "$out/replay-results.json"
   cp "$harness/artifacts/rerecord-fresh-replay/comparisons.actual.jsonl" "$out/replay-comparisons.jsonl"
 fi
+for file in snapshot-retries.jsonl math-kernel.json; do
+  if [[ -f "$harness/artifacts/rerecord-fresh-replay/$file" ]]; then
+    cp "$harness/artifacts/rerecord-fresh-replay/$file" "$out/replay-$file"
+  fi
+done
 cp "$harness/artifacts/recording/results.json" "$out/record-results.json"
 stage node-tests python3 "$harness/run.py" test || failed=1
 stage python-tests python3 -m unittest discover -s "$harness" -p 'test_*.py' || failed=1
@@ -82,13 +95,14 @@ node - "$out" "$failed" <<'JS'
 const fs = require('node:fs'), path = require('node:path');
 const [out, failed] = process.argv.slice(2);
 const a = JSON.parse(fs.readFileSync(path.join(out, 'accounting.json')));
-const checks = Object.fromEntries(['record','accounting','pack','record-down','replay','node-tests','python-tests','negative'].map(k =>
+const checks = Object.fromEntries(['record','accounting','pack','repack','record-down','replay','node-tests','python-tests','negative'].map(k =>
   [k, Number(fs.readFileSync(path.join(out, k + '.exit'), 'utf8'))]));
 const readJson = name => JSON.parse(fs.readFileSync(path.join(out, name + '.json')));
 const record = readJson('record-results'), replay = readJson('replay-results');
 const controls = readJson('negative-controls');
 const expectedControls = ['response','effect','remove-route','hang-route','error-route','exit-route','real-email-loop','unobserved-network-egress'];
-const evidencePass = record.cases > 0 && record.failures === 0 &&
+const evidencePass = record.complete === true && replay.complete === true &&
+  record.cases > 0 && record.failures === 0 &&
   record.cases === a.counts.unchanged + a.counts.changed + a.counts.added &&
   replay.cases === record.cases && replay.failures === 0 && replay.differences === 0 &&
   replay.coverage.missing === 0 && controls.length === expectedControls.length &&
@@ -96,7 +110,7 @@ const evidencePass = record.cases > 0 && record.failures === 0 &&
 const result = {target: a.target, base: a.base, baseResolution: a.baseResolution, record: {cases: record.cases, failures: record.failures},
   replay: {cases: replay.cases, failures: replay.failures, differences: replay.differences},
   negativeControls: controls.length, evidencePass, archiveSha256: fs.readFileSync(path.join(out,'baseline.sha256'),'utf8').trim(),
-  counts: a.counts, checks, reviewEligible: a.reviewEligible && failed === '0' && evidencePass, autoMerge: false};
+  kernels: a.kernels, counts: a.counts, checks, reviewEligible: a.reviewEligible && failed === '0' && evidencePass, autoMerge: false};
 fs.writeFileSync(path.join(out, 'summary.json'), JSON.stringify(result,null,2)+'\n');
 console.log(JSON.stringify(result));
 if (!result.reviewEligible) process.exitCode = 1;

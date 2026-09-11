@@ -1,4 +1,5 @@
 "use strict";
+const { compareKernels, recordingKernel } = require("./math-kernel.cjs");
 // Offline review only. Never relax the live replay census or normalize new fields.
 const fs = require("node:fs");
 const path = require("node:path");
@@ -369,6 +370,7 @@ function cleanDelta(d) {
 function eligible(report) {
   const c = report.census;
   return (
+    report.kernels?.status === "MATCH" &&
     cleanDelta(report.cases) &&
     !report.requestArtifactChanges.length &&
     !c.added.length &&
@@ -422,6 +424,13 @@ function historicalRecording(repo, pin, dir) {
     fs.rmSync(root, { recursive: true, force: true });
   }
 }
+function kernelAt(dir) {
+  const seed = path.join(dir, "pca2-seed.json");
+  return recordingKernel(
+    json(dir, "run.json"),
+    fs.existsSync(seed) ? json(dir, "pca2-seed.json") : {}
+  );
+}
 function account(repo, beforeDir, afterDir) {
   const harness = path.join(repo, "server/characterization");
   const { readRecording } = require(path.join(harness, "recording.cjs"));
@@ -450,6 +459,7 @@ function account(repo, beforeDir, afterDir) {
     base,
     target,
     baseResolution,
+    kernels: compareKernels(kernelAt(beforeDir), kernelAt(afterDir)),
     cases: caseDelta(a.cases, b.cases, firstDifference),
     requestArtifactChanges: [],
     census: censusDelta(
