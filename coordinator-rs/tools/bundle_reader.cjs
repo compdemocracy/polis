@@ -41,7 +41,7 @@ const serverRequire = createRequire(path.join(server, "package.json"));
 const { Client } = serverRequire("pg");
 
 const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex");
-const COORDINATOR_SQL_SHA256 = "09dcc6f3d9812a526dbdc0d997fae9e93828fd1e3565cf96a8173337b3589a37";
+const COORDINATOR_SQL_SHA256 = "d50f169ad7afe12d14582a6a746c622d402ecafd8131aae246812263bf2d5e82";
 if (sha256(fs.readFileSync(path.join(server, "postgres/migrations/000021_create_polis_coordinator.sql"))) !== COORDINATOR_SQL_SHA256) {
   throw new Error("COORDINATOR_SCHEMA_BYTE_PIN");
 }

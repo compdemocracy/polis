@@ -145,10 +145,8 @@ fn run() -> Result<()> {
                     return Err(e);
                 }
                 tracing::error!(error=%e,"cycle failed; cursor retained for retry");
-                if store.client.is_closed()
-                    && let Ok(reconnected) = PgStore::connect(store.config.clone())
-                {
-                    store = reconnected;
+                if store.client.is_closed() {
+                    let _ = store.reconnect_daemon();
                 }
             }
             std::thread::sleep(std::time::Duration::from_millis(store.config.poll_ms));

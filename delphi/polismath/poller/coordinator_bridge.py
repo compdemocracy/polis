@@ -20,7 +20,7 @@ import psycopg2
 from psycopg2.extras import Json
 
 # Repository-byte pin, not an attestation of an arbitrary live database.
-COORDINATOR_SQL_SHA256 = "09dcc6f3d9812a526dbdc0d997fae9e93828fd1e3565cf96a8173337b3589a37"
+COORDINATOR_SQL_SHA256 = "d50f169ad7afe12d14582a6a746c622d402ecafd8131aae246812263bf2d5e82"
 COORDINATOR_ENGINE_SHA256 = "b295c3e7c649b38768c4eeb69c7cb3bf59d33c0077c22c84853a44d216aa0028"
 CATALOG_FINGERPRINT = "b497500ab5652f3d24775f4895736c01"
 PROTOCOL = "polis-poller-bridge/1"
