@@ -155,7 +155,7 @@ def test_emitted_records_match_the_declared_catalog_and_p031_dimensions(db, laun
     per_zid = emf(metrics, "reconciliation")[-1]
     for timing in ("SourceReadSeconds", "ComputeSeconds", "PublishSeconds"):
         assert per_zid[timing] >= 0
-    assert per_zid["context"]["zid"] == 1
+    assert per_zid["context"] == {}
     assert emf(metrics, "conversation")[-1]["ConversationLatencySeconds"] > 0
 
 

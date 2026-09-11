@@ -238,8 +238,8 @@ fn metric_record_carries_only_the_two_permitted_dimensions() {
     assert_eq!(r["MathEnv"], "rustproto");
     assert_eq!(r["SourcePassPublished"], 2.0);
     assert_eq!(r["SourcePassSeconds"], 1.5);
-    // The zid is a log property, never a dimension.
-    assert_eq!(r["context"]["zid"], 7);
+    // Export contains no row identity, even when a caller supplies it.
+    assert_eq!(r["context"], json!({}));
 }
 
 #[test]
@@ -327,7 +327,7 @@ fn no_catalog_row_claims_a_p031_alarm_it_does_not_implement() {
     let catalog = polis_coordinator::metrics::catalog_json();
     assert_eq!(catalog["p031_status"]["coverage_claimed"], json!([]));
     assert_eq!(
-        catalog["p031_status"]["not_implemented"],
+        catalog["p031_status"]["not_deployed"],
         json!([
             "A01 PollHealthy",
             "A02 PublishLagSeconds",

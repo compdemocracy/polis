@@ -194,6 +194,8 @@ def main():
                              "delphi/tests/coordinator", "-q", f"--junitxml={ART / 's1-pytest.xml'}"])
         (ART / "s1-pytest.log").write_text(log)
         receipt["python_tests"] = python_cases(ART / "s1-pytest.xml", inventory)
+        receipt["d06"] = json.loads(run("d06-receipt", [sys.executable, "-B",
+            str(ROOT / "coordinator-rs/tools/d06/verify.py"), str(ART / "d06-observer.json")]))
         jest_env = dict(env, DATABASE_URL=bundle_url, NODE_ENV="test", AWS_REGION="us-east-1",
                         AWS_ACCESS_KEY_ID="public-fixture", AWS_SECRET_ACCESS_KEY="public-fixture", AWS_EC2_METADATA_DISABLED="true",
                         DYNAMODB_ENDPOINT="http://127.0.0.1:1", AWS_S3_ENDPOINT="http://127.0.0.1:1",

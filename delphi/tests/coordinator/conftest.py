@@ -158,6 +158,7 @@ def template():
                 cur.execute(f"GRANT SELECT ON conversations,participants,comments,votes,math_ticks,math_main,math_bidtopid,math_ptptstats TO {control}")
                 cur.execute(f"GRANT UPDATE(topic) ON conversations TO {control}")
                 cur.execute(f"GRANT SELECT ON p026_test_marker TO {control},{publisher}")
+            cur.execute("CREATE ROLE p027_observer LOGIN; GRANT polis_coordinator_observer TO p027_observer")
             cur.execute((ROOT / "delphi/tests/coordinator/bridge_faults.sql").read_text())
         c.close()
         yield base, name
@@ -166,7 +167,7 @@ def template():
         admin = connect(base)
         with admin.cursor() as cur:
             cur.execute(f'DROP DATABASE "{name}" WITH (FORCE)')
-            roles = [runtime_role(k, n) for n in NAMESPACES for k in ("control", "publisher")]
+            roles = [runtime_role(k, n) for n in NAMESPACES for k in ("control", "publisher")] + ["p027_observer"]
             cur.execute("DROP ROLE IF EXISTS " + ",".join(roles))
         admin.close()
 
