@@ -1,0 +1,430 @@
+-- ============================================================================
+-- Migration 000020: P-042 slice 0 — completion-safe math source journal
+-- ============================================================================
+-- Design: cost-reduction/04-plans/P-042-commit-ordered-cursor.md (Astra, rev 5,
+--   accepted by Opus across five review rounds:
+--   cost-reduction/04-plans/P-042-commit-ordered-cursor-review.md).
+--
+-- SLICE 0 ONLY. This installs the schema, the statement-level source triggers
+-- (including the AFTER TRUNCATE sweep), math_source_consumers/pending, the
+-- server-side discovery SQL functions (which RAISE on horizon regression,
+-- interval-not-open, incarnation mismatch and primary-required), the pid_auto
+-- exception-cleanup correction, and REVOKE ... FROM PUBLIC with guarded
+-- named-role grants.
+--
+-- Slice 0 installs NO consumer and wires NO poller. Discovery stays disabled.
+-- Per the design's normative R2-N3 ordering, no consumer may be registered
+-- until the P-047 identity bootstrap completes; consumer registration and the
+-- Clojure/Python/Rust poller integration are later slices, not this migration.
+--
+-- MIGRATION NUMBER: 000020. Assumption (stated in the P-042 slice-0
+-- implementation notes): the highest migration on origin/edge is 000018, and
+-- 000019_create_polis_queue.sql lands ahead of this one from
+-- origin/feat/postgres-queue-substrate (PR #2720, in the merge queue). The next
+-- free number after both is therefore 000020.
+--
+-- Apply once, atomically, under the designated migration/trigger owner. The
+-- four source tables (votes, comments, participants, conversations) are covered
+-- in a single transaction with a short lock_timeout; on lock contention the
+-- whole migration rolls back and is retried by the operator. No backslash psql
+-- meta-commands are used, so the file is executable by both psql -f and a
+-- driver that sends it as one multi-statement string.
+--
+-- REQUIRED INVOCATION: apply with error propagation so a failure returns
+-- nonzero, e.g.
+--     psql -v ON_ERROR_STOP=1 "$DATABASE_URL" -f 000020_create_math_source_journal.sql
+-- (or a driver that raises on error). This migration is ONCE-ONLY: it guards
+-- against a second application (see the re-run guard below) and refuses loudly
+-- rather than clobbering or no-op'ing. The repo's server/bin/run-migrations.sh
+-- has no ON_ERROR_STOP and no ledger, so it is a fresh-install convenience only;
+-- do NOT use the all-files runner to re-apply or "upgrade" this migration.
+--
+-- The SQL between the "BEGIN P-042 design block" and "END P-042 design block"
+-- markers below is a VERBATIM copy of the two labelled blocks in the design
+-- (`-- p042:migration` and `-- p042:legacy-lock-safety`). The witness scripts
+-- (cost-reduction/scripts/p042-*.py) extract those labelled blocks from the
+-- design markdown; delphi/tests/poller/test_p042_source_journal_migration.py
+-- asserts this file embeds them byte-for-byte and re-runs the real-schema
+-- controls against THIS file, so the witness results transfer to the migration.
+-- ============================================================================
+
+BEGIN;
+
+-- Short lock_timeout: CREATE TRIGGER takes source-table DDL locks; on
+-- contention we would rather abort and let the operator retry than block
+-- writers. Transaction-local, reverts at COMMIT/ROLLBACK.
+SET LOCAL lock_timeout = '3s';
+
+-- Once-only re-run guard. This migration is not idempotent by design (its
+-- verbatim blocks use unconditional CREATE/INSERT, so re-running would raise
+-- 42P07 and, worse, a naive IF NOT EXISTS rewrite could regenerate the database
+-- incarnation or hide schema drift). Instead we refuse a second application
+-- loudly and change nothing: if the journal already exists we RAISE before any
+-- DDL, the whole transaction rolls back untouched (incarnation, journal,
+-- consumer cursors and identity sequences preserved), and under
+-- `psql -v ON_ERROR_STOP=1` (the required invocation — see header) that RAISE
+-- returns a nonzero exit. Re-provisioning is a separately reviewed maintenance
+-- operation, never the all-files runner.
+DO $guard$
+BEGIN
+  IF to_regclass('public.math_source_changes') IS NOT NULL THEN
+    RAISE EXCEPTION 'P042_ALREADY_INSTALLED: migration 000020 is once-only and '
+      'math_source_changes already exists; refusing to re-run so the database '
+      'incarnation, journal and consumer cursors are preserved'
+      USING ERRCODE = 'object_not_in_prerequisite_state';
+  END IF;
+END
+$guard$;
+
+-- ==== BEGIN P-042 design block: p042:migration (verbatim) ====
+CREATE TABLE public.math_source_changes (
+  event_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  source_xid xid8 NOT NULL DEFAULT pg_current_xact_id(),
+  zid integer,
+  UNIQUE NULLS NOT DISTINCT (source_xid, zid)
+);
+CREATE INDEX math_source_changes_xid ON public.math_source_changes(source_xid);
+CREATE TABLE public.math_source_database (
+  singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),
+  incarnation uuid NOT NULL DEFAULT gen_random_uuid()
+);
+INSERT INTO public.math_source_database DEFAULT VALUES;
+CREATE TABLE public.math_source_consumers (
+  consumer_id text PRIMARY KEY,
+  engine text NOT NULL,
+  math_env text NOT NULL,
+  scope_digest text NOT NULL,
+  system_identifier text NOT NULL,
+  database_incarnation uuid NOT NULL,
+  next_xid xid8 NOT NULL,
+  through_xid xid8,
+  after_event_id bigint NOT NULL DEFAULT 0,
+  CHECK (through_xid IS NULL OR through_xid >= next_xid)
+);
+CREATE TABLE public.math_source_pending (
+  consumer_id text NOT NULL REFERENCES public.math_source_consumers(consumer_id),
+  zid integer,
+  dirty_version bigint GENERATED BY DEFAULT AS IDENTITY CHECK (dirty_version > 0),
+  first_dirty_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  attempts integer NOT NULL DEFAULT 0 CHECK(attempts >= 0),
+  next_attempt_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  UNIQUE NULLS NOT DISTINCT (consumer_id, zid)
+);
+CREATE INDEX math_source_pending_due ON public.math_source_pending
+  (consumer_id,next_attempt_at,first_dirty_at,zid);
+CREATE FUNCTION public.p042_mark_source() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $$
+BEGIN
+  IF TG_OP = 'TRUNCATE' THEN
+    INSERT INTO public.math_source_changes(zid) VALUES (NULL)
+      ON CONFLICT (source_xid,zid) DO NOTHING;
+  ELSIF TG_OP = 'INSERT' THEN
+    INSERT INTO public.math_source_changes(zid) SELECT DISTINCT zid FROM new_rows
+      ON CONFLICT (source_xid,zid) DO NOTHING;
+  ELSIF TG_OP = 'DELETE' THEN
+    INSERT INTO public.math_source_changes(zid) SELECT DISTINCT zid FROM old_rows
+      ON CONFLICT (source_xid,zid) DO NOTHING;
+  ELSE
+    INSERT INTO public.math_source_changes(zid)
+      SELECT zid FROM old_rows UNION SELECT zid FROM new_rows
+      ON CONFLICT (source_xid,zid) DO NOTHING;
+  END IF;
+  RETURN NULL;
+END $$;
+CREATE FUNCTION public.p042_journal_truncated() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $$
+BEGIN
+  INSERT INTO public.math_source_pending(consumer_id,zid)
+    SELECT consumer_id,NULL FROM public.math_source_consumers
+    ON CONFLICT(consumer_id,zid) DO UPDATE SET dirty_version=excluded.dirty_version;
+  RETURN NULL;
+END $$;
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['votes','comments','participants','conversations'] LOOP
+    EXECUTE format('CREATE TRIGGER p042_source_insert AFTER INSERT ON public.%I REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.p042_mark_source()',t);
+    EXECUTE format('CREATE TRIGGER p042_source_update AFTER UPDATE ON public.%I REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.p042_mark_source()',t);
+    EXECUTE format('CREATE TRIGGER p042_source_delete AFTER DELETE ON public.%I REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.p042_mark_source()',t);
+    EXECUTE format('CREATE TRIGGER p042_source_truncate AFTER TRUNCATE ON public.%I FOR EACH STATEMENT EXECUTE FUNCTION public.p042_mark_source()',t);
+    EXECUTE format('ALTER TABLE public.%I ENABLE ALWAYS TRIGGER p042_source_insert',t);
+    EXECUTE format('ALTER TABLE public.%I ENABLE ALWAYS TRIGGER p042_source_update',t);
+    EXECUTE format('ALTER TABLE public.%I ENABLE ALWAYS TRIGGER p042_source_delete',t);
+    EXECUTE format('ALTER TABLE public.%I ENABLE ALWAYS TRIGGER p042_source_truncate',t);
+  END LOOP;
+END $$;
+CREATE TRIGGER p042_journal_truncated AFTER TRUNCATE ON public.math_source_changes
+  FOR EACH STATEMENT EXECUTE FUNCTION public.p042_journal_truncated();
+ALTER TABLE public.math_source_changes ENABLE ALWAYS TRIGGER p042_journal_truncated;
+CREATE FUNCTION public.p042_checked_consumer(cid text)
+RETURNS public.math_source_consumers LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = pg_catalog AS $$
+DECLARE c public.math_source_consumers;
+BEGIN
+  IF pg_is_in_recovery() THEN RAISE EXCEPTION 'P042_PRIMARY_REQUIRED'; END IF;
+  SELECT * INTO STRICT c FROM public.math_source_consumers WHERE consumer_id=cid FOR UPDATE;
+  IF c.system_identifier IS DISTINCT FROM (SELECT system_identifier::text FROM pg_control_system())
+    OR c.database_incarnation IS DISTINCT FROM (SELECT incarnation FROM public.math_source_database WHERE singleton)
+  THEN RAISE EXCEPTION 'P042_INCARNATION_MISMATCH'; END IF;
+  RETURN c;
+END $$;
+CREATE FUNCTION public.p042_open(cid text, x xid8) RETURNS xid8
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $$
+DECLARE c public.math_source_consumers;
+BEGIN
+  c := public.p042_checked_consumer(cid);
+  IF x IS NULL OR x < c.next_xid THEN RAISE EXCEPTION 'P042_HORIZON_REGRESSION'; END IF;
+  IF c.through_xid IS NOT NULL THEN RAISE EXCEPTION 'P042_INTERVAL_ALREADY_OPEN'; END IF;
+  UPDATE public.math_source_consumers SET through_xid=x,after_event_id=0 WHERE consumer_id=cid;
+  RETURN x;
+END $$;
+CREATE FUNCTION public.p042_page(cid text, page_size integer)
+RETURNS TABLE(n bigint,dirtied bigint,advanced bigint)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $$
+DECLARE c public.math_source_consumers;
+BEGIN
+  c := public.p042_checked_consumer(cid);
+  IF c.through_xid IS NULL THEN RAISE EXCEPTION 'P042_INTERVAL_NOT_OPEN'; END IF;
+  IF page_size IS NULL OR page_size < 1 OR page_size > 1000 THEN RAISE EXCEPTION 'P042_PAGE_SIZE'; END IF;
+  RETURN QUERY
+  WITH page AS MATERIALIZED (
+    SELECT e.event_id,e.zid FROM public.math_source_changes e
+    WHERE e.source_xid >= c.next_xid AND e.source_xid < c.through_xid
+      AND e.event_id > c.after_event_id ORDER BY e.event_id LIMIT page_size
+  ), dirty AS (
+    INSERT INTO public.math_source_pending(consumer_id,zid)
+    SELECT cid,zid FROM page GROUP BY zid
+    ON CONFLICT (consumer_id,zid) DO UPDATE SET dirty_version=excluded.dirty_version
+    RETURNING 1
+  ), advance AS (
+    UPDATE public.math_source_consumers SET after_event_id=(SELECT max(event_id) FROM page)
+    WHERE consumer_id=cid AND EXISTS(SELECT 1 FROM page) RETURNING 1
+  )
+  SELECT (SELECT count(*) FROM page),(SELECT count(*) FROM dirty),(SELECT count(*) FROM advance);
+END $$;
+CREATE FUNCTION public.p042_close(cid text) RETURNS xid8
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $$
+DECLARE c public.math_source_consumers;
+BEGIN
+  c := public.p042_checked_consumer(cid);
+  IF c.through_xid IS NULL THEN RAISE EXCEPTION 'P042_INTERVAL_NOT_OPEN'; END IF;
+  IF EXISTS(SELECT 1 FROM public.math_source_changes e WHERE e.source_xid >= c.next_xid
+    AND e.source_xid < c.through_xid AND e.event_id > c.after_event_id)
+  THEN RAISE EXCEPTION 'P042_INTERVAL_NOT_DRAINED'; END IF;
+  UPDATE public.math_source_consumers SET next_xid=through_xid,through_xid=NULL,after_event_id=0 WHERE consumer_id=cid;
+  RETURN c.through_xid;
+END $$;
+REVOKE ALL ON FUNCTION public.p042_mark_source(),public.p042_journal_truncated(),
+ public.p042_checked_consumer(text),public.p042_open(text,xid8),
+ public.p042_page(text,integer),public.p042_close(text) FROM PUBLIC;
+REVOKE ALL ON public.math_source_database FROM PUBLIC;
+REVOKE ALL ON public.math_source_changes, public.math_source_consumers,
+  public.math_source_pending FROM PUBLIC;
+-- ==== END P-042 design block: p042:migration ====
+
+-- The existing-helper correction (design: applied in the SAME transaction as
+-- the schema above). pid_auto's nested conversations UPDATE can invoke the
+-- journal while pid_auto still holds its per-conversation advisory lock; the
+-- statement-frame stack below releases every surviving acquisition (including
+-- ON CONFLICT DO NOTHING skipped rows) at statement end and on abort, so a
+-- journal failure cannot leak a session advisory lock. Ordering note: like the
+-- accepted acceptance-oracle (p042-r3-real-schema-check.py) this follows the
+-- schema block; both live in one atomic transaction and no DML runs mid-
+-- migration, so the "before enabling source triggers" property holds by
+-- transaction atomicity relative to live traffic.
+-- ==== BEGIN P-042 design block: p042:legacy-lock-safety (verbatim) ====
+-- Transaction-local stack: one frame per nested participants INSERT statement.
+-- Each frame stores a reentrancy count per zid, not one entry per row.
+CREATE OR REPLACE FUNCTION public.p042_pid_frame(action text, zid integer DEFAULT NULL)
+RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+DECLARE frames jsonb := COALESCE(NULLIF(current_setting('polis.p042_pid_frames',true),''),'[]')::jsonb;
+        frame jsonb; i integer; item record; n integer; k integer;
+        released_count bigint := 0; missing_count bigint := 0;
+BEGIN
+  IF action='begin' THEN
+    frames := frames || jsonb_build_array('{}'::jsonb);
+  ELSE
+    i := jsonb_array_length(frames)-1;
+    IF i<0 THEN RAISE EXCEPTION 'P042_PID_FRAME_MISSING'; END IF;
+    frame := frames->i;
+    IF action IN ('acquired','released') THEN
+      IF zid IS NULL THEN RAISE EXCEPTION 'P042_PID_NULL_ZID'; END IF;
+      n := COALESCE((frame->>zid::text)::integer,0);
+      IF action='acquired' THEN
+        frame := jsonb_set(frame,ARRAY[zid::text],to_jsonb(n+1));
+      ELSE
+        IF n<1 THEN RAISE EXCEPTION 'P042_PID_LOCK_UNTRACKED'; END IF;
+        IF n=1 THEN frame:=frame-zid::text;
+        ELSE frame:=jsonb_set(frame,ARRAY[zid::text],to_jsonb(n-1)); END IF;
+      END IF;
+    ELSIF action IN ('abort','end') THEN
+      -- The failing invocation's record rolled back with its subtransaction;
+      -- pid_auto releases that invocation locally. Release surviving counts.
+      -- At normal end these include BEFORE-only ON CONFLICT DO NOTHING rows.
+      FOR item IN SELECT key,value FROM jsonb_each_text(frame) LOOP
+        n:=item.value::integer;
+        FOR k IN 1..n LOOP
+          IF pg_advisory_unlock(873791983,item.key::integer) THEN
+            released_count:=released_count+1;
+          ELSE missing_count:=missing_count+1; END IF;
+        END LOOP;
+      END LOOP;
+      IF released_count>0 OR missing_count>0 THEN
+        -- Private server log: no zid/user data. Expected skipped-row cleanup
+        -- is observable without falsely classifying every leftover as a fault.
+        RAISE LOG 'P042_PID_FRAME_CLEANUP action=% released=% missing=%',
+          action,released_count,missing_count;
+      END IF;
+      IF action='end' THEN frames:=frames-i; ELSE frame:='{}'; END IF;
+      IF missing_count>0 AND action='end' THEN
+        RAISE EXCEPTION 'P042_PID_LOCK_IMBALANCE';
+      END IF;
+    ELSE RAISE EXCEPTION 'P042_PID_FRAME_ACTION';
+    END IF;
+    IF action<>'end' THEN frames:=jsonb_set(frames,ARRAY[i::text],frame); END IF;
+  END IF;
+  PERFORM set_config('polis.p042_pid_frames',frames::text,true);
+END $$;
+CREATE OR REPLACE FUNCTION public.p042_pid_statement() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+BEGIN
+  PERFORM public.p042_pid_frame(CASE WHEN TG_WHEN='BEFORE' THEN 'begin' ELSE 'end' END);
+  RETURN NULL;
+END $$;
+CREATE TRIGGER p042_pid_begin BEFORE INSERT ON public.participants
+  FOR EACH STATEMENT EXECUTE FUNCTION public.p042_pid_statement();
+CREATE TRIGGER p042_pid_end AFTER INSERT ON public.participants
+  FOR EACH STATEMENT EXECUTE FUNCTION public.p042_pid_statement();
+ALTER TABLE public.participants ENABLE ALWAYS TRIGGER p042_pid_begin;
+ALTER TABLE public.participants ENABLE ALWAYS TRIGGER p042_pid_end;
+CREATE OR REPLACE FUNCTION pid_auto()
+    RETURNS trigger AS $$
+DECLARE
+    _magic_id constant int := 873791983;
+    _conversation_id int;
+    _lock_acquired boolean := false;
+BEGIN
+    _conversation_id = NEW.zid;
+    PERFORM pg_advisory_lock(_magic_id, _conversation_id);
+    _lock_acquired := true;
+    PERFORM public.p042_pid_frame('acquired',_conversation_id);
+    SELECT COALESCE(MAX(pid) + 1, 0) INTO NEW.pid
+    FROM participants WHERE zid = NEW.zid;
+    UPDATE conversations SET participant_count = NEW.pid + 1 WHERE zid = NEW.zid;
+    RETURN NEW;
+EXCEPTION
+    WHEN query_canceled OR assert_failure THEN
+        IF _lock_acquired THEN PERFORM pg_advisory_unlock(_magic_id, _conversation_id); END IF;
+        PERFORM public.p042_pid_frame('abort');
+        RAISE;
+    WHEN OTHERS THEN
+        IF _lock_acquired THEN PERFORM pg_advisory_unlock(_magic_id, _conversation_id); END IF;
+        PERFORM public.p042_pid_frame('abort');
+        RAISE;
+END;
+$$ LANGUAGE plpgsql STRICT;
+CREATE OR REPLACE FUNCTION pid_auto_unlock() RETURNS trigger AS $$
+BEGIN
+    PERFORM pg_advisory_unlock(873791983,NEW.zid);
+    PERFORM public.p042_pid_frame('released',NEW.zid);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql STRICT;
+-- ==== END P-042 design block: p042:legacy-lock-safety ====
+
+-- ----------------------------------------------------------------------------
+-- Durable completed-prefix progress (ConsumerNoProgressSeconds support).
+-- ----------------------------------------------------------------------------
+-- NEW SCHEMA beyond the design's candidate blocks. The design names
+-- ConsumerNoProgressSeconds ("age since completed-prefix progress while
+-- unresolved demand exists") but persists no last-advance timestamp, so slice 0
+-- records one here rather than substituting pending-age (review round 2, P2-3).
+-- One row per consumer, stamped whenever C (next_xid) durably advances — i.e.
+-- p042_close moves next_xid forward. p042_open/p042_page touch through_xid /
+-- after_event_id only, never next_xid, so `UPDATE OF next_xid` does not fire for
+-- them; an empty-interval close (next_xid unchanged) is filtered out in the body.
+-- The gauge is therefore elapsed time since the last DURABLE prefix advance, not
+-- pending age: a backoff does not reset it, and an advance resets it even while
+-- older pending repair remains.
+CREATE TABLE public.math_source_progress (
+  consumer_id text PRIMARY KEY
+    REFERENCES public.math_source_consumers(consumer_id) ON DELETE CASCADE,
+  last_advanced_at timestamptz NOT NULL DEFAULT clock_timestamp()
+);
+CREATE FUNCTION public.p042_stamp_progress() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $$
+BEGIN
+  IF TG_OP = 'INSERT' OR NEW.next_xid IS DISTINCT FROM OLD.next_xid THEN
+    INSERT INTO public.math_source_progress(consumer_id, last_advanced_at)
+      VALUES (NEW.consumer_id, clock_timestamp())
+      ON CONFLICT (consumer_id) DO UPDATE SET last_advanced_at = clock_timestamp();
+  END IF;
+  RETURN NULL;
+END $$;
+CREATE TRIGGER p042_progress_stamp
+  AFTER INSERT OR UPDATE OF next_xid ON public.math_source_consumers
+  FOR EACH ROW EXECUTE FUNCTION public.p042_stamp_progress();
+ALTER TABLE public.math_source_consumers ENABLE ALWAYS TRIGGER p042_progress_stamp;
+REVOKE ALL ON public.math_source_progress FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.p042_stamp_progress() FROM PUBLIC;
+
+-- ----------------------------------------------------------------------------
+-- Named-role grants (guarded).
+-- ----------------------------------------------------------------------------
+-- The design REVOKEs ALL from PUBLIC above and states that the actual login /
+-- ownership grants "require the installed-principal inventory, not invented
+-- role names here". This repo defines no DB roles in its migrations, so we do
+-- NOT hard-code role names that could fail a fresh cluster. Instead the block
+-- below grants the design's intended, least-privilege set to two operator-
+-- supplied roles ONLY IF they already exist:
+--
+--   * consumer role  (GUC p042.consumer_role, default 'polis_math_consumer'):
+--       SELECT on math_source_changes; SELECT/INSERT/UPDATE/DELETE on
+--       math_source_consumers and math_source_pending; USAGE on the pending
+--       identity sequence; EXECUTE on the discovery RPCs (open/page/close and
+--       the checked-consumer guard). This is the reviewed RPC-isolation surface.
+--   * trigger/journal owner (GUC p042.owner_role, default 'polis_math_owner'):
+--       INSERT on math_source_changes and USAGE on its identity sequence, so a
+--       source-table trigger owned by that role can journal even after the
+--       PUBLIC revoke.
+--
+-- When a role is absent the grant is skipped with a NOTICE: slice 0 installs no
+-- consumer, so no role is required for the schema to be correct. Operators wire
+-- the real principals (and the source-writer / trigger-disable separation the
+-- design requires) from their installed-principal inventory before any slice-1
+-- consumer is registered. Catalog verification of the resulting grants remains
+-- mandatory operator work per the design (M3).
+DO $grants$
+DECLARE
+  consumer_role text := COALESCE(NULLIF(current_setting('p042.consumer_role', true), ''), 'polis_math_consumer');
+  owner_role    text := COALESCE(NULLIF(current_setting('p042.owner_role', true), ''), 'polis_math_owner');
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = consumer_role) THEN
+    EXECUTE format('GRANT SELECT ON public.math_source_changes TO %I', consumer_role);
+    -- horizon() (source_journal.py HORIZON_SQL) reads the identity table
+    -- directly, outside the SECURITY DEFINER RPCs, so the consumer needs SELECT
+    -- on it or register/open fail with 42501 (review round 2, P2-2).
+    EXECUTE format('GRANT SELECT ON public.math_source_database TO %I', consumer_role);
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.math_source_consumers TO %I', consumer_role);
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.math_source_pending TO %I', consumer_role);
+    EXECUTE format('GRANT USAGE ON SEQUENCE public.math_source_pending_dirty_version_seq TO %I', consumer_role);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION public.p042_checked_consumer(text) TO %I', consumer_role);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION public.p042_open(text,xid8) TO %I', consumer_role);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION public.p042_page(text,integer) TO %I', consumer_role);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION public.p042_close(text) TO %I', consumer_role);
+    RAISE NOTICE 'P042 grants applied to consumer role %', consumer_role;
+  ELSE
+    RAISE NOTICE 'P042 consumer role % absent; discovery grants deferred to installed-principal inventory', consumer_role;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = owner_role) THEN
+    EXECUTE format('GRANT INSERT ON public.math_source_changes TO %I', owner_role);
+    EXECUTE format('GRANT USAGE ON SEQUENCE public.math_source_changes_event_id_seq TO %I', owner_role);
+    RAISE NOTICE 'P042 grants applied to owner role %', owner_role;
+  ELSE
+    RAISE NOTICE 'P042 owner role % absent; journal-owner grants deferred to installed-principal inventory', owner_role;
+  END IF;
+END
+$grants$;
+
+COMMIT;
