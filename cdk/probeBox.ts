@@ -19,6 +19,7 @@ import * as cr from 'aws-cdk-lib/custom-resources';
 export interface ProbeConfig {
   schema: 'polis-probe-box/1'; id: string; account: string; region: string; ami: string;
   vpcId: string; subnetCidr: string; availabilityZone: string; resolverAddress: string;
+  // Read target: primary under the live ruling, or a distinct replica.
   replicaHost: string; replicaSecurityGroupId: string; database: string;
   // A separate reviewed schema operation creates this secret's login on primary.
   primaryHost: string; primarySecurityGroupId: string; adminSecretArn: string; postgresLayerArn: string;
@@ -43,7 +44,7 @@ export function validateProbeConfig(a: ProbeConfig): ProbeConfig {
       !role.test(a.assetPublisherRoleArn) ||
       !a.adminSecretArn.startsWith(`arn:aws:secretsmanager:${a.region}:${a.account}:secret:`) ||
       !/^sg-[a-f0-9]+$/.test(a.primarySecurityGroupId) ||
-      !/^[a-z0-9.-]+\.rds\.amazonaws\.com$/.test(a.primaryHost) || a.primaryHost === a.replicaHost ||
+      !/^[a-z0-9.-]+\.rds\.amazonaws\.com$/.test(a.primaryHost) ||
       !new RegExp(`^arn:aws:lambda:${a.region}:${a.account}:layer:[A-Za-z0-9_-]+:[1-9][0-9]*$`).test(a.postgresLayerArn) ||
       !a.notificationTopicArn.startsWith(`arn:aws:sns:${a.region}:${a.account}:`))
     throw new Error('Invalid probe principals');
@@ -92,6 +93,7 @@ export class ProbeBox extends Construct {
     const provisionSg = new ec2.CfnSecurityGroup(this,'ProvisionSg',{vpcId:a.vpcId,groupDescription:'Reader-login provisioning only',
       securityGroupEgress:[{ipProtocol:'tcp',fromPort:5432,toPort:5432,destinationSecurityGroupId:a.primarySecurityGroupId},
         {ipProtocol:'tcp',fromPort:443,toPort:443,destinationSecurityGroupId:endpointSg.attrGroupId}]});
+    // Same destination is valid in live mode: provisioner and worker have distinct source SGs.
     new ec2.CfnSecurityGroupIngress(this,'PrimaryProvisionIngress',{groupId:a.primarySecurityGroupId,sourceSecurityGroupId:provisionSg.attrGroupId,ipProtocol:'tcp',fromPort:5432,toPort:5432});
     new ec2.CfnSecurityGroupIngress(this,'SecretProvisionIngress',{groupId:endpointSg.attrGroupId,sourceSecurityGroupId:provisionSg.attrGroupId,ipProtocol:'tcp',fromPort:443,toPort:443});
     const vpc=ec2.Vpc.fromVpcAttributes(this,'ExistingVpc',{vpcId:a.vpcId,availabilityZones:[a.availabilityZone]});

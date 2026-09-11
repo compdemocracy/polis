@@ -14,9 +14,14 @@ validated before real digests can be entered. There are no placeholder releases.
 
 ## Data flow
 
-The reader container connects through a Unix socket relay to the fixed replica
+The reader container connects through a Unix socket relay to the configured read target
 on port 5432 using TLS with hostname verification and the reviewed RDS CA.
-It checks `pg_is_in_recovery()` and read-only transaction state before extraction.
+It admits primary and replica recovery states, but requires read-only transaction
+state before extraction. Under Colin's live-primary ruling, set `replicaHost` to
+`primaryHost` and `replicaSecurityGroupId` to `primarySecurityGroupId`. These legacy
+configuration names identify the read target; a distinct replica remains supported.
+Both database ingress rules then target the same group but have different source
+groups (worker versus login provisioner), so their rule tuples do not collide.
 The owned extractor surveys and selects roles inside one read-only repeatable-read
 snapshot. Raw fixtures and provenance remain on the disposable encrypted disk.
 The producer runs fresh paired Clojure/Python recordings. The verifier independently
@@ -26,12 +31,12 @@ The producer never copies fixtures into its output tree.
 Producer, reader and verifier have disconnected network namespaces, no host
 credentials or metadata access, unprivileged users, read-only roots, no capabilities,
 resource limits and separate writable mounts. Only the reader receives the
-socket and replica credential. Producer output is read-only to the verifier;
+socket and reader credential. Producer output is read-only to the verifier;
 the verifier alone writes the receipt directory. Container storage also resides
 on the disposable disk. The root supervisor, baked into the AMI, is trusted.
 
 The host subnet has no default internet route or NAT. Security-group egress is
-limited to the replica, a private Secrets Manager endpoint and S3 via a gateway
+limited to the read target, a private Secrets Manager endpoint and S3 via a gateway
 endpoint whose policy admits only the box's assets/control/receipt paths. Because
 security groups do not filter the VPC resolver, the baked firewall restricts DNS
 to an exact-name local forwarder. Probe containers have no network route to it.
@@ -67,7 +72,7 @@ is distinct from application output. No private application runs on the runner.
 `ci/probe_box/provision_login.py` is the primary-side schema operation. The stack
 creates a generated Secrets Manager credential and invokes this code via a
 separate custom-resource Lambda with a separate security group and admin-secret
-permission. The probe worker never receives the primary connection or admin secret.
+permission. The probe worker connects only as the reader and never receives the admin secret.
 The reviewed ARM64 Lambda layer must contain psycopg2 and `/opt/rds-ca.pem`.
 The [pinned Python 3.12 ARM64 recipe](../ci/probe_box/layer/README.md) builds and
 checks that ZIP locally and prints the operator-only SSO publication command.
@@ -78,7 +83,8 @@ limits; schema usage, database connect, and SELECT on exactly conversations,
 votes, comments, participants, math_main and math_ticks. Provisioning locks and
 marks its role ownership, refuses a foreign role or unexpected membership/write
 authority, and rolls back partial failure. Role creation on primary replicates to
-the physical replica. The runtime additionally refuses a primary target.
+the physical replica. Live-primary extraction uses that same restricted login; the owned extractor
+opens and verifies its own read-only repeatable-read transaction.
 
 Deleting the stack retains the role and secret. Disabling/removing that role is
 an explicit separately reviewed schema action after all readers stop; stack
@@ -115,7 +121,7 @@ role selection or collapsed cuts fail admission; the pipeline never shortens the
 battery or accepts a partial result to obtain PASS.
 
 A reviewed `representative_selection` config also extracts the selected sample
-in that same replica transaction. Manifest/4 and paired-plan/2 require every
+in that same read-only transaction. Manifest/4 and paired-plan/2 require every
 sample alongside the 14 existing private entries. The gate orders actual sizes,
 preserves restart pairs, and reconstructs the sample's ceiling-six full-stream
 cuts and final-source-state moderation in both engines. Empty or unsupported
@@ -131,7 +137,7 @@ existing VPC/replica/primary endpoints, security groups, CA-bearing Lambda layer
 admin secret ARN, asset publisher, reviewer roles and notification topic.
 
 Before private use, retain actual target receipts for the AMI/OCI source admission,
-read-only replica login, DNS/metadata/egress isolation, cancellation/lost launch,
+read-only reader login, DNS/metadata/egress isolation, cancellation/lost launch,
 boot failure, killed supervisor and observed disk disposal. Local mocks and
 public-fixture data establish code behavior; they do not establish those AWS facts.
 The old signed-admission, fixture-upload and download-to-verify runbook is superseded.

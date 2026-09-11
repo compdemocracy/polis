@@ -32,8 +32,17 @@ def resolve_private_spec(entry, dataset):
     return gate.schedule.ScheduleSpec.from_dict(value)
 
 
+def validate_reader_session(conn) -> None:
+    """The live primary and replicas must both use the read-only reader login."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT pg_is_in_recovery(), current_setting('transaction_read_only')")
+        row = cur.fetchone()
+        if not row or len(row) != 2 or type(row[0]) is not bool or row[1] != 'on':
+            raise ValueError('READ_ONLY_SOURCE_REQUIRED')
+
+
 def extract() -> None:
-    """Use the same owned extractor against one read-only replica snapshot."""
+    """Use the same owned extractor against one read-only snapshot of the configured read target."""
     import psycopg2
     from polismath.replay import fixture_config as fc, fixture_extract as fx, fixture_bundle as fb
     recipe = json.loads(Path('/opt/polis-private-image/recipe.json').read_bytes())
@@ -49,17 +58,14 @@ def extract() -> None:
     conn = psycopg2.connect(service='probe')
     try:
         conn.autocommit = True
-        with conn.cursor() as cur:
-            cur.execute('SELECT pg_is_in_recovery(), current_setting(\'transaction_read_only\')')
-            if cur.fetchone() != (True, 'on'):
-                raise ValueError('READ_REPLICA_REQUIRED')
+        validate_reader_session(conn)
         result = fx.extract_from_config(conn, config=config, payload_root=payload, guard_root=out)
     finally:
         conn.close()
     manifest = fb.build_manifest(bundle_id='probe-capture', payload_root=payload,
         config=config, config_bytes=config_bytes, selections=result['roles'],
         generated_summaries=result['generated'],
-        snapshot={'identifier': 'live-replica-repeatable-read',
+        snapshot={'identifier': 'live-readonly-repeatable-read',
                   'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
                   'schema_migration_version': None},
         transaction_guarantee=result['transaction_guarantee'], tie_key=result['tie_key'],

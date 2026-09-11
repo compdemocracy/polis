@@ -10,7 +10,7 @@ const config: ProbeConfig = {
  postgresLayerArn:'arn:aws:lambda:us-east-1:111111111111:layer:public-fixture-postgres:1',s3PrefixListId:'pl-12345678',
  reviewerRoleArns:['arn:aws:iam::111111111111:role/public-fixture-reader'],assetPublisherRoleArn:'arn:aws:iam::111111111111:role/public-fixture-publisher',
  githubRepo:'example/example',githubEnvironment:'probe-box',githubRef:'refs/heads/edge',notificationTopicArn:'arn:aws:sns:us-east-1:111111111111:public-fixture'};
-function build(){const app=new cdk.App();const stack=new cdk.Stack(app,'Probe',{env:{account:config.account,region:config.region}});new ProbeBox(stack,'Box',config);return Template.fromStack(stack);}
+function build(input: ProbeConfig = config){const app=new cdk.App();const stack=new cdk.Stack(app,'Probe',{env:{account:config.account,region:config.region}});new ProbeBox(stack,'Box',input);return Template.fromStack(stack);}
 const resources=(j:any,t:string):any[]=>Object.values(j.Resources).filter((r:any)=>r.Type===t);
 function named(j:any,prefix:string,type?:string):any{return (Object.entries(j.Resources).find(([id,r]:any)=>id.startsWith(prefix)&&(!type||r.Type===type))![1] as any).Properties;}
 test('existing VPC isolated routes and no public ingress',()=>{const t=build(),j=t.toJSON();
@@ -36,3 +36,22 @@ test('private receipt buckets and independent sweep alarms',()=>{const t=build()
  for(const b of resources(j,'AWS::S3::Bucket')){expect(Object.values(b.Properties.PublicAccessBlockConfiguration)).toEqual([true,true,true,true]);expect(b.DeletionPolicy).toBe('Retain');}
  const p=JSON.stringify(resources(j,'AWS::S3::BucketPolicy'));for(const sid of ['PrivateReaders','WorkerWrites','CreateOnly','PrivateEndpoint'])expect(p).toContain(sid);});
 test.each(['ami','replicaHost','primaryHost','account','database'] as const)('invalid %s fails before synth',field=>{expect(()=>validateProbeConfig({...config,[field]:'!invalid'})).toThrow();});
+
+test.each([false,true])('read target and provisioner rules remain distinct (live=%s)',live=>{
+ const input={...config,...(live?{replicaHost:config.primaryHost,replicaSecurityGroupId:config.primarySecurityGroupId}:{})};
+ expect(validateProbeConfig(input)).toBe(input);
+ const j=build(input).toJSON();
+ const ingress=resources(j,'AWS::EC2::SecurityGroupIngress').map(r=>r.Properties);
+ const db=ingress.filter(r=>r.FromPort===5432);
+ expect(db).toHaveLength(2);
+ expect(db.map(r=>r.GroupId)).toEqual([input.replicaSecurityGroupId,input.primarySecurityGroupId]);
+ expect(db[0].SourceSecurityGroupId).not.toEqual(db[1].SourceSecurityGroupId);
+ const key=(r:any)=>JSON.stringify([r.GroupId,r.SourceSecurityGroupId,r.IpProtocol,r.FromPort,r.ToPort]);
+ expect(new Set(ingress.map(key)).size).toBe(ingress.length);
+ expect(named(j,'BoxWorkerSg').SecurityGroupEgress[0].DestinationSecurityGroupId).toBe(input.replicaSecurityGroupId);
+ expect(named(j,'BoxProvisionSg').SecurityGroupEgress[0].DestinationSecurityGroupId).toBe(input.primarySecurityGroupId);
+ expect(named(j,'BoxControlFunction','AWS::Lambda::Function').Environment.Variables.REPLICA_HOST).toBe(input.replicaHost);
+ expect(resources(j,'AWS::CloudFormation::CustomResource')[0].Properties.PrimaryHost).toBe(input.primaryHost);
+ const policy=JSON.stringify(named(j,'BoxWorkerDefaultPolicy').PolicyDocument);
+ expect(policy).not.toContain(input.adminSecretArn);
+});

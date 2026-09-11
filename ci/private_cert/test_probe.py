@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 sys.path.insert(0,str(Path(__file__).parent/'images'))
 import probe
 from polismath.replay.schedule import ScheduleSpec
@@ -23,3 +23,19 @@ class ProbeTests(unittest.TestCase):
             with patch.object(probe.gate.certify,'build_effective_spec',return_value=ScheduleSpec.from_dict(raw)):
                 self.assertEqual(probe.resolve_private_spec(SimpleNamespace(schedule_path=path),SimpleNamespace(votes=[])).to_dict(),raw)
 
+
+    def test_primary_and_replica_require_readonly_session(self):
+        for recovery in (False, True):
+            conn = MagicMock()
+            conn.cursor.return_value.__enter__.return_value.fetchone.return_value = (recovery, 'on')
+            probe.validate_reader_session(conn)
+            conn.cursor.return_value.__enter__.return_value.execute.assert_called_once_with(
+                "SELECT pg_is_in_recovery(), current_setting('transaction_read_only')")
+
+    def test_writable_or_unknown_source_refused(self):
+        for row in [(False, 'off'), (True, 'off'), (None, 'on'), (1, 'on'), None, (), (False,)]:
+            with self.subTest(row=row):
+                conn = MagicMock()
+                conn.cursor.return_value.__enter__.return_value.fetchone.return_value = row
+                with self.assertRaisesRegex(ValueError, 'READ_ONLY_SOURCE_REQUIRED'):
+                    probe.validate_reader_session(conn)
