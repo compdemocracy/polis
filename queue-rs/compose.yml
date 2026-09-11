@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: queue_acceptance
+      POSTGRES_HOST_AUTH_METHOD: trust
+    command: [postgres, -c, logging_collector=on, -c, log_directory=/tmp/queue-logs, -c, log_filename=queue.log, -c, log_line_prefix=]
+    ports:
+      - "127.0.0.1:${POLIS_RECOVERY_PG_PORT:?choose a unique local port}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U postgres -d queue_acceptance]
+      interval: 1s
+      timeout: 3s
+      retries: 40

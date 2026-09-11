@@ -6,8 +6,8 @@ import pg from "../db/pg-query";
 import Utils from "../utils/common";
 import { getZidForRid } from "../utils/zinvite";
 import { getBidIndexToPidMapping } from "../utils/participants";
+import { bidsForPids, getMathBundle, MathBundleRead } from "../utils/mathBundle";
 import Config from "../config";
-import logger from "../utils/logger";
 import { getPidPromise } from "../user";
 
 function handle_GET_math_pca(
@@ -299,42 +299,40 @@ function handle_GET_bidToPid(
   );
 }
 
-function getBidsForPids(zid: number, math_tick: number, pids: number[]) {
-  const dataPromise = getBidIndexToPidMapping(zid, math_tick);
-  const mathResultsPromise = getPca(zid, math_tick);
-
-  return Promise.all([dataPromise, mathResultsPromise]).then(function (
-    items: { asPOJO: any; bidToPid: any }[]
-  ) {
-    const b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
-    const mathResults = items[1].asPOJO;
-    function findBidForPid(pid: number) {
-      let yourBidi = -1;
-      // if (!b2p) {
-      //     return yourBidi;
-      // }
-      for (let bidi = 0; bidi < b2p.length; bidi++) {
-        const pids = b2p[bidi];
-        if (pids.indexOf(pid) !== -1) {
-          yourBidi = bidi;
-          break;
-        }
-      }
-
-      let yourBid = indexToBid[yourBidi];
-
-      if (yourBidi >= 0 && _.isUndefined(yourBid)) {
-        logger.error("polis_err_math_index_mapping_mismatch", { pid, b2p });
-        yourBid = -1;
-      }
-      return yourBid;
+/**
+ * pid -> base-cluster id, for `doFamousQuery`'s featured-participant join.
+ *
+ * This used to issue `getBidIndexToPidMapping` and `getPca` in parallel and
+ * index one generation's `base-clusters.id` with another generation's
+ * `bidToPid` whenever a publication landed between them. It now joins inside
+ * one immutable Bundle. Each pre-Bundle outcome is preserved exactly:
+ *
+ *  - no coherent generation -> every pid maps to `undefined`, which is what
+ *    `getBidIndexToPidMapping`'s Error sentinel produced via `|| []`, and what
+ *    `doFamousQuery` reads as "not bucketized yet";
+ *  - a main row that is not newer than the requested tick -> a rejection,
+ *    which is what dereferencing `getPca`'s `undefined` result produced, and
+ *    which `doFamousQuery`'s failure branch turns into an empty map.
+ */
+async function getBidsForPids(
+  zid: number,
+  math_tick: number,
+  pids: number[],
+  ownedRead?: MathBundleRead
+): Promise<Record<number, number | undefined>> {
+  const requested = typeof math_tick === "number" ? math_tick : -1;
+  const read = ownedRead ?? await getMathBundle(zid);
+  if (read.present && read.mathTick <= requested) {
+    throw new Error("polis_err_math_bundle_not_new");
+  }
+  if (!read.present || !read.admitted) {
+    const unplaced: Record<number, number | undefined> = {};
+    for (const pid of pids) {
+      unplaced[pid] = undefined;
     }
-
-    const indexToBid = mathResults["base-clusters"].id;
-    const bids = pids.map(findBidForPid);
-    const pidToBid = _.object(pids, bids);
-    return pidToBid;
-  });
+    return unplaced;
+  }
+  return bidsForPids(read.bundle, pids);
 }
 
 function handle_GET_bid(
@@ -352,43 +350,22 @@ function handle_GET_bid(
   const zid = req.p.zid;
   const math_tick = req.p.math_tick;
 
-  const dataPromise = getBidIndexToPidMapping(zid, math_tick);
-  const pidPromise = getPidPromise(zid, uid);
-  const mathResultsPromise = getPca(zid, math_tick);
-
-  Promise.all([dataPromise, pidPromise, mathResultsPromise])
+  // Main's cluster IDs and the participant mapping must share one snapshot.
+  // A rejected Bundle leaves the participant unplaced instead of joining rows.
+  Promise.all([getMathBundle(zid), getPidPromise(zid, uid)])
     .then(
-      function (items: { asPOJO: any; bidToPid: any }[]) {
-        const b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
-        const pid = items[1];
-        const mathResults = items[2].asPOJO;
-        if ((pid as unknown as number) < 0) {
-          // NOTE: this API should not be called in /demo mode
+      function ([read, pid]) {
+        if (pid < 0) {
           failJson(res, 500, "polis_err_get_bid_bad_pid");
           return;
         }
-
-        const indexToBid = mathResults["base-clusters"].id;
-
-        let yourBidi = -1;
-        for (let bidi = 0; bidi < b2p.length; bidi++) {
-          const pids = b2p[bidi];
-          if (pids.indexOf(pid) !== -1) {
-            yourBidi = bidi;
-            break;
-          }
+        if ((read.present ? read.mathTick : 0) <= math_tick) {
+          throw new Error("polis_err_math_bundle_not_new");
         }
-
-        let yourBid = indexToBid[yourBidi];
-
-        if (yourBidi >= 0 && _.isUndefined(yourBid)) {
-          logger.error("polis_err_math_index_mapping_mismatch", { pid, b2p });
-          yourBid = -1;
-        }
-
-        res.json({
-          bid: yourBid, // The user's current bid
-        });
+        const bid = read.present && read.admitted
+          ? bidsForPids(read.bundle, [pid])[pid]
+          : undefined;
+        res.json({ bid });
       },
       function () {
         res.status(304).end();

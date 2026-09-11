@@ -1,0 +1,25 @@
+[package]
+name = "polis-coordinator"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+
+[features]
+default = []
+fault-injection = []
+
+[dependencies]
+anyhow = "1"
+postgres = { version = "0.19", features = ["with-serde_json-1"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+sha2 = "0.10"
+tempfile = "3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+uuid = { version = "1", features = ["v4"] }
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"

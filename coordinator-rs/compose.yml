@@ -1,0 +1,15 @@
+# Public fixture local test database only. Always COMPOSE_PROJECT_NAME=p026.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: p026
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "127.0.0.1:${POLIS_RECOVERY_PG_PORT:-55458}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d p026"]
+      interval: 1s
+      timeout: 3s
+      retries: 30

@@ -9,6 +9,7 @@ import pg from "../db/pg-query";
 import Config from "../config";
 import logger from "./logger";
 import { addInRamMetric } from "./metered";
+import { CachedMathBundleRead, getMathBundle, invalidateMathBundleForTick } from "./mathBundle";
 
 export type PcaCacheItem = {
   asPOJO: {
@@ -145,6 +146,15 @@ export async function prefetchLatestPcaData(): Promise<void> {
         caching_tick: item.caching_tick,
         zid: row.zid,
       });
+      // Invalidation by tick. This loop is the only place that learns about a
+      // new generation without reading the companions, so it is the only place
+      // that can retire a cached whole Bundle before its TTL. A Bundle already
+      // at this generation is kept; anything else is dropped.
+      invalidateMathBundleForTick(
+        mathEnv,
+        row.zid,
+        row.math_tick == null ? null : Number(row.math_tick)
+      );
       lastPrefetchedMathTick = Math.max(
         lastPrefetchedMathTick,
         Number(row.caching_tick)
@@ -412,7 +422,7 @@ export function getPca(
     options?.synthesizeEmptyWhenMissing !== false;
   const mathEnv = Config.mathEnv;
   let cached = pcaCache.get(pcaCacheKey(mathEnv, zid));
-  if (cached && cached.expiration < Date.now()) {
+  if (cached && cached.expiration <= Date.now()) {
     cached = undefined;
   }
   // The [math_env, zid] cache is shared by every caller, so an entry may have
@@ -542,23 +552,106 @@ export function getPca(
         math_tick,
       });
 
-      processMathObject(item);
-
-      // Ensure all required fields exist by merging with empty structure if needed
-      return ensureCompletePcaStructure(item).then((completeData) => {
-        // See the no-row branch above: assigned in place so the merge mark
-        // survives to the cache item `presentPca` receives.
-        const dataWithZid = Object.assign(completeData, { zid: zid });
-        return updatePcaCache(mathEnv, zid, dataWithZid);
-      });
+      return presentMathMainRow(mathEnv, zid, item);
     });
+}
+
+/**
+ * Normalize one owned `math_main.data` blob and cache its engine-facing shape.
+ *
+ * Shared by `getPca`'s row path and the Bundle reader so both produce the
+ * same marked structure for the response-boundary `presentPca` call. `item` is
+ * mutated by `processMathObject`, so callers must hand over a blob they own.
+ *
+ * `ensureCompletePcaStructure` only merges the template of absences. The
+ * comment-owned `tids` / `n-cmts` and legacy PCA defaults are composed by
+ * `presentPca` in pcaPresentation.ts, never stored in the raw Bundle.
+ */
+function presentMathMainRow(
+  mathEnv: string,
+  zid: number,
+  item: PcaCacheItem["asPOJO"],
+  sourceExpiration?: number
+): Promise<PcaCacheItem> {
+  processMathObject(item);
+
+  // Ensure all required fields exist by merging with empty structure if needed
+  return ensureCompletePcaStructure(item).then((completeData) => {
+    // Preserve the WeakSet merge mark that presentPca checks. Spreading into
+    // a new object would silently skip C7's comment-owned presentation.
+    const dataWithZid = Object.assign(completeData, { zid: zid });
+    return updatePcaCache(mathEnv, zid, dataWithZid, false, sourceExpiration);
+  });
+}
+
+/**
+ * The latest presentation, read through a coherent Bundle.
+ *
+ * `getPca(zid)` reads `math_main` on its own, so a report that also joins
+ * participants to groups could mix generations across its several reads. This
+ * consults the shared presentation cache first, then loads a Bundle on a
+ * miss. Only that miss observes companion admission; this main-only helper
+ * does not establish request-wide coherence for other independent reads.
+ *
+ * It is deliberately byte-identical to `getPca(zid)`:
+ *
+ *  - the presentation cache is consulted first, with `getPca`'s own freshness
+ *    rule, so a prefetched entry is still what a report sees;
+ *  - a conversation with no `math_main` row falls through to `getPca`, which
+ *    synthesizes the empty presentation and shares one cache entry for it --
+ *    that entry stamps `lastVoteTimestamp: Date.now()`, so bypassing it would
+ *    change bytes between two reads in the same report;
+ *  - a row that is not newer than "latest" (`math_tick` still at the -1
+ *    default) is `undefined`, exactly as `getPca` reports it.
+ *
+ * A refused Bundle is logged by `getMathBundle` and then presented from its
+ * main row anyway. Every field a report reads is main-owned -- the
+ * participant-to-group join runs through `base-clusters.members`, not through
+ * `math_bidtopid` -- so refusing here would remove a report that is correct
+ * today, while the joining callers (`getPidsForGid`, `getBidsForPids`) do
+ * refuse because their answer genuinely spans two tables.
+ */
+export async function getPcaFromBundle(
+  zid: number
+): Promise<PcaCacheItem | undefined> {
+  const mathEnv = Config.mathEnv;
+  let cached = pcaCache.get(pcaCacheKey(mathEnv, zid));
+  if (cached && cached.expiration <= Date.now()) {
+    cached = undefined;
+  }
+  if (cached && cached.asPOJO) {
+    logger.silly("math from bundle cache (latest requested)", { zid });
+    return cached;
+  }
+
+  const read = await getMathBundle(zid, mathEnv);
+  if (!read.present) {
+    return getPca(zid);
+  }
+
+  return presentExistingMathBundle(zid, mathEnv, read);
+}
+
+/** Present the request's own main, without consulting the independent PCA cache. */
+export function presentExistingMathBundle(
+  zid: number,
+  mathEnv: string,
+  read: CachedMathBundleRead
+): Promise<PcaCacheItem | undefined> {
+  if (!read.present || read.mathTick <= -1) return Promise.resolve(undefined);
+  // The cached Bundle is shared by every concurrent reader and
+  // `processMathObject` mutates in place, so present a copy.
+  const item = structuredClone(read.main) as PcaCacheItem["asPOJO"];
+  item.math_tick = read.mathTick;
+  return presentMathMainRow(mathEnv, zid, item, read.expiration);
 }
 
 function updatePcaCache(
   mathEnv: string,
   zid: number,
   item: { zid: number },
-  synthesized = false
+  synthesized = false,
+  sourceExpiration = Infinity
 ): Promise<PcaCacheItem> {
   return new Promise(function (
     resolve: (arg0: PcaCacheItem) => void,
@@ -578,7 +671,7 @@ function updatePcaCache(
           asPOJO: item,
           asJSON: asJSON,
           asBufferOfGzippedJson: jsondGzipdPcaBuffer,
-          expiration: Date.now() + 3000,
+          expiration: Math.min(Date.now() + 3000, sourceExpiration),
           consensus: (item as any).consensus || { agree: {}, disagree: {} },
           repness: (item as any).repness || {},
         } as unknown as PcaCacheItem;

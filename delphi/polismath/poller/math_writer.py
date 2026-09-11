@@ -219,17 +219,37 @@ def derive_ptptstats(
     }
 
 
+def empty_contract_payloads(conv, zid, main):
+    """Serialization-only empty view shared by the poller bridge and adapter."""
+    main.update({"zid": zid, "n": 0, "n-cmts": 0, "tids": [], "in-conv": [],
+        "base-clusters": {k: [] for k in ("id", "members", "x", "y", "count")},
+        "group-clusters": [], "group-votes": {}, "votes-base": {},
+        "user-vote-counts": {}, "comment-priorities": {},
+        "consensus": {"agree": [], "disagree": []}, "group-aware-consensus": {},
+        "repness": {}, "meta-tids": sorted(conv.meta_tids),
+        "mod-in": sorted(conv.mod_in_tids), "mod-out": sorted(conv.mod_out_tids),
+        "lastVoteTimestamp": 0, "lastModTimestamp": conv.last_mod_timestamp,
+        "pca": {"center": [], "comps": [[], []],
+            "comment-projection": [[], []], "comment-extremity": []}})
+    bid = {"zid": zid, "bidToPid": [], "lastVoteTimestamp": 0}
+    stats = {"zid": zid, "ptptstats": {}, "lastVoteTimestamp": 0}
+    return main, bid, stats
+
+
 class MathWriter:
     """Writes a computed conversation's results to Postgres for one cycle."""
 
-    def __init__(self, pg_client: Any) -> None:
+    def __init__(self, pg_client: Any, publisher: Any = None) -> None:
         self._pg = pg_client
+        self._publisher = publisher
 
     def write_conv_updates(self, zid: int, conv: Any) -> int:
         """Atomically mint one math_tick and publish all three data tables.
 
         Returns the math_tick used (handy for logging / tests).
         """
+        if self._publisher is not None:
+            self._publisher.stage("after_worker_compute")
         data = conv.to_dict()
         last_vote_timestamp = data.get("lastVoteTimestamp")
         if last_vote_timestamp is None:
@@ -240,9 +260,13 @@ class MathWriter:
         # while the (zid, math_env) row locks are held.
         bidtopid = derive_bidtopid(conv, zid)
         ptptstats = derive_ptptstats(conv, zid, data.get("user-vote-counts", {}))
+        if self._publisher is not None and getattr(conv, "raw_rating_mat", None) is not None and conv.raw_rating_mat.empty:
+            data, bidtopid, ptptstats = empty_contract_payloads(conv, zid, data)
         main_json = encode_math_blob(data)
         bidtopid_json = encode_math_blob(bidtopid)
         ptptstats_json = encode_math_blob(ptptstats)
+        if self._publisher is not None:
+            return self._publisher.publish(zid, main_json, bidtopid_json, ptptstats_json)
         with self._pg.transaction() as connection:
             # The tick upsert locks this (zid, math_env) until all three writes
             # commit. Other zids use independent connections on the shared client.

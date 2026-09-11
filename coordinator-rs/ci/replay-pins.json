@@ -1,0 +1,1503 @@
+{
+  "schema": "polis-replay-platform-pins/2",
+  "pins": [
+    {
+      "id": "macos-arm64-v1",
+      "system": "Darwin",
+      "machine": "arm64",
+      "checkpoints": [
+        {
+          "cut": 1170,
+          "tick": 0,
+          "rust": "47a2b67b7717dd75c9724f90a21602af595726942405d95f5b03f3a4e2ef1130"
+        },
+        {
+          "cut": 2341,
+          "tick": 1,
+          "rust": "ff191bd0dca54c19ca5f92bde6bf1bd5c6ccfd7743e13e2b00707e313bfbaf6a"
+        },
+        {
+          "cut": 4683,
+          "tick": 2,
+          "rust": "bcaa4dcaf378e1243a4ac16bc8543bb0133e2e0386e200d9fc297b9f3c4680dc"
+        }
+      ],
+      "attribution": {
+        "source_head": "7439947105dfae18bea23c078f229d56e10264d7",
+        "github_run_id": null,
+        "run_attempt": null,
+        "platform": "macOS-15.7.4-arm64-arm-64bit",
+        "python": "3.12.11",
+        "packages": {
+          "numpy": "1.26.4",
+          "scipy": "1.17.1",
+          "scikit-learn": "1.9.0"
+        },
+        "receipt_sha256": "3b9c0e927c8d3373d40ab429f33911338a4f014550d9a85f75bdd659c4a01f9e",
+        "replay_sha256": "aa40c8ceb558dce8acd10bffdcf795d10d2831ca1ab6c27929eb9394ddf394a6",
+        "origin": "reviewed laptop evidence",
+        "blas": "not recorded in historical receipt"
+      },
+      "witnesses": {
+        "polarity-vw.json": {
+          "fixture": "vw",
+          "a": "d401fc7095d77708eb56aa45aa49f5dc819425a5c03e85bac8894f43cbee8b5c",
+          "b": "d401fc7095d77708eb56aa45aa49f5dc819425a5c03e85bac8894f43cbee8b5c",
+          "negative": "a889972e8feda7f82144333115e3ce28657c243aa348ef0365026b463afdb9b4",
+          "deltas": []
+        },
+        "polarity-biodiversity.json": {
+          "fixture": "biodiversity",
+          "a": "a1ce75416a464c4562f7fc69c929ed9f018fedd207d77d8dab355c378bedec94",
+          "b": "a1ce75416a464c4562f7fc69c929ed9f018fedd207d77d8dab355c378bedec94",
+          "negative": "fd0b3ef30a208f561acf3eb066e2c2471e1296c1b66f44aeb52d7b78a9f22284",
+          "deltas": []
+        },
+        "polarity-rebuild-schedule.json": [
+          {
+            "step": 0,
+            "positive": "30a1d16e462192a65666b786beee64bf2997f9928f9b28a1b38dbf310dacc74d",
+            "paired": "30a1d16e462192a65666b786beee64bf2997f9928f9b28a1b38dbf310dacc74d",
+            "negative": "01a9fdf049f73ce57d8ba66380b80c622e09d2ebe8a896aa7dbd09beca03baec"
+          },
+          {
+            "step": 1,
+            "positive": "f71a5ad62ac47f2133d4158ba31d920d1ffae102d0684820ed3c81bbf941dea8",
+            "paired": "f71a5ad62ac47f2133d4158ba31d920d1ffae102d0684820ed3c81bbf941dea8",
+            "negative": "c75d7daa88d10dc30720513e7b3573c308d4b0c20c253d9577b0df638a4ecf11"
+          },
+          {
+            "step": 2,
+            "positive": "efe1d6ef80fcd3c076c08ce95cf2cc4dcbc6f9003e8b55a6efe50d6721589e4d",
+            "paired": "efe1d6ef80fcd3c076c08ce95cf2cc4dcbc6f9003e8b55a6efe50d6721589e4d",
+            "negative": "07290dd4ad42370888a46f21c7cc247b4daf12a50d3f49812ddb46e891e2c418"
+          }
+        ],
+        "semantic-tie-key.json": {
+          "declared": {
+            "terms": [
+              {
+                "name": "tid",
+                "nulls": "default",
+                "source": "votes.tid"
+              },
+              {
+                "name": "pid",
+                "nulls": "default",
+                "source": "votes.pid"
+              },
+              {
+                "name": "created_ms",
+                "nulls": "default",
+                "source": "votes.created"
+              },
+              {
+                "name": "semantic_vote",
+                "nulls": "default",
+                "source": "raw_vote * storage_agree_value"
+              },
+              {
+                "name": "weight_x_32767",
+                "nulls": "first",
+                "source": "votes.weight_x_32767"
+              }
+            ],
+            "schema": "polis-order/1",
+            "profile": "live-tid-pid-created-semantic-value-weight/1",
+            "order_by": "tid,pid,created,(vote::bigint*$2::bigint),weight_x_32767 NULLS FIRST",
+            "parameter": "storage_agree_value",
+            "semantic_vote": "raw_vote * storage_agree_value",
+            "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
+            "equal_time_census": {
+              "key": [
+                "tid",
+                "pid",
+                "created_ms"
+              ],
+              "schema": "polis-census/1",
+              "tied_rows": 2,
+              "resolved_by": [
+                "semantic_vote",
+                "weight_x_32767"
+              ],
+              "tied_groups": 1
+            },
+            "storage_agree_value": -1
+          },
+          "mirrored_digest": "3bd0700204ee8202074e31f6cfe2f57903bd9d9fc10c5149c0fcdfb7f5406685",
+          "a": "defe687e91d6b728d0e63e120fcc807fa2c1a84608f56159c3cc5e0ce0c7951b",
+          "b": "defe687e91d6b728d0e63e120fcc807fa2c1a84608f56159c3cc5e0ce0c7951b",
+          "negative": "5aaff63b7f65072559ae96cd7296c6341af2a2c51e93b3b39094f2b51695a3e8",
+          "deltas": []
+        },
+        "d4-node-reader.json": {
+          "compared_fields": [
+            "asJSON_sha256",
+            "asJSON_bytes",
+            "gzip_sha256",
+            "gzip_bytes",
+            "keys_projection_sha256",
+            "tids",
+            "n",
+            "n_cmts",
+            "pca_center",
+            "comment_extremity",
+            "repness_keys",
+            "consensus_shape",
+            "mapping_sha256",
+            "bid_to_pid",
+            "pids_for_gid",
+            "mapping_is_error"
+          ],
+          "differences": {},
+          "math_tick": 1,
+          "profile": "real getPca + presentPca + participants.ts, in-process, one Node process",
+          "served": {
+            "python": {
+              "asJSON_bytes": 6467,
+              "asJSON_sha256": "a6f97eefa01d1163618efa72aef0d84daa82816185952dca43f2d0c5f04e4e6f",
+              "bid_to_pid": [
+                [
+                  0
+                ],
+                [
+                  1,
+                  4
+                ],
+                [
+                  2,
+                  5
+                ],
+                [
+                  3
+                ]
+              ],
+              "comment_extremity": [
+                1.4280971859724134,
+                1.6329931618554518,
+                1.4467439646937967,
+                1.44674396469377
+              ],
+              "consensus_shape": {
+                "agree": 0,
+                "disagree": 0
+              },
+              "etag_math_tick": 1,
+              "gzip_bytes": 1736,
+              "gzip_sha256": "bf1011c0dcffd052f512135046e4c38f807c2158c82faaea6f45cc912110f528",
+              "keys_projection_sha256": "08743f5ed0bac5e02c7a38535745cbc2c5d22f0b8c52d601dda7c65b4c9dd29a",
+              "mapping_is_error": false,
+              "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
+              "n": 6,
+              "n_cmts": 4,
+              "pca_center": [
+                0.3333333333333333,
+                0,
+                0,
+                0
+              ],
+              "pids_for_gid": {
+                "0": [
+                  0,
+                  2,
+                  3,
+                  5
+                ],
+                "1": [
+                  1,
+                  4
+                ]
+              },
+              "repness_keys": [
+                "0",
+                "1"
+              ],
+              "tids": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            "rustproto": {
+              "asJSON_bytes": 6467,
+              "asJSON_sha256": "a6f97eefa01d1163618efa72aef0d84daa82816185952dca43f2d0c5f04e4e6f",
+              "bid_to_pid": [
+                [
+                  0
+                ],
+                [
+                  1,
+                  4
+                ],
+                [
+                  2,
+                  5
+                ],
+                [
+                  3
+                ]
+              ],
+              "comment_extremity": [
+                1.4280971859724134,
+                1.6329931618554518,
+                1.4467439646937967,
+                1.44674396469377
+              ],
+              "consensus_shape": {
+                "agree": 0,
+                "disagree": 0
+              },
+              "etag_math_tick": 1,
+              "gzip_bytes": 1736,
+              "gzip_sha256": "bf1011c0dcffd052f512135046e4c38f807c2158c82faaea6f45cc912110f528",
+              "keys_projection_sha256": "08743f5ed0bac5e02c7a38535745cbc2c5d22f0b8c52d601dda7c65b4c9dd29a",
+              "mapping_is_error": false,
+              "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
+              "n": 6,
+              "n_cmts": 4,
+              "pca_center": [
+                0.3333333333333333,
+                0,
+                0,
+                0
+              ],
+              "pids_for_gid": {
+                "0": [
+                  0,
+                  2,
+                  3,
+                  5
+                ],
+                "1": [
+                  1,
+                  4
+                ]
+              },
+              "repness_keys": [
+                "0",
+                "1"
+              ],
+              "tids": [
+                0,
+                1,
+                2,
+                3
+              ]
+            }
+          },
+          "zid": 1
+        },
+        "d4-node-reader-empty.json": {
+          "differences": {
+            "asJSON_bytes": [
+              765,
+              455
+            ],
+            "asJSON_sha256": [
+              "4738deb83b9468498ee32c49c5eecfd785d0bac64d5966814f089723286e5a75",
+              "6a14f43bd751a8f332e5564aa5eb97990a159f04d76b7e7fdab9177a83ddfd32"
+            ],
+            "bid_to_pid": [
+              [],
+              null
+            ],
+            "gzip_bytes": [
+              352,
+              266
+            ],
+            "gzip_sha256": [
+              "ce3c0c17c0fd3238eb1b2a9450c5c2105296ef6d19ae7e101a1fc1e0cb12b163",
+              "8378b1ace0aab281b5d26280628ac5c126c87ee873f3d86f8f800355b9007675"
+            ],
+            "mapping_is_error": [
+              false,
+              true
+            ],
+            "mapping_sha256": [
+              "a5558a1314571ed26f6afdea59f81a24ab0cc942ac84485892f8a36f7ac16315",
+              null
+            ]
+          },
+          "note": "the synthesized empty presentation stamps lastVoteTimestamp with Date.now(), so it is not reproducible across servers or requests; the published empty generation is",
+          "profile": "zero votes, four approved comments; rustproto has a published empty generation, python has none and is synthesized by the server",
+          "reference_published": false,
+          "served": {
+            "python": {
+              "asJSON_bytes": 455,
+              "asJSON_sha256": "6a14f43bd751a8f332e5564aa5eb97990a159f04d76b7e7fdab9177a83ddfd32",
+              "bid_to_pid": null,
+              "comment_extremity": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "consensus_shape": {
+                "agree": 0,
+                "disagree": 0
+              },
+              "etag_math_tick": 0,
+              "gzip_bytes": 266,
+              "gzip_sha256": "8378b1ace0aab281b5d26280628ac5c126c87ee873f3d86f8f800355b9007675",
+              "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
+              "last_vote_timestamp": 1789023934903,
+              "mapping_is_error": true,
+              "mapping_math_tick": null,
+              "mapping_sha256": null,
+              "math_env": "python",
+              "n": 0,
+              "n_cmts": 4,
+              "pca_center": [
+                0,
+                0
+              ],
+              "pids_for_gid": {
+                "0": []
+              },
+              "present": true,
+              "raw": {
+                "asJSON_sha256": "984f044ceda39d882aa2f676d8894d069f038c5f1ec7f453e009930f61b4a45d",
+                "gzip_sha256": "92281482f045d57043fe920eed3d902cb244dacd6ec40089f4a7644b54bbbb23",
+                "n_cmts": 0,
+                "tids": [],
+                "unchanged_after_presentation": true
+              },
+              "repness_keys": [],
+              "tids": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            "rustproto": {
+              "asJSON_bytes": 765,
+              "asJSON_sha256": "4738deb83b9468498ee32c49c5eecfd785d0bac64d5966814f089723286e5a75",
+              "bid_to_pid": [],
+              "comment_extremity": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "consensus_shape": {
+                "agree": 0,
+                "disagree": 0
+              },
+              "etag_math_tick": 1,
+              "gzip_bytes": 352,
+              "gzip_sha256": "ce3c0c17c0fd3238eb1b2a9450c5c2105296ef6d19ae7e101a1fc1e0cb12b163",
+              "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
+              "last_vote_timestamp": 0,
+              "mapping_is_error": false,
+              "mapping_sha256": "a5558a1314571ed26f6afdea59f81a24ab0cc942ac84485892f8a36f7ac16315",
+              "math_env": "rustproto",
+              "n": 0,
+              "n_cmts": 4,
+              "pca_center": [
+                0,
+                0
+              ],
+              "pids_for_gid": {
+                "0": []
+              },
+              "present": true,
+              "raw": {
+                "asJSON_sha256": "fa78e3c4a1cbacb495960da1fcb9b1a834ffc0d825361b968e9e2eadb2670050",
+                "gzip_sha256": "666e7e9f166083dfc4cf0489725d1be564b371049fc0a3779bdcf67db8cb76f9",
+                "n_cmts": 0,
+                "tids": [],
+                "unchanged_after_presentation": true
+              },
+              "repness_keys": [],
+              "tids": [
+                0,
+                1,
+                2,
+                3
+              ]
+            }
+          }
+        },
+        "polarity-public-fixture.json": {
+          "fixture": "public-fixture",
+          "a": "2fb950bae8230a3e781feb724ffa27569eacb80ec3c786113750deed1cbd642e",
+          "b": "2fb950bae8230a3e781feb724ffa27569eacb80ec3c786113750deed1cbd642e",
+          "negative": "959731736e87e7e23c20261dda26937c6d3474b1e4c8d5267ee11c20e3558202",
+          "deltas": []
+        }
+      },
+      "witness_sha256": {
+        "polarity-vw.json": "d92b9f4eab8c718de0ae3cdd3942f027d767c851f5e7f075f9788f31c2ae230a",
+        "polarity-biodiversity.json": "4152924ccbd2f98130c58ef4e5da7b6c92f30628fb72eef0d3588d46b8e27c97",
+        "polarity-rebuild-schedule.json": "60a052dece98383b63afc3fc783db0cbcfa8aff3f343ed557e9e3ba4885b1f46",
+        "semantic-tie-key.json": "a35a27ec58ee9bd8d557546ce1dfbae0d9e5c7ad140b6d4ff215ba3cb55920d5",
+        "d4-node-reader.json": "8eb6c5f1a50f8670b3c1af98d3522c92e3adaf045a3305e47177a79093b1bd0e",
+        "d4-node-reader-empty.json": "7a4bee2958575cf8bd34c641014de786864088ca8d1fffc0e3dd11bb54432e0d",
+        "polarity-public-fixture.json": "9c2de163655f5225a3d2ba246455cb3ad6db8ae34f2f7ba5ca4bdbf0dab79c95"
+      },
+      "label_remap": {
+        "scope": "fixture label and witness filename only; science unchanged",
+        "witness": "polarity-public-fixture.json",
+        "original_sha256": "9c2de163655f5225a3d2ba246455cb3ad6db8ae34f2f7ba5ca4bdbf0dab79c95",
+        "renamed_sha256": "91cfee6f884c36a814983256bb76b479fc492d7b74069359c06f7f1e8dbd9cd9",
+        "renamed_canonical_sha256": "4a5b3b2404f355f33b5c05018294d7151111d4f9b273e547bfd68bfd5349c08a"
+      },
+      "forced_kernel": "not-forced"
+    },
+    {
+      "id": "linux-x86_64-haswell-v1",
+      "system": "Linux",
+      "machine": "x86_64",
+      "forced_kernel": "Haswell",
+      "checkpoints": [
+        {
+          "cut": 1170,
+          "tick": 0,
+          "rust": "b2f86e81dc96e827917a4213ba6c85dd0c21a466e0a6f58f2069887e9b7bd963"
+        },
+        {
+          "cut": 2341,
+          "tick": 1,
+          "rust": "1e308379757dce51cdf5e4ce467132588b102ce2ed2d4972d4f9dd1a47d0ca4f"
+        },
+        {
+          "cut": 4683,
+          "tick": 2,
+          "rust": "8346dea808644b451cf331712d9fdda749d5ab5de4424f2f99abaee540ef3dc7"
+        }
+      ],
+      "attribution": {
+        "source_head": "7db636a7d5924bfa2fe1b369241319ead9782fba",
+        "github_run_id": "34558935924",
+        "run_attempt": "1",
+        "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "python": "3.12.14",
+        "packages": {
+          "boto3": "1.43.89",
+          "botocore": "1.43.89",
+          "cloudpickle": "3.1.2",
+          "contourpy": "1.3.3",
+          "cycler": "0.12.1",
+          "fonttools": "4.64.0",
+          "iniconfig": "2.3.0",
+          "jmespath": "1.1.0",
+          "joblib": "1.6.0",
+          "kiwisolver": "1.5.1",
+          "matplotlib": "3.11.1",
+          "narwhals": "2.25.0",
+          "natsort": "8.4.0",
+          "numpy": "1.26.4",
+          "packaging": "26.3",
+          "pandas": "2.3.3",
+          "pillow": "12.3.0",
+          "pluggy": "1.6.0",
+          "psycopg2-binary": "2.9.12",
+          "pygments": "2.21.0",
+          "pyparsing": "3.3.2",
+          "pytest": "9.1.1",
+          "python-dateutil": "2.9.0.post0",
+          "python-dotenv": "1.2.3",
+          "pytz": "2026.3.post1",
+          "pyyaml": "6.0.3",
+          "s3transfer": "0.19.2",
+          "scikit-learn": "1.9.0",
+          "scipy": "1.17.1",
+          "six": "1.17.0",
+          "sqlalchemy": "2.0.52",
+          "threadpoolctl": "3.6.0",
+          "typing-extensions": "4.16.0",
+          "tzdata": "2026.3",
+          "urllib3": "2.7.0"
+        },
+        "requested_kernel": "Haswell",
+        "receipt_sha256": "80a1cb59f54d8dd9300571f09f378bc1141c32418fbc8553f25baa5b63a960b6",
+        "replay_sha256": "e4d8aeba8621dddf40ed68b6c1672ba04ab8fa8ee2fc970182af310b68ee7d76",
+        "runtime": {
+          "blas": [
+            {
+              "architecture": "Haswell",
+              "internal_api": "openblas",
+              "num_threads": 1,
+              "prefix": "libopenblas",
+              "threading_layer": "pthreads",
+              "user_api": "blas",
+              "version": "0.3.23.dev"
+            },
+            {
+              "architecture": "Haswell",
+              "internal_api": "openblas",
+              "num_threads": 1,
+              "prefix": "libscipy_openblas",
+              "threading_layer": "pthreads",
+              "user_api": "blas",
+              "version": "0.3.30"
+            }
+          ],
+          "blas_observed": true,
+          "forced_kernel": "Haswell",
+          "machine": "x86_64",
+          "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+          "python": "3.12.14",
+          "system": "Linux"
+        },
+        "witness_sha256": {
+          "d4-node-reader-empty.json": "4921d95cb5e7fa6c33e6ba307c096e004d24794ba1edf155fa4944632335e5f0",
+          "d4-node-reader.json": "ea69b373afcd2260592243c38e5a4878fffe8492b494dc03cf437050f3714d26",
+          "polarity-biodiversity.json": "a2d42af26139cdfdbe6f1e4627b48be2fc4df1f0f6210bbf21e1f1c12a2399d0",
+          "polarity-public-fixture.json": "2bf4b28e2263b5657e2f327b6e8f7b379ee8159f81592c34a082ffe8933ad2f5",
+          "polarity-rebuild-schedule.json": "631c020b2541a2926669d560aacf8a78aec7a192b95fbab44305faee2f821954",
+          "polarity-vw.json": "e787133ad3e3e3b1051b1d15f52709558890d750b0d71280503f0368f2442b15",
+          "semantic-tie-key.json": "85bf07c03ee1cfa7d3764da389329a65f27b4d79458a685347eeddc847efd413"
+        },
+        "origin": "Two retained hosted forced-Haswell artifacts; original campaigns remain FAIL",
+        "corroboration": {
+          "source_head": "d0f5dae8b4b57670616298d6f445446a4a842be7",
+          "github_run_id": "34560601079",
+          "run_attempt": "1",
+          "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+          "python": "3.12.14",
+          "packages": {
+            "boto3": "1.43.89",
+            "botocore": "1.43.89",
+            "cloudpickle": "3.1.2",
+            "contourpy": "1.3.3",
+            "cycler": "0.12.1",
+            "fonttools": "4.64.0",
+            "iniconfig": "2.3.0",
+            "jmespath": "1.1.0",
+            "joblib": "1.6.0",
+            "kiwisolver": "1.5.1",
+            "matplotlib": "3.11.1",
+            "narwhals": "2.25.0",
+            "natsort": "8.4.0",
+            "numpy": "1.26.4",
+            "packaging": "26.3",
+            "pandas": "2.3.3",
+            "pillow": "12.3.0",
+            "pluggy": "1.6.0",
+            "psycopg2-binary": "2.9.12",
+            "pygments": "2.21.0",
+            "pyparsing": "3.3.2",
+            "pytest": "9.1.1",
+            "python-dateutil": "2.9.0.post0",
+            "python-dotenv": "1.2.3",
+            "pytz": "2026.3.post1",
+            "pyyaml": "6.0.3",
+            "s3transfer": "0.19.2",
+            "scikit-learn": "1.9.0",
+            "scipy": "1.17.1",
+            "six": "1.17.0",
+            "sqlalchemy": "2.0.52",
+            "threadpoolctl": "3.6.0",
+            "typing-extensions": "4.16.0",
+            "tzdata": "2026.3",
+            "urllib3": "2.7.0"
+          },
+          "requested_kernel": "Haswell",
+          "receipt_sha256": "6c9e8664e753532469a7d41913eb12d2d746f314a3a3d2ebf55523190f731dad",
+          "replay_sha256": "e2eca42396cdcbee4b944077757009c6c9da376bb589c7a9f3ecaf5557d10fb2",
+          "runtime": {
+            "blas": [
+              {
+                "architecture": "Haswell",
+                "internal_api": "openblas",
+                "num_threads": 1,
+                "prefix": "libopenblas",
+                "threading_layer": "pthreads",
+                "user_api": "blas",
+                "version": "0.3.23.dev"
+              },
+              {
+                "architecture": "Haswell",
+                "internal_api": "openblas",
+                "num_threads": 1,
+                "prefix": "libscipy_openblas",
+                "threading_layer": "pthreads",
+                "user_api": "blas",
+                "version": "0.3.30"
+              }
+            ],
+            "blas_observed": true,
+            "forced_kernel": "Haswell",
+            "machine": "x86_64",
+            "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+            "python": "3.12.14",
+            "system": "Linux"
+          },
+          "witness_sha256": {
+            "d4-node-reader-empty.json": "7f15e466896214bb416628ecd94d140d26a0ec3a854505b10710498fa071b4b8",
+            "d4-node-reader.json": "ea69b373afcd2260592243c38e5a4878fffe8492b494dc03cf437050f3714d26",
+            "polarity-biodiversity.json": "a2d42af26139cdfdbe6f1e4627b48be2fc4df1f0f6210bbf21e1f1c12a2399d0",
+            "polarity-public-fixture.json": "2bf4b28e2263b5657e2f327b6e8f7b379ee8159f81592c34a082ffe8933ad2f5",
+            "polarity-rebuild-schedule.json": "631c020b2541a2926669d560aacf8a78aec7a192b95fbab44305faee2f821954",
+            "polarity-vw.json": "e787133ad3e3e3b1051b1d15f52709558890d750b0d71280503f0368f2442b15",
+            "semantic-tie-key.json": "85bf07c03ee1cfa7d3764da389329a65f27b4d79458a685347eeddc847efd413"
+          },
+          "six_witnesses_byte_identical": true,
+          "replay_checkpoints_identical": true,
+          "empty_existing_nine_path_validator": "PASS; published JSON and gzip stable; whole file not byte-identical"
+        },
+        "dependency_review_sha256": "1df931125c4d06483d4ffa24ad5b95a025daea3d288a7e4c8fe8a2e7a25d36cb"
+      },
+      "witnesses": {
+        "d4-node-reader-empty.json": {
+          "differences": {
+            "asJSON_bytes": [
+              765,
+              455
+            ],
+            "asJSON_sha256": [
+              "4738deb83b9468498ee32c49c5eecfd785d0bac64d5966814f089723286e5a75",
+              "a87bb52bb050c57bd9cca60dd299efc32e085f1083945d11c0919f626102cec9"
+            ],
+            "bid_to_pid": [
+              [],
+              null
+            ],
+            "gzip_bytes": [
+              352,
+              267
+            ],
+            "gzip_sha256": [
+              "8c7fd95c63b2fbff7603d0cc02196e0cb967fa107d972a865d44076c8f4d27f6",
+              "de6f84cbc8a9363a3571a3b02d9ea8c16935c44cf2566ac1318cfd84c3a74864"
+            ],
+            "mapping_is_error": [
+              false,
+              true
+            ],
+            "mapping_sha256": [
+              "a5558a1314571ed26f6afdea59f81a24ab0cc942ac84485892f8a36f7ac16315",
+              null
+            ]
+          },
+          "note": "the synthesized empty presentation stamps lastVoteTimestamp with Date.now(), so it is not reproducible across servers or requests; the published empty generation is",
+          "profile": "zero votes, four approved comments; rustproto has a published empty generation, python has none and is synthesized by the server",
+          "reference_published": false,
+          "served": {
+            "python": {
+              "asJSON_bytes": 455,
+              "asJSON_sha256": "a87bb52bb050c57bd9cca60dd299efc32e085f1083945d11c0919f626102cec9",
+              "bid_to_pid": null,
+              "comment_extremity": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "consensus_shape": {
+                "agree": 0,
+                "disagree": 0
+              },
+              "etag_math_tick": 0,
+              "gzip_bytes": 267,
+              "gzip_sha256": "de6f84cbc8a9363a3571a3b02d9ea8c16935c44cf2566ac1318cfd84c3a74864",
+              "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
+              "last_vote_timestamp": 1789098231555,
+              "mapping_is_error": true,
+              "mapping_math_tick": null,
+              "mapping_sha256": null,
+              "math_env": "python",
+              "n": 0,
+              "n_cmts": 4,
+              "pca_center": [
+                0,
+                0
+              ],
+              "pids_for_gid": {
+                "0": []
+              },
+              "present": true,
+              "raw": {
+                "asJSON_sha256": "9531a1e5d1b0b71115418b68248d54a6534979ddeb250aa33f5dff3c4dd67a1a",
+                "gzip_sha256": "cf40b3e73f7ea3883c4dc79041b91a50f7a3a627c3e9d7d9bb396301c533c851",
+                "n_cmts": 0,
+                "tids": [],
+                "unchanged_after_presentation": true
+              },
+              "repness_keys": [],
+              "tids": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            "rustproto": {
+              "asJSON_bytes": 765,
+              "asJSON_sha256": "4738deb83b9468498ee32c49c5eecfd785d0bac64d5966814f089723286e5a75",
+              "bid_to_pid": [],
+              "comment_extremity": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "consensus_shape": {
+                "agree": 0,
+                "disagree": 0
+              },
+              "etag_math_tick": 1,
+              "gzip_bytes": 352,
+              "gzip_sha256": "8c7fd95c63b2fbff7603d0cc02196e0cb967fa107d972a865d44076c8f4d27f6",
+              "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
+              "last_vote_timestamp": 0,
+              "mapping_is_error": false,
+              "mapping_sha256": "a5558a1314571ed26f6afdea59f81a24ab0cc942ac84485892f8a36f7ac16315",
+              "math_env": "rustproto",
+              "n": 0,
+              "n_cmts": 4,
+              "pca_center": [
+                0,
+                0
+              ],
+              "pids_for_gid": {
+                "0": []
+              },
+              "present": true,
+              "raw": {
+                "asJSON_sha256": "fa78e3c4a1cbacb495960da1fcb9b1a834ffc0d825361b968e9e2eadb2670050",
+                "gzip_sha256": "a06d839fb65f690863346a1fc93201de92a1271914436fadd75490a31920b313",
+                "n_cmts": 0,
+                "tids": [],
+                "unchanged_after_presentation": true
+              },
+              "repness_keys": [],
+              "tids": [
+                0,
+                1,
+                2,
+                3
+              ]
+            }
+          }
+        },
+        "d4-node-reader.json": {
+          "compared_fields": [
+            "asJSON_sha256",
+            "asJSON_bytes",
+            "gzip_sha256",
+            "gzip_bytes",
+            "keys_projection_sha256",
+            "tids",
+            "n",
+            "n_cmts",
+            "pca_center",
+            "comment_extremity",
+            "repness_keys",
+            "consensus_shape",
+            "mapping_sha256",
+            "bid_to_pid",
+            "pids_for_gid",
+            "mapping_is_error"
+          ],
+          "differences": {},
+          "math_tick": 1,
+          "profile": "real getPca + presentPca + participants.ts, in-process, one Node process",
+          "served": {
+            "python": {
+              "asJSON_bytes": 6476,
+              "asJSON_sha256": "cd5d3722b89d44d95b088bfdfba129e3b06d67ce096bbb9e39ad63625e0998fa",
+              "bid_to_pid": [
+                [
+                  3
+                ],
+                [
+                  1,
+                  4
+                ],
+                [
+                  2,
+                  5
+                ],
+                [
+                  0
+                ]
+              ],
+              "comment_extremity": [
+                1.4280971859724132,
+                1.632993161855452,
+                1.446743964740531,
+                1.4467439646470361
+              ],
+              "consensus_shape": {
+                "agree": 0,
+                "disagree": 0
+              },
+              "etag_math_tick": 1,
+              "gzip_bytes": 1731,
+              "gzip_sha256": "e33e5041fcd75a8b481cc34cc89db658f619733927ecfb3343c96e3f14e41082",
+              "keys_projection_sha256": "08743f5ed0bac5e02c7a38535745cbc2c5d22f0b8c52d601dda7c65b4c9dd29a",
+              "mapping_is_error": false,
+              "mapping_sha256": "7cbc91c1340e4b1ee8338e04bfaa57bdb6f47e3ba265f21f88f7574c2cdfa190",
+              "n": 6,
+              "n_cmts": 4,
+              "pca_center": [
+                0.3333333333333333,
+                0,
+                0,
+                0
+              ],
+              "pids_for_gid": {
+                "0": [
+                  0,
+                  2,
+                  3,
+                  5
+                ],
+                "1": [
+                  1,
+                  4
+                ]
+              },
+              "repness_keys": [
+                "0",
+                "1"
+              ],
+              "tids": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            "rustproto": {
+              "asJSON_bytes": 6476,
+              "asJSON_sha256": "cd5d3722b89d44d95b088bfdfba129e3b06d67ce096bbb9e39ad63625e0998fa",
+              "bid_to_pid": [
+                [
+                  3
+                ],
+                [
+                  1,
+                  4
+                ],
+                [
+                  2,
+                  5
+                ],
+                [
+                  0
+                ]
+              ],
+              "comment_extremity": [
+                1.4280971859724132,
+                1.632993161855452,
+                1.446743964740531,
+                1.4467439646470361
+              ],
+              "consensus_shape": {
+                "agree": 0,
+                "disagree": 0
+              },
+              "etag_math_tick": 1,
+              "gzip_bytes": 1731,
+              "gzip_sha256": "e33e5041fcd75a8b481cc34cc89db658f619733927ecfb3343c96e3f14e41082",
+              "keys_projection_sha256": "08743f5ed0bac5e02c7a38535745cbc2c5d22f0b8c52d601dda7c65b4c9dd29a",
+              "mapping_is_error": false,
+              "mapping_sha256": "7cbc91c1340e4b1ee8338e04bfaa57bdb6f47e3ba265f21f88f7574c2cdfa190",
+              "n": 6,
+              "n_cmts": 4,
+              "pca_center": [
+                0.3333333333333333,
+                0,
+                0,
+                0
+              ],
+              "pids_for_gid": {
+                "0": [
+                  0,
+                  2,
+                  3,
+                  5
+                ],
+                "1": [
+                  1,
+                  4
+                ]
+              },
+              "repness_keys": [
+                "0",
+                "1"
+              ],
+              "tids": [
+                0,
+                1,
+                2,
+                3
+              ]
+            }
+          },
+          "zid": 1
+        },
+        "polarity-biodiversity.json": {
+          "fixture": "biodiversity",
+          "a": "3d9c36b0e17c38a4d4475c1593b5179ed787984c666e05a212a55e788c8c3938",
+          "b": "3d9c36b0e17c38a4d4475c1593b5179ed787984c666e05a212a55e788c8c3938",
+          "negative": "3d00756710012833b41fd3d2aeb3732ab135468d9dd40576532bee4877cb392c",
+          "deltas": []
+        },
+        "polarity-public-fixture.json": {
+          "fixture": "public-fixture",
+          "a": "1fb79df4f8f44ba3f38a41a583ee8a3747f940cdf9e843bf4f906a9e2f4c3137",
+          "b": "1fb79df4f8f44ba3f38a41a583ee8a3747f940cdf9e843bf4f906a9e2f4c3137",
+          "negative": "df01ead4484453f8d23c713622273cee2f3a9b3975e7f121a31fa0efbe8d7aa4",
+          "deltas": []
+        },
+        "polarity-rebuild-schedule.json": [
+          {
+            "step": 0,
+            "positive": "30a1d16e462192a65666b786beee64bf2997f9928f9b28a1b38dbf310dacc74d",
+            "paired": "30a1d16e462192a65666b786beee64bf2997f9928f9b28a1b38dbf310dacc74d",
+            "negative": "01a9fdf049f73ce57d8ba66380b80c622e09d2ebe8a896aa7dbd09beca03baec"
+          },
+          {
+            "step": 1,
+            "positive": "0a425b7ef73ee55e34cb641089a99699ab11820d9ca9bd7f261c39b41f850679",
+            "paired": "0a425b7ef73ee55e34cb641089a99699ab11820d9ca9bd7f261c39b41f850679",
+            "negative": "0d5c14406c1c641c289210fa61b4fddb4e4ad875ce7ec6fb0124fb64048a3804"
+          },
+          {
+            "step": 2,
+            "positive": "3d1244e8c7334eaf5b1faf67acbc330e43a6a9bd2f1d3b0b9a7c60b77575dc9c",
+            "paired": "3d1244e8c7334eaf5b1faf67acbc330e43a6a9bd2f1d3b0b9a7c60b77575dc9c",
+            "negative": "05e73331a7eaf8a71f96bbcbc4e7d27b87cf16875c553f4e60bd5516456958d2"
+          }
+        ],
+        "polarity-vw.json": {
+          "fixture": "vw",
+          "a": "816b9e8b1da597c00257489498bff6d6100b783d3e0829ab8c6eac7e7131050d",
+          "b": "816b9e8b1da597c00257489498bff6d6100b783d3e0829ab8c6eac7e7131050d",
+          "negative": "6a0a442a98be0e789540b8f6a8376766044a1fc9ea7766411d2295acdfbfe1f6",
+          "deltas": []
+        },
+        "semantic-tie-key.json": {
+          "declared": {
+            "terms": [
+              {
+                "name": "tid",
+                "nulls": "default",
+                "source": "votes.tid"
+              },
+              {
+                "name": "pid",
+                "nulls": "default",
+                "source": "votes.pid"
+              },
+              {
+                "name": "created_ms",
+                "nulls": "default",
+                "source": "votes.created"
+              },
+              {
+                "name": "semantic_vote",
+                "nulls": "default",
+                "source": "raw_vote * storage_agree_value"
+              },
+              {
+                "name": "weight_x_32767",
+                "nulls": "first",
+                "source": "votes.weight_x_32767"
+              }
+            ],
+            "schema": "polis-order/1",
+            "profile": "live-tid-pid-created-semantic-value-weight/1",
+            "order_by": "tid,pid,created,(vote::bigint*$2::bigint),weight_x_32767 NULLS FIRST",
+            "parameter": "storage_agree_value",
+            "semantic_vote": "raw_vote * storage_agree_value",
+            "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
+            "equal_time_census": {
+              "key": [
+                "tid",
+                "pid",
+                "created_ms"
+              ],
+              "schema": "polis-census/1",
+              "tied_rows": 2,
+              "resolved_by": [
+                "semantic_vote",
+                "weight_x_32767"
+              ],
+              "tied_groups": 1
+            },
+            "storage_agree_value": -1
+          },
+          "mirrored_digest": "3bd0700204ee8202074e31f6cfe2f57903bd9d9fc10c5149c0fcdfb7f5406685",
+          "a": "052925aa8ce77074e727a64897cbe86b922ebe43dc4fcae7f7f946cd88cce79e",
+          "b": "052925aa8ce77074e727a64897cbe86b922ebe43dc4fcae7f7f946cd88cce79e",
+          "negative": "be62c8d21a9dbe3d87af87846a8c46b5c37a03166550b1d4bc415dff2894be20",
+          "deltas": []
+        }
+      },
+      "witness_sha256": {
+        "d4-node-reader-empty.json": "4921d95cb5e7fa6c33e6ba307c096e004d24794ba1edf155fa4944632335e5f0",
+        "d4-node-reader.json": "ea69b373afcd2260592243c38e5a4878fffe8492b494dc03cf437050f3714d26",
+        "polarity-biodiversity.json": "a2d42af26139cdfdbe6f1e4627b48be2fc4df1f0f6210bbf21e1f1c12a2399d0",
+        "polarity-public-fixture.json": "2bf4b28e2263b5657e2f327b6e8f7b379ee8159f81592c34a082ffe8933ad2f5",
+        "polarity-rebuild-schedule.json": "631c020b2541a2926669d560aacf8a78aec7a192b95fbab44305faee2f821954",
+        "polarity-vw.json": "e787133ad3e3e3b1051b1d15f52709558890d750b0d71280503f0368f2442b15",
+        "semantic-tie-key.json": "85bf07c03ee1cfa7d3764da389329a65f27b4d79458a685347eeddc847efd413"
+      }
+    }
+  ],
+  "retired_pins": [
+    {
+      "id": "linux-x86_64-v1",
+      "system": "Linux",
+      "machine": "x86_64",
+      "checkpoints": [
+        {
+          "cut": 1170,
+          "tick": 0,
+          "rust": "b2f86e81dc96e827917a4213ba6c85dd0c21a466e0a6f58f2069887e9b7bd963"
+        },
+        {
+          "cut": 2341,
+          "tick": 1,
+          "rust": "1e308379757dce51cdf5e4ce467132588b102ce2ed2d4972d4f9dd1a47d0ca4f"
+        },
+        {
+          "cut": 4683,
+          "tick": 2,
+          "rust": "8346dea808644b451cf331712d9fdda749d5ab5de4424f2f99abaee540ef3dc7"
+        }
+      ],
+      "attribution": {
+        "source_head": "47fb3163bcb7cb749e613188236e61e74bf2451c",
+        "github_run_id": "34527317928",
+        "run_attempt": "1",
+        "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "python": "3.12.14",
+        "packages": {
+          "numpy": "1.26.4",
+          "scipy": "1.17.1",
+          "scikit-learn": "1.9.0"
+        },
+        "receipt_sha256": "8dc8a42ed556081c0e9a25cd3da4ab43c65b64f5669c13e2db5776375c3f4c63",
+        "replay_sha256": "2d36ad5e71d12da2b8d825a6a7176d2dcf87e991f700421953d089776b50add0",
+        "origin": "retained hosted artifacts 34527317928 and 34519667286; historical witness admission only, original campaigns FAIL",
+        "blas": "not recorded in historical receipt",
+        "corroboration": {
+          "github_run_id": "34519667286",
+          "source_head": "2307dd4f195745b78176a9591f81eb02baae3c59",
+          "receipt_sha256": "a1fa2333d0753f3125b4b17b972f6358ebe33a5a49ce9839fb87a42c27d9ccb0",
+          "six_witnesses_byte_identical": true,
+          "replay_checkpoints_identical": true,
+          "replay_sha256": "3e10e34ceaa7d0dda30ae46d5f00197839c6700651004e473bc7aa3438956358",
+          "empty_existing_nine_path_validator": "PASS; published JSON digests identical, published gzip hashes stable; whole file not byte-identical",
+          "empty_replay_sha256": "fb0d9557dc821c6120cd24e38215df27e75358aff80036afbba08b216798a4f4"
+        }
+      },
+      "witnesses": {
+        "polarity-vw.json": {
+          "fixture": "vw",
+          "a": "816b9e8b1da597c00257489498bff6d6100b783d3e0829ab8c6eac7e7131050d",
+          "b": "816b9e8b1da597c00257489498bff6d6100b783d3e0829ab8c6eac7e7131050d",
+          "negative": "6a0a442a98be0e789540b8f6a8376766044a1fc9ea7766411d2295acdfbfe1f6",
+          "deltas": []
+        },
+        "polarity-biodiversity.json": {
+          "fixture": "biodiversity",
+          "a": "3d9c36b0e17c38a4d4475c1593b5179ed787984c666e05a212a55e788c8c3938",
+          "b": "3d9c36b0e17c38a4d4475c1593b5179ed787984c666e05a212a55e788c8c3938",
+          "negative": "3d00756710012833b41fd3d2aeb3732ab135468d9dd40576532bee4877cb392c",
+          "deltas": []
+        },
+        "polarity-rebuild-schedule.json": [
+          {
+            "step": 0,
+            "positive": "30a1d16e462192a65666b786beee64bf2997f9928f9b28a1b38dbf310dacc74d",
+            "paired": "30a1d16e462192a65666b786beee64bf2997f9928f9b28a1b38dbf310dacc74d",
+            "negative": "01a9fdf049f73ce57d8ba66380b80c622e09d2ebe8a896aa7dbd09beca03baec"
+          },
+          {
+            "step": 1,
+            "positive": "0a425b7ef73ee55e34cb641089a99699ab11820d9ca9bd7f261c39b41f850679",
+            "paired": "0a425b7ef73ee55e34cb641089a99699ab11820d9ca9bd7f261c39b41f850679",
+            "negative": "0d5c14406c1c641c289210fa61b4fddb4e4ad875ce7ec6fb0124fb64048a3804"
+          },
+          {
+            "step": 2,
+            "positive": "3d1244e8c7334eaf5b1faf67acbc330e43a6a9bd2f1d3b0b9a7c60b77575dc9c",
+            "paired": "3d1244e8c7334eaf5b1faf67acbc330e43a6a9bd2f1d3b0b9a7c60b77575dc9c",
+            "negative": "05e73331a7eaf8a71f96bbcbc4e7d27b87cf16875c553f4e60bd5516456958d2"
+          }
+        ],
+        "semantic-tie-key.json": {
+          "declared": {
+            "terms": [
+              {
+                "name": "tid",
+                "nulls": "default",
+                "source": "votes.tid"
+              },
+              {
+                "name": "pid",
+                "nulls": "default",
+                "source": "votes.pid"
+              },
+              {
+                "name": "created_ms",
+                "nulls": "default",
+                "source": "votes.created"
+              },
+              {
+                "name": "semantic_vote",
+                "nulls": "default",
+                "source": "raw_vote * storage_agree_value"
+              },
+              {
+                "name": "weight_x_32767",
+                "nulls": "first",
+                "source": "votes.weight_x_32767"
+              }
+            ],
+            "schema": "polis-order/1",
+            "profile": "live-tid-pid-created-semantic-value-weight/1",
+            "order_by": "tid,pid,created,(vote::bigint*$2::bigint),weight_x_32767 NULLS FIRST",
+            "parameter": "storage_agree_value",
+            "semantic_vote": "raw_vote * storage_agree_value",
+            "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
+            "equal_time_census": {
+              "key": [
+                "tid",
+                "pid",
+                "created_ms"
+              ],
+              "schema": "polis-census/1",
+              "tied_rows": 2,
+              "resolved_by": [
+                "semantic_vote",
+                "weight_x_32767"
+              ],
+              "tied_groups": 1
+            },
+            "storage_agree_value": -1
+          },
+          "mirrored_digest": "3bd0700204ee8202074e31f6cfe2f57903bd9d9fc10c5149c0fcdfb7f5406685",
+          "a": "052925aa8ce77074e727a64897cbe86b922ebe43dc4fcae7f7f946cd88cce79e",
+          "b": "052925aa8ce77074e727a64897cbe86b922ebe43dc4fcae7f7f946cd88cce79e",
+          "negative": "be62c8d21a9dbe3d87af87846a8c46b5c37a03166550b1d4bc415dff2894be20",
+          "deltas": []
+        },
+        "d4-node-reader.json": {
+          "compared_fields": [
+            "asJSON_sha256",
+            "asJSON_bytes",
+            "gzip_sha256",
+            "gzip_bytes",
+            "keys_projection_sha256",
+            "tids",
+            "n",
+            "n_cmts",
+            "pca_center",
+            "comment_extremity",
+            "repness_keys",
+            "consensus_shape",
+            "mapping_sha256",
+            "bid_to_pid",
+            "pids_for_gid",
+            "mapping_is_error"
+          ],
+          "differences": {},
+          "math_tick": 1,
+          "profile": "real getPca + presentPca + participants.ts, in-process, one Node process",
+          "served": {
+            "python": {
+              "asJSON_bytes": 6476,
+              "asJSON_sha256": "cd5d3722b89d44d95b088bfdfba129e3b06d67ce096bbb9e39ad63625e0998fa",
+              "bid_to_pid": [
+                [
+                  3
+                ],
+                [
+                  1,
+                  4
+                ],
+                [
+                  2,
+                  5
+                ],
+                [
+                  0
+                ]
+              ],
+              "comment_extremity": [
+                1.4280971859724132,
+                1.632993161855452,
+                1.446743964740531,
+                1.4467439646470361
+              ],
+              "consensus_shape": {
+                "agree": 0,
+                "disagree": 0
+              },
+              "etag_math_tick": 1,
+              "gzip_bytes": 1731,
+              "gzip_sha256": "e33e5041fcd75a8b481cc34cc89db658f619733927ecfb3343c96e3f14e41082",
+              "keys_projection_sha256": "08743f5ed0bac5e02c7a38535745cbc2c5d22f0b8c52d601dda7c65b4c9dd29a",
+              "mapping_is_error": false,
+              "mapping_sha256": "7cbc91c1340e4b1ee8338e04bfaa57bdb6f47e3ba265f21f88f7574c2cdfa190",
+              "n": 6,
+              "n_cmts": 4,
+              "pca_center": [
+                0.3333333333333333,
+                0,
+                0,
+                0
+              ],
+              "pids_for_gid": {
+                "0": [
+                  0,
+                  2,
+                  3,
+                  5
+                ],
+                "1": [
+                  1,
+                  4
+                ]
+              },
+              "repness_keys": [
+                "0",
+                "1"
+              ],
+              "tids": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            "rustproto": {
+              "asJSON_bytes": 6476,
+              "asJSON_sha256": "cd5d3722b89d44d95b088bfdfba129e3b06d67ce096bbb9e39ad63625e0998fa",
+              "bid_to_pid": [
+                [
+                  3
+                ],
+                [
+                  1,
+                  4
+                ],
+                [
+                  2,
+                  5
+                ],
+                [
+                  0
+                ]
+              ],
+              "comment_extremity": [
+                1.4280971859724132,
+                1.632993161855452,
+                1.446743964740531,
+                1.4467439646470361
+              ],
+              "consensus_shape": {
+                "agree": 0,
+                "disagree": 0
+              },
+              "etag_math_tick": 1,
+              "gzip_bytes": 1731,
+              "gzip_sha256": "e33e5041fcd75a8b481cc34cc89db658f619733927ecfb3343c96e3f14e41082",
+              "keys_projection_sha256": "08743f5ed0bac5e02c7a38535745cbc2c5d22f0b8c52d601dda7c65b4c9dd29a",
+              "mapping_is_error": false,
+              "mapping_sha256": "7cbc91c1340e4b1ee8338e04bfaa57bdb6f47e3ba265f21f88f7574c2cdfa190",
+              "n": 6,
+              "n_cmts": 4,
+              "pca_center": [
+                0.3333333333333333,
+                0,
+                0,
+                0
+              ],
+              "pids_for_gid": {
+                "0": [
+                  0,
+                  2,
+                  3,
+                  5
+                ],
+                "1": [
+                  1,
+                  4
+                ]
+              },
+              "repness_keys": [
+                "0",
+                "1"
+              ],
+              "tids": [
+                0,
+                1,
+                2,
+                3
+              ]
+            }
+          },
+          "zid": 1
+        },
+        "d4-node-reader-empty.json": {
+          "differences": {
+            "asJSON_bytes": [
+              765,
+              455
+            ],
+            "asJSON_sha256": [
+              "4738deb83b9468498ee32c49c5eecfd785d0bac64d5966814f089723286e5a75",
+              "191d6ba2e3b3f892e2e704d1a181d2f9c0928164618f130e35a481fe4c0e5cda"
+            ],
+            "bid_to_pid": [
+              [],
+              null
+            ],
+            "gzip_bytes": [
+              352,
+              266
+            ],
+            "gzip_sha256": [
+              "8c7fd95c63b2fbff7603d0cc02196e0cb967fa107d972a865d44076c8f4d27f6",
+              "8d91412e5cbf259c6b2fc6f2e76981932e422ef4ac5a750984f85a3d252c8573"
+            ],
+            "mapping_is_error": [
+              false,
+              true
+            ],
+            "mapping_sha256": [
+              "a5558a1314571ed26f6afdea59f81a24ab0cc942ac84485892f8a36f7ac16315",
+              null
+            ]
+          },
+          "note": "the synthesized empty presentation stamps lastVoteTimestamp with Date.now(), so it is not reproducible across servers or requests; the published empty generation is",
+          "profile": "zero votes, four approved comments; rustproto has a published empty generation, python has none and is synthesized by the server",
+          "reference_published": false,
+          "served": {
+            "python": {
+              "asJSON_bytes": 455,
+              "asJSON_sha256": "191d6ba2e3b3f892e2e704d1a181d2f9c0928164618f130e35a481fe4c0e5cda",
+              "bid_to_pid": null,
+              "comment_extremity": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "consensus_shape": {
+                "agree": 0,
+                "disagree": 0
+              },
+              "etag_math_tick": 0,
+              "gzip_bytes": 266,
+              "gzip_sha256": "8d91412e5cbf259c6b2fc6f2e76981932e422ef4ac5a750984f85a3d252c8573",
+              "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
+              "last_vote_timestamp": 1789073259009,
+              "mapping_is_error": true,
+              "mapping_math_tick": null,
+              "mapping_sha256": null,
+              "math_env": "python",
+              "n": 0,
+              "n_cmts": 4,
+              "pca_center": [
+                0,
+                0
+              ],
+              "pids_for_gid": {
+                "0": []
+              },
+              "present": true,
+              "raw": {
+                "asJSON_sha256": "5cc4624ffe8f9d98b752dfbd128ec051e6c0c4fa105070dbbdda3647c3e817fc",
+                "gzip_sha256": "4f0c9a81741ec8bfea166717ad3689800b21201c67d574b267d7fb4eb2d68bfe",
+                "n_cmts": 0,
+                "tids": [],
+                "unchanged_after_presentation": true
+              },
+              "repness_keys": [],
+              "tids": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            "rustproto": {
+              "asJSON_bytes": 765,
+              "asJSON_sha256": "4738deb83b9468498ee32c49c5eecfd785d0bac64d5966814f089723286e5a75",
+              "bid_to_pid": [],
+              "comment_extremity": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "consensus_shape": {
+                "agree": 0,
+                "disagree": 0
+              },
+              "etag_math_tick": 1,
+              "gzip_bytes": 352,
+              "gzip_sha256": "8c7fd95c63b2fbff7603d0cc02196e0cb967fa107d972a865d44076c8f4d27f6",
+              "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
+              "last_vote_timestamp": 0,
+              "mapping_is_error": false,
+              "mapping_sha256": "a5558a1314571ed26f6afdea59f81a24ab0cc942ac84485892f8a36f7ac16315",
+              "math_env": "rustproto",
+              "n": 0,
+              "n_cmts": 4,
+              "pca_center": [
+                0,
+                0
+              ],
+              "pids_for_gid": {
+                "0": []
+              },
+              "present": true,
+              "raw": {
+                "asJSON_sha256": "fa78e3c4a1cbacb495960da1fcb9b1a834ffc0d825361b968e9e2eadb2670050",
+                "gzip_sha256": "a06d839fb65f690863346a1fc93201de92a1271914436fadd75490a31920b313",
+                "n_cmts": 0,
+                "tids": [],
+                "unchanged_after_presentation": true
+              },
+              "repness_keys": [],
+              "tids": [
+                0,
+                1,
+                2,
+                3
+              ]
+            }
+          }
+        },
+        "polarity-public-fixture.json": {
+          "fixture": "public-fixture",
+          "a": "1fb79df4f8f44ba3f38a41a583ee8a3747f940cdf9e843bf4f906a9e2f4c3137",
+          "b": "1fb79df4f8f44ba3f38a41a583ee8a3747f940cdf9e843bf4f906a9e2f4c3137",
+          "negative": "df01ead4484453f8d23c713622273cee2f3a9b3975e7f121a31fa0efbe8d7aa4",
+          "deltas": []
+        }
+      },
+      "witness_sha256": {
+        "polarity-vw.json": "e787133ad3e3e3b1051b1d15f52709558890d750b0d71280503f0368f2442b15",
+        "polarity-biodiversity.json": "a2d42af26139cdfdbe6f1e4627b48be2fc4df1f0f6210bbf21e1f1c12a2399d0",
+        "polarity-rebuild-schedule.json": "631c020b2541a2926669d560aacf8a78aec7a192b95fbab44305faee2f821954",
+        "semantic-tie-key.json": "85bf07c03ee1cfa7d3764da389329a65f27b4d79458a685347eeddc847efd413",
+        "d4-node-reader.json": "ea69b373afcd2260592243c38e5a4878fffe8492b494dc03cf437050f3714d26",
+        "d4-node-reader-empty.json": "568a6e72905211bad5202e6d39c1950c61b0f423d4b620f98d2ec775befb56fb",
+        "polarity-public-fixture.json": "53f0f1579bd63ae145d7b3e4ede6feb38824bcbe4a7c41d31e10e7c0e6c0421e"
+      },
+      "label_remap": {
+        "scope": "fixture label and witness filename only; science unchanged",
+        "witness": "polarity-public-fixture.json",
+        "original_sha256": "53f0f1579bd63ae145d7b3e4ede6feb38824bcbe4a7c41d31e10e7c0e6c0421e",
+        "renamed_sha256": "2bf4b28e2263b5657e2f327b6e8f7b379ee8159f81592c34a082ffe8933ad2f5",
+        "renamed_canonical_sha256": "b73e4a38153e3366298dec629ad8ce4136fb4beeac35277842f0b7466e6471c8"
+      },
+      "forced_kernel": "not-forced",
+      "retirement": "Unforced OS/machine key conflates Zen/Haswell and Cooperlake/SkylakeX. Not selectable; forced Haswell needs two agreeing hosted artifacts."
+    }
+  ]
+}

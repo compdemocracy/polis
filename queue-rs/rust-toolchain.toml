@@ -1,0 +1,6 @@
+# Pinned so every build of this crate uses one known toolchain.
+# Must satisfy the crate's `rust-version` (MSRV) in Cargo.toml: 1.88.
+[toolchain]
+channel = "1.98.1"
+components = ["clippy", "rustfmt"]
+profile = "minimal"
