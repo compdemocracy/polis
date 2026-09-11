@@ -262,10 +262,10 @@ function pcaEnv(engineRow, { mutateBackfill = false } = {}) {
         "../utils/logger": baseRequire("./logger"),
         "../utils/fail": {failJson: (res, status, message, error) => { res.status(status).json({error: String(error || message)}); }},
         "../user": {getUser: async () => ({uid: 7, pid: 1})},
-        "../nextComment": {getNextComment: async () => ({tid: 0, txt: "synthetic", zid: 1})},
+        "../nextComment": {getNextComment: async () => ({tid: 0, txt: "public-fixture", zid: 1})},
         "./votes": {getVotesForSingleParticipant: async () => [{pid: 1, tid: 0, vote: 1, zid: 1}]},
         "../server-helpers": {
-          getOneConversation: async () => ({zid: 1, topic: "synthetic C7"}),
+          getOneConversation: async () => ({zid: 1, topic: "public-fixture C7"}),
           doFamousQuery: async () => ({}),
         },
       };
@@ -515,7 +515,7 @@ async function c7Http(engineRow, endpoint) {
   app.set("env", "production"); app.set("json spaces", undefined); app.set("etag", "weak");
   app.get(endpoint, (req, res) => {
     res.set("Date", "Tue, 14 Nov 2023 22:13:20 GMT");
-    req.p = {zid: 1, math_tick: -1, conversation_id: "synthetic-c7", lang: "en", includePCA: true};
+    req.p = {zid: 1, math_tick: -1, conversation_id: "public-fixture-c7", lang: "en", includePCA: true};
     return handler(req, res);
   });
   const server = http.createServer(app);

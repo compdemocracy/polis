@@ -97,7 +97,7 @@ type Scenario = {
 
 // The five distinct key sets observed across the 3,212 zero-vote production
 // blobs (counts from the round-3 review of the production dump), plus B1's
-// synthetic Clojure output, plus the corrected 20-field golden, plus no row at
+// public-fixture Clojure output, plus the corrected 20-field golden, plus no row at
 // all. Not one of the production shapes has a `pca` key, which is why all four
 // presentation fields are template-defaulted for every one of them.
 const EMPTY_SCENARIOS: Scenario[] = [
@@ -174,7 +174,7 @@ const EMPTY_SCENARIOS: Scenario[] = [
     }),
   },
   {
-    name: "B1 synthetic Clojure empty (six keys, pca.comps [[1],[1]])",
+    name: "B1 public-fixture Clojure empty (six keys, pca.comps [[1],[1]])",
     env: "c7-legacy-b1",
     backfilled: true,
     blob: (zid) => ({
@@ -735,15 +735,15 @@ describe("zero-vote conversations serve exactly the bytes edge served", () => {
     }
   );
 
-  test("cutover: B1's synthetic sentinel and the no-row fallback, with their scoped differences", async () => {
+  test("cutover: B1's public-fixture sentinel and the no-row fallback, with their scoped differences", async () => {
     const observed = await correctedGolden();
     if (RECORDING) return;
 
-    // B1's replay-empty-6 is a synthetic fixture with 0 production rows, and its
+    // B1's replay-empty-6 is a public-fixture fixture with 0 production rows, and its
     // `pca.comps: [[1],[1]]` is a sentinel the corrected engine is explicitly not
     // required to reproduce (G rev4, "Third boundary"). Everything else matches.
     const b1 = readGolden(
-      "B1 synthetic Clojure empty (six keys, pca.comps [[1],[1]])"
+      "B1 public-fixture Clojure empty (six keys, pca.comps [[1],[1]])"
     );
     expect(observed.comments).toEqual(b1.comments);
     expect(observed.summaryCsv).toEqual(b1.summaryCsv);

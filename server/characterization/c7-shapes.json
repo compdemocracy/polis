@@ -1,8 +1,8 @@
 {
-  "source": "Synthetic reconstructions only from P-022-G-empty-oracle-inventory and P-022-G-engine-contract; no production rows or identifiers.",
+  "source": "Public-fixture reconstructions only from P-022-G-empty-oracle-inventory and P-022-G-engine-contract; no production rows or identifiers.",
   "legacy": [
     {
-      "zid": "synthetic-empty",
+      "zid": "public-fixture-empty",
       "base-clusters": {
         "id": [],
         "members": [],
@@ -18,7 +18,7 @@
       "mod-out": []
     },
     {
-      "zid": "synthetic-empty",
+      "zid": "public-fixture-empty",
       "base-clusters": {
         "id": [],
         "members": [],
@@ -30,7 +30,7 @@
       "lastVoteTimestamp": 0
     },
     {
-      "zid": "synthetic-empty",
+      "zid": "public-fixture-empty",
       "base-clusters": {
         "id": [],
         "members": [],
@@ -44,7 +44,7 @@
       "mod-out": []
     },
     {
-      "zid": "synthetic-empty",
+      "zid": "public-fixture-empty",
       "base-clusters": {
         "id": [],
         "members": [],
@@ -59,7 +59,7 @@
       "mod-out": []
     },
     {
-      "zid": "synthetic-empty",
+      "zid": "public-fixture-empty",
       "base-clusters": {
         "id": [],
         "members": [],
@@ -75,7 +75,7 @@
     }
   ],
   "corrected": {
-    "zid": "synthetic-empty",
+    "zid": "public-fixture-empty",
     "n": 0,
     "n-cmts": 0,
     "tids": [],

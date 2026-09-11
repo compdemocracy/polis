@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate independent synthetic SQL inputs, then run the real engine + writer.
+"""Generate independent public-fixture SQL inputs, then run the real engine + writer.
 
 Only the sealed compose postgres service and database p027.
 No stored math blob is fabricated or imported. The engine's wall clock is pinned
@@ -17,6 +17,8 @@ from unittest.mock import patch
 from isolation import isolated_environment
 
 # Fail before importing the engine or opening a database connection.
+from math_kernel import configure, observe
+configure()
 isolated_environment(os.environ)
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -35,6 +37,7 @@ HERE = Path(__file__).resolve().parent
 CLOCK = 1700000000000
 
 def main():
+    kernel = observe()
     logging.disable(logging.INFO)
     fixtures = json.loads((HERE / 'pca2-fixtures.json').read_text())
     db = psycopg2.connect(host='postgres', port=5432, dbname='p027', user='postgres')
@@ -95,7 +98,7 @@ def main():
     sources=[p for p in (ROOT/'delphi/polismath').rglob('*.py')]
     h=hashlib.sha256()
     for p in sorted(sources):h.update(str(p.relative_to(ROOT)).encode());h.update(p.read_bytes())
-    (HERE/'artifacts/pca2-seed.json').write_text(json.dumps({'engineSourceSha256':h.hexdigest(),'clock':CLOCK,'python':platform.python_version(),'numpy':np.__version__,'pandas':pandas.__version__,'scipy':scipy.__version__,'sklearn':sklearn.__version__,'fixtures':evidence},indent=2)+'\n')
+    (HERE/'artifacts/pca2-seed.json').write_text(json.dumps({'kernel':kernel,'engineSourceSha256':h.hexdigest(),'clock':CLOCK,'python':platform.python_version(),'numpy':np.__version__,'pandas':pandas.__version__,'scipy':scipy.__version__,'sklearn':sklearn.__version__,'fixtures':evidence},indent=2)+'\n')
     print(f'PCA2: {len(fixtures)} independent SQL fixtures; {sum(bool(f["rowMathEnv"]) for f in fixtures)} real engine/writer conversations (two publications each)')
 
 if __name__=='__main__':main()

@@ -29,6 +29,33 @@ const { Normalizer, policy } = require("./normalize.cjs");
 const { generate } = require("./generate.cjs");
 const inventory = require("./inventory.json"),
   scope = require("./scope.json");
+const { retryRead } = require("./read-retry.cjs");
+const { executeCases } = require("./case-loop.cjs");
+const {
+  valid: validKernel,
+  compareKernels,
+  recordingKernel,
+} = require("./math-kernel.cjs");
+const readContext = { enabled: false, caseId: null, phase: "initial" };
+const readRetries = [];
+let retryJournal = null;
+function snapshotRead(command) {
+  return retryRead(
+    command,
+    (c) => dynamo.send(c),
+    (event) => {
+      const row = {
+        caseId: readContext.caseId,
+        phase: readContext.phase,
+        ...event,
+      };
+      readRetries.push(row);
+      if (retryJournal)
+        fs.appendFileSync(retryJournal, JSON.stringify(row) + "\n");
+    },
+    { enabled: readContext.enabled }
+  );
+}
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const dynamo = new DynamoDBClient({
   endpoint: process.env.DYNAMODB_ENDPOINT,
@@ -77,14 +104,14 @@ async function snapshot(tables) {
   }
   let next;
   do {
-    const out = await dynamo.send(
+    const out = await snapshotRead(
       new ListTablesCommand({ ExclusiveStartTableName: next })
     );
     for (const table of out.TableNames) {
       let key;
       const rows = [];
       do {
-        const page = await dynamo.send(
+        const page = await snapshotRead(
           new ScanCommand({
             TableName: table,
             ExclusiveStartKey: key,
@@ -250,10 +277,21 @@ let caseActive = false;
 async function runCase(c, tokens, tables, normalizer) {
   if (caseActive) throw Error("concurrent case execution forbidden");
   caseActive = true;
+  readContext.caseId = c.caseId;
+  readContext.phase = "before-request";
+  try {
+    return await observeCase(c, tokens, tables, normalizer);
+  } finally {
+    caseActive = false;
+    readContext.caseId = null;
+  }
+}
+async function observeCase(c, tokens, tables, normalizer) {
   await get("/begin?seed=" + c.seed + "&case=" + encodeURIComponent(c.caseId));
   const before = await snapshot(tables),
     obsBefore = await get("/state");
   const response = await send(c.request, tokens);
+  readContext.phase = "after-request";
   // Capture delayed 100 ms writes, then demand quiescence; do not treat an arbitrary delay as proof.
   await wait(200);
   let after = await snapshot(tables),
@@ -415,7 +453,6 @@ async function runCase(c, tokens, tables, normalizer) {
     o.pass = false;
     o.failures.push("target route was not reached");
   }
-  caseActive = false;
   return {
     ...c,
     version: 1,
@@ -714,9 +751,33 @@ async function main() {
     if (probe.status !== 200)
       throw Error(`auth preflight failed for ${auth}: ${probe.status}`);
   }
+  const diagnosticOut = command === "replay" ? `${dir}-replay` : dir;
+  fs.mkdirSync(diagnosticOut, { recursive: true });
+  readContext.enabled = command === "replay";
+  retryJournal = path.join(diagnosticOut, "snapshot-retries.jsonl");
+  const mathSeed = JSON.parse(
+    fs.readFileSync("/artifacts/pca2-seed.json", "utf8")
+  );
+  const mathKernel = mathSeed.kernel;
+  if (
+    !validKernel(mathKernel) ||
+    (process.env.OPENBLAS_CORETYPE &&
+      process.env.OPENBLAS_CORETYPE !== mathKernel.requested)
+  )
+    throw Error("REPLAY_KERNEL_NOT_HONOURED");
   const norm = new Normalizer(),
     initial = await snapshot(selected);
   const expected = command === "replay" ? readRecording(dir) : null;
+  if (expected) {
+    const previousKernel = recordingKernel(
+      JSON.parse(fs.readFileSync(path.join(dir, "run.json"))),
+      JSON.parse(fs.readFileSync(path.join(dir, "pca2-seed.json")))
+    );
+    const kernels = compareKernels(previousKernel, mathKernel);
+    write(diagnosticOut, "math-kernel.json", kernels);
+    if (kernels.status !== "MATCH")
+      throw Error("REPLAY_KERNEL_PROVENANCE_MISMATCH");
+  }
   if (process.env.P027_PARITY_ONLY) {
     if (!expected || process.env.P027_MARKERS !== "0")
       throw Error("parity selection requires marker-disabled replay");
@@ -763,37 +824,40 @@ async function main() {
     }))
       if (expected.manifest[k] !== v) throw Error(`manifest ${k} mismatch`);
   }
-  const results = [],
-    diffs = [];
-  for (let i = 0; i < planned.length; i++) {
-    const actual = await runCase(planned[i], tokens, selected, norm);
-    results.push(actual);
-    const field = expected ? firstDifference(expected.cases[i], actual) : null;
-    diffs.push({
-      route: actual.routeId,
-      auth: actual.auth,
-      case: actual.case,
-      result: field || !actual.oracle.pass ? "different" : "same",
-      firstField: field || actual.oracle.failures[0] || "",
-    });
-    if (i % 25 === 0 || !actual.oracle.pass || field)
-      console.log(
-        `${i + 1}/${planned.length} ${actual.caseId} status=${
-          actual.response.status
-        } ${
-          actual.oracle.pass ? "complete" : actual.oracle.failures.join("; ")
-        }${field ? " DIFF " + field : ""}`
+  const diffs = [];
+  const { results, fatal } = await executeCases(
+    planned,
+    (c) => runCase(c, tokens, selected, norm),
+    (actual, i) => {
+      const field = expected
+        ? firstDifference(expected.cases[i], actual)
+        : null;
+      diffs.push({
+        route: actual.routeId,
+        auth: actual.auth,
+        case: actual.case,
+        result: field || !actual.oracle.pass ? "different" : "same",
+        firstField: field || actual.oracle.failures[0] || "",
+      });
+      if (i % 25 === 0 || !actual.oracle.pass || field)
+        console.log(
+          `${i + 1}/${planned.length} ${actual.caseId} status=${
+            actual.response.status
+          } ${
+            actual.oracle.pass ? "complete" : actual.oracle.failures.join("; ")
+          }${field ? " DIFF " + field : ""}`
+        );
+      return Boolean(
+        (field && process.env.P027_STOP_ON_DIFF === "1") ||
+          actual.oracle.failures.includes("observer unavailable") ||
+          actual.oracle.failures.includes("effects did not settle")
       );
-    if (
-      (field && process.env.P027_STOP_ON_DIFF === "1") ||
-      actual.oracle.failures.includes("observer unavailable") ||
-      actual.oracle.failures.includes("effects did not settle")
-    )
-      break;
-  }
+    },
+    () => readContext.phase
+  );
   const cov = coverage(inventory, scope, results),
     failures = results.filter((c) => !c.oracle.pass).length;
-  if (command === "record") {
+  if (command === "record" && !fatal) {
     fs.mkdirSync(dir, { recursive: true });
     const meta = fs.existsSync("/artifacts/stack.json")
       ? JSON.parse(fs.readFileSync("/artifacts/stack.json"))
@@ -862,6 +926,7 @@ async function main() {
       },
       "run.json": {
         ...meta,
+        mathKernel,
         serialization: dump.serialization,
         runtime: dump.runtime,
       },
@@ -903,7 +968,11 @@ async function main() {
   write(out, "coverage-stats.json", stats);
   write(out, "results.json", {
     cases: results.length,
-    failures,
+    plannedCases: planned.length,
+    complete: !fatal && results.length === planned.length,
+    fatal,
+    snapshotRetries: readRetries,
+    failures: failures + Number(Boolean(fatal)),
     differences: diffs.filter((d) => d.result === "different").length,
     coverage: cov,
     rows: diffs,
@@ -928,6 +997,10 @@ async function main() {
   console.log(
     JSON.stringify({
       cases: results.length,
+      plannedCases: planned.length,
+      complete: !fatal && results.length === planned.length,
+      fatal,
+      readRetryEvents: readRetries.length,
       oracleFailures: failures,
       differences: diffs.filter((d) => d.result === "different").length,
       recorded: cov.recorded,
@@ -936,6 +1009,8 @@ async function main() {
     })
   );
   if (
+    fatal ||
+    results.length !== planned.length ||
     failures ||
     (cov.missing &&
       !["pca2", "comments-read"].includes(profile) &&

@@ -19,8 +19,11 @@ concurrency:
 jobs:
   record:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 240
     env:
+      OPENBLAS_CORETYPE: Haswell
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
       COMPOSE_PROJECT_NAME: p027-rerecord-${{ github.run_id }}-${{ github.run_attempt }}
       P027_PORT_MIN: '55930'
       P027_PORT_MAX: '55939'
@@ -63,7 +66,12 @@ jobs:
         run: |
           shellcheck ci/p027_rerecord.sh ci/p027_rerecord_build.sh
           yamllint -d '{extends: default, rules: {line-length: disable, truthy: disable, document-start: disable}}' .github/workflows/characterization-rerecord.yml
-          node --test server/characterization/rerecord-accounting.test.cjs
+          node --test server/characterization/rerecord-accounting.test.cjs server/characterization/read-retry.test.cjs server/characterization/math-kernel.test.cjs server/characterization/case-loop.test.cjs
+      - name: Verify dispatch checkout dependency isolation
+        working-directory: control
+        env:
+          P027_ACCOUNTING_REPO: ${{ github.workspace }}/target
+        run: node --test ci/p027_dispatch_tools.test.cjs
       - name: Record, account, fresh replay, controls and repack
         working-directory: target
         run: bash ../control/ci/p027_rerecord.sh
