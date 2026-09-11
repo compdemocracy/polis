@@ -109,7 +109,7 @@ ordinal must have a distinct materialized directory; an old role may share that
 directory. Admission recounts P, V, C, U, registered participants and comments
 from lossless events and participant rows and compares the complete size census
 with the report. Missing, substituted, duplicated, unknown or unconfigured sample
-roles fail. Existing role predicates, synthetic approval, generated cases and
+roles fail. Existing role predicates, public-fixture approval, generated cases and
 NULL-drop policy still apply. Configs without sampling retain manifest/3 and
 the original battery; historical manifest/2 remains supported.
 

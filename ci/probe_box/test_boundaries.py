@@ -49,7 +49,7 @@ class BoundaryTests(unittest.TestCase):
             with self.subTest(mutation=mutation):
                 r=sampled_receipt();s=r['selection']
                 if mutation=='missing':r['selection']=None
-                elif mutation=='extra':s['chosen_entry_sizes'][0]['path']='synthetic private value'
+                elif mutation=='extra':s['chosen_entry_sizes'][0]['path']='public-fixture private value'
                 elif mutation=='seed':s['seed']=42
                 elif mutation=='count':s['bucket_counts']['population']=True
                 elif mutation=='cell':s['bucket_counts']['cells'].pop()
