@@ -60,11 +60,11 @@
     "server/src/utils/pcaPresentation.ts": "8cba45f563a5a1d070691f63a2edf25537a07032ba4f9fa063acffa7a64b7f98",
     "server/src/server-helpers.ts": "9bbe279ff7dff0220397b3e42c677c2f209845b9c8d358201154046c1729fa66",
     "server/src/report.ts": "a6a103ade3caf5efcb18bb27ffc7964f0506359b8e7f45adaf8e8253817638ee",
-    "server/src/routes/math.ts": "fed3f4a913d9c540e733cf251980ad308ec22efa3111d93e1b8f87fb0d20dd0b",
+    "server/src/routes/math.ts": "60b39a97348fe004d50312308441af587c1ccb093ea17769f73297de5b1900b5",
     "server/src/routes/participation.ts": "9ca96183bb723960fc5630d62226076bced0f6e591682ded92a4a097ee6d8ac7",
     "server/__tests__/unit/mathBundle.test.ts": "49ddca4a1f03cb13ef4416ad7f5da9b627171fe13024708602c14453afa5d3db",
     "server/__tests__/unit/mathBundleRequests.test.ts": "e9d5f74078eb8009809b1ecb61aa83d2e1e7a6ce0d65087ef8233d565b1d3fbd",
-    "server/__tests__/unit/pcaMathTickZero.test.ts": "5bb2add18031c19eeb65029807661af2a86a69de31a97876430819e5f0db1ee6",
+    "server/__tests__/unit/pcaMathTickZero.test.ts": "2e717d4d3fc345d5eb9d24f52ab8a04ef58b2b3cd9b66b2fddbaa158da82b2cc",
     "server/__tests__/unit/exportRoutes.test.ts": "5038dd30417447f59e332a43c5a203e3a9fe2e6f865c5314ccc4725c10fc8694",
     "server/__tests__/integration/math-bundle-coherence.test.ts": "44a3eaf4822b097c02ced64776162777d0e568ccfcdf42ea0a32ef9e9f8a2281",
     "server/__tests__/integration/math-env-isolation.test.ts": "da56bbf9e2d03611280148acd715da685b36393d4ad8e4426fd66bd8bd5a50d7"
