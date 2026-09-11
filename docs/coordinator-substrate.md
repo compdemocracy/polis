@@ -353,8 +353,11 @@ adopted in that separate handoff; this schema rehearsal alone is not D05 PASS.
 new coordinator tables, including pending operations, both sides of a transition,
 writer authority and install provenance. Its SELECT-only policies require no
 principal mapping or function call. It receives no EXECUTE on any `pc_*` function,
-sequence privilege, table write privilege, or grant on an existing application
-table. Provision an independent observer login with only this role; membership
+sequence privilege or table write privilege. It also receives SELECT on the four
+existing math tables (`math_main`, `math_ticks`, `math_bidtopid`, `math_ptptstats`),
+the coordinator's own read set. Those tables have no RLS; this adds no policy.
+An observer can continuously compare current math pointers with admitted-work
+metadata through the same login. Provision that login with only this role; membership
 in a writer/owner role would combine their privileges. Observer evidence can
 read a committed unresolved operation even after its writer loses authority.
 Observation does not resolve that operation or certify a rollback by itself.
@@ -395,10 +398,20 @@ contract is part of bridge adoption. Transactions should keep parent → lease
 lock order; ad hoc reverse-order writes may be deadlock victims and must retry
 the whole transaction. Locks for one zid do not prevent another zid publishing.
 
-The seal includes the observer grants/policies, authority table, writer functions
-and lease policy. Normal down refuses authority data; forced down still requires
-intact provenance/catalogs, drops only the recorded new objects, and reverses the
-observer's recorded schema-USAGE grant. Existing math catalogs and ACLs remain
-identical to rev6. This amendment is applied nowhere. Runtime pin adoption, the
+The coordinator catalog seal includes its observer grants/policies, authority
+table, writer functions and lease policy. Its value remains
+`b497500ab5652f3d24775f4895736c01`: existing-table ACLs are checked separately by
+the recorded grant inventory and provenance seal. The four added SELECT grants
+change migration byte pins and per-install provenance. Normal down refuses
+authority data; forced down still requires intact provenance/catalogs, drops only
+the recorded new objects, and reverses the observer's recorded schema-USAGE and
+four math SELECT additions. Adopted grants, grant options and role settings are
+preserved. Both down modes and replay refuse missing or changed recorded grants.
+
+The existing math catalogs differ from the prior rev7 only by those four SELECT
+ACL entries. Their owners, columns, indexes, constraints, triggers, policies, RLS
+and all prior ACL entries remain unchanged. Comparisons against the prior rev7
+must allow precisely those additions; historical exact-equality evidence describes
+the earlier revision. This amendment is applied nowhere. Runtime pin adoption, the
 independent observer's D06 harness and the full rollback rehearsal remain separate
 handoffs, as does any operator authorization to install or activate the schema.

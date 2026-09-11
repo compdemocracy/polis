@@ -208,6 +208,10 @@ def main():
                               f"GRANT {privilege} ON {table} TO polis_coordinator_publication_owner"))
     witnesses.append(("publication owner math grant option", "polis_coordinator_publication_owner",
                       "GRANT UPDATE ON math_main TO polis_coordinator_publication_owner WITH GRANT OPTION"))
+    for table in ("math_main", "math_ticks", "math_bidtopid", "math_ptptstats"):
+        for option in ("", " WITH GRANT OPTION"):
+            witnesses.append((f"observer {table} SELECT{option}", "polis_coordinator_observer",
+                              f"GRANT SELECT ON {table} TO polis_coordinator_observer{option}"))
     for name, role, grant in witnesses:
         def witness(db, role=role, grant=grant):
             sql(db, f"CREATE ROLE {role} NOLOGIN; ALTER ROLE {role} SET statement_timeout='3s'; {grant};")
@@ -1233,6 +1237,32 @@ def main():
         apply(db);sql(db,'GRANT polis_coordinator_observer TO postgres;')
         refuses_both(db,'refusing to drop role')
     case('created observer with later membership refuses both down modes',observer_membership)
+
+    for table in ("math_main", "math_ticks", "math_bidtopid", "math_ptptstats"):
+        def observer_math(db, table=table):
+            arm(db); seed_legacy(db)
+            login = 'p027_m21_observer'
+            sql(db, f'CREATE ROLE {login} LOGIN IN ROLE polis_coordinator_observer;')
+            try:
+                assert sql(db, f"SELECT zid,math_env,math_tick FROM {table};", user=login).stdout.strip() == '990001|legacy|100'
+                assert sql(db, "SELECT rolcanlogin FROM pg_roles WHERE rolname='polis_coordinator_observer';").stdout.strip() == 'f'
+                assert sql(db, f"SELECT relrowsecurity OR relforcerowsecurity FROM pg_class WHERE oid='{table}'::regclass;").stdout.strip() == 'f'
+                for statement in (f'INSERT INTO {table} DEFAULT VALUES;', f'UPDATE {table} SET math_tick=0;', f'DELETE FROM {table};', f'TRUNCATE {table};'):
+                    result = sql(db, statement, False, login)
+                    assert result.returncode and 'permission denied' in result.stderr, result.stderr
+                for privilege in ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'):
+                    assert sql(db, f"SELECT has_table_privilege(current_user,'{table}','{privilege}');", user=login).stdout.strip() == 'f'
+                assert sql(db, "SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND starts_with(proname,'pc_') AND has_function_privilege(current_user,oid,'EXECUTE');", user=login).stdout.strip() == '0'
+                for statement in ("SELECT pc_namespace_allowed('legacy');", "SELECT pc_writer_allowed('legacy',990001);"):
+                    result = sql(db, statement, False, login)
+                    assert result.returncode and 'permission denied' in result.stderr, result.stderr
+            finally:
+                sql(db, f'DROP ROLE {login};')
+        namespace_case(f'actual observer login reads populated {table}; no writes, function execution, LOGIN capability or RLS added', observer_math)
+        case(f'observer {table} SELECT revoked: both downs and replay refuse',
+             drift_case(f'REVOKE SELECT ON {table} FROM polis_coordinator_observer;'))
+        case(f'observer {table} added grant option: both downs and replay refuse',
+             drift_case(f'GRANT SELECT ON {table} TO polis_coordinator_observer WITH GRANT OPTION;'))
 
     summary = {"schema": "polis-coordinator-migration-test/1", "passed": len(RESULTS) - len(FAILURES), "failed": len(FAILURES), "failures": FAILURES,
                "skipped": 0, "cases": RESULTS, "migration_count_before_000021": len(migrations),
