@@ -276,6 +276,8 @@ class Child:
         process_env.pop("P026_FAULT_DIR",None)
         if extra:
             process_env.update(extra)
+        self.requested_kernel = process_env.get("OPENBLAS_CORETYPE") or "not-forced"
+        self.test_case = os.environ.get("PYTEST_CURRENT_TEST", "").removesuffix(" (call)")
         if stage:
             self.directory.mkdir(parents=True,exist_ok=True)
             (self.directory/"arm.json").write_text(json.dumps({"protocol":"polis-fault-control/1",
@@ -304,6 +306,25 @@ class Child:
 
     def done(self, code=0):
         out,err = self.proc.communicate(timeout=150)
+        # Retain only the actual child's bounded numerical observations, never
+        # credentials, source votes, capabilities, or arbitrary process logs.
+        observations = []
+        for line in err.splitlines():
+            try:
+                fields = json.loads(line).get("fields", {})
+            except (ValueError, AttributeError):
+                continue
+            if fields.get("message") == "python_worker_runtime":
+                observations.append({"worker_pid": fields["worker_pid"],
+                                     "runtime": json.loads(fields["numerical_runtime"])})
+        if observations:
+            directory = ARTIFACTS / "worker-runtimes"
+            directory.mkdir(exist_ok=True)
+            (directory / f"{self.proc.pid}-{uuid.uuid4().hex}.json").write_text(json.dumps({
+                "schema": "polis-worker-runtime-observation/1", "test_case": self.test_case,
+                "parent_pid": self.proc.pid, "requested_kernel": self.requested_kernel,
+                "observations": observations,
+            }, indent=2) + "\n")
         assert self.proc.returncode == code, (out,err)
         return out,err
 
