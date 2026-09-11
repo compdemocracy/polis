@@ -1944,6 +1944,24 @@
     "udt_name": "int4"
   },
   {
+    "table_name": "polis_coordinator_namespaces",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "polis_coordinator_namespaces",
+    "column_name": "writer_kind",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_namespaces",
+    "column_name": "max_transitions",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
     "table_name": "polis_coordinator_operations",
     "column_name": "math_env",
     "data_type": "character varying",
@@ -2076,6 +2094,30 @@
     "udt_name": "text"
   },
   {
+    "table_name": "polis_coordinator_principals",
+    "column_name": "principal_oid",
+    "data_type": "oid",
+    "udt_name": "oid"
+  },
+  {
+    "table_name": "polis_coordinator_principals",
+    "column_name": "principal_name",
+    "data_type": "name",
+    "udt_name": "name"
+  },
+  {
+    "table_name": "polis_coordinator_principals",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "polis_coordinator_principals",
+    "column_name": "can_transition",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
     "table_name": "polis_coordinator_reconciliation",
     "column_name": "math_env",
     "data_type": "character varying",
@@ -2122,6 +2164,96 @@
     "column_name": "reference_name",
     "data_type": "text",
     "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_transitions",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "polis_coordinator_transitions",
+    "column_name": "transition_id",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_transitions",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "polis_coordinator_transitions",
+    "column_name": "source_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "polis_coordinator_transitions",
+    "column_name": "principal_oid",
+    "data_type": "oid",
+    "udt_name": "oid"
+  },
+  {
+    "table_name": "polis_coordinator_transitions",
+    "column_name": "principal_name",
+    "data_type": "name",
+    "udt_name": "name"
+  },
+  {
+    "table_name": "polis_coordinator_transitions",
+    "column_name": "last_served_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_transitions",
+    "column_name": "source_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_transitions",
+    "column_name": "destination_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_transitions",
+    "column_name": "floor_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_transitions",
+    "column_name": "result_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_transitions",
+    "column_name": "caching_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "polis_coordinator_transitions",
+    "column_name": "writer_kind",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_transitions",
+    "column_name": "exclusion_sha256",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "polis_coordinator_transitions",
+    "column_name": "committed_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
   },
   {
     "table_name": "polis_queue_attempts",
