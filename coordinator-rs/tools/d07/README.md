@@ -160,9 +160,85 @@ kill-switch success, complete public-cut measurements or recovery acceptance.
 Capacity remains **UNADMITTED**. The existing boundary verifier applies only to
 `boundary.py` receipts, not to startup receipts.
 
-The observed failure blocks full rehearsal: a coherent quarter publication can
+The historical cold-start failure was: a coherent quarter publication can
 coexist with an empty registered actor; a later vote can replace it with a
 one-participant/one-comment publication while all original votes remain durable.
 Actor creation and registration in `conv_man.clj:queue-message-batch!` are
-separate operations. Concurrent vote/moderation startup needs a production fix
-or an explicitly reviewed initialization profile before rehearsal can continue.
+separate operations. Cold recomputation is outside the warm-resume profile below. The diagnostic
+remains non-admitting and no Clojure source was changed.
+
+
+## Production-shaped warm-resume rehearsal
+
+The accepted initialization profile retains Clojure's own four rows while
+Python serves. Cold recomputation from a full vote history without a prior
+Clojure row is outside this rehearsal. To obtain the baseline without copying
+Python output, start an ordinary empty conversation, let the moderation poller
+register its actor, then insert the public quarter prefix. Both ordinary pollers
+remain active; the launcher does not serialize or replace engine functions.
+
+`campaign.py` builds a fault-enabled Rust binary in an attributed disposable
+source workspace. Each public entry and recovery method gets a separate owned
+database/project. `warm` leaves Clojure's quarter rows untouched through Python's
+quarter/half/full publications. `snapshot` additionally exercises incomplete
+restoration refusal and restores the four Clojure-owned rows transactionally
+under exclusion. Both return paths start Clojure with recompute=false, preserve
+all durable votes and require the full registered cell matrix plus a coherent
+publication before returning readers. The legacy loader itself rebuilds its raw
+matrix from durable votes while loading its prior math row; no alternate loader
+is installed.
+
+Public cuts are file prefixes, not chronological time windows. Original exported
+seconds are expanded to milliseconds, signs converted, ids locally remapped and
+all repeated events retained. The remaining suffix can contain timestamps at or
+below the preceding maximum. Receipts therefore assert full event/cell coverage;
+a last-vote timestamp alone is not completion. No input multiplication implies
+production sizes. Two cached Clojure/Postgres images and the cached application
+services execute; the Python science child and Rust coordinator execute on the
+host, with their runtime/platform/BLAS/binary identity retained. The cached Delphi
+image is inventoried only. Host Rust/Python CPU and memory are unconstrained;
+Clojure is limited to two CPUs, 3 GiB container memory and a 2 GiB heap.
+
+Legacy exclusion uses NOLOGIN plus termination of its established database
+sessions and removal of its non-restarting container. NOLOGIN alone is first
+shown to leave an old session usable. The local database relay forwards remote
+EOF, including backend termination, so the runtime's reconnect path is real.
+A successful rollback requires the independent observer and exact operation
+receipts to show complete drain. Missing/unresolved work refuses; later success
+cannot hide a different unresolved operation. The reviewed transition revokes
+Python writer authority, a new Rust process must refuse before lease acquisition,
+and readers are replaced only after coherent Clojure catch-up and reticking.
+
+The actual HTTP app exercises namespace identity, cold/warm/prefetched PCA,
+old/current ETags, owner authentication, missing authentication, reports and CSV.
+Raw scientific fields are compared with their own namespace publication using
+only the existing server projection (zid/subgroup removal and group-id insertion).
+This is not equality of Python and Clojure science. Timing, memory, database and
+publication sizes are observations. Capacity remains UNADMITTED; alarm delivery
+remains OPERATOR_NOT_EVALUATED; full-contract admission remains FAIL.
+
+```sh
+export COMPOSE_PROJECT_NAME=p027-d07-public-example
+export POLIS_RECOVERY_PG_PORT=56700 RECOVERY_PG_PORT=56700
+python -B coordinator-rs/tools/d07/campaign.py --profile all --controls \
+  --output /tmp/p027-d07-public-example
+```
+
+The wrapper reserves base port through base+55 and suffixes project names 0–3.
+Use `--allow-local-changes` only for local review of explicitly uncommitted
+harness files. `--controls` runs the existing writer-authority and observer
+runtime suites before the first positive profile; their independent fixture
+metadata is not Clojure science evidence. Run the drain predicate controls with:
+
+```sh
+python -B -m pytest -q -o addopts= coordinator-rs/tools/d07/test_readiness.py
+```
+
+Verify each `vw-warm`, `vw-snapshot`, `biodiversity-warm` and
+`biodiversity-snapshot` output directory with `rehearsal_verify.py DIR --controls`.
+The verifier checks exact ordered cases, scope, warm initialization, exclusion,
+cut/measurement coverage, independent observations and every artifact hash.
+Its receipt controls reject incomplete or inflated claims. Verify source bytes
+against the reviewed handoff separately; a self-consistent receipt is not an
+authentication signature. The old boundary/startup verifiers do not admit this
+receipt format, and old failed attempts are never relabeled as passing.
