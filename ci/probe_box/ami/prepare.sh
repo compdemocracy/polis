@@ -43,7 +43,7 @@ py=/opt/polis-probe/venv/bin/python
   --only-binary=:all: --require-hashes -r "$recipe/requirements.lock"
 "$py" -m pip check
 "$py" -m pip freeze --all > "$PROBE_BUILD_DIR/python-packages.txt"
-"$py" - "$recipe/../layer/lock.json" "$PROBE_BUILD_DIR/rds-ca.pem" <<'PY'
+"$py" - "$recipe/rds-ca.json" "$PROBE_BUILD_DIR/rds-ca.pem" <<'PY'
 import hashlib, json, pathlib, ssl, sys, urllib.request
 ca = json.loads(pathlib.Path(sys.argv[1]).read_bytes())['ca']
 with urllib.request.urlopen(ca['url'], timeout=60) as response:

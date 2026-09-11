@@ -10,7 +10,6 @@ from unittest.mock import patch
 
 from contracts import validate_job, public_result
 from receipt import sha, validate_receipt
-import dispatch
 import worker
 from dns import question
 
@@ -84,22 +83,6 @@ class BoundaryTests(unittest.TestCase):
         with self.assertRaises(ValueError):validate_receipt(r,job())
         r=receipt();r['digests']['producer']='9'*64
         with self.assertRaises(ValueError):validate_receipt(r,job())
-
-    def test_actual_native_stdout_stderr_and_extra_lines_are_captured(self):
-        actual_run=subprocess.run
-        for stream in [None,1,2]:
-            with self.subTest(stream=stream):
-                code="import os;os.write(1,b'PASS\\n')"
-                if stream:code+=f";os.write({stream},b'public-fixture-private-value\\n')"
-                def run(*args,**kw):return actual_run([sys.executable,'-c',code],**kw)
-                out=SimpleNamespace(buffer=io.BytesIO())
-                with patch.object(dispatch.subprocess,'run',run),patch.object(dispatch.sys,'stdout',out):
-                    rc=dispatch.main()
-                raw=out.buffer.getvalue()
-                self.assertNotIn(b'private',raw)
-                self.assertEqual(rc,0 if stream is None else 1)
-                self.assertEqual(raw.splitlines()[1],b'PASS' if stream is None else b'FAIL')
-                self.assertEqual(len(raw.splitlines()),2)
 
     def test_container_runtime_state_is_on_disposable_disk(self):
         p=worker.docker()

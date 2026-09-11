@@ -10,7 +10,7 @@ for tool in docker dockerd containerd runc skopeo mountpoint nft mkfs.ext4 mount
 /opt/polis-probe/venv/bin/python -c 'import sys, boto3, psycopg2; assert sys.version_info[:2] == (3, 12)'
 : "${PROBE_RDS_CA:?path to the reviewed RDS CA bundle required}"
 # Validate the reviewed CA before writing any boot configuration.
-/opt/polis-probe/venv/bin/python - "$(dirname "$0")/layer/lock.json" <<'PYCA'
+/opt/polis-probe/venv/bin/python - "$(dirname "$0")/ami/rds-ca.json" <<'PYCA'
 import hashlib, json, os
 from pathlib import Path
 import sys
@@ -21,7 +21,7 @@ if len(raw) != ca['bytes'] or hashlib.sha256(raw).hexdigest() != ca['sha256']:
 PYCA
 install -d -m 0755 /opt/polis-probe
 install -m 0444 "$PROBE_RDS_CA" /opt/polis-probe/rds-ca.pem
-for file in worker.py contracts.py receipt.py replica.py dns.py; do install -m 0444 "$(dirname "$0")/$file" "/opt/polis-probe/$file"; done
+for file in worker.py contracts.py receipt.py replica.py dns.py provision.py provision_login.py; do install -m 0444 "$(dirname "$0")/$file" "/opt/polis-probe/$file"; done
 # No remote commands, cloud-init, SSM, SSH or serial interactive console.
 for unit in cloud-init-local cloud-init cloud-config cloud-final sshd amazon-ssm-agent serial-getty@ttyS0; do systemctl mask "$unit.service"; done
 systemctl mask swap.target docker.service docker.socket containerd.service
@@ -94,7 +94,7 @@ cat > /opt/polis-probe/start.sh <<'START'
 #!/usr/bin/env bash
 set -euo pipefail
 # Arm termination before any mount, DNS or supervisor work can fail. EC2's
-# independent sweeper enforces absolute admission expiry and missing heartbeat.
+# active operator observes absolute admission expiry and missing heartbeat.
 shutdown -h +300
 trap 'systemctl poweroff' EXIT
 swapoff -a
@@ -107,13 +107,19 @@ from pathlib import Path
 sys.path.insert(0,'/opt/polis-probe')
 from worker import metadata
 b=json.loads(metadata('user-data'))
-if set(b)!={'account','region','controlBucket','dnsNames','resolver'}: raise ValueError('BOOT_CONFIG')
+if set(b)!={'mode','account','region','controlBucket','dnsNames','resolver'} or b['mode'] not in ('worker','provision'): raise ValueError('BOOT_CONFIG')
 Path('/opt/polis-probe/bootstrap.json').write_text(json.dumps(b))
 Path('/opt/polis-probe/bootstrap.json').chmod(0o444)
 BOOT
 nft -f /opt/polis-probe/firewall.nft
 printf 'nameserver 127.0.0.1\noptions timeout:2 attempts:2\n' > /etc/resolv.conf
 systemctl start polis-probe-dns.service
+mode="$(/opt/polis-probe/venv/bin/python -c 'import json; print(json.load(open("/opt/polis-probe/bootstrap.json"))["mode"])')"
+if [ "$mode" = provision ]; then
+  shutdown -h +15
+  /opt/polis-probe/venv/bin/python /opt/polis-probe/provision.py
+  exit 0
+fi
 # Match the EBS launch-template device name, never guess an NVMe disk number.
 private_disk=''
 for dev in /dev/nvme*n1; do
