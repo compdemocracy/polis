@@ -1,0 +1,13 @@
+{
+  "passed": 7,
+  "total": 7,
+  "checks": [
+    "OPTIONS answers 204 with Express's surviving headers",
+    "HEAD reproduces the GET headers with no body",
+    "negotiated subset gzip on GET, identity on HEAD",
+    "q-values, zero quality, wildcard and browser headers follow the resolved middleware",
+    "legacy deflate is an explicit refusal, not a wrong coding",
+    "one connection serves successive polls",
+    "Origin reflected, absent Origin emits nothing, non-whitelisted refused"
+  ]
+}
