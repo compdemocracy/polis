@@ -1,10 +1,11 @@
 # D07 rollback groundwork and observation boundary
 
-This is a plan plus a runnable **boundary harness**, not the full rehearsal.
-The reviewed rev7 migration is adopted byte-for-byte. Full D07/T04–T08 acceptance is
-blocked on D06 independent read-only operation observation and its separately
-reviewed harness. Do not give the observer control/publisher membership or
-turn a privileged test driver's query into an independent observer receipt.
+Full D07/T04–T08 remains unadmitted. `boundary.py` retains the historical
+unprovisioned-observer profile; D06 now supplies the separate observer harness.
+The boundary receipt deliberately remains BLOCKED and is not a full-rehearsal
+receipt. Its SQL pin names the reviewed rev7 observer amendment.
+Do not give the observer control/publisher membership or turn a privileged test
+driver's query into an independent observer receipt.
 
 `boundary.py` inventories the two tracked public battery inputs, pins the seven
 cached images by content ID/platform, then executes 19 ordered real PostgreSQL
@@ -43,7 +44,7 @@ POLIS_RECOVERY_PG_PORT=56227 RECOVERY_PG_PORT=56227 \
 python -B coordinator-rs/tools/d07/boundary.py --output /tmp/p027-d07-boundary-example
 ```
 
-Expected result: exit **2**, `status: BLOCKED`, 17 boundary controls, zero owned
+Expected result: exit **2**, `status: BLOCKED`, 19 boundary controls, zero owned
 resources. An unexpected exception/failed control is a failure, never the
 expected boundary result. The runner retains the command log, resolved compose
 file, migration/source/input/image hashes and ordered results.
@@ -52,7 +53,7 @@ file, migration/source/input/image hashes and ordered results.
 python -B coordinator-rs/tools/d07/verify.py /tmp/p027-d07-boundary-example --controls
 ```
 
-Expected result: verification exit 0, 17 boundary controls and 12 receipt refusal
+Expected result: verification exit 0, 19 boundary controls and 12 receipt refusal
 controls; D07 still BLOCKED. This does not authenticate a forged receipt or
 replace review of the retained commands. Verify source digests against the
 reviewed handoff as well. Historical D05/required-campaign results remain
@@ -124,3 +125,44 @@ unprivileged observer login unprovisioned: its denial is a credential control,
 not evidence that the schema lacks a role. D06's independent observation,
 completeness, transport and alarm harness remains a separate handoff; the
 boundary receipt now names `D06_OBSERVER_HARNESS`. Full D07 remains unadmitted.
+
+
+## Actual Clojure startup diagnostic
+
+`startup_campaign.py` freezes the current source and runs `startup.py` using
+only cached PostgreSQL and Clojure images on an owned internal network. The
+launcher mounts current math source read-only and starts the ordinary vote and
+moderation pollers. It observes completed actor cells and actor registrations;
+it does not replace an engine function or serialize actor creation.
+
+The diagnostic inserts all 1,170 events from the public VW quarter prefix,
+retaining repeated cells, then appends **one generated diagnostic vote**. It
+records durable source counts, published shape, registered actor cells,
+registration identities, process/image/source attribution, actual resource
+measurements and cleanup. The additional vote is not a public-battery cut.
+
+```sh
+export COMPOSE_PROJECT_NAME=p027-d07-startup-example
+export POLIS_RECOVERY_PG_PORT=56600
+export RECOVERY_PG_PORT=56600
+python -B coordinator-rs/tools/d07/startup_campaign.py --output /tmp/p027-d07-startup-example
+```
+
+For review of explicitly uncommitted local sources, add
+`--allow-local-changes`; it is forbidden in hosted CI. Output must be new and
+outside the checkout. The installed Python environment needs psycopg2.
+
+Exit **2** means the lost-prefix regression was reproduced (`BLOCKED`);
+exit **3** means it was not reproduced in that attempt (`NOT_REPRODUCED`).
+Other failures exit nonzero. Neither result admits D07. This is a startup
+regression diagnostic, with no Rust/Python child, HTTP reader transfer,
+kill-switch success, complete public-cut measurements or recovery acceptance.
+Capacity remains **UNADMITTED**. The existing boundary verifier applies only to
+`boundary.py` receipts, not to startup receipts.
+
+The observed failure blocks full rehearsal: a coherent quarter publication can
+coexist with an empty registered actor; a later vote can replace it with a
+one-participant/one-comment publication while all original votes remain durable.
+Actor creation and registration in `conv_man.clj:queue-message-batch!` are
+separate operations. Concurrent vote/moderation startup needs a production fix
+or an explicitly reviewed initialization profile before rehearsal can continue.
