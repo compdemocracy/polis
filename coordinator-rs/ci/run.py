@@ -19,7 +19,7 @@ import uuid
 
 from verify import comparisons, jest_cases, python_cases, require, rust_cases, sha, source_pins, stage_audit
 from source_workspace import prepare, regular
-from replay_pins import select_pin
+from replay_pins import kernel_environment, select_pin, validate_kernel
 
 ROOT = Path(__file__).resolve().parents[2]
 CI = ROOT / "coordinator-rs/ci"
@@ -95,6 +95,8 @@ def main():
                PYTHONPATH=os.pathsep.join((str(CI), str(ROOT / "delphi"))),
                PYTEST_DISABLE_PLUGIN_AUTOLOAD="1", OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1",
                POLIS_TEST_POSTGRES_URL=f"postgresql://postgres@127.0.0.1:{port}/p026")
+    env = kernel_environment(env, platform.system(), platform.machine())
+    receipt["requested_kernel"] = env.get("OPENBLAS_CORETYPE", "not-forced")
     changed_artifacts = False
     started = False
 
@@ -143,7 +145,8 @@ def main():
         require(receipt["node"].startswith("v24."), "Node 24 required")
         receipt["replay_runtime"] = json.loads(subprocess.check_output(
             [sys.executable, "-B", str(CI / "replay_pins.py")], env=env, text=True))
-        receipt["replay_pin"] = select_pin(receipt["replay_runtime"], CI / "replay-pins.json")
+        validate_kernel(receipt["replay_runtime"])
+        receipt["kernel_validation"] = "PASS"
         receipt["rustc"] = run("rustc", ["rustc", "--version", "--verbose"], ROOT / "coordinator-rs")
         run("controls", [sys.executable, "-m", "pytest", "-o", "addopts=", "-p", "no:cacheprovider",
                          "--confcutdir=coordinator-rs/ci/tests", "coordinator-rs/ci/tests", "-q",
@@ -200,7 +203,6 @@ def main():
                      "--runInBand", "--runTestsByPath", *files, "--json", f"--outputFile={output / 'jest.json'}"],
             ROOT / "server", command_env=jest_env)
         receipt["jest_tests"] = jest_cases(json.loads((output / "jest.json").read_text()), inventory)
-        receipt["comparisons"] = comparisons(ART, EVIDENCE, baseline, receipt["replay_pin"])
         run("stage-audit", [sys.executable, "delphi/tests/coordinator/audit_stages.py"], expected=1)
         receipt["stages"] = stage_audit(json.loads((EVIDENCE / "stage-inventory.json").read_text()), inventory)
         require(source_pins(ROOT) == receipt["source_pins"], "reviewed sources changed during campaign")
@@ -209,6 +211,11 @@ def main():
                     source_report["source_sha256"].items()), "original source changed during campaign")
         require(all(not (original_root / p).exists() and not (original_root / p).is_symlink()
                     for p in source_report["local_removed"]), "removed source reappeared during campaign")
+        # Full fresh evidence is retained before historical key admission. A
+        # new forced-kernel measurement still FAILS until independently pinned;
+        # this is not a discovery/fallback admission or an optional comparator.
+        receipt["replay_pin"] = select_pin(receipt["replay_runtime"], CI / "replay-pins.json")
+        receipt["comparisons"] = comparisons(ART, EVIDENCE, baseline, receipt["replay_pin"])
         receipt["candidate_gate"] = "PASS"
     except Exception as error:
         receipt["error"] = str(error)

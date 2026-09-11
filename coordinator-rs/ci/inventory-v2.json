@@ -2063,6 +2063,62 @@
     [
       "coordinator-rs.ci.tests.test_source_workspace",
       "test_local_rename_is_explicit_and_cannot_drop_a_required_source[symlink]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_campaign_environment_overrides_inherited_kernel_before_children[Darwin-arm64-None]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_campaign_environment_overrides_inherited_kernel_before_children[Linux-x86_64-Haswell]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_forced_kernel_refuses_unhonoured_observation[extra-library]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_forced_kernel_refuses_unhonoured_observation[missing-library]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_forced_kernel_refuses_unhonoured_observation[missing-request]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_forced_kernel_refuses_unhonoured_observation[numpy-kernel]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_forced_kernel_refuses_unhonoured_observation[other-api]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_forced_kernel_refuses_unhonoured_observation[requested]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_forced_kernel_refuses_unhonoured_observation[scipy-kernel]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_forced_kernel_refuses_unhonoured_observation[threads]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_forced_kernel_refuses_unhonoured_observation[unforced-linux]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_historical_refusal_occurs_after_fresh_artifacts_and_before_pass"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_kernel_is_part_of_registry_key_and_receipt"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_shipped_registry_does_not_relabel_unforced_linux_as_forced"
     ]
   ],
   "reference_assets": {
