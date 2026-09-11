@@ -112,7 +112,14 @@ entrypoint. A certification registry entry uses the producer digest for reader
 `["verify"]`. The job schema is `polis-probe-job/1`; `run_id` is supplied by the
 dispatcher, and `max_seconds` is bounded by 18000. Store actual digest references
 in `ci/probe_box/jobs.json`. OCI archives are loaded from the private assets bucket
-by manifest digest; mutable tags and remote image pulls are refused.
+by manifest digest; mutable tags and remote image pulls are refused. The AL2023
+supervisor uses Docker 25 with Skopeo from the pinned Amazon repository. The worker
+checks the original OCI manifest bytes returned by Skopeo against the admitted
+digest before local conversion; the worker verifies the resulting Docker image ID against that
+manifest's config digest and checks Linux/ARM64. It executes only that immutable
+image ID. Docker's imported image metadata is not used as a registry-digest proof.
+The admitted job and exported receipt continue to identify the original manifest.
+Single-image OCI manifests are required; multi-platform indexes fail admission.
 
 Historical explicit full-stream vote-count schedules retain their relative cut
 positions against the new snapshot. Empty schedules, moderation, restart indices,
@@ -130,6 +137,18 @@ remain box-only; receipt/2 exports only the closed numeric selection report.
 See [representative payload admission](../delphi/docs/representative-selection.md).
 
 Bake the supervisor with `ci/probe_box/bake.sh` on the reviewed offline ARM64 builder.
+First run `ci/probe_box/ami/prepare.sh` on AL2023 2023.12.20260831 ARM64. It installs
+Amazon-signed Docker 25.0.16, containerd 2.2.5, runc 1.3.5 and Skopeo 1.22.2 at the
+exact RPM releases in that script, alongside the pinned Python dependencies.
+Podman is unavailable in this repository release. The standard docker/containerd
+units stay masked. Bake validates the custom daemon configuration without starting
+it; only the worker starts `polis-probe-container.service`, after mounting the
+disposable disk. Docker data, managed containerd state, socket, import temporary
+files and client configuration all stay under `/probe-work`. The custom daemon
+uses overlay2, no bridge, no firewall changes, no forwarding and no container log
+driver. It has a root-only Unix socket; no socket is mounted into a job. Containers
+retain network=none, nonroot execution, capability/resource limits and read-only
+roots. Input/output bind mounts inherit nodev/nosuid/noexec from the scratch disk.
 The launch template carries JSON boot configuration only, never executable commands.
 Set `enableProbeBox=true` and `PROBE_BOX_CONFIG` only when reviewing the separate
 `ProbeStack`; absent/false leaves the existing stack unchanged. Configuration names
@@ -156,6 +175,9 @@ PYTHONPATH=delphi python -B -m unittest discover -s ci/private_cert -p 'test_*.p
 The explicit local Postgres rehearsal is `login_rehearsal.py`; start only
 `test.compose.yml` with unique COMPOSE_PROJECT_NAME and both recovery ports,
 then provide PROBE_TEST_DATABASE_URL for that local instance and tear it down.
+
+Runtime references: [Docker daemon configuration](https://docs.docker.com/reference/cli/dockerd/),
+[Skopeo copy transports](https://github.com/containers/skopeo/blob/v1.22.0/docs/skopeo-copy.1.md).
 
 References: [AWS OIDC claim conditions](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_iam-condition-keys.html),
 [launch-template IAM](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ExamplePolicies_EC2.html),
