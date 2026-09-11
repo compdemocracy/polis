@@ -4,9 +4,21 @@
 set -euo pipefail
 [ "$(id -u)" = 0 ]
 [ "$(uname -m)" = aarch64 ]
-for tool in podman nft python3 mkfs.ext4 mount systemctl; do command -v "$tool" >/dev/null; done
-python3 -c 'import boto3, psycopg2'
+for tool in podman nft mkfs.ext4 mount systemctl unshare lsblk swapoff shutdown; do command -v "$tool" >/dev/null; done
+[ -x /sbin/ebsnvme-id ]
+[ -x /opt/polis-probe/venv/bin/python ]
+/opt/polis-probe/venv/bin/python -c 'import sys, boto3, psycopg2; assert sys.version_info[:2] == (3, 12)'
 : "${PROBE_RDS_CA:?path to the reviewed RDS CA bundle required}"
+# Validate the reviewed CA before writing any boot configuration.
+/opt/polis-probe/venv/bin/python - "$(dirname "$0")/layer/lock.json" <<'PYCA'
+import hashlib, json, os
+from pathlib import Path
+import sys
+ca = json.loads(Path(sys.argv[1]).read_bytes())['ca']
+raw = Path(os.environ['PROBE_RDS_CA']).read_bytes()
+if len(raw) != ca['bytes'] or hashlib.sha256(raw).hexdigest() != ca['sha256']:
+    raise SystemExit('RDS_CA_PIN_MISMATCH')
+PYCA
 install -d -m 0755 /opt/polis-probe
 install -m 0444 "$PROBE_RDS_CA" /opt/polis-probe/rds-ca.pem
 for file in worker.py contracts.py receipt.py replica.py dns.py; do install -m 0444 "$(dirname "$0")/$file" "/opt/polis-probe/$file"; done
@@ -42,7 +54,7 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ExecStart=/usr/bin/python3 /opt/polis-probe/dns.py
+ExecStart=/opt/polis-probe/venv/bin/python /opt/polis-probe/dns.py
 Restart=on-failure
 StandardOutput=null
 StandardError=null
@@ -60,7 +72,7 @@ swapoff -a
 ulimit -c 0
 # User-data is JSON only; cloud-init execution is disabled. This step runs
 # before any probe or private database access and reads no credential.
-python3 - <<'BOOT'
+/opt/polis-probe/venv/bin/python - <<'BOOT'
 import json,sys
 from pathlib import Path
 sys.path.insert(0,'/opt/polis-probe')
@@ -84,7 +96,7 @@ mkfs.ext4 -F "$private_disk" >/dev/null
 mkdir -p /probe-work
 mount -o nodev,nosuid,noexec "$private_disk" /probe-work
 chmod 0700 /probe-work
-python3 /opt/polis-probe/worker.py
+/opt/polis-probe/venv/bin/python /opt/polis-probe/worker.py
 START
 chmod 0500 /opt/polis-probe/start.sh
 cat > /etc/systemd/system/polis-probe-worker.service <<'UNIT'
@@ -103,6 +115,9 @@ StandardError=null
 [Install]
 WantedBy=multi-user.target
 UNIT
+systemctl daemon-reload
+systemd-analyze verify /etc/systemd/system/polis-probe-{dns,worker}.service
+# Do not start either service on the builder.
 systemctl enable polis-probe-worker.service
 # Only digest-pinned OCI archives are loaded at runtime from the private assets
 # bucket. The AMI supervisor and CA bundle are reviewed in the image build.
