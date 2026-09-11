@@ -1,7 +1,7 @@
 {
   "schema": "polis-coordinator-ci-inventory/2",
   "baseline_commit": "06bc6996d1b47d34ff020551cf1bbe120a96bb0a",
-  "scope": "000021 amended rev7, continuous observer LOGIN/current-table checks and bounded delivery; all 236 prior identities preserved; operational alarms not admitted",
+  "scope": "000021 amended rev7, continuous observer LOGIN/current-table checks and bounded delivery; all 236 prior identities preserved; operational alarms not admitted; preserve the numerical kernel across the real Rust-to-Python process boundary; all 289 prior identities preserved",
   "python_nodeids": [
     "tests/coordinator/test_adapter.py::test_candidate_admission_refusals[candidate_schema-polis-input/1-CANDIDATE_SCHEMA_MISMATCH]",
     "tests/coordinator/test_adapter.py::test_candidate_admission_refusals[engine_version-1-MALFORMED_CANDIDATE]",
@@ -291,7 +291,9 @@
     "tests/coordinator/test_writer_authority.py::test_waiting_restart_observes_transition_outcome[True-False]",
     "tests/coordinator/test_writer_authority.py::test_waiting_restart_observes_transition_outcome[True-True]",
     "tests/coordinator/test_writer_authority.py::test_writer_snapshot_isolation_refuses_before_lease[repeatable read]",
-    "tests/coordinator/test_writer_authority.py::test_writer_snapshot_isolation_refuses_before_lease[serializable]"
+    "tests/coordinator/test_writer_authority.py::test_writer_snapshot_isolation_refuses_before_lease[serializable]",
+    "tests/coordinator/test_hosted_controls.py::test_actual_bridge_child_preserves_requested_kernel[None]",
+    "tests/coordinator/test_hosted_controls.py::test_actual_bridge_child_preserves_requested_kernel[Haswell]"
   ],
   "python_junit": [
     [
@@ -1449,6 +1451,14 @@
     [
       "tests.coordinator.test_writer_authority",
       "test_writer_snapshot_isolation_refuses_before_lease[serializable]"
+    ],
+    [
+      "tests.coordinator.test_hosted_controls",
+      "test_actual_bridge_child_preserves_requested_kernel[None]"
+    ],
+    [
+      "tests.coordinator.test_hosted_controls",
+      "test_actual_bridge_child_preserves_requested_kernel[Haswell]"
     ]
   ],
   "rust_tests": [
@@ -1832,6 +1842,14 @@
         "tests/coordinator/test_observer.py::test_unresolved_work_survives_unrelated_resolution"
       ],
       "scope": "continuous metadata/P-031/four-table pointer observation via observer LOGIN and bounded delivery across reconnect; real destination delivery operator-owned"
+    },
+    {
+      "id": "bridge-kernel-environment",
+      "added_nodeids": [
+        "tests/coordinator/test_hosted_controls.py::test_actual_bridge_child_preserves_requested_kernel[Haswell]",
+        "tests/coordinator/test_hosted_controls.py::test_actual_bridge_child_preserves_requested_kernel[None]"
+      ],
+      "scope": "observe the actual computing Python process after Rust environment isolation; requested kernel preserved, unrelated parent settings excluded"
     }
   ],
   "control_junit": [
@@ -2446,6 +2464,50 @@
     [
       "coordinator-rs.ci.tests.test_replay_pins",
       "test_shipped_forced_linux_pin_has_two_attributed_kernel_witnesses"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_campaign_requires_actual_child_kernel_observations[none]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_campaign_requires_actual_child_kernel_observations[missing-all]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_campaign_requires_actual_child_kernel_observations[missing-case]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_campaign_requires_actual_child_kernel_observations[duplicate]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_campaign_requires_actual_child_kernel_observations[parent-only]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_campaign_requires_actual_child_kernel_observations[requested]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_campaign_requires_actual_child_kernel_observations[child-requested]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_campaign_requires_actual_child_kernel_observations[numpy-kernel]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_campaign_requires_actual_child_kernel_observations[scipy-kernel]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_campaign_requires_actual_child_kernel_observations[threads]"
+    ],
+    [
+      "coordinator-rs.ci.tests.test_replay_pins",
+      "test_campaign_requires_actual_child_kernel_observations[missing-library]"
     ]
   ],
   "reference_assets": {

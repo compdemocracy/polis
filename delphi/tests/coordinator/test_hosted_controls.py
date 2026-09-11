@@ -1,9 +1,72 @@
 """Real slow-runner latch witness; normal publication lock budgets stay intact."""
 import json
+import sys
+import textwrap
 
 import pytest
 
-from coordinator.conftest import ARTIFACTS, assert_coherent, connect, seed, wait
+from coordinator.conftest import ROOT, ARTIFACTS, assert_coherent, connect, seed, wait
+
+
+@pytest.mark.parametrize('requested_kernel', [None, 'Haswell'])
+def test_actual_bridge_child_preserves_requested_kernel(db, launch, tmp_path, monkeypatch, requested_kernel):
+    """Observe the process that computes/publishes, after Rust's env_clear.
+
+    Parent-only BLAS observation missed this boundary on heterogeneous runners.
+    The wrapper runs the real module in the same process, then records its loaded
+    libraries. No input, engine function, or output is replaced.
+    """
+    monkeypatch.delenv('OPENBLAS_CORETYPE', raising=False)
+    observation = tmp_path / 'worker-runtime.json'
+    wrapper = tmp_path / 'observe-python'
+    wrapper.write_text(f'#!{sys.executable}\n' + textwrap.dedent(f'''
+        import json
+        import os
+        from pathlib import Path
+        import runpy
+        import sys
+
+        assert sys.argv[1:] == ['-m', 'polismath.poller.coordinator_bridge']
+        sys.argv = [sys.argv[2]]
+        try:
+            runpy.run_module('polismath.poller.coordinator_bridge', run_name='__main__', alter_sys=True)
+        finally:
+            sys.path.insert(0, {str(ROOT / 'coordinator-rs/ci')!r})
+            from replay_pins import runtime_identity
+            Path({str(observation)!r}).write_text(json.dumps({{
+                'pid': os.getpid(), 'parent_pid': os.getppid(),
+                'requested_kernel': os.environ.get('OPENBLAS_CORETYPE'),
+                'unrelated_inherited': 'P026_UNRELATED_PARENT_SETTING' in os.environ,
+                'runtime': runtime_identity(),
+            }}, indent=2) + '\\n')
+    '''))
+    wrapper.chmod(0o700)
+    extra = {'P026_PYTHON': str(wrapper), 'P026_UNRELATED_PARENT_SETTING': 'must-not-leak'}
+    if requested_kernel is not None:
+        extra['OPENBLAS_CORETYPE'] = requested_kernel
+    seed(db)
+    child = launch(db, extra=extra)
+    child.done()
+    actual = json.loads(observation.read_text())
+    (ARTIFACTS / f'bridge-kernel-{requested_kernel}.json').write_text(json.dumps(actual, indent=2) + '\n')
+    assert actual['pid'] != child.proc.pid
+    assert actual['parent_pid'] == child.proc.pid
+    assert actual['requested_kernel'] == requested_kernel
+    assert actual['unrelated_inherited'] is False
+    runtime = actual['runtime']
+    assert runtime['blas_observed'] and runtime['blas']
+    assert all(row['num_threads'] == 1 for row in runtime['blas'])
+    records = list((ARTIFACTS / 'worker-runtimes').glob(f'{child.proc.pid}-*.json'))
+    assert len(records) == 1
+    production = json.loads(records[0].read_text())['observations']
+    assert len(production) == 1
+    assert production[0]['worker_pid'] == actual['pid']
+    assert production[0]['runtime']['forced_kernel'] == (requested_kernel or 'not-forced')
+    assert production[0]['runtime']['blas'] == runtime['blas']
+    if requested_kernel and (runtime['system'], runtime['machine']) == ('Linux', 'x86_64'):
+        from replay_pins import validate_kernel
+        validate_kernel(runtime)
+    assert_coherent(db)
 
 
 @pytest.mark.parametrize('old_latch', [False, True])

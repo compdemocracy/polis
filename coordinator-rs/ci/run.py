@@ -19,7 +19,7 @@ import uuid
 
 from verify import comparisons, jest_cases, python_cases, require, rust_cases, sha, source_pins, stage_audit
 from source_workspace import prepare, regular
-from replay_pins import kernel_environment, select_pin, validate_kernel
+from replay_pins import child_runtimes, kernel_environment, select_pin, validate_kernel
 
 ROOT = Path(__file__).resolve().parents[2]
 CI = ROOT / "coordinator-rs/ci"
@@ -145,6 +145,10 @@ def main():
         require(receipt["node"].startswith("v24."), "Node 24 required")
         receipt["replay_runtime"] = json.loads(subprocess.check_output(
             [sys.executable, "-B", str(CI / "replay_pins.py")], env=env, text=True))
+        native_env = dict(env)
+        native_env.pop("OPENBLAS_CORETYPE", None)
+        receipt["native_runtime"] = json.loads(subprocess.check_output(
+            [sys.executable, "-B", str(CI / "replay_pins.py")], env=native_env, text=True))
         validate_kernel(receipt["replay_runtime"])
         receipt["kernel_validation"] = "PASS"
         receipt["rustc"] = run("rustc", ["rustc", "--version", "--verbose"], ROOT / "coordinator-rs")
@@ -216,6 +220,7 @@ def main():
         # Full fresh evidence is retained before historical key admission. A
         # new forced-kernel measurement still FAILS until independently pinned;
         # this is not a discovery/fallback admission or an optional comparator.
+        receipt["child_runtimes"] = child_runtimes(ART / "worker-runtimes", receipt["replay_runtime"])
         receipt["replay_pin"] = select_pin(receipt["replay_runtime"], CI / "replay-pins.json")
         receipt["comparisons"] = comparisons(ART, EVIDENCE, baseline, receipt["replay_pin"])
         receipt["candidate_gate"] = "PASS"
