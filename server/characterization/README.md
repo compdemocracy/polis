@@ -1,22 +1,56 @@
 # P-027 API characterization
 
-The current public-fixture reference was recorded for #2753 at
-`58d95a60375a7f6f31ff88af1245680af5a69fec`. Recording and a fresh full replay
+The current public-fixture reference was recorded at
+`0b5d8cc9420ffd0aeda28d8f980229e7b1905db6` in hosted run `34561743129`.
+Recording and a fresh full replay
 each completed **1,265 cases with zero differences and zero oracle failures**,
 including all 869 prior requests and 396 comments requests. All **3,873 P-025
 records** validate. Baseline SHA-256:
-`961b3c0703758bd61ef25262a3b939e65091e271c9c5cacd47477cce67814b8b`.
+`28adb5a15cc5f0a99b6957eb334148d6d6e6e59ec7380fad04aa58dac5f6b28c`.
 
-Against the round-7 reference (`e9fcf5cf73ba5008f3e7a8af6a568942b99c2bd4a684a80a58687d09922b5c1b`),
-all 1,265 request artifacts are byte-identical and all comparable outcomes match.
-The census retains 302 entries and identical middleware; the sole changed
-callback fingerprint is `handle_POST_topicMod_moderate`, attributed to #2753.
+Against the previous reference at `58d95a60375a7f6f31ff88af1245680af5a69fec`
+(SHA-256 `961b3c0703758bd61ef25262a3b939e65091e271c9c5cacd47477cce67814b8b`),
+all 1,265 ordered request artifacts are byte-identical: 1,179 comparable outcomes
+are unchanged and 86 changed, with zero added or removed cases. The census
+retains 302 entries, identical callback fingerprints and identical middleware.
+The reviewed changes are **72 numeric, 12 label-only and two label-plus-order**.
+
+The new recording and fresh replay both request **Haswell** on Linux x86_64;
+NumPy and SciPy each report an observed Haswell OpenBLAS kernel at one thread.
+The archive retains this provenance in `run.json` and `pca2-seed.json`. The
+previous archive's kernel is **UNKNOWN**. Its 72 numerical changes are accepted
+as a deliberate move from an unknown numerical runtime to this recorded
+baseline: all 60 fixture inputs and the scientific implementation are unchanged.
+The older run also used different Python, pandas, SciPy and scikit-learn versions,
+so this comparison does not experimentally isolate Haswell as the sole cause.
+No tolerance is widened and no historical kernel is inferred. Subsequent
+comparisons remain exact under the admitted runtime.
+
+The two additional accounting entries are:
+
+| Case | Refresh classification |
+|---|---|
+| `r19/admin/boundary` | Label change + order permutation of rows 303/313 at positions 38/39; source query has no ORDER BY. |
+| `r20/admin/boundary` | Label change + order permutation of rows 303/313 at positions 38/39; source query has no ORDER BY. |
+
+These are generated fixture row identifiers and zero-based response positions.
+The archive preserves the bytes served, including this order. Deterministic
+local repacking reproduces the hosted archive exactly; the hosted run also
+passed all eight live negative controls, 85 Node tests and 20 Python tests.
+The job retained `evidencePass=true`, `reviewEligible=false`, `autoMerge=false`:
+changed checker files, shared artifacts, outcomes and unknown historical kernel
+required explicit review. This reviewed replacement does not relabel that job
+as automatically eligible.
 
 **The standing r19/r20 ordering issue remains open.** Round 7's fresh replay had
-two order-only differences; this replay happened to match both complete response
-bodies. Those queries still lack `ORDER BY`. This observation does not retire the
-earlier residuals or waive exact-order comparison. Reference refresh and full
-migration admission remain separate decisions.
+two order-only differences; the fresh replay of this recording matched both
+complete response bodies. Those queries still lack `ORDER BY`. Daily comparison
+must classify a verified order-only difference on an unordered query as an
+**unordered-query residual**, report it, and never count it as an engine
+difference. This does not waive exact-order comparison, sort the recorded rows,
+or suppress any other difference. Adding `ORDER BY` would change production
+behavior and requires a separate decision. Reference refresh and full migration
+admission remain separate decisions.
 
 **340/1,265 bodies are the identical opaque "Bad Request" string (HTTP 400,
 trailing newline); case counts are not distinct response shapes.** Of 128 targeted
