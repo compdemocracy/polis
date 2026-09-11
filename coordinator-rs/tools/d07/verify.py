@@ -19,7 +19,7 @@ def validate(r):
     require(r["schema"] == "polis-d07-boundary/1" and r["status"] == "BLOCKED", "not a boundary receipt")
     require(r["full_contract_gate"] == "FAIL" and r["rehearsal"] == "NOT_RUN"
             and r["capacity"] == "NOT_MEASURED", "unearned admission claim")
-    require(r["blocker"] == "D06_READ_ONLY_OBSERVER_AUTHORITY", "missing boundary")
+    require(r["blocker"] == "D06_OBSERVER_HARNESS", "missing boundary")
     require(tuple(c["name"] for c in r["checks"]) == CASES
             and all(c["passed"] is True for c in r["checks"]), "incomplete controls")
     require(set(r["remaining_resources"]) == {"container", "network", "volume"}

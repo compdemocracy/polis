@@ -309,10 +309,19 @@ impl PgStore {
     pub fn acquire(&mut self, zid: i32) -> Result<Option<i64>> {
         let c = &self.config;
         let mut tx = self.client.transaction()?;
-        tx.query_one(
-            "SELECT zid FROM conversations WHERE zid=$1 FOR KEY SHARE",
-            &[&zid],
-        )?;
+        // Rev7 locks the parent and reads current authority after any waiting
+        // transition commits. Keep that lock through the lease write. A
+        // withdrawn conversation must not stop service for the namespace.
+        if !tx
+            .query_one(
+                "SELECT public.pc_writer_allowed($1,$2)",
+                &[&c.math_env, &zid],
+            )?
+            .get::<_, bool>(0)
+        {
+            tx.rollback()?;
+            return Ok(None);
+        }
         let rows = tx.query("INSERT INTO polis_coordinator_leases (math_env,zid,owner_id,owner_epoch,expires_at) VALUES($1,$2,$3,1,clock_timestamp()+make_interval(secs=>$4::int)) ON CONFLICT(math_env,zid) DO UPDATE SET owner_id=excluded.owner_id,owner_epoch=polis_coordinator_leases.owner_epoch+1,expires_at=excluded.expires_at,dispatch_operation_id=NULL,dispatch_capability_sha256=NULL,dispatch_checkpoint_sha256=NULL,dispatch_expected_tick=NULL,dispatch_margin_ms=NULL WHERE polis_coordinator_leases.expires_at<=clock_timestamp() OR polis_coordinator_leases.owner_id=$3 RETURNING owner_epoch", &[&c.math_env,&zid,&c.owner,&c.lease_seconds])?;
         let epoch = rows.first().map(|r| r.get(0));
         tx.commit()?;
@@ -321,10 +330,18 @@ impl PgStore {
     pub fn release(&mut self, zid: i32, epoch: i64) -> Result<()> {
         let c = &self.config;
         let mut tx = self.client.transaction()?;
-        tx.query_one(
-            "SELECT zid FROM conversations WHERE zid=$1 FOR KEY SHARE",
-            &[&zid],
-        )?;
+        if !tx
+            .query_one(
+                "SELECT public.pc_writer_allowed($1,$2)",
+                &[&c.math_env, &zid],
+            )?
+            .get::<_, bool>(0)
+        {
+            // The transition already withdrew this lease. Avoid an RLS write
+            // refusal obscuring the dispatch's definite per-zid outcome.
+            tx.rollback()?;
+            return Ok(());
+        }
         tx.execute("UPDATE polis_coordinator_leases SET expires_at=clock_timestamp() WHERE math_env=$1 AND zid=$2 AND owner_id=$3 AND owner_epoch=$4", &[&c.math_env,&zid,&c.owner,&epoch])?;
         tx.commit()?;
         Ok(())

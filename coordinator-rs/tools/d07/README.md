@@ -1,13 +1,13 @@
 # D07 rollback groundwork and observation boundary
 
 This is a plan plus a runnable **boundary harness**, not the full rehearsal.
-The reviewed rev6 migration remains unchanged. Full D07/T04–T08 acceptance is
+The reviewed rev7 migration is adopted byte-for-byte. Full D07/T04–T08 acceptance is
 blocked on D06 independent read-only operation observation and its separately
-reviewed authority. Do not give the observer control/publisher membership or
+reviewed harness. Do not give the observer control/publisher membership or
 turn a privileged test driver's query into an independent observer receipt.
 
 `boundary.py` inventories the two tracked public battery inputs, pins the seven
-cached images by content ID/platform, then executes 17 ordered real PostgreSQL
+cached images by content ID/platform, then executes 19 ordered real PostgreSQL
 controls. It installs the existing 21 migrations only in a disposable local
 project. Missing images or changed inputs fail; there is no build, pull, input
 map, private fallback, or migration amendment. Only PostgreSQL executes: the
@@ -20,17 +20,17 @@ output. A P→L transition reticks all four rows above the old P token and remov
 the Python dispatch capability. The stale admission refuses. These are SQL
 controls, not a Python-child publication or Clojure/HTTP execution claim.
 
-Two further counterexamples prevent a false kill-switch claim:
+The remaining outcome boundary and restart control are distinct:
 
 - The admitted operation remains pending after transition, and reconciliation
   without an exact receipt remains unresolved. It is not successful drain.
-- The unchanged production acquire SQL can reacquire the Python lease with a
-  new epoch. Lease withdrawal alone is not a restart or credential fence.
+- The restricted production acquire SQL refuses reacquisition after transition.
+  The destination and an unaffected zid still acquire successfully.
 
 Finally, a mapped login with no writer authority receives SQLSTATE 42501 reading
 operation metadata; the publisher can read it but also execute publication.
 The schema catalog seal remains identical. The harness stops there: no observer
-role grants, policies, functions or rev7 draft are introduced.
+runtime observer provisioning or full D06/D07 acceptance is introduced.
 
 ## Run and verify
 
@@ -108,3 +108,19 @@ exact positive/negative case inventory, and owned cleanup. Record both recovery
 paths separately. Missing, skipped, stale or mismatched evidence blocks the
 phase. No production transfer, private science admission or O1/O8/full-gate
 closure follows from this public groundwork.
+
+## Rev7 adoption
+
+The current boundary probe uses the reviewed rev7 schema. Its exact restricted
+lease SQL now refuses Python reacquisition after rollback (including from a
+fresh connection); legacy and unaffected-zid acquisitions are positive controls.
+The namespace remains admitted at startup. The required candidate campaign also
+runs actual restarted Rust/Python processes, in-flight withdrawal and historical
+readback controls in `test_writer_authority.py`. Rev6 receipts remain historical
+counterexamples, not current behavior.
+
+Rev7 provides the observer capability. This probe deliberately leaves its
+unprivileged observer login unprovisioned: its denial is a credential control,
+not evidence that the schema lacks a role. D06's independent observation,
+completeness, transport and alarm harness remains a separate handoff; the
+boundary receipt now names `D06_OBSERVER_HARNESS`. Full D07 remains unadmitted.
