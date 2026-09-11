@@ -1,7 +1,7 @@
 {
   "schema": "polis-coordinator-ci-inventory/2",
   "baseline_commit": "06bc6996d1b47d34ff020551cf1bbe120a96bb0a",
-  "scope": "000021 actual Python-poller bridge; prior 221 identities plus 2 slow-latch controls; no full-contract/private admission",
+  "scope": "000021 rev7 actual Python-poller bridge; all 223 previous identities plus 13 writer-authority controls; no full-contract/private admission",
   "python_nodeids": [
     "tests/coordinator/test_adapter.py::test_candidate_admission_refusals[candidate_schema-polis-input/1-CANDIDATE_SCHEMA_MISMATCH]",
     "tests/coordinator/test_adapter.py::test_candidate_admission_refusals[engine_version-1-MALFORMED_CANDIDATE]",
@@ -225,7 +225,20 @@
     "tests/coordinator/test_store.py::test_missing_checkpoint_metadata_is_repaired",
     "tests/coordinator/test_store.py::test_release_binary_rejects_fault_descriptor_before_db",
     "tests/coordinator/test_store.py::test_release_build_cannot_enable_fault_feature",
-    "tests/coordinator/test_store.py::test_rust_python_postgres_row_shape_golden"
+    "tests/coordinator/test_store.py::test_rust_python_postgres_row_shape_golden",
+    "tests/coordinator/test_writer_authority.py::test_exact_historical_publication_remains_readable_after_withdrawal",
+    "tests/coordinator/test_writer_authority.py::test_inflight_withdrawal_refuses_and_keeps_pending_outcome[after_lease]",
+    "tests/coordinator/test_writer_authority.py::test_inflight_withdrawal_refuses_and_keeps_pending_outcome[after_worker_compute]",
+    "tests/coordinator/test_writer_authority.py::test_legacy_namespace_still_acquires_after_transition",
+    "tests/coordinator/test_writer_authority.py::test_publisher_authorize_refuses_revoked_writer_before_compute",
+    "tests/coordinator/test_writer_authority.py::test_restart_refuses_withdrawn_zid_and_daemon_serves_unaffected_zid",
+    "tests/coordinator/test_writer_authority.py::test_runtime_schema_fingerprint_matches_live_catalog",
+    "tests/coordinator/test_writer_authority.py::test_waiting_restart_observes_transition_outcome[False-False]",
+    "tests/coordinator/test_writer_authority.py::test_waiting_restart_observes_transition_outcome[False-True]",
+    "tests/coordinator/test_writer_authority.py::test_waiting_restart_observes_transition_outcome[True-False]",
+    "tests/coordinator/test_writer_authority.py::test_waiting_restart_observes_transition_outcome[True-True]",
+    "tests/coordinator/test_writer_authority.py::test_writer_snapshot_isolation_refuses_before_lease[repeatable read]",
+    "tests/coordinator/test_writer_authority.py::test_writer_snapshot_isolation_refuses_before_lease[serializable]"
   ],
   "python_junit": [
     [
@@ -1119,6 +1132,58 @@
     [
       "tests.coordinator.test_store",
       "test_rust_python_postgres_row_shape_golden"
+    ],
+    [
+      "tests.coordinator.test_writer_authority",
+      "test_exact_historical_publication_remains_readable_after_withdrawal"
+    ],
+    [
+      "tests.coordinator.test_writer_authority",
+      "test_inflight_withdrawal_refuses_and_keeps_pending_outcome[after_lease]"
+    ],
+    [
+      "tests.coordinator.test_writer_authority",
+      "test_inflight_withdrawal_refuses_and_keeps_pending_outcome[after_worker_compute]"
+    ],
+    [
+      "tests.coordinator.test_writer_authority",
+      "test_legacy_namespace_still_acquires_after_transition"
+    ],
+    [
+      "tests.coordinator.test_writer_authority",
+      "test_publisher_authorize_refuses_revoked_writer_before_compute"
+    ],
+    [
+      "tests.coordinator.test_writer_authority",
+      "test_restart_refuses_withdrawn_zid_and_daemon_serves_unaffected_zid"
+    ],
+    [
+      "tests.coordinator.test_writer_authority",
+      "test_runtime_schema_fingerprint_matches_live_catalog"
+    ],
+    [
+      "tests.coordinator.test_writer_authority",
+      "test_waiting_restart_observes_transition_outcome[False-False]"
+    ],
+    [
+      "tests.coordinator.test_writer_authority",
+      "test_waiting_restart_observes_transition_outcome[False-True]"
+    ],
+    [
+      "tests.coordinator.test_writer_authority",
+      "test_waiting_restart_observes_transition_outcome[True-False]"
+    ],
+    [
+      "tests.coordinator.test_writer_authority",
+      "test_waiting_restart_observes_transition_outcome[True-True]"
+    ],
+    [
+      "tests.coordinator.test_writer_authority",
+      "test_writer_snapshot_isolation_refuses_before_lease[repeatable read]"
+    ],
+    [
+      "tests.coordinator.test_writer_authority",
+      "test_writer_snapshot_isolation_refuses_before_lease[serializable]"
     ]
   ],
   "rust_tests": [
@@ -1421,6 +1486,25 @@
         "tests/coordinator/test_hosted_controls.py::test_after_main_pause_outlives_normal_lock_budget[True]"
       ],
       "scope": "actual advisory pause beyond normal lock timeout; unchanged five-second real publication budget and old-latch failure"
+    },
+    {
+      "id": "rev7-writer-authority",
+      "added_nodeids": [
+        "tests/coordinator/test_writer_authority.py::test_exact_historical_publication_remains_readable_after_withdrawal",
+        "tests/coordinator/test_writer_authority.py::test_inflight_withdrawal_refuses_and_keeps_pending_outcome[after_lease]",
+        "tests/coordinator/test_writer_authority.py::test_inflight_withdrawal_refuses_and_keeps_pending_outcome[after_worker_compute]",
+        "tests/coordinator/test_writer_authority.py::test_legacy_namespace_still_acquires_after_transition",
+        "tests/coordinator/test_writer_authority.py::test_publisher_authorize_refuses_revoked_writer_before_compute",
+        "tests/coordinator/test_writer_authority.py::test_restart_refuses_withdrawn_zid_and_daemon_serves_unaffected_zid",
+        "tests/coordinator/test_writer_authority.py::test_runtime_schema_fingerprint_matches_live_catalog",
+        "tests/coordinator/test_writer_authority.py::test_waiting_restart_observes_transition_outcome[False-False]",
+        "tests/coordinator/test_writer_authority.py::test_waiting_restart_observes_transition_outcome[False-True]",
+        "tests/coordinator/test_writer_authority.py::test_waiting_restart_observes_transition_outcome[True-False]",
+        "tests/coordinator/test_writer_authority.py::test_waiting_restart_observes_transition_outcome[True-True]",
+        "tests/coordinator/test_writer_authority.py::test_writer_snapshot_isolation_refuses_before_lease[repeatable read]",
+        "tests/coordinator/test_writer_authority.py::test_writer_snapshot_isolation_refuses_before_lease[serializable]"
+      ],
+      "scope": "per-conversation rollback authority; actual restart/daemon/publication and historical readback controls; no D06/full-D07 admission"
     }
   ],
   "control_junit": [

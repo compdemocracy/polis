@@ -15,7 +15,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub const SQL_SHA256: &str = "a3a85e24e69e281adbe04831b9e02525c292a1960461cae12d048f7c2d9e89a8";
+pub const SQL_SHA256: &str = "09dcc6f3d9812a526dbdc0d997fae9e93828fd1e3565cf96a8173337b3589a37";
 pub const ENGINE_SHA256: &str = "b295c3e7c649b38768c4eeb69c7cb3bf59d33c0077c22c84853a44d216aa0028";
 const ENGINE_MANIFEST: &str = include_str!("../schemas/poller-engine-v1.json");
 pub const PROTOCOL: &str = "polis-poller-bridge/1";
@@ -86,6 +86,7 @@ pub fn admit_control(client: &mut Client, math_env: &str) -> Result<()> {
             "polis_coordinator_namespaces",
             "polis_coordinator_principals",
             "polis_coordinator_transitions",
+            "polis_coordinator_writer_authority",
         ] {
             ensure!(!client.query_one("SELECT has_table_privilege($1,$2,'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER') OR has_any_column_privilege($1,$2,'INSERT,UPDATE')", &[&name,&format!("public.{table}")])?.get::<_,bool>(0), "DIRECT_CONTROL_DML_REFUSED");
         }
@@ -93,7 +94,7 @@ pub fn admit_control(client: &mut Client, math_env: &str) -> Result<()> {
     let row=client.query_one("SELECT migration_id,catalog_fingerprint FROM public.polis_coordinator_install WHERE singleton", &[])?;
     ensure!(
         row.get::<_, String>(0) == "000021"
-            && row.get::<_, String>(1) == "f73a5d5136d1e0e4ed371f0b05329d6c",
+            && row.get::<_, String>(1) == "b497500ab5652f3d24775f4895736c01",
         "COORDINATOR_SCHEMA_MISMATCH"
     );
     ensure!(
@@ -226,10 +227,16 @@ fn dispatch(
         "INVALID_DISPATCH_MARGIN"
     );
     let mut admission = store.client.transaction()?;
-    admission.query(
-        "SELECT zid FROM public.conversations WHERE zid=$1 FOR KEY SHARE",
-        &[&zid],
-    )?;
+    if !admission
+        .query_one(
+            "SELECT public.pc_writer_allowed($1,$2)",
+            &[&store.config.math_env, &zid],
+        )?
+        .get::<_, bool>(0)
+    {
+        admission.rollback()?;
+        return Ok(Publication::Refused(LeaseState::Unavailable));
+    }
     let changed=admission.execute("UPDATE public.polis_coordinator_leases SET dispatch_operation_id=$5,dispatch_capability_sha256=$6,dispatch_checkpoint_sha256=encode(sha256(convert_to($7::jsonb::text,'UTF8')),'hex'),dispatch_expected_tick=$8,dispatch_margin_ms=$9 WHERE math_env=$1 AND zid=$2 AND owner_id=$3 AND owner_epoch=$4 AND expires_at>clock_timestamp()",&[&store.config.math_env,&zid,&store.config.owner,&epoch,&operation,&cap_hash,&checkpoint,&expected,&(margin as i32)])?;
     if changed != 1 {
         admission.rollback()?;
@@ -384,7 +391,7 @@ fn dispatch(
     }
     // Verify even successful acknowledgements against the durable operation,
     // which remains identifiable after a later generation overwrites math rows.
-    let refused = matches!(&result, Ok(r) if r["outcome"]=="conflict" || r["code"]=="FENCED" || r["code"]=="LEASE-EXPIRED");
+    let refused = matches!(&result, Ok(r) if r["outcome"]=="conflict" || r["code"]=="FENCED" || r["code"]=="LEASE-EXPIRED" || r["code"]=="WRITER_AUTHORITY_REQUIRED");
     let ambiguous = publishing
         && !refused
         && (!matches!(&result,Ok(r) if r["outcome"]=="committed" || r["outcome"]=="already_committed")
@@ -428,6 +435,12 @@ fn dispatch(
         if reply["code"] == "LEASE-EXPIRED" {
             return Ok(receipt?.map_or(
                 Publication::Refused(LeaseState::Expired),
+                Publication::Committed,
+            ));
+        }
+        if reply["code"] == "WRITER_AUTHORITY_REQUIRED" {
+            return Ok(receipt?.map_or(
+                Publication::Refused(LeaseState::Unavailable),
                 Publication::Committed,
             ));
         }

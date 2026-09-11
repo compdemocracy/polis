@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""D07 groundwork: public input/image census and real rev6 rollback controls.
+"""D07 groundwork: public input/image census and real rev7 rollback controls.
 
 This deliberately stops at independent observation. It does not run a writer,
 serve HTTP, amend the migration, or turn a boundary receipt into admission.
@@ -21,16 +21,16 @@ import psycopg2
 
 ROOT = Path(__file__).resolve().parents[3]
 SQL = "server/postgres/migrations/000021_create_polis_coordinator.sql"
-SQL_SHA256 = "a3a85e24e69e281adbe04831b9e02525c292a1960461cae12d048f7c2d9e89a8"
+SQL_SHA256 = "09dcc6f3d9812a526dbdc0d997fae9e93828fd1e3565cf96a8173337b3589a37"
 IMAGES = ("postgres:17-alpine", "p027-server", "p027-file-server",
           "p027-oidc-simulator", "amazon/dynamodb-local:latest",
           "p011-delphi-test:latest", "p024s-8fq2-math:latest")
 CASES = (
-    "sealed-rev6-schema", "active-python-dispatch", "ordinary-transition-denied",
+    "sealed-rev7-schema", "active-python-dispatch", "ordinary-transition-denied",
     "missing-fallback-denied", "legacy-reticked-above-python", "four-ticks-coherent",
     "payload-bytes-preserved", "python-dispatch-withdrawn", "stale-admission-denied",
     "withdrawal-does-not-resolve-pending", "absent-receipt-stays-unresolved",
-    "restart-can-reacquire-after-transition", "cross-namespace-lease-denied",
+    "restart-reacquisition-denied", "legacy-can-acquire", "unaffected-zid-can-acquire", "cross-namespace-lease-denied",
     "observer-is-not-a-writer", "observer-metadata-denied", "writer-is-not-observer",
     "schema-seal-unchanged",
 )
@@ -85,8 +85,8 @@ class Boundary:
         self.config = output / "compose.json"
         self.receipt = {"schema": "polis-d07-boundary/1", "status": "FAIL",
                         "full_contract_gate": "FAIL", "project": project, "port": port,
-                        "checks": [], "blocker": "D06_READ_ONLY_OBSERVER_AUTHORITY",
-                        "scope": "rev6 SQL boundary; no writer or HTTP execution",
+                        "checks": [], "blocker": "D06_OBSERVER_HARNESS",
+                        "scope": "rev7 SQL boundary; no writer or HTTP execution",
                         "rehearsal": "NOT_RUN", "capacity": "NOT_MEASURED",
                         "source_sha256": {}}
 
@@ -151,7 +151,7 @@ class Boundary:
                      "math/src/polismath/components/postgres.clj"):
             self.receipt["source_sha256"][name] = sha((ROOT/name).read_bytes())
         if self.receipt["source_sha256"][SQL] != SQL_SHA256:
-            raise ValueError("requires reviewed rev6 schema")
+            raise ValueError("requires reviewed rev7 schema")
         self.receipt["public_inputs"] = public_census()
         images = {}
         for tag in IMAGES:
@@ -184,7 +184,7 @@ class Boundary:
         q("SELECT pg_temp.pc_assert_provenance()")
         self.receipt["postgres"] = q("SELECT version()")[0][0]
         self.receipt["catalog"] = catalog
-        self.check("sealed-rev6-schema", len(migrations) == 21)
+        self.check("sealed-rev7-schema", len(migrations) == 21)
         q("CREATE ROLE d07_control LOGIN; CREATE ROLE d07_publisher LOGIN; CREATE ROLE d07_operator LOGIN; CREATE ROLE d07_observer LOGIN")
         q("GRANT polis_coordinator_control TO d07_control,d07_operator; GRANT polis_coordinator_publisher TO d07_publisher")
         q("INSERT INTO polis_coordinator_namespaces VALUES('public_python','python',8),('public_legacy','legacy',8)")
@@ -225,7 +225,7 @@ class Boundary:
         self.check("payload-bytes-preserved", before == after)
         revoked = cq("SELECT expires_at<=clock_timestamp(),dispatch_operation_id,dispatch_capability_sha256,dispatch_checkpoint_sha256,dispatch_expected_tick,dispatch_margin_ms FROM polis_coordinator_leases WHERE zid=1")
         self.check("python-dispatch-withdrawn", revoked == [(True,None,None,None,None,None)])
-        self.denied("stale-admission-denied",control,"SELECT pc_admit('public_python',1,'public-old',1,'public-pending',repeat('c',64),1048576)",None,"P2020")
+        self.denied("stale-admission-denied",control,"SELECT pc_admit('public_python',1,'public-old',1,'public-pending',repeat('c',64),1048576)",None,"P2033")
         pending = cq("SELECT state FROM polis_coordinator_operations WHERE zid=1")
         self.check("withdrawal-does-not-resolve-pending", pending == [("pending",)])
         outcome = cq("SELECT pc_reconcile('public_python',1,'public-pending')")
@@ -239,8 +239,14 @@ class Boundary:
         arguments = ("public_python",1,"public-restarted",120)
         indexes = [int(i)-1 for i in re.findall(r'\$(\d+)', acquire[0])]
         statement = re.sub(r'\$\d+', '%s', acquire[0])
-        restarted = cq(statement, tuple(arguments[i] for i in indexes))
-        self.check("restart-can-reacquire-after-transition", restarted == [(2,)], epoch=restarted[0][0])
+        self.denied("restart-reacquisition-denied",self.connect("d07_control"),
+                    statement,tuple(arguments[i] for i in indexes),"42501")
+        arguments = ("public_legacy",1,"public-legacy",120)
+        acquired = self.query(operator,statement,tuple(arguments[i] for i in indexes))
+        self.check("legacy-can-acquire", acquired == [(1,)])
+        arguments = ("public_python",2,"public-unaffected",120)
+        acquired = cq(statement,tuple(arguments[i] for i in indexes))
+        self.check("unaffected-zid-can-acquire", acquired == [(1,)])
         self.denied("cross-namespace-lease-denied",control,
                     "INSERT INTO polis_coordinator_leases(math_env,zid,owner_id,owner_epoch,expires_at) VALUES('public_legacy',1,'bad',1,clock_timestamp())",None,"42501")
         authority = self.query(observer,"SELECT rolsuper,rolbypassrls,rolcreaterole,pg_has_role(session_user,'polis_coordinator_control','MEMBER'),pg_has_role(session_user,'polis_coordinator_publisher','MEMBER') FROM pg_roles WHERE rolname=session_user")

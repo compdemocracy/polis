@@ -41,7 +41,7 @@ const serverRequire = createRequire(path.join(server, "package.json"));
 const { Client } = serverRequire("pg");
 
 const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex");
-const COORDINATOR_SQL_SHA256 = "a3a85e24e69e281adbe04831b9e02525c292a1960461cae12d048f7c2d9e89a8";
+const COORDINATOR_SQL_SHA256 = "09dcc6f3d9812a526dbdc0d997fae9e93828fd1e3565cf96a8173337b3589a37";
 if (sha256(fs.readFileSync(path.join(server, "postgres/migrations/000021_create_polis_coordinator.sql"))) !== COORDINATOR_SQL_SHA256) {
   throw new Error("COORDINATOR_SCHEMA_BYTE_PIN");
 }
@@ -186,6 +186,13 @@ async function main() {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
+    const installed = await client.query(
+      "SELECT migration_id,catalog_fingerprint FROM public.polis_coordinator_install WHERE singleton"
+    );
+    if (installed.rows.length !== 1 || installed.rows[0].migration_id !== "000021" ||
+        installed.rows[0].catalog_fingerprint !== "b497500ab5652f3d24775f4895736c01") {
+      throw new Error("COORDINATOR_SCHEMA_MISMATCH");
+    }
     const zid = spec.zid, env = spec.env || "rustproto", gids = spec.gids || [];
     const out =
       spec.mode === "torn"
