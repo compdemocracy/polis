@@ -21,7 +21,7 @@ import psycopg2
 
 ROOT = Path(__file__).resolve().parents[3]
 SQL = "server/postgres/migrations/000021_create_polis_coordinator.sql"
-SQL_SHA256 = "09dcc6f3d9812a526dbdc0d997fae9e93828fd1e3565cf96a8173337b3589a37"
+SQL_SHA256 = "d50f169ad7afe12d14582a6a746c622d402ecafd8131aae246812263bf2d5e82"
 IMAGES = ("postgres:17-alpine", "p027-server", "p027-file-server",
           "p027-oidc-simulator", "amazon/dynamodb-local:latest",
           "p011-delphi-test:latest", "p024s-8fq2-math:latest")
