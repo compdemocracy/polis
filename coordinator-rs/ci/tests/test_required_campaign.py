@@ -186,7 +186,7 @@ def test_comparison_requires_fresh_complete_unchanged_evidence(tmp_path, mutatio
         (fresh / "d4-node-reader.json").write_text('{"differences": {}}')
     with pytest.raises((ValueError, FileNotFoundError)):
         comparisons(artifacts, fresh, baseline, select_pin(
-            {"system": "Darwin", "machine": "arm64"}, CI / "replay-pins.json"))
+            {"system": "Darwin", "machine": "arm64", "forced_kernel": "not-forced"}, CI / "replay-pins.json"))
 
 
 @pytest.mark.parametrize("mutation", ["stable-field", "published-byte", "inconsistent-observation", "missing-hash"])

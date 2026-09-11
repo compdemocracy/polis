@@ -1,5 +1,5 @@
 {
-  "schema": "polis-replay-platform-pins/1",
+  "schema": "polis-replay-platform-pins/2",
   "pins": [
     {
       "id": "macos-arm64-v1",
@@ -443,8 +443,11 @@
         "original_sha256": "9c2de163655f5225a3d2ba246455cb3ad6db8ae34f2f7ba5ca4bdbf0dab79c95",
         "renamed_sha256": "91cfee6f884c36a814983256bb76b479fc492d7b74069359c06f7f1e8dbd9cd9",
         "renamed_canonical_sha256": "4a5b3b2404f355f33b5c05018294d7151111d4f9b273e547bfd68bfd5349c08a"
-      }
-    },
+      },
+      "forced_kernel": "not-forced"
+    }
+  ],
+  "retired_pins": [
     {
       "id": "linux-x86_64-v1",
       "system": "Linux",
@@ -897,7 +900,9 @@
         "original_sha256": "53f0f1579bd63ae145d7b3e4ede6feb38824bcbe4a7c41d31e10e7c0e6c0421e",
         "renamed_sha256": "2bf4b28e2263b5657e2f327b6e8f7b379ee8159f81592c34a082ffe8933ad2f5",
         "renamed_canonical_sha256": "b73e4a38153e3366298dec629ad8ce4136fb4beeac35277842f0b7466e6471c8"
-      }
+      },
+      "forced_kernel": "not-forced",
+      "retirement": "Unforced OS/machine key conflates Zen/Haswell and Cooperlake/SkylakeX. Not selectable; forced Haswell needs two agreeing hosted artifacts."
     }
   ]
 }
