@@ -51,6 +51,7 @@ LANGUAGE sql SET search_path=pg_catalog,pg_temp AS $spec$
 VALUES ('schema','public','','polis_coordinator_owner','USAGE'),
 ('schema','public','','polis_coordinator_owner','CREATE'),
 ('schema','public','','polis_coordinator_control','USAGE'),
+('schema','public','','polis_coordinator_observer','USAGE'),
 ('schema','public','','polis_coordinator_publisher','USAGE'),
 ('table','conversations','','polis_coordinator_owner','SELECT'),
 ('table','math_ticks','','polis_coordinator_owner','SELECT'),('table','math_main','','polis_coordinator_owner','SELECT'),('table','math_bidtopid','','polis_coordinator_owner','SELECT'),('table','math_ptptstats','','polis_coordinator_owner','SELECT'),
@@ -84,13 +85,13 @@ LANGUAGE sql SET search_path=pg_catalog,pg_temp AS $acl$
 $acl$;
 SELECT NOT EXISTS(SELECT FROM pg_class WHERE relnamespace='public'::regnamespace AND starts_with(relname,'polis_coordinator_'))
  AND NOT EXISTS(SELECT FROM pg_proc WHERE pronamespace='public'::regnamespace AND starts_with(proname,'pc_'))
- AND NOT EXISTS(SELECT FROM pg_roles WHERE rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher')) AS pc_absent \gset
+ AND NOT EXISTS(SELECT FROM pg_roles WHERE rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher','polis_coordinator_observer')) AS pc_absent \gset
 \if :pc_absent
  DO $$ BEGIN RAISE NOTICE 'coordinator schema never installed or completely removed; nothing to drop'; END $$;
 \else
  DO $catalog$
  BEGIN
-  IF pg_temp.pc_catalog() IS DISTINCT FROM 'f73a5d5136d1e0e4ed371f0b05329d6c' THEN
+  IF pg_temp.pc_catalog() IS DISTINCT FROM 'b497500ab5652f3d24775f4895736c01' THEN
    RAISE EXCEPTION 'refusing: coordinator catalog drift' USING DETAIL=pg_temp.pc_catalog(); END IF;
  END $catalog$;
  -- Child before parent; count only AFTER ACCESS EXCLUSIVE locks. The provenance
@@ -102,6 +103,7 @@ SELECT NOT EXISTS(SELECT FROM pg_class WHERE relnamespace='public'::regnamespace
  public.polis_coordinator_install,public.polis_coordinator_references,
  public.polis_coordinator_operations,public.polis_coordinator_budgets,
  public.polis_coordinator_floors,public.polis_coordinator_transitions,
+ public.polis_coordinator_writer_authority,
  public.polis_coordinator_principals,public.polis_coordinator_namespaces IN ACCESS EXCLUSIVE MODE;
 CREATE OR REPLACE FUNCTION pg_temp.pc_provenance_hash() RETURNS text
 LANGUAGE sql SET search_path=pg_catalog,pg_temp AS $hash$
@@ -129,7 +131,7 @@ BEGIN
   RAISE EXCEPTION 'refusing: coordinator sequence initialization or state drift';
  END IF;
  IF (SELECT array_agg(role_name ORDER BY role_name) FROM public.polis_coordinator_install_roles)
-  IS DISTINCT FROM ARRAY['polis_coordinator_control','polis_coordinator_owner','polis_coordinator_publication_owner','polis_coordinator_publisher']
+  IS DISTINCT FROM ARRAY['polis_coordinator_control','polis_coordinator_observer','polis_coordinator_owner','polis_coordinator_publication_owner','polis_coordinator_publisher']
  OR EXISTS(SELECT FROM public.polis_coordinator_install_roles r LEFT JOIN pg_roles p ON p.rolname=r.role_name WHERE p.oid IS DISTINCT FROM r.role_oid) THEN
   RAISE EXCEPTION 'refusing: coordinator role provenance inventory or identity';
  END IF;
@@ -167,6 +169,7 @@ END $assert$;
    +(SELECT count(*) FROM public.polis_coordinator_budgets)
    +(SELECT count(*) FROM public.polis_coordinator_floors)
    +(SELECT count(*) FROM public.polis_coordinator_transitions)
+   +(SELECT count(*) FROM public.polis_coordinator_writer_authority)
    +(SELECT count(*) FROM public.polis_coordinator_principals)
    +(SELECT count(*) FROM public.polis_coordinator_namespaces) INTO total;
   IF current_setting('polis_coordinator.force') <> '1' AND (total>0 OR (SELECT is_called FROM public.polis_coordinator_caching_tick)) THEN
@@ -177,6 +180,7 @@ END $assert$;
   DROP FUNCTION public.pc_transition(text,text,integer,text,bigint,text);
   DROP TABLE public.polis_coordinator_transitions;
   DROP TABLE public.polis_coordinator_principals;
+  DROP TABLE public.polis_coordinator_writer_authority;
   DROP TABLE public.polis_coordinator_namespaces;
   DROP FUNCTION public.pc_reference(text,integer,text,text,boolean);
   DROP TABLE public.polis_coordinator_references;
@@ -195,6 +199,8 @@ END $assert$;
   DROP TABLE public.polis_coordinator_failures;
   DROP TABLE public.polis_coordinator_reconciliation;
   DROP TABLE public.polis_coordinator_leases;
+  DROP FUNCTION public.pc_assert_writer(text,integer);
+  DROP FUNCTION public.pc_writer_allowed(text,integer);
   DROP FUNCTION public.pc_assert_namespace(text);
   DROP FUNCTION public.pc_namespace_allowed(text);
   DROP SEQUENCE public.polis_coordinator_caching_tick;

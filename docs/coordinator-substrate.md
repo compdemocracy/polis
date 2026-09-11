@@ -346,3 +346,59 @@ consumer, and prove the complete real-app L→P→L sequence with old client ETa
 comment changes, reports/CSV/auth and continued input. Cross-namespace cache
 cursors are not interchangeable. Runtime bridge pins and login provisioning are
 adopted in that separate handoff; this schema rehearsal alone is not D05 PASS.
+
+### Rev7: independent observation and revocable per-conversation writers
+
+`polis_coordinator_observer` is a fifth NOLOGIN capability. It has SELECT on all
+new coordinator tables, including pending operations, both sides of a transition,
+writer authority and install provenance. Its SELECT-only policies require no
+principal mapping or function call. It receives no EXECUTE on any `pc_*` function,
+sequence privilege, table write privilege, or grant on an existing application
+table. Provision an independent observer login with only this role; membership
+in a writer/owner role would combine their privileges. Observer evidence can
+read a committed unresolved operation even after its writer loses authority.
+Observation does not resolve that operation or certify a rollback by itself.
+
+`polis_coordinator_writer_authority(math_env,zid,enabled)` records current writer
+authority independently of leases and historical transition receipts. Before the
+first transition involving a pair, an absent row allows the already provisioned
+namespace principal to write that conversation. Installation seeds no authority.
+Every new committed transition writes source=false and destination=true under
+its exclusive conversation lock, atomically with lease withdrawal, destination
+floor/retick and the receipt. Explicit return transitions can re-enable a writer;
+replaying an older exact receipt only reads history and cannot re-enable it.
+Deleting a lease, dropping/recreating a runtime process, or cleaning old receipts
+cannot remove the authority row. Runtime roles cannot change these rows directly.
+There are at most two entries per distinct pair of namespaces and conversation
+first encountered by a transition; repeated transitions update existing entries.
+This is logical state, not a physical storage/WAL size guarantee.
+
+The scope is **per conversation**, not namespace-wide startup refusal. A process
+may authenticate its namespace at startup and continue servicing unaffected zids.
+Its subsequent per-zid admission must call `pc_writer_allowed(env,zid)` or
+`pc_assert_writer(env,zid)` in the same transaction as acquiring/arming the lease.
+The lease INSERT/UPDATE policy independently calls the predicate, so an unchanged
+restricted acquisition statement cannot bypass it. New `pc_admit` and
+`pc_publish` work also checks it. Revocation raises `WRITER_AUTHORITY_REQUIRED`
+(SQLSTATE P2033) through the assertion; direct lease writes fail their RLS check.
+Historical exact publication readback and operation reconciliation remain
+available after withdrawal and cannot authorize a new publication.
+
+The writer predicate takes the parent conversation's KEY SHARE lock and retains
+it to transaction end. It is VOLATILE: its separate authority read sees a fresh
+READ COMMITTED snapshot **after** a waiting lock completes. A transition either
+waits for previously admitted writer transactions, or its committed revocation
+is visible before a waiting acquisition can pass. REPEATABLE READ and SERIALIZABLE
+writer transactions explicitly refuse with `WRITER_READ_COMMITTED_REQUIRED`
+(P2033), including when an old snapshot would see no authority row. This isolation
+contract is part of bridge adoption. Transactions should keep parent → lease
+lock order; ad hoc reverse-order writes may be deadlock victims and must retry
+the whole transaction. Locks for one zid do not prevent another zid publishing.
+
+The seal includes the observer grants/policies, authority table, writer functions
+and lease policy. Normal down refuses authority data; forced down still requires
+intact provenance/catalogs, drops only the recorded new objects, and reverses the
+observer's recorded schema-USAGE grant. Existing math catalogs and ACLs remain
+identical to rev6. This amendment is applied nowhere. Runtime pin adoption, the
+independent observer's D06 harness and the full rollback rehearsal remain separate
+handoffs, as does any operator authorization to install or activate the schema.

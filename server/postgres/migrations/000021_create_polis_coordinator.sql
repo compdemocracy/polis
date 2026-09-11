@@ -13,7 +13,7 @@
 -- Apply THIS FILE ALONE only after separate operator approval, tested reversal,
 -- backup/restore and publisher exclusion. Never replay the migration directory.
 -- This migration requires a superuser installer on PostgreSQL 17. It provisions
--- four NOLOGIN roles; it grants NO login membership and wires NO adapter. A new
+-- five NOLOGIN roles; it grants NO login membership and wires NO adapter. A new
 -- NOLOGIN
 -- polis_coordinator_publication_owner receives SELECT/INSERT/UPDATE on only
 -- math_ticks, math_bidtopid, math_ptptstats and math_main; conversations SELECT
@@ -45,6 +45,10 @@
 -- advances Python's destination floor before real publication, or coherently
 -- reticks existing legacy rows without fabricating a Python generation receipt.
 -- Existing broad legacy writers require external drain and isolated shadow DBs.
+-- Rev7: observer reads new coordinator tables without any pc_* execution.
+-- Writer authority is per (namespace,zid), retained after lease deletion and
+-- changed atomically by transition. Restricted writes require READ COMMITTED;
+-- their volatile predicate reads authority after the parent serialization lock.
 BEGIN;
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
@@ -58,12 +62,12 @@ BEGIN
  IF EXISTS(SELECT FROM pg_class WHERE relnamespace='public'::regnamespace AND starts_with(relname,'coordinator_'))
  OR EXISTS(SELECT FROM pg_attribute WHERE attrelid=ANY(ARRAY['public.math_ticks'::regclass,'public.math_main'::regclass,'public.math_bidtopid'::regclass,'public.math_ptptstats'::regclass]) AND NOT attisdropped AND attname IN ('publisher_epoch','input_checkpoint','operation_id','original_bytes','original_sha256')) THEN
   RAISE EXCEPTION 'refusing: prototype coordinator schema must be isolated, not adopted'; END IF;
- IF EXISTS(SELECT FROM pg_roles WHERE rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher') AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)) THEN
+ IF EXISTS(SELECT FROM pg_roles WHERE rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher','polis_coordinator_observer') AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)) THEN
   RAISE EXCEPTION 'refusing: unsafe coordinator role attributes'; END IF;
  -- Memberships could make a control/publisher login inherit the owner role.
  -- Adoption with unrelated grants/settings is safe; role hierarchies require a
  -- separate operator review. Provisioning runtime memberships happens later.
- IF EXISTS(SELECT FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher')) THEN
+ IF EXISTS(SELECT FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher','polis_coordinator_observer')) THEN
   RAISE EXCEPTION 'refusing: coordinator roles inherit another role'; END IF;
 END $pre$;
 -- Shared guard body is byte-identical in up/down; only pg_temp functions.
@@ -92,6 +96,7 @@ LANGUAGE sql SET search_path=pg_catalog,pg_temp AS $spec$
 VALUES ('schema','public','','polis_coordinator_owner','USAGE'),
 ('schema','public','','polis_coordinator_owner','CREATE'),
 ('schema','public','','polis_coordinator_control','USAGE'),
+('schema','public','','polis_coordinator_observer','USAGE'),
 ('schema','public','','polis_coordinator_publisher','USAGE'),
 ('table','conversations','','polis_coordinator_owner','SELECT'),
 ('table','math_ticks','','polis_coordinator_owner','SELECT'),('table','math_main','','polis_coordinator_owner','SELECT'),('table','math_bidtopid','','polis_coordinator_owner','SELECT'),('table','math_ptptstats','','polis_coordinator_owner','SELECT'),
@@ -127,7 +132,7 @@ DO $admit$
 BEGIN
  IF EXISTS(SELECT FROM pg_class WHERE relnamespace='public'::regnamespace AND starts_with(relname,'polis_coordinator_'))
  OR EXISTS(SELECT FROM pg_proc WHERE pronamespace='public'::regnamespace AND starts_with(proname,'pc_')) THEN
-  IF pg_temp.pc_catalog() IS DISTINCT FROM 'f73a5d5136d1e0e4ed371f0b05329d6c' THEN
+  IF pg_temp.pc_catalog() IS DISTINCT FROM 'b497500ab5652f3d24775f4895736c01' THEN
    RAISE EXCEPTION 'refusing: coordinator catalog drift before replay' USING DETAIL=pg_temp.pc_catalog(); END IF;
   PERFORM set_config('polis_coordinator.replay','true',true);
  ELSE PERFORM set_config('polis_coordinator.replay','false',true);
@@ -135,12 +140,12 @@ BEGIN
 END $admit$;
 -- Snapshot before adding any external privileges. No membership grants occur.
 CREATE TEMP TABLE pc_before_roles ON COMMIT DROP AS SELECT oid,rolname FROM pg_roles
- WHERE rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher');
+ WHERE rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher','polis_coordinator_observer');
 CREATE TEMP TABLE pc_before_acl ON COMMIT DROP AS SELECT * FROM pg_temp.pc_external_acl();
 DO $roles$
 DECLARE r text;
 BEGIN
- FOREACH r IN ARRAY ARRAY['polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher'] LOOP
+ FOREACH r IN ARRAY ARRAY['polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher','polis_coordinator_observer'] LOOP
   IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname=r) THEN EXECUTE format('CREATE ROLE %I NOLOGIN',r); END IF;
  END LOOP;
 END $roles$;
@@ -162,6 +167,12 @@ BEGIN
   math_env varchar(999) PRIMARY KEY CHECK(length(math_env)>0),
   writer_kind text NOT NULL CHECK(writer_kind IN ('python','legacy')),
   max_transitions integer NOT NULL CHECK(max_transitions BETWEEN 1 AND 10000)
+ );
+ CREATE TABLE public.polis_coordinator_writer_authority (
+  math_env varchar(999) NOT NULL REFERENCES public.polis_coordinator_namespaces(math_env),
+  zid integer NOT NULL REFERENCES public.conversations(zid),
+  enabled boolean NOT NULL,
+  PRIMARY KEY(math_env,zid)
  );
  CREATE TABLE public.polis_coordinator_principals (
   principal_oid oid PRIMARY KEY, principal_name name NOT NULL UNIQUE,
@@ -292,7 +303,7 @@ BEGIN
   installed_at timestamptz NOT NULL DEFAULT clock_timestamp(), installed_by name NOT NULL
  );
  CREATE TABLE public.polis_coordinator_install_roles (
-  role_name text PRIMARY KEY CHECK(role_name IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher')),
+  role_name text PRIMARY KEY CHECK(role_name IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher','polis_coordinator_observer')),
   role_oid oid NOT NULL, created boolean NOT NULL
  );
  CREATE TABLE public.polis_coordinator_install_grants (
@@ -306,6 +317,7 @@ BEGIN
  FOR g IN SELECT relname,relkind FROM pg_class WHERE relnamespace='public'::regnamespace AND starts_with(relname,'polis_coordinator_') AND relkind IN ('r','S') LOOP
   EXECUTE format('ALTER %s public.%I OWNER TO polis_coordinator_owner',CASE WHEN g.relkind='S' THEN 'SEQUENCE' ELSE 'TABLE' END,g.relname);
   EXECUTE format('REVOKE ALL ON %s public.%I FROM PUBLIC',CASE WHEN g.relkind='S' THEN 'SEQUENCE' ELSE 'TABLE' END,g.relname);
+  IF g.relkind='r' THEN EXECUTE format('GRANT SELECT ON public.%I TO polis_coordinator_observer',g.relname); END IF;
  END LOOP;
  -- Explicit privileges: the control role cannot publish or rewrite receipts;
  -- the publisher cannot acquire/renew a lease or delete historical receipts.
@@ -323,11 +335,13 @@ BEGIN
  GRANT USAGE ON SEQUENCE public.polis_coordinator_caching_tick TO polis_coordinator_publication_owner;
  GRANT SELECT ON public.polis_coordinator_namespaces,public.polis_coordinator_principals TO polis_coordinator_publication_owner;
  GRANT UPDATE ON public.polis_coordinator_namespaces TO polis_coordinator_publication_owner;
+ GRANT SELECT,INSERT,UPDATE ON public.polis_coordinator_writer_authority TO polis_coordinator_publication_owner;
+ GRANT SELECT ON public.polis_coordinator_writer_authority TO polis_coordinator_control,polis_coordinator_publisher;
  GRANT SELECT,INSERT ON public.polis_coordinator_transitions TO polis_coordinator_publication_owner;
  GRANT SELECT ON public.polis_coordinator_transitions TO polis_coordinator_control,polis_coordinator_publisher;
  INSERT INTO public.polis_coordinator_install_roles
  SELECT r.rolname,r.oid,b.oid IS NULL FROM pg_roles r LEFT JOIN pc_before_roles b ON b.oid=r.oid
- WHERE r.rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher');
+ WHERE r.rolname IN ('polis_coordinator_owner','polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher','polis_coordinator_observer');
  INSERT INTO public.polis_coordinator_install_grants(object_kind,object_name,column_name,grantee,grantor,privilege,prior_present,prior_grantable)
  SELECT s.object_kind,s.object_name,s.column_name,s.grantee,a.grantor,s.privilege,b.grantor IS NOT NULL,coalesce(b.grantable,false)
  FROM pg_temp.pc_grant_spec() s JOIN pg_temp.pc_external_acl() a USING(object_kind,object_name,column_name,grantee,privilege)
@@ -352,6 +366,34 @@ ALTER FUNCTION public.pc_namespace_allowed(text) OWNER TO polis_coordinator_owne
 ALTER FUNCTION public.pc_assert_namespace(text) OWNER TO polis_coordinator_owner;
 REVOKE ALL ON FUNCTION public.pc_namespace_allowed(text),public.pc_assert_namespace(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.pc_namespace_allowed(text),public.pc_assert_namespace(text)
+ TO polis_coordinator_control,polis_coordinator_publisher,polis_coordinator_publication_owner;
+
+-- A namespace mapping admits the process; writer authority admits one zid.
+-- An absent row retains initial provisioned authority. Only transition writes
+-- explicit source=false/destination=true rows, which cleanup cannot remove.
+-- VOLATILE gives the authority read a fresh snapshot after a waiting lock.
+-- Snapshot isolation is refused, including an old absent-row snapshot.
+CREATE FUNCTION public.pc_writer_allowed(p_env text,p_zid integer) RETURNS boolean
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $writer$
+BEGIN
+ IF NOT public.pc_namespace_allowed(p_env) THEN RETURN false; END IF;
+ IF current_setting('transaction_isolation') <> 'read committed' THEN
+  RAISE EXCEPTION USING ERRCODE='P2033',MESSAGE='WRITER_READ_COMMITTED_REQUIRED'; END IF;
+ PERFORM zid FROM public.conversations WHERE zid=p_zid FOR KEY SHARE;
+ IF NOT FOUND THEN RETURN false; END IF;
+ RETURN coalesce((SELECT enabled FROM public.polis_coordinator_writer_authority
+  WHERE math_env=p_env AND zid=p_zid),true);
+END $writer$;
+CREATE FUNCTION public.pc_assert_writer(p_env text,p_zid integer) RETURNS void
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $assert_writer$
+BEGIN
+ IF NOT public.pc_writer_allowed(p_env,p_zid) THEN
+  RAISE EXCEPTION USING ERRCODE='P2033',MESSAGE='WRITER_AUTHORITY_REQUIRED'; END IF;
+END $assert_writer$;
+ALTER FUNCTION public.pc_writer_allowed(text,integer) OWNER TO polis_coordinator_owner;
+ALTER FUNCTION public.pc_assert_writer(text,integer) OWNER TO polis_coordinator_owner;
+REVOKE ALL ON FUNCTION public.pc_writer_allowed(text,integer),public.pc_assert_writer(text,integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.pc_writer_allowed(text,integer),public.pc_assert_writer(text,integer)
  TO polis_coordinator_control,polis_coordinator_publisher,polis_coordinator_publication_owner;
 
 -- Transition is a distinct operator capability. The ordinary runtime mapping
@@ -435,6 +477,9 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE='P2031',MESSAGE='LEGACY_COHERENT_REBUILD_REQUIRED'; END IF;
   next_tick:=base_tick+1;
  END IF;
+ INSERT INTO public.polis_coordinator_writer_authority(math_env,zid,enabled)
+ VALUES(p_source,p_zid,false),(p_env,p_zid,true)
+ ON CONFLICT(math_env,zid) DO UPDATE SET enabled=excluded.enabled;
  next_cursor:=nextval('public.polis_coordinator_caching_tick');
  -- Revoking every outstanding dispatch keeps a previously armed child from
  -- publishing after the floor changes. Historical exact readback still works.
@@ -544,6 +589,7 @@ BEGIN
   RETURN QUERY SELECT 'already_committed'::text,receipt.math_tick,receipt.caching_tick;
   RETURN;
  END IF;
+ PERFORM public.pc_assert_writer(p_env,p_zid);
  IF lease.owner_id IS DISTINCT FROM p_owner OR lease.owner_epoch IS DISTINCT FROM p_epoch THEN
   RAISE EXCEPTION USING ERRCODE='P2003',MESSAGE='FENCED'; END IF;
  IF lease.expires_at<=clock_timestamp() THEN
@@ -624,6 +670,7 @@ DECLARE lease public.polis_coordinator_leases; budget public.polis_coordinator_b
  op public.polis_coordinator_operations; n bigint; used numeric;
 BEGIN
  PERFORM public.pc_assert_namespace(p_env);
+ PERFORM public.pc_assert_writer(p_env,p_zid);
  IF p_source_sha256 IS NULL OR p_source_sha256 !~ '^[0-9a-f]{64}$'
  OR p_reserved_bytes IS NULL OR p_reserved_bytes NOT BETWEEN 1048576 AND 1099511627776 THEN
   RAISE EXCEPTION USING ERRCODE='P2020',MESSAGE='INVALID_ADMISSION'; END IF;
@@ -765,11 +812,17 @@ $authority$;
  AND relname IN ('polis_coordinator_leases','polis_coordinator_cursors','polis_coordinator_failures',
  'polis_coordinator_reconciliation','polis_coordinator_generations','polis_coordinator_payloads',
  'polis_coordinator_budgets','polis_coordinator_operations','polis_coordinator_references',
- 'polis_coordinator_floors','polis_coordinator_transitions') LOOP
+ 'polis_coordinator_floors','polis_coordinator_transitions','polis_coordinator_writer_authority') LOOP
   EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',g.relname);
   EXECUTE format('CREATE POLICY pc_namespace ON public.%I TO polis_coordinator_control,polis_coordinator_publisher USING (public.pc_namespace_allowed(math_env)) WITH CHECK (public.pc_namespace_allowed(math_env))',g.relname);
+  EXECUTE format('CREATE POLICY pc_observer ON public.%I FOR SELECT TO polis_coordinator_observer USING (true)',g.relname);
   EXECUTE format('CREATE POLICY pc_publication ON public.%I TO polis_coordinator_publication_owner USING (true) WITH CHECK (true)',g.relname);
  END LOOP;
+ -- Restrict acquisition, renewal and dispatch, retaining historical SELECT and
+ -- DELETE for reconciliation/release. The policy cannot be bypassed by omitting
+ -- the runtime's explicit per-zid admission check.
+ ALTER POLICY pc_namespace ON public.polis_coordinator_leases
+ WITH CHECK (public.pc_writer_allowed(math_env,zid));
 END $create$;
 CREATE OR REPLACE FUNCTION pg_temp.pc_provenance_hash() RETURNS text
 LANGUAGE sql SET search_path=pg_catalog,pg_temp AS $hash$
@@ -797,7 +850,7 @@ BEGIN
   RAISE EXCEPTION 'refusing: coordinator sequence initialization or state drift';
  END IF;
  IF (SELECT array_agg(role_name ORDER BY role_name) FROM public.polis_coordinator_install_roles)
-  IS DISTINCT FROM ARRAY['polis_coordinator_control','polis_coordinator_owner','polis_coordinator_publication_owner','polis_coordinator_publisher']
+  IS DISTINCT FROM ARRAY['polis_coordinator_control','polis_coordinator_observer','polis_coordinator_owner','polis_coordinator_publication_owner','polis_coordinator_publisher']
  OR EXISTS(SELECT FROM public.polis_coordinator_install_roles r LEFT JOIN pg_roles p ON p.rolname=r.role_name WHERE p.oid IS DISTINCT FROM r.role_oid) THEN
   RAISE EXCEPTION 'refusing: coordinator role provenance inventory or identity';
  END IF;
@@ -824,7 +877,7 @@ BEGIN
   INSERT INTO public.polis_coordinator_install(singleton,migration_id,catalog_fingerprint,provenance_fingerprint,sequence_start,installed_by)
   VALUES(true,'000021',pg_temp.pc_catalog(),pg_temp.pc_provenance_hash(),(SELECT seqstart FROM pg_sequence WHERE seqrelid='public.polis_coordinator_caching_tick'::regclass),session_user);
  END IF;
- IF pg_temp.pc_catalog() IS DISTINCT FROM 'f73a5d5136d1e0e4ed371f0b05329d6c' THEN
+ IF pg_temp.pc_catalog() IS DISTINCT FROM 'b497500ab5652f3d24775f4895736c01' THEN
   RAISE EXCEPTION 'refusing: coordinator catalog assertion' USING DETAIL=pg_temp.pc_catalog(); END IF;
  PERFORM pg_temp.pc_assert_provenance();
 END $record$;

@@ -19,7 +19,7 @@ if not re.fullmatch(r"[0-9a-f]{64}|p027-m21-[a-z0-9-]+-postgres-1", CONTAINER):
 ROOT = Path(__file__).resolve().parent.parent
 UP = ROOT / "000021_create_polis_coordinator.sql"
 DOWN = ROOT / "down/000021_drop_polis_coordinator.sql"
-ROLES = ("polis_coordinator_control", "polis_coordinator_owner", "polis_coordinator_publication_owner", "polis_coordinator_publisher")
+ROLES = ("polis_coordinator_observer", "polis_coordinator_control", "polis_coordinator_owner", "polis_coordinator_publication_owner", "polis_coordinator_publisher")
 RESULTS = []
 FAILURES = []
 
@@ -978,6 +978,7 @@ def main():
             assert r.returncode and 'receipt fault' in r.stderr
             assert sql(db,"SELECT math_tick FROM math_main WHERE math_env='legacy';").stdout.strip()=='100'
             assert sql(db,'SELECT count(*) FROM polis_coordinator_floors;').stdout.strip()=='0'
+            assert sql(db,'SELECT count(*) FROM polis_coordinator_writer_authority;').stdout.strip()=='0'
             assert sql(db,"SELECT dispatch_operation_id FROM polis_coordinator_leases;").stdout.strip()=='op-a'
         finally:
             sql(db,'DROP TRIGGER p027_m21_fail_receipt ON polis_coordinator_transitions; DROP FUNCTION p027_m21_fail_receipt();')
@@ -1002,6 +1003,236 @@ def main():
         refuses_both(db)
         assert apply(db,ok=False).returncode
     case('namespace policy expression drift is sealed in catalog for replay and both down modes',policy_drift)
+
+    def acquire_text(env='generated', zid=990001):
+        return f"""INSERT INTO polis_coordinator_leases(math_env,zid,owner_id,owner_epoch,expires_at)
+        VALUES('{env}',{zid},'restarted-owner',1,clock_timestamp()+interval '1 minute')
+        ON CONFLICT(math_env,zid) DO UPDATE SET owner_id=excluded.owner_id,
+        owner_epoch=polis_coordinator_leases.owner_epoch+1,expires_at=excluded.expires_at
+        WHERE polis_coordinator_leases.expires_at<=clock_timestamp() RETURNING owner_epoch;"""
+
+    def rollback_writer(db):
+        arm(db); seed_legacy(db)
+        assert transition(db,source='generated',dest='legacy',ident='rollback').stdout.startswith('legacy_reticked|')
+
+    def authority_scope(db):
+        sql(db,'INSERT INTO conversations(zid) VALUES(990001),(990002);')
+        user='p027_m21_python_control'
+        assert sql(db,"SELECT pc_writer_allowed('generated',990001),pc_writer_allowed('legacy',990001),pc_writer_allowed('generated',-1);",user=user).stdout.strip()=='t|f|f'
+        assert sql(db,acquire_text(),user=user).stdout.startswith('1\n')
+        assert sql(db,'SELECT count(*) FROM polis_coordinator_writer_authority;').stdout.strip()=='0'
+    namespace_case('per-zid initial authority requires mapped login and existing parent',authority_scope)
+
+    def restart_refused(db, delete=False):
+        rollback_writer(db)
+        user='p027_m21_python_control'
+        assert sql(db,"SELECT pc_namespace_allowed('generated'),pc_writer_allowed('generated',990001);",user=user).stdout.strip()=='t|f'
+        if delete:sql(db,"DELETE FROM polis_coordinator_leases WHERE math_env='generated';",user=user)
+        before=sql(db,'TABLE polis_coordinator_leases;').stdout
+        r=sql(db,acquire_text(),False,user)
+        assert r.returncode and 'row-level security' in r.stderr,r.stdout+r.stderr
+        assert sql(db,'TABLE polis_coordinator_leases;').stdout==before
+        assert sql(db,acquire_text('legacy'),user='p027_m21_legacy_control').stdout.startswith('1\n')
+        sql(db,'INSERT INTO conversations(zid) VALUES(990002);')
+        assert sql(db,acquire_text(zid=990002),user=user).stdout.startswith('1\n')
+        assert sql(db,"SELECT math_env,enabled FROM polis_coordinator_writer_authority ORDER BY math_env;",user=user).stdout.strip()=='generated|f'
+    for absent in (False,True):
+        namespace_case(f'rollback refuses restarted acquire with absent lease={absent}; legacy and other zid remain enabled',lambda db,absent=absent:restart_refused(db,absent))
+
+    def revoked_mutations(db):
+        rollback_writer(db)
+        u='p027_m21_python_control'
+        for q in ("UPDATE polis_coordinator_leases SET expires_at=clock_timestamp()+interval '1 minute';",
+                  "UPDATE polis_coordinator_writer_authority SET enabled=true;",
+                  "DELETE FROM polis_coordinator_writer_authority;",
+                  "INSERT INTO polis_coordinator_writer_authority VALUES('generated',990002,true);"):
+            assert sql(db,q,False,u).returncode,q
+        r=sql(db,"SELECT pc_admit('generated',990001,'owner-a',1,'op-a',repeat('a',64),2097152);",False,u)
+        assert r.returncode and 'WRITER_AUTHORITY_REQUIRED' in r.stderr,r.stderr
+        r=call(db,ok=False)
+        assert r.returncode and 'WRITER_AUTHORITY_REQUIRED' in r.stderr,r.stderr
+        # Readback/reconciliation are retained, not treated as new writer work.
+        assert sql(db,"SELECT pc_reconcile('generated',990001,'op-a');",user=u).stdout.strip()=='unresolved'
+    namespace_case('revoked authority refuses renewal state tampering admission and new publication; reconciliation survives',revoked_mutations)
+
+    def historical_and_reenable(db):
+        arm(db); assert call(db).stdout.startswith('committed|0|');seed_legacy(db)
+        assert transition(db,source='generated',dest='legacy',ident='rollback').stdout.startswith('legacy_reticked|')
+        assert call(db).stdout.startswith('already_committed|0|')
+        assert transition(db,ident='reenable').stdout.startswith('publication_required|')
+        assert sql(db,"SELECT math_env,enabled FROM polis_coordinator_writer_authority ORDER BY math_env;").stdout.strip()=='generated|t\nlegacy|f'
+        assert transition(db,source='generated',dest='legacy',ident='rollback').stdout.startswith('already_committed|')
+        assert sql(db,"SELECT enabled FROM polis_coordinator_writer_authority WHERE math_env='generated';").stdout.strip()=='t'
+        assert sql(db,acquire_text(),user='p027_m21_python_control').stdout.startswith('2\n')
+        r=sql(db,acquire_text('legacy'),False,'p027_m21_legacy_control')
+        assert r.returncode and 'row-level security' in r.stderr
+    namespace_case('explicit return transition restores only destination; historical retries cannot undo current authority',historical_and_reenable)
+
+    def observer_boundary(db):
+        rollback_writer(db)
+        login='p027_m21_observer'
+        sql(db,f'CREATE ROLE {login} LOGIN IN ROLE polis_coordinator_observer;')
+        try:
+            tables=sql(db,"SELECT relname FROM pg_class WHERE relnamespace='public'::regnamespace AND relkind='r' AND starts_with(relname,'polis_coordinator_') ORDER BY relname;").stdout.splitlines()
+            for table in tables:
+                sql(db,f'SELECT count(*) FROM {table};',user=login)
+                for op in (f'DELETE FROM {table};',f'INSERT INTO {table} DEFAULT VALUES;'):
+                    r=sql(db,op,False,login)
+                    assert r.returncode and 'permission denied' in r.stderr,(table,r.stderr)
+            assert sql(db,"SELECT math_env,operation_id,state FROM polis_coordinator_operations;",user=login).stdout.strip()=='generated|op-a|pending'
+            assert sql(db,"SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND starts_with(proname,'pc_') AND has_function_privilege(current_user,oid,'EXECUTE');",user=login).stdout.strip()=='0'
+            for q in ("SELECT pc_namespace_allowed('generated');","SELECT pc_writer_allowed('generated',990001);","SELECT pc_admit('generated',990001,'owner-a',1,'op-a',repeat('a',64),2097152);","SELECT nextval('polis_coordinator_caching_tick');",'SET ROLE polis_coordinator_control;',"UPDATE math_main SET math_tick=0;"):
+                assert sql(db,q,False,login).returncode,q
+            assert sql(db,"SELECT count(*) FROM pg_class WHERE relnamespace='public'::regnamespace AND starts_with(relname,'polis_coordinator_') AND relkind='r' AND (has_table_privilege(current_user,oid,'INSERT') OR has_table_privilege(current_user,oid,'UPDATE') OR has_table_privilege(current_user,oid,'DELETE') OR has_table_privilege(current_user,oid,'TRUNCATE') OR has_table_privilege(current_user,oid,'TRIGGER'));",user=login).stdout.strip()=='0'
+        finally:sql(db,f'DROP ROLE {login};')
+    namespace_case('unmapped observer independently sees pending operations and both authorities with zero function or write privilege',observer_boundary)
+
+    def process(db,user):
+        return subprocess.Popen(['docker','exec','-i',CONTAINER,'psql','-X','-At','-v','ON_ERROR_STOP=1','-U',user,'-d',db],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+
+    def await_activity(db,app,condition):
+        for _ in range(150):
+            if sql(db,f"SELECT count(*) FROM pg_stat_activity WHERE datname='{db}' AND application_name='{app}' AND {condition};").stdout.strip()=='1':return
+            time.sleep(.02)
+        raise AssertionError(f'{app}: {condition} not observed')
+
+    def waiting_acquire(db, existing=False, commit=True):
+        arm(db); seed_legacy(db)
+        if not existing:sql(db,'DELETE FROM polis_coordinator_leases;')
+        sql(db,'INSERT INTO conversations(zid) VALUES(990002);')
+        t=process(db,'p027_m21_legacy_transition');a=None
+        try:
+            t.stdin.write("SET application_name='rev7-transition'; BEGIN; SELECT * FROM pc_transition('generated','legacy',990001,'rollback',100,repeat('e',64));\n");t.stdin.flush()
+            await_activity(db,'rev7-transition',"state='idle in transaction'")
+            # Distinct zid remains independently writable while transition is open.
+            assert sql(db,acquire_text(zid=990002),user='p027_m21_python_control').stdout.startswith('1\n')
+            a=process(db,'p027_m21_python_control')
+            a.stdin.write("SET application_name='rev7-acquire'; SET statement_timeout='20s'; "+acquire_text()+'\n');a.stdin.close();a.stdin=None
+            await_activity(db,'rev7-acquire',"wait_event_type='Lock'")
+            assert a.poll() is None
+            t.stdin.write(('COMMIT;' if commit else 'ROLLBACK;')+'\n');t.stdin.close();t.stdin=None
+            tout,terr=t.communicate(timeout=10);assert t.returncode==0,tout+terr
+            aout,aerr=a.communicate(timeout=15)
+            if commit:
+                assert a.returncode and 'row-level security' in aerr,aout+aerr
+                assert sql(db,"SELECT count(*) FROM polis_coordinator_leases WHERE zid=990001 AND owner_id='restarted-owner';").stdout.strip()=='0'
+            else:
+                assert a.returncode==0 and '1\n' in aout,aout+aerr
+            (WORK/f'rev7-waiting-{existing}-{commit}.json').write_text(json.dumps({'existing_lease':existing,'transition_committed':commit,'observed_lock_wait':True,'unrelated_zid_acquired':True,'acquire_refused':bool(a.returncode)},indent=2)+'\n')
+        finally:
+            if t.poll() is None:
+                if t.stdin:t.stdin.close();t.stdin=None
+                t.communicate(timeout=10)
+            if a is not None and a.poll() is None:a.communicate(timeout=25)
+    for existing,commit in ((False,True),(True,True),(False,False)):
+        namespace_case(f'waiting acquire sees committed authority after parent lock; existing={existing},commit={commit}',lambda db,existing=existing,commit=commit:waiting_acquire(db,existing,commit))
+
+    def held_admission(db):
+        arm(db);seed_legacy(db)
+        p=process(db,'p027_m21_python_control')
+        try:
+            p.stdin.write("SET application_name='rev7-admission'; BEGIN; SELECT pc_writer_allowed('generated',990001);\n");p.stdin.flush()
+            await_activity(db,'rev7-admission',"state='idle in transaction'")
+            r=transition(db,source='generated',dest='legacy',ident='rollback',ok=False)
+            assert r.returncode and 'lock timeout' in r.stderr,r.stderr
+            assert sql(db,'SELECT count(*) FROM polis_coordinator_writer_authority;').stdout.strip()=='0'
+        finally:
+            p.stdin.write('ROLLBACK;\n');p.stdin.close();p.stdin=None
+            out,err=p.communicate(timeout=10);assert p.returncode==0,out+err
+    namespace_case('writer admission holds parent serialization until transaction end and excludes transition',held_admission)
+
+    for isolation in ('REPEATABLE READ','SERIALIZABLE'):
+        def stale_snapshot(db,isolation=isolation):
+            rollback_writer(db)
+            r=sql(db,f"BEGIN ISOLATION LEVEL {isolation}; SELECT pc_writer_allowed('generated',990001);",False,'p027_m21_python_control')
+            assert r.returncode and 'WRITER_READ_COMMITTED_REQUIRED' in r.stderr,r.stderr
+            r=sql(db,f'BEGIN ISOLATION LEVEL {isolation}; '+acquire_text(),False,'p027_m21_python_control')
+            assert r.returncode and 'WRITER_READ_COMMITTED_REQUIRED' in r.stderr,r.stderr
+        namespace_case(f'{isolation} writer snapshots refuse instead of reusing stale authority',stale_snapshot)
+
+    def authority_mutation(db):
+        original=sql(db,"SELECT pg_get_functiondef('pc_transition(text,text,integer,text,bigint,text)'::regprocedure);").stdout
+        needle='VALUES(p_source,p_zid,false),(p_env,p_zid,true)'
+        assert original.count(needle)==1
+        sql(db,original.replace(needle,'VALUES(p_source,p_zid,true),(p_env,p_zid,true)'))
+        try:
+            rollback_writer(db)
+            # The same restart-refusal oracle fails when transition omits revocation.
+            assert sql(db,acquire_text(),user='p027_m21_python_control').stdout.startswith('2\n')
+        finally:sql(db,original)
+    namespace_case('negative control: missing transition revocation admits the forbidden restart',authority_mutation)
+
+    def acquisition_mutation(db):
+        rollback_writer(db)
+        sql(db,'ALTER POLICY pc_namespace ON polis_coordinator_leases WITH CHECK (public.pc_namespace_allowed(math_env));')
+        try:assert sql(db,acquire_text(),user='p027_m21_python_control').stdout.startswith('2\n')
+        finally:sql(db,'ALTER POLICY pc_namespace ON polis_coordinator_leases WITH CHECK (public.pc_writer_allowed(math_env,zid));')
+    namespace_case('negative control: namespace-only lease policy admits the forbidden restart',acquisition_mutation)
+
+    case('observer EXECUTE privilege drift refuses replay and both down modes',drift_case('GRANT EXECUTE ON FUNCTION pc_namespace_allowed(text) TO polis_coordinator_observer;'))
+    case('observer policy drift refuses replay and both down modes',drift_case('ALTER POLICY pc_observer ON polis_coordinator_operations USING (false);'))
+    case('writer predicate drift refuses replay and both down modes',drift_case("CREATE OR REPLACE FUNCTION pc_writer_allowed(p_env text,p_zid integer) RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$ BEGIN RETURN true; END $$;"))
+
+    def revoked_live_dispatch(db, mutant=False):
+        arm(db);seed_legacy(db)
+        lease=sql(db,"SELECT row_to_json(l) FROM polis_coordinator_leases l;").stdout.strip()
+        assert transition(db,source='generated',dest='legacy',ident='rollback').stdout.startswith('legacy_reticked|')
+        # An installer-only fault restores a live, exact admitted dispatch. The
+        # independent writer predicate must still stop its actual publication.
+        sql(db,"DELETE FROM polis_coordinator_leases; INSERT INTO polis_coordinator_leases SELECT * FROM json_populate_record(NULL::polis_coordinator_leases,'"+lease+"');")
+        definition=sql(db,"SELECT pg_get_functiondef('pc_publish(text,integer,text,bigint,text,bytea,bigint,jsonb,bytea,bytea,bytea)'::regprocedure);").stdout
+        needle=' PERFORM public.pc_assert_writer(p_env,p_zid);'
+        assert definition.count(needle)==1
+        if mutant:sql(db,definition.replace(needle,''))
+        try:
+            r=call(db,ok=False)
+            if mutant:
+                assert not r.returncode and r.stdout.startswith('committed|0|'),r.stdout+r.stderr
+            else:
+                assert r.returncode and 'WRITER_AUTHORITY_REQUIRED' in r.stderr,r.stdout+r.stderr
+                assert sql(db,"SELECT count(*) FROM math_main WHERE math_env='generated';").stdout.strip()=='0'
+        finally:
+            if mutant:sql(db,definition)
+    namespace_case('authority blocks actual publication even when an installer fault restores its live admitted dispatch',revoked_live_dispatch)
+    namespace_case('negative control: removing publication authority permits a restored live dispatch after rollback',lambda db:revoked_live_dispatch(db,True))
+
+    def revoked_admit_mutation(db):
+        arm(db);seed_legacy(db)
+        lease=sql(db,"SELECT row_to_json(l) FROM polis_coordinator_leases l;").stdout.strip()
+        assert transition(db,source='generated',dest='legacy',ident='rollback').stdout.startswith('legacy_reticked|')
+        sql(db,"DELETE FROM polis_coordinator_leases; INSERT INTO polis_coordinator_leases SELECT * FROM json_populate_record(NULL::polis_coordinator_leases,'"+lease+"'); DELETE FROM polis_coordinator_operations;")
+        q="SELECT pc_admit('generated',990001,'owner-a',1,'op-a',repeat('a',64),2097152);"
+        user='p027_m21_python_control'
+        r=sql(db,q,False,user)
+        assert r.returncode and 'WRITER_AUTHORITY_REQUIRED' in r.stderr
+        definition=sql(db,"SELECT pg_get_functiondef('pc_admit(text,integer,text,bigint,text,text,bigint)'::regprocedure);").stdout
+        needle=' PERFORM public.pc_assert_writer(p_env,p_zid);'
+        assert definition.count(needle)==1
+        sql(db,definition.replace(needle,''))
+        try:assert sql(db,q,user=user).stdout.strip()=='admitted'
+        finally:sql(db,definition)
+    namespace_case('negative control: removing admission authority permits a restored dispatch to reserve new work',revoked_admit_mutation)
+
+    def observer_adoption(db):
+        sql(db,"CREATE ROLE polis_coordinator_observer NOLOGIN; ALTER ROLE polis_coordinator_observer SET statement_timeout='3s'; GRANT USAGE ON SCHEMA public TO polis_coordinator_observer WITH GRANT OPTION;")
+        before,roles=dump(db),role_state()
+        apply(db);apply(db);down(db)
+        assert dump(db)==before and role_state()==roles
+        assert down(db,ok=False).returncode
+    case('adopted observer grant option and settings survive apply replay and down exactly',observer_adoption)
+
+    def unsafe_observer(db):
+        sql(db,'CREATE ROLE polis_coordinator_observer LOGIN;')
+        before,roles=dump(db),role_state()
+        r=apply(db,ok=False)
+        assert r.returncode and 'unsafe coordinator role attributes' in r.stderr
+        assert dump(db)==before and role_state()==roles
+    case('unsafe preexisting observer refuses atomically',unsafe_observer)
+
+    def observer_membership(db):
+        apply(db);sql(db,'GRANT polis_coordinator_observer TO postgres;')
+        refuses_both(db,'refusing to drop role')
+    case('created observer with later membership refuses both down modes',observer_membership)
 
     summary = {"schema": "polis-coordinator-migration-test/1", "passed": len(RESULTS) - len(FAILURES), "failed": len(FAILURES), "failures": FAILURES,
                "skipped": 0, "cases": RESULTS, "migration_count_before_000021": len(migrations),
