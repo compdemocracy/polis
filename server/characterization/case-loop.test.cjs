@@ -3,7 +3,13 @@ const test = require("node:test"),
   assert = require("node:assert/strict");
 const { executeCases } = require("./case-loop.cjs"),
   { retryRead } = require("./read-retry.cjs");
-const { ScanCommand } = require("@aws-sdk/client-dynamodb");
+const path = require("node:path"),
+  { createRequire } = require("node:module");
+// Dispatch tools run from control; npm ci installs only target/server.
+const repo =
+  process.env.P027_ACCOUNTING_REPO || path.resolve(__dirname, "../..");
+const targetRequire = createRequire(path.resolve(repo, "server/package.json"));
+const { ScanCommand } = targetRequire("@aws-sdk/client-dynamodb");
 for (const exhausted of [false, true])
   test(
     "post-request DNS " +

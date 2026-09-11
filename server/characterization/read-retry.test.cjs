@@ -2,11 +2,15 @@
 const test = require("node:test"),
   assert = require("node:assert/strict");
 const { retryRead } = require("./read-retry.cjs");
-const {
-  ScanCommand,
-  ListTablesCommand,
-  PutItemCommand,
-} = require("@aws-sdk/client-dynamodb");
+const path = require("node:path"),
+  { createRequire } = require("node:module");
+// Dispatch tools run from control; npm ci installs only target/server.
+const repo =
+  process.env.P027_ACCOUNTING_REPO || path.resolve(__dirname, "../..");
+const targetRequire = createRequire(path.resolve(repo, "server/package.json"));
+const { ScanCommand, ListTablesCommand, PutItemCommand } = targetRequire(
+  "@aws-sdk/client-dynamodb"
+);
 for (const Command of [ScanCommand, ListTablesCommand]) {
   test(
     Command.name + " repeats only the same failed read after completed request",
