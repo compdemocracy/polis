@@ -21,14 +21,8 @@ def runtime(system, machine):
 
 
 def fixture_registry(tmp_path):
-    # Unit-only Linux pin to exercise the unchanged exact comparators. These
-    # retired bytes are NOT promoted by the production registry or campaign.
-    registry=json.loads((CI/'replay-pins.json').read_text())
-    fake=copy.deepcopy(registry['retired_pins'][0]);fake['forced_kernel']='Haswell'
-    fake.pop('retirement');fake['id']='unit-only-linux-forced-fixture'
-    registry['pins'].append(fake)
-    path=tmp_path/'unit-only-pins.json';path.write_text(json.dumps(registry))
-    return path
+    # Exercise the actual admitted registry, including the forced Linux witnesses.
+    return CI / 'replay-pins.json'
 
 
 def fixture(tmp_path, system, machine):
@@ -222,14 +216,31 @@ def test_forced_kernel_refuses_unhonoured_observation(mutation):
     with pytest.raises(ValueError,match='REPLAY_KERNEL_NOT_HONOURED'):validate_kernel(r)
 
 
-def test_shipped_registry_does_not_relabel_unforced_linux_as_forced():
+def test_shipped_forced_linux_pin_has_two_attributed_kernel_witnesses():
     r=runtime('Linux','x86_64')
     validate_kernel(r)
-    with pytest.raises(ValueError,match='REPLAY_PLATFORM_UNADMITTED.*forced_kernel=Haswell'):
-        select_pin(r,CI/'replay-pins.json')
+    selected=select_pin(r,CI/'replay-pins.json')
+    pin=selected['pin']
+    assert pin['id']=='linux-x86_64-haswell-v1'
+    provenance=pin['attribution']
+    assert provenance['source_head']=='7db636a7d5924bfa2fe1b369241319ead9782fba'
+    assert provenance['github_run_id']=='34558935924'
+    witness=provenance['corroboration']
+    assert witness['source_head']=='d0f5dae8b4b57670616298d6f445446a4a842be7'
+    assert witness['github_run_id']=='34560601079'
+    for run in (provenance,witness):
+        validate_kernel(run['runtime'])
+        assert run['requested_kernel']=='Haswell'
+        assert run['run_attempt']=='1'
+        assert len(run['receipt_sha256'])==len(run['replay_sha256'])==64
+        assert set(run['witness_sha256'])==set(pin['witnesses'])
+    assert witness['six_witnesses_byte_identical']
+    assert witness['replay_checkpoints_identical']
+    assert len(provenance['dependency_review_sha256'])==64
     reg=json.loads((CI/'replay-pins.json').read_text())
     assert reg['retired_pins'][0]['forced_kernel']=='not-forced'
-    assert all(p['system']!='Linux' for p in reg['pins'])
+    assert reg['retired_pins'][0]['attribution']['github_run_id'] not in {
+        provenance['github_run_id'],witness['github_run_id']}
 
 
 def test_kernel_is_part_of_registry_key_and_receipt(tmp_path):

@@ -2445,7 +2445,7 @@
     ],
     [
       "coordinator-rs.ci.tests.test_replay_pins",
-      "test_shipped_registry_does_not_relabel_unforced_linux_as_forced"
+      "test_shipped_forced_linux_pin_has_two_attributed_kernel_witnesses"
     ]
   ],
   "reference_assets": {
