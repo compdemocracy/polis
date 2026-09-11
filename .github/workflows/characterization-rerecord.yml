@@ -67,6 +67,11 @@ jobs:
           shellcheck ci/p027_rerecord.sh ci/p027_rerecord_build.sh
           yamllint -d '{extends: default, rules: {line-length: disable, truthy: disable, document-start: disable}}' .github/workflows/characterization-rerecord.yml
           node --test server/characterization/rerecord-accounting.test.cjs server/characterization/read-retry.test.cjs server/characterization/math-kernel.test.cjs server/characterization/case-loop.test.cjs
+      - name: Verify dispatch checkout dependency isolation
+        working-directory: control
+        env:
+          P027_ACCOUNTING_REPO: ${{ github.workspace }}/target
+        run: node --test ci/p027_dispatch_tools.test.cjs
       - name: Record, account, fresh replay, controls and repack
         working-directory: target
         run: bash ../control/ci/p027_rerecord.sh
