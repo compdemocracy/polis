@@ -140,6 +140,7 @@ test("not-ready and duplicate census rejected", () => {
 });
 function good() {
   return {
+    kernels: { status: "MATCH" },
     cases: caseDelta([c("one")], [c("one")], diff),
     census: censusDelta(census([route()]), census([route("new")]), attribution),
     requestArtifactChanges: [],
@@ -150,6 +151,24 @@ function good() {
 test("eligible only for unchanged cases with attributed fingerprints", () =>
   assert.equal(eligible(good()), true));
 for (const [label, mutate] of [
+  [
+    "missing kernel",
+    (r) => {
+      delete r.kernels;
+    },
+  ],
+  [
+    "different kernel",
+    (r) => {
+      r.kernels.status = "MISMATCH";
+    },
+  ],
+  [
+    "unknown kernel",
+    (r) => {
+      r.kernels.status = "UNKNOWN_OR_INVALID";
+    },
+  ],
   ["changed cases", (r) => r.cases.changed.push({ caseId: "one" })],
   ["missing cases", (r) => r.cases.removed.push("one")],
   ["request artifacts", (r) => r.requestArtifactChanges.push("one")],

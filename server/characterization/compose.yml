@@ -53,6 +53,9 @@ services:
         "certs:/certs:ro",
       ]
     environment: &server-environment
+      OPENBLAS_CORETYPE: "${OPENBLAS_CORETYPE:-}"
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
       P027_OBSERVE: "1"
       P027_NETWORK_INTERNAL: "1"
       P027_NEGATIVE_CONTROLS: "${P027_NEGATIVE_CONTROLS:-0}"
@@ -132,6 +135,7 @@ services:
       P027_CONTROL_PORT: ${P027_CONTROL_PORT}
       P027_PORT_MIN: ${P027_PORT_MIN:-55930}
       P027_PORT_MAX: ${P027_PORT_MAX:-55939}
+      OPENBLAS_CORETYPE: "${OPENBLAS_CORETYPE:-}"
       PYTHONDONTWRITEBYTECODE: "1"
       OPENBLAS_NUM_THREADS: "1"
       OMP_NUM_THREADS: "1"
