@@ -1,4 +1,4 @@
-# CPython 3.12 Linux aarch64 wheels; pins from the existing probe runtime/layer.
+# CPython 3.12 Linux aarch64 wheels; pins from the existing probe dependencies.
 boto3==1.43.89 --hash=sha256:fe4190afe63eb562b6ba6a3911cf4427473b35fa047adde093bf696d3ae09fc0
 botocore==1.43.89 --hash=sha256:d7211220c815427fe71225acc6909e4ab5dfab3b03770e72fd16cf9eb86b3d1a
 jmespath==1.1.0 --hash=sha256:a5663118de4908c91729bea0acadca56526eb2698e83de10cd116ae0f4e97c64

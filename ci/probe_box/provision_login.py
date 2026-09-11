@@ -1,8 +1,5 @@
-"""Reviewable primary-side login creation; never run from a probe instance.
-
-The CloudFormation provider retains the owned login on Delete. A foreign role
-with the same name is refused, never adopted or modified. Secrets remain in
-Secrets Manager; exceptions are reduced to one fixed failure before returning.
+"""Transactional reader-login operation for the disposable in-VPC CLI.
+No automatic database mutation during native stack deployment.
 """
 from __future__ import annotations
 import json
@@ -42,21 +39,28 @@ def provision(connection: object, password: str, database: str, owner: str) -> N
                 if cur.fetchone()[0]: raise ValueError('READER_DML_AUTHORITY')
 
 
-def handler(event: dict, context: object) -> dict:
-    physical=event.get('PhysicalResourceId','polis-probe-reader')
-    if event['RequestType']=='Delete': return {'PhysicalResourceId':physical}
-    try:
-        import boto3
+
+def execute(boot, client, connect=None):
+    """Read only the two admitted secret versions; keep credentials in memory."""
+    if connect is None:
         import psycopg2
-        p=event['ResourceProperties']
-        client=boto3.client('secretsmanager',endpoint_url=p['SecretsUrl'])
-        admin=json.loads(client.get_secret_value(SecretId=p['AdminSecretArn'])['SecretString'])
-        reader=json.loads(client.get_secret_value(SecretId=p['ReaderSecretArn'])['SecretString'])
-        if set(reader)!={'username','password'} or reader['username']!=ROLE: raise ValueError('READER_SECRET')
-        conn=psycopg2.connect(host=p['PrimaryHost'],port=5432,dbname=p['Database'],user=admin['username'],password=admin['password'],
-                             connect_timeout=10,sslmode='verify-full',sslrootcert='/opt/rds-ca.pem')
-        try: provision(conn,reader['password'],p['Database'],'polis-probe-login:'+event['StackId'])
-        finally: conn.close()
-        return {'PhysicalResourceId':physical}
-    except Exception:
-        raise RuntimeError('READER_PROVISION_FAILED') from None
+        connect = psycopg2.connect
+    versions = boot['provision']
+    def secret(arn, version):
+        response=client.get_secret_value(SecretId=arn, VersionId=version)
+        if response.get('VersionId') != version: raise ValueError('SECRET_VERSION')
+        value=json.loads(response['SecretString'])
+        if not isinstance(value,dict) or any(type(value.get(k)) is not str or not value[k] for k in ('username','password')):
+            raise ValueError('SECRET_SCHEMA')
+        return value
+    admin = secret(boot['adminSecretArn'], versions['adminVersion'])
+    reader = secret(boot['secretArn'], versions['readerVersion'])
+    if set(reader) != {'username','password'} or reader['username'] != ROLE:
+        raise ValueError('READER_SECRET')
+    connection = connect(host=boot['replicaHost'], port=5432, dbname=boot['database'],
+        user=admin['username'], password=admin['password'], connect_timeout=10,
+        sslmode='verify-full', sslrootcert='/opt/polis-probe/rds-ca.pem')
+    try:
+        provision(connection, reader['password'], boot['database'], boot['owner'])
+    finally:
+        connection.close()

@@ -1,6 +1,8 @@
 """Baked supervisor. Only a validated verifier receipt may leave this machine."""
 from __future__ import annotations
 import hashlib
+import datetime as dt
+import math
 import json
 import os
 import re
@@ -109,6 +111,17 @@ def owned_dir(path: Path) -> Path:
     return path
 
 
+def absolute_deadline(boot: dict, seconds: int) -> float:
+    started=boot['started']
+    if type(started) not in (int,float) or not math.isfinite(started) or started != boot['admission']['started']:
+        raise ValueError('DEADLINE_BINDING')
+    deadline=started+seconds
+    expiry=dt.datetime.fromisoformat(boot['admission']['expiresAt'].replace('Z','+00:00'))
+    if expiry.tzinfo is None or boot.get('terminateBy') != deadline or expiry.timestamp() != deadline:
+        raise ValueError('DEADLINE_BINDING')
+    return deadline
+
+
 def run() -> None:
     import boto3
     from botocore.config import Config
@@ -121,7 +134,7 @@ def run() -> None:
     boot = None
     for _ in range(48):
         try:
-            raw=s3.get_object(Bucket=boot_config['controlBucket'],Key=f'boot/{arn}.json')['Body'].read(65537)
+            raw=s3.get_object(Bucket=boot_config['controlBucket'],Key=f'boot/worker/{arn}.json')['Body'].read(65537)
             if len(raw)>65536: raise ValueError('BOOT_LIMIT')
             boot=json.loads(raw); break
         except Exception:
@@ -129,8 +142,10 @@ def run() -> None:
     if not boot or boot['instanceId']!=identity['instanceId'] or boot['admissionSha256']!=sha(boot['admission']) or boot['admission']['ami']!=identity['imageId']:
         raise ValueError('BOOT_BINDING')
     job=validate_job(boot['admission']['job'])
-    deadline=boot['started']+job['max_seconds']
+    deadline=absolute_deadline(boot,job['max_seconds'])
     if time.time()>=deadline or not SCRATCH.is_mount(): raise ValueError('EXPIRED_OR_NO_PRIVATE_DISK')
+    subprocess.run(['shutdown','-h','+'+str(max(1,int((deadline-time.time())//60)))],check=True,
+                   stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     stop=threading.Event()
     def heartbeat() -> None:
         while not stop.is_set():
