@@ -1,7 +1,9 @@
 """Baked supervisor. Only a validated verifier receipt may leave this machine."""
 from __future__ import annotations
+import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -17,10 +19,47 @@ ROOT = Path('/opt/polis-probe')
 SCRATCH = Path('/probe-work')
 
 
-def podman() -> list[str]:
-    # Images, writable layers and runtime state all use the disposable disk.
-    return ['podman','--root',str(SCRATCH/'container-store'),
-            '--runroot',str(SCRATCH/'container-run')]
+def docker() -> list[str]:
+    # Never use the system daemon or an environment-selected remote endpoint.
+    return ['docker', '--host', 'unix://'+str(SCRATCH/'docker.sock')]
+
+
+def load_image(archive: Path, image: str) -> str:
+    """Bind the admitted OCI manifest to the immutable Docker config/image ID.
+
+    Docker's archive transport does not retain registry manifest digests. Verify
+    the source bytes before conversion, then require its config digest as the
+    loaded image ID. Skopeo verifies layer digests during copy; Docker verifies
+    uncompressed layers against config.rootfs.diff_ids during import.
+    """
+    digest = image.split('@sha256:')[1]
+    source = 'oci-archive:'+str(archive)
+    env = {**os.environ, 'TMPDIR': str(SCRATCH/'tmp')}
+    raw = subprocess.check_output(['skopeo','inspect','--raw',source],
+                                  stderr=subprocess.DEVNULL, env=env)
+    if hashlib.sha256(raw).hexdigest() != digest:
+        raise ValueError('IMAGE_DIGEST')
+    manifest = json.loads(raw)
+    if (manifest.get('schemaVersion') != 2 or manifest.get('mediaType') not in (
+            'application/vnd.oci.image.manifest.v1+json',
+            'application/vnd.docker.distribution.manifest.v2+json')):
+        raise ValueError('IMAGE_MANIFEST')
+    config = manifest.get('config', {}).get('digest', '')
+    if not re.fullmatch(r'sha256:[0-9a-f]{64}', config):
+        raise ValueError('IMAGE_CONFIG')
+    # The temporary destination tag is never executable authority. The admitted
+    # job remains unchanged; only this supervisor holds the digest -> ID mapping.
+    subprocess.run(['skopeo','--policy',str(ROOT/'image-policy.json'),'copy',
+                    '--dest-daemon-host',docker()[2],source,
+                    'docker-daemon:polis-probe-import:'+digest],
+                   stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,
+                   env=env,check=True)
+    info = json.loads(subprocess.check_output(
+        docker()+['image','inspect',config],stderr=subprocess.DEVNULL))[0]
+    if (info.get('Id') != config or info.get('Architecture') != 'arm64'
+            or info.get('Os') != 'linux'):
+        raise ValueError('IMAGE_CONFIG')
+    return config
 
 
 def metadata(path: str) -> bytes:
@@ -37,26 +76,31 @@ def metadata(path: str) -> bytes:
     return raw
 
 
-def sandbox(command: dict, label: str, mounts: list[tuple[Path,str,str]], deadline: float) -> None:
-    argv = podman()+['run','--name','polis-probe-'+label,'--pull=never','--network=none',
+def sandbox(command: dict, label: str, mounts: list[tuple[Path,str,str]], deadline: float, image_id: str) -> None:
+    if not re.fullmatch(r'sha256:[0-9a-f]{64}', image_id):
+        raise ValueError('IMAGE_CONFIG')
+    argv = docker()+['run','--name','polis-probe-'+label,'--pull=never','--network=none',
             '--read-only','--cap-drop=ALL','--security-opt=no-new-privileges','--user=65534:65534',
             '--pids-limit=4096','--memory=112g','--memory-swap=112g','--cpus=14','--ulimit=core=0:0',
             '--tmpfs=/tmp:rw,nosuid,nodev,noexec,size=4g',
             '--env=OPENBLAS_NUM_THREADS=1','--env=OMP_NUM_THREADS=1','--env=MKL_NUM_THREADS=1',
             '--env=PGSERVICEFILE=/replica/service.conf']
     for source,target,mode in mounts:
-        argv += ['--volume', f'{source}:{target}:{mode},nosuid,nodev']
-    argv += [command['image'], *command['args']]
+        # The source filesystem is mounted nodev,nosuid,noexec by start.sh.
+        # Docker bind options do not accept Podman's nosuid/nodev suffixes.
+        argv += ['--mount', f'type=bind,src={source},dst={target},bind-propagation=rprivate'+
+                 (',readonly' if mode == 'ro' else '')]
+    argv += [image_id, *command['args']]
     try:
         with (SCRATCH/(label+'.log')).open('wb') as log:
             result = subprocess.run(argv, stdout=log, stderr=subprocess.STDOUT,
                                     timeout=max(1,deadline-time.time()), check=False)
-        inspected = subprocess.check_output(podman()+['inspect','polis-probe-'+label],stderr=subprocess.DEVNULL)
+        inspected = subprocess.check_output(docker()+['inspect','polis-probe-'+label],stderr=subprocess.DEVNULL)
         state = json.loads(inspected)[0]['State']
         if result.returncode or state.get('OOMKilled') or state.get('ExitCode') != 0:
             raise ValueError('PROBE_EXECUTION_FAILED')
     finally:
-        subprocess.run(podman()+['rm','--force','polis-probe-'+label],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True)
+        subprocess.run(docker()+['rm','--force','polis-probe-'+label],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True)
 
 
 def owned_dir(path: Path) -> Path:
@@ -98,6 +142,7 @@ def run() -> None:
     threading.Thread(target=heartbeat,daemon=True).start()
     try:
         commands=[job[k] for k in ('reader','producer','verifier') if k in job]
+        loaded_images = {}
         for image in sorted({c['image'] for c in commands}):
             digest=image.split('@sha256:')[1]
             archive=SCRATCH/(digest+'.oci.tar')
@@ -111,11 +156,8 @@ def run() -> None:
                     if not block: raise ValueError('IMAGE_TRUNCATED')
                     out.write(block); remaining-=len(block)
                 if response['Body'].read(1): raise ValueError('IMAGE_SIZE')
-            subprocess.run(podman()+['load','--input',str(archive)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True)
+            loaded_images[image] = load_image(archive, image)
             archive.unlink()
-            image_info=json.loads(subprocess.check_output(podman()+['image','inspect',image],stderr=subprocess.DEVNULL))[0]
-            if image_info.get('Digest')!='sha256:'+digest or image_info.get('Architecture')!='arm64' or image_info.get('Os')!='linux':
-                raise ValueError('IMAGE_DIGEST')
         data=owned_dir(SCRATCH/'reader'); output=owned_dir(SCRATCH/'output'); verdict=owned_dir(SCRATCH/'verdict')
         specification=SCRATCH/'job'; specification.mkdir(mode=0o755)
         specification.chmod(0o755)
@@ -133,7 +175,7 @@ def run() -> None:
             (sock/'pgpass').write_text(':'.join(escape(v) for v in ['/replica','5432',boot['database'],secret['username'],secret['password']])+'\n')
             (sock/'pgpass').chmod(0o600);os.chown(sock/'pgpass',65534,65534)
             with ReplicaSocket(sock,boot['replicaHost'],ROOT/'rds-ca.pem'):
-                sandbox(job['reader'],'reader',[(sock,'/replica','ro'),(data,'/output','rw')],deadline-180)
+                sandbox(job['reader'],'reader',[(sock,'/replica','ro'),(data,'/output','rw')],deadline-180,loaded_images[job['reader']['image']])
             (sock/'service.conf').unlink();(sock/'pgpass').unlink()
             del secret,service
         fixture=data/'.local/fixture'
@@ -145,8 +187,8 @@ def run() -> None:
         verifier_mounts=[(data,'/input','ro'),(output,'/evidence','ro'),(run_spec,'/run-spec','ro'),(specification,'/job','ro'),(verdict,'/verdict','rw')]
         if fixture.is_dir():
             producer_mounts.append((fixture,'/fixture','ro'));verifier_mounts.append((fixture,'/fixture','ro'))
-        sandbox(job['producer'],'producer',producer_mounts,deadline-120)
-        sandbox(job['verifier'],'verifier',verifier_mounts,deadline-30)
+        sandbox(job['producer'],'producer',producer_mounts,deadline-120,loaded_images[job['producer']['image']])
+        sandbox(job['verifier'],'verifier',verifier_mounts,deadline-30,loaded_images[job['verifier']['image']])
         result=verdict/'receipt.json'
         if result.is_symlink() or not result.is_file() or result.stat().st_size>131072: raise ValueError('RECEIPT_FILE')
         receipt=validate_receipt(json.loads(result.read_bytes()),job)

@@ -102,8 +102,8 @@ class BoundaryTests(unittest.TestCase):
                 self.assertEqual(len(raw.splitlines()),2)
 
     def test_container_runtime_state_is_on_disposable_disk(self):
-        p=worker.podman()
-        self.assertEqual(p,['podman','--root','/probe-work/container-store','--runroot','/probe-work/container-run'])
+        p=worker.docker()
+        self.assertEqual(p,['docker','--host','unix:///probe-work/docker.sock'])
 
     def test_dns_refuses_unknown_shapes_and_encoded_payload(self):
         header=b'\x00\x01\x01\x00\x00\x01'+b'\x00'*6
