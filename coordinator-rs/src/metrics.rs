@@ -16,14 +16,18 @@
 //! in this crate publishes a metric itself.
 //!
 //! Emission is best effort and never fails an operation: a coordinator that
-//! cannot write a metric line still must not lose a vote. Failures are logged
-//! once per record and counted.
+//! cannot write a metric line still must not lose a vote. Failures are counted without copying error text to the output.
 use crate::config::Config;
 use anyhow::Result;
 use serde_json::{Value, json};
 use std::{
     fs::OpenOptions,
     io::Write,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+        mpsc::{self, SyncSender},
+    },
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -189,6 +193,9 @@ pub trait Sink: Send {
     fn write(&mut self, record: &Value) -> Result<()>;
     /// Human name for logs and evidence.
     fn describe(&self) -> String;
+    fn dropped(&self) -> u64 {
+        0
+    }
 }
 
 /// Discards everything. Used by `--metrics off` and by unit tests.
@@ -241,7 +248,7 @@ impl Sink for JsonLinesSink {
         match &self.target {
             Target::Stderr => std::io::stderr().write_all(&line)?,
             Target::Stdout => std::io::stdout().write_all(&line)?,
-            // Appended whole, so a concurrent reader never sees half a record.
+            // Readers must accept only complete newline-terminated records.
             Target::File(path) => OpenOptions::new()
                 .create(true)
                 .append(true)
@@ -252,6 +259,65 @@ impl Sink for JsonLinesSink {
     }
     fn describe(&self) -> String {
         self.name.clone()
+    }
+}
+
+/// Fixed-memory transport. A blocked device owns only its worker thread; the
+/// producer never waits for capacity or for I/O. Shutdown drains for at most
+/// 100 ms, then detaches. Queue loss and device failures are monotonic.
+pub struct BoundedSink {
+    sender: SyncSender<Value>,
+    lost: Arc<AtomicU64>,
+    pending: Arc<AtomicU64>,
+}
+impl BoundedSink {
+    pub fn new(mut sink: Box<dyn Sink>, capacity: usize) -> Self {
+        let (sender, receiver) = mpsc::sync_channel::<Value>(capacity.clamp(1, 128));
+        let lost = Arc::new(AtomicU64::new(0));
+        let pending = Arc::new(AtomicU64::new(0));
+        let errors = lost.clone();
+        let queued = pending.clone();
+        std::thread::spawn(move || {
+            for record in receiver {
+                if sink.write(&record).is_err() {
+                    errors.fetch_add(1, Ordering::Relaxed);
+                }
+                queued.fetch_sub(1, Ordering::Release);
+            }
+        });
+        Self {
+            sender,
+            lost,
+            pending,
+        }
+    }
+}
+impl Sink for BoundedSink {
+    fn write(&mut self, record: &Value) -> Result<()> {
+        anyhow::ensure!(
+            serde_json::to_vec(record)?.len() <= 16384,
+            "METRIC_RECORD_LIMIT"
+        );
+        self.pending.fetch_add(1, Ordering::Relaxed);
+        if self.sender.try_send(record.clone()).is_err() {
+            self.pending.fetch_sub(1, Ordering::Release);
+            self.lost.fetch_add(1, Ordering::Relaxed);
+        }
+        Ok(())
+    }
+    fn describe(&self) -> String {
+        "bounded-jsonlines".into()
+    }
+    fn dropped(&self) -> u64 {
+        self.lost.load(Ordering::Acquire)
+    }
+}
+impl Drop for BoundedSink {
+    fn drop(&mut self) {
+        let deadline = std::time::Instant::now() + Duration::from_millis(100);
+        while self.pending.load(Ordering::Acquire) != 0 && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+        }
     }
 }
 
@@ -275,9 +341,7 @@ impl Metrics {
     /// a filesystem path. `P026_ENVIRONMENT` is P-031's `Environment` dimension
     /// and defaults to `public-fixture`, never to `prod`.
     ///
-    /// `off` is the default on purpose: writing records into a pipe that no
-    /// reader is draining blocks the writer once the pipe buffer fills, and a
-    /// coordinator must not stall because of its own telemetry.
+    /// Runtime sinks use a bounded queue and an independent I/O thread.
     pub fn from_env(config: &Config) -> Self {
         let sink: Box<dyn Sink> = match config.metrics_sink.as_str() {
             "off" => Box::new(NullSink),
@@ -285,17 +349,19 @@ impl Metrics {
             "stderr" => Box::new(JsonLinesSink::stderr()),
             path => Box::new(JsonLinesSink::file(path)),
         };
-        Self::new(sink, &config.environment, &config.math_env)
+        Self::new(
+            Box::new(BoundedSink::new(sink, 128)),
+            &config.environment,
+            &config.math_env,
+        )
     }
     pub fn describe(&self) -> String {
         self.sink.describe()
     }
     pub fn dropped(&self) -> u64 {
-        self.dropped
+        self.dropped + self.sink.dropped()
     }
-    /// Emit one record. `context` is diagnostic only: it is a log property, not
-    /// a CloudWatch dimension, so it can carry a zid without creating the
-    /// per-conversation dimension P-031 forbids.
+    /// Emit one closed record. Only enumerated outcome codes survive context filtering.
     pub fn emit(&mut self, operation: &str, data: &[Datum], context: Value) {
         if data.is_empty() {
             return;
@@ -317,16 +383,45 @@ impl Metrics {
             "Environment": self.environment,
             "MathEnv": self.math_env,
             "operation": operation,
-            "context": context,
+            "context": closed_context(context),
         });
         for d in data {
             record[d.name] = json!(d.value);
         }
-        if let Err(error) = self.sink.write(&record) {
+        if self.sink.write(&record).is_err() {
             self.dropped += 1;
-            tracing::warn!(error=%error, dropped = self.dropped, "metric record not written");
         }
     }
+}
+
+fn closed_context(context: Value) -> Value {
+    let mut out = json!({});
+    if let Some(value) = context.get("incremental").and_then(Value::as_bool) {
+        out["incremental"] = json!(value);
+    }
+    if let Some(code) = context.get("outcome").and_then(Value::as_str)
+        && [
+            "published",
+            "unchanged",
+            "failed",
+            "committed",
+            "resolved-own",
+            "unresolved-lost",
+            "uncertain",
+            "LEASE-UNAVAILABLE",
+            "LEASE-EXPIRED",
+            "FENCED",
+        ]
+        .contains(&code)
+    {
+        out["outcome"] = json!(code);
+    }
+    if let Some(code) = context.get("readback").and_then(Value::as_str)
+        && ["own", "identity-not-observed", "readback-failed"].contains(&code)
+    {
+        out["readback"] = json!(code);
+    }
+    out
 }
 
 /// The declared catalog as JSON, for `polis-coordinator metrics` and for the
@@ -346,11 +441,9 @@ pub fn catalog_json() -> Value {
         },
         "p031_status": {
             "coverage_claimed": [],
-            "not_implemented": ["A01 PollHealthy", "A02 PublishLagSeconds", "A03 ObserverHealthy"],
-            "note": "These are local diagnostics with no deployed publisher and no delivery proof. \
-A01 needs both poll loops to have succeeded, A02 needs initiated-but-unpublished work, and A03 needs \
-an independent observer; none of the series below is any of those. Scope: every gauge is scoped to \
-this shard and allowlist."
+            "local_observer": "tools/d06/observer.py: A01 full-source-sweep liveness, A02 admitted-work lag, A03 complete metadata/current-pointer observation health",
+            "not_deployed": ["A01 PollHealthy", "A02 PublishLagSeconds", "A03 ObserverHealthy"],
+            "note": "Local observer and bounded transport have separate tests. Actual alarm/destination delivery is operator-owned. Current-pointer checks include the four math tables; missed source input and payload correctness remain outside observation."
         },
         "metrics": CATALOG.iter().map(|d| json!({
             "name": d.name,

@@ -313,10 +313,11 @@ def test_inventory_preserves_the_reviewed_baseline_without_replacement():
 def test_bridge_inventory_preserves_every_baseline_identity():
     extended=json.loads((CI/"inventory-v2.json").read_text())
     assert set(INV["python_nodeids"]) < set(extended["python_nodeids"])
-    assert len(extended["python_nodeids"])==236
+    assert len(extended["python_nodeids"])==289
     assert len(extended["python_nodeids"])==len(set(extended["python_nodeids"]))
-    assert len(extended["python_junit"])==236
-    assert extended["rust_tests"]==INV["rust_tests"]
+    assert len(extended["python_junit"])==289
+    assert set(INV["rust_tests"]) < set(extended["rust_tests"])
+    assert len(extended["rust_tests"])==34
     assert extended["jest_cases"]==INV["jest_cases"]
     assert extended["stages"]==INV["stages"]
 
@@ -336,8 +337,10 @@ def test_bridge_inventory_requires_twenty_each_schedule():
     rev7={n for n in added if "/test_writer_authority.py::" in n}
     assert len(rev7)==13
     assert sorted(rev7)==extended["extensions"][3]["added_nodeids"]
-    bridge=added-rev4-hosted-rev7
-    assert len(bridge)==55
+    d06={n for n in added if "/test_observer.py::" in n}
+    assert len(d06)==53
+    assert sorted(d06)==extended["extensions"][4]["added_nodeids"]
+    bridge=added-rev4-hosted-rev7-d06
     assert sorted(bridge)==extended["extensions"][0]["added_nodeids"]
 
 

@@ -276,6 +276,9 @@ impl PgStore {
         let started = Instant::now();
         self.tally = Tally::default();
         let result = self.cycle_pass();
+        if result.is_err() {
+            let _ = self.poll_completed(0.0, false);
+        }
         let mut data = self.tally.data(started.elapsed(), result.is_ok());
         // Bounded aggregate, at most once per gauge interval: CO01 scan age and
         // backlog, CO06 oldest unrepaired age. Metadata only, no payload column.
@@ -317,14 +320,25 @@ impl PgStore {
             "source-{}-{}",
             self.config.shard_index, self.config.shard_count
         );
-        let mut cursor = self
+        let position = self
             .client
             .query_opt(
                 "SELECT position FROM polis_coordinator_cursors WHERE math_env=$1 AND consumer=$2",
                 &[&self.config.math_env, &name],
             )?
-            .and_then(|r| r.get::<_, Value>(0)["zid"].as_i64())
-            .unwrap_or(0) as i32;
+            .map(|r| r.get::<_, Value>(0))
+            .unwrap_or(json!({}));
+        let mut cursor = position["zid"].as_i64().unwrap_or(0) as i32;
+        let scope = self.poll_scope()?;
+        let sweep_start = if cursor == 0 {
+            self.poll_clock()?
+        } else {
+            position["d06"]["started"].as_f64().unwrap_or(0.0)
+        };
+        let mut poll_ok = cursor == 0
+            || (position["d06"]["scope"] == scope
+                && position["d06"]["healthy"] == true
+                && sweep_start > 0.0);
         let rows = self.client.query(
             "SELECT zid FROM conversations WHERE zid>$1 ORDER BY zid LIMIT $2",
             &[&cursor, &self.config.page_size],
@@ -362,18 +376,22 @@ impl PgStore {
                                     tracing::error!(zid,error=%e,"conversation failed; durable retry scheduled")
                                 }
                             }
+                            poll_ok = false;
                             self.tally.deferred += 1;
                             self.defer(zid)?;
                         }
                     }
+                } else {
+                    poll_ok = false;
                 }
             }
             cursor = zid;
         }
         if rows.len() < self.config.page_size as usize {
             cursor = 0;
+            self.poll_completed(sweep_start, poll_ok)?;
         }
-        self.client.execute("INSERT INTO polis_coordinator_cursors(math_env,consumer,position) VALUES($1,$2,$3) ON CONFLICT(math_env,consumer) DO UPDATE SET position=excluded.position", &[&self.config.math_env,&name,&json!({"zid":cursor})])?;
+        self.client.execute("INSERT INTO polis_coordinator_cursors(math_env,consumer,position) VALUES($1,$2,$3) ON CONFLICT(math_env,consumer) DO UPDATE SET position=excluded.position", &[&self.config.math_env,&name,&json!({"zid":cursor,"d06":{"started":sweep_start,"healthy":poll_ok,"scope":scope}})])?;
         tracing::info!(
             page_rows = rows.len(),
             published = count,
@@ -397,6 +415,7 @@ impl PgStore {
     /// One complete bounded-memory pass for --once and the black-box launcher.
     /// Strict: any lease refusal ends the pass with its typed exit code.
     pub fn once(&mut self) -> Result<usize> {
+        let poll_start = self.poll_clock()?;
         let started = Instant::now();
         self.tally = Tally::default();
         crate::operations::reconcile_pending(
@@ -405,6 +424,7 @@ impl PgStore {
             self.config.page_size,
         )?;
         let result = self.once_pass();
+        self.poll_completed(poll_start, result.is_ok())?;
         let mut data = self.tally.data(started.elapsed(), result.is_ok());
         match self.backlog() {
             Ok(backlog) => data.extend([

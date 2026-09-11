@@ -15,7 +15,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub const SQL_SHA256: &str = "09dcc6f3d9812a526dbdc0d997fae9e93828fd1e3565cf96a8173337b3589a37";
+pub const SQL_SHA256: &str = "d50f169ad7afe12d14582a6a746c622d402ecafd8131aae246812263bf2d5e82";
 pub const ENGINE_SHA256: &str = "b295c3e7c649b38768c4eeb69c7cb3bf59d33c0077c22c84853a44d216aa0028";
 const ENGINE_MANIFEST: &str = include_str!("../schemas/poller-engine-v1.json");
 pub const PROTOCOL: &str = "polis-poller-bridge/1";

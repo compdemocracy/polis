@@ -290,6 +290,22 @@ impl PgStore {
             poller_timings: None,
         })
     }
+    /// Re-admit a daemon connection without creating another output worker.
+    /// Failed reconnects retain the existing bounded transport and its counters.
+    pub fn reconnect_daemon(&mut self) -> Result<()> {
+        Fault::reject_release_control()?;
+        let mut client = Client::connect(&self.config.database_url, NoTls)?;
+        client.batch_execute("SET statement_timeout='30s'; SET lock_timeout='5s'; SET application_name='p026-coordinator'")?;
+        let fault = Fault::new(&mut client, &self.config.math_env)?;
+        crate::bridge::admit_control(&mut client, &self.config.math_env)?;
+        self.client = client;
+        self.fault = fault;
+        self.cache = WarmCache::new(self.config.cache_capacity);
+        self.tally = Tally::default();
+        self.gauged = None;
+        self.poller_timings = None;
+        Ok(())
+    }
     /// Restore the primary connection after a terminated backend, so ownership
     /// can still be released instead of being held for the rest of the window.
     pub fn reconnect_if_closed(&mut self) -> Result<()> {

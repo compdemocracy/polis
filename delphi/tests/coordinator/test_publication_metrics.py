@@ -38,10 +38,8 @@ def assert_outcome(path, committed, *, own, reason=None):
     assert len(attempts) == len(outcomes) == 1
     assert records.index(attempts[0]) < records.index(outcomes[0])
     for r in attempts + outcomes:
-        assert r["context"]["operation_id"] == committed["math_ticks"]["operation_id"]
-        assert r["context"]["epoch"] == committed["math_ticks"]["publisher_epoch"]
-        assert r["context"]["math_tick"] == committed["math_ticks"]["math_tick"]
-        assert r["context"]["zid"] == 1
+        assert set(r["context"]) <= {"outcome", "readback"}
+        assert not any(k in r["context"] for k in ("operation_id", "epoch", "math_tick", "zid"))
         assert r["_aws"]["CloudWatchMetrics"][0]["Dimensions"] == [["Environment", "MathEnv"]]
     outcome = outcomes[0]
     assert outcome["context"]["outcome"] == ("resolved-own" if own else "unresolved-lost")
