@@ -38,6 +38,24 @@ class BridgeError(Exception):
     pass
 
 
+def numerical_runtime():
+    """Observe this computing process, not its Rust or campaign parent."""
+    import platform
+    import scipy.linalg
+    from threadpoolctl import threadpool_info
+
+    # Ensure both numerical backends are observable, including empty inputs.
+    scipy.linalg.blas.dgemm(1, [[1.0]], [[1.0]])
+    libraries = [{key: row[key] for key in (
+        "user_api", "internal_api", "prefix", "version", "threading_layer",
+        "architecture", "num_threads") if key in row}
+        for row in threadpool_info() if row["user_api"] == "blas"]
+    return {"forced_kernel": os.environ.get("OPENBLAS_CORETYPE") or "not-forced",
+            "system": platform.system(), "machine": platform.machine(),
+            "worker_pid": os.getpid(), "blas": libraries,
+            "blas_observed": bool(libraries)}
+
+
 def strict_json(raw):
     def pairs(items):
         result = {}
@@ -380,7 +398,7 @@ def execute(frame, url):
         service._run_engine(dispatch.zid, CoalescedBatch(rebuild=True))
     if publisher.result is None:
         raise BridgeError("MISSING_PUBLICATION")
-    return publisher.result
+    return {**publisher.result, "numerical_runtime": numerical_runtime()}
 
 
 def main():

@@ -9,7 +9,7 @@ import pytest
 
 CI = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(CI))
-from replay_pins import kernel_environment, runtime_identity, select_pin, validate_kernel
+from replay_pins import child_runtimes, kernel_environment, runtime_identity, select_pin, validate_kernel, REQUIRED_WORKERS
 from verify import comparisons
 
 
@@ -258,8 +258,47 @@ def test_historical_refusal_occurs_after_fresh_artifacts_and_before_pass():
         if isinstance(node,ast.Call) and isinstance(node.func,ast.Name):calls.setdefault(node.func.id,[]).append(node.lineno)
     assert min(calls['validate_kernel']) < min(calls['select_pin'])
     assert max(calls['stage_audit']) < min(calls['select_pin']) < min(calls['comparisons'])
+    assert max(calls['stage_audit']) < min(calls['child_runtimes']) < min(calls['select_pin'])
     for node in ast.walk(tree):
         if (isinstance(node,ast.Assign) and isinstance(node.value,ast.Constant) and node.value.value=='PASS'
                 and any(isinstance(t,ast.Subscript) and isinstance(t.slice,ast.Constant)
                         and t.slice.value=='candidate_gate' for t in node.targets)):
             assert node.lineno > min(calls['comparisons'])
+
+
+@pytest.mark.parametrize('mutation', ['none', 'missing-all', 'missing-case', 'duplicate',
+    'parent-only', 'requested', 'child-requested', 'numpy-kernel', 'scipy-kernel', 'threads', 'missing-library'])
+def test_campaign_requires_actual_child_kernel_observations(tmp_path, mutation):
+    parent = runtime('Linux', 'x86_64')
+    for index, (case, count) in enumerate(REQUIRED_WORKERS.items()):
+        observations = []
+        for worker in range(count):
+            pid = 100 + index * 10 + worker
+            value = runtime('Linux', 'x86_64')
+            value.update(worker_pid=pid, blas_observed=True)
+            observations.append({'worker_pid': pid, 'runtime': value})
+        record = {'schema': 'polis-worker-runtime-observation/1', 'test_case': case,
+                  'parent_pid': index + 1, 'requested_kernel': 'Haswell', 'observations': observations}
+        (tmp_path / f'{index}.json').write_text(json.dumps(record))
+    path = tmp_path / '0.json'
+    record = json.loads(path.read_text())
+    child = record['observations'][0]['runtime']
+    if mutation == 'missing-all':
+        for p in tmp_path.iterdir(): p.unlink()
+    elif mutation == 'missing-case': path.unlink()
+    else:
+        if mutation == 'duplicate': record['observations'].append(copy.deepcopy(record['observations'][0]))
+        elif mutation == 'parent-only': child['worker_pid'] = record['parent_pid']
+        elif mutation == 'requested': record['requested_kernel'] = 'not-forced'
+        elif mutation == 'child-requested': child['forced_kernel'] = 'not-forced'
+        elif mutation == 'numpy-kernel': child['blas'][0]['architecture'] = 'Cooperlake'
+        elif mutation == 'scipy-kernel': child['blas'][1]['architecture'] = 'Cooperlake'
+        elif mutation == 'threads': child['blas'][0]['num_threads'] = 2
+        elif mutation == 'missing-library': child['blas'].pop()
+        path.write_text(json.dumps(record))
+    if mutation == 'none':
+        result = child_runtimes(tmp_path, parent)
+        assert result['workers'] == 7 and result['required_cases'] == REQUIRED_WORKERS
+    else:
+        with pytest.raises(ValueError, match='REPLAY_(CHILD_KERNEL|KERNEL_NOT_HONOURED)'):
+            child_runtimes(tmp_path, parent)

@@ -313,9 +313,9 @@ def test_inventory_preserves_the_reviewed_baseline_without_replacement():
 def test_bridge_inventory_preserves_every_baseline_identity():
     extended=json.loads((CI/"inventory-v2.json").read_text())
     assert set(INV["python_nodeids"]) < set(extended["python_nodeids"])
-    assert len(extended["python_nodeids"])==289
+    assert len(extended["python_nodeids"])==291
     assert len(extended["python_nodeids"])==len(set(extended["python_nodeids"]))
-    assert len(extended["python_junit"])==289
+    assert len(extended["python_junit"])==291
     assert set(INV["rust_tests"]) < set(extended["rust_tests"])
     assert len(extended["rust_tests"])==34
     assert extended["jest_cases"]==INV["jest_cases"]
@@ -340,7 +340,10 @@ def test_bridge_inventory_requires_twenty_each_schedule():
     d06={n for n in added if "/test_observer.py::" in n}
     assert len(d06)==53
     assert sorted(d06)==extended["extensions"][4]["added_nodeids"]
-    bridge=added-rev4-hosted-rev7-d06
+    kernel={f"tests/coordinator/test_hosted_controls.py::test_actual_bridge_child_preserves_requested_kernel[{value}]" for value in ("None", "Haswell")}
+    assert kernel <= added
+    assert sorted(kernel)==extended["extensions"][5]["added_nodeids"]
+    bridge=added-rev4-hosted-rev7-d06-kernel
     assert sorted(bridge)==extended["extensions"][0]["added_nodeids"]
 
 

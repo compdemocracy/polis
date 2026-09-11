@@ -303,7 +303,17 @@ fn dispatch(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
-    for name in ["PATH", "PYTHONPATH", "VIRTUAL_ENV", "SYSTEMROOT", "TMPDIR"] {
+    // Preserve the caller's numerical kernel selection before Python imports
+    // NumPy/SciPy. Otherwise env_clear makes this worker CPU-dependent even
+    // when the reference worker and campaign explicitly select a kernel.
+    for name in [
+        "PATH",
+        "PYTHONPATH",
+        "VIRTUAL_ENV",
+        "SYSTEMROOT",
+        "TMPDIR",
+        "OPENBLAS_CORETYPE",
+    ] {
         if let Some(value) = std::env::var_os(name) {
             command.env(name, value);
         }
@@ -413,6 +423,12 @@ fn dispatch(
         crate::operations::reconcile_one(&mut client, &store.config.math_env, zid, &operation)
     })();
     if let Ok(reply) = &result {
+        if let Some(runtime) = reply.get("numerical_runtime") {
+            // Bounded process-reply metadata, separate from science payloads
+            // and metric dimensions. CI retains and checks these observations.
+            tracing::info!(worker_pid = child.id(), operation_id = %operation,
+                numerical_runtime = %runtime, "python_worker_runtime");
+        }
         if matches!(
             reply["outcome"].as_str(),
             Some("committed" | "already_committed")
