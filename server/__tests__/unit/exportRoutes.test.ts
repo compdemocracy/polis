@@ -298,6 +298,12 @@ describe("handle_GET_reportExport", () => {
         "Thu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time)"
       );
 
+      // sendVotesSummary now preloads comment IDs (and PCA) to support report-scoped filtering
+      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+        { tid: 1, pid: 1 },
+      ] as never);
+      (getPca as jest.Mock).mockResolvedValue({ asPOJO: {} } as never);
+
       // Mock the importance_enabled query (returns false by default)
       (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
         { importance_enabled: false },
@@ -332,6 +338,13 @@ describe("handle_GET_reportExport", () => {
         "Thu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time)"
       );
 
+      // sendVotesSummary now preloads comment IDs (and PCA) to support report-scoped filtering
+      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+        { tid: 1, pid: 1 },
+        { tid: 2, pid: 1 },
+      ] as never);
+      (getPca as jest.Mock).mockResolvedValue({ asPOJO: {} } as never);
+
       // Mock the importance_enabled query (returns true)
       (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
         { importance_enabled: true },
@@ -363,6 +376,12 @@ describe("handle_GET_reportExport", () => {
 
     it("sendVotesSummary should handle errors during vote summary export", async () => {
       const mockError = new Error("Test error");
+
+      // sendVotesSummary now preloads comment IDs (and PCA) to support report-scoped filtering
+      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+        { tid: 1, pid: 1 },
+      ] as never);
+      (getPca as jest.Mock).mockResolvedValue({ asPOJO: {} } as never);
 
       // Mock the importance_enabled query
       (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([

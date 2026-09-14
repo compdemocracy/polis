@@ -3,6 +3,7 @@
 import type { Response as ExpressResponse } from "express";
 import { getZidForRid, getZidForUuid } from "../utils/zinvite";
 import { failJson } from "../utils/fail";
+import pg from "../db/pg-query";
 import {
   sendVotesSummary,
   sendParticipantVotesSummary,
@@ -24,11 +25,22 @@ export async function handle_GET_reportExport(
 ) {
   const { rid, report_type } = req.p;
   try {
+    const ridNum = Number(rid);
     const zid = await getZidForRid(rid);
     if (!zid) {
       failJson(res, 404, "polis_error_data_unknown_report");
       return;
     }
+
+    // Read the report's stored moderation filter once and apply it consistently for report-scoped exports.
+    const reportRows = (await pg.queryP_readOnly(
+      "select mod_level from reports where rid = ($1);",
+      [ridNum]
+    )) as Array<{ mod_level: number }>;
+    const mod_level =
+      reportRows && reportRows.length
+        ? Number(reportRows[0].mod_level ?? -2)
+        : -2;
 
     switch (report_type) {
       case "summary.csv": {
@@ -38,27 +50,27 @@ export async function handle_GET_reportExport(
       }
 
       case "comments.csv":
-        await sendCommentSummary(zid, res);
+        await sendCommentSummary(zid, res, mod_level);
         break;
 
       case "votes.csv":
-        await sendVotesSummary(zid, res);
+        await sendVotesSummary(zid, res, mod_level);
         break;
 
       case "participant-votes.csv":
-        await sendParticipantVotesSummary(zid, res);
+        await sendParticipantVotesSummary(zid, res, mod_level);
         break;
 
       case "participant-importance.csv":
-        await sendParticipantImportance(zid, res);
+        await sendParticipantImportance(zid, res, mod_level);
         break;
 
       case "comment-groups.csv":
-        await sendCommentGroupsSummary(zid, res);
+        await sendCommentGroupsSummary(zid, res, true, undefined, mod_level);
         break;
 
       case "comment-clusters.csv":
-        await sendCommentClustersSummary(zid, res);
+        await sendCommentClustersSummary(zid, res, mod_level);
         break;
 
       default:

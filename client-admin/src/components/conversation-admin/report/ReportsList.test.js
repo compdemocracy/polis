@@ -305,16 +305,13 @@ describe('ReportsList', () => {
     renderWithProviders(<ReportsList />, { store })
 
     await waitFor(() => {
+      // Only the latest report is shown (by modified descending)
       const reportCards = screen.getAllByTestId('report-list-item')
-      expect(reportCards).toHaveLength(2)
+      expect(reportCards).toHaveLength(1)
 
-      // Check that cards contain the report IDs
+      // Should show the most recently modified report (report1)
       expect(reportCards[0]).toHaveTextContent('Report ID: report1')
-      expect(reportCards[1]).toHaveTextContent('Report ID: report2')
-
-      // Check that cards contain timestamps
       expect(reportCards[0]).toHaveTextContent('Modified')
-      expect(reportCards[1]).toHaveTextContent('Modified')
     })
   })
 
