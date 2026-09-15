@@ -118,6 +118,21 @@ class ControlTests(unittest.TestCase):
         self.assertEqual(c.reconcile()['status'],'CLEAN')
         self.assertFalse(s.deleted); self.assertFalse(s.aborted)
         with self.assertRaisesRegex(Unknown,'RUN_CLOSED'): c.launch_once()
+    def test_partial_disk_inventory_is_never_recorded(self):
+        c, e, s, i = setup(); i['BlockDeviceMappings'] = [{'Ebs': {'VolumeId': 'vol-a'}}]
+        self.assertEqual(c.launch_once()['status'], 'ATTACHING')
+        self.assertIsNone(c.read(c.prefix + 'instance.json'))
+        self.assertFalse([k for (b, k) in s.objects if k.startswith('boot/')])
+        i['BlockDeviceMappings'] = [{'Ebs': {'VolumeId': v}} for v in ('vol-a', 'vol-b')]
+        self.assertEqual(c.reconcile()['status'], 'RUNNING')
+        self.assertEqual(c.read(c.prefix + 'instance.json')['volumes'], ['vol-a', 'vol-b'])
+        self.assertTrue([k for (b, k) in s.objects if k.startswith('boot/')])
+    def test_terminated_instance_without_subnet_field_is_still_owned(self):
+        c, e, s, i = setup(); c.launch_once(); i['State']['Name'] = 'terminated'; del i['SubnetId']; i['SecurityGroups'] = []; i['BlockDeviceMappings'] = []
+        self.assertEqual(c.reconcile()['status'], 'CLEAN')
+    def test_running_instance_without_subnet_is_not_owned(self):
+        c, e, s, i = setup(); c.launch_once(); del i['SubnetId']
+        with self.assertRaisesRegex(Unknown, 'INSTANCE_OWNERSHIP_UNKNOWN'): c.reconcile()
     def test_disk_delete_ack_is_not_clean(self):
         c, e, s, i = setup(); c.launch_once(); i['State']['Name'] = 'terminated'
         e.disks = [{'VolumeId': 'vol-a', 'State': 'available', 'Attachments': []}]
@@ -187,6 +202,36 @@ def session_setup():
         return original(**kw)
     e.run_instances=launch
     return session,c,e,s,i
+
+
+class ReleaseTests(unittest.TestCase):
+    def stuck(self):
+        from test_boundaries import job
+        x,c,e,s,i=session_setup(); run=job()['run_id']
+        i['BlockDeviceMappings']=[{'Ebs': {'VolumeId': 'vol-a'}}]
+        self.assertFalse(x.start(job())['complete'])
+        state,_=x.active(); c2=x.control(state)
+        self.assertIsNone(c2.read(c2.prefix+'instance.json'))
+        # A record made by an older tool from a partial observation.
+        s.objects['control', c2.prefix+'instance.json']=encoded({'id':'i-test','volumes':['vol-a'],'admissionSha256':c2.token})
+        return x,c2,e,s,i,run
+    def test_release_refuses_a_running_instance(self):
+        x,c,e,s,i,run=self.stuck()
+        with self.assertRaisesRegex(Unknown,'RELEASE_REFUSED_RUNNING'): x.release(run,['vol-a','vol-b'])
+    def test_release_requires_full_attestation_and_absent_disks(self):
+        x,c,e,s,i,run=self.stuck()
+        i['State']['Name']='terminated'; del i['SubnetId']; i['BlockDeviceMappings']=[]
+        with self.assertRaisesRegex(Unknown,'DISK_INVENTORY_UNKNOWN'): x.status(run)
+        with self.assertRaisesRegex(Unknown,'RELEASE_ATTESTATION'): x.release(run,['vol-a'])
+        with self.assertRaisesRegex(Unknown,'RELEASE_ATTESTATION'): x.release(run,['vol-b','vol-c'])
+        e.disks=[{'VolumeId':'vol-b','State':'available'}]
+        with self.assertRaisesRegex(Unknown,'DISK_REMAINS'): x.release(run,['vol-a','vol-b'])
+        e.disks=[]
+        r=x.release(run,['vol-a','vol-b'])
+        self.assertEqual((r['complete'],r['passed']),(True,False))
+        self.assertTrue(c.read(c.prefix+'clean.json')['attested'])
+        self.assertEqual(x.active()[0]['phase'],'CLEAN')
+        self.assertFalse(e.deleted)
 
 
 class SessionTests(unittest.TestCase):

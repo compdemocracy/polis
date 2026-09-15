@@ -277,3 +277,21 @@ python3 -B -m unittest discover -s ci/probe_box -p 'test_*.py' -v
 The synthesis test recursively refuses AWS::Lambda::*, Custom::*, service tokens
 and AWS::CloudFormation::CustomResource. No deployment or private run is performed
 by these tests.
+
+### Disk inventory and attested release
+
+`run.py` records an instance's disposal inventory only once it observes both
+EBS volumes the launch template defines; EBS attaches after `RunInstances`
+returns, so an earlier observation is partial and the lifecycle reports
+`ATTACHING` until the set is complete (the boot object is written with it).
+A terminated instance no longer carries `SubnetId` or its security groups in
+`DescribeInstances`; ownership still requires the client token, instance
+profile, image, type and both tags.
+
+If an older record holds a partial inventory, `status` cannot prove disposal
+and the register stays held. `run.py release --run-id ID --attest-volume A
+--attest-volume B` closes such a run only when the instance is observed
+terminated, the recorded volumes are a subset of the attested set, every
+attested volume is observed absent by ID, and no tagged disk remains. It
+deletes nothing, never releases a running box, and never reports PASS; the
+resulting `clean.json` is marked `attested`.
