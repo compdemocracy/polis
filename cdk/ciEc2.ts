@@ -42,21 +42,17 @@
  *   3. `polis-certify-ci` launch template — Graviton, IMDSv2 required, no
  *      public IP, no inbound rules, encrypted gp3 root, shutdown-terminates,
  *      and a hard deadline armed as the first user-data action.
- *   4. An **independent EventBridge expiry sweeper** (review E7, BOARD [12]):
- *      an hourly Lambda that terminates any `polis:ci=disposable` instance
- *      older than the deadline, regardless of what GitHub did or failed to do.
+ *   4. Operator reconciliation and termination for a dead boot or wedged kernel.
+ *      The on-box timer cannot cover those failures; see docs/ci-ec2.md.
+ *      No Lambda or scheduled sweeper is provisioned (BOARD [1007]).
  */
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import * as events from 'aws-cdk-lib/aws-events';
-import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 
 /** Tag key/value every disposable CI instance carries. It is the predicate for
- *  the sweeper, for the operator runbook, and for the terminate/SendCommand
+ *  the operator runbook and for the terminate/SendCommand
  *  conditions. Nothing else in the account uses it. */
 export const CI_TAG_KEY = 'polis:ci';
 export const CI_TAG_VALUE = 'disposable';
@@ -64,8 +60,28 @@ export const CI_TAG_VALUE = 'disposable';
  *  check out. Untrusted input; validated in bash before git sees it. */
 export const CI_REF_TAG_KEY = 'polis:ci-ref';
 /** Launch-time tag carrying `<run_id>-<attempt>` — run ownership for the
- *  teardown's lost-ID sweep, and diagnostics for the sweeper. */
+ *  teardown's lost-ID reconciliation and operator diagnostics. */
 export const CI_RUN_TAG_KEY = 'polis:ci-run';
+
+/** Campaign ceiling, including bootstrap and teardown. Context may shorten it. */
+export const CI_CAMPAIGN_CEILING_MINUTES = 480;
+
+/** SHA-256 of upstream release bytes, reproduced as described in docs/ci-ec2.md. */
+export const CI_BOOTSTRAP_PINS = {
+  uv: {
+    url: 'https://github.com/astral-sh/uv/releases/download/0.12.12/uv-installer.sh',
+    sha256: 'f4f45f7f5f213d96efc1978b8772b2c037d495d9161ffa7468f8167c6b031033',
+  },
+  clojure: {
+    url: 'https://download.clojure.org/install/linux-install-1.12.6.1673.sh',
+    sha256: '5ae63b082ed33bf4c29bf1a8317c5c15249d1bc753676b2f5177fb3804ad6f77',
+  },
+  compose: {
+    version: 'v2.40.0',
+    aarch64: 'fa99ca94c96c8cae4024493581a20049764ce723558991d0d1526c1c7b791a79',
+    x86_64: 'bd5835ccbbf06a42dcb5294c65e34a4634b34447afb9ed6fc7adf18a000e0f99',
+  },
+} as const;
 
 export interface CertificationCiEc2Props {
   /** VPC for the worker. A PRIVATE_WITH_EGRESS subnet is used. */
@@ -113,12 +129,6 @@ export interface CertificationCiEc2Props {
   readonly volumeSizeGiB: number;
   /** Hard deadline, minutes: `shutdown -h +N` + shutdown-behavior=terminate. */
   readonly shutdownMinutes: number;
-  /**
-   * Age, in minutes, past which the independent sweeper kills a CI instance.
-   * Must exceed `shutdownMinutes` so the sweeper is a backstop to the OS timer
-   * rather than a competitor to it.
-   */
-  readonly sweeperMaxAgeMinutes: number;
 }
 
 export class CertificationCiEc2 extends Construct {
@@ -129,10 +139,9 @@ export class CertificationCiEc2 extends Construct {
   constructor(scope: Construct, id: string, props: CertificationCiEc2Props) {
     super(scope, id);
 
-    if (props.sweeperMaxAgeMinutes <= props.shutdownMinutes) {
-      throw new Error(
-        'ciEc2SweeperMaxAgeMinutes must be greater than ciEc2ShutdownMinutes: ' +
-        'the sweeper is the backstop for the OS timer, not a race against it');
+    if (!Number.isSafeInteger(props.shutdownMinutes) ||
+        props.shutdownMinutes < 1 || props.shutdownMinutes > CI_CAMPAIGN_CEILING_MINUTES) {
+      throw new Error(`ciEc2ShutdownMinutes must be an integer from 1 to ${CI_CAMPAIGN_CEILING_MINUTES}`);
     }
     if (props.allowedInstanceTypes.length === 0) {
       throw new Error('ciEc2AllowedInstanceTypes must not be empty');
@@ -316,7 +325,7 @@ export class CertificationCiEc2 extends Construct {
           'ec2:InstanceType': props.allowedInstanceTypes,
         },
         // Every launch must carry the run tag, so the teardown's lost-ID sweep
-        // and the sweeper's forensics always have an owner to name.
+        // and operator reconciliation always have an owner to name.
         'ForAllValues:StringEquals': {
           'aws:TagKeys': [CI_TAG_KEY, CI_REF_TAG_KEY, CI_RUN_TAG_KEY],
         },
@@ -438,57 +447,6 @@ export class CertificationCiEc2 extends Construct {
       resources: ['*'],
     }));
 
-    // ------------------------------------------------------- expiry sweeper
-    // Independent of GitHub entirely: it runs whether or not a workflow ever
-    // reaches its teardown, whether or not the OS timer armed, and whether or
-    // not the instance's kernel is alive (review E7, BOARD [12]).
-    const sweeperRole = new iam.Role(this, 'SweeperRole', {
-      description: 'P-022 E expiry sweeper: kill overdue disposable CI instances',
-      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-    });
-    sweeperRole.addToPolicy(new iam.PolicyStatement({
-      sid: 'FindOverdueCiInstances',
-      actions: ['ec2:DescribeInstances'],
-      resources: ['*'],
-    }));
-    sweeperRole.addToPolicy(new iam.PolicyStatement({
-      sid: 'TerminateOverdueCiInstances',
-      actions: ['ec2:TerminateInstances'],
-      resources: [instanceArnPattern],
-      conditions: { StringEquals: { [`ec2:ResourceTag/${CI_TAG_KEY}`]: CI_TAG_VALUE } },
-    }));
-
-    // An explicit log group rather than the `logRetention` prop: that prop
-    // drags in a shared LogRetention custom-resource Lambda and its role, which
-    // is three extra account-wide resources for a retention setting.
-    const sweeperLogs = new logs.LogGroup(this, 'ExpirySweeperLogs', {
-      retention: logs.RetentionDays.ONE_MONTH,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-    });
-    sweeperLogs.grantWrite(sweeperRole);
-
-    const sweeper = new lambda.Function(this, 'ExpirySweeper', {
-      description: 'Terminates polis:ci=disposable instances older than the hard deadline',
-      runtime: lambda.Runtime.PYTHON_3_12,
-      architecture: lambda.Architecture.ARM_64,
-      handler: 'index.handler',
-      role: sweeperRole,
-      timeout: cdk.Duration.minutes(2),
-      logGroup: sweeperLogs,
-      environment: {
-        MAX_AGE_MINUTES: String(props.sweeperMaxAgeMinutes),
-        CI_TAG_KEY,
-        CI_TAG_VALUE,
-      },
-      code: lambda.Code.fromInline(SWEEPER_SOURCE),
-    });
-
-    new events.Rule(this, 'ExpirySweeperSchedule', {
-      description: 'Hourly expiry sweep for P-022 E disposable CI instances',
-      schedule: events.Schedule.rate(cdk.Duration.hours(1)),
-      targets: [new targets.LambdaFunction(sweeper)],
-    });
-
     // --------------------------------------------------------------- outputs
     new cdk.CfnOutput(this, 'CertifyOidcRoleArn', {
       value: this.githubRole.roleArn,
@@ -504,48 +462,6 @@ export class CertificationCiEc2 extends Construct {
     });
   }
 }
-
-/**
- * The expiry sweeper. Deliberately tiny, dependency-free and independent of the
- * Actions run: it is the only teardown guarantee that survives a dead runner, a
- * forced cancellation, an expired credential or a wedged kernel.
- */
-const SWEEPER_SOURCE = `
-import datetime, os
-import boto3
-
-MAX_AGE = datetime.timedelta(minutes=int(os.environ["MAX_AGE_MINUTES"]))
-TAG_KEY = os.environ["CI_TAG_KEY"]
-TAG_VALUE = os.environ["CI_TAG_VALUE"]
-ACTIVE = ["pending", "running", "stopping", "stopped"]
-
-
-def handler(event, context):
-    ec2 = boto3.client("ec2")
-    now = datetime.datetime.now(datetime.timezone.utc)
-    overdue, seen = [], 0
-    paginator = ec2.get_paginator("describe_instances")
-    pages = paginator.paginate(Filters=[
-        {"Name": "tag:" + TAG_KEY, "Values": [TAG_VALUE]},
-        {"Name": "instance-state-name", "Values": ACTIVE},
-    ])
-    for page in pages:
-        for reservation in page["Reservations"]:
-            for inst in reservation["Instances"]:
-                seen += 1
-                age = now - inst["LaunchTime"]
-                if age > MAX_AGE:
-                    overdue.append(inst["InstanceId"])
-                    print("OVERDUE %s age=%s state=%s tags=%s" % (
-                        inst["InstanceId"], age, inst["State"]["Name"],
-                        {t["Key"]: t["Value"] for t in inst.get("Tags", [])}))
-    if overdue:
-        # Let a failure here raise: an unswept overdue instance must show up as
-        # a Lambda error metric, not as a silent success.
-        ec2.terminate_instances(InstanceIds=overdue)
-        print("TERMINATED %s" % overdue)
-    return {"seen": seen, "terminated": overdue}
-`;
 
 /**
  * User data for the public battery worker.
@@ -585,6 +501,14 @@ function buildUserData(props: CertificationCiEc2Props): ec2.UserData {
     '# Redundant timer, independent of shutdown(8) and of this script surviving.',
     `setsid bash -c 'sleep ${deadlineSeconds}; poweroff -f' </dev/null >/dev/null 2>&1 &`,
     '',
+    '# --- Download to a private directory; never install or execute unchecked bytes.',
+    'BOOTSTRAP_DOWNLOAD_DIR="$(mktemp -d /var/lib/polis-ci-download.XXXXXX)" || fail "download directory"',
+    'fetch_verified() {',
+    '  local url="$1" expected="$2" destination="$3"',
+    '  curl --proto "=https" --proto-redir "=https" -fsSL --retry 3 --connect-timeout 20 --max-time 300 "$url" -o "$destination" || fail "download"',
+    '  printf "%s  %s\\n" "$expected" "$destination" | sha256sum -c - || { rm -f "$destination"; fail "download sha256 mismatch"; }',
+    '}',
+    '',
     '# --- docker + compose + the tools the suites shell out to.',
     'BOOTSTRAP_PHASE=os-packages',
     'dnf update -y || true',
@@ -594,10 +518,15 @@ function buildUserData(props: CertificationCiEc2Props): ec2.UserData {
     '# $(uname -m) is aarch64 on Graviton and x86_64 otherwise; a hardcoded',
     '# arch here is how a boot script dies with "Exec format error".',
     'BOOTSTRAP_PHASE=compose',
-    'COMPOSE_VERSION=v2.40.0',
+    `COMPOSE_VERSION=${CI_BOOTSTRAP_PINS.compose.version}`,
+    'case "$(uname -m)" in',
+    `  aarch64) COMPOSE_SHA256=${CI_BOOTSTRAP_PINS.compose.aarch64} ;;`,
+    `  x86_64) COMPOSE_SHA256=${CI_BOOTSTRAP_PINS.compose.x86_64} ;;`,
+    '  *) fail "unsupported compose architecture" ;;',
+    'esac',
     'mkdir -p /usr/libexec/docker/cli-plugins',
-    'curl -fsSL "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-$(uname -m)" -o /usr/libexec/docker/cli-plugins/docker-compose || fail "compose download"',
-    'chmod +x /usr/libexec/docker/cli-plugins/docker-compose',
+    'fetch_verified "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-$(uname -m)" "$COMPOSE_SHA256" "$BOOTSTRAP_DOWNLOAD_DIR/docker-compose"',
+    'install -m 0755 "$BOOTSTRAP_DOWNLOAD_DIR/docker-compose" /usr/libexec/docker/cli-plugins/docker-compose || fail "compose install"',
     'ln -sf /usr/libexec/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose',
     'docker compose version || fail "compose"',
     '',
@@ -635,8 +564,8 @@ function buildUserData(props: CertificationCiEc2Props): ec2.UserData {
     'dnf install -y gcc gcc-c++ make || fail "python build tools"',
     'BOOTSTRAP_PHASE=python',
     'export HOME=/root',
-    'curl -LsSf https://astral.sh/uv/install.sh -o /tmp/uv-install.sh || fail "uv download"',
-    'sh /tmp/uv-install.sh || fail "uv install"',
+    `fetch_verified "${CI_BOOTSTRAP_PINS.uv.url}" "${CI_BOOTSTRAP_PINS.uv.sha256}" "$BOOTSTRAP_DOWNLOAD_DIR/uv-install.sh"`,
+    'sh "$BOOTSTRAP_DOWNLOAD_DIR/uv-install.sh" || fail "uv install"',
     'install -m 0755 /root/.local/bin/uv /usr/local/bin/uv || fail "uv place"',
     '(cd /opt/polis/delphi && uv sync --locked --extra dev) || fail "uv sync"',
     '# The battery additionally shells out to `clojure -M:replay`.',
@@ -645,8 +574,8 @@ function buildUserData(props: CertificationCiEc2Props): ec2.UserData {
     '# it; the battery invokes clojure -M:replay directly.',
     'dnf install -y java-21-amazon-corretto-headless || fail "jvm"',
     'BOOTSTRAP_PHASE=clojure',
-    'curl -fsSL -o /tmp/clojure-install.sh https://download.clojure.org/install/linux-install.sh || fail "clj download"',
-    'chmod +x /tmp/clojure-install.sh && /tmp/clojure-install.sh || fail "clj install"',
+    `fetch_verified "${CI_BOOTSTRAP_PINS.clojure.url}" "${CI_BOOTSTRAP_PINS.clojure.sha256}" "$BOOTSTRAP_DOWNLOAD_DIR/clojure-install.sh"`,
+    '(cd "$BOOTSTRAP_DOWNLOAD_DIR" && bash ./clojure-install.sh) || fail "clj install"',
     '# Verify rather than assume: a phase must never silently repair a',
     '# bootstrap that should have failed.',
     'BOOTSTRAP_PHASE=verify',

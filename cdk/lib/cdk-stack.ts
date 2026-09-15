@@ -469,9 +469,6 @@ export class CdkStack extends cdk.Stack {
         // Generous: the compute budget is 6 h, this is the backstop for a box
         // whose job died without terminating it.
         shutdownMinutes: ciShutdownMinutes,
-        // The independent sweeper runs behind the OS timer, not against it.
-        sweeperMaxAgeMinutes: Number(
-          this.node.tryGetContext('ciEc2SweeperMaxAgeMinutes') ?? ciShutdownMinutes + 60),
       });
     }
 

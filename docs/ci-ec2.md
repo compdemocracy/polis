@@ -60,12 +60,11 @@ npx cdk synth -c enableCiEc2=true
 | `ciEc2InstanceType` | `r8g.4xlarge` | 16 vCPU / 128 GiB, the class P-022 §E asks for. |
 | `ciEc2Arch` | `arm64` | Must match the instance type. `x86_64` picks the x86 AL2023 AMI. |
 | `ciEc2VolumeGiB` | `200` | Encrypted gp3 root volume. |
-| `ciEc2ShutdownMinutes` | `480` | Hard-deadline self-termination (see "Cost backstops"). |
+| `ciEc2ShutdownMinutes` | `480` | Campaign ceiling, including bootstrap/cleanup: integer 1–480. Armed at boot (see "Cost backstops"). |
 | `ciEc2GithubRepo` | `compdemocracy/polis` | Repository allowed to assume the OIDC role. |
 | `ciEc2GithubEnvironment` | `certification-public` | Must equal the workflow job's `environment:`. The trust policy admits this subject and no other. |
 | `ciEc2Refs` | `refs/heads/edge,refs/heads/stable` | Exact `ref` claim values. This is what excludes pull-request jobs at the token. Empty or non-branch entries are refused at synth. |
 | `ciEc2AllowedInstanceTypes` | `r8g.4xlarge,r8g.2xlarge` | Enforced in IAM via `ec2:InstanceType`, so a dispatch input cannot select arbitrary spend. |
-| `ciEc2SweeperMaxAgeMinutes` | `ciEc2ShutdownMinutes + 60` | Age past which the independent sweeper kills a CI instance. Must exceed the OS deadline. |
 
 ### One-time deploy
 
@@ -178,8 +177,9 @@ this; re-check before quoting):
 
 So a `r8g.4xlarge` run costs roughly **$0.97 per wall-clock hour**. Against the
 P-022 six-hour compute budget that is about **$5.80 per campaign**, and the
-absolute worst case a single run can reach — the 480-minute shutdown backstop
-firing on a wedged box — is about **$7.75**. Add a few tens of cents of NAT
+480-minute shutdown ceiling on a responsive host is about **$7.75**. A dead
+boot or wedged kernel can outlive that ceiling until an operator terminates it;
+this is not an absolute cost bound. Add a few tens of cents of NAT
 egress for the docker/pip/Maven pulls.
 
 The nightly cron is the number to watch: 30 six-hour runs is on the order of
@@ -193,35 +193,27 @@ artifacts are kept 7 days.
 
 ## Cost backstops
 
-Three, layered, because each covers a failure the others do not:
+1. **Workflow teardown** (`ci/p022_teardown.py`) re-assumes with the reviewed
+   instance/run-scoped policy, terminates, and observes every expected instance
+   in `terminated`. A missing ID, API error, or unresolved launch acknowledgement
+   fails the job; none is evidence of disposal. A failed policy builder does not
+   fall back to the unrestricted role.
+2. **On-box deadline.** The campaign ceiling `ciEc2ShutdownMinutes` (default and
+   maximum 480, including bootstrap and teardown) is rendered into
+   `shutdown -h +N` before downloads, package installs, or checkout. Invalid,
+   fractional, non-finite, zero, and over-ceiling values fail synthesis. Failure
+   to arm triggers `poweroff -f` and stops bootstrap; a separate detached timer
+   also powers off at that ceiling. The launch template uses
+   `InstanceInitiatedShutdownBehavior=terminate` and deletes its root disk.
+3. **Operator reconciliation.** There is no Lambda, EventBridge rule, or
+   independent automatic expiry sweep for this CI construct. The OS timers do
+   not cover a dead boot, wedged kernel, or privileged cancellation of both
+   timers. A cancelled workflow, failed teardown, or missing completion requires
+   the operator procedure below. Keep ownership of a campaign until termination
+   and root-volume deletion are observed; never infer cleanup from elapsed time.
 
-1. **The job's `if: always()` teardown** (`ci/p022_teardown.py`), gated on a
-   teardown session policy that was actually built — if the builder fails, no
-   credentials are issued (an empty `inline-session-policy` becomes *no* session
-   policy, i.e. full base-role reach) and the job fails, saying the sweeper must
-   reap the instance. It terminates the
-   terminates the instance and then *proves* it: every expected instance ID must be observed in
-   state `terminated`. `shutting-down` keeps it polling; a missing ID, an
-   unrecognised state, blank output, or a `describe-instances` that fails
-   outright all **fail the job**. When the instance ID was lost, discovery
-   retries across the EC2 describe propagation window before concluding
-   anything, and "a launch was attempted but never resolved" is unresolved
-   ownership — a failure — not proof of absence. The job re-assumes its role
-   immediately before this step, so a long run cannot arrive here without
-   credentials.
-2. **The instance kills itself.** `InstanceInitiatedShutdownBehavior=terminate`,
-   and the *first* user-data command is `shutdown -h +480`. Failing to arm that
-   timer is fatal — the box powers off immediately rather than continuing
-   unbounded — and a second, independent in-process timer backs it up.
-3. **An independent EventBridge sweeper.** Its hourly cadence is *additional*
-   to the age threshold, so an overdue box can live up to an hour past the
-   deadline, and a failed invocation is an operational gate of its own — alarm
-   on it. An hourly Lambda terminates any
-   It terminates any `polis:ci=disposable` instance older than the deadline,
-   regardless of whether the Actions run finished, was cancelled, lost its
-   runner, or whether the instance's kernel is alive. This is the only one of
-   the three that survives a wedged host, and it is why the tag is mandatory at
-   launch.
+`ciEc2SweeperMaxAgeMinutes` has been removed. Stop passing that obsolete context
+key in operator commands; the only deadline input is `ciEc2ShutdownMinutes`.
 
 ## Running it manually
 
@@ -349,33 +341,39 @@ dataset slugs:
   present is rejected, and the counts are aggregates over every report rather
   than a maximum scraped from the tail of a log.
 
-## Killing a stuck instance by tag
+## Operator cleanup of one campaign
 
-Every CI instance carries `polis:ci=disposable`, applied by the launch template
-and re-applied by the workflow, and the IAM policy makes that tag the condition
-on `ec2:TerminateInstances` — so this is both the runbook and the only thing the
-CI role is allowed to kill.
+Use the operator's existing SSO session. Record the campaign's `<run_id>-<attempt>`
+from Actions **before** launch. On cancellation, failed/missing teardown or a
+missed deadline, reconcile only that campaign. The operator does not rely on the
+CI OIDC role's session surviving. Commands below are operator instructions, not
+a new service or scheduled task.
 
 ```bash
-# what is running
+RUN_TAG=<run_id>-<attempt>
+# Record the IDs, launch state and attached root volume IDs before terminating.
 aws ec2 describe-instances \
   --filters "Name=tag:polis:ci,Values=disposable" \
-            "Name=instance-state-name,Values=pending,running,stopping,stopped" \
-  --query 'Reservations[].Instances[].{Id:InstanceId,Type:InstanceType,Launched:LaunchTime,Run:Tags[?Key==`polis:ci-run`]|[0].Value}' \
-  --output table
+            "Name=tag:polis:ci-run,Values=$RUN_TAG" \
+  --query 'Reservations[].Instances[].{Id:InstanceId,State:State.Name,Launched:LaunchTime,Volumes:BlockDeviceMappings[].Ebs.VolumeId}' \
+  --output json
 
-# kill them
-aws ec2 terminate-instances --instance-ids $(
-  aws ec2 describe-instances \
-    --filters "Name=tag:polis:ci,Values=disposable" \
-              "Name=instance-state-name,Values=pending,running,stopping,stopped" \
-    --query 'Reservations[].Instances[].InstanceId' --output text)
+# Substitute only the IDs reviewed above for this campaign.
+aws ec2 terminate-instances --instance-ids <reviewed-instance-id>
+aws ec2 wait instance-terminated --instance-ids <reviewed-instance-id>
+aws ec2 describe-instances --instance-ids <reviewed-instance-id> \
+  --query 'Reservations[].Instances[].{Id:InstanceId,State:State.Name}'
+aws ec2 describe-volumes --volume-ids <recorded-root-volume-id>
 ```
 
-Add `"Name=tag:polis:ci-run,Values=<run_id>-<attempt>"` to target one run.
-
-Nothing outside the CI worker carries `polis:ci`, so a blind sweep of that tag
-cannot touch the web, math, delphi or ollama tiers.
+Require every known instance to be `terminated` and each recorded root volume to
+be absent (`InvalidVolume.NotFound` for that exact ID). An authorization error or
+other API failure is unresolved, not absent. An extant volume needs separate
+operator investigation and cleanup; do not delete unrelated volumes. Repeat the
+campaign tag query and reconcile late-visible instances after a lost launch
+acknowledgement. Zero results immediately after an attempted launch do not prove
+absence. Preserve the observation in the campaign handoff. Do not use a wildcard
+all-CI terminate command.
 
 ## What the GitHub role can and cannot do
 
@@ -447,3 +445,24 @@ concrete bootstrap defect, not the missing historical log.
 Both the workflow/helper merge and a CDK redeploy are required: the latter updates
 launch-template user data for future instances. No IAM permission expansion is
 needed for diagnostics. A local test pass does not attest an entire ARM cloud boot.
+
+## Bootstrap download integrity
+
+`CI_BOOTSTRAP_PINS` in `cdk/ciEc2.ts` binds uv **0.12.12**, Clojure tools
+**1.12.6.1673**, and Compose **v2.40.0** to SHA-256 of their downloaded bytes.
+The uv/Clojure versions match the recorded successful public bootstrap; Compose
+keeps its existing version. Both supported Compose architectures have separate
+pins; other architectures fail before download.
+
+Every download goes to a root-private temporary directory, follows HTTPS-only
+redirects, and must pass `sha256sum -c` before a script executes or Compose is
+installed. The uv installer embeds archive SHA-256 values for the supported Linux
+architectures; the Clojure installer checks its tools archive before extraction.
+The script hashes therefore also bind those archive checks. These checks do not
+freeze `dnf` repositories, Python/Maven resolution, or container image tags.
+
+To update a pin, download the exact versioned URL in `CI_BOOTSTRAP_PINS` as data,
+compute SHA-256 locally, inspect the script and its nested archive checks, and
+review the URL/hash change together. For Compose, compare both downloaded
+binaries with the upstream release's `checksums.txt`. Never read an expected hash
+from the network during bootstrap; a content change must fail until reviewed.
