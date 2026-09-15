@@ -48,9 +48,9 @@ on:
 permissions: {}
 
 # One campaign at a time, and never cancel a running one: a cancelled job is
-# exactly the case where the teardown step does not get to run. The independent
-# expiry sweeper in cdk/ciEc2.ts is what covers that hole; concurrency is not a
-# fence against an orphaned instance.
+# exactly the case where the teardown step does not get to run. The on-box
+# deadline covers a healthy host; a dead boot or wedged kernel requires the
+# operator terminate path in docs/ci-ec2.md. Concurrency does not reap orphans.
 concurrency:
   group: certification-ec2
   cancel-in-progress: false
@@ -417,9 +417,9 @@ jobs:
           echo "teardown scoped to $TARGET"
 
       # Gated on a policy that actually exists. Without it there is no teardown
-      # session at all, the step below is skipped, and the independent expiry
-      # sweeper is what reaps the instance — which is the correct failure mode,
-      # and is reported as a failure by the guard that follows.
+      # session at all and the step below is skipped. The on-box timer is a
+      # backstop only for a healthy host. The guard requires operator follow-up;
+      # no independent sweeper exists.
       - name: Refresh credentials for teardown
         if: ${{ always() && steps.teardown_scope.outputs.policy != '' }}
         uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
@@ -442,5 +442,5 @@ jobs:
         if: ${{ always() && steps.teardown_scope.outputs.policy == '' }}
         run: |
           echo "::error::no teardown session policy was produced; this run did not"
-          echo "::error::terminate its worker. The expiry sweeper will reap it."
+          echo "::error::terminate its worker. Operator reconciliation is required (docs/ci-ec2.md)."
           exit 1

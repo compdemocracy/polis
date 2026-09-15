@@ -132,13 +132,13 @@ def main() -> int:
             time.sleep(args.interval)
         if not found:
             # Unresolved, never "proven absent": a launch was attempted and we
-            # cannot say what it produced. The expiry sweeper is now the only
+            # cannot say what it produced. Operator reconciliation is the only
             # thing standing between this and a running instance, and someone
             # should know that.
             print("::error::a launch was attempted but its instance never became "
                   f"visible under polis:ci-run={args.run_tag}"
                   + (f" (last error: {last_error})" if last_error else ""))
-            print("::error::ownership unresolved; the expiry sweeper must reap it")
+            print("::error::ownership unresolved; operator reconciliation required (docs/ci-ec2.md)")
             return 1
         expected = sorted(found)
         print(f"discovered {expected}")

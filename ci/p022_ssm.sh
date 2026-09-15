@@ -64,8 +64,8 @@ while :; do
   fi
   if [ "$(date +%s)" -gt "$deadline" ]; then
     # No CancelCommand: the role no longer holds it (it cannot be scoped to a
-    # single command), and the instance's own hard deadline plus the expiry
-    # sweeper are the teardown guarantees. Fail loudly instead.
+    # single command). The on-box deadline covers a healthy host; a dead boot
+    # or wedged kernel requires operator cleanup (docs/ci-ec2.md). Fail loudly.
     note "ssm[$LABEL] local deadline exceeded"
     exit 124
   fi
