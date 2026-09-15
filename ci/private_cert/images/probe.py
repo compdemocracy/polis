@@ -13,6 +13,10 @@ sys.path.insert(0, str(HERE.parents[1] / "probe_box"))
 import gate
 from receipt import sha, validate_receipt
 
+# Box-only capture/selection rules are part of the admitted image closure.
+# Public fixture tools keep their original default and need no census report.
+PROBE_CONFIG_PATH = gate.REPO / 'delphi/scripts/certify_datasets.probe.json'
+
 
 def resolve_private_spec(entry, dataset):
     """Freeze full-stream cuts against this snapshot, preserving recipe shape.
@@ -52,8 +56,9 @@ def extract() -> None:
     fixture = private / 'fixture'
     payload = fixture / 'payload'
     payload.mkdir(parents=True)
-    config = fc.load_config()
-    config_bytes = fc.DEFAULT_CONFIG_PATH.read_bytes()
+    config_bytes = PROBE_CONFIG_PATH.read_bytes()
+    config = json.loads(config_bytes)
+    fc.validate_config(config)
     # libpq receives a socket-only service file, never a network hostname.
     conn = psycopg2.connect(service='probe')
     try:

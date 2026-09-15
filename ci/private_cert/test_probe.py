@@ -10,6 +10,17 @@ from polismath.replay.schedule import ScheduleSpec
 
 
 class ProbeTests(unittest.TestCase):
+    def test_image_recipe_includes_exact_approved_probe_config(self):
+        import recipe
+        from polismath.replay import fixture_config
+
+        root = Path(__file__).resolve().parents[2]
+        files = recipe.source_files(root)
+        self.assertEqual(probe.PROBE_CONFIG_PATH, root / 'delphi/scripts/certify_datasets.probe.json')
+        self.assertEqual(files[str(probe.PROBE_CONFIG_PATH.relative_to(root))],
+                         '396e19f1007d35eaeaa0414b690b1c18c2f03a5c324c9dbe78e06289db1f7efe')
+        self.assertNotEqual(probe.PROBE_CONFIG_PATH, fixture_config.DEFAULT_CONFIG_PATH)
+
     def test_explicit_schedule_scales_to_snapshot_preserving_semantics(self):
         raw=dict(dataset='public-fixture',schedule_id='two',cuts={'mode':'vote-count','at':[25,100]},
                  coverage='full-stream',restart_after=0,moderation='interleave-by-timestamp',clojure={'warm_start':'chain'})

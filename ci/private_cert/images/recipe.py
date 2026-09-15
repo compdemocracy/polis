@@ -20,7 +20,8 @@ def source_files(root):
         'ci/private_cert/images/gate.py', 'ci/private_cert/images/g12.py',
         'ci/private_cert/images/probe.py', 'ci/probe_box/contracts.py', 'ci/probe_box/receipt.py',
         'delphi/scripts/replay_driver.py', 'delphi/scripts/certify_battery.json',
-        'delphi/scripts/certify_datasets.json', 'delphi/scripts/certify_datasets.schema.json',
+        'delphi/scripts/certify_datasets.json', 'delphi/scripts/certify_datasets.probe.json',
+        'delphi/scripts/certify_datasets.schema.json',
         'math/dev/replay.clj', 'math/deps.edn',
     }
     for base, pattern in [('delphi/polismath', '**/*.py'), ('math/src', '**/*'),
