@@ -122,15 +122,52 @@ def test_get_batch_results_parses_jsonl():
         json.dumps({"custom_id": "layer0_cluster1", "result": {"type": "errored", "error": {"type": "invalid_request"}}}),
     ]
 
-    def fake_get(url, headers=None):
-        assert url == "https://x/results"
+    results_url = "https://api.anthropic.com/v1/messages/batches/msgbatch_1/results"
+
+    def fake_get(url, headers=None, allow_redirects=True):
+        assert url == results_url
+        assert allow_redirects is False
         return FakeResponse(text="\n".join(lines))
 
     with mock.patch("umap_narrative.llm_factory_constructor.model_provider.requests.get", side_effect=fake_get):
-        records = provider.get_batch_results({"results_url": "https://x/results"})
+        records = provider.get_batch_results({"results_url": results_url})
 
     assert len(records) == 2
     assert records[0]["custom_id"] == "layer0_cluster0"
+
+
+def test_get_batch_results_refuses_foreign_or_insecure_results_url():
+    """The results request carries the API key, so the destination is not taken on trust."""
+    provider = make_provider()
+    calls = []
+
+    def fake_get(url, headers=None, allow_redirects=True):
+        calls.append(url)
+        return FakeResponse(text="")
+
+    with mock.patch("umap_narrative.llm_factory_constructor.model_provider.requests.get", side_effect=fake_get):
+        for bad in (
+            "https://x/results",
+            "http://api.anthropic.com/v1/messages/batches/b/results",
+            "https://api.anthropic.com.evil.example/v1/results",
+            "https://api.anthropic.com:8443/v1/results",
+        ):
+            with pytest.raises(ValueError):
+                provider.get_batch_results({"results_url": bad})
+    assert calls == []
+
+
+def test_get_batch_results_refuses_redirects():
+    provider = make_provider()
+
+    def fake_get(url, headers=None, allow_redirects=True):
+        r = FakeResponse(text="")
+        r.status_code = 302
+        return r
+
+    with mock.patch("umap_narrative.llm_factory_constructor.model_provider.requests.get", side_effect=fake_get):
+        with pytest.raises(ValueError):
+            provider.get_batch_results({"results_url": "https://api.anthropic.com/v1/messages/batches/b/results"})
 
 
 def test_extract_text_from_result():

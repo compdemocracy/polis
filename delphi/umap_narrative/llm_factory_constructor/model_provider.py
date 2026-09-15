@@ -383,6 +383,17 @@ class AnthropicProvider(ModelProvider):
                 ]
             })
     
+    RESULTS_HOST = "api.anthropic.com"
+
+    @classmethod
+    def _require_anthropic_url(cls, url: str) -> None:
+        """Refuse to send the API key anywhere but Anthropic's API over HTTPS."""
+        from urllib.parse import urlsplit
+
+        parts = urlsplit(url)
+        if parts.scheme != "https" or parts.hostname != cls.RESULTS_HOST or parts.port not in (None, 443):
+            raise ValueError("Batch results URL is not Anthropic's API host over HTTPS; refusing")
+
     def _batch_headers(self) -> Dict[str, str]:
         return {
             "x-api-key": self.api_key,
@@ -504,7 +515,15 @@ class AnthropicProvider(ModelProvider):
         results_url = batch.get("results_url")
         if not results_url:
             raise ValueError("Batch has no results_url; is it ended?")
-        response = requests.get(results_url, headers=self._batch_headers())
+        # The request carries the API key, so the destination is not taken on
+        # trust from the batch object: it must be Anthropic's API host over
+        # HTTPS, and a redirect is refused rather than followed with the key.
+        self._require_anthropic_url(results_url)
+        response = requests.get(
+            results_url, headers=self._batch_headers(), allow_redirects=False
+        )
+        if 300 <= response.status_code < 400:
+            raise ValueError("Batch results URL redirected; refusing to follow with credentials")
         response.raise_for_status()
         records = []
         for line in response.text.splitlines():
