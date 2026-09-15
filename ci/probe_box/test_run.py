@@ -128,10 +128,13 @@ class ControlTests(unittest.TestCase):
         self.assertEqual(c.read(c.prefix + 'instance.json')['volumes'], ['vol-a', 'vol-b'])
         self.assertTrue([k for (b, k) in s.objects if k.startswith('boot/')])
     def test_terminated_instance_without_subnet_field_is_still_owned(self):
-        c, e, s, i = setup(); c.launch_once(); i['State']['Name'] = 'terminated'; del i['SubnetId']; i['SecurityGroups'] = []; i['BlockDeviceMappings'] = []
+        c, e, s, i = setup(); c.launch_once(); i['State']['Name'] = 'terminated'; i['SubnetId'] = None; i['SecurityGroups'] = []; i['IamInstanceProfile'] = None; i['BlockDeviceMappings'] = []
         self.assertEqual(c.reconcile()['status'], 'CLEAN')
     def test_running_instance_without_subnet_is_not_owned(self):
         c, e, s, i = setup(); c.launch_once(); del i['SubnetId']
+        with self.assertRaisesRegex(Unknown, 'INSTANCE_OWNERSHIP_UNKNOWN'): c.reconcile()
+    def test_running_instance_without_profile_is_not_owned(self):
+        c, e, s, i = setup(); c.launch_once(); i['IamInstanceProfile'] = None
         with self.assertRaisesRegex(Unknown, 'INSTANCE_OWNERSHIP_UNKNOWN'): c.reconcile()
     def test_disk_delete_ack_is_not_clean(self):
         c, e, s, i = setup(); c.launch_once(); i['State']['Name'] = 'terminated'
@@ -220,7 +223,7 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(Unknown,'RELEASE_REFUSED_RUNNING'): x.release(run,['vol-a','vol-b'])
     def test_release_requires_full_attestation_and_absent_disks(self):
         x,c,e,s,i,run=self.stuck()
-        i['State']['Name']='terminated'; del i['SubnetId']; i['BlockDeviceMappings']=[]
+        i['State']['Name']='terminated'; i['SubnetId']=None; i['SecurityGroups']=[]; i['IamInstanceProfile']=None; i['BlockDeviceMappings']=[]
         with self.assertRaisesRegex(Unknown,'DISK_INVENTORY_UNKNOWN'): x.status(run)
         with self.assertRaisesRegex(Unknown,'RELEASE_ATTESTATION'): x.release(run,['vol-a'])
         with self.assertRaisesRegex(Unknown,'RELEASE_ATTESTATION'): x.release(run,['vol-b','vol-c'])
