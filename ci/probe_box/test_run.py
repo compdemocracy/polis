@@ -66,6 +66,10 @@ class EC2:
         if self.run_fails: raise ApiError('RequestTimeout')
         return {'Instances': self.instances}
     def terminate_instances(self, **kw): self.terminated += kw['InstanceIds']
+    def describe_instances(self, **kw):
+        found = [i for i in self.instances if i['InstanceId'] in kw.get('InstanceIds', [])]
+        if kw.get('InstanceIds') and not found: raise ApiError('InvalidInstanceID.NotFound')
+        return {'Reservations': [{'Instances': found}]}
     def delete_volume(self, **kw): self.deleted.append(kw['VolumeId'])
     def describe_volumes(self, VolumeIds):
         found = [d for d in self.disks if d['VolumeId'] in VolumeIds]
@@ -136,6 +140,13 @@ class ControlTests(unittest.TestCase):
     def test_running_instance_without_profile_is_not_owned(self):
         c, e, s, i = setup(); c.launch_once(); i['IamInstanceProfile'] = None
         with self.assertRaisesRegex(Unknown, 'INSTANCE_OWNERSHIP_UNKNOWN'): c.reconcile()
+    def test_recorded_instance_aged_out_of_describe_is_clean_when_disks_absent(self):
+        c, e, s, i = setup(); c.launch_once(); e.instances = []
+        self.assertEqual(c.reconcile()['status'], 'CLEAN')
+        self.assertFalse(e.terminated); self.assertFalse(e.deleted)
+    def test_unrecorded_launch_with_empty_describe_stays_unknown(self):
+        c, e, s, i = setup(); e.instances = []
+        with self.assertRaisesRegex(Unknown, 'LAUNCH_ACK_UNKNOWN'): c.reconcile()
     def test_disk_delete_ack_is_not_clean(self):
         c, e, s, i = setup(); c.launch_once(); i['State']['Name'] = 'terminated'
         e.disks = [{'VolumeId': 'vol-a', 'State': 'available', 'Attachments': []}]
@@ -221,6 +232,11 @@ class ReleaseTests(unittest.TestCase):
     def test_release_refuses_a_running_instance(self):
         x,c,e,s,i,run=self.stuck()
         with self.assertRaisesRegex(Unknown,'RELEASE_REFUSED_RUNNING'): x.release(run,['vol-a','vol-b'])
+    def test_release_after_the_instance_aged_out_of_describe(self):
+        x,c,e,s,i,run=self.stuck(); e.instances=[]
+        with self.assertRaisesRegex(Unknown,'DISK_INVENTORY_UNKNOWN'): x.status(run)
+        r=x.release(run,['vol-a','vol-b'])
+        self.assertEqual((r['complete'],r['passed']),(True,False)); self.assertEqual(x.active()[0]['phase'],'CLEAN')
     def test_release_requires_full_attestation_and_absent_disks(self):
         x,c,e,s,i,run=self.stuck()
         i['State']['Name']='terminated'; i['SubnetId']=None; i['SecurityGroups']=[]; i['IamInstanceProfile']=None; i['BlockDeviceMappings']=[]

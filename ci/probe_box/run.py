@@ -94,6 +94,29 @@ class Control:
             raise Unknown("INSTANCE_OWNERSHIP_UNKNOWN")
         return found
 
+    def observe(self):
+        """The owned instance, or None. DescribeInstances stops listing an
+        instance about an hour after termination; for an instance this tool
+        recorded, "no longer exists" is stronger than "terminated" and is
+        reported as a terminated instance with no disks."""
+        instances = self.instances()
+        if instances:
+            return instances[0]
+        prior = self.read(self.prefix + "instance.json")
+        if not prior:
+            return None
+        try:
+            found = [i for r in self.ec2.describe_instances(InstanceIds=[prior["id"]])["Reservations"] for i in r["Instances"]]
+        except Exception as e:
+            if getattr(e, "response", {}).get("Error", {}).get("Code") != "InvalidInstanceID.NotFound":
+                raise Unknown("INSTANCE_DESCRIBE_UNKNOWN") from None
+            found = []
+        if found:
+            if len(found) != 1 or not self.own(found[0]):
+                raise Unknown("INSTANCE_OWNERSHIP_UNKNOWN")
+            return found[0]
+        return {"InstanceId": prior["id"], "State": {"Name": "terminated"}, "BlockDeviceMappings": [], "gone": True}
+
     def launch_once(self):
         if self.now >= self.expiry or self.expiry - self.now > 12 * 3600:
             raise Unknown("ADMISSION_EXPIRED_OR_OVER_BUDGET")
@@ -139,10 +162,9 @@ class Control:
             # An INTENT may precede claim creation or the actual launch call.
             # No observation can prove that its actor will never resume.
             raise Unknown("LAUNCH_ACK_UNKNOWN")
-        instances = self.instances()
-        if not instances:
+        i = self.observe()
+        if i is None:
             raise Unknown("LAUNCH_ACK_UNKNOWN")
-        i = instances[0]
         iid = i["InstanceId"]
         volume_ids = sorted(b["Ebs"]["VolumeId"] for b in i.get("BlockDeviceMappings", []) if "Ebs" in b)
         prior = self.read(self.prefix + "instance.json")
@@ -360,10 +382,10 @@ class Session:
             raise Unknown('RUN_CONFLICT')
         c = self.control(state)
         prior = c.read(c.prefix + 'instance.json')
-        instances = c.instances()
-        if not prior or not instances or instances[0]['InstanceId'] != prior['id']:
+        i = c.observe() if prior else None
+        if not prior or i is None or i['InstanceId'] != prior['id']:
             raise Unknown('LAUNCH_ACK_UNKNOWN')
-        if instances[0]['State']['Name'] != 'terminated':
+        if i['State']['Name'] != 'terminated':
             raise Unknown('RELEASE_REFUSED_RUNNING')
         attested = sorted(set(attested_volumes))
         if len(attested) != DISKS_PER_INSTANCE or not set(prior['volumes']) <= set(attested):
