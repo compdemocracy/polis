@@ -1,6 +1,6 @@
 {
   "schema_version": "certify-datasets/1",
-  "config_version": "v2-probe-capture-sample-1",
+  "config_version": "v1",
   "notes": "P-022 section A committed selection rules. Frozen BEFORE any candidate output was inspected. Contains no zids, report ids, topics or text; it is safe in a public repository. Roles with group=replacement are resolved in array order and each one excludes every conversation an earlier replacement role already took ('among remaining' in the spec's large-shape rule); group=stress roles are resolved afterwards WITHOUT exclusion and may reuse a conversation, in which case the manifest discloses the overlap. Every order_by list ends with zid ascending, which is the only tie-break and happens entirely inside the private selection process. A threshold or rank change requires a reviewed config edit and a new bundle version; the resolver never silently picks a smaller case.",
   "public_fixtures": [
     {
@@ -890,13 +890,5 @@
         "notes": "Declared but NOT materialised unless --include-heavy is passed. This benchmark is context, not proof of current memory or DB cost."
       }
     ]
-  },
-  "served_math": {
-    "capture": true
-  },
-  "representative_selection": {
-    "algorithm": "representative-logpv/1",
-    "target": 20,
-    "seed": "6fb122c2582e0e2e0e4b1a320603a4b59a25a292fb663080bfb93a0ce049594c"
   }
 }
