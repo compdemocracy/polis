@@ -140,6 +140,9 @@ export class ProbeBox extends Construct {
     // Without ListBucket, S3 reports a missing register object as AccessDenied rather than
     // NoSuchKey, so the operator cannot distinguish an empty register from an error.
     statement(operator,['s3:ListBucket'],[control.bucketArn]);
+    // Same for the evidence bucket: a run that ended without a receipt must read as
+    // NoSuchKey (closed, failed), not as AccessDenied (unresolved forever).
+    statement(operator,['s3:ListBucket'],[evidence.bucketArn]);
     statement(operator,['s3:GetObject'],[evidence.arnForObjects('results/*/receipt.json')]);
     statement(operator,['kms:Decrypt','kms:GenerateDataKey'],[key.keyArn],{
       StringEquals:{'kms:ViaService':`s3.${a.region}.amazonaws.com`},

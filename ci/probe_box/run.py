@@ -3,12 +3,16 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import re
 import time
 import uuid
 from contracts import validate_job
 from receipt import validate_receipt
 
 LAUNCH_KEYS = ('TEMPLATE', 'TEMPLATE_VERSION', 'PROFILE', 'SUBNET', 'SECURITY_GROUP')
+# A worker that ends without a receipt leaves this record in its heartbeat object (worker.py).
+FAILURE_SCHEMA = 'polis-probe-failure/1'
+TOKEN = re.compile(r'[A-Za-z0-9_.]{1,96}')
 # Both launch templates carry exactly two EBS mappings: the root and one private disk.
 # EBS attaches after RunInstances returns, so an observation with fewer disks is partial.
 DISKS_PER_INSTANCE = 2
@@ -346,16 +350,19 @@ class Session:
             self.cas(etag, dict(state, phase='CLEAN', nonce=uuid.uuid4().hex))
         self.monitor(c, True)
         passed = False
+        failure = None
         owned = c.read(c.prefix+'instance.json')
         if owned:
             arn = f'arn:aws:ec2:{c.a["region"]}:{c.a["account"]}:instance/{owned["id"]}'
+            provision = self.cfg['MODE'] == 'provision'
             try:
-                provision = self.cfg['MODE'] == 'provision'
                 obj = self.s3.get_object(Bucket=self.cfg['CONTROL_BUCKET'] if provision else self.cfg['EVIDENCE_BUCKET'],
                     Key=f'provision-results/{arn}.json' if provision else f'results/{arn}/receipt.json')
             except Exception as error:
                 if getattr(error,'response',{}).get('Error',{}).get('Code') != 'NoSuchKey':
                     raise Unknown('RECEIPT_READ_UNKNOWN') from None
+                if not provision:
+                    failure = self.failure(c, arn)
             else:
                 raw = obj['Body'].read(131073)
                 if len(raw) > 131072:
@@ -369,7 +376,35 @@ class Session:
                 else:
                     receipt = validate_receipt(json.loads(raw), c.a['job'])
                     passed = receipt['verdict'] == 'PASS'
-        return dict(run_id=run_id, complete=True, passed=passed)
+        result = dict(run_id=run_id, complete=True, passed=passed)
+        if failure:
+            result['failure'] = failure
+        return result
+
+    def failure(self, c, arn):
+        """The worker's fixed-vocabulary failure record, when it replaced its last heartbeat.
+
+        Only identifier-shaped strings, integers and booleans under known keys pass
+        through; anything else in the object is dropped unread."""
+        try:
+            record = c.read(f'heartbeats/{c.a["id"]}/{arn}.json')
+        except Unknown:
+            return None
+        if not isinstance(record, dict) or record.get('schema') != FAILURE_SCHEMA:
+            return None
+        def token(value):
+            return isinstance(value, str) and bool(TOKEN.fullmatch(value))
+        clean = {k: record[k] for k in ('stage', 'type', 'code', 'aws') if token(record.get(k))}
+        container = record.get('container')
+        if isinstance(container, dict):
+            clean['container'] = {k: v for k, v in container.items() if k in ('label', 'class', 'code') and token(v)}
+            for k, kind in (('exit', int), ('oom', bool)):
+                if type(container.get(k)) is kind:
+                    clean['container'][k] = container[k]
+        relay = record.get('relay')
+        if isinstance(relay, dict):
+            clean['relay'] = {k: v for k, v in relay.items() if token(k) and type(v) is int}
+        return clean or None
 
     def release(self, run_id, attested_volumes):
         """Operator-attested close for a terminated instance whose recorded disk

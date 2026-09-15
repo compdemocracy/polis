@@ -103,6 +103,71 @@ class RuntimeTests(unittest.TestCase):
         with self.assertRaises(subprocess.TimeoutExpired):
             self.sandbox(failure=subprocess.TimeoutExpired('run', 1))
 
+    def test_sandbox_failure_carries_exit_and_exception_token_only(self):
+        def run(argv, **kw):
+            if hasattr(kw.get('stdout'), 'write'):
+                kw['stdout'].write(b'Traceback (most recent call last):\n  File "/x.py", line 1\n'
+                                   b'psycopg2.OperationalError: connection on socket "/replica/.s.PGSQL.5432" failed: zid 42\n')
+            return SimpleNamespace(returncode=0)
+        with tempfile.TemporaryDirectory() as tmp, patch.object(worker, 'SCRATCH', Path(tmp)), \
+                patch.object(worker.subprocess, 'run', side_effect=run), \
+                patch.object(worker.subprocess, 'check_output', return_value=json.dumps([{'State': {'ExitCode': 1, 'OOMKilled': False}}]).encode()):
+            with self.assertRaises(worker.SandboxFailure) as caught:
+                worker.sandbox({'args': ['probe']}, 'test', [], time.time()+30, self.config)
+        record = worker.failure_record('reader', caught.exception)
+        self.assertEqual(record, {'schema': 'polis-probe-failure/1', 'stage': 'reader', 'type': 'SandboxFailure',
+                                  'code': 'PROBE_EXECUTION_FAILED',
+                                  'container': {'label': 'test', 'exit': 1, 'oom': False, 'class': 'psycopg2.OperationalError'}})
+        self.assertNotIn('zid', json.dumps(record))
+        aws = type('ClientError', (Exception,), {})('An error occurred (AccessDenied) when calling GetObject on private/key')
+        aws.response = {'Error': {'Code': 'AccessDenied', 'Message': 'private/key'}}
+        self.assertEqual(worker.failure_record('images', aws),
+                         {'schema': 'polis-probe-failure/1', 'stage': 'images', 'type': 'ClientError', 'aws': 'AccessDenied'})
+        self.assertEqual(worker.failure_record('boot', ValueError('zid 42 is private')),
+                         {'schema': 'polis-probe-failure/1', 'stage': 'boot', 'type': 'ValueError'})
+
+    def test_last_exception_token_keeps_only_class_names_and_codes(self):
+        cases = {
+            'psycopg2.OperationalError: connection to server failed: zid 42': {'class': 'psycopg2.OperationalError'},
+            'polismath.replay.fixture_config.SelectionError: REPORT_FIELDS': {'class': 'polismath.replay.fixture_config.SelectionError', 'code': 'REPORT_FIELDS'},
+            'INCOMPLETE: admitted image closure or action invalid': {'code': 'INCOMPLETE'},
+            'Password: hunter2': {},
+            'permission denied for table votes': {},
+            'x' * 200 + 'Error: y': {},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            for line, expected in cases.items():
+                with self.subTest(line=line[:40]):
+                    log = Path(tmp)/'c.log'
+                    log.write_text('noise: zid 7\n'+line+'\n\n')
+                    self.assertEqual(worker.last_exception_token(log), expected)
+            self.assertEqual(worker.last_exception_token(Path(tmp)/'missing.log'), {})
+
+    def test_relay_reports_upstream_outcomes_without_payload(self):
+        import socket
+        import replica
+
+        class Upstream:
+            def sendall(self, data): pass
+            def recv(self, n): return b'N'
+            def __enter__(self): return self
+            def __exit__(self, *exc): return False
+        cases = [('resolve', socket.gaierror('x')), ('connect', ConnectionRefusedError()),
+                 ('connect', TimeoutError()), ('no_tls', Upstream())]
+        for outcome, upstream in cases:
+            with self.subTest(outcome=outcome), tempfile.TemporaryDirectory() as tmp:
+                failing = isinstance(upstream, BaseException)
+                with patch.object(replica.socket, 'create_connection',
+                                  side_effect=upstream if failing else None, return_value=None if failing else upstream):
+                    with replica.ReplicaSocket(Path(tmp), 'db.internal', Path(tmp)/'ca.pem') as relay:
+                        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                        client.settimeout(5)
+                        client.connect(str(Path(tmp)/'.s.PGSQL.5432'))
+                        self.assertEqual(client.recv(1), b'')
+                        client.close()
+                self.assertEqual(relay.summary(), {outcome: 1})
+                self.assertEqual(worker.failure_record('reader', ValueError('PROBE_EXECUTION_FAILED'), relay)['relay'], {outcome: 1})
+
     def test_sandbox_refuses_mutable_image_before_execution(self):
         with patch.object(worker.subprocess, 'run') as run:
             with self.assertRaisesRegex(ValueError, 'IMAGE_CONFIG'):

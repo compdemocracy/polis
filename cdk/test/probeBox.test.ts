@@ -29,7 +29,9 @@ test('worker cannot read evidence or primary secret or administer resources',()=
 test('operator SSO trust and constrained infrastructure authority',()=>{const j=build().toJSON(),role=named(j,'BoxOperator','AWS::IAM::Role');
  expect(JSON.stringify(role.AssumeRolePolicyDocument)).toContain(config.operatorRoleArns[0]);
  const policy=named(j,'BoxOperatorDefaultPolicy').PolicyDocument;
- expect(policy.Statement.some((x:any)=>([] as string[]).concat(x.Action).includes('s3:ListBucket')&&JSON.stringify(x.Resource).includes('BoxControl'))).toBe(true);
+ for(const bucket of ['BoxControl','BoxEvidence'])
+  expect(policy.Statement.some((x:any)=>([] as string[]).concat(x.Action).includes('s3:ListBucket')&&JSON.stringify(x.Resource).includes(bucket))).toBe(true);
+ expect(policy.Statement.some((x:any)=>([] as string[]).concat(x.Action).includes('s3:ListBucket')&&JSON.stringify(x.Resource).includes('BoxAsset'))).toBe(false);
  expect(JSON.stringify(policy)).not.toContain('lambda:');
  expect(JSON.stringify(policy)).not.toContain(config.adminSecretArn);
  const launches=policy.Statement.filter((s:any)=>s.Action==='ec2:RunInstances');expect(launches).toHaveLength(2);

@@ -100,9 +100,68 @@ def sandbox(command: dict, label: str, mounts: list[tuple[Path,str,str]], deadli
         inspected = subprocess.check_output(docker()+['inspect','polis-probe-'+label],stderr=subprocess.DEVNULL)
         state = json.loads(inspected)[0]['State']
         if result.returncode or state.get('OOMKilled') or state.get('ExitCode') != 0:
-            raise ValueError('PROBE_EXECUTION_FAILED')
+            raise SandboxFailure(label, state.get('ExitCode'), bool(state.get('OOMKilled')),
+                                 last_exception_token(SCRATCH/(label+'.log')))
     finally:
         subprocess.run(docker()+['rm','--force','polis-probe-'+label],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True)
+
+
+FAILURE_SCHEMA = 'polis-probe-failure/1'
+CODE = re.compile(r'[A-Z][A-Z0-9_]{1,39}')
+CLASS = re.compile(r'[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*')
+CLASS_SUFFIXES = ('Error', 'Exception', 'Exit', 'Failure', 'Warning', 'Interrupt', 'Timeout', 'Expired')
+
+
+class SandboxFailure(ValueError):
+    """A candidate container ended without success. Carries fixed-shape facts only."""
+    def __init__(self, label: str, exit_code: object, oom: bool, last: dict):
+        super().__init__('PROBE_EXECUTION_FAILED')
+        self.label, self.exit_code, self.oom, self.last = label, exit_code, oom, last
+
+
+def last_exception_token(log: Path) -> dict:
+    """The exception class name and bare all-caps code on the container's final line.
+
+    Never the message. A dotted class name ending in a standard exception suffix is a
+    code identifier; an all-caps token is a fixed failure code. Any other text (paths,
+    identifiers, values) is dropped, so the record cannot carry private data.
+    """
+    try:
+        lines = log.read_bytes()[-4096:].decode('utf-8', 'replace').splitlines()
+    except OSError:
+        return {}
+    for line in reversed(lines):
+        line = line.strip()
+        if not line:
+            continue
+        head, _, rest = line.partition(':')
+        head, rest = head.strip(), rest.strip()
+        token = {}
+        if CODE.fullmatch(head):
+            token['code'] = head
+        elif len(head) <= 96 and CLASS.fullmatch(head) and head.rsplit('.', 1)[-1].endswith(CLASS_SUFFIXES):
+            token['class'] = head
+            if CODE.fullmatch(rest):
+                token['code'] = rest
+        return token
+    return {}
+
+
+def failure_record(stage: str, error: BaseException, relay: object = None) -> dict:
+    """What may leave the box when no receipt does: stage, exception class, fixed codes."""
+    record = {'schema': FAILURE_SCHEMA, 'stage': stage, 'type': type(error).__name__}
+    if isinstance(error, ValueError) and CODE.fullmatch(str(error)):
+        record['code'] = str(error)
+    aws = getattr(error, 'response', None)
+    aws = aws.get('Error', {}).get('Code') if isinstance(aws, dict) else None
+    if isinstance(aws, str) and re.fullmatch(r'[A-Za-z0-9_.]{1,64}', aws):
+        record['aws'] = aws
+    if isinstance(error, SandboxFailure):
+        record['container'] = {'label': error.label, 'exit': error.exit_code if type(error.exit_code) is int else None,
+                               'oom': error.oom, **error.last}
+    if relay is not None:
+        record['relay'] = relay.summary()
+    return record
 
 
 def owned_dir(path: Path) -> Path:
@@ -154,7 +213,8 @@ def run() -> None:
                               ServerSideEncryption='aws:kms',SSEKMSKeyId=boot['evidenceKey'])
             except Exception: pass
             stop.wait(60)
-    threading.Thread(target=heartbeat,daemon=True).start()
+    pulse=threading.Thread(target=heartbeat,daemon=True); pulse.start()
+    stage='images'; relay=None
     try:
         commands=[job[k] for k in ('reader','producer','verifier') if k in job]
         loaded_images = {}
@@ -178,6 +238,7 @@ def run() -> None:
         specification.chmod(0o755)
         (specification/'job.json').write_bytes(canonical(job)); (specification/'job.json').chmod(0o444)
         if 'reader' in job:
+            stage='secret'
             secret_client=boto3.client('secretsmanager',region_name=identity['region'],endpoint_url=boot['secretsUrl'])
             secret=json.loads(secret_client.get_secret_value(SecretId=boot['secretArn'])['SecretString'])
             if set(secret)!={'username','password'} or secret['username']!='polis_probe_reader': raise ValueError('READER_SECRET')
@@ -189,7 +250,8 @@ def run() -> None:
             (sock/'service.conf').write_text(service);(sock/'service.conf').chmod(0o444)
             (sock/'pgpass').write_text(':'.join(escape(v) for v in ['/replica','5432',boot['database'],secret['username'],secret['password']])+'\n')
             (sock/'pgpass').chmod(0o600);os.chown(sock/'pgpass',65534,65534)
-            with ReplicaSocket(sock,boot['replicaHost'],ROOT/'rds-ca.pem'):
+            stage='reader'
+            with ReplicaSocket(sock,boot['replicaHost'],ROOT/'rds-ca.pem') as relay:
                 sandbox(job['reader'],'reader',[(sock,'/replica','ro'),(data,'/output','rw')],deadline-180,loaded_images[job['reader']['image']])
             (sock/'service.conf').unlink();(sock/'pgpass').unlink()
             del secret,service
@@ -202,13 +264,28 @@ def run() -> None:
         verifier_mounts=[(data,'/input','ro'),(output,'/evidence','ro'),(run_spec,'/run-spec','ro'),(specification,'/job','ro'),(verdict,'/verdict','rw')]
         if fixture.is_dir():
             producer_mounts.append((fixture,'/fixture','ro'));verifier_mounts.append((fixture,'/fixture','ro'))
+        stage='producer'
         sandbox(job['producer'],'producer',producer_mounts,deadline-120,loaded_images[job['producer']['image']])
+        stage='verifier'
         sandbox(job['verifier'],'verifier',verifier_mounts,deadline-30,loaded_images[job['verifier']['image']])
+        stage='receipt'
         result=verdict/'receipt.json'
         if result.is_symlink() or not result.is_file() or result.stat().st_size>131072: raise ValueError('RECEIPT_FILE')
         receipt=validate_receipt(json.loads(result.read_bytes()),job)
         s3.put_object(Bucket=boot['evidenceBucket'],Key=f'results/{arn}/receipt.json',Body=canonical(receipt),IfNoneMatch='*',
                       ServerSideEncryption='aws:kms',SSEKMSKeyId=boot['evidenceKey'])
+    except BaseException as error:
+        # No receipt will leave. Replace the final heartbeat with the fixed-vocabulary
+        # failure record (stage, exception class, codes, relay outcome counts) so the
+        # operator can tell which stage ended the run. Best effort; the box powers off.
+        stop.set(); pulse.join(timeout=10)
+        try:
+            s3.put_object(Bucket=boot['controlBucket'],Key=f'heartbeats/{job["run_id"]}/{arn}.json',
+                          Body=canonical(failure_record(stage,error,relay)),
+                          ServerSideEncryption='aws:kms',SSEKMSKeyId=boot['evidenceKey'])
+        except Exception:
+            pass
+        raise
     finally:
         stop.set()
 
