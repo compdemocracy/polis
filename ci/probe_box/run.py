@@ -9,6 +9,9 @@ from contracts import validate_job
 from receipt import validate_receipt
 
 LAUNCH_KEYS = ('TEMPLATE', 'TEMPLATE_VERSION', 'PROFILE', 'SUBNET', 'SECURITY_GROUP')
+# Both launch templates carry exactly two EBS mappings: the root and one private disk.
+# EBS attaches after RunInstances returns, so an observation with fewer disks is partial.
+DISKS_PER_INSTANCE = 2
 
 
 class Unknown(RuntimeError):
@@ -60,14 +63,19 @@ class Control:
 
     def own(self, i: object):
         c, a = self.c, self.a
+        # DescribeInstances drops SubnetId (and may drop SecurityGroups) once an
+        # instance is terminated; those fields are required while present.
+        terminated = i.get("State", {}).get("Name") == "terminated"
+        groups = {g["GroupId"] for g in i.get("SecurityGroups", [])}
         return (i.get("ClientToken") == self.token
                 # DescribeInstances has no LaunchTemplate field. The exact
                 # template/version live in the durable admission bound by this
                 # client token; verify the observable instance fields below.
                 and not i.get("PublicIpAddress")
-                and {g["GroupId"] for g in i.get("SecurityGroups", [])} == {c["SECURITY_GROUP"]}
+                and (groups == {c["SECURITY_GROUP"]} or (terminated and not groups))
                 and i.get("IamInstanceProfile", {}).get("Arn") == c["PROFILE"]
-                and i.get("ImageId") == a["ami"] and i.get("SubnetId") == c["SUBNET"]
+                and i.get("ImageId") == a["ami"]
+                and (i.get("SubnetId") == c["SUBNET"] or (terminated and "SubnetId" not in i))
                 and i.get("InstanceType") == c["INSTANCE_TYPE"]
                 and {t["Key"]: t["Value"] for t in i.get("Tags", [])}.get("polis:probe-run") == a["id"]
                 and {t["Key"]: t["Value"] for t in i.get("Tags", [])}.get("polis:probe-box") == c["BOX_ID"])
@@ -135,7 +143,13 @@ class Control:
         iid = i["InstanceId"]
         volume_ids = sorted(b["Ebs"]["VolumeId"] for b in i.get("BlockDeviceMappings", []) if "Ebs" in b)
         prior = self.read(self.prefix + "instance.json")
-        if not prior and volume_ids:
+        if not prior and i["State"]["Name"] != "terminated":
+            if len(volume_ids) != len(set(volume_ids)) or len(volume_ids) > DISKS_PER_INSTANCE:
+                raise Unknown("DISK_INVENTORY_UNKNOWN")
+            if len(volume_ids) < DISKS_PER_INSTANCE:
+                # A partial disk set must never become the disposal inventory;
+                # observe again on a later poll (the boot object waits with it).
+                return {"status": "ATTACHING", "admissionId": self.a["id"]}
             self.record(self.prefix + "instance.json", {"id": iid, "volumes": volume_ids, "admissionSha256": self.token})
             prior = self.read(self.prefix + "instance.json")
         if prior and (prior["id"] != iid or prior["admissionSha256"] != self.token
@@ -332,6 +346,44 @@ class Session:
                     passed = receipt['verdict'] == 'PASS'
         return dict(run_id=run_id, complete=True, passed=passed)
 
+    def release(self, run_id, attested_volumes):
+        """Operator-attested close for a terminated instance whose recorded disk
+        inventory is incomplete. Requires: the instance observed terminated, the
+        recorded volumes a subset of the attested set, every attested volume
+        observed absent by ID, and no tagged disk remaining. Deletes nothing,
+        never releases a running box, and never reports PASS."""
+        state, etag = self.active()
+        if not state or state['admission']['id'] != run_id or state['phase'] in ('RESERVED', 'CLEAN'):
+            raise Unknown('RUN_CONFLICT')
+        c = self.control(state)
+        prior = c.read(c.prefix + 'instance.json')
+        instances = c.instances()
+        if not prior or not instances or instances[0]['InstanceId'] != prior['id']:
+            raise Unknown('LAUNCH_ACK_UNKNOWN')
+        if instances[0]['State']['Name'] != 'terminated':
+            raise Unknown('RELEASE_REFUSED_RUNNING')
+        attested = sorted(set(attested_volumes))
+        if len(attested) != DISKS_PER_INSTANCE or not set(prior['volumes']) <= set(attested):
+            raise Unknown('RELEASE_ATTESTATION')
+        for vid in attested:
+            try:
+                response = c.ec2.describe_volumes(VolumeIds=[vid])
+            except Exception as e:
+                if getattr(e, 'response', {}).get('Error', {}).get('Code') == 'InvalidVolume.NotFound':
+                    continue
+                raise Unknown('DISK_DESCRIBE_UNKNOWN') from None
+            raise Unknown('DISK_REMAINS' if response.get('Volumes') else 'DISK_DESCRIBE_EMPTY')
+        tagged = []
+        for page in c.ec2.get_paginator('describe_volumes').paginate(Filters=[{'Name': 'tag:polis:probe-run', 'Values': [run_id]}]):
+            tagged.extend(page['Volumes'])
+        if tagged:
+            raise Unknown('DISK_REMAINS')
+        c.record(c.prefix + 'clean.json', {'admissionSha256': c.token, 'instanceId': prior['id'],
+                 'volumes': attested, 'status': 'CLEAN', 'attested': True})
+        self.cas(etag, dict(state, phase='CLEAN', nonce=uuid.uuid4().hex))
+        self.monitor(c, True)
+        return dict(run_id=run_id, complete=True, passed=False)
+
     def monitor(self, c, clean):
         if self.monitoring is None or self.cfg['MODE'] != 'worker':
             return
@@ -364,23 +416,28 @@ def main():
     import argparse
     from pathlib import Path
     parser = argparse.ArgumentParser(description='Operator probe lifecycle; local closed-receipt validation')
-    parser.add_argument('action', choices=('launch', 'status', 'cancel', 'watch'))
+    parser.add_argument('action', choices=('launch', 'status', 'cancel', 'watch', 'release'))
     parser.add_argument('--config', type=Path, required=True)
     parser.add_argument('--profile', required=True)
     parser.add_argument('--job', type=Path)
     parser.add_argument('--run-id')
+    parser.add_argument('--attest-volume', action='append', default=[])
     args = parser.parse_args()
     cfg = json.loads(args.config.read_bytes())
     ec2, s3, monitoring = clients(cfg['REGION'], args.profile)
     session = Session(ec2, s3, cfg, monitoring=monitoring)
     try:
-        if args.action == 'launch':
-            if not args.job or args.run_id:
+        if args.action == 'release':
+            if not args.run_id or args.job or not args.attest_volume:
+                raise Unknown('REQUEST_REFUSED')
+            result = session.release(args.run_id, args.attest_volume)
+        elif args.action == 'launch':
+            if not args.job or args.run_id or args.attest_volume:
                 raise Unknown('REQUEST_REFUSED')
             request = json.loads(args.job.read_bytes())
             result = session.start_provision(request) if cfg['MODE'] == 'provision' else session.start(request)
         else:
-            if not args.run_id or args.job:
+            if not args.run_id or args.job or args.attest_volume:
                 raise Unknown('REQUEST_REFUSED')
             result = session.status(args.run_id, cancel=args.action == 'cancel')
             if args.action == 'watch':
