@@ -63,8 +63,10 @@ class Control:
 
     def own(self, i: object):
         c, a = self.c, self.a
-        # DescribeInstances drops SubnetId (and may drop SecurityGroups) once an
-        # instance is terminated; those fields are required while present.
+        # DescribeInstances drops SubnetId, SecurityGroups and IamInstanceProfile
+        # once an instance is terminated (observed on the first real run);
+        # those fields are required while present. The client token (the
+        # admission digest), image, type and both tags are always required.
         terminated = i.get("State", {}).get("Name") == "terminated"
         groups = {g["GroupId"] for g in i.get("SecurityGroups", [])}
         return (i.get("ClientToken") == self.token
@@ -73,9 +75,10 @@ class Control:
                 # client token; verify the observable instance fields below.
                 and not i.get("PublicIpAddress")
                 and (groups == {c["SECURITY_GROUP"]} or (terminated and not groups))
-                and i.get("IamInstanceProfile", {}).get("Arn") == c["PROFILE"]
+                and ((i.get("IamInstanceProfile") or {}).get("Arn") == c["PROFILE"]
+                     or (terminated and not i.get("IamInstanceProfile")))
                 and i.get("ImageId") == a["ami"]
-                and (i.get("SubnetId") == c["SUBNET"] or (terminated and "SubnetId" not in i))
+                and (i.get("SubnetId") == c["SUBNET"] or (terminated and not i.get("SubnetId")))
                 and i.get("InstanceType") == c["INSTANCE_TYPE"]
                 and {t["Key"]: t["Value"] for t in i.get("Tags", [])}.get("polis:probe-run") == a["id"]
                 and {t["Key"]: t["Value"] for t in i.get("Tags", [])}.get("polis:probe-box") == c["BOX_ID"])
