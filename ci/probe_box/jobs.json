@@ -1,4 +1,22 @@
 {
   "schema": "polis-probe-registry/1",
-  "jobs": {}
+  "jobs": {
+    "sampled-paired-battery-v1": {
+      "schema": "polis-probe-job/1",
+      "run_id": "00000000000000000000000000000000",
+      "reader": {
+        "image": "localhost/polis-probe-producer@sha256:00dbf26aaa933cde422b9f80390fa1154e929968bf5994d92479489146fc4c99",
+        "args": ["extract"]
+      },
+      "producer": {
+        "image": "localhost/polis-probe-producer@sha256:00dbf26aaa933cde422b9f80390fa1154e929968bf5994d92479489146fc4c99",
+        "args": ["produce"]
+      },
+      "verifier": {
+        "image": "localhost/polis-probe-verifier@sha256:b6520b3aadafa74c0fcc546cddef99a20e7469ef033b3a85f4fbcac50a24763b",
+        "args": ["verify"]
+      },
+      "max_seconds": 18000
+    }
+  }
 }
