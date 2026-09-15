@@ -18,6 +18,16 @@ release source identities. Keep producer and verifier builds independent.
 The recipe entrypoint is `ci/private_cert/images/probe.py`. The fixed launcher
 checks its source census and executes isolated Python with a closed argument ABI:
 
+Box extraction loads `delphi/scripts/certify_datasets.probe.json`, the reviewed
+`v2-probe-capture-sample-1` config (SHA256
+`396e19f1007d35eaeaa0414b690b1c18c2f03a5c324c9dbe78e06289db1f7efe`).
+The recipe includes that file in both image source closures. Its exact bytes
+become the local fixture's `config.json`; the manifest and `plan.json` bind its
+SHA256, which the producer and verifier recheck before replay. There is no
+runtime config override. The public `certify_datasets.json` default remains v1
+and does not require a representative-selection report. The probe config enables
+served capture and representative selection, so its manifest requires that report.
+
 - Producer image `extract`: `/replica:ro`, `/output:rw`. The socket-only service
   reaches the fixed TLS read replica. One read-only snapshot creates the original
   owned bundle under `/output/.local/fixture` and its input bindings separately.
