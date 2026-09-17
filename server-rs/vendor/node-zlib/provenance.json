@@ -1,0 +1,24 @@
+{
+  "source": "https://api.github.com/repos/nodejs/node/contents/deps/zlib?ref=v22.23.2",
+  "version": "Node v22.23.2 zlib 1.3.1-e00f703",
+  "files": {
+    "LICENSE": "e1cfcc55c325b3f78cf55df9664abaa066e2271dffe8213347d9fccdfbac8f2c",
+    "adler32.c": "e47831f9eaffc530e2f6f9720266d94e74eed9fe5c2082473d3afb9cf8880c13",
+    "cpu_features.c": "c1504072e83f8187aaaf73430ffb2464384b17e544eb2e243f4c3029d555fca7",
+    "cpu_features.h": "48f5b148756771ed44f3ed27a843e16a119ad71efbdf18af96bf53e58374db0a",
+    "crc32.c": "95d5b6dcb855ef71d84688c16c3238ae7d2a37f01c1c5a842907d707da9a846f",
+    "crc32.h": "9a2223575183ac2ee8a247f20bf3ac066e8bd0140369556bdbdffc777435749e",
+    "deflate.c": "eb2eb5e88cb13f81b64bc3c6caa3e8da88f2d550ca9e9a9031de16a58440aa8e",
+    "deflate.h": "f571c1422f5cfc6ffc455c01be42c7e20ec404510b3fff59018c43b3e8189728",
+    "gzguts.h": "716fa648aca1bb06c219d7b97ad4846d8479206143bc39557bfd8283f5783e04",
+    "trees.c": "05319a5f007d33fbc3b5a5dc17c2913e0ac06dd354acdea9d58ea5765e18444e",
+    "trees.h": "bb0a9d3ca88ee00c81adb7c636e73b97085f6ef1b52d6d58edbe2b6dc3adeb4d",
+    "zconf.h": "3f928c8266fadd24f1f351422e68d2dfb8944ae35d8a8c51b7d591ab9ec962ef",
+    "zlib.h": "71e0dcf4cacb6b1674550a3d9407344746d27cdce739e6e25189d0b620b005ed",
+    "zutil.c": "8ced40d8c88588811edd2bdb35b7439983d5e1f8e9e32b8a3b244731f3c317b7",
+    "zutil.h": "b5f24d878c8ea2959646f5f2ce2ca14f865c650e220ca0e14fb6397a32897f2f",
+    "contrib/optimizations/insert_string.h": "ff03fe98a4dcaa22022a44340f8fe62f4820c64cd1f326bd710fa5d37f8a2897",
+    "CHROMIUM-LICENSE": "368cca1106be99d39ecd32a38d8305585d802a475effb66380b91ffc9bcf709b"
+  },
+  "chromiumLicenseSource": "https://raw.githubusercontent.com/chromium/chromium/main/LICENSE"
+}
