@@ -221,11 +221,14 @@ services:
     image: quay.io/minio/minio:latest
     command: server /data
     environment:
-      # Match the credentials test.env gives the server.
-      - MINIO_ROOT_USER=${AWS_ACCESS_KEY_ID:-DUMMYIDEXAMPLE}
-      - MINIO_ROOT_PASSWORD=${AWS_SECRET_ACCESS_KEY:-DUMMYEXAMPLEKEY}
+      # Fixed dummies, the same values test.env gives the server. Never the
+      # ambient AWS_* variables: a developer's real credentials must not become
+      # this emulator's root login or appear in a shell command line.
+      - MINIO_ROOT_USER=DUMMYIDEXAMPLE
+      - MINIO_ROOT_PASSWORD=DUMMYEXAMPLEKEY
     ports:
-      - "9000:9000"
+      # Loopback only; the jest job reaches it as http://localhost:9000.
+      - "127.0.0.1:9000:9000"
     networks:
       - polis-test
     labels:
@@ -240,7 +243,7 @@ services:
       - minio
     entrypoint: >
       sh -c "
-        until mc alias set local http://minio:9000 ${AWS_ACCESS_KEY_ID:-DUMMYIDEXAMPLE} ${AWS_SECRET_ACCESS_KEY:-DUMMYEXAMPLEKEY}; do sleep 1; done &&
+        until mc alias set local http://minio:9000 DUMMYIDEXAMPLE DUMMYEXAMPLEKEY; do sleep 1; done &&
         mc mb --ignore-existing local/${AWS_S3_BUCKET_NAME:-polis-delphi} &&
         echo 'MinIO bucket ready'
       "
