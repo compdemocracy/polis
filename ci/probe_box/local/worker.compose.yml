@@ -4,7 +4,9 @@ services:
   postgres:
     image: postgres:17.11@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
     environment:
-      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_PASSWORD: public-fixture-admin
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
       POSTGRES_DB: probe_test
     ports:
       - "127.0.0.1:${POLIS_RECOVERY_PG_PORT:?unique port required}:5432"
@@ -39,6 +41,7 @@ services:
       - ${PROBE_WORKER_SOURCE:?}:/source:ro
       - ${PROBE_WORKER_RESULTS:?}:/results
       - ${PROBE_WORKER_ARCHIVES:?}:/archives:ro
+      - ${PROBE_WORKER_RELAY:?}:/relay-source/replica.py:ro
     command: [python3.12, /source/ci/probe_box/local/worker_runtime.py]
 networks:
   default:

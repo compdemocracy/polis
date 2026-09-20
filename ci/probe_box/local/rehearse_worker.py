@@ -23,6 +23,8 @@ def main():
     p.add_argument('--archives', type=Path, help='public-fixture OCI archives only; reader/producer/verifier.oci.tar')
     p.add_argument('--job', choices=['roles-census-v1', 'sampled-paired-battery-v1'], default='roles-census-v1')
     p.add_argument('--runtime-image', help='prebuilt worker.Dockerfile image; otherwise build locally')
+    p.add_argument('--relay-source', type=Path, default=ROOT/'ci/probe_box/replica.py',
+                   help='relay module to test; defaults to this checkout (for a separate pending relay change)')
     args = p.parse_args()
     project = os.environ.get('COMPOSE_PROJECT_NAME', '')
     port = os.environ.get('POLIS_RECOVERY_PG_PORT', '')
@@ -38,6 +40,12 @@ def main():
     results = args.results.resolve()
     results.mkdir(mode=0o700, parents=True, exist_ok=False)
     env = dict(os.environ, PROBE_WORKER_SOURCE=str(ROOT), PROBE_WORKER_RESULTS=str(results), BUILDX_CONFIG=str(results/'buildx'))
+    relay_source = args.relay_source.resolve(strict=True)
+    relay_bytes = relay_source.read_bytes()
+    (results/'relay-source.py').write_bytes(relay_bytes)
+    (results/'relay-source.json').write_text(json.dumps({
+        'path': str(relay_source), 'sha256': hashlib.sha256(relay_bytes).hexdigest()}))
+    env['PROBE_WORKER_RELAY'] = str(results/'relay-source.py')
     commands = []
     def call(argv, name, **kw):
         commands.append(argv)
@@ -81,10 +89,13 @@ def main():
                 # importing its database-side modules into this host process.
                 tree = ast.parse((ROOT/'ci/private_cert/images/roles_rehearsal.py').read_text())
                 seed = next(ast.literal_eval(n.value) for n in tree.body if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'SEED' for t in n.targets))
+                seed += "\nSET password_encryption = 'scram-sha-256';\nALTER ROLE polis_probe_reader PASSWORD 'public-fixture-reader';\n"
                 call(dc+['exec', '-T', 'postgres', 'psql', '-U', 'postgres', '-d', 'probe_test', '-v', 'ON_ERROR_STOP=1'], 'seed', input=seed.encode())
                 call(dc+['run', '--rm', '--no-deps', 'runtime'], 'rehearsal')
                 if any(hashlib.sha256((ROOT/p).read_bytes()).hexdigest() != digest for p,digest in source_hashes.items()):
                     raise RuntimeError('REHEARSAL_SOURCE_CHANGED')
+                if relay_source.read_bytes() != relay_bytes or (results/'relay-source.py').read_bytes() != relay_bytes:
+                    raise RuntimeError('REHEARSAL_RELAY_CHANGED')
                 report = json.loads((results/'report.json').read_bytes())
                 if report['status'] != 'PASS':
                     raise RuntimeError('REHEARSAL_FAILED')

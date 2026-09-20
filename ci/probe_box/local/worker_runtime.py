@@ -11,6 +11,9 @@ import json
 import os
 from pathlib import Path
 import shutil
+import socket
+import ssl
+import struct
 import subprocess
 import sys
 import threading
@@ -19,9 +22,11 @@ from unittest.mock import patch
 
 SOURCE = Path('/source/ci/probe_box')
 sys.path.insert(0, str(SOURCE))
+sys.path.insert(0, '/relay-source')
 import boto3
 from botocore.config import Config
 import worker
+import replica
 import run as operator
 from fixture_image import archive
 
@@ -58,7 +63,34 @@ class LocalS3:
 
 class LocalSecret:
     def get_secret_value(self, **kw):
-        return {'SecretString':json.dumps({'username':'polis_probe_reader','password':'public-fixture-unused'})}
+        return {'SecretString':json.dumps({'username':'polis_probe_reader','password':'public-fixture-reader'})}
+
+
+def offered_mechanisms():
+    """Observe the actual first PG17 backend frame after verified TLS/startup."""
+    def receive(sock, size):
+        data = bytearray()
+        while len(data) < size:
+            part = sock.recv(size - len(data))
+            if not part:
+                raise AssertionError('SASL_OFFER_EOF')
+            data.extend(part)
+        return bytes(data)
+    with socket.create_connection(('postgres', 5432), timeout=5) as raw:
+        raw.sendall(struct.pack('!II', 8, 80877103))
+        assert receive(raw, 1) == b'S'
+        context = ssl.create_default_context(cafile='/fixture-tls/ca.crt')
+        with context.wrap_socket(raw, server_hostname='postgres') as secure:
+            startup = struct.pack('!I', 196608) + b'user\0polis_probe_reader\0database\0probe_test\0\0'
+            secure.sendall(struct.pack('!I', 4 + len(startup)) + startup)
+            header = receive(secure, 5)
+            length = struct.unpack('!I', header[1:])[0]
+            assert header[:1] == b'R' and 8 <= length <= 65536
+            body = receive(secure, length - 4)
+            assert body[:4] == struct.pack('!I', 10) and body[4:].endswith(b'\0\0')
+            names = body[4:-2].split(b'\0')
+            assert b'SCRAM-SHA-256-PLUS' in names and b'SCRAM-SHA-256' in names
+            return [name.decode('ascii') for name in names]
 
 
 def scratch_module(name, text):
@@ -198,16 +230,42 @@ def main():
             assert not subprocess.check_output(worker.docker()+['ps','-aq']).strip()
             passed(name)
             return record
+        mechanisms = offered_mechanisms()
+        (RESULTS/'offered-mechanisms.json').write_text(json.dumps(mechanisms))
+        passed('postgres17-offers-scram-plus-over-verified-tls')
+        # The fixed relay must be present. A missing fix must fail the positive
+        # reader stage, never silently fall back to trust authentication.
         case('fixture-three-stages',fixture_job)
         # Real upstream session reports TLS and read-only login shape.
         import psycopg2
-        conn=psycopg2.connect(host='postgres',user='polis_probe_reader',dbname='probe_test',sslmode='verify-full',sslrootcert='/fixture-tls/ca.crt')
+        conn=psycopg2.connect(host='postgres',user='polis_probe_reader',password='public-fixture-reader',dbname='probe_test',sslmode='verify-full',sslrootcert='/fixture-tls/ca.crt')
         with conn.cursor() as cur:
             cur.execute('SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()');assert cur.fetchone()==(True,)
         conn.close()
         passed('postgres17-verified-tls')
+        try:
+            conn=psycopg2.connect(host='postgres',user='polis_probe_reader',password='public-fixture-wrong',
+                dbname='probe_test',sslmode='verify-full',sslrootcert='/fixture-tls/ca.crt',connect_timeout=5)
+        except psycopg2.OperationalError:
+            passed('postgres17-wrong-password-refused')
+        else:
+            conn.close()
+            raise AssertionError('SCRAM_PASSWORD_NOT_ENFORCED')
+        # Restore the former raw upstream forwarding only in a scratch module.
+        # The actual TLS connection, worker failure path, MinIO heartbeat and
+        # operator failure readback all still run.
+        source=Path(replica.__file__).read_text()
+        start='                                if source is secure and not advertised:\n'
+        end='                                (secure if source is client else client).sendall(data)'
+        assert source.count(start)==1 and source.count(end)==1
+        before, rest=source.split(start)
+        _, after=rest.split(end)
+        broken_relay=scratch_module('replica_scram_regression',before+end+after)
+        with patch.object(worker,'ReplicaSocket',broken_relay.ReplicaSocket):
+            record=case('scratch-scram-plus-regression-detected',fixture_job,expected={'relay':{'relayed':1}})
+        assert record['container']['class']=='psycopg2.OperationalError' and record['container']['reason']=='PG_SSL',record
         failing=copy.deepcopy(fixture_job);failing['reader']['args']=['fail']
-        record=case('reader-forced-failure',failing,expected={'relay':{'relayed':1}})
+        record=case('reader-forced-failure',failing,expected={'relay':{'plain_scram':1,'relayed':1}})
         assert record['container']['class']=='FileNotFoundError' and record['container']['reason']=='ENOENT'
         passed('failure-record-last-exception-closed-reason')
         case('reader-tls-refusal',fixture_job,bad_ca=True,expected={'relay':{'tls_verify':1}})
@@ -230,7 +288,7 @@ def main():
         old="                if not provision:\n                    failure = self.failure(c, arn)"
         assert source.count(old)==1
         broken=scratch_module('operator_receipt_regression',source.replace(old,"                raise Unknown('RECEIPT_READ_UNKNOWN') from None"))
-        try:case('unexpected-receipt-pass',failing,expected={'relay':{'relayed':1}},readback=broken)
+        try:case('unexpected-receipt-pass',failing,expected={'relay':{'plain_scram':1,'relayed':1}},readback=broken)
         except broken.Unknown as error:
             assert str(error)=='RECEIPT_READ_UNKNOWN'
             passed('scratch-receipt-read-regression-detected')
