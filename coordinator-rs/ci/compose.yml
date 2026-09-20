@@ -8,6 +8,17 @@ services:
       POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "127.0.0.1:${POLIS_RECOVERY_PG_PORT:?choose a unique local port}:5432"
+    volumes:
+      - "${COORDINATOR_TEST_TLS_DIR:-/tmp/polis-coordinator-tls-unset}:/fixture-tls:ro"
+    entrypoint:
+      - sh
+      - -ec
+      - >-
+        cp /fixture-tls/server.key /tmp/fixture-server.key;
+        chown postgres:postgres /tmp/fixture-server.key;
+        chmod 600 /tmp/fixture-server.key;
+        exec docker-entrypoint.sh postgres -c ssl=on
+        -c ssl_cert_file=/fixture-tls/server.crt -c ssl_key_file=/tmp/fixture-server.key
     tmpfs:
       - /var/lib/postgresql/data
     healthcheck:

@@ -35,6 +35,7 @@ sys.path.insert(0,str(Path(__file__).parent))
 from boundary import SQL, SQL_SHA256, public_census, IMAGES
 from readiness import drained,bucket_counts_match
 from rehearsal_verify import inventory
+from tls_fixture import TlsFixture
 
 PROFILES = ((1,*os.environ.get('D07_PROFILE','vw-warm').rsplit('-',1)),)
 if PROFILES[0][1:] not in ((s,m) for s in ('vw','biodiversity') for m in ('warm','snapshot')):
@@ -49,6 +50,8 @@ class Rehearsal(Readers):
                             measurements=[],legacy_processes=[],exclusions=[],observations=[],cuts=[],
                             runtime_controls=os.environ.get('D07_CONTROLS')=='1',
                             profile=os.environ.get('D07_PROFILE','vw-warm'),initialization='live-empty then retained Clojure rows')
+        self.tls_fixture = TlsFixture()
+        self.env.update(self.tls_fixture.environment())
         self.inputs = {}
         self.loaded = {}
         self.observer = None
@@ -60,6 +63,9 @@ class Rehearsal(Readers):
             self.receipt['source_sha256'][str(p.relative_to(ROOT))]=digest(p.read_bytes())
         self.receipt['source_sha256']['math/deps.edn']=digest((ROOT/'math/deps.edn').read_bytes())
         if digest((ROOT/SQL).read_bytes()) != SQL_SHA256: raise ValueError('unreviewed SQL')
+
+    def configure_postgres(self, service):
+        self.tls_fixture.service(service)
 
     def http(self,*args,**kwargs):
         started=time.monotonic()
@@ -373,7 +379,8 @@ class Rehearsal(Readers):
 
     def close(self):
         if self.observer: self.observer.close()
-        super().close()
+        try: super().close()
+        finally: self.tls_fixture.close()
 
 
 def main():

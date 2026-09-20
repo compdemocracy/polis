@@ -13,4 +13,5 @@ pub mod reader;
 pub mod store;
 pub mod wire;
 
+pub mod database;
 mod health;

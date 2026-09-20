@@ -1,6 +1,9 @@
 """S1 original-byte custody and genuine severed COMMIT acknowledgement witnesses."""
 import hashlib
 import json
+import os
+from pathlib import Path
+import ssl
 import socket
 import struct
 import threading
@@ -78,6 +81,9 @@ class CommitProxy:
     for math_ticks, then drop CommandComplete(COMMIT) on that connection. The
     backend has committed; the coordinator remains awaiting its reply until release.
     Subsequent connections (including readback and heartbeat) pass through.
+    The test proxy terminates verified TLS using the ephemeral fixture certificate
+    and verifies TLS to PostgreSQL. This preserves frame inspection without
+    adding any plaintext connector or verification bypass to the coordinator.
     """
     def __init__(self, db, query=b"SELECT * FROM public.pc_publish("):
         self.query = query
@@ -126,11 +132,35 @@ class CommitProxy:
 
     def relay(self, client, server):
         publication = threading.Event()
+        # Parse only the initial SSLRequest before TLS. The ordinary publisher
+        # fixture can still send Startup directly; Rust must negotiate TLS.
+        try:
+            size = self.read(client, 4)
+            startup = size + self.read(client, struct.unpack("!I", size)[0] - 4)
+            ssl_request = struct.pack("!II", 8, 80877103)
+            if startup == ssl_request:
+                directory = Path(os.environ["COORDINATOR_TEST_TLS_DIR"])
+                context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                context.minimum_version = ssl.TLSVersion.TLSv1_2
+                context.load_cert_chain(directory / "server.crt", directory / "server.key")
+                client.sendall(b"S")
+                client = context.wrap_socket(client, server_side=True)
+                self.sockets.append(client)
+                size = self.read(client, 4)
+                startup = size + self.read(client, struct.unpack("!I", size)[0] - 4)
+            context = ssl.create_default_context(cafile=os.environ["COORDINATOR_DB_CA_BUNDLE"])
+            context.minimum_version = ssl.TLSVersion.TLSv1_2
+            server.sendall(ssl_request)
+            if self.read(server, 1) != b"S":
+                raise OSError("test backend refused TLS")
+            server = context.wrap_socket(server, server_hostname=self.target[0])
+            self.sockets.append(server)
+            server.sendall(startup)
+        except (EOFError, OSError):
+            client.close(); server.close()
+            return
         def upstream():
             try:
-                # No TLS in this public-fixture trust-authenticated fixture.
-                size = self.read(client, 4)
-                server.sendall(size + self.read(client, struct.unpack("!I", size)[0] - 4))
                 while True:
                     kind = self.read(client, 1)
                     size = self.read(client, 4)

@@ -115,6 +115,9 @@ class Campaign:
             time.sleep(.2)
         raise RuntimeError(f"app not ready: {reader}")
 
+    def configure_postgres(self, service):
+        """Optional transport fixture supplied by the D07 subclass."""
+
     def prepare(self):
         raw = self.command(["docker", "compose", "-f", str(ROOT/"server/characterization/compose.yml"),
                             "config", "--format", "json"])
@@ -136,6 +139,7 @@ class Campaign:
             service["volumes"].append({"type": "bind", "source": str(ROOT/"coordinator-rs/tools/d05/entry.cjs"),
                                        "target": "/app/d05-entry.cjs", "read_only": True})
             config["services"][name] = service
+        self.configure_postgres(config["services"]["postgres"])
         images = {}
         for service in config["services"].values():
             tag = service["image"]
