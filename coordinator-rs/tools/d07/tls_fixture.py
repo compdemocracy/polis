@@ -21,6 +21,12 @@ class TlsFixture:
         (self.path/'ext.cnf').write_text('subjectAltName=DNS:localhost,DNS:postgres,IP:127.0.0.1\nextendedKeyUsage=serverAuth\nbasicConstraints=critical,CA:FALSE\n')
         self.openssl('x509', '-req', '-in', 'server.csr', '-CA', 'ca.crt', '-CAkey', 'ca.key',
                      '-CAcreateserial', '-days', '2', '-out', 'server.crt', '-extfile', 'ext.cnf')
+        # The container's postgres user must traverse the directory and read the
+        # certificates; the private keys stay owner-only (the entrypoint copies
+        # server.key as root before dropping privileges). TemporaryDirectory is
+        # 0700, which fails on Linux hosts where the mount keeps host ownership.
+        self.path.chmod(0o755)
+        for p in self.path.glob('*.crt'): p.chmod(0o644)
         for p in self.path.glob('*.key'): p.chmod(0o600)
 
     def openssl(self, *args):
