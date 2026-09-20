@@ -45,6 +45,11 @@ The archive directory remains read-only. The PostgreSQL 17 fixture has an
 isolated ephemeral CA/server certificate, plus the public role/grant layout
 from `roles_rehearsal.py`. The reader uses the real `ReplicaSocket` TLS relay;
 its own container has only the Unix socket mount, not TCP access.
+Host connections require SCRAM-SHA-256 with an explicitly seeded public fixture
+password; the worker writes that password into the reader's real pgpass file.
+The rehearsal first observes the PG17 mechanism offer over a direct verified
+TLS connection and requires both `SCRAM-SHA-256-PLUS` and `SCRAM-SHA-256`.
+A wrong-password control must fail. No host trust-authentication shortcut is used.
 
 `--job sampled-paired-battery-v1` accepts the corresponding `producer.oci.tar`
 (reader and producer) and `verifier.oci.tar`. The built-in database seed is a
@@ -60,6 +65,14 @@ A previously built `worker.Dockerfile` image may be reused with
 bake packages or Python requirements change. The runtime must match the bake's
 Docker/Skopeo/Python requirements; a PASS is not a new runtime admission.
 
+When the relay fix is in a separate pending worktree, add
+`--relay-source /absolute/worktree/ci/probe_box/replica.py`. The harness saves
+and hashes those exact bytes, mounts the copy read-only, and verifies both the
+original and mounted copy at completion. `relay-source.json` identifies the
+source; this is explicit combined-candidate evidence. By default the relay comes
+from the current checkout. An unfixed relay fails the positive reader stage
+with `PG_SSL`; the rehearsal must not pass until the relay rewrite is included.
+
 ## What is exercised
 
 * The exact `docker.json` and Skopeo policy extracted from `bake.sh`, a private
@@ -69,13 +82,17 @@ Docker/Skopeo/Python requirements; a PASS is not a new runtime admission.
   real nonroot candidate sandboxes, bind permissions, read-only input and rootfs.
 * Unmodified `worker.run()` stage orchestration, image import, reader/producer/
   verifier mounts, receipt validation, failure handler and heartbeat thread.
-* Real PostgreSQL 17 TLS and relay outcomes `relayed`, `tls_verify`, `connect`.
+* Real PostgreSQL 17 TLS/SCRAM and relay outcomes `plain_scram`, `relayed`,
+  `tls_verify`, `connect`.
 * A deliberate reader exception, `last_exception_token`, a closed `ENOENT`
   reason, the worker's actual failure record in MinIO's heartbeat key, and
   `run.py`'s `Session.status()` readback as complete/failed with that record.
 * Private scratch copies reverting shared-directory chmod (must reproduce
   `PG_SERVICE_FILE` with an empty relay summary) and replacing missing-receipt
   failure readback with `RECEIPT_READ_UNKNOWN` (must fail the positive check).
+* A private scratch relay restoring raw upstream forwarding: the reader must
+  fail with `psycopg2.OperationalError`, `PG_SSL`, and exactly `relay={relayed:1}`.
+  The failure must reach MinIO's heartbeat and the operator's status readback.
   Production sources are never changed by these controls.
 
 `report.json` lists passed checks; `commands.json`, source hashes and local logs
