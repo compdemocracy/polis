@@ -36,7 +36,14 @@ def main():
         config.write_text(json.dumps({'services':{'postgres':service}}))
         dc = ['docker','compose','-f',str(config)]
         def command(*args):
-            return subprocess.run([*dc,*args], env=env, check=True, capture_output=True, text=True)
+            result = subprocess.run([*dc,*args], env=env, capture_output=True, text=True)
+            if result.returncode:
+                # Fixture-only compose output: no credential or private data can appear here.
+                sys.stderr.write(result.stdout+result.stderr)
+                logs = subprocess.run([*dc,'logs','--no-color'], env=env, capture_output=True, text=True)
+                sys.stderr.write(logs.stdout+logs.stderr)
+                raise SystemExit(f'compose {args[0]} failed with exit {result.returncode}')
+            return result
         for kind, args in [('container',['ps','-aq']),('network',['network','ls','-q']),('volume',['volume','ls','-q'])]:
             assert not subprocess.check_output(['docker',*args,'--filter',f'label=com.docker.compose.project={project}']).strip(), kind
         def probe(label, expected, **updates):
