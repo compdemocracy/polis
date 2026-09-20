@@ -46,6 +46,15 @@ jobs:
           npm ci --prefix server
           cd coordinator-rs
           rustup show active-toolchain
+      - name: Coordinator TLS unit and local PostgreSQL refusal controls
+        working-directory: coordinator-rs
+        env:
+          COMPOSE_PROJECT_NAME: coordinator-tls-${{ github.run_id }}-${{ github.run_attempt }}
+          POLIS_RECOVERY_PG_PORT: '55493'
+          RECOVERY_PG_PORT: '55493'
+        run: |
+          cargo test --locked --features tls-tests --test database
+          python tools/d07/test_tls.py
       - name: Run exact candidate campaign and refusal controls
         run: python coordinator-rs/ci/run.py --output "$RUNNER_TEMP/coordinator-campaign"
       - name: Retain public receipt, source attribution and failure evidence

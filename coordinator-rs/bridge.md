@@ -9,8 +9,9 @@ privilege. It verifies the durable operation receipt after the child acknowledge
 This is an implementation for local certification. It activates no deployment,
 changes no existing math-table columns, and revokes no legacy writer credentials.
 The operator must isolate the serving namespace and remove other write authority
-before any transfer. The control connection still uses Rust's `NoTls`; this is
-not an admitted remote deployment or a full-contract certificate.
+before any transfer. Every Rust control/recovery/renewal connection requires
+TLS with CA and hostname verification (see README, Database transport). This
+transport policy alone is not remote-deployment or full-contract admission.
 
 ## Schema and effective authority
 

@@ -449,3 +449,38 @@ plumbing does not silently rewrite or close those obligations.
   every shape a decoder might see is accounted for (see `server-rs/README.md`).
 - **Contract** — a written, versioned description of what a component
   promises to produce or accept, independent of implementation.
+
+
+## Database transport
+
+Every Rust startup, daemon reconnect, recovery, readback and lease-renewal
+connection uses the same TLS-only connector with CA and hostname verification.
+Set `COORDINATOR_DB_CA_BUNDLE` to a PEM CA bundle (production: the reviewed RDS
+global bundle) and `COORDINATOR_DB_HOST_ALLOWLIST` to comma-separated exact hosts.
+There is no system-root fallback, implicit host, Unix socket, hostaddr override
+or wildcard. All failover hosts must be listed. `DATABASE_URL` accepts PostgreSQL
+URI or keyword syntax; `sslmode` must be absent or `verify-full`. The internal
+driver spelling is `Require`, with verification enforced by the connector.
+
+Optionally set `COORDINATOR_DB_PASSWORD_FILE` to a file holding the exact password
+bytes, without a trailing newline. Embedded DSN passwords then refuse. The
+credential is never added to argv or retained in connection error causes.
+Configuration/connection errors use fixed `DB-*` tokens: DSN, SSLMODE, HOST,
+PASSWORD-CONFLICT, PASSWORD-FILE, CA-BUNDLE and CONNECTION-REFUSED. Connection
+failures intentionally collapse network, authentication and TLS details so a
+remote endpoint cannot inject diagnostic text. Existing CLI exit 1 applies.
+
+New direct dependencies: native-tls 0.2.14 and postgres-native-tls 0.5.3;
+percent-encoding 2.3.2 was already locked and is now a direct dependency. No TLS
+backend was previously locked. Native TLS uses the platform verifier and avoids
+a second bundled cryptographic provider; all transitive versions are locked.
+
+CI and D07 generate a local CA and SAN-bound server certificate. The scientific
+case inventories and replay pins are unchanged. Test-only keys are ephemeral
+and outside receipt/artifact directories. Existing non-Rust fixture drivers
+retain their existing transport choices; the server supports TLS for Rust.
+Run separate refusal controls with `cargo test --locked --features tls-tests`
+and, from the checkout root, with a unique Compose project and port:
+`python3 -B coordinator-rs/tools/d07/test_tls.py`. This probe verifies a trusted
+server and rejects a wrong CA, hostname mismatch, plaintext server and policy
+refusals. It is not the full D07 science rehearsal or remote activation approval.

@@ -6,7 +6,7 @@ use crate::{
     store::{Bundle, CommitLost, Payloads, PgStore, Publication, digest},
 };
 use anyhow::{Result, ensure};
-use postgres::{Client, NoTls};
+use postgres::Client;
 use serde_json::{Value, json};
 use std::{
     io::{BufRead, BufReader, Write},
@@ -418,7 +418,7 @@ fn dispatch(
     // Reconcile every admitted dispatch, including pre-publication failures.
     // No receipt means durable unresolved capacity, never permission to free it.
     let receipt = (|| -> Result<Option<i64>> {
-        let mut client = Client::connect(&store.config.database_url, NoTls)?;
+        let mut client = store.config.database.connect()?;
         client.batch_execute("SET statement_timeout='30s'; SET lock_timeout='5s'")?;
         crate::operations::reconcile_one(&mut client, &store.config.math_env, zid, &operation)
     })();

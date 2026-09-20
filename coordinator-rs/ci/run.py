@@ -99,6 +99,10 @@ def main():
     receipt["requested_kernel"] = env.get("OPENBLAS_CORETYPE", "not-forced")
     changed_artifacts = False
     started = False
+    sys.path.insert(0, str(ROOT / "coordinator-rs/tools/d07"))
+    from tls_fixture import TlsFixture
+    tls_fixture = TlsFixture()
+    env.update(tls_fixture.environment())
 
     def run(name, argv, cwd=None, expected=0, command_env=None):
         cwd = ROOT if cwd is None else cwd
@@ -239,6 +243,7 @@ def main():
             except Exception as error:
                 receipt["cleanup_error"] = str(error)
                 receipt["candidate_gate"] = "FAIL"
+        tls_fixture.close()
         if changed_artifacts:
             shutil.copytree(EVIDENCE, output / "fresh-evidence")
             ART.rename(output / "artifacts")

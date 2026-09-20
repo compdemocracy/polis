@@ -266,9 +266,9 @@ class Child:
         self.out = self.err = None
         from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
         parsed=urlsplit(url)
-        def restricted(role):
-            return urlunsplit(parsed._replace(netloc=role+"@"+parsed.netloc.split("@")[-1],query=urlencode(dict(parse_qsl(parsed.query),sslmode="disable"))))
-        process_env = dict(os.environ, DATABASE_URL=restricted(runtime_role("control", env)),
+        def restricted(role, control=False):
+            return urlunsplit(parsed._replace(netloc=role+"@"+parsed.netloc.split("@")[-1],query=urlencode(dict(parse_qsl(parsed.query),sslmode="verify-full" if control else "disable"))))
+        process_env = dict(os.environ, DATABASE_URL=restricted(runtime_role("control", env), control=True),
             COORDINATOR_PUBLISHER_DATABASE_URL=restricted(runtime_role("publisher", env)), MATH_ENV=env, P026_PYTHON=sys.executable,
             PYTHONPATH=str(ROOT/"delphi"), OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1",
             PYTHONDONTWRITEBYTECODE="1", P026_PAGE_SIZE="2", P026_WINDOW="1", P026_LEASE_SECONDS="120",

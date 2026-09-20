@@ -7,7 +7,7 @@ use crate::{
     metrics::{Metrics, Tally},
 };
 use anyhow::{Result, ensure};
-use postgres::{Client, NoTls};
+use postgres::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -268,7 +268,7 @@ pub struct PgStore {
 impl PgStore {
     pub fn connect(config: Config) -> Result<Self> {
         Fault::reject_release_control()?;
-        let mut client = Client::connect(&config.database_url, NoTls)?;
+        let mut client = config.database.connect()?;
         client.batch_execute("SET statement_timeout='30s'; SET lock_timeout='5s'; SET application_name='p026-coordinator'")?;
         let fault = Fault::new(&mut client, &config.math_env)?;
         crate::bridge::admit_control(&mut client, &config.math_env)?;
@@ -294,7 +294,7 @@ impl PgStore {
     /// Failed reconnects retain the existing bounded transport and its counters.
     pub fn reconnect_daemon(&mut self) -> Result<()> {
         Fault::reject_release_control()?;
-        let mut client = Client::connect(&self.config.database_url, NoTls)?;
+        let mut client = self.config.database.connect()?;
         client.batch_execute("SET statement_timeout='30s'; SET lock_timeout='5s'; SET application_name='p026-coordinator'")?;
         let fault = Fault::new(&mut client, &self.config.math_env)?;
         crate::bridge::admit_control(&mut client, &self.config.math_env)?;
@@ -310,7 +310,7 @@ impl PgStore {
     /// can still be released instead of being held for the rest of the window.
     pub fn reconnect_if_closed(&mut self) -> Result<()> {
         if self.client.is_closed() {
-            let mut client = Client::connect(&self.config.database_url, NoTls)?;
+            let mut client = self.config.database.connect()?;
             client.batch_execute("SET statement_timeout='30s'; SET lock_timeout='5s'; SET application_name='p026-coordinator'")?;
             self.client = client;
         }

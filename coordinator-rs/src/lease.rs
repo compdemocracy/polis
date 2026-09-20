@@ -7,7 +7,7 @@
 //! authority is gone for good, so the process stops instead of retrying.
 use crate::config::Config;
 use anyhow::Result;
-use postgres::{Client, NoTls};
+use postgres::Client;
 use std::{
     sync::{
         Arc, Mutex,
@@ -111,7 +111,7 @@ pub struct Renewal {
 }
 impl Renewal {
     pub fn start(config: &Config, zid: i32, epoch: i64) -> Result<Self> {
-        let mut client = Client::connect(&config.database_url, NoTls)?;
+        let mut client = config.database.connect()?;
         client.batch_execute("SET statement_timeout='5s'; SET lock_timeout='1s'; SET application_name='p026-lease-renewal'")?;
         let lost: Arc<Mutex<Option<LeaseState>>> = Arc::new(Mutex::new(None));
         let stop = Arc::new(AtomicBool::new(false));

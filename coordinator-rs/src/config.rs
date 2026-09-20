@@ -3,7 +3,7 @@ use std::env;
 
 #[derive(Clone)]
 pub struct Config {
-    pub database_url: String,
+    pub database: crate::database::Database,
     pub math_env: String,
     pub python: String,
     pub owner: String,
@@ -52,7 +52,7 @@ where
 impl Config {
     pub fn from_env() -> Result<Self> {
         let c = Self {
-            database_url: env::var("DATABASE_URL")?,
+            database: crate::database::Database::from_env()?,
             math_env: env::var("MATH_ENV").unwrap_or_else(|_| "rustproto".into()),
             python: env::var("P026_PYTHON").unwrap_or_else(|_| "python3".into()),
             owner: uuid::Uuid::new_v4().to_string(),
