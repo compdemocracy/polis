@@ -1,0 +1,45 @@
+# Only the supervisor can reach these local services. Nested candidates have
+# --network=none; no host Docker socket or cloud credential is mounted.
+services:
+  postgres:
+    image: postgres:17.11@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: probe_test
+    ports:
+      - "127.0.0.1:${POLIS_RECOVERY_PG_PORT:?unique port required}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U postgres -d probe_test"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    command: [server, /data]
+    environment:
+      MINIO_ROOT_USER: public-fixture
+      MINIO_ROOT_PASSWORD: public-fixture-only
+    tmpfs:
+      - /data
+  runtime:
+    image: ${PROBE_WORKER_RUNTIME:?build the local runtime first}
+    platform: linux/arm64
+    privileged: true
+    cgroup: private
+    environment:
+      HOME: /root
+      TMPDIR: /probe-work/tmp
+      AWS_EC2_METADATA_DISABLED: "true"
+      PYTHONDONTWRITEBYTECODE: "1"
+    tmpfs:
+      - /probe-work:nodev,nosuid,noexec,size=12g
+    volumes:
+      - ${PROBE_WORKER_SOURCE:?}:/source:ro
+      - ${PROBE_WORKER_RESULTS:?}:/results
+      - ${PROBE_WORKER_ARCHIVES:?}:/archives:ro
+    command: [python3.12, /source/ci/probe_box/local/worker_runtime.py]
+networks:
+  default:
+    internal: true
