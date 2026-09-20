@@ -126,6 +126,39 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(worker.failure_record('boot', ValueError('zid 42 is private')),
                          {'schema': 'polis-probe-failure/1', 'stage': 'boot', 'type': 'ValueError'})
 
+    def test_shared_dir_mode_is_independent_of_the_unit_umask(self):
+        import os
+        previous = os.umask(0o077)
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                masked = Path(tmp)/'masked'
+                masked.mkdir(mode=0o755)
+                self.assertEqual(masked.stat().st_mode & 0o777, 0o700)
+                shared = worker.shared_dir(Path(tmp)/'replica')
+                self.assertEqual(shared.stat().st_mode & 0o777, 0o755)
+        finally:
+            os.umask(previous)
+
+    def test_container_reason_is_a_closed_code_never_the_message(self):
+        cases = {
+            'psycopg2.OperationalError: service file "/replica/service.conf" not found': 'PG_SERVICE_FILE',
+            'psycopg2.OperationalError: connection to server on socket "/replica/.s.PGSQL.5432" failed: No such file or directory': 'ENOENT',
+            'psycopg2.OperationalError: connection to server on socket "/x" failed: Permission denied': 'EACCES',
+            'psycopg2.OperationalError: connection to server on socket "/x" failed: server closed the connection unexpectedly': 'PG_SERVER_CLOSED',
+            'psycopg2.OperationalError: connection to server on socket "/x" failed: FATAL:  password authentication failed for user "zid42"': 'PG_AUTH_FAILED',
+            'psycopg2.errors.QueryCanceled: canceling statement due to statement timeout': 'PG_STATEMENT_TIMEOUT',
+            'psycopg2.OperationalError: something new about zid 42': None,
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            for line, reason in cases.items():
+                with self.subTest(reason=reason):
+                    log = Path(tmp)/'c.log'
+                    log.write_text(line+'\n')
+                    token = worker.last_exception_token(log)
+                    self.assertEqual(token.get('reason'), reason)
+                    self.assertNotIn('zid', json.dumps(token))
+                    self.assertNotIn('/replica', json.dumps(token))
+
     def test_last_exception_token_keeps_only_class_names_and_codes(self):
         cases = {
             'psycopg2.OperationalError: connection to server failed: zid 42': {'class': 'psycopg2.OperationalError'},

@@ -122,8 +122,9 @@ class SandboxFailure(ValueError):
 def last_exception_token(log: Path) -> dict:
     """The exception class name and bare all-caps code on the container's final line.
 
-    Never the message. A dotted class name ending in a standard exception suffix is a
-    code identifier; an all-caps token is a fixed failure code. Any other text (paths,
+    Never the message. A dotted exception path (psycopg2.errors.QueryCanceled) or a bare
+    name with a standard exception suffix is a code identifier; an all-caps token is a
+    fixed failure code; a fixed libpq/OS phrase after it becomes a closed reason code. Any other text (paths,
     identifiers, values) is dropped, so the record cannot carry private data.
     """
     try:
@@ -139,11 +140,41 @@ def last_exception_token(log: Path) -> dict:
         token = {}
         if CODE.fullmatch(head):
             token['code'] = head
-        elif len(head) <= 96 and CLASS.fullmatch(head) and head.rsplit('.', 1)[-1].endswith(CLASS_SUFFIXES):
+        elif len(head) <= 96 and CLASS.fullmatch(head) and ('.' in head or head.endswith(CLASS_SUFFIXES)):
             token['class'] = head
             if CODE.fullmatch(rest):
                 token['code'] = rest
+            else:
+                reason = classify_reason(rest)
+                if reason:
+                    token['reason'] = reason
         return token
+
+
+# Fixed libpq / OS phrases -> closed reason codes. Only the code leaves the box.
+REASONS = (
+    ('service file', 'PG_SERVICE_FILE'),
+    ('No such file or directory', 'ENOENT'),
+    ('Permission denied', 'EACCES'),
+    ('Connection refused', 'ECONNREFUSED'),
+    ('server closed the connection unexpectedly', 'PG_SERVER_CLOSED'),
+    ('password authentication failed', 'PG_AUTH_FAILED'),
+    ('no pg_hba.conf entry', 'PG_NO_HBA'),
+    ('SSL', 'PG_SSL'),
+    ('timeout expired', 'PG_CONNECT_TIMEOUT'),
+    ('statement timeout', 'PG_STATEMENT_TIMEOUT'),
+    ('terminating connection', 'PG_TERMINATED'),
+    ('does not exist', 'PG_MISSING_OBJECT'),
+    ('too many connections', 'PG_TOO_MANY_CONNECTIONS'),
+    ('out of memory', 'PG_OUT_OF_MEMORY'),
+)
+
+
+def classify_reason(message: str) -> str:
+    for phrase, code in REASONS:
+        if phrase in message:
+            return code
+    return ''
     return {}
 
 
@@ -162,6 +193,17 @@ def failure_record(stage: str, error: BaseException, relay: object = None) -> di
     if relay is not None:
         record['relay'] = relay.summary()
     return record
+
+
+def shared_dir(path: Path) -> Path:
+    """A root-owned directory the sandbox user must traverse. mkdir(mode=) is
+    masked by the unit's UMask=0077, so the mode is set explicitly; a 0700
+    relay directory made the reader report its service file as missing."""
+    path.mkdir(mode=0o755)
+    path.chmod(0o755)
+    if path.stat().st_mode & 0o777 != 0o755:
+        raise ValueError('SHARED_DIR_MODE')
+    return path
 
 
 def owned_dir(path: Path) -> Path:
@@ -248,7 +290,7 @@ def run() -> None:
             secret_client=boto3.client('secretsmanager',region_name=identity['region'],endpoint_url=boot['secretsUrl'])
             secret=json.loads(secret_client.get_secret_value(SecretId=boot['secretArn'])['SecretString'])
             if set(secret)!={'username','password'} or secret['username']!='polis_probe_reader': raise ValueError('READER_SECRET')
-            sock=SCRATCH/'replica';sock.mkdir(mode=0o755)
+            sock=shared_dir(SCRATCH/'replica')
             def escape(value: str) -> str:
                 if any(c in value for c in '\r\n\0'): raise ValueError('CREDENTIAL_FORMAT')
                 return value.replace('\\','\\\\').replace(':','\\:')
