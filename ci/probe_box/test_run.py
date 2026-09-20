@@ -374,10 +374,10 @@ class SessionTests(unittest.TestCase):
         x,c,e,s,i=session_setup();x.start(job());i['State']['Name']='terminated'
         key='heartbeats/'+job()['run_id']+'/arn:aws:ec2:us-east-1:111111111111:instance/i-test.json'
         s.objects['control',key]=encoded({'schema':'polis-probe-failure/1','stage':'reader','type':'SandboxFailure','code':'PROBE_EXECUTION_FAILED',
-            'container':{'label':'reader','exit':1,'oom':False,'class':'psycopg2.OperationalError','note':'zid 42 secret','exit2':'1'},
+            'container':{'label':'reader','exit':1,'oom':False,'class':'psycopg2.OperationalError','reason':'PG_SERVICE_FILE','note':'zid 42 secret','exit2':'1'},
             'relay':{'connect':3,'relayed':'no','x y':1},'message':'must not pass through','aws':'not a token'})
         self.assertEqual(x.status(job()['run_id'])['failure'],{'stage':'reader','type':'SandboxFailure','code':'PROBE_EXECUTION_FAILED',
-            'container':{'label':'reader','class':'psycopg2.OperationalError','exit':1,'oom':False},'relay':{'connect':3}})
+            'container':{'label':'reader','class':'psycopg2.OperationalError','reason':'PG_SERVICE_FILE','exit':1,'oom':False},'relay':{'connect':3}})
         for body in (b'{}',b'[]',encoded({'schema':'other','stage':'reader'})):
             s.objects['control',key]=body
             self.assertNotIn('failure',x.status(job()['run_id']))

@@ -397,7 +397,7 @@ class Session:
         clean = {k: record[k] for k in ('stage', 'type', 'code', 'aws') if token(record.get(k))}
         container = record.get('container')
         if isinstance(container, dict):
-            clean['container'] = {k: v for k, v in container.items() if k in ('label', 'class', 'code') and token(v)}
+            clean['container'] = {k: v for k, v in container.items() if k in ('label', 'class', 'code', 'reason') and token(v)}
             for k, kind in (('exit', int), ('oom', bool)):
                 if type(container.get(k)) is kind:
                     clean['container'][k] = container[k]
