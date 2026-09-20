@@ -69,9 +69,14 @@ def regular_path(name):
 def validate_recipe(recipe):
     fields = {'schema', 'role', 'sourceCommit', 'candidateSha', 'oracleSha',
               'policySha256', 'runtimeImage', 'files', 'entrypoint', 'gates'}
+    census = type(recipe) is dict and recipe.get('schema') == 'polis-private-image-recipe/2'
+    if census:
+        fields.add('kind')
+        if recipe.get('kind') != 'roles-census':
+            raise ValueError('IMAGE_RECIPE_KIND')
     if (type(recipe) is not dict or set(recipe) != fields
-            or recipe['schema'] != 'polis-private-image-recipe/1'
-            or recipe['role'] not in ROLES):
+            or recipe['schema'] != ('polis-private-image-recipe/2' if census else 'polis-private-image-recipe/1')
+            or recipe['role'] not in ({'reader','producer','verifier'} if census else ROLES)):
         raise ValueError('IMAGE_RECIPE_SCHEMA')
     for k in ('sourceCommit', 'candidateSha', 'oracleSha'):
         if not isinstance(recipe[k], str) or not COMMIT.fullmatch(recipe[k]):
@@ -80,8 +85,9 @@ def validate_recipe(recipe):
         raise ValueError('IMAGE_POLICY_PIN')
     if not isinstance(recipe['runtimeImage'], str) or not IMAGE.fullmatch(recipe['runtimeImage']):
         raise ValueError('RUNTIME_IMAGE_PIN')
-    if (not isinstance(recipe['gates'], list) or len(recipe['gates']) != len(GATES)
-            or set(recipe['gates']) != GATES):
+    gates = {'roles-census'} if census else GATES
+    if (not isinstance(recipe['gates'], list) or len(recipe['gates']) != len(gates)
+            or set(recipe['gates']) != gates):
         raise ValueError('INCOMPLETE_IMAGE_GATES')
     files = recipe['files']
     if not isinstance(files, dict) or not files:
@@ -96,6 +102,17 @@ def validate_recipe(recipe):
             raise ValueError('UNSAFE_SOURCE_CLOSURE')
     if recipe['entrypoint'] not in files or not recipe['entrypoint'].endswith('.py'):
         raise ValueError('IMAGE_ENTRYPOINT')
+    if census:
+        expected = 'ci/private_cert/images/roles_' + recipe['role'] + '.py'
+        if recipe['entrypoint'] != expected:
+            raise ValueError('CENSUS_ENTRYPOINT')
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'probe_box'))
+        from roles_census import POLICY_SHA
+        if recipe['policySha256'] != POLICY_SHA:
+            raise ValueError('CENSUS_POLICY')
+        if any('delphi/' in p or 'math/' in p for p in files):
+            raise ValueError('CENSUS_SOURCE_CLOSURE')
     return recipe
 
 
@@ -233,6 +250,8 @@ def make_lock(producer, verifier, recipes, review):
     entries = {}
     for role, archive in [('producer', producer), ('verifier', verifier)]:
         recipe = validate_recipe(recipes[role])
+        if recipe['schema'] != 'polis-private-image-recipe/1':
+            raise ValueError('IMAGE_RECIPE_SCHEMA')
         if recipe['role'] != role or review['recipeSha256'].get(role) != sha(recipe):
             raise ValueError('IMAGE_REVIEW_BINDING')
         image = inspect_oci(archive)
@@ -263,6 +282,8 @@ def validate_lock(lock, admission):
                           'os', 'recipe', 'recipeSha256', 'launcherSha256'}:
             raise ValueError('IMAGE_LOCK_ENTRY')
         recipe = validate_recipe(image['recipe'])
+        if recipe['schema'] != 'polis-private-image-recipe/1':
+            raise ValueError('IMAGE_RECIPE_SCHEMA')
         if (recipe['role'] != role or image['recipeSha256'] != sha(recipe)
                 or image['architecture'] != 'arm64' or image['os'] != 'linux'
                 or not IMAGE.fullmatch(admission[image_key])

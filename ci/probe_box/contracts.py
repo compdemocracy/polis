@@ -16,7 +16,8 @@ class ImageCommand(TypedDict):
 
 
 class Job(TypedDict):
-    schema: Literal["polis-probe-job/1"]
+    schema: Literal["polis-probe-job/1", "polis-probe-job/2"]
+    kind: NotRequired[Literal["roles-census"]]
     run_id: str
     producer: ImageCommand
     verifier: ImageCommand
@@ -43,7 +44,16 @@ def command(value: object) -> ImageCommand:
 
 
 def validate_job(value: object) -> Job:
-    if type(value) is not dict or set(value) - {"reader"} != {
+    census = type(value) is dict and value.get("schema") == "polis-probe-job/2"
+    if census:
+        if set(value) != {"schema","kind","run_id","reader","producer","verifier","max_seconds"} or value["kind"] != "roles-census":
+            raise BoundaryError("JOB_SCHEMA")
+        for role, action in (("reader","read"),("producer","produce"),("verifier","verify")):
+            if command(value[role])["args"] != [action]:
+                raise BoundaryError("CENSUS_COMMAND")
+        if len({value[k]["image"] for k in ("reader","producer","verifier")}) != 3:
+            raise BoundaryError("CENSUS_SEPARATE_IMAGES")
+    elif type(value) is not dict or set(value) - {"reader"} != {
         "schema", "run_id", "producer", "verifier", "max_seconds"
     } or value["schema"] != "polis-probe-job/1":
         raise BoundaryError("JOB_SCHEMA")
@@ -60,6 +70,8 @@ def validate_job(value: object) -> Job:
                    "producer": producer, "verifier": verifier, "max_seconds": ceiling}
     if "reader" in value:
         result["reader"] = command(value["reader"])
+    if census:
+        result.update(schema="polis-probe-job/2",kind="roles-census")
     return result
 
 
