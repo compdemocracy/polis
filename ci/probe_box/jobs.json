@@ -17,6 +17,24 @@
         "args": ["verify"]
       },
       "max_seconds": 18000
+    },
+    "roles-census-v1": {
+      "kind": "roles-census",
+      "max_seconds": 900,
+      "producer": {
+        "args": ["produce"],
+        "image": "localhost/polis-roles-producer@sha256:4961595bf001151fe80517e5cd1989beb1e2e470e403b89ad355be026c4656f1"
+      },
+      "reader": {
+        "args": ["read"],
+        "image": "localhost/polis-roles-reader@sha256:d345ec92b0839fa54a8c6b5906e7072513411022e6ff6bb99768a78bd9d7e201"
+      },
+      "run_id": "00000000000000000000000000000000",
+      "schema": "polis-probe-job/2",
+      "verifier": {
+        "args": ["verify"],
+        "image": "localhost/polis-roles-verifier@sha256:8478ba5cb98603c027743ab65a116c481f6590a2a0d417815b0da79d919c3ae2"
+      }
     }
   }
 }
