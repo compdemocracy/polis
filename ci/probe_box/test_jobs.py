@@ -38,6 +38,32 @@ class RegistryTests(unittest.TestCase):
             self.assertEqual({**job, "run_id": original["run_id"]}, original)
         self.assertEqual(self.job, original)
 
+    def test_roles_census_has_three_admitted_images_and_closed_actions(self):
+        job = self.registry["jobs"]["roles-census-v1"]
+        self.assertEqual(validate_job(job), job)
+        self.assertEqual((job["schema"], job["kind"], job["max_seconds"]),
+                         ("polis-probe-job/2", "roles-census", 900))
+        # Actual OCI manifests exported from reviewed source 9a0c124d9.
+        digests = {
+            "reader": "d345ec92b0839fa54a8c6b5906e7072513411022e6ff6bb99768a78bd9d7e201",
+            "producer": "4961595bf001151fe80517e5cd1989beb1e2e470e403b89ad355be026c4656f1",
+            "verifier": "8478ba5cb98603c027743ab65a116c481f6590a2a0d417815b0da79d919c3ae2",
+        }
+        for role, action in (("reader", "read"), ("producer", "produce"), ("verifier", "verify")):
+            self.assertEqual(job[role], {
+                "image": f"localhost/polis-roles-{role}@sha256:{digests[role]}",
+                "args": [action],
+            })
+        self.assertEqual(len(set(digests.values())), 3)
+
+    def test_roles_census_fresh_identity_preserves_image_bindings(self):
+        original = copy.deepcopy(self.registry["jobs"]["roles-census-v1"])
+        self.assertEqual(original["run_id"], "0" * 32)
+        job = dict(original, run_id="3" * 32)
+        self.assertEqual(decode_job(json.dumps(job).encode()), job)
+        self.assertEqual({**job, "run_id": original["run_id"]}, original)
+        self.assertEqual(self.registry["jobs"]["roles-census-v1"], original)
+
 
 if __name__ == "__main__":
     unittest.main()
