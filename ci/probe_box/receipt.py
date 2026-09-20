@@ -15,7 +15,7 @@ from contracts import Job, validate_job
 
 
 def canonical(value: object) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode()
 
 
 def sha(value: object) -> str:
@@ -105,6 +105,9 @@ def validate_selection(value: object) -> dict:
 
 def validate_receipt(value: object, job: Job) -> dict:
     job = validate_job(job)
+    if job["schema"] == "polis-probe-job/2":
+        from roles_census import validate_receipt as validate_census_receipt
+        return validate_census_receipt(value, job)
     r = closed(value, {"schema", "run_id", "job_sha256", "verdict", "entries", "controls", "selection", "digests"})
     if (r["schema"] not in ("polis-probe-receipt/1", "polis-probe-receipt/2") or r["run_id"] != job["run_id"] or
             r["job_sha256"] != sha(job) or r["verdict"] not in ("PASS", "FAIL", "INCOMPLETE")):
@@ -153,3 +156,38 @@ def validate_receipt(value: object, job: Job) -> dict:
     if len(canonical(r)) > 131072:
         raise ValueError("RECEIPT_LIMIT")
     return r
+
+
+def receipt_limit(job: Job) -> int:
+    # Closed dispatch; a receipt cannot choose its own export allowance.
+    job = validate_job(job)
+    return {"polis-probe-job/1":131072,"polis-probe-job/2":131072}[job["schema"]]
+
+
+def decode_json(raw: bytes):
+    if len(raw)>131072:raise ValueError("RECEIPT_LIMIT")
+    def pairs(items):
+        out={}
+        for k,v in items:
+            if k in out:raise ValueError("RECEIPT_DUPLICATE_KEY")
+            out[k]=v
+        return out
+    def constant(_):raise ValueError("RECEIPT_NONFINITE")
+    try:
+        result=json.loads(raw,object_pairs_hook=pairs,parse_constant=constant)
+    except (UnicodeError,json.JSONDecodeError,RecursionError):
+        raise ValueError("RECEIPT_JSON") from None
+    pending=[(result,0)]
+    while pending:
+        v,depth=pending.pop()
+        if depth>16:raise ValueError("RECEIPT_DEPTH")
+        if type(v) is dict:pending.extend((x,depth+1) for x in v.values())
+        elif type(v) is list:pending.extend((x,depth+1) for x in v)
+    return result
+
+
+def decode_receipt(raw: bytes, job: Job) -> dict:
+    if len(raw)>receipt_limit(job):raise ValueError("RECEIPT_LIMIT")
+    try:return validate_receipt(decode_json(raw),job)
+    except (KeyError,TypeError,OverflowError,UnicodeError,RecursionError):
+        raise ValueError("RECEIPT_SCHEMA") from None

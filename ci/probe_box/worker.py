@@ -14,7 +14,7 @@ import time
 import urllib.request
 
 from contracts import validate_job
-from receipt import canonical, sha, validate_receipt
+from receipt import canonical, sha, validate_receipt, decode_receipt, receipt_limit
 from replica import ReplicaSocket
 
 ROOT = Path('/opt/polis-probe')
@@ -181,6 +181,12 @@ def absolute_deadline(boot: dict, seconds: int) -> float:
     return deadline
 
 
+def load_receipt(path: Path, job: dict) -> dict:
+    if path.is_symlink() or not path.is_file() or path.stat().st_size>receipt_limit(job):
+        raise ValueError("RECEIPT_FILE")
+    return decode_receipt(path.read_bytes(),job)
+
+
 def run() -> None:
     import boto3
     from botocore.config import Config
@@ -270,8 +276,7 @@ def run() -> None:
         sandbox(job['verifier'],'verifier',verifier_mounts,deadline-30,loaded_images[job['verifier']['image']])
         stage='receipt'
         result=verdict/'receipt.json'
-        if result.is_symlink() or not result.is_file() or result.stat().st_size>131072: raise ValueError('RECEIPT_FILE')
-        receipt=validate_receipt(json.loads(result.read_bytes()),job)
+        receipt=load_receipt(result,job)
         s3.put_object(Bucket=boot['evidenceBucket'],Key=f'results/{arn}/receipt.json',Body=canonical(receipt),IfNoneMatch='*',
                       ServerSideEncryption='aws:kms',SSEKMSKeyId=boot['evidenceKey'])
     except BaseException as error:

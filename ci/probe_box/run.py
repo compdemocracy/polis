@@ -7,7 +7,7 @@ import re
 import time
 import uuid
 from contracts import validate_job
-from receipt import validate_receipt
+from receipt import validate_receipt, decode_receipt, receipt_limit
 
 LAUNCH_KEYS = ('TEMPLATE', 'TEMPLATE_VERSION', 'PROFILE', 'SUBNET', 'SECURITY_GROUP')
 # A worker that ends without a receipt leaves this record in its heartbeat object (worker.py).
@@ -365,7 +365,7 @@ class Session:
                     failure = self.failure(c, arn)
             else:
                 raw = obj['Body'].read(131073)
-                if len(raw) > 131072:
+                if len(raw) > (131072 if provision else receipt_limit(c.a['job'])):
                     raise Unknown('RECEIPT_LIMIT')
                 if provision:
                     receipt = json.loads(raw)
@@ -374,7 +374,7 @@ class Session:
                         raise Unknown('PROVISION_RECEIPT')
                     passed = receipt['success']
                 else:
-                    receipt = validate_receipt(json.loads(raw), c.a['job'])
+                    receipt = decode_receipt(raw, c.a['job'])
                     passed = receipt['verdict'] == 'PASS'
         result = dict(run_id=run_id, complete=True, passed=passed)
         if failure:

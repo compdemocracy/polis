@@ -15,11 +15,13 @@ ROOT = Path('/opt/polis-private-image')
 
 def main():
     recipe = json.loads((ROOT / 'recipe.json').read_bytes())
-    allowed = {'producer': {'extract', 'produce'}, 'verifier': {'verify'}}[recipe['role']]
+    census = recipe.get('schema') == 'polis-private-image-recipe/2' and recipe.get('kind') == 'roles-census'
+    allowed = ({'reader': {'read'}, 'producer': {'produce'}, 'verifier': {'verify'}} if census else
+               {'producer': {'extract', 'produce'}, 'verifier': {'verify'}})[recipe['role']]
     if len(sys.argv) != 2 or sys.argv[1] not in allowed:
         raise ValueError('IMAGE_ACTION')
     action = sys.argv[1]
-    if action != 'extract':
+    if action not in ('extract', 'read'):
         admission = json.loads(Path('/run-spec/inputs.json').read_bytes())
         for key in ('candidateSha', 'oracleSha', 'policySha256'):
             if recipe[key] != admission[key]:

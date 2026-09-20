@@ -21,7 +21,7 @@ if len(raw) != ca['bytes'] or hashlib.sha256(raw).hexdigest() != ca['sha256']:
 PYCA
 install -d -m 0755 /opt/polis-probe
 install -m 0444 "$PROBE_RDS_CA" /opt/polis-probe/rds-ca.pem
-for file in worker.py contracts.py receipt.py replica.py dns.py provision.py provision_login.py; do install -m 0444 "$(dirname "$0")/$file" "/opt/polis-probe/$file"; done
+for file in worker.py contracts.py receipt.py roles_census.py roles_queries.py replica.py dns.py provision.py provision_login.py; do install -m 0444 "$(dirname "$0")/$file" "/opt/polis-probe/$file"; done
 # No remote commands, cloud-init, SSM, SSH or serial interactive console.
 for unit in cloud-init-local cloud-init cloud-config cloud-final sshd amazon-ssm-agent serial-getty@ttyS0; do systemctl mask "$unit.service"; done
 systemctl mask swap.target docker.service docker.socket containerd.service
