@@ -8,6 +8,39 @@ import threading
 from pathlib import Path
 
 
+def advertise_plain_scram(buf: bytes) -> bytes | None:
+    """Hide channel binding on the local socket after verified upstream TLS.
+
+    libpq never negotiates TLS on a Unix socket and unconditionally refuses a
+    SCRAM-SHA-256-PLUS offer there as an SSL-stripping attack. The trusted relay
+    verifies the primary's CA and hostname; only this first mechanism offer is
+    changed. Plain SCRAM still uses challenge/response, not a cleartext password.
+    """
+    if len(buf) < 5:
+        return None
+    length = struct.unpack('!I', buf[1:5])[0]
+    if not 8 <= length <= 65536:
+        raise OSError('SASL_MESSAGE_SHAPE')
+    end = 1 + length
+    if len(buf) < end:
+        return None
+    if buf[:1] != b'R' or buf[5:9] != struct.pack('!I', 10):
+        return buf
+    mechanisms = buf[9:end]
+    if not mechanisms.endswith(b'\0\0'):
+        raise OSError('SASL_MESSAGE_SHAPE')
+    names = mechanisms[:-2].split(b'\0')
+    if any(not name for name in names):
+        raise OSError('SASL_MESSAGE_SHAPE')
+    if b'SCRAM-SHA-256-PLUS' not in names:
+        return buf
+    names = [name for name in names if name != b'SCRAM-SHA-256-PLUS']
+    if not names:
+        raise OSError('SASL_NO_PLAIN_MECHANISM')
+    body = struct.pack('!I', 10) + b'\0'.join(names) + b'\0\0'
+    return b'R' + struct.pack('!I', 4 + len(body)) + body + buf[end:]
+
+
 class ReplicaSocket:
     def __init__(self, directory: Path, host: str, ca: Path):
         self.directory, self.host, self.ca = directory, host, ca
@@ -66,12 +99,27 @@ class ReplicaSocket:
                         outcome = 'tls'
                         return
                     with secure:
+                        first = bytearray()
+                        advertised = False
                         while not self.stop.is_set():
                             ready, _, _ = select.select([client, secure], [], [], 1)
                             for source in ready:
                                 data = source.recv(65536)
                                 if not data:
                                     return
+                                if source is secure and not advertised:
+                                    if len(first) + len(data) > 65536:
+                                        raise OSError('SASL_MESSAGE_LIMIT')
+                                    first.extend(data)
+                                    message = advertise_plain_scram(bytes(first))
+                                    if message is None:
+                                        continue
+                                    if message != first:
+                                        with self.lock:
+                                            self.outcomes['plain_scram'] = self.outcomes.get('plain_scram', 0) + 1
+                                    data = message
+                                    advertised = True
+                                    first.clear()
                                 (secure if source is client else client).sendall(data)
         except (OSError, ssl.SSLError):
             outcome = 'io'

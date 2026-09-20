@@ -225,3 +225,153 @@ class RuntimeTests(unittest.TestCase):
         policy = json.loads(bake.split("<<'POLICY'\n")[1].split('\nPOLICY')[0])
         self.assertEqual(policy['default'], [{'type': 'reject'}])
         self.assertEqual(set(policy['transports']), {'oci-archive'})
+
+
+class PlainScramTests(unittest.TestCase):
+    @staticmethod
+    def sasl(*names):
+        import struct
+        body = struct.pack('!I', 10) + b'\0'.join(names) + b'\0\0'
+        return b'R' + struct.pack('!I', len(body) + 4) + body
+
+    def test_removes_plus_and_recomputes_length(self):
+        import replica
+        for names in [(b'SCRAM-SHA-256-PLUS', b'SCRAM-SHA-256'),
+                      (b'SCRAM-SHA-256', b'SCRAM-SHA-256-PLUS')]:
+            with self.subTest(names=names):
+                self.assertEqual(replica.advertise_plain_scram(self.sasl(*names)),
+                                 self.sasl(b'SCRAM-SHA-256'))
+
+    def test_other_first_messages_and_plain_offer_unchanged(self):
+        import replica
+        import struct
+        for message in [self.sasl(b'SCRAM-SHA-256'),
+                        b'R' + struct.pack('!II', 8, 0),
+                        b'R' + struct.pack('!II', 8, 3),
+                        b'E' + struct.pack('!I', 9) + b'error']:
+            with self.subTest(message=message):
+                self.assertEqual(replica.advertise_plain_scram(message), message)
+
+    def test_trailing_bytes_are_unchanged(self):
+        import replica
+        message = self.sasl(b'SCRAM-SHA-256-PLUS', b'SCRAM-SHA-256')
+        trailing = self.sasl(b'SCRAM-SHA-256-PLUS') + b'\xff\0arbitrary'
+        self.assertEqual(replica.advertise_plain_scram(message + trailing),
+                         self.sasl(b'SCRAM-SHA-256') + trailing)
+
+    def test_partial_at_every_cut(self):
+        import replica
+        import struct
+        for message in [self.sasl(b'SCRAM-SHA-256-PLUS', b'SCRAM-SHA-256'),
+                        self.sasl(b'SCRAM-SHA-256'), b'R' + struct.pack('!II', 8, 0)]:
+            for cut in range(len(message)):
+                with self.subTest(message=message, cut=cut):
+                    self.assertIsNone(replica.advertise_plain_scram(message[:cut]))
+            self.assertIsNotNone(replica.advertise_plain_scram(message))
+
+    def test_declared_length_refusals(self):
+        import replica
+        import struct
+        for length in (0, 4, 7, 65537, 0xffffffff):
+            with self.subTest(length=length), self.assertRaisesRegex(OSError, '^SASL_MESSAGE_SHAPE$'):
+                replica.advertise_plain_scram(b'R' + struct.pack('!I', length))
+
+    def test_malformed_mechanism_list_refused(self):
+        import replica
+        import struct
+        for names in (b'', b'SCRAM-SHA-256', b'SCRAM-SHA-256\0',
+                      b'\0\0', b'SCRAM-SHA-256\0\0other\0\0'):
+            with self.subTest(names=names), self.assertRaisesRegex(OSError, '^SASL_MESSAGE_SHAPE$'):
+                replica.advertise_plain_scram(b'R' + struct.pack('!II', 8 + len(names), 10) + names)
+
+    def test_only_plus_refused(self):
+        import replica
+        with self.assertRaisesRegex(OSError, '^SASL_NO_PLAIN_MECHANISM$'):
+            replica.advertise_plain_scram(self.sasl(b'SCRAM-SHA-256-PLUS'))
+
+    def test_maximum_declared_length(self):
+        import replica
+        import struct
+        message = b'R' + struct.pack('!II', 65536, 0) + b'x' * (65536 - 8)
+        self.assertIsNone(replica.advertise_plain_scram(message[:-1]))
+        self.assertEqual(replica.advertise_plain_scram(message), message)
+
+    def exercise_relay(self, chunks, expected, outcomes):
+        import replica
+        import socket
+        import threading
+        # Readiness uses real socketpair bytes; TLS recv returns one prescribed
+        # chunk per signal so this exercises buffering across select iterations.
+        signal, peer = socket.socketpair()
+        self.addCleanup(signal.close)
+        self.addCleanup(peer.close)
+        sent = bytearray()
+        forwarded = threading.Event()
+        request = b'client startup\0SCRAM-SHA-256-PLUS\0unchanged'
+
+        class Secure:
+            def __init__(self): self.chunks = iter(chunks)
+            def fileno(self): return signal.fileno()
+            def recv(self, n):
+                signal.recv(1)
+                return next(self.chunks)
+            def sendall(self, data):
+                sent.extend(data)
+                if len(sent) == len(request): forwarded.set()
+            def __enter__(self): return self
+            def __exit__(self, *exc): return False
+
+        class Upstream:
+            def sendall(self, data): pass
+            def recv(self, n): return b'S'
+            def __enter__(self): return self
+            def __exit__(self, *exc): return False
+
+        secure = Secure()
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(replica.socket, 'create_connection', return_value=Upstream()), \
+                patch.object(replica.ssl, 'create_default_context') as context:
+            context.return_value.wrap_socket.return_value = secure
+            with replica.ReplicaSocket(Path(tmp), 'db.internal', Path(tmp)/'ca.pem') as relay:
+                with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+                    client.settimeout(5)
+                    client.connect(str(Path(tmp)/'.s.PGSQL.5432'))
+                    client.sendall(request)
+                    self.assertTrue(forwarded.wait(5))
+                    peer.sendall(b'x' * len(chunks))
+                    actual = bytearray()
+                    while len(actual) < len(expected):
+                        data = client.recv(65536)
+                        if not data: break
+                        actual.extend(data)
+                    self.assertEqual(bytes(actual), expected)
+                    if outcomes == {'io': 1}:
+                        self.assertEqual(client.recv(1), b'')
+            self.assertEqual(bytes(sent), request)
+            self.assertEqual(relay.summary(), outcomes)
+            context.assert_called_once_with(cafile=str(Path(tmp)/'ca.pem'))
+            self.assertEqual(context.return_value.wrap_socket.call_args.kwargs,
+                             {'server_hostname': 'db.internal'})
+
+    def test_relay_rewrites_fragmented_offer_once_and_preserves_client_bytes(self):
+        message = self.sasl(b'SCRAM-SHA-256-PLUS', b'SCRAM-SHA-256')
+        # A subsequent PLUS-shaped message must be piped raw, not rewritten.
+        trailing = self.sasl(b'SCRAM-SHA-256-PLUS')
+        self.exercise_relay([message[:2], message[2:7], message[7:] + b'tail', trailing],
+                            self.sasl(b'SCRAM-SHA-256') + b'tail' + trailing,
+                            {'plain_scram': 1, 'relayed': 1})
+
+    def test_relay_passes_plain_offer_without_rewrite_count(self):
+        message = self.sasl(b'SCRAM-SHA-256')
+        self.exercise_relay([message[:3], message[3:]], message, {'relayed': 1})
+
+    def test_relay_shape_and_no_plain_refusals_are_io(self):
+        import struct
+        for message in (b'R' + struct.pack('!I', 7), self.sasl(b'SCRAM-SHA-256-PLUS')):
+            with self.subTest(message=message):
+                self.exercise_relay([message], b'', {'io': 1})
+
+    def test_relay_buffer_limit_is_io(self):
+        import struct
+        message = b'R' + struct.pack('!II', 65536, 0) + b'x' * (65536 - 8)
+        self.exercise_relay([message[:65536], message[65536:]], b'', {'io': 1})
