@@ -393,18 +393,30 @@ class Session:
             return None
         if not isinstance(record, dict) or record.get('schema') != FAILURE_SCHEMA:
             return self.boot_failure(c, arn)
-        def token(value):
-            return isinstance(value, str) and bool(TOKEN.fullmatch(value))
-        clean = {k: record[k] for k in ('stage', 'type', 'code', 'aws') if token(record.get(k))}
+        # Closed vocabularies derived from the reviewed source tree (vocabulary.py):
+        # identifier-shaped is not enough, a hostile container could spell into it.
+        from vocabulary import Vocabulary, STAGES, LABELS, RELAY, REASON_CODES
+        v = Vocabulary()
+        clean = {}
+        if record.get('stage') in STAGES: clean['stage'] = record['stage']
+        if v.class_name(record.get('type')): clean['type'] = record['type']
+        if v.code(record.get('code')): clean['code'] = record['code']
+        if isinstance(record.get('aws'), str) and re.fullmatch(r'[A-Za-z0-9.]{1,64}', record['aws']): clean['aws'] = record['aws']
         container = record.get('container')
         if isinstance(container, dict):
-            clean['container'] = {k: v for k, v in container.items() if k in ('label', 'class', 'code', 'reason', 'role') and token(v)}
+            c = {}
+            if container.get('label') in LABELS: c['label'] = container['label']
+            if v.class_name(container.get('class')): c['class'] = container['class']
+            if v.code(container.get('code')): c['code'] = container['code']
+            if container.get('reason') in REASON_CODES: c['reason'] = container['reason']
+            if v.slug(container.get('role')): c['role'] = container['role']
             for k, kind in (('exit', int), ('oom', bool), ('rank', int), ('candidates', int)):
                 if type(container.get(k)) is kind:
-                    clean['container'][k] = container[k]
+                    c[k] = container[k]
+            clean['container'] = c
         relay = record.get('relay')
         if isinstance(relay, dict):
-            clean['relay'] = {k: v for k, v in relay.items() if token(k) and type(v) is int}
+            clean['relay'] = {k: v_ for k, v_ in relay.items() if k in RELAY and type(v_) is int}
         return clean or None
 
     def boot_failure(self, c, arn):
@@ -416,8 +428,9 @@ class Session:
             return None
         if not isinstance(record, dict) or record.get('schema') != BOOT_FAILURE_SCHEMA:
             return None
+        from vocabulary import PHASES
         phase = record.get('phase')
-        if isinstance(phase, str) and TOKEN.fullmatch(phase):
+        if phase in PHASES:
             return {'stage': 'boot', 'phase': phase}
         return None
 
