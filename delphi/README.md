@@ -43,7 +43,7 @@ docker exec polis-dev-delphi-1 python /app/create_dynamodb_tables.py --endpoint-
 
 ```bash
 # Set up the MinIO bucket for visualization storage
-python setup_minio_bucket.py
+python setup_minio.py
 ```
 
 ```bash
