@@ -382,6 +382,15 @@ class SessionTests(unittest.TestCase):
             s.objects['control',key]=body
             self.assertNotIn('failure',x.status(job()['run_id']))
 
+    def test_boot_failure_marker_is_reported_when_the_worker_never_started(self):
+        from test_boundaries import job
+        x,c,e,s,i=session_setup();x.start(job());i['State']['Name']='terminated'
+        boot='heartbeats/boot/arn:aws:ec2:us-east-1:111111111111:instance/i-test.json'
+        s.objects['control',boot]=encoded({'schema':'polis-probe-boot-failure/1','phase':'private-disk','note':'zid 42'})
+        self.assertEqual(x.status(job()['run_id'])['failure'],{'stage':'boot','phase':'private-disk'})
+        s.objects['control',boot]=encoded({'schema':'polis-probe-boot-failure/1','phase':'not a token'})
+        self.assertNotIn('failure',x.status(job()['run_id']))
+
     def test_duplicate_or_changed_disk_inventory_refused(self):
         from test_boundaries import job
         for change in ('duplicate','changed'):
