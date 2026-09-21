@@ -254,6 +254,80 @@ class ReleaseTests(unittest.TestCase):
 
 
 class SessionTests(unittest.TestCase):
+    def test_first_status_can_observe_fewer_disks_than_launch(self):
+        from test_boundaries import job
+        for state in ('pending', 'running'):
+            for count in (0, 1):
+                with self.subTest(state=state, count=count):
+                    x,c,e,s,i=session_setup()
+                    i['State']['Name']=state
+                    original=e.get_paginator
+                    observations=[]
+                    def pages(name):
+                        if name != 'describe_instances':return original(name)
+                        def observe(**kw):
+                            observations.append(True)
+                            if len(observations)==2:i['BlockDeviceMappings']=i['BlockDeviceMappings'][:count]
+                            return [{'Reservations':[{'Instances':[i]}]}]
+                        return Pages(observe)
+                    e.get_paginator=pages
+                    self.assertEqual(x.start(job()),dict(run_id=job()['run_id'],complete=False,passed=False))
+                    owned=x.control(x.active()[0])
+                    self.assertEqual(owned.read(owned.prefix+'instance.json')['volumes'],['vol-a','vol-b'])
+                    self.assertEqual(owned.reconcile()['status'],'ATTACHING')
+                    i['BlockDeviceMappings']=[{'Ebs':{'VolumeId':v}} for v in ('vol-a','vol-b')]
+                    self.assertFalse(x.status(job()['run_id'])['complete'])
+                    self.assertEqual(len(e.runs),1)
+                    self.assertFalse(e.terminated)
+
+    def test_initial_partial_status_does_not_publish_disposal_or_boot(self):
+        from test_boundaries import job
+        for state in ('pending','running'):
+            for count in (0,1):
+                with self.subTest(state=state,count=count):
+                    x,c,e,s,i=session_setup()
+                    i['State']['Name']=state;i['BlockDeviceMappings']=i['BlockDeviceMappings'][:count]
+                    self.assertFalse(x.start(job())['complete'])
+                    owned=x.control(x.active()[0])
+                    self.assertIsNone(owned.read(owned.prefix+'instance.json'))
+                    self.assertFalse([k for _,k in s.objects if k.startswith('boot/')])
+                    self.assertEqual(len(e.runs),1)
+
+    def test_partial_view_keeps_disk_and_identity_refusals(self):
+        from test_boundaries import job
+        changes=[('duplicate',['vol-a','vol-a'],'DISK_INVENTORY_UNKNOWN'),
+                 ('oversize',['vol-a','vol-b','vol-c'],'DISK_INVENTORY_UNKNOWN'),
+                 ('foreign-subset',['vol-c'],'INSTANCE_CHANGED'),
+                 ('changed-pair',['vol-a','vol-c'],'INSTANCE_CHANGED')]
+        for name,disks,code in changes:
+            with self.subTest(name=name):
+                x,c,e,s,i=session_setup();x.start(job())
+                i['BlockDeviceMappings']=[{'Ebs':{'VolumeId':v}} for v in disks]
+                with self.assertRaisesRegex(Unknown,code):x.status(job()['run_id'])
+                self.assertFalse(e.terminated);self.assertFalse(e.deleted)
+        for key,value,code in [('ClientToken','wrong','OWNERSHIP'),
+                               ('InstanceId','i-other','INSTANCE_CHANGED')]:
+            with self.subTest(key=key):
+                x,c,e,s,i=session_setup();x.start(job())
+                i['BlockDeviceMappings']=i['BlockDeviceMappings'][:1];i[key]=value
+                with self.assertRaisesRegex(Unknown,code):x.status(job()['run_id'])
+                self.assertFalse(e.terminated)
+
+    def test_partial_attachment_never_bypasses_stop_conditions(self):
+        from test_boundaries import job
+        for recorded in (False,True):
+            for stop in ('expiry','cancel','heartbeat'):
+                with self.subTest(recorded=recorded,stop=stop):
+                    x,c,e,s,i=session_setup()
+                    if not recorded:i['BlockDeviceMappings']=i['BlockDeviceMappings'][:1]
+                    x.start(job());i['BlockDeviceMappings']=i['BlockDeviceMappings'][:1]
+                    if stop=='expiry':c.now+=job()['max_seconds']
+                    elif stop=='heartbeat':c.now+=601
+                    with self.assertRaisesRegex(Unknown,'TERMINATION_PENDING'):
+                        x.status(job()['run_id'],cancel=stop=='cancel')
+                    self.assertEqual(e.terminated,['i-test']);self.assertEqual(len(e.runs),1)
+                    self.assertEqual(x.active()[0]['phase'],'INTENT')
+
     def test_only_one_launch_on_resumed_same_job(self):
         from test_boundaries import job
         x,c,e,s,i=session_setup()

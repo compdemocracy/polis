@@ -173,23 +173,32 @@ class Control:
         iid = i["InstanceId"]
         volume_ids = sorted(b["Ebs"]["VolumeId"] for b in i.get("BlockDeviceMappings", []) if "Ebs" in b)
         prior = self.read(self.prefix + "instance.json")
-        if not prior and i["State"]["Name"] != "terminated":
-            if len(volume_ids) != len(set(volume_ids)) or len(volume_ids) > DISKS_PER_INSTANCE:
+        if len(volume_ids) != len(set(volume_ids)) or len(volume_ids) > DISKS_PER_INSTANCE:
+            raise Unknown("DISK_INVENTORY_UNKNOWN")
+        attaching = (i["State"]["Name"] in ("pending", "running")
+                     and len(volume_ids) < DISKS_PER_INSTANCE)
+        # RunInstances reconciliation may see both disks before the immediate
+        # status read sees only a subset. Keep the complete disposal inventory;
+        # only that owned subset may be treated as a partial attachment view.
+        known_subset = (attaching and prior
+                        and len(prior["volumes"]) == len(set(prior["volumes"])) == DISKS_PER_INSTANCE
+                        and set(volume_ids) <= set(prior["volumes"]))
+        if not prior and i["State"]["Name"] != "terminated" and not attaching:
+            if len(volume_ids) != DISKS_PER_INSTANCE:
                 raise Unknown("DISK_INVENTORY_UNKNOWN")
-            if len(volume_ids) < DISKS_PER_INSTANCE:
-                # A partial disk set must never become the disposal inventory;
-                # observe again on a later poll (the boot object waits with it).
-                return {"status": "ATTACHING", "admissionId": self.a["id"]}
             self.record(self.prefix + "instance.json", {"id": iid, "volumes": volume_ids, "admissionSha256": self.token})
             prior = self.read(self.prefix + "instance.json")
         if prior and (prior["id"] != iid or prior["admissionSha256"] != self.token
-                      or (volume_ids and volume_ids != prior["volumes"])):
+                      or (volume_ids and volume_ids != prior["volumes"] and not known_subset)):
             raise Unknown("INSTANCE_CHANGED")
         if i["State"]["Name"] != "terminated":
             if expired or cancelled or self.heartbeat_missing(i, claim):
                 self.ec2.terminate_instances(InstanceIds=[iid])
                 # Observe on a later sweep; do not call accepted termination CLEAN.
                 raise Unknown("TERMINATION_PENDING")
+            if attaching and (not prior or known_subset):
+                # Never publish a partial disposal inventory or boot object.
+                return {"status": "ATTACHING", "admissionId": self.a["id"]}
             if not prior or len(set(prior["volumes"])) != 2:
                 raise Unknown("DISK_INVENTORY_UNKNOWN")
             boot = {"admission": self.a, "admissionSha256": self.token, "instanceId": iid,
