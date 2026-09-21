@@ -317,7 +317,16 @@ def test_bridge_inventory_preserves_every_baseline_identity():
     assert len(extended["python_nodeids"])==len(set(extended["python_nodeids"]))
     assert len(extended["python_junit"])==291
     assert set(INV["rust_tests"]) < set(extended["rust_tests"])
-    assert len(extended["rust_tests"])==34
+    schema_tests={
+        "schema_migration_inventory_requires_fresh_census",
+        "schema_all_columns_types_nullability_and_serde",
+        "schema_lossless_scalar_binary_controls",
+        "schema_job_contracts_preserve_legacy_shapes",
+        "schema_dynamo_decimal_null_and_extension_controls",
+        "schema_every_dynamo_item_roundtrips",
+    }
+    assert schema_tests <= set(extended["rust_tests"])
+    assert len(extended["rust_tests"])==34+len(schema_tests)
     assert extended["jest_cases"]==INV["jest_cases"]
     assert extended["stages"]==INV["stages"]
 
