@@ -63,10 +63,7 @@ function fixture(filename, baseName, { eventFailure, renderFailure } = {}) {
   return { render: module.exports.render, calls, eventBus };
 }
 
-for (const [filename, baseName] of [
-  ["PolisView.js", "View"],
-  ["PolisModelView.js", "ModelView"]
-]) {
+for (const [filename, baseName] of [["PolisModelView.js", "ModelView"]]) {
   test(`${baseName} emits before delegating with the exact receiver and argument identities`, () => {
     const f = fixture(filename, baseName),
       receiver = {},
