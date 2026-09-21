@@ -15,3 +15,5 @@ pub mod wire;
 
 pub mod database;
 mod health;
+
+pub mod schema;

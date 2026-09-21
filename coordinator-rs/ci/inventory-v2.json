@@ -1495,7 +1495,13 @@
     "wrong_type_refused",
     "blocked_sink_bounds_queue_and_shutdown",
     "failed_device_counts_without_blocking_producer",
-    "oversized_metric_is_refused_before_queueing"
+    "oversized_metric_is_refused_before_queueing",
+    "schema_migration_inventory_requires_fresh_census",
+    "schema_all_columns_types_nullability_and_serde",
+    "schema_lossless_scalar_binary_controls",
+    "schema_job_contracts_preserve_legacy_shapes",
+    "schema_dynamo_decimal_null_and_extension_controls",
+    "schema_every_dynamo_item_roundtrips"
   ],
   "jest_cases": [
     [
