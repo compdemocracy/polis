@@ -43,7 +43,9 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$EVENT" != pull_request ]; then echo "run=true" >> "$GITHUB_OUTPUT"; echo "full campaign: $EVENT"; exit 0; fi
-          changed=$(git diff --name-only "$BASE...$HEAD")
+          # --no-renames: a rename lists both the removed and the added path, so moving a
+          # file out of a campaign directory still counts as touching that directory.
+          changed=$(git diff --name-only --no-renames "$BASE...$HEAD")
           printf '%s\n' "$changed" | sed 's/^/changed: /'
           if printf '%s\n' "$changed" | grep -Eq '^(coordinator-rs/|delphi/|math/|server/|\.github/workflows/coordinator-ci\.yml$)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"; echo "campaign paths changed: running"
