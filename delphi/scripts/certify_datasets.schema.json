@@ -106,6 +106,11 @@
         }
       }
     },
+    "accepted_public_fixture_replacements": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"},
+      "description": "Recorded approvals: slugs of roles whose on_missing is fail_with_public_fixture_replacement_offer and for which the deterministic public fixture may stand in when production supplies no candidate. The reviewed config carries the approval so the reader image and the closed receipt bind it; no runtime flag can add one."
+    },
     "generated": {
       "type": "object",
       "additionalProperties": false,
