@@ -920,7 +920,6 @@ module.exports = ConversationView.extend({
           gid: that.selectedGid
         })
         .then(function () {
-          //that.commentCarouselMajorityView.renderWithCarousel();
         });
     });
     that.conversationTabs.on("beforeshow:group", function () {
@@ -948,7 +947,6 @@ module.exports = ConversationView.extend({
     });
     that.conversationTabs.on("aftershow:majority", function () {
       that.initPcaVis();
-      // that.commentCarouselMajorityView.renderWithCarousel();
 
       if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
         $(".query_result_item").first().trigger("click");
