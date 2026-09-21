@@ -5,6 +5,39 @@
 # Run with: `docker compose -f docker-compose.test.yml --env-file test.env up --build`.
 
 services:
+  coordinator-idle:
+    profiles: [coordinator-idle]
+    image: polis/coordinator-idle:local
+    build:
+      context: .
+      dockerfile: coordinator-rs/deploy/Dockerfile
+    entrypoint: [/usr/local/bin/coordinator-idle]
+    read_only: true
+    user: "10001:10001"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      DATABASE_URL: ${COORDINATOR_DATABASE_URL:-postgresql://polis_coordinator_observer_login@postgres:5432/polisdb?sslmode=verify-full}
+      COORDINATOR_DB_HOST_ALLOWLIST: ${COORDINATOR_DB_HOST_ALLOWLIST:-postgres}
+      COORDINATOR_DB_PASSWORD_FILE: /run/coordinator/password
+      COORDINATOR_DB_CA_BUNDLE: /etc/polis/local-ca.pem
+      COORDINATOR_MODE: inactive
+      COORDINATOR_WRITER_ENABLED: "false"
+      P026_RESERVATION_BYTES: "0"
+    volumes:
+      - type: bind
+        source: ${COORDINATOR_PASSWORD_FILE:-./.coordinator/password}
+        target: /run/coordinator/password
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${COORDINATOR_CA_FILE:-./.coordinator/ca.pem}
+        target: /etc/polis/local-ca.pem
+        read_only: true
+        bind: {create_host_path: false}
+    networks: [polis-test]
+    restart: "no"
+
   client-participation-alpha:
     build:
       context: ./client-participation-alpha
