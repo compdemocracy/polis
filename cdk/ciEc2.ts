@@ -38,7 +38,7 @@
  *      session policy at re-assume time.
  *   2. `polis-certify-worker` — the instance role. An explicit minimal SSM
  *      agent policy, NOT `AmazonSSMManagedInstanceCore` (which also grants
- *      `ssm:GetParameter*` on `*` — review E6). No S3, no secrets, no KMS.
+ *      `ssm:GetParameter*` on `*` — review E6). Only instance-owned public results writes; no secrets or KMS.
  *   3. `polis-certify-ci` launch template — Graviton, IMDSv2 required, no
  *      public IP, no inbound rules, encrypted gp3 root, shutdown-terminates,
  *      and a hard deadline armed as the first user-data action.
@@ -49,6 +49,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 
 /** Tag key/value every disposable CI instance carries. It is the predicate for
@@ -170,7 +171,7 @@ export class CertificationCiEc2 extends Construct {
     // box (review E6). These are the agent's own actions and nothing else.
     this.workerRole = new iam.Role(this, 'WorkerRole', {
       roleName: 'polis-certify-worker',
-      description: 'P-022 E public battery CI worker: SSM agent actions only, no data access',
+      description: 'P-022 E public battery CI worker: SSM agent and instance-owned public results',
       assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
     });
     this.workerRole.addToPolicy(new iam.PolicyStatement({
@@ -432,20 +433,33 @@ export class CertificationCiEc2 extends Construct {
       resources: [instanceArnPattern],
       conditions: { StringEquals: { [`ssm:resourceTag/${CI_TAG_KEY}`]: CI_TAG_VALUE } },
     }));
-    // ssm:GetCommandInvocation and ssm:DescribeInstanceInformation support NO
-    // resource types and NO condition keys (service authorization reference),
-    // so they cannot be narrowed here or in a session policy. State the reach
-    // plainly: GetCommandInvocation returns a command's stdout AND stderr, so
-    // for any command/instance id pair this role can guess or learn, it can
-    // read that command's output anywhere in the account. Dropping the List
-    // APIs removed discoverability, not authorisation. Only running this in an
-    // isolated account closes it, which is why that remains the activation
-    // gate (review E6, R2-F5).
     this.githubRole.addToPolicy(new iam.PolicyStatement({
-      sid: 'ReadCommandResults',
-      actions: ['ssm:GetCommandInvocation', 'ssm:DescribeInstanceInformation'],
-      resources: ['*'],
+      sid: 'ObserveAgentRegistration',
+      actions: ['ssm:DescribeInstanceInformation'], resources: ['*'],
     }));
+    const results = new s3.Bucket(this, 'PublicResults', {
+      encryption: s3.BucketEncryption.S3_MANAGED, enforceSSL: true,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
+      lifecycleRules: [{expiration: cdk.Duration.days(7)}],
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+    this.workerRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'WriteOwnPublicResults', actions: ['s3:PutObject'],
+      resources: [results.arnForObjects('campaigns/${ec2:SourceInstanceARN}/*')],
+      conditions: {StringEquals: {'s3:if-none-match': '*', 's3:x-amz-server-side-encryption': 'AES256'}},
+    }));
+    this.githubRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'ReadPublicCampaignResults', actions: ['s3:GetObject'],
+      resources: [results.arnForObjects('campaigns/*')],
+    }));
+    this.githubRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'ListPublicCampaignResults', actions: ['s3:ListBucket'], resources: [results.bucketArn],
+      conditions: {StringLike: {'s3:prefix': 'campaigns/*'}},
+    }));
+    new cdk.CfnOutput(this, 'CertifyResultsBucket', {
+      value: results.bucketName, description: 'Set CERTIFY_RESULTS_BUCKET; public-fixture results only',
+    });
 
     // --------------------------------------------------------------- outputs
     new cdk.CfnOutput(this, 'CertifyOidcRoleArn', {

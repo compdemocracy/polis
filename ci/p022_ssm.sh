@@ -6,6 +6,7 @@
 #
 #   usage: ci/p022_ssm.sh <label> <remote-shell-command>
 #   env:   INSTANCE_ID   (required)  the worker
+#          CERTIFY_RESULTS_BUCKET / INSTANCE_ARN (required)
 #          AWS_REGION    (required)  set by configure-aws-credentials
 #          POLIS_SSM_TIMEOUT         execution timeout, seconds (default 21600)
 #          POLIS_SSM_MODE            status | base64 | bootstrap (default status)
@@ -30,57 +31,15 @@ MODE="${POLIS_SSM_MODE:-status}"
 
 note() { echo "$*" >&2; }
 
-# jq builds the parameter document, so the remote command is never spliced into
-# a shell string on this side.
-params=$(jq -nc --arg c "$REMOTE" --arg t "$TIMEOUT" \
-  '{commands: [$c], executionTimeout: [$t]}')
-
-command_id=$(aws ssm send-command \
-  --instance-ids "$INSTANCE_ID" \
-  --document-name AWS-RunShellScript \
-  --comment "$LABEL" \
-  --timeout-seconds 600 \
-  --parameters "$params" \
-  --query 'Command.CommandId' --output text)
-
-note "ssm[$LABEL] command=$command_id instance=$INSTANCE_ID"
-
-deadline=$(( $(date +%s) + TIMEOUT + 300 ))
-inv=''
-status=''
-# Poll fast first, then settle at 15s. A flat 15s pre-sleep is invisible next to
-# a multi-hour battery, but the recordings stream is hundreds of `cut` commands
-# that each finish in milliseconds — paying 15s of sleep per chunk turned a
-# ~3 MB transfer into hours. The ceiling is unchanged, so the long phases poll
-# exactly as before.
-interval=2
-while :; do
-  sleep "$interval"
-  if [ "$interval" -lt 15 ]; then
-    interval=$(( interval * 2 ))
-  fi
-  if [ "$interval" -gt 15 ]; then
-    interval=15
-  fi
-  if [ "$(date +%s)" -gt "$deadline" ]; then
-    # No CancelCommand: the role no longer holds it (it cannot be scoped to a
-    # single command). The on-box deadline covers a healthy host; a dead boot
-    # or wedged kernel requires operator cleanup (docs/ci-ec2.md). Fail loudly.
-    note "ssm[$LABEL] local deadline exceeded"
-    exit 124
-  fi
-  # A just-created invocation can 400 with InvocationDoesNotExist; keep polling.
-  inv=$(aws ssm get-command-invocation --command-id "$command_id" \
-        --instance-id "$INSTANCE_ID" --output json 2>/dev/null) || continue
-  status=$(echo "$inv" | jq -r '.Status')
-  case "$status" in
-    Pending|InProgress|Delayed) continue ;;
-    *) break ;;
-  esac
-done
-
-code=$(echo "$inv" | jq -r '.ResponseCode // 1')
-out=$(echo "$inv" | jq -r '.StandardOutputContent // ""')
+# A create-only receipt under this instance's prefix is the completion authority.
+# SSM only starts the command; stdout and completion are read from S3.
+output=$(mktemp)
+trap 'rm -f "$output"' EXIT
+code=0
+python3 "$(dirname "$0")/p022_results.py" "$LABEL" "$REMOTE" "$output" || code=$?
+out=$(cat "$output")
+status=Success
+if [ "$code" -ne 0 ]; then status=Failed; fi
 
 case "$MODE" in
   bootstrap)

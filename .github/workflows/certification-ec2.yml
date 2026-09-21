@@ -78,6 +78,7 @@ jobs:
       id-token: write
     env:
       AWS_REGION: ${{ vars.CERTIFY_REGION || 'us-east-1' }}
+      CERTIFY_RESULTS_BUCKET: ${{ vars.CERTIFY_RESULTS_BUCKET }}
       RUN_TAG: ${{ github.run_id }}-${{ github.run_attempt }}
       TARGET_REF: ${{ inputs.ref || github.ref_name }}
       INSTANCE_TYPE: ${{ inputs.instance_type || 'r8g.4xlarge' }}
@@ -206,17 +207,20 @@ jobs:
           # launched. The role's own tag conditions cannot do that -- a tag is
           # shared by every concurrent campaign (review E6). A session policy
           # intersects with the role policy, so this can only subtract.
-          # ssm:GetCommandInvocation and ssm:DescribeInstanceInformation support
-          # no resource types and no condition keys in the service
-          # authorization reference, so they stay "*" here; that residual is
-          # documented rather than papered over.
-          jq -nc --arg arn "$INSTANCE_ARN" '{
+          test -n "$CERTIFY_RESULTS_BUCKET"
+          echo "INSTANCE_ARN=$INSTANCE_ARN" >> "$GITHUB_ENV"
+          jq -nc --arg arn "$INSTANCE_ARN" --arg bucket "$CERTIFY_RESULTS_BUCKET" '{
             Version: "2012-10-17",
             Statement: [
               {Sid: "SendToThisInstanceOnly", Effect: "Allow",
                Action: "ssm:SendCommand", Resource: [$arn, "arn:aws:ssm:*::document/AWS-RunShellScript"]},
-              {Sid: "ReadCommandResults", Effect: "Allow",
-               Action: ["ssm:GetCommandInvocation", "ssm:DescribeInstanceInformation"], Resource: "*"},
+              {Sid: "ObserveAgent", Effect: "Allow",
+               Action: "ssm:DescribeInstanceInformation", Resource: "*"},
+              {Sid: "ReadOwnResults", Effect: "Allow", Action: "s3:GetObject",
+               Resource: ("arn:aws:s3:::"+$bucket+"/campaigns/"+$arn+"/*")},
+              {Sid: "ListOwnResults", Effect: "Allow", Action: "s3:ListBucket",
+               Resource: ("arn:aws:s3:::"+$bucket),
+               Condition: {StringLike: {"s3:prefix": ("campaigns/"+$arn+"/*")}}},
               {Sid: "ObserveInstances", Effect: "Allow",
                Action: ["ec2:DescribeInstances", "ec2:DescribeInstanceStatus"], Resource: "*"},
               {Sid: "TerminateThisInstanceOnly", Effect: "Allow",
@@ -263,7 +267,7 @@ jobs:
         if: ${{ env.RUN_BATTERY == 'true' }}
         run: |
           set -euo pipefail
-          # No fixture URI, no secret, no S3: the public fixtures are checked
+          # No fixture URI or secret: the public fixtures are checked
           # into the repository and the worker has no credential that could
           # reach anything else. An empty or incomplete public inventory fails
           # on the box rather than shrinking the run (review E5).

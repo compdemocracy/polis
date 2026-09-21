@@ -181,3 +181,22 @@ test.each(['false', '(exit 7)'])('unexpected failure creates the marker without 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('public results use authenticated instance prefixes and no SSM command reads', () => {
+  const j=template().toJSON();
+  expect(JSON.stringify(j)).not.toContain('ssm:GetCommandInvocation');
+  const policies=Object.values(j.Resources).filter((r:any)=>r.Type==='AWS::IAM::Policy') as any[];
+  const statements=policies.flatMap(r=>r.Properties.PolicyDocument.Statement);
+  const write=statements.find(s=>s.Sid==='WriteOwnPublicResults');
+  expect(JSON.stringify(write.Resource)).toContain('campaigns/${ec2:SourceInstanceARN}/*');
+  expect(write.Action).toBe('s3:PutObject');
+  expect(write.Condition.StringEquals).toEqual({'s3:if-none-match':'*','s3:x-amz-server-side-encryption':'AES256'});
+  const list=statements.find(s=>s.Sid==='ListPublicCampaignResults');
+  expect(list.Condition.StringLike['s3:prefix']).toBe('campaigns/*');
+  expect(statements.find(s=>s.Sid==='ReadPublicCampaignResults').Action).toBe('s3:GetObject');
+  expect(Object.values(j.Resources).filter((r:any)=>r.Type==='AWS::S3::Bucket')).toHaveLength(1);
+  const workflow=readFileSync(join(__dirname,'../../.github/workflows/certification-ec2.yml'),'utf8');
+  expect(workflow).not.toContain('ssm:GetCommandInvocation');
+  expect(workflow).toContain('"campaigns/"+$arn+"/*"');
+  expect(workflow).toContain('CERTIFY_RESULTS_BUCKET');
+});
