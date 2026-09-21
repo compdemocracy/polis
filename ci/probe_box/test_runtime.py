@@ -159,6 +159,21 @@ class RuntimeTests(unittest.TestCase):
                     self.assertNotIn('zid', json.dumps(token))
                     self.assertNotIn('/replica', json.dumps(token))
 
+    def test_unsatisfied_selection_role_exports_slug_rank_and_count_only(self):
+        line = ("polismath.replay.fixture_survey.RoleUnsatisfied: missing role 'large-shape-rank-16' "
+                "(slug pc-v1-large-r16): rule matched 9 conversation(s) but rank 16 was required; the config "
+                "offers deterministic public-fixture case 'gen-v1-dense-stress' as a replacement, which requires "
+                "an explicit recorded approval (--accept-public-fixture)")
+        with tempfile.TemporaryDirectory() as tmp:
+            log = Path(tmp)/'c.log'
+            log.write_text('survey zid 42 topic secret\n'+line+'\n')
+            token = worker.last_exception_token(log)
+        self.assertEqual(token, {'class': 'polismath.replay.fixture_survey.RoleUnsatisfied',
+                                 'role': 'pc-v1-large-r16', 'candidates': 9, 'rank': 16})
+        self.assertNotIn('zid', json.dumps(token)); self.assertNotIn('large-shape', json.dumps(token))
+        self.assertEqual(worker.selection_tokens('ValueError', '(slug pc-v1-x): matched 1 conversation(s) but rank 2 was required'), {})
+        self.assertEqual(worker.selection_tokens('x.RoleUnsatisfied', 'missing role (slug PC-V1-UPPER): nothing'), {})
+
     def test_last_exception_token_keeps_only_class_names_and_codes(self):
         cases = {
             'psycopg2.OperationalError: connection to server failed: zid 42': {'class': 'psycopg2.OperationalError'},
