@@ -254,7 +254,7 @@ def test_selection_cli_outputs_only_report_and_stores_private_mapping(tmp_path,m
         def close(self):self.closed=True
     conn=Conn();monkeypatch.setattr(cli.psycopg2,'connect',lambda *a:conn)
     output=tmp_path/'real_data/.local/selection.private.json'
-    result=CliRunner().invoke(cli.cli,['select-representative','--database-url','public-fixture',
+    result=CliRunner().invoke(cli.cli,['select-representative','--database-url','dbname=public-fixture',
         '--from-config',str(config_path),'--out',str(output),'--snapshot-id','public-fixture-snapshot'])
     assert result.exit_code==(2 if n==0 else 0),result.output
     report=json.loads(result.stdout);sel.validate_report(report)
@@ -282,7 +282,7 @@ def test_cli_errors_never_render_private_details(tmp_path,monkeypatch,failure):
         report=sel.select_representative([metric(1)],SEED).report
         report['topic']='PUBLIC_FIXTURE_PRIVATE_TEXT'
         monkeypatch.setattr(fx,'select_representative_from_config',lambda *a,**kw:{'report':report})
-    result=CliRunner().invoke(cli.cli,['select-representative','--database-url','public-fixture',
+    result=CliRunner().invoke(cli.cli,['select-representative','--database-url','dbname=public-fixture',
         '--from-config',str(config_path),'--out',str(output)])
     assert result.exit_code==1 and 'REPRESENTATIVE_SELECTION_FAILED' in result.output
     assert 'PUBLIC_FIXTURE_PRIVATE' not in result.output and str(tmp_path) not in result.output
@@ -303,7 +303,7 @@ def test_from_config_cli_confines_selection_identity_to_its_private_sidecar(tmp_
     monkeypatch.setattr(cli.psycopg2,'connect',lambda *a:Conn())
     monkeypatch.setattr(fx,'extract_from_config',lambda *a,**kw:result)
     payload=tmp_path/'real_data/.local/payload'
-    output=CliRunner().invoke(cli.cli,['from-config','--database-url','public-fixture',
+    output=CliRunner().invoke(cli.cli,['from-config','--database-url','dbname=public-fixture',
         '--from-config',str(config_path),'--out',str(payload)])
     assert output.exit_code==0,output.output
     assert json.loads(output.stdout)==selection.report
@@ -337,7 +337,7 @@ def test_from_config_selection_failure_is_fixed_text(tmp_path,monkeypatch,failur
         if failure=='report':result['representative_selection']['path']='PUBLIC_FIXTURE_PRIVATE_DETAIL'
         monkeypatch.setattr(fx,'extract_from_config',lambda *a,**kw:result)
         if failure=='write':monkeypatch.setattr(cli.fb,'os_umask_safe_write',explode)
-    output=CliRunner().invoke(cli.cli,['from-config','--database-url','public-fixture',
+    output=CliRunner().invoke(cli.cli,['from-config','--database-url','dbname=public-fixture',
         '--from-config',str(config_path),'--out',str(payload)])
     assert output.exit_code==1 and 'REPRESENTATIVE_EXTRACTION_FAILED' in output.output
     assert 'PUBLIC_FIXTURE_PRIVATE' not in output.output and str(tmp_path) not in output.output
