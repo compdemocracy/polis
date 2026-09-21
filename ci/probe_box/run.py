@@ -12,7 +12,7 @@ from receipt import validate_receipt, decode_receipt, receipt_limit
 LAUNCH_KEYS = ('TEMPLATE', 'TEMPLATE_VERSION', 'PROFILE', 'SUBNET', 'SECURITY_GROUP')
 # A worker that ends without a receipt leaves this record in its heartbeat object (worker.py).
 FAILURE_SCHEMA = 'polis-probe-failure/1'
-TOKEN = re.compile(r'[A-Za-z0-9_.]{1,96}')
+TOKEN = re.compile(r'[A-Za-z0-9_.-]{1,96}')
 # Both launch templates carry exactly two EBS mappings: the root and one private disk.
 # EBS attaches after RunInstances returns, so an observation with fewer disks is partial.
 DISKS_PER_INSTANCE = 2
@@ -397,8 +397,8 @@ class Session:
         clean = {k: record[k] for k in ('stage', 'type', 'code', 'aws') if token(record.get(k))}
         container = record.get('container')
         if isinstance(container, dict):
-            clean['container'] = {k: v for k, v in container.items() if k in ('label', 'class', 'code', 'reason') and token(v)}
-            for k, kind in (('exit', int), ('oom', bool)):
+            clean['container'] = {k: v for k, v in container.items() if k in ('label', 'class', 'code', 'reason', 'role') and token(v)}
+            for k, kind in (('exit', int), ('oom', bool), ('rank', int), ('candidates', int)):
                 if type(container.get(k)) is kind:
                     clean['container'][k] = container[k]
         relay = record.get('relay')

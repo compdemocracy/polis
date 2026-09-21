@@ -148,7 +148,28 @@ def last_exception_token(log: Path) -> dict:
                 reason = classify_reason(rest)
                 if reason:
                     token['reason'] = reason
+                token.update(selection_tokens(head, rest))
         return token
+
+
+# A frozen selection rule that production could not satisfy. The rule slug is a
+# public identifier from the committed capture config; rank and candidate count
+# are two small integers. Nothing else from the message leaves the box.
+SLUG = re.compile(r'\(slug (pc-v1-[a-z0-9-]{1,40})\)')
+RANK = re.compile(r'matched (\d{1,9}) conversation\(s\) but rank (\d{1,4}) was required')
+
+
+def selection_tokens(head: str, rest: str) -> dict:
+    if not head.endswith('RoleUnsatisfied'):
+        return {}
+    out = {}
+    slug = SLUG.search(rest)
+    if slug:
+        out['role'] = slug.group(1)
+    counts = RANK.search(rest)
+    if counts:
+        out['candidates'], out['rank'] = int(counts.group(1)), int(counts.group(2))
+    return out
 
 
 # Fixed libpq / OS phrases -> closed reason codes. Only the code leaves the box.
@@ -175,7 +196,6 @@ def classify_reason(message: str) -> str:
         if phrase in message:
             return code
     return ''
-    return {}
 
 
 def failure_record(stage: str, error: BaseException, relay: object = None) -> dict:
