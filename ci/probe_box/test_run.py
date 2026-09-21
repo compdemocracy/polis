@@ -382,6 +382,27 @@ class SessionTests(unittest.TestCase):
             s.objects['control',key]=body
             self.assertNotIn('failure',x.status(job()['run_id']))
 
+    def test_failure_tokens_outside_the_reviewed_vocabulary_are_dropped(self):
+        from test_boundaries import job
+        from vocabulary import Vocabulary
+        v=Vocabulary()
+        self.assertTrue(v.classes and v.codes and v.slugs and v.stems)
+        self.assertIn('RoleUnsatisfied',v.classes); self.assertIn('PROBE_EXECUTION_FAILED',v.codes); self.assertIn('pc-v1-dense',v.slugs)
+        x,c,e,s,i=session_setup();x.start(job());i['State']['Name']='terminated'
+        key='heartbeats/'+job()['run_id']+'/arn:aws:ec2:us-east-1:111111111111:instance/i-test.json'
+        s.objects['control',key]=encoded({'schema':'polis-probe-failure/1','stage':'reader','type':'evil.Exfil.SecretError','code':'LEAK_L9999',
+            'container':{'label':'reader','exit':1,'oom':False,'class':'a.b.c.PayloadError','code':'FIXTURE_EXTRACT_L678','reason':'PG_SSL','role':'pc-v1-attacker','rank':1,'candidates':0},
+            'relay':{'relayed':1,'covert':7}})
+        self.assertEqual(x.status(job()['run_id'])['failure'],{'stage':'reader',
+            'container':{'label':'reader','code':'FIXTURE_EXTRACT_L678','reason':'PG_SSL','exit':1,'oom':False,'rank':1,'candidates':0},'relay':{'relayed':1}})
+        s.objects['control',key]=encoded({'schema':'polis-probe-failure/1','stage':'reader','type':'SandboxFailure','code':'PROBE_EXECUTION_FAILED',
+            'container':{'label':'reader','exit':1,'oom':False,'class':'polismath.replay.fixture_survey.RoleUnsatisfied','role':'pc-v1-dense','rank':1,'candidates':0},'relay':{'plain_scram':1,'relayed':1}})
+        self.assertEqual(x.status(job()['run_id'])['failure'],{'stage':'reader','type':'SandboxFailure','code':'PROBE_EXECUTION_FAILED',
+            'container':{'label':'reader','class':'polismath.replay.fixture_survey.RoleUnsatisfied','role':'pc-v1-dense','exit':1,'oom':False,'rank':1,'candidates':0},'relay':{'plain_scram':1,'relayed':1}})
+        boot='heartbeats/boot/arn:aws:ec2:us-east-1:111111111111:instance/i-test.json'
+        s.objects['control',key]=b'{}'; s.objects['control',boot]=encoded({'schema':'polis-probe-boot-failure/1','phase':'not-a-phase'})
+        self.assertNotIn('failure',x.status(job()['run_id']))
+
     def test_boot_failure_marker_is_reported_when_the_worker_never_started(self):
         from test_boundaries import job
         x,c,e,s,i=session_setup();x.start(job());i['State']['Name']='terminated'
