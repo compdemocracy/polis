@@ -2,7 +2,7 @@
 
 This pipeline processes Polis conversations through a series of steps:
 
-- `500_generate_embedding_umap_cluster.py` - Generates embeddings and performs clustering
+- `run_pipeline.py` - Generates embeddings, clusters comments, and names topics
 - `600_generate_llm_topic_names.py` - Names topics using LLMs
 - `700_datamapplot_for_layer.py` - Creates interactive visualizations
 
@@ -20,12 +20,8 @@ This pipeline processes Polis conversations through a series of steps:
 # Activate virtual environment
 source ../.venv/bin/activate
 
-# Option 1: Run full pipeline in one step
+# Run the pipeline in one step
 python run_pipeline.py --zid CONVERSATION_ID --use-ollama
-
-# Option 2: Run pipeline steps separately
-python 500_generate_embedding_umap_cluster.py --conversation_id CONVERSATION_ID
-python 600_generate_llm_topic_names.py --conversation_id CONVERSATION_ID
 ```
 
 ### 2. Generate Visualizations
