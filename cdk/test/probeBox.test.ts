@@ -79,3 +79,19 @@ test.each([false,true])('read target and provisioner rules remain distinct (live
  const policy=JSON.stringify(named(j,'BoxWorkerDefaultPolicy').PolicyDocument);
  expect(policy).not.toContain(input.adminSecretArn);
 });
+
+test('every worker/provisioner upload binds the encryption algorithm and exact key',()=>{
+ const j=build().toJSON();
+ for(const prefix of ['BoxWorkerDefaultPolicy','BoxProvisionerDefaultPolicy']){
+  const writes=named(j,prefix).PolicyDocument.Statement.filter((s:any)=>s.Action==='s3:PutObject');
+  expect(writes.length).toBe(prefix.startsWith('BoxWorker')?2:1);
+  for(const write of writes){
+   const eq=write.Condition.StringEquals;
+   expect(eq['aws:SourceVpce']).toBeDefined();
+   expect(eq['s3:x-amz-server-side-encryption']).toBe('aws:kms');
+   expect(eq['s3:x-amz-server-side-encryption-aws-kms-key-id']).toEqual({'Fn::GetAtt':[Object.keys(j.Resources).find(k=>k.startsWith('BoxKey')&&j.Resources[k].Type==='AWS::KMS::Key'),'Arn']});
+   if(JSON.stringify(write.Resource).includes('heartbeats/'))expect(eq['s3:if-none-match']).toBeUndefined();
+   else expect(eq['s3:if-none-match']).toBe('*');
+  }
+ }
+});

@@ -18,6 +18,14 @@ class LoginTests(unittest.TestCase):
             c.execute('DROP ROLE IF EXISTS polis_probe_reader')
             for t in TABLES:c.execute(sql.SQL('CREATE TABLE IF NOT EXISTS {} (value integer)').format(sql.Identifier(t)))
             c.execute('SELECT current_database()');self.database=c.fetchone()[0]
+            c.execute(sql.SQL('REVOKE TEMP ON DATABASE {} FROM PUBLIC').format(sql.Identifier(self.database)))
+            c.execute('REVOKE CREATE ON SCHEMA public FROM PUBLIC')
+            for t in TABLES:c.execute(sql.SQL('REVOKE ALL ON {} FROM PUBLIC').format(sql.Identifier(t)))
+            c.execute('DROP TABLE IF EXISTS extra_reader_table')
+            c.execute('DROP SEQUENCE IF EXISTS extra_reader_sequence')
+            c.execute('DROP FUNCTION IF EXISTS public.reader_function()')
+            c.execute('ALTER DEFAULT PRIVILEGES REVOKE SELECT ON TABLES FROM PUBLIC')
+            c.execute('ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC')
         self.conn.autocommit=False
         self.password=secrets.token_urlsafe(32)
 
@@ -71,6 +79,42 @@ class LoginTests(unittest.TestCase):
         with self.conn:
             with self.conn.cursor() as c:c.execute('GRANT INSERT ON votes TO polis_probe_reader')
         with self.assertRaisesRegex(ValueError,'DML'):self.install()
+
+    def drift(self, ddl, error):
+        self.install()
+        with self.conn:
+            with self.conn.cursor() as c:c.execute(ddl)
+        with self.assertRaisesRegex(ValueError,error):self.install()
+
+    def test_public_write(self):
+        self.drift('GRANT UPDATE ON votes TO PUBLIC','DML')
+
+    def test_public_column_write(self):
+        self.drift('GRANT UPDATE(value) ON votes TO PUBLIC','DML')
+
+    def test_public_schema_create(self):
+        self.drift('GRANT CREATE ON SCHEMA public TO PUBLIC','SCHEMA')
+
+    def test_public_temp(self):
+        self.install()
+        with self.conn:
+            with self.conn.cursor() as c:c.execute(sql.SQL('GRANT TEMP ON DATABASE {} TO PUBLIC').format(sql.Identifier(self.database)))
+        with self.assertRaisesRegex(ValueError,'DATABASE'):self.install()
+
+    def test_public_extra_table_select(self):
+        self.drift('CREATE TABLE extra_reader_table(value integer); GRANT SELECT ON extra_reader_table TO PUBLIC','EXTRA_TABLE')
+
+    def test_public_sequence(self):
+        self.drift('CREATE SEQUENCE extra_reader_sequence; GRANT USAGE ON extra_reader_sequence TO PUBLIC','SEQUENCE')
+
+    def test_public_function(self):
+        self.drift("CREATE FUNCTION public.reader_function() RETURNS integer LANGUAGE sql AS 'SELECT 1'; GRANT EXECUTE ON FUNCTION public.reader_function() TO PUBLIC",'FUNCTION')
+
+    def test_public_default_grant(self):
+        self.drift('ALTER DEFAULT PRIVILEGES GRANT SELECT ON TABLES TO PUBLIC','DEFAULT')
+
+    def test_select_grant_option(self):
+        self.drift('GRANT SELECT ON votes TO polis_probe_reader WITH GRANT OPTION','GRANT_AUTHORITY')
 
     def test_transaction_rolls_back_partial_grants(self):
         with self.conn:

@@ -52,6 +52,7 @@ import sys
 from pathlib import Path
 
 import click
+from polismath.replay.dsn_admission import click_dsn, passwordless_dsn
 
 from polismath.replay import fixture_bundle as fb
 from polismath.replay import fixture_config as fc
@@ -92,7 +93,7 @@ def cli() -> None:
 
 
 @cli.command()
-@click.option("--database-url", required=True)
+@click.option("--database-url", callback=click_dsn, required=True)
 @click.option("--config", "config_path", type=click.Path(path_type=Path), default=None,
               help=f"Selection config (default: {fc.DEFAULT_CONFIG_PATH}).")
 @click.option("--out", "out_dir", type=click.Path(path_type=Path), required=True,
@@ -120,7 +121,7 @@ def survey(database_url: str, config_path: Path | None, out_dir: Path,
     out_dir.mkdir(parents=True, exist_ok=True)
     pc.assert_under_local(out_dir, guard_root)
 
-    conn = psycopg2.connect(database_url)
+    conn = psycopg2.connect(passwordless_dsn(database_url))
     try:
         guarantee = fs.open_readonly_repeatable_read(
             conn, snapshot_id=snapshot_id, writers_disabled=writers_disabled)

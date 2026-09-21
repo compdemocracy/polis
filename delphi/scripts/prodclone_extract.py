@@ -19,11 +19,11 @@ Usage (from delphi/)::
 
     # Survey the prodclone DB for candidate conversations per feature class:
     uv run python scripts/prodclone_extract.py survey \\
-        --database-url postgresql://user:pass@host:5432/prodclone
+        --database-url postgresql://user@host:5432/prodclone
 
     # Extract one conversation for a feature class:
     uv run python scripts/prodclone_extract.py extract \\
-        --database-url postgresql://user:pass@host:5432/prodclone \\
+        --database-url postgresql://user@host:5432/prodclone \\
         --zid 12345 --feature modheavy
 """
 
@@ -33,6 +33,7 @@ import json
 from pathlib import Path
 
 import click
+from polismath.replay.dsn_admission import click_dsn, passwordless_dsn
 import psycopg2
 
 from polismath.replay import fixture_bundle as fb
@@ -73,7 +74,7 @@ def _print_survey(result: dict) -> None:
 
 
 @cli.command()
-@click.option("--database-url", required=True,
+@click.option("--database-url", callback=click_dsn, required=True,
               help="Postgres connection URL for the prodclone database.")
 @click.option("--limit", type=int, default=3, show_default=True,
               help="Max candidates listed per feature class.")
@@ -87,7 +88,7 @@ def survey(database_url: str, limit: int, out_path: Path | None) -> None:
     # refuse any destination outside real_data/.local/ (review finding,
     # 2026-07-22: --out could previously bypass the guard).
     out_path = pc.assert_under_local(out_path, REAL_DATA_ROOT)
-    conn = psycopg2.connect(database_url)
+    conn = psycopg2.connect(passwordless_dsn(database_url))
     try:
         result = pc.run_survey(conn, limit=limit)
     finally:
@@ -101,7 +102,7 @@ def survey(database_url: str, limit: int, out_path: Path | None) -> None:
 
 
 @cli.command()
-@click.option("--database-url", required=True,
+@click.option("--database-url", callback=click_dsn, required=True,
               help="Postgres connection URL for the prodclone database.")
 @click.option("--zid", type=int, required=True, help="Conversation zid to extract.")
 @click.option("--feature", type=click.Choice(pc.FEATURES), required=True,
@@ -115,7 +116,7 @@ def extract(database_url: str, zid: int, feature: str, out_root: Path | None) ->
     <out-root>/.local/<fake-prefix>-<slug>/, then merge-update
     prodclone_map.json."""
     out_root = out_root or REAL_DATA_ROOT
-    conn = psycopg2.connect(database_url)
+    conn = psycopg2.connect(passwordless_dsn(database_url))
     try:
         result = pc.run_extract(conn, zid=zid, feature=feature, out_root=out_root)
     finally:
@@ -135,7 +136,7 @@ def extract(database_url: str, zid: int, feature: str, out_root: Path | None) ->
 
 
 @cli.command("select-representative")
-@click.option("--database-url", required=True)
+@click.option("--database-url", callback=click_dsn, required=True)
 @click.option("--from-config", "config_path", type=click.Path(path_type=Path), required=True)
 @click.option("--out", "out_path", type=click.Path(path_type=Path), required=True,
               help="Box-only provenance file, beneath real_data/.local/; never a payload member.")
@@ -158,7 +159,7 @@ def select_representative(database_url: str, config_path: Path, out_path: Path,
             raise ValueError("PRIVATE_PATH_REQUIRED")
         guard = Path(*parts[:parts.index(".local")])
         target = pc.assert_under_local(target, guard)
-        conn = psycopg2.connect(database_url)
+        conn = psycopg2.connect(passwordless_dsn(database_url))
         try:
             result = fx.select_representative_from_config(
                 conn, config=config, snapshot_id=snapshot_id,
@@ -177,7 +178,7 @@ def select_representative(database_url: str, config_path: Path, out_path: Path,
 
 
 @cli.command("from-config")
-@click.option("--database-url", required=True,
+@click.option("--database-url", callback=click_dsn, required=True,
               help="Postgres connection URL for the prodclone database.")
 @click.option("--from-config", "config_path", type=click.Path(path_type=Path),
               default=None,
@@ -249,7 +250,7 @@ def _extract_config(config: dict, database_url: str, out_dir: Path,
             dir_names = dict(loaded)
 
     try:
-        conn = psycopg2.connect(database_url)
+        conn = psycopg2.connect(passwordless_dsn(database_url))
     except Exception:
         if "representative_selection" in config:
             raise click.ClickException("REPRESENTATIVE_EXTRACTION_FAILED") from None
