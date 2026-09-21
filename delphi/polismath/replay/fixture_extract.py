@@ -802,8 +802,10 @@ def fetch_served_math(
     with conn.cursor() as cur:
         cur.execute(sql_math_main_rows(), (zid,))
         math_main = _rows_as_dicts(cur)
+        # Run f3775c4e: the reader's pg_catalog, public search_path makes
+        # current_schema() pg_catalog even though math_ticks resolves in public.
         cur.execute("""SELECT column_name FROM information_schema.columns
-                       WHERE table_schema = current_schema() AND table_name = %s""",
+                       WHERE table_schema = ANY (current_schemas(false)) AND table_name = %s""",
                     ("math_ticks",))
         available = {row[0] for row in cur.fetchall()}
         columns = [column for column in TICK_COLUMNS if column in available]
@@ -1036,7 +1038,28 @@ def extract_from_config(
         if sel.zid is None:
             case_id = sel.public_fixture_replacement
             case = case_by_id.get(case_id, {})
+            directory = substitute_dirs.get(case_id)
+            if directory is None:
+                raise ValueError("PUBLIC_FIXTURE_METADATA_MISSING")
+            generated_dir = pc.assert_under_local(payload_root / directory, guard_root)
+            generated_meta = json.loads((generated_dir / "events.meta.json").read_text())
+            generated_order = generated_meta["ordering"]
+            # The generator's reproducible ordinal is stronger than a frozen
+            # extract order. Publish the bundle's minimum promise for this role,
+            # retaining the actual generated order and origin separately.
+            if (generated_order["guarantee"] != "stable-tie-key"
+                    or tie_key["guarantee"] not in ("stable-tie-key", "frozen-extract-order")):
+                raise ValueError("PUBLIC_FIXTURE_ORDERING")
+            compat = generated_meta["compat_csv"]
             role_summaries.append({
+                "counts": generated_meta["counts"],
+                "logical_digest_sha256": generated_meta["logical_digest_sha256"],
+                "ordering_guarantee": tie_key["guarantee"],
+                "equal_time_census": generated_meta["equal_time_census"],
+                "nullable": generated_meta["nullability"],
+                "compat": {k: compat[k] for k in (
+                    "null_vote_policy", "null_votes_dropped", "vote_rows_written",
+                    "certifying", "storage_agree_value")},
                 "slug": sel.slug, "role": sel.role, "group": sel.group,
                 "rank": sel.rank,
                 "dir": substitute_dirs.get(case_id),
@@ -1055,6 +1078,7 @@ def extract_from_config(
                     "seed": config["generated"]["seed"],
                     "case_id": case_id,
                     "shape": case.get("shape"),
+                    "ordering": generated_order,
                 },
                 "measured_metrics": substitute_metrics.get(case_id, {}),
                 "coverage_limits":

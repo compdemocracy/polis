@@ -2,6 +2,7 @@
 
 All payloads are generated public fixtures; no database or engines are started.
 """
+import copy
 import hashlib
 import os
 from pathlib import Path
@@ -41,13 +42,38 @@ def test_probe_config_requires_representative_report(tmp_path):
                   config_bytes=probe.PROBE_CONFIG_PATH.read_bytes())
 
 
-def test_box_extract_binds_probe_bytes_through_plan_and_verifier(tmp_path, monkeypatch):
+@pytest.mark.parametrize('use_replacements', [False, True])
+def test_box_extract_binds_probe_bytes_through_plan_and_verifier(tmp_path, monkeypatch, use_replacements):
     import psycopg2
 
     config = fc.load_config(probe.PROBE_CONFIG_PATH)
     monkeypatch.setattr(fixtures, 'configured', lambda: config)
     monkeypatch.setattr(fixtures, 'SEED', fc.representative_seed(config))
     source, _, manifest = fixtures.bundle(tmp_path / 'source', monkeypatch)
+    if use_replacements:
+        from polismath.replay import fixture_survey as survey
+
+        # Exercise the real replacement branch with the committed dense case;
+        # the surrounding old-role fixture remains the existing public stub.
+        dense = copy.deepcopy(config)
+        dense['roles'] = [r for r in dense['roles']
+                          if r['slug'] in config['accepted_public_fixture_replacements']]
+        dense.pop('representative_selection')
+        with monkeypatch.context() as local:
+            local.setattr(survey, 'open_readonly_repeatable_read',
+                          lambda *a, **kw: manifest['transaction_guarantee'])
+            local.setattr(survey, 'fetch_metrics', lambda *a: [])
+            local.setattr(fx, 'detect_tie_key', lambda *a: fixtures.TIE)
+            replacements = fx.extract_from_config(
+                object(), config=dense, payload_root=source / 'payload',
+                guard_root=tmp_path / 'source', include_generated=False,
+                accept_public_fixture=config['accepted_public_fixture_replacements'])
+        by_slug = {r['slug']: r for r in replacements['roles']}
+        for row in manifest['roles']:
+            if row['slug'] in by_slug:
+                shutil.rmtree(source / 'payload' / row['dir'])
+        manifest['roles'] = [by_slug.get(r['slug'], r) for r in manifest['roles']]
+        manifest['generated']['cases'].extend(replacements['generated'])
     output = tmp_path / 'output'
     output.mkdir()
     image_recipe = tmp_path / 'recipe.json'
@@ -81,6 +107,12 @@ def test_box_extract_binds_probe_bytes_through_plan_and_verifier(tmp_path, monke
     fixture = output / '.local/fixture'
     assert (fixture / 'config.json').read_bytes() == probe.PROBE_CONFIG_PATH.read_bytes()
     assert probe.gate.read(fixture / 'manifest.json')['commits']['config_sha256'] == PROBE_SHA256
+    if use_replacements:
+        admitted = probe.gate.read(fixture / 'manifest.json')
+        replacements = [r for r in admitted['roles'] if r['source'] == 'public-fixture-replacement']
+        assert {r['slug'] for r in replacements} == set(config['accepted_public_fixture_replacements'])
+        assert all(r['ordering_guarantee'] == 'frozen-extract-order' for r in replacements)
+        assert all(r['compat']['null_votes_dropped'] == 0 for r in replacements)
     plan = probe.gate.read(fixture / 'plan.json')
     assert plan['configSha256'] == PROBE_SHA256
     assert len(plan['entries']) == 34
