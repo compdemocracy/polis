@@ -254,7 +254,7 @@ p022 <phase> <key>=<value>
 
 and `ci/p022_ssm.sh` drops anything that does not match rather than escaping it;
 worker stderr is never printed at all. The bundle is returned base64 in bounded
-chunks with a declared length and sha256, and a short or corrupt bundle fails
+chunks through the S3 result transport with a declared length and sha256, and a short or corrupt bundle fails
 the step rather than being quietly truncated.
 
 ### Fetching the recordings and putting them where certify looks
@@ -384,27 +384,29 @@ the `polis:ci=disposable` and `polis:ci-run` tags mandatory; tag that launch
 only; `ec2:DescribeInstances`/`DescribeInstanceStatus`; `TerminateInstances` on
 `polis:ci=disposable`; `ssm:SendCommand` with `AWS-RunShellScript` against
 instances tagged `ssm:resourceTag/polis:ci=disposable`; and
-`ssm:GetCommandInvocation`/`DescribeInstanceInformation`.
+`ssm:DescribeInstanceInformation` (registration metadata only); read/list public results in the dedicated results bucket.
 
 After the launch the workflow **re-assumes with an inline session policy** that
 pins SendCommand and TerminateInstances to the single instance ARN it just
 created, because a tag is shared by every concurrent campaign and was never
 proof of run ownership.
 
-Cannot: read any S3 object, use KMS, reach Secrets Manager, create a launch
+Cannot: read objects outside the public-results campaign prefix, use KMS, reach Secrets Manager, create a launch
 template version, attach a key pair, touch any deployment role, or terminate
 anything untagged.
 
 ### Residuals, stated rather than hidden
 
-**`ssm:GetCommandInvocation` cannot be scoped.** It supports no resource types
-and no condition keys, and it returns a command's **stdout and stderr** — not
-just metadata. For any command-id/instance-id pair this role can guess or learn,
-it can read that command's output anywhere in the account. Dropping
-`ListCommands` and `ListCommandInvocations` removed discoverability, not
-authorisation. `ssm:DescribeInstanceInformation` is unscopable for the same
-reason. **Only running this in an isolated account closes it**, which is why
-that remains the activation gate.
+**Result reads are restricted to the dedicated public-results bucket.** The base
+OIDC role can GetObject under `campaigns/*` and ListBucket only with that prefix.
+The supplied working session further narrows those permissions to
+`campaigns/<instance-arn>/*`. An admitted caller can omit that session restriction
+and read another campaign in this public-only bucket; this is an accepted
+residual, not proof of authenticated per-run reader isolation. The worker's
+PutObject prefix uses `${ec2:SourceInstanceARN}`, supplied by IAM, and cannot
+write another instance's results. EC2 tags are not used as S3 principal tags.
+There is no SSM command-output read permission. Registration metadata remains
+account-wide. This does not admit production data or credentials onto the box.
 
 **The base role's SendCommand and TerminateInstances reach any instance sharing
 the CI tag**, because an identity policy cannot name an instance that does not
@@ -419,8 +421,7 @@ agent needs. It can no longer read this account's private documents.
 
 The worker's role is an explicit minimal SSM-agent policy — deliberately **not**
 `AmazonSSMManagedInstanceCore`, which also grants `ssm:GetParameter` and
-`ssm:GetParameters` on `*`. It has no S3, no KMS and no Secrets Manager access
-of any kind.
+`ssm:GetParameters` on `*`. It can only create encrypted objects under its own result prefix; it has no S3 read/list/delete, KMS or Secrets Manager access.
 
 
 ## Bootstrap failure evidence
@@ -443,8 +444,7 @@ cannot be recovered after termination; local package reproduction establishes a
 concrete bootstrap defect, not the missing historical log.
 
 Both the workflow/helper merge and a CDK redeploy are required: the latter updates
-launch-template user data for future instances. No IAM permission expansion is
-needed for diagnostics. A local test pass does not attest an entire ARM cloud boot.
+launch-template user data for future instances. The revised transport also requires the dedicated results bucket and its scoped IAM grants. A local test pass does not attest an entire ARM cloud boot.
 
 ## Bootstrap download integrity
 
@@ -466,3 +466,31 @@ compute SHA-256 locally, inspect the script and its nested archive checks, and
 review the URL/hash change together. For Compose, compare both downloaded
 binaries with the upstream release's `checksums.txt`. Never read an expected hash
 from the network during bootstrap; a content change must fail until reviewed.
+
+## Instance-owned S3 command results
+
+Deploy the revised construct and set `CERTIFY_RESULTS_BUCKET` from its
+`CertifyResultsBucket` output before using the revised workflow. The new bucket
+blocks public access, enforces TLS, uses SSE-S3, and expires results after seven
+days. It is separate from private probe evidence. The worker IAM statement
+requires `AES256` and `If-None-Match: *` on every write. No deletion or overwrite
+is granted. Bucket retention on stack removal requires operator lifecycle review.
+
+`p022_ssm.sh` sends the control checkout's `p022_results.py` wrapper with each
+command, allowing bootstrap diagnostics even if repository checkout failed.
+The wrapper writes bounded stdout first, then a closed completion receipt with
+instance ARN, unique command token, label, exit status, byte count and SHA-256.
+The workflow polls S3 and verifies all those bindings. Delivery failure, missing
+receipt, timeout, oversize, wrong identity/token, short data or changed bytes
+cannot report success. SSM send acknowledgement is not completion evidence.
+Raw command stderr remains on neither the output channel nor the public log.
+The existing status/bootstrap allowlists and bundle/recordings checks still
+apply after transport verification. Receipts are self-reported public battery
+evidence; they are not private certification or an independent execution oracle.
+
+The shared helper changes transport for the summary, JUnit, recordings and
+bootstrap collectors together. Teardown still proves EC2 termination separately;
+missing result delivery never substitutes for cleanup. Egress remains unchanged:
+public package and repository downloads are still permitted. No production
+credential or data is allowed on this host. Local transport tests use fakes and
+do not claim a successful cloud boot, IAM evaluation or live S3 transfer.
