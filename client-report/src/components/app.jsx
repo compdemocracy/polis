@@ -1075,23 +1075,6 @@ const App = (props) => {
               voteColors={voteColors}
               narrative={narrative}
             />
-            {/* {false ? <CommentsGraph
-              comments={comments}
-              groupNames={groupNames}
-              badTids={badTids}
-              formatTid={formatTid}
-              repfulAgreeTidsByGroup={repfulAgreeTidsByGroup}
-              math={math}
-              renderHeading={true}
-              report={report}
-              voteColors={voteColors}/> : null}
-            {globals.enableMatrix && false ? <Matrix
-              probabilities={filteredCorrelationMatrix}
-              comments={comments}
-              tids={filteredCorrelationTids}
-              formatTid={formatTid}
-              ptptCount={ptptCount}
-              voteColors={voteColors}/> : ""} */}
             <ParticipantsGraph
               comments={comments}
               groupNames={groupNames}
