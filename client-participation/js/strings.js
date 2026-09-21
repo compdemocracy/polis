@@ -44,7 +44,6 @@ var translations = {
   pt_br: require("./strings/pt_br.js"),
   ps: require("./strings/ps.js"),
   // Portuguese (Timor-Leste)
-  // pt_tl: require("./strings/pt_tl.js"),
   // Romanian & Moldovan
   ro: require("./strings/ro.js"),
   // Russian
