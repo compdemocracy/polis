@@ -12,6 +12,7 @@ from receipt import validate_receipt, decode_receipt, receipt_limit
 LAUNCH_KEYS = ('TEMPLATE', 'TEMPLATE_VERSION', 'PROFILE', 'SUBNET', 'SECURITY_GROUP')
 # A worker that ends without a receipt leaves this record in its heartbeat object (worker.py).
 FAILURE_SCHEMA = 'polis-probe-failure/1'
+BOOT_FAILURE_SCHEMA = 'polis-probe-boot-failure/1'
 TOKEN = re.compile(r'[A-Za-z0-9_.-]{1,96}')
 # Both launch templates carry exactly two EBS mappings: the root and one private disk.
 # EBS attaches after RunInstances returns, so an observation with fewer disks is partial.
@@ -391,7 +392,7 @@ class Session:
         except Unknown:
             return None
         if not isinstance(record, dict) or record.get('schema') != FAILURE_SCHEMA:
-            return None
+            return self.boot_failure(c, arn)
         def token(value):
             return isinstance(value, str) and bool(TOKEN.fullmatch(value))
         clean = {k: record[k] for k in ('stage', 'type', 'code', 'aws') if token(record.get(k))}
@@ -405,6 +406,20 @@ class Session:
         if isinstance(relay, dict):
             clean['relay'] = {k: v for k, v in relay.items() if token(k) and type(v) is int}
         return clean or None
+
+    def boot_failure(self, c, arn):
+        """The start script's phase marker, written only when the box failed before the
+        worker's first heartbeat (private disk, container daemon, ...). A fixed token."""
+        try:
+            record = c.read(f'heartbeats/boot/{arn}.json')
+        except Unknown:
+            return None
+        if not isinstance(record, dict) or record.get('schema') != BOOT_FAILURE_SCHEMA:
+            return None
+        phase = record.get('phase')
+        if isinstance(phase, str) and TOKEN.fullmatch(phase):
+            return {'stage': 'boot', 'phase': phase}
+        return None
 
     def release(self, run_id, attested_volumes):
         """Operator-attested close for a terminated instance whose recorded disk

@@ -96,11 +96,35 @@ set -euo pipefail
 # Arm termination before any mount, DNS or supervisor work can fail. EC2's
 # active operator observes absolute admission expiry and missing heartbeat.
 shutdown -h +300
-trap 'systemctl poweroff' EXIT
+# Every phase before the worker's first heartbeat is otherwise blind. On failure,
+# record only the phase name (a fixed token) to this instance's own boot key, which
+# the worker role may already write; nothing else leaves. Best effort: phases before
+# the boot config and DNS exist cannot be recorded.
+BOOT_PHASE=start
+boot_failure() {
+  local phase="$BOOT_PHASE"
+  /opt/polis-probe/venv/bin/python - "$phase" <<'MARK' || true
+import json,sys
+sys.path.insert(0,'/opt/polis-probe')
+try:
+    from worker import metadata
+    import boto3
+    from botocore.config import Config
+    b=json.loads(open('/opt/polis-probe/bootstrap.json').read())
+    i=json.loads(metadata('dynamic/instance-identity/document'))
+    arn=f"arn:aws:ec2:{i['region']}:{i['accountId']}:instance/{i['instanceId']}"
+    s3=boto3.client('s3',region_name=i['region'],config=Config(retries={'total_max_attempts':2},connect_timeout=5,read_timeout=10,s3={'us_east_1_regional_endpoint':'regional','addressing_style':'virtual'}))
+    s3.put_object(Bucket=b['controlBucket'],Key=f'heartbeats/boot/{arn}.json',Body=json.dumps({'schema':'polis-probe-boot-failure/1','phase':sys.argv[1]}).encode(),ServerSideEncryption='aws:kms')
+except Exception:
+    pass
+MARK
+}
+trap 'rc=$?; if [ "$rc" -ne 0 ]; then boot_failure; fi; systemctl poweroff' EXIT
 swapoff -a
 ulimit -c 0
 # User-data is JSON only; cloud-init execution is disabled. This step runs
 # before any probe or private database access and reads no credential.
+BOOT_PHASE=boot-config
 /opt/polis-probe/venv/bin/python - <<'BOOT'
 import json,sys
 from pathlib import Path
@@ -111,7 +135,9 @@ if set(b)!={'mode','account','region','controlBucket','dnsNames','resolver'} or 
 Path('/opt/polis-probe/bootstrap.json').write_text(json.dumps(b))
 Path('/opt/polis-probe/bootstrap.json').chmod(0o444)
 BOOT
+BOOT_PHASE=firewall
 nft -f /opt/polis-probe/firewall.nft
+BOOT_PHASE=dns
 printf 'nameserver 127.0.0.1\noptions timeout:2 attempts:2\n' > /etc/resolv.conf
 systemctl start polis-probe-dns.service
 mode="$(/opt/polis-probe/venv/bin/python -c 'import json; print(json.load(open("/opt/polis-probe/bootstrap.json"))["mode"])')"
@@ -121,9 +147,16 @@ if [ "$mode" = provision ]; then
   exit 0
 fi
 # Match the EBS launch-template device name, never guess an NVMe disk number.
+# The volume is attached at launch but can enumerate after this script starts;
+# wait for it rather than fail the boot on a race.
+BOOT_PHASE=private-disk
 private_disk=''
-for dev in /dev/nvme*n1; do
-  if /sbin/ebsnvme-id "$dev" 2>/dev/null | /usr/bin/grep -Eq '^(/dev/)?sdf$'; then private_disk="$dev"; fi
+for attempt in $(seq 1 60); do
+  for dev in /dev/nvme*n1; do
+    if /sbin/ebsnvme-id "$dev" 2>/dev/null | /usr/bin/grep -Eq '^(/dev/)?sdf$'; then private_disk="$dev"; fi
+  done
+  [ -n "$private_disk" ] && break
+  sleep 2
 done
 [ -n "$private_disk" ]
 [ -z "$(lsblk -n -o MOUNTPOINT "$private_disk" | tr -d '[:space:]')" ]
@@ -133,7 +166,14 @@ mount -o nodev,nosuid,noexec "$private_disk" /probe-work
 chmod 0700 /probe-work
 mkdir -m 0700 /probe-work/tmp /probe-work/docker-client
 export TMPDIR=/probe-work/tmp DOCKER_CONFIG=/probe-work/docker-client
+BOOT_PHASE=container-daemon
 systemctl start polis-probe-container.service
+for attempt in $(seq 1 30); do
+  docker --host unix:///probe-work/docker.sock info >/dev/null 2>&1 && break
+  sleep 2
+done
+docker --host unix:///probe-work/docker.sock info >/dev/null 2>&1
+BOOT_PHASE=worker
 /opt/polis-probe/venv/bin/python /opt/polis-probe/worker.py
 START
 chmod 0500 /opt/polis-probe/start.sh

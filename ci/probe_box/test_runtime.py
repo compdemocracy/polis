@@ -222,6 +222,17 @@ class RuntimeTests(unittest.TestCase):
                 worker.sandbox({'args': []}, 'test', [], time.time()+1, 'image:latest')
             run.assert_not_called()
 
+    def test_start_script_waits_for_the_private_disk_and_daemon_and_records_boot_phases(self):
+        bake = Path(__file__).with_name('bake.sh').read_text()
+        start = bake.split("<<'START'\n")[1].split('\nSTART')[0]
+        self.assertLess(start.index('for attempt in $(seq 1 60)'), start.index('[ -n "$private_disk" ]'))
+        self.assertLess(start.index('systemctl start polis-probe-container.service'), start.index('docker --host unix:///probe-work/docker.sock info'))
+        for phase in ('boot-config', 'firewall', 'dns', 'private-disk', 'container-daemon', 'worker'):
+            self.assertIn('BOOT_PHASE='+phase, start)
+        self.assertIn("heartbeats/boot/{arn}.json", start)
+        self.assertIn('polis-probe-boot-failure/1', start)
+        self.assertLess(start.index('boot_failure()'), start.index("trap 'rc=$?"))
+
     def test_daemon_never_uses_root_disk_system_containerd_or_network(self):
         bake = Path(__file__).with_name('bake.sh').read_text()
         config = json.loads(bake.split("<<'DOCKER'\n")[1].split('\nDOCKER')[0])
