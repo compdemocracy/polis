@@ -41,6 +41,7 @@ import createSecretsAndDependencies from '../secrets';
 import createOperationalAlarms, { alarmsEnabled, requireAlarmEmail } from '../alarms';
 import { ImportWorkerService } from './import-worker-service';
 import { CertificationCiEc2 } from '../ciEc2';
+import { CoordinatorInactiveService } from '../coordinator';
 
 interface PolisStackProps extends cdk.StackProps {
   enableSSHAccess?: boolean; // Make optional, default to false
@@ -433,6 +434,9 @@ export class CdkStack extends cdk.Stack {
       database: db,
       logGroup: logGroup,
     });
+
+    // Present but dormant. This task has no writer executable or migration path.
+    new CoordinatorInactiveService(this, 'CoordinatorInactive', { vpc, database: db });
 
     // --- P-022 E: disposable certification CI worker (OFF by default).
     // Nothing below is synthesized unless `-c enableCiEc2=true` is passed, so a
