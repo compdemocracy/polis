@@ -839,9 +839,11 @@ def _passwordless(seeded_db: str, tmp_path):
     from urllib.parse import urlsplit, urlunsplit
     u = urlsplit(seeded_db)
     passfile = tmp_path / "pgpass"
-    passfile.write_text(f"{u.hostname}:{u.port}:*:{u.username}:{u.password}\n")
+    port = u.port if u.port is not None else "*"
+    passfile.write_text(f"{u.hostname}:{port}:*:{u.username}:{u.password or ''}\n")
     passfile.chmod(0o600)
-    url = urlunsplit((u.scheme, f"{u.username}@{u.hostname}:{u.port}", u.path, u.query, u.fragment))
+    netloc = f"{u.username}@{u.hostname}" + (f":{u.port}" if u.port is not None else "")
+    url = urlunsplit((u.scheme, netloc, u.path, u.query, u.fragment))
     return url, {"PGPASSFILE": str(passfile)}
 
 
