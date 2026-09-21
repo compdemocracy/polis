@@ -20,7 +20,7 @@ ROOT = Path(os.environ.get('POLIS_CHECKOUT_DIR', Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / 'ci/private_cert/images'))
 import probe
 
-PROBE_SHA256 = '396e19f1007d35eaeaa0414b690b1c18c2f03a5c324c9dbe78e06289db1f7efe'
+PROBE_SHA256 = '3ee9dd88ea0a4ebf0a94995978d8012f8d499d81cac8036231458549c833a939'
 
 
 def test_public_default_builds_manifest_without_representative_report(tmp_path):
@@ -66,7 +66,7 @@ def test_box_extract_binds_probe_bytes_through_plan_and_verifier(tmp_path, monke
         assert actual_conn is conn and guard_root == output
         # the reader forwards exactly the config's recorded approvals (none in v2)
         assert tuple(accept_public_fixture) == tuple(config.get('accepted_public_fixture_replacements', ()))
-        assert config['config_version'] == 'v2-probe-capture-sample-1'
+        assert config['config_version'] == 'v3-probe-capture-sample-1-dense-accepted'
         assert fc.served_math_options(config) == fc.ServedMathOptions(True, None)
         assert config == fc.load_config(probe.PROBE_CONFIG_PATH)
         shutil.copytree(source / 'payload', payload_root, dirs_exist_ok=True)

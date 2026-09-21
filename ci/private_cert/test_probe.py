@@ -18,7 +18,7 @@ class ProbeTests(unittest.TestCase):
         files = recipe.source_files(root)
         self.assertEqual(probe.PROBE_CONFIG_PATH, root / 'delphi/scripts/certify_datasets.probe.json')
         self.assertEqual(files[str(probe.PROBE_CONFIG_PATH.relative_to(root))],
-                         '396e19f1007d35eaeaa0414b690b1c18c2f03a5c324c9dbe78e06289db1f7efe')
+                         '3ee9dd88ea0a4ebf0a94995978d8012f8d499d81cac8036231458549c833a939')
         self.assertNotEqual(probe.PROBE_CONFIG_PATH, fixture_config.DEFAULT_CONFIG_PATH)
 
     def test_reader_forwards_only_the_configs_recorded_approvals(self):

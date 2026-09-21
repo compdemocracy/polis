@@ -19,8 +19,8 @@ The recipe entrypoint is `ci/private_cert/images/probe.py`. The fixed launcher
 checks its source census and executes isolated Python with a closed argument ABI:
 
 Box extraction loads `delphi/scripts/certify_datasets.probe.json`, the reviewed
-`v2-probe-capture-sample-1` config (SHA256
-`396e19f1007d35eaeaa0414b690b1c18c2f03a5c324c9dbe78e06289db1f7efe`).
+`v3-probe-capture-sample-1-dense-accepted` config (SHA256
+`3ee9dd88ea0a4ebf0a94995978d8012f8d499d81cac8036231458549c833a939`).
 The recipe includes that file in both image source closures. Its exact bytes
 become the local fixture's `config.json`; the manifest and `plan.json` bind its
 SHA256, which the producer and verifier recheck before replay. There is no
