@@ -50,8 +50,6 @@ module.exports = {
         { from: /^\/topicsVizReport\/.*$/, to: '/index_report.html' },
         { from: /^\/exportReport\/.*$/, to: '/index_report.html' },
         { from: /^\/topicPrioritize\/.*$/, to: '/index_report.html' },
-        { from: /^\/topicPrioritizeSimple\/.*$/, to: '/index_report.html' },
-        { from: /^\/topicAgenda\/.*$/, to: '/index_report.html' },
         { from: /^\/topicHierarchy\/.*$/, to: '/index_report.html' }
       ]
     }
