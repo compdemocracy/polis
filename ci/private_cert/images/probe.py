@@ -170,12 +170,42 @@ def verify() -> None:
     gate.dump(Path('/verdict/receipt.json'), validate_receipt(receipt, job))
 
 
+def failure_origin(error: BaseException) -> str:
+    """A closed code naming where a stage failed: the raising file's stem and line.
+
+    The supervisor keeps only the final log line's class name and an all-caps code;
+    the message (which may quote data) never leaves the box. The origin is enough
+    to read the raise in the reviewed source.
+    """
+    import re
+    import traceback
+    frames = traceback.extract_tb(error.__traceback__)
+    if not frames:
+        return 'NO_TRACEBACK'
+    last = frames[-1]
+    stem = re.sub(r'[^A-Z0-9]', '_', Path(last.filename).stem.upper())[:32]
+    return f'{stem}_L{int(last.lineno or 0)}'
+
+
+def report_failure(error: BaseException) -> None:
+    import traceback
+    traceback.print_exc()
+    kind = type(error)
+    print(f'{kind.__module__}.{kind.__qualname__}: {failure_origin(error)}', file=sys.stderr, flush=True)
+
+
 if __name__ == '__main__':
-    if sys.argv[1:] == ['extract']:
-        extract()
-    elif sys.argv[1:] == ['produce']:
-        gate.produce()
-    elif sys.argv[1:] == ['verify']:
-        verify()
-    else:
-        raise SystemExit(2)
+    try:
+        if sys.argv[1:] == ['extract']:
+            extract()
+        elif sys.argv[1:] == ['produce']:
+            gate.produce()
+        elif sys.argv[1:] == ['verify']:
+            verify()
+        else:
+            raise SystemExit(2)
+    except SystemExit:
+        raise
+    except BaseException as error:  # noqa: BLE001 - the last line is the only export
+        report_failure(error)
+        raise SystemExit(1)
