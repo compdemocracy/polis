@@ -159,7 +159,7 @@ def main():
         def local_run(argv, **kw):
             if argv[:2] == ['shutdown','-h']:
                 return subprocess.CompletedProcess(argv,0)
-            replacements = {'--memory=112g':'--memory=2g','--memory-swap=112g':'--memory-swap=2g',
+            replacements = {'--memory=112g':'--memory=8g','--memory-swap=112g':'--memory-swap=8g',
                 '--cpus=14':'--cpus=2','--tmpfs=/tmp:rw,nosuid,nodev,noexec,size=4g':'--tmpfs=/tmp:rw,nosuid,nodev,noexec,size=256m'}
             if argv[0] == 'skopeo':
                 kw['stderr'] = None  # Public-only diagnostics stay in private results.
@@ -200,14 +200,30 @@ def main():
             with patch.object(module,'metadata',return_value=worker.canonical(identity)), patch.object(boto3,'client',side_effect=client), \
                     patch.object(subprocess,'run',side_effect=local_run), patch.object(shutil,'disk_usage',side_effect=local_usage):
                 try:module.run()
-                except Exception as exc:error=exc
+                except Exception as exc:
+                    error=exc
+                    if isinstance(exc, module.SandboxFailure):
+                        (RESULTS/(name+'-sandbox-failure.json')).write_text(json.dumps({
+                            'stage':exc.label, 'exit':exc.exit_code, 'oom':exc.oom, 'last':exc.last}, indent=2)+'\n')
             for log in P.glob('*.log'):
                 if log.name != 'daemon.log':shutil.copyfile(log,RESULTS/(name+'-'+log.name))
             record = json.loads(s3.get_object(Bucket='fixture-control',Key=f'heartbeats/{job["run_id"]}/{arn}.json')['Body'].read())
+            (RESULTS/(name+'-heartbeat.json')).write_bytes(worker.canonical(record))
+            if name=='admitted-archive-three-stages':
+                # Public-only diagnostic copies stay in the durable local
+                # results directory. The admitted receipt export is unchanged.
+                for relative in ('fixture/manifest.json','fixture/config.json','fixture/plan.json','payload-census.json'):
+                    source=P/'reader/.local'/relative
+                    if source.is_file():
+                        target=RESULTS/'pipeline-reader'/relative
+                        target.parent.mkdir(parents=True,exist_ok=True)
+                        shutil.copyfile(source,target)
             if expected is None:
                 if error:raise error
                 raw=raw_s3.get_object(Bucket='fixture-evidence',Key='results/'+arn+'/receipt.json')['Body'].read()
-                assert worker.decode_receipt(raw,job)['verdict']=='PASS'
+                decoded=worker.decode_receipt(raw,job)
+                (RESULTS/(name+'-receipt.json')).write_bytes(raw)
+                assert decoded['verdict']=='PASS'
             else:
                 assert isinstance(error,module.SandboxFailure), repr(error)
                 assert record['schema']==worker.FAILURE_SCHEMA and record['stage']=='reader'
@@ -241,8 +257,14 @@ def main():
         conn=psycopg2.connect(host='postgres',user='polis_probe_reader',password='public-fixture-reader',dbname='probe_test',sslmode='verify-full',sslrootcert='/fixture-tls/ca.crt')
         with conn.cursor() as cur:
             cur.execute('SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()');assert cur.fetchone()==(True,)
+            cur.execute("SELECT current_schema(), current_setting('search_path'), current_setting('default_transaction_read_only'), current_setting('statement_timeout')")
+            settings = cur.fetchone()
+            assert settings == ('pg_catalog', 'pg_catalog, public', 'on', '30min'), settings
+            (RESULTS/'reader-session.json').write_text(json.dumps(dict(zip(
+                ('current_schema', 'search_path', 'default_transaction_read_only', 'statement_timeout'), settings)), indent=2)+'\n')
         conn.close()
         passed('postgres17-verified-tls')
+        passed('production-reader-search-path-read-only-timeout')
         try:
             conn=psycopg2.connect(host='postgres',user='polis_probe_reader',password='public-fixture-wrong',
                 dbname='probe_test',sslmode='verify-full',sslrootcert='/fixture-tls/ca.crt',connect_timeout=5)
@@ -302,6 +324,8 @@ def main():
                 digest=job[role]['image'].split('@sha256:')[1]
                 s3.images['images/'+digest+'.oci.tar']=Path('/archives')/(name+'.oci.tar')
             case('admitted-archive-three-stages',job)
+            if options.get('pipeline'):
+                passed('real-survey-selection-extraction-and-paired-verifier')
         assert inventory()==baseline
         generated=(P/'container-run/containerd/containerd.toml').read_text()
         assert '/probe-work/container-store/containerd/daemon' in generated and '/probe-work/container-run/containerd/daemon' in generated

@@ -1485,8 +1485,9 @@ def _dense_only_config(config):
 
 
 @pytest.mark.parametrize("include_generated", [True, False])
+@pytest.mark.parametrize("ordering_guarantee", ["frozen-extract-order", "stable-tie-key"])
 def test_a_public_fixture_substitute_is_materialised_and_pinned(
-        config, tmp_path, monkeypatch, include_generated):
+        config, tmp_path, monkeypatch, include_generated, ordering_guarantee):
     """``--accept-public-fixture`` is an approval, not a fulfilment.
 
     The substitute's generator case is force-materialised even when generation
@@ -1504,10 +1505,11 @@ def test_a_public_fixture_substitute_is_materialised_and_pinned(
                                             "single_transaction": True,
                                             "writers_disabled_on_clone": True})
     monkeypatch.setattr(fs, "fetch_metrics", lambda conn: [])
-    monkeypatch.setattr(fx, "detect_tie_key", lambda conn, table="votes": {
-        "available": False, "columns": [], "method": "physical-ctid",
-        "order_by": "created ASC, ctid ASC",
-        "guarantee": "frozen-extract-order", "note": "frozen"})
+    tie_key = (dict(fg.GENERATED_TIE_KEY) if ordering_guarantee == "stable-tie-key"
+               else {"available": False, "columns": [], "method": "physical-ctid",
+                     "order_by": "created ASC, ctid ASC",
+                     "guarantee": ordering_guarantee, "note": "public control"})
+    monkeypatch.setattr(fx, "detect_tie_key", lambda conn, table="votes": tie_key)
 
     payload = tmp_path / ".local" / "payload"
     payload.mkdir(parents=True)
@@ -1532,6 +1534,42 @@ def test_a_public_fixture_substitute_is_materialised_and_pinned(
         assert "LATEST DISTINCT" in metrics["basis"]
         rule = next(r for r in cfg["roles"] if r["slug"] == role["slug"])
         assert fc.evaluate_predicates(metrics, rule["predicates"])
+
+    for role in result["roles"]:
+        meta = json.loads((payload / role["dir"] / "events.meta.json").read_text())
+        assert role["ordering_guarantee"] == ordering_guarantee
+        assert role["generator"]["ordering"] == meta["ordering"]
+        assert meta["ordering"]["guarantee"] == "stable-tie-key"
+        assert role["counts"] == meta["counts"]
+        assert role["logical_digest_sha256"] == meta["logical_digest_sha256"]
+        assert all(role["compat"][key] == meta["compat_csv"][key] for key in role["compat"])
+    admission_config = copy.deepcopy(config)
+    replacements = {row["slug"]: row for row in cfg["roles"]}
+    admission_config["roles"] = [replacements.get(row["slug"], row)
+                                  for row in admission_config["roles"]]
+    dense_case = cfg["generated"]["cases"][0]
+    admission_config["generated"]["cases"] = [
+        dense_case if row["id"] == dense_case["id"] else row
+        for row in admission_config["generated"]["cases"]]
+    selections = [row for row in _selections(admission_config, payload)
+                  if row["slug"] not in replacements] + result["roles"]
+    for row in selections:
+        row["ordering_guarantee"] = ordering_guarantee
+    config_bytes = fb.canonical_json(admission_config)
+    manifest = _manifest(admission_config, payload, generated_summaries=result["generated"],
+                         selections=selections, config_bytes=config_bytes,
+                         transaction_guarantee=result["transaction_guarantee"],
+                         tie_key=result["tie_key"])
+    fb.admit_manifest(manifest, payload_root=payload, config=admission_config, config_bytes=config_bytes)
+    mutations = [lambda row: row.pop("compat"),
+                 lambda row: row.update(ordering_guarantee="unreviewed"),
+                 lambda row: row["compat"].update(null_votes_dropped=True),
+                 lambda row: row["compat"].update(null_votes_dropped=1, certifying=False)]
+    for mutate in mutations:
+        bad = copy.deepcopy(manifest)
+        mutate(next(row for row in bad["roles"] if row["source"] == "public-fixture-replacement"))
+        with pytest.raises(fb.BundleError):
+            fb.admit_manifest(bad, payload_root=payload, config=admission_config, config_bytes=config_bytes)
 
 
 def test_generated_case_metrics_use_latest_distinct_cells_not_revote_rows():

@@ -7,6 +7,9 @@ surviving regression controls. It never launches an instance or calls AWS.
 
 Requires an ARM64-capable Docker daemon with privileged containers and private
 cgroups (Docker Desktop on Apple Silicon works), Compose, Python 3 and OpenSSL.
+The pipeline host also requires the existing fixture generator dependencies;
+reuse the public-image test environment. The provisioner uses the pinned
+psycopg2 dependency inside the isolated runtime network.
 The initial runtime build installs the existing pinned bake requirements; it
 needs package-network access. Execution uses an internal Compose network; nested
 candidate containers use the real `--network=none` sandbox. Do not run this on a
@@ -51,14 +54,54 @@ The rehearsal first observes the PG17 mechanism offer over a direct verified
 TLS connection and requires both `SCRAM-SHA-256-PLUS` and `SCRAM-SHA-256`.
 A wrong-password control must fail. No host trust-authentication shortcut is used.
 
-`--job sampled-paired-battery-v1` accepts the corresponding `producer.oci.tar`
-(reader and producer) and `verifier.oci.tar`. The built-in database seed is a
-catalog fixture, not a full paired-battery conversation dataset: this option
-intentionally reports the real extractor's failure if its tables/data are
-missing. It is **not** evidence of a successful battery rehearsal. Do not fetch
-private battery archives or input data as part of this command. The fully
-exercised real-image path is the census release; the fallback always checks all
-three public plumbing stages.
+`--job sampled-paired-battery-v1` without `--pipeline` retains the small
+catalog seed and therefore tests the real extractor's missing-data failure.
+Use `--pipeline` with the admitted public-image archive directory to seed the
+unchanged initial application schema with public VW/biodiversity vote patterns,
+declared revote/moderation/meta/ban variants, sixteen large-rank candidates,
+and the existing generated participant/dense boundary cases:
+
+```sh
+COMPOSE_PROJECT_NAME=p027worker-pipeline-review \
+POLIS_RECOVERY_PG_PORT=55556 RECOVERY_PG_PORT=55556 \
+python -B ci/probe_box/local/rehearse_worker.py --pipeline \
+  --results /absolute/private/pipeline-review \
+  --archives /absolute/private/paired-release \
+  --runtime-image local-worker-runtime
+```
+
+The default population has 26 conversations and 1,086,247 vote events. All
+seventeen selection predicates are satisfiable by these public database rows;
+the representative sampler still chooses its real twenty entries. Source CSV
+signs are translated back to PostgreSQL signs, source row order is preserved,
+and local identities/timestamps replace source coordinates. Comments contain
+neutral fixture text; these are declared fixture variants, not unmodified
+public conversation histories or a production data sample. Initial-schema
+constraints/indexes remain; only participant/comment ID-allocation triggers
+are disabled during the owned load and reenabled before reading.
+
+`--pipeline-replacements` deliberately leaves out the dense DB case, exercising
+the config's already approved replacements for both dense roles. It must not
+relax manifest admission. The v4 reader exposes missing ordering/compatibility
+metadata on that path; the fixed reader must admit it without changing a rule.
+A failing run is retained as a failure, never converted to PASS.
+
+The pipeline seeds application tables before invoking `provision_login.provision()`
+itself over verified TLS. The fixture reader receives the production six-table
+SELECT grants and role settings. The runtime asserts `current_schema() = pg_catalog`,
+`search_path = pg_catalog, public`, `default_transaction_read_only = on`, and
+`statement_timeout = 30min`, recording them in `reader-session.json`. The separate
+catalog-census fixture retains its reviewed grants and applies the exact same
+three ALTER ROLE settings. A default-public search path cannot hide extractor
+column-discovery failures in either mode.
+
+`pipeline-seed.json` records public input hashes and each rule's coverage.
+`pipeline-reader/` retains the actual reader's manifest/config/plan and payload
+census when available; `admitted-archive-three-stages-receipt.json` is the real
+closed receipt. Missing receipt, reader error, science failure or INCOMPLETE
+makes the rehearsal fail. The word "production" in the immutable reader's
+source labels means its database-extract path; this harness's database is
+exclusively public fixture data and proves no production coverage.
 
 A previously built `worker.Dockerfile` image may be reused with
 `--runtime-image <local-image>`. Source is mounted afresh each run. Rebuild when
@@ -107,6 +150,7 @@ because runtime logs are diagnostics, not admitted exports.
 
 The runtime adapter supplies fixture metadata and a public fixture secret,
 intercepts shutdown (the outer harness disposes the stack), lowers CPU/memory
+to two CPUs/eight GiB per candidate
 and disk-reserve ceilings, and strips the two AWS KMS headers unsupported by
 this MinIO. Image streams come from the mounted OCI archives instead of an S3
 asset download; control objects, heartbeats and receipts use real MinIO S3.

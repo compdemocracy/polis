@@ -936,3 +936,14 @@ def test_invalid_capture_refused_before_local_publication_even_without_release_a
         fb.push(store, bundle_id=manifest["bundle_id"], payload_root=directory.parent,
                 manifest=manifest, provenance={"bundle_id": manifest["bundle_id"]}, admit=False)
     assert not [p for p in store_dir.rglob("*") if p.is_file()]
+
+
+def test_capture_column_lookup_uses_all_explicit_search_path_schemas():
+    conn = _FakeConn()
+    fx.fetch_served_math(conn, 1)
+    discoveries = [sql for cur in conn.cursors for sql in cur.statements
+                   if "information_schema.columns" in sql]
+    assert len(discoveries) == 1
+    assert "table_schema = ANY (current_schemas(false))" in discoveries[0]
+    assert "table_schema = current_schema()" not in discoveries[0]
+    assert any(params == ("math_ticks",) for cur in conn.cursors for params in cur.params)
