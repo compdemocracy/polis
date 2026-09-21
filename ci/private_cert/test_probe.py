@@ -21,6 +21,14 @@ class ProbeTests(unittest.TestCase):
                          '396e19f1007d35eaeaa0414b690b1c18c2f03a5c324c9dbe78e06289db1f7efe')
         self.assertNotEqual(probe.PROBE_CONFIG_PATH, fixture_config.DEFAULT_CONFIG_PATH)
 
+    def test_reader_forwards_only_the_configs_recorded_approvals(self):
+        self.assertEqual(probe.accepted_replacements({}), ())
+        self.assertEqual(probe.accepted_replacements({'accepted_public_fixture_replacements': ['pc-v1-dense', 'pc-v1-dense-max']}),
+                         ('pc-v1-dense', 'pc-v1-dense-max'))
+        import inspect
+        source = inspect.getsource(probe.extract)
+        self.assertIn('accept_public_fixture=accepted_replacements(config)', source)
+
     def test_explicit_schedule_scales_to_snapshot_preserving_semantics(self):
         raw=dict(dataset='public-fixture',schedule_id='two',cuts={'mode':'vote-count','at':[25,100]},
                  coverage='full-stream',restart_after=0,moderation='interleave-by-timestamp',clojure={'warm_start':'chain'})

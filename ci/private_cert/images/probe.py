@@ -36,6 +36,12 @@ def resolve_private_spec(entry, dataset):
     return gate.schedule.ScheduleSpec.from_dict(value)
 
 
+def accepted_replacements(config) -> tuple:
+    """Recorded approvals from the reviewed config; the only source of --accept-public-fixture
+    inside the box. validate_config() has already bound every slug to an offering role."""
+    return tuple(config.get('accepted_public_fixture_replacements', ()))
+
+
 def validate_reader_session(conn) -> None:
     """The live primary and replicas must both use the read-only reader login."""
     with conn.cursor() as cur:
@@ -64,7 +70,8 @@ def extract() -> None:
     try:
         conn.autocommit = True
         validate_reader_session(conn)
-        result = fx.extract_from_config(conn, config=config, payload_root=payload, guard_root=out)
+        result = fx.extract_from_config(conn, config=config, payload_root=payload, guard_root=out,
+                                        accept_public_fixture=accepted_replacements(config))
     finally:
         conn.close()
     manifest = fb.build_manifest(bundle_id='probe-capture', payload_root=payload,

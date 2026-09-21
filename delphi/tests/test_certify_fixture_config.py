@@ -431,3 +431,33 @@ def test_redacted_survey_drops_every_zid():
     assert not fb.scan_for_identifiers(text, [str(z) for z in planted])
     assert "zid" not in redacted["metric_summary"]
     assert redacted["n_conversations"] == 2
+
+
+def _offer_slug(config):
+    return next(r["slug"] for r in config["roles"]
+                if r.get("on_missing") == "fail_with_public_fixture_replacement_offer")
+
+
+def _fail_slug(config):
+    return next(r["slug"] for r in config["roles"] if r.get("on_missing") == "fail")
+
+
+def test_accepted_replacements_are_optional_absent_by_default_and_bound_to_offering_roles(config, schema):
+    assert "accepted_public_fixture_replacements" not in config
+    ok = copy.deepcopy(config)
+    ok["accepted_public_fixture_replacements"] = [_offer_slug(config)]
+    fc.validate_config(ok, schema)
+
+
+@pytest.mark.parametrize("value, needle", [
+    (lambda c: ["no-such-slug"], "no role has this slug"),
+    (lambda c: [_fail_slug(c)], "offers no public-fixture replacement"),
+    (lambda c: [_offer_slug(c), _offer_slug(c)], "duplicate"),
+    (lambda c: ["Bad Slug"], "does not match"),
+    (lambda c: "pc-v1-dense", "array"),
+])
+def test_accepted_replacement_rejections(config, schema, value, needle):
+    bad = copy.deepcopy(config)
+    bad["accepted_public_fixture_replacements"] = value(config)
+    with pytest.raises(fc.ConfigError, match=needle):
+        fc.validate_config(bad, schema)

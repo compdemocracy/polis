@@ -410,6 +410,18 @@ def _semantic_errors(config: dict[str, Any]) -> list[str]:
     except ConfigError:
         errors.append("$.representative_selection: invalid declaration or seed")
 
+    accepted = config.get("accepted_public_fixture_replacements", [])
+    offers = {role.get("slug"): role.get("on_missing") for role in config.get("roles", [])
+              if isinstance(role, dict)}
+    for k, slug in enumerate(accepted):
+        where = f"$.accepted_public_fixture_replacements[{k}]({slug})"
+        if slug not in offers:
+            errors.append(f"{where}: no role has this slug")
+        elif offers[slug] != "fail_with_public_fixture_replacement_offer":
+            errors.append(f"{where}: role on_missing={offers[slug]!r} offers no public-fixture replacement")
+    if len(set(accepted)) != len(accepted):
+        errors.append("$.accepted_public_fixture_replacements: duplicate slug")
+
     return errors
 
 
