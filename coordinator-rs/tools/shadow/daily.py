@@ -70,7 +70,8 @@ def admit_pair(left,right,expected):
         if row['engine']!=engine or row['host']!=expected['host']:raise ValueError('SHADOW_HOST')
         for key in ('cut','history','node_build','node_dependencies','node_settings'):
             if not SHA.fullmatch(str(row[key])) or row[key]!=expected[key]:raise ValueError('SHADOW_BINDING')
-        if row['lifecycle']!='warm-continuation/1' or row['read_only'] is not True:raise ValueError('SHADOW_ADMISSION')
+        lifecycle = 'warm-continuation/1' if engine == 'clojure' else 'poller-rebuild-prefix/1'
+        if row['lifecycle']!=lifecycle or row['read_only'] is not True:raise ValueError('SHADOW_ADMISSION')
         if not SHA.fullmatch(str(row['bundle'])):raise ValueError('SHADOW_BUNDLE')
         if row['namespace']!=expected[engine+'_namespace']:raise ValueError('SHADOW_NAMESPACE')
         if type(row['computing_pid']) is not int or row['computing_pid']<=0 or row['computing_pid']==row['parent_pid']:
@@ -144,12 +145,30 @@ def compare(left,right,route,full_pair=None):
             if left[key]!=right[key]:return 'ENGINE_DIFFERENCE'
         if a==b:return 'EXACT'
         if (route.get('unordered') is True and route['class']=='COMMENT_MATH'
-                and left['content_type']=='application/json'):
+                and isinstance(left['content_type'],str)
+                and left['content_type'].split(';',1)[0].strip().lower()=='application/json'):
             try:
                 if rows(a)==rows(b):return 'UNORDERED_QUERY_RESIDUAL'
             except (ValueError,UnicodeError):pass
         return 'ENGINE_DIFFERENCE'
     except (ValueError,UnicodeError,zlib.error,KeyError,TypeError):return 'INCOMPLETE'
+
+
+def receipt_verdict(v):
+    """Derive a verdict; callers must still validate all closed fields/counts."""
+    if not v['admission']['input'] or v['windows']['incomplete']:
+        return 'INCOMPLETE'
+    if any(row['ENGINE_DIFFERENCE'] for row in v['routes'].values()):
+        return 'ENGINE_DIFFERENCE'
+    complete = (all(v['admission'].values()) and v['seconds']==86400
+        and v['windows']['expected']>0 and v['windows']['incomplete']==0
+        and sum(row['expected'] for row in v['routes'].values())>0
+        and all(row['expected']==row['observed'] and row['INCOMPLETE']==0 for row in v['routes'].values())
+        and v['observer']['expected']>0
+        and v['observer']['expected']==v['observer']['observed']
+        and v['observer']['alarms']==0 and v['observer']['unresolved']==0
+        and v['delivery']=='CONFIRMED' and v['cleanup']!='UNRESOLVED')
+    return 'PASS' if complete else 'INCOMPLETE'
 
 
 def validate_receipt(v):
@@ -168,25 +187,16 @@ def validate_receipt(v):
     if v['residuals']['cut-unbound-late-row']>v['windows']['incomplete']:raise ValueError('SHADOW_ACCOUNTING')
     if v['admission']['input'] and v['windows']['incomplete']:raise ValueError('SHADOW_INPUT')
     closed(v['routes'],ROUTES)
-    complete=all(v['admission'].values()) and v['seconds']==86400
-    complete &= v['windows']['expected']>0 and v['windows']['incomplete']==0
-    difference=False
     for row in v['routes'].values():
         closed(row,('expected','observed',*VERDICTS))
         for x in row.values():number(x)
         if sum(row[k] for k in VERDICTS)!=row['observed'] or row['observed']>row['expected']:raise ValueError('SHADOW_ACCOUNTING')
-        complete &= row['expected']==row['observed'] and row['INCOMPLETE']==0
-        difference |= row['ENGINE_DIFFERENCE']>0
-    if sum(row['expected'] for row in v['routes'].values())==0:complete=False
     closed(v['observer'],('expected','observed','alarms','unresolved'))
     for x in v['observer'].values():number(x)
     if v['observer']['observed']>v['observer']['expected']:raise ValueError('SHADOW_ACCOUNTING')
-    complete &= v['observer']['expected']>0 and v['observer']['expected']==v['observer']['observed'] and v['observer']['alarms']==0 and v['observer']['unresolved']==0
     if v['delivery'] not in ('PENDING','CONFIRMED','FAILED','UNCERTAIN') or v['cleanup'] not in ('RETAINED','CLEAN','UNRESOLVED'):raise ValueError('SHADOW_RECEIPT')
-    complete &= v['delivery']=='CONFIRMED' and v['cleanup']!='UNRESOLVED'
     # An unbound input is never an engine failure, even if diagnostic bodies differ.
-    expected=('INCOMPLETE' if not v['admission']['input'] or v['windows']['incomplete']
-              else 'ENGINE_DIFFERENCE' if difference else 'PASS' if complete else 'INCOMPLETE')
+    expected=receipt_verdict(v)
     if v['verdict']!=expected:raise ValueError('SHADOW_VERDICT')
     if len(canonical(v))>16384:raise ValueError('SHADOW_LIMIT')
     return v

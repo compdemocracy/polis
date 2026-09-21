@@ -1,45 +1,59 @@
-# Daily shadow evidence primitives
+# Daily shadow evidence
 
-This directory is an incomplete production integration, not an activated runner.
-`daily.py` provides immutable cut-file binding, private pair/route admission,
-exact decompressed body comparison, closed receipt validation, and create-only
-publication with lost-acknowledgement reconciliation. `receipt.schema.json`
-checks shape; the Python validator additionally checks counts and verdicts.
-Private bodies/cut hashes/route parameters never enter the exported receipt.
+This opt-in integration collects private read-only responses from two instances
+of the original Node app, validates retained bridge replay and legacy custody,
+and publishes a closed daily receipt. It is dormant: no production reads,
+history source, service activation, or alarm destination are installed.
 
-No Clojure source, serving namespace, database schema or application startup is
-changed. The production recorder, actual child-provenance collector, consumed-cut
-adapter and daily scheduler are not wired. Do not deploy this as a daily runner.
-Its input bindings are obligations for a trusted collector, not proof that a
-caller-supplied claim is true. The existing characterization entry point creates
-fixture authentication and instrumentation and must not be run against production.
+- [CAPTURE.md](CAPTURE.md) describes `collector.py`, private inputs, identical
+  reader closure, common exported snapshot, actual peer process checks, and
+  the external legacy-history and observer-launch custody obligations.
+- [SCHEDULER.md](SCHEDULER.md) describes the daily job, immutable local records,
+  private publication, lost-acknowledgement reconciliation and shutdown.
+- `bridge_adapter.py` admits the actual output of the opt-in
+  `examples/shadow_replay.rs` adapter. Replay requires a separate already
+  authorized shadow writer; the read-only collector receives no writer keys.
+- `daily.py` supplies cut/route admission, exact decompressed body comparison,
+  closed receipt validation and create-only publication. `receipt.schema.json`
+  checks shape; the Python validator also checks counts and verdicts.
 
-A current publication's lastVoteTimestamp/lastModTimestamp cannot identify the
-exact consumed history. The public counterexample in test_daily.py gives two
-visibility histories with the same final votes and cursor but different consumed
-inputs. The unchanged writer does not retain that historical visibility/order.
-Missing consumed-cut evidence remains INCOMPLETE. An order-only response residual
-requires complete identical raw rows with multiplicities and separator spelling
-preserved; it does not excuse unknown engine inputs or a changed value.
+A current publication's vote/modification cursors cannot prove the exact
+consumed history. An unavailable legacy custody source closes INCOMPLETE with
+`cut-unbound-late-row`, without querying rows to invent history or earning
+comparison credit. An order-only residual requires complete identical raw rows
+with multiplicities and separator spelling preserved; it cannot excuse unknown
+inputs, changed values, or error responses. Equal HTML/error responses also
+cannot fill successful JSON route coverage. Bodies, cut hashes and route
+parameters never enter the exported receipt.
 
-Publication cannot put its own future acknowledgement inside the immutable
-object. The exported first object is PENDING; the publisher returns a separate
-local CONFIRMED/FAILED/UNCERTAIN result. A complete scheduler must retain and
-reconcile that delivery observation before any daily window earns PASS. No
-uncertain write is overwritten. Cloud calls in tests use local fakes only.
+Each cut imports one common read-only database snapshot into two fresh original
+Node processes, including non-math tables. Current views must match retained
+legacy/Python generations. This validates reader custody, not a historical
+Clojure input source. The characterization entry installs fixture authentication
+and must not be used as a production collector.
 
-Operator drill before activation: kill collector and observer separately; verify
-missing evidence becomes INCOMPLETE and the existing D06 missing-data alarm is
-observed at the real destination. Block bucket delivery and simulate a lost ACK;
-retain unresolved state without a fresh publication key. Preserve the existing
-Clojure writer and all public serving bindings throughout. No alarm destination
-or service unit is installed by these primitives.
+The immutable uploaded object is PENDING: its own future acknowledgement cannot
+be embedded in it. A separately retained CONFIRMED local delivery observation
+can earn PASS only when every admission, route and observation requirement is
+complete. Lost acknowledgements reconcile the exact existing object; uncertain
+writes never receive a replacement key. A late start earns no missing-time
+credit. Controlled-clock tests are accounting controls, not live daily windows.
 
-Run: `python3 -B -m unittest discover -s coordinator-rs/tools/shadow -v`.
+Before activation, independently admit actual same-host legacy history, reader
+build and route scope, observer shard/allowlist launch custody, authority and
+capacity, private storage, egress restrictions and writer stop/drain. Perform
+real collector/observer kill and alarm-destination drills. The public controls
+use local fixtures or explicitly labeled external doubles and do not establish
+those deployment obligations. Clojure source and public serving bindings remain
+unchanged.
 
-Unknown late-row history is now the distinct closed residual
-`cut-unbound-late-row`. The window closes INCOMPLETE even if unadmitted diagnostic
-bodies differ. Receipts count bound and incomplete cuts; summarize_windows counts
-INCOMPLETE daily windows without giving them acceptance credit. This is separate
-from the observed order-only row classification. The production integrations
-listed above remain open; these accounting changes do not create a capture source.
+Run the Python controls on Linux (Unix peer PID admission is mandatory):
+
+```sh
+python3 -B -m unittest discover -s coordinator-rs/tools/shadow -v
+node --test server/shadow/reader.test.cjs
+```
+
+The PostgreSQL snapshot control additionally needs an owned isolated local
+stack; see its test file and the capture handoff. Neither command activates a
+service or publishes to a real evidence bucket.

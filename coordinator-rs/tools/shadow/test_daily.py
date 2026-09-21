@@ -25,6 +25,10 @@ class Daily(unittest.TestCase):
     def test_exact(self):self.assertEqual(d.compare(response(),response(),self.route),'EXACT')
     def test_one_byte(self):self.assertEqual(d.compare(response(),response(b'[{"id":1},{"id":3}]'),self.route),'ENGINE_DIFFERENCE')
     def test_order_only(self):self.assertEqual(d.compare(response(),response(b'[{"id":2},{"id":1}]'),self.route),'UNORDERED_QUERY_RESIDUAL')
+    def test_order_only_with_original_node_json_charset(self):
+        a,b=response(),response(b'[{"id":2},{"id":1}]')
+        a['content_type']=b['content_type']='application/json; charset=utf-8'
+        self.assertEqual(d.compare(a,b,self.route),'UNORDERED_QUERY_RESIDUAL')
     def test_order_plus_value(self):self.assertEqual(d.compare(response(),response(b'[{"id":3},{"id":1}]'),self.route),'ENGINE_DIFFERENCE')
     def test_whitespace_not_normalized(self):self.assertEqual(d.compare(response(),response(b'[ {"id":2},{"id":1}]'),self.route),'ENGINE_DIFFERENCE')
     def test_no_general_array_sort(self):self.assertEqual(d.compare(response(),response(b'[{"id":2},{"id":1}]'),{'class':'PCA2_FULL','unordered':True}),'ENGINE_DIFFERENCE')
@@ -58,9 +62,9 @@ class Daily(unittest.TestCase):
         expected=dict(host='public-host',cut='1'*64,history='2'*64,node_build='3'*64,node_dependencies='4'*64,node_settings='5'*64,clojure_namespace='legacy',python_namespace='shadow',clojure_runtime=runtime,python_runtime=runtime)
         common={k:expected[k] for k in ('host','cut','history','node_build','node_dependencies','node_settings')}
         a=common|dict(lifecycle='warm-continuation/1',namespace='legacy',engine='clojure',computing_pid=2,parent_pid=1,runtime=runtime,bundle='6'*64,read_only=True)
-        b=a|dict(namespace='shadow',engine='python',computing_pid=3)
+        b=a|dict(namespace='shadow',engine='python',computing_pid=3,lifecycle='poller-rebuild-prefix/1')
         d.admit_pair(a,b,expected)
-        for key,value in [('host','other'),('cut',''),('computing_pid',1),('runtime',runtime|{'observed':False}),('namespace','legacy')]:
+        for key,value in [('lifecycle','warm-continuation/1'),('host','other'),('cut',''),('computing_pid',1),('runtime',runtime|{'observed':False}),('namespace','legacy')]:
             with self.subTest(key=key),self.assertRaises(ValueError):d.admit_pair(a,b|{key:value},expected)
     def test_closed_receipt(self):
         d.validate_receipt(receipt())
