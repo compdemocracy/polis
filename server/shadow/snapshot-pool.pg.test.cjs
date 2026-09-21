@@ -1,0 +1,61 @@
+const { test } = require("node:test");
+const assert = require("node:assert/strict");
+const pg = require("pg");
+const { install } = require("./snapshot-pool.cjs");
+
+test("actual private reader retains its imported database view across pool reuse", async () => {
+  const port = Number(process.env.SHADOW_TEST_PG_PORT);
+  assert.ok(Number.isInteger(port) && port >= 55432, "explicit isolated local test port required");
+  assert.equal(process.env.COMPOSE_PROJECT_NAME, "p027-shadow-reader-1080");
+  const config = { host: "127.0.0.1", port, database: "postgres", user: "postgres" };
+  const admin = new pg.Client(config);
+  const keeper = new pg.Client(config);
+  let reader, refused, writer, controller;
+  try {
+    await admin.connect();
+    await keeper.connect();
+    await admin.query("CREATE ROLE public_reader LOGIN");
+    await admin.query("CREATE ROLE public_writer LOGIN");
+    await admin.query("CREATE ROLE public_controller LOGIN");
+    await admin.query("CREATE TABLE public_snapshot_value (id integer PRIMARY KEY, value text NOT NULL)");
+    await admin.query("INSERT INTO public_snapshot_value VALUES (1, 'before')");
+    await admin.query("GRANT SELECT ON public_snapshot_value TO public_reader");
+    await admin.query("GRANT SELECT, UPDATE ON public_snapshot_value TO public_writer");
+    await admin.query("CREATE FUNCTION pc_public_test() RETURNS integer LANGUAGE sql AS 'SELECT 1'");
+    await admin.query("REVOKE EXECUTE ON FUNCTION pc_public_test() FROM PUBLIC");
+    await admin.query("GRANT EXECUTE ON FUNCTION pc_public_test() TO public_controller");
+    await keeper.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    const snapshot = (await keeper.query("SELECT pg_export_snapshot() AS snapshot")).rows[0].snapshot;
+    await admin.query("UPDATE public_snapshot_value SET value = 'after' WHERE id = 1");
+    const Pool = install({ Pool: pg.Pool, Client: pg.Client }, snapshot, config);
+    refused = new Pool();
+    await assert.rejects(refused.connect(), /SHADOW_SNAPSHOT_IMPORT/);
+    const WriterPool = install({ Pool: pg.Pool, Client: pg.Client }, snapshot, { ...config, user: "public_writer" });
+    writer = new WriterPool();
+    await assert.rejects(writer.connect(), /SHADOW_SNAPSHOT_IMPORT/);
+    const ControllerPool = install({ Pool: pg.Pool, Client: pg.Client }, snapshot, { ...config, user: "public_controller" });
+    controller = new ControllerPool();
+    await assert.rejects(controller.connect(), /SHADOW_SNAPSHOT_IMPORT/);
+    const ReaderPool = install({ Pool: pg.Pool, Client: pg.Client }, snapshot, { ...config, user: "public_reader" });
+    reader = new ReaderPool();
+    const first = await reader.connect();
+    const backend = (await first.query("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+    assert.equal((await first.query("SELECT value FROM public_snapshot_value WHERE id=$1", [1])).rows[0].value, "before");
+    assert.equal((await first.query("SELECT current_setting('transaction_read_only') AS readonly")).rows[0].readonly, "on");
+    await assert.rejects(first.query("UPDATE public_snapshot_value SET value='bad'"), /SHADOW_QUERY/);
+    await assert.rejects(first.query("COMMIT"), /SHADOW_QUERY/);
+    first.release();
+    const second = await reader.connect();
+    assert.equal((await second.query("SELECT pg_backend_pid() AS pid")).rows[0].pid, backend);
+    assert.equal((await second.query("SELECT value FROM public_snapshot_value WHERE id=$1", [1])).rows[0].value, "before");
+    second.release();
+    assert.equal((await admin.query("SELECT value FROM public_snapshot_value WHERE id=1")).rows[0].value, "after");
+  } finally {
+    if (reader) await reader.end();
+    if (refused) await refused.end();
+    if (writer) await writer.end();
+    if (controller) await controller.end();
+    await keeper.end();
+    await admin.end();
+  }
+});
