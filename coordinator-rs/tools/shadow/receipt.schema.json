@@ -1,0 +1,404 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "run",
+    "window",
+    "seconds",
+    "build",
+    "policy",
+    "admission",
+    "routes",
+    "observer",
+    "delivery",
+    "cleanup",
+    "verdict",
+    "windows",
+    "residuals"
+  ],
+  "properties": {
+    "schema": {
+      "const": "polis-shadow-receipt/1"
+    },
+    "run": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{32}$"
+    },
+    "window": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 36500
+    },
+    "seconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 86400
+    },
+    "build": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "policy": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host",
+        "runtime",
+        "input",
+        "collector",
+        "clojure_serving"
+      ],
+      "properties": {
+        "host": {
+          "type": "boolean"
+        },
+        "runtime": {
+          "type": "boolean"
+        },
+        "input": {
+          "type": "boolean"
+        },
+        "collector": {
+          "type": "boolean"
+        },
+        "clojure_serving": {
+          "type": "boolean"
+        }
+      }
+    },
+    "routes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "PCA2_FULL",
+        "PCA2_SUBSET",
+        "PARTICIPANT_MAPPING",
+        "COMMENT_MATH",
+        "REPORT_READ"
+      ],
+      "properties": {
+        "PCA2_FULL": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "expected",
+            "observed",
+            "EXACT",
+            "UNORDERED_QUERY_RESIDUAL",
+            "ENGINE_DIFFERENCE",
+            "INCOMPLETE"
+          ],
+          "properties": {
+            "expected": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "observed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "EXACT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "UNORDERED_QUERY_RESIDUAL": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "ENGINE_DIFFERENCE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "INCOMPLETE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            }
+          }
+        },
+        "PCA2_SUBSET": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "expected",
+            "observed",
+            "EXACT",
+            "UNORDERED_QUERY_RESIDUAL",
+            "ENGINE_DIFFERENCE",
+            "INCOMPLETE"
+          ],
+          "properties": {
+            "expected": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "observed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "EXACT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "UNORDERED_QUERY_RESIDUAL": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "ENGINE_DIFFERENCE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "INCOMPLETE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            }
+          }
+        },
+        "PARTICIPANT_MAPPING": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "expected",
+            "observed",
+            "EXACT",
+            "UNORDERED_QUERY_RESIDUAL",
+            "ENGINE_DIFFERENCE",
+            "INCOMPLETE"
+          ],
+          "properties": {
+            "expected": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "observed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "EXACT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "UNORDERED_QUERY_RESIDUAL": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "ENGINE_DIFFERENCE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "INCOMPLETE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            }
+          }
+        },
+        "COMMENT_MATH": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "expected",
+            "observed",
+            "EXACT",
+            "UNORDERED_QUERY_RESIDUAL",
+            "ENGINE_DIFFERENCE",
+            "INCOMPLETE"
+          ],
+          "properties": {
+            "expected": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "observed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "EXACT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "UNORDERED_QUERY_RESIDUAL": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "ENGINE_DIFFERENCE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "INCOMPLETE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            }
+          }
+        },
+        "REPORT_READ": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "expected",
+            "observed",
+            "EXACT",
+            "UNORDERED_QUERY_RESIDUAL",
+            "ENGINE_DIFFERENCE",
+            "INCOMPLETE"
+          ],
+          "properties": {
+            "expected": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "observed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "EXACT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "UNORDERED_QUERY_RESIDUAL": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "ENGINE_DIFFERENCE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "INCOMPLETE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            }
+          }
+        }
+      }
+    },
+    "observer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected",
+        "observed",
+        "alarms",
+        "unresolved"
+      ],
+      "properties": {
+        "expected": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "observed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "alarms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "unresolved": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000
+        }
+      }
+    },
+    "delivery": {
+      "enum": [
+        "PENDING",
+        "CONFIRMED",
+        "FAILED",
+        "UNCERTAIN"
+      ]
+    },
+    "cleanup": {
+      "enum": [
+        "RETAINED",
+        "CLEAN",
+        "UNRESOLVED"
+      ]
+    },
+    "verdict": {
+      "enum": [
+        "PASS",
+        "ENGINE_DIFFERENCE",
+        "INCOMPLETE"
+      ]
+    },
+    "windows": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected",
+        "bound",
+        "incomplete"
+      ],
+      "properties": {
+        "expected": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "bound": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "incomplete": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000
+        }
+      }
+    },
+    "residuals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cut-unbound-late-row"
+      ],
+      "properties": {
+        "cut-unbound-late-row": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Shape only; daily.validate_receipt enforces accounting and verdict identities."
+}
