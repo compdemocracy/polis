@@ -29,6 +29,21 @@ class ProbeTests(unittest.TestCase):
         source = inspect.getsource(probe.extract)
         self.assertIn('accept_public_fixture=accepted_replacements(config)', source)
 
+    def test_stage_failure_final_line_is_class_and_origin_code_only(self):
+        import io, contextlib
+        def raiser():
+            raise ValueError("3 blob text(s) for 5 math_main row(s): zid 42 topic secret")
+        try:
+            raiser()
+        except ValueError as error:
+            self.assertEqual(probe.failure_origin(error), 'TEST_PROBE_L%d' % error.__traceback__.tb_next.tb_lineno)
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                probe.report_failure(error)
+        last = err.getvalue().strip().splitlines()[-1]
+        self.assertRegex(last, r'^builtins\.ValueError: TEST_PROBE_L\d+$')
+        self.assertNotIn('zid', last); self.assertNotIn('blob', last)
+
     def test_explicit_schedule_scales_to_snapshot_preserving_semantics(self):
         raw=dict(dataset='public-fixture',schedule_id='two',cuts={'mode':'vote-count','at':[25,100]},
                  coverage='full-stream',restart_after=0,moderation='interleave-by-timestamp',clojure={'warm_start':'chain'})
