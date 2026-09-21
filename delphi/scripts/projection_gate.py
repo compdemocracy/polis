@@ -81,6 +81,7 @@ from typing import Any, Iterator, Optional, Sequence
 
 import psycopg2
 import psycopg2.extensions
+from polismath.replay.dsn_admission import argparse_dsn, passwordless_dsn
 
 
 # ---------------------------------------------------------------------------
@@ -274,7 +275,7 @@ def read_only_connection(dsn: str) -> Iterator["psycopg2.extensions.connection"]
     transaction, P3), and each transaction additionally issues an explicit
     ``SET TRANSACTION ... READ ONLY`` (see ``_read_only_cursor``).
     """
-    conn = psycopg2.connect(dsn, options="-c default_transaction_read_only=on")
+    conn = psycopg2.connect(passwordless_dsn(dsn), options="-c default_transaction_read_only=on")
     try:
         conn.set_session(
             isolation_level=psycopg2.extensions.ISOLATION_LEVEL_REPEATABLE_READ,
@@ -571,6 +572,7 @@ def run_wire_witness(
     node_modules: Optional[str] = None,
     src_root: Optional[str] = None,
 ) -> dict[str, Any]:
+    passwordless_dsn(dsn)
     node = shutil.which("node")
     if not node:
         raise WireWitnessUnavailable("node not found on PATH")
@@ -919,8 +921,8 @@ def run_manifest(
 
 def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--dsn", required=True, help="primary Postgres connection string")
-    p.add_argument("--replica-dsn", default=None, help="replica connection string (read-only; safe)")
+    p.add_argument("--dsn", type=argparse_dsn, required=True, help="primary Postgres connection string")
+    p.add_argument("--replica-dsn", type=argparse_dsn, default=None, help="replica connection string (read-only; safe)")
     p.add_argument("--require-replica", action="store_true",
                    help="fail the manifest unless a DISTINCT replica run is provided (acceptance item 3)")
     p.add_argument("--approve-same-identity", action="store_true",

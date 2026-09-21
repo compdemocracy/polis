@@ -100,17 +100,22 @@ export class ProbeBox extends Construct {
       role.addToPolicy(new iam.PolicyStatement({actions: action, resources: resource, conditions}));
     const vpce = {StringEquals: {'aws:SourceVpce': endpoint.ref}};
     const own = '${ec2:SourceInstanceARN}';
+    // IAM binds encryption/key/creation semantics, not object size or JSON shape.
+    // The supervisor must continue enforcing body bounds and closed schemas.
+    const encryptedWrite = {'aws:SourceVpce': endpoint.ref,
+      's3:x-amz-server-side-encryption': 'aws:kms',
+      's3:x-amz-server-side-encryption-aws-kms-key-id': key.keyArn};
     statement(worker,['s3:GetObject'],[control.arnForObjects(`boot/worker/${own}.json`),assets.arnForObjects('images/*')],vpce);
-    statement(worker,['s3:PutObject'],[control.arnForObjects(`heartbeats/*/${own}.json`)],vpce);
+    statement(worker,['s3:PutObject'],[control.arnForObjects(`heartbeats/*/${own}.json`)],{StringEquals: encryptedWrite});
     statement(worker,['s3:PutObject'],[evidence.arnForObjects(`results/${own}/receipt.json`)],{
-      StringEquals: {'aws:SourceVpce': endpoint.ref,'s3:if-none-match':'*'}});
+      StringEquals: {...encryptedWrite,'s3:if-none-match':'*'}});
     statement(worker,['secretsmanager:GetSecretValue'],[readerSecret.secretArn],{StringEquals:{'aws:SourceVpce':secretEndpoint.ref}});
     const kmsCondition = {StringEquals:{'kms:ViaService':`s3.${a.region}.amazonaws.com`},
       StringLike:{'kms:EncryptionContext:aws:s3:arn':[control.arnForObjects('*'),assets.arnForObjects('images/*'),evidence.arnForObjects(`results/${own}/receipt.json`)]}};
     statement(worker,['kms:Decrypt','kms:GenerateDataKey'],[key.keyArn],kmsCondition);
     statement(provisioner,['s3:GetObject'],[control.arnForObjects(`boot/provision/${own}.json`)],vpce);
     statement(provisioner,['s3:PutObject'],[control.arnForObjects(`provision-results/${own}.json`)],{
-      StringEquals:{'aws:SourceVpce':endpoint.ref,'s3:if-none-match':'*'}});
+      StringEquals:{...encryptedWrite,'s3:if-none-match':'*'}});
     statement(provisioner,['secretsmanager:GetSecretValue'],[readerSecret.secretArn,a.adminSecretArn],{
       StringEquals:{'aws:SourceVpce':secretEndpoint.ref}});
     statement(provisioner,['kms:Decrypt','kms:GenerateDataKey'],[key.keyArn],{
