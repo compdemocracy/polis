@@ -139,7 +139,7 @@ Before using TopicMod, ensure the Delphi pipeline has been run:
 
 ```bash
 # Generate embeddings and clusters
-python 500_generate_embedding_umap_cluster.py
+python run_pipeline.py --zid CONVERSATION_ID
 
 # Topic naming now runs inline in umap_narrative/run_pipeline.py (Ollama)
 # as part of the full pipeline job — no separate script.
