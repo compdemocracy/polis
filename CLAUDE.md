@@ -155,7 +155,7 @@ make start
 
 ## Configuration
 
-Environment variables are documented in `docs/configuration.md`. Key files:
+Environment variables are documented in [configuration](docs/configuration.md), with per-site defaults and secret status in the [source census](docs/configuration-env-reference.md). [Deployment configuration](docs/deployment-configuration.md) distinguishes Compose/build inputs and all 153 P065 external-service entries. Key files:
 - `.env` - Development config (copy from `example.env`)
 - `prod.env` - Production config
 - `test.env` - Test config
@@ -173,7 +173,7 @@ The server auto-rebuilds and restarts on TypeScript changes when running in dev 
 
 - Express 3.x API (legacy)
 - PostgreSQL via `pg` library
-- TypeScript with strict mode
+- TypeScript; server `strict` and `noImplicitAny` are false in [server/tsconfig.json:28](server/tsconfig.json#L28). Do not assume strict-mode checks passed.
 - Jest for testing
 - Auto-reload via nodemon in dev mode
 
@@ -190,7 +190,7 @@ npm run test:integration  # Integration tests only
 
 ### Client-Participation-Alpha (Astro/React)
 
-Modern participant UI with Astro SSR and React components. Does NOT auto-rebuild in Docker.
+Modern participant UI with Astro server output, a Node standalone adapter and React components ([astro.config.mjs:10](client-participation-alpha/astro.config.mjs#L10)). Does NOT auto-rebuild in Docker.
 
 Commands:
 ```bash
