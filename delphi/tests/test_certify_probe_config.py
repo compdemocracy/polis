@@ -62,8 +62,10 @@ def test_box_extract_binds_probe_bytes_through_plan_and_verifier(tmp_path, monke
     connect = MagicMock(return_value=conn)
     monkeypatch.setattr(psycopg2, 'connect', connect)
 
-    def extract_snapshot(actual_conn, *, config, payload_root, guard_root):
+    def extract_snapshot(actual_conn, *, config, payload_root, guard_root, accept_public_fixture=()):
         assert actual_conn is conn and guard_root == output
+        # the reader forwards exactly the config's recorded approvals (none in v2)
+        assert tuple(accept_public_fixture) == tuple(config.get('accepted_public_fixture_replacements', ()))
         assert config['config_version'] == 'v2-probe-capture-sample-1'
         assert fc.served_math_options(config) == fc.ServedMathOptions(True, None)
         assert config == fc.load_config(probe.PROBE_CONFIG_PATH)
