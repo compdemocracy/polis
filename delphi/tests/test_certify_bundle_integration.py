@@ -834,6 +834,17 @@ def test_public_pin_leaks_nothing(published):
 # ---------------------------------------------------------------------------
 
 
+def _passwordless(seeded_db: str, tmp_path):
+    """The CLIs refuse a password in the DSN; route the fixture password through a pgpass file."""
+    from urllib.parse import urlsplit, urlunsplit
+    u = urlsplit(seeded_db)
+    passfile = tmp_path / "pgpass"
+    passfile.write_text(f"{u.hostname}:{u.port}:*:{u.username}:{u.password}\n")
+    passfile.chmod(0o600)
+    url = urlunsplit((u.scheme, f"{u.username}@{u.hostname}:{u.port}", u.path, u.query, u.fragment))
+    return url, {"PGPASSFILE": str(passfile)}
+
+
 def test_from_config_cli_stdout_carries_no_identity(seeded_db, tmp_path,
                                                     monkeypatch):
     import importlib.util
@@ -849,10 +860,11 @@ def test_from_config_cli_stdout_carries_no_identity(seeded_db, tmp_path,
     cfg_path.write_text(json.dumps(scaled_config()))
     out = tmp_path / "real_data" / ".local" / "cli-payload"
 
+    url, env = _passwordless(seeded_db, tmp_path)
     result = CliRunner().invoke(mod.cli, [
-        "from-config", "--database-url", seeded_db,
+        "from-config", "--database-url", url,
         "--from-config", str(cfg_path), "--out", str(out), "--no-generated",
-    ])
+    ], env=env)
     assert result.exit_code == 0, result.output
     assert not fb.scan_public_output(result.output, PLANTED)
     assert "pc-v1-revote" in result.output
@@ -873,9 +885,11 @@ def test_from_config_cli_refuses_a_destination_outside_local(seeded_db, tmp_path
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
+    url, env = _passwordless(seeded_db, tmp_path)
     result = CliRunner().invoke(mod.cli, [
-        "from-config", "--database-url", seeded_db,
+        "from-config", "--database-url", url,
         "--out", str(tmp_path / "public-output"),
-    ])
+    ], env=env)
     assert result.exit_code != 0
+    assert "DSN_" not in result.output  # refused for the destination, not the DSN
     assert ".local" in result.output
