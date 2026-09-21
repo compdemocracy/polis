@@ -63,22 +63,6 @@ This document provides a comprehensive overview of all available report routes i
 - Multi-criteria topic evaluation
 - Decision support for topic selection
 
-### 8. `/topicPrioritizeSimple/{report_id}`
-**Component:** TopicPrioritizeSimple  
-**Description:** Simplified version of topic prioritization interface.  
-**Features:**
-- Streamlined topic prioritization
-- Basic ranking functionality
-- User-friendly interface for quick decisions
-
-### 9. `/topicAgenda/{report_id}`
-**Component:** TopicAgenda  
-**Description:** Agenda-building tool based on conversation topics.  
-**Features:**
-- Create meeting agendas from topics
-- Organize discussion points
-- Export agenda items
-
 ### 10. `/topicHierarchy/{report_id}`
 **Component:** TopicHierarchy  
 **Description:** Hierarchical view of topics showing parent-child relationships.  
