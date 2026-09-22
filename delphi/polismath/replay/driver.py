@@ -102,6 +102,11 @@ def run_replay(
     # into wall-clock — breaking determinism. Floor to 1 (nonzero).
     base_last_updated = (dataset.votes[0].t_ms or 1) if dataset.votes else 1
     conv = Conversation(spec.dataset, last_updated=base_last_updated)
+    if not dataset.votes:
+        # Mirror the production poller (poller/service.py): construct with a
+        # nonzero seed to dodge the `or now` footgun, then floor to 0 so an
+        # empty conversation reports lastVoteTimestamp 0, as production does.
+        conv.last_updated = 0
     # Q12 pinned cold start (CLOJURE_QUIRKS.md): production Clojure draws an
     # UNSEEDED random PCA start vector on the cold tick (rand-starting-vec,
     # pca.clj:79-82); with a small eigengap the 100 power iterations keep a

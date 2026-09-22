@@ -49,9 +49,11 @@ bounded counts, finite errors, fixed verdicts, selection aggregates and digests.
 On an empty (zero-vote) conversation the legacy engine omits fields that Python emits; Python's complete empty structure is the canonical output and the legacy behaviour is a recorded defect, never an accepted variant. An entry may also carry `legacy_defects`: `legacy-defect-empty-omits-keys` with a sorted,
 unique, nonempty subset of the 15 fixed public keys in the committed
 [`pc-zerovote-01-empty.json`](../delphi/scripts/schedules/pc-zerovote-01-empty.json)
-contract, and/or `legacy-defect-empty-timestamp` with exactly `legacy: 0, python: 1`.
+contract. `lastVoteTimestamp` is 0 for both engines on an empty conversation,
+because the replay driver floors an empty conversation's clock to 0 exactly as
+the production poller does; it is compared like any other present value.
 The omission list includes three explicit PCA leaves; it does not permit replacing
-a whole PCA object. Both observations describe only actual reconciliations at the
+a whole PCA object. The observation describes only actual reconciliations at the
 zero checkpoint. The exact Python values and present legacy values remain checked.
 Arbitrary names, values, duplicates, reordered defects and additional fields are
 rejected; entries without an observation retain their existing shape. Deploy the

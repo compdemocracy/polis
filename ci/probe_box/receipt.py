@@ -53,30 +53,19 @@ LEGACY_EMPTY_KEYS = frozenset({
 
 def validate_legacy_defects(value: object) -> list:
     """Closed, bounded observations; never serialize arbitrary comparer data."""
-    if type(value) is not list or not 1 <= len(value) <= 2:
+    if type(value) is not list or len(value) != 1:
         raise ValueError("RECEIPT_LEGACY_DEFECT")
-    names = []
     for defect in value:
         if type(defect) is not dict:
             raise ValueError("RECEIPT_LEGACY_DEFECT")
-        name = defect.get("name")
-        if name == "legacy-defect-empty-omits-keys":
-            closed(defect, {"name", "keys"})
-            keys = defect["keys"]
-            if (type(keys) is not list or not 1 <= len(keys) <= len(LEGACY_EMPTY_KEYS)
-                    or any(type(key) is not str or key not in LEGACY_EMPTY_KEYS for key in keys)
-                    or keys != sorted(set(keys))):
-                raise ValueError("RECEIPT_LEGACY_DEFECT")
-        elif name == "legacy-defect-empty-timestamp":
-            closed(defect, {"name", "legacy", "python"})
-            if (type(defect["legacy"]) is not int or defect["legacy"] != 0
-                    or type(defect["python"]) is not int or defect["python"] != 1):
-                raise ValueError("RECEIPT_LEGACY_DEFECT")
-        else:
+        if defect.get("name") != "legacy-defect-empty-omits-keys":
             raise ValueError("RECEIPT_LEGACY_DEFECT")
-        names.append(name)
-    if names != sorted(set(names)):
-        raise ValueError("RECEIPT_LEGACY_DEFECT")
+        closed(defect, {"name", "keys"})
+        keys = defect["keys"]
+        if (type(keys) is not list or not 1 <= len(keys) <= len(LEGACY_EMPTY_KEYS)
+                or any(type(key) is not str or key not in LEGACY_EMPTY_KEYS for key in keys)
+                or keys != sorted(set(keys))):
+            raise ValueError("RECEIPT_LEGACY_DEFECT")
     return value
 
 

@@ -38,8 +38,7 @@ POLICY = {'schema': 'polis-private-paired-policy/1', 'absolute': 1e-6,
           'legacy_empty': {'schema': 'legacy-empty-reconciliation/2',
                            'declaration': 'committed-schedule-only', 'cut_slot': 0,
                            'engine': 'clj', 'present_values': 'exact-empty-output',
-                           'nested_paths': sorted(schedule.EMPTY_PCA_PATHS),
-                           'timestamp': {'name': 'legacy-defect-empty-timestamp', 'legacy': 0, 'python': 1}},
+                           'nested_paths': sorted(schedule.EMPTY_PCA_PATHS)},
           'stages': 'diagnostic-only', 'recovery_consumption': 'shadow-diagnostic-only'}
 INPUT_KEYS = {'candidateSha', 'oracleSha', 'policySha256', 'scheduleSha256',
               'inventorySha256', 'expectedChecks'}
@@ -165,8 +164,7 @@ def prepare(fixture, inputs, scratch, *, bind=True):
         if (spec.moderation != recipe.moderation or spec.restart_after != recipe.restart_after
                 or spec.clojure != recipe.clojure or spec.coverage != recipe.coverage
                 or spec.empty_output != recipe.empty_output
-                or spec.legacy_absent_keys != recipe.legacy_absent_keys
-                or spec.legacy_empty_timestamp != recipe.legacy_empty_timestamp):
+                or spec.legacy_absent_keys != recipe.legacy_absent_keys):
             raise ValueError('SCHEDULE_RECIPE_CHANGED')
         declared_cuts = recipe.cuts.get('at', [])
         if len(expected.checkpoints) != len(declared_cuts):

@@ -95,10 +95,9 @@ class PairedGateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'RECIPE_CHANGED'):
             self.run_prepare()
 
-    def test_timestamp_cannot_be_added_to_committed_recipe(self):
+    def test_empty_output_contract_cannot_be_added_to_committed_recipe(self):
         spec = self.plan['entries'][0]['schedule']
-        spec['empty_output'] = {'lastVoteTimestamp': 1}
-        spec['legacy_empty_timestamp'] = {'legacy': 0, 'python': 1}
+        spec['empty_output'] = {'lastVoteTimestamp': 0}
         spec['cuts']['empty_checkpoint'] = True
         spec['cuts']['at'].insert(0, 0)
         self.write_plan()
@@ -229,8 +228,7 @@ class EmptyOutputGateTests(unittest.TestCase):
         result = gate.verify_pairs([self.expected], self.recordings, self.scratch)
         self.assertEqual(result['verdict'], 'PASS')
         defect = [{'name': 'legacy-defect-empty-omits-keys',
-                  'keys': sorted(self.expected.spec.legacy_absent_keys), 'checkpoints': [0]},
-                 {'name': 'legacy-defect-empty-timestamp', 'legacy': 0, 'python': 1, 'checkpoints': [0]}]
+                  'keys': sorted(self.expected.spec.legacy_absent_keys), 'checkpoints': [0]}]
         self.assertEqual(result['entries'][0]['legacy_defects'], defect)
         self.assertTrue(result['entries'][0]['g12']['authoritative_g12'])
         self.assertIn('unnormalized', result['entries'][0]['g12']['legacy_diagnostic']['note'])
@@ -303,36 +301,17 @@ class EmptyOutputGateTests(unittest.TestCase):
                         gate.g12.measure_main_blob(self.rec, gate.REPO / 'delphi', expected=self.expected)
                     self.assertEqual(caught.exception.stage, 'empty-output')
 
-    def test_timestamp_declaration_is_required_and_never_applies_at_nonzero_cut(self):
-        import copy
-        from dataclasses import replace
-        self.expected = replace(self.expected, spec=replace(self.expected.spec, legacy_empty_timestamp=None))
+    def test_differing_present_timestamp_is_refused_like_any_other_empty_value(self):
+        # The replay driver floors an empty conversation's clock to 0, so the
+        # declared empty_output is 0 for both engines and lastVoteTimestamp has
+        # no reconciliation of its own: a legacy 0 / Python 1 pair is simply a
+        # present value that does not satisfy the contract.
+        self.assertEqual(self.expected.spec.empty_output['lastVoteTimestamp'], 0)
+        self.assertEqual(self.checkpoint['cut_slot'], 0)
+        self.assertNotIn('lastVoteTimestamp', self.expected.spec.legacy_absent_keys)
+        self.clj['lastVoteTimestamp'], self.py['lastVoteTimestamp'] = 0, 1
         self.write()
         self.assert_refused()
-        self.expected = replace(self.expected, spec=replace(self.expected.spec,
-                                legacy_empty_timestamp={'legacy': 0, 'python': 1}))
-        # Supply all other fields so failure proves timestamp comparison remains.
-        self.clj = copy.deepcopy(self.py)
-        self.clj['lastVoteTimestamp'] = 0
-        self.checkpoint.update(cut_slot=1, batch_size=1)
-        self.write()
-        result = gate.verify_pairs([self.expected], self.recordings, self.scratch)
-        self.assertEqual(result['verdict'], 'FAIL')
-        self.assertFalse(result['entries'][0]['g12']['authoritative_g12'])
-        self.assertNotIn('legacy_defects', result['entries'][0]['strict']['per_step'][0])
-
-    def test_timestamp_missing_wrong_or_reversed_pair_refused(self):
-        for engine in ('clj', 'py'):
-            for value in (None, True, 0.0, 2, 'missing', 1 if engine == 'clj' else 0):
-                with self.subTest(engine=engine, value=value):
-                    self.clj['lastVoteTimestamp'], self.py['lastVoteTimestamp'] = 0, 1
-                    blob = self.clj if engine == 'clj' else self.py
-                    if value == 'missing':
-                        blob.pop('lastVoteTimestamp')
-                    else:
-                        blob['lastVoteTimestamp'] = value
-                    self.write()
-                    self.assert_refused()
 
     def test_each_nested_omission_requires_its_own_declaration(self):
         from dataclasses import replace
