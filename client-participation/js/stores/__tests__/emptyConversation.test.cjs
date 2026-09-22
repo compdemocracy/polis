@@ -107,7 +107,7 @@ function fixture(math) {
     { filename }
   );
   const store = module.exports({
-    conversation_id: "synthetic",
+    conversation_id: "public-fixture",
     votesByMe: { map: () => [] },
     logger: { error: (...a) => warnings.push(a) }
   });
