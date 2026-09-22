@@ -50,7 +50,7 @@ beforeEach(() => {
     if (url.endsWith("/conversations"))
       return { conversation_id: "public-fixture", participant_count: 0 };
     if (url.endsWith("/comments"))
-      return [{ tid: 0, pid: 0, txt: "Synthetic", count: 0, pass_count: 0 }];
+      return [{ tid: 0, pid: 0, txt: "Public fixture", count: 0, pass_count: 0 }];
     if (url.endsWith("/ptptois")) return [];
     return {};
   });

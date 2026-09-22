@@ -19,12 +19,12 @@ jest.mock("./topicsVizReport/TopicsVizReport", () => () => null);
 jest.mock("./topicReport/TopicReport", () => () => null);
 jest.mock("./topicScatterplot/TopicScatterplot", () => () => <div data-testid="scatter" />);
 const props = {
-  conversation: { conversation_id: "synthetic" },
+  conversation: { conversation_id: "public-fixture" },
   comments: [
     {
       tid: 0,
       pid: 0,
-      txt: "Synthetic statement",
+      txt: "Public fixture statement",
       count: 0,
       agree_count: 0,
       disagree_count: 0,
@@ -140,13 +140,13 @@ test("topic page reports empty visualization for explicit empty consensus", asyn
     if (url.endsWith("/delphi"))
       return {
         status: "success",
-        runs: { a: { topics_by_layer: { 0: { 0: { topic_key: "t", topic_name: "Synthetic" } } } } },
+        runs: { a: { topics_by_layer: { 0: { 0: { topic_key: "t", topic_name: "Public fixture" } } } } },
       };
     if (url.endsWith("/topicStats"))
       return { status: "success", stats: { t: { comment_tids: [0] } } };
     return { status: "success", statements: [] };
   });
-  render(<TopicPage {...props} report_id="synthetic" topic_key="t" math={emptyMath()} />);
+  render(<TopicPage {...props} report_id="public-fixture" topic_key="t" math={emptyMath()} />);
   await waitFor(() =>
     expect(screen.getAllByText("No data available for visualization").length).toBeGreaterThan(0)
   );
