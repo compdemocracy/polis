@@ -227,7 +227,7 @@ def empty_contract_payloads(conv, zid, main):
         "comment-priorities": {}, "repness": {},
         "meta-tids": sorted(conv.meta_tids),
         "lastModTimestamp": conv.last_mod_timestamp})
-    apply_empty_contract(main)
+    apply_empty_contract(main, mod_in=conv.mod_in_tids, mod_out=conv.mod_out_tids)
     bid = {"zid": zid, "bidToPid": [], "lastVoteTimestamp": 0}
     stats = {"zid": zid, "ptptstats": {}, "lastVoteTimestamp": 0}
     return main, bid, stats

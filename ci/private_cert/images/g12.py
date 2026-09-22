@@ -703,7 +703,7 @@ def measure_main_blob(entry_dir: Path, repo_delphi: Path, *, expected=None) -> d
     sys.path.insert(0, str(repo_delphi))
     from polismath.replay import crosslang
     from polismath.replay.certify import (project_acceptance, _acceptance_projecting_comparer,
-                                        checkpoint_acceptance_projection,
+                                        paired_checkpoint_projections,
                                         validate_recording_inventory)
     from polismath.replay.stepcompare import compare_recordings
 
@@ -741,8 +741,7 @@ def measure_main_blob(entry_dir: Path, repo_delphi: Path, *, expected=None) -> d
             A, B = project_acceptance(cb), project_acceptance(py_blob)
         else:
             checkpoint = expected.checkpoints[i]
-            A = checkpoint_acceptance_projection(cb, 'clj', expected, checkpoint)
-            B = checkpoint_acceptance_projection(py_blob, 'py', expected, checkpoint)
+            A, B = paired_checkpoint_projections(cb, py_blob, expected, checkpoint)
         pca_a, pca_b = A.get("pca"), B.get("pca")
         s = infer_axis_sign(pca_a["comps"], pca_b["comps"]) if pca_a and pca_b else None
         axis = Axis(s, d)

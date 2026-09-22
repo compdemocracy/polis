@@ -1304,3 +1304,43 @@ def test_nested_omission_strict_cache_observation_and_nonzero_refusal(tmp_path, 
         with pytest.raises(cert.CertifyError, match='empty_output'):
             cert.compare_recording_pair(clj_dir, py_dir, cache_root=tmp_path, expected=undeclared)
     assert before == {p: p.read_bytes() for p in before}
+
+
+@pytest.mark.parametrize("lists", [([], []), ([2, 7], [3, 8])])
+@pytest.mark.parametrize("omitted", [[], ["mod-in"], ["mod-out"], ["mod-in", "mod-out"]])
+def test_zero_moderation_lists_are_dynamic_and_missing_legacy_is_observed(battery, tmp_path, lists, omitted):
+    _, state, root, ds, run = battery
+    ds.votes.clear()
+    entry = make_schedule(tmp_path, [0], cuts={"mode": "vote-count", "at": [0], "empty_checkpoint": True},
+                          empty_output=EMPTY, legacy_absent_moderation=["mod-in", "mod-out"])
+    def mutate(engine, step, blob):
+        blob.update(dict(zip(["mod-in", "mod-out"], lists)))
+        if engine == "clj":
+            for key in omitted:
+                blob.pop(key)
+        return blob
+    state["mutate_blob"] = mutate
+    for _ in range(2):
+        report = run([entry])
+        assert_pass(report)
+        observed = report["battery"][0].get("legacy_defects", [])
+        assert observed == ([{"step": 0, "name": "legacy-defect-empty-omits-keys", "keys": omitted}] if omitted else [])
+    assert state["calls"] == 2
+
+
+@pytest.mark.parametrize("engine,value", [("py", None), ("clj", None), ("py", "missing"), ("clj", [99])])
+def test_zero_moderation_lists_refuse_bad_python_and_present_legacy_differences(battery, tmp_path, engine, value):
+    _, state, _, ds, run = battery
+    ds.votes.clear()
+    entry = make_schedule(tmp_path, [0], cuts={"mode": "vote-count", "at": [0], "empty_checkpoint": True},
+                          empty_output=EMPTY, legacy_absent_moderation=["mod-in", "mod-out"])
+    def mutate(current, step, blob):
+        blob.update({"mod-in": [2], "mod-out": []})
+        if current == engine:
+            if value == "missing":
+                blob.pop("mod-in")
+            else:
+                blob["mod-in"] = value
+        return blob
+    state["mutate_blob"] = mutate
+    assert run([entry])["verdict"] != "PASS"

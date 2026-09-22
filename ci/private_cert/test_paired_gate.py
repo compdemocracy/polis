@@ -95,6 +95,16 @@ class PairedGateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'RECIPE_CHANGED'):
             self.run_prepare()
 
+    def test_moderation_omission_cannot_be_added_to_committed_recipe(self):
+        spec = self.plan['entries'][0]['schedule']
+        spec['empty_output'] = {'n': 0}
+        spec['legacy_absent_moderation'] = ['mod-in', 'mod-out']
+        spec['cuts']['empty_checkpoint'] = True
+        spec['cuts']['at'].insert(0, 0)
+        self.write_plan()
+        with self.assertRaisesRegex(ValueError, 'RECIPE_CHANGED'):
+            self.run_prepare()
+
     def test_empty_output_contract_cannot_be_added_to_committed_recipe(self):
         spec = self.plan['entries'][0]['schedule']
         spec['empty_output'] = {'lastVoteTimestamp': 0}
@@ -208,7 +218,7 @@ class EmptyOutputGateTests(unittest.TestCase):
         (self.rec / 'clj').mkdir(parents=True)
         (self.rec / 'py').mkdir()
         self.clj = {'pca': {'comps': [[1.0], [1.0]]}, 'lastVoteTimestamp': 0}
-        self.py = {'pca': {'comps': [[1.0], [1.0]]}}
+        self.py = {'pca': {'comps': [[1.0], [1.0]]}, 'mod-in': [], 'mod-out': []}
         for key, value in spec.empty_output.items():
             if key.startswith('pca.'):
                 self.py['pca'][key.split('.')[1]] = value
@@ -225,10 +235,10 @@ class EmptyOutputGateTests(unittest.TestCase):
 
     def test_declared_empty_omission_is_named_and_raw_bytes_stay_unchanged(self):
         before = gate.regular_tree(self.recordings)
-        result = gate.verify_pairs([self.expected], self.recordings, self.scratch)
+        result = gate.verify_pairs([self.expected], self.recordings, Path(tempfile.mkdtemp(dir=self.root)))
         self.assertEqual(result['verdict'], 'PASS')
         defect = [{'name': 'legacy-defect-empty-omits-keys',
-                  'keys': sorted(self.expected.spec.legacy_absent_keys), 'checkpoints': [0]}]
+                  'keys': sorted(self.expected.spec.legacy_absent_keys + self.expected.spec.legacy_absent_moderation), 'checkpoints': [0]}]
         self.assertEqual(result['entries'][0]['legacy_defects'], defect)
         self.assertTrue(result['entries'][0]['g12']['authoritative_g12'])
         self.assertIn('unnormalized', result['entries'][0]['g12']['legacy_diagnostic']['note'])
@@ -302,7 +312,7 @@ class EmptyOutputGateTests(unittest.TestCase):
                     blob['pca'][leaf] = value
                     self.write()
                     with self.assertRaises(gate.certify.CertifyError) as caught:
-                        gate.verify_pairs([self.expected], self.recordings, self.scratch)
+                        gate.verify_pairs([self.expected], self.recordings, Path(tempfile.mkdtemp(dir=self.root)))
                     self.assertEqual(caught.exception.stage, 'empty-output')
                     with self.assertRaises(gate.certify.CertifyError) as caught:
                         gate.g12.measure_main_blob(self.rec, gate.REPO / 'delphi', expected=self.expected)
@@ -337,13 +347,70 @@ class EmptyOutputGateTests(unittest.TestCase):
         self.clj['pca'] = {'comps': [[1.0], [1.0]]}
         self.py['pca']['comps'] = [[1.0], [2.0]]
         self.write()
-        result = gate.verify_pairs([self.expected], self.recordings, self.scratch)
+        result = gate.verify_pairs([self.expected], self.recordings, Path(tempfile.mkdtemp(dir=self.root)))
         self.assertEqual(result['verdict'], 'FAIL')
         self.assertFalse(result['entries'][0]['g12']['authoritative_g12'])
 
+    def test_moderation_omitted_or_emitted_with_and_without_moderated_comments(self):
+        for lists in (([], []), ([2, 7], [3, 8])):
+            for omitted in ([], ['mod-in'], ['mod-out'], ['mod-in', 'mod-out']):
+                with self.subTest(lists=lists, omitted=omitted):
+                    self.py.update(dict(zip(['mod-in', 'mod-out'], lists)))
+                    self.clj = copy.deepcopy(self.py)
+                    for key in omitted:
+                        self.clj.pop(key)
+                    self.write()
+                    before = gate.regular_tree(self.recordings)
+                    result = gate.verify_pairs([self.expected], self.recordings, Path(tempfile.mkdtemp(dir=self.root)))
+                    self.assertEqual(result['verdict'], 'PASS')
+                    self.assertTrue(result['entries'][0]['g12']['authoritative_g12'])
+                    observed = result['entries'][0]['strict']['per_step'][0].get('legacy_defects', [])
+                    self.assertEqual(observed, ([{'name': 'legacy-defect-empty-omits-keys',
+                        'keys': omitted}] if omitted else []))
+                    self.assertEqual(gate.regular_tree(self.recordings), before)
+
+    def test_moderation_present_difference_and_null_are_not_reconciled(self):
+        self.py.update({'mod-in': [2], 'mod-out': []})
+        for wrong in ([3], [], None):
+            with self.subTest(wrong=wrong):
+                self.clj = copy.deepcopy(self.py)
+                self.clj['mod-in'] = wrong
+                self.write()
+                if wrong is None:
+                    self.assert_refused()
+                else:
+                    result = gate.verify_pairs([self.expected], self.recordings, Path(tempfile.mkdtemp(dir=self.root)))
+                    self.assertEqual(result['verdict'], 'FAIL')
+                    self.assertFalse(result['entries'][0]['g12']['authoritative_g12'])
+
+    def test_dynamic_omission_requires_declaration_and_zero_cut(self):
+        from dataclasses import replace
+        self.clj = copy.deepcopy(self.py)
+        self.clj.pop('mod-in')
+        original = self.expected
+        self.expected = replace(original, spec=replace(original.spec, legacy_absent_moderation=[]))
+        self.write()
+        self.assertEqual(gate.verify_pairs([self.expected], self.recordings, Path(tempfile.mkdtemp(dir=self.root)))['verdict'], 'FAIL')
+        self.expected = original
+        self.checkpoint.update(cut_slot=1, batch_size=1)
+        self.write()
+        result = gate.verify_pairs([self.expected], self.recordings, Path(tempfile.mkdtemp(dir=self.root)))
+        self.assertEqual(result['verdict'], 'FAIL')
+        self.assertFalse(result['entries'][0]['g12']['authoritative_g12'])
+
+    def test_python_moderation_must_be_lists_even_if_both_engines_omit_or_null(self):
+        for bad in (None, 'missing', [True], [1.5]):
+            with self.subTest(bad=bad):
+                self.py['mod-in'] = bad
+                if bad == 'missing':
+                    self.py.pop('mod-in')
+                self.clj = copy.deepcopy(self.py)
+                self.write()
+                self.assert_refused()
+
     def assert_refused(self):
         with self.assertRaises(gate.certify.CertifyError):
-            gate.verify_pairs([self.expected], self.recordings, self.scratch)
+            gate.verify_pairs([self.expected], self.recordings, Path(tempfile.mkdtemp(dir=self.root)))
         with self.assertRaises(gate.certify.CertifyError):
             gate.g12.measure_main_blob(self.rec, gate.REPO / 'delphi', expected=self.expected)
 

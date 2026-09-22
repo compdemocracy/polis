@@ -50,7 +50,10 @@ replay driver floors an empty conversation's clock to 0 exactly as the
 production poller does; it is compared like any other present value.
 The supervisor rejects arbitrary names, keys, values and additional fields;
 absent observations add no receipt field. Python and any present legacy omission
-field must equal the declared empty-compute value exactly. The reconciliation
+compute field must equal the declared empty-compute value exactly. The separate
+closed `legacy_absent_moderation: ["mod-in", "mod-out"]` declaration permits
+legacy omission of those dynamic lists only; Python emits sorted lists, and
+present legacy lists compare normally. Both declarations bind recipe/cache identity. The reconciliation
 never applies at nonzero checkpoints. Receipt
 validators on the supervisor and operator must be updated alongside the images.
 Stages and recovery remain diagnostics; this scoped result does not authorize

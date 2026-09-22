@@ -73,13 +73,24 @@ class BoundaryTests(unittest.TestCase):
         from receipt import LEGACY_EMPTY_KEYS
         raw = json.loads((Path(__file__).resolve().parents[2] /
                           'delphi/scripts/schedules/pc-zerovote-01-empty.json').read_text())
-        self.assertEqual(LEGACY_EMPTY_KEYS, set(raw['legacy_absent_keys']))
+        self.assertEqual(LEGACY_EMPTY_KEYS, set(raw['legacy_absent_keys'] + raw['legacy_absent_moderation']))
         self.assertEqual(len(LEGACY_EMPTY_KEYS), 15)
         for make in (receipt, sampled_receipt):
             r = make()
             r['entries'][0]['legacy_defects'] = [
                 {'name': 'legacy-defect-empty-omits-keys', 'keys': sorted(LEGACY_EMPTY_KEYS)}]
             self.assertEqual(decode_receipt(canonical(r), job()), r)
+
+    def test_moderation_omission_receipt_exports_keys_without_values(self):
+        for make in (receipt, sampled_receipt):
+            for keys in (['mod-in'], ['mod-out'], ['mod-in', 'mod-out']):
+                r = make()
+                r['entries'][0]['legacy_defects'] = [
+                    {'name': 'legacy-defect-empty-omits-keys', 'keys': keys}]
+                self.assertEqual(decode_receipt(canonical(r), job()), r)
+                r['entries'][0]['legacy_defects'][0]['values'] = [2, 7]
+                with self.assertRaises(ValueError):
+                    decode_receipt(canonical(r), job())
 
     def test_only_the_omission_defect_name_is_accepted(self):
         """An empty conversation reports lastVoteTimestamp 0 from both engines

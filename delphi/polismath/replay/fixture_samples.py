@@ -137,11 +137,12 @@ def resolved_spec(alias, dataset):
     # A zero-vote production conversation is admitted under the same committed
     # empty-output contract as the public zero-vote fixture, including the
     # declared legacy omissions; the engines' empty outputs are reconciled once.
-    from polismath.empty_output import empty_contract, legacy_absent_keys
+    from polismath.empty_output import empty_contract, legacy_absent_keys, legacy_absent_moderation
     return ScheduleSpec(dataset=alias, schedule_id=SCHEDULE_ID, source="events-jsonl",
                         cuts=cuts, moderation="source-final-state", coverage="full-stream",
                         empty_output=None if n else empty_contract(),
                         legacy_absent_keys=[] if n else list(legacy_absent_keys()),
+                        legacy_absent_moderation=[] if n else list(legacy_absent_moderation()),
                         notes="Uniform ceiling-six full stream; current source moderation at final checkpoint, not historical moderation.")
 
 

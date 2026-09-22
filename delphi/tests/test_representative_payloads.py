@@ -122,9 +122,11 @@ def test_ceiling_six_exact_full_stream_and_final_state_even_at_tied_times(tmp_pa
         from polismath.empty_output import empty_contract, legacy_absent_keys
         assert spec.empty_output==empty_contract()
         assert spec.legacy_absent_keys==list(legacy_absent_keys())
+        assert spec.legacy_absent_moderation==["mod-in", "mod-out"]
         assert spec.empty_output['n']==0 and spec.empty_output['tids']==[] and spec.empty_output['lastVoteTimestamp']==0
     else:
         assert spec.empty_output is None and spec.legacy_absent_keys==[]
+        assert spec.legacy_absent_moderation==[]
 
 
 def plan_bundle(tmp_path,monkeypatch):

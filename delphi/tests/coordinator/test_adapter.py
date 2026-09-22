@@ -45,6 +45,7 @@ def test_contract_empty_snapshot(tmp_path):
         for key in path.split("."):
             value = value[key]
         assert json.dumps(value, sort_keys=True) == json.dumps(expected, sort_keys=True), path
+    assert main["mod-in"] == main["mod-out"] == []
     assert main["lastVoteTimestamp"]==0
     assert json.loads((worker.output_root/"checkpoint-000/bidtopid.json").read_text())==dict(zid="public-fixture-empty",bidToPid=[],lastVoteTimestamp=0)
 

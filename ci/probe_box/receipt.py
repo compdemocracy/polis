@@ -41,7 +41,7 @@ def finite(value: object) -> float:
     return value
 
 
-# Must equal the committed pc-zerovote-01 empty schedule's omission list.
+# Union of the committed empty schedule's constant and moderation omissions.
 # This boundary deliberately has no engine imports or runtime recipe loading.
 LEGACY_EMPTY_KEYS = frozenset({
     "consensus", "group-aware-consensus", "group-clusters", "group-votes",
