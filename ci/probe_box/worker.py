@@ -1,4 +1,4 @@
-"""Baked supervisor. Only a validated verifier receipt may leave this machine."""
+"""Baked supervisor. Exports only validated receipts and closed diagnostics."""
 from __future__ import annotations
 import atexit
 import signal
@@ -224,6 +224,49 @@ def failure_record(stage: str, error: BaseException, relay: object = None) -> di
 # These values describe supervisor operations, never candidate-supplied strings.
 STAGES = frozenset({'images', 'secret', 'reader', 'producer', 'verifier', 'receipt', 'boot'})
 WORKER_PHASES = frozenset({'start', 'prepare', 'download', 'load', 'execute', 'validate', 'publish'})
+PULSE_ERRORS = frozenset({'AccessDenied', 'AccessDeniedException', 'UnauthorizedOperation',
+    'ExpiredToken', 'ExpiredTokenException', 'InvalidClientTokenId', 'InvalidToken',
+    'RequestExpired', 'RequestTimeTooSkewed', 'SignatureDoesNotMatch', 'RequestTimeout',
+    'RequestTimeoutException', 'SlowDown', 'Throttling', 'ThrottlingException',
+    'RequestLimitExceeded', 'ServiceUnavailable', 'InternalError', 'KMSAccessDeniedException',
+    'EndpointConnectionError', 'ConnectTimeoutError', 'ReadTimeoutError', 'ConnectionClosedError',
+    'HTTPClientError', 'SSLError', 'ProxyConnectionError', 'NoCredentialsError',
+    'PartialCredentialsError', 'CredentialRetrievalError', 'MetadataRetrievalError',
+    'ClientError', 'TimeoutError', 'ConnectionError', 'OSError', 'RuntimeError',
+    'ValueError', 'UnknownError'})
+EXPIRY_BUCKETS = frozenset({'unknown', 'expired', 'le-5m', 'le-15m', 'le-30m', 'le-60m', 'gt-60m'})
+PULSE_TAG = 'polis-probe-pulse'
+
+
+def pulse_error(error):
+    """Only reviewed codes/classes; never SDK messages, URLs or credential values."""
+    response = getattr(error, 'response', None)
+    detail = response.get('Error') if isinstance(response, dict) else None
+    code = detail.get('Code') if isinstance(detail, dict) else None
+    if isinstance(code, str) and code in PULSE_ERRORS:
+        return code
+    name = type(error).__name__
+    return name if name in PULSE_ERRORS else 'UnknownError'
+
+
+def credential_expiry(client, now=None):
+    """Inspect the signing client's cached expiry, without initiating a refresh.
+
+    Botocore has no public expiry accessor. Fail closed to unknown if the pinned
+    SDK's internal shape changes. Never access the key, token or metadata body.
+    """
+    try:
+        expiry = client._request_signer._credentials._expiry_time
+        if not isinstance(expiry, dt.datetime) or expiry.tzinfo is None:
+            return 'unknown'
+        remaining = expiry.timestamp() - (time.time() if now is None else now)
+        for ceiling, token in ((0, 'expired'), (300, 'le-5m'), (900, 'le-15m'),
+                               (1800, 'le-30m'), (3600, 'le-60m')):
+            if remaining <= ceiling:
+                return token
+        return 'gt-60m'
+    except Exception:
+        return 'unknown'
 
 
 class WorkerTerminated(BaseException):
@@ -240,6 +283,10 @@ class Diagnostics:
     def __init__(self):
         self.state = ('boot', 'start')
         self.counter = 0
+        self.tag_counter = 0
+        self.last_error = None
+        self.ec2 = None
+        self.tag_lock = threading.Lock()
         self.relay = None
         self.sink = None
         self.lock = threading.RLock()
@@ -251,22 +298,58 @@ class Diagnostics:
                            SSEKMSKeyId=encryption_key)
         self.sink = sink
 
+    def bind_liveness(self, ec2, instance_id):
+        self.ec2, self.instance_id = ec2, instance_id
+
     def enter(self, stage, phase):
         if stage not in STAGES or phase not in WORKER_PHASES:
             raise ValueError('DIAGNOSTIC_STATE')
         self.state = (stage, phase)
 
     def pulse(self):
-        with self.lock:
+        # A stage change must not wait behind a stuck heartbeat request.
+        if not self.lock.acquire(blocking=False):
+            return
+        try:
             if self.stop.is_set() or self.sink is None:
                 return
             stage, phase = self.state
             self.counter += 1
+            body = {'stage': stage, 'pulse': self.counter, 'phase': phase,
+                    'credential_expiry': credential_expiry(self.sink)}
+            if self.last_error:
+                body['last_error'] = self.last_error
             try:
-                self.sink.put_object(**self.target, Body=canonical(
-                    {'stage': stage, 'pulse': self.counter, 'phase': phase}))
-            except Exception:
-                pass
+                self.sink.put_object(**self.target, Body=canonical(body))
+            except Exception as error:
+                self.last_error = pulse_error(error)
+        finally:
+            self.lock.release()
+
+    def tag_pulse(self):
+        # Independent lock, counter, SDK session and loop: even a blocked S3
+        # request/credential refresh cannot prevent another tag pulse.
+        if not self.tag_lock.acquire(blocking=False):
+            return
+        try:
+            if self.stop.is_set() or self.ec2 is None:
+                return
+            stage, phase = self.state
+            self.tag_counter += 1
+            value = f'{self.tag_counter}:{stage}:{phase}'
+            if self.last_error:
+                value += ':' + self.last_error
+            try:
+                self.ec2.create_tags(Resources=[self.instance_id], Tags=[{'Key': PULSE_TAG, 'Value': value}])
+            except Exception as error:
+                self.last_error = pulse_error(error)
+        finally:
+            self.tag_lock.release()
+
+    def tag_heartbeat(self):
+        while not self.stop.is_set():
+            self.tag_pulse()
+            self.stop.wait(60)
 
     def heartbeat(self):
         while not self.stop.is_set():
@@ -352,6 +435,14 @@ def run(diagnostics=None) -> None:
     if (identity['accountId'],identity['region']) != (boot_config['account'],boot_config['region']):
         raise ValueError('BOOT_IDENTITY')
     arn = f'arn:aws:ec2:{identity["region"]}:{identity["accountId"]}:instance/{identity["instanceId"]}'
+    if 'ec2Url' in boot_config:
+        # Separate Session gives EC2 its own refreshable credentials and lock.
+        # The endpoint is fixed by the reviewed launch template, never the job.
+        ec2 = boto3.Session().client('ec2', region_name=identity['region'],
+            endpoint_url=boot_config['ec2Url'], config=Config(
+                connect_timeout=5, read_timeout=10, retries={'total_max_attempts': 1}))
+        diagnostics.bind_liveness(ec2, identity['instanceId'])
+        threading.Thread(target=diagnostics.tag_heartbeat, daemon=True).start()
     s3 = boto3.client('s3',region_name=identity['region'],config=Config(s3={'us_east_1_regional_endpoint':'regional','addressing_style':'virtual'}))
     diagnostic_s3 = boto3.client('s3',region_name=identity['region'],config=Config(
         connect_timeout=5, read_timeout=10, retries={'total_max_attempts': 1},

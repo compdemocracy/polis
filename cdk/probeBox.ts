@@ -56,7 +56,7 @@ export class ProbeBox extends Construct {
     const routes = new ec2.CfnRouteTable(this, 'Routes', {vpcId: a.vpcId});
     new ec2.CfnSubnetRouteTableAssociation(this, 'RouteAssociation', {routeTableId: routes.ref, subnetId: subnet.ref});
     const endpointSg = new ec2.CfnSecurityGroup(this, 'EndpointSg', {vpcId: a.vpcId,
-      groupDescription: 'Probe Secrets Manager endpoint', securityGroupEgress: []});
+      groupDescription: 'Probe private API endpoints', securityGroupEgress: []});
     const workerSg = new ec2.CfnSecurityGroup(this, 'WorkerSg', {vpcId: a.vpcId,
       groupDescription: 'Probe: no ingress; replica, private assets and receipt only',
       securityGroupEgress: [
@@ -100,6 +100,23 @@ export class ProbeBox extends Construct {
       role.addToPolicy(new iam.PolicyStatement({actions: action, resources: resource, conditions}));
     const vpce = {StringEquals: {'aws:SourceVpce': endpoint.ref}};
     const own = '${ec2:SourceInstanceARN}';
+    // The target's InstanceID must equal the instance whose role credentials
+    // signed the request. Box-tag scoping alone would allow tagging a sibling.
+    const pulseConditions = {
+      ArnEquals: {'ec2:SourceInstanceARN': `arn:aws:ec2:${a.region}:${a.account}:instance/`+'${ec2:InstanceID}'},
+      StringEquals: {'ec2:ResourceTag/polis:probe-box': a.id},
+      'ForAllValues:StringEquals': {'aws:TagKeys': ['polis-probe-pulse']},
+      Null: {'aws:RequestTag/polis-probe-pulse': 'false'}};
+    const pulseResource = `arn:aws:ec2:${a.region}:${a.account}:instance/*`;
+    const pulseEndpoint = new ec2.CfnVPCEndpoint(this, 'PulseEndpoint', {vpcId: a.vpcId,
+      vpcEndpointType: 'Interface', privateDnsEnabled: false, subnetIds: [subnet.ref],
+      securityGroupIds: [endpointSg.attrGroupId], serviceName: `com.amazonaws.${a.region}.ec2`,
+      policyDocument: {Version: '2012-10-17', Statement: [{Effect: 'Allow',
+        Principal: {AWS: worker.roleArn}, Action: 'ec2:CreateTags', Resource: pulseResource,
+        Condition: pulseConditions}]}});
+    const pulseHost = cdk.Fn.select(1, cdk.Fn.split(':', cdk.Fn.select(0, pulseEndpoint.attrDnsEntries)));
+    statement(worker, ['ec2:CreateTags'], [pulseResource], {...pulseConditions,
+      StringEquals: {...pulseConditions.StringEquals, 'aws:SourceVpce': pulseEndpoint.ref}});
     // IAM binds encryption/key/creation semantics, not object size or JSON shape.
     // The supervisor must continue enforcing body bounds and closed schemas.
     const encryptedWrite = {'aws:SourceVpce': endpoint.ref,
@@ -153,7 +170,8 @@ export class ProbeBox extends Construct {
       StringEquals:{'kms:ViaService':`s3.${a.region}.amazonaws.com`},
       StringLike:{'kms:EncryptionContext:aws:s3:arn':[control.arnForObjects('*'),evidence.arnForObjects('results/*/receipt.json')]}});
     const boot = {mode:'worker',account:a.account,region:a.region,controlBucket:control.bucketName,
-      dnsNames:[a.replicaHost,secretHost,...[control,evidence,assets].map(b=>`${b.bucketName}.s3.${a.region}.amazonaws.com`)],resolver:a.resolverAddress};
+      ec2Url: `https://${pulseHost}`,
+      dnsNames:[a.replicaHost,secretHost,pulseHost,...[control,evidence,assets].map(b=>`${b.bucketName}.s3.${a.region}.amazonaws.com`)],resolver:a.resolverAddress};
     // Only root reads this public boot configuration. No code or credentials in user-data.
     const template = new ec2.CfnLaunchTemplate(this,'Template',{launchTemplateData:{imageId:a.ami,instanceType:'r8g.4xlarge',
       iamInstanceProfile:{arn:profile.attrArn},metadataOptions:{httpTokens:'required',httpPutResponseHopLimit:1},
@@ -195,6 +213,9 @@ export class ProbeBox extends Construct {
       alarm.addAlarmAction(new actions.SnsAction(topic));
     }
     statement(operator,['cloudwatch:PutMetricAlarm','cloudwatch:DeleteAlarms'],[`arn:aws:cloudwatch:${a.region}:${a.account}:alarm:${a.id}-worker-*`]);
+    // GetMetricStatistics has no resource-level IAM support. The operator asks
+    // only for the fully owned instance's CPUUtilization over the last 5 minutes.
+    statement(operator,['cloudwatch:GetMetricStatistics'],['*']);
     const common = {BOX_ID:a.id,ACCOUNT:a.account,REGION:a.region,AMI:a.ami,CONTROL_BUCKET:control.bucketName,
       EVIDENCE_BUCKET:evidence.bucketName,ASSET_BUCKET:assets.bucketName,CONTROL_KEY:key.keyArn,SUBNET:subnet.ref,
       ENDPOINT:endpoint.ref,SECRET_ARN:readerSecret.secretArn,DATABASE:a.database,SECRETS_URL:`https://${secretHost}`,

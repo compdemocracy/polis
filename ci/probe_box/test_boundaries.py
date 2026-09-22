@@ -210,8 +210,8 @@ class WorkerRecordingTests(unittest.TestCase):
         d.enter('producer', 'execute')
         d.pulse()
         self.assertEqual([json.loads(c.kwargs['Body']) for c in sink.put_object.call_args_list],
-            [{'stage': 'reader', 'pulse': 1, 'phase': 'execute'},
-             {'stage': 'producer', 'pulse': 2, 'phase': 'execute'}])
+            [{'stage': 'reader', 'pulse': 1, 'phase': 'execute', 'credential_expiry': 'unknown'},
+             {'stage': 'producer', 'pulse': 2, 'phase': 'execute', 'credential_expiry': 'unknown'}])
         d.fail(ValueError('PROBE_EXECUTION_FAILED'))
         d.pulse(); d.terminated()
         self.assertEqual(sink.put_object.call_count, 3)
@@ -359,14 +359,18 @@ else:
         secret.get_secret_value.return_value = {'SecretString': json.dumps(
             {'username': 'polis_probe_reader', 'password': 'public-fixture-only'})}
         if failing_stage == 'secret': secret.get_secret_value.side_effect = ValueError('READER_SECRET')
-        sdk = SimpleNamespace(client=lambda name, **kw: sink if name == 's3' else secret)
+        ec2 = Mock()
+        isolated = Mock(); isolated.client.return_value = ec2
+        sdk = SimpleNamespace(client=lambda name, **kw: sink if name == 's3' else secret,
+                              Session=Mock(return_value=isolated))
         relay = Mock()
         relay.__enter__ = Mock(return_value=relay)
         relay.__exit__ = Mock(side_effect=lambda *a: events.append(('relay-cleanup', None)) or False)
         relay.summary.return_value = {'relayed': 1}
         with tempfile.TemporaryDirectory() as tmp, ExitStack() as stack:
             root = Path(tmp)
-            (root/'bootstrap.json').write_bytes(canonical(dict(account='111111111111', region='us-east-1', controlBucket='control')))
+            (root/'bootstrap.json').write_bytes(canonical(dict(account='111111111111', region='us-east-1', controlBucket='control',
+                ec2Url='https://public-fixture.ec2.vpce.amazonaws.com')))
             def command(argv, **kw):
                 if argv[0] == 'systemctl': events.append(('poweroff', None))
                 elif 'rm' in argv: events.append(('container-cleanup', None))
@@ -383,11 +387,18 @@ else:
             stack.enter_context(patch.object(worker.os, 'chown'))
             stack.enter_context(patch.object(worker.time, 'time', return_value=1000))
             stack.enter_context(patch.object(worker.shutil, 'disk_usage', return_value=SimpleNamespace(free=128*1024**3)))
-            stack.enter_context(patch.object(worker.threading, 'Thread'))
+            threads = stack.enter_context(patch.object(worker.threading, 'Thread'))
             stack.enter_context(patch.object(worker.subprocess, 'run', side_effect=command))
             stack.enter_context(patch.object(worker.subprocess, 'check_output', side_effect=lambda *a, **k:
                 canonical([{'State': {'ExitCode': int(d.state[0] == failing_stage), 'OOMKilled': False}}])))
             worker.main()
+            sdk.Session.assert_called_once_with()
+            isolated.client.assert_called_once_with('ec2', region_name='us-east-1',
+                endpoint_url='https://public-fixture.ec2.vpce.amazonaws.com',
+                config={'connect_timeout': 5, 'read_timeout': 10, 'retries': {'total_max_attempts': 1}})
+            self.assertIn(d.tag_heartbeat, [call.kwargs['target'] for call in threads.call_args_list])
+            self.assertIs(d.ec2, ec2)
+            self.assertTrue(d.stop.is_set())
         return events, canonical(r)
 
     def test_actual_worker_pipeline_records_every_stage_before_cleanup(self):
@@ -413,3 +424,107 @@ else:
         self.assertEqual([p['pulse'] for p in pulses], list(range(1, len(pulses)+1)))
         self.assertEqual(pulses[-1]['stage'], 'receipt')
         self.assertEqual(pulses[-1]['phase'], 'publish')
+
+
+class LivenessBoundaryTests(unittest.TestCase):
+    def test_failed_s3_pulse_is_reported_on_next_pulse_and_tag(self):
+        from unittest.mock import Mock
+        d = worker.Diagnostics(); s3 = Mock(); ec2 = Mock()
+        d.bind(s3, 'control', 'heartbeat', 'key'); d.bind_liveness(ec2, 'i-test')
+        d.enter('producer', 'execute')
+        error = RuntimeError('private message')
+        error.response = {'Error': {'Code': 'ExpiredToken', 'Message': 'private'}}
+        s3.put_object.side_effect = [error, None]
+        d.pulse(); d.pulse(); d.tag_pulse()
+        body = json.loads(s3.put_object.call_args.kwargs['Body'])
+        self.assertEqual(body['last_error'], 'ExpiredToken')
+        self.assertEqual(body['credential_expiry'], 'unknown')
+        self.assertEqual(ec2.create_tags.call_args.kwargs,
+            {'Resources': ['i-test'], 'Tags': [{'Key': 'polis-probe-pulse',
+             'Value': '1:producer:execute:ExpiredToken'}]})
+        self.assertNotIn('private', json.dumps(body))
+
+    def test_error_vocabulary_never_exports_free_text(self):
+        for code, want in [('AccessDenied', 'AccessDenied'), ('private-id', 'RuntimeError'),
+                           ('x'*1000, 'RuntimeError')]:
+            e = RuntimeError('private message'); e.response = {'Error': {'Code': code}}
+            self.assertEqual(worker.pulse_error(e), want)
+        PrivateFailure = type('PrivateFailure', (Exception,), {})
+        self.assertEqual(worker.pulse_error(PrivateFailure('private')), 'UnknownError')
+        self.assertEqual(worker.pulse_error(TimeoutError('private')), 'TimeoutError')
+
+    def test_expiry_buckets_read_client_credentials_without_refresh(self):
+        import datetime as dt
+        from unittest.mock import Mock
+        for seconds, expected in [(-1, 'expired'), (0, 'expired'), (60, 'le-5m'),
+                                  (300, 'le-5m'), (301, 'le-15m'), (900, 'le-15m'),
+                                  (901, 'le-30m'), (1800, 'le-30m'), (1801, 'le-60m'),
+                                  (3600, 'le-60m'), (3601, 'gt-60m')]:
+            credentials = Mock(_expiry_time=dt.datetime.fromtimestamp(1000+seconds, dt.timezone.utc))
+            client = SimpleNamespace(_request_signer=SimpleNamespace(_credentials=credentials))
+            self.assertEqual(worker.credential_expiry(client, now=1000), expected)
+            credentials.get_frozen_credentials.assert_not_called()
+        for value in (None, 'private', 3, dt.datetime(2030, 1, 1)):
+            c = SimpleNamespace(_request_signer=SimpleNamespace(_credentials=SimpleNamespace(_expiry_time=value)))
+            self.assertEqual(worker.credential_expiry(c, now=1000), 'unknown')
+
+    def test_hung_s3_does_not_block_tags_or_stage_changes(self):
+        import threading
+        from unittest.mock import Mock
+        started, release = threading.Event(), threading.Event()
+        def put(**kw):
+            started.set(); self.assertTrue(release.wait(5))
+        s3, ec2 = Mock(), Mock(); s3.put_object.side_effect = put
+        d = worker.Diagnostics(); d.bind(s3, 'control', 'heartbeat', 'key')
+        d.bind_liveness(ec2, 'i-test')
+        t = threading.Thread(target=d.pulse); t.start()
+        try:
+            self.assertTrue(started.wait(5))
+            d.enter('producer', 'execute'); d.tag_pulse(); d.tag_pulse()
+            # Stage-change S3 writes cannot queue behind a stuck request either.
+            second = threading.Thread(target=d.pulse); second.start(); second.join(1)
+            self.assertFalse(second.is_alive())
+            self.assertEqual([x.kwargs['Tags'][0]['Value'] for x in ec2.create_tags.call_args_list],
+                             ['1:producer:execute', '2:producer:execute'])
+        finally:
+            release.set(); t.join(5)
+
+    def test_tag_failure_never_stops_s3_and_stop_prevents_later_tags(self):
+        from unittest.mock import Mock
+        s3, ec2 = Mock(), Mock(); ec2.create_tags.side_effect = TimeoutError('private')
+        d = worker.Diagnostics(); d.bind(s3, 'control', 'heartbeat', 'key'); d.bind_liveness(ec2, 'i-test')
+        d.tag_pulse(); d.pulse()
+        self.assertEqual(json.loads(s3.put_object.call_args.kwargs['Body'])['last_error'], 'TimeoutError')
+        d.complete(); d.tag_pulse(); d.pulse()
+        self.assertEqual(ec2.create_tags.call_count, 1)
+        self.assertEqual(s3.put_object.call_count, 1)
+
+    def test_baked_bootstrap_accepts_only_worker_endpoint_and_exact_dns_name(self):
+        from pathlib import Path
+        import tempfile
+        source = (Path(worker.__file__).parent/'bake.sh').read_text()
+        code = source.split(" <<'BOOT'\n", 1)[1].split('\nBOOT\n', 1)[0]
+        common = {'account': '111111111111', 'region': 'us-east-1', 'controlBucket': 'control',
+                  'dnsNames': ['public-fixture.ec2.vpce.amazonaws.com'], 'resolver': '10.0.0.2'}
+        good = {**common, 'mode': 'worker', 'ec2Url': 'https://public-fixture.ec2.vpce.amazonaws.com'}
+        cases = [(good, True), ({**common, 'mode': 'provision'}, True),
+                 ({**common, 'mode': 'worker'}, False), ({**good, 'mode': 'provision'}, False)]
+        for url in ('http://public-fixture.ec2.vpce.amazonaws.com', 'https://private.invalid',
+                    'https://public-fixture.ec2.vpce.amazonaws.com/path',
+                    'https://user@public-fixture.ec2.vpce.amazonaws.com',
+                    'https://public-fixture.ec2.vpce.amazonaws.com?private',
+                    'https://public-fixture.ec2.vpce.amazonaws.com#private'):
+            cases.append(({**good, 'ec2Url': url}, False))
+        for config, accepted in cases:
+            with self.subTest(config=config), tempfile.TemporaryDirectory() as tmp:
+                target = Path(tmp)/'bootstrap.json'
+                with patch.object(worker, 'metadata', return_value=canonical(config)), \
+                     patch('pathlib.Path', return_value=target), patch.object(sys, 'path', sys.path.copy()):
+                    if accepted:
+                        exec(compile(code, 'baked-bootstrap', 'exec'), {})
+                        self.assertEqual(json.loads(target.read_text()), config)
+                        self.assertEqual(target.stat().st_mode & 0o777, 0o444)
+                    else:
+                        with self.assertRaisesRegex(ValueError, 'BOOT_CONFIG'):
+                            exec(compile(code, 'baked-bootstrap', 'exec'), {})
+                        self.assertFalse(target.exists())

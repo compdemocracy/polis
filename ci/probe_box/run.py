@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import math
 import re
 import time
 import uuid
@@ -37,12 +38,15 @@ def known(value, vocabulary):
 
 def clean_heartbeat(record):
     """Accept legacy pulses, closed supervisor progress, and failure diagnostics."""
-    from vocabulary import STAGES, WORKER_PHASES
+    from vocabulary import STAGES, WORKER_PHASES, PULSE_ERRORS, EXPIRY_BUCKETS
     if not isinstance(record, dict):
         return None
-    if set(record) == {'stage', 'pulse', 'phase'}:
+    if ({'stage', 'pulse', 'phase'} <= set(record)
+            and set(record) <= {'stage', 'pulse', 'phase', 'last_error', 'credential_expiry'}):
         if (known(record['stage'], STAGES) and known(record['phase'], WORKER_PHASES)
-                and type(record['pulse']) is int and 0 < record['pulse'] <= 2**63-1):
+                and type(record['pulse']) is int and 0 < record['pulse'] <= 2**63-1
+                and ('last_error' not in record or known(record['last_error'], PULSE_ERRORS))
+                and ('credential_expiry' not in record or known(record['credential_expiry'], EXPIRY_BUCKETS))):
             return dict(record)
         return None
     if record.get('schema') != FAILURE_SCHEMA:
@@ -75,9 +79,24 @@ def clean_heartbeat(record):
     return clean or None
 
 
+def clean_pulse_tag(instance):
+    from vocabulary import PULSE_TAG
+    values = [t.get('Value') for t in instance.get('Tags', []) if t.get('Key') == PULSE_TAG]
+    if len(values) != 1 or not isinstance(values[0], str) or len(values[0]) > 160:
+        return None
+    parts = values[0].split(':')
+    if len(parts) not in (3, 4) or not re.fullmatch(r'[1-9][0-9]{0,18}', parts[0]):
+        return None
+    body = {'pulse': int(parts[0]), 'stage': parts[1], 'phase': parts[2]}
+    if len(parts) == 4:
+        body['last_error'] = parts[3]
+    return clean_heartbeat(body)
+
+
 class Control:
-    def __init__(self, ec2: object, s3: object, cfg: object, now: object = None):
+    def __init__(self, ec2: object, s3: object, cfg: object, now: object = None, monitoring=None):
         self.ec2, self.s3, self.c = ec2, s3, cfg
+        self.monitoring = monitoring
         self.a = json.loads(cfg["ADMISSION"])
         self.clock = time.time if now is None else (now if callable(now) else lambda: now)
         self.now = self.clock()
@@ -198,6 +217,83 @@ class Control:
                 return True
             raise Unknown("HEARTBEAT_UNKNOWN") from None
 
+    def cpu_activity(self, iid):
+        """Only a fresh, finite EC2 CPU sample can establish busy or quiet."""
+        if self.monitoring is None:
+            return 'unknown'
+        try:
+            result = self.monitoring.get_metric_statistics(Namespace='AWS/EC2',
+                MetricName='CPUUtilization', Dimensions=[{'Name': 'InstanceId', 'Value': iid}],
+                StartTime=dt.datetime.fromtimestamp(self.now-300, dt.timezone.utc),
+                EndTime=dt.datetime.fromtimestamp(self.now, dt.timezone.utc),
+                Period=60, Statistics=['Average'])
+            values = []
+            for point in result['Datapoints']:
+                stamp, value = point.get('Timestamp'), point.get('Average')
+                if (isinstance(stamp, dt.datetime) and stamp.tzinfo is not None
+                        and self.now-300 <= stamp.timestamp() <= self.now
+                        and type(value) in (float, int) and math.isfinite(value) and 0 <= value <= 100):
+                    values.append(value)
+            return ('busy' if max(values) > 2 else 'quiet') if values else 'unknown'
+        except Exception:
+            return 'unknown'
+
+    def secondary_liveness(self, instance):
+        """Positive fallback evidence defers a missing-S3 kill until run expiry.
+
+        A first tag is only a baseline (possibly stale). Allow two pulse periods
+        to observe advancement. Both observations survive operator restarts.
+        Unavailable monitoring is uncertainty, never proof of an idle machine.
+        """
+        iid = instance['InstanceId']
+        binding = {'admissionSha256': self.token, 'instanceId': iid}
+        def read_bound(name):
+            record = self.read(self.prefix+name)
+            if record is not None:
+                fields = set(binding) | {'observedAt', 'pulse'}
+                if name == 'liveness.json':
+                    fields |= {'schema', 'cpu', 'tag'}
+                if (not isinstance(record, dict) or set(record) != fields
+                        or any(record.get(k) != v for k, v in binding.items())
+                        or type(record.get('observedAt')) is not int
+                        or not self.a['started'] <= record['observedAt'] <= self.now
+                        or (record.get('pulse') is not None
+                            and clean_heartbeat(record['pulse']) != record['pulse'])):
+                    raise Unknown('LIVENESS_BINDING')
+                if name == 'liveness.json':
+                    if (record['schema'] != 'polis-probe-liveness/1'
+                            or not known(record['cpu'], {'busy', 'quiet', 'unknown'})
+                            or not known(record['tag'], {'advanced', 'unchanged', 'absent'})
+                            or not (record['cpu'] == 'busy' or record['tag'] == 'advanced')
+                            or (record['tag'] != 'absent' and not record['pulse'])):
+                        raise Unknown('LIVENESS_BINDING')
+                elif not record['pulse']:
+                    raise Unknown('LIVENESS_BINDING')
+            return record
+        saved = read_bound('liveness.json')
+        if saved is not None:
+            return True
+        pulse = clean_pulse_tag(instance)
+        baseline = read_bound('liveness-baseline.json')
+        tag = 'absent'
+        if pulse:
+            if baseline is None:
+                self.record(self.prefix+'liveness-baseline.json',
+                    {**binding, 'observedAt': int(self.now), 'pulse': pulse})
+                baseline = read_bound('liveness-baseline.json')
+            tag = 'advanced' if pulse['pulse'] > baseline['pulse']['pulse'] else 'unchanged'
+        cpu = self.cpu_activity(iid)
+        if tag == 'advanced' or cpu == 'busy':
+            self.record(self.prefix+'liveness.json', {**binding,
+                'schema': 'polis-probe-liveness/1', 'observedAt': int(self.now),
+                'cpu': cpu, 'tag': tag, 'pulse': pulse})
+            return True
+        if baseline is not None and self.now-baseline['observedAt'] < 120:
+            return True
+        if cpu == 'unknown':
+            raise Unknown('LIVENESS_UNKNOWN')
+        return False
+
     def reconcile(self, cancel: object = False):
         claim = self.read(self.prefix + "claim.json")
         clean = self.read(self.prefix + "clean.json")
@@ -236,7 +332,8 @@ class Control:
                       or (volume_ids and volume_ids != prior["volumes"] and not known_subset)):
             raise Unknown("INSTANCE_CHANGED")
         if i["State"]["Name"] != "terminated":
-            if expired or cancelled or self.heartbeat_missing(i, claim):
+            if expired or cancelled or (self.heartbeat_missing(i, claim)
+                                       and not self.secondary_liveness(i)):
                 # Preserve the final observation BEFORE termination can destroy it.
                 # CLEAN still means observed instance/disks gone, never a kill ACK.
                 key = self.prefix + 'termination.json'
@@ -360,7 +457,7 @@ class Session:
         if a['configSha256'] != sha(self.cfg):
             raise Unknown('CONFIGURATION_CHANGED')
         return Control(self.ec2, self.s3, dict(self.cfg, ADMISSION=encoded(a).decode(),
-                       ADMISSION_SHA256=sha(a)), self.clock)
+                       ADMISSION_SHA256=sha(a)), self.clock, monitoring=self.monitoring)
 
     def start(self, job):
         job = validate_job(job)

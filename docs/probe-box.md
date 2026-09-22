@@ -36,7 +36,7 @@ the verifier alone writes the receipt directory. Container storage also resides
 on the disposable disk. The root supervisor, baked into the AMI, is trusted.
 
 The host subnet has no default internet route or NAT. Security-group egress is
-limited to the read target, a private Secrets Manager endpoint and S3 via a gateway
+limited to the read target, private Secrets Manager and EC2 endpoints, and S3 via a gateway
 endpoint whose policy admits only the box's assets/control/receipt paths. Because
 security groups do not filter the VPC resolver, the baked firewall restricts DNS
 to an exact-name local forwarder. Probe containers have no network route to it.
@@ -44,7 +44,7 @@ Cloud-init execution, SSH, SSM, swap and core dumps are disabled.
 
 ## Closed receipt and lifecycle boundaries
 
-Only the closed `polis-probe-receipt/1` or `/2` schema leaves the worker:
+Results leave the worker only in the closed `polis-probe-receipt/1` or `/2` schema:
 bounded counts, finite errors, fixed verdicts, selection aggregates and digests.
 On an empty (zero-vote) conversation the legacy engine omits fields that Python emits; Python's complete empty structure is the canonical output and the legacy behaviour is a recorded defect, never an accepted variant. An entry may also carry `legacy_defects`: `legacy-defect-empty-omits-keys` with a sorted,
 unique, nonempty subset of the 15 fixed public keys in the committed
@@ -83,8 +83,8 @@ Admission binds the exact configuration, image, template/version, profile,
 subnet, security group, job, start and absolute deadline. Reconciliation checks
 actual instance token, image, type, profile, subnet, groups, tags and absence of a
 public IP. It records both actual disk IDs before publishing instance-specific
-boot JSON. Cancellation, expired budget or stale worker heartbeat requests
-termination; accepted termination is not cleanup. CLEAN requires observed
+boot JSON. Cancellation and expired budget request termination. A stale worker
+heartbeat first requires the independent liveness checks below; accepted termination is not cleanup. CLEAN requires observed
 termination and explicit NotFound for both recorded disks. Unknown tagged disks,
 changed identity, incomplete disk inventory and failed/empty Describe calls refuse.
 Known detached tagged disks may be deleted, then absence must be observed separately.
@@ -101,6 +101,98 @@ repairs alarms. A healthy EC2 status check does not prove a live supervisor:
 the S3 heartbeat is checked by the operator library (boot grace 600 seconds,
 stale after 300 seconds). SNS destination delivery remains an operator acceptance
 check, including any downstream service the configured topic actually uses.
+
+
+### Independent liveness when S3 stops responding
+
+The supervisor publishes an S3 pulse and an EC2 `polis-probe-pulse` tag on
+independent 60-second loops. Each channel has its own monotonic counter; the
+counters must only be compared within that channel. The tag is
+`counter:stage:phase[:last_error]`, using the same closed stage/phase/error
+vocabulary as the S3 reader. A stuck S3 call cannot hold the tag loop's lock,
+and the EC2 client uses a separate SDK session to avoid sharing S3's credential
+refresh lock. A stage change updates local state without waiting for a pending
+S3 write. Candidate containers cannot call either service.
+
+The S3 body adds `credential_expiry` (`expired`, `le-5m`, `le-15m`, `le-30m`,
+`le-60m`, `gt-60m`, or `unknown`) and, after a failed pulse on either channel,
+`last_error`. That error is retained in subsequent pulses and tags, including
+after recovery. Only allowlisted SDK error codes or exception classes pass;
+unknown classes become `UnknownError`. No exception message, credential, URL,
+raw metadata or exact expiry leaves the supervisor. Expiry is sampled from the
+S3 signing client's cached credential expiry without initiating refresh; an
+unrecognized SDK shape yields `unknown`. Legacy bare pulses and stage/phase
+pulses remain readable. Receipts are unchanged.
+
+On a missing/stale S3 pulse, the operator reads the owned instance's tag and
+queries `AWS/EC2` `CPUUtilization` for that exact InstanceId over the last five
+minutes. Any fresh finite Average sample above 2 percent establishes activity.
+A tag must advance relative to a durable `liveness-baseline.json`; the first
+observation alone is not proof, and gets at most 120 seconds to advance. The
+baseline survives operator restarts. Counter regression, malformed tags and
+unknown tokens do not establish activity. Missing, stale, malformed or failed
+CPU reads are UNKNOWN, not proof of silence: the CLI leaves the run unresolved;
+resume status/watch when monitoring is available, or cancel explicitly.
+
+Positive CPU or tag evidence is written once to
+`control/<run-id>/liveness.json`, bound to the admission and instance. Its only
+observations are fixed CPU/tag categories, a sanitized pulse, and the operator's
+observation time. Per the fallback policy, this durable decision suppresses
+further missing-S3 termination for the rest of that run, including after an
+operator restart. A later engine death can therefore consume the remaining
+admitted budget. Cancellation, admission expiry and the box's own shutdown
+still win. Without positive evidence, termination requires both a quiet CPU
+observation and a tag that is absent/invalid or did not advance within the
+baseline grace. A termination request still does not mean CLEAN.
+
+The new EC2 interface endpoint has no public route and admits only the worker
+role's `CreateTags` call. Role and endpoint policies bind the source credential's
+`ec2:SourceInstanceARN` to the target ARN formed from `ec2:InstanceID`, require
+the box ownership tag, and allow only `polis-probe-pulse`. The worker cannot
+change ownership tags or tag another instance. The worker role also requires
+the new endpoint. The launch template adds only its exact DNS name and `ec2Url`
+to trusted bootstrap; provisioning bootstrap stays unchanged. IAM supports these
+instance condition keys and ARN-valued variables in conditions
+([EC2 authorization reference](https://docs.aws.amazon.com/service-authorization/latest/reference/list_ec2.html),
+[IAM policy variables](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html)).
+The operator adds `cloudwatch:GetMetricStatistics` (no resource-level scope is
+available); the worker receives no CloudWatch permission. Local policy tests
+inspect the generated template; actual endpoint/IAM behavior requires the
+operator's deployment acceptance.
+
+Roll out the operator, the stack/worker launch template (endpoint, IAM and
+bootstrap), and the newly baked image together before the next run. Baking alone
+cannot create the endpoint or grant tag/metric access. Existing admissions bind
+the old template version; do not mutate their configuration to retrofit a run.
+
+### Thirty-minute horizon investigation
+
+Source inspection found `statement_timeout = '30min'` on the reader login. This
+is a per-statement database timeout, not a supervisor lifetime; the reader and
+its relay are already closed before the producer starts. It does not explain
+loss of S3 writes during producer computation. This database setting is unchanged.
+
+The host metadata helper requests a fresh IMDSv2 token for each call with a
+300-second TTL, and five-second HTTP timeouts. SDK credentials come from
+botocore's separate refreshable IMDS provider; their actual cached expiry is now
+observable as a bucket. Inspection of the pinned botocore 1.43.89 source shows
+a six-hour IMDS token TTL and credential refresh thresholds of 15 minutes
+(advisory) and 10 minutes (mandatory) before expiry. Its IMDS fetcher can extend
+its cached expiry by 12–20 minutes when metadata returns near-expiry credentials;
+the bucket reports that client view, not an independently verified AWS expiry.
+There is no fixed thirty-minute credential lifetime in this source, but a
+refresh event at that point cannot be excluded without runtime evidence. S3/KMS permissions carry no thirty-minute condition or local key
+cache timer. The relay has five-second socket and six-second shutdown waits,
+no lifetime timer; DNS uses a three-second upstream timeout, no local cache or
+expiry timer, and systemd restarts it on failure. The worker unit's
+`TimeoutStartSec=18000` and startup `shutdown +300` are five-hour ceilings;
+worker shutdown and container timeouts use the absolute admitted deadline.
+The producer engine subprocess timeout is 3600 seconds. A separate benchmark
+helper, `polismath.replay.shard_bench`, has a 1800-second child timeout, but the
+probe producer invokes the engine drivers directly and does not use that helper.
+The operator's heartbeat grace/staleness are 600/300 seconds. No thirty-minute
+supervisor/DNS/systemd timer was found. These are source findings, not a proven
+cause of the observed outage; no cloud state was inspected.
 
 ## Prepare the native stack and image
 
