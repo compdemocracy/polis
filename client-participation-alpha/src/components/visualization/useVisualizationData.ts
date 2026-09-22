@@ -35,7 +35,7 @@ export function useVisualizationData(
 ) {
   // Transform the data into a more usable format
   const baseClusters: BaseCluster[] = useMemo(() => {
-    const groupClusters = data['group-clusters']
+    const groupClusters = data['group-clusters'] ?? []
 
     // Create a map of base cluster ID to group ID
     const clusterToGroup = new Map<number, number>()
@@ -47,6 +47,7 @@ export function useVisualizationData(
 
     // Transform base clusters
     const baseClustersData = data['base-clusters']
+    if (!baseClustersData) return []
     return baseClustersData.id.map((id, index) => ({
       id,
       x: baseClustersData.x[index],
@@ -60,11 +61,13 @@ export function useVisualizationData(
   // Calculate data bounds for scales
   const xExtent = useMemo(() => {
     const xValues = baseClusters.map((d) => d.x)
+    if (!xValues.length) return [-1, 1] as [number, number]
     return [Math.min(...xValues), Math.max(...xValues)] as [number, number]
   }, [baseClusters])
 
   const yExtent = useMemo(() => {
     const yValues = baseClusters.map((d) => d.y)
+    if (!yValues.length) return [-1, 1] as [number, number]
     return [Math.min(...yValues), Math.max(...yValues)] as [number, number]
   }, [baseClusters])
 
@@ -89,7 +92,7 @@ export function useVisualizationData(
 
   // Calculate concave hulls for each group
   const hulls: Hull[] = useMemo(() => {
-    const groupClusters = data['group-clusters']
+    const groupClusters = data['group-clusters'] ?? []
 
     return groupClusters.map((groupCluster) => {
       const groupBaseClusters = baseClusters.filter(
