@@ -447,18 +447,20 @@ def test_a_well_formed_marker_round_trips_through_the_validator():
     assert not op.has_marker(pol.payload(view))
 
 
-def test_control_18_the_marker_is_what_prevents_the_silent_empty_restore(
+def test_control_18_stripping_the_marker_loses_geometry_provenance(
         real_driver_blob):
-    """Control 18 — the hazard the marker prevents, demonstrated. Strip the
-    marker and the projected view restores a conversation that has LOST every
-    group, with no error anywhere: ``data.get('group_clusters', [])``."""
+    """Control 18 — unmarked kebab-only rows now restore their groups. Strip
+    the marker from a transformed comparison view and its changed geometry is
+    indistinguishable from raw input. Control 17 must still refuse that view
+    with its marker intact; restoring groups does not make projections safe."""
     view = pol.payload(pol.vote_axis_involution(_projected(real_driver_blob)))
     assert op.OUTPUT_PROFILE_KEY not in view
 
     cert.validate_checkpoint_blob(view, "unmarked projected view")  # no error
     restored = Conversation.from_dict(view)
-    assert restored.group_clusters == []
-    assert real_driver_blob["group_clusters"] != []
+    assert restored.group_clusters == view["group-clusters"]
+    assert restored.group_clusters
+    assert restored.group_clusters != pol.payload(_projected(real_driver_blob))["group-clusters"]
 
 
 # ---------------------------------------------------------------------------

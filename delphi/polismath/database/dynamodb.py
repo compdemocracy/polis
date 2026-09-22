@@ -483,7 +483,7 @@ class DynamoDBClient:
             logger.info(f"[{time.time() - start_time:.2f}s] Step 5: Writing to Delphi_RepresentativeComments table...")
             repness_table = self.tables.get('Delphi_RepresentativeComments')
             if repness_table:
-                if dynamo_data and 'repness' in dynamo_data and 'comment_repness' in dynamo_data['repness']:
+                if dynamo_data and isinstance(dynamo_data.get('repness'), dict) and 'comment_repness' in dynamo_data['repness']:
                     # Use pre-formatted data with Python-native keys
                     with repness_table.batch_writer() as batch:
                         for item in dynamo_data['repness']['comment_repness']:
@@ -507,7 +507,7 @@ class DynamoDBClient:
                                 'group_id': group_id,
                                 'zid': zid,
                             })
-                elif hasattr(conv, 'repness') and 'comment_repness' in conv.repness:
+                elif isinstance(getattr(conv, 'repness', None), dict) and 'comment_repness' in conv.repness:
                     # Legacy format
                     with repness_table.batch_writer() as batch:
                         for item in conv.repness['comment_repness']:

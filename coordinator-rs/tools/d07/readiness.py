@@ -26,6 +26,11 @@ def bucket_counts_match(data,fold):
     if any(not isinstance(group,list) or any(type(pid) is not int for pid in group) for group in members):return False
     clustered=[pid for group in members for pid in group]
     if len(clustered)!=len(set(clustered)) or not set(clustered)<=fold.participants:return False
+    # A zero-vote input has no bucket counts, even if comments already exist.
+    # Only this independently empty fold admits the legacy omission. Keep the
+    # cluster checks above and reject any wrong present value (including null).
+    if not fold.cells:
+        return not ids and data.get('votes-base',{})=={}
     positions={pid:i for i,(_,group) in enumerate(sorted(zip(ids,members))) for pid in group}
     expected={str(tid):{key:[0]*len(ids) for key in ('A','D','S')} for tid in fold.comments}
     for (pid,tid),vote in fold.cells.items():
