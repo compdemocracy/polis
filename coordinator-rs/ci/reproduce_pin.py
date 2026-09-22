@@ -19,11 +19,6 @@ WORKFLOW = '.github/workflows/coordinator-ci.yml'
 JOB = 'coordinator-required'
 SOURCE_CLOSURES = {'s1-closure.json', 's2-closure.json', 's2-production-reader.json'}
 HISTORICAL_REPORTS = {'bridge-repin.json', 's1-revalidation.json', 's1s2-repin.json'}
-DYNAMIC_EMPTY = {
-    ('served', 'python', 'asJSON_sha256'), ('served', 'python', 'gzip_sha256'),
-    ('served', 'python', 'raw', 'asJSON_sha256'), ('served', 'python', 'raw', 'gzip_sha256'),
-    ('differences', 'asJSON_sha256', 1), ('differences', 'gzip_sha256', 1),
-}
 
 
 def leaves(value, path=()):
@@ -68,10 +63,8 @@ def locate(digest, root=ROOT):
                 if path[0] == 'checkpoints' and path[-1] == 'rust':
                     target = {'file': 'artifacts/vw-equivalence.json', 'path': list(path)}
                 elif path[0] == 'witnesses':
-                    name, rest = path[1], path[2:]
-                    if name != 'd4-node-reader-empty.json' or rest not in DYNAMIC_EMPTY:
-                        target = {'file': campaign_file(name), 'path': list(rest)}
-                elif path[0] == 'witness_sha256' and path[1] != 'd4-node-reader-empty.json':
+                    target = {'file': campaign_file(path[1]), 'path': list(path[2:])}
+                elif path[0] == 'witness_sha256':
                     target = {'file': campaign_file(path[1]), 'hash_file': True}
                 if target:
                     targets.append(dict(target, pin=pin['id'], platform_key=key, active=section == 'pins'))
@@ -122,10 +115,8 @@ def locate(digest, root=ROOT):
                         output_path[-1] = 'rust'  # verify.comparisons requires fresh rust == python
                     mapped = any(t['file'] == campaign_file(file.name) and
                                  t.get('path') == output_path for t in targets)
-                    clock = file.name == 'd4-node-reader-empty.json' and path in DYNAMIC_EMPTY
-                    location.update(classification='EVIDENCE_ONLY' if clock else 'REGISTRY_TARGET' if mapped else 'BLOCKED',
-                        basis='Existing empty-response clock observation; verify.empty_observations excludes byte equality.' if clock else
-                              'Exact output file/path maps to platform registry target; checkpoint python is normalized to rust only because verify.comparisons requires their equality.' if mapped else
+                    location.update(classification='REGISTRY_TARGET' if mapped else 'BLOCKED',
+                        basis='Exact output file/path maps to platform registry target; checkpoint python is normalized to rust only because verify.comparisons requires their equality.' if mapped else
                               'Fresh witness field lacks platform/source attribution; add reviewed producer mapping before claiming reproduction.')
                 elif ('run_pins' in path or 'runPins' in path or path[0] == 'binaries'):
                     location.update(classification='EVIDENCE_ONLY', basis=
@@ -153,7 +144,7 @@ def locate(digest, root=ROOT):
                 'server/package-lock.json', 'Node 24', 'Docker Compose public TLS PostgreSQL fixture',
                 'unique COMPOSE_PROJECT_NAME; matching POLIS_RECOVERY_PG_PORT and RECOVERY_PG_PORT >=55432'],
             'locations': locations, 'origins': origins, 'targets': targets, 'source_targets': source_targets,
-            'historical_limit': 'Explicit historical receipt/archive attribution and empty-clock observations are evidence-only; '
+            'historical_limit': 'Explicit historical receipt/archive attribution is evidence-only; '
                 'the campaign produces new observations, not identical historical receipt bytes. '
                 'Retired platform keys are never automatically selected.'}
 

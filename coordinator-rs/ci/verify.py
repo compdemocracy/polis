@@ -1,6 +1,5 @@
 """Strict inventory and fresh evidence admission for the candidate CI campaign."""
 from collections import Counter
-import copy
 import hashlib
 import json
 from pathlib import Path
@@ -97,40 +96,33 @@ def stage_audit(report, inventory):
 
 
 def empty_observations(current, previous):
-    """Preserve the historical D4 boundary: synthesized-empty bytes are observed.
+    """Certify the committed empty contract on both namespaces.
 
-    The source-pinned test asserts the raw/presented shapes and current request
-    clock. It explicitly does not certify synthesized-empty JSON/gzip equality.
-    Keep these values in the receipt; never describe them as equal bytes or as
-    proof that the clock is the only possible cause of a digest change.
+    The empty conversation is a recorded legacy defect: zero votes with approved
+    comments. Both engines now publish an explicit empty generation from one
+    committed contract, the two served presentations are the same bytes, and the
+    served clock is the committed zero rather than a request wall clock. Nothing
+    in this witness is dynamic, so equality with the reviewed witness is
+    byte-certified with no excluded path and nothing is left to observe. The
+    empty list keeps the receipt field shape for its existing readers.
     """
-    dynamic = [("served", "python", "last_vote_timestamp"),
-               ("served", "python", "asJSON_sha256"),
-               ("served", "python", "gzip_sha256"),
-               ("served", "python", "gzip_bytes"),
-               ("served", "python", "raw", "asJSON_sha256"),
-               ("served", "python", "raw", "gzip_sha256"),
-               ("differences", "asJSON_sha256", 1),
-               ("differences", "gzip_sha256", 1),
-               ("differences", "gzip_bytes", 1)]
-    view = current["served"]["python"]
-    require(type(view["last_vote_timestamp"]) is int and view["last_vote_timestamp"] > 0, "missing empty clock")
-    require(type(view["gzip_bytes"]) is int and view["gzip_bytes"] > 0, "missing empty gzip length")
-    for obj in (view, view["raw"]):
+    require(current["differences"] == {}, "D4 stable empty fields or published bytes drift: namespaces differ")
+    require(current["reference_published"] is True, "missing published empty reference")
+    served = current["served"]
+    require(set(served) == {"python", "rustproto"}, "missing empty served namespace")
+    python, rustproto = served["python"], served["rustproto"]
+    for view in (python, rustproto):
+        require(type(view["last_vote_timestamp"]) is int and view["last_vote_timestamp"] == 0,
+                "empty clock is not the committed zero")
+        for obj in (view, view["raw"]):
+            for key in ("asJSON_sha256", "gzip_sha256"):
+                require(re.fullmatch(r"[0-9a-f]{64}", obj[key]) is not None, "missing empty digest")
+    for obj, other in ((python, rustproto), (python["raw"], rustproto["raw"])):
         for key in ("asJSON_sha256", "gzip_sha256"):
-            require(re.fullmatch(r"[0-9a-f]{64}", obj[key]) is not None, "missing empty digest observation")
-    for key in ("asJSON_sha256", "gzip_sha256", "gzip_bytes"):
-        require(current["differences"][key][1] == view[key], "inconsistent empty observation")
-    left, right = copy.deepcopy(current), copy.deepcopy(previous)
-    observations = []
-    for path in dynamic:
-        a, b = left, right
-        for key in path[:-1]:
-            a, b = a[key], b[key]
-        observations.append({"path": list(path), "current": a[path[-1]], "historical": b[path[-1]]})
-        a[path[-1]] = b[path[-1]] = "observed, not byte-certified"
-    require(left == right, "D4 stable empty fields or published bytes drift")
-    return observations
+            require(obj[key] == other[key],
+                    "D4 stable empty fields or published bytes drift: namespaces disagree")
+    require(current == previous, "D4 stable empty fields or published bytes drift")
+    return []
 
 
 def comparisons(artifacts, evidence, baseline, replay_pin):
@@ -182,4 +174,4 @@ def comparisons(artifacts, evidence, baseline, replay_pin):
     return {"checkpoints": 3, "replay_pin": replay_pin,
             "observer_reads": replay["observations"], "observer_errors": 0,
             "polarity_and_tie": 5, "d4_witnesses": 4,
-            "synthesized_empty_byte_equality_claimed": False, "empty_observations": observed}
+            "empty_byte_equality_certified": True, "empty_observations": observed}

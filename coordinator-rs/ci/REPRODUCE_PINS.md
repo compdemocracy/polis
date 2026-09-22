@@ -45,13 +45,13 @@ accordingly. It does not claim a new replay or authenticate an untrusted receipt
 use reviewed local campaign evidence. Symlinked/out-of-directory artifacts refuse.
 
 Historical retrospective receipts, archive and dependency-review hashes are attribution,
-not deterministic outputs of the current campaign. The existing nine-path
-synthesized-empty observation boundary in `verify.empty_observations` is also
-preserved: old request-clock JSON/gzip hashes are `EVIDENCE_ONLY`, never relabeled
-as mandatory byte equality. This utility does not change admission validators.
-Whole nonempty witness hashes and deterministic checkpoint/witness values have
-explicit producer paths; whole empty-witness hashes cannot be reproduced by
-pretending their clock-dependent fields are stable.
+not deterministic outputs of the current campaign. The empty conversation is a
+recorded legacy defect whose witness is now deterministic: `verify.empty_observations`
+requires both namespaces to serve the committed contract with the same digests and
+the committed zero clock, so every empty-witness value and the whole-file hash have
+explicit producer paths, exactly like the other D4 witnesses. This utility does not
+change admission validators. Whole witness hashes and deterministic
+checkpoint/witness values have explicit producer paths.
 
 The P-061 Q appendix records commands for fixture hashes and other integrity pins
 outside this utility's replay/evidence input scope. A located command is not a

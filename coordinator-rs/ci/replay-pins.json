@@ -289,44 +289,14 @@
           "zid": 1
         },
         "d4-node-reader-empty.json": {
-          "differences": {
-            "asJSON_bytes": [
-              765,
-              455
-            ],
-            "asJSON_sha256": [
-              "4738deb83b9468498ee32c49c5eecfd785d0bac64d5966814f089723286e5a75",
-              "6a14f43bd751a8f332e5564aa5eb97990a159f04d76b7e7fdab9177a83ddfd32"
-            ],
-            "bid_to_pid": [
-              [],
-              null
-            ],
-            "gzip_bytes": [
-              352,
-              266
-            ],
-            "gzip_sha256": [
-              "ce3c0c17c0fd3238eb1b2a9450c5c2105296ef6d19ae7e101a1fc1e0cb12b163",
-              "8378b1ace0aab281b5d26280628ac5c126c87ee873f3d86f8f800355b9007675"
-            ],
-            "mapping_is_error": [
-              false,
-              true
-            ],
-            "mapping_sha256": [
-              "a5558a1314571ed26f6afdea59f81a24ab0cc942ac84485892f8a36f7ac16315",
-              null
-            ]
-          },
-          "note": "the synthesized empty presentation stamps lastVoteTimestamp with Date.now(), so it is not reproducible across servers or requests; the published empty generation is",
-          "profile": "zero votes, four approved comments; rustproto has a published empty generation, python has none and is synthesized by the server",
-          "reference_published": false,
+          "differences": {},
+          "profile": "zero votes, four approved comments; both namespaces carry a published empty generation under the committed contract",
+          "reference_published": true,
           "served": {
             "python": {
-              "asJSON_bytes": 455,
-              "asJSON_sha256": "6a14f43bd751a8f332e5564aa5eb97990a159f04d76b7e7fdab9177a83ddfd32",
-              "bid_to_pid": null,
+              "asJSON_bytes": 758,
+              "asJSON_sha256": "43b298d5d52e20eeec70f3882963a992bb7d1e56327ca8200cf233efa1097e70",
+              "bid_to_pid": [],
               "comment_extremity": [
                 0,
                 0,
@@ -337,14 +307,13 @@
                 "agree": 0,
                 "disagree": 0
               },
-              "etag_math_tick": 0,
-              "gzip_bytes": 266,
-              "gzip_sha256": "8378b1ace0aab281b5d26280628ac5c126c87ee873f3d86f8f800355b9007675",
+              "etag_math_tick": 1,
+              "gzip_bytes": 353,
+              "gzip_sha256": "5eb0e99b427ebb0f06091f2ce30139c5c38c76b202527b99c8637136a36b78fa",
               "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
-              "last_vote_timestamp": 1789023934903,
-              "mapping_is_error": true,
-              "mapping_math_tick": null,
-              "mapping_sha256": null,
+              "last_vote_timestamp": 0,
+              "mapping_is_error": false,
+              "mapping_sha256": "a5558a1314571ed26f6afdea59f81a24ab0cc942ac84485892f8a36f7ac16315",
               "math_env": "python",
               "n": 0,
               "n_cmts": 4,
@@ -357,8 +326,8 @@
               },
               "present": true,
               "raw": {
-                "asJSON_sha256": "984f044ceda39d882aa2f676d8894d069f038c5f1ec7f453e009930f61b4a45d",
-                "gzip_sha256": "92281482f045d57043fe920eed3d902cb244dacd6ec40089f4a7644b54bbbb23",
+                "asJSON_sha256": "db9ead87de866911215b3b2e8a3fa4eeadeb82c9c843bc97795cf6969aab4c99",
+                "gzip_sha256": "c9ec99f18a6bc4ccaad18ccdd042692bc373ae2d77d78a2532ef6a7c4bd94915",
                 "n_cmts": 0,
                 "tids": [],
                 "unchanged_after_presentation": true
@@ -372,8 +341,8 @@
               ]
             },
             "rustproto": {
-              "asJSON_bytes": 765,
-              "asJSON_sha256": "4738deb83b9468498ee32c49c5eecfd785d0bac64d5966814f089723286e5a75",
+              "asJSON_bytes": 758,
+              "asJSON_sha256": "43b298d5d52e20eeec70f3882963a992bb7d1e56327ca8200cf233efa1097e70",
               "bid_to_pid": [],
               "comment_extremity": [
                 0,
@@ -386,8 +355,8 @@
                 "disagree": 0
               },
               "etag_math_tick": 1,
-              "gzip_bytes": 352,
-              "gzip_sha256": "ce3c0c17c0fd3238eb1b2a9450c5c2105296ef6d19ae7e101a1fc1e0cb12b163",
+              "gzip_bytes": 353,
+              "gzip_sha256": "5eb0e99b427ebb0f06091f2ce30139c5c38c76b202527b99c8637136a36b78fa",
               "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
               "last_vote_timestamp": 0,
               "mapping_is_error": false,
@@ -404,8 +373,8 @@
               },
               "present": true,
               "raw": {
-                "asJSON_sha256": "fa78e3c4a1cbacb495960da1fcb9b1a834ffc0d825361b968e9e2eadb2670050",
-                "gzip_sha256": "666e7e9f166083dfc4cf0489725d1be564b371049fc0a3779bdcf67db8cb76f9",
+                "asJSON_sha256": "db9ead87de866911215b3b2e8a3fa4eeadeb82c9c843bc97795cf6969aab4c99",
+                "gzip_sha256": "c9ec99f18a6bc4ccaad18ccdd042692bc373ae2d77d78a2532ef6a7c4bd94915",
                 "n_cmts": 0,
                 "tids": [],
                 "unchanged_after_presentation": true
@@ -434,7 +403,7 @@
         "polarity-rebuild-schedule.json": "60a052dece98383b63afc3fc783db0cbcfa8aff3f343ed557e9e3ba4885b1f46",
         "semantic-tie-key.json": "a35a27ec58ee9bd8d557546ce1dfbae0d9e5c7ad140b6d4ff215ba3cb55920d5",
         "d4-node-reader.json": "8eb6c5f1a50f8670b3c1af98d3522c92e3adaf045a3305e47177a79093b1bd0e",
-        "d4-node-reader-empty.json": "7a4bee2958575cf8bd34c641014de786864088ca8d1fffc0e3dd11bb54432e0d",
+        "d4-node-reader-empty.json": "ea64c7cae0bde38823e5008cdaa5bc8fc843712f66559747e1752e52d33996c1",
         "polarity-public-fixture.json": "9c2de163655f5225a3d2ba246455cb3ad6db8ae34f2f7ba5ca4bdbf0dab79c95"
       },
       "label_remap": {
@@ -643,44 +612,14 @@
       },
       "witnesses": {
         "d4-node-reader-empty.json": {
-          "differences": {
-            "asJSON_bytes": [
-              765,
-              455
-            ],
-            "asJSON_sha256": [
-              "4738deb83b9468498ee32c49c5eecfd785d0bac64d5966814f089723286e5a75",
-              "a87bb52bb050c57bd9cca60dd299efc32e085f1083945d11c0919f626102cec9"
-            ],
-            "bid_to_pid": [
-              [],
-              null
-            ],
-            "gzip_bytes": [
-              352,
-              267
-            ],
-            "gzip_sha256": [
-              "8c7fd95c63b2fbff7603d0cc02196e0cb967fa107d972a865d44076c8f4d27f6",
-              "de6f84cbc8a9363a3571a3b02d9ea8c16935c44cf2566ac1318cfd84c3a74864"
-            ],
-            "mapping_is_error": [
-              false,
-              true
-            ],
-            "mapping_sha256": [
-              "a5558a1314571ed26f6afdea59f81a24ab0cc942ac84485892f8a36f7ac16315",
-              null
-            ]
-          },
-          "note": "the synthesized empty presentation stamps lastVoteTimestamp with Date.now(), so it is not reproducible across servers or requests; the published empty generation is",
-          "profile": "zero votes, four approved comments; rustproto has a published empty generation, python has none and is synthesized by the server",
-          "reference_published": false,
+          "differences": {},
+          "profile": "zero votes, four approved comments; both namespaces carry a published empty generation under the committed contract",
+          "reference_published": true,
           "served": {
             "python": {
-              "asJSON_bytes": 455,
-              "asJSON_sha256": "a87bb52bb050c57bd9cca60dd299efc32e085f1083945d11c0919f626102cec9",
-              "bid_to_pid": null,
+              "asJSON_bytes": 758,
+              "asJSON_sha256": "43b298d5d52e20eeec70f3882963a992bb7d1e56327ca8200cf233efa1097e70",
+              "bid_to_pid": [],
               "comment_extremity": [
                 0,
                 0,
@@ -691,14 +630,13 @@
                 "agree": 0,
                 "disagree": 0
               },
-              "etag_math_tick": 0,
-              "gzip_bytes": 267,
-              "gzip_sha256": "de6f84cbc8a9363a3571a3b02d9ea8c16935c44cf2566ac1318cfd84c3a74864",
+              "etag_math_tick": 1,
+              "gzip_bytes": 353,
+              "gzip_sha256": "5eb0e99b427ebb0f06091f2ce30139c5c38c76b202527b99c8637136a36b78fa",
               "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
-              "last_vote_timestamp": 1789098231555,
-              "mapping_is_error": true,
-              "mapping_math_tick": null,
-              "mapping_sha256": null,
+              "last_vote_timestamp": 0,
+              "mapping_is_error": false,
+              "mapping_sha256": "a5558a1314571ed26f6afdea59f81a24ab0cc942ac84485892f8a36f7ac16315",
               "math_env": "python",
               "n": 0,
               "n_cmts": 4,
@@ -711,8 +649,8 @@
               },
               "present": true,
               "raw": {
-                "asJSON_sha256": "9531a1e5d1b0b71115418b68248d54a6534979ddeb250aa33f5dff3c4dd67a1a",
-                "gzip_sha256": "cf40b3e73f7ea3883c4dc79041b91a50f7a3a627c3e9d7d9bb396301c533c851",
+                "asJSON_sha256": "db9ead87de866911215b3b2e8a3fa4eeadeb82c9c843bc97795cf6969aab4c99",
+                "gzip_sha256": "c9ec99f18a6bc4ccaad18ccdd042692bc373ae2d77d78a2532ef6a7c4bd94915",
                 "n_cmts": 0,
                 "tids": [],
                 "unchanged_after_presentation": true
@@ -726,8 +664,8 @@
               ]
             },
             "rustproto": {
-              "asJSON_bytes": 765,
-              "asJSON_sha256": "4738deb83b9468498ee32c49c5eecfd785d0bac64d5966814f089723286e5a75",
+              "asJSON_bytes": 758,
+              "asJSON_sha256": "43b298d5d52e20eeec70f3882963a992bb7d1e56327ca8200cf233efa1097e70",
               "bid_to_pid": [],
               "comment_extremity": [
                 0,
@@ -740,8 +678,8 @@
                 "disagree": 0
               },
               "etag_math_tick": 1,
-              "gzip_bytes": 352,
-              "gzip_sha256": "8c7fd95c63b2fbff7603d0cc02196e0cb967fa107d972a865d44076c8f4d27f6",
+              "gzip_bytes": 353,
+              "gzip_sha256": "5eb0e99b427ebb0f06091f2ce30139c5c38c76b202527b99c8637136a36b78fa",
               "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
               "last_vote_timestamp": 0,
               "mapping_is_error": false,
@@ -758,8 +696,8 @@
               },
               "present": true,
               "raw": {
-                "asJSON_sha256": "fa78e3c4a1cbacb495960da1fcb9b1a834ffc0d825361b968e9e2eadb2670050",
-                "gzip_sha256": "a06d839fb65f690863346a1fc93201de92a1271914436fadd75490a31920b313",
+                "asJSON_sha256": "db9ead87de866911215b3b2e8a3fa4eeadeb82c9c843bc97795cf6969aab4c99",
+                "gzip_sha256": "c9ec99f18a6bc4ccaad18ccdd042692bc373ae2d77d78a2532ef6a7c4bd94915",
                 "n_cmts": 0,
                 "tids": [],
                 "unchanged_after_presentation": true
@@ -1032,7 +970,7 @@
         }
       },
       "witness_sha256": {
-        "d4-node-reader-empty.json": "4921d95cb5e7fa6c33e6ba307c096e004d24794ba1edf155fa4944632335e5f0",
+        "d4-node-reader-empty.json": "ea64c7cae0bde38823e5008cdaa5bc8fc843712f66559747e1752e52d33996c1",
         "d4-node-reader.json": "ea69b373afcd2260592243c38e5a4878fffe8492b494dc03cf437050f3714d26",
         "polarity-biodiversity.json": "a2d42af26139cdfdbe6f1e4627b48be2fc4df1f0f6210bbf21e1f1c12a2399d0",
         "polarity-public-fixture.json": "2bf4b28e2263b5657e2f327b6e8f7b379ee8159f81592c34a082ffe8933ad2f5",
@@ -1341,44 +1279,14 @@
           "zid": 1
         },
         "d4-node-reader-empty.json": {
-          "differences": {
-            "asJSON_bytes": [
-              765,
-              455
-            ],
-            "asJSON_sha256": [
-              "4738deb83b9468498ee32c49c5eecfd785d0bac64d5966814f089723286e5a75",
-              "191d6ba2e3b3f892e2e704d1a181d2f9c0928164618f130e35a481fe4c0e5cda"
-            ],
-            "bid_to_pid": [
-              [],
-              null
-            ],
-            "gzip_bytes": [
-              352,
-              266
-            ],
-            "gzip_sha256": [
-              "8c7fd95c63b2fbff7603d0cc02196e0cb967fa107d972a865d44076c8f4d27f6",
-              "8d91412e5cbf259c6b2fc6f2e76981932e422ef4ac5a750984f85a3d252c8573"
-            ],
-            "mapping_is_error": [
-              false,
-              true
-            ],
-            "mapping_sha256": [
-              "a5558a1314571ed26f6afdea59f81a24ab0cc942ac84485892f8a36f7ac16315",
-              null
-            ]
-          },
-          "note": "the synthesized empty presentation stamps lastVoteTimestamp with Date.now(), so it is not reproducible across servers or requests; the published empty generation is",
-          "profile": "zero votes, four approved comments; rustproto has a published empty generation, python has none and is synthesized by the server",
-          "reference_published": false,
+          "differences": {},
+          "profile": "zero votes, four approved comments; both namespaces carry a published empty generation under the committed contract",
+          "reference_published": true,
           "served": {
             "python": {
-              "asJSON_bytes": 455,
-              "asJSON_sha256": "191d6ba2e3b3f892e2e704d1a181d2f9c0928164618f130e35a481fe4c0e5cda",
-              "bid_to_pid": null,
+              "asJSON_bytes": 758,
+              "asJSON_sha256": "43b298d5d52e20eeec70f3882963a992bb7d1e56327ca8200cf233efa1097e70",
+              "bid_to_pid": [],
               "comment_extremity": [
                 0,
                 0,
@@ -1389,14 +1297,13 @@
                 "agree": 0,
                 "disagree": 0
               },
-              "etag_math_tick": 0,
-              "gzip_bytes": 266,
-              "gzip_sha256": "8d91412e5cbf259c6b2fc6f2e76981932e422ef4ac5a750984f85a3d252c8573",
+              "etag_math_tick": 1,
+              "gzip_bytes": 353,
+              "gzip_sha256": "5eb0e99b427ebb0f06091f2ce30139c5c38c76b202527b99c8637136a36b78fa",
               "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
-              "last_vote_timestamp": 1789073259009,
-              "mapping_is_error": true,
-              "mapping_math_tick": null,
-              "mapping_sha256": null,
+              "last_vote_timestamp": 0,
+              "mapping_is_error": false,
+              "mapping_sha256": "a5558a1314571ed26f6afdea59f81a24ab0cc942ac84485892f8a36f7ac16315",
               "math_env": "python",
               "n": 0,
               "n_cmts": 4,
@@ -1409,8 +1316,8 @@
               },
               "present": true,
               "raw": {
-                "asJSON_sha256": "5cc4624ffe8f9d98b752dfbd128ec051e6c0c4fa105070dbbdda3647c3e817fc",
-                "gzip_sha256": "4f0c9a81741ec8bfea166717ad3689800b21201c67d574b267d7fb4eb2d68bfe",
+                "asJSON_sha256": "db9ead87de866911215b3b2e8a3fa4eeadeb82c9c843bc97795cf6969aab4c99",
+                "gzip_sha256": "c9ec99f18a6bc4ccaad18ccdd042692bc373ae2d77d78a2532ef6a7c4bd94915",
                 "n_cmts": 0,
                 "tids": [],
                 "unchanged_after_presentation": true
@@ -1424,8 +1331,8 @@
               ]
             },
             "rustproto": {
-              "asJSON_bytes": 765,
-              "asJSON_sha256": "4738deb83b9468498ee32c49c5eecfd785d0bac64d5966814f089723286e5a75",
+              "asJSON_bytes": 758,
+              "asJSON_sha256": "43b298d5d52e20eeec70f3882963a992bb7d1e56327ca8200cf233efa1097e70",
               "bid_to_pid": [],
               "comment_extremity": [
                 0,
@@ -1438,8 +1345,8 @@
                 "disagree": 0
               },
               "etag_math_tick": 1,
-              "gzip_bytes": 352,
-              "gzip_sha256": "8c7fd95c63b2fbff7603d0cc02196e0cb967fa107d972a865d44076c8f4d27f6",
+              "gzip_bytes": 353,
+              "gzip_sha256": "5eb0e99b427ebb0f06091f2ce30139c5c38c76b202527b99c8637136a36b78fa",
               "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
               "last_vote_timestamp": 0,
               "mapping_is_error": false,
@@ -1456,8 +1363,8 @@
               },
               "present": true,
               "raw": {
-                "asJSON_sha256": "fa78e3c4a1cbacb495960da1fcb9b1a834ffc0d825361b968e9e2eadb2670050",
-                "gzip_sha256": "a06d839fb65f690863346a1fc93201de92a1271914436fadd75490a31920b313",
+                "asJSON_sha256": "db9ead87de866911215b3b2e8a3fa4eeadeb82c9c843bc97795cf6969aab4c99",
+                "gzip_sha256": "c9ec99f18a6bc4ccaad18ccdd042692bc373ae2d77d78a2532ef6a7c4bd94915",
                 "n_cmts": 0,
                 "tids": [],
                 "unchanged_after_presentation": true
@@ -1486,7 +1393,7 @@
         "polarity-rebuild-schedule.json": "631c020b2541a2926669d560aacf8a78aec7a192b95fbab44305faee2f821954",
         "semantic-tie-key.json": "85bf07c03ee1cfa7d3764da389329a65f27b4d79458a685347eeddc847efd413",
         "d4-node-reader.json": "ea69b373afcd2260592243c38e5a4878fffe8492b494dc03cf437050f3714d26",
-        "d4-node-reader-empty.json": "568a6e72905211bad5202e6d39c1950c61b0f423d4b620f98d2ec775befb56fb",
+        "d4-node-reader-empty.json": "ea64c7cae0bde38823e5008cdaa5bc8fc843712f66559747e1752e52d33996c1",
         "polarity-public-fixture.json": "53f0f1579bd63ae145d7b3e4ede6feb38824bcbe4a7c41d31e10e7c0e6c0421e"
       },
       "label_remap": {
