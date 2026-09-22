@@ -38,7 +38,7 @@ function getGroupCornerAssignments(math) {
     se: null
   };
 
-  const clusters = math["group-clusters"];
+  const clusters = math["group-clusters"] || [];
 
   let candidate = {
     nw: null,
@@ -173,7 +173,7 @@ const graphUtil = (comments, math, badTids, ptptois) => {
   }
 
   const baseClusterIdToGid = (baseClusterId) => {
-    var clusters = math["group-clusters"];
+    var clusters = math["group-clusters"] || [];
     for (let i = 0; i < clusters.length; i++) {
       if (clusters[i].members.indexOf(baseClusterId) >= 0) {
         return clusters[i].id;
@@ -299,7 +299,7 @@ const graphUtil = (comments, math, badTids, ptptois) => {
     commentsPoints[i].y = yCenter + commentsPoints[i].y * commentScaleupFactorY;
   }
 
-  let groupCentroids = math["group-clusters"].map((group) => {
+  let groupCentroids = (math["group-clusters"] || []).map((group) => {
     return {
       x: xx(group.center[0]),
       y: yy(group.center[1]),

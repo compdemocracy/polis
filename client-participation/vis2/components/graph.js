@@ -189,7 +189,7 @@ class Graph extends React.Component {
             <HullLabels
               handleClick={this.handleCurateButtonClick.bind(this)}
               selectedGroup={_.isNumber(this.state.selectedTidCuration) ? this.state.selectedTidCuration : null}
-              groups={this.props.math["group-votes"] || window.preload.firstMath["group-votes"] /* for labels */}
+              groups={this.props.math["group-votes"] || {} /* for labels */}
               centroids={this.state.groupCentroids}
             />
             {/*<Comments
@@ -204,7 +204,7 @@ class Graph extends React.Component {
               hullElems={this.hullElems}
               selectedComment={this.state.selectedComment}
               allComments={this.props.comments}
-              groups={this.props.math["group-votes"] || window.preload.firstMath["group-votes"]}
+              groups={this.props.math["group-votes"] || {}}
               groupCornerAssignments={this.state.groupCornerAssignments}
             />
           </g>
