@@ -4,8 +4,8 @@
   "reference_published": true,
   "served": {
     "python": {
-      "asJSON_bytes": 758,
-      "asJSON_sha256": "43b298d5d52e20eeec70f3882963a992bb7d1e56327ca8200cf233efa1097e70",
+      "asJSON_bytes": 765,
+      "asJSON_sha256": "4738deb83b9468498ee32c49c5eecfd785d0bac64d5966814f089723286e5a75",
       "bid_to_pid": [],
       "comment_extremity": [
         0,
@@ -18,8 +18,8 @@
         "disagree": 0
       },
       "etag_math_tick": 1,
-      "gzip_bytes": 353,
-      "gzip_sha256": "5eb0e99b427ebb0f06091f2ce30139c5c38c76b202527b99c8637136a36b78fa",
+      "gzip_bytes": 352,
+      "gzip_sha256": "8c7fd95c63b2fbff7603d0cc02196e0cb967fa107d972a865d44076c8f4d27f6",
       "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
       "last_vote_timestamp": 0,
       "mapping_is_error": false,
@@ -36,8 +36,8 @@
       },
       "present": true,
       "raw": {
-        "asJSON_sha256": "db9ead87de866911215b3b2e8a3fa4eeadeb82c9c843bc97795cf6969aab4c99",
-        "gzip_sha256": "c9ec99f18a6bc4ccaad18ccdd042692bc373ae2d77d78a2532ef6a7c4bd94915",
+        "asJSON_sha256": "fa78e3c4a1cbacb495960da1fcb9b1a834ffc0d825361b968e9e2eadb2670050",
+        "gzip_sha256": "a06d839fb65f690863346a1fc93201de92a1271914436fadd75490a31920b313",
         "n_cmts": 0,
         "tids": [],
         "unchanged_after_presentation": true
@@ -51,8 +51,8 @@
       ]
     },
     "rustproto": {
-      "asJSON_bytes": 758,
-      "asJSON_sha256": "43b298d5d52e20eeec70f3882963a992bb7d1e56327ca8200cf233efa1097e70",
+      "asJSON_bytes": 765,
+      "asJSON_sha256": "4738deb83b9468498ee32c49c5eecfd785d0bac64d5966814f089723286e5a75",
       "bid_to_pid": [],
       "comment_extremity": [
         0,
@@ -65,8 +65,8 @@
         "disagree": 0
       },
       "etag_math_tick": 1,
-      "gzip_bytes": 353,
-      "gzip_sha256": "5eb0e99b427ebb0f06091f2ce30139c5c38c76b202527b99c8637136a36b78fa",
+      "gzip_bytes": 352,
+      "gzip_sha256": "8c7fd95c63b2fbff7603d0cc02196e0cb967fa107d972a865d44076c8f4d27f6",
       "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
       "last_vote_timestamp": 0,
       "mapping_is_error": false,
@@ -83,8 +83,8 @@
       },
       "present": true,
       "raw": {
-        "asJSON_sha256": "db9ead87de866911215b3b2e8a3fa4eeadeb82c9c843bc97795cf6969aab4c99",
-        "gzip_sha256": "c9ec99f18a6bc4ccaad18ccdd042692bc373ae2d77d78a2532ef6a7c4bd94915",
+        "asJSON_sha256": "fa78e3c4a1cbacb495960da1fcb9b1a834ffc0d825361b968e9e2eadb2670050",
+        "gzip_sha256": "a06d839fb65f690863346a1fc93201de92a1271914436fadd75490a31920b313",
         "n_cmts": 0,
         "tids": [],
         "unchanged_after_presentation": true
