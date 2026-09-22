@@ -267,10 +267,10 @@ describe("handle_GET_reportExport", () => {
     });
 
     it("sendParticipantXidsSummary should handle errors during export", async () => {
-      const mockError = new Error("polis_error_no_pca_data");
+      const mockError = new Error("polis_err_xids_unavailable");
 
-      // Mock getPcaFromBundle to throw an error
-      (getPcaFromBundle as jest.Mock).mockRejectedValue(mockError as never);
+      // The xid export no longer depends on math; the xid lookup itself fails here.
+      (getXids as jest.Mock).mockRejectedValue(mockError as never);
 
       await sendParticipantXidsSummary(zid, mockRes as any);
 
