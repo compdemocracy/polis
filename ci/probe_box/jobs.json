@@ -5,15 +5,15 @@
       "schema": "polis-probe-job/1",
       "run_id": "00000000000000000000000000000000",
       "reader": {
-        "image": "localhost/polis-probe-producer@sha256:a5cce81ce38e69b511380e4878b18a2ca41ecf9b88d5c9b8c1333882c30a11f1",
+        "image": "localhost/polis-probe-producer@sha256:0122bef80a048ef40982e36b249f81c33719752b8934f61010a029d71b926124",
         "args": ["extract"]
       },
       "producer": {
-        "image": "localhost/polis-probe-producer@sha256:a5cce81ce38e69b511380e4878b18a2ca41ecf9b88d5c9b8c1333882c30a11f1",
+        "image": "localhost/polis-probe-producer@sha256:0122bef80a048ef40982e36b249f81c33719752b8934f61010a029d71b926124",
         "args": ["produce"]
       },
       "verifier": {
-        "image": "localhost/polis-probe-verifier@sha256:e4734dbcaeda0cba4bcffdda7d4edeabcf423490004e3b660fde028cf91c58f4",
+        "image": "localhost/polis-probe-verifier@sha256:239ca82d7572694663db96c82fb319277c3fea85193289c18bf594f4092f22fa",
         "args": ["verify"]
       },
       "max_seconds": 18000
