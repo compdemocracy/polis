@@ -191,12 +191,21 @@ def test_comparison_requires_fresh_complete_unchanged_evidence(tmp_path, mutatio
 
 @pytest.mark.parametrize("mutation", ["stable-field", "published-byte", "inconsistent-observation", "missing-hash"])
 def test_empty_clock_observation_does_not_waive_stable_or_published_fields(mutation):
+    """Both namespaces publish the committed empty contract, so nothing is observed.
+
+    The exact reviewed witness certifies byte equality and yields no observation;
+    a moved clock, a stable-field change, an unequal published digest between the
+    namespaces and a malformed digest are all refused, with no excluded path.
+    """
     import copy
     baseline = json.loads((ROOT / "coordinator-rs/evidence/d4-node-reader-empty.json").read_text())
+    assert empty_observations(copy.deepcopy(baseline), baseline) == []
+    clock = copy.deepcopy(baseline)
+    clock["served"]["python"]["last_vote_timestamp"] += 1000
+    with pytest.raises(ValueError):
+        empty_observations(clock, baseline)
     current = copy.deepcopy(baseline)
     view = current["served"]["python"]
-    view["last_vote_timestamp"] += 1000
-    assert len(empty_observations(current, baseline)) == 9
     if mutation == "stable-field":
         view["tids"] = []
     elif mutation == "published-byte":

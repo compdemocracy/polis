@@ -67,11 +67,20 @@ def test_retired_key_is_never_automatically_selected():
 
 
 def test_empty_clock_hash_is_observation_not_deterministic_replay():
-    digest = LINUX['witnesses']['d4-node-reader-empty.json']['served']['python']['asJSON_sha256']
+    """The committed empty contract is reproduced exactly, like every other D4 witness."""
+    witness = LINUX['witnesses']['d4-node-reader-empty.json']
+    digest = witness['served']['python']['asJSON_sha256']
+    assert witness['served']['rustproto']['asJSON_sha256'] == digest
+    assert witness['served']['python']['last_vote_timestamp'] == 0
     report = rp.locate(digest)
-    assert not rp.select_targets(report, KEY)
-    assert all(not (t['file'].endswith('d4-node-reader-empty.json') and
-                    tuple(t.get('path', [])) in rp.DYNAMIC_EMPTY) for t in report['targets'])
+    targets = rp.select_targets(report, KEY)
+    assert targets and all(t['file'] == 'fresh-evidence/d4-node-reader-empty.json' for t in targets)
+    assert ['served', 'python', 'asJSON_sha256'] in [t.get('path') for t in targets]
+    assert all(x['classification'] == 'REGISTRY_TARGET' for x in report['locations']
+               if x['file'].endswith('evidence/d4-node-reader-empty.json'))
+    whole = rp.locate(LINUX['witness_sha256']['d4-node-reader-empty.json'])
+    assert {'file': 'fresh-evidence/d4-node-reader-empty.json', 'hash_file': True} in [
+        {'file': t['file'], 'hash_file': t.get('hash_file')} for t in rp.select_targets(whole, KEY)]
 
 
 def test_attribution_receipt_hash_is_not_claimed_as_replay_output():

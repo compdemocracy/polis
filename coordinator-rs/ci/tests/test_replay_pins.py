@@ -183,14 +183,17 @@ def test_seven_witnesses_keep_paired_negative_and_historical_checks(tmp_path, sy
 
 @pytest.mark.parametrize("system,machine", [("Darwin", "arm64"), ("Linux", "x86_64")])
 def test_existing_empty_clock_observation_remains_observation(tmp_path, system, machine):
+    """The empty witness is compared exactly, like every other D4 witness."""
     artifacts, fresh, baseline, selected, _ = fixture(tmp_path, system, machine)
+    result = comparisons(artifacts, fresh, baseline, selected)
+    assert result["empty_byte_equality_certified"] is True
+    assert result["empty_observations"] == []
     path = fresh / "d4-node-reader-empty.json"
     current = json.loads(path.read_text())
     current["served"]["python"]["last_vote_timestamp"] += 1
     path.write_text(json.dumps(current))
-    result = comparisons(artifacts, fresh, baseline, selected)
-    assert result["synthesized_empty_byte_equality_claimed"] is False
-    assert len(result["empty_observations"]) == 9
+    with pytest.raises(ValueError):
+        comparisons(artifacts, fresh, baseline, selected)
 
 
 @pytest.mark.parametrize('system,machine,expected',[('Linux','x86_64','Haswell'),('Darwin','arm64',None)])

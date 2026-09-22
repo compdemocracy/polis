@@ -408,11 +408,12 @@ summaries are removed before the tests, requiring fresh witnesses. Fresh replay
 and polarity results are compared to the reviewed baseline; existing source pins
 are verified without calling either closure recorder. All historical evidence is
 restored byte for byte, and the fresh receipt is retained separately. The
-published-empty bytes and stable D4 fields must reproduce. Synthesized-empty
-request-clock and associated JSON/gzip observations retain their existing
-non-certifying scope: nine precisely named values are retained in the receipt,
-with no synthesized-empty byte-equality or clock-only-causation claim. Changes
-to stable fields, published bytes or inconsistent observations fail admission.
+published-empty bytes and stable D4 fields must reproduce. Both namespaces now
+publish the empty generation from one committed contract, both served
+presentations carry the same bytes and the committed zero clock, so the empty
+witness is byte-certified with no excluded path and the receipt records no
+observation for it. Changes to stable fields, published bytes, the served clock
+or agreement between the two namespaces fail admission.
 The
 candidate gate may PASS while the full-contract gate remains FAIL with O1/O8
 PARTIAL. The earlier closure records describe their historical slice; this new
