@@ -132,6 +132,13 @@ const contract = JSON.parse(
     "utf8"
   )
 ).empty_output;
+// Moderation lists are conversation state, not compute output: they left the
+// constant contract and Python emits them as lists (empty here: no moderated comments).
+const moderationLists: Record<string, unknown> = {
+  "mod-in": [],
+  "mod-out": [],
+};
+const pinned: Record<string, unknown> = { ...contract, ...moderationLists };
 let zid = 960000;
 beforeEach(() => {
   zid++;
@@ -239,7 +246,7 @@ test.each([0, 7])(
       {
         p: {
           zid,
-          conversation_id: "synthetic",
+          conversation_id: "public-fixture",
           lang: "en",
           pid: 11,
           participantInfo: { uid: 7, pid: 11 },
@@ -299,7 +306,7 @@ function emptyRow(legacy: boolean) {
     pca: { comps: [[], []] },
     "base-clusters": { x: [], y: [], id: [], count: [], members: [] },
   };
-  for (const [key, value] of Object.entries(contract)) {
+  for (const [key, value] of Object.entries(pinned)) {
     const parts = key.split(".");
     if (parts.length === 2) data[parts[0]][parts[1]] = structuredClone(value);
     else data[key] = structuredClone(value);
@@ -314,7 +321,10 @@ function emptyRow(legacy: boolean) {
         "utf8"
       )
     );
-    for (const key of schedule.legacy_absent_keys) {
+    for (const key of [
+      ...schedule.legacy_absent_keys,
+      ...schedule.legacy_absent_moderation,
+    ]) {
       const parts = key.split(".");
       if (parts.length === 2) delete data[parts[0]][parts[1]];
       else delete data[key];
@@ -324,7 +334,7 @@ function emptyRow(legacy: boolean) {
 }
 import { handle_GET_math_pca2 } from "../../src/routes/math";
 test.each(["python", "legacy", "missing"])(
-  "all sixteen schedule paths are pinned on presentation, PCA2 and participationInit: %s",
+  "all fourteen contract paths and both moderation lists are pinned on presentation, PCA2 and participationInit: %s",
   async (kind) => {
     const clock = jest.spyOn(Date, "now").mockReturnValue(123456789);
     try {
@@ -347,7 +357,7 @@ test.each(["python", "legacy", "missing"])(
         {
           p: {
             zid,
-            conversation_id: "synthetic",
+            conversation_id: "public-fixture",
             lang: "en",
             pid: 11,
             participantInfo: { uid: 7, pid: 11 },
@@ -357,14 +367,15 @@ test.each(["python", "legacy", "missing"])(
         participation
       );
       const init = participation.json.mock.calls[0][0].pca;
-      expect(Object.keys(contract)).toHaveLength(16);
+      expect(Object.keys(contract)).toHaveLength(14);
+      expect(Object.keys(pinned)).toHaveLength(16);
       for (const pojo of [
         presented!.asPOJO,
         wire.body,
         init.asPOJO,
         JSON.parse(init.asJSON),
       ]) {
-        for (const [key, value] of Object.entries(contract)) {
+        for (const [key, value] of Object.entries(pinned)) {
           const difference = presentationDifferences[key];
           const expected = difference
             ? kind === "missing"
