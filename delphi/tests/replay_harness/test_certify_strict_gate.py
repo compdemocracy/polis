@@ -109,6 +109,8 @@ def battery(tmp_path, monkeypatch):
             paired = PAIRED_MALFORMED.get(state["mutation"])
             if paired is not None:
                 blob = paired[0](blob)
+            if "mutate_blob" in state:
+                blob = state["mutate_blob"](engine, step, dict(blob))
             stem = f"step-{step.index:03d}"
             if engine == "clj":
                 (out / (stem + ".blob.json")).write_text(json.dumps(blob))
@@ -301,6 +303,104 @@ def test_real_python_driver_records_zero_compute():
     assert records[0].cut_slot == 0 and records[0].batch_size == 0
     projected = cert.project_acceptance(records[0].blob)
     assert {k: projected[k] for k in EMPTY} == EMPTY
+
+
+def empty_defect_entry(tmp_path, *, keys=(), at=(0,)):
+    return make_schedule(tmp_path, list(at), cuts={
+        "mode": "vote-count", "at": list(at), "empty_checkpoint": True},
+        empty_output=EMPTY, legacy_absent_keys=list(keys))
+
+
+def omit_empty_keys(engine_to_change, keys):
+    def mutate(engine, step, blob):
+        # Keep another valid acceptance field, as the real legacy output does.
+        blob["zid"] = "public-empty"
+        if engine == engine_to_change and step.cut_slot == 0:
+            for key in keys:
+                blob.pop(key)
+        return blob
+    return mutate
+
+
+def test_declared_legacy_empty_omissions_pass_and_remain_visible_on_cache_hits(battery, tmp_path):
+    _, state, root, ds, run = battery
+    ds.votes.clear()
+    entry = empty_defect_entry(tmp_path, keys=EMPTY)
+    state["mutate_blob"] = omit_empty_keys("clj", EMPTY)
+    for _ in range(2):
+        report = run([entry])
+        assert_pass(report)
+        declared = [{"name": "legacy-defect-empty-omits-keys", "keys": sorted(EMPTY), "checkpoints": [0]}]
+        assert report["inventory"][0]["legacy_defects"] == declared
+        assert "legacy_defects" not in report["inventory"][1]
+        observed = [{"step": 0, "name": "legacy-defect-empty-omits-keys", "keys": sorted(EMPTY)}]
+        assert report["battery"][0]["legacy_defects"] == observed
+        receipt = latest_manifest(root)
+        assert receipt["inventory"][0]["legacy_defects"] == declared
+        assert receipt["entries"][0]["result"]["legacy_defects"] == observed
+    assert state["calls"] == 2
+    rec = root / entry.dataset / entry.schedule_id
+    raw = json.loads((rec / "clj/step-000.blob.json").read_text())
+    assert not (set(raw) & set(EMPTY))  # recorded engine evidence is never rewritten
+    strict = cert.compare_recording_pair(rec / "clj", rec / "py", cache_root=root)
+    assert not strict["per_step"][0]["match"]  # no context means no reconciliation
+
+
+@pytest.mark.parametrize("engine,declared,omitted", [
+    ("clj", [], ["n"]),
+    ("clj", ["n"], ["n-cmts"]),
+    ("py", list(EMPTY), ["n"]),
+    ("py", list(EMPTY), ["tids"]),
+])
+def test_empty_omission_requires_declaration_and_legacy_engine(battery, tmp_path, engine, declared, omitted):
+    _, state, _, ds, run = battery
+    ds.votes.clear()
+    entry = empty_defect_entry(tmp_path, keys=declared)
+    state["mutate_blob"] = omit_empty_keys(engine, omitted)
+    report = run([entry])
+    assert report["verdict"] == "FAIL"
+    assert report["battery"][0]["stage"] == "empty-output"
+    assert "absent keys" in report["battery"][0]["reason"]
+
+
+@pytest.mark.parametrize("engine", ["clj", "py"])
+@pytest.mark.parametrize("declared", [[], list(EMPTY)])
+@pytest.mark.parametrize("key,value", [("n", 1), ("tids", [1])])
+def test_empty_defect_never_accepts_wrong_present_values(battery, tmp_path, engine, declared, key, value):
+    _, state, _, ds, run = battery
+    ds.votes.clear()
+    entry = empty_defect_entry(tmp_path, keys=declared)
+    state["mutate_blob"] = lambda actual, step, blob: (
+        {**blob, key: value} if actual == engine else blob)
+    report = run([entry])
+    assert report["verdict"] == "FAIL"
+    assert report["battery"][0]["stage"] == "empty-output"
+    assert "wrong values" in report["battery"][0]["reason"]
+
+
+def test_empty_defect_does_not_relax_later_nonzero_checkpoint(battery, tmp_path):
+    _, state, _, _, run = battery
+    entry = empty_defect_entry(tmp_path, keys=EMPTY, at=(0, 2))
+    state["mutate_blob"] = lambda engine, step, blob: (
+        {k: v for k, v in blob.items() if k != "n"}
+        if engine == "clj" and step.cut_slot != 0 else blob)
+    report = run([entry])
+    assert report["verdict"] == "FAIL"
+    assert report["battery"][0]["stage"] == "checkpoint-schema"
+
+
+def test_empty_defect_declaration_invalidates_recording_cache(battery, tmp_path):
+    _, state, _, ds, run = battery
+    ds.votes.clear()
+    entry = empty_defect_entry(tmp_path, keys=EMPTY)
+    state["mutate_blob"] = omit_empty_keys("clj", ["n"])
+    assert_pass(run([entry]))
+    # Same schedule identity and cuts, but remove its allowance.
+    strict_entry = empty_defect_entry(tmp_path)
+    report = run([strict_entry])
+    assert report["verdict"] == "FAIL"
+    assert report["battery"][0]["stage"] == "empty-output"
+    assert state["calls"] == 4
 
 
 @pytest.mark.parametrize("cuts,reason", [
@@ -1168,3 +1268,40 @@ def test_temp_schedule_rejects_ambiguous_or_traversing_components(
     with pytest.raises(cert.CertifyError) as excinfo:
         cert._write_temp_schedule(_spec(dataset, schedule_id), tmp_path)
     assert excinfo.value.stage == "schedule-path"
+
+
+@pytest.mark.parametrize('cut_slot', [0, 1])
+def test_timestamp_reconciliation_strict_cache_observation_and_nonzero_refusal(tmp_path, cut_slot):
+    from copy import deepcopy
+    from dataclasses import replace
+    spec = sched.ScheduleSpec('public-fixture', 'empty-clock',
+        {'mode': 'vote-count', 'at': [cut_slot], 'empty_checkpoint': True},
+        empty_output={**EMPTY, 'lastVoteTimestamp': 1, 'pca.center': [-0.0]},
+        legacy_absent_keys=['pca.center'], legacy_empty_timestamp={'legacy': 0, 'python': 1})
+    checkpoint = dict(index=0, prev_slot=0, cut_slot=cut_slot, batch_size=cut_slot, cut_time_ms=0)
+    expected = cert.ExpectedEntry(cert.BatteryEntry(spec.dataset, spec.schedule_id), spec,
+        tmp_path / 'unused.csv', 'a' * 64, None, None, cut_slot, [checkpoint])
+    legacy = {**EMPTY, 'lastVoteTimestamp': 0, 'pca': {'comps': [[1.0], [1.0]]}}
+    python = {**deepcopy(legacy), 'lastVoteTimestamp': 1}
+    python['pca']['center'] = [-0.0]
+    clj_dir, py_dir = tmp_path / 'clj', tmp_path / 'py'
+    clj_dir.mkdir(); py_dir.mkdir()
+    (clj_dir / 'step-000.blob.json').write_text(json.dumps(legacy))
+    (clj_dir / 'step-000.meta.json').write_text(json.dumps(checkpoint))
+    (py_dir / 'step-000.json').write_text(json.dumps({**checkpoint, 'blob': python}))
+    before = {p: p.read_bytes() for p in tmp_path.rglob('step-*')}
+    for _ in range(2):
+        result = cert.compare_recording_pair(clj_dir, py_dir, cache_root=tmp_path, expected=expected)
+        step = result['per_step'][0]
+        assert step['match'] is (cut_slot == 0)
+        if cut_slot == 0:
+            assert step['legacy_defects'] == [
+                {'name': 'legacy-defect-empty-omits-keys', 'keys': ['pca.center']},
+                {'name': 'legacy-defect-empty-timestamp', 'legacy': 0, 'python': 1}]
+        else:
+            assert 'legacy_defects' not in step
+    if cut_slot == 0:
+        undeclared = replace(expected, spec=replace(spec, legacy_empty_timestamp=None))
+        with pytest.raises(cert.CertifyError, match='empty_output'):
+            cert.compare_recording_pair(clj_dir, py_dir, cache_root=tmp_path, expected=undeclared)
+    assert before == {p: p.read_bytes() for p in before}

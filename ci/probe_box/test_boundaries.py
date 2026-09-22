@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from contracts import validate_job, public_result
-from receipt import sha, validate_receipt
+from receipt import canonical, decode_receipt, sha, validate_receipt
 import worker
 from dns import question
 
@@ -39,6 +39,67 @@ def sampled_receipt():
 
 
 class BoundaryTests(unittest.TestCase):
+    def test_closed_legacy_omission_receipt_and_existing_bytes(self):
+        for make in (receipt, sampled_receipt):
+            r = make()
+            original = canonical(r)
+            self.assertEqual(canonical(decode_receipt(original, job())), original)
+            self.assertNotIn('legacy_defects', r['entries'][0])
+            r['entries'][0]['legacy_defects'] = [
+                {'name': 'legacy-defect-empty-omits-keys', 'keys': ['in-conv', 'n', 'n-cmts', 'tids']}]
+            self.assertEqual(decode_receipt(canonical(r), job()), r)
+
+    def test_legacy_omission_export_refuses_unapproved_shapes(self):
+        good = {'name': 'legacy-defect-empty-omits-keys', 'keys': ['n']}
+        invalid = [None, {}, [], [good, good],
+                   [{'name': 'arbitrary', 'keys': ['n']}],
+                   [{'name': good['name'], 'keys': ['zid']}],
+                   [{'name': good['name'], 'keys': ['n', 'n']}],
+                   [{'name': good['name'], 'keys': ['tids', 'n']}],
+                   [{'name': good['name'], 'keys': []}],
+                   [{'name': good['name'], 'keys': 'n'}],
+                   [{'name': good['name'], 'keys': [False]}],
+                   [{'name': good['name'], 'keys': [{}]}],
+                   [{**good, 'value': 0}], [{**good, 'checkpoints': [0]}]]
+        for value in invalid:
+            with self.subTest(value=value):
+                r = receipt()
+                r['entries'][0]['legacy_defects'] = value
+                with self.assertRaises(ValueError):
+                    decode_receipt(canonical(r), job())
+
+    def test_complete_legacy_key_set_matches_committed_schedule_and_exports_both_defects(self):
+        from pathlib import Path
+        from receipt import LEGACY_EMPTY_KEYS
+        raw = json.loads((Path(__file__).resolve().parents[2] /
+                          'delphi/scripts/schedules/pc-zerovote-01-empty.json').read_text())
+        self.assertEqual(LEGACY_EMPTY_KEYS, set(raw['legacy_absent_keys']))
+        self.assertEqual(len(LEGACY_EMPTY_KEYS), 15)
+        for make in (receipt, sampled_receipt):
+            r = make()
+            r['entries'][0]['legacy_defects'] = [
+                {'name': 'legacy-defect-empty-omits-keys', 'keys': sorted(LEGACY_EMPTY_KEYS)},
+                {'name': 'legacy-defect-empty-timestamp', 'legacy': 0, 'python': 1}]
+            self.assertEqual(decode_receipt(canonical(r), job()), r)
+
+    def test_timestamp_receipt_is_exact_closed_unique_and_ordered(self):
+        good = {'name': 'legacy-defect-empty-timestamp', 'legacy': 0, 'python': 1}
+        invalid = [[good, good], [good, {'name': 'legacy-defect-empty-omits-keys', 'keys': ['n']}],
+                   [{**good, 'legacy': False}], [{**good, 'python': True}],
+                   [{**good, 'legacy': 0.0}], [{**good, 'python': 1.0}],
+                   [{**good, 'legacy': 1}], [{**good, 'python': 0}],
+                   [{**good, 'raw': 'private'}], [{**good, 'checkpoints': [0]}],
+                   [{'name': good['name']}], [None],
+                   [{'name': 'legacy-defect-empty-omits-keys', 'keys': ['pca.comps']}]]
+        r = receipt()
+        r['entries'][0]['legacy_defects'] = [good]
+        self.assertEqual(decode_receipt(canonical(r), job()), r)
+        for value in invalid:
+            with self.subTest(value=value):
+                r['entries'][0]['legacy_defects'] = value
+                with self.assertRaises(ValueError):
+                    decode_receipt(canonical(r), job())
+
     def test_v2_receipt_retains_full_hex_seed_and_numeric_report(self):
         r=sampled_receipt()
         self.assertEqual(validate_receipt(r,job()),r)

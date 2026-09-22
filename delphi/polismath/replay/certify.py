@@ -36,6 +36,7 @@ with identical cuts.
 from __future__ import annotations
 
 import functools
+import copy
 import hashlib
 import json
 import math
@@ -926,6 +927,10 @@ def canonical_schedule_hash(spec: sched.ScheduleSpec) -> str:
         "coverage": spec.coverage,
         "empty_output": spec.empty_output,
     }
+    if spec.legacy_absent_keys:
+        payload["legacy_absent_keys"] = sorted(spec.legacy_absent_keys)
+    if spec.legacy_empty_timestamp is not None:
+        payload["legacy_empty_timestamp"] = spec.legacy_empty_timestamp
     return _canonical_hash(payload)
 
 
@@ -1413,6 +1418,7 @@ def _step_verdict_cache_path(cache_root: Path, clj_hash: str, py_hash: str, cfg_
 def compare_recording_pair(
     clj_dir: str | Path, py_dir: str | Path, *, cache_root: str | Path,
     comparer: StepComparer | None = None,
+    expected: ExpectedEntry | None = None,
 ) -> dict[str, Any]:
     """Hash-first, cached comparison of one clj/py recording pair.
 
@@ -1421,6 +1427,11 @@ def compare_recording_pair(
     consults the on-disk step-verdict cache (keyed on the hash pair + comparer
     config) before running the (acceptance-projecting) :class:`StepComparer`.
     """
+    if expected is not None:
+        # Context comes from the independently admitted schedule, never from
+        # producer claims. Raw schema/cursor checks precede reconciliation.
+        validate_recording_inventory(Path(clj_dir), "clj", expected)
+        validate_recording_inventory(Path(py_dir), "py", expected)
     clj_blobs = load_clj_blobs(Path(clj_dir))
     py_blobs = st.load_step_blobs(Path(py_dir))
     if not clj_blobs or not py_blobs:
@@ -1451,6 +1462,21 @@ def compare_recording_pair(
         validate_checkpoint_blob(py_blobs[i], f"py: step-{i:03d}", require_keys=False)
         clj_proj = project_acceptance(clj_blobs[i])
         py_proj = project_acceptance(py_blobs[i])
+        defects = []
+        if expected is not None:
+            checkpoint = expected.checkpoints[i]
+            original = clj_proj
+            clj_proj = checkpoint_acceptance_projection(clj_blobs[i], "clj", expected, checkpoint)
+            py_proj = checkpoint_acceptance_projection(py_blobs[i], "py", expected, checkpoint)
+            if checkpoint["cut_slot"] == 0:
+                restored = sorted(k for k in expected.spec.legacy_absent_keys
+                                  if _empty_contract_value(original, k) is _EMPTY_MISSING)
+                if restored:
+                    defects.append({"name": "legacy-defect-empty-omits-keys", "keys": restored})
+                if (expected.spec.legacy_empty_timestamp is not None
+                        and original["lastVoteTimestamp"] != clj_proj["lastVoteTimestamp"]):
+                    defects.append({"name": "legacy-defect-empty-timestamp",
+                                   **expected.spec.legacy_empty_timestamp})
         if not clj_proj or not py_proj:
             raise CertifyError("checkpoint-schema", "empty acceptance blob")
         clj_hash = _canonical_hash(clj_proj)
@@ -1461,6 +1487,7 @@ def compare_recording_pair(
                 "step": i, "match": True, "n_divergences": 0,
                 "families": {"exact": [], "tolerant": []}, "sign_flips": [],
                 "hash_match": True,
+                **({"legacy_defects": defects} if defects else {}),
             })
             continue
 
@@ -1485,6 +1512,8 @@ def compare_recording_pair(
             os.replace(tmp_path, cache_path)
         report = dict(report)
         report["hash_match"] = False
+        if defects:
+            report["legacy_defects"] = defects
         per_step.append(report)
 
     return {
@@ -1560,7 +1589,94 @@ class ExpectedEntry:
             "role": self.entry.role or f"{self.entry.dataset}:{self.entry.schedule_id}",
             "engine": engine, "coverage": self.spec.coverage,
             "stream_end": self.stream_end, "checkpoints": self.checkpoints,
+            **({"legacy_defects": legacy_empty_defects(self)}
+               if engine == "clj" and legacy_empty_defects(self) else {}),
         } for engine in ("clj", "py")]
+
+
+def legacy_empty_defects(expected: ExpectedEntry) -> list[dict[str, Any]]:
+    """Named schedule allowance, bound in the pre-execution inventory."""
+    zero = [c["index"] for c in expected.checkpoints if c["cut_slot"] == 0]
+    if not zero:
+        return []
+    defects = []
+    if expected.spec.legacy_absent_keys:
+        defects.append({"name": "legacy-defect-empty-omits-keys",
+                       "keys": sorted(expected.spec.legacy_absent_keys), "checkpoints": zero})
+    if expected.spec.legacy_empty_timestamp is not None:
+        defects.append({"name": "legacy-defect-empty-timestamp",
+                       **expected.spec.legacy_empty_timestamp, "checkpoints": zero})
+    return defects
+
+
+_EMPTY_MISSING = object()
+
+
+def _empty_contract_value(projected: dict[str, Any], key: str) -> Any:
+    if key in sched.EMPTY_PCA_PATHS:
+        pca = projected.get("pca")
+        return pca.get(key.split(".")[1], _EMPTY_MISSING) if isinstance(pca, dict) else _EMPTY_MISSING
+    return projected.get(key, _EMPTY_MISSING)
+
+
+def _exact_empty_value(actual: Any, declared: Any) -> bool:
+    """Exact JSON shape/value, including bool versus numeric distinctions."""
+    if type(actual) is not type(declared):
+        return False
+    if isinstance(declared, dict):
+        return actual.keys() == declared.keys() and all(
+            _exact_empty_value(actual[k], v) for k, v in declared.items())
+    if isinstance(declared, list):
+        return len(actual) == len(declared) and all(
+            _exact_empty_value(a, b) for a, b in zip(actual, declared))
+    return actual == declared
+
+
+def checkpoint_acceptance_projection(
+    blob: dict[str, Any], engine: str, expected: ExpectedEntry, checkpoint: dict[str, int],
+) -> dict[str, Any]:
+    """Check empty values exactly; reconcile only declared zero-cut defects.
+
+    Raw schema validation remains the caller's prerequisite. This never edits
+    the blob or recordings, and provides no allowance at a nonzero checkpoint.
+    """
+    projected = project_acceptance(blob)
+    if checkpoint["cut_slot"] != 0:
+        return projected
+    contract = expected.spec.empty_output
+    if not isinstance(contract, dict) or not contract:
+        raise CertifyError("inventory", "zero checkpoint requires a nonempty empty_output contract")
+    allowed = set(expected.spec.legacy_absent_keys) if engine == "clj" else set()
+    # A missing/malformed PCA parent is not an omitted leaf. In particular,
+    # never replace an entire PCA object and hide a changed comps value.
+    if any(k in sched.EMPTY_PCA_PATHS for k in contract) and not isinstance(projected.get("pca"), dict):
+        raise CertifyError("empty-output", "empty_output PCA leaves require a present PCA object")
+    values = {k: _empty_contract_value(projected, k) for k in contract}
+    required = dict(contract)
+    timestamp = expected.spec.legacy_empty_timestamp
+    if engine == "clj" and timestamp is not None:
+        required["lastVoteTimestamp"] = timestamp["legacy"]
+    missing = sorted(k for k, v in values.items() if v is _EMPTY_MISSING and k not in allowed)
+    wrong = sorted(k for k, v in values.items()
+                   if v is not _EMPTY_MISSING and not _exact_empty_value(v, required[k]))
+    if missing or wrong:
+        raise CertifyError(
+            "empty-output",
+            f"{engine}: step-{checkpoint['index']:03d} does not satisfy the schedule's declared "
+            f"empty_output contract — absent keys {missing}, wrong values "
+            f"{ {k: values[k] for k in wrong} } (expected "
+            f"{ {k: required[k] for k in wrong} }). Only declared legacy empty "
+            f"defects are reconciled; see the schedule's notes.")
+    projected = copy.deepcopy(projected)
+    for key in allowed:
+        if values[key] is _EMPTY_MISSING:
+            if key in sched.EMPTY_PCA_PATHS:
+                projected["pca"][key.split(".")[1]] = copy.deepcopy(contract[key])
+            else:
+                projected[key] = copy.deepcopy(contract[key])
+    if engine == "clj" and timestamp is not None:
+        projected["lastVoteTimestamp"] = timestamp["python"]
+    return projected
 
 
 def prepare_entry(entry: BatteryEntry) -> ExpectedEntry:
@@ -1594,7 +1710,7 @@ def prepare_entry(entry: BatteryEntry) -> ExpectedEntry:
     if steps[0].cut_slot == 0:
         if not isinstance(spec.empty_output, dict) or not spec.empty_output:
             raise CertifyError("inventory", "zero checkpoint requires a nonempty empty_output contract")
-        if not set(spec.empty_output) <= ACCEPTANCE_KEYS:
+        if not set(spec.empty_output) <= ACCEPTANCE_KEYS | sched.EMPTY_PCA_PATHS:
             raise CertifyError("inventory", "empty_output must name acceptance fields")
     is_events = votes_csv.name == "events.jsonl"
     comments = comments_csv_path(entry.dataset) if spec.moderation != "none" and not is_events else None
@@ -1644,24 +1760,7 @@ def validate_recording_inventory(directory: Path, engine: str, expected: Expecte
         validate_checkpoint_blob(blob, f"{engine}: {stem}",
                                  require_keys=checkpoint["cut_slot"] != 0)
         if checkpoint["cut_slot"] == 0:
-            projected = project_acceptance(blob)
-            missing = sorted(k for k in expected.spec.empty_output if k not in projected)
-            wrong = sorted(k for k, v in expected.spec.empty_output.items()
-                           if k in projected and projected[k] != v)
-            if missing or wrong:
-                # Name the offending keys: the two engines' empty prep-main blobs
-                # genuinely disagree (Clojure omits n/n-cmts/tids/in-conv where
-                # Python emits their empty values), and that is an OUTPUT-CONTRACT
-                # question for P-022, not a harness defect. A bare "violates
-                # declared empty_output" reads like a regression; this does not.
-                raise CertifyError(
-                    "empty-output",
-                    f"{engine}: {stem} does not satisfy the schedule's declared "
-                    f"empty_output contract — absent keys {missing}, wrong values "
-                    f"{ {k: projected[k] for k in wrong} } (expected "
-                    f"{ {k: expected.spec.empty_output[k] for k in wrong} }). The "
-                    f"engines' empty-compute representations are not yet reconciled; "
-                    f"see the schedule's notes.")
+            checkpoint_acceptance_projection(blob, engine, expected, checkpoint)
 
 
 def _entry_error(entry: BatteryEntry, exc: Exception) -> dict[str, Any]:
@@ -1713,18 +1812,22 @@ def _certify_entry_heavy(
             raise CertifyError("input-changed", "inputs changed after inventory construction")
         validate_recording_inventory(clj_dir, "clj", expected)
         validate_recording_inventory(py_dir, "py", expected)
-        cmp_result = compare_recording_pair(clj_dir, py_dir, cache_root=root)
+        cmp_result = compare_recording_pair(clj_dir, py_dir, cache_root=root, expected=expected)
     except Exception as exc:  # noqa: BLE001 - one bad entry must not crash the battery
         return _entry_error(entry, exc)
 
     div_steps = [s for s in cmp_result["per_step"] if not s["match"]]
+    defects = [{"step": s["step"], **q} for s in cmp_result["per_step"]
+              for q in s.get("legacy_defects", [])]
     if not div_steps:
         return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
-                "verdict": "MATCH", "n_steps": cmp_result["aligned_steps"], "cache": cache}
+                "verdict": "MATCH", "n_steps": cmp_result["aligned_steps"], "cache": cache,
+                **({"legacy_defects": defects} if defects else {})}
 
     summary = _summarize_divergences(cmp_result)
     return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
             "verdict": "DIVERGENCE", "cache": cache,
+            **({"legacy_defects": defects} if defects else {}),
             "first_div_step": summary["first_div_step"],
             "n_div_steps": summary["n_div_steps"], "_summary": summary}
 

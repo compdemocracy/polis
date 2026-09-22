@@ -1,5 +1,6 @@
 """Snapshot-relative schedules retain the admitted full-stream recipe."""
 import sys
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -10,6 +11,66 @@ from polismath.replay.schedule import ScheduleSpec
 
 
 class ProbeTests(unittest.TestCase):
+    def test_receipt_exports_only_observed_legacy_omissions_and_retains_raw_files(self):
+        from receipt import decode_receipt
+        from contracts import validate_job
+
+        gate = probe.gate
+        job = validate_job(dict(schema='polis-probe-job/1', run_id='a' * 32, max_seconds=3600,
+            producer={'image': 'localhost/producer@sha256:' + '1' * 64, 'args': ['produce']},
+            verifier={'image': 'localhost/verifier@sha256:' + '2' * 64, 'args': ['verify']}))
+        inputs = {'policySha256': gate.sha(gate.POLICY)}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            recordings = root / 'recordings'
+            spec = ScheduleSpec.from_json_file(gate.REPO / 'delphi/scripts/schedules/pc-zerovote-01-empty.json')
+            checkpoint = {'index': 0, 'prev_slot': 0, 'cut_slot': 0, 'batch_size': 0, 'cut_time_ms': 0}
+            expected = gate.certify.ExpectedEntry(
+                gate.certify.BatteryEntry(spec.dataset, spec.schedule_id), spec,
+                root / 'public-events.jsonl', 'a' * 64, None, None, 0, [checkpoint])
+            rec = gate.store.recording_dir(spec.dataset, spec.schedule_id, root=recordings)
+            (rec / 'clj').mkdir(parents=True)
+            (rec / 'py').mkdir()
+            gate.dump(rec / 'schedule.json', spec.to_dict())
+            python_blob = {'pca': {'comps': [[1.0], [1.0]]}}
+            for key, value in spec.empty_output.items():
+                if key.startswith('pca.'):
+                    python_blob['pca'][key.split('.')[1]] = value
+                else:
+                    python_blob[key] = value
+            gate.dump(rec / 'clj/step-000.meta.json', checkpoint)
+            gate.dump(rec / 'py/step-000.json', {**checkpoint, 'blob': python_blob})
+            read, dump, tree = gate.read, gate.dump, gate.regular_tree
+            def verify_recordings(evidence, admitted, scratch, fixture):
+                return gate.verify_pairs([expected], recordings, scratch)
+            def read_input(path):
+                admitted = {'/job/job.json': job, '/run-spec/inputs.json': inputs,
+                            '/fixture/manifest.json': {}}
+                return admitted[str(path)] if str(path) in admitted else read(path)
+            for omitted in (['n'], []):
+                with self.subTest(omitted=omitted):
+                    (rec / 'clj/step-000.blob.json').write_bytes(gate.encoded(
+                        {**{k: v for k, v in python_blob.items() if k not in omitted},
+                         'lastVoteTimestamp': 0}))
+                    (root / 'receipt.json').unlink(missing_ok=True)
+                    before = tree(recordings)
+                    with patch.object(gate, 'read', side_effect=read_input), \
+                         patch.object(gate, 'verify_recordings', side_effect=verify_recordings), \
+                         patch.object(gate, 'regular_tree', side_effect=lambda _: tree(recordings)), \
+                         patch.object(gate, 'dump', side_effect=lambda path, value: dump(root / path.name, value)):
+                        probe.verify()
+                    receipt = decode_receipt((root / 'receipt.json').read_bytes(), job)
+                    self.assertEqual(receipt['verdict'], 'PASS')
+                    if omitted:
+                        self.assertEqual(receipt['entries'][0]['legacy_defects'],
+                            [{'name': 'legacy-defect-empty-omits-keys', 'keys': ['n']},
+                             {'name': 'legacy-defect-empty-timestamp', 'legacy': 0, 'python': 1}])
+                    else:
+                        self.assertEqual(receipt['entries'][0]['legacy_defects'],
+                            [{'name': 'legacy-defect-empty-timestamp', 'legacy': 0, 'python': 1}])
+                    self.assertEqual(tree(recordings), before)
+                    self.assertEqual('n' in read(rec / 'clj/step-000.blob.json'), not omitted)
+
     def test_image_recipe_includes_exact_approved_probe_config(self):
         import recipe
         from polismath.replay import fixture_config

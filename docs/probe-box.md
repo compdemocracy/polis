@@ -44,8 +44,18 @@ Cloud-init execution, SSH, SSM, swap and core dumps are disabled.
 
 ## Closed receipt and lifecycle boundaries
 
-Only the unchanged `polis-probe-receipt/1` or `/2` schema leaves the worker:
+Only the closed `polis-probe-receipt/1` or `/2` schema leaves the worker:
 bounded counts, finite errors, fixed verdicts, selection aggregates and digests.
+On an empty (zero-vote) conversation the legacy engine omits fields that Python emits; Python's complete empty structure is the canonical output and the legacy behaviour is a recorded defect, never an accepted variant. An entry may also carry `legacy_defects`: `legacy-defect-empty-omits-keys` with a sorted,
+unique, nonempty subset of the 15 fixed public keys in the committed
+[`pc-zerovote-01-empty.json`](../delphi/scripts/schedules/pc-zerovote-01-empty.json)
+contract, and/or `legacy-defect-empty-timestamp` with exactly `legacy: 0, python: 1`.
+The omission list includes three explicit PCA leaves; it does not permit replacing
+a whole PCA object. Both observations describe only actual reconciliations at the
+zero checkpoint. The exact Python values and present legacy values remain checked.
+Arbitrary names, values, duplicates, reordered defects and additional fields are
+rejected; entries without an observation retain their existing shape. Deploy the
+updated supervisor/operator receipt validator with the verifier images.
 Raw rows, identifiers, fixtures, recordings, paths and logs remain on disposable
 storage. The supervisor validates the receipt and writes its own S3 key once.
 The local operator library fetches that bounded object and calls the same
@@ -208,7 +218,7 @@ needs privileged mode and a private delegated cgroup namespace for nested Docker
 its runtime network is disabled. No AWS credential, private data or DB is used.
 
 ```bash
-export COMPOSE_PROJECT_NAME=astra-probe-shape-c-local
+export COMPOSE_PROJECT_NAME=p027probe-shape-c-local
 export POLIS_RECOVERY_PG_PORT=56291 RECOVERY_PG_PORT=56291
 : "${PROBE_LOCAL_RESULTS:?absolute private local results directory}"
 mkdir -p "$PROBE_LOCAL_RESULTS"
@@ -222,7 +232,7 @@ The independent local Postgres rehearsal exercises the unchanged provisioning
 transaction. It does not connect to the real primary:
 
 ```bash
-export COMPOSE_PROJECT_NAME=astra-probe-shape-c-login
+export COMPOSE_PROJECT_NAME=p027probe-shape-c-login
 export POLIS_RECOVERY_PG_PORT=56292 RECOVERY_PG_PORT=56292
 docker compose -f ci/probe_box/test.compose.yml up -d --wait
 PROBE_TEST_DATABASE_URL="postgresql://postgres@127.0.0.1:${POLIS_RECOVERY_PG_PORT}/probe_test"   python3 -B ci/probe_box/login_rehearsal.py

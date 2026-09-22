@@ -699,13 +699,20 @@ def _conv(engine_dir: Path, default: str) -> str:
     return default
 
 
-def measure_main_blob(entry_dir: Path, repo_delphi: Path) -> dict:
+def measure_main_blob(entry_dir: Path, repo_delphi: Path, *, expected=None) -> dict:
     sys.path.insert(0, str(repo_delphi))
     from polismath.replay import crosslang
-    from polismath.replay.certify import project_acceptance, _acceptance_projecting_comparer
+    from polismath.replay.certify import (project_acceptance, _acceptance_projecting_comparer,
+                                        checkpoint_acceptance_projection,
+                                        validate_recording_inventory)
     from polismath.replay.stepcompare import compare_recordings
 
+    if expected is not None:
+        for engine in ('clj', 'py'):
+            validate_recording_inventory(entry_dir / engine, engine, expected)
+
     # Tightened-legacy diagnostic (asymmetric np.allclose) -- NOT authoritative G12.
+    # Deliberately retain raw omission differences in this diagnostic.
     def legacy(**kw):
         with tempfile.TemporaryDirectory() as shim:
             crosslang.clj_recording_to_py_store(str(entry_dir / "clj"), shim)
@@ -729,8 +736,13 @@ def measure_main_blob(entry_dir: Path, repo_delphi: Path) -> dict:
         return {"status": "STEP_COUNT_MISMATCH"}
     col = Collector()
     for i, cb in enumerate(clj_blobs):
-        A = project_acceptance(cb)
-        B = project_acceptance(json.loads(py_steps[i].read_text())["blob"])
+        py_blob = json.loads(py_steps[i].read_text())["blob"]
+        if expected is None:
+            A, B = project_acceptance(cb), project_acceptance(py_blob)
+        else:
+            checkpoint = expected.checkpoints[i]
+            A = checkpoint_acceptance_projection(cb, 'clj', expected, checkpoint)
+            B = checkpoint_acceptance_projection(py_blob, 'py', expected, checkpoint)
         pca_a, pca_b = A.get("pca"), B.get("pca")
         s = infer_axis_sign(pca_a["comps"], pca_b["comps"]) if pca_a and pca_b else None
         axis = Axis(s, d)
@@ -744,7 +756,7 @@ def measure_main_blob(entry_dir: Path, repo_delphi: Path) -> dict:
     rep["legacy_diagnostic"] = {
         "b1_match": b1["overall_match"],
         "tightened_kwargs_match": tightened["overall_match"],
-        "note": "tightened StepComparer is asymmetric np.allclose, not symmetric G12",
+        "note": "unnormalized legacy empty keys; tightened StepComparer is asymmetric np.allclose, not symmetric G12",
     }
     rep["n_steps"] = len(clj_blobs)
     return rep
