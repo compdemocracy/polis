@@ -13,3 +13,7 @@ preprod.env
 prod.env
 scratch/
 xids.csv
+
+# Python bytecode caches anywhere in the tree
+__pycache__/
+*.pyc
