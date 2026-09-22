@@ -56,8 +56,8 @@ export interface RepnessItem {
 }
 
 export interface PCAData {
-  'base-clusters': BaseClusters
-  'group-clusters': GroupCluster[]
+  'base-clusters'?: BaseClusters
+  'group-clusters'?: GroupCluster[]
   'group-aware-consensus'?: {
     [tid: string]: number
   }
