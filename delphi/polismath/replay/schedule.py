@@ -79,8 +79,6 @@ class ScheduleSpec:
     # Keys the legacy engine may omit at an explicitly empty checkpoint.
     # Present values, and all Python values, still obey empty_output exactly.
     legacy_absent_keys: list[str] = field(default_factory=list)
-    # The sole present-value reconciliation: legacy's empty clock sentinel.
-    legacy_empty_timestamp: dict[str, int] | None = None
     # Verbatim mapping this spec was loaded from (None → reconstruct on demand).
     _raw: dict[str, Any] | None = field(default=None, repr=False, compare=False)
 
@@ -104,20 +102,6 @@ class ScheduleSpec:
             if (not isinstance(self.cuts, dict)
                     or self.cuts.get("empty_checkpoint") is not True):
                 raise ValueError("legacy_absent_keys requires cuts.empty_checkpoint: true")
-        if self.legacy_empty_timestamp is not None:
-            pair = self.legacy_empty_timestamp
-            if (type(pair) is not dict or set(pair) != {"legacy", "python"}
-                    or type(pair["legacy"]) is not int or pair["legacy"] != 0
-                    or type(pair["python"]) is not int or pair["python"] != 1):
-                raise ValueError("legacy_empty_timestamp requires exact legacy 0, python 1")
-            if (not isinstance(self.empty_output, dict)
-                    or type(self.empty_output.get("lastVoteTimestamp")) is not int
-                    or self.empty_output["lastVoteTimestamp"] != pair["python"]
-                    or "lastVoteTimestamp" in self.legacy_absent_keys):
-                raise ValueError("legacy_empty_timestamp requires a present empty_output timestamp")
-            if (not isinstance(self.cuts, dict)
-                    or self.cuts.get("empty_checkpoint") is not True):
-                raise ValueError("legacy_empty_timestamp requires cuts.empty_checkpoint: true")
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "ScheduleSpec":
@@ -126,7 +110,7 @@ class ScheduleSpec:
             raise ValueError("schedule must be an object")
         unknown = set(d) - {"dataset", "schedule_id", "cuts", "source", "moderation",
                             "clojure", "notes", "restart_after", "coverage", "empty_output",
-                            "legacy_absent_keys", "legacy_empty_timestamp"}
+                            "legacy_absent_keys"}
         if unknown:
             raise ValueError(f"unknown schedule fields: {sorted(unknown)}")
         return cls(
@@ -141,7 +125,6 @@ class ScheduleSpec:
             coverage=d.get("coverage", "full-stream"),
             empty_output=d.get("empty_output"),
             legacy_absent_keys=d.get("legacy_absent_keys", []),
-            legacy_empty_timestamp=d.get("legacy_empty_timestamp"),
             _raw=dict(d),
         )
 
@@ -168,8 +151,6 @@ class ScheduleSpec:
         }
         if self.legacy_absent_keys:
             result["legacy_absent_keys"] = list(self.legacy_absent_keys)
-        if self.legacy_empty_timestamp is not None:
-            result["legacy_empty_timestamp"] = dict(self.legacy_empty_timestamp)
         return result
 
     def write_json(self, path: str | Path) -> None:
@@ -310,7 +291,11 @@ def slice_schedule(dataset: ReplayDataset, spec: ScheduleSpec) -> list[ReplaySte
     ``"none"`` ignores them; ``"interleave-by-timestamp"`` uses the dataset's
     ``mod_events``; an explicit list of ModEvent-shaped dicts overrides. Each
     mod event is attached to the FIRST cut whose ``cut_time_ms`` reaches its
-    ``t_ms``; events after the last cut are dropped (like tail votes).
+    ``t_ms``. Under ``full-stream`` coverage the final cut also consumes every
+    moderation event later than the last vote: a comment moderated after
+    voting stopped is applied at the final recompute, which is what both
+    engines do at their next poll. Under ``prefix-diagnostic`` coverage such
+    tail events are dropped (like tail votes).
     """
     slots = resolve_cut_slots(dataset, spec.cuts)
     if not slots:
@@ -324,10 +309,12 @@ def slice_schedule(dataset: ReplayDataset, spec: ScheduleSpec) -> list[ReplaySte
         batch = tuple(dataset.votes[prev:cut])  # 1-based (prev, cut] → 0-based slice
         cut_time_ms = dataset.votes[cut - 1].t_ms if cut else 0
         prev_time = steps[-1].cut_time_ms if steps else None
+        last = i == len(slots) - 1
         step_mods = tuple(
             m
             for m in mod_events
-            if m.t_ms <= cut_time_ms and (prev_time is None or m.t_ms > prev_time)
+            if (m.t_ms <= cut_time_ms or (last and spec.coverage == "full-stream"))
+            and (prev_time is None or m.t_ms > prev_time)
         )
         if spec.moderation == "source-final-state":
             step_mods = tuple(mod_events) if i == len(slots) - 1 else ()
