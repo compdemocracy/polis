@@ -358,7 +358,7 @@ const ParticipantsGraph = (props) => {
           />
         ) : null}
         {showGroupLabels
-          ? props.math["group-clusters"].map((g, i) => {
+          ? (props.math["group-clusters"] || []).map((g, i) => {
               // console.log('g',g )
               return (
                 <text

@@ -13,7 +13,7 @@ const MIN_GROUP_PARTICIPATION = 0.05; // 5% of each group must have voted
  * @returns {Object} { hasMinParticipation: boolean, details: string }
  */
 function checkGroupParticipation(tid, groupVotes) {
-  if (!groupVotes) {
+  if (!groupVotes || !Object.keys(groupVotes).length) {
     return { hasMinParticipation: false, details: "No group vote data" };
   }
 

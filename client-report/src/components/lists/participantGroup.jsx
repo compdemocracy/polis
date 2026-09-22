@@ -28,7 +28,7 @@ const ParticipantGroup = ({
         width: "100%",
       }}>
       <p style={globals.secondaryHeading}>
-        {groupLabel}: {groupVotesForThisGroup["n-members"]} participants
+        {groupLabel}: {(groupVotesForThisGroup?.["n-members"] ?? 0)} participants
       </p>
       <p style={globals.paragraph}> Statements which make this group unique, by their votes: </p>
       <CommentList
