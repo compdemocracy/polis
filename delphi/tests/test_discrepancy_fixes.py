@@ -2814,6 +2814,11 @@ class TestD11D12Serialization:
         while the consensus + priorities fields still flow through end-to-end.
         """
         conv = Conversation(conversation_id='ztest-serialization')
+        # One vote: a conversation with an empty rating matrix now serializes
+        # the committed empty-output contract, which is not what this test is
+        # about. A single cell keeps the rest of to_dict cheap.
+        import pandas as pd
+        conv.raw_rating_mat = pd.DataFrame({0: [1]}, index=[0])
         conv.repness = {
             'comment_ids': [],
             'group_repness': {},
