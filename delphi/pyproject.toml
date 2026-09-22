@@ -115,6 +115,10 @@ setup-minio = "setup_minio:setup_minio_bucket"
 [tool.hatch.build.targets.wheel]
 packages = ["polismath", "umap_narrative"]
 
+# Ship the authoritative schedule for installations without the source tree.
+[tool.hatch.build.targets.wheel.force-include]
+"scripts/schedules/pc-zerovote-01-empty.json" = "polismath/empty_output_schedule.json"
+
 [tool.hatch.build.targets.sdist]
 include = [
     "/polismath",

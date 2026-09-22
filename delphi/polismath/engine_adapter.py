@@ -90,7 +90,9 @@ def emit_payloads(conv, zid, empty_contract=True):
     main = conv.to_dict()
     bid = derive_bidtopid(conv, zid)
     stats = derive_ptptstats(conv, zid, main.get("user-vote-counts", {}))
-    if empty_contract and conv.raw_rating_mat.empty:
+    # The old config bit remains wire-compatible; the empty contract is now
+    # mandatory, including companion timestamps.
+    if conv.raw_rating_mat.empty:
         # Serialization-only correction; the engine's internal seed is unchanged.
         from polismath.poller.math_writer import empty_contract_payloads
         main, bid, stats = empty_contract_payloads(conv, zid, main)
