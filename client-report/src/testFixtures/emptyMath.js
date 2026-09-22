@@ -1,4 +1,4 @@
-// Synthetic zero-vote fixtures derived from the single committed engine contract.
+// Zero-vote fixtures derived from the single committed engine contract.
 import schedule from "../../../delphi/scripts/schedules/pc-zerovote-01-empty.json";
 export function emptyMath(legacy = false) {
   const math = {
