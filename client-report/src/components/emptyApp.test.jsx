@@ -36,7 +36,7 @@ jest.mock("./topicMapNarrativeReport.jsx", () => () => null);
 jest.mock("./topicStats/TopicStats.jsx", () => () => null);
 jest.mock("./topicPage/TopicPage.jsx", () => () => null);
 jest.mock("./collectiveStatementsReport/CollectiveStatementsReport.jsx", () => () => null);
-window.history.replaceState({}, "", "/report/synthetic");
+window.history.replaceState({}, "", "/report/public-fixture");
 const App = require("./app").default;
 let math;
 beforeEach(() => {
@@ -45,10 +45,10 @@ beforeEach(() => {
   jest.spyOn(window, "setInterval").mockImplementation(() => 1);
   net.polisGet.mockImplementation(async (url) => {
     if (url.endsWith("/reports"))
-      return [{ report_id: "synthetic", conversation_id: "synthetic", mod_level: -2 }];
+      return [{ report_id: "public-fixture", conversation_id: "public-fixture", mod_level: -2 }];
     if (url.endsWith("/pca2")) return math;
     if (url.endsWith("/conversations"))
-      return { conversation_id: "synthetic", participant_count: 0 };
+      return { conversation_id: "public-fixture", participant_count: 0 };
     if (url.endsWith("/comments"))
       return [{ tid: 0, pid: 0, txt: "Synthetic", count: 0, pass_count: 0 }];
     if (url.endsWith("/ptptois")) return [];

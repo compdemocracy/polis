@@ -69,12 +69,12 @@ for (const legacy of [false, true])
       const result = renderToStaticMarkup(
         React.createElement(ExploreTid, {
           math: emptyMath(legacy),
-          selectedComment: { tid: 0, txt: "Synthetic" },
+          selectedComment: { tid: 0, txt: "Public fixture" },
           selectedTidCuration: selection,
           Strings: {}
         })
       );
-      assert.ok(result.includes("Synthetic"));
+      assert.ok(result.includes("Public fixture"));
       assert.ok(!/NaN|Infinity|undefined/.test(result));
     });
 test("legacy omissions do not break graph data construction", () => {
@@ -99,7 +99,7 @@ test("populated majority statement preserves its percentage", () => {
   const result = renderToStaticMarkup(
     React.createElement(ExploreTid, {
       math,
-      selectedComment: { tid: 0, txt: "Synthetic" },
+      selectedComment: { tid: 0, txt: "Public fixture" },
       selectedTidCuration: "majority",
       Strings: { pctAgreedLong: "{{pct}} percent agreed on {{comment_id}}" }
     })
