@@ -179,8 +179,9 @@ def test_report_does_not_fall_back_to_another_engine(
     zid, seed = seeded_conversation
     seed(reader, False)
     if reader == "groups":
-        # Existing raw-vote fallback remains valid; it must not use shadow math.
-        assert read_report(reader, zid) == {"group_assignments": {}, "n_groups": 3}
+        # Missing this environment's row must neither use shadow math nor
+        # fabricate groups from raw votes.
+        assert read_report(reader, zid) == {"group_assignments": {}, "n_groups": 0}
     elif reader == "batch":
         assert read_report(reader, zid) is None
     else:

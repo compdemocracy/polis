@@ -60,3 +60,54 @@ def test_bad_bucket_aggregation(defect):
     if defect=='unknown':data['base-clusters']['members']=[[4]]
     if defect=='sign':data['votes-base']['0'].update(A=[0],D=[1])
     assert not bucket_counts_match(data,fold)
+
+
+def empty_bucket_fixture(legacy=False):
+    """Contract data comes from the schedule, with real input-side emptiness."""
+    import json
+    from pathlib import Path
+    from types import SimpleNamespace
+    schedule=json.loads((Path(__file__).resolve().parents[3]/
+        'delphi/scripts/schedules/pc-zerovote-01-empty.json').read_text())
+    data={key:value for key,value in schedule['empty_output'].items() if '.' not in key}
+    data['base-clusters']={'id':[],'members':[]}
+    if legacy:
+        for key in schedule['legacy_absent_keys']:
+            data.pop(key,None)
+    return data,SimpleNamespace(cells={},comments={1,2},participants=set())
+
+
+@pytest.mark.parametrize('legacy',[False,True])
+@pytest.mark.parametrize('comments',[set(),{1,2}])
+def test_empty_vote_fold_accepts_declared_or_legacy_missing_buckets(legacy,comments):
+    from readiness import bucket_counts_match
+    data,fold=empty_bucket_fixture(legacy)
+    fold.comments=comments
+    assert bucket_counts_match(data,fold)
+
+
+@pytest.mark.parametrize('value',[None,[],{'1':{'A':[],'D':[],'S':[]}}])
+def test_empty_vote_fold_refuses_wrong_present_buckets(value):
+    from readiness import bucket_counts_match
+    data,fold=empty_bucket_fixture()
+    data['votes-base']=value
+    assert not bucket_counts_match(data,fold)
+
+
+@pytest.mark.parametrize('base',[None,{}, {'id':[0],'members':[[]]},
+    {'id':[],'members':[[0]]}, {'id':[0],'members':[[0]]}])
+def test_empty_vote_fold_does_not_bypass_cluster_evidence(base):
+    from readiness import bucket_counts_match
+    data,fold=empty_bucket_fixture(True)
+    data['base-clusters']=base
+    assert not bucket_counts_match(data,fold)
+
+
+@pytest.mark.parametrize('value',['absent',{},None])
+def test_blob_claiming_zero_does_not_override_nonempty_input(value):
+    from readiness import bucket_counts_match
+    data,fold=bucket_fixture()
+    data['n']=0
+    if value=='absent':data.pop('votes-base')
+    else:data['votes-base']=value
+    assert not bucket_counts_match(data,fold)

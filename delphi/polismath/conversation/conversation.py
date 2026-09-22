@@ -2695,12 +2695,10 @@ class Conversation:
             OutputProfileError: if ``data`` is a PROJECTED comparison view
             rather than a raw serialization (P-023 rev3 R3-1). A projected
             ``PREP_MAIN_KEYS`` view is a legal kebab-only blob — no alias pair,
-            so the C9 relation never runs — and the ``group_clusters`` read at
-            the bottom of this method would then default to ``[]``, silently
-            restoring a conversation with no groups. The marker is the only
-            thing that distinguishes the two, so it is checked here, at the
-            restore boundary itself. Unmarked raw blobs (everything any
-            producer emits) are unaffected.
+            so the C9 relation never runs. Restoring kebab-only groups cannot
+            distinguish transformed comparison geometry from raw producer
+            geometry. The marker is checked here at the restore boundary;
+            accepting the legacy field spelling does not bypass that guard.
         """
         assert_restorable(data, label="Conversation.from_dict")
 
@@ -2773,8 +2771,12 @@ class Conversation:
         if proj_data:
             conv.proj = {pid: np.array(proj) for pid, proj in proj_data.items()}
         
-        # Restore cluster data
-        conv.group_clusters = data.get('group_clusters', [])
+        # Preserve the internal alias when present, including an explicit [];
+        # legacy rows may carry only the wire spelling.
+        groups = data.get('group_clusters')
+        if groups is None:
+            groups = data.get('group-clusters')
+        conv.group_clusters = groups or []
 
         # Restore base clusters — the blob emits them in the Clojure folded
         # column-store shape ({'id': [...], 'members': [...], 'x': [...],
