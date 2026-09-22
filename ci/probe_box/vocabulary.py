@@ -29,7 +29,7 @@ PSYCOPG2_ERRORS = frozenset({'QueryCanceled', 'UndefinedTable', 'UndefinedColumn
                              'CannotConnectNow', 'TooManyConnections', 'OutOfMemory', 'DiskFull', 'ConnectionFailure',
                              'ConnectionException', 'InvalidPassword', 'InvalidAuthorizationSpecification',
                              'DuplicateObject', 'SyntaxError', 'NumericValueOutOfRange', 'DivisionByZero'})
-from worker import STAGES, WORKER_PHASES
+from worker import STAGES, WORKER_PHASES, PULSE_ERRORS, EXPIRY_BUCKETS, PULSE_TAG
 FAILURE_TYPES = frozenset({'record-failed', 'terminated'})
 FAILURE_REASONS = frozenset({'FAILURE_RECORD_FAILED'})
 LABELS = frozenset({'reader', 'producer', 'verifier'})

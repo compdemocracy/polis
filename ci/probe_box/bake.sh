@@ -131,7 +131,13 @@ from pathlib import Path
 sys.path.insert(0,'/opt/polis-probe')
 from worker import metadata
 b=json.loads(metadata('user-data'))
-if set(b)!={'mode','account','region','controlBucket','dnsNames','resolver'} or b['mode'] not in ('worker','provision'): raise ValueError('BOOT_CONFIG')
+expected={'mode','account','region','controlBucket','dnsNames','resolver'}
+if b.get('mode')=='worker': expected.add('ec2Url')
+if set(b)!=expected or b['mode'] not in ('worker','provision'): raise ValueError('BOOT_CONFIG')
+if b['mode']=='worker':
+    from urllib.parse import urlsplit
+    endpoint=urlsplit(b['ec2Url'])
+    if endpoint.scheme!='https' or endpoint.netloc!=endpoint.hostname or endpoint.path or endpoint.query or endpoint.fragment or endpoint.hostname not in b['dnsNames']: raise ValueError('BOOT_CONFIG')
 Path('/opt/polis-probe/bootstrap.json').write_text(json.dumps(b))
 Path('/opt/polis-probe/bootstrap.json').chmod(0o444)
 BOOT
@@ -199,4 +205,3 @@ systemd-analyze verify /etc/systemd/system/polis-probe-{dns,container,worker}.se
 systemctl enable polis-probe-worker.service
 # Only digest-pinned OCI archives are loaded at runtime from the private assets
 # bucket. The AMI supervisor and CA bundle are reviewed in the image build.
-

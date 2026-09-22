@@ -15,7 +15,7 @@ const resources=(j:any,t:string):any[]=>Object.values(j.Resources).filter((r:any
 function named(j:any,prefix:string,type?:string):any{return (Object.entries(j.Resources).find(([id,r]:any)=>id.startsWith(prefix)&&(!type||r.Type===type))![1] as any).Properties;}
 test('existing VPC isolated routes and no public ingress',()=>{const t=build(),j=t.toJSON();
  for(const type of ['AWS::EC2::VPC','AWS::EC2::NatGateway','AWS::EC2::InternetGateway','AWS::EC2::Route','AWS::EC2::Instance','AWS::SSM::Document'])t.resourceCountIs(type,0);
- t.resourceCountIs('AWS::EC2::Subnet',1);t.resourceCountIs('AWS::EC2::VPCEndpoint',2);
+ t.resourceCountIs('AWS::EC2::Subnet',1);t.resourceCountIs('AWS::EC2::VPCEndpoint',3);
  const sg=named(j,'BoxWorkerSg');expect(sg.SecurityGroupIngress).toBeUndefined();expect(sg.SecurityGroupEgress).toHaveLength(3);expect(JSON.stringify(sg)).not.toContain('0.0.0.0/0');});
 test('fixed encrypted disposable launch and restricted metadata',()=>{const d=resources(build().toJSON(),'AWS::EC2::LaunchTemplate')[0].Properties.LaunchTemplateData;
  expect(d.ImageId).toBe(config.ami);expect(d.KeyName).toBeUndefined();expect(d.MetadataOptions.HttpTokens).toBe('required');expect(d.MetadataOptions.HttpPutResponseHopLimit).toBe(1);
@@ -94,4 +94,30 @@ test('every worker/provisioner upload binds the encryption algorithm and exact k
    else expect(eq['s3:if-none-match']).toBe('*');
   }
  }
+});
+
+test('pulse authority is one tag on the calling worker instance through its private endpoint',()=>{
+ const j=build().toJSON();
+ const policy=named(j,'BoxWorkerDefaultPolicy').PolicyDocument;
+ const writes=policy.Statement.filter((s:any)=>s.Action==='ec2:CreateTags');expect(writes).toHaveLength(1);
+ const write=writes[0];
+ expect(write.Resource).toBe(`arn:aws:ec2:${config.region}:${config.account}:instance/*`);
+ expect(write.Condition.ArnEquals['ec2:SourceInstanceARN']).toBe(`arn:aws:ec2:${config.region}:${config.account}:instance/`+'${ec2:InstanceID}');
+ expect(write.Condition.StringEquals['ec2:ResourceTag/polis:probe-box']).toBe(config.id);
+ expect(write.Condition.StringEquals['aws:SourceVpce']).toBeDefined();
+ expect(write.Condition['ForAllValues:StringEquals']['aws:TagKeys']).toEqual(['polis-probe-pulse']);
+ expect(write.Condition.Null['aws:RequestTag/polis-probe-pulse']).toBe('false');
+ const endpoint=named(j,'BoxPulseEndpoint');
+ expect(endpoint.ServiceName).toBe(`com.amazonaws.${config.region}.ec2`);
+ expect(endpoint.PrivateDnsEnabled).toBe(false);
+ const ep=endpoint.PolicyDocument.Statement[0];
+ expect(ep.Action).toBe('ec2:CreateTags');expect(ep.Condition.ArnEquals).toEqual(write.Condition.ArnEquals);
+ expect(ep.Condition['ForAllValues:StringEquals']).toEqual(write.Condition['ForAllValues:StringEquals']);
+ expect(JSON.stringify(ep.Principal)).toContain('BoxWorker');
+ const boot=named(j,'BoxTemplate').LaunchTemplateData.UserData;
+ expect(JSON.stringify(boot)).toContain('ec2Url');expect(JSON.stringify(boot)).toContain('BoxPulseEndpoint');
+ expect(JSON.stringify(named(j,'BoxProvisionTemplate').LaunchTemplateData.UserData)).not.toContain('ec2Url');
+ expect(JSON.stringify(named(j,'BoxProvisionerDefaultPolicy'))).not.toContain('ec2:CreateTags');
+ const metric=named(j,'BoxOperatorDefaultPolicy').PolicyDocument.Statement.find((s:any)=>s.Action==='cloudwatch:GetMetricStatistics');
+ expect(metric.Resource).toBe('*');
 });

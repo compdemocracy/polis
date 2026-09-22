@@ -85,6 +85,14 @@ def admission():
             'candidateSha': 'd'*40, 'verifierImage': 'localhost/polis-verifier@sha256:'+'e'*64}
 
 
+class QuietMonitoring:
+    def __init__(self, clock): self.clock = clock
+    def get_metric_statistics(self, **kw):
+        return {'Datapoints': [{'Timestamp': kw['EndTime']-dt.timedelta(seconds=60), 'Average': 0}]}
+    def put_metric_alarm(self, **kw): pass
+    def delete_alarms(self, **kw): pass
+
+
 def setup(now=1893492000):  # 2030-01-01 10:00 UTC
     a = admission()
     cfg = {'ADMISSION': encoded(a).decode(), 'ADMISSION_SHA256': sha(a), 'CONTROL_BUCKET': 'control',
@@ -92,6 +100,7 @@ def setup(now=1893492000):  # 2030-01-01 10:00 UTC
            'TEMPLATE_VERSION': '1', 'PROFILE': 'profile', 'SUBNET': 'subnet', 'SECURITY_GROUP': 'sg', 'ENDPOINT': 'vpce'}
     e, s = EC2(), S3()
     c = Control(e, s, cfg, now)
+    c.monitoring = QuietMonitoring(lambda: c.now)
     i = {'InstanceId': 'i-test', 'ClientToken': c.token,
          'IamInstanceProfile': {'Arn': 'profile'}, 'ImageId': a['ami'], 'SubnetId': 'subnet', 'InstanceType': 'r8g.4xlarge',
          'Tags': [{'Key': 'polis:probe-run', 'Value': a['id']},{'Key':'polis:probe-box','Value':'test-box'}], 'SecurityGroups': [{'GroupId': 'sg'}],
@@ -208,7 +217,7 @@ def session_setup():
     c,e,s,i=setup()
     cfg={k:v for k,v in c.c.items() if not k.startswith('ADMISSION')}
     cfg['NOTIFICATION_TOPIC']='arn:aws:sns:us-east-1:111111111111:test'
-    session=Session(e,s,cfg,clock=lambda:c.now)
+    session=Session(e,s,cfg,clock=lambda:c.now,monitoring=c.monitoring)
     original=e.run_instances
     def launch(**kw):
         i['ClientToken']=kw['ClientToken']
@@ -649,3 +658,146 @@ class WorkerHardeningTests(unittest.TestCase):
         s.objects['control', 'heartbeats/boot/'+arn+'.json'] = encoded(
             {'schema': 'polis-probe-failure/1', 'stage': 'boot', 'type': 'SystemExit'})
         self.assertEqual(x.failure(c, arn), {'stage': 'boot', 'type': 'SystemExit'})
+
+
+class LivenessTests(unittest.TestCase):
+    def begin(self, cpu=0, tag=None):
+        from unittest.mock import Mock
+        c, e, s, i = setup(); c.launch_once(); c.now += 601
+        c.monitoring = Mock()
+        c.monitoring.get_metric_statistics.return_value = {'Datapoints': [
+            {'Timestamp': dt.datetime.fromtimestamp(c.now-60, dt.timezone.utc), 'Average': cpu}]}
+        if tag is not None: i['Tags'].append({'Key': 'polis-probe-pulse', 'Value': tag})
+        return c, e, s, i
+
+    def test_busy_cpu_preserves_instance_and_durable_evidence_until_expiry(self):
+        c, e, s, i = self.begin(cpu=17)
+        self.assertEqual(c.reconcile()['status'], 'RUNNING')
+        saved = c.read(c.prefix+'liveness.json')
+        self.assertEqual(saved['cpu'], 'busy'); self.assertEqual(saved['tag'], 'absent')
+        self.assertEqual(saved['admissionSha256'], c.token)
+        call = c.monitoring.get_metric_statistics.call_args.kwargs
+        self.assertEqual(call['Dimensions'], [{'Name':'InstanceId','Value':'i-test'}])
+        self.assertEqual(call['Namespace'], 'AWS/EC2'); self.assertEqual(call['MetricName'], 'CPUUtilization')
+        self.assertEqual((call['EndTime']-call['StartTime']).total_seconds(), 300)
+        c.monitoring.get_metric_statistics.return_value = {'Datapoints': []}
+        c.now += 600
+        # Resumed operator uses immutable evidence, no in-memory liveness latch.
+        resumed = Control(e, s, c.c, c.now, monitoring=c.monitoring)
+        self.assertEqual(resumed.reconcile()['status'], 'RUNNING')
+        self.assertEqual(c.read(c.prefix+'liveness.json'), saved)
+        self.assertFalse(e.terminated)
+        resumed.now = resumed.expiry
+        with self.assertRaisesRegex(Unknown, 'TERMINATION_PENDING'): resumed.reconcile()
+        self.assertEqual(e.terminated, ['i-test'])
+
+    def test_tag_must_advance_first_observation_is_only_bounded_grace(self):
+        c, e, s, i = self.begin(tag='39:producer:execute:ExpiredToken')
+        self.assertEqual(c.reconcile()['status'], 'RUNNING')
+        self.assertIsNone(c.read(c.prefix+'liveness.json'))
+        c.now += 90; i['Tags'][-1]['Value'] = '40:producer:execute:ExpiredToken'
+        self.assertEqual(c.reconcile()['status'], 'RUNNING')
+        saved = c.read(c.prefix+'liveness.json')
+        self.assertEqual(saved['tag'], 'advanced'); self.assertEqual(saved['pulse']['pulse'], 40)
+        self.assertFalse(e.terminated)
+
+    def test_unchanged_or_regressing_tag_with_quiet_cpu_terminates(self):
+        for next_tag in ('39:producer:execute', '38:producer:execute'):
+            c, e, s, i = self.begin(tag='39:producer:execute')
+            c.reconcile(); c.now += 120; i['Tags'][-1]['Value'] = next_tag
+            with self.assertRaisesRegex(Unknown, 'TERMINATION_PENDING'): c.reconcile()
+            self.assertEqual(e.terminated, ['i-test'])
+
+    def test_quiet_cpu_and_absent_or_invalid_tag_terminate(self):
+        for cpu in (0, 2):
+            for tag in (None, 'private', '1:producer:execute:private', '1:private:execute',
+                        '0:producer:execute', '01:producer:execute', str(2**63)+':producer:execute'):
+                c, e, s, i = self.begin(cpu, tag)
+                with self.subTest(cpu=cpu, tag=tag), self.assertRaisesRegex(Unknown, 'TERMINATION_PENDING'):
+                    c.reconcile()
+                self.assertEqual(e.terminated, ['i-test'])
+                self.assertNotIn('private', json.dumps([json.loads(v) for v in s.objects.values()]))
+
+    def test_unknown_cpu_is_not_evidence_of_silence(self):
+        for data in ([], [{'Timestamp': dt.datetime(2000,1,1, tzinfo=dt.timezone.utc),'Average': 17}],
+                     [{'Timestamp': dt.datetime(2040,1,1, tzinfo=dt.timezone.utc),'Average': 17}],
+                     [{'Timestamp': dt.datetime.fromtimestamp(1893492600, dt.timezone.utc),'Average': float('nan')}],
+                     [{'Timestamp': dt.datetime.fromtimestamp(1893492600, dt.timezone.utc),'Average': True}]):
+            c, e, s, i = self.begin()
+            c.monitoring.get_metric_statistics.return_value = {'Datapoints': data}
+            with self.assertRaisesRegex(Unknown, 'LIVENESS_UNKNOWN'): c.reconcile()
+            self.assertFalse(e.terminated)
+        for error in (ApiError('AccessDenied'), TimeoutError('private')):
+            c, e, s, i = self.begin(); c.monitoring.get_metric_statistics.side_effect = error
+            with self.assertRaisesRegex(Unknown, 'LIVENESS_UNKNOWN'): c.reconcile()
+            self.assertFalse(e.terminated)
+
+    def test_cancel_still_terminates_after_positive_liveness(self):
+        c, e, s, i = self.begin(17); c.reconcile()
+        with self.assertRaisesRegex(Unknown, 'TERMINATION_PENDING'): c.reconcile(cancel=True)
+        self.assertEqual(e.terminated, ['i-test'])
+
+    def test_new_pulse_reader_is_closed_and_legacy_compatible(self):
+        from run import clean_heartbeat
+        base = {'pulse': 4, 'stage': 'producer', 'phase': 'execute'}
+        for extra in ({}, {'credential_expiry': 'le-30m'}, {'last_error': 'ExpiredToken'},
+                      {'credential_expiry': 'expired', 'last_error': 'ReadTimeoutError'}):
+            self.assertEqual(clean_heartbeat({**base, **extra}), {**base, **extra})
+        for extra in ({'credential_expiry': 'private'}, {'last_error': 'private'},
+                      {'last_error': []}, {'credential_expiry': None}):
+            self.assertIsNone(clean_heartbeat({**base, **extra}))
+
+    def test_unknown_metrics_can_be_overruled_by_observed_tag_progress(self):
+        c, e, s, i = self.begin(tag='1:producer:execute')
+        c.monitoring.get_metric_statistics.side_effect = ApiError('AccessDenied')
+        self.assertEqual(c.reconcile()['status'], 'RUNNING')
+        i['Tags'][-1]['Value'] = '2:producer:execute'; c.now += 60
+        self.assertEqual(c.reconcile()['status'], 'RUNNING')
+        self.assertEqual(c.read(c.prefix+'liveness.json')['cpu'], 'unknown')
+        self.assertFalse(e.terminated)
+
+    def test_no_monitor_and_no_tag_remain_unknown_but_expiry_still_wins(self):
+        c, e, s, i = self.begin(); c.monitoring = None
+        with self.assertRaisesRegex(Unknown, 'LIVENESS_UNKNOWN'): c.reconcile()
+        self.assertFalse(e.terminated)
+        c.now = c.expiry
+        with self.assertRaisesRegex(Unknown, 'TERMINATION_PENDING'): c.reconcile()
+        self.assertEqual(e.terminated, ['i-test'])
+
+    def test_lost_liveness_write_ack_is_reconciled_without_overwrite(self):
+        c, e, s, i = self.begin(2.01)
+        put = s.put_object
+        def lost(**kw):
+            result = put(**kw)
+            if kw['Key'].endswith('liveness.json'): raise TimeoutError('private')
+            return result
+        s.put_object = lost
+        self.assertEqual(c.reconcile()['status'], 'RUNNING')
+        first = c.read(c.prefix+'liveness.json')
+        self.assertEqual(c.reconcile()['status'], 'RUNNING')
+        self.assertEqual(c.read(c.prefix+'liveness.json'), first)
+        writes = [kw for kw in s.puts if kw['Key'].endswith('liveness.json')]
+        self.assertEqual(len(writes), 1); self.assertEqual(writes[0]['IfNoneMatch'], '*')
+        self.assertFalse(e.terminated)
+
+    def test_liveness_binding_and_shape_do_not_authorize_foreign_or_corrupt_record(self):
+        for delta in ({'instanceId': 'i-other'}, {'admissionSha256': '0'*64},
+                      {'observedAt': True}, {'observedAt': 0}, {'cpu': 'private'},
+                      {'tag': 'private'}, {'pulse': {'private': 'payload'}}, {'cpu': 'quiet'}):
+            c, e, s, i = self.begin(17); c.reconcile()
+            saved = c.read(c.prefix+'liveness.json')
+            s.objects['control', c.prefix+'liveness.json'] = encoded({**saved, **delta})
+            with self.subTest(delta=delta), self.assertRaisesRegex(Unknown, 'LIVENESS_BINDING'): c.reconcile()
+            self.assertFalse(e.terminated)
+
+    def test_actual_session_passes_monitor_to_reconciler(self):
+        from test_boundaries import job
+        from unittest.mock import Mock
+        x, c, e, s, i = session_setup(); x.start(job()); c.now += 601
+        x.monitoring = Mock()
+        x.monitoring.get_metric_statistics.return_value = {'Datapoints': [
+            {'Timestamp': dt.datetime.fromtimestamp(c.now-60, dt.timezone.utc), 'Average': 17}]}
+        self.assertEqual(x.status(job()['run_id']), {'run_id': job()['run_id'], 'complete': False, 'passed': False})
+        self.assertFalse(e.terminated)
+        control = x.control(x.active()[0])
+        self.assertEqual(control.read(control.prefix+'liveness.json')['cpu'], 'busy')
