@@ -929,8 +929,6 @@ def canonical_schedule_hash(spec: sched.ScheduleSpec) -> str:
     }
     if spec.legacy_absent_keys:
         payload["legacy_absent_keys"] = sorted(spec.legacy_absent_keys)
-    if spec.legacy_empty_timestamp is not None:
-        payload["legacy_empty_timestamp"] = spec.legacy_empty_timestamp
     return _canonical_hash(payload)
 
 
@@ -1473,10 +1471,6 @@ def compare_recording_pair(
                                   if _empty_contract_value(original, k) is _EMPTY_MISSING)
                 if restored:
                     defects.append({"name": "legacy-defect-empty-omits-keys", "keys": restored})
-                if (expected.spec.legacy_empty_timestamp is not None
-                        and original["lastVoteTimestamp"] != clj_proj["lastVoteTimestamp"]):
-                    defects.append({"name": "legacy-defect-empty-timestamp",
-                                   **expected.spec.legacy_empty_timestamp})
         if not clj_proj or not py_proj:
             raise CertifyError("checkpoint-schema", "empty acceptance blob")
         clj_hash = _canonical_hash(clj_proj)
@@ -1603,9 +1597,6 @@ def legacy_empty_defects(expected: ExpectedEntry) -> list[dict[str, Any]]:
     if expected.spec.legacy_absent_keys:
         defects.append({"name": "legacy-defect-empty-omits-keys",
                        "keys": sorted(expected.spec.legacy_absent_keys), "checkpoints": zero})
-    if expected.spec.legacy_empty_timestamp is not None:
-        defects.append({"name": "legacy-defect-empty-timestamp",
-                       **expected.spec.legacy_empty_timestamp, "checkpoints": zero})
     return defects
 
 
@@ -1653,9 +1644,6 @@ def checkpoint_acceptance_projection(
         raise CertifyError("empty-output", "empty_output PCA leaves require a present PCA object")
     values = {k: _empty_contract_value(projected, k) for k in contract}
     required = dict(contract)
-    timestamp = expected.spec.legacy_empty_timestamp
-    if engine == "clj" and timestamp is not None:
-        required["lastVoteTimestamp"] = timestamp["legacy"]
     missing = sorted(k for k, v in values.items() if v is _EMPTY_MISSING and k not in allowed)
     wrong = sorted(k for k, v in values.items()
                    if v is not _EMPTY_MISSING and not _exact_empty_value(v, required[k]))
@@ -1674,8 +1662,6 @@ def checkpoint_acceptance_projection(
                 projected["pca"][key.split(".")[1]] = copy.deepcopy(contract[key])
             else:
                 projected[key] = copy.deepcopy(contract[key])
-    if engine == "clj" and timestamp is not None:
-        projected["lastVoteTimestamp"] = timestamp["python"]
     return projected
 
 

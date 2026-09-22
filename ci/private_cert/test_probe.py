@@ -63,11 +63,9 @@ class ProbeTests(unittest.TestCase):
                     self.assertEqual(receipt['verdict'], 'PASS')
                     if omitted:
                         self.assertEqual(receipt['entries'][0]['legacy_defects'],
-                            [{'name': 'legacy-defect-empty-omits-keys', 'keys': ['n']},
-                             {'name': 'legacy-defect-empty-timestamp', 'legacy': 0, 'python': 1}])
+                            [{'name': 'legacy-defect-empty-omits-keys', 'keys': ['n']}])
                     else:
-                        self.assertEqual(receipt['entries'][0]['legacy_defects'],
-                            [{'name': 'legacy-defect-empty-timestamp', 'legacy': 0, 'python': 1}])
+                        self.assertNotIn('legacy_defects', receipt['entries'][0])
                     self.assertEqual(tree(recordings), before)
                     self.assertEqual('n' in read(rec / 'clj/step-000.blob.json'), not omitted)
 

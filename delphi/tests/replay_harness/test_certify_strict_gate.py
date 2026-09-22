@@ -1271,18 +1271,18 @@ def test_temp_schedule_rejects_ambiguous_or_traversing_components(
 
 
 @pytest.mark.parametrize('cut_slot', [0, 1])
-def test_timestamp_reconciliation_strict_cache_observation_and_nonzero_refusal(tmp_path, cut_slot):
+def test_nested_omission_strict_cache_observation_and_nonzero_refusal(tmp_path, cut_slot):
     from copy import deepcopy
     from dataclasses import replace
     spec = sched.ScheduleSpec('public-fixture', 'empty-clock',
         {'mode': 'vote-count', 'at': [cut_slot], 'empty_checkpoint': True},
-        empty_output={**EMPTY, 'lastVoteTimestamp': 1, 'pca.center': [-0.0]},
-        legacy_absent_keys=['pca.center'], legacy_empty_timestamp={'legacy': 0, 'python': 1})
+        empty_output={**EMPTY, 'lastVoteTimestamp': 0, 'pca.center': [-0.0]},
+        legacy_absent_keys=['pca.center'])
     checkpoint = dict(index=0, prev_slot=0, cut_slot=cut_slot, batch_size=cut_slot, cut_time_ms=0)
     expected = cert.ExpectedEntry(cert.BatteryEntry(spec.dataset, spec.schedule_id), spec,
         tmp_path / 'unused.csv', 'a' * 64, None, None, cut_slot, [checkpoint])
     legacy = {**EMPTY, 'lastVoteTimestamp': 0, 'pca': {'comps': [[1.0], [1.0]]}}
-    python = {**deepcopy(legacy), 'lastVoteTimestamp': 1}
+    python = deepcopy(legacy)
     python['pca']['center'] = [-0.0]
     clj_dir, py_dir = tmp_path / 'clj', tmp_path / 'py'
     clj_dir.mkdir(); py_dir.mkdir()
@@ -1296,12 +1296,11 @@ def test_timestamp_reconciliation_strict_cache_observation_and_nonzero_refusal(t
         assert step['match'] is (cut_slot == 0)
         if cut_slot == 0:
             assert step['legacy_defects'] == [
-                {'name': 'legacy-defect-empty-omits-keys', 'keys': ['pca.center']},
-                {'name': 'legacy-defect-empty-timestamp', 'legacy': 0, 'python': 1}]
+                {'name': 'legacy-defect-empty-omits-keys', 'keys': ['pca.center']}]
         else:
             assert 'legacy_defects' not in step
     if cut_slot == 0:
-        undeclared = replace(expected, spec=replace(spec, legacy_empty_timestamp=None))
+        undeclared = replace(expected, spec=replace(spec, legacy_absent_keys=[]))
         with pytest.raises(cert.CertifyError, match='empty_output'):
             cert.compare_recording_pair(clj_dir, py_dir, cache_root=tmp_path, expected=undeclared)
     assert before == {p: p.read_bytes() for p in before}

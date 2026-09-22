@@ -68,7 +68,7 @@ class BoundaryTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     decode_receipt(canonical(r), job())
 
-    def test_complete_legacy_key_set_matches_committed_schedule_and_exports_both_defects(self):
+    def test_complete_legacy_key_set_matches_committed_schedule_and_exports_the_defect(self):
         from pathlib import Path
         from receipt import LEGACY_EMPTY_KEYS
         raw = json.loads((Path(__file__).resolve().parents[2] /
@@ -78,16 +78,18 @@ class BoundaryTests(unittest.TestCase):
         for make in (receipt, sampled_receipt):
             r = make()
             r['entries'][0]['legacy_defects'] = [
-                {'name': 'legacy-defect-empty-omits-keys', 'keys': sorted(LEGACY_EMPTY_KEYS)},
-                {'name': 'legacy-defect-empty-timestamp', 'legacy': 0, 'python': 1}]
+                {'name': 'legacy-defect-empty-omits-keys', 'keys': sorted(LEGACY_EMPTY_KEYS)}]
             self.assertEqual(decode_receipt(canonical(r), job()), r)
 
-    def test_timestamp_receipt_is_exact_closed_unique_and_ordered(self):
-        good = {'name': 'legacy-defect-empty-timestamp', 'legacy': 0, 'python': 1}
-        invalid = [[good, good], [good, {'name': 'legacy-defect-empty-omits-keys', 'keys': ['n']}],
-                   [{**good, 'legacy': False}], [{**good, 'python': True}],
-                   [{**good, 'legacy': 0.0}], [{**good, 'python': 1.0}],
-                   [{**good, 'legacy': 1}], [{**good, 'python': 0}],
+    def test_only_the_omission_defect_name_is_accepted(self):
+        """An empty conversation reports lastVoteTimestamp 0 from both engines
+        (the replay driver floors it like the production poller), so the
+        omission list is the only observation the receipt may carry."""
+        good = {'name': 'legacy-defect-empty-omits-keys', 'keys': ['n']}
+        retired = {'name': 'legacy-defect-empty-clock', 'legacy': 0, 'python': 1}
+        invalid = [[good, good], [retired], [good, retired],
+                   [{'name': 'legacy-defect-empty-clock', 'keys': ['n']}],
+                   [{**good, 'legacy': 0, 'python': 1}],
                    [{**good, 'raw': 'private'}], [{**good, 'checkpoints': [0]}],
                    [{'name': good['name']}], [None],
                    [{'name': 'legacy-defect-empty-omits-keys', 'keys': ['pca.comps']}]]

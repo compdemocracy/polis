@@ -45,11 +45,13 @@ observation names actual zero-checkpoint reconciliations. `legacy-defect-empty-o
 contains a sorted unique subset of the 15 public keys in the committed
 `pc-zerovote-01-empty.json` schedule, including the explicit `pca.center`,
 `pca.comment-projection` and `pca.comment-extremity` leaves.
-`legacy-defect-empty-timestamp` contains exactly `legacy: 0, python: 1`.
+`lastVoteTimestamp` is 0 for both engines on an empty conversation, because the
+replay driver floors an empty conversation's clock to 0 exactly as the
+production poller does; it is compared like any other present value.
 The supervisor rejects arbitrary names, keys, values and additional fields;
 absent observations add no receipt field. Python and any present legacy omission
-field must equal the declared empty-compute value exactly. The timestamp pair is
-also exact; neither reconciliation applies at nonzero checkpoints. Receipt
+field must equal the declared empty-compute value exactly. The reconciliation
+never applies at nonzero checkpoints. Receipt
 validators on the supervisor and operator must be updated alongside the images.
 Stages and recovery remain diagnostics; this scoped result does not authorize
 writer transfer. The host validates the
