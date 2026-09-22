@@ -427,6 +427,7 @@ class Session:
         self.monitor(c, True)
         passed = False
         failure = None
+        public_defaults = None
         owned = c.read(c.prefix+'instance.json')
         if owned:
             arn = f'arn:aws:ec2:{c.a["region"]}:{c.a["account"]}:instance/{owned["id"]}'
@@ -444,15 +445,32 @@ class Session:
                 if len(raw) > (131072 if provision else receipt_limit(c.a['job'])):
                     raise Unknown('RECEIPT_LIMIT')
                 if provision:
-                    receipt = json.loads(raw)
-                    if (set(receipt) != {'schema','admissionSha256','success'} or receipt['schema'] != 'polis-probe-provision/1'
-                            or receipt['admissionSha256'] != c.token or type(receipt['success']) is not bool):
-                        raise Unknown('PROVISION_RECEIPT')
+                    from provision_login import validate_public_defaults
+                    try:
+                        receipt = json.loads(raw)
+                        if type(receipt) is not dict:
+                            raise ValueError('PROVISION_RECEIPT')
+                        version = receipt.get('schema')
+                        fields = {'schema','admissionSha256','success'}
+                        if version == 'polis-probe-provision/2':
+                            fields.add('public_defaults')
+                            public_defaults = validate_public_defaults(receipt.get('public_defaults'))
+                            if receipt.get('success') is not True and public_defaults:
+                                raise ValueError('PROVISION_RECEIPT')
+                        elif version != 'polis-probe-provision/1':
+                            raise ValueError('PROVISION_RECEIPT')
+                        if (set(receipt) != fields or receipt['admissionSha256'] != c.token
+                                or type(receipt['success']) is not bool):
+                            raise ValueError('PROVISION_RECEIPT')
+                    except (ValueError, TypeError, KeyError):
+                        raise Unknown('PROVISION_RECEIPT') from None
                     passed = receipt['success']
                 else:
                     receipt = decode_receipt(raw, c.a['job'])
                     passed = receipt['verdict'] == 'PASS'
         result = dict(run_id=run_id, complete=True, passed=passed)
+        if public_defaults is not None:
+            result['public_defaults'] = public_defaults
         if failure:
             result['failure'] = failure
         return result

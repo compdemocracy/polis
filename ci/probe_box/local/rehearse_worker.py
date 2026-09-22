@@ -98,14 +98,6 @@ def main():
                     sql_path = build(results, dense=not args.pipeline_replacements)
                     with sql_path.open('rb') as stream:
                         call(dc+['exec','-T','postgres','psql','-U','postgres','-d','probe_test','-v','ON_ERROR_STOP=1'], 'pipeline-seed', stdin=stream)
-                    # Stock PostgreSQL grants PUBLIC database TEMP and, on older
-                    # layouts, schema CREATE. Match the locked production boundary
-                    # before the fail-closed provisioner inspects this owned fixture.
-                    call(dc+['exec', '-T', 'postgres', 'psql', '-U', 'postgres', '-d', 'probe_test',
-                        '-v', 'ON_ERROR_STOP=1', '-c',
-                        'REVOKE CREATE, TEMP ON DATABASE probe_test FROM PUBLIC; '
-                        'REVOKE CREATE ON SCHEMA public FROM PUBLIC; '
-                        'REVOKE EXECUTE ON ALL ROUTINES IN SCHEMA public FROM PUBLIC;'], 'revoke-public-create')
                     # Exercise the production provisioner against this owned PG17
                     # fixture. In particular, current_schema() must be pg_catalog.
                     provision_code = """import sys
@@ -116,7 +108,9 @@ connection = psycopg2.connect(host='postgres', port=5432,
     user='postgres', password='public-fixture-admin', dbname='probe_test',
     sslmode='verify-full', sslrootcert='/fixture-tls/ca.crt', connect_timeout=10)
 try:
-    provision(connection, 'public-fixture-reader', 'probe_test', 'public-pipeline-rehearsal/1')
+    import json
+    print(json.dumps({'public_defaults': provision(connection, 'public-fixture-reader',
+        'probe_test', 'public-pipeline-rehearsal/1')}))
 finally:
     connection.close()
 """

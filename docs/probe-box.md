@@ -307,3 +307,31 @@ terminated, the recorded volumes are a subset of the attested set, every
 attested volume is observed absent by ID, and no tagged disk remains. It
 deletes nothing, never releases a running box, and never reports PASS; the
 resulting `clean.json` is marked `attested`.
+
+
+### Reader provisioning findings
+
+The provisioner inspects ACL provenance without changing existing PUBLIC grants.
+Database CREATE/TEMP, CREATE on schema `public`, and EXECUTE on application
+routines are reported when they reach the reader only through PUBLIC. A redundant
+direct grant to the reader still refuses, even when PUBLIC grants the same right.
+Broad role attributes, membership (including indirect/NOINHERIT membership),
+ownership, DML, grant authority, extra table/sequence access, and explicit default
+ACLs remain refusals. CREATE/USAGE on other application schemas also refuses.
+PostgreSQL's absent ACLs are expanded using `acldefault`, so implicit routine
+EXECUTE is reported too. Reporting does not remove or constrain these privileges.
+
+New provisioning receipts use `polis-probe-provision/2` with the existing
+`admissionSha256` and boolean `success`, plus required `public_defaults`: an ordered,
+duplicate-free subset of `database-create`, `database-temp`, `schema-create`,
+`routine-execute`. Only a successful transaction supplies verified findings; failed
+provisioning writes `success: false` and an empty list, which is not an assertion
+that PUBLIC grants are absent. No object names or ACL text enter the receipt.
+The operator validates and returns this list; it also reads historical `/1`
+receipts without inventing findings for them. Update the operator before running
+a provisioner baked with `/2`. This is separate from the science receipt schemas.
+
+The local pipeline rehearsal uses the same provisioner and retains the fixture's
+PUBLIC defaults, printing only the closed finding list into `provision-reader`
+output. The isolated `login_rehearsal.py` tests revoke grants solely to construct
+negative and absent-grant controls. No production REVOKE is required.
