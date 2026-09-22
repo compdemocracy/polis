@@ -57,3 +57,30 @@ node --test server/shadow/reader.test.cjs
 The PostgreSQL snapshot control additionally needs an owned isolated local
 stack; see its test file and the capture handoff. Neither command activates a
 service or publishes to a real evidence bucket.
+
+Empty conversations have one additional named observation: `LEGACY_EMPTY_DEFECT`.
+After the existing history, bridge publication and database-view admission, the
+collector checks that the captured vote list is empty and the complete Python
+row conforms to `delphi/scripts/schedules/pc-zerovote-01-empty.json`. Only that
+binding enables the classification for full/subset PCA responses. The comparison
+permits the schedule's declared missing legacy fields with Python's exact values;
+it does not permit different present values, timestamps, missing PCA parents,
+changed components, header differences or differences on other routes. JSON key
+order is immaterial only inside this named omission comparison; byte differences
+without a declared omission keep their original classification. Bound 304s carry
+the full response's finding through unchanged.
+
+Each observation is counted separately from `EXACT` and `ENGINE_DIFFERENCE`.
+A receipt with a nonzero count must carry `empty_contract`, the SHA-256 of the
+canonical JSON object containing the committed schedule's `empty_output` and
+`legacy_absent_keys`. Daily summaries expose the total defect observations.
+Incomplete custody, observer alarms and other engine differences still dominate
+the daily verdict. Existing receipts without this optional vocabulary remain
+readable; exporters and receipt validators must be upgraded together. There is
+no database migration. The standalone collector now also needs the Delphi
+`polismath/empty_output.py` loader and committed schedule in its checkout.
+
+This rule covers declared engine omissions, not every served-byte discrepancy on
+an empty conversation. The server's comment presentation/backfill can introduce
+additional present-value differences; those remain visible for the separate
+consumer fixes in P-066.

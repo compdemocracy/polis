@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 import bridge_adapter as b
+import daily
 
 
 def request():
@@ -21,7 +22,9 @@ def expected(value):
 
 def result_fixture(value):
     """Parser-only fixture: never executed as an engine or published to a database."""
-    originals = {key: list(b.encode({"public": key})) for key in ("main", "bidtopid", "ptptstats")}
+    main = daily._empty.apply_empty_contract({"public": "main"})
+    originals = {key: list(b.encode(main if key == "main" else {"public": key}))
+                 for key in ("main", "bidtopid", "ptptstats")}
     checkpoint = dict(input_sha256="3"*64, source_fingerprint=value["cut_sha256"],
                       lifecycle="poller-rebuild-prefix/1", operation_id="public-operation",
                       publisher_epoch=1, original_digests={key: b.digest(bytes(raw)) for key, raw in originals.items()})

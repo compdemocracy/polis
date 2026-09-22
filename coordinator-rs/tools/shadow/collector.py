@@ -102,6 +102,7 @@ def collect_bound(custody, profile, directory, *, connect=views.connect, launch=
     with views.Keeper(connect(profile["database"])) as keeper:
         keeper.admit(expected["clojure_namespace"], request["zid"], custody["legacy_view"])
         keeper.admit_python(result)
+        empty_contract = daily.empty_binding(request["cut_bytes"], result["bundle_bytes"])
         with launch(profile["readers"], keeper.snapshot, profile["database"], directory) as (endpoints, _):
             full = {}
             for entry in profile["requests"]:
@@ -122,12 +123,12 @@ def collect_bound(custody, profile, directory, *, connect=views.connect, launch=
                     full_pair = prior[1]
                     for response, original in zip(pair, full_pair):
                         response["full_body"] = hashlib.sha256(daily.body(original)).hexdigest()
-                outcome = daily.compare(*pair, route, full_pair)
+                outcome = daily.compare(*pair, route, full_pair, empty_contract_sha256=empty_contract)
                 # Equal denials/errors are observations, not successful math
                 # route coverage. Do not certify an app that only returns 404.
                 if any(row["status"] not in (200, 304) for row in pair):
                     outcome = "INCOMPLETE"
-                if outcome in ("EXACT", "UNORDERED_QUERY_RESIDUAL"):
+                if outcome in ("EXACT", "UNORDERED_QUERY_RESIDUAL", "LEGACY_EMPTY_DEFECT"):
                     for row in (full_pair or pair):
                         if not isinstance(row["content_type"], str) or row["content_type"].split(";", 1)[0].strip().lower() != "application/json":
                             outcome = "INCOMPLETE"
@@ -278,6 +279,8 @@ def run_window(request, profile, *, wall=time.time, monotonic=time.monotonic, sl
                 for route, verdict in outcomes:
                     value["routes"][route]["observed"] += 1
                     value["routes"][route][verdict] += 1
+                    if verdict == "LEGACY_EMPTY_DEFECT":
+                        value["empty_contract"] = daily._empty.contract_sha256()
                 cursor += 1
                 if any(verdict in ("ENGINE_DIFFERENCE", "INCOMPLETE") for _, verdict in outcomes):
                     return value
