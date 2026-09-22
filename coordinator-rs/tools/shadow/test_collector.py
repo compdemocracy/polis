@@ -122,6 +122,22 @@ class Collector(unittest.TestCase):
         local["verdict"] = daily.receipt_verdict(local)
         self.assertEqual(daily.validate_receipt(local)["verdict"], "PASS")
 
+    def test_empty_findings_are_counted_and_contract_bound_in_daily_receipt(self):
+        clock = Clock(); p = profile(); p["cuts"][0]["custody_file"] = "/public"
+        p["readers"] = dict(python_namespace="public-shadow", common={})
+        collect = Mock(return_value=[(route, "LEGACY_EMPTY_DEFECT" if route.startswith("PCA2") else "EXACT")
+                                     for route in daily.ROUTES])
+        def observer(*args):
+            return dict(expected=1440, observed=min(1440, int((clock.now-1000)/60)), alarms=0, unresolved=0)
+        with patch.object(c, "load", return_value={"expected": {"cut": "4"*64, "history": "5"*64}}), patch.object(c, "observer_counts", side_effect=observer):
+            value = c.run_window(request(), p, wall=clock.wall,
+                monotonic=clock.monotonic, sleep=clock.sleep, collect=collect)
+        self.assertEqual(value["empty_contract"], daily._empty.contract_sha256())
+        self.assertEqual(value["routes"]["PCA2_FULL"]["LEGACY_EMPTY_DEFECT"], 1)
+        value["delivery"] = "CONFIRMED"
+        value["verdict"] = daily.receipt_verdict(value)
+        self.assertEqual(daily.validate_receipt(value)["verdict"], "PASS")
+
     def test_prestarted_collector_counts_only_scheduled_window_despite_wakeup_jitter(self):
         clock = Clock(); clock.now = 999.5
         p = profile(); p["cuts"][0]["custody_file"] = "/public"
@@ -284,6 +300,15 @@ class BoundWiring(unittest.TestCase):
              patch.object(c.capture, "pair", return_value=bodies or (response(), response())):
             return c.collect_bound(self.custody, self.profile, str(self.root/"readers"),
                                    connect=self.connect, launch=self.launch)
+
+    def test_empty_classification_reaches_bound_collector(self):
+        from test_empty_defect import bodies
+        a, b = bodies()
+        result = self.execute((response(daily.canonical(a)), response(daily.canonical(b))))
+        self.assertEqual(result[:2], [("PCA2_FULL", "LEGACY_EMPTY_DEFECT"),
+                                     ("PCA2_SUBSET", "LEGACY_EMPTY_DEFECT")])
+        self.assertEqual(result[2], ("PARTICIPANT_MAPPING", "ENGINE_DIFFERENCE"))
+        self.keeper.admit_python.assert_called_once()
 
     def test_actual_adapter_output_is_checked_before_common_view_and_http(self):
         self.assertEqual(self.execute(), [(route, "EXACT") for route in daily.ROUTES])

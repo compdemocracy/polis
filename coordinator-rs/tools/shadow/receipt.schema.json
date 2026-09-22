@@ -123,6 +123,11 @@
               "type": "integer",
               "minimum": 0,
               "maximum": 1000000000
+            },
+            "LEGACY_EMPTY_DEFECT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
             }
           }
         },
@@ -164,6 +169,11 @@
               "maximum": 1000000000
             },
             "INCOMPLETE": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "LEGACY_EMPTY_DEFECT": {
               "type": "integer",
               "minimum": 0,
               "maximum": 1000000000
@@ -211,6 +221,11 @@
               "type": "integer",
               "minimum": 0,
               "maximum": 1000000000
+            },
+            "LEGACY_EMPTY_DEFECT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 0
             }
           }
         },
@@ -255,6 +270,11 @@
               "type": "integer",
               "minimum": 0,
               "maximum": 1000000000
+            },
+            "LEGACY_EMPTY_DEFECT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 0
             }
           }
         },
@@ -299,6 +319,11 @@
               "type": "integer",
               "minimum": 0,
               "maximum": 1000000000
+            },
+            "LEGACY_EMPTY_DEFECT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 0
             }
           }
         }
@@ -397,6 +422,10 @@
           "maximum": 1000000000
         }
       }
+    },
+    "empty_contract": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
