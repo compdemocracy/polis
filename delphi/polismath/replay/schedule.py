@@ -12,7 +12,7 @@ Why sort first (design §5): the export CSVs are NOT pre-sorted (vw has 2136
 out-of-order rows). :meth:`ReplayDataset.build` sorts stably by
 ``(t_ms, input order)`` and flags revotes; this module operates on that sorted
 stream so it does NOT inherit ``prepare_votes_data``'s unsorted-file-order
-quirk. Revotes are KEPT (no dedup) — later-vote-wins is resolved inside the
+defect. Revotes are KEPT (no dedup) — later-vote-wins is resolved inside the
 engine, not at the source.
 
 Cut modes (design §4):
@@ -39,6 +39,12 @@ _END = "end"
 _VALID_MODES = frozenset(
     {"vote-count", "explicit-event-index", "timestamp", "fraction"}
 )
+
+# Explicit nested paths supported by the empty-output contract. These are
+# leaves, not permission to replace a whole PCA object or ignore other keys.
+EMPTY_PCA_PATHS = frozenset({
+    "pca.center", "pca.comment-projection", "pca.comment-extremity",
+})
 
 
 # ---------------------------------------------------------------------------
@@ -70,8 +76,48 @@ class ScheduleSpec:
     coverage: str = "full-stream"
     # Exact required fields in the empty checkpoint's acceptance projection.
     empty_output: dict[str, Any] | None = None
+    # Keys the legacy engine may omit at an explicitly empty checkpoint.
+    # Present values, and all Python values, still obey empty_output exactly.
+    legacy_absent_keys: list[str] = field(default_factory=list)
+    # The sole present-value reconciliation: legacy's empty clock sentinel.
+    legacy_empty_timestamp: dict[str, int] | None = None
     # Verbatim mapping this spec was loaded from (None → reconstruct on demand).
     _raw: dict[str, Any] | None = field(default=None, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if isinstance(self.empty_output, dict):
+            paths = {k for k in self.empty_output if isinstance(k, str) and "." in k}
+            if paths - EMPTY_PCA_PATHS or (paths and "pca" in self.empty_output):
+                raise ValueError("empty_output has unsupported or overlapping PCA paths")
+        if not isinstance(self.legacy_absent_keys, list):
+            raise ValueError("legacy_absent_keys must be a list")
+        if any(not isinstance(key, str) or not key.strip()
+               for key in self.legacy_absent_keys):
+            raise ValueError("legacy_absent_keys must contain nonempty string keys")
+        if len(set(self.legacy_absent_keys)) != len(self.legacy_absent_keys):
+            raise ValueError("legacy_absent_keys must not contain duplicate keys")
+        if self.legacy_absent_keys:
+            if not isinstance(self.empty_output, dict):
+                raise ValueError("legacy_absent_keys requires an empty_output object")
+            if not set(self.legacy_absent_keys) <= set(self.empty_output):
+                raise ValueError("legacy_absent_keys must be a subset of empty_output keys")
+            if (not isinstance(self.cuts, dict)
+                    or self.cuts.get("empty_checkpoint") is not True):
+                raise ValueError("legacy_absent_keys requires cuts.empty_checkpoint: true")
+        if self.legacy_empty_timestamp is not None:
+            pair = self.legacy_empty_timestamp
+            if (type(pair) is not dict or set(pair) != {"legacy", "python"}
+                    or type(pair["legacy"]) is not int or pair["legacy"] != 0
+                    or type(pair["python"]) is not int or pair["python"] != 1):
+                raise ValueError("legacy_empty_timestamp requires exact legacy 0, python 1")
+            if (not isinstance(self.empty_output, dict)
+                    or type(self.empty_output.get("lastVoteTimestamp")) is not int
+                    or self.empty_output["lastVoteTimestamp"] != pair["python"]
+                    or "lastVoteTimestamp" in self.legacy_absent_keys):
+                raise ValueError("legacy_empty_timestamp requires a present empty_output timestamp")
+            if (not isinstance(self.cuts, dict)
+                    or self.cuts.get("empty_checkpoint") is not True):
+                raise ValueError("legacy_empty_timestamp requires cuts.empty_checkpoint: true")
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "ScheduleSpec":
@@ -79,7 +125,8 @@ class ScheduleSpec:
         if not isinstance(d, dict):
             raise ValueError("schedule must be an object")
         unknown = set(d) - {"dataset", "schedule_id", "cuts", "source", "moderation",
-                            "clojure", "notes", "restart_after", "coverage", "empty_output"}
+                            "clojure", "notes", "restart_after", "coverage", "empty_output",
+                            "legacy_absent_keys", "legacy_empty_timestamp"}
         if unknown:
             raise ValueError(f"unknown schedule fields: {sorted(unknown)}")
         return cls(
@@ -93,6 +140,8 @@ class ScheduleSpec:
             restart_after=d.get("restart_after"),
             coverage=d.get("coverage", "full-stream"),
             empty_output=d.get("empty_output"),
+            legacy_absent_keys=d.get("legacy_absent_keys", []),
+            legacy_empty_timestamp=d.get("legacy_empty_timestamp"),
             _raw=dict(d),
         )
 
@@ -105,7 +154,7 @@ class ScheduleSpec:
         """Return the verbatim input mapping (or reconstruct a canonical one)."""
         if self._raw is not None:
             return dict(self._raw)
-        return {
+        result = {
             "dataset": self.dataset,
             "schedule_id": self.schedule_id,
             "source": self.source,
@@ -117,6 +166,11 @@ class ScheduleSpec:
             "coverage": self.coverage,
             "empty_output": self.empty_output,
         }
+        if self.legacy_absent_keys:
+            result["legacy_absent_keys"] = list(self.legacy_absent_keys)
+        if self.legacy_empty_timestamp is not None:
+            result["legacy_empty_timestamp"] = dict(self.legacy_empty_timestamp)
+        return result
 
     def write_json(self, path: str | Path) -> None:
         with open(path, "w") as fh:

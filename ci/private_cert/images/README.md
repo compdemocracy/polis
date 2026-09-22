@@ -37,11 +37,22 @@ served capture and representative selection, so its manifest requires that repor
 - Verifier image `verify`: `/fixture:ro`, `/run-spec:ro`, `/evidence:ro`,
   `/job:ro`, `/verdict:rw`. It independently re-admits fixtures, checks the exact
   checkpoint/file census, runs certify plus G12 and 21 failing controls, and
-  writes only `polis-probe-receipt/1` to `/verdict/receipt.json`.
+  writes only `polis-probe-receipt/1` or `/2` to `/verdict/receipt.json`.
 
 The closed receipt is an explicit projection of the local detailed gate report;
-no nested raw report is serialized. Stages and recovery remain diagnostics;
-this scoped result does not authorize writer transfer. The host validates the
+no nested raw report is serialized. An optional per-entry `legacy_defects`
+observation names actual zero-checkpoint reconciliations. `legacy-defect-empty-omits-keys`
+contains a sorted unique subset of the 15 public keys in the committed
+`pc-zerovote-01-empty.json` schedule, including the explicit `pca.center`,
+`pca.comment-projection` and `pca.comment-extremity` leaves.
+`legacy-defect-empty-timestamp` contains exactly `legacy: 0, python: 1`.
+The supervisor rejects arbitrary names, keys, values and additional fields;
+absent observations add no receipt field. Python and any present legacy omission
+field must equal the declared empty-compute value exactly. The timestamp pair is
+also exact; neither reconciliation applies at nonzero checkpoints. Receipt
+validators on the supervisor and operator must be updated alongside the images.
+Stages and recovery remain diagnostics; this scoped result does not authorize
+writer transfer. The host validates the
 receipt again before the only evidence upload. A future probe supplies a new
 reviewed image/argv pair and the same closed receipt ABI.
 

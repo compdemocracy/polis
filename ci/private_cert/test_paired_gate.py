@@ -78,6 +78,32 @@ class PairedGateTests(unittest.TestCase):
         self.assertEqual(len(prepared), 6)
         self.assertEqual(self.inputs['expectedChecks'], 87)
         self.assertEqual(gate.sha(inventory), self.inputs['inventorySha256'])
+        self.assertTrue(all('legacy_defects' not in item for item in inventory))
+
+    def test_empty_contract_cannot_be_added_to_committed_recipe(self):
+        self.plan['entries'][0]['schedule']['empty_output'] = {'n': 0}
+        self.write_plan()
+        with self.assertRaisesRegex(ValueError, 'RECIPE_CHANGED'):
+            self.run_prepare()
+
+    def test_legacy_omission_cannot_be_added_to_committed_recipe(self):
+        self.plan['entries'][0]['schedule']['empty_output'] = {'n': 0}
+        self.plan['entries'][0]['schedule']['legacy_absent_keys'] = ['n']
+        self.plan['entries'][0]['schedule']['cuts']['empty_checkpoint'] = True
+        self.plan['entries'][0]['schedule']['cuts']['at'].insert(0, 0)
+        self.write_plan()
+        with self.assertRaisesRegex(ValueError, 'RECIPE_CHANGED'):
+            self.run_prepare()
+
+    def test_timestamp_cannot_be_added_to_committed_recipe(self):
+        spec = self.plan['entries'][0]['schedule']
+        spec['empty_output'] = {'lastVoteTimestamp': 1}
+        spec['legacy_empty_timestamp'] = {'legacy': 0, 'python': 1}
+        spec['cuts']['empty_checkpoint'] = True
+        spec['cuts']['at'].insert(0, 0)
+        self.write_plan()
+        with self.assertRaisesRegex(ValueError, 'RECIPE_CHANGED'):
+            self.run_prepare()
 
     def test_producer_uses_separate_schedule_input_and_fresh_serial_engines(self):
         from unittest.mock import patch
@@ -158,6 +184,182 @@ class PairedGateTests(unittest.TestCase):
         csv.write_bytes(csv.read_bytes()[:-1])
         with self.assertRaises(fixture_bundle.VerificationError):
             self.run_prepare()
+
+
+class EmptyOutputGateTests(unittest.TestCase):
+    """Real raw validators, strict comparer and G12 over small public recordings."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.recordings = self.root / 'recordings'
+        self.scratch = self.root / 'scratch'
+        self.scratch.mkdir()
+        spec = gate.schedule.ScheduleSpec.from_json_file(
+            gate.REPO / 'delphi/scripts/schedules/pc-zerovote-01-empty.json')
+        self.checkpoint = {'index': 0, 'prev_slot': 0, 'cut_slot': 0,
+                           'batch_size': 0, 'cut_time_ms': 0}
+        self.expected = gate.certify.ExpectedEntry(
+            gate.certify.BatteryEntry(spec.dataset, spec.schedule_id), spec,
+            self.root / 'public-events.jsonl', 'a' * 64, None, None, 0,
+            [self.checkpoint])
+        self.rec = gate.store.recording_dir(spec.dataset, spec.schedule_id,
+                                           root=self.recordings)
+        (self.rec / 'clj').mkdir(parents=True)
+        (self.rec / 'py').mkdir()
+        self.clj = {'pca': {'comps': [[1.0], [1.0]]}, 'lastVoteTimestamp': 0}
+        self.py = {'pca': {'comps': [[1.0], [1.0]]}}
+        for key, value in spec.empty_output.items():
+            if key.startswith('pca.'):
+                self.py['pca'][key.split('.')[1]] = value
+            else:
+                self.py[key] = value
+        self.write()
+
+    def write(self):
+        (self.rec / 'schedule.json').write_bytes(gate.encoded(self.expected.spec.to_dict()))
+        (self.rec / 'clj/step-000.blob.json').write_bytes(gate.encoded(self.clj))
+        (self.rec / 'clj/step-000.meta.json').write_bytes(gate.encoded(self.checkpoint))
+        (self.rec / 'py/step-000.json').write_bytes(
+            gate.encoded({**self.checkpoint, 'blob': self.py}))
+
+    def test_declared_empty_omission_is_named_and_raw_bytes_stay_unchanged(self):
+        before = gate.regular_tree(self.recordings)
+        result = gate.verify_pairs([self.expected], self.recordings, self.scratch)
+        self.assertEqual(result['verdict'], 'PASS')
+        defect = [{'name': 'legacy-defect-empty-omits-keys',
+                  'keys': sorted(self.expected.spec.legacy_absent_keys), 'checkpoints': [0]},
+                 {'name': 'legacy-defect-empty-timestamp', 'legacy': 0, 'python': 1, 'checkpoints': [0]}]
+        self.assertEqual(result['entries'][0]['legacy_defects'], defect)
+        self.assertTrue(result['entries'][0]['g12']['authoritative_g12'])
+        self.assertIn('unnormalized', result['entries'][0]['g12']['legacy_diagnostic']['note'])
+        inventory = gate.recording_inventory(
+            [self.expected], {'manifestSha256': 'b' * 64, 'configSha256': 'c' * 64})
+        self.assertEqual(inventory[0]['legacy_defects'], defect)
+        self.assertEqual(gate.regular_tree(self.recordings), before)
+
+    def test_undeclared_absence_fails_both_authoritative_paths(self):
+        from dataclasses import replace
+        self.expected = replace(self.expected,
+                                spec=replace(self.expected.spec, legacy_absent_keys=[]))
+        self.write()
+        self.assert_refused()
+
+    def test_wrong_present_legacy_value_fails_both_authoritative_paths(self):
+        self.clj['n'] = 1
+        self.write()
+        self.assert_refused()
+
+    def test_missing_python_value_fails_both_authoritative_paths(self):
+        self.py.pop('n')
+        self.write()
+        self.assert_refused()
+
+    def test_wrong_present_python_value_fails_both_authoritative_paths(self):
+        self.py['n'] = 1
+        self.write()
+        self.assert_refused()
+
+    def test_omission_at_nonzero_cut_fails_both_authoritative_paths(self):
+        self.checkpoint['cut_slot'] = 1
+        self.checkpoint['batch_size'] = 1
+        self.write()
+        self.assert_refused()
+
+    def test_every_empty_contract_value_is_exact_for_both_engines(self):
+        import copy
+        original_clj, original_py = copy.deepcopy(self.clj), copy.deepcopy(self.py)
+        for engine in ('clj', 'py'):
+            for key in self.expected.spec.empty_output:
+                with self.subTest(engine=engine, key=key):
+                    self.clj, self.py = copy.deepcopy(original_clj), copy.deepcopy(original_py)
+                    blob = self.clj if engine == 'clj' else self.py
+                    node, leaf = (blob['pca'], key.split('.')[1]) if key.startswith('pca.') else (blob, key)
+                    node[leaf] = 9 if key in ('n', 'n-cmts', 'lastVoteTimestamp') else 'wrong'
+                    self.write()
+                    self.assert_refused()
+
+    def test_pca_declared_values_remain_exact_inside_numeric_tolerance(self):
+        import copy
+        original_clj, original_py = copy.deepcopy(self.clj), copy.deepcopy(self.py)
+        for engine in ('clj', 'py'):
+            for key in gate.schedule.EMPTY_PCA_PATHS:
+                with self.subTest(engine=engine, key=key):
+                    self.clj, self.py = copy.deepcopy(original_clj), copy.deepcopy(original_py)
+                    blob = self.clj if engine == 'clj' else self.py
+                    leaf = key.split('.')[1]
+                    value = copy.deepcopy(self.expected.spec.empty_output[key])
+                    if leaf == 'comment-projection':
+                        value[0][0] += 1e-10
+                    else:
+                        value[0] += 1e-10
+                    blob['pca'][leaf] = value
+                    self.write()
+                    with self.assertRaises(gate.certify.CertifyError) as caught:
+                        gate.verify_pairs([self.expected], self.recordings, self.scratch)
+                    self.assertEqual(caught.exception.stage, 'empty-output')
+                    with self.assertRaises(gate.certify.CertifyError) as caught:
+                        gate.g12.measure_main_blob(self.rec, gate.REPO / 'delphi', expected=self.expected)
+                    self.assertEqual(caught.exception.stage, 'empty-output')
+
+    def test_timestamp_declaration_is_required_and_never_applies_at_nonzero_cut(self):
+        import copy
+        from dataclasses import replace
+        self.expected = replace(self.expected, spec=replace(self.expected.spec, legacy_empty_timestamp=None))
+        self.write()
+        self.assert_refused()
+        self.expected = replace(self.expected, spec=replace(self.expected.spec,
+                                legacy_empty_timestamp={'legacy': 0, 'python': 1}))
+        # Supply all other fields so failure proves timestamp comparison remains.
+        self.clj = copy.deepcopy(self.py)
+        self.clj['lastVoteTimestamp'] = 0
+        self.checkpoint.update(cut_slot=1, batch_size=1)
+        self.write()
+        result = gate.verify_pairs([self.expected], self.recordings, self.scratch)
+        self.assertEqual(result['verdict'], 'FAIL')
+        self.assertFalse(result['entries'][0]['g12']['authoritative_g12'])
+        self.assertNotIn('legacy_defects', result['entries'][0]['strict']['per_step'][0])
+
+    def test_timestamp_missing_wrong_or_reversed_pair_refused(self):
+        for engine in ('clj', 'py'):
+            for value in (None, True, 0.0, 2, 'missing', 1 if engine == 'clj' else 0):
+                with self.subTest(engine=engine, value=value):
+                    self.clj['lastVoteTimestamp'], self.py['lastVoteTimestamp'] = 0, 1
+                    blob = self.clj if engine == 'clj' else self.py
+                    if value == 'missing':
+                        blob.pop('lastVoteTimestamp')
+                    else:
+                        blob['lastVoteTimestamp'] = value
+                    self.write()
+                    self.assert_refused()
+
+    def test_each_nested_omission_requires_its_own_declaration(self):
+        from dataclasses import replace
+        original = self.expected
+        for key in gate.schedule.EMPTY_PCA_PATHS:
+            with self.subTest(key=key):
+                self.expected = replace(original, spec=replace(original.spec,
+                    legacy_absent_keys=[k for k in original.spec.legacy_absent_keys if k != key]))
+                self.write()
+                self.assert_refused()
+
+    def test_missing_pca_parent_and_changed_comps_are_never_reconciled(self):
+        self.clj.pop('pca')
+        self.write()
+        self.assert_refused()
+        self.clj['pca'] = {'comps': [[1.0], [1.0]]}
+        self.py['pca']['comps'] = [[1.0], [2.0]]
+        self.write()
+        result = gate.verify_pairs([self.expected], self.recordings, self.scratch)
+        self.assertEqual(result['verdict'], 'FAIL')
+        self.assertFalse(result['entries'][0]['g12']['authoritative_g12'])
+
+    def assert_refused(self):
+        with self.assertRaises(gate.certify.CertifyError):
+            gate.verify_pairs([self.expected], self.recordings, self.scratch)
+        with self.assertRaises(gate.certify.CertifyError):
+            gate.g12.measure_main_blob(self.rec, gate.REPO / 'delphi', expected=self.expected)
 
 
 if __name__ == '__main__':

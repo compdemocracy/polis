@@ -35,6 +35,11 @@ from polismath.replay.event_ingress import input_hashes
 
 POLICY = {'schema': 'polis-private-paired-policy/1', 'absolute': 1e-6,
           'relative': 1e-4, 'outlier_fraction': 0, 'strict_raw_schema': True,
+          'legacy_empty': {'schema': 'legacy-empty-reconciliation/2',
+                           'declaration': 'committed-schedule-only', 'cut_slot': 0,
+                           'engine': 'clj', 'present_values': 'exact-empty-output',
+                           'nested_paths': sorted(schedule.EMPTY_PCA_PATHS),
+                           'timestamp': {'name': 'legacy-defect-empty-timestamp', 'legacy': 0, 'python': 1}},
           'stages': 'diagnostic-only', 'recovery_consumption': 'shadow-diagnostic-only'}
 INPUT_KEYS = {'candidateSha', 'oracleSha', 'policySha256', 'scheduleSha256',
               'inventorySha256', 'expectedChecks'}
@@ -158,7 +163,10 @@ def prepare(fixture, inputs, scratch, *, bind=True):
             original = next(e for e in battery if (e.dataset, e.schedule_id) == (entry.dataset, entry.schedule_id))
             recipe = certify.build_effective_spec(original, real_data.load_export_votes(entry.dataset))
         if (spec.moderation != recipe.moderation or spec.restart_after != recipe.restart_after
-                or spec.clojure != recipe.clojure or spec.coverage != recipe.coverage):
+                or spec.clojure != recipe.clojure or spec.coverage != recipe.coverage
+                or spec.empty_output != recipe.empty_output
+                or spec.legacy_absent_keys != recipe.legacy_absent_keys
+                or spec.legacy_empty_timestamp != recipe.legacy_empty_timestamp):
             raise ValueError('SCHEDULE_RECIPE_CHANGED')
         declared_cuts = recipe.cuts.get('at', [])
         if len(expected.checkpoints) != len(declared_cuts):
@@ -172,16 +180,25 @@ def prepare(fixture, inputs, scratch, *, bind=True):
     if any(p.entry.dataset not in full for p in prepared):
         raise ValueError('PREFIX_WITHOUT_FULL_COMPANION')
     schedules = [p.spec.to_dict() for p in prepared]
-    inventory = [{'dataset': p.entry.dataset, 'schedule_id': p.entry.schedule_id,
-                  'role': p.entry.role, 'votesSha256': p.votes_sha,
-                  'eventsMetaSha256': p.events_meta_sha, 'commentsSha256': p.comments_sha,
-                  'manifestSha256': plan['manifestSha256'], 'configSha256': plan['configSha256'],
-                  'checkpoints': p.checkpoints, 'stream_end': p.stream_end} for p in prepared]
+    inventory = recording_inventory(prepared, plan)
     checks = sum(len(p.checkpoints) for p in prepared)  # one paired checkpoint = one check
     if bind and (sha(schedules) != inputs['scheduleSha256'] or sha(inventory) != inputs['inventorySha256']
             or type(inputs['expectedChecks']) is not int or checks != inputs['expectedChecks'] or checks == 0):
         raise ValueError('ADMITTED_INVENTORY_BINDING')
     return prepared, inventory
+
+
+def recording_inventory(prepared, plan):
+    inventory = [{'dataset': p.entry.dataset, 'schedule_id': p.entry.schedule_id,
+                  'role': p.entry.role, 'votesSha256': p.votes_sha,
+                  'eventsMetaSha256': p.events_meta_sha, 'commentsSha256': p.comments_sha,
+                  'manifestSha256': plan['manifestSha256'], 'configSha256': plan['configSha256'],
+                  'checkpoints': p.checkpoints, 'stream_end': p.stream_end} for p in prepared]
+    for item, expected in zip(inventory, prepared):
+        defects = certify.legacy_empty_defects(expected)
+        if defects:
+            item['legacy_defects'] = defects
+    return inventory
 
 
 def run_engine(cmd, cwd, log):
@@ -276,8 +293,8 @@ def verify_pairs(prepared, recordings, scratch):
             raise ValueError('RECORDING_SCHEDULE_BINDING')
         for engine in ('clj', 'py'):
             certify.validate_recording_inventory(rec / engine, engine, p)
-        strict = certify.compare_recording_pair(rec / 'clj', rec / 'py', cache_root=scratch)
-        metric = g12.measure_main_blob(rec, REPO / 'delphi')
+        strict = certify.compare_recording_pair(rec / 'clj', rec / 'py', cache_root=scratch, expected=p)
+        metric = g12.measure_main_blob(rec, REPO / 'delphi', expected=p)
         ok = bool(all(s['match'] for s in strict['per_step']) and metric.get('authoritative_g12') is True)
         passed = passed and ok
         stage_diagnostic = {'status': 'NOT_CAPTURED', 'gate': False}
@@ -288,6 +305,9 @@ def verify_pairs(prepared, recordings, scratch):
                 stage_diagnostic = {'gate': False, 'status': 'UNAVAILABLE', 'error_type': type(exc).__name__}
         reports.append({'dataset': p.entry.dataset, 'schedule_id': p.entry.schedule_id,
                         'strict': strict, 'g12': metric, 'pass': ok, 'stages': stage_diagnostic})
+        defects = certify.legacy_empty_defects(p)
+        if defects:
+            reports[-1]['legacy_defects'] = defects
     controls = checkpoint_controls(prepared[0], recordings, scratch)
     return {'verdict': 'PASS' if passed else 'FAIL', 'checks': sum(len(p.checkpoints) for p in prepared),
             'entries': reports, 'negative_controls': {'schema': 'polis-private-controls/1',

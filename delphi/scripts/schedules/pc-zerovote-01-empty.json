@@ -12,7 +12,54 @@
     "n": 0,
     "n-cmts": 0,
     "tids": [],
-    "in-conv": []
+    "in-conv": [],
+    "consensus": {
+      "agree": [],
+      "disagree": []
+    },
+    "group-aware-consensus": {},
+    "group-clusters": [],
+    "group-votes": {},
+    "mod-in": null,
+    "mod-out": null,
+    "user-vote-counts": {},
+    "votes-base": {},
+    "pca.center": [
+      -0.0
+    ],
+    "pca.comment-projection": [
+      [
+        -1.0
+      ],
+      [
+        -1.0
+      ]
+    ],
+    "pca.comment-extremity": [
+      1.4142135623730951
+    ],
+    "lastVoteTimestamp": 1
   },
-  "notes": "Explicit empty compute; both engines must satisfy the declared empty state. KNOWN BLOCKER (P-022, tracked separately): the engines' empty prep-main blobs disagree today — Clojure omits n/n-cmts/tids/in-conv from an empty compute where Python emits their empty values — so this entry FAILS at stage empty-output until that output contract is reconciled. That failure is a real, previously hidden divergence, not a harness regression."
+  "legacy_absent_keys": [
+    "consensus",
+    "group-aware-consensus",
+    "group-clusters",
+    "group-votes",
+    "in-conv",
+    "mod-in",
+    "mod-out",
+    "n",
+    "n-cmts",
+    "pca.center",
+    "pca.comment-extremity",
+    "pca.comment-projection",
+    "tids",
+    "user-vote-counts",
+    "votes-base"
+  ],
+  "notes": "Empty compute (zero votes). Python's complete empty structure is the canonical output; the legacy engine's output here is a known DEFECT, not an accepted variant. At the zero checkpoint only: legacy-defect-empty-omits-keys records the 15 fields the legacy engine omits (reconciled against the exact Python empty values, including the three PCA leaves) and legacy-defect-empty-timestamp records legacy lastVoteTimestamp 0 versus Python 1. Present values remain exact; PCA comps and every other field are compared unchanged; nothing is reconciled at any later checkpoint. Both defects are recorded by name in the inventory, the observed results and the closed receipt so the receipt shows which engine is wrong. Downstream consumers are being guarded separately (burndown 2x).",
+  "legacy_empty_timestamp": {
+    "legacy": 0,
+    "python": 1
+  }
 }

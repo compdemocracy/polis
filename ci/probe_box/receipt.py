@@ -2,6 +2,7 @@
 
 No file copying, field names from a dataset, paths, IDs, raw blob values, logs or
 free text are accepted. Entry positions follow the digest-bound run inventory.
+Optional named legacy defects use fixed public keys and one exact timestamp pair.
 """
 from __future__ import annotations
 
@@ -37,6 +38,45 @@ def count(value: object) -> int:
 def finite(value: object) -> float:
     if type(value) not in (float, int) or not math.isfinite(value) or value < 0:
         raise ValueError("RECEIPT_METRIC")
+    return value
+
+
+# Must equal the committed pc-zerovote-01 empty schedule's omission list.
+# This boundary deliberately has no engine imports or runtime recipe loading.
+LEGACY_EMPTY_KEYS = frozenset({
+    "consensus", "group-aware-consensus", "group-clusters", "group-votes",
+    "in-conv", "mod-in", "mod-out", "n", "n-cmts", "pca.center",
+    "pca.comment-extremity", "pca.comment-projection", "tids",
+    "user-vote-counts", "votes-base",
+})
+
+
+def validate_legacy_defects(value: object) -> list:
+    """Closed, bounded observations; never serialize arbitrary comparer data."""
+    if type(value) is not list or not 1 <= len(value) <= 2:
+        raise ValueError("RECEIPT_LEGACY_DEFECT")
+    names = []
+    for defect in value:
+        if type(defect) is not dict:
+            raise ValueError("RECEIPT_LEGACY_DEFECT")
+        name = defect.get("name")
+        if name == "legacy-defect-empty-omits-keys":
+            closed(defect, {"name", "keys"})
+            keys = defect["keys"]
+            if (type(keys) is not list or not 1 <= len(keys) <= len(LEGACY_EMPTY_KEYS)
+                    or any(type(key) is not str or key not in LEGACY_EMPTY_KEYS for key in keys)
+                    or keys != sorted(set(keys))):
+                raise ValueError("RECEIPT_LEGACY_DEFECT")
+        elif name == "legacy-defect-empty-timestamp":
+            closed(defect, {"name", "legacy", "python"})
+            if (type(defect["legacy"]) is not int or defect["legacy"] != 0
+                    or type(defect["python"]) is not int or defect["python"] != 1):
+                raise ValueError("RECEIPT_LEGACY_DEFECT")
+        else:
+            raise ValueError("RECEIPT_LEGACY_DEFECT")
+        names.append(name)
+    if names != sorted(set(names)):
+        raise ValueError("RECEIPT_LEGACY_DEFECT")
     return value
 
 
@@ -115,7 +155,10 @@ def validate_receipt(value: object, job: Job) -> dict:
     if type(r["entries"]) is not list or not 1 <= len(r["entries"]) <= 256:
         raise ValueError("RECEIPT_ENTRIES")
     for entry in r["entries"]:
-        e = closed(entry, {"verdict", "checks", "worst_absolute", "worst_relative", "outliers", "nonfinite"})
+        optional = {"legacy_defects"} if type(entry) is dict and "legacy_defects" in entry else set()
+        e = closed(entry, {"verdict", "checks", "worst_absolute", "worst_relative", "outliers", "nonfinite"} | optional)
+        if optional:
+            validate_legacy_defects(e["legacy_defects"])
         if e["verdict"] not in ("PASS", "FAIL", "INCOMPLETE"):
             raise ValueError("RECEIPT_VERDICT")
         for key in ("checks", "outliers", "nonfinite"):

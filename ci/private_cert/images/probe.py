@@ -11,7 +11,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parents[1] / "probe_box"))
 import gate
-from receipt import sha, validate_receipt
+from receipt import sha, validate_legacy_defects, validate_receipt
 
 # Box-only capture/selection rules are part of the admitted image closure.
 # Public fixture tools keep their original default and need no census report.
@@ -150,10 +150,27 @@ def verify() -> None:
     entries = []
     for entry in report['entries']:
         roll = entry['g12']['rollup']
-        entries.append({'verdict': 'PASS' if entry['pass'] else 'FAIL',
+        exported = {'verdict': 'PASS' if entry['pass'] else 'FAIL',
                         'checks': len(entry['strict']['per_step']),
                         'worst_absolute': roll['max_abs'], 'worst_relative': roll['max_rel_all'],
-                        'outliers': roll['g12_outliers'], 'nonfinite': roll['nonfinite']})
+                        'outliers': roll['g12_outliers'], 'nonfinite': roll['nonfinite']}
+        # Export actual observed defects, not the schedule's broader allowance.
+        omitted = set()
+        timestamp = None
+        for step in entry['strict']['per_step']:
+            for defect in step.get('legacy_defects', []):
+                validate_legacy_defects([defect])
+                if defect['name'] == 'legacy-defect-empty-omits-keys':
+                    omitted.update(defect['keys'])
+                else:
+                    timestamp = defect
+        defects = ([{'name': 'legacy-defect-empty-omits-keys', 'keys': sorted(omitted)}]
+                  if omitted else [])
+        if timestamp is not None:
+            defects.append(dict(timestamp))
+        if defects:
+            exported['legacy_defects'] = validate_legacy_defects(defects)
+        entries.append(exported)
     controls = report['negative_controls']
     completed = controls['g12']['rejected'] + sum(v == 'REJECTED' for v in controls['checkpoint'].values())
     manifest = gate.read(Path('/fixture/manifest.json'))
