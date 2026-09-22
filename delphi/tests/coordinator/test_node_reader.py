@@ -139,9 +139,9 @@ def test_published_empty_math_versus_the_servers_own_empty_presentation(db, laun
         cur.execute("UPDATE comments SET mod=1 WHERE zid=1 AND tid<2")
     c.close()
     launch(db).done()
-    python_checkpoint(db)
+    python_checkpoint(db, "--moderation")
     reference = rows(db, env="python")["math_main"]
-    assert reference is not None, "the reference writer publishes the empty row"
+    assert reference is not None, "the reference writer publishes the empty row on the moderation trigger"
     assert reference["data"]["n"] == 0 and reference["data"]["lastVoteTimestamp"] == 0
     # Retain the historical second generation after all comments are approved.
     # The generation-zero caller regression is covered separately.
@@ -150,7 +150,7 @@ def test_published_empty_math_versus_the_servers_own_empty_presentation(db, laun
         cur.execute("UPDATE comments SET mod=1 WHERE zid=1")
     c.close()
     launch(db).done()
-    python_checkpoint(db)
+    python_checkpoint(db, "--moderation")
     assert rows(db, env="rustproto")["math_main"]["math_tick"] == 1
 
     served = node_read(db, gids=(0,))

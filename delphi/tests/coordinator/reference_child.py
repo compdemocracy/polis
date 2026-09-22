@@ -1,4 +1,4 @@
-"""Pinned #2704 poller, one explicitly scheduled cold/rebuild checkpoint.
+"""Pinned #2704 poller, one explicitly scheduled cold/rebuild checkpoint (or, with --moderation, one moderation-triggered publication).
 
 Reads the same local DB; the parent controls visibility cuts. The static comment
 snapshot is read by load-or-init; there is no second moderation-triggered compute.
@@ -34,7 +34,10 @@ with tempfile.TemporaryDirectory(prefix="p026-reference-") as tmp:
     svc=MathPollerService(pg,PollerConfig(math_env="python",worker_pool_size=1,retry_cap=0,allowlist=[1]))
     svc._ensure_runtime()
     svc._vote_wm=0
-    svc._mod_wm=2**63-1
+    # The moderation loop stays disabled unless the caller asks for the
+    # production trigger: a zero-vote conversation with approved comments is
+    # published by moderation, never by votes.
+    svc._mod_wm=0 if "--moderation" in sys.argv else 2**63-1
     svc.poll_once()
     assert svc._pool.join(timeout=120)
     assert not svc._pool.parked_zids(), "reference failed/parked"
