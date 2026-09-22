@@ -12,7 +12,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "verify": "npm run format && npm run lint && npm run test && npm run build"
+    "typecheck": "astro check",
+    "verify": "npm run format && npm run lint && npm run test && npm run build && npm run typecheck"
   },
   "dependencies": {
     "@astrojs/node": "9.5.1",
@@ -37,6 +38,7 @@
     "react-dom": "^19.2.1"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.10",
     "@eslint/js": "^9.39.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
