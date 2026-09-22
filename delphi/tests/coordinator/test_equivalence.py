@@ -82,10 +82,10 @@ def insert_events(db,events):
     c.close()
 
 
-def python_checkpoint(db):
+def python_checkpoint(db, *args):
     env=dict(os.environ,DATABASE_URL=db,PYTHONPATH=str(ROOT/'delphi'),MATH_ENV='python',MATH_PYTHON_ENV='python',
              OMP_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',MKL_NUM_THREADS='1',PYTHONDONTWRITEBYTECODE='1')
-    r=subprocess.run([sys.executable,str(Path(__file__).with_name('reference_child.py'))],env=env,cwd=ROOT/'delphi',capture_output=True,text=True,timeout=150)
+    r=subprocess.run([sys.executable,str(Path(__file__).with_name('reference_child.py')),*args],env=env,cwd=ROOT/'delphi',capture_output=True,text=True,timeout=150)
     assert r.returncode==0,(r.stdout,r.stderr)
 
 
