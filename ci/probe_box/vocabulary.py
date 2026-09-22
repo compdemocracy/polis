@@ -29,7 +29,9 @@ PSYCOPG2_ERRORS = frozenset({'QueryCanceled', 'UndefinedTable', 'UndefinedColumn
                              'CannotConnectNow', 'TooManyConnections', 'OutOfMemory', 'DiskFull', 'ConnectionFailure',
                              'ConnectionException', 'InvalidPassword', 'InvalidAuthorizationSpecification',
                              'DuplicateObject', 'SyntaxError', 'NumericValueOutOfRange', 'DivisionByZero'})
-STAGES = frozenset({'images', 'secret', 'reader', 'producer', 'verifier', 'receipt', 'boot'})
+from worker import STAGES, WORKER_PHASES
+FAILURE_TYPES = frozenset({'record-failed', 'terminated'})
+FAILURE_REASONS = frozenset({'FAILURE_RECORD_FAILED'})
 LABELS = frozenset({'reader', 'producer', 'verifier'})
 RELAY = frozenset({'resolve', 'connect', 'no_tls', 'tls_verify', 'tls', 'io', 'relayed', 'plain_scram'})
 REASON_CODES = frozenset(code for _, code in __import__('worker').REASONS)
