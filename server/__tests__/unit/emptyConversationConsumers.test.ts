@@ -270,25 +270,22 @@ const presentationDifferences = {
       "Rows normalize null moderation to an array; no-row template omits moderation.",
   },
   "pca.center": {
-    python: contract["pca.center"],
-    legacy: [0, 0],
+    row: [0, 0],
     missing: [0, 0],
     reason:
-      "Seeded engine coordinates survive; absent coordinates receive historical display defaults.",
+      "The contract declares no center for a zero-vote conversation; the presenter supplies the historical display default either way.",
   },
   "pca.comment-projection": {
-    python: contract["pca.comment-projection"],
-    legacy: {},
+    row: {},
     missing: {},
     reason:
-      "Seeded engine projection survives; absent projection receives the historical empty object.",
+      "The contract declares no projections; the presenter supplies the historical empty object either way.",
   },
   "pca.comment-extremity": {
-    python: contract["pca.comment-extremity"],
-    legacy: [],
+    row: [],
     missing: [],
     reason:
-      "Seeded engine extremity survives; absence is filled from the empty comments table.",
+      "The contract declares no extremities; the presenter fills from the empty comments table either way.",
   },
   lastVoteTimestamp: {
     row: contract.lastVoteTimestamp,
