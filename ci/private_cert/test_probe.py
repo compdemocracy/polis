@@ -32,7 +32,7 @@ class ProbeTests(unittest.TestCase):
             (rec / 'clj').mkdir(parents=True)
             (rec / 'py').mkdir()
             gate.dump(rec / 'schedule.json', spec.to_dict())
-            python_blob = {'pca': {'comps': [[1.0], [1.0]]}}
+            python_blob = {'pca': {'comps': [[1.0], [1.0]]}, 'mod-in': [], 'mod-out': []}
             for key, value in spec.empty_output.items():
                 if key.startswith('pca.'):
                     python_blob['pca'][key.split('.')[1]] = value
@@ -47,8 +47,11 @@ class ProbeTests(unittest.TestCase):
                 admitted = {'/job/job.json': job, '/run-spec/inputs.json': inputs,
                             '/fixture/manifest.json': {}}
                 return admitted[str(path)] if str(path) in admitted else read(path)
-            for omitted in (['n'], []):
-                with self.subTest(omitted=omitted):
+            import itertools
+            for omitted, lists in itertools.product((['n'], [], ['mod-in'], ['mod-out'], ['mod-in', 'mod-out']), (([], []), ([2, 7], [3, 8]))):
+                with self.subTest(omitted=omitted, lists=lists):
+                    python_blob.update(dict(zip(['mod-in', 'mod-out'], lists)))
+                    (rec / 'py/step-000.json').write_bytes(gate.encoded({**checkpoint, 'blob': python_blob}))
                     (rec / 'clj/step-000.blob.json').write_bytes(gate.encoded(
                         {**{k: v for k, v in python_blob.items() if k not in omitted},
                          'lastVoteTimestamp': 0}))
@@ -63,11 +66,11 @@ class ProbeTests(unittest.TestCase):
                     self.assertEqual(receipt['verdict'], 'PASS')
                     if omitted:
                         self.assertEqual(receipt['entries'][0]['legacy_defects'],
-                            [{'name': 'legacy-defect-empty-omits-keys', 'keys': ['n']}])
+                            [{'name': 'legacy-defect-empty-omits-keys', 'keys': omitted}])
                     else:
                         self.assertNotIn('legacy_defects', receipt['entries'][0])
                     self.assertEqual(tree(recordings), before)
-                    self.assertEqual('n' in read(rec / 'clj/step-000.blob.json'), not omitted)
+                    self.assertTrue(all(k not in read(rec / 'clj/step-000.blob.json') for k in omitted))
 
     def test_image_recipe_includes_exact_approved_probe_config(self):
         import recipe

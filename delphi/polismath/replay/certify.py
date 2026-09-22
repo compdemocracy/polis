@@ -929,6 +929,8 @@ def canonical_schedule_hash(spec: sched.ScheduleSpec) -> str:
     }
     if spec.legacy_absent_keys:
         payload["legacy_absent_keys"] = sorted(spec.legacy_absent_keys)
+    if spec.legacy_absent_moderation:
+        payload["legacy_absent_moderation"] = list(spec.legacy_absent_moderation)
     return _canonical_hash(payload)
 
 
@@ -1464,10 +1466,10 @@ def compare_recording_pair(
         if expected is not None:
             checkpoint = expected.checkpoints[i]
             original = clj_proj
-            clj_proj = checkpoint_acceptance_projection(clj_blobs[i], "clj", expected, checkpoint)
-            py_proj = checkpoint_acceptance_projection(py_blobs[i], "py", expected, checkpoint)
+            clj_proj, py_proj = paired_checkpoint_projections(
+                clj_blobs[i], py_blobs[i], expected, checkpoint)
             if checkpoint["cut_slot"] == 0:
-                restored = sorted(k for k in expected.spec.legacy_absent_keys
+                restored = sorted(k for k in (expected.spec.legacy_absent_keys + expected.spec.legacy_absent_moderation)
                                   if _empty_contract_value(original, k) is _EMPTY_MISSING)
                 if restored:
                     defects.append({"name": "legacy-defect-empty-omits-keys", "keys": restored})
@@ -1594,9 +1596,10 @@ def legacy_empty_defects(expected: ExpectedEntry) -> list[dict[str, Any]]:
     if not zero:
         return []
     defects = []
-    if expected.spec.legacy_absent_keys:
+    keys = expected.spec.legacy_absent_keys + expected.spec.legacy_absent_moderation
+    if keys:
         defects.append({"name": "legacy-defect-empty-omits-keys",
-                       "keys": sorted(expected.spec.legacy_absent_keys), "checkpoints": zero})
+                       "keys": sorted(keys), "checkpoints": zero})
     return defects
 
 
@@ -1637,6 +1640,12 @@ def checkpoint_acceptance_projection(
     contract = expected.spec.empty_output
     if not isinstance(contract, dict) or not contract:
         raise CertifyError("inventory", "zero checkpoint requires a nonempty empty_output contract")
+    for key in expected.spec.legacy_absent_moderation:
+        value = projected.get(key, _EMPTY_MISSING)
+        if value is _EMPTY_MISSING and engine == "clj":
+            continue
+        if not isinstance(value, list) or any(type(tid) is not int for tid in value):
+            raise CertifyError("empty-output", f"{engine}: {key} must be a moderation list")
     allowed = set(expected.spec.legacy_absent_keys) if engine == "clj" else set()
     # A missing/malformed PCA parent is not an omitted leaf. In particular,
     # never replace an entire PCA object and hide a changed comps value.
@@ -1663,6 +1672,21 @@ def checkpoint_acceptance_projection(
             else:
                 projected[key] = copy.deepcopy(contract[key])
     return projected
+
+
+def paired_checkpoint_projections(clj_blob, py_blob, expected, checkpoint):
+    """Reconcile only absent legacy dynamic keys with the validated Python list.
+
+    Present legacy values are untouched and compare normally. No recorded blob
+    is changed, and neither undeclared nor nonzero checkpoints get this rule.
+    """
+    clj = checkpoint_acceptance_projection(clj_blob, "clj", expected, checkpoint)
+    py = checkpoint_acceptance_projection(py_blob, "py", expected, checkpoint)
+    if checkpoint["cut_slot"] == 0:
+        for key in expected.spec.legacy_absent_moderation:
+            if key not in clj:
+                clj[key] = copy.deepcopy(py[key])
+    return clj, py
 
 
 def prepare_entry(entry: BatteryEntry) -> ExpectedEntry:

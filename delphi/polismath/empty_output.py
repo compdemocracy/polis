@@ -27,18 +27,26 @@ def legacy_absent_keys() -> tuple[str, ...]:
     return tuple(_schedule()["legacy_absent_keys"])
 
 
+def legacy_absent_moderation() -> tuple[str, ...]:
+    return tuple(_schedule()["legacy_absent_moderation"])
+
+
 def contract_sha256() -> str:
-    value = {key: _schedule()[key] for key in ("empty_output", "legacy_absent_keys")}
+    value = {key: _schedule()[key] for key in ("empty_output", "legacy_absent_keys", "legacy_absent_moderation")}
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"),
                                      allow_nan=False).encode()).hexdigest()
 
 
-def apply_empty_contract(main: dict[str, Any]) -> dict[str, Any]:
+def apply_empty_contract(main: dict[str, Any], *, mod_in=(), mod_out=()) -> dict[str, Any]:
     """Apply declared fields only; retain identity and non-contract metadata."""
     for path, value in empty_contract().items():
         if path.startswith("pca."):
             main.setdefault("pca", {})[path.split(".", 1)[1]] = value
         else:
             main[path] = value
+    # Moderation is conversation state, never a constant compute output.
+    for key, tids in (("mod-in", mod_in), ("mod-out", mod_out)):
+        main[key] = sorted(int(tid) if isinstance(tid, str) and tid.isdigit() else tid
+                           for tid in tids)
     main["pca"].setdefault("comps", [[], []])
     return main

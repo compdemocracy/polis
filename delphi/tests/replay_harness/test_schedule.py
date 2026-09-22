@@ -528,3 +528,25 @@ def test_trailing_moderation_is_not_duplicated_into_earlier_cuts():
                               moderation="interleave-by-timestamp", coverage="full-stream")
     steps = sched.slice_schedule(ds, spec)
     assert [tuple(m.t_ms for m in s.mod_events) for s in steps] == [(), (2500,), (9000,)]
+
+
+@pytest.mark.parametrize("load", [lambda raw: sched.ScheduleSpec(**raw), sched.ScheduleSpec.from_dict])
+@pytest.mark.parametrize("value", [None, "mod-in", ["mod-in"], ["mod-out"], ["n", "mod-in"], ["mod-in", "mod-in"], ["mod-in", "mod-out", "n"], [{}]])
+def test_legacy_absent_moderation_is_a_closed_pair(load, value):
+    with pytest.raises(ValueError, match="legacy_absent_moderation"):
+        load(dict(dataset="public", schedule_id="empty", cuts={"empty_checkpoint": True},
+                  empty_output={"n": 0}, legacy_absent_moderation=value))
+
+
+def test_legacy_moderation_roundtrip_hash_and_scope():
+    from polismath.replay.certify import canonical_schedule_hash
+    raw = dict(dataset="public", schedule_id="empty", cuts={"empty_checkpoint": True},
+               empty_output={"n": 0}, legacy_absent_moderation=["mod-in", "mod-out"])
+    spec = sched.ScheduleSpec.from_dict(raw)
+    assert spec.to_dict() == raw
+    assert sched.ScheduleSpec(**raw).to_dict()["legacy_absent_moderation"] == raw["legacy_absent_moderation"]
+    without = {k: v for k, v in raw.items() if k != "legacy_absent_moderation"}
+    assert canonical_schedule_hash(spec) != canonical_schedule_hash(sched.ScheduleSpec(**without))
+    for changes in ({"cuts": {}}, {"empty_output": None}, {"empty_output": {"n": 0, "mod-in": None}}):
+        with pytest.raises(ValueError, match="legacy_absent_moderation"):
+            sched.ScheduleSpec(**{**raw, **changes})

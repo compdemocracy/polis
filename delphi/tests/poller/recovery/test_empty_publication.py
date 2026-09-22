@@ -45,6 +45,8 @@ def test_moderation_empty_publish_restart_and_first_vote(engine, pg_url, make_se
     svc.poll_once()
     first = read_math_tables(engine, 1, "recovery")
     assert_empty(first)
+    assert first["main"]["data"]["mod-in"] == []
+    assert first["main"]["data"]["mod-out"] == [0, 1]
     assert first["main"]["math_tick"] == 0
     assert read_math_tables(engine, 1, "prod")["main"] is None
     # Fresh process state must restore and republish the same declared shape.
@@ -52,6 +54,8 @@ def test_moderation_empty_publish_restart_and_first_vote(engine, pg_url, make_se
     fresh.poll_once()
     after = read_math_tables(engine, 1, "recovery")
     assert_empty(after)
+    assert after["main"]["data"]["mod-in"] == []
+    assert after["main"]["data"]["mod-out"] == [0, 1]
     assert after["main"]["math_tick"] > first["main"]["math_tick"]
     # Warm unmoderation is also a valid empty-compute trigger.
     trigger(engine, 0)

@@ -54,7 +54,11 @@ because the replay driver floors an empty conversation's clock to 0 exactly as
 the production poller does; it is compared like any other present value.
 The omission list includes three explicit PCA leaves; it does not permit replacing
 a whole PCA object. The observation describes only actual reconciliations at the
-zero checkpoint. The exact Python values and present legacy values remain checked.
+zero checkpoint. Thirteen keys belong to the constant `empty_output` contract;
+`mod-in` and `mod-out` belong to the separate closed `legacy_absent_moderation`
+declaration. Python emits sorted moderation lists, never null on an empty compute.
+Omitted legacy lists compare to those Python lists; emitted lists compare normally.
+The exact Python compute values and present legacy values remain checked.
 Arbitrary names, values, duplicates, reordered defects and additional fields are
 rejected; entries without an observation retain their existing shape. Deploy the
 updated supervisor/operator receipt validator with the verifier images.

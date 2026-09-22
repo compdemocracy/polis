@@ -35,10 +35,12 @@ from polismath.replay.event_ingress import input_hashes
 
 POLICY = {'schema': 'polis-private-paired-policy/1', 'absolute': 1e-6,
           'relative': 1e-4, 'outlier_fraction': 0, 'strict_raw_schema': True,
-          'legacy_empty': {'schema': 'legacy-empty-reconciliation/2',
+          'legacy_empty': {'schema': 'legacy-empty-reconciliation/3',
                            'declaration': 'committed-schedule-only', 'cut_slot': 0,
                            'engine': 'clj', 'present_values': 'exact-empty-output',
-                           'nested_paths': sorted(schedule.EMPTY_PCA_PATHS)},
+                           'nested_paths': sorted(schedule.EMPTY_PCA_PATHS),
+                           'legacy_absent_moderation': ['mod-in', 'mod-out'],
+                           'moderation_present_values': 'compare-normally'},
           'stages': 'diagnostic-only', 'recovery_consumption': 'shadow-diagnostic-only'}
 INPUT_KEYS = {'candidateSha', 'oracleSha', 'policySha256', 'scheduleSha256',
               'inventorySha256', 'expectedChecks'}
@@ -164,7 +166,8 @@ def prepare(fixture, inputs, scratch, *, bind=True):
         if (spec.moderation != recipe.moderation or spec.restart_after != recipe.restart_after
                 or spec.clojure != recipe.clojure or spec.coverage != recipe.coverage
                 or spec.empty_output != recipe.empty_output
-                or spec.legacy_absent_keys != recipe.legacy_absent_keys):
+                or spec.legacy_absent_keys != recipe.legacy_absent_keys
+                or spec.legacy_absent_moderation != recipe.legacy_absent_moderation):
             raise ValueError('SCHEDULE_RECIPE_CHANGED')
         declared_cuts = recipe.cuts.get('at', [])
         if len(expected.checkpoints) != len(declared_cuts):

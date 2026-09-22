@@ -2475,7 +2475,7 @@ class Conversation:
             # Every serializer shares the declared zero-vote structure, including
             # callers without a publisher. Do not change warm engine state.
             from polismath.empty_output import apply_empty_contract
-            apply_empty_contract(result)
+            apply_empty_contract(result, mod_in=self.mod_in_tids, mod_out=self.mod_out_tids)
 
         logger.info(f"Total to_dict time: {time.time() - overall_start_time:.4f}s")
         return result

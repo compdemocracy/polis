@@ -79,6 +79,8 @@ class ScheduleSpec:
     # Keys the legacy engine may omit at an explicitly empty checkpoint.
     # Present values, and all Python values, still obey empty_output exactly.
     legacy_absent_keys: list[str] = field(default_factory=list)
+    # Separate dynamic lists: only the closed pair can be declared.
+    legacy_absent_moderation: list[str] = field(default_factory=list)
     # Verbatim mapping this spec was loaded from (None → reconstruct on demand).
     _raw: dict[str, Any] | None = field(default=None, repr=False, compare=False)
 
@@ -103,6 +105,17 @@ class ScheduleSpec:
                     or self.cuts.get("empty_checkpoint") is not True):
                 raise ValueError("legacy_absent_keys requires cuts.empty_checkpoint: true")
 
+        moderation = self.legacy_absent_moderation
+        if (not isinstance(moderation, list)
+                or (moderation and moderation != ["mod-in", "mod-out"])):
+            raise ValueError("legacy_absent_moderation must be the closed pair [mod-in, mod-out]")
+        if moderation:
+            if (not isinstance(self.cuts, dict) or self.cuts.get("empty_checkpoint") is not True
+                    or not isinstance(self.empty_output, dict) or not self.empty_output):
+                raise ValueError("legacy_absent_moderation requires an explicit empty checkpoint and empty_output")
+            if set(moderation) & (set(self.empty_output) | set(self.legacy_absent_keys)):
+                raise ValueError("legacy_absent_moderation cannot overlap constant empty_output keys")
+
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "ScheduleSpec":
         """Build from a §4 mapping, retaining it verbatim for round-tripping."""
@@ -110,7 +123,7 @@ class ScheduleSpec:
             raise ValueError("schedule must be an object")
         unknown = set(d) - {"dataset", "schedule_id", "cuts", "source", "moderation",
                             "clojure", "notes", "restart_after", "coverage", "empty_output",
-                            "legacy_absent_keys"}
+                            "legacy_absent_keys", "legacy_absent_moderation"}
         if unknown:
             raise ValueError(f"unknown schedule fields: {sorted(unknown)}")
         return cls(
@@ -125,6 +138,7 @@ class ScheduleSpec:
             coverage=d.get("coverage", "full-stream"),
             empty_output=d.get("empty_output"),
             legacy_absent_keys=d.get("legacy_absent_keys", []),
+            legacy_absent_moderation=d.get("legacy_absent_moderation", []),
             _raw=dict(d),
         )
 
@@ -151,6 +165,8 @@ class ScheduleSpec:
         }
         if self.legacy_absent_keys:
             result["legacy_absent_keys"] = list(self.legacy_absent_keys)
+        if self.legacy_absent_moderation:
+            result["legacy_absent_moderation"] = list(self.legacy_absent_moderation)
         return result
 
     def write_json(self, path: str | Path) -> None:

@@ -27,7 +27,7 @@ def assert_contract(main):
 def test_all_empty_emission_paths(path, moderated):
     conv = Conversation(42, last_updated=999)
     if moderated:
-        conv = conv.update_moderation({"mod_out_tids": [7], "mod_in_tids": [8],
+        conv = conv.update_moderation({"mod_out_tids": [17, 7], "mod_in_tids": [18, 8],
                                       "meta_tids": [9], "lastModTimestamp": 1234}, recompute=False)
     before = (conv.last_updated, conv.pca, set(conv.mod_out_tids))
     if path == "conversation":
@@ -56,6 +56,8 @@ def test_all_empty_emission_paths(path, moderated):
             assert json.loads(bid_raw)["lastVoteTimestamp"] == json.loads(stats_raw)["lastVoteTimestamp"] == 0
             pg.transaction.assert_not_called()
     assert_contract(main)
+    assert main["mod-in"] == ([8, 18] if moderated else [])
+    assert main["mod-out"] == ([7, 17] if moderated else [])
     assert (conv.last_updated, conv.pca, conv.mod_out_tids) == before
 
 
