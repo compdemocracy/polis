@@ -287,7 +287,11 @@ function handle_GET_bidToPid(
   const zid = req.p.zid;
   const math_tick = req.p.math_tick;
   getBidIndexToPidMapping(zid, math_tick).then(
-    function (doc: { bidToPid: any }) {
+    function (doc: { bidToPid: any } | Error) {
+      if (doc instanceof Error) {
+        res.status(304).end();
+        return;
+      }
       const b2p = doc.bidToPid;
       res.json({
         bidToPid: b2p,
