@@ -6,9 +6,40 @@ import json
 
 TABLES = ('conversations','votes','comments','participants','math_main','math_ticks')
 ROLE = 'polis_probe_reader'
+PUBLIC_DEFAULTS = ('database-create', 'database-temp', 'schema-create', 'routine-execute')
 
 
-def provision(connection: object, password: str, database: str, owner: str) -> None:
+def validate_public_defaults(value):
+    """Only an ordered, duplicate-free subset of the reviewed finding tokens."""
+    if (type(value) is not list or any(type(v) is not str or v not in PUBLIC_DEFAULTS for v in value)
+            or value != [v for v in PUBLIC_DEFAULTS if v in value]):
+        raise ValueError('PUBLIC_DEFAULTS')
+    return value
+
+
+def _public_only_rights(cur, rows, rights, refusal):
+    """Inspect provenance, including redundant direct grants and implicit ACLs.
+
+    Membership and broad role attributes have already been refused. Each row is
+    (owner-is-reader, ACL); PostgreSQL's acldefault supplies an absent ACL.
+    Ownership and grant options are authority even without an effective privilege.
+    """
+    observed = set()
+    for owned, acl in rows:
+        if owned: raise ValueError('READER_OBJECT_OWNER')
+        cur.execute("""SELECT grantee, privilege_type, is_grantable,
+            grantee=(SELECT oid FROM pg_roles WHERE rolname=%s)
+            FROM aclexplode(%s::aclitem[])""", (ROLE, acl))
+        for grantee, privilege, grantable, direct in cur.fetchall():
+            if (direct or grantee == 0) and grantable:
+                raise ValueError('READER_GRANT_AUTHORITY')
+            if privilege in rights:
+                if direct: raise ValueError(refusal)
+                if grantee == 0: observed.add(rights[privilege])
+    return observed
+
+
+def provision(connection: object, password: str, database: str, owner: str) -> list[str]:
     from psycopg2 import sql
     with connection:
         with connection.cursor() as cur:
@@ -30,29 +61,39 @@ def provision(connection: object, password: str, database: str, owner: str) -> N
             cur.execute(sql.SQL('GRANT USAGE ON SCHEMA public TO {}').format(role))
             for table in TABLES:
                 cur.execute(sql.SQL('GRANT SELECT ON public.{} TO {}').format(sql.Identifier(table),role))
-            verify_effective_rights(cur, database)
+            return verify_effective_rights(cur, database)
 
 
 
 
-def verify_effective_rights(cur, database: str) -> None:
+def verify_effective_rights(cur, database: str) -> list[str]:
     """Check effective privileges, including PUBLIC and SET ROLE authority.
 
     This verifies and refuses drift transactionally; it never repairs grants.
     System catalog reads and built-in functions are PostgreSQL baseline rights.
-    Application objects, database creation/temp and future application grants
-    are outside the six-table reader contract.
+    PUBLIC-only database CREATE/TEMP, public-schema CREATE and routine EXECUTE
+    are reported findings. Direct authority and explicit future grants refuse.
     """
     cur.execute('SELECT rolsuper,rolcreaterole,rolcreatedb,rolreplication,rolbypassrls,rolinherit FROM pg_roles WHERE rolname=%s',(ROLE,))
     if any(cur.fetchone()): raise ValueError('BROAD_READER_ROLE')
     # MEMBER includes indirect and NOINHERIT memberships (SET ROLE is authority).
     cur.execute("SELECT 1 FROM pg_roles WHERE rolname<>%s AND pg_has_role(%s,oid,'MEMBER') LIMIT 1",(ROLE,ROLE))
     if cur.fetchone(): raise ValueError('READER_MEMBERSHIP')
-    cur.execute("SELECT has_database_privilege(%s,%s,'CREATE,TEMP')",(ROLE,database))
-    if cur.fetchone()[0]: raise ValueError('READER_DATABASE_AUTHORITY')
+    cur.execute("""SELECT datdba=(SELECT oid FROM pg_roles WHERE rolname=%s),
+        COALESCE(datacl,acldefault('d',datdba)) FROM pg_database WHERE datname=%s""",(ROLE,database))
+    rows=cur.fetchall()
+    if len(rows)!=1: raise ValueError('READER_DATABASE_AUTHORITY')
+    findings=_public_only_rights(cur, rows,
+        {'CREATE':'database-create','TEMPORARY':'database-temp'}, 'READER_DATABASE_AUTHORITY')
+    cur.execute("""SELECT nspowner=(SELECT oid FROM pg_roles WHERE rolname=%s),
+        COALESCE(nspacl,acldefault('n',nspowner)) FROM pg_namespace WHERE nspname='public'""",(ROLE,))
+    findings.update(_public_only_rights(cur, cur.fetchall(),
+        {'CREATE':'schema-create'}, 'READER_SCHEMA_AUTHORITY'))
     cur.execute("""SELECT 1 FROM pg_namespace WHERE nspname !~ '^pg_' AND nspname<>'information_schema'
-        AND (has_schema_privilege(%s,oid,'CREATE') OR
-             (nspname<>'public' AND has_schema_privilege(%s,oid,'USAGE'))) LIMIT 1""",(ROLE,ROLE))
+        AND nspowner=(SELECT oid FROM pg_roles WHERE rolname=%s) LIMIT 1""",(ROLE,))
+    if cur.fetchone(): raise ValueError('READER_OBJECT_OWNER')
+    cur.execute("""SELECT 1 FROM pg_namespace WHERE nspname !~ '^pg_' AND nspname NOT IN ('information_schema','public')
+        AND has_schema_privilege(%s,oid,'CREATE,USAGE') LIMIT 1""",(ROLE,))
     if cur.fetchone(): raise ValueError('READER_SCHEMA_AUTHORITY')
     cur.execute("""SELECT c.oid,n.nspname,c.relname,c.relkind,c.relowner=(SELECT oid FROM pg_roles WHERE rolname=%s)
         FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -74,16 +115,19 @@ def verify_effective_rights(cur, database: str) -> None:
         else:
             cur.execute("SELECT has_table_privilege(%s,%s,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN') OR has_any_column_privilege(%s,%s,'SELECT,INSERT,UPDATE,REFERENCES')",(ROLE,oid,ROLE,oid))
             if cur.fetchone()[0]: raise ValueError('READER_EXTRA_TABLE_AUTHORITY')
-    cur.execute("""SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-        WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema'
-        AND has_function_privilege(%s,p.oid,'EXECUTE') LIMIT 1""",(ROLE,))
-    if cur.fetchone(): raise ValueError('READER_FUNCTION_AUTHORITY')
+    cur.execute("""SELECT p.proowner=(SELECT oid FROM pg_roles WHERE rolname=%s),
+        COALESCE(p.proacl,acldefault('f',p.proowner))
+        FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+        WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema'""",(ROLE,))
+    findings.update(_public_only_rights(cur, cur.fetchall(),
+        {'EXECUTE':'routine-execute'}, 'READER_FUNCTION_AUTHORITY'))
     # Explicit default ACL entries grant access to future objects. Also reject
     # positive global defaults (e.g. an owner setting defaults for another role
     # while retaining implicit PUBLIC EXECUTE). No new DDL is performed here.
     cur.execute("""SELECT 1 FROM pg_default_acl d, LATERAL aclexplode(d.defaclacl) acl
         WHERE acl.grantee IN (0,(SELECT oid FROM pg_roles WHERE rolname=%s)) LIMIT 1""",(ROLE,))
     if cur.fetchone(): raise ValueError('READER_DEFAULT_AUTHORITY')
+    return [value for value in PUBLIC_DEFAULTS if value in findings]
 
 
 def execute(boot, client, connect=None):
@@ -107,6 +151,6 @@ def execute(boot, client, connect=None):
         user=admin['username'], password=admin['password'], connect_timeout=10,
         sslmode='verify-full', sslrootcert='/opt/polis-probe/rds-ca.pem')
     try:
-        provision(connection, reader['password'], boot['database'], boot['owner'])
+        return provision(connection, reader['password'], boot['database'], boot['owner'])
     finally:
         connection.close()

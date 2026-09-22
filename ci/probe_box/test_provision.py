@@ -57,3 +57,72 @@ class ProvisionTests(unittest.TestCase):
             elif field=='expiry':b['admission']['expiresAt']='2030-01-01T00:00:00+00:00'
             else:b['started']=float('nan')
             with self.subTest(field=field),self.assertRaisesRegex(ValueError,'DEADLINE_BINDING'):absolute_deadline(b,3600)
+
+
+class PublicDefaultsTests(unittest.TestCase):
+    def test_execute_returns_checked_findings(self):
+        boot,client,connect=ProvisionTests().setup()
+        with patch('provision_login.provision',return_value=['database-temp']):
+            self.assertEqual(execute(boot,client,connect),['database-temp'])
+        connect.return_value.close.assert_called_once()
+
+    def test_receipt_vocabulary_is_closed(self):
+        from provision_login import validate_public_defaults
+        for good in ([],['database-create','database-temp','schema-create','routine-execute'],['routine-execute']):
+            self.assertEqual(validate_public_defaults(good),good)
+        for bad in (None,{},'database-temp',[True],[{}],['private'],['database-temp']*2,['schema-create','database-temp']):
+            with self.subTest(bad=bad),self.assertRaisesRegex(ValueError,'PUBLIC_DEFAULTS'):
+                validate_public_defaults(bad)
+
+
+class ProvisionReceiptTests(unittest.TestCase):
+    def run_writer(self, findings=None, error=None):
+        import io
+        import provision as entry
+        from receipt import sha
+        identity=dict(accountId='111111111111',region='us-east-1',instanceId='i-fixture',imageId='ami-fixture')
+        config=dict(mode='provision',account=identity['accountId'],region=identity['region'],controlBucket='fixture-control')
+        admission=dict(ami=identity['imageId'],provision={})
+        boot=dict(instanceId=identity['instanceId'],admission=admission,admissionSha256=sha(admission),
+                  provision={},terminateBy=2000,secretsUrl='https://fixture.invalid',evidenceKey='fixture-key')
+        s3=Mock();s3.get_object.return_value={'Body':io.BytesIO(json.dumps(boot).encode())}
+        with patch.object(entry.Path,'read_bytes',return_value=json.dumps(config).encode()), \
+                patch.object(entry,'metadata',return_value=json.dumps(identity)), \
+                patch('boto3.client',side_effect=[s3,Mock()]), \
+                patch.object(entry.time,'time',return_value=1000), \
+                patch.object(entry,'absolute_deadline',return_value=2000), \
+                patch.object(entry.subprocess,'run'), \
+                patch.object(entry,'execute',return_value=findings,side_effect=error):
+            if error or findings is None:
+                with self.assertRaises(ValueError):entry.run()
+            else:entry.run()
+        s3.put_object.assert_called_once()
+        call=s3.put_object.call_args.kwargs
+        self.assertEqual(call['IfNoneMatch'],'*')
+        self.assertEqual(call['ServerSideEncryption'],'aws:kms')
+        self.assertEqual(call['SSEKMSKeyId'],'fixture-key')
+        result=json.loads(call['Body'])
+        self.assertEqual(set(result),{'schema','admissionSha256','success','public_defaults'})
+        self.assertEqual(result['schema'],'polis-probe-provision/2')
+        self.assertEqual(result['admissionSha256'],sha(admission))
+        return result
+
+    def test_writer_reports_verified_defaults(self):
+        result=self.run_writer(['database-temp','routine-execute'])
+        self.assertTrue(result['success'])
+        self.assertEqual(result['public_defaults'],['database-temp','routine-execute'])
+
+    def test_writer_reports_verified_absence(self):
+        result=self.run_writer([])
+        self.assertTrue(result['success'])
+        self.assertEqual(result['public_defaults'],[])
+
+    def test_failed_provision_has_no_unverified_findings(self):
+        result=self.run_writer(error=ValueError('READER_DATABASE_AUTHORITY'))
+        self.assertFalse(result['success'])
+        self.assertEqual(result['public_defaults'],[])
+
+    def test_writer_requires_a_verified_result(self):
+        result=self.run_writer()
+        self.assertFalse(result['success'])
+        self.assertEqual(result['public_defaults'],[])

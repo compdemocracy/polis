@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from receipt import canonical, sha
 from worker import metadata, absolute_deadline
-from provision_login import execute
+from provision_login import execute, validate_public_defaults
 
 
 def run():
@@ -37,12 +37,14 @@ def run():
     subprocess.run(['shutdown','-h','+'+str(max(1,int((deadline-time.time())//60)))],check=True,
                    stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     success=False
+    public_defaults=[]
     try:
         secret_client=boto3.client('secretsmanager',region_name=identity['region'],endpoint_url=boot['secretsUrl'])
-        execute(boot,secret_client)
+        public_defaults=validate_public_defaults(execute(boot,secret_client))
         success=True
     finally:
-        result={'schema':'polis-probe-provision/1','admissionSha256':boot['admissionSha256'],'success':success}
+        result={'schema':'polis-probe-provision/2','admissionSha256':boot['admissionSha256'],'success':success,
+                'public_defaults':public_defaults}
         s3.put_object(Bucket=config['controlBucket'],Key=f'provision-results/{arn}.json',Body=canonical(result),
             IfNoneMatch='*',ServerSideEncryption='aws:kms',SSEKMSKeyId=boot['evidenceKey'])
 

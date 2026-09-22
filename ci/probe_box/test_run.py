@@ -548,6 +548,33 @@ class SessionTests(unittest.TestCase):
         with self.assertRaisesRegex(Unknown,'PROVISION_RECEIPT'):x.status(request['run_id'])
 
 
+    def test_provision_public_defaults_closed_and_returned(self):
+        x,c,e,s,i=session_setup()
+        x.cfg.update(MODE='provision',INSTANCE_TYPE='t4g.small',ADMIN_SECRET_ARN='admin',PROVISION_OWNER='polis-probe-login:test')
+        i['InstanceType']='t4g.small'
+        request=dict(run_id='a'*32,adminVersion='b'*32,readerVersion='c'*32)
+        x.start_provision(request)
+        a=x.active()[0]['admission']
+        key=('control','provision-results/arn:aws:ec2:us-east-1:111111111111:instance/i-test.json')
+        i['State']['Name']='terminated'
+        base=dict(schema='polis-probe-provision/2',admissionSha256=sha(a),success=True,
+                  public_defaults=['database-temp','routine-execute'])
+        s.objects[key]=encoded(base)
+        self.assertEqual(x.status(request['run_id'])['public_defaults'],base['public_defaults'])
+        for bad in (None,{},['private'],['database-temp']*2,['routine-execute','database-temp'],[{}]):
+            with self.subTest(bad=bad):
+                s.objects[key]=encoded(dict(base,public_defaults=bad))
+                with self.assertRaisesRegex(Unknown,'PROVISION_RECEIPT'):x.status(request['run_id'])
+        for change in ({'schema':'polis-probe-provision/1'},{'private':True},{'success':False}):
+            with self.subTest(change=change):
+                s.objects[key]=encoded(dict(base,**change))
+                with self.assertRaisesRegex(Unknown,'PROVISION_RECEIPT'):x.status(request['run_id'])
+        del base['public_defaults']
+        s.objects[key]=encoded(base)
+        with self.assertRaisesRegex(Unknown,'PROVISION_RECEIPT'):x.status(request['run_id'])
+
+
+
 class WorkerHardeningTests(unittest.TestCase):
     key = 'heartbeats/'+'a'*32+'/arn:aws:ec2:us-east-1:111111111111:instance/i-test.json'
 
