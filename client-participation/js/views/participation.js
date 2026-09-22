@@ -203,15 +203,15 @@ module.exports = ConversationView.extend({
     }
 
     if (Utils.getGroupAware()) {
-      ranking = this.serverClient.getGroupAwareConsensus();
+      ranking = this.serverClient.getGroupAwareConsensus() || {};
     } else {
-      var temp = this.serverClient.getConsensus();
-      var agree = temp.agree;
+      var temp = this.serverClient.getConsensus() || {};
+      var agree = temp.agree || [];
       for (var i = 0; i < agree.length; i++) {
         ranking[agree[i].tid] = agree[i]["p-success"];
       }
     }
-    var groupVotes = this.serverClient.getGroupVotes("all");
+    var groupVotes = this.serverClient.getGroupVotes("all") || {};
 
     this.allCommentsCollection.each(function (c) {
       var tid = c.get("tid");
@@ -234,6 +234,13 @@ module.exports = ConversationView.extend({
         var tid = c.get("tid");
         var gv = groupVotes[tid];
         c.set("gv", gv);
+        if (!gv || !gv.saw) {
+          // Clear percentages from any earlier math generation as well.
+          c.set("percentAgree", 0);
+          c.set("percentDisagree", 0);
+          c.set("percentPassed", 0);
+          return;
+        }
         c.set("percentAgree", Math.round((100 * gv.agreed) / gv.saw));
         c.set("percentDisagree", Math.round((100 * gv.disagreed) / gv.saw));
         c.set("percentPassed", Math.round((100 * (gv.saw - gv.disagreed - gv.agreed)) / gv.saw));
@@ -276,13 +283,13 @@ module.exports = ConversationView.extend({
           tidsToShow = [];
           Array.prototype.push.apply(
             tidsToShow,
-            mathMain.consensus.agree.map(function (c) {
+            ((mathMain.consensus || {}).agree || []).map(function (c) {
               return c.tid;
             })
           );
           Array.prototype.push.apply(
             tidsToShow,
-            mathMain.consensus.disagree.map(function (c) {
+            ((mathMain.consensus || {}).disagree || []).map(function (c) {
               return c.tid;
             })
           );
@@ -919,8 +926,7 @@ module.exports = ConversationView.extend({
           // TODO needed anymore?
           gid: that.selectedGid
         })
-        .then(function () {
-        });
+        .then(function () {});
     });
     that.conversationTabs.on("beforeshow:group", function () {
       if (that.shouldShowVisUnderTabs()) {

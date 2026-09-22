@@ -14,13 +14,15 @@ const DataSentence = ({ math, selectedTidCuration, selectedComment, repfulFor, S
   if (_.isNumber(selectedTidCuration)) {
     const gid = selectedTidCuration;
     const tid = selectedComment.tid;
-    const groupVotes = math["group-votes"][gid];
+    const groupVotes = (math["group-votes"] || {})[gid];
+    if (!groupVotes) return null;
 
-    const repness = _.find(math.repness[gid], (r) => {
+    const repness = _.find((math.repness || {})[gid], (r) => {
       return r.tid === selectedComment.tid;
     });
+    const v = (groupVotes.votes || {})[tid];
+    if (!repness || !v || !v.S) return null;
     let repfulForAgree = repness["repful-for"] === "agree";
-    const v = groupVotes.votes[tid];
     const denominator = v.S; // (seen)
     if (repness["best-agree"] && v.A > 0) {
       repfulForAgree = true;
@@ -66,13 +68,14 @@ const DataSentence = ({ math, selectedTidCuration, selectedComment, repfulFor, S
       </div>
     );
   } else if (selectedTidCuration === globals.tidCuration.majority) {
-    const repfulForAgree = _.find(math.consensus.agree, (r) => {
+    const repfulForAgree = _.find((math.consensus || {}).agree, (r) => {
       return r.tid === selectedComment.tid;
     });
-    const repfulForDisagree = _.find(math.consensus.disagree, (r) => {
+    const repfulForDisagree = _.find((math.consensus || {}).disagree, (r) => {
       return r.tid === selectedComment.tid;
     });
     const repness = repfulForAgree || repfulForDisagree;
+    if (!repness || !repness["n-trials"]) return null;
 
     const percent = ((repness["n-success"] / repness["n-trials"]) * 100) >> 0;
 

@@ -149,7 +149,7 @@ module.exports = function (params) {
     removeEmptyBucketsFromClusters(clusters);
 
     for (var i = 0; i < clusters.length; i++) {
-      clusters[i]["n-members"] = cachedPcaData["group-votes"][i]["n-members"];
+      clusters[i]["n-members"] = _.get(cachedPcaData, ["group-votes", i, "n-members"], 0);
     }
     return clusters;
   }
@@ -610,8 +610,8 @@ module.exports = function (params) {
         if (_.isNumber(pcaData.math_tick)) {
           lastServerTokenForPCA = pcaData.math_tick;
         }
-        consensusComments = pcaData.consensus;
-        groupVotes = pcaData["group-votes"];
+        consensusComments = pcaData.consensus || { agree: [], disagree: [] };
+        groupVotes = pcaData["group-votes"] || {};
 
         modOutTids = {};
         var modOut = pcaData["mod-out"];
@@ -641,7 +641,7 @@ module.exports = function (params) {
 
             pcX = pcaData.pca.comps[0];
             pcY = pcaData.pca.comps[1];
-            pcaCenter = pcaData.pca.center;
+            pcaCenter = pcaData.pca.center || [];
 
             // in case of malformed PCs (seen on conversations with only one comment)
             pcX = pcX || [];
@@ -679,7 +679,7 @@ module.exports = function (params) {
                   bids: [],
                   gid: gid,
                   count: 0, // total ptpt count
-                  clusterCount: groupVotes[gid]["n-members"],
+                  clusterCount: _.get(groupVotes, [gid, "n-members"], 0),
                   x: clusters[gid].center[0],
                   y: clusters[gid].center[1],
                   isSummaryBucket: true
@@ -1509,10 +1509,11 @@ module.exports = function (params) {
         }
       };
     }
+    var group = (groupVotes || {})[gid] || { "n-members": 0, votes: {} };
     return {
-      count: groupVotes[gid]["n-members"],
-      repness: repness[gid],
-      votes: groupVotes[gid]["votes"]
+      count: group["n-members"],
+      repness: (repness || {})[gid],
+      votes: group.votes
     };
   }
 
@@ -1684,17 +1685,11 @@ module.exports = function (params) {
   }
 
   function getConsensus() {
-    if (!cachedPcaData) {
-      return [];
-    }
-    return cachedPcaData["consensus"];
+    return (cachedPcaData && cachedPcaData.consensus) || { agree: [], disagree: [] };
   }
 
   function getGroupAwareConsensus() {
-    if (!cachedPcaData) {
-      return [];
-    }
-    return cachedPcaData["group-aware-consensus"];
+    return (cachedPcaData && cachedPcaData["group-aware-consensus"]) || {};
   }
 
   function getGroupVotes(gid_or_all) {
@@ -1717,7 +1712,7 @@ module.exports = function (params) {
       return x;
     }
 
-    return cachedPcaData["group-votes"][gid_or_all];
+    return (cachedPcaData["group-votes"] || {})[gid_or_all];
   }
 
   function put_participants_extended(params) {
