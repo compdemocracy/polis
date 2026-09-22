@@ -54,7 +54,7 @@ jest.mock("../../src/user", () => ({
 jest.mock("../../src/utils/zinvite", () => ({
   __esModule: true,
   getZidForRid: () => Promise.resolve(1),
-  getZinvite: () => Promise.resolve("synthetic"),
+  getZinvite: () => Promise.resolve("public-fixture"),
 }));
 
 jest.mock("../../src/utils/common", () => ({
@@ -164,7 +164,7 @@ function serve(tick = -1, data = {}) {
       return Promise.resolve([{ zid, data, math_tick: tick, caching_tick: 1 }]);
     if (sql.includes("COUNT(DISTINCT")) return Promise.resolve([{ count: 0 }]);
     if (sql.includes("FROM conversations"))
-      return Promise.resolve([{ topic: "Empty", description: "Synthetic" }]);
+      return Promise.resolve([{ topic: "Empty", description: "Public fixture" }]);
     return Promise.resolve([]);
   }) as never);
 }

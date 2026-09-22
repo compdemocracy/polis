@@ -20,7 +20,7 @@ def empty_blob(legacy=False):
     schedule = json.loads(
         (Path(__file__).parents[1] / "scripts/schedules/pc-zerovote-01-empty.json").read_text()
     )
-    blob = {"zid": "synthetic-empty", "pca": {"comps": [[], []]}}
+    blob = {"zid": "public-fixture-empty", "pca": {"comps": [[], []]}}
     for key, value in schedule["empty_output"].items():
         if "." in key:
             parent, leaf = key.split(".")
@@ -49,7 +49,7 @@ def test_restore_declared_empty_or_legacy_omissions(legacy):
 @pytest.mark.parametrize("alias", ["group_clusters", "group-clusters"])
 def test_restore_populated_group_alias(alias):
     groups = [{"id": 3, "members": [4, 7], "center": [0.25, -0.5]}]
-    conv = Conversation.from_dict({"zid": "synthetic-populated", alias: groups})
+    conv = Conversation.from_dict({"zid": "public-fixture-populated", alias: groups})
     assert conv.group_clusters == groups
 
 
@@ -77,7 +77,7 @@ def representative_client():
 
 
 def test_real_empty_dynamo_serialization_does_not_fail_on_none_repness():
-    conv = Conversation("synthetic-empty", last_updated=1)
+    conv = Conversation("public-fixture-empty", last_updated=1)
     assert conv.repness is None
     assert "repness" not in conv.to_dynamo_dict()
     client, table = representative_client()
@@ -87,7 +87,7 @@ def test_real_empty_dynamo_serialization_does_not_fail_on_none_repness():
 
 @pytest.mark.parametrize("wire_repness", [None, {}])
 def test_empty_wire_repness_does_not_fail(wire_repness, monkeypatch):
-    conv = Conversation("synthetic-empty", last_updated=1)
+    conv = Conversation("public-fixture-empty", last_updated=1)
     wire = conv.to_dynamo_dict()
     wire["repness"] = wire_repness
     monkeypatch.setattr(conv, "to_dynamo_dict", lambda: wire)
@@ -101,7 +101,7 @@ def test_populated_representativeness_still_written(optimized):
     from types import SimpleNamespace
 
     conv = SimpleNamespace(
-        conversation_id="synthetic-populated",
+        conversation_id="public-fixture-populated",
         repness={"comment_repness": [{"gid": 2, "tid": 4, "repness": 0.5}]},
     )
     if optimized:
