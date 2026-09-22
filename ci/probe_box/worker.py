@@ -1,5 +1,7 @@
 """Baked supervisor. Only a validated verifier receipt may leave this machine."""
 from __future__ import annotations
+import atexit
+import signal
 import hashlib
 import datetime as dt
 import math
@@ -78,7 +80,7 @@ def metadata(path: str) -> bytes:
     return raw
 
 
-def sandbox(command: dict, label: str, mounts: list[tuple[Path,str,str]], deadline: float, image_id: str) -> None:
+def sandbox(command: dict, label: str, mounts: list[tuple[Path,str,str]], deadline: float, image_id: str, diagnostics=None) -> None:
     if not re.fullmatch(r'sha256:[0-9a-f]{64}', image_id):
         raise ValueError('IMAGE_CONFIG')
     argv = docker()+['run','--name','polis-probe-'+label,'--pull=never','--network=none',
@@ -102,6 +104,10 @@ def sandbox(command: dict, label: str, mounts: list[tuple[Path,str,str]], deadli
         if result.returncode or state.get('OOMKilled') or state.get('ExitCode') != 0:
             raise SandboxFailure(label, state.get('ExitCode'), bool(state.get('OOMKilled')),
                                  last_exception_token(SCRATCH/(label+'.log')))
+    except BaseException as error:
+        if diagnostics is not None:
+            diagnostics.fail(error)
+        raise
     finally:
         subprocess.run(docker()+['rm','--force','polis-probe-'+label],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True)
 
@@ -215,6 +221,94 @@ def failure_record(stage: str, error: BaseException, relay: object = None) -> di
     return record
 
 
+# These values describe supervisor operations, never candidate-supplied strings.
+STAGES = frozenset({'images', 'secret', 'reader', 'producer', 'verifier', 'receipt', 'boot'})
+WORKER_PHASES = frozenset({'start', 'prepare', 'download', 'load', 'execute', 'validate', 'publish'})
+
+
+class WorkerTerminated(BaseException):
+    """Signal-triggered unwind; record before finally blocks remove evidence."""
+
+
+class Diagnostics:
+    """One serialized mailbox: a pulse can never overwrite a terminal record.
+
+    Network calls use the worker client's bounded timeouts. No join or cleanup is
+    needed before recording; the terminal write retries once with identical bytes.
+    SIGKILL, power loss and a permanently unavailable sink remain unrecordable.
+    """
+    def __init__(self):
+        self.state = ('boot', 'start')
+        self.counter = 0
+        self.relay = None
+        self.sink = None
+        self.lock = threading.RLock()
+        self.stop = threading.Event()
+        self.finished = False
+
+    def bind(self, sink, bucket, key, encryption_key):
+        self.target = dict(Bucket=bucket, Key=key, ServerSideEncryption='aws:kms',
+                           SSEKMSKeyId=encryption_key)
+        self.sink = sink
+
+    def enter(self, stage, phase):
+        if stage not in STAGES or phase not in WORKER_PHASES:
+            raise ValueError('DIAGNOSTIC_STATE')
+        self.state = (stage, phase)
+
+    def pulse(self):
+        with self.lock:
+            if self.stop.is_set() or self.sink is None:
+                return
+            stage, phase = self.state
+            self.counter += 1
+            try:
+                self.sink.put_object(**self.target, Body=canonical(
+                    {'stage': stage, 'pulse': self.counter, 'phase': phase}))
+            except Exception:
+                pass
+
+    def heartbeat(self):
+        while not self.stop.is_set():
+            self.pulse()
+            self.stop.wait(60)
+
+    def fail(self, error):
+        self.stop.set()
+        with self.lock:
+            if self.finished or self.sink is None:
+                return
+            stage = self.state[0]
+            try:
+                record = ({'schema': FAILURE_SCHEMA, 'stage': stage, 'type': 'terminated'}
+                          if isinstance(error, WorkerTerminated)
+                          else failure_record(stage, error, self.relay))
+                body = canonical(record)
+            except BaseException:
+                # No exception formatting, relay access or fallible record builder.
+                body = json.dumps({'schema': FAILURE_SCHEMA, 'stage': stage,
+                    'type': 'record-failed', 'reason': 'FAILURE_RECORD_FAILED'}).encode('ascii')
+            self.finished = True
+            for _ in range(2):
+                try:
+                    self.sink.put_object(**self.target, Body=body)
+                    break
+                except BaseException:
+                    pass
+
+    def terminated(self):
+        self.fail(WorkerTerminated())
+
+    def complete(self):
+        self.stop.set()
+        self.finished = True
+
+
+def termination_signal(signum, frame):
+    # Unwind out of any interrupted SDK call/lock before trying to record.
+    raise WorkerTerminated()
+
+
 def shared_dir(path: Path) -> Path:
     """A root-owned directory the sandbox user must traverse. mkdir(mode=) is
     masked by the unit's UMask=0077, so the mode is set explicitly; a 0700
@@ -249,7 +343,8 @@ def load_receipt(path: Path, job: dict) -> dict:
     return decode_receipt(path.read_bytes(),job)
 
 
-def run() -> None:
+def run(diagnostics=None) -> None:
+    diagnostics = diagnostics or Diagnostics()
     import boto3
     from botocore.config import Config
     boot_config = json.loads((ROOT/'bootstrap.json').read_bytes())
@@ -258,6 +353,9 @@ def run() -> None:
         raise ValueError('BOOT_IDENTITY')
     arn = f'arn:aws:ec2:{identity["region"]}:{identity["accountId"]}:instance/{identity["instanceId"]}'
     s3 = boto3.client('s3',region_name=identity['region'],config=Config(s3={'us_east_1_regional_endpoint':'regional','addressing_style':'virtual'}))
+    diagnostic_s3 = boto3.client('s3',region_name=identity['region'],config=Config(
+        connect_timeout=5, read_timeout=10, retries={'total_max_attempts': 1},
+        s3={'us_east_1_regional_endpoint':'regional','addressing_style':'virtual'}))
     boot = None
     for _ in range(48):
         try:
@@ -266,29 +364,31 @@ def run() -> None:
             boot=json.loads(raw); break
         except Exception:
             time.sleep(5)
+    # The role requires an explicit KMS key. Bootstrap has none; only the
+    # operator-owned boot object can bind a writable diagnostic mailbox.
+    if isinstance(boot, dict) and isinstance(boot.get('evidenceKey'), str):
+        diagnostics.bind(diagnostic_s3, boot_config['controlBucket'], f'heartbeats/boot/{arn}.json', boot['evidenceKey'])
     if not boot or boot['instanceId']!=identity['instanceId'] or boot['admissionSha256']!=sha(boot['admission']) or boot['admission']['ami']!=identity['imageId']:
         raise ValueError('BOOT_BINDING')
     job=validate_job(boot['admission']['job'])
+    diagnostics.bind(diagnostic_s3, boot['controlBucket'], f'heartbeats/{job["run_id"]}/{arn}.json', boot['evidenceKey'])
     deadline=absolute_deadline(boot,job['max_seconds'])
     if time.time()>=deadline or not SCRATCH.is_mount(): raise ValueError('EXPIRED_OR_NO_PRIVATE_DISK')
     subprocess.run(['shutdown','-h','+'+str(max(1,int((deadline-time.time())//60)))],check=True,
                    stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-    stop=threading.Event()
-    def heartbeat() -> None:
-        while not stop.is_set():
-            try:
-                s3.put_object(Bucket=boot['controlBucket'],Key=f'heartbeats/{job["run_id"]}/{arn}.json',Body=b'{}',
-                              ServerSideEncryption='aws:kms',SSEKMSKeyId=boot['evidenceKey'])
-            except Exception: pass
-            stop.wait(60)
-    pulse=threading.Thread(target=heartbeat,daemon=True); pulse.start()
-    stage='images'; relay=None
+    def stage(name, phase):
+        diagnostics.enter(name, phase)
+        diagnostics.pulse()
+    stage('images', 'prepare')
+    pulse=threading.Thread(target=diagnostics.heartbeat,daemon=True); pulse.start()
+    relay=None
     try:
         commands=[job[k] for k in ('reader','producer','verifier') if k in job]
         loaded_images = {}
         for image in sorted({c['image'] for c in commands}):
             digest=image.split('@sha256:')[1]
             archive=SCRATCH/(digest+'.oci.tar')
+            stage('images', 'download')
             response=s3.get_object(Bucket=boot['assetBucket'],Key=f'images/{digest}.oci.tar')
             if response['ContentLength']>32*1024**3 or shutil.disk_usage(SCRATCH).free<response['ContentLength']+64*1024**3:
                 raise ValueError('IMAGE_CAPACITY')
@@ -299,14 +399,16 @@ def run() -> None:
                     if not block: raise ValueError('IMAGE_TRUNCATED')
                     out.write(block); remaining-=len(block)
                 if response['Body'].read(1): raise ValueError('IMAGE_SIZE')
+            stage('images', 'load')
             loaded_images[image] = load_image(archive, image)
             archive.unlink()
+        stage('images', 'prepare')
         data=owned_dir(SCRATCH/'reader'); output=owned_dir(SCRATCH/'output'); verdict=owned_dir(SCRATCH/'verdict')
         specification=SCRATCH/'job'; specification.mkdir(mode=0o755)
         specification.chmod(0o755)
         (specification/'job.json').write_bytes(canonical(job)); (specification/'job.json').chmod(0o444)
         if 'reader' in job:
-            stage='secret'
+            stage('secret', 'prepare')
             secret_client=boto3.client('secretsmanager',region_name=identity['region'],endpoint_url=boot['secretsUrl'])
             secret=json.loads(secret_client.get_secret_value(SecretId=boot['secretArn'])['SecretString'])
             if set(secret)!={'username','password'} or secret['username']!='polis_probe_reader': raise ValueError('READER_SECRET')
@@ -318,9 +420,14 @@ def run() -> None:
             (sock/'service.conf').write_text(service);(sock/'service.conf').chmod(0o444)
             (sock/'pgpass').write_text(':'.join(escape(v) for v in ['/replica','5432',boot['database'],secret['username'],secret['password']])+'\n')
             (sock/'pgpass').chmod(0o600);os.chown(sock/'pgpass',65534,65534)
-            stage='reader'
+            stage('reader', 'execute')
             with ReplicaSocket(sock,boot['replicaHost'],ROOT/'rds-ca.pem') as relay:
-                sandbox(job['reader'],'reader',[(sock,'/replica','ro'),(data,'/output','rw')],deadline-180,loaded_images[job['reader']['image']])
+                diagnostics.relay = relay
+                try:
+                    sandbox(job['reader'],'reader',[(sock,'/replica','ro'),(data,'/output','rw')],deadline-180,loaded_images[job['reader']['image']], diagnostics)
+                except BaseException as error:
+                    diagnostics.fail(error)
+                    raise
             (sock/'service.conf').unlink();(sock/'pgpass').unlink()
             del secret,service
         fixture=data/'.local/fixture'
@@ -332,32 +439,45 @@ def run() -> None:
         verifier_mounts=[(data,'/input','ro'),(output,'/evidence','ro'),(run_spec,'/run-spec','ro'),(specification,'/job','ro'),(verdict,'/verdict','rw')]
         if fixture.is_dir():
             producer_mounts.append((fixture,'/fixture','ro'));verifier_mounts.append((fixture,'/fixture','ro'))
-        stage='producer'
-        sandbox(job['producer'],'producer',producer_mounts,deadline-120,loaded_images[job['producer']['image']])
-        stage='verifier'
-        sandbox(job['verifier'],'verifier',verifier_mounts,deadline-30,loaded_images[job['verifier']['image']])
-        stage='receipt'
+        stage('producer', 'execute')
+        sandbox(job['producer'],'producer',producer_mounts,deadline-120,loaded_images[job['producer']['image']], diagnostics)
+        stage('verifier', 'execute')
+        sandbox(job['verifier'],'verifier',verifier_mounts,deadline-30,loaded_images[job['verifier']['image']], diagnostics)
+        stage('receipt', 'validate')
         result=verdict/'receipt.json'
         receipt=load_receipt(result,job)
+        stage('receipt', 'publish')
         s3.put_object(Bucket=boot['evidenceBucket'],Key=f'results/{arn}/receipt.json',Body=canonical(receipt),IfNoneMatch='*',
                       ServerSideEncryption='aws:kms',SSEKMSKeyId=boot['evidenceKey'])
+        diagnostics.complete()
     except BaseException as error:
-        # No receipt will leave. Replace the final heartbeat with the fixed-vocabulary
-        # failure record (stage, exception class, codes, relay outcome counts) so the
-        # operator can tell which stage ended the run. Best effort; the box powers off.
-        stop.set(); pulse.join(timeout=10)
-        try:
-            s3.put_object(Bucket=boot['controlBucket'],Key=f'heartbeats/{job["run_id"]}/{arn}.json',
-                          Body=canonical(failure_record(stage,error,relay)),
-                          ServerSideEncryption='aws:kms',SSEKMSKeyId=boot['evidenceKey'])
-        except Exception:
-            pass
+        diagnostics.fail(error)
         raise
     finally:
-        stop.set()
+        diagnostics.stop.set()
+
+
+def main():
+    diagnostics = Diagnostics()
+    atexit.register(diagnostics.terminated)
+    previous = {}
+    try:
+        for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+            previous[sig] = signal.signal(sig, termination_signal)
+        run(diagnostics)
+    except BaseException as error:
+        diagnostics.fail(error)
+    finally:
+        # Final fallback precedes all shutdown, including a failure in run's setup.
+        diagnostics.terminated()
+        try:
+            subprocess.run(['systemctl','poweroff'],stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL,check=False)
+        finally:
+            atexit.unregister(diagnostics.terminated)
+            for sig, handler in previous.items():
+                signal.signal(sig, handler)
 
 
 if __name__=='__main__':
-    try: run()
-    except Exception: pass
-    finally: subprocess.run(['systemctl','poweroff'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
+    main()

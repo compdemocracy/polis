@@ -31,6 +31,50 @@ def sha(value: object):
     return hashlib.sha256(encoded(value)).hexdigest()
 
 
+def known(value, vocabulary):
+    return isinstance(value, str) and value in vocabulary
+
+
+def clean_heartbeat(record):
+    """Accept legacy pulses, closed supervisor progress, and failure diagnostics."""
+    from vocabulary import STAGES, WORKER_PHASES
+    if not isinstance(record, dict):
+        return None
+    if set(record) == {'stage', 'pulse', 'phase'}:
+        if (known(record['stage'], STAGES) and known(record['phase'], WORKER_PHASES)
+                and type(record['pulse']) is int and 0 < record['pulse'] <= 2**63-1):
+            return dict(record)
+        return None
+    if record.get('schema') != FAILURE_SCHEMA:
+        return None
+    # Closed vocabularies derived from the reviewed source tree (vocabulary.py):
+    # identifier-shaped is not enough, a hostile container could spell into it.
+    from vocabulary import Vocabulary, STAGES, LABELS, RELAY, REASON_CODES, FAILURE_TYPES, FAILURE_REASONS
+    v = Vocabulary()
+    clean = {}
+    if known(record.get('stage'), STAGES): clean['stage'] = record['stage']
+    if v.class_name(record.get('type')) or known(record.get('type'), FAILURE_TYPES): clean['type'] = record['type']
+    if known(record.get('reason'), FAILURE_REASONS): clean['reason'] = record['reason']
+    if v.code(record.get('code')): clean['code'] = record['code']
+    if isinstance(record.get('aws'), str) and re.fullmatch(r'[A-Za-z0-9.]{1,64}', record['aws']): clean['aws'] = record['aws']
+    container = record.get('container')
+    if isinstance(container, dict):
+        c = {}
+        if known(container.get('label'), LABELS): c['label'] = container['label']
+        if v.class_name(container.get('class')): c['class'] = container['class']
+        if v.code(container.get('code')): c['code'] = container['code']
+        if known(container.get('reason'), REASON_CODES): c['reason'] = container['reason']
+        if v.slug(container.get('role')): c['role'] = container['role']
+        for k, kind in (('exit', int), ('oom', bool), ('rank', int), ('candidates', int)):
+            if type(container.get(k)) is kind:
+                c[k] = container[k]
+        clean['container'] = c
+    relay = record.get('relay')
+    if isinstance(relay, dict):
+        clean['relay'] = {k: v_ for k, v_ in relay.items() if k in RELAY and type(v_) is int}
+    return clean or None
+
+
 class Control:
     def __init__(self, ec2: object, s3: object, cfg: object, now: object = None):
         self.ec2, self.s3, self.c = ec2, s3, cfg
@@ -193,6 +237,22 @@ class Control:
             raise Unknown("INSTANCE_CHANGED")
         if i["State"]["Name"] != "terminated":
             if expired or cancelled or self.heartbeat_missing(i, claim):
+                # Preserve the final observation BEFORE termination can destroy it.
+                # CLEAN still means observed instance/disks gone, never a kill ACK.
+                key = self.prefix + 'termination.json'
+                if self.c['MODE'] == 'worker' and not self.read(key):
+                    arn = f'arn:aws:ec2:{self.a["region"]}:{self.a["account"]}:instance/{iid}'
+                    try:
+                        raw = self.read(f'heartbeats/{self.a["id"]}/{arn}.json')
+                        heartbeat = clean_heartbeat(raw)
+                        if heartbeat and raw.get('schema') == FAILURE_SCHEMA:
+                            heartbeat = {'schema': FAILURE_SCHEMA, **heartbeat}
+                        elif raw == {}:
+                            heartbeat = {}
+                    except (Unknown, ValueError, TypeError):
+                        heartbeat = None
+                    self.record(key, {'admissionSha256': self.token, 'instanceId': iid,
+                                      'heartbeat': heartbeat})
                 self.ec2.terminate_instances(InstanceIds=[iid])
                 # Observe on a later sweep; do not call accepted termination CLEAN.
                 raise Unknown("TERMINATION_PENDING")
@@ -238,8 +298,14 @@ class Control:
             if response.get("Volumes"):
                 raise Unknown("DISK_REMAINS")
             raise Unknown("DISK_DESCRIBE_EMPTY")
-        self.record(self.prefix + "clean.json", {"admissionSha256": self.token, "instanceId": iid,
-                    "volumes": prior["volumes"], "status": "CLEAN"})
+        clean = {"admissionSha256": self.token, "instanceId": iid,
+                 "volumes": prior["volumes"], "status": "CLEAN"}
+        termination = self.read(self.prefix + 'termination.json')
+        if termination:
+            if termination.get('admissionSha256') != self.token or termination.get('instanceId') != iid:
+                raise Unknown('INSTANCE_CHANGED')
+            clean['heartbeat'] = termination['heartbeat']
+        self.record(self.prefix + "clean.json", clean)
         return {"status": "CLEAN", "admissionId": self.a["id"]}
 
 
@@ -398,48 +464,30 @@ class Session:
         through; anything else in the object is dropped unread."""
         try:
             record = c.read(f'heartbeats/{c.a["id"]}/{arn}.json')
-        except Unknown:
-            return None
-        if not isinstance(record, dict) or record.get('schema') != FAILURE_SCHEMA:
-            return self.boot_failure(c, arn)
-        # Closed vocabularies derived from the reviewed source tree (vocabulary.py):
-        # identifier-shaped is not enough, a hostile container could spell into it.
-        from vocabulary import Vocabulary, STAGES, LABELS, RELAY, REASON_CODES
-        v = Vocabulary()
-        clean = {}
-        if record.get('stage') in STAGES: clean['stage'] = record['stage']
-        if v.class_name(record.get('type')): clean['type'] = record['type']
-        if v.code(record.get('code')): clean['code'] = record['code']
-        if isinstance(record.get('aws'), str) and re.fullmatch(r'[A-Za-z0-9.]{1,64}', record['aws']): clean['aws'] = record['aws']
-        container = record.get('container')
-        if isinstance(container, dict):
-            c = {}
-            if container.get('label') in LABELS: c['label'] = container['label']
-            if v.class_name(container.get('class')): c['class'] = container['class']
-            if v.code(container.get('code')): c['code'] = container['code']
-            if container.get('reason') in REASON_CODES: c['reason'] = container['reason']
-            if v.slug(container.get('role')): c['role'] = container['role']
-            for k, kind in (('exit', int), ('oom', bool), ('rank', int), ('candidates', int)):
-                if type(container.get(k)) is kind:
-                    c[k] = container[k]
-            clean['container'] = c
-        relay = record.get('relay')
-        if isinstance(relay, dict):
-            clean['relay'] = {k: v_ for k, v_ in relay.items() if k in RELAY and type(v_) is int}
-        return clean or None
+        except (Unknown, ValueError, TypeError):
+            record = None
+        terminal = clean_heartbeat(record)
+        if terminal and record.get('schema') == FAILURE_SCHEMA:
+            return terminal
+        clean = c.read(c.prefix + 'clean.json')
+        saved = clean_heartbeat((clean or {}).get('heartbeat'))
+        return saved or terminal or self.boot_failure(c, arn)
 
     def boot_failure(self, c, arn):
         """The start script's phase marker, written only when the box failed before the
         worker's first heartbeat (private disk, container daemon, ...). A fixed token."""
         try:
             record = c.read(f'heartbeats/boot/{arn}.json')
-        except Unknown:
+        except (Unknown, ValueError, TypeError):
             return None
+        terminal = clean_heartbeat(record)
+        if terminal and terminal.get('stage') == 'boot':
+            return terminal
         if not isinstance(record, dict) or record.get('schema') != BOOT_FAILURE_SCHEMA:
             return None
         from vocabulary import PHASES
         phase = record.get('phase')
-        if phase in PHASES:
+        if known(phase, PHASES):
             return {'stage': 'boot', 'phase': phase}
         return None
 

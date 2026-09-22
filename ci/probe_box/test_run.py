@@ -546,3 +546,79 @@ class SessionTests(unittest.TestCase):
         bad=dict(schema='polis-probe-provision/1',admissionSha256=sha(a),success=True,password='private')
         s.objects['control','provision-results/'+arn+'.json']=encoded(bad)
         with self.assertRaisesRegex(Unknown,'PROVISION_RECEIPT'):x.status(request['run_id'])
+
+
+class WorkerHardeningTests(unittest.TestCase):
+    key = 'heartbeats/'+'a'*32+'/arn:aws:ec2:us-east-1:111111111111:instance/i-test.json'
+
+    def test_old_and_new_pulses_and_terminal_tokens(self):
+        x, c, e, s, i = session_setup()
+        for body, expected in [({}, None),
+                ({'stage': 'producer', 'pulse': 7, 'phase': 'execute'},
+                 {'stage': 'producer', 'pulse': 7, 'phase': 'execute'}),
+                ({'schema': 'polis-probe-failure/1', 'stage': 'reader', 'type': 'record-failed', 'reason': 'FAILURE_RECORD_FAILED'},
+                 {'stage': 'reader', 'type': 'record-failed', 'reason': 'FAILURE_RECORD_FAILED'}),
+                ({'schema': 'polis-probe-failure/1', 'stage': 'verifier', 'type': 'terminated'},
+                 {'stage': 'verifier', 'type': 'terminated'})]:
+            with self.subTest(body=body):
+                s.objects['control', self.key] = encoded(body)
+                self.assertEqual(x.failure(c, self.key.split('/', 2)[2][:-5]), expected)
+
+    def test_pulse_rejects_nonclosed_values_and_malformed_json(self):
+        x, c, e, s, i = session_setup()
+        for body in [b'{', encoded({'stage': [], 'pulse': 1, 'phase': 'execute'}),
+                encoded({'stage': 'reader', 'pulse': True, 'phase': 'execute'}),
+                encoded({'stage': 'reader', 'pulse': -1, 'phase': 'execute'}),
+                encoded({'stage': 'reader', 'pulse': 1, 'phase': 'private'}),
+                encoded({'stage': 'reader', 'pulse': 1, 'phase': 'execute', 'private': 'payload'})]:
+            with self.subTest(body=body):
+                s.objects['control', self.key] = body
+                self.assertIsNone(x.failure(c, self.key.split('/', 2)[2][:-5]))
+
+    def test_stale_pulse_persisted_before_kill_and_carried_to_clean(self):
+        c, e, s, i = setup(); c.launch_once(); c.now += 601
+        pulse = {'stage': 'producer', 'pulse': 31, 'phase': 'execute'}
+        s.objects['control', self.key] = encoded(pulse)
+        s.head_object = lambda **kw: {'LastModified': dt.datetime.fromtimestamp(c.now-301, dt.timezone.utc)}
+        def terminate(**kw):
+            self.assertEqual(c.read(c.prefix+'termination.json')['heartbeat'], pulse)
+            self.assertIsNone(c.read(c.prefix+'clean.json'))
+            e.terminated.extend(kw['InstanceIds'])
+        e.terminate_instances = terminate
+        with self.assertRaisesRegex(Unknown, 'TERMINATION_PENDING'): c.reconcile()
+        s.objects['control', self.key] = b'{}'  # worker cleanup cannot erase snapshot
+        with self.assertRaisesRegex(Unknown, 'TERMINATION_PENDING'): c.reconcile()
+        i['State']['Name'] = 'terminated'
+        self.assertEqual(c.reconcile()['status'], 'CLEAN')
+        self.assertEqual(c.read(c.prefix+'clean.json')['heartbeat'], pulse)
+        self.assertEqual(len(e.terminated), 2)
+
+    def test_terminal_snapshot_survives_mailbox_loss_and_stays_closed(self):
+        from test_boundaries import job
+        x, c, e, s, i = session_setup(); x.start(job())
+        c = x.control(x.active()[0]); c.now += 601
+        raw = {'schema': 'polis-probe-failure/1', 'stage': 'reader',
+               'type': 'record-failed', 'reason': 'FAILURE_RECORD_FAILED', 'private': 'do not retain'}
+        s.objects['control', self.key] = encoded(raw)
+        with self.assertRaisesRegex(Unknown, 'TERMINATION_PENDING'): c.reconcile()
+        del s.objects['control', self.key]
+        i['State']['Name'] = 'terminated'
+        result = x.status(job()['run_id'])
+        self.assertEqual(result['failure'], {'stage': 'reader', 'type': 'record-failed', 'reason': 'FAILURE_RECORD_FAILED'})
+        self.assertNotIn('private', json.dumps(c.read(c.prefix+'clean.json')))
+
+    def test_unreadable_or_missing_pulse_does_not_prevent_owned_termination(self):
+        for body in (None, b'{', b'[]', b'x'*65537, encoded({'stage': ['private'], 'phase': {}, 'pulse': 1})):
+            with self.subTest(body=body if body is None else body[:30]):
+                c, e, s, i = setup(); c.launch_once(); c.now += 601
+                if body is not None: s.objects['control', self.key] = body
+                with self.assertRaisesRegex(Unknown, 'TERMINATION_PENDING'): c.reconcile()
+                self.assertEqual(e.terminated, ['i-test'])
+                self.assertIsNone(c.read(c.prefix+'termination.json')['heartbeat'])
+
+    def test_pre_admission_worker_failure_in_boot_mailbox(self):
+        x, c, e, s, i = session_setup()
+        arn = self.key.split('/', 2)[2][:-5]
+        s.objects['control', 'heartbeats/boot/'+arn+'.json'] = encoded(
+            {'schema': 'polis-probe-failure/1', 'stage': 'boot', 'type': 'SystemExit'})
+        self.assertEqual(x.failure(c, arn), {'stage': 'boot', 'type': 'SystemExit'})
