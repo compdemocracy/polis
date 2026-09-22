@@ -39,7 +39,12 @@ def test_contract_empty_snapshot(tmp_path):
     response=worker.handle(req("snapshot",ops[1]["payload"],4))
     assert set(response)=={"checkpoint_id","manifest"}
     main=json.loads((worker.output_root/"checkpoint-000/main.json").read_text())
-    assert main["n"]==0 and main["tids"]==[] and main["pca"]["center"]==[]
+    schedule = Path(__file__).resolve().parents[2] / "scripts/schedules/pc-zerovote-01-empty.json"
+    for path, expected in json.loads(schedule.read_text())["empty_output"].items():
+        value = main
+        for key in path.split("."):
+            value = value[key]
+        assert json.dumps(value, sort_keys=True) == json.dumps(expected, sort_keys=True), path
     assert main["lastVoteTimestamp"]==0
     assert json.loads((worker.output_root/"checkpoint-000/bidtopid.json").read_text())==dict(zid="public-fixture-empty",bidToPid=[],lastVoteTimestamp=0)
 

@@ -2471,6 +2471,11 @@ class Conversation:
         result['math_tick'] = math_tick_value
 
         self._apply_legacy_blob_shape(result)
+        if self.raw_rating_mat.empty:
+            # Every serializer shares the declared zero-vote structure, including
+            # callers without a publisher. Do not change warm engine state.
+            from polismath.empty_output import apply_empty_contract
+            apply_empty_contract(result)
 
         logger.info(f"Total to_dict time: {time.time() - overall_start_time:.4f}s")
         return result

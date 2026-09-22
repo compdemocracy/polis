@@ -221,16 +221,13 @@ def derive_ptptstats(
 
 def empty_contract_payloads(conv, zid, main):
     """Serialization-only empty view shared by the poller bridge and adapter."""
-    main.update({"zid": zid, "n": 0, "n-cmts": 0, "tids": [], "in-conv": [],
+    from polismath.empty_output import apply_empty_contract
+    main.update({"zid": zid,
         "base-clusters": {k: [] for k in ("id", "members", "x", "y", "count")},
-        "group-clusters": [], "group-votes": {}, "votes-base": {},
-        "user-vote-counts": {}, "comment-priorities": {},
-        "consensus": {"agree": [], "disagree": []}, "group-aware-consensus": {},
-        "repness": {}, "meta-tids": sorted(conv.meta_tids),
-        "mod-in": sorted(conv.mod_in_tids), "mod-out": sorted(conv.mod_out_tids),
-        "lastVoteTimestamp": 0, "lastModTimestamp": conv.last_mod_timestamp,
-        "pca": {"center": [], "comps": [[], []],
-            "comment-projection": [[], []], "comment-extremity": []}})
+        "comment-priorities": {}, "repness": {},
+        "meta-tids": sorted(conv.meta_tids),
+        "lastModTimestamp": conv.last_mod_timestamp})
+    apply_empty_contract(main)
     bid = {"zid": zid, "bidToPid": [], "lastVoteTimestamp": 0}
     stats = {"zid": zid, "ptptstats": {}, "lastVoteTimestamp": 0}
     return main, bid, stats
@@ -260,8 +257,9 @@ class MathWriter:
         # while the (zid, math_env) row locks are held.
         bidtopid = derive_bidtopid(conv, zid)
         ptptstats = derive_ptptstats(conv, zid, data.get("user-vote-counts", {}))
-        if self._publisher is not None and getattr(conv, "raw_rating_mat", None) is not None and conv.raw_rating_mat.empty:
+        if getattr(conv, "raw_rating_mat", None) is not None and conv.raw_rating_mat.empty:
             data, bidtopid, ptptstats = empty_contract_payloads(conv, zid, data)
+            last_vote_timestamp = data["lastVoteTimestamp"]
         main_json = encode_math_blob(data)
         bidtopid_json = encode_math_blob(bidtopid)
         ptptstats_json = encode_math_blob(ptptstats)
