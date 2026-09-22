@@ -22,6 +22,56 @@ PYCA
 install -d -m 0755 /opt/polis-probe
 install -m 0444 "$PROBE_RDS_CA" /opt/polis-probe/rds-ca.pem
 for file in worker.py contracts.py receipt.py roles_census.py roles_queries.py replica.py dns.py provision.py provision_login.py; do install -m 0444 "$(dirname "$0")/$file" "/opt/polis-probe/$file"; done
+# Resolver ownership (offline bake).
+# AL2023 links resolv.conf to resolved's DHCP-managed uplink file. Writing
+# through that link lasts only until renewal. Stop its writer before unlinking;
+# networkd still owns addresses/routes, with no per-interface reconfiguration.
+systemctl disable --now systemd-resolved
+systemctl mask systemd-resolved.service
+resolved_enabled="$(systemctl is-enabled systemd-resolved || true)"
+resolved_active="$(systemctl is-active systemd-resolved || true)"
+[ "$resolved_enabled" = masked ]
+[ "$resolved_active" = inactive ]
+/opt/polis-probe/venv/bin/python - "$resolved_enabled" "$resolved_active" <<'RESOLVER'
+import json, os, re, stat, sys
+from pathlib import Path
+
+evidence = os.environ.get('PROBE_BUILD_DIR')
+if evidence and (not Path(evidence).is_absolute() or not Path(evidence).is_dir()):
+    raise SystemExit('RESOLVER_EVIDENCE_DIR')
+resolv = Path('/etc/resolv.conf')
+nss = Path('/etc/nsswitch.conf')
+
+def file_state():
+    try:
+        mode = resolv.lstat().st_mode
+    except FileNotFoundError:
+        return {'symlink': False, 'regular': False, 'mode': None}
+    return {'symlink': stat.S_ISLNK(mode), 'regular': stat.S_ISREG(mode),
+            'mode': f'{stat.S_IMODE(mode):04o}'}
+
+before = file_state()
+lines = nss.read_text().splitlines(keepends=True)
+hosts = [i for i, line in enumerate(lines) if re.match(r'^\s*hosts\s*:', line)]
+if len(hosts) != 1:
+    raise SystemExit('RESOLVER_NSS_HOSTS')
+index = hosts[0]
+hosts_before = lines[index].split(':', 1)[1].split('#', 1)[0].split()
+if hosts_before != ['files', 'dns']:
+    lines[index] = 'hosts: files dns\n'
+    nss.write_text(''.join(lines))
+# Unlink both live and dangling links; never modify resolved's former target.
+resolv.unlink(missing_ok=True)
+resolv.write_text('nameserver 127.0.0.1\noptions timeout:2 attempts:2\n')
+resolv.chmod(0o644)
+if evidence:
+    (Path(evidence)/'resolver.json').write_text(json.dumps({
+        'before': before, 'after': file_state(),
+        'resolved': {'enabled': sys.argv[1], 'active': sys.argv[2]},
+        'hosts_before': hosts_before, 'hosts_after': ['files', 'dns'],
+    }, sort_keys=True, indent=2)+'\n')
+RESOLVER
+# End resolver ownership.
 # No remote commands, cloud-init, SSM, SSH or serial interactive console.
 for unit in cloud-init-local cloud-init cloud-config cloud-final sshd amazon-ssm-agent serial-getty@ttyS0; do systemctl mask "$unit.service"; done
 systemctl mask swap.target docker.service docker.socket containerd.service
@@ -144,6 +194,12 @@ BOOT
 BOOT_PHASE=firewall
 nft -f /opt/polis-probe/firewall.nft
 BOOT_PHASE=dns
+# Refuse an image whose resolver ownership has drifted. A masked unit returns
+# nonzero from is-enabled; compare its output rather than its exit status.
+[ ! -L /etc/resolv.conf ]
+[ -f /etc/resolv.conf ]
+[ "$(systemctl is-enabled systemd-resolved || true)" = masked ]
+[ "$(systemctl is-active systemd-resolved || true)" = inactive ]
 printf 'nameserver 127.0.0.1\noptions timeout:2 attempts:2\n' > /etc/resolv.conf
 systemctl start polis-probe-dns.service
 mode="$(/opt/polis-probe/venv/bin/python -c 'import json; print(json.load(open("/opt/polis-probe/bootstrap.json"))["mode"])')"
