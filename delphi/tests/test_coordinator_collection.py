@@ -33,7 +33,7 @@ def test_copied_tree_leaves_unrelated_tests_collectable(copied_tree, tmp_path, p
     if projection_override:
         scan = tmp_path / "projgate"
         (scan / "delphi/scripts").mkdir(parents=True)
-        (scan / "delphi/scripts/projection_inventory.py").write_text("# synthetic scan marker\n")
+        (scan / "delphi/scripts/projection_inventory.py").write_text("# public-fixture scan marker\n")
         env["POLIS_CHECKOUT_DIR"] = str(scan)
     result = collect(root, env)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -54,7 +54,7 @@ def test_explicit_coordinator_root_is_independent_of_projection_root(copied_tree
     root, env = copied_tree
     checkout = tmp_path / "checkout"
     (checkout / "coordinator-rs").mkdir(parents=True)
-    (checkout / "coordinator-rs/Cargo.toml").write_text("# synthetic marker\n")
+    (checkout / "coordinator-rs/Cargo.toml").write_text("# public-fixture marker\n")
     env.update(POLIS_COORDINATOR_CHECKOUT_DIR=str(checkout), POLIS_CHECKOUT_DIR=str(tmp_path / "other"))
     # Import only: the fixture root resolves, while the absent .git correctly
     # keeps process tests unavailable in this generated source-only tree.
