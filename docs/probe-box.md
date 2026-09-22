@@ -42,6 +42,41 @@ security groups do not filter the VPC resolver, the baked firewall restricts DNS
 to an exact-name local forwarder. Probe containers have no network route to it.
 Cloud-init execution, SSH, SSM, swap and core dumps are disabled.
 
+### Resolver ownership across DHCP renewal
+
+The offline bake stops/disables `systemd-resolved` and persistently masks its
+service, then replaces `/etc/resolv.conf` with a regular mode-0644 file containing
+only `nameserver 127.0.0.1` and `options timeout:2 attempts:2`. It checks the
+actual `/etc/nsswitch.conf` hosts entry and preserves it if its providers are
+already exactly `files dns`; otherwise it normalizes that entry to `files dns`.
+Missing or duplicate hosts entries refuse the bake. Other NSS databases are
+unchanged. Host lookup therefore does not depend on `resolve` or `myhostname`.
+
+At boot, the `dns` phase refuses a symlink (including a dangling one), missing
+file, nonregular file, or a resolved unit that is not persistently masked and
+inactive. Only after those checks does it rewrite the resolver file and start
+the exact-name forwarder. Refusal uses the existing fixed `dns` boot-failure
+record and poweroff trap; delivery is best effort when DNS itself is unavailable.
+Both worker and provisioner modes pass through this check before private work.
+
+This fixes the write-through-link path identified after runs 11–13. The
+[AL2023 network package](https://github.com/amazonlinux/amazon-ec2-net-utils)
+uses networkd for link configuration and resolved for DNS; its
+[installation script](https://github.com/amazonlinux/amazon-ec2-net-utils/blob/main/amazon-ec2-net-utils.spec)
+links `/etc/resolv.conf` into `/run/systemd/resolve/`. Resolved maintains that
+[uplink file](https://github.com/systemd/systemd/blob/v252/man/systemd-resolved.service.xml)
+as DNS information changes, so writing through the link does not survive a
+DHCP update. Masking the writer and removing the link prevents that replacement.
+
+No networkd drop-ins, restarts or link reconfiguration are added, at bake or boot.
+No `UseDNS=no` override is applied: coverage of all generated per-interface
+configurations was not established for the pinned image. Networkd keeps DHCP
+addresses and routes; resolved is the resolver-file writer in this AL2023 setup,
+and it is stopped and masked. Cloud-init is already masked and the offline bake
+adds no alternative resolver manager. Do not enable one on this dedicated image.
+Local tests execute the bake block and boot DNS phase with real temporary files
+and a systemctl double; they do not claim an AL2023 DHCP-renewal rehearsal.
+
 ## Closed receipt and lifecycle boundaries
 
 Results leave the worker only in the closed `polis-probe-receipt/1` or `/2` schema:
@@ -191,8 +226,10 @@ The producer engine subprocess timeout is 3600 seconds. A separate benchmark
 helper, `polismath.replay.shard_bench`, has a 1800-second child timeout, but the
 probe producer invokes the engine drivers directly and does not use that helper.
 The operator's heartbeat grace/staleness are 600/300 seconds. No thirty-minute
-supervisor/DNS/systemd timer was found. These are source findings, not a proven
-cause of the observed outage; no cloud state was inspected.
+supervisor/DNS/systemd timer was found in the probe source. The subsequent
+run-13 investigation identified the platform DHCP-renewal path described above;
+the offline checks here do not independently establish the lease timing or
+runtime state of those instances.
 
 ## Prepare the native stack and image
 
@@ -207,11 +244,24 @@ The image must be rebaked from this committed shape-C source: its mode-aware
 bootstrap, provision CLI and absolute deadline differ from the earlier AMI.
 On the reviewed AL2023 2023.12.20260831 ARM64 builder, prepare dependencies with
 `ci/probe_box/ami/prepare.sh`, then run `ci/probe_box/bake.sh` offline as root.
+Carry the same exported `PROBE_BUILD_DIR` into the bake to retain
+`resolver.json` beside the existing inventory. It records resolver-file
+link/regular state and permission mode before and after the change, resolved's
+masked/inactive state, and the actual NSS hosts providers before and after.
+When supplied, that directory must be absolute and already exist. No new
+evidence service or runtime export is involved. The builder's original hosts
+providers are read at bake time; they are not inferred from a local workstation.
 Retain the exact RPM/wheel/source/AMI inventory. The independent RDS CA pin is
 now `ci/probe_box/ami/rds-ca.json`; no layer recipe is used. Docker/containerd/
 runc/Skopeo remain pinned to the Amazon package versions in prepare.sh. Default
 daemons stay masked; the worker's daemon, socket, image state and temporary
 files remain on `/probe-work`. The provisioner never starts that daemon.
+
+Resolver-fix rollout: review/merge, bake 11, redeploy the launch-template AMI,
+then run 14 with the existing v8 workload images. This change needs no additional
+worker/operator source, IAM or endpoint update beyond the liveness rollout above.
+Verify the new resolver evidence before admitting the AMI; the next cloud run
+must establish that resolution and pulses survive DHCP renewal.
 
 Save the deployed `WorkerConfig` and `ProvisionConfig` JSON outputs in a private
 operator directory, verbatim. Configure an AWS CLI/SDK profile that assumes

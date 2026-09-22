@@ -1,8 +1,11 @@
 """Digest-bound OCI conversion, private daemon and sandbox failure controls."""
 import hashlib
 import json
+import os
 from pathlib import Path
+import shlex
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -10,6 +13,155 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import worker
+
+
+class ResolverBakeTests(unittest.TestCase):
+    """Execute the baked shell on local files; systemctl is an explicit double."""
+
+    expected = 'nameserver 127.0.0.1\noptions timeout:2 attempts:2\n'
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.etc = self.root/'etc'
+        self.etc.mkdir()
+        self.resolv = self.etc/'resolv.conf'
+        self.nss = self.etc/'nsswitch.conf'
+        self.nss.write_text('passwd: files\nhosts: files dns\ngroup: files\n')
+        self.log = self.root/'systemctl.log'
+        self.evidence = self.root/'evidence'
+        self.evidence.mkdir()
+        self.source = Path(__file__).with_name('bake.sh').read_text()
+
+    def run_shell(self, script, enabled='masked', active='inactive', fail=''):
+        # No real systemctl, boot, DNS, poweroff, or machine configuration calls.
+        double = '''
+systemctl() {
+  printf '%s\\n' "$*" >> "$PROBE_TEST_LOG"
+  if [ "$1" = "$PROBE_TEST_FAIL" ]; then return 1; fi
+  case "$1" in
+    is-enabled) printf '%s\\n' "$PROBE_TEST_ENABLED"; return 1 ;;
+    is-active) printf '%s\\n' "$PROBE_TEST_ACTIVE"; return 3 ;;
+  esac
+}
+'''
+        script = script.replace('/etc/', str(self.etc)+'/')
+        script = script.replace('/opt/polis-probe/venv/bin/python', shlex.quote(sys.executable))
+        env = {**os.environ, 'PROBE_TEST_LOG': str(self.log),
+               'PROBE_TEST_ENABLED': enabled, 'PROBE_TEST_ACTIVE': active,
+               'PROBE_TEST_FAIL': fail, 'PROBE_BUILD_DIR': str(self.evidence)}
+        return subprocess.run(['bash', '-c', 'set -euo pipefail\n'+double+script],
+                              env=env, capture_output=True, text=True, timeout=10)
+
+    def bake_resolver(self, **kw):
+        block = self.source.split('# Resolver ownership (offline bake).\n', 1)[1]
+        return self.run_shell(block.split('# End resolver ownership.\n', 1)[0], **kw)
+
+    def boot_dns(self, **kw):
+        start = self.source.split("<<'START'\n", 1)[1].split('\nSTART', 1)[0]
+        trap = next(line for line in start.splitlines() if line.startswith("trap 'rc=$?"))
+        dns = 'BOOT_PHASE=dns\n'+start.split('BOOT_PHASE=dns\n', 1)[1].split('\nmode=', 1)[0]
+        return self.run_shell('boot_failure() { printf "%s\\n" "$BOOT_PHASE" > "'+
+                              str(self.root/'failure')+'"; }\n'+trap+'\n'+dns, **kw)
+
+    def test_boot_refuses_link_without_touching_target_and_records_dns_failure(self):
+        target = self.root/'uplink'
+        target.write_text('nameserver 192.0.2.53\n')
+        self.resolv.symlink_to(target)
+        result = self.boot_dns()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(target.read_text(), 'nameserver 192.0.2.53\n')
+        self.assertTrue(self.resolv.is_symlink())
+        self.assertEqual((self.root/'failure').read_text(), 'dns\n')
+        self.assertEqual(self.log.read_text(), 'poweroff\n')
+
+    def test_boot_refuses_missing_directory_and_dangling_link(self):
+        for kind in ('missing', 'directory', 'dangling'):
+            with self.subTest(kind=kind):
+                if kind == 'directory': self.resolv.mkdir()
+                if kind == 'dangling': self.resolv.symlink_to(self.root/'absent')
+                self.assertNotEqual(self.boot_dns().returncode, 0)
+                self.assertNotIn('start polis-probe-dns.service', self.log.read_text())
+                self.assertEqual((self.root/'failure').read_text(), 'dns\n')
+                if kind == 'directory': self.resolv.rmdir()
+
+    def test_boot_requires_persistent_mask_and_inactive_service(self):
+        for enabled, active in [('enabled', 'inactive'), ('disabled', 'inactive'),
+                                ('masked-runtime', 'inactive'), ('', 'inactive'),
+                                ('masked', 'active'), ('masked', 'unknown')]:
+            with self.subTest(enabled=enabled, active=active):
+                self.resolv.write_text('unchanged\n')
+                self.assertNotEqual(self.boot_dns(enabled=enabled, active=active).returncode, 0)
+                self.assertEqual(self.resolv.read_text(), 'unchanged\n')
+                self.assertNotIn('start polis-probe-dns.service', self.log.read_text())
+
+    def test_boot_regular_file_and_masked_inactive_service_start_forwarder(self):
+        self.resolv.write_text('old\n')
+        result = self.boot_dns()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.resolv.read_text(), self.expected)
+        self.assertFalse((self.root/'failure').exists())
+        self.assertIn('start polis-probe-dns.service\npoweroff\n', self.log.read_text())
+
+    def test_bake_replaces_link_preserves_target_and_records_ownership(self):
+        target = self.root/'uplink'
+        target.write_text('upstream\n')
+        self.resolv.symlink_to(target)
+        self.nss.write_text('# public fixture\npasswd: files\nhosts: files resolve [!UNAVAIL=return] dns myhostname\n')
+        result = self.bake_resolver()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(self.resolv.is_symlink())
+        self.assertEqual(self.resolv.read_text(), self.expected)
+        self.assertEqual(self.resolv.stat().st_mode & 0o777, 0o644)
+        self.assertEqual(target.read_text(), 'upstream\n')
+        self.assertEqual(self.nss.read_text(), '# public fixture\npasswd: files\nhosts: files dns\n')
+        record = json.loads((self.evidence/'resolver.json').read_text())
+        self.assertTrue(record['before']['symlink'])
+        self.assertEqual(record['after'], {'symlink': False, 'regular': True, 'mode': '0644'})
+        self.assertEqual(record['resolved'], {'enabled': 'masked', 'active': 'inactive'})
+        self.assertEqual(record['hosts_after'], ['files', 'dns'])
+        self.assertIn('myhostname', record['hosts_before'])
+        self.assertEqual(self.log.read_text().splitlines()[:2],
+                         ['disable --now systemd-resolved', 'mask systemd-resolved.service'])
+        # A later update of the former DHCP-managed target cannot alter our file.
+        target.write_text('renewed upstream\n')
+        self.assertEqual(self.resolv.read_text(), self.expected)
+
+    def test_bake_normalizes_nss_and_preserves_safe_file(self):
+        for hosts in ('hosts: files dns # safe', ' hosts:\tresolve dns myhostname',
+                      'hosts: dns files', 'hosts: files dns myhostname'):
+            with self.subTest(hosts=hosts):
+                self.nss.write_text('passwd: files\n'+hosts+'\ngroup: files\n')
+                result = self.bake_resolver()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                want = hosts if hosts == 'hosts: files dns # safe' else 'hosts: files dns'
+                self.assertEqual(self.nss.read_text(), 'passwd: files\n'+want+'\ngroup: files\n')
+
+    def test_bake_refuses_ambiguous_nss_and_failed_unit_changes(self):
+        for content in ('passwd: files\n', 'hosts: files dns\nhosts: resolve\n'):
+            self.nss.write_text(content)
+            self.assertNotEqual(self.bake_resolver().returncode, 0)
+            self.assertEqual(self.nss.read_text(), content)
+        self.nss.write_text('hosts: files dns\n')
+        for fail in ('disable', 'mask'):
+            self.assertNotEqual(self.bake_resolver(fail=fail).returncode, 0)
+        self.assertNotEqual(self.bake_resolver(enabled='enabled').returncode, 0)
+        self.assertNotEqual(self.bake_resolver(active='active').returncode, 0)
+        self.assertFalse((self.evidence/'resolver.json').exists())
+
+    def test_bake_accepts_dangling_link_and_is_repeatable(self):
+        self.resolv.symlink_to(self.root/'absent')
+        for _ in range(2):
+            result = self.bake_resolver()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse(self.resolv.is_symlink())
+            self.assertEqual(self.resolv.read_text(), self.expected)
+
+    def test_bake_does_not_reconfigure_networkd(self):
+        self.assertNotIn('/etc/systemd/network/', self.source)
+        self.assertNotIn('networkctl', self.source)
+        self.assertNotIn('restart systemd-networkd', self.source)
 
 
 class RuntimeTests(unittest.TestCase):
