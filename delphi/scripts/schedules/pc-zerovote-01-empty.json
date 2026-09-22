@@ -24,20 +24,12 @@
     "mod-out": null,
     "user-vote-counts": {},
     "votes-base": {},
-    "pca.center": [
-      -0.0
-    ],
+    "pca.center": [],
     "pca.comment-projection": [
-      [
-        -1.0
-      ],
-      [
-        -1.0
-      ]
+      [],
+      []
     ],
-    "pca.comment-extremity": [
-      1.4142135623730951
-    ],
+    "pca.comment-extremity": [],
     "lastVoteTimestamp": 0
   },
   "legacy_absent_keys": [
@@ -57,5 +49,5 @@
     "user-vote-counts",
     "votes-base"
   ],
-  "notes": "Empty compute (zero votes). Python's complete empty structure is the canonical output; the legacy engine's output here is a known DEFECT, not an accepted variant. At the zero checkpoint only, legacy-defect-empty-omits-keys records the 15 fields the legacy engine omits (reconciled against the exact Python empty values, including the three PCA leaves). Present values remain exact; PCA comps and every other field are compared unchanged; nothing is reconciled at any later checkpoint. lastVoteTimestamp is 0 for both engines: the replay driver floors an empty conversation to 0 exactly as the production poller does. The defect is recorded by name in the inventory, the observed results and the closed receipt so the receipt shows which engine is wrong. Downstream consumers are being guarded separately."
+  "notes": "Empty compute (zero votes). Python's complete empty structure is the canonical output; the legacy engine's output here is a known DEFECT, not an accepted variant. At the zero checkpoint only, legacy-defect-empty-omits-keys records the 15 fields the legacy engine omits (reconciled against the exact Python empty values, including the three PCA leaves, which are empty: a zero-vote conversation has no center, projections or extremities). Present values remain exact; PCA comps and every other field are compared unchanged; nothing is reconciled at any later checkpoint. lastVoteTimestamp is 0 for both engines: the replay driver floors an empty conversation to 0 exactly as the production poller does. The defect is recorded by name in the inventory, the observed results and the closed receipt so the receipt shows which engine is wrong. Downstream consumers are being guarded separately."
 }

@@ -288,10 +288,17 @@ class EmptyOutputGateTests(unittest.TestCase):
                     blob = self.clj if engine == 'clj' else self.py
                     leaf = key.split('.')[1]
                     value = copy.deepcopy(self.expected.spec.empty_output[key])
+                    # The committed contract declares empty PCA leaves; a value
+                    # within numeric tolerance of "nothing" is still not nothing.
                     if leaf == 'comment-projection':
-                        value[0][0] += 1e-10
-                    else:
+                        if value and value[0]:
+                            value[0][0] += 1e-10
+                        else:
+                            value = [[1e-10], [1e-10]]
+                    elif value:
                         value[0] += 1e-10
+                    else:
+                        value = [1e-10]
                     blob['pca'][leaf] = value
                     self.write()
                     with self.assertRaises(gate.certify.CertifyError) as caught:

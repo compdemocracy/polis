@@ -124,17 +124,13 @@ def test_real_node_reader_serves_identical_bytes_for_both_writers(db, launch):
 def test_published_empty_math_versus_the_servers_own_empty_presentation(db, launch):
     """D4's zero-vote-with-comments shape, and a C7 observation from it.
 
-    The pinned #2704 Python poller publishes **nothing** for a conversation
-    with approved comments and no votes: its vote watermark finds no work. So
-    there is no two-writer equality to assert here. What the real reader does
-    instead is synthesize `createEmptyPcaStructure` for the namespace with no
-    row, while serving the coordinator's explicitly published empty generation
-    for the namespace that has one.
-
-    Both are recorded, and the stable presentation fields are asserted equal.
-    Byte equality between a published empty generation and the server's own
-    synthesized empty presentation is NOT claimed: the full difference list is
-    written to evidence for polis-empty-served/1 to rule on.
+    Both engines now publish an explicit empty generation for a conversation
+    with approved comments and no votes: the coordinator's empty math and the
+    Python poller's complete empty row are the same committed contract. The
+    server serves both through the same presenter, so the two namespaces must
+    be byte-identical, and neither carries a wall-clock timestamp. The
+    server's own synthesized presentation (the no-row fallback) is no longer
+    on this path; its wall-clock stamp is recorded as a separate finding.
     """
     require_node()
     seed(db, votes=False)
@@ -144,8 +140,9 @@ def test_published_empty_math_versus_the_servers_own_empty_presentation(db, laun
     c.close()
     launch(db).done()
     python_checkpoint(db)
-    assert rows(db, env="python")["math_main"] is None, (
-        "the reference writer publishes no generation for a zero-vote conversation")
+    reference = rows(db, env="python")["math_main"]
+    assert reference is not None, "the reference writer publishes the empty row"
+    assert reference["data"]["n"] == 0 and reference["data"]["lastVoteTimestamp"] == 0
     # Retain the historical second generation after all comments are approved.
     # The generation-zero caller regression is covered separately.
     c = connect(db)
@@ -153,31 +150,27 @@ def test_published_empty_math_versus_the_servers_own_empty_presentation(db, laun
         cur.execute("UPDATE comments SET mod=1 WHERE zid=1")
     c.close()
     launch(db).done()
+    python_checkpoint(db)
     assert rows(db, env="rustproto")["math_main"]["math_tick"] == 1
 
     served = node_read(db, gids=(0,))
-    published, synthesized = served["rustproto"], served["python"]
+    published, reference_served = served["rustproto"], served["python"]
     assert published["present"], published
-    assert synthesized["present"], "the server synthesizes an empty presentation"
-    differences = {field: (published[field], synthesized[field])
+    assert reference_served["present"], reference_served
+    differences = {field: (published[field], reference_served[field])
                    for field in COMPARED
-                   if published.get(field) != synthesized.get(field)}
+                   if published.get(field) != reference_served.get(field)}
     (EVIDENCE / "d4-node-reader-empty.json").write_text(json.dumps({
-        "profile": "zero votes, four approved comments; rustproto has a published "
-                   "empty generation, python has none and is synthesized by the server",
-        "reference_published": False,
-        "note": "the synthesized empty presentation stamps lastVoteTimestamp with "
-                "Date.now(), so it is not reproducible across servers or requests; "
-                "the published empty generation is",
+        "profile": "zero votes, four approved comments; both namespaces carry a "
+                   "published empty generation under the committed contract",
+        "reference_published": True,
         "differences": differences, "served": served}, indent=2, sort_keys=True))
-    assert published["n"] == synthesized["n"] == 0
-    assert published["consensus_shape"] == synthesized["consensus_shape"]
+    assert differences == {}, differences
+    assert published["n"] == reference_served["n"] == 0
     assert published["mapping_is_error"] is False
-    # The mapping is the one place the synthesized path has nothing to serve.
-    assert synthesized["mapping_is_error"] is True
     # C7: both raw getPca paths are empty; only the actual response-boundary
     # presenter supplies approved-comment fields, without mutating either row.
-    for namespace in (published, synthesized):
+    for namespace in (published, reference_served):
         assert namespace["raw"]["tids"] == []
         assert namespace["raw"]["n_cmts"] == 0
         assert namespace["raw"]["unchanged_after_presentation"] is True
@@ -187,13 +180,5 @@ def test_published_empty_math_versus_the_servers_own_empty_presentation(db, laun
         assert namespace["comment_extremity"] == [0, 0, 0, 0]
         assert namespace["asJSON_sha256"] != namespace["raw"]["asJSON_sha256"]
         assert namespace["gzip_sha256"] != namespace["raw"]["gzip_sha256"]
-    assert "tids" not in differences
-    assert "n_cmts" not in differences
-    # And the synthesized presentation is not even reproducible: pca.ts's
-    # createEmptyPcaStructure stamps `lastVoteTimestamp: Date.now()`, so two
-    # servers answering the same request for the same conversation serve
-    # different bytes. The published generation carries the engine's value.
-    now = time.time() * 1000
-    assert abs(synthesized["last_vote_timestamp"] - now) < 600_000, (
-        synthesized["last_vote_timestamp"], now)
-    assert published["last_vote_timestamp"] != synthesized["last_vote_timestamp"]
+        # The engine's value, not the server's clock: reproducible across servers.
+        assert namespace["last_vote_timestamp"] == 0

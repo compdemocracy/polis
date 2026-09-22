@@ -388,7 +388,7 @@ def test_empty_with_approved_comments_has_explicit_empty_math(db,launch):
     t=assert_coherent(db)
     main=t['math_main']['data']
     assert main['n']==0 and main['n-cmts']==0 and main['tids']==[]
-    assert main['mod-in']==[0,1]
+    assert main['mod-in'] is None  # the committed empty contract declares null moderation lists
     assert main['pca']=={'center':[],'comps':[[],[]],'comment-projection':[[],[]],'comment-extremity':[]}
     assert t['math_ticks']['input_checkpoint']['event_count']==0
 
