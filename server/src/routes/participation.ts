@@ -418,7 +418,7 @@ async function handle_GET_participationInit(
       doFamousQuery({
         uid: uid,
         zid: req.p.zid,
-        math_tick: response.pca?.math_tick || 0,
+        math_tick: pcaData?.asPOJO.math_tick ?? 0,
         ptptoiLimit: req.p.ptptoiLimit || 30,
       }),
     ]);

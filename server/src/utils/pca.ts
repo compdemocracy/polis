@@ -159,8 +159,7 @@ export async function prefetchLatestPcaData(): Promise<void> {
         lastPrefetchedMathTick,
         Number(row.caching_tick)
       );
-      processMathObject(item);
-      return updatePcaCache(mathEnv, row.zid, item);
+      return presentMathMainRow(mathEnv, row.zid, item);
     })
   );
   lastPrefetchedMathTicks.set(
@@ -256,9 +255,7 @@ function createEmptyPcaStructure(): PcaCacheItem["asPOJO"] {
  *
  * `edge` filled the served comment/PCA defaults inside this same merge, so the
  * presentation layer (src/utils/pcaPresentation.ts) may only fill what the merge
- * would have filled. The one path it must keep its hands off is
- * `prefetchLatestPcaData`, which puts raw blobs straight into the cache without
- * merging: `edge` served those unmodified too.
+ * would have filled. Prefetched rows use this same merge before caching.
  *
  * A WeakSet rather than a property on the object: `handle_GET_participationInit`
  * serializes the whole cache item, so any own enumerable property added here would
@@ -601,8 +598,8 @@ function presentMathMainRow(
  *    synthesizes the empty presentation and shares one cache entry for it --
  *    that entry stamps `lastVoteTimestamp: Date.now()`, so bypassing it would
  *    change bytes between two reads in the same report;
- *  - a row that is not newer than "latest" (`math_tick` still at the -1
- *    default) is `undefined`, exactly as `getPca` reports it.
+ *  - an uninitialized row (`math_tick` still at -1) gets a synthesized empty
+ *    presentation, just like a missing row, so reports can still render.
  *
  * A refused Bundle is logged by `getMathBundle` and then presented from its
  * main row anyway. Every field a report reads is main-owned -- the
@@ -629,6 +626,13 @@ export async function getPcaFromBundle(
     return getPca(zid);
   }
 
+  if (read.mathTick <= -1) {
+    // An uninitialized row has no publishable math. Reports still need an
+    // empty presentation; retain synthesized provenance for routing readers.
+    return ensureCompletePcaStructure().then((data) =>
+      updatePcaCache(mathEnv, zid, Object.assign(data, { zid }), true, read.expiration)
+    );
+  }
   return presentExistingMathBundle(zid, mathEnv, read);
 }
 
@@ -672,7 +676,7 @@ function updatePcaCache(
           asJSON: asJSON,
           asBufferOfGzippedJson: jsondGzipdPcaBuffer,
           expiration: Math.min(Date.now() + 3000, sourceExpiration),
-          consensus: (item as any).consensus || { agree: {}, disagree: {} },
+          consensus: (item as any).consensus || { agree: [], disagree: [] },
           repness: (item as any).repness || {},
         } as unknown as PcaCacheItem;
         if (synthesized) {

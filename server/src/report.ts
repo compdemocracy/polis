@@ -629,7 +629,7 @@ export async function sendCommentGroupsSummary(
     throw new Error("polis_error_no_pca_data");
   }
 
-  const groupClusters = pca.asPOJO["group-clusters"];
+  const groupClusters = pca.asPOJO["group-clusters"] || [];
   const groupIds = Array.isArray(groupClusters)
     ? groupClusters.map((g) => g.id)
     : Object.keys(groupClusters as Record<string, any>).map(Number);
@@ -638,10 +638,8 @@ export async function sendCommentGroupsSummary(
     number,
     GroupVoteStats
   >;
-  const groupAwareConsensus = pca.asPOJO["group-aware-consensus"] as Record<
-    number,
-    number
-  >;
+  const groupAwareConsensus = (pca.asPOJO["group-aware-consensus"] ||
+    {}) as Record<number, number>;
 
   const commentExtremity =
     (pca.asPOJO["pca"]?.["comment-extremity"] as Array<number>) || [];
@@ -934,12 +932,6 @@ export async function sendParticipantXidsSummary(
   res: ResponseLike
 ) {
   try {
-    // const pca = await getPca(zid, -1);
-    const pca = await getPcaFromBundle(zid);
-    if (!pca?.asPOJO) {
-      throw new Error("polis_error_no_pca_data");
-    }
-
     const xids = await getXids(zid);
     if (!xids) {
       throw new Error("polis_error_no_xid_response");
