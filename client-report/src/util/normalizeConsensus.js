@@ -43,7 +43,7 @@ export function normalizeGroupConsensus(groupVotes, tid) {
  * @returns {Object} Math results with added 'group-consensus-normalized' field
  */
 export function enrichMathWithNormalizedConsensus(mathResult) {
-  if (!mathResult || !mathResult["group-votes"]) return mathResult;
+  if (!mathResult || !Object.keys(mathResult["group-votes"] || {}).length) return mathResult;
   
   const groupVotes = mathResult["group-votes"];
   const normalized = {};

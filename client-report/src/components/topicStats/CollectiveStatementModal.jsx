@@ -112,7 +112,7 @@ const CollectiveStatementModal = ({
       
       // Get the consensus values only for qualifying comments
       const relevantConsensus = {};
-      const consensusData = math["group-consensus-normalized"] || math["group-aware-consensus"];
+      const consensusData = math["group-consensus-normalized"] || math["group-aware-consensus"] || {};
       qualifyingTids.forEach(tid => {
         if (consensusData[tid] !== undefined) {
           relevantConsensus[tid] = consensusData[tid];

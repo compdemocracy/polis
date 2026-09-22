@@ -77,7 +77,12 @@ const TopicBeeswarm = ({ comments, commentTids, math, conversation, ptptCount, f
     
     // Use normalized consensus if available, fall back to raw consensus
     const consensusData = math["group-consensus-normalized"] || math["group-aware-consensus"];
-    if (!consensusData) return;
+    if (!consensusData || !Object.keys(consensusData).length) {
+      setCommentsWithConsensus(null);
+      setVoronoi(null);
+      setCurrentComment(null);
+      return;
+    }
 
     // Filter to only topic comments and add group consensus
     const commentsWithConsensusData = [];
@@ -161,6 +166,11 @@ const TopicBeeswarm = ({ comments, commentTids, math, conversation, ptptCount, f
       }
     }
   }, [commentsWithConsensus, dataExtent, widthMinusMargins, heightMinusMargins]);
+
+  const consensusData = math?.["group-consensus-normalized"] || math?.["group-aware-consensus"];
+  if (math && !Object.keys(consensusData || {}).length) {
+    return <div>No data available for visualization</div>;
+  }
 
   if (!commentsWithConsensus || !voronoi) {
     return (

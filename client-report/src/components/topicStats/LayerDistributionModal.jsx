@@ -28,7 +28,10 @@ const LayerDistributionModal = ({
     
     // Use normalized consensus if available, fall back to raw
     const consensusData = math["group-consensus-normalized"] || math["group-aware-consensus"];
-    if (!consensusData) return;
+    if (!consensusData || !Object.keys(consensusData).length) {
+      setPlotData(null);
+      return;
+    }
 
     // Prepare data for boxplot
     const traces = [];
