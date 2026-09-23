@@ -1,0 +1,12 @@
+{
+  "passed": 6,
+  "total": 6,
+  "checks": [
+    "committed zero beats blob tick",
+    "typed zero subset",
+    "equal ETag 304",
+    "explicit zero 304",
+    "latest sentinel serves zero",
+    "foreign env row stays empty"
+  ]
+}

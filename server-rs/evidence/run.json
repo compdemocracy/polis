@@ -1,0 +1,26 @@
+{
+  "project": "p027rs-100eda5d",
+  "ports": [
+    55930,
+    55931,
+    55932,
+    55933,
+    55934,
+    55935
+  ],
+  "images": {
+    "server": "sha256:ef85771823ed5e66a21e2915896c38e23bdf784a68437a793d70d55a08dc7c54",
+    "driver": "sha256:ef85771823ed5e66a21e2915896c38e23bdf784a68437a793d70d55a08dc7c54",
+    "postgres": "sha256:b5d31bf33362709c1adc27aa078080cd91db573466a5b5f000b0709348023a29",
+    "oidc-simulator": "sha256:2dae688563ff9728aa1d2e55062a80fbc38a85aafbca44b7ecee0026e9cb98b2",
+    "dynamodb": "sha256:2ad13921fae7674e403010156419aab2889985aa5381d3b73a0a8dd5a01b2c37",
+    "file-server": "sha256:9ea48fbe88ebcdc3424b20f75c2b9b5a88f3cd388816539efe5ad1d829715cbf"
+  },
+  "networkInternal": true,
+  "generatedOnly": true,
+  "sourceCommit": "f3f3224987fedfd05883f36729ebbb8c83e4a315",
+  "archiveSha256": "bd1034cf4575d7129736bcc8769d9b8471fc9594b3540e39cca3b69d7abab69f",
+  "binarySha256": "6198f6f6f3d24fd302c3d73a23a444b852e24ea57543f8d669285445eddfd45f",
+  "clock": 1700000000000,
+  "mathEnv": "p027"
+}

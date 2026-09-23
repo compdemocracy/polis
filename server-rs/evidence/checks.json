@@ -1,0 +1,44 @@
+{
+  "note": "Round-1 crate submission (021047dab). Retained for provenance; the Rust test counts below are that run's, not the current tree's.",
+  "scope": "round-1 (021047dab)",
+  "rustDefault": {
+    "passed": 7,
+    "failed": 0
+  },
+  "rustCharacterization": {
+    "passed": 7,
+    "failed": 0
+  },
+  "harnessNode": {
+    "passed": 30,
+    "failed": 0,
+    "skipped": 0
+  },
+  "cargoFmt": "PASS",
+  "clippyAllTargetsAllFeaturesWarningsDenied": "PASS",
+  "releaseBuild": "PASS",
+  "deterministicRegeneration": {
+    "runs": 2,
+    "identicalArtifactsPerRun": 5
+  },
+  "vendorPinsVerified": 17,
+  "current": {
+    "scope": "round-5 (this tree)",
+    "rustDefault": {
+      "passed": 50,
+      "failed": 0,
+      "ignored": 1
+    },
+    "rustCharacterization": {
+      "passed": 50,
+      "failed": 0,
+      "ignored": 1
+    },
+    "ignoredNote": "the B1 census gate needs P032_CENSUS_DIR; run with --ignored",
+    "cargoFmt": "PASS",
+    "clippyAllTargetsAllFeaturesWarningsDenied": "PASS",
+    "releaseBuild": "PASS",
+    "negotiationParityHeaders": 49,
+    "harnessNode": "not re-run in rounds 2-5"
+  }
+}
