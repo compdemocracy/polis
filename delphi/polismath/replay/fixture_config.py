@@ -118,22 +118,37 @@ def served_math_options(config: dict[str, Any]) -> ServedMathOptions:
     )
 
 
-def representative_seed(config: dict[str, Any]) -> str | None:
-    """Optional, frozen representative selection; reject malformed direct calls.
-
-    The shipped recipes/config remain byte-identical. A reviewed opt-in creates
-    a new config version; it does not admit additional payloads or battery rows.
-    """
+def representative_seed_source(config: dict[str, Any]) -> str | None:
     if "representative_selection" not in config:
         return None
     block = config["representative_selection"]
     schema = load_schema()["properties"]["representative_selection"]
     if validate_against_schema(block, schema):
         raise ConfigError("Invalid representative selection declaration")
-    # JSON Schema's/Python's $ anchor also matches before a final newline.
-    if re.fullmatch(r"[0-9a-f]{64}", block["seed"]) is None:
-        raise ConfigError("Invalid representative selection seed")
-    return block["seed"]
+    source = block.get("seed_source", "config")
+    if source == "config":
+        if type(block.get("seed")) is not str or re.fullmatch(r"[0-9a-f]{64}", block["seed"]) is None:
+            raise ConfigError("Invalid representative selection seed")
+    elif "seed" in block:
+        raise ConfigError("Run selection cannot also pin a seed")
+    return source
+
+
+def representative_seed(config: dict[str, Any], *, run_id: str | None = None) -> str | None:
+    """Resolve the fixed seed or SHA-256 of the admitted lowercase run ID.
+
+    Derivation v1: SHA-256 of the 32 ASCII hex characters, with no prefix,
+    decoding, clock, database information or other input.
+    """
+    source = representative_seed_source(config)
+    if source is None:
+        return None
+    if source == "config":
+        return config["representative_selection"]["seed"]
+    if type(run_id) is not str or re.fullmatch(r"[a-f0-9]{32}", run_id) is None:
+        raise ConfigError("Representative selection requires an admitted run ID")
+    import hashlib
+    return hashlib.sha256(run_id.encode("ascii")).hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -406,7 +421,7 @@ def _semantic_errors(config: dict[str, Any]) -> list[str]:
                     f"{sorted({e for e in names if names.count(e) > 1})}")
 
     try:
-        representative_seed(config)
+        representative_seed_source(config)
     except ConfigError:
         errors.append("$.representative_selection: invalid declaration or seed")
 

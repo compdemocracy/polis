@@ -510,6 +510,11 @@ def run(diagnostics=None) -> None:
         specification=SCRATCH/'job'; specification.mkdir(mode=0o755)
         specification.chmod(0o755)
         (specification/'job.json').write_bytes(canonical(job)); (specification/'job.json').chmod(0o444)
+        selection_context = SCRATCH/'selection'; selection_context.mkdir(mode=0o755)
+        selection_context.chmod(0o755)
+        context = {k: job[k] for k in ('run_id', 'representative_selection') if k in job}
+        (selection_context/'context.json').write_bytes(canonical(context))
+        (selection_context/'context.json').chmod(0o444)
         if 'reader' in job:
             stage('secret', 'prepare')
             secret_client=boto3.client('secretsmanager',region_name=identity['region'],endpoint_url=boot['secretsUrl'])
@@ -527,7 +532,7 @@ def run(diagnostics=None) -> None:
             with ReplicaSocket(sock,boot['replicaHost'],ROOT/'rds-ca.pem') as relay:
                 diagnostics.relay = relay
                 try:
-                    sandbox(job['reader'],'reader',[(sock,'/replica','ro'),(data,'/output','rw')],deadline-180,loaded_images[job['reader']['image']], diagnostics)
+                    sandbox(job['reader'],'reader',[(sock,'/replica','ro'),(data,'/output','rw'),(selection_context,'/selection','ro')],deadline-180,loaded_images[job['reader']['image']], diagnostics)
                 except BaseException as error:
                     diagnostics.fail(error)
                     raise
@@ -538,7 +543,7 @@ def run(diagnostics=None) -> None:
         run_spec.chmod(0o755)
         if (data/'inputs.json').is_file():
             shutil.copyfile(data/'inputs.json',run_spec/'inputs.json');(run_spec/'inputs.json').chmod(0o444)
-        producer_mounts=[(data,'/input','ro'),(output,'/output','rw'),(run_spec,'/run-spec','ro')]
+        producer_mounts=[(selection_context,'/selection','ro'),(data,'/input','ro'),(output,'/output','rw'),(run_spec,'/run-spec','ro')]
         verifier_mounts=[(data,'/input','ro'),(output,'/evidence','ro'),(run_spec,'/run-spec','ro'),(specification,'/job','ro'),(verdict,'/verdict','rw')]
         if fixture.is_dir():
             producer_mounts.append((fixture,'/fixture','ro'));verifier_mounts.append((fixture,'/fixture','ro'))

@@ -79,8 +79,10 @@ and a systemctl double; they do not claim an AL2023 DHCP-renewal rehearsal.
 
 ## Closed receipt and lifecycle boundaries
 
-Results leave the worker only in the closed `polis-probe-receipt/1` or `/2` schema:
-bounded counts, finite errors, fixed verdicts, selection aggregates and digests.
+The verifier emits the closed `polis-probe-receipt/3` schema: bounded counts,
+finite errors, fixed verdicts, selection aggregates, digests and comparison
+diagnostics. The supervisor and operator continue to read historical `/1` and
+`/2` receipts.
 On an empty (zero-vote) conversation the legacy engine omits fields that Python emits; Python's complete empty structure is the canonical output and the legacy behaviour is a recorded defect, never an accepted variant. An entry may also carry `legacy_defects`: `legacy-defect-empty-omits-keys` with a sorted,
 unique, nonempty subset of the 15 fixed public keys in the committed
 [`pc-zerovote-01-empty.json`](../delphi/scripts/schedules/pc-zerovote-01-empty.json)
@@ -439,8 +441,74 @@ sample alongside the 14 existing private entries. The gate orders actual sizes,
 preserves restart pairs, and reconstructs the sample's ceiling-six full-stream
 cuts and final-source-state moderation in both engines. Empty or unsupported
 inputs remain required and can fail the gate. Payloads, maps and byte census
-remain box-only; receipt/2 exports only the closed numeric selection report.
+remain box-only; receipt/3 retains the closed numeric selection report and adds
+its seed-source token. Historical receipt/2 reports remain readable.
 See [representative payload admission](../delphi/docs/representative-selection.md).
+
+## Receipt /3 diagnostics and selection variety
+
+Every entry carries a fixed `recipe` token derived from the verifier's admitted
+role and schedule. The fourteen role recipes and six public recipes have
+separate tokens; all twenty representative samples use `sample-uniform6`.
+Receipt order remains data-dependent. Selection-size rows are independently
+sorted and must never be zipped to receipt entries.
+
+`diagnostics` contains only `checkpoint` (zero-based ordinal), `family`, `kind`
+and `magnitude`. Families are `projection`, `clusters`, `repness`, `moderation`
+and `meta`. Kinds are `numeric-tolerance`, `strict-tolerance`, `exact-value`,
+`shape` and `nonfinite`. A strict numeric failure is reported separately when
+G12 has no numeric failure at the same family/checkpoint resolution. Finite
+G12 failures use ratio buckets `over1-to2`, `over2-to10`, `over10` (inclusive
+upper bounds); other kinds use `not-applicable`. No field paths or values are
+exported. Unknown recipe or exported enum tokens fail closed. An unmapped
+comparison field uses `meta`; missing strict context and diagnostic-context
+exceptions produce a fixed `meta/shape/not-applicable` tuple. A step-count
+mismatch uses that same tuple at ordinal zero. Root-key inventory faults name
+the affected families in both comparers without multiplying divergence counts.
+
+Tuples are deduplicated and sorted by checkpoint and published enum order.
+The projection reserves one tuple for every failing entry, then fills up to
+8 per entry and 256 per receipt. `diagnostics_truncated` records omissions;
+comparisons always run to completion. PASS entries have no diagnostics and
+FAIL entries have at least one. The existing 131,072-byte limit is enforced
+on the completed projection. The verdict rules, 21 controls and comparison
+policy digest are unchanged. A failed control yields an overall FAIL receipt
+with the actual passed count, even when every entry passes. The decoder checks
+passed versus expected instead of requiring all controls to pass before it
+will decode the receipt.
+
+The probe config's `representative_selection.seed_source` is `run-id` by
+default. Derivation v1 is SHA-256 of the admitted run ID's 32 lowercase ASCII
+hex characters, with no other input. The reader freezes this seed into the
+box-local config; producer and verifier independently check that config
+against their own shipped source and supervisor context. The reader and
+producer receive only a read-only `/selection/context.json` containing
+`run_id` and any explicit selection override. The producer still cannot mount
+the full job/control directory. The verifier derives context directly from
+the admitted job. The existing stratifier and target of 20 are unchanged.
+
+To reproduce a selection, add this optional block to a job JSON, using the
+previous receipt's seed (the example is a public test value):
+
+```json
+{"representative_selection":{"seed_source":"config","seed":"1111111111111111111111111111111111111111111111111111111111111111"}}
+```
+
+The job boundary accepts only `config` plus an explicit 64-digit lowercase
+hex seed as an override. Configs without `seed_source` retain their historical
+explicit-seed behavior. Receipt `selection.seed` is the actual seed and
+`selection.seed_source` is `config` or `run-id`. Without a job override, the
+decoder requires `run-id` and the derived seed; with an override, both fields
+must match it exactly. Reproduction also needs the
+same source snapshot and selection rules; a seed does not freeze a changing
+database population.
+
+Roll out the operator validator, v9 image closure/registry pins and bake 12
+worker together. The new worker supplies selection context and validates /3;
+old AMIs cannot run this contract. The ceiling base already includes 43,200
+seconds and shutdown rounding. Existing v8 registry pins are still held for
+replacement by the reviewed v9 release; this source edit does not build or
+register images.
 
 ## Local verification
 

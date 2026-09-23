@@ -28,6 +28,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(REPO / 'delphi'))
 sys.path.insert(0, str(HERE.parent))
 from control import encoded, sha
+from diagnostic_projection import comparison_diagnostics
 from image_admission import file_digest, json_bytes, regular_path
 import g12
 from polismath.replay import certify, fixture_bundle, fixture_samples, real_data, schedule, store
@@ -284,10 +285,8 @@ def verify_pairs(prepared, recordings, scratch):
         raise ValueError('EMPTY_RECORDINGS')
     reports = []
     with contextlib.redirect_stdout(io.StringIO()):
-        controls_pass = g12.self_test() == 0
-    if not controls_pass:
-        raise ValueError('G12_CONTROLS_FAILED')
-    passed = True
+        g12_controls = g12.self_test(counts=True)
+    passed = g12_controls['rejected'] == g12_controls['expected']
     for p in prepared:
         rec = store.recording_dir(p.entry.dataset, p.entry.schedule_id, root=recordings)
         if read(rec / 'schedule.json') != p.spec.to_dict():
@@ -305,14 +304,18 @@ def verify_pairs(prepared, recordings, scratch):
             except Exception as exc:
                 stage_diagnostic = {'gate': False, 'status': 'UNAVAILABLE', 'error_type': type(exc).__name__}
         reports.append({'dataset': p.entry.dataset, 'schedule_id': p.entry.schedule_id,
-                        'strict': strict, 'g12': metric, 'pass': ok, 'stages': stage_diagnostic})
+                        'strict': strict, 'g12': metric, 'pass': ok, 'stages': stage_diagnostic,
+                        'recipe_context': {'role': p.entry.role, 'dataset': p.entry.dataset,
+                                           'schedule_id': p.entry.schedule_id},
+                        'diagnostics': comparison_diagnostics(strict, metric)})
         defects = certify.legacy_empty_defects(p)
         if defects:
             reports[-1]['legacy_defects'] = defects
     controls = checkpoint_controls(prepared[0], recordings, scratch)
+    passed = passed and all(value == 'REJECTED' for value in controls.values())
     return {'verdict': 'PASS' if passed else 'FAIL', 'checks': sum(len(p.checkpoints) for p in prepared),
             'entries': reports, 'negative_controls': {'schema': 'polis-private-controls/1',
-                                  'g12': {'rejected': 17, 'expected': 17}, 'checkpoint': controls},
+                                  'g12': g12_controls, 'checkpoint': controls},
             'scope': 'paired-recordings; stages/recovery/consumption are separate diagnostics'}
 
 
@@ -348,7 +351,7 @@ def checkpoint_controls(expected, recordings, scratch):
         except (ValueError, certify.CertifyError):
             result[name] = 'REJECTED'
         else:
-            raise ValueError('CHECKPOINT_CONTROL_FALSE_ACCEPTANCE')
+            result[name] = 'ACCEPTED'
     return result
 
 

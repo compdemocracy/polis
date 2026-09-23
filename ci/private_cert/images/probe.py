@@ -6,11 +6,14 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+from types import SimpleNamespace
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parents[1] / "probe_box"))
 import gate
+from diagnostic_projection import recipe_token, bounded_diagnostics
+import selection_context
 from receipt import sha, validate_legacy_defects, validate_receipt
 
 # Box-only capture/selection rules are part of the admitted image closure.
@@ -62,8 +65,9 @@ def extract() -> None:
     fixture = private / 'fixture'
     payload = fixture / 'payload'
     payload.mkdir(parents=True)
-    config_bytes = PROBE_CONFIG_PATH.read_bytes()
-    config = json.loads(config_bytes)
+    context = gate.read(Path('/selection/context.json'))
+    config, _ = selection_context.resolve(json.loads(PROBE_CONFIG_PATH.read_bytes()), context)
+    config_bytes = gate.encoded(config)
     fc.validate_config(config)
     # libpq receives a socket-only service file, never a network hostname.
     conn = psycopg2.connect(service='probe')
@@ -142,9 +146,23 @@ def prepare_fixture_plan(fixture, config, manifest, private, inputs):
     return prepared, inventory
 
 
+def admit_fixture_selection(context):
+    if gate.read(Path('/fixture/plan.json'))['scope'] == 'public':
+        return None
+    return selection_context.admit(gate.read(Path('/fixture/config.json')), context)
+
+
+def produce() -> None:
+    if gate.read(Path('/fixture/plan.json'))['scope'] != 'public':
+        admit_fixture_selection(gate.read(Path('/selection/context.json')))
+    gate.produce()
+
+
 def verify() -> None:
-    job = gate.read(Path('/job/job.json'))
+    from contracts import validate_job
+    job = validate_job(gate.read(Path('/job/job.json')))
     inputs = gate.read(Path('/run-spec/inputs.json'))
+    source = admit_fixture_selection(selection_context.from_job(job))
     with tempfile.TemporaryDirectory() as tmp:
         report = gate.verify_recordings(Path('/evidence'), inputs, Path(tmp), Path('/fixture'))
     entries = []
@@ -153,7 +171,9 @@ def verify() -> None:
         exported = {'verdict': 'PASS' if entry['pass'] else 'FAIL',
                         'checks': len(entry['strict']['per_step']),
                         'worst_absolute': roll['max_abs'], 'worst_relative': roll['max_rel_all'],
-                        'outliers': roll['g12_outliers'], 'nonfinite': roll['nonfinite']}
+                        'outliers': roll['g12_outliers'], 'nonfinite': roll['nonfinite'],
+                        'recipe': recipe_token(SimpleNamespace(**entry['recipe_context'])),
+                        'diagnostics': entry['diagnostics']}
         # Export actual observed defects, not the schedule's broader allowance.
         omitted = set()
         for step in entry['strict']['per_step']:
@@ -165,12 +185,16 @@ def verify() -> None:
         if defects:
             exported['legacy_defects'] = validate_legacy_defects(defects)
         entries.append(exported)
+    for entry, projected in zip(entries, bounded_diagnostics(entries)):
+        entry.update(projected)
     controls = report['negative_controls']
     completed = controls['g12']['rejected'] + sum(v == 'REJECTED' for v in controls['checkpoint'].values())
     manifest = gate.read(Path('/fixture/manifest.json'))
     selection = manifest.get('representative', {}).get('report')
-    receipt = {'schema': 'polis-probe-receipt/2' if selection else 'polis-probe-receipt/1', 'run_id': job['run_id'], 'job_sha256': sha(job),
-               'verdict': report['verdict'], 'entries': entries,
+    if selection is not None:
+        selection = dict(selection, seed_source=source)
+    receipt = {'schema': 'polis-probe-receipt/3', 'run_id': job['run_id'], 'job_sha256': sha(job),
+               'verdict': report['verdict'] if completed == 21 else 'FAIL', 'entries': entries,
                'controls': {'passed': completed, 'expected': 21},
                'selection': selection,
                'digests': {'producer': job['producer']['image'].split('@sha256:')[1],
@@ -210,7 +234,7 @@ if __name__ == '__main__':
         if sys.argv[1:] == ['extract']:
             extract()
         elif sys.argv[1:] == ['produce']:
-            gate.produce()
+            produce()
         elif sys.argv[1:] == ['verify']:
             verify()
         else:

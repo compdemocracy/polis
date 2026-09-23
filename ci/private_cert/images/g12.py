@@ -155,14 +155,34 @@ def _all_int(xs) -> bool:
 # Collector: gated floats, typed-exact checks, and shape/inventory violations.
 # ---------------------------------------------------------------------------
 class Collector:
-    def __init__(self) -> None:
+    def __init__(self, *, diagnostics=False) -> None:
+        self.diagnostics_enabled = diagnostics
+        self.diagnostics = set()
+        self.family = None
+        self.checkpoint = 0
         self.pairs: dict[str, list[tuple[float, float]]] = {}   # gated floats
         self.exact_mismatch: dict[str, int] = {}
         self.exact_total: dict[str, int] = {}
         self.shape: dict[str, int] = {}                          # inventory faults
 
+    def diagnostic(self, kind, magnitude="not-applicable"):
+        if self.diagnostics_enabled:
+            from polismath.replay.diagnostics import FAMILIES
+            family = self.family if self.family in FAMILIES else "meta"
+            self.diagnostics.add((self.checkpoint, family, kind, magnitude))
+
     def add_float(self, path: str, a: float, b: float) -> None:
         self.pairs.setdefault(path, []).append((float(a), float(b)))
+        if not self.diagnostics_enabled:
+            return
+        if not (math.isfinite(a) and math.isfinite(b)):
+            self.diagnostic("nonfinite")
+        elif g12_fail(a, b):
+            # Scale first: opposite-sign finite maxima can overflow a-b.
+            scale = max(abs(a), abs(b))
+            ratio = abs(a / scale - b / scale) / (ABS / scale + G12_REL)
+            self.diagnostic("numeric-tolerance", "over1-to2" if ratio <= 2 else
+                            "over2-to10" if ratio <= 10 else "over10")
 
     def add_exact(self, path: str, a, b, kind: str = "any") -> None:
         self.exact_total[path] = self.exact_total.get(path, 0) + 1
@@ -174,8 +194,11 @@ class Collector:
             return
         if _canon_exact(a, kind) != _canon_exact(b, kind):
             self.exact_mismatch[path] = self.exact_mismatch.get(path, 0) + 1
+            self.diagnostic("exact-value")
 
-    def add_shape(self, path: str, detail: str = "") -> None:
+    def add_shape(self, path: str, detail: str = "", *, emit_diagnostic=True) -> None:
+        if emit_diagnostic:
+            self.diagnostic("shape")
         key = f"{path} [{detail}]" if detail else path
         self.shape[key] = self.shape.get(key, 0) + 1
 
@@ -340,14 +363,29 @@ def walk(a, b, path: str, col: Collector, axis: Axis = DEFAULT_AXIS) -> None:
 
 def _walk_keyed(k, va, vb, p, col, axis: Axis = DEFAULT_AXIS) -> None:
     """Back-compat single keyed entry (main-blob and probes) -> compare_field."""
-    compare_field(va, vb, p, col, axis, spec_for(k))
+    previous = col.family
+    if col.diagnostics_enabled:
+        from polismath.replay.diagnostics import child_family
+        col.family = child_family(previous, k)
+    try:
+        compare_field(va, vb, p, col, axis, spec_for(k))
+    finally:
+        col.family = previous
 
 
 def compare_field(a, b, path, col, axis, spec: Spec) -> None:
     # TOTAL: any exception in a field comparison becomes a graded shape fault,
     # so no input can leave a probe ungraded.
+    from polismath.replay.diagnostics import DiagnosticContextError
     try:
         _dispatch(a, b, path, col, axis, spec)
+    except DiagnosticContextError:
+        previous = col.family
+        col.family = "meta"
+        try:
+            col.add_shape(path, "diagnostic-context")
+        finally:
+            col.family = previous
     except Exception as exc:  # noqa: BLE001 -- deliberate: grade, never raise
         col.add_shape(path, f"error:{type(exc).__name__}")
 
@@ -403,7 +441,12 @@ def _base_clusters(a, b, path, col, axis) -> None:
         else:  # projection-axis column vector
             if not (isinstance(va, list) and isinstance(vb, list)):
                 col.add_shape(p, "col-rank"); continue
-            _collect_signed(va, vb, p, col, axis.projection(spec[1]))
+            previous = col.family
+            col.family = "projection"
+            try:
+                _collect_signed(va, vb, p, col, axis.projection(spec[1]))
+            finally:
+                col.family = previous
 
 
 # ---------------------------------------------------------------------------
@@ -616,7 +659,16 @@ def _recurse(a, b, path, col, axis: Axis) -> None:
         if local is DEFAULT_AXIS and "comps" in a and "comps" in b:
             local = Axis(infer_axis_sign(a["comps"], b["comps"]), 1)
         for k in ka & kb:
-            walk(a[k], b[k], f"{path}.{k}", col, local)
+            previous = col.family
+            if col.diagnostics_enabled:
+                from polismath.replay.diagnostics import child_family
+                col.family = child_family(previous, k)
+            try:
+                # Preserve the existing dispatch exactly; context is carried
+                # independently and never inferred from this private path.
+                walk(a[k], b[k], f"{path}.{k}", col, local)
+            finally:
+                col.family = previous
         return
     if isinstance(a, list) or isinstance(b, list):
         if not (isinstance(a, list) and isinstance(b, list)):
@@ -733,9 +785,17 @@ def measure_main_blob(entry_dir: Path, repo_delphi: Path, *, expected=None) -> d
     clj_blobs = crosslang.load_clj_blobs(str(entry_dir / "clj"))
     py_steps = sorted((entry_dir / "py").glob("step-*.json"))
     if len(clj_blobs) != len(py_steps):
-        return {"status": "STEP_COUNT_MISMATCH"}
-    col = Collector()
+        col = Collector(diagnostics=True)
+        col.add_shape("main", "step-count")
+        rep = summarize(col)
+        rep.update(status="STEP_COUNT_MISMATCH", authoritative_g12=False,
+                   n_steps=max(len(clj_blobs), len(py_steps)),
+                   diagnostics=[dict(checkpoint=0, family="meta", kind="shape",
+                                     magnitude="not-applicable")])
+        return rep
+    col = Collector(diagnostics=True)
     for i, cb in enumerate(clj_blobs):
+        col.checkpoint = i
         py_blob = json.loads(py_steps[i].read_text())["blob"]
         if expected is None:
             A, B = project_acceptance(cb), project_acceptance(py_blob)
@@ -747,10 +807,20 @@ def measure_main_blob(entry_dir: Path, repo_delphi: Path, *, expected=None) -> d
         axis = Axis(s, d)
         ka, kb = set(A), set(B)
         if ka != kb:
-            col.add_shape("main", f"acceptance-keys only_a={sorted(ka-kb)} only_b={sorted(kb-ka)}")
+            from polismath.replay.diagnostics import child_family
+            # Preserve one aggregate inventory fault, with the original detail.
+            # The extra family tokens do not multiply the old shape counter.
+            col.add_shape("main", f"acceptance-keys only_a={sorted(ka-kb)} only_b={sorted(kb-ka)}",
+                          emit_diagnostic=False)
+            for key in ka ^ kb:
+                col.family = child_family(None, key)
+                col.diagnostic("shape")
+            col.family = None
         for k in ka & kb:
             _walk_keyed(k, A[k], B[k], k, col, axis)
     rep = summarize(col)
+    from polismath.replay.diagnostics import ordered
+    rep["diagnostics"] = ordered(dict(zip(("checkpoint", "family", "kind", "magnitude"), row)) for row in col.diagnostics)
     rep["authoritative_g12"] = rep["rollup"]["g12_pass"]
     rep["legacy_diagnostic"] = {
         "b1_match": b1["overall_match"],
@@ -829,7 +899,7 @@ def measure_stages(clj_dir: Path, py_dir: Path) -> dict:
 # ---------------------------------------------------------------------------
 # Self-test: seventeen probes (review rounds 1-4) must be REJECTED, zero errors.
 # ---------------------------------------------------------------------------
-def self_test() -> int:
+def self_test(*, counts=False):
     def rejected(a, b, path, via="walk"):
         col = Collector()
         if via == "walk":
@@ -883,13 +953,15 @@ def self_test() -> int:
          {"rownames": [[1]], "colnames": [0], "matrix": [[1]]}, "bucket-dists", "keyed:bucket-dists"),
     ]
     ok = True
+    completed = 0
     print("## SELF-TEST (seventeen false-acceptance probes as negative controls)")
     for label, a, b, path, via in probes:
         r = rejected(a, b, path, via)
         print(f"  {label:<30} {'REJECTED (control passes)' if r else 'FALSELY ACCEPTED (control FAILS)'}")
         ok = ok and r
+        completed += int(r)
     print("  " + ("ALL 17 REJECTED" if ok else "SOME PROBES STILL ACCEPTED"))
-    return 0 if ok else 1
+    return {"rejected": completed, "expected": len(probes)} if counts else (0 if ok else 1)
 
 
 
