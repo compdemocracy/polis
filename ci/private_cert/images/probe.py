@@ -155,7 +155,10 @@ def admit_fixture_selection(context):
 def produce() -> None:
     if gate.read(Path('/fixture/plan.json'))['scope'] != 'public':
         admit_fixture_selection(gate.read(Path('/selection/context.json')))
-    gate.produce()
+    budget = gate.read(Path('/run-spec/deadline.json'))
+    if type(budget) is not dict or set(budget) != {'engine_deadline_unix'}:
+        raise ValueError('ENGINE_DEADLINE')
+    gate.produce(deadline=gate.validate_engine_deadline(budget['engine_deadline_unix']))
 
 
 def verify() -> None:
@@ -225,6 +228,13 @@ def failure_origin(error: BaseException) -> str:
 def report_failure(error: BaseException) -> None:
     import traceback
     traceback.print_exc()
+    if isinstance(error, gate.EngineTimeoutError):
+        from receipt import validate_engine_timeout
+        context = validate_engine_timeout(error.context)
+        print('gate.EngineTimeoutError: ENGINE_DEADLINE_EXCEEDED ' +
+              ' '.join(context[k] for k in ('engine', 'recipe', 'elapsed_bucket')),
+              file=sys.stderr, flush=True)
+        return
     kind = type(error)
     print(f'{kind.__module__}.{kind.__qualname__}: {failure_origin(error)}', file=sys.stderr, flush=True)
 

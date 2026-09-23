@@ -1079,17 +1079,22 @@ class CertifyError(RuntimeError):
         self.stage = stage
 
 
-# Generous ceilings — driver runs are ~10s (clj, JVM-startup-bound) to a few
-# minutes (py warm-start chains); these exist so a hung JVM or Python driver
-# fails the ENTRY instead of blocking an unattended battery run forever.
-# (Review finding, 2026-07-22.)
-DRIVER_TIMEOUT_SEC = 3600.0
+# Outside ProbeBox, callers can override this local/CI safety bound. ProbeBox
+# passes its admitted absolute deadline directly and never reads this setting.
+def driver_timeout_seconds() -> float:
+    try:
+        value = float(os.environ.get("POLIS_CERTIFY_DRIVER_TIMEOUT_SECONDS", "43200"))
+    except (ValueError, OverflowError):
+        raise ValueError("DRIVER_TIMEOUT_CONFIG") from None
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError("DRIVER_TIMEOUT_CONFIG")
+    return value
 
 
 def _run_subprocess(cmd: list[str], *, cwd: Path, env: dict[str, str],
-                    timeout: float = DRIVER_TIMEOUT_SEC) -> subprocess.CompletedProcess:
+                    timeout: float | None = None) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, cwd=str(cwd), env=env, capture_output=True,
-                          text=True, timeout=timeout)
+                          text=True, timeout=driver_timeout_seconds() if timeout is None else timeout)
 
 
 def run_py_driver(spec_path: Path, *, out_root: Path, events: Path | None = None) -> subprocess.CompletedProcess:

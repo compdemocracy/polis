@@ -144,6 +144,20 @@ RECIPE_TOKENS = frozenset({
 })
 
 
+ENGINE_TOKENS = frozenset({"legacy", "python"})
+ELAPSED_BUCKETS = frozenset({"le-1h", "le-2h", "le-4h", "gt-4h"})
+
+
+def validate_engine_timeout(value: object) -> dict:
+    """Independent closed export boundary shared by worker and operator."""
+    r = closed(value, {"engine", "recipe", "elapsed_bucket"})
+    for key, tokens in (("engine", ENGINE_TOKENS), ("recipe", RECIPE_TOKENS),
+                        ("elapsed_bucket", ELAPSED_BUCKETS)):
+        if type(r[key]) is not str or r[key] not in tokens:
+            raise ValueError("ENGINE_TIMEOUT_CONTEXT")
+    return r
+
+
 def validate_diagnostics(entry):
     if type(entry["recipe"]) is not str or entry["recipe"] not in RECIPE_TOKENS:
         raise ValueError("RECEIPT_RECIPE")

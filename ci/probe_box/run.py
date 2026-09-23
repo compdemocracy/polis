@@ -8,7 +8,7 @@ import re
 import time
 import uuid
 from contracts import CAMPAIGN_CEILING_SECONDS, validate_job
-from receipt import validate_receipt, decode_receipt, receipt_limit
+from receipt import validate_receipt, decode_receipt, receipt_limit, validate_engine_timeout
 
 LAUNCH_KEYS = ('TEMPLATE', 'TEMPLATE_VERSION', 'PROFILE', 'SUBNET', 'SECURITY_GROUP')
 # A worker that ends without a receipt leaves this record in its heartbeat object (worker.py).
@@ -82,6 +82,13 @@ def clean_heartbeat(record):
         for k, kind in (('exit', int), ('oom', bool), ('rank', int), ('candidates', int)):
             if type(container.get(k)) is kind:
                 c[k] = container[k]
+        if c.get('label') == 'producer' and c.get('code') == 'ENGINE_DEADLINE_EXCEEDED':
+            try:
+                context = validate_engine_timeout({k: container.get(k) for k in ('engine', 'recipe', 'elapsed_bucket')})
+            except ValueError:
+                pass
+            else:
+                c.update(context)
         clean['container'] = c
     relay = record.get('relay')
     if isinstance(relay, dict):

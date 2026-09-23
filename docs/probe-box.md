@@ -207,7 +207,17 @@ the old template version; do not mutate their configuration to retrofit a run.
 Source inspection found `statement_timeout = '30min'` on the reader login. This
 is a per-statement database timeout, not a supervisor lifetime; the reader and
 its relay are already closed before the producer starts. It does not explain
-loss of S3 writes during producer computation. This database setting is unchanged.
+loss of S3 writes during producer computation. Run 15 completed reader admission for the same selected set that later exhausted
+an engine's old limit. That shows those reader statements finished; engine CPU
+time does not measure SQL latency. The aggregate population survey and each
+conversation's vote/comment/participant query still inherit the fixed limit, so
+another size class or database load can hit it with campaign budget remaining.
+Proposed follow-up: give the reader its admitted absolute `deadline - 180` and
+set each query's session/transaction timeout to the remaining reader budget
+immediately before execution (including the initial census), preserving read-only
+repeatable-read isolation. A one-time session duration would incorrectly reset
+that budget for each statement. This needs extractor query-boundary plumbing and
+is not part of the engine change; the login setting is unchanged.
 
 The host metadata helper requests a fresh IMDSv2 token for each call with a
 300-second TTL, and five-second HTTP timeouts. SDK credentials come from
@@ -242,7 +252,33 @@ The worker's own host fallback, `shutdown -h +N` at startup, rounds N **up** to
 whole minutes (`worker.shutdown_minutes`, minimum 1). It is a backstop behind
 the admitted deadline, not a competitor to it: flooring would have powered the
 host off up to 59 s early and cut a run short before its own expiry.
-The producer engine subprocess timeout is 3600 seconds. A separate benchmark
+For certification jobs, the worker writes `/run-spec/deadline.json` read-only
+immediately before starting the producer. Its `engine_deadline_unix` is one
+absolute Unix timestamp: `D - 120 - 0.10 * max(0, D - 120 - now)`, where `D`
+is the original admitted start plus job `max_seconds`. Existing reader/producer/
+verifier container reserves remain `D - 180`, `D - 120`, and `D - 30`; they are
+stage-specific, not cumulative. Ten percent of the remaining producer window is
+reserved for the verifier's expected comparison work, in addition to the existing
+cleanup reserves. This is a documented allocation, not a measured guarantee that
+verification will fit. It is frozen once, never recalculated per conversation.
+Every legacy/Python invocation uses only the time remaining to that timestamp;
+there is no independent one-hour engine cap. An exhausted budget starts no child.
+The ProbeBox entrypoint requires this file even for public fixtures; it cannot
+silently fall back to a fresh local duration. Outside the box, certify uses
+`POLIS_CERTIFY_DRIVER_TIMEOUT_SECONDS` (positive finite seconds, default 43200).
+Direct local `gate.produce` exercises freeze that default once for the producer.
+
+On engine expiry, the failure record container includes closed `engine`
+(`legacy`/`python`), `recipe` (the receipt /3 vocabulary; all sample entries map
+to `sample-uniform6`), and `elapsed_bucket` (`le-1h`/`le-2h`/`le-4h`/`gt-4h`).
+Elapsed time is monotonic per invocation. The worker validates the final marker
+and the operator independently validates its three fields; no command, path,
+conversation identity or raw exception message is exported. This remains a
+failure record, not a completed comparison receipt. Ship v10 images, updated
+operator receipt/vocabulary modules, and bake 13 together: the old worker supplies
+no absolute engine deadline and cannot export the new context.
+
+A separate benchmark
 helper, `polismath.replay.shard_bench`, has a 1800-second child timeout, but the
 probe producer invokes the engine drivers directly and does not use that helper.
 The operator's heartbeat grace/staleness are 600/300 seconds. No thirty-minute
