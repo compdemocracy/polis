@@ -132,20 +132,57 @@ def validate_selection(value: object) -> dict:
     return r
 
 
+DIAGNOSTIC_FAMILIES = ("projection", "clusters", "repness", "moderation", "meta")
+DIAGNOSTIC_KINDS = ("numeric-tolerance", "strict-tolerance", "exact-value", "shape", "nonfinite")
+DIAGNOSTIC_MAGNITUDES = ("over1-to2", "over2-to10", "over10", "not-applicable")
+RECIPE_TOKENS = frozenset({
+    "sample-uniform6", "large-r16-uniform6", "large-r8-uniform8", "large-r4-uniform8",
+    "large-r2-uniform8", "large-r1-uniform6", "revote-uniform6", "banned-uniform6",
+    "smallmix-uniform6", "midmix-uniform6", "zero-empty", "modheavy-single", "meta-single",
+    "midmix-restart3", "meta-uniform6", "public-vw-uniform8", "public-vw-front6",
+    "public-vw-single", "public-biodiversity-uniform8", "public-vw-every56", "public-vw-restart4",
+})
+
+
+def validate_diagnostics(entry):
+    if type(entry["recipe"]) is not str or entry["recipe"] not in RECIPE_TOKENS:
+        raise ValueError("RECEIPT_RECIPE")
+    rows, truncated = entry["diagnostics"], entry["diagnostics_truncated"]
+    if type(rows) is not list or len(rows) > 8 or type(truncated) is not bool:
+        raise ValueError("RECEIPT_DIAGNOSTICS")
+    if (entry["verdict"] not in ("PASS", "FAIL") or not entry["checks"]
+            or bool(rows) != (entry["verdict"] == "FAIL") or (truncated and not rows)):
+        raise ValueError("RECEIPT_DIAGNOSTICS")
+    keys = []
+    for row in rows:
+        d = closed(row, {"checkpoint", "family", "kind", "magnitude"})
+        c, f, k, m = (d[x] for x in ("checkpoint", "family", "kind", "magnitude"))
+        if (type(c) is not int or not 0 <= c < entry["checks"]
+                or f not in DIAGNOSTIC_FAMILIES or k not in DIAGNOSTIC_KINDS
+                or m not in DIAGNOSTIC_MAGNITUDES
+                or ((k == "numeric-tolerance") != (m != "not-applicable"))):
+            raise ValueError("RECEIPT_DIAGNOSTICS")
+        keys.append((c, DIAGNOSTIC_FAMILIES.index(f), DIAGNOSTIC_KINDS.index(k), DIAGNOSTIC_MAGNITUDES.index(m)))
+    if keys != sorted(set(keys)):
+        raise ValueError("RECEIPT_DIAGNOSTICS")
+
+
 def validate_receipt(value: object, job: Job) -> dict:
     job = validate_job(job)
     if job["schema"] == "polis-probe-job/2":
         from roles_census import validate_receipt as validate_census_receipt
         return validate_census_receipt(value, job)
     r = closed(value, {"schema", "run_id", "job_sha256", "verdict", "entries", "controls", "selection", "digests"})
-    if (r["schema"] not in ("polis-probe-receipt/1", "polis-probe-receipt/2") or r["run_id"] != job["run_id"] or
+    if (r["schema"] not in ("polis-probe-receipt/1", "polis-probe-receipt/2", "polis-probe-receipt/3") or r["run_id"] != job["run_id"] or
             r["job_sha256"] != sha(job) or r["verdict"] not in ("PASS", "FAIL", "INCOMPLETE")):
         raise ValueError("RECEIPT_BINDING")
     if type(r["entries"]) is not list or not 1 <= len(r["entries"]) <= 256:
         raise ValueError("RECEIPT_ENTRIES")
+    v3 = r["schema"] == "polis-probe-receipt/3"
+    diagnostic_fields = {"recipe", "diagnostics", "diagnostics_truncated"} if v3 else set()
     for entry in r["entries"]:
         optional = {"legacy_defects"} if type(entry) is dict and "legacy_defects" in entry else set()
-        e = closed(entry, {"verdict", "checks", "worst_absolute", "worst_relative", "outliers", "nonfinite"} | optional)
+        e = closed(entry, {"verdict", "checks", "worst_absolute", "worst_relative", "outliers", "nonfinite"} | optional | diagnostic_fields)
         if optional:
             validate_legacy_defects(e["legacy_defects"])
         if e["verdict"] not in ("PASS", "FAIL", "INCOMPLETE"):
@@ -156,6 +193,13 @@ def validate_receipt(value: object, job: Job) -> dict:
             finite(e[key])
         if e["verdict"] == "PASS" and (not e["checks"] or e["outliers"] or e["nonfinite"]):
             raise ValueError("RECEIPT_FALSE_PASS")
+        if v3:
+            validate_diagnostics(e)
+    if v3 and sum(len(e["diagnostics"]) for e in r["entries"]) > 256:
+        raise ValueError("RECEIPT_DIAGNOSTICS_LIMIT")
+    if v3 and sum(len(e["diagnostics"]) for e in r["entries"]) < 256:
+        if any(e["diagnostics_truncated"] and len(e["diagnostics"]) < 8 for e in r["entries"]):
+            raise ValueError("RECEIPT_DIAGNOSTICS_TRUNCATION")
     controls = closed(r["controls"], {"passed", "expected"})
     count(controls["passed"]); count(controls["expected"])
     if not controls["expected"] or controls["passed"] > controls["expected"]:
@@ -163,8 +207,23 @@ def validate_receipt(value: object, job: Job) -> dict:
     if r["verdict"] == "PASS" and (any(e["verdict"] != "PASS" for e in r["entries"]) or
             controls["passed"] != controls["expected"]):
         raise ValueError("RECEIPT_FALSE_PASS")
+    all_pass = (all(e["verdict"] == "PASS" for e in r["entries"])
+                and controls["passed"] == controls["expected"])
+    if v3 and r["verdict"] != ("PASS" if all_pass else "FAIL"):
+        raise ValueError("RECEIPT_FALSE_PASS")
     selection = r["selection"]
-    if r["schema"] == "polis-probe-receipt/2":
+    if v3 and selection is not None:
+        selected = closed(selection, {"seed", "seed_source", "bucket_counts", "chosen_entry_sizes"})
+        if selected["seed_source"] not in ("config", "run-id"):
+            raise ValueError("RECEIPT_SELECTION_SEED_SOURCE")
+        validate_selection({k: v for k, v in selected.items() if k != "seed_source"})
+        expected_seed = job.get("representative_selection", {
+            "seed_source": "run-id",
+            "seed": hashlib.sha256(job["run_id"].encode("ascii")).hexdigest(),
+        })
+        if any(selected[key] != expected_seed[key] for key in ("seed_source", "seed")):
+            raise ValueError("RECEIPT_SELECTION_SEED_BINDING")
+    elif r["schema"] == "polis-probe-receipt/2":
         validate_selection(selection)
     elif selection is not None:
         closed(selection, {"seed", "bucket_counts", "selected_sizes"})

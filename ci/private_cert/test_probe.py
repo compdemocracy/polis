@@ -24,9 +24,10 @@ class ProbeTests(unittest.TestCase):
             root = Path(tmp)
             recordings = root / 'recordings'
             spec = ScheduleSpec.from_json_file(gate.REPO / 'delphi/scripts/schedules/pc-zerovote-01-empty.json')
+            spec = ScheduleSpec.from_dict({**spec.to_dict(), 'schedule_id': spec.schedule_id + '-clojure-legacy'})
             checkpoint = {'index': 0, 'prev_slot': 0, 'cut_slot': 0, 'batch_size': 0, 'cut_time_ms': 0}
             expected = gate.certify.ExpectedEntry(
-                gate.certify.BatteryEntry(spec.dataset, spec.schedule_id), spec,
+                gate.certify.BatteryEntry(spec.dataset, spec.schedule_id, role="zero-vote"), spec,
                 root / 'public-events.jsonl', 'a' * 64, None, None, 0, [checkpoint])
             rec = gate.store.recording_dir(spec.dataset, spec.schedule_id, root=recordings)
             (rec / 'clj').mkdir(parents=True)
@@ -45,7 +46,7 @@ class ProbeTests(unittest.TestCase):
                 return gate.verify_pairs([expected], recordings, scratch)
             def read_input(path):
                 admitted = {'/job/job.json': job, '/run-spec/inputs.json': inputs,
-                            '/fixture/manifest.json': {}}
+                            '/fixture/manifest.json': {}, '/fixture/plan.json': {'scope': 'public'}}
                 return admitted[str(path)] if str(path) in admitted else read(path)
             import itertools
             for omitted, lists in itertools.product((['n'], [], ['mod-in'], ['mod-out'], ['mod-in', 'mod-out']), (([], []), ([2, 7], [3, 8]))):
@@ -80,7 +81,7 @@ class ProbeTests(unittest.TestCase):
         files = recipe.source_files(root)
         self.assertEqual(probe.PROBE_CONFIG_PATH, root / 'delphi/scripts/certify_datasets.probe.json')
         self.assertEqual(files[str(probe.PROBE_CONFIG_PATH.relative_to(root))],
-                         '3ee9dd88ea0a4ebf0a94995978d8012f8d499d81cac8036231458549c833a939')
+                         '2d3e9ede1a160b6638ba877eb9bd88e2794ac6adcff637659f78d3dbe11344d3')
         self.assertNotEqual(probe.PROBE_CONFIG_PATH, fixture_config.DEFAULT_CONFIG_PATH)
 
     def test_reader_forwards_only_the_configs_recorded_approvals(self):

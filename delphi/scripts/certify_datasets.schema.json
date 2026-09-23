@@ -51,11 +51,12 @@
     },
     "representative_selection": {
       "type": "object",
-      "description": "Optional snapshot selection/report stage only. Does not add payloads, change existing recipes or admit representative replay. A reviewed config/version fixes the seed before candidate output is inspected; absence preserves existing extraction behavior.",
+      "description": "Optional representative snapshot selection. Config mode pins an explicit seed; run-id mode derives SHA-256 from the admitted run ID and is resolved before extraction. Missing seed_source means config for historical declarations. Target and stratification remain fixed.",
       "additionalProperties": false,
-      "required": ["algorithm", "target", "seed"],
+      "required": ["algorithm", "target"],
       "properties": {
         "algorithm": {"type": "string", "const": "representative-logpv/1"},
+        "seed_source": {"type": "string", "enum": ["config", "run-id"]},
         "target": {"type": "integer", "const": 20},
         "seed": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
       }

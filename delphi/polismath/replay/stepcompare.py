@@ -59,6 +59,7 @@ class StepComparer:
         outlier_fraction: float = 0.01,
         ignore_pca_sign_flip: bool = True,
         tolerant_stat_keys: frozenset[str] = DEFAULT_TOLERANT_STAT_KEYS,
+        diagnostics: bool = False,
     ) -> None:
         # One tolerant-configured comparer; PCA sign/scale handled internally.
         self._cmp = ConversationComparer(
@@ -68,6 +69,10 @@ class StepComparer:
             outlier_fraction=outlier_fraction,
         )
         self._tolerant_keys = tolerant_stat_keys
+        self._diagnostics = diagnostics
+        if diagnostics:
+            from polismath.replay.diagnostics import child_family
+            self._cmp.diagnostic_child = child_family
 
     def compare_step(self, blob_a: dict, blob_b: dict, index: int) -> dict[str, Any]:
         """Diff one pair of step blobs → a per-step, per-family report."""
@@ -92,7 +97,15 @@ class StepComparer:
             }
             (tolerant if self._family(diff) == "tolerant" else exact).append(entry)
 
+        categories = []
+        if self._diagnostics:
+            from polismath.replay.diagnostics import FAMILIES, KINDS
+            unique = {(family, d["comparison_kind"]) for d in c.all_differences
+                      for family in (d.get("comparison_families") or [d["comparison_family"] or "meta"])}
+            categories = [dict(family=f, kind=k, magnitude="not-applicable") for f, k in
+                          sorted(unique, key=lambda row: (FAMILIES.index(row[0]), KINDS.index(row[1])))]
         return {
+            "diagnostics": categories,
             "step": index,
             "match": len(c.all_differences) == 0,
             "n_divergences": len(c.all_differences),

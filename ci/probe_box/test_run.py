@@ -459,6 +459,19 @@ class SessionTests(unittest.TestCase):
         with self.assertRaises(ValueError):x.status(job()['run_id'])
         with self.assertRaisesRegex(Unknown,'RUN_CLOSED'):x.start(job())
 
+    def test_v3_receipt_is_revalidated_after_cleanup(self):
+        from test_receipt3 import v3
+        from test_boundaries import job
+        x,c,e,s,i=session_setup();x.start(job())
+        key='results/arn:aws:ec2:us-east-1:111111111111:instance/i-test/receipt.json'
+        value=v3();s.objects['evidence',key]=encoded(value)
+        self.assertFalse(x.status(job()['run_id'])['passed'])
+        i['State']['Name']='terminated'
+        self.assertTrue(x.status(job()['run_id'])['passed'])
+        value['entries'][0]['recipe']='private'
+        s.objects['evidence',key]=encoded(value)
+        with self.assertRaises(ValueError):x.status(job()['run_id'])
+
     def test_receipt_absence_finishes_failed_after_observed_cleanup(self):
         from test_boundaries import job
         x,c,e,s,i=session_setup();x.start(job());i['State']['Name']='terminated'

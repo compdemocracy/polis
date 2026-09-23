@@ -696,7 +696,7 @@ def _acceptance_projecting_comparer(**kwargs: Any) -> StepComparer:
                 project_acceptance(blob_a), project_acceptance(blob_b), index
             )
 
-    return _AcceptanceProjectingComparer(tolerant_stat_keys=tolerant, **kwargs)
+    return _AcceptanceProjectingComparer(tolerant_stat_keys=tolerant, diagnostics=True, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -945,7 +945,8 @@ def _comparer_code_hash() -> str:
     from polismath.replay import stepcompare as _stepcompare_mod
 
     h = hashlib.sha256()
-    for mod in (_stepcompare_mod, _crosslang_mod, _comparer_mod):
+    from polismath.replay import diagnostics as _diagnostics_mod
+    for mod in (_stepcompare_mod, _crosslang_mod, _comparer_mod, _diagnostics_mod):
         h.update(Path(mod.__file__).read_bytes())
     h.update(Path(__file__).read_bytes())
     return h.hexdigest()
@@ -959,6 +960,7 @@ def _comparer_cfg_hash(cmp: StepComparer) -> str:
         "outlier_fraction": cmp._cmp.outlier_fraction,
         "tolerant_keys": sorted(cmp._tolerant_keys),
         "code": _comparer_code_hash(),
+        "diagnostics": cmp._diagnostics,
     }
     return _canonical_hash(cfg)
 
@@ -1508,6 +1510,7 @@ def compare_recording_pair(
             os.replace(tmp_path, cache_path)
         report = dict(report)
         report["hash_match"] = False
+        report["step"] = i
         if defects:
             report["legacy_defects"] = defects
         per_step.append(report)

@@ -29,6 +29,7 @@ class Job(TypedDict):
     verifier: ImageCommand
     max_seconds: int
     reader: NotRequired[ImageCommand]
+    representative_selection: NotRequired[dict]
 
 
 class BoundaryError(ValueError):
@@ -59,7 +60,7 @@ def validate_job(value: object) -> Job:
                 raise BoundaryError("CENSUS_COMMAND")
         if len({value[k]["image"] for k in ("reader","producer","verifier")}) != 3:
             raise BoundaryError("CENSUS_SEPARATE_IMAGES")
-    elif type(value) is not dict or set(value) - {"reader"} != {
+    elif type(value) is not dict or set(value) - {"reader", "representative_selection"} != {
         "schema", "run_id", "producer", "verifier", "max_seconds"
     } or value["schema"] != "polis-probe-job/1":
         raise BoundaryError("JOB_SCHEMA")
@@ -76,6 +77,13 @@ def validate_job(value: object) -> Job:
                    "producer": producer, "verifier": verifier, "max_seconds": ceiling}
     if "reader" in value:
         result["reader"] = command(value["reader"])
+    if "representative_selection" in value:
+        selection = value["representative_selection"]
+        if (type(selection) is not dict or set(selection) != {"seed_source", "seed"}
+                or selection["seed_source"] != "config" or type(selection["seed"]) is not str
+                or re.fullmatch(r"[a-f0-9]{64}", selection["seed"]) is None):
+            raise BoundaryError("SELECTION_CONFIG")
+        result["representative_selection"] = dict(selection)
     if census:
         result.update(schema="polis-probe-job/2",kind="roles-census")
     return result
