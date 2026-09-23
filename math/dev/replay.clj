@@ -245,17 +245,19 @@
 ;; ---------------------------------------------------------------------------
 
 (defn slice-schedule
-  "Mods weave per schedule.py:204-210: a mod event attaches to the FIRST cut
-  whose cut-time reaches its :modified (and which is past the previous cut's
-  time); events after the last cut are dropped, like tail votes."
+  "A mod event attaches to the first cut that reaches its :modified. The
+  final full-stream cut also consumes the moderation tail, matching Python's
+  slice_schedule. Prefix-diagnostic coverage retains timestamp-only weaving."
   ([votes slots] (slice-schedule votes slots []))
-  ([votes slots mod-events]
+  ([votes slots mod-events] (slice-schedule votes slots mod-events "full-stream"))
+  ([votes slots mod-events coverage]
    (loop [prev 0 [cut & more] slots i 0 acc []]
      (if (nil? cut)
        acc
        (let [cut-time  (if (zero? cut) 0 (:t-ms (nth votes (dec cut))))
              prev-time (:cut-time-ms (peek acc))
-             mods (filterv #(and (<= (long (:modified %)) (long cut-time))
+             mods (filterv #(and (or (<= (long (:modified %)) (long cut-time))
+                                     (and (empty? more) (= coverage "full-stream")))
                                  (or (nil? prev-time)
                                      (> (long (:modified %)) (long prev-time))))
                            mod-events)]
@@ -968,7 +970,8 @@
                       ;; Current source state, not a reconstructed timeline.
                       ;; Apply only on the final step even when vote times tie.
                       (final-state-steps votes slots mod-events)
-                      (slice-schedule votes slots mod-events))
+                      (slice-schedule votes slots mod-events
+                                      (get schedule "coverage" "full-stream")))
               ;; Under interleave moderation, meta-tids enter EXCLUSIVELY via
               ;; the woven mod-update rows (the production-reachable route) —
               ;; seeding them at conv creation as well would front-load every
