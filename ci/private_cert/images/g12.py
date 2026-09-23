@@ -154,22 +154,37 @@ def _all_int(xs) -> bool:
 # ---------------------------------------------------------------------------
 # Collector: gated floats, typed-exact checks, and shape/inventory violations.
 # ---------------------------------------------------------------------------
+from contextlib import contextmanager
+
+
 class Collector:
     def __init__(self, *, diagnostics=False) -> None:
         self.diagnostics_enabled = diagnostics
         self.diagnostics = set()
         self.family = None
+        self.context = None
         self.checkpoint = 0
         self.pairs: dict[str, list[tuple[float, float]]] = {}   # gated floats
         self.exact_mismatch: dict[str, int] = {}
         self.exact_total: dict[str, int] = {}
         self.shape: dict[str, int] = {}                          # inventory faults
 
-    def diagnostic(self, kind, magnitude="not-applicable"):
+    @contextmanager
+    def context_scope(self, key=None, *, item=False):
+        from polismath.replay.diagnostics import child_context, item_context
+        previous = self.context
+        self.context = item_context(previous) if item else child_context(previous, key)
+        try:
+            yield
+        finally:
+            self.context = previous
+
+    def diagnostic(self, kind, magnitude="not-applicable", *, site="value"):
         if self.diagnostics_enabled:
-            from polismath.replay.diagnostics import FAMILIES
+            from polismath.replay.diagnostics import FAMILIES, context_detail, context_family
             family = self.family if self.family in FAMILIES else "meta"
-            self.diagnostics.add((self.checkpoint, family, kind, magnitude))
+            family = context_family(self.context, family, site)
+            self.diagnostics.add((self.checkpoint, family, context_detail(self.context, site), kind, magnitude))
 
     def add_float(self, path: str, a: float, b: float) -> None:
         self.pairs.setdefault(path, []).append((float(a), float(b)))
@@ -196,10 +211,10 @@ class Collector:
             self.exact_mismatch[path] = self.exact_mismatch.get(path, 0) + 1
             self.diagnostic("exact-value")
 
-    def add_shape(self, path: str, detail: str = "", *, emit_diagnostic=True) -> None:
+    def add_shape(self, path: str, note: str = "", *, emit_diagnostic=True, site="value") -> None:
         if emit_diagnostic:
-            self.diagnostic("shape")
-        key = f"{path} [{detail}]" if detail else path
+            self.diagnostic("shape", site=site)
+        key = f"{path} [{note}]" if note else path
         self.shape[key] = self.shape.get(key, 0) + 1
 
 
@@ -345,12 +360,12 @@ def _inventory_ok(col, path, labels_a, labels_b) -> bool:
     """Complete, unique, equal label sets -- raw types admitted before hashing."""
     for lbl in list(labels_a) + list(labels_b):
         if not _admit_label(lbl):
-            col.add_shape(path, f"label raw-type {type(lbl).__name__}")
+            col.add_shape(path, f"label raw-type {type(lbl).__name__}", site="inventory")
             return False
     if len(labels_a) != len(set(labels_a)) or len(labels_b) != len(set(labels_b)):
-        col.add_shape(path, "duplicate-label"); return False
+        col.add_shape(path, "duplicate-label", site="inventory"); return False
     if set(labels_a) != set(labels_b):
-        col.add_shape(path, "label-set mismatch"); return False
+        col.add_shape(path, "label-set mismatch", site="inventory"); return False
     return True
 
 
@@ -368,7 +383,8 @@ def _walk_keyed(k, va, vb, p, col, axis: Axis = DEFAULT_AXIS) -> None:
         from polismath.replay.diagnostics import child_family
         col.family = child_family(previous, k)
     try:
-        compare_field(va, vb, p, col, axis, spec_for(k))
+        with col.context_scope(k):
+            compare_field(va, vb, p, col, axis, spec_for(k))
     finally:
         col.family = previous
 
@@ -380,14 +396,19 @@ def compare_field(a, b, path, col, axis, spec: Spec) -> None:
     try:
         _dispatch(a, b, path, col, axis, spec)
     except DiagnosticContextError:
-        previous = col.family
-        col.family = "meta"
+        previous, previous_context = col.family, col.context
+        col.family, col.context = "meta", None
         try:
             col.add_shape(path, "diagnostic-context")
         finally:
-            col.family = previous
+            col.family, col.context = previous, previous_context
     except Exception as exc:  # noqa: BLE001 -- deliberate: grade, never raise
-        col.add_shape(path, f"error:{type(exc).__name__}")
+        previous, previous_context = col.family, col.context
+        col.family, col.context = "meta", None
+        try:
+            col.add_shape(path, f"error:{type(exc).__name__}")
+        finally:
+            col.family, col.context = previous, previous_context
 
 
 def _dispatch(a, b, path, col, axis, spec: Spec) -> None:
@@ -432,21 +453,22 @@ def _base_clusters(a, b, path, col, axis) -> None:
     cols = {"id": ("exact", 1), "count": ("exact", 1), "members": ("exact", 2),
             "x": ("proj", 0), "y": ("proj", 1)}
     for k in ka & kb:
-        p, va, vb = f"{path}.{k}", a[k], b[k]
-        spec = cols.get(k)
-        if spec is None:
-            walk(va, vb, p, col, axis); continue
-        if spec[0] == "exact":
-            _exact_typed(va, vb, p, col, spec[1], "int", False)
-        else:  # projection-axis column vector
-            if not (isinstance(va, list) and isinstance(vb, list)):
-                col.add_shape(p, "col-rank"); continue
-            previous = col.family
-            col.family = "projection"
-            try:
-                _collect_signed(va, vb, p, col, axis.projection(spec[1]))
-            finally:
-                col.family = previous
+        with col.context_scope(k):
+            p, va, vb = f"{path}.{k}", a[k], b[k]
+            spec = cols.get(k)
+            if spec is None:
+                walk(va, vb, p, col, axis); continue
+            if spec[0] == "exact":
+                _exact_typed(va, vb, p, col, spec[1], "int", False)
+            else:  # projection-axis column vector
+                if not (isinstance(va, list) and isinstance(vb, list)):
+                    col.add_shape(p, "col-rank"); continue
+                previous = col.family
+                col.family = "projection"
+                try:
+                    _collect_signed(va, vb, p, col, axis.projection(spec[1]))
+                finally:
+                    col.family = previous
 
 
 # ---------------------------------------------------------------------------
@@ -616,19 +638,20 @@ def _walk_pca_block(a, b, path, col, axis: Axis) -> None:
     if ka != kb:
         col.add_shape(path, f"pca-keys only_a={sorted(ka - kb)} only_b={sorted(kb - ka)}")
     for k in ka & kb:
-        va, vb, p = a[k], b[k], f"{path}.{k}"
-        if k == "comps":
-            _geom_rows(va, vb, p, col, axis, projection=False)
-        elif k == "comment-projection":
-            _geom_rows(va, vb, p, col, axis, projection=True)
-        elif k == "center":  # comment-indexed data mean: convention sign only
-            if not (isinstance(va, list) and isinstance(vb, list)):
-                col.add_shape(p, "center-rank"); continue
-            _collect_signed(va, vb, p, col, axis.d)
-        elif k == "comment-extremity":
-            _inv_float(va, vb, p, col, axis)
-        else:
-            walk(va, vb, p, col, axis)
+        with col.context_scope(k):
+            va, vb, p = a[k], b[k], f"{path}.{k}"
+            if k == "comps":
+                _geom_rows(va, vb, p, col, axis, projection=False)
+            elif k == "comment-projection":
+                _geom_rows(va, vb, p, col, axis, projection=True)
+            elif k == "center":  # comment-indexed data mean: convention sign only
+                if not (isinstance(va, list) and isinstance(vb, list)):
+                    col.add_shape(p, "center-rank"); continue
+                _collect_signed(va, vb, p, col, axis.d)
+            elif k == "comment-extremity":
+                _inv_float(va, vb, p, col, axis)
+            else:
+                walk(va, vb, p, col, axis)
 
 
 # ---------------------------------------------------------------------------
@@ -654,7 +677,7 @@ def _recurse(a, b, path, col, axis: Axis) -> None:
             col.add_shape(path, "recurse-rank (dict vs not)"); return
         ka, kb = set(a) - SKIP_KEYS, set(b) - SKIP_KEYS
         if ka != kb:
-            col.add_shape(path, f"keys only_a={sorted(ka - kb)} only_b={sorted(kb - ka)}")
+            col.add_shape(path, f"keys only_a={sorted(ka - kb)} only_b={sorted(kb - ka)}", site="keys")
         local = axis
         if local is DEFAULT_AXIS and "comps" in a and "comps" in b:
             local = Axis(infer_axis_sign(a["comps"], b["comps"]), 1)
@@ -666,7 +689,8 @@ def _recurse(a, b, path, col, axis: Axis) -> None:
             try:
                 # Preserve the existing dispatch exactly; context is carried
                 # independently and never inferred from this private path.
-                walk(a[k], b[k], f"{path}.{k}", col, local)
+                with col.context_scope(k):
+                    walk(a[k], b[k], f"{path}.{k}", col, local)
             finally:
                 col.family = previous
         return
@@ -688,10 +712,12 @@ def _recurse(a, b, path, col, axis: Axis) -> None:
                     return
                 bmap = {d.get(key): d for d in b}
                 for d in a:
-                    _recurse(d, bmap[d.get(key)], path, col, axis)
+                    with col.context_scope(item=True):
+                        _recurse(d, bmap[d.get(key)], path, col, axis)
                 return
             for x, y in zip(a, b):
-                _recurse(x, y, path, col, axis)
+                with col.context_scope(item=True):
+                    _recurse(x, y, path, col, axis)
             return
         for x, y in zip(a, b):  # nested / scalar list under recurse
             walk(x, y, path, col, axis) if _is_container(x) or _is_container(y) \
@@ -790,7 +816,7 @@ def measure_main_blob(entry_dir: Path, repo_delphi: Path, *, expected=None) -> d
         rep = summarize(col)
         rep.update(status="STEP_COUNT_MISMATCH", authoritative_g12=False,
                    n_steps=max(len(clj_blobs), len(py_steps)),
-                   diagnostics=[dict(checkpoint=0, family="meta", kind="shape",
+                   diagnostics=[dict(checkpoint=0, family="meta", detail="other", kind="shape",
                                      magnitude="not-applicable")])
         return rep
     col = Collector(diagnostics=True)
@@ -814,13 +840,14 @@ def measure_main_blob(entry_dir: Path, repo_delphi: Path, *, expected=None) -> d
                           emit_diagnostic=False)
             for key in ka ^ kb:
                 col.family = child_family(None, key)
-                col.diagnostic("shape")
+                with col.context_scope(key):
+                    col.diagnostic("shape")
             col.family = None
         for k in ka & kb:
             _walk_keyed(k, A[k], B[k], k, col, axis)
     rep = summarize(col)
-    from polismath.replay.diagnostics import ordered
-    rep["diagnostics"] = ordered(dict(zip(("checkpoint", "family", "kind", "magnitude"), row)) for row in col.diagnostics)
+    from polismath.replay.diagnostics import ordered, ROW_KEYS
+    rep["diagnostics"] = ordered(dict(zip(ROW_KEYS, row)) for row in col.diagnostics)
     rep["authoritative_g12"] = rep["rollup"]["g12_pass"]
     rep["legacy_diagnostic"] = {
         "b1_match": b1["overall_match"],

@@ -42,16 +42,16 @@ def recipe_token(entry):
 def comparison_diagnostics(strict, metric):
     rows = list(metric.get("diagnostics", []))
     if metric.get("status") == "STEP_COUNT_MISMATCH" or strict.get("step_count_mismatch"):
-        rows.append(dict(checkpoint=0, family="meta", kind="shape", magnitude="not-applicable"))
-    numeric = {(d["checkpoint"], d["family"]) for d in rows if d["kind"] == "numeric-tolerance"}
+        rows.append(dict(checkpoint=0, family="meta", detail="other", kind="shape", magnitude="not-applicable"))
+    numeric = {(d["checkpoint"], d["family"], d["detail"]) for d in rows if d["kind"] == "numeric-tolerance"}
     for ordinal, step in enumerate(strict["per_step"]):
         if not step["match"]:
             categories = step.get("diagnostics") or [
-                dict(family="meta", kind="shape", magnitude="not-applicable")]
-            # At the exported family/checkpoint resolution, a strict numeric
+                dict(family="meta", detail="other", kind="shape", magnitude="not-applicable")]
+            # At the exported family/detail/checkpoint resolution, a strict numeric
             # token names only failures not already named by symmetric G12.
             rows.extend(dict(checkpoint=ordinal, **row) for row in categories
-                        if row["kind"] != "strict-tolerance" or (ordinal, row["family"]) not in numeric)
+                        if row["kind"] != "strict-tolerance" or (ordinal, row["family"], row["detail"]) not in numeric)
     return ordered(rows)
 
 

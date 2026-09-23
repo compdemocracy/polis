@@ -99,11 +99,13 @@ class StepComparer:
 
         categories = []
         if self._diagnostics:
-            from polismath.replay.diagnostics import FAMILIES, KINDS
-            unique = {(family, d["comparison_kind"]) for d in c.all_differences
-                      for family in (d.get("comparison_families") or [d["comparison_family"] or "meta"])}
-            categories = [dict(family=f, kind=k, magnitude="not-applicable") for f, k in
-                          sorted(unique, key=lambda row: (FAMILIES.index(row[0]), KINDS.index(row[1])))]
+            from polismath.replay.diagnostics import FAMILIES, DETAILS, KINDS
+            unique = {(family, detail, d["comparison_kind"]) for d in c.all_differences
+                      for family, detail in (d.get("comparison_contexts") or
+                          [(d["comparison_family"] or "meta", d["comparison_detail"])])}
+            categories = [dict(family=f, detail=d, kind=k, magnitude="not-applicable")
+                          for f, d, k in sorted(unique, key=lambda row:
+                              (FAMILIES.index(row[0]), DETAILS.index(row[1]), KINDS.index(row[2])))]
         return {
             "diagnostics": categories,
             "step": index,

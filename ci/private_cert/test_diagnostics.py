@@ -27,7 +27,7 @@ class DiagnosticTests(unittest.TestCase):
         c = g12.Collector(diagnostics=True)
         c.checkpoint = checkpoint
         g12._walk_keyed(key, a, b, key, c)
-        rows = diag.ordered(dict(zip(('checkpoint', 'family', 'kind', 'magnitude'), r)) for r in c.diagnostics)
+        rows = diag.ordered(dict(zip(diag.ROW_KEYS, r)) for r in c.diagnostics)
         return c, rows
 
     def test_acceptance_family_inventory_is_exhaustive(self):
@@ -58,10 +58,10 @@ class DiagnosticTests(unittest.TestCase):
         for a,b,kind in ((1,2,'exact-value'),(None,[1],'shape')):
             c,rows=self.collect('PRIVATE_FIELD',a,b)
             self.assertFalse(g12.summarize(c)['rollup']['g12_pass'])
-            self.assertEqual(rows,[dict(checkpoint=0,family='meta',kind=kind,magnitude='not-applicable')])
+            self.assertEqual(rows,[dict(checkpoint=0,family='meta',detail='other',kind=kind,magnitude='not-applicable')])
             strict=StepComparer(diagnostics=True).compare_step({'PRIVATE_FIELD':a},{'PRIVATE_FIELD':b},0)
             self.assertFalse(strict['match'])
-            self.assertEqual(strict['diagnostics'],[dict(family='meta',kind=kind,magnitude='not-applicable')])
+            self.assertEqual(strict['diagnostics'],[dict(family='meta',detail='other',kind=kind,magnitude='not-applicable')])
 
     def test_diagnostic_exception_is_a_graded_shape_fault(self):
         for family in (None,'projection','PRIVATE_FIELD'):
@@ -69,8 +69,18 @@ class DiagnosticTests(unittest.TestCase):
             with patch.object(g12,'_dispatch',side_effect=diag.DiagnosticContextError('PRIVATE_FIELD')):
                 g12.compare_field(1,2,'private-path',c,g12.DEFAULT_AXIS,g12.spec_for('n'))
             self.assertFalse(g12.summarize(c)['rollup']['g12_pass'])
-            self.assertEqual(c.diagnostics,{(0,'meta','shape','not-applicable')})
+            self.assertEqual(c.diagnostics,{(0,'meta','other','shape','not-applicable')})
             self.assertEqual(c.family,family)
+
+    def test_unexpected_exception_resets_and_restores_diagnostic_context(self):
+        c = g12.Collector(diagnostics=True)
+        c.family, c.context = 'projection', 'components'
+        with patch.object(g12, '_dispatch', side_effect=TypeError('PRIVATE_FIELD')):
+            g12.compare_field(1, 2, 'private-path', c, g12.DEFAULT_AXIS, g12.spec_for('n'))
+        self.assertFalse(g12.summarize(c)['rollup']['g12_pass'])
+        self.assertEqual(c.diagnostics, {(0, 'meta', 'other', 'shape', 'not-applicable')})
+        self.assertEqual((c.family, c.context), ('projection', 'components'))
+        self.assertEqual(c.shape, {'private-path [error:TypeError]': 1})
 
     def test_root_inventory_families_agree_without_changing_divergence_count(self):
         for keys in (['pca'],['mod-in'],['group-votes','repness','mod-out','n'],['PRIVATE_FIELD']):
@@ -93,7 +103,7 @@ class DiagnosticTests(unittest.TestCase):
         self.assertEqual(metric['status'],'STEP_COUNT_MISMATCH')
         self.assertFalse(metric['authoritative_g12'])
         self.assertFalse(metric['rollup']['g12_pass'])
-        expected=[dict(checkpoint=0,family='meta',kind='shape',magnitude='not-applicable')]
+        expected=[dict(checkpoint=0,family='meta',detail='other',kind='shape',magnitude='not-applicable')]
         self.assertEqual(metric['diagnostics'],expected)
         self.assertEqual(projection.comparison_diagnostics({'per_step':[{'match':True}]},metric),expected)
         self.assertEqual(projection.comparison_diagnostics({'per_step':[{'match':True}]},
@@ -105,7 +115,7 @@ class DiagnosticTests(unittest.TestCase):
             c, rows = self.collect(key,a,b)
             self.assertFalse(g12.summarize(c)['rollup']['g12_pass'])
             self.assertEqual(g12.summarize(c)['rollup']['g12_outliers'], 0)
-            self.assertEqual(rows, [dict(checkpoint=0,family=family,kind=kind,magnitude='not-applicable')])
+            self.assertEqual(rows, [dict(checkpoint=0,family=family,detail='other',kind=kind,magnitude='not-applicable')])
 
     def test_magnitude_buckets_boundaries_and_overflow(self):
         # a=0 makes an exact ratio construction convenient.
@@ -141,8 +151,8 @@ class DiagnosticTests(unittest.TestCase):
 
     def test_strict_numeric_token_is_only_added_without_g12_numeric_at_that_family(self):
         strict={'per_step':[{'match':False,'diagnostics':[
-            dict(family='projection',kind='strict-tolerance',magnitude='not-applicable')]}]}
-        numeric=dict(checkpoint=0,family='projection',kind='numeric-tolerance',magnitude='over10')
+            dict(family='projection',detail='other',kind='strict-tolerance',magnitude='not-applicable')]}]}
+        numeric=dict(checkpoint=0,family='projection',detail='other',kind='numeric-tolerance',magnitude='over10')
         self.assertEqual(projection.comparison_diagnostics(strict,{'diagnostics':[numeric]}),[numeric])
 
     def test_magnitude_upper_bounds_are_inclusive(self):
@@ -152,7 +162,7 @@ class DiagnosticTests(unittest.TestCase):
             self.assertEqual(rows[0]['magnitude'],expected)
 
     def test_localization_uses_ordinal_not_cached_step_or_values(self):
-        ds={'family':'meta','kind':'exact-value','magnitude':'not-applicable'}
+        ds={'family':'meta','detail':'other','kind':'exact-value','magnitude':'not-applicable'}
         strict={'per_step':[{'match':True}, {'match':False, 'step':9999,'diagnostics':[ds]}]}
         self.assertEqual(projection.comparison_diagnostics(strict,{'diagnostics':[]}),[dict(checkpoint=1,**ds)])
 
@@ -176,7 +186,7 @@ class DiagnosticTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'^DIAGNOSTIC_RECIPE$'):projection.recipe_token(entry)
 
     def test_global_budget_reserves_a_tuple_for_every_failure(self):
-        rows=[dict(checkpoint=i,family='meta',kind='shape',magnitude='not-applicable') for i in range(10)]
+        rows=[dict(checkpoint=i,family='meta',detail='other',kind='shape',magnitude='not-applicable') for i in range(10)]
         entries=[dict(verdict='FAIL',checks=10,diagnostics=rows) for _ in range(256)]
         result=projection.bounded_diagnostics(entries)
         self.assertEqual(sum(len(r['diagnostics']) for r in result),256)
@@ -186,7 +196,7 @@ class DiagnosticTests(unittest.TestCase):
         self.assertTrue(all(1<=len(r['diagnostics'])<=8 for r in result))
 
     def test_dedup_sort_caps_do_not_change_inputs(self):
-        rows=[dict(checkpoint=i,family='meta',kind='shape',magnitude='not-applicable') for i in reversed(range(10))]
+        rows=[dict(checkpoint=i,family='meta',detail='other',kind='shape',magnitude='not-applicable') for i in reversed(range(10))]
         entries=[dict(verdict='FAIL',checks=10,diagnostics=rows+rows),dict(verdict='PASS',checks=10,diagnostics=[])]
         before=copy.deepcopy(entries);result=projection.bounded_diagnostics(entries)
         self.assertEqual(entries,before)
@@ -194,11 +204,11 @@ class DiagnosticTests(unittest.TestCase):
         self.assertTrue(result[0]['diagnostics_truncated']);self.assertFalse(result[1]['diagnostics_truncated'])
 
     def test_false_pass_missing_context_and_raw_injection_refuse(self):
-        row=dict(checkpoint=0,family='meta',kind='shape',magnitude='not-applicable')
+        row=dict(checkpoint=0,family='meta',detail='other',kind='shape',magnitude='not-applicable')
         for entry in [dict(verdict='PASS',checks=1,diagnostics=[row]),dict(verdict='FAIL',checks=1,diagnostics=[]),dict(verdict='FAIL',checks=1,diagnostics=[{**row,'path':'PRIVATE'}])]:
             with self.assertRaises(ValueError):projection.bounded_diagnostics([entry])
         self.assertEqual(projection.comparison_diagnostics({'per_step':[{'match':False}]},{'diagnostics':[]}),
-                         [dict(checkpoint=0,family='meta',kind='shape',magnitude='not-applicable')])
+                         [dict(checkpoint=0,family='meta',detail='other',kind='shape',magnitude='not-applicable')])
 
     def test_policy_and_controls_unchanged(self):
         import contextlib,io
@@ -319,7 +329,7 @@ class PairedDiagnosticWitnesses(unittest.TestCase):
                 self.assertEqual(receipt['entries'][0]['verdict'],'PASS')
                 return
             self.assertEqual(report['verdict'],'FAIL');self.assertEqual(entry['g12']['rollup']['g12_outliers'],0)
-            self.assertEqual(entry['diagnostics'],[dict(checkpoint=ordinal,family='meta' if kind=='exact-value' else 'moderation',kind=kind,magnitude='not-applicable')])
+            self.assertEqual(entry['diagnostics'],[dict(checkpoint=ordinal,family='meta' if kind=='exact-value' else 'moderation',detail='other',kind=kind,magnitude='not-applicable')])
             self.assertEqual(report['negative_controls']['g12']['rejected'],17)
             self.assertEqual(len(report['negative_controls']['checkpoint']),4)
 
@@ -339,7 +349,7 @@ class PairedDiagnosticWitnesses(unittest.TestCase):
             gate.dump(root/'py/step-000.json',dict(blob=b))
             result=g12.measure_main_blob(root,gate.REPO/'delphi')
             self.assertEqual(result['rollup']['shape_faults'],1)
-            self.assertEqual(result['diagnostics'],[dict(checkpoint=0,family='moderation',kind='shape',magnitude='not-applicable')])
+            self.assertEqual(result['diagnostics'],[dict(checkpoint=0,family='moderation',detail='other',kind='shape',magnitude='not-applicable')])
             strict=StepComparer(diagnostics=True).compare_step(a,b,0)
             self.assertEqual(strict['n_divergences'],1)
             self.assertEqual(projection.comparison_diagnostics({'per_step':[strict]},result),result['diagnostics'])

@@ -158,7 +158,15 @@ def validate_engine_timeout(value: object) -> dict:
     return r
 
 
-def validate_diagnostics(entry):
+DIAGNOSTIC_DETAILS = ("other", "representatives", "representatives-member-set",
+           "representatives-record-keys", "representatives-list-shape",
+           "representatives-direction", "representatives-counts", "representatives-scores",
+           "consensus", "group-consensus", "priorities", "components", "centering",
+           "comment-coordinates", "participant-coordinates", "group-centers", "extremities")
+DIAGNOSTIC_DETAIL_FAMILIES = {**dict.fromkeys(DIAGNOSTIC_DETAILS[1:11], "repness"),
+                   **dict.fromkeys(DIAGNOSTIC_DETAILS[11:], "projection")}
+
+def validate_diagnostics(entry, *, v4=False):
     if type(entry["recipe"]) is not str or entry["recipe"] not in RECIPE_TOKENS:
         raise ValueError("RECEIPT_RECIPE")
     rows, truncated = entry["diagnostics"], entry["diagnostics_truncated"]
@@ -169,14 +177,19 @@ def validate_diagnostics(entry):
         raise ValueError("RECEIPT_DIAGNOSTICS")
     keys = []
     for row in rows:
-        d = closed(row, {"checkpoint", "family", "kind", "magnitude"})
+        d = closed(row, {"checkpoint", "family", "kind", "magnitude"} | ({"detail"} if v4 else set()))
         c, f, k, m = (d[x] for x in ("checkpoint", "family", "kind", "magnitude"))
         if (type(c) is not int or not 0 <= c < entry["checks"]
                 or f not in DIAGNOSTIC_FAMILIES or k not in DIAGNOSTIC_KINDS
                 or m not in DIAGNOSTIC_MAGNITUDES
                 or ((k == "numeric-tolerance") != (m != "not-applicable"))):
             raise ValueError("RECEIPT_DIAGNOSTICS")
-        keys.append((c, DIAGNOSTIC_FAMILIES.index(f), DIAGNOSTIC_KINDS.index(k), DIAGNOSTIC_MAGNITUDES.index(m)))
+        detail = d["detail"] if v4 else "other"
+        if (type(detail) is not str or detail not in DIAGNOSTIC_DETAILS
+                or (detail != "other" and DIAGNOSTIC_DETAIL_FAMILIES[detail] != f)):
+            raise ValueError("RECEIPT_DIAGNOSTICS")
+        keys.append((c, DIAGNOSTIC_FAMILIES.index(f), DIAGNOSTIC_DETAILS.index(detail),
+                     DIAGNOSTIC_KINDS.index(k), DIAGNOSTIC_MAGNITUDES.index(m)))
     if keys != sorted(set(keys)):
         raise ValueError("RECEIPT_DIAGNOSTICS")
 
@@ -187,12 +200,13 @@ def validate_receipt(value: object, job: Job) -> dict:
         from roles_census import validate_receipt as validate_census_receipt
         return validate_census_receipt(value, job)
     r = closed(value, {"schema", "run_id", "job_sha256", "verdict", "entries", "controls", "selection", "digests"})
-    if (r["schema"] not in ("polis-probe-receipt/1", "polis-probe-receipt/2", "polis-probe-receipt/3") or r["run_id"] != job["run_id"] or
+    if (r["schema"] not in ("polis-probe-receipt/1", "polis-probe-receipt/2", "polis-probe-receipt/3", "polis-probe-receipt/4") or r["run_id"] != job["run_id"] or
             r["job_sha256"] != sha(job) or r["verdict"] not in ("PASS", "FAIL", "INCOMPLETE")):
         raise ValueError("RECEIPT_BINDING")
     if type(r["entries"]) is not list or not 1 <= len(r["entries"]) <= 256:
         raise ValueError("RECEIPT_ENTRIES")
-    v3 = r["schema"] == "polis-probe-receipt/3"
+    v4 = r["schema"] == "polis-probe-receipt/4"
+    v3 = v4 or r["schema"] == "polis-probe-receipt/3"
     diagnostic_fields = {"recipe", "diagnostics", "diagnostics_truncated"} if v3 else set()
     for entry in r["entries"]:
         optional = {"legacy_defects"} if type(entry) is dict and "legacy_defects" in entry else set()
@@ -208,7 +222,7 @@ def validate_receipt(value: object, job: Job) -> dict:
         if e["verdict"] == "PASS" and (not e["checks"] or e["outliers"] or e["nonfinite"]):
             raise ValueError("RECEIPT_FALSE_PASS")
         if v3:
-            validate_diagnostics(e)
+            validate_diagnostics(e, v4=v4)
     if v3 and sum(len(e["diagnostics"]) for e in r["entries"]) > 256:
         raise ValueError("RECEIPT_DIAGNOSTICS_LIMIT")
     if v3 and sum(len(e["diagnostics"]) for e in r["entries"]) < 256:
