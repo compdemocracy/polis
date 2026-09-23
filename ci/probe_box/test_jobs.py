@@ -21,8 +21,8 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual(set(self.registry), {"schema", "jobs"})
         self.assertEqual(self.registry["schema"], "polis-probe-registry/1")
         self.assertEqual(validate_job(self.job), self.job)
-        producer = "localhost/polis-probe-producer@sha256:2268ad1d71c1f78b1b286a89d0da36483b9923978521217826460a8afffd94f6"
-        verifier = "localhost/polis-probe-verifier@sha256:22479d03e04a3319974ba5c85d2c47964e3a01a236a29824582ef8533e739ea0"
+        producer = "localhost/polis-probe-producer@sha256:f8e64de25606b2945ad6981ab55a98c3384c814a4cead0e12306e0aa8d01322b"
+        verifier = "localhost/polis-probe-verifier@sha256:edae2cc5d8c928fab00456465c33349972b132f616128c4fe2d876e4706a429f"
         self.assertEqual(self.job["reader"], {"image": producer, "args": ["extract"]})
         self.assertEqual(self.job["producer"], {"image": producer, "args": ["produce"]})
         self.assertEqual(self.job["verifier"], {"image": verifier, "args": ["verify"]})
