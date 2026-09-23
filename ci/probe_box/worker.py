@@ -16,7 +16,7 @@ import time
 import urllib.request
 
 from contracts import validate_job
-from receipt import canonical, sha, validate_receipt, decode_receipt, receipt_limit
+from receipt import canonical, sha, validate_receipt, decode_receipt, receipt_limit, validate_engine_timeout
 from replica import ReplicaSocket
 
 ROOT = Path('/opt/polis-probe')
@@ -148,7 +148,16 @@ def last_exception_token(log: Path) -> dict:
             token['code'] = head
         elif len(head) <= 96 and CLASS.fullmatch(head) and ('.' in head or head.endswith(CLASS_SUFFIXES)):
             token['class'] = head
-            if CODE.fullmatch(rest):
+            if head == 'gate.EngineTimeoutError' and rest.startswith('ENGINE_DEADLINE_EXCEEDED '):
+                parts = rest.split(' ')
+                if len(parts) == 4:
+                    try:
+                        context = validate_engine_timeout(dict(zip(('engine', 'recipe', 'elapsed_bucket'), parts[1:])))
+                    except ValueError:
+                        pass
+                    else:
+                        token.update(code='ENGINE_DEADLINE_EXCEEDED', **context)
+            elif CODE.fullmatch(rest):
                 token['code'] = rest
             else:
                 reason = classify_reason(rest)
@@ -409,6 +418,23 @@ def owned_dir(path: Path) -> Path:
     return path
 
 
+# Existing reader/producer/verifier cleanup reserves stay relative to admission.
+# Freeze a further 10% of the remaining producer window for verifier comparison.
+# This is a campaign allocation, never an independent cap on an engine invocation.
+VERIFIER_SHARE = 0.10
+
+
+def write_engine_deadline(run_spec: Path, deadline: float, *, now=None) -> float:
+    now = time.time() if now is None else now
+    producer_end = deadline - 120
+    engine_end = producer_end - max(0, producer_end - now) * VERIFIER_SHARE
+    path = run_spec / 'deadline.json'
+    with path.open('xb') as out:
+        out.write(canonical({'engine_deadline_unix': engine_end}))
+    path.chmod(0o444)
+    return engine_end
+
+
 def absolute_deadline(boot: dict, seconds: int) -> float:
     started=boot['started']
     if type(started) not in (int,float) or not math.isfinite(started) or started != boot['admission']['started']:
@@ -548,6 +574,7 @@ def run(diagnostics=None) -> None:
         if fixture.is_dir():
             producer_mounts.append((fixture,'/fixture','ro'));verifier_mounts.append((fixture,'/fixture','ro'))
         stage('producer', 'execute')
+        write_engine_deadline(run_spec, deadline)
         sandbox(job['producer'],'producer',producer_mounts,deadline-120,loaded_images[job['producer']['image']], diagnostics)
         stage('verifier', 'execute')
         sandbox(job['verifier'],'verifier',verifier_mounts,deadline-30,loaded_images[job['verifier']['image']], diagnostics)

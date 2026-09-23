@@ -19,6 +19,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
+import math
 
 # Under python -I the trusted source closure explicitly selects its own imports;
 # mounted data never enter sys.path. Producer/verifier closures are built apart.
@@ -27,8 +29,10 @@ REPO = HERE.parents[2]
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(REPO / 'delphi'))
 sys.path.insert(0, str(HERE.parent))
+sys.path.append(str(REPO / 'ci/probe_box'))
 from control import encoded, sha
-from diagnostic_projection import comparison_diagnostics
+from diagnostic_projection import comparison_diagnostics, recipe_token
+from receipt import validate_engine_timeout
 from image_admission import file_digest, json_bytes, regular_path
 import g12
 from polismath.replay import certify, fixture_bundle, fixture_samples, real_data, schedule, store
@@ -203,19 +207,46 @@ def recording_inventory(prepared, plan):
     return inventory
 
 
-def run_engine(cmd, cwd, log):
+class EngineTimeoutError(TimeoutError):
+    """Only closed context escapes the producer; command/output stay private."""
+    def __init__(self, engine, recipe, elapsed):
+        bucket = next((token for ceiling, token in ((3600, 'le-1h'), (7200, 'le-2h'),
+                      (14400, 'le-4h')) if elapsed <= ceiling), 'gt-4h')
+        self.context = validate_engine_timeout(dict(engine=engine, recipe=recipe, elapsed_bucket=bucket))
+        super().__init__('ENGINE_DEADLINE_EXCEEDED')
+
+
+def validate_engine_deadline(value):
+    if type(value) not in (int, float) or not math.isfinite(value) or value <= 0:
+        raise ValueError('ENGINE_DEADLINE')
+    return value
+
+
+def run_engine(cmd, cwd, log, *, deadline, engine, recipe):
+    validate_engine_deadline(deadline)
+    # Validate attribution before launching, not while handling a timeout.
+    validate_engine_timeout(dict(engine=engine, recipe=recipe, elapsed_bucket='le-1h'))
+    started = time.monotonic()
     env = {'PATH': os.environ['PATH'], 'HOME': '/tmp', 'UV_OFFLINE': '1', 'PIP_NO_INDEX': '1',
            'OMP_NUM_THREADS': '1', 'OPENBLAS_NUM_THREADS': '1', 'MKL_NUM_THREADS': '1',
            'PYTHONHASHSEED': '0', 'PYTHONDONTWRITEBYTECODE': '1', 'PYTHONNOUSERSITE': '1',
            'POLIS_REPLAY_INPUT_MAP': os.environ['POLIS_REPLAY_INPUT_MAP'],
            'PYTHONPATH': str(REPO / 'delphi')}
     with log.open('wb') as fh:
-        result = subprocess.run(cmd, cwd=cwd, env=env, stdout=fh, stderr=subprocess.STDOUT,
-                                timeout=certify.DRIVER_TIMEOUT_SEC)
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            raise EngineTimeoutError(engine, recipe, 0)
+        try:
+            result = subprocess.run(cmd, cwd=cwd, env=env, stdout=fh, stderr=subprocess.STDOUT,
+                                    timeout=remaining)
+        except subprocess.TimeoutExpired:
+            raise EngineTimeoutError(engine, recipe, time.monotonic() - started) from None
     return result.returncode
 
 
-def produce(fixture=Path('/fixture'), output=Path('/output'), inputs_path=Path('/run-spec/inputs.json')):
+def produce(fixture=Path('/fixture'), output=Path('/output'), inputs_path=Path('/run-spec/inputs.json'), *, deadline=None):
+    # Public/local exercises get one configurable budget for the whole producer.
+    deadline = validate_engine_deadline(time.time() + certify.driver_timeout_seconds() if deadline is None else deadline)
     if Path('/admission').exists():
         raise ValueError('PRODUCER_CONTROL_MOUNT')
     inputs = read(inputs_path)
@@ -243,7 +274,8 @@ def produce(fixture=Path('/fixture'), output=Path('/output'), inputs_path=Path('
                         '--out', str(output / 'recordings')]
                  + (['--events', str(expected.votes_csv)] if event else []), REPO / 'delphi')]
             for engine, cmd, cwd in commands:
-                exit_code = run_engine(cmd, cwd, rec / (engine + '.log'))
+                exit_code = run_engine(cmd, cwd, rec / (engine + '.log'), deadline=deadline,
+                                       engine={'clj': 'legacy', 'py': 'python'}[engine], recipe=recipe_token(entry))
                 runs.append({'dataset': entry.dataset, 'schedule_id': entry.schedule_id,
                              'engine': engine, 'exit': exit_code})
                 if exit_code:

@@ -121,7 +121,9 @@ class PairedGateTests(unittest.TestCase):
         input_path = self.root / 'inputs.json'
         gate.dump(input_path, self.inputs)
         engines = []
-        def run(cmd, cwd, log):
+        budgets = []
+        def run(cmd, cwd, log, **budget):
+            budgets.append(budget)
             source = Path(cmd[cmd.index('--schedule') + 1])
             raw = source.read_bytes()
             self.assertTrue(raw)
@@ -136,7 +138,10 @@ class PairedGateTests(unittest.TestCase):
             log.write_bytes(b'public-fixture driver control')
             return 0
         with patch.object(gate, 'run_engine', side_effect=run):
-            gate.produce(self.fixture, output, input_path)
+            gate.produce(self.fixture, output, input_path, deadline=123456)
+        self.assertEqual({b['deadline'] for b in budgets}, {123456})
+        self.assertEqual([b['engine'] for b in budgets], ['legacy', 'python'] * 6)
+        self.assertTrue(all(b['recipe'].startswith('public-') for b in budgets))
         self.assertEqual(engines, ['clj', 'py'] * 6)
         self.assertEqual(len(gate.read(output / 'producer.json')['runs']), 12)
         self.assertFalse((output / 'fixture').exists())
