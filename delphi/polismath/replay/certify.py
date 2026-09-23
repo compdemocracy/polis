@@ -961,6 +961,7 @@ def _comparer_cfg_hash(cmp: StepComparer) -> str:
         "tolerant_keys": sorted(cmp._tolerant_keys),
         "code": _comparer_code_hash(),
         "diagnostics": cmp._diagnostics,
+        "diagnostics_schema": "polis-probe-diagnostics/4",
     }
     return _canonical_hash(cfg)
 

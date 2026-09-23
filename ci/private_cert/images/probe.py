@@ -196,7 +196,7 @@ def verify() -> None:
     selection = manifest.get('representative', {}).get('report')
     if selection is not None:
         selection = dict(selection, seed_source=source)
-    receipt = {'schema': 'polis-probe-receipt/3', 'run_id': job['run_id'], 'job_sha256': sha(job),
+    receipt = {'schema': 'polis-probe-receipt/4', 'run_id': job['run_id'], 'job_sha256': sha(job),
                'verdict': report['verdict'] if completed == 21 else 'FAIL', 'entries': entries,
                'controls': {'passed': completed, 'expected': 21},
                'selection': selection,

@@ -79,10 +79,10 @@ and a systemctl double; they do not claim an AL2023 DHCP-renewal rehearsal.
 
 ## Closed receipt and lifecycle boundaries
 
-The verifier emits the closed `polis-probe-receipt/3` schema: bounded counts,
+The verifier emits the closed `polis-probe-receipt/4` schema: bounded counts,
 finite errors, fixed verdicts, selection aggregates, digests and comparison
-diagnostics. The supervisor and operator continue to read historical `/1` and
-`/2` receipts.
+diagnostics. The supervisor and operator continue to read historical `/1`, `/2`
+and `/3` receipts.
 On an empty (zero-vote) conversation the legacy engine omits fields that Python emits; Python's complete empty structure is the canonical output and the legacy behaviour is a recorded defect, never an accepted variant. An entry may also carry `legacy_defects`: `legacy-defect-empty-omits-keys` with a sorted,
 unique, nonempty subset of the 15 fixed public keys in the committed
 [`pc-zerovote-01-empty.json`](../delphi/scripts/schedules/pc-zerovote-01-empty.json)
@@ -640,3 +640,24 @@ source analysis did not identify the runs 16/17 cause. The offline worker
 rehearsal bypasses systemd startup, real IMDS, DNS and AWS KMS enforcement, so its
 passing result does not certify those boot paths. Inspect the next run's new
 closed evidence before attributing the shutdown to a particular phase.
+
+### Receipt /4 comparison detail rollout
+
+Each diagnostic now includes one closed `detail` token. Representative roots
+are `representatives`, `consensus`, `group-consensus`, and `priorities`;
+representative sites refine to `representatives-member-set`,
+`representatives-record-keys`, `representatives-list-shape`,
+`representatives-direction`, `representatives-counts`, or `representatives-scores`.
+Projection details are `components`, `centering`, `comment-coordinates`,
+`participant-coordinates`, `group-centers`, and `extremities`; unclassified sites
+use `other`. These are schema contexts, never parsed private paths or labels.
+The strict/G12 union deduplicates at checkpoint/family/detail/kind/magnitude;
+strict numerical reporting is suppressed only at the same G12 detail site.
+Comparison predicates, policy digest, controls, 8/entry and 256/receipt tuple
+caps, first-failure reservation, truncation and byte bound are unchanged.
+
+Roll out the operator receipt decoder, matching AMI worker decoder, and v11
+image pins together. A /3-only decoder rejects /4; images must not go first.
+Readers preserve /1–/3 bytes unchanged. The roles-census job's separate /3
+schema is unchanged. Strict verdict caches bind report version /4 and all
+comparer/diagnostic source bytes; recording and acceptance policy are unchanged.
