@@ -11,7 +11,7 @@ def job() -> dict:
             "producer": {"image": "localhost/polis-producer@sha256:" + "1" * 64,
                          "args": ["produce"]},
             "verifier": {"image": "localhost/polis-verifier@sha256:" + "2" * 64,
-                         "args": ["verify"]}, "max_seconds": 18000}
+                         "args": ["verify"]}, "max_seconds": 43200}
 
 
 class ContractTests(unittest.TestCase):
@@ -33,7 +33,7 @@ class ContractTests(unittest.TestCase):
             item = job()
             item["producer"][field] = value
             variants.append(item)
-        for ceiling in (0, 18001, True, "10"):
+        for ceiling in (0, 43201, True, "10"):
             item = job()
             item["max_seconds"] = ceiling
             variants.append(item)
