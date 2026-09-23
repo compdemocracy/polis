@@ -145,7 +145,7 @@ cat > /opt/polis-probe/start.sh <<'START'
 set -euo pipefail
 # Arm termination before any mount, DNS or supervisor work can fail. EC2's
 # active operator observes absolute admission expiry and missing heartbeat.
-shutdown -h +300
+shutdown -h +720
 # Every phase before the worker's first heartbeat is otherwise blind. On failure,
 # record only the phase name (a fixed token) to this instance's own boot key, which
 # the worker role may already write; nothing else leaves. Best effort: phases before
@@ -247,7 +247,7 @@ Wants=network-online.target
 Type=oneshot
 ExecStart=/opt/polis-probe/start.sh
 ExecStopPost=/usr/bin/systemctl poweroff
-TimeoutStartSec=18000
+TimeoutStartSec=43200
 LimitCORE=0
 UMask=0077
 StandardOutput=null

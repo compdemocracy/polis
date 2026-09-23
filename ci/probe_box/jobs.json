@@ -16,7 +16,7 @@
         "image": "localhost/polis-probe-verifier@sha256:239ca82d7572694663db96c82fb319277c3fea85193289c18bf594f4092f22fa",
         "args": ["verify"]
       },
-      "max_seconds": 18000
+      "max_seconds": 43200
     },
     "roles-census-v1": {
       "kind": "roles-census",

@@ -220,8 +220,15 @@ refresh event at that point cannot be excluded without runtime evidence. S3/KMS 
 cache timer. The relay has five-second socket and six-second shutdown waits,
 no lifetime timer; DNS uses a three-second upstream timeout, no local cache or
 expiry timer, and systemd restarts it on failure. The worker unit's
-`TimeoutStartSec=18000` and startup `shutdown +300` are five-hour ceilings;
+`TimeoutStartSec=43200` and startup `shutdown +720` are twelve-hour ceilings;
 worker shutdown and container timeouts use the absolute admitted deadline.
+`CAMPAIGN_CEILING_SECONDS` in `ci/probe_box/contracts.py` is the single source
+for that ceiling; the operator derives its bounds from it in `ci/probe_box/run.py`,
+so no bound can be left behind to cut a legitimate run short. The launch and
+claim sanity bounds are the ceiling plus one hour of margin and never end a run
+themselves, and the `watch` ceiling is the job ceiling plus a 900-second grace,
+so watch outlasts the box it observes. The baked `shutdown` and `TimeoutStartSec`
+in `bake.sh` must be changed to match by hand, and that needs a new AMI.
 The producer engine subprocess timeout is 3600 seconds. A separate benchmark
 helper, `polismath.replay.shard_bench`, has a 1800-second child timeout, but the
 probe producer invokes the engine drivers directly and does not use that helper.
@@ -318,7 +325,7 @@ CLI invocation failed.
 ## Run a probe; resume and terminate a dead box
 
 Build a private job file from one reviewed registry entry, adding a new opaque
-32-hex run ID. The job ceiling is at most 18000 seconds; it does not reset when
+32-hex run ID. The job ceiling is at most 43200 seconds; it does not reset when
 polling reconnects. Complete reader provisioning and source/image admission first.
 
 ```bash
@@ -398,7 +405,7 @@ source/image admission tools in `ci/private_cert/images/`. Use the new `probe.py
 entrypoint. A certification registry entry uses the producer digest for reader
 `["extract"]` and producer `["produce"]`, and an independent verifier digest with
 `["verify"]`. The job schema is `polis-probe-job/1`; `run_id` is supplied by the
-operator, and `max_seconds` is bounded by 18000. Store actual digest references
+operator, and `max_seconds` is bounded by 43200. Store actual digest references
 in `ci/probe_box/jobs.json`. OCI archives are loaded from the private assets bucket
 by manifest digest; mutable tags and remote image pulls are refused. The AL2023
 supervisor uses Docker 25 with Skopeo from the pinned Amazon repository. The worker

@@ -27,7 +27,7 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual(self.job["producer"], {"image": producer, "args": ["produce"]})
         self.assertEqual(self.job["verifier"], {"image": verifier, "args": ["verify"]})
         self.assertNotEqual(producer.split("@", 1)[1], verifier.split("@", 1)[1])
-        self.assertEqual(self.job["max_seconds"], 18000)
+        self.assertEqual(self.job["max_seconds"], 43200)
 
     def test_fresh_run_changes_only_identity_and_preserves_registry(self):
         original = copy.deepcopy(self.job)

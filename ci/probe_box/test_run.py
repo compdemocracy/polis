@@ -10,7 +10,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from run import Control, Session, Unknown, encoded, sha
+from contracts import CAMPAIGN_CEILING_SECONDS, validate_job
+from run import (BUDGET_CEILING_SECONDS, BUDGET_MARGIN_SECONDS, Control, Session, Unknown,
+                 WATCH_CEILING_SECONDS, WATCH_GRACE_SECONDS, encoded, sha)
 
 
 class ApiError(Exception):
@@ -182,11 +184,21 @@ class ControlTests(unittest.TestCase):
         c,e,s,i=setup();c.now+=9000
         with self.assertRaisesRegex(Unknown,'LAUNCH_ACK_UNKNOWN'):c.reconcile(cancel=True)
         self.assertFalse(e.runs)
-    def test_campaign_over_twelve_hours_denied(self):
+    def test_campaign_over_budget_bound_denied(self):
         c, e, s, i = setup()
-        c.expiry = c.now + 12 * 3600 + 1
+        c.expiry = c.now + BUDGET_CEILING_SECONDS + 1
         with self.assertRaisesRegex(Unknown, 'OVER_BUDGET'): c.launch_once()
         self.assertFalse(e.runs)
+    def test_max_ceiling_admission_launches_with_margin(self):
+        c, e, s, i = setup(); c.expiry = c.now + CAMPAIGN_CEILING_SECONDS
+        self.assertEqual(c.launch_once()['status'], 'RUNNING')
+        self.assertEqual(len(e.runs), 1)
+    def test_claim_bound_does_not_expire_a_max_ceiling_run(self):
+        c, e, s, i = setup(); c.expiry = c.now + BUDGET_CEILING_SECONDS
+        c.launch_once(); c.now += CAMPAIGN_CEILING_SECONDS
+        with patch.object(Control, 'heartbeat_missing', lambda *a: False):
+            self.assertEqual(c.reconcile()['status'], 'RUNNING')
+        self.assertFalse(e.terminated)
     def test_expired_launch_denied(self):
         c, e, s, i = setup(); c.now = c.expiry
         with self.assertRaisesRegex(Unknown, 'EXPIRED'): c.launch_once()
@@ -801,3 +813,21 @@ class LivenessTests(unittest.TestCase):
         self.assertFalse(e.terminated)
         control = x.control(x.active()[0])
         self.assertEqual(control.read(control.prefix+'liveness.json')['cpu'], 'busy')
+
+
+class CeilingTests(unittest.TestCase):
+    """Every operator-side bound must outlast the longest job the contract admits."""
+    def longest_job(self):
+        return validate_job({'schema': 'polis-probe-job/1', 'run_id': 'a'*32,
+                             'producer': {'image': 'localhost/polis-producer@sha256:'+'1'*64, 'args': ['produce']},
+                             'verifier': {'image': 'localhost/polis-verifier@sha256:'+'2'*64, 'args': ['verify']},
+                             'max_seconds': CAMPAIGN_CEILING_SECONDS})
+    def test_watch_ceiling_exceeds_the_longest_admitted_job_by_the_grace(self):
+        longest = self.longest_job()['max_seconds']
+        self.assertEqual(longest, CAMPAIGN_CEILING_SECONDS)
+        self.assertEqual(WATCH_CEILING_SECONDS, longest + WATCH_GRACE_SECONDS)
+        self.assertGreater(WATCH_CEILING_SECONDS, longest)
+    def test_budget_bound_exceeds_the_longest_admitted_job_by_the_margin(self):
+        longest = self.longest_job()['max_seconds']
+        self.assertEqual(BUDGET_CEILING_SECONDS, longest + BUDGET_MARGIN_SECONDS)
+        self.assertGreater(BUDGET_CEILING_SECONDS, longest)

@@ -7,7 +7,7 @@ import math
 import re
 import time
 import uuid
-from contracts import validate_job
+from contracts import CAMPAIGN_CEILING_SECONDS, validate_job
 from receipt import validate_receipt, decode_receipt, receipt_limit
 
 LAUNCH_KEYS = ('TEMPLATE', 'TEMPLATE_VERSION', 'PROFILE', 'SUBNET', 'SECURITY_GROUP')
@@ -18,6 +18,16 @@ TOKEN = re.compile(r'[A-Za-z0-9_.-]{1,96}')
 # Both launch templates carry exactly two EBS mappings: the root and one private disk.
 # EBS attaches after RunInstances returns, so an observation with fewer disks is partial.
 DISKS_PER_INSTANCE = 2
+# Operator-side bounds, all derived from the one job ceiling in contracts.py so that
+# raising the ceiling cannot leave a shorter bound behind to cut a legitimate run short.
+# One hour above the longest admissible job: these are sanity bounds on the admission
+# window, never the thing that ends a run. A run ends at its own recorded deadline.
+BUDGET_MARGIN_SECONDS = 3600
+BUDGET_CEILING_SECONDS = CAMPAIGN_CEILING_SECONDS + BUDGET_MARGIN_SECONDS
+# The watch loop only observes; it must outlast the box it is watching, including the
+# boot grace already allowed before a missing heartbeat terminates one (heartbeat_missing).
+WATCH_GRACE_SECONDS = 900
+WATCH_CEILING_SECONDS = CAMPAIGN_CEILING_SECONDS + WATCH_GRACE_SECONDS
 
 
 class Unknown(RuntimeError):
@@ -186,7 +196,9 @@ class Control:
         return {"InstanceId": prior["id"], "State": {"Name": "terminated"}, "BlockDeviceMappings": [], "gone": True}
 
     def launch_once(self):
-        if self.now >= self.expiry or self.expiry - self.now > 12 * 3600:
+        # Guards the launch: refuse an admission already expired, or one whose window is
+        # longer than any job the contract admits plus margin (a forged or stale expiry).
+        if self.now >= self.expiry or self.expiry - self.now > BUDGET_CEILING_SECONDS:
             raise Unknown("ADMISSION_EXPIRED_OR_OVER_BUDGET")
         if self.read(self.prefix + "clean.json") or self.read(self.prefix + "cancel.json"):
             raise Unknown("RUN_CLOSED")
@@ -301,7 +313,9 @@ class Control:
             return {"status": "CLEAN", "admissionId": self.a["id"]}
         if cancel:
             self.record(self.prefix + "cancel.json", {"admissionSha256": self.token})
-        expired = self.now >= self.expiry or (claim and self.now - claim["started"] >= 12 * 3600)
+        # Guards a claim outliving its admission: a box older than any admissible job plus
+        # margin is expired even if its recorded expiry says otherwise.
+        expired = self.now >= self.expiry or (claim and self.now - claim["started"] >= BUDGET_CEILING_SECONDS)
         cancelled = bool(self.read(self.prefix + "cancel.json"))
         if not claim:
             # An INTENT may precede claim creation or the actual launch call.
@@ -701,7 +715,7 @@ def main():
                 raise Unknown('REQUEST_REFUSED')
             result = session.status(args.run_id, cancel=args.action == 'cancel')
             if args.action == 'watch':
-                end = time.monotonic()+18900
+                end = time.monotonic()+WATCH_CEILING_SECONDS
                 while not result['complete']:
                     if time.monotonic() >= end:
                         raise Unknown('WATCH_CEILING')

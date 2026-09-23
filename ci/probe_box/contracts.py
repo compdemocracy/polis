@@ -9,6 +9,12 @@ import json
 import re
 from typing import Literal, TypedDict, NotRequired
 
+# The longest run any job may admit. Single source for every other lifetime bound
+# in the probe box: the operator's launch/claim sanity bounds and its watch
+# ceiling derive from it (run.py), and the baked `shutdown` and `TimeoutStartSec`
+# in bake.sh must match it. Raising it requires a newly baked and admitted AMI.
+CAMPAIGN_CEILING_SECONDS = 43200
+
 
 class ImageCommand(TypedDict):
     image: str
@@ -61,7 +67,7 @@ def validate_job(value: object) -> Job:
     if type(run_id) is not str or re.fullmatch(r"[a-f0-9]{32}", run_id) is None:
         raise BoundaryError("RUN_ID")
     ceiling = value["max_seconds"]
-    if type(ceiling) is not int or not 1 <= ceiling <= 18000:
+    if type(ceiling) is not int or not 1 <= ceiling <= CAMPAIGN_CEILING_SECONDS:
         raise BoundaryError("CAMPAIGN_CEILING")
     producer, verifier = command(value["producer"]), command(value["verifier"])
     if producer["image"] == verifier["image"]:
