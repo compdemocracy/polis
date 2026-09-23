@@ -420,6 +420,18 @@ def absolute_deadline(boot: dict, seconds: int) -> float:
     return deadline
 
 
+def shutdown_minutes(remaining: float) -> int:
+    """Whole minutes for the host's `shutdown -h` fallback, rounded UP.
+
+    The fallback is a backstop behind the admitted deadline, never a competitor
+    to it. Flooring let the host power off up to 59 s early and cut a run short
+    before its own expiry; rounding up keeps the power-off at or after the
+    deadline. The floor of one keeps `shutdown -h +0` (power off immediately)
+    off the table when the deadline is already close.
+    """
+    return max(1, math.ceil(remaining/60))
+
+
 def load_receipt(path: Path, job: dict) -> dict:
     if path.is_symlink() or not path.is_file() or path.stat().st_size>receipt_limit(job):
         raise ValueError("RECEIPT_FILE")
@@ -465,7 +477,7 @@ def run(diagnostics=None) -> None:
     diagnostics.bind(diagnostic_s3, boot['controlBucket'], f'heartbeats/{job["run_id"]}/{arn}.json', boot['evidenceKey'])
     deadline=absolute_deadline(boot,job['max_seconds'])
     if time.time()>=deadline or not SCRATCH.is_mount(): raise ValueError('EXPIRED_OR_NO_PRIVATE_DISK')
-    subprocess.run(['shutdown','-h','+'+str(max(1,int((deadline-time.time())//60)))],check=True,
+    subprocess.run(['shutdown','-h','+'+str(shutdown_minutes(deadline-time.time()))],check=True,
                    stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     def stage(name, phase):
         diagnostics.enter(name, phase)
