@@ -1,7 +1,7 @@
 {
   "fixture": "public-fixture",
-  "a": "2fb950bae8230a3e781feb724ffa27569eacb80ec3c786113750deed1cbd642e",
-  "b": "2fb950bae8230a3e781feb724ffa27569eacb80ec3c786113750deed1cbd642e",
-  "negative": "959731736e87e7e23c20261dda26937c6d3474b1e4c8d5267ee11c20e3558202",
+  "a": "1664ec49e0c24b300de01ce57e7ea4b96543db89795f5efd43e06a6c51e0018f",
+  "b": "1664ec49e0c24b300de01ce57e7ea4b96543db89795f5efd43e06a6c51e0018f",
+  "negative": "e05c64d988dca93f4ac8dbe40e99f1493049b9c34d63e06ff1699f463144be7c",
   "deltas": []
 }
