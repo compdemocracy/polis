@@ -2,6 +2,7 @@
 from __future__ import annotations
 import atexit
 import signal
+import sys
 import hashlib
 import datetime as dt
 import math
@@ -301,6 +302,7 @@ class Diagnostics:
         self.lock = threading.RLock()
         self.stop = threading.Event()
         self.finished = False
+        self.exported = False
 
     def bind(self, sink, bucket, key, encryption_key):
         self.target = dict(Bucket=bucket, Key=key, ServerSideEncryption='aws:kms',
@@ -330,6 +332,7 @@ class Diagnostics:
                 body['last_error'] = self.last_error
             try:
                 self.sink.put_object(**self.target, Body=canonical(body))
+                self.exported = True
             except Exception as error:
                 self.last_error = pulse_error(error)
         finally:
@@ -384,6 +387,7 @@ class Diagnostics:
             for _ in range(2):
                 try:
                     self.sink.put_object(**self.target, Body=body)
+                    self.exported = True
                     break
                 except BaseException:
                     pass
@@ -493,8 +497,8 @@ def run(diagnostics=None) -> None:
             boot=json.loads(raw); break
         except Exception:
             time.sleep(5)
-    # The role requires an explicit KMS key. Bootstrap has none; only the
-    # operator-owned boot object can bind a writable diagnostic mailbox.
+    # Bind worker diagnostics with the operator-owned boot object's explicit
+    # KMS key; the independent shell reporter uses bootstrap's controlKey.
     if isinstance(boot, dict) and isinstance(boot.get('evidenceKey'), str):
         diagnostics.bind(diagnostic_s3, boot_config['controlBucket'], f'heartbeats/boot/{arn}.json', boot['evidenceKey'])
     if not boot or boot['instanceId']!=identity['instanceId'] or boot['admissionSha256']!=sha(boot['admission']) or boot['admission']['ami']!=identity['imageId']:
@@ -602,6 +606,15 @@ def main():
         run(diagnostics)
     except BaseException as error:
         diagnostics.fail(error)
+        if not diagnostics.exported:
+            # main suppresses exceptions and powers off itself, so the shell
+            # cannot report this gap. The helper never imports this module.
+            try:
+                subprocess.run([sys.executable, str(ROOT/'boot_report.py'), 'worker', 'nonzero'],
+                               timeout=30, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                               check=False)
+            except BaseException:
+                pass
     finally:
         # Final fallback precedes all shutdown, including a failure in run's setup.
         diagnostics.terminated()

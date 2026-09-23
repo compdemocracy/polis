@@ -510,7 +510,8 @@ class LivenessBoundaryTests(unittest.TestCase):
         code = source.split(" <<'BOOT'\n", 1)[1].split('\nBOOT\n', 1)[0]
         common = {'account': '111111111111', 'region': 'us-east-1', 'controlBucket': 'control',
                   'dnsNames': ['public-fixture.ec2.vpce.amazonaws.com'], 'resolver': '10.0.0.2'}
-        good = {**common, 'mode': 'worker', 'ec2Url': 'https://public-fixture.ec2.vpce.amazonaws.com'}
+        good = {**common, 'mode': 'worker', 'ec2Url': 'https://public-fixture.ec2.vpce.amazonaws.com',
+                'controlKey': 'arn:aws:kms:us-east-1:111111111111:key/11111111-1111-1111-1111-111111111111'}
         cases = [(good, True), ({**common, 'mode': 'provision'}, True),
                  ({**common, 'mode': 'worker'}, False), ({**good, 'mode': 'provision'}, False)]
         for url in ('http://public-fixture.ec2.vpce.amazonaws.com', 'https://private.invalid',
@@ -522,7 +523,7 @@ class LivenessBoundaryTests(unittest.TestCase):
         for config, accepted in cases:
             with self.subTest(config=config), tempfile.TemporaryDirectory() as tmp:
                 target = Path(tmp)/'bootstrap.json'
-                with patch.object(worker, 'metadata', return_value=canonical(config)), \
+                with patch('boot_report.metadata', return_value=canonical(config)), \
                      patch('pathlib.Path', return_value=target), patch.object(sys, 'path', sys.path.copy()):
                     if accepted:
                         exec(compile(code, 'baked-bootstrap', 'exec'), {})

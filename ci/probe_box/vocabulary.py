@@ -35,7 +35,7 @@ FAILURE_REASONS = frozenset({'FAILURE_RECORD_FAILED'})
 LABELS = frozenset({'reader', 'producer', 'verifier'})
 RELAY = frozenset({'resolve', 'connect', 'no_tls', 'tls_verify', 'tls', 'io', 'relayed', 'plain_scram'})
 REASON_CODES = frozenset(code for _, code in __import__('worker').REASONS)
-PHASES = frozenset({'start', 'boot-config', 'firewall', 'dns', 'private-disk', 'container-daemon', 'worker'})
+from boot_report import PHASES
 CLASS_LINE = re.compile(r'^class ([A-Za-z_][A-Za-z0-9_]*)\(([A-Za-z_][A-Za-z0-9_.]*)\)', re.M)
 # Every all-caps string literal in the closure: the codes it can raise or print.
 CODE_LITERAL = re.compile(r"""['"]([A-Z][A-Z0-9_]{1,39})['"]""")

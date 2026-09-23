@@ -115,6 +115,7 @@ test('pulse authority is one tag on the calling worker instance through its priv
  expect(ep.Condition['ForAllValues:StringEquals']).toEqual(write.Condition['ForAllValues:StringEquals']);
  expect(JSON.stringify(ep.Principal)).toContain('BoxWorker');
  const boot=named(j,'BoxTemplate').LaunchTemplateData.UserData;
+ expect(JSON.stringify(boot)).toContain('controlKey');expect(JSON.stringify(boot)).toContain('BoxKey');
  expect(JSON.stringify(boot)).toContain('ec2Url');expect(JSON.stringify(boot)).toContain('BoxPulseEndpoint');
  expect(JSON.stringify(named(j,'BoxProvisionTemplate').LaunchTemplateData.UserData)).not.toContain('ec2Url');
  expect(JSON.stringify(named(j,'BoxProvisionerDefaultPolicy'))).not.toContain('ec2:CreateTags');

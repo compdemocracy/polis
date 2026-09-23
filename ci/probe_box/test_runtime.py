@@ -37,6 +37,7 @@ class ResolverBakeTests(unittest.TestCase):
     def run_shell(self, script, enabled='masked', active='inactive', fail=''):
         # No real systemctl, boot, DNS, poweroff, or machine configuration calls.
         double = '''
+boot_console() { :; }
 systemctl() {
   printf '%s\\n' "$*" >> "$PROBE_TEST_LOG"
   if [ "$1" = "$PROBE_TEST_FAIL" ]; then return 1; fi
@@ -381,8 +382,9 @@ class RuntimeTests(unittest.TestCase):
         self.assertLess(start.index('systemctl start polis-probe-container.service'), start.index('docker --host unix:///probe-work/docker.sock info'))
         for phase in ('boot-config', 'firewall', 'dns', 'private-disk', 'container-daemon', 'worker'):
             self.assertIn('BOOT_PHASE='+phase, start)
-        self.assertIn("heartbeats/boot/{arn}.json", start)
-        self.assertIn('polis-probe-boot-failure/1', start)
+        self.assertIn('timeout 30 /opt/polis-probe/venv/bin/python /opt/polis-probe/boot_report.py', start)
+        self.assertNotIn('from worker import', start)
+        self.assertLess(start.index("trap 'rc=$?"), start.index('shutdown -h +720'))
         self.assertLess(start.index('boot_failure()'), start.index("trap 'rc=$?"))
 
     def test_daemon_never_uses_root_disk_system_containerd_or_network(self):

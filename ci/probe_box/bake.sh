@@ -4,7 +4,7 @@
 set -euo pipefail
 [ "$(id -u)" = 0 ]
 [ "$(uname -m)" = aarch64 ]
-for tool in docker dockerd containerd runc skopeo mountpoint nft mkfs.ext4 mount systemctl unshare lsblk swapoff shutdown; do command -v "$tool" >/dev/null; done
+for tool in docker dockerd containerd runc skopeo mountpoint nft mkfs.ext4 mount systemctl unshare lsblk swapoff shutdown timeout; do command -v "$tool" >/dev/null; done
 [ -x /sbin/ebsnvme-id ]
 [ -x /opt/polis-probe/venv/bin/python ]
 /opt/polis-probe/venv/bin/python -c 'import sys, boto3, psycopg2; assert sys.version_info[:2] == (3, 12)'
@@ -21,7 +21,7 @@ if len(raw) != ca['bytes'] or hashlib.sha256(raw).hexdigest() != ca['sha256']:
 PYCA
 install -d -m 0755 /opt/polis-probe
 install -m 0444 "$PROBE_RDS_CA" /opt/polis-probe/rds-ca.pem
-for file in worker.py contracts.py receipt.py roles_census.py roles_queries.py replica.py dns.py provision.py provision_login.py; do install -m 0444 "$(dirname "$0")/$file" "/opt/polis-probe/$file"; done
+for file in boot_report.py worker.py contracts.py receipt.py roles_census.py roles_queries.py replica.py dns.py provision.py provision_login.py; do install -m 0444 "$(dirname "$0")/$file" "/opt/polis-probe/$file"; done
 # Resolver ownership (offline bake).
 # AL2023 links resolv.conf to resolved's DHCP-managed uplink file. Writing
 # through that link lasts only until renewal. Stop its writer before unlinking;
@@ -143,57 +143,41 @@ UNIT
 cat > /opt/polis-probe/start.sh <<'START'
 #!/usr/bin/env bash
 set -euo pipefail
-# Arm termination before any mount, DNS or supervisor work can fail. EC2's
-# active operator observes absolute admission expiry and missing heartbeat.
-shutdown -h +720
-# Every phase before the worker's first heartbeat is otherwise blind. On failure,
-# record only the phase name (a fixed token) to this instance's own boot key, which
-# the worker role may already write; nothing else leaves. Best effort: phases before
-# the boot config and DNS exist cannot be recorded.
+# Install the closed console/remote failure path before arming shutdown.
 BOOT_PHASE=start
+boot_console() {
+  case "$BOOT_PHASE:$1" in
+    start:entry|boot-config:entry|firewall:entry|dns:entry|private-disk:entry|container-daemon:entry|worker:entry|start:nonzero|boot-config:nonzero|firewall:nonzero|dns:nonzero|private-disk:nonzero|container-daemon:nonzero|worker:nonzero)
+      { printf 'POLIS_PROBE_BOOT/1 %s %s\n' "$BOOT_PHASE" "$1" > /dev/console; } 2>/dev/null || true ;;
+  esac
+}
 boot_failure() {
-  local phase="$BOOT_PHASE"
-  /opt/polis-probe/venv/bin/python - "$phase" <<'MARK' || true
-import json,sys
-sys.path.insert(0,'/opt/polis-probe')
-try:
-    from worker import metadata
-    import boto3
-    from botocore.config import Config
-    b=json.loads(open('/opt/polis-probe/bootstrap.json').read())
-    i=json.loads(metadata('dynamic/instance-identity/document'))
-    arn=f"arn:aws:ec2:{i['region']}:{i['accountId']}:instance/{i['instanceId']}"
-    s3=boto3.client('s3',region_name=i['region'],config=Config(retries={'total_max_attempts':2},connect_timeout=5,read_timeout=10,s3={'us_east_1_regional_endpoint':'regional','addressing_style':'virtual'}))
-    s3.put_object(Bucket=b['controlBucket'],Key=f'heartbeats/boot/{arn}.json',Body=json.dumps({'schema':'polis-probe-boot-failure/1','phase':sys.argv[1]}).encode(),ServerSideEncryption='aws:kms')
-except Exception:
-    pass
-MARK
+  boot_console nonzero
+  timeout 30 /opt/polis-probe/venv/bin/python /opt/polis-probe/boot_report.py "$BOOT_PHASE" nonzero || true
 }
 trap 'rc=$?; if [ "$rc" -ne 0 ]; then boot_failure; fi; systemctl poweroff' EXIT
+boot_console entry
+shutdown -h +720
 swapoff -a
 ulimit -c 0
 # User-data is JSON only; cloud-init execution is disabled. This step runs
 # before any probe or private database access and reads no credential.
 BOOT_PHASE=boot-config
+boot_console entry
 /opt/polis-probe/venv/bin/python - <<'BOOT'
 import json,sys
 from pathlib import Path
 sys.path.insert(0,'/opt/polis-probe')
-from worker import metadata
-b=json.loads(metadata('user-data'))
-expected={'mode','account','region','controlBucket','dnsNames','resolver'}
-if b.get('mode')=='worker': expected.add('ec2Url')
-if set(b)!=expected or b['mode'] not in ('worker','provision'): raise ValueError('BOOT_CONFIG')
-if b['mode']=='worker':
-    from urllib.parse import urlsplit
-    endpoint=urlsplit(b['ec2Url'])
-    if endpoint.scheme!='https' or endpoint.netloc!=endpoint.hostname or endpoint.path or endpoint.query or endpoint.fragment or endpoint.hostname not in b['dnsNames']: raise ValueError('BOOT_CONFIG')
+from boot_report import metadata, validate_bootstrap
+b=validate_bootstrap(json.loads(metadata('user-data')))
 Path('/opt/polis-probe/bootstrap.json').write_text(json.dumps(b))
 Path('/opt/polis-probe/bootstrap.json').chmod(0o444)
 BOOT
 BOOT_PHASE=firewall
+boot_console entry
 nft -f /opt/polis-probe/firewall.nft
 BOOT_PHASE=dns
+boot_console entry
 # Refuse an image whose resolver ownership has drifted. A masked unit returns
 # nonzero from is-enabled; compare its output rather than its exit status.
 [ ! -L /etc/resolv.conf ]
@@ -212,6 +196,7 @@ fi
 # The volume is attached at launch but can enumerate after this script starts;
 # wait for it rather than fail the boot on a race.
 BOOT_PHASE=private-disk
+boot_console entry
 private_disk=''
 for attempt in $(seq 1 60); do
   for dev in /dev/nvme*n1; do
@@ -229,6 +214,7 @@ chmod 0700 /probe-work
 mkdir -m 0700 /probe-work/tmp /probe-work/docker-client
 export TMPDIR=/probe-work/tmp DOCKER_CONFIG=/probe-work/docker-client
 BOOT_PHASE=container-daemon
+boot_console entry
 systemctl start polis-probe-container.service
 for attempt in $(seq 1 30); do
   docker --host unix:///probe-work/docker.sock info >/dev/null 2>&1 && break
@@ -236,6 +222,7 @@ for attempt in $(seq 1 30); do
 done
 docker --host unix:///probe-work/docker.sock info >/dev/null 2>&1
 BOOT_PHASE=worker
+boot_console entry
 /opt/polis-probe/venv/bin/python /opt/polis-probe/worker.py
 START
 chmod 0500 /opt/polis-probe/start.sh
