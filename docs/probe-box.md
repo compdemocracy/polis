@@ -227,8 +227,19 @@ for that ceiling; the operator derives its bounds from it in `ci/probe_box/run.p
 so no bound can be left behind to cut a legitimate run short. The launch and
 claim sanity bounds are the ceiling plus one hour of margin and never end a run
 themselves, and the `watch` ceiling is the job ceiling plus a 900-second grace,
-so watch outlasts the box it observes. The baked `shutdown` and `TimeoutStartSec`
-in `bake.sh` must be changed to match by hand, and that needs a new AMI.
+so watch outlasts the box it observes. The receipt boundary keeps no ceiling of
+its own: `ci/probe_box/receipt.py` validates the job through the same
+`validate_job`, so a run the job boundary admitted cannot be refused at the
+receipt after the comparisons have already been paid for. Both files are in the
+verifier image closure, so a ceiling change is only live in the box once the
+image is rebaked from the changed source. The baked `shutdown` and
+`TimeoutStartSec` in `bake.sh` must be changed to match by hand, and that needs
+a new AMI.
+
+The worker's own host fallback, `shutdown -h +N` at startup, rounds N **up** to
+whole minutes (`worker.shutdown_minutes`, minimum 1). It is a backstop behind
+the admitted deadline, not a competitor to it: flooring would have powered the
+host off up to 59 s early and cut a run short before its own expiry.
 The producer engine subprocess timeout is 3600 seconds. A separate benchmark
 helper, `polismath.replay.shard_bench`, has a 1800-second child timeout, but the
 probe producer invokes the engine drivers directly and does not use that helper.

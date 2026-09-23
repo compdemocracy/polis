@@ -1,15 +1,19 @@
 """Actual public-descriptor capture and closed export regression controls."""
+import ast
 import copy
 import io
 import json
+from pathlib import Path
 import subprocess
 import sys
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from contracts import validate_job, public_result
+from contracts import BoundaryError, CAMPAIGN_CEILING_SECONDS, validate_job, public_result
 from receipt import canonical, decode_receipt, sha, validate_receipt
+# The receipt boundary must reach the job boundary's ceiling, never keep its own.
+from receipt import validate_job as receipt_job_boundary
 import worker
 from dns import question
 
@@ -528,3 +532,76 @@ class LivenessBoundaryTests(unittest.TestCase):
                         with self.assertRaisesRegex(ValueError, 'BOOT_CONFIG'):
                             exec(compile(code, 'baked-bootstrap', 'exec'), {})
                         self.assertFalse(target.exists())
+
+
+def ceiling_job(seconds):
+    """Unvalidated, so an over-ceiling value reaches each boundary as written."""
+    return dict(schema='polis-probe-job/1', run_id='a'*32, max_seconds=seconds,
+                producer={'image':'localhost/producer@sha256:'+'1'*64,'args':['produce']},
+                verifier={'image':'localhost/verifier@sha256:'+'2'*64,'args':['verify']})
+
+
+def receipt_for(j):
+    return dict(schema='polis-probe-receipt/1', run_id=j['run_id'], job_sha256=sha(validate_job(j)),
+        verdict='PASS',
+        entries=[dict(verdict='PASS',checks=3,worst_absolute=0.0,worst_relative=0.0,outliers=0,nonfinite=0)],
+        controls={'passed':21,'expected':21}, selection=None,
+        digests=dict(producer='1'*64,verifier='2'*64,inputs='3'*64,recordings='4'*64,policy='5'*64))
+
+
+class CampaignCeilingTests(unittest.TestCase):
+    """One ceiling for both boundaries.
+
+    A run that the job boundary admits must not be refused by the receipt
+    boundary after the comparisons have already been paid for, so the two read
+    the same constant rather than two copies that can drift apart.
+    """
+
+    def test_the_receipt_boundary_reuses_the_job_boundary_itself(self):
+        self.assertIs(receipt_job_boundary, validate_job)
+
+    def test_a_job_at_exactly_the_ceiling_is_accepted_by_both_boundaries(self):
+        j = ceiling_job(CAMPAIGN_CEILING_SECONDS)
+        self.assertEqual(validate_job(j)['max_seconds'], CAMPAIGN_CEILING_SECONDS)
+        r = receipt_for(j)
+        self.assertEqual(validate_receipt(r, j), r)
+
+    def test_a_job_one_second_over_the_ceiling_is_refused_by_both_boundaries(self):
+        j = ceiling_job(CAMPAIGN_CEILING_SECONDS + 1)
+        with self.assertRaisesRegex(BoundaryError, '^CAMPAIGN_CEILING$'):
+            validate_job(j)
+        r = receipt_for(ceiling_job(CAMPAIGN_CEILING_SECONDS))
+        with self.assertRaisesRegex(BoundaryError, '^CAMPAIGN_CEILING$'):
+            validate_receipt(r, j)
+
+
+class ShutdownFallbackTests(unittest.TestCase):
+    """The baked host power-off is a backstop; it may never fire early."""
+
+    def test_the_scheduled_poweroff_never_precedes_the_remaining_time(self):
+        for remaining in (1, 30, 59, 60, 61, 119, 120, 1799, 3600.5, 21599, 43019,
+                          CAMPAIGN_CEILING_SECONDS - 1, CAMPAIGN_CEILING_SECONDS):
+            with self.subTest(remaining=remaining):
+                minutes = worker.shutdown_minutes(remaining)
+                self.assertGreaterEqual(minutes*60, remaining)
+                self.assertGreaterEqual(minutes, 1)
+
+    def test_a_close_or_passed_deadline_still_schedules_a_whole_minute(self):
+        for remaining in (0, 0.5, -1, -3600):
+            with self.subTest(remaining=remaining):
+                self.assertEqual(worker.shutdown_minutes(remaining), 1)
+
+    def test_the_worker_builds_its_shutdown_argument_from_that_helper(self):
+        tree = ast.parse(Path(worker.__file__).read_text())
+        call = next(node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute) and node.func.attr == 'run'
+                    and node.args and isinstance(node.args[0], ast.List)
+                    and isinstance(node.args[0].elts[0], ast.Constant)
+                    and node.args[0].elts[0].value == 'shutdown')
+        # Boot at t=181 of a full-ceiling run: 43,019 s remain, which is 716.98 min.
+        argv = eval(compile(ast.Expression(call.args[0]), '<shutdown-argv>', 'eval'),
+                    {'deadline': CAMPAIGN_CEILING_SECONDS,
+                     'shutdown_minutes': worker.shutdown_minutes,
+                     'time': SimpleNamespace(time=lambda: 181)})
+        self.assertEqual(argv, ['shutdown', '-h', '+717'])
+        self.assertGreaterEqual(181 + int(argv[-1][1:])*60, CAMPAIGN_CEILING_SECONDS)
