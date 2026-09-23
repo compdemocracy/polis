@@ -180,7 +180,7 @@ def main():
             **{k:'fixture' for k in operator.LAUNCH_KEYS})
         (worker.ROOT/'bootstrap.json').write_text(json.dumps(dict(account=identity['accountId'],region=identity['region'],controlBucket='fixture-control')))
         def case(name, job, module=worker, host='postgres', bad_ca=False, expected=None, readback=operator):
-            for directory in ('reader','output','verdict','job','replica','run-spec'):
+            for directory in ('reader','output','verdict','job','selection','replica','run-spec'):
                 shutil.rmtree(P/directory,ignore_errors=True)
             for log in P.glob('*.log'):
                 if log.name != 'daemon.log':log.unlink()
