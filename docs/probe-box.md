@@ -603,3 +603,40 @@ The local pipeline rehearsal uses the same provisioner and retains the fixture's
 PUBLIC defaults, printing only the closed finding list into `provision-reader`
 output. The isolated `login_rehearsal.py` tests revoke grants solely to construct
 negative and absent-grant controls. No production REVOKE is required.
+
+
+### Early boot evidence (runs 16/17 follow-up)
+
+The baked `boot_report.py` uses only the standard library at import time. Boot
+configuration and failure reporting no longer import the worker. Worker user-data
+now includes the public `controlKey` ARN, validated against its account/region;
+boot failures send that exact `SSEKMSKeyId` required by the existing IAM policy.
+Provisioner user-data keeps its existing schema. Install the operator module,
+redeploy the worker launch template and bake the new AMI together. An old template
+without `controlKey` fails the new boot-config check. No science image change is
+required for this reporting fix.
+
+On shell failure the supervisor emits only a fixed console phase/exit marker,
+then invokes the independent reporter under a 30-second wall-clock limit before
+poweroff. The trap is armed before the first shutdown command. Worker exceptions
+before any successful S3 pulse/failure write invoke the same reporter before the
+worker's own poweroff. It attempts both the existing self-only EC2 tag channel and
+S3; either service can succeed when the other rejects a request. The new closed
+record is `polis-probe-boot-failure/2` with `phase` and `exit` tokens. Existing /1
+records remain readable. The S3 boot report is create-only, preserving any richer
+worker failure already in the pre-job mailbox. A shell failure after a worker
+pulse uses the last real stage/phase/pulse or saved failure in operator output;
+coarse boot evidence is the fallback when neither is available.
+The terminal tag is a failure, never positive liveness;
+the operator saves it create-only in `control/<run>/boot-failure.json` while the
+instance is observable, including during disposal. This does not change receipt
+verdicts or CLEAN's requirement to observe the instance and disks gone.
+
+Before DNS works, only the fixed console markers can leave the ordinary local
+logging path. General worker, SDK and container stdout/stderr remain suppressed.
+Console delivery/retention after termination is not guaranteed; neither a dead
+kernel nor unavailable remote sinks can guarantee a causal diagnostic. Runtime
+source analysis did not identify the runs 16/17 cause. The offline worker
+rehearsal bypasses systemd startup, real IMDS, DNS and AWS KMS enforcement, so its
+passing result does not certify those boot paths. Inspect the next run's new
+closed evidence before attributing the shutdown to a particular phase.

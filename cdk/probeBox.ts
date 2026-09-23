@@ -170,7 +170,7 @@ export class ProbeBox extends Construct {
       StringEquals:{'kms:ViaService':`s3.${a.region}.amazonaws.com`},
       StringLike:{'kms:EncryptionContext:aws:s3:arn':[control.arnForObjects('*'),evidence.arnForObjects('results/*/receipt.json')]}});
     const boot = {mode:'worker',account:a.account,region:a.region,controlBucket:control.bucketName,
-      ec2Url: `https://${pulseHost}`,
+      ec2Url: `https://${pulseHost}`,controlKey:key.keyArn,
       dnsNames:[a.replicaHost,secretHost,pulseHost,...[control,evidence,assets].map(b=>`${b.bucketName}.s3.${a.region}.amazonaws.com`)],resolver:a.resolverAddress};
     // Only root reads this public boot configuration. No code or credentials in user-data.
     const template = new ec2.CfnLaunchTemplate(this,'Template',{launchTemplateData:{imageId:a.ami,instanceType:'r8g.4xlarge',

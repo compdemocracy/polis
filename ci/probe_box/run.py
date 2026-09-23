@@ -110,6 +110,27 @@ def clean_pulse_tag(instance):
     return clean_heartbeat(body)
 
 
+def clean_boot_failure(record):
+    from boot_report import PHASES, EXITS, SCHEMA
+    if (type(record) is dict and set(record) == {'schema', 'phase', 'exit'}
+            and record['schema'] == SCHEMA and known(record['phase'], PHASES)
+            and known(record['exit'], EXITS)):
+        return {'stage': 'boot', 'phase': record['phase'], 'exit': record['exit']}
+    return None
+
+
+def clean_boot_tag(instance):
+    from boot_report import SCHEMA
+    from vocabulary import PULSE_TAG
+    values = [t.get('Value') for t in instance.get('Tags', []) if t.get('Key') == PULSE_TAG]
+    if len(values) != 1 or type(values[0]) is not str or len(values[0]) > 96:
+        return None
+    parts = values[0].split(':')
+    if len(parts) != 3 or parts[0] != 'boot-failure':
+        return None
+    return clean_boot_failure({'schema': SCHEMA, 'phase': parts[1], 'exit': parts[2]})
+
+
 class Control:
     def __init__(self, ec2: object, s3: object, cfg: object, now: object = None, monitoring=None):
         self.ec2, self.s3, self.c = ec2, s3, cfg
@@ -332,6 +353,10 @@ class Control:
         if i is None:
             raise Unknown("LAUNCH_ACK_UNKNOWN")
         iid = i["InstanceId"]
+        boot_failure = clean_boot_tag(i)
+        if boot_failure and self.c['MODE'] == 'worker':
+            self.record(self.prefix+'boot-failure.json', {
+                'admissionSha256': self.token, 'instanceId': iid, 'failure': boot_failure})
         volume_ids = sorted(b["Ebs"]["VolumeId"] for b in i.get("BlockDeviceMappings", []) if "Ebs" in b)
         prior = self.read(self.prefix + "instance.json")
         if len(volume_ids) != len(set(volume_ids)) or len(volume_ids) > DISKS_PER_INSTANCE:
@@ -607,15 +632,31 @@ class Session:
             return terminal
         clean = c.read(c.prefix + 'clean.json')
         saved = clean_heartbeat((clean or {}).get('heartbeat'))
-        return saved or terminal or self.boot_failure(c, arn)
+        tagged = c.read(c.prefix+'boot-failure.json')
+        tag_failure = None
+        if tagged:
+            from boot_report import SCHEMA
+            if tagged.get('admissionSha256') != c.token or tagged.get('instanceId') != arn.rsplit('/', 1)[-1]:
+                raise Unknown('INSTANCE_CHANGED')
+            value = tagged.get('failure', {})
+            if type(value) is dict and set(value) == {'stage', 'phase', 'exit'} and value['stage'] == 'boot':
+                tag_failure = clean_boot_failure({'schema': SCHEMA, 'phase': value['phase'], 'exit': value['exit']})
+        # The shell trap also runs after a pulsed worker is killed. Its coarse
+        # marker must not hide the last real stage or a saved failure record.
+        return saved or terminal or self.boot_failure(c, arn) or tag_failure
 
     def boot_failure(self, c, arn):
-        """The start script's phase marker, written only when the box failed before the
-        worker's first heartbeat (private disk, container daemon, ...). A fixed token."""
+        """Pre-job diagnostics or a coarse shell marker, used without a job pulse.
+
+        The trap can also run after the worker started; that marker alone does
+        not prove the failure preceded the first heartbeat."""
         try:
             record = c.read(f'heartbeats/boot/{arn}.json')
         except (Unknown, ValueError, TypeError):
             return None
+        closed = clean_boot_failure(record)
+        if closed:
+            return closed
         terminal = clean_heartbeat(record)
         if terminal and terminal.get('stage') == 'boot':
             return terminal
