@@ -22,8 +22,8 @@
   "profile": "real getPca + presentPca + participants.ts, in-process, one Node process",
   "served": {
     "python": {
-      "asJSON_bytes": 6467,
-      "asJSON_sha256": "a6f97eefa01d1163618efa72aef0d84daa82816185952dca43f2d0c5f04e4e6f",
+      "asJSON_bytes": 6496,
+      "asJSON_sha256": "a7bb77571ae0fc098d925e17082e7d1e86e184aa898a2a6df6ca90471a9ea9d0",
       "bid_to_pid": [
         [
           0
@@ -51,9 +51,9 @@
         "disagree": 0
       },
       "etag_math_tick": 1,
-      "gzip_bytes": 1736,
-      "gzip_sha256": "bf1011c0dcffd052f512135046e4c38f807c2158c82faaea6f45cc912110f528",
-      "keys_projection_sha256": "08743f5ed0bac5e02c7a38535745cbc2c5d22f0b8c52d601dda7c65b4c9dd29a",
+      "gzip_bytes": 1761,
+      "gzip_sha256": "bffce91e2a5c286510d5451157c7c54e04d3db179630a7e041c7574399a172c6",
+      "keys_projection_sha256": "02de433e7970e77c3569cd225d9e48b2944bdb217c561e1c275674eb126713b1",
       "mapping_is_error": false,
       "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
       "n": 6,
@@ -88,8 +88,8 @@
       ]
     },
     "rustproto": {
-      "asJSON_bytes": 6467,
-      "asJSON_sha256": "a6f97eefa01d1163618efa72aef0d84daa82816185952dca43f2d0c5f04e4e6f",
+      "asJSON_bytes": 6496,
+      "asJSON_sha256": "a7bb77571ae0fc098d925e17082e7d1e86e184aa898a2a6df6ca90471a9ea9d0",
       "bid_to_pid": [
         [
           0
@@ -117,9 +117,9 @@
         "disagree": 0
       },
       "etag_math_tick": 1,
-      "gzip_bytes": 1736,
-      "gzip_sha256": "bf1011c0dcffd052f512135046e4c38f807c2158c82faaea6f45cc912110f528",
-      "keys_projection_sha256": "08743f5ed0bac5e02c7a38535745cbc2c5d22f0b8c52d601dda7c65b4c9dd29a",
+      "gzip_bytes": 1761,
+      "gzip_sha256": "bffce91e2a5c286510d5451157c7c54e04d3db179630a7e041c7574399a172c6",
+      "keys_projection_sha256": "02de433e7970e77c3569cd225d9e48b2944bdb217c561e1c275674eb126713b1",
       "mapping_is_error": false,
       "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
       "n": 6,
