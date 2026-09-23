@@ -592,9 +592,10 @@ def select_rep_comments_df(stats_df: pd.DataFrame,
     best_max_rt: Optional[float] = None
     best_agree: Optional[Dict[str, Any]] = None
 
-    # Iteration order decides ties: all Clojure beats-*? predicates use
-    # strict `>` so the FIRST row at a tied score wins, and repness-sort is
-    # a stable sort over the iteration order (repness.clj:196-200).
+    # Iteration order matters: fallback compares the next raw score against
+    # the previous winner's finalized float32 score (repness.clj:187,245).
+    # Equal raw scores can replace a winner when that prior score rounded down.
+    # Other beats-*? predicates use raw strict `>`; repness-sort is stable.
     #
     # preserve_order=True (clojure-legacy via conv_repness's tid_order): rows
     # already follow Clojure's named-matrix column order — first-vote ARRIVAL
@@ -620,7 +621,8 @@ def select_rep_comments_df(stats_df: pd.DataFrame,
         if not sufficient:
             if beats_best_by_test(row, best_max_rt):
                 best = _finalize_row_for_output(row)
-                best_max_rt = max(row['rat'], row['rdt'])
+                best_max_rt = float(np.float32(
+                    row['rat'] if row['rat'] > row['rdt'] else row['rdt']))
         # `best_agree` stores RAW row (Clojure repness.clj:250) so subsequent
         # `beats_best_agr` calls keep the ra/rat/pa/pat surface.
         if beats_best_agr(row, best_agree):
