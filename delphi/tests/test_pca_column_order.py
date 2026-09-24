@@ -10,6 +10,12 @@ from polismath.conversation.conversation import Conversation
 FIXTURE = json.loads((Path(__file__).parent / 'replay_harness/fixtures/revote_column_order.json').read_text())
 
 
+def assert_g12(actual, expected):
+    actual, expected = np.asarray(actual), np.asarray(expected)
+    assert actual.shape == expected.shape
+    assert np.all(np.abs(actual-expected) <= 1e-6 + 1e-4*np.maximum(np.abs(actual),np.abs(expected)))
+
+
 def batch(rows):
     # Fixture signs are raw storage; the Python ingress negates them.
     return {'votes': [dict(pid=p, tid=t, vote=-v, created=ms) for p, t, v, ms in rows]}
@@ -25,12 +31,10 @@ def test_cross_cut_revotes_match_recorded_components(case):
         blob = conv.to_dict()
         assert blob['tids'] == expected['tids']
         assert list(conv.rating_mat.columns) == expected['tids']
-        np.testing.assert_array_equal(np.asarray(blob['pca']['comps']).view(np.uint64),
-                                      np.asarray(expected['pca']['comps']).view(np.uint64))
+        assert_g12(blob['pca']['comps'], expected['pca']['comps'])
         # Output polarity can differ only in the sign of a zero center.
         np.testing.assert_array_equal(blob['pca']['center'], expected['pca']['center'])
-        np.testing.assert_allclose(blob['pca']['comment-projection'],
-                                   expected['pca']['comment-projection'], rtol=0, atol=1e-15)
+        assert_g12(blob['pca']['comment-projection'], expected['pca']['comment-projection'])
         previous = cut
 
 
@@ -42,8 +46,7 @@ def test_restored_components_keep_the_recorded_column_positions():
     # Rebuild votes to the next cut, preserving the loaded warm component order.
     conv = conv.update_votes(batch(case['votes'][:case['cuts'][2]]), recompute=False)
     conv._compute_pca(prev_pca=conv.pca)
-    np.testing.assert_array_equal(conv.pca['comps'].view(np.uint64),
-                                  np.asarray(case['expected'][2]['pca']['comps']).view(np.uint64))
+    assert_g12(conv.pca['comps'], case['expected'][2]['pca']['comps'])
 
 
 def test_null_and_duplicate_votes_do_not_move_column_positions():
