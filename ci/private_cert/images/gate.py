@@ -36,6 +36,7 @@ from receipt import validate_engine_timeout
 from image_admission import file_digest, json_bytes, regular_path
 import g12
 from polismath.replay import certify, fixture_bundle, fixture_samples, real_data, schedule, store
+from polismath.replay import legacy_pca
 from polismath.replay.event_ingress import input_hashes
 
 POLICY = {'schema': 'polis-private-paired-policy/1', 'absolute': 1e-6,
@@ -46,6 +47,16 @@ POLICY = {'schema': 'polis-private-paired-policy/1', 'absolute': 1e-6,
                            'nested_paths': sorted(schedule.EMPTY_PCA_PATHS),
                            'legacy_absent_moderation': ['mod-in', 'mod-out'],
                            'moderation_present_values': 'compare-normally'},
+          'legacy_pca_restart': {'schema': 'legacy-pca-restart-reconciliation/1',
+                                 'name': legacy_pca.NAME,
+                                 'evidence': 'both-sidecars-admitted-and-previous-legacy-blob-corroborated',
+                                 'cold_seed': 'pinned-ones-no-checkpoint-zero-onset',
+                                 'starts': sorted(legacy_pca.STARTS),
+                                 'scope': 'same-entry-from-first-observed-checkpoint-inclusive',
+                                 'paths': legacy_pca.PATHS,
+                                 'admission': 'original-raw-and-g12-self-schema-first',
+                                 'inventories': 'shared-fields-only-pca-dimensions-preserved',
+                                 'unavailable': 'no-new-exception'},
           'stages': 'diagnostic-only', 'recovery_consumption': 'shadow-diagnostic-only'}
 INPUT_KEYS = {'candidateSha', 'oracleSha', 'policySha256', 'scheduleSha256',
               'inventorySha256', 'expectedChecks'}
@@ -325,8 +336,20 @@ def verify_pairs(prepared, recordings, scratch, *, attribution=False):
             raise ValueError('RECORDING_SCHEDULE_BINDING')
         for engine in ('clj', 'py'):
             certify.validate_recording_inventory(rec / engine, engine, p)
-        strict = certify.compare_recording_pair(rec / 'clj', rec / 'py', cache_root=scratch, expected=p)
-        metric = g12.measure_main_blob(rec, REPO / 'delphi', expected=p)
+        checks = len(p.checkpoints)
+        observations, onset = None, None
+        if attribution:
+            from attribution import measure_recording, unavailable
+            try:
+                observations = measure_recording(rec, checks)
+            except Exception:
+                observations = [unavailable(i) for i in range(checks)]
+            onset = legacy_pca.restart_checkpoint(observations)
+        strict = certify.compare_recording_pair(rec / 'clj', rec / 'py', cache_root=scratch, expected=p,
+                                                legacy_restart_from=onset)
+        if len(strict['per_step']) != checks:
+            raise ValueError('COMPARISON_CHECKPOINT_COUNT')
+        metric = g12.measure_main_blob(rec, REPO / 'delphi', expected=p, legacy_restart_from=onset)
         ok = bool(all(s['match'] for s in strict['per_step']) and metric.get('authoritative_g12') is True)
         passed = passed and ok
         stage_diagnostic = {'status': 'NOT_CAPTURED', 'gate': False}
@@ -341,13 +364,10 @@ def verify_pairs(prepared, recordings, scratch, *, attribution=False):
                                            'schedule_id': p.entry.schedule_id},
                         'diagnostics': comparison_diagnostics(strict, metric)})
         if attribution:
-            from attribution import measure_recording, unavailable
-            checks = len(strict['per_step'])
-            try:
-                reports[-1]['attribution'] = measure_recording(rec, checks)
-            except Exception:
-                reports[-1]['attribution'] = [unavailable(i) for i in range(checks)]
+            reports[-1]['attribution'] = observations
         defects = certify.legacy_empty_defects(p)
+        if onset is not None:
+            defects.append({'name': legacy_pca.NAME})
         if defects:
             reports[-1]['legacy_defects'] = defects
     controls = checkpoint_controls(prepared[0], recordings, scratch)

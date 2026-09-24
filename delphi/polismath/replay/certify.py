@@ -1427,6 +1427,7 @@ def compare_recording_pair(
     clj_dir: str | Path, py_dir: str | Path, *, cache_root: str | Path,
     comparer: StepComparer | None = None,
     expected: ExpectedEntry | None = None,
+    legacy_restart_from: int | None = None,
 ) -> dict[str, Any]:
     """Hash-first, cached comparison of one clj/py recording pair.
 
@@ -1434,7 +1435,12 @@ def compare_recording_pair(
     PER ENGINE; equal hashes short-circuit to a zero-cost MATCH. A mismatch
     consults the on-disk step-verdict cache (keyed on the hash pair + comparer
     config) before running the (acceptance-projecting) :class:`StepComparer`.
+
+    ``legacy_restart_from`` is supplied only by the verifier after admitting
+    the complete attribution inventory. It reconciles the declared dependency
+    paths from that checkpoint onward, after raw admission and before hashes.
     """
+    from polismath.replay import legacy_pca
     if expected is not None:
         # Context comes from the independently admitted schedule, never from
         # producer claims. Raw schema/cursor checks precede reconciliation.
@@ -1483,6 +1489,9 @@ def compare_recording_pair(
                     defects.append({"name": "legacy-defect-empty-omits-keys", "keys": restored})
         if not clj_proj or not py_proj:
             raise CertifyError("checkpoint-schema", "empty acceptance blob")
+        if legacy_pca.active(i, legacy_restart_from):
+            clj_proj, py_proj = legacy_pca.reconcile(clj_proj, py_proj)
+            defects.append({"name": legacy_pca.NAME})
         clj_hash = _canonical_hash(clj_proj)
         py_hash = _canonical_hash(py_proj)
 

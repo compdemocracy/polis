@@ -2,7 +2,7 @@
 
 No file copying, field names from a dataset, paths, IDs, raw blob values, logs or
 free text are accepted. Entry positions follow the digest-bound run inventory.
-Optional named legacy defects use fixed public keys and one exact timestamp pair.
+Optional named legacy defects use closed names and fixed public keys.
 """
 from __future__ import annotations
 
@@ -53,11 +53,19 @@ LEGACY_EMPTY_KEYS = frozenset({
 
 def validate_legacy_defects(value: object) -> list:
     """Closed, bounded observations; never serialize arbitrary comparer data."""
-    if type(value) is not list or len(value) != 1:
+    if type(value) is not list or not 1 <= len(value) <= 2:
         raise ValueError("RECEIPT_LEGACY_DEFECT")
+    seen = set()
     for defect in value:
         if type(defect) is not dict:
             raise ValueError("RECEIPT_LEGACY_DEFECT")
+        name = defect.get("name")
+        if type(name) is not str or name in seen:
+            raise ValueError("RECEIPT_LEGACY_DEFECT")
+        seen.add(name)
+        if name == "legacy-defect-pca-random-restart":
+            closed(defect, {"name"})
+            continue
         if defect.get("name") != "legacy-defect-empty-omits-keys":
             raise ValueError("RECEIPT_LEGACY_DEFECT")
         closed(defect, {"name", "keys"})
@@ -256,6 +264,9 @@ def validate_receipt(value: object, job: Job) -> dict:
         e = closed(entry, {"verdict", "checks", "worst_absolute", "worst_relative", "outliers", "nonfinite"} | optional | diagnostic_fields)
         if optional:
             validate_legacy_defects(e["legacy_defects"])
+            if not v5 and any(d['name'] == 'legacy-defect-pca-random-restart'
+                              for d in e['legacy_defects']):
+                raise ValueError("RECEIPT_LEGACY_DEFECT")
         if e["verdict"] not in ("PASS", "FAIL", "INCOMPLETE"):
             raise ValueError("RECEIPT_VERDICT")
         for key in ("checks", "outliers", "nonfinite"):

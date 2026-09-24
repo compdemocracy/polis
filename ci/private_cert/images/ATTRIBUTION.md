@@ -3,8 +3,9 @@
 Producer and verifier images, the worker AMI, and the operator must roll out
 together. The shared stdlib-only `ci/probe_box/receipt.py` decoder accepts
 receipt /1 through /5; /5 requires the new fields. The image recipe and CI copy
-list include the verifier module. No acceptance policy, tolerance, start vector,
-iteration budget, science module, or fallback-start contract changes here.
+list include the verifier module. The restart exception and its acceptance-policy revision are specified in
+`LEGACY_PCA_POLICY.md`. No tolerance, start vector, iteration budget or engine
+implementation is changed by that rule.
 
 Both real replay drivers opt into `--attribution-json`. Each checkpoint captures
 actual folded raw/moderated matrices as SHA-256 fingerprints, actual incoming
@@ -14,7 +15,8 @@ identities stay in private sidecars; full matrices are not serialized. These
 sidecars are part of the producer file inventory and remain inside the box.
 The verifier expects one sidecar per admitted checkpoint per engine. Capture,
 read, inventory or schema failures become closed `unavailable` rows; they never
-abort an otherwise completed science replay or change its verdict. A missing or
+abort an otherwise completed science replay. Unavailable evidence cannot
+establish the restart exception; an already observed onset remains in force. A missing or
 malformed checkpoint degrades that row, while an extra inventory item degrades
 the entry. The gate also catches unexpected measurement exceptions. Capture
 can be disabled and the exporter still emits unavailable rows.
@@ -52,14 +54,17 @@ Every exported attribution row has exactly:
 
 One shared component-sign alignment is used for all geometry. No rotations,
 cluster-ID remapping in the gate, per-field fitted signs, or tolerance changes.
-These observations never change the existing strict/G12 verdict. An orphan
+The observed legacy zero/missing-fallback start kinds now establish the narrow
+strict/G12 exception in `LEGACY_PCA_POLICY.md`; other attribution categories
+remain diagnostic. An orphan
 participant in a legacy partition makes the checkpoint observation unavailable,
 not fatal. A mismatch in captured participant identities is a projection `fail`
 even if components are absent, provided the sidecar itself is valid.
 
 The export boundary independently checks every key, token, type, index, order,
 list length and truncation flag. At most eight rows per entry and 64 globally;
-reserve one row per entry (failed entries first), then spend the remaining
+reserve one row per entry (failed entries first, observed restart onset first
+within each entry), then spend the remaining
 budget on failed entries/checkpoints. The existing 131072-byte wire ceiling
 remains. The strict comparison's checkpoint count drives both entry `checks` and
 observation filling/truncation; unavailable rows count as present observations.

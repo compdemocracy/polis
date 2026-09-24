@@ -23,6 +23,30 @@ def v5():
 
 
 class Receipt5Tests(unittest.TestCase):
+    def test_restart_and_empty_defects_roundtrip_together(self):
+        import worker, run
+        r = v5()
+        restart = {'name': 'legacy-defect-pca-random-restart'}
+        empty = {'name': 'legacy-defect-empty-omits-keys', 'keys': ['n']}
+        for defects in ([restart], [empty, restart]):
+            r['entries'][0]['legacy_defects'] = defects
+            for decoder in (worker.decode_receipt, run.decode_receipt):
+                self.assertEqual(decoder(canonical(r), job()), r)
+
+    def test_restart_name_is_closed_and_requires_schema5(self):
+        restart = {'name': 'legacy-defect-pca-random-restart'}
+        for value in ([restart, restart], [restart]*3,
+                      [{**restart, 'keys': ['pca.comps']}],
+                      [{**restart, 'checkpoint': 1}], [{**restart, 'path': 'PRIVATE'}],
+                      [{'name': []}], [{'name': 'legacy-defect-unapproved'}]):
+            r = v5(); r['entries'][0]['legacy_defects'] = value
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                decode_receipt(canonical(r), job())
+        for make in (receipt, sampled_receipt, v3, v4):
+            r = make(); r['entries'][0]['legacy_defects'] = [restart]
+            with self.assertRaises(ValueError):
+                decode_receipt(canonical(r), job())
+
     def test_historical_and_current_byte_roundtrips(self):
         for r in [receipt(),sampled_receipt(),v3(),v4(),v5()]:
             with self.subTest(schema=r['schema']):

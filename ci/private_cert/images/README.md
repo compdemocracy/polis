@@ -41,7 +41,10 @@ served capture and representative selection, so its manifest requires that repor
 
 The closed receipt is an explicit projection of the local detailed gate report;
 no nested raw report is serialized. An optional per-entry `legacy_defects`
-observation names actual zero-checkpoint reconciliations. `legacy-defect-empty-omits-keys`
+observation names actual legacy defects. Receipt /5 also accepts the name-only
+`legacy-defect-pca-random-restart` observation; its narrow strict/G12 acceptance
+rule and deliberately revised policy digest are in `LEGACY_PCA_POLICY.md`.
+The empty-checkpoint rule is unchanged. `legacy-defect-empty-omits-keys`
 contains a sorted unique subset of the 15 public keys in the committed
 `pc-zerovote-01-empty.json` schedule, including the explicit `pca.center`,
 `pca.comment-projection` and `pca.comment-extremity` leaves.
