@@ -9,17 +9,17 @@
         {
           "cut": 1170,
           "tick": 0,
-          "rust": "47a2b67b7717dd75c9724f90a21602af595726942405d95f5b03f3a4e2ef1130"
+          "rust": "946a1a4d5cb9be9e5e132fbd7a0f481161cd4008eb31971e70c488974763ca74"
         },
         {
           "cut": 2341,
           "tick": 1,
-          "rust": "ff191bd0dca54c19ca5f92bde6bf1bd5c6ccfd7743e13e2b00707e313bfbaf6a"
+          "rust": "e9030ea0395260a20dab76b82f496fc86c3f7ef2a5f17b816bdae732ac80964d"
         },
         {
           "cut": 4683,
           "tick": 2,
-          "rust": "bcaa4dcaf378e1243a4ac16bc8543bb0133e2e0386e200d9fc297b9f3c4680dc"
+          "rust": "33e543b8c0987f06cbb5f558a47c609cc4dfea6b91b70a010f843229cc24ff10"
         }
       ],
       "attribution": {
@@ -41,16 +41,16 @@
       "witnesses": {
         "polarity-vw.json": {
           "fixture": "vw",
-          "a": "d401fc7095d77708eb56aa45aa49f5dc819425a5c03e85bac8894f43cbee8b5c",
-          "b": "d401fc7095d77708eb56aa45aa49f5dc819425a5c03e85bac8894f43cbee8b5c",
-          "negative": "a889972e8feda7f82144333115e3ce28657c243aa348ef0365026b463afdb9b4",
+          "a": "df63a2fdf8c08ebe2721f4418b32be471b0210c90232908e758adf5c80b42a0c",
+          "b": "df63a2fdf8c08ebe2721f4418b32be471b0210c90232908e758adf5c80b42a0c",
+          "negative": "3d92d4cf99c0efe99075aaf006b627673548ae464069ab16f87cfb744df0bee3",
           "deltas": []
         },
         "polarity-biodiversity.json": {
           "fixture": "biodiversity",
-          "a": "a1ce75416a464c4562f7fc69c929ed9f018fedd207d77d8dab355c378bedec94",
-          "b": "a1ce75416a464c4562f7fc69c929ed9f018fedd207d77d8dab355c378bedec94",
-          "negative": "fd0b3ef30a208f561acf3eb066e2c2471e1296c1b66f44aeb52d7b78a9f22284",
+          "a": "96ff853947495ddfa4b0592b2a96ac35173694fe0465361a1f933896bc0650b9",
+          "b": "96ff853947495ddfa4b0592b2a96ac35173694fe0465361a1f933896bc0650b9",
+          "negative": "54d747a09c8be5189491e3dad0873a93ac3fca727bcec4acfb3af9d53a8a15d1",
           "deltas": []
         },
         "polarity-rebuild-schedule.json": [
@@ -62,15 +62,15 @@
           },
           {
             "step": 1,
-            "positive": "f71a5ad62ac47f2133d4158ba31d920d1ffae102d0684820ed3c81bbf941dea8",
-            "paired": "f71a5ad62ac47f2133d4158ba31d920d1ffae102d0684820ed3c81bbf941dea8",
-            "negative": "c75d7daa88d10dc30720513e7b3573c308d4b0c20c253d9577b0df638a4ecf11"
+            "positive": "88bd44d986ce8c344563d602e4fef0c74abc4af8dd81cba6a912c4b57ff7e355",
+            "paired": "88bd44d986ce8c344563d602e4fef0c74abc4af8dd81cba6a912c4b57ff7e355",
+            "negative": "ea8f6c401e98653980ad5102608b665ff9bb85f6d6ad1fb4a29cef0ce282c818"
           },
           {
             "step": 2,
-            "positive": "efe1d6ef80fcd3c076c08ce95cf2cc4dcbc6f9003e8b55a6efe50d6721589e4d",
-            "paired": "efe1d6ef80fcd3c076c08ce95cf2cc4dcbc6f9003e8b55a6efe50d6721589e4d",
-            "negative": "07290dd4ad42370888a46f21c7cc247b4daf12a50d3f49812ddb46e891e2c418"
+            "positive": "5e48a87ed66829b5059af71b801f92ce1218eba4cdcf914be874e2995c0d30da",
+            "paired": "5e48a87ed66829b5059af71b801f92ce1218eba4cdcf914be874e2995c0d30da",
+            "negative": "9f8324d9abfce425c968d583899153fc0376775bb79394946eb4b0b503a5f835"
           }
         ],
         "semantic-tie-key.json": {
@@ -125,9 +125,9 @@
             "storage_agree_value": -1
           },
           "mirrored_digest": "3bd0700204ee8202074e31f6cfe2f57903bd9d9fc10c5149c0fcdfb7f5406685",
-          "a": "c11ba8dd6a33a063839f56eecd302e610aeb7e4494a629cb9814ecc9aa0def7f",
-          "b": "c11ba8dd6a33a063839f56eecd302e610aeb7e4494a629cb9814ecc9aa0def7f",
-          "negative": "20a8b75f034e4be2371e7ad12c3fc138ab6c95fdfaaf926955d4045c3888d1ac",
+          "a": "97d64491eeb1f9aad24163f5cd58d331c74a6e3d191b3479d8c9d3bcdad5521a",
+          "b": "97d64491eeb1f9aad24163f5cd58d331c74a6e3d191b3479d8c9d3bcdad5521a",
+          "negative": "b40c57396719abfec124a638fd4cca54f4a20bf06f5ef92dd5a7888a74b23110",
           "deltas": []
         },
         "d4-node-reader.json": {
@@ -154,8 +154,8 @@
           "profile": "real getPca + presentPca + participants.ts, in-process, one Node process",
           "served": {
             "python": {
-              "asJSON_bytes": 6496,
-              "asJSON_sha256": "a7bb77571ae0fc098d925e17082e7d1e86e184aa898a2a6df6ca90471a9ea9d0",
+              "asJSON_bytes": 6491,
+              "asJSON_sha256": "d6223d076ab6b9799b715338460732b6ef3278a4af759835be1fab67732cd172",
               "bid_to_pid": [
                 [
                   0
@@ -174,17 +174,17 @@
               ],
               "comment_extremity": [
                 1.4280971859724134,
-                1.6329931618554518,
-                1.4467439646937967,
-                1.44674396469377
+                1.632993161855452,
+                1.4467439648759484,
+                1.4467439645116187
               ],
               "consensus_shape": {
                 "agree": 0,
                 "disagree": 0
               },
               "etag_math_tick": 1,
-              "gzip_bytes": 1761,
-              "gzip_sha256": "bffce91e2a5c286510d5451157c7c54e04d3db179630a7e041c7574399a172c6",
+              "gzip_bytes": 1763,
+              "gzip_sha256": "8e2a4fa708dd5601a2a3eba41111de118942bb7ee0273d5a46e32566c22aec3d",
               "keys_projection_sha256": "02de433e7970e77c3569cd225d9e48b2944bdb217c561e1c275674eb126713b1",
               "mapping_is_error": false,
               "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
@@ -220,8 +220,8 @@
               ]
             },
             "rustproto": {
-              "asJSON_bytes": 6496,
-              "asJSON_sha256": "a7bb77571ae0fc098d925e17082e7d1e86e184aa898a2a6df6ca90471a9ea9d0",
+              "asJSON_bytes": 6491,
+              "asJSON_sha256": "d6223d076ab6b9799b715338460732b6ef3278a4af759835be1fab67732cd172",
               "bid_to_pid": [
                 [
                   0
@@ -240,17 +240,17 @@
               ],
               "comment_extremity": [
                 1.4280971859724134,
-                1.6329931618554518,
-                1.4467439646937967,
-                1.44674396469377
+                1.632993161855452,
+                1.4467439648759484,
+                1.4467439645116187
               ],
               "consensus_shape": {
                 "agree": 0,
                 "disagree": 0
               },
               "etag_math_tick": 1,
-              "gzip_bytes": 1761,
-              "gzip_sha256": "bffce91e2a5c286510d5451157c7c54e04d3db179630a7e041c7574399a172c6",
+              "gzip_bytes": 1763,
+              "gzip_sha256": "8e2a4fa708dd5601a2a3eba41111de118942bb7ee0273d5a46e32566c22aec3d",
               "keys_projection_sha256": "02de433e7970e77c3569cd225d9e48b2944bdb217c561e1c275674eb126713b1",
               "mapping_is_error": false,
               "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
@@ -391,20 +391,20 @@
         },
         "polarity-public-fixture.json": {
           "fixture": "public-fixture",
-          "a": "1664ec49e0c24b300de01ce57e7ea4b96543db89795f5efd43e06a6c51e0018f",
-          "b": "1664ec49e0c24b300de01ce57e7ea4b96543db89795f5efd43e06a6c51e0018f",
-          "negative": "e05c64d988dca93f4ac8dbe40e99f1493049b9c34d63e06ff1699f463144be7c",
+          "a": "3566714cc92b4f877b68fd3664740badfba243ef71352c587cf4ee5e2f3833dc",
+          "b": "3566714cc92b4f877b68fd3664740badfba243ef71352c587cf4ee5e2f3833dc",
+          "negative": "3500085ad0f48c71e67a426d23f0c1cd628325e61e15b823c9481fbd50b7ba2c",
           "deltas": []
         }
       },
       "witness_sha256": {
-        "polarity-vw.json": "d92b9f4eab8c718de0ae3cdd3942f027d767c851f5e7f075f9788f31c2ae230a",
-        "polarity-biodiversity.json": "4152924ccbd2f98130c58ef4e5da7b6c92f30628fb72eef0d3588d46b8e27c97",
-        "polarity-rebuild-schedule.json": "60a052dece98383b63afc3fc783db0cbcfa8aff3f343ed557e9e3ba4885b1f46",
-        "semantic-tie-key.json": "fd0a89b20312730db6ed2e01c788f0d2eb10c7df60547b52b1f8f7672d4f2a7f",
-        "d4-node-reader.json": "03a25f814e6e07f62f8336fbca920123adc25bb58c95d1b1c38bc87eaba904d8",
+        "polarity-vw.json": "bd8225f8938f9814400236ae81e9d6c5cd6ad4963837aa3377356e4d500910ca",
+        "polarity-biodiversity.json": "347f0565e4493459917fa144337b54ae0e7f2d207b2f856ccb56bb23ce1bb853",
+        "polarity-rebuild-schedule.json": "a123bf5baf9f363c206c9204921d2d7c1ab6be1df2be82078d1023a13cadb945",
+        "semantic-tie-key.json": "5873a7498fde514b448782bb781ef06540b0c6d0fffe7e041e4d9980a0e37ea6",
+        "d4-node-reader.json": "5b3c94e5075e37fbc1f4e9698f84f6b2ada36a15193677672be0a41ecab8f040",
         "d4-node-reader-empty.json": "18de4bb4dd6ef86231b6d8ec27aa5615b012959162fb0e792cb1fccd251303b0",
-        "polarity-public-fixture.json": "dc34c526f23ce5290d08890d37af37f62dc89dee8aab1f2e61d297aba08fbb45"
+        "polarity-public-fixture.json": "5b02f90ec6131e8cc1709309feb5e0b2b69b856252b22b4cb2a9f9d9d0887fa9"
       },
       "label_remap": {
         "scope": "fixture label and witness filename only; science unchanged",
@@ -424,17 +424,17 @@
         {
           "cut": 1170,
           "tick": 0,
-          "rust": "b2f86e81dc96e827917a4213ba6c85dd0c21a466e0a6f58f2069887e9b7bd963"
+          "rust": "b10fe8514ed08505c660b55187c98181135a88f1c578b5c5f78513a4b0947e08"
         },
         {
           "cut": 2341,
           "tick": 1,
-          "rust": "1e308379757dce51cdf5e4ce467132588b102ce2ed2d4972d4f9dd1a47d0ca4f"
+          "rust": "66b49e9f7ecde91b8a7d98f13e696229e8f0ec39d25c97745446b8e53d8531fb"
         },
         {
           "cut": 4683,
           "tick": 2,
-          "rust": "8346dea808644b451cf331712d9fdda749d5ab5de4424f2f99abaee540ef3dc7"
+          "rust": "096294348faec6bd3c9f9406979b7ed3defd7f395dfc4b7fa520c622698036f1"
         }
       ],
       "attribution": {
@@ -736,11 +736,11 @@
           "profile": "real getPca + presentPca + participants.ts, in-process, one Node process",
           "served": {
             "python": {
-              "asJSON_bytes": 6505,
-              "asJSON_sha256": "b7c491d489f52af4bcfbde255939e302652f111998098b09336d580485927f7a",
+              "asJSON_bytes": 6491,
+              "asJSON_sha256": "d6223d076ab6b9799b715338460732b6ef3278a4af759835be1fab67732cd172",
               "bid_to_pid": [
                 [
-                  3
+                  0
                 ],
                 [
                   1,
@@ -751,25 +751,25 @@
                   5
                 ],
                 [
-                  0
+                  3
                 ]
               ],
               "comment_extremity": [
-                1.4280971859724132,
+                1.4280971859724134,
                 1.632993161855452,
-                1.446743964740531,
-                1.4467439646470361
+                1.4467439648759484,
+                1.4467439645116187
               ],
               "consensus_shape": {
                 "agree": 0,
                 "disagree": 0
               },
               "etag_math_tick": 1,
-              "gzip_bytes": 1756,
-              "gzip_sha256": "f098a8844405e5d0970cd92d920a77732942a68dab0ee85fd00daa64bf173c46",
+              "gzip_bytes": 1763,
+              "gzip_sha256": "99dbe26515c3d9508967b7906f290cc910767b66f1680cabe7d754ce7cc2956e",
               "keys_projection_sha256": "02de433e7970e77c3569cd225d9e48b2944bdb217c561e1c275674eb126713b1",
               "mapping_is_error": false,
-              "mapping_sha256": "7cbc91c1340e4b1ee8338e04bfaa57bdb6f47e3ba265f21f88f7574c2cdfa190",
+              "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
               "n": 6,
               "n_cmts": 4,
               "pca_center": [
@@ -802,11 +802,11 @@
               ]
             },
             "rustproto": {
-              "asJSON_bytes": 6505,
-              "asJSON_sha256": "b7c491d489f52af4bcfbde255939e302652f111998098b09336d580485927f7a",
+              "asJSON_bytes": 6491,
+              "asJSON_sha256": "d6223d076ab6b9799b715338460732b6ef3278a4af759835be1fab67732cd172",
               "bid_to_pid": [
                 [
-                  3
+                  0
                 ],
                 [
                   1,
@@ -817,25 +817,25 @@
                   5
                 ],
                 [
-                  0
+                  3
                 ]
               ],
               "comment_extremity": [
-                1.4280971859724132,
+                1.4280971859724134,
                 1.632993161855452,
-                1.446743964740531,
-                1.4467439646470361
+                1.4467439648759484,
+                1.4467439645116187
               ],
               "consensus_shape": {
                 "agree": 0,
                 "disagree": 0
               },
               "etag_math_tick": 1,
-              "gzip_bytes": 1756,
-              "gzip_sha256": "f098a8844405e5d0970cd92d920a77732942a68dab0ee85fd00daa64bf173c46",
+              "gzip_bytes": 1763,
+              "gzip_sha256": "99dbe26515c3d9508967b7906f290cc910767b66f1680cabe7d754ce7cc2956e",
               "keys_projection_sha256": "02de433e7970e77c3569cd225d9e48b2944bdb217c561e1c275674eb126713b1",
               "mapping_is_error": false,
-              "mapping_sha256": "7cbc91c1340e4b1ee8338e04bfaa57bdb6f47e3ba265f21f88f7574c2cdfa190",
+              "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
               "n": 6,
               "n_cmts": 4,
               "pca_center": [
@@ -872,16 +872,16 @@
         },
         "polarity-biodiversity.json": {
           "fixture": "biodiversity",
-          "a": "3d9c36b0e17c38a4d4475c1593b5179ed787984c666e05a212a55e788c8c3938",
-          "b": "3d9c36b0e17c38a4d4475c1593b5179ed787984c666e05a212a55e788c8c3938",
-          "negative": "3d00756710012833b41fd3d2aeb3732ab135468d9dd40576532bee4877cb392c",
+          "a": "ead8d80b45cb3b1c9ab291643bd71248da94c40293d41ed71dc063ff138dab8f",
+          "b": "ead8d80b45cb3b1c9ab291643bd71248da94c40293d41ed71dc063ff138dab8f",
+          "negative": "a146c7c050edca3ea9563a789c89ef8438da1073e4973e6aab1bdc353623daf6",
           "deltas": []
         },
         "polarity-public-fixture.json": {
           "fixture": "public-fixture",
-          "a": "fec16a418a6ff4000757cc36598cdb76ede9b36b577f12e01165304e6cc2a8fb",
-          "b": "fec16a418a6ff4000757cc36598cdb76ede9b36b577f12e01165304e6cc2a8fb",
-          "negative": "49bc49d19cb531215c796f9d376e9ddf62c01e3a4f587311ab1557357699e913",
+          "a": "63179bb570a9a2ca3380273de4ab48abc197354792afe25cc0cd285c8f1553bd",
+          "b": "63179bb570a9a2ca3380273de4ab48abc197354792afe25cc0cd285c8f1553bd",
+          "negative": "098c925729e3f6d5d7f2b35423e8fecc6e05e09c21ea0ee684e1c0761735e634",
           "deltas": []
         },
         "polarity-rebuild-schedule.json": [
@@ -893,22 +893,22 @@
           },
           {
             "step": 1,
-            "positive": "0a425b7ef73ee55e34cb641089a99699ab11820d9ca9bd7f261c39b41f850679",
-            "paired": "0a425b7ef73ee55e34cb641089a99699ab11820d9ca9bd7f261c39b41f850679",
-            "negative": "0d5c14406c1c641c289210fa61b4fddb4e4ad875ce7ec6fb0124fb64048a3804"
+            "positive": "88bd44d986ce8c344563d602e4fef0c74abc4af8dd81cba6a912c4b57ff7e355",
+            "paired": "88bd44d986ce8c344563d602e4fef0c74abc4af8dd81cba6a912c4b57ff7e355",
+            "negative": "37b25e52aedc40712bb8fb73ecc28ed289e0d6985899009773efa906a9ad50ec"
           },
           {
             "step": 2,
-            "positive": "3d1244e8c7334eaf5b1faf67acbc330e43a6a9bd2f1d3b0b9a7c60b77575dc9c",
-            "paired": "3d1244e8c7334eaf5b1faf67acbc330e43a6a9bd2f1d3b0b9a7c60b77575dc9c",
-            "negative": "05e73331a7eaf8a71f96bbcbc4e7d27b87cf16875c553f4e60bd5516456958d2"
+            "positive": "5e48a87ed66829b5059af71b801f92ce1218eba4cdcf914be874e2995c0d30da",
+            "paired": "5e48a87ed66829b5059af71b801f92ce1218eba4cdcf914be874e2995c0d30da",
+            "negative": "9f8324d9abfce425c968d583899153fc0376775bb79394946eb4b0b503a5f835"
           }
         ],
         "polarity-vw.json": {
           "fixture": "vw",
-          "a": "816b9e8b1da597c00257489498bff6d6100b783d3e0829ab8c6eac7e7131050d",
-          "b": "816b9e8b1da597c00257489498bff6d6100b783d3e0829ab8c6eac7e7131050d",
-          "negative": "6a0a442a98be0e789540b8f6a8376766044a1fc9ea7766411d2295acdfbfe1f6",
+          "a": "522b89a6537bba41ef8d9c5c4c9ce11c1fa721ac810bdc1e477707faebd4a511",
+          "b": "522b89a6537bba41ef8d9c5c4c9ce11c1fa721ac810bdc1e477707faebd4a511",
+          "negative": "e7ce06fdfe90ba05feaca7efe6e7e87e397c7fd07320433b2f00a0fa3206f68f",
           "deltas": []
         },
         "semantic-tie-key.json": {
@@ -963,20 +963,20 @@
             "storage_agree_value": -1
           },
           "mirrored_digest": "3bd0700204ee8202074e31f6cfe2f57903bd9d9fc10c5149c0fcdfb7f5406685",
-          "a": "5d31399d413a543bdf3a244e61d6c35d5e11115bc25e63438fa099bc55d0a367",
-          "b": "5d31399d413a543bdf3a244e61d6c35d5e11115bc25e63438fa099bc55d0a367",
-          "negative": "52ef0f7b02d34dff56704901c52f982fd4243044cc798d7efe82ae66b381cf6d",
+          "a": "b238601936e10a6af0c169fc7f7ec092c1303009673a81d95f843e63b3cf7dad",
+          "b": "b238601936e10a6af0c169fc7f7ec092c1303009673a81d95f843e63b3cf7dad",
+          "negative": "9c14f0e54ef4ffad6ac73935a3bd34fb103f977b162350427fd031758b718b90",
           "deltas": []
         }
       },
       "witness_sha256": {
         "d4-node-reader-empty.json": "18de4bb4dd6ef86231b6d8ec27aa5615b012959162fb0e792cb1fccd251303b0",
-        "d4-node-reader.json": "6f166765213d2b43d9f209435dcf8ab79e46aa65fcfa431670c73d45fd1aa42f",
-        "polarity-biodiversity.json": "a2d42af26139cdfdbe6f1e4627b48be2fc4df1f0f6210bbf21e1f1c12a2399d0",
-        "polarity-public-fixture.json": "d4d99eda13fcb547465462c0231250f664d2b83c0f54e1b08881708a99b336f6",
-        "polarity-rebuild-schedule.json": "631c020b2541a2926669d560aacf8a78aec7a192b95fbab44305faee2f821954",
-        "polarity-vw.json": "e787133ad3e3e3b1051b1d15f52709558890d750b0d71280503f0368f2442b15",
-        "semantic-tie-key.json": "b1afdd1594ee7c1176a05060be7d2bad62ff8e047d97c4dd3f8a1a32ccc406e1"
+        "d4-node-reader.json": "bd516cfdcf1a648dd234e09cbb3419dff2b6796fc4275a780e26c4e22a101d9f",
+        "polarity-biodiversity.json": "31b58e0e8f1120fdedf0c13671faa40071438c4489f8aeaed31a8f1fc92b0163",
+        "polarity-public-fixture.json": "e027f592a70f6e2fd7eb9db55a7cd0236ed5a523c9f10fb39e5b29b77b966f86",
+        "polarity-rebuild-schedule.json": "dc66cb80f622c4925268b4184d9e98ecc4fd63d847c423baee3eb9f22bc573dc",
+        "polarity-vw.json": "0c6da180b307f62341089963550e1d4e6f47f3f84728d4bd3a8d2319824065fa",
+        "semantic-tie-key.json": "c3ba8d9d76c0c4c626500d341569523c22dbd445970c527a29798de9b9c0c3b6"
       }
     }
   ],
