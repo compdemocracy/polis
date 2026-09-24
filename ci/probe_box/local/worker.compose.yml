@@ -18,7 +18,9 @@ services:
       timeout: 3s
       retries: 30
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    # Bitnami's frozen MinIO build: quay.io/minio closed anonymous pulls.
+    # The /data tmpfs is world-writable, so its uid 1001 can use it.
+    image: docker.io/bitnamilegacy/minio:2025.7.23-debian-12-r5@sha256:6dabb4a2088c9a79908de3bc05f4586c23ad2182c8908e7e3acbf61c1467fb20
     command: [server, /data]
     environment:
       MINIO_ROOT_USER: public-fixture

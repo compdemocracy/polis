@@ -413,7 +413,13 @@ services:
 
   # MinIO S3-compatible storage
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    # MinIO's own quay.io and Docker Hub images refuse anonymous pulls (seen
+    # 2026-09-24). This is Bitnami's frozen legacy build of MinIO
+    # RELEASE.2025-07-23, pinned by digest; it bundles mc and a shell.
+    image: docker.io/bitnamilegacy/minio:2025.7.23-debian-12-r5@sha256:6dabb4a2088c9a79908de3bc05f4586c23ad2182c8908e7e3acbf61c1467fb20
+    # Root, as the upstream image ran, so existing minio_data volumes stay
+    # writable at /data.
+    user: "0:0"
     ports:
       - "9000:9000"
       - "9001:9001"
