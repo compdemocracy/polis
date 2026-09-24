@@ -35,6 +35,7 @@ authoritative; where a Clojure quirk is load-bearing it is reproduced and
 flagged in the docstring.
 """
 
+import math
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 
 import numpy as np
@@ -110,7 +111,7 @@ class _NamedData:
 
 
 def _euclidean(a: np.ndarray, b: np.ndarray) -> float:
-    """``matrix/distance`` as vectorz ACTUALLY computes it on the kmeans path
+    """``matrix/distance`` as vectorz computes it on the assignment path
     (CLOJURE_QUIRKS.md Q11): d² = |a|² + |b|² − 2·a·b, clamped at 0.
 
     NOT ``norm(a − b)``: the dot-product form suffers catastrophic
@@ -218,6 +219,22 @@ def init_clusters(data: _NamedData, k: int) -> List[Dict[str, Any]]:
     ]
 
 
+def _center_distance(a: np.ndarray, b: np.ndarray) -> float:
+    """Vector.distance(Vector): ordered squared differences, then sqrt.
+
+    Init and recentering produce mikera.vectorz.Vector centers. Its specialized
+    distanceSquared starts at +0.0 and visits coordinates left to right; the
+    ArraySubVector dot/cancellation formula used by assignment is different.
+    """
+    if a.ndim != 1 or b.ndim != 1 or a.shape != b.shape:
+        raise ValueError("cluster centers must be vectors of equal length")
+    squared = 0.0
+    for x, y in zip(a, b):
+        delta = float(x) - float(y)
+        squared += delta * delta
+    return math.sqrt(squared)
+
+
 def same_clustering(clusters1: List[Dict[str, Any]],
                     clusters2: List[Dict[str, Any]],
                     threshold: float = SAME_CLUSTERING_THRESHOLD) -> bool:
@@ -239,7 +256,7 @@ def same_clustering(clusters1: List[Dict[str, Any]],
                 key=lambda v: tuple(v.tolist()))
     c2 = sorted((np.asarray(c['center'], dtype=float) for c in clusters2),
                 key=lambda v: tuple(v.tolist()))
-    return all(_euclidean(x, y) < threshold for x, y in zip(c1, c2))
+    return all(_center_distance(x, y) < threshold for x, y in zip(c1, c2))
 
 
 def cluster_step(data: _NamedData,
