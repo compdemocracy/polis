@@ -456,6 +456,7 @@ describe('Reports - Functionality & Features', () => {
         'votes.csv',
         'participant-votes.csv',
         'comment-groups.csv',
+        'comment-clusters.csv',
       ]
 
       // Check that export links exist
