@@ -95,7 +95,12 @@ class TestPoweritPcaCorrectness:
     def test_center_is_column_mean(self):
         data = _structured_data()
         result = powerit_pca(data)
-        np.testing.assert_array_equal(result['center'], data.mean(axis=0))
+        # Clojure stats/mean multiplies the ordered row sum by 1/n.
+        expected = data[0].copy()
+        for row in data[1:]:
+            expected += row
+        expected *= 1.0 / len(data)
+        np.testing.assert_array_equal(result['center'], expected)
 
     def test_components_match_numpy_eigh(self):
         """PC1/PC2 must match eigh of the scatter matrix (up to sign)."""
