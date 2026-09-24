@@ -210,9 +210,9 @@ class DiagnosticTests(unittest.TestCase):
         self.assertEqual(projection.comparison_diagnostics({'per_step':[{'match':False}]},{'diagnostics':[]}),
                          [dict(checkpoint=0,family='meta',detail='other',kind='shape',magnitude='not-applicable')])
 
-    def test_policy_and_controls_unchanged(self):
+    def test_restart_policy_pin_and_unchanged_controls(self):
         import contextlib,io
-        self.assertEqual(gate.sha(gate.POLICY),'fa6147025567feb983868306d4b62cd2f261ae7dd353929828e406d768cac244')
+        self.assertEqual(gate.sha(gate.POLICY),'9a26a056d1b80ff10705e19e2e3fda137a59b6d24ece27cdc3b06cd4acbc4272')
         with contextlib.redirect_stdout(io.StringIO()):self.assertEqual(g12.self_test(),0)
 
 

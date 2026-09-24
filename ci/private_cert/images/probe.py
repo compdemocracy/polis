@@ -178,13 +178,18 @@ def verify() -> None:
                         'recipe': recipe_token(SimpleNamespace(**entry['recipe_context'])),
                         'diagnostics': entry['diagnostics']}
         # Export actual observed defects, not the schedule's broader allowance.
-        omitted = set()
+        omitted, restart = set(), False
         for step in entry['strict']['per_step']:
             for defect in step.get('legacy_defects', []):
                 validate_legacy_defects([defect])
-                omitted.update(defect['keys'])
+                if defect['name'] == gate.legacy_pca.NAME:
+                    restart = True
+                else:
+                    omitted.update(defect['keys'])
         defects = ([{'name': 'legacy-defect-empty-omits-keys', 'keys': sorted(omitted)}]
                   if omitted else [])
+        if restart:
+            defects.append({'name': gate.legacy_pca.NAME})
         if defects:
             exported['legacy_defects'] = validate_legacy_defects(defects)
         entries.append(exported)

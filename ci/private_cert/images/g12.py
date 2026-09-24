@@ -777,9 +777,11 @@ def _conv(engine_dir: Path, default: str) -> str:
     return default
 
 
-def measure_main_blob(entry_dir: Path, repo_delphi: Path, *, expected=None) -> dict:
+def measure_main_blob(entry_dir: Path, repo_delphi: Path, *, expected=None,
+                      legacy_restart_from=None) -> dict:
     sys.path.insert(0, str(repo_delphi))
     from polismath.replay import crosslang
+    from polismath.replay import legacy_pca
     from polismath.replay.certify import (project_acceptance, _acceptance_projecting_comparer,
                                         paired_checkpoint_projections,
                                         validate_recording_inventory)
@@ -828,6 +830,19 @@ def measure_main_blob(entry_dir: Path, repo_delphi: Path, *, expected=None) -> d
         else:
             checkpoint = expected.checkpoints[i]
             A, B = paired_checkpoint_projections(cb, py_blob, expected, checkpoint)
+        if legacy_pca.active(i, legacy_restart_from):
+            # Admission on BOTH original outputs precedes reconciliation.
+            # Self-comparison preserves typed/rank/nonfinite faults even when
+            # downstream cluster cardinalities legitimately differ.
+            for blob in (A, B):
+                for key, value in blob.items():
+                    admission = Collector(diagnostics=True)
+                    admission.checkpoint = i
+                    _walk_keyed(key, value, value, key, admission)
+                    if not summarize(admission)['rollup']['g12_pass']:
+                        # Retain the original schema fault in the final gate.
+                        _walk_keyed(key, value, value, key, col)
+            A, B = legacy_pca.reconcile(A, B)
         pca_a, pca_b = A.get("pca"), B.get("pca")
         s = infer_axis_sign(pca_a["comps"], pca_b["comps"]) if pca_a and pca_b else None
         axis = Axis(s, d)
@@ -855,6 +870,8 @@ def measure_main_blob(entry_dir: Path, repo_delphi: Path, *, expected=None) -> d
         "note": "unnormalized legacy empty keys; tightened StepComparer is asymmetric np.allclose, not symmetric G12",
     }
     rep["n_steps"] = len(clj_blobs)
+    if legacy_restart_from is not None:
+        rep["legacy_defects"] = [{"name": legacy_pca.NAME}]
     return rep
 
 

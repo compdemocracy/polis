@@ -120,6 +120,33 @@ def measure(left, right, checkpoint):
     return result
 
 
+def corroborate_starts(starts, previous):
+    """Admitted legacy output corroborates each claimed warm restart.
+
+    Checkpoint zero has the driver's pinned all-ones cold seed, so absence of
+    an earlier file is not evidence for a restart. Later checkpoints use the
+    preceding blob's components, including across the load/restart seam.
+    Unknown/malformed evidence cannot grant an acceptance exception.
+    """
+    result = list(starts)
+    pca = previous.get('pca') if type(previous) is dict else None
+    comps = pca.get('comps') if type(pca) is dict else None
+    for axis, kind in enumerate(starts):
+        if kind not in {'zero-fallback', 'missing-fallback'}:
+            continue
+        admitted = previous is not None
+        value = comps[axis] if type(comps) is list and axis < len(comps) else None
+        if kind == 'zero-fallback':
+            admitted = admitted and type(value) is list and all(
+                type(v) in (int, float) and v == 0 for v in value)
+        else:
+            admitted = admitted and (comps is None or
+                (type(comps) is list and (axis >= len(comps) or value is None)))
+        if not admitted:
+            result[axis] = 'unavailable'
+    return result
+
+
 def measure_recording(directory, checks):
     # Observation inventory and schema failures are not science verdicts.
     expected = {f'step-{i:03d}.json' for i in range(checks)}
@@ -133,9 +160,14 @@ def measure_recording(directory, checks):
     results = []
     for i in range(checks):
         try:
-            results.append(measure(
+            row = measure(
                 json.loads((directory / 'clj-attribution' / f'step-{i:03d}.json').read_text()),
-                json.loads((directory / 'py-attribution' / f'step-{i:03d}.json').read_text()), i))
+                json.loads((directory / 'py-attribution' / f'step-{i:03d}.json').read_text()), i)
+            if any(kind in {'zero-fallback', 'missing-fallback'} for kind in row['legacy_starts']):
+                previous = (json.loads((directory / 'clj' / f'step-{i-1:03d}.blob.json').read_text())
+                            if i else None)
+                row['legacy_starts'] = corroborate_starts(row['legacy_starts'], previous)
+            results.append(row)
         except Exception:
             results.append(unavailable(i))
     return results
@@ -143,6 +175,7 @@ def measure_recording(directory, checks):
 
 def bounded(entries):
     """Failing entries first, then other entries; preserve public entry order."""
+    from polismath.replay.legacy_pca import restart_checkpoint
     projected = [[] for _ in entries]
     priority = sorted(range(len(entries)), key=lambda i: entries[i]['pass'])
     ordered = []
@@ -153,7 +186,11 @@ def bounded(entries):
         # export too. Disabled capture or a shorter observer list fills gaps.
         by_index = {row['checkpoint']: row for row in entry.get('attribution', [])}
         rows = [by_index.get(i, unavailable(i)) for i in range(len(entry['strict']['per_step']))]
-        ordered.append(sorted(rows, key=lambda row: (row['checkpoint'] not in bad, row['checkpoint'])))
+        # Reserve the observed onset even when the accepted entry's other
+        # attribution rows are truncated. Verdicts use the full private set.
+        onset = restart_checkpoint(rows)
+        ordered.append(sorted(rows, key=lambda row: (row['checkpoint'] != onset,
+                              row['checkpoint'] not in bad, row['checkpoint'])))
     remaining = TOTAL
     # Reserve one observation per entry before spending the rest on failures.
     # In the current 34-entry plan this preserves coverage even if all fail.
