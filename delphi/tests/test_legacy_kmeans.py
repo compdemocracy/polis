@@ -619,8 +619,14 @@ class TestVectorizedMostDistalEquivalence:
 
     @staticmethod
     def _reference_most_distal(data, clusters):
-        # Named-row distance: sum squared differences in coordinate order.
+        # Row-type dispatch is independent of the vectorized implementation.
         def distance(row, center):
+            if data.matrix_backed:
+                squared = (float(np.dot(row, row)) + float(np.dot(center, center))
+                           - 2.0 * float(np.dot(row, center)))
+                if squared < 0.0:
+                    squared = 0.0
+                return float(np.sqrt(squared))
             squared = 0.0
             for x, y in zip(row, center):
                 delta = float(x) - float(y)
@@ -672,6 +678,28 @@ class TestVectorizedMostDistalEquivalence:
                     clusters.append({'id': i + 2, 'members': [],
                                      'center': np.asarray(center, dtype=float)})
                 self._assert_same(data, clusters)
+
+    def test_matrix_rows_match_reference_across_scales_and_dimensions(self):
+        rng = np.random.default_rng(1283)
+        for width in (2, 3, 7):
+            for scale in (1e-8, 1.0, 1e8):
+                for count in (1, 4, 30):
+                    for n_clusters in (2, 9):
+                        for _ in range(3):
+                            rows = rng.standard_normal((count, width)) * scale
+                            # Coincident rows/centers exercise cancellation and ties.
+                            rows[-1] = rows[0]
+                            centers = rows[rng.integers(0, count, n_clusters)].copy()
+                            centers[-1] += scale * 1e-9
+                            data = _NamedData(list(range(count)), rows, matrix_backed=True)
+                            clusters = [{'id': i + 2, 'members': [], 'center': center}
+                                        for i, center in enumerate(centers)]
+                            self._assert_same(data, clusters)
+        # Preserve the scalar NaN comparison rules in the matrix branch too.
+        for rows in ([[np.nan, 0.], [3., 4.]],
+                     [[1., 0.], [np.nan, 0.], [3., 4.]]):
+            data = _NamedData(list(range(len(rows))), rows, matrix_backed=True)
+            self._assert_same(data, [{'id': 2, 'members': [], 'center': np.zeros(2)}])
 
     def test_all_rows_tie_at_zero_later_row_wins(self):
         # Every row coincides with the single center -> all dists exactly 0.0
