@@ -41,9 +41,15 @@ class ProbeTests(unittest.TestCase):
                     python_blob[key] = value
             gate.dump(rec / 'clj/step-000.meta.json', checkpoint)
             gate.dump(rec / 'py/step-000.json', {**checkpoint, 'blob': python_blob})
+            for engine in ('clj', 'py'):
+                gate.dump(rec / (engine + '-attribution') / 'step-000.json',
+                          dict(schema='polis-replay-attribution/1', checkpoint=0,
+                               pids=[], tids=[], fold='a'*64, rating_fold='a'*64,
+                               starts=['not-computed']*2, center=None, comps=None,
+                               comments=None, person=[], partitions=[]))
             read, dump, tree = gate.read, gate.dump, gate.regular_tree
             def verify_recordings(evidence, admitted, scratch, fixture):
-                return gate.verify_pairs([expected], recordings, scratch)
+                return gate.verify_pairs([expected], recordings, scratch, attribution=True)
             def read_input(path):
                 admitted = {'/job/job.json': job, '/run-spec/inputs.json': inputs,
                             '/fixture/manifest.json': {}, '/fixture/plan.json': {'scope': 'public'}}

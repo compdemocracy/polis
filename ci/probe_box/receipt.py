@@ -194,20 +194,63 @@ def validate_diagnostics(entry, *, v4=False):
         raise ValueError("RECEIPT_DIAGNOSTICS")
 
 
+ATTRIBUTION_STARTS = frozenset({'unavailable', 'nonzero-warm', 'padded-warm', 'zero-fallback', 'missing-fallback', 'not-computed'})
+ATTRIBUTION_TOKENS = {
+    'folded_matrix': frozenset({'equal', 'different', 'unavailable'}),
+    'moderated_matrix': frozenset({'equal', 'different', 'unavailable'}),
+    'person_projection': frozenset({'pass', 'fail', 'unavailable'}),
+    'base_partition': frozenset({'same-ids', 'different-ids', 'different', 'unavailable'}),
+    **dict.fromkeys(('comment_center_swap', 'comment_components_swap', 'comment_joint_swap'),
+                    frozenset({'reproduced', 'not-reproduced', 'not-applicable', 'unavailable'})),
+}
+
+
+def validate_attribution(entry):
+    rows, truncated = entry['attribution'], entry['attribution_truncated']
+    if type(rows) is not list or len(rows) > min(8, entry['checks']) or type(truncated) is not bool:
+        raise ValueError('RECEIPT_ATTRIBUTION')
+    if truncated != (len(rows) < entry['checks']):
+        raise ValueError('RECEIPT_ATTRIBUTION_TRUNCATION')
+    checkpoints = []
+    for row in rows:
+        closed(row, {'checkpoint', 'legacy_starts', 'python_starts'} | set(ATTRIBUTION_TOKENS))
+        checkpoint = row['checkpoint']
+        if type(checkpoint) is not int or not 0 <= checkpoint < entry['checks']:
+            raise ValueError('RECEIPT_ATTRIBUTION_CHECKPOINT')
+        checkpoints.append(checkpoint)
+        for name in ('legacy_starts', 'python_starts'):
+            values = row[name]
+            if (type(values) is not list or len(values) != 2
+                    or any(type(value) is not str or value not in ATTRIBUTION_STARTS for value in values)):
+                raise ValueError('RECEIPT_ATTRIBUTION_START')
+        for name, tokens in ATTRIBUTION_TOKENS.items():
+            if type(row[name]) is not str or row[name] not in tokens:
+                raise ValueError('RECEIPT_ATTRIBUTION_TOKEN')
+        swaps = [row[name] for name in ('comment_center_swap', 'comment_components_swap', 'comment_joint_swap')]
+        for status in ('not-applicable', 'unavailable'):
+            if status in swaps and swaps != [status]*3:
+                raise ValueError('RECEIPT_ATTRIBUTION_SWAP')
+    if checkpoints != sorted(set(checkpoints)):
+        raise ValueError('RECEIPT_ATTRIBUTION_ORDER')
+
+
 def validate_receipt(value: object, job: Job) -> dict:
     job = validate_job(job)
     if job["schema"] == "polis-probe-job/2":
         from roles_census import validate_receipt as validate_census_receipt
         return validate_census_receipt(value, job)
     r = closed(value, {"schema", "run_id", "job_sha256", "verdict", "entries", "controls", "selection", "digests"})
-    if (r["schema"] not in ("polis-probe-receipt/1", "polis-probe-receipt/2", "polis-probe-receipt/3", "polis-probe-receipt/4") or r["run_id"] != job["run_id"] or
+    if (r["schema"] not in ("polis-probe-receipt/1", "polis-probe-receipt/2", "polis-probe-receipt/3", "polis-probe-receipt/4", "polis-probe-receipt/5") or r["run_id"] != job["run_id"] or
             r["job_sha256"] != sha(job) or r["verdict"] not in ("PASS", "FAIL", "INCOMPLETE")):
         raise ValueError("RECEIPT_BINDING")
     if type(r["entries"]) is not list or not 1 <= len(r["entries"]) <= 256:
         raise ValueError("RECEIPT_ENTRIES")
-    v4 = r["schema"] == "polis-probe-receipt/4"
+    v5 = r["schema"] == "polis-probe-receipt/5"
+    v4 = v5 or r["schema"] == "polis-probe-receipt/4"
     v3 = v4 or r["schema"] == "polis-probe-receipt/3"
     diagnostic_fields = {"recipe", "diagnostics", "diagnostics_truncated"} if v3 else set()
+    if v5:
+        diagnostic_fields |= {"attribution", "attribution_truncated"}
     for entry in r["entries"]:
         optional = {"legacy_defects"} if type(entry) is dict and "legacy_defects" in entry else set()
         e = closed(entry, {"verdict", "checks", "worst_absolute", "worst_relative", "outliers", "nonfinite"} | optional | diagnostic_fields)
@@ -223,11 +266,19 @@ def validate_receipt(value: object, job: Job) -> dict:
             raise ValueError("RECEIPT_FALSE_PASS")
         if v3:
             validate_diagnostics(e, v4=v4)
+        if v5:
+            validate_attribution(e)
     if v3 and sum(len(e["diagnostics"]) for e in r["entries"]) > 256:
         raise ValueError("RECEIPT_DIAGNOSTICS_LIMIT")
     if v3 and sum(len(e["diagnostics"]) for e in r["entries"]) < 256:
         if any(e["diagnostics_truncated"] and len(e["diagnostics"]) < 8 for e in r["entries"]):
             raise ValueError("RECEIPT_DIAGNOSTICS_TRUNCATION")
+    if v5:
+        total = sum(len(e['attribution']) for e in r['entries'])
+        if total > 64:
+            raise ValueError('RECEIPT_ATTRIBUTION_LIMIT')
+        if total < 64 and any(e['attribution_truncated'] and len(e['attribution']) < 8 for e in r['entries']):
+            raise ValueError('RECEIPT_ATTRIBUTION_TRUNCATION')
     controls = closed(r["controls"], {"passed", "expected"})
     count(controls["passed"]); count(controls["expected"])
     if not controls["expected"] or controls["passed"] > controls["expected"]:

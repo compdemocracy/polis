@@ -83,19 +83,20 @@ def cli() -> None:
 @click.option("--verbose", is_flag=True, help="Show driver progress logging.")
 @click.option("--events", type=click.Path(exists=True, path_type=Path), default=None,
               help="Exact events.jsonl; requires sibling events.meta.json.")
-def run(dataset, schedule_path, preset, n_cuts, schedule_id, out_root, verbose, events):
+@click.option("--attribution-json", is_flag=True, help="Write private attribution observations.")
+def run(dataset, schedule_path, preset, n_cuts, schedule_id, out_root, verbose, events, attribution_json):
     """Run a (dataset, schedule) replay and write the recording store."""
     if not verbose:
         # logging.disable is process-global: restore it in _run's finally so an
         # in-process caller (CliRunner tests) isn't silenced past this command.
         logging.disable(logging.CRITICAL)
     try:
-        _run_impl(dataset, schedule_path, preset, n_cuts, schedule_id, out_root, verbose, events)
+        _run_impl(dataset, schedule_path, preset, n_cuts, schedule_id, out_root, verbose, events, attribution_json)
     finally:
         logging.disable(logging.NOTSET)
 
 
-def _run_impl(dataset, schedule_path, preset, n_cuts, schedule_id, out_root, verbose, events=None):
+def _run_impl(dataset, schedule_path, preset, n_cuts, schedule_id, out_root, verbose, events=None, attribution_json=False):
     from polismath.replay.event_ingress import load_events, input_hashes
     def load(slug):
         return load_events(events) if events else load_export_votes(slug)
@@ -134,7 +135,10 @@ def _run_impl(dataset, schedule_path, preset, n_cuts, schedule_id, out_root, ver
     def _progress(i: int, total: int) -> None:
         click.echo(f"  step {i + 1}/{total} …", err=True)
 
-    records = run_replay(ds, spec, progress=_progress if verbose else None)
+    attribution_dir = (st.recording_dir(spec.dataset, spec.schedule_id, root=out_root) / 'py-attribution'
+                       if attribution_json else None)
+    records = run_replay(ds, spec, progress=_progress if verbose else None,
+                         **({'attribution_dir': attribution_dir} if attribution_json else {}))
     out_dir = st.write_recording(records, spec, root=out_root,
                                  **({"extra_provenance": input_hashes(events)} if events else {}))
     click.echo(f"wrote {len(records)} steps → {out_dir}")

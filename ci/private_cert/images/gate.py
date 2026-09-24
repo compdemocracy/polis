@@ -268,10 +268,10 @@ def produce(fixture=Path('/fixture'), output=Path('/output'), inputs_path=Path('
             event = expected.votes_csv.name == 'events.jsonl'
             commands = [
                 ('clj', ['clojure', '-M:replay', '--schedule', str(spec_path),
-                         '--events' if event else '--votes', str(expected.votes_csv), '--out', str(rec)]
+                         '--events' if event else '--votes', str(expected.votes_csv), '--out', str(rec), '--attribution-json']
                  + (['--comments', str(expected.comments_csv)] if expected.comments_csv else []), REPO / 'math'),
                 ('py', [sys.executable, 'scripts/replay_driver.py', 'run', '--schedule', str(spec_path),
-                        '--out', str(output / 'recordings')]
+                        '--out', str(output / 'recordings'), '--attribution-json']
                  + (['--events', str(expected.votes_csv)] if event else []), REPO / 'delphi')]
             for engine, cmd, cwd in commands:
                 exit_code = run_engine(cmd, cwd, rec / (engine + '.log'), deadline=deadline,
@@ -309,10 +309,10 @@ def verify_recordings(evidence, inputs, scratch, fixture=Path('/fixture')):
             for p in prepared for engine in ('clj', 'py')]
     if result['runs'] != runs:
         raise ValueError('INCOMPLETE_ENGINE_EXECUTION')
-    return verify_pairs(prepared, evidence / 'recordings', scratch)
+    return verify_pairs(prepared, evidence / 'recordings', scratch, attribution=True)
 
 
-def verify_pairs(prepared, recordings, scratch):
+def verify_pairs(prepared, recordings, scratch, *, attribution=False):
     if not prepared:
         raise ValueError('EMPTY_RECORDINGS')
     reports = []
@@ -340,6 +340,13 @@ def verify_pairs(prepared, recordings, scratch):
                         'recipe_context': {'role': p.entry.role, 'dataset': p.entry.dataset,
                                            'schedule_id': p.entry.schedule_id},
                         'diagnostics': comparison_diagnostics(strict, metric)})
+        if attribution:
+            from attribution import measure_recording, unavailable
+            checks = len(strict['per_step'])
+            try:
+                reports[-1]['attribution'] = measure_recording(rec, checks)
+            except Exception:
+                reports[-1]['attribution'] = [unavailable(i) for i in range(checks)]
         defects = certify.legacy_empty_defects(p)
         if defects:
             reports[-1]['legacy_defects'] = defects

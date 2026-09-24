@@ -351,6 +351,8 @@
                                      votes-so-far)))
         (conv/mod-update (vec mods-so-far)))))
 
+(def ^:dynamic *attribution?* false)
+
 (defn run-once
   "Returns a vector of [step conv-after-update] pairs, one per cut slot.
   The reduce threading the conv IS the implicit warm-start chain.
@@ -380,6 +382,9 @@
                                        certify-conv-opts)
                conv' (if (seq (:mods s))
                        (conv/mod-update conv' (vec (:mods s)))
+                       conv')
+               conv' (if *attribution?*
+                       (vary-meta conv' assoc ::attribution-starts (get-in conv [:pca :comps]))
                        conv')
                acc'  (conj acc [s conv'])
                conv'' (if (and restart-after (= (long (:index s)) (long restart-after)))
@@ -652,6 +657,79 @@
     (write-plain! sb plain)
     (.toString sb)))
 
+;; Compact private observations; no matrix values are serialized by this sink.
+(defn attribution-label [value]
+  (str (if (integer? value) "i:" "s:")
+       (.encodeToString (java.util.Base64/getEncoder) (.getBytes (str value) "UTF-8"))))
+
+(defn attribution-fold [nmat]
+  (let [rows (sort-by first (map-indexed (fn [i v] [(attribution-label v) i]) (nm/rownames nmat)))
+        cols (sort-by first (map-indexed (fn [i v] [(attribution-label v) i]) (nm/colnames nmat)))
+        data (nm/get-matrix nmat)
+        order (int-array (map second cols))
+        width (alength order)
+        encoded (byte-array (inc width))
+        md (MessageDigest/getInstance "SHA-256")
+        feed (fn [s] (.update md (.getBytes ^String s "UTF-8")))]
+    (aset-byte encoded width (byte 10))
+    (doseq [[prefix labels] [["r" rows] ["c" cols]] [key _] labels] (feed (str prefix key "\n")))
+    (doseq [[_ r] rows]
+      ;; Resolve the matrix row once, reuse a fixed-width byte buffer and
+      ;; avoid per-cell matrix protocol dispatch and intermediate strings.
+      (let [row (vec (matrix/get-row data r))]
+        (dotimes [i width]
+          (let [v (nth row (aget order i))]
+            (aset-byte encoded i
+              (byte (if (nil? v) 110
+                      (let [number (double v)]
+                        (case (cond (== number -1.0) -1
+                                    (== number 0.0) 0
+                                    (== number 1.0) 1
+                                    :else 2)
+                          -1 45 0 48 1 43
+                          (throw (ex-info "ATTRIBUTION_VOTE" {})))))))))
+        (.update md encoded)))
+    (apply str (map #(format "%02x" (bit-and % 0xff)) (.digest md)))))
+
+(defn attribution-start-kinds [starts width nrows]
+  (if (or (< width 2) (< nrows 2)) ["not-computed" "not-computed"]
+    (mapv (fn [axis]
+            (let [v (some-> (nth starts axis nil) vec)]
+              (cond (nil? v) "missing-fallback"
+                    (every? zero? v) "zero-fallback"
+                    (< (count v) width) "padded-warm"
+                    :else "nonzero-warm"))) [0 1])))
+
+(defn write-attribution! [dir results]
+  (.mkdirs (io/file dir))
+  (doseq [[step conv] results]
+    (let [rating (:rating-mat conv)
+          rows (sort-by first (map-indexed (fn [i v] [(attribution-label v) i]) (nm/rownames rating)))
+          cols (sort-by first (map-indexed (fn [i v] [(attribution-label v) i]) (nm/colnames rating)))
+          pc (:pca conv) center (some-> (:center pc) vec) comps (mapv vec (:comps pc))
+          valid (and (= (count center) (count cols)) (seq comps)
+                     (every? #(= (count %) (count cols)) comps))
+          reorder (fn [v] (let [v (vec v)] (mapv #(double (nth v (second %))) cols)))
+          doc {:schema "polis-replay-attribution/1" :checkpoint (:index step)
+               :pids (mapv first rows) :tids (mapv first cols)
+               :fold (attribution-fold (:raw-rating-mat conv))
+               :rating_fold (attribution-fold rating)
+               :starts (attribution-start-kinds (::attribution-starts (meta conv)) (count cols) (count rows))
+               :center (when valid (reorder center))
+               :comps (when valid (mapv reorder comps))
+               :comments (when (and valid (seq (:comment-projection pc)))
+                           (mapv reorder (:comment-projection pc)))
+               :person (mapv (fn [[_ i]] (when-let [v (nth (:proj conv) i nil)] (mapv double v))) rows)
+               :partitions (mapv (fn [c] [(attribution-label (:id c))
+                                         (vec (sort (map attribution-label (:members c))))]) (:base-clusters conv))}]
+      (spit (io/file dir (format "step-%03d.json" (:index step))) (json/generate-string doc)))))
+
+(defn safe-write-attribution! [dir results]
+  ;; Missing/partial observations degrade to unavailable in the verifier.
+  ;; Never expose exception text or abort the authoritative recording.
+  (try (write-attribution! dir results)
+       (catch Exception _ nil)))
+
 ;; --- input digest -----------------------------------------------------------
 
 (defn- sha256-hex
@@ -880,6 +958,7 @@
    ["-r" "--repeats N" "Full-replay repeats for §9 self-jitter (default 1)."
     :default 1 :parse-fn #(Integer/parseInt %)]
    [nil "--edn" "Also write per-step full-state EDN (conv-update-dump shape)."]
+   [nil "--attribution-json" "Write compact private attribution observations."]
    [nil "--stage-json"
     "Also write per-step stage dumps (polis-stage-dump/1) to <out>/clj-stages/."]
    ["-h" "--help"]])
@@ -1013,12 +1092,15 @@
           ;; Run repeats. rep 0 is also written flat to clj/ (the canonical
           ;; cross-language surface); rep i>0 (and rep 0) go to clj/rep-i/.
           (dotimes [rep repeats]
-            (let [results (run-once zid meta-tids steps restart-after)
+            (let [results (binding [*attribution?* (boolean (:attribution-json options))]
+                            (run-once zid meta-tids steps restart-after))
                   rep-dir (if (> repeats 1) (io/file clj-dir (str "rep-" rep)) clj-dir)
                   stage-dir (if (> repeats 1)
                               (io/file stage-root (str "rep-" rep))
                               stage-root)]
               (write-results! rep-dir results edn?)
+              (when (and (:attribution-json options) (zero? rep))
+                (safe-write-attribution! (io/file out "clj-attribution") results))
               (when (and (> repeats 1) (zero? rep))
                 (write-results! clj-dir results edn?))
               (when stage-json?

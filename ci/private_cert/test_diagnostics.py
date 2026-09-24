@@ -306,6 +306,10 @@ class PairedDiagnosticWitnesses(unittest.TestCase):
                         return original(directory,engine,expected)
                     stack.enter_context(patch.object(gate.certify,'validate_recording_inventory',side_effect=broken_inventory))
                 report=gate.verify_pairs([expected],root/'recordings',root)
+                if control_failure:
+                    from test_attribution import document
+                    from attribution import measure
+                    report['entries'][0]['attribution'] = [measure(dict(document(), checkpoint=i), dict(document(), checkpoint=i), i) for i in range(checks)]
             entry=report['entries'][0]
             if control_failure:
                 from receipt import decode_receipt
