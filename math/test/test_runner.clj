@@ -14,6 +14,7 @@
             [ptpt-stats-test]
             [stage-json-test]
             [replay-tail-test]
+            [attribution-test]
             [clojure.test :as test]))
 
 
@@ -40,7 +41,8 @@
       utils-test
       ptpt-stats-test
       stage-json-test
-      replay-tail-test]))
+      replay-tail-test
+      attribution-test]))
 
 ;(-main)
 ;(test/run-tests 'conversation-test)

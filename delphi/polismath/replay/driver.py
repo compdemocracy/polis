@@ -35,6 +35,8 @@ must feed raw-DB signs (flipped); the store records which convention was used.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -67,6 +69,7 @@ def run_replay(
     *,
     progress: Callable[[int, int], None] | None = None,
     on_step: Callable[[ReplayStep, Conversation, StepRecord], None] | None = None,
+    attribution_dir: Path | None = None,
 ) -> list[StepRecord]:
     """Replay ``dataset`` through the math engine on ``spec``'s schedule.
 
@@ -129,6 +132,7 @@ def run_replay(
         if progress is not None:
             progress(step.index, total)
 
+        attribution_starts = (conv.pca or {}).get('comps') if attribution_dir is not None else None
         conv = conv.update_votes(_votes_dict(step), recompute=False)
 
         # Clojure batch order (:votes :moderation, conv_man.clj:361-371):
@@ -153,6 +157,14 @@ def run_replay(
             blob=conv.to_dict(),
             extras=_step_extras(conv),
         )
+        if attribution_dir is not None:
+            # Optional evidence must never interrupt the authoritative replay.
+            # Missing/partial sidecars become closed unavailable observations.
+            try:
+                from .attribution_capture import capture
+                capture(step, conv, record, attribution_starts, attribution_dir)
+            except Exception:
+                pass
         records.append(record)
         if on_step is not None:
             on_step(step, conv, record)

@@ -132,7 +132,7 @@ jobs:
         for rel in $(python3 delphi/scripts/projection_inventory.py --print-scan-inputs) \
           ci/p022_recordings_manifest.py ci/p022_battery_digest.py \
           ci/private_cert/images/gate.py ci/private_cert/images/probe.py \
-          ci/private_cert/images/diagnostic_projection.py ci/private_cert/images/selection_context.py \
+          ci/private_cert/images/attribution.py ci/private_cert/images/diagnostic_projection.py ci/private_cert/images/selection_context.py \
           ci/private_cert/images/g12.py ci/private_cert/control.py \
           ci/private_cert/image_admission.py ci/probe_box/receipt.py \
           ci/probe_box/contracts.py; do
