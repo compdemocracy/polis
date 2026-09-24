@@ -301,10 +301,13 @@ class Conversation:
                 created = vote.get('created', last_vote_timestamp)
                 
                 # Skip invalid votes
-                if ptpt_id is None or comment_id is None or vote_value is None:
+                if ptpt_id is None or comment_id is None or 'vote' not in vote:
                     invalid_count += 1
                     continue
                     
+                # A present null clears the cell, including on a new identity.
+                # Keep it distinct from an invalid value rejected by conversion.
+                explicit_null = vote_value is None
                 # Convert vote value to standard format
                 try:
                     # Handle string values
@@ -347,7 +350,7 @@ class Conversation:
                     vote_value = None
                 
                 # Skip null votes or unknown format
-                if vote_value is None:
+                if vote_value is None and not explicit_null:
                     null_count += 1
                     continue
                 
@@ -385,7 +388,7 @@ class Conversation:
         logger.info(f"[{time.time() - start_time:.2f}s] Found {len(existing_rows)} existing rows and {len(existing_cols)} existing columns")
 
         # Step 1: Convert the list to a DataFrame with columns "row", "col", "value"
-        # By now it contain only -1, +1, or 0 as values
+        # Values are -1, +1, 0, or an explicit null update.
         logger.info(f"[{time.time() - start_time:.2f}s] Converting updates to DataFrame...")
 
         updates_df = pd.DataFrame(vote_updates, columns=['row', 'col', 'value', 'created'])
@@ -443,38 +446,20 @@ class Conversation:
 
         logger.info(f"[{time.time() - start_time:.2f}s] Found {len(new_rows)} new rows and {len(new_cols)} new columns")
 
-        # Apply all updates using vectorized pivot_table approach.
-        # This is much faster than row-by-row iteration because pandas/numpy
-        # can use optimized C code for the reshape operation.
-
+        # Expand first, then write only the addressed cells. A pivot/where
+        # merge loses the distinction between an explicit null (clear) and a
+        # cell absent from this batch (retain). The pairs are already unique.
         logger.info(f"[{time.time() - start_time:.2f}s] Applying {len(updates_df)} votes as batch update...")
         batch_start = time.time()
-
-        # Build a wide-form matrix from the long-form updates using pivot_table.
-        # aggfunc='last' keeps the last vote if any duplicates remain after dedup.
-        update_matrix = updates_df.pivot_table(
-            index='row',
-            columns='col',
-            values='value',
-            aggfunc='last'
-        )
-
-        # Expand the existing matrix to include any new rows/columns.
-        # fill_value=np.nan ensures new cells start as "no vote".
         result.raw_rating_mat = result.raw_rating_mat.reindex(
             index=all_rows, columns=all_cols, fill_value=np.nan
         )
-
-        # Align the update matrix to the same shape (new cells become NaN).
-        update_matrix = update_matrix.reindex(index=all_rows, columns=all_cols)
-
-        # Merge: where update_matrix has a value, use it; otherwise keep original.
-        # DataFrame.where(cond, other) keeps self where cond is True, uses other where False.
-        # So: keep raw_rating_mat where update_matrix is NaN, else use update_matrix.
-        result.raw_rating_mat = result.raw_rating_mat.where(
-            update_matrix.isna(),  # condition: True where update has no value
-            update_matrix          # other: use update value where condition is False
-        )
+        if not updates_df.empty:
+            values = result.raw_rating_mat.to_numpy(dtype=float, copy=True)
+            rows = result.raw_rating_mat.index.get_indexer(updates_df['row'])
+            cols = result.raw_rating_mat.columns.get_indexer(updates_df['col'])
+            values[rows, cols] = updates_df['value'].to_numpy(dtype=float)
+            result.raw_rating_mat = pd.DataFrame(values, index=all_rows, columns=all_cols)
 
         logger.info(f"[{time.time() - start_time:.2f}s] Batch update completed in {time.time() - batch_start:.2f}s")
         
