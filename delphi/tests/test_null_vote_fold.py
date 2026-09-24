@@ -30,7 +30,7 @@ class NullVoteFoldTests(unittest.TestCase):
         conv = fold(Conversation('public-fixture'), [vote(None, pid=8, tid=7)])
         conv = fold(conv, [vote(None, pid=2, tid=7), vote(None, pid=8, tid=3)])
         self.assertEqual(list(conv.raw_rating_mat.index), [8, 2])
-        self.assertEqual(list(conv.raw_rating_mat.columns), [3, 7])
+        self.assertEqual(list(conv.raw_rating_mat.columns), [7, 3])
         self.assertEqual(conv.tid_arrival_order, [7, 3])
         self.assertEqual((conv.participant_count, conv.comment_count), (2, 2))
         self.assertTrue(conv.raw_rating_mat.isna().all().all())

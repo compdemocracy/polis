@@ -313,7 +313,7 @@ def test_legacy_mod_keys_populated_after_moderation(conv, legacy):
 # ---------------------------------------------------------------------------
 # Arrival-order parity: Clojure's named-matrix column order is first-vote
 # arrival order (update-nmat appends unseen colnames in encounter order);
-# python's internal matrix is natsorted (conversation.py:414). Ties in
+# Python's internal matrix uses the same encounter order. Ties in
 # repness/consensus selection resolve by stable sort over COLUMN order, so
 # legacy mode tracks arrival order and uses it for tie-breaking + emission.
 # ---------------------------------------------------------------------------
@@ -510,12 +510,12 @@ def test_legacy_single_vote_repness_and_consensus(legacy):
 # ---------------------------------------------------------------------------
 # from_dict inverse: legacy round-trip restores the internal convention.
 # ---------------------------------------------------------------------------
-def test_legacy_from_dict_unpermutes_pca_alignment(legacy):
-    """Legacy blobs emit tids (and pca arrays) in ARRIVAL order; internal
-    state is natsorted-aligned. from_dict must invert the permutation as well
-    as the sign, or a warm restore seeds PCA with column-misaligned
-    center/comps (review finding on #2649 — the plain round-trip fixture
-    below can't catch it because its arrival order is ascending)."""
+def test_legacy_from_dict_preserves_pca_alignment(legacy):
+    """A restore preserves first-vote component order and reverses center sign.
+
+    Nonascending comment IDs expose an accidental numeric reordering that
+    an ascending fixture would miss.
+    """
     arrival = [5, 2, 9, 0, 7, 1, 3, 4, 6, 8]
     votes = []
     for pid in range(20):
