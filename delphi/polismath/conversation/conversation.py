@@ -14,6 +14,7 @@ import logging
 import sys
 from datetime import datetime
 
+from polismath.conversation.group_vote_counts import group_vote_counts
 from polismath.pca_kmeans_rep.pca import (
     pca_project_dataframe,
     pca_project_cmnts,
@@ -1807,6 +1808,8 @@ class Conversation:
         # A=0/D=0 with S = every member).
         # tests/test_mod_update_parity.py TestGroupVotesTallyRawMatrix.
         tally_mat = self.raw_rating_mat
+        if tally_mat.index.is_unique and tally_mat.columns.is_unique:
+            return group_vote_counts(tally_mat, self.rating_mat.columns, unfolded)
 
         group_votes = {}
 
