@@ -13,7 +13,6 @@ import time
 import logging
 import sys
 from datetime import datetime
-from natsort import natsorted
 
 from polismath.pca_kmeans_rep.pca import (
     pca_project_dataframe,
@@ -212,9 +211,9 @@ class Conversation:
         self.last_mod_timestamp: Optional[int] = None
         # Clojure named-matrix column order = first-vote arrival order per tid
         # (update-nmat appends unseen colnames in encounter order); python's
-        # internal matrix is natsorted instead (update_votes). Tracked so
-        # clojure-legacy tie-breaking (stable sorts over column order) and
-        # blob tid emission can replicate Clojure exactly. Append-only.
+        # internal matrix keeps that same append-only order. PCA reductions
+        # and positional warm starts depend on it, as do stable tie breaks
+        # and tid-aligned blob arrays.
         self.tid_arrival_order = []
         
         # Clustering and projection state
@@ -434,15 +433,13 @@ class Conversation:
                 new_rows_ordered.append(pid)
         all_rows = list(existing_rows) + new_rows_ordered
 
-        # Column order: natsort is fine — column permutation doesn't affect PCA
-        # eigenvalues/vectors (only reorders the component loadings), so it has
-        # no effect on clustering k.
-        # NB: in clojure-legacy mode this column order is now LOAD-BEARING for
-        # PCA warm-start alignment — the previous tick's component loadings are
-        # threaded in positionally, so the ordering must be STABLE tick-to-tick.
-        # Safe while tids are append-only (natsort keeps prior columns' relative
-        # order and appends new ones); revisit if columns can ever be removed.
-        all_cols = natsorted(existing_cols.union(new_cols))
+        # Append unseen columns in first-vote order, just like NamedMatrix.
+        # Sorting can insert a newly observed older tid before existing ones,
+        # shifting the previous PCA loadings to different comments at the
+        # next warm tick. Even a correctly aligned permutation changes the
+        # sequential floating-point reductions, so retain encounter order.
+        all_cols = list(result.raw_rating_mat.columns)
+        all_cols.extend(tid for tid in result.tid_arrival_order if tid in new_cols)
 
         logger.info(f"[{time.time() - start_time:.2f}s] Found {len(new_rows)} new rows and {len(new_cols)} new columns")
 
@@ -2243,10 +2240,10 @@ class Conversation:
         result['lastVoteTimestamp'] = self.last_updated
         result['lastModTimestamp'] = self.last_updated
         
-        # Add tids (comment IDs) with natural sorting
+        # Add tids in the same order as the matrix and PCA arrays
         # Types are already preserved (int stays int, str stays str, etc.)
         # TODO: figure out if really needed, as per https://github.com/compdemocracy/polis/issues/2290
-        result['tids'] = natsorted(self.rating_mat.columns)
+        result['tids'] = list(self.rating_mat.columns)
         
         # Add count values with Clojure naming
         result['n'] = self.participant_count
@@ -2739,18 +2736,8 @@ class Conversation:
             # Clojure-convention (negated) center; internal state stays in
             # Delphi convention (see _apply_legacy_blob_shape).
             center = -center
-            # Inverse of the legacy emission ORDER parity: blobs emit tids
-            # (and every tid-aligned pca array) in Clojure ARRIVAL order,
-            # while internal state aligns with the natsorted matrix
-            # columns. Without un-permuting, a warm restore would seed the
-            # next PCA with column-misaligned center/comps (#2649 review).
-            blob_tids = data.get('tids') or []
-            if len(blob_tids) == center.shape[0]:
-                pos = {t: i for i, t in enumerate(blob_tids)}
-                perm = [pos[t] for t in natsorted(blob_tids)]
-                center = center[perm]
-                if comps.ndim == 2 and comps.shape[1] == len(perm):
-                    comps = comps[:, perm]
+            # Blobs and the rating matrix both use first-vote column order.
+            # Preserve that order when restoring positional warm starts.
             conv.pca = {
                 'center': center,
                 'comps': comps
