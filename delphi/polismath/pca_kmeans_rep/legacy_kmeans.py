@@ -61,7 +61,12 @@ class _NamedData:
     behaviour, named_matrix.clj:258-265).
     """
 
-    def __init__(self, row_names: Sequence[Any], matrix: np.ndarray) -> None:
+    def __init__(self, row_names: Sequence[Any], matrix: np.ndarray,
+                 *, matrix_backed: bool = False) -> None:
+        # Base projections are Clojure persistent rows; group centers are
+        # a vectorz matrix (xy-clusters-to-nmat2), whose row views use the
+        # cancellation formula even in most-distal.
+        self.matrix_backed = matrix_backed
         self.row_names: List[Any] = list(row_names)
         self.matrix: np.ndarray = np.asarray(matrix, dtype=float)
         if self.matrix.ndim != 2 or self.matrix.shape[0] != len(self.row_names):
@@ -447,6 +452,21 @@ def uniqify_clusters(clusters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return acc
 
 
+def _named_row_distance_col(matrix: np.ndarray, center: np.ndarray) -> np.ndarray:
+    """Distance on get-row-by-name rows, as used only by most-distal.
+
+    vectorz's named-row type sums squared coordinate differences. Assignment
+    uses a different row type and must retain _euclidean_col's dot formula.
+    Accumulate dimensions in order, vectorizing across rows without changing
+    the scalar addition order (including for non-2D callers).
+    """
+    squared = np.zeros(matrix.shape[0], dtype=float)
+    for column in range(matrix.shape[1]):
+        delta = matrix[:, column] - center[column]
+        squared += delta * delta
+    return np.sqrt(squared)
+
+
 def most_distal(data: _NamedData, clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
     """The data point whose distance to its NEAREST center is greatest.
 
@@ -463,7 +483,7 @@ def most_distal(data: _NamedData, clusters: List[Dict[str, Any]]) -> Dict[str, A
 
     Vectorized (item 9a) with the scalar loops' exact semantics:
 
-      - inner fold over clusters uses bit-identical distance columns and the
+      - inner fold over clusters uses named-row distance columns and the
         update rule ``d <= near`` (NaN never wins, ties -> later cluster);
       - the outer scalar loop ("row i wins iff ``near_dist[i] >= best``",
         row 0 initializes) reduces to: if ``near_dist[0]`` is NaN, row 0
@@ -476,13 +496,17 @@ def most_distal(data: _NamedData, clusters: List[Dict[str, Any]]) -> Dict[str, A
     if n_rows == 0:
         return {'dist': None, 'clst_id': None, 'id': None}
 
-    row_norms = _row_norms(matrix)
-    near_dist = _euclidean_col(
-        matrix, np.asarray(clusters[0]['center'], dtype=float), row_norms)
+    if data.matrix_backed:
+        row_norms = _row_norms(matrix)
+        def distance(center):
+            return _euclidean_col(matrix, np.asarray(center, dtype=float), row_norms)
+    else:
+        def distance(center):
+            return _named_row_distance_col(matrix, np.asarray(center, dtype=float))
+    near_dist = distance(clusters[0]['center'])
     near_j = np.zeros(n_rows, dtype=np.intp)
     for j in range(1, len(clusters)):
-        d = _euclidean_col(
-            matrix, np.asarray(clusters[j]['center'], dtype=float), row_norms)
+        d = distance(clusters[j]['center'])
         upd = d <= near_dist
         near_dist = np.where(upd, d, near_dist)
         near_j = np.where(upd, j, near_j)

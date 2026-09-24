@@ -619,16 +619,22 @@ class TestVectorizedMostDistalEquivalence:
 
     @staticmethod
     def _reference_most_distal(data, clusters):
-        # Verbatim pre-vectorization loop.
+        # Named-row distance: sum squared differences in coordinate order.
+        def distance(row, center):
+            squared = 0.0
+            for x, y in zip(row, center):
+                delta = float(x) - float(y)
+                squared += delta * delta
+            return float(np.sqrt(squared))
         best_dist = None
         best_clst_id = None
         best_name = None
         for name, row in zip(data.row_names, data.matrix):
-            near_dist = _scalar_dist_reference(
+            near_dist = distance(
                 row, np.asarray(clusters[0]['center'], dtype=float))
             near_id = clusters[0]['id']
             for clst in clusters[1:]:
-                d = _scalar_dist_reference(
+                d = distance(
                     row, np.asarray(clst['center'], dtype=float))
                 if d <= near_dist:
                     near_dist = d
