@@ -99,6 +99,19 @@ def add_participant_like(db, new_pid, model_pid, n_cmts=4):
     c.close()
 
 
+def break_seed_tie(db):
+    """Change one seeded vote (pid 1, tid 2: -1 -> 1). The public seed has only
+    three distinct vote rows, and the third is exactly equidistant from the
+    other two, so the two-group k-means split was an exact tie that a one-ulp
+    BLAS difference could flip. With four distinct rows every assignment in
+    both generations is decided by a margin of about 1.3."""
+    c = connect(db)
+    with c.cursor() as cur:
+        cur.execute("UPDATE votes SET vote=1 WHERE zid=1 AND pid=1 AND tid=2")
+        assert cur.rowcount == 1
+    c.close()
+
+
 def fabricate_foreign_mapping(db, env, zid=1):
     """Write a bidtopid row for the same zid in a DIFFERENT env whose mapping is
     all-999, so a wrong-namespace leak would show up as fabricated pids."""
@@ -143,6 +156,7 @@ def interleaved_bundle(db, launch, tmp_path, publish, mode="bundle", env="rustpr
 def test_loadbundle_serves_the_exact_snapshot_generation(db, launch, tmp_path):
     require_node()
     seed(db)
+    break_seed_tie(db)
     launch(db).done()  # generation A on rustproto
     a_tick = rows(db)["math_main"]["math_tick"]
     expected_a = expected_pids_for_gid(db)
