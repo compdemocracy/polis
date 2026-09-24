@@ -19,11 +19,11 @@ def source_files(root):
         'ci/private_cert/control.py', 'ci/private_cert/image_admission.py',
         'ci/private_cert/images/gate.py', 'ci/private_cert/images/g12.py',
         'ci/private_cert/images/diagnostic_projection.py', 'ci/private_cert/images/selection_context.py',
-        'ci/private_cert/images/attribution.py', 'ci/private_cert/images/probe.py', 'ci/probe_box/contracts.py', 'ci/probe_box/receipt.py',
+        'ci/private_cert/images/attribution.py', 'ci/private_cert/images/near_ties.py', 'ci/private_cert/images/probe.py', 'ci/probe_box/contracts.py', 'ci/probe_box/receipt.py',
         'delphi/scripts/replay_driver.py', 'delphi/scripts/certify_battery.json',
         'delphi/scripts/certify_datasets.json', 'delphi/scripts/certify_datasets.probe.json',
         'delphi/scripts/certify_datasets.schema.json',
-        'math/dev/replay.clj', 'math/deps.edn',
+        'math/dev/replay.clj', 'math/dev/tie_observer.clj', 'math/deps.edn',
     }
     for base, pattern in [('delphi/polismath', '**/*.py'), ('math/src', '**/*'),
                           ('delphi/scripts/schedules', '*.json'), ('delphi/scripts/schemas', '*.json'),

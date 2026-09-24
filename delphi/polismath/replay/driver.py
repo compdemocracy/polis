@@ -144,7 +144,8 @@ def run_replay(
         # the `if step.mod_events` branch below, so this is bit-identical
         # to a plain unconditional `conv.recompute()` for every schedule
         # that doesn't request moderation.
-        conv = conv.recompute()
+        from .tie_capture import observed_recompute
+        conv, decisions = observed_recompute(conv, attribution_dir is not None)
         if step.mod_events:
             conv = conv.mod_update(_mod_rows(step.mod_events))
 
@@ -163,6 +164,13 @@ def run_replay(
             try:
                 from .attribution_capture import capture
                 capture(step, conv, record, attribution_starts, attribution_dir)
+                import json
+                from pathlib import Path
+                target = Path(attribution_dir).parent / "py-decisions"
+                target.mkdir(exist_ok=True)
+                decisions["checkpoint"] = step.index
+                with (target / f"step-{step.index:03d}.json").open("x") as file:
+                    json.dump(decisions, file, allow_nan=False)
             except Exception:
                 pass
         records.append(record)

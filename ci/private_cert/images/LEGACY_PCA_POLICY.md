@@ -1,7 +1,8 @@
 # Observed legacy PCA random restart
 
-Policy SHA-256: `9a26a056d1b80ff10705e19e2e3fda137a59b6d24ece27cdc3b06cd4acbc4272`.
-This deliberately changes acceptance. The policy object in `gate.py` binds the
+Original v13 policy SHA-256: `9a26a056d1b80ff10705e19e2e3fda137a59b6d24ece27cdc3b06cd4acbc4272`.
+The current combined policy is documented in NEAR_TIE_POLICY.md.
+This original rule deliberately changed acceptance. The policy object in `gate.py` binds the
 rule, start tokens, forward scope, field paths and admission behavior; the
 policy-pin test binds its canonical digest. Image recipes and run inputs must
 derive this new digest. Existing release artifacts retain their historical

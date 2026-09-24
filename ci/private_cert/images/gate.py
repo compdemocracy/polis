@@ -35,6 +35,7 @@ from diagnostic_projection import comparison_diagnostics, recipe_token
 from receipt import validate_engine_timeout
 from image_admission import file_digest, json_bytes, regular_path
 import g12
+import near_ties
 from polismath.replay import certify, fixture_bundle, fixture_samples, real_data, schedule, store
 from polismath.replay import legacy_pca
 from polismath.replay.event_ingress import input_hashes
@@ -57,6 +58,23 @@ POLICY = {'schema': 'polis-private-paired-policy/1', 'absolute': 1e-6,
                                  'admission': 'original-raw-and-g12-self-schema-first',
                                  'inventories': 'shared-fields-only-pca-dimensions-preserved',
                                  'unavailable': 'no-new-exception'},
+          'decision_ties': {'schema':'paired-decision-ties/2',
+                            'names':sorted(near_ties.NAMES.values()),
+                            'evidence':'paired-complete-private-decision-prefix-bound-to-raw-record-hashes',
+                            'tolerance':'symmetric-G12-every-score-and-both-margins',
+                            'effect':'onset-fails-without-tie-passes-with-only-its-closure-and-its-root-field-fails',
+                            'roots':{'base':'base-clusters','group':'group-clusters'},
+                            'observers':'engine-results-and-recorded-assignments-corroborated',
+                            'distal_nearest':'scores-only-identity-never-grants-tie',
+                            'inputs':'equal-folds-and-G12-person-projections',
+                            'scope':'same-entry-from-onset-base-or-group-dependencies',
+                            'unavailable':'no-exception',
+                            'pca':'always-compared',
+                            'limit':100000,
+                            'context':['scope','call','cluster_bound','subject','ordered-candidates','comparator','threshold'],
+                            'base_paths':near_ties.PATHS,
+                            'group_paths':sorted(set(near_ties.PATHS)-{'base-clusters','votes-base'}),
+                            'receipt':'closed-name-only-no-quantities-or-identities'},
           'stages': 'diagnostic-only', 'recovery_consumption': 'shadow-diagnostic-only'}
 INPUT_KEYS = {'candidateSha', 'oracleSha', 'policySha256', 'scheduleSha256',
               'inventorySha256', 'expectedChecks'}
@@ -323,6 +341,30 @@ def verify_recordings(evidence, inputs, scratch, fixture=Path('/fixture')):
     return verify_pairs(prepared, evidence / 'recordings', scratch, attribution=True)
 
 
+def tie_has_effect(rec, expected, scratch, onset, tie):
+    """Require a real onset failure, entirely repaired by this dependency scope.
+
+    Keep prior independently admitted restart semantics in both comparisons.
+    Checking only this checkpoint prevents a later failure creating an onset.
+    Reconciliation replaces only shared closure fields; passing afterward
+    proves there was no failing field outside that closure. Keeping only the
+    scope's root field compared must still fail: base-clusters for a base
+    tie, group-clusters for a group tie.
+    """
+    def passes(candidate):
+        strict = certify.compare_recording_pair(rec/'clj', rec/'py', cache_root=scratch,
+            expected=expected, legacy_restart_from=onset, decision_tie=candidate)
+        metric = g12.measure_main_blob(rec, REPO/'delphi', expected=expected,
+            legacy_restart_from=onset, decision_tie=candidate, only_checkpoint=tie['checkpoint'])
+        return (strict['per_step'][tie['checkpoint']]['match']
+                and metric.get('authoritative_g12') is True)
+    # The decision's own output must differ at onset. Otherwise the choice
+    # re-converged and cannot explain a failure elsewhere in its closure.
+    from polismath.replay.decision_ties import ROOTS
+    root_fails = not passes(dict(tie, hold=[ROOTS[tie['scope']]]))
+    return not passes(None) and passes(tie) and root_fails
+
+
 def verify_pairs(prepared, recordings, scratch, *, attribution=False):
     if not prepared:
         raise ValueError('EMPTY_RECORDINGS')
@@ -337,7 +379,7 @@ def verify_pairs(prepared, recordings, scratch, *, attribution=False):
         for engine in ('clj', 'py'):
             certify.validate_recording_inventory(rec / engine, engine, p)
         checks = len(p.checkpoints)
-        observations, onset = None, None
+        observations, onset, tie = None, None, None
         if attribution:
             from attribution import measure_recording, unavailable
             try:
@@ -345,11 +387,13 @@ def verify_pairs(prepared, recordings, scratch, *, attribution=False):
             except Exception:
                 observations = [unavailable(i) for i in range(checks)]
             onset = legacy_pca.restart_checkpoint(observations)
+            tie = near_ties.measure_recording(rec, observations,
+                accept_tie=lambda candidate: tie_has_effect(rec, p, scratch, onset, candidate))
         strict = certify.compare_recording_pair(rec / 'clj', rec / 'py', cache_root=scratch, expected=p,
-                                                legacy_restart_from=onset)
+                                                legacy_restart_from=onset, decision_tie=tie)
         if len(strict['per_step']) != checks:
             raise ValueError('COMPARISON_CHECKPOINT_COUNT')
-        metric = g12.measure_main_blob(rec, REPO / 'delphi', expected=p, legacy_restart_from=onset)
+        metric = g12.measure_main_blob(rec, REPO / 'delphi', expected=p, legacy_restart_from=onset, decision_tie=tie)
         ok = bool(all(s['match'] for s in strict['per_step']) and metric.get('authoritative_g12') is True)
         passed = passed and ok
         stage_diagnostic = {'status': 'NOT_CAPTURED', 'gate': False}
@@ -368,6 +412,9 @@ def verify_pairs(prepared, recordings, scratch, *, attribution=False):
         defects = certify.legacy_empty_defects(p)
         if onset is not None:
             defects.append({'name': legacy_pca.NAME})
+        if tie is not None:
+            defects.append({'name':tie['name']})
+            reports[-1]['decision_tie'] = tie
         if defects:
             reports[-1]['legacy_defects'] = defects
     controls = checkpoint_controls(prepared[0], recordings, scratch)

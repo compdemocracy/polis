@@ -40,3 +40,20 @@
                            (replay/attribution-fold bad)))
       (is (nil? (with-redefs [replay/write-attribution! (fn [& _] (replay/attribution-fold bad))]
                   (replay/safe-write-attribution! "unused" [])))))))
+
+(deftest decision-observer-corroborates-engine-returns
+  (let [data (nm/named-matrix [0 1] [0 1] [[0.0 0.0] [2.0 2.0]])
+        clusters [{:id 0 :members [0 1] :center (matrix/matrix [0.0 0.0])}]
+        actual (polismath.math.clusters/most-distal data clusters)]
+    (doseq [field [:id :clst-id :dist]]
+      (let [wrong (assoc actual field 999)
+            [result doc] (with-redefs [polismath.math.clusters/most-distal (fn [& _] wrong)]
+                           (tie-observer/capture true #(polismath.math.clusters/most-distal data clusters)))]
+        (is (= wrong result))
+        (is (false? (:complete doc)))))
+    (doseq [actual [true false]]
+      (let [other [{:center (matrix/matrix (if actual [1.0 1.0] [0.0 0.0]))}]
+            [result doc] (with-redefs [polismath.math.clusters/same-clustering? (fn [& _] actual)]
+                           (tie-observer/capture true #(polismath.math.clusters/same-clustering? clusters other)))]
+        (is (= actual result))
+        (is (false? (:complete doc)))))))

@@ -778,10 +778,10 @@ def _conv(engine_dir: Path, default: str) -> str:
 
 
 def measure_main_blob(entry_dir: Path, repo_delphi: Path, *, expected=None,
-                      legacy_restart_from=None) -> dict:
+                      legacy_restart_from=None, decision_tie=None, only_checkpoint=None) -> dict:
     sys.path.insert(0, str(repo_delphi))
     from polismath.replay import crosslang
-    from polismath.replay import legacy_pca
+    from polismath.replay import legacy_pca, decision_ties
     from polismath.replay.certify import (project_acceptance, _acceptance_projecting_comparer,
                                         paired_checkpoint_projections,
                                         validate_recording_inventory)
@@ -823,6 +823,8 @@ def measure_main_blob(entry_dir: Path, repo_delphi: Path, *, expected=None,
         return rep
     col = Collector(diagnostics=True)
     for i, cb in enumerate(clj_blobs):
+        if only_checkpoint is not None and i != only_checkpoint:
+            continue
         col.checkpoint = i
         py_blob = json.loads(py_steps[i].read_text())["blob"]
         if expected is None:
@@ -830,7 +832,7 @@ def measure_main_blob(entry_dir: Path, repo_delphi: Path, *, expected=None,
         else:
             checkpoint = expected.checkpoints[i]
             A, B = paired_checkpoint_projections(cb, py_blob, expected, checkpoint)
-        if legacy_pca.active(i, legacy_restart_from):
+        if legacy_pca.active(i, legacy_restart_from) or decision_ties.active(i, decision_tie):
             # Admission on BOTH original outputs precedes reconciliation.
             # Self-comparison preserves typed/rank/nonfinite faults even when
             # downstream cluster cardinalities legitimately differ.
@@ -842,7 +844,10 @@ def measure_main_blob(entry_dir: Path, repo_delphi: Path, *, expected=None,
                     if not summarize(admission)['rollup']['g12_pass']:
                         # Retain the original schema fault in the final gate.
                         _walk_keyed(key, value, value, key, col)
-            A, B = legacy_pca.reconcile(A, B)
+            if legacy_pca.active(i, legacy_restart_from):
+                A, B = legacy_pca.reconcile(A, B)
+            if decision_ties.active(i, decision_tie):
+                A, B = decision_ties.reconcile(A, B, decision_tie)
         pca_a, pca_b = A.get("pca"), B.get("pca")
         s = infer_axis_sign(pca_a["comps"], pca_b["comps"]) if pca_a and pca_b else None
         axis = Axis(s, d)
@@ -872,6 +877,8 @@ def measure_main_blob(entry_dir: Path, repo_delphi: Path, *, expected=None,
     rep["n_steps"] = len(clj_blobs)
     if legacy_restart_from is not None:
         rep["legacy_defects"] = [{"name": legacy_pca.NAME}]
+    if decision_tie is not None:
+        rep.setdefault("legacy_defects", []).append({"name": decision_tie["name"]})
     return rep
 
 

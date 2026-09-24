@@ -1428,6 +1428,7 @@ def compare_recording_pair(
     comparer: StepComparer | None = None,
     expected: ExpectedEntry | None = None,
     legacy_restart_from: int | None = None,
+    decision_tie: dict | None = None,
 ) -> dict[str, Any]:
     """Hash-first, cached comparison of one clj/py recording pair.
 
@@ -1440,7 +1441,7 @@ def compare_recording_pair(
     the complete attribution inventory. It reconciles the declared dependency
     paths from that checkpoint onward, after raw admission and before hashes.
     """
-    from polismath.replay import legacy_pca
+    from polismath.replay import legacy_pca, decision_ties
     if expected is not None:
         # Context comes from the independently admitted schedule, never from
         # producer claims. Raw schema/cursor checks precede reconciliation.
@@ -1492,6 +1493,9 @@ def compare_recording_pair(
         if legacy_pca.active(i, legacy_restart_from):
             clj_proj, py_proj = legacy_pca.reconcile(clj_proj, py_proj)
             defects.append({"name": legacy_pca.NAME})
+        if decision_ties.active(i, decision_tie):
+            clj_proj, py_proj = decision_ties.reconcile(clj_proj, py_proj, decision_tie)
+            defects.append({"name": decision_tie["name"]})
         clj_hash = _canonical_hash(clj_proj)
         py_hash = _canonical_hash(py_proj)
 
