@@ -16,6 +16,7 @@ projection scaling.
 """
 
 import logging
+from decimal import Context, Decimal, ROUND_HALF_EVEN
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional, Sequence, Tuple, Union, Any
@@ -73,6 +74,56 @@ PCA_IMPL_CHOICES = (PCA_IMPL_POWERIT, PCA_IMPL_SKLEARN)
 _POWERIT_START_SEED = 42
 
 
+def _ordered_dot(left: np.ndarray, right: np.ndarray) -> float:
+    """Sequential multiply/add, without BLAS reassociation or fused multiply-add."""
+    products = left * right
+    if products.size == 0:
+        return 0.0
+    products[0] += 0.0  # vectorz dot starts with +0.0, including signed zero.
+    return float(np.add.accumulate(products)[-1])
+
+
+def _ordered_row_dot(data: np.ndarray, vector: np.ndarray) -> np.ndarray:
+    """Column-order multiply/add with a cache-resident row accumulator."""
+    columns = np.asfortranarray(data).T
+    result = np.zeros(data.shape[0], dtype=float)
+    for column, value in zip(columns, vector):
+        result += column * value
+    return result
+
+
+def _ordered_xtxr(data: np.ndarray, vector: np.ndarray) -> np.ndarray:
+    # Keep each column contiguous. The two ordered reductions use O(n+d)
+    # scratch instead of materializing every n-by-d prefix sum. The solver
+    # supplies an F-ordered matrix so this conversion is free per iteration.
+    data = np.asfortranarray(data)
+    row_products = _ordered_row_dot(data, vector)
+    return np.array([_ordered_dot(row_products, column) for column in data.T])
+
+
+def _ordered_center(data: np.ndarray) -> np.ndarray:
+    # core.matrix.stats/mean sums rows then MULTIPLIES by reciprocal count.
+    return np.add.accumulate(data, axis=0)[-1] * (1.0 / data.shape[0])
+
+
+def _sparse_projections(data: np.ndarray, center: np.ndarray,
+                        comps: np.ndarray, n_comps: int) -> np.ndarray:
+    """Accumulate only observed coordinates, then multiply by sparsity scale."""
+    if comps.shape[0] < n_comps:
+        return np.zeros((data.shape[0], n_comps))
+    observed = ~np.isnan(data)
+    centered = np.where(observed, data - center, 0.0)
+    projections = np.column_stack([_ordered_row_dot(centered, pc) for pc in comps])
+    # Clojure integer division yields Ratio; doubleValue rounds through
+    # Java DECIMAL64 (16 significant digits, half-even) before sqrt.
+    context = Context(prec=16, rounding=ROUND_HALF_EVEN)
+    width = data.shape[1]
+    ratios = np.array([float(context.divide(Decimal(width), Decimal(seen)))
+                       for seen in range(1, width + 1)])
+    scale = np.sqrt(ratios[np.maximum(observed.sum(axis=1), 1) - 1])
+    return projections * scale[:, None]
+
+
 def _power_iteration(data: np.ndarray,
                      iters: int = 100,
                      start_vector: Optional[np.ndarray] = None) -> np.ndarray:
@@ -96,6 +147,7 @@ def _power_iteration(data: np.ndarray,
         the data has no variance left in any direction (defensive: Clojure
         would call normalise on a zero vector there).
     """
+    data = np.asfortranarray(data)
     n_cols = data.shape[1]
     if start_vector is None:
         vec = np.ones(n_cols, dtype=np.float64)
@@ -114,13 +166,13 @@ def _power_iteration(data: np.ndarray,
     last_eigval = 0.0
     while True:
         # xtxr (pca.clj:25-35): product = Xᵀ (X v), i.e. one power step.
-        product = data.T @ (data @ vec)
-        eigval = float(np.linalg.norm(product))
+        product = _ordered_xtxr(data, vec)
+        eigval = float(np.sqrt(_ordered_dot(product, product)))
         if eigval == 0.0:
             # No variance in the remaining subspace. Return the zero vector
             # rather than normalising it (belt-and-braces; see docstring).
             return product
-        normed = product / eigval
+        normed = product * (1.0 / eigval)
         if remaining <= 0 or eigval == last_eigval:
             return normed
         remaining -= 1
@@ -143,10 +195,10 @@ def _factor_matrix(data: np.ndarray, xs: np.ndarray) -> np.ndarray:
         Deflated copy of data (data itself if xs is the zero vector, matching
         the Clojure zero-eigenvector guard at pca.clj:71).
     """
-    denom = float(np.dot(xs, xs))
+    denom = _ordered_dot(xs, xs)
     if denom == 0.0:
         return data
-    coeffs = (data @ xs) / denom
+    coeffs = _ordered_row_dot(data, xs) * (1.0 / denom)
     return data - np.outer(coeffs, xs)
 
 
@@ -185,7 +237,7 @@ def powerit_pca(matrix: np.ndarray,
         (unit-norm components as rows, shape (n_comps_eff, n_cols)).
     """
     data = np.asarray(matrix, dtype=np.float64)
-    center = data.mean(axis=0)
+    center = _ordered_center(data)
     centered = data - center
     n_rows, n_cols = centered.shape
 
@@ -338,8 +390,9 @@ def pca_project_dataframe(df: pd.DataFrame,
     # Solver switch (read at call time — see polismath.utils.env_flags.resolve_impl_flag):
     #   POLISMATH_PCA_IMPL=powerit  (default) legacy/Clojure-parity power iteration
     #   POLISMATH_PCA_IMPL=sklearn  improved exact-SVD path
-    # The imputation above and sparsity scaling below are IDENTICAL for both;
-    # only the eigen-solver differs.
+    # Both paths impute for fitting. The legacy path projects observed cells
+    # in encounter order and multiplies by the sparsity scale; sklearn keeps
+    # its historical dense projection and division order.
     impl = resolve_impl_flag(PCA_IMPL_ENV_VAR, PCA_IMPL_DEFAULT, PCA_IMPL_CHOICES)
 
     # Warm-start parity (PR-B): power iteration is the ONLY solver that can be
@@ -374,15 +427,14 @@ def pca_project_dataframe(df: pd.DataFrame,
                 'comps': pca.components_
             }
         else:
-            # Legacy/Clojure-parity solver (default). Comps are unit vectors;
-            # projections are (X - center) @ compsᵀ, exactly like sklearn's
-            # fit_transform convention.
+            # Legacy projections skip unseen cells, sum observed terms in
+            # comment order, then multiply by sqrt(n_comments/n_seen).
             # start_vectors warm-starts each component's power iteration
             # (None == cold == pre-PR behavior; see the PR-B note above).
             pca_results = powerit_pca(matrix_data_no_nan, n_comps=n_comps,
                                       start_vectors=start_vectors)
-            projections = ((matrix_data_no_nan - pca_results['center'])
-                           @ pca_results['comps'].T)
+            projections = _sparse_projections(
+                matrix_data, pca_results['center'], pca_results['comps'], n_comps)
             # comps are RANK-CAPPED (min(n_comps, data dim), matching
             # Clojure's emitted comps) but projections are always 2-D — and
             # with fewer than 2 comps rows they are all-ZERO (Q16): Clojure's
@@ -415,7 +467,8 @@ def pca_project_dataframe(df: pd.DataFrame,
         # Avoid division by zero for participants with no votes (matches Clojure's (max n-votes 1))
         n_seen_safe = np.maximum(n_seen, 1)
         proportions = np.sqrt(n_seen_safe / n_cmnts)
-        scaled_projections = projections / proportions[:, np.newaxis]  
+        scaled_projections = (projections if impl == PCA_IMPL_POWERIT else
+                              projections / proportions[:, np.newaxis])
 
         # Create a dictionary of projections by participant ID
         proj_dict = {ptpt_id: proj for ptpt_id, proj in zip(df.index, scaled_projections)}
