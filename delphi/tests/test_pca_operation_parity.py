@@ -2,9 +2,16 @@
 import json
 from pathlib import Path
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 import numpy as np
 from polismath.pca_kmeans_rep import pca
+
+
+def _ordered_xtxr(data: np.ndarray, vector: np.ndarray) -> np.ndarray:
+    """Reference oracle: legacy-order Xᵀ (X v); production uses BLAS."""
+    data = np.asfortranarray(data)
+    row_products = pca._ordered_row_dot(data, vector)
+    return np.array([pca._ordered_dot(row_products, column) for column in data.T])
 
 
 class OperationParityTests(unittest.TestCase):
@@ -15,15 +22,21 @@ class OperationParityTests(unittest.TestCase):
             matrix, start = np.array(c['matrix']), np.array(c['start'])
             pc = pca.powerit_pca(matrix, start_vectors=[start, start[::-1]])
             values = dict(center=pca._ordered_center(matrix), dot=pca._ordered_dot(start,start),
-                          xtxr=pca._ordered_xtxr(matrix,start),
+                          xtxr=_ordered_xtxr(matrix,start),
                           normalise=start*(1/np.sqrt(pca._ordered_dot(start,start))),
                           factor=pca._factor_matrix(matrix,start),
                           projection=pca._sparse_projections(np.array(c['sparse'], dtype=float), pc['center'], pc['comps'], 2))
             for key, value in values.items():
                 with self.subTest(shape=matrix.shape, operation=key):
-                    np.testing.assert_array_equal(np.asarray(value, dtype=float).view(np.uint64),
-                                                  np.asarray(e[key], dtype=float).view(np.uint64))
-            np.testing.assert_array_equal(pc['comps'].view(np.uint64), np.array(e['pca']['comps']).view(np.uint64))
+                    actual, expected = np.asarray(value, dtype=float), np.asarray(e[key], dtype=float)
+                    if key == 'projection':  # Uses BLAS-produced components.
+                        self.assertTrue(np.all(np.abs(actual-expected) <=
+                            1e-6 + 1e-4*np.maximum(np.abs(actual),np.abs(expected))))
+                    else:
+                        np.testing.assert_array_equal(actual.view(np.uint64), expected.view(np.uint64))
+            actual, expected = pc['comps'], np.array(e['pca']['comps'])
+            self.assertTrue(np.all(np.abs(actual-expected) <=
+                1e-6 + 1e-4*np.maximum(np.abs(actual),np.abs(expected))))
 
     def test_reduction_keeps_column_encounter_order(self):
         row = np.array([[1e16, 1., -1e16, 1., 1., 1., 1., 1.]])
@@ -59,13 +72,25 @@ class OperationParityTests(unittest.TestCase):
                          np.sqrt(width / np.arange(1,width+1)).view(np.uint64)))
 
     def test_iteration_budget_and_exact_stop_are_unchanged(self):
-        values = [np.array([1., 1.]), np.array([2., 1.]), np.array([3., 1.])]
-        with patch.object(pca, '_ordered_xtxr', side_effect=values) as call:
+        data = MagicMock()
+        data.shape = (2, 2)
+        data.__matmul__.return_value = np.ones(2)
+        data.T.__matmul__.side_effect = [np.array([1., 1.]), np.array([2., 1.]), np.array([3., 1.])]
+        with patch.object(pca.np, 'asfortranarray', return_value=data):
             pca._power_iteration(np.eye(2), iters=2)
-            self.assertEqual(call.call_count, 3)
-        with patch.object(pca, '_ordered_xtxr', return_value=np.ones(2)) as call:
+            self.assertEqual(data.T.__matmul__.call_count, 3)
+        data.T.__matmul__.reset_mock(side_effect=True)
+        data.T.__matmul__.return_value = np.ones(2)
+        with patch.object(pca.np, 'asfortranarray', return_value=data):
             pca._power_iteration(np.eye(2), iters=100)
-            self.assertEqual(call.call_count, 2)
+            self.assertEqual(data.T.__matmul__.call_count, 2)
+
+    def test_power_iteration_uses_blas_not_ordered_reference(self):
+        with patch.object(pca, '_ordered_dot', side_effect=AssertionError('ordered path')), \
+             patch.object(pca, '_ordered_row_dot', side_effect=AssertionError('ordered path')):
+            result = pca._power_iteration(np.diag([2., 1.]), start_vector=np.ones(2))
+        np.testing.assert_allclose(result, [1., 0.], atol=1e-7)
+
 
 
 if __name__ == '__main__':

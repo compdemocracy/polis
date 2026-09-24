@@ -1,7 +1,7 @@
 """
 PCA (Principal Component Analysis) for Pol.is.
 
-The production solver is a Clojure-parity power-iteration eigensolver
+The production solver is a BLAS-backed power-iteration eigensolver
 (`powerit_pca` / `_power_iteration` below), warm-started each tick from the
 previous tick's unit components (see `pca_project_dataframe`'s
 `start_vectors` param and conversation.py:761-779). A single-shot sklearn
@@ -92,15 +92,6 @@ def _ordered_row_dot(data: np.ndarray, vector: np.ndarray) -> np.ndarray:
     return result
 
 
-def _ordered_xtxr(data: np.ndarray, vector: np.ndarray) -> np.ndarray:
-    # Keep each column contiguous. The two ordered reductions use O(n+d)
-    # scratch instead of materializing every n-by-d prefix sum. The solver
-    # supplies an F-ordered matrix so this conversion is free per iteration.
-    data = np.asfortranarray(data)
-    row_products = _ordered_row_dot(data, vector)
-    return np.array([_ordered_dot(row_products, column) for column in data.T])
-
-
 def _ordered_center(data: np.ndarray) -> np.ndarray:
     # core.matrix.stats/mean sums rows then MULTIPLIES by reciprocal count.
     return np.add.accumulate(data, axis=0)[-1] * (1.0 / data.shape[0])
@@ -130,10 +121,11 @@ def _power_iteration(data: np.ndarray,
     """
     First eigenvector of data.T @ data via power iteration.
 
-    Port of Clojure `power-iteration` (pca.clj:38-56): runs a FIXED number of
-    multiplications by XᵀX (iters + 1 in total, matching the Clojure loop
-    structure), with an early exit only when the eigenvalue estimate is
-    EXACTLY equal to the previous one (float equality, as in Clojure).
+    Each step is the BLAS product Xᵀ (X v) and its BLAS norm; reductions may
+    reassociate, so results match the legacy engine within G12 rather than
+    bit-for-bit. The legacy `power-iteration` (pca.clj:38-56) schedule is
+    kept: all-ones start, a FIXED budget of iters + 1 products, and an early
+    exit only when the eigenvalue estimate EXACTLY equals the previous one.
 
     Args:
         data: 2D array (rows are observations), typically already centered.
@@ -165,9 +157,10 @@ def _power_iteration(data: np.ndarray,
     remaining = int(iters)
     last_eigval = 0.0
     while True:
-        # xtxr (pca.clj:25-35): product = Xᵀ (X v), i.e. one power step.
-        product = _ordered_xtxr(data, vec)
-        eigval = float(np.sqrt(_ordered_dot(product, product)))
+        # Same Xᵀ (X v) power step and stopping rule; BLAS may reassociate
+        # reductions. Equivalence is judged by G12 and admitted decision ties.
+        product = data.T @ (data @ vec)
+        eigval = float(np.linalg.norm(product))
         if eigval == 0.0:
             # No variance in the remaining subspace. Return the zero vector
             # rather than normalising it (belt-and-braces; see docstring).
@@ -208,10 +201,11 @@ def powerit_pca(matrix: np.ndarray,
                 start_vectors: Optional[Sequence[np.ndarray]] = None
                 ) -> Dict[str, np.ndarray]:
     """
-    Clojure-parity PCA via per-component power iteration with deflation.
+    PCA via per-component BLAS power iteration with deflation.
 
-    Port of Clojure `powerit-pca` (pca.clj:86-105): center on column means,
-    then for each component run `_power_iteration` on the (deflated) centered
+    Follows the legacy `powerit-pca` (pca.clj:86-105) structure: center on
+    column means (legacy reciprocal-count order), then for each component
+    run the BLAS-product `_power_iteration` on the (deflated) centered
     data and factor the found component out (`_factor_matrix`) before finding
     the next one. The number of components is clamped to
     min(n_comps, min(n_rows, n_cols)) exactly as in Clojure (pca.clj:93,96).
