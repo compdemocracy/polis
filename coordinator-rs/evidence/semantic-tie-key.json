@@ -50,8 +50,8 @@
     "storage_agree_value": -1
   },
   "mirrored_digest": "3bd0700204ee8202074e31f6cfe2f57903bd9d9fc10c5149c0fcdfb7f5406685",
-  "a": "97d64491eeb1f9aad24163f5cd58d331c74a6e3d191b3479d8c9d3bcdad5521a",
-  "b": "97d64491eeb1f9aad24163f5cd58d331c74a6e3d191b3479d8c9d3bcdad5521a",
-  "negative": "b40c57396719abfec124a638fd4cca54f4a20bf06f5ef92dd5a7888a74b23110",
+  "a": "c40f36ef591f86e259d2287c3345d6edc3267ca1b68385482121bbddadef7a22",
+  "b": "c40f36ef591f86e259d2287c3345d6edc3267ca1b68385482121bbddadef7a22",
+  "negative": "aec5181c022a03b45befa5686a9fef92ecaa00e3896eff32d812e0adb59764bf",
   "deltas": []
 }
