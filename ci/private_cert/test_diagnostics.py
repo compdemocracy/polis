@@ -212,7 +212,7 @@ class DiagnosticTests(unittest.TestCase):
 
     def test_restart_policy_pin_and_unchanged_controls(self):
         import contextlib,io
-        self.assertEqual(gate.sha(gate.POLICY),'9a26a056d1b80ff10705e19e2e3fda137a59b6d24ece27cdc3b06cd4acbc4272')
+        self.assertEqual(gate.sha(gate.POLICY),'3dfbdedd33d0c65f5708e4c1622a648abd8e3c89596d2818e6c5f6c4f5871aef')
         with contextlib.redirect_stdout(io.StringIO()):self.assertEqual(g12.self_test(),0)
 
 

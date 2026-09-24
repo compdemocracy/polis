@@ -141,6 +141,12 @@ def _run_impl(dataset, schedule_path, preset, n_cuts, schedule_id, out_root, ver
                          **({'attribution_dir': attribution_dir} if attribution_json else {}))
     out_dir = st.write_recording(records, spec, root=out_root,
                                  **({"extra_provenance": input_hashes(events)} if events else {}))
+    if attribution_json:
+        try:
+            from polismath.replay.tie_capture import seal
+            seal(out_dir)
+        except Exception:
+            pass
     click.echo(f"wrote {len(records)} steps → {out_dir}")
 
 

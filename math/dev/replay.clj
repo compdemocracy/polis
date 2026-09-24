@@ -73,6 +73,9 @@
            [java.math BigDecimal RoundingMode]
            [java.time Instant]))
 
+(load-file "dev/tie_observer.clj")
+(alias 'tie 'tie-observer)
+
 ;; ---------------------------------------------------------------------------
 ;; CSV → sorted vote stream (mirror ReplayDataset.build / real_data.py).
 ;; ---------------------------------------------------------------------------
@@ -97,7 +100,7 @@
                :sign (Long/parseLong (str/trim (nth r si)))})
             (rest rows)))))
 
-(declare sha256-hex)
+(declare sha256-hex ->plain)
 
 (defn parse-event-json [text]
   (binding [json-factory/*json-factory*
@@ -378,13 +381,15 @@
      (loop [conv seed [s & more] steps acc []]
        (if (nil? s)
          acc
-         (let [conv' (conv/conv-update conv (->conv-votes (:votes s))
-                                       certify-conv-opts)
+         (let [[conv' decisions] (tie/capture *attribution?*
+                                   #(let [updated (conv/conv-update conv (->conv-votes (:votes s)) certify-conv-opts)]
+                                      (when *attribution?* (json/generate-string (->plain (cm/prep-main updated))))
+                                      updated))
                conv' (if (seq (:mods s))
                        (conv/mod-update conv' (vec (:mods s)))
                        conv')
                conv' (if *attribution?*
-                       (vary-meta conv' assoc ::attribution-starts (get-in conv [:pca :comps]))
+                       (vary-meta conv' assoc ::attribution-starts (get-in conv [:pca :comps]) ::decisions decisions)
                        conv')
                acc'  (conj acc [s conv'])
                conv'' (if (and restart-after (= (long (:index s)) (long restart-after)))
@@ -1100,7 +1105,14 @@
                               stage-root)]
               (write-results! rep-dir results edn?)
               (when (and (:attribution-json options) (zero? rep))
-                (safe-write-attribution! (io/file out "clj-attribution") results))
+                (safe-write-attribution! (io/file out "clj-attribution") results)
+                (try
+                  (.mkdirs (io/file out "clj-decisions"))
+                  (doseq [[step conv] results]
+                    (spit (io/file out "clj-decisions" (format "step-%03d.json" (:index step)))
+                          (json/generate-string (assoc (::decisions (meta conv)) :checkpoint (:index step)
+                            :record_sha256 (sha256-file (io/file rep-dir (format "step-%03d.blob.json" (:index step))))))))
+                  (catch Exception _ nil)))
               (when (and (> repeats 1) (zero? rep))
                 (write-results! clj-dir results edn?))
               (when stage-json?
