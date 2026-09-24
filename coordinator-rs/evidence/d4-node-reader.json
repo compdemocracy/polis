@@ -22,8 +22,8 @@
   "profile": "real getPca + presentPca + participants.ts, in-process, one Node process",
   "served": {
     "python": {
-      "asJSON_bytes": 6491,
-      "asJSON_sha256": "d6223d076ab6b9799b715338460732b6ef3278a4af759835be1fab67732cd172",
+      "asJSON_bytes": 6500,
+      "asJSON_sha256": "fca1a669ba11a2c0ecb64f6079c10d3c45086db18861b735f7f1e13844650ed8",
       "bid_to_pid": [
         [
           0
@@ -43,16 +43,16 @@
       "comment_extremity": [
         1.4280971859724134,
         1.632993161855452,
-        1.4467439648759484,
-        1.4467439645116187
+        1.4467439654036442,
+        1.4467439639839224
       ],
       "consensus_shape": {
         "agree": 0,
         "disagree": 0
       },
       "etag_math_tick": 1,
-      "gzip_bytes": 1763,
-      "gzip_sha256": "8e2a4fa708dd5601a2a3eba41111de118942bb7ee0273d5a46e32566c22aec3d",
+      "gzip_bytes": 1765,
+      "gzip_sha256": "e4fc8a772a00eaa699fb03e833c26a9805c500e9f2c2d2b559d48b2e7ce56121",
       "keys_projection_sha256": "02de433e7970e77c3569cd225d9e48b2944bdb217c561e1c275674eb126713b1",
       "mapping_is_error": false,
       "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
@@ -88,8 +88,8 @@
       ]
     },
     "rustproto": {
-      "asJSON_bytes": 6491,
-      "asJSON_sha256": "d6223d076ab6b9799b715338460732b6ef3278a4af759835be1fab67732cd172",
+      "asJSON_bytes": 6500,
+      "asJSON_sha256": "fca1a669ba11a2c0ecb64f6079c10d3c45086db18861b735f7f1e13844650ed8",
       "bid_to_pid": [
         [
           0
@@ -109,16 +109,16 @@
       "comment_extremity": [
         1.4280971859724134,
         1.632993161855452,
-        1.4467439648759484,
-        1.4467439645116187
+        1.4467439654036442,
+        1.4467439639839224
       ],
       "consensus_shape": {
         "agree": 0,
         "disagree": 0
       },
       "etag_math_tick": 1,
-      "gzip_bytes": 1763,
-      "gzip_sha256": "8e2a4fa708dd5601a2a3eba41111de118942bb7ee0273d5a46e32566c22aec3d",
+      "gzip_bytes": 1765,
+      "gzip_sha256": "e4fc8a772a00eaa699fb03e833c26a9805c500e9f2c2d2b559d48b2e7ce56121",
       "keys_projection_sha256": "02de433e7970e77c3569cd225d9e48b2944bdb217c561e1c275674eb126713b1",
       "mapping_is_error": false,
       "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
