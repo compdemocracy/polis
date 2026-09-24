@@ -991,7 +991,7 @@ class Conversation:
         # before either bound, so on real conversations it is inert.
         base_ids = [c['id'] for c in base_clusters]
         base_weights_by_id = {c['id']: len(c['members']) for c in base_clusters}
-        group_data = _LegacyNamedData(base_ids, base_centers_array)
+        group_data = _LegacyNamedData(base_ids, base_centers_array, matrix_backed=True)
         prev_gc = prev_group_clusterings or {}
 
         legacy_group_clusterings: Dict[int, List[Dict[str, Any]]] = {}
