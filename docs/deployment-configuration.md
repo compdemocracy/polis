@@ -13,7 +13,7 @@ This source inventory is pinned to `0985a1a58870f665e6cd30b57558db0c7a9954bc`. I
 | CDK synth inputs | [entry point:21](../cdk/bin/cdk.ts#L21) | `ENV_FILE` selects a path; `CDK_*` inputs build stack props. Context flags are a separate API, not environment variables. |
 | CDK provisioned secrets | [secrets:18](../cdk/secrets.ts#L18), [import worker:56](../cdk/lib/import-worker-service.ts#L56) | Infrastructure constructs/secret references supply deployed configuration. The import worker receives `DB_SECRET_JSON` and constructs `DATABASE_URL`; the JSON is secret. |
 
-CDK flags `enableCiEc2`, `enableProbeBox`, and alarm controls use context. Their current definitions and validation are in [cdk-stack:440](../cdk/lib/cdk-stack.ts#L440), [entry point:63](../cdk/bin/cdk.ts#L63), and [alarms:237](../cdk/alarms.ts#L237). Do not invent corresponding environment variables. The referenced `ENV_FILE` prop is not evidence that every service automatically imports its contents.
+CDK flags `enableCiEc2`, `enableProbeBox`, `enableLightShadow`, and alarm controls use context. Their current definitions and validation are in [cdk-stack:440](../cdk/lib/cdk-stack.ts#L440), [entry point:63](../cdk/bin/cdk.ts#L63), [light shadow](../cdk/lightShadow.ts) ([operator notes](light-shadow-host.md)), and [alarms:237](../cdk/alarms.ts#L237). `PROBE_BOX_CONFIG` and `LIGHT_SHADOW_CONFIG` name the JSON file each flagged stack reads; they are read only when the flag is set. Do not invent corresponding environment variables. The referenced `ENV_FILE` prop is not evidence that every service automatically imports its contents.
 
 ## Previously documented names outside the scoped services
 

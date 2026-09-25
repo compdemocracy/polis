@@ -1,0 +1,194 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`on-box files rendered files match the reviewed snapshot 1`] = `
+{
+  "/etc/polis-shadow/shadow.env": "# Non-secret constants for the light shadow. Written by user data.
+REGION=us-east-1
+REGISTRY=111111111111.dkr.ecr.us-east-1.amazonaws.com
+IMAGE=111111111111.dkr.ecr.us-east-1.amazonaws.com/polis/math-python@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ENGINE_COMMIT=057bd9dc11f7385262d37821bdb81a8f21fdfdd4
+MATH_ENV=python-shadow
+DATABASE_SSL_MODE=require
+DB_SECRET_ARN=arn:aws:secretsmanager:us-east-1:111111111111:secret:public-fixture-db-AbCdEf
+DB_EXPECTED_HOST=public-fixture-primary.abc.us-east-1.rds.amazonaws.com
+LOG_GROUP=/polis/light-shadow/math
+RUN_PARAMETER=/polis/light-shadow/run
+POLL_ALLOWLIST=
+",
+  "/etc/systemd/system/polis-math-shadow.service": "[Unit]
+Description=Polis Python math poller, light shadow (MATH_ENV=python-shadow)
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+StartLimitIntervalSec=3600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+Environment=HOME=/root DOCKER_CONFIG=/root/.docker
+ExecCondition=/usr/local/bin/polis-math-shadow-enabled
+ExecStart=/usr/local/bin/polis-math-shadow-start
+ExecStop=/usr/bin/docker stop --time 60 polis-math-shadow
+Restart=on-failure
+RestartSec=60
+TimeoutStartSec=900
+TimeoutStopSec=90
+
+[Install]
+WantedBy=multi-user.target
+",
+  "/opt/aws/amazon-cloudwatch-agent/etc/light-shadow.json": "{
+  "agent": {
+    "metrics_collection_interval": 60
+  },
+  "metrics": {
+    "namespace": "Polis/LightShadow",
+    "append_dimensions": {
+      "InstanceId": "\${aws:InstanceId}"
+    },
+    "metrics_collected": {
+      "mem": {
+        "measurement": [
+          "mem_used_percent"
+        ]
+      },
+      "disk": {
+        "measurement": [
+          "used_percent"
+        ],
+        "resources": [
+          "/"
+        ]
+      }
+    }
+  }
+}
+",
+  "/opt/polis-shadow/launch.py": """"Light-shadow launcher. Runs inside the delphi image as the container's entrypoint.
+
+It reads the database secret from Secrets Manager into this process's memory,
+builds DATABASE_URL, and replaces itself with the math poller. The credential is
+never written to disk, never passed on a command line and never set in the
+container's configuration (so \`docker inspect\` does not show it).
+
+It refuses to start unless MATH_ENV is exactly \`python-shadow\` and
+DATABASE_SSL_MODE is exactly \`require\`. Every refusal message is a fixed string
+and never includes a secret value.
+"""
+
+import json
+import os
+import sys
+
+REQUIRED_MATH_ENV = "python-shadow"
+REQUIRED_SSL_MODE = "require"
+POLLER = "/app/scripts/math_poller.py"
+# The poller splits DATABASE_URL with urllib.parse and does not percent-decode,
+# so any of these characters in the login or password would be misread. The
+# RDS generated secret excludes them; refuse rather than mangle if that changes.
+URL_UNSAFE = set("@/:?#%[]\\\\'\\" \\t\\r\\n")
+
+
+def refuse(reason):
+    sys.stderr.write("light-shadow launcher refused: " + reason + "\\n")
+    sys.exit(64)
+
+
+def check_environment(env):
+    if env.get("MATH_ENV") != REQUIRED_MATH_ENV:
+        refuse("MATH_ENV must be " + REQUIRED_MATH_ENV)
+    if env.get("DATABASE_SSL_MODE") != REQUIRED_SSL_MODE:
+        refuse("DATABASE_SSL_MODE must be " + REQUIRED_SSL_MODE)
+    if "DATABASE_URL" in env:
+        refuse("DATABASE_URL must not be supplied from outside the launcher")
+    for name in ("DB_SECRET_ARN", "DB_EXPECTED_HOST", "AWS_REGION"):
+        if not env.get(name):
+            refuse(name + " is required")
+
+
+def database_url(secret, expected_host):
+    try:
+        user = secret["username"]
+        password = secret["password"]
+        host = secret["host"]
+        port = int(secret.get("port", 5432))
+        name = secret.get("dbname", "polisdb")
+    except (KeyError, TypeError, ValueError):
+        refuse("database secret does not have the expected fields")
+    if host != expected_host:
+        refuse("database secret host differs from the configured database host")
+    if not user or not password or any(c in URL_UNSAFE for c in user + password + name):
+        refuse("database secret contains characters the poller cannot parse")
+    return "postgresql://%s:%s@%s:%d/%s" % (user, password, host, port, name)
+
+
+def main():
+    check_environment(os.environ)
+    import boto3  # imported after the checks so a refusal needs no AWS access
+
+    client = boto3.client("secretsmanager", region_name=os.environ["AWS_REGION"])
+    try:
+        raw = client.get_secret_value(SecretId=os.environ["DB_SECRET_ARN"])["SecretString"]
+        secret = json.loads(raw)
+    except Exception:  # noqa: BLE001 - never echo the response
+        refuse("could not read the database secret")
+    os.environ["DATABASE_URL"] = database_url(secret, os.environ["DB_EXPECTED_HOST"])
+    del raw, secret
+
+    # BLAS provenance for the evidence trail (4d.0: bytes can depend on platform).
+    try:
+        import numpy
+
+        numpy.show_config()
+    except Exception:  # noqa: BLE001
+        sys.stderr.write("light-shadow launcher: numpy.show_config unavailable\\n")
+    sys.stdout.flush()
+    os.execv(sys.executable, [sys.executable, POLLER])
+
+
+if __name__ == "__main__":
+    main()
+",
+  "/root/.docker/config.json": "{"credHelpers":{"111111111111.dkr.ecr.us-east-1.amazonaws.com":"ecr-login"}}
+",
+  "/usr/local/bin/polis-math-shadow-enabled": "#!/bin/bash
+# ExecCondition: the unit starts only when the run switch reads exactly "on".
+# Any error reading it (missing, no network) counts as off.
+set -u
+. /etc/polis-shadow/shadow.env
+value=$(aws ssm get-parameter --region "$REGION" --name "$RUN_PARAMETER" --query Parameter.Value --output text 2>/dev/null || true)
+[ "$value" = on ] && exit 0
+echo "light shadow run switch is not on; not starting"
+exit 1
+",
+  "/usr/local/bin/polis-math-shadow-start": "#!/bin/bash
+set -euo pipefail
+# Exported so the bare \`-e NAME\` flags below pass the values into the container.
+set -a
+. /etc/polis-shadow/shadow.env
+set +a
+if [ "$MATH_ENV" != python-shadow ]; then echo "refusing: MATH_ENV must be python-shadow"; exit 64; fi
+if [ "$DATABASE_SSL_MODE" != require ]; then echo "refusing: DATABASE_SSL_MODE must be require"; exit 64; fi
+case "$IMAGE" in *@sha256:*) ;; *) echo "refusing: image must be pinned by digest"; exit 64;; esac
+docker pull --quiet "$IMAGE" >/dev/null
+arch=$(docker image inspect --format '{{.Architecture}}' "$IMAGE")
+if [ "$arch" != arm64 ]; then echo "refusing: image architecture is $arch, not arm64"; exit 64; fi
+docker rm -f polis-math-shadow >/dev/null 2>&1 || true
+echo "starting polis-math-shadow: engine $ENGINE_COMMIT image $(docker image inspect --format '{{.Id}}' "$IMAGE")"
+# The credential is read inside the container by launch.py; only non-secret
+# names are passed here. Host networking lets the container reach instance
+# metadata with the hop limit left at 1.
+exec docker run --rm --name polis-math-shadow --network host \\
+  --memory 6g --memory-swap 6g --cpus 2 --pids-limit 512 \\
+  --cap-drop ALL --security-opt no-new-privileges \\
+  --log-driver awslogs --log-opt awslogs-region="$REGION" --log-opt awslogs-group="$LOG_GROUP" \\
+  --log-opt awslogs-stream="$(cat /var/lib/cloud/data/instance-id 2>/dev/null || hostname)" \\
+  -e AWS_REGION="$REGION" -e MATH_ENV -e DATABASE_SSL_MODE -e DB_SECRET_ARN -e DB_EXPECTED_HOST \\
+  -e POLL_VOTE_INTERVAL_MS=10000 -e POLL_MOD_INTERVAL_MS=10000 -e POLL_FROM_DAYS_AGO=10 \\
+  -e POLL_ALLOWLIST -e MATH_WORKER_POOL_SIZE=1 -e MATH_CONV_CACHE_CAP=50 \\
+  -e MATH_POLLER_DUMP_DIR=/data/errorconv -v /var/lib/polis-shadow/errorconv:/data/errorconv \\
+  -v /opt/polis-shadow/launch.py:/opt/polis-shadow/launch.py:ro \\
+  --entrypoint python "$IMAGE" /opt/polis-shadow/launch.py
+",
+}
+`;
