@@ -168,8 +168,9 @@ A tag must advance relative to a durable `liveness-baseline.json`; the first
 observation alone is not proof, and gets at most 120 seconds to advance. The
 baseline survives operator restarts. Counter regression, malformed tags and
 unknown tokens do not establish activity. Missing, stale, malformed or failed
-CPU reads are UNKNOWN, not proof of silence: the CLI leaves the run unresolved;
-resume status/watch when monitoring is available, or cancel explicitly.
+CPU reads are UNKNOWN, not proof of silence: status reports the run incomplete
+and watch keeps observing under its ceiling, never killing on that evidence;
+admission expiry or an explicit cancel still terminates the owned instance.
 
 Positive CPU or tag evidence is written once to
 `control/<run-id>/liveness.json`, bound to the admission and instance. Its only
@@ -390,6 +391,22 @@ python3 -B ci/probe_box/run.py launch --profile "$PROBE_PROFILE"   --config "$PR
 : "${PROBE_RUN_ID:?same admitted run ID}"
 python3 -B ci/probe_box/run.py watch --profile "$PROBE_PROFILE"   --config "$PROBE_WORKER_CONFIG" --run-id "$PROBE_RUN_ID"
 ```
+
+`watch` and `status` are not read-only: each observation reconciles the
+lifecycle and can publish control/boot records, manage the run's two alarms,
+terminate the owned instance and delete its recorded disks. Watch binds to the
+run's register generation, admission and configuration on the first valid read
+and refuses if they change. Expected teardown states (shutting down, disks
+detaching or still being deleted) are observed again every 30 seconds until the
+watch ceiling. Classified transient SDK failures (throttling, service errors,
+timeouts, an expired token refreshed by the SDK's own provider) get two further
+observations; ownership, inventory, binding, receipt and permission failures
+refuse at once. Complete requires observed instance/disk cleanup and deletion of
+both alarms before the register is closed. Each retry or refusal prints one
+closed `PROBE_DIAGNOSTIC` line to stderr (UTC time, reason, operation,
+disposition, attempt); stdout keeps the JSON result or the fixed unresolved
+sentence. `status` and `cancel` stay single observations: a pending state is
+exit 1 with `complete: false`, a transient failure exit 2.
 
 If watch exits unresolved, renew the SSO session as needed and use `status` with
 that same run ID/configuration. Never retry with a new run ID or override the
