@@ -472,6 +472,27 @@ class SessionTests(unittest.TestCase):
         s.objects['evidence',key]=encoded(value)
         with self.assertRaises(ValueError):x.status(job()['run_id'])
 
+    def test_watch_survives_shutting_down_instance_without_network_fields(self):
+        from test_boundaries import job
+        x,c,e,s,i=session_setup();x.start(job())
+        i['State']['Name']='shutting-down';i['SubnetId']=None;i['SecurityGroups']=[];i['IamInstanceProfile']=None
+        self.assertEqual(x.status(job()['run_id']),dict(run_id=job()['run_id'],complete=False,passed=False))
+        self.assertFalse(e.terminated);self.assertFalse(e.deleted)
+        self.assertIsNone(c.read(c.prefix+'clean.json'))
+        i['State']['Name']='terminated';i['BlockDeviceMappings']=[]
+        self.assertEqual(x.status(job()['run_id']),dict(run_id=job()['run_id'],complete=True,passed=False))
+
+    def test_running_instance_without_network_fields_is_still_not_owned(self):
+        from test_boundaries import job
+        x,c,e,s,i=session_setup();x.start(job())
+        for state in ('pending','running','stopping','stopped'):
+            for field,value in (('SubnetId',None),('SecurityGroups',[]),('IamInstanceProfile',None)):
+                with self.subTest(state=state,field=field):
+                    saved=i[field];i['State']['Name']=state;i[field]=value
+                    with self.assertRaises(Unknown) as raised:x.status(job()['run_id'])
+                    self.assertEqual(str(raised.exception),'INSTANCE_OWNERSHIP_UNKNOWN')
+                    i[field]=saved
+
     def test_receipt_absence_finishes_failed_after_observed_cleanup(self):
         from test_boundaries import job
         x,c,e,s,i=session_setup();x.start(job());i['State']['Name']='terminated'
