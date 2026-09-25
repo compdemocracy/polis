@@ -482,8 +482,8 @@ class Control:
 
         A successful response without such a sample is 'unknown' (insufficient
         evidence). A failed or malformed read is also 'unknown' here, but its
-        classified cause is kept in cpu_error: it is raised wherever the CPU
-        answer would decide the outcome, so it is never mistaken for pending."""
+        classified cause is kept in cpu_error and raised by the caller before
+        any other liveness evidence is weighed, so it is never pending."""
         self.cpu_error = None
         if self.monitoring is None:
             return 'unknown'
@@ -555,6 +555,11 @@ class Control:
                 baseline = read_bound('liveness-baseline.json')
             tag = 'advanced' if pulse['pulse'] > baseline['pulse']['pulse'] else 'unchanged'
         cpu = self.cpu_activity(iid)
+        if self.cpu_error is not None:
+            # An attempted read that failed keeps its own classification
+            # (refusal, auth, or a bounded transient retry) before any pulse
+            # evidence or baseline grace is considered. It never kills.
+            raise self.cpu_error
         if tag == 'advanced' or cpu == 'busy':
             self.record(self.prefix+'liveness.json', {**binding,
                 'schema': 'polis-probe-liveness/1', 'observedAt': int(self.now),
@@ -563,12 +568,8 @@ class Control:
         if baseline is not None and self.now-baseline['observedAt'] < 120:
             return True
         if cpu == 'unknown':
-            # A failed read keeps its own classification (refusal, auth, or a
-            # bounded transient retry). Only a successful read with too little
-            # fresh evidence is pending. Neither ever kills; expiry and cancel
-            # still terminate through reconcile.
-            if self.cpu_error is not None:
-                raise self.cpu_error
+            # A successful read with too little fresh evidence is pending and
+            # never kills; expiry and cancel still terminate through reconcile.
             raise Unknown('LIVENESS_UNKNOWN', 'CPU_METRIC_READ', PENDING)
         return False
 

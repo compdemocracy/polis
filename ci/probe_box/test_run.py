@@ -794,12 +794,24 @@ class LivenessTests(unittest.TestCase):
             self.assertIsNone(clean_heartbeat({**base, **extra}))
 
     def test_unknown_metrics_can_be_overruled_by_observed_tag_progress(self):
+        # Insufficient (empty) metrics are overruled by pulse progress.
         c, e, s, i = self.begin(tag='1:producer:execute')
-        c.monitoring.get_metric_statistics.side_effect = ApiError('AccessDenied')
+        c.monitoring.get_metric_statistics.return_value = {'Datapoints': []}
         self.assertEqual(c.reconcile()['status'], 'RUNNING')
         i['Tags'][-1]['Value'] = '2:producer:execute'; c.now += 60
         self.assertEqual(c.reconcile()['status'], 'RUNNING')
         self.assertEqual(c.read(c.prefix+'liveness.json')['cpu'], 'unknown')
+        self.assertFalse(e.terminated)
+
+    def test_failed_metric_read_is_not_overruled_by_tag_progress(self):
+        # A failed read keeps its classification; pulse evidence cannot hide it.
+        c, e, s, i = self.begin(tag='1:producer:execute')
+        c.monitoring.get_metric_statistics.side_effect = ApiError('AccessDenied')
+        for _ in range(2):
+            with self.assertRaises(Unknown) as raised: c.reconcile()
+            self.assertEqual((str(raised.exception), raised.exception.disposition), ('LIVENESS_UNKNOWN', 'refuse'))
+            i['Tags'][-1]['Value'] = '2:producer:execute'; c.now += 60
+        self.assertIsNone(c.read(c.prefix+'liveness.json'))
         self.assertFalse(e.terminated)
 
     def test_no_monitor_and_no_tag_remain_unknown_but_expiry_still_wins(self):

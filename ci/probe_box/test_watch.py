@@ -1266,6 +1266,74 @@ class MetricReadTests(Checks):
         self.assertEqual(self.last_diagnostic(err)['disposition'], 'retry')
 
 
+PULSE_CAUSES = [
+    ('access-denied', lambda: ServiceError('AccessDenied', 403), 1, 'LIVENESS_UNKNOWN'),
+    ('missing-credentials', lambda: sdk_type('NoCredentialsError')(PRIVATE), 1, 'AUTH_UNAVAILABLE'),
+    ('ssl', lambda: sdk_type('SSLError')(PRIVATE), 1, 'LIVENESS_UNKNOWN'),
+    ('throttling', lambda: ServiceError('Throttling', 429), 3, 'RETRY_EXHAUSTED'),
+    ('expired-token', lambda: ServiceError('ExpiredToken', 403), 3, 'RETRY_EXHAUSTED'),
+]
+
+
+def pulse_box(mode, cause):
+    """Past boot grace with no S3 heartbeat, a pulse tag, and a failing CPU read.
+    'baseline-grace': the first pulse observation (a fresh baseline).
+    'advanced-pulse': the pulse has advanced past a recorded baseline."""
+    box = Box(state='running')
+    box.c.now += 601
+    box.s.head_object = lambda **kw: (_ for _ in ()).throw(ServiceError('NoSuchKey', 404))
+    box.i['Tags'].append({'Key': 'polis-probe-pulse', 'Value': '2:producer:execute'})
+    if mode == 'advanced-pulse':
+        c = box.control()
+        c.record(c.prefix + 'liveness-baseline.json', {
+            'admissionSha256': c.token, 'instanceId': box.i['InstanceId'],
+            'observedAt': int(box.c.now - 120),
+            'pulse': {'pulse': 1, 'stage': 'producer', 'phase': 'execute'}})
+    calls = []
+    def metric(**kw):
+        calls.append(True)
+        raise cause()
+    box.x.monitoring.get_metric_statistics = metric
+    box.at(4, lambda: box.i['State'].update(Name='terminated'))
+    return box, calls
+
+
+class PulseMetricReadTests(Checks):
+    """An attempted CPU read that fails keeps its classification on both pulse
+    branches (baseline grace and advancing pulse); pulse handling never
+    discards it, and nothing is killed on it."""
+
+    def test_failed_metric_read_is_not_discarded_by_pulse_evidence(self):
+        for mode in ('baseline-grace', 'advanced-pulse'):
+            for name, cause, polls, reason in PULSE_CAUSES:
+                with self.subTest(mode=mode, cause=name):
+                    box, calls = pulse_box(mode, cause)
+                    rc, out, err = box.cli()
+                    self.refused(box, rc, out, err, reason, polls=polls)
+                    self.assertEqual(len(calls), polls)
+                    self.assertIsNone(box.record('liveness.json'))
+                    self.assertFalse(box.e.terminated)
+
+    def test_status_reports_the_failed_read_on_both_branches(self):
+        for mode in ('baseline-grace', 'advanced-pulse'):
+            with self.subTest(mode=mode):
+                box, calls = pulse_box(mode, lambda: ServiceError('Throttling', 429))
+                rc, out, err = box.cli('status', allow_sleep=False)
+                self.refused(box, rc, out, err, 'LIVENESS_UNKNOWN')
+                self.assertEqual(self.last_diagnostic(err)['disposition'], 'retry')
+
+    def test_successful_empty_metrics_keep_pulse_evidence_valid(self):
+        for mode in ('baseline-grace', 'advanced-pulse'):
+            with self.subTest(mode=mode):
+                box, calls = pulse_box(mode, lambda: None)
+                box.x.monitoring.get_metric_statistics = lambda **kw: {'Datapoints': []}
+                rc, out, err = box.cli()
+                self.passed(box, rc, out, err, polls=5)
+                self.assertEqual(err, '')
+                self.assertEqual(box.record('liveness.json') is not None, mode == 'advanced-pulse')
+                self.assertFalse(box.e.terminated)
+
+
 def readback_masking_box(operation, cause):
     """The first matching write fails with `cause` and writes nothing; only its
     immediate readback then fails transiently."""
