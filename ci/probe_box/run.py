@@ -5,6 +5,7 @@ import hashlib
 import json
 import math
 import re
+import sys
 import time
 import uuid
 from contracts import CAMPAIGN_CEILING_SECONDS, validate_job
@@ -24,14 +25,156 @@ DISKS_PER_INSTANCE = 2
 # window, never the thing that ends a run. A run ends at its own recorded deadline.
 BUDGET_MARGIN_SECONDS = 3600
 BUDGET_CEILING_SECONDS = CAMPAIGN_CEILING_SECONDS + BUDGET_MARGIN_SECONDS
-# The watch loop only observes; it must outlast the box it is watching, including the
-# boot grace already allowed before a missing heartbeat terminates one (heartbeat_missing).
+# The watch loop reconciles the lifecycle on every poll, exactly like status: it can
+# publish control and boot records, manage alarms, terminate the owned instance and
+# delete owned disks. It must outlast the box it is watching, including the boot
+# grace already allowed before a missing heartbeat terminates one (heartbeat_missing).
 WATCH_GRACE_SECONDS = 900
 WATCH_CEILING_SECONDS = CAMPAIGN_CEILING_SECONDS + WATCH_GRACE_SECONDS
+# Incomplete resource transitions are observed again at this cadence.
+WATCH_POLL_SECONDS = 30
+# Consecutive transient failures a watch absorbs in total (the first plus two
+# further observations), whatever operation or category each one hits.
+WATCH_TRANSIENT_ATTEMPTS = 3
+VOLUME_ID = re.compile(r'vol-[0-9a-z]{1,32}')
+INSTANCE_ID = re.compile(r'i-[0-9a-z]{1,32}')
+INSTANCE_STATES = ('pending', 'running', 'stopping', 'stopped', 'shutting-down', 'terminated')
+
+# Closed outcome metadata. Every lifecycle failure carries a reason, the operation
+# that failed and a disposition set where the cause is known; anything without it
+# is a refusal. Terminal diagnostics print only these closed values.
+REFUSE, RETRY, PENDING = 'refuse', 'retry', 'pending'
+OPERATIONS = frozenset({
+    'CONFIG_LOAD', 'CLIENT_SETUP', 'ACTIVE_GET', 'CONTROL_GET', 'HEARTBEAT_HEAD',
+    'RECEIPT_GET', 'INSTANCE_DESCRIBE', 'INSTANCE_DESCRIBE_BY_ID', 'VOLUME_DESCRIBE',
+    'VOLUME_DESCRIBE_BY_ID', 'CPU_METRIC_READ', 'ALARM_PUT', 'ALARM_DELETE', 'RECORD_PUT',
+    'TERMINAL_CAS', 'INSTANCE_TERMINATE', 'VOLUME_DELETE', 'UNKNOWN_OPERATION'})
+# The reads a watch may repeat, the alarm calls, and the lifecycle writes whose
+# retry is a fresh bound observation that re-derives authority before reissuing
+# the same write (never a blind replay). Launch, image lookup, the launch CAS and
+# release are absent: they never retry.
+RETRYABLE_OPERATIONS = frozenset({
+    'ACTIVE_GET', 'CONTROL_GET', 'HEARTBEAT_HEAD', 'RECEIPT_GET', 'INSTANCE_DESCRIBE',
+    'INSTANCE_DESCRIBE_BY_ID', 'VOLUME_DESCRIBE', 'VOLUME_DESCRIBE_BY_ID', 'ALARM_PUT',
+    'ALARM_DELETE', 'RECORD_PUT', 'TERMINAL_CAS', 'INSTANCE_TERMINATE', 'VOLUME_DELETE'})
+REASONS = frozenset({
+    'ACTIVE_CHANGED', 'ACTIVE_CONFLICT', 'ADMISSION_EXPIRED', 'ADMISSION_EXPIRED_OR_OVER_BUDGET',
+    'ADMISSION_INVALID', 'ALARM_UNKNOWN', 'AUTH_UNAVAILABLE', 'BINDING_CHANGED',
+    'CLEAN_RECORD_INVALID', 'CLIENT_SETUP_UNKNOWN', 'CONFIG_UNKNOWN', 'CONFIGURATION_CHANGED',
+    'CONTROL_OVERSIZE', 'CONTROL_READ_UNKNOWN', 'CONTROL_SCHEMA', 'DISK_ATTACHMENT_FOREIGN',
+    'DISK_DELETE_UNKNOWN', 'DISK_DESCRIBE_EMPTY', 'DISK_DESCRIBE_UNKNOWN',
+    'DISK_INVENTORY_UNKNOWN', 'DISK_NOT_DETACHED', 'DISK_REMAINS', 'HEARTBEAT_UNKNOWN',
+    'IMAGE_NOT_ADMITTED', 'INSTANCE_CHANGED', 'INSTANCE_DESCRIBE_UNKNOWN',
+    'INSTANCE_OWNERSHIP_UNKNOWN', 'INSTANCE_TERMINATE_UNKNOWN', 'LAUNCH_ACK_UNKNOWN',
+    'LAUNCH_CONFIGURATION_CHANGED', 'LIVENESS_BINDING', 'LIVENESS_UNKNOWN', 'MODE_CONFLICT',
+    'PREVIOUS_RUN_NOT_CLEAN', 'PROVISION_RECEIPT', 'PROVISION_REQUEST', 'RECEIPT_INVALID',
+    'RECEIPT_LIMIT', 'RECEIPT_READ_UNKNOWN', 'RECORD_CONFLICT', 'RECORD_WRITE_UNKNOWN',
+    'RELEASE_ATTESTATION', 'RELEASE_REFUSED_RUNNING', 'REQUEST_REFUSED', 'RETRY_EXHAUSTED',
+    'RUN_CLOSED', 'RUN_CONFLICT', 'TERMINATION_PENDING', 'UNCLASSIFIED', 'UNKNOWN_DISK',
+    'WATCH_CEILING'})
+
+# Transient causes, recognised by structured SDK code or exact SDK exception type,
+# never by message text. ExpiredToken retries through the SDK's own refreshable
+# provider; nothing here constructs clients, logs in or reads credentials.
+TRANSIENT_CODES = frozenset({
+    'Throttling', 'ThrottlingException', 'ThrottledException', 'RequestLimitExceeded',
+    'TooManyRequestsException', 'SlowDown', 'RequestTimeout', 'RequestTimeoutException',
+    'InternalError', 'InternalFailure', 'ServiceUnavailable', 'ServiceUnavailableException',
+    'ExpiredToken', 'ExpiredTokenException'})
+AUTH_CODES = frozenset({
+    'InvalidClientTokenId', 'InvalidAccessKeyId', 'SignatureDoesNotMatch', 'IncompleteSignature',
+    'InvalidSignatureException', 'UnrecognizedClientException', 'InvalidToken', 'AuthFailure',
+    'MissingAuthenticationToken'})
+PERMANENT_CODES = frozenset({
+    'AccessDenied', 'AccessDeniedException', 'UnauthorizedOperation', 'Forbidden',
+    'AllAccessDisabled', 'KMS.AccessDeniedException', 'KMS.DisabledException',
+    'KMS.NotFoundException', 'NoSuchBucket', 'InvalidParameterValue', 'ValidationError',
+    'MissingParameter', 'InvalidRequest', 'MalformedXML'})
+TRANSIENT_STATUS = frozenset({429, 500, 502, 503, 504})
+SDK_MODULE = 'botocore.exceptions'
+TRANSIENT_SDK_TYPES = frozenset({'ConnectTimeoutError', 'ReadTimeoutError',
+                                 'EndpointConnectionError', 'ConnectionClosedError'})
+AUTH_SDK_TYPES = frozenset({'UnauthorizedSSOTokenError', 'SSOTokenLoadError', 'NoCredentialsError',
+                            'PartialCredentialsError', 'CredentialRetrievalError'})
 
 
 class Unknown(RuntimeError):
-    pass
+    """A closed lifecycle outcome; str() is the reason code alone."""
+    def __init__(self, reason, operation='UNKNOWN_OPERATION', disposition=REFUSE):
+        super().__init__(reason)
+        self.reason, self.operation, self.disposition = reason, operation, disposition
+
+
+class InvalidReceipt(Unknown, ValueError):
+    """A stored receipt that fails the closed decoder or its binding."""
+
+
+def error_code(error):
+    response = getattr(error, 'response', None)
+    detail = response.get('Error') if isinstance(response, dict) else None
+    code = detail.get('Code') if isinstance(detail, dict) else None
+    return code if type(code) is str else None
+
+
+def sdk_cause(error):
+    """'transient', 'auth' or None (a refusal) from the exception type and the
+    structured SDK code/status only. Subclasses of the transport types (SSL,
+    proxy) are not transient; unrecognised codes refuse unless the HTTP status
+    itself is a throttle/server error and no permanent code is present."""
+    kind = type(error)
+    if kind.__module__ == SDK_MODULE and kind.__name__ in TRANSIENT_SDK_TYPES:
+        return 'transient'
+    if any(k.__module__ == SDK_MODULE and k.__name__ in AUTH_SDK_TYPES for k in kind.__mro__):
+        return 'auth'
+    response = getattr(error, 'response', None)
+    if not isinstance(response, dict):
+        return None
+    code = error_code(error)
+    meta = response.get('ResponseMetadata')
+    status = meta.get('HTTPStatusCode') if isinstance(meta, dict) else None
+    if code in AUTH_CODES:
+        return 'auth'
+    if code in TRANSIENT_CODES:
+        return 'transient'
+    if code in PERMANENT_CODES:
+        return None
+    if type(status) is int and status in TRANSIENT_STATUS:
+        return 'transient'
+    return None
+
+
+def sdk_error(reason, operation, error):
+    """Classify at the failing call site, before any broad handler erases the cause."""
+    kind = sdk_cause(error)
+    if kind == 'auth':
+        return Unknown('AUTH_UNAVAILABLE', operation)
+    retry = kind == 'transient' and operation in RETRYABLE_OPERATIONS
+    return Unknown(reason, operation, RETRY if retry else REFUSE)
+
+
+def volume_id(value):
+    return value if type(value) is str and VOLUME_ID.fullmatch(value) else None
+
+
+def mapped_volumes(instance):
+    """The distinct EBS volume IDs of one observation; malformed entries refuse."""
+    mappings = instance.get('BlockDeviceMappings', [])
+    if not isinstance(mappings, list):
+        raise Unknown('DISK_INVENTORY_UNKNOWN', 'INSTANCE_DESCRIBE')
+    found = []
+    for mapping in mappings:
+        if not isinstance(mapping, dict):
+            raise Unknown('DISK_INVENTORY_UNKNOWN', 'INSTANCE_DESCRIBE')
+        if 'Ebs' not in mapping:
+            continue
+        ebs = mapping['Ebs']
+        vid = volume_id(ebs.get('VolumeId')) if isinstance(ebs, dict) else None
+        if vid is None:
+            raise Unknown('DISK_INVENTORY_UNKNOWN', 'INSTANCE_DESCRIBE')
+        found.append(vid)
+    if len(found) != len(set(found)) or len(found) > DISKS_PER_INSTANCE:
+        raise Unknown('DISK_INVENTORY_UNKNOWN', 'INSTANCE_DESCRIBE')
+    return sorted(found)
 
 
 def encoded(value: object):
@@ -149,23 +292,34 @@ class Control:
     def read(self, key: object):
         try:
             obj = self.s3.get_object(Bucket=self.c["CONTROL_BUCKET"], Key=key)
+            # A body stream error belongs to the GetObject that opened it.
+            raw = obj["Body"].read(65537)
         except Exception as e:
-            if getattr(e, "response", {}).get("Error", {}).get("Code") == "NoSuchKey":
+            if error_code(e) == "NoSuchKey":
                 return None
-            raise Unknown("CONTROL_READ_UNKNOWN") from None
-        raw = obj["Body"].read(65537)
+            raise sdk_error("CONTROL_READ_UNKNOWN", "CONTROL_GET", e) from None
         if len(raw) > 65536:
-            raise Unknown("CONTROL_OVERSIZE")
+            raise Unknown("CONTROL_OVERSIZE", "CONTROL_GET")
         return json.loads(raw)
 
     def record(self, key: object, value: object):
-        """Create-only, including after lost acknowledgement. No hidden overwrite."""
+        """Create-only, including after lost acknowledgement. No hidden overwrite.
+
+        Exact readback equality resolves a lost acknowledgement (or the same
+        write by another authorized actor). A different stored value is a
+        conflict. An absent value keeps the write's own cause: a transient
+        one is retried by a fresh observation, a permanent one refuses."""
         try:
             self.s3.put_object(Bucket=self.c["CONTROL_BUCKET"], Key=key, Body=encoded(value),
                                IfNoneMatch="*", ServerSideEncryption="aws:kms", SSEKMSKeyId=self.c["CONTROL_KEY"])
-        except Exception:
-            if self.read(key) != value:
-                raise Unknown("RECORD_CONFLICT") from None
+        except Exception as e:
+            failure = sdk_error("RECORD_WRITE_UNKNOWN", "RECORD_PUT", e)
+            stored = self.read(key)
+            if stored == value:
+                return
+            if stored is None:
+                raise failure from None
+            raise Unknown("RECORD_CONFLICT", "RECORD_PUT") from None
 
     def own(self, i: object):
         c, a = self.c, self.a
@@ -175,9 +329,12 @@ class Control:
         # its receipt and the next watch poll saw the instance in transition);
         # those fields are required while present. The client token (the
         # admission digest), image, type and both tags are always required.
-        terminated = i.get("State", {}).get("Name") in ("shutting-down", "terminated")
+        # Unknown or missing lifecycle states are never owned.
+        state = i.get("State", {}).get("Name")
+        terminated = state in ("shutting-down", "terminated")
         groups = {g["GroupId"] for g in i.get("SecurityGroups", [])}
-        return (i.get("ClientToken") == self.token
+        return (state in INSTANCE_STATES
+                and i.get("ClientToken") == self.token
                 # DescribeInstances has no LaunchTemplate field. The exact
                 # template/version live in the durable admission bound by this
                 # client token; verify the observable instance fields below.
@@ -193,13 +350,16 @@ class Control:
 
     def instances(self):
         found = []
-        for page in self.ec2.get_paginator("describe_instances").paginate(Filters=[
-            {"Name": "client-token", "Values": [self.token]},
-        ]):
-            for reservation in page["Reservations"]:
-                found.extend(reservation["Instances"])
+        try:
+            for page in self.ec2.get_paginator("describe_instances").paginate(Filters=[
+                {"Name": "client-token", "Values": [self.token]},
+            ]):
+                for reservation in page["Reservations"]:
+                    found.extend(reservation["Instances"])
+        except Exception as e:
+            raise sdk_error("INSTANCE_DESCRIBE_UNKNOWN", "INSTANCE_DESCRIBE", e) from None
         if any(not self.own(i) for i in found) or len(found) > 1:
-            raise Unknown("INSTANCE_OWNERSHIP_UNKNOWN")
+            raise Unknown("INSTANCE_OWNERSHIP_UNKNOWN", "INSTANCE_DESCRIBE")
         return found
 
     def observe(self):
@@ -213,17 +373,65 @@ class Control:
         prior = self.read(self.prefix + "instance.json")
         if not prior:
             return None
+        if (not isinstance(prior, dict) or type(prior.get("id")) is not str
+                or not INSTANCE_ID.fullmatch(prior["id"])):
+            raise Unknown("INSTANCE_CHANGED", "CONTROL_GET")
         try:
-            found = [i for r in self.ec2.describe_instances(InstanceIds=[prior["id"]])["Reservations"] for i in r["Instances"]]
+            response = self.ec2.describe_instances(InstanceIds=[prior["id"]])
         except Exception as e:
-            if getattr(e, "response", {}).get("Error", {}).get("Code") != "InvalidInstanceID.NotFound":
-                raise Unknown("INSTANCE_DESCRIBE_UNKNOWN") from None
+            # Absence has this narrow meaning only on the recorded by-ID lookup.
+            if error_code(e) != "InvalidInstanceID.NotFound":
+                raise sdk_error("INSTANCE_DESCRIBE_UNKNOWN", "INSTANCE_DESCRIBE_BY_ID", e) from None
             found = []
+        else:
+            found = [i for r in response["Reservations"] for i in r["Instances"]]
         if found:
             if len(found) != 1 or not self.own(found[0]):
-                raise Unknown("INSTANCE_OWNERSHIP_UNKNOWN")
+                raise Unknown("INSTANCE_OWNERSHIP_UNKNOWN", "INSTANCE_DESCRIBE_BY_ID")
             return found[0]
         return {"InstanceId": prior["id"], "State": {"Name": "terminated"}, "BlockDeviceMappings": [], "gone": True}
+
+    def inventory(self, iid):
+        """The recorded disposal inventory P, validated against the bound run and
+        the observed instance before any mapping is treated as partial. Missing
+        is None; a wrong binding or an incomplete/duplicate/malformed inventory
+        refuses and is never repaired by guessing."""
+        prior = self.read(self.prefix + "instance.json")
+        if prior is None:
+            return None
+        if (not isinstance(prior, dict) or prior.get("id") != iid
+                or prior.get("admissionSha256") != self.token):
+            raise Unknown("INSTANCE_CHANGED", "CONTROL_GET")
+        volumes = prior.get("volumes")
+        if (set(prior) != {"id", "volumes", "admissionSha256"} or not isinstance(volumes, list)
+                or len(volumes) != DISKS_PER_INSTANCE or any(volume_id(v) is None for v in volumes)
+                or len(set(volumes)) != DISKS_PER_INSTANCE):
+            raise Unknown("DISK_INVENTORY_UNKNOWN", "CONTROL_GET")
+        return prior
+
+    def clean_record(self, clean, prior):
+        """clean.json proves resource cleanup only when its status, admission
+        digest, instance ID and complete inventory match the bound run's record."""
+        ok = (isinstance(clean, dict) and isinstance(prior, dict)
+              and clean.get("status") == "CLEAN" and clean.get("admissionSha256") == self.token
+              and prior.get("admissionSha256") == self.token
+              and type(clean.get("instanceId")) is str and clean.get("instanceId") == prior.get("id"))
+        if ok:
+            volumes, recorded = clean.get("volumes"), prior.get("volumes")
+            ok = (isinstance(volumes, list) and len(volumes) == DISKS_PER_INSTANCE
+                  and all(volume_id(v) for v in volumes) and len(set(volumes)) == DISKS_PER_INSTANCE
+                  and isinstance(recorded, list) and all(volume_id(v) for v in recorded))
+        if ok:
+            base = {"admissionSha256", "instanceId", "volumes", "status"}
+            if clean.get("attested") is True:
+                # The manual release closes an incomplete recorded inventory
+                # against an operator-attested complete set.
+                ok = set(clean) == base | {"attested"} and set(recorded) <= set(volumes)
+            else:
+                ok = set(clean) - {"heartbeat"} == base and volumes == recorded
+        if not ok:
+            raise Unknown("CLEAN_RECORD_INVALID", "CONTROL_GET")
+        return clean
 
     def launch_once(self):
         # Guards the launch: refuse an admission already expired, or one whose window is
@@ -255,9 +463,9 @@ class Control:
             obj = self.s3.head_object(Bucket=self.c["CONTROL_BUCKET"], Key=f'heartbeats/{self.a["id"]}/{arn}.json')
             return self.now - obj["LastModified"].timestamp() > 300
         except Exception as e:
-            if getattr(e, "response", {}).get("Error", {}).get("Code") in ("404", "NoSuchKey", "NotFound"):
+            if error_code(e) in ("404", "NoSuchKey", "NotFound"):
                 return True
-            raise Unknown("HEARTBEAT_UNKNOWN") from None
+            raise sdk_error("HEARTBEAT_UNKNOWN", "HEARTBEAT_HEAD", e) from None
 
     def cpu_activity(self, iid):
         """Only a fresh, finite EC2 CPU sample can establish busy or quiet."""
@@ -333,13 +541,17 @@ class Control:
         if baseline is not None and self.now-baseline['observedAt'] < 120:
             return True
         if cpu == 'unknown':
-            raise Unknown('LIVENESS_UNKNOWN')
+            # Insufficient fresh evidence: keep observing, never kill on it.
+            # Expiry and cancel still terminate through reconcile.
+            raise Unknown('LIVENESS_UNKNOWN', 'CPU_METRIC_READ', PENDING)
         return False
 
     def reconcile(self, cancel: object = False):
         claim = self.read(self.prefix + "claim.json")
         clean = self.read(self.prefix + "clean.json")
-        if clean:
+        if clean is not None:
+            # A present record is proof only after it is validated against the run.
+            self.clean_record(clean, self.read(self.prefix + "instance.json"))
             return {"status": "CLEAN", "admissionId": self.a["id"]}
         if cancel:
             self.record(self.prefix + "cancel.json", {"admissionSha256": self.token})
@@ -354,101 +566,168 @@ class Control:
         i = self.observe()
         if i is None:
             raise Unknown("LAUNCH_ACK_UNKNOWN")
-        iid = i["InstanceId"]
-        boot_failure = clean_boot_tag(i)
-        if boot_failure and self.c['MODE'] == 'worker':
-            self.record(self.prefix+'boot-failure.json', {
-                'admissionSha256': self.token, 'instanceId': iid, 'failure': boot_failure})
-        volume_ids = sorted(b["Ebs"]["VolumeId"] for b in i.get("BlockDeviceMappings", []) if "Ebs" in b)
-        prior = self.read(self.prefix + "instance.json")
-        if len(volume_ids) != len(set(volume_ids)) or len(volume_ids) > DISKS_PER_INSTANCE:
-            raise Unknown("DISK_INVENTORY_UNKNOWN")
-        attaching = (i["State"]["Name"] in ("pending", "running")
-                     and len(volume_ids) < DISKS_PER_INSTANCE)
+        iid, state = i["InstanceId"], i["State"]["Name"]
+        # Every mapping and the recorded inventory P are validated before any
+        # mutation in this observation. V is compared with P as a set.
+        volume_ids = mapped_volumes(i)
+        prior = self.inventory(iid)
+        if prior and not set(volume_ids) <= set(prior["volumes"]):
+            raise Unknown("INSTANCE_CHANGED", "INSTANCE_DESCRIBE")
+        if state in ("shutting-down", "terminated"):
+            # Disks detach as the instance goes away: V may be any subset of a
+            # complete bound P, including empty. The first disposal inventory is
+            # never recorded from a shutting-down or terminated response.
+            if not prior:
+                raise Unknown("DISK_INVENTORY_UNKNOWN", "CONTROL_GET")
+            self.record_boot_failure(i)
+            if state == "shutting-down":
+                # Incomplete: no boot object, second termination, disk deletion or clean record.
+                return {"status": "TERMINATION_PENDING", "admissionId": self.a["id"], "state": state}
+            return self.dispose(iid, prior)
+        if state in ("stopping", "stopped") and prior and set(volume_ids) != set(prior["volumes"]):
+            # Stopped disks stay attached; shutdown exceptions do not apply.
+            raise Unknown("INSTANCE_CHANGED", "INSTANCE_DESCRIBE")
         # RunInstances reconciliation may see both disks before the immediate
         # status read sees only a subset. Keep the complete disposal inventory;
         # only that owned subset may be treated as a partial attachment view.
-        known_subset = (attaching and prior
-                        and len(prior["volumes"]) == len(set(prior["volumes"])) == DISKS_PER_INSTANCE
-                        and set(volume_ids) <= set(prior["volumes"]))
-        if not prior and i["State"]["Name"] != "terminated" and not attaching:
+        attaching = state in ("pending", "running") and len(volume_ids) < DISKS_PER_INSTANCE
+        if not prior and not attaching:
             if len(volume_ids) != DISKS_PER_INSTANCE:
-                raise Unknown("DISK_INVENTORY_UNKNOWN")
+                raise Unknown("DISK_INVENTORY_UNKNOWN", "INSTANCE_DESCRIBE")
             self.record(self.prefix + "instance.json", {"id": iid, "volumes": volume_ids, "admissionSha256": self.token})
-            prior = self.read(self.prefix + "instance.json")
-        if prior and (prior["id"] != iid or prior["admissionSha256"] != self.token
-                      or (volume_ids and volume_ids != prior["volumes"] and not known_subset)):
-            raise Unknown("INSTANCE_CHANGED")
-        if i["State"]["Name"] != "terminated":
-            if expired or cancelled or (self.heartbeat_missing(i, claim)
-                                       and not self.secondary_liveness(i)):
-                # Preserve the final observation BEFORE termination can destroy it.
-                # CLEAN still means observed instance/disks gone, never a kill ACK.
-                key = self.prefix + 'termination.json'
-                if self.c['MODE'] == 'worker' and not self.read(key):
-                    arn = f'arn:aws:ec2:{self.a["region"]}:{self.a["account"]}:instance/{iid}'
-                    try:
-                        raw = self.read(f'heartbeats/{self.a["id"]}/{arn}.json')
-                        heartbeat = clean_heartbeat(raw)
-                        if heartbeat and raw.get('schema') == FAILURE_SCHEMA:
-                            heartbeat = {'schema': FAILURE_SCHEMA, **heartbeat}
-                        elif raw == {}:
-                            heartbeat = {}
-                    except (Unknown, ValueError, TypeError):
-                        heartbeat = None
-                    self.record(key, {'admissionSha256': self.token, 'instanceId': iid,
-                                      'heartbeat': heartbeat})
+            prior = self.inventory(iid)
+        self.record_boot_failure(i)
+        if expired or cancelled or (self.heartbeat_missing(i, claim)
+                                   and not self.secondary_liveness(i)):
+            # Preserve the final observation BEFORE termination can destroy it.
+            # CLEAN still means observed instance/disks gone, never a kill ACK.
+            key = self.prefix + 'termination.json'
+            if self.c['MODE'] == 'worker' and not self.read(key):
+                arn = f'arn:aws:ec2:{self.a["region"]}:{self.a["account"]}:instance/{iid}'
+                try:
+                    raw = self.read(f'heartbeats/{self.a["id"]}/{arn}.json')
+                    heartbeat = clean_heartbeat(raw)
+                    if heartbeat and raw.get('schema') == FAILURE_SCHEMA:
+                        heartbeat = {'schema': FAILURE_SCHEMA, **heartbeat}
+                    elif raw == {}:
+                        heartbeat = {}
+                except (Unknown, ValueError, TypeError):
+                    heartbeat = None
+                self.record(key, {'admissionSha256': self.token, 'instanceId': iid,
+                                  'heartbeat': heartbeat})
+            try:
                 self.ec2.terminate_instances(InstanceIds=[iid])
-                # Observe on a later sweep; do not call accepted termination CLEAN.
-                raise Unknown("TERMINATION_PENDING")
-            if attaching and (not prior or known_subset):
-                # Never publish a partial disposal inventory or boot object.
-                return {"status": "ATTACHING", "admissionId": self.a["id"]}
-            if not prior or len(set(prior["volumes"])) != 2:
-                raise Unknown("DISK_INVENTORY_UNKNOWN")
-            boot = {"admission": self.a, "admissionSha256": self.token, "instanceId": iid,
-                    "template": self.c["TEMPLATE"], "templateVersion": self.c["TEMPLATE_VERSION"],
-                    "evidenceBucket": self.c["EVIDENCE_BUCKET"], "assetBucket": self.c["ASSET_BUCKET"],
-                    "secretArn": self.c["SECRET_ARN"], "replicaHost": self.c["REPLICA_HOST"],
-                    "database": self.c["DATABASE"], "secretsUrl": self.c["SECRETS_URL"],
-                    "controlBucket": self.c["CONTROL_BUCKET"], "evidenceKey": self.c["CONTROL_KEY"],
-                    "endpoint": self.c["ENDPOINT"], "started": claim["started"],
-                    "terminateBy": self.expiry}
-            if self.c['MODE'] == 'provision':
-                boot['provision'] = self.a['provision']
-                boot['adminSecretArn'] = self.c['ADMIN_SECRET_ARN']
-                boot['owner'] = self.c['PROVISION_OWNER']
-            self.record(f'boot/{self.c["MODE"]}/arn:aws:ec2:{self.a["region"]}:{self.a["account"]}:instance/{iid}.json', boot)
-            return {"status": "RUNNING", "admissionId": self.a["id"]}
-        if not prior or len(set(prior["volumes"])) != 2:
-            raise Unknown("DISK_INVENTORY_UNKNOWN")
-        # Include tagged unexpected disks, but never delete on tag alone.
-        disks = []
-        for page in self.ec2.get_paginator("describe_volumes").paginate(Filters=[{"Name": "tag:polis:probe-run", "Values": [self.a["id"]]}]):
-            disks.extend(page["Volumes"])
-        if any(v["VolumeId"] not in prior["volumes"] for v in disks):
-            raise Unknown("UNKNOWN_DISK")
-        for v in disks:
-            if v.get("Attachments") or v.get("State") != "available":
-                raise Unknown("DISK_NOT_DETACHED")
-            self.ec2.delete_volume(VolumeId=v["VolumeId"])
-        # Independently query the actual IDs too; missing/changed tags cannot hide disks.
-        for vid in prior["volumes"]:
+            except Exception as e:
+                # A retry is a fresh observation that re-derives this authority.
+                raise sdk_error("INSTANCE_TERMINATE_UNKNOWN", "INSTANCE_TERMINATE", e) from None
+            # Observe on a later sweep; do not call accepted termination CLEAN.
+            raise Unknown("TERMINATION_PENDING", "INSTANCE_TERMINATE", PENDING)
+        if attaching:
+            # Never publish a partial disposal inventory or boot object.
+            return {"status": "ATTACHING", "admissionId": self.a["id"], "state": state}
+        boot = {"admission": self.a, "admissionSha256": self.token, "instanceId": iid,
+                "template": self.c["TEMPLATE"], "templateVersion": self.c["TEMPLATE_VERSION"],
+                "evidenceBucket": self.c["EVIDENCE_BUCKET"], "assetBucket": self.c["ASSET_BUCKET"],
+                "secretArn": self.c["SECRET_ARN"], "replicaHost": self.c["REPLICA_HOST"],
+                "database": self.c["DATABASE"], "secretsUrl": self.c["SECRETS_URL"],
+                "controlBucket": self.c["CONTROL_BUCKET"], "evidenceKey": self.c["CONTROL_KEY"],
+                "endpoint": self.c["ENDPOINT"], "started": claim["started"],
+                "terminateBy": self.expiry}
+        if self.c['MODE'] == 'provision':
+            boot['provision'] = self.a['provision']
+            boot['adminSecretArn'] = self.c['ADMIN_SECRET_ARN']
+            boot['owner'] = self.c['PROVISION_OWNER']
+        self.record(f'boot/{self.c["MODE"]}/arn:aws:ec2:{self.a["region"]}:{self.a["account"]}:instance/{iid}.json', boot)
+        return {"status": "RUNNING", "admissionId": self.a["id"], "state": state}
+
+    def record_boot_failure(self, i):
+        failure = clean_boot_tag(i)
+        if failure and self.c['MODE'] == 'worker':
+            self.record(self.prefix+'boot-failure.json', {
+                'admissionSha256': self.token, 'instanceId': i["InstanceId"], 'failure': failure})
+
+    def present(self, recorded, iid):
+        """Recorded disks still observable by ID. Only an explicit
+        InvalidVolume.NotFound is absence; an empty success is not."""
+        found = {}
+        for vid in recorded:
             try:
                 response = self.ec2.describe_volumes(VolumeIds=[vid])
             except Exception as e:
-                if getattr(e, "response", {}).get("Error", {}).get("Code") == "InvalidVolume.NotFound":
+                if error_code(e) == "InvalidVolume.NotFound":
                     continue
-                raise Unknown("DISK_DESCRIBE_UNKNOWN") from None
-            if response.get("Volumes"):
-                raise Unknown("DISK_REMAINS")
-            raise Unknown("DISK_DESCRIBE_EMPTY")
+                raise sdk_error("DISK_DESCRIBE_UNKNOWN", "VOLUME_DESCRIBE_BY_ID", e) from None
+            volumes = response.get("Volumes") if isinstance(response, dict) else None
+            if volumes == []:
+                raise Unknown("DISK_DESCRIBE_EMPTY", "VOLUME_DESCRIBE_BY_ID")
+            if (not isinstance(volumes, list) or len(volumes) != 1 or not isinstance(volumes[0], dict)
+                    or volumes[0].get("VolumeId") != vid):
+                raise Unknown("DISK_DESCRIBE_UNKNOWN", "VOLUME_DESCRIBE_BY_ID")
+            self.attached_here(volumes[0], iid)
+            found[vid] = volumes[0]
+        return found
+
+    @staticmethod
+    def attached_here(volume, iid):
+        """A disk attached to any other instance, or with a malformed attachment,
+        is a hard refusal even when tagged for this run."""
+        attachments = volume.get("Attachments", [])
+        if (not isinstance(attachments, list)
+                or any(not isinstance(a, dict) or a.get("InstanceId") != iid for a in attachments)):
+            raise Unknown("DISK_ATTACHMENT_FOREIGN", "VOLUME_DESCRIBE")
+        return bool(attachments)
+
+    def dispose(self, iid, prior):
+        """Terminated or gone: delete only recorded, detached, available disks and
+        close only after each recorded ID is explicitly absent by ID."""
+        recorded = prior["volumes"]
+        tagged = []
+        try:
+            # Include tagged unexpected disks, but never delete on tag alone.
+            for page in self.ec2.get_paginator("describe_volumes").paginate(Filters=[{"Name": "tag:polis:probe-run", "Values": [self.a["id"]]}]):
+                tagged.extend(page["Volumes"])
+        except Exception as e:
+            raise sdk_error("DISK_DESCRIBE_UNKNOWN", "VOLUME_DESCRIBE", e) from None
+        observed = {}
+        for v in tagged:
+            vid = volume_id(v.get("VolumeId")) if isinstance(v, dict) else None
+            if vid is None or vid in observed:
+                raise Unknown("DISK_INVENTORY_UNKNOWN", "VOLUME_DESCRIBE")
+            if vid not in recorded:
+                raise Unknown("UNKNOWN_DISK", "VOLUME_DESCRIBE")
+            self.attached_here(v, iid)
+            observed[vid] = v
+        # Independently query the actual IDs too; missing/changed tags cannot hide disks.
+        observed.update(self.present(recorded, iid))
+        # Nothing is deleted in an observation until every disk in it has passed.
+        busy = [v for v in observed.values() if v.get("Attachments") or v.get("State") != "available"]
+        if busy:
+            deleting = all(v.get("State") == "deleting" and not v.get("Attachments") for v in busy)
+            raise Unknown("DISK_REMAINS" if deleting else "DISK_NOT_DETACHED", "VOLUME_DESCRIBE", PENDING)
+        for vid in sorted(observed):
+            try:
+                self.ec2.delete_volume(VolumeId=vid)
+            except Exception as e:
+                code = error_code(e)
+                if code == "InvalidVolume.NotFound":
+                    continue
+                if code == "VolumeInUse":
+                    # Pending only when a fresh read proves the attachment is to
+                    # the bound instance; foreign or unknown attachment refuses.
+                    fresh = self.present([vid], iid)
+                    if vid in fresh and fresh[vid].get("Attachments"):
+                        raise Unknown("DISK_NOT_DETACHED", "VOLUME_DELETE", PENDING) from None
+                    raise Unknown("DISK_DELETE_UNKNOWN", "VOLUME_DELETE") from None
+                raise sdk_error("DISK_DELETE_UNKNOWN", "VOLUME_DELETE", e) from None
+        # A delete acknowledgement is not absence: re-observe every recorded ID.
+        if observed and self.present(recorded, iid):
+            raise Unknown("DISK_REMAINS", "VOLUME_DESCRIBE_BY_ID", PENDING)
         clean = {"admissionSha256": self.token, "instanceId": iid,
                  "volumes": prior["volumes"], "status": "CLEAN"}
         termination = self.read(self.prefix + 'termination.json')
         if termination:
             if termination.get('admissionSha256') != self.token or termination.get('instanceId') != iid:
-                raise Unknown('INSTANCE_CHANGED')
+                raise Unknown('INSTANCE_CHANGED', 'CONTROL_GET')
             clean['heartbeat'] = termination['heartbeat']
         self.record(self.prefix + "clean.json", clean)
         return {"status": "CLEAN", "admissionId": self.a["id"]}
@@ -466,20 +745,42 @@ class Session:
     def active(self):
         try:
             obj = self.s3.get_object(Bucket=self.cfg['CONTROL_BUCKET'], Key='active.json')
+            # A body stream error belongs to the GetObject that opened it.
+            raw = obj['Body'].read(65537)
+            etag = obj.get('ETag')
         except Exception as error:
-            if getattr(error, 'response', {}).get('Error', {}).get('Code') == 'NoSuchKey':
+            if error_code(error) == 'NoSuchKey':
                 return None, None
-            raise Unknown('CONTROL_READ_UNKNOWN') from None
-        raw = obj['Body'].read(65537)
+            raise sdk_error('CONTROL_READ_UNKNOWN', 'ACTIVE_GET', error) from None
         if len(raw) > 65536:
-            raise Unknown('CONTROL_OVERSIZE')
-        state = json.loads(raw)
-        if (set(state) != {'generation', 'admission', 'phase', 'nonce'}
+            raise Unknown('CONTROL_OVERSIZE', 'ACTIVE_GET')
+        try:
+            state = json.loads(raw)
+        except ValueError:
+            raise Unknown('CONTROL_SCHEMA', 'ACTIVE_GET') from None
+        if (not isinstance(state, dict) or set(state) != {'generation', 'admission', 'phase', 'nonce'}
                 or state['phase'] not in ('RESERVED', 'INTENT', 'CLEAN')
                 or not isinstance(state['generation'], str) or len(state['generation']) != 32
-                or not obj.get('ETag')):
-            raise Unknown('CONTROL_SCHEMA')
-        return state, obj['ETag']
+                or not isinstance(state['admission'], dict) or not etag):
+            raise Unknown('CONTROL_SCHEMA', 'ACTIVE_GET')
+        return state, etag
+
+    @staticmethod
+    def binding(state):
+        """What a watch owns: run, generation, admission and configuration digests."""
+        a = state['admission']
+        return dict(run=a.get('id'), generation=state['generation'], admission=sha(a),
+                    configuration=a.get('configSha256'))
+
+    def bind(self, state, bound):
+        current = self.binding(state)
+        if bound is None:
+            return current
+        if not bound:
+            bound.update(current)
+        elif bound != current:
+            raise Unknown('BINDING_CHANGED', 'ACTIVE_GET')
+        return bound
 
     def cas(self, old_etag, value):
         condition = {'IfMatch': old_etag} if old_etag else {'IfNoneMatch': '*'}
@@ -551,11 +852,17 @@ class Session:
             self.control(permit).launch_once()
         return self.status(run_id)
 
-    def status(self, run_id, cancel=False):
+    def status(self, run_id, cancel=False, bound=None):
+        """One bound lifecycle observation. Not read-only: it reconciles, and so
+        can publish control/boot records, manage alarms, terminate the owned
+        instance and delete owned disks. A watch passes the same `bound` dict to
+        every poll; it is filled from the first valid register and every later
+        register must match it. Nothing mutates before that binding succeeds."""
         state, etag = self.active()
-        if not state or state['admission']['id'] != run_id:
-            raise Unknown('RUN_CONFLICT')
+        if not state or state['admission'].get('id') != run_id:
+            raise Unknown('RUN_CONFLICT', 'ACTIVE_GET')
         c = self.control(state)
+        bound = self.bind(state, bound)
         if state['phase'] == 'RESERVED':
             if not cancel:
                 return dict(run_id=run_id, complete=False, passed=False)
@@ -564,12 +871,20 @@ class Session:
             self.cas(etag, dict(state, phase='CLEAN', nonce=uuid.uuid4().hex))
             return dict(run_id=run_id, complete=True, passed=False)
         if state['phase'] != 'CLEAN':
-            self.monitor(c, False)
+            # Reconcile first: an alarm failure can never hide expiry or cleanup.
             result = c.reconcile(cancel=cancel)
             if result['status'] != 'CLEAN':
+                # Alarms only for an admitted pending/running instance; never
+                # for one shutting down or gone, nor once clean.json exists.
+                if result.get('state') in ('pending', 'running'):
+                    self.put_alarms(c)
                 return dict(run_id=run_id, complete=False, passed=False)
-            self.cas(etag, dict(state, phase='CLEAN', nonce=uuid.uuid4().hex))
-        self.monitor(c, True)
+            # Alarm deletion is lifecycle cleanup and precedes the terminal CAS.
+            self.delete_alarms(c)
+            self.close(c, state, etag, bound)
+        else:
+            # A register already CLEAN still owes the same exact alarm deletion.
+            self.delete_alarms(c)
         passed = False
         failure = None
         public_defaults = None
@@ -580,13 +895,14 @@ class Session:
             try:
                 obj = self.s3.get_object(Bucket=self.cfg['CONTROL_BUCKET'] if provision else self.cfg['EVIDENCE_BUCKET'],
                     Key=f'provision-results/{arn}.json' if provision else f'results/{arn}/receipt.json')
+                # A body stream error belongs to the GetObject that opened it.
+                raw = obj['Body'].read(131073)
             except Exception as error:
-                if getattr(error,'response',{}).get('Error',{}).get('Code') != 'NoSuchKey':
-                    raise Unknown('RECEIPT_READ_UNKNOWN') from None
+                if error_code(error) != 'NoSuchKey':
+                    raise sdk_error('RECEIPT_READ_UNKNOWN', 'RECEIPT_GET', error) from None
                 if not provision:
                     failure = self.failure(c, arn)
             else:
-                raw = obj['Body'].read(131073)
                 if len(raw) > (131072 if provision else receipt_limit(c.a['job'])):
                     raise Unknown('RECEIPT_LIMIT')
                 if provision:
@@ -611,7 +927,10 @@ class Session:
                         raise Unknown('PROVISION_RECEIPT') from None
                     passed = receipt['success']
                 else:
-                    receipt = decode_receipt(raw, c.a['job'])
+                    try:
+                        receipt = decode_receipt(raw, c.a['job'])
+                    except (ValueError, TypeError, KeyError):
+                        raise InvalidReceipt('RECEIPT_INVALID', 'RECEIPT_GET') from None
                     passed = receipt['verdict'] == 'PASS'
         result = dict(run_id=run_id, complete=True, passed=passed)
         if public_defaults is not None:
@@ -708,21 +1027,85 @@ class Session:
         self.monitor(c, True)
         return dict(run_id=run_id, complete=True, passed=False)
 
-    def monitor(self, c, clean):
-        if self.monitoring is None or self.cfg['MODE'] != 'worker':
+    def close(self, c, state, etag, bound):
+        """Terminal INTENT -> CLEAN CAS, after resource and alarm cleanup.
+
+        A lost acknowledgement or a concurrent closer is resolved by reading the
+        register back at once: only the same run, generation, admission and
+        configuration in phase CLEAN, with a validated resource-cleanup record,
+        is accepted (its nonce may differ; it grants no launch permission). The
+        same bound INTENT is closed again by the next fresh observation, with a
+        fresh ETag. A permanent write cause is resolved only by exact equality."""
+        value = dict(state, phase='CLEAN', nonce=uuid.uuid4().hex)
+        try:
+            self.s3.put_object(Bucket=self.cfg['CONTROL_BUCKET'], Key='active.json',
+                Body=encoded(value), ServerSideEncryption='aws:kms',
+                SSEKMSKeyId=self.cfg['CONTROL_KEY'], IfMatch=etag)
+        except Exception as error:
+            kind = sdk_cause(error)
+            conflict = error_code(error) in ('PreconditionFailed', 'ConditionalRequestConflict')
+            actual, _ = self.active()
+            if actual == value:
+                return
+            if kind == 'auth':
+                raise Unknown('AUTH_UNAVAILABLE', 'TERMINAL_CAS') from None
+            if kind != 'transient' and not conflict:
+                raise Unknown('ACTIVE_CONFLICT', 'TERMINAL_CAS') from None
+            self.closed_by_bound(c, actual, bound, 'ACTIVE_CONFLICT', reclose=True)
             return
-        names = [self.cfg['BOX_ID']+'-worker-'+c.a['id']+'-'+m for m in ('StatusCheckFailed','StatusCheckFailed_System')]
-        if clean:
-            self.monitoring.delete_alarms(AlarmNames=names)
+        actual, _ = self.active()
+        if actual != value:
+            self.closed_by_bound(c, actual, bound, 'ACTIVE_CHANGED', reclose=False)
+
+    def closed_by_bound(self, c, actual, bound, reason, reclose):
+        if not actual or self.binding(actual) != bound:
+            raise Unknown(reason, 'TERMINAL_CAS')
+        c.clean_record(c.read(c.prefix + 'clean.json'), c.read(c.prefix + 'instance.json'))
+        if actual['phase'] == 'CLEAN':
+            return
+        if actual['phase'] == 'INTENT' and reclose:
+            raise Unknown(reason, 'TERMINAL_CAS', RETRY)
+        raise Unknown(reason, 'TERMINAL_CAS')
+
+    def alarm_names(self, c):
+        """The two exact alarm names bound to this run; provision mode and the
+        no-monitoring test mode are exempt."""
+        if self.monitoring is None or self.cfg['MODE'] != 'worker':
+            return None
+        return [self.cfg['BOX_ID']+'-worker-'+c.a['id']+'-'+m for m in ('StatusCheckFailed','StatusCheckFailed_System')]
+
+    def put_alarms(self, c):
+        names = self.alarm_names(c)
+        if not names:
             return
         owned = c.read(c.prefix+'instance.json')
         if not owned:
             return
         for name, metric in zip(names, ('StatusCheckFailed','StatusCheckFailed_System')):
-            self.monitoring.put_metric_alarm(AlarmName=name, Namespace='AWS/EC2',MetricName=metric,
-                Dimensions=[{'Name':'InstanceId','Value':owned['id']}], Statistic='Maximum', Period=60,
-                EvaluationPeriods=1,Threshold=1,ComparisonOperator='GreaterThanOrEqualToThreshold',
-                TreatMissingData='breaching',ActionsEnabled=True,AlarmActions=[self.cfg['NOTIFICATION_TOPIC']])
+            try:
+                self.monitoring.put_metric_alarm(AlarmName=name, Namespace='AWS/EC2',MetricName=metric,
+                    Dimensions=[{'Name':'InstanceId','Value':owned['id']}], Statistic='Maximum', Period=60,
+                    EvaluationPeriods=1,Threshold=1,ComparisonOperator='GreaterThanOrEqualToThreshold',
+                    TreatMissingData='breaching',ActionsEnabled=True,AlarmActions=[self.cfg['NOTIFICATION_TOPIC']])
+            except Exception as error:
+                raise sdk_error('ALARM_UNKNOWN', 'ALARM_PUT', error) from None
+
+    def delete_alarms(self, c):
+        """An acknowledged DeleteAlarms of the two exact names is alarm cleanup;
+        an uncertain one is repeated idempotently by the next observation."""
+        names = self.alarm_names(c)
+        if not names:
+            return
+        try:
+            self.monitoring.delete_alarms(AlarmNames=names)
+        except Exception as error:
+            raise sdk_error('ALARM_UNKNOWN', 'ALARM_DELETE', error) from None
+
+    def monitor(self, c, clean):
+        if clean:
+            self.delete_alarms(c)
+        else:
+            self.put_alarms(c)
 
 
 def clients(region, profile):
@@ -736,6 +1119,89 @@ def clients(region, profile):
     return session.client('ec2', config=config), session.client('s3', config=config), session.client('cloudwatch', config=config)
 
 
+UNRESOLVED = 'PROBE_UNRESOLVED: use status/cancel with the same run ID; never relaunch'
+
+
+def outcome(error):
+    """Closed (reason, operation, disposition) for any exception; never its text."""
+    if isinstance(error, Unknown):
+        reason = error.reason if error.reason in REASONS else 'UNCLASSIFIED'
+        operation = error.operation if error.operation in OPERATIONS else 'UNKNOWN_OPERATION'
+        disposition = error.disposition if error.disposition in (REFUSE, RETRY, PENDING) else REFUSE
+        return reason, operation, disposition
+    return 'UNCLASSIFIED', 'UNKNOWN_OPERATION', REFUSE
+
+
+def diagnose(reason, operation, disposition, attempt, last=None):
+    """One stderr line of closed values: UTC time, reason, operation, disposition
+    and a bounded attempt number. No exception text, SDK code or message,
+    request/response, control key, identifier or receipt byte."""
+    fields = [('time', dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')),
+              ('reason', reason if reason in REASONS else 'UNCLASSIFIED')]
+    if last is not None:
+        fields.append(('last', last if last in REASONS else 'UNCLASSIFIED'))
+    fields += [('operation', operation if operation in OPERATIONS else 'UNKNOWN_OPERATION'),
+               ('disposition', disposition if disposition in (REFUSE, RETRY, PENDING) else REFUSE),
+               ('attempt', str(min(max(int(attempt), 0), WATCH_TRANSIENT_ATTEMPTS)))]
+    print('PROBE_DIAGNOSTIC ' + ' '.join(f'{k}={v}' for k, v in fields), file=sys.stderr)
+
+
+def unresolved(error, attempt=1):
+    reason, operation, disposition = outcome(error)
+    diagnose(reason, operation, disposition, attempt)
+    # No DB identifiers, receipt bytes or SDK messages in terminal output.
+    print(UNRESOLVED)
+    return 2
+
+
+def finish(result):
+    print(json.dumps(result, sort_keys=True))
+    return 0 if result['complete'] and result['passed'] else 1
+
+
+def watch(session, run_id):
+    """Bounded lifecycle reconciliation until complete. The deadline is fixed
+    before the first observation and never extended. Pending resource states
+    are observed again every WATCH_POLL_SECONDS; transient failures get two
+    further observations in total; everything else refuses at once. Only
+    status is ever called: no retry path can reach a launch."""
+    end = time.monotonic() + WATCH_CEILING_SECONDS
+    bound = {}
+    failures = 0
+    last = None
+    while True:
+        if time.monotonic() >= end:
+            # Never start another observation at or after the deadline.
+            reason, operation, _ = last or (None, 'UNKNOWN_OPERATION', None)
+            diagnose('WATCH_CEILING', operation, REFUSE, failures, last=reason)
+            print(UNRESOLVED)
+            return 2
+        try:
+            result = session.status(run_id, bound=bound)
+        except Exception as error:
+            reason, operation, disposition = outcome(error)
+            last = (reason, operation, disposition)
+            if disposition == PENDING:
+                failures = 0
+            elif disposition == RETRY:
+                failures += 1
+                diagnose(reason, operation, RETRY, failures)
+                if failures >= WATCH_TRANSIENT_ATTEMPTS:
+                    diagnose('RETRY_EXHAUSTED', operation, REFUSE, failures, last=reason)
+                    print(UNRESOLVED)
+                    return 2
+            else:
+                return unresolved(error, failures + 1)
+        else:
+            failures, last = 0, None
+            if result['complete']:
+                return finish(result)
+        remaining = end - time.monotonic()
+        if remaining <= 0:
+            continue
+        time.sleep(min(WATCH_POLL_SECONDS, remaining))
+
+
 def main():
     import argparse
     from pathlib import Path
@@ -747,37 +1213,42 @@ def main():
     parser.add_argument('--run-id')
     parser.add_argument('--attest-volume', action='append', default=[])
     args = parser.parse_args()
-    cfg = json.loads(args.config.read_bytes())
-    ec2, s3, monitoring = clients(cfg['REGION'], args.profile)
-    session = Session(ec2, s3, cfg, monitoring=monitoring)
+    try:
+        cfg = json.loads(args.config.read_bytes())
+        region, mode = cfg['REGION'], cfg['MODE']
+    except Exception:
+        return unresolved(Unknown('CONFIG_UNKNOWN', 'CONFIG_LOAD'))
+    try:
+        ec2, s3, monitoring = clients(region, args.profile)
+        session = Session(ec2, s3, cfg, monitoring=monitoring)
+    except Exception as error:
+        return unresolved(sdk_error('CLIENT_SETUP_UNKNOWN', 'CLIENT_SETUP', error))
     try:
         if args.action == 'release':
             if not args.run_id or args.job or not args.attest_volume:
                 raise Unknown('REQUEST_REFUSED')
-            result = session.release(args.run_id, args.attest_volume)
-        elif args.action == 'launch':
+            return finish(session.release(args.run_id, args.attest_volume))
+        if args.action == 'launch':
             if not args.job or args.run_id or args.attest_volume:
                 raise Unknown('REQUEST_REFUSED')
             request = json.loads(args.job.read_bytes())
-            result = session.start_provision(request) if cfg['MODE'] == 'provision' else session.start(request)
-        else:
-            if not args.run_id or args.job or args.attest_volume:
-                raise Unknown('REQUEST_REFUSED')
+            # Exactly one SDK attempt and no application retry.
+            return finish(session.start_provision(request) if mode == 'provision' else session.start(request))
+        if not args.run_id or args.job or args.attest_volume:
+            raise Unknown('REQUEST_REFUSED')
+        if args.action == 'watch':
+            return watch(session, args.run_id)
+        # status/cancel: one observation, no loop. A pending resource state is
+        # an incomplete result; a transient failure is exit 2 with its reason.
+        try:
             result = session.status(args.run_id, cancel=args.action == 'cancel')
-            if args.action == 'watch':
-                end = time.monotonic()+WATCH_CEILING_SECONDS
-                while not result['complete']:
-                    if time.monotonic() >= end:
-                        raise Unknown('WATCH_CEILING')
-                    time.sleep(30)
-                    result = session.status(args.run_id)
-        print(json.dumps(result, sort_keys=True))
-        return 0 if result['complete'] and result['passed'] else 1
-    except Exception:
-        # No DB identifiers, receipt bytes or SDK messages in terminal output.
-        print('PROBE_UNRESOLVED: use status/cancel with the same run ID; never relaunch')
-        return 2
-
+        except Unknown as error:
+            if outcome(error)[2] != PENDING:
+                raise
+            result = dict(run_id=args.run_id, complete=False, passed=False)
+        return finish(result)
+    except Exception as error:
+        return unresolved(error)
 
 if __name__ == '__main__':
     raise SystemExit(main())
