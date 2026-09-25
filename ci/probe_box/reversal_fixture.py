@@ -9,7 +9,7 @@ import json
 from psycopg2 import sql, Error
 from psycopg2.extensions import TRANSACTION_STATUS_IDLE
 from roles_census import FAMILIES, normalize, encoded, validate_receipt, validate_census, identity as catalog_identity
-from roles_queries import QUERIES
+from roles_queries import QUERIES, MAX_FAMILY_ROWS
 
 ATTRIBUTE={'superuser':'SUPERUSER','inherit':'INHERIT','create_role':'CREATEROLE','create_db':'CREATEDB',
            'login':'LOGIN','replication':'REPLICATION','bypass_rls':'BYPASSRLS'}
@@ -20,7 +20,7 @@ def snapshot_rows(cursor):
     rows={}
     for name in FAMILIES:
         cursor.execute(QUERIES[name]);rows[name]=[r[0] for r in cursor.fetchall()]
-        if len(rows[name])>1024:raise ValueError('REVERSAL_CATALOG_LIMIT')
+        if len(rows[name])>MAX_FAMILY_ROWS:raise ValueError('REVERSAL_CATALOG_LIMIT')
     for r in rows['policies']:r['roles'].sort(key=encoded)
     for r in rows['default_acls']:r['entries'].sort(key=encoded)
     return normalize(rows)

@@ -9,15 +9,16 @@ never a migration-reversal or engine-equivalence verdict.
 mandatory `reader`. Kind is `roles-census`; commands are respectively `read`,
 `produce`, `verify`, with three distinct OCI manifest references. Job/1 retains
 its existing commands and receipt/1–2 acceptance. Both the supervisor and local
-operator bind receipt kind to the admitted job. The 131072-byte limit is shared;
-duplicate JSON keys, nonfinite numbers and nesting beyond 16 are rejected before
-validation. UTF-8 encoding is consistent across verifier and supervisor.
+operator bind receipt kind to the admitted job. The receipt ceiling is selected
+only from the validated job: job/1 and provisioning keep 131072 bytes, job/2 uses
+the census policy's 1048576 bytes. Duplicate JSON keys, nonfinite numbers and
+nesting beyond 16 are rejected before validation. UTF-8 encoding is consistent across verifier and supervisor.
 
 The reader uses only the existing `polis_probe_reader` service/socket. Its fixed
 SQL reads catalogs in one read-only repeatable-read transaction, checks PG17,
 identifier width, session user and transaction state, and sets statement, lock
-and transaction ceilings. Each fixed query returns at most 1025 rows so the
-1024-row cap can be detected. Limits, missing catalog privileges, broken
+and transaction ceilings. Each fixed query returns at most 4097 rows so the
+4096-row cap can be detected. Limits, missing catalog privileges, broken
 references or unsupported major versions produce INCOMPLETE. No credential
 fallback or raw error text is exported. The supervisor retains its whole-job
 ceiling and disposes the box through the existing lifecycle.
@@ -31,8 +32,8 @@ The reader remains trusted for server truth; equality alone cannot prove it.
 
 Receipt/3's top-level keys are `schema`, `kind`, `run_id`, `job_sha256`, `verdict`,
 `bindings`, `coverage`, `census`, `controls`. `roles_census.py` is the executable
-closed schema. All arrays are sorted by typed identity, limited to 1024 rows per
-family and 8192 total, with no duplicate identities or dangling catalog-role or
+closed schema. All arrays are sorted by typed identity, limited to 4096 rows per
+family and 16384 total, with no duplicate identities or dangling catalog-role or
 object references. Role flags below are superuser, inherit, create_role,
 create_db, login, replication and bypass_rls.
 

@@ -343,14 +343,27 @@ def validate_receipt(value: object, job: Job) -> dict:
     return r
 
 
+# Default ceiling for every JSON object that is not a job/2 census object.
+JSON_LIMIT = 131072
+
+
 def receipt_limit(job: Job) -> int:
-    # Closed dispatch; a receipt cannot choose its own export allowance.
+    # Closed dispatch on the validated, admitted job; a receipt cannot choose
+    # its own export allowance. Census modules load lazily: battery image
+    # closures do not include them and only ever see job/1.
     job = validate_job(job)
-    return {"polis-probe-job/1":131072,"polis-probe-job/2":131072}[job["schema"]]
+    if job["schema"] == "polis-probe-job/1":
+        return JSON_LIMIT
+    if job["schema"] == "polis-probe-job/2":
+        from roles_census import LIMIT
+        return LIMIT
+    raise ValueError("RECEIPT_LIMIT")
 
 
-def decode_json(raw: bytes):
-    if len(raw)>131072:raise ValueError("RECEIPT_LIMIT")
+def decode_json(raw: bytes, limit: int = JSON_LIMIT):
+    # The caller selects the ceiling from trusted context, never from the bytes.
+    if type(limit) is not int or not 0 < limit:raise ValueError("RECEIPT_LIMIT")
+    if len(raw)>limit:raise ValueError("RECEIPT_LIMIT")
     def pairs(items):
         out={}
         for k,v in items:
@@ -372,7 +385,8 @@ def decode_json(raw: bytes):
 
 
 def decode_receipt(raw: bytes, job: Job) -> dict:
-    if len(raw)>receipt_limit(job):raise ValueError("RECEIPT_LIMIT")
-    try:return validate_receipt(decode_json(raw),job)
+    limit=receipt_limit(job)
+    if len(raw)>limit:raise ValueError("RECEIPT_LIMIT")
+    try:return validate_receipt(decode_json(raw,limit),job)
     except (KeyError,TypeError,OverflowError,UnicodeError,RecursionError):
         raise ValueError("RECEIPT_SCHEMA") from None

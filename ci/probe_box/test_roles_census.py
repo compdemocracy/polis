@@ -91,7 +91,7 @@ class CensusTests(unittest.TestCase):
 
     def test_limits_identifiers_arrays_and_bytes(self):
         r=copy.deepcopy(self.r);r['census']['roles'][0]['name']='é'*32;self.refused(r)
-        r=copy.deepcopy(self.r);r['census']['roles']*=1025;self.refused(r)
+        r=copy.deepcopy(self.r);r['census']['roles']*=4097;self.refused(r)
         with self.assertRaises(ValueError):decode_receipt(b' '*131073,self.job)
         with self.assertRaises(ValueError):decode_json(b'['*20+b'0'+b']'*20)
 
@@ -160,7 +160,7 @@ class CensusTests(unittest.TestCase):
             def __exit__(self,*args):pass
             def execute(self,sql):pass
             def fetchone(self):return self.version,'on','repeatable read','polis_probe_reader','polis_probe_reader',63
-            def fetchmany(self,n):return [(None,)]*1025
+            def fetchmany(self,n):return [(None,)]*n
         class Connection:
             def __init__(self,version):self.version=version
             def set_session(self,**kwargs):pass

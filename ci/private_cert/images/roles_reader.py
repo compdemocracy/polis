@@ -6,7 +6,7 @@ import sys
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'probe_box'))
 from roles_census import FAMILIES, POLICY_SHA, LIMIT, encoded, normalize, validate_census
-from roles_queries import QUERIES
+from roles_queries import QUERIES, MAX_FAMILY_ROWS
 
 
 def projection(conn, source_commit):
@@ -29,8 +29,8 @@ def projection(conn, source_commit):
             rows={}
             for family in FAMILIES:
                 cur.execute(QUERIES[family])
-                values=cur.fetchmany(1025)
-                if len(values)>1024: raise ValueError('CENSUS_LIMIT')
+                values=cur.fetchmany(MAX_FAMILY_ROWS+1)
+                if len(values)>MAX_FAMILY_ROWS: raise ValueError('CENSUS_LIMIT')
                 rows[family]=[r[0] for r in values]
             for r in rows['policies']:r['roles'].sort(key=encoded)
             for r in rows['default_acls']:r['entries'].sort(key=encoded)
