@@ -1,6 +1,14 @@
 """Fixed PG17 catalog statements. No job-supplied SQL or application calls."""
 from __future__ import annotations
 
+# The one reviewed census capacity (polis-roles-census-policy/2). The policy,
+# closed validation, this SQL LIMIT, the reader's bounded fetch and the local
+# reversal snapshot all derive from these values; a job cannot change them.
+# Nested per-row bounds are separate (roles_census.MAX_NESTED_ENTRIES).
+MAX_FAMILY_ROWS = 4096
+MAX_ROWS = 16384
+MAX_BYTES = 1048576
+
 
 def obj(**fields):
     return 'pg_catalog.jsonb_build_object('+','.join("'"+k+"',"+v for k,v in fields.items())+')'
@@ -74,4 +82,4 @@ MIGRATIONS="'polis_queue_owner','polis_queue_executor','polis_coordinator_owner'
 QUERIES['role_dependencies']='SELECT '+obj(role='r.rolname',scope=SCOPE,dependency_type='s.deptype',count='pg_catalog.count(*)')+f" FROM pg_catalog.pg_shdepend s JOIN pg_catalog.pg_roles r ON s.refobjid=r.oid WHERE s.refclassid='pg_catalog.pg_authid'::pg_catalog.regclass AND r.rolname IN ({MIGRATIONS}) GROUP BY r.rolname,s.deptype,{SCOPE} ORDER BY r.rolname,s.deptype,{SCOPE}"
 
 # One extra row proves the fixed cap was exceeded without unbounded fetching.
-QUERIES = {name: sql + ' LIMIT 1025' for name, sql in QUERIES.items()}
+QUERIES = {name: sql + f' LIMIT {MAX_FAMILY_ROWS + 1}' for name, sql in QUERIES.items()}

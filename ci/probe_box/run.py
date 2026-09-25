@@ -927,18 +927,20 @@ class Session:
         if owned:
             arn = f'arn:aws:ec2:{c.a["region"]}:{c.a["account"]}:instance/{owned["id"]}'
             provision = self.cfg['MODE'] == 'provision'
+            # The admitted job (or provisioning) fixes the ceiling before any read.
+            limit = 131072 if provision else receipt_limit(c.a['job'])
             try:
                 obj = self.s3.get_object(Bucket=self.cfg['CONTROL_BUCKET'] if provision else self.cfg['EVIDENCE_BUCKET'],
                     Key=f'provision-results/{arn}.json' if provision else f'results/{arn}/receipt.json')
                 # A body stream error belongs to the GetObject that opened it.
-                raw = obj['Body'].read(131073)
+                raw = obj['Body'].read(limit + 1)
             except Exception as error:
                 if error_code(error) != 'NoSuchKey':
                     raise sdk_error('RECEIPT_READ_UNKNOWN', 'RECEIPT_GET', error) from None
                 if not provision:
                     failure = self.failure(c, arn)
             else:
-                if len(raw) > (131072 if provision else receipt_limit(c.a['job'])):
+                if len(raw) > limit:
                     raise Unknown('RECEIPT_LIMIT')
                 if provision:
                     from provision_login import validate_public_defaults

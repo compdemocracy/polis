@@ -4,7 +4,13 @@ import hashlib
 import json
 import re
 
-LIMIT = 131072
+from roles_queries import QUERIES, MAX_FAMILY_ROWS, MAX_ROWS, MAX_BYTES
+
+# Single-object byte ceiling for census, projection and receipt/3 (job/2 only).
+LIMIT = MAX_BYTES
+# Nested bounds (default-ACL entries, policy principals) are deliberately
+# unchanged by the capacity revision and are not part of the top-level tally.
+MAX_NESTED_ENTRIES = 1024
 FAMILIES = ('roles','memberships','database','schemas','relations','columns','routines',
             'acls','default_acls','policies','role_settings','role_dependencies')
 CONTROLS = ('extra-field','duplicate-row','dangling-role','wrong-count','missing-family',
@@ -18,10 +24,9 @@ PRIVILEGES = {
 }
 # This identifier versions the complete reviewed catalog policy, not a digest of
 # an omitted value. Recipes also bind every executable source byte.
-POLICY = {'schema':'polis-roles-census-policy/1','postgres_major':17,'schema_scope':'public',
+POLICY = {'schema':'polis-roles-census-policy/2','postgres_major':17,'schema_scope':'public',
           'families':list(FAMILIES),'expressions':['ABSENT','TRUE','FALSE'],
-          'max_identifier_bytes':63,'max_family_rows':1024,'max_rows':8192,'max_bytes':LIMIT}
-from roles_queries import QUERIES
+          'max_identifier_bytes':63,'max_family_rows':MAX_FAMILY_ROWS,'max_rows':MAX_ROWS,'max_bytes':LIMIT}
 POLICY_SHA = hashlib.sha256(json.dumps({'policy':POLICY,'queries':QUERIES},sort_keys=True,separators=(',',':')).encode()).hexdigest()
 MIGRATION_ROLES = ('polis_queue_owner','polis_queue_executor','polis_coordinator_owner',
     'polis_coordinator_control','polis_coordinator_publication_owner','polis_coordinator_publisher',
@@ -84,7 +89,7 @@ def normalize(census):
 
 def validate_census(c, complete=True):
     closed(c,FAMILIES)
-    if any(type(c[f]) is not list or len(c[f])>1024 for f in FAMILIES) or sum(map(len,c.values()))>8192: fail('CENSUS_LIMIT')
+    if any(type(c[f]) is not list or len(c[f])>MAX_FAMILY_ROWS for f in FAMILIES) or sum(map(len,c.values()))>MAX_ROWS: fail('CENSUS_LIMIT')
     roles=set()
     for r in c['roles']:
         closed(r, ('name',*FLAGS,'connection_limit','valid_until','config_present','config_count'))
@@ -152,13 +157,13 @@ def validate_census(c, complete=True):
     for r in c['default_acls']:
         closed(r,('owner','scope','kind','acl_state','entries'));role(r['owner']);enum(r['scope'],('GLOBAL','PUBLIC'))
         enum(r['kind'],('RELATION','SEQUENCE','ROUTINE','TYPE','SCHEMA'));acl_state(r['acl_state'])
-        if type(r['entries']) is not list or len(r['entries'])>1024:fail('CENSUS_LIMIT')
+        if type(r['entries']) is not list or len(r['entries'])>MAX_NESTED_ENTRIES:fail('CENSUS_LIMIT')
         for e in r['entries']:grant(e,r['kind'])
         if r['entries']!=sorted(r['entries'],key=encoded) or len({encoded(e) for e in r['entries']})!=len(r['entries']):fail('CENSUS_ORDER')
     for r in c['policies']:
         closed(r,('relation','name','command','permissive','roles','using','with_check'))
         relation(r['relation']);name(r['name']);enum(r['command'],('*','r','a','w','d'));flag(r['permissive'])
-        if type(r['roles']) is not list or not 1<=len(r['roles'])<=1024:fail()
+        if type(r['roles']) is not list or not 1<=len(r['roles'])<=MAX_NESTED_ENTRIES:fail()
         for p in r['roles']:principal(p,roles)
         if r['roles']!=sorted(r['roles'],key=encoded) or len({encoded(p) for p in r['roles']})!=len(r['roles']):fail('CENSUS_ORDER')
         for k in ('using','with_check'):enum(r[k],('ABSENT','TRUE','FALSE','UNSUPPORTED_EXPRESSION'))

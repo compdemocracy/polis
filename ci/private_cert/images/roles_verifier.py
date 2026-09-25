@@ -83,10 +83,12 @@ def controls(job):
 def main():
     if sys.argv[1:]!=['verify']:fail('CENSUS_ACTION')
     from contracts import validate_job
+    # Recipe and job keep the default ceiling; only the census objects use the
+    # fixed census allowance, never one chosen by their own content.
     recipe=decode_json(Path('/opt/polis-private-image/recipe.json').read_bytes())
     job=validate_job(decode_json(Path('/job/job.json').read_bytes()))
-    projection=decode_json(Path('/input/projection.json').read_bytes())
-    produced=decode_json(Path('/evidence/census.json').read_bytes())
+    projection=decode_json(Path('/input/projection.json').read_bytes(),LIMIT)
+    produced=decode_json(Path('/evidence/census.json').read_bytes(),LIMIT)
     r=receipt(projection,produced,job,recipe['sourceCommit']);r['controls']=controls(job)
     if not all(r['controls'].values()):r['verdict']='FAIL'
     if len(encoded(r))>LIMIT:
