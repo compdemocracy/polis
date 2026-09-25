@@ -167,10 +167,12 @@ minutes. Any fresh finite Average sample above 2 percent establishes activity.
 A tag must advance relative to a durable `liveness-baseline.json`; the first
 observation alone is not proof, and gets at most 120 seconds to advance. The
 baseline survives operator restarts. Counter regression, malformed tags and
-unknown tokens do not establish activity. Missing, stale, malformed or failed
-CPU reads are UNKNOWN, not proof of silence: status reports the run incomplete
-and watch keeps observing under its ceiling, never killing on that evidence;
-admission expiry or an explicit cancel still terminates the owned instance.
+unknown tokens do not establish activity. Missing, stale or non-finite CPU
+samples are UNKNOWN, not proof of silence: status reports the run incomplete
+and watch keeps observing under its ceiling, never killing on that evidence.
+A failed or malformed metric read is classified like any other SDK read
+(bounded transient retry, otherwise a refusal). Admission expiry or an explicit
+cancel still terminates the owned instance.
 
 Positive CPU or tag evidence is written once to
 `control/<run-id>/liveness.json`, bound to the admission and instance. Its only

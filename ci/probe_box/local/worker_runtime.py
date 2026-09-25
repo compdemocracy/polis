@@ -235,7 +235,11 @@ def main():
             # simulation claims: status starts in CLEAN and only reads real S3.
             state=dict(generation='1'*32,admission=admission,phase='CLEAN',nonce='2'*32)
             s3.put_object(Bucket='fixture-control',Key='active.json',Body=operator.encoded(state))
-            s3.put_object(Bucket='fixture-control',Key=f'control/{job["run_id"]}/instance.json',Body=operator.encoded({'id':identity['instanceId']}))
+            # A CLEAN register needs its bound cleanup record (resource cleanup
+            # was observed by the local disposal above, not by EC2 calls).
+            token=operator.sha(admission);volumes=['vol-00000000000000001','vol-00000000000000002']
+            s3.put_object(Bucket='fixture-control',Key=f'control/{job["run_id"]}/instance.json',Body=operator.encoded({'id':identity['instanceId'],'volumes':volumes,'admissionSha256':token}))
+            s3.put_object(Bucket='fixture-control',Key=f'control/{job["run_id"]}/clean.json',Body=operator.encoded({'admissionSha256':token,'instanceId':identity['instanceId'],'volumes':volumes,'status':'CLEAN'}))
             result = readback.Session(None,s3,cfg).status(job['run_id'])
             assert result['complete'] and result['passed']==(expected is None),result
             if expected is not None:

@@ -56,7 +56,8 @@ OPERATIONS = frozenset({
 RETRYABLE_OPERATIONS = frozenset({
     'ACTIVE_GET', 'CONTROL_GET', 'HEARTBEAT_HEAD', 'RECEIPT_GET', 'INSTANCE_DESCRIBE',
     'INSTANCE_DESCRIBE_BY_ID', 'VOLUME_DESCRIBE', 'VOLUME_DESCRIBE_BY_ID', 'ALARM_PUT',
-    'ALARM_DELETE', 'RECORD_PUT', 'TERMINAL_CAS', 'INSTANCE_TERMINATE', 'VOLUME_DELETE'})
+    'ALARM_DELETE', 'RECORD_PUT', 'TERMINAL_CAS', 'INSTANCE_TERMINATE', 'VOLUME_DELETE',
+    'CPU_METRIC_READ'})
 REASONS = frozenset({
     'ACTIVE_CHANGED', 'ACTIVE_CONFLICT', 'ADMISSION_EXPIRED', 'ADMISSION_EXPIRED_OR_OVER_BUDGET',
     'ADMISSION_INVALID', 'ALARM_UNKNOWN', 'AUTH_UNAVAILABLE', 'BINDING_CHANGED',
@@ -314,7 +315,16 @@ class Control:
                                IfNoneMatch="*", ServerSideEncryption="aws:kms", SSEKMSKeyId=self.c["CONTROL_KEY"])
         except Exception as e:
             failure = sdk_error("RECORD_WRITE_UNKNOWN", "RECORD_PUT", e)
-            stored = self.read(key)
+            # Only a transient or conflict write may take a new observation from
+            # a failed readback; a permanent or auth cause is kept unless exact
+            # readback equality proves the write completed.
+            admissible = failure.disposition == RETRY or error_code(e) in ("PreconditionFailed", "ConditionalRequestConflict")
+            try:
+                stored = self.read(key)
+            except Exception:
+                if admissible:
+                    raise
+                raise failure from None
             if stored == value:
                 return
             if stored is None:
@@ -468,7 +478,13 @@ class Control:
             raise sdk_error("HEARTBEAT_UNKNOWN", "HEARTBEAT_HEAD", e) from None
 
     def cpu_activity(self, iid):
-        """Only a fresh, finite EC2 CPU sample can establish busy or quiet."""
+        """Only a fresh, finite EC2 CPU sample can establish busy or quiet.
+
+        A successful response without such a sample is 'unknown' (insufficient
+        evidence). A failed or malformed read is also 'unknown' here, but its
+        classified cause is kept in cpu_error: it is raised wherever the CPU
+        answer would decide the outcome, so it is never mistaken for pending."""
+        self.cpu_error = None
         if self.monitoring is None:
             return 'unknown'
         try:
@@ -477,6 +493,10 @@ class Control:
                 StartTime=dt.datetime.fromtimestamp(self.now-300, dt.timezone.utc),
                 EndTime=dt.datetime.fromtimestamp(self.now, dt.timezone.utc),
                 Period=60, Statistics=['Average'])
+        except Exception as e:
+            self.cpu_error = sdk_error('LIVENESS_UNKNOWN', 'CPU_METRIC_READ', e)
+            return 'unknown'
+        try:
             values = []
             for point in result['Datapoints']:
                 stamp, value = point.get('Timestamp'), point.get('Average')
@@ -486,6 +506,8 @@ class Control:
                     values.append(value)
             return ('busy' if max(values) > 2 else 'quiet') if values else 'unknown'
         except Exception:
+            # A malformed response is a schema failure, not missing evidence.
+            self.cpu_error = Unknown('LIVENESS_UNKNOWN', 'CPU_METRIC_READ')
             return 'unknown'
 
     def secondary_liveness(self, instance):
@@ -541,8 +563,12 @@ class Control:
         if baseline is not None and self.now-baseline['observedAt'] < 120:
             return True
         if cpu == 'unknown':
-            # Insufficient fresh evidence: keep observing, never kill on it.
-            # Expiry and cancel still terminate through reconcile.
+            # A failed read keeps its own classification (refusal, auth, or a
+            # bounded transient retry). Only a successful read with too little
+            # fresh evidence is pending. Neither ever kills; expiry and cancel
+            # still terminate through reconcile.
+            if self.cpu_error is not None:
+                raise self.cpu_error
             raise Unknown('LIVENESS_UNKNOWN', 'CPU_METRIC_READ', PENDING)
         return False
 
@@ -883,7 +909,15 @@ class Session:
             self.delete_alarms(c)
             self.close(c, state, etag, bound)
         else:
-            # A register already CLEAN still owes the same exact alarm deletion.
+            # A CLEAN register is not itself cleanup proof. A run that recorded
+            # an instance needs its validated cleanup record (resource or
+            # attested release); only a run that never recorded one (a
+            # RESERVED cancel) has none to show, and then no clean record may
+            # exist either. It still owes the same exact alarm deletion.
+            owned = c.read(c.prefix + 'instance.json')
+            clean = c.read(c.prefix + 'clean.json')
+            if owned is not None or clean is not None:
+                c.clean_record(clean, owned)
             self.delete_alarms(c)
         passed = False
         failure = None
@@ -1044,13 +1078,19 @@ class Session:
         except Exception as error:
             kind = sdk_cause(error)
             conflict = error_code(error) in ('PreconditionFailed', 'ConditionalRequestConflict')
-            actual, _ = self.active()
+            permanent = (Unknown('AUTH_UNAVAILABLE', 'TERMINAL_CAS') if kind == 'auth'
+                         else Unknown('ACTIVE_CONFLICT', 'TERMINAL_CAS'))
+            try:
+                actual, _ = self.active()
+            except Exception:
+                # A failed readback never replaces a permanent write cause.
+                if kind == 'transient' or conflict:
+                    raise
+                raise permanent from None
             if actual == value:
                 return
-            if kind == 'auth':
-                raise Unknown('AUTH_UNAVAILABLE', 'TERMINAL_CAS') from None
             if kind != 'transient' and not conflict:
-                raise Unknown('ACTIVE_CONFLICT', 'TERMINAL_CAS') from None
+                raise permanent from None
             self.closed_by_bound(c, actual, bound, 'ACTIVE_CONFLICT', reclose=True)
             return
         actual, _ = self.active()
