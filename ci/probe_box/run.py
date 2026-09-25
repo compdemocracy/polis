@@ -170,10 +170,12 @@ class Control:
     def own(self, i: object):
         c, a = self.c, self.a
         # DescribeInstances drops SubnetId, SecurityGroups and IamInstanceProfile
-        # once an instance is terminated (observed on the first real run);
+        # once an instance is terminated (observed on the first real run) and
+        # already while it is shutting down (run 22: the worker powers off after
+        # its receipt and the next watch poll saw the instance in transition);
         # those fields are required while present. The client token (the
         # admission digest), image, type and both tags are always required.
-        terminated = i.get("State", {}).get("Name") == "terminated"
+        terminated = i.get("State", {}).get("Name") in ("shutting-down", "terminated")
         groups = {g["GroupId"] for g in i.get("SecurityGroups", [])}
         return (i.get("ClientToken") == self.token
                 # DescribeInstances has no LaunchTemplate field. The exact
