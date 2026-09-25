@@ -1161,6 +1161,186 @@ class PortedDiagnosisSchedules(Checks):
         self.assertFalse(box.e.deleted); self.assertFalse(box.e.terminated)
 
 
+class CleanResumeTests(Checks):
+    """An already-CLEAN register is complete only with a validated cleanup record."""
+
+    def closed_box(self):
+        box = Box()
+        self.assertTrue(box.x.status(RUN_ID)['passed'])
+        self.assertEqual(box.register()['phase'], 'CLEAN')
+        box.poll_times.clear()
+        return box, ('control', box.control().prefix + 'clean.json')
+
+    def test_missing_or_mismatched_cleanup_record_refuses(self):
+        changes = {'missing': None, 'status': {'status': 'DIRTY'}, 'digest': {'admissionSha256': '0' * 64},
+                   'instance': {'instanceId': 'i-other'}, 'volumes': {'volumes': ['vol-a']},
+                   'extra': {'unexpected': True}}
+        for name, change in changes.items():
+            with self.subTest(change=name):
+                box, key = self.closed_box()
+                if change is None:
+                    del box.s.objects[key]
+                else:
+                    box.s.objects[key] = encoded(dict(json.loads(box.s.objects[key]), **change))
+                rc, out, err = box.cli(allow_sleep=False)
+                self.refused(box, rc, out, err, 'CLEAN_RECORD_INVALID')
+                self.assertNotIn('"passed": true', out)
+
+    def test_valid_clean_resume_passes(self):
+        box, key = self.closed_box()
+        rc, out, err = box.cli(allow_sleep=False)
+        self.passed(box, rc, out, err, polls=1)
+
+    def test_never_launched_cancel_and_attested_release_stay_complete(self):
+        x, c, e, s, i = session_setup(); put = s.put_object
+        def race(**kw):
+            if kw['Key'] == 'active.json' and json.loads(kw['Body'])['phase'] == 'INTENT':
+                x.status(RUN_ID, cancel=True)
+            return put(**kw)
+        s.put_object = race
+        with self.assertRaisesRegex(Unknown, 'ACTIVE_CONFLICT'):
+            x.start(job())
+        self.assertEqual(x.status(RUN_ID), dict(run_id=RUN_ID, complete=True, passed=False))
+        from test_run import ReleaseTests
+        case = ReleaseTests()
+        x, c, e, s, i, run_id = case.stuck()
+        e.instances = []
+        x.release(run_id, ['vol-a', 'vol-b'])
+        self.assertEqual(x.status(run_id), dict(run_id=run_id, complete=True, passed=False))
+
+
+def cpu_failure_box(cause):
+    """Past boot grace, no worker heartbeat, and every CPU read raising `cause`;
+    the instance terminates before the fifth observation."""
+    box = Box(state='running')
+    box.c.now += 601
+    box.s.head_object = lambda **kw: (_ for _ in ()).throw(ServiceError('NoSuchKey', 404))
+    calls = []
+    def metric(**kw):
+        calls.append(True)
+        raise cause()
+    box.x.monitoring.get_metric_statistics = metric
+    box.at(4, lambda: box.i['State'].update(Name='terminated'))
+    return box, calls
+
+
+class MetricReadTests(Checks):
+    """A failed CPU read is classified like any other SDK read; only a
+    successful response with too little fresh evidence is pending."""
+
+    def test_permanent_and_credential_failures_refuse_at_once(self):
+        for name, cause, reason in (('access-denied', lambda: ServiceError('AccessDenied', 403), 'LIVENESS_UNKNOWN'),
+                                    ('missing-credentials', lambda: sdk_type('NoCredentialsError')(PRIVATE), 'AUTH_UNAVAILABLE'),
+                                    ('ssl', lambda: sdk_type('SSLError')(PRIVATE), 'LIVENESS_UNKNOWN')):
+            with self.subTest(cause=name):
+                box, calls = cpu_failure_box(cause)
+                rc, out, err = box.cli(allow_sleep=False)
+                self.refused(box, rc, out, err, reason, polls=1)
+                self.assertEqual(self.last_diagnostic(err)['operation'], 'CPU_METRIC_READ')
+                self.assertFalse(box.e.terminated)
+
+    def test_repeated_transient_failures_exhaust(self):
+        for name, cause in (('throttling', lambda: ServiceError('Throttling', 429)),
+                            ('expired-token', lambda: ServiceError('ExpiredToken', 403))):
+            with self.subTest(cause=name):
+                box, calls = cpu_failure_box(cause)
+                rc, out, err = box.cli()
+                self.refused(box, rc, out, err, 'RETRY_EXHAUSTED', polls=3)
+                self.assertEqual(self.last_diagnostic(err)['last'], 'LIVENESS_UNKNOWN')
+                self.assertEqual(len(calls), 3)
+                self.assertFalse(box.e.terminated)
+
+    def test_transient_failure_then_insufficient_evidence_keeps_observing(self):
+        box, calls = cpu_failure_box(lambda: ServiceError('Throttling', 429))
+        box.at(1, lambda: setattr(box.x.monitoring, 'get_metric_statistics', lambda **kw: {'Datapoints': []}))
+        rc, out, err = box.cli()
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(len(box.poll_times), 5)
+        self.assertEqual([self.last_diagnostic(l)['disposition'] for l in err.splitlines()], ['retry'])
+        self.assertFalse(box.e.terminated)
+
+    def test_status_reports_metric_failure_as_exit_2(self):
+        box, calls = cpu_failure_box(lambda: ServiceError('Throttling', 429))
+        rc, out, err = box.cli('status', allow_sleep=False)
+        self.refused(box, rc, out, err, 'LIVENESS_UNKNOWN')
+        self.assertEqual(self.last_diagnostic(err)['disposition'], 'retry')
+
+
+def readback_masking_box(operation, cause):
+    """The first matching write fails with `cause` and writes nothing; only its
+    immediate readback then fails transiently."""
+    box = Box()
+    put, get = box.s.put_object, box.s.get_object
+    state = {'failed': False, 'readback': False, 'attempts': 0}
+    def matches(kw):
+        return terminal_cas(kw) if operation == 'terminal-cas' else kw['Key'].endswith('clean.json')
+    def write(**kw):
+        if matches(kw):
+            state['attempts'] += 1
+            if not state['failed']:
+                state.update(failed=True, readback=True)
+                raise cause()
+        return put(**kw)
+    def read(**kw):
+        target = kw['Key'] == 'active.json' if operation == 'terminal-cas' else kw['Key'].endswith('clean.json')
+        if state['readback'] and target:
+            state['readback'] = False
+            raise ServiceError('SlowDown', 503)
+        return get(**kw)
+    box.s.put_object, box.s.get_object = write, read
+    return box, state
+
+
+class WriteReadbackTests(Checks):
+    """A transient readback never replaces a permanent write cause."""
+
+    def test_permanent_write_cause_survives_transient_readback(self):
+        for operation, reason in (('record', 'RECORD_WRITE_UNKNOWN'), ('terminal-cas', 'ACTIVE_CONFLICT')):
+            for name, cause, expected in (('access-denied', lambda: ServiceError('AccessDenied', 403), reason),
+                                          ('missing-credentials', lambda: sdk_type('NoCredentialsError')(PRIVATE), 'AUTH_UNAVAILABLE')):
+                with self.subTest(operation=operation, cause=name):
+                    box, state = readback_masking_box(operation, cause)
+                    rc, out, err = box.cli(allow_sleep=False)
+                    self.refused(box, rc, out, err, expected, polls=1)
+                    self.assertEqual(state['attempts'], 1)
+                    self.assertEqual(box.register()['phase'], 'INTENT')
+
+    def test_transient_write_with_transient_readback_still_retries(self):
+        for operation in ('record', 'terminal-cas'):
+            with self.subTest(operation=operation):
+                box, state = readback_masking_box(operation, lambda: ServiceError('ServiceUnavailable', 503))
+                rc, out, err = box.cli()
+                self.passed(box, rc, out, err, polls=2)
+                self.assertEqual(state['attempts'], 2)
+
+    def test_exact_readback_still_resolves_a_permanent_write_error(self):
+        for operation in ('record', 'terminal-cas'):
+            with self.subTest(operation=operation):
+                box = Box(); put = box.s.put_object
+                match = terminal_cas if operation == 'terminal-cas' else key_is('clean.json')
+                def lost(**kw):
+                    result = put(**kw)
+                    if match(kw):
+                        raise ServiceError('AccessDenied', 403)
+                    return result
+                box.s.put_object = lost
+                rc, out, err = box.cli(allow_sleep=False)
+                self.passed(box, rc, out, err, polls=1)
+
+
+class ReviewControls(Checks):
+    """Controls kept from the review: strict refusal and shutdown convergence."""
+
+    def test_ownership_refusal(self):
+        box = Box(); box.i['ClientToken'] = 'wrong'
+        self.refused(box, *box.cli(allow_sleep=False), 'INSTANCE_OWNERSHIP_UNKNOWN')
+
+    def test_shutdown_convergence(self):
+        box = Box(state='shutting-down')
+        box.at(1, lambda: box.i['State'].update(Name='terminated'))
+        self.passed(box, *box.cli(), polls=2)
+
+
 class StubSession:
     """A scripted status() for loop mechanics: each step is a result, an
     exception, or a callable that may advance the fake clock."""
