@@ -4,6 +4,7 @@ import { CdkStack } from '../lib/cdk-stack';
 import * as path from 'path'; // Use * as path
 import * as fs from 'fs';
 import { ProbeBox, ProbeConfig } from '../probeBox';
+import { addLightShadowStack } from '../lightShadow';
 
 interface ExtendedStackProps extends cdk.StackProps {
   domainName?: string; // Make optional since we're not using it initially
@@ -69,3 +70,9 @@ if ([true, 'true'].includes(app.node.tryGetContext('enableProbeBox'))) {
   });
   new ProbeBox(probeStack, 'Box', config);
 }
+// Default-off: LightShadowStack exists only with `-c enableLightShadow=true`.
+addLightShadowStack(app, () => {
+  const filename = process.env.LIGHT_SHADOW_CONFIG;
+  if (!filename) throw new Error('LIGHT_SHADOW_CONFIG is required');
+  return JSON.parse(fs.readFileSync(filename, 'utf8'));
+});
