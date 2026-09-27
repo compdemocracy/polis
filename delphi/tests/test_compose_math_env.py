@@ -127,6 +127,34 @@ def test_delphi_does_not_follow_the_shadow_poller_env():
     assert _environment("docker-compose.yml", "math-python", env)["MATH_ENV"] == "python"
 
 
+BLAS_THREAD_VARS = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")
+
+
+@requires_checkout
+def test_math_poller_pins_blas_threads_but_report_pipeline_does_not():
+    # The poller runs single-threaded BLAS so PCA bits do not depend on thread
+    # count; the delphi report service shares the image and keeps its threads.
+    poller = _environment("docker-compose.yml", "math-python")
+    assert {key: poller.get(key) for key in BLAS_THREAD_VARS} == dict.fromkeys(BLAS_THREAD_VARS, "1")
+    delphi = _environment("docker-compose.yml", "delphi")
+    assert not set(BLAS_THREAD_VARS) & set(delphi)
+
+
+@requires_checkout
+def test_math_python_forwards_the_served_env_override():
+    # scripts/math_poller.py refuses MATH_ENV=prod unless
+    # MATH_POLLER_ALLOW_SERVED_ENV=1; compose must pass the override through
+    # from the stack env, empty (refusing) by default.
+    unset = _environment("docker-compose.yml", "math-python")
+    assert unset.get("MATH_POLLER_ALLOW_SERVED_ENV") == "", (
+        "docker-compose.yml's math-python service must forward "
+        "MATH_POLLER_ALLOW_SERVED_ENV with an empty default"
+    )
+    env = {"MATH_POLLER_ALLOW_SERVED_ENV": "1"}
+    forwarded = _environment("docker-compose.yml", "math-python", env)
+    assert forwarded["MATH_POLLER_ALLOW_SERVED_ENV"] == "1"
+
+
 @requires_checkout
 def test_library_default_matches_the_deployed_stack(monkeypatch):
     # With MATH_ENV unset, docker-compose.yml resolves to `prod`; the library
