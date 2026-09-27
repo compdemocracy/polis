@@ -171,7 +171,7 @@ def profile_repness(votes_csv: Path) -> None:
 @votes_csv_argument
 @runs_option
 @profile_option
-def main(votes_csv: Path, runs: int, profile: bool):
+def main(votes_csv: Path, runs: int, profile: bool) -> None:
     """Benchmark repness computation performance."""
     if profile:
         profile_repness(votes_csv)

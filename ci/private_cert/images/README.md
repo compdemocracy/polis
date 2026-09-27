@@ -1,0 +1,83 @@
+# Certification probe images
+
+These source/image admission tools build the certification reader/producer and
+independent verifier for the [probe box](../../../docs/probe-box.md).
+The old signed-admission, uploaded fixture archive and offline download verifier
+workflow has been removed. Raw recordings and fixtures never leave the box.
+
+`recipe.py` enumerates the reviewed public source closure. `stage.py` checks each
+file against its source commit and SHA256, requires a fresh context, excludes
+ambient/untracked data, and binds engine source to candidate/oracle commits.
+`runtime.Dockerfile` uses reviewed preloaded ARM64 numerical/JVM dependencies;
+no package resolution or network fetch occurs during replay. `export_oci.py` and
+`image_admission.py` distinguish manifest, configuration and archive digests,
+check every blob and source overlay, and require independent review/controls.
+These build tools run after code review/commit; development tests cannot mint
+release source identities. Keep producer and verifier builds independent.
+
+The recipe entrypoint is `ci/private_cert/images/probe.py`. The fixed launcher
+checks its source census and executes isolated Python with a closed argument ABI:
+
+Box extraction loads `delphi/scripts/certify_datasets.probe.json`, the reviewed
+`v3-probe-capture-sample-1-dense-accepted` config (SHA256
+`3ee9dd88ea0a4ebf0a94995978d8012f8d499d81cac8036231458549c833a939`).
+The recipe includes that file in both image source closures. Its exact bytes
+become the local fixture's `config.json`; the manifest and `plan.json` bind its
+SHA256, which the producer and verifier recheck before replay. There is no
+runtime config override. The public `certify_datasets.json` default remains v1
+and does not require a representative-selection report. The probe config enables
+served capture and representative selection, so its manifest requires that report.
+
+- Producer image `extract`: `/replica:ro`, `/output:rw`. The socket-only service
+  reaches the fixed TLS read replica. One read-only snapshot creates the original
+  owned bundle under `/output/.local/fixture` and its input bindings separately.
+- Producer image `produce`: `/fixture:ro`, `/run-spec:ro`, `/output:rw`.
+  Input/schedule digests precede fresh serial Clojure/Python execution. Output
+  contains recordings/process receipts, never a copied fixture directory.
+- Verifier image `verify`: `/fixture:ro`, `/run-spec:ro`, `/evidence:ro`,
+  `/job:ro`, `/verdict:rw`. It independently re-admits fixtures, checks the exact
+  checkpoint/file census, runs certify plus G12 and 21 failing controls, and
+  writes only `polis-probe-receipt/1` or `/2` to `/verdict/receipt.json`.
+
+The closed receipt is an explicit projection of the local detailed gate report;
+no nested raw report is serialized. An optional per-entry `legacy_defects`
+observation names actual legacy defects. Receipt /5 also accepts the name-only
+`legacy-defect-pca-random-restart` observation; its narrow strict/G12 acceptance
+rule and deliberately revised policy digest are in `LEGACY_PCA_POLICY.md`.
+The empty-checkpoint rule is unchanged. `legacy-defect-empty-omits-keys`
+contains a sorted unique subset of the 15 public keys in the committed
+`pc-zerovote-01-empty.json` schedule, including the explicit `pca.center`,
+`pca.comment-projection` and `pca.comment-extremity` leaves.
+`lastVoteTimestamp` is 0 for both engines on an empty conversation, because the
+replay driver floors an empty conversation's clock to 0 exactly as the
+production poller does; it is compared like any other present value.
+The supervisor rejects arbitrary names, keys, values and additional fields;
+absent observations add no receipt field. Python and any present legacy omission
+compute field must equal the declared empty-compute value exactly. The separate
+closed `legacy_absent_moderation: ["mod-in", "mod-out"]` declaration permits
+legacy omission of those dynamic lists only; Python emits sorted lists, and
+present legacy lists compare normally. Both declarations bind recipe/cache identity. The reconciliation
+never applies at nonzero checkpoints. Receipt
+validators on the supervisor and operator must be updated alongside the images.
+Stages and recovery remain diagnostics; this scoped result does not authorize
+writer transfer. The host validates the
+receipt again before the only evidence upload. A future probe supplies a new
+reviewed image/argv pair and the same closed receipt ABI.
+
+Release recipe invocation remains:
+
+```
+python3 ci/private_cert/images/recipe.py --source "$SOURCE" --role producer \
+  --candidate "$CANDIDATE_SHA" --oracle "$ORACLE_SHA" \
+  --policy-sha256 "$POLICY_SHA256" --runtime-image "$RUNTIME_DIGEST_REF" \
+  --out /private/build/producer-recipe.json
+python3 ci/private_cert/images/stage.py --source "$SOURCE" \
+  --recipe /private/build/producer-recipe.json --out /private/build/producer-context
+```
+
+Repeat from the independent verifier source with role `verifier`. Build/export
+with no network/pull and linux/arm64; validate recipes, OCI digests and all image
+admission controls before inserting real digest references into the probe registry.
+An empty registry intentionally admits no jobs until that release work is done.
+The legacy `plan.py` only validates a local original bundle and derives input
+commitments; it grants no launch, data access, signature or export permission.

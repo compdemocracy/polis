@@ -111,7 +111,7 @@ cache: full re-record follows)
 ## Order of work
 
 1. py mod_update (TDD) + ModEvent.is_meta + real_data mod_events + driver
-   legacy mod path (tests with synthetic fixtures).
+   legacy mod path (tests with public-fixture fixtures).
 2. replay.clj batch edit (mod + restart) — ONE edit.
 3. py driver restart_after + schedule field plumbing + certify --comments.
 4. Extractor columns + 2 extractions + battery entries.

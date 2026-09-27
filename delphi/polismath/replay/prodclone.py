@@ -31,7 +31,31 @@ import hashlib
 import json
 import re
 from pathlib import Path
-from typing import Any, Iterable
+from typing import TYPE_CHECKING, Any, Iterable
+
+if TYPE_CHECKING:  # psycopg2 is a runtime dependency of the CALLER, not of this
+    # module: it only ever receives an already-open connection/cursor.
+    from psycopg2.extensions import connection as PgConnection
+    from psycopg2.extensions import cursor as PgCursor
+
+from polismath.utils.vote_convention import (
+    STORAGE_AGREE_VALUE,
+    semantic_vote,
+    validate_storage_agree_value,
+)
+
+
+class NullVoteError(ValueError):
+    """A raw ``votes.vote`` was NULL where an export row was being formatted.
+
+    The export CSV column is parsed as an integer by every consumer
+    (``real_data.load_export_votes`` and the Clojure replay driver), and every
+    integer already means something — 0 is "pass", not "unknown" — so there is
+    no value that can stand in for a NULL. This is a typed refusal raised
+    BEFORE any row is written, not a ``TypeError`` from unary negation partway
+    through a file.
+    """
+
 
 # ---------------------------------------------------------------------------
 # Feature classes + thresholds (module constants — the single source of truth
@@ -154,14 +178,23 @@ def sql_comments_export() -> str:
     """
 
 
-def sql_comment_vote_counts() -> str:
+def sql_comment_vote_counts(
+    storage_agree_value: int = STORAGE_AGREE_VALUE,
+) -> str:
     """Agrees/disagrees per comment, counted over ALL vote rows (including
     revotes) — mirrors server/src/report.ts's sendCommentSummary, which
-    increments per raw vote row with no dedup."""
-    return """
+    increments per raw vote row with no dedup.
+
+    The two predicates are RAW-STORAGE sign tests, so they are derived from the
+    declared convention (``storage_agree_value``, -1 or +1) rather than written
+    as literals: under a flipped storage convention the same SQL with a bare
+    ``vote = -1`` would silently count disagreements as agreements.
+    """
+    agree = validate_storage_agree_value(storage_agree_value)
+    return f"""
         SELECT tid,
-               COUNT(*) FILTER (WHERE vote = -1) AS agrees,
-               COUNT(*) FILTER (WHERE vote = 1) AS disagrees
+               COUNT(*) FILTER (WHERE vote = {agree}) AS agrees,
+               COUNT(*) FILTER (WHERE vote = {-agree}) AS disagrees
         FROM votes
         WHERE zid = %s
         GROUP BY tid
@@ -352,21 +385,44 @@ def format_export_datetime(created_ms: int) -> str:
     )
 
 
-def format_votes_rows(raw_rows: Iterable[dict[str, Any]]) -> list[dict[str, str]]:
+def format_votes_rows(
+    raw_rows: Iterable[dict[str, Any]],
+    *, storage_agree_value: int = STORAGE_AGREE_VALUE,
+) -> list[dict[str, str]]:
     """``raw_rows``: dicts with keys tid, pid, vote (RAW db sign), created (ms).
     Returns export-format row dicts, one per input row, in the SAME order —
-    no sorting, no dedup (full revote history survives verbatim). The vote
-    sign is flipped (raw AGREE=-1 -> export +1), mirroring the production
-    export's ``String(-row.vote)``."""
+    no sorting, no dedup (full revote history survives verbatim).
+
+    The vote column is converted from the DECLARED raw storage convention to
+    the export/semantic one (``raw × storage_agree_value``: AGREE -> +1),
+    mirroring the production export's ``String(-row.vote)`` at the default
+    ``storage_agree_value = -1``. The export convention itself is FIXED
+    (agree = +1) and does not move with storage — an export row is already
+    semantic input and must never be negated a second time.
+    """
+    agree = validate_storage_agree_value(storage_agree_value)
     out = []
     for row in raw_rows:
+        if row["vote"] is None:
+            # votes.vote is nullable. The export column is parsed as an integer
+            # by every consumer, so there is no honest CSV representation of an
+            # unknown vote: refuse loudly instead of raising TypeError from
+            # unary negation halfway through writing the file. Callers that have
+            # a declared policy filter first (see
+            # fixture_extract.compat_rows_from_events).
+            raise NullVoteError(
+                f"votes.vote is NULL for (tid={row.get('tid')}, "
+                f"pid={row.get('pid')}, created={row.get('created')}); the "
+                "compatibility CSV has no representation for it and must not "
+                "invent one. Apply an explicit NULL-vote policy before "
+                "formatting.")
         created = row["created"]
         out.append({
             "timestamp": str(created // 1000),
             "datetime": format_export_datetime(created),
             "comment-id": str(row["tid"]),
             "voter-id": str(row["pid"]),
-            "vote": str(-row["vote"]),
+            "vote": str(semantic_vote(row["vote"], agree)),
         })
     return out
 
@@ -464,37 +520,37 @@ def save_prodclone_map(path: Path, data: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _rows_as_dicts(cur) -> list[dict[str, Any]]:
+def _rows_as_dicts(cur: PgCursor) -> list[dict[str, Any]]:
     columns = [d[0] for d in cur.description]
     return [dict(zip(columns, row)) for row in cur.fetchall()]
 
 
-def fetch_conversation_stats(conn) -> list[dict[str, Any]]:
+def fetch_conversation_stats(conn: PgConnection) -> list[dict[str, Any]]:
     """Run :func:`sql_conversation_stats` and return one dict per conversation."""
     with conn.cursor() as cur:
         cur.execute(sql_conversation_stats())
         return _rows_as_dicts(cur)
 
 
-def fetch_votes(conn, zid: int) -> list[dict[str, Any]]:
+def fetch_votes(conn: PgConnection, zid: int) -> list[dict[str, Any]]:
     with conn.cursor() as cur:
         cur.execute(sql_votes_export(), (zid,))
         return _rows_as_dicts(cur)
 
 
-def fetch_comments(conn, zid: int) -> list[dict[str, Any]]:
+def fetch_comments(conn: PgConnection, zid: int) -> list[dict[str, Any]]:
     with conn.cursor() as cur:
         cur.execute(sql_comments_export(), (zid,))
         return _rows_as_dicts(cur)
 
 
-def fetch_comment_vote_counts(conn, zid: int) -> dict[int, tuple[int, int]]:
+def fetch_comment_vote_counts(conn: PgConnection, zid: int) -> dict[int, tuple[int, int]]:
     with conn.cursor() as cur:
         cur.execute(sql_comment_vote_counts(), (zid,))
         return {row["tid"]: (row["agrees"], row["disagrees"]) for row in _rows_as_dicts(cur)}
 
 
-def run_survey(conn, limit: int) -> dict[str, Any]:
+def run_survey(conn: PgConnection, limit: int) -> dict[str, Any]:
     """Fetch stats for every conversation, classify, and return the full
     survey result (candidates per feature + size-class counts + the
     threshold constants used, for the audit-trail JSON)."""
@@ -515,7 +571,7 @@ def run_survey(conn, limit: int) -> dict[str, Any]:
 
 
 def run_extract(
-    conn, *, zid: int, feature: str, out_root: Path, map_path: Path | None = None,
+    conn: PgConnection, *, zid: int, feature: str, out_root: Path, map_path: Path | None = None,
 ) -> dict[str, Any]:
     """Extract one conversation's votes + comments into
     ``<out_root>/.local/<fake-prefix>-<slug>/`` and merge-update

@@ -1,0 +1,37 @@
+# Standalone opt-in shape. No image build, pull, or running replica by default.
+services:
+  shadow-scheduler:
+    profiles: [shadow-daily]
+    image: ${SHADOW_SCHEDULER_IMAGE:-polis/shadow-scheduler:unadmitted}
+    pull_policy: never
+    deploy:
+      replicas: 0
+    entrypoint: [python3, -B, /opt/polis/coordinator-rs/tools/shadow/scheduler.py]
+    command: [run, --enable, --profile, /run/shadow/schedule.json, --state, /var/lib/polis-shadow]
+    init: true
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777,noexec,nosuid,nodev
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    network_mode: host
+    restart: "no"
+    stop_grace_period: 40s
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - type: bind
+        source: ${SHADOW_PRIVATE_DIRECTORY:-./private-shadow}
+        target: /run/shadow
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${SHADOW_STATE_DIRECTORY:-./shadow-state}
+        target: /var/lib/polis-shadow
+        bind: {create_host_path: false}
+      - type: bind
+        source: /etc/machine-id
+        target: /etc/machine-id
+        read_only: true
+        bind: {create_host_path: false}

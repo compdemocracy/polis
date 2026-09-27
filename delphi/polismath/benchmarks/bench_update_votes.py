@@ -82,7 +82,7 @@ def benchmark_update_votes(votes_csv: Path, runs: int = 3) -> dict:
 @click.command()
 @votes_csv_argument
 @runs_option
-def main(votes_csv: Path, runs: int):
+def main(votes_csv: Path, runs: int) -> None:
     """Benchmark update_votes performance."""
     benchmark_update_votes(votes_csv, runs)
 

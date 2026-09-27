@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polis-candidate-admission/1",
+  "description": "P-026 S1 local admission tuple. Expected digests and operation id must also equal the coordinator request. This is not polis-input/1 or a G01-G16 certificate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "candidate_schema",
+    "engine_version",
+    "input_digest",
+    "schedule_digest",
+    "operation_id"
+  ],
+  "properties": {
+    "candidate_schema": {
+      "const": "polis-candidate-input/1"
+    },
+    "engine_version": {
+      "const": "python-conversation/p026-s1"
+    },
+    "input_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "schedule_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "operation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}

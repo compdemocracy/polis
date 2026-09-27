@@ -28,7 +28,7 @@ class ConversationManager:
     Manages multiple Pol.is conversations.
     """
     
-    def __init__(self, data_dir: Optional[str] = None):
+    def __init__(self, data_dir: Optional[str] = None) -> None:
         """
         Initialize a conversation manager.
         

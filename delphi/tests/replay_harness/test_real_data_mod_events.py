@@ -3,7 +3,7 @@ comments CSV when it carries the moderation-history columns
 (MOD_RESTART_PORT_SPEC.md "Python ports" item 3: modified->t_ms,
 comment-id->tid, moderated->mod, is-meta->is_meta).
 
-Synthetic fixtures only, written under ``tmp_path`` with ``REAL_DATA_ROOT``
+Public-fixture fixtures only, written under ``tmp_path`` with ``REAL_DATA_ROOT``
 monkeypatched — never touches ``real_data/.local``.
 """
 

@@ -14,7 +14,7 @@ def clustering_engine():
 @pytest.fixture
 def sample_embeddings():
     """Create sample embeddings for testing."""
-    # Create synthetic embeddings with clear clusters
+    # Create public-fixture embeddings with clear clusters
     np.random.seed(42)
     
     # Create three clusters

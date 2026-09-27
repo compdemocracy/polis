@@ -61,7 +61,7 @@ and bugs. Pre-2020 commits are direct pushes in the standalone `polisMath` repo 
 | 2017-09-12 | X | `5b44be232` | — | Comment-extremity = L2 norm of projection | extremity defined |
 | 2017-10-21 | P/N | `90b5b9e62` | — | Missing-vote fill **0→column-mean**; `raw-rating-mat` split | **silent** numeric shift to PCA + all vote stats |
 | 2017-11-30 | N | `3bd581fba` | — | group-aware-consensus introduced | cross-group agreement |
-| 2017-12-06 | P | `31dcb5eb5` | — | Comment synthetic vote **+1→−1** | flips comment polarity; **last Clojure PCA algo change** |
+| 2017-12-06 | P | `31dcb5eb5` | — | Comment unit vote **+1→−1** | flips comment polarity; **last Clojure PCA algo change** |
 | 2017-12-08 | C | `e07aec5ac` | — | base-kmeans iters key fix (ran 20 not 10) | numeric change to base clusters |
 | 2017-12-30 | N | `01e7bb280` | — | consensus pseudocount `A/(S+1)→(A+1)/(S+2)` | numeric change |
 | **2018-01-17** | **R** | `40a180563`/`4d6de6651` | — | **Priority routing introduced** (server `selectProbabilistically` + math `importance-metric`) | **uniform → priority-weighted** |
@@ -90,7 +90,7 @@ Hand-rolled power iteration (2013), mean-centering (`f058e3782`), warm-start acr
 updates, port to `core.matrix`/vectorz (`a220921b5`, 2014). The defining shift:
 **sparsity-aware participant projection** (`36ab1e7c0`, 2014-10-02) — projects only voted
 comments and rescales by √(n_cmt/n_vote); still current. Comment projection added 2017
-(`f66cfe086`), finalized by flipping the synthetic vote +1→−1 (`31dcb5eb5`, 2017-12-06,
+(`f66cfe086`), finalized by flipping the unit vote +1→−1 (`31dcb5eb5`, 2017-12-06,
 the **last** Clojure PCA algo change). Config frozen since 2014: `n-comps=2`,
 `pca-iters=100`, warm-started from the previous run.
 **Bug/quirk:** non-deterministic component **sign** from random cold-start init

@@ -44,7 +44,7 @@ To set up MinIO:
 3. Run the setup script to create the bucket:
 
    ```
-   python delphi/setup_minio_bucket.py
+   python delphi/setup_minio.py
    ```
 
 4. You can access the MinIO web interface at http://localhost:9001 with the credentials:

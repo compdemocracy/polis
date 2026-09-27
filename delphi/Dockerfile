@@ -75,6 +75,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 FROM python:3.12-slim AS final
 
 ENV PYTHONDONTWRITEBYTECODE=1
+# Single-threaded BLAS, matching the coordinator and probe box, for stable PCA bits.
+ENV OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
 ENV PYTHONUNBUFFERED=1
 ENV AWS_REGION=${AWS_REGION:-us-east-1}
 

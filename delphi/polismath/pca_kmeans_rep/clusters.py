@@ -21,7 +21,7 @@ class Cluster:
     def __init__(self, 
                 center: np.ndarray, 
                 members: Optional[List[int]] = None,
-                id: Optional[int] = None):
+                id: Optional[int] = None) -> None:
         """
         Initialize a cluster with a center and optional members.
         

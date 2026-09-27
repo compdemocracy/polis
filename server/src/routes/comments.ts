@@ -289,8 +289,17 @@ function moderateCommentQuery(
   is_meta: any
 ) {
   return new Promise((resolve, reject) => {
+    // `modified` is the only signal either math engine has that a comment's
+    // moderation state changed: both pollers discover moderation with a strict
+    // `modified > watermark` query (`math/src/polismath/components/postgres.clj`
+    // and `delphi/polismath/database/postgres.py`). The column has an INSERT
+    // default of `now_as_millis()` and no update trigger, so an UPDATE that
+    // leaves it alone re-moderates the row invisibly: once the row's original
+    // timestamp is at or behind the watermark, the engine never sees the new
+    // `mod`/`active`/`is_meta` until a full reload. Stamp it in the same
+    // statement so the state and its timestamp can never diverge.
     const query =
-      "UPDATE comments SET active = $1, mod = $2, is_meta = $3 WHERE zid = $4 AND tid = $5";
+      "UPDATE comments SET active = $1, mod = $2, is_meta = $3, modified = now_as_millis() WHERE zid = $4 AND tid = $5";
     const params = [active, mod, is_meta, zid, tid];
 
     logger.debug("Executing query:", { query });

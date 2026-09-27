@@ -2,7 +2,7 @@
 
 # Scaling Polis
 
-The [⚡ Running Polis](/#-running-polis) instructions in the main README set up a system with only a single running instance of the polis-server container.
+The [⚡ Running Polis](/#-running-polis) instructions in the main README set up a system with only a single running instance of the `server` service ([Compose:52](../docker-compose.yml#L52)).
 For very small engagements of a few hundred participants, this may be sufficient.
 But for even moderate scale in terms of size and number of concurrent conversations, it will be necessary to run multiple polis-server instances to handle the number of web requests.
 
@@ -10,7 +10,7 @@ But for even moderate scale in terms of size and number of concurrent conversati
 
 #### On a single machine
 
-The simplest way to do this is to run `docker compose up` with option `--scale polis-server=N`.
+Compose's replica option uses the current service name: `docker compose up --scale server=N`. Review the selected overlays, fixed host-port mappings and reverse-proxy routing before using multiple replicas; the root [service definition](../docker-compose.yml#L52) is the source for this topology.
 Typically, this would be run on a single machine, and thus for even moderate scale requires that the machine being deployed on have room to accomodate running a large number of containers, and an active math worker.
 This complicates the process of adjusting in real time to changing demand in a cost and resource effective manner.
 
@@ -19,13 +19,12 @@ But for deployments which expect exceptionally high, uneven and/or unpredictable
 
 #### Docker Compose over Docker Swarm
 
-Docker Compose is now supposed to be able to deploy to swarm environments (such as AWS, Azure or Google) via Docker Swarm.
-We have not yet tested this or fully explored it's limitations, but recommend this as the first option to consider if running Polis on a single machine is not tenable for you.
+This section records the historical Docker Swarm exploration. The checked-in [Compose file](../docker-compose.yml) and [CDK entry point](../cdk/bin/cdk.ts#L21) do not establish a tested Swarm deployment procedure; the current CDK capacity reference is below. Preserve this as context for evaluating a separate deployment topology, not a claim that the Compose development setup is already validated on Swarm.
 
 What's most uncertain at present is whether it will be possible to automatically scale servers based on demand.
-However, once Docker Compose has been set up to run on Docker Cloud, you should be able to scale server nodes quickly with `docker compose --scale polis-server=N`.
+A local Compose `--scale server=N` operation is distinct from a Swarm service update. No Docker Cloud or demand-based Swarm autoscaling workflow is validated by the current source.
 
-**Note**: this functionality is not supported in the deprecated `docker-compose` tool (see description in previous section), but will require you to use `docker compose`.
+**Note**: use the Compose command documented by the selected deployment tooling. The choice of `docker compose` spelling alone does not establish Swarm compatibility.
 
 #### Scaling to the limits
 
@@ -33,14 +32,14 @@ For Polis to scale  it's most performant potential, you may need to consider add
 
 Alternative solutions you might consider:
 
-* we presently [deploy with Heroku](https://github.com/compdemocracy/polis/wiki/Deploying-with-Heroku) 
+* the historical [Heroku deployment guide](https://github.com/compdemocracy/polis/wiki/Deploying-with-Heroku)
 * there has been some preliminary work to [run Polis using Kubernetes](https://github.com/compdemocracy/polis/pull/1399) (most of the remaining work has to do with [configuration](https://github.com/compdemocracy/polis/pull/1341))
 
-These solutions will allow you to take advantage of the underlying Docker infrastructure, sans Docker Compose.
+These are alternative deployment approaches to evaluate against the actual service requirements; the links are historical context, not a statement of current hosting or supported capacity.
 That having been said, we'd like to be able to [support scalable deployments out of the box](https://github.com/compdemocracy/polis/issues/1352), and are happy to accept pull requests which get us closer to this goal.
 
 With all that out of the way, deploying a small Polis instance using the docker-compose infrastructure looks more or less like the development environment setup below, with one exception: Instead of running `docker compose -f docker-compose.yml -f docker-compose.dev.yml ...`, you run `docker compose -f docker-compose.yml ...` (or simply `docker compose`, since `-f` defaults to `docker-compose.yml`).
-Any configuration options which are explicitly for development are placed in the `docker-compose.dev.yml` overlay, and can be omitted in production.
+The development overlay contains development-specific settings, but simply omitting it is not a complete production configuration. Review [Makefile profile/overlay selection](../Makefile#L19), [TLS](ssl.md), and [deployment configuration](deployment-configuration.md).
 
 
 ## Provisioning compute power for the math worker
@@ -57,3 +56,21 @@ Unfortunately, scaling the size of a worker node is not typically very easy, but
 
 
 </br>
+
+## Current CDK capacity reference
+
+These are checked-in CDK defaults at source snapshot `0985a1a58`; they do not establish the capacity currently deployed. Environment and service inputs are in [deployment configuration](deployment-configuration.md).
+
+| Tier | Instance type | Minimum / desired / maximum | Source |
+| --- | --- | --- | --- |
+| Web | `t3.medium` | 2 / 2 / 10 | [instance type](../cdk/ec2.ts#L3), [ASG](../cdk/autoscaling.ts#L46) |
+| Clojure math | `r8g.2xlarge` | 1 / 1 / 1 | [instance type](../cdk/ec2.ts#L8), [ASG](../cdk/autoscaling.ts#L57) |
+| Delphi small | `c7i.2xlarge` | 1 / 1 / 7 | [instance type](../cdk/ec2.ts#L14), [ASG](../cdk/autoscaling.ts#L72) |
+| Delphi large | `c7i.8xlarge` | 0 / 0 / 3 | [instance type](../cdk/ec2.ts#L20), [ASG](../cdk/autoscaling.ts#L90) |
+| Ollama, when enabled | `g4dn.xlarge` | 1 / 1 / 3 | [instance type](../cdk/ec2.ts#L26), [ASG](../cdk/autoscaling.ts#L26) |
+
+Ollama infrastructure is off by default via `CDK_ENABLE_OLLAMA`; see [entry point](../cdk/bin/cdk.ts#L39). Delphi CPU target tracking targets 60%; the separate high-CPU alarm threshold is 80%. Those are not symmetric scale-in/scale-out thresholds. See [scaling policy and alarms](../cdk/autoscaling.ts#L129).
+
+The legacy math ASG is capped at one because another instance would repeat work and writes. The Python poller validates explicit shard index/count settings; it is not made safely parallel merely by duplicating the container. See [math cap](../cdk/autoscaling.ts#L62) and [Python shard validation](../delphi/polismath/poller/service.py#L201).
+
+Delphi's worker classification still sends conversations above 5,000 comments to the large class. A large-tier desired capacity of zero therefore matters to routing; see [job classification](../delphi/scripts/job_poller.py#L696). The import-worker ECS service has desired count zero and separate queue-based scaling rules in [import-worker-service](../cdk/lib/import-worker-service.ts#L93).

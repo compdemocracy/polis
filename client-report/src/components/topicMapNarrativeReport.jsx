@@ -53,7 +53,7 @@ export default ({ conversation, report_id, ptptCountTotal, math, computeVoteTota
         </div>
         <div style={{ flex: 1, minWidth: "200px", border: "1px solid #333", padding: "1rem", textAlign: "center"}}>
           <h3>Comments</h3>
-          <p style={{ fontFamily: "'VT323', monospace", fontSize: "2.5rem", margin: 0}}>{math["n-cmts"]}</p>
+          <p style={{ fontFamily: "'VT323', monospace", fontSize: "2.5rem", margin: 0}}>{math["n-cmts"] ?? 0}</p>
         </div>
         <div style={{ flex: 1, minWidth: "200px", border: "1px solid #333", padding: "1rem", textAlign: "center"}}>
           <h3>Votes</h3>
@@ -61,7 +61,7 @@ export default ({ conversation, report_id, ptptCountTotal, math, computeVoteTota
         </div>
         <div style={{ flex: 1, minWidth: "200px", border: "1px solid #333", padding: "1rem", textAlign: "center"}}>
           <h3>Opinion Groups</h3>
-          <p style={{ fontFamily: "'VT323', monospace", fontSize: "2.5rem", margin: 0}}>{math["group-clusters"].length}</p>
+          <p style={{ fontFamily: "'VT323', monospace", fontSize: "2.5rem", margin: 0}}>{(math["group-clusters"] || []).length}</p>
         </div>
       </section>
       <TopicsVizReport report_id={report_id} />

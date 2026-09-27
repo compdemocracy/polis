@@ -1,7 +1,6 @@
-import { getPca } from "./pca";
-import { ParticipantOption } from "../d";
 import pg from "../db/pg-query";
 import Config from "../config";
+import { getMathBundle, pidsForGid } from "./mathBundle";
 
 export function getBidIndexToPidMapping(zid: number, math_tick: number) {
   math_tick = math_tick || -1;
@@ -22,40 +21,37 @@ export function getBidIndexToPidMapping(zid: number, math_tick: number) {
     });
 }
 
-export function getPidsForGid(zid: number, gid: number, math_tick: number) {
-  return Promise.all([
-    getPca(zid, math_tick),
-    getBidIndexToPidMapping(zid, math_tick),
-  ]).then(function (o: ParticipantOption[]) {
-    if (!o[0] || !o[0].asPOJO) {
-      return [];
-    }
-    o[0] = o[0].asPOJO;
-    const clusters = o[0]["group-clusters"];
-    const indexToBid = o[0]["base-clusters"].id; // index to bid
-    const bidToIndex = [];
-    for (let i = 0; i < indexToBid.length; i++) {
-      bidToIndex[indexToBid[i]] = i;
-    }
-    const indexToPids = o[1].bidToPid; // actually index to [pid]
-    const cluster = clusters[gid];
-    if (!cluster) {
-      return [];
-    }
-    const members = cluster.members; // bids
-    let pids: any[] = [];
-    for (let i = 0; i < members.length; i++) {
-      const bid = members[i];
-      const index = bidToIndex[bid];
-      const morePids = indexToPids ? indexToPids[index] : null;
-      if (morePids) Array.prototype.push.apply(pids, morePids);
-    }
-    pids = pids.map(function (x) {
-      return parseInt(x);
-    });
-    pids.sort(function (a, b) {
-      return a - b;
-    });
-    return pids;
-  });
+/**
+ * The participants of one group.
+ *
+ * This used to be `Promise.all([getPca(...), getBidIndexToPidMapping(...)])`:
+ * two statements, two snapshots, and a publication landing between them
+ * produced an old `base-clusters.id` indexed with a new `bidToPid`. Base
+ * cluster ids are reused across generations, so that torn join returned a
+ * plausible but wrong participant list rather than an error.
+ *
+ * It now reads one immutable Bundle and joins inside it. The observable
+ * results are unchanged for every coherent generation; the outcomes that used
+ * to be reachable only by tearing are gone.
+ *
+ * `[]` is returned when there is no math, when the Bundle fails admission, and
+ * when the requested generation is not newer -- the same empty answer the
+ * two-read version produced in each of those cases.
+ */
+export async function getPidsForGid(
+  zid: number,
+  gid: number,
+  math_tick: number
+): Promise<number[]> {
+  // `undefined` meant "latest" to both of the previous reads: `getPca` floors
+  // an absent tick at -1 and `getBidIndexToPidMapping` does `math_tick || -1`.
+  const requested = typeof math_tick === "number" ? math_tick : -1;
+  const read = await getMathBundle(zid);
+  if (!read.present || !read.admitted) {
+    return [];
+  }
+  if (read.bundle.mathTick <= requested) {
+    return [];
+  }
+  return pidsForGid(read.bundle, gid);
 }

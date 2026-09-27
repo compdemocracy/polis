@@ -3,7 +3,7 @@
 Verifies the shim that lets the EXISTING
 :func:`polismath.replay.stepcompare.compare_recordings` diff a Clojure
 recording (``clj/step-NNN.blob.json`` — the raw ``prep-main`` blob) against a
-Python one, without touching production code. Uses synthetic blobs only — no
+Python one, without touching production code. Uses public-fixture blobs only — no
 Clojure toolchain, so it stays in the fast delphi suite.
 
 The real cross-language gap measurement (Clojure driver vs Python driver on the

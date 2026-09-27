@@ -40,8 +40,10 @@ class VoteEvent:
     t_ms: int
     pid: int
     tid: int
-    sign: int
+    sign: int | None
     is_revote: bool
+    weight_x_32767: int | None = None
+    source_ord: int | None = None
 
 
 @dataclass(frozen=True)
@@ -90,6 +92,9 @@ class ReplayDataset:
     # no moderation-history columns at all (nothing was skipped — there was
     # nothing to parse).
     mod_events_skipped: int = 0
+    # None means compatibility input; an empty tuple is an authoritative
+    # empty stream. Keep those distinct for source-state replay admission.
+    input_events: tuple[dict, ...] | None = None
 
     @property
     def n(self) -> int:
@@ -149,11 +154,12 @@ class ReplayDataset:
             strict_moderation=strict_moderation,
         )
 
-    def validate_schedule(self, schedule: Schedule) -> None:
-        prev = 0
+    def validate_schedule(self, schedule: Schedule, *, allow_zero: bool = False) -> None:
+        minimum = 0 if allow_zero else 1
+        prev = minimum - 1
         for s in schedule:
-            if not 1 <= s <= self.n:
-                raise ValueError(f"cut slot {s} outside 1..{self.n}")
+            if not minimum <= s <= self.n:
+                raise ValueError(f"cut slot {s} outside {minimum}..{self.n}")
             if s <= prev:
                 raise ValueError(f"schedule not strictly increasing at slot {s}")
             prev = s

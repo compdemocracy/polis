@@ -41,6 +41,13 @@ describe("math_env namespace isolation", () => {
       "insert into math_ptptstats (zid, math_env, data, math_tick) values ($1, $2, $3, $4)",
       [zid, env, { sentinel: env }, tick]
     );
+    // Every writer mints its generation from math_ticks and publishes the three
+    // payload rows at it, so a fixture without this row is not a state
+    // production can reach -- and the coherent Bundle reader refuses it.
+    await pool.query(
+      "insert into math_ticks (zid, math_env, math_tick, caching_tick) values ($1, $2, $3, $3)",
+      [zid, env, tick]
+    );
   }
 
   async function setTick(env: string, tick: number) {
@@ -48,6 +55,13 @@ describe("math_env namespace isolation", () => {
       "update math_main set math_tick = $1, caching_tick = $1 where zid = $2 and math_env = $3",
       [tick, zid, env]
     );
+    // A publication moves every row of the generation together.
+    for (const table of ["math_bidtopid", "math_ptptstats", "math_ticks"]) {
+      await pool.query(
+        `update ${table} set math_tick = $1 where zid = $2 and math_env = $3`,
+        [tick, zid, env]
+      );
+    }
   }
 
   beforeEach(async () => {
@@ -68,6 +82,7 @@ describe("math_env namespace isolation", () => {
       "math_main",
       "math_bidtopid",
       "math_ptptstats",
+      "math_ticks",
       "conversations",
     ]) {
       await pool.query(`delete from ${table} where zid = $1`, [zid]);

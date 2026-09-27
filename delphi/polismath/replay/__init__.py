@@ -9,7 +9,7 @@ Two overlapping efforts share this package:
   :mod:`driver`, :mod:`store`, :mod:`stepcompare`.
 - **R2 schedule inference** — posterior inference of the *latent* recompute
   schedule of a historic conversation. Modules (added on the R2 branch): dp,
-  emission, correction, scan, physics, weights, synthetic, experiments.
+  emission, correction, scan, physics, weights, public-fixture, experiments.
 
 The shared foundation is :mod:`types` (event/dataset types) and
 :mod:`real_data` (export-CSV loader), lifted verbatim from the R2 branch so a

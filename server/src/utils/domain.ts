@@ -316,28 +316,66 @@ async function setDomainWhitelist(
   uid: number,
   newWhitelist: string
 ): Promise<void> {
-  // Check if record exists first
-  const rows = (await pg.queryP(
-    "select * from site_domain_whitelist where site_id = (select site_id from users where uid = ($1));",
-    [uid]
-  )) as any[];
+  // site_domain_whitelist has no unique constraint on site_id
+  // (server/postgres/migrations/000000_initial.sql), so this cannot be written
+  // as a single INSERT ... ON CONFLICT (site_id) DO UPDATE. Instead run the
+  // check-then-write on one dedicated connection inside one transaction, and
+  // take a row lock with FOR UPDATE: pool-level pg.queryP() picks a different
+  // connection per call, so the old sequence had no isolation at all and two
+  // concurrent updates to the same site could interleave freely.
+  const client = await pg.connect();
+  // Set only when cleanup fails. A ROLLBACK that does not complete can leave
+  // the connection inside an aborted transaction, and a plain release() would
+  // return it to the pool for the next borrower to fail every query on with
+  // 25P02. Passing a truthy argument to release() destroys the client instead.
+  let releaseError: Error | true | undefined;
+  try {
+    await client.query("BEGIN");
 
-  if (!rows || !rows.length) {
-    // Insert new record
-    await pg.queryP(
-      "insert into site_domain_whitelist (site_id, domain_whitelist) values ((select site_id from users where uid = ($1)), $2);",
-      [uid, newWhitelist]
+    // Check if record exists first, locking it against a concurrent writer.
+    const existing = await client.query(
+      "select site_id from site_domain_whitelist where site_id = (select site_id from users where uid = ($1)) for update;",
+      [uid]
     );
-  } else {
-    // Update existing record
-    await pg.queryP(
-      "update site_domain_whitelist set domain_whitelist = ($2) where site_id = (select site_id from users where uid = ($1));",
-      [uid, newWhitelist]
-    );
+
+    if (!existing.rows.length) {
+      // Insert new record
+      await client.query(
+        "insert into site_domain_whitelist (site_id, domain_whitelist) values ((select site_id from users where uid = ($1)), $2);",
+        [uid, newWhitelist]
+      );
+    } else {
+      // Update existing record
+      await client.query(
+        "update site_domain_whitelist set domain_whitelist = ($2) where site_id = (select site_id from users where uid = ($1));",
+        [uid, newWhitelist]
+      );
+    }
+
+    await client.query("COMMIT");
+  } catch (err) {
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackErr) {
+      releaseError = rollbackErr instanceof Error ? rollbackErr : true;
+      logger.error("Failed to roll back domain whitelist write", rollbackErr);
+    }
+    // Rethrow the original error, not the cleanup failure: callers dispatch on
+    // it and the response must not change.
+    throw err;
+  } finally {
+    client.release(releaseError);
   }
 }
 
 async function getDomainWhitelist(uid: number): Promise<string> {
+  // Deliberately left unordered. Without a unique constraint on site_id a site
+  // can hold duplicate rows, and this is not the only reader of them:
+  // isParentDomainWhitelisted runs its own unordered SELECT for enforcement.
+  // Ordering just this one would make the settings screen show a row that
+  // enforcement is not using. Making both deterministic is a real change in
+  // behaviour on duplicate data, so it belongs with the dedupe + UNIQUE
+  // (site_id) migration, not here.
   const rows = await pg.queryP(
     `SELECT domain_whitelist 
      FROM site_domain_whitelist 

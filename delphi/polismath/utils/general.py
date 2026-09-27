@@ -8,52 +8,76 @@ from the original Clojure codebase.
 import numpy as np
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
+from polismath.utils.vote_convention import (
+    STORAGE_AGREE_VALUE,
+    semantic_vote,
+    storage_vote,
+)
+
 T = TypeVar('T')
 U = TypeVar('U')
 
+#: SEMANTIC vote meaning (Delphi's internal convention), not the configurable
+#: storage convention. These stay fixed through any storage flip; the sign that
+#: moves is polismath.utils.vote_convention.STORAGE_AGREE_VALUE.
 AGREE = 1
 DISAGREE = -1
 PASS = 0
 
 
-def postgres_vote_to_delphi(pg_vote: Union[int, float]) -> Union[int, float]:
+def postgres_vote_to_delphi(
+    pg_vote: Union[int, float],
+    storage_agree_value: int = STORAGE_AGREE_VALUE,
+) -> Union[int, float]:
     """
-    Convert PostgreSQL vote convention to Delphi convention.
+    Convert a RAW PostgreSQL vote to the Delphi (semantic) convention.
 
-    PostgreSQL/Server/Client use: AGREE=-1, DISAGREE=+1, PASS=0
+    PostgreSQL/Server/Client use: AGREE=storage_agree_value (today -1)
     Delphi uses:                  AGREE=+1, DISAGREE=-1, PASS=0
 
     This function should be called at every PostgreSQL data ingress boundary
     to ensure Delphi code receives votes in the expected convention.
 
-    The sign flip is: vote * -1
-    - PostgreSQL AGREE (-1) → Delphi AGREE (+1)
-    - PostgreSQL DISAGREE (+1) → Delphi DISAGREE (-1)
+    The conversion is ``pg_vote * storage_agree_value`` — the single formula
+    P-022-G rev4 pins, read from the one authoritative definition
+    (``polismath.utils.vote_convention``) rather than restating a literal:
+    - PostgreSQL AGREE (s) → Delphi AGREE (+1)
+    - PostgreSQL DISAGREE (-s) → Delphi DISAGREE (-1)
     - PostgreSQL PASS (0) → Delphi PASS (0) [unchanged]
 
     Args:
-        pg_vote: Vote value from PostgreSQL (-1=agree, +1=disagree, 0=pass)
+        pg_vote: Raw vote value from PostgreSQL
+        storage_agree_value: the DECLARED raw storage sign of AGREE, -1 or +1.
+            Defaults to the authoritative constant; a caller replaying a
+            derived paired fixture declares the other one. NULL is refused,
+            never coerced to pass.
 
     Returns:
         Vote value in Delphi convention (+1=agree, -1=disagree, 0=pass)
     """
-    return pg_vote * -1
+    return semantic_vote(pg_vote, storage_agree_value)
 
 
-def delphi_vote_to_postgres(delphi_vote: Union[int, float]) -> Union[int, float]:
+def delphi_vote_to_postgres(
+    delphi_vote: Union[int, float],
+    storage_agree_value: int = STORAGE_AGREE_VALUE,
+) -> Union[int, float]:
     """
-    Convert Delphi vote convention to PostgreSQL convention.
+    Convert a Delphi (semantic) vote to the RAW PostgreSQL convention.
 
     This is the inverse of postgres_vote_to_delphi() and should be used
-    if Delphi ever needs to write vote data back to PostgreSQL.
+    if Delphi ever needs to write vote data back to PostgreSQL. Multiplication
+    by ``storage_agree_value`` is its own inverse, so the two directions share
+    one formula and differ only in what they mean at the boundary.
 
     Args:
         delphi_vote: Vote value in Delphi convention (+1=agree, -1=disagree, 0=pass)
+        storage_agree_value: the DECLARED raw storage sign of AGREE, -1 or +1.
 
     Returns:
-        Vote value for PostgreSQL (-1=agree, +1=disagree, 0=pass)
+        Raw vote value for PostgreSQL (AGREE=storage_agree_value)
     """
-    return delphi_vote * -1
+    return storage_vote(delphi_vote, storage_agree_value)
 
 
 def xor(a: bool, b: bool) -> bool:

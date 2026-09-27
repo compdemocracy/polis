@@ -22,6 +22,7 @@ from typing import Dict, List, Tuple, Any, Optional, Union
 from datetime import datetime
 from polismath_commentgraph.utils.storage import PostgresClient
 from polismath_commentgraph.utils.group_data import GroupDataProcessor
+from polismath.components.config import ConfigManager
 
 # Configuration through environment variables with defaults
 DB_CONFIG = {
@@ -237,6 +238,7 @@ def load_comment_texts_and_extremity(zid, layer_num=0):
         Tuple of (comment_texts, extremity_values)
     """
     logger.info(f'Loading comment texts and extremity data for conversation {zid}')
+    math_env = ConfigManager.get_config().get('math-env')
     
     # Initialize PostgreSQL client and GroupDataProcessor
     postgres_client = PostgresClient()
@@ -297,7 +299,10 @@ def load_comment_texts_and_extremity(zid, layer_num=0):
         # 2. Try to get extremity values from math_ptptstats
         try:
             # First try math_ptptstats
-            cursor.execute('SELECT data FROM math_ptptstats WHERE zid = %s LIMIT 1', (zid,))
+            cursor.execute(
+                'SELECT data FROM math_ptptstats WHERE zid = %s AND math_env = %s LIMIT 1',
+                (zid, math_env),
+            )
             ptptstats = cursor.fetchone()
             
             if ptptstats and ptptstats[0]:
@@ -382,7 +387,10 @@ def load_comment_texts_and_extremity(zid, layer_num=0):
             # If no values found, try math_main table
             if not extremity_values:
                 logger.info('Trying to extract extremity from math_main')
-                cursor.execute('SELECT data FROM math_main WHERE zid = %s LIMIT 1', (zid,))
+                cursor.execute(
+                    'SELECT data FROM math_main WHERE zid = %s AND math_env = %s LIMIT 1',
+                    (zid, math_env),
+                )
                 math_main = cursor.fetchone()
                 
                 if math_main and math_main[0]:
@@ -452,7 +460,10 @@ def load_comment_texts_and_extremity(zid, layer_num=0):
         math_cursor = math_conn.cursor()
         
         # Query the math_main table to get the PCA data
-        math_cursor.execute('SELECT data FROM math_main WHERE zid = %s LIMIT 1', (zid,))
+        math_cursor.execute(
+            'SELECT data FROM math_main WHERE zid = %s AND math_env = %s LIMIT 1',
+            (zid, math_env),
+        )
         math_main = math_cursor.fetchone()
         
         if math_main and math_main[0]:

@@ -1,11 +1,22 @@
 """
 PCA (Principal Component Analysis) for Pol.is.
 
-This module wraps sklearn PCA with Pol.is-specific handling: mean imputation
-of missing votes (NaN) and sparsity-aware projection scaling.
+The production solver is a BLAS-backed power-iteration eigensolver
+(`powerit_pca` / `_power_iteration` below), warm-started each tick from the
+previous tick's unit components (see `pca_project_dataframe`'s
+`start_vectors` param and conversation.py:761-779). A single-shot sklearn
+PCA path also exists (`POLISMATH_PCA_IMPL=sklearn`), but it cannot accept a
+warm start, so `pca_project_dataframe` overrides it back to power iteration
+whenever `require_powerit=True` or `start_vectors` is supplied — which is
+always the case in production (conversation.py:1335, 1355) — making the
+sklearn path unreachable outside of direct/test-only calls with
+`require_powerit=False`. On top of whichever solver runs, this module also
+handles mean imputation of missing votes (NaN) and sparsity-aware
+projection scaling.
 """
 
 import logging
+from decimal import Context, Decimal, ROUND_HALF_EVEN
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional, Sequence, Tuple, Union, Any
@@ -63,16 +74,58 @@ PCA_IMPL_CHOICES = (PCA_IMPL_POWERIT, PCA_IMPL_SKLEARN)
 _POWERIT_START_SEED = 42
 
 
+def _ordered_dot(left: np.ndarray, right: np.ndarray) -> float:
+    """Sequential multiply/add, without BLAS reassociation or fused multiply-add."""
+    products = left * right
+    if products.size == 0:
+        return 0.0
+    products[0] += 0.0  # vectorz dot starts with +0.0, including signed zero.
+    return float(np.add.accumulate(products)[-1])
+
+
+def _ordered_row_dot(data: np.ndarray, vector: np.ndarray) -> np.ndarray:
+    """Column-order multiply/add with a cache-resident row accumulator."""
+    columns = np.asfortranarray(data).T
+    result = np.zeros(data.shape[0], dtype=float)
+    for column, value in zip(columns, vector):
+        result += column * value
+    return result
+
+
+def _ordered_center(data: np.ndarray) -> np.ndarray:
+    # core.matrix.stats/mean sums rows then MULTIPLIES by reciprocal count.
+    return np.add.accumulate(data, axis=0)[-1] * (1.0 / data.shape[0])
+
+
+def _sparse_projections(data: np.ndarray, center: np.ndarray,
+                        comps: np.ndarray, n_comps: int) -> np.ndarray:
+    """Accumulate only observed coordinates, then multiply by sparsity scale."""
+    if comps.shape[0] < n_comps:
+        return np.zeros((data.shape[0], n_comps))
+    observed = ~np.isnan(data)
+    centered = np.where(observed, data - center, 0.0)
+    projections = np.column_stack([_ordered_row_dot(centered, pc) for pc in comps])
+    # Clojure integer division yields Ratio; doubleValue rounds through
+    # Java DECIMAL64 (16 significant digits, half-even) before sqrt.
+    context = Context(prec=16, rounding=ROUND_HALF_EVEN)
+    width = data.shape[1]
+    ratios = np.array([float(context.divide(Decimal(width), Decimal(seen)))
+                       for seen in range(1, width + 1)])
+    scale = np.sqrt(ratios[np.maximum(observed.sum(axis=1), 1) - 1])
+    return projections * scale[:, None]
+
+
 def _power_iteration(data: np.ndarray,
                      iters: int = 100,
                      start_vector: Optional[np.ndarray] = None) -> np.ndarray:
     """
     First eigenvector of data.T @ data via power iteration.
 
-    Port of Clojure `power-iteration` (pca.clj:38-56): runs a FIXED number of
-    multiplications by XᵀX (iters + 1 in total, matching the Clojure loop
-    structure), with an early exit only when the eigenvalue estimate is
-    EXACTLY equal to the previous one (float equality, as in Clojure).
+    Each step is the BLAS product Xᵀ (X v) and its BLAS norm; reductions may
+    reassociate, so results match the legacy engine within G12 rather than
+    bit-for-bit. The legacy `power-iteration` (pca.clj:38-56) schedule is
+    kept: all-ones start, a FIXED budget of iters + 1 products, and an early
+    exit only when the eigenvalue estimate EXACTLY equals the previous one.
 
     Args:
         data: 2D array (rows are observations), typically already centered.
@@ -86,6 +139,7 @@ def _power_iteration(data: np.ndarray,
         the data has no variance left in any direction (defensive: Clojure
         would call normalise on a zero vector there).
     """
+    data = np.asfortranarray(data)
     n_cols = data.shape[1]
     if start_vector is None:
         vec = np.ones(n_cols, dtype=np.float64)
@@ -103,14 +157,15 @@ def _power_iteration(data: np.ndarray,
     remaining = int(iters)
     last_eigval = 0.0
     while True:
-        # xtxr (pca.clj:25-35): product = Xᵀ (X v), i.e. one power step.
+        # Same Xᵀ (X v) power step and stopping rule; BLAS may reassociate
+        # reductions. Equivalence is judged by G12 and admitted decision ties.
         product = data.T @ (data @ vec)
         eigval = float(np.linalg.norm(product))
         if eigval == 0.0:
             # No variance in the remaining subspace. Return the zero vector
             # rather than normalising it (belt-and-braces; see docstring).
             return product
-        normed = product / eigval
+        normed = product * (1.0 / eigval)
         if remaining <= 0 or eigval == last_eigval:
             return normed
         remaining -= 1
@@ -133,10 +188,10 @@ def _factor_matrix(data: np.ndarray, xs: np.ndarray) -> np.ndarray:
         Deflated copy of data (data itself if xs is the zero vector, matching
         the Clojure zero-eigenvector guard at pca.clj:71).
     """
-    denom = float(np.dot(xs, xs))
+    denom = _ordered_dot(xs, xs)
     if denom == 0.0:
         return data
-    coeffs = (data @ xs) / denom
+    coeffs = _ordered_row_dot(data, xs) * (1.0 / denom)
     return data - np.outer(coeffs, xs)
 
 
@@ -146,10 +201,11 @@ def powerit_pca(matrix: np.ndarray,
                 start_vectors: Optional[Sequence[np.ndarray]] = None
                 ) -> Dict[str, np.ndarray]:
     """
-    Clojure-parity PCA via per-component power iteration with deflation.
+    PCA via per-component BLAS power iteration with deflation.
 
-    Port of Clojure `powerit-pca` (pca.clj:86-105): center on column means,
-    then for each component run `_power_iteration` on the (deflated) centered
+    Follows the legacy `powerit-pca` (pca.clj:86-105) structure: center on
+    column means (legacy reciprocal-count order), then for each component
+    run the BLAS-product `_power_iteration` on the (deflated) centered
     data and factor the found component out (`_factor_matrix`) before finding
     the next one. The number of components is clamped to
     min(n_comps, min(n_rows, n_cols)) exactly as in Clojure (pca.clj:93,96).
@@ -175,7 +231,7 @@ def powerit_pca(matrix: np.ndarray,
         (unit-norm components as rows, shape (n_comps_eff, n_cols)).
     """
     data = np.asarray(matrix, dtype=np.float64)
-    center = data.mean(axis=0)
+    center = _ordered_center(data)
     centered = data - center
     n_rows, n_cols = centered.shape
 
@@ -220,9 +276,16 @@ def pca_project_dataframe(df: pd.DataFrame,
     Perform PCA on a DataFrame and project participants into PCA space.
 
     Missing votes (NaN) are imputed with column means before PCA.
-    Uses sklearn PCA internally. Projections are scaled by the square root
-    of the proportion of comments each participant has seen, to account
-    for vote sparsity.
+    Solves via the power-iteration eigensolver (`powerit_pca`/
+    `_power_iteration` above), warm-started from `start_vectors` when given
+    (the previous tick's components in production). An sklearn PCA path is
+    also selectable (`POLISMATH_PCA_IMPL=sklearn`), but it has no
+    start-vector hook, so it is overridden back to power iteration whenever
+    `require_powerit=True` or `start_vectors` is provided (see below) —
+    which is always the case at the production call sites
+    (conversation.py:1335, 1355), making the sklearn path unreachable there.
+    Projections are scaled by the square root of the proportion of comments
+    each participant has seen, to account for vote sparsity.
 
     Args:
         df: DataFrame with participants as rows and comments as columns.
@@ -321,8 +384,9 @@ def pca_project_dataframe(df: pd.DataFrame,
     # Solver switch (read at call time — see polismath.utils.env_flags.resolve_impl_flag):
     #   POLISMATH_PCA_IMPL=powerit  (default) legacy/Clojure-parity power iteration
     #   POLISMATH_PCA_IMPL=sklearn  improved exact-SVD path
-    # The imputation above and sparsity scaling below are IDENTICAL for both;
-    # only the eigen-solver differs.
+    # Both paths impute for fitting. The legacy path projects observed cells
+    # in encounter order and multiplies by the sparsity scale; sklearn keeps
+    # its historical dense projection and division order.
     impl = resolve_impl_flag(PCA_IMPL_ENV_VAR, PCA_IMPL_DEFAULT, PCA_IMPL_CHOICES)
 
     # Warm-start parity (PR-B): power iteration is the ONLY solver that can be
@@ -357,15 +421,14 @@ def pca_project_dataframe(df: pd.DataFrame,
                 'comps': pca.components_
             }
         else:
-            # Legacy/Clojure-parity solver (default). Comps are unit vectors;
-            # projections are (X - center) @ compsᵀ, exactly like sklearn's
-            # fit_transform convention.
+            # Legacy projections skip unseen cells, sum observed terms in
+            # comment order, then multiply by sqrt(n_comments/n_seen).
             # start_vectors warm-starts each component's power iteration
             # (None == cold == pre-PR behavior; see the PR-B note above).
             pca_results = powerit_pca(matrix_data_no_nan, n_comps=n_comps,
                                       start_vectors=start_vectors)
-            projections = ((matrix_data_no_nan - pca_results['center'])
-                           @ pca_results['comps'].T)
+            projections = _sparse_projections(
+                matrix_data, pca_results['center'], pca_results['comps'], n_comps)
             # comps are RANK-CAPPED (min(n_comps, data dim), matching
             # Clojure's emitted comps) but projections are always 2-D — and
             # with fewer than 2 comps rows they are all-ZERO (Q16): Clojure's
@@ -398,7 +461,8 @@ def pca_project_dataframe(df: pd.DataFrame,
         # Avoid division by zero for participants with no votes (matches Clojure's (max n-votes 1))
         n_seen_safe = np.maximum(n_seen, 1)
         proportions = np.sqrt(n_seen_safe / n_cmnts)
-        scaled_projections = projections / proportions[:, np.newaxis]  
+        scaled_projections = (projections if impl == PCA_IMPL_POWERIT else
+                              projections / proportions[:, np.newaxis])
 
         # Create a dictionary of projections by participant ID
         proj_dict = {ptpt_id: proj for ptpt_id, proj in zip(df.index, scaled_projections)}
@@ -424,7 +488,7 @@ def pca_project_cmnts(center: np.ndarray, comps: np.ndarray) -> np.ndarray:
     Project each comment into the 2D PCA space.
 
     Clojure (`pca-project-cmnts`, pca.clj:167-178) calls
-    `sparsity-aware-project-ptpts` on a synthetic vote matrix where row `i`
+    `sparsity-aware-project-ptpts` on a unit-vote matrix where row `i`
     has a single AGREE vote at column `i` and `nil` everywhere else.
 
     For comment `i`, the sparsity-aware reduce (pca.clj:134-157) collapses to:

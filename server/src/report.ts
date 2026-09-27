@@ -1,10 +1,14 @@
 import pg from "./db/pg-query";
 import { getZinvite } from "./utils/zinvite";
 import { getXids } from "./routes/xids";
-import { getPca } from "./utils/pca";
+// The report joins participants, groups and comments across several reads.
+// `getPcaFromBundle` pins every one of them to a single coherent math
+// generation; it is byte-identical to `getPca(zid)` for a coherent Bundle.
+import { getPcaFromBundle } from "./utils/pca";
 import { failJson } from "./utils/fail";
 import logger from "./utils/logger";
 import { getCommentsWithClusters } from "./utils/commentClusters";
+import { presentPca } from "./utils/pcaPresentation";
 import type { XidRecord } from "./d";
 
 type Formatters<T> = Record<string, (row: T) => string>;
@@ -183,7 +187,7 @@ async function loadParticipantExportContext(
       "SELECT tid, pid FROM comments WHERE zid = ($1) ORDER BY tid ASC, created ASC",
       [zid]
     ),
-    getPca(zid),
+    getPcaFromBundle(zid),
   ]);
 
   const commentRows = (commentRowsRaw as { tid: number; pid: number }[]) || [];
@@ -242,7 +246,13 @@ export async function loadConversationSummary(zid: number, siteUrl: string) {
       `SELECT COUNT(DISTINCT pid) FROM comments WHERE zid = $1`,
       [zid]
     ),
-    getPca(zid),
+    // The presented blob, so the `comments` column keeps the count it has always
+    // had. For a conversation with math that is the math's own `n-cmts`; for one
+    // without, it is the `mod >= 1` count the empty-blob backfill supplied. That
+    // predicate is NOT the participant-visible one `getCommentsCount` applies,
+    // and it is NOT the report's `mod_gt = mod_level` one. Preserved as-is here;
+    // reconciling the three is P-025 work, not this change.
+    getPcaFromBundle(zid).then((data) => presentPca(zid, data)),
     // getPca(zid, -1),
   ]);
   if (!zinvite || !convoRows || !commentersRow || !pca) {
@@ -613,12 +623,13 @@ export async function sendCommentGroupsSummary(
   const csvText = [];
   // Get PCA data to identify groups and get groupVotes
   // const pca = await getPca(zid, -1);
-  const pca = await getPca(zid);
+  // Presented, because this CSV zips `tids` against `comment-extremity` below.
+  const pca = await presentPca(zid, await getPcaFromBundle(zid));
   if (!pca?.asPOJO) {
     throw new Error("polis_error_no_pca_data");
   }
 
-  const groupClusters = pca.asPOJO["group-clusters"];
+  const groupClusters = pca.asPOJO["group-clusters"] || [];
   const groupIds = Array.isArray(groupClusters)
     ? groupClusters.map((g) => g.id)
     : Object.keys(groupClusters as Record<string, any>).map(Number);
@@ -627,10 +638,8 @@ export async function sendCommentGroupsSummary(
     number,
     GroupVoteStats
   >;
-  const groupAwareConsensus = pca.asPOJO["group-aware-consensus"] as Record<
-    number,
-    number
-  >;
+  const groupAwareConsensus = (pca.asPOJO["group-aware-consensus"] ||
+    {}) as Record<number, number>;
 
   const commentExtremity =
     (pca.asPOJO["pca"]?.["comment-extremity"] as Array<number>) || [];
@@ -645,7 +654,12 @@ export async function sendCommentGroupsSummary(
   // Initialize stats map
   const commentStats = new Map<number, CommentGroupStats>();
 
-  // Create a mapping of tid to extremity index using math tids array
+  // Create a mapping of tid to extremity index using math tids array.
+  // `tids` here is the math's own comment index -- the comments that are in the
+  // math, positionally aligned with `comment-extremity`. It is not the
+  // conversation's comment list; the comment texts above come from `comments`.
+  // For a conversation with no math both arrays are empty, and every row below
+  // is emitted from group votes, of which there are none.
   const tidToExtremityIndex = new Map();
   const mathTids = pca.asPOJO.tids || []; // Array of tids in same order as extremity values
   commentExtremity.forEach((extremity, index) => {
@@ -918,12 +932,6 @@ export async function sendParticipantXidsSummary(
   res: ResponseLike
 ) {
   try {
-    // const pca = await getPca(zid, -1);
-    const pca = await getPca(zid);
-    if (!pca?.asPOJO) {
-      throw new Error("polis_error_no_pca_data");
-    }
-
     const xids = await getXids(zid);
     if (!xids) {
       throw new Error("polis_error_no_xid_response");

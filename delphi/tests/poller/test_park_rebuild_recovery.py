@@ -93,6 +93,18 @@ def _drain(svc, timeout=5.0):
     assert svc._pool.join(timeout=timeout), "worker pool did not drain in time"
 
 
+def _pool_pending(pool, zid):
+    """Queued-or-active work for one zid, read under the pool's OWN lock.
+
+    Used to assert that no queued request was dropped and that no handler is
+    still in flight.  Reads the pool's private bookkeeping deliberately: the
+    point is to check the pool's internal accounting, and taking ``_lock``
+    means the snapshot cannot tear against a concurrent submit/park.
+    """
+    with pool._lock:
+        return bool(pool._queues.get(zid)) or zid in pool._active
+
+
 # --------------------------------------------------------------------------- #
 # Retry-preserves-rebuild unit test (the R03 root-cause fix)
 # --------------------------------------------------------------------------- #
@@ -267,13 +279,38 @@ class TestR04ParkUnparkRaces:
 
         svc._pool.submit(1, REBUILD, [])  # worker A enters loader and freezes
         assert entered.wait(timeout=5)
-        svc._pool.submit(1, REBUILD, [])  # overlapping trigger: must NOT run now
+        # Two overlapping triggers arrive while worker A is provably in flight.
+        # Neither may run NOW (per-zid serialization) and neither may be
+        # DROPPED: the pool must coalesce them into exactly one further cycle
+        # once worker A finishes.
+        svc._pool.submit(1, REBUILD, [])
+        svc._pool.submit(1, REBUILD, [])
         proceed.set()
         _drain(svc)
 
+        # --- handler accounting (exact, not ">= 1") ------------------------ #
         assert conc["max"] == 1, "at most one active handler per zid"
-        assert conc["n"] >= 1, "the rebuild ran; nothing silently dropped"
-        assert svc._writer.writes and svc._writer.writes[0] == 1
+        assert conc["n"] == 2, (
+            "expected EXACTLY two rebuild executions — the in-flight one plus "
+            "one coalesced cycle for the two overlapping triggers — but saw "
+            f"{conc['n']}. A count of 1 means the queued rebuilds were "
+            "DROPPED; more than 2 means per-zid serialization or coalescing "
+            "broke."
+        )
+        assert conc["cur"] == 0, "no handler left in flight"
+
+        # --- final state --------------------------------------------------- #
+        assert svc._writer.writes == [1, 1], (
+            f"each executed rebuild must publish exactly once, saw "
+            f"{svc._writer.writes!r}"
+        )
+        assert not _pool_pending(svc._pool, 1), (
+            "the pool must have no queued or active work left for the zid"
+        )
+        assert 1 not in svc._parked and not svc._pool.is_parked(1), (
+            "a successful rebuild must leave the zid unparked"
+        )
+        assert svc._retry_counts.get(1) is None, "retry markers must be cleared"
 
     def test_reconcile_and_new_vote_unpark_converge(self, make_svc):
         """Trigger the reconciler and a new-vote unpark concurrently on a parked

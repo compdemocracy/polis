@@ -12,17 +12,7 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import config from "../config";
 import logger from "./logger";
-
-type Credentials = {
-  accessKeyId: string;
-  secretAccessKey: string;
-};
-
-type ClientConfig = {
-  region: string;
-  endpoint?: string;
-  credentials: Credentials;
-};
+import { makeDynamoClient } from "./dynamoClient";
 
 export interface StorageError {
   name: string;
@@ -41,20 +31,9 @@ export default class DynamoStorageService {
   private cacheDisabled: boolean;
 
   constructor(tableName: string, disableCache?: boolean) {
-    const credentials: Credentials = {
-      accessKeyId: config.awsAccessKeyId,
-      secretAccessKey: config.awsSecretAccessKey,
-    };
-    const clientConfig: ClientConfig = {
-      region: config.awsRegion,
-      credentials,
-    };
-
-    if (config.dynamoDbEndpoint) {
-      clientConfig.endpoint = config.dynamoDbEndpoint;
-    }
-
-    this.client = new DynamoDBClient(clientConfig);
+    // Shared credential precedence: local endpoint -> real configured keys ->
+    // default AWS credential provider chain (the EC2 instance role in prod).
+    this.client = makeDynamoClient();
     this.tableName = tableName;
     this.cacheDisabled = disableCache || false;
   }

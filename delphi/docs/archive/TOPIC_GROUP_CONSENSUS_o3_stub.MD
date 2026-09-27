@@ -707,7 +707,7 @@ export function computeIGAS(
         }
       }
       // Instead of aggregating, simpler: call computeIGAS with the resampled comment array;
-      // we need a fast path that accepts repeated comment IDs. We'll pass a synthetic comments array with duplicates.
+      // we need a fast path that accepts repeated comment IDs. We'll pass a public-fixture comments array with duplicates.
       const igasB = computeIGAS(
         { groups, comments: resampledComments, counts },
         {

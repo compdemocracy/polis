@@ -1,0 +1,50 @@
+# Only the supervisor can reach these local services. Nested candidates have
+# --network=none; no host Docker socket or cloud credential is mounted.
+services:
+  postgres:
+    image: postgres:17.11@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675
+    environment:
+      POSTGRES_PASSWORD: public-fixture-admin
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      POSTGRES_DB: probe_test
+    ports:
+      - "127.0.0.1:${POLIS_RECOVERY_PG_PORT:?unique port required}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U postgres -d probe_test"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+  minio:
+    # Bitnami's frozen MinIO build: quay.io/minio closed anonymous pulls.
+    # The /data tmpfs is world-writable, so its uid 1001 can use it.
+    image: docker.io/bitnamilegacy/minio:2025.7.23-debian-12-r5@sha256:6dabb4a2088c9a79908de3bc05f4586c23ad2182c8908e7e3acbf61c1467fb20
+    command: [server, /data]
+    environment:
+      MINIO_ROOT_USER: public-fixture
+      MINIO_ROOT_PASSWORD: public-fixture-only
+    tmpfs:
+      - /data
+  runtime:
+    image: ${PROBE_WORKER_RUNTIME:?build the local runtime first}
+    platform: linux/arm64
+    privileged: true
+    cgroup: private
+    environment:
+      HOME: /root
+      TMPDIR: /probe-work/tmp
+      AWS_EC2_METADATA_DISABLED: "true"
+      PYTHONDONTWRITEBYTECODE: "1"
+    tmpfs:
+      - /probe-work:nodev,nosuid,noexec,size=12g
+    volumes:
+      - ${PROBE_WORKER_SOURCE:?}:/source:ro
+      - ${PROBE_WORKER_RESULTS:?}:/results
+      - ${PROBE_WORKER_ARCHIVES:?}:/archives:ro
+      - ${PROBE_WORKER_RELAY:?}:/relay-source/replica.py:ro
+    command: [python3.12, /source/ci/probe_box/local/worker_runtime.py]
+networks:
+  default:
+    internal: true

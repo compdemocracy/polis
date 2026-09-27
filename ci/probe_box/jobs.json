@@ -1,0 +1,40 @@
+{
+  "schema": "polis-probe-registry/1",
+  "jobs": {
+    "sampled-paired-battery-v1": {
+      "schema": "polis-probe-job/1",
+      "run_id": "00000000000000000000000000000000",
+      "reader": {
+        "image": "localhost/polis-probe-producer@sha256:8cde9e9d249d526d34ce00452b8654efa373d961d9ccc5a2a86efdbca97f97b2",
+        "args": ["extract"]
+      },
+      "producer": {
+        "image": "localhost/polis-probe-producer@sha256:8cde9e9d249d526d34ce00452b8654efa373d961d9ccc5a2a86efdbca97f97b2",
+        "args": ["produce"]
+      },
+      "verifier": {
+        "image": "localhost/polis-probe-verifier@sha256:e56b2289f0c0209023e1f0d695ca6dec9a6f1c8e3481f75d7132d75c969199fa",
+        "args": ["verify"]
+      },
+      "max_seconds": 43200
+    },
+    "roles-census-v1": {
+      "kind": "roles-census",
+      "max_seconds": 900,
+      "producer": {
+        "args": ["produce"],
+        "image": "localhost/polis-roles-producer@sha256:4961595bf001151fe80517e5cd1989beb1e2e470e403b89ad355be026c4656f1"
+      },
+      "reader": {
+        "args": ["read"],
+        "image": "localhost/polis-roles-reader@sha256:d345ec92b0839fa54a8c6b5906e7072513411022e6ff6bb99768a78bd9d7e201"
+      },
+      "run_id": "00000000000000000000000000000000",
+      "schema": "polis-probe-job/2",
+      "verifier": {
+        "args": ["verify"],
+        "image": "localhost/polis-roles-verifier@sha256:8478ba5cb98603c027743ab65a116c481f6590a2a0d417815b0da79d919c3ae2"
+      }
+    }
+  }
+}

@@ -25,7 +25,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:  # stepcompare stays a lazy, in-function import at runtime
+    from polismath.replay.stepcompare import StepComparer
 
 # ---------------------------------------------------------------------------
 # prep-main key whitelist + projection.
@@ -59,9 +62,16 @@ def _kebab(key: Any) -> Any:
 def project_prep_main(blob: dict[str, Any]) -> dict[str, Any]:
     """Project a math_main blob onto the prep-main 23-key whitelist, keys spelled
     in canonical kebab-case, pulling each key's value from whichever spelling the
-    blob carries. An exact kebab key always wins over a snake alias (Python's
-    to_dict() carries BOTH ``group-clusters`` and ``group_clusters``). Keys absent
-    from the whitelist are dropped on both sides."""
+    blob carries. An exact kebab key always wins over a snake alias, and that
+    arbitration is load-bearing rather than cosmetic: Python's to_dict() carries
+    BOTH ``group-clusters`` and ``group_clusters``, and they are two DIFFERENT
+    VIEWS of the same groups — the kebab key is Clojure's folded form
+    (base-cluster-id members, Clojure-sign centers) written by
+    ``_apply_legacy_blob_shape``, the snake key the Python unfolded view
+    (participant-id members, Delphi-sign centers). Only the kebab one is
+    comparable against Clojure. See ``certify._DECLARED_ALIAS_FIELDS``, which
+    declares the pair and validates both spellings. Keys absent from the
+    whitelist are dropped on both sides."""
     if not isinstance(blob, dict):
         raise TypeError(
             f"prep-main projection expects a dict blob, got {type(blob).__name__}"
@@ -282,7 +292,7 @@ def clj_recording_to_py_store(clj_dir: str | Path, dest_dir: str | Path) -> Path
     return dest_dir
 
 
-def _prep_main_projecting_comparer():
+def _prep_main_projecting_comparer() -> StepComparer:
     """A StepComparer that projects BOTH step blobs onto the prep-main whitelist
     (canonical kebab spelling) before diffing, so Python's snake_case keys align
     with Clojure's kebab and their VALUES land on the numeric compare path. The
@@ -294,7 +304,7 @@ def _prep_main_projecting_comparer():
     tolerant = frozenset(_kebab(k) for k in DEFAULT_TOLERANT_STAT_KEYS)
 
     class PrepMainProjectingComparer(StepComparer):
-        def compare_step(self, blob_a, blob_b, index):
+        def compare_step(self, blob_a: dict, blob_b: dict, index: int) -> dict[str, Any]:
             return super().compare_step(
                 project_prep_main(blob_a), project_prep_main(blob_b), index
             )
@@ -306,7 +316,7 @@ def compare_clj_vs_py(
     recording_dir: str | Path,
     *,
     shim_root: str | Path,
-    comparer=None,
+    comparer: StepComparer | None = None,
 ) -> dict[str, Any]:
     """Compare the ``clj/`` and ``py/`` recordings inside one recording dir.
 

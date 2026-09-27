@@ -4,7 +4,6 @@ import { DynamoDBClient, DynamoDBClientConfig } from "@aws-sdk/client-dynamodb";
 import {
   DynamoDBDocumentClient,
   QueryCommand,
-  PutCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import Config from "../../config";
@@ -40,6 +39,70 @@ const docClient = DynamoDBDocumentClient.from(client, {
     removeUndefinedValues: true,
   },
 });
+
+/**
+ * Two of the tables this file reads have never existed in any environment.
+ *
+ * `delphi/create_dynamodb_tables.py` — the bootstrap the Delphi container runs
+ * on every start, and the only thing that creates Delphi tables locally —
+ * defines eighteen tables, and neither of these is among them. Nothing in
+ * `delphi/` writes them either, so no pipeline has ever produced their data.
+ * The deployed account holds the same eighteen plus `report_narrative_store`;
+ * a read-only `list-tables` confirms both names are absent there too.
+ *
+ * They are not a rename of a live table: `Delphi_CommentClusters` is queried on
+ * (conversation_id, topic_key) with `comment_text`/`umap_x`/`umap_y` attributes,
+ * and no existing table has that key or shape. The comparable live data is
+ * assembled instead from `Delphi_CommentClustersLLMTopicNames` (topic_key ->
+ * layer_id/cluster_id) plus `Delphi_CommentHierarchicalClusterAssignments`
+ * (comment_id -> per-layer cluster), the way `nextComment.ts` and
+ * `handle_GET_topicMod_proximity` below already do it. So this is a feature
+ * that was written against a storage design that was never built, not drift.
+ *
+ * Until it is either built out or removed (see the P-034 notes), every read of
+ * these two names raises ResourceNotFoundException on every call. Handle that
+ * explicitly: degrade where the route has real content of its own to return,
+ * and answer with a stable error code where it does not. Never surface the raw
+ * AWS message, and never let the missing table discard work that Postgres
+ * could have accepted.
+ */
+const TOPIC_MODERATION_STATUS_TABLE = "Delphi_TopicModerationStatus";
+const TOPIC_COMMENT_CLUSTERS_TABLE = "Delphi_CommentClusters";
+
+function isResourceNotFoundException(err: unknown): boolean {
+  return (
+    !!err &&
+    typeof err === "object" &&
+    "name" in err &&
+    (err as { name?: string }).name === "ResourceNotFoundException"
+  );
+}
+
+/**
+ * Answer a request that depends on one of the absent stores.
+ *
+ * Deliberately not `failJson`: that helper logs at error, and these tables are
+ * absent on every call, so it would emit an error event per request for a
+ * condition that is known, permanent and already described here. The store
+ * being unbuilt is not an incident. The response body keeps `failJson`'s shape
+ * so callers see one error contract, and the hint stays product-facing — the
+ * table names belong in the log line and the P-034 notes, not in an admin
+ * console.
+ */
+function failMissingStore(
+  res: Response,
+  clientVisibleErrorString: string,
+  logDetail: string,
+  additionalData: Record<string, unknown>
+) {
+  logger.warn(`${clientVisibleErrorString}: ${logDetail}`);
+  return res.status(503).json({
+    error: clientVisibleErrorString,
+    message: clientVisibleErrorString,
+    status: 503,
+    ...additionalData,
+  });
+}
 
 /**
  * GET /api/v3/topicMod/topics
@@ -78,9 +141,11 @@ export async function handle_GET_topicMod_topics(req: Request, res: Response) {
       });
     }
 
-    // Query moderation status for each topic
+    // Query moderation status for each topic. The topics themselves come from a
+    // live table, so a failure here must not take the list down with it: the
+    // status decorates the response, it is not the response.
     const moderationParams = {
-      TableName: "Delphi_TopicModerationStatus",
+      TableName: TOPIC_MODERATION_STATUS_TABLE,
       KeyConditionExpression: "conversation_id = :cid",
       ExpressionAttributeValues: {
         ":cid": conversation_zid,
@@ -88,12 +153,22 @@ export async function handle_GET_topicMod_topics(req: Request, res: Response) {
     };
 
     let moderationData;
+    let moderationAvailable = true;
     try {
       moderationData = await docClient.send(new QueryCommand(moderationParams));
     } catch (err: unknown) {
-      // Moderation table might not exist yet - that's okay
-      logger.info("Moderation status table not found, using default status");
+      moderationAvailable = false;
       moderationData = { Items: [] };
+      if (isResourceNotFoundException(err)) {
+        logger.warn(
+          `Topic moderation status unavailable: ${TOPIC_MODERATION_STATUS_TABLE} does not exist; reporting every topic as pending`
+        );
+      } else {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.warn(
+          `Topic moderation status lookup failed, reporting every topic as pending: ${message}`
+        );
+      }
     }
 
     // Create moderation status map
@@ -167,6 +242,9 @@ export async function handle_GET_topicMod_topics(req: Request, res: Response) {
       message: "Topics retrieved successfully",
       topics_by_layer: topicsByLayer,
       total_topics: topicsWithStatus.length,
+      // False means the per-topic `moderation` blocks are placeholders, not
+      // read state: no caller should present "pending" as a recorded decision.
+      moderation_available: moderationAvailable,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -205,7 +283,7 @@ export async function handle_GET_topicMod_comments(
 
     // Query comments from topic clusters table
     const params = {
-      TableName: "Delphi_CommentClusters",
+      TableName: TOPIC_COMMENT_CLUSTERS_TABLE,
       KeyConditionExpression: "conversation_id = :cid AND topic_key = :tk",
       ExpressionAttributeValues: {
         ":cid": comment_conversation_id,
@@ -213,7 +291,26 @@ export async function handle_GET_topicMod_comments(
       },
     };
 
-    const data = await docClient.send(new QueryCommand(params));
+    let data;
+    try {
+      data = await docClient.send(new QueryCommand(params));
+    } catch (err: unknown) {
+      if (isResourceNotFoundException(err)) {
+        // This route has no other source of comments, so there is nothing to
+        // degrade to. Say so with a stable code rather than reporting an empty
+        // topic (which reads as "no comments here") or echoing the raw AWS
+        // "Requested resource not found" back to the admin console.
+        return failMissingStore(
+          res,
+          "polis_err_topicMod_comments_store_missing",
+          `${TOPIC_COMMENT_CLUSTERS_TABLE} does not exist`,
+          {
+            hint: "Per-topic comment listing is not available for this conversation.",
+          }
+        );
+      }
+      throw err;
+    }
 
     if (!data.Items || data.Items.length === 0) {
       return res.json({
@@ -291,13 +388,71 @@ export async function handle_POST_topicMod_moderate(
     const moderate_conversation_id = zid.toString();
     const now = new Date().toISOString();
 
+    const moderationStatus =
+      action === "accept" ? 1 : action === "reject" ? -1 : 0;
+    const isMeta = action === "meta";
+
+    // Count comments this request actually moderated, not ids it was handed.
+    // Postgres executes an UPDATE that matches nothing perfectly happily, so a
+    // stale, foreign or repeated tid would otherwise be reported as a moderated
+    // comment. `RETURNING tid` reports what the `zid`-scoped predicate matched,
+    // and the set collapses duplicates and any overlap between the explicit ids
+    // and the topic's own comments below.
+    const moderatedTids = new Set<number>();
+
+    const applyModeration = async (tid: unknown): Promise<void> => {
+      // `modified` is stamped in the same statement as the moderation state.
+      // Both math pollers discover moderation only through a strict
+      // `modified > watermark` query, and nothing else maintains the column on
+      // UPDATE, so a topic moderation that left it alone would be invisible to
+      // the engine for any comment already past the watermark. See the same
+      // note on `moderateCommentQuery` in `routes/comments.ts`.
+      const updated = (await p.queryP(
+        "UPDATE comments SET mod = ($1), is_meta = ($2), modified = now_as_millis() WHERE zid = ($3) AND tid = ($4) RETURNING tid",
+        [moderationStatus, isMeta, zid, tid]
+      )) as Array<{ tid: number }>;
+      for (const row of updated || []) {
+        moderatedTids.add(Number(row.tid));
+      }
+    };
+
+    // Explicit comment ids are backed entirely by Postgres, so apply them
+    // first. The topic branch below reads two tables that do not exist; doing
+    // it first meant a request carrying both lost the ids it could have
+    // applied, exactly the failure #2707 removed from the topic-agenda writes.
+    const requestedIds: unknown[] =
+      comment_ids && Array.isArray(comment_ids) ? comment_ids : [];
+    if (requestedIds.length > 0) {
+      logger.info(
+        `Moderating ${requestedIds.length} individual comments as ${action}`
+      );
+
+      for (const comment_id of requestedIds) {
+        await applyModeration(comment_id);
+      }
+    }
+
+    // Ids the caller named that no comment in this conversation matched. Named
+    // separately so a partial result is legible rather than a silent shortfall.
+    const unmatchedIds = requestedIds.filter(
+      (id) => !moderatedTids.has(Number(id))
+    );
+    if (unmatchedIds.length > 0) {
+      logger.warn(
+        `Ignored ${unmatchedIds.length} comment id(s) not present in conversation ${zid}`
+      );
+    }
+
     // If topic_key is provided, moderate entire topic
     if (topic_key) {
       logger.info(`Moderating entire topic ${topic_key} as ${action}`);
 
-      // Update topic moderation status
+      // Record the topic-level decision. UpdateCommand already upserts, so the
+      // only thing a ResourceNotFoundException can mean here is that the table
+      // itself is absent — which the previous PutCommand fallback could not fix
+      // either, since it wrote to the same missing table and threw again.
       const topicParams = {
-        TableName: "Delphi_TopicModerationStatus",
+        TableName: TOPIC_MODERATION_STATUS_TABLE,
         Key: {
           conversation_id: moderate_conversation_id,
           topic_key: topic_key,
@@ -312,35 +467,9 @@ export async function handle_POST_topicMod_moderate(
         ReturnValues: "ALL_NEW" as const,
       };
 
-      try {
-        await docClient.send(new UpdateCommand(topicParams));
-      } catch (err: unknown) {
-        if (
-          err &&
-          typeof err === "object" &&
-          "name" in err &&
-          (err as { name?: string }).name === "ResourceNotFoundException"
-        ) {
-          // Create the record if it doesn't exist
-          const putParams = {
-            TableName: "Delphi_TopicModerationStatus",
-            Item: {
-              conversation_id: moderate_conversation_id,
-              topic_key: topic_key,
-              moderation_status: action,
-              moderator: moderator,
-              moderated_at: now,
-            },
-          };
-          await docClient.send(new PutCommand(putParams));
-        } else {
-          throw err;
-        }
-      }
-
-      // Update individual comments in the topic
+      // Enumerate the topic's comments so the decision reaches Postgres too.
       const commentsParams = {
-        TableName: "Delphi_CommentClusters",
+        TableName: TOPIC_COMMENT_CLUSTERS_TABLE,
         KeyConditionExpression: "conversation_id = :cid AND topic_key = :tk",
         ExpressionAttributeValues: {
           ":cid": moderate_conversation_id,
@@ -348,43 +477,32 @@ export async function handle_POST_topicMod_moderate(
         },
       };
 
-      const commentsData = await docClient.send(
-        new QueryCommand(commentsParams)
-      );
-
-      if (commentsData.Items && commentsData.Items.length > 0) {
-        // Update moderation status in main comments table
-        const moderationStatus =
-          action === "accept" ? 1 : action === "reject" ? -1 : 0;
-        const isMeta = action === "meta" ? true : false;
-
-        for (const comment of commentsData.Items) {
-          const comment_id = comment.comment_id;
-
-          // Update in comments table
-          await p.queryP(
-            "UPDATE comments SET mod = ($1), is_meta = ($2) WHERE zid = ($3) AND tid = ($4)",
-            [moderationStatus, isMeta, zid, comment_id]
+      let commentsData;
+      try {
+        await docClient.send(new UpdateCommand(topicParams));
+        commentsData = await docClient.send(new QueryCommand(commentsParams));
+      } catch (err: unknown) {
+        if (isResourceNotFoundException(err)) {
+          // Neither store exists, so the topic decision was not recorded and
+          // its comments could not be enumerated. Report that instead of the
+          // "applied successfully" this used to answer with, which told the
+          // admin console a moderation had taken effect when none had.
+          return failMissingStore(
+            res,
+            "polis_err_topicMod_moderate_topic_store_missing",
+            `${TOPIC_MODERATION_STATUS_TABLE} and ${TOPIC_COMMENT_CLUSTERS_TABLE} do not exist`,
+            {
+              hint: "Whole-topic moderation is not available for this conversation. Moderate the topic's comments by id instead.",
+              comments_moderated: moderatedTids.size,
+              unmatched_comment_ids: unmatchedIds,
+            }
           );
         }
+        throw err;
       }
-    }
 
-    // If comment_ids are provided, moderate individual comments
-    if (comment_ids && Array.isArray(comment_ids)) {
-      logger.info(
-        `Moderating ${comment_ids.length} individual comments as ${action}`
-      );
-
-      const moderationStatus =
-        action === "accept" ? 1 : action === "reject" ? -1 : 0;
-      const isMeta = action === "meta" ? true : false;
-
-      for (const comment_id of comment_ids) {
-        await p.queryP(
-          "UPDATE comments SET mod = ($1), is_meta = ($2) WHERE zid = ($3) AND tid = ($4)",
-          [moderationStatus, isMeta, zid, comment_id]
-        );
+      for (const comment of commentsData.Items || []) {
+        await applyModeration(comment.comment_id);
       }
     }
 
@@ -392,6 +510,8 @@ export async function handle_POST_topicMod_moderate(
       status: "success",
       message: `Moderation action '${action}' applied successfully`,
       moderated_at: now,
+      comments_moderated: moderatedTids.size,
+      unmatched_comment_ids: unmatchedIds,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -786,7 +906,7 @@ export async function handle_GET_topicMod_stats(req: Request, res: Response) {
 
     // Get moderation status for all topics
     const params = {
-      TableName: "Delphi_TopicModerationStatus",
+      TableName: TOPIC_MODERATION_STATUS_TABLE,
       KeyConditionExpression: "conversation_id = :cid",
       ExpressionAttributeValues: {
         ":cid": stats_conversation_id,
@@ -797,16 +917,17 @@ export async function handle_GET_topicMod_stats(req: Request, res: Response) {
     try {
       data = await docClient.send(new QueryCommand(params));
     } catch (err: unknown) {
-      if (
-        err &&
-        typeof err === "object" &&
-        "name" in err &&
-        (err as { name?: string }).name === "ResourceNotFoundException"
-      ) {
-        // No moderation data yet
+      if (isResourceNotFoundException(err)) {
+        // The store does not exist, so there are no recorded decisions to
+        // count. Zeroed counts are the honest answer; `moderation_available`
+        // keeps a caller from reading them as "nothing moderated yet".
+        logger.warn(
+          `Topic moderation stats unavailable: ${TOPIC_MODERATION_STATUS_TABLE} does not exist`
+        );
         return res.json({
           status: "success",
           message: "No moderation data available yet",
+          moderation_available: false,
           stats: {
             total_topics: 0,
             pending: 0,
@@ -839,6 +960,7 @@ export async function handle_GET_topicMod_stats(req: Request, res: Response) {
     return res.json({
       status: "success",
       message: "Moderation statistics retrieved successfully",
+      moderation_available: true,
       stats: stats,
     });
   } catch (err: unknown) {

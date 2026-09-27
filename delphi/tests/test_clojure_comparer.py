@@ -1,7 +1,7 @@
 """
 Unit tests for polismath.regression.clojure_comparer utilities.
 
-Tests comparison functions with synthetic inputs to validate correctness
+Tests comparison functions with public-fixture inputs to validate correctness
 independently of real dataset volatility.
 """
 

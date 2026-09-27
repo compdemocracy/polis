@@ -254,7 +254,7 @@ def profile_pca(votes_csv: Path) -> None:
 @runs_option
 @profile_option
 @compare_impls_option
-def main(votes_csv: Path, runs: int, profile: bool, compare_impls: bool):
+def main(votes_csv: Path, runs: int, profile: bool, compare_impls: bool) -> None:
     """Benchmark PCA computation performance."""
     if profile:
         profile_pca(votes_csv)

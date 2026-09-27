@@ -81,6 +81,8 @@ Key properties:
 - No warm-starting from previous components
 - Single-shot computation (no iterative refinement across updates)
 
+> **Status at 045a8bc48 (2026-09-09):** Stale as a description of today's engine. Since commit `09f4d2e8f`, `pca_project_dataframe` always runs with `require_powerit=True` and is fed the previous tick's components as `start_vectors` — the sklearn snippet above is not the production path. See `delphi/polismath/pca_kmeans_rep/pca.py:236-243` (warm-start param/behavior) and `delphi/polismath/conversation/conversation.py:761-779` (threading `prev_pca['comps']` into `start_vectors`). The historical analysis above is left as-is; this note only flags that it no longer matches the code.
+
 ### 2.3 DISCREPANCY: PCA Method
 
 | Property | Clojure | Python |
@@ -91,10 +93,14 @@ Key properties:
 | Determinism | Random init (varies) | seed=42 (fixed) |
 | Large conv | Mini-batch with learning rate | Same as small |
 
+> **Status at 045a8bc48 (2026-09-09):** The "Warm-start: No" cell for Python is stale — Python's power-iteration solver now warm-starts from the previous tick's components too (same references as above: `pca.py:236-243`, `conversation.py:761-779`, plus the call sites at `conversation.py:1335` and `conversation.py:1355`). The rest of the row (algorithm/iterations comparison as a historical snapshot) is unchanged.
+
 **Impact**: For well-separated eigenvalues, both converge to the same subspace. However:
 - Power iteration may find slightly different orientations (sign flips, rotations within the eigenspace)
 - Warm-starting means Clojure's PCA is **temporally stable** — small vote additions cause small PCA changes. Python recomputes from scratch each time, potentially causing jumps.
 - For large conversations (>10K participants), Clojure uses mini-batch PCA with learning rate 0.01; Python has no such optimization.
+
+> **Status at 045a8bc48 (2026-09-09):** The "Python recomputes from scratch each time" claim above is stale. Python's PCA is now warm-started tick-to-tick from the previous components, the same as Clojure's `start-vectors` — see `delphi/polismath/pca_kmeans_rep/pca.py:236-243` and `delphi/polismath/conversation/conversation.py:761-779`. Left in place as the original comparison; not rewritten.
 
 ---
 

@@ -204,8 +204,11 @@ function handle_POST_trashes(
     };
   }
 ) {
+  // RETURNING created is required: the callback below reads the inserted row's
+  // created timestamp, and without it pg hands back an empty rows array. This
+  // matches the stars insert in server-helpers.addStar.
   const query =
-    "INSERT INTO trashes (pid, zid, tid, trashed, created) VALUES ($1, $2, $3, $4, default);";
+    "INSERT INTO trashes (pid, zid, tid, trashed, created) VALUES ($1, $2, $3, $4, default) RETURNING created;";
   const params = [req.p.pid, req.p.zid, req.p.tid, req.p.trashed];
   pg.query(
     query,
@@ -220,12 +223,22 @@ function handle_POST_trashes(
         return;
       }
 
-      const createdTimeMillis = safeTimestampToMillis(result.rows[0].created);
-      setTimeout(function () {
-        updateConversationModifiedTime(req.p.zid, createdTimeMillis);
-      }, 100);
+      // pg invokes this callback from its own socket handler, outside any
+      // Express or promise boundary, so anything thrown here reaches
+      // process 'uncaughtException' and kills the web process. Keep the
+      // whole body inside a try/catch that answers instead.
+      try {
+        const createdTimeMillis = safeTimestampToMillis(
+          result?.rows?.[0]?.created
+        );
+        setTimeout(function () {
+          updateConversationModifiedTime(req.p.zid, createdTimeMillis);
+        }, 100);
 
-      res.status(200).json({}); // TODO don't stop after the first one, map the inserts to deferreds.
+        res.status(200).json({}); // TODO don't stop after the first one, map the inserts to deferreds.
+      } catch (e) {
+        failJson(res, 500, "polis_err_trashes", e);
+      }
     }
   );
 }

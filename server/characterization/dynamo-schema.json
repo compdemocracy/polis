@@ -1,0 +1,648 @@
+{
+  "source": "delphi/create_dynamodb_tables.py literal table dictionaries",
+  "tables": {
+    "Delphi_PCAConversationConfig": {
+      "KeySchema": [
+        {
+          "AttributeName": "zid",
+          "KeyType": "HASH"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "zid",
+          "AttributeType": "S"
+        }
+      ],
+      "ProvisionedThroughput": {
+        "ReadCapacityUnits": 5,
+        "WriteCapacityUnits": 5
+      }
+    },
+    "Delphi_PCAResults": {
+      "KeySchema": [
+        {
+          "AttributeName": "zid",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "math_tick",
+          "KeyType": "RANGE"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "zid",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "math_tick",
+          "AttributeType": "N"
+        }
+      ],
+      "GlobalSecondaryIndexes": [
+        {
+          "IndexName": "zid-index",
+          "KeySchema": [
+            {
+              "AttributeName": "zid",
+              "KeyType": "HASH"
+            }
+          ],
+          "Projection": {
+            "ProjectionType": "KEYS_ONLY"
+          }
+        }
+      ],
+      "BillingMode": "PAY_PER_REQUEST"
+    },
+    "Delphi_KMeansClusters": {
+      "KeySchema": [
+        {
+          "AttributeName": "zid_tick",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "group_id",
+          "KeyType": "RANGE"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "zid_tick",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "group_id",
+          "AttributeType": "N"
+        },
+        {
+          "AttributeName": "zid",
+          "AttributeType": "S"
+        }
+      ],
+      "BillingMode": "PAY_PER_REQUEST",
+      "GlobalSecondaryIndexes": [
+        {
+          "IndexName": "zid-index",
+          "KeySchema": [
+            {
+              "AttributeName": "zid",
+              "KeyType": "HASH"
+            }
+          ],
+          "Projection": {
+            "ProjectionType": "KEYS_ONLY"
+          }
+        }
+      ]
+    },
+    "Delphi_CommentRouting": {
+      "KeySchema": [
+        {
+          "AttributeName": "zid_tick",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "comment_id",
+          "KeyType": "RANGE"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "zid_tick",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "comment_id",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "zid",
+          "AttributeType": "S"
+        }
+      ],
+      "BillingMode": "PAY_PER_REQUEST",
+      "GlobalSecondaryIndexes": [
+        {
+          "IndexName": "zid-index",
+          "KeySchema": [
+            {
+              "AttributeName": "zid",
+              "KeyType": "HASH"
+            }
+          ],
+          "Projection": {
+            "ProjectionType": "ALL"
+          }
+        }
+      ]
+    },
+    "Delphi_RepresentativeComments": {
+      "KeySchema": [
+        {
+          "AttributeName": "zid_tick_gid",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "comment_id",
+          "KeyType": "RANGE"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "zid_tick_gid",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "comment_id",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "zid",
+          "AttributeType": "S"
+        }
+      ],
+      "BillingMode": "PAY_PER_REQUEST",
+      "GlobalSecondaryIndexes": [
+        {
+          "IndexName": "zid-index",
+          "KeySchema": [
+            {
+              "AttributeName": "zid",
+              "KeyType": "HASH"
+            }
+          ],
+          "Projection": {
+            "ProjectionType": "KEYS_ONLY"
+          }
+        }
+      ]
+    },
+    "Delphi_PCAParticipantProjections": {
+      "KeySchema": [
+        {
+          "AttributeName": "zid_tick",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "participant_id",
+          "KeyType": "RANGE"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "zid_tick",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "participant_id",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "zid",
+          "AttributeType": "S"
+        }
+      ],
+      "BillingMode": "PAY_PER_REQUEST",
+      "GlobalSecondaryIndexes": [
+        {
+          "IndexName": "zid-index",
+          "KeySchema": [
+            {
+              "AttributeName": "zid",
+              "KeyType": "HASH"
+            }
+          ],
+          "Projection": {
+            "ProjectionType": "KEYS_ONLY"
+          }
+        }
+      ]
+    },
+    "Delphi_JobQueue": {
+      "KeySchema": [
+        {
+          "AttributeName": "job_id",
+          "KeyType": "HASH"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "job_id",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "status",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "created_at",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "conversation_id",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "job_type",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "priority",
+          "AttributeType": "N"
+        },
+        {
+          "AttributeName": "worker_id",
+          "AttributeType": "S"
+        }
+      ],
+      "BillingMode": "PAY_PER_REQUEST",
+      "GlobalSecondaryIndexes": [
+        {
+          "IndexName": "StatusCreatedIndex",
+          "KeySchema": [
+            {
+              "AttributeName": "status",
+              "KeyType": "HASH"
+            },
+            {
+              "AttributeName": "created_at",
+              "KeyType": "RANGE"
+            }
+          ],
+          "Projection": {
+            "ProjectionType": "ALL"
+          }
+        },
+        {
+          "IndexName": "ConversationIndex",
+          "KeySchema": [
+            {
+              "AttributeName": "conversation_id",
+              "KeyType": "HASH"
+            },
+            {
+              "AttributeName": "created_at",
+              "KeyType": "RANGE"
+            }
+          ],
+          "Projection": {
+            "ProjectionType": "ALL"
+          }
+        },
+        {
+          "IndexName": "JobTypeIndex",
+          "KeySchema": [
+            {
+              "AttributeName": "job_type",
+              "KeyType": "HASH"
+            },
+            {
+              "AttributeName": "priority",
+              "KeyType": "RANGE"
+            }
+          ],
+          "Projection": {
+            "ProjectionType": "ALL"
+          }
+        },
+        {
+          "IndexName": "WorkerStatusIndex",
+          "KeySchema": [
+            {
+              "AttributeName": "worker_id",
+              "KeyType": "HASH"
+            },
+            {
+              "AttributeName": "status",
+              "KeyType": "RANGE"
+            }
+          ],
+          "Projection": {
+            "ProjectionType": "ALL"
+          }
+        }
+      ]
+    },
+    "Delphi_CommentExtremity": {
+      "KeySchema": [
+        {
+          "AttributeName": "conversation_id",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "comment_id",
+          "KeyType": "RANGE"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "conversation_id",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "comment_id",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "calculation_method",
+          "AttributeType": "S"
+        }
+      ],
+      "GlobalSecondaryIndexes": [
+        {
+          "IndexName": "ByMethod",
+          "KeySchema": [
+            {
+              "AttributeName": "calculation_method",
+              "KeyType": "HASH"
+            },
+            {
+              "AttributeName": "conversation_id",
+              "KeyType": "RANGE"
+            }
+          ],
+          "Projection": {
+            "ProjectionType": "ALL"
+          }
+        },
+        {
+          "IndexName": "zid-index",
+          "KeySchema": [
+            {
+              "AttributeName": "conversation_id",
+              "KeyType": "HASH"
+            }
+          ],
+          "Projection": {
+            "ProjectionType": "ALL"
+          }
+        }
+      ],
+      "BillingMode": "PAY_PER_REQUEST"
+    },
+    "Delphi_NarrativeReports": {
+      "KeySchema": [
+        {
+          "AttributeName": "rid_section_model",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "timestamp",
+          "KeyType": "RANGE"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "rid_section_model",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "timestamp",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "report_id",
+          "AttributeType": "S"
+        }
+      ],
+      "BillingMode": "PAY_PER_REQUEST",
+      "GlobalSecondaryIndexes": [
+        {
+          "IndexName": "ReportIdTimestampIndex",
+          "KeySchema": [
+            {
+              "AttributeName": "report_id",
+              "KeyType": "HASH"
+            },
+            {
+              "AttributeName": "timestamp",
+              "KeyType": "RANGE"
+            }
+          ],
+          "Projection": {
+            "ProjectionType": "ALL"
+          }
+        }
+      ]
+    },
+    "Delphi_UMAPConversationConfig": {
+      "KeySchema": [
+        {
+          "AttributeName": "conversation_id",
+          "KeyType": "HASH"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "conversation_id",
+          "AttributeType": "S"
+        }
+      ],
+      "BillingMode": "PAY_PER_REQUEST"
+    },
+    "Delphi_CommentEmbeddings": {
+      "KeySchema": [
+        {
+          "AttributeName": "conversation_id",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "comment_id",
+          "KeyType": "RANGE"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "conversation_id",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "comment_id",
+          "AttributeType": "N"
+        }
+      ],
+      "BillingMode": "PAY_PER_REQUEST"
+    },
+    "Delphi_CommentHierarchicalClusterAssignments": {
+      "KeySchema": [
+        {
+          "AttributeName": "conversation_id",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "comment_id",
+          "KeyType": "RANGE"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "conversation_id",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "comment_id",
+          "AttributeType": "N"
+        }
+      ],
+      "BillingMode": "PAY_PER_REQUEST"
+    },
+    "Delphi_CommentClustersStructureKeywords": {
+      "KeySchema": [
+        {
+          "AttributeName": "conversation_id",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "cluster_key",
+          "KeyType": "RANGE"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "conversation_id",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "cluster_key",
+          "AttributeType": "S"
+        }
+      ],
+      "BillingMode": "PAY_PER_REQUEST"
+    },
+    "Delphi_UMAPGraph": {
+      "KeySchema": [
+        {
+          "AttributeName": "conversation_id",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "edge_id",
+          "KeyType": "RANGE"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "conversation_id",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "edge_id",
+          "AttributeType": "S"
+        }
+      ],
+      "BillingMode": "PAY_PER_REQUEST"
+    },
+    "Delphi_CommentClustersFeatures": {
+      "KeySchema": [
+        {
+          "AttributeName": "conversation_id",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "cluster_key",
+          "KeyType": "RANGE"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "conversation_id",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "cluster_key",
+          "AttributeType": "S"
+        }
+      ],
+      "BillingMode": "PAY_PER_REQUEST"
+    },
+    "Delphi_CommentClustersLLMTopicNames": {
+      "KeySchema": [
+        {
+          "AttributeName": "conversation_id",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "topic_key",
+          "KeyType": "RANGE"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "conversation_id",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "topic_key",
+          "AttributeType": "S"
+        }
+      ],
+      "BillingMode": "PAY_PER_REQUEST"
+    },
+    "Delphi_TopicAgendaSelections": {
+      "KeySchema": [
+        {
+          "AttributeName": "conversation_id",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "participant_id",
+          "KeyType": "RANGE"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "conversation_id",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "participant_id",
+          "AttributeType": "S"
+        }
+      ],
+      "BillingMode": "PAY_PER_REQUEST"
+    },
+    "Delphi_CollectiveStatement": {
+      "KeySchema": [
+        {
+          "AttributeName": "zid_topic_jobid",
+          "KeyType": "HASH"
+        }
+      ],
+      "AttributeDefinitions": [
+        {
+          "AttributeName": "zid_topic_jobid",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "zid",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "created_at",
+          "AttributeType": "S"
+        }
+      ],
+      "GlobalSecondaryIndexes": [
+        {
+          "IndexName": "zid-created_at-index",
+          "KeySchema": [
+            {
+              "AttributeName": "zid",
+              "KeyType": "HASH"
+            },
+            {
+              "AttributeName": "created_at",
+              "KeyType": "RANGE"
+            }
+          ],
+          "Projection": {
+            "ProjectionType": "ALL"
+          }
+        }
+      ],
+      "BillingMode": "PAY_PER_REQUEST"
+    }
+  }
+}

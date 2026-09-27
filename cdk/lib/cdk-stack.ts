@@ -32,12 +32,16 @@ import createSecurityGroups from '../securityGroups';
 import createRoles from '../iamRoles';
 import createECRRepos from '../ecr';
 import createDBResources from '../db';
+import createDelphiTables from '../dynamodb';
 import configureLaunchTemplates from '../launchTemplates';
 import createAutoScalingAndAlarms from '../autoscaling';
 import createCodedeployConfig from '../codedeploy';
 import createALBAndDNS from '../dns';
 import createSecretsAndDependencies from '../secrets';
+import createOperationalAlarms, { alarmsEnabled, requireAlarmEmail } from '../alarms';
 import { ImportWorkerService } from './import-worker-service';
+import { CertificationCiEc2 } from '../ciEc2';
+import { CoordinatorInactiveService } from '../coordinator';
 
 interface PolisStackProps extends cdk.StackProps {
   enableSSHAccess?: boolean; // Make optional, default to false
@@ -153,7 +157,19 @@ export class CdkStack extends cdk.Stack {
     const { ecrWebRepository, ecrDelphiRepository, ecrMathRepository, imageTagParameter } = createECRRepos(this, instanceRole);
 
     // Create DB and related resources
-    const { dbSubnetGroup, db, dbSecretArnParam, dbHostParam, dbPortParam } = createDBResources(this, vpc);
+    const {
+      dbSubnetGroup,
+      db,
+      dbSecretArnParam,
+      dbHostParam,
+      dbPortParam,
+      lowStorageAlarm,
+      highCpuAlarm,
+    } = createDBResources(this, vpc);
+
+    // Delphi DynamoDB tables. Only the P-003 active-work guard is managed here;
+    // see cdk/dynamodb.ts for why the other Delphi_* tables are not.
+    createDelphiTables(this);
 
     // --- EFS for Ollama Models (only when the GPU stack is enabled)
     let fileSystem: efs.FileSystem | undefined;
@@ -374,6 +390,30 @@ export class CdkStack extends cdk.Stack {
       asgWeb
     );
 
+    // --- Operational alarms (P-031 slice 1).
+    // Off unless synthesized with `-c enableAlarms=true -c alarmEmail=...`.
+    // Seven alarms on metrics that already exist, one SNS topic, and one
+    // CodeDeploy failure rule. Nothing about any existing resource changes
+    // except that two db.ts alarms gain a second notification target.
+    if (alarmsEnabled(this)) {
+      createOperationalAlarms(this, {
+        email: requireAlarmEmail(this),
+        mathWorkerAsgName: asgMathWorker.autoScalingGroupName,
+        database: db,
+        loadBalancerFullName: lb.loadBalancerFullName,
+        webTargetGroupFullName: webTargetGroup.targetGroupFullName,
+        codeDeployApplicationName: application.applicationName,
+        codeDeployDeploymentGroupName: deploymentGroup.deploymentGroupName,
+        // A06 is notBreaching and A07 is ignore, as deployed. The health-pair
+        // check reads those settings off the synthesized alarms rather than
+        // taking them on trust from here.
+        retargetAlarms: [
+          { id: 'A06', alarm: highCpuAlarm },
+          { id: 'A07', alarm: lowStorageAlarm },
+        ],
+      });
+    }
+
     // --- Secrets & Dependencies - creates secrets managed in SSM, grants services permission to interact with each other, etc.
     createSecretsAndDependencies(
       this,
@@ -391,9 +431,50 @@ export class CdkStack extends cdk.Stack {
     // add ECS Fargate service for BYOPD import worker
     new ImportWorkerService(this, 'ImportWorker', {
       vpc: vpc,
-      database: db, 
+      database: db,
       logGroup: logGroup,
     });
+
+    // Present but dormant. This task has no writer executable or migration path.
+    new CoordinatorInactiveService(this, 'CoordinatorInactive', { vpc, database: db });
+
+    // --- P-022 E: disposable certification CI worker (OFF by default).
+    // Nothing below is synthesized unless `-c enableCiEc2=true` is passed, so a
+    // normal deploy is byte-identical to before. See docs/ci-ec2.md.
+    if (this.node.tryGetContext('enableCiEc2') === true ||
+        this.node.tryGetContext('enableCiEc2') === 'true') {
+      const ciArch = (this.node.tryGetContext('ciEc2Arch') as string | undefined) ?? 'arm64';
+      const ciAllowedTypes = (this.node.tryGetContext('ciEc2AllowedInstanceTypes') as string | undefined)
+        ?? 'r8g.4xlarge,r8g.2xlarge';
+      const ciShutdownMinutes = Number(this.node.tryGetContext('ciEc2ShutdownMinutes') ?? 480);
+      new CertificationCiEc2(this, 'CertificationCi', {
+        vpc,
+        githubRepo: (this.node.tryGetContext('ciEc2GithubRepo') as string | undefined) ?? 'compdemocracy/polis',
+        // Must equal the `environment:` the workflow job declares. The trust
+        // policy admits this subject and nothing else.
+        githubEnvironment: (this.node.tryGetContext('ciEc2GithubEnvironment') as string | undefined)
+          ?? 'certification-public',
+        // The environment-form subject carries no ref and is issued to
+        // pull-request jobs too; the `ref` claim is what excludes them.
+        githubRefs: ((this.node.tryGetContext('ciEc2Refs') as string | undefined)
+          ?? 'refs/heads/edge,refs/heads/stable')
+          .split(',').map((r) => r.trim()).filter(Boolean),
+        // r8g.4xlarge = 16 vCPU / 128 GiB, the class P-022 E asks for so that a
+        // runner OOM cannot be mistaken for a correctness failure.
+        instanceType: new ec2.InstanceType(
+          (this.node.tryGetContext('ciEc2InstanceType') as string | undefined) ?? 'r8g.4xlarge'),
+        cpuType: ciArch === 'arm64'
+          ? ec2.AmazonLinuxCpuType.ARM_64
+          : ec2.AmazonLinuxCpuType.X86_64,
+        // Enforced in IAM, so the workflow's instance-type input cannot select
+        // an arbitrary hourly rate.
+        allowedInstanceTypes: ciAllowedTypes.split(',').map((t) => t.trim()).filter(Boolean),
+        volumeSizeGiB: Number(this.node.tryGetContext('ciEc2VolumeGiB') ?? 200),
+        // Generous: the compute budget is 6 h, this is the backstop for a box
+        // whose job died without terminating it.
+        shutdownMinutes: ciShutdownMinutes,
+      });
+    }
 
     // --- Outputs
     new cdk.CfnOutput(this, 'LoadBalancerDNS', { value: lb.loadBalancerDnsName, description: 'Public DNS name of the Application Load Balancer' });
