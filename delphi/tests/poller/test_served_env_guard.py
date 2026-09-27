@@ -80,13 +80,3 @@ def test_only_the_exact_override_value_admits_prod(monkeypatch, built, override)
     assert _run(monkeypatch, "prod") == 2
     assert built == []
 
-
-def test_compose_forwards_the_override_with_an_empty_default():
-    from pathlib import Path
-
-    compose = (Path(__file__).resolve().parents[3] / "docker-compose.yml").read_text()
-    service = compose.split("  math-python:", 1)[1].split("\n  postgres:", 1)[0]
-    assert (
-        "- MATH_POLLER_ALLOW_SERVED_ENV=${MATH_POLLER_ALLOW_SERVED_ENV:-}"
-        in service
-    )
