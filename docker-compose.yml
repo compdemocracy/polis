@@ -231,6 +231,13 @@ services:
       # replica before scaling out, or the shards duplicate every computation.
       - POLL_SHARD_INDEX=${POLL_SHARD_INDEX:-0}
       - POLL_SHARD_COUNT=${POLL_SHARD_COUNT:-1}
+      # Single-threaded BLAS/OpenMP for the math engine only, matching the
+      # coordinator and probe box, so PCA results do not depend on thread count.
+      # Set here, not in delphi/Dockerfile: that image also runs the report
+      # pipeline (torch, UMAP, embeddings), which should keep its threads.
+      - OMP_NUM_THREADS=1
+      - OPENBLAS_NUM_THREADS=1
+      - MKL_NUM_THREADS=1
     networks:
       - "polis-net"
     extra_hosts:
