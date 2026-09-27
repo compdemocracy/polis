@@ -67,7 +67,7 @@ class Comparison(unittest.TestCase):
         return row
 
     def test_every_fixture_vector(self):
-        want = {'pass': ('PAIRED', None, 'PASS'), 'near-tie': ('PAIRED', None, 'NEAR-TIE'),
+        want = {'pass': ('PAIRED', None, 'PASS'), 'near-tie': ('PAIRED', None, 'NEAR-TIE-CANDIDATE'),
                 'history': ('PAIRED', None, 'HISTORY-DIVERGENCE'), 'fail': ('PAIRED', None, 'FAIL'),
                 'legacy-empty': ('PAIRED', None, 'PASS'), 'timestamps': ('UNPAIRED', 'TIMESTAMPS', None),
                 'totals': ('UNPAIRED', 'TOTALS', None), 'no-prod-row': ('UNPAIRED', 'NO-PROD-ROW', None),
@@ -107,6 +107,19 @@ class Comparison(unittest.TestCase):
         flipped['caching_tick'] = 3
         self.assertEqual(self.classify(base, flipped)['outcome'], 'PASS')
 
+    def test_structure_is_never_a_triage_class(self):
+        for name, (prod, shadow) in compare.structural_variants().items():
+            with self.subTest(name=name):
+                row = self.classify(prod, shadow)
+                self.assertEqual((row['pairing'], row['outcome']), ('PAIRED', 'FAIL'))
+                self.assertIn('row-schema', row['differing'])
+        # Cluster cardinality may differ without being structure.
+        base = compare.fixture_blob()
+        more = copy.deepcopy(base)
+        more['group-clusters'].append({'id': 1, 'members': [0], 'center': [1.0, 1.0]})
+        row = self.classify(base, more)
+        self.assertEqual((row['outcome'], row['differing']), ('NEAR-TIE-CANDIDATE', ['group-clusters']))
+
     def test_malformed_rows_fail_and_never_raise(self):
         base = compare.fixture_blob()
         for bad in (dict(base, n='3'), dict(base, **{'group_clusters': 'x'}), dict(base, tids='x')):
@@ -130,7 +143,7 @@ class Verifier(unittest.TestCase):
         produced = producer.produce(self.p, SPEC)
         r = verifier.export(self.p, produced, self.job, '1' * 40, self.declared)
         self.assertEqual(decode_receipt(encoded(r), self.job), r)
-        self.assertEqual(r['verdict'], 'FAIL')
+        self.assertEqual(r['verdict'], 'OPERATIONAL-FAIL')
         self.assertEqual(r['totals']['FAIL'], 1)
         self.assertNotIn('zid', encoded(r).decode())
         clean = copy.deepcopy(self.p)
@@ -138,9 +151,62 @@ class Verifier(unittest.TestCase):
                                   if compare.classify(1, c['prod'], c['shadow'], self.declared)['outcome'] != 'FAIL']
         clean['catalog']['active'] = len(clean['conversations'])
         r = verifier.export(clean, producer.produce(clean, SPEC), self.job, '1' * 40, self.declared)
-        self.assertEqual(r['verdict'], 'PASS')
-        self.assertEqual((r['totals']['NEAR-TIE'], r['totals']['HISTORY-DIVERGENCE'], r['totals']['triage_required']),
-                         (1, 1, 2))
+        self.assertEqual(r['verdict'], 'OPERATIONAL-ATTENTION')
+        self.assertEqual((r['totals']['NEAR-TIE-CANDIDATE'], r['totals']['HISTORY-DIVERGENCE'],
+                          r['totals']['triage_required'], r['triage']['required']), (1, 1, 2, 2))
+        flagged = sorted([c['zid'], c['shadow']['lastVoteTimestamp'], c['shadow']['lastModTimestamp']]
+                         for c in clean['conversations']
+                         if compare.classify(1, c['prod'], c['shadow'], self.declared)['outcome']
+                         in ('NEAR-TIE-CANDIDATE', 'HISTORY-DIVERGENCE'))
+        self.assertEqual(r['triage']['sha256'], ls.triage_digest(flagged))
+        spec = ls.triage_spec(r, self.job)
+        self.assertEqual(spec['conversations'], 2)
+        calm = copy.deepcopy(clean)
+        calm['conversations'] = [c for c in calm['conversations']
+                                 if c['prod'] is not None and c['shadow'] is not None
+                                 and compare.classify(1, c['prod'], c['shadow'], self.declared)['outcome']
+                                 not in ('NEAR-TIE-CANDIDATE', 'HISTORY-DIVERGENCE')]
+        calm['catalog']['active'] = len(calm['conversations'])
+        r = verifier.export(calm, producer.produce(calm, SPEC), self.job, '1' * 40, self.declared)
+        # Two paired of four active: exactly the coverage floor.
+        self.assertEqual((r['verdict'], r['totals']['PAIRED'], r['totals']['UNPAIRED']), ('OPERATIONAL-PASS', 2, 2))
+
+    def one(self, prod, shadow):
+        p = copy.deepcopy(self.p)
+        p['conversations'] = [dict(zid=1, created=1_700_000_000_000, prod=prod, shadow=shadow)]
+        p['catalog']['active'] = 1
+        r = verifier.export(p, producer.produce(p, SPEC), self.job, '1' * 40, self.declared)
+        self.assertEqual(decode_receipt(encoded(r), self.job), r)
+        self.assertTrue(all(r['controls'].values()))
+        return r
+
+    def test_structural_defects_fail_through_the_full_export_path(self):
+        for name, (prod, shadow) in compare.structural_variants().items():
+            with self.subTest(name=name):
+                r = self.one(prod, shadow)
+                self.assertEqual((r['conversations'][0]['outcome'], r['verdict']), ('FAIL', 'OPERATIONAL-FAIL'))
+        r = self.one(*compare.fixture_empty_pair())
+        self.assertEqual((r['conversations'][0]['legacy_defect'], r['verdict']), (ls.EMPTY_DEFECT, 'OPERATIONAL-PASS'))
+
+    def test_unproven_differences_are_attention_not_pass(self):
+        base = compare.fixture_blob()
+        count = copy.deepcopy(base)
+        count['votes-base']['0']['A'] = [999999]
+        center = copy.deepcopy(base)
+        center['pca']['center'] = [1e100, 1e100]
+        for shadow in (count, center):
+            r = self.one(base, shadow)
+            self.assertEqual(r['verdict'], 'OPERATIONAL-ATTENTION')
+            self.assertEqual(r['triage']['required'], 1)
+
+    def test_one_pair_among_missing_shadows_is_incomplete(self):
+        p = copy.deepcopy(self.p)
+        base = compare.fixture_blob()
+        p['conversations'] = [dict(zid=z, created=None, prod=copy.deepcopy(base),
+                                   shadow=copy.deepcopy(base) if z == 1 else None) for z in range(1, 251)]
+        p['catalog']['active'] = 250
+        r = verifier.export(p, producer.produce(p, SPEC), self.job, '1' * 40, self.declared)
+        self.assertEqual((r['verdict'], r['totals']['PAIRED'], r['totals']['NO-SHADOW-ROW']), ('INCOMPLETE', 1, 249))
 
     def test_forged_evidence_and_projection_are_refused(self):
         produced = producer.produce(self.p, SPEC)
@@ -161,13 +227,14 @@ class Verifier(unittest.TestCase):
             p = copy.deepcopy(self.p)
             p['catalog'].update(catalog)
             r = verifier.export(p, produced, self.job, '1' * 40, self.declared)
-            self.assertFalse(r['controls']['prod-rows-unchanged'])
-            self.assertEqual(r['verdict'], 'FAIL')
+            name = 'reader-no-write' if 'no_write' in catalog else 'prod-count-not-decreased'
+            self.assertFalse(r['controls'][name])
+            self.assertEqual(r['verdict'], 'OPERATIONAL-FAIL')
         p = copy.deepcopy(self.p)
         p['conversations'][0]['prod'] = dict(p['conversations'][0]['prod'] or {}, group_clusters=[])
         r = verifier.export(p, producer.produce(p, SPEC), self.job, '1' * 40, self.declared)
         self.assertFalse(r['controls']['shadow-label-not-prod'])
-        self.assertEqual((r['rows']['prod_python_shape'], r['verdict']), (1, 'FAIL'))
+        self.assertEqual((r['rows']['prod_python_shape'], r['verdict']), (1, 'OPERATIONAL-FAIL'))
 
     def test_empty_and_unreadable_snapshots_are_incomplete(self):
         empty = dict(self.p, conversations=[], catalog=dict(self.p['catalog'], active=0))

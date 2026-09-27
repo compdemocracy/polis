@@ -346,6 +346,15 @@ def validate_receipt(value: object, job: Job) -> dict:
     return r
 
 
+def receipt_passed(receipt: dict, job: Job) -> bool:
+    """Closed dispatch of a validated receipt's public PASS/FAIL bit."""
+    job = validate_job(job)
+    if job["schema"] == "polis-probe-job/2" and job["kind"] == "light-shadow-compare":
+        from light_shadow import passed
+        return passed(receipt)
+    return receipt["verdict"] == "PASS"
+
+
 def receipt_limit(job: Job) -> int:
     # Closed dispatch; a receipt cannot choose its own export allowance.
     job = validate_job(job)

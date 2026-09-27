@@ -19,8 +19,8 @@ sys.path.insert(0, str(REPO / 'delphi'))
 sys.path.insert(0, str(REPO / 'ci/probe_box'))
 import g12
 from polismath.replay import certify
-from light_shadow import (EMPTY_DEFECT, EXCLUDED_FIELDS, LEGACY_EMPTY_KEYS, METRICS, encoded, outcome,
-                          pair, rounded, unpaired_evidence)
+from light_shadow import (ACCEPTANCE_KEYS, EMPTY_DEFECT, EXCLUDED_FIELDS, LEGACY_EMPTY_KEYS, METRICS,
+                          NEAR_TIE_KEYS, encoded, field, outcome, pair, rounded, unpaired_evidence)
 
 # The committed empty-conversation schedule declares the empty values the
 # legacy engine omits; restored values must equal them exactly.
@@ -61,8 +61,29 @@ def reconcile_empty(prod, shadow, declared):
     return view, restored
 
 
+def admitted(view):
+    """The certified field contract on one row alone (as the gate admits each side first)."""
+    for key, value in view.items():
+        col = g12.Collector()
+        g12._walk_keyed(key, value, value, key, col)
+        if not g12.summarize(col)['rollup']['g12_pass']:
+            return False
+    return True
+
+
+def empty_contract(view, declared):
+    """The shadow's empty row carries every declared empty value exactly."""
+    for key, value in declared.items():
+        parent, _, child = key.partition('.')
+        holder = view.get(parent) if child else view
+        name = child or parent
+        if type(holder) is not dict or name not in holder or encoded(holder[name]) != encoded(value):
+            return False
+    return True
+
+
 def measure(left, right):
-    """(differing keys, merged g12 collector) with certification's sign alignment (d=1)."""
+    """(differing keys, keys with shape faults, merged g12 collector), certification's sign alignment (d=1)."""
     try:
         signs = g12.infer_axis_sign(left['pca']['comps'], right['pca']['comps'])
     except (KeyError, TypeError, IndexError):
@@ -70,6 +91,7 @@ def measure(left, right):
     axis = g12.Axis(signs, 1)
     merged = g12.Collector()
     differing = set(left) ^ set(right)
+    shaped = set(differing)
     for key in sorted(differing):
         merged.add_shape(key, 'acceptance-key-inventory')
     for key in sorted(set(left) & set(right)):
@@ -77,10 +99,12 @@ def measure(left, right):
         g12._walk_keyed(key, left[key], right[key], key, col, axis)
         if not g12.summarize(col)['rollup']['g12_pass']:
             differing.add(key)
+        if col.shape:
+            shaped.add(key)
         for mine, theirs in ((merged.pairs, col.pairs), (merged.exact_total, col.exact_total),
                              (merged.exact_mismatch, col.exact_mismatch), (merged.shape, col.shape)):
             mine.update(theirs)
-    return sorted(differing), merged
+    return sorted(differing), shaped, merged
 
 
 def malformed(zid):
@@ -89,25 +113,45 @@ def malformed(zid):
 
 
 def classify(zid, prod, shadow, declared):
-    """One evidence row for one conversation; never raises on row content."""
+    """One evidence row for one conversation; never raises on row content.
+
+    Structure is checked before any triage class is possible: present, typed
+    pairing metadata (in `pair`); the certified raw checkpoint validation, with
+    required keys unless the shadow row is the declared empty conversation;
+    the complete acceptance inventory on both sides after the named legacy-
+    empty restoration; each side admitted alone by the certified field
+    contract; no shape fault outside cluster cardinality; and at least one
+    compared leaf. Any failure is `row-schema`, a FAIL.
+    """
     state, reason = pair(prod, shadow)
     if state == 'UNPAIRED':
         return unpaired_evidence(zid, reason)
     if state == 'MALFORMED':
         return malformed(zid)
+    empty = field(shadow, 'n') == 0
     try:
         views = []
         for label, blob in (('prod', prod), ('shadow', shadow)):
             blob = without_excluded(blob)
-            certify.validate_checkpoint_blob(blob, label, require_keys=False)
+            certify.validate_checkpoint_blob(blob, label, require_keys=not empty)
             views.append(certify.project_acceptance(blob))
         left, right = views
+        if empty and not empty_contract(right, declared):
+            return malformed(zid)
         left, restored = reconcile_empty(left, right, declared)
-        differing, col = measure(left, right)
+        if set(left) != set(ACCEPTANCE_KEYS) or set(right) != set(ACCEPTANCE_KEYS):
+            structural = True
+        else:
+            structural = not (admitted(left) and admitted(right))
+        differing, shaped, col = measure(left, right)
         rollup = g12.summarize(col)['rollup']
     except (certify.CertifyError, TypeError, ValueError, KeyError, IndexError, AttributeError,
             OverflowError, RecursionError):
         return malformed(zid)
+    # Cluster cardinality may legitimately differ; any other shape fault is structure.
+    structural = structural or bool(shaped - NEAR_TIE_KEYS) or rollup['n'] + rollup['n_exact'] == 0
+    if structural:
+        differing = sorted(set(differing) | {'row-schema'})
     leaves = sum(len(v) for v in col.pairs.values())
     finite = rollup['n']
     def top(value):
@@ -188,3 +232,19 @@ def fixture_variants():
             'fail': (base, engine), 'legacy-empty': (empty_prod, empty_shadow),
             'timestamps': (base, timestamps), 'totals': (base, totals),
             'no-prod-row': (None, copy.deepcopy(base)), 'no-shadow-row': (copy.deepcopy(base), None)}
+
+
+def structural_variants():
+    """Named (prod, shadow) pairs that must FAIL: structure is never a triage class."""
+    base = fixture_blob()
+    no_time = copy.deepcopy(base)
+    no_time.pop('lastVoteTimestamp')
+    out = {'missing-pairing': (no_time, copy.deepcopy(no_time)), 'empty-objects': ({}, {})}
+    for key in ('pca', 'group-clusters', 'repness'):
+        bad = copy.deepcopy(base)
+        bad.pop(key)
+        out['missing-' + key] = (base, bad)
+    bad = copy.deepcopy(base)
+    bad['pca']['comps'] = [[], []]
+    out['truncated-pca'] = (base, bad)
+    return out
