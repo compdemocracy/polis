@@ -13,8 +13,8 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'probe_box'))
-from light_shadow_compare import (classify, classify_projection, empty_output, fixture_blob, fixture_variants,
-                                  structural_variants)
+from light_shadow_compare import (cardinality_variant, classify, classify_projection, empty_output, fixture_blob,
+                                  fixture_variants, structural_variants)
 from light_shadow import (ACCEPTANCE, CERTIFICATION_POLICY, CONTROLS, COVERED, EMPTY_DEFECT, EVIDENCE, EXCLUDED_FIELDS,
                           KIND, LIMIT, LIVE_CONTROLS, POLICY_SHA, PROD, PROJECTION_SCHEMA, UNCOVERED_TABLES,
                           decode, encoded, expected_verdict, fail, python_shape, tally, validate_entry,
@@ -197,6 +197,10 @@ def controls(job, declared=None):
     outcomes['empty-objects-fail'] = fails('empty-objects')
     outcomes['missing-field-fails'] = fails('missing-pca', 'missing-group-clusters', 'missing-repness')
     outcomes['truncated-pca-fails'] = fails('truncated-pca')
+    outcomes['shared-defect-fails'] = fails('both-empty-pca', 'both-truncated-pca', 'both-truncated-group-center')
+    outcomes['nested-hole-fails'] = fails('truncated-group-center', 'missing-group-center', 'truncated-base-x',
+                                          'missing-votes-vector', 'truncated-votes-vector')
+    outcomes['cardinality-candidate'] = classify(1, *cardinality_variant(), declared)['outcome'] == 'NEAR-TIE-CANDIDATE'
     assert set(outcomes) | set(LIVE_CONTROLS) == set(CONTROLS)
     return outcomes
 

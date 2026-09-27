@@ -71,6 +71,89 @@ def admitted(view):
     return True
 
 
+def _ints(v, length=None):
+    return (type(v) is list and all(type(x) is int for x in v)
+            and (length is None or len(v) == length))
+
+
+def _numbers(v, length):
+    return (type(v) is list and len(v) == length
+            and all(type(x) in (int, float) and type(x) is not bool for x in v))
+
+
+def _abs(v):
+    return type(v) is dict and set(v) >= {'A', 'D', 'S'}
+
+
+def structure(view):
+    """Nested schema of one acceptance projection, against its own inventories.
+
+    Each row must be coherent on its own, so a defect both rows share is still
+    structure: tids length n_c; PCA comps and comment-projection as k rows of
+    n_c numbers (k >= 1 unless n_c == 0), center and comment-extremity of n_c;
+    base-clusters as equal-length columns id/members/count/x/y (b clusters);
+    each group cluster with an integer id, integer members and a k-long center;
+    votes-base as A/D/S vectors of length b; group-votes keyed by the group ids
+    with integer A/D/S per comment. Early and empty layouts (b == 0, no groups,
+    n_c == 0) are valid. Values and cardinality are left to the comparison.
+    """
+    try:
+        tids = view['tids']
+        if not _ints(tids):
+            return False
+        n_c = len(tids)
+        pca = view['pca']
+        if type(pca) is not dict or not set(pca) >= {'comps', 'center', 'comment-projection', 'comment-extremity'}:
+            return False
+        comps, projection = pca['comps'], pca['comment-projection']
+        if type(comps) is not list or type(projection) is not list:
+            return False
+        k = len(comps)
+        if (k == 0 and n_c) or len(projection) != k:
+            return False
+        if not all(_numbers(row, n_c) for row in comps + projection):
+            return False
+        if not (_numbers(pca['center'], n_c) and _numbers(pca['comment-extremity'], n_c)):
+            return False
+        base = view['base-clusters']
+        if type(base) is not dict or not set(base) >= {'id', 'members', 'count', 'x', 'y'}:
+            return False
+        b = len(base['id']) if type(base['id']) is list else -1
+        if not (_ints(base['id'], b) and _ints(base['count'], b) and _numbers(base['x'], b)
+                and _numbers(base['y'], b) and type(base['members']) is list and len(base['members']) == b
+                and all(_ints(m) for m in base['members'])):
+            return False
+        groups = view['group-clusters']
+        if type(groups) is not list:
+            return False
+        for g in groups:
+            if (type(g) is not dict or type(g.get('id')) is not int or not _ints(g.get('members'))
+                    or not _numbers(g.get('center'), k)):
+                return False
+        votes = view['votes-base']
+        if type(votes) is not dict or not all(_abs(v) and all(_ints(v[x], b) for x in 'ADS')
+                                              for v in votes.values()):
+            return False
+        group_votes = view['group-votes']
+        if type(group_votes) is not dict or set(group_votes) != {str(g['id']) for g in groups}:
+            return False
+        for g in group_votes.values():
+            if type(g) is not dict or type(g.get('votes')) is not dict:
+                return False
+            if not all(_abs(v) and all(type(v[x]) is int for x in 'ADS') for v in g['votes'].values()):
+                return False
+        return True
+    except (KeyError, TypeError, AttributeError):
+        return False
+
+
+def inventory(view):
+    """Cluster inventory: base ids and members, group ids and members."""
+    base, groups = view['base-clusters'], view['group-clusters']
+    return (encoded([base['id'], base['members']]),
+            encoded(sorted([g['id'], sorted(g['members'])] for g in groups)))
+
+
 def empty_contract(view, declared):
     """The shadow's empty row carries every declared empty value exactly."""
     for key, value in declared.items():
@@ -142,13 +225,17 @@ def classify(zid, prod, shadow, declared):
         if set(left) != set(ACCEPTANCE_KEYS) or set(right) != set(ACCEPTANCE_KEYS):
             structural = True
         else:
-            structural = not (admitted(left) and admitted(right))
+            structural = not (admitted(left) and admitted(right) and structure(left) and structure(right))
         differing, shaped, col = measure(left, right)
         rollup = g12.summarize(col)['rollup']
     except (certify.CertifyError, TypeError, ValueError, KeyError, IndexError, AttributeError,
             OverflowError, RecursionError):
         return malformed(zid)
-    # Cluster cardinality may legitimately differ; any other shape fault is structure.
+    # Between two coherent rows, a shape difference in the clustering closure is
+    # admitted only when the cluster inventory itself differs (a different
+    # number of clusters or different members); any other shape fault is structure.
+    if not structural and shaped & NEAR_TIE_KEYS:
+        structural = inventory(left) == inventory(right)
     structural = structural or bool(shaped - NEAR_TIE_KEYS) or rollup['n'] + rollup['n_exact'] == 0
     if structural:
         differing = sorted(set(differing) | {'row-schema'})
@@ -247,4 +334,36 @@ def structural_variants():
     bad = copy.deepcopy(base)
     bad['pca']['comps'] = [[], []]
     out['truncated-pca'] = (base, bad)
+    # Defects both rows share, and nested holes inside the clustering closure.
+    both = copy.deepcopy(base)
+    both['pca'] = {}
+    out['both-empty-pca'] = (both, copy.deepcopy(both))
+    both = copy.deepcopy(base)
+    both['pca']['comps'] = [[], []]
+    out['both-truncated-pca'] = (both, copy.deepcopy(both))
+    both = copy.deepcopy(base)
+    both['group-clusters'][0]['center'] = []
+    out['both-truncated-group-center'] = (both, copy.deepcopy(both))
+    out['truncated-group-center'] = (base, copy.deepcopy(both))
+    bad = copy.deepcopy(base)
+    del bad['group-clusters'][0]['center']
+    out['missing-group-center'] = (base, bad)
+    bad = copy.deepcopy(base)
+    bad['base-clusters']['x'] = []
+    out['truncated-base-x'] = (base, bad)
+    bad = copy.deepcopy(base)
+    del bad['votes-base']['0']['A']
+    out['missing-votes-vector'] = (base, bad)
+    bad = copy.deepcopy(base)
+    bad['votes-base']['0']['A'] = []
+    out['truncated-votes-vector'] = (base, bad)
     return out
+
+
+def cardinality_variant():
+    """A valid cluster-cardinality difference: one more group. A candidate, not structure."""
+    base = fixture_blob()
+    more = copy.deepcopy(base)
+    more['group-clusters'].append({'id': 1, 'members': [0], 'center': [1.0, 1.0]})
+    more['group-votes']['1'] = {'votes': {'0': {'A': 0, 'D': 0, 'S': 1}}}
+    return base, more

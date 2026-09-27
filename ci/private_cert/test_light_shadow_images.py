@@ -22,7 +22,7 @@ from control import encoded, sha
 from image_admission import validate_recipe
 from test_roles_images import archive
 from contracts import validate_job
-from receipt import decode_receipt, LEGACY_EMPTY_KEYS
+from receipt import decode_receipt, receipt_passed, LEGACY_EMPTY_KEYS
 import light_shadow as ls
 import light_shadow_compare as compare
 import light_shadow_producer as producer
@@ -114,11 +114,16 @@ class Comparison(unittest.TestCase):
                 self.assertEqual((row['pairing'], row['outcome']), ('PAIRED', 'FAIL'))
                 self.assertIn('row-schema', row['differing'])
         # Cluster cardinality may differ without being structure.
-        base = compare.fixture_blob()
-        more = copy.deepcopy(base)
-        more['group-clusters'].append({'id': 1, 'members': [0], 'center': [1.0, 1.0]})
-        row = self.classify(base, more)
-        self.assertEqual((row['outcome'], row['differing']), ('NEAR-TIE-CANDIDATE', ['group-clusters']))
+        row = self.classify(*compare.cardinality_variant())
+        self.assertEqual((row['outcome'], row['differing']), ('NEAR-TIE-CANDIDATE', ['group-clusters', 'group-votes']))
+        # A new group with no group-votes entry is a hole, not a cardinality change.
+        base, more = compare.cardinality_variant()
+        del more['group-votes']['1']
+        self.assertEqual(self.classify(base, more)['outcome'], 'FAIL')
+        # Membership moving between the same groups is also inventory, not structure.
+        moved = copy.deepcopy(base)
+        moved['base-clusters']['members'] = [[0, 1]]
+        self.assertEqual(self.classify(base, moved)['outcome'], 'NEAR-TIE-CANDIDATE')
 
     def test_malformed_rows_fail_and_never_raise(self):
         base = compare.fixture_blob()
@@ -187,6 +192,21 @@ class Verifier(unittest.TestCase):
                 self.assertEqual((r['conversations'][0]['outcome'], r['verdict']), ('FAIL', 'OPERATIONAL-FAIL'))
         r = self.one(*compare.fixture_empty_pair())
         self.assertEqual((r['conversations'][0]['legacy_defect'], r['verdict']), (ls.EMPTY_DEFECT, 'OPERATIONAL-PASS'))
+        r = self.one(*compare.cardinality_variant())
+        self.assertEqual((r['conversations'][0]['outcome'], r['verdict']), ('NEAR-TIE-CANDIDATE', 'OPERATIONAL-ATTENTION'))
+
+    def test_review_counterexamples_fail_through_the_full_export_path(self):
+        """The eight shared-defect and nested-hole cases of review round 2."""
+        names = ('both-empty-pca', 'both-truncated-pca', 'both-truncated-group-center', 'truncated-group-center',
+                 'missing-group-center', 'truncated-base-x', 'missing-votes-vector', 'truncated-votes-vector')
+        variants = compare.structural_variants()
+        for name in names:
+            with self.subTest(name=name):
+                r = self.one(*variants[name])
+                entry = r['conversations'][0]
+                self.assertEqual((entry['outcome'], r['verdict']), ('FAIL', 'OPERATIONAL-FAIL'))
+                self.assertIn('row-schema', entry['differing'])
+                self.assertFalse(receipt_passed(r, self.job))
 
     def test_unproven_differences_are_attention_not_pass(self):
         base = compare.fixture_blob()

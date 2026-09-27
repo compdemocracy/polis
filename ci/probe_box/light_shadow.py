@@ -77,7 +77,8 @@ CONTROLS = (
     # Fixed classification vectors, including structural refusals.
     'pair-timestamps', 'pair-totals', 'class-pass', 'class-near-tie', 'class-history',
     'class-fail', 'class-legacy-empty', 'missing-pairing-fails', 'empty-objects-fail',
-    'missing-field-fails', 'truncated-pca-fails')
+    'missing-field-fails', 'truncated-pca-fails', 'shared-defect-fails', 'nested-hole-fails',
+    'cardinality-candidate')
 LIVE_CONTROLS = CONTROLS[:3]
 MS_FLOOR, MS_CEILING = 1_500_000_000_000, 4_000_000_000_000
 MIN_WINDOW, MAX_WINDOW = 3600, 7 * 86400
