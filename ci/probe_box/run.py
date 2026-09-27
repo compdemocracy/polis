@@ -8,7 +8,7 @@ import re
 import sys
 import time
 import uuid
-from contracts import CAMPAIGN_CEILING_SECONDS, validate_job
+from contracts import CAMPAIGN_CEILING_SECONDS, refuse_placeholder, validate_job
 from receipt import validate_receipt, decode_receipt, receipt_limit, validate_engine_timeout
 
 LAUNCH_KEYS = ('TEMPLATE', 'TEMPLATE_VERSION', 'PROFILE', 'SUBNET', 'SECURITY_GROUP')
@@ -836,7 +836,7 @@ class Session:
                        ADMISSION_SHA256=sha(a)), self.clock, monitoring=self.monitoring)
 
     def start(self, job):
-        job = validate_job(job)
+        job = refuse_placeholder(validate_job(job))
         if self.cfg['MODE'] != 'worker':
             raise Unknown('MODE_CONFLICT')
         return self.start_request(job['run_id'], {'job':job}, job['max_seconds'])

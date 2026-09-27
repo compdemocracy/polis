@@ -23,13 +23,14 @@ class ImageCommand(TypedDict):
 
 class Job(TypedDict):
     schema: Literal["polis-probe-job/1", "polis-probe-job/2"]
-    kind: NotRequired[Literal["roles-census"]]
+    kind: NotRequired[Literal["roles-census", "light-shadow-compare"]]
     run_id: str
     producer: ImageCommand
     verifier: ImageCommand
     max_seconds: int
     reader: NotRequired[ImageCommand]
     representative_selection: NotRequired[dict]
+    run_spec: NotRequired[dict]
 
 
 class BoundaryError(ValueError):
@@ -53,7 +54,14 @@ def command(value: object) -> ImageCommand:
 def validate_job(value: object) -> Job:
     census = type(value) is dict and value.get("schema") == "polis-probe-job/2"
     if census:
-        if set(value) != {"schema","kind","run_id","reader","producer","verifier","max_seconds"} or value["kind"] != "roles-census":
+        # Job/2 kinds share the three-image shape; only the light-shadow
+        # comparison carries a closed operator run-spec (no ids, no SQL).
+        fields = {"schema","kind","run_id","reader","producer","verifier","max_seconds"}
+        if value.get("kind") == "light-shadow-compare":
+            fields = fields | {"run_spec"}
+        elif value.get("kind") != "roles-census":
+            raise BoundaryError("JOB_SCHEMA")
+        if set(value) != fields:
             raise BoundaryError("JOB_SCHEMA")
         for role, action in (("reader","read"),("producer","produce"),("verifier","verify")):
             if command(value[role])["args"] != [action]:
@@ -85,8 +93,24 @@ def validate_job(value: object) -> Job:
             raise BoundaryError("SELECTION_CONFIG")
         result["representative_selection"] = dict(selection)
     if census:
-        result.update(schema="polis-probe-job/2",kind="roles-census")
+        result.update(schema="polis-probe-job/2",kind=value["kind"])
+        if value["kind"] == "light-shadow-compare":
+            from light_shadow import validate_run_spec
+            try:
+                result["run_spec"] = validate_run_spec(value["run_spec"])
+            except ValueError:
+                raise BoundaryError("RUN_SPEC") from None
     return result
+
+
+PLACEHOLDER_DIGEST = "@sha256:" + "0" * 64
+
+
+def refuse_placeholder(job: Job) -> Job:
+    """A registry template with all-zero image digests is never launched."""
+    if any(job[k]["image"].endswith(PLACEHOLDER_DIGEST) for k in ("reader", "producer", "verifier") if k in job):
+        raise BoundaryError("PLACEHOLDER_IMAGE")
+    return job
 
 
 def decode_job(raw: bytes) -> Job:
