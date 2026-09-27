@@ -107,9 +107,12 @@ PLACEHOLDER_DIGEST = "@sha256:" + "0" * 64
 
 
 def refuse_placeholder(job: Job) -> Job:
-    """A registry template with all-zero image digests is never launched."""
+    """A registry template (all-zero image digests or engine metadata) is never launched."""
     if any(job[k]["image"].endswith(PLACEHOLDER_DIGEST) for k in ("reader", "producer", "verifier") if k in job):
         raise BoundaryError("PLACEHOLDER_IMAGE")
+    spec = job.get("run_spec")
+    if spec is not None and (set(spec["engine_commit"]) == {"0"} or spec["engine_image"] == "sha256:" + "0" * 64):
+        raise BoundaryError("PLACEHOLDER_RUN_SPEC")
     return job
 
 

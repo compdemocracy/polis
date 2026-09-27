@@ -13,11 +13,12 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'probe_box'))
-from light_shadow_compare import classify, classify_projection, empty_output, fixture_variants
-from light_shadow import (CERTIFICATION_POLICY, CONTROLS, COVERED, EMPTY_DEFECT, EVIDENCE, EXCLUDED_FIELDS,
+from light_shadow_compare import (classify, classify_projection, empty_output, fixture_blob, fixture_variants,
+                                  structural_variants)
+from light_shadow import (ACCEPTANCE, CERTIFICATION_POLICY, CONTROLS, COVERED, EMPTY_DEFECT, EVIDENCE, EXCLUDED_FIELDS,
                           KIND, LIMIT, LIVE_CONTROLS, POLICY_SHA, PROD, PROJECTION_SCHEMA, UNCOVERED_TABLES,
                           decode, encoded, expected_verdict, fail, python_shape, tally, validate_entry,
-                          validate_projection, validate_receipt, worst)
+                          triage_digest, validate_projection, validate_receipt, worst)
 from receipt import sha
 
 
@@ -36,11 +37,12 @@ def entries(projection, evidence, spec):
 
 
 def live_controls(projection, spec):
+    """Only what the snapshot observes; see light_shadow.CONTROLS for the limits."""
     catalog = projection['catalog']
     complete = projection['status'] == 'COMPLETE'
     shape = sum(python_shape(c['prod']) for c in projection['conversations'])
-    return {'prod-rows-unchanged': complete and catalog['no_write']
-            and catalog['prod_main_after'] >= catalog['prod_main']
+    return {'reader-no-write': complete and catalog['no_write'],
+            'prod-count-not-decreased': complete and catalog['prod_main_after'] >= catalog['prod_main']
             and catalog['prod_ticks_after'] >= catalog['prod_ticks'],
             'shadow-label-not-prod': (spec['shadow_env'] != PROD and projection['shadow_env'] == spec['shadow_env']
                                       and shape == 0)}
@@ -56,8 +58,12 @@ def receipt(projection, produced, job, source_commit, declared=None):
         fail('SHADOW_RECONSTRUCTION')
     listed = entries(projection, expected, spec)
     catalog = projection['catalog']
+    # The triage set stays on the box; the receipt binds it by digest.
+    flagged = [[row['zid'], *(c['shadow'].get(k) for k in ('lastVoteTimestamp', 'lastModTimestamp'))]
+               for c, row in zip(projection['conversations'], expected)
+               if row['outcome'] in ('NEAR-TIE-CANDIDATE', 'HISTORY-DIVERGENCE')]
     r = {'schema': 'polis-probe-receipt/3', 'kind': KIND, 'run_id': job['run_id'], 'job_sha256': sha(job),
-         'verdict': 'INCOMPLETE',
+         'verdict': 'INCOMPLETE', 'acceptance': ACCEPTANCE,
          'bindings': dict(source_commit=source_commit, query_policy=POLICY_SHA,
                           certification_policy=CERTIFICATION_POLICY,
                           server_version_num=projection['server_version_num'],
@@ -67,7 +73,9 @@ def receipt(projection, produced, job, source_commit, declared=None):
                       'uncovered_tables': list(UNCOVERED_TABLES), 'excluded_fields': list(EXCLUDED_FIELDS)},
          'rows': dict({k: v for k, v in catalog.items() if k != 'no_write'},
                       prod_python_shape=sum(python_shape(c['prod']) for c in projection['conversations'])),
-         'totals': tally(listed), 'worst': worst(listed), 'conversations': listed,
+         'totals': tally(listed), 'worst': worst(listed),
+         'triage': {'required': len(flagged), 'sha256': triage_digest(flagged), 'ids': 'ON-BOX-ONLY'},
+         'conversations': listed,
          'controls': dict(dict.fromkeys(CONTROLS, False), **live_controls(projection, spec))}
     r['verdict'] = expected_verdict(r)
     return r
@@ -104,7 +112,7 @@ def controls(job, declared=None):
     good = receipt(p, evidence, job, '1' * 40, declared)
     good['controls'] = dict.fromkeys(CONTROLS, True)
     good['verdict'] = expected_verdict(good)
-    if good['verdict'] != 'FAIL' or good['totals']['FAIL'] != 1:
+    if good['verdict'] != 'OPERATIONAL-FAIL' or good['totals']['FAIL'] != 1:
         fail('SHADOW_CONTROL_FIXTURE')
     validate_receipt(good, job)
 
@@ -123,7 +131,20 @@ def controls(job, declared=None):
         if r['verdict'] != 'INCOMPLETE':
             return False
         validate_receipt(r, job)
-        return refused(lambda: validate_receipt(dict(r, verdict='PASS'), job))
+        return refused(lambda: validate_receipt(dict(r, verdict='OPERATIONAL-PASS'), job))
+
+    def low_coverage_refused():
+        # One pair among mostly missing shadows stays INCOMPLETE.
+        rows = [{'zid': z, 'created': None, 'prod': fixture_blob(), 'shadow': fixture_blob() if z == 1 else None}
+                for z in range(1, 4)]
+        q = dict(p, conversations=rows, catalog=dict(p['catalog'], active=3))
+        r = receipt(q, classify_projection(q, declared), job, '1' * 40, declared)
+        r['controls'] = dict.fromkeys(CONTROLS, True)
+        r['verdict'] = expected_verdict(r)
+        if r['verdict'] != 'INCOMPLETE' or r['totals']['PAIRED'] != 1:
+            return False
+        validate_receipt(r, job)
+        return refused(lambda: validate_receipt(dict(r, verdict='OPERATIONAL-PASS'), job))
 
     def forged_evidence():
         tampered = copy.deepcopy(evidence)
@@ -138,6 +159,7 @@ def controls(job, declared=None):
 
     outcomes = {
         'empty-result-refused': empty_refused(),
+        'low-coverage-refused': low_coverage_refused(),
         'forged-evidence-refused': refused(forged_evidence),
         'forged-projection-refused': refused(forged_projection)
             and refused(lambda: receipt(dict(p, query_policy='0' * 64), evidence, job, '1' * 40, declared))
@@ -149,7 +171,9 @@ def controls(job, declared=None):
         'wrong-kind-refused': refused(mutated(lambda v: v.update(kind='roles-census'))),
         'wrong-image-refused': refused(mutated(lambda v: v['bindings'].update(reader='0' * 64))),
         'wrong-policy-refused': refused(mutated(lambda v: v['bindings'].update(query_policy='0' * 64))),
-        'false-pass-refused': refused(mutated(lambda v: v.update(verdict='PASS'))),
+        'false-pass-refused': refused(mutated(lambda v: v.update(verdict='OPERATIONAL-PASS')))
+            and refused(mutated(lambda v: v.update(verdict='PASS')))
+            and refused(mutated(lambda v: v['triage'].update(required=0, sha256=None))),
         'count-mismatch-refused': refused(mutated(lambda v: v['totals'].update(PASS=v['totals']['PASS'] + 1)))
             and refused(mutated(lambda v: v['rows'].update(active=v['rows']['active'] + 1))),
     }
@@ -157,7 +181,7 @@ def controls(job, declared=None):
     vectors = {'pair-timestamps': ('timestamps', ('UNPAIRED', 'TIMESTAMPS', None)),
                'pair-totals': ('totals', ('UNPAIRED', 'TOTALS', None)),
                'class-pass': ('pass', ('PAIRED', None, 'PASS')),
-               'class-near-tie': ('near-tie', ('PAIRED', None, 'NEAR-TIE')),
+               'class-near-tie': ('near-tie', ('PAIRED', None, 'NEAR-TIE-CANDIDATE')),
                'class-history': ('history', ('PAIRED', None, 'HISTORY-DIVERGENCE')),
                'class-fail': ('fail', ('PAIRED', None, 'FAIL')),
                'class-legacy-empty': ('legacy-empty', ('PAIRED', None, 'PASS'))}
@@ -165,6 +189,14 @@ def controls(job, declared=None):
         row = classify(1, *variants[variant], declared)
         outcomes[name] = (row['pairing'], row['unpaired'], row['outcome']) == want
     outcomes['class-legacy-empty'] &= classify(1, *variants['legacy-empty'], declared)['legacy_defect'] == EMPTY_DEFECT
+    structural = structural_variants()
+
+    def fails(*names):
+        return all(classify(1, *structural[n], declared)['outcome'] == 'FAIL' for n in names)
+    outcomes['missing-pairing-fails'] = fails('missing-pairing')
+    outcomes['empty-objects-fail'] = fails('empty-objects')
+    outcomes['missing-field-fails'] = fails('missing-pca', 'missing-group-clusters', 'missing-repness')
+    outcomes['truncated-pca-fails'] = fails('truncated-pca')
     assert set(outcomes) | set(LIVE_CONTROLS) == set(CONTROLS)
     return outcomes
 

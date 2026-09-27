@@ -2,9 +2,16 @@
 
 Dependency-free: the supervisor, the operator and all three images import it.
 Nothing here reads a database, an engine or a file. The receipt carries fixed
-tokens, counts and worst deltas: no conversation ids, row payloads, text or
-digests of private rows. Tolerance is never defined here; the images apply
-the certified G12 walk (ci/private_cert/images/g12.py) to paired rows.
+tokens, counts, worst deltas and one digest binding the box-local triage set:
+no conversation ids, row payloads or text. Tolerance is never defined here;
+the images apply the certified G12 walk (ci/private_cert/images/g12.py) to
+paired rows.
+
+The result is OPERATIONAL. The comparison classifies differences by field
+name and structure; it does not run the certified decision-trace gate, so no
+verdict here counts toward cutover on its own. Conversations it flags are
+certified only by the named-conversation triage run of the paired battery
+under CERTIFICATION_POLICY.
 """
 from __future__ import annotations
 import hashlib
@@ -19,7 +26,12 @@ KIND = 'light-shadow-compare'
 LIMIT = 131072
 PAIRING = ('PAIRED', 'UNPAIRED')
 UNPAIRED_REASONS = ('NO-PROD-ROW', 'NO-SHADOW-ROW', 'TIMESTAMPS', 'TOTALS')
-OUTCOMES = ('PASS', 'NEAR-TIE', 'HISTORY-DIVERGENCE', 'FAIL')
+OUTCOMES = ('PASS', 'NEAR-TIE-CANDIDATE', 'HISTORY-DIVERGENCE', 'FAIL')
+VERDICTS = ('OPERATIONAL-PASS', 'OPERATIONAL-ATTENTION', 'OPERATIONAL-FAIL', 'INCOMPLETE')
+# Fixed receipt statement: this result never counts toward cutover by itself.
+ACCEPTANCE = 'operational-only; not certification or cutover evidence'
+# Coverage floor: at least half of the active conversations must pair.
+MIN_PAIRED = (1, 2)
 # Existing closed name, spelled as the certified gate and receipt.py spell it.
 EMPTY_DEFECT = 'legacy-defect-empty-omits-keys'
 LEGACY_DEFECTS = (EMPTY_DEFECT,)
@@ -50,17 +62,23 @@ HISTORY_KEYS = NEAR_TIE_KEYS | {'pca'}
 PYTHON_TWIN = 'group_clusters'
 STATUS = ('COMPLETE', 'NOT_VISIBLE', 'LIMIT_EXCEEDED')
 CONTROLS = (
-    # Live checks on this run's own snapshot.
-    'prod-rows-unchanged', 'shadow-label-not-prod',
+    # Live checks on this run's own snapshot. They prove only what they name:
+    # the reader was assigned no transaction id; the prod row counts did not
+    # fall between the snapshot and a later count; the label is not prod and
+    # no active prod row carries the Python-only twin. They do not prove that
+    # no other writer changed a prod row; writer isolation is the separate
+    # effective-environment gate.
+    'reader-no-write', 'prod-count-not-decreased', 'shadow-label-not-prod',
     # Fixed self-tests of the refusal paths.
     'empty-result-refused', 'forged-evidence-refused', 'forged-projection-refused',
     'prod-label-refused', 'identifier-field-refused', 'content-field-refused',
     'wrong-kind-refused', 'wrong-image-refused', 'wrong-policy-refused', 'false-pass-refused',
-    'count-mismatch-refused',
-    # Fixed classification vectors.
+    'count-mismatch-refused', 'low-coverage-refused',
+    # Fixed classification vectors, including structural refusals.
     'pair-timestamps', 'pair-totals', 'class-pass', 'class-near-tie', 'class-history',
-    'class-fail', 'class-legacy-empty')
-LIVE_CONTROLS = CONTROLS[:2]
+    'class-fail', 'class-legacy-empty', 'missing-pairing-fails', 'empty-objects-fail',
+    'missing-field-fails', 'truncated-pca-fails')
+LIVE_CONTROLS = CONTROLS[:3]
 MS_FLOOR, MS_CEILING = 1_500_000_000_000, 4_000_000_000_000
 MIN_WINDOW, MAX_WINDOW = 3600, 7 * 86400
 LABEL = re.compile(r'[a-z][a-z0-9_-]{0,31}')
@@ -72,7 +90,8 @@ POLICY = {'schema': 'polis-light-shadow-policy/1', 'prod': PROD, 'pairing': list
           'excluded_fields': list(EXCLUDED_FIELDS), 'uncovered_tables': list(UNCOVERED_TABLES),
           'covered': list(COVERED), 'diff_names': list(DIFF_NAMES),
           'near_tie_keys': sorted(NEAR_TIE_KEYS), 'history_keys': sorted(HISTORY_KEYS),
-          'python_twin': PYTHON_TWIN, 'controls': list(CONTROLS),
+          'python_twin': PYTHON_TWIN, 'controls': list(CONTROLS), 'verdicts': list(VERDICTS),
+          'acceptance': ACCEPTANCE, 'min_paired': list(MIN_PAIRED),
           'max_conversations': MAX_CONVERSATIONS, 'max_bytes': LIMIT}
 
 
@@ -139,6 +158,7 @@ def rounded(v):
 # ---------------------------------------------------------------------------
 RUN_SPEC = ('shadow_env', 'shadow_started_ms', 'window_seconds', 'engine_commit', 'engine_image')
 # The registry template's run-spec; the operator replaces it (and run_id).
+# Its all-zero engine commit and image are refused at launch.
 TEMPLATE_RUN_SPEC = {'shadow_env': DEFAULT_SHADOW, 'shadow_started_ms': MS_FLOOR,
                      'window_seconds': 86400, 'engine_commit': '0' * 40,
                      'engine_image': 'sha256:' + '0' * 64}
@@ -188,6 +208,20 @@ def totals(blob):
     return n, votes, comments
 
 
+def stamps(blob):
+    """Both pairing timestamps, present and typed; None if either is absent or malformed.
+
+    lastVoteTimestamp is a non-negative integer; lastModTimestamp is one or null.
+    An absent field is never evidence of equal inputs.
+    """
+    vote, mod = (field(blob, k) for k in PAIR_TIMESTAMPS)
+    if type(vote) is not int or vote < 0:
+        return None
+    if mod is MISSING or (mod is not None and (type(mod) is not int or mod < 0)):
+        return None
+    return vote, mod
+
+
 def empty_omission(prod, shadow):
     """Top-level keys the legacy engine omits for an empty conversation.
 
@@ -207,19 +241,17 @@ def pair(prod, shadow):
         return 'UNPAIRED', 'NO-SHADOW-ROW'
     if type(prod) is not dict or type(shadow) is not dict:
         return 'MALFORMED', None
-    stamps = []
-    for blob in (prod, shadow):
-        values = tuple(field(blob, k) for k in PAIR_TIMESTAMPS)
-        if any(v is not MISSING and v is not None and (type(v) is not int or v < 0) for v in values):
-            return 'MALFORMED', None
-        stamps.append(values)
+    times = [stamps(prod), stamps(shadow)]
     counted = [totals(prod), totals(shadow)]
-    if None in counted:
+    if None in times or None in counted or MISSING in counted[1]:
         return 'MALFORMED', None
-    if empty_omission(prod, shadow):
-        # Omitted totals of an empty legacy row are the shadow's empty values.
+    if MISSING in counted[0]:
+        # Only an empty legacy row may omit totals, and only the named ones;
+        # they then take the shadow's empty values.
+        if not empty_omission(prod, shadow):
+            return 'MALFORMED', None
         counted[0] = tuple(s if p is MISSING else p for p, s in zip(*counted))
-    if stamps[0] != stamps[1]:
+    if times[0] != times[1]:
         return 'UNPAIRED', 'TIMESTAMPS'
     if counted[0] != counted[1]:
         return 'UNPAIRED', 'TOTALS'
@@ -227,12 +259,17 @@ def pair(prod, shadow):
 
 
 def outcome(differing):
-    """The class is a function of the differing acceptance keys alone."""
+    """The class is a function of the differing names alone.
+
+    A structural fault (missing field, one-sided key, malformed or truncated
+    shape outside cluster cardinality, zero compared leaves) is named
+    `row-schema`, which is never a triage class.
+    """
     names = set(differing)
     if not names:
         return 'PASS'
     if names <= NEAR_TIE_KEYS:
-        return 'NEAR-TIE'
+        return 'NEAR-TIE-CANDIDATE'
     if 'pca' in names and names <= HISTORY_KEYS:
         return 'HISTORY-DIVERGENCE'
     return 'FAIL'
@@ -284,7 +321,10 @@ def validate_entry(e, keys=ENTRY):
     if e['g12_outliers'] > finite or e['exact_mismatches'] > e['exact_leaves']:
         fail('SHADOW_ENTRY')
     faults = e['g12_outliers'] or e['exact_mismatches'] or e['shape_faults'] or e['nonfinite']
-    if bool(d) != bool(faults):
+    if d != ['row-schema'] and bool(d) != bool(faults):
+        fail('SHADOW_ENTRY')
+    # A comparison of nothing is never a PASS.
+    if e['outcome'] != 'FAIL' and finite + e['exact_leaves'] == 0:
         fail('SHADOW_ENTRY')
     return e
 
@@ -292,8 +332,8 @@ def validate_entry(e, keys=ENTRY):
 # ---------------------------------------------------------------------------
 # Receipt: polis-probe-receipt/3, kind light-shadow-compare.
 # ---------------------------------------------------------------------------
-RECEIPT = ('schema', 'kind', 'run_id', 'job_sha256', 'verdict', 'bindings', 'run_spec', 'window',
-           'coverage', 'rows', 'totals', 'worst', 'conversations', 'controls')
+RECEIPT = ('schema', 'kind', 'run_id', 'job_sha256', 'verdict', 'acceptance', 'bindings', 'run_spec', 'window',
+           'coverage', 'rows', 'totals', 'worst', 'triage', 'conversations', 'controls')
 BINDINGS = ('source_commit', 'reader', 'producer', 'verifier', 'query_policy', 'certification_policy',
             'server_version_num')
 ROWS = ('prod_main', 'shadow_main', 'prod_ticks', 'shadow_ticks', 'active', 'prod_main_after',
@@ -312,7 +352,7 @@ def tally(entries):
         if e['legacy_defect']:
             t[e['legacy_defect']] += 1
         t['created_after_start'] += e['created_after_start']
-    t['triage_required'] = t['NEAR-TIE'] + t['HISTORY-DIVERGENCE']
+    t['triage_required'] = t['NEAR-TIE-CANDIDATE'] + t['HISTORY-DIVERGENCE']
     return t
 
 
@@ -323,15 +363,76 @@ def worst(entries):
     return {'abs': top('worst_abs'), 'rel': top('worst_rel')}
 
 
+def covered(t):
+    """At least one pair, and at least MIN_PAIRED of the active conversations paired."""
+    active = t['PAIRED'] + t['UNPAIRED']
+    return t['PAIRED'] > 0 and t['PAIRED'] * MIN_PAIRED[1] >= active * MIN_PAIRED[0]
+
+
 def expected_verdict(r):
     if r['coverage']['status'] != 'COMPLETE':
         return 'INCOMPLETE'
     if not all(r['controls'].values()) or r['totals']['FAIL']:
-        return 'FAIL'
-    # An empty or wholly unpaired comparison proves nothing: never PASS.
-    if not r['totals']['PAIRED']:
+        return 'OPERATIONAL-FAIL'
+    # An empty, wholly unpaired or mostly unpaired comparison proves nothing.
+    if not covered(r['totals']):
         return 'INCOMPLETE'
-    return 'PASS'
+    # Unresolved candidates are attention, never a pass, until triage.
+    if r['totals']['triage_required']:
+        return 'OPERATIONAL-ATTENTION'
+    return 'OPERATIONAL-PASS'
+
+
+def passed(r):
+    return r['verdict'] == 'OPERATIONAL-PASS'
+
+
+TRIAGE = ('required', 'sha256', 'ids')
+
+
+def triage_digest(rows):
+    """Digest of the box-local triage set: sorted [zid, lastVoteTimestamp, lastModTimestamp]."""
+    rows = sorted(rows)
+    return hashlib.sha256(encoded({'schema': TRIAGE_SET_SCHEMA, 'conversations': rows})).hexdigest() if rows else None
+
+
+TRIAGE_SET_SCHEMA = 'polis-light-shadow-triage-set/1'
+TRIAGE_SPEC_SCHEMA = 'polis-light-shadow-triage/1'
+TRIAGE_SPEC = ('schema', 'source_run_id', 'source_job_sha256', 'source_receipt_sha256', 'triage_sha256',
+               'conversations', 'window', 'certification_policy')
+
+
+def triage_spec(r, job):
+    """The operator's handoff to the named-conversation triage run, from a validated receipt.
+
+    It names the set only by digest; the conversation ids never leave the box.
+    """
+    from receipt import sha
+    r = validate_receipt(r, job)
+    if not r['triage']['required']:
+        fail('TRIAGE_EMPTY')
+    return validate_triage_spec({'schema': TRIAGE_SPEC_SCHEMA, 'source_run_id': r['run_id'],
+                                 'source_job_sha256': r['job_sha256'], 'source_receipt_sha256': sha(r),
+                                 'triage_sha256': r['triage']['sha256'], 'conversations': r['triage']['required'],
+                                 'window': dict(r['window']), 'certification_policy': CERTIFICATION_POLICY})
+
+
+def validate_triage_spec(v):
+    closed(v, TRIAGE_SPEC)
+    if v['schema'] != TRIAGE_SPEC_SCHEMA or v['certification_policy'] != CERTIFICATION_POLICY:
+        fail('TRIAGE_SPEC')
+    if type(v['source_run_id']) is not str or not re.fullmatch('[a-f0-9]{32}', v['source_run_id']):
+        fail('TRIAGE_SPEC')
+    for k in ('source_job_sha256', 'source_receipt_sha256', 'triage_sha256'):
+        if type(v[k]) is not str or not re.fullmatch('[a-f0-9]{64}', v[k]):
+            fail('TRIAGE_SPEC')
+    integer(v['conversations'], 1, MAX_CONVERSATIONS, 'TRIAGE_SPEC')
+    w = closed(v['window'], ('start_ms', 'end_ms'))
+    integer(w['start_ms'], MS_FLOOR, MS_CEILING, 'TRIAGE_SPEC')
+    integer(w['end_ms'], MS_FLOOR, MS_CEILING, 'TRIAGE_SPEC')
+    if w['start_ms'] >= w['end_ms']:
+        fail('TRIAGE_SPEC')
+    return v
 
 
 def validate_window(w, spec):
@@ -348,8 +449,10 @@ def validate_receipt(r, job):
     if (r['schema'] != 'polis-probe-receipt/3' or r['kind'] != KIND or job.get('kind') != KIND
             or r['run_id'] != job['run_id'] or r['job_sha256'] != sha(job)):
         fail('SHADOW_BINDING')
-    if r['verdict'] not in ('PASS', 'FAIL', 'INCOMPLETE'):
+    if r['verdict'] not in VERDICTS:
         fail('SHADOW_VERDICT')
+    if r['acceptance'] != ACCEPTANCE:
+        fail('SHADOW_SCOPE')
     b = closed(r['bindings'], BINDINGS)
     if type(b['source_commit']) is not str or not re.fullmatch('[a-f0-9]{40}', b['source_commit']):
         fail('SHADOW_BINDING')
@@ -384,6 +487,12 @@ def validate_receipt(r, job):
         integer(r['totals'][k], 0, MAX_CONVERSATIONS)
     if r['totals'] != tally(entries) or r['worst'] != worst(entries):
         fail('SHADOW_COUNT')
+    triage = closed(r['triage'], TRIAGE)
+    if (triage['required'] != r['totals']['triage_required'] or triage['ids'] != 'ON-BOX-ONLY'
+            or (triage['sha256'] is None) != (triage['required'] == 0)
+            or (triage['sha256'] is not None and (type(triage['sha256']) is not str
+                                                  or not re.fullmatch('[a-f0-9]{64}', triage['sha256'])))):
+        fail('SHADOW_COUNT')
     if complete:
         if len(entries) != rows['active'] or rows['prod_python_shape'] > rows['active']:
             fail('SHADOW_COUNT')
@@ -394,8 +503,8 @@ def validate_receipt(r, job):
         fail()
     if complete and (controls['shadow-label-not-prod'] != (rows['prod_python_shape'] == 0)):
         fail('SHADOW_FALSE_PASS')
-    if complete and controls['prod-rows-unchanged'] and (rows['prod_main_after'] < rows['prod_main']
-                                                        or rows['prod_ticks_after'] < rows['prod_ticks']):
+    if complete and controls['prod-count-not-decreased'] and (rows['prod_main_after'] < rows['prod_main']
+                                                             or rows['prod_ticks_after'] < rows['prod_ticks']):
         fail('SHADOW_FALSE_PASS')
     if r['verdict'] != expected_verdict(r):
         fail('SHADOW_FALSE_PASS')

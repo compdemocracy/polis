@@ -15,7 +15,7 @@ HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / 'private_cert/images'))
 from contracts import BoundaryError, decode_job, refuse_placeholder, validate_job
-from receipt import decode_receipt, sha
+from receipt import decode_receipt, receipt_passed, sha
 import light_shadow as ls
 from light_shadow import (CONTROLS, COVERED, EXCLUDED_FIELDS, TEMPLATE_RUN_SPEC, UNCOVERED_TABLES, encoded,
                           expected_verdict, outcome, pair, tally, validate_projection,
@@ -49,8 +49,11 @@ def entry(pairing='PAIRED', unpaired=None, differing=(), created=False, legacy=N
 def build(j, entries, status='COMPLETE', **controls):
     entries = sorted(entries, key=encoded)
     complete = status == 'COMPLETE'
+    flagged = [[z, 5, None] for z, e in enumerate(entries, 1)
+               if e['outcome'] in ('NEAR-TIE-CANDIDATE', 'HISTORY-DIVERGENCE')]
     r = {'schema': 'polis-probe-receipt/3', 'kind': 'light-shadow-compare', 'run_id': j['run_id'],
-         'job_sha256': sha(j), 'verdict': 'INCOMPLETE',
+         'job_sha256': sha(j), 'verdict': 'INCOMPLETE', 'acceptance': ls.ACCEPTANCE,
+         'triage': {'required': len(flagged), 'sha256': ls.triage_digest(flagged), 'ids': 'ON-BOX-ONLY'},
          'bindings': dict(source_commit='d' * 40, query_policy=ls.POLICY_SHA,
                           certification_policy=ls.CERTIFICATION_POLICY, server_version_num=170004,
                           **{k: j[k]['image'].split('@sha256:')[1] for k in ('reader', 'producer', 'verifier')}),
@@ -82,6 +85,10 @@ class RunSpec(unittest.TestCase):
         registry = json.loads((HERE / 'jobs.json').read_bytes())['jobs']
         with self.assertRaisesRegex(BoundaryError, 'PLACEHOLDER_IMAGE'):
             refuse_placeholder(validate_job(registry['light-shadow-compare-v1']))
+        refuse_placeholder(job())
+        for bad in ({'engine_commit': '0' * 40}, {'engine_image': 'sha256:' + '0' * 64}):
+            with self.assertRaisesRegex(BoundaryError, 'PLACEHOLDER_RUN_SPEC'):
+                refuse_placeholder(job(**bad))
         for name in ('sampled-paired-battery-v1', 'roles-census-v1'):
             refuse_placeholder(validate_job(registry[name]))
         self.assertIn('refuse_placeholder(validate_job(job))', (HERE / 'run.py').read_text())
@@ -134,17 +141,30 @@ class Pairing(unittest.TestCase):
                     dict(self.base, **{'user-vote-counts': {'0': 1.5}})):
             self.assertEqual(pair(self.base, bad)[0], 'MALFORMED')
 
+    def test_absent_pairing_metadata_is_never_evidence(self):
+        self.assertEqual(pair({}, {}), ('MALFORMED', None))
+        for key in ('lastVoteTimestamp', 'lastModTimestamp', 'n', 'n-cmts', 'user-vote-counts'):
+            both = {k: v for k, v in self.base.items() if k != key}
+            with self.subTest(key=key):
+                self.assertEqual(pair(both, copy.deepcopy(both)), ('MALFORMED', None))
+                self.assertEqual(pair(self.base, both), ('MALFORMED', None))
+        # A prod row may omit totals only as the named legacy empty row.
+        prod = {k: v for k, v in self.base.items() if k != 'n'}
+        self.assertEqual(pair(prod, self.base), ('MALFORMED', None))
+
     def test_legacy_empty_row_pairs_with_the_complete_empty_shadow(self):
         shadow = {'n': 0, 'n-cmts': 0, 'user-vote-counts': {}, 'lastVoteTimestamp': 0, 'lastModTimestamp': None}
         prod = {'lastVoteTimestamp': 0, 'lastModTimestamp': None}
         self.assertEqual(pair(prod, shadow), ('PAIRED', None))
-        self.assertEqual(pair(prod, dict(shadow, n=1)), ('UNPAIRED', 'TOTALS'))
+        # Omitted totals against a non-empty shadow are not the legacy empty row.
+        self.assertEqual(pair(prod, dict(shadow, n=1)), ('MALFORMED', None))
 
     def test_outcome_is_a_function_of_the_differing_keys(self):
         self.assertEqual(outcome([]), 'PASS')
-        self.assertEqual(outcome(['group-clusters', 'repness']), 'NEAR-TIE')
+        self.assertEqual(outcome(['group-clusters', 'repness']), 'NEAR-TIE-CANDIDATE')
         self.assertEqual(outcome(['pca', 'repness']), 'HISTORY-DIVERGENCE')
-        for keys in (['tids'], ['pca', 'n'], ['consensus'], ['row-schema'], ['in-conv', 'repness']):
+        for keys in (['tids'], ['pca', 'n'], ['consensus'], ['row-schema'], ['in-conv', 'repness'],
+                     ['pca', 'row-schema'], ['group-clusters', 'row-schema']):
             self.assertEqual(outcome(keys), 'FAIL')
 
 
@@ -162,13 +182,48 @@ class Receipt(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, code or '.'):
             decode_receipt(encoded(r), self.job)
 
-    def test_pass_round_trips_through_the_supervisor_dispatch(self):
-        self.assertEqual(self.r['verdict'], 'PASS')
+    def test_attention_round_trips_through_the_supervisor_dispatch(self):
+        self.assertEqual(self.r['verdict'], 'OPERATIONAL-ATTENTION')
         self.assertEqual(decode_receipt(encoded(self.r), self.job), self.r)
+        self.assertFalse(receipt_passed(self.r, self.job))
+        self.assertEqual(self.r['acceptance'], 'operational-only; not certification or cutover evidence')
         t = self.r['totals']
-        self.assertEqual((t['PAIRED'], t['UNPAIRED'], t['PASS'], t['NEAR-TIE'], t['HISTORY-DIVERGENCE'], t['FAIL'],
-                          t['triage_required'], t['created_after_start']), (5, 2, 3, 1, 1, 0, 2, 1))
+        self.assertEqual((t['PAIRED'], t['UNPAIRED'], t['PASS'], t['NEAR-TIE-CANDIDATE'], t['HISTORY-DIVERGENCE'],
+                          t['FAIL'], t['triage_required'], t['created_after_start']), (5, 2, 3, 1, 1, 0, 2, 1))
         self.assertEqual(self.r['worst'], {'abs': 0.25, 'rel': 0.5})
+        self.assertEqual((self.r['triage']['required'], self.r['triage']['ids']), (2, 'ON-BOX-ONLY'))
+        self.assertRegex(self.r['triage']['sha256'], '^[a-f0-9]{64}$')
+
+    def test_only_operational_pass_passes_publicly(self):
+        clean = [e for e in self.entries if e['outcome'] not in ('NEAR-TIE-CANDIDATE', 'HISTORY-DIVERGENCE')]
+        r = build(self.job, clean)
+        self.assertEqual(r['verdict'], 'OPERATIONAL-PASS')
+        self.assertIsNone(r['triage']['sha256'])
+        decode_receipt(encoded(r), self.job)
+        self.assertTrue(receipt_passed(r, self.job))
+        self.assertIn('receipt_passed(receipt', (HERE / 'run.py').read_text())
+        for verdict in ('PASS', 'FAIL'):
+            with self.assertRaisesRegex(ValueError, 'SHADOW_VERDICT'):
+                decode_receipt(encoded(dict(r, verdict=verdict)), self.job)
+        with self.assertRaisesRegex(ValueError, 'SHADOW_SCOPE'):
+            decode_receipt(encoded(dict(r, acceptance='certified')), self.job)
+
+    def test_triage_is_bound_by_digest_and_handed_off_without_ids(self):
+        self.refused(lambda r: r['triage'].update(required=1), 'SHADOW_COUNT')
+        self.refused(lambda r: r['triage'].update(sha256=None), 'SHADOW_COUNT')
+        self.refused(lambda r: r['triage'].update(ids=[1, 2]), 'SHADOW_COUNT')
+        spec = ls.triage_spec(self.r, self.job)
+        self.assertEqual((spec['conversations'], spec['triage_sha256'], spec['source_receipt_sha256']),
+                         (2, self.r['triage']['sha256'], sha(self.r)))
+        self.assertEqual(spec['certification_policy'], ls.CERTIFICATION_POLICY)
+        self.assertNotIn('zid', encoded(spec).decode())
+        for bad in (dict(spec, zids=[1]), dict(spec, conversations=0), dict(spec, certification_policy='0' * 64)):
+            with self.assertRaises(ValueError):
+                ls.validate_triage_spec(bad)
+        clean = build(self.job, [entry()])
+        with self.assertRaisesRegex(ValueError, 'TRIAGE_EMPTY'):
+            ls.triage_spec(clean, self.job)
+        self.assertEqual(ls.triage_digest([[3, 5, None], [1, 5, 6]]), ls.triage_digest([[1, 5, 6], [3, 5, None]]))
 
     def test_no_identifier_or_payload_can_enter(self):
         self.refused(lambda r: r['conversations'][0].update(zid=1))
@@ -182,21 +237,36 @@ class Receipt(unittest.TestCase):
 
     def test_any_fail_fails_and_triage_classes_do_not(self):
         r = build(self.job, self.entries + [entry(differing=['tids'])])
-        self.assertEqual(r['verdict'], 'FAIL')
+        self.assertEqual(r['verdict'], 'OPERATIONAL-FAIL')
         decode_receipt(encoded(r), self.job)
-        self.refused(lambda v: v.update(verdict='FAIL'), 'SHADOW_FALSE_PASS')
+        self.refused(lambda v: v.update(verdict='OPERATIONAL-FAIL'), 'SHADOW_FALSE_PASS')
+        self.refused(lambda v: v.update(verdict='OPERATIONAL-PASS'), 'SHADOW_FALSE_PASS')
 
     def test_empty_or_wholly_unpaired_result_is_never_pass(self):
         for entries in ([], [entry('UNPAIRED', 'NO-PROD-ROW')]):
             r = build(self.job, entries)
             self.assertEqual(r['verdict'], 'INCOMPLETE')
             decode_receipt(encoded(r), self.job)
-            forged = dict(r, verdict='PASS')
+            forged = dict(r, verdict='OPERATIONAL-PASS')
             with self.assertRaisesRegex(ValueError, 'SHADOW_FALSE_PASS'):
                 decode_receipt(encoded(forged), self.job)
 
+    def test_mostly_unpaired_is_incomplete(self):
+        lone = [entry()] + [entry('UNPAIRED', 'NO-SHADOW-ROW') for _ in range(249)]
+        r = build(self.job, lone)
+        self.assertEqual(r['verdict'], 'INCOMPLETE')
+        decode_receipt(encoded(r), self.job)
+        half = [entry(), entry('UNPAIRED', 'TIMESTAMPS')]
+        self.assertEqual(build(self.job, half)['verdict'], 'OPERATIONAL-PASS')
+        self.assertEqual(build(self.job, half + [entry('UNPAIRED', 'TOTALS')])['verdict'], 'INCOMPLETE')
+
+    def test_zero_leaf_pass_is_refused(self):
+        paired = next(i for i, e in enumerate(self.r['conversations']) if e['outcome'] == 'PASS')
+        self.refused(lambda r: r['conversations'][paired].update(float_leaves=0, exact_leaves=0, worst_abs=None,
+                                                                  worst_rel=None))
+
     def test_incomplete_coverage_carries_no_entries(self):
-        r = build(self.job, [], status='NOT_VISIBLE', **{'prod-rows-unchanged': False})
+        r = build(self.job, [], status='NOT_VISIBLE', **{'reader-no-write': False, 'prod-count-not-decreased': False})
         self.assertEqual(r['verdict'], 'INCOMPLETE')
         decode_receipt(encoded(r), self.job)
         bad = build(self.job, self.entries, status='LIMIT_EXCEEDED')
@@ -204,14 +274,18 @@ class Receipt(unittest.TestCase):
             decode_receipt(encoded(bad), self.job)
 
     def test_live_controls(self):
-        r = build(self.job, self.entries, **{'prod-rows-unchanged': False})
-        self.assertEqual(r['verdict'], 'FAIL')
+        for name in ('reader-no-write', 'prod-count-not-decreased'):
+            r = build(self.job, self.entries, **{name: False})
+            self.assertEqual(r['verdict'], 'OPERATIONAL-FAIL')
+            decode_receipt(encoded(r), self.job)
+        self.assertNotIn('prod-rows-unchanged', ls.CONTROLS)
+        r = build(self.job, self.entries, **{'prod-count-not-decreased': False})
         decode_receipt(encoded(r), self.job)
         self.refused(lambda v: v['rows'].update(prod_main_after=8), 'SHADOW_FALSE_PASS')
         self.refused(lambda v: v['rows'].update(prod_python_shape=1), 'SHADOW_FALSE_PASS')
         r = build(self.job, self.entries, **{'shadow-label-not-prod': False})
         r['rows']['prod_python_shape'] = 1
-        self.assertEqual(r['verdict'], 'FAIL')
+        self.assertEqual(r['verdict'], 'OPERATIONAL-FAIL')
         decode_receipt(encoded(r), self.job)
 
     def test_counts_bindings_and_order(self):
