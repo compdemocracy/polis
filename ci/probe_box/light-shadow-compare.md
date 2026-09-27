@@ -89,9 +89,17 @@ is a FAIL, never a triage class:
 - the complete acceptance inventory on both rows, after the named legacy-empty
   restoration;
 - each row admitted alone by the certified field contract;
-- no shape fault outside cluster cardinality (so a missing or truncated PCA,
-  or a missing `group-clusters` or `repness`, fails; a different number of
-  clusters does not);
+- each row's nested structure checked against its own inventories, so a
+  defect both rows share still fails: `tids` of length n_c; PCA `comps` and
+  `comment-projection` as k rows of n_c numbers, `center` and
+  `comment-extremity` of n_c; `base-clusters` as equal-length columns
+  (`id`, `members`, `count`, `x`, `y`); every group cluster with an integer
+  id, integer members and a k-long center; `votes-base` A/D/S vectors as long
+  as the base-cluster columns; `group-votes` keyed by exactly the group ids.
+  Early and empty layouts (no clusters, no groups, no comments) are valid;
+- between two coherent rows, a shape difference inside the clustering closure
+  is admitted only when the cluster inventory differs (a different number of
+  clusters, or different members); any other shape fault fails;
 - at least one compared leaf.
 
 A **PAIRED** conversation is validated and projected with the certified
