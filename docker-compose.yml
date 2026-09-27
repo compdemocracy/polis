@@ -207,6 +207,8 @@ services:
       - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
       # Shadow-mode math_env (distinct from the Clojure math service's MATH_ENV).
       - MATH_ENV=${MATH_PYTHON_ENV:-python}
+      # Startup refuses MATH_ENV=prod (the served namespace) unless this is 1.
+      - MATH_POLLER_ALLOW_SERVED_ENV=${MATH_POLLER_ALLOW_SERVED_ENV:-}
       # Poll cadences (ms) and boot window (days).
       - POLL_VOTE_INTERVAL_MS=${POLL_VOTE_INTERVAL_MS:-1000}
       - POLL_MOD_INTERVAL_MS=${POLL_MOD_INTERVAL_MS:-1000}

@@ -29,6 +29,39 @@ def _configure_logging() -> None:
     )
 
 
+# The math_env the server reads (the legacy Clojure engine's namespace). While
+# this poller runs as a shadow beside that engine, writing under it would
+# overwrite the served rows, so startup refuses it unless explicitly allowed.
+SERVED_MATH_ENV = "prod"
+ALLOW_SERVED_ENV_VAR = "MATH_POLLER_ALLOW_SERVED_ENV"
+
+
+def _refuse_served_env(math_env: str) -> None:
+    """Exit non-zero before touching the database when MATH_ENV is unsafe.
+
+    Refused: an empty or whitespace-only MATH_ENV (always), and the served
+    namespace ``prod`` unless MATH_POLLER_ALLOW_SERVED_ENV=1 (cut-over only).
+    """
+    if not math_env.strip():
+        print(
+            "refusing to start: MATH_ENV is empty; set it to the poller's own "
+            "namespace (e.g. python)",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    if (
+        math_env.strip() == SERVED_MATH_ENV
+        and os.environ.get(ALLOW_SERVED_ENV_VAR) != "1"
+    ):
+        print(
+            f"refusing to start: MATH_ENV={SERVED_MATH_ENV} is the served "
+            f"namespace and would overwrite the served math rows; set "
+            f"{ALLOW_SERVED_ENV_VAR}=1 only to cut over",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+
+
 def _build_service(config: PollerConfig) -> MathPollerService:
     if not config.database_url:
         print("DATABASE_URL is required", file=sys.stderr)
@@ -51,6 +84,7 @@ def main(argv=None) -> int:
     log = logging.getLogger("math_poller")
 
     config = PollerConfig.from_env()
+    _refuse_served_env(config.math_env)
     service = _build_service(config)
 
     if args.once:
