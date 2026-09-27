@@ -67,14 +67,22 @@ def open_reader(conn) -> None:
     conn.autocommit = False
 
 
-def capture(config, payload, guard_root):
-    """One connection, one repeatable-read read-only transaction, closed on every path."""
+def capture(config, payload, guard_root, triage=None):
+    """One connection, one repeatable-read read-only transaction, closed on every path.
+
+    A light-shadow triage job (``triage``) selects and extracts its triage roles
+    through the same admitted connection and the same single transaction.
+    """
     import psycopg2
     from polismath.replay import fixture_extract as fx
     # libpq receives a socket-only service file, never a network hostname.
     conn = psycopg2.connect(service='probe')
     try:
         open_reader(conn)
+        if triage is not None:
+            import light_shadow_triage
+            return dict(light_shadow_triage.extract(conn, config=config, spec=triage, payload_root=payload,
+                                                    guard_root=guard_root), generated=[])
         return fx.extract_from_config(conn, config=config, payload_root=payload, guard_root=guard_root,
                                       accept_public_fixture=accepted_replacements(config))
     finally:
@@ -95,10 +103,10 @@ def extract() -> None:
     config, _ = selection_context.resolve(json.loads(PROBE_CONFIG_PATH.read_bytes()), context)
     config_bytes = gate.encoded(config)
     fc.validate_config(config)
-    result = capture(config, payload, out)
+    result = capture(config, payload, out, triage=context.get('triage_selection'))
     manifest = fb.build_manifest(bundle_id='probe-capture', payload_root=payload,
         config=config, config_bytes=config_bytes, selections=result['roles'],
-        generated_summaries=result['generated'],
+        generated_summaries=result['generated'], triage_report=result.get('report'),
         snapshot={'identifier': 'live-readonly-repeatable-read',
                   'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
                   'schema_migration_version': None},
@@ -124,7 +132,9 @@ def prepare_fixture_plan(fixture, config, manifest, private, inputs):
     sampled = samples.admitted_rules(manifest, config, payload)
     roles = {r['role']: r for r in manifest['roles']}
     public = {r['slug'] for r in config['public_fixtures']}
-    battery = [e for e in gate.certify.load_battery() if e.dataset not in public]
+    # A triage capture replays only its triage roles, no coverage battery.
+    battery = ([] if samples.is_triage(manifest) else
+               [e for e in gate.certify.load_battery() if e.dataset not in public])
     mapping = {e.dataset: str(payload / roles[config['coverage_role_map'][e.dataset]]['dir']) for e in battery}
     mapping.update({alias: str(payload / roles[rule['role']]['dir']) for alias, rule in sampled.items()})
     import os
@@ -167,7 +177,21 @@ def prepare_fixture_plan(fixture, config, manifest, private, inputs):
 def admit_fixture_selection(context):
     if gate.read(Path('/fixture/plan.json'))['scope'] == 'public':
         return None
-    return selection_context.admit(gate.read(Path('/fixture/config.json')), context)
+    source = selection_context.admit(gate.read(Path('/fixture/config.json')), context)
+    admit_triage(gate.read(Path('/fixture/manifest.json')), context)
+    return source
+
+
+def admit_triage(manifest, context):
+    """The manifest is a triage capture exactly when the job asked for one,
+    and its report is bound to that job's triage spec."""
+    from polismath.replay import fixture_samples as samples
+    spec = context.get('triage_selection')
+    if samples.is_triage(manifest) != (spec is not None):
+        raise ValueError('TRIAGE_MODE_BINDING')
+    if spec is not None:
+        from light_shadow import validate_triage_report
+        validate_triage_report(manifest['triage']['report'], spec)
 
 
 def produce() -> None:
@@ -222,9 +246,12 @@ def verify() -> None:
     controls = report['negative_controls']
     completed = controls['g12']['rejected'] + sum(v == 'REJECTED' for v in controls['checkpoint'].values())
     manifest = gate.read(Path('/fixture/manifest.json'))
-    selection = manifest.get('representative', {}).get('report')
-    if selection is not None:
-        selection = dict(selection, seed_source=source)
+    if 'triage_selection' in job:
+        selection = manifest['triage']['report']
+    else:
+        selection = manifest.get('representative', {}).get('report')
+        if selection is not None:
+            selection = dict(selection, seed_source=source)
     receipt = {'schema': 'polis-probe-receipt/5', 'run_id': job['run_id'], 'job_sha256': sha(job),
                'verdict': report['verdict'] if completed == 21 else 'FAIL', 'entries': entries,
                'controls': {'passed': completed, 'expected': 21},

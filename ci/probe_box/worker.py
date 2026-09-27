@@ -542,8 +542,10 @@ def run(diagnostics=None) -> None:
         (specification/'job.json').write_bytes(canonical(job)); (specification/'job.json').chmod(0o444)
         selection_context = SCRATCH/'selection'; selection_context.mkdir(mode=0o755)
         selection_context.chmod(0o755)
-        # The closed light-shadow run-spec (label and window) is the reader's only input.
-        context = {k: job[k] for k in ('run_id', 'representative_selection', 'run_spec') if k in job}
+        # Selection inputs for the reader: the light-shadow run-spec (label and
+        # window) or the battery's representative or triage selection.
+        context = {k: job[k] for k in ('run_id', 'representative_selection', 'triage_selection', 'run_spec')
+                   if k in job}
         (selection_context/'context.json').write_bytes(canonical(context))
         (selection_context/'context.json').chmod(0o444)
         if 'reader' in job:

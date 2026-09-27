@@ -400,7 +400,7 @@ def triage_digest(rows):
 TRIAGE_SET_SCHEMA = 'polis-light-shadow-triage-set/1'
 TRIAGE_SPEC_SCHEMA = 'polis-light-shadow-triage/1'
 TRIAGE_SPEC = ('schema', 'source_run_id', 'source_job_sha256', 'source_receipt_sha256', 'triage_sha256',
-               'conversations', 'window', 'certification_policy')
+               'conversations', 'window', 'shadow_env', 'certification_policy')
 
 
 def triage_spec(r, job):
@@ -415,7 +415,8 @@ def triage_spec(r, job):
     return validate_triage_spec({'schema': TRIAGE_SPEC_SCHEMA, 'source_run_id': r['run_id'],
                                  'source_job_sha256': r['job_sha256'], 'source_receipt_sha256': sha(r),
                                  'triage_sha256': r['triage']['sha256'], 'conversations': r['triage']['required'],
-                                 'window': dict(r['window']), 'certification_policy': CERTIFICATION_POLICY})
+                                 'window': dict(r['window']), 'shadow_env': r['run_spec']['shadow_env'],
+                                 'certification_policy': CERTIFICATION_POLICY})
 
 
 def validate_triage_spec(v):
@@ -433,7 +434,62 @@ def validate_triage_spec(v):
     integer(w['end_ms'], MS_FLOOR, MS_CEILING, 'TRIAGE_SPEC')
     if w['start_ms'] >= w['end_ms']:
         fail('TRIAGE_SPEC')
+    if type(v['shadow_env']) is not str or LABEL.fullmatch(v['shadow_env']) is None or v['shadow_env'] == PROD:
+        fail('TRIAGE_SPEC')
     return v
+
+
+# ---------------------------------------------------------------------------
+# Triage selection report: the paired battery's counts-only selection block
+# when its job carries a `triage_selection` (polis-light-shadow-triage/1).
+# The battery recomputes the set on its own snapshot; ids stay on that box.
+# ---------------------------------------------------------------------------
+TRIAGE_REPORT_SCHEMA = 'polis-light-shadow-triage-report/1'
+TRIAGE_REPORT = ('schema', 'source_triage_sha256', 'battery_triage_sha256', 'match', 'compare_count',
+                 'battery_count', 'flagged', 'selected', 'truncated', 'cap', 'chosen_entry_sizes')
+# The battery's existing entry budget (fixture_selection.TARGET).
+TRIAGE_CAP = 20
+TRIAGE_SELECTED = ('NEAR-TIE-CANDIDATE', 'HISTORY-DIVERGENCE', 'FAIL')
+SIZE_FIELDS = ('P', 'V', 'C', 'U', 'matrix_area', 'registered_participants', 'all_comments')
+
+
+def triage_order(row):
+    """Selection order when more are flagged than the cap: FAIL first, then the
+    largest relative, then absolute, delta; zid last as the tie-break."""
+    return (row['outcome'] != 'FAIL', -(row['worst_rel'] or 0.0), -(row['worst_abs'] or 0.0), row['zid'])
+
+
+def validate_triage_report(r, spec):
+    closed(r, TRIAGE_REPORT)
+    if (r['schema'] != TRIAGE_REPORT_SCHEMA or r['source_triage_sha256'] != spec['triage_sha256']
+            or r['compare_count'] != spec['conversations'] or r['cap'] != TRIAGE_CAP):
+        fail('TRIAGE_REPORT')
+    for k in ('compare_count', 'battery_count', 'flagged', 'selected', 'truncated'):
+        integer(r[k], 0, MAX_CONVERSATIONS, 'TRIAGE_REPORT')
+    battery = r['battery_triage_sha256']
+    if battery is not None and (type(battery) is not str or not re.fullmatch('[a-f0-9]{64}', battery)):
+        fail('TRIAGE_REPORT')
+    if (battery is None) != (r['battery_count'] == 0):
+        fail('TRIAGE_REPORT')
+    if r['match'] != ('MATCH' if battery == r['source_triage_sha256'] else 'CHANGED'):
+        fail('TRIAGE_REPORT')
+    if (r['flagged'] < r['battery_count'] or r['selected'] != min(r['flagged'], TRIAGE_CAP)
+            or r['selected'] < 1 or r['truncated'] != r['flagged'] - r['selected']):
+        fail('TRIAGE_REPORT')
+    sizes = r['chosen_entry_sizes']
+    if type(sizes) is not list or len(sizes) != r['selected']:
+        fail('TRIAGE_REPORT')
+    for row in sizes:
+        closed(row, SIZE_FIELDS)
+        for k in SIZE_FIELDS:
+            integer(row[k], 0, 2**63 - 1, 'TRIAGE_REPORT')
+        p, v, c, u = (row[k] for k in ('P', 'V', 'C', 'U'))
+        if (row['matrix_area'] != p * c or u > min(v, p * c) or max(p, c) > u
+                or (v == 0) != (p == c == u == 0)):
+            fail('TRIAGE_REPORT')
+    if sizes != sorted(sizes, key=lambda x: tuple(x[k] for k in SIZE_FIELDS)):
+        fail('TRIAGE_REPORT')
+    return r
 
 
 def validate_window(w, spec):

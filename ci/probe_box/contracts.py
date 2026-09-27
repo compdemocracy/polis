@@ -30,6 +30,7 @@ class Job(TypedDict):
     max_seconds: int
     reader: NotRequired[ImageCommand]
     representative_selection: NotRequired[dict]
+    triage_selection: NotRequired[dict]
     run_spec: NotRequired[dict]
 
 
@@ -68,7 +69,7 @@ def validate_job(value: object) -> Job:
                 raise BoundaryError("CENSUS_COMMAND")
         if len({value[k]["image"] for k in ("reader","producer","verifier")}) != 3:
             raise BoundaryError("CENSUS_SEPARATE_IMAGES")
-    elif type(value) is not dict or set(value) - {"reader", "representative_selection"} != {
+    elif type(value) is not dict or set(value) - {"reader", "representative_selection", "triage_selection"} != {
         "schema", "run_id", "producer", "verifier", "max_seconds"
     } or value["schema"] != "polis-probe-job/1":
         raise BoundaryError("JOB_SCHEMA")
@@ -92,6 +93,17 @@ def validate_job(value: object) -> Job:
                 or re.fullmatch(r"[a-f0-9]{64}", selection["seed"]) is None):
             raise BoundaryError("SELECTION_CONFIG")
         result["representative_selection"] = dict(selection)
+    if "triage_selection" in value:
+        # The paired battery replays the light-shadow triage set, recomputed on
+        # its own box; the spec names that set only by digest. It replaces the
+        # representative sample, so the two selections are exclusive.
+        if "representative_selection" in value or "reader" not in value:
+            raise BoundaryError("SELECTION_CONFIG")
+        from light_shadow import validate_triage_spec
+        try:
+            result["triage_selection"] = validate_triage_spec(dict(value["triage_selection"]))
+        except (ValueError, TypeError):
+            raise BoundaryError("SELECTION_CONFIG") from None
     if census:
         result.update(schema="polis-probe-job/2",kind=value["kind"])
         if value["kind"] == "light-shadow-compare":

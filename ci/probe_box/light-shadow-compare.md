@@ -185,14 +185,54 @@ Controls, all required for a PASS:
 
 ## Triage
 
-`light_shadow.triage_spec(receipt, job)` builds the operator's handoff,
-`polis-light-shadow-triage/1`: source run id, job and receipt digests, the
-triage-set digest, the count, the window and policy `3dfbdedd…`. It names the
-set only by digest. Consuming it (a named-conversation selection in
-`sampled-paired-battery-v1` whose box recovers the set without the ids passing
-through the operator) is not built here: it changes the certified battery's
-selection and closure and needs a ruling on how the set reaches the next box.
-Until then a flagged conversation has no certified verdict.
+The daily compare job stays the operational signal. The certified verdict for
+its flagged conversations comes from a triage run of the paired battery
+(`sampled-paired-battery-v1`) in its light-shadow triage selection mode. No
+set crosses boxes and no id passes through the operator:
+
+1. `light_shadow.triage_spec(receipt, job)` builds the handoff,
+   `polis-light-shadow-triage/1`: source run id, job and receipt digests, the
+   triage-set digest and count, the window, the shadow label and policy
+   `3dfbdedd…`. It names the set only by digest.
+2. The operator launches the battery job with that handoff as its
+   `triage_selection` (job/1). It is exclusive with `representative_selection`
+   and needs the reader; the supervisor passes it in the selection context.
+3. The battery reader turns autocommit off after the reader-session check, so
+   the read-only repeatable-read setting holds for one transaction. In it the
+   reader recomputes the classification with the compare job's own fixed
+   queries and comparison, over every conversation either label wrote since
+   the compare window began. It selects NEAR-TIE-CANDIDATE, HISTORY-DIVERGENCE
+   and FAIL (including `row-schema`). It extracts at most 20 of them (the
+   battery's entry budget) as `triage-NNN` roles: FAIL first, then the largest
+   relative, then absolute, delta.
+4. The manifest (`certify-fixture-manifest/5`, box-only, not derivable or
+   publishable) carries a `triage` block with the counts-only report,
+   `polis-light-shadow-triage-report/1`. The report holds:
+   - the compare digest and the battery's own digest of its recomputed
+     candidate set;
+   - `MATCH` or `CHANGED` (a changed set is reported, not refused);
+   - the count at compare time and at battery time;
+   - flagged, selected, truncated and the cap;
+   - the sizes of the chosen entries.
+5. Payload admission, the box plan and the independent gate admit exactly
+   the triage roles, with no coverage roles and no representative sample.
+   Each role is replayed with the representative recipe (six full-stream
+   cuts) under the unchanged gate policy. The receipt's `selection` is the
+   triage report, bound to the job's handoff.
+
+Limits:
+
+- The replay is a fresh replay of those conversations on the battery's
+  snapshot. It does not reproduce the compare-time cut. A `CHANGED` set, or
+  late votes, mean the verdict covers the conversations, not the earlier
+  observation's cause.
+- If nothing is flagged at battery time, or more than 250 conversations are
+  active since the window began, extraction stops and the run ends without a
+  receipt.
+- The battery images carry `light_shadow.py`, `light_shadow_queries.py`,
+  `light_shadow_compare.py` and `light_shadow_triage.py`, so they must be
+  rebuilt, re-admitted and re-pinned. The worker AMI must be rebaked for the
+  job/1 contract, the selection context and the receipt binding.
 
 ## Scope limits
 

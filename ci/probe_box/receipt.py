@@ -309,7 +309,14 @@ def validate_receipt(value: object, job: Job) -> dict:
     if v3 and r["verdict"] != ("PASS" if all_pass else "FAIL"):
         raise ValueError("RECEIPT_FALSE_PASS")
     selection = r["selection"]
-    if v3 and selection is not None:
+    if "triage_selection" in job:
+        # A light-shadow triage battery exports only its counts-only triage
+        # report, bound to the job's spec.
+        if not v5:
+            raise ValueError("RECEIPT_SELECTION")
+        from light_shadow import validate_triage_report
+        validate_triage_report(selection, job["triage_selection"])
+    elif v3 and selection is not None:
         selected = closed(selection, {"seed", "seed_source", "bucket_counts", "chosen_entry_sizes"})
         if selected["seed_source"] not in ("config", "run-id"):
             raise ValueError("RECEIPT_SELECTION_SEED_SOURCE")

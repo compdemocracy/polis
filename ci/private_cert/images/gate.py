@@ -126,8 +126,12 @@ def prepare(fixture, inputs, scratch, *, bind=True):
         raise ValueError('FIXTURE_EXTRA_FILES')
     public = {r['slug'] for r in config['public_fixtures']}
     battery = certify.load_battery(REPO / 'delphi/scripts/certify_battery.json')
-    required = {(e.dataset, e.schedule_id) for e in battery
-                if plan['scope'] == 'all' or (e.dataset in public) == (plan['scope'] == 'public')}
+    # A light-shadow triage capture replays only its admitted triage roles.
+    triage = fixture_samples.is_triage(manifest)
+    if triage and plan['scope'] != 'private':
+        raise ValueError('TRIAGE_SCOPE')
+    required = {(e.dataset, e.schedule_id) for e in battery if not triage and (
+                plan['scope'] == 'all' or (e.dataset in public) == (plan['scope'] == 'public'))}
     required.update((alias, fixture_samples.SCHEDULE_ID) for alias in samples)
     if not required or not isinstance(plan['entries'], list):
         raise ValueError('EMPTY_BATTERY')
