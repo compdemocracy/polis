@@ -35,6 +35,31 @@
         "args": ["verify"],
         "image": "localhost/polis-roles-verifier@sha256:8478ba5cb98603c027743ab65a116c481f6590a2a0d417815b0da79d919c3ae2"
       }
+    },
+    "light-shadow-compare-v1": {
+      "kind": "light-shadow-compare",
+      "max_seconds": 3600,
+      "producer": {
+        "args": ["produce"],
+        "image": "localhost/polis-shadow-producer@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "reader": {
+        "args": ["read"],
+        "image": "localhost/polis-shadow-reader@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "run_id": "00000000000000000000000000000000",
+      "run_spec": {
+        "engine_commit": "0000000000000000000000000000000000000000",
+        "engine_image": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "shadow_env": "python",
+        "shadow_started_ms": 1500000000000,
+        "window_seconds": 86400
+      },
+      "schema": "polis-probe-job/2",
+      "verifier": {
+        "args": ["verify"],
+        "image": "localhost/polis-shadow-verifier@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      }
     }
   }
 }
