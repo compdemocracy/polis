@@ -1,6 +1,5 @@
 #!/bin/bash
 set -e
-set -x
 
 # MINIMAL CHANGE: Ensure parent directory exists before trying to cd into it
 sudo mkdir -p /opt/polis
@@ -73,7 +72,7 @@ DB_PORT=$(aws ssm get-parameter --name "/polis/db-port" --query 'Parameter.Value
 # --- Construct DATABASE_URL using values from Secrets Manager AND SSM Parameters ---
 DATABASE_URL="postgres://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require"
 
-echo "Constructed DATABASE_URL: $DATABASE_URL" # Original logging
+echo "Constructed DATABASE_URL for host ${DB_HOST}:${DB_PORT}"
 
 # --- Append DATABASE_URL to the end of .env ---
 echo "Appending DATABASE_URL to .env"
@@ -92,7 +91,7 @@ echo "Docker containers stopped and removed."
 yes | sudo docker system prune -a --filter "until=72h"
 echo "Docker cache cleared"
 
-sudo /usr/local/bin/docker-compose config
+sudo /usr/local/bin/docker-compose config --quiet
 
 if [ -f "/etc/app-info/log_group_name.txt" ]; then
   LOG_GROUP_NAME=$(cat "/etc/app-info/log_group_name.txt")
