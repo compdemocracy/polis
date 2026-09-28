@@ -248,6 +248,9 @@ def validate_attribution(entry):
 
 def validate_receipt(value: object, job: Job) -> dict:
     job = validate_job(job)
+    if job["schema"] == "polis-probe-job/2" and job["kind"] == "light-shadow-compare":
+        from light_shadow import validate_receipt as validate_shadow_receipt
+        return validate_shadow_receipt(value, job)
     if job["schema"] == "polis-probe-job/2":
         from roles_census import validate_receipt as validate_census_receipt
         return validate_census_receipt(value, job)
@@ -341,6 +344,15 @@ def validate_receipt(value: object, job: Job) -> dict:
     if len(canonical(r)) > 131072:
         raise ValueError("RECEIPT_LIMIT")
     return r
+
+
+def receipt_passed(receipt: dict, job: Job) -> bool:
+    """Closed dispatch of a validated receipt's public PASS/FAIL bit."""
+    job = validate_job(job)
+    if job["schema"] == "polis-probe-job/2" and job["kind"] == "light-shadow-compare":
+        from light_shadow import passed
+        return passed(receipt)
+    return receipt["verdict"] == "PASS"
 
 
 def receipt_limit(job: Job) -> int:

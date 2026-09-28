@@ -8,8 +8,8 @@ import re
 import sys
 import time
 import uuid
-from contracts import CAMPAIGN_CEILING_SECONDS, validate_job
-from receipt import validate_receipt, decode_receipt, receipt_limit, validate_engine_timeout
+from contracts import CAMPAIGN_CEILING_SECONDS, refuse_placeholder, validate_job
+from receipt import validate_receipt, decode_receipt, receipt_limit, receipt_passed, validate_engine_timeout
 
 LAUNCH_KEYS = ('TEMPLATE', 'TEMPLATE_VERSION', 'PROFILE', 'SUBNET', 'SECURITY_GROUP')
 # A worker that ends without a receipt leaves this record in its heartbeat object (worker.py).
@@ -836,7 +836,7 @@ class Session:
                        ADMISSION_SHA256=sha(a)), self.clock, monitoring=self.monitoring)
 
     def start(self, job):
-        job = validate_job(job)
+        job = refuse_placeholder(validate_job(job))
         if self.cfg['MODE'] != 'worker':
             raise Unknown('MODE_CONFLICT')
         return self.start_request(job['run_id'], {'job':job}, job['max_seconds'])
@@ -966,7 +966,7 @@ class Session:
                         receipt = decode_receipt(raw, c.a['job'])
                     except (ValueError, TypeError, KeyError):
                         raise InvalidReceipt('RECEIPT_INVALID', 'RECEIPT_GET') from None
-                    passed = receipt['verdict'] == 'PASS'
+                    passed = receipt_passed(receipt, c.a['job'])
         result = dict(run_id=run_id, complete=True, passed=passed)
         if public_defaults is not None:
             result['public_defaults'] = public_defaults

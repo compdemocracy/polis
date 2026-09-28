@@ -20,6 +20,9 @@ def built(monkeypatch):
         raise SystemExit(0)
 
     monkeypatch.setattr(math_poller, "_build_service", fake_build)
+    # The guard runs before single-writer admission (which needs Postgres);
+    # admission itself is covered in test_single_writer_lock.py.
+    monkeypatch.setattr(math_poller, "_hold_single_writer_lock", lambda config, log: None)
     monkeypatch.delenv("MATH_POLLER_ALLOW_SERVED_ENV", raising=False)
     return calls
 

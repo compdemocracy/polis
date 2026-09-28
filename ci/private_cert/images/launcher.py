@@ -15,7 +15,8 @@ ROOT = Path('/opt/polis-private-image')
 
 def main():
     recipe = json.loads((ROOT / 'recipe.json').read_bytes())
-    census = recipe.get('schema') == 'polis-private-image-recipe/2' and recipe.get('kind') == 'roles-census'
+    census = (recipe.get('schema') == 'polis-private-image-recipe/2'
+              and recipe.get('kind') in ('roles-census', 'light-shadow-compare'))
     allowed = ({'reader': {'read'}, 'producer': {'produce'}, 'verifier': {'verify'}} if census else
                {'producer': {'extract', 'produce'}, 'verifier': {'verify'}})[recipe['role']]
     if len(sys.argv) != 2 or sys.argv[1] not in allowed:

@@ -172,3 +172,129 @@ def test_library_default_is_prod(monkeypatch):
     monkeypatch.delenv("MATH_ENV", raising=False)
     monkeypatch.setattr(ConfigManager, "_instance", None)
     assert ConfigManager.get_config().get("math-env") == "prod"
+
+
+# --- Production shadow wiring (scripts/after_install.sh, Delphi role) --------
+#
+# Production boxes do not pass --profile: each CodeDeploy role starts its
+# services BY NAME, and Compose enables the profiles of services named on the
+# command line. The shadow poller therefore runs exactly where the Delphi
+# role's `up` line names it. CI copies the script into the checkout-shaped
+# root ($POLIS_CHECKOUT_DIR) beside the projection-gate inputs.
+
+AFTER_INSTALL = Path("scripts") / "after_install.sh"
+# The env lines the deploy hook's comment tells operators to put in the
+# production secret; every one must be something math-python actually reads.
+SHADOW_SECRET_VARS = (
+    "MATH_PYTHON_ENV",
+    "DATABASE_SSL_MODE",
+    "DELPHI_POLLER_CONTAINER_MEMORY",
+    "MATH_CONV_CACHE_CAP",
+)
+
+
+def _find_after_install():
+    override = os.environ.get("POLIS_CHECKOUT_DIR")
+    candidates = [Path(override)] if override else []
+    here = Path(__file__).resolve()
+    candidates += [here.parent, *here.parents]
+    for candidate in candidates:
+        if (candidate / AFTER_INSTALL).is_file():
+            return candidate / AFTER_INSTALL
+    return None
+
+
+AFTER_INSTALL_PATH = _find_after_install()
+requires_after_install = pytest.mark.skipif(
+    AFTER_INSTALL_PATH is None,
+    reason=f"{AFTER_INSTALL} not found in $POLIS_CHECKOUT_DIR nor any ancestor of this file",
+)
+
+_ROLE_BRANCH = re.compile(r'^(?:if|elif) \[ "\$SERVICE_FROM_FILE" == "(?P<role>[a-z-]+)" \]; then$')
+
+
+def _role_up_lines() -> dict:
+    """{role: [compose `up` command tokens, ...]} for each top-level role branch
+    of the deploy hook; comments are ignored."""
+    roles, current = {}, None
+    for line in AFTER_INSTALL_PATH.read_text().splitlines():
+        match = _ROLE_BRANCH.match(line)
+        if match:
+            current = match["role"]
+            roles[current] = []
+            continue
+        if line.startswith(("else", "fi")):
+            current = None
+            continue
+        code = line.split("#", 1)[0].split()
+        command = code[1:] if code[:1] == ["sudo"] else code
+        if current and command[:1] and command[0].endswith("docker-compose") and "up" in command:
+            roles[current].append(code)
+    return roles
+
+
+def _services_named(tokens: list) -> set:
+    after_up = tokens[tokens.index("up") + 1 :]
+    return {token for token in after_up if not token.startswith("-")}
+
+
+@requires_after_install
+def test_delphi_role_starts_delphi_and_the_shadow_poller():
+    roles = _role_up_lines()
+    assert len(roles.get("delphi", [])) == 1, "the delphi role must have exactly one compose up line"
+    (line,) = roles["delphi"]
+    assert _services_named(line) == {"delphi", "math-python"}
+    assert {"-d", "--build", "--force-recreate"} <= set(line)
+
+
+@requires_after_install
+def test_only_the_delphi_role_starts_the_shadow_poller():
+    # Two pollers on one label would both write every zid.
+    roles = _role_up_lines()
+    assert {"server", "math", "delphi"} <= set(roles)
+    starting = {role for role, lines in roles.items() if any("math-python" in _services_named(l) for l in lines)}
+    assert starting == {"delphi"}
+
+
+@requires_after_install
+def test_deploy_hook_does_not_rely_on_profile_flags():
+    # Activation comes from naming the service; a --profile flag would start
+    # every service in that profile on whichever role carried it.
+    for lines in _role_up_lines().values():
+        for line in lines:
+            assert not any(token.startswith("--profile") for token in line)
+
+
+@requires_after_install
+@requires_checkout
+def test_secret_lines_named_by_the_hook_are_read_by_math_python():
+    text = AFTER_INSTALL_PATH.read_text()
+    block = yaml.safe_load((CHECKOUT / "docker-compose.yml").read_text())["services"]["math-python"]
+    raw = yaml.safe_dump(block)
+    for name in SHADOW_SECRET_VARS:
+        assert f"{name}=" in text, f"after_install.sh no longer names {name} for the secret"
+        assert "${" + name + ":-" in raw, f"math-python does not read ${{{name}}}"
+    # The hook must say the served-label override stays unset.
+    assert "MATH_POLLER_ALLOW_SERVED_ENV" in text
+
+
+@requires_checkout
+@pytest.mark.parametrize("env", [{}, {"MATH_ENV": PROBE}, {"MATH_ENV": "prod"}], ids=["unset", "probe", "prod"])
+def test_math_python_label_is_python_when_math_python_env_unset(env):
+    assert "MATH_PYTHON_ENV" not in env
+    assert _environment("docker-compose.yml", "math-python", env)["MATH_ENV"] == "python"
+
+
+def _math_python_memory() -> str:
+    block = yaml.safe_load((CHECKOUT / "docker-compose.yml").read_text())["services"]["math-python"]
+    return block["deploy"]["resources"]["limits"]["memory"]
+
+
+@requires_checkout
+def test_math_python_memory_limit_reads_delphi_poller_container_memory():
+    raw = _math_python_memory()
+    assert raw == "${DELPHI_POLLER_CONTAINER_MEMORY:-16g}"
+    assert _interpolate(raw, {}) == "16g"
+    assert _interpolate(raw, {"DELPHI_POLLER_CONTAINER_MEMORY": "6g"}) == "6g"
+    # Delphi's own cap is a different variable; setting it must not move the poller's.
+    assert _interpolate(raw, {"DELPHI_CONTAINER_MEMORY": "8g"}) == "16g"
