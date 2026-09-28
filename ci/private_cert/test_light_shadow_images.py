@@ -208,6 +208,26 @@ class Verifier(unittest.TestCase):
                 self.assertIn('row-schema', entry['differing'])
                 self.assertFalse(receipt_passed(r, self.job))
 
+    def test_fail_only_comparisons_hand_off_to_a_battery_job(self):
+        """FAIL is the highest-priority triage class: a FAIL-only receipt still
+        yields the handoff, and every flagged member enters the digest."""
+        variants = compare.fixture_variants()
+        structural = compare.structural_variants()
+        for name, pair in (('numeric-fail', variants['fail']), ('row-schema', structural['truncated-base-x']),
+                           ('empty-objects', ({}, {}))):
+            with self.subTest(name=name):
+                r = self.one(*pair)
+                self.assertEqual((r['verdict'], r['triage']['required']), ('OPERATIONAL-FAIL', 1))
+                handoff = ls.triage_spec(r, self.job)
+                self.assertEqual(handoff['triage_sha256'],
+                                 ls.triage_digest([ls.triage_member(1, pair[1])]))
+                battery = validate_job(dict(schema='polis-probe-job/1', run_id='a' * 32, max_seconds=3600,
+                    reader={'image': 'localhost/producer@sha256:' + '1' * 64, 'args': ['extract']},
+                    producer={'image': 'localhost/producer@sha256:' + '1' * 64, 'args': ['produce']},
+                    verifier={'image': 'localhost/verifier@sha256:' + '2' * 64, 'args': ['verify']},
+                    triage_selection=handoff))
+                self.assertEqual(battery['triage_selection'], handoff)
+
     def test_unproven_differences_are_attention_not_pass(self):
         base = compare.fixture_blob()
         count = copy.deepcopy(base)

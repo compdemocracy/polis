@@ -353,7 +353,9 @@ def tally(entries):
         if e['legacy_defect']:
             t[e['legacy_defect']] += 1
         t['created_after_start'] += e['created_after_start']
-    t['triage_required'] = t['NEAR-TIE-CANDIDATE'] + t['HISTORY-DIVERGENCE']
+    # The triage set: every conversation the certified replay must judge,
+    # FAIL (the highest priority) as well as the unresolved candidates.
+    t['triage_required'] = t['NEAR-TIE-CANDIDATE'] + t['HISTORY-DIVERGENCE'] + t['FAIL']
     return t
 
 
@@ -391,9 +393,26 @@ def passed(r):
 TRIAGE = ('required', 'sha256', 'ids')
 
 
+def _stamp(blob, key):
+    """A member timestamp: the integer, null, or an explicit ABSENT/MALFORMED token."""
+    if type(blob) is not dict:
+        return 'MALFORMED'
+    value = field(blob, key)
+    if value is MISSING:
+        return 'ABSENT'
+    if value is None or (type(value) is int and value >= 0):
+        return value
+    return 'MALFORMED'
+
+
+def triage_member(zid, shadow):
+    """One member of the triage set: [zid, lastVoteTimestamp, lastModTimestamp] of the shadow row."""
+    return [zid, _stamp(shadow, 'lastVoteTimestamp'), _stamp(shadow, 'lastModTimestamp')]
+
+
 def triage_digest(rows):
-    """Digest of the box-local triage set: sorted [zid, lastVoteTimestamp, lastModTimestamp]."""
-    rows = sorted(rows)
+    """Digest of the box-local triage set: sorted members (see triage_member)."""
+    rows = sorted(rows, key=encoded)
     return hashlib.sha256(encoded({'schema': TRIAGE_SET_SCHEMA, 'conversations': rows})).hexdigest() if rows else None
 
 
@@ -446,7 +465,7 @@ def validate_triage_spec(v):
 # ---------------------------------------------------------------------------
 TRIAGE_REPORT_SCHEMA = 'polis-light-shadow-triage-report/1'
 TRIAGE_REPORT = ('schema', 'source_triage_sha256', 'battery_triage_sha256', 'match', 'compare_count',
-                 'battery_count', 'flagged', 'selected', 'truncated', 'cap', 'chosen_entry_sizes')
+                 'battery_count', 'selected', 'truncated', 'cap', 'chosen_entry_sizes')
 # The battery's existing entry budget (fixture_selection.TARGET).
 TRIAGE_CAP = 20
 TRIAGE_SELECTED = ('NEAR-TIE-CANDIDATE', 'HISTORY-DIVERGENCE', 'FAIL')
@@ -464,17 +483,15 @@ def validate_triage_report(r, spec):
     if (r['schema'] != TRIAGE_REPORT_SCHEMA or r['source_triage_sha256'] != spec['triage_sha256']
             or r['compare_count'] != spec['conversations'] or r['cap'] != TRIAGE_CAP):
         fail('TRIAGE_REPORT')
-    for k in ('compare_count', 'battery_count', 'flagged', 'selected', 'truncated'):
+    for k in ('compare_count', 'battery_count', 'selected', 'truncated'):
         integer(r[k], 0, MAX_CONVERSATIONS, 'TRIAGE_REPORT')
     battery = r['battery_triage_sha256']
-    if battery is not None and (type(battery) is not str or not re.fullmatch('[a-f0-9]{64}', battery)):
-        fail('TRIAGE_REPORT')
-    if (battery is None) != (r['battery_count'] == 0):
+    if type(battery) is not str or not re.fullmatch('[a-f0-9]{64}', battery):
         fail('TRIAGE_REPORT')
     if r['match'] != ('MATCH' if battery == r['source_triage_sha256'] else 'CHANGED'):
         fail('TRIAGE_REPORT')
-    if (r['flagged'] < r['battery_count'] or r['selected'] != min(r['flagged'], TRIAGE_CAP)
-            or r['selected'] < 1 or r['truncated'] != r['flagged'] - r['selected']):
+    if (r['selected'] != min(r['battery_count'], TRIAGE_CAP) or r['selected'] < 1
+            or r['truncated'] != r['battery_count'] - r['selected']):
         fail('TRIAGE_REPORT')
     sizes = r['chosen_entry_sizes']
     if type(sizes) is not list or len(sizes) != r['selected']:

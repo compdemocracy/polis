@@ -134,11 +134,13 @@ Receipt/3, `kind: light-shadow-compare`, closed at every level
   conversations, prod counts after the snapshot, and prod rows that carry the
   Python-only `group_clusters` twin;
 - `totals`: PAIRED, UNPAIRED and each reason, each outcome, the empty legacy
-  defect, created after start, and `triage_required` (NEAR-TIE-CANDIDATE plus
+  defect, created after start, and `triage_required` (FAIL, NEAR-TIE-CANDIDATE plus
   HISTORY-DIVERGENCE);
 - `worst`: the largest absolute and relative delta over all paired conversations;
 - `triage`: the count of candidate conversations, `sha256` of the box-local
-  triage set (sorted `[zid, lastVoteTimestamp, lastModTimestamp]`), and
+  triage set: every FAIL, NEAR-TIE-CANDIDATE and HISTORY-DIVERGENCE member as
+  `[zid, lastVoteTimestamp, lastModTimestamp]` of its shadow row, with an
+  absent or malformed timestamp written as `ABSENT` or `MALFORMED`, sorted), and
   `ids: ON-BOX-ONLY`;
 - `acceptance`: `operational-only; not certification or cutover evidence`;
 - `conversations`: one entry per active conversation, sorted by content (not
@@ -211,13 +213,18 @@ set crosses boxes and no id passes through the operator:
    - the compare digest and the battery's own digest of its recomputed
      candidate set;
    - `MATCH` or `CHANGED` (a changed set is reported, not refused);
-   - the count at compare time and at battery time;
-   - flagged, selected, truncated and the cap;
+   - the triage-set count at compare time and at battery time (the battery
+     digests the same member definition over everything it flags, so
+     replacing any member, FAIL included, reads `CHANGED`);
+   - selected, truncated and the cap;
    - the sizes of the chosen entries.
 5. Payload admission, the box plan and the independent gate admit exactly
    the triage roles, with no coverage roles and no representative sample.
    Each role is replayed with the representative recipe (six full-stream
-   cuts) under the unchanged gate policy. The receipt's `selection` is the
+   cuts) under the unchanged gate policy, with its own receipt recipe token
+   `triage-uniform6`. Both receipt consumers require exactly `selected`
+   entries, each with that token, and the handoff's policy digest. The
+   receipt's `selection` is the
    triage report, bound to the job's handoff.
 
 Limits:
