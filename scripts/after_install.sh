@@ -106,7 +106,7 @@ elif [ "$SERVICE_FROM_FILE" == "math" ]; then
   echo "Starting docker-compose up for 'math' service"
   sudo /usr/local/bin/docker-compose up -d math --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
-  echo "Starting docker-compose up for 'delphi' service"
+  echo "Starting docker-compose up for 'delphi' and 'math-python' (shadow) services"
   # The Ollama GPU stack is optional (topic naming defaults to the Anthropic
   # Batch API). Only fetch OLLAMA_HOST if the secret exists; never fail the
   # deploy when it doesn't. Re-enable Ollama with CDK_ENABLE_OLLAMA=true +
@@ -170,7 +170,29 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
     printf "DELPHI_CONTAINER_CPUS=%s\n" "$DELPHI_CONTAINER_CPUS" | sudo tee -a .env > /dev/null
   fi
 
-  sudo /usr/local/bin/docker-compose up -d delphi --build --force-recreate
+  # Python math poller, SHADOW ONLY: `math-python` writes math rows under its
+  # own math_env label beside Clojure's; the server and Delphi keep reading
+  # Clojure's rows. Naming a profile-gated service on the `up` command line
+  # starts it without --profile (Compose v2.40.0 enables named services'
+  # profiles: cmd/compose/compose.go `project.WithServicesEnabled(services...)`).
+  # The production env secret (polis-web-app-env-vars) must carry these four
+  # lines BEFORE this deploys:
+  #   MATH_PYTHON_ENV=python   (compose default is also `python`; pinned in the
+  #       secret so the shadow's write label does not depend on a compose default)
+  #   DATABASE_SSL_MODE=require   (compose default is `disable`; the Python
+  #       Postgres client rebuilds the URL from its parts and appends this mode,
+  #       dropping DATABASE_URL's ?sslmode=require. The secret is shared, so the
+  #       delphi service moves from `disable` to `require` too)
+  #   DELPHI_POLLER_CONTAINER_MEMORY=6g   (compose default 16g, the whole box;
+  #       6g fits beside Delphi's 8g DELPHI_CONTAINER_MEMORY on this 16 GiB box)
+  #   MATH_CONV_CACHE_CAP=200   (compose default is also 200; pinned because the
+  #       certified bundle's cohort size is this cap plus one)
+  # POLL_FROM_DAYS_AGO stays at its default of 10. MATH_POLLER_ALLOW_SERVED_ENV
+  # must stay UNSET: it is the override that lets the poller write the served
+  # `prod` label, and the shadow must never write there.
+  # Stop: remove `math-python` from this line and redeploy (emergency:
+  # `sudo docker rm -f` its container on the box).
+  sudo /usr/local/bin/docker-compose up -d delphi math-python --build --force-recreate
 else
   echo "Error: Unknown service type: [$SERVICE_FROM_FILE]. Starting all services (default docker-compose up -d)"
   sudo /usr/local/bin/docker-compose up -d --build --force-recreate
