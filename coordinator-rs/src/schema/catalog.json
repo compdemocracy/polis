@@ -616,6 +616,11 @@
       "indexes": [
         {
           "table": "comments",
+          "name": "comments_modified_idx",
+          "definition": "CREATE INDEX comments_modified_idx ON public.comments USING btree (modified)"
+        },
+        {
+          "table": "comments",
           "name": "comments_zid_idx",
           "definition": "CREATE INDEX comments_zid_idx ON public.comments USING btree (zid)"
         },
@@ -9154,6 +9159,11 @@
       "indexes": [
         {
           "table": "votes",
+          "name": "votes_created_idx",
+          "definition": "CREATE INDEX votes_created_idx ON public.votes USING btree (created)"
+        },
+        {
+          "table": "votes",
           "name": "votes_latest_unique_zid_tid_idx",
           "definition": "CREATE INDEX votes_latest_unique_zid_tid_idx ON public.votes USING btree (zid, tid)"
         },
@@ -9764,6 +9774,10 @@
     {
       "path": "server/postgres/migrations/000021_create_polis_coordinator.sql",
       "sha256": "d50f169ad7afe12d14582a6a746c622d402ecafd8131aae246812263bf2d5e82"
+    },
+    {
+      "path": "server/postgres/migrations/000022_add_poll_timestamp_indexes.sql",
+      "sha256": "b8c7510fc9ac69e43de5c4bf34f5e3b400b0521148ed32c26f548c61703c4aff"
     }
   ]
 }
