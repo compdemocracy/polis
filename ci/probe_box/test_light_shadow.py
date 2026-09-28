@@ -77,13 +77,18 @@ class RunSpec(unittest.TestCase):
         self.assertEqual(registry['run_spec']['shadow_env'], 'python')
         self.assertEqual((registry['schema'], registry['kind'], registry['max_seconds']),
                          ('polis-probe-job/2', 'light-shadow-compare', 3600))
+        digests = {
+            'reader': '5d1560ce1e4ee6642791d7c60a50e85d6d4eaf5de6006b59cdde93f927d2e00b',
+            'producer': 'dfd6e42433a9e355dec81568b0b67e83c10f5c878bbdbe198354984f1302c0be',
+            'verifier': 'f66c951eac0685c92396ad1bf2e7ddd5ba07400d013ddd1ebd87c0d27a38e782',
+        }
         for role, action in (('reader', 'read'), ('producer', 'produce'), ('verifier', 'verify')):
             self.assertEqual(registry[role]['args'], [action])
-            self.assertEqual(registry[role]['image'], f'localhost/polis-shadow-{role}@sha256:' + '0' * 64)
+            self.assertEqual(registry[role]['image'], f'localhost/polis-shadow-{role}@sha256:{digests[role]}')
 
     def test_placeholder_digests_are_never_launched(self):
         registry = json.loads((HERE / 'jobs.json').read_bytes())['jobs']
-        with self.assertRaisesRegex(BoundaryError, 'PLACEHOLDER_IMAGE'):
+        with self.assertRaisesRegex(BoundaryError, 'PLACEHOLDER_RUN_SPEC'):
             refuse_placeholder(validate_job(registry['light-shadow-compare-v1']))
         refuse_placeholder(job())
         for bad in ({'engine_commit': '0' * 40}, {'engine_image': 'sha256:' + '0' * 64}):
@@ -92,6 +97,13 @@ class RunSpec(unittest.TestCase):
         for name in ('sampled-paired-battery-v1', 'roles-census-v1'):
             refuse_placeholder(validate_job(registry[name]))
         self.assertIn('refuse_placeholder(validate_job(job))', (HERE / 'run.py').read_text())
+
+    def test_zero_image_digest_is_refused_for_every_role(self):
+        for role in ('reader', 'producer', 'verifier'):
+            placeholder = job()
+            placeholder[role]['image'] = f'localhost/polis-shadow-{role}@sha256:' + '0' * 64
+            with self.subTest(role=role), self.assertRaisesRegex(BoundaryError, 'PLACEHOLDER_IMAGE'):
+                refuse_placeholder(validate_job(placeholder))
 
     def test_the_served_label_and_malformed_labels_are_refused(self):
         for label in ('prod', '', 'Prod', 'python shadow', "python'--", 'x' * 33, None, 1):
