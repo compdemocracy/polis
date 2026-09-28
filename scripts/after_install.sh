@@ -106,7 +106,7 @@ elif [ "$SERVICE_FROM_FILE" == "math" ]; then
   echo "Starting docker-compose up for 'math' service"
   sudo /usr/local/bin/docker-compose up -d math --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
-  echo "Starting docker-compose up for 'delphi' service"
+  echo "Starting docker-compose up for 'delphi' and 'math-python' (shadow) services"
   # The Ollama GPU stack is optional (topic naming defaults to the Anthropic
   # Batch API). Only fetch OLLAMA_HOST if the secret exists; never fail the
   # deploy when it doesn't. Re-enable Ollama with CDK_ENABLE_OLLAMA=true +
@@ -170,7 +170,57 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
     printf "DELPHI_CONTAINER_CPUS=%s\n" "$DELPHI_CONTAINER_CPUS" | sudo tee -a .env > /dev/null
   fi
 
-  sudo /usr/local/bin/docker-compose up -d delphi --build --force-recreate
+  # Python math poller, SHADOW ONLY: `math-python` writes math rows under its
+  # own math_env label beside Clojure's; the server and Delphi keep reading
+  # Clojure's rows. Naming a profile-gated service on the `up` command line
+  # starts it without --profile (Compose v2.40.0 enables named services'
+  # profiles: cmd/compose/compose.go `project.WithServicesEnabled(services...)`).
+  # The production env secret (polis-web-app-env-vars) must carry these four
+  # lines BEFORE this deploys:
+  #   MATH_PYTHON_ENV=python   (compose default is also `python`; pinned in the
+  #       secret so the shadow's write label does not depend on a compose default)
+  #   DATABASE_SSL_MODE=require   (compose default is `disable`; the Python
+  #       Postgres client rebuilds the URL from its parts and appends this mode,
+  #       dropping DATABASE_URL's ?sslmode=require. The secret is shared, so the
+  #       delphi service moves from `disable` to `require` too)
+  #   DELPHI_POLLER_CONTAINER_MEMORY=6g   (compose default 16g, the whole box;
+  #       6g fits beside Delphi's 8g DELPHI_CONTAINER_MEMORY on this 16 GiB box)
+  #   MATH_CONV_CACHE_CAP=200   (compose default is also 200; pinned because the
+  #       certified bundle's cohort size is this cap plus one)
+  # POLL_FROM_DAYS_AGO stays at its default of 10. MATH_POLLER_ALLOW_SERVED_ENV
+  # must stay UNSET: it is the override that lets the poller write the served
+  # `prod` label, and the shadow must never write there.
+  # Singleton: every Delphi-role box (both launch templates, any ASG scale-out
+  # or replacement) runs this line, so the poller admits itself: at startup it
+  # takes a Postgres session-level advisory lock keyed on its math_env label
+  # (pg_try_advisory_lock(hashtext('polis-math-python:' || label))) on a
+  # dedicated connection named math-python:<label>@<hostname>. Other boxes'
+  # pollers log `waiting for single-writer lock; holder=...` and retry every
+  # 30 s, taking over only once the holder's session is gone. The holder
+  # re-checks its lock about every 5 s and exits (code 3) if the check fails;
+  # that interval is a scheduling target, not a wall-clock bound or a
+  # publication fence. Delphi's report role on every box is unaffected. An
+  # ASG max of 1 for the Delphi small group is a later belt-and-braces CDK
+  # change, not needed for correctness.
+  # Durable stop: remove `math-python` from this line and redeploy (the hook
+  # removes every container before starting the named ones).
+  # Removing only the holder's container is a FAILOVER, not a stop: a waiting
+  # poller on another Delphi box takes the lock. Fleet-wide emergency stop:
+  #   1. Pause anything that runs this hook: no deploy, and suspend Launch on
+  #      both Delphi ASGs (AsgDelphiSmall, AsgDelphiLarge) so no new box starts
+  #      a poller; list every InService instance in both groups.
+  #   2. On every box, via SSM Run Command targeted at both groups, find the
+  #      math-python container; its log says `holding single-writer lock` on
+  #      the holder, `waiting for single-writer lock` on standbys.
+  #   3. `sudo docker rm -f` the standbys' math-python containers first, then
+  #      the holder's, so nothing is admitted during the stop.
+  #   4. Verify: no math-python container on any box (SSM across both groups);
+  #      zero rows from `SELECT application_name FROM pg_stat_activity WHERE
+  #      application_name LIKE 'math-python:%'`; max(math_tick) under
+  #      math_env='python' no longer advances.
+  #   5. Make it durable (remove `math-python` here and redeploy) before
+  #      resuming deploys or ASG launches.
+  sudo /usr/local/bin/docker-compose up -d delphi math-python --build --force-recreate
 else
   echo "Error: Unknown service type: [$SERVICE_FROM_FILE]. Starting all services (default docker-compose up -d)"
   sudo /usr/local/bin/docker-compose up -d --build --force-recreate

@@ -70,9 +70,10 @@ def validate_recipe(recipe):
     fields = {'schema', 'role', 'sourceCommit', 'candidateSha', 'oracleSha',
               'policySha256', 'runtimeImage', 'files', 'entrypoint', 'gates'}
     census = type(recipe) is dict and recipe.get('schema') == 'polis-private-image-recipe/2'
+    kind = recipe.get('kind') if census else None
     if census:
         fields.add('kind')
-        if recipe.get('kind') != 'roles-census':
+        if kind not in ('roles-census', 'light-shadow-compare'):
             raise ValueError('IMAGE_RECIPE_KIND')
     if (type(recipe) is not dict or set(recipe) != fields
             or recipe['schema'] != ('polis-private-image-recipe/2' if census else 'polis-private-image-recipe/1')
@@ -85,7 +86,7 @@ def validate_recipe(recipe):
         raise ValueError('IMAGE_POLICY_PIN')
     if not isinstance(recipe['runtimeImage'], str) or not IMAGE.fullmatch(recipe['runtimeImage']):
         raise ValueError('RUNTIME_IMAGE_PIN')
-    gates = {'roles-census'} if census else GATES
+    gates = {kind} if census else GATES
     if (not isinstance(recipe['gates'], list) or len(recipe['gates']) != len(gates)
             or set(recipe['gates']) != gates):
         raise ValueError('INCOMPLETE_IMAGE_GATES')
@@ -102,7 +103,20 @@ def validate_recipe(recipe):
             raise ValueError('UNSAFE_SOURCE_CLOSURE')
     if recipe['entrypoint'] not in files or not recipe['entrypoint'].endswith('.py'):
         raise ValueError('IMAGE_ENTRYPOINT')
-    if census:
+    if kind == 'light-shadow-compare':
+        if recipe['entrypoint'] != 'ci/private_cert/images/light_shadow_' + recipe['role'] + '.py':
+            raise ValueError('SHADOW_ENTRYPOINT')
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'probe_box'))
+        from light_shadow import POLICY_SHA as SHADOW_POLICY_SHA
+        if recipe['policySha256'] != SHADOW_POLICY_SHA:
+            raise ValueError('SHADOW_POLICY')
+        # The reader is source-only; comparison images carry the certified
+        # engine package for g12/certify, never the Clojure tree.
+        if any(p.startswith('math/') or (recipe['role'] == 'reader' and p.startswith('delphi/'))
+               for p in files):
+            raise ValueError('SHADOW_SOURCE_CLOSURE')
+    elif census:
         expected = 'ci/private_cert/images/roles_' + recipe['role'] + '.py'
         if recipe['entrypoint'] != expected:
             raise ValueError('CENSUS_ENTRYPOINT')
