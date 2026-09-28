@@ -316,7 +316,6 @@ def test_fail_only_selection_exports_a_bound_triage_receipt(tmp_path, monkeypatc
     # worker.decode_receipt and run.decode_receipt are this same boundary
     # (ci/probe_box/test_light_shadow_triage.py exercises both consumers).
     from receipt import decode_receipt, receipt_passed
-    from polismath.replay.schedule import ScheduleSpec
     monkeypatch.setenv('POLIS_REPLAY_INPUT_MAP', '')
     rows = {ZID + 1: compare.structural_variants()['truncated-base-x']}
     s = spec(ls.triage_digest(flagged_set(rows)))
