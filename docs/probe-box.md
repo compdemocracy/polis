@@ -504,7 +504,8 @@ See [representative payload admission](../delphi/docs/representative-selection.m
 
 Every entry carries a fixed `recipe` token derived from the verifier's admitted
 role and schedule. The fourteen role recipes and six public recipes have
-separate tokens; all twenty representative samples use `sample-uniform6`.
+separate tokens; all twenty representative samples use `sample-uniform6`, and
+light-shadow triage roles (`triage-NNN`, same recipe) use `triage-uniform6`.
 Receipt order remains data-dependent. Selection-size rows are independently
 sorted and must never be zipped to receipt entries.
 

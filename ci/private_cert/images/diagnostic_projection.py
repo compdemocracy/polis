@@ -33,6 +33,11 @@ def recipe_token(entry):
     if (entry.role in {fixture_samples.slug(i) for i in range(1, 21)}
             and entry.dataset == entry.role and entry.schedule_id == fixture_samples.SCHEDULE_ID):
         return "sample-uniform6"
+    # Light-shadow triage roles replay with the same six-cut recipe, under
+    # their own closed token so a triage receipt binds its entries to it.
+    if (entry.role in {fixture_samples.triage_slug(i) for i in range(1, 21)}
+            and entry.dataset == entry.role and entry.schedule_id == fixture_samples.SCHEDULE_ID):
+        return "triage-uniform6"
     try:
         return ROLE_RECIPES[entry.role, entry.schedule_id]
     except (KeyError, TypeError):

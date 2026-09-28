@@ -7,6 +7,7 @@ import unittest
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / 'private_cert/images'))
+import copy
 from contracts import BoundaryError, validate_job
 from receipt import canonical, decode_receipt, sha
 import light_shadow as ls
@@ -37,7 +38,7 @@ def size(p=2, c=2, u=3, v=4):
 
 def report(**changes):
     r = {'schema': ls.TRIAGE_REPORT_SCHEMA, 'source_triage_sha256': DIGEST, 'battery_triage_sha256': DIGEST,
-         'match': 'MATCH', 'compare_count': 3, 'battery_count': 3, 'flagged': 4, 'selected': 4,
+         'match': 'MATCH', 'compare_count': 3, 'battery_count': 4, 'selected': 4,
          'truncated': 0, 'cap': 20, 'chosen_entry_sizes': [size()] * 4}
     r.update(changes)
     return r
@@ -73,22 +74,21 @@ class Contract(unittest.TestCase):
 class Report(unittest.TestCase):
     def test_counts_only_report(self):
         self.assertEqual(ls.validate_triage_report(report(), spec()), report())
-        changed = report(battery_triage_sha256='a' * 64, match='CHANGED', battery_count=2)
+        changed = report(battery_triage_sha256='a' * 64, match='CHANGED', battery_count=2, selected=2,
+                         chosen_entry_sizes=[size()] * 2)
         ls.validate_triage_report(changed, spec())
-        none = report(battery_triage_sha256=None, match='CHANGED', battery_count=0, flagged=1, selected=1,
-                      chosen_entry_sizes=[size()])
-        ls.validate_triage_report(none, spec())
-        capped = report(flagged=25, selected=20, truncated=5, chosen_entry_sizes=[size()] * 20)
+        capped = report(battery_count=25, selected=20, truncated=5, chosen_entry_sizes=[size()] * 20)
         ls.validate_triage_report(capped, spec())
 
     def test_refusals(self):
         for bad in (report(match='CHANGED'), report(battery_triage_sha256='a' * 64),
                     report(source_triage_sha256='a' * 64), report(compare_count=2), report(cap=30),
                     report(selected=3, chosen_entry_sizes=[size()] * 3), report(truncated=1),
-                    report(flagged=25, selected=25, chosen_entry_sizes=[size()] * 25),
-                    report(flagged=0, selected=0, battery_count=0, battery_triage_sha256=None, match='CHANGED',
+                    report(battery_count=25, selected=25, chosen_entry_sizes=[size()] * 25),
+                    report(selected=0, battery_count=0, battery_triage_sha256='a' * 64, match='CHANGED',
                            chosen_entry_sizes=[]),
-                    report(battery_count=0), report(zids=[1]),
+                    report(battery_triage_sha256=None, match='CHANGED'),
+                    report(battery_count=5), report(flagged=4), report(zids=[1]),
                     report(chosen_entry_sizes=[dict(size(), zid=1)] * 4),
                     report(chosen_entry_sizes=[dict(size(), matrix_area=5)] * 4),
                     report(chosen_entry_sizes=[size(v=9), size(), size(), size()])):
@@ -104,9 +104,13 @@ class Report(unittest.TestCase):
 
 
 class ReceiptSelection(unittest.TestCase):
-    def receipt(self, j, selection):
+    def receipt(self, j, selection, entries=None):
         r = v5()
         r.update(run_id=j['run_id'], job_sha256=sha(j), selection=selection)
+        if type(selection) is dict and 'selected' in selection:
+            n = selection['selected'] if entries is None else entries
+            r['entries'] = [dict(copy.deepcopy(r['entries'][0]), recipe='triage-uniform6') for _ in range(n)]
+            r['digests']['policy'] = ls.CERTIFICATION_POLICY
         return r
 
     def test_triage_receipt_binds_its_report_to_the_job(self):
@@ -122,6 +126,49 @@ class ReceiptSelection(unittest.TestCase):
             e.pop('attribution'), e.pop('attribution_truncated')
         with self.assertRaises(ValueError):
             decode_receipt(canonical(old), j)
+
+    def passing(self, j):
+        r = self.receipt(j, report())
+        r['verdict'] = 'PASS'
+        for e in r['entries']:
+            e.update(verdict='PASS', diagnostics=[], diagnostics_truncated=False, outliers=0, nonfinite=0,
+                     worst_absolute=0.0, worst_relative=0.0)
+        return r
+
+    def test_both_consumers_bind_entries_recipe_and_policy(self):
+        import worker, run
+        from receipt import receipt_passed
+        j = triage_job()
+        good = self.passing(j)
+        for decoder in (worker.decode_receipt, run.decode_receipt):
+            self.assertEqual(decoder(canonical(good), j), good)
+        self.assertTrue(receipt_passed(good, j))
+        failing = self.receipt(j, report())
+        for decoder in (worker.decode_receipt, run.decode_receipt):
+            self.assertEqual(decoder(canonical(failing), j), failing)
+
+        def fewer(r):
+            del r['entries'][1:]
+
+        def more(r):
+            r['entries'].append(copy.deepcopy(r['entries'][0]))
+
+        def recipe(r):
+            for e in r['entries']:
+                e['recipe'] = 'public-vw-uniform8'
+
+        def one_recipe(r):
+            r['entries'][2]['recipe'] = 'sample-uniform6'
+
+        def policy(r):
+            r['digests']['policy'] = '0' * 64
+        for mutate in (fewer, more, recipe, one_recipe, policy):
+            bad = copy.deepcopy(good)
+            mutate(bad)
+            for decoder in (worker.decode_receipt, run.decode_receipt):
+                with self.subTest(mutation=mutate.__name__, decoder=decoder.__module__), \
+                        self.assertRaisesRegex(ValueError, 'RECEIPT_TRIAGE_BINDING'):
+                    decoder(canonical(bad), j)
 
     def test_a_triage_report_cannot_ride_on_an_ordinary_battery_job(self):
         j = battery_job()

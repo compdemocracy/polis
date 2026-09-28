@@ -16,10 +16,11 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parents[1] / 'probe_box'))
 from light_shadow import (MS_CEILING, PROD, SIZE_FIELDS, TRIAGE_CAP, TRIAGE_REPORT_SCHEMA, TRIAGE_SELECTED,
-                          fail, triage_digest, triage_order, validate_triage_report)
+                          fail, triage_digest, triage_member, triage_order, validate_triage_report)
 from light_shadow_queries import LIMITS, QUERIES
 
 CANDIDATES = ('NEAR-TIE-CANDIDATE', 'HISTORY-DIVERGENCE')
+RECIPE = 'triage-uniform6'
 
 
 def fetch(cur, name, params):
@@ -50,20 +51,19 @@ def classify_active(conn, spec, declared=None):
 
 def select(evidence, shadows, spec, sizes_by_zid):
     """(chosen zids in selection order, counts-only report)."""
-    candidates = [[e['zid'], shadows[e['zid']].get('lastVoteTimestamp'), shadows[e['zid']].get('lastModTimestamp')]
-                  for e in evidence if e['outcome'] in CANDIDATES]
     flagged = sorted((e for e in evidence if e['outcome'] in TRIAGE_SELECTED), key=triage_order)
     if not flagged:
         fail('TRIAGE_EMPTY')
     chosen = [e['zid'] for e in flagged[:TRIAGE_CAP]]
     if any(z not in sizes_by_zid for z in chosen):
         fail('TRIAGE_METRICS')
-    battery = triage_digest(candidates)
+    # The same set definition as the compare receipt: every flagged member.
+    battery = triage_digest([triage_member(e['zid'], shadows[e['zid']]) for e in flagged])
     report = {'schema': TRIAGE_REPORT_SCHEMA, 'source_triage_sha256': spec['triage_sha256'],
               'battery_triage_sha256': battery,
               'match': 'MATCH' if battery == spec['triage_sha256'] else 'CHANGED',
-              'compare_count': spec['conversations'], 'battery_count': len(candidates),
-              'flagged': len(flagged), 'selected': len(chosen), 'truncated': len(flagged) - len(chosen),
+              'compare_count': spec['conversations'], 'battery_count': len(flagged),
+              'selected': len(chosen), 'truncated': len(flagged) - len(chosen),
               'cap': TRIAGE_CAP,
               'chosen_entry_sizes': sorted(({k: sizes_by_zid[z][k] for k in SIZE_FIELDS} for z in chosen),
                                            key=lambda r: tuple(r[k] for k in SIZE_FIELDS))}

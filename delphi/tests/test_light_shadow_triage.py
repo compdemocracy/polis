@@ -41,11 +41,11 @@ def conversations():
     return rows
 
 
-def candidate_set(rows):
+def flagged_set(rows):
     out = []
     for zid, (prod, shadow) in rows.items():
-        if compare.classify(zid, prod, shadow, compare.empty_output())['outcome'] in triage.CANDIDATES:
-            out.append([zid, shadow['lastVoteTimestamp'], shadow['lastModTimestamp']])
+        if compare.classify(zid, prod, shadow, compare.empty_output())['outcome'] in ls.TRIAGE_SELECTED:
+            out.append(ls.triage_member(zid, shadow))
     return out
 
 
@@ -116,7 +116,7 @@ def triage_config():
 
 def bundle(tmp_path, monkeypatch, digest=None):
     rows = conversations()
-    s = spec(digest or ls.triage_digest(candidate_set(rows)))
+    s = spec(digest or ls.triage_digest(flagged_set(rows)))
     order = []
     patched(monkeypatch, order)
     config = triage_config()
@@ -136,8 +136,8 @@ def test_recomputed_set_matches_and_selects_flagged_only(tmp_path, monkeypatch):
     fixture, config, manifest, result, s, order = bundle(tmp_path, monkeypatch)
     report = result['report']
     assert order == ['open']
-    assert (report['match'], report['battery_count'], report['flagged'], report['selected'], report['truncated']) \
-        == ('MATCH', 2, 3, 3, 0)
+    assert (report['match'], report['battery_count'], report['selected'], report['truncated']) \
+        == ('MATCH', 3, 3, 0)
     # FAIL first, then the largest delta; provenance stays box-local.
     assert [r['zid'] for r in result['provenance_rows']][0] == ZID + 6
     assert {r['slug'] for r in result['roles']} == {'triage-001', 'triage-002', 'triage-003'}
@@ -153,7 +153,7 @@ def test_recomputed_set_matches_and_selects_flagged_only(tmp_path, monkeypatch):
 def test_changed_set_is_reported_not_refused(tmp_path, monkeypatch):
     _, _, _, result, _, _ = bundle(tmp_path, monkeypatch, digest='a' * 64)
     assert (result['report']['match'], result['report']['compare_count'], result['report']['battery_count']) \
-        == ('CHANGED', 2, 2)
+        == ('CHANGED', 2, 3)
 
 
 def test_cap_takes_fail_first_then_largest_deltas_and_records_truncation():
@@ -168,7 +168,7 @@ def test_cap_takes_fail_first_then_largest_deltas_and_records_truncation():
         sizes[i + 1] = dict(zid=i + 1, **metrics(raw_rows(3)))
     s = spec(ls.triage_digest([[z, 1_700_000_000_000, None] for z in range(1, 26)]))
     chosen, report = triage.select(evidence, shadows, s, sizes)
-    assert (report['flagged'], report['selected'], report['truncated'], report['match']) == (25, 20, 5, 'MATCH')
+    assert (report['battery_count'], report['selected'], report['truncated'], report['match']) == (25, 20, 5, 'MATCH')
     assert chosen == list(range(25, 5, -1))
 
 
@@ -272,11 +272,12 @@ def test_images_bind_triage_mode_to_the_job(tmp_path, monkeypatch):
 
 
 def test_battery_closure_carries_the_light_shadow_modules():
-    from recipe import source_files
-    names = set(source_files(ROOT))
-    assert {'ci/probe_box/light_shadow.py', 'ci/probe_box/light_shadow_queries.py',
-            'ci/private_cert/images/light_shadow_compare.py',
-            'ci/private_cert/images/light_shadow_triage.py'} <= names
+    # Source text: the CI layout ships only the modules, not the whole closure.
+    text = (ROOT / 'ci/private_cert/images/recipe.py').read_text()
+    for name in ('ci/probe_box/light_shadow.py', 'ci/probe_box/light_shadow_queries.py',
+                 'ci/private_cert/images/light_shadow_compare.py',
+                 'ci/private_cert/images/light_shadow_triage.py'):
+        assert "'" + name + "'" in text
 
 
 def test_triage_extraction_turns_autocommit_off_in_its_own_path():
@@ -285,3 +286,129 @@ def test_triage_extraction_turns_autocommit_off_in_its_own_path():
     branch = text[start:text.index('else:', start)]
     assert 'conn.autocommit = False' in branch
     assert branch.index('conn.autocommit = False') < branch.index('light_shadow_triage.extract')
+
+
+def battery_job(s):
+    from contracts import validate_job
+    return validate_job(dict(schema='polis-probe-job/1', run_id='a' * 32, max_seconds=3600,
+                             reader={'image': 'localhost/producer@sha256:' + '1' * 64, 'args': ['extract']},
+                             producer={'image': 'localhost/producer@sha256:' + '1' * 64, 'args': ['produce']},
+                             verifier={'image': 'localhost/verifier@sha256:' + '2' * 64, 'args': ['verify']},
+                             triage_selection=s))
+
+
+def test_producer_launches_both_engines_for_every_triage_entry(tmp_path, monkeypatch):
+    fixture, inputs, prepared, _, _, _ = plan(tmp_path, monkeypatch)
+    calls = []
+    monkeypatch.setattr(gate, 'run_engine', lambda cmd, cwd, log, **kw: calls.append(kw) or 0)
+    out = tmp_path / 'output'
+    out.mkdir()
+    gate.dump(tmp_path / 'inputs.json', inputs)
+    gate.produce(fixture, out, tmp_path / 'inputs.json')
+    assert [(c['engine'], c['recipe']) for c in calls] == [('legacy', 'triage-uniform6'),
+                                                           ('python', 'triage-uniform6')] * len(prepared)
+
+
+def test_fail_only_selection_exports_a_bound_triage_receipt(tmp_path, monkeypatch):
+    """A FAIL-only triage set, one empty conversation: extraction, plan, the
+    verifier's export and both receipt consumers, with constructed recordings."""
+    from unittest.mock import patch
+    # worker.decode_receipt and run.decode_receipt are this same boundary
+    # (ci/probe_box/test_light_shadow_triage.py exercises both consumers).
+    from receipt import decode_receipt, receipt_passed
+    from polismath.replay.schedule import ScheduleSpec
+    monkeypatch.setenv('POLIS_REPLAY_INPUT_MAP', '')
+    rows = {ZID + 1: compare.structural_variants()['truncated-base-x']}
+    s = spec(ls.triage_digest(flagged_set(rows)))
+    raw = {ZID + 1: raw_rows(0)}
+    monkeypatch.setattr(fs, 'open_readonly_repeatable_read', lambda conn, **kw: dict(
+        isolation_level='repeatable read', access_mode='read only', single_transaction=True))
+    monkeypatch.setattr(fs, 'fetch_metrics', lambda conn: [dict(zid=z, **metrics(r)) for z, r in raw.items()])
+    monkeypatch.setattr(fx, 'detect_tie_key', lambda conn: TIE)
+    monkeypatch.setattr(fx, 'fetch_conversation', lambda conn, zid, tie: raw[zid])
+    from polismath.replay import fixture_config as fcfg
+    monkeypatch.setattr(fcfg, 'served_math_options', lambda config: fcfg.ServedMathOptions(False, None))
+    config = triage_config()
+    payload = tmp_path / '.local/fixture/payload'
+    payload.mkdir(parents=True)
+    result = triage.extract(Conn(rows), config=config, spec=s, payload_root=payload, guard_root=tmp_path)
+    assert (result['report']['match'], result['report']['selected']) == ('MATCH', 1)
+    cfg = json.dumps(config).encode()
+    manifest = _manifest(config, payload, selections=result['roles'], config_bytes=cfg,
+                         triage_report=result['report'])
+    fixture = payload.parent
+    (fixture / 'config.json').write_bytes(cfg)
+    gate.dump(fixture / 'manifest.json', manifest)
+    inputs = dict(candidateSha='c' * 40, oracleSha='d' * 40, policySha256=gate.sha(gate.POLICY))
+    prepared, _ = probe.prepare_fixture_plan(fixture, config, manifest, tmp_path / 'private', inputs)
+    expected, = prepared
+    assert expected.entry.role == 'triage-001' and len(expected.checkpoints) == 1
+    # Constructed recordings of the empty conversation: both engines agree.
+    recordings = tmp_path / 'recordings'
+    checkpoint = dict(expected.checkpoints[0].__dict__) if hasattr(expected.checkpoints[0], '__dict__') \
+        else dict(expected.checkpoints[0])
+    rec = gate.store.recording_dir(expected.entry.dataset, expected.entry.schedule_id, root=recordings)
+    (rec / 'clj').mkdir(parents=True)
+    (rec / 'py').mkdir()
+    gate.dump(rec / 'schedule.json', expected.spec.to_dict())
+    blob = {'pca': {'comps': [[1.0], [1.0]]}, 'mod-in': [], 'mod-out': []}
+    for key, value in expected.spec.empty_output.items():
+        if key.startswith('pca.'):
+            blob['pca'][key.split('.')[1]] = value
+        else:
+            blob[key] = value
+    gate.dump(rec / 'clj/step-000.meta.json', checkpoint)
+    gate.dump(rec / 'py/step-000.json', {**checkpoint, 'blob': blob})
+    (rec / 'clj/step-000.blob.json').write_bytes(gate.encoded(blob))
+    for engine in ('clj', 'py'):
+        gate.dump(rec / (engine + '-attribution') / 'step-000.json',
+                  dict(schema='polis-replay-attribution/1', checkpoint=0, pids=[], tids=[], fold='a' * 64,
+                       rating_fold='a' * 64, starts=['not-computed'] * 2, center=None, comps=None,
+                       comments=None, person=[], partitions=[]))
+    job = battery_job(s)
+    read, dump, tree = gate.read, gate.dump, gate.regular_tree
+    admitted = {'/job/job.json': job, '/run-spec/inputs.json': inputs}
+
+    def read_input(path):
+        if str(path) in admitted:
+            return admitted[str(path)]
+        if str(path).startswith('/fixture/'):
+            return read(fixture / str(path)[len('/fixture/'):])
+        return read(path)
+    out = tmp_path / 'verdict'
+    out.mkdir()
+    with patch.object(gate, 'read', side_effect=read_input), \
+            patch.object(gate, 'verify_recordings',
+                         side_effect=lambda *a: gate.verify_pairs([expected], recordings, tmp_path, attribution=True)), \
+            patch.object(gate, 'regular_tree', side_effect=lambda _: tree(recordings)), \
+            patch.object(gate, 'dump', side_effect=lambda path, value: dump(out / path.name, value)):
+        probe.verify()
+    raw_receipt = (out / 'receipt.json').read_bytes()
+    receipt = decode_receipt(raw_receipt, job)
+    assert receipt['verdict'] == 'PASS' and receipt_passed(receipt, job)
+    assert [e['recipe'] for e in receipt['entries']] == ['triage-uniform6']
+    assert receipt['selection'] == result['report'] and receipt['digests']['policy'] == ls.CERTIFICATION_POLICY
+    assert str(ZID)[:6] not in raw_receipt.decode()
+
+
+def test_replacing_a_fail_member_is_changed():
+    bad = compare.structural_variants()['truncated-base-x']
+    near = compare.fixture_variants()['near-tie']
+    declared = compare.empty_output()
+    sizes = {z: dict(zid=z, **metrics(raw_rows(4))) for z in (1, 2, 3)}
+    before = {1: near, 2: bad}
+    evidence = [compare.classify(z, *pair, declared) for z, pair in before.items()]
+    s = spec(ls.triage_digest([ls.triage_member(z, p[1]) for z, p in before.items()]))
+    _, same = triage.select(evidence, {z: p[1] for z, p in before.items()}, s, sizes)
+    assert same['match'] == 'MATCH'
+    after = {1: near, 3: bad}
+    evidence = [compare.classify(z, *pair, declared) for z, pair in after.items()]
+    _, replaced = triage.select(evidence, {z: p[1] for z, p in after.items()}, s, sizes)
+    assert replaced['match'] == 'CHANGED' and replaced['battery_count'] == 2
+
+
+def test_malformed_members_have_an_explicit_representation():
+    assert ls.triage_member(5, {}) == [5, 'ABSENT', 'ABSENT']
+    assert ls.triage_member(5, 'x') == [5, 'MALFORMED', 'MALFORMED']
+    assert ls.triage_member(5, {'lastVoteTimestamp': -1, 'lastModTimestamp': None}) == [5, 'MALFORMED', None]
+    assert ls.triage_digest([[5, 'ABSENT', None], [2, 7, 8]]) == ls.triage_digest([[2, 7, 8], [5, 'ABSENT', None]])

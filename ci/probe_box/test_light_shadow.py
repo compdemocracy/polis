@@ -50,7 +50,7 @@ def build(j, entries, status='COMPLETE', **controls):
     entries = sorted(entries, key=encoded)
     complete = status == 'COMPLETE'
     flagged = [[z, 5, None] for z, e in enumerate(entries, 1)
-               if e['outcome'] in ('NEAR-TIE-CANDIDATE', 'HISTORY-DIVERGENCE')]
+               if e['outcome'] in ls.TRIAGE_SELECTED]
     r = {'schema': 'polis-probe-receipt/3', 'kind': 'light-shadow-compare', 'run_id': j['run_id'],
          'job_sha256': sha(j), 'verdict': 'INCOMPLETE', 'acceptance': ls.ACCEPTANCE,
          'triage': {'required': len(flagged), 'sha256': ls.triage_digest(flagged), 'ids': 'ON-BOX-ONLY'},
