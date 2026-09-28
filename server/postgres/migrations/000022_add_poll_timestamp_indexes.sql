@@ -39,36 +39,44 @@
 -- transaction). A plain CREATE INDEX works in all of those.
 --
 -- A plain CREATE INDEX on a large live table holds a SHARE lock that blocks
--- every INSERT/UPDATE/DELETE on that table for the whole build. The guard below
--- therefore REFUSES to build either index when its table has more than 100,000
--- rows and the index does not exist yet: build it CONCURRENTLY instead.
+-- every INSERT/UPDATE/DELETE on that table for the whole build. The block below
+-- therefore builds an index only when it is missing, and REFUSES to do so when
+-- its table has more than 100,000 rows: build it CONCURRENTLY instead. When an
+-- index already exists, no CREATE statement runs at all (see the note there).
 --
--- IF NOT EXISTS matches by name only; it would silently accept an INVALID index
--- left by a failed CONCURRENTLY build, or a same-named index with a different
--- definition. The final block therefore asserts that each index is valid, ready
--- and has exactly the expected definition, and fails otherwise.
+-- An existing name is not accepted on its own: it may be an INVALID index left
+-- by a failed CONCURRENTLY build, or a same-named index with a different
+-- definition. The final block asserts that each index is valid, ready and has
+-- exactly the expected definition, and fails otherwise.
 --
 -- Reversal: down/000022_drop_poll_timestamp_indexes.sql
 -- (DROP INDEX CONCURRENTLY IF EXISTS, apply with psql -f, never in a transaction).
 -- Test: down/test_000022.sh.
 
-DO $guard$
+-- Build only what is missing. The plain CREATE INDEX runs only inside the
+-- missing-index branch: CREATE INDEX IF NOT EXISTS would take the table's
+-- SHARE lock BEFORE noticing the name exists, so an unconditional statement
+-- would queue every writer behind it even on a database that already has the
+-- index. When both indexes exist, this file takes no lock on votes or comments
+-- beyond reading the catalog.
+DO $build$
 BEGIN
-  IF to_regclass('public.votes_created_idx') IS NULL
-     AND EXISTS (SELECT 1 FROM public.votes LIMIT 1 OFFSET 100000) THEN
-    RAISE EXCEPTION '000022: public.votes has more than 100000 rows and no votes_created_idx'
-      USING HINT = 'Build it first with CREATE INDEX CONCURRENTLY IF NOT EXISTS votes_created_idx ON public.votes USING btree (created), in autocommit, as the operator runbook describes. A plain CREATE INDEX here would block writes to votes for the whole build.';
+  IF to_regclass('public.votes_created_idx') IS NULL THEN
+    IF EXISTS (SELECT 1 FROM public.votes LIMIT 1 OFFSET 100000) THEN
+      RAISE EXCEPTION '000022: public.votes has more than 100000 rows and no votes_created_idx'
+        USING HINT = 'Build it first with CREATE INDEX CONCURRENTLY IF NOT EXISTS votes_created_idx ON public.votes USING btree (created), in autocommit, as the operator runbook describes. A plain CREATE INDEX here would block writes to votes for the whole build.';
+    END IF;
+    CREATE INDEX votes_created_idx ON public.votes USING btree (created);
   END IF;
-  IF to_regclass('public.comments_modified_idx') IS NULL
-     AND EXISTS (SELECT 1 FROM public.comments LIMIT 1 OFFSET 100000) THEN
-    RAISE EXCEPTION '000022: public.comments has more than 100000 rows and no comments_modified_idx'
-      USING HINT = 'Build it first with CREATE INDEX CONCURRENTLY IF NOT EXISTS comments_modified_idx ON public.comments USING btree (modified), in autocommit, as the operator runbook describes. A plain CREATE INDEX here would block writes to comments for the whole build.';
+  IF to_regclass('public.comments_modified_idx') IS NULL THEN
+    IF EXISTS (SELECT 1 FROM public.comments LIMIT 1 OFFSET 100000) THEN
+      RAISE EXCEPTION '000022: public.comments has more than 100000 rows and no comments_modified_idx'
+        USING HINT = 'Build it first with CREATE INDEX CONCURRENTLY IF NOT EXISTS comments_modified_idx ON public.comments USING btree (modified), in autocommit, as the operator runbook describes. A plain CREATE INDEX here would block writes to comments for the whole build.';
+    END IF;
+    CREATE INDEX comments_modified_idx ON public.comments USING btree (modified);
   END IF;
 END
-$guard$;
-
-CREATE INDEX IF NOT EXISTS votes_created_idx ON public.votes USING btree (created);
-CREATE INDEX IF NOT EXISTS comments_modified_idx ON public.comments USING btree (modified);
+$build$;
 
 DO $check$
 DECLARE
