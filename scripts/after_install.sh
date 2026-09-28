@@ -190,8 +190,23 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   # POLL_FROM_DAYS_AGO stays at its default of 10. MATH_POLLER_ALLOW_SERVED_ENV
   # must stay UNSET: it is the override that lets the poller write the served
   # `prod` label, and the shadow must never write there.
-  # Stop: remove `math-python` from this line and redeploy (emergency:
-  # `sudo docker rm -f` its container on the box).
+  # Singleton: every Delphi-role box (both launch templates, any ASG scale-out
+  # or replacement) runs this line, so the poller admits itself: at startup it
+  # takes a Postgres session-level advisory lock keyed on its math_env label
+  # (pg_try_advisory_lock(hashtext('polis-math-python:' || label))) on a
+  # dedicated connection named math-python:<label>@<hostname>. Other boxes'
+  # pollers log `waiting for single-writer lock; holder=...` and retry every
+  # 30 s, taking over only once the holder's session is gone; the holder
+  # re-checks its lock every 5 s and exits (code 3) if the lock connection is
+  # lost. Delphi's report role on every box is unaffected. An ASG max of 1 for
+  # the Delphi small group is a later belt-and-braces CDK change, not needed
+  # for correctness.
+  # Stop: remove `math-python` from this line and redeploy; that is the durable
+  # stop (the hook removes every container before starting the named ones).
+  # Emergency, on the lock holder via SSM: `sudo docker rm -f` its math-python
+  # container. That is not durable: another Delphi box's poller, if one is
+  # running, takes the lock, and the next deploy starts it again unless this
+  # line has been changed.
   sudo /usr/local/bin/docker-compose up -d delphi math-python --build --force-recreate
 else
   echo "Error: Unknown service type: [$SERVICE_FROM_FILE]. Starting all services (default docker-compose up -d)"

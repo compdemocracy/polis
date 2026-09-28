@@ -39,6 +39,8 @@ def test_once_cli_only_returns_success_after_pool_drains(
     svc._pool.parked_zids.return_value = set()
     svc._pool.join.return_value = drained
     monkeypatch.setattr(math_poller, "_build_service", lambda config: svc)
+    # Single-writer admission needs Postgres; covered in test_single_writer_lock.py.
+    monkeypatch.setattr(math_poller, "_hold_single_writer_lock", lambda config, log: None)
 
     def errors():
         return [
