@@ -20,12 +20,13 @@ from pathlib import Path
 
 import psycopg2
 import pytest
+
 from tests.conftest import require_polis_postgres
 
 pytestmark = pytest.mark.integration
 
 DELPHI_ROOT = Path(__file__).resolve().parents[2]
-FAST_S = "0.3"  # retry and liveness intervals for the tests
+FAST_S = "1"  # retry and liveness intervals for the tests (the accepted minimum)
 
 # Runs the real main() with only the service construction replaced.
 RUNNER = """
