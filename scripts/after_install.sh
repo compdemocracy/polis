@@ -196,17 +196,30 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   # (pg_try_advisory_lock(hashtext('polis-math-python:' || label))) on a
   # dedicated connection named math-python:<label>@<hostname>. Other boxes'
   # pollers log `waiting for single-writer lock; holder=...` and retry every
-  # 30 s, taking over only once the holder's session is gone; the holder
-  # re-checks its lock every 5 s and exits (code 3) if the lock connection is
-  # lost. Delphi's report role on every box is unaffected. An ASG max of 1 for
-  # the Delphi small group is a later belt-and-braces CDK change, not needed
-  # for correctness.
-  # Stop: remove `math-python` from this line and redeploy; that is the durable
-  # stop (the hook removes every container before starting the named ones).
-  # Emergency, on the lock holder via SSM: `sudo docker rm -f` its math-python
-  # container. That is not durable: another Delphi box's poller, if one is
-  # running, takes the lock, and the next deploy starts it again unless this
-  # line has been changed.
+  # 30 s, taking over only once the holder's session is gone. The holder
+  # re-checks its lock about every 5 s and exits (code 3) if the check fails;
+  # that interval is a scheduling target, not a wall-clock bound or a
+  # publication fence. Delphi's report role on every box is unaffected. An
+  # ASG max of 1 for the Delphi small group is a later belt-and-braces CDK
+  # change, not needed for correctness.
+  # Durable stop: remove `math-python` from this line and redeploy (the hook
+  # removes every container before starting the named ones).
+  # Removing only the holder's container is a FAILOVER, not a stop: a waiting
+  # poller on another Delphi box takes the lock. Fleet-wide emergency stop:
+  #   1. Pause anything that runs this hook: no deploy, and suspend Launch on
+  #      both Delphi ASGs (AsgDelphiSmall, AsgDelphiLarge) so no new box starts
+  #      a poller; list every InService instance in both groups.
+  #   2. On every box, via SSM Run Command targeted at both groups, find the
+  #      math-python container; its log says `holding single-writer lock` on
+  #      the holder, `waiting for single-writer lock` on standbys.
+  #   3. `sudo docker rm -f` the standbys' math-python containers first, then
+  #      the holder's, so nothing is admitted during the stop.
+  #   4. Verify: no math-python container on any box (SSM across both groups);
+  #      zero rows from `SELECT application_name FROM pg_stat_activity WHERE
+  #      application_name LIKE 'math-python:%'`; max(math_tick) under
+  #      math_env='python' no longer advances.
+  #   5. Make it durable (remove `math-python` here and redeploy) before
+  #      resuming deploys or ASG launches.
   sudo /usr/local/bin/docker-compose up -d delphi math-python --build --force-recreate
 else
   echo "Error: Unknown service type: [$SERVICE_FROM_FILE]. Starting all services (default docker-compose up -d)"

@@ -14,6 +14,7 @@ Usage:
 import argparse
 import contextlib
 import logging
+import math
 import os
 import signal
 import socket
@@ -22,6 +23,7 @@ import threading
 import time
 
 import psycopg2
+
 from polismath.database.postgres import PostgresClient, PostgresConfig
 from polismath.poller.service import MathPollerService, PollerConfig, PoolDrainTimeout
 
@@ -86,6 +88,9 @@ LOCK_LIVENESS_ENV = "MATH_POLLER_LOCK_LIVENESS_S"
 DEFAULT_LOCK_RETRY_S = 30.0
 DEFAULT_LOCK_LIVENESS_S = 5.0
 LOCK_LOST_EXIT_CODE = 3
+# Accepted range for both intervals, in seconds.
+LOCK_INTERVAL_MIN_S = 1.0
+LOCK_INTERVAL_MAX_S = 3600.0
 
 # A bigint advisory key k appears in pg_locks as classid = high 32 bits,
 # objid = low 32 bits, objsubid = 1.
@@ -105,16 +110,24 @@ _HELD_SQL = (
 )
 
 
-def _positive_seconds(name: str, default: float) -> float:
+def _interval_seconds(name: str, default: float) -> float:
+    """Read an admission interval; refuse (exit 2, before any connection)
+    anything that is not a finite number of seconds within
+    [LOCK_INTERVAL_MIN_S, LOCK_INTERVAL_MAX_S]. nan/inf/1e309 and huge finite
+    values would otherwise break time.sleep and with it the watchdog."""
     raw = os.environ.get(name, "").strip()
     if not raw:
         return default
     try:
         value = float(raw)
     except ValueError:
-        value = 0.0
-    if value <= 0:
-        print(f"refusing to start: {name}={raw!r} must be a positive number of seconds", file=sys.stderr)
+        value = math.nan
+    if not (math.isfinite(value) and LOCK_INTERVAL_MIN_S <= value <= LOCK_INTERVAL_MAX_S):
+        print(
+            f"refusing to start: {name}={raw!r} must be a number of seconds "
+            f"from {LOCK_INTERVAL_MIN_S:g} to {LOCK_INTERVAL_MAX_S:g}",
+            file=sys.stderr,
+        )
         raise SystemExit(2)
     return value
 
@@ -175,19 +188,28 @@ def _acquire_single_writer_lock(conn, math_env: str, retry_s: float, log) -> Non
 
 
 def _exit_lock_lost(log, reason: str) -> None:
-    log.critical("single-writer lock lost (%s); exiting with code %d", reason, LOCK_LOST_EXIT_CODE)
-    for stream in (sys.stdout, sys.stderr):
-        with contextlib.suppress(OSError, ValueError):
-            stream.flush()
-    # os._exit, not SystemExit: this runs on the watchdog thread, and the
-    # service's worker threads must not get another write in.
-    os._exit(LOCK_LOST_EXIT_CODE)
+    """Terminate the whole process (code 3). Never returns."""
+    try:
+        log.critical("single-writer lock lost (%s); exiting with code %d", reason, LOCK_LOST_EXIT_CODE)
+        for stream in (sys.stdout, sys.stderr):
+            with contextlib.suppress(OSError, ValueError):
+                stream.flush()
+    finally:
+        # os._exit, not SystemExit: this runs on the watchdog thread, and the
+        # service's worker threads must not get another write in.
+        os._exit(LOCK_LOST_EXIT_CODE)
 
 
 def _start_lock_watchdog(conn, math_env: str, interval_s: float, log) -> threading.Thread:
+    """Re-check the lock every interval_s. The interval is a scheduling
+    target, not a wall-clock bound or a publication fence: the thread must be
+    scheduled and its query must complete. ANY way out of the loop (lock
+    gone, query failure, or an unexpected exception anywhere in the loop,
+    the sleep included) terminates the process, so the service can never
+    outlive its watchdog."""
     key = _lock_key(math_env)
 
-    def watch():
+    def check_forever() -> str:
         while True:
             time.sleep(interval_s)
             try:
@@ -195,11 +217,18 @@ def _start_lock_watchdog(conn, math_env: str, interval_s: float, log) -> threadi
                     cur.execute(_HELD_SQL, (key,))
                     held = cur.fetchone()[0]
             except Exception as exc:  # noqa: BLE001 - any failure means admission is unproven
-                _exit_lock_lost(log, f"lock connection failed: {exc.__class__.__name__}")
-                return
+                return f"lock connection failed: {exc.__class__.__name__}"
             if not held:
-                _exit_lock_lost(log, "session no longer holds the lock")
-                return
+                return "session no longer holds the lock"
+
+    def watch():
+        reason = "watchdog loop ended"
+        try:
+            reason = check_forever()
+        except BaseException as exc:  # noqa: BLE001 - the watchdog must never die quietly
+            reason = f"watchdog failed: {exc.__class__.__name__}"
+        finally:
+            _exit_lock_lost(log, reason)
 
     thread = threading.Thread(target=watch, name="single-writer-lock", daemon=True)
     thread.start()
@@ -209,8 +238,8 @@ def _start_lock_watchdog(conn, math_env: str, interval_s: float, log) -> threadi
 def _hold_single_writer_lock(config: PollerConfig, log):
     """Admit this process as the label's only writer; returns the lock
     connection, which must stay open (and referenced) for the process life."""
-    retry_s = _positive_seconds(LOCK_RETRY_ENV, DEFAULT_LOCK_RETRY_S)
-    liveness_s = _positive_seconds(LOCK_LIVENESS_ENV, DEFAULT_LOCK_LIVENESS_S)
+    retry_s = _interval_seconds(LOCK_RETRY_ENV, DEFAULT_LOCK_RETRY_S)
+    liveness_s = _interval_seconds(LOCK_LIVENESS_ENV, DEFAULT_LOCK_LIVENESS_S)
     conn = _open_lock_connection(config)
     _acquire_single_writer_lock(conn, config.math_env, retry_s, log)
     log.info(
