@@ -11,8 +11,9 @@ P-022 section A ("Extraction and selection"). Two halves:
 * Rule resolution (:func:`resolve_roles`) — pure, deterministic, and it FAILS
   naming the missing role rather than downgrading to a smaller case.
 
-Transaction guarantee. :func:`open_readonly_repeatable_read` puts the session
-in ``REPEATABLE READ``/``READ ONLY`` and (optionally) imports an exported
+Transaction guarantee. :func:`open_readonly_repeatable_read` opens one
+``REPEATABLE READ``/``READ ONLY`` transaction (refusing autocommit connections
+and verifying the settings in force) and (optionally) imports an exported
 snapshot id so a separate orchestrator session can pin survey and extraction to
 the same snapshot. The chosen guarantee is returned as a record for the bundle
 manifest — the alternative ("all writers disabled on the clone") is expressed
@@ -198,6 +199,15 @@ def derive_metrics(row: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+#: psycopg2.extensions.TRANSACTION_STATUS_INTRANS, spelled out so psycopg2
+#: remains a dependency of the caller only.
+_TRANSACTION_STATUS_INTRANS = 2
+
+
+class TransactionGuaranteeError(RuntimeError):
+    """``conn`` is not inside one repeatable-read, read-only transaction."""
+
+
 def open_readonly_repeatable_read(
     conn: PgConnection, *, snapshot_id: str | None = None, writers_disabled: bool = False,
 ) -> dict[str, Any]:
@@ -212,14 +222,31 @@ def open_readonly_repeatable_read(
     ``writers_disabled`` — record that the clone additionally had all writers
     disabled (the spec's alternative guarantee). It does NOT relax the
     isolation level; both are recorded when both are true.
+
+    ``conn`` must NOT be in autocommit mode. There, SET TRANSACTION runs outside
+    a transaction block: PostgreSQL warns, ignores it, and every later statement
+    reads its own snapshot. The settings actually in force are read back from
+    inside the transaction; anything other than an open repeatable-read,
+    read-only transaction fails closed, so the record is never returned
+    without that check.
     """
+    if conn.autocommit:
+        raise TransactionGuaranteeError("AUTOCOMMIT_READER_REFUSED")
     conn.rollback()  # ensure we are not inside an implicitly-started txn
     with conn.cursor() as cur:
+        # psycopg2 sends BEGIN before this first statement, so the isolation
+        # setting and any snapshot import both precede the first query.
         cur.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
         if snapshot_id is not None:
             cur.execute("SET TRANSACTION SNAPSHOT %s", (snapshot_id,))
-        cur.execute("SELECT txid_current_if_assigned(), now()")
-        _, txn_started_at = cur.fetchone()
+        cur.execute("SELECT current_setting('transaction_isolation'), "
+                    "current_setting('transaction_read_only'), "
+                    "txid_current_if_assigned(), now()")
+        isolation, read_only, _, txn_started_at = cur.fetchone()
+    if (conn.get_transaction_status() != _TRANSACTION_STATUS_INTRANS
+            or isolation != "repeatable read" or read_only != "on"):
+        conn.rollback()
+        raise TransactionGuaranteeError("REPEATABLE_READ_READ_ONLY_NOT_ACTIVE")
     return {
         "isolation_level": "repeatable read",
         "access_mode": "read only",

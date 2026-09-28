@@ -54,10 +54,36 @@ def validate_reader_session(conn) -> None:
             raise ValueError('READ_ONLY_SOURCE_REQUIRED')
 
 
+def open_reader(conn) -> None:
+    """Admit the read-only login, then leave the connection ready for ONE transaction.
+
+    The guard runs in autocommit so it leaves no transaction behind. Autocommit is
+    then turned off BEFORE the extractor opens its transaction: outside a transaction
+    block SET TRANSACTION only warns and is ignored, and each read would take its own
+    snapshot. The extractor's helper verifies the settings actually in force.
+    """
+    conn.autocommit = True
+    validate_reader_session(conn)
+    conn.autocommit = False
+
+
+def capture(config, payload, guard_root):
+    """One connection, one repeatable-read read-only transaction, closed on every path."""
+    import psycopg2
+    from polismath.replay import fixture_extract as fx
+    # libpq receives a socket-only service file, never a network hostname.
+    conn = psycopg2.connect(service='probe')
+    try:
+        open_reader(conn)
+        return fx.extract_from_config(conn, config=config, payload_root=payload, guard_root=guard_root,
+                                      accept_public_fixture=accepted_replacements(config))
+    finally:
+        conn.close()
+
+
 def extract() -> None:
     """Use the same owned extractor against one read-only snapshot of the configured read target."""
-    import psycopg2
-    from polismath.replay import fixture_config as fc, fixture_extract as fx, fixture_bundle as fb
+    from polismath.replay import fixture_config as fc, fixture_bundle as fb
     recipe = json.loads(Path('/opt/polis-private-image/recipe.json').read_bytes())
     out = Path('/output')
     private = out / '.local'
@@ -69,15 +95,7 @@ def extract() -> None:
     config, _ = selection_context.resolve(json.loads(PROBE_CONFIG_PATH.read_bytes()), context)
     config_bytes = gate.encoded(config)
     fc.validate_config(config)
-    # libpq receives a socket-only service file, never a network hostname.
-    conn = psycopg2.connect(service='probe')
-    try:
-        conn.autocommit = True
-        validate_reader_session(conn)
-        result = fx.extract_from_config(conn, config=config, payload_root=payload, guard_root=out,
-                                        accept_public_fixture=accepted_replacements(config))
-    finally:
-        conn.close()
+    result = capture(config, payload, out)
     manifest = fb.build_manifest(bundle_id='probe-capture', payload_root=payload,
         config=config, config_bytes=config_bytes, selections=result['roles'],
         generated_summaries=result['generated'],
