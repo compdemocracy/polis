@@ -95,7 +95,7 @@ class ProbeTests(unittest.TestCase):
         self.assertEqual(probe.accepted_replacements({'accepted_public_fixture_replacements': ['pc-v1-dense', 'pc-v1-dense-max']}),
                          ('pc-v1-dense', 'pc-v1-dense-max'))
         import inspect
-        source = inspect.getsource(probe.extract)
+        source = inspect.getsource(probe.capture)
         self.assertIn('accept_public_fixture=accepted_replacements(config)', source)
 
     def test_stage_failure_final_line_is_class_and_origin_code_only(self):
