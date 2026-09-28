@@ -280,12 +280,40 @@ def test_battery_closure_carries_the_light_shadow_modules():
         assert "'" + name + "'" in text
 
 
-def test_triage_extraction_turns_autocommit_off_in_its_own_path():
-    text = (ROOT / 'ci/private_cert/images/probe.py').read_text()
-    start = text.index('if triage is not None:')
-    branch = text[start:text.index('else:', start)]
-    assert 'conn.autocommit = False' in branch
-    assert branch.index('conn.autocommit = False') < branch.index('light_shadow_triage.extract')
+def test_triage_capture_goes_through_the_admitted_reader_sequence(tmp_path, monkeypatch):
+    """probe.capture routes a triage job through open_reader (guard in autocommit,
+    then autocommit off) and hands the same connection to the triage extraction."""
+    import psycopg2
+    events = []
+
+    class Fake:
+        def __init__(self):
+            self._autocommit, self.closed = False, 0
+
+        @property
+        def autocommit(self):
+            return self._autocommit
+
+        @autocommit.setter
+        def autocommit(self, value):
+            events.append(('autocommit', value))
+            self._autocommit = value
+
+        def close(self):
+            self.closed = 1
+
+    fake = Fake()
+    monkeypatch.setattr(psycopg2, 'connect', lambda **kw: fake if kw == {'service': 'probe'} else pytest.fail(kw))
+    monkeypatch.setattr(probe, 'validate_reader_session', lambda conn: events.append(('guard', conn.autocommit)))
+
+    def extract(conn, **kw):
+        events.append(('triage', conn is fake, conn.autocommit, kw['spec']['shadow_env']))
+        return {'roles': [], 'report': None, 'provenance_rows': [], 'transaction_guarantee': {}, 'tie_key': TIE}
+    monkeypatch.setattr(triage, 'extract', extract)
+    monkeypatch.setattr(fx, 'extract_from_config', lambda *a, **kw: pytest.fail('coverage path used'))
+    result = probe.capture({}, tmp_path / 'payload', tmp_path, triage=spec('e' * 64))
+    assert events == [('autocommit', True), ('guard', True), ('autocommit', False), ('triage', True, False, 'python')]
+    assert result['generated'] == [] and fake.closed == 1
 
 
 def battery_job(s):
@@ -411,3 +439,101 @@ def test_malformed_members_have_an_explicit_representation():
     assert ls.triage_member(5, 'x') == [5, 'MALFORMED', 'MALFORMED']
     assert ls.triage_member(5, {'lastVoteTimestamp': -1, 'lastModTimestamp': None}) == [5, 'MALFORMED', None]
     assert ls.triage_digest([[5, 'ABSENT', None], [2, 7, 8]]) == ls.triage_digest([[2, 7, 8], [5, 'ABSENT', None]])
+
+
+# ---------------------------------------------------------------------------
+# Real Postgres: the combined triage path holds ONE repeatable-read snapshot.
+# ---------------------------------------------------------------------------
+@pytest.fixture
+def triage_database(monkeypatch):
+    import psycopg2
+    from tests.conftest import require_polis_postgres
+
+    with require_polis_postgres() as url:
+        admin = psycopg2.connect(url)
+        admin.autocommit = True
+        base = 970_000_000 + (os.getpid() % 10_000) * 10
+        zids = [base + i for i in (1, 2, 3)]
+
+        def cleanup():
+            with admin.cursor() as cur:
+                cur.execute('DELETE FROM math_main WHERE zid = ANY(%s)', (zids,))
+                cur.execute('DELETE FROM conversations WHERE zid = ANY(%s)', (zids,))
+        cleanup()
+        variants = compare.fixture_variants()
+
+        def write(zid, name):
+            prod, shadow = variants[name]
+            with admin.cursor() as cur:
+                cur.execute('INSERT INTO conversations (zid) VALUES (%s) ON CONFLICT DO NOTHING', (zid,))
+                for env, blob in (('prod', prod), ('python', shadow)):
+                    cur.execute('INSERT INTO math_main (zid, math_env, data, last_vote_timestamp) '
+                                'VALUES (%s, %s, %s, 0)', (zid, env, json.dumps(blob)))
+        write(zids[0], 'near-tie')
+        write(zids[1], 'pass')
+        real_connect = psycopg2.connect
+
+        def connect(*args, **kwargs):
+            assert args == () and kwargs == {'service': 'probe'}, 'the reader must use only its service file'
+            return real_connect(url, options='-c default_transaction_read_only=on')
+        monkeypatch.setattr(psycopg2, 'connect', connect)
+        try:
+            yield dict(url=url, zids=zids, write=write, real_connect=real_connect)
+        finally:
+            cleanup()
+            admin.close()
+
+
+@pytest.mark.integration
+def test_triage_selection_and_extraction_share_one_snapshot(triage_database, monkeypatch, tmp_path):
+    """Enter through probe.capture with a triage selection; a second session
+    commits a new flagged conversation between selection and extraction."""
+    import time
+    db = triage_database
+    now = int(time.time() * 1000)
+    s = ls.validate_triage_spec(dict(spec('e' * 64), window={'start_ms': now - 86_400_000, 'end_ms': now}))
+    raw = {z: raw_rows(4) for z in db['zids']}
+    seen = {}
+
+    def metrics_then_concurrent_write(conn):
+        # Selection has run on this connection; now another session commits.
+        db['write'](db['zids'][2], 'history')
+        return [dict(zid=z, **metrics(r)) for z, r in raw.items()]
+
+    def extract_conversation(conn, *, zid, slug, role, payload_root, guard_root, dir_name, tie_key, measured,
+                             capture_served_math, served_math_envs):
+        with conn.cursor() as cur:
+            cur.execute(QUERIES['active'], {'prod': 'prod', 'shadow': 'python', 'start': now - 86_400_000,
+                                            'end': ls.MS_CEILING})
+            seen.setdefault('active', []).append(sorted(z for z, in cur.fetchall() if z in db['zids']))
+            cur.execute("SELECT current_setting('transaction_isolation'), current_setting('transaction_read_only')")
+            seen['settings'] = cur.fetchone()
+        seen['notices'] = list(conn.notices)
+        seen.setdefault('extracted', []).append(zid)
+        return dict(slug=slug, role=role, dir=dir_name, measured_metrics={k: v for k, v in measured.items()
+                                                                          if k != 'zid'})
+
+    monkeypatch.setattr(fs, 'fetch_metrics', metrics_then_concurrent_write)
+    monkeypatch.setattr(fx, 'detect_tie_key', lambda conn: TIE)
+    monkeypatch.setattr(fx, 'extract_conversation', extract_conversation)
+    from polismath.replay import fixture_config as fcfg
+    monkeypatch.setattr(fcfg, 'served_math_options', lambda config: fcfg.ServedMathOptions(False, None))
+
+    result = probe.capture(triage_config(), tmp_path / 'payload', tmp_path, triage=s)
+
+    # Only the flagged conversation present at selection is replayed, and every
+    # extraction read still sees the selection snapshot, not the new commit.
+    assert seen['extracted'] == [db['zids'][0]]
+    assert seen['active'] == [db['zids'][:2]]
+    assert seen['settings'] == ('repeatable read', 'on')
+    assert not any('SET TRANSACTION' in n for n in seen['notices'])
+    assert result['transaction_guarantee']['isolation_level'] == 'repeatable read'
+    assert result['transaction_guarantee']['single_transaction'] is True
+    assert (result['report']['battery_count'], result['report']['selected']) == (1, 1)
+    fresh = db['real_connect'](db['url'])
+    try:
+        with fresh.cursor() as cur:
+            cur.execute("SELECT count(*) FROM math_main WHERE zid = %s AND math_env = 'python'", (db['zids'][2],))
+            assert cur.fetchone()[0] == 1
+    finally:
+        fresh.close()
