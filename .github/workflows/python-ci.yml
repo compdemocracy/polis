@@ -127,6 +127,7 @@ jobs:
         # its first item (observed: only server/src copied).
         # Recordings tests also load the packer and its digest helper from ci/.
         # battery_coverage.py is already included in the declared delphi/scripts.
+        # test_compose_math_env.py reads the deploy hook's per-role compose lines.
         # Representative payload tests import the box planner/gate and their
         # helpers from this same checkout root; keep their relative paths intact.
         for rel in $(python3 delphi/scripts/projection_inventory.py --print-scan-inputs) \
@@ -135,7 +136,8 @@ jobs:
           ci/private_cert/images/attribution.py ci/private_cert/images/diagnostic_projection.py ci/private_cert/images/selection_context.py \
           ci/private_cert/images/g12.py ci/private_cert/images/near_ties.py ci/private_cert/control.py \
           ci/private_cert/image_admission.py ci/probe_box/receipt.py \
-          ci/probe_box/contracts.py; do
+          ci/probe_box/contracts.py \
+          scripts/after_install.sh; do
           docker compose -f docker-compose.test.yml exec -T delphi mkdir -p "/app/projgate/$(dirname "$rel")"
           docker compose -f docker-compose.test.yml cp "$rel" "delphi:/app/projgate/$rel" \
             || { echo "failed to copy scan input: $rel"; exit 1; }
