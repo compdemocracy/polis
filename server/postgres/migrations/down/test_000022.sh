@@ -30,6 +30,10 @@
 #       removes it and the retry builds a valid index.
 #   (h) the down file (psql -f, autocommit) drops both indexes; a second run is
 #       a no-op; the poll statements go back to not using the indexes.
+#   (i) replay on a database that already has both indexes takes no lock that
+#       conflicts with writers: with an open writer transaction holding
+#       ROW EXCLUSIVE on votes and comments, the replay completes, and a second
+#       writer that arrives while the replay runs is not queued behind it.
 #
 # Needs docker and python3 (standard library only). Self-contained; touches
 # no other database.
@@ -281,4 +285,43 @@ set -e
 echo "   (h) PASS"
 
 echo
-echo "ALL CHECKS PASSED (a, b, c, d, e, f, g, h)"
+# ---------------------------------------------------------------------------
+echo "== (i) replay with the indexes present does not block writers =="
+# t_a has both valid indexes (from (a)). Hold ROW EXCLUSIVE on both tables, the
+# lock every INSERT/UPDATE takes, in an open transaction.
+docker exec "$CONTAINER" psql -X -U postgres -d t_a -c \
+  "BEGIN; LOCK TABLE votes, comments IN ROW EXCLUSIVE MODE; SELECT pg_sleep(20); COMMIT;" >/dev/null 2>&1 &
+HOLDER=$!
+for _ in $(seq 1 50); do
+  [ "$(q t_a "SELECT count(*) FROM pg_locks l JOIN pg_class c ON c.oid=l.relation WHERE c.relname IN ('votes','comments') AND l.mode='RowExclusiveLock' AND l.granted")" = "2" ] && break
+  sleep 0.1
+done
+[ "$(q t_a "SELECT count(*) FROM pg_locks l JOIN pg_class c ON c.oid=l.relation WHERE c.relname IN ('votes','comments') AND l.mode='RowExclusiveLock' AND l.granted")" = "2" ] \
+  || fail "(i) writer locks not held"
+# Replay 000022 in the background with NO lock timeout, exactly as a runner would.
+START_I=$(date +%s)
+docker exec "$CONTAINER" psql -X -v ON_ERROR_STOP=1 -U postgres -d t_a -f "/mig/$UP" >/dev/null 2>&1 &
+REPLAY=$!
+sleep 1   # let the replay reach (or finish) its first lock request
+# A second writer arriving while the replay runs must not wait (5 s lock_timeout
+# turns any queueing into a failure).
+docker exec -e PGOPTIONS="-c lock_timeout=5000" "$CONTAINER" psql -X -v ON_ERROR_STOP=1 -U postgres -d t_a -c \
+  "INSERT INTO votes (zid, pid, tid, vote, created) SELECT zid, pid, tid, vote, created FROM votes WHERE false;
+   UPDATE comments SET mod = mod WHERE false;" >/dev/null 2>&1 \
+  || fail "(i) a writer was blocked during the replay"
+set +e
+wait "$REPLAY"; RC_I=$?
+set -e
+END_I=$(date +%s)
+[ "$RC_I" -eq 0 ] || fail "(i) replay failed with writers present"
+[ $((END_I - START_I)) -lt 15 ] || fail "(i) replay waited for the writer transaction ($((END_I - START_I)) s)"
+# No lock on either table was ever requested in a mode that conflicts with writers.
+[ "$(q t_a "SELECT count(*) FROM pg_locks l JOIN pg_class c ON c.oid=l.relation WHERE c.relname IN ('votes','comments') AND NOT l.granted")" = "0" ] \
+  || fail "(i) a lock request is still waiting"
+[ "$(index_state t_a)" = "$EXPECTED_STATE" ] || fail "(i) index state changed"
+kill "$HOLDER" 2>/dev/null || true
+wait "$HOLDER" 2>/dev/null || true
+echo "   (i) PASS (replay finished in $((END_I - START_I)) s while writers held ROW EXCLUSIVE; a new writer was not queued)"
+
+echo
+echo "ALL CHECKS PASSED (a, b, c, d, e, f, g, h, i)"

@@ -9777,7 +9777,7 @@
     },
     {
       "path": "server/postgres/migrations/000022_add_poll_timestamp_indexes.sql",
-      "sha256": "b8c7510fc9ac69e43de5c4bf34f5e3b400b0521148ed32c26f548c61703c4aff"
+      "sha256": "14efc95b14787b52d70680ea06cfef020cd2224e82495258fd8eb324501b7b3e"
     }
   ]
 }
