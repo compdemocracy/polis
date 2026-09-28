@@ -1,7 +1,7 @@
 # Delphi Storage V2 — Reproducible Runs, Unified Schema, Dual-Backend Storage
 
 **Status:** DRAFT for review — 2026-07-06
-**Author:** Claude (host session "Fable JobID"), for Julien
+**Author:** Claude (the storage-v2 design host session), for Julien
 **Recon basis:** file:line pointers verified 2026-07-06 against `delphi/`, `server/`, and clients.
 
 ## 1. Problem
@@ -533,7 +533,7 @@ Two different meanings of "replay", deliberately kept separate:
 
 Convergences to exploit: both reuse `ConversationComparer` tolerance machinery (the
 `artifact_diff.py` extraction in §5 serves both); H's per-step recording could later
-write into `run_inputs`/`artifacts` under synthetic job_ids; and once V2 manifests exist,
+write into `run_inputs`/`artifacts` under public-fixture job_ids; and once V2 manifests exist,
 R2-style schedule inference becomes unnecessary for post-V2 data (the schedule is
 recorded, not latent).
 

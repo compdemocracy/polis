@@ -8,7 +8,7 @@ const TopicOverviewScatterplot = ({ latestRun, statsData, math, voteColors, onTo
   
   // Use normalized consensus if available, fall back to raw
   const consensusData = math["group-consensus-normalized"] || math["group-aware-consensus"];
-  if (!consensusData) {
+  if (!consensusData || !Object.keys(consensusData).length) {
     return null;
   }
 

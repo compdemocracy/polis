@@ -25,6 +25,39 @@
 # (by default, the Makefile will include --profile postgres, unless POSTGRES_DOCKER=false in your env)
 
 services:
+  coordinator-idle:
+    profiles: [coordinator-idle]
+    image: polis/coordinator-idle:local
+    build:
+      context: .
+      dockerfile: coordinator-rs/deploy/Dockerfile
+    entrypoint: [/usr/local/bin/coordinator-idle]
+    read_only: true
+    user: "10001:10001"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      DATABASE_URL: ${COORDINATOR_DATABASE_URL:-postgresql://polis_coordinator_observer_login@postgres:5432/polisdb?sslmode=verify-full}
+      COORDINATOR_DB_HOST_ALLOWLIST: ${COORDINATOR_DB_HOST_ALLOWLIST:-postgres}
+      COORDINATOR_DB_PASSWORD_FILE: /run/coordinator/password
+      COORDINATOR_DB_CA_BUNDLE: /etc/polis/local-ca.pem
+      COORDINATOR_MODE: inactive
+      COORDINATOR_WRITER_ENABLED: "false"
+      P026_RESERVATION_BYTES: "0"
+    volumes:
+      - type: bind
+        source: ${COORDINATOR_PASSWORD_FILE:-./.coordinator/password}
+        target: /run/coordinator/password
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${COORDINATOR_CA_FILE:-./.coordinator/ca.pem}
+        target: /etc/polis/local-ca.pem
+        read_only: true
+        bind: {create_host_path: false}
+    networks: [polis-net]
+    restart: "no"
+
   client-participation-alpha:
     build:
       context: ./client-participation-alpha
@@ -107,20 +140,27 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
       - DELPHI_DEV_OR_PROD=${DELPHI_DEV_OR_PROD:-prod}
+      # The report pipeline reads math_main/math_ptptstats scoped by math_env, so
+      # delphi must see the SAME env the `math` service writes under (line 88) —
+      # NOT ${MATH_PYTHON_ENV}, which is deliberately distinct so the shadow
+      # poller's rows stay invisible to the server and to reports.
+      - MATH_ENV=${MATH_ENV:-prod}
       # DynamoDB connection settings for local mode (will be overridden in prod)
       - DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT}
       - POLL_INTERVAL=${POLL_INTERVAL:-2}
       # Ollama connection
       - OLLAMA_HOST=${OLLAMA_HOST}
       - OLLAMA_MODEL=${OLLAMA_MODEL}
-      # AWS environment variables (will be provided in prod)
+      # AWS credentials. Declared ONCE: this single pair is shared by every AWS
+      # client in the delphi container (DynamoDB and the S3/MinIO clients), so a
+      # second declaration would silently win and swap one service's identity for
+      # the other's. Locally example.env sets the MinIO pair; in prod the real
+      # values come from the deployment env document.
       - AWS_REGION=${AWS_REGION:-us-east-1}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
-      # S3 storage for visualization files
-      - AWS_S3_ENDPOINT=${AWS_S3_ENDPOINT}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-minioadmin}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      # S3 storage for visualization files
+      - AWS_S3_ENDPOINT=${AWS_S3_ENDPOINT}
       - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-polis-delphi}
       # API keys for LLM services
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
@@ -167,6 +207,8 @@ services:
       - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
       # Shadow-mode math_env (distinct from the Clojure math service's MATH_ENV).
       - MATH_ENV=${MATH_PYTHON_ENV:-python}
+      # Startup refuses MATH_ENV=prod (the served namespace) unless this is 1.
+      - MATH_POLLER_ALLOW_SERVED_ENV=${MATH_POLLER_ALLOW_SERVED_ENV:-}
       # Poll cadences (ms) and boot window (days).
       - POLL_VOTE_INTERVAL_MS=${POLL_VOTE_INTERVAL_MS:-1000}
       - POLL_MOD_INTERVAL_MS=${POLL_MOD_INTERVAL_MS:-1000}
@@ -191,6 +233,13 @@ services:
       # replica before scaling out, or the shards duplicate every computation.
       - POLL_SHARD_INDEX=${POLL_SHARD_INDEX:-0}
       - POLL_SHARD_COUNT=${POLL_SHARD_COUNT:-1}
+      # Single-threaded BLAS/OpenMP for the math engine only, matching the
+      # coordinator and probe box, so PCA results do not depend on thread count.
+      # Set here, not in delphi/Dockerfile: that image also runs the report
+      # pipeline (torch, UMAP, embeddings), which should keep its threads.
+      - OMP_NUM_THREADS=1
+      - OPENBLAS_NUM_THREADS=1
+      - MKL_NUM_THREADS=1
     networks:
       - "polis-net"
     extra_hosts:
@@ -373,7 +422,13 @@ services:
 
   # MinIO S3-compatible storage
   minio:
-    image: minio/minio:latest
+    # MinIO's own quay.io and Docker Hub images refuse anonymous pulls (seen
+    # 2026-09-24). This is Bitnami's frozen legacy build of MinIO
+    # RELEASE.2025-07-23, pinned by digest; it bundles mc and a shell.
+    image: docker.io/bitnamilegacy/minio:2025.7.23-debian-12-r5@sha256:6dabb4a2088c9a79908de3bc05f4586c23ad2182c8908e7e3acbf61c1467fb20
+    # Root, as the upstream image ran, so existing minio_data volumes stay
+    # writable at /data.
+    user: "0:0"
     ports:
       - "9000:9000"
       - "9001:9001"

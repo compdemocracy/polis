@@ -135,10 +135,12 @@ import sqlalchemy as sa
 from polismath.replay import real_data
 from polismath.replay import schedule as sched
 from polismath.replay.certify import _acceptance_projecting_comparer, normalize_path
+from polismath.replay.equiv_query import EQUIV_TABLES, fetch_math_row
 from polismath.replay.stepcompare import DEFAULT_TOLERANT_STAT_KEYS, StepComparer
 from polismath.replay.store import _safe_path_component
 from polismath.replay.types import ModEvent, ReplayDataset
 from polismath.utils.general import delphi_vote_to_postgres
+from polismath.utils.vote_convention import STORAGE_AGREE_VALUE
 
 # poller_equiv.py -> replay -> polismath -> delphi -> repo root (mirrors
 # certify.py / store.py).
@@ -507,14 +509,19 @@ def seed_conversation(conn: Any, dataset: ReplayDataset, zid: int = DEFAULT_ZID)
 
 
 def insert_votes(
-    conn: Any, dataset: ReplayDataset, from_slot: int, to_slot: int, zid: int = DEFAULT_ZID
+    conn: Any, dataset: ReplayDataset, from_slot: int, to_slot: int,
+    zid: int = DEFAULT_ZID, *, storage_agree_value: int = STORAGE_AGREE_VALUE,
 ) -> int:
     """Insert ``dataset.votes[from_slot:to_slot]`` (plain 0-based Python slice
     — consistent with :func:`polismath.replay.schedule.slice_schedule`'s own
     ``dataset.votes[prev:cut]`` use of 1-based cut slots as slice bounds),
     preserving ``pid``/``tid``/``created`` (``t_ms``) and flipping the vote
-    sign from the dataset's Delphi convention to RAW DB convention (module
-    docstring) via :func:`polismath.utils.general.delphi_vote_to_postgres`.
+    sign from the dataset's Delphi (semantic) convention to the DECLARED RAW DB
+    convention (module docstring) via
+    :func:`polismath.utils.general.delphi_vote_to_postgres` — which reads the
+    declared ``storage_agree_value`` (-1 or +1, defaulting to the one
+    authoritative constant), never a literal, so a seeded DB and the ingress
+    that reads it back cannot disagree about polarity.
 
     ATOMIC per batch — ONE multi-row ``INSERT ... VALUES (...), (...), ...``
     statement, never a per-row loop (ROOT CAUSE #5, 2026-07-24 live-debug
@@ -555,7 +562,7 @@ def insert_votes(
         value_clauses.append(f"(:zid, :pid{i}, :tid{i}, :vote{i}, :created{i})")
         params[f"pid{i}"] = v.pid
         params[f"tid{i}"] = v.tid
-        params[f"vote{i}"] = delphi_vote_to_postgres(v.sign)
+        params[f"vote{i}"] = delphi_vote_to_postgres(v.sign, storage_agree_value)
         params[f"created{i}"] = v.t_ms
     stmt = (
         "INSERT INTO votes (zid, pid, tid, vote, created) VALUES "
@@ -657,7 +664,7 @@ class _SubprocessRunner:
     def __init__(
         self, cmd: list[str], *, cwd: Path, env: dict[str, str],
         log_path: Optional[Path] = None,
-    ):
+    ) -> None:
         self.cmd = cmd
         self.cwd = cwd
         self.env = env
@@ -801,7 +808,7 @@ class CljContainerRunner(_SubprocessRunner):
         logging_level: str = "info",
         base_env: Optional[dict[str, str]] = None,
         log_path: Optional[Path] = None,
-    ):
+    ) -> None:
         env = build_clj_env(
             database_url=database_url,
             math_env=math_env,
@@ -866,7 +873,7 @@ class PyPollerRunner(_SubprocessRunner):
         database_ssl_mode: str = "disable",
         base_env: Optional[dict[str, str]] = None,
         log_path: Optional[Path] = None,
-    ):
+    ) -> None:
         env = build_py_env(
             database_url=database_url,
             math_env=math_env,
@@ -1033,11 +1040,12 @@ def wait_for_first_poll_cycle(
 # Stage C — feeder + comparer.
 # =============================================================================
 # The three data tables the feeder snapshots per (math_env, batch); the same
-# three tables the spec's "compare" bullet names. Fixed constants ONLY — never
-# interpolate a caller-supplied string into the SQL built from this tuple
-# (:func:`fetch_math_row`) or the filesystem path built from it
-# (:func:`snapshot_path`).
-EQUIV_TABLES: tuple[str, ...] = ("math_main", "math_bidtopid", "math_ptptstats")
+# three tables the spec's "compare" bullet names. ``EQUIV_TABLES`` (the guard
+# set) and ``fetch_math_row`` (the ONE guarded ``SELECT * FROM {table}`` wildcard)
+# now live in :mod:`polismath.replay.equiv_query`, isolated there so the
+# projection-gate exemption's whole-module digest is disturbed only by an edit to
+# that query/guard — not by unrelated edits to this module. Imported at the top;
+# :func:`snapshot_path` and the runners below use them unchanged.
 
 
 # ---------------------------------------------------------------------------
@@ -1316,22 +1324,6 @@ def load_manifest(out_dir: str | Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     return json.loads(path.read_text())
-
-
-def fetch_math_row(conn: Any, table: str, zid: int, math_env: str) -> dict[str, Any] | None:
-    """``SELECT * FROM <table> WHERE zid=:zid AND math_env=:math_env`` — same
-    connection interface as :func:`wait_for_tick` (``.execute(text, params)``
-    -> ``Result.mappings().first()``). ``table`` MUST be one of
-    :data:`EQUIV_TABLES` — those are the only values ever interpolated into
-    the SQL text (never a caller-supplied string)."""
-    if table not in EQUIV_TABLES:
-        raise ValueError(f"unknown equiv table {table!r}; expected one of {EQUIV_TABLES}")
-    result = conn.execute(
-        sa.text(f"SELECT * FROM {table} WHERE zid = :zid AND math_env = :math_env"),
-        {"zid": zid, "math_env": math_env},
-    )
-    row = result.mappings().first()
-    return dict(row) if row is not None else None
 
 
 class PollerEquivStreamError(RuntimeError):

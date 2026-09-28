@@ -1,0 +1,3340 @@
+{
+  "schema": "p032-comments-recording-plan/1",
+  "state": "prospective-not-recorded",
+  "sourcePin": "c9685319980cd048d3c7bfa98e75b0c302083a6a",
+  "actors": [
+    "anonymous",
+    "bound-participant",
+    "owner",
+    "site-sharing-moderator",
+    "foreign-owner",
+    "admin"
+  ],
+  "shapes": [
+    "empty",
+    "hidden-strict-off",
+    "hidden-strict-on",
+    "mix-strict-off",
+    "mix-strict-on",
+    "inactive-mix",
+    "velocity-mix",
+    "tied-created",
+    "cap-998",
+    "cap-999",
+    "cap-1000",
+    "content-edges"
+  ],
+  "codingProfiles": [
+    "small-no-accept-encoding",
+    "large-no-accept-encoding",
+    "small-accept-gzip",
+    "large-accept-gzip"
+  ],
+  "dispatchWitnesses": [
+    "limit-zero",
+    "limit-negative",
+    "limit-positive",
+    "offset-only",
+    "tids-empty",
+    "tids-list",
+    "report-id",
+    "moderation-true",
+    "moderation-false",
+    "mod",
+    "modIn-true",
+    "modIn-false",
+    "mod_gt",
+    "voting-patterns",
+    "unknown-param",
+    "repeated-param",
+    "query-body-precedence"
+  ],
+  "identityWitnesses": [
+    "missing-capability",
+    "malformed-capability",
+    "nonexistent-capability",
+    "valid-foreign-capability",
+    "expired-participant-jwt",
+    "cross-conversation-jwt"
+  ],
+  "counts": {
+    "derivationCells": 96,
+    "shapeRequests": 216,
+    "codingRequests": 72,
+    "dispatchRequests": 102,
+    "identityRequests": 6,
+    "total": 396
+  },
+  "cases": [
+    {
+      "id": "comments-read/shape/anonymous/empty/rep-1",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "empty",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/empty/rep-2",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "empty",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/empty/rep-3",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "empty",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/anonymous/hidden-strict-off/rep-1",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "hidden-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/hidden-strict-off/rep-2",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "hidden-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/hidden-strict-off/rep-3",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "hidden-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/anonymous/hidden-strict-on/rep-1",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "hidden-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/hidden-strict-on/rep-2",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "hidden-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/hidden-strict-on/rep-3",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "hidden-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/anonymous/mix-strict-off/rep-1",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "mix-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/mix-strict-off/rep-2",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "mix-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/mix-strict-off/rep-3",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "mix-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/anonymous/mix-strict-on/rep-1",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "mix-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/mix-strict-on/rep-2",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "mix-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/mix-strict-on/rep-3",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "mix-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/anonymous/inactive-mix/rep-1",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "inactive-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/inactive-mix/rep-2",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "inactive-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/inactive-mix/rep-3",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "inactive-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/anonymous/velocity-mix/rep-1",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "velocity-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/velocity-mix/rep-2",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "velocity-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/velocity-mix/rep-3",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "velocity-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/anonymous/tied-created/rep-1",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "tied-created",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/tied-created/rep-2",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "tied-created",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/tied-created/rep-3",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "tied-created",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/anonymous/cap-998/rep-1",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "cap-998",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/cap-998/rep-2",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "cap-998",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/cap-998/rep-3",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "cap-998",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/anonymous/cap-999/rep-1",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "cap-999",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/cap-999/rep-2",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "cap-999",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/cap-999/rep-3",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "cap-999",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/anonymous/cap-1000/rep-1",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "cap-1000",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/cap-1000/rep-2",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "cap-1000",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/cap-1000/rep-3",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "cap-1000",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/anonymous/content-edges/rep-1",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "content-edges",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/content-edges/rep-2",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "content-edges",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/anonymous/content-edges/rep-3",
+      "family": "shape",
+      "actor": "anonymous",
+      "shape": "content-edges",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/empty/rep-1",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "empty",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/empty/rep-2",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "empty",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/empty/rep-3",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "empty",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/hidden-strict-off/rep-1",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "hidden-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/hidden-strict-off/rep-2",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "hidden-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/hidden-strict-off/rep-3",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "hidden-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/hidden-strict-on/rep-1",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "hidden-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/hidden-strict-on/rep-2",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "hidden-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/hidden-strict-on/rep-3",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "hidden-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/mix-strict-off/rep-1",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "mix-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/mix-strict-off/rep-2",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "mix-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/mix-strict-off/rep-3",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "mix-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/mix-strict-on/rep-1",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "mix-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/mix-strict-on/rep-2",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "mix-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/mix-strict-on/rep-3",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "mix-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/inactive-mix/rep-1",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "inactive-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/inactive-mix/rep-2",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "inactive-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/inactive-mix/rep-3",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "inactive-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/velocity-mix/rep-1",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "velocity-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/velocity-mix/rep-2",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "velocity-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/velocity-mix/rep-3",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "velocity-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/tied-created/rep-1",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "tied-created",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/tied-created/rep-2",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "tied-created",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/tied-created/rep-3",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "tied-created",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/cap-998/rep-1",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "cap-998",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/cap-998/rep-2",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "cap-998",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/cap-998/rep-3",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "cap-998",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/cap-999/rep-1",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "cap-999",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/cap-999/rep-2",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "cap-999",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/cap-999/rep-3",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "cap-999",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/cap-1000/rep-1",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "cap-1000",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/cap-1000/rep-2",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "cap-1000",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/cap-1000/rep-3",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "cap-1000",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/content-edges/rep-1",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "content-edges",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/content-edges/rep-2",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "content-edges",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/bound-participant/content-edges/rep-3",
+      "family": "shape",
+      "actor": "bound-participant",
+      "shape": "content-edges",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/owner/empty/rep-1",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "empty",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/empty/rep-2",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "empty",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/empty/rep-3",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "empty",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/owner/hidden-strict-off/rep-1",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "hidden-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/hidden-strict-off/rep-2",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "hidden-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/hidden-strict-off/rep-3",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "hidden-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/owner/hidden-strict-on/rep-1",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "hidden-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/hidden-strict-on/rep-2",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "hidden-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/hidden-strict-on/rep-3",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "hidden-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/owner/mix-strict-off/rep-1",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "mix-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/mix-strict-off/rep-2",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "mix-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/mix-strict-off/rep-3",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "mix-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/owner/mix-strict-on/rep-1",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "mix-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/mix-strict-on/rep-2",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "mix-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/mix-strict-on/rep-3",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "mix-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/owner/inactive-mix/rep-1",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "inactive-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/inactive-mix/rep-2",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "inactive-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/inactive-mix/rep-3",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "inactive-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/owner/velocity-mix/rep-1",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "velocity-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/velocity-mix/rep-2",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "velocity-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/velocity-mix/rep-3",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "velocity-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/owner/tied-created/rep-1",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "tied-created",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/tied-created/rep-2",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "tied-created",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/tied-created/rep-3",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "tied-created",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/owner/cap-998/rep-1",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "cap-998",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/cap-998/rep-2",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "cap-998",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/cap-998/rep-3",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "cap-998",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/owner/cap-999/rep-1",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "cap-999",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/cap-999/rep-2",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "cap-999",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/cap-999/rep-3",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "cap-999",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/owner/cap-1000/rep-1",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "cap-1000",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/cap-1000/rep-2",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "cap-1000",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/cap-1000/rep-3",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "cap-1000",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/owner/content-edges/rep-1",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "content-edges",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/content-edges/rep-2",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "content-edges",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/owner/content-edges/rep-3",
+      "family": "shape",
+      "actor": "owner",
+      "shape": "content-edges",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/empty/rep-1",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "empty",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/empty/rep-2",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "empty",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/empty/rep-3",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "empty",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/hidden-strict-off/rep-1",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "hidden-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/hidden-strict-off/rep-2",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "hidden-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/hidden-strict-off/rep-3",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "hidden-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/hidden-strict-on/rep-1",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "hidden-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/hidden-strict-on/rep-2",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "hidden-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/hidden-strict-on/rep-3",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "hidden-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/mix-strict-off/rep-1",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "mix-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/mix-strict-off/rep-2",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "mix-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/mix-strict-off/rep-3",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "mix-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/mix-strict-on/rep-1",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "mix-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/mix-strict-on/rep-2",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "mix-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/mix-strict-on/rep-3",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "mix-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/inactive-mix/rep-1",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "inactive-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/inactive-mix/rep-2",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "inactive-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/inactive-mix/rep-3",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "inactive-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/velocity-mix/rep-1",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "velocity-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/velocity-mix/rep-2",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "velocity-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/velocity-mix/rep-3",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "velocity-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/tied-created/rep-1",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "tied-created",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/tied-created/rep-2",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "tied-created",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/tied-created/rep-3",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "tied-created",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/cap-998/rep-1",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "cap-998",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/cap-998/rep-2",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "cap-998",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/cap-998/rep-3",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "cap-998",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/cap-999/rep-1",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "cap-999",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/cap-999/rep-2",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "cap-999",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/cap-999/rep-3",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "cap-999",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/cap-1000/rep-1",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "cap-1000",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/cap-1000/rep-2",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "cap-1000",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/cap-1000/rep-3",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "cap-1000",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/content-edges/rep-1",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "content-edges",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/content-edges/rep-2",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "content-edges",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/site-sharing-moderator/content-edges/rep-3",
+      "family": "shape",
+      "actor": "site-sharing-moderator",
+      "shape": "content-edges",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/empty/rep-1",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "empty",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/empty/rep-2",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "empty",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/empty/rep-3",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "empty",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/hidden-strict-off/rep-1",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "hidden-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/hidden-strict-off/rep-2",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "hidden-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/hidden-strict-off/rep-3",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "hidden-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/hidden-strict-on/rep-1",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "hidden-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/hidden-strict-on/rep-2",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "hidden-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/hidden-strict-on/rep-3",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "hidden-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/mix-strict-off/rep-1",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "mix-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/mix-strict-off/rep-2",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "mix-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/mix-strict-off/rep-3",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "mix-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/mix-strict-on/rep-1",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "mix-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/mix-strict-on/rep-2",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "mix-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/mix-strict-on/rep-3",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "mix-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/inactive-mix/rep-1",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "inactive-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/inactive-mix/rep-2",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "inactive-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/inactive-mix/rep-3",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "inactive-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/velocity-mix/rep-1",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "velocity-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/velocity-mix/rep-2",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "velocity-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/velocity-mix/rep-3",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "velocity-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/tied-created/rep-1",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "tied-created",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/tied-created/rep-2",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "tied-created",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/tied-created/rep-3",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "tied-created",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/cap-998/rep-1",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "cap-998",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/cap-998/rep-2",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "cap-998",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/cap-998/rep-3",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "cap-998",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/cap-999/rep-1",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "cap-999",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/cap-999/rep-2",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "cap-999",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/cap-999/rep-3",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "cap-999",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/cap-1000/rep-1",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "cap-1000",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/cap-1000/rep-2",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "cap-1000",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/cap-1000/rep-3",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "cap-1000",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/content-edges/rep-1",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "content-edges",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/content-edges/rep-2",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "content-edges",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/foreign-owner/content-edges/rep-3",
+      "family": "shape",
+      "actor": "foreign-owner",
+      "shape": "content-edges",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/admin/empty/rep-1",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "empty",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/empty/rep-2",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "empty",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/empty/rep-3",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "empty",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/admin/hidden-strict-off/rep-1",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "hidden-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/hidden-strict-off/rep-2",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "hidden-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/hidden-strict-off/rep-3",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "hidden-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/admin/hidden-strict-on/rep-1",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "hidden-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/hidden-strict-on/rep-2",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "hidden-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/hidden-strict-on/rep-3",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "hidden-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/admin/mix-strict-off/rep-1",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "mix-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/mix-strict-off/rep-2",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "mix-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/mix-strict-off/rep-3",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "mix-strict-off",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/admin/mix-strict-on/rep-1",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "mix-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/mix-strict-on/rep-2",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "mix-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/mix-strict-on/rep-3",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "mix-strict-on",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/admin/inactive-mix/rep-1",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "inactive-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/inactive-mix/rep-2",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "inactive-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/inactive-mix/rep-3",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "inactive-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/admin/velocity-mix/rep-1",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "velocity-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/velocity-mix/rep-2",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "velocity-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/velocity-mix/rep-3",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "velocity-mix",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/admin/tied-created/rep-1",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "tied-created",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/tied-created/rep-2",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "tied-created",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/tied-created/rep-3",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "tied-created",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/admin/cap-998/rep-1",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "cap-998",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/cap-998/rep-2",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "cap-998",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/cap-998/rep-3",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "cap-998",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/admin/cap-999/rep-1",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "cap-999",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/cap-999/rep-2",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "cap-999",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/cap-999/rep-3",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "cap-999",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/admin/cap-1000/rep-1",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "cap-1000",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/cap-1000/rep-2",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "cap-1000",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/cap-1000/rep-3",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "cap-1000",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/shape/admin/content-edges/rep-1",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "content-edges",
+      "negotiation": "no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/content-edges/rep-2",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "content-edges",
+      "negotiation": "no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/shape/admin/content-edges/rep-3",
+      "family": "shape",
+      "actor": "admin",
+      "shape": "content-edges",
+      "negotiation": "no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/anonymous/small-no-accept-encoding/rep-1",
+      "family": "coding",
+      "actor": "anonymous",
+      "codingProfile": "small-no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/anonymous/small-no-accept-encoding/rep-2",
+      "family": "coding",
+      "actor": "anonymous",
+      "codingProfile": "small-no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/anonymous/small-no-accept-encoding/rep-3",
+      "family": "coding",
+      "actor": "anonymous",
+      "codingProfile": "small-no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/anonymous/large-no-accept-encoding/rep-1",
+      "family": "coding",
+      "actor": "anonymous",
+      "codingProfile": "large-no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/anonymous/large-no-accept-encoding/rep-2",
+      "family": "coding",
+      "actor": "anonymous",
+      "codingProfile": "large-no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/anonymous/large-no-accept-encoding/rep-3",
+      "family": "coding",
+      "actor": "anonymous",
+      "codingProfile": "large-no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/anonymous/small-accept-gzip/rep-1",
+      "family": "coding",
+      "actor": "anonymous",
+      "codingProfile": "small-accept-gzip",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/anonymous/small-accept-gzip/rep-2",
+      "family": "coding",
+      "actor": "anonymous",
+      "codingProfile": "small-accept-gzip",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/anonymous/small-accept-gzip/rep-3",
+      "family": "coding",
+      "actor": "anonymous",
+      "codingProfile": "small-accept-gzip",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/anonymous/large-accept-gzip/rep-1",
+      "family": "coding",
+      "actor": "anonymous",
+      "codingProfile": "large-accept-gzip",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/anonymous/large-accept-gzip/rep-2",
+      "family": "coding",
+      "actor": "anonymous",
+      "codingProfile": "large-accept-gzip",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/anonymous/large-accept-gzip/rep-3",
+      "family": "coding",
+      "actor": "anonymous",
+      "codingProfile": "large-accept-gzip",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/bound-participant/small-no-accept-encoding/rep-1",
+      "family": "coding",
+      "actor": "bound-participant",
+      "codingProfile": "small-no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/bound-participant/small-no-accept-encoding/rep-2",
+      "family": "coding",
+      "actor": "bound-participant",
+      "codingProfile": "small-no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/bound-participant/small-no-accept-encoding/rep-3",
+      "family": "coding",
+      "actor": "bound-participant",
+      "codingProfile": "small-no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/bound-participant/large-no-accept-encoding/rep-1",
+      "family": "coding",
+      "actor": "bound-participant",
+      "codingProfile": "large-no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/bound-participant/large-no-accept-encoding/rep-2",
+      "family": "coding",
+      "actor": "bound-participant",
+      "codingProfile": "large-no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/bound-participant/large-no-accept-encoding/rep-3",
+      "family": "coding",
+      "actor": "bound-participant",
+      "codingProfile": "large-no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/bound-participant/small-accept-gzip/rep-1",
+      "family": "coding",
+      "actor": "bound-participant",
+      "codingProfile": "small-accept-gzip",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/bound-participant/small-accept-gzip/rep-2",
+      "family": "coding",
+      "actor": "bound-participant",
+      "codingProfile": "small-accept-gzip",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/bound-participant/small-accept-gzip/rep-3",
+      "family": "coding",
+      "actor": "bound-participant",
+      "codingProfile": "small-accept-gzip",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/bound-participant/large-accept-gzip/rep-1",
+      "family": "coding",
+      "actor": "bound-participant",
+      "codingProfile": "large-accept-gzip",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/bound-participant/large-accept-gzip/rep-2",
+      "family": "coding",
+      "actor": "bound-participant",
+      "codingProfile": "large-accept-gzip",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/bound-participant/large-accept-gzip/rep-3",
+      "family": "coding",
+      "actor": "bound-participant",
+      "codingProfile": "large-accept-gzip",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/owner/small-no-accept-encoding/rep-1",
+      "family": "coding",
+      "actor": "owner",
+      "codingProfile": "small-no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/owner/small-no-accept-encoding/rep-2",
+      "family": "coding",
+      "actor": "owner",
+      "codingProfile": "small-no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/owner/small-no-accept-encoding/rep-3",
+      "family": "coding",
+      "actor": "owner",
+      "codingProfile": "small-no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/owner/large-no-accept-encoding/rep-1",
+      "family": "coding",
+      "actor": "owner",
+      "codingProfile": "large-no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/owner/large-no-accept-encoding/rep-2",
+      "family": "coding",
+      "actor": "owner",
+      "codingProfile": "large-no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/owner/large-no-accept-encoding/rep-3",
+      "family": "coding",
+      "actor": "owner",
+      "codingProfile": "large-no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/owner/small-accept-gzip/rep-1",
+      "family": "coding",
+      "actor": "owner",
+      "codingProfile": "small-accept-gzip",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/owner/small-accept-gzip/rep-2",
+      "family": "coding",
+      "actor": "owner",
+      "codingProfile": "small-accept-gzip",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/owner/small-accept-gzip/rep-3",
+      "family": "coding",
+      "actor": "owner",
+      "codingProfile": "small-accept-gzip",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/owner/large-accept-gzip/rep-1",
+      "family": "coding",
+      "actor": "owner",
+      "codingProfile": "large-accept-gzip",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/owner/large-accept-gzip/rep-2",
+      "family": "coding",
+      "actor": "owner",
+      "codingProfile": "large-accept-gzip",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/owner/large-accept-gzip/rep-3",
+      "family": "coding",
+      "actor": "owner",
+      "codingProfile": "large-accept-gzip",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/site-sharing-moderator/small-no-accept-encoding/rep-1",
+      "family": "coding",
+      "actor": "site-sharing-moderator",
+      "codingProfile": "small-no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/site-sharing-moderator/small-no-accept-encoding/rep-2",
+      "family": "coding",
+      "actor": "site-sharing-moderator",
+      "codingProfile": "small-no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/site-sharing-moderator/small-no-accept-encoding/rep-3",
+      "family": "coding",
+      "actor": "site-sharing-moderator",
+      "codingProfile": "small-no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/site-sharing-moderator/large-no-accept-encoding/rep-1",
+      "family": "coding",
+      "actor": "site-sharing-moderator",
+      "codingProfile": "large-no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/site-sharing-moderator/large-no-accept-encoding/rep-2",
+      "family": "coding",
+      "actor": "site-sharing-moderator",
+      "codingProfile": "large-no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/site-sharing-moderator/large-no-accept-encoding/rep-3",
+      "family": "coding",
+      "actor": "site-sharing-moderator",
+      "codingProfile": "large-no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/site-sharing-moderator/small-accept-gzip/rep-1",
+      "family": "coding",
+      "actor": "site-sharing-moderator",
+      "codingProfile": "small-accept-gzip",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/site-sharing-moderator/small-accept-gzip/rep-2",
+      "family": "coding",
+      "actor": "site-sharing-moderator",
+      "codingProfile": "small-accept-gzip",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/site-sharing-moderator/small-accept-gzip/rep-3",
+      "family": "coding",
+      "actor": "site-sharing-moderator",
+      "codingProfile": "small-accept-gzip",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/site-sharing-moderator/large-accept-gzip/rep-1",
+      "family": "coding",
+      "actor": "site-sharing-moderator",
+      "codingProfile": "large-accept-gzip",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/site-sharing-moderator/large-accept-gzip/rep-2",
+      "family": "coding",
+      "actor": "site-sharing-moderator",
+      "codingProfile": "large-accept-gzip",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/site-sharing-moderator/large-accept-gzip/rep-3",
+      "family": "coding",
+      "actor": "site-sharing-moderator",
+      "codingProfile": "large-accept-gzip",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/foreign-owner/small-no-accept-encoding/rep-1",
+      "family": "coding",
+      "actor": "foreign-owner",
+      "codingProfile": "small-no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/foreign-owner/small-no-accept-encoding/rep-2",
+      "family": "coding",
+      "actor": "foreign-owner",
+      "codingProfile": "small-no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/foreign-owner/small-no-accept-encoding/rep-3",
+      "family": "coding",
+      "actor": "foreign-owner",
+      "codingProfile": "small-no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/foreign-owner/large-no-accept-encoding/rep-1",
+      "family": "coding",
+      "actor": "foreign-owner",
+      "codingProfile": "large-no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/foreign-owner/large-no-accept-encoding/rep-2",
+      "family": "coding",
+      "actor": "foreign-owner",
+      "codingProfile": "large-no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/foreign-owner/large-no-accept-encoding/rep-3",
+      "family": "coding",
+      "actor": "foreign-owner",
+      "codingProfile": "large-no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/foreign-owner/small-accept-gzip/rep-1",
+      "family": "coding",
+      "actor": "foreign-owner",
+      "codingProfile": "small-accept-gzip",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/foreign-owner/small-accept-gzip/rep-2",
+      "family": "coding",
+      "actor": "foreign-owner",
+      "codingProfile": "small-accept-gzip",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/foreign-owner/small-accept-gzip/rep-3",
+      "family": "coding",
+      "actor": "foreign-owner",
+      "codingProfile": "small-accept-gzip",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/foreign-owner/large-accept-gzip/rep-1",
+      "family": "coding",
+      "actor": "foreign-owner",
+      "codingProfile": "large-accept-gzip",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/foreign-owner/large-accept-gzip/rep-2",
+      "family": "coding",
+      "actor": "foreign-owner",
+      "codingProfile": "large-accept-gzip",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/foreign-owner/large-accept-gzip/rep-3",
+      "family": "coding",
+      "actor": "foreign-owner",
+      "codingProfile": "large-accept-gzip",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/admin/small-no-accept-encoding/rep-1",
+      "family": "coding",
+      "actor": "admin",
+      "codingProfile": "small-no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/admin/small-no-accept-encoding/rep-2",
+      "family": "coding",
+      "actor": "admin",
+      "codingProfile": "small-no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/admin/small-no-accept-encoding/rep-3",
+      "family": "coding",
+      "actor": "admin",
+      "codingProfile": "small-no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/admin/large-no-accept-encoding/rep-1",
+      "family": "coding",
+      "actor": "admin",
+      "codingProfile": "large-no-accept-encoding",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/admin/large-no-accept-encoding/rep-2",
+      "family": "coding",
+      "actor": "admin",
+      "codingProfile": "large-no-accept-encoding",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/admin/large-no-accept-encoding/rep-3",
+      "family": "coding",
+      "actor": "admin",
+      "codingProfile": "large-no-accept-encoding",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/admin/small-accept-gzip/rep-1",
+      "family": "coding",
+      "actor": "admin",
+      "codingProfile": "small-accept-gzip",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/admin/small-accept-gzip/rep-2",
+      "family": "coding",
+      "actor": "admin",
+      "codingProfile": "small-accept-gzip",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/admin/small-accept-gzip/rep-3",
+      "family": "coding",
+      "actor": "admin",
+      "codingProfile": "small-accept-gzip",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/coding/admin/large-accept-gzip/rep-1",
+      "family": "coding",
+      "actor": "admin",
+      "codingProfile": "large-accept-gzip",
+      "replicate": 1,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/admin/large-accept-gzip/rep-2",
+      "family": "coding",
+      "actor": "admin",
+      "codingProfile": "large-accept-gzip",
+      "replicate": 2,
+      "usage": "derivation"
+    },
+    {
+      "id": "comments-read/coding/admin/large-accept-gzip/rep-3",
+      "family": "coding",
+      "actor": "admin",
+      "codingProfile": "large-accept-gzip",
+      "replicate": 3,
+      "usage": "held-out"
+    },
+    {
+      "id": "comments-read/dispatch/anonymous/limit-zero",
+      "family": "dispatch",
+      "actor": "anonymous",
+      "mode": "limit-zero",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/anonymous/limit-negative",
+      "family": "dispatch",
+      "actor": "anonymous",
+      "mode": "limit-negative",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/anonymous/limit-positive",
+      "family": "dispatch",
+      "actor": "anonymous",
+      "mode": "limit-positive",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/anonymous/offset-only",
+      "family": "dispatch",
+      "actor": "anonymous",
+      "mode": "offset-only",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/anonymous/tids-empty",
+      "family": "dispatch",
+      "actor": "anonymous",
+      "mode": "tids-empty",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/anonymous/tids-list",
+      "family": "dispatch",
+      "actor": "anonymous",
+      "mode": "tids-list",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/anonymous/report-id",
+      "family": "dispatch",
+      "actor": "anonymous",
+      "mode": "report-id",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/anonymous/moderation-true",
+      "family": "dispatch",
+      "actor": "anonymous",
+      "mode": "moderation-true",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/anonymous/moderation-false",
+      "family": "dispatch",
+      "actor": "anonymous",
+      "mode": "moderation-false",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/anonymous/mod",
+      "family": "dispatch",
+      "actor": "anonymous",
+      "mode": "mod",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/anonymous/modIn-true",
+      "family": "dispatch",
+      "actor": "anonymous",
+      "mode": "modIn-true",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/anonymous/modIn-false",
+      "family": "dispatch",
+      "actor": "anonymous",
+      "mode": "modIn-false",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/anonymous/mod_gt",
+      "family": "dispatch",
+      "actor": "anonymous",
+      "mode": "mod_gt",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/anonymous/voting-patterns",
+      "family": "dispatch",
+      "actor": "anonymous",
+      "mode": "voting-patterns",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/anonymous/unknown-param",
+      "family": "dispatch",
+      "actor": "anonymous",
+      "mode": "unknown-param",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/anonymous/repeated-param",
+      "family": "dispatch",
+      "actor": "anonymous",
+      "mode": "repeated-param",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/anonymous/query-body-precedence",
+      "family": "dispatch",
+      "actor": "anonymous",
+      "mode": "query-body-precedence",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/bound-participant/limit-zero",
+      "family": "dispatch",
+      "actor": "bound-participant",
+      "mode": "limit-zero",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/bound-participant/limit-negative",
+      "family": "dispatch",
+      "actor": "bound-participant",
+      "mode": "limit-negative",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/bound-participant/limit-positive",
+      "family": "dispatch",
+      "actor": "bound-participant",
+      "mode": "limit-positive",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/bound-participant/offset-only",
+      "family": "dispatch",
+      "actor": "bound-participant",
+      "mode": "offset-only",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/bound-participant/tids-empty",
+      "family": "dispatch",
+      "actor": "bound-participant",
+      "mode": "tids-empty",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/bound-participant/tids-list",
+      "family": "dispatch",
+      "actor": "bound-participant",
+      "mode": "tids-list",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/bound-participant/report-id",
+      "family": "dispatch",
+      "actor": "bound-participant",
+      "mode": "report-id",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/bound-participant/moderation-true",
+      "family": "dispatch",
+      "actor": "bound-participant",
+      "mode": "moderation-true",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/bound-participant/moderation-false",
+      "family": "dispatch",
+      "actor": "bound-participant",
+      "mode": "moderation-false",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/bound-participant/mod",
+      "family": "dispatch",
+      "actor": "bound-participant",
+      "mode": "mod",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/bound-participant/modIn-true",
+      "family": "dispatch",
+      "actor": "bound-participant",
+      "mode": "modIn-true",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/bound-participant/modIn-false",
+      "family": "dispatch",
+      "actor": "bound-participant",
+      "mode": "modIn-false",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/bound-participant/mod_gt",
+      "family": "dispatch",
+      "actor": "bound-participant",
+      "mode": "mod_gt",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/bound-participant/voting-patterns",
+      "family": "dispatch",
+      "actor": "bound-participant",
+      "mode": "voting-patterns",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/bound-participant/unknown-param",
+      "family": "dispatch",
+      "actor": "bound-participant",
+      "mode": "unknown-param",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/bound-participant/repeated-param",
+      "family": "dispatch",
+      "actor": "bound-participant",
+      "mode": "repeated-param",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/bound-participant/query-body-precedence",
+      "family": "dispatch",
+      "actor": "bound-participant",
+      "mode": "query-body-precedence",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/owner/limit-zero",
+      "family": "dispatch",
+      "actor": "owner",
+      "mode": "limit-zero",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/owner/limit-negative",
+      "family": "dispatch",
+      "actor": "owner",
+      "mode": "limit-negative",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/owner/limit-positive",
+      "family": "dispatch",
+      "actor": "owner",
+      "mode": "limit-positive",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/owner/offset-only",
+      "family": "dispatch",
+      "actor": "owner",
+      "mode": "offset-only",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/owner/tids-empty",
+      "family": "dispatch",
+      "actor": "owner",
+      "mode": "tids-empty",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/owner/tids-list",
+      "family": "dispatch",
+      "actor": "owner",
+      "mode": "tids-list",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/owner/report-id",
+      "family": "dispatch",
+      "actor": "owner",
+      "mode": "report-id",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/owner/moderation-true",
+      "family": "dispatch",
+      "actor": "owner",
+      "mode": "moderation-true",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/owner/moderation-false",
+      "family": "dispatch",
+      "actor": "owner",
+      "mode": "moderation-false",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/owner/mod",
+      "family": "dispatch",
+      "actor": "owner",
+      "mode": "mod",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/owner/modIn-true",
+      "family": "dispatch",
+      "actor": "owner",
+      "mode": "modIn-true",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/owner/modIn-false",
+      "family": "dispatch",
+      "actor": "owner",
+      "mode": "modIn-false",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/owner/mod_gt",
+      "family": "dispatch",
+      "actor": "owner",
+      "mode": "mod_gt",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/owner/voting-patterns",
+      "family": "dispatch",
+      "actor": "owner",
+      "mode": "voting-patterns",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/owner/unknown-param",
+      "family": "dispatch",
+      "actor": "owner",
+      "mode": "unknown-param",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/owner/repeated-param",
+      "family": "dispatch",
+      "actor": "owner",
+      "mode": "repeated-param",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/owner/query-body-precedence",
+      "family": "dispatch",
+      "actor": "owner",
+      "mode": "query-body-precedence",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/site-sharing-moderator/limit-zero",
+      "family": "dispatch",
+      "actor": "site-sharing-moderator",
+      "mode": "limit-zero",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/site-sharing-moderator/limit-negative",
+      "family": "dispatch",
+      "actor": "site-sharing-moderator",
+      "mode": "limit-negative",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/site-sharing-moderator/limit-positive",
+      "family": "dispatch",
+      "actor": "site-sharing-moderator",
+      "mode": "limit-positive",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/site-sharing-moderator/offset-only",
+      "family": "dispatch",
+      "actor": "site-sharing-moderator",
+      "mode": "offset-only",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/site-sharing-moderator/tids-empty",
+      "family": "dispatch",
+      "actor": "site-sharing-moderator",
+      "mode": "tids-empty",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/site-sharing-moderator/tids-list",
+      "family": "dispatch",
+      "actor": "site-sharing-moderator",
+      "mode": "tids-list",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/site-sharing-moderator/report-id",
+      "family": "dispatch",
+      "actor": "site-sharing-moderator",
+      "mode": "report-id",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/site-sharing-moderator/moderation-true",
+      "family": "dispatch",
+      "actor": "site-sharing-moderator",
+      "mode": "moderation-true",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/site-sharing-moderator/moderation-false",
+      "family": "dispatch",
+      "actor": "site-sharing-moderator",
+      "mode": "moderation-false",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/site-sharing-moderator/mod",
+      "family": "dispatch",
+      "actor": "site-sharing-moderator",
+      "mode": "mod",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/site-sharing-moderator/modIn-true",
+      "family": "dispatch",
+      "actor": "site-sharing-moderator",
+      "mode": "modIn-true",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/site-sharing-moderator/modIn-false",
+      "family": "dispatch",
+      "actor": "site-sharing-moderator",
+      "mode": "modIn-false",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/site-sharing-moderator/mod_gt",
+      "family": "dispatch",
+      "actor": "site-sharing-moderator",
+      "mode": "mod_gt",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/site-sharing-moderator/voting-patterns",
+      "family": "dispatch",
+      "actor": "site-sharing-moderator",
+      "mode": "voting-patterns",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/site-sharing-moderator/unknown-param",
+      "family": "dispatch",
+      "actor": "site-sharing-moderator",
+      "mode": "unknown-param",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/site-sharing-moderator/repeated-param",
+      "family": "dispatch",
+      "actor": "site-sharing-moderator",
+      "mode": "repeated-param",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/site-sharing-moderator/query-body-precedence",
+      "family": "dispatch",
+      "actor": "site-sharing-moderator",
+      "mode": "query-body-precedence",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/foreign-owner/limit-zero",
+      "family": "dispatch",
+      "actor": "foreign-owner",
+      "mode": "limit-zero",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/foreign-owner/limit-negative",
+      "family": "dispatch",
+      "actor": "foreign-owner",
+      "mode": "limit-negative",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/foreign-owner/limit-positive",
+      "family": "dispatch",
+      "actor": "foreign-owner",
+      "mode": "limit-positive",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/foreign-owner/offset-only",
+      "family": "dispatch",
+      "actor": "foreign-owner",
+      "mode": "offset-only",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/foreign-owner/tids-empty",
+      "family": "dispatch",
+      "actor": "foreign-owner",
+      "mode": "tids-empty",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/foreign-owner/tids-list",
+      "family": "dispatch",
+      "actor": "foreign-owner",
+      "mode": "tids-list",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/foreign-owner/report-id",
+      "family": "dispatch",
+      "actor": "foreign-owner",
+      "mode": "report-id",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/foreign-owner/moderation-true",
+      "family": "dispatch",
+      "actor": "foreign-owner",
+      "mode": "moderation-true",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/foreign-owner/moderation-false",
+      "family": "dispatch",
+      "actor": "foreign-owner",
+      "mode": "moderation-false",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/foreign-owner/mod",
+      "family": "dispatch",
+      "actor": "foreign-owner",
+      "mode": "mod",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/foreign-owner/modIn-true",
+      "family": "dispatch",
+      "actor": "foreign-owner",
+      "mode": "modIn-true",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/foreign-owner/modIn-false",
+      "family": "dispatch",
+      "actor": "foreign-owner",
+      "mode": "modIn-false",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/foreign-owner/mod_gt",
+      "family": "dispatch",
+      "actor": "foreign-owner",
+      "mode": "mod_gt",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/foreign-owner/voting-patterns",
+      "family": "dispatch",
+      "actor": "foreign-owner",
+      "mode": "voting-patterns",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/foreign-owner/unknown-param",
+      "family": "dispatch",
+      "actor": "foreign-owner",
+      "mode": "unknown-param",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/foreign-owner/repeated-param",
+      "family": "dispatch",
+      "actor": "foreign-owner",
+      "mode": "repeated-param",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/foreign-owner/query-body-precedence",
+      "family": "dispatch",
+      "actor": "foreign-owner",
+      "mode": "query-body-precedence",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/admin/limit-zero",
+      "family": "dispatch",
+      "actor": "admin",
+      "mode": "limit-zero",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/admin/limit-negative",
+      "family": "dispatch",
+      "actor": "admin",
+      "mode": "limit-negative",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/admin/limit-positive",
+      "family": "dispatch",
+      "actor": "admin",
+      "mode": "limit-positive",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/admin/offset-only",
+      "family": "dispatch",
+      "actor": "admin",
+      "mode": "offset-only",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/admin/tids-empty",
+      "family": "dispatch",
+      "actor": "admin",
+      "mode": "tids-empty",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/admin/tids-list",
+      "family": "dispatch",
+      "actor": "admin",
+      "mode": "tids-list",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/admin/report-id",
+      "family": "dispatch",
+      "actor": "admin",
+      "mode": "report-id",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/admin/moderation-true",
+      "family": "dispatch",
+      "actor": "admin",
+      "mode": "moderation-true",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/admin/moderation-false",
+      "family": "dispatch",
+      "actor": "admin",
+      "mode": "moderation-false",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/admin/mod",
+      "family": "dispatch",
+      "actor": "admin",
+      "mode": "mod",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/admin/modIn-true",
+      "family": "dispatch",
+      "actor": "admin",
+      "mode": "modIn-true",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/admin/modIn-false",
+      "family": "dispatch",
+      "actor": "admin",
+      "mode": "modIn-false",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/admin/mod_gt",
+      "family": "dispatch",
+      "actor": "admin",
+      "mode": "mod_gt",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/admin/voting-patterns",
+      "family": "dispatch",
+      "actor": "admin",
+      "mode": "voting-patterns",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/admin/unknown-param",
+      "family": "dispatch",
+      "actor": "admin",
+      "mode": "unknown-param",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/admin/repeated-param",
+      "family": "dispatch",
+      "actor": "admin",
+      "mode": "repeated-param",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/dispatch/admin/query-body-precedence",
+      "family": "dispatch",
+      "actor": "admin",
+      "mode": "query-body-precedence",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/identity/missing-capability",
+      "family": "identity",
+      "mode": "missing-capability",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/identity/malformed-capability",
+      "family": "identity",
+      "mode": "malformed-capability",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/identity/nonexistent-capability",
+      "family": "identity",
+      "mode": "nonexistent-capability",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/identity/valid-foreign-capability",
+      "family": "identity",
+      "mode": "valid-foreign-capability",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/identity/expired-participant-jwt",
+      "family": "identity",
+      "mode": "expired-participant-jwt",
+      "usage": "witness-only"
+    },
+    {
+      "id": "comments-read/identity/cross-conversation-jwt",
+      "family": "identity",
+      "mode": "cross-conversation-jwt",
+      "usage": "witness-only"
+    }
+  ]
+}

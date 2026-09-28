@@ -363,3 +363,151 @@ def create_job_queue_table(dynamodb=None, table_name='Delphi_JobQueue'):
 2. Develop job submission API for the server
 3. Create the worker poller service that will process jobs
 4. Add admin UI components for monitoring and managing the job queue
+## Companion table: `Delphi_JobActiveGuard`
+
+The server's two HTTP producers (`POST /api/v3/delphi/jobs` and
+`POST /api/v3/delphi/batchReports`) do not write `Delphi_JobQueue` directly.
+They go through the active-work guard added by P-003 S3
+(`server/src/routes/delphi/jobGuard.ts`), which creates the queue row and a
+guard row in a single `TransactWriteItems`.
+
+### Table design
+
+- **Table name**: `Delphi_JobActiveGuard`
+- **Partition key**: `guard_key` (String)
+- **Billing**: PAY_PER_REQUEST, no GSIs
+- **No TTL attribute** — deliberately. An automatic expiry could release a
+  scope while paid provider work is still live.
+
+`guard_key` is a SHA-256 digest with a one-character kind prefix:
+
+| Prefix | Meaning | Digest input |
+|---|---|---|
+| `s:` | Submission scope | `v2`, `job_type`, `conversation_id`, `report_id` |
+| `i:` | Idempotency alias | `v2`, `conversation_id`, `report_id`, client `idempotency_key` |
+
+The scope deliberately excludes `job_config`: at most one root job of a given
+type runs per conversation/report, because two configurations still reset and
+publish into the same structures. Configuration is recorded as `config_hash`
+and is what an idempotency key binds to.
+
+Scope rows carry `job_id`, `version`, `conversation_id`, `report_id`,
+`job_type`, `config_hash` and, for an adopted pre-existing root, `adopted_at`.
+Alias rows carry `scope_guard_key`, `config_hash`, `job_id`,
+`binding_expires_at`, and `conversation_id`/`report_id`/`job_type` so a
+conversation's guard rows can be found without a join.
+
+### Lifecycle
+
+1. **Alias check.** When the request carries an idempotency key, the alias is
+   read first, on every path. A key bound to a different scope or a different
+   `config_hash` is a conflict (HTTP 409) even when the target scope is already
+   occupied by someone else's job.
+2. **Scope check.** A strongly-consistent read of the scope guard decides
+   whether work is outstanding.
+3. **Migration check.** With no guard, the server sweeps the base table for
+   outstanding work in the scope and adopts its root rather than admitting a
+   duplicate beside it. The sweep does not filter on status: a live checker
+   under an already-terminal parent, and a root whose terminal write is
+   unresolved (FAILED with no confirmed process exit, or
+   `checker_schedule_failed`), are both outstanding work that a status filter
+   hides. Candidates are classified with the same rule release uses. A row is skipped
+   on the sweep's own word only when it was demonstrably finished *before* the
+   sweep began — terminal, resolved, no failed checker scheduling, and with a
+   `completed_at`/`updated_at` older than the sweep by a margin. A root that
+   went terminal *during* the sweep, or one with no timestamp to judge by,
+   becomes a candidate and is decided by the anchored assessment, because a
+   multi-page scan is not a snapshot. Ordinary history is old and dated, so it
+   neither costs a strong re-read nor fills the 25-candidate budget. Above that budget of
+   genuinely ambiguous roots, admission fails closed with 503 and an operator
+   has to triage them (see `RESET_SINGLE_CONVERSATION.md`). After writing, it sweeps again: a producer that does not take part
+   in the transaction cannot be fenced by a read, so if one raced in, the server
+   withdraws its own row while that row is still unclaimed. This narrows the
+   window; it does not close it. **Deploy every producer before relying on the
+   guard.**
+4. **Admission.** One transaction: conditional `Put` of the queue row
+   (`attribute_not_exists(job_id)`), conditional `Put` of the scope guard, and
+   the alias when supplied. Either both tables are written or neither is.
+5. **Key binding.** Every accepted idempotency key is bound to the job the
+   caller was actually told about — on creation, on deduplication and on
+   adoption alike. A key that is acknowledged without a binding invites a retry
+   that starts a second run once the first job finishes.
+6. **Release.** A guard is deleted only under an exact `job_id` + `version`
+   condition, and only on *proof* that no paid work remains. Four conditions,
+   all of them:
+   - a strongly-consistent read shows the root `COMPLETED` or `FAILED`;
+   - a completed, strongly-consistent **base-table scan** finds no non-terminal
+     `batch_job_id` descendant. A GSI query cannot serve here — a global
+     secondary index is eventually consistent and does not accept
+     `ConsistentRead`, so its silence is not evidence;
+   - the terminal write is *resolved*. `job_poller.py` verifies the job's whole
+     **process group** is empty on every completion path and records the answer
+     as `process_exit_confirmed`. Jobs are started with `start_new_session=True`
+     and stopped by signalling their group, because a `FULL_PIPELINE` child is
+     `run_delphi.py`, which launches subprocesses of its own; stopping the
+     direct child alone left those running, and a parent that exits by itself —
+     with any status, including 0 — does not take them with it. An explicit
+     `false` means the worker could not confirm, and blocks release whatever the
+     status says, success included. An *absent* flag is a migration case, not a
+     refusal: accepted on `COMPLETED` (a row written before the flag existed),
+     still rejected on `FAILED`, which is where orphans come from. Process exit
+     is not provider reconciliation: that is what the descendant sweep and
+     `checker_schedule_failed` are for;
+   - the root was **already terminal before the descendant sweep began**, and
+     had not moved by the time it ended. A strongly-consistent `Scan` is not a
+     snapshot: a child written between pages, past a point page one already
+     read, is invisible to it. The anchor is what makes the sweep's silence mean
+     something — children are only created while the root is non-terminal, so a
+     root that was terminal before the first page can have no later ones. The
+     conversation-wide reader applies the same rule by sweeping twice and
+     reporting live wherever the two reads disagree;
+   - the root does not carry `checker_schedule_failed`, which
+     `801_narrative_report_batch.py` sets when it submitted a provider batch but
+     could not schedule the checker row that would otherwise represent it.
+
+   Any error, page cap, or missing root row keeps the guard.
+7. **Alias expiry.** The alias outlives the scope guard for a 24-hour binding
+   window **anchored at the moment the binding is written**, not at the job's
+   completion: a key first used at T is replayable until T + 24 h. The window is
+   evaluated in code; it is not a DynamoDB TTL. An intentional rerun needs a new
+   key, or none.
+
+### Operator notes
+
+- Guard rows must never be written into `Delphi_JobQueue`: they carry no
+  `status`, so they would appear to the queue observer as missing-status
+  anomalies.
+- Migrating the queue off DynamoDB moves the guard in the same cutover. A
+  Postgres job row with a DynamoDB guard has no transaction across it and is
+  forbidden (P-003 rev3, G6).
+- **Fail closed.** If the guard table is missing or an existing-work sweep
+  cannot be completed, submission returns HTTP 503 with
+  `code: "JOB_ADMISSION_UNAVAILABLE"` and writes no job. There is no
+  un-deduplicated fallback. `cdk/dynamodb.ts` provisions the table.
+- Deleting a conversation's job rows (`RESET_SINGLE_CONVERSATION.md`) leaves the
+  guard pointing at a row that no longer exists. That is treated as uncertainty
+  and keeps the scope blocked, so the reset must delete the scope's guard rows
+  too.
+
+### `SUPERSEDED`
+
+When this server loses a race with a producer outside the guard transaction, it
+withdraws the admission it just made: the queue row is **marked**
+`status = SUPERSEDED` with `superseded_by`, and its scope guard and idempotency
+alias are removed, in one transaction. The row is marked rather than deleted
+because its id may already have gone out to a client, and an acknowledged id has
+to keep resolving to something real. A superseded row is terminal, is not work,
+and `job_poller.py`'s finder never looks for that status, so no worker claims it.
+
+### Effective work state for readers
+
+`GET /api/v3/delphi/visualizations` returns `workLive` per job. It is computed by
+`assessConversationLiveness`, one **strongly-consistent base-table sweep** of the
+conversation — not from the `ConversationIndex` query that produces the rest of
+that response. The distinction matters because clients stop polling on
+`workLive === false`: an index that has not caught up with a newly written
+checker row would otherwise report its parent as finished, and the client would
+believe it. When the sweep cannot be completed, every job is reported live.
+
+This costs one extra consistent scan per visualizations request. The client only
+polls while something is outstanding, and the table was measured at 255 rows.

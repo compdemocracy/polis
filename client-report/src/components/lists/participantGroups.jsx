@@ -26,7 +26,7 @@ const ParticipantGroups = ({
     if (!conversation || !math || !comments) return;
 
     const processGroups = () => {
-      const processedGroups = Object.keys(math["repness"]).map((gid) => { // Use Object.keys and map
+      const processedGroups = Object.keys(math["repness"] || {}).map((gid) => { // Use Object.keys and map
         gid = Number(gid);
 
         let otherGroupVotes = {
@@ -35,7 +35,7 @@ const ParticipantGroups = ({
         };
 
         const MAX_CLUSTERS = 50;
-        const temp = math["group-votes"];
+        const temp = math["group-votes"] || {};
 
         for (let ogid = 0; ogid < MAX_CLUSTERS; ogid++) {
           if (ogid === gid || !temp[ogid]) {
@@ -66,7 +66,7 @@ const ParticipantGroups = ({
             conversation={conversation}
             groupComments={math["repness"][gid]} // Access directly
             groupName={groupNames[gid]}
-            groupVotesForThisGroup={math["group-votes"][gid]}
+            groupVotesForThisGroup={(math["group-votes"] || {})[gid]}
             groupVotesForOtherGroups={otherGroupVotes}
             formatTid={formatTid}
             ptptCount={ptptCount}
@@ -98,7 +98,7 @@ const ParticipantGroups = ({
       <div>
         <p style={globals.primaryHeading}> Opinion Groups </p>
         <p style={globals.paragraph}>
-          Across {ptptCount} total participants, {math && Object.keys(math["group-votes"])?.length}{" "}
+          Across {ptptCount} total participants, {math && Object.keys(math["group-votes"] || {}).length}{" "}
           opinion groups emerged. There are two factors that define an opinion
           group. First, each opinion group is made up of a number of participants
           who tended to vote similarly on multiple statements. Second, each group

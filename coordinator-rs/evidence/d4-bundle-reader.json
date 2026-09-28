@@ -1,0 +1,60 @@
+{
+  "a_and_b_distinguishable": true,
+  "expected_pids_for_gid_a": {
+    "0": [
+      0,
+      3
+    ],
+    "1": [
+      1,
+      2,
+      4,
+      5
+    ]
+  },
+  "expected_pids_for_gid_b": {
+    "0": [
+      0,
+      3,
+      6
+    ],
+    "1": [
+      1,
+      2,
+      4,
+      5
+    ]
+  },
+  "generation_a_tick": 0,
+  "generation_b_tick": 1,
+  "later_read_equals_b_exactly": true,
+  "later_read_returned": {
+    "0": [
+      0,
+      3,
+      6
+    ],
+    "1": [
+      1,
+      2,
+      4,
+      5
+    ]
+  },
+  "profile": "real Node runtime, bundle_reader.cjs loadBundle, one publish interleaved between the reader's first and later reads, one test PostgreSQL",
+  "snapshot_equals_a_exactly": true,
+  "snapshot_mapping_sha256_equals_a": true,
+  "snapshot_under_interleave_returned": {
+    "0": [
+      0,
+      3
+    ],
+    "1": [
+      1,
+      2,
+      4,
+      5
+    ]
+  },
+  "wrong_namespace_rustproto_unaffected": true
+}

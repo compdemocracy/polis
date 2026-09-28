@@ -19,22 +19,22 @@ Usage (from delphi/)::
     # Create polis_equiv (dropping it first) and seed one dataset's full
     # conversation (comments + ALL votes) under zid=1:
     uv run python scripts/poller_equiv.py seed --dataset vw \\
-        --admin-url postgresql://postgres:postgres@localhost:15432/postgres
+        --admin-url postgresql://postgres@localhost:15432/postgres
 
     # Start the clj container against an already-seeded DB, block until Ctrl-C:
     uv run python scripts/poller_equiv.py run-clj \\
-        --database-url postgresql://postgres:postgres@localhost:15432/polis_equiv \\
+        --database-url postgresql://postgres@localhost:15432/polis_equiv \\
         --math-env clj-ref
 
     # Start the python poller the same way:
     uv run python scripts/poller_equiv.py run-py \\
-        --database-url postgresql://postgres:postgres@localhost:15432/polis_equiv \\
+        --database-url postgresql://postgres@localhost:15432/polis_equiv \\
         --math-env py-shadow
 
     # Feed a vw uniform-8 batch stream through BOTH runners at once, snapshotting
     # each batch's three tables under --out, with a restart seam after batch 3:
     uv run python scripts/poller_equiv.py feed --dataset vw \\
-        --admin-url postgresql://postgres:postgres@localhost:15432/postgres \\
+        --admin-url postgresql://postgres@localhost:15432/postgres \\
         --cuts 100,200,300,400,500,585 --seam-after 3 \\
         --out real_data/.local/replays/_poller_equiv/vw
 
@@ -45,7 +45,7 @@ Usage (from delphi/)::
     # Full protocol (spec §2/§3 stage D) — two clj-only self-jitter runs,
     # one paired clj+py restart-seam run, envelope-aware compare, verdict:
     uv run python scripts/poller_equiv.py full-run --dataset vw \\
-        --admin-url postgresql://postgres:postgres@localhost:15432/postgres \\
+        --admin-url postgresql://postgres@localhost:15432/postgres \\
         --out real_data/.local/replays/_poller_equiv_full/vw
 """
 
@@ -56,6 +56,7 @@ from pathlib import Path
 from typing import Any
 
 import click
+from polismath.replay.dsn_admission import click_dsn
 import sqlalchemy as sa
 
 from polismath.replay import poller_equiv as pe
@@ -69,7 +70,7 @@ def cli() -> None:
 
 @cli.command()
 @click.option("--dataset", required=True, help="Dataset slug (e.g. vw).")
-@click.option("--admin-url", required=True,
+@click.option("--admin-url", callback=click_dsn, required=True,
               help="Connection URL to an EXISTING db (e.g. .../postgres) on "
                    "the target server — NOT the equiv db itself.")
 @click.option("--dbname", default=pe.DEFAULT_DBNAME, show_default=True,
@@ -97,7 +98,7 @@ def seed(dataset, admin_url, dbname, zid, to_slot):
 
 
 @cli.command("run-clj")
-@click.option("--database-url", required=True)
+@click.option("--database-url", callback=click_dsn, required=True)
 @click.option("--math-env", required=True)
 @click.option("--poll-from-days-ago", type=float, default=10000, show_default=True)
 def run_clj(database_url, math_env, poll_from_days_ago):
@@ -110,7 +111,7 @@ def run_clj(database_url, math_env, poll_from_days_ago):
 
 
 @cli.command("run-py")
-@click.option("--database-url", required=True)
+@click.option("--database-url", callback=click_dsn, required=True)
 @click.option("--math-env", required=True)
 @click.option("--poll-from-days-ago", type=float, default=10000, show_default=True)
 def run_py(database_url, math_env, poll_from_days_ago):
@@ -124,7 +125,7 @@ def run_py(database_url, math_env, poll_from_days_ago):
 
 @cli.command()
 @click.option("--dataset", required=True, help="Dataset slug (e.g. vw).")
-@click.option("--admin-url", required=True,
+@click.option("--admin-url", callback=click_dsn, required=True,
               help="Connection URL to an EXISTING db (e.g. .../postgres) on "
                    "the target server — NOT the equiv db itself.")
 @click.option("--cuts", required=True,
@@ -191,7 +192,7 @@ def compare(out_dir, clj_env, py_env):
 
 @cli.command("full-run")
 @click.option("--dataset", required=True, help="Dataset slug (e.g. vw).")
-@click.option("--admin-url", required=True,
+@click.option("--admin-url", callback=click_dsn, required=True,
               help="Connection URL to an EXISTING db (e.g. .../postgres) on "
                    "the target server — NOT any of the equiv dbs themselves.")
 @click.option("--cuts", default=None,

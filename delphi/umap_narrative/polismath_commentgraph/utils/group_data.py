@@ -12,6 +12,7 @@ from typing import Dict, List, Any, Optional
 from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
+from polismath.components.config import ConfigManager
 
 logger = logging.getLogger(__name__)
 
@@ -66,10 +67,16 @@ class GroupDataProcessor:
     def get_math_main_by_conversation(self, zid: int) -> Dict[str, Any]:
         """
         Get math main data (group assignments) for a conversation.
-        
+
+        The read is scoped to the configured math_env (MATH_ENV, default `prod`).
+        If the conversation has math_main rows only under a *different* math_env,
+        this behaves exactly as if it had none: return no group assignments and
+        log a warning. Raw votes cannot establish the missing engine's groups.
+        Every compose stack must give delphi the same MATH_ENV as its math service.
+
         Args:
             zid: Conversation ID
-            
+
         Returns:
             Math data dictionary including group assignments
         """
@@ -82,12 +89,15 @@ class GroupDataProcessor:
                 math_main
             WHERE 
                 zid = :zid
+                AND math_env = :math_env
             ORDER BY 
                 modified DESC
             LIMIT 1
             """
             
-            results = self.postgres_client.query(sql, {"zid": zid})
+            results = self.postgres_client.query(
+                sql, {"zid": zid, "math_env": ConfigManager.get_config().get('math-env')}
+            )
             
             if results and 'data' in results[0]:
                 # Parse JSON data if it's a string, or use as is if it's already parsed
@@ -98,6 +108,8 @@ class GroupDataProcessor:
                     else:
                         # Already parsed or in dict form
                         data = data_value
+                    if not isinstance(data, dict):
+                        raise TypeError("Math data must be an object")
                         
                     # Log the structure of the data to help debug
                     top_level_keys = list(data.keys()) if isinstance(data, dict) else "not a dict"
@@ -133,60 +145,8 @@ class GroupDataProcessor:
                 except (json.JSONDecodeError, TypeError) as e:
                     logger.error(f"Error parsing math data JSON for conversation {zid}: {e}")
             
-            # If we can't get from math_main table, try to get it from Postgres votes
-            # to recreate the basic structure needed for report generation
-            logger.warning(f"No math data found in math_main for conversation {zid}, generating from votes")
-            
-            group_assignments = {}
-            
-            # Get votes and count how many of each type per participant
-            votes_data = self.postgres_client.get_votes_by_conversation(zid)
-            
-            # Get unique participants from votes
-            participant_ids = set(v['pid'] for v in votes_data if v.get('pid') is not None)
-            
-            # Assign groups based on voting patterns
-            # In a real implementation this would be based on PCA or similar clustering
-            
-            # Count agree/disagree patterns
-            voting_patterns = defaultdict(lambda: {'agree': 0, 'disagree': 0, 'pass': 0})
-            
-            for vote in votes_data:
-                pid = vote.get('pid')
-                vote_val = vote.get('vote')
-                if pid is not None and vote_val is not None:
-                    if vote_val == 1:
-                        voting_patterns[pid]['agree'] += 1
-                    elif vote_val == -1:
-                        voting_patterns[pid]['disagree'] += 1
-                    elif vote_val == 0:
-                        voting_patterns[pid]['pass'] += 1
-            
-            # Simplistic grouping based on voting patterns
-            # This is a placeholder - not a real clustering algorithm
-            for pid in participant_ids:
-                pattern = voting_patterns[pid]
-                total_votes = pattern['agree'] + pattern['disagree'] + pattern['pass']
-                if total_votes > 0:
-                    agree_ratio = pattern['agree'] / max(1, pattern['agree'] + pattern['disagree'])
-                    
-                    # Simple heuristic to assign groups - just for demonstration
-                    if agree_ratio > 0.7:
-                        group_assignments[str(pid)] = 0
-                    elif agree_ratio < 0.3:
-                        group_assignments[str(pid)] = 1
-                    else:
-                        group_assignments[str(pid)] = 2
-            
-            # Create simplified math_main structure
-            math_data = {
-                'group_assignments': group_assignments,
-                'n_groups': 3  # We created a max of 3 groups above
-            }
-            
-            logger.info(f"Generated simplified group assignments for {len(group_assignments)} participants")
-            
-            return math_data
+            logger.warning(f"No usable math data found in math_main for conversation {zid}; no groups available")
+            return {'group_assignments': {}, 'n_groups': 0}
             
         except Exception as e:
             logger.error(f"Error getting math data for conversation {zid}: {str(e)}")
@@ -311,7 +271,7 @@ class GroupDataProcessor:
                         
             # If no group assignments found anywhere, generate them
             if not group_assignments:
-                logger.warning("No group assignments found in math data, generating synthetic groups based on voting patterns")
+                logger.warning("No group assignments found in math data, generating groups based on voting patterns")
                     
             logger.debug(f"Found {len(group_assignments)} group assignments in math data")
             

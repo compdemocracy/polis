@@ -34,6 +34,17 @@ logger = logging.getLogger(__name__)
 _MS_PER_DAY = 24 * 60 * 60 * 1000
 
 
+class PoolDrainTimeout(TimeoutError):
+    """``poll_once``'s worker pool did not drain within its join bound.
+
+    A ``TimeoutError`` subclass so existing ``except TimeoutError`` / ``except
+    Exception`` handlers (the daemon loops, the ``--once`` CLI) keep matching,
+    but distinguishable by type from the socket and database timeouts that
+    share the builtin — ``TimeoutError`` is an ``OSError``, so catching the
+    builtin alone would also swallow those.
+    """
+
+
 # --------------------------------------------------------------------------- #
 # Pure poll-loop helpers (unit-tested in isolation)
 # --------------------------------------------------------------------------- #
@@ -269,19 +280,32 @@ class PollerConfig:
 class MathPollerService:
     """Owns the poll loops, the in-memory conv cache, the worker pool + writer."""
 
-    def __init__(self, pg_client: Any, config: PollerConfig):
+    def __init__(self, pg_client: Any, config: PollerConfig, publisher: Any = None) -> None:
         self._pg = pg_client
         self.config = config
-        self._writer = MathWriter(pg_client)
+        self._writer = MathWriter(pg_client, publisher=publisher)
+        self._bridge_stage = publisher.stage if publisher is not None else lambda stage: None
+        self._coordinator_rebuild = publisher is not None
         # LRU order: most-recently-touched zid last, so popitem(last=False) evicts
         # the coldest (see _remember).
         self._convs: "OrderedDict[int, Conversation]" = OrderedDict()
+        # One lock covers every cache access, including compound get/touch and
+        # store/evict operations. Never hold it across engine work or DB I/O:
+        # the pool serializes each zid, and a worker's local reference survives
+        # eviction until it publishes and remembers the updated conversation.
+        self._convs_lock = threading.Lock()
         self._retry_counts: Dict[int, int] = {}
         self._pool: Optional[ConversationWorkerPool] = None
         self._threads: List[threading.Thread] = []
         self._stop = threading.Event()
         self._vote_wm: Optional[int] = None
         self._mod_wm: Optional[int] = None
+        # Set ONLY on a scan that completed without raising. Until then the
+        # parked-zid reconciler retries it every cycle (see _reconcile_once);
+        # the lock serialises start()/poll_once()/reconciler so a retry cannot
+        # run concurrently with the scan it is retrying and double-submit.
+        self._startup_repair_done = False
+        self._startup_repair_lock = threading.Lock()
 
     @property
     def _parked(self) -> set:
@@ -312,6 +336,23 @@ class MathPollerService:
 
     def start(self) -> None:
         self._ensure_runtime()
+        # A boot-time database blip must not abort startup. Before the startup
+        # scan existed, start() touched no database at all and a blip was
+        # absorbed by the poll loops' own try/except; keep that property. The
+        # scan leaves _startup_repair_done False on failure, and the parked-zid
+        # reconciler thread started just below retries it every cycle until it
+        # succeeds — swallowing the error here must NOT strand dormant mixed
+        # generations for the process lifetime, and no vote/moderation traffic
+        # is required to trigger the retry. poll_once() deliberately still
+        # propagates — the --once contract and
+        # test_startup_scan_failure_is_retried depend on it.
+        try:
+            self._repair_incomplete_snapshots()
+        except Exception:
+            logger.exception(
+                "Startup repair scan failed; continuing without it "
+                "(the next poll cycle retries)"
+            )
         self._stop.clear()
         self._threads = [
             threading.Thread(target=self._vote_loop, name="vote-poller", daemon=True),
@@ -354,15 +395,74 @@ class MathPollerService:
     def poll_once(self) -> None:
         """Run one vote + one moderation cycle, blocking until processed.
 
-        Used by ``--once`` and the integration test.
+        Used by ``--once`` and the integration test. Raises
+        ``PoolDrainTimeout`` (a ``TimeoutError``) if the worker pool has not
+        drained within 120 seconds. A timeout does not cancel in-flight work;
+        callers must not treat it as completion.
         """
         self._ensure_runtime()
+        self._repair_incomplete_snapshots()
         self._poll_votes_once()
         self._poll_moderation_once()
         # Recover any zids parked in earlier cycles even if they got no new votes.
         self._reconcile_once()
         assert self._pool is not None
-        self._pool.join(timeout=120.0)
+        if not self._pool.join(timeout=120.0):
+            raise PoolDrainTimeout(
+                "Poll cycle worker pool did not drain within 120 seconds"
+            )
+
+    def _repair_incomplete_snapshots(self) -> None:
+        """Schedule legacy partial generations even outside the boot lookback.
+
+        IDEMPOTENT and re-entrant-safe: it is a no-op once it has completed
+        successfully, and the flag is set ONLY after the whole scan+submit pass
+        returns. A scan failure must propagate, leaving the scan pending; the
+        caller decides. ``start()`` catches it so a boot-time blip cannot abort
+        startup, and ``_reconcile_once`` — the one daemon path that runs
+        without any vote/moderation traffic — retries it every cycle until it
+        succeeds. ``poll_once`` still propagates. The lock serialises those
+        three entry points so a retry cannot overlap the scan it is retrying
+        and submit each zid twice. Once submitted, ordinary worker retry/park
+        reconciliation owns recovery, including a failed rebuild with no votes.
+
+        TODO(review E4 - startup REBUILD burst cap): this submits an UNBOUNDED
+        number of REBUILDs (each a full vote-history recompute), logs one
+        WARNING per zid, and runs before the poll threads start. The scan is
+        three seq scans (math_env is unindexed on all three tables) and the
+        burst on a large production namespace has not been benchmarked. Wants a
+        cap, a summary count log instead of per-zid warnings, an env kill
+        switch, and a benchmark. Note R10: poll_once now raises when its
+        join(timeout=120) bound is exhausted, so a startup burst that outruns
+        that bound fails `--once` rather than reporting success with work
+        still pending.
+
+        TODO(review E5 - rebuild-thrash metering): _load_or_init's mismatch
+        path discards warm state and re-reads full vote history every time it
+        fires, unthrottled. A second writer (Clojure during dual-run) holding
+        one table at a different tick would make that zid full-rebuild every
+        cycle. Wants a counter/metric so it is visible.
+
+        Both are deliberate follow-ups, not part of this change.
+        """
+        if self._startup_repair_done:
+            return
+        assert self._pool is not None
+        with self._startup_repair_lock:
+            if self._startup_repair_done:  # won by another entry point
+                return
+            for zid in self._pg.find_incomplete_math_snapshots():
+                if should_process_zid(
+                    zid, self.config.allowlist, self.config.blocklist,
+                    self.config.shard_index, self.config.shard_count,
+                ):
+                    logger.warning(
+                        "Startup repair: incomplete math snapshot for zid=%s "
+                        "math_env=%s (missing rows or mismatched math_tick); "
+                        "scheduling full rebuild", zid, self.config.math_env,
+                    )
+                    self._pool.submit(zid, REBUILD, [])
+            self._startup_repair_done = True
 
     def _vote_loop(self) -> None:
         while not self._stop.is_set():
@@ -400,8 +500,33 @@ class MathPollerService:
         unparks each parked zid (which invalidates its cache) and enqueues a
         REBUILD so the worker reloads the full vote history from Postgres and
         re-persists — reprocessing the interval that was skipped when the global
-        watermark advanced past the failure."""
+        watermark advanced past the failure.
+
+        It ALSO retries the startup repair scan until that has completed
+        successfully once. This is the only daemon path that runs without new
+        votes or moderation, so it is the only place a dormant zid with mixed
+        math_tick generations can be rediscovered after a boot-time DB error;
+        without it, swallowing that error in start() would strand the zid for
+        the process lifetime (start() runs no other scan, and the vote/mod
+        loops never look outside the watermark lookback). The retry is bounded
+        by the reconciler's own cadence, so a persistently failing scan retries
+        once per interval rather than hot-looping."""
         assert self._pool is not None
+        if not self._startup_repair_done:
+            logger.warning(
+                "Startup repair scan still pending; retrying it from the "
+                "parked-zid reconciler"
+            )
+            # Swallowed like the parked-zid work below: a still-broken database
+            # must not kill the reconciler thread, and the flag stays False so
+            # the next cycle retries again.
+            try:
+                self._repair_incomplete_snapshots()
+            except Exception:
+                logger.exception(
+                    "Startup repair scan retry failed; the next reconcile "
+                    "cycle retries"
+                )
         for zid in sorted(self._pool.parked_zids()):
             logger.info("Reconciler recovering parked zid=%s (M1)", zid)
             self._unpark(zid)  # clears park + invalidates cache
@@ -423,7 +548,8 @@ class MathPollerService:
         if self._pool is None or not self._pool.is_parked(zid):
             return
         self._retry_counts.pop(zid, None)
-        self._convs.pop(zid, None)  # invalidate → next touch rebuilds full history
+        with self._convs_lock:
+            self._convs.pop(zid, None)  # next touch rebuilds full history
         self._pool.unpark(zid)  # pool owns parked truth (P-022 R04)
         logger.info(
             "Un-parked zid=%s: invalidated cache; next batch rebuilds full "
@@ -481,22 +607,24 @@ class MathPollerService:
         when conv_cache_cap (>0) is exceeded. An evicted conv is reloaded from
         math_main and fully rebuilt on its next touch (= Clojure-restart
         semantics), so eviction is lossless — just a memory/latency trade."""
-        self._convs[zid] = conv
-        self._convs.move_to_end(zid)
-        cap = self.config.conv_cache_cap
-        if cap and len(self._convs) > cap:
-            while len(self._convs) > cap:
-                evicted_zid, _ = self._convs.popitem(last=False)  # coldest
-                logger.info(
-                    "LRU-evicting cold conversation zid=%s (cache cap=%d); it will "
-                    "reload from math_main + rebuild on next touch",
-                    evicted_zid, cap,
-                )
+        with self._convs_lock:
+            self._convs[zid] = conv
+            self._convs.move_to_end(zid)
+            cap = self.config.conv_cache_cap
+            if cap and len(self._convs) > cap:
+                while len(self._convs) > cap:
+                    evicted_zid, _ = self._convs.popitem(last=False)  # coldest
+                    logger.info(
+                        "LRU-evicting cold conversation zid=%s (cache cap=%d); it will "
+                        "reload from math_main + rebuild on next touch",
+                        evicted_zid, cap,
+                    )
 
     def _run_engine(self, zid: int, coalesced: CoalescedBatch) -> None:
-        conv = self._convs.get(zid)
-        if conv is not None:
-            self._convs.move_to_end(zid)  # LRU touch
+        with self._convs_lock:
+            conv = self._convs.get(zid)
+            if conv is not None:
+                self._convs.move_to_end(zid)  # LRU touch
 
         # M1 (P-019): an explicit rebuild request (parked-zid reconciler) forces a
         # full-history reload even when a cached conv exists — the cached state may
@@ -571,8 +699,17 @@ class MathPollerService:
             logger.exception("load_math_main failed for zid=%s; cold start", zid)
             row = None
 
+        if row and row.get("snapshot_complete") is False:
+            logger.warning(
+                "load-or-init: incomplete math snapshot for zid=%s math_env=%s "
+                "(missing rows or mismatched math_tick); discarding persisted "
+                "state and rebuilding full history", zid, self.config.math_env,
+            )
+            row = None
+
         if row and row.get("data"):
             try:
+                self._bridge_stage("before_restore")
                 conv = Conversation.from_dict(row["data"])
                 # Prefer the persisted last_vote_timestamp column over the blob's
                 # last_updated (which a prior wall-clock write may have poisoned).
@@ -623,7 +760,13 @@ class MathPollerService:
             )
 
         mods = self._pg.poll_moderation(zid, None)
+        if self._coordinator_rebuild:
+            # Snapshot replacement must carry un-moderation across a restore.
+            for key in ("mod_out_tids", "mod_in_tids", "meta_tids", "mod_out_ptpts"):
+                setattr(conv, key, set())
         conv = conv.update_moderation(mods, recompute=False)
+        if self._coordinator_rebuild and row and row.get("data"):
+            self._bridge_stage("after_restore")
 
         conv = conv.recompute()
         return conv
@@ -632,7 +775,9 @@ class MathPollerService:
     def _on_engine_error(
         self, zid: int, coalesced: CoalescedBatch, error: BaseException
     ) -> None:
-        dump_error(zid, self._convs.get(zid), coalesced, error, self.config.dump_dir)
+        with self._convs_lock:
+            conv = self._convs.get(zid)
+        dump_error(zid, conv, coalesced, error, self.config.dump_dir)
         attempts = self._retry_counts.get(zid, 0) + 1
         self._retry_counts[zid] = attempts
         if attempts <= self.config.retry_cap:

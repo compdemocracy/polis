@@ -102,6 +102,15 @@ async function handle_PUT_users(
     fields.hname = hname;
   }
 
+  // Both `email` and `hname` are want() parameters, so a request may carry
+  // neither. sql_users.update({}) renders "UPDATE users SET  WHERE uid = …",
+  // which Postgres rejects with a 42601 syntax error. Refuse the request
+  // before any SQL is built rather than sending malformed SQL to the database.
+  if (_.isEmpty(fields)) {
+    failJson(res, 400, "polis_err_param_missing_user_fields");
+    return;
+  }
+
   try {
     const query = sql_users.update(fields).where(sql_users.uid.equals(uid));
     const result = await pg.queryP(query.toString(), []);

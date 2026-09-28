@@ -184,7 +184,7 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
       
       // Get the consensus values only for qualifying comments
       const relevantConsensus = {};
-      const consensusData = math["group-consensus-normalized"] || math["group-aware-consensus"];
+      const consensusData = math["group-consensus-normalized"] || math["group-aware-consensus"] || {};
       qualifyingTids.forEach(tid => {
         if (consensusData[tid] !== undefined) {
           relevantConsensus[tid] = consensusData[tid];
@@ -752,7 +752,7 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
           Comments with high consensus and high engagement represent areas of strong agreement or disagreement across the conversation.
         </p>
         <div style={{ marginTop: 30, marginBottom: 40 }}>
-          {topicComments.length > 0 && math && math["group-aware-consensus"] && topicStats ? (
+          {topicComments.length > 0 && math && Object.keys(math["group-aware-consensus"] || {}).length > 0 && topicStats ? (
             <AllCommentsScatterplot
               comments={topicComments}
               math={math}

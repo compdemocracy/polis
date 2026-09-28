@@ -1,0 +1,608 @@
+/**
+ * P-022 §E — disposable EC2 worker for the **public battery** recovery matrix and
+ * the **public-fixture** replay battery.
+ *
+ * ## Scope, after the second reviewer's #2715 review (round 2)
+ *
+ * This is NOT private certification and must never be described as one. Round 1
+ * attached the private fixture-bundle role to a box that GitHub could open a
+ * root shell on, which is not a data boundary at all (review E2). Round 2
+ * removes the private side outright rather than pretending an instance boundary
+ * contains root code:
+ *
+ *   - no fixture-bundle read anywhere in this construct,
+ *   - no evidence-bucket write anywhere in this construct,
+ *   - nothing prod-derived is ever staged on the worker,
+ *   - the workflow's verdict is named for what it is (`public battery`), so it can
+ *     never be mistaken for a certificate.
+ *
+ * Private certification (baked trusted AMI, cloud-init disabled, isolated
+ * account/VPC, endpoint-only egress, autonomous worker publishing a signed
+ * fixed-schema summary that GitHub reads but cannot influence) remains
+ * UNIMPLEMENTED. See cost-reduction/04-plans/P-022-E-ci-spec.md and the round-2
+ * section of P-022-E-implementation-notes.md.
+ *
+ * ## Gate
+ *
+ *     npx cdk synth                       # untouched stack; nothing here exists
+ *     npx cdk synth -c enableCiEc2=true   # adds the resources below
+ *
+ * ## What it provisions
+ *
+ *   1. `polis-certify-github-oidc` — assumable only by this repository through
+ *      the GitHub **environment** subject (no branch subject, no fork/PR
+ *      subject). It may launch one pinned template at one of a pinned set of
+ *      instance types, tag that launch, Describe, terminate tagged CI boxes,
+ *      and SendCommand `AWS-RunShellScript` at tagged CI boxes. The workflow
+ *      narrows all of that to the single instance it launched with an inline
+ *      session policy at re-assume time.
+ *   2. `polis-certify-worker` — the instance role. An explicit minimal SSM
+ *      agent policy, NOT `AmazonSSMManagedInstanceCore` (which also grants
+ *      `ssm:GetParameter*` on `*` — review E6). Only instance-owned public results writes; no secrets or KMS.
+ *   3. `polis-certify-ci` launch template — Graviton, IMDSv2 required, no
+ *      public IP, no inbound rules, encrypted gp3 root, shutdown-terminates,
+ *      and a hard deadline armed as the first user-data action.
+ *   4. Operator reconciliation and termination for a dead boot or wedged kernel.
+ *      The on-box timer cannot cover those failures; see docs/ci-ec2.md.
+ *      No Lambda or scheduled sweeper is provisioned (BOARD [1007]).
+ */
+import * as cdk from 'aws-cdk-lib';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import { Construct } from 'constructs';
+
+/** Tag key/value every disposable CI instance carries. It is the predicate for
+ *  the operator runbook and for the terminate/SendCommand
+ *  conditions. Nothing else in the account uses it. */
+export const CI_TAG_KEY = 'polis:ci';
+export const CI_TAG_VALUE = 'disposable';
+/** Launch-time tag the user-data reads (over IMDSv2) to learn which ref to
+ *  check out. Untrusted input; validated in bash before git sees it. */
+export const CI_REF_TAG_KEY = 'polis:ci-ref';
+/** Launch-time tag carrying `<run_id>-<attempt>` — run ownership for the
+ *  teardown's lost-ID reconciliation and operator diagnostics. */
+export const CI_RUN_TAG_KEY = 'polis:ci-run';
+
+/** Campaign ceiling, including bootstrap and teardown. Context may shorten it. */
+export const CI_CAMPAIGN_CEILING_MINUTES = 480;
+
+/** SHA-256 of upstream release bytes, reproduced as described in docs/ci-ec2.md. */
+export const CI_BOOTSTRAP_PINS = {
+  uv: {
+    url: 'https://github.com/astral-sh/uv/releases/download/0.12.12/uv-installer.sh',
+    sha256: 'f4f45f7f5f213d96efc1978b8772b2c037d495d9161ffa7468f8167c6b031033',
+  },
+  clojure: {
+    url: 'https://download.clojure.org/install/linux-install-1.12.6.1673.sh',
+    sha256: '5ae63b082ed33bf4c29bf1a8317c5c15249d1bc753676b2f5177fb3804ad6f77',
+  },
+  compose: {
+    version: 'v2.40.0',
+    aarch64: 'fa99ca94c96c8cae4024493581a20049764ce723558991d0d1526c1c7b791a79',
+    x86_64: 'bd5835ccbbf06a42dcb5294c65e34a4634b34447afb9ed6fc7adf18a000e0f99',
+  },
+} as const;
+
+export interface CertificationCiEc2Props {
+  /** VPC for the worker. A PRIVATE_WITH_EGRESS subnet is used. */
+  readonly vpc: ec2.IVpc;
+  /** `owner/repo` allowed to assume the OIDC role. */
+  readonly githubRepo: string;
+  /**
+   * GitHub Actions **environment** whose subject is trusted. The workflow job
+   * declares the same name. Round 1 trusted branch and `pull_request` subjects
+   * while the job declared an environment, so the role could not actually be
+   * assumed by its own workflow and could have been assumed by a fork-visible
+   * subject from some other one (review E3).
+   */
+  readonly githubEnvironment: string;
+  /**
+   * Exact `ref` claim values admitted, e.g. `refs/heads/edge`.
+   *
+   * Round 3 bound `job_workflow_ref` and `event_name` instead. Both were wrong
+   * (review R3-F1): `job_workflow_ref` is the claim for a job that CALLS a
+   * reusable workflow, and this job runs directly on a runner, so the token
+   * carries `workflow_ref` and the StringEquals could never match — the trust
+   * policy could not admit the workflow it ships with. `event_name` is emitted
+   * by GitHub but is not in AWS's supported context-key list for this provider,
+   * so it is not a gate STS will evaluate.
+   *
+   * `ref` IS supported, and it is what excludes pull-request jobs: a PR job's
+   * ref is `refs/pull/<n>/merge`, never `refs/heads/edge`. Combined with the
+   * environment-form `sub` and the environment's own branch protection, that is
+   * the admission boundary.
+   */
+  readonly githubRefs: string[];
+  /** Exact `repository` claim value; belt and braces with the subject. */
+  readonly githubRepositoryClaim?: string;
+  /** Default instance type baked into the template. */
+  readonly instanceType: ec2.InstanceType;
+  /** Must match `instanceType`'s architecture. */
+  readonly cpuType: ec2.AmazonLinuxCpuType;
+  /**
+   * Every instance type the OIDC role may launch. Enforced in IAM through
+   * `ec2:InstanceType`, so a dispatch input cannot select arbitrary spend
+   * (review E6 / divergence 4).
+   */
+  readonly allowedInstanceTypes: string[];
+  /** Root volume size, GiB. */
+  readonly volumeSizeGiB: number;
+  /** Hard deadline, minutes: `shutdown -h +N` + shutdown-behavior=terminate. */
+  readonly shutdownMinutes: number;
+}
+
+export class CertificationCiEc2 extends Construct {
+  public readonly githubRole: iam.Role;
+  public readonly workerRole: iam.Role;
+  public readonly launchTemplate: ec2.LaunchTemplate;
+
+  constructor(scope: Construct, id: string, props: CertificationCiEc2Props) {
+    super(scope, id);
+
+    if (!Number.isSafeInteger(props.shutdownMinutes) ||
+        props.shutdownMinutes < 1 || props.shutdownMinutes > CI_CAMPAIGN_CEILING_MINUTES) {
+      throw new Error(`ciEc2ShutdownMinutes must be an integer from 1 to ${CI_CAMPAIGN_CEILING_MINUTES}`);
+    }
+    if (props.allowedInstanceTypes.length === 0) {
+      throw new Error('ciEc2AllowedInstanceTypes must not be empty');
+    }
+    // An empty list would render as an undefined condition value, which CDK
+    // silently drops — the binding would vanish rather than fail. Refuse it.
+    if (!props.githubRefs?.length) {
+      throw new Error('ciEc2Refs must not be empty: the environment subject does not '
+        + 'exclude pull-request jobs, and the ref claim is what does');
+    }
+    for (const ref of props.githubRefs) {
+      if (!ref.startsWith('refs/heads/')) {
+        throw new Error(`ciEc2Refs entries must be full branch refs, got ${ref}`);
+      }
+    }
+
+    const stack = cdk.Stack.of(this);
+    const { account, region, partition } = stack;
+    const instanceArnPattern = `arn:${partition}:ec2:${region}:${account}:instance/*`;
+
+    // ---------------------------------------------------------------- worker
+    // Explicitly NOT AmazonSSMManagedInstanceCore. That managed policy grants
+    // ssm:GetParameter and ssm:GetParameters on "*" alongside the agent
+    // actions, so "SSM only, no secrets" would have been false: any plaintext
+    // Parameter Store value in the account would have been readable from the
+    // box (review E6). These are the agent's own actions and nothing else.
+    this.workerRole = new iam.Role(this, 'WorkerRole', {
+      roleName: 'polis-certify-worker',
+      description: 'P-022 E public battery CI worker: SSM agent and instance-owned public results',
+      assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
+    });
+    this.workerRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'SsmAgentRegistration',
+      actions: [
+        'ssm:UpdateInstanceInformation',
+        'ssm:ListAssociations',
+        'ssm:ListInstanceAssociations',
+        'ssm:DescribeAssociation',
+      ],
+      // These four have no resource types in the service authorization
+      // reference, so `*` is the only expressible scope.
+      resources: ['*'],
+    }));
+    // GetDocument and DescribeDocument DO take document ARNs, and GetDocument
+    // returns document CONTENT — round 2's comment claiming otherwise was
+    // wrong (review R2-F5). Scoped to the AWS-owned namespace (no account id in
+    // the ARN), which is what the agent needs; any private document this
+    // account owns is now out of reach from the box.
+    this.workerRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'ReadAwsOwnedDocumentsOnly',
+      actions: ['ssm:GetDocument', 'ssm:DescribeDocument'],
+      resources: [`arn:${partition}:ssm:${region}::document/AWS-*`],
+    }));
+    this.workerRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'SsmAgentChannels',
+      actions: [
+        'ssmmessages:CreateControlChannel',
+        'ssmmessages:CreateDataChannel',
+        'ssmmessages:OpenControlChannel',
+        'ssmmessages:OpenDataChannel',
+        'ec2messages:AcknowledgeMessage',
+        'ec2messages:DeleteMessage',
+        'ec2messages:FailMessage',
+        'ec2messages:GetEndpoint',
+        'ec2messages:GetMessages',
+        'ec2messages:SendReply',
+      ],
+      resources: ['*'],
+    }));
+
+    const instanceProfile = new iam.InstanceProfile(this, 'WorkerInstanceProfile', {
+      instanceProfileName: 'polis-certify-worker',
+      role: this.workerRole,
+    });
+
+    // ------------------------------------------------------------------- net
+    const securityGroup = new ec2.SecurityGroup(this, 'WorkerSg', {
+      vpc: props.vpc,
+      // Frozen deployed description: changing it replaces the security group.
+      description: 'P-022 E public-fixture CI worker: no inbound, egress only',
+      allowAllOutbound: true,
+    });
+
+    // ------------------------------------------------------- launch template
+    this.launchTemplate = new ec2.LaunchTemplate(this, 'LaunchTemplate', {
+      launchTemplateName: 'polis-certify-ci',
+      versionDescription: 'P-022 E public battery recovery + public-fixture battery worker',
+      machineImage: new ec2.AmazonLinuxImage({
+        generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2023,
+        cpuType: props.cpuType,
+      }),
+      instanceType: props.instanceType,
+      instanceProfile,
+      userData: buildUserData(props),
+      instanceInitiatedShutdownBehavior: ec2.InstanceInitiatedShutdownBehavior.TERMINATE,
+      requireImdsv2: true,
+      httpTokens: ec2.LaunchTemplateHttpTokens.REQUIRED,
+      httpPutResponseHopLimit: 1,
+      instanceMetadataTags: true,
+      detailedMonitoring: false,
+      associatePublicIpAddress: false,
+      disableApiTermination: false,
+      blockDevices: [{
+        deviceName: '/dev/xvda',
+        volume: ec2.BlockDeviceVolume.ebs(props.volumeSizeGiB, {
+          volumeType: ec2.EbsDeviceVolumeType.GP3,
+          encrypted: true,
+          deleteOnTermination: true,
+        }),
+      }],
+    });
+
+    const subnetId = props.vpc.selectSubnets({
+      subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+    }).subnetIds[0];
+    const cfnLt = this.launchTemplate.node.defaultChild as ec2.CfnLaunchTemplate;
+    cfnLt.addPropertyOverride('LaunchTemplateData.NetworkInterfaces', [{
+      DeviceIndex: 0,
+      SubnetId: subnetId,
+      Groups: [securityGroup.securityGroupId],
+      AssociatePublicIpAddress: false,
+      DeleteOnTermination: true,
+    }]);
+    cfnLt.addPropertyDeletionOverride('LaunchTemplateData.SecurityGroupIds');
+    cfnLt.addPropertyOverride('LaunchTemplateData.TagSpecifications', [
+      { ResourceType: 'instance', Tags: [{ Key: CI_TAG_KEY, Value: CI_TAG_VALUE }] },
+      { ResourceType: 'volume', Tags: [{ Key: CI_TAG_KEY, Value: CI_TAG_VALUE }] },
+    ]);
+
+    const launchTemplateArn = `arn:${partition}:ec2:${region}:${account}:launch-template/${this.launchTemplate.launchTemplateId}`;
+    const templateCondition = {
+      ArnEquals: { 'ec2:LaunchTemplate': launchTemplateArn },
+      Bool: { 'ec2:IsLaunchTemplateResource': 'true' },
+    };
+
+    // ----------------------------------------------------------- github role
+    // The account's GitHub OIDC provider already exists (the deploy workflows
+    // authenticate through it); reference it, do not create a second one.
+    const oidcProviderArn = `arn:${partition}:iam::${account}:oidc-provider/token.actions.githubusercontent.com`;
+
+    this.githubRole = new iam.Role(this, 'GithubOidcRole', {
+      roleName: 'polis-certify-github-oidc',
+      description: 'P-022 E: launches, drives and destroys the public battery CI worker',
+      maxSessionDuration: cdk.Duration.hours(6),
+      // ENVIRONMENT subject, exactly, and nothing else. No branch subject: an
+      // environment job's token carries the environment form, so a branch
+      // subject would not have matched anyway. No `pull_request`: fork-authored
+      // code must never be able to request this role from any workflow in the
+      // repository, whether or not THIS file has a pull_request trigger.
+      assumedBy: new iam.WebIdentityPrincipal(oidcProviderArn, {
+        StringEquals: {
+          'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
+          'token.actions.githubusercontent.com:sub':
+            `repo:${props.githubRepo}:environment:${props.githubEnvironment}`,
+          // The environment-form subject does not carry the ref, and a job
+          // referencing an environment gets that subject on a pull request too.
+          // `ref` is the supported claim that separates them. StringEquals
+          // against a list is an OR, i.e. an explicit allowlist.
+          'token.actions.githubusercontent.com:ref': props.githubRefs,
+          'token.actions.githubusercontent.com:repository':
+            props.githubRepositoryClaim ?? props.githubRepo,
+        },
+      }),
+    });
+
+    this.githubRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'LaunchApprovedInstance',
+      actions: ['ec2:RunInstances'],
+      resources: [instanceArnPattern],
+      conditions: {
+        ArnEquals: {
+          'ec2:LaunchTemplate': launchTemplateArn,
+          'ec2:InstanceProfile': instanceProfile.instanceProfileArn,
+        },
+        Bool: { 'ec2:IsLaunchTemplateResource': 'true' },
+        StringEquals: {
+          'ec2:MetadataHttpTokens': 'required',
+          [`aws:RequestTag/${CI_TAG_KEY}`]: CI_TAG_VALUE,
+          // Pinned in IAM, not merely defaulted in the template: a dispatch
+          // input must not be able to select an arbitrary hourly rate.
+          'ec2:InstanceType': props.allowedInstanceTypes,
+        },
+        // Every launch must carry the run tag, so the teardown's lost-ID sweep
+        // and operator reconciliation always have an owner to name.
+        'ForAllValues:StringEquals': {
+          'aws:TagKeys': [CI_TAG_KEY, CI_REF_TAG_KEY, CI_RUN_TAG_KEY],
+        },
+        StringLike: { [`aws:RequestTag/${CI_RUN_TAG_KEY}`]: '?*' },
+      },
+    }));
+
+    this.githubRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'ApprovedLaunchResources',
+      actions: ['ec2:RunInstances'],
+      resources: [
+        `arn:${partition}:ec2:${region}::image/*`,
+        `arn:${partition}:ec2:${region}:${account}:subnet/${subnetId}`,
+        `arn:${partition}:ec2:${region}:${account}:security-group/${securityGroup.securityGroupId}`,
+        `arn:${partition}:ec2:${region}:${account}:network-interface/*`,
+        `arn:${partition}:ec2:${region}:${account}:volume/*`,
+        `arn:${partition}:ec2:${region}:${account}:launch-template/${this.launchTemplate.launchTemplateId}`,
+      ],
+      conditions: templateCondition,
+    }));
+
+    // Two statements, not one. Round 2 required `aws:RequestTag/polis:ci-run`
+    // for CreateTags on instances, volumes AND network interfaces, but the
+    // launch template tags the root volume with `polis:ci` only — so the volume
+    // tagging half of the very launch this policy authorises would have been
+    // denied (review R2-F1). Run ownership is required where it means
+    // something, on the instance; volumes and ENIs may carry the same allowed
+    // keys without being forced to prove ownership. The workflow sends the run
+    // tag on volumes too, so in practice they carry it — but the authorisation
+    // no longer depends on a tag the template alone cannot supply.
+    this.githubRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'TagInstanceAtLaunchWithRunOwnership',
+      actions: ['ec2:CreateTags'],
+      resources: [instanceArnPattern],
+      conditions: {
+        StringEquals: {
+          'ec2:CreateAction': 'RunInstances',
+          [`aws:RequestTag/${CI_TAG_KEY}`]: CI_TAG_VALUE,
+        },
+        StringLike: { [`aws:RequestTag/${CI_RUN_TAG_KEY}`]: '?*' },
+        'ForAllValues:StringEquals': {
+          'aws:TagKeys': [CI_TAG_KEY, CI_REF_TAG_KEY, CI_RUN_TAG_KEY],
+        },
+      },
+    }));
+    this.githubRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'TagLaunchVolumesAndInterfaces',
+      actions: ['ec2:CreateTags'],
+      resources: [
+        `arn:${partition}:ec2:${region}:${account}:volume/*`,
+        `arn:${partition}:ec2:${region}:${account}:network-interface/*`,
+      ],
+      conditions: {
+        StringEquals: {
+          'ec2:CreateAction': 'RunInstances',
+          [`aws:RequestTag/${CI_TAG_KEY}`]: CI_TAG_VALUE,
+        },
+        'ForAllValues:StringEquals': {
+          'aws:TagKeys': [CI_TAG_KEY, CI_REF_TAG_KEY, CI_RUN_TAG_KEY],
+        },
+      },
+    }));
+
+    this.githubRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'PassOnlyWorkerRole',
+      actions: ['iam:PassRole'],
+      resources: [this.workerRole.roleArn],
+      conditions: { StringEquals: { 'iam:PassedToService': 'ec2.amazonaws.com' } },
+    }));
+
+    // EC2 Describe* has no resource-level authorization (confirmed against the
+    // service authorization reference); it is read-only metadata.
+    this.githubRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'ObserveInstances',
+      actions: ['ec2:DescribeInstances', 'ec2:DescribeInstanceStatus'],
+      resources: ['*'],
+    }));
+
+    // `ec2:ResourceTag` IS a supported condition key for ec2:TerminateInstances
+    // on the instance resource. The workflow narrows this to the single
+    // instance it launched with an inline session policy; the tag condition is
+    // the floor, for the lost-ID sweep and the operator runbook.
+    this.githubRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'TerminateDisposableCiInstances',
+      actions: ['ec2:TerminateInstances'],
+      resources: [instanceArnPattern],
+      conditions: { StringEquals: { [`ec2:ResourceTag/${CI_TAG_KEY}`]: CI_TAG_VALUE } },
+    }));
+
+    // SendCommand authorizes against the document AND the target, so two
+    // statements. Round 1 used `ec2:ResourceTag/...` here, which the SSM
+    // service authorization reference does not list for this action — the
+    // instance resource type supports `aws:ResourceTag/${TagKey}` and
+    // `ssm:resourceTag/${TagKey}` only, so the intended target would have been
+    // denied (review E6). Corrected to `ssm:resourceTag/`.
+    this.githubRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'RunShellScriptDocumentOnly',
+      actions: ['ssm:SendCommand'],
+      resources: [`arn:${partition}:ssm:${region}::document/AWS-RunShellScript`],
+    }));
+    this.githubRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'SendCommandToDisposableInstancesOnly',
+      actions: ['ssm:SendCommand'],
+      resources: [instanceArnPattern],
+      conditions: { StringEquals: { [`ssm:resourceTag/${CI_TAG_KEY}`]: CI_TAG_VALUE } },
+    }));
+    this.githubRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'ObserveAgentRegistration',
+      actions: ['ssm:DescribeInstanceInformation'], resources: ['*'],
+    }));
+    const results = new s3.Bucket(this, 'PublicResults', {
+      encryption: s3.BucketEncryption.S3_MANAGED, enforceSSL: true,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
+      lifecycleRules: [{expiration: cdk.Duration.days(7)}],
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+    this.workerRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'WriteOwnPublicResults', actions: ['s3:PutObject'],
+      resources: [results.arnForObjects('campaigns/${ec2:SourceInstanceARN}/*')],
+      conditions: {StringEquals: {'s3:if-none-match': '*', 's3:x-amz-server-side-encryption': 'AES256'}},
+    }));
+    this.githubRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'ReadPublicCampaignResults', actions: ['s3:GetObject'],
+      resources: [results.arnForObjects('campaigns/*')],
+    }));
+    this.githubRole.addToPolicy(new iam.PolicyStatement({
+      sid: 'ListPublicCampaignResults', actions: ['s3:ListBucket'], resources: [results.bucketArn],
+      conditions: {StringLike: {'s3:prefix': 'campaigns/*'}},
+    }));
+    new cdk.CfnOutput(this, 'CertifyResultsBucket', {
+      value: results.bucketName, description: 'Set CERTIFY_RESULTS_BUCKET; public-fixture results only',
+    });
+
+    // --------------------------------------------------------------- outputs
+    new cdk.CfnOutput(this, 'CertifyOidcRoleArn', {
+      value: this.githubRole.roleArn,
+      description: 'Set as the CERTIFY_OIDC_ROLE_ARN repository variable',
+    });
+    new cdk.CfnOutput(this, 'CertifyLaunchTemplateId', {
+      value: this.launchTemplate.launchTemplateId!,
+      description: 'Set as the CERTIFY_LAUNCH_TEMPLATE_ID repository variable',
+    });
+    new cdk.CfnOutput(this, 'CertifyWorkerRoleArn', {
+      value: this.workerRole.roleArn,
+      description: 'Instance role of the disposable worker (not assumable by GitHub)',
+    });
+  }
+}
+
+/**
+ * User data for the public battery worker.
+ *
+ * Two things in order matter here. First, the hard deadline is armed before
+ * anything that can fail, and — round 2 — a failure to arm it is fatal rather
+ * than swallowed by `|| true`: an instance that cannot promise to kill itself
+ * kills itself now. Second, a redundant in-process timer is started, so the
+ * deadline does not depend on a single `shutdown` implementation.
+ *
+ * The git ref arrives as an instance tag read through IMDSv2 and is validated
+ * against a strict character class before git sees it. Nothing prod-derived is
+ * ever staged here: there is no fixture bucket, and the instance role cannot
+ * read one.
+ */
+function buildUserData(props: CertificationCiEc2Props): ec2.UserData {
+  const ud = ec2.UserData.forLinux();
+  const deadlineSeconds = props.shutdownMinutes * 60;
+  ud.addCommands(
+    'set -euo pipefail',
+    'BOOTSTRAP_PHASE=start',
+    'trap \'rc=$?; if [ "$rc" -ne 0 ]; then echo "polis-ci bootstrap failed phase=$BOOTSTRAP_PHASE exit=$rc"; touch /var/lib/polis-ci-failed; fi\' EXIT',
+    'exec > >(tee -a /var/log/polis-ci-userdata.log) 2>&1',
+    'echo "polis-ci bootstrap starting at $(date -u --iso-8601=seconds)"',
+    '',
+    'fail() { echo "polis-ci bootstrap FAILED: $*" >&2; touch /var/lib/polis-ci-failed; exit 1; }',
+    '',
+    '# --- cost backstop, armed before anything that can fail. The launch',
+    '# template sets InstanceInitiatedShutdownBehavior=terminate, so a halt is',
+    '# a termination. An instance that cannot arm its own deadline is a cost',
+    '# leak waiting to happen, so failing to arm it is fatal immediately.',
+    `if ! shutdown -h +${props.shutdownMinutes} "polis-ci hard deadline"; then`,
+    '  echo "could not arm the shutdown timer; terminating now" >&2',
+    '  poweroff -f',
+    '  exit 1',
+    'fi',
+    '# Redundant timer, independent of shutdown(8) and of this script surviving.',
+    `setsid bash -c 'sleep ${deadlineSeconds}; poweroff -f' </dev/null >/dev/null 2>&1 &`,
+    '',
+    '# --- Download to a private directory; never install or execute unchecked bytes.',
+    'BOOTSTRAP_DOWNLOAD_DIR="$(mktemp -d /var/lib/polis-ci-download.XXXXXX)" || fail "download directory"',
+    'fetch_verified() {',
+    '  local url="$1" expected="$2" destination="$3"',
+    '  curl --proto "=https" --proto-redir "=https" -fsSL --retry 3 --connect-timeout 20 --max-time 300 "$url" -o "$destination" || fail "download"',
+    '  printf "%s  %s\\n" "$expected" "$destination" | sha256sum -c - || { rm -f "$destination"; fail "download sha256 mismatch"; }',
+    '}',
+    '',
+    '# --- docker + compose + the tools the suites shell out to.',
+    'BOOTSTRAP_PHASE=os-packages',
+    'dnf update -y || true',
+    'dnf install -y docker git jq tar gzip make || fail "dnf install"',
+    'systemctl enable --now docker || fail "docker"',
+    'usermod -a -G docker ec2-user',
+    '# $(uname -m) is aarch64 on Graviton and x86_64 otherwise; a hardcoded',
+    '# arch here is how a boot script dies with "Exec format error".',
+    'BOOTSTRAP_PHASE=compose',
+    `COMPOSE_VERSION=${CI_BOOTSTRAP_PINS.compose.version}`,
+    'case "$(uname -m)" in',
+    `  aarch64) COMPOSE_SHA256=${CI_BOOTSTRAP_PINS.compose.aarch64} ;;`,
+    `  x86_64) COMPOSE_SHA256=${CI_BOOTSTRAP_PINS.compose.x86_64} ;;`,
+    '  *) fail "unsupported compose architecture" ;;',
+    'esac',
+    'mkdir -p /usr/libexec/docker/cli-plugins',
+    'fetch_verified "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-$(uname -m)" "$COMPOSE_SHA256" "$BOOTSTRAP_DOWNLOAD_DIR/docker-compose"',
+    'install -m 0755 "$BOOTSTRAP_DOWNLOAD_DIR/docker-compose" /usr/libexec/docker/cli-plugins/docker-compose || fail "compose install"',
+    'ln -sf /usr/libexec/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose',
+    'docker compose version || fail "compose"',
+    '',
+    '# --- which ref to test: an instance tag, read over IMDSv2.',
+    'BOOTSTRAP_PHASE=identity',
+    'IMDS_TOKEN="$(curl -fsS -X PUT http://169.254.169.254/latest/api/token -H "X-aws-ec2-metadata-token-ttl-seconds: 600")" || fail "no IMDSv2 token"',
+    `POLIS_REF="$(curl -fsS -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" "http://169.254.169.254/latest/meta-data/tags/instance/${CI_REF_TAG_KEY}" || true)"`,
+    '# No default. Round 3 fell back to `edge` when the tag read failed, so a',
+    '# box could silently test a different commit from the one the workflow',
+    '# resolved and later validated against (review R3-F4). Missing identity is',
+    '# a bootstrap failure.',
+    'if [ -z "$POLIS_REF" ]; then fail "no polis:ci-ref tag; refusing to guess a ref"; fi',
+    '# Untrusted input. Ref-shaped characters only, and no ".." segment.',
+    'if ! printf %s "$POLIS_REF" | grep -Eq \'^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$\'; then fail "rejected ref"; fi',
+    'case "$POLIS_REF" in *..*) fail "rejected ref" ;; esac',
+    '',
+    'BOOTSTRAP_PHASE=checkout',
+    `git clone --filter=blob:none https://github.com/${props.githubRepo}.git /opt/polis || fail "clone"`,
+    'cd /opt/polis',
+    'git fetch --no-tags origin "$POLIS_REF" || fail "fetch $POLIS_REF"',
+    'git checkout --detach FETCH_HEAD || fail "checkout"',
+    'git rev-parse HEAD > /var/lib/polis-ci-sha',
+    'chown -R ec2-user:ec2-user /opt/polis',
+    '',
+    '',
+    '# --- the recovery runtime, BEFORE the ready marker. P-022 section C\'s',
+    '# target runs host `uv run --no-sync pytest`, so a box that has only',
+    '# docker and git cannot run the matrix at all; round 2 installed uv in the',
+    '# battery phase, which never ran with run_battery=false (review R2-F2).',
+    'BOOTSTRAP_PHASE=python-build-tools',
+    '# hdbscan has no Linux ARM64 wheel in the lockfile. Keep the locked',
+    '# dependency set; its isolated build installs Cython and NumPy headers.',
+    '# uv-managed Python supplies matching 3.12 headers (AL2023 python3-devel',
+    '# is for the system interpreter and must not stand in for those).',
+    'dnf install -y gcc gcc-c++ make || fail "python build tools"',
+    'BOOTSTRAP_PHASE=python',
+    'export HOME=/root',
+    `fetch_verified "${CI_BOOTSTRAP_PINS.uv.url}" "${CI_BOOTSTRAP_PINS.uv.sha256}" "$BOOTSTRAP_DOWNLOAD_DIR/uv-install.sh"`,
+    'sh "$BOOTSTRAP_DOWNLOAD_DIR/uv-install.sh" || fail "uv install"',
+    'install -m 0755 /root/.local/bin/uv /usr/local/bin/uv || fail "uv place"',
+    '(cd /opt/polis/delphi && uv sync --locked --extra dev) || fail "uv sync"',
+    '# The battery additionally shells out to `clojure -M:replay`.',
+    'BOOTSTRAP_PHASE=jvm',
+    '# AL2023 does not package rlwrap. Only the interactive clj wrapper needs',
+    '# it; the battery invokes clojure -M:replay directly.',
+    'dnf install -y java-21-amazon-corretto-headless || fail "jvm"',
+    'BOOTSTRAP_PHASE=clojure',
+    `fetch_verified "${CI_BOOTSTRAP_PINS.clojure.url}" "${CI_BOOTSTRAP_PINS.clojure.sha256}" "$BOOTSTRAP_DOWNLOAD_DIR/clojure-install.sh"`,
+    '(cd "$BOOTSTRAP_DOWNLOAD_DIR" && bash ./clojure-install.sh) || fail "clj install"',
+    '# Verify rather than assume: a phase must never silently repair a',
+    '# bootstrap that should have failed.',
+    'BOOTSTRAP_PHASE=verify',
+    '(cd /opt/polis/delphi && uv run --no-sync python -c \'import pytest, xdist\') || fail "pytest missing after sync"',
+    'uv --version || fail "uv missing after install"',
+    'clojure --version || fail "clojure missing after install"',
+    'java -version || fail "java missing after install"',
+    'chown -R ec2-user:ec2-user /opt/polis',
+    '',
+    'mkdir -p /var/log/polis-ci',
+    '# The workflow polls for this marker before it sends any SSM command.',
+    'touch /var/lib/polis-ci-ready',
+    'echo "polis-ci bootstrap ready at $(date -u --iso-8601=seconds) sha=$(cat /var/lib/polis-ci-sha)"',
+  );
+  return ud;
+}

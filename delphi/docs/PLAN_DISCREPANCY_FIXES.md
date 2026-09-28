@@ -68,7 +68,7 @@ Because this work will span multiple Claude Code sessions, we maintain:
 - **Blob fields available for injection/comparison**: The Clojure cold-start blob provides per-group repness entries with: `n-success` (=na), `n-trials` (=ns), `p-success` (=pa), `p-test` (=pat), `repness` (=ra), `repness-test` (=rat), `repful-for`, `best-agree`, `tid`. Also: `group-clusters` (memberships), `group-votes` (per-group vote counts), `consensus` (selected consensus comments), `comment-priorities` (per-tid priority values), `in-conv` (participant list).
 - **Targeted pipeline-stage tests**: For D2/D3 (participant filtering, clustering), check in-conv count, cluster count, and cluster memberships against Clojure blob. For D12, check comment-priorities against Clojure blob.
 - **All datasets, not just biodiversity**: Every fix must pass on ALL datasets. biodiversity is just one reference among many.
-- **Synthetic edge-case tests**: Every time we discover an edge case specific to one conversation, extract it into a synthetic unit test with made-up data (never real data from private datasets). These run fast and document the intent clearly.
+- **Public-fixture edge-case tests**: Every time we discover an edge case specific to one conversation, extract it into a public-fixture unit test with made-up data (never real data from private datasets). These run fast and document the intent clearly.
 - **E2E awareness**: GitHub Actions has Cypress E2E tests (`cypress-tests.yml`) testing UI workflows, and `python-ci.yml` running pytest regression. The Cypress tests don't test math output values directly, but `python-ci.yml` will break if clustering/repness changes. Formula-level fixes (D4, D5, D6, D7, D8, D9) are pure computation — no E2E risk. Selection logic changes (D10, D11) and priority computation (D12) could affect what the TypeScript server returns. We decide case-by-case which PRs need E2E verification.
 - **Remove dead code after replacement**: When a function is replaced by a new implementation (e.g. vectorized version), the old function must be deleted and all callers updated — not left as dead code. Do this in the same PR or a follow-up, after benchmarks and tests confirm the replacement works.
 - **Mathematical rigor**: These are math fixes. Every formula change must be verified against the Clojure reference implementation by reading the actual Clojure source and the Python source side-by-side. Verify algebraic equivalence explicitly — don't assume. When in doubt, add a comment showing the derivation.
@@ -92,7 +92,7 @@ python scripts/generate_cold_start_clojure.py --all --include-local --pause-math
 ```
 
 If the prodclone DB is not running, we need to start it first. Also check if the main polis worktree already has generated blobs we can copy.
-**Testing strategy**: Start with `vw` (fastest), then `biodiversity`, then progressively larger datasets. Expect that some discrepancies only manifest in certain conversations (different edge cases). When we find such a case, add a synthetic unit test for that pattern.
+**Testing strategy**: Start with `vw` (fastest), then `biodiversity`, then progressively larger datasets. Expect that some discrepancies only manifest in certain conversations (different edge cases). When we find such a case, add a public-fixture unit test for that pattern.
 
 ### TypeScript Server Dependency
 
@@ -128,7 +128,7 @@ Fixes are ordered by **pipeline execution order**: participant filtering → pro
 3. Create `tests/test_discrepancy_fixes.py` with the test infrastructure:
    - One test class per discrepancy, parametrized by ALL datasets
    - Shared comparison utilities that call the same core comparer logic as `regression_comparer.py`
-   - Synthetic edge-case test scaffolding
+   - Public-fixture edge-case test scaffolding
 4. Create `delphi/docs/CLJ-PARITY-FIXES-JOURNAL.md` with initial baseline
 5. Update `delphi/CLAUDE.md` with TypeScript/Delphi connection documentation
 
@@ -475,7 +475,7 @@ See `delphi/docs/HANDOFF_PR14_VECTORIZED_REFACTOR.md` for full details.
 After PR 14, each fix PR gets vectorized blob injection tests added in RED→GREEN
 TDD pattern. This includes D5-D8 (repness formula fixes), D10/D11 (selection),
 D15 (moderation), D12 (priorities). For D3 (k-smoother) and D1 (PCA sign flip),
-which are incremental-only features, add synthetic tests + skip markers for
+which are incremental-only features, add public-fixture tests + skip markers for
 incremental blob comparison pending replay infrastructure (see Replay PRs A/B/C).
 
 **After adding vectorized tests to each PR, update the plan AND journal** to
@@ -552,9 +552,9 @@ See `delphi/docs/INVESTIGATION_K_DIVERGENCE.md` for the full investigation.
 | D7 | Repness metric | PR 6 | **#2521** | **DONE** ✓ (formula change landed scalar + vectorized 2026-06-09; original PR diff was docs-only — recovered) |
 | D8 | Finalize cmt stats | PR 7 | **#2522** | **DONE** ✓ (rat > rdt classification landed scalar + vectorized 2026-06-09; original PR diff was docs-only — recovered) |
 | D9 | Z-score thresholds | **PR 3** | **#2518** | **DONE** ✓ |
-| D10 | Rep comment selection | PR 8 | **#2566** | Code-complete + 18 synthetic tests (was mislabeled "VM draft" until 2026-07-04); Copilot-review fixes in **#2586**; open in stack, merge pending edge freeze |
-| D11 | Consensus selection | PR 9 | **#2567** | Code-complete + 12 synthetic tests; consensus entries now Clojure blob shape (tid/n-success/… — #2586); open in stack, merge pending edge freeze |
-| D12 | Comment priorities | PR 11 | **#2568** | Code-complete + 11 synthetic tests (bug-mirror per #2571); Decimal-preserving serialization (#2586); open in stack, merge pending edge freeze. **⚠️ 2026-07-17: Python↔Clojure priority PARITY is NOT achieved.** The Clojure all-49 routing bug (#1961) was masking it — while both sides returned constant 49, the D12 test passed trivially. Clojure-side fix (`(contains? meta-tids tid)`) ships separately; with it, fixed-Python vs fixed-Clojure vw priorities are rank-**uncorrelated** (Spearman −0.03). Un-mirroring `priority_metric` + regenerating cold-start blobs is **BLOCKED on extremity/PCA parity (D1/D1b)**. See journal 2026-07-17. **UN-MIRRORED 2026-07-22** (blockers cleared): real formula in both modes + Q2 prev-tick group-votes in legacy; value parity vs Clojure HEAD moves to the certify battery; blob regen still pending (prodclone). |
+| D10 | Rep comment selection | PR 8 | **#2566** | Code-complete + 18 public-fixture tests (was mislabeled "VM draft" until 2026-07-04); Copilot-review fixes in **#2586**; open in stack, merge pending edge freeze |
+| D11 | Consensus selection | PR 9 | **#2567** | Code-complete + 12 public-fixture tests; consensus entries now Clojure blob shape (tid/n-success/… — #2586); open in stack, merge pending edge freeze |
+| D12 | Comment priorities | PR 11 | **#2568** | Code-complete + 11 public-fixture tests (bug-mirror per #2571); Decimal-preserving serialization (#2586); open in stack, merge pending edge freeze. **⚠️ 2026-07-17: Python↔Clojure priority PARITY is NOT achieved.** The Clojure all-49 routing bug (#1961) was masking it — while both sides returned constant 49, the D12 test passed trivially. Clojure-side fix (`(contains? meta-tids tid)`) ships separately; with it, fixed-Python vs fixed-Clojure vw priorities are rank-**uncorrelated** (Spearman −0.03). Un-mirroring `priority_metric` + regenerating cold-start blobs is **BLOCKED on extremity/PCA parity (D1/D1b)**. See journal 2026-07-17. **UN-MIRRORED 2026-07-22** (blockers cleared): real formula in both modes + Q2 prev-tick group-votes in legacy; value parity vs Clojure HEAD moves to the certify battery; blob regen still pending (prodclone). |
 | D13 | Subgroup clustering | — | — | **Deferred** (unused) |
 | D14 | Large conv optimization | — | — | **Deferred** (Python fast enough) |
 | D15 | Moderation handling | PR 12 | **#2523** | **DONE** ✓ (zero-out-columns + downstream `to_math_blob` / `_compute_vote_stats` regressions fixed 2026-06-09 — `to_dict` now routes through `_compute_user_vote_counts()` / `_compute_votes_base()`; `_compute_vote_stats` uses `_get_clean_matrix(raw=True)`) |
@@ -629,7 +629,7 @@ The shared `test_discrepancy_fixes.py` file will need a mechanical merge when tr
 
 1. **Real-data parametrized tests**: One test class per discrepancy, parametrized by ALL datasets. Loads conversation + Clojure math blob, checks specific aspect, designed to FAIL before fix and PASS after.
 
-2. **Synthetic edge-case tests**: When we discover an edge case in a real conversation, extract the pattern into a test with completely made-up data (never real data from private datasets). These run fast, document the edge case clearly, and prevent regressions.
+2. **Public-fixture edge-case tests**: When we discover an edge case in a real conversation, extract the pattern into a test with completely made-up data (never real data from private datasets). These run fast, document the edge case clearly, and prevent regressions.
 
 **All datasets must have cold start Clojure blobs** — generate missing ones using `generate_cold_start_clojure.py` before starting fixes.
 
@@ -824,7 +824,7 @@ Resolution:
   `rating_mat` (default False for backward compat — PCA / clustering still
   uses the moderation-applied matrix).
 
-Tests added in `TestD15SyntheticModeration`:
+Tests added in `TestD15PublicFixtureModeration`:
 - `test_user_vote_counts_uses_raw_rating_mat` — pid 3 (NaN on moderated tid 0)
   must stay at count 3, not inflate to 4.
 - `test_votes_base_uses_raw_rating_mat` — moderated tid 0 must report
@@ -968,7 +968,7 @@ Tagging this as a follow-up. No code changes until we discuss.
   — possibly a strong dissenting view. Mirrored for blob parity; flag for
   future product review. See `# TODO(parity-eviction)` in
   `delphi/polismath/pca_kmeans_rep/repness.py::select_rep_comments_df` and
-  the synthetic test `TestD10SelectRepCommentsBoundary::test_take_5_eviction_when_best_agree_outside_sufficient`.
+  the public-fixture test `TestD10SelectRepCommentsBoundary::test_take_5_eviction_when_best_agree_outside_sufficient`.
 
 ---
 

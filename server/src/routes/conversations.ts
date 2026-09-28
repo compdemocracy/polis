@@ -764,10 +764,21 @@ function handle_POST_conversation_close(
         return;
       }
       const conv = rows[0];
-      pg.queryP(
-        "update conversations set is_active = false where zid = ($1);",
-        [conv.zid]
-      );
+      // The update was fired and forgotten, so the owner's request never
+      // received a response and hung until the client timed out. Answer once
+      // the close has actually been written, exactly as
+      // handle_POST_conversation_reopen does.
+      return pg
+        .queryP(
+          "update conversations set is_active = false where zid = ($1);",
+          [conv.zid]
+        )
+        .then(function () {
+          res.status(200).json({});
+        })
+        .catch(function (err: any) {
+          failJson(res, 500, "polis_err_closing_conversation2", err);
+        });
     })
     .catch(function (err: any) {
       failJson(res, 500, "polis_err_closing_conversation", err);

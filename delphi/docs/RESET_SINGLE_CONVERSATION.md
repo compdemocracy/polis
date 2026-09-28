@@ -192,6 +192,45 @@ This script removes data from ALL Delphi tables:
 - `Delphi_NarrativeReports` - Generated narrative reports
 - `Delphi_JobQueue` - Job queue entries
 
+### Also delete: `Delphi_JobActiveGuard`
+
+The server's submission guard (P-003 S3, see `JOB_QUEUE_SCHEMA.md`) holds one
+row per active submission scope, pointing at a `Delphi_JobQueue` row. Deleting
+that queue row without deleting the guard leaves the guard pointing at nothing,
+which the server treats as **uncertainty, not completion** — deliberately, since
+a missing row is not proof that a paid provider run ended. The scope then stays
+blocked and new submissions keep returning the vanished job.
+
+After a reset, delete the conversation's guard rows. The table has a single
+`guard_key` hash key and no index, so this is a **paginated** scan — a single
+`scan()` call returns one page and would silently leave rows behind:
+
+```python
+guard = dynamodb.Table('Delphi_JobActiveGuard')
+kwargs = {
+    # Scope rows and idempotency aliases both carry conversation_id.
+    'FilterExpression': Attr('conversation_id').eq(str(conversation_id)),
+}
+while True:
+    page = guard.scan(**kwargs)
+    for item in page.get('Items', []):
+        guard.delete_item(Key={'guard_key': item['guard_key']})
+    if 'LastEvaluatedKey' not in page:
+        break
+    kwargs['ExclusiveStartKey'] = page['LastEvaluatedKey']
+```
+
+Two cautions:
+
+- This is a **repair procedure**, not routine cleanup. Run it only when you have
+  established that no provider work is still outstanding for the conversation —
+  the guard exists precisely to stop a second paid run being started next to a
+  live one.
+- Guard rows written before this pagination fix, or by an older build, may lack
+  `conversation_id`. If the filter finds nothing but a scope still refuses new
+  submissions, scan the table unfiltered and match on `report_id`/`job_id`
+  instead.
+
 ## Safe Usage
 
 - ✅ **Safe**: Only affects the specified conversation

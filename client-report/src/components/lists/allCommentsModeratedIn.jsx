@@ -8,7 +8,7 @@ import * as globals from "../globals";
 const sortFunctions = {
   tid: (comments) => comments.sort((a, b) => a.tid - b.tid).map(c => c.tid),
   numvotes: (comments) => comments.sort((a, b) => b.count - a.count).map(c => c.tid), // Descending order for numvotes
-  consensus: (comments) => comments.sort((a, b) => b["group-aware-consensus"] - a["group-aware-consensus"]).map(c => c.tid),
+  consensus: (comments) => comments.sort((a, b) => (b["group-aware-consensus"] || 0) - (a["group-aware-consensus"] || 0)).map(c => c.tid),
   pctAgreed: (comments) => comments.sort((a, b) => b["pctAgreed"] - a["pctAgreed"]).map(c => c.tid),
   pctDisagreed: (comments) => comments.sort((a, b) => b["pctDisagreed"] - a["pctDisagreed"]).map(c => c.tid),
   pctPassed: (comments) => comments.sort((a, b) => b["pctPassed"] - a["pctPassed"]).map(c => c.tid),

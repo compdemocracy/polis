@@ -1,14 +1,71 @@
 /**
  * Visualization tests
- * Verifies that the PCA visualization appears after sufficient participants vote
- * Note: This test is flaky because it depends on an external math service.
- * It might fail intermittently even when the code is working correctly.
+ * Verifies that the PCA visualization appears after sufficient participants vote.
+ *
+ * The client only un-hides #vis_section once a math (PCA) result served by
+ * /api/v3/math/pca2 reports at least MIN_PTPTS participants -- see
+ * onPersonUpdate() in client-participation/js/views/participation.js, which
+ * derives its count from sum(pca['base-clusters'].count), not from the
+ * conversation's participant_count. The conversation's participant_count is
+ * updated the moment people vote, but the Clojure math service publishes on
+ * its own poll cycle and the API server caches/prefetches those results, so
+ * "everyone has voted" is NOT the same precondition as "the visualization can
+ * be drawn". This spec therefore polls the math endpoint for the real
+ * precondition before loading the page under test; otherwise a slow math cycle
+ * shows up as a bogus "#vis_section should be visible" timeout.
  */
 
 describe('Visualization', function () {
   let conversationId
   const participationView = '[data-view-name="participationView"]'
   const timeout = { timeout: 30000 }
+
+  // Keep in sync with MIN_PTPTS in client-participation/js/views/participation.js
+  const MIN_PTPTS = 7
+  // Bounded but generous: the math service polls votes on an interval and the
+  // API server prefetches/caches its output, so give it real room under CI load.
+  const MATH_POLL_INTERVAL_MS = 2000
+  const MATH_POLL_MAX_ATTEMPTS = 60
+
+  // Counts exactly what onPersonUpdate() counts.
+  const mathParticipantCount = (body) => {
+    const counts = (body && body['base-clusters'] && body['base-clusters'].count) || []
+    return counts.reduce((total, n) => total + n, 0)
+  }
+
+  const mathGroupCount = (body) => ((body && body['group-clusters']) || []).length
+
+  // Poll the served math blob until it carries the participant and group counts
+  // the client needs in order to render the visualization.
+  const waitForMathResult = (attempt) => {
+    return cy
+      .request({
+        method: 'GET',
+        url: `/api/v3/math/pca2?conversation_id=${conversationId}&cacheBust=${attempt}`,
+        failOnStatusCode: false,
+      })
+      .then((mathResponse) => {
+        const participants = mathParticipantCount(mathResponse.body)
+        const groups = mathGroupCount(mathResponse.body)
+
+        if (participants >= MIN_PTPTS && groups > 0) {
+          cy.log(`📊 Math ready: ${participants} participants in ${groups} groups`)
+          return cy.wrap(participants)
+        }
+
+        if (attempt >= MATH_POLL_MAX_ATTEMPTS) {
+          throw new Error(
+            `Math service never published a PCA result with ${MIN_PTPTS}+ participants ` +
+              `and at least one group for conversation ${conversationId}. ` +
+              `Last seen: ${participants} participants, ${groups} groups after ` +
+              `${MATH_POLL_MAX_ATTEMPTS} attempts (~${(MATH_POLL_MAX_ATTEMPTS * MATH_POLL_INTERVAL_MS) / 1000}s).`,
+          )
+        }
+
+        cy.wait(MATH_POLL_INTERVAL_MS)
+        return waitForMathResult(attempt + 1)
+      })
+  }
 
   it('creates conversation and shows visualization with 7 participants', function () {
     cy.log('🚀 Setting up visualization test with clean auth')
@@ -238,6 +295,12 @@ describe('Visualization', function () {
           cy.log(`📊 Final participant count: ${count}`)
           expect(count).to.be.at.least(7, 'Should have at least 7 participants')
         })
+
+        // Step 3b: Wait for the actual precondition the client gates on -- a
+        // published math result carrying MIN_PTPTS participants and >=1 group.
+        // Without this the assertions below race the math service's poll cycle.
+        cy.log('⏳ Waiting for math to publish a result the visualization can use')
+        waitForMathResult(1)
 
         // Step 4: Check visualization
         cy.log('🔍 Checking visualization')

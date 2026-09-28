@@ -5,6 +5,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import Config from "../../config";
+import { assessConversationLiveness } from "./jobGuard";
 // import { datetime } from "aws-sdk/clients/redshiftdata";
 
 const dynamoDBConfig: any = {
@@ -228,6 +229,8 @@ export async function handle_GET_delphi_visualizations(
           jobId,
           status: "metadata_not_found",
           createdAt: null,
+          // No queue row to assess, so there is nothing for a client to track.
+          workLive: false,
           visualizations: visualizationsByJob[jobId],
         });
       }
@@ -300,17 +303,26 @@ async function fetchJobMetadata(
     } while (lastEvaluatedKey);
 
     // After the loop, allItems contains all items from all pages.
-    if (allItems.length === 0) {
-      logger.info(`No jobs found for conversation ${conversation_id}`);
-      return {};
-    }
-
+    //
+    // An empty result is *not* an answer. This is a global secondary index: a
+    // row missing a sort key never appears in it at all, and a freshly written
+    // row appears late. Returning here — as this used to — skips the strong
+    // sweep below and hides exactly the rows the sweep exists to surface, so a
+    // reload with no prior job id cannot see work that is running.
     logger.info(
-      `Found a total of ${allItems.length} jobs across all pages for conversation ${conversation_id}`
+      `Found a total of ${allItems.length} indexed jobs for conversation ${conversation_id}; confirming against the base table`
     );
 
-    // Process the complete list of items.
-    return processJobItems(allItems);
+    // Liveness, and the rows themselves, come from a strongly-read sweep rather
+    // than from this eventually consistent index. `processJobItems` merges what
+    // the sweep saw into whatever the index returned, including nothing.
+    const liveness = await assessConversationLiveness(conversation_id);
+    return processJobItems(
+      allItems,
+      liveness.liveByJobId,
+      liveness.complete,
+      liveness.rowsByJobId
+    );
   } catch (err: any) {
     logger.error(`Error fetching job metadata via GSI Query: ${err.message}`);
     // Return an empty object so the main handler can continue without metadata if needed.
@@ -320,8 +332,20 @@ async function fetchJobMetadata(
 
 /**
  * Process job items from DynamoDB into a map of job metadata.
+ *
+ * `liveByJobId` comes from `assessConversationLiveness`, a strongly-read
+ * base-table sweep — deliberately not from the `items` this handler queried,
+ * which arrive through an eventually consistent index. An index that has not
+ * caught up with a newly written checker row would show that child's parent as
+ * finished, and the client stops polling on `workLive === false`. Anything the
+ * authoritative sweep cannot speak for is reported live.
  */
-function processJobItems(items: any[]): Record<string, any> {
+function processJobItems(
+  items: any[],
+  liveByJobId: Map<string, boolean>,
+  livenessComplete: boolean,
+  rowsByJobId: Map<string, any>
+): Record<string, any> {
   const jobMap: Record<string, any> = {};
 
   for (const item of items) {
@@ -345,6 +369,34 @@ function processJobItems(items: any[]): Record<string, any> {
       startedAt: item.started_at || null,
       completedAt: item.completed_at || null,
       results: jobResults,
+      // Additive: lets a reloaded client tell "finished" from "terminal row,
+      // work still outstanding underneath" without a second request. A false
+      // here only ever comes from the authoritative sweep.
+      workLive: livenessComplete ? liveByJobId.get(job_id) !== false : true,
+      // Set when this server withdrew the job after losing a race: it names the
+      // job that actually carries the work. The client follows it rather than
+      // dropping the id it was acknowledged with.
+      supersededBy: rowsByJobId.get(job_id)?.superseded_by,
+    };
+  }
+
+  // The rows above came through an eventually consistent index. Anything the
+  // authoritative sweep saw that the index has not caught up with is added
+  // here — otherwise a client whose job was superseded a moment ago cannot see
+  // the winner it is supposed to follow.
+  for (const [jobId, row] of rowsByJobId) {
+    if (jobMap[jobId]) {
+      continue;
+    }
+    jobMap[jobId] = {
+      jobId,
+      status: row.status || "unknown",
+      createdAt: row.created_at || null,
+      startedAt: row.started_at || null,
+      completedAt: row.completed_at || null,
+      results: null,
+      workLive: livenessComplete ? liveByJobId.get(jobId) !== false : true,
+      supersededBy: row.superseded_by,
     };
   }
 

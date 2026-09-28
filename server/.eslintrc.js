@@ -7,7 +7,9 @@ module.exports = {
   extends: ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
   overrides: [
     {
-      files: ["bin/*.js", "__tests__/**/*.ts"],
+      // shadow/ holds standalone bootstrap processes for the daily shadow runner;
+      // they construct the environment the app reads, so config.ts cannot apply.
+      files: ["bin/*.js", "__tests__/**/*.ts", "shadow/*.cjs"],
       rules: {
         "no-console": "off",
         "no-restricted-properties": "off"

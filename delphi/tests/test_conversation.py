@@ -115,7 +115,7 @@ class TestConversation:
         # This behavior is different from the test expectation - the implementation skips null votes
         assert 'p2' not in updated_conv.raw_rating_mat.index or 'c1' not in updated_conv.raw_rating_mat.columns or pd.isna(updated_conv.raw_rating_mat.loc['p2', 'c1'])
 
-    @pytest.mark.parametrize("test_desc,ptpt_ids,comment_ids,expected_ptpt_types,expected_ptpts_ordered,expected_comment_types,expected_comments_sorted", [
+    @pytest.mark.parametrize("test_desc,ptpt_ids,comment_ids,expected_ptpt_types,expected_ptpts_ordered,expected_comment_types,expected_comments_ordered", [
         (
             "integer_ids",
             [1, 10, 2, 100, 5, 50],
@@ -123,7 +123,7 @@ class TestConversation:
             ['int', 'int', 'int', 'int', 'int', 'int'],
             [1, 10, 2, 100, 5, 50],  # Vote encounter order (not sorted)
             ['int', 'int', 'int', 'int'],
-            [3, 4, 20, 30]  # Natural/numeric order (columns still natsorted)
+            [3, 30, 20, 4]  # Vote encounter order
         ),
         (
             "numeric_strings",
@@ -132,7 +132,7 @@ class TestConversation:
             ['str', 'str', 'str', 'str', 'str', 'str'],
             ['1', '10', '2', '100', '5', '50'],  # Vote encounter order
             ['str', 'str', 'str', 'str'],
-            ['3', '4', '20', '30']  # Natural/numeric order
+            ['3', '30', '20', '4']  # Vote encounter order
         ),
         (
             "alphanumeric_user_comment",
@@ -141,7 +141,7 @@ class TestConversation:
             ['str', 'str', 'str', 'str'],
             ['user1', 'user10', 'user2', 'user100'],  # Vote encounter order
             ['str', 'str', 'str'],
-            ['comment1', 'comment2', 'comment10']  # Natural order
+            ['comment1', 'comment10', 'comment2']  # Vote encounter order
         ),
         (
             "alphanumeric_short",
@@ -150,7 +150,7 @@ class TestConversation:
             ['str', 'str', 'str', 'str', 'str', 'str'],
             ['p1', 'p10', 'p2', 'p100', 'p5', 'p50'],  # Vote encounter order
             ['str', 'str', 'str', 'str'],
-            ['c1', 'c2', 'c10', 'c20']  # Natural order
+            ['c1', 'c10', 'c2', 'c20']  # Vote encounter order
         ),
         (
             "float_ids",
@@ -159,7 +159,7 @@ class TestConversation:
             ['float', 'float', 'float', 'float', 'float', 'float'],
             [1.0, 10.0, 2.0, 100.0, 5.0, 50.0],  # Vote encounter order
             ['float', 'float', 'float', 'float'],
-            [3.0, 4.0, 20.0, 30.0]  # Numeric order
+            [3.0, 30.0, 20.0, 4.0]  # Vote encounter order
         ),
         (
             "alphabetical_strings",
@@ -168,14 +168,14 @@ class TestConversation:
             ['str', 'str', 'str', 'str', 'str', 'str'],
             ['omega', 'alpha', 'theta', 'beta', 'zeta', 'gamma'],  # Vote encounter order
             ['str', 'str', 'str', 'str', 'str', 'str'],
-            ['alpha', 'beta', 'gamma', 'omega', 'theta', 'zeta']
+            ['gamma', 'zeta', 'alpha', 'omega', 'beta', 'theta']
         ),
     ], ids=lambda test_desc, *args: test_desc if isinstance(test_desc, str) else str(test_desc))
-    def test_natural_sorting_homogeneous_types(self, test_desc, ptpt_ids, comment_ids, expected_ptpt_types, expected_ptpts_ordered, expected_comment_types, expected_comments_sorted):
+    def test_encounter_order_homogeneous_types(self, test_desc, ptpt_ids, comment_ids, expected_ptpt_types, expected_ptpts_ordered, expected_comment_types, expected_comments_ordered):
         """Test row/column ordering with homogeneous ID types.
 
         Participant rows preserve vote encounter order (matching Clojure's
-        NamedMatrix insertion order). Comment columns are natsorted.
+        NamedMatrix insertion order), as do comment columns.
         Types should be preserved in both cases.
         """
         conv = Conversation('test_conv')
@@ -192,7 +192,7 @@ class TestConversation:
                     'vote': vote_val
                 })
 
-        # Update conversation with votes (skip PCA - only testing sorting)
+        # Update conversation with votes (skip PCA - only testing order)
         conv = conv.update_votes({'votes': votes}, recompute=False)
 
         # Get resulting row and column names from rating matrix
@@ -211,20 +211,14 @@ class TestConversation:
         # Check that participant rows are in vote encounter order
         assert result_ptpts == expected_ptpts_ordered, \
             f"[{test_desc}] ORDER CHECK FAILED (participants): got {result_ptpts}, expected {expected_ptpts_ordered}"
-        assert result_tids == expected_comments_sorted, \
-            f"[{test_desc}] SORT CHECK FAILED (comments): got {result_tids}, expected {expected_comments_sorted}"
+        assert result_tids == expected_comments_ordered, \
+            f"[{test_desc}] ORDER CHECK FAILED (comments): got {result_tids}, expected {expected_comments_ordered}"
 
-    def test_natural_sorting_mixed_types(self):
+    def test_encounter_order_mixed_types(self):
         """Test row/column ordering with mixed-type IDs (integers and strings).
 
-        Only **comment columns (TIDs)** are natsorted (numeric values numerically,
-        non-numeric strings alphabetically, numbers before non-numeric strings).
-        **Participant rows (PIDs)** preserve vote-encounter order (matching
-        Clojure's NamedMatrix insertion order). Types are preserved in both
-        cases (int stays int, str stays str).
-
-        Example TID natsort: [1, '2', '10', 21, 100, 'alpha', 'beta']
-        Example PID order: as they first appear in the votes stream.
+        Rows and columns preserve vote-encounter order, matching Clojure's
+        NamedMatrix. Types are preserved (int stays int, str stays str).
         """
         conv = Conversation('test_conv')
 
@@ -240,7 +234,7 @@ class TestConversation:
             ]
         }
 
-        # Skip PCA - only testing sorting
+        # Skip PCA - only testing order
         updated_conv = conv.update_votes(votes, recompute=False)
 
         pids = list(updated_conv.raw_rating_mat.index)
@@ -248,24 +242,23 @@ class TestConversation:
 
         # PIDs in vote encounter order: alpha, 2, gamma, 10, 1, beta
         expected_pids = ['alpha', 2, 'gamma', 10, 1, 'beta']
-        # TIDs still natsorted: 1, 2, 10, alpha, beta, zeta
-        expected_tids = [1, 2, 10, 'alpha', 'beta', 'zeta']
+        # TIDs in vote encounter order, including mixed types
+        expected_tids = [10, 'beta', 1, 'alpha', 'zeta', 2]
 
         # Check ordering
         assert pids == expected_pids, f"Mixed PIDs must be in encounter order: {pids} != {expected_pids}"
-        assert tids == expected_tids, f"Mixed TIDs must be sorted naturally: {tids} != {expected_tids}"
+        assert tids == expected_tids, f"Mixed TIDs must be in encounter order: {tids} != {expected_tids}"
 
         # Check that types are preserved (encounter order interleaves types)
         expected_pid_types = ['str', 'int', 'str', 'int', 'int', 'str']
-        expected_tid_types = ['int', 'int', 'int', 'str', 'str', 'str']
+        expected_tid_types = ['int', 'str', 'int', 'str', 'str', 'int']
         assert [type(p).__name__ for p in pids] == expected_pid_types, f"PID types not preserved"
         assert [type(t).__name__ for t in tids] == expected_tid_types, f"TID types not preserved"
 
-    def test_natural_sorting_numeric_only_with_export(self):
+    def test_encounter_order_numeric_only_with_export(self):
         """Test row/column ordering with ONLY numeric IDs and verify export behavior.
 
-        Comment columns (TIDs) are natsorted (sorted numerically since all IDs
-        are numeric). Participant rows (PIDs) preserve vote-encounter order.
+        Comment columns and participant rows preserve vote-encounter order.
         Types should be preserved (integers stay integers) in both cases.
         Export should maintain the same types and order.
         """
@@ -279,7 +272,7 @@ class TestConversation:
             ]
         }
 
-        # Skip PCA - only testing sorting
+        # Skip PCA - only testing order
         conv = conv.update_votes(votes, recompute=False)
 
         # Check internal storage
@@ -294,14 +287,14 @@ class TestConversation:
 
         # PIDs in vote encounter order: 5, 3, 1
         expected_pids = [5, 3, 1]
-        expected_tids = [5, 10, 20]  # Columns still natsorted
+        expected_tids = [10, 5, 20]  # Vote encounter order
 
         assert pids == expected_pids, f"PIDs not in encounter order: {pids} != {expected_pids}"
-        assert tids == expected_tids, f"TIDs not in natural order: {tids} != {expected_tids}"
+        assert tids == expected_tids, f"TIDs not in encounter order: {tids} != {expected_tids}"
 
         # Exported blobs emit tids in ARRIVAL (first-vote) order — the
         # Clojure column order (_apply_legacy_blob_shape, unconditional
-        # since the mode collapse); internal columns above stay natsorted.
+        # since the mode collapse); internal columns use the same order.
         conv_dict = conv.to_dict()
         exported_tids = conv_dict.get('tids', [])
 
@@ -312,10 +305,10 @@ class TestConversation:
         assert exported_tids == expected_export_tids, \
             f"Exported TIDs not in arrival order: {exported_tids} != {expected_export_tids}"
 
-    def test_incremental_updates_maintain_sorting(self):
+    def test_incremental_updates_preserve_encounter_order(self):
         """Test row/column ordering across incremental vote updates.
 
-        Comment columns (TIDs) remain natsorted as new comments arrive.
+        Comment columns append in first-vote order as new comments arrive.
         Participant rows (PIDs) preserve vote-encounter order: existing rows
         keep their original positions, new participants are appended in the
         order they first appear.
@@ -331,18 +324,18 @@ class TestConversation:
             ]
         }
 
-        # Skip PCA - only testing sorting
+        # Skip PCA - only testing order
         conv = conv.update_votes(votes1, recompute=False)
 
         # Check initial ordering in internal matrix
         tids = list(conv.raw_rating_mat.columns)
         pids = list(conv.raw_rating_mat.index)
 
-        # PIDs in encounter order: 5, 3. TIDs natsorted: 5, 10
-        expected_initial_tids = [5, 10]
+        # PIDs in encounter order: 5, 3. TIDs in encounter order: 10, 5
+        expected_initial_tids = [10, 5]
         expected_initial_pids = [5, 3]
 
-        assert tids == expected_initial_tids, f"Initial tids not sorted: {tids} != {expected_initial_tids}"
+        assert tids == expected_initial_tids, f"Initial tids not in encounter order: {tids} != {expected_initial_tids}"
         assert pids == expected_initial_pids, f"Initial pids not in encounter order: {pids} != {expected_initial_pids}"
 
         # Check types are preserved
@@ -355,24 +348,24 @@ class TestConversation:
         assert exported_tids == [10, 5], f"Initial exported tids not in arrival order: {exported_tids}"
 
         # Second batch adds new participants and comments in unsorted order
-        # These should be inserted in natural order (numeric)
+        # These append in their encounter order, regardless of numeric value.
         votes2 = {
             'votes': [
-                {'pid': 1, 'tid': 1, 'vote': 1},    # Should go first
-                {'pid': 9, 'tid': 20, 'vote': -1},  # Should go last
-                {'pid': 4, 'tid': 3, 'vote': 1},    # Should go in middle
+                {'pid': 1, 'tid': 1, 'vote': 1},    # First new column
+                {'pid': 9, 'tid': 20, 'vote': -1},  # Second new column
+                {'pid': 4, 'tid': 3, 'vote': 1},    # Third new column
             ]
         }
 
         conv = conv.update_votes(votes2, recompute=False)
 
-        # Check that natural sorting is maintained after incremental update
+        # Check that prior column positions survive the incremental update
         tids = list(conv.raw_rating_mat.columns)
         pids = list(conv.raw_rating_mat.index)
 
-        # TIDs natsorted: [1, 3, 5, 10, 20]
+        # TIDs: existing [10, 5] + new [1, 20, 3]
         # PIDs: existing [5, 3] + new in encounter order [1, 9, 4] = [5, 3, 1, 9, 4]
-        expected_tids = [1, 3, 5, 10, 20]
+        expected_tids = [10, 5, 1, 20, 3]
         expected_pids = [5, 3, 1, 9, 4]
 
         assert tids == expected_tids, f"Tids order incorrect: {tids} != {expected_tids}"

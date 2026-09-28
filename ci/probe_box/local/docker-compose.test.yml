@@ -1,0 +1,14 @@
+services:
+  runtime:
+    build: .
+    platform: linux/arm64
+    privileged: true
+    cgroup: private
+    network_mode: none
+    tmpfs:
+      - /probe-work:nodev,nosuid,noexec,size=4g
+    volumes:
+      - ..:/source:ro
+      - ./rehearsal.py:/rehearsal.py:ro
+      - ${PROBE_LOCAL_RESULTS:?absolute private results directory required}:/results
+    command: [python3.12, /rehearsal.py]

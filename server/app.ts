@@ -252,7 +252,7 @@ const helpersInitialized = new Promise(function (resolve) {
   resolve(server.initializePolisHelpers());
 });
 
-helpersInitialized.then(
+export const appReady = helpersInitialized.then(
   function (o: any) {
     const {
       fetchIndexForAdminPage,
@@ -430,7 +430,17 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      want("math_tick", getInt, assignToP, 0),
+      // -1, not 0: `handle_GET_bid` passes this straight to `getPca`, and a
+      // default of 0 means "only give me something newer than tick 0". A
+      // conversation's first committed generation IS tick 0
+      // (math_ticks.math_tick is NOT NULL DEFAULT 0), so getPca returned
+      // undefined and dereferencing `items[2].asPOJO` threw a 500 for the whole
+      // first-generation window. -1 is the "give me the latest" sentinel used
+      // by /api/v3/math/pca2 and /api/v3/votes/famous, and by
+      // getBidIndexToPidMapping's own `math_tick || -1`
+      // (src/utils/participants.ts:7), which this handler already calls.
+      // Identical behaviour for tick >= 1.
+      want("math_tick", getInt, assignToP, -1),
       handle_GET_bid
     );
 
@@ -2212,6 +2222,28 @@ helpersInitialized.then(
       app.get(/^\/[^(api\/)]?.*/, proxy);
     }
 
+    // P-038. This is the only position from which `globalErrorHandler` can see
+    // errors that a route hands to `next(err)`: Express 3 inserts `app.router`
+    // into the app stack at the first route registration (express
+    // `lib/application.js:464`) and `next(err)` walks the stack forward from
+    // there, so any error middleware mounted earlier — including the
+    // module-level `app.use(globalErrorHandler)` below and
+    // `middleware_log_middleware_errors` above — is never reached and the error
+    // falls through to connect's finalhandler.
+    //
+    // Mounting it here is NOT behaviour-preserving: finalhandler currently
+    // serves `400 text/html "Bad Request\n"` where `globalErrorHandler` would
+    // serve `500 application/json {"error":"internal_server_error",...}`. Note
+    // that the generic branch's status stays 500 either way — what the flag
+    // changes on an already-500 path is the Content-Type and body, and only the
+    // 400 paths (and the typed 23505/JWT/timeout branches) change status. It is
+    // therefore off by default and gated so the change can be recorded and
+    // approved before it ships. See
+    // cost-reduction/04-plans/P-038-global-error-handler-notes.md.
+    if (Config.reachableErrorHandler) {
+      app.use(globalErrorHandler);
+    }
+
     // move app.listen to index.ts
   },
 
@@ -2220,7 +2252,15 @@ helpersInitialized.then(
   }
 );
 
-// Setup global error handling
+// Setup global error handling.
+//
+// P-038: this mount runs during module evaluation, i.e. before the async
+// `helpersInitialized` callback above registers any route, so it sits ahead of
+// `app.router` in the app stack and is unreachable for route errors. It is kept
+// because it is the current production behaviour and it still covers errors
+// raised by the two middlewares registered above it (morgan /
+// `middleware_http_json_logger`). The reachable mount is inside the callback,
+// behind `POLIS_REACHABLE_ERROR_HANDLER`.
 app.use(globalErrorHandler);
 
 // Initialize global process-level error handlers

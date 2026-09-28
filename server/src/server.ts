@@ -81,8 +81,12 @@ function initializePolisHelpers() {
           detectLanguage(c.txt).then((x: DetectLanguageResult[]) => {
             const firstResult = x[0];
             logger.debug("backfill " + firstResult.language + "\t\t" + c.txt);
+            // Stamp `modified` alongside the language columns: it is the only
+            // change signal the math pollers have for a comment row, and
+            // nothing maintains it on UPDATE. See `moderateCommentQuery` in
+            // `routes/comments.ts` for the full note.
             pg.queryP(
-              "update comments set lang = ($1), lang_confidence = ($2) where zid = ($3) and tid = ($4)",
+              "update comments set lang = ($1), lang_confidence = ($2), modified = now_as_millis() where zid = ($3) and tid = ($4)",
               [firstResult.language, firstResult.confidence, c.zid, c.tid]
             ).then(() => {
               doNext();
@@ -399,6 +403,10 @@ ${message}`;
     return emailTeam("Polis Bad Problems!!!", body);
   }
 
+  // Sentinel used to leave the verification chain without letting the
+  // success continuation run and write a second response.
+  const VERIFICATION_MISSING = "polis_err_verification_missing";
+
   function handle_GET_verification(
     req: { p: { e: any } },
     res: {
@@ -410,7 +418,12 @@ ${message}`;
     pg.queryP("select * from einvites where einvite = ($1);", [einvite])
       .then(function (rows: string | any[]) {
         if (!rows.length) {
-          failJson(res, 500, "polis_err_verification_missing");
+          // Without this the chain continued: rows[0].email threw, the catch
+          // below sent a second response, and Express raised
+          // ERR_HTTP_HEADERS_SENT. Reject instead, so exactly one response is
+          // written and it is the same 500 polis_err_verification_missing the
+          // route already produced.
+          throw VERIFICATION_MISSING;
         }
         const email = rows[0].email;
         return pg
@@ -438,6 +451,10 @@ Email verified! You can close this tab or hit the back button.
         );
       })
       .catch(function (err: any) {
+        if (err === VERIFICATION_MISSING) {
+          failJson(res, 500, "polis_err_verification_missing");
+          return;
+        }
         failJson(res, 500, "polis_err_verification", err);
       });
   }
@@ -562,6 +579,13 @@ Email verified! You can close this tab or hit the back button.
       function (err: any, results: { rows: UserType[] }) {
         if (err) {
           failJson(res, 500, "polis_err_get_email_db", err);
+          return;
+        }
+        // Same hazard as POST /api/v3/trashes: this callback runs outside any
+        // Express or promise boundary, so dereferencing a missing row here
+        // would surface as an uncaughtException and kill the web process.
+        if (!results?.rows?.length) {
+          failJson(res, 500, "polis_err_get_email_db");
           return;
         }
         const email = results.rows[0].email;
@@ -731,6 +755,17 @@ Thanks for using Polis!
         res.json({});
       },
       (err: any) => {
+        // contributor_agreement_signatures is not created by any migration in
+        // server/postgres/migrations, so on a schema built from this repo the
+        // insert always fails with 42601-adjacent 42P01 (undefined_table).
+        // Answer with a code that names the real condition instead of the
+        // generic misc 500. See P-029 notes: the route has no caller in
+        // client-admin, client-participation-alpha, client-report or e2e and
+        // is a remove-or-410 candidate.
+        if (err && err.code === "42P01") {
+          failJson(res, 503, "polis_err_contributors_unavailable", err);
+          return;
+        }
         failJson(res, 500, "polis_err_POST_contributors_misc", err);
       }
     );

@@ -1,0 +1,17 @@
+**
+!coordinator-rs/
+!coordinator-rs/Cargo.toml
+!coordinator-rs/Cargo.lock
+!coordinator-rs/rust-toolchain.toml
+!coordinator-rs/build.rs
+!coordinator-rs/migration.sql
+!coordinator-rs/src/
+!coordinator-rs/src/**
+!coordinator-rs/schemas/
+!coordinator-rs/schemas/**
+!coordinator-rs/deploy/
+!coordinator-rs/deploy/entrypoint.sh
+!server/
+!server/postgres/
+!server/postgres/migrations/
+!server/postgres/migrations/000021_create_polis_coordinator.sql

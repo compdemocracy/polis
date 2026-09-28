@@ -83,8 +83,8 @@
   },
   {
     "dataset": "pc-zerovote-01",
-    "preset": "single-cut",
-    "notes": "prodclone: zero-vote conversation \u2014 empty-conversation edge"
+    "notes": "prodclone: zero-vote conversation \u2014 empty-conversation edge",
+    "schedule": "schedules/pc-zerovote-01-empty.json"
   },
   {
     "dataset": "pc-modheavy-01",

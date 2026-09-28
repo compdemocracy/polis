@@ -11,15 +11,27 @@ import argparse
 import json
 import decimal
 from datetime import datetime
+from typing import TYPE_CHECKING, Any, Optional
 
+from polismath.types import (
+    CommentRecord,
+    CommentsPayload,
+    ModerationPayload,
+    VoteRecord,
+    VotesPayload,
+)
 from polismath.utils.general import postgres_vote_to_delphi
+from polismath.utils.vote_convention import STORAGE_AGREE_VALUE
+
+if TYPE_CHECKING:  # psycopg2 stays a lazy, in-function import at runtime
+    from psycopg2.extensions import connection as PgConnection
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def prepare_for_json(obj):
+def prepare_for_json(obj: Any) -> Any:
     import numpy as np
 
     if isinstance(obj, decimal.Decimal):
@@ -42,7 +54,7 @@ def prepare_for_json(obj):
         return obj
 
 
-def connect_to_db():
+def connect_to_db() -> Optional["PgConnection"]:
     """Connect to PostgreSQL database using environment variables or defaults."""
     import psycopg2
     import urllib.parse
@@ -76,13 +88,20 @@ def connect_to_db():
         return None
 
 
-def fetch_votes(conn, conversation_id):
+def fetch_votes(
+    conn: "PgConnection",
+    conversation_id: int,
+    storage_agree_value: int = STORAGE_AGREE_VALUE,
+) -> VotesPayload:
     """
     Fetch votes for a specific conversation from PostgreSQL.
     Returns a dictionary containing votes in the format expected by Conversation.
 
-    Vote signs are flipped at this PostgreSQL boundary:
-    - PostgreSQL stores: AGREE=-1, DISAGREE=+1
+    Vote signs are converted at this PostgreSQL boundary, through the DECLARED
+    storage convention (``storage_agree_value``, -1 or +1 — the one
+    authoritative definition in polismath.utils.vote_convention), never a
+    literal:
+    - PostgreSQL stores: AGREE=storage_agree_value (today -1)
     - Delphi expects:    AGREE=+1, DISAGREE=-1
     """
     import time
@@ -103,7 +122,7 @@ def fetch_votes(conn, conversation_id):
         logger.error(f"Error fetching votes: {e}")
         cursor.close()
         return {"votes": []}
-    votes_list = []
+    votes_list: list[VoteRecord] = []
     for vote in votes:
         if vote["timestamp"]:
             try:
@@ -117,15 +136,15 @@ def fetch_votes(conn, conversation_id):
                 "pid": str(vote["voter_id"]),
                 "tid": str(vote["comment_id"]),
                 "vote": postgres_vote_to_delphi(
-                    float(vote["vote"])
-                ),  # Flip at boundary
+                    float(vote["vote"]), storage_agree_value
+                ),  # Declared-convention conversion at the boundary
                 "created": created_time,
             }
         )
     return {"votes": votes_list}
 
 
-def fetch_comments(conn, conversation_id):
+def fetch_comments(conn: "PgConnection", conversation_id: int) -> CommentsPayload:
     """
     Fetch comments for a specific conversation from PostgreSQL.
     Returns a dictionary containing comments in the format expected by Conversation.
@@ -148,7 +167,7 @@ def fetch_comments(conn, conversation_id):
         logger.error(f"Error fetching comments: {e}")
         cursor.close()
         return {'comments': []}
-    comments_list = []
+    comments_list: list[CommentRecord] = []
     for comment in comments:
         if comment['moderated'] == '-1':
             continue
@@ -167,7 +186,9 @@ def fetch_comments(conn, conversation_id):
         })
     return {'comments': comments_list}
 
-def fetch_moderation(conn, conversation_id):
+def fetch_moderation(
+    conn: "PgConnection", conversation_id: int
+) -> ModerationPayload:
     """
     Fetch moderation data for a specific conversation from PostgreSQL.
     Returns a dictionary containing moderation data in the format expected by Conversation.
@@ -221,11 +242,11 @@ def fetch_moderation(conn, conversation_id):
 import sys
 
 
-def memory_usage_mb(obj, seen=None):
+def memory_usage_mb(obj: Any, seen: Optional[set[int]] = None) -> float:
     return memory_usage(obj) / (1024 * 1024)
 
 
-def memory_usage(obj, seen=None):
+def memory_usage(obj: Any, seen: Optional[set[int]] = None) -> int:
     """Recursively calculate size of objects"""
     size = sys.getsizeof(obj)
     if seen is None:
@@ -250,7 +271,7 @@ def memory_usage(obj, seen=None):
     return size
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description='Run math pipeline for a Polis conversation')
     parser.add_argument('--zid', type=int, required=True, help='Conversation ID to process')
     parser.add_argument('--max-votes', type=int, default=None, 

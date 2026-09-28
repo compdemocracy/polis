@@ -3,7 +3,7 @@
 Unit tests for the faithful Clojure k-means port (PR-C, legacy_kmeans.py).
 
 Every expected value is hand-derived from the Clojure rules in
-math/src/polismath/math/clusters.clj (cited per test), on tiny synthetic
+math/src/polismath/math/clusters.clj (cited per test), on tiny public-fixture
 matrices — NOT recomputed from the code under test. Covers the lineage
 semantics that make this a DIFFERENT algorithm from clusters.py's warm start:
 first-k-distinct cold init, drop-vanished, (inc max-id) new ids,
@@ -383,7 +383,7 @@ class TestQ11DistanceCancellation:
 
         # The REAL vw every-vote step-57 pair (journal 2026-07-22): the
         # cancellation collapses their 4.66e-15 separation to exactly 0.0.
-        # (Not every near-coincident synthetic pair does — the residue of
+        # (Not every near-coincident public-fixture pair does — the residue of
         # |a|²+|b|²−2ab can land on either side of zero bit-by-bit.)
         a = [-1.7765256006253405, 0.65139331269767860]
         b = [-1.7765256006253405, 0.65139331269767400]
@@ -619,16 +619,28 @@ class TestVectorizedMostDistalEquivalence:
 
     @staticmethod
     def _reference_most_distal(data, clusters):
-        # Verbatim pre-vectorization loop.
+        # Row-type dispatch is independent of the vectorized implementation.
+        def distance(row, center):
+            if data.matrix_backed:
+                squared = (float(np.dot(row, row)) + float(np.dot(center, center))
+                           - 2.0 * float(np.dot(row, center)))
+                if squared < 0.0:
+                    squared = 0.0
+                return float(np.sqrt(squared))
+            squared = 0.0
+            for x, y in zip(row, center):
+                delta = float(x) - float(y)
+                squared += delta * delta
+            return float(np.sqrt(squared))
         best_dist = None
         best_clst_id = None
         best_name = None
         for name, row in zip(data.row_names, data.matrix):
-            near_dist = _scalar_dist_reference(
+            near_dist = distance(
                 row, np.asarray(clusters[0]['center'], dtype=float))
             near_id = clusters[0]['id']
             for clst in clusters[1:]:
-                d = _scalar_dist_reference(
+                d = distance(
                     row, np.asarray(clst['center'], dtype=float))
                 if d <= near_dist:
                     near_dist = d
@@ -666,6 +678,28 @@ class TestVectorizedMostDistalEquivalence:
                     clusters.append({'id': i + 2, 'members': [],
                                      'center': np.asarray(center, dtype=float)})
                 self._assert_same(data, clusters)
+
+    def test_matrix_rows_match_reference_across_scales_and_dimensions(self):
+        rng = np.random.default_rng(1283)
+        for width in (2, 3, 7):
+            for scale in (1e-8, 1.0, 1e8):
+                for count in (1, 4, 30):
+                    for n_clusters in (2, 9):
+                        for _ in range(3):
+                            rows = rng.standard_normal((count, width)) * scale
+                            # Coincident rows/centers exercise cancellation and ties.
+                            rows[-1] = rows[0]
+                            centers = rows[rng.integers(0, count, n_clusters)].copy()
+                            centers[-1] += scale * 1e-9
+                            data = _NamedData(list(range(count)), rows, matrix_backed=True)
+                            clusters = [{'id': i + 2, 'members': [], 'center': center}
+                                        for i, center in enumerate(centers)]
+                            self._assert_same(data, clusters)
+        # Preserve the scalar NaN comparison rules in the matrix branch too.
+        for rows in ([[np.nan, 0.], [3., 4.]],
+                     [[1., 0.], [np.nan, 0.], [3., 4.]]):
+            data = _NamedData(list(range(len(rows))), rows, matrix_backed=True)
+            self._assert_same(data, [{'id': 2, 'members': [], 'center': np.zeros(2)}])
 
     def test_all_rows_tie_at_zero_later_row_wins(self):
         # Every row coincides with the single center -> all dists exactly 0.0

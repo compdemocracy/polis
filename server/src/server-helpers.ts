@@ -5,7 +5,8 @@ import { failJson } from "./utils/fail";
 import { getBidsForPids } from "./routes/math";
 import { getConversationHasMetadata } from "./routes/metadata";
 import { getConversationInfo } from "./conversation";
-import { getPca } from "./utils/pca";
+import { presentExistingMathBundle } from "./utils/pca";
+import { getMathBundle } from "./utils/mathBundle";
 import { getSocialParticipants } from "./participant";
 import { getUserInfoForUid2 } from "./user";
 import { getZinvite, getZinvites } from "./utils/zinvite";
@@ -266,7 +267,7 @@ function finishArray(
     });
 }
 
-function doFamousQuery(o?: {
+async function doFamousQuery(o?: {
   uid?: number;
   zid: number;
   math_tick: any;
@@ -283,62 +284,70 @@ function doFamousQuery(o?: {
   // let ALLOW_NON_FRIENDS_WHEN_EMPTY_SOCIAL_RESULT = true;
   const mod = 0; // for now, assume all conversations will show unmoderated and approved participants.
 
+  const mathEnv = Config.mathEnv;
+  const ownedRead = await getMathBundle(zid, mathEnv);
+
   function getAuthorUidsOfFeaturedComments() {
-    return getPca(zid, 0).then((pcaResult: PcaCacheItem | unknown) => {
-      if (
-        !pcaResult ||
-        typeof pcaResult !== "object" ||
-        pcaResult === null ||
-        !("asPOJO" in pcaResult)
-      ) {
-        return [];
+    // The latest committed generation, NOT `getPca(zid, 0)`: a literal 0
+    // discards a conversation's first committed generation (tick 0) and made
+    // this return no featured-comment authors at all for that window.
+    return presentExistingMathBundle(zid, mathEnv, ownedRead).then(
+      (pcaResult: PcaCacheItem | unknown) => {
+        if (
+          !pcaResult ||
+          typeof pcaResult !== "object" ||
+          pcaResult === null ||
+          !("asPOJO" in pcaResult)
+        ) {
+          return [];
+        }
+
+        interface PcaData {
+          consensus?: {
+            agree?: Array<{ tid: number }>;
+            disagree?: Array<{ tid: number }>;
+          };
+          repness?: {
+            [gid: string]: Array<{ tid: number }>;
+          };
+        }
+
+        const pcaData = (pcaResult as { asPOJO: PcaData }).asPOJO;
+        pcaData.consensus = pcaData.consensus || {};
+        pcaData.consensus.agree = pcaData.consensus.agree || [];
+        pcaData.consensus.disagree = pcaData.consensus.disagree || [];
+        const consensusTids = _.union(
+          _.pluck(pcaData.consensus.agree, "tid"),
+          _.pluck(pcaData.consensus.disagree, "tid")
+        );
+
+        let groupTids: number[] = [];
+        for (const gid in pcaData.repness) {
+          const commentData = pcaData.repness[gid];
+          groupTids = _.union(groupTids, _.pluck(commentData, "tid"));
+        }
+        let featuredTids = _.union(consensusTids, groupTids);
+        featuredTids.sort();
+        featuredTids = _.uniq(featuredTids);
+
+        if (featuredTids.length === 0) {
+          return [];
+        }
+        const q =
+          "with " +
+          "authors as (select distinct(uid) from comments where zid = ($1) and tid in (" +
+          featuredTids.join(",") +
+          ") order by uid) " +
+          "select authors.uid from authors inner join xids on xids.uid = authors.uid " +
+          "order by uid;";
+
+        return pg.queryP_readOnly(q, [zid]).then(function (comments: any) {
+          let uids = _.pluck(comments, "uid");
+          uids = _.uniq(uids);
+          return uids;
+        });
       }
-
-      interface PcaData {
-        consensus?: {
-          agree?: Array<{ tid: number }>;
-          disagree?: Array<{ tid: number }>;
-        };
-        repness?: {
-          [gid: string]: Array<{ tid: number }>;
-        };
-      }
-
-      const pcaData = (pcaResult as { asPOJO: PcaData }).asPOJO;
-      pcaData.consensus = pcaData.consensus || {};
-      pcaData.consensus.agree = pcaData.consensus.agree || [];
-      pcaData.consensus.disagree = pcaData.consensus.disagree || [];
-      const consensusTids = _.union(
-        _.pluck(pcaData.consensus.agree, "tid"),
-        _.pluck(pcaData.consensus.disagree, "tid")
-      );
-
-      let groupTids: number[] = [];
-      for (const gid in pcaData.repness) {
-        const commentData = pcaData.repness[gid];
-        groupTids = _.union(groupTids, _.pluck(commentData, "tid"));
-      }
-      let featuredTids = _.union(consensusTids, groupTids);
-      featuredTids.sort();
-      featuredTids = _.uniq(featuredTids);
-
-      if (featuredTids.length === 0) {
-        return [];
-      }
-      const q =
-        "with " +
-        "authors as (select distinct(uid) from comments where zid = ($1) and tid in (" +
-        featuredTids.join(",") +
-        ") order by uid) " +
-        "select authors.uid from authors inner join xids on xids.uid = authors.uid " +
-        "order by uid;";
-
-      return pg.queryP_readOnly(q, [zid]).then(function (comments: any) {
-        let uids = _.pluck(comments, "uid");
-        uids = _.uniq(uids);
-        return uids;
-      });
-    });
+    );
   }
   return Promise.all([
     getConversationInfo(zid),
@@ -381,7 +390,7 @@ function doFamousQuery(o?: {
       return getVotesForZidPidsWithTimestampCheck(zid, pids, math_tick).then(
         function (vectors: any) {
           // TODO parallelize with above query
-          return getBidsForPids(zid, -1, pids).then(
+          return getBidsForPids(zid, -1, pids, ownedRead).then(
             function (pidsToBids: { [x: string]: any }) {
               _.each(vectors, function (value: any, pid: number) {
                 const bid = pidsToBids[pid];

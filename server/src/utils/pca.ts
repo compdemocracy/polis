@@ -9,6 +9,7 @@ import pg from "../db/pg-query";
 import Config from "../config";
 import logger from "./logger";
 import { addInRamMetric } from "./metered";
+import { CachedMathBundleRead, getMathBundle, invalidateMathBundleForTick } from "./mathBundle";
 
 export type PcaCacheItem = {
   asPOJO: {
@@ -77,6 +78,32 @@ const pcaCache = new LruCache<string, PcaCacheItem>({
   max: pcaCacheSize,
 });
 
+/**
+ * Cache entries that are `createEmptyPcaStructure`'s synthesized empty
+ * presentation for a conversation with NO committed math row, rather than a
+ * generation read from `math_main`.
+ *
+ * Provenance has to be carried, not inferred: a real published generation can
+ * legitimately be empty (tick 0, n 0, empty arrays), and such a row must stay
+ * returnable and cacheable.
+ *
+ * It is held OUTSIDE the entry, in a WeakSet keyed by entry identity, because
+ * `handle_GET_participationInit` assigns the whole cache entry to
+ * `response.pca` and serializes it (routes/participation.ts:393,450). Any
+ * enumerable property added here would go out on the wire for every tick,
+ * including tick 1 — a served-bytes change. Keeping asPOJO/asJSON/the gzip body
+ * clean is not enough; the wrapper is served too. A WeakSet cannot be
+ * serialized at any level.
+ *
+ * It also holds its entries weakly, so membership here never keeps a cache
+ * entry alive on its own. That is a retention property, NOT a lifecycle one:
+ * eviction from the LRU makes an entry collectable, but nothing guarantees the
+ * WeakSet is cleared at that moment. Correctness does not depend on when it is
+ * — membership is keyed by object identity, and an evicted entry is
+ * unreachable from the cache, so it can never be consulted again.
+ */
+const synthesizedEntries = new WeakSet<PcaCacheItem>();
+
 // Each namespace has an independent publication cursor and cache entries.
 const lastPrefetchedMathTicks = new Map<string, number>();
 
@@ -106,22 +133,33 @@ export async function prefetchLatestPcaData(): Promise<void> {
       }>
     ).map((row) => {
       const item = row.data;
-      if (row.math_tick) {
+      // `!= null`, not truthiness: generation 0 is a real committed tick (see
+      // getPca below), and the blob's own `math_tick` is an engine-local value
+      // that must never win over the column.
+      if (row.math_tick != null) {
         item.math_tick = Number(row.math_tick);
       }
-      if (row.caching_tick) {
+      if (row.caching_tick != null) {
         item.caching_tick = Number(row.caching_tick);
       }
       logger.info("mathpoll updating", {
         caching_tick: item.caching_tick,
         zid: row.zid,
       });
+      // Invalidation by tick. This loop is the only place that learns about a
+      // new generation without reading the companions, so it is the only place
+      // that can retire a cached whole Bundle before its TTL. A Bundle already
+      // at this generation is kept; anything else is dropped.
+      invalidateMathBundleForTick(
+        mathEnv,
+        row.zid,
+        row.math_tick == null ? null : Number(row.math_tick)
+      );
       lastPrefetchedMathTick = Math.max(
         lastPrefetchedMathTick,
         Number(row.caching_tick)
       );
-      processMathObject(item);
-      return updatePcaCache(mathEnv, row.zid, item);
+      return presentMathMainRow(mathEnv, row.zid, item);
     })
   );
   lastPrefetchedMathTicks.set(
@@ -150,30 +188,32 @@ export function fetchAndCacheLatestPcaData() {
 }
 
 /**
- * Creates a minimal valid PCA structure for conversations with no votes.
- * This allows reports to load and display properly even when there's no voting data.
+ * Creates a minimal valid PCA structure for conversations with no math results.
+ *
+ * This is a *template of absences*, not a source of conversation content. It used
+ * to query `comments` and backfill `tids` / `n-cmts` / `pca.comment-extremity`, so
+ * a conversation with zero votes served a math blob that claimed to contain every
+ * approved comment, with a fabricated `center: [0, 0]` and one fabricated `0`
+ * extremity per comment. That made the math blob look like a comment index and
+ * hid a real bug: a blob whose `tids` covered only *some* approved comments could
+ * not be distinguished from one that covered all of them.
+ *
+ * The math blob's `tids` now means exactly one thing: "the comments that are in
+ * the math". Anything that needs the conversation's comments reads the `comments`
+ * table (see `getCommentsCount` / `getComments` in src/comment.ts, which apply the
+ * conversation's moderation and visibility rules).
+ *
+ * Kept deliberately unchanged: `comment-projection: {}` (the historical served
+ * value on the no-math path; the corrected engine emits `[[], []]` in its own
+ * blob, which wins the merge below), `lastVoteTimestamp: Date.now()` and
+ * `math_tick: 0` (the no-row fallback's liveness/poll contract, out of scope here).
+ *
+ * This is the *engine-facing* shape. It is NOT what the API serves: served
+ * responses go through `presentPca` (src/utils/pcaPresentation.ts), which puts the
+ * historical comment/PCA defaults back on the wire from the `comments` table so
+ * already-loaded clients see byte-identical bytes. See `wasMergedWithTemplate`.
  */
-async function createEmptyPcaStructure(
-  zid: number
-): Promise<PcaCacheItem["asPOJO"]> {
-  // Fetch comment IDs if they exist
-  let tids: number[] = [];
-  let nCmts = 0;
-
-  try {
-    const commentsQuery = await pg.queryP_readOnly<Array<{ tid: number }>>(
-      "select tid from comments where zid = ($1) and mod >= 1 order by tid",
-      [zid]
-    );
-
-    if (commentsQuery && Array.isArray(commentsQuery)) {
-      tids = commentsQuery.map((row: { tid: number }) => row.tid);
-      nCmts = tids.length;
-    }
-  } catch (err) {
-    logger.error("Error fetching comments for empty PCA structure", err);
-  }
-
+function createEmptyPcaStructure(): PcaCacheItem["asPOJO"] {
   return {
     "group-clusters": [],
     "base-clusters": {
@@ -187,14 +227,14 @@ async function createEmptyPcaStructure(
     "group-aware-consensus": {},
     "user-vote-counts": {},
     "in-conv": [],
-    "n-cmts": nCmts,
+    "n-cmts": 0,
     pca: {
       comps: [[], []],
-      center: [0, 0],
-      "comment-extremity": tids.map(() => 0), // Initialize with zeros for each comment
+      center: [],
+      "comment-extremity": [],
       "comment-projection": {},
     },
-    tids: tids,
+    tids: [],
     n: 0,
     repness: {},
     consensus: {
@@ -210,16 +250,36 @@ async function createEmptyPcaStructure(
 }
 
 /**
+ * Structures that went through the merge below, i.e. that came from a `math_main`
+ * row (or from the no-row fallback) on a `getPca` cache miss.
+ *
+ * `edge` filled the served comment/PCA defaults inside this same merge, so the
+ * presentation layer (src/utils/pcaPresentation.ts) may only fill what the merge
+ * would have filled. Prefetched rows use this same merge before caching.
+ *
+ * A WeakSet rather than a property on the object: `handle_GET_participationInit`
+ * serializes the whole cache item, so any own enumerable property added here would
+ * land on the wire.
+ */
+const mergedStructures = new WeakSet<object>();
+
+export function wasMergedWithTemplate(
+  pojo: object | undefined | null
+): boolean {
+  return !!pojo && mergedStructures.has(pojo);
+}
+
+/**
  * Ensures all required PCA fields exist by merging incomplete data with empty structure
  * This prevents client failures when PCA data exists but is missing required fields
  */
 async function ensureCompletePcaStructure(
-  zid: number,
   existingData?: any
 ): Promise<PcaCacheItem["asPOJO"]> {
-  const emptyStructure = await createEmptyPcaStructure(zid);
+  const emptyStructure = createEmptyPcaStructure();
 
   if (!existingData) {
+    mergedStructures.add(emptyStructure);
     return emptyStructure;
   }
 
@@ -313,16 +373,67 @@ async function ensureCompletePcaStructure(
       existingData.lastVoteTimestamp || emptyStructure.lastVoteTimestamp;
   }
 
+  mergedStructures.add(mergedData);
   return mergedData;
+}
+
+export type GetPcaOptions = {
+  /**
+   * When a conversation has no `math_main` row at all, `getPca` synthesizes an
+   * empty presentation (`createEmptyPcaStructure`) for "latest" callers so
+   * reports still render. That synthesis costs a second query against
+   * `comments`.
+   *
+   * Internal callers that only want real math — comment routing, featured
+   * authors — set this false: they get the latest committed generation when one
+   * exists, and `undefined` after exactly one query when none does. Defaults to
+   * true, which is every pre-existing caller's behaviour.
+   */
+  synthesizeEmptyWhenMissing?: boolean;
+};
+
+/**
+ * The latest committed math generation for a conversation, or `undefined` when
+ * the conversation has no math row at all.
+ *
+ * Use this instead of the literal `getPca(zid, 0)`, which asks for a generation
+ * strictly newer than 0 and therefore silently discards a conversation's *first*
+ * committed generation — `math_ticks.math_tick` is `NOT NULL DEFAULT 0`, so
+ * generation 0 is real math with real `comment-priorities` and a real consensus.
+ *
+ * Unlike `getPca(zid)` this never synthesizes an empty presentation, so the
+ * no-math-row path stays at one query.
+ */
+export function getLatestExistingPca(
+  zid: number
+): Promise<PcaCacheItem | undefined> {
+  return getPca(zid, -1, { synthesizeEmptyWhenMissing: false });
 }
 
 export function getPca(
   zid?: number,
-  math_tick?: number
+  math_tick?: number,
+  options?: GetPcaOptions
 ): Promise<PcaCacheItem | undefined> {
+  const synthesizeEmptyWhenMissing =
+    options?.synthesizeEmptyWhenMissing !== false;
   const mathEnv = Config.mathEnv;
   let cached = pcaCache.get(pcaCacheKey(mathEnv, zid));
-  if (cached && cached.expiration < Date.now()) {
+  if (cached && cached.expiration <= Date.now()) {
+    cached = undefined;
+  }
+  // The [math_env, zid] cache is shared by every caller, so an entry may have
+  // been put there by an ordinary read that SYNTHESIZED an empty presentation
+  // for a conversation with no committed row. That is not an answer for a
+  // caller that asked for existing math only, and the provenance cannot be
+  // recovered by inspecting the payload -- a real published generation 0 can be
+  // legitimately empty. So the entry carries a `synthesized` flag and the
+  // existing-only path reads the store instead.
+  //
+  // Bypass, not evict: ordinary readers still want that entry, and dropping it
+  // would change their query pattern. Row-backed entries are always usable.
+  if (cached && !synthesizeEmptyWhenMissing && synthesizedEntries.has(cached)) {
+    logger.silly("mathpoll bypassing synthesized cache entry", { zid });
     cached = undefined;
   }
   const cachedPOJO = cached && cached.asPOJO;
@@ -379,15 +490,26 @@ export function getPca(
         );
 
         // If no PCA data exists and we're asking for the latest (math_tick -1 or undefined),
-        // return an empty structure instead of undefined to prevent report failures
-        if (math_tick === -1 || math_tick === undefined) {
+        // return an empty structure instead of undefined to prevent report failures.
+        // `synthesizeEmptyWhenMissing: false` opts out and keeps this path at
+        // one query — see getLatestExistingPca.
+        if (
+          synthesizeEmptyWhenMissing &&
+          (math_tick === -1 || math_tick === undefined)
+        ) {
           logger.info(
             "No PCA data found, returning empty structure for zid:",
             zid
           );
-          return ensureCompletePcaStructure(zid).then((completeData) => {
-            const dataWithZid = { ...completeData, zid: zid };
-            return updatePcaCache(mathEnv, zid, dataWithZid);
+          return ensureCompletePcaStructure().then((completeData) => {
+            // Assigned in place rather than spread into a copy: the structure is
+            // freshly built by the merge, and the copy would drop the merge mark
+            // `presentPca` reads. Key order is identical either way (an existing
+            // `zid` keeps its position; a new one is appended and then deleted by
+            // `updatePcaCache`).
+            const dataWithZid = Object.assign(completeData, { zid: zid });
+            // No committed row backs this presentation.
+            return updatePcaCache(mathEnv, zid, dataWithZid, true);
           });
         }
 
@@ -395,11 +517,27 @@ export function getPca(
       }
       const item = rowsArray[0].data;
 
-      if (rowsArray[0].math_tick) {
+      // `!= null`, not truthiness. A committed generation of 0 is a real
+      // production state: `math_ticks.math_tick` is `NOT NULL DEFAULT 0`
+      // (migrations/000000_initial.sql:649) and every writer mints ticks with
+      // `insert into math_ticks (zid, math_env) values (?, ?) on conflict do
+      // update set math_tick = math_ticks.math_tick + 1 returning math_tick`,
+      // whose INSERT arm returns 0 for the first publication of a
+      // (zid, math_env). Under truthiness the column was skipped at 0 and the
+      // blob's own engine-local `math_tick` leaked into the served POJO and
+      // its ETag.
+      if (rowsArray[0].math_tick != null) {
         item.math_tick = Number(rowsArray[0].math_tick);
       }
 
-      if (item.math_tick <= (math_tick || 0)) {
+      // `math_tick` undefined means "give me the latest", the same thing the
+      // cached branch above treats as latest, so the floor is -1. Coercing it
+      // to 0 with `|| 0` made a committed generation of 0 look "not newer" and
+      // reported the conversation as having no math at all. -1 remains the
+      // `math_main.math_tick` default for a row that never got a real tick,
+      // and such a row stays unserved.
+      const requestedMathTick = typeof math_tick === "number" ? math_tick : -1;
+      if (item.math_tick <= requestedMathTick) {
         logger.silly("after cache miss, unable to find newer item", {
           zid,
           math_tick,
@@ -411,20 +549,113 @@ export function getPca(
         math_tick,
       });
 
-      processMathObject(item);
-
-      // Ensure all required fields exist by merging with empty structure if needed
-      return ensureCompletePcaStructure(zid, item).then((completeData) => {
-        const dataWithZid = { ...completeData, zid: zid };
-        return updatePcaCache(mathEnv, zid, dataWithZid);
-      });
+      return presentMathMainRow(mathEnv, zid, item);
     });
+}
+
+/**
+ * Normalize one owned `math_main.data` blob and cache its engine-facing shape.
+ *
+ * Shared by `getPca`'s row path and the Bundle reader so both produce the
+ * same marked structure for the response-boundary `presentPca` call. `item` is
+ * mutated by `processMathObject`, so callers must hand over a blob they own.
+ *
+ * `ensureCompletePcaStructure` only merges the template of absences. The
+ * comment-owned `tids` / `n-cmts` and legacy PCA defaults are composed by
+ * `presentPca` in pcaPresentation.ts, never stored in the raw Bundle.
+ */
+function presentMathMainRow(
+  mathEnv: string,
+  zid: number,
+  item: PcaCacheItem["asPOJO"],
+  sourceExpiration?: number
+): Promise<PcaCacheItem> {
+  processMathObject(item);
+
+  // Ensure all required fields exist by merging with empty structure if needed
+  return ensureCompletePcaStructure(item).then((completeData) => {
+    // Preserve the WeakSet merge mark that presentPca checks. Spreading into
+    // a new object would silently skip C7's comment-owned presentation.
+    const dataWithZid = Object.assign(completeData, { zid: zid });
+    return updatePcaCache(mathEnv, zid, dataWithZid, false, sourceExpiration);
+  });
+}
+
+/**
+ * The latest presentation, read through a coherent Bundle.
+ *
+ * `getPca(zid)` reads `math_main` on its own, so a report that also joins
+ * participants to groups could mix generations across its several reads. This
+ * consults the shared presentation cache first, then loads a Bundle on a
+ * miss. Only that miss observes companion admission; this main-only helper
+ * does not establish request-wide coherence for other independent reads.
+ *
+ * It is deliberately byte-identical to `getPca(zid)`:
+ *
+ *  - the presentation cache is consulted first, with `getPca`'s own freshness
+ *    rule, so a prefetched entry is still what a report sees;
+ *  - a conversation with no `math_main` row falls through to `getPca`, which
+ *    synthesizes the empty presentation and shares one cache entry for it --
+ *    that entry stamps `lastVoteTimestamp: Date.now()`, so bypassing it would
+ *    change bytes between two reads in the same report;
+ *  - an uninitialized row (`math_tick` still at -1) gets a synthesized empty
+ *    presentation, just like a missing row, so reports can still render.
+ *
+ * A refused Bundle is logged by `getMathBundle` and then presented from its
+ * main row anyway. Every field a report reads is main-owned -- the
+ * participant-to-group join runs through `base-clusters.members`, not through
+ * `math_bidtopid` -- so refusing here would remove a report that is correct
+ * today, while the joining callers (`getPidsForGid`, `getBidsForPids`) do
+ * refuse because their answer genuinely spans two tables.
+ */
+export async function getPcaFromBundle(
+  zid: number
+): Promise<PcaCacheItem | undefined> {
+  const mathEnv = Config.mathEnv;
+  let cached = pcaCache.get(pcaCacheKey(mathEnv, zid));
+  if (cached && cached.expiration <= Date.now()) {
+    cached = undefined;
+  }
+  if (cached && cached.asPOJO) {
+    logger.silly("math from bundle cache (latest requested)", { zid });
+    return cached;
+  }
+
+  const read = await getMathBundle(zid, mathEnv);
+  if (!read.present) {
+    return getPca(zid);
+  }
+
+  if (read.mathTick <= -1) {
+    // An uninitialized row has no publishable math. Reports still need an
+    // empty presentation; retain synthesized provenance for routing readers.
+    return ensureCompletePcaStructure().then((data) =>
+      updatePcaCache(mathEnv, zid, Object.assign(data, { zid }), true, read.expiration)
+    );
+  }
+  return presentExistingMathBundle(zid, mathEnv, read);
+}
+
+/** Present the request's own main, without consulting the independent PCA cache. */
+export function presentExistingMathBundle(
+  zid: number,
+  mathEnv: string,
+  read: CachedMathBundleRead
+): Promise<PcaCacheItem | undefined> {
+  if (!read.present || read.mathTick <= -1) return Promise.resolve(undefined);
+  // The cached Bundle is shared by every concurrent reader and
+  // `processMathObject` mutates in place, so present a copy.
+  const item = structuredClone(read.main) as PcaCacheItem["asPOJO"];
+  item.math_tick = read.mathTick;
+  return presentMathMainRow(mathEnv, zid, item, read.expiration);
 }
 
 function updatePcaCache(
   mathEnv: string,
   zid: number,
-  item: { zid: number }
+  item: { zid: number },
+  synthesized = false,
+  sourceExpiration = Infinity
 ): Promise<PcaCacheItem> {
   return new Promise(function (
     resolve: (arg0: PcaCacheItem) => void,
@@ -444,10 +675,13 @@ function updatePcaCache(
           asPOJO: item,
           asJSON: asJSON,
           asBufferOfGzippedJson: jsondGzipdPcaBuffer,
-          expiration: Date.now() + 3000,
-          consensus: (item as any).consensus || { agree: {}, disagree: {} },
+          expiration: Math.min(Date.now() + 3000, sourceExpiration),
+          consensus: (item as any).consensus || { agree: [], disagree: [] },
           repness: (item as any).repness || {},
         } as unknown as PcaCacheItem;
+        if (synthesized) {
+          synthesizedEntries.add(o);
+        }
         // save in LRU cache, but don't update the lastPrefetchedMathTick
         pcaCache.set(pcaCacheKey(mathEnv, zid), o);
         resolve(o);

@@ -664,3 +664,49 @@
   color: #666;
   font-style: italic;
 }
+
+/* Outstanding Delphi job banner.
+   Rendered above the report rather than in place of it, so a queued or running
+   job never hides results from a previous run. */
+.job-status-banner {
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  background: #e8f4fd;
+  border-radius: 4px;
+  border-left: 4px solid #2196f3;
+}
+
+.job-status-banner h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  color: #0b4a75;
+}
+
+.job-status-banner p {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  color: #0b4a75;
+}
+
+.job-status-id {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.log-output {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  font-size: 0.85rem;
+  padding: 16px;
+  border-radius: 6px;
+  max-height: 600px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.log-line {
+  display: block;
+}

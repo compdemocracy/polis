@@ -7,14 +7,14 @@ including votes, clustering, and representativeness calculation.
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Set, Tuple, Union, Any, Callable
+from typing import Dict, List, Mapping, Optional, Set, Tuple, Union, Any, Callable, TYPE_CHECKING
 from copy import deepcopy
 import time
 import logging
 import sys
 from datetime import datetime
-from natsort import natsorted
 
+from polismath.conversation.group_vote_counts import group_vote_counts
 from polismath.pca_kmeans_rep.pca import (
     pca_project_dataframe,
     pca_project_cmnts,
@@ -31,6 +31,10 @@ from polismath.pca_kmeans_rep.legacy_kmeans import (
     kmeans as legacy_kmeans,
 )
 from polismath.utils.clj_hash import clojure_hash_map_key_order
+from polismath.utils.output_profile import assert_restorable
+
+if TYPE_CHECKING:  # import cycle-free: annotation-only reference
+    from polismath.database.dynamodb import DynamoDBClient
 
 
 # Configure logging
@@ -175,7 +179,7 @@ class Conversation:
     def __init__(self, 
                 conversation_id: Union[str, int],
                 last_updated: Optional[int] = None,
-                votes: Optional[Dict[str, Any]] = None):
+                votes: Optional[Dict[str, Any]] = None) -> None:
         """
         Initialize a conversation.
         
@@ -208,9 +212,9 @@ class Conversation:
         self.last_mod_timestamp: Optional[int] = None
         # Clojure named-matrix column order = first-vote arrival order per tid
         # (update-nmat appends unseen colnames in encounter order); python's
-        # internal matrix is natsorted instead (update_votes). Tracked so
-        # clojure-legacy tie-breaking (stable sorts over column order) and
-        # blob tid emission can replicate Clojure exactly. Append-only.
+        # internal matrix keeps that same append-only order. PCA reductions
+        # and positional warm starts depend on it, as do stable tie breaks
+        # and tid-aligned blob arrays.
         self.tid_arrival_order = []
         
         # Clustering and projection state
@@ -247,7 +251,7 @@ class Conversation:
             self.update_votes(votes)
     
     def update_votes(self, 
-                    votes: Dict[str, Any],
+                    votes: Mapping[str, Any],
                     recompute: bool = True) -> 'Conversation':
         """
         Update the conversation with new votes.
@@ -297,10 +301,13 @@ class Conversation:
                 created = vote.get('created', last_vote_timestamp)
                 
                 # Skip invalid votes
-                if ptpt_id is None or comment_id is None or vote_value is None:
+                if ptpt_id is None or comment_id is None or 'vote' not in vote:
                     invalid_count += 1
                     continue
                     
+                # A present null clears the cell, including on a new identity.
+                # Keep it distinct from an invalid value rejected by conversion.
+                explicit_null = vote_value is None
                 # Convert vote value to standard format
                 try:
                     # Handle string values
@@ -343,7 +350,7 @@ class Conversation:
                     vote_value = None
                 
                 # Skip null votes or unknown format
-                if vote_value is None:
+                if vote_value is None and not explicit_null:
                     null_count += 1
                     continue
                 
@@ -381,7 +388,7 @@ class Conversation:
         logger.info(f"[{time.time() - start_time:.2f}s] Found {len(existing_rows)} existing rows and {len(existing_cols)} existing columns")
 
         # Step 1: Convert the list to a DataFrame with columns "row", "col", "value"
-        # By now it contain only -1, +1, or 0 as values
+        # Values are -1, +1, 0, or an explicit null update.
         logger.info(f"[{time.time() - start_time:.2f}s] Converting updates to DataFrame...")
 
         updates_df = pd.DataFrame(vote_updates, columns=['row', 'col', 'value', 'created'])
@@ -427,50 +434,30 @@ class Conversation:
                 new_rows_ordered.append(pid)
         all_rows = list(existing_rows) + new_rows_ordered
 
-        # Column order: natsort is fine — column permutation doesn't affect PCA
-        # eigenvalues/vectors (only reorders the component loadings), so it has
-        # no effect on clustering k.
-        # NB: in clojure-legacy mode this column order is now LOAD-BEARING for
-        # PCA warm-start alignment — the previous tick's component loadings are
-        # threaded in positionally, so the ordering must be STABLE tick-to-tick.
-        # Safe while tids are append-only (natsort keeps prior columns' relative
-        # order and appends new ones); revisit if columns can ever be removed.
-        all_cols = natsorted(existing_cols.union(new_cols))
+        # Append unseen columns in first-vote order, just like NamedMatrix.
+        # Sorting can insert a newly observed older tid before existing ones,
+        # shifting the previous PCA loadings to different comments at the
+        # next warm tick. Even a correctly aligned permutation changes the
+        # sequential floating-point reductions, so retain encounter order.
+        all_cols = list(result.raw_rating_mat.columns)
+        all_cols.extend(tid for tid in result.tid_arrival_order if tid in new_cols)
 
         logger.info(f"[{time.time() - start_time:.2f}s] Found {len(new_rows)} new rows and {len(new_cols)} new columns")
 
-        # Apply all updates using vectorized pivot_table approach.
-        # This is much faster than row-by-row iteration because pandas/numpy
-        # can use optimized C code for the reshape operation.
-
+        # Expand first, then write only the addressed cells. A pivot/where
+        # merge loses the distinction between an explicit null (clear) and a
+        # cell absent from this batch (retain). The pairs are already unique.
         logger.info(f"[{time.time() - start_time:.2f}s] Applying {len(updates_df)} votes as batch update...")
         batch_start = time.time()
-
-        # Build a wide-form matrix from the long-form updates using pivot_table.
-        # aggfunc='last' keeps the last vote if any duplicates remain after dedup.
-        update_matrix = updates_df.pivot_table(
-            index='row',
-            columns='col',
-            values='value',
-            aggfunc='last'
-        )
-
-        # Expand the existing matrix to include any new rows/columns.
-        # fill_value=np.nan ensures new cells start as "no vote".
         result.raw_rating_mat = result.raw_rating_mat.reindex(
             index=all_rows, columns=all_cols, fill_value=np.nan
         )
-
-        # Align the update matrix to the same shape (new cells become NaN).
-        update_matrix = update_matrix.reindex(index=all_rows, columns=all_cols)
-
-        # Merge: where update_matrix has a value, use it; otherwise keep original.
-        # DataFrame.where(cond, other) keeps self where cond is True, uses other where False.
-        # So: keep raw_rating_mat where update_matrix is NaN, else use update_matrix.
-        result.raw_rating_mat = result.raw_rating_mat.where(
-            update_matrix.isna(),  # condition: True where update has no value
-            update_matrix          # other: use update value where condition is False
-        )
+        if not updates_df.empty:
+            values = result.raw_rating_mat.to_numpy(dtype=float, copy=True)
+            rows = result.raw_rating_mat.index.get_indexer(updates_df['row'])
+            cols = result.raw_rating_mat.columns.get_indexer(updates_df['col'])
+            values[rows, cols] = updates_df['value'].to_numpy(dtype=float)
+            result.raw_rating_mat = pd.DataFrame(values, index=all_rows, columns=all_cols)
 
         logger.info(f"[{time.time() - start_time:.2f}s] Batch update completed in {time.time() - batch_start:.2f}s")
         
@@ -615,7 +602,7 @@ class Conversation:
             }
     
     def update_moderation(self, 
-                         moderation: Dict[str, Any],
+                         moderation: Mapping[str, Any],
                          recompute: bool = True) -> 'Conversation':
         """
         Update moderation settings.
@@ -987,7 +974,7 @@ class Conversation:
         # before either bound, so on real conversations it is inert.
         base_ids = [c['id'] for c in base_clusters]
         base_weights_by_id = {c['id']: len(c['members']) for c in base_clusters}
-        group_data = _LegacyNamedData(base_ids, base_centers_array)
+        group_data = _LegacyNamedData(base_ids, base_centers_array, matrix_backed=True)
         prev_gc = prev_group_clusterings or {}
 
         legacy_group_clusterings: Dict[int, List[Dict[str, Any]]] = {}
@@ -1821,11 +1808,13 @@ class Conversation:
         # A=0/D=0 with S = every member).
         # tests/test_mod_update_parity.py TestGroupVotesTallyRawMatrix.
         tally_mat = self.raw_rating_mat
+        if tally_mat.index.is_unique and tally_mat.columns.is_unique:
+            return group_vote_counts(tally_mat, self.rating_mat.columns, unfolded)
 
         group_votes = {}
 
         # Helper to count votes of a specific type for a group
-        def count_votes_for_group(group_id, comment_id, vote_type):
+        def count_votes_for_group(group_id: Any, comment_id: Any, vote_type: str) -> int:
             group = next((g for g in unfolded if g.get('id') == group_id), None)
             if not group:
                 return 0
@@ -2175,7 +2164,7 @@ class Conversation:
         # Add PCA data efficiently
         if self.pca:
             # Function to safely convert numpy arrays to lists
-            def numpy_to_list(arr):
+            def numpy_to_list(arr: Any) -> Any:
                 if isinstance(arr, np.ndarray):
                     return arr.tolist()
                 elif isinstance(arr, list):
@@ -2254,10 +2243,10 @@ class Conversation:
         result['lastVoteTimestamp'] = self.last_updated
         result['lastModTimestamp'] = self.last_updated
         
-        # Add tids (comment IDs) with natural sorting
+        # Add tids in the same order as the matrix and PCA arrays
         # Types are already preserved (int stays int, str stays str, etc.)
         # TODO: figure out if really needed, as per https://github.com/compdemocracy/polis/issues/2290
-        result['tids'] = natsorted(self.rating_mat.columns)
+        result['tids'] = list(self.rating_mat.columns)
         
         # Add count values with Clojure naming
         result['n'] = self.participant_count
@@ -2467,11 +2456,16 @@ class Conversation:
         result['math_tick'] = math_tick_value
 
         self._apply_legacy_blob_shape(result)
+        if self.raw_rating_mat.empty:
+            # Every serializer shares the declared zero-vote structure, including
+            # callers without a publisher. Do not change warm engine state.
+            from polismath.empty_output import apply_empty_contract
+            apply_empty_contract(result, mod_in=self.mod_in_tids, mod_out=self.mod_out_tids)
 
         logger.info(f"Total to_dict time: {time.time() - overall_start_time:.4f}s")
         return result
     
-    def _convert_structure(self, data):
+    def _convert_structure(self, data: Any) -> Any:
         """
         Optimized conversion of nested data structures for Clojure compatibility.
         Much faster than the full recursive conversion.
@@ -2539,7 +2533,7 @@ class Conversation:
             'total': 0
         }
         
-        def _convert_inner(data, depth=0):
+        def _convert_inner(data: Any, depth: int = 0) -> Any:
             processed_count['total'] += 1
             
             # For immutable types, use memoization to avoid re-processing
@@ -2672,7 +2666,7 @@ class Conversation:
     
     # Reset the conversion cache whenever needed
     @staticmethod
-    def _reset_conversion_cache():
+    def _reset_conversion_cache() -> None:
         """Clear the conversion cache to free memory."""
         Conversation._conversion_cache = {}
     
@@ -2680,13 +2674,24 @@ class Conversation:
     def from_dict(cls, data: Dict[str, Any]) -> 'Conversation':
         """
         Create a conversation from a dictionary.
-        
+
         Args:
            data: Dictionary representation of a conversation
-            
+
         Returns:
             Conversation instance
+
+        Raises:
+            OutputProfileError: if ``data`` is a PROJECTED comparison view
+            rather than a raw serialization (P-023 rev3 R3-1). A projected
+            ``PREP_MAIN_KEYS`` view is a legal kebab-only blob — no alias pair,
+            so the C9 relation never runs. Restoring kebab-only groups cannot
+            distinguish transformed comparison geometry from raw producer
+            geometry. The marker is checked here at the restore boundary;
+            accepting the legacy field spelling does not bypass that guard.
         """
+        assert_restorable(data, label="Conversation.from_dict")
+
         # Create empty conversation. to_dict emits the id under 'zid' (both
         # modes — it renames conversation_id at emission), matching Clojure
         # prep-main blobs; accept either key so a recorded blob round-trips
@@ -2734,18 +2739,8 @@ class Conversation:
             # Clojure-convention (negated) center; internal state stays in
             # Delphi convention (see _apply_legacy_blob_shape).
             center = -center
-            # Inverse of the legacy emission ORDER parity: blobs emit tids
-            # (and every tid-aligned pca array) in Clojure ARRIVAL order,
-            # while internal state aligns with the natsorted matrix
-            # columns. Without un-permuting, a warm restore would seed the
-            # next PCA with column-misaligned center/comps (#2649 review).
-            blob_tids = data.get('tids') or []
-            if len(blob_tids) == center.shape[0]:
-                pos = {t: i for i, t in enumerate(blob_tids)}
-                perm = [pos[t] for t in natsorted(blob_tids)]
-                center = center[perm]
-                if comps.ndim == 2 and comps.shape[1] == len(perm):
-                    comps = comps[:, perm]
+            # Blobs and the rating matrix both use first-vote column order.
+            # Preserve that order when restoring positional warm starts.
             conv.pca = {
                 'center': center,
                 'comps': comps
@@ -2756,8 +2751,12 @@ class Conversation:
         if proj_data:
             conv.proj = {pid: np.array(proj) for pid, proj in proj_data.items()}
         
-        # Restore cluster data
-        conv.group_clusters = data.get('group_clusters', [])
+        # Preserve the internal alias when present, including an explicit [];
+        # legacy rows may carry only the wire spelling.
+        groups = data.get('group_clusters')
+        if groups is None:
+            groups = data.get('group-clusters')
+        conv.group_clusters = groups or []
 
         # Restore base clusters — the blob emits them in the Clojure folded
         # column-store shape ({'id': [...], 'members': [...], 'x': [...],
@@ -2788,7 +2787,7 @@ class Conversation:
         # priorities reduce only iterates values). Improved mode is
         # unaffected in practice: priorities there read the CURRENT tick's
         # group-votes, and the recompute overwrites this attribute first.
-        def _numeric_key(k):
+        def _numeric_key(k: Any) -> Any:
             try:
                 return int(k)
             except (ValueError, TypeError):
@@ -2850,7 +2849,7 @@ class Conversation:
         }
         
         # Function to convert numpy arrays to lists
-        def numpy_to_list(obj):
+        def numpy_to_list(obj: Any) -> Any:
             if isinstance(obj, np.ndarray):
                 return obj.tolist()
             elif isinstance(obj, list):
@@ -2864,7 +2863,7 @@ class Conversation:
             return obj
         
         # Function to convert floats to Decimal for DynamoDB compatibility
-        def float_to_decimal(obj):
+        def float_to_decimal(obj: Any) -> Any:
             if isinstance(obj, float):
                 return decimal.Decimal(str(obj))
             elif isinstance(obj, dict):
@@ -3168,7 +3167,7 @@ class Conversation:
         logger.info(f"[{time.time() - start_time:.2f}s] Conversion to DynamoDB format completed")
         return result
 
-    def export_to_dynamodb(self, dynamodb_client) -> bool:
+    def export_to_dynamodb(self, dynamodb_client: "DynamoDBClient") -> bool:
         """
         Export conversation data directly to DynamoDB.
         

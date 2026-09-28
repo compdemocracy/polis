@@ -20,10 +20,10 @@ const MajorityStrict = ({
 
   // const _comments = _.keyBy(comments, "tid");
   const _consensusTids = [];
-  consensus.agree.forEach((c) => {
+  (consensus?.agree || []).forEach((c) => {
     _consensusTids.push(c.tid);
   });
-  consensus.disagree.forEach((c) => {
+  (consensus?.disagree || []).forEach((c) => {
     _consensusTids.push(c.tid);
   });
 

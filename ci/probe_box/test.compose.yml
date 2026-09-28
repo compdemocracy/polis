@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:17.11
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: probe_test
+    ports:
+      - "127.0.0.1:${POLIS_RECOVERY_PG_PORT:?unique port required}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U postgres -d probe_test"]
+      interval: 1s
+      timeout: 3s
+      retries: 30

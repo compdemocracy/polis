@@ -45,6 +45,18 @@ def _seed_conversation(engine, zid=1, n_ptpts=8, n_cmts=5):
     old_modified = now - 2 * 24 * 60 * 60 * 1000  # 2 days ago
     with engine.begin() as conn:
         conn.execute(sa.text("SET session_replication_role = replica"))
+        # Make the seed RE-RUNNABLE. When POLIS_TEST_POSTGRES_URL points at a
+        # long-lived service database (the compose `postgres` service, and now
+        # `make test-recovery`), rows from a previous run survive: the INSERT
+        # below hit conversations_zid_key, and the caching_tick == 1 assertion
+        # below additionally requires this math_env to have no prior math_main
+        # row. Clear this zid's own rows first rather than depending on a
+        # freshly-initialised database.
+        for table in ("votes", "votes_latest_unique", "comments",
+                      "participants", "math_main", "math_bidtopid",
+                      "math_ptptstats", "math_ticks", "conversations"):
+            conn.execute(sa.text(f"DELETE FROM {table} WHERE zid = :zid"),
+                         {"zid": zid})
         conn.execute(sa.text("INSERT INTO conversations (zid) VALUES (:zid)"),
                      {"zid": zid})
         for p in range(n_ptpts):

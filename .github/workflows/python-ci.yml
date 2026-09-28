@@ -12,6 +12,11 @@ on:
       - 'delphi/requirements*.txt'
       - 'delphi/Dockerfile'
       - '.github/workflows/python-ci.yml'
+      # server/src so a new server-side wildcard runs the projection-gate sweep
+      - 'server/src/**'
+      # Representative payload tests execute the probe planner and independent gate.
+      - 'ci/private_cert/**'
+      - 'ci/probe_box/**'
   pull_request:
     branches:
       - edge
@@ -100,6 +105,41 @@ jobs:
         echo "Copying script to be tested into container..."
         docker compose -f docker-compose.test.yml cp delphi/polismath/run_math_pipeline.py delphi:/app/run_math_pipeline.py
         docker compose -f docker-compose.test.yml cp delphi/umap_narrative delphi:/app/umap_narrative
+        echo "Copying the compose files into container..."
+        # tests/test_compose_math_env.py asserts that every stack's delphi service
+        # receives the MATH_ENV its math service writes under. /app/tests has no
+        # checkout above it, so put the two files it parses beside it; without
+        # them the test skips instead of guarding the report pipeline's math_env.
+        docker compose -f docker-compose.test.yml cp docker-compose.yml delphi:/app/docker-compose.yml
+        docker compose -f docker-compose.test.yml cp docker-compose.test.yml delphi:/app/docker-compose.test.yml
+
+        # Wire a checkout-shaped root so delphi/tests/scripts collects AND RUNS the
+        # pure-Python inventory sweep + the DB-free gate unit tests (the conftest
+        # locator resolves POLIS_CHECKOUT_DIR). The scan inputs are copied in as REAL,
+        # traversable directories (NOT symlinks — os.walk would skip those). The set
+        # of inputs is DERIVED from the scanner's own declaration
+        # (`--print-scan-inputs`) so it can never diverge from what the sweep scans;
+        # a test asserts every declared input is present under /app/projgate.
+        echo "Wiring projection-gate scan inputs (derived from the scanner declaration)..."
+        docker compose -f docker-compose.test.yml exec -T delphi mkdir -p /app/projgate
+        # Iterate a CAPTURED list, not `... | while read`: a `docker compose exec`
+        # inside a while-read loop drains the piped stdin and truncates the list to
+        # its first item (observed: only server/src copied).
+        # Recordings tests also load the packer and its digest helper from ci/.
+        # battery_coverage.py is already included in the declared delphi/scripts.
+        # Representative payload tests import the box planner/gate and their
+        # helpers from this same checkout root; keep their relative paths intact.
+        for rel in $(python3 delphi/scripts/projection_inventory.py --print-scan-inputs) \
+          ci/p022_recordings_manifest.py ci/p022_battery_digest.py \
+          ci/private_cert/images/gate.py ci/private_cert/images/probe.py \
+          ci/private_cert/images/attribution.py ci/private_cert/images/diagnostic_projection.py ci/private_cert/images/selection_context.py \
+          ci/private_cert/images/g12.py ci/private_cert/images/near_ties.py ci/private_cert/control.py \
+          ci/private_cert/image_admission.py ci/probe_box/receipt.py \
+          ci/probe_box/contracts.py; do
+          docker compose -f docker-compose.test.yml exec -T delphi mkdir -p "/app/projgate/$(dirname "$rel")"
+          docker compose -f docker-compose.test.yml cp "$rel" "delphi:/app/projgate/$rel" \
+            || { echo "failed to copy scan input: $rel"; exit 1; }
+        done
 
         echo "Running tests and generating coverage report..."
         docker compose \
@@ -112,6 +152,7 @@ jobs:
           -e AWS_SECRET_ACCESS_KEY=dummy \
           -e SKIP_GOLDEN=1 \
           -e POSTGRES_CONNECT_TIMEOUT=5 \
+          -e POLIS_CHECKOUT_DIR=/app/projgate \
           delphi \
           bash -c " \
             set -e; \

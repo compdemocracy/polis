@@ -1,0 +1,1346 @@
+"""Negative controls: a passing public-fixture battery must fail when coverage breaks.
+
+Producers are local fakes, but schedule resolution, store validation, cache
+manifests, numeric comparison, run manifest and CLI exit paths are real.
+"""
+import copy
+import hashlib
+import importlib.util
+import json
+import subprocess
+from pathlib import Path
+
+import pytest
+from click.testing import CliRunner
+
+from polismath.replay import certify as cert, schedule as sched
+from polismath.replay.crosslang import PREP_MAIN_KEYS, project_prep_main
+from polismath.replay.driver import run_replay
+from polismath.replay.types import ReplayDataset
+
+EMPTY = {"n": 0, "n-cmts": 0, "tids": [], "in-conv": []}
+
+#: Blob mutations applied IDENTICALLY to both engines' checkpoints (P-022 B1
+#: review, P1). Each produces byte-identical malformed recordings, so the
+#: acceptance projection stays nonempty and the two per-engine hashes are
+#: EQUAL — the hash-first shortcut used to short-circuit them to MATCH and
+#: certify PASS with strict exit 0. Every one of these must now FAIL at
+#: ``checkpoint-schema`` with the offending field named. Values are
+#: ``(mutate, field_named_in_reason)``.
+PAIRED_MALFORMED = {
+    "nan-count": (lambda b: {**b, "n": float("nan")}, "n"),
+    "inf-count": (lambda b: {**b, "n": float("-inf")}, "n"),
+    "string-count": (lambda b: {**b, "n": "invalid-count"}, "n"),
+    "float-count": (lambda b: {**b, "n": 1.5}, "n"),
+    "negative-count": (lambda b: {**b, "n": -1}, "n"),
+    "missing-count": (lambda b: {k: v for k, v in b.items() if k != "n"}, "n"),
+    "string-tid": (lambda b: {**b, "tids": ["1"]}, "tids"),
+    "scalar-tids": (lambda b: {**b, "tids": 1}, "tids"),
+    "container-zid": (lambda b: {**b, "zid": {"nope": 1}}, "zid"),
+    "list-pca": (lambda b: {**b, "pca": [1, 2]}, "pca"),
+    "nested-nan": (lambda b: {**b, "pca": {"center": [0.0, float("nan")]}}, "pca.center[1]"),
+    "nested-inf": (lambda b: {**b, "base-clusters": {"x": [float("inf")]}}, "base-clusters.x[0]"),
+    # P-022 B1 review, round 3 — alias collisions. `_kebab` collapsed two raw
+    # spellings into one canonical entry BEFORE any validation ran, so the
+    # dropped value was never type- or finiteness-checked and the pair still
+    # certified PASS. Both insertion orders, so a later valid alias cannot hide
+    # an invalid original (and vice versa), plus a three-way collision.
+    "alias-count-snake-first": (
+        lambda b: {"n_cmts": "invalid-count", **b}, "'n_cmts'"),
+    "alias-count-kebab-first": (
+        lambda b: {**b, "n_cmts": "invalid-count"}, "'n_cmts'"),
+    "alias-nan-extension-snake-first": (
+        lambda b: {"hidden_value": float("nan"), **b, "hidden-value": 0}, "'hidden_value'"),
+    "alias-nan-extension-kebab-first": (
+        lambda b: {"hidden-value": 0, **b, "hidden_value": float("nan")}, "'hidden_value'"),
+    "alias-three-way": (
+        lambda b: {**b, "a_b_c": 1, "a-b_c": 2, "a-b-c": 3}, "'a-b-c'"),
+}
+
+#: Raw key sets whose two spellings collapse onto one canonical key. Used by the
+#: direct-validation controls below (the end-to-end paired controls live in
+#: :data:`PAIRED_MALFORMED`).
+VALID_BASE = {"n": 1, "n-cmts": 1, "tids": [1], "in-conv": [1]}
+
+
+def latest_manifest(root):
+    """Read the run manifest the ``latest`` pointer names. Manifests are keyed
+    by run id so a later run cannot overwrite an earlier one, so there is no
+    fixed path to read — everything goes through the pointer."""
+    pointer = json.loads((Path(root) / cert.RUN_MANIFEST_LATEST).read_text())
+    return json.loads(Path(pointer["run_manifest"]).read_text())
+
+
+@pytest.fixture
+def battery(tmp_path, monkeypatch):
+    ds = ReplayDataset.build([(10, 1, 1, 1), (20, 2, 1, -1)])
+    votes = tmp_path / "public-fixture-votes.csv"
+    votes.write_text("timestamp,participant,comment,vote\n10,1,1,1\n20,2,1,-1\n")
+    monkeypatch.setattr(cert, "dataset_available", lambda name: name == "public-fixture")
+    monkeypatch.setattr(cert, "votes_csv_path", lambda name: votes)
+    monkeypatch.setattr(cert.real_data, "load_export_votes", lambda name: ds)
+    monkeypatch.setattr(cert, "_clj_source_hashes", lambda: ("clj-source", "math-source"))
+    monkeypatch.setattr(cert, "_engine_tree_hash_cached", lambda: "python-source")
+    entry = cert.parse_battery_entry({"dataset": "public-fixture", "preset": "every-vote"})
+    state = {"mutation": None, "calls": 0}
+    root = tmp_path / "recordings"
+
+    def produce(spec_path, engine):
+        state["calls"] += 1
+        manifest = latest_manifest(root)
+        assert manifest["verdict"] == "INCONCLUSIVE"
+        assert len(manifest["inventory"]) >= 2  # written BEFORE first producer
+        spec = sched.ScheduleSpec.from_json_file(spec_path)
+        steps = sched.slice_schedule(ds, spec)
+        out = root / spec.dataset / spec.schedule_id / engine
+        out.mkdir(parents=True, exist_ok=True)
+        if state["mutation"] == "timeout":
+            raise subprocess.TimeoutExpired("public-fixture-producer", 1)
+        if state["mutation"] == "producer-failure":
+            return subprocess.CompletedProcess([], 1, "", "public-fixture failure")
+        for step in steps:
+            meta = {"index": step.index, "prev_slot": step.prev_slot,
+                    "cut_slot": step.cut_slot, "batch_size": len(step.vote_events),
+                    "cut_time_ms": step.cut_time_ms}
+            blob = EMPTY if step.cut_slot == 0 else {
+                "n": step.cut_slot, "n-cmts": 1, "tids": [1], "in-conv": [1]}
+            # Paired malformation: BOTH engines emit the same broken value, so
+            # the recordings are byte-identical and hash equal.
+            paired = PAIRED_MALFORMED.get(state["mutation"])
+            if paired is not None:
+                blob = paired[0](blob)
+            if "mutate_blob" in state:
+                blob = state["mutate_blob"](engine, step, dict(blob))
+            stem = f"step-{step.index:03d}"
+            if engine == "clj":
+                (out / (stem + ".blob.json")).write_text(json.dumps(blob))
+                (out / (stem + ".meta.json")).write_text(json.dumps(meta))
+            else:
+                (out / (stem + ".json")).write_text(json.dumps({**meta, "blob": blob}))
+        mutation = state["mutation"]
+        if mutation == "empty-both" or (mutation == "empty-py" and engine == "py"):
+            for path in out.glob("step-*.json"):
+                path.unlink()
+        if engine == "py":
+            first = out / "step-000.json"
+            if mutation == "remove":
+                (out / "step-001.json").unlink()
+            elif mutation == "duplicate":
+                (out / "step-002.json").write_text(first.read_text())
+            elif mutation == "identity":
+                payload = json.loads(first.read_text()); payload["cut_slot"] = 999
+                first.write_text(json.dumps(payload))
+            elif mutation == "duplicate-index":
+                payload = json.loads((out / "step-001.json").read_text()); payload["index"] = 0
+                (out / "step-001.json").write_text(json.dumps(payload))
+            elif mutation == "malformed-step":
+                first.write_text("{")
+            elif mutation == "empty-blob":
+                payload = json.loads(first.read_text()); payload["blob"] = {}
+                first.write_text(json.dumps(payload))
+            elif mutation == "wrong-empty":
+                payload = json.loads(first.read_text()); payload["blob"]["n"] = 1
+                first.write_text(json.dumps(payload))
+            elif mutation == "py-only-nan":
+                # Asymmetric control: only py is malformed, so the hashes
+                # DIFFER — validation must still name py, not fall through to
+                # the comparer and report a mere divergence.
+                payload = json.loads(first.read_text())
+                payload["blob"]["n"] = float("nan")
+                first.write_text(json.dumps(payload))
+            elif mutation == "absent-empty":
+                # The real Clojure/Python empty-blob divergence in miniature: the
+                # contract's key is not wrong, it is simply not emitted at all.
+                payload = json.loads(first.read_text()); payload["blob"].pop("n")
+                first.write_text(json.dumps(payload))
+        return subprocess.CompletedProcess([], 0, "", "")
+
+    monkeypatch.setattr(cert, "run_clj_driver", lambda spec, votes, **kw: produce(spec, "clj"))
+    monkeypatch.setattr(cert, "run_py_driver", lambda spec, **kw: produce(spec, "py"))
+
+    def run(entries=None, **kwargs):
+        return cert.run_battery(entries if entries is not None else [entry], root=root,
+                                ledger_path=tmp_path / "ledger.json", **kwargs)
+    return entry, state, root, ds, run
+
+
+def assert_pass(report):
+    assert report["verdict"] == "PASS", report
+    assert cert.battery_exit_code(report, strict=True) == 0
+
+
+@pytest.mark.parametrize("mutation,stage", [
+    ("remove", "checkpoint-inventory"), ("duplicate", "checkpoint-inventory"),
+    ("empty-both", "checkpoint-inventory"), ("empty-py", "checkpoint-inventory"),
+    ("identity", "checkpoint-identity"), ("duplicate-index", "checkpoint-identity"),
+    ("malformed-step", "setup"), ("empty-blob", "checkpoint-schema"),
+    ("timeout", "setup"), ("producer-failure", "clj-driver"),
+])
+def test_damaged_producer_turns_pass_to_fail(battery, mutation, stage):
+    entry, state, root, ds, run = battery
+    assert_pass(run())
+    state["mutation"] = mutation
+    report = run(refresh_clj=True, refresh_py=True)
+    assert report["verdict"] == "FAIL"
+    assert report["battery"][0]["stage"] == stage
+    assert cert.battery_exit_code(report, strict=True) == 1
+    manifest = latest_manifest(root)
+    assert manifest["entries"][0]["status"] == "FAIL"
+    assert manifest["finished_at"] is not None
+
+
+def test_inventory_exact_and_cached_pass(battery):
+    entry, state, root, ds, run = battery
+    report = run(); assert_pass(report)
+    inventory = report["inventory"]
+    assert [i["engine"] for i in inventory] == ["clj", "py"]
+    assert all([c["cut_slot"] for c in i["checkpoints"]] == [1, 2] for i in inventory)
+    assert_pass(run())
+    assert state["calls"] == 2
+
+
+@pytest.mark.parametrize("mutation,stage", [("hash", "recording-integrity"),
+                                            ("json", "recording-manifest"),
+                                            ("unknown-field", "recording-manifest")])
+def test_corrupt_cached_recording_rejected(battery, mutation, stage):
+    entry, state, root, ds, run = battery
+    assert_pass(run())
+    py = root / entry.dataset / entry.schedule_id / "py"
+    if mutation == "hash":
+        (py / "step-000.json").write_text("{}")
+    elif mutation == "json":
+        (py / "cache_manifest.json").write_text("{")
+    else:
+        p = py / "cache_manifest.json"; d = json.loads(p.read_text()); d["typo"] = True
+        p.write_text(json.dumps(d))
+    report = run()
+    assert report["verdict"] == "FAIL"
+    assert report["battery"][0]["stage"] == stage
+
+
+def test_missing_dataset_required_fails_optional_is_inconclusive(battery, monkeypatch):
+    entry, state, root, ds, run = battery
+    assert_pass(run())
+    monkeypatch.setattr(cert, "dataset_available", lambda name: False)
+    report = run()
+    assert report["verdict"] == "FAIL"
+    assert report["battery"][0]["stage"] == "dataset-unavailable"
+    optional = cert.parse_battery_entry({"dataset": "public-fixture", "preset": "every-vote", "optional": True})
+    report = run([optional])
+    assert report["verdict"] == "INCONCLUSIVE"
+    assert report["battery"][0]["verdict"] == "SKIPPED"
+    assert cert.battery_exit_code(report, strict=True) == 1
+
+
+def test_empty_and_duplicate_batteries_rejected_before_producers(battery):
+    entry, state, root, ds, run = battery
+    for entries in ([], [entry, entry]):
+        report = run(entries)
+        assert report["verdict"] == "FAIL"
+        assert report["configuration_errors"]
+    assert state["calls"] == 0
+
+
+def test_only_is_partial_even_if_filter_selects_entire_battery(battery):
+    entry, state, root, ds, run = battery
+    assert_pass(run())
+    report = run(only="public-fixture")
+    assert report["partial"] is True
+    assert report["verdict"] == "INCONCLUSIVE"
+    assert cert.battery_exit_code(report, strict=True) == 1
+    assert "PARTIAL RUN, NOT A GATE" in "\n".join(cert.render_run_lines(report))
+    assert run(only="absent")["verdict"] == "FAIL"
+
+
+def make_schedule(tmp_path, at, **extra):
+    path = tmp_path / "schedule.json"
+    path.write_text(json.dumps({"dataset": "public-fixture", "schedule_id": "custom",
+                               "cuts": {"mode": "vote-count", "at": at}, **extra}))
+    return cert.parse_battery_entry({"dataset": "public-fixture", "schedule": str(path)})
+
+
+def test_zero_vote_requires_explicit_checkpoint_and_empty_contract(battery, tmp_path):
+    entry, state, root, ds, run = battery
+    ds.votes.clear()
+    explicit = make_schedule(tmp_path, [0], cuts={"mode": "vote-count", "at": [0],
+                                                "empty_checkpoint": True}, empty_output=EMPTY)
+    report = run([explicit]); assert_pass(report)
+    assert report["inventory"][0]["checkpoints"] == [{
+        "index": 0, "prev_slot": 0, "cut_slot": 0, "batch_size": 0, "cut_time_ms": 0}]
+    for at in ([], ["end"]):
+        missing = make_schedule(tmp_path, at)
+        report = run([missing])
+        assert report["verdict"] == "FAIL"
+        assert "nonzero expected" in report["battery"][0]["reason"] or "empty_checkpoint" in report["battery"][0]["reason"]
+    no_contract = make_schedule(tmp_path, [0], cuts={"mode": "vote-count", "at": [0], "empty_checkpoint": True})
+    assert "empty_output" in run([no_contract])["battery"][0]["reason"]
+
+
+def test_zero_checkpoint_checks_declared_output(battery, tmp_path):
+    entry, state, root, ds, run = battery
+    ds.votes.clear()
+    entry = make_schedule(tmp_path, [0], cuts={"mode": "vote-count", "at": [0], "empty_checkpoint": True}, empty_output=EMPTY)
+    assert_pass(run([entry]))
+    state["mutation"] = "wrong-empty"
+    report = run([entry], refresh_py=True)
+    assert report["battery"][0]["stage"] == "empty-output"
+    # The message must name what actually differs. pc-zerovote-01 fails here on
+    # a genuine, unreconciled engine output contract, and a bare "violates
+    # empty_output" would read as a harness regression instead.
+    reason = report["battery"][0]["reason"]
+    assert "empty_output contract" in reason and "wrong values {'n': 1}" in reason
+
+    state["mutation"] = "absent-empty"
+    report = run([entry], refresh_py=True)
+    assert report["battery"][0]["stage"] == "empty-output"
+    assert "absent keys ['n']" in report["battery"][0]["reason"]
+
+
+def test_real_python_driver_records_zero_compute():
+    spec = sched.ScheduleSpec("public-fixture", "empty", {"mode": "vote-count", "at": [0], "empty_checkpoint": True}, empty_output=EMPTY)
+    records = run_replay(ReplayDataset.build([]), spec)
+    assert len(records) == 1
+    assert records[0].cut_slot == 0 and records[0].batch_size == 0
+    projected = cert.project_acceptance(records[0].blob)
+    assert {k: projected[k] for k in EMPTY} == EMPTY
+
+
+def empty_defect_entry(tmp_path, *, keys=(), at=(0,)):
+    return make_schedule(tmp_path, list(at), cuts={
+        "mode": "vote-count", "at": list(at), "empty_checkpoint": True},
+        empty_output=EMPTY, legacy_absent_keys=list(keys))
+
+
+def omit_empty_keys(engine_to_change, keys):
+    def mutate(engine, step, blob):
+        # Keep another valid acceptance field, as the real legacy output does.
+        blob["zid"] = "public-empty"
+        if engine == engine_to_change and step.cut_slot == 0:
+            for key in keys:
+                blob.pop(key)
+        return blob
+    return mutate
+
+
+def test_declared_legacy_empty_omissions_pass_and_remain_visible_on_cache_hits(battery, tmp_path):
+    _, state, root, ds, run = battery
+    ds.votes.clear()
+    entry = empty_defect_entry(tmp_path, keys=EMPTY)
+    state["mutate_blob"] = omit_empty_keys("clj", EMPTY)
+    for _ in range(2):
+        report = run([entry])
+        assert_pass(report)
+        declared = [{"name": "legacy-defect-empty-omits-keys", "keys": sorted(EMPTY), "checkpoints": [0]}]
+        assert report["inventory"][0]["legacy_defects"] == declared
+        assert "legacy_defects" not in report["inventory"][1]
+        observed = [{"step": 0, "name": "legacy-defect-empty-omits-keys", "keys": sorted(EMPTY)}]
+        assert report["battery"][0]["legacy_defects"] == observed
+        receipt = latest_manifest(root)
+        assert receipt["inventory"][0]["legacy_defects"] == declared
+        assert receipt["entries"][0]["result"]["legacy_defects"] == observed
+    assert state["calls"] == 2
+    rec = root / entry.dataset / entry.schedule_id
+    raw = json.loads((rec / "clj/step-000.blob.json").read_text())
+    assert not (set(raw) & set(EMPTY))  # recorded engine evidence is never rewritten
+    strict = cert.compare_recording_pair(rec / "clj", rec / "py", cache_root=root)
+    assert not strict["per_step"][0]["match"]  # no context means no reconciliation
+
+
+@pytest.mark.parametrize("engine,declared,omitted", [
+    ("clj", [], ["n"]),
+    ("clj", ["n"], ["n-cmts"]),
+    ("py", list(EMPTY), ["n"]),
+    ("py", list(EMPTY), ["tids"]),
+])
+def test_empty_omission_requires_declaration_and_legacy_engine(battery, tmp_path, engine, declared, omitted):
+    _, state, _, ds, run = battery
+    ds.votes.clear()
+    entry = empty_defect_entry(tmp_path, keys=declared)
+    state["mutate_blob"] = omit_empty_keys(engine, omitted)
+    report = run([entry])
+    assert report["verdict"] == "FAIL"
+    assert report["battery"][0]["stage"] == "empty-output"
+    assert "absent keys" in report["battery"][0]["reason"]
+
+
+@pytest.mark.parametrize("engine", ["clj", "py"])
+@pytest.mark.parametrize("declared", [[], list(EMPTY)])
+@pytest.mark.parametrize("key,value", [("n", 1), ("tids", [1])])
+def test_empty_defect_never_accepts_wrong_present_values(battery, tmp_path, engine, declared, key, value):
+    _, state, _, ds, run = battery
+    ds.votes.clear()
+    entry = empty_defect_entry(tmp_path, keys=declared)
+    state["mutate_blob"] = lambda actual, step, blob: (
+        {**blob, key: value} if actual == engine else blob)
+    report = run([entry])
+    assert report["verdict"] == "FAIL"
+    assert report["battery"][0]["stage"] == "empty-output"
+    assert "wrong values" in report["battery"][0]["reason"]
+
+
+def test_empty_defect_does_not_relax_later_nonzero_checkpoint(battery, tmp_path):
+    _, state, _, _, run = battery
+    entry = empty_defect_entry(tmp_path, keys=EMPTY, at=(0, 2))
+    state["mutate_blob"] = lambda engine, step, blob: (
+        {k: v for k, v in blob.items() if k != "n"}
+        if engine == "clj" and step.cut_slot != 0 else blob)
+    report = run([entry])
+    assert report["verdict"] == "FAIL"
+    assert report["battery"][0]["stage"] == "checkpoint-schema"
+
+
+def test_empty_defect_declaration_invalidates_recording_cache(battery, tmp_path):
+    _, state, _, ds, run = battery
+    ds.votes.clear()
+    entry = empty_defect_entry(tmp_path, keys=EMPTY)
+    state["mutate_blob"] = omit_empty_keys("clj", ["n"])
+    assert_pass(run([entry]))
+    # Same schedule identity and cuts, but remove its allowance.
+    strict_entry = empty_defect_entry(tmp_path)
+    report = run([strict_entry])
+    assert report["verdict"] == "FAIL"
+    assert report["battery"][0]["stage"] == "empty-output"
+    assert state["calls"] == 4
+
+
+@pytest.mark.parametrize("cuts,reason", [
+    ({"mode": "vote-count", "at": [1, 1, 2]}, "duplicate"),
+    ({"mode": "vote-count", "at": [2, 1]}, "strictly increasing"),
+    ({"mode": "vote-count", "at": [0, 2]}, "empty_checkpoint"),
+])
+def test_schedule_never_silently_discards_cuts(cuts, reason):
+    ds = ReplayDataset.build([(10, 1, 1, 1), (20, 2, 1, -1)])
+    with pytest.raises(ValueError, match=reason):
+        sched.resolve_cut_slots(ds, cuts)
+
+
+def test_prefix_requires_full_stream_companion(battery, tmp_path):
+    entry, state, root, ds, run = battery
+    short = make_schedule(tmp_path, [1])
+    assert "stream end" in run([short])["battery"][0]["reason"]
+    prefix = make_schedule(tmp_path, [1], coverage="prefix-diagnostic")
+    assert "companion" in run([prefix])["battery"][0]["reason"]
+    assert_pass(run([prefix, entry]))
+
+
+def cli_module():
+    path = Path(cert.__file__).parents[2] / "scripts" / "certify.py"
+    spec = importlib.util.spec_from_file_location("strict_certify_cli", path)
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return module
+
+
+def test_cli_strict_partial_fails_with_manifest(battery, monkeypatch):
+    entry, state, root, ds, run = battery
+    module = cli_module()
+    monkeypatch.setattr(module.cert, "load_battery", lambda path: [entry])
+    monkeypatch.setattr(module.cert, "default_ledger_path", lambda: root / "ledger.json")
+    result = CliRunner().invoke(module.cli, ["run", "--strict", "--root", str(root), "--only", "public-fixture"])
+    assert result.exit_code == 1, result.output
+    assert "PARTIAL RUN, NOT A GATE" in result.output
+    manifest = latest_manifest(root)
+    assert manifest["partial"] and manifest["verdict"] == "INCONCLUSIVE"
+
+
+@pytest.mark.parametrize("config", [[], {}, [{"dataset": "public-fixture", "preset": "single-cut", "typo": True}], "{"])
+def test_cli_malformed_battery_writes_failure_manifest(tmp_path, config):
+    path = tmp_path / "battery.json"
+    path.write_text(config if isinstance(config, str) else json.dumps(config))
+    root = tmp_path / "out"
+    result = CliRunner().invoke(cli_module().cli, ["run", "--strict", "--battery", str(path), "--root", str(root)])
+    assert result.exit_code == 1
+    assert latest_manifest(root)["verdict"] == "FAIL"
+
+
+@pytest.mark.parametrize("counts", [(0, 0), (1, 0), (1, 2)])
+def test_standalone_compare_and_focus_reject_empty_or_unequal(tmp_path, counts):
+    rec = tmp_path / "public-fixture" / "single"
+    for engine, count in zip(("clj", "py"), counts):
+        directory = rec / engine; directory.mkdir(parents=True)
+        for index in range(count):
+            suffix = ".blob.json" if engine == "clj" else ".json"
+            payload = EMPTY if engine == "clj" else {"index": index, "blob": EMPTY}
+            (directory / f"step-{index:03d}{suffix}").write_text(json.dumps(payload))
+    with pytest.raises(cert.CertifyError, match="nonempty|steps"):
+        cert.compare_recording_pair(rec / "clj", rec / "py", cache_root=tmp_path)
+    assert cert.run_focus("public-fixture", "single", root=tmp_path, ledger_path=tmp_path / "ledger.json")["verdict"] == "ERROR"
+
+
+def test_missing_manifest_version_is_malformed(battery):
+    entry, state, root, ds, run = battery
+    assert_pass(run())
+    path = root / entry.dataset / entry.schedule_id / "py" / "cache_manifest.json"
+    path.write_text('{}')
+    report = run()
+    assert report["verdict"] == "FAIL"
+    assert report["battery"][0]["stage"] == "recording-manifest"
+
+
+def test_empty_acceptance_blobs_do_not_match(tmp_path):
+    clj, py = tmp_path / "clj", tmp_path / "py"
+    clj.mkdir(); py.mkdir()
+    (clj / "step-000.blob.json").write_text('{}')
+    (py / "step-000.json").write_text('{"index":0,"blob":{}}')
+    with pytest.raises(cert.CertifyError, match="empty acceptance blob"):
+        cert.compare_recording_pair(clj, py, cache_root=tmp_path)
+
+
+def test_only_keeps_full_inventory_and_marks_unselected_entries(battery):
+    entry, state, root, ds, run = battery
+    companion = cert.parse_battery_entry({"dataset": "public-fixture", "preset": "single-cut"})
+    report = run([entry, companion], only=f"public-fixture:{entry.schedule_id}")
+    assert len(report["inventory"]) == 4
+    manifest = latest_manifest(root)
+    assert [e["status"] for e in manifest["entries"]] == ["PASS", "INCONCLUSIVE"]
+    assert manifest["verdict"] == "INCONCLUSIVE"
+    assert state["calls"] == 2
+
+
+def test_unknown_schedule_and_cut_fields_fail_before_producers(battery, tmp_path):
+    entry, state, root, ds, run = battery
+    for extra in ({"typo": True}, {"cuts": {"mode": "vote-count", "at": [2], "typo": True}}):
+        entry = make_schedule(tmp_path, [2], **extra)
+        report = run([entry])
+        assert report["verdict"] == "FAIL"
+        assert "unknown" in report["battery"][0]["reason"]
+    assert state["calls"] == 0
+
+
+# ---------------------------------------------------------------------------
+# P-022 §B negative controls for the remaining INPUT classes: a change to only
+# the comments, only the restart seam, or only a vote's polarity must reach the
+# gate. Each is carried by a recording-cache key (comments CSV sha256, schedule
+# hash via restart_after, votes CSV sha256) — the mechanism exists, but nothing
+# asserted it, so a loosened key would silently re-certify the previous run's
+# recordings and report its stale MATCH.
+# ---------------------------------------------------------------------------
+def _stamp(*parts):
+    """A small integer fingerprint of the inputs, carried in an acceptance field
+    so a stale recording is visibly stale rather than merely old."""
+    return 1 + int(hashlib.sha256(repr(parts).encode()).hexdigest()[:8], 16) % 9973
+
+
+@pytest.fixture
+def input_change(tmp_path, monkeypatch):
+    """A green battery whose fake producers stamp every input into the recorded
+    blob. Returns ``(run, state, root, blob_stamps)``."""
+    votes = tmp_path / "public-fixture-votes.csv"
+    comments = tmp_path / "public-fixture-comments.csv"
+    schedule = tmp_path / "input-change.json"
+    root = tmp_path / "recordings"
+    state = {"calls": 0, "polarity": -1, "restart_after": 0}
+    comments.write_text("tid,mod\n1,1\n")
+
+    def write_inputs():
+        votes.write_text("timestamp,participant,comment,vote\n"
+                         f"10,1,1,1\n20,2,1,{state['polarity']}\n30,3,1,1\n40,4,1,1\n")
+        schedule.write_text(json.dumps({
+            "dataset": "public-fixture", "schedule_id": "input-change",
+            "cuts": {"mode": "vote-count", "at": [2, 3, 4]},
+            "moderation": [{"t_ms": 15, "tid": 1, "mod": 1}],
+            "restart_after": state["restart_after"], "coverage": "full-stream",
+        }))
+
+    def dataset(_name=None):
+        return ReplayDataset.build([(10, 1, 1, 1), (20, 2, 1, state["polarity"]),
+                                    (30, 3, 1, 1), (40, 4, 1, 1)])
+
+    write_inputs()
+    monkeypatch.setattr(cert, "dataset_available", lambda name: name == "public-fixture")
+    monkeypatch.setattr(cert, "votes_csv_path", lambda name: votes)
+    monkeypatch.setattr(cert, "comments_csv_path", lambda name: comments)
+    monkeypatch.setattr(cert.real_data, "load_export_votes", dataset)
+    monkeypatch.setattr(cert, "_clj_source_hashes", lambda: ("clj-source", "math-source"))
+    monkeypatch.setattr(cert, "_engine_tree_hash_cached", lambda: "python-source")
+
+    def produce(spec_path, engine):
+        state["calls"] += 1
+        spec = sched.ScheduleSpec.from_json_file(spec_path)
+        steps = sched.slice_schedule(dataset(), spec)
+        out = root / spec.dataset / spec.schedule_id / engine
+        out.mkdir(parents=True, exist_ok=True)
+        stamp = _stamp(comments.read_text(), spec.restart_after, state["polarity"])
+        for step in steps:
+            meta = {"index": step.index, "prev_slot": step.prev_slot,
+                    "cut_slot": step.cut_slot, "batch_size": len(step.vote_events),
+                    "cut_time_ms": step.cut_time_ms}
+            blob = {"n": step.cut_slot, "n-cmts": stamp, "tids": [1], "in-conv": [1]}
+            stem = f"step-{step.index:03d}"
+            if engine == "clj":
+                (out / (stem + ".blob.json")).write_text(json.dumps(blob))
+                (out / (stem + ".meta.json")).write_text(json.dumps(meta))
+            else:
+                (out / (stem + ".json")).write_text(json.dumps({**meta, "blob": blob}))
+        return subprocess.CompletedProcess([], 0, "", "")
+
+    monkeypatch.setattr(cert, "run_clj_driver", lambda spec, v, **kw: produce(spec, "clj"))
+    monkeypatch.setattr(cert, "run_py_driver", lambda spec, **kw: produce(spec, "py"))
+
+    def run():
+        entry = cert.parse_battery_entry({"dataset": "public-fixture", "schedule": str(schedule)})
+        return cert.run_battery([entry], root=root, ledger_path=tmp_path / "ledger.json")
+
+    def stamps():
+        recorded = sorted((root / "public-fixture").rglob("step-*.blob.json"))
+        assert recorded, "no clj checkpoints recorded"
+        return {json.loads(p.read_text())["n-cmts"] for p in recorded}
+
+    return run, state, root, comments, write_inputs, stamps
+
+
+@pytest.mark.parametrize("changed", ["comments", "restart", "polarity"])
+def test_single_input_change_cannot_be_served_from_cache(input_change, changed):
+    run, state, root, comments, write_inputs, stamps = input_change
+    assert_pass(run())
+    before = stamps()
+    assert len(before) == 1
+
+    # A re-run with IDENTICAL inputs is served from cache — this is the control
+    # that makes the assertions below meaningful rather than trivially true.
+    assert_pass(run())
+    assert state["calls"] == 2
+    assert stamps() == before
+
+    if changed == "comments":
+        comments.write_text("tid,mod\n1,-1\n")   # moderation source only
+    elif changed == "restart":
+        state["restart_after"] = 1               # schedule seam only
+    else:
+        state["polarity"] = 1                    # one vote's polarity only
+    write_inputs()
+
+    report = run()
+    assert_pass(report)
+    # Both engines re-recorded, and the recordings describe the NEW inputs: a
+    # cache key blind to this change would leave calls at 2 and stamps stale.
+    assert state["calls"] == 4, f"{changed}-only change did not invalidate the cache"
+    assert stamps() != before, f"{changed}-only change left a stale recording in place"
+    entry = latest_manifest(root)["entries"][0]
+    assert entry["cache"] == {"clj": "miss", "py": "miss"}
+
+
+# ---------------------------------------------------------------------------
+# P-022 B1 review, P1 — a nonempty projection is not a valid checkpoint.
+#
+# Before this, `validate_recording_inventory` only asked for a nonempty
+# acceptance projection and `compare_recording_pair` short-circuited equal
+# per-engine hashes to MATCH before anything read the values. Two producers
+# emitting the SAME malformed blob (`{"n": NaN}`, `{"n": "invalid-count"}`)
+# therefore produced a complete run manifest with verdict PASS and strict exit
+# 0. These controls are red until raw validation runs on every checkpoint of
+# both engines, ahead of projection, hashing and any cached verdict.
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("mutation", sorted(PAIRED_MALFORMED))
+def test_identical_malformed_blobs_on_both_engines_fail(battery, mutation):
+    entry, state, root, ds, run = battery
+    assert_pass(run())
+    state["mutation"] = mutation
+    report = run(refresh_clj=True, refresh_py=True)
+    assert report["verdict"] == "FAIL", report
+    result = report["battery"][0]
+    assert result["stage"] == "checkpoint-schema", result
+    # The reason must NAME the offending field, not just say "schema".
+    assert PAIRED_MALFORMED[mutation][1] in result["reason"], result["reason"]
+    assert cert.battery_exit_code(report, strict=True) == 1
+    assert latest_manifest(root)["entries"][0]["status"] == "FAIL"
+
+
+def test_paired_malformed_blobs_would_have_hash_matched(battery):
+    """Control that makes the parametrized failures above non-vacuous: the two
+    engines' malformed recordings really are identical, their acceptance
+    projections really are nonempty, and their acceptance hashes really are
+    equal — i.e. every pre-fix admission criterion is still satisfied and only
+    the new raw validation rejects them."""
+    entry, state, root, ds, run = battery
+    assert_pass(run())
+    state["mutation"] = "nan-count"
+    assert run(refresh_clj=True, refresh_py=True)["verdict"] == "FAIL"
+
+    rec = root / entry.dataset / entry.schedule_id
+    clj = json.loads((rec / "clj" / "step-000.blob.json").read_text())
+    py = json.loads((rec / "py" / "step-000.json").read_text())["blob"]
+    assert clj == py or (repr(clj) == repr(py))  # NaN != NaN, compare by repr
+    assert cert.project_acceptance(clj) and cert.project_acceptance(py)
+    assert cert._canonical_hash(cert.project_acceptance(clj)) == \
+        cert._canonical_hash(cert.project_acceptance(py))
+
+
+@pytest.mark.parametrize("mutation", [
+    "nan-count", "string-count", "inf-count", "string-tid",
+    "alias-count-snake-first", "alias-count-kebab-first",
+    "alias-nan-extension-snake-first", "alias-nan-extension-kebab-first",
+    "alias-three-way",
+])
+def test_compare_recording_pair_rejects_identical_malformed_blobs(tmp_path, mutation):
+    """The standalone comparer entry point must reject them too — it is the
+    function that owns the hash short-circuit."""
+    blob = PAIRED_MALFORMED[mutation][0](
+        {"n": 2, "n-cmts": 1, "tids": [1], "in-conv": [1]})
+    clj, py = tmp_path / "clj", tmp_path / "py"
+    clj.mkdir(); py.mkdir()
+    (clj / "step-000.blob.json").write_text(json.dumps(blob))
+    (py / "step-000.json").write_text(json.dumps({"index": 0, "blob": blob}))
+    with pytest.raises(cert.CertifyError) as excinfo:
+        cert.compare_recording_pair(clj, py, cache_root=tmp_path)
+    assert excinfo.value.stage == "checkpoint-schema"
+    assert PAIRED_MALFORMED[mutation][1] in str(excinfo.value)
+
+
+def test_malformed_blob_fails_even_when_the_other_engine_is_valid(battery):
+    """Symmetry: validation is per engine, so a malformed blob fails whatever
+    the other engine emitted — a valid partner cannot rescue it."""
+    entry, state, root, ds, run = battery
+    assert_pass(run())
+    state["mutation"] = "py-only-nan"
+    report = run(refresh_clj=True, refresh_py=True)
+    assert report["verdict"] == "FAIL"
+    assert report["battery"][0]["stage"] == "checkpoint-schema"
+    assert "py:" in report["battery"][0]["reason"]
+
+
+def test_cached_recordings_are_revalidated(battery):
+    """Validation must run on recording-cache HITS too: a cached malformed
+    recording is exactly the stale-MATCH failure mode the gate exists to stop."""
+    entry, state, root, ds, run = battery
+    assert_pass(run())
+    rec = root / entry.dataset / entry.schedule_id
+    for path in (rec / "clj" / "step-000.blob.json", rec / "py" / "step-000.json"):
+        payload = json.loads(path.read_text())
+        target = payload if path.name.endswith(".blob.json") else payload["blob"]
+        target["n"] = float("nan")
+        path.write_text(json.dumps(payload))
+    # No refresh: both manifests are re-validated against the (now tampered)
+    # files, so this fails at the integrity check or the schema check — never
+    # a served MATCH.
+    report = run()
+    assert report["verdict"] == "FAIL", report
+    assert report["battery"][0]["stage"] in ("recording-integrity", "checkpoint-schema")
+
+
+# ---------------------------------------------------------------------------
+# validate_checkpoint_blob directly.
+# ---------------------------------------------------------------------------
+def test_validate_checkpoint_blob_accepts_the_committed_real_blobs():
+    """Ground the contract in reality: every committed math blob (the shape the
+    engines actually emit) must validate clean, or the gate is over-strict."""
+    real_dir = Path(cert.__file__).resolve().parents[2] / "real_data"
+    blobs = sorted(real_dir.glob("*/*math_blob*.json"))
+    assert blobs, "no committed real math blobs to validate against"
+    for path in blobs:
+        cert.validate_checkpoint_blob(json.loads(path.read_text()), path.name)
+
+
+@pytest.mark.parametrize("blob,needle", [
+    ({"n": 1, "n-cmts": 1, "tids": [1]}, "in-conv"),
+    ({"n": 1, "n-cmts": True, "tids": [], "in-conv": []}, "n-cmts"),
+    ({"n": 1, "n-cmts": 1, "tids": [], "in-conv": [], "lastVoteTimestamp": "x"},
+     "lastVoteTimestamp"),
+    ({"n": 1, "n-cmts": 1, "tids": [], "in-conv": [], "group-clusters": {}},
+     "group-clusters"),
+    ({"n": 1, "n-cmts": 1, "tids": [], "in-conv": [], "repness": []}, "repness"),
+    ("not-an-object", "JSON object"),
+])
+def test_validate_checkpoint_blob_rejects_and_names_the_field(blob, needle):
+    with pytest.raises(cert.CertifyError) as excinfo:
+        cert.validate_checkpoint_blob(blob, "clj: step-000")
+    assert excinfo.value.stage == "checkpoint-schema"
+    assert needle in str(excinfo.value)
+    assert "clj: step-000" in str(excinfo.value)
+
+
+def test_validate_checkpoint_blob_accepts_nullable_and_snake_spellings():
+    cert.validate_checkpoint_blob(
+        {"n": 0, "n_cmts": 0, "tids": [], "in_conv": [], "mod-in": None,
+         "mod-out": None, "meta-tids": None, "lastModTimestamp": None,
+         "zid": "public-fixture"},
+        "py: step-000")
+
+
+def test_validate_checkpoint_blob_require_keys_false_still_checks_values():
+    cert.validate_checkpoint_blob({"n": 0}, "clj: step-000", require_keys=False)
+    with pytest.raises(cert.CertifyError, match="'n'"):
+        cert.validate_checkpoint_blob(
+            {"n": float("nan")}, "clj: step-000", require_keys=False)
+
+
+def test_checkpoint_contract_keys_come_from_the_crosslang_whitelist():
+    """The contract must not invent field names: every key it constrains is one
+    crosslang's canonicalization whitelist actually emits."""
+    named = set(cert._REQUIRED_CHECKPOINT_KEYS) | set(cert._COUNT_CHECKPOINT_KEYS) \
+        | set(cert._TIMESTAMP_CHECKPOINT_KEYS) | set(cert._ID_LIST_CHECKPOINT_KEYS) \
+        | set(cert._MAPPING_CHECKPOINT_KEYS) | set(cert._SEQUENCE_CHECKPOINT_KEYS) \
+        | set(cert._ID_SCALAR_CHECKPOINT_KEYS)
+    assert named <= PREP_MAIN_KEYS
+    assert set(cert._REQUIRED_CHECKPOINT_KEYS) <= cert.ACCEPTANCE_KEYS
+
+
+# ---------------------------------------------------------------------------
+# P-022 B1 review, round 3 — alias collisions must be rejected on the UNTOUCHED
+# raw blob.
+#
+# `canon = {_kebab(k): v for k, v in blob.items()}` ran BEFORE every check, so
+# two raw keys that normalize to the same canonical name silently collapsed and
+# the loser's value reached nothing: `{"n_cmts": "invalid-count", "n-cmts": 1}`
+# and `{"hidden_value": NaN, "hidden-value": 0}` both certified PASS. Raw
+# validation now runs on `blob` itself and aliased keys fail naming EVERY raw
+# spelling involved.
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("blob,needles", [
+    # Both insertion orders of the two reproducers, an invalid FIRST spelling
+    # and an invalid SECOND spelling, plus a three-way collision.
+    ({"n_cmts": "invalid-count", **VALID_BASE}, ("n_cmts", "n-cmts")),
+    ({**VALID_BASE, "n_cmts": "invalid-count"}, ("n_cmts", "n-cmts")),
+    ({"hidden_value": float("nan"), **VALID_BASE, "hidden-value": 0},
+     ("hidden_value", "hidden-value")),
+    ({"hidden-value": 0, **VALID_BASE, "hidden_value": float("nan")},
+     ("hidden_value", "hidden-value")),
+    ({**VALID_BASE, "a_b_c": 1, "a-b_c": 2, "a-b-c": 3},
+     ("a_b_c", "a-b_c", "a-b-c")),
+    # Equal values do not make the collapse safe: the ambiguity is the defect.
+    ({**VALID_BASE, "hidden_value": 0, "hidden-value": 0},
+     ("hidden_value", "hidden-value")),
+    # ...and a canonical key of the CONTRACT is no different.
+    ({**VALID_BASE, "in_conv": [1]}, ("in_conv", "in-conv")),
+])
+def test_validate_checkpoint_blob_rejects_alias_collisions(blob, needles):
+    with pytest.raises(cert.CertifyError) as excinfo:
+        cert.validate_checkpoint_blob(blob, "clj: step-000")
+    assert excinfo.value.stage == "checkpoint-schema"
+    message = str(excinfo.value)
+    for needle in needles:
+        assert repr(needle) in message, message
+    assert "clj: step-000" in message
+
+
+def test_alias_collision_rejected_by_the_standalone_comparer_too():
+    """``require_keys=False`` (the standalone comparer / zero checkpoint) skips
+    only the presence check — the alias policy still runs."""
+    with pytest.raises(cert.CertifyError, match="n_cmts"):
+        cert.validate_checkpoint_blob(
+            {"n_cmts": "invalid-count", "n-cmts": 1}, "py: step-000",
+            require_keys=False)
+
+
+def test_alias_collision_is_caught_before_the_lossy_canonical_dict():
+    """Non-vacuity: every PRE-fix admission criterion still holds for the
+    reproducers. The canonical dict really does drop the invalid value, the
+    acceptance projection really is nonempty, and the two engines' projections
+    really do hash EQUAL — so only the raw alias check rejects them."""
+    hidden = {**VALID_BASE, "hidden_value": float("nan"), "hidden-value": 0}
+    count = {"n_cmts": "invalid-count", **VALID_BASE}
+    for blob in (hidden, count):
+        canon = {cert._kebab(k): v for k, v in blob.items()}
+        # The lossy collapse: the canonical dict is CLEAN, which is exactly why
+        # validating it instead of the raw blob certified PASS.
+        cert.validate_checkpoint_blob(canon, "clj: step-000")
+        assert cert._find_nonfinite(canon, "") is None
+        # ...and the invalid value is gone from the acceptance projection too,
+        # so both engines emitting this blob hash EQUAL to a valid recording's.
+        projection = cert.project_acceptance(blob)
+        assert projection == cert.project_acceptance(VALID_BASE)
+        assert cert._canonical_hash(projection) == \
+            cert._canonical_hash(cert.project_acceptance(VALID_BASE))
+        # Only the raw alias check rejects them.
+        with pytest.raises(cert.CertifyError, match="alias"):
+            cert.validate_checkpoint_blob(blob, "clj: step-000")
+
+
+#: The ``group-clusters`` / ``group_clusters`` pairs EXACTLY as the real Python
+#: driver emitted them, with the ``base-clusters`` the unfolding relation runs
+#: through, for BOTH committed public datasets at ``{preset: single-cut}``,
+#: step-000 — recorded so a defect that could otherwise only show under
+#: ``RUN_CLJ_INTEGRATION=1`` reproduces in ordinary CI. ``vw`` folds one
+#: participant per base cluster; ``biodiversity`` folds up to nine, so it is the
+#: fixture that can actually prove the unfolding relation (review F2).
+REAL_DRIVER_TWINS = json.loads(
+    (Path(__file__).parent / "fixtures"
+     / "real_driver_group_cluster_twins.json").read_text())
+REAL_DRIVER_GROUP_CLUSTER_TWINS = REAL_DRIVER_TWINS["vw"]
+FOLDED_TWINS = REAL_DRIVER_TWINS["biodiversity"]
+
+
+def _twin_blob(fixture, **overrides):
+    """``VALID_BASE`` carrying a recorded real-driver twin pair and the
+    ``base-clusters`` its unfolding relation is defined against."""
+    return {
+        **VALID_BASE,
+        "base-clusters": fixture["base-clusters"],
+        "group-clusters": fixture["group-clusters"],
+        "group_clusters": fixture["group_clusters"],
+        **overrides,
+    }
+
+
+@pytest.mark.parametrize("name", ["vw", "biodiversity"])
+def test_real_driver_group_cluster_twins_are_two_views_not_a_duplicate(name):
+    """Non-vacuity for the fixtures: each recorded pair really does disagree
+    value-for-value, so alias policy v1's deep-equality rule really did reject
+    every checkpoint the real Python driver produces."""
+    fixture = REAL_DRIVER_TWINS[name]
+    kebab, snake = fixture["group-clusters"], fixture["group_clusters"]
+    assert kebab != snake
+    assert [g["id"] for g in kebab] == [g["id"] for g in snake]
+    # Different member id-spaces (base-cluster ids vs participant ids) and
+    # opposite center signs — the declared role difference, nothing else.
+    assert any(g["members"] != h["members"] for g, h in zip(kebab, snake))
+    for g, h in zip(kebab, snake):
+        assert g["center"] == [-c for c in h["center"]]
+
+
+def test_biodiversity_fixture_actually_folds_many_participants_per_cluster():
+    """The vw fold is one-to-one, so it cannot distinguish "unfolded through
+    base-clusters" from "relabelled"; biodiversity can (review F2)."""
+    assert REAL_DRIVER_GROUP_CLUSTER_TWINS["max_participants_per_base_cluster"] == 1
+    assert FOLDED_TWINS["max_participants_per_base_cluster"] > 1
+    folded, unfolded = FOLDED_TWINS["group-clusters"], FOLDED_TWINS["group_clusters"]
+    assert any(len(u["members"]) > len(f["members"])
+               for f, u in zip(folded, unfolded))
+
+
+@pytest.mark.parametrize("name", ["vw", "biodiversity"])
+def test_declared_alias_pair_admits_the_real_driver_blob(name):
+    """Regression for the P-022 alias-twin real-driver defect: the pair the
+    real Python driver emits must certify, and it must do so on the RAW blob —
+    no Clojure flag needed to reproduce."""
+    assert cert._ALIASED_CHECKPOINT_KEYS == frozenset({"group-clusters"})
+    blob = _twin_blob(REAL_DRIVER_TWINS[name])
+    cert.validate_checkpoint_blob(blob, "py: step-000")
+    # Insertion order must not matter either.
+    cert.validate_checkpoint_blob(
+        {k: blob[k] for k in reversed(list(blob))}, "py: step-000")
+
+
+def test_declared_alias_pair_admits_the_empty_and_singleton_group_states():
+    """Explicit empty/singleton behavior (review F1): a conversation with
+    no groups is a legitimate state and needs no base-clusters to unfold, and a
+    one-group one-member pair is admitted on its own terms."""
+    cert.validate_checkpoint_blob(
+        {**VALID_BASE, "group-clusters": [], "group_clusters": []}, "py: step-000")
+    cert.validate_checkpoint_blob(
+        {**VALID_BASE,
+         "base-clusters": {"id": [7], "members": [[3]], "x": [0.0], "y": [0.0],
+                           "count": [1]},
+         "group-clusters": [{"id": 0, "members": [7], "center": [1.5, -2.0]}],
+         "group_clusters": [{"id": 0, "members": [3], "center": [-1.5, 2.0]}]},
+        "py: step-000")
+
+
+#: The six mutations the second reviewer's probe (``cost-reduction/scripts/p2725-alias-review.py``)
+#: drove through raw validation AND a full strict ``run_battery`` to PASS/exit 0
+#: under the first cut of policy v2: four raw-schema escapes (F1) and two
+#: well-typed but WRONG unfolded values (F2). Each mutates the UNFOLDED view of
+#: an otherwise-valid recorded pair. ``(mutate, needle)``.
+BAD_TWIN_MUTATIONS = {
+    "string members": (lambda g: dict(g, members="not-members"), "members"),
+    "string center": (lambda g: dict(g, center="not-geometry"), "center"),
+    "missing members": (lambda g: {k: v for k, v in g.items() if k != "members"},
+                        "missing required field"),
+    "boolean group id": (lambda g: dict(g, id=False), "id"),
+    "wrong participant membership": (lambda g: dict(g, members=[999]),
+                                     "not the unfolding"),
+    # The canonical sign on the unfolded view: well-typed, right dimension,
+    # right groups — and wrong.
+    "wrong center sign": (lambda g: dict(g, center=[-c for c in g["center"]]),
+                          "sign negation"),
+}
+
+
+@pytest.mark.parametrize("name", sorted(BAD_TWIN_MUTATIONS))
+@pytest.mark.parametrize("dataset", ["vw", "biodiversity"])
+def test_bad_twin_controls_are_rejected(name, dataset):
+    """The six controls from the review must FAIL the gate. `id=False`
+    matters on its own: Python's ``False == 0`` satisfied the old ordered-id
+    comparison against a real group 0."""
+    mutate, needle = BAD_TWIN_MUTATIONS[name]
+    fixture = REAL_DRIVER_TWINS[dataset]
+    unfolded = list(fixture["group_clusters"])
+    unfolded[0] = mutate(unfolded[0])
+    with pytest.raises(cert.CertifyError) as excinfo:
+        cert.validate_checkpoint_blob(
+            _twin_blob(fixture, group_clusters=unfolded), "py: step-000")
+    assert excinfo.value.stage == "checkpoint-schema"
+    assert needle in str(excinfo.value), str(excinfo.value)
+    assert "group_clusters" in str(excinfo.value)
+
+
+@pytest.mark.parametrize("dataset", ["vw", "biodiversity"])
+def test_membership_omission_and_duplication_break_the_unfolding_relation(dataset):
+    """Review F2: dropping or duplicating participants must fail the
+    relation rather than quietly shrinking/growing the unfolded view."""
+    fixture = REAL_DRIVER_TWINS[dataset]
+    unfolded = list(fixture["group_clusters"])
+    omitted = dict(unfolded[0], members=unfolded[0]["members"][1:])
+    with pytest.raises(cert.CertifyError, match="not the unfolding"):
+        cert.validate_checkpoint_blob(
+            _twin_blob(fixture, group_clusters=[omitted, *unfolded[1:]]),
+            "py: step-000")
+    duplicated = dict(unfolded[0],
+                      members=unfolded[0]["members"] + unfolded[0]["members"][:1])
+    with pytest.raises(cert.CertifyError, match="duplicate ids"):
+        cert.validate_checkpoint_blob(
+            _twin_blob(fixture, group_clusters=[duplicated, *unfolded[1:]]),
+            "py: step-000")
+
+
+def test_folded_view_is_held_to_the_same_raw_schema_as_the_unfolded_one():
+    """F1 applies to BOTH roles: the canonical view is not exempt just because
+    it is the one the comparer reads."""
+    fixture = FOLDED_TWINS
+    for mutate, needle in BAD_TWIN_MUTATIONS.values():
+        folded = list(fixture["group-clusters"])
+        mutated = mutate(folded[0])
+        if mutated == folded[0]:
+            continue
+        folded[0] = mutated
+        with pytest.raises(cert.CertifyError) as excinfo:
+            cert.validate_checkpoint_blob(
+                _twin_blob(fixture, **{"group-clusters": folded}), "py: step-000")
+        assert excinfo.value.stage == "checkpoint-schema"
+
+
+#: Review round 2 (R2-F1): the relation's TRUSTED INPUT — the columnar
+#: ``base-clusters`` bid -> pid mapping — was not typed, so ``False == 0`` and
+#: ``0.0 == 0`` reappeared one level below the views. Each entry mutates a valid
+#: many-to-one blob and must now fail at ``checkpoint-schema`` with the named
+#: reason. ``(mutate, needle)``; ``mutate`` edits the blob in place.
+R2_BAD_MAPPINGS = {
+    "boolean base id": (
+        lambda b: b["base-clusters"].__setitem__("id", [False]),
+        "must be an integer base-cluster id"),
+    "float base id": (
+        lambda b: b["base-clusters"].__setitem__("id", [0.0]),
+        "must be an integer base-cluster id"),
+    "boolean participant map": (
+        lambda b: (b["base-clusters"].__setitem__("members", [[False, 11]]),
+                   b["group_clusters"][0].__setitem__("members", [0, 11])),
+        "must be an integer participant id"),
+    # An unhashable id used to raise TypeError at dict membership instead of
+    # producing a gate failure.
+    "array base id": (
+        lambda b: b["base-clusters"].__setitem__("id", [[]]),
+        "must be an integer base-cluster id"),
+    "object base id": (
+        lambda b: b["base-clusters"].__setitem__("id", [{}]),
+        "must be an integer base-cluster id"),
+    "string participant map": (
+        lambda b: b["base-clusters"].__setitem__("members", [["10", 11]]),
+        "must be an integer participant id"),
+    "participant in two base clusters": (
+        lambda b: (b["base-clusters"].update(id=[0, 1], members=[[10, 11], [11]],
+                                             x=[1.0, 1.0], y=[2.0, 2.0],
+                                             count=[2, 1]),
+                   b["group-clusters"][0].__setitem__("members", [0, 1])),
+        "must be a partition"),
+}
+
+
+def _many_to_one_twin_blob():
+    """A minimal VALID many-to-one pair: one base cluster folding two
+    participants, one group, exact sign negation. The second reviewer's r2 probe base."""
+    return copy.deepcopy({
+        **VALID_BASE,
+        "n": 2,
+        "in-conv": [10, 11],
+        "base-clusters": {"id": [0], "members": [[10, 11]], "x": [1.0],
+                          "y": [2.0], "count": [2]},
+        "group-clusters": [{"id": 0, "members": [0], "center": [-1.0, -2.0]}],
+        "group_clusters": [{"id": 0, "members": [10, 11], "center": [1.0, 2.0]}],
+    })
+
+
+def test_many_to_one_mapping_baseline_is_admitted():
+    """Non-vacuity for the controls below: the unmutated blob certifies."""
+    cert.validate_checkpoint_blob(_many_to_one_twin_blob(), "py: step-000")
+
+
+@pytest.mark.parametrize("name", sorted(R2_BAD_MAPPINGS))
+def test_r2_bad_mapping_controls_are_rejected(name):
+    """The relation's mapping input is typed exactly as strictly as the views:
+    strict integer bids and participant ids (``bool`` rejected), no unhashable
+    id crash, and a fold that is a real partition."""
+    mutate, needle = R2_BAD_MAPPINGS[name]
+    blob = _many_to_one_twin_blob()
+    mutate(blob)
+    with pytest.raises(cert.CertifyError) as excinfo:
+        cert.validate_checkpoint_blob(blob, "py: step-000")
+    assert excinfo.value.stage == "checkpoint-schema"
+    assert needle in str(excinfo.value), str(excinfo.value)
+
+
+@pytest.mark.parametrize("name", sorted(R2_BAD_MAPPINGS))
+def test_r2_bad_mappings_raise_no_bare_exception(name):
+    """Every non-conforming mapping shape is a gate failure with a named
+    reason, NEVER an exception escaping the gate (an array bid used to raise
+    TypeError at dict membership)."""
+    mutate, _ = R2_BAD_MAPPINGS[name]
+    blob = _many_to_one_twin_blob()
+    mutate(blob)
+    try:
+        cert.validate_checkpoint_blob(blob, "py: step-000")
+    except cert.CertifyError:
+        pass
+    except Exception as exc:  # pragma: no cover - the defect being pinned
+        pytest.fail(f"{name} escaped as {type(exc).__name__}: {exc}")
+
+
+@pytest.mark.parametrize("name", ["unknown bid", "wrong order", "wrong sign"])
+def test_r2_positive_relation_rejections_still_hold(name):
+    """The r2 probe's three positive controls: the relation itself keeps
+    rejecting an unknown bid, a permuted unfolding and an unflipped center."""
+    blob = _many_to_one_twin_blob()
+    if name == "unknown bid":
+        blob["group-clusters"][0]["members"] = [9]
+        needle = "does not declare"
+    elif name == "wrong order":
+        blob["group_clusters"][0]["members"] = [11, 10]
+        needle = "not the unfolding"
+    else:
+        blob["group_clusters"][0]["center"] = [-1.0, -2.0]
+        needle = "sign negation"
+    with pytest.raises(cert.CertifyError, match=needle):
+        cert.validate_checkpoint_blob(blob, "py: step-000")
+
+
+def test_unfolding_relation_needs_a_usable_base_cluster_mapping():
+    """An unevaluated relation is the hole this policy closes, so a twin pair
+    whose blob cannot supply the bid -> pid mapping fails rather than passing
+    unchecked — and unknown or duplicated base-cluster ids fail too."""
+    fixture = FOLDED_TWINS
+    blob = _twin_blob(fixture)
+    for bad_bc in (None, {}, [], {"id": [1], "members": []}):
+        broken = {k: v for k, v in blob.items() if k != "base-clusters"}
+        if bad_bc is not None:
+            broken["base-clusters"] = bad_bc
+        with pytest.raises(cert.CertifyError, match="base-clusters"):
+            cert.validate_checkpoint_blob(broken, "py: step-000")
+    bc = fixture["base-clusters"]
+    duped = dict(bc, id=[bc["id"][0], *bc["id"][1:-1], bc["id"][0]])
+    with pytest.raises(cert.CertifyError, match="twice"):
+        cert.validate_checkpoint_blob(
+            _twin_blob(fixture, **{"base-clusters": duped}), "py: step-000")
+    folded = list(fixture["group-clusters"])
+    folded[0] = dict(folded[0], members=[10 ** 9])
+    with pytest.raises(cert.CertifyError, match="does not declare"):
+        cert.validate_checkpoint_blob(
+            _twin_blob(fixture, **{"group-clusters": folded}), "py: step-000")
+
+
+def test_declared_alias_pair_still_rejects_everything_v1_rejected():
+    """v2 keeps the property B1 was protecting: no raw value rides in by losing
+    the canonical collapse. Only the false equal-values premise is gone."""
+    fixture = REAL_DRIVER_GROUP_CLUSTER_TWINS
+    groups = fixture["group-clusters"]
+    # A twin that is not a group array at all — the losing spelling would
+    # otherwise escape the container check entirely.
+    for bad in ("not-a-list", {}, [1, 2], [{"members": [1]}]):
+        with pytest.raises(cert.CertifyError, match="group_clusters"):
+            cert.validate_checkpoint_blob(
+                _twin_blob(fixture, group_clusters=bad), "py: step-000")
+    # Group counts that disagree, in both directions.
+    for bad in ([], groups[:-1],
+                fixture["group_clusters"] + [{"id": 99, "members": [],
+                                              "center": [0.0, 0.0]}]):
+        with pytest.raises(cert.CertifyError, match="number of groups"):
+            cert.validate_checkpoint_blob(
+                _twin_blob(fixture, group_clusters=bad), "py: step-000")
+    # ...and in the other direction, with the malformed value under the
+    # CANONICAL spelling.
+    with pytest.raises(cert.CertifyError, match="group-clusters"):
+        cert.validate_checkpoint_blob(
+            _twin_blob(fixture, **{"group-clusters": float("nan"),
+                                   "group_clusters": float("nan")}),
+            "py: step-000")
+    # A NaN inside either view is named as non-finite — the twin can never
+    # launder one past the finiteness discipline.
+    poisoned = [dict(g, center=[float("nan"), 0.0])
+                for g in fixture["group_clusters"]]
+    with pytest.raises(cert.CertifyError, match="finite"):
+        cert.validate_checkpoint_blob(
+            _twin_blob(fixture, group_clusters=poisoned), "py: step-000")
+    # The exemption covers that ONE canonical key and that ONE extra spelling:
+    # no other collision inherits it, however equal the values.
+    with pytest.raises(cert.CertifyError, match="alias collisions are rejected"):
+        cert.validate_checkpoint_blob(
+            {**VALID_BASE, "base-clusters": {}, "base_clusters": {}}, "py: step-000")
+
+
+def test_canonical_view_reads_the_same_spelling_the_comparer_does():
+    """The gate must type-check the value the cross-engine comparison reads.
+    ``project_prep_main`` lets an exact kebab spelling win over a declared snake
+    alias; a last-writer-wins collapse would instead pick whichever spelling
+    ``to_dict`` emitted second — the Python-only view, for the real driver."""
+    kebab = REAL_DRIVER_GROUP_CLUSTER_TWINS["group-clusters"]
+    snake = REAL_DRIVER_GROUP_CLUSTER_TWINS["group_clusters"]
+    for order in (("group-clusters", "group_clusters"),
+                  ("group_clusters", "group-clusters")):
+        blob = {**VALID_BASE, **{k: (kebab if k == "group-clusters" else snake)
+                                 for k in order}}
+        assert cert._canonical_view(blob)["group-clusters"] == kebab
+        assert project_prep_main(blob)["group-clusters"] == kebab
+    # Last-writer-wins picks the Python-only view — non-vacuity for the
+    # arbitration.
+    assert {cert._kebab(k): v for k, v in
+            {"group-clusters": kebab, "group_clusters": snake}.items()
+            }["group-clusters"] == snake
+
+
+def test_single_spelling_blobs_are_untouched_by_the_alias_policy():
+    """Ordinary snake-only and kebab-only compatibility must survive."""
+    for blob in (
+        {"n": 0, "n_cmts": 0, "tids": [], "in_conv": [], "group_clusters": []},
+        {"n": 0, "n-cmts": 0, "tids": [], "in-conv": [], "group-clusters": []},
+    ):
+        cert.validate_checkpoint_blob(blob, "py: step-000")
+
+
+def test_committed_real_blobs_have_no_alias_collisions():
+    """The contract is grounded in the shapes the engines actually emit: no
+    committed blob relies on a collapse the policy now forbids."""
+    real_dir = Path(cert.__file__).resolve().parents[2] / "real_data"
+    blobs = sorted(real_dir.glob("*/*math_blob*.json"))
+    assert blobs
+    for path in blobs:
+        groups = cert._raw_alias_groups(json.loads(path.read_text()))
+        collisions = {c: ks for c, ks in groups.items() if len(ks) > 1}
+        assert not {c for c in collisions} - set(cert._ALIASED_CHECKPOINT_KEYS), \
+            f"{path.name}: undeclared alias collisions {collisions}"
+
+
+def test_cached_recordings_are_revalidated_for_alias_collisions(battery):
+    """Cache-hit control: an alias collision in an already-recorded checkpoint
+    fails on the cached path too, with no producer rerun."""
+    entry, state, root, ds, run = battery
+    assert_pass(run())
+    rec = root / entry.dataset / entry.schedule_id
+    for path in (rec / "clj" / "step-000.blob.json", rec / "py" / "step-000.json"):
+        payload = json.loads(path.read_text())
+        target = payload if path.name.endswith(".blob.json") else payload["blob"]
+        target["n_cmts"] = "invalid-count"
+        path.write_text(json.dumps(payload))
+    # No refresh: the cached recordings are re-validated, so this can never be
+    # served as a MATCH.
+    report = run()
+    assert report["verdict"] == "FAIL", report
+    assert report["battery"][0]["stage"] in ("recording-integrity", "checkpoint-schema")
+
+
+# ---------------------------------------------------------------------------
+# P-022 B1 review, P2 — the temporary schedule path must be collision-free.
+# ---------------------------------------------------------------------------
+def _spec(dataset, schedule_id):
+    return sched.ScheduleSpec(dataset=dataset, schedule_id=schedule_id,
+                              cuts={"mode": "vote-count", "at": [1]})
+
+
+def test_temp_schedule_path_does_not_collide_for_valid_component_pairs(tmp_path):
+    """``f"{dataset}__{schedule_id}.json"`` mapped these two VALID pairs onto one
+    path, so the second entry's write silently handed its schedule to the
+    first entry's producer."""
+    a = _spec("public_fixture__a", "b-clojure-legacy")
+    b = _spec("public-fixture", "a__b-clojure-legacy")
+    pa = cert._write_temp_schedule(a, tmp_path)
+    pb = cert._write_temp_schedule(b, tmp_path)
+    assert pa != pb
+    assert json.loads(pa.read_text())["dataset"] == "public_fixture__a"
+    assert json.loads(pb.read_text())["dataset"] == "public-fixture"
+    assert json.loads(pa.read_text())["schedule_id"] == "b-clojure-legacy"
+    assert json.loads(pb.read_text())["schedule_id"] == "a__b-clojure-legacy"
+
+
+def test_temp_schedule_path_is_stable_for_the_same_pair(tmp_path):
+    a = _spec("public-fixture", "every-vote-clojure-legacy")
+    assert cert._write_temp_schedule(a, tmp_path) == cert._write_temp_schedule(a, tmp_path)
+
+
+def test_temp_schedule_write_leaves_no_staging_files(tmp_path):
+    cert._write_temp_schedule(_spec("public-fixture", "s"), tmp_path)
+    tmp_dir = tmp_path / ".certify_cache" / "tmp_schedules"
+    assert [p.name for p in sorted(tmp_dir.rglob("*")) if p.is_file()] == ["s.json"]
+
+
+@pytest.mark.parametrize("dataset,schedule_id", [
+    ("../escape", "s"), ("d", "../escape"), ("", "s"), ("d", ""),
+    ("d/e", "s"), ("d", "e/f"), ("..", "s"), (".", "s"),
+])
+def test_temp_schedule_rejects_ambiguous_or_traversing_components(
+    tmp_path, dataset, schedule_id
+):
+    with pytest.raises(cert.CertifyError) as excinfo:
+        cert._write_temp_schedule(_spec(dataset, schedule_id), tmp_path)
+    assert excinfo.value.stage == "schedule-path"
+
+
+@pytest.mark.parametrize('cut_slot', [0, 1])
+def test_nested_omission_strict_cache_observation_and_nonzero_refusal(tmp_path, cut_slot):
+    from copy import deepcopy
+    from dataclasses import replace
+    spec = sched.ScheduleSpec('public-fixture', 'empty-clock',
+        {'mode': 'vote-count', 'at': [cut_slot], 'empty_checkpoint': True},
+        empty_output={**EMPTY, 'lastVoteTimestamp': 0, 'pca.center': [-0.0]},
+        legacy_absent_keys=['pca.center'])
+    checkpoint = dict(index=0, prev_slot=0, cut_slot=cut_slot, batch_size=cut_slot, cut_time_ms=0)
+    expected = cert.ExpectedEntry(cert.BatteryEntry(spec.dataset, spec.schedule_id), spec,
+        tmp_path / 'unused.csv', 'a' * 64, None, None, cut_slot, [checkpoint])
+    legacy = {**EMPTY, 'lastVoteTimestamp': 0, 'pca': {'comps': [[1.0], [1.0]]}}
+    python = deepcopy(legacy)
+    python['pca']['center'] = [-0.0]
+    clj_dir, py_dir = tmp_path / 'clj', tmp_path / 'py'
+    clj_dir.mkdir(); py_dir.mkdir()
+    (clj_dir / 'step-000.blob.json').write_text(json.dumps(legacy))
+    (clj_dir / 'step-000.meta.json').write_text(json.dumps(checkpoint))
+    (py_dir / 'step-000.json').write_text(json.dumps({**checkpoint, 'blob': python}))
+    before = {p: p.read_bytes() for p in tmp_path.rglob('step-*')}
+    for _ in range(2):
+        result = cert.compare_recording_pair(clj_dir, py_dir, cache_root=tmp_path, expected=expected)
+        step = result['per_step'][0]
+        assert step['match'] is (cut_slot == 0)
+        if cut_slot == 0:
+            assert step['legacy_defects'] == [
+                {'name': 'legacy-defect-empty-omits-keys', 'keys': ['pca.center']}]
+        else:
+            assert 'legacy_defects' not in step
+    if cut_slot == 0:
+        undeclared = replace(expected, spec=replace(spec, legacy_absent_keys=[]))
+        with pytest.raises(cert.CertifyError, match='empty_output'):
+            cert.compare_recording_pair(clj_dir, py_dir, cache_root=tmp_path, expected=undeclared)
+    assert before == {p: p.read_bytes() for p in before}
+
+
+@pytest.mark.parametrize("lists", [([], []), ([2, 7], [3, 8])])
+@pytest.mark.parametrize("omitted", [[], ["mod-in"], ["mod-out"], ["mod-in", "mod-out"]])
+def test_zero_moderation_lists_are_dynamic_and_missing_legacy_is_observed(battery, tmp_path, lists, omitted):
+    _, state, root, ds, run = battery
+    ds.votes.clear()
+    entry = make_schedule(tmp_path, [0], cuts={"mode": "vote-count", "at": [0], "empty_checkpoint": True},
+                          empty_output=EMPTY, legacy_absent_moderation=["mod-in", "mod-out"])
+    def mutate(engine, step, blob):
+        blob.update(dict(zip(["mod-in", "mod-out"], lists)))
+        if engine == "clj":
+            for key in omitted:
+                blob.pop(key)
+        return blob
+    state["mutate_blob"] = mutate
+    for _ in range(2):
+        report = run([entry])
+        assert_pass(report)
+        observed = report["battery"][0].get("legacy_defects", [])
+        assert observed == ([{"step": 0, "name": "legacy-defect-empty-omits-keys", "keys": omitted}] if omitted else [])
+    assert state["calls"] == 2
+
+
+@pytest.mark.parametrize("engine,value", [("py", None), ("clj", None), ("py", "missing"), ("clj", [99])])
+def test_zero_moderation_lists_refuse_bad_python_and_present_legacy_differences(battery, tmp_path, engine, value):
+    _, state, _, ds, run = battery
+    ds.votes.clear()
+    entry = make_schedule(tmp_path, [0], cuts={"mode": "vote-count", "at": [0], "empty_checkpoint": True},
+                          empty_output=EMPTY, legacy_absent_moderation=["mod-in", "mod-out"])
+    def mutate(current, step, blob):
+        blob.update({"mod-in": [2], "mod-out": []})
+        if current == engine:
+            if value == "missing":
+                blob.pop("mod-in")
+            else:
+                blob["mod-in"] = value
+        return blob
+    state["mutate_blob"] = mutate
+    assert run([entry])["verdict"] != "PASS"

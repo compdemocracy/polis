@@ -2,6 +2,8 @@
 import * as cdk from 'aws-cdk-lib';
 import { CdkStack } from '../lib/cdk-stack';
 import * as path from 'path'; // Use * as path
+import * as fs from 'fs';
+import { ProbeBox, ProbeConfig } from '../probeBox';
 
 interface ExtendedStackProps extends cdk.StackProps {
   domainName?: string; // Make optional since we're not using it initially
@@ -57,3 +59,13 @@ if (props.enableSSHAccess) {
 
 
 new CdkStack(app, 'CdkStack', props);
+// Default-off: existing CdkStack resources and assets are unchanged.
+if ([true, 'true'].includes(app.node.tryGetContext('enableProbeBox'))) {
+  const filename = process.env.PROBE_BOX_CONFIG;
+  if (!filename) throw new Error('PROBE_BOX_CONFIG is required');
+  const config: ProbeConfig = JSON.parse(fs.readFileSync(filename, 'utf8'));
+  const probeStack = new cdk.Stack(app, 'ProbeStack', {
+    env: { account: config.account, region: config.region },
+  });
+  new ProbeBox(probeStack, 'Box', config);
+}

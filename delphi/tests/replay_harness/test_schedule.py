@@ -109,8 +109,9 @@ def test_resolve_timestamp_mode(ds8):
     assert slots == (2, 5, 8)
 
 
-def test_resolve_dedupes_and_sorts(ds8):
-    slots = sched.resolve_cut_slots(ds8, {"mode": "vote-count", "at": [5, 2, 5, "end"]})
+def test_resolve_dedupes_only_with_opt_in(ds8):
+    slots = sched.resolve_cut_slots(ds8, {"mode": "vote-count", "at": [2, 5, 5, "end"],
+                                        "deduplicate": True})
     assert slots == (2, 5, 8)
 
 
@@ -119,10 +120,9 @@ def test_cut_slot_out_of_range_raises(ds8):
         sched.resolve_cut_slots(ds8, {"mode": "vote-count", "at": [999]})
 
 
-def test_timestamp_before_first_vote_dropped(ds8):
-    # t=50 is before the first vote (t=100) → slot 0 → dropped (degenerate).
-    slots = sched.resolve_cut_slots(ds8, {"mode": "timestamp", "at": [50, "end"]})
-    assert slots == (8,)
+def test_timestamp_before_first_vote_requires_explicit_checkpoint(ds8):
+    with pytest.raises(ValueError, match="empty_checkpoint"):
+        sched.resolve_cut_slots(ds8, {"mode": "timestamp", "at": [50, "end"]})
 
 
 def test_unknown_mode_raises(ds8):
@@ -380,3 +380,173 @@ def test_schedule_spec_roundtrip(tmp_path):
     reloaded = sched.ScheduleSpec.from_json_file(p)
     assert reloaded.to_dict() == d
     assert json.loads(p.read_text()) == d
+
+
+def _empty_contract_schedule():
+    return {
+        "dataset": "empty", "schedule_id": "empty-cut",
+        "cuts": {"mode": "vote-count", "at": [0], "empty_checkpoint": True},
+        "empty_output": {"n": 0, "n-cmts": 0, "tids": [], "in-conv": []},
+        "legacy_absent_keys": ["n", "n-cmts", "tids", "in-conv"],
+    }
+
+
+def test_legacy_absent_keys_roundtrip(tmp_path):
+    declaration = _empty_contract_schedule()
+    spec = sched.ScheduleSpec.from_dict(declaration)
+    assert spec.legacy_absent_keys == declaration["legacy_absent_keys"]
+    assert spec.to_dict() == declaration
+    path = tmp_path / "empty.json"
+    spec.write_json(path)
+    assert sched.ScheduleSpec.from_json_file(path).to_dict() == declaration
+
+
+def test_legacy_absent_keys_direct_construction_roundtrip():
+    declaration = _empty_contract_schedule()
+    spec = sched.ScheduleSpec(**declaration)
+    assert spec.to_dict()["legacy_absent_keys"] == declaration["legacy_absent_keys"]
+    assert sched.ScheduleSpec.from_dict(spec.to_dict()) == spec
+
+
+def test_legacy_absent_keys_omission_preserves_existing_schedule():
+    declaration = _empty_contract_schedule()
+    del declaration["legacy_absent_keys"]
+    assert sched.ScheduleSpec.from_dict(declaration).to_dict() == declaration
+    assert sched.ScheduleSpec(**declaration).to_dict().get("legacy_absent_keys") is None
+
+
+def test_legacy_absent_keys_empty_list_is_explicit_no_reconciliation():
+    declaration = _empty_contract_schedule()
+    declaration["legacy_absent_keys"] = []
+    spec = sched.ScheduleSpec.from_dict(declaration)
+    assert spec.legacy_absent_keys == []
+    assert spec.to_dict() == declaration
+
+
+@pytest.mark.parametrize("keys", [
+    None, "n", {"n": 0}, ("n",), True,
+    [None], [True], [0], [[]], [{}], [""], [" "], ["n", "n"], ["unknown"],
+])
+@pytest.mark.parametrize("load", [sched.ScheduleSpec.from_dict,
+                                  lambda declaration: sched.ScheduleSpec(**declaration)])
+def test_legacy_absent_keys_rejects_invalid_declarations(keys, load):
+    declaration = _empty_contract_schedule()
+    declaration["legacy_absent_keys"] = keys
+    with pytest.raises(ValueError, match="legacy_absent_keys"):
+        load(declaration)
+
+
+@pytest.mark.parametrize("contract", [None, [], "empty", {}, {"other": 0}])
+def test_legacy_absent_keys_requires_matching_empty_output(contract):
+    declaration = _empty_contract_schedule()
+    declaration["empty_output"] = contract
+    with pytest.raises(ValueError, match="legacy_absent_keys"):
+        sched.ScheduleSpec.from_dict(declaration)
+
+
+@pytest.mark.parametrize("cuts", [None, [], {}, {"empty_checkpoint": False},
+                                   {"empty_checkpoint": 1}, {"empty_checkpoint": "true"}])
+def test_legacy_absent_keys_requires_explicit_empty_checkpoint(cuts):
+    declaration = _empty_contract_schedule()
+    declaration["cuts"] = cuts
+    with pytest.raises(ValueError, match="empty_checkpoint"):
+        sched.ScheduleSpec.from_dict(declaration)
+
+
+def test_legacy_absent_keys_subset_does_not_change_empty_values():
+    declaration = _empty_contract_schedule()
+    declaration["legacy_absent_keys"] = ["tids", "n"]
+    spec = sched.ScheduleSpec.from_dict(declaration)
+    assert spec.empty_output == {"n": 0, "n-cmts": 0, "tids": [], "in-conv": []}
+    assert spec.legacy_absent_keys == ["tids", "n"]
+
+
+def _pca_contract_schedule():
+    raw = _empty_contract_schedule()
+    raw['empty_output'].update({'lastVoteTimestamp': 0, 'pca.center': [-0.0]})
+    raw['legacy_absent_keys'].append('pca.center')
+    return raw
+
+
+def test_pca_leaf_contract_roundtrips_and_changes_the_cache_identity():
+    from polismath.replay.certify import canonical_schedule_hash
+    raw = _pca_contract_schedule()
+    spec = sched.ScheduleSpec.from_dict(raw)
+    assert spec.to_dict() == raw
+    assert sched.ScheduleSpec(**raw).to_dict()['legacy_absent_keys'] == raw['legacy_absent_keys']
+    without = dict(raw)
+    without['legacy_absent_keys'] = [k for k in raw['legacy_absent_keys'] if k != 'pca.center']
+    assert canonical_schedule_hash(spec) != canonical_schedule_hash(sched.ScheduleSpec.from_dict(without))
+
+
+def test_legacy_empty_timestamp_is_no_longer_a_schedule_field():
+    """The driver floors an empty conversation to 0, so both engines report 0
+    and lastVoteTimestamp is compared like any other declared empty value."""
+    raw = _pca_contract_schedule()
+    raw['legacy_empty_timestamp'] = {'legacy': 0, 'python': 1}
+    with pytest.raises(ValueError, match='unknown schedule fields'):
+        sched.ScheduleSpec.from_dict(raw)
+
+
+@pytest.mark.parametrize('key', ['pca.comps', 'pca.center.extra', 'other.center', 'pca'])
+def test_empty_pca_contract_is_closed_and_cannot_overlap(key):
+    raw = _pca_contract_schedule()
+    raw['empty_output'][key] = {}
+    with pytest.raises(ValueError, match='PCA paths'):
+        sched.ScheduleSpec.from_dict(raw)
+
+
+def _ds_with_trailing_moderation():
+    # (t_ms, pid, tid, sign): four votes, the last at t=4000.
+    raw = _raw([(1000, 0, 0, 1), (2000, 1, 0, -1), (3000, 0, 1, 1), (4000, 1, 1, 1)])
+    mods = [ModEvent(t_ms=2500, tid=0, mod=-1, is_meta=False),
+            ModEvent(t_ms=9000, tid=1, mod=-1, is_meta=False)]
+    return ReplayDataset.build(raw, mod_events=mods)
+
+
+def test_full_stream_final_cut_consumes_moderation_after_last_vote():
+    """A comment moderated after voting stopped is applied at the final recompute."""
+    ds = _ds_with_trailing_moderation()
+    spec = sched.ScheduleSpec("d", "s", {"mode": "vote-count", "at": [2, 4]},
+                              moderation="interleave-by-timestamp", coverage="full-stream")
+    steps = sched.slice_schedule(ds, spec)
+    assert [tuple(m.t_ms for m in s.mod_events) for s in steps] == [(), (2500, 9000)]
+    assert sum(len(s.mod_events) for s in steps) == len(sched._resolve_mod_events(ds, spec))
+
+
+def test_prefix_diagnostic_still_drops_moderation_after_last_cut():
+    ds = _ds_with_trailing_moderation()
+    spec = sched.ScheduleSpec("d", "s", {"mode": "vote-count", "at": [2, 4]},
+                              moderation="interleave-by-timestamp", coverage="prefix-diagnostic")
+    steps = sched.slice_schedule(ds, spec)
+    assert [tuple(m.t_ms for m in s.mod_events) for s in steps] == [(), (2500,)]
+
+
+def test_trailing_moderation_is_not_duplicated_into_earlier_cuts():
+    ds = _ds_with_trailing_moderation()
+    spec = sched.ScheduleSpec("d", "s", {"mode": "vote-count", "at": [1, 3, 4]},
+                              moderation="interleave-by-timestamp", coverage="full-stream")
+    steps = sched.slice_schedule(ds, spec)
+    assert [tuple(m.t_ms for m in s.mod_events) for s in steps] == [(), (2500,), (9000,)]
+
+
+@pytest.mark.parametrize("load", [lambda raw: sched.ScheduleSpec(**raw), sched.ScheduleSpec.from_dict])
+@pytest.mark.parametrize("value", [None, "mod-in", ["mod-in"], ["mod-out"], ["n", "mod-in"], ["mod-in", "mod-in"], ["mod-in", "mod-out", "n"], [{}]])
+def test_legacy_absent_moderation_is_a_closed_pair(load, value):
+    with pytest.raises(ValueError, match="legacy_absent_moderation"):
+        load(dict(dataset="public", schedule_id="empty", cuts={"empty_checkpoint": True},
+                  empty_output={"n": 0}, legacy_absent_moderation=value))
+
+
+def test_legacy_moderation_roundtrip_hash_and_scope():
+    from polismath.replay.certify import canonical_schedule_hash
+    raw = dict(dataset="public", schedule_id="empty", cuts={"empty_checkpoint": True},
+               empty_output={"n": 0}, legacy_absent_moderation=["mod-in", "mod-out"])
+    spec = sched.ScheduleSpec.from_dict(raw)
+    assert spec.to_dict() == raw
+    assert sched.ScheduleSpec(**raw).to_dict()["legacy_absent_moderation"] == raw["legacy_absent_moderation"]
+    without = {k: v for k, v in raw.items() if k != "legacy_absent_moderation"}
+    assert canonical_schedule_hash(spec) != canonical_schedule_hash(sched.ScheduleSpec(**without))
+    for changes in ({"cuts": {}}, {"empty_output": None}, {"empty_output": {"n": 0, "mod-in": None}}):
+        with pytest.raises(ValueError, match="legacy_absent_moderation"):
+            sched.ScheduleSpec(**{**raw, **changes})

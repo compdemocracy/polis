@@ -1,0 +1,986 @@
+"""R09 — partial tables and concurrent readers (REAL Postgres).
+
+P-022 §C required matrix:
+
+    Pause after main but before bidtopid/ptptstats; continuously query through
+    Node.  No response may combine incompatible generations.  Prefer a
+    transaction spanning all three writes or a reader-visible completed
+    generation.  Eventual repair alone does not make a mixed mapping safe.  Seed
+    preexisting partial rows, restart and repair; fail on absent/mismatched
+    required rows.
+
+The reader here is a Python transcription of the TWO server queries that
+together produce a participant mapping —
+``server/src/utils/pca.ts:360`` (``select * from math_main where zid = $1 and
+math_env = $2``) and ``server/src/utils/participants.ts:10``
+(``select * from math_bidtopid where zid = $1 and math_env = $2``) — plus
+``getPidsForGid``'s positional join of ``base-clusters.id`` ->
+``bidToPid[index]`` (``participants.ts:25-60``).  Running the real Node server
+is D's job (see the notes file); what R09 needs is the exact query pair and the
+exact join, which is what is reproduced.
+
+What this module does and does NOT prove (review finding 2)
+-----------------------------------------------------------------
+:func:`read_generation` takes an observation in one of two modes:
+
+``repeatable_read``
+    both SELECTs inside ONE ``REPEATABLE READ`` transaction.  Any incoherence
+    it reports is therefore the WRITER's, never a torn read of the test's own
+    making.  This is the mode the writer-atomicity evidence uses, and it is
+    STRICTLY STRONGER than what the server does.
+``separate_statements``
+    each SELECT on its OWN connection in its own autocommit statement — which
+    is what Node actually does: ``getPidsForGid`` (``participants.ts:24-30``)
+    is a ``Promise.all`` of ``getPca`` and ``getBidIndexToPidMapping``, and
+    ``pg.queryP_readOnly`` takes a separate pooled connection per query with no
+    enclosing transaction.  A writer commit can land BETWEEN the two.
+
+So:
+
+* **Proved here.** The writer now publishes all three tables in ONE
+  transaction (#2704), so a snapshot observer (``repeatable_read``) never
+  observes math_main at generation N paired with the other two at N-1 or
+  absent — the publication window is closed *for that observer*
+  (``test_reader_never_sees_a_mixed_generation``, ``TestNegativeControl``).
+  The legacy, deliberately non-atomic writer still exposes that window
+  (``test_legacy_mixed_window_is_real_and_observable``), so the snapshot
+  observer can tell atomic from non-atomic publication.  That is
+  WRITER-ISOLATION evidence and nothing more.
+* **NOT proved here.** That an atomic writer makes the *Node* reader safe.  Two
+  tests demonstrate the opposite, deterministically and without any race:
+
+  - ``test_an_atomic_write_is_still_observed_mixed_by_a_node_shaped_reader`` —
+    an atomic commit landing BETWEEN the reader's two independent autocommit
+    statements still yields a mixed response.
+  - ``test_a_cached_main_blob_can_pair_with_a_newer_mapping_even_when_the_writer_is_atomic``
+    — ``getPca`` serves ``math_main`` out of an in-process LRU
+    (``server/src/utils/pca.ts:330-347``) while ``getBidIndexToPidMapping``
+    always re-queries the DB, so a CACHED older main blob can pair with a newer
+    mapping no matter how the writer commits.
+
+  Closing that needs generation-matching retry or versioned snapshot reads IN
+  THE SERVER, and a real Node test (P-022 §D).  #2704 cannot make the R09 row
+  green on its own, and no test in this module should be read as saying it can.
+"""
+
+import json
+import threading
+import time
+
+import pytest
+import sqlalchemy as sa
+
+from .conftest import (
+    Latch,
+    eventually,
+    latch_method,
+    read_math_tables,
+    read_vote_events,
+    seed_conversation,
+    tables_are_coherent,
+)
+from . import fold as F
+
+pytestmark = pytest.mark.recovery
+
+MATH_ENV = "recovery"
+
+
+# --------------------------------------------------------------------------- #
+# The server's reader, transcribed
+# --------------------------------------------------------------------------- #
+_TABLE_SQL = {
+    "main": "select * from math_main where zid = :z and math_env = :e",
+    "bidtopid": "select * from math_bidtopid where zid = :z and math_env = :e",
+    "ptptstats": "select * from math_ptptstats where zid = :z and math_env = :e",
+}
+
+READER_MODES = ("repeatable_read", "separate_statements")
+
+
+def _one_row(conn, table: str, zid: int, math_env: str):
+    row = conn.execute(sa.text(_TABLE_SQL[table]),
+                       {"z": zid, "e": math_env}).mappings().first()
+    return dict(row) if row else None
+
+
+def read_generation(engine, zid: int, math_env: str,
+                    mode: str = "repeatable_read"):
+    """One OBSERVATION of the reader's query pair (plus ptptstats).
+
+    ``mode="repeatable_read"`` (default) takes all three SELECTs inside a
+    single REPEATABLE READ transaction, so any incoherence it reports is the
+    WRITER's and never a torn read of the test's own making.  That is stronger
+    than the server: see the module docstring.
+
+    ``mode="separate_statements"`` takes each SELECT on its OWN connection in
+    its own autocommit statement, which is what Node does — ``getPidsForGid``
+    is a ``Promise.all`` of two independent ``pg.queryP_readOnly`` calls
+    (``server/src/utils/participants.ts:24-30``), each on its own pooled
+    connection with no enclosing transaction, so a writer commit can land
+    between them.
+    """
+    if mode == "repeatable_read":
+        conn = engine.connect().execution_options(
+            isolation_level="REPEATABLE READ")
+        try:
+            with conn.begin():
+                rows = [_one_row(conn, t, zid, math_env)
+                        for t in ("main", "bidtopid", "ptptstats")]
+        finally:
+            conn.close()
+        return tuple(rows)
+
+    if mode == "separate_statements":
+        rows = []
+        for table in ("main", "bidtopid", "ptptstats"):
+            with engine.connect() as conn:
+                # AUTOCOMMIT: no enclosing transaction, no shared snapshot —
+                # one statement, one connection, exactly like node-postgres.
+                conn = conn.execution_options(isolation_level="AUTOCOMMIT")
+                rows.append(_one_row(conn, table, zid, math_env))
+        return tuple(rows)
+
+    raise ValueError(f"unknown reader mode {mode!r}; expected {READER_MODES}")
+
+
+def response_problems(main, bid, pts):
+    """Everything wrong with the response a reader would build from this
+    snapshot.  Empty list == a usable, single-generation response."""
+    problems = []
+    if main is None:
+        return ["no math_main row: nothing to serve"]
+    if bid is None:
+        problems.append("math_bidtopid row absent while math_main is published")
+    if pts is None:
+        problems.append("math_ptptstats row absent while math_main is published")
+    if bid is not None and bid["math_tick"] != main["math_tick"]:
+        problems.append(
+            f"MIXED GENERATIONS: math_main math_tick={main['math_tick']} vs "
+            f"math_bidtopid math_tick={bid['math_tick']}"
+        )
+    if pts is not None and pts["math_tick"] != main["math_tick"]:
+        problems.append(
+            f"MIXED GENERATIONS: math_main math_tick={main['math_tick']} vs "
+            f"math_ptptstats math_tick={pts['math_tick']}"
+        )
+    if bid is not None:
+        problems.extend(_mapping_problems(
+            main["data"], bid["data"],
+            pts["data"] if pts is not None else None,
+        ))
+    return problems
+
+
+def _as_int(value):
+    """``participants.ts:52-55`` runs every resolved pid through ``parseInt``;
+    normalise the same way so a string pid and an int pid compare equal."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return value
+
+
+def resolve_pids_for_gid(main_data, bid_data, gid):
+    """``getPidsForGid``'s join, transcribed literally
+    (``server/src/utils/participants.ts:24-60``)::
+
+        indexToBid = o[0]["base-clusters"].id
+        bidToIndex[indexToBid[i]] = i                  # :33-36
+        cluster    = o[0]["group-clusters"][gid]       # :44  POSITIONAL
+        members    = cluster.members                   # :48  these are BIDS
+        pids      += indexToPids[bidToIndex[bid]]      # :49-51
+
+    Returns ``(pids, problems)``.  ``pids`` is what the server would answer.
+    """
+    problems = []
+    base = main_data.get("base-clusters") or {}
+    ids = base.get("id") or []
+    bid_to_pid = bid_data.get("bidToPid") or []
+    bid_to_index = {}
+    for i, b in enumerate(ids):
+        bid_to_index.setdefault(b, i)
+
+    groups = main_data.get("group-clusters") or []
+    if gid < 0 or gid >= len(groups):
+        return [], [f"no group-clusters[{gid}]: getPidsForGid would answer []"]
+    cluster = groups[gid]
+
+    pids = []
+    for bid in cluster.get("members", []):
+        if bid not in bid_to_index:
+            problems.append(
+                f"group-clusters[{gid}] member bid {bid!r} does not appear in "
+                "base-clusters.id, so bidToIndex[bid] is undefined and "
+                "getPidsForGid DROPS it silently (participants.ts:49-51)"
+            )
+            continue
+        index = bid_to_index[bid]
+        if index >= len(bid_to_pid):
+            problems.append(
+                f"group-clusters[{gid}] member bid {bid!r} resolves to index "
+                f"{index}, past the end of bidToPid ({len(bid_to_pid)})"
+            )
+            continue
+        pids.extend(_as_int(p) for p in bid_to_pid[index] or [])
+    return sorted(pids), problems
+
+
+def _mapping_problems(main_data, bid_data, pts_data=None):
+    """Everything wrong with the (pid -> bid -> gid) mapping these two blobs
+    describe, walked through the join the SERVER actually performs.
+
+    ``group-clusters[*].members`` are **base-cluster ids (bids)**, not pids.
+    ``server/src/utils/participants.ts:44-51`` resolves each member through
+    ``base-clusters.id`` to a POSITION and reads ``bidToPid[position]``.
+    Python emits exactly that shape: ``_apply_legacy_blob_shape``
+    (``polismath/conversation/conversation.py:1783-1790``) overwrites the
+    kebab-case ``group-clusters`` members with the FOLDED base-cluster ids —
+    the unfolded pid view survives only under the snake-case ``group_clusters``
+    alias — and ``derive_bidtopid`` (``polismath/poller/math_writer.py:74-78``)
+    builds ``bidToPid`` as ``[c["members"] for c in sorted(base_clusters, key
+    id)]``, positionally aligned with both ``base-clusters.id`` and
+    ``base-clusters.members``.
+
+    The pre-review version of this helper read those members as PIDS and only
+    asked whether each appeared somewhere in the union of all ``bidToPid``
+    buckets.  That is wrong in both directions and the review (finding 1)
+    reproduced both: with distinct bid/pid ranges it REJECTED a valid mapping,
+    and it ACCEPTED a swap of two same-length buckets even though the swap
+    routes every group to the wrong participants.  The checks below therefore
+
+    * compare each bucket against math_main's own ``base-clusters.members`` for
+      the same position — the equality that a same-length swap breaks;
+    * resolve every group through the real bid -> index -> pid join;
+    * validate the group ids/indices the positional ``clusters[gid]`` lookup
+      depends on; and
+    * (when ``pts_data`` is given) check math_ptptstats' published ``(pid, gid)``
+      links against the pids that join actually yields.
+
+    Deliberately SELF-CONTAINED (its helpers are nested, not module-level): the
+    review's harness ``cost-reduction/scripts/p022-review-2702-checks.py``
+    lifts this one function out of the module with ``ast`` and ``exec``s it in
+    an empty namespace, and that reproduction must keep working.
+    """
+    def as_int(value):
+        """``participants.ts:52-55`` runs every resolved pid through
+        ``parseInt``; normalise the same way."""
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return value
+
+    problems = []
+    base = main_data.get("base-clusters") or {}
+    ids = base.get("id") or []
+    published_members = base.get("members")
+    bid_to_pid = bid_data.get("bidToPid") or []
+
+    if len(ids) != len(bid_to_pid):
+        problems.append(
+            f"positional contract broken: base-clusters.id has {len(ids)} "
+            f"entries, bidToPid has {len(bid_to_pid)}"
+        )
+        return problems
+
+    bid_to_index = {}
+    for i, b in enumerate(ids):
+        if b in bid_to_index:
+            problems.append(
+                f"duplicate base-cluster id {b!r} at positions "
+                f"{bid_to_index[b]} and {i}: bidToIndex "
+                "(participants.ts:33-36) keeps only the last one, so one "
+                "bucket becomes unreachable"
+            )
+        bid_to_index[b] = i
+
+    def resolve(gid):
+        """``getPidsForGid``'s join for one gid — ``(pids, problems)``."""
+        local = []
+        groups_ = main_data.get("group-clusters") or []
+        if gid is None or not isinstance(gid, int) or not 0 <= gid < len(groups_):
+            return [], [f"no group-clusters[{gid!r}]: getPidsForGid answers []"]
+        out = []
+        for bid in groups_[gid].get("members", []):
+            if bid not in bid_to_index:
+                local.append(
+                    f"group-clusters[{gid}] member bid {bid!r} does not appear "
+                    "in base-clusters.id, so bidToIndex[bid] is undefined and "
+                    "getPidsForGid DROPS it silently (participants.ts:49-51)"
+                )
+                continue
+            index = bid_to_index[bid]
+            if index >= len(bid_to_pid):
+                local.append(
+                    f"group-clusters[{gid}] member bid {bid!r} resolves to "
+                    f"index {index}, past the end of bidToPid "
+                    f"({len(bid_to_pid)})"
+                )
+                continue
+            out.extend(as_int(p) for p in (bid_to_pid[index] or []))
+        return sorted(out), local
+
+    # The join's payload: each bucket must be the membership math_main itself
+    # published for the base cluster at that position.  A same-length SWAP of
+    # two buckets keeps every length and every id resolvable and is caught
+    # here, and only here.
+    if published_members is None:
+        problems.append(
+            "math_main has base-clusters.id but no base-clusters.members: the "
+            "bidToPid buckets cannot be corroborated"
+        )
+    elif len(published_members) != len(ids):
+        problems.append(
+            f"math_main is self-inconsistent: base-clusters.id has {len(ids)} "
+            f"entries, base-clusters.members has {len(published_members)}"
+        )
+    else:
+        for i, bid_id in enumerate(ids):
+            mapped = [as_int(p) for p in (bid_to_pid[i] or [])]
+            published = [as_int(p) for p in (published_members[i] or [])]
+            if mapped != published:
+                problems.append(
+                    f"bidToPid[{i}] (base cluster {bid_id!r}) routes to pids "
+                    f"{mapped} but math_main's base-clusters.members[{i}] is "
+                    f"{published}: the two blobs name DIFFERENT participants "
+                    "for the same base cluster"
+                )
+
+    # Group membership, through the real join.
+    groups = main_data.get("group-clusters") or []
+    pid_owner = {}
+    for gid, group in enumerate(groups):
+        # participants.ts:44 indexes the ARRAY by gid, so position and id must
+        # agree or every caller gets another group's participants.
+        if group.get("id") != gid:
+            problems.append(
+                f"group-clusters[{gid}].id is {group.get('id')!r}: "
+                "getPidsForGid does clusters[gid] (participants.ts:44), so the "
+                "array position and the group id must be the same value"
+            )
+        members = group.get("members", [])
+        pids, join_problems = resolve(gid)
+        problems.extend(join_problems)
+        if members and not pids and not join_problems:
+            problems.append(
+                f"group {group.get('id')!r} has members {members} but resolves "
+                "to NO pids through bidToPid"
+            )
+        for pid in pids:
+            if pid in pid_owner and pid_owner[pid] != gid:
+                problems.append(
+                    f"pid {pid!r} is routed to BOTH group {pid_owner[pid]} and "
+                    f"group {gid}: the group partition is not disjoint"
+                )
+            pid_owner.setdefault(pid, gid)
+
+    # math_ptptstats publishes (pid, gid) for the same generation; every pair
+    # must agree with the join above (ptptstats drops participants with no PCA
+    # projection — math_writer.py:193 — so it is a SUBSET, not an equality).
+    if pts_data is not None:
+        stats = (pts_data or {}).get("ptptstats") or {}
+        stat_pids = stats.get("pid") or []
+        stat_gids = stats.get("gid") or []
+        if len(stat_pids) != len(stat_gids):
+            problems.append(
+                f"math_ptptstats columns are ragged: pid has {len(stat_pids)} "
+                f"entries, gid has {len(stat_gids)}"
+            )
+        else:
+            for pid, gid in zip(stat_pids, stat_gids):
+                pids, _ = resolve(gid)
+                if as_int(pid) not in pids:
+                    problems.append(
+                        f"math_ptptstats says pid {pid!r} is in group {gid!r}, "
+                        "but getPidsForGid for that group answers "
+                        f"{pids} — the three tables describe different "
+                        "participant mappings"
+                    )
+    return problems
+
+
+# --------------------------------------------------------------------------- #
+# Continuous reader while a write is paused mid-way
+# --------------------------------------------------------------------------- #
+class ContinuousReader(threading.Thread):
+    """Polls the reader's query pair until stopped, recording every snapshot."""
+
+    def __init__(self, engine, zid, math_env, mode="repeatable_read"):
+        super().__init__(daemon=True)
+        self.engine = engine
+        self.zid = zid
+        self.math_env = math_env
+        self.mode = mode
+        self.snapshots = []
+        self._halt = threading.Event()
+
+    def run(self):
+        while not self._halt.is_set():
+            self.snapshots.append(read_generation(self.engine, self.zid,
+                                                  self.math_env,
+                                                  mode=self.mode))
+            self._halt.wait(0.01)
+
+    def stop(self):
+        self._halt.set()
+        self.join(timeout=30)
+
+    def incoherent(self):
+        return [response_problems(*s) for s in self.snapshots
+                if s[0] is not None and response_problems(*s)]
+
+
+# Collected for the snapshot observer only.  ``#2704`` publishes all three
+# tables in ONE transaction, which guarantees a coherent generation *to a
+# snapshot reader* (``repeatable_read``) — and that is the only always-coherent
+# publication guarantee this atomic writer makes (review finding 1).  The
+# ``separate_statements`` observer is deliberately NOT collected here: a writer
+# commit can land BETWEEN its two independent autocommit SELECTs no matter how
+# atomically the writer publishes, so it MAY observe a mixed generation.  That
+# reader-side hazard is retained as its own deterministic witnesses below
+# (``test_an_atomic_write_is_still_observed_mixed_by_a_node_shaped_reader`` and
+# ``test_a_cached_main_blob_can_pair_with_a_newer_mapping_even_when_the_writer_is_atomic``);
+# the review's scheduling witness drives THIS function in ``separate_statements``
+# mode to reproduce the same mixed observation under a pinned interleaving.
+@pytest.mark.parametrize("mode", ["repeatable_read"])
+def test_reader_never_sees_a_mixed_generation(engine, pg_url, make_service,
+                                              mode):
+    """Pause the writer between the table writes — after bidtopid and ptptstats
+    have executed and before math_main, which the writer now emits last — while
+    a reader polls continuously. That is the widest window in which a reader
+    could observe a mixed generation.
+
+    Asserted for the REPEATABLE READ (snapshot) observer only: because the
+    writer commits all three tables in one transaction (#2704), that observer
+    never sees a mixed generation, and any incoherence it did report would be
+    the WRITER's, never a torn read of the test's own making. The
+    separate-autocommit-statement observer — what Node's two independent
+    ``queryP_readOnly`` calls actually do — is NOT asserted coherent, because a
+    commit can land between its two statements even under atomic publication;
+    that hazard is witnessed deterministically by the two node-shaped-reader
+    tests below (see the module header, review finding 1). The body still
+    runs the coherence check for whatever ``mode`` it is CALLED with, so the
+    review's scheduling witness can drive ``separate_statements`` directly and
+    observe the mixed generation it must."""
+    seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
+    svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
+    svc.poll_once()          # generation 1: complete
+
+    reader = ContinuousReader(engine, 1, MATH_ENV, mode=mode)
+    reader.start()
+
+    latch = Latch("write_math_main")
+    undo = latch_method(svc._pg, "write_math_main", latch)
+    from .conftest import commit_vote
+    base = max(e["created"] for e in read_vote_events(engine, 1))
+    commit_vote(engine, 1, 0, 0, F.RAW_DISAGREE, base + 1000)
+    svc._vote_wm = base
+
+    worker = threading.Thread(target=svc.poll_once, daemon=True)
+    worker.start()
+    latch.wait_arrival()
+    # Both companions have executed, but the full snapshot is still uncommitted.
+    eventually(lambda: len(reader.snapshots) > 3, timeout=10,
+               message="the reader took no snapshots during the pause")
+    latch.let_go()
+    worker.join(timeout=60)
+    undo()
+    reader.stop()
+
+    bad = reader.incoherent()
+    assert bad == [], (
+        f"{len(bad)} of {len(reader.snapshots)} reader snapshots combined "
+        f"incompatible generations, e.g. {bad[0]}"
+    )
+
+
+def test_legacy_mixed_window_is_real_and_observable(engine, pg_url, make_service,
+                                                    monkeypatch):
+    """Negative control: the intentionally non-atomic legacy writer MUST expose
+    a mixed window. Keep the original defect assertions load-bearing."""
+    seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
+    svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
+    svc.poll_once()
+    first_tick = read_math_tables(engine, 1, MATH_ENV)["main"]["math_tick"]
+
+    from contextlib import nullcontext
+    real_transaction = svc._pg.transaction
+    real_returning = svc._pg._write_returning
+
+    def legacy_returning(sql, params=None, *, connection=None):
+        with real_transaction() as conn:
+            return real_returning(sql, params, connection=conn)
+
+    monkeypatch.setattr(svc._pg, "transaction", lambda: nullcontext(None))
+    monkeypatch.setattr(svc._pg, "_write_returning", legacy_returning)
+
+    # Pause after the FIRST table write commits on its own: with separate
+    # commits, whichever table goes first is a generation ahead of the rest.
+    latch = Latch("write_participant_stats")
+    undo = latch_method(svc._pg, "write_participant_stats", latch)
+    from .conftest import commit_vote
+    base = max(e["created"] for e in read_vote_events(engine, 1))
+    commit_vote(engine, 1, 0, 0, F.RAW_DISAGREE, base + 1000)
+    svc._vote_wm = base
+    worker = threading.Thread(target=svc.poll_once, daemon=True)
+    worker.start()
+    latch.wait_arrival()
+
+    main, bid, pts = read_generation(engine, 1, MATH_ENV)
+    assert bid["math_tick"] > first_tick, "math_bidtopid advanced on its own"
+    assert main["math_tick"] == first_tick, "math_main is a generation behind"
+    assert pts["math_tick"] == first_tick
+    problems = response_problems(main, bid, pts)
+    assert any("MIXED GENERATIONS" in p for p in problems), problems
+
+    latch.let_go()
+    worker.join(timeout=60)
+    undo()
+    assert tables_are_coherent(read_math_tables(engine, 1, MATH_ENV)) == []
+
+
+# --------------------------------------------------------------------------- #
+# Preexisting partial rows: repair on restart
+# --------------------------------------------------------------------------- #
+def test_preexisting_partial_rows_are_repaired(engine, pg_url, make_service):
+    """Seed a math_main row with NO bidtopid/ptptstats (the state a crash
+    between writes leaves) and require a subsequent cycle to repair it into a
+    single coherent generation matching the fold."""
+    seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text("insert into math_main (zid, math_env, data, "
+                    "last_vote_timestamp, caching_tick, math_tick) values "
+                    "(:z, :e, cast(:d as jsonb), 0, 1, 7)"),
+            {"z": 1, "e": MATH_ENV, "d": json.dumps({"zid": 1})},
+        )
+    main, bid, pts = read_generation(engine, 1, MATH_ENV)
+    assert response_problems(main, bid, pts), "precondition: partial rows"
+
+    svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
+    svc.poll_once()
+
+    main, bid, pts = read_generation(engine, 1, MATH_ENV)
+    assert response_problems(main, bid, pts) == [], (
+        response_problems(main, bid, pts)
+    )
+    fold = F.fold_votes(read_vote_events(engine, 1))
+    assert F.check_published_against_fold(main["data"], fold) == []
+
+
+def test_absent_required_rows_fail_the_reader_check(engine, pg_url,
+                                                    make_service):
+    """"fail on absent/mismatched required rows": deleting either companion row
+    must make the reader check go red."""
+    seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
+    svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
+    svc.poll_once()
+    assert response_problems(*read_generation(engine, 1, MATH_ENV)) == []
+
+    for table in ("math_bidtopid", "math_ptptstats"):
+        with engine.begin() as conn:
+            conn.execute(
+                sa.text(f"delete from {table} where zid=:z and math_env=:e"),
+                {"z": 1, "e": MATH_ENV},
+            )
+        problems = response_problems(*read_generation(engine, 1, MATH_ENV))
+        assert any(table in p for p in problems), (
+            f"deleting {table} was not detected: {problems}"
+        )
+
+
+def test_positional_bidtopid_contract_holds_for_a_complete_generation(
+    engine, pg_url, make_service
+):
+    """The contract the server relies on (``math_writer.py:42``): every base
+    cluster id has a positionally aligned bidToPid entry, and every group
+    member resolves."""
+    seed_conversation(engine, zid=1, n_ptpts=8, n_cmts=5)
+    svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
+    svc.poll_once()
+    main, bid, pts = read_generation(engine, 1, MATH_ENV)
+    assert _mapping_problems(main["data"], bid["data"], pts["data"]) == []
+
+
+def test_group_cluster_members_are_base_cluster_ids_not_pids(engine, pg_url,
+                                                             make_service):
+    """The namespace the checker depends on, asserted against a REAL published
+    blob (review finding 1): every ``group-clusters[*].members`` entry is
+    a ``base-clusters.id``, and the group's participants come out of the join,
+    not out of the members list."""
+    seed_conversation(engine, zid=1, n_ptpts=8, n_cmts=5)
+    svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
+    svc.poll_once()
+    main, bid, _pts = read_generation(engine, 1, MATH_ENV)
+    ids = set(main["data"]["base-clusters"]["id"])
+    groups = main["data"]["group-clusters"]
+    assert groups, "fixture must produce at least one group"
+    for gid, group in enumerate(groups):
+        members = group["members"]
+        assert members, f"group {gid} has no members"
+        assert set(members) <= ids, (
+            f"group-clusters[{gid}].members {members} are not all "
+            f"base-cluster ids {sorted(ids)}; the writer's namespace changed "
+            "(conversation.py:1783 emits the FOLDED, bid-valued form)"
+        )
+        pids, problems = resolve_pids_for_gid(main["data"], bid["data"], gid)
+        assert problems == [], problems
+        assert pids, f"group {gid} resolved to no pids through bidToPid"
+
+    # The snake-case alias keeps the UNFOLDED pid view; it is a different
+    # namespace and is NOT what participants.ts reads.
+    unfolded = main["data"].get("group_clusters")
+    if unfolded:
+        all_pids = set()
+        for members in bid["data"]["bidToPid"]:
+            all_pids.update(members)
+        for group in unfolded:
+            assert set(group["members"]) <= all_pids
+
+
+# --------------------------------------------------------------------------- #
+# The Node reader's OTHER hazard: a cached main blob (review finding 2)
+# --------------------------------------------------------------------------- #
+def _rebalance_one_participant(main_blob, bid_blob, pts_blob):
+    """Move one pid from base cluster 0 to base cluster 1 in ALL THREE blobs —
+    a real, coherent NEXT generation with a genuinely different participant
+    mapping (participants do change base cluster between cycles).
+
+    Returns ``(new_main, new_bid, new_pts, moved_pid)``."""
+    import copy
+
+    new_main = copy.deepcopy(main_blob)
+    new_bid = copy.deepcopy(bid_blob)
+    new_pts = copy.deepcopy(pts_blob)
+
+    ids = new_main["base-clusters"]["id"]
+    members = new_main["base-clusters"]["members"]
+    assert len(ids) >= 2 and len(members[0]) >= 2, (
+        "fixture must have two base clusters and a movable participant"
+    )
+    moved = members[0].pop()
+    members[1].append(moved)
+    new_bid["bidToPid"] = [list(m) for m in members]
+
+    # Keep math_ptptstats' (pid, gid) links consistent with the new mapping, so
+    # generation N+1 is coherent on its own and the ONLY incoherence in this
+    # test comes from pairing it with a CACHED generation-N main blob.
+    gid_of_bid = {}
+    for gid, group in enumerate(new_main.get("group-clusters") or []):
+        for bid in group.get("members", []):
+            gid_of_bid[bid] = gid
+    gid_of_pid = {}
+    for i, bid in enumerate(ids):
+        for pid in members[i]:
+            gid_of_pid[pid] = gid_of_bid.get(bid)
+    stats = new_pts.get("ptptstats") or {}
+    if stats.get("pid") and stats.get("gid"):
+        stats["gid"] = [gid_of_pid.get(pid, g)
+                        for pid, g in zip(stats["pid"], stats["gid"])]
+    return new_main, new_bid, new_pts, moved
+
+
+def test_a_cached_main_blob_can_pair_with_a_newer_mapping_even_when_the_writer_is_atomic(
+    engine, pg_url, make_service
+):
+    """ATOMIC publication does not make the SERVER's reader safe.
+
+    ``getPidsForGid`` (``server/src/utils/participants.ts:24-30``) is a
+    ``Promise.all`` of ``getPca`` and ``getBidIndexToPidMapping``.  ``getPca``
+    can answer out of the in-process LRU populated by the math poll
+    (``server/src/utils/pca.ts:330-347``) while ``getBidIndexToPidMapping``
+    ALWAYS re-queries ``math_bidtopid``.  So even with all three tables written
+    in one transaction, a response can combine a cached main blob at generation
+    N with the mapping at N+1.
+
+    This test holds the generation-N main blob (standing in for the cache
+    entry), commits generation N+1 for all three tables in ONE transaction, and
+    then evaluates the response the server would build.  It must be reported as
+    incoherent — which is the point: the atomic-writer negative control above
+    does not close this hole, #2704 cannot close it, and only a
+    generation-matching retry / versioned snapshot read in the SERVER can."""
+    seed_conversation(engine, zid=1, n_ptpts=8, n_cmts=5)
+    svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
+    svc.poll_once()
+
+    cached_main, _bid_n, _pts_n = read_generation(engine, 1, MATH_ENV)
+    assert response_problems(cached_main, _bid_n, _pts_n) == [], (
+        "precondition: generation N is coherent"
+    )
+
+    next_main_blob, next_bid_blob, next_pts_blob, moved = (
+        _rebalance_one_participant(cached_main["data"], _bid_n["data"],
+                                   _pts_n["data"]))
+    next_tick = cached_main["math_tick"] + 1
+    with engine.begin() as conn:      # ONE transaction: an ATOMIC writer
+        conn.execute(
+            sa.text("update math_main set math_tick=:t, data=cast(:d as jsonb) "
+                    "where zid=:z and math_env=:e"),
+            {"t": next_tick, "d": json.dumps(next_main_blob), "z": 1,
+             "e": MATH_ENV})
+        conn.execute(
+            sa.text("update math_bidtopid set math_tick=:t, "
+                    "data=cast(:d as jsonb) where zid=:z and math_env=:e"),
+            {"t": next_tick, "d": json.dumps(next_bid_blob), "z": 1,
+             "e": MATH_ENV})
+        conn.execute(
+            sa.text("update math_ptptstats set math_tick=:t, "
+                    "data=cast(:d as jsonb) where zid=:z and math_env=:e"),
+            {"t": next_tick, "d": json.dumps(next_pts_blob), "z": 1,
+             "e": MATH_ENV})
+
+    # Fresh DB read of the mapping, as getBidIndexToPidMapping always does.
+    _main_now, fresh_bid, fresh_pts = read_generation(
+        engine, 1, MATH_ENV, mode="separate_statements")
+    assert fresh_bid["math_tick"] == next_tick
+
+    # The response the server would build: CACHED main + FRESH mapping.
+    problems = response_problems(cached_main, fresh_bid, fresh_pts)
+    assert any("MIXED GENERATIONS" in p for p in problems), problems
+    assert any("DIFFERENT participants" in p for p in problems), (
+        f"the cached blob and the fresh mapping disagree about pid {moved}, "
+        f"which the mapping check must report: {problems}"
+    )
+
+    # ...and the whole DB is atomic and coherent at the same instant, so a
+    # DB-snapshot-only observer would have declared this safe.
+    assert response_problems(*read_generation(engine, 1, MATH_ENV)) == [], (
+        "the database itself is coherent; the incoherence is in the RESPONSE"
+    )
+
+
+def test_an_atomic_write_is_still_observed_mixed_by_a_node_shaped_reader(
+    engine, pg_url, make_service
+):
+    """The same conclusion without any cache: a reader that issues each query
+    as its OWN autocommit statement — which is what node-postgres does for
+    ``getPidsForGid``'s two ``queryP_readOnly`` calls — observes a mixed
+    generation even when the writer commits all three tables atomically,
+    because a commit can land BETWEEN the two statements.
+
+    The interleaving is pinned, not raced: statement 1 runs, the atomic commit
+    lands, statement 2 runs.  Asserted directly (rather than as an xfail) so
+    that the R09 row cannot be read as "atomic publication closes this".  It
+    does not: the remaining hole is reader-side and belongs to the server
+    (generation-matching retry or a versioned snapshot read) plus a real Node
+    test in P-022 §D."""
+    seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
+    svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
+    svc.poll_once()
+
+    gen_n = read_math_tables(engine, 1, MATH_ENV)
+    # STATEMENT 1 — getPca's query, its own autocommit statement.
+    with engine.connect() as conn:
+        conn = conn.execution_options(isolation_level="AUTOCOMMIT")
+        main_before = _one_row(conn, "main", 1, MATH_ENV)
+
+    # ...an ATOMIC writer commits generation N+1 in ONE transaction, between
+    # the reader's two statements (Promise.all gives no ordering guarantee and
+    # no shared snapshot).
+    next_main, next_bid, next_pts, moved = _rebalance_one_participant(
+        gen_n["main"]["data"], gen_n["bidtopid"]["data"],
+        gen_n["ptptstats"]["data"])
+    next_tick = gen_n["main"]["math_tick"] + 1
+    with engine.begin() as conn:
+        for table, payload in (("math_main", next_main),
+                               ("math_bidtopid", next_bid),
+                               ("math_ptptstats", next_pts)):
+            conn.execute(
+                sa.text(f"update {table} set math_tick=:t, "
+                        "data=cast(:d as jsonb) where zid=:z and math_env=:e"),
+                {"t": next_tick, "d": json.dumps(payload), "z": 1,
+                 "e": MATH_ENV})
+
+    # STATEMENT 2 — getBidIndexToPidMapping's query, its own autocommit
+    # statement, on its own pooled connection.
+    with engine.connect() as conn:
+        conn = conn.execution_options(isolation_level="AUTOCOMMIT")
+        bid_after = _one_row(conn, "bidtopid", 1, MATH_ENV)
+        pts_after = _one_row(conn, "ptptstats", 1, MATH_ENV)
+
+    problems = response_problems(main_before, bid_after, pts_after)
+    assert any("MIXED GENERATIONS" in p for p in problems), problems
+    assert any("DIFFERENT participants" in p for p in problems), (
+        f"the two statements disagree about pid {moved}: {problems}"
+    )
+    # The database was atomic throughout: a snapshot observer sees nothing.
+    assert response_problems(*read_generation(engine, 1, MATH_ENV)) == []
+
+
+# --------------------------------------------------------------------------- #
+# Negative control for the partial-table / reader failure class
+# --------------------------------------------------------------------------- #
+class TestNegativeControl:
+    def test_an_atomic_three_table_write_is_never_observed_mixed(self, engine,
+                                                                 pg_url,
+                                                                 make_service):
+        """Intentionally 'fixed' variant: write all three rows inside ONE
+        transaction and show the SNAPSHOT reader never observes a split.  This
+        proves the ``repeatable_read`` observer can distinguish atomic from
+        non-atomic publication — the regression is about the WRITER, not
+        about the check.
+
+        Scope, stated exactly (review finding 2): this is
+        writer-isolation evidence only.  It does NOT show that an atomic writer
+        would make the SERVER's reader safe — see
+        ``test_an_atomic_write_is_still_observed_mixed_by_a_node_shaped_reader``
+        and
+        ``test_a_cached_main_blob_can_pair_with_a_newer_mapping_even_when_the_writer_is_atomic``
+        below, and the module docstring."""
+        mode = "repeatable_read"
+        seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
+        svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
+        svc.poll_once()
+        tables = read_math_tables(engine, 1, MATH_ENV)
+        blob = tables["main"]["data"]
+        bid_blob = tables["bidtopid"]["data"]
+        pts_blob = tables["ptptstats"]["data"]
+
+        reader = ContinuousReader(engine, 1, MATH_ENV, mode=mode)
+        reader.start()
+        for tick in range(50, 55):
+            with engine.begin() as conn:      # ONE transaction for all three
+                conn.execute(
+                    sa.text("update math_main set math_tick=:t, data=cast(:d as "
+                            "jsonb) where zid=:z and math_env=:e"),
+                    {"t": tick, "d": json.dumps(blob), "z": 1, "e": MATH_ENV})
+                conn.execute(
+                    sa.text("update math_bidtopid set math_tick=:t, "
+                            "data=cast(:d as jsonb) where zid=:z and "
+                            "math_env=:e"),
+                    {"t": tick, "d": json.dumps(bid_blob), "z": 1,
+                     "e": MATH_ENV})
+                conn.execute(
+                    sa.text("update math_ptptstats set math_tick=:t, "
+                            "data=cast(:d as jsonb) where zid=:z and "
+                            "math_env=:e"),
+                    {"t": tick, "d": json.dumps(pts_blob), "z": 1,
+                     "e": MATH_ENV})
+        reader.stop()
+
+        assert len(reader.snapshots) > 1
+        assert reader.incoherent() == [], (
+            "NEGATIVE CONTROL FAILED: an ATOMIC three-table write was still "
+            "observed as a mixed generation, so the reader check has a false "
+            f"positive: {reader.incoherent()[:1]}"
+        )
+
+    def test_a_deliberately_misaligned_mapping_is_caught(self, engine, pg_url,
+                                                         make_service):
+        """Break the positional contract on purpose; the mapping check must
+        detect it."""
+        seed_conversation(engine, zid=1, n_ptpts=8, n_cmts=5)
+        svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
+        svc.poll_once()
+        main, bid, _pts = read_generation(engine, 1, MATH_ENV)
+        broken = dict(bid["data"])
+        broken["bidToPid"] = broken["bidToPid"][:-1]      # drop one bucket
+        problems = _mapping_problems(main["data"], broken)
+        assert problems, (
+            "NEGATIVE CONTROL FAILED: a truncated bidToPid was accepted as "
+            "positionally aligned"
+        )
+
+    def test_a_swapped_pair_of_buckets_is_caught_on_a_real_generation(
+        self, engine, pg_url, make_service
+    ):
+        """Swap two ``bidToPid`` buckets of a REAL published generation.  Every
+        length and every id still resolves, so only the bid -> index -> pid
+        join can see it — the exact corruption the pre-review checker accepted
+        (review finding 1)."""
+        seed_conversation(engine, zid=1, n_ptpts=8, n_cmts=5)
+        svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
+        svc.poll_once()
+        main, bid, pts = read_generation(engine, 1, MATH_ENV)
+        buckets = [list(b) for b in bid["data"]["bidToPid"]]
+        assert len(buckets) >= 2, "fixture must produce >= 2 base clusters"
+        assert buckets[0] != buckets[1], (
+            "the two buckets must differ for a swap to be a real corruption"
+        )
+        swapped = dict(bid["data"])
+        swapped["bidToPid"] = [buckets[1], buckets[0]] + buckets[2:]
+        assert len(swapped["bidToPid"]) == len(buckets), "same length"
+
+        problems = _mapping_problems(main["data"], swapped, pts["data"])
+        assert problems, (
+            "NEGATIVE CONTROL FAILED: a same-length bucket SWAP was accepted "
+            "as a valid participant mapping"
+        )
+        assert any("DIFFERENT participants" in p for p in problems), problems
+
+
+# --------------------------------------------------------------------------- #
+# The review's public-fixture mutation cases, as first-class controls.
+#
+# These need no database: they are the exact observations
+# `cost-reduction/scripts/p022-review-2702-checks.py` makes, pinned so the
+# helper can never regress to the pid-namespace reading again.  Bid ids and pid
+# ids are deliberately drawn from DISJOINT ranges (bids 10/20/30, pids 0..5) so
+# that reading one namespace as the other cannot accidentally look correct.
+# --------------------------------------------------------------------------- #
+_MAIN = {
+    "base-clusters": {"id": [10, 20, 30],
+                      "members": [[0, 1], [2, 3], [4, 5]]},
+    "group-clusters": [{"id": 0, "members": [10, 20]},
+                       {"id": 1, "members": [30]}],
+}
+_BID = {"bidToPid": [[0, 1], [2, 3], [4, 5]]}
+_PTS = {"ptptstats": {"pid": [0, 1, 2, 3, 4, 5],
+                      "gid": [0, 0, 0, 0, 1, 1]}}
+
+
+class TestMappingCheckerMutations:
+    """Each mutation must be REJECTED; the unmutated fixture must be ACCEPTED."""
+
+    def test_a_valid_distinct_bid_pid_mapping_is_accepted(self):
+        assert _mapping_problems(_MAIN, _BID, _PTS) == []
+        assert resolve_pids_for_gid(_MAIN, _BID, 0) == ([0, 1, 2, 3], [])
+        assert resolve_pids_for_gid(_MAIN, _BID, 1) == ([4, 5], [])
+
+    def test_a_same_length_bucket_swap_is_rejected(self):
+        swapped = {"bidToPid": [[2, 3], [0, 1], [4, 5]]}
+        problems = _mapping_problems(_MAIN, swapped, _PTS)
+        assert problems, "a same-length bucket swap must not be accepted"
+        assert any("DIFFERENT participants" in p for p in problems), problems
+
+    def test_a_truncated_bidtopid_is_rejected(self):
+        assert _mapping_problems(_MAIN, {"bidToPid": [[0, 1], [2, 3]]})
+
+    def test_group_members_read_as_pids_are_rejected(self):
+        """The pre-review bug, inverted: a blob whose group members are PIDS
+        rather than BIDS is a broken blob and must be reported."""
+        pid_valued = dict(_MAIN)
+        pid_valued["group-clusters"] = [{"id": 0, "members": [0, 1, 2, 3]},
+                                        {"id": 1, "members": [4, 5]}]
+        problems = _mapping_problems(pid_valued, _BID)
+        assert problems
+        assert any("does not appear in base-clusters.id" in p
+                   for p in problems), problems
+
+    def test_a_group_id_that_disagrees_with_its_position_is_rejected(self):
+        misnumbered = dict(_MAIN)
+        misnumbered["group-clusters"] = [{"id": 1, "members": [10, 20]},
+                                         {"id": 0, "members": [30]}]
+        problems = _mapping_problems(misnumbered, _BID)
+        assert any("clusters[gid]" in p for p in problems), problems
+
+    def test_a_duplicate_base_cluster_id_is_rejected(self):
+        dup = {"base-clusters": {"id": [10, 10, 30],
+                                 "members": [[0, 1], [2, 3], [4, 5]]},
+               "group-clusters": [{"id": 0, "members": [10]},
+                                  {"id": 1, "members": [30]}]}
+        problems = _mapping_problems(dup, _BID)
+        assert any("duplicate base-cluster id" in p for p in problems), problems
+
+    def test_a_contradicting_ptptstats_link_is_rejected(self):
+        wrong = {"ptptstats": {"pid": [0, 1, 2, 3, 4, 5],
+                               "gid": [1, 1, 0, 0, 0, 0]}}
+        problems = _mapping_problems(_MAIN, _BID, wrong)
+        assert any("math_ptptstats says pid" in p for p in problems), problems
+
+    def test_a_bucket_that_contradicts_main_is_rejected(self):
+        """math_main and math_bidtopid naming different pids for the same base
+        cluster — the mixed-generation symptom, seen through the mapping."""
+        drifted = {"bidToPid": [[0, 1], [2, 9], [4, 5]]}
+        problems = _mapping_problems(_MAIN, drifted)
+        assert any("DIFFERENT participants" in p for p in problems), problems

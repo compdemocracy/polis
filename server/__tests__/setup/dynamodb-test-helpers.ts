@@ -4,7 +4,7 @@
 import {
   DynamoDBClient,
   CreateTableCommand,
-  // DeleteTableCommand,
+  DeleteTableCommand,
   DescribeTableCommand,
 } from "@aws-sdk/client-dynamodb";
 import {
@@ -39,6 +39,28 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient, {
 
 // Export clients for reuse
 export { dynamoClient, docClient };
+
+/**
+ * Create a table, tolerating a concurrent creator.
+ *
+ * Every `ensure*TableExists` helper below is a check-then-create against one
+ * DynamoDB Local shared by all Jest workers. Under `--maxWorkers=2` two suites
+ * can both see ResourceNotFoundException and both issue CreateTable; the loser
+ * gets ResourceInUseException and used to throw out of its `beforeAll`, failing
+ * that whole suite. The table exists either way, which is all the caller wants.
+ */
+async function createTableIgnoringRace(createParams: unknown): Promise<void> {
+  try {
+    await dynamoClient.send(new CreateTableCommand(createParams as any));
+  } catch (e: unknown) {
+    const err = e as { name?: string };
+    if (err.name === "ResourceInUseException") {
+      logger.info("Table was created concurrently by another worker");
+      return;
+    }
+    throw e;
+  }
+}
 
 /**
  * Ensures the Delphi_JobQueue table exists
@@ -76,7 +98,7 @@ export async function ensureJobQueueTableExists(): Promise<void> {
         ],
       };
 
-      await dynamoClient.send(new CreateTableCommand(createTableParams as any));
+      await createTableIgnoringRace(createTableParams);
 
       // Wait for table to be active
       let tableActive = false;
@@ -107,6 +129,88 @@ export async function ensureJobQueueTableExists(): Promise<void> {
       throw error;
     }
   }
+}
+
+/**
+ * Ensures the Delphi_JobActiveGuard table exists.
+ *
+ * Mirrors `delphi/create_dynamodb_tables.py`: a single string partition key and
+ * no TTL, because an automatic expiry could release a scope while paid provider
+ * work is still live.
+ */
+export async function ensureJobGuardTableExists(): Promise<void> {
+  const tableName = "Delphi_JobActiveGuard";
+
+  try {
+    await dynamoClient.send(new DescribeTableCommand({ TableName: tableName }));
+    return;
+  } catch (error: any) {
+    if (error.name !== "ResourceNotFoundException") {
+      logger.error(`Error checking table ${tableName}:`, error);
+      throw error;
+    }
+  }
+
+  logger.info(`Creating table ${tableName}...`);
+  await dynamoClient.send(
+    new CreateTableCommand({
+      TableName: tableName,
+      KeySchema: [{ AttributeName: "guard_key", KeyType: "HASH" }],
+      AttributeDefinitions: [
+        { AttributeName: "guard_key", AttributeType: "S" },
+      ],
+      BillingMode: "PAY_PER_REQUEST",
+    } as any)
+  );
+
+  for (let attempts = 0; attempts < 30; attempts++) {
+    try {
+      const response = await dynamoClient.send(
+        new DescribeTableCommand({ TableName: tableName })
+      );
+      if (response.Table?.TableStatus === "ACTIVE") {
+        return;
+      }
+    } catch (e) {
+      // fall through to the retry sleep
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  throw new Error(`Table ${tableName} failed to become active`);
+}
+
+/**
+ * Drops the Delphi_JobActiveGuard table.
+ *
+ * Only for the fail-closed case: with the guard table absent, job submission
+ * must report unavailability rather than writing an unguarded job. Recreate it
+ * with ensureJobGuardTableExists afterwards.
+ */
+export async function deleteJobGuardTable(): Promise<void> {
+  try {
+    await dynamoClient.send(
+      new DeleteTableCommand({ TableName: "Delphi_JobActiveGuard" })
+    );
+  } catch (error: any) {
+    if (error.name !== "ResourceNotFoundException") {
+      throw error;
+    }
+  }
+  for (let attempts = 0; attempts < 30; attempts++) {
+    try {
+      await dynamoClient.send(
+        new DescribeTableCommand({ TableName: "Delphi_JobActiveGuard" })
+      );
+    } catch (error: any) {
+      if (error.name === "ResourceNotFoundException") {
+        return;
+      }
+      throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error("Delphi_JobActiveGuard did not finish deleting");
 }
 
 /**
@@ -337,7 +441,7 @@ export async function ensureDelphiTopicTablesExist(): Promise<void> {
           { AttributeName: "topic_key", AttributeType: "S" as const },
         ],
       };
-      await dynamoClient.send(new CreateTableCommand(createParams));
+      await createTableIgnoringRace(createParams);
       await new Promise((r) => setTimeout(r, 250));
     } else {
       logger.error(`Error checking topic names table: ${err.message}`);
@@ -369,7 +473,7 @@ export async function ensureDelphiTopicTablesExist(): Promise<void> {
           { AttributeName: "comment_id", AttributeType: "N" as const }, // comment_id is a number
         ],
       };
-      await dynamoClient.send(new CreateTableCommand(createParams));
+      await createTableIgnoringRace(createParams);
       await new Promise((r) => setTimeout(r, 250));
     } else {
       logger.error(`Error checking hierarchical table: ${err.message}`);

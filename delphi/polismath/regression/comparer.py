@@ -11,6 +11,10 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 from scipy import stats
 
+from polismath.replay.diagnostics import (
+    child_context, item_context, context_detail, context_family,
+)
+
 from .utils import (
     prepare_votes_data,
     load_golden_snapshot,
@@ -33,7 +37,7 @@ class ConversationComparer:
         outlier_fraction: float = 0.01,
         loose_abs_tolerance: float | None = None,
         loose_rel_tolerance: float | None = None,
-    ):
+    ) -> None:
         """
         Initialize the comparer with numeric tolerances.
 
@@ -507,7 +511,7 @@ class ConversationComparer:
                             perf_emoji = "⚠️"   # Significantly slower
 
                     # Format times in appropriate units
-                    def format_time(t):
+                    def format_time(t: float) -> str:
                         if t < 0.001:
                             return f"{t*1000000:.0f}µs"
                         elif t < 1.0:
@@ -540,7 +544,7 @@ class ConversationComparer:
         return results
 
     def _compare_dicts(self, golden: Any, current: Any, path: str = "", stage_name: str = "",
-                       use_loose_tolerance: bool = False) -> Dict:
+                       use_loose_tolerance: bool = False, diagnostic_family=None, diagnostic_context=None) -> Dict:
         """
         Recursively compare two dictionaries/values with numeric tolerance.
 
@@ -554,6 +558,10 @@ class ConversationComparer:
         Returns:
             Dictionary with comparison results
         """
+        if diagnostic_context is not None:
+            diagnostic_family = context_family(diagnostic_context, diagnostic_family)
+        diagnostic_detail = context_detail(diagnostic_context)
+
         # Special handling for certain fields that should be ignored
         # math_tick is a timestamp-based field that's not part of the computation
         if path.endswith(".math_tick") or path == "math_tick":
@@ -565,6 +573,7 @@ class ConversationComparer:
         if golden is None or current is None:
             reason = f"None mismatch: golden={golden is not None}, current={current is not None}"
             self.all_differences.append({
+                "comparison_detail": diagnostic_detail, "comparison_family": diagnostic_family, "comparison_kind": 'shape',
                 "stage_name": stage_name,
                 "path": path,
                 "reason": reason,
@@ -583,7 +592,7 @@ class ConversationComparer:
             # This handles the case where golden snapshot has Python int/float but current has numpy int64/float64
             import numpy as np
 
-            def is_numeric(val):
+            def is_numeric(val: Any) -> bool:
                 """Check if value is any numeric type (Python or numpy)"""
                 return isinstance(val, (int, float, np.integer, np.floating))
 
@@ -593,6 +602,7 @@ class ConversationComparer:
             else:
                 reason = f"Type mismatch: golden={type(golden).__name__}, current={type(current).__name__}"
                 self.all_differences.append({
+                    "comparison_detail": diagnostic_detail, "comparison_family": diagnostic_family, "comparison_kind": 'shape',
                     "stage_name": stage_name,
                     "path": path,
                     "reason": reason,
@@ -608,7 +618,7 @@ class ConversationComparer:
         # Handle dictionaries
         if isinstance(golden, dict):
             # Normalize keys: JSON converts int keys to strings, so we need to handle both
-            def normalize_key(k):
+            def normalize_key(k: Any) -> str:
                 """Convert to string for comparison, as JSON stores dict keys as strings"""
                 return str(k)
 
@@ -622,6 +632,13 @@ class ConversationComparer:
                 only_current = sorted(set(current_keys_normalized.keys()) - set(golden_keys_normalized.keys()))
                 reason = f"Keys mismatch. Only in golden: {only_golden}, Only in current: {only_current}"
                 self.all_differences.append({
+                    "comparison_detail": diagnostic_detail, "comparison_family": diagnostic_family, "comparison_kind": 'shape',
+                    "comparison_contexts": [
+                        (self.diagnostic_child(None, key), context_detail(child_context(None, key)))
+                        for key in only_golden + only_current]
+                    if diagnostic_context is None and getattr(self, "diagnostic_child", None) else
+                        [(context_family(diagnostic_context, diagnostic_family, "keys"),
+                          context_detail(diagnostic_context, "keys"))],
                     "stage_name": stage_name,
                     "path": path,
                     "reason": reason,
@@ -642,7 +659,10 @@ class ConversationComparer:
                     golden[golden_key],
                     current[current_key],
                     f"{path}.{norm_key}" if path else norm_key,
-                    stage_name=stage_name
+                    stage_name=stage_name,
+                    diagnostic_family=(self.diagnostic_child(diagnostic_family, norm_key)
+                                       if getattr(self, "diagnostic_child", None) else None),
+                    diagnostic_context=child_context(diagnostic_context, norm_key)
                 )
                 if not result["match"]:
                     overall_match = False
@@ -656,6 +676,7 @@ class ConversationComparer:
             if len(golden) != len(current):
                 reason = f"List length mismatch: golden={len(golden)}, current={len(current)}"
                 self.all_differences.append({
+                    "comparison_detail": diagnostic_detail, "comparison_family": diagnostic_family, "comparison_kind": 'shape',
                     "stage_name": stage_name,
                     "path": path,
                     "reason": reason,
@@ -723,6 +744,7 @@ class ConversationComparer:
                         reason += " (after sign flip correction)"
                     # Record this difference
                     self.all_differences.append({
+                        "comparison_detail": diagnostic_detail, "comparison_family": diagnostic_family, "comparison_kind": 'strict-tolerance',
                         "stage_name": stage_name,
                         "path": path,
                         "reason": reason,
@@ -752,7 +774,7 @@ class ConversationComparer:
                 self._is_numeric_list(compare_golden) and
                 self._is_numeric_list(compare_current)):
                 result = self._compare_numeric_list_with_outliers(
-                    compare_golden, compare_current, path, stage_name
+                    compare_golden, compare_current, path, stage_name, diagnostic_family, diagnostic_detail
                 )
                 if not result["match"]:
                     overall_match = False
@@ -778,7 +800,8 @@ class ConversationComparer:
                     current_val,
                     f"{path}[{i}]",
                     stage_name=stage_name,
-                    use_loose_tolerance=use_loose_tolerance
+                    use_loose_tolerance=use_loose_tolerance, diagnostic_family=diagnostic_family,
+                    diagnostic_context=item_context(diagnostic_context)
                 )
                 if not result["match"]:
                     overall_match = False
@@ -798,6 +821,7 @@ class ConversationComparer:
             if np.isnan(golden_float) or np.isnan(current_float):
                 reason = f"NaN mismatch: golden={golden_float}, current={current_float}"
                 self.all_differences.append({
+                    "comparison_detail": diagnostic_detail, "comparison_family": diagnostic_family, "comparison_kind": 'nonfinite',
                     "stage_name": stage_name,
                     "path": path,
                     "reason": reason,
@@ -817,6 +841,7 @@ class ConversationComparer:
                 else:
                     reason = f"Infinity sign mismatch: golden={golden_float}, current={current_float}"
                     self.all_differences.append({
+                        "comparison_detail": diagnostic_detail, "comparison_family": diagnostic_family, "comparison_kind": 'nonfinite',
                         "stage_name": stage_name,
                         "path": path,
                         "reason": reason,
@@ -836,6 +861,7 @@ class ConversationComparer:
                 else:
                     reason = f"Integer mismatch: golden={golden}, current={current}, diff={abs(golden - current)}"
                     self.all_differences.append({
+                        "comparison_detail": diagnostic_detail, "comparison_family": diagnostic_family, "comparison_kind": 'exact-value',
                         "stage_name": stage_name,
                         "path": path,
                         "reason": reason,
@@ -861,6 +887,9 @@ class ConversationComparer:
                 tol_note = " (using loose tolerance)" if use_loose_tolerance else ""
                 reason = f"Numeric mismatch{tol_note}: golden={golden_float:.6e}, current={current_float:.6e}, abs_diff={diff:.6e}, rel_diff={rel_diff:.6%}"
                 self.all_differences.append({
+                    "comparison_detail": diagnostic_detail, "comparison_family": diagnostic_family,
+                    "comparison_kind": ("nonfinite" if not (np.isfinite(golden_float) and np.isfinite(current_float))
+                                        else "strict-tolerance"),
                     "stage_name": stage_name,
                     "path": path,
                     "reason": reason,
@@ -884,6 +913,7 @@ class ConversationComparer:
                 current_show = current[:max_len] + "..." if len(current) > max_len else current
                 reason = f"String mismatch: golden='{golden_show}', current='{current_show}'"
                 self.all_differences.append({
+                    "comparison_detail": diagnostic_detail, "comparison_family": diagnostic_family, "comparison_kind": 'exact-value',
                     "stage_name": stage_name,
                     "path": path,
                     "reason": reason,
@@ -902,6 +932,7 @@ class ConversationComparer:
         else:
             reason = f"Value mismatch: golden={golden}, current={current}"
             self.all_differences.append({
+                "comparison_detail": diagnostic_detail, "comparison_family": diagnostic_family, "comparison_kind": 'exact-value',
                 "stage_name": stage_name,
                 "path": path,
                 "reason": reason,
@@ -973,7 +1004,7 @@ class ConversationComparer:
             return result
 
         # Check if all elements are numeric
-        def is_numeric(val):
+        def is_numeric(val: Any) -> bool:
             return isinstance(val, (int, float, np.integer, np.floating))
 
         if not all(is_numeric(g) and is_numeric(c) for g, c in zip(golden, current)):
@@ -1046,7 +1077,7 @@ class ConversationComparer:
             return None
 
         # Check if all elements are numeric
-        def is_numeric(val):
+        def is_numeric(val: Any) -> bool:
             return isinstance(val, (int, float, np.integer, np.floating))
 
         if not all(is_numeric(g) and is_numeric(c) for g, c in zip(golden, current)):
@@ -1090,7 +1121,8 @@ class ConversationComparer:
         golden: list,
         current: list,
         path: str,
-        stage_name: str
+        stage_name: str,
+        diagnostic_family=None, diagnostic_detail="other"
     ) -> Dict:
         """
         Compare two numeric lists with outlier allowance.
@@ -1168,6 +1200,7 @@ class ConversationComparer:
                 diff = abs(g - c)
                 rel_diff = diff / max(abs(g), 1e-10)
                 self.all_differences.append({
+                    "comparison_detail": diagnostic_detail, "comparison_family": diagnostic_family, "comparison_kind": ("nonfinite" if not (np.isfinite(g) and np.isfinite(c)) else "strict-tolerance"),
                     "stage_name": stage_name,
                     "path": f"{path}[{i}]",
                     "reason": f"Exceeds loose tolerance: golden={g:.6e}, current={c:.6e}, "
@@ -1191,6 +1224,7 @@ class ConversationComparer:
                 diff = abs(g - c)
                 rel_diff = diff / max(abs(g), 1e-10)
                 self.all_differences.append({
+                    "comparison_detail": diagnostic_detail, "comparison_family": diagnostic_family, "comparison_kind": ("nonfinite" if not (np.isfinite(g) and np.isfinite(c)) else "strict-tolerance"),
                     "stage_name": stage_name,
                     "path": f"{path}[{i}]",
                     "reason": f"Outlier (exceeds tight tolerance): golden={g:.6e}, current={c:.6e}, "
@@ -1589,7 +1623,7 @@ class ConversationComparer:
         all_pass = pass_max_err and pass_mean_err and pass_r2_all and pass_r2_dims and pass_procrustes
 
         # Helper for emoji
-        def check(passed):
+        def check(passed: object) -> str:
             return "✅" if passed else "❌"
 
         # Log the metrics with pass/fail indicators
@@ -1779,7 +1813,7 @@ class ConversationComparer:
                         perf_emoji = "⚠️"   # Significantly slower
 
                 # Format times in appropriate units
-                def format_time(t):
+                def format_time(t: float) -> str:
                     if t < 0.001:
                         return f"{t*1000000:.0f}µs"
                     elif t < 1.0:

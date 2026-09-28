@@ -41,7 +41,7 @@ DEFAULT_N_VOTES = 2_000_000
 
 def synthesize_votes(n_ptpts: int, n_cmts: int, n_votes: int,
                      seed: int = 42) -> list[dict]:
-    """Deterministic synthetic vote stream shaped like a real large conv.
+    """Deterministic public fixture vote stream shaped like a real large conv.
 
     Every participant votes on ``round(n_votes / n_ptpts)`` distinct random
     comments (so the per-row density matches the target total), with a

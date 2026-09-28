@@ -313,7 +313,7 @@ def test_legacy_mod_keys_populated_after_moderation(conv, legacy):
 # ---------------------------------------------------------------------------
 # Arrival-order parity: Clojure's named-matrix column order is first-vote
 # arrival order (update-nmat appends unseen colnames in encounter order);
-# python's internal matrix is natsorted (conversation.py:414). Ties in
+# Python's internal matrix uses the same encounter order. Ties in
 # repness/consensus selection resolve by stable sort over COLUMN order, so
 # legacy mode tracks arrival order and uses it for tie-breaking + emission.
 # ---------------------------------------------------------------------------
@@ -393,7 +393,7 @@ def test_from_dict_preserves_falsy_conversation_id():
     # #2656 review finding 2: `data.get('conversation_id') or data.get('zid')`
     # would discard a legitimately-falsy id (e.g. 0) — the key-presence check
     # must win, not truthiness. (Real to_dict blobs always carry 'zid'; this
-    # pins the synthetic/hand-built-blob path.)
+    # pins the public-fixture/hand-built-blob path.)
     restored = Conversation.from_dict({"conversation_id": 0})
     assert restored.conversation_id == 0
 
@@ -510,12 +510,12 @@ def test_legacy_single_vote_repness_and_consensus(legacy):
 # ---------------------------------------------------------------------------
 # from_dict inverse: legacy round-trip restores the internal convention.
 # ---------------------------------------------------------------------------
-def test_legacy_from_dict_unpermutes_pca_alignment(legacy):
-    """Legacy blobs emit tids (and pca arrays) in ARRIVAL order; internal
-    state is natsorted-aligned. from_dict must invert the permutation as well
-    as the sign, or a warm restore seeds PCA with column-misaligned
-    center/comps (review finding on #2649 — the plain round-trip fixture
-    below can't catch it because its arrival order is ascending)."""
+def test_legacy_from_dict_preserves_pca_alignment(legacy):
+    """A restore preserves first-vote component order and reverses center sign.
+
+    Nonascending comment IDs expose an accidental numeric reordering that
+    an ascending fixture would miss.
+    """
     arrival = [5, 2, 9, 0, 7, 1, 3, 4, 6, 8]
     votes = []
     for pid in range(20):
@@ -550,7 +550,7 @@ def test_legacy_from_dict_round_trips_center_sign(conv, legacy):
 # Clojure outputs (Q14):
 #   1xN — vw every-vote-56 clj recording step-002 (public data: pid 1's first
 #         three AGREEs on tids 24/19/47; recorded with the Q12 pinned start);
-#   Nx1 — a synthetic 3-ptpt x 1-comment fixture run through the clj replay
+#   Nx1 — a public-fixture 3-ptpt x 1-comment fixture run through the clj replay
 #         driver 2026-07-22 s4 (votes +1/+1/-1 on tid 0; same pinned start).
 # ---------------------------------------------------------------------------
 def _pinned_conv(name):

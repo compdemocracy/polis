@@ -146,7 +146,7 @@ child_clusters = [
 
 ## Next Steps
 
-1. **Run Controlled EVōC Test** - Create synthetic data with known structure
+1. **Run Controlled EVōC Test** - Create public-fixture data with known structure
 2. **Verify Semantic Clustering** - Check if relationships make sense
 3. **Check EVōC Source Code** - Understand cluster_layers_ generation
 4. **Test Visualization Logic** - Confirm circle pack expectations
@@ -155,7 +155,7 @@ child_clusters = [
 ## Test Results
 
 ### ✅ Test 1: EVōC Layer Ordering CONFIRMED
-**Controlled test with synthetic data (200 samples, 4 known clusters)**:
+**Controlled test with public-fixture data (200 samples, 4 known clusters)**:
 - Layer 0: 21 clusters (finest granularity)
 - Layer 1: 9 clusters (coarser)  
 - Layer 2: 4 clusters (coarsest)

@@ -1,0 +1,57 @@
+{
+  "declared": {
+    "terms": [
+      {
+        "name": "tid",
+        "nulls": "default",
+        "source": "votes.tid"
+      },
+      {
+        "name": "pid",
+        "nulls": "default",
+        "source": "votes.pid"
+      },
+      {
+        "name": "created_ms",
+        "nulls": "default",
+        "source": "votes.created"
+      },
+      {
+        "name": "semantic_vote",
+        "nulls": "default",
+        "source": "raw_vote * storage_agree_value"
+      },
+      {
+        "name": "weight_x_32767",
+        "nulls": "first",
+        "source": "votes.weight_x_32767"
+      }
+    ],
+    "schema": "polis-order/1",
+    "profile": "live-tid-pid-created-semantic-value-weight/1",
+    "order_by": "tid,pid,created,(vote::bigint*$2::bigint),weight_x_32767 NULLS FIRST",
+    "parameter": "storage_agree_value",
+    "semantic_vote": "raw_vote * storage_agree_value",
+    "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
+    "equal_time_census": {
+      "key": [
+        "tid",
+        "pid",
+        "created_ms"
+      ],
+      "schema": "polis-census/1",
+      "tied_rows": 2,
+      "resolved_by": [
+        "semantic_vote",
+        "weight_x_32767"
+      ],
+      "tied_groups": 1
+    },
+    "storage_agree_value": -1
+  },
+  "mirrored_digest": "3bd0700204ee8202074e31f6cfe2f57903bd9d9fc10c5149c0fcdfb7f5406685",
+  "a": "c40f36ef591f86e259d2287c3345d6edc3267ca1b68385482121bbddadef7a22",
+  "b": "c40f36ef591f86e259d2287c3345d6edc3267ca1b68385482121bbddadef7a22",
+  "negative": "aec5181c022a03b45befa5686a9fef92ecaa00e3896eff32d812e0adb59764bf",
+  "deltas": []
+}

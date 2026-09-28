@@ -78,7 +78,7 @@ class BatchStatusChecker:
             batch_id = job_item.get('batch_id')
             if not batch_id:
                 logger.error(f"Job {job_id} is missing a 'batch_id'. Cannot check status.")
-                self.job_table.update_item(Key={'job_id': job_id}, UpdateExpression="SET #s = :s", ExpressionAttributeNames={'#s':'status'}, ExpressionAttributeValues={':s':'FAILED'})
+                self.job_table.update_item(Key={'job_id': job_id}, UpdateExpression="SET #s = :s, process_exit_confirmed = :confirmed", ExpressionAttributeNames={'#s':'status'}, ExpressionAttributeValues={':s':'FAILED', ':confirmed': True})
                 return EXIT_CODE_TERMINAL_STATE
 
             # 2. Check the status on the Anthropic API
@@ -94,7 +94,7 @@ class BatchStatusChecker:
             
             elif status in ["failed", "cancelled"]:
                 logger.error(f"Batch {batch_id} for job {job_id} is in a terminal failure state: {status}")
-                self.job_table.update_item(Key={'job_id': job_id}, UpdateExpression="SET #s = :s, error_message = :e", ExpressionAttributeNames={'#s':'status'}, ExpressionAttributeValues={':s':'FAILED', ':e': f'Batch status: {status}'})
+                self.job_table.update_item(Key={'job_id': job_id}, UpdateExpression="SET #s = :s, error_message = :e, process_exit_confirmed = :confirmed", ExpressionAttributeNames={'#s':'status'}, ExpressionAttributeValues={':s':'FAILED', ':e': f'Batch status: {status}', ':confirmed': True})
                 return EXIT_CODE_TERMINAL_STATE
 
             elif status in ["in_progress", "preparing"]:
@@ -200,6 +200,10 @@ class BatchStatusChecker:
                 update_expression += ", error_message = :error"
                 expression_values[':error'] = f"{failed_count} of {failed_count + processed_count} batch requests failed."
 
+            # This script is the process doing the work, so its own terminal
+            # write can carry the exit claim the server's guard checks.
+            update_expression += ", process_exit_confirmed = :confirmed"
+            expression_values[':confirmed'] = True
             self.job_table.update_item(
                 Key={'job_id': job_id},
                 UpdateExpression=update_expression,
@@ -213,7 +217,7 @@ class BatchStatusChecker:
         except Exception as e:
             logger.error(f"Job {job_id}: A critical error occurred during result processing for batch {batch_id}: {e}", exc_info=True)
             # Mark the job as FAILED
-            self.job_table.update_item(Key={'job_id': job_id}, UpdateExpression="SET #s = :s, error_message = :e", ExpressionAttributeNames={'#s':'status'}, ExpressionAttributeValues={':s':'FAILED', ':e': f"Result processing error: {str(e)}"})
+            self.job_table.update_item(Key={'job_id': job_id}, UpdateExpression="SET #s = :s, error_message = :e, process_exit_confirmed = :confirmed", ExpressionAttributeNames={'#s':'status'}, ExpressionAttributeValues={':s':'FAILED', ':e': f"Result processing error: {str(e)}", ':confirmed': True})
             return False
 
     async def check_and_process_jobs(self, specific_job_id: Optional[str] = None) -> Optional[int]:
@@ -292,7 +296,7 @@ class BatchStatusChecker:
             except Exception as processing_error:
                 logger.error(f"Critical error processing locked job {job_id}: {processing_error}", exc_info=True)
                 try:
-                    self.job_table.update_item(Key={'job_id': job_id}, UpdateExpression="SET #s = :s, error_message = :e", ExpressionAttributeNames={'#s':'status'}, ExpressionAttributeValues={':s':'FAILED', ':e': str(processing_error)})
+                    self.job_table.update_item(Key={'job_id': job_id}, UpdateExpression="SET #s = :s, error_message = :e, process_exit_confirmed = :confirmed", ExpressionAttributeNames={'#s':'status'}, ExpressionAttributeValues={':s':'FAILED', ':e': str(processing_error), ':confirmed': True})
                 except Exception as final_error:
                     logger.critical(f"FATAL: Could not mark job {job_id} as FAILED. It is now a zombie: {final_error}")
                 current_job_processing_signal = self.EXIT_CODE_SCRIPT_ERROR

@@ -35,6 +35,8 @@ must feed raw-DB signs (flipped); the store records which convention was used.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -66,6 +68,8 @@ def run_replay(
     spec: ScheduleSpec,
     *,
     progress: Callable[[int, int], None] | None = None,
+    on_step: Callable[[ReplayStep, Conversation, StepRecord], None] | None = None,
+    attribution_dir: Path | None = None,
 ) -> list[StepRecord]:
     """Replay ``dataset`` through the math engine on ``spec``'s schedule.
 
@@ -74,6 +78,13 @@ def run_replay(
     timestamps are data-derived — the only wall-clock field is the blob's
     ``math_tick`` (conversation.py:2226). ``progress(i, total)`` is called
     before each step if provided.
+
+    ``on_step(step, conv, record)`` is a read-only observer called after each
+    step's record is built and BEFORE the restart seam, so a caller can capture
+    intermediate engine state (``polismath.replay.stages``' stage dump) without
+    re-implementing this fold. It is purely additive: leaving it ``None`` — as
+    ``scripts/replay_driver.py`` and ``certify`` do — is byte-identical to the
+    pre-hook behavior. An observer must not mutate ``conv``.
     """
     steps = slice_schedule(dataset, spec)
     total = len(steps)
@@ -94,6 +105,11 @@ def run_replay(
     # into wall-clock — breaking determinism. Floor to 1 (nonzero).
     base_last_updated = (dataset.votes[0].t_ms or 1) if dataset.votes else 1
     conv = Conversation(spec.dataset, last_updated=base_last_updated)
+    if not dataset.votes:
+        # Mirror the production poller (poller/service.py): construct with a
+        # nonzero seed to dodge the `or now` footgun, then floor to 0 so an
+        # empty conversation reports lastVoteTimestamp 0, as production does.
+        conv.last_updated = 0
     # Q12 pinned cold start (CLOJURE_QUIRKS.md): production Clojure draws an
     # UNSEEDED random PCA start vector on the cold tick (rand-starting-vec,
     # pca.clj:79-82); with a small eigengap the 100 power iterations keep a
@@ -116,6 +132,7 @@ def run_replay(
         if progress is not None:
             progress(step.index, total)
 
+        attribution_starts = (conv.pca or {}).get('comps') if attribution_dir is not None else None
         conv = conv.update_votes(_votes_dict(step), recompute=False)
 
         # Clojure batch order (:votes :moderation, conv_man.clj:361-371):
@@ -127,7 +144,8 @@ def run_replay(
         # the `if step.mod_events` branch below, so this is bit-identical
         # to a plain unconditional `conv.recompute()` for every schedule
         # that doesn't request moderation.
-        conv = conv.recompute()
+        from .tie_capture import observed_recompute
+        conv, decisions = observed_recompute(conv, attribution_dir is not None)
         if step.mod_events:
             conv = conv.mod_update(_mod_rows(step.mod_events))
 
@@ -140,7 +158,24 @@ def run_replay(
             blob=conv.to_dict(),
             extras=_step_extras(conv),
         )
+        if attribution_dir is not None:
+            # Optional evidence must never interrupt the authoritative replay.
+            # Missing/partial sidecars become closed unavailable observations.
+            try:
+                from .attribution_capture import capture
+                capture(step, conv, record, attribution_starts, attribution_dir)
+                import json
+                from pathlib import Path
+                target = Path(attribution_dir).parent / "py-decisions"
+                target.mkdir(exist_ok=True)
+                decisions["checkpoint"] = step.index
+                with (target / f"step-{step.index:03d}.json").open("x") as file:
+                    json.dump(decisions, file, allow_nan=False)
+            except Exception:
+                pass
         records.append(record)
+        if on_step is not None:
+            on_step(step, conv, record)
         woven_mods.extend(step.mod_events)
 
         if spec.restart_after is not None and step.index == spec.restart_after:
@@ -159,7 +194,8 @@ def _votes_dict(step: ReplayStep) -> dict[str, Any]:
     deterministically. Signs pass through in Delphi convention (see module doc).
     """
     votes = [
-        {"pid": v.pid, "tid": v.tid, "vote": v.sign, "created": v.t_ms}
+        {"pid": v.pid, "tid": v.tid, "vote": v.sign, "created": v.t_ms,
+         **({"weight_x_32767": v.weight_x_32767} if v.source_ord is not None else {})}
         for v in step.vote_events
     ]
     return {"votes": votes, "lastVoteTimestamp": step.cut_time_ms}
@@ -205,7 +241,8 @@ def _restart_conversation(
     restored = Conversation.from_dict(blob)
 
     all_votes = [
-        {"pid": v.pid, "tid": v.tid, "vote": v.sign, "created": v.t_ms}
+        {"pid": v.pid, "tid": v.tid, "vote": v.sign, "created": v.t_ms,
+         **({"weight_x_32767": v.weight_x_32767} if v.source_ord is not None else {})}
         for v in dataset.votes[:cut_slot]
     ]
     restored = restored.update_votes(

@@ -365,18 +365,39 @@ async function setupAuthAndConvo(
   // 1. The user might not have a site_domain_whitelist record yet
   // 2. Some test users might not have permission to modify whitelist
   // 3. Tests can still pass if the conversation owner has no whitelist configured
+  //
+  // Read before writing. site_domain_whitelist is keyed by the user's site_id,
+  // so every suite that shares a pooled user shares this row; with Jest running
+  // several workers against one database, an unconditional write here lands in
+  // the middle of another suite's read-after-write and clobbers it. In steady
+  // state the row is already empty, so checking first turns the common case
+  // into a read and leaves the row untouched.
   try {
-    const allowListResponse = await agent
-      .post("/api/v3/domainWhitelist")
-      .send({ domain_whitelist: "" })
-      .ok((res) => res.status < 500); // Don't throw on client errors
+    const currentWhitelistResponse = await agent
+      .get("/api/v3/domainWhitelist")
+      .ok(() => true); // Accept every status; a 5xx must reach the fallback too
 
-    if (allowListResponse.status !== 200) {
-      console.warn(
-        "Failed to clear domain whitelist:",
-        allowListResponse.status,
-        allowListResponse.text || allowListResponse.body
-      );
+    // If the read did not succeed we cannot tell what the row holds, so fall
+    // back to the unconditional clear (and to its warning) as before. This is
+    // why the GET above accepts every status rather than throwing on 5xx: a
+    // rejected read would skip the clear entirely instead of falling back.
+    const needsClear =
+      currentWhitelistResponse.status !== 200 ||
+      (currentWhitelistResponse.body?.domain_whitelist ?? "") !== "";
+
+    if (needsClear) {
+      const allowListResponse = await agent
+        .post("/api/v3/domainWhitelist")
+        .send({ domain_whitelist: "" })
+        .ok((res) => res.status < 500); // Don't throw on client errors
+
+      if (allowListResponse.status !== 200) {
+        console.warn(
+          "Failed to clear domain whitelist:",
+          allowListResponse.status,
+          allowListResponse.text || allowListResponse.body
+        );
+      }
     }
   } catch (err) {
     // Log but don't fail - the test might still work

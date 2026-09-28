@@ -1,0 +1,66 @@
+{
+  "id": "O1",
+  "state": "PARTIAL",
+  "scope": "P-026 step-4 S2 reader: candidate loadBundle whole-Bundle atomicity",
+  "production_loadbundle_certified": false,
+  "rust_equals_clojure_claimed": false,
+  "recorded": [
+    "a candidate coherent-read loadBundle reads main + bidtopid + ptptstats + the math_ticks checkpoint in one REPEATABLE READ READ ONLY snapshot in the real Node runtime",
+    "under an interleaved publish the reader returns snapshot generation A exactly (all four row ticks equal, and A's exact per-group pids), not the B the interleave committed; a later read returns B exactly, and A and B are distinguishable",
+    "the returned per-group pids are compared against an independent Python re-derivation over the published blobs, so a reader that fabricates pids fails",
+    "a missing or tick-mismatched companion fails admission, a valid replacement is observed after republication, the reads are scoped by math_env, and a wrong-namespace companion does not leak in",
+    "the Node reader tests are a local failure guard (absent server modules fail rather than skip); the existing real-module getPca/getBidIndexToPidMapping byte-equality path is retained at 0 differences",
+    "Production joined loadBundle, bounded whole-Bundle LRU, namespace-scoped admission and caller propagation are implemented.",
+    "Featured-author main/mapping share one owned read; derived presentation cannot extend the source cache deadline; C7 presentation is retained.",
+    "The accepted public replay completed1265/0/2 with only complete-row permutations at r19/r20;24 direct checks verified full row bytes/multiplicity and own-body ETags.",
+    "Strict route census302/302: zero changed callback fingerprints. Reader changes are transitive helpers."
+  ],
+  "remaining_obligations": [
+    "Required CI must provision pinned server modules and enforce the exact HTTP/Bundle case inventory with zero skips.",
+    "S5: combined immutable-build/full-app/auth/report/CSV/interleaving campaign and owned private served corpus remain open; this public corpus does not prove every cross-handler publication race.",
+    "Full O1/CO04 admission and rollout remain conditional on writer fencing, coherent publication and the broader gates; this receipt closes only the assigned production-reader slice."
+  ],
+  "outstanding_required_ci": [
+    "no workflow is changed by this slice: _node_gate.py fails absent modules locally, but there is no coordinator-rs CI job, no pinned server-module provisioning, and no enforced zero-skip required run",
+    "the exact HTTP and Bundle case set is not asserted present by a required job; a selected subset plus old evidence must not be treated as required-job completion"
+  ],
+  "candidate_reader": "coordinator-rs/tools/bundle_reader.cjs",
+  "witness": "coordinator-rs/evidence/d4-bundle-reader.json",
+  "integrity_model": "Candidate atomicity witness plus accepted production-reader local proof; required CI and combined S5 campaigns remain open. No full-contract certificate.",
+  "pins_are_committed_sources": false,
+  "python_cases": 151,
+  "sha256": {
+    "coordinator-rs/tools/bundle_reader.cjs": "cc5e6d3ad70b08c93a808da258c671dab54b8c53691d63c3d14421603b1b46a5",
+    "coordinator-rs/tools/node_reader.cjs": "6d6932af6d790e53183912aa018176ac8fb83a88d50da27ca84fff081edbf5b1",
+    "coordinator-rs/tools/record_s2.py": "a4493d39e4f538775d4a98d6ecc89250bf9fb00ce89249ddcc3072c2ec862538",
+    "delphi/tests/coordinator/_node_gate.py": "461813f1029115e5aac3205f4783678ae347b3b7f505b5af397308c38ae08072",
+    "delphi/tests/coordinator/audit_stages.py": "848abe63d141efd63b7f538c0e382a904197cedf0fbfea208f90ca506adbae9c",
+    "delphi/tests/coordinator/test_bundle_reader.py": "70435c2ce8e2d179b67cc10682d4f389b2ed5d53ce3d125226b0467c30e70bb7",
+    "delphi/tests/coordinator/test_node_reader.py": "e84fb6bd71433d6fa88713ca7043def3148cfe2dad3bf2d4ac669e36f73a5bef",
+    "server/src/utils/mathBundle.ts": "611f15d80461f86a52a84cf27420d19614430fb9150746015e121bed1250cd3f",
+    "server/src/utils/pca.ts": "5434c3137c90d8a5c99257f9a44dce77b3b6f32dc88d6c672ceb36f292c9a919",
+    "server/src/utils/pcaPresentation.ts": "8cba45f563a5a1d070691f63a2edf25537a07032ba4f9fa063acffa7a64b7f98",
+    "server/src/server-helpers.ts": "9bbe279ff7dff0220397b3e42c677c2f209845b9c8d358201154046c1729fa66",
+    "server/src/report.ts": "a6a103ade3caf5efcb18bb27ffc7964f0506359b8e7f45adaf8e8253817638ee",
+    "server/src/routes/math.ts": "60b39a97348fe004d50312308441af587c1ccb093ea17769f73297de5b1900b5",
+    "server/src/routes/participation.ts": "9ca96183bb723960fc5630d62226076bced0f6e591682ded92a4a097ee6d8ac7",
+    "server/__tests__/unit/mathBundle.test.ts": "49ddca4a1f03cb13ef4416ad7f5da9b627171fe13024708602c14453afa5d3db",
+    "server/__tests__/unit/mathBundleRequests.test.ts": "e9d5f74078eb8009809b1ecb61aa83d2e1e7a6ce0d65087ef8233d565b1d3fbd",
+    "server/__tests__/unit/pcaMathTickZero.test.ts": "2e717d4d3fc345d5eb9d24f52ab8a04ef58b2b3cd9b66b2fddbaa158da82b2cc",
+    "server/__tests__/unit/exportRoutes.test.ts": "5038dd30417447f59e332a43c5a203e3a9fe2e6f865c5314ccc4725c10fc8694",
+    "server/__tests__/integration/math-bundle-coherence.test.ts": "44a3eaf4822b097c02ced64776162777d0e568ccfcdf42ea0a32ef9e9f8a2281",
+    "server/__tests__/integration/math-env-isolation.test.ts": "da56bbf9e2d03611280148acd715da685b36393d4ad8e4426fd66bd8bd5a50d7",
+    "coordinator-rs/evidence/s2-production-reader.json": "c484335c8bd009989ec2c4361a7e73f575d7660b9837e8ba7de5862d9bd3d46f",
+    "coordinator-rs/tools/record_s2_production.py": "1b846433366eee59790fc1fd50cded92f74465084a56ff5d2e423a32834eb389"
+  },
+  "production_reader_obligation_state": "CLOSED",
+  "production_reader_evidence": "coordinator-rs/evidence/s2-production-reader.json",
+  "bridge_reconciliation": {
+    "record": "coordinator-rs/evidence/bridge-repin.json",
+    "source_only": true,
+    "historical_run_pins_preserved": true,
+    "runtime": "python-math-poller/1",
+    "schema": "000021",
+    "fresh_candidate_admission": "separate required CI receipt"
+  }
+}

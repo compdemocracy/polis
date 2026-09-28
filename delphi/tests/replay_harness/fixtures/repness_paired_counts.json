@@ -1,0 +1,355 @@
+{
+  "provenance": {
+    "description": "Generated public paired pass/disagree columns; unchanged Clojure v10 replay output.",
+    "science_pin": "b783a7659a7bfea5001859b82c461d260675e520",
+    "seed": 20260923,
+    "events_sha256": "850bcff8123326f894cb5db326f260629a5e1e1681bbcaa69257ef13960640ac",
+    "recording_sha256": [
+      "9618d6b16a0e68659a851dad0d40c29bc0a4723144ae76f4e13ccab558f04905",
+      "88de5200d1f6492d5a18a8eb2e9f134b158e7c8956c4a5fabe6277b8ce6d1455",
+      "2918194d0c2f21bbfb24ef708b500790d3091df48a0e13637cb3f8a94f0424f5",
+      "9aecee5a8ac30564e90adc8c275a0f0b5556a2bffa170b12c3a5095629f5309d",
+      "6b83cd617294b1a49d25a87eec471a6209b2e919f151d559a1ecba2502a89947",
+      "de4bbce2a904d3c5fd4361b0518741160c2f6a2a69cc9386c048f5bf5e019614"
+    ]
+  },
+  "schedule": {
+    "dataset": "pc-revote-02",
+    "schedule_id": "uniform6-clojure-legacy",
+    "source": "events-jsonl",
+    "cuts": {
+      "mode": "vote-count",
+      "at": [
+        720,
+        1440,
+        2160,
+        2880,
+        3600,
+        4320
+      ]
+    },
+    "moderation": "none",
+    "clojure": {
+      "warm_start": "chain"
+    },
+    "notes": "6 evenly-spaced recomputes"
+  },
+  "repness": [
+    {
+      "0": [
+        {
+          "tid": 6,
+          "n-success": 6,
+          "n-trials": 8,
+          "p-success": 0.7,
+          "p-test": 1.6666666666666667,
+          "repness": 2.1,
+          "repness-test": 1.413515,
+          "repful-for": "disagree"
+        },
+        {
+          "tid": 7,
+          "n-success": 6,
+          "n-trials": 8,
+          "p-success": 0.7,
+          "p-test": 1.6666666666666667,
+          "repness": 2.1,
+          "repness-test": 1.413515,
+          "repful-for": "disagree"
+        },
+        {
+          "tid": 52,
+          "n-success": 6,
+          "n-trials": 8,
+          "p-success": 0.7,
+          "p-test": 1.6666666666666667,
+          "repness": 2.1,
+          "repness-test": 1.413515,
+          "repful-for": "disagree"
+        },
+        {
+          "tid": 53,
+          "n-success": 6,
+          "n-trials": 8,
+          "p-success": 0.7,
+          "p-test": 1.6666666666666667,
+          "repness": 2.1,
+          "repness-test": 1.413515,
+          "repful-for": "disagree"
+        }
+      ],
+      "1": [
+        {
+          "tid": 24,
+          "n-success": 3,
+          "n-trials": 4,
+          "p-success": 0.6666666666666667,
+          "p-test": 1.341640786499874,
+          "repness": 3.333333333333333,
+          "repness-test": 2.0931988,
+          "repful-for": "disagree"
+        },
+        {
+          "tid": 25,
+          "n-success": 3,
+          "n-trials": 4,
+          "p-success": 0.6666666666666667,
+          "p-test": 1.341640786499874,
+          "repness": 3.333333333333333,
+          "repness-test": 2.0931988,
+          "repful-for": "disagree"
+        },
+        {
+          "tid": 34,
+          "n-success": 3,
+          "n-trials": 4,
+          "p-success": 0.6666666666666667,
+          "p-test": 1.341640786499874,
+          "repness": 3.333333333333333,
+          "repness-test": 2.0931988,
+          "repful-for": "disagree"
+        },
+        {
+          "tid": 35,
+          "n-success": 3,
+          "n-trials": 4,
+          "p-success": 0.6666666666666667,
+          "p-test": 1.341640786499874,
+          "repness": 3.333333333333333,
+          "repness-test": 2.0931988,
+          "repful-for": "disagree"
+        },
+        {
+          "tid": 38,
+          "n-success": 3,
+          "n-trials": 4,
+          "p-success": 0.6666666666666667,
+          "p-test": 1.341640786499874,
+          "repness": 3.333333333333333,
+          "repness-test": 2.0931988,
+          "repful-for": "disagree"
+        }
+      ]
+    },
+    {
+      "0": [
+        {
+          "tid": 26,
+          "n-success": 7,
+          "n-trials": 10,
+          "p-success": 0.6666666666666667,
+          "p-test": 1.5075567228888183,
+          "repness": 3.555555555555556,
+          "repness-test": 2.6885738,
+          "repful-for": "disagree"
+        },
+        {
+          "tid": 27,
+          "n-success": 7,
+          "n-trials": 10,
+          "p-success": 0.6666666666666667,
+          "p-test": 1.5075567228888183,
+          "repness": 3.555555555555556,
+          "repness-test": 2.6885738,
+          "repful-for": "disagree"
+        },
+        {
+          "tid": 52,
+          "n-success": 7,
+          "n-trials": 10,
+          "p-success": 0.6666666666666667,
+          "p-test": 1.5075567228888183,
+          "repness": 3.555555555555556,
+          "repness-test": 2.6885738,
+          "repful-for": "disagree"
+        },
+        {
+          "tid": 53,
+          "n-success": 7,
+          "n-trials": 10,
+          "p-success": 0.6666666666666667,
+          "p-test": 1.5075567228888183,
+          "repness": 3.555555555555556,
+          "repness-test": 2.6885738,
+          "repful-for": "disagree"
+        }
+      ],
+      "1": [
+        {
+          "tid": 34,
+          "n-success": 9,
+          "n-trials": 14,
+          "p-success": 0.625,
+          "p-test": 1.2909944487358063,
+          "repness": 7.5,
+          "repness-test": 2.9357991,
+          "repful-for": "disagree"
+        },
+        {
+          "tid": 35,
+          "n-success": 9,
+          "n-trials": 14,
+          "p-success": 0.625,
+          "p-test": 1.2909944487358063,
+          "repness": 7.5,
+          "repness-test": 2.9357991,
+          "repful-for": "disagree"
+        }
+      ]
+    },
+    {
+      "0": [
+        {
+          "tid": 26,
+          "n-success": 11,
+          "n-trials": 14,
+          "p-success": 0.75,
+          "p-test": 2.3237900077244507,
+          "repness": 6,
+          "repness-test": 4.127477,
+          "repful-for": "disagree"
+        },
+        {
+          "tid": 27,
+          "n-success": 11,
+          "n-trials": 14,
+          "p-success": 0.75,
+          "p-test": 2.3237900077244507,
+          "repness": 6,
+          "repness-test": 4.127477,
+          "repful-for": "disagree"
+        },
+        {
+          "tid": 6,
+          "n-success": 10,
+          "n-trials": 14,
+          "p-success": 0.6875,
+          "p-test": 1.8073922282301276,
+          "repness": 1.5,
+          "repness-test": 1.5566593,
+          "repful-for": "disagree"
+        },
+        {
+          "tid": 7,
+          "n-success": 10,
+          "n-trials": 14,
+          "p-success": 0.6875,
+          "p-test": 1.8073922282301276,
+          "repness": 1.5,
+          "repness-test": 1.5566593,
+          "repful-for": "disagree"
+        }
+      ],
+      "1": [
+        {
+          "tid": 33,
+          "n-success": 11,
+          "n-trials": 22,
+          "p-success": 0.5,
+          "p-test": 0.2085144140570746,
+          "repness": 4,
+          "repness-test": 2.4261487,
+          "repful-for": "disagree"
+        }
+      ]
+    },
+    {
+      "0": [
+        {
+          "tid": 26,
+          "n-success": 15,
+          "n-trials": 20,
+          "p-success": 0.7272727272727273,
+          "p-test": 2.4003967925959158,
+          "repness": 10.90909090909091,
+          "repness-test": 5.038225,
+          "repful-for": "disagree"
+        },
+        {
+          "tid": 27,
+          "n-success": 15,
+          "n-trials": 20,
+          "p-success": 0.7272727272727273,
+          "p-test": 2.4003967925959158,
+          "repness": 10.90909090909091,
+          "repness-test": 5.038225,
+          "repful-for": "disagree"
+        }
+      ],
+      "1": [
+        {
+          "tid": 29,
+          "n-success": 11,
+          "n-trials": 28,
+          "p-success": 0.4,
+          "p-test": -0.9284766908852587,
+          "repness": 8.8,
+          "repness-test": 2.9134574,
+          "repful-for": "disagree"
+        }
+      ]
+    },
+    {
+      "0": [
+        {
+          "tid": 26,
+          "n-success": 18,
+          "n-trials": 24,
+          "p-success": 0.7307692307692308,
+          "p-test": 2.6,
+          "repness": 9.256410256410255,
+          "repness-test": 5.4807916,
+          "repful-for": "disagree"
+        },
+        {
+          "tid": 27,
+          "n-success": 18,
+          "n-trials": 24,
+          "p-success": 0.7307692307692308,
+          "p-test": 2.6,
+          "repness": 9.256410256410255,
+          "repness-test": 5.4807916,
+          "repful-for": "disagree"
+        }
+      ],
+      "1": [
+        {
+          "tid": 28,
+          "n-success": 14,
+          "n-trials": 36,
+          "p-success": 0.3947368421052632,
+          "p-test": -1.1507929111375013,
+          "repness": 10.26315789473684,
+          "repness-test": 3.2255425,
+          "repful-for": "disagree"
+        }
+      ]
+    },
+    {
+      "0": [
+        {
+          "tid": 26,
+          "n-success": 19,
+          "n-trials": 33,
+          "p-success": 0.5714285714285714,
+          "p-test": 1.0289915108550534,
+          "repness": 5.857142857142857,
+          "repness-test": 4.4711976,
+          "repful-for": "disagree"
+        }
+      ],
+      "1": [
+        {
+          "tid": 28,
+          "n-success": 16,
+          "n-trials": 39,
+          "p-success": 0.4146341463414634,
+          "p-test": -0.948683298050514,
+          "repness": 14.51219512195122,
+          "repness-test": 3.9527416,
+          "repful-for": "disagree"
+        }
+      ]
+    }
+  ]
+}

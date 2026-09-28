@@ -100,5 +100,19 @@ export default (self: Construct, vpc: cdk.aws_ec2.IVpc) => {
     description: 'SSM Parameter storing the Polis Database Port',
   });
 
-  return { dbSubnetGroup, db, dbSecretArnParam, dbHostParam, dbPortParam, dbAlarmsTopic }
+  // `lowStorageAlarm` and `highCpuAlarm` are returned so P-031's alarms.ts can
+  // ADD the shared operations topic to their actions without moving them under
+  // a new construct path — relocating them would replace the alarms and discard
+  // their history. Returning them changes no template output.
+  return {
+    dbSubnetGroup,
+    db,
+    dbSecretArnParam,
+    dbHostParam,
+    dbPortParam,
+    dbAlarmsTopic,
+    lowStorageAlarm,
+    highCpuAlarm,
+    highConnectionsAlarm,
+  }
 }

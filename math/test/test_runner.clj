@@ -12,6 +12,9 @@
             [stats-test]
             [utils-test]
             [ptpt-stats-test]
+            [stage-json-test]
+            [replay-tail-test]
+            [attribution-test]
             [clojure.test :as test]))
 
 
@@ -36,7 +39,10 @@
       silhouette-test
       stats-test
       utils-test
-      ptpt-stats-test]))
+      ptpt-stats-test
+      stage-json-test
+      replay-tail-test
+      attribution-test]))
 
 ;(-main)
 ;(test/run-tests 'conversation-test)
