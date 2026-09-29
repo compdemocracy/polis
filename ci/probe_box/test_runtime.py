@@ -387,6 +387,89 @@ class RuntimeTests(unittest.TestCase):
         self.assertLess(start.index("trap 'rc=$?"), start.index('shutdown -h +720'))
         self.assertLess(start.index('boot_failure()'), start.index("trap 'rc=$?"))
 
+    def container_daemon_block(self):
+        bake = Path(__file__).with_name('bake.sh').read_text()
+        start = bake.split("<<'START'\n")[1].split('\nSTART')[0]
+        return start.split('BOOT_PHASE=container-daemon\nboot_console entry\n', 1)[1].split('BOOT_PHASE=worker\n', 1)[0]
+
+    def run_container_daemon(self, starts, infos):
+        # Execute the baked block with doubles: no real systemd, docker or sleep.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            work = root/'probe-work'
+            (work/'container-run').mkdir(parents=True)
+            (work/'docker.pid').write_text('1')
+            (work/'container-store').mkdir()
+            log = root/'calls'
+            double = f'''
+starts={shlex.quote(' '.join(starts))}; infos={shlex.quote(' '.join(infos))}
+pop() {{ set -- $1; printf '%s' "${{1:-1}}"; }}
+rest() {{ set -- $1; shift || true; printf '%s' "$*"; }}
+systemctl() {{
+  printf 'systemctl %s\\n' "$*" >> {shlex.quote(str(log))}
+  if [ "$1" = start ]; then rc="$(pop "$starts")"; starts="$(rest "$starts")"; return "$rc"; fi
+}}
+docker() {{
+  printf 'docker\\n' >> {shlex.quote(str(log))}
+  rc="$(pop "$infos")"; infos="$(rest "$infos")"; return "$rc"
+}}
+sleep() {{ printf 'sleep %s\\n' "$1" >> {shlex.quote(str(log))}; }}
+'''
+            block = self.container_daemon_block().replace('/probe-work', str(work))
+            result = subprocess.run(['bash', '-c', 'set -euo pipefail\n'+double+block+'echo READY\n'],
+                                    capture_output=True, text=True, timeout=10)
+            calls = log.read_text().splitlines() if log.exists() else []
+            state = {'run': (work/'container-run').exists(), 'pid': (work/'docker.pid').exists(),
+                     'store': (work/'container-store').exists(),
+                     'log': (work/'boot.log').read_text() if (work/'boot.log').exists() else None}
+            return result, calls, state
+
+    def test_container_daemon_start_is_retried_once_from_clean_runtime_state(self):
+        # First try healthy: no retry, runtime state untouched.
+        result, calls, state = self.run_container_daemon(['0'], ['0'])
+        self.assertEqual(result.stdout, 'READY\n')
+        self.assertEqual(calls, ['systemctl start polis-probe-container.service', 'docker'])
+        self.assertEqual(state, {'run': True, 'pid': True, 'store': True, 'log': None})
+        retry = ['systemctl kill --signal=SIGKILL polis-probe-container.service',
+                 'systemctl stop polis-probe-container.service',
+                 'systemctl reset-failed polis-probe-container.service', 'sleep 5',
+                 'systemctl start polis-probe-container.service']
+        # systemctl start fails once, then the retry succeeds.
+        result, calls, state = self.run_container_daemon(['1', '0'], ['0'])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, 'READY\n')
+        self.assertEqual(calls, ['systemctl start polis-probe-container.service', *retry, 'docker'])
+        self.assertEqual(state, {'run': False, 'pid': False, 'store': True, 'log': 'container-daemon retried\n'})
+        # Start succeeds but readiness never arrives; the retry succeeds.
+        result, calls, state = self.run_container_daemon(['0', '0'], ['1']*30+['0'])
+        self.assertEqual(result.stdout, 'READY\n')
+        self.assertEqual(calls.count('sleep 2'), 30)
+        self.assertEqual(calls[-6:], [*retry, 'docker'])
+        self.assertEqual(state['log'], 'container-daemon retried\n')
+        # Both attempts fail: the phase fails exactly as before (nonzero, no READY).
+        for starts, infos in ((['1', '1'], []), (['1', '0'], ['1']*30), (['0', '0'], ['1']*60)):
+            with self.subTest(starts=starts, infos=len(infos)):
+                result, calls, state = self.run_container_daemon(starts, infos)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, '')
+                self.assertEqual(calls.count('systemctl start polis-probe-container.service'), 2)
+                self.assertEqual(state['log'], 'container-daemon retried\n')
+
+    def test_container_daemon_retry_keeps_closed_vocabulary_and_daemon_output(self):
+        import boot_report
+        block = self.container_daemon_block()
+        self.assertEqual(block.count('container_daemon_up\n'), 1)
+        self.assertNotIn('boot_console', block)
+        self.assertNotIn('boot_report', block)
+        self.assertNotIn('/dev/console', block)
+        self.assertEqual(boot_report.PHASES, frozenset(
+            {'start', 'boot-config', 'firewall', 'dns', 'private-disk', 'container-daemon', 'worker'}))
+        self.assertEqual(boot_report.EXITS, frozenset({'nonzero', 'signal', 'unknown'}))
+        self.assertEqual(boot_report.SCHEMA, 'polis-probe-boot-failure/2')
+        bake = Path(__file__).with_name('bake.sh').read_text()
+        unit = bake.split("polis-probe-container.service <<'UNIT'\n")[1].split('\nUNIT')[0]
+        self.assertIn('StandardOutput=null\nStandardError=null', unit)
+
     def test_daemon_never_uses_root_disk_system_containerd_or_network(self):
         bake = Path(__file__).with_name('bake.sh').read_text()
         config = json.loads(bake.split("<<'DOCKER'\n")[1].split('\nDOCKER')[0])
