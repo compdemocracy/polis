@@ -21,6 +21,8 @@ not an ancestor — ``python-ci.yml`` copies the two compose files in beside it.
 
 import os
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -331,9 +333,14 @@ def test_hook_documents_the_readers_label_and_the_rollback_order():
     # Comment lines joined, so the checks do not depend on where lines wrap.
     text = re.sub(r"\s*\n\s*#\s*", " ", AFTER_INSTALL_PATH.read_text())
     assert "MATH_ENV=python" in text
-    # Forward: the hook reaches stable before the secret moves, so a box booting
-    # in between never starts Clojure under MATH_ENV=python.
-    assert "merge to stable, then MATH_ENV=python in the secret, then the box deploy" in text
+    # Forward: a box deploy packages this hook (CodeDeploy runs the packaged
+    # hook, and gives ASG replacements the last successful one) BEFORE the
+    # secret moves; a second deploy then switches the readers (review 1439 R1).
+    assert (
+        "merge to stable, then a box deploy while the secret still says MATH_ENV=prod, "
+        "then MATH_ENV=python in the secret, then a second box deploy" in text
+    )
+    assert "last successful" in text
     # Rollback must change the secret before Clojure is restored, or Clojure
     # would start writing under `python` beside the Python poller.
     assert "set MATH_ENV=prod in the secret FIRST" in text
@@ -363,3 +370,156 @@ def test_math_python_has_no_env_file():
     # process directly; the label must come only from the environment block.
     block = yaml.safe_load((CHECKOUT / "docker-compose.yml").read_text())["services"]["math-python"]
     assert "env_file" not in block
+
+
+# --- The hook's role section, executed (review 1439 R3) ------------------------
+#
+# The text checks above only see compose lines that NAME services. These run the
+# hook itself, from its service detection to the end, with inert stand-ins for
+# sudo, docker, docker-compose and aws, so an unnamed `up`, an ignored cleanup
+# failure or a missing postcondition shows up as behaviour, not as text.
+
+_HOOK_PRELUDE = r"""
+set -e
+cd "$WORK"
+sudo() { "$@"; }
+compose_stub() {
+  echo "compose $*" >> "$LOG"
+  if [ "$1" = down ] && [ "${STUB_DOWN_FAIL:-}" = 1 ]; then return 1; fi
+  return 0
+}
+docker() {
+  echo "docker $*" >> "$LOG"
+  case "$1" in
+    ps)
+      case " $* " in
+        *" --filter "*)
+          if [ "${STUB_PS_FAIL:-}" = 1 ]; then return 1; fi
+          if [ -n "${STUB_MATH_LEFT:-}" ]; then printf '%s\n' $STUB_MATH_LEFT; fi
+          ;;
+        *)
+          if [ -n "${STUB_ALL:-}" ]; then printf '%s\n' $STUB_ALL; fi
+          ;;
+      esac
+      return 0
+      ;;
+    rm)
+      if [ "${STUB_RM_FAIL:-}" = 1 ]; then return 1; fi
+      return 0
+      ;;
+  esac
+  return 0
+}
+aws() { return 1; }
+"""
+
+requires_bash = pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not available")
+
+
+def _run_hook_roles(tmp_path, role, **stubs):
+    """Run after_install.sh from its service detection on, for `role` (None: no
+    role file). Returns (returncode, stdout, stderr, stub log lines)."""
+    text = AFTER_INSTALL_PATH.read_text()
+    start = text.index("SERVICE_FROM_FILE=$(cat /etc/app-info/service_type.txt)")
+    tail = text[start:].replace("/usr/local/bin/docker-compose", "compose_stub").replace("/etc/app-info/", "$APP_INFO/")
+    app_info = tmp_path / "app-info"
+    app_info.mkdir()
+    if role is not None:
+        (app_info / "service_type.txt").write_text(role + "\n" if role else "")
+    work = tmp_path / "work"
+    work.mkdir()
+    log = tmp_path / "stub.log"
+    log.write_text("")
+    script = tmp_path / "hook-tail.sh"
+    script.write_text(_HOOK_PRELUDE + tail)
+    env = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "WORK": str(work),
+        "LOG": str(log),
+        "APP_INFO": str(app_info),
+        **{f"STUB_{key.upper()}": value for key, value in stubs.items()},
+    }
+    done = subprocess.run(["bash", str(script)], env=env, capture_output=True, text=True, timeout=60)
+    return done.returncode, done.stdout, done.stderr, log.read_text().splitlines()
+
+
+def _compose_ups(log):
+    return [line for line in log if line.startswith("compose up")]
+
+
+@requires_after_install
+@requires_bash
+@pytest.mark.parametrize("role", ["banana", "", "Math", "math ", "delphi-large"])
+def test_unknown_or_empty_role_fails_without_starting_anything(tmp_path, role):
+    code, out, err, log = _run_hook_roles(tmp_path, role)
+    assert code != 0
+    assert _compose_ups(log) == [], f"role [{role}] started services: {_compose_ups(log)}"
+    assert "Starting nothing" in err
+
+
+@requires_after_install
+@requires_bash
+def test_missing_role_file_fails_without_starting_anything(tmp_path):
+    code, _, _, log = _run_hook_roles(tmp_path, None)
+    assert code != 0
+    assert _compose_ups(log) == []
+
+
+@requires_after_install
+@requires_bash
+def test_math_role_verifies_retirement_and_logs_it(tmp_path):
+    code, out, err, log = _run_hook_roles(tmp_path, "math", all="c1 c2")
+    assert code == 0, err
+    assert _compose_ups(log) == []
+    assert "docker ps -aq --filter label=com.docker.compose.service=math" in log
+    assert "math role: retirement verified" in out
+    # The check runs after the cleanup it verifies.
+    assert log.index("docker ps -aq --filter label=com.docker.compose.service=math") > log.index("docker rm -f c1 c2")
+
+
+@requires_after_install
+@requires_bash
+def test_math_role_fails_when_a_math_container_survives_failed_cleanup(tmp_path):
+    # The reviewer's witness: both cleanup calls fail, the hook used to succeed.
+    code, out, err, log = _run_hook_roles(
+        tmp_path, "math", down_fail="1", rm_fail="1", all="c1", math_left="c1"
+    )
+    assert code != 0
+    assert "FAILED retirement check" in err and "c1" in err
+    assert "retirement verified" not in out
+    assert _compose_ups(log) == []
+
+
+@requires_after_install
+@requires_bash
+def test_math_role_fails_when_docker_cannot_list_containers(tmp_path):
+    code, out, err, log = _run_hook_roles(tmp_path, "math", ps_fail="1")
+    assert code != 0
+    assert "cannot prove retirement" in err
+    assert "retirement verified" not in out
+
+
+@requires_after_install
+@requires_bash
+def test_math_role_succeeds_on_an_already_empty_box(tmp_path):
+    # Idempotency: with no containers, `docker rm -f` (no arguments) fails and
+    # is ignored; the postcondition still holds.
+    code, out, err, log = _run_hook_roles(tmp_path, "math", rm_fail="1", down_fail="1")
+    assert code == 0, err
+    assert "math role: retirement verified" in out
+
+
+@requires_after_install
+@requires_bash
+def test_known_roles_still_start_their_services(tmp_path):
+    for role, services in (
+        ("server", {"server", "nginx-proxy", "client-participation-alpha"}),
+        ("delphi", {"delphi", "math-python"}),
+    ):
+        sub = tmp_path / role
+        sub.mkdir()
+        code, _, err, log = _run_hook_roles(sub, role)
+        assert code == 0, err
+        (up,) = _compose_ups(log)
+        assert _services_named(up.split()[1:]) == services
+

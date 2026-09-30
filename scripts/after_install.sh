@@ -106,15 +106,28 @@ elif [ "$SERVICE_FROM_FILE" == "math" ]; then
   # The Clojure `math` service is no longer started: the Python poller
   # (`math-python`, Delphi role below) writes the served math rows under the
   # label `python`, and the server and Delphi read that label through the shared
-  # MATH_ENV in the env secret. The `down` and `docker rm -f` above have already
-  # removed every container on this box, so it runs nothing until the math tier
-  # is deleted from CDK.
+  # MATH_ENV in the env secret. The `down` and `docker rm -f` above remove every
+  # container on this box, but their failures are ignored (an already empty box
+  # makes `docker rm -f` fail), so retirement is PROVEN here: no container of the
+  # compose service `math` may remain, running or stopped, or the deploy fails.
+  # A failed `docker ps` fails the deploy too; absence is never inferred from
+  # "no up was invoked".
   # Do NOT start `math` while the secret says MATH_ENV=python: the service writes
   # under ${MATH_ENV}, so it would write the label `python` beside the Python
-  # poller. Rollback, in this order: set MATH_ENV=prod in the secret, restore
-  # `sudo /usr/local/bin/docker-compose up -d math --build --force-recreate`
-  # here (revert this change), redeploy.
+  # poller. (math/bin/run refuses that label on its own as well.) Rollback, in
+  # this order: set MATH_ENV=prod in the secret, replace this check with
+  # `sudo /usr/local/bin/docker-compose up -d math --build --force-recreate`,
+  # redeploy.
   echo "math role: the Clojure math service is retired from the deploy; starting nothing"
+  if ! MATH_CONTAINERS=$(sudo docker ps -aq --filter "label=com.docker.compose.service=math"); then
+    echo "math role: FAILED to list containers of the compose service 'math'; cannot prove retirement" >&2
+    exit 1
+  fi
+  if [ -n "$MATH_CONTAINERS" ]; then
+    echo "math role: FAILED retirement check: containers of the compose service 'math' remain: $(echo $MATH_CONTAINERS)" >&2
+    exit 1
+  fi
+  echo "math role: retirement verified: no container of the compose service 'math' on this box"
 elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   echo "Starting docker-compose up for 'delphi' and 'math-python' services"
   # The Ollama GPU stack is optional (topic naming defaults to the Anthropic
@@ -204,9 +217,12 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   # POLL_FROM_DAYS_AGO stays at its default of 10. MATH_POLLER_ALLOW_SERVED_ENV
   # must stay UNSET: it is the override that lets the poller write `prod`, the
   # Clojure engine's label, which Clojure serves again after a rollback.
-  # Switch order: merge to stable, then MATH_ENV=python in the secret, then the
-  # box deploy (a box booting in between must never start `math` under
-  # MATH_ENV=python). Rollback to Clojure: set MATH_ENV=prod in the secret
+  # Switch order: merge to stable, then a box deploy while the secret still
+  # says MATH_ENV=prod, then MATH_ENV=python in the secret, then a second box
+  # deploy. CodeDeploy runs the hook PACKAGED in its deployment (and gives an
+  # ASG replacement the last successful one), not this file on stable, so the
+  # first deploy is what makes this hook the one a replacement box runs before
+  # the secret moves. Rollback to Clojure: set MATH_ENV=prod in the secret
   # FIRST, then restore the math role's `up -d math` line and redeploy.
   # math-python keeps writing `python` beside it, as it did before the switch.
   # Singleton: every Delphi-role box (both launch templates, any ASG scale-out
@@ -243,6 +259,9 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   #      with the rollback above before resuming deploys or ASG launches.
   sudo /usr/local/bin/docker-compose up -d delphi math-python --build --force-recreate
 else
-  echo "Error: Unknown service type: [$SERVICE_FROM_FILE]. Starting all services (default docker-compose up -d)"
-  sudo /usr/local/bin/docker-compose up -d --build --force-recreate
+  # Fail closed. An unnamed `up` would start every unprofiled service,
+  # including the Clojure `math` service, under whatever MATH_ENV the secret
+  # holds. An unknown or empty role starts nothing and fails the deploy.
+  echo "Error: Unknown service type: [$SERVICE_FROM_FILE]. Starting nothing; failing the deploy." >&2
+  exit 1
 fi
