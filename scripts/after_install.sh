@@ -103,31 +103,98 @@ if [ "$SERVICE_FROM_FILE" == "server" ]; then
   echo "Starting docker-compose up for 'server', 'nginx-proxy', and 'client-participation-alpha' services"
   sudo /usr/local/bin/docker-compose up -d server nginx-proxy client-participation-alpha --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "math" ]; then
-  # The Clojure `math` service is no longer started: the Python poller
-  # (`math-python`, Delphi role below) writes the served math rows under the
-  # label `python`, and the server and Delphi read that label through the shared
-  # MATH_ENV in the env secret. The `down` and `docker rm -f` above remove every
-  # container on this box, but their failures are ignored (an already empty box
-  # makes `docker rm -f` fail), so retirement is PROVEN here: no container of the
-  # compose service `math` may remain, running or stopped, or the deploy fails.
-  # A failed `docker ps` fails the deploy too; absence is never inferred from
-  # "no up was invoked".
-  # Do NOT start `math` while the secret says MATH_ENV=python: the service writes
-  # under ${MATH_ENV}, so it would write the label `python` beside the Python
-  # poller. (math/bin/run refuses that label on its own as well.) Rollback, in
-  # this order: set MATH_ENV=prod in the secret, replace this check with
-  # `sudo /usr/local/bin/docker-compose up -d math --build --force-recreate`,
-  # redeploy.
-  echo "math role: the Clojure math service is retired from the deploy; starting nothing"
-  if ! MATH_CONTAINERS=$(sudo docker ps -aq --filter "label=com.docker.compose.service=math"); then
-    echo "math role: FAILED to list containers of the compose service 'math'; cannot prove retirement" >&2
+  # The Clojure `math` service runs ONLY while the readers read `prod`. It
+  # writes its rows under the MATH_ENV that Compose hands it, the same variable
+  # the server and Delphi READ; once the secret says MATH_ENV=python the Python
+  # poller (`math-python`, Delphi role below) writes the served rows and Clojure
+  # must not run, or it would write `python` beside the poller.
+  #
+  # The label is the EFFECTIVE one Compose gives the `math` service, read with
+  # the same `docker-compose` invocation as the `up` below (this hook never
+  # exports MATH_ENV; a variable in the environment Compose sees would beat
+  # .env, and `${MATH_ENV:-prod}` would silently default a missing key). The
+  # written .env must also define MATH_ENV exactly once, with the same value,
+  # so a missing key, a duplicate or an override from outside .env fails closed.
+  #   prod    -> start the guarded Clojure and verify it came up (running, no
+  #              restart, not the guard's exit 78);
+  #   python  -> start nothing and PROVE retirement: no container of the compose
+  #              service `math` may remain, running or stopped (the `down` and
+  #              `docker rm -f` above ignore their failures);
+  #   anything else, or an unreadable config -> start nothing, fail the deploy.
+  # math/bin/run refuses every label but `prod` on its own as the second layer.
+  # Switch order: merge to stable, then a box deploy while the secret still
+  # says MATH_ENV=prod (Clojure keeps writing), then MATH_ENV=python in the
+  # secret, then a second box deploy (stops Clojure, verifies retirement).
+  # CodeDeploy runs the hook PACKAGED in its deployment (and gives an ASG
+  # replacement the last successful one), so the first deploy is what makes
+  # this hook the one a replacement box runs before the secret moves.
+  # Rollback: set MATH_ENV=prod in the secret, redeploy. No hook edit.
+  if ! MATH_COMPOSE_CONFIG=$(sudo /usr/local/bin/docker-compose config --format json); then
+    echo "math role: FAILED to read the compose config; cannot resolve the math label. Starting nothing." >&2
     exit 1
   fi
-  if [ -n "$MATH_CONTAINERS" ]; then
-    echo "math role: FAILED retirement check: containers of the compose service 'math' remain: $(echo $MATH_CONTAINERS)" >&2
+  if ! MATH_LABEL=$(printf '%s' "$MATH_COMPOSE_CONFIG" | jq -er '.services.math.environment.MATH_ENV | strings'); then
+    echo "math role: FAILED: the compose config gives the 'math' service no MATH_ENV. Starting nothing." >&2
     exit 1
   fi
-  echo "math role: retirement verified: no container of the compose service 'math' on this box"
+  MATH_ENV_LINES=$(grep -E '^[[:space:]]*(export[[:space:]]+)?MATH_ENV[[:space:]]*=' .env || true)
+  MATH_ENV_COUNT=$(printf '%s' "$MATH_ENV_LINES" | grep -c . || true)
+  if [ "$MATH_ENV_COUNT" != 1 ]; then
+    echo "math role: FAILED: .env defines MATH_ENV $MATH_ENV_COUNT times (need exactly 1; the secret must carry it). Starting nothing." >&2
+    exit 1
+  fi
+  MATH_ENV_FILE_VALUE=$(printf '%s' "${MATH_ENV_LINES#*=}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/')
+  if [ "$MATH_ENV_FILE_VALUE" != "$MATH_LABEL" ]; then
+    echo "math role: FAILED: compose resolves MATH_ENV=[$MATH_LABEL] for 'math' but .env says [$MATH_ENV_FILE_VALUE]; something outside .env overrides it. Starting nothing." >&2
+    exit 1
+  fi
+  echo "math role: effective compose label for 'math': MATH_ENV=[$MATH_LABEL]"
+  case "$MATH_LABEL" in
+    prod)
+      echo "math role: readers read prod; starting the guarded Clojure math service"
+      sudo /usr/local/bin/docker-compose up -d math --build --force-recreate
+      sleep "${MATH_READY_WAIT_SECONDS:-30}"
+      if ! MATH_CONTAINERS=$(sudo docker ps -aq --filter "label=com.docker.compose.service=math"); then
+        echo "math role: FAILED to list containers of the compose service 'math'; cannot verify the writer" >&2
+        exit 1
+      fi
+      set -- $MATH_CONTAINERS
+      if [ "$#" != 1 ]; then
+        echo "math role: FAILED readiness: expected exactly one 'math' container, found $#: [$(echo $MATH_CONTAINERS)]" >&2
+        exit 1
+      fi
+      if ! MATH_STATE=$(sudo docker inspect -f '{{.State.Status}} {{.State.ExitCode}} {{.RestartCount}}' "$1"); then
+        echo "math role: FAILED to inspect the 'math' container $1" >&2
+        exit 1
+      fi
+      if [ "$MATH_STATE" != "running 0 0" ]; then
+        echo "math role: FAILED readiness: 'math' container $1 is [status exitcode restarts]=[$MATH_STATE] (exit code 78 is the math/bin/run label guard)" >&2
+        exit 1
+      fi
+      if sudo docker logs "$1" 2>&1 | grep -F "math/bin/run: write label MATH_ENV=prod admitted" > /dev/null; then
+        echo "math role: guard log line seen: write label MATH_ENV=prod admitted"
+      else
+        echo "math role: note: guard admission line not readable via docker logs (state check passed)"
+      fi
+      echo "math role: writer readiness verified: 'math' container $1 running under MATH_ENV=prod, no restart"
+      ;;
+    python)
+      echo "math role: readers read python; the Clojure math service stays retired; starting nothing"
+      if ! MATH_CONTAINERS=$(sudo docker ps -aq --filter "label=com.docker.compose.service=math"); then
+        echo "math role: FAILED to list containers of the compose service 'math'; cannot prove retirement" >&2
+        exit 1
+      fi
+      if [ -n "$MATH_CONTAINERS" ]; then
+        echo "math role: FAILED retirement check: containers of the compose service 'math' remain: $(echo $MATH_CONTAINERS)" >&2
+        exit 1
+      fi
+      echo "math role: retirement verified: no container of the compose service 'math' on this box"
+      ;;
+    *)
+      echo "math role: FAILED: unknown math label MATH_ENV=[$MATH_LABEL] (need exactly prod or python). Starting nothing." >&2
+      exit 1
+      ;;
+  esac
 elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   echo "Starting docker-compose up for 'delphi' and 'math-python' services"
   # The Ollama GPU stack is optional (topic naming defaults to the Anthropic
@@ -195,8 +262,8 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
 
   # Python math poller: `math-python` writes the SERVED math rows under the
   # label `python`. The server and Delphi read that label because the production
-  # env secret (polis-web-app-env-vars) carries MATH_ENV=python; the Clojure
-  # `math` service is no longer started (math role above). Naming a
+  # env secret (polis-web-app-env-vars) carries MATH_ENV=python; the math role
+  # above then starts no Clojure `math` service. Naming a
   # profile-gated service on the `up` command line starts it without --profile
   # (Compose v2.40.0 enables named services' profiles: cmd/compose/compose.go
   # `project.WithServicesEnabled(services...)`).
@@ -217,14 +284,10 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   # POLL_FROM_DAYS_AGO stays at its default of 10. MATH_POLLER_ALLOW_SERVED_ENV
   # must stay UNSET: it is the override that lets the poller write `prod`, the
   # Clojure engine's label, which Clojure serves again after a rollback.
-  # Switch order: merge to stable, then a box deploy while the secret still
-  # says MATH_ENV=prod, then MATH_ENV=python in the secret, then a second box
-  # deploy. CodeDeploy runs the hook PACKAGED in its deployment (and gives an
-  # ASG replacement the last successful one), not this file on stable, so the
-  # first deploy is what makes this hook the one a replacement box runs before
-  # the secret moves. Rollback to Clojure: set MATH_ENV=prod in the secret
-  # FIRST, then restore the math role's `up -d math` line and redeploy.
-  # math-python keeps writing `python` beside it, as it did before the switch.
+  # Switch order and rollback: see the math role above. Rollback to Clojure
+  # is MATH_ENV=prod in the secret, then a redeploy (the math role starts
+  # Clojure on exactly `prod`; no hook edit). math-python keeps writing
+  # `python` beside it, as it did before the switch.
   # Singleton: every Delphi-role box (both launch templates, any ASG scale-out
   # or replacement) runs this line, so the poller admits itself: at startup it
   # takes a Postgres session-level advisory lock keyed on its math_env label
@@ -239,7 +302,7 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   # change, not needed for correctness.
   # Stopping math-python now stops the served math: nothing updates the
   # `python` rows the readers serve. A durable stop is therefore the rollback
-  # above (MATH_ENV=prod in the secret, Clojure's line restored, redeploy), not
+  # above (MATH_ENV=prod in the secret, redeploy), not
   # removing `math-python` from this line on its own.
   # Removing only the holder's container is a FAILOVER, not a stop: a waiting
   # poller on another Delphi box takes the lock. Fleet-wide emergency stop:

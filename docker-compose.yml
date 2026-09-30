@@ -109,13 +109,15 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-  # Legacy Clojure math engine. Production no longer starts it (the math role in
-  # scripts/after_install.sh starts nothing; `math-python` writes the served
-  # rows). It writes under ${MATH_ENV}, the same variable the server and Delphi
-  # read, so never start it in production while MATH_ENV=python. math/bin/run
-  # enforces that independently of any deploy hook: it refuses `python` always
-  # and any label but `prod` unless MATH_CLOJURE_ALLOW_NONPROD_ENV=1, which this
-  # file deliberately does not forward (only the dev/test overlays set it).
+  # Legacy Clojure math engine. The math role in scripts/after_install.sh starts
+  # it only when Compose resolves this service's MATH_ENV to exactly `prod`;
+  # under `python` it starts nothing (`math-python` writes the served rows) and
+  # proves no `math` container remains. It writes under ${MATH_ENV}, the same
+  # variable the server and Delphi read, so never start it in production while
+  # MATH_ENV=python. math/bin/run enforces that independently of any deploy
+  # hook: it refuses `python` always and any label but `prod` unless
+  # MATH_CLOJURE_ALLOW_NONPROD_ENV=1, which this file deliberately does not
+  # forward (only the dev/test overlays set it).
   math:
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/math:latest
     build:

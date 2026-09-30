@@ -303,29 +303,31 @@ def test_math_python_memory_limit_reads_delphi_poller_container_memory():
     assert _interpolate(raw, {"DELPHI_CONTAINER_MEMORY": "8g"}) == "16g"
 
 
-# --- The switch to Python (readers on `python`, Clojure out of the deploy) ---
+# --- The switch to Python (readers on `python`, Clojure only under `prod`) ---
 #
 # Production sets MATH_ENV=python in the env secret: the server (env_file) and
 # Delphi (interpolation) read the label math-python writes. The Clojure `math`
-# service writes under ${MATH_ENV} too, so it must not be started while that
-# holds; the math role therefore starts nothing. Rollback = MATH_ENV=prod in the
-# secret, restore the math role's `up -d math` line, redeploy.
+# service writes under ${MATH_ENV} too, so the math role starts it only when
+# Compose resolves that label to exactly `prod`, starts nothing under `python`,
+# and fails closed otherwise (review 1441). Rollback = MATH_ENV=prod in the
+# secret, redeploy; no hook edit.
 
 POST_SWITCH_SECRET = {"MATH_ENV": "python", "MATH_PYTHON_ENV": "python"}
 
 
 @requires_after_install
-def test_math_role_starts_nothing():
+def test_math_role_starts_only_the_math_service():
     roles = _role_up_lines()
     assert "math" in roles, "the math role branch must stay (its boxes still run the hook)"
-    assert roles["math"] == [], "the math role must not run any compose up line"
+    assert len(roles["math"]) == 1, roles["math"]
+    assert _services_named(roles["math"][0]) == {"math"}
 
 
 @requires_after_install
-def test_no_role_starts_the_clojure_math_service():
+def test_only_the_math_role_can_start_the_clojure_math_service():
     roles = _role_up_lines()
     starting = {role for role, lines in roles.items() if any("math" in _services_named(l) for l in lines)}
-    assert starting == set(), f"roles still starting the Clojure math service: {sorted(starting)}"
+    assert starting == {"math"}, f"roles starting the Clojure math service: {sorted(starting)}"
 
 
 @requires_after_install
@@ -336,14 +338,11 @@ def test_hook_documents_the_readers_label_and_the_rollback_order():
     # Forward: a box deploy packages this hook (CodeDeploy runs the packaged
     # hook, and gives ASG replacements the last successful one) BEFORE the
     # secret moves; a second deploy then switches the readers (review 1439 R1).
-    assert (
-        "merge to stable, then a box deploy while the secret still says MATH_ENV=prod, "
-        "then MATH_ENV=python in the secret, then a second box deploy" in text
-    )
+    assert "merge to stable, then a box deploy while the secret still says MATH_ENV=prod" in text
+    assert "then MATH_ENV=python in the secret, then a second box deploy" in text
     assert "last successful" in text
-    # Rollback must change the secret before Clojure is restored, or Clojure
-    # would start writing under `python` beside the Python poller.
-    assert "set MATH_ENV=prod in the secret FIRST" in text
+    # Rollback is the secret alone, then a redeploy: the hook follows the label.
+    assert "Rollback: set MATH_ENV=prod in the secret, redeploy. No hook edit." in text
 
 
 @requires_checkout
@@ -372,20 +371,68 @@ def test_math_python_has_no_env_file():
     assert "env_file" not in block
 
 
-# --- The hook's role section, executed (review 1439 R3) ------------------------
+# --- The hook's role section, executed (reviews 1439 R3, 1441 R1b) ------------
 #
 # The text checks above only see compose lines that NAME services. These run the
 # hook itself, from its service detection to the end, with inert stand-ins for
-# sudo, docker, docker-compose and aws, so an unnamed `up`, an ignored cleanup
-# failure or a missing postcondition shows up as behaviour, not as text.
+# sudo, docker, docker-compose, aws and sleep, so an unnamed `up`, an ignored
+# cleanup failure or a missing postcondition shows up as behaviour, not as text.
+#
+# The stand-ins keep container state in $STATE across runs (one directory is one
+# box): compose `up ... math` creates the `math` container, `down` and
+# `docker rm -f` remove containers unless told to fail, and `docker ps`,
+# `inspect` and `logs` read that state. The started container's state defaults
+# to what math/bin/run does under the label Compose gives it: `prod` runs,
+# anything else exits 78 and restarts. `compose config --format json` emulates
+# Compose's precedence for the `math` service's MATH_ENV: a variable in the
+# environment Compose sees ($STUB_COMPOSE_SHELL_MATH_ENV) beats the last .env
+# definition, which beats the `${MATH_ENV:-prod}` default (checked against the
+# real Compose binary below when one is installed).
 
 _HOOK_PRELUDE = r"""
 set -e
 cd "$WORK"
+mkdir -p "$STATE/math" "$STATE/other"
 sudo() { "$@"; }
+sleep() { echo "sleep $*" >> "$LOG"; }
+_dotenv_math_env() {
+  grep -E '^[[:space:]]*(export[[:space:]]+)?MATH_ENV[[:space:]]*=' .env 2>/dev/null | tail -n 1 \
+    | sed -E 's/^[^=]*=//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"(.*)"$/\1/'
+}
+_effective_math_env() {
+  if [ -n "${STUB_COMPOSE_SHELL_MATH_ENV+x}" ]; then printf '%s' "$STUB_COMPOSE_SHELL_MATH_ENV"; return; fi
+  if grep -qE '^[[:space:]]*(export[[:space:]]+)?MATH_ENV[[:space:]]*=' .env 2>/dev/null; then _dotenv_math_env; return; fi
+  printf 'prod'
+}
 compose_stub() {
   echo "compose $*" >> "$LOG"
-  if [ "$1" = down ] && [ "${STUB_DOWN_FAIL:-}" = 1 ]; then return 1; fi
+  case "$1" in
+    config)
+      # The hook's earlier `config --quiet` validation fails the deploy on its
+      # own; this fails only the math role's read, to reach its handling.
+      if [ "${STUB_CONFIG_FAIL:-}" = 1 ] && [ "$2" = --format ]; then echo "stub: config failed" >&2; return 1; fi
+      if [ -n "${STUB_REAL_COMPOSE:-}" ]; then "$STUB_REAL_COMPOSE" "$@"; return; fi
+      if [ -n "${STUB_CONFIG_JSON:-}" ]; then printf '%s\n' "$STUB_CONFIG_JSON"; return 0; fi
+      printf '{"services":{"math":{"environment":{"MATH_ENV":"%s"}}}}\n' "$(_effective_math_env)"
+      ;;
+    down)
+      if [ "${STUB_DOWN_FAIL:-}" = 1 ]; then return 1; fi
+      rm -f "$STATE"/math/* "$STATE"/other/*
+      ;;
+    up)
+      case " $* " in
+        *" math "*)
+          if [ "${STUB_UP_FAIL:-}" = 1 ]; then return 1; fi
+          if [ -n "${STUB_MATH_STATE:-}" ]; then state="$STUB_MATH_STATE"
+          elif [ "$(_effective_math_env)" = prod ]; then state="running 0 0"
+          else state="restarting 78 2"; fi
+          printf '%s\n' "$state" > "$STATE/math/math1"
+          for extra in ${STUB_MATH_EXTRA:-}; do printf 'running 0 0\n' > "$STATE/math/$extra"; done
+          ;;
+        *) printf 'running 0 0\n' > "$STATE/other/svc1" ;;
+      esac
+      ;;
+  esac
   return 0
 }
 docker() {
@@ -395,9 +442,11 @@ docker() {
       case " $* " in
         *" --filter "*)
           if [ "${STUB_PS_FAIL:-}" = 1 ]; then return 1; fi
+          ls "$STATE/math"
           if [ -n "${STUB_MATH_LEFT:-}" ]; then printf '%s\n' $STUB_MATH_LEFT; fi
           ;;
         *)
+          ls "$STATE/math" "$STATE/other" | grep -v -e '^$' -e ':$' || true
           if [ -n "${STUB_ALL:-}" ]; then printf '%s\n' $STUB_ALL; fi
           ;;
       esac
@@ -405,7 +454,20 @@ docker() {
       ;;
     rm)
       if [ "${STUB_RM_FAIL:-}" = 1 ]; then return 1; fi
+      shift; [ "$1" = -f ] && shift
+      for id in "$@"; do rm -f "$STATE/math/$id" "$STATE/other/$id"; done
       return 0
+      ;;
+    inspect)
+      if [ "${STUB_INSPECT_FAIL:-}" = 1 ]; then return 1; fi
+      for last in "$@"; do :; done
+      cat "$STATE/math/$last"
+      ;;
+    logs)
+      for last in "$@"; do :; done
+      if [ "$(cat "$STATE/math/$last")" = "running 0 0" ]; then
+        echo "math/bin/run: write label MATH_ENV=prod admitted"
+      fi
       ;;
   esac
   return 0
@@ -413,33 +475,66 @@ docker() {
 aws() { return 1; }
 """
 
+# The hook's single jq filter, for hosts without jq (the CI image): `-e` exits 1
+# on null and 4 when nothing was produced; `strings` drops non-strings.
+_JQ_SHIM = r"""#!/usr/bin/env python3
+import json, sys
+if sys.argv[1:] != ["-er", ".services.math.environment.MATH_ENV | strings"]:
+    sys.exit("jq shim: unexpected arguments %r" % (sys.argv[1:],))
+try:
+    doc = json.load(sys.stdin)
+    value = doc["services"]["math"]["environment"].get("MATH_ENV")
+except (ValueError, KeyError, TypeError, AttributeError):
+    sys.exit(5)
+if not isinstance(value, str):
+    sys.exit(4)
+print(value)
+"""
+
 requires_bash = pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not available")
+REAL_COMPOSE = shutil.which("docker-compose")
+requires_real_compose = pytest.mark.skipif(REAL_COMPOSE is None, reason="no docker-compose binary to check precedence against")
 
 
-def _run_hook_roles(tmp_path, role, **stubs):
+def _run_hook_roles(tmp_path, role, *, dotenv=None, box=None, hook_env=None, compose_yml=None, **stubs):
     """Run after_install.sh from its service detection on, for `role` (None: no
-    role file). Returns (returncode, stdout, stderr, stub log lines)."""
+    role file), with `dotenv` as the written .env (None: no .env). `box` is the
+    state directory shared across runs (default: fresh). `hook_env` is added to
+    the hook's own environment. Returns (returncode, stdout, stderr, log lines)."""
     text = AFTER_INSTALL_PATH.read_text()
     start = text.index("SERVICE_FROM_FILE=$(cat /etc/app-info/service_type.txt)")
     tail = text[start:].replace("/usr/local/bin/docker-compose", "compose_stub").replace("/etc/app-info/", "$APP_INFO/")
+    tmp_path.mkdir(parents=True, exist_ok=True)
     app_info = tmp_path / "app-info"
     app_info.mkdir()
     if role is not None:
         (app_info / "service_type.txt").write_text(role + "\n" if role else "")
     work = tmp_path / "work"
     work.mkdir()
+    if dotenv is not None:
+        (work / ".env").write_text(dotenv)
+    if compose_yml is not None:
+        shutil.copy(compose_yml, work / "docker-compose.yml")
+    stub_bin = tmp_path / "stub-bin"
+    stub_bin.mkdir()
+    if shutil.which("jq") is None:
+        (stub_bin / "jq").write_text(_JQ_SHIM)
+        (stub_bin / "jq").chmod(0o755)
     log = tmp_path / "stub.log"
     log.write_text("")
     script = tmp_path / "hook-tail.sh"
     script.write_text(_HOOK_PRELUDE + tail)
     env = {
-        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "PATH": f"{stub_bin}:" + os.environ.get("PATH", "/usr/bin:/bin"),
+        "HOME": os.environ.get("HOME", str(tmp_path)),
         "WORK": str(work),
+        "STATE": str(box or tmp_path / "box"),
         "LOG": str(log),
         "APP_INFO": str(app_info),
+        **(hook_env or {}),
         **{f"STUB_{key.upper()}": value for key, value in stubs.items()},
     }
-    done = subprocess.run(["bash", str(script)], env=env, capture_output=True, text=True, timeout=60)
+    done = subprocess.run(["bash", str(script)], env=env, capture_output=True, text=True, timeout=120)
     return done.returncode, done.stdout, done.stderr, log.read_text().splitlines()
 
 
@@ -447,11 +542,20 @@ def _compose_ups(log):
     return [line for line in log if line.startswith("compose up")]
 
 
+def _math_ups(log):
+    return [line for line in _compose_ups(log) if "math" in _services_named(line.split()[1:])]
+
+
+PROD_ENV = "FOO=1\nMATH_ENV=prod\n"
+PYTHON_ENV = "FOO=1\nMATH_ENV=python\nMATH_PYTHON_ENV=python\n"
+PS_MATH = "docker ps -aq --filter label=com.docker.compose.service=math"
+
+
 @requires_after_install
 @requires_bash
 @pytest.mark.parametrize("role", ["banana", "", "Math", "math ", "delphi-large"])
 def test_unknown_or_empty_role_fails_without_starting_anything(tmp_path, role):
-    code, out, err, log = _run_hook_roles(tmp_path, role)
+    code, out, err, log = _run_hook_roles(tmp_path, role, dotenv=PROD_ENV)
     assert code != 0
     assert _compose_ups(log) == [], f"role [{role}] started services: {_compose_ups(log)}"
     assert "Starting nothing" in err
@@ -460,29 +564,47 @@ def test_unknown_or_empty_role_fails_without_starting_anything(tmp_path, role):
 @requires_after_install
 @requires_bash
 def test_missing_role_file_fails_without_starting_anything(tmp_path):
-    code, _, _, log = _run_hook_roles(tmp_path, None)
+    code, _, _, log = _run_hook_roles(tmp_path, None, dotenv=PROD_ENV)
     assert code != 0
     assert _compose_ups(log) == []
 
 
+# The math role under `python`: start nothing, prove retirement.
+
+
 @requires_after_install
 @requires_bash
-def test_math_role_verifies_retirement_and_logs_it(tmp_path):
-    code, out, err, log = _run_hook_roles(tmp_path, "math", all="c1 c2")
+def test_math_role_under_python_starts_nothing_and_verifies_retirement(tmp_path):
+    code, out, err, log = _run_hook_roles(tmp_path, "math", dotenv=PYTHON_ENV, all="c1 c2")
     assert code == 0, err
     assert _compose_ups(log) == []
-    assert "docker ps -aq --filter label=com.docker.compose.service=math" in log
+    assert "effective compose label for 'math': MATH_ENV=[python]" in out
     assert "math role: retirement verified" in out
-    # The check runs after the cleanup it verifies.
-    assert log.index("docker ps -aq --filter label=com.docker.compose.service=math") > log.index("docker rm -f c1 c2")
+    # The label is read from Compose, and retirement is checked after the cleanup it verifies.
+    assert "compose config --format json" in log
+    assert log.index(PS_MATH) > log.index("docker rm -f c1 c2")
+
+
+@requires_after_install
+@requires_bash
+def test_math_role_under_python_stops_a_running_clojure(tmp_path):
+    # Deploy #2 on a box where deploy #1 left Clojure running.
+    box = tmp_path / "box"
+    code, _, err, _ = _run_hook_roles(tmp_path / "d1", "math", dotenv=PROD_ENV, box=box)
+    assert code == 0, err
+    assert list((box / "math").iterdir())
+    code, out, err, log = _run_hook_roles(tmp_path / "d2", "math", dotenv=PYTHON_ENV, box=box)
+    assert code == 0, err
+    assert _compose_ups(log) == []
+    assert not list((box / "math").iterdir())
+    assert "math role: retirement verified" in out
 
 
 @requires_after_install
 @requires_bash
 def test_math_role_fails_when_a_math_container_survives_failed_cleanup(tmp_path):
-    # The reviewer's witness: both cleanup calls fail, the hook used to succeed.
     code, out, err, log = _run_hook_roles(
-        tmp_path, "math", down_fail="1", rm_fail="1", all="c1", math_left="c1"
+        tmp_path, "math", dotenv=PYTHON_ENV, down_fail="1", rm_fail="1", all="c1", math_left="c1"
     )
     assert code != 0
     assert "FAILED retirement check" in err and "c1" in err
@@ -493,7 +615,7 @@ def test_math_role_fails_when_a_math_container_survives_failed_cleanup(tmp_path)
 @requires_after_install
 @requires_bash
 def test_math_role_fails_when_docker_cannot_list_containers(tmp_path):
-    code, out, err, log = _run_hook_roles(tmp_path, "math", ps_fail="1")
+    code, out, err, log = _run_hook_roles(tmp_path, "math", dotenv=PYTHON_ENV, ps_fail="1")
     assert code != 0
     assert "cannot prove retirement" in err
     assert "retirement verified" not in out
@@ -501,12 +623,195 @@ def test_math_role_fails_when_docker_cannot_list_containers(tmp_path):
 
 @requires_after_install
 @requires_bash
-def test_math_role_succeeds_on_an_already_empty_box(tmp_path):
+def test_math_role_under_python_succeeds_on_an_already_empty_box(tmp_path):
     # Idempotency: with no containers, `docker rm -f` (no arguments) fails and
     # is ignored; the postcondition still holds.
-    code, out, err, log = _run_hook_roles(tmp_path, "math", rm_fail="1", down_fail="1")
+    code, out, err, log = _run_hook_roles(tmp_path, "math", dotenv=PYTHON_ENV, rm_fail="1", down_fail="1")
     assert code == 0, err
     assert "math role: retirement verified" in out
+
+
+# The math role under `prod`: start the guarded Clojure, verify it came up.
+
+
+@requires_after_install
+@requires_bash
+def test_math_role_under_prod_starts_clojure_and_verifies_readiness(tmp_path):
+    code, out, err, log = _run_hook_roles(tmp_path, "math", dotenv=PROD_ENV, all="c1")
+    assert code == 0, err
+    (up,) = _compose_ups(log)
+    assert up == "compose up -d math --build --force-recreate"
+    # Resolved before the start; readiness read after it, following a wait.
+    assert log.index("compose config --format json") < log.index(up) < log.index("sleep 30") < log.index(PS_MATH)
+    assert any(line.startswith("docker inspect") and line.endswith("math1") for line in log)
+    assert "effective compose label for 'math': MATH_ENV=[prod]" in out
+    assert "guard log line seen" in out
+    assert "writer readiness verified" in out
+
+
+@requires_after_install
+@requires_bash
+@pytest.mark.parametrize(
+    "state",
+    ["restarting 78 2", "exited 78 0", "running 0 3", "exited 1 0", "created 0 0"],
+    ids=["guard-restarting", "guard-exited", "restarted", "crashed", "not-started"],
+)
+def test_math_role_under_prod_fails_when_readiness_fails(tmp_path, state):
+    code, out, err, log = _run_hook_roles(tmp_path, "math", dotenv=PROD_ENV, math_state=state)
+    assert code != 0
+    assert "FAILED readiness" in err and state in err
+    assert "readiness verified" not in out
+
+
+@requires_after_install
+@requires_bash
+@pytest.mark.parametrize(
+    "stubs,message",
+    [
+        ({"up_fail": "1"}, ""),
+        ({"ps_fail": "1"}, "cannot verify the writer"),
+        ({"inspect_fail": "1"}, "FAILED to inspect"),
+        ({"math_extra": "m2"}, "expected exactly one 'math' container, found 2"),
+    ],
+    ids=["up-fails", "ps-fails", "inspect-fails", "two-containers"],
+)
+def test_math_role_under_prod_fails_when_the_writer_cannot_be_verified(tmp_path, stubs, message):
+    code, out, err, log = _run_hook_roles(tmp_path, "math", dotenv=PROD_ENV, **stubs)
+    assert code != 0
+    assert message in err
+    assert "readiness verified" not in out
+
+
+# The label: Compose's effective value, and fail closed on anything else.
+
+
+@requires_after_install
+@requires_bash
+@pytest.mark.parametrize(
+    "dotenv,stubs,message",
+    [
+        (PROD_ENV, {"config_fail": "1"}, "FAILED to read the compose config"),
+        (PROD_ENV, {"config_json": "not json"}, "gives the 'math' service no MATH_ENV"),
+        (PROD_ENV, {"config_json": '{"services":{}}'}, "gives the 'math' service no MATH_ENV"),
+        (PROD_ENV, {"config_json": '{"services":{"math":{"environment":{"MATH_ENV":null}}}}'}, "no MATH_ENV"),
+        (PROD_ENV, {"config_json": '{"services":{"math":{"environment":["MATH_ENV=prod"]}}}'}, "no MATH_ENV"),
+        ("FOO=1\n", {}, "defines MATH_ENV 0 times"),
+        ("MATH_ENV=prod\nMATH_ENV=python\n", {}, "defines MATH_ENV 2 times"),
+        ("MATH_ENV=prod\nMATH_ENV=prod\n", {}, "defines MATH_ENV 2 times"),
+        ("MATH_ENV=\n", {}, "unknown math label MATH_ENV=[]"),
+        ("MATH_ENV=dev\n", {}, "unknown math label MATH_ENV=[dev]"),
+        ("MATH_ENV=PROD\n", {}, "unknown math label MATH_ENV=[PROD]"),
+        ("MATH_ENV=prod,python\n", {}, "unknown math label"),
+        (PYTHON_ENV, {"compose_shell_math_env": "prod"}, "something outside .env overrides it"),
+        (PROD_ENV, {"compose_shell_math_env": "python"}, "something outside .env overrides it"),
+    ],
+    ids=[
+        "config-unreadable", "config-garbled", "no-math-service", "null-label", "list-env",
+        "missing-key", "ambiguous-duplicate", "duplicate-same", "empty", "dev", "uppercase",
+        "list-value", "stray-env-prod-over-python", "stray-env-python-over-prod",
+    ],
+)
+def test_math_role_fails_closed_on_an_unresolved_label(tmp_path, dotenv, stubs, message):
+    code, out, err, log = _run_hook_roles(tmp_path, "math", dotenv=dotenv, **stubs)
+    assert code != 0
+    assert message in err
+    assert _compose_ups(log) == []
+    assert PS_MATH not in log, "a refused label must not reach either branch"
+
+
+@requires_after_install
+@requires_bash
+@pytest.mark.parametrize("dotenv,label", [('MATH_ENV="prod"\n', "prod"), ("export MATH_ENV=python \n", "python")])
+def test_math_role_accepts_quoted_or_exported_dotenv_forms(tmp_path, dotenv, label):
+    code, out, err, log = _run_hook_roles(tmp_path, "math", dotenv=dotenv)
+    assert code == 0, err
+    assert f"MATH_ENV=[{label}]" in out
+    assert bool(_math_ups(log)) == (label == "prod")
+
+
+@requires_after_install
+@requires_bash
+@pytest.mark.parametrize("dotenv,expected", [(PYTHON_ENV, "python"), (PROD_ENV, "prod")])
+def test_hook_shell_math_env_does_not_choose_the_branch(tmp_path, dotenv, expected):
+    # The hook never consults its own MATH_ENV: sudo does not hand it to Compose
+    # here, so Compose's value (from .env) decides, whatever the hook's shell says.
+    stray = "prod" if expected == "python" else "python"
+    code, out, err, log = _run_hook_roles(tmp_path, "math", dotenv=dotenv, hook_env={"MATH_ENV": stray})
+    assert code == 0, err
+    assert f"MATH_ENV=[{expected}]" in out
+    assert bool(_math_ups(log)) == (expected == "prod")
+
+
+@requires_after_install
+@requires_bash
+@requires_real_compose
+@requires_checkout
+@pytest.mark.parametrize(
+    "dotenv,compose_env,outcome",
+    [
+        (PYTHON_ENV, None, "python"),
+        (PROD_ENV, None, "prod"),
+        (PYTHON_ENV, "prod", "refused"),  # shell beats .env in Compose
+        (PROD_ENV, "python", "refused"),
+        ("FOO=1\n", None, "refused"),  # Compose would default to prod
+        ("MATH_ENV=prod\nMATH_ENV=python\n", None, "refused"),  # Compose takes the last
+    ],
+    ids=["python", "prod", "stray-prod", "stray-python", "missing", "duplicate"],
+)
+def test_math_role_label_against_the_real_compose(tmp_path, dotenv, compose_env, outcome):
+    # `config` goes to the installed docker-compose, run on the checkout's
+    # docker-compose.yml; the variable reaches Compose as a leaked sudo env would.
+    hook_env = {} if compose_env is None else {"MATH_ENV": compose_env}
+    code, out, err, log = _run_hook_roles(
+        tmp_path,
+        "math",
+        dotenv=dotenv,
+        hook_env=hook_env,
+        compose_yml=CHECKOUT / "docker-compose.yml",
+        real_compose=REAL_COMPOSE,
+    )
+    if outcome == "refused":
+        assert code != 0
+        assert "Starting nothing" in err
+        assert _compose_ups(log) == []
+    else:
+        assert code == 0, err
+        assert f"MATH_ENV=[{outcome}]" in out
+        assert bool(_math_ups(log)) == (outcome == "prod")
+
+
+# Replacement and rollback.
+
+
+@requires_after_install
+@requires_bash
+@pytest.mark.parametrize("dotenv,label", [(PROD_ENV, "prod"), (PYTHON_ENV, "python")])
+def test_fresh_replacement_box_follows_the_label(tmp_path, dotenv, label):
+    # An ASG replacement runs the last successful (this) hook on an empty box:
+    # no containers, so `docker rm -f` gets no ids and fails (ignored).
+    code, out, err, log = _run_hook_roles(tmp_path, "math", dotenv=dotenv, rm_fail="1")
+    assert code == 0, err
+    box = tmp_path / "box" / "math"
+    if label == "prod":
+        assert len(_math_ups(log)) == 1 and "writer readiness verified" in out
+        assert [p.read_text().strip() for p in box.iterdir()] == ["running 0 0"]
+    else:
+        assert _compose_ups(log) == [] and "retirement verified" in out
+        assert not list(box.iterdir())
+
+
+@requires_after_install
+@requires_bash
+def test_rollback_python_to_prod_restarts_clojure(tmp_path):
+    box = tmp_path / "box"
+    code, _, err, log = _run_hook_roles(tmp_path / "switched", "math", dotenv=PYTHON_ENV, box=box)
+    assert code == 0, err
+    assert _compose_ups(log) == []
+    # Rollback: only the secret changes; the same hook redeploys.
+    code, out, err, log = _run_hook_roles(tmp_path / "rolled-back", "math", dotenv=PROD_ENV, box=box)
+    assert code == 0, err
+    assert _math_ups(log) == ["compose up -d math --build --force-recreate"]
+    assert "writer readiness verified" in out
 
 
 @requires_after_install
@@ -516,12 +821,11 @@ def test_known_roles_still_start_their_services(tmp_path):
         ("server", {"server", "nginx-proxy", "client-participation-alpha"}),
         ("delphi", {"delphi", "math-python"}),
     ):
-        sub = tmp_path / role
-        sub.mkdir()
-        code, _, err, log = _run_hook_roles(sub, role)
+        code, _, err, log = _run_hook_roles(tmp_path / role, role, dotenv=PYTHON_ENV)
         assert code == 0, err
         (up,) = _compose_ups(log)
         assert _services_named(up.split()[1:]) == services
+        assert "compose config --format json" not in log, "only the math role resolves the math label"
 
 
 # --- Clojure's own write-label guard (math/bin/run, review 1439 R1) ------------

@@ -183,9 +183,10 @@ coexist; nothing is destroyed by the flip in either direction.
 Mechanism chosen: the READERS move. One shared `MATH_ENV` in the production env
 secret sets the label the server and Delphi read; at the switch it becomes
 `python`, the label `math-python` has been writing since the shadow started
-(`MATH_PYTHON_ENV=python`, unchanged). In the same deploy the math role in
-`scripts/after_install.sh` stops starting the Clojure `math` service, so the
-math box runs nothing until step 3 deletes the tier. The poller's startup guard
+(`MATH_PYTHON_ENV=python`, unchanged). The math role in
+`scripts/after_install.sh` follows the same label: it starts the Clojure `math`
+service only under `prod`, so from the switch deploy on the math box runs
+nothing until step 3 deletes the tier. The poller's startup guard
 still refuses to write `prod` (Clojure's label); the override
 `MATH_POLLER_ALLOW_SERVED_ENV` stays unset. The single-writer lock key stays
 `polis-math-python:python`.
@@ -208,22 +209,30 @@ Writer safety, independent of the hook: `math/bin/run` refuses to start the
 Clojure engine under `python` always, and under any label but exactly `prod`
 unless `MATH_CLOJURE_ALLOW_NONPROD_ENV=1` (dev/test overlays only;
 `docker-compose.yml` does not forward it). The hook fails closed on an unknown
-role, and the math role fails the deploy unless no container of the compose
-service `math` remains after cleanup.
+role. The math role reads the label Compose will give the `math` service
+(`docker-compose config --format json`, `.services.math.environment.MATH_ENV`)
+and requires `.env` to define `MATH_ENV` exactly once with that same value:
+`prod` starts the guarded Clojure and verifies the container is running with
+no restart (not the guard's exit 78); `python` starts nothing and fails the
+deploy unless no container of the compose service `math` remains; anything
+else (unreadable config, missing, duplicate, overridden, unknown) starts
+nothing and fails the deploy.
 
 Order of operations (CodeDeploy runs the hook PACKAGED in a deployment, and an
 ASG replacement gets the last successful revision, so a `stable` merge alone
 does not change the hook a new box runs):
-1. merge to `stable`;
+1. merge to `stable`, then keep `stable` frozen until step 4 is verified;
 2. box deploy while the secret still says `MATH_ENV=prod` (packages this hook;
-   confirm it Succeeded and is the deployment group's last successful one);
+   Clojure keeps writing `prod`; confirm it Succeeded, is the deployment
+   group's last successful one, and its S3 revision matches the workflow's
+   recorded key/eTag/version);
 3. secret `MATH_ENV=python`;
-4. box deploy again (the readers switch; the math role runs nothing).
-Between 2 and 4 nothing writes `prod` while the readers still read it (served
-math is stale for that interval); keep it short.
-Rollback, in this order: secret `MATH_ENV=prod`; replace the math role's
-retirement check with its `up -d math` line (keep the fail-closed fallback and
-the Clojure guard); redeploy. On start Clojure re-polls the last 10 days of
+4. box deploy again (the readers switch; the math role stops Clojure and
+   verifies retirement).
+Served math does not freeze between 2 and 4: Clojure keeps writing `prod`
+until the readers leave it.
+Rollback: secret `MATH_ENV=prod`, then redeploy. No hook edit: the math role
+starts Clojure on exactly `prod`. On start Clojure re-polls the last 10 days of
 votes and rewrites those conversations' `prod` rows in about a minute. If the
 switch lasted longer than 10 days, a conversation whose last vote falls between
 the switch and 10 days before the rollback keeps its pre-switch `prod` row until
