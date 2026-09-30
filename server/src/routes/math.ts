@@ -1,5 +1,5 @@
 import _ from "underscore";
-import { getPca, PcaCacheItem } from "../utils/pca";
+import { getPca, isSynthesizedPca, PcaCacheItem } from "../utils/pca";
 import { presentPca } from "../utils/pcaPresentation";
 import { failJson } from "../utils/fail";
 import pg from "../db/pg-query";
@@ -29,6 +29,20 @@ function handle_GET_math_pca(
 // Needed to determine whether to return a 404 or a 304.
 // [math_env, zid] -> boolean
 const pcaResultsExistForZid: Record<string, boolean> = {};
+
+/**
+ * The pca2 entity tag: the served label and the generation, e.g. `"python-57"`.
+ *
+ * math_tick is allocated per (zid, math_env), so the generation alone does not
+ * identify a representation once the served label can change (the switch to
+ * the Python engine, or a rollback). The label is percent-encoded so any
+ * configured value stays a valid entity tag. JSON `math_tick` stays numeric; only
+ * the validator carries the label.
+ */
+export function pca2EntityTag(mathTick: number | string): string {
+  const label = encodeURIComponent(String(Config.mathEnv));
+  return '"' + label + "-" + Number(mathTick) + '"';
+}
 
 function handle_GET_math_pca2(
   req: {
@@ -60,17 +74,17 @@ function handle_GET_math_pca2(
   const keys = req.p.keys;
 
   const ifNoneMatch = req.p.ifNoneMatch;
-  // The generations named by If-None-Match, when the client sent entity tags.
-  // They are compared for EQUALITY with the served generation, not as a "newer
-  // than" floor: math_tick is per (zid, math_env), so when the served label
-  // changes (MATH_ENV prod -> python, or back on a rollback) the new label's
-  // tick can be LOWER than the tag a browser cached from the old one. A floor
-  // would answer 304 until the new label's tick passed the old tag, and the
-  // browser would keep showing the old label's cached body; equality answers
-  // 200 with the served label's result instead. While the label is unchanged,
-  // ticks only grow, so for the single tag a browser sends both rules give the
-  // same answer. `*` keeps its existing handling below.
-  let heldTicks: number[] | undefined;
+  // The entity tags named by If-None-Match. A tag names a representation, not a
+  // position in an ordering: math_tick is allocated per (zid, math_env), so
+  // prod tick 57 and python tick 57 are unrelated bodies, and a bare number
+  // cannot say which label it came from. The served tag therefore binds the
+  // label and the generation (pca2EntityTag), and a held tag is compared as an
+  // opaque value (weak comparison, since this is a GET). A legacy numeric tag
+  // (`"57"`, which client-participation builds from the JSON math_tick) never
+  // matches, so it always gets the current body: a 200 instead of a 304 costs a
+  // response, a wrong 304 keeps another label's result on screen, possibly for
+  // the rest of a dormant conversation's life. `*` keeps its existing handling.
+  let heldTags: string[] | undefined;
   if (ifNoneMatch) {
     if (math_tick !== undefined) {
       return failJson(
@@ -82,16 +96,11 @@ function handle_GET_math_pca2(
     if (ifNoneMatch.includes("*")) {
       math_tick = 0;
     } else {
-      const entries = ifNoneMatch.split(/ *, */).map((x: string) => {
-        return Number(
-          x
-            .replace(/^[wW]\//, "")
-            .replace(/^"/, "")
-            .replace(/"$/, "")
-        );
-      });
-      heldTicks = entries;
-      // Fetch the latest generation; the 304 decision is made against heldTicks.
+      heldTags = String(ifNoneMatch)
+        .split(",")
+        .map((x: string) => x.trim().replace(/^[wW]\//, ""))
+        .filter((x: string) => x.length > 0);
+      // Fetch the latest generation; the 304 decision is made against heldTags.
       math_tick = -1;
     }
   } else if (math_tick === undefined) {
@@ -110,17 +119,29 @@ function handle_GET_math_pca2(
     }
   }
 
+  // Whether the served entry is the empty presentation synthesized for a
+  // conversation with no committed row. It gets no generation tag: its
+  // math_tick 0 is a placeholder, and giving it the tag of a real generation 0
+  // would answer 304 to the first real publication. Without an explicit tag,
+  // express derives a weak validator from the body itself.
+  let synthesized = false;
   getPca(zid, math_tick)
-    // Serve the presentation, not the raw blob: an empty math result still puts
-    // the conversation's comment defaults on the wire (see utils/pcaPresentation).
-    .then((data: PcaCacheItem | undefined) => presentPca(zid, data))
+    .then((data: PcaCacheItem | undefined) => {
+      synthesized = isSynthesizedPca(data);
+      // Serve the presentation, not the raw blob: an empty math result still puts
+      // the conversation's comment defaults on the wire (see utils/pcaPresentation).
+      return presentPca(zid, data);
+    })
     .then(function (data: PcaCacheItem | undefined) {
+      const etag =
+        data && !synthesized ? pca2EntityTag(data.asPOJO.math_tick) : undefined;
       if (
-        data &&
-        heldTicks !== undefined &&
-        heldTicks.includes(Number(data.asPOJO.math_tick))
+        etag !== undefined &&
+        heldTags !== undefined &&
+        heldTags.includes(etag)
       ) {
-        // The client already holds exactly this generation.
+        // The client already holds exactly this label's generation.
+        res.set({ "Content-Type": "application/json", Etag: etag });
         res.status(304).end();
         return;
       }
@@ -132,7 +153,7 @@ function handle_GET_math_pca2(
           const filtered = _.pick(data.asPOJO, keys);
           res.set({
             "Content-Type": "application/json",
-            Etag: '"' + data.asPOJO.math_tick + '"',
+            ...(etag !== undefined ? { Etag: etag } : {}),
           });
           res.json(filtered);
           return;
@@ -144,7 +165,7 @@ function handle_GET_math_pca2(
         res.set({
           "Content-Type": "application/json",
           "Content-Encoding": "gzip",
-          Etag: '"' + data.asPOJO.math_tick + '"',
+          ...(etag !== undefined ? { Etag: etag } : {}),
         });
         res.send(data.asBufferOfGzippedJson);
       } else {
