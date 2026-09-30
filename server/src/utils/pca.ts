@@ -104,6 +104,16 @@ const pcaCache = new LruCache<string, PcaCacheItem>({
  */
 const synthesizedEntries = new WeakSet<PcaCacheItem>();
 
+/**
+ * True when `item` is the empty presentation `getPca` synthesized for a
+ * conversation with no committed `math_main` row, rather than a published
+ * generation. Its `math_tick: 0` is a placeholder, not a generation, so it must
+ * not be given the validator of a real generation 0 (routes/math.ts).
+ */
+export function isSynthesizedPca(item: PcaCacheItem | undefined): boolean {
+  return !!item && synthesizedEntries.has(item);
+}
+
 // Each namespace has an independent publication cursor and cache entries.
 const lastPrefetchedMathTicks = new Map<string, number>();
 
