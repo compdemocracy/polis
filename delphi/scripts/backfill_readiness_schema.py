@@ -1,9 +1,9 @@
 """The `polis-backfill-readiness/2`, proof and current-readiness validators,
 vendored from the verification job (P-071, design (b)).
 
-Source: ``ci/probe_box/backfill_verify.py`` at commit c11b7c783 (branch
+Source: ``ci/probe_box/backfill_verify.py`` at commit cccbdcc18 (branch
 ``probe-backfill-verify``), sha256 of that file:
-36921afa545bc77ee072239768be4d502eaa6d2a9e07bc8003ca8da9b05bfcc3.
+2d7f3313e22c28d43c856c153ba3bc0398fe463d7fdf11d03d350bee506cf34d.
 
 The collector (``collect_readiness.py``) prefers the real module when the
 repository has it (``ci/probe_box/backfill_verify.py`` importable) and falls
@@ -26,13 +26,13 @@ import hashlib
 import json
 import re
 
-UPSTREAM = 'c11b7c783:ci/probe_box/backfill_verify.py'
-UPSTREAM_SHA256 = '36921afa545bc77ee072239768be4d502eaa6d2a9e07bc8003ca8da9b05bfcc3'
+UPSTREAM = 'cccbdcc18:ci/probe_box/backfill_verify.py'
+UPSTREAM_SHA256 = '2d7f3313e22c28d43c856c153ba3bc0398fe463d7fdf11d03d350bee506cf34d'
 BLOCK_SHA256 = (
     '669bac6bc9e6f37ce5999bc53b9c66ab956393b4489df6979b5ff425876f91d3',
     '73c350740077b8ec218f1f7bff7e122ce5b158c0df786861c570ee573234b84b',
     '63dc3ba94df3734fa3270e113691695c524aa84887b775a0bf352c223f000d25',
-    'a2a3b89154781b796eb717f2dc3ca5ef189387447b8b7ceab0cb193070d01ef8',
+    '5c29ce1b43124073ae12a6fce422c74be7130d87fabfa8d0ac03e4f476b3d22a',
     'b3ec8c2b740a22c8826aebca0452569a3bd7f8097b2198014e71e258f078ef9a',
     '5c84dd2893b76951ece8e9810a889a120917a80b9db5f844cc6a0a48fcaef405',
     'e8f72d6c739a3d8909c69e745215fce87a0841a4b35593c5ca1bea1efa10a67c',
@@ -126,13 +126,7 @@ def validate_readiness(v):
     clock(v['observed_ms'])
     integer(v['seq'])
     hexdigest(v['lines_sha256'])
-    h = closed(v['holder'], HOLDER)
-    if h['role'] not in HOLDER_ROLES:
-        fail('VERIFY_READINESS')
-    hexdigest(h['instance_sha256'])
-    hexdigest(h['source_commit'], width=40)
-    hexdigest(h['run'], width=12)
-    hexdigest(h['config'], width=12)
+    validate_holder(v['holder'])
     d = closed(v['discovery'], DISCOVERY)
     clock(d['last_success_ms'])
     integer(d['successes'])
@@ -148,10 +142,7 @@ def validate_readiness(v):
         fail('VERIFY_READINESS')
     for k in ('unresolved', 'parked_live', 'in_flight'):
         integer(s[k])
-    dr = closed(v['drain'], DRAIN)
-    hexdigest(dr['run'], width=12)
-    if dr['drained_ms'] is not None:
-        clock(dr['drained_ms'])
+    validate_drain(v['drain'])
     m = closed(v['monitoring'], MONITORING)
     if m['alarm'] not in ALARMS:
         fail('VERIFY_READINESS')
@@ -159,6 +150,25 @@ def validate_readiness(v):
     if m['alert_test_sha256'] is not None:
         hexdigest(m['alert_test_sha256'])
     return v
+
+
+def validate_holder(h):
+    closed(h, HOLDER)
+    if h['role'] not in HOLDER_ROLES:
+        fail('VERIFY_READINESS')
+    hexdigest(h['instance_sha256'])
+    hexdigest(h['source_commit'], width=40)
+    hexdigest(h['run'], width=12)
+    hexdigest(h['config'], width=12)
+    return h
+
+
+def validate_drain(dr):
+    closed(dr, DRAIN)
+    hexdigest(dr['run'], width=12)
+    if dr['drained_ms'] is not None:
+        clock(dr['drained_ms'])
+    return dr
 
 
 def readiness_digest(v):

@@ -165,8 +165,10 @@ def history(at_ms, alarms=(collect.STALE_ALARM,), topic=TOPIC, actions=True):
     return items
 
 
-def receipt_for(hist):
-    """The e-mails the operator received for every ALARM transition in ``hist``."""
+def receipt_for(hist, *, mbox=None):
+    """The e-mails the operator received for every ALARM transition in
+    ``hist``: one raw e-mail, or an mbox of them (``From `` separators) when
+    there are several (or ``mbox`` is set)."""
     out = []
     for item in hist:
         if item["HistoryItemType"] != "StateUpdate" or "to ALARM" not in item["HistorySummary"]:
@@ -179,7 +181,12 @@ def receipt_for(hist):
                    f"- State Change:               OK -> ALARM\n"
                    f"- Timestamp:                  {d.strftime('%A')} {d.day} {d.strftime('%B')}, "
                    f"{d.year} {d.strftime('%H:%M:%S')} UTC\n")
+    if mbox or (mbox is None and len(out) > 1):
+        return "\n".join(MBOX_FROM + m for m in out).encode()
     return "\n".join(out).encode()
+
+
+MBOX_FROM = "From no-reply@sns.amazonaws.com Wed Sep 30 07:12:34 2026\n"
 
 
 RECEIPT = receipt_for(history(T0))
@@ -937,7 +944,7 @@ HB, STALE = collect.HEARTBEAT_ALARM, collect.STALE_ALARM
 
 @contextlib.contextmanager
 def real_verifier():
-    """The verification job's own module at the pinned commit (c11b7c783)."""
+    """The verification job's own module at the pinned commit (cccbdcc18)."""
     import tempfile
     text, queries = _upstream_text()
     with tempfile.TemporaryDirectory() as tmp:
@@ -1466,3 +1473,424 @@ def test_cli_current_file_mode(tmp_path):
     assert stat.S_IMODE((out / "current-readiness.json").stat().st_mode) == 0o600
     with real_verifier() as real:
         real.validate_current(current)
+
+
+# --------------------------------------------------------------------------- #
+# Review [1465]: run lifecycle per instance (R1), one notification per event
+# (R2) and malformed drill evidence (R3), through to the real hand-off.
+# --------------------------------------------------------------------------- #
+@contextlib.contextmanager
+def real_pipeline(tmp_path):
+    """The pinned verification job's own producer, verifier, receipt decoder
+    and hand-off (``git archive`` of its ``ci`` tree at the vendored pin)."""
+    import tarfile
+    rev = schema.UPSTREAM.split(":")[0]
+    archive = tmp_path / "ci.tar"
+    try:
+        with archive.open("wb") as fh:
+            subprocess.run(["git", "-C", str(REPO), "archive", rev, "ci/probe_box",
+                            "ci/private_cert/images"], stdout=fh, check=True,
+                           stderr=subprocess.DEVNULL)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pytest.skip("the verification job's source is not available in this checkout")
+    with tarfile.open(archive) as tar:
+        tar.extractall(tmp_path / "up", **({"filter": "data"} if hasattr(tarfile, "data_filter")
+                                            else {}))
+    paths = [str(tmp_path / "up/ci/probe_box"), str(tmp_path / "up/ci/private_cert/images")]
+    names = ("backfill_verify", "backfill_verify_queries", "backfill_verify_verifier",
+             "backfill_verify_producer", "contracts", "receipt")
+    saved = {n: sys.modules.pop(n) for n in names if n in sys.modules}
+    sys.path[:0] = paths
+    try:
+        yield {n: importlib.import_module(n) for n in names}
+    finally:
+        for p in paths:
+            sys.path.remove(p)
+        for n in names:
+            sys.modules.pop(n, None)
+        sys.modules.update(saved)
+
+
+def _proven(mods, monkeypatch, alert=None, lines_hook=None):
+    """A decoded passing receipt from the real producer/verifier over the
+    verifier's own fixture projection (no SQL, no cloud), its proof, and the
+    history record bound from the holder's healthy lines (as the reviewer's
+    integration does)."""
+    real, verifier, producer = (mods["backfill_verify"], mods["backfill_verify_verifier"],
+                                mods["backfill_verify_producer"])
+    monkeypatch.setattr(sys.modules[__name__], "T0", verifier.SNAPSHOT_MS - 330_000)
+    lines, now = fixture_log()
+    alert = alert_doc(lines) if alert is None else alert
+    hist_at = now - 59_000
+    history_record, _, _ = collect.build_record(lines[:-1], described(), hist_at, hist_at,
+                                                topic_arn=TOPIC, alert_test=alert)
+    spec = dict(real.TEMPLATE_RUN_SPEC, cutoff_ms=history_record["drain"]["drained_ms"] + 1,
+                readiness=history_record)
+    job = mods["contracts"].validate_job(dict(
+        schema="polis-probe-job/2", kind="backfill-verify", run_id="c" * 32, max_seconds=7200,
+        run_spec=spec, **{role: {"image": "localhost/polis-verify-" + role + "@sha256:"
+                                 + str(i) * 64, "args": [action]}
+                          for i, (role, action) in enumerate(
+                              [("reader", "read"), ("producer", "produce"),
+                               ("verifier", "verify")], 1)}))
+    projection = verifier.fixture_projection(verifier.fixture_results())
+    receipt = verifier.export(projection, producer.produce(projection, spec), job, "1" * 40)
+    receipt = mods["receipt"].decode_receipt(real.encoded(receipt), job)
+    assert mods["receipt"].receipt_passed(receipt, job)
+    rsha = hashlib.sha256(real.encoded(receipt)).hexdigest()
+    jsha = hashlib.sha256(real.encoded(job)).hexdigest()
+    proof = real.proof_record(receipt, rsha, now + 1000)
+    return dict(lines=lines, now=now, alert=alert, receipt=receipt, proof=proof, rsha=rsha,
+                jsha=jsha, real=real)
+
+
+def _handoff(p, lines):
+    current, bound, _ = collect.build_current(
+        lines, described(), p["now"] + 2000, p["now"] + 2000, topic_arn=TOPIC, proof=p["proof"],
+        alert_test=p["alert"], validator=p["real"])
+    return p["real"].handoff(p["receipt"], current, p["now"] + 3000, proof=p["proof"],
+                             receipt_sha256=p["rsha"], job_sha256=p["jsha"], receipts=[p["rsha"]])
+
+
+def restart_line(at_ms, instance="i-0123", run="bbbbbbbbbbbb"):
+    """The real reporter's startup line of a new process run (a container
+    restart): standby, empty evidence."""
+    out = []
+    ReadinessReporter(ReadinessSettings(), {"math_env": "python"}, run=run,
+                      env={"MATH_POLLER_INSTANCE_ID": instance, "MATH_POLLER_SOURCE_COMMIT": COMMIT},
+                      clock_ms=lambda: at_ms, emit=out.append).tick()
+    body = rd.parse_readiness(out[0])
+    assert body["role"] == "standby" and body["run"] == run
+    return out[0]
+
+
+def successor_lines(at_ms, instance="i-0123", run="cccccccccccc"):
+    """A new run's startup line, then the same run admitted (primary)."""
+    out = []
+    rep = ReadinessReporter(ReadinessSettings(), {"math_env": "python"}, run=run,
+                            env={"MATH_POLLER_INSTANCE_ID": instance,
+                                 "MATH_POLLER_SOURCE_COMMIT": COMMIT},
+                            clock_ms=lambda: at_ms, emit=out.append)
+    rep.tick()
+    rep.became_primary()
+    return out
+
+
+def test_1465_r1_same_instance_restart_supersedes_the_holder(tmp_path):
+    """Reviewer's case: the real reporter's startup line of a new run on the
+    holder's instance. holder (helper and exact CLI), record and current
+    refuse, and the report names the new run's line."""
+    lines, now = fixture_log()
+    new = restart_line(now + 1000)
+    assert rd.parse_readiness(new)["instance_sha256"] == collect.current_holder(lines, now)["instance_sha256"]
+    restarted = lines + [new]
+    with pytest.raises(collect.Degraded, match="DEGRADED_HOLDER_RUN_SUPERSEDED") as exc:
+        collect.current_holder(restarted, now + 1000)
+    (sup,) = exc.value.report["superseded_by"]
+    assert sup["run"] == "bbbbbbbbbbbb" and sup["role"] == "standby"
+    assert sup["first_index"] == len(lines)
+    assert sup["line_sha256"] == hashlib.sha256(new.encode()).hexdigest()
+    with pytest.raises(collect.Degraded, match="DEGRADED_HOLDER_RUN_SUPERSEDED"):
+        collect.build_record(restarted, described(), now + 1000, now + 1000, topic_arn=TOPIC,
+                             alert_test=alert_doc())
+    with pytest.raises(collect.Degraded, match="DEGRADED_HOLDER_RUN_SUPERSEDED"):
+        collect.build_current(restarted, described(), now + 1000, now + 1000, topic_arn=TOPIC,
+                              proof=_proof(now - 1000, now - 30_000), alert_test=alert_doc())
+    run = _holder_cli(tmp_path, restarted, now + 1000, "i-0123")
+    assert run.returncode == 2 and "REFUSED DEGRADED_HOLDER_RUN_SUPERSEDED" in run.stderr
+    assert "HOLDER" not in run.stdout
+    # The record CLI writes the degraded report naming the superseding line.
+    log = tmp_path / "restart.log"
+    log.write_text("\n".join(restarted) + "\n")
+    alarms = tmp_path / "alarms.json"
+    alarms.write_text(json.dumps({**described(), "_evaluated_ms": now + 1000}))
+    out = tmp_path / "rec"
+    run = subprocess.run([sys.executable, str(DELPHI / "scripts" / "collect_readiness.py"),
+                          "record", "--source", "file", "--file", str(log), "--alarm-state",
+                          f"file:{alarms}", "--topic-arn", TOPIC, "--out", str(out),
+                          "--observed-ms", str(now + 1000)], capture_output=True, text=True)
+    assert run.returncode == 2 and "DEGRADED_HOLDER_RUN_SUPERSEDED" in run.stderr
+    report = json.loads((out / "collection.json").read_text())
+    assert report["degraded_reason"] == "HOLDER_RUN_SUPERSEDED"
+    assert report["superseded_by"][0]["line_sha256"] == sup["line_sha256"]
+    assert not (out / "readiness.json").exists()
+
+
+def test_1465_r1_other_instance_standby_and_successor_primaries():
+    lines, now = fixture_log()
+    # A new standby on another instance does not touch the holder.
+    assert collect.current_holder(lines + [restart_line(now + 1000, "i-0456")],
+                                  now + 1000)["run"] == RUN
+    # A successor admitted on the same instance, or on another, is the holder.
+    for instance in ("i-0123", "i-0456"):
+        held = collect.current_holder(lines + successor_lines(now + 1000, instance), now + 1000)
+        assert held["run"] == "cccccccccccc" and held["role"] == "primary"
+        assert held["instance_sha256"] == collect.instance_digest(instance)
+    # The old holder's instance restarted as a standby, and the successor was
+    # admitted elsewhere: the successor, not the superseded run.
+    both = lines + [restart_line(now + 1000)] + successor_lines(now + 2000, "i-0456")
+    assert collect.current_holder(both, now + 2000)["run"] == "cccccccccccc"
+
+
+def test_1465_r1_clock_disagreement_is_not_resolved_for_the_older_run():
+    """A run on the holder's instance whose first line is logged before the
+    holder's, but whose clock does not put it safely before the holder's
+    start, is ambiguous and refuses; a genuinely earlier process (the one the
+    holder replaced) is harmless."""
+    lines, now = fixture_log()
+    first = collect.run_starts(collect.classify(lines))[
+        (collect.instance_digest("i-0123"), RUN)][1]
+    ambiguous = [restart_line(first - collect.CLOCK_TOLERANCE_MS + 1)] + lines
+    with pytest.raises(collect.Degraded, match="DEGRADED_HOLDER_RUN_SUPERSEDED"):
+        collect.current_holder(ambiguous, now)
+    earlier = [restart_line(first - 600_000)] + lines
+    assert collect.current_holder(earlier, now)["run"] == RUN
+    record, _ = build(earlier, described(), now, now, alert_test=alert_doc())
+    assert record["holder"]["run"] == RUN
+
+
+@pytest.mark.parametrize("restarted", [False, True])
+def test_1465_r1_current_to_real_handoff(tmp_path, monkeypatch, restarted):
+    """Reviewer's integration: history, decoded passing receipt, proof,
+    current, real hand-off. Healthy: READY. After the same-instance restart
+    line: no current record at all, so never READY."""
+    with real_pipeline(tmp_path) as mods:
+        p = _proven(mods, monkeypatch)
+        lines = p["lines"] + ([restart_line(p["now"] + 1500)] if restarted else [])
+        if not restarted:
+            result = _handoff(p, lines)
+            assert result["status"] == "READY" and result["reasons"] == []
+            return
+        with pytest.raises(collect.Degraded, match="DEGRADED_HOLDER_RUN_SUPERSEDED"):
+            _handoff(p, lines)
+
+
+# R2 ------------------------------------------------------------------------ #
+def _both_fired():
+    """Both alarms change state at one evaluation boundary inside both drill
+    windows (the reviewer's arrangement)."""
+    fired = T0 + 900_000
+    return fired, sum(([state_item(a, fired), action_item(a, fired + 500, fired)]
+                       for a in collect.ALARMS), [])
+
+
+def _mail(alarm, at_ms, state="ALARM"):
+    return receipt_for([state_item(alarm, at_ms, new=state)] if state == "ALARM" else [
+        dict(state_item(alarm, at_ms, new="ALARM"))], mbox=False).replace(
+        b'ALARM: "', (state + ': "').encode(), 1) if state != "ALARM" else \
+        receipt_for([state_item(alarm, at_ms)], mbox=False)
+
+
+OLD_HB_OK = ('Subject: OK: "' + HB + '"\nDate: 2019-01-01T00:00:00Z\n'
+             'Entered the OK state.\n').encode()
+
+
+def test_1465_r2_fields_are_never_combined_across_messages():
+    """Reviewer's case: the genuine stale ALARM mail plus an unrelated 2019
+    heartbeat OK mail. Neither alone passes; together (one file, or two
+    files) they still lack a HeartbeatMissing ALARM notification."""
+    lines = _drill_log(tested_is_holder=True)
+    fired, hist = _both_fired()
+    stale_mail = _mail(STALE, fired)
+    for receipt in (stale_mail, OLD_HB_OK, stale_mail + b"\n" + OLD_HB_OK,
+                    [stale_mail, OLD_HB_OK], MBOX_FROM.encode() + stale_mail + b"\n"
+                    + MBOX_FROM.encode() + OLD_HB_OK):
+        with pytest.raises(collect.Refused, match="ALERT_TEST_RECEIPT_UNRELATED"):
+            alert_doc(lines, hist=hist, receipt=receipt)
+    # The heartbeat ALARM mail's own time must be the transition's: a
+    # heartbeat ALARM mail an hour earlier next to the stale mail at the
+    # shared time does not borrow the stale mail's timestamp.
+    for receipt in ([stale_mail, _mail(HB, fired - 3_600_000)],
+                    [stale_mail, _mail(HB, fired, state="OK")]):
+        with pytest.raises(collect.Refused, match=f"ALERT_TEST_RECEIPT_UNRELATED:{HB}"):
+            alert_doc(lines, hist=hist, receipt=receipt)
+    # JSON: a heartbeat OK message and a stale ALARM message at the shared
+    # time do not make a heartbeat ALARM.
+    msgs = [{"AlarmName": STALE, "NewStateValue": "ALARM", "StateChangeTime": iso(fired)},
+            {"AlarmName": HB, "NewStateValue": "OK", "StateChangeTime": iso(fired)}]
+    with pytest.raises(collect.Refused, match=f"ALERT_TEST_RECEIPT_UNRELATED:{HB}"):
+        alert_doc(lines, hist=hist, receipt=json.dumps(msgs).encode())
+
+
+def test_1465_r2_genuine_notifications_pass_in_every_supported_form(tmp_path):
+    lines = _drill_log(tested_is_holder=True)
+    fired, hist = _both_fired()
+    stale_mail, hb_mail = _mail(STALE, fired), _mail(HB, fired)
+    msgs = [json.loads(json.loads(i["HistoryData"])["publishedMessage"])
+            for i in hist if i["HistoryItemType"] == "Action"]
+    envelopes = [{"Type": "Notification", "MessageId": f"m-{k}", "Subject": "x",
+                  "Message": json.dumps(m)} for k, m in enumerate(msgs)]
+    email_json = [(f"Subject: {k}\nContent-Type: text/plain\n\n" + json.dumps(e) + "\n").encode()
+                  for k, e in enumerate(envelopes)]
+    forms = {
+        "two files": [stale_mail, hb_mail],
+        "mbox": receipt_for(hist),
+        "json array": json.dumps(envelopes).encode(),
+        "json lines": "\n".join(json.dumps(e) for e in envelopes).encode(),
+        "bare messages": [json.dumps(m).encode() for m in msgs],
+        "email-json": email_json,
+        "quoted-printable": [stale_mail, b"Content-Transfer-Encoding: quoted-printable\n"
+                             + hb_mail.replace(b"UTC\n", b"U=\nTC\n")],
+    }
+    docs = {}
+    for name, receipt in forms.items():
+        doc = alert_doc(lines, hist=hist, receipt=receipt)
+        assert collect.check_alert_test(doc) == doc["sha256"], name
+        docs[name] = doc
+    assert docs["two files"]["evidence"]["receipt_sha256"] == hashlib.sha256(collect.encoded(
+        [hashlib.sha256(stale_mail).hexdigest(), hashlib.sha256(hb_mail).hexdigest()])).hexdigest()
+    one = alert_doc(lines, hist=hist, receipt=forms["mbox"])
+    assert one["evidence"]["receipt_sha256"] == hashlib.sha256(forms["mbox"]).hexdigest()
+    # The CLI takes one --receipt per file and reports the selected messages.
+    log = tmp_path / "delphi.log"
+    log.write_text("\n".join(lines) + "\n")
+    hfile = tmp_path / "history.json"
+    hfile.write_text(json.dumps({"AlarmHistoryItems": hist}))
+    alarms = tmp_path / "alarms.json"
+    alarms.write_text(json.dumps(described()))
+    paths = []
+    for k, raw in enumerate((stale_mail, hb_mail)):
+        paths += ["--receipt", str(tmp_path / f"r{k}.eml")]
+        (tmp_path / f"r{k}.eml").write_bytes(raw)
+    out = tmp_path / "at"
+    run = subprocess.run([sys.executable, str(DELPHI / "scripts" / "collect_readiness.py"),
+                          "alert-test", "--nonce", NONCE, "--source", "file", "--file", str(log),
+                          "--history", f"file:{hfile}", "--alarm-state", f"file:{alarms}",
+                          "--topic-arn", TOPIC, *paths, "--out", str(out)],
+                         capture_output=True, text=True)
+    assert run.returncode == 0, run.stderr
+    doc = json.loads((out / "alert-test.json").read_text())
+    assert doc == docs["two files"]
+    report = json.loads((out / "alert-test-collection.json").read_text())
+    assert [(m["file"], m["alarm"], m["state"]) for m in report["receipt_selected"]] == [
+        (0, STALE, "ALARM"), (1, HB, "ALARM")]
+    assert report["receipt_selected"][1]["sha256"] == hashlib.sha256(hb_mail).hexdigest()
+    trace = (out / "alert-test-lines.txt").read_bytes()
+    assert hashlib.sha256(trace).hexdigest() == report["trace_sha256"]
+    assert report["malformed"] == [] and len(report["trace"]) == len(trace.splitlines())
+
+
+def test_1465_r2_wrong_state_time_or_missing_message_refuse():
+    lines = _drill_log(tested_is_holder=True)
+    fired, hist = _both_fired()
+    stale_mail = _mail(STALE, fired)
+    cases = {
+        "missing": [stale_mail],
+        "wrong state": [stale_mail, _mail(HB, fired, state="OK")],
+        "wrong time": [stale_mail, _mail(HB, fired + 5_000)],
+        "other alarm": [stale_mail, _mail(STALE, fired)],
+        # One mail whose body states two different times cannot say which.
+        "two stamps": [stale_mail, _mail(HB, fired) + b"- Timestamp:  Wednesday 1 January, 2025 "
+                       b"00:00:00 UTC\n"],
+        # Its body's own name or state change contradicts its subject.
+        "body name": [stale_mail, _mail(HB, fired) + b"- Name:  " + STALE.encode() + b"\n"],
+        "body state": [stale_mail, _mail(HB, fired).replace(b"OK -> ALARM", b"ALARM -> OK")],
+    }
+    for name, receipt in cases.items():
+        with pytest.raises(collect.Refused, match=f"ALERT_TEST_RECEIPT_UNRELATED:{HB}"):
+            alert_doc(lines, hist=hist, receipt=receipt)
+    with pytest.raises(collect.Refused, match="ALERT_TEST_RECEIPT_MISSING"):
+        alert_doc(lines, hist=hist, receipt=[])
+
+
+# R3 ------------------------------------------------------------------------ #
+def _truncated_in_place(kind):
+    """The reviewer's cases: a heartbeat of another run, or the tested run's
+    standby transition, inside the evaluated silence; complete, and with
+    only its JSON cut off, placed in log order."""
+    lines = _drill_log(tested_is_holder=True)
+    donor = next(x for x in lines if x.startswith("math_poller readiness_silenced/1"))
+    if kind == "heartbeat":
+        line = _replace_body(donor, _header="math_poller readiness/1", run="bbbbbbbbbbbb",
+                             emitted_ms=T0 + 500_000, seq=1)
+    else:
+        line = _replace_body(donor, _header="math_poller readiness/1", role="standby",
+                             progress="waiting", emitted_ms=T0 + 500_000)
+    at = next(i for i, x in enumerate(lines)
+              if (rd.parse_readiness(x) or {}).get("emitted_ms", 0) > T0 + 500_000)
+    return lines, line, at
+
+
+@pytest.mark.parametrize("kind,complete_reason", [
+    ("heartbeat", "HEARTBEAT_TEST_HEARTBEAT_SEEN"), ("standby", "HEARTBEAT_TEST_NOT_HELD")])
+def test_1465_r3_a_truncated_adverse_line_in_the_drill_refuses(kind, complete_reason, tmp_path):
+    lines, line, at = _truncated_in_place(kind)
+    hist = history(T0, alarms=collect.ALARMS)
+    with pytest.raises(collect.Refused, match=complete_reason):
+        alert_doc(lines[:at] + [line] + lines[at:], hist=hist)
+    broken = line[:-8]
+    if kind == "heartbeat":
+        assert "math_poller readiness/1 role=primary progress=ok" in broken
+    damaged = lines[:at] + [broken] + lines[at:]
+    with pytest.raises(collect.Degraded, match="ALERT_TEST_EVIDENCE_MALFORMED") as exc:
+        alert_doc(damaged, hist=hist)
+    (bad,) = exc.value.report["malformed"]
+    assert bad["index"] == at and bad["sha256"] == hashlib.sha256(broken.encode()).hexdigest()
+    assert any(t["index"] == at and t["kind"] == "malformed" for t in exc.value.report["trace"])
+    # The CLI writes the private report explaining the refusal, and no document.
+    log = tmp_path / "delphi.log"
+    log.write_text("\n".join(damaged) + "\n")
+    hfile = tmp_path / "history.json"
+    hfile.write_text(json.dumps(hist))
+    alarms = tmp_path / "alarms.json"
+    alarms.write_text(json.dumps(described()))
+    receipt = tmp_path / "r.mbox"
+    receipt.write_bytes(receipt_for(hist))
+    out = tmp_path / "at"
+    run = subprocess.run([sys.executable, str(DELPHI / "scripts" / "collect_readiness.py"),
+                          "alert-test", "--nonce", NONCE, "--source", "file", "--file", str(log),
+                          "--history", f"file:{hfile}", "--alarm-state", f"file:{alarms}",
+                          "--topic-arn", TOPIC, "--receipt", str(receipt), "--out", str(out)],
+                         capture_output=True, text=True)
+    assert run.returncode == 2 and "ALERT_TEST_EVIDENCE_MALFORMED" in run.stderr
+    report = json.loads((out / "alert-test-collection.json").read_text())
+    assert report["malformed"][0]["sha256"] == bad["sha256"]
+    assert not (out / "alert-test.json").exists()
+
+
+def test_1465_r3_malformed_lines_outside_the_drill_and_stale_only_drills():
+    lines = _drill_log(tested_is_holder=True)
+    hist = history(T0, alarms=collect.ALARMS)
+    # After the silence and the last selected transition, between timed
+    # lines: its possible time is outside the drill, so it is excluded.
+    end = max(T0 + FIRES_AFTER[HB], T0 + 1_200_000)
+    at = next(i for i, x in enumerate(lines)
+              if (rd.parse_readiness(x) or {}).get("emitted_ms", 0) > end + 60_000)
+    ok = lines[:at] + ["math_poller readiness/1 role=primary progress=ok {"] + lines[at:]
+    doc = alert_doc(ok, hist=hist)
+    assert collect.check_alert_test(doc) == doc["sha256"]
+    # A cut-off discovery_stale line near a stale-only test could be the
+    # datapoint that fired: refused.
+    plain, _ = fixture_log()
+    stale = plain[:3] + ['math_poller discovery_stale/1 {"schema":"math_poller.discovery_stale/1",'] \
+        + plain[3:]
+    with pytest.raises(collect.Degraded, match="ALERT_TEST_EVIDENCE_MALFORMED"):
+        alert_doc(stale)
+    # With nothing before it to bound its time, it may be inside: refused.
+    # After the holder's newest line (bounded below, past the stale event)
+    # it is excluded.
+    cut = "math_poller readiness/1 role=standby progress=waiting {"
+    with pytest.raises(collect.Degraded, match="ALERT_TEST_EVIDENCE_MALFORMED"):
+        alert_doc([cut] + plain)
+    doc = alert_doc(plain + [cut])
+    assert collect.check_alert_test(doc) == doc["sha256"]
+
+
+def test_1465_the_reviewer_handoff_cases_never_reach_ready(tmp_path, monkeypatch):
+    """The three alert-test cases the reviewer carried to the real hand-off
+    now stop at alert-test (no document exists to bind); the matched drill
+    still reaches READY."""
+    with real_pipeline(tmp_path) as mods:
+        lines = _drill_log(tested_is_holder=True)
+        fired, both = _both_fired()
+        with pytest.raises(collect.Refused, match=f"ALERT_TEST_RECEIPT_UNRELATED:{HB}"):
+            alert_doc(lines, hist=both, receipt=_mail(STALE, fired) + b"\n" + OLD_HB_OK)
+        for kind in ("heartbeat", "standby"):
+            base, line, at = _truncated_in_place(kind)
+            with pytest.raises(collect.Degraded, match="ALERT_TEST_EVIDENCE_MALFORMED"):
+                alert_doc(base[:at] + [line[:-8]] + base[at:],
+                          hist=history(T0, alarms=collect.ALARMS))
+        doc = alert_doc(lines, hist=history(T0, alarms=collect.ALARMS))
+        p = _proven(mods, monkeypatch, alert=doc)
+        result = _handoff(p, p["lines"])
+        assert result["status"] == "READY" and result["reasons"] == []
