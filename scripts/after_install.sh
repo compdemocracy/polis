@@ -222,12 +222,20 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   #      resuming deploys or ASG launches.
   # Readiness identity (P-072): the math poller logs the source commit and a
   # digest of this instance's id in its readiness lines, so the operator's
-  # readiness record names the holder. Best effort: a missing value leaves
-  # the field empty, and the collector refuses to build a record without a
-  # source commit rather than guessing one.
+  # readiness record names the holder. Never fatal here: a missing commit
+  # makes the collector refuse to build a record, and a missing instance id
+  # makes the poller itself refuse to start (exit 2; the heartbeat alarm
+  # then fires) rather than name the holder by container hostname.
   POLLER_COMMIT=$(sudo git rev-parse HEAD 2>/dev/null || true)
-  IMDS_TOKEN=$(curl -s -m 2 -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60" || true)
-  POLLER_INSTANCE=$(curl -s -m 2 -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/instance-id || true)
+  POLLER_INSTANCE=""
+  for attempt in 1 2 3; do
+    IMDS_TOKEN=$(curl -s -m 2 -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60" || true)
+    POLLER_INSTANCE=$(curl -s -m 2 -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/instance-id || true)
+    case "$POLLER_INSTANCE" in i-*) break ;; *) POLLER_INSTANCE=""; sleep 1 ;; esac
+  done
+  if [ -z "$POLLER_INSTANCE" ]; then
+    echo "WARNING: no EC2 instance id from IMDS; the math poller will refuse to start (P-072)"
+  fi
   printf "\nMATH_POLLER_SOURCE_COMMIT=%s\nMATH_POLLER_INSTANCE_ID=%s\n" "$POLLER_COMMIT" "$POLLER_INSTANCE" | sudo tee -a .env > /dev/null
   sudo /usr/local/bin/docker-compose up -d delphi math-python --build --force-recreate
 else

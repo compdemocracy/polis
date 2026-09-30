@@ -93,6 +93,9 @@ class ConversationWorkerPool:
 
     Args:
         process_fn: callable(zid, CoalescedBatch) invoked once per drained cycle.
+            It may return False to say the live work it was given is still
+            unresolved (a failure it will retry); anything else, with the zid
+            not parked and no exception, resolves it.
         max_workers: max concurrent zids processed at once.
     """
 
@@ -114,6 +117,12 @@ class ConversationWorkerPool:
         self._queued_live: Dict[int, float] = {}
         self._queued_backfill: Dict[int, float] = {}
         self._running_since: Dict[int, Tuple[float, bool]] = {}
+        # When each zid's oldest UNRESOLVED live work was first queued. Unlike
+        # the queued marks it survives parking, failed attempts, retries,
+        # unparking and reconciler resubmission; only a successful live run
+        # (or an explicit reviewed disposition, ``dispose_unresolved``) clears
+        # it. It is what keeps failing live work ageing in the readiness line.
+        self._unresolved_live: Dict[int, float] = {}
         self._clock = time.monotonic
         self._lock = threading.Lock()
         self._idle = threading.Condition(self._lock)
@@ -160,8 +169,11 @@ class ConversationWorkerPool:
             if self._closed or zid in self._parked:
                 return False
             self._queues.setdefault(zid, deque()).append((message_type, batch))
+            now = self._clock()
             marks = self._queued_backfill if message_type == BACKFILL else self._queued_live
-            marks.setdefault(zid, self._clock())
+            marks.setdefault(zid, now)
+            if message_type != BACKFILL:
+                self._unresolved_live.setdefault(zid, now)
             if zid not in self._active:
                 self._active.add(zid)
                 self._executor.submit(self._run, zid)
@@ -200,22 +212,42 @@ class ConversationWorkerPool:
                 self._running_since[zid] = (started, live)
 
             coalesced = coalesce_messages(messages)
+            outcome = None
             if coalesced.has_work():
                 try:
-                    self._process_fn(zid, coalesced)
+                    outcome = self._process_fn(zid, coalesced)
                 except Exception:  # pragma: no cover - process_fn owns its errors
                     logger.exception("Unhandled error processing zid=%s", zid)
+                    outcome = False
+            if live:
+                with self._lock:
+                    if outcome is not False and zid not in self._parked:
+                        # Resolved. Live messages that arrived while it ran
+                        # are unresolved from their own arrival.
+                        later = self._queued_live.get(zid)
+                        if later is None:
+                            self._unresolved_live.pop(zid, None)
+                        else:
+                            self._unresolved_live[zid] = later
             # loop: re-check for messages that arrived while we were processing
+
+    def dispose_unresolved(self, zid: int) -> None:
+        """An explicit, reviewed disposition of a zid's unresolved live work
+        (it will not be retried): its age stops counting."""
+        with self._lock:
+            self._unresolved_live.pop(zid, None)
 
     def queue_stats(self) -> Dict[str, Any]:
         """Counts and ages for the readiness line; no zids leave the pool.
 
-        ``oldest_live_age_ms`` / ``oldest_backfill_age_ms``: the longest any
-        live (votes, moderation, rebuild) or backfill work has been waiting or
-        running, measured from when its oldest message was queued."""
+        ``oldest_live_age_ms``: the longest any live (votes, moderation,
+        rebuild) work has been unresolved, measured from when its oldest
+        message was first queued, through waiting, running, failed attempts,
+        retries and parking, until a run succeeds. ``oldest_backfill_age_ms``:
+        the longest any backfill work has been waiting or running."""
         with self._lock:
             now = self._clock()
-            live = list(self._queued_live.values()) + [
+            live = list(self._queued_live.values()) + list(self._unresolved_live.values()) + [
                 t for t, is_live in self._running_since.values() if is_live]
             backfill = list(self._queued_backfill.values()) + [
                 t for t, is_live in self._running_since.values() if not is_live]

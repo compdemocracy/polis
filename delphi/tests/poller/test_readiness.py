@@ -404,17 +404,236 @@ def test_pool_queue_stats_age_live_and_backfill_separately():
     assert st["pending"] == 0 and st["in_flight"] == 0 and st["oldest_live_age_ms"] is None
 
 
-def test_parking_clears_queued_ages():
+def test_parking_keeps_unresolved_live_age():
+    """P-072 review R2: parking drops the queued messages, not the age of the
+    unresolved live work; a zid that succeeded leaves no age behind."""
     gate = threading.Event()
+    now = {"t": 0.0}
     pool = ConversationWorkerPool(lambda z, b: gate.wait(5), max_workers=1)
+    pool._clock = lambda: now["t"]
     try:
         pool.submit(1, VOTES, [1])
         pool.submit(2, VOTES, [2])
         pool.park(2)
-        st = pool.queue_stats()
-        assert st["parked"] == 1
+        assert pool.queue_stats()["parked"] == 1
+    finally:
+        gate.set()
+        pool.join(5)
+    now["t"] = 3600.0
+    st = pool.queue_stats()
+    assert st["parked"] == 1 and st["pending"] == 0 and st["in_flight"] == 0
+    assert st["oldest_live_age_ms"] == 3_600_000 == st["oldest_work_age_ms"]
+    pool.shutdown()
+
+
+class _FailingThenOk:
+    """A process function that fails (the service's retry path returns False,
+    its park path parks) until told to succeed."""
+
+    def __init__(self, pool_ref, mode="retry"):
+        self.pool_ref = pool_ref
+        self.mode = mode
+        self.ok = False
+        self.calls = 0
+
+    def __call__(self, zid, batch):
+        self.calls += 1
+        if self.ok:
+            return True
+        if self.mode == "park":
+            self.pool_ref[0].park(zid)
+            return None
+        return False
+
+
+def _pool_with(fn_factory, clock):
+    ref = [None]
+    fn = fn_factory(ref)
+    pool = ConversationWorkerPool(fn, max_workers=1)
+    pool._clock = lambda: clock["t"]
+    ref[0] = pool
+    return pool, fn
+
+
+def _progress_of(pool, clock, reporter_state):
+    """One readiness tick over this pool with healthy discovery."""
+    r, marks = reporter_state
+    marks[0] += 1
+    snap = snapshot(last=T0 + int(clock["t"] * 1000) - 10, successes=(marks[0], marks[0]))
+    snap["queue"] = pool.queue_stats()
+    r.set_source(lambda: snap)
+    return parse_readiness(r.tick()[0])
+
+
+@pytest.mark.parametrize("mode", ["retry", "park"])
+def test_repeated_unsuccessful_recovery_goes_stuck_with_healthy_polling(mode):
+    """Twelve failed recovery cycles over an hour while discovery succeeds
+    every time: the live work stays unresolved from its first arrival, so
+    the holder reports stuck (not ok) once it passes the bound."""
+    clock = {"t": 0.0}
+    pool, fn = _pool_with(lambda ref: _FailingThenOk(ref, mode), clock)
+    rclock = Clock()
+    r, _ = reporter(clock=rclock)
+    r.became_primary()
+    state = (r, [0])
+    progress = []
+    try:
+        for i in range(12):
+            clock["t"] = i * 300.0
+            rclock.t = T0 + int(clock["t"] * 1000)
+            pool.unpark(1)  # the reconciler / a new batch unparks and resubmits
+            assert pool.submit(1, VOTES, [{"created": i}])
+            assert pool.join(5)
+            body = _progress_of(pool, clock, state)
+            progress.append(body["progress"])
+            assert body["queue"]["oldest_live_age_ms"] == int(clock["t"] * 1000)
+        assert progress[:3] == ["ok", "ok", "ok"]  # 0, 300 and 600 s: inside the bound
+        assert set(progress[3:]) == {"stuck"}, progress
+        # Recovery succeeds: the condition clears.
+        fn.ok = True
+        clock["t"] += 300.0
+        rclock.t = T0 + int(clock["t"] * 1000)
+        pool.unpark(1)
+        assert pool.submit(1, VOTES, [{"created": 99}])
+        assert pool.join(5)
+        body = _progress_of(pool, clock, state)
+        assert body["queue"]["oldest_live_age_ms"] is None and body["progress"] == "ok"
+    finally:
+        pool.shutdown()
+
+
+def test_stalled_reconciler_keeps_parked_work_ageing():
+    """A parked zid nobody retries (the reconciler stalled) ages with the
+    clock and turns the holder stuck, while discovery stays healthy."""
+    clock = {"t": 0.0}
+    pool, _ = _pool_with(lambda ref: _FailingThenOk(ref, "park"), clock)
+    rclock = Clock()
+    r, _ = reporter(clock=rclock)
+    r.became_primary()
+    try:
+        assert pool.submit(1, VOTES, [{"created": 1}])
+        assert pool.join(5)
+        assert pool.is_parked(1)
+        for t, want in ((300.0, "ok"), (601.0, "stuck"), (3600.0, "stuck")):
+            clock["t"] = t
+            rclock.t = T0 + int(t * 1000)
+            body = _progress_of(pool, clock, (r, [int(t)]))
+            assert body["progress"] == want and body["queue"]["parked"] == 1
+    finally:
+        pool.shutdown()
+
+
+def test_live_work_arriving_during_a_successful_run_ages_from_its_own_arrival():
+    gate, started = threading.Event(), threading.Event()
+    clock = {"t": 0.0}
+
+    def process(zid, batch):
+        started.set()
+        gate.wait(5)
+    pool = ConversationWorkerPool(process, max_workers=1)
+    pool._clock = lambda: clock["t"]
+    try:
+        pool.submit(1, VOTES, [1])
+        assert started.wait(5)
+        clock["t"] = 50.0
+        pool.submit(1, VOTES, [2])  # arrives mid-run
+        gate.set()
+        assert pool.join(5)
+        assert pool.queue_stats()["oldest_live_age_ms"] is None
+    finally:
+        pool.shutdown()
+
+
+def test_idle_and_long_backfill_stay_distinct_from_stuck_live_work():
+    """Healthy idle discovery is ok; a long backfill job is not live work."""
+    gate, started = threading.Event(), threading.Event()
+    clock = {"t": 0.0}
+
+    def process(zid, batch):
+        started.set()
+        gate.wait(5)
+    pool = ConversationWorkerPool(process, max_workers=1)
+    pool._clock = lambda: clock["t"]
+    rclock = Clock()
+    r, _ = reporter(clock=rclock)
+    r.became_primary()
+    try:
+        assert _progress_of(pool, clock, (r, [1]))["progress"] == "ok"  # idle
+        pool.submit(9, BACKFILL, [])
+        assert started.wait(5)
+        clock["t"] = 3600.0
+        rclock.t = T0 + 3_600_000
+        body = _progress_of(pool, clock, (r, [2]))
+        assert body["queue"]["oldest_backfill_age_ms"] == 3_600_000
+        assert body["queue"]["oldest_live_age_ms"] is None and body["progress"] == "ok"
     finally:
         gate.set()
         pool.join(5)
         pool.shutdown()
-    assert pool.queue_stats()["oldest_live_age_ms"] is None
+
+
+def test_explicit_disposition_clears_unresolved_age():
+    clock = {"t": 0.0}
+    pool, _ = _pool_with(lambda ref: _FailingThenOk(ref, "park"), clock)
+    try:
+        pool.submit(1, VOTES, [1])
+        assert pool.join(5)
+        clock["t"] = 1000.0
+        assert pool.queue_stats()["oldest_live_age_ms"] == 1_000_000
+        pool.dispose_unresolved(1)
+        assert pool.queue_stats()["oldest_live_age_ms"] is None
+    finally:
+        pool.shutdown()
+
+
+def test_an_exception_in_the_process_function_keeps_the_age():
+    clock = {"t": 0.0}
+
+    def boom(zid, batch):
+        raise RuntimeError("x")
+    pool = ConversationWorkerPool(boom, max_workers=1)
+    pool._clock = lambda: clock["t"]
+    try:
+        pool.submit(1, VOTES, [1])
+        assert pool.join(5)
+        clock["t"] = 10.0
+        assert pool.queue_stats()["oldest_live_age_ms"] == 10_000
+    finally:
+        pool.shutdown()
+
+
+# --------------------------------------------------------------------------- #
+# The lock-loss line never blocks (P-072 review R1)
+# --------------------------------------------------------------------------- #
+def test_lock_lost_never_calls_the_snapshot_source():
+    clock = Clock()
+    r, out = reporter(clock=clock)
+    calls = []
+    r.set_source(lambda: calls.append(1) or snapshot(last=clock.t - 10, successes=(3, 3)))
+    r.became_primary()
+    n = len(calls)
+    line = r.lock_lost()
+    assert len(calls) == n, "lock_lost must not take a fresh snapshot"
+    assert line == out[-1] and "role=standby progress=waiting" in line
+    assert parse_readiness(line)["discovery"]["successes"] == 3  # the last snapshot
+
+
+def test_lock_lost_returns_at_once_while_a_tick_holds_the_reporter_lock():
+    clock = Clock()
+    r, out = reporter(clock=clock)
+    entered, release = threading.Event(), threading.Event()
+
+    def blocked():
+        entered.set()
+        release.wait(10)
+        return snapshot(last=clock.t, successes=(1, 1))
+    r.set_source(blocked)
+    t = threading.Thread(target=r.tick, daemon=True)
+    t.start()
+    assert entered.wait(5)
+    started = time.monotonic()
+    assert r.lock_lost() is None  # the line is dropped, not waited for
+    assert time.monotonic() - started < 0.05
+    assert r.role == "standby"
+    release.set()
+    t.join(5)
