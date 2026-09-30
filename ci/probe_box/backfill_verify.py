@@ -33,11 +33,15 @@ Two gates, kept apart (design (b), review [1459]):
    and receipt, no other receipt, no newer hand-off). READY exists only
    there; a stopped or restarted holder cannot inherit it from the history.
    Every hand-off attempt, refusals included, enters the proof's attempt
-   ledger (polis-backfill-handoff-attempt/1, one create-only private file
+   ledger (polis-backfill-handoff-attempt/2, one create-only private file
    each, chained by digest), and each later attempt is judged against it: no
    input that is not newer than the latest observation, an observed
    holder/run/config or drain change invalidates the proof, and at most one
-   READY per proof (review [1463]).
+   READY per proof (review [1463]). A rejected current envelope still leaves
+   its independently valid readiness record in the ledger, and an input with
+   no readable record leaves a barrier: nothing captured before it can say
+   READY (review [1467] R1). The operator serializes each `ready` under an
+   exclusive lock on the operator dir (review [1467] R2).
 
 What the snapshot cannot see, and so never claims:
 
@@ -783,12 +787,15 @@ def validate_handoff_record(v):
 # Every hand-off reason, in fixed order.
 REASONS = (
     'receipt-not-complete',
+    # The saved receipt no longer decodes against the saved job (review [1467]).
+    'receipt-invalid',
     # The proof itself, now (consumption).
     'clock-reversal', 'future-history-clock', 'cutoff-expired',
     # No intervening change since the proof was available.
     'proof-missing', 'proof-invalid', 'proof-mismatch', 'future-proof-clock', 'job-changed', 'receipt-changed',
     'newer-receipt-exists', 'handoff-record-invalid', 'attempt-ledger-invalid', 'proof-consumed',
     'proof-invalidated', 'newer-handoff-exists', 'newer-attempt-exists', 'current-reused', 'current-not-newer',
+    'current-not-after-unknown-input',
     # The current record: collected after the proof, from the same holder, genuinely newer.
     'current-missing', 'current-invalid', 'current-for-other-receipt', 'current-before-proof',
     'current-holder-mismatch', 'current-sequence-not-advanced', 'current-not-refreshed',
@@ -802,6 +809,52 @@ NEW_PROOF_REASONS = ('cutoff-expired', 'attempt-ledger-invalid', 'proof-consumed
                      'current-holder-mismatch', 'current-drain-changed')
 
 
+# What an attempt saw of its current input (review [1467] R1), whatever the verdict:
+# `valid` a whole valid envelope; `invalid-envelope` a rejected envelope whose
+# readiness record validates on its own (its observation is kept, never used to
+# authorize); `unknown` an input with no valid readiness record (a barrier);
+# `none` no input.
+OBSERVATIONS = ('none', 'valid', 'invalid-envelope', 'unknown')
+
+
+def observe(current, input_sha256=None):
+    """The observation an attempt records for input `current`.
+
+    The readiness record is validated independently of the envelope, so an
+    invalid alert-test attachment, a missing attachment or an extra envelope
+    field never erases the holder, run, drain, sequence and capture it shows.
+    `input_sha256` is the digest of the bytes presented (the operator's); by
+    default the digest of the decoded input.
+    """
+    out = {'observation': 'none', 'input_sha256': None, 'readiness': None, 'current': None, 'current_seq': None,
+           'current_observed_ms': None}
+    if current is None:
+        return out
+    if input_sha256 is None:
+        try:
+            input_sha256 = hashlib.sha256(encoded(current)).hexdigest()
+        except (TypeError, ValueError):
+            input_sha256 = hashlib.sha256(repr(current).encode()).hexdigest()
+    out['input_sha256'] = hexdigest(input_sha256)
+    try:
+        validate_current(current)
+        kind = 'valid'
+    except (ValueError, KeyError, TypeError):
+        kind = 'invalid-envelope'
+        try:
+            if type(current) is not dict or 'readiness' not in current:
+                fail('VERIFY_CURRENT')
+            validate_readiness(current['readiness'])
+        except (ValueError, KeyError, TypeError):
+            kind = 'unknown'
+    out['observation'] = kind
+    if kind != 'unknown':
+        v = current['readiness']
+        out.update(readiness=v, current=readiness_digest(current), current_seq=v['seq'],
+                   current_observed_ms=v['observed_ms'])
+    return out
+
+
 def handoff_status(reasons):
     """The hand-off status for an ordered reason list (also the attempt ledger's check)."""
     if 'receipt-not-complete' in reasons:
@@ -813,7 +866,8 @@ def handoff_status(reasons):
     return 'EXPIRED' if all(n in _EXPIRY for n in reasons) else 'REFUSED'
 
 
-def handoff(r, current, now_ms, *, proof, receipt_sha256, job_sha256, receipts=None, previous=(), attempts=()):
+def handoff(r, current, now_ms, *, proof, receipt_sha256, job_sha256, receipts=None, previous=(), attempts=(),
+            current_sha256=None):
     """The switch gate, immediately before the S2 secret/deploy step; the only READY.
 
     `r` is the decoded receipt; `receipt_sha256` and `job_sha256` are the saved
@@ -821,7 +875,8 @@ def handoff(r, current, now_ms, *, proof, receipt_sha256, job_sha256, receipts=N
     `receipts` the digests of every receipt the operator dir holds; `previous`
     the hand-off records already written there; `attempts` the attempt ledger
     there, as (file name, raw bytes) in name order. `current` is the current
-    record (CURRENT_SCHEMA), collected after the proof was available.
+    record (CURRENT_SCHEMA), collected after the proof was available, and
+    `current_sha256` the digest of the bytes presented (see `observe`).
 
     READY only when the proof is still fresh and unchanged, nothing newer
     exists, and the current record comes from the same admitted holder
@@ -839,9 +894,16 @@ def handoff(r, current, now_ms, *, proof, receipt_sha256, job_sha256, receipts=N
     attempt, invalidates the proof; one READY consumes it. A genuinely newer
     record from the same holder, run and config may recover from a transient
     refusal (an alarm, queued work). A malformed ledger refuses.
+
+    Review [1467] R1: a rejected envelope whose readiness record validates on
+    its own is still an observation (recorded, judged for holder, drain and
+    ordering, never READY); an input with no valid readiness record is a
+    barrier, after which only a record captured more than CLOCK_TOLERANCE_MS
+    after that attempt may be READY (`current-not-after-unknown-input`).
     """
+    obs = observe(current, current_sha256)
+    base = {k: obs[k] for k in ('observation', 'input_sha256', 'current', 'current_seq', 'current_observed_ms')}
     out = consumption(r, now_ms)
-    base = dict(current=None, current_seq=None, current_observed_ms=None)
     if out['status'] == 'NOT_COMPLETE':
         return dict(out, **base)
     reasons = set(out['reasons'])
@@ -902,54 +964,57 @@ def handoff(r, current, now_ms, *, proof, receipt_sha256, job_sha256, receipts=N
     # Another holder, run or config, or a changed drain, seen in any attempt: this proof is spent.
     if any(a['holder'] != bound['holder'] or a['drain'] != bound['drain'] for a in observed):
         reasons.add('proof-invalidated')
-    if current is None:
+    if obs['observation'] == 'none':
         reasons.add('current-missing')
-    else:
-        try:
-            validate_current(current)
-        except (ValueError, KeyError, TypeError):
-            reasons.add('current-invalid')
-        else:
-            v = current['readiness']
-            base = dict(current=readiness_digest(current), current_seq=v['seq'], current_observed_ms=v['observed_ms'])
-            if current['receipt_sha256'] != receipt_sha256:
-                reasons.add('current-for-other-receipt')
-            if after is not None and v['observed_ms'] <= after:
-                reasons.add('current-before-proof')
-            if after is not None and v['monitoring']['evaluated_ms'] < after:
-                reasons.add('current-monitoring-before-proof')
-            # The same admitted holder; a restart is a new run and needs a new proof.
-            if v['holder'] != bound['holder']:
-                reasons.add('current-holder-mismatch')
-            if v['seq'] <= bound['seq']:
-                reasons.add('current-sequence-not-advanced')
-            if v['observed_ms'] <= bound['observed_ms']:
-                reasons.add('current-not-refreshed')
-            d, bd = v['discovery'], bound['discovery']
-            if d['successes'] <= bd['successes'] or d['last_success_ms'] <= bd['last_success_ms']:
-                reasons.add('current-discovery-not-advanced')
-            # The latest applicable sweep is never older than the one the history bound.
-            if (v['sweep']['sweep_no'], v['sweep']['finished_ms']) < (bound['sweep']['sweep_no'],
-                                                                      bound['sweep']['finished_ms']):
-                reasons.add('current-sweep-regressed')
-            # Still the same DRAINED.
-            if v['drain'] != bound['drain']:
-                reasons.add('current-drain-changed')
-            if v['monitoring']['alert_test_sha256'] != bound['monitoring']['alert_test_sha256']:
-                reasons.add('current-alert-test-changed')
-            if readiness_future(v, now_ms) or alert_test_future(current['alert_test'], now_ms):
-                reasons.add('future-current-clock')
-            reasons.update('current-' + n for n in readiness_failures(v, spec, now_ms))
-            for p in prior:
-                if (p['current'] == base['current'] or v['seq'] <= p['current_seq']
-                        or v['observed_ms'] <= p['current_observed_ms']):
-                    reasons.add('current-reused')
-            # Never behind anything this proof's gate has already seen, READY or refused.
-            for a in observed:
-                if a['current'] == base['current']:
-                    reasons.add('current-reused')
-                elif v['seq'] <= a['current_seq'] or v['observed_ms'] <= a['current_observed_ms']:
-                    reasons.add('current-not-newer')
+    elif obs['observation'] != 'valid':
+        reasons.add('current-invalid')
+    v = obs['readiness']
+    if v is not None:
+        # Judged whether or not the envelope was valid: what the record shows is observed.
+        valid = obs['observation'] == 'valid'
+        if valid and current['receipt_sha256'] != receipt_sha256:
+            reasons.add('current-for-other-receipt')
+        if after is not None and v['observed_ms'] <= after:
+            reasons.add('current-before-proof')
+        if after is not None and v['monitoring']['evaluated_ms'] < after:
+            reasons.add('current-monitoring-before-proof')
+        # The same admitted holder; a restart is a new run and needs a new proof.
+        if v['holder'] != bound['holder']:
+            reasons.add('current-holder-mismatch')
+        if v['seq'] <= bound['seq']:
+            reasons.add('current-sequence-not-advanced')
+        if v['observed_ms'] <= bound['observed_ms']:
+            reasons.add('current-not-refreshed')
+        d, bd = v['discovery'], bound['discovery']
+        if d['successes'] <= bd['successes'] or d['last_success_ms'] <= bd['last_success_ms']:
+            reasons.add('current-discovery-not-advanced')
+        # The latest applicable sweep is never older than the one the history bound.
+        if (v['sweep']['sweep_no'], v['sweep']['finished_ms']) < (bound['sweep']['sweep_no'],
+                                                                  bound['sweep']['finished_ms']):
+            reasons.add('current-sweep-regressed')
+        # Still the same DRAINED.
+        if v['drain'] != bound['drain']:
+            reasons.add('current-drain-changed')
+        if v['monitoring']['alert_test_sha256'] != bound['monitoring']['alert_test_sha256']:
+            reasons.add('current-alert-test-changed')
+        if readiness_future(v, now_ms) or (valid and alert_test_future(current['alert_test'], now_ms)):
+            reasons.add('future-current-clock')
+        reasons.update('current-' + n for n in readiness_failures(v, spec, now_ms))
+        for p in prior:
+            if (p['current'] == base['current'] or v['seq'] <= p['current_seq']
+                    or v['observed_ms'] <= p['current_observed_ms']):
+                reasons.add('current-reused')
+        # Never behind anything this proof's gate has already seen, READY or refused.
+        for a in observed:
+            if a['current'] == base['current']:
+                reasons.add('current-reused')
+            elif v['seq'] <= a['current_seq'] or v['observed_ms'] <= a['current_observed_ms']:
+                reasons.add('current-not-newer')
+        # An input no record could be read from may have shown anything: only a
+        # record captured after it (beyond the clock tolerance) may follow it.
+        if any(v['observed_ms'] <= a['now_ms'] + CLOCK_TOLERANCE_MS
+               for a in ledger if a['observation'] == 'unknown'):
+            reasons.add('current-not-after-unknown-input')
     reasons = [n for n in REASONS if n in reasons]
     return dict(out, status=handoff_status(reasons), reasons=reasons, **base)
 
@@ -972,11 +1037,17 @@ def handoff_record(r, h, proof, receipt_sha256, current):
 # file's digest and kept apart from the READY records. `handoff` judges each
 # new attempt against every earlier one; the operator appends the attempt
 # (`attempt_record`) before any READY record, so an interrupted hand-off
-# leaves the proof consumed, never reusable. This module writes no file.
+# leaves the proof consumed, never reusable. Review [1467]: each entry also
+# records what it saw of its input (OBSERVATIONS): a rejected envelope's valid
+# readiness record is kept as an observation, and an input with none is kept as
+# a barrier (digest and time). The operator appends entries only while holding
+# its exclusive lock, so the read, decision, entry and READY record of one
+# `ready` never interleave with another's. This module writes no file.
 # ---------------------------------------------------------------------------
-ATTEMPT_SCHEMA = 'polis-backfill-handoff-attempt/1'
+ATTEMPT_SCHEMA = 'polis-backfill-handoff-attempt/2'
 ATTEMPT = ('schema', 'attempt', 'previous_sha256', 'run_id', 'receipt_sha256', 'proof_sha256', 'now_ms', 'outcome',
-           'reasons', 'current', 'current_seq', 'current_observed_ms', 'holder', 'drain')
+           'reasons', 'observation', 'input_sha256', 'current', 'current_seq', 'current_observed_ms', 'holder',
+           'drain')
 ATTEMPT_GLOB = 'verify-attempt-*.json'
 MAX_ATTEMPTS = 999_999
 
@@ -1011,9 +1082,16 @@ def validate_attempt(v):
     if (type(reasons) is not list or any(type(n) is not str for n in reasons)
             or reasons != [n for n in REASONS if n in reasons] or v['outcome'] != handoff_status(reasons)):
         fail('VERIFY_ATTEMPT')
+    if v['observation'] not in OBSERVATIONS or (v['outcome'] == 'READY' and v['observation'] != 'valid'):
+        fail('VERIFY_ATTEMPT')
+    if v['observation'] == 'none':
+        if v['input_sha256'] is not None:
+            fail('VERIFY_ATTEMPT')
+    else:
+        hexdigest(v['input_sha256'])
     seen = ('current', 'current_seq', 'current_observed_ms', 'holder', 'drain')
-    if v['current'] is None:
-        if any(v[k] is not None for k in seen) or v['outcome'] == 'READY':
+    if v['observation'] in ('none', 'unknown'):
+        if any(v[k] is not None for k in seen):
             fail('VERIFY_ATTEMPT')
     else:
         hexdigest(v['current'])
@@ -1046,19 +1124,47 @@ def validate_ledger(entries, run_id, receipt_sha256, proof_sha256):
     return attempts, head
 
 
-def attempt_record(r, h, *, proof, receipt_sha256, current, attempts):
+def attempt_record(r, h, *, proof, receipt_sha256, current, attempts, run_id=None):
     """The next ledger entry for hand-off result `h`, whatever its status.
 
-    ValueError when the ledger is invalid: it is never extended then, and
-    `handoff` has already refused (attempt-ledger-invalid).
+    `r` is the decoded receipt, or None with `run_id` (the operator dir's run)
+    when the saved receipt no longer decodes (`receipt_invalid`). ValueError
+    when the ledger is invalid: it is never extended then, and `handoff` has
+    already refused (attempt-ledger-invalid).
     """
+    run_id = r['run_id'] if r is not None else hexdigest(run_id, 'VERIFY_ATTEMPT', 32)
     digest = proof_digest(proof)
-    ledger, head = validate_ledger(attempts, r['run_id'], receipt_sha256, digest)
+    ledger, head = validate_ledger(attempts, run_id, receipt_sha256, digest)
     seen = h['current'] is not None
     v = current['readiness'] if seen else None
     return validate_attempt({
-        'schema': ATTEMPT_SCHEMA, 'attempt': len(ledger) + 1, 'previous_sha256': head, 'run_id': r['run_id'],
+        'schema': ATTEMPT_SCHEMA, 'attempt': len(ledger) + 1, 'previous_sha256': head, 'run_id': run_id,
         'receipt_sha256': receipt_sha256, 'proof_sha256': digest, 'now_ms': h['now_ms'], 'outcome': h['status'],
-        'reasons': list(h['reasons']), 'current': h['current'], 'current_seq': h['current_seq'],
+        'reasons': list(h['reasons']), 'observation': h['observation'], 'input_sha256': h['input_sha256'],
+        'current': h['current'], 'current_seq': h['current_seq'],
         'current_observed_ms': h['current_observed_ms'], 'holder': dict(v['holder']) if seen else None,
         'drain': dict(v['drain']) if seen else None})
+
+
+def receipt_invalid(current, now_ms, *, run_id, receipt_sha256, proof, attempts, current_sha256=None):
+    """The refused hand-off result when the saved receipt no longer decodes
+    against the saved job (a changed job or receipt file), so that this
+    invocation is journaled too (review [1467]): REFUSED `receipt-invalid`, and
+    the current input's observation (`observe`) is kept like any other. Never
+    READY; `attempt_record(None, ..., run_id=run_id)` appends it.
+    """
+    clock(now_ms)
+    obs = observe(current, current_sha256)
+    reasons = {'receipt-invalid'}
+    if obs['observation'] == 'none':
+        reasons.add('current-missing')
+    elif obs['observation'] != 'valid':
+        reasons.add('current-invalid')
+    try:
+        validate_ledger(attempts, hexdigest(run_id, 'VERIFY_ATTEMPT', 32), receipt_sha256, proof_digest(proof))
+    except (ValueError, KeyError, TypeError):
+        reasons.add('attempt-ledger-invalid')
+    reasons = [n for n in REASONS if n in reasons]
+    return dict({k: obs[k] for k in ('observation', 'input_sha256', 'current', 'current_seq', 'current_observed_ms')},
+                status=handoff_status(reasons), reasons=reasons, now_ms=now_ms, cutoff_age_ms=None,
+                history_age_ms=None)
