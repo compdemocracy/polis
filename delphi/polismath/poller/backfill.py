@@ -5,56 +5,56 @@ The poller computes a conversation only when it sees a vote or a moderation
 change after its boot lookback (POLL_FROM_DAYS_AGO), so a conversation that is
 dormant never gets a row under the poller's label. Before readers switch
 labels, every conversation that has a row under the SOURCE label (Clojure's
-``prod``) must have a coherent publication under the poller's own label. This
+``prod``) must have a valid publication under the poller's own label. This
 module finds those conversations and feeds them, one at a time by default,
 into the poller's own per-zid worker pool as ``BACKFILL`` messages. It runs in
 the poller process because that process already holds the label's
 single-writer lock: nothing here opens a second writer.
 
 What a backfill job does (``BackfillScheduler.run_job``, on a pool thread):
-  1. re-reads the target's state; a coherent, caught-up publication is a no-op;
-  2. rebuilds the conversation exactly as the poller's first touch does
+  1. reserves its memory in the poller's shared admission accountant
+     (polismath.poller.admission) without waiting; no room means deferred;
+  2. re-reads the target's state; a valid, caught-up publication is a no-op;
+  3. rebuilds the conversation exactly as the poller's first touch does
      (``MathPollerService._load_or_init``: full vote history in engine order,
      full moderation state, recompute), but does NOT put it in the LRU cache;
-  3. publishes through the poller's ``MathWriter`` (tick + three payload tables
+  4. publishes through the poller's ``MathWriter`` (tick + three payload tables
      in one transaction). Inside that transaction, right after the tick upsert
      has locked ``(zid, label)``, it re-reads the target ``math_main`` row; if
-     it differs from what step 1 saw, live ingestion published first and the
+     it differs from what step 2 saw, live ingestion published first and the
      backfill rolls back (the tie rule: the live write wins);
-  4. verifies the postcondition (all four generations equal, the published
-     ``last_vote_timestamp`` not behind the source row's) before counting it.
+  5. verifies the postcondition with the same rules as selection and the
+     shipped verification SQL: a valid bundle (``VALID_BUNDLE_SQL``) whose
+     ``last_vote_timestamp`` is not behind the source row's.
 
 Selection: every source conversation whose target publication is MISSING,
-INCOMPLETE (a missing companion or ``math_ticks`` row, or unequal generations)
-or STALE (its last vote timestamp behind the source's, beyond a grace window).
-Pages are keyset-ordered largest first (participant count, then zid) and
-bounded; a finished sweep starts again from the top after a pause, so earlier
-failures and new source rows are picked up. The database is the progress
-record; the optional state file only carries retry/backoff, the gate, manual
-pause and the report tables across a restart.
+INCOMPLETE (a missing companion or ``math_ticks`` row, unequal generations, or
+an uninitialized generation below 0), INVALID (a payload that fails the
+reader-contract checks in ``VALID_BUNDLE_SQL``) or STALE (behind the source
+and not itself published inside the grace window). A target that is behind
+its source but was itself published inside the grace window is LIVE LAG: live
+ingestion owns it, and it is counted and reported, never exempted from the
+verification cutoff proof. Pages are keyset-ordered largest first
+(participant count, then zid) and bounded; payloads are validated for the
+page's rows only. A finished sweep starts again from the top after a pause,
+so earlier failures and new source rows are picked up. The database is the
+progress record: each sweep reconciles saved failures against it and clears
+the ones live ingestion (or anything else) has since repaired.
 
 Priority and budgets: a job is admitted only when live ingestion has nothing
 queued or running, the live vote poll is healthy (recent success, mean latency
 under a ceiling), the pacing interval has passed (minimum interval, a duty
-cycle on compute time, an extra rest after a large conversation), the rolling
-vote-read budget allows it, and the memory model says it fits under the
-ceiling beside the process's current RSS. A conversation above the size
-threshold runs only when no other backfill job is in flight, and nothing else
-is admitted while it runs. Refusals never truncate input and never count as
-done. A conversation whose estimated peak alone exceeds the ceiling is
-excluded until a larger ceiling is configured (reported in every sweep
-summary); one that only lacks headroom beside the live cache is retried on a
-later sweep.
-
-Memory model (02-findings/python-engine-memory-scaling.md): a standalone
-rebuild peaks at about 209 MiB + 116 MiB per million voter x comment cells;
-the estimate is that times a 1.15 safety factor, against a 4500 MiB ceiling
-for the 6g poller container. A backfilled conversation is never kept in the
-live LRU cache.
+cycle on compute time, an extra rest after a large conversation) and the
+rolling vote-read budget allows it. Memory is the shared accountant's: the
+estimate includes the vote-history rows, and a large job holds an exclusive
+reservation, so live work that arrives while it runs waits for it rather than
+computing beside it. Refusals never truncate input and never count as done.
 
 Operator controls (see cost-reduction/04-plans/P-070-math-backfill.md): the
 MATH_BACKFILL_* environment (read at start), SIGUSR1 to approve the gate after
-the N largest, SIGUSR2 to pause or resume.
+the first N publications, SIGUSR2 to pause or resume. The gate approval is
+bound to the calibration settings (memory model, budget, size rules): a change
+to any of them re-arms the gate.
 """
 
 from __future__ import annotations
@@ -66,16 +66,22 @@ import json
 import logging
 import math
 import os
-import resource
-import sys
 import threading
 import time
 import uuid
 from collections import deque
 from dataclasses import asdict, dataclass, field, fields
-from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
+from typing import Any, Callable, Deque, Dict, Iterable, List, Optional, Tuple
 
 from sqlalchemy import text
+
+from polismath.poller.admission import (  # noqa: F401 - re-exported
+    SIZES_SQL,
+    MemoryAdmission,
+    MemoryModel,
+    read_cgroup_limit_bytes,
+    read_rss_bytes,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +92,7 @@ _MB = 1024 * 1024
 # --------------------------------------------------------------------------- #
 MISSING = "missing"
 INCOMPLETE = "incomplete"
+INVALID = "invalid"
 STALE = "stale"
 
 PUBLISHED = "published"
@@ -114,6 +121,7 @@ EXCLUDED_OUTCOMES = frozenset({SOURCE_AHEAD, OVER_MEMORY_CEILING, REFUSED_INPUT_
 ALL_OUTCOMES = COMPLETE_OUTCOMES | FAILED_OUTCOMES | DEFERRED_OUTCOMES | EXCLUDED_OUTCOMES
 
 EXHAUSTED = "exhausted"
+FAILURE_REASONS = ALL_OUTCOMES | {EXHAUSTED}
 
 
 class ConfigError(ValueError):
@@ -126,7 +134,9 @@ class ConfigError(ValueError):
 @dataclass(frozen=True)
 class BackfillConfig:
     """Backfill settings. Every field has a MATH_BACKFILL_* variable
-    (``_ENV_NAMES``); ``from_env`` validates them all."""
+    (``_ENV_NAMES``); ``from_env`` validates them all. The memory model and
+    budget are the poller's (MATH_POLLER_MEM_*, MATH_POLLER_MEMORY_*), shared
+    with live work."""
 
     enabled: bool = False
     source_env: str = "prod"
@@ -134,18 +144,9 @@ class BackfillConfig:
     large_threshold: int = 2000          # participants; above this, run alone
     gate_after_largest: int = 10          # 0 = no gate
     gate_approved: bool = False
-    # Estimated peak = safety x (base + per_mcell x cells/1e6 + per_vote x votes)
-    # MiB, cells = voters x comments. Defaults are the local measurement in
-    # 02-findings/python-engine-memory-scaling.md (209 MiB base, 110-116 MiB
-    # per million cells on a 5.5%-dense fixture). The vote term is 0 because
-    # that fixture's vote lists are inside the per-cell figure; a denser real
-    # conversation carries ~400 B per extra vote, which the gate's measured
-    # peak_over_est ratio exposes.
-    memory_ceiling_mb: float = 4500.0     # for the 6g poller container
-    mem_base_mb: float = 209.0
-    mem_per_mcell_mb: float = 116.0
-    mem_per_vote_bytes: float = 0.0
-    mem_safety: float = 1.15
+    # Optional extra cap on one backfill job's estimated peak (MiB); 0 = only
+    # the shared budget decides.
+    memory_ceiling_mb: float = 0.0
     max_votes: int = 10_000_000           # per-conversation input refusal
     min_interval_s: float = 3.0
     large_sleep_s: float = 30.0
@@ -156,6 +157,7 @@ class BackfillConfig:
     page_size: int = 50
     resweep_s: float = 300.0
     stale_grace_s: float = 3600.0
+    revalidate_s: float = 3600.0          # re-read valid payloads at least this often
     max_attempts: int = 5
     retry_base_s: float = 60.0
     retry_cap_s: float = 21600.0
@@ -182,12 +184,11 @@ class BackfillConfig:
         if self.large_threshold < 0 or self.gate_after_largest < 0:
             raise ConfigError("large_threshold and gate_after_largest must be >= 0")
         non_negative = {
-            "mem_base_mb": self.mem_base_mb,
-            "mem_per_vote_bytes": self.mem_per_vote_bytes,
-            "mem_per_mcell_mb": self.mem_per_mcell_mb,
+            "memory_ceiling_mb": self.memory_ceiling_mb,
             "min_interval_s": self.min_interval_s, "large_sleep_s": self.large_sleep_s,
             "pause_poll_ms": self.pause_poll_ms, "telemetry_stale_s": self.telemetry_stale_s,
             "resweep_s": self.resweep_s, "stale_grace_s": self.stale_grace_s,
+            "revalidate_s": self.revalidate_s,
             "retry_base_s": self.retry_base_s, "retry_cap_s": self.retry_cap_s,
             "refusal_backoff_s": self.refusal_backoff_s,
         }
@@ -196,12 +197,6 @@ class BackfillConfig:
                 raise ConfigError(f"{name} must be a finite number >= 0, got {value}")
         if not (math.isfinite(self.duty_cycle) and 0 < self.duty_cycle <= 1):
             raise ConfigError(f"duty_cycle must be in (0, 1], got {self.duty_cycle}")
-        if not (math.isfinite(self.mem_safety) and self.mem_safety >= 1):
-            raise ConfigError(f"mem_safety must be >= 1, got {self.mem_safety}")
-        if not (math.isfinite(self.memory_ceiling_mb) and self.memory_ceiling_mb > 0):
-            raise ConfigError(
-                f"memory_ceiling_mb must be a finite number > 0, got {self.memory_ceiling_mb}"
-            )
 
     def digest(self) -> str:
         """Short, stable binding of the settings for the report lines."""
@@ -239,10 +234,6 @@ _ENV_NAMES = {
     "gate_after_largest": "MATH_BACKFILL_GATE_AFTER_LARGEST",
     "gate_approved": "MATH_BACKFILL_GATE_APPROVED",
     "memory_ceiling_mb": "MATH_BACKFILL_MEMORY_CEILING_MB",
-    "mem_base_mb": "MATH_BACKFILL_MEM_BASE_MB",
-    "mem_per_mcell_mb": "MATH_BACKFILL_MEM_PER_MCELL_MB",
-    "mem_per_vote_bytes": "MATH_BACKFILL_MEM_PER_VOTE_BYTES",
-    "mem_safety": "MATH_BACKFILL_MEM_SAFETY",
     "max_votes": "MATH_BACKFILL_MAX_VOTES",
     "min_interval_s": "MATH_BACKFILL_MIN_INTERVAL_S",
     "large_sleep_s": "MATH_BACKFILL_LARGE_SLEEP_S",
@@ -253,6 +244,7 @@ _ENV_NAMES = {
     "page_size": "MATH_BACKFILL_PAGE_SIZE",
     "resweep_s": "MATH_BACKFILL_RESWEEP_S",
     "stale_grace_s": "MATH_BACKFILL_STALE_GRACE_S",
+    "revalidate_s": "MATH_BACKFILL_REVALIDATE_S",
     "max_attempts": "MATH_BACKFILL_MAX_ATTEMPTS",
     "retry_base_s": "MATH_BACKFILL_RETRY_BASE_S",
     "retry_cap_s": "MATH_BACKFILL_RETRY_CAP_S",
@@ -265,38 +257,8 @@ ENV_NAMES = dict(_ENV_NAMES)
 
 
 # --------------------------------------------------------------------------- #
-# Memory
+# Memory telemetry
 # --------------------------------------------------------------------------- #
-def read_rss_bytes() -> int:
-    """Current resident set size of this process. Linux reads /proc; elsewhere
-    the lifetime peak from getrusage is the best available stand-in."""
-    try:
-        with open("/proc/self/statm") as fh:
-            return int(fh.read().split()[1]) * os.sysconf("SC_PAGE_SIZE")
-    except (OSError, ValueError, IndexError):
-        peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        return int(peak if sys.platform == "darwin" else peak * 1024)
-
-
-def read_cgroup_limit_bytes() -> Optional[int]:
-    """The container's memory limit (cgroup v2, then v1), or None."""
-    for path in ("/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory/memory.limit_in_bytes"):
-        try:
-            with open(path) as fh:
-                raw = fh.read().strip()
-        except OSError:
-            continue
-        if raw == "max":
-            return None
-        try:
-            value = int(raw)
-        except ValueError:
-            continue
-        if 0 < value < (1 << 60):
-            return value
-    return None
-
-
 def release_memory() -> None:
     """Return freed heap to the OS after a large rebuild (glibc only)."""
     gc.collect()
@@ -306,34 +268,10 @@ def release_memory() -> None:
         pass
 
 
-@dataclass(frozen=True)
-class MemoryModel:
-    """Size -> peak RSS of one standalone rebuild (base included).
-    Coefficients come from MATH_BACKFILL_MEM_*; the gate reports measured
-    peaks against this estimate so an operator can recalibrate."""
-
-    base_mb: float
-    per_mcell_mb: float
-    per_vote_bytes: float
-    safety: float
-
-    def estimate_bytes(self, votes: int, voters: int, comments: int) -> int:
-        cells = voters * comments
-        raw = (
-            self.base_mb * _MB
-            + self.per_mcell_mb * _MB * cells / 1e6
-            + self.per_vote_bytes * votes
-        )
-        return int(self.safety * raw)
-
-    def above_base_bytes(self, votes: int, voters: int, comments: int) -> int:
-        """What the rebuild adds to a process that already has its base."""
-        return max(0, self.estimate_bytes(votes, voters, comments)
-                   - int(self.safety * self.base_mb * _MB))
-
-
 class PeakSampler:
-    """Samples RSS on a background thread while a job runs; reports the peak."""
+    """Samples RSS on a background thread while a job runs; reports the
+    highest SAMPLE. A transient between samples is not observed: this is
+    sampled telemetry, not proof that an unobserved peak fit."""
 
     def __init__(self, rss_fn: Callable[[], int], interval_s: float = 0.2) -> None:
         self._rss_fn = rss_fn
@@ -365,6 +303,110 @@ class PeakSampler:
 
 
 # --------------------------------------------------------------------------- #
+# Validity: ONE rule for selection, the postcondition and the verifier
+# --------------------------------------------------------------------------- #
+# A target bundle is valid when all four rows exist at one initialized
+# generation (>= 0) and the three payloads carry what the readers use, bound
+# to their row: math_main's zid and lastVoteTimestamp equal its row's zid and
+# last_vote_timestamp column; the companions' zids equal their rows'; the
+# reader-used members have the reader's JSON types; base-clusters members and
+# math_bidtopid.bidToPid line up with base-clusters.id (the server indexes
+# bidToPid by that position); in-conv never exceeds n; and n = 0 only in
+# Python's named empty form (no base clusters, groups or in-conv members, a
+# zero timestamp and empty participant stats). Types and bindings only: no
+# numeric acceptance policy. Every cast and array length is guarded, so a
+# malformed payload evaluates to false instead of raising. The shipped
+# verification SQL contains this exact text (a test holds them together).
+VALID_BUNDLE_SQL = """COALESCE((
+    m.zid IS NOT NULL AND b.zid IS NOT NULL AND p.zid IS NOT NULL AND k.zid IS NOT NULL
+    AND m.math_tick >= 0 AND b.math_tick = m.math_tick
+    AND p.math_tick = m.math_tick AND k.math_tick = m.math_tick
+    AND m.last_vote_timestamp IS NOT NULL
+    AND jsonb_typeof(m.data) = 'object'
+    AND CASE WHEN jsonb_typeof(m.data->'zid') = 'number'
+             THEN (m.data->>'zid')::numeric = m.zid ELSE false END
+    AND CASE WHEN jsonb_typeof(m.data->'lastVoteTimestamp') = 'number'
+             THEN (m.data->>'lastVoteTimestamp')::numeric = m.last_vote_timestamp
+             ELSE false END
+    AND jsonb_typeof(m.data->'tids') = 'array'
+    AND jsonb_typeof(m.data->'pca') = 'object'
+    AND jsonb_typeof(m.data->'repness') = 'object'
+    AND jsonb_typeof(b.data) = 'object'
+    AND CASE WHEN jsonb_typeof(b.data->'zid') = 'number'
+             THEN (b.data->>'zid')::numeric = b.zid ELSE false END
+    AND jsonb_typeof(b.data->'lastVoteTimestamp') = 'number'
+    AND jsonb_typeof(p.data) = 'object'
+    AND CASE WHEN jsonb_typeof(p.data->'zid') = 'number'
+             THEN (p.data->>'zid')::numeric = p.zid ELSE false END
+    AND jsonb_typeof(p.data->'ptptstats') = 'object'
+    AND jsonb_typeof(p.data->'lastVoteTimestamp') = 'number'
+    AND CASE WHEN jsonb_typeof(m.data->'n') = 'number'
+              AND jsonb_typeof(m.data->'base-clusters') = 'object'
+              AND jsonb_typeof(m.data->'base-clusters'->'id') = 'array'
+              AND jsonb_typeof(m.data->'base-clusters'->'members') = 'array'
+              AND jsonb_typeof(m.data->'group-clusters') = 'array'
+              AND jsonb_typeof(m.data->'in-conv') = 'array'
+              AND jsonb_typeof(b.data->'bidToPid') = 'array'
+         THEN (m.data->>'n')::numeric >= 0
+              AND jsonb_array_length(m.data->'base-clusters'->'members')
+                  = jsonb_array_length(m.data->'base-clusters'->'id')
+              AND jsonb_array_length(b.data->'bidToPid')
+                  = jsonb_array_length(m.data->'base-clusters'->'id')
+              AND jsonb_array_length(m.data->'in-conv') <= (m.data->>'n')::numeric
+              AND ((m.data->>'n')::numeric > 0
+                   OR (jsonb_array_length(m.data->'base-clusters'->'id') = 0
+                       AND jsonb_array_length(m.data->'group-clusters') = 0
+                       AND jsonb_array_length(m.data->'in-conv') = 0
+                       AND m.last_vote_timestamp = 0
+                       AND p.data->'ptptstats' = '{}'::jsonb))
+         ELSE false END
+), false)"""
+
+
+def structurally_coherent(row: Dict[str, Any]) -> bool:
+    """All four rows present at one initialized (>= 0) generation."""
+    ticks = [row.get("main_tick"), row.get("bid_tick"), row.get("stats_tick"), row.get("ticks_tick")]
+    return (
+        row.get("main_zid") is not None
+        and all(t is not None for t in ticks)
+        and len(set(ticks)) == 1
+        and ticks[0] >= 0
+    )
+
+
+def classify(row: Dict[str, Any], stale_cutoff_ms: int) -> Optional[str]:
+    """MISSING / INCOMPLETE / INVALID / STALE, or None when the target is a
+    valid publication that is caught up or only in live lag. ``row`` carries
+    main_zid, the four ticks, target_lvt, source_lvt and bundle_valid (the
+    result of ``VALID_BUNDLE_SQL``; anything but True counts as invalid)."""
+    if row.get("main_zid") is None:
+        return MISSING
+    if not structurally_coherent(row):
+        return INCOMPLETE
+    if row.get("bundle_valid") is not True:
+        return INVALID
+    source_lvt, target_lvt = row.get("source_lvt"), row.get("target_lvt")
+    if source_lvt is not None and target_lvt < source_lvt and target_lvt < stale_cutoff_ms:
+        return STALE
+    return None
+
+
+def live_lag(row: Dict[str, Any], stale_cutoff_ms: int) -> bool:
+    """Behind the source, but itself published inside the grace window."""
+    source_lvt, target_lvt = row.get("source_lvt"), row.get("target_lvt")
+    return (
+        source_lvt is not None and target_lvt is not None
+        and target_lvt < source_lvt and target_lvt >= stale_cutoff_ms
+    )
+
+
+def _fingerprint(row: Dict[str, Any]) -> Optional[Tuple[int, int]]:
+    if row.get("main_zid") is None:
+        return None
+    return (int(row["main_tick"]), int(row["target_lvt"]) if row["target_lvt"] is not None else -1)
+
+
+# --------------------------------------------------------------------------- #
 # Database access
 # --------------------------------------------------------------------------- #
 @dataclass(frozen=True)
@@ -378,110 +420,103 @@ class Target:
     fingerprint: Optional[Tuple[int, int]]
 
 
-def classify(row: Dict[str, Any], stale_cutoff_ms: int) -> Optional[str]:
-    """MISSING / INCOMPLETE / STALE, or None when the target is coherent and
-    caught up. ``row`` carries main_zid, main_tick, bid_tick, stats_tick,
-    ticks_tick, target_lvt and source_lvt (see ``_STATE_COLUMNS``)."""
-    if row.get("main_zid") is None:
-        return MISSING
-    ticks = [row.get("main_tick"), row.get("bid_tick"), row.get("stats_tick"), row.get("ticks_tick")]
-    if any(t is None for t in ticks) or len(set(ticks)) != 1:
-        return INCOMPLETE
-    source_lvt, target_lvt = row.get("source_lvt"), row.get("target_lvt")
-    if (
-        source_lvt is not None and target_lvt is not None
-        and target_lvt < source_lvt and source_lvt < stale_cutoff_ms
-    ):
-        return STALE
-    return None
-
-
-def _fingerprint(row: Dict[str, Any]) -> Optional[Tuple[int, int]]:
-    if row.get("main_zid") is None:
-        return None
-    return (int(row["main_tick"]), int(row["target_lvt"]))
-
-
-_STATE_COLUMNS = """
-    s.zid AS zid,
-    COALESCE(c.participant_count, 0) AS participants,
-    s.last_vote_timestamp AS source_lvt,
+_TARGET_COLUMNS = """
+    src.zid AS zid,
+    src.participants AS participants,
+    src.source_lvt AS source_lvt,
     m.zid AS main_zid,
     m.math_tick AS main_tick,
+    m.caching_tick AS main_caching_tick,
     m.last_vote_timestamp AS target_lvt,
     b.math_tick AS bid_tick,
     p.math_tick AS stats_tick,
     k.math_tick AS ticks_tick
 """
 
-_STATE_JOINS = """
+_TARGET_JOINS = """
+    LEFT JOIN math_main m ON m.zid = src.zid AND m.math_env = :target
+    LEFT JOIN math_bidtopid b ON b.zid = src.zid AND b.math_env = :target
+    LEFT JOIN math_ptptstats p ON p.zid = src.zid AND p.math_env = :target
+    LEFT JOIN math_ticks k ON k.zid = src.zid AND k.math_env = :target
+"""
+
+_SOURCE = """
+    SELECT s.zid, COALESCE(c.participant_count, 0) AS participants,
+           s.last_vote_timestamp AS source_lvt
     FROM math_main s
     LEFT JOIN conversations c ON c.zid = s.zid
-    LEFT JOIN math_main m ON m.zid = s.zid AND m.math_env = :target
-    LEFT JOIN math_bidtopid b ON b.zid = s.zid AND b.math_env = :target
-    LEFT JOIN math_ptptstats p ON p.zid = s.zid AND p.math_env = :target
-    LEFT JOIN math_ticks k ON k.zid = s.zid AND k.math_env = :target
+    WHERE s.math_env = :source
 """
 
-_NEEDS_WORK = """
-    (m.zid IS NULL OR b.zid IS NULL OR p.zid IS NULL OR k.zid IS NULL
-     OR m.math_tick <> b.math_tick OR m.math_tick <> p.math_tick
-     OR m.math_tick <> k.math_tick
-     OR (m.last_vote_timestamp < s.last_vote_timestamp
-         AND s.last_vote_timestamp < :stale_cutoff))
-"""
-
+# The keyset page is chosen from the source rows alone (no payload is read),
+# then joined to the target rows; payload validity is read separately for the
+# page's structurally coherent rows only.
 PAGE_SQL = (
-    "SELECT" + _STATE_COLUMNS + _STATE_JOINS
-    + " WHERE s.math_env = :source AND" + _NEEDS_WORK
+    "WITH src AS (" + _SOURCE
     + """ AND (COALESCE(c.participant_count, 0) < :after_p
           OR (COALESCE(c.participant_count, 0) = :after_p AND s.zid > :after_zid))
-    ORDER BY COALESCE(c.participant_count, 0) DESC, s.zid ASC
-    LIMIT :limit"""
+        ORDER BY COALESCE(c.participant_count, 0) DESC, s.zid ASC
+        LIMIT :limit)
+    SELECT""" + _TARGET_COLUMNS + " FROM src" + _TARGET_JOINS
+    + " ORDER BY src.participants DESC, src.zid ASC"
 )
 
 STATE_SQL = (
-    "SELECT" + _STATE_COLUMNS + _STATE_JOINS
-    + " WHERE s.math_env = :source AND s.zid = :zid"
+    "WITH src AS (" + _SOURCE + " AND s.zid = ANY(:zids)) SELECT"
+    + _TARGET_COLUMNS + " FROM src" + _TARGET_JOINS
 )
 
-# Uses votes_zid_pid_idx and comments_zid_idx (by zid, never by created).
-SIZES_SQL = """
-    SELECT
-        (SELECT count(*) FROM votes WHERE zid = :zid) AS votes,
-        (SELECT count(DISTINCT pid) FROM votes WHERE zid = :zid) AS voters,
-        (SELECT count(*) FROM comments WHERE zid = :zid) AS comments
-"""
+VALIDITY_SQL = (
+    "SELECT m.zid AS zid, " + VALID_BUNDLE_SQL + """ AS valid
+    FROM math_main m
+    LEFT JOIN math_bidtopid b ON b.zid = m.zid AND b.math_env = m.math_env
+    LEFT JOIN math_ptptstats p ON p.zid = m.zid AND p.math_env = m.math_env
+    LEFT JOIN math_ticks k ON k.zid = m.zid AND k.math_env = m.math_env
+    WHERE m.math_env = :target AND m.zid = ANY(:zids)"""
+)
 
 FINGERPRINT_SQL = """
     SELECT math_tick, last_vote_timestamp FROM math_main
     WHERE zid = :zid AND math_env = :target
 """
 
+# Counts without reading payloads (the sweep itself validates them).
+_STRUCTURAL = """(b.zid IS NOT NULL AND p.zid IS NOT NULL AND k.zid IS NOT NULL
+        AND m.math_tick >= 0 AND b.math_tick = m.math_tick
+        AND p.math_tick = m.math_tick AND k.math_tick = m.math_tick)"""
+
 LABEL_COUNTS_SQL = (
     """SELECT
         count(*) AS source_rows,
         count(m.zid) AS target_main_rows,
         count(*) FILTER (WHERE m.zid IS NULL) AS missing,
-        count(*) FILTER (WHERE m.zid IS NOT NULL AND NOT (
-            b.zid IS NOT NULL AND p.zid IS NOT NULL AND k.zid IS NOT NULL
-            AND m.math_tick = b.math_tick AND m.math_tick = p.math_tick
-            AND m.math_tick = k.math_tick)) AS incomplete,
-        count(*) FILTER (WHERE m.last_vote_timestamp < s.last_vote_timestamp
-                         AND s.last_vote_timestamp < :stale_cutoff) AS stale"""
-    + _STATE_JOINS
-    + " WHERE s.math_env = :source"
+        count(*) FILTER (WHERE m.zid IS NOT NULL AND NOT """ + _STRUCTURAL + """) AS incomplete,
+        count(*) FILTER (WHERE m.zid IS NOT NULL AND """ + _STRUCTURAL + """
+            AND m.last_vote_timestamp < src.source_lvt
+            AND m.last_vote_timestamp < :stale_cutoff) AS stale,
+        count(*) FILTER (WHERE m.zid IS NOT NULL AND """ + _STRUCTURAL + """
+            AND m.last_vote_timestamp < src.source_lvt
+            AND m.last_vote_timestamp >= :stale_cutoff) AS live_lag
+    FROM (""" + _SOURCE + ") src" + _TARGET_JOINS
 )
 
 
 class BackfillStore:
     """The backfill's SQL. Every statement runs under a statement timeout."""
 
-    def __init__(self, pg: Any, source_env: str, target_env: str, query_timeout_ms: int) -> None:
+    def __init__(self, pg: Any, source_env: str, target_env: str, query_timeout_ms: int,
+                 *, revalidate_s: float = 3600.0, clock: Callable[[], float] = time.monotonic) -> None:
         self._pg = pg
         self._source = source_env
         self._target = target_env
         self._timeout_ms = int(query_timeout_ms)
+        self._revalidate_s = float(revalidate_s)
+        self._clock = clock
+        # zid -> ((main_tick, caching_tick, target_lvt), validated_at): payloads
+        # already found valid at that generation. Bounded by the source rows;
+        # an entry expires after revalidate_s, so a payload changed in place
+        # (same generation) is re-read within that time.
+        self._valid_memo: Dict[int, Tuple[Tuple[Any, ...], float]] = {}
 
     def _rows(self, sql: str, params: Dict[str, Any]) -> List[Dict[str, Any]]:
         with self._pg.transaction() as conn:
@@ -492,51 +527,88 @@ class BackfillStore:
     def _params(self, **extra: Any) -> Dict[str, Any]:
         return {"source": self._source, "target": self._target, **extra}
 
+    def _annotate_validity(self, rows: List[Dict[str, Any]], *, fresh: bool) -> None:
+        """Set bundle_valid on every row: None-safe, payloads read only for
+        structurally coherent rows not already validated at that generation."""
+        now = self._clock()
+        need: List[int] = []
+        for row in rows:
+            row["bundle_valid"] = False
+            if not structurally_coherent(row):
+                continue
+            key = (row["main_tick"], row.get("main_caching_tick"), row["target_lvt"])
+            memo = None if fresh else self._valid_memo.get(int(row["zid"]))
+            if memo is not None and memo[0] == key and now - memo[1] < self._revalidate_s:
+                row["bundle_valid"] = True
+            else:
+                need.append(int(row["zid"]))
+        if not need:
+            return
+        valid = {int(r["zid"]): bool(r["valid"])
+                 for r in self._rows(VALIDITY_SQL, self._params(zids=need))}
+        for row in rows:
+            zid = int(row["zid"])
+            if zid in valid:
+                row["bundle_valid"] = valid[zid]
+                if valid[zid]:
+                    key = (row["main_tick"], row.get("main_caching_tick"), row["target_lvt"])
+                    self._valid_memo[zid] = (key, now)
+                else:
+                    self._valid_memo.pop(zid, None)
+
     def page(
         self, after: Optional[Tuple[int, int]], limit: int, stale_cutoff_ms: int,
-    ) -> List[Tuple[Target, Dict[str, Any]]]:
-        """The next keyset page, largest first. ``after`` is the last
+    ) -> Tuple[List[Tuple[Target, Dict[str, Any]]], Optional[Tuple[int, int]], int]:
+        """The next keyset page of SOURCE rows, largest first; returns (the
+        targets among them that need work, the cursor for the next page or
+        None at the end, how many were live lag). ``after`` is the last
         (participants, zid) of the previous page, None for the first."""
         after_p, after_zid = after if after is not None else (2**31, -1)
         rows = self._rows(PAGE_SQL, self._params(
             after_p=after_p, after_zid=after_zid, limit=limit,
-            stale_cutoff=stale_cutoff_ms,
         ))
-        page = []
+        if not rows:
+            return [], None, 0
+        self._annotate_validity(rows, fresh=False)
+        out, lagging = [], 0
         for row in rows:
             klass = classify(row, stale_cutoff_ms)
-            if klass is None:  # pragma: no cover - the SQL already filtered it
+            if klass is None:
+                lagging += live_lag(row, stale_cutoff_ms)
                 continue
-            page.append((Target(
-                zid=int(row["zid"]), participants=int(row["participants"]),
-                klass=klass, source_lvt=row["source_lvt"],
-                fingerprint=_fingerprint(row),
-            ), row))
-        return page
+            out.append((_target(row, klass), row))
+        last = rows[-1]
+        return out, (int(last["participants"]), int(last["zid"])), lagging
+
+    def states(self, zids: Iterable[int], stale_cutoff_ms: int, *, fresh: bool = True
+               ) -> Dict[int, Tuple[Optional[str], Target]]:
+        """{zid: (class or None when nothing is needed, target)} for zids that
+        still have a source row; payloads are validated fresh by default."""
+        zids = [int(z) for z in zids]
+        if not zids:
+            return {}
+        rows = self._rows(STATE_SQL, self._params(zids=zids))
+        self._annotate_validity(rows, fresh=fresh)
+        out = {}
+        for row in rows:
+            klass = classify(row, stale_cutoff_ms)
+            out[int(row["zid"])] = (klass, _target(row, klass or ""))
+        return out
 
     def state(self, zid: int, stale_cutoff_ms: int) -> Optional[Tuple[Optional[str], Target]]:
-        """(class or None when nothing is needed, target) for one zid; None
-        when the zid no longer has a source row."""
-        rows = self._rows(STATE_SQL, self._params(zid=zid))
-        if not rows:
-            return None
-        row = rows[0]
-        klass = classify(row, stale_cutoff_ms)
-        return klass, Target(
-            zid=int(row["zid"]), participants=int(row["participants"]),
-            klass=klass or "", source_lvt=row["source_lvt"],
-            fingerprint=_fingerprint(row),
-        )
+        """(class or None, target) for one zid; None when the zid no longer
+        has a source row."""
+        return self.states([zid], stale_cutoff_ms).get(int(zid))
 
     def coherent(self, zid: int) -> Tuple[bool, Optional[int], Optional[int]]:
-        """(all four generations equal, the generation, target last vote ts)."""
-        rows = self._rows(STATE_SQL, self._params(zid=zid))
+        """(a valid bundle by VALID_BUNDLE_SQL, the generation, target last
+        vote ts): the postcondition, the same rule as selection."""
+        rows = self._rows(STATE_SQL, self._params(zids=[zid]))
         if not rows or rows[0].get("main_zid") is None:
             return False, None, None
+        self._annotate_validity(rows, fresh=True)
         row = rows[0]
-        ticks = {row["main_tick"], row["bid_tick"], row["stats_tick"], row["ticks_tick"]}
-        ok = None not in ticks and len(ticks) == 1
-        return ok, row["main_tick"], row["target_lvt"]
+        return bool(row["bundle_valid"]), row["main_tick"], row["target_lvt"]
 
     def sizes(self, zid: int) -> Tuple[int, int, int]:
         row = self._rows(SIZES_SQL, {"zid": zid})[0]
@@ -549,11 +621,19 @@ class BackfillStore:
         ).mappings().first()
         if row is None:
             return None
-        return (int(row["math_tick"]), int(row["last_vote_timestamp"]))
+        lvt = row["last_vote_timestamp"]
+        return (int(row["math_tick"]), int(lvt) if lvt is not None else -1)
 
     def label_counts(self, stale_cutoff_ms: int) -> Dict[str, int]:
         row = self._rows(LABEL_COUNTS_SQL, self._params(stale_cutoff=stale_cutoff_ms))[0]
         return {k: int(v) for k, v in row.items()}
+
+
+def _target(row: Dict[str, Any], klass: str) -> Target:
+    return Target(
+        zid=int(row["zid"]), participants=int(row["participants"]), klass=klass,
+        source_lvt=row["source_lvt"], fingerprint=_fingerprint(row),
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -569,19 +649,72 @@ class Record:
     votes: int = 0
     comments: int = 0
     seconds: float = 0.0
+    # Sampled telemetry, all MiB: the observed increment (sampled peak minus
+    # starting RSS), the model's estimated standalone peak, the reserved
+    # increment, the starting RSS and the absolute sampled peak.
     peak_rss_delta_mb: float = 0.0
     est_mb: float = 0.0
     result_bytes: int = 0
+    reserved_mb: float = 0.0
+    start_rss_mb: float = 0.0
+    peak_rss_mb: float = 0.0
+
+
+class StateError(ValueError):
+    """The state file's content cannot be trusted."""
+
+
+_STATE_TYPES: Dict[str, Tuple[type, ...]] = {
+    "source_env": (str,), "target_env": (str,), "binding": (str,),
+    "gate_published": (int,), "gate_approved": (bool,), "gate_records": (list,),
+    "paused": (bool,), "failures": (dict,), "totals": (dict,),
+    "top_seconds": (list,), "top_memory": (list,),
+}
+
+
+def _check_state(raw: Any) -> None:
+    """Schema of the persisted state; raises StateError on anything else."""
+    if not isinstance(raw, dict):
+        raise StateError(f"top level is {type(raw).__name__}, not an object")
+    for key, value in raw.items():
+        types = _STATE_TYPES.get(key)
+        if types is None:
+            continue  # unknown keys are ignored
+        if isinstance(value, bool) and bool not in types:
+            raise StateError(f"{key} has type bool")
+        if not isinstance(value, types):
+            raise StateError(f"{key} has type {type(value).__name__}")
+    if isinstance(raw.get("gate_published"), int) and raw["gate_published"] < 0:
+        raise StateError("gate_published is negative")
+    for key in ("gate_records", "top_seconds", "top_memory"):
+        for item in raw.get(key, []):
+            if not isinstance(item, dict) or not isinstance(item.get("zid"), int):
+                raise StateError(f"{key} holds a malformed record")
+    for key, value in raw.get("totals", {}).items():
+        if key not in ALL_OUTCOMES or isinstance(value, bool) or not isinstance(value, int):
+            raise StateError("totals holds a malformed entry")
+    for key, value in raw.get("failures", {}).items():
+        if not (isinstance(key, str) and key.lstrip("-").isdigit() and isinstance(value, dict)):
+            raise StateError("failures holds a malformed entry")
+        attempts, next_at, reason = value.get("attempts"), value.get("next_at"), value.get("reason")
+        if (isinstance(attempts, bool) or not isinstance(attempts, int) or attempts < 0
+                or isinstance(next_at, bool) or not isinstance(next_at, (int, float))
+                or not math.isfinite(next_at) or reason not in FAILURE_REASONS):
+            raise StateError("failures holds a malformed entry")
 
 
 @dataclass
 class BackfillState:
     """Carried across restarts when MATH_BACKFILL_STATE_PATH is set. The
     database stays authoritative for what is done; losing this file only
-    re-arms the gate, resets backoff and forgets the report tables."""
+    re-arms the gate, resets backoff and forgets the report tables. A file
+    whose content cannot be trusted starts the backfill PAUSED (an operator
+    resumes it with SIGUSR2 after looking)."""
 
     source_env: str = ""
     target_env: str = ""
+    # Digest of the calibration settings the gate approval was given under.
+    binding: str = ""
     gate_published: int = 0
     gate_approved: bool = False
     gate_records: List[Dict[str, Any]] = field(default_factory=list)
@@ -601,11 +734,16 @@ class BackfillState:
         try:
             with open(path) as fh:
                 raw = json.load(fh)
+            _check_state(raw)
         except FileNotFoundError:
             return fresh
         except (OSError, ValueError) as exc:
-            logger.warning("math-backfill: state file unreadable (%s); starting fresh",
-                           exc.__class__.__name__)
+            logger.error(
+                "math-backfill: state file untrusted (%s: %s); starting PAUSED with fresh "
+                "state (resume with SIGUSR2 after review)", exc.__class__.__name__,
+                str(exc)[:120] if isinstance(exc, StateError) else "unreadable",
+            )
+            fresh.paused = True
             return fresh
         if raw.get("source_env") != source_env or raw.get("target_env") != target_env:
             logger.warning("math-backfill: state file is for other labels; starting fresh")
@@ -647,7 +785,8 @@ class _Job:
     votes: int
     voters: int
     comments: int
-    est_bytes: int
+    est_bytes: int      # estimated standalone peak (model, base included)
+    need_bytes: int     # reserved increment above the base
     large: bool
 
 
@@ -656,8 +795,10 @@ class BackfillScheduler:
 
     ``host`` is the poller's adapter (``service._BackfillHost``): submit,
     pending_zids, is_pending, is_cached, evict, accepts, load_full_history,
-    writer, live_poll_health, target_env.
+    writer, live_poll_health, target_env, admission, parked_count.
     """
+
+    RECONCILE_CHUNK = 200
 
     def __init__(
         self,
@@ -667,7 +808,6 @@ class BackfillScheduler:
         *,
         clock: Callable[[], float] = time.time,
         rss_fn: Callable[[], int] = read_rss_bytes,
-        cgroup_limit_fn: Callable[[], Optional[int]] = read_cgroup_limit_bytes,
         release_fn: Callable[[], None] = release_memory,
     ) -> None:
         self._host = host
@@ -676,25 +816,34 @@ class BackfillScheduler:
         self._clock = clock
         self._rss = rss_fn
         self._release = release_fn
-        self._model = MemoryModel(config.mem_base_mb, config.mem_per_mcell_mb,
-                                  config.mem_per_vote_bytes, config.mem_safety)
+        self._admission: MemoryAdmission = host.admission
+        if not self._admission.limited:
+            raise ConfigError(
+                "the poller's memory limit is unknown (no cgroup limit and no "
+                "MATH_POLLER_MEMORY_LIMIT_MB); the backfill needs the shared budget"
+            )
+        self._model: MemoryModel = self._admission.model
         self.ceiling_bytes = int(config.memory_ceiling_mb * _MB)
-        limit = cgroup_limit_fn()
-        if limit is not None and self.ceiling_bytes >= limit:
+        if self.ceiling_bytes and self.ceiling_bytes >= self._admission.limit_bytes:
             raise ConfigError(
                 f"MATH_BACKFILL_MEMORY_CEILING_MB={config.memory_ceiling_mb:g} is not "
-                f"below the container limit ({limit / _MB:.0f} MiB)"
+                f"below the container limit ({self._admission.limit_bytes / _MB:.0f} MiB)"
             )
         self.run_id = uuid.uuid4().hex[:12]
+        self.binding = self._calibration_binding()
         self._lock = threading.RLock()
         self._state = BackfillState.load(config.state_path, config.source_env, host.target_env)
+        self._bind_calibration()
         self._in_flight: Dict[int, _Job] = {}
         self._buffer: Deque[Target] = deque()
         self._cursor: Optional[Tuple[int, int]] = None
+        self._sweep_end = False
         self._sweep_no = 0
         self._sweep_admitted = 0
         self._sweep_deferred = 0
         self._sweep_seen = 0
+        self._sweep_classes: Dict[str, int] = {}
+        self._sweep_live_lag = 0
         self._next_admit_at = 0.0
         self._next_sweep_at = 0.0
         self._vote_window: Deque[Tuple[float, int]] = deque()
@@ -704,12 +853,45 @@ class BackfillScheduler:
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
 
+    # -- calibration binding ---------------------------------------------- #
+    def _calibration_binding(self) -> str:
+        """Everything a gate calibration depends on: the memory model, the
+        budget and cache budget, and the backfill's size rules."""
+        cfg = self.config
+        payload = {
+            "admission": self._admission.describe(),
+            "backfill": {
+                "concurrency": cfg.concurrency, "large_threshold": cfg.large_threshold,
+                "memory_ceiling_mb": cfg.memory_ceiling_mb, "max_votes": cfg.max_votes,
+                "gate_after_largest": cfg.gate_after_largest,
+            },
+        }
+        blob = json.dumps(payload, sort_keys=True, default=str)
+        return hashlib.sha256(blob.encode()).hexdigest()[:16]
+
+    def _bind_calibration(self) -> None:
+        st = self._state
+        if st.binding and st.binding != self.binding and (
+            st.gate_approved or st.gate_published or st.gate_records
+        ):
+            logger.warning(
+                "math-backfill: calibration settings changed (binding %s -> %s); the gate "
+                "is RE-ARMED and its approval cleared: a reviewed approval is needed "
+                "under the new settings", st.binding, self.binding,
+            )
+            st.gate_approved = False
+            st.gate_published = 0
+            st.gate_records = []
+        st.binding = self.binding
+        st.save(self.config.state_path)
+
     # -- operator controls ------------------------------------------------- #
     def approve_gate(self) -> None:
         with self._lock:
             self._state.gate_approved = True
             self._state.save(self.config.state_path)
-        logger.warning("math-backfill: gate APPROVED (run=%s); continuing", self.run_id)
+        logger.warning("math-backfill: gate APPROVED (run=%s binding=%s); continuing",
+                       self.run_id, self.binding)
 
     def toggle_pause(self) -> bool:
         with self._lock:
@@ -731,12 +913,15 @@ class BackfillScheduler:
 
     # -- thread ------------------------------------------------------------- #
     def start(self) -> None:
+        adm = self._admission
         logger.warning(
-            "math-backfill ENABLED run=%s config=%s source=%s target=%s concurrency=%d "
-            "large_threshold=%d gate_after_largest=%d ceiling_mb=%.0f state=%s",
-            self.run_id, self.config.digest(), self.config.source_env,
+            "math-backfill ENABLED run=%s config=%s binding=%s source=%s target=%s "
+            "concurrency=%d large_threshold=%d gate_after_largest=%d budget_mb=%.0f "
+            "limit_mb=%.0f (%s) ceiling_mb=%s state=%s",
+            self.run_id, self.config.digest(), self.binding, self.config.source_env,
             self._host.target_env, self.config.concurrency, self.config.large_threshold,
-            self.config.gate_after_largest, self.ceiling_bytes / _MB,
+            self.config.gate_after_largest, adm.budget_bytes / _MB, adm.limit_bytes / _MB,
+            adm.source, f"{self.config.memory_ceiling_mb:.0f}" if self.ceiling_bytes else "none",
             "file" if self.config.state_path else "memory-only",
         )
         self._stop.clear()
@@ -759,6 +944,14 @@ class BackfillScheduler:
             self._stop.wait(max(0.05, wait))
 
     # -- admission ---------------------------------------------------------- #
+    def _over_ceiling(self, need: int, est: int) -> bool:
+        return (not self._admission.fits_alone(need)) or bool(
+            self.ceiling_bytes and est > self.ceiling_bytes)
+
+    def _is_large(self, participants: int, need: int) -> bool:
+        cap = self._admission.compute_capacity_bytes() or 0
+        return participants > self.config.large_threshold or 2 * need > cap
+
     def step(self) -> Tuple[str, float]:
         """One admission decision. Returns (status, seconds to wait)."""
         with self._lock:
@@ -785,55 +978,44 @@ class BackfillScheduler:
 
             target = self._next_target(now)
             if target is None:
+                if self._in_flight:
+                    return "draining", 0.5  # finish the sweep once its jobs report
                 self._finish_sweep(now)
                 return "sweep_complete", 1.0
-            large = target.participants > self.config.large_threshold
-            if large and self._in_flight:
+            if target.participants > self.config.large_threshold and self._in_flight:
                 self._buffer.appendleft(target)
                 return "serial_wait", 0.5
 
             votes, voters, comments = self._store.sizes(target.zid)
-            est = self._model.estimate_bytes(votes, voters, comments)
+            need = self._model.above_base_bytes(votes, voters, comments)
+            est = self._model.peak_bytes(votes, voters, comments)
+            large = self._is_large(target.participants, need)
+            rec = Record(target.zid, target.klass, "", target.participants, voters, votes,
+                         comments, est_mb=est / _MB, reserved_mb=need / _MB)
+            if large and self._in_flight:
+                self._buffer.appendleft(target)
+                return "serial_wait", 0.5
             if votes > self.config.max_votes:
-                self._record(Record(target.zid, target.klass, REFUSED_INPUT_SIZE,
-                                    target.participants, voters, votes, comments,
-                                    est_mb=est / _MB), large=large)
+                rec.outcome = REFUSED_INPUT_SIZE
+                self._record(rec, large=large)
                 return REFUSED_INPUT_SIZE, 0.0
-            if est > self.ceiling_bytes:
+            if self._over_ceiling(need, est):
                 # Could never fit, whatever else the process holds: report it
                 # for a reviewed larger-budget run; never truncate.
-                self._record(Record(target.zid, target.klass, OVER_MEMORY_CEILING,
-                                    target.participants, voters, votes, comments,
-                                    est_mb=est / _MB), large=large)
+                rec.outcome = OVER_MEMORY_CEILING
+                self._record(rec, large=large, need=need, est=est)
                 return OVER_MEMORY_CEILING, 0.0
-            rss = self._rss()
-            need = self._model.above_base_bytes(votes, voters, comments)
-            reserved = sum(
-                self._model.above_base_bytes(j.votes, j.voters, j.comments)
-                for j in self._in_flight.values()
-            )
-            if rss + need > self.ceiling_bytes and not self._in_flight:
-                # Does not fit beside what the process holds now (its cache):
-                # defer to a later sweep.
-                self._record(Record(target.zid, target.klass, MEMORY_HEADROOM,
-                                    target.participants, voters, votes, comments,
-                                    est_mb=est / _MB), large=large)
-                return MEMORY_HEADROOM, 0.0
-            if rss + reserved + need > self.ceiling_bytes:
-                self._buffer.appendleft(target)
-                return "memory_wait", 1.0
             window = self._window_votes(now)
             if window and window + votes > self.config.max_votes_per_min:
                 self._buffer.appendleft(target)
                 return "vote_budget", 1.0
 
-            job = _Job(target, votes, voters, comments, est, large)
+            job = _Job(target, votes, voters, comments, est, need, large)
             self._in_flight[target.zid] = job
             if not self._host.submit(target.zid):
                 self._in_flight.pop(target.zid, None)
-                self._record(Record(target.zid, target.klass, PARKED_LIVE,
-                                    target.participants, voters, votes, comments,
-                                    est_mb=est / _MB), large=large)
+                rec.outcome = PARKED_LIVE
+                self._record(rec, large=large)
                 return "parked_live", 0.0
             self._vote_window.append((now, votes))
             self._sweep_admitted += 1
@@ -875,8 +1057,11 @@ class BackfillScheduler:
             return True
         reason = failure["reason"]
         if reason == OVER_MEMORY_CEILING:
-            # Re-opened only by a larger ceiling than the one that refused it.
-            return self.config.memory_ceiling_mb > float(failure.get("bound", math.inf))
+            # Re-opened only when the current budget (and ceiling) would hold it.
+            need, est = failure.get("need_bytes"), failure.get("est_bytes")
+            if not isinstance(need, int) or not isinstance(est, int):
+                return False
+            return not self._over_ceiling(need, est)
         if reason == REFUSED_INPUT_SIZE:
             return self.config.max_votes > float(failure.get("bound", math.inf))
         if reason == EXHAUSTED or reason in EXCLUDED_OUTCOMES:
@@ -889,34 +1074,72 @@ class BackfillScheduler:
                 target = self._buffer.popleft()
                 if self._eligible(target, now):
                     return target
-            if self._cursor == ("end",):
+            if self._sweep_end:
                 return None
-            page = self._store.page(self._cursor, self.config.page_size,
-                                    self._stale_cutoff_ms(now))
-            if not page:
-                self._cursor = ("end",)
-                return None
-            last = page[-1][0]
-            self._cursor = (last.participants, last.zid)
+            page, cursor, lagging = self._store.page(
+                self._cursor, self.config.page_size, self._stale_cutoff_ms(now))
+            self._sweep_live_lag += lagging
+            if cursor is None:
+                self._sweep_end = True
+            else:
+                self._cursor = cursor
             self._sweep_seen += len(page)
+            for target, _ in page:
+                self._sweep_classes[target.klass] = self._sweep_classes.get(target.klass, 0) + 1
             self._buffer.extend(t for t, _ in page)
 
     def _stale_cutoff_ms(self, now: float) -> int:
         return int((now - self.config.stale_grace_s) * 1000)
 
+    # -- sweep end: reconcile, report, and the qualified COMPLETE ------------ #
+    def _reconcile_failures(self, now: float) -> Dict[str, int]:
+        """Clear saved failures whose target is now valid and caught up in the
+        database (repaired by live ingestion or anything else), or whose
+        source row is gone. Reads the same state and validity as selection,
+        fresh, in bounded chunks. Returns {reason: cleared}."""
+        cleared: Dict[str, int] = {}
+        keys = [k for k in self._state.failures if int(k) not in self._in_flight]
+        cutoff = self._stale_cutoff_ms(now)
+        for i in range(0, len(keys), self.RECONCILE_CHUNK):
+            chunk = keys[i:i + self.RECONCILE_CHUNK]
+            states = self._store.states([int(k) for k in chunk], cutoff)
+            for key in chunk:
+                state = states.get(int(key))
+                if state is not None and state[0] is not None:
+                    continue  # still needs work: keep the failure
+                reason = self._state.failures.pop(key)["reason"]
+                label = "source_gone" if state is None else reason
+                cleared[label] = cleared.get(label, 0) + 1
+        if cleared:
+            self._state.save(self.config.state_path)
+            logger.warning(
+                "math-backfill sweep=%d reconciled saved failures against the database: "
+                "cleared=%s (now valid and caught up, or no source row)",
+                self._sweep_no, json.dumps(cleared, sort_keys=True))
+        return cleared
+
     def _finish_sweep(self, now: float) -> None:
         self._sweep_no += 1
+        try:
+            reconciled: Any = self._reconcile_failures(now)
+        except Exception as exc:  # noqa: BLE001 - reported; completion refused below
+            reconciled = {"error": exc.__class__.__name__}
         unresolved = self._unresolved()
         try:
-            counts = self._store.label_counts(self._stale_cutoff_ms(now))
-        except Exception as exc:  # noqa: BLE001 - reporting only
+            counts: Dict[str, Any] = self._store.label_counts(self._stale_cutoff_ms(now))
+        except Exception as exc:  # noqa: BLE001 - reported; completion refused below
             counts = {"error": exc.__class__.__name__}
+        parked = self._host.parked_count()
         logger.warning(
-            "math-backfill sweep=%d run=%s config=%s seen=%d admitted=%d deferred=%d "
-            "in_flight=%d unresolved=%s counts=%s totals=%s top_seconds=%s top_memory=%s",
-            self._sweep_no, self.run_id, self.config.digest(), self._sweep_seen,
-            self._sweep_admitted, self._sweep_deferred, len(self._in_flight),
-            json.dumps(unresolved, sort_keys=True), json.dumps(counts, sort_keys=True),
+            "math-backfill sweep=%d run=%s config=%s binding=%s seen=%d classes=%s "
+            "admitted=%d deferred=%d in_flight=%d live_lag=%d parked_live=%d unresolved=%s "
+            "reconciled=%s counts=%s admission=%s totals=%s top_seconds=%s top_memory=%s",
+            self._sweep_no, self.run_id, self.config.digest(), self.binding, self._sweep_seen,
+            json.dumps(self._sweep_classes, sort_keys=True), self._sweep_admitted,
+            self._sweep_deferred, len(self._in_flight), self._sweep_live_lag, parked,
+            json.dumps(unresolved, sort_keys=True), json.dumps(reconciled, sort_keys=True),
+            json.dumps(counts, sort_keys=True),
+            json.dumps(self._admission.snapshot(), sort_keys=True),
             json.dumps(self._state.totals, sort_keys=True),
             [(r["zid"], round(r["seconds"], 1)) for r in self._state.top_seconds],
             [(r["zid"], round(r["peak_rss_delta_mb"], 1)) for r in self._state.top_memory],
@@ -931,19 +1154,46 @@ class BackfillScheduler:
                 self._sweep_no, refused[:50],
                 f" (+{len(refused) - 50} more)" if len(refused) > 50 else "",
             )
-        if (
-            self._sweep_seen == 0 and not self._in_flight
-            and not any(unresolved.values())
-        ):
-            logger.warning(
-                "math-backfill COMPLETE run=%s: every %s conversation has a coherent, "
-                "caught-up %s publication", self.run_id, self.config.source_env,
-                self._host.target_env,
-            )
+        self._log_completion(unresolved, reconciled, counts, parked)
         self._cursor = None
+        self._sweep_end = False
         self._buffer.clear()
         self._sweep_seen = self._sweep_admitted = self._sweep_deferred = 0
+        self._sweep_live_lag = 0
+        self._sweep_classes = {}
         self._next_sweep_at = now + self.config.resweep_s
+
+    def _log_completion(self, unresolved: Dict[str, int], reconciled: Any,
+                        counts: Dict[str, Any], parked: int) -> None:
+        """COMPLETE means the backfill's own queue is empty on fresh evidence;
+        it is not cutover readiness (that is the verification SQL at a fixed
+        cutoff, run by the reviewed probe job)."""
+        if self._sweep_seen or self._in_flight or any(unresolved.values()):
+            return
+        blockers = []
+        if "error" in counts or (isinstance(reconciled, dict) and "error" in reconciled):
+            logger.warning(
+                "math-backfill sweep=%d status=UNKNOWN: the fresh aggregate could not be read "
+                "(%s); not COMPLETE", self._sweep_no,
+                counts.get("error") or reconciled.get("error"))
+            return
+        for key in ("missing", "incomplete", "stale"):
+            if counts.get(key):
+                blockers.append(f"{key}={counts[key]}")
+        if parked:
+            blockers.append(f"parked_live={parked}")
+        if blockers:
+            logger.warning("math-backfill sweep=%d status=NOT_COMPLETE: the sweep found no "
+                           "eligible target but the fresh aggregate shows %s",
+                           self._sweep_no, " ".join(blockers))
+            return
+        logger.warning(
+            "math-backfill COMPLETE run=%s sweep=%d: the backfill queue is empty (no missing, "
+            "incomplete, invalid or stale %s target of a %s conversation; nothing unresolved, "
+            "in flight or parked). live_lag=%d is live-owned. This is not a cutover proof: run "
+            "the verification SQL at a fixed cutoff.", self.run_id, self._sweep_no,
+            self._host.target_env, self.config.source_env, int(counts.get("live_lag", 0)),
+        )
 
     def _unresolved(self) -> Dict[str, int]:
         counts: Dict[str, int] = {}
@@ -957,9 +1207,13 @@ class BackfillScheduler:
         for zid in list(self._in_flight):
             if not self._host.is_pending(zid):
                 job = self._in_flight.pop(zid)
-                self._record(Record(zid, job.target.klass, LOST, job.target.participants,
-                                    job.voters, job.votes, job.comments,
-                                    est_mb=job.est_bytes / _MB), large=job.large)
+                self._record(self._job_record(job, LOST), large=job.large)
+
+    @staticmethod
+    def _job_record(job: _Job, outcome: str) -> Record:
+        return Record(job.target.zid, job.target.klass, outcome, job.target.participants,
+                      job.voters, job.votes, job.comments, est_mb=job.est_bytes / _MB,
+                      reserved_mb=job.need_bytes / _MB)
 
     # -- execution (pool thread) ------------------------------------------- #
     def run_job(self, zid: int) -> None:
@@ -968,21 +1222,37 @@ class BackfillScheduler:
             job = self._in_flight.get(zid)
         if job is None:  # pragma: no cover - admitted jobs always have an entry
             return
+        reservation = None
+        try:
+            reservation = self._admission.reserve(
+                zid, job.need_bytes, kind="backfill", exclusive=job.large, wait=False)
+        except Exception as exc:  # noqa: BLE001 - OverBudget: the budget shrank
+            logger.error("math-backfill zid=%s: reservation refused (%s)", zid,
+                         exc.__class__.__name__)
+        if reservation is None:
+            with self._lock:
+                self._in_flight.pop(zid, None)
+                self._record(self._job_record(job, MEMORY_HEADROOM), large=job.large)
+            return
         started = time.monotonic()
         report: Dict[str, Any] = {}
-        sampler = PeakSampler(self._rss)
-        with sampler:
-            before = self._rss()
-            outcome = self._execute(zid, job, report)
+        try:
+            start_rss = self._rss()
+            sampler = PeakSampler(self._rss)
+            with sampler:
+                outcome = self._execute(zid, job, report)
+        finally:
+            self._admission.release(reservation)
         seconds = time.monotonic() - started
-        delta_mb = max(0, sampler.peak - before) / _MB
+        rec = self._job_record(job, outcome)
+        rec.seconds = seconds
+        rec.start_rss_mb = start_rss / _MB
+        rec.peak_rss_mb = sampler.peak / _MB
+        rec.peak_rss_delta_mb = max(0, sampler.peak - start_rss) / _MB
+        rec.result_bytes = int(report.get("payload_bytes", 0))
         with self._lock:
             self._in_flight.pop(zid, None)
-            self._record(Record(
-                zid, job.target.klass, outcome, job.target.participants, job.voters,
-                job.votes, job.comments, seconds, delta_mb, job.est_bytes / _MB,
-                int(report.get("payload_bytes", 0)),
-            ), large=job.large, compute_s=seconds)
+            self._record(rec, large=job.large, compute_s=seconds)
         self._release()
 
     def _execute(self, zid: int, job: _Job, report: Dict[str, Any]) -> str:
@@ -999,7 +1269,9 @@ class BackfillScheduler:
             return ALREADY_COMPLETE
         _, current = state
         try:
-            conv = self._host.load_full_history(zid)
+            # Warm state is restored only from a target that passed
+            # validation (STALE); anything else rebuilds cold.
+            conv = self._host.load_full_history(zid, restore=current.klass == STALE)
         except Exception as exc:  # noqa: BLE001
             logger.error("math-backfill zid=%s: compute failed (%s)", zid,
                          exc.__class__.__name__)
@@ -1042,23 +1314,24 @@ class BackfillScheduler:
         with self._lock:
             job = self._in_flight.pop(zid, None)
             if job is not None:
-                self._record(Record(zid, job.target.klass, outcome, job.target.participants,
-                                    job.voters, job.votes, job.comments,
-                                    est_mb=job.est_bytes / _MB), large=job.large)
+                self._record(self._job_record(job, outcome), large=job.large)
 
     def job_superseded_by_live(self, zid: int, live_ok: bool) -> None:
         """Live work for the zid coalesced with our job and ran instead."""
         self.job_skipped(zid, SUPERSEDED_LIVE if live_ok else LIVE_OWNED)
 
     # -- bookkeeping -------------------------------------------------------- #
-    def _record(self, rec: Record, *, large: bool, compute_s: float = 0.0) -> None:
+    def _record(self, rec: Record, *, large: bool, compute_s: float = 0.0,
+                need: int = 0, est: int = 0) -> None:
         cfg, st, now = self.config, self._state, self._clock()
         assert rec.outcome in ALL_OUTCOMES, rec.outcome
         logger.info(
             "math-backfill zid=%d class=%s outcome=%s participants=%d voters=%d votes=%d "
-            "comments=%d seconds=%.2f peak_rss_delta_mb=%.1f est_mb=%.1f result_bytes=%d",
+            "comments=%d seconds=%.2f est_mb=%.1f reserved_mb=%.1f start_rss_mb=%.1f "
+            "peak_rss_mb=%.1f peak_rss_delta_mb=%.1f result_bytes=%d",
             rec.zid, rec.klass, rec.outcome, rec.participants, rec.voters, rec.votes,
-            rec.comments, rec.seconds, rec.peak_rss_delta_mb, rec.est_mb, rec.result_bytes,
+            rec.comments, rec.seconds, rec.est_mb, rec.reserved_mb, rec.start_rss_mb,
+            rec.peak_rss_mb, rec.peak_rss_delta_mb, rec.result_bytes,
         )
         st.totals[rec.outcome] = st.totals.get(rec.outcome, 0) + 1
         key = str(rec.zid)
@@ -1083,10 +1356,10 @@ class BackfillScheduler:
             self._sweep_deferred += 1
         else:  # excluded
             st.failures[key] = {"attempts": 0, "next_at": 0, "reason": rec.outcome,
-                                "last": rec.outcome}
+                                "last": rec.outcome, "est_mb": round(rec.est_mb, 1)}
             if rec.outcome == OVER_MEMORY_CEILING:
-                st.failures[key]["bound"] = cfg.memory_ceiling_mb
-                st.failures[key]["est_mb"] = round(rec.est_mb, 1)
+                st.failures[key]["need_bytes"] = int(need)
+                st.failures[key]["est_bytes"] = int(est)
             elif rec.outcome == REFUSED_INPUT_SIZE:
                 st.failures[key]["bound"] = cfg.max_votes
         if rec.outcome == PUBLISHED:
@@ -1096,7 +1369,7 @@ class BackfillScheduler:
                 if st.gate_published < cfg.gate_after_largest:
                     st.gate_published += 1
                     st.gate_records.append(asdict(rec))
-        if compute_s or rec.outcome in (LIVE_OWNED, PARKED_LIVE, LOST):
+        if compute_s or rec.outcome in (LIVE_OWNED, PARKED_LIVE, LOST, MEMORY_HEADROOM):
             rest = cfg.min_interval_s
             if compute_s:
                 rest = max(rest, compute_s * (1 - cfg.duty_cycle) / cfg.duty_cycle)
@@ -1109,10 +1382,11 @@ class BackfillScheduler:
             self._done_since_summary = 0
             logger.warning(
                 "math-backfill summary run=%s totals=%s in_flight=%d unresolved=%s "
-                "rss_mb=%.0f ceiling_mb=%.0f gate=%d/%d%s",
+                "rss_mb=%.0f admission=%s gate=%d/%d%s",
                 self.run_id, json.dumps(st.totals, sort_keys=True), len(self._in_flight),
                 json.dumps(self._unresolved(), sort_keys=True), self._rss() / _MB,
-                self.ceiling_bytes / _MB, st.gate_published, cfg.gate_after_largest,
+                json.dumps(self._admission.snapshot(), sort_keys=True),
+                st.gate_published, cfg.gate_after_largest,
                 " approved" if (st.gate_approved or cfg.gate_approved) else "",
             )
 
@@ -1121,17 +1395,22 @@ class BackfillScheduler:
             return
         self._gate_logged = True
         logger.warning(
-            "math-backfill GATE run=%s: the %d largest are published; admission is "
-            "PAUSED until approval (SIGUSR1 to the poller, or MATH_BACKFILL_GATE_APPROVED=1)",
-            self.run_id, self.config.gate_after_largest,
+            "math-backfill GATE run=%s binding=%s: the first %d publications (in participant "
+            "order, not by estimated memory) are done; admission is PAUSED until approval "
+            "(SIGUSR1 to the poller, or MATH_BACKFILL_GATE_APPROVED=1). Memory figures are "
+            "sampled RSS every 0.2 s: an unobserved transient is not ruled out",
+            self.run_id, self.binding, self.config.gate_after_largest,
         )
         for r in self._state.gate_records:
-            ratio = (r["peak_rss_delta_mb"] / r["est_mb"]) if r["est_mb"] else 0.0
+            reserved = r.get("reserved_mb", 0.0)
+            ratio = (r["peak_rss_delta_mb"] / reserved) if reserved else 0.0
             logger.warning(
                 "math-backfill GATE zid=%d participants=%d voters=%d votes=%d comments=%d "
-                "seconds=%.2f peak_rss_delta_mb=%.1f est_mb=%.1f peak_over_est=%.2f",
+                "seconds=%.2f start_rss_mb=%.1f peak_rss_mb=%.1f observed_increment_mb=%.1f "
+                "reserved_increment_mb=%.1f est_peak_mb=%.1f observed_over_reserved=%.2f",
                 r["zid"], r["participants"], r["voters"], r["votes"], r["comments"],
-                r["seconds"], r["peak_rss_delta_mb"], r["est_mb"], ratio,
+                r["seconds"], r.get("start_rss_mb", 0.0), r.get("peak_rss_mb", 0.0),
+                r["peak_rss_delta_mb"], reserved, r["est_mb"], ratio,
             )
 
 
@@ -1143,12 +1422,13 @@ def build_scheduler(host: Any, pg: Any, config: BackfillConfig, **kwargs: Any) -
     """Refuses (ConfigError) a source label equal to the poller's own."""
     if config.source_env.strip() == host.target_env.strip():
         raise ConfigError("MATH_BACKFILL_SOURCE_ENV must differ from the poller's MATH_ENV")
-    store = BackfillStore(pg, config.source_env, host.target_env, config.query_timeout_ms)
+    store = BackfillStore(pg, config.source_env, host.target_env, config.query_timeout_ms,
+                          revalidate_s=config.revalidate_s)
     return BackfillScheduler(host, store, config, **kwargs)
 
 
 __all__ = [
     "BackfillConfig", "BackfillScheduler", "BackfillState", "BackfillStore",
-    "ConfigError", "ENV_NAMES", "MemoryModel", "Record", "Target", "build_scheduler",
-    "classify",
+    "ConfigError", "ENV_NAMES", "MemoryModel", "Record", "Target", "VALID_BUNDLE_SQL",
+    "build_scheduler", "classify", "live_lag", "structurally_coherent",
 ]
