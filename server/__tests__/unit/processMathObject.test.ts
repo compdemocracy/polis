@@ -63,11 +63,85 @@ describe("processMathObject refuses malformed group entries", () => {
     }
   );
 
-  test("a malformed repness entry is skipped instead of throwing", () => {
-    const out = processMathObject({
-      "group-clusters": [],
-      repness: { 0: null, 1: [] },
-    });
-    expect(Object.keys(out.repness)).toEqual(["1"]);
+  test("a group-clusters entry without a numeric id is refused", () => {
+    loggerError.mockClear();
+    const out = processMathObject({ "group-clusters": [{ members: [0] }] });
+    expect(out["group-clusters"]).toEqual([]);
+    expect(loggerError).toHaveBeenCalledWith(
+      "polis_err_math_malformed_group_clusters",
+      expect.anything()
+    );
   });
+});
+
+// P-070 review [1449] B: `group-votes: [null]` threw at `a[i].val`, and
+// `[1]` / `[{}]` were silently presented as empty. Every repness and
+// group-votes entry is now checked before it is dereferenced; a malformed
+// field is refused as a whole and logged, never thrown on or emptied silently.
+describe("processMathObject refuses malformed repness and group-votes", () => {
+  const votes = { 0: { A: 1, D: 0, S: 1 } };
+
+  test("valid control: keyed group-votes and repness are presented", () => {
+    loggerError.mockClear();
+    const out = processMathObject({
+      "group-clusters": [{ id: 0, members: [0] }],
+      "group-votes": { 0: { "n-members": 1, votes } },
+      repness: { 0: [{ tid: 0 }] },
+    });
+    expect(out["group-votes"]).toEqual({ 0: { "n-members": 1, votes, id: 0 } });
+    expect(out.repness[0][0]).toEqual({ tid: 0 });
+    expect(loggerError).not.toHaveBeenCalled();
+  });
+
+  test.each([[{}], [[]], [null], [undefined]])(
+    "empty group-votes %j stays the empty form without a refusal",
+    (gv) => {
+      loggerError.mockClear();
+      const out = processMathObject({
+        "group-clusters": [],
+        "group-votes": gv,
+      });
+      expect(out["group-votes"]).toEqual({});
+      expect(loggerError).not.toHaveBeenCalled();
+    }
+  );
+
+  test.each([
+    [[null]],
+    [[1]],
+    [[{}]],
+    [{ 0: null }],
+    [{ 0: 1 }],
+    [{ 0: {} }],
+    [{ 0: { "n-members": 1, votes: null } }],
+    [{ 0: { "n-members": 1, votes }, 1: [] }],
+    ["broken"],
+  ])("group-votes %j is refused and logged, not thrown on", (gv) => {
+    loggerError.mockClear();
+    let out: any;
+    expect(() => {
+      out = processMathObject({ "group-clusters": [], "group-votes": gv });
+    }).not.toThrow();
+    expect(out["group-votes"]).toEqual({});
+    expect(loggerError).toHaveBeenCalledWith(
+      "polis_err_math_malformed_group_votes",
+      expect.anything()
+    );
+  });
+
+  test.each([[{ 0: null, 1: [] }], [{ 0: [null] }], [{ 0: {} }], [[null]]])(
+    "repness %j is refused and logged, not thrown on",
+    (rep) => {
+      loggerError.mockClear();
+      let out: any;
+      expect(() => {
+        out = processMathObject({ "group-clusters": [], repness: rep });
+      }).not.toThrow();
+      expect(out.repness).toEqual({});
+      expect(loggerError).toHaveBeenCalledWith(
+        "polis_err_math_malformed_repness",
+        expect.anything()
+      );
+    }
+  );
 });

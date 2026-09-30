@@ -23,6 +23,9 @@
 -- contract of all three payloads: types, the row/body bindings (zids; main's
 -- lastVoteTimestamp against its column), the bidToPid/base-clusters
 -- alignment, in-conv <= n, and n = 0 only in Python's named empty form.
+-- Nested entries the readers dereference are checked too, including every
+-- group-votes entry ({n-members, votes: {tid: {A, D, S}}}) and every repness
+-- entry (an array of objects), per review [1449] B.
 --
 -- The switch needs, while the source-ahead ruling is unresolved (the default,
 -- MATH_BACKFILL_SOURCE_AHEAD_RULING=unresolved):
@@ -165,6 +168,26 @@ CROSS JOIN LATERAL (SELECT COALESCE((
                OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(g->'members') = 'array'
                                                                   THEN g->'members' ELSE '[]'::jsonb END) x
                           WHERE jsonb_typeof(x) <> 'number'))
+        AND jsonb_typeof(m.data->'group-votes') = 'object'
+        AND NOT EXISTS (
+            SELECT 1 FROM jsonb_each(CASE WHEN jsonb_typeof(m.data->'group-votes') = 'object'
+                                          THEN m.data->'group-votes' ELSE '{}'::jsonb END) g
+            WHERE jsonb_typeof(g.value) IS DISTINCT FROM 'object'
+               OR jsonb_typeof(g.value->'n-members') IS DISTINCT FROM 'number'
+               OR jsonb_typeof(g.value->'votes') IS DISTINCT FROM 'object'
+               OR EXISTS (SELECT 1 FROM jsonb_each(CASE WHEN jsonb_typeof(g.value->'votes') = 'object'
+                                                        THEN g.value->'votes' ELSE '{}'::jsonb END) v
+                          WHERE jsonb_typeof(v.value) IS DISTINCT FROM 'object'
+                             OR jsonb_typeof(v.value->'A') IS DISTINCT FROM 'number'
+                             OR jsonb_typeof(v.value->'D') IS DISTINCT FROM 'number'
+                             OR jsonb_typeof(v.value->'S') IS DISTINCT FROM 'number'))
+        AND NOT EXISTS (
+            SELECT 1 FROM jsonb_each(CASE WHEN jsonb_typeof(m.data->'repness') = 'object'
+                                          THEN m.data->'repness' ELSE '{}'::jsonb END) r
+            WHERE jsonb_typeof(r.value) IS DISTINCT FROM 'array'
+               OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(r.value) = 'array'
+                                                                  THEN r.value ELSE '[]'::jsonb END) x
+                          WHERE jsonb_typeof(x) IS DISTINCT FROM 'object'))
         AND NOT EXISTS (
             SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.data->'base-clusters'->'id') = 'array'
                                                     THEN m.data->'base-clusters'->'id' ELSE '[]'::jsonb END) x
@@ -234,7 +257,7 @@ SELECT
   count(*) FILTER (
     WHERE jsonb_typeof(m.data) = 'object'
       AND NOT (m.data ?& ARRAY['zid', 'n', 'tids', 'pca', 'base-clusters',
-                              'group-clusters', 'repness', 'in-conv',
+                              'group-clusters', 'group-votes', 'repness', 'in-conv',
                               'lastVoteTimestamp'])) AS main_missing_keys,
   count(*) FILTER (WHERE (m.data->>'zid') IS DISTINCT FROM m.zid::text) AS main_zid_unbound,
   count(*) FILTER (
@@ -316,6 +339,26 @@ CROSS JOIN LATERAL (SELECT COALESCE((
                OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(g->'members') = 'array'
                                                                   THEN g->'members' ELSE '[]'::jsonb END) x
                           WHERE jsonb_typeof(x) <> 'number'))
+        AND jsonb_typeof(m.data->'group-votes') = 'object'
+        AND NOT EXISTS (
+            SELECT 1 FROM jsonb_each(CASE WHEN jsonb_typeof(m.data->'group-votes') = 'object'
+                                          THEN m.data->'group-votes' ELSE '{}'::jsonb END) g
+            WHERE jsonb_typeof(g.value) IS DISTINCT FROM 'object'
+               OR jsonb_typeof(g.value->'n-members') IS DISTINCT FROM 'number'
+               OR jsonb_typeof(g.value->'votes') IS DISTINCT FROM 'object'
+               OR EXISTS (SELECT 1 FROM jsonb_each(CASE WHEN jsonb_typeof(g.value->'votes') = 'object'
+                                                        THEN g.value->'votes' ELSE '{}'::jsonb END) v
+                          WHERE jsonb_typeof(v.value) IS DISTINCT FROM 'object'
+                             OR jsonb_typeof(v.value->'A') IS DISTINCT FROM 'number'
+                             OR jsonb_typeof(v.value->'D') IS DISTINCT FROM 'number'
+                             OR jsonb_typeof(v.value->'S') IS DISTINCT FROM 'number'))
+        AND NOT EXISTS (
+            SELECT 1 FROM jsonb_each(CASE WHEN jsonb_typeof(m.data->'repness') = 'object'
+                                          THEN m.data->'repness' ELSE '{}'::jsonb END) r
+            WHERE jsonb_typeof(r.value) IS DISTINCT FROM 'array'
+               OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(r.value) = 'array'
+                                                                  THEN r.value ELSE '[]'::jsonb END) x
+                          WHERE jsonb_typeof(x) IS DISTINCT FROM 'object'))
         AND NOT EXISTS (
             SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.data->'base-clusters'->'id') = 'array'
                                                     THEN m.data->'base-clusters'->'id' ELSE '[]'::jsonb END) x

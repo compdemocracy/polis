@@ -6,6 +6,7 @@ runs the late-live-arrival case with the real service, pool and database."""
 import logging
 import threading
 import time
+import weakref
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -552,6 +553,159 @@ class TestHeldObjects:
         assert svc._evict_for_admission(10**12, set()) == a.model.retained_bytes(1000, 1000)
         assert 1 in svc._convs and 2 not in svc._convs
         a.unhold(1)
+
+
+class _Conv:
+    """Weak-referenceable stand-in whose ``recompute`` is immutable (returns a
+    distinct object), like ``Conversation.recompute`` (deepcopy)."""
+
+    def __init__(self, voters=1000, comments=1000, on_recompute=None):
+        self.raw_rating_mat = SimpleNamespace(shape=(voters, comments))
+        self._on_recompute = on_recompute
+
+    def recompute(self):
+        if self._on_recompute is not None:
+            self._on_recompute()
+        return _Conv()
+
+
+class TestImmutableReplacementHandoff:
+    """Review [1449] A: the recompute caches a replacement whose charge
+    replaces zid 1's, while _run_engine still referenced the old object. The
+    old reference and hold must end while the compute reservation still
+    covers them, i.e. before the release wakes anyone."""
+
+    def _svc(self, old):
+        a = MemoryAdmission(1000 * MB, headroom=0, base_bytes=100 * MB, cache_bytes=900 * MB)
+        svc = MathPollerService(MagicMock(), PollerConfig(), admission=a)
+        svc._remember(1, old)
+        svc._reserve = lambda *args: a.reserve(1, 400 * MB, kind="live_update")
+        svc._writer = MagicMock()  # inert; the real _compute_and_publish runs
+        return svc, a
+
+    def test_reviewer_barrier_at_release_sees_the_old_object_gone(self):
+        """The reviewer's deterministic barrier immediately after the real
+        release: the replacement is cached and the old object is neither
+        held nor alive, so the 810 MiB grant is all the memory there is."""
+        old = _Conv()
+        ref = weakref.ref(old)
+        svc, a = self._svc(old)
+        retained = a.retained_of(1)
+        del old
+        released, resume = threading.Event(), threading.Event()
+        seen, errors = {}, []
+        real_release = a.release
+
+        def release(res):
+            if res is not None and res.zid == 1:
+                seen["alive_before_release"] = ref() is not None
+                seen["held_before_release"] = a.is_held(1)
+            real_release(res)
+            if res is not None and res.zid == 1:
+                released.set()
+                assert resume.wait(5)
+
+        a.release = release
+
+        def run():
+            try:
+                svc._run_engine(1, CoalescedBatch())
+            except BaseException as e:  # pragma: no cover - reported below
+                errors.append(e)
+
+        t = threading.Thread(target=run)
+        t.start()
+        other = None
+        try:
+            assert released.wait(5)
+            assert seen == {"alive_before_release": False, "held_before_release": False}
+            assert svc._convs[1] is not None and ref() is None and not a.is_held(1)
+            assert a.retained_of(1) == retained  # the replacement's charge
+            other = a.reserve(2, 810 * MB, kind="live", wait=False)
+            assert other is not None
+            assert counted_bytes(a) <= a.budget_bytes  # nothing uncounted remains
+        finally:
+            real_release(other)
+            resume.set()
+            t.join(5)
+        assert not t.is_alive() and not errors and a.held() == set()
+
+    def test_a_waiting_admission_is_granted_only_after_the_old_object_is_gone(self):
+        gate, computing = threading.Event(), threading.Event()
+
+        def block():
+            computing.set()
+            assert gate.wait(5)
+
+        old = _Conv(on_recompute=block)
+        ref = weakref.ref(old)
+        svc, a = self._svc(old)
+        del old
+        granted_view, errors = {}, []
+        real_release = a.release
+
+        def slow_release(res):
+            # Widen the window after the compute's release so the waiter is
+            # granted while _run_engine would still be finishing up.
+            real_release(res)
+            if res is not None and res.zid == 1:
+                time.sleep(0.5)
+
+        a.release = slow_release
+
+        def worker():
+            try:
+                svc._run_engine(1, CoalescedBatch())
+            except BaseException as e:  # pragma: no cover
+                errors.append(e)
+
+        def waiter():
+            res = a.reserve(2, 810 * MB, kind="live")  # waits for room
+            granted_view.update(old_alive=ref() is not None, held=a.is_held(1),
+                                counted=counted_bytes(a))
+            a.release(res)
+
+        w = threading.Thread(target=worker)
+        w.start()
+        assert computing.wait(5)
+        v = threading.Thread(target=waiter)
+        v.start()
+        deadline = time.time() + 5
+        while not a.snapshot()["waiting"] and time.time() < deadline:
+            time.sleep(0.01)
+        assert a.snapshot()["waiting"] == 1  # 100 + 80.5 + 400 + 810 > 1000
+        gate.set()
+        w.join(5)
+        v.join(5)
+        assert not w.is_alive() and not v.is_alive() and not errors
+        assert granted_view["old_alive"] is False and granted_view["held"] is False
+        assert granted_view["counted"] <= a.budget_bytes
+
+    def test_a_failed_compute_still_ends_hold_and_reservation(self):
+        old = _Conv()
+        svc, a = self._svc(old)
+        retained = a.retained_of(1)
+
+        def boom(zid, conv, batch):
+            raise RuntimeError("compute failed")
+
+        svc._compute_and_publish = boom
+        with pytest.raises(RuntimeError):
+            svc._run_engine(1, CoalescedBatch())
+        assert a.held() == set() and a.granted() == []
+        assert svc._convs[1] is old and a.retained_of(1) == retained
+
+    def test_a_failed_admission_still_ends_the_hold(self):
+        old = _Conv()
+        svc, a = self._svc(old)
+
+        def refuse(*args):
+            raise OverBudget("never fits")
+
+        svc._reserve = refuse
+        with pytest.raises(OverBudget):
+            svc._run_engine(1, CoalescedBatch())
+        assert a.held() == set() and a.granted() == []
 
 
 class TestSnapshotTelemetry:

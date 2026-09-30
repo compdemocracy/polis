@@ -870,10 +870,23 @@ class MathPollerService:
             try:
                 self._compute_and_publish(zid, conv, coalesced)
             finally:
+                # Review [1449] A: an immutable recompute caches a distinct
+                # replacement whose charge replaces this zid's retained
+                # charge, while this frame still references the old object.
+                # Only the reservation covers that old object, so drop the
+                # reference and the hold BEFORE releasing the reservation;
+                # a waiter woken by the release never sees the old object
+                # outside the accounting.
+                conv = None
+                if held:
+                    held = False
+                    self.admission.unhold(zid)
                 self.admission.release(reservation)
         finally:
+            # Reached with the hold still taken only when the reservation
+            # itself failed or raised (nothing was computed).
             if held:
-                del conv
+                conv = None
                 self.admission.unhold(zid)
 
     def _compute_and_publish(

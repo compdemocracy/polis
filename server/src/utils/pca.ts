@@ -741,14 +741,16 @@ export function processMathObject(o: { [x: string]: any }) {
     return o;
   }
 
-  // A malformed group-clusters entry (null, or not an object with an id) is
-  // refused, not dereferenced: the whole field is presented as having no
-  // groups and the refusal is logged (P-070 review [1447] B). The writer's
+  // A malformed group-clusters entry (null, or not an object with a numeric
+  // id) is refused, not dereferenced: the whole field is presented as having
+  // no groups and the refusal is logged (P-070 review [1447] B). The writer's
   // validity rule never publishes such a bundle; this guards older rows.
+  const isPlainObject = (v: any) =>
+    v !== null && typeof v === "object" && !Array.isArray(v);
   if (
     _.isArray(o["group-clusters"]) &&
     !o["group-clusters"].every(
-      (g: any) => g !== null && typeof g === "object" && !Array.isArray(g)
+      (g: any) => isPlainObject(g) && typeof g.id === "number"
     )
   ) {
     logger.error("polis_err_math_malformed_group_clusters", {
@@ -757,6 +759,35 @@ export function processMathObject(o: { [x: string]: any }) {
     });
     o["group-clusters"] = [];
   }
+
+  // repness and group-votes are keyed objects ({gid: entry}) and `toObj`
+  // below dereferences every entry. P-070 review [1449] B: an array such as
+  // `[null]` reached `a[i].val` and threw, and `[1]` / `[{}]` were silently
+  // presented as empty. Each entry is now checked against the producer's
+  // shape before anything dereferences it; a field with any malformed entry
+  // (or a non-empty array in place of the keyed object) is refused as a
+  // whole, logged, and presented empty -- never thrown on, never emptied
+  // silently. Absent, null and `[]` stay the empty form they were.
+  const entryContracts: Record<string, (v: any) => boolean> = {
+    repness: (v) => Array.isArray(v) && v.every(isPlainObject),
+    "group-votes": (v) => isPlainObject(v) && isPlainObject(v.votes),
+  };
+  Object.keys(entryContracts).forEach((field) => {
+    const value = o[field];
+    if (value === undefined || value === null) {
+      return;
+    }
+    const valid = isPlainObject(value)
+      ? Object.keys(value).every((k) => entryContracts[field](value[k]))
+      : Array.isArray(value) && value.length === 0;
+    if (!valid) {
+      logger.error("polis_err_math_malformed_" + field.replace("-", "_"), {
+        zid: o.zid,
+        count: Array.isArray(value) ? value.length : _.keys(value).length,
+      });
+      o[field] = {};
+    }
+  });
 
   // Normalize so everything is arrays of objects (group-clusters is already in this format, but needs to have the val: subobject style too).
   if (_.isArray(o["group-clusters"])) {
@@ -797,9 +828,11 @@ export function processMathObject(o: { [x: string]: any }) {
       return obj;
     }
     for (let i = 0; i < a.length; i++) {
-      const val = a[i].val;
+      const entry = a[i];
+      const val = entry && entry.val;
       if (val === null || typeof val !== "object") {
-        // Refuse a malformed entry rather than throw on it.
+        // Unreachable for repness/group-votes, whose entries are checked
+        // above; kept so no entry is ever dereferenced unchecked.
         continue;
       }
       obj[a[i].id] = val;
