@@ -76,7 +76,9 @@
       "run_spec": {
         "cutoff_ms": 1500000000000,
         "max_cutoff_age_seconds": 3600,
-        "max_tick_age_seconds": 900,
+        "max_discovery_gap_seconds": 120,
+        "max_readiness_age_seconds": 900,
+        "readiness": null,
         "source_ahead_ruling": "unresolved",
         "source_env": "prod",
         "target_env": "python",

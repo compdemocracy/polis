@@ -3,7 +3,7 @@
 One REPEATABLE READ, READ ONLY transaction on the existing polis_probe_reader
 login runs the grant check, the five SELECTs of the digest-bound
 `backfill_verification.sql`, and the fixed extra counts (per-table
-source-without-target, tick liveness maxima, no-write proof). Every value
+source-without-target, newest published tick per label, no-write proof). Every value
 kept is an integer; the projection stays on the box and only the verifier's
 receipt leaves. The file is refused before any connection if its bytes are
 not the reviewed digest named by both this image and the admitted job.
@@ -92,8 +92,8 @@ def read(cur, statements, params):
     if set(without) != set(TABLES):
         fail('VERIFY_SQL_SHAPE')
     results['without_target'] = {t: count(without[t]) for t in TABLES}
-    (source_max, target_max), = extra(cur, 'ticks', params)
-    results['ticks'] = {'source_max_ms': source_max, 'target_max_ms': target_max}
+    (source_newest, target_newest), = extra(cur, 'published', params)
+    results['published'] = {'source_newest_ms': source_newest, 'target_newest_ms': target_newest}
     (no_write,), = extra(cur, 'no_write', {})
     return clock, results, no_write is True
 

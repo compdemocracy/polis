@@ -11,7 +11,9 @@ import os
 from pathlib import Path
 import re
 import sys
+import time
 import unittest
+from unittest.mock import patch
 
 HERE = Path(__file__).parent
 REPO = HERE.parents[1]
@@ -28,12 +30,15 @@ import backfill_verify_producer as producer
 import backfill_verify_verifier as verifier
 
 SQL = (HERE / 'backfill_verification.sql').read_bytes()
-CUTOFF = verifier.SNAPSHOT_MS - 600_000
+SNAPSHOT = verifier.SNAPSHOT_MS
+CUTOFF = verifier.CUTOFF_MS
+ready = verifier.fixture_readiness
 
 
 def job(**spec):
+    base = {'cutoff_ms': CUTOFF, 'readiness': ready()}
     return validate_job(dict(schema='polis-probe-job/2', kind='backfill-verify', run_id='c' * 32, max_seconds=7200,
-                             run_spec=dict(TEMPLATE_RUN_SPEC, **dict({'cutoff_ms': CUTOFF}, **spec)),
+                             run_spec=dict(TEMPLATE_RUN_SPEC, **dict(base, **spec)),
                              reader={'image': 'localhost/polis-verify-reader@sha256:' + '1' * 64, 'args': ['read']},
                              producer={'image': 'localhost/polis-verify-producer@sha256:' + '2' * 64, 'args': ['produce']},
                              verifier={'image': 'localhost/polis-verify-verifier@sha256:' + '3' * 64, 'args': ['verify']}))
@@ -84,8 +89,9 @@ class Registry(unittest.TestCase):
 
 class RunSpec(unittest.TestCase):
     def test_labels_ruling_and_sql_digest_are_fixed(self):
-        spec = dict(TEMPLATE_RUN_SPEC, cutoff_ms=CUTOFF)
+        spec = dict(TEMPLATE_RUN_SPEC, cutoff_ms=CUTOFF, readiness=ready())
         self.assertEqual(validate_run_spec(spec), spec)
+        self.assertEqual(validate_run_spec(dict(spec, readiness=None))['readiness'], None)
         for key, value, code in (('source_env', 'python', 'VERIFY_ENV'), ('target_env', 'prod', 'VERIFY_ENV'),
                                  ('target_env', 'shadow', 'VERIFY_ENV'),
                                  ('source_ahead_ruling', 'accept_input', 'VERIFY_RULING'),
@@ -94,7 +100,18 @@ class RunSpec(unittest.TestCase):
                                  ('cutoff_ms', True, 'VERIFY_RUN_SPEC'),
                                  ('max_cutoff_age_seconds', 299, 'VERIFY_RUN_SPEC'),
                                  ('max_cutoff_age_seconds', 86401, 'VERIFY_RUN_SPEC'),
-                                 ('max_tick_age_seconds', 59, 'VERIFY_RUN_SPEC')):
+                                 ('max_readiness_age_seconds', 59, 'VERIFY_RUN_SPEC'),
+                                 ('max_readiness_age_seconds', 3601, 'VERIFY_RUN_SPEC'),
+                                 ('max_discovery_gap_seconds', 9, 'VERIFY_RUN_SPEC'),
+                                 ('readiness', {}, 'VERIFY_SCHEMA'),
+                                 ('readiness', dict(ready(), schema='polis-backfill-readiness/0'), 'VERIFY_READINESS'),
+                                 ('readiness', ready(holder={'role': 'leader'}), 'VERIFY_READINESS'),
+                                 ('readiness', ready(holder={'run': 'not-a-run-id'}), 'VERIFY_DIGEST'),
+                                 ('readiness', ready(sweep={'status': 'DONE'}), 'VERIFY_READINESS'),
+                                 ('readiness', ready(discovery={'successes': -1}), 'VERIFY_COUNT'),
+                                 ('readiness', ready(drain={'drained_ms': 1.5e12}), 'VERIFY_CLOCK'),
+                                 ('readiness', dict(ready(), note='free text'), 'VERIFY_SCHEMA'),
+                                 ('readiness', ready(holder=dict(ready()['holder'], zid=1)), 'VERIFY_SCHEMA')):
             with self.subTest(key=key, value=value):
                 with self.assertRaisesRegex(ValueError, code):
                     validate_run_spec(dict(spec, **{key: value}))
@@ -230,7 +247,7 @@ def script(results=None, grants=True, snapshot=verifier.SNAPSHOT_MS):
     for name, columns, _ in q.SHIPPED[1:]:
         out.append((columns, [tuple(r[name][c] for c in columns)]))
     out.append((('t', 'n'), [(t, r['without_target'][t]) for t in q.TABLES]))
-    out.append((('s', 't'), [(r['ticks']['source_max_ms'], r['ticks']['target_max_ms'])]))
+    out.append((('s', 't'), [(r['published']['source_newest_ms'], r['published']['target_newest_ms'])]))
     out.append((('w',), [(True,)]))
     return out
 
@@ -370,6 +387,10 @@ class Receipts(unittest.TestCase):
         refuse(lambda r: r['bindings'].update(verification_sql='0' * 64), 'VERIFY_SQL_DIGEST')
         refuse(lambda r: r['run_spec'].update(cutoff_ms=CUTOFF + 1), 'VERIFY_BINDING')
         refuse(lambda r: r['coverage'].update(poller_sweep='COLLECTED'), 'VERIFY_SCOPE')
+        refuse(lambda r: r['coverage'].update(poller_progress='COLLECTED'), 'VERIFY_SCOPE')
+        refuse(lambda r: r['bindings'].update(readiness='0' * 64), 'VERIFY_BINDING')
+        refuse(lambda r: r['run_spec']['readiness']['sweep'].update(unresolved=1), 'VERIFY_BINDING')
+        refuse(lambda r: r['snapshot'].update(clock='UNKNOWN'), 'VERIFY_COUNT')
         refuse(lambda r: r.update(acceptance='certified'), 'VERIFY_SCOPE')
         refuse(lambda r: r['counts']['conversations'].update(zid=12), 'VERIFY_SCHEMA')
         refuse(lambda r: r['counts'].update(zids=[12]), 'VERIFY_SCHEMA')
@@ -380,8 +401,8 @@ class Receipts(unittest.TestCase):
         refuse(lambda r: r['counts']['conversations'].update(complete=9), 'VERIFY_COUNT|VERIFY_FALSE_PASS')
         refuse(lambda r: r['counts']['payloads'].update(invalid_payload=1), 'VERIFY_CONSISTENCY')
         refuse(lambda r: r['counts']['without_target'].update(math_main=1), 'VERIFY_CONSISTENCY')
-        refuse(lambda r: r['counts']['ticks'].update(target_max_ms=None), 'VERIFY_CONSISTENCY')
-        refuse(lambda r: r['snapshot'].update(target_tick_age_ms=0), 'VERIFY_COUNT')
+        refuse(lambda r: r['counts']['published'].update(target_newest_ms=None), 'VERIFY_CONSISTENCY')
+        refuse(lambda r: r['snapshot'].update(newest_published_target_age_ms=0), 'VERIFY_COUNT')
         refuse(lambda r: r.update(blocking=['missing_main']), 'VERIFY_COUNT')
         refuse(lambda r: r.update(verdict='PASS'), 'VERIFY_VERDICT')
         refuse(lambda r: r.update(verdict='BACKFILL-INCOMPLETE'), 'VERIFY_FALSE_PASS')
@@ -403,13 +424,15 @@ class Receipts(unittest.TestCase):
                     yield from leaves(x, path)
             else:
                 yield path, v
-        closed = set(BLOCKING) | set(bv.VERDICTS) | set(bv.STATUS) | {
+        closed = set(BLOCKING) | set(bv.VERDICTS) | set(bv.STATUS) | set(bv.CLOCKS) | set(bv.HOLDER_ROLES) | set(
+            bv.SWEEP_STATUS) | set(bv.ALARMS) | {
             'polis-probe-receipt/3', 'backfill-verify', bv.ACCEPTANCE, 'prod', 'python', 'unresolved',
-            'NOT_COLLECTED', 'NOT_EVALUATED', *q.READ_TABLES}
+            'NOT_COLLECTED', 'NOT_EVALUATED', 'OPERATOR_SUPPLIED', bv.READINESS_SCHEMA, *q.READ_TABLES}
         for path, v in leaves(r):
             self.assertNotIn('zid', path)
             if isinstance(v, str):
-                self.assertTrue(v in closed or re.fullmatch('[a-f0-9]{32}|[a-f0-9]{40}|[a-f0-9]{64}', v), (path, v))
+                self.assertTrue(v in closed or re.fullmatch('[a-f0-9]{12}|[a-f0-9]{32}|[a-f0-9]{40}|[a-f0-9]{64}', v),
+                                (path, v))
             else:
                 self.assertTrue(v is None or type(v) in (int, bool), (path, v))
 
@@ -435,10 +458,182 @@ class Receipts(unittest.TestCase):
         for n in ('missing_main', 'missing_bidtopid', 'missing_ptptstats', 'missing_ticks', 'unequal_generation',
                   'uninitialized_generation', 'invalid_payload', 'behind_source_stale', 'source_ahead',
                   'orphan_bidtopid', 'orphan_ptptstats', 'orphan_ticks', 'behind_input_at_cutoff',
-                  'source_ahead_of_input', 'complete-short', 'poller-not-live'):
+                  'source_ahead_of_input', 'complete-short', 'readiness-missing', 'future-publication-clock'):
             self.assertIn(n, BLOCKING)
-        for n in ('live_lag', 'live_tail_after_cutoff', 'target_only_main'):
+        for n in ('live_lag', 'live_tail_after_cutoff', 'target_only_main', 'poller-not-live'):
             self.assertNotIn(n, BLOCKING)
+
+
+def with_published(source=None, target=None):
+    r = verifier.fixture_results()
+    r['published'].update(source_newest_ms=source, target_newest_ms=target)
+    return r
+
+
+class Liveness(unittest.TestCase):
+    """Review [1453] R1: publication maxima are catch-up evidence; progress comes from the readiness record."""
+
+    def verdict(self, results=None, **spec):
+        r, j = export(results, j=job(**spec))
+        self.assertEqual(decode_receipt(encoded(r), j), r)
+        return r
+
+    def test_coverage_says_progress_is_not_collected(self):
+        r = self.verdict()
+        self.assertEqual((r['coverage']['poller_progress'], r['coverage']['poller_sweep'], r['coverage']['readiness']),
+                         ('NOT_COLLECTED', 'NOT_COLLECTED', 'OPERATOR_SUPPLIED'))
+        self.assertEqual(r['bindings']['readiness'], bv.readiness_digest(ready()))
+        self.assertNotIn('liveness', bv.__doc__.split('What the snapshot cannot see')[0])
+        self.assertNotIn('unresolved backfill work has no complete target', bv.__doc__)
+
+    def test_stale_ticks_without_progress_are_incomplete(self):
+        """The reviewer's vectors: both old, old target ahead; none may pass on publication alone."""
+        day = 86_400_000
+        for source, target in ((SNAPSHOT - day, SNAPSHOT - day), (SNAPSHOT - 2 * day, SNAPSHOT - day)):
+            with self.subTest(source=source, target=target):
+                r = self.verdict(with_published(source, target), readiness=None)
+                self.assertEqual((r['verdict'], r['blocking']), ('BACKFILL-INCOMPLETE', ['readiness-missing']))
+                self.assertEqual(r['snapshot']['newest_published_target_age_ms'], SNAPSHOT - target)
+                # Stopped writer: its own last discovery success is as old as its tick.
+                stopped = ready(discovery={'last_success_ms': target})
+                r = self.verdict(with_published(source, target), readiness=stopped)
+                self.assertEqual((r['verdict'], r['blocking']),
+                                 ('BACKFILL-INCOMPLETE', ['readiness-discovery-stale']))
+
+    def test_healthy_idle_writer_needs_progress_not_publication(self):
+        r = self.verdict(with_published(SNAPSHOT - 86_400_000, SNAPSHOT - 86_400_000))
+        self.assertEqual((r['verdict'], r['blocking']), ('BACKFILL-COMPLETE', []))
+        self.assertTrue(receipt_passed(r, job()))
+
+    def test_fresh_publication_then_wedged_discovery_blocks(self):
+        wedged = ready(discovery={'last_success_ms': CUTOFF - 60_000})
+        r = self.verdict(readiness=wedged)
+        self.assertEqual((r['verdict'], r['blocking']), ('BACKFILL-INCOMPLETE', ['readiness-discovery-stale']))
+        r = self.verdict(readiness=ready(queue={'pending': 3, 'oldest_work_age_ms': 3_600_000}))
+        self.assertEqual(r['blocking'], ['readiness-queue-stuck'])
+
+    def test_standby_or_report_process_blocks(self):
+        for role in ('standby', 'report'):
+            r = self.verdict(readiness=ready(holder={'role': role}))
+            self.assertEqual((r['verdict'], r['blocking']), ('BACKFILL-INCOMPLETE', ['readiness-holder-not-primary']))
+
+    def test_missing_mismatched_or_expired_readiness_is_backfill_incomplete(self):
+        cases = {
+            ('readiness-missing',): None,
+            ('readiness-run-mismatch',): ready(sweep={'run': 'd' * 12}),
+            ('readiness-sweep-unresolved',): ready(sweep={'parked_live': 1}),
+            ('readiness-not-drained',): ready(drain={'drained_ms': CUTOFF + 1}),
+            ('readiness-monitoring-not-ok',): ready(monitoring={'alert_test_sha256': None}),
+            ('readiness-expired',): ready(observed=SNAPSHOT - 900_001, cutoff=SNAPSHOT - 1_000_000),
+        }
+        for want, readiness in cases.items():
+            with self.subTest(want=want):
+                spec = {'readiness': readiness}
+                if want == ('readiness-expired',):
+                    spec['cutoff_ms'] = SNAPSHOT - 1_000_000
+                r = self.verdict(**spec)
+                self.assertEqual((r['verdict'], tuple(r['blocking'])), ('BACKFILL-INCOMPLETE', want))
+                self.assertFalse(receipt_passed(r, job(**spec)))
+
+    def test_future_clocks_are_unknown_never_fresh(self):
+        r = self.verdict(with_published(SNAPSHOT - 5000, SNAPSHOT + 86_400_000))
+        self.assertEqual((r['verdict'], r['snapshot']['clock']), ('INCOMPLETE', 'UNKNOWN'))
+        self.assertIsNone(r['snapshot']['newest_published_target_age_ms'])
+        self.assertEqual(r['blocking'], ['future-publication-clock'])
+        # Within the tolerance is plausible; beyond it is not.
+        r = self.verdict(with_published(SNAPSHOT - 5000, SNAPSHOT + bv.CLOCK_TOLERANCE_MS))
+        self.assertEqual((r['verdict'], r['snapshot']['clock'], r['snapshot']['newest_published_target_age_ms']),
+                         ('BACKFILL-COMPLETE', 'PLAUSIBLE', 0))
+        r = self.verdict(readiness=ready(observed=SNAPSHOT + bv.CLOCK_TOLERANCE_MS + 1))
+        self.assertEqual((r['verdict'], r['snapshot']['clock']), ('INCOMPLETE', 'UNKNOWN'))
+        self.assertIn('future-readiness-clock', r['blocking'])
+        r = self.verdict(readiness=ready(monitoring={'evaluated_ms': SNAPSHOT + 3_600_000}))
+        self.assertEqual((r['verdict'], r['snapshot']['clock']), ('INCOMPLETE', 'UNKNOWN'))
+
+
+class Consumption(unittest.TestCase):
+    """Review [1453] R2: current-time readiness at consumption and at the switch; archival decode unchanged."""
+
+    def setUp(self):
+        self.r, self.j = export()
+        self.raw = encoded(self.r)
+        self.bound = self.j['run_spec']['readiness']
+
+    def current(self, now, **changes):
+        return ready(observed=now, **changes)
+
+    def test_archival_decode_never_reads_the_clock(self):
+        for wall in (0.0, SNAPSHOT / 1000, (SNAPSHOT + 7_000_000) / 1000, 4e9):
+            with patch('time.time', return_value=wall), patch('time.time_ns', return_value=int(wall * 1e9)):
+                self.assertEqual(decode_receipt(self.raw, self.j), self.r)
+                self.assertTrue(receipt_passed(decode_receipt(self.raw, self.j), self.j))
+        source = (HERE / 'backfill_verify.py').read_text()
+        self.assertNotRegex(source, r'(?m)^\s*(import time|from time |import datetime|from datetime )')
+
+    def test_fresh_result(self):
+        out = bv.consumption(self.r, SNAPSHOT + 60_000)
+        self.assertEqual((out['status'], out['reasons']), ('FRESH', []))
+        out = bv.handoff(self.r, self.current(SNAPSHOT + 60_000), SNAPSHOT + 61_000)
+        self.assertEqual((out['status'], out['reasons']), ('READY', []))
+        self.assertEqual(out['current_readiness'], bv.readiness_digest(self.current(SNAPSHOT + 60_000)))
+
+    def test_delayed_consumption_is_refused_with_new_proof(self):
+        """The reviewer's witness: stored cutoff age 600,000 ms, consumed at snapshot + 7,000,000 ms."""
+        now = SNAPSHOT + 7_000_000
+        self.assertEqual(self.r['snapshot']['cutoff_age_ms'], 600_000)
+        out = bv.consumption(self.r, now)
+        self.assertEqual((out['status'], out['reasons'], out['cutoff_age_ms']), ('EXPIRED', ['cutoff-expired'], 7_600_000))
+        self.assertIn('new proof required', bv.NEW_PROOF)
+        out = bv.handoff(self.r, self.current(now), now)
+        self.assertEqual(out['status'], 'EXPIRED')
+        self.assertIn('cutoff-expired', out['reasons'])
+        # Expired for the switch, still valid and unchanged as history.
+        self.assertEqual(decode_receipt(self.raw, self.j), self.r)
+        self.assertTrue(receipt_passed(self.r, self.j))
+
+    def test_long_running_query_outlives_the_bound(self):
+        """Snapshot fresh at start; the job ends past the bound (7,200 s ceiling > 3,600 s bound)."""
+        bound = 1000 * self.j['run_spec']['max_cutoff_age_seconds']
+        self.assertEqual(bv.consumption(self.r, CUTOFF + bound)['status'], 'FRESH')
+        out = bv.consumption(self.r, CUTOFF + bound + 1)
+        self.assertEqual((out['status'], out['reasons']), ('EXPIRED', ['cutoff-expired']))
+
+    def test_clock_reversal_and_future_stamps_are_unknown(self):
+        out = bv.consumption(self.r, SNAPSHOT - bv.CLOCK_TOLERANCE_MS - 1)
+        self.assertEqual(out['status'], 'UNKNOWN')
+        self.assertIn('clock-reversal', out['reasons'])
+        self.assertEqual(bv.consumption(self.r, SNAPSHOT - bv.CLOCK_TOLERANCE_MS)['status'], 'FRESH')
+        now = SNAPSHOT + 60_000
+        out = bv.handoff(self.r, self.current(now + bv.CLOCK_TOLERANCE_MS + 1), now)
+        self.assertEqual(out['status'], 'UNKNOWN')
+        self.assertIn('future-current-readiness-clock', out['reasons'])
+
+    def test_handoff_requires_the_current_matching_holder(self):
+        now = SNAPSHOT + 60_000
+        cases = {
+            'current-readiness-missing': None,
+            'current-readiness-mismatch': self.current(now, holder={'run': 'e' * 12}),
+            'current-readiness-holder-not-primary': self.current(now, holder={'role': 'standby'}),
+            'current-readiness-discovery-stale': self.current(now, discovery={'last_success_ms': now - 600_000}),
+            'current-readiness-sweep-unresolved': self.current(now, sweep={'in_flight': 1}),
+            'current-readiness-older': ready(observed=self.bound['observed_ms'] - 1),
+            'current-readiness-invalid': dict(self.current(now), note='free text'),
+        }
+        for reason, current in cases.items():
+            with self.subTest(reason=reason):
+                out = bv.handoff(self.r, current, now)
+                self.assertEqual(out['status'], 'REFUSED', out)
+                self.assertIn(reason, out['reasons'])
+        # A current record past its own age bound, while the cutoff is still fresh: capture a newer one.
+        now = CUTOFF + 3_000_000
+        out = bv.handoff(self.r, self.current(now - 900_001), now)
+        self.assertEqual((out['status'], out['reasons']), ('EXPIRED', ['current-readiness-expired']))
+
+    def test_not_complete_receipts_never_hand_off(self):
+        r, _ = export(j=job(readiness=None))
+        self.assertEqual(r['verdict'], 'BACKFILL-INCOMPLETE')
+        self.assertEqual(bv.consumption(r, SNAPSHOT + 1)['status'], 'NOT_COMPLETE')
+        self.assertEqual(bv.handoff(r, self.current(SNAPSHOT), SNAPSHOT + 1)['status'], 'NOT_COMPLETE')
 
 
 @unittest.skipUnless(os.environ.get('POLIS_BACKFILL_VERIFY_PG'), 'opt-in: disposable PG17 URL')
@@ -462,7 +657,7 @@ class Postgres(unittest.TestCase):
             cur.execute('TRUNCATE math_main, math_bidtopid, math_ptptstats, math_ticks, votes')
             cur.execute(sql)
 
-    def read(self, cutoff):
+    def read(self, cutoff, readiness=None):
         import psycopg2
         from urllib.parse import urlsplit
         parts = urlsplit(self.url)
@@ -470,13 +665,53 @@ class Postgres(unittest.TestCase):
         def connect():
             return psycopg2.connect(host=parts.hostname, port=parts.port, dbname=parts.path[1:],
                                     user='polis_probe_reader', password='probe')
-        spec = dict(TEMPLATE_RUN_SPEC, cutoff_ms=cutoff)
+        spec = dict(TEMPLATE_RUN_SPEC, cutoff_ms=cutoff, readiness=readiness)
         return reader.projection(connect, '1' * 40, spec, SQL), spec
 
-    def test_valid_empty_target_and_missing_target(self):
-        now = 1_900_000_000_000
+    def clean(self, tick_offset_ms=0):
+        """The valid single-conversation bundle at the current wall clock; ticks shifted by the offset."""
+        now = int(time.time() * 1000)
         self.fill(BUNDLES.format(now=now))
-        p, spec = self.read(now - 1000)
+        with self.admin.cursor() as cur:
+            for table in q.TABLES:
+                cur.execute('DELETE FROM ' + table + ' WHERE zid = 2')
+            cur.execute('UPDATE math_ticks SET modified = %s', (now + tick_offset_ms,))
+        return now
+
+    def receipt(self, now, readiness):
+        p, spec = self.read(now - 10_000, readiness)
+        self.assertEqual(p['status'], 'COMPLETE', p)
+        j = job(cutoff_ms=spec['cutoff_ms'], readiness=readiness)
+        r = verifier.export(p, bv.assess(p, j['run_spec']), j, '1' * 40)
+        self.assertEqual(decode_receipt(encoded(r), j), r)
+        return r
+
+    def test_publication_clocks_are_not_poller_liveness(self):
+        """Review [1453] R1 through the real PG17 chain: a stopped writer in a quiet database."""
+        now = self.clean(-86_400_000)
+        r = self.receipt(now, None)
+        self.assertEqual((r['verdict'], r['blocking']), ('BACKFILL-INCOMPLETE', ['readiness-missing']))
+        self.assertGreaterEqual(r['snapshot']['newest_published_target_age_ms'], 86_400_000)
+        stopped = ready(cutoff=now - 10_000, observed=now, discovery={'last_success_ms': now - 86_400_000})
+        r = self.receipt(now, stopped)
+        self.assertEqual((r['verdict'], r['blocking']), ('BACKFILL-INCOMPLETE', ['readiness-discovery-stale']))
+        # A healthy idle holder: genuine discovery progress after the cutoff, no new publication.
+        r = self.receipt(now, ready(cutoff=now - 10_000, observed=now))
+        self.assertEqual((r['verdict'], r['blocking']), ('BACKFILL-COMPLETE', []))
+        self.assertTrue(receipt_passed(r, job(cutoff_ms=now - 10_000, readiness=ready(cutoff=now - 10_000,
+                                                                                      observed=now))))
+
+    def test_future_publication_clock_is_unknown(self):
+        now = self.clean(86_400_000)
+        r = self.receipt(now, ready(cutoff=now - 10_000, observed=now))
+        self.assertEqual((r['verdict'], r['snapshot']['clock']), ('INCOMPLETE', 'UNKNOWN'))
+        self.assertIsNone(r['snapshot']['newest_published_target_age_ms'])
+        self.assertIn('future-publication-clock', r['blocking'])
+
+    def test_valid_empty_target_and_missing_target(self):
+        now = int(time.time() * 1000)
+        self.fill(BUNDLES.format(now=now))
+        p, spec = self.read(now - 10_000, ready(cutoff=now - 10_000, observed=now))
         self.assertEqual(p['status'], 'COMPLETE', p)
         c = p['results']['conversations']
         self.assertEqual((c['source_conversations'], c['complete'], c['missing_main'], c['missing_ticks']), (2, 1, 1, 1))
@@ -491,7 +726,7 @@ class Postgres(unittest.TestCase):
             cur.execute("DELETE FROM math_bidtopid WHERE zid = 2")
             cur.execute("DELETE FROM math_ptptstats WHERE zid = 2")
             cur.execute("DELETE FROM math_ticks WHERE zid = 2")
-        p, spec = self.read(now - 1000)
+        p, spec = self.read(now - 10_000, ready(cutoff=now - 10_000, observed=now))
         self.assertEqual(p['status'], 'COMPLETE', p)
         self.assertEqual(bv.assess(p, spec)['blocking'], [])
 

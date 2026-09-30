@@ -46,6 +46,18 @@ def file_digest(path):
         return digest_stream(f)[0]
 
 
+# The launcher source each image kind is staged and admitted with. launcher.py
+# stays byte-identical for every kind admitted before backfill-verify: their
+# archives recorded its digest, and re-admission compares against the file.
+# A new kind gets its own launcher file rather than editing that one.
+LAUNCHERS = {'backfill-verify': 'launcher_verify.py'}
+
+
+def launcher_source(recipe):
+    kind = recipe.get('kind') if recipe.get('schema') == 'polis-private-image-recipe/2' else None
+    return Path(__file__).resolve().parent / 'images' / LAUNCHERS.get(kind, 'launcher.py')
+
+
 def json_bytes(raw):
     def pairs(items):
         out = {}

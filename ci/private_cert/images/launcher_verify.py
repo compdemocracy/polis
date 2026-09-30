@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Fixed exec-form ABI; verify the admitted closure before its gate entrypoint.
+"""Fixed exec-form ABI for the backfill-verify images only.
 
-The gate is separately reviewed code. This launcher intentionally does not
-replace it with certify --strict or turn a build/transport success into PASS.
+A separate file from launcher.py so that launcher.py stays byte-identical:
+every existing image (light-shadow, roles census, the battery) recorded
+launcher.py's digest at its admission, and re-admitting those archives from
+any later tree must still match that recorded digest. The staging step copies
+this file into a backfill-verify image as /opt/polis-private-image/launcher.py,
+and that kind's admission binds this file's digest instead. Otherwise the
+same closure check as launcher.py, narrowed to the one kind.
 """
 import hashlib
 import json
@@ -15,14 +20,13 @@ ROOT = Path('/opt/polis-private-image')
 
 def main():
     recipe = json.loads((ROOT / 'recipe.json').read_bytes())
-    census = (recipe.get('schema') == 'polis-private-image-recipe/2'
-              and recipe.get('kind') in ('roles-census', 'light-shadow-compare'))
-    allowed = ({'reader': {'read'}, 'producer': {'produce'}, 'verifier': {'verify'}} if census else
-               {'producer': {'extract', 'produce'}, 'verifier': {'verify'}})[recipe['role']]
+    if recipe.get('schema') != 'polis-private-image-recipe/2' or recipe.get('kind') != 'backfill-verify':
+        raise ValueError('IMAGE_KIND')
+    allowed = {'reader': {'read'}, 'producer': {'produce'}, 'verifier': {'verify'}}[recipe['role']]
     if len(sys.argv) != 2 or sys.argv[1] not in allowed:
         raise ValueError('IMAGE_ACTION')
     action = sys.argv[1]
-    if action not in ('extract', 'read'):
+    if action != 'read':
         admission = json.loads(Path('/run-spec/inputs.json').read_bytes())
         for key in ('candidateSha', 'oracleSha', 'policySha256'):
             if recipe[key] != admission[key]:
@@ -43,7 +47,7 @@ def main():
             raise ValueError('SOURCE_FILE_TYPE')
     if actual != set(recipe['files']):
         raise ValueError('SOURCE_CENSUS')
-    # Never import code from the mounted fixture/evidence/admission or an ambient
+    # Never import code from the mounted input/evidence/admission or an ambient
     # PYTHONPATH. -I disables caller-controlled Python import/config sources.
     env = {key: value for key, value in os.environ.items() if key in {
         'PATH', 'OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS',
