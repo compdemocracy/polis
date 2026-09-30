@@ -42,10 +42,12 @@ class FakeDb:
         self.convs = {}
 
     def add(self, zid, participants, *, voters=None, comments=10, votes=None,
-            source_lvt=1_000, target=None):
+            source_lvt=1_000, target=None, input_lvt=None):
         voters = participants if voters is None else voters
         self.convs[zid] = {
             "participants": participants, "source_lvt": source_lvt,
+            # The votes table's newest vote; the source normally equals it.
+            "input_lvt": source_lvt if input_lvt is None else input_lvt,
             "voters": voters, "comments": comments,
             "votes": votes if votes is not None else voters * comments // 2,
             # target: None or dict(main, bid, stats, ticks, lvt[, valid])
@@ -57,7 +59,7 @@ class FakeDb:
         prior = conv["target"]["ticks"] if conv["target"] and conv["target"].get("ticks") is not None else -1
         tick = max(prior + 1, 0)
         conv["target"] = {"main": tick, "bid": tick, "stats": tick, "ticks": tick,
-                          "lvt": conv["source_lvt"] if lvt is None else lvt}
+                          "lvt": conv["input_lvt"] if lvt is None else lvt}
         return tick
 
     def row(self, zid):
@@ -72,6 +74,8 @@ class FakeDb:
             "bid_tick": t.get("bid") if t else None,
             "stats_tick": t.get("stats") if t else None,
             "ticks_tick": t.get("ticks") if t else None,
+            "input_lvt": (conv["input_lvt"] if t and t.get("lvt") is not None
+                          and t["lvt"] < conv["source_lvt"] else None),
             "bundle_valid": bool(t) and t.get("valid", True) and bf.structurally_coherent({
                 "main_zid": zid, "main_tick": t.get("main"), "bid_tick": t.get("bid"),
                 "stats_tick": t.get("stats"), "ticks_tick": t.get("ticks")}),
@@ -79,6 +83,8 @@ class FakeDb:
 
 
 class FakeStore:
+    accept_source_ahead = False
+
     def __init__(self, db):
         self.db = db
         self.page_calls = 0
@@ -97,12 +103,11 @@ class FakeStore:
             return [], None, 0
         out, lag = [], 0
         for r in rows:
-            k = classify(r, cutoff)
+            k = classify(r, cutoff, accept_source_ahead=self.accept_source_ahead)
             if k is None:
                 lag += bf.live_lag(r, cutoff)
                 continue
-            out.append((bf.Target(r["zid"], r["participants"], k, r["source_lvt"],
-                                  bf._fingerprint(r)), r))
+            out.append((bf._target(r, k), r))
         return out, (rows[-1]["participants"], rows[-1]["zid"]), lag
 
     def states(self, zids, cutoff, fresh=True):
@@ -110,9 +115,8 @@ class FakeStore:
         for zid in zids:
             if zid in self.db.convs:
                 r = self.db.row(zid)
-                k = classify(r, cutoff)
-                out[zid] = (k, bf.Target(zid, r["participants"], k or "", r["source_lvt"],
-                                         bf._fingerprint(r)))
+                k = classify(r, cutoff, accept_source_ahead=self.accept_source_ahead)
+                out[zid] = (k, bf._target(r, k or ""))
         return out
 
     def state(self, zid, cutoff):
@@ -121,6 +125,9 @@ class FakeStore:
     def coherent(self, zid):
         r = self.db.row(zid)
         return bool(r["bundle_valid"]), r["main_tick"], r["target_lvt"]
+
+    def input_lvt(self, zid):
+        return self.db.convs[zid]["input_lvt"]
 
     def sizes(self, zid):
         c = self.db.convs[zid]
@@ -133,9 +140,12 @@ class FakeStore:
         if self.fail_counts:
             raise RuntimeError("aggregate failed")
         counts = {"source_rows": len(self.db.convs), "missing": 0, "incomplete": 0,
-                  "stale": 0, "live_lag": 0}
+                  "stale": 0, "live_lag": 0, "source_ahead": 0}
         for zid in self.db.convs:
             r = self.db.row(zid)
+            if bf.structurally_coherent(r) and bf.source_ahead(r):
+                counts["source_ahead"] += 1
+                continue
             k = classify(r, cutoff)
             if k in (bf.MISSING, bf.INCOMPLETE, bf.STALE):
                 counts[k] += 1
@@ -252,8 +262,10 @@ def make(db=None, *, rss_mb=500.0, limit_mb=6144.0, base_mb=300.0, headroom=0.0,
     host = FakeHost(db, admission)
     clock = Clock()
     rss = {"v": int(rss_mb * MB)}
+    store = FakeStore(db)
+    store.accept_source_ahead = config.accept_source_ahead
     sched = BackfillScheduler(
-        host, FakeStore(db), config, clock=clock, rss_fn=lambda: rss["v"],
+        host, store, config, clock=clock, rss_fn=lambda: rss["v"],
         release_fn=lambda: None,
     )
     return SimpleNamespace(db=db, host=host, sched=sched, clock=clock, rss=rss,
@@ -616,15 +628,36 @@ class TestExecution:
         assert t.sched._state.totals == {bf.ALREADY_COMPLETE: 1}
         assert t.host.computed == []
 
-    def test_live_cached_conversation_is_left_to_live(self):
+    def test_live_cached_conversation_needing_repair_is_repaired_not_deferred(self):
+        # Review [1447] E: a cached (live-owned) zid whose publication is
+        # invalid is repaired through the serialized job, never deferred
+        # forever as live_owned.
         db = FakeDb()
-        db.add(1, 10)
+        db.add(1, 10, target={"main": 5, "bid": 5, "stats": 5, "ticks": 5, "lvt": 1_000,
+                              "valid": False})
         t = make(db)
         t.sched.step()
         t.host.cached.add(1)
         t.sched.run_job(1)
-        assert t.sched._state.totals == {bf.LIVE_OWNED: 1}
-        assert t.sched._state.failures["1"]["reason"] == bf.LIVE_OWNED
+        assert t.sched._state.totals == {bf.PUBLISHED: 1}
+        assert t.host.restores == [(1, False)]  # cold: never restore the invalid row
+        assert 1 not in t.host.cached and "1" not in t.sched._state.failures
+        assert classify(db.row(1), 0) is None
+
+    def test_live_cached_valid_targets_are_complete_or_live_owned(self):
+        db = FakeDb()
+        db.add(1, 10)
+        db.add(2, 9, source_lvt=int(NOW * 1000), input_lvt=int(NOW * 1000))
+        t = make(db)
+        db.publish(1)
+        db.publish(2, lvt=int(NOW * 1000) - 1000)  # recent, a newer vote unconsumed
+        t.host.cached |= {1, 2}
+        for zid in (1, 2):
+            t.sched._in_flight[zid] = bf._Job(bf.Target(zid, 10, "", None, None), 1, 1, 1, 0, 0,
+                                             False)
+            t.sched.run_job(zid)
+        assert t.sched._state.totals == {bf.ALREADY_COMPLETE: 1, bf.LIVE_OWNED: 1}
+        assert t.host.computed == []
 
     def test_published_job_evicts_and_never_grows_the_cache(self):
         db = FakeDb()
@@ -672,7 +705,7 @@ class TestExecution:
 
     def test_published_row_behind_its_source_is_excluded_not_complete(self):
         db = FakeDb()
-        db.add(1, 10, source_lvt=9_000)
+        db.add(1, 10, source_lvt=9_000, input_lvt=100)
         t = make(db)
         t.sched.step()
         original = db.publish
@@ -1202,3 +1235,156 @@ class TestServiceWiring:
         svc._vote_poll_ok_at = _t.monotonic()
         mean, since = svc._live_poll_health()
         assert mean == 20.0 and 0 <= since < 5
+
+
+# --------------------------------------------------------------------------- #
+# Review [1447] C: live lag is not catch-up; source-ahead needs a ruling
+# --------------------------------------------------------------------------- #
+class TestSourceAheadAndLag:
+    @pytest.mark.parametrize("reason", [bf.SOURCE_AHEAD, bf.FAILED_COMPUTE, bf.EXHAUSTED])
+    def test_recent_lag_keeps_a_saved_failure_until_caught_up(self, reason):
+        """The reviewer's scheduler witnesses: a recent valid target still
+        behind its source no longer clears the failure."""
+        t = make()
+        target = int(NOW * 1000) - 1000
+        t.db.add(1, 10, source_lvt=target + 10_000)
+        t.db.publish(1, lvt=target)
+        t.sched._state.failures["1"] = {"attempts": 1, "next_at": 0, "reason": reason}
+        assert t.sched._reconcile_failures(NOW) == {}
+        assert t.sched._state.failures["1"]["reason"] == reason
+        # Actual catch-up clears it.
+        t.db.publish(1)
+        assert t.sched._reconcile_failures(NOW) == {reason: 1}
+
+    def test_recent_source_ahead_target_is_excluded_by_the_job(self):
+        t = make()
+        target = int(NOW * 1000) - 1000
+        t.db.add(1, 10, source_lvt=target + 10_000, input_lvt=target)
+        t.db.publish(1)
+        assert classify(t.db.row(1), t.sched._stale_cutoff_ms(NOW)) is None
+        t.sched._in_flight[1] = bf._Job(bf.Target(1, 10, "", None, None), 1, 1, 1, 0, 0, False)
+        t.sched.run_job(1)
+        assert t.sched._state.failures["1"]["reason"] == bf.SOURCE_AHEAD
+        assert t.host.computed == []
+
+    def test_unresolved_source_ahead_blocks_complete_without_a_saved_failure(self, caplog):
+        # A fresh state file (new host): the aggregate still reports it.
+        t = make()
+        target = int(NOW * 1000) - 1000
+        t.db.add(1, 10, source_lvt=target + 10_000, input_lvt=target)
+        t.db.publish(1)
+        caplog.set_level("WARNING")
+        assert drain(t) == []
+        assert "math-backfill COMPLETE" not in caplog.text
+        assert "status=NOT_COMPLETE" in caplog.text and "source_ahead=1" in caplog.text
+
+    def test_old_source_ahead_is_rebuilt_once_then_excluded_not_looped(self):
+        t = make()
+        t.db.add(1, 10, source_lvt=9_000, input_lvt=100)
+        t.db.publish(1)  # old valid target reflecting every vote (100)
+        assert drain(t) == [1]
+        assert t.sched._unresolved() == {bf.SOURCE_AHEAD: 1}
+        t.clock.t += 10_000
+        t.sched._next_sweep_at = 0
+        assert drain(t) == []
+
+    def test_accept_input_ruling_is_an_explicit_disposition(self, caplog):
+        t = make(source_ahead_ruling="accept_input")
+        now_ms = int(NOW * 1000)
+        t.db.add(1, 10, source_lvt=9_000, input_lvt=100)            # old, source-ahead
+        t.db.add(2, 9, source_lvt=now_ms, input_lvt=now_ms - 5_000)  # recent, source-ahead
+        t.db.publish(1)
+        t.db.publish(2)
+        t.sched._state.failures["2"] = {"attempts": 0, "next_at": 0, "reason": bf.SOURCE_AHEAD}
+        caplog.set_level("WARNING")
+        assert drain(t) == []  # nothing is rebuilt, and nothing loops
+        assert t.sched._unresolved() == {}
+        assert '"source_ahead_accepted": 1' in caplog.text
+        assert "math-backfill COMPLETE" in caplog.text and "source_ahead=2" in caplog.text
+
+    def test_accept_input_job_outcome_counts_as_complete(self):
+        t = make(source_ahead_ruling="accept_input")
+        t.db.add(1, 10, source_lvt=9_000, input_lvt=100,
+                 target={"main": 1, "bid": 1, "stats": 1, "ticks": None, "lvt": 100})
+        assert drain(t) == [1]
+        assert t.sched._state.totals == {bf.SOURCE_AHEAD_ACCEPTED: 1}
+        assert t.sched._unresolved() == {}
+
+    def test_a_vote_arriving_during_the_job_is_live_owned_not_source_ahead(self):
+        t = make()
+        t.db.add(1, 10, source_lvt=9_000)
+        original = t.db.publish
+        t.db.publish = lambda zid, lvt=None: original(zid, lvt=100)  # input is 9000
+        assert drain(t) == [1]
+        assert t.sched._state.failures["1"]["reason"] == bf.LIVE_OWNED
+
+    def test_ruling_knob_reads_from_the_environment_and_refuses_other_values(self):
+        cfg = BackfillConfig.from_env({"MATH_BACKFILL_SOURCE_AHEAD_RULING": "accept_input"})
+        assert cfg.accept_source_ahead
+        assert BackfillConfig.from_env({}).source_ahead_ruling == "unresolved"
+        with pytest.raises(ConfigError):
+            BackfillConfig.from_env({"MATH_BACKFILL_SOURCE_AHEAD_RULING": "waive"})
+
+
+# --------------------------------------------------------------------------- #
+# Review [1447] D: unbound approvals re-arm; nested state records are checked
+# --------------------------------------------------------------------------- #
+GOOD_RECORD = {"zid": 1, "klass": "missing", "outcome": "published", "participants": 10,
+               "voters": 10, "votes": 50, "comments": 5, "seconds": 1.5,
+               "peak_rss_delta_mb": 20.0, "est_mb": 300.0}
+
+
+class TestStateUpgrade:
+    def test_prior_schema_approval_without_a_binding_is_re_armed(self, tmp_path):
+        """The reviewer's witness: an approved file from the previous
+        implementation (no binding) no longer skips the gate."""
+        p = tmp_path / "state.json"
+        p.write_text(json.dumps({"source_env": "prod", "target_env": "python",
+                                 "gate_approved": True, "gate_published": 10,
+                                 "gate_records": [GOOD_RECORD]}))
+        t = make(state_path=str(p), gate_after_largest=10)
+        st = t.sched._state
+        assert not st.gate_approved and st.gate_published == 0 and st.gate_records == []
+        assert st.binding == t.sched.binding
+        assert json.loads(p.read_text())["gate_approved"] is False
+
+    def test_matching_binding_keeps_the_approval_across_a_restart(self, tmp_path):
+        p = str(tmp_path / "state.json")
+        t = make(state_path=p, gate_after_largest=10)
+        t.sched._state.gate_published = 10
+        t.sched.approve_gate()
+        t2 = make(state_path=p, gate_after_largest=10)
+        assert t2.sched._state.gate_approved and not t2.sched.gate_pending
+
+    @pytest.mark.parametrize("key,item", [
+        ("top_seconds", {**GOOD_RECORD, "seconds": "bad"}),
+        ("top_memory", {**GOOD_RECORD, "peak_rss_delta_mb": None}),
+        ("gate_records", {k: v for k, v in GOOD_RECORD.items() if k != "votes"}),
+        ("gate_records", {**GOOD_RECORD, "voters": True}),
+        ("top_seconds", {**GOOD_RECORD, "outcome": "done"}),
+        ("top_memory", {**GOOD_RECORD, "klass": 3}),
+        ("gate_records", {**GOOD_RECORD, "est_mb": float("nan")}),
+    ])
+    def test_malformed_nested_record_starts_paused(self, tmp_path, key, item):
+        p = tmp_path / "state.json"
+        p.write_text(json.dumps({"source_env": "prod", "target_env": "python", key: [item]}))
+        t = make(state_path=str(p))
+        assert t.sched._state.paused and t.sched._state.top_seconds == []
+        t.sched._finish_sweep(NOW)  # reporting works on the fresh state
+
+    @pytest.mark.parametrize("extra", [{"bound": "x"}, {"est_mb": "x"}, {"need_bytes": 1.5},
+                                       {"last": "nope"}])
+    def test_malformed_failure_fields_start_paused(self, tmp_path, extra):
+        p = tmp_path / "state.json"
+        p.write_text(json.dumps({"source_env": "prod", "target_env": "python", "failures": {
+            "1": {"attempts": 0, "next_at": 0, "reason": "refused_input_size", **extra}}}))
+        t = make(state_path=str(p))
+        assert t.sched._state.paused and t.sched._state.failures == {}
+
+    def test_well_formed_records_load_and_report(self, tmp_path):
+        p = tmp_path / "state.json"
+        p.write_text(json.dumps({"source_env": "prod", "target_env": "python",
+                                 "top_seconds": [GOOD_RECORD], "top_memory": [GOOD_RECORD]}))
+        t = make(state_path=str(p))
+        assert not t.sched._state.paused and t.sched._state.top_seconds == [GOOD_RECORD]
+        t.sched._finish_sweep(NOW)

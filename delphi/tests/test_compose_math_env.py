@@ -318,6 +318,12 @@ def test_math_python_backfill_is_off_by_default_and_its_settings_parse():
     assert config.gate_after_largest == 10 and not config.gate_approved
     # No extra per-job ceiling by default: the shared memory budget decides.
     assert config.memory_ceiling_mb == 0
+    # Source-ahead stays unresolved (excluded, counted) until a ruling.
+    assert config.source_ahead_ruling == "unresolved" and not config.accept_source_ahead
+    ruled = BackfillConfig.from_env(_environment(
+        "docker-compose.yml", "math-python",
+        {"MATH_BACKFILL_SOURCE_AHEAD_RULING": "accept_input"}))
+    assert ruled.accept_source_ahead
 
     on = BackfillConfig.from_env(
         _environment("docker-compose.yml", "math-python", {"MATH_BACKFILL": "1"})

@@ -273,6 +273,10 @@ services:
       - MATH_BACKFILL_DUTY_CYCLE=${MATH_BACKFILL_DUTY_CYCLE:-0.5}
       - MATH_BACKFILL_MAX_VOTES_PER_MIN=${MATH_BACKFILL_MAX_VOTES_PER_MIN:-2000000}
       - MATH_BACKFILL_PAUSE_POLL_MS=${MATH_BACKFILL_PAUSE_POLL_MS:-1000}
+      # How a source row that claims a later vote than the votes table holds
+      # is treated: unresolved (excluded, counted, blocks COMPLETE) until a
+      # ruling is encoded as accept_input.
+      - MATH_BACKFILL_SOURCE_AHEAD_RULING=${MATH_BACKFILL_SOURCE_AHEAD_RULING:-unresolved}
       - MATH_BACKFILL_STATE_PATH=/app/backfill-state/state.json
     volumes:
       # Backfill retry/gate/pause/report state across restarts on this host.

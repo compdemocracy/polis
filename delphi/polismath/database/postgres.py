@@ -808,14 +808,23 @@ class PostgresClient:
         and falsely diagnose a mixed generation. Missing companions and NULL
         ticks are incomplete, even if both companions are missing/NULL alike.
         """
+        # bundle_valid: the backfill's shared validity rule over the same
+        # snapshot (P-070 review [1447] E). The live restore uses warm state
+        # only from a valid bundle, so a malformed row (a wrong body zid, say)
+        # is never restored into its own replacement. Imported here to keep
+        # the database layer free of an import-time dependency on the poller.
+        from polismath.poller.backfill import VALID_BUNDLE_SQL
+
         rows = self.query(
             """
             SELECT m.*, COALESCE(
                 m.math_tick = b.math_tick AND m.math_tick = p.math_tick,
-                false) AS snapshot_complete
+                false) AS snapshot_complete,
+            """ + VALID_BUNDLE_SQL + """ AS bundle_valid
             FROM math_main m
-            LEFT JOIN math_bidtopid b USING (zid, math_env)
-            LEFT JOIN math_ptptstats p USING (zid, math_env)
+            LEFT JOIN math_bidtopid b ON b.zid = m.zid AND b.math_env = m.math_env
+            LEFT JOIN math_ptptstats p ON p.zid = m.zid AND p.math_env = m.math_env
+            LEFT JOIN math_ticks k ON k.zid = m.zid AND k.math_env = m.math_env
             WHERE m.zid = :zid AND m.math_env = :math_env
             """,
             {"zid": zid, "math_env": self.config.math_env},

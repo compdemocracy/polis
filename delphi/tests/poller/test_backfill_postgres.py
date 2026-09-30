@@ -22,7 +22,7 @@ from pathlib import Path
 import psycopg2
 import pytest
 
-from polismath.poller.worker_pool import REBUILD
+from polismath.poller.worker_pool import REBUILD, CoalescedBatch
 from tests.conftest import require_polis_postgres
 
 pytestmark = pytest.mark.integration
@@ -219,8 +219,11 @@ class TestSelection:
             assert store.sizes(z[1]) == (0, 0, 3)
             counts = store.label_counts(cutoff)
             assert counts["source_rows"] == 6 and counts["missing"] == 2
-            assert counts["incomplete"] == 1 and counts["stale"] == 1
-            assert counts["live_lag"] == 0
+            # z[4] has no votes at all while its source claims 1000: the
+            # aggregate counts it as source-ahead ([1447] C), not stale; the
+            # page still selects it (old) so a rebuild confirms it.
+            assert counts["incomplete"] == 1 and counts["stale"] == 0
+            assert counts["source_ahead"] == 1 and counts["live_lag"] == 0
         finally:
             pg.shutdown()
 
@@ -386,7 +389,7 @@ class TestTieRule:
 
 SWITCH_ZERO = ("missing_main", "missing_bidtopid", "missing_ptptstats", "missing_ticks",
                "unequal_generation", "uninitialized_generation", "invalid_payload",
-               "behind_source_stale")
+               "behind_source_stale", "source_ahead")
 
 
 def assert_switch_ready(results, n):
@@ -395,7 +398,7 @@ def assert_switch_ready(results, n):
     assert q2["source_conversations"] == n and q2["complete"] == n, q2
     assert all(q2[k] == 0 for k in SWITCH_ZERO), q2
     assert all(q3[k] == 0 for k in ("orphan_bidtopid", "orphan_ptptstats", "orphan_ticks")), q3
-    assert q5["behind_input_at_cutoff"] == 0, q5
+    assert q5["behind_input_at_cutoff"] == 0 and q5["source_ahead_of_input"] == 0, q5
 
 
 # --------------------------------------------------------------------------- #
@@ -473,6 +476,26 @@ CORRUPTIONS = {
     "false_empty": "UPDATE math_main SET data=jsonb_set(data,'{n}','0'::jsonb) "
                    "WHERE zid=%s AND math_env=%s",
 }
+# Review [1447] B: the seven nested corruptions that passed every switch
+# condition of the previous rule (the reviewer's exact expressions).
+NESTED = [
+    ("group_null", "math_main", "jsonb_set(data, '{group-clusters}', '[null]'::jsonb)"),
+    ("pca_components", "math_main",
+     "jsonb_set(data, '{pca}', '{\"center\":null,\"comps\":\"broken\"}'::jsonb)"),
+    ("base_members", "math_main",
+     "jsonb_set(data, '{base-clusters,members}', (SELECT jsonb_agg(null::text) "
+     "FROM jsonb_array_elements(data->'base-clusters'->'members')))"),
+    ("bid_members", "math_bidtopid",
+     "jsonb_set(data, '{bidToPid}', (SELECT jsonb_agg(null::text) "
+     "FROM jsonb_array_elements(data->'bidToPid')))"),
+    ("stats_values", "math_ptptstats",
+     "jsonb_set(data, '{ptptstats}', '{\"0\":\"broken\"}'::jsonb)"),
+    ("bid_timestamp", "math_bidtopid", "jsonb_set(data, '{lastVoteTimestamp}', '-99'::jsonb)"),
+    ("stats_timestamp", "math_ptptstats", "jsonb_set(data, '{lastVoteTimestamp}', '-99'::jsonb)"),
+]
+for _name, _table, _expr in NESTED:
+    CORRUPTIONS["nested_" + _name] = (
+        f"UPDATE {_table} SET data={_expr} WHERE zid=%s AND math_env=%s")
 
 
 class TestValidity:
@@ -490,14 +513,18 @@ class TestValidity:
         verifier, is selected for repair, and a backfill run repairs it."""
         src, tgt = labels
         (zid,) = fresh_zids(1)
-        lvt = seed_conversation(db, zid, participants=6, comments=4)
+        lvt = seed_conversation(db, zid, participants=12, comments=6)
         put_main(db, zid, src, lvt)
         svc, pg = make_service(pg_url, src, tgt)
         try:
             publish_real(svc, zid)
             cutoff = int(time.time() * 1000)
             assert_switch_ready(run_verification(db, src, tgt, cutoff), 1)  # control
+            assert q(db, "SELECT jsonb_array_length(data->'group-clusters') FROM math_main "
+                         "WHERE zid=%s AND math_env=%s", (zid, tgt))[0][0] > 0
             q(db, CORRUPTIONS[corruption], (zid, tgt))
+            assert q(db, "SELECT count(*) FROM math_main WHERE zid=%s AND math_env=%s "
+                         "AND data IS NOT NULL", (zid, tgt))[0][0] == 1
             v = run_verification(db, src, tgt, cutoff)
             assert v[1][0]["invalid_payload"] == 1 and v[1][0]["complete"] == 0, v[1][0]
             assert v[3][0]["invalid_payload"] == 1
@@ -547,9 +574,12 @@ class TestCatchUp:
             assert generations(db, zid, tgt)[4] == old_lvt
             cutoff = now - 3600 * 1000
             v = run_verification(db, src, tgt, cutoff)
-            assert v[1][0]["behind_source_stale"] == 1 and v[1][0]["complete"] == 0
-            assert v[1][0]["live_lag"] == 0
-            assert v[4][0] == {"behind_input_at_cutoff": 0, "source_ahead_of_input": 1}
+            # [1447] C: it reflects every vote, so it is source-ahead, not
+            # stale and not complete; the switch condition is not met.
+            assert (v[1][0]["behind_source_stale"], v[1][0]["source_ahead"],
+                    v[1][0]["complete"], v[1][0]["live_lag"]) == (0, 1, 0, 0)
+            assert v[4][0] == {"behind_input_at_cutoff": 0, "source_ahead_of_input": 1,
+                               "live_tail_after_cutoff": 0}
             page, _, _ = svc.backfill._store.page(None, 50, cutoff)
             assert [(t.zid, t.klass) for t, _ in page] == [(zid, "stale")]
             backfill_once(svc)
@@ -577,6 +607,7 @@ class TestCatchUp:
             assert (v[1][0]["live_lag"], v[1][0]["behind_source_stale"],
                     v[1][0]["complete"]) == (1, 0, 1)
             assert v[4][0]["behind_input_at_cutoff"] == 0
+            assert (v[4][0]["source_ahead_of_input"], v[4][0]["live_tail_after_cutoff"]) == (0, 1)
             page, _, lagging = svc.backfill._store.page(None, 50, now - 60_000)
             assert page == [] and lagging == 1
             # A cutoff after that vote: the target has not caught up with it.
@@ -752,3 +783,126 @@ class TestOperatorSignals:
             proc.wait(timeout=10)
             sel.close()
             proc.stdout.close()
+
+
+# --------------------------------------------------------------------------- #
+# Review [1447] acceptance cases
+# --------------------------------------------------------------------------- #
+class TestRecentSourceAhead:
+    def test_recent_target_cannot_hide_a_source_ahead_of_every_vote(self, pg_url, db, labels):
+        """The reviewer's real-DB witness, inverted: a recent valid target,
+        its source beyond every vote in the table. Reconciliation keeps the
+        exclusion, the verifier counts it, and the switch condition fails."""
+        src, tgt = labels
+        (zid,) = fresh_zids(1)
+        now = int(time.time() * 1000)
+        lvt = seed_conversation(db, zid, participants=12, comments=6, created_ms=now - 1000)
+        put_main(db, zid, src, lvt + 10_000)
+        svc, pg = make_service(pg_url, src, tgt)
+        try:
+            publish_real(svc, zid)
+            state = svc.backfill._state
+            state.failures[str(zid)] = {"attempts": 0, "next_at": 0, "reason": "source_ahead"}
+            assert svc.backfill._reconcile_failures(now / 1000) == {}
+            assert state.failures[str(zid)]["reason"] == "source_ahead"
+            results = run_verification(db, src, tgt, now - 2000)
+            assert results[4][0]["source_ahead_of_input"] == 1
+            assert results[1][0]["source_ahead"] == 1 and results[1][0]["complete"] == 0
+            with pytest.raises(AssertionError):
+                assert_switch_ready(results, 1)
+            counts = svc.backfill._store.label_counts(now - 3_600_000)
+            assert counts["source_ahead"] == 1 and counts["live_lag"] == 0
+            # A job for it (fresh state) records the exclusion, never COMPLETE.
+            state.failures.clear()
+            svc.backfill._in_flight[zid] = _job(zid)
+            svc.backfill.run_job(zid)
+            assert state.failures[str(zid)]["reason"] == "source_ahead"
+        finally:
+            pg.shutdown()
+
+    def test_accept_ruling_counts_it_as_an_explicit_disposition(self, pg_url, db, labels):
+        src, tgt = labels
+        (zid,) = fresh_zids(1)
+        now = int(time.time() * 1000)
+        lvt = seed_conversation(db, zid, participants=12, comments=6, created_ms=now - 1000)
+        put_main(db, zid, src, lvt + 10_000)
+        svc, pg = make_service(pg_url, src, tgt, source_ahead_ruling="accept_input")
+        try:
+            publish_real(svc, zid)
+            state = svc.backfill._state
+            state.failures[str(zid)] = {"attempts": 0, "next_at": 0, "reason": "source_ahead"}
+            assert svc.backfill._reconcile_failures(now / 1000) == {"source_ahead_accepted": 1}
+            assert svc.backfill._store.page(None, 50, now - 3_600_000)[0] == []
+        finally:
+            pg.shutdown()
+
+
+def _job(zid):
+    from polismath.poller import backfill as bfm
+    return bfm._Job(bfm.Target(zid, 12, "", None, None), 1, 1, 1, 0, 0, False)
+
+
+class TestLiveRestoreValidation:
+    def test_live_rebuild_never_republishes_a_wrong_body_zid(self, pg_url, db, labels):
+        """The reviewer's witness, inverted: a corrupted body zid is not
+        restored by the live rebuild; the replacement is valid and names its
+        own zid."""
+        src, tgt = labels
+        (zid,) = fresh_zids(1)
+        lvt = seed_conversation(db, zid, participants=12, comments=6)
+        put_main(db, zid, src, lvt)
+        svc, pg = make_service(pg_url, src, tgt)
+        try:
+            publish_real(svc, zid)
+            q(db, "UPDATE math_main SET data=jsonb_set(data,'{zid}',to_jsonb(%s::int)) "
+                  "WHERE zid=%s AND math_env=%s", (zid + 1, zid, tgt))
+            assert pg.load_math_main(zid)["bundle_valid"] is False
+            assert svc.backfill._store.state(zid, lvt + 100)[0] == "invalid"
+            svc._run_engine(zid, CoalescedBatch(rebuild=True))
+            assert q(db, "SELECT data->>'zid' FROM math_main WHERE zid=%s AND math_env=%s",
+                     (zid, tgt))[0][0] == str(zid)
+            assert svc.backfill._store.state(zid, lvt + 100)[0] is None
+            assert pg.load_math_main(zid)["bundle_valid"] is True
+            assert svc.backfill._host.is_cached(zid)
+        finally:
+            pg.shutdown()
+
+    def test_live_first_touch_restores_only_a_valid_row(self, pg_url, db, labels):
+        src, tgt = labels
+        (zid,) = fresh_zids(1)
+        lvt = seed_conversation(db, zid, participants=12, comments=6)
+        put_main(db, zid, src, lvt)
+        svc, pg = make_service(pg_url, src, tgt)
+        try:
+            publish_real(svc, zid)
+            assert pg.load_math_main(zid)["bundle_valid"] is True
+            q(db, "UPDATE math_ptptstats SET data=jsonb_set(data,'{lastVoteTimestamp}',"
+                  "'-99'::jsonb) WHERE zid=%s AND math_env=%s", (zid, tgt))
+            svc._run_engine(zid, CoalescedBatch())  # first touch: cache miss
+            assert svc.backfill._store.coherent(zid)[0] is True
+        finally:
+            pg.shutdown()
+
+    def test_a_cached_live_owner_with_an_invalid_row_is_repaired(self, pg_url, db, labels):
+        src, tgt = labels
+        (zid,) = fresh_zids(1)
+        lvt = seed_conversation(db, zid, participants=12, comments=6)
+        put_main(db, zid, src, lvt)
+        svc, pg = make_service(pg_url, src, tgt)
+        try:
+            svc._run_engine(zid, CoalescedBatch(rebuild=True))  # live owns it now
+            assert svc.backfill._host.is_cached(zid)
+            q(db, "UPDATE math_main SET data=jsonb_set(data,'{zid}',to_jsonb(%s::int)) "
+                  "WHERE zid=%s AND math_env=%s", (zid + 1, zid, tgt))
+            healthy(svc)
+            svc.backfill._host.submit = lambda z: True
+            svc.backfill._host.is_pending = lambda z: True
+            assert svc.backfill.step()[0] == "admitted"
+            svc.backfill.run_job(zid)
+            assert svc.backfill._state.totals == {"published": 1}
+            assert str(zid) not in svc.backfill._state.failures
+            assert svc.backfill._store.coherent(zid)[0] is True
+            assert q(db, "SELECT data->>'zid' FROM math_main WHERE zid=%s AND math_env=%s",
+                     (zid, tgt))[0][0] == str(zid)
+        finally:
+            pg.shutdown()

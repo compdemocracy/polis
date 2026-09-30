@@ -107,10 +107,22 @@ FAILED_COMPUTE = "failed_compute"
 FAILED_WRITE = "failed_write"
 FAILED_POSTCONDITION = "failed_postcondition"
 SOURCE_AHEAD = "source_ahead"
+SOURCE_AHEAD_ACCEPTED = "source_ahead_accepted"
 LOST = "lost"
 
+# The ruling on a source row that claims a later vote than the votes table
+# holds (MATH_BACKFILL_SOURCE_AHEAD_RULING). UNRESOLVED (the default, and the
+# only value until Colin rules): excluded, counted, and blocking COMPLETE.
+# ACCEPT_INPUT: a valid target that reflects every vote in the table is
+# accepted and counted as SOURCE_AHEAD_ACCEPTED; the source's later claim is
+# never manufactured into the target.
+RULING_UNRESOLVED = "unresolved"
+RULING_ACCEPT_INPUT = "accept_input"
+SOURCE_AHEAD_RULINGS = (RULING_UNRESOLVED, RULING_ACCEPT_INPUT)
+
 # Counted as done for this conversation.
-COMPLETE_OUTCOMES = frozenset({PUBLISHED, SUPERSEDED_LIVE, ALREADY_COMPLETE})
+COMPLETE_OUTCOMES = frozenset({PUBLISHED, SUPERSEDED_LIVE, ALREADY_COMPLETE,
+                               SOURCE_AHEAD_ACCEPTED})
 # Retried with exponential backoff; each one spends an attempt.
 FAILED_OUTCOMES = frozenset({FAILED_COMPUTE, FAILED_WRITE, FAILED_POSTCONDITION, LOST})
 # Deferred to a later sweep without spending an attempt.
@@ -165,6 +177,7 @@ class BackfillConfig:
     summary_every: int = 25
     query_timeout_ms: int = 30000
     state_path: Optional[str] = None
+    source_ahead_ruling: str = RULING_UNRESOLVED
 
     def __post_init__(self) -> None:
         self.validate()
@@ -197,6 +210,14 @@ class BackfillConfig:
                 raise ConfigError(f"{name} must be a finite number >= 0, got {value}")
         if not (math.isfinite(self.duty_cycle) and 0 < self.duty_cycle <= 1):
             raise ConfigError(f"duty_cycle must be in (0, 1], got {self.duty_cycle}")
+        if self.source_ahead_ruling not in SOURCE_AHEAD_RULINGS:
+            raise ConfigError(
+                f"MATH_BACKFILL_SOURCE_AHEAD_RULING must be one of {SOURCE_AHEAD_RULINGS}, "
+                f"got {self.source_ahead_ruling!r}")
+
+    @property
+    def accept_source_ahead(self) -> bool:
+        return self.source_ahead_ruling == RULING_ACCEPT_INPUT
 
     def digest(self) -> str:
         """Short, stable binding of the settings for the report lines."""
@@ -215,7 +236,7 @@ class BackfillConfig:
             try:
                 if f.name in ("enabled", "gate_approved"):
                     kwargs[f.name] = raw.lower() in ("1", "true", "yes", "on")
-                elif f.name in ("source_env", "state_path"):
+                elif f.name in ("source_env", "state_path", "source_ahead_ruling"):
                     kwargs[f.name] = raw
                 elif f.type in ("int",):
                     kwargs[f.name] = int(raw)
@@ -252,6 +273,7 @@ _ENV_NAMES = {
     "summary_every": "MATH_BACKFILL_SUMMARY_EVERY",
     "query_timeout_ms": "MATH_BACKFILL_QUERY_TIMEOUT_MS",
     "state_path": "MATH_BACKFILL_STATE_PATH",
+    "source_ahead_ruling": "MATH_BACKFILL_SOURCE_AHEAD_RULING",
 }
 ENV_NAMES = dict(_ENV_NAMES)
 
@@ -314,9 +336,18 @@ class PeakSampler:
 # bidToPid by that position); in-conv never exceeds n; and n = 0 only in
 # Python's named empty form (no base clusters, groups or in-conv members, a
 # zero timestamp and empty participant stats). Types and bindings only: no
-# numeric acceptance policy. Every cast and array length is guarded, so a
-# malformed payload evaluates to false instead of raising. The shipped
-# verification SQL contains this exact text (a test holds them together).
+# numeric acceptance policy. Review [1447] B extended it to the nested shapes
+# the readers index: every group-clusters entry an object with a numeric id and
+# a numeric members array (the server's processMathObject reads g.id); pca
+# center a numeric array and comps an array of numeric arrays; base-clusters
+# ids numeric and members arrays of numbers; every bidToPid entry an array of
+# numbers (the server's bidsForPids calls indexOf on each); participant stats
+# either {} or columnar (pid and gid arrays, every column an array of the pid
+# column's length); and both companions' lastVoteTimestamp equal to main's
+# last_vote_timestamp column (the writer stamps all three from one value).
+# Every cast, array length and set-returning call is guarded, so a malformed
+# payload evaluates to false instead of raising. The shipped verification SQL
+# contains this exact text (a test holds them together).
 VALID_BUNDLE_SQL = """COALESCE((
     m.zid IS NOT NULL AND b.zid IS NOT NULL AND p.zid IS NOT NULL AND k.zid IS NOT NULL
     AND m.math_tick >= 0 AND b.math_tick = m.math_tick
@@ -334,12 +365,68 @@ VALID_BUNDLE_SQL = """COALESCE((
     AND jsonb_typeof(b.data) = 'object'
     AND CASE WHEN jsonb_typeof(b.data->'zid') = 'number'
              THEN (b.data->>'zid')::numeric = b.zid ELSE false END
-    AND jsonb_typeof(b.data->'lastVoteTimestamp') = 'number'
+    AND CASE WHEN jsonb_typeof(b.data->'lastVoteTimestamp') = 'number'
+             THEN (b.data->>'lastVoteTimestamp')::numeric = m.last_vote_timestamp
+             ELSE false END
     AND jsonb_typeof(p.data) = 'object'
     AND CASE WHEN jsonb_typeof(p.data->'zid') = 'number'
              THEN (p.data->>'zid')::numeric = p.zid ELSE false END
-    AND jsonb_typeof(p.data->'ptptstats') = 'object'
-    AND jsonb_typeof(p.data->'lastVoteTimestamp') = 'number'
+    AND CASE WHEN jsonb_typeof(p.data->'lastVoteTimestamp') = 'number'
+             THEN (p.data->>'lastVoteTimestamp')::numeric = m.last_vote_timestamp
+             ELSE false END
+    AND CASE WHEN jsonb_typeof(p.data->'ptptstats') = 'object'
+         THEN p.data->'ptptstats' = '{}'::jsonb
+              OR (jsonb_typeof(p.data->'ptptstats'->'pid') = 'array'
+                  AND jsonb_typeof(p.data->'ptptstats'->'gid') = 'array'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM jsonb_each(CASE WHEN jsonb_typeof(p.data->'ptptstats') = 'object'
+                                                    THEN p.data->'ptptstats' ELSE '{}'::jsonb END) e
+                      WHERE (CASE WHEN jsonb_typeof(e.value) = 'array'
+                                  THEN jsonb_array_length(e.value) END)
+                            IS DISTINCT FROM
+                            (CASE WHEN jsonb_typeof(p.data->'ptptstats'->'pid') = 'array'
+                                  THEN jsonb_array_length(p.data->'ptptstats'->'pid') END)))
+         ELSE false END
+    AND jsonb_typeof(m.data->'pca'->'center') = 'array'
+    AND jsonb_typeof(m.data->'pca'->'comps') = 'array'
+    AND NOT EXISTS (
+        SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.data->'pca'->'center') = 'array'
+                                                THEN m.data->'pca'->'center' ELSE '[]'::jsonb END) x
+        WHERE jsonb_typeof(x) <> 'number')
+    AND NOT EXISTS (
+        SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.data->'pca'->'comps') = 'array'
+                                                THEN m.data->'pca'->'comps' ELSE '[]'::jsonb END) c
+        WHERE jsonb_typeof(c) <> 'array'
+           OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(c) = 'array'
+                                                              THEN c ELSE '[]'::jsonb END) x
+                      WHERE jsonb_typeof(x) <> 'number'))
+    AND NOT EXISTS (
+        SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.data->'group-clusters') = 'array'
+                                                THEN m.data->'group-clusters' ELSE '[]'::jsonb END) g
+        WHERE jsonb_typeof(g) <> 'object'
+           OR jsonb_typeof(g->'id') IS DISTINCT FROM 'number'
+           OR jsonb_typeof(g->'members') IS DISTINCT FROM 'array'
+           OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(g->'members') = 'array'
+                                                              THEN g->'members' ELSE '[]'::jsonb END) x
+                      WHERE jsonb_typeof(x) <> 'number'))
+    AND NOT EXISTS (
+        SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.data->'base-clusters'->'id') = 'array'
+                                                THEN m.data->'base-clusters'->'id' ELSE '[]'::jsonb END) x
+        WHERE jsonb_typeof(x) <> 'number')
+    AND NOT EXISTS (
+        SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.data->'base-clusters'->'members') = 'array'
+                                                THEN m.data->'base-clusters'->'members' ELSE '[]'::jsonb END) c
+        WHERE jsonb_typeof(c) <> 'array'
+           OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(c) = 'array'
+                                                              THEN c ELSE '[]'::jsonb END) x
+                      WHERE jsonb_typeof(x) <> 'number'))
+    AND NOT EXISTS (
+        SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(b.data->'bidToPid') = 'array'
+                                                THEN b.data->'bidToPid' ELSE '[]'::jsonb END) c
+        WHERE jsonb_typeof(c) <> 'array'
+           OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(c) = 'array'
+                                                              THEN c ELSE '[]'::jsonb END) x
+                      WHERE jsonb_typeof(x) <> 'number'))
     AND CASE WHEN jsonb_typeof(m.data->'n') = 'number'
               AND jsonb_typeof(m.data->'base-clusters') = 'object'
               AND jsonb_typeof(m.data->'base-clusters'->'id') = 'array'
@@ -374,30 +461,53 @@ def structurally_coherent(row: Dict[str, Any]) -> bool:
     )
 
 
-def classify(row: Dict[str, Any], stale_cutoff_ms: int) -> Optional[str]:
+def behind_source(row: Dict[str, Any]) -> bool:
+    source_lvt, target_lvt = row.get("source_lvt"), row.get("target_lvt")
+    return source_lvt is not None and target_lvt is not None and target_lvt < source_lvt
+
+
+def source_ahead(row: Dict[str, Any]) -> bool:
+    """Behind its source row although it reflects every vote in the votes
+    table (``input_lvt``, the table's newest vote for the zid, read only for
+    rows behind their source): the source claims a vote the table does not
+    hold. Live tail (a newer vote the target has not consumed yet) is not
+    source-ahead."""
+    input_lvt = row.get("input_lvt")
+    return behind_source(row) and input_lvt is not None and row["target_lvt"] >= input_lvt
+
+
+def classify(row: Dict[str, Any], stale_cutoff_ms: int, *,
+             accept_source_ahead: bool = False) -> Optional[str]:
     """MISSING / INCOMPLETE / INVALID / STALE, or None when the target is a
-    valid publication that is caught up or only in live lag. ``row`` carries
-    main_zid, the four ticks, target_lvt, source_lvt and bundle_valid (the
-    result of ``VALID_BUNDLE_SQL``; anything but True counts as invalid)."""
+    valid publication that needs no background rebuild: caught up, in live
+    lag, recently source-ahead, or source-ahead under the accept ruling. None
+    is NOT "caught up" (see ``caught_up``). ``row`` carries main_zid, the four
+    ticks, target_lvt, source_lvt, input_lvt and bundle_valid (the result of
+    ``VALID_BUNDLE_SQL``; anything but True counts as invalid)."""
     if row.get("main_zid") is None:
         return MISSING
     if not structurally_coherent(row):
         return INCOMPLETE
     if row.get("bundle_valid") is not True:
         return INVALID
-    source_lvt, target_lvt = row.get("source_lvt"), row.get("target_lvt")
-    if source_lvt is not None and target_lvt < source_lvt and target_lvt < stale_cutoff_ms:
-        return STALE
+    if behind_source(row):
+        if accept_source_ahead and source_ahead(row):
+            return None
+        if row["target_lvt"] < stale_cutoff_ms:
+            return STALE
     return None
 
 
+def caught_up(row: Dict[str, Any]) -> bool:
+    """Authoritatively caught up: not behind its source row."""
+    return row.get("target_lvt") is not None and not behind_source(row)
+
+
 def live_lag(row: Dict[str, Any], stale_cutoff_ms: int) -> bool:
-    """Behind the source, but itself published inside the grace window."""
-    source_lvt, target_lvt = row.get("source_lvt"), row.get("target_lvt")
-    return (
-        source_lvt is not None and target_lvt is not None
-        and target_lvt < source_lvt and target_lvt >= stale_cutoff_ms
-    )
+    """Behind the source with votes it has not consumed yet, but itself
+    published inside the grace window (live ingestion owns the tail)."""
+    return (behind_source(row) and not source_ahead(row)
+            and row["target_lvt"] >= stale_cutoff_ms)
 
 
 def _fingerprint(row: Dict[str, Any]) -> Optional[Tuple[int, int]]:
@@ -418,6 +528,14 @@ class Target:
     # The target math_main row as seen when classified: (math_tick,
     # last_vote_timestamp), or None when there was no row.
     fingerprint: Optional[Tuple[int, int]]
+    target_lvt: Optional[int] = None
+    # The votes table's newest vote for the zid; read only when the target
+    # is behind its source.
+    input_lvt: Optional[int] = None
+
+    def as_row(self) -> Dict[str, Any]:
+        return {"source_lvt": self.source_lvt, "target_lvt": self.target_lvt,
+                "input_lvt": self.input_lvt}
 
 
 _TARGET_COLUMNS = """
@@ -430,7 +548,10 @@ _TARGET_COLUMNS = """
     m.last_vote_timestamp AS target_lvt,
     b.math_tick AS bid_tick,
     p.math_tick AS stats_tick,
-    k.math_tick AS ticks_tick
+    k.math_tick AS ticks_tick,
+    CASE WHEN m.last_vote_timestamp < src.source_lvt
+         THEN (SELECT COALESCE(max(v.created), 0) FROM votes v WHERE v.zid = src.zid)
+    END AS input_lvt
 """
 
 _TARGET_JOINS = """
@@ -475,6 +596,8 @@ VALIDITY_SQL = (
     WHERE m.math_env = :target AND m.zid = ANY(:zids)"""
 )
 
+INPUT_LVT_SQL = "SELECT COALESCE(max(created), 0) AS input_lvt FROM votes WHERE zid = :zid"
+
 FINGERPRINT_SQL = """
     SELECT math_tick, last_vote_timestamp FROM math_main
     WHERE zid = :zid AND math_env = :target
@@ -485,6 +608,9 @@ _STRUCTURAL = """(b.zid IS NOT NULL AND p.zid IS NOT NULL AND k.zid IS NOT NULL
         AND m.math_tick >= 0 AND b.math_tick = m.math_tick
         AND p.math_tick = m.math_tick AND k.math_tick = m.math_tick)"""
 
+# Behind the source although the target reflects every vote in the table.
+_AHEAD = "COALESCE(m.last_vote_timestamp >= i.input_lvt, false)"
+
 LABEL_COUNTS_SQL = (
     """SELECT
         count(*) AS source_rows,
@@ -492,12 +618,17 @@ LABEL_COUNTS_SQL = (
         count(*) FILTER (WHERE m.zid IS NULL) AS missing,
         count(*) FILTER (WHERE m.zid IS NOT NULL AND NOT """ + _STRUCTURAL + """) AS incomplete,
         count(*) FILTER (WHERE m.zid IS NOT NULL AND """ + _STRUCTURAL + """
-            AND m.last_vote_timestamp < src.source_lvt
+            AND m.last_vote_timestamp < src.source_lvt AND NOT """ + _AHEAD + """
             AND m.last_vote_timestamp < :stale_cutoff) AS stale,
         count(*) FILTER (WHERE m.zid IS NOT NULL AND """ + _STRUCTURAL + """
-            AND m.last_vote_timestamp < src.source_lvt
-            AND m.last_vote_timestamp >= :stale_cutoff) AS live_lag
-    FROM (""" + _SOURCE + ") src" + _TARGET_JOINS
+            AND m.last_vote_timestamp < src.source_lvt AND NOT """ + _AHEAD + """
+            AND m.last_vote_timestamp >= :stale_cutoff) AS live_lag,
+        count(*) FILTER (WHERE m.zid IS NOT NULL AND """ + _STRUCTURAL + """
+            AND m.last_vote_timestamp < src.source_lvt AND """ + _AHEAD + """) AS source_ahead
+    FROM (""" + _SOURCE + ") src" + _TARGET_JOINS + """
+    CROSS JOIN LATERAL (SELECT CASE WHEN m.last_vote_timestamp < src.source_lvt
+        THEN (SELECT COALESCE(max(v.created), 0) FROM votes v WHERE v.zid = src.zid)
+        END AS input_lvt) i"""
 )
 
 
@@ -505,8 +636,10 @@ class BackfillStore:
     """The backfill's SQL. Every statement runs under a statement timeout."""
 
     def __init__(self, pg: Any, source_env: str, target_env: str, query_timeout_ms: int,
-                 *, revalidate_s: float = 3600.0, clock: Callable[[], float] = time.monotonic) -> None:
+                 *, revalidate_s: float = 3600.0, clock: Callable[[], float] = time.monotonic,
+                 accept_source_ahead: bool = False) -> None:
         self._pg = pg
+        self.accept_source_ahead = bool(accept_source_ahead)
         self._source = source_env
         self._target = target_env
         self._timeout_ms = int(query_timeout_ms)
@@ -572,7 +705,7 @@ class BackfillStore:
         self._annotate_validity(rows, fresh=False)
         out, lagging = [], 0
         for row in rows:
-            klass = classify(row, stale_cutoff_ms)
+            klass = classify(row, stale_cutoff_ms, accept_source_ahead=self.accept_source_ahead)
             if klass is None:
                 lagging += live_lag(row, stale_cutoff_ms)
                 continue
@@ -591,7 +724,7 @@ class BackfillStore:
         self._annotate_validity(rows, fresh=fresh)
         out = {}
         for row in rows:
-            klass = classify(row, stale_cutoff_ms)
+            klass = classify(row, stale_cutoff_ms, accept_source_ahead=self.accept_source_ahead)
             out[int(row["zid"])] = (klass, _target(row, klass or ""))
         return out
 
@@ -609,6 +742,10 @@ class BackfillStore:
         self._annotate_validity(rows, fresh=True)
         row = rows[0]
         return bool(row["bundle_valid"]), row["main_tick"], row["target_lvt"]
+
+    def input_lvt(self, zid: int) -> int:
+        """The votes table's newest vote for zid (0 when it has none)."""
+        return int(self._rows(INPUT_LVT_SQL, {"zid": zid})[0]["input_lvt"])
 
     def sizes(self, zid: int) -> Tuple[int, int, int]:
         row = self._rows(SIZES_SQL, {"zid": zid})[0]
@@ -633,6 +770,7 @@ def _target(row: Dict[str, Any], klass: str) -> Target:
     return Target(
         zid=int(row["zid"]), participants=int(row["participants"]), klass=klass,
         source_lvt=row["source_lvt"], fingerprint=_fingerprint(row),
+        target_lvt=row.get("target_lvt"), input_lvt=row.get("input_lvt"),
     )
 
 
@@ -688,7 +826,7 @@ def _check_state(raw: Any) -> None:
         raise StateError("gate_published is negative")
     for key in ("gate_records", "top_seconds", "top_memory"):
         for item in raw.get(key, []):
-            if not isinstance(item, dict) or not isinstance(item.get("zid"), int):
+            if not _record_ok(item):
                 raise StateError(f"{key} holds a malformed record")
     for key, value in raw.get("totals", {}).items():
         if key not in ALL_OUTCOMES or isinstance(value, bool) or not isinstance(value, int):
@@ -697,10 +835,50 @@ def _check_state(raw: Any) -> None:
         if not (isinstance(key, str) and key.lstrip("-").isdigit() and isinstance(value, dict)):
             raise StateError("failures holds a malformed entry")
         attempts, next_at, reason = value.get("attempts"), value.get("next_at"), value.get("reason")
-        if (isinstance(attempts, bool) or not isinstance(attempts, int) or attempts < 0
-                or isinstance(next_at, bool) or not isinstance(next_at, (int, float))
-                or not math.isfinite(next_at) or reason not in FAILURE_REASONS):
+        if (not _int_ok(attempts) or not _num_ok(next_at) or reason not in FAILURE_REASONS
+                or ("last" in value and value["last"] not in ALL_OUTCOMES)
+                or any(k in value and not _num_ok(value[k]) for k in ("est_mb", "bound"))
+                or any(k in value and not _int_ok(value[k]) for k in ("need_bytes", "est_bytes"))):
             raise StateError("failures holds a malformed entry")
+
+
+def _int_ok(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _num_ok(value: Any) -> bool:
+    return (isinstance(value, (int, float)) and not isinstance(value, bool)
+            and math.isfinite(value) and value >= 0)
+
+
+# Record fields the sweep, gate and summary lines read without a default
+# (review [1447] D); the rest are type-checked when present.
+_RECORD_REQUIRED = ("participants", "voters", "votes", "comments", "seconds",
+                    "peak_rss_delta_mb", "est_mb")
+_RECORD_INTS = ("participants", "voters", "votes", "comments", "result_bytes")
+
+
+def _record_ok(item: Any) -> bool:
+    if not isinstance(item, dict):
+        return False
+    zid = item.get("zid")
+    if not isinstance(zid, int) or isinstance(zid, bool):
+        return False
+    if any(k not in item for k in _RECORD_REQUIRED):
+        return False
+    for f in fields(Record):
+        if f.name == "zid" or f.name not in item:
+            continue
+        value = item[f.name]
+        if f.name in ("klass", "outcome"):
+            if not isinstance(value, str):
+                return False
+        elif f.name in _RECORD_INTS:
+            if not _int_ok(value):
+                return False
+        elif not _num_ok(value):
+            return False
+    return item.get("outcome", PUBLISHED) in ALL_OUTCOMES
 
 
 @dataclass
@@ -871,14 +1049,18 @@ class BackfillScheduler:
         return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
     def _bind_calibration(self) -> None:
+        """Keep a gate approval (and its counters) only under a matching,
+        recognized binding. A state file with no binding (the prior schema)
+        or a different one re-arms the gate (review [1447] D): a missing
+        digest is not proof of a same-configuration approval."""
         st = self._state
-        if st.binding and st.binding != self.binding and (
+        if st.binding != self.binding and (
             st.gate_approved or st.gate_published or st.gate_records
         ):
             logger.warning(
-                "math-backfill: calibration settings changed (binding %s -> %s); the gate "
-                "is RE-ARMED and its approval cleared: a reviewed approval is needed "
-                "under the new settings", st.binding, self.binding,
+                "math-backfill: calibration settings changed or unbound (binding %s -> %s); "
+                "the gate is RE-ARMED and its approval cleared: a reviewed approval is "
+                "needed under the new settings", st.binding or "none", self.binding,
             )
             st.gate_approved = False
             st.gate_published = 0
@@ -918,12 +1100,13 @@ class BackfillScheduler:
         logger.warning(
             "math-backfill ENABLED run=%s config=%s binding=%s source=%s target=%s "
             "concurrency=%d large_threshold=%d gate_after_largest=%d budget_mb=%.0f "
-            "limit_mb=%.0f (%s) ceiling_mb=%s state=%s",
+            "limit_mb=%.0f (%s) ceiling_mb=%s state=%s source_ahead_ruling=%s",
             self.run_id, self.config.digest(), self.binding, self.config.source_env,
             self._host.target_env, self.config.concurrency, self.config.large_threshold,
             self.config.gate_after_largest, adm.budget_bytes / _MB, adm.limit_bytes / _MB,
             adm.source, f"{self.config.memory_ceiling_mb:.0f}" if self.ceiling_bytes else "none",
             "file" if self.config.state_path else "memory-only",
+            self.config.source_ahead_ruling,
         )
         self._stop.clear()
         self._thread = threading.Thread(target=self._loop, name="math-backfill", daemon=True)
@@ -1101,11 +1284,28 @@ class BackfillScheduler:
         return int((now - self.config.stale_grace_s) * 1000)
 
     # -- sweep end: reconcile, report, and the qualified COMPLETE ------------ #
+    def _caught_up_outcome(self, target: Target) -> str:
+        """For a valid target that needs no background rebuild (classify gave
+        None): ALREADY_COMPLETE only when it is authoritatively caught up with
+        its source row; SOURCE_AHEAD (or SOURCE_AHEAD_ACCEPTED under the accept
+        ruling) when it reflects every vote in the table but the source claims
+        a later one; otherwise LIVE_OWNED (live ingestion owns the tail).
+        Review [1447] C: "no eligible background repair" is not "caught up"."""
+        row = target.as_row()
+        if caught_up(row):
+            return ALREADY_COMPLETE
+        if source_ahead(row):
+            return SOURCE_AHEAD_ACCEPTED if self.config.accept_source_ahead else SOURCE_AHEAD
+        return LIVE_OWNED
+
     def _reconcile_failures(self, now: float) -> Dict[str, int]:
-        """Clear saved failures whose target is now valid and caught up in the
-        database (repaired by live ingestion or anything else), or whose
-        source row is gone. Reads the same state and validity as selection,
-        fresh, in bounded chunks. Returns {reason: cleared}."""
+        """Clear saved failures whose target is now valid and authoritatively
+        caught up with its source row (repaired by live ingestion or anything
+        else), whose source row is gone, or which the encoded source-ahead
+        ruling accepts. A valid target that is only in live lag, or
+        source-ahead with the ruling unresolved, keeps its failure (review
+        [1447] C). Reads the same state and validity as selection, fresh, in
+        bounded chunks. Returns {reason: cleared}."""
         cleared: Dict[str, int] = {}
         keys = [k for k in self._state.failures if int(k) not in self._in_flight]
         cutoff = self._stale_cutoff_ms(now)
@@ -1116,8 +1316,17 @@ class BackfillScheduler:
                 state = states.get(int(key))
                 if state is not None and state[0] is not None:
                     continue  # still needs work: keep the failure
-                reason = self._state.failures.pop(key)["reason"]
-                label = "source_gone" if state is None else reason
+                if state is None:
+                    label = "source_gone"
+                else:
+                    disposition = self._caught_up_outcome(state[1])
+                    if disposition == ALREADY_COMPLETE:
+                        label = self._state.failures[key]["reason"]
+                    elif disposition == SOURCE_AHEAD_ACCEPTED:
+                        label = SOURCE_AHEAD_ACCEPTED
+                    else:
+                        continue  # live lag or unresolved source-ahead: keep
+                self._state.failures.pop(key)
                 cleared[label] = cleared.get(label, 0) + 1
         if cleared:
             self._state.save(self.config.state_path)
@@ -1186,7 +1395,12 @@ class BackfillScheduler:
                 "(%s); not COMPLETE", self._sweep_no,
                 counts.get("error") or reconciled.get("error"))
             return
-        for key in ("missing", "incomplete", "stale"):
+        blocking = ["missing", "incomplete", "stale"]
+        if not self.config.accept_source_ahead:
+            # Review [1447] C: unresolved source-ahead blocks COMPLETE even
+            # when no saved failure records it (a fresh state file, say).
+            blocking.append("source_ahead")
+        for key in blocking:
             if counts.get(key):
                 blockers.append(f"{key}={counts[key]}")
         if parked:
@@ -1199,9 +1413,11 @@ class BackfillScheduler:
         logger.warning(
             "math-backfill COMPLETE run=%s sweep=%d: the backfill queue is empty (no missing, "
             "incomplete, invalid or stale %s target of a %s conversation; nothing unresolved, "
-            "in flight or parked). live_lag=%d is live-owned. This is not a cutover proof: run "
-            "the verification SQL at a fixed cutoff.", self.run_id, self._sweep_no,
-            self._host.target_env, self.config.source_env, int(counts.get("live_lag", 0)),
+            "in flight or parked). live_lag=%d is live-owned. source_ahead=%d (ruling=%s). This "
+            "is not a cutover proof: run the verification SQL at a fixed cutoff.", self.run_id,
+            self._sweep_no, self._host.target_env, self.config.source_env,
+            int(counts.get("live_lag", 0)), int(counts.get("source_ahead", 0)),
+            self.config.source_ahead_ruling,
         )
 
     def _unresolved(self) -> Dict[str, int]:
@@ -1266,17 +1482,26 @@ class BackfillScheduler:
 
     def _execute(self, zid: int, job: _Job, report: Dict[str, Any]) -> str:
         now = self._clock()
-        if self._host.is_cached(zid):
-            return LIVE_OWNED
         try:
             state = self._store.state(zid, self._stale_cutoff_ms(now))
         except Exception as exc:  # noqa: BLE001
             logger.error("math-backfill zid=%s: state read failed (%s)", zid,
                          exc.__class__.__name__)
             return FAILED_COMPUTE
-        if state is None or state[0] is None:
-            return ALREADY_COMPLETE
-        _, current = state
+        if state is None:
+            return ALREADY_COMPLETE  # the source row is gone
+        klass, current = state
+        if klass is None:
+            return self._caught_up_outcome(current)
+        if self._host.is_cached(zid):
+            # Review [1447] E: live ingestion holds this zid but its
+            # publication needs repair. This job runs on the zid's serialized
+            # pool worker, so no live computation for it is running: drop the
+            # cached conversation (lossless: the next live touch reloads the
+            # repaired row) and repair here instead of deferring forever.
+            logger.warning("math-backfill zid=%s: live-cached but its publication is %s; "
+                           "repairing through the serialized backfill job", zid, klass)
+            self._host.evict(zid)
         try:
             # Warm state is restored only from a target that passed
             # validation (STALE); anything else rebuilds cold.
@@ -1315,7 +1540,18 @@ class BackfillScheduler:
         if not ok:
             return FAILED_POSTCONDITION
         if current.source_lvt is not None and (target_lvt is None or target_lvt < current.source_lvt):
-            return SOURCE_AHEAD
+            # Behind the source after a full-history rebuild: source-ahead only
+            # when the target reflects every vote in the table; otherwise a
+            # vote arrived during the job and live ingestion owns the tail.
+            try:
+                input_lvt = self._store.input_lvt(zid)
+            except Exception as exc:  # noqa: BLE001
+                logger.error("math-backfill zid=%s: input read failed (%s)", zid,
+                             exc.__class__.__name__)
+                return FAILED_POSTCONDITION
+            return self._caught_up_outcome(Target(
+                zid, current.participants, current.klass, current.source_lvt, None,
+                target_lvt=target_lvt, input_lvt=input_lvt))
         return PUBLISHED
 
     def job_skipped(self, zid: int, outcome: str) -> None:
@@ -1432,12 +1668,14 @@ def build_scheduler(host: Any, pg: Any, config: BackfillConfig, **kwargs: Any) -
     if config.source_env.strip() == host.target_env.strip():
         raise ConfigError("MATH_BACKFILL_SOURCE_ENV must differ from the poller's MATH_ENV")
     store = BackfillStore(pg, config.source_env, host.target_env, config.query_timeout_ms,
-                          revalidate_s=config.revalidate_s)
+                          revalidate_s=config.revalidate_s,
+                          accept_source_ahead=config.accept_source_ahead)
     return BackfillScheduler(host, store, config, **kwargs)
 
 
 __all__ = [
     "BackfillConfig", "BackfillScheduler", "BackfillState", "BackfillStore",
     "ConfigError", "ENV_NAMES", "MemoryModel", "Record", "Target", "VALID_BUNDLE_SQL",
-    "build_scheduler", "classify", "live_lag", "structurally_coherent",
+    "behind_source", "build_scheduler", "caught_up", "classify", "live_lag", "source_ahead",
+    "structurally_coherent",
 ]
