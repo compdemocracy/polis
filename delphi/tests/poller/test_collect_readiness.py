@@ -201,6 +201,21 @@ def alert_doc(lines=None, **kwargs):
                                     receipt=kwargs.pop("receipt", receipt_for(hist)))
 
 
+def alert_ev(lines=None, **kwargs):
+    """The alert test as ``record`` and ``current`` take it: the document with
+    its private trace, collection report and received files (review [1469] R1)."""
+    lines = lines if lines is not None else fixture_log()[0]
+    hist = kwargs.pop("hist", history(T0))
+    return collect.alert_evidence(lines, hist, NONCE, described=kwargs.pop("desc", described()),
+                                  topic_arn=kwargs.pop("topic", TOPIC),
+                                  receipt=kwargs.pop("receipt", receipt_for(hist)))
+
+
+def with_doc(ev, doc):
+    """``ev``'s provenance around another (edited) document."""
+    return collect.AlertEvidence(doc, ev.trace, ev.collection, ev.receipts)
+
+
 def build(lines, desc, evaluated, observed, **kwargs):
     kwargs.setdefault("topic_arn", TOPIC)
     record, bound, _ = collect.build_record(lines, desc, evaluated, observed, **kwargs)
@@ -212,7 +227,7 @@ def build(lines, desc, evaluated, observed, **kwargs):
 # --------------------------------------------------------------------------- #
 def test_record_from_fixture_is_valid_and_binds_the_lines():
     lines, now = fixture_log()
-    alert = alert_doc()
+    alert = alert_ev()
     record, bound = build(lines, described(), now, now + 1000, alert_test=alert)
     schema.validate_readiness(record)
     assert record["holder"] == {"role": "primary", "instance_sha256": record["holder"]["instance_sha256"],
@@ -220,7 +235,7 @@ def test_record_from_fixture_is_valid_and_binds_the_lines():
     assert record["sweep"]["status"] == "COMPLETE" and record["sweep"]["sweep_no"] == 4
     assert record["drain"]["run"] == RUN and record["drain"]["drained_ms"] is not None
     assert record["monitoring"] == {"alarm": "OK", "evaluated_ms": now,
-                                    "alert_test_sha256": alert["sha256"]}
+                                    "alert_test_sha256": alert.document["sha256"]}
     assert record["lines_sha256"] == hashlib.sha256(("\n".join(bound) + "\n").encode()).hexdigest()
     # Only the holder's lines: no standby, and not the zid-bearing unresolved list.
     assert all("aaaaaaaaaaaa" not in line for line in bound)
@@ -234,7 +249,7 @@ def test_record_from_fixture_is_valid_and_binds_the_lines():
 
 def test_record_passes_the_verifier_conditions_after_the_cutoff():
     lines, now = fixture_log()
-    record, _ = build(lines, described(), now, now + 1000, alert_test=alert_doc())
+    record, _ = build(lines, described(), now, now + 1000, alert_test=alert_ev())
     drained = record["drain"]["drained_ms"]
     spec = {"cutoff_ms": drained + 1, "max_readiness_age_seconds": 900,
             "max_discovery_gap_seconds": 120}
@@ -252,7 +267,7 @@ def test_without_alert_test_monitoring_is_not_ok():
 
 def test_undrained_and_unresolved_are_reported_not_hidden():
     lines, now = fixture_log(drained=False, complete=False)
-    record, bound = build(lines, described(), now, now + 1000, alert_test=alert_doc())
+    record, bound = build(lines, described(), now, now + 1000, alert_test=alert_ev())
     schema.validate_readiness(record)
     assert record["drain"]["drained_ms"] is None and record["sweep"]["status"] == "NOT_COMPLETE"
     assert any("status=NOT_COMPLETE" in line for line in bound)
@@ -436,7 +451,7 @@ def test_record_validates_with_the_real_verifier(tmp_path):
         real = importlib.import_module("backfill_verify")
         lines, now = fixture_log()
         record, _ = build(lines, described(), now, now + 1000,
-                                         alert_test=alert_doc())
+                                         alert_test=alert_ev())
         real.validate_readiness(record)
         spec = dict(real.TEMPLATE_RUN_SPEC, cutoff_ms=record["drain"]["drained_ms"] + 1,
                     readiness=record)
@@ -482,7 +497,7 @@ def replace_latest(lines, *, header="math_poller readiness/1", **changes):
 def _judge(lines, observed, alert=True):
     record, bound, report = collect.build_record(
         lines, described(), observed, observed, topic_arn=TOPIC,
-        alert_test=alert_doc() if alert else None)
+        alert_test=alert_ev() if alert else None)
     schema.validate_readiness(record)
     spec = dict(GAP_SPEC, cutoff_ms=record["drain"]["drained_ms"] + 1)
     return record, schema.readiness_failures(record, spec, observed), bound, report
@@ -541,7 +556,7 @@ def test_queue_boundary_with_the_real_verifier():
             for extra, want in ((0, []), (1, ["queue-stuck"])):
                 observed = emitted + 100_000 + extra
                 record, _, _ = collect.build_record(lines, described(), observed, observed,
-                                                    topic_arn=TOPIC, alert_test=alert_doc())
+                                                    topic_arn=TOPIC, alert_test=alert_ev())
                 real.validate_readiness(record)
                 spec = dict(real.TEMPLATE_RUN_SPEC, cutoff_ms=record["drain"]["drained_ms"] + 1,
                             readiness=record)
@@ -674,7 +689,7 @@ def test_alarm_actions_and_configuration_are_checked(name, changes, reason):
     lines, now = fixture_log()
     with pytest.raises(collect.Refused, match=f"{reason}:{name}"):
         collect.build_record(lines, _alarms_with(name, **changes), now, now, topic_arn=TOPIC,
-                             alert_test=alert_doc())
+                             alert_test=alert_ev())
 
 
 @pytest.mark.parametrize("topic,reason", [(None, "ALARM_TOPIC_UNSPECIFIED"),
@@ -691,21 +706,23 @@ def test_integer_threshold_from_the_api_is_accepted():
     d = described()
     for a in d["MetricAlarms"]:
         a["Threshold"] = 1
-    collect.build_record(lines, d, now, now, topic_arn=TOPIC, alert_test=alert_doc())
+    collect.build_record(lines, d, now, now, topic_arn=TOPIC, alert_test=alert_ev())
 
 
 def test_alert_test_from_another_topic_or_configuration_is_refused():
     lines, now = fixture_log()
     other = "arn:aws:sns:us-east-1:050917022930:PolisOperationsAlerts"
-    doc = alert_doc(topic=other, desc=described(topic=other), hist=history(T0, topic=other))
+    ev = alert_ev(topic=other, desc=described(topic=other), hist=history(T0, topic=other))
     with pytest.raises(collect.Refused, match="ALERT_TEST_OTHER_TOPIC"):
-        collect.build_record(lines, described(), now, now, topic_arn=TOPIC, alert_test=doc)
+        collect.build_record(lines, described(), now, now, topic_arn=TOPIC, alert_test=ev)
     # Same topic, but the configuration digest bound at test time differs.
-    doc = alert_doc()
+    ev = alert_ev()
+    doc = json.loads(json.dumps(ev.document))
     doc["evidence"]["alarm_config_sha256"] = "0" * 64
     doc["sha256"] = hashlib.sha256(collect.encoded(doc["evidence"])).hexdigest()
     with pytest.raises(collect.Refused, match="ALERT_TEST_CONFIG_CHANGED"):
-        collect.build_record(lines, described(), now, now, topic_arn=TOPIC, alert_test=doc)
+        collect.build_record(lines, described(), now, now, topic_arn=TOPIC,
+                             alert_test=with_doc(ev, doc))
 
 
 def test_alert_test_needs_the_sns_action_and_the_receipt():
@@ -944,7 +961,7 @@ HB, STALE = collect.HEARTBEAT_ALARM, collect.STALE_ALARM
 
 @contextlib.contextmanager
 def real_verifier():
-    """The verification job's own module at the pinned commit (cccbdcc18)."""
+    """The verification job's own module at the pinned commit (schema.UPSTREAM)."""
     import tempfile
     text, queries = _upstream_text()
     with tempfile.TemporaryDirectory() as tmp:
@@ -976,7 +993,7 @@ def test_r1_metric_selection_changes_refuse_even_with_an_old_alert_test(name, fi
     """Reviewer's cases: an unrelated dimension or a unit selects another
     metric. With an otherwise valid old alert-test document, both refuse."""
     lines, now = fixture_log()
-    alert = alert_doc()
+    alert = alert_ev()
     altered = _alarms_with(name, **{field: value})
     with pytest.raises(collect.Refused, match=f"ALARM_CONFIG_MISMATCH:{name}:{field}"):
         collect.alarm_config(altered, TOPIC)
@@ -1031,7 +1048,7 @@ def test_r1_legitimate_representations_pass_with_one_digest(edit):
         edit(a)
     assert collect.alarm_config(d, TOPIC) == base
     lines, now = fixture_log()
-    collect.build_record(lines, d, now, now, topic_arn=TOPIC, alert_test=alert_doc())
+    collect.build_record(lines, d, now, now, topic_arn=TOPIC, alert_test=alert_ev())
 
 
 @pytest.mark.parametrize("name", collect.ALARMS)
@@ -1052,7 +1069,7 @@ def test_r1_other_fields_and_alarm_forms_refuse(name, changes, reason):
     lines, now = fixture_log()
     with pytest.raises(collect.Refused, match=f"{reason}:{name}"):
         collect.build_record(lines, _alarms_with(name, **changes), now, now, topic_arn=TOPIC,
-                             alert_test=alert_doc())
+                             alert_test=alert_ev())
 
 
 def test_r1_a_duplicated_alarm_entry_refuses():
@@ -1254,13 +1271,15 @@ def _rehash(doc):
 ])
 def test_r2_saved_evidence_is_rechecked_not_just_rehashed(tamper, reason):
     lines, now = fixture_log()
-    doc = alert_doc(lines)
+    ev = alert_ev(lines)
+    doc = json.loads(json.dumps(ev.document))
     tamper(doc["evidence"])
     _rehash(doc)
     with pytest.raises(collect.Refused, match=reason):
         collect.check_alert_test(doc)
     with pytest.raises(collect.Refused, match=reason):
-        collect.build_record(lines, described(), now, now, topic_arn=TOPIC, alert_test=doc)
+        collect.build_record(lines, described(), now, now, topic_arn=TOPIC,
+                             alert_test=with_doc(ev, doc))
 
 
 def test_r2_a_consistent_saved_event_outside_the_window_is_rechecked():
@@ -1293,6 +1312,29 @@ def test_r2_saved_heartbeat_evidence_is_rechecked():
 BROKEN_STANDBY = "math_poller readiness/1 role=standby progress=waiting {"
 
 
+def _alert_cli(out, lines, hist, receipts, nonce=NONCE):
+    """The exact alert-test CLI on saved files; returns its output directory."""
+    work = out.parent / (out.name + "-in")
+    work.mkdir()
+    log = work / "delphi.log"
+    log.write_text("\n".join(lines) + "\n")
+    hfile = work / "history.json"
+    hfile.write_text(json.dumps({"AlarmHistoryItems": hist}))
+    alarms = work / "alarms.json"
+    alarms.write_text(json.dumps(described()))
+    args = []
+    for k, raw in enumerate(receipts):
+        (work / f"r{k}").write_bytes(raw)
+        args += ["--receipt", str(work / f"r{k}")]
+    run = subprocess.run([sys.executable, str(DELPHI / "scripts" / "collect_readiness.py"),
+                          "alert-test", "--nonce", nonce, "--source", "file", "--file", str(log),
+                          "--history", f"file:{hfile}", "--alarm-state", f"file:{alarms}",
+                          "--topic-arn", TOPIC, *args, "--out", str(out)],
+                         capture_output=True, text=True)
+    assert run.returncode == 0, run.stderr
+    return out
+
+
 def _holder_case(kind):
     lines, now = fixture_log()
     if kind == "truncated":
@@ -1323,7 +1365,7 @@ def test_r3_holder_refuses_what_record_refuses(tmp_path, kind):
     lines, observed, reason = _holder_case(kind)
     with pytest.raises(collect.Refused, match=reason):
         collect.build_record(lines, described(), observed, observed, topic_arn=TOPIC,
-                             alert_test=alert_doc())
+                             alert_test=alert_ev())
     with pytest.raises(collect.Refused, match=reason):
         collect.current_holder(lines, observed)
     run = _holder_cli(tmp_path, lines, observed, "i-0123")
@@ -1357,7 +1399,7 @@ def test_r3_record_current_and_holder_share_one_selection(monkeypatch):
         return shared(*args, **kwargs)
     monkeypatch.setattr(collect, "select_evidence", spy)
     record, _, _ = collect.build_record(lines, described(), now, now, topic_arn=TOPIC,
-                                        alert_test=alert_doc())
+                                        alert_test=alert_ev())
     held = collect.current_holder(lines, now)
     assert calls == [now, now]
     assert (held["run"], held["seq"], held["instance_sha256"]) == (
@@ -1376,7 +1418,7 @@ def _history_and_current(extra_ms=1000):
     """The history read after DRAINED (without the holder's last line), the
     proof available shortly after, and the current record read after it."""
     lines, now = fixture_log()
-    alert = alert_doc(lines)
+    alert = alert_ev(lines)
     earlier = lines[:-1]
     hist_at = _newest_ms(earlier) + 1000
     history_record, _, _ = collect.build_record(earlier, described(), hist_at, hist_at,
@@ -1392,7 +1434,7 @@ def _history_and_current(extra_ms=1000):
 def test_history_record_is_v2_with_seq_and_parked():
     lines, now = fixture_log()
     record, _, _ = collect.build_record(lines, described(), now, now, topic_arn=TOPIC,
-                                        alert_test=alert_doc())
+                                        alert_test=alert_ev())
     _, last = _latest_holder_index(lines)
     assert record["schema"] == "polis-backfill-readiness/2" and record["seq"] == last["seq"]
     assert set(record["queue"]) == {"pending", "parked", "oldest_work_age_ms"}
@@ -1429,7 +1471,7 @@ def test_current_record_after_the_proof_is_valid_for_the_real_verifier():
 
 def test_current_record_refusals():
     lines, now = fixture_log()
-    alert = alert_doc(lines)
+    alert = alert_ev(lines)
     cutoff = now - 1000
 
     def cur(proof, evaluated=now + 1000, observed=now + 1000, a=alert, ls=lines):
@@ -1456,8 +1498,7 @@ def test_cli_current_file_mode(tmp_path):
     log.write_text("\n".join(lines) + "\n")
     alarms = tmp_path / "alarms.json"
     alarms.write_text(json.dumps({**described(), "_evaluated_ms": now + 1000}))
-    alert = tmp_path / "alert-test.json"
-    alert.write_text(json.dumps(alert_doc(lines)))
+    alert = _alert_cli(tmp_path / "at", lines, history(T0), [RECEIPT]) / "alert-test.json"
     proof = tmp_path / "verify-proof.json"
     proof.write_text(json.dumps(_proof(now - 1000, now - 30_000)))
     out = tmp_path / "current"
@@ -1520,7 +1561,7 @@ def _proven(mods, monkeypatch, alert=None, lines_hook=None):
                                 mods["backfill_verify_producer"])
     monkeypatch.setattr(sys.modules[__name__], "T0", verifier.SNAPSHOT_MS - 330_000)
     lines, now = fixture_log()
-    alert = alert_doc(lines) if alert is None else alert
+    alert = alert_ev(lines) if alert is None else alert
     hist_at = now - 59_000
     history_record, _, _ = collect.build_record(lines[:-1], described(), hist_at, hist_at,
                                                 topic_arn=TOPIC, alert_test=alert)
@@ -1592,10 +1633,10 @@ def test_1465_r1_same_instance_restart_supersedes_the_holder(tmp_path):
     assert sup["line_sha256"] == hashlib.sha256(new.encode()).hexdigest()
     with pytest.raises(collect.Degraded, match="DEGRADED_HOLDER_RUN_SUPERSEDED"):
         collect.build_record(restarted, described(), now + 1000, now + 1000, topic_arn=TOPIC,
-                             alert_test=alert_doc())
+                             alert_test=alert_ev())
     with pytest.raises(collect.Degraded, match="DEGRADED_HOLDER_RUN_SUPERSEDED"):
         collect.build_current(restarted, described(), now + 1000, now + 1000, topic_arn=TOPIC,
-                              proof=_proof(now - 1000, now - 30_000), alert_test=alert_doc())
+                              proof=_proof(now - 1000, now - 30_000), alert_test=alert_ev())
     run = _holder_cli(tmp_path, restarted, now + 1000, "i-0123")
     assert run.returncode == 2 and "REFUSED DEGRADED_HOLDER_RUN_SUPERSEDED" in run.stderr
     assert "HOLDER" not in run.stdout
@@ -1645,7 +1686,7 @@ def test_1465_r1_clock_disagreement_is_not_resolved_for_the_older_run():
         collect.current_holder(ambiguous, now)
     earlier = [restart_line(first - 600_000)] + lines
     assert collect.current_holder(earlier, now)["run"] == RUN
-    record, _ = build(earlier, described(), now, now, alert_test=alert_doc())
+    record, _ = build(earlier, described(), now, now, alert_test=alert_ev())
     assert record["holder"]["run"] == RUN
 
 
@@ -1826,7 +1867,9 @@ def test_1465_r3_a_truncated_adverse_line_in_the_drill_refuses(kind, complete_re
         alert_doc(damaged, hist=hist)
     (bad,) = exc.value.report["malformed"]
     assert bad["index"] == at and bad["sha256"] == hashlib.sha256(broken.encode()).hexdigest()
-    assert any(t["index"] == at and t["kind"] == "malformed" for t in exc.value.report["trace"])
+    # Only well-formed lines enter the trace; the malformed one is named apart.
+    assert not any(t["index"] == at for t in exc.value.report["trace"])
+    assert bad["order"] == "proven" and bad["earliest_ms"] <= T0 + 500_000 <= bad["latest_ms"]
     # The CLI writes the private report explaining the refusal, and no document.
     log = tmp_path / "delphi.log"
     log.write_text("\n".join(damaged) + "\n")
@@ -1883,14 +1926,439 @@ def test_1465_the_reviewer_handoff_cases_never_reach_ready(tmp_path, monkeypatch
     with real_pipeline(tmp_path) as mods:
         lines = _drill_log(tested_is_holder=True)
         fired, both = _both_fired()
-        with pytest.raises(collect.Refused, match=f"ALERT_TEST_RECEIPT_UNRELATED:{HB}"):
+        # One raw file of two concatenated e-mails is now refused as a whole
+        # (review [1469] R2), so neither alarm is received from it.
+        with pytest.raises(collect.Refused, match="ALERT_TEST_RECEIPT_UNRELATED"):
             alert_doc(lines, hist=both, receipt=_mail(STALE, fired) + b"\n" + OLD_HB_OK)
         for kind in ("heartbeat", "standby"):
             base, line, at = _truncated_in_place(kind)
             with pytest.raises(collect.Degraded, match="ALERT_TEST_EVIDENCE_MALFORMED"):
                 alert_doc(base[:at] + [line[:-8]] + base[at:],
                           hist=history(T0, alarms=collect.ALARMS))
-        doc = alert_doc(lines, hist=history(T0, alarms=collect.ALARMS))
+        doc = alert_ev(lines, hist=history(T0, alarms=collect.ALARMS))
         p = _proven(mods, monkeypatch, alert=doc)
         result = _handoff(p, p["lines"])
         assert result["status"] == "READY" and result["reasons"] == []
+
+
+# --------------------------------------------------------------------------- #
+# Review [1469]: bound drill provenance and validation on reuse (R1), one
+# complete notification per message (R2), and malformed drill lines placed
+# only under a proven clock order (R3).
+# --------------------------------------------------------------------------- #
+PREVIOUS = "b8eae77f9"
+
+
+def _previous_collector(tmp_path):
+    """The collector as of b8eae77f9, whose alert-test documents (/2) the
+    reviewer reused unchanged."""
+    try:
+        text = subprocess.run(["git", "-C", str(REPO), "show",
+                               PREVIOUS + ":delphi/scripts/collect_readiness.py"],
+                              capture_output=True, text=True, check=True).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pytest.skip("the previous collector is not available in this checkout")
+    path = tmp_path / "previous_collector.py"
+    path.write_text(text)
+    spec = importlib.util.spec_from_file_location("previous_collector", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+import importlib.util  # noqa: E402
+
+
+@pytest.mark.parametrize("kind", ["heartbeat", "standby"])
+def test_1469_r1_previous_collector_documents_are_refused_on_reuse(kind, tmp_path, monkeypatch):
+    """Reviewer's case: the b8eae77f9 collector's own output for a truncated
+    adverse line inside the drill, unedited. It is /2: refused by the
+    collector (alone or with its provenance) and by the real validator, and
+    an envelope carrying it never reaches READY."""
+    old = _previous_collector(tmp_path)
+    lines, adverse, at = _truncated_in_place(kind)
+    damaged = lines[:at] + [adverse[:-8]] + lines[at:]
+    hist = history(T0, alarms=collect.ALARMS)
+    receipt = receipt_for(hist)
+    doc = old.build_alert_test(damaged, hist, NONCE, described=described(), topic_arn=TOPIC,
+                               receipt=receipt)
+    assert doc["evidence"]["schema"] == "math_poller.alert_test_evidence/2"
+    with pytest.raises(collect.Degraded, match="ALERT_TEST_EVIDENCE_MALFORMED"):
+        alert_ev(damaged, hist=hist, receipt=receipt)
+    with pytest.raises(collect.Refused, match="ALERT_TEST_SCHEMA_SUPERSEDED"):
+        collect.check_alert_test(doc)
+    fresh = alert_ev(lines, hist=hist)
+    record_lines, now = fixture_log()
+    for alert in (doc, with_doc(fresh, doc)):
+        with pytest.raises(collect.Refused, match="ALERT_TEST_(PROVENANCE_MISSING|SCHEMA_SUPERSEDED)"):
+            collect.build_record(record_lines, described(), now, now, topic_arn=TOPIC,
+                                 alert_test=alert)
+    with pytest.raises(ValueError):
+        schema.validate_alert_test(doc)
+    with real_pipeline(tmp_path) as mods:
+        real = mods["backfill_verify"]
+        with pytest.raises(ValueError):
+            real.validate_alert_test(doc)
+        p = _proven(mods, monkeypatch)
+        current, _, _ = collect.build_current(
+            p["lines"], described(), p["now"] + 2000, p["now"] + 2000, topic_arn=TOPIC,
+            proof=p["proof"], alert_test=p["alert"], validator=real)
+        # The same current record carrying the old document, its digest bound.
+        forged = json.loads(json.dumps(current))
+        forged["alert_test"] = doc
+        forged["readiness"]["monitoring"]["alert_test_sha256"] = doc["sha256"]
+        result = real.handoff(p["receipt"], forged, p["now"] + 3000, proof=p["proof"],
+                              receipt_sha256=p["rsha"], job_sha256=p["jsha"], receipts=[p["rsha"]])
+        assert result["status"] != "READY" and "current-invalid" in result["reasons"]
+
+
+def test_1469_r1_different_traces_have_different_digests():
+    """Reviewer's control: an extra other-instance standby line inside the
+    drill changes the trace; the documents and their digests now differ, and
+    neither document is accepted with the other's trace."""
+    lines = _drill_log(tested_is_holder=True)
+    hist = history(T0, alarms=collect.ALARMS)
+    a = alert_ev(lines, hist=hist)
+    b = alert_ev(lines + [restart_line(T0 + 500_000, "i-0456")], hist=hist)
+    assert a.document["sha256"] != b.document["sha256"]
+    assert a.document["evidence"]["trace"]["sha256"] != b.document["evidence"]["trace"]["sha256"]
+    for ev in (a, b):
+        assert collect.verify_alert_evidence(ev) == ev.document["sha256"]
+    with pytest.raises(collect.Refused, match="ALERT_TEST_PROVENANCE:trace"):
+        collect.verify_alert_evidence(collect.AlertEvidence(a.document, b.trace, a.collection,
+                                                            a.receipts))
+    with pytest.raises(collect.Refused, match="ALERT_TEST_PROVENANCE:(manifest|collection)"):
+        collect.verify_alert_evidence(collect.AlertEvidence(a.document, a.trace, b.collection,
+                                                            a.receipts))
+
+
+def _edited(ev, **parts):
+    return collect.AlertEvidence(parts.get("document", ev.document), parts.get("trace", ev.trace),
+                                 parts.get("collection", ev.collection),
+                                 parts.get("receipts", ev.receipts))
+
+
+def test_1469_r1_missing_or_substituted_provenance_refuses():
+    lines = _drill_log(tested_is_holder=True)
+    fired, hist = _both_fired()
+    ev = alert_ev(lines, hist=hist, receipt=[_mail(STALE, fired), _mail(HB, fired)])
+    assert collect.verify_alert_evidence(ev) == ev.document["sha256"]
+    record_lines, now = fixture_log()
+    with pytest.raises(collect.Refused, match="ALERT_TEST_PROVENANCE_MISSING:document"):
+        collect.build_record(record_lines, described(), now, now, topic_arn=TOPIC,
+                             alert_test=ev.document)
+    for part in ("trace", "collection", "receipts"):
+        with pytest.raises(collect.Refused, match=f"ALERT_TEST_PROVENANCE_MISSING:{part}"):
+            collect.verify_alert_evidence(_edited(ev, **{part: None}))
+    trace_lines = ev.trace.decode().splitlines()
+    manifest = ev.collection["trace"]
+    edited_line = trace_lines[3].replace('"seq":', '"seq": ')
+    cases = {
+        # The private trace: another line, one dropped, one edited.
+        "trace": [_edited(ev, trace=ev.trace + trace_lines[0].encode() + b"\n"),
+                  _edited(ev, trace=("\n".join(trace_lines[1:]) + "\n").encode()),
+                  _edited(ev, trace=("\n".join(trace_lines[:3] + [edited_line] + trace_lines[4:])
+                                     + "\n").encode())],
+        # The collection manifest: an entry's digest or index changed.
+        "manifest": [_edited(ev, collection=dict(ev.collection, trace=[
+                         dict(manifest[0], sha256="0" * 64)] + manifest[1:])),
+                     _edited(ev, collection=dict(ev.collection, trace=[
+                         dict(manifest[0], index=manifest[0]["index"] + 1)] + manifest[1:]))],
+        # The report is another document's.
+        "collection": [_edited(ev, collection=dict(ev.collection, alert_test_sha256="0" * 64)),
+                       _edited(ev, collection=dict(ev.collection, malformed_lines_total=1))],
+        # The received files: substituted, missing, reordered.
+        "receipt-files": [_edited(ev, receipts=[_mail(STALE, fired), _mail(HB, fired) + b"\n"]),
+                          _edited(ev, receipts=ev.receipts[:1]),
+                          _edited(ev, receipts=ev.receipts[::-1])],
+    }
+    for what, variants in cases.items():
+        for v in variants:
+            with pytest.raises(collect.Refused, match=f"ALERT_TEST_PROVENANCE:{what}"):
+                collect.verify_alert_evidence(v)
+    # A document whose bound provenance was edited and re-hashed no longer
+    # matches its files (or the verification job's checks).
+    for edit, reason in (
+            (lambda e: e["receipt"]["selected"][0].update(offset=17), "PROVENANCE:receipt-message"),
+            (lambda e: e["trace"].update(sha256="0" * 64), "PROVENANCE:trace"),
+            (lambda e: e["trace"].update(test_line_index=e["trace"]["test_line_index"] + 1),
+             "PROVENANCE:test-line"),
+            (lambda e: e["trace"].update(interval_ms=[e["trace"]["interval_ms"][0] + 1,
+                                                      e["trace"]["interval_ms"][1]]),
+             "PROVENANCE:interval")):
+        doc = json.loads(json.dumps(ev.document))
+        edit(doc["evidence"])
+        _rehash(doc)
+        with pytest.raises(collect.Refused, match=reason):
+            collect.verify_alert_evidence(_edited(ev, document=doc, collection=dict(
+                ev.collection, alert_test_sha256=doc["sha256"])))
+        with pytest.raises(collect.Refused, match="ALERT_TEST_PROVENANCE"):
+            collect.verify_alert_evidence(_edited(ev, document=doc))
+
+
+def test_1469_r1_a_consistently_rehashed_malformed_trace_is_re_read():
+    """Not a forgery defence, but the reuse check re-reads the trace: a
+    trace whose line was cut off, with every digest recomputed around it,
+    still refuses."""
+    lines = _drill_log(tested_is_holder=True)
+    hist = history(T0, alarms=collect.ALARMS)
+    ev = alert_ev(lines, hist=hist)
+    trace = ev.trace.decode().splitlines()
+    trace[5] = trace[5][:-8]
+    raw = ("\n".join(trace) + "\n").encode()
+    manifest = [dict(e, sha256=hashlib.sha256(x.encode()).hexdigest())
+                for e, x in zip(ev.collection["trace"], trace)]
+    doc = json.loads(json.dumps(ev.document))
+    doc["evidence"]["trace"].update(sha256=hashlib.sha256(raw).hexdigest(),
+                                    manifest_sha256=hashlib.sha256(collect.encoded(manifest)).hexdigest())
+    _rehash(doc)
+    report = dict(ev.collection, trace=manifest, trace_sha256=doc["evidence"]["trace"]["sha256"],
+                  alert_test_sha256=doc["sha256"])
+    with pytest.raises(collect.Refused, match="ALERT_TEST_PROVENANCE:trace-malformed"):
+        collect.verify_alert_evidence(collect.AlertEvidence(doc, raw, report, ev.receipts))
+
+
+def test_1469_r1_every_receipt_form_is_reused_with_its_provenance():
+    lines = _drill_log(tested_is_holder=True)
+    fired, hist = _both_fired()
+    mails = [_mail(a, fired) for a in (STALE, HB)]
+    msgs = [{"AlarmName": a, "NewStateValue": "ALARM", "StateChangeTime": iso(fired)}
+            for a in (STALE, HB)]
+    envelopes = [{"Type": "Notification", "Message": json.dumps(m)} for m in msgs]
+    from email.message import EmailMessage
+    mime = []
+    for mail in mails:
+        headers, body = mail.decode().split("\n\n", 1)
+        m = EmailMessage()
+        m["Subject"] = headers.removeprefix("Subject: ")
+        m["Date"] = "Wed, 30 Sep 2026 07:12:34 +0000"
+        m.set_content(body, cte="quoted-printable")
+        mime.append(m.as_bytes())
+    forms = {
+        "mail": (mails, "mail"), "mbox": (receipt_for(hist), "mbox"),
+        "json-array": (json.dumps(envelopes).encode(), "json-array"),
+        "json-lines": (b"\n".join(json.dumps(e).encode() for e in envelopes), "json-lines"),
+        "sns": ([json.dumps(e).encode() for e in envelopes], "json"),
+        "mime": (mime, "mail"),
+        "email-json": ([(f"Subject: n{k}\nContent-Type: text/plain\n\n" + json.dumps(e) + "\n").encode()
+                        for k, e in enumerate(envelopes)], "mail"),
+    }
+    record_lines, now = fixture_log()
+    for name, (receipt, form) in forms.items():
+        ev = alert_ev(lines, hist=hist, receipt=receipt)
+        selected = ev.document["evidence"]["receipt"]["selected"]
+        assert {s["form"] for s in selected} == {form}, name
+        assert len({(s["file"], s["offset"]) for s in selected}) == 2, name
+        assert collect.verify_alert_evidence(ev) == ev.document["sha256"], name
+        record, _ = build(record_lines, described(), now, now, alert_test=ev)
+        assert record["monitoring"]["alert_test_sha256"] == ev.document["sha256"]
+        for s in selected:
+            raw = ev.receipts[s["file"]]
+            chunk = [c for o, c, _ in collect._split_receipt(raw) if o == s["offset"]]
+            assert hashlib.sha256(chunk[0]).hexdigest() == s["sha256"], name
+            if form in ("json-array", "json-lines"):
+                assert raw[s["offset"]:s["offset"] + len(chunk[0])] == chunk[0], name
+
+
+def test_1469_r1_cli_record_and_current_reuse_only_with_the_private_files(tmp_path):
+    import shutil
+    import stat
+    lines, now = fixture_log()
+    out = _alert_cli(tmp_path / "at", lines, history(T0), [RECEIPT])
+    names = sorted(p.name for p in out.iterdir())
+    assert names == ["alert-test-collection.json", "alert-test-lines.txt", "alert-test-receipt-0",
+                     "alert-test.json"]
+    assert all(stat.S_IMODE(p.stat().st_mode) == 0o600 for p in out.iterdir())
+    assert (out / "alert-test-receipt-0").read_bytes() == RECEIPT
+    log = tmp_path / "delphi.log"
+    log.write_text("\n".join(lines) + "\n")
+    alarms = tmp_path / "alarms.json"
+    alarms.write_text(json.dumps({**described(), "_evaluated_ms": now}))
+
+    def record(alert_dir, name):
+        return subprocess.run([sys.executable, str(DELPHI / "scripts" / "collect_readiness.py"),
+                               "record", "--source", "file", "--file", str(log), "--alarm-state",
+                               f"file:{alarms}", "--topic-arn", TOPIC, "--alert-test",
+                               str(alert_dir / "alert-test.json"), "--out", str(tmp_path / name),
+                               "--observed-ms", str(now + 1000)], capture_output=True, text=True)
+    run = record(out, "ok")
+    assert run.returncode == 0, run.stderr
+    doc = json.loads((out / "alert-test.json").read_text())
+    rec = json.loads((tmp_path / "ok" / "readiness.json").read_text())
+    assert rec["monitoring"]["alert_test_sha256"] == doc["sha256"]
+    for k, missing in enumerate(("alert-test-lines.txt", "alert-test-collection.json",
+                                 "alert-test-receipt-0")):
+        copy_dir = tmp_path / f"copy{k}"
+        shutil.copytree(out, copy_dir)
+        (copy_dir / missing).unlink()
+        run = record(copy_dir, f"out{k}")
+        assert run.returncode == 2 and f"ALERT_TEST_PROVENANCE_MISSING:{missing}" in run.stderr
+    # A substituted received file.
+    copy_dir = tmp_path / "subst"
+    shutil.copytree(out, copy_dir)
+    (copy_dir / "alert-test-receipt-0").write_bytes(RECEIPT + b"\n")
+    run = record(copy_dir, "subst-out")
+    assert run.returncode == 2 and "ALERT_TEST_PROVENANCE:receipt-files" in run.stderr
+
+
+# R2 ------------------------------------------------------------------------ #
+PARTIAL_OLD_HB = ('Subject: ALARM: "' + HB + '"\n'
+                  'Date: Tue, 1 Jan 2019 00:00:00 +0000\n\n'
+                  'Saved heartbeat message is truncated before its state-change time.\n').encode()
+
+
+def test_1469_r2_a_truncated_first_message_never_borrows_the_next_ones_time(tmp_path):
+    """Reviewer's case: a saved HeartbeatMissing ALARM e-mail cut off before
+    its timestamp, then a genuine current DiscoveryStale ALARM e-mail, as one
+    raw file beside the genuine stale e-mail. No HeartbeatMissing receipt."""
+    lines = _drill_log(tested_is_holder=True)
+    fired, hist = _both_fired()
+    stale = _mail(STALE, fired)
+    t = {"alarm": HB, "at_ms": fired}
+    for raw in (PARTIAL_OLD_HB, stale, PARTIAL_OLD_HB + b"\n" + stale, PARTIAL_OLD_HB + stale):
+        assert not collect.receipt_references(raw, t)
+    assert collect._mail_fields(PARTIAL_OLD_HB + b"\n" + stale) is None
+    with pytest.raises(collect.Refused, match=f"ALERT_TEST_RECEIPT_UNRELATED:{HB}"):
+        alert_doc(lines, hist=hist, receipt=[stale, PARTIAL_OLD_HB + b"\n" + stale])
+    # The body of a stale mail pasted without its header block names another alarm.
+    body_only = stale.split(b"\n\n", 1)[1]
+    assert collect._mail_fields(PARTIAL_OLD_HB + body_only) is None
+    # The exact CLI refuses and writes no document.
+    with pytest.raises(AssertionError, match="ALERT_TEST_RECEIPT_UNRELATED"):
+        _alert_cli(tmp_path / "at", lines, hist, [stale, PARTIAL_OLD_HB + b"\n" + stale])
+    assert not (tmp_path / "at" / "alert-test.json").exists()
+    # The original case (genuine stale ALARM plus an old heartbeat OK) still refuses.
+    with pytest.raises(collect.Refused, match=f"ALERT_TEST_RECEIPT_UNRELATED:{HB}"):
+        alert_doc(lines, hist=hist, receipt=[stale, OLD_HB_OK])
+
+
+def test_1469_r2_each_notification_is_parsed_strictly():
+    fired, _ = _both_fired()
+    good = _mail(HB, fired)
+    assert collect._mail_fields(good)[:3] == (HB, "ALARM", fired - fired % 1000)
+    head, body = good.split(b"\n\n", 1)
+    stamp = [x for x in body.split(b"\n") if b"Timestamp" in x][0] + b"\n"
+    bad = {
+        "no separator": good.replace(b"\n\n", b"\n", 1),
+        "no header block": body,
+        "second subject header": b'Subject: ALARM: "' + STALE.encode() + b'"\n' + good,
+        "second date header": b"Date: Tue, 1 Jan 2019 00:00:00 +0000\n"
+                              b"Date: Wed, 30 Sep 2026 07:12:34 +0000\n" + good,
+        "nested header block": good + b"\nSubject: OK: \"" + HB.encode() + b"\"\n",
+        "nested mbox separator": good + b"\nFrom no-reply@sns.amazonaws.com Wed Sep 30 2026\n",
+        "duplicate identical timestamp": good + stamp,
+        "two timestamps": good + b"- Timestamp: Wednesday 1 January, 2025 00:00:00 UTC\n",
+        "missing timestamp": good.replace(stamp, b""),
+        "missing state change": good.replace(b"- State Change:               OK -> ALARM\n", b""),
+        "second state change": good + b"- State Change: OK -> ALARM\n",
+        "other alarm named": good.replace(b'Alarm "' + HB.encode() + b'"',
+                                          b'Alarm "' + STALE.encode() + b'"'),
+        "other state entered": good.replace(b"entered the ALARM state", b"entered the OK state"),
+        "nothing names the alarm": good.replace(b'Amazon CloudWatch Alarm "' + HB.encode() + b'"', b"alarm"),
+    }
+    for name, raw in bad.items():
+        assert collect._mail_fields(raw) is None, name
+    # Supported: a Date header, a Name line agreeing, CRLF line ends.
+    assert collect._mail_fields(b"Date: Wed, 30 Sep 2026 07:12:34 +0000\n" + good) is not None
+    assert collect._mail_fields(good + b"- Name:  " + HB.encode() + b"\n") is not None
+    assert collect._mail_fields(good.replace(b"\n", b"\r\n")) is not None
+
+
+def test_1469_r2_two_timestamps_refuse_whatever_the_order_and_the_guard_is_needed():
+    """The reviewer's deterministic mutation check: a message with two
+    distinct timestamp lines is refused directly; a collector whose guard
+    only asks for some timestamp accepts it (whichever it picks)."""
+    fired, _ = _both_fired()
+    first = _mail(HB, fired)
+    extra = b"- Timestamp: Wednesday 1 January, 2025 00:00:00 UTC\n"
+    head, body = first.split(b"\n\n", 1)
+    for raw in (first + extra, head + b"\n\n" + extra + body):
+        assert len(collect._MAIL_STAMP.findall(raw.decode())) == 2
+        assert collect._mail_fields(raw) is None
+    source = (DELPHI / "scripts" / "collect_readiness.py").read_text()
+    needle = "if not sub or len(stamps) != 1:"
+    assert source.count(needle) == 1
+    ns = {"__name__": "stamp_mutant", "__file__": str(DELPHI / "scripts" / "collect_readiness.py")}
+    exec(compile(source.replace(needle, "if not sub or not stamps:"), "<stamp-mutant>", "exec"), ns)
+    for raw in (first + extra, head + b"\n\n" + extra + body):
+        assert ns["_mail_fields"](raw) is not None
+
+
+# R3 ------------------------------------------------------------------------ #
+@pytest.mark.parametrize("kind", ["heartbeat", "standby"])
+def test_1469_r3_a_later_clock_logged_earlier_never_excludes_a_malformed_line(kind, tmp_path):
+    """Reviewer's case: a well-formed other-instance standby line at
+    test+1,300,000 ms logged before the drill, then the truncated adverse
+    line at test+500,000 ms. The bracket would invert; the order is not
+    proven, so the line cannot be placed and the drill refuses."""
+    lines, adverse, at = _truncated_in_place(kind)
+    hist = history(T0, alarms=collect.ALARMS)
+    ahead = restart_line(T0 + 1_300_000, "i-0456")
+    broken = adverse[:-8]
+    damaged = [ahead] + lines[:at] + [broken] + lines[at:]
+    parsed = collect.classify(damaged)
+    timed = collect._timed(parsed)
+    index = parsed["malformed"][0][0]
+    assert collect.clock_order_violations(timed)
+    assert collect._bracket(timed, index) == (None, None)
+    # Without the order check the neighbours invert; that never excludes either.
+    assert collect._bracket(timed, index, True) == (None, None)
+    with pytest.raises(collect.Degraded, match="ALERT_TEST_EVIDENCE_MALFORMED") as exc:
+        alert_doc(damaged, hist=hist)
+    (bad,) = exc.value.report["malformed"]
+    assert bad["order"] == "unproven" and (bad["earliest_ms"], bad["latest_ms"]) == (None, None)
+    assert exc.value.report["malformed_lines_total"] == 1
+    with pytest.raises(AssertionError, match="ALERT_TEST_EVIDENCE_MALFORMED"):
+        _alert_cli(tmp_path / "at", damaged, hist, [receipt_for(hist)])
+    assert not (tmp_path / "at" / "alert-test.json").exists()
+
+
+@pytest.mark.parametrize("kind", ["heartbeat", "standby"])
+def test_1469_r3_out_of_order_neighbours_refuse(kind):
+    """The truncated line between two lines whose clocks are swapped: no
+    order is proven around it."""
+    lines, adverse, at = _truncated_in_place(kind)
+    swapped = lines[:at - 1] + [lines[at], adverse[:-8], lines[at - 1]] + lines[at + 1:]
+    with pytest.raises(collect.Degraded, match="ALERT_TEST_EVIDENCE_MALFORMED"):
+        alert_doc(swapped, hist=history(T0, alarms=collect.ALARMS))
+
+
+def test_1469_r3_established_exclusions_and_recorded_violations():
+    lines = _drill_log(tested_is_holder=True)
+    hist = history(T0, alarms=collect.ALARMS)
+    cut = "math_poller readiness/1 role=primary progress=ok {"
+    # Before the interval, between two older lines of another instance.
+    before = [restart_line(T0 - 1_000_000, "i-0456"), cut, restart_line(T0 - 900_000, "i-0456")]
+    end = max(T0 + FIRES_AFTER[HB], T0 + 1_200_000)
+    at = next(i for i, x in enumerate(lines)
+              if (rd.parse_readiness(x) or {}).get("emitted_ms", 0) > end + 60_000)
+    both = before + lines[:at] + [cut] + lines[at:]
+    ev = alert_ev(both, hist=hist)
+    tr = ev.document["evidence"]["trace"]
+    lo, hi = tr["interval_ms"]
+    assert tr["malformed_total"] == 2 and tr["order_violations"] == 0
+    first, second = tr["malformed_excluded"]
+    assert first["index"] == 1 and first["latest_ms"] < lo
+    assert second["earliest_ms"] > hi
+    assert collect.verify_alert_evidence(ev) == ev.document["sha256"]
+    assert schema.validate_alert_test(ev.document) == ev.document["sha256"]
+    # A clock contradiction with nothing malformed to place is recorded, not refused.
+    unordered = alert_ev([restart_line(T0 + 1_300_000, "i-0456")] + lines, hist=hist)
+    assert unordered.document["evidence"]["trace"]["order_violations"] > 0
+    assert collect.verify_alert_evidence(unordered) == unordered.document["sha256"]
+    # The same contradiction with a malformed line anywhere: nothing can be placed.
+    with pytest.raises(collect.Degraded, match="ALERT_TEST_EVIDENCE_MALFORMED"):
+        alert_doc([restart_line(T0 + 1_300_000, "i-0456")] + before + lines, hist=hist)
+
+
+def test_1469_r3_an_unbounded_truncated_line_refuses():
+    lines = _drill_log(tested_is_holder=True)
+    hist = history(T0, alarms=collect.ALARMS)
+    cut = "math_poller readiness/1 role=primary progress=ok {"
+    assert collect._bracket([], 0) == (None, None)
+    for damaged in ([cut] + lines, [cut]):
+        with pytest.raises(collect.Refused):
+            alert_doc(damaged, hist=hist)
+    with pytest.raises(collect.Degraded, match="ALERT_TEST_EVIDENCE_MALFORMED") as exc:
+        alert_doc([cut] + lines, hist=hist)
+    assert exc.value.report["malformed"][0]["earliest_ms"] is None
