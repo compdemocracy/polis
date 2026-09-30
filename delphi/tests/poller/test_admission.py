@@ -406,3 +406,160 @@ class TestServicePaths:
         assert 1 not in svc._convs  # the coldest went first
         assert 9 in svc._convs
         assert a.stats["evicted_bytes"] > 0
+
+
+# --------------------------------------------------------------------------- #
+# Review [1447] A: a cached object a worker holds stays counted
+# --------------------------------------------------------------------------- #
+def counted_bytes(a):
+    return a.base_bytes + a.retained_total() + sum(r.nbytes for r in a.granted())
+
+
+class HeldWorker:
+    """Runs the real ``_run_engine`` for zid 1 on a thread and parks it inside
+    compute (the reviewer's deterministic witness shape)."""
+
+    def __init__(self, svc, reserve_mb=400):
+        self.svc, self.entered, self.release = svc, threading.Event(), threading.Event()
+        self.errors = []
+        a = svc.admission
+        svc._reserve = lambda zid, conv, batch: a.reserve(zid, reserve_mb * MB, kind="live_update")
+
+        def compute(zid, conv, batch):
+            self.entered.set()
+            assert self.release.wait(5)
+
+        svc._compute_and_publish = compute
+        self.thread = threading.Thread(target=self._run)
+
+    def _run(self):
+        try:
+            self.svc._run_engine(1, CoalescedBatch())
+        except BaseException as e:  # noqa: BLE001
+            self.errors.append(e)
+
+    def __enter__(self):
+        self.thread.start()
+        assert self.entered.wait(5)
+        return self
+
+    def __exit__(self, *exc):
+        self.release.set()
+        self.thread.join(5)
+        assert not self.thread.is_alive() and not self.errors
+
+
+class TestHeldObjects:
+    def _svc(self, cap=1):
+        a = MemoryAdmission(1000 * MB, headroom=0, base_bytes=100 * MB, cache_bytes=900 * MB)
+        svc = MathPollerService(MagicMock(), PollerConfig(conv_cache_cap=cap), admission=a)
+        svc._remember(1, conv_of(1000, 1000))
+        return svc, a, a.retained_of(1)
+
+    def test_reviewer_witness_cache_cap_eviction_keeps_the_held_charge(self):
+        """The [1447] witness: a second _remember hits the count cap while
+        zid 1 is held inside compute. The cache evicts it, but its charge
+        stays until the worker releases, so every grant keeps held state +
+        reservations <= budget."""
+        svc, a, held_bytes = self._svc()
+        with HeldWorker(svc):
+            svc._remember(2, conv_of(1000, 1000))
+            assert 1 not in svc._convs and a.retained_of(1) == held_bytes
+            third = a.reserve(3, 410 * MB, kind="live", wait=False)
+            try:
+                if third is not None:  # only after evicting unheld zid 2
+                    assert 2 not in svc._convs
+                assert counted_bytes(a) <= a.budget_bytes
+                assert a.retained_of(1) == held_bytes
+            finally:
+                a.release(third)
+        assert a.retained_of(1) == 0 and a.held() == set()  # released with the worker
+        svc._remember(4, conv_of(10, 10))
+        assert list(svc._convs) == [4]
+
+    def test_a_grant_that_only_fits_by_forgetting_the_held_object_is_refused(self):
+        # held 80.5 + base 100 + running 400 + 490 = 1070.5 MiB > 1000.
+        svc, a, held_bytes = self._svc()
+        with HeldWorker(svc):
+            svc._remember(2, conv_of(1000, 1000))
+            assert a.reserve(3, 490 * MB, kind="live", wait=False) is None
+            assert a.retained_of(1) == held_bytes
+            assert counted_bytes(a) <= a.budget_bytes
+
+    def test_explicit_drop_of_a_held_entry_keeps_its_charge_until_release(self):
+        svc, a, held_bytes = self._svc(cap=10)
+        with HeldWorker(svc):
+            svc._cache_drop(1)  # e.g. an un-park invalidation
+            assert 1 not in svc._convs and a.retained_of(1) == held_bytes
+            assert a.reserve(3, 490 * MB, kind="live", wait=False) is None
+        assert a.retained_of(1) == 0 and a.held() == set()
+
+    def test_lookup_to_reservation_window_is_covered(self):
+        """The hold is taken with the lookup, before the reservation: an
+        eviction between them (here: inside _reserve) cannot drop the charge."""
+        svc, a, held_bytes = self._svc(cap=1)
+        seen = {}
+
+        def reserve(zid, conv, batch):
+            seen["held"] = a.is_held(1)
+            svc._remember(2, conv_of(1000, 1000))  # count cap, before reserving
+            seen["retained"] = a.retained_of(1)
+            seen["freed"] = svc._evict_for_admission(10**12, set())
+            return a.reserve(zid, 10 * MB, kind="live_update")
+
+        svc._reserve = reserve
+        svc._compute_and_publish = lambda zid, conv, batch: None
+        svc._run_engine(1, CoalescedBatch())
+        assert seen["held"] and seen["retained"] == held_bytes
+        assert seen["freed"] == a.model.retained_bytes(1000, 1000)  # zid 2 only
+        assert a.held() == set() and a.retained_of(1) == 0
+
+    def test_a_waiting_worker_keeps_its_object_counted_and_unevictable(self):
+        svc, a, held_bytes = self._svc(cap=10)
+        blocker = a.reserve(9, 700 * MB, kind="live", wait=False)
+        done = threading.Event()
+        svc._reserve = lambda zid, conv, batch: a.reserve(zid, 150 * MB, kind="live_update")
+        svc._compute_and_publish = lambda zid, conv, batch: done.set()
+        t = threading.Thread(target=svc._run_engine, args=(1, CoalescedBatch()))
+        t.start()
+        try:
+            deadline = time.time() + 5
+            while not a.snapshot()["waiting"] and time.time() < deadline:
+                time.sleep(0.01)
+            assert a.is_held(1) and a.snapshot()["waiting"] == 1
+            assert svc._evict_for_admission(10**12, set()) == 0
+            assert a.retained_of(1) == held_bytes and 1 in svc._convs
+        finally:
+            a.release(blocker)
+            t.join(5)
+        assert done.is_set() and a.held() == set()
+
+    def test_two_waiters_holding_objects_do_not_wait_on_each_other_forever(self):
+        a = MemoryAdmission(1000 * MB, headroom=0, base_bytes=100 * MB)
+        a.set_retained(1, 300 * MB)
+        a.set_retained(2, 300 * MB)
+        a.hold(1)
+        a.hold(2)
+        # Each needs more than is left beside both held objects; nothing is
+        # granted and nothing is evictable: refused, not a deadlock.
+        with pytest.raises(OverBudget):
+            a.reserve(1, 350 * MB, kind="live_update", wait=True, poll_s=0.01)
+
+    def test_admission_evictor_skips_objects_held_after_its_snapshot(self):
+        svc, a, _ = self._svc(cap=10)
+        svc._remember(2, conv_of(1000, 1000))
+        a.hold(1)  # taken after the admission's protect snapshot
+        assert svc._evict_for_admission(10**12, set()) == a.model.retained_bytes(1000, 1000)
+        assert 1 in svc._convs and 2 not in svc._convs
+        a.unhold(1)
+
+
+class TestSnapshotTelemetry:
+    def test_current_and_cumulative_grants_are_separate_fields(self):
+        a = MemoryAdmission(1000 * MB, headroom=0, base_bytes=100 * MB)
+        r1 = a.reserve(1, MB, kind="live", wait=False)
+        a.release(r1)
+        r2 = a.reserve(2, MB, kind="live", wait=False)
+        snap = a.snapshot()
+        assert snap["granted"] == 1 and snap["admitted"] == 2
+        a.release(r2)
