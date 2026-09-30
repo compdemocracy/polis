@@ -524,12 +524,14 @@ class Liveness(unittest.TestCase):
             ('readiness-sweep-unresolved',): ready(sweep={'parked_live': 1}),
             ('readiness-not-drained',): ready(drain={'drained_ms': CUTOFF + 1}),
             ('readiness-monitoring-not-ok',): ready(monitoring={'alert_test_sha256': None}),
-            ('readiness-expired',): ready(observed=SNAPSHOT - 900_001, cutoff=SNAPSHOT - 1_000_000),
+            # Expired also means stale inner evidence at the snapshot (review [1455] R1).
+            ('readiness-discovery-stale', 'readiness-monitoring-not-ok', 'readiness-expired'):
+                ready(observed=SNAPSHOT - 900_001, cutoff=SNAPSHOT - 1_000_000),
         }
         for want, readiness in cases.items():
             with self.subTest(want=want):
                 spec = {'readiness': readiness}
-                if want == ('readiness-expired',):
+                if 'readiness-expired' in want:
                     spec['cutoff_ms'] = SNAPSHOT - 1_000_000
                 r = self.verdict(**spec)
                 self.assertEqual((r['verdict'], tuple(r['blocking'])), ('BACKFILL-INCOMPLETE', want))
@@ -616,7 +618,7 @@ class Consumption(unittest.TestCase):
             'current-readiness-holder-not-primary': self.current(now, holder={'role': 'standby'}),
             'current-readiness-discovery-stale': self.current(now, discovery={'last_success_ms': now - 600_000}),
             'current-readiness-sweep-unresolved': self.current(now, sweep={'in_flight': 1}),
-            'current-readiness-older': ready(observed=self.bound['observed_ms'] - 1),
+            'current-readiness-not-refreshed': ready(observed=self.bound['observed_ms'] - 1),
             'current-readiness-invalid': dict(self.current(now), note='free text'),
         }
         for reason, current in cases.items():
@@ -624,16 +626,179 @@ class Consumption(unittest.TestCase):
                 out = bv.handoff(self.r, current, now)
                 self.assertEqual(out['status'], 'REFUSED', out)
                 self.assertIn(reason, out['reasons'])
-        # A current record past its own age bound, while the cutoff is still fresh: capture a newer one.
+        # A current record past its own age bound, while the cutoff is still fresh: its inner
+        # evidence is stale now as well, so it is refused; capture a newer one.
         now = CUTOFF + 3_000_000
         out = bv.handoff(self.r, self.current(now - 900_001), now)
-        self.assertEqual((out['status'], out['reasons']), ('EXPIRED', ['current-readiness-expired']))
+        self.assertEqual((out['status'], out['reasons']),
+                         ('REFUSED', ['current-readiness-discovery-stale', 'current-readiness-monitoring-not-ok',
+                                      'current-readiness-expired']))
+        # Only the record-age bound failing, with every inner age fresh now, maps to EXPIRED.
+        spec = dict(self.j['run_spec'], max_readiness_age_seconds=60, max_discovery_gap_seconds=900)
+        late = self.current(now - 60_001, discovery={'last_success_ms': now - 60_001},
+                            monitoring={'evaluated_ms': now - 60_000})
+        self.assertEqual(bv.readiness_failures(late, spec, now), ['readiness-expired'])
 
     def test_not_complete_receipts_never_hand_off(self):
         r, _ = export(j=job(readiness=None))
         self.assertEqual(r['verdict'], 'BACKFILL-INCOMPLETE')
         self.assertEqual(bv.consumption(r, SNAPSHOT + 1)['status'], 'NOT_COMPLETE')
         self.assertEqual(bv.handoff(r, self.current(SNAPSHOT), SNAPSHOT + 1)['status'], 'NOT_COMPLETE')
+
+
+class DecisionTime(unittest.TestCase):
+    """Review [1455]: every inner readiness age is judged at the decision time (the
+    snapshot for the verdict, now for launch and handoff), the record-age bound is
+    additional, and no stamp may exceed the reference plus one tolerance."""
+    GAP = 120_000
+    BOUND = 900_000
+
+    def verdict(self, readiness, **spec):
+        r, j = export(j=job(readiness=readiness, **spec))
+        self.assertEqual(decode_receipt(encoded(r), j), r)
+        return r
+
+    def passing(self):
+        r, j = export()
+        self.assertEqual(r['verdict'], 'BACKFILL-COMPLETE')
+        return r, j
+
+    def test_discovery_fresh_at_capture_stale_at_snapshot(self):
+        """The reviewer's first timing: cutoff snapshot-600 s, observation snapshot-480 s, discovery 485 s old."""
+        stale = ready(cutoff=CUTOFF, observed=SNAPSHOT - 480_000)
+        self.assertEqual(stale['observed_ms'] - stale['discovery']['last_success_ms'], 5_000)
+        self.assertEqual(bv.readiness_failures(stale, job()['run_spec'], stale['observed_ms']), [])
+        r = self.verdict(stale)
+        self.assertEqual((r['verdict'], r['blocking']), ('BACKFILL-INCOMPLETE', ['readiness-discovery-stale']))
+        self.assertTrue(all(r['controls'].values()))
+        self.assertEqual(r['snapshot']['clock'], 'PLAUSIBLE')
+
+    def test_identical_record_resubmitted_at_handoff_is_refused(self):
+        """The reviewer's second timing: the bound record passed again as current at snapshot + 120 s."""
+        stale = ready(cutoff=CUTOFF, observed=SNAPSHOT - 480_000)
+        # Built as if it had passed (the verdict above refuses it); handoff must refuse it on its own.
+        r, j = self.passing()
+        r = copy.deepcopy(r)
+        out = bv.handoff(r, stale, SNAPSHOT + 120_000)
+        self.assertEqual(out['status'], 'REFUSED')
+        self.assertIn('current-readiness-discovery-stale', out['reasons'])
+        # A stopped holder resubmitting the exact launch-bound record of a passing receipt.
+        bound = j['run_spec']['readiness']
+        out = bv.handoff(r, bound, SNAPSHOT + 120_000)
+        self.assertEqual(out['status'], 'REFUSED')
+        self.assertIn('current-readiness-not-refreshed', out['reasons'])
+        self.assertIn('current-readiness-discovery-stale', out['reasons'])
+        # Even inside the discovery gap, the bound record is history, not current progress.
+        out = bv.handoff(r, bound, SNAPSHOT)
+        self.assertEqual((out['status'], out['reasons']), ('REFUSED', ['current-readiness-not-refreshed']))
+        # Refreshing only the observation stamp exposes the same stale inner discovery.
+        recaptured = dict(copy.deepcopy(bound), observed_ms=SNAPSHOT + 120_000)
+        out = bv.handoff(r, recaptured, SNAPSHOT + 120_000)
+        self.assertEqual((out['status'], out['reasons']), ('REFUSED', ['current-readiness-discovery-stale']))
+        # Genuinely current discovery succeeds.
+        out = bv.handoff(r, ready(observed=SNAPSHOT + 120_000), SNAPSHOT + 120_000)
+        self.assertEqual((out['status'], out['reasons']), ('READY', []))
+
+    def test_discovery_age_boundary_at_snapshot_and_at_handoff(self):
+        for age, want in ((self.GAP, []), (self.GAP + 1, ['readiness-discovery-stale'])):
+            with self.subTest(snapshot_age=age):
+                r = self.verdict(ready(observed=SNAPSHOT - 1_000, discovery={'last_success_ms': SNAPSHOT - age}))
+                self.assertEqual(r['blocking'], want)
+                self.assertEqual(r['verdict'], 'BACKFILL-INCOMPLETE' if want else 'BACKFILL-COMPLETE')
+        r, _ = self.passing()
+        now = SNAPSHOT + 300_000
+        for age, want in ((self.GAP, 'READY'), (self.GAP + 1, 'REFUSED')):
+            with self.subTest(handoff_age=age):
+                out = bv.handoff(r, ready(observed=now - 1_000, discovery={'last_success_ms': now - age}), now)
+                self.assertEqual(out['status'], want, out)
+
+    def test_healthy_idle_progress_passes(self):
+        idle = ready(observed=SNAPSHOT - 1_000, queue={'pending': 0, 'oldest_work_age_ms': 0})
+        r = self.verdict(idle, cutoff_ms=CUTOFF)
+        self.assertEqual((r['verdict'], r['blocking']), ('BACKFILL-COMPLETE', []))
+        now = SNAPSHOT + 600_000
+        self.assertEqual(bv.handoff(r, ready(observed=now), now)['status'], 'READY')
+
+    def test_stale_alarm_evaluation(self):
+        for age, want in ((self.BOUND, []), (self.BOUND + 1, ['readiness-monitoring-not-ok'])):
+            with self.subTest(snapshot_age=age):
+                r = self.verdict(ready(observed=SNAPSHOT - 60_000, monitoring={'evaluated_ms': SNAPSHOT - age}))
+                self.assertEqual(r['blocking'], want)
+        r, _ = self.passing()
+        now = SNAPSHOT + 300_000
+        for age, want in ((self.BOUND, 'READY'), (self.BOUND + 1, 'REFUSED')):
+            with self.subTest(handoff_age=age):
+                current = ready(observed=now - 1_000, monitoring={'evaluated_ms': now - age})
+                self.assertEqual(bv.handoff(r, current, now)['status'], want)
+
+    def test_queued_work_ages_while_the_record_waits(self):
+        # 60 s old at capture, captured 60 s before the snapshot: exactly the gap at the snapshot.
+        for oldest, want in ((60_000, []), (60_001, ['readiness-queue-stuck'])):
+            with self.subTest(oldest=oldest):
+                r = self.verdict(ready(observed=SNAPSHOT - 60_000, queue={'pending': 1, 'oldest_work_age_ms': oldest}))
+                self.assertEqual(r['blocking'], want)
+        # An empty queue does not age.
+        r = self.verdict(ready(observed=SNAPSHOT - 60_000, queue={'pending': 0, 'oldest_work_age_ms': 0}))
+        self.assertEqual(r['blocking'], [])
+        r, _ = self.passing()
+        now = SNAPSHOT + 300_000
+        current = ready(observed=now - 30_000, queue={'pending': 2, 'oldest_work_age_ms': 90_001})
+        self.assertIn('current-readiness-queue-stuck', bv.handoff(r, current, now)['reasons'])
+        current = ready(observed=now - 30_000, queue={'pending': 2, 'oldest_work_age_ms': 90_000})
+        self.assertEqual(bv.handoff(r, current, now)['status'], 'READY')
+
+    def test_record_age_bound_is_retained(self):
+        # Limits the fixed control fixture cannot carry: judged directly, as the verifier does.
+        spec = dict(job()['run_spec'], max_readiness_age_seconds=60, max_discovery_gap_seconds=900)
+        at_bound = ready(observed=SNAPSHOT - 60_000, discovery={'last_success_ms': SNAPSHOT - 60_000},
+                         monitoring={'evaluated_ms': SNAPSHOT - 60_000})
+        self.assertEqual(bv.readiness_failures(at_bound, spec, SNAPSHOT), [])
+        beyond = ready(observed=SNAPSHOT - 60_001, discovery={'last_success_ms': SNAPSHOT - 60_001},
+                       monitoring={'evaluated_ms': SNAPSHOT - 60_000})
+        self.assertEqual(bv.readiness_failures(beyond, spec, SNAPSHOT), ['readiness-expired'])
+
+    def test_compounded_future_tolerance_is_refused(self):
+        """The reviewer's case: observation reference + 4,000 ms, discovery reference + 8,000 ms."""
+        future = ready(observed=SNAPSHOT + 4_000, discovery={'last_success_ms': SNAPSHOT + 8_000})
+        r = self.verdict(future)
+        self.assertEqual((r['verdict'], r['snapshot']['clock']), ('INCOMPLETE', 'UNKNOWN'))
+        self.assertIn('future-readiness-clock', r['blocking'])
+        passing, _ = self.passing()
+        out = bv.handoff(passing, ready(observed=SNAPSHOT + 4_000, discovery={'last_success_ms': SNAPSHOT + 8_000}),
+                         SNAPSHOT)
+        self.assertEqual(out['status'], 'UNKNOWN')
+        self.assertIn('future-current-readiness-clock', out['reasons'])
+
+    def test_each_stamp_at_the_reference_bound(self):
+        """Each inner stamp at reference + 5,000 / + 5,001, with the observation independently offset."""
+        tol = bv.CLOCK_TOLERANCE_MS
+        paths = {'discovery': ('discovery', 'last_success_ms'), 'sweep': ('sweep', 'finished_ms'),
+                 'drain': ('drain', 'drained_ms'), 'monitoring': ('monitoring', 'evaluated_ms')}
+        for name, (section, key) in paths.items():
+            for offset in (0, 4_000, -60_000):
+                for extra, future in ((tol, False), (tol + 1, True)):
+                    stamp = SNAPSHOT + extra
+                    if stamp > SNAPSHOT + offset + tol:
+                        continue  # beyond the observation's own allowance; covered below
+                    with self.subTest(stamp=name, observed_offset=offset, extra=extra):
+                        v = ready(observed=SNAPSHOT + offset, **{section: {key: stamp}})
+                        self.assertEqual(bv.readiness_future(v, SNAPSHOT), future)
+                        r = self.verdict(v)
+                        self.assertEqual(r['snapshot']['clock'], 'UNKNOWN' if future else 'PLAUSIBLE')
+                        self.assertEqual('future-readiness-clock' in r['blocking'], future)
+            # Beyond the observation's allowance while inside the reference's is still future.
+            v = ready(observed=SNAPSHOT - 60_000, **{section: {key: SNAPSHOT - 60_000 + tol + 1}})
+            self.assertTrue(bv.readiness_future(v, SNAPSHOT), name)
+        # The observation itself at the reference bound.
+        self.assertFalse(bv.readiness_future(ready(observed=SNAPSHOT + tol), SNAPSHOT))
+        self.assertTrue(bv.readiness_future(ready(observed=SNAPSHOT + tol + 1), SNAPSHOT))
+        # The same bound at handoff, against now.
+        passing, _ = self.passing()
+        now = SNAPSHOT + 300_000
+        for extra, want in ((tol, 'READY'), (tol + 1, 'UNKNOWN')):
+            current = ready(observed=now + 4_000, discovery={'last_success_ms': now + extra},
+                            monitoring={'evaluated_ms': now})
+            self.assertEqual(bv.handoff(passing, current, now)['status'], want)
 
 
 @unittest.skipUnless(os.environ.get('POLIS_BACKFILL_VERIFY_PG'), 'opt-in: disposable PG17 URL')
@@ -700,6 +865,18 @@ class Postgres(unittest.TestCase):
         self.assertEqual((r['verdict'], r['blocking']), ('BACKFILL-COMPLETE', []))
         self.assertTrue(receipt_passed(r, job(cutoff_ms=now - 10_000, readiness=ready(cutoff=now - 10_000,
                                                                                       observed=now))))
+
+    def test_capture_time_discovery_is_judged_at_the_snapshot(self):
+        """Review [1455] R1 through the real PG17 chain: discovery fresh at capture, 485 s old at the snapshot."""
+        now = self.clean()
+        delayed = ready(cutoff=now - 600_000, observed=now - 480_000)
+        p, spec = self.read(now - 600_000, delayed)
+        self.assertEqual(p['status'], 'COMPLETE', p)
+        j = job(cutoff_ms=spec['cutoff_ms'], readiness=delayed)
+        r = verifier.export(p, bv.assess(p, j['run_spec']), j, '1' * 40)
+        self.assertEqual((r['verdict'], r['blocking']), ('BACKFILL-INCOMPLETE', ['readiness-discovery-stale']))
+        self.assertTrue(all(r['controls'].values()))
+        self.assertFalse(receipt_passed(r, j))
 
     def test_future_publication_clock_is_unknown(self):
         now = self.clean(86_400_000)

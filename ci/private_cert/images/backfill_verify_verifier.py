@@ -53,7 +53,7 @@ SNAPSHOT_MS = 1_900_000_000_000
 CUTOFF_MS = SNAPSHOT_MS - 600_000
 
 
-def fixture_readiness(cutoff=CUTOFF_MS, observed=SNAPSHOT_MS - 120_000, **changes):
+def fixture_readiness(cutoff=CUTOFF_MS, observed=SNAPSHOT_MS - 60_000, **changes):
     """A healthy idle holder after DRAINED: the discovery loop succeeded after the
     cutoff, nothing unresolved, parked or in flight, monitoring OK. `changes`
     replaces fields of one section, e.g. holder={'role': 'standby'}."""
@@ -231,8 +231,13 @@ def controls(job):
                 ({'queue': {'oldest_work_age_ms': 120_001}}, ('readiness-queue-stuck',)),
                 ({'sweep': {'unresolved': 1}}, ('readiness-sweep-unresolved',)),
                 ({'drain': {'drained_ms': None}}, ('readiness-not-drained',)),
-                ({'monitoring': {'alarm': 'INSUFFICIENT_DATA'}}, ('readiness-monitoring-not-ok',))))
-            and vector({}, ('readiness-before-cutoff', 'readiness-discovery-stale', 'readiness-expired'),
+                ({'monitoring': {'alarm': 'INSUFFICIENT_DATA'}}, ('readiness-monitoring-not-ok',)),
+                # Judged at the snapshot, not only at capture (review [1455] R1).
+                ({'observed': SNAPSHOT_MS - 480_000}, ('readiness-discovery-stale',)),
+                ({'queue': {'pending': 1, 'oldest_work_age_ms': 60_001}}, ('readiness-queue-stuck',)),
+                ({'monitoring': {'evaluated_ms': SNAPSHOT_MS - 900_001}}, ('readiness-monitoring-not-ok',))))
+            and vector({}, ('readiness-before-cutoff', 'readiness-discovery-stale', 'readiness-monitoring-not-ok',
+                            'readiness-expired'),
                        readiness=fixture_readiness(observed=SNAPSHOT_MS - 900_001,
                                                    drain={'drained_ms': SNAPSHOT_MS - 1_000_000})),
         'standby-holder-blocks': vector({}, ('readiness-holder-not-primary',),
@@ -250,6 +255,10 @@ def controls(job):
             and incomplete(clock_results(source_newest_ms=SNAPSHOT_MS + 5_001), unknown=True)
             and incomplete(readiness=fixture_readiness(observed=SNAPSHOT_MS + 5_001), unknown=True)
             and incomplete(readiness=fixture_readiness(discovery={'last_success_ms': SNAPSHOT_MS + 60_000}),
+                           unknown=True)
+            # Never reference + 2 x tolerance through the observation (review [1455] R2).
+            and incomplete(readiness=fixture_readiness(observed=SNAPSHOT_MS + 4_000,
+                                                       discovery={'last_success_ms': SNAPSHOT_MS + 5_001}),
                            unknown=True),
     }
     assert set(outcomes) | set(LIVE_CONTROLS) == set(CONTROLS)
