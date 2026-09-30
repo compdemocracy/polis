@@ -1,9 +1,9 @@
 """The `polis-backfill-readiness/2`, proof and current-readiness validators,
 vendored from the verification job (P-071, design (b)).
 
-Source: ``ci/probe_box/backfill_verify.py`` at commit cccbdcc18 (branch
+Source: ``ci/probe_box/backfill_verify.py`` at commit 3bac04c11 (branch
 ``probe-backfill-verify``), sha256 of that file:
-2d7f3313e22c28d43c856c153ba3bc0398fe463d7fdf11d03d350bee506cf34d.
+d4cbbb7926ece3215eda6b52b1ef9ea167b4a0d7a0d7f8d020243c1443bcdc52.
 
 The collector (``collect_readiness.py``) prefers the real module when the
 repository has it (``ci/probe_box/backfill_verify.py`` importable) and falls
@@ -15,9 +15,9 @@ its git object) is available. Do not edit the blocks: re-vendor instead.
 
 Vendored: the clock/count/digest helpers, the readiness record (/2) with its
 conditions and ``readiness_future``, the proof record (``polis-backfill-proof/1``),
-the alert-test document (``math_poller.alert_test_evidence/2``) and the current
-record (``polis-backfill-current-readiness/1``). Not vendored: the receipt, the
-hand-off and everything that reads the snapshot.
+the alert-test document (``math_poller.alert_test_evidence/3``, with its bound
+provenance) and the current record (``polis-backfill-current-readiness/1``). Not
+vendored: the receipt, the hand-off and everything that reads the snapshot.
 """
 
 from __future__ import annotations
@@ -26,8 +26,8 @@ import hashlib
 import json
 import re
 
-UPSTREAM = 'cccbdcc18:ci/probe_box/backfill_verify.py'
-UPSTREAM_SHA256 = '2d7f3313e22c28d43c856c153ba3bc0398fe463d7fdf11d03d350bee506cf34d'
+UPSTREAM = '3bac04c11:ci/probe_box/backfill_verify.py'
+UPSTREAM_SHA256 = 'd4cbbb7926ece3215eda6b52b1ef9ea167b4a0d7a0d7f8d020243c1443bcdc52'
 BLOCK_SHA256 = (
     '669bac6bc9e6f37ce5999bc53b9c66ab956393b4489df6979b5ff425876f91d3',
     '73c350740077b8ec218f1f7bff7e122ce5b158c0df786861c570ee573234b84b',
@@ -35,7 +35,7 @@ BLOCK_SHA256 = (
     '5c29ce1b43124073ae12a6fce422c74be7130d87fabfa8d0ac03e4f476b3d22a',
     'b3ec8c2b740a22c8826aebca0452569a3bd7f8097b2198014e71e258f078ef9a',
     '5c84dd2893b76951ece8e9810a889a120917a80b9db5f844cc6a0a48fcaef405',
-    'e8f72d6c739a3d8909c69e745215fce87a0841a4b35593c5ca1bea1efa10a67c',
+    'f37872eb0520b198c59086d226b68126b36cc75214a2587e53dafc1b03ad8c96',
 )
 
 # vendored-block 0 begin
@@ -273,26 +273,125 @@ def validate_proof(v):
 # vendored-block 5 end
 
 # vendored-block 6 begin
-# The alert-test evidence as P-072's collector writes it (schema /2), checked
-# structurally here; the collector checks it against CloudWatch. Only its
-# digest enters the readiness record (monitoring.alert_test_sha256).
-ALERT_TEST_SCHEMA = 'math_poller.alert_test_evidence/2'
+# The alert-test evidence as P-072's collector writes it (schema /3), checked
+# structurally here; the collector checks it against CloudWatch, and on every
+# reuse against the private trace, collection manifest and received files the
+# document binds. Only its digest enters the readiness record
+# (monitoring.alert_test_sha256), and that digest covers the whole bound
+# document: two different drill traces never share one (review [1469] R1).
+#
+# /3 binds the drill's provenance: `trace` (the evaluated interval, the log's
+# line count, the test line's log index, the digests of the private verbatim
+# trace and of its collection manifest (log index, kind and sha256 per line),
+# the clock-order violations seen, and every malformed protocol line in the
+# log with its established time bracket, each outside the interval) and
+# `receipt` (each received file's sha256, and per fired alarm the selected
+# notification's file, offset, sha256, form and own state-change time). /2
+# documents (collected before these checks existed) are refused: recollect
+# them with the collector's alert-test.
+ALERT_TEST_SCHEMA = 'math_poller.alert_test_evidence/3'
 ALERT_TEST = ('schema', 'nonce', 'tested_run', 'tested_run_primary', 'holder_runs', 'emitted_ms', 'silence_s',
               'test_line_sha256', 'transitions', 'notifications', 'topic_arn', 'alarm_config_sha256',
-              'receipt_sha256')
+              'receipt_sha256', 'trace', 'receipt')
+ALERT_TRACE = ('interval_ms', 'lines_total', 'test_line_index', 'lines', 'sha256', 'manifest_sha256',
+               'order_violations', 'malformed_total', 'malformed_excluded')
+ALERT_MALFORMED = ('index', 'sha256', 'earliest_ms', 'latest_ms')
+ALERT_RECEIPT = ('files', 'selected')
+ALERT_SELECTED = ('alarm', 'file', 'offset', 'sha256', 'form', 'at_ms', 'seconds')
+ALERT_FORMS = ('mail', 'mbox', 'json', 'json-array', 'json-lines')
 STALE_ALARM, HEARTBEAT_ALARM = 'Polis-MathPoller-DiscoveryStale', 'Polis-MathPoller-HeartbeatMissing'
 ALERT_STATES = ('OK', 'ALARM', 'INSUFFICIENT_DATA')
 TOPIC_ARN = r'arn:aws:sns:[a-z0-9-]+:\d{12}:[A-Za-z0-9_-]{1,256}'
 MAX_ALERT_ITEMS = 64
+MAX_LOG_LINES = 10_000_000
+# A received notification's own state-change time names its transition to
+# within this (an e-mail's whole-second time may also lag by its truncation).
+ALERT_STATE_MATCH_MS = 1_000
+
+
+def validate_alert_trace(ev):
+    """The /3 `trace` section: the interval covers the test line, the silence
+    and every selected transition; every malformed protocol line in the log is
+    listed with a bracket that is not inverted and lies outside the interval;
+    none is excluded when the log's clocks contradict its order."""
+    tr = closed(ev['trace'], ALERT_TRACE)
+    iv = tr['interval_ms']
+    if type(iv) is not list or len(iv) != 2:
+        fail('VERIFY_ALERT_TEST')
+    lo, hi = clock(iv[0]), clock(iv[1])
+    since = ev['emitted_ms']
+    if not lo <= since <= hi or hi < since + 1000 * ev['silence_s'] or any(
+            t['at_ms'] > hi for t in ev['transitions']):
+        fail('VERIFY_ALERT_TEST')
+    total = integer(tr['lines_total'], 1, MAX_LOG_LINES)
+    integer(tr['test_line_index'], 0, total - 1)
+    integer(tr['lines'], 1, total)
+    hexdigest(tr['sha256'])
+    hexdigest(tr['manifest_sha256'])
+    integer(tr['order_violations'], 0, total)
+    bad = integer(tr['malformed_total'], 0, MAX_ALERT_ITEMS)
+    excluded = tr['malformed_excluded']
+    if type(excluded) is not list or len(excluded) != bad or bad + tr['lines'] > total:
+        fail('VERIFY_ALERT_TEST')
+    # A bracket is only established under a consistent clock order.
+    if bad and tr['order_violations']:
+        fail('VERIFY_ALERT_TEST')
+    last = -1
+    for m in excluded:
+        closed(m, ALERT_MALFORMED)
+        if integer(m['index'], 0, total - 1) <= last or m['index'] == tr['test_line_index']:
+            fail('VERIFY_ALERT_TEST')
+        last = m['index']
+        hexdigest(m['sha256'])
+        a, b = m['earliest_ms'], m['latest_ms']
+        a = None if a is None else clock(a)
+        b = None if b is None else clock(b)
+        if a is not None and b is not None and a > b:
+            fail('VERIFY_ALERT_TEST')
+        if not ((b is not None and b < lo) or (a is not None and a > hi)):
+            fail('VERIFY_ALERT_TEST')
+    return tr
+
+
+def validate_alert_receipt(ev, need):
+    """The /3 `receipt` section: the received files' digests (their aggregate
+    is `receipt_sha256`) and one selected notification per fired alarm, each
+    naming its own file, offset and sha256 and stating its transition's time."""
+    rc = closed(ev['receipt'], ALERT_RECEIPT)
+    files, selected = rc['files'], rc['selected']
+    if type(files) is not list or not files or len(files) > MAX_ALERT_ITEMS:
+        fail('VERIFY_ALERT_TEST')
+    for f in files:
+        hexdigest(f)
+    aggregate = files[0] if len(files) == 1 else hashlib.sha256(encoded(files)).hexdigest()
+    if ev['receipt_sha256'] != aggregate:
+        fail('VERIFY_ALERT_TEST')
+    if type(selected) is not list or sorted(s.get('alarm') if type(s) is dict else None
+                                            for s in selected) != sorted(need):
+        fail('VERIFY_ALERT_TEST')
+    for s in selected:
+        closed(s, ALERT_SELECTED)
+        integer(s['file'], 0, len(files) - 1)
+        integer(s['offset'])
+        hexdigest(s['sha256'])
+        if s['form'] not in ALERT_FORMS or type(s['seconds']) is not bool:
+            fail('VERIFY_ALERT_TEST')
+        t = next(x for x in ev['transitions'] if x['alarm'] == s['alarm'])
+        lag = t['at_ms'] - clock(s['at_ms'])
+        if not -ALERT_STATE_MATCH_MS <= lag <= ALERT_STATE_MATCH_MS + (999 if s['seconds'] else 0):
+            fail('VERIFY_ALERT_TEST')
+    return rc
 
 
 def validate_alert_test(doc):
     """The closed alert-test document {evidence, sha256}; returns its sha256.
 
-    Requires a DiscoveryStale ALARM transition and a successful SNS action on
-    the evidence's own topic at or after the test line; a heartbeat drill
-    (silence_s > 0) also needs the HeartbeatMissing transition and action,
-    and the tested run among the holder runs.
+    Requires exactly one DiscoveryStale ALARM transition and one successful
+    SNS action on the evidence's own topic at or after the test line; a
+    heartbeat drill (silence_s > 0) also needs the HeartbeatMissing
+    transition and action, and the tested run among the holder runs. The
+    bound provenance (`trace`, `receipt`) must be present and consistent
+    (validate_alert_trace, validate_alert_receipt); the digest covers all of it.
     """
     closed(doc, ('evidence', 'sha256'))
     ev = closed(doc['evidence'], ALERT_TEST)
@@ -329,12 +428,14 @@ def validate_alert_test(doc):
                 or n['summary'] != 'Successfully executed action ' + ev['topic_arn'] or type(n['data']) is not str):
             fail('VERIFY_ALERT_TEST')
     need = (STALE_ALARM, HEARTBEAT_ALARM) if ev['silence_s'] else (STALE_ALARM,)
-    for alarm in need:
-        if not any(x['alarm'] == alarm for x in ev['transitions']) or not any(
-                x['alarm'] == alarm for x in ev['notifications']):
+    # Exactly one transition and one action per fired alarm.
+    for x in items:
+        if sorted(y['alarm'] for y in x) != sorted(need):
             fail('VERIFY_ALERT_TEST')
     if ev['silence_s'] and not ev['tested_run_primary']:
         fail('VERIFY_ALERT_TEST')
+    validate_alert_trace(ev)
+    validate_alert_receipt(ev, need)
     digest = hashlib.sha256(encoded(ev)).hexdigest()
     if hexdigest(doc['sha256']) != digest:
         fail('VERIFY_ALERT_TEST')
@@ -343,7 +444,8 @@ def validate_alert_test(doc):
 
 def alert_test_future(doc, reference_ms):
     ev = doc['evidence']
-    stamps = [ev['emitted_ms']] + [x['at_ms'] for x in ev['transitions'] + ev['notifications']]
+    stamps = ([ev['emitted_ms'], ev['trace']['interval_ms'][1]]
+              + [x['at_ms'] for x in ev['transitions'] + ev['notifications'] + ev['receipt']['selected']])
     return any(t > reference_ms + CLOCK_TOLERANCE_MS for t in stamps)
 
 
@@ -363,6 +465,7 @@ def validate_current(v):
     if validate_alert_test(v['alert_test']) != v['readiness']['monitoring']['alert_test_sha256']:
         fail('VERIFY_ALERT_TEST')
     return v
+
 # vendored-block 6 end
 
 

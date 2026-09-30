@@ -43,20 +43,27 @@ Subcommands:
               ``polis-backfill-proof/1``): the holder's record read now, named
               for the proven receipt and carrying the alert-test document, as
               ``polis-backfill-current-readiness/1`` for ``launch-verify.sh ready``;
-  alert-test  after the alert test ran, write ``alert-test.json`` binding the
+  alert-test  after the alert test ran, write ``alert-test.json``
+              (``math_poller.alert_test_evidence/3``) binding the
               ``readiness_test/1`` line to the ALARM transition it caused (one
               per fired alarm, inside the drill's attribution window), the
               successful SNS action for THAT transition on the intended topic,
               the alarm configuration and the operator's received notification
-              of that state change (one message stating that alarm, ALARM
-              and that time; ``--receipt`` once per saved file); its sha256
-              is the record's ``monitoring.alert_test_sha256``. Also writes,
-              private, ``alert-test-lines.txt`` (the drill interval's
-              verbatim protocol lines) and ``alert-test-collection.json``
-              (those lines' log indexes and digests, the receipt files' and
-              selected messages' digests and offsets); a malformed protocol
-              line inside the drill interval refuses, and the collection
-              report names it;
+              of that state change (one complete message stating that alarm,
+              ALARM and that time; ``--receipt`` once per saved file); its
+              sha256 is the record's ``monitoring.alert_test_sha256``. Also
+              writes, private, ``alert-test-lines.txt`` (the drill interval's
+              verbatim protocol lines), ``alert-test-collection.json`` (their
+              manifest: log index, kind and sha256 per line; malformed lines
+              and clock-order violations) and ``alert-test-receipt-<k>`` (a
+              copy of each received file). The document binds all of them by
+              digest (review [1469] R1): the trace and manifest digests, the
+              interval, the test line's log index, each malformed line with
+              its time bracket, and per alarm the selected message's file,
+              offset and sha256. A malformed protocol line that may lie inside
+              the drill interval, or cannot be placed because the log's clocks
+              contradict its order, refuses, and the collection report names
+              it;
   holder      print the current admitted holder (run, instance digest) and,
               given ``--instance-id``s, which instance it is: the heartbeat
               drill must silence that process, not a box chosen by name. It
@@ -64,6 +71,12 @@ Subcommands:
               wins, a newer run on the same instance supersedes it,
               malformed newer protocol lines degrade, age and future bounds
               against the collection time) before it names anyone.
+
+``record --alert-test`` and ``current --alert-test`` take ``alert-test.json``
+in the directory the alert-test subcommand wrote, and reuse it only with the
+private files beside it: the document is re-validated against every digest it
+binds (``verify_alert_evidence``), and a missing or different file, or a /2
+document (collected before these bindings existed; recollect it), refuses.
 
 ``--topic-arn`` (record, current, alert-test) names the SNS topic the alarms
 must notify; the collector refuses alarms whose actions are disabled, point
@@ -110,7 +123,7 @@ REGION = "us-east-1"
 HEARTBEAT_ALARM = "Polis-MathPoller-HeartbeatMissing"
 STALE_ALARM = "Polis-MathPoller-DiscoveryStale"
 ALARMS = (HEARTBEAT_ALARM, STALE_ALARM)
-EVIDENCE_SCHEMA = "math_poller.alert_test_evidence/2"
+EVIDENCE_SCHEMA = "math_poller.alert_test_evidence/3"
 READINESS_SCHEMA = "polis-backfill-readiness/2"
 CURRENT_SCHEMA = "polis-backfill-current-readiness/1"
 COLLECTION_SCHEMA = "math_poller.readiness_collection/1"
@@ -662,22 +675,65 @@ _MAIL_STAMP = re.compile(r"^\s*-\s*Timestamp:\s*(?:[A-Za-z]+\s+)?(\d{1,2}) ([A-Z
                          r"(\d\d):(\d\d):(\d\d) UTC\s*$", re.M)
 _MAIL_NAME = re.compile(r"^\s*-\s*Name:\s*(.+?)\s*$", re.M)
 _MAIL_CHANGE = re.compile(r"^\s*-\s*State Change:\s*([A-Z_]+)\s*->\s*([A-Z_]+)\s*$", re.M)
+# The body's opening sentence names the alarm and the state it entered.
+_MAIL_REF = re.compile(r'Amazon CloudWatch Alarm "([^"]+)"')
+_MAIL_INTRO = re.compile(r'Amazon CloudWatch Alarm "([^"]+)"[^\n]*?has entered the ([A-Z_]+) state')
 _SUBJECT = re.compile(r'^(ALARM|OK|INSUFFICIENT_DATA): "([^"]+)"')
 _MBOX_FROM = re.compile(rb"^From ", re.M)
+# A header line of another message inside a body (review [1469] R2): a
+# saved e-mail concatenated after another one without an mbox separator.
+_NESTED_HEADER = re.compile(r"^(?:From |(?:Subject|Date|From|To|Cc|Reply-To|Sender|Message-ID|"
+                            r"MIME-Version|Content-Type|Content-Transfer-Encoding|Return-Path|"
+                            r"Received|Delivered-To|X-[A-Za-z0-9-]+)[ \t]*:)", re.M | re.I)
+_HEADER_FIELD = re.compile(rb"^[!-9;-~]+[ \t]*:")
+RECEIPT_FORMS = ("mail", "mbox", "json", "json-array", "json-lines")
+
+
+def _json_array_spans(text: str) -> Optional[List[Tuple[int, int]]]:
+    """The (start, end) character span of each element of the JSON array
+    ``text``, or None when it is not exactly one array."""
+    dec = json.JSONDecoder()
+    ws = re.compile(r"\s*")
+    pos = ws.match(text, 0).end()
+    if text[pos:pos + 1] != "[":
+        return None
+    pos = ws.match(text, pos + 1).end()
+    spans: List[Tuple[int, int]] = []
+    if text[pos:pos + 1] == "]":
+        return spans if not text[ws.match(text, pos + 1).end():] else None
+    while True:
+        try:
+            _, end = dec.raw_decode(text, pos)
+        except ValueError:
+            return None
+        spans.append((pos, end))
+        pos = ws.match(text, end).end()
+        if text[pos:pos + 1] == ",":
+            pos = ws.match(text, pos + 1).end()
+            continue
+        if text[pos:pos + 1] == "]" and not text[ws.match(text, pos + 1).end():]:
+            return spans
+        return None
 
 
 def _split_receipt(raw: bytes) -> List[Tuple[int, bytes, str]]:
     """One received file as its separate notifications, with explicit
     boundaries only (review [1465] R2): (byte offset, message bytes, form).
+    Each message is the file's own bytes at that offset, so its sha256 and
+    offset name it in the evidence and can be found again on reuse.
 
-    JSON (``form`` ``json``): one object, an array of objects, or one object
-    per line (SNS envelopes, e-mail-json bodies or bare alarm messages).
-    Otherwise e-mail (``mail``): an mbox (messages start at ``From `` lines)
-    or, without one, the whole file is ONE RFC 822 message. Concatenated
-    e-mails without mbox separators are therefore one message, never
-    several; pass one ``--receipt`` per saved e-mail instead."""
-    text = raw.decode("utf-8", "replace")
-    stripped = text.strip()
+    JSON: one object (``json``), an array of objects (``json-array``) or one
+    object per line (``json-lines``): SNS envelopes, e-mail-json bodies or
+    bare alarm messages. Otherwise e-mail: an mbox (``mbox``; messages start
+    at ``From `` lines) or, without one, the whole file is ONE RFC 822
+    message (``mail``). Concatenated e-mails without mbox separators are
+    therefore one message, never several, and ``_mail_fields`` refuses such
+    a message (review [1469] R2); pass one ``--receipt`` per saved e-mail."""
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        text = None
+    stripped = text.strip() if text is not None else ""
     if stripped[:1] in ("{", "["):
         try:
             whole = json.loads(stripped)
@@ -686,11 +742,12 @@ def _split_receipt(raw: bytes) -> List[Tuple[int, bytes, str]]:
         if isinstance(whole, dict):
             return [(0, raw, "json")]
         if isinstance(whole, list):
-            return [(0, encoded(x), "json") for x in whole]
+            spans = _json_array_spans(text) or []
+            return [(len(text[:a].encode()), text[a:b].encode(), "json-array") for a, b in spans]
         out, offset = [], 0
         for chunk in raw.splitlines(keepends=True):
             if chunk.strip():
-                out.append((offset, chunk.strip(), "json"))
+                out.append((offset, chunk.strip(), "json-lines"))
             offset += len(chunk)
         return out
     if raw.startswith(b"From "):
@@ -701,7 +758,7 @@ def _split_receipt(raw: bytes) -> List[Tuple[int, bytes, str]]:
         for a, b in zip(bounds, bounds[1:]):
             chunk = raw[a:b]
             body = chunk.split(b"\n", 1)[1] if b"\n" in chunk else b""
-            out.append((a, body, "mail"))
+            out.append((a, body, "mbox"))
         return out
     return [(0, raw, "mail")]
 
@@ -726,35 +783,68 @@ def _alarm_fields(msg: Dict[str, Any]) -> Optional[Tuple[str, str, int, bool]]:
         return None
 
 
+def _one_header_block(raw: bytes) -> bool:
+    """Whether ``raw`` opens with exactly one RFC 822 header block: header
+    fields (and their folded continuations) up to the first empty line,
+    then a body. A message without that separation is incomplete."""
+    text = raw.replace(b"\r\n", b"\n")
+    head, sep, _ = text.partition(b"\n\n")
+    if not sep or not head:
+        return False
+    lines = head.split(b"\n")
+    if not _HEADER_FIELD.match(lines[0]):
+        return False
+    return all(_HEADER_FIELD.match(x) or x[:1] in (b" ", b"\t") for x in lines)
+
+
 def _mail_fields(raw: bytes) -> Optional[Tuple[str, str, int, bool]]:
-    """(alarm, new state, state-change ms, True) of one CloudWatch alarm
-    e-mail: the alarm and state from its Subject, the time from the body's
-    single ``- Timestamp:`` line; any ``- Name:`` or ``- State Change:``
-    line must agree. An e-mail-json body is read as JSON. None when any of
-    them is missing, repeated with another value, or contradicted."""
+    """(alarm, new state, state-change ms, True) of ONE complete CloudWatch
+    alarm e-mail (review [1469] R2), or None.
+
+    Strict: one header block then one body (``_one_header_block``); exactly
+    one Subject header naming the alarm and its state, at most one Date; the
+    body carries no header line of another message (a saved e-mail
+    concatenated after this one) and no mbox separator; exactly one
+    ``- Timestamp:`` line, exactly one ``- State Change:`` line into the
+    subject's state, and it names its alarm (the opening sentence and/or a
+    ``- Name:`` line, each at most once, each agreeing with the subject). An
+    e-mail-json body is read as one JSON notification. Nothing is taken from
+    another message: a truncated message lacking its own timestamp is
+    incomplete, whatever follows it."""
     import email
     from email import policy
 
+    if not _one_header_block(raw):
+        return None
     try:
         m = email.message_from_bytes(raw, policy=policy.default)
+        subjects = m.get_all("Subject") or []
+        dates = m.get_all("Date") or []
         part = m.get_body(preferencelist=("plain",)) or m
         body = part.get_content() if not part.is_multipart() else ""
-        subject = str(m.get("Subject") or "").strip()
+        subject = str(subjects[0]).strip() if len(subjects) == 1 else ""
     except Exception:  # noqa: BLE001 - an unreadable message is simply not evidence
         return None
-    if not isinstance(body, str):
+    if not isinstance(body, str) or len(subjects) != 1 or len(dates) > 1:
+        return None
+    if _NESTED_HEADER.search(body):
         return None
     if body.strip().startswith("{"):
         inner = _json_obj(body.strip())
         return _alarm_fields(inner) if inner is not None else None
     sub = _SUBJECT.match(subject)
-    stamps = set(_MAIL_STAMP.findall(body))
+    stamps = _MAIL_STAMP.findall(body)
     if not sub or len(stamps) != 1:
         return None
     state, name = sub.groups()
-    if any(n != name for n in _MAIL_NAME.findall(body)):
+    named, refs = _MAIL_NAME.findall(body), _MAIL_REF.findall(body)
+    names, intros = named + refs, _MAIL_INTRO.findall(body)
+    if len(named) > 1 or len(refs) > 1 or len(intros) > 1 or not names:
         return None
-    if any(new != state for _, new in _MAIL_CHANGE.findall(body)):
+    if any(n != name for n in names) or any(n != name or s != state for n, s in intros):
+        return None
+    changes = _MAIL_CHANGE.findall(body)
+    if len(changes) != 1 or changes[0][1] != state:
         return None
     day, month, year, hh, mm, ss = next(iter(stamps))
     if month not in _MONTHS:
@@ -764,20 +854,21 @@ def _mail_fields(raw: bytes) -> Optional[Tuple[str, str, int, bool]]:
     return name, state, int(at.timestamp() * 1000), True
 
 
+def _message_fields(chunk: bytes, form: str) -> Optional[Tuple[str, str, int, bool]]:
+    if form.startswith("json"):
+        obj = _json_obj(chunk.decode("utf-8", "replace"))
+        return _alarm_fields(obj) if obj is not None else None
+    return _mail_fields(chunk)
+
+
 def receipt_messages(receipts: Sequence[bytes]) -> List[Dict[str, Any]]:
     """Every notification in the received files, each parsed on its own:
-    {file, offset, sha256, form, alarm, state, at_ms, seconds} (the three
+    {file, offset, sha256, form, alarm, state, at_ms, seconds} (the four
     fields None when the message does not state them unambiguously)."""
     out = []
     for f, raw in enumerate(receipts):
         for offset, chunk, form in _split_receipt(raw):
-            fields = None
-            if form == "json":
-                obj = _json_obj(chunk.decode("utf-8", "replace"))
-                fields = _alarm_fields(obj) if obj is not None else None
-            else:
-                fields = _mail_fields(chunk)
-            alarm, state, at, seconds = fields or (None, None, None, None)
+            alarm, state, at, seconds = _message_fields(chunk, form) or (None, None, None, None)
             out.append({"file": f, "offset": offset, "sha256": hashlib.sha256(chunk).hexdigest(),
                         "form": form, "alarm": alarm, "state": state, "at_ms": at,
                         "seconds": seconds})
@@ -858,10 +949,22 @@ def encoded(v: Any) -> bytes:
 
 EVIDENCE_KEYS = ("schema", "nonce", "tested_run", "tested_run_primary", "holder_runs",
                  "emitted_ms", "silence_s", "test_line_sha256", "transitions", "notifications",
-                 "topic_arn", "alarm_config_sha256", "receipt_sha256")
+                 "topic_arn", "alarm_config_sha256", "receipt_sha256", "trace", "receipt")
+TRACE_KEYS = ("interval_ms", "lines_total", "test_line_index", "lines", "sha256", "manifest_sha256",
+              "order_violations", "malformed_total", "malformed_excluded")
+SELECTED_KEYS = ("alarm", "file", "offset", "sha256", "form", "at_ms", "seconds")
+# Documents from before the bound provenance existed: never reused, recollected.
+PREVIOUS_EVIDENCE_SCHEMAS = ("math_poller.alert_test_evidence/1", "math_poller.alert_test_evidence/2")
+# At most this many malformed protocol lines are listed (each with its bracket).
+MAX_MALFORMED_LISTED = 64
 
 
-ALERT_COLLECTION_SCHEMA = "math_poller.alert_test_collection/1"
+ALERT_COLLECTION_SCHEMA = "math_poller.alert_test_collection/2"
+# The private files the alert-test subcommand writes beside alert-test.json;
+# a saved document is reused only with all of them (``load_alert_test``).
+ALERT_TRACE_FILE = "alert-test-lines.txt"
+ALERT_COLLECTION_FILE = "alert-test-collection.json"
+ALERT_RECEIPT_FILE = "alert-test-receipt-{k}"
 
 
 def _timed(parsed) -> List[Tuple[int, int]]:
@@ -870,46 +973,108 @@ def _timed(parsed) -> List[Tuple[int, int]]:
                   for kind in ("readiness", "stale", "test") for _, b in parsed[kind])
 
 
-def _bracket(timed: Sequence[Tuple[int, int]], index: int) -> Tuple[Optional[int], Optional[int]]:
-    """The times a line at log ``index`` can have been written between: its
-    nearest well-formed timed neighbours', widened by CLOCK_TOLERANCE_MS
-    (None: unbounded on that side)."""
+def clock_order_violations(timed: Sequence[Tuple[int, int]]) -> List[Dict[str, int]]:
+    """The log's clock-order contract (review [1469] R3): every well-formed
+    protocol line's own clock is no more than CLOCK_TOLERANCE_MS behind any
+    line logged before it. Each line that breaks it, with the earlier line
+    its clock is behind: {index, emitted_ms, behind_index, behind_ms}. The
+    log order (CloudWatch's event time, or docker's) and the embedded clocks
+    are separate clocks; only when they agree is the order proven."""
+    out, top = [], None
+    for index, ms in timed:
+        if top is not None and ms < top[1] - CLOCK_TOLERANCE_MS:
+            out.append({"index": index, "emitted_ms": ms, "behind_index": top[0],
+                        "behind_ms": top[1]})
+        if top is None or ms > top[1]:
+            top = (index, ms)
+    return out
+
+
+def _bracket(timed: Sequence[Tuple[int, int]], index: int,
+             ordered: Optional[bool] = None) -> Tuple[Optional[int], Optional[int]]:
+    """The times a line at log ``index`` was written between, established
+    from proven order only (review [1469] R3): when the log's clocks agree
+    with its order (``clock_order_violations`` finds none; ``ordered`` passes
+    that result in), a line logged after every earlier line and before every
+    later one was written no earlier than the latest earlier clock and no
+    later than the earliest later clock, each widened by CLOCK_TOLERANCE_MS
+    (None: no line on that side). When the order is unproven, or the bounds
+    contradict each other, the bracket is (None, None): unknown, which never
+    excludes the line from anything."""
+    if ordered is None:
+        ordered = not clock_order_violations(timed)
+    if not ordered:
+        return None, None
     before = [ms for i, ms in timed if i < index]
     after = [ms for i, ms in timed if i > index]
-    return (max(before) - CLOCK_TOLERANCE_MS if before else None,
-            min(after) + CLOCK_TOLERANCE_MS if after else None)
+    lo = max(before) - CLOCK_TOLERANCE_MS if before else None
+    hi = min(after) + CLOCK_TOLERANCE_MS if after else None
+    if lo is not None and hi is not None and lo > hi:
+        return None, None
+    return lo, hi
 
 
 def drill_trace(lines: Sequence[str], parsed, lo: int, hi: int) -> Tuple[List[str], Dict[str, Any]]:
     """The drill's private trace over ``[lo, hi]`` (review [1465] R3): the
-    verbatim protocol lines whose time (or, for a malformed line, whose
-    possible time) meets the interval, and a report naming each by log index
-    and sha256. A malformed protocol line there (a heartbeat whose JSON was
-    cut off still matches the heartbeat metric filter's literal prefix; a
-    cut-off standby transition cannot be located) is adverse evidence of
-    unknown content: it is listed under ``malformed`` for the caller to
-    refuse."""
+    verbatim well-formed protocol lines whose own time meets the interval,
+    and the collection report: the manifest (log index, kind and sha256 per
+    trace line), and every malformed protocol line of the log with its
+    bracket (``_bracket``). A malformed line whose bracket meets the interval
+    (a heartbeat whose JSON was cut off still matches the heartbeat metric
+    filter's literal prefix; a cut-off standby transition cannot be located),
+    or whose bracket is unknown because the log's clocks contradict its order
+    (review [1469] R3), is adverse evidence of unknown content: it is listed
+    under ``malformed`` for the caller to refuse. The rest are listed under
+    ``malformed_excluded``, each outside the interval by its bracket."""
     timed = _timed(parsed)
+    violations = clock_order_violations(timed)
     picked: List[Tuple[int, str, str]] = []
     for kind in ("readiness", "stale", "test"):
         for line, b in parsed[kind]:
             if lo <= b["emitted_ms"] <= hi:
                 picked.append((b["_index"], kind, line))
-    malformed = []
-    for index, line in parsed["malformed"]:
-        a, b = _bracket(timed, index)
-        if (a is None or a <= hi) and (b is None or b >= lo):
-            picked.append((index, "malformed", line))
-            malformed.append({"index": index, "sha256": _sha(line), "earliest_ms": a,
-                              "latest_ms": b, "prefix": line[:80]})
     picked.sort()
+    malformed, excluded = [], []
+    for index, line in parsed["malformed"]:
+        a, b = _bracket(timed, index, not violations)
+        entry = {"index": index, "sha256": _sha(line), "earliest_ms": a, "latest_ms": b}
+        if (b is not None and b < lo) or (a is not None and a > hi):
+            excluded.append(entry)
+        else:
+            malformed.append(dict(entry, prefix=line[:80],
+                                  order="unproven" if violations else "proven"))
     trace = [line for _, _, line in picked]
+    manifest = [{"index": i, "kind": k, "sha256": _sha(x)} for i, k, x in picked]
     report = {"schema": ALERT_COLLECTION_SCHEMA, "interval_ms": [lo, hi],
-              "lines_total": len(lines),
-              "trace": [{"index": i, "kind": k, "sha256": _sha(x)} for i, k, x in picked],
+              "lines_total": len(lines), "trace": manifest,
               "trace_sha256": hashlib.sha256(("\n".join(trace) + "\n").encode()).hexdigest(),
-              "malformed": malformed, "malformed_lines_total": len(parsed["malformed"])}
+              "manifest_sha256": hashlib.sha256(encoded(manifest)).hexdigest(),
+              "malformed": malformed, "malformed_excluded": excluded,
+              "malformed_lines_total": len(parsed["malformed"]),
+              "order_violations": violations}
     return trace, report
+
+
+class AlertEvidence:
+    """A saved alert-test document with the private provenance it binds
+    (review [1469] R1): the verbatim drill trace (``alert-test-lines.txt``),
+    the collection report with its manifest (``alert-test-collection.json``)
+    and the received files (``alert-test-receipt-<k>``). ``record`` and
+    ``current`` accept the alert test only in this form and re-validate the
+    document against every bound digest (``verify_alert_evidence``); a bare
+    document, or one whose provenance is missing, is refused."""
+
+    def __init__(self, document: Dict[str, Any], trace: Optional[bytes],
+                 collection: Optional[Dict[str, Any]], receipts: Optional[Sequence[bytes]]) -> None:
+        self.document = document
+        self.trace = trace
+        self.collection = collection
+        self.receipts = None if receipts is None else [bytes(r) for r in receipts]
+
+
+def _receipt_files(receipt) -> List[bytes]:
+    return ([] if not receipt else [bytes(receipt)] if isinstance(receipt, (bytes, bytearray))
+            else [bytes(r) for r in receipt])
 
 
 def build_alert_test(lines: Sequence[str], history: Sequence[Dict[str, Any]], nonce: str, *,
@@ -921,10 +1086,20 @@ def build_alert_test(lines: Sequence[str], history: Sequence[Dict[str, Any]], no
                               receipt=receipt)[0]
 
 
+def alert_evidence(lines: Sequence[str], history: Sequence[Dict[str, Any]], nonce: str, *,
+                   described: Dict[str, Any], topic_arn: Optional[str],
+                   receipt) -> AlertEvidence:
+    """``collect_alert_test`` with its provenance kept, as ``record`` and
+    ``current`` accept it (what the alert-test subcommand writes)."""
+    doc, trace, report = collect_alert_test(lines, history, nonce, described=described,
+                                            topic_arn=topic_arn, receipt=receipt)
+    return AlertEvidence(doc, ("\n".join(trace) + "\n").encode(), report, _receipt_files(receipt))
+
+
 def collect_alert_test(lines: Sequence[str], history: Sequence[Dict[str, Any]], nonce: str, *,
                        described: Dict[str, Any], topic_arn: Optional[str], receipt
                        ) -> Tuple[Dict[str, Any], List[str], Dict[str, Any]]:
-    """(the alert-test evidence document ``math_poller.alert_test_evidence/2``,
+    """(the alert-test evidence document ``math_poller.alert_test_evidence/3``,
     the drill's verbatim trace lines, the private collection report).
 
     It names the run that logged the test line (``tested_run``), whether that
@@ -938,20 +1113,27 @@ def collect_alert_test(lines: Sequence[str], history: Sequence[Dict[str, Any]], 
     ALARM transition inside its attribution window (``drill_window``), the
     successful SNS action for that transition (``action_for``: ALARM state,
     its stateUpdateTimestamp, the intended topic), and the operator's
-    received notification of that state change: one message whose own alarm
-    name, ALARM state and state-change time match it (``receipt_messages``,
-    ``receipt_for_transition``; review [1465] R2). ``receipt`` is the
-    received file's bytes, or a list of files; the files stay private, their
-    digest is bound (one file: its sha256; several: the sha256 of their
-    sha256 list) and the report names each selected message by file, byte
-    offset and sha256. A heartbeat drill must also have silenced long
-    enough to cover the alarm's evaluated datapoints and held the lock
-    silently over them (``_silence_held``). Any malformed protocol line
-    whose possible time meets the drill's interval (from one stale period
-    before the test line to the last selected transition) refuses
-    (``Degraded`` ALERT_TEST_EVIDENCE_MALFORMED, its report naming the
-    lines; review [1465] R3). ``transitions`` and ``notifications`` hold
-    exactly the selected events."""
+    received notification of that state change: one complete message whose
+    own alarm name, ALARM state and state-change time match it
+    (``receipt_messages``, ``receipt_for_transition``; reviews [1465] R2 and
+    [1469] R2). ``receipt`` is the received file's bytes, or a list of files.
+    A heartbeat drill must also have silenced long enough to cover the
+    alarm's evaluated datapoints and held the lock silently over them
+    (``_silence_held``). Any malformed protocol line whose possible time
+    meets the drill's interval (from one stale period before the test line to
+    the last selected transition), or cannot be placed because the log's
+    clocks contradict its order, refuses (``Degraded``
+    ALERT_TEST_EVIDENCE_MALFORMED, its report naming the lines; reviews
+    [1465] R3, [1469] R3). ``transitions`` and ``notifications`` hold exactly
+    the selected events.
+
+    The document binds its provenance (review [1469] R1): ``trace`` (the
+    interval, the log's line count, the test line's log index, the sha256 of
+    the private trace and of its manifest, the clock-order violations, and
+    each malformed line excluded with its bracket) and ``receipt`` (each
+    received file's sha256; per fired alarm the selected message's file,
+    byte offset, sha256, form and own time). The files stay private; its
+    sha256 covers all of it, so two different drill traces never share one."""
     topic = check_topic(topic_arn)
     config_sha = alarm_config(described, topic)
     parsed = classify(lines)
@@ -979,52 +1161,81 @@ def collect_alert_test(lines: Sequence[str], history: Sequence[Dict[str, Any]], 
                                  "HEARTBEAT_TEST_NOT_FIRED", "HEARTBEAT_TEST_NOT_NOTIFIED")
         _silence_held(parsed, run, since, silence, beat_t)
         chosen.append((beat_t, beat_n))
-    trace, report = drill_trace(lines, parsed, since - period,
-                                max(max(t["at_ms"] for t, _ in chosen), since + 1000 * silence))
+    lo, hi = drill_interval(since, silence, [t for t, _ in chosen])
+    trace, report = drill_trace(lines, parsed, lo, hi)
     report.update(nonce=nonce, tested_run=run, test_line_index=body["_index"],
                   test_line_sha256=_sha(line))
     if report["malformed"]:
         report.update(refused="ALERT_TEST_EVIDENCE_MALFORMED")
         raise Degraded("ALERT_TEST_EVIDENCE_MALFORMED", report)
-    receipts = ([] if not receipt else [bytes(receipt)] if isinstance(receipt, (bytes, bytearray))
-                else [bytes(r) for r in receipt])
+    if len(report["malformed_excluded"]) > MAX_MALFORMED_LISTED:
+        report.update(refused="ALERT_TEST_TOO_MANY_MALFORMED")
+        raise Degraded("ALERT_TEST_TOO_MANY_MALFORMED", report)
+    receipts = _receipt_files(receipt)
     if not receipts or not all(receipts):
         raise Refused("ALERT_TEST_RECEIPT_MISSING")
     messages = receipt_messages(receipts)
+    chosen.sort(key=lambda tn: (tn[0]["at_ms"], tn[0]["alarm"]))
     selected = []
     for t, n in chosen:
         m = receipt_for_transition(messages, t)
         if m is None:
             raise Refused(f"ALERT_TEST_RECEIPT_UNRELATED:{t['alarm']}")
-        selected.append(dict(m, transition_ms=t["at_ms"]))
+        selected.append({k: m[k] for k in ("file", "offset", "sha256", "form", "at_ms", "seconds")}
+                        | {"alarm": t["alarm"]})
     digests = [hashlib.sha256(r).hexdigest() for r in receipts]
     receipt_sha = digests[0] if len(digests) == 1 else hashlib.sha256(encoded(digests)).hexdigest()
-    chosen.sort(key=lambda tn: (tn[0]["at_ms"], tn[0]["alarm"]))
     evidence = {"schema": EVIDENCE_SCHEMA, "nonce": nonce, "tested_run": run,
                 "tested_run_primary": tested_primary, "holder_runs": holder_runs,
                 "emitted_ms": since, "silence_s": silence,
                 "test_line_sha256": _sha(line),
                 "transitions": [t for t, _ in chosen], "notifications": [n for _, n in chosen],
                 "topic_arn": topic, "alarm_config_sha256": config_sha,
-                "receipt_sha256": receipt_sha}
+                "receipt_sha256": receipt_sha,
+                "trace": {"interval_ms": [lo, hi], "lines_total": len(lines),
+                          "test_line_index": body["_index"], "lines": len(trace),
+                          "sha256": report["trace_sha256"],
+                          "manifest_sha256": report["manifest_sha256"],
+                          "order_violations": len(report["order_violations"]),
+                          "malformed_total": len(parsed["malformed"]),
+                          "malformed_excluded": report["malformed_excluded"]},
+                "receipt": {"files": digests, "selected": selected}}
     doc = {"evidence": evidence, "sha256": hashlib.sha256(encoded(evidence)).hexdigest()}
     report.update(receipt_files=digests, receipt_sha256=receipt_sha,
-                  receipt_messages=len(messages), receipt_selected=selected,
+                  receipt_messages=len(messages),
+                  receipt_selected=[dict(m, transition_ms=t["at_ms"], state="ALARM")
+                                    for m, (t, _) in zip(selected, chosen)],
                   alert_test_sha256=doc["sha256"])
     return doc, trace, report
 
 
+def drill_interval(since: int, silence: int, chosen: Sequence[Dict[str, Any]]) -> Tuple[int, int]:
+    """The drill's evaluated interval: from one stale period before the test
+    line (the datapoint it raised) to the last selected transition, and at
+    least to the end of the silence."""
+    period = 1000 * ALARM_CONFIG[STALE_ALARM]["Period"]
+    return since - period, max(max(t["at_ms"] for t in chosen), since + 1000 * silence)
+
+
 def check_alert_test(doc: Dict[str, Any], topic_arn: Optional[str] = None,
-                     config_sha256: Optional[str] = None) -> str:
+                     config_sha256: Optional[str] = None, validator=None) -> str:
     """The evidence digest, recomputed, after checking the saved evidence's
     own invariants again (a recomputed digest alone establishes nothing;
     review [1461] R2): exactly one transition and one action per fired alarm
     (DiscoveryStale; HeartbeatMissing too for a silence drill), each
     transition an ALARM inside its drill window, each action the successful
     ALARM notification of that transition on the evidence's topic, a silence
-    long enough and a tested run that held the lock, and a receipt digest.
-    Given the current topic and alarm configuration digest, refuses evidence
-    taken against another topic or another configuration."""
+    long enough and a tested run that held the lock, the interval this
+    drill's own, and the bound provenance consistent (review [1469] R1: the
+    verification job's ``validate_alert_test``, real or vendored, also runs).
+    A /2 (or older) document is refused: it predates the bound provenance
+    and must be recollected. Given the current topic and alarm configuration
+    digest, refuses evidence taken against another topic or another
+    configuration. This checks the document alone; reuse needs its
+    provenance too (``verify_alert_evidence``)."""
+    if isinstance(doc, dict) and isinstance(doc.get("evidence"), dict) and \
+            doc["evidence"].get("schema") in PREVIOUS_EVIDENCE_SCHEMAS:
+        raise Refused("ALERT_TEST_SCHEMA_SUPERSEDED:recollect with alert-test")
     if (not isinstance(doc, dict) or set(doc) != {"evidence", "sha256"}
             or not isinstance(doc["evidence"], dict)
             or doc["evidence"].get("schema") != EVIDENCE_SCHEMA
@@ -1058,6 +1269,15 @@ def check_alert_test(doc: Dict[str, Any], topic_arn: Optional[str] = None,
                 or type(t["at_ms"]) is not int or not lo <= t["at_ms"] <= hi
                 or not action_for(t, n, ev["topic_arn"])):
             raise Refused(f"ALERT_TEST_UNBOUND:{alarm}")
+    tr = ev["trace"]
+    if (not isinstance(tr, dict) or set(tr) != set(TRACE_KEYS)
+            or tr["interval_ms"] != list(drill_interval(ev["emitted_ms"], silence, trans))):
+        raise Refused("ALERT_TEST_PROVENANCE:interval")
+    validator = validator or load_validator()[0]
+    try:
+        validator.validate_alert_test(doc)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise Refused(f"ALERT_TEST_INVALID:{exc}") from None
     if topic_arn is not None and ev["topic_arn"] != topic_arn:
         raise Refused("ALERT_TEST_OTHER_TOPIC")
     if config_sha256 is not None and ev["alarm_config_sha256"] != config_sha256:
@@ -1065,12 +1285,152 @@ def check_alert_test(doc: Dict[str, Any], topic_arn: Optional[str] = None,
     return digest
 
 
+def verify_alert_evidence(alert: Any, topic_arn: Optional[str] = None,
+                          config_sha256: Optional[str] = None, validator=None) -> str:
+    """Validation on reuse (review [1469] R1): the saved document checked
+    (``check_alert_test``) and re-validated against every provenance digest
+    it binds; refused if any part is missing or differs. Returns its sha256.
+
+    - the private trace: its sha256 and line count; each line's sha256 and
+      kind equal to the collection manifest's entry, the manifest's own
+      sha256 bound; the entries in log order, inside the log's line count;
+      the test line at its bound index with its bound sha256 and the
+      document's nonce, run, time and silence;
+    - the trace re-read: every line well-formed and inside the interval, no
+      genuine stale line that could have raised the tested datapoint, and
+      for a heartbeat drill the tested run's silence held over the evaluated
+      datapoints (``_silence_held``);
+    - the collection report: this document's, the same interval, clock-order
+      violations and excluded malformed lines, nothing malformed inside;
+    - the received files: each file's sha256, and each selected notification
+      found again at its file and offset with its sha256, and parsed on its
+      own (``_mail_fields`` / JSON) to that transition's alarm, ALARM and time.
+    """
+    if not isinstance(alert, AlertEvidence):
+        raise Refused("ALERT_TEST_PROVENANCE_MISSING:document")
+    doc = alert.document
+    digest = check_alert_test(doc, topic_arn, config_sha256, validator)
+    ev = doc["evidence"]
+    tr, rc = ev["trace"], ev["receipt"]
+    for name, part in (("trace", alert.trace), ("collection", alert.collection),
+                       ("receipts", alert.receipts)):
+        if part is None:
+            raise Refused(f"ALERT_TEST_PROVENANCE_MISSING:{name}")
+
+    def refuse(what: str):
+        raise Refused(f"ALERT_TEST_PROVENANCE:{what}")
+
+    # The private trace and its manifest.
+    if hashlib.sha256(alert.trace).hexdigest() != tr["sha256"]:
+        refuse("trace")
+    try:
+        text = alert.trace.decode("utf-8")
+    except UnicodeDecodeError:
+        refuse("trace")
+    if not text.endswith("\n"):
+        refuse("trace")
+    lines = text[:-1].split("\n")
+    if len(lines) != tr["lines"]:
+        refuse("trace")
+    c = alert.collection
+    manifest = c.get("trace") if isinstance(c, dict) else None
+    if (not isinstance(manifest, list)
+            or hashlib.sha256(encoded(manifest)).hexdigest() != tr["manifest_sha256"]
+            or len(manifest) != len(lines)):
+        refuse("manifest")
+    last = -1
+    for entry, line in zip(manifest, lines):
+        if (not isinstance(entry, dict) or set(entry) != {"index", "kind", "sha256"}
+                or type(entry["index"]) is not int or not last < entry["index"] < tr["lines_total"]
+                or entry["kind"] not in ("readiness", "stale", "test")
+                or entry["sha256"] != _sha(line)):
+            refuse("manifest")
+        last = entry["index"]
+    if [e for e in manifest if e["index"] == tr["test_line_index"]] != [
+            {"index": tr["test_line_index"], "kind": "test", "sha256": ev["test_line_sha256"]}]:
+        refuse("test-line")
+    # The collection report is this document's.
+    if (c.get("schema") != ALERT_COLLECTION_SCHEMA or c.get("alert_test_sha256") != digest
+            or c.get("trace_sha256") != tr["sha256"] or c.get("interval_ms") != tr["interval_ms"]
+            or c.get("lines_total") != tr["lines_total"] or c.get("malformed") != []
+            or c.get("malformed_excluded") != tr["malformed_excluded"]
+            or c.get("malformed_lines_total") != tr["malformed_total"]
+            or not isinstance(c.get("order_violations"), list)
+            or len(c["order_violations"]) != tr["order_violations"]):
+        refuse("collection")
+    # The trace re-read: the same lines, well-formed, the drill checks again.
+    parsed = classify(lines)
+    if parsed["malformed"]:
+        refuse("trace-malformed")
+    kinds = {b["_index"]: (kind, b) for kind in ("readiness", "stale", "test")
+             for _, b in parsed[kind]}
+    lo, hi = tr["interval_ms"]
+    for pos, entry in enumerate(manifest):
+        kind, b = kinds.get(pos, (None, None))
+        if kind != entry["kind"] or not lo <= b["emitted_ms"] <= hi:
+            refuse("trace-line")
+    test = kinds[manifest.index(next(e for e in manifest if e["index"] == tr["test_line_index"]))][1]
+    if (test["nonce"] != ev["nonce"] or test["run"] != ev["tested_run"]
+            or test["emitted_ms"] != ev["emitted_ms"] or test["silence_s"] != ev["silence_s"]):
+        refuse("test-line")
+    since, silence = ev["emitted_ms"], ev["silence_s"]
+    trans = {t["alarm"]: t for t in ev["transitions"]}
+    period = 1000 * ALARM_CONFIG[STALE_ALARM]["Period"]
+    if any(since - period <= b["emitted_ms"] <= trans[STALE_ALARM]["at_ms"]
+           for _, b in parsed["stale"]):
+        raise Refused(f"ALERT_TEST_AMBIGUOUS:{STALE_ALARM}")
+    if silence:
+        if not any(b["run"] == ev["tested_run"] and b["_silenced"] and b["role"] == PRIMARY
+                   for _, b in parsed["readiness"]):
+            raise Refused("HEARTBEAT_TEST_NOT_HOLDER")
+        _silence_held(parsed, ev["tested_run"], since, silence, trans[HEARTBEAT_ALARM])
+    # The received files and each selected notification.
+    if [hashlib.sha256(r).hexdigest() for r in alert.receipts] != rc["files"]:
+        refuse("receipt-files")
+    for s in rc["selected"]:
+        chunks = [(o, ch, form) for o, ch, form in _split_receipt(alert.receipts[s["file"]])
+                  if o == s["offset"] and hashlib.sha256(ch).hexdigest() == s["sha256"]]
+        if len(chunks) != 1 or chunks[0][2] != s["form"]:
+            refuse("receipt-message")
+        fields = _message_fields(chunks[0][1], s["form"])
+        if fields is None:
+            refuse("receipt-message")
+        m = dict(zip(("alarm", "state", "at_ms", "seconds"), fields))
+        if (m["at_ms"] != s["at_ms"] or m["seconds"] != s["seconds"]
+                or receipt_for_transition([m], trans[s["alarm"]]) is None):
+            refuse("receipt-message")
+    return digest
+
+
+def load_alert_test(path: str) -> AlertEvidence:
+    """``alert-test.json`` and the private files the alert-test subcommand
+    wrote beside it (the trace, the collection report and the received
+    files). Any that is missing refuses (ALERT_TEST_PROVENANCE_MISSING)."""
+    p = Path(path)
+    doc = json.loads(p.read_text())
+    here = p.parent
+    missing = [n for n in (ALERT_TRACE_FILE, ALERT_COLLECTION_FILE) if not (here / n).is_file()]
+    if missing:
+        raise Refused(f"ALERT_TEST_PROVENANCE_MISSING:{missing[0]}")
+    files = []
+    ev = doc.get("evidence") if isinstance(doc, dict) else None
+    count = (len(ev["receipt"]["files"]) if isinstance(ev, dict) and isinstance(ev.get("receipt"), dict)
+             and isinstance(ev["receipt"].get("files"), list) else 0)
+    for k in range(count):
+        f = here / ALERT_RECEIPT_FILE.format(k=k)
+        if not f.is_file():
+            raise Refused(f"ALERT_TEST_PROVENANCE_MISSING:{f.name}")
+        files.append(f.read_bytes())
+    return AlertEvidence(doc, (here / ALERT_TRACE_FILE).read_bytes(),
+                         json.loads((here / ALERT_COLLECTION_FILE).read_text()), files)
+
+
 # --------------------------------------------------------------------------- #
 # The record
 # --------------------------------------------------------------------------- #
 def build_record(lines: Sequence[str], described: Dict[str, Any], evaluated_ms: int,
                  observed_ms: int, *, topic_arn: Optional[str], n: int = 20,
-                 alert_test: Optional[Dict[str, Any]] = None,
+                 alert_test: Optional[AlertEvidence] = None,
                  allow_hostname_identity: bool = False
                  ) -> Tuple[Dict[str, Any], List[str], Dict[str, Any]]:
     """(record, the verbatim lines it binds, the collection report). Raises
@@ -1087,7 +1447,9 @@ def build_record(lines: Sequence[str], described: Dict[str, Any], evaluated_ms: 
 
     The record is ``polis-backfill-readiness/2``: it also carries the holder
     line's ``seq`` and ``queue.parked`` (parked live work, which the verifier
-    ages like pending work)."""
+    ages like pending work). ``alert_test`` is the saved alert test with its
+    provenance (``AlertEvidence``, ``load_alert_test``), re-validated against
+    every digest it binds (``verify_alert_evidence``; review [1469] R1)."""
     parsed, held, last, report = select_evidence(lines, observed_ms, n)
     run, config = last["run"], last["config"]
     line_age = report["line_age_ms"]
@@ -1130,7 +1492,7 @@ def build_record(lines: Sequence[str], described: Dict[str, Any], evaluated_ms: 
     bound = sorted(set(bound), key=lambda line: order[line])
 
     config_sha = alarm_config(described, topic_arn)
-    alert_sha = (check_alert_test(alert_test, topic_arn, config_sha)
+    alert_sha = (verify_alert_evidence(alert_test, topic_arn, config_sha)
                  if alert_test is not None else None)
     record = {
         "schema": READINESS_SCHEMA,
@@ -1158,7 +1520,7 @@ def build_record(lines: Sequence[str], described: Dict[str, Any], evaluated_ms: 
 
 def build_current(lines: Sequence[str], described: Dict[str, Any], evaluated_ms: int,
                   observed_ms: int, *, topic_arn: Optional[str], proof: Dict[str, Any],
-                  alert_test: Optional[Dict[str, Any]], validator=None, n: int = 20,
+                  alert_test: Optional[AlertEvidence], validator=None, n: int = 20,
                   allow_hostname_identity: bool = False
                   ) -> Tuple[Dict[str, Any], List[str], Dict[str, Any]]:
     """(``polis-backfill-current-readiness/1``, the bound lines, the report):
@@ -1169,7 +1531,8 @@ def build_current(lines: Sequence[str], described: Dict[str, Any], evaluated_ms:
     ``validate_proof``; the record names its receipt. The holder's record is
     built exactly as ``record`` builds it, must be observed after the proof
     was available and have read the alarms at or after it, and must carry the
-    alert-test document (``alert_test``) whose digest it binds. The whole
+    alert-test document (``alert_test``, with its provenance, re-validated as
+    ``record`` does) whose digest it binds. The whole
     record is validated with the verifier's ``validate_current``. Whether it
     is READY is ``handoff``'s decision (``launch-verify.sh ready``), which
     also compares it with the bound history (same holder, advanced seq,
@@ -1189,7 +1552,7 @@ def build_current(lines: Sequence[str], described: Dict[str, Any], evaluated_ms:
     if evaluated_ms < proof["available_ms"]:
         raise Refused("CURRENT_MONITORING_BEFORE_PROOF")
     current = {"schema": CURRENT_SCHEMA, "receipt_sha256": proof["receipt_sha256"],
-               "readiness": record, "alert_test": alert_test}
+               "readiness": record, "alert_test": alert_test.document}
     try:
         validator.validate_current(current)
     except (ValueError, KeyError, TypeError) as exc:
@@ -1283,10 +1646,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         rec.add_argument("--allow-hostname-identity", action="store_true",
                          help="accept a holder named by hostname (local runs only)")
     sub.choices["record"].add_argument("--alert-test",
-                                       help="alert-test.json from the alert-test subcommand")
+                                       help="alert-test.json from the alert-test subcommand, in its "
+                                            "own directory with the private files written beside it")
     cur = sub.choices["current"]
     cur.add_argument("--alert-test", required=True,
-                     help="alert-test.json from the alert-test subcommand (the history's)")
+                     help="alert-test.json from the alert-test subcommand (the history's), in its "
+                          "own directory with the private files written beside it")
     cur.add_argument("--proof", required=True,
                      help="verify-proof.json written by the receipt phase (polis-backfill-proof/1)")
     at = sub.choices["alert-test"]
@@ -1295,7 +1660,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     at.add_argument("--alarm-state", default="live")
     at.add_argument("--receipt", required=True, action="append",
                     help="a saved received notification: one e-mail (raw source), an mbox, or "
-                         "SNS JSON; repeat for each file (private; only digests are bound)")
+                         "SNS JSON; repeat for each file (private: copied beside alert-test.json, "
+                         "only digests are bound)")
     args = ap.parse_args(argv)
 
     if args.cmd == "holder":
@@ -1318,11 +1684,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     lines, history, args.nonce, described=described, topic_arn=args.topic_arn,
                     receipt=[Path(p).read_bytes() for p in args.receipt])
             except Degraded as exc:
-                _write_create_only(out / "alert-test-collection.json",
-                                   encoded(exc.report) + b"\n")
+                _write_create_only(out / ALERT_COLLECTION_FILE, encoded(exc.report) + b"\n")
                 raise
-            _write_create_only(out / "alert-test-lines.txt", ("\n".join(trace) + "\n").encode())
-            _write_create_only(out / "alert-test-collection.json", encoded(collected) + b"\n")
+            _write_create_only(out / ALERT_TRACE_FILE, ("\n".join(trace) + "\n").encode())
+            _write_create_only(out / ALERT_COLLECTION_FILE, encoded(collected) + b"\n")
+            for k, path in enumerate(args.receipt):
+                _write_create_only(out / ALERT_RECEIPT_FILE.format(k=k), Path(path).read_bytes())
             _write_create_only(out / "alert-test.json", encoded(result) + b"\n")
             ev = result["evidence"]
             print(f"alert test PASSED: tested run={ev['tested_run']} "
@@ -1335,7 +1702,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
         validator, where = load_validator()
         described, evaluated = _alarm_input(args.alarm_state, args.profile, args.region)
-        alert = json.loads(Path(args.alert_test).read_text()) if args.alert_test else None
+        alert = load_alert_test(args.alert_test) if args.alert_test else None
         observed = args.observed_ms or int(time.time() * 1000)
         try:
             if args.cmd == "current":
