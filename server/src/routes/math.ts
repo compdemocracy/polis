@@ -60,6 +60,17 @@ function handle_GET_math_pca2(
   const keys = req.p.keys;
 
   const ifNoneMatch = req.p.ifNoneMatch;
+  // The generations named by If-None-Match, when the client sent entity tags.
+  // They are compared for EQUALITY with the served generation, not as a "newer
+  // than" floor: math_tick is per (zid, math_env), so when the served label
+  // changes (MATH_ENV prod -> python, or back on a rollback) the new label's
+  // tick can be LOWER than the tag a browser cached from the old one. A floor
+  // would answer 304 until the new label's tick passed the old tag, and the
+  // browser would keep showing the old label's cached body; equality answers
+  // 200 with the served label's result instead. While the label is unchanged,
+  // ticks only grow, so for the single tag a browser sends both rules give the
+  // same answer. `*` keeps its existing handling below.
+  let heldTicks: number[] | undefined;
   if (ifNoneMatch) {
     if (math_tick !== undefined) {
       return failJson(
@@ -79,7 +90,9 @@ function handle_GET_math_pca2(
             .replace(/"$/, "")
         );
       });
-      math_tick = Math.min(...entries);
+      heldTicks = entries;
+      // Fetch the latest generation; the 304 decision is made against heldTicks.
+      math_tick = -1;
     }
   } else if (math_tick === undefined) {
     math_tick = -1;
@@ -102,6 +115,15 @@ function handle_GET_math_pca2(
     // the conversation's comment defaults on the wire (see utils/pcaPresentation).
     .then((data: PcaCacheItem | undefined) => presentPca(zid, data))
     .then(function (data: PcaCacheItem | undefined) {
+      if (
+        data &&
+        heldTicks !== undefined &&
+        heldTicks.includes(Number(data.asPOJO.math_tick))
+      ) {
+        // The client already holds exactly this generation.
+        res.status(304).end();
+        return;
+      }
       if (data) {
         // If keys are specified and non-empty, filter the response
         if (keys && keys.length > 0) {
