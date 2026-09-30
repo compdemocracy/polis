@@ -39,6 +39,14 @@ granted while it runs.
 
 Reservations are only ever taken on the thread that then computes, never at
 queue time, so a waiter only ever waits for running work to finish.
+
+Held objects (review [1447] A). A worker that takes a cached conversation for
+an incremental update HOLDS it (``hold``) from the cache lookup, atomically
+under the service's cache lock, until its computation ends (``unhold``), and
+through any wait for admission in between. The cache policy may still evict a
+held entry, but its charge is kept (``drop_retained`` detaches it) until the
+last holder releases, and admission never evicts a held entry (that would
+free nothing). Memory a worker still references is therefore always counted.
 """
 
 from __future__ import annotations
@@ -246,9 +254,16 @@ class MemoryAdmission:
         self._retained: Dict[int, int] = {}
         self._granted: Dict[int, Reservation] = {}
         self._waiters: List[int] = []
+        # zid -> number of workers holding its cached object; zids dropped from
+        # the cache while held keep their charge until the last unhold.
+        self._holds: Dict[int, int] = {}
+        self._detached: Set[int] = set()
         self._tokens = itertools.count(1)
         self._evictor: Optional[Evictor] = None
-        self.stats = {"granted": 0, "waited": 0, "refused": 0, "deferred": 0, "evicted_bytes": 0}
+        # Cumulative counters. ``admitted`` is every reservation ever granted;
+        # the snapshot's ``granted`` is the reservations held right now.
+        self.stats = {"admitted": 0, "waited": 0, "refused": 0, "deferred": 0,
+                      "evicted_bytes": 0}
 
     # -- construction ----------------------------------------------------- #
     @classmethod
@@ -299,21 +314,56 @@ class MemoryAdmission:
                 "retained_mb": round(sum(self._retained.values()) / MB),
                 "cached": len(self._retained),
                 "reserved_mb": round(sum(r.nbytes for r in self._granted.values()) / MB),
-                "granted": len(self._granted), "waiting": len(self._waiters),
                 **self.stats,
+                "granted": len(self._granted), "waiting": len(self._waiters),
+                "held": len(self._holds),
             }
 
     # -- retained cache accounting (service calls these under its cache lock)
     def set_retained(self, zid: int, nbytes: int) -> None:
         with self._cond:
             self._retained[zid] = int(nbytes)
+            self._detached.discard(zid)
 
     def drop_retained(self, zid: int) -> int:
+        """The cache no longer holds zid. Returns the bytes freed: 0 while a
+        worker still holds the object, whose charge then stays until the last
+        ``unhold``."""
         with self._cond:
+            if self._holds.get(zid):
+                if zid in self._retained:
+                    self._detached.add(zid)
+                return 0
             freed = self._retained.pop(zid, 0)
             if freed:
                 self._cond.notify_all()
             return freed
+
+    # -- held objects (a worker's reference to a cached conversation) ------ #
+    def hold(self, zid: int) -> None:
+        """Call under the service's cache lock, atomically with the lookup."""
+        with self._cond:
+            self._holds[zid] = self._holds.get(zid, 0) + 1
+
+    def unhold(self, zid: int) -> None:
+        with self._cond:
+            count = self._holds.get(zid, 0) - 1
+            if count > 0:
+                self._holds[zid] = count
+                return
+            self._holds.pop(zid, None)
+            if zid in self._detached:
+                self._detached.discard(zid)
+                if self._retained.pop(zid, 0):
+                    self._cond.notify_all()
+
+    def is_held(self, zid: int) -> bool:
+        with self._cond:
+            return bool(self._holds.get(zid))
+
+    def held(self) -> Set[int]:
+        with self._cond:
+            return set(self._holds)
 
     def retained_total(self) -> int:
         with self._cond:
@@ -401,7 +451,7 @@ class MemoryAdmission:
                     if self._grantable_locked(ticket, nbytes, exclusive):
                         res = Reservation(ticket, zid, kind, nbytes, exclusive)
                         self._granted[ticket] = res
-                        self.stats["granted"] += 1
+                        self.stats["admitted"] += 1
                         if waited:
                             self.stats["waited"] += 1
                         return res
@@ -409,7 +459,10 @@ class MemoryAdmission:
                     blocked_by_exclusive = any(r.exclusive for r in self._granted.values()) or (
                         exclusive and bool(self._granted))
                     shortfall = self._shortfall_locked(nbytes)
-                    protect = {r.zid for r in self._granted.values()} | {zid}
+                    # Running and held objects are never evicted; the
+                    # evictor re-checks holds under the cache lock.
+                    protect = ({r.zid for r in self._granted.values()} | {zid}
+                               | set(self._holds))
                     evictable = sum(b for z, b in self._retained.items() if z not in protect)
                 if (head and not blocked_by_exclusive and shortfall > 0 and evictable > 0
                         and self._evictor is not None):
@@ -424,9 +477,12 @@ class MemoryAdmission:
                     if not wait:
                         self.stats["deferred"] += 1
                         return None
+                    protect |= set(self._holds)
                     if (not self._granted and head and self._shortfall_locked(nbytes) > 0
                             and not any(z not in protect for z in self._retained)):
-                        # Nothing left to release or evict: it can never fit.
+                        # Nothing left to release or evict: it can never fit
+                        # now. Objects held by other waiters count as held,
+                        # so two waiters cannot wait on each other forever.
                         self.stats["refused"] += 1
                         raise OverBudget(
                             f"zid={zid} {kind} needs {nbytes / MB:.0f} MiB beside the "

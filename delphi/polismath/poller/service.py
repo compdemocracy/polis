@@ -789,6 +789,10 @@ class MathPollerService:
                 self.admission.set_retained(
                     zid, self.admission.model.retained_bytes(voters, comments))
             cap = self.config.conv_cache_cap
+            # Review [1447] A: evicting a conversation a worker still holds
+            # removes it from the cache, but the accountant keeps its charge
+            # until the worker releases it (drop_retained detaches it), so
+            # memory still referenced is always counted.
             while len(self._convs) > 1 and (
                 (cap and len(self._convs) > cap) or self.admission.over_cache_budget()
             ):
@@ -814,7 +818,7 @@ class MathPollerService:
             for zid in list(self._convs):
                 if freed >= shortfall:
                     break
-                if zid in protect:
+                if zid in protect or self.admission.is_held(zid):
                     continue
                 self._convs.pop(zid, None)
                 got = self.admission.drop_retained(zid)
@@ -848,22 +852,29 @@ class MathPollerService:
         return adm.reserve(zid, need, kind=kind, stop=self._stop)
 
     def _run_engine(self, zid: int, coalesced: CoalescedBatch) -> None:
-        with self._convs_lock:
-            conv = self._convs.get(zid)
-            if conv is not None:
-                self._convs.move_to_end(zid)  # LRU touch
-
         # M1 (P-019): an explicit rebuild request (parked-zid reconciler) forces a
         # full-history reload even when a cached conv exists — the cached state may
         # be missing the interval that failed before the zid was parked.
-        if coalesced.rebuild:
-            conv = None
-
-        reservation = self._reserve(zid, conv, coalesced)
+        held = False
+        with self._convs_lock:
+            conv = None if coalesced.rebuild else self._convs.get(zid)
+            if conv is not None:
+                self._convs.move_to_end(zid)  # LRU touch
+                # Review [1447] A: hold the object from this lookup, through
+                # any admission wait and the computation, until release. Taken
+                # under the cache lock, so no eviction can slip in between.
+                self.admission.hold(zid)
+                held = True
         try:
-            self._compute_and_publish(zid, conv, coalesced)
+            reservation = self._reserve(zid, conv, coalesced)
+            try:
+                self._compute_and_publish(zid, conv, coalesced)
+            finally:
+                self.admission.release(reservation)
         finally:
-            self.admission.release(reservation)
+            if held:
+                del conv
+                self.admission.unhold(zid)
 
     def _compute_and_publish(
         self, zid: int, conv: Optional[Conversation], coalesced: CoalescedBatch
@@ -906,6 +917,26 @@ class MathPollerService:
         self._writer.write_conv_updates(zid, conv)
         self._remember(zid, conv)
 
+    def _restorable(self, zid: int, row: Dict[str, Any]) -> bool:
+        """P-070 review [1447] E: warm state is restored only from a row that
+        passes the shared validity rule (``bundle_valid``, computed by
+        ``load_math_main`` in the same snapshot) and whose body names this
+        zid. Anything else rebuilds cold, so a live first touch or rebuild
+        never republishes a malformed body (a wrong zid, say)."""
+        if row.get("bundle_valid") is False:
+            logger.warning(
+                "load-or-init: persisted math for zid=%s math_env=%s fails the shared "
+                "validity rule; discarding it and rebuilding cold", zid, self.config.math_env)
+            return False
+        data = row.get("data")
+        body_zid = data.get("zid") if isinstance(data, dict) else None
+        if body_zid is not None and (isinstance(body_zid, bool) or body_zid != zid):
+            logger.warning(
+                "load-or-init: persisted math for zid=%s names zid=%r in its body; "
+                "discarding it and rebuilding cold", zid, body_zid)
+            return False
+        return True
+
     def _load_or_init(self, zid: int) -> Conversation:
         """Mirror Clojure load-or-init (conv_man.clj:188-207).
 
@@ -943,6 +974,9 @@ class MathPollerService:
                 "(missing rows or mismatched math_tick); discarding persisted "
                 "state and rebuilding full history", zid, self.config.math_env,
             )
+            row = None
+
+        if row and row.get("data") and not self._restorable(zid, row):
             row = None
 
         if row and row.get("data"):
