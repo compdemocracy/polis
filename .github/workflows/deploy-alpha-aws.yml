@@ -64,13 +64,101 @@ jobs:
       - name: Create US deployment package
         run: zip -r deployment-us.zip appspec.yml scripts/* docker-compose.yml
 
-      - name: Upload US deployment package to S3
-        run: aws s3 cp deployment-us.zip s3://polis-deployment-packages-050917022930-us-east-1/deployments/deployment.zip
+      # CodeDeploy runs the hook PACKAGED in a revision, and gives an ASG
+      # replacement the deployment group's last successful revision. Bind that
+      # revision to the approved bytes: every run uploads to its own key, written
+      # once (--if-none-match '*' refuses an existing key), and the deployment
+      # names the object's ETag (and VersionId when the bucket is versioned), so
+      # CodeDeploy refuses different bytes instead of fetching whatever the key
+      # holds later. See cost-reduction/04-plans/PR-S2-flip-notes.md.
+      - name: Upload US deployment package to S3 (unique immutable key)
+        id: upload
+        env:
+          BUCKET: polis-deployment-packages-050917022930-us-east-1
+        run: |
+          set -euo pipefail
+          KEY="deployments/${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.zip"
+          PUT=$(aws s3api put-object --bucket "$BUCKET" --key "$KEY" --body deployment-us.zip \
+            --if-none-match '*' --output json)
+          ETAG=$(printf '%s' "$PUT" | jq -er '.ETag' | tr -d '"')
+          VERSION=$(printf '%s' "$PUT" | jq -r '.VersionId // empty')
+          # Read back what S3 now holds under exactly this key (and version).
+          HEAD_ARGS=(--bucket "$BUCKET" --key "$KEY")
+          if [ -n "$VERSION" ]; then HEAD_ARGS+=(--version-id "$VERSION"); fi
+          HEAD_ETAG=$(aws s3api head-object "${HEAD_ARGS[@]}" --output json | jq -er '.ETag' | tr -d '"')
+          if [ "$HEAD_ETAG" != "$ETAG" ]; then
+            echo "::error::uploaded ETag $ETAG but S3 holds $HEAD_ETAG at $KEY" >&2
+            exit 1
+          fi
+          {
+            echo "bucket=$BUCKET"
+            echo "key=$KEY"
+            echo "etag=$ETAG"
+            echo "version=$VERSION"
+            echo "archive_sha256=$(sha256sum deployment-us.zip | cut -d' ' -f1)"
+            echo "hook_sha256=$(sha256sum scripts/after_install.sh | cut -d' ' -f1)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create US CodeDeploy deployment
+        id: deploy
+        env:
+          BUCKET: ${{ steps.upload.outputs.bucket }}
+          KEY: ${{ steps.upload.outputs.key }}
+          ETAG: ${{ steps.upload.outputs.etag }}
+          VERSION: ${{ steps.upload.outputs.version }}
         run: |
-          aws deploy create-deployment \
+          set -euo pipefail
+          S3_LOCATION="bucket=${BUCKET},key=${KEY},bundleType=zip,eTag=${ETAG}"
+          if [ -n "$VERSION" ]; then S3_LOCATION="${S3_LOCATION},version=${VERSION}"; fi
+          echo "s3-location: $S3_LOCATION"
+          DEPLOYMENT_ID=$(aws deploy create-deployment \
             --application-name PolisApplication \
             --deployment-group-name PolisDeploymentGroup \
-            --revision revisionType=S3,s3Location="{bucket=polis-deployment-packages-050917022930-us-east-1,key=deployments/deployment.zip,bundleType=zip}" \
-            --region us-east-1
+            --s3-location "$S3_LOCATION" \
+            --region us-east-1 \
+            --query deploymentId --output text)
+          echo "deployment_id=$DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Record the deployment's revision bindings
+        env:
+          DEPLOYMENT_ID: ${{ steps.deploy.outputs.deployment_id }}
+          BUCKET: ${{ steps.upload.outputs.bucket }}
+          KEY: ${{ steps.upload.outputs.key }}
+          ETAG: ${{ steps.upload.outputs.etag }}
+          VERSION: ${{ steps.upload.outputs.version }}
+          ARCHIVE_SHA256: ${{ steps.upload.outputs.archive_sha256 }}
+          HOOK_SHA256: ${{ steps.upload.outputs.hook_sha256 }}
+        run: |
+          set -euo pipefail
+          jq -n \
+            --arg deploymentId "$DEPLOYMENT_ID" \
+            --arg bucket "$BUCKET" \
+            --arg key "$KEY" \
+            --arg eTag "$ETAG" \
+            --arg version "$VERSION" \
+            --arg gitSha "$GITHUB_SHA" \
+            --arg ref "$GITHUB_REF" \
+            --arg runId "$GITHUB_RUN_ID" \
+            --arg runAttempt "$GITHUB_RUN_ATTEMPT" \
+            --arg archiveSha256 "$ARCHIVE_SHA256" \
+            --arg hookSha256 "$HOOK_SHA256" \
+            '{deploymentId: $deploymentId, bucket: $bucket, key: $key, eTag: $eTag,
+              version: (if $version == "" then null else $version end),
+              gitSha: $gitSha, ref: $ref, runId: $runId, runAttempt: $runAttempt,
+              archiveSha256: $archiveSha256, hookSha256: $hookSha256}' \
+            > deployment-binding.json
+          cat deployment-binding.json
+          {
+            echo "### CodeDeploy revision binding"
+            echo
+            echo '```json'
+            cat deployment-binding.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the revision binding
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-binding-${{ github.run_id }}-${{ github.run_attempt }}
+          path: deployment-binding.json
+          if-no-files-found: error
