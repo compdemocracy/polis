@@ -160,18 +160,18 @@ describe("getPca and a committed math generation of tick 0", () => {
   });
 
   test("a committed tick 0 is NOT newer than an explicit request for tick 0", async () => {
-    // This is the correct ETag semantic: a client holding `"0"` sends
-    // If-None-Match: "0", routes/math.ts turns that into math_tick 0, and 0 is
-    // not newer than 0, so /api/v3/math/pca2 answers 304.
+    // The explicit math_tick cursor: a client asking for anything newer than 0
+    // is told there is nothing newer. (pca2's If-None-Match no longer maps onto
+    // this cursor; it compares label-bound tags, see pcaMathTickZeroHttp.)
     serveRow("0");
     expect(await getPca(freshZid(), 0)).toBeUndefined();
   });
 
   test("the math_main column tick always beats the blob's own math_tick, including at 0", async () => {
     // The Python engine's blob tick is wall-clock derived and far larger than
-    // any real tick. If it leaked into the served POJO the ETag would be
-    // "34807"; the client would then send If-None-Match: "34807" forever and
-    // never be told about real ticks 1, 2, 3...
+    // any real tick. If it leaked into the served POJO the served generation
+    // (and the pca2 tag built from it) would be 34807, and a cursor client
+    // would never be told about real ticks 1, 2, 3...
     for (const columnTick of ["0", 0]) {
       serveRow(columnTick);
       const result = await getPca(freshZid(), -1);

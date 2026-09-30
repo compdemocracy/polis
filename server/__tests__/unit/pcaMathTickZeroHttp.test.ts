@@ -16,7 +16,7 @@
 // step 2 of that review round): pca2 answers 200
 // with ETag "0" at a committed generation 0.
 
-import { beforeEach, describe, expect, jest, test } from "@jest/globals";
+import { afterAll, beforeEach, describe, expect, jest, test } from "@jest/globals";
 import express from "express";
 import fs from "fs";
 import path from "path";
@@ -124,10 +124,11 @@ jest.mock("../../src/server-helpers", () => ({
 }));
 
 import { handle_GET_bid, handle_GET_math_pca2 } from "../../src/routes/math";
+import Config from "../../src/config";
 import { handle_GET_participationInit } from "../../src/routes/participation";
 import { getLatestExistingPca } from "../../src/utils/pca";
 
-function mathBlob() {
+function mathBlob(n = 1) {
   return {
     "group-clusters": [{ id: 0, center: [0, 0], members: [0] }],
     "base-clusters": {
@@ -152,7 +153,7 @@ function mathBlob() {
       "comment-projection": {},
     },
     tids: [0, 1],
-    n: 1,
+    n,
     repness: {},
     consensus: { agree: [], disagree: [] },
     "votes-base": {},
@@ -178,19 +179,19 @@ function serveNoRow() {
   }) as never);
 }
 
-function serveTick(tick: string) {
+function serveTick(tick: string, n = 1) {
   queryP_readOnly.mockImplementation(((sql: string) => {
     const s = String(sql);
     if (s.includes("as main_data")) {
       return Promise.resolve([{
-        main_data: mathBlob(), main_math_tick: tick, main_caching_tick: tick,
+        main_data: mathBlob(n), main_math_tick: tick, main_caching_tick: tick,
         last_vote_timestamp: 1700000000000,
         bidtopid_data: { bidToPid: [[11]] }, bidtopid_math_tick: tick,
         ptptstats_data: {}, ptptstats_math_tick: tick, ticks_math_tick: tick,
       }]);
     }
     if (s.includes("from math_main")) {
-      return Promise.resolve([{ data: mathBlob(), math_tick: tick }]);
+      return Promise.resolve([{ data: mathBlob(n), math_tick: tick }]);
     }
     if (s.includes("from math_bidtopid")) {
       return Promise.resolve([{ data: { bidToPid: [[11]] } }]);
@@ -360,7 +361,7 @@ describe("HTTP routes at a committed math generation of 0", () => {
     expect(conditional.status).toBe(500);
   });
 
-  test('GET /api/v3/math/pca2 serves generation 0 with status 200 and ETag "0"', async () => {
+  test('GET /api/v3/math/pca2 serves generation 0 with status 200 and ETag "test-math-env-0"', async () => {
     // The second reviewer's probe result, reproduced here as a route test: the route has no
     // math_tick default, so routes/math.ts:82 substitutes -1 and the row is
     // served. This route was never broken by the tick-0 guard.
@@ -375,7 +376,7 @@ describe("HTTP routes at a committed math generation of 0", () => {
       });
 
     expect(res.status).toBe(200);
-    expect(res.headers.etag).toBe('"0"');
+    expect(res.headers.etag).toBe('"test-math-env-0"');
     expect(res.headers["content-encoding"]).toBe("gzip");
     // superagent transparently inflates a gzip response, so the collected
     // buffer is already plain JSON. Gunzip only if it still has the magic.
@@ -394,18 +395,30 @@ describe("HTTP routes at a committed math generation of 0", () => {
       "/route?keys=math_tick,n,tids"
     );
     expect(res.status).toBe(200);
-    expect(res.headers.etag).toBe('"0"');
+    expect(res.headers.etag).toBe('"test-math-env-0"');
     expect(res.headers["content-encoding"]).toBeUndefined();
     expect(res.body).toEqual({ math_tick: 0, n: 1, tids: [0, 1] });
   });
 
-  test('GET /api/v3/math/pca2 with If-None-Match: "0" answers 304', async () => {
-    // The correct ETag round trip, and the shape P-026 reported as "304".
+  test('GET /api/v3/math/pca2 with If-None-Match: "test-math-env-0" answers 304', async () => {
+    // The correct ETag round trip at generation 0.
     serveTick("0");
     const res = await request(pca2App(freshZid()))
       .get("/route")
-      .set("If-None-Match", '"0"');
+      .set("If-None-Match", '"test-math-env-0"');
     expect(res.status).toBe(304);
+    expect(res.headers.etag).toBe('"test-math-env-0"');
+  });
+
+  test('GET /api/v3/math/pca2 with the legacy numeric If-None-Match: "0" answers 200', async () => {
+    // A bare number cannot name the label it came from (review 1439 R2).
+    serveTick("0");
+    const res = await request(pca2App(freshZid()))
+      .get("/route?keys=math_tick,n")
+      .set("If-None-Match", '"0"');
+    expect(res.status).toBe(200);
+    expect(res.headers.etag).toBe('"test-math-env-0"');
+    expect(res.body).toEqual({ math_tick: 0, n: 1 });
   });
 
   test("the registered math_tick defaults are the ones these tests exercise", async () => {
@@ -445,7 +458,7 @@ describe("HTTP routes at a committed math generation of 0", () => {
       "/route?keys=math_tick,n,tids"
     );
     expect(pca2.status).toBe(200);
-    expect(pca2.headers.etag).toBe('"1"');
+    expect(pca2.headers.etag).toBe('"test-math-env-1"');
     expect(pca2.body).toEqual({ math_tick: 1, n: 1, tids: [0, 1] });
 
     for (const bidAppVariant of [bidApp, bidAppWithOldDefault]) {
@@ -658,68 +671,144 @@ function sha256Hex(text: string) {
   return crypto.createHash("sha256").update(text).digest("hex");
 }
 
-// math_tick is per (zid, math_env). When the served label changes (MATH_ENV
-// prod -> python at the switch to the Python engine, or back on a rollback),
-// the served generation can be LOWER than the entity tag a browser cached from
-// the old label. The API sends `Cache-Control: no-cache`, so browsers revalidate
-// with If-None-Match on every load; a "newer than" floor would answer 304 and
-// keep the old label's body on screen until the new label's tick passed it.
+// math_tick is allocated per (zid, math_env), so a tick names a generation only
+// within one label. When the served label changes (MATH_ENV prod -> python at
+// the switch to the Python engine, or back on a rollback) the new label's tick
+// can be lower, higher or EQUAL to the one a browser cached. The API sends
+// `Cache-Control: no-cache`, so browsers revalidate with If-None-Match on every
+// load: the validator must bind the label, or an equal tick answers 304 and the
+// old label's body stays on screen (review 1439 R2 reproduced this in both
+// directions and at tick 0).
 describe("GET /api/v3/math/pca2 If-None-Match across a served-label switch", () => {
+  const mathEnvAtStart = Config.mathEnv;
   beforeEach(() => {
     queryP_readOnly.mockReset();
+    (Config as any).mathEnv = mathEnvAtStart;
+  });
+  afterAll(() => {
+    (Config as any).mathEnv = mathEnvAtStart;
   });
 
-  test("a tag from the old label that is higher than the served tick gets 200 and the served generation", async () => {
+  test.each([
+    ["prod", "python", "57"],
+    ["python", "prod", "57"],
+    ["prod", "python", "0"],
+  ])(
+    "%s -> %s at equal tick %s: the old label's tag gets 200 and the new body",
+    async (from, to, tick) => {
+      const zid = freshZid();
+      (Config as any).mathEnv = from;
+      serveTick(tick, 1);
+      const old = await request(pca2App(zid)).get("/route?keys=math_tick,n");
+      expect(old.status).toBe(200);
+      expect(old.headers.etag).toBe(`"${from}-${tick}"`);
+      expect(old.body).toEqual({ math_tick: Number(tick), n: 1 });
+
+      (Config as any).mathEnv = to;
+      serveTick(tick, 2);
+      const fresh = await request(pca2App(zid))
+        .get("/route?keys=math_tick,n")
+        .set("If-None-Match", old.headers.etag);
+      expect(fresh.status).toBe(200);
+      expect(fresh.headers.etag).toBe(`"${to}-${tick}"`);
+      expect(fresh.body).toEqual({ math_tick: Number(tick), n: 2 });
+
+      // The new label's own tag round-trips, from its now-warm cache entry.
+      const again = await request(pca2App(zid))
+        .get("/route")
+        .set("If-None-Match", fresh.headers.etag);
+      expect(again.status).toBe(304);
+    }
+  );
+
+  test.each(['"57"', "57", 'W/"57"', '"57", "58"'])(
+    "a legacy numeric tag %s at the served tick gets 200, never 304",
+    async (held) => {
+      serveTick("57");
+      const res = await request(pca2App(freshZid()))
+        .get("/route?keys=math_tick,n")
+        .set("If-None-Match", held);
+      expect(res.status).toBe(200);
+      expect(res.headers.etag).toBe('"test-math-env-57"');
+      expect(res.body).toEqual({ math_tick: 57, n: 1 });
+    }
+  );
+
+  test("a tag of a higher tick from the old label gets 200 and the served generation", async () => {
     serveTick("57");
     const res = await request(pca2App(freshZid()))
       .get("/route?keys=math_tick,n")
-      .set("If-None-Match", '"5234"');
+      .set("If-None-Match", '"prod-5234"');
     expect(res.status).toBe(200);
-    expect(res.headers.etag).toBe('"57"');
+    expect(res.headers.etag).toBe('"test-math-env-57"');
     expect(res.body).toEqual({ math_tick: 57, n: 1 });
   });
 
-  test("the tag of the served generation still gets 304", async () => {
+  test("the tag of the served label and generation gets 304 with that tag", async () => {
     serveTick("57");
     const res = await request(pca2App(freshZid()))
       .get("/route")
-      .set("If-None-Match", '"57"');
+      .set("If-None-Match", '"test-math-env-57"');
     expect(res.status).toBe(304);
+    expect(res.headers.etag).toBe('"test-math-env-57"');
   });
 
-  test("a weak tag of the served generation gets 304", async () => {
-    serveTick("57");
-    const res = await request(pca2App(freshZid()))
-      .get("/route")
-      .set("If-None-Match", 'W/"57"');
-    expect(res.status).toBe(304);
+  test("a weak tag, or a list containing the served tag, gets 304", async () => {
+    for (const held of [
+      'W/"test-math-env-57"',
+      '"prod-57", "test-math-env-57"',
+      '"57",W/"test-math-env-57"',
+    ]) {
+      serveTick("57");
+      const res = await request(pca2App(freshZid()))
+        .get("/route")
+        .set("If-None-Match", held);
+      expect(res.status).toBe(304);
+    }
   });
 
-  test("an older tag (the ordinary case, and the rollback direction) gets 200", async () => {
+  test("an older tag of the same label (the ordinary case) gets 200", async () => {
     serveTick("5300");
     const res = await request(pca2App(freshZid()))
       .get("/route?keys=math_tick")
-      .set("If-None-Match", '"57"');
+      .set("If-None-Match", '"test-math-env-57"');
     expect(res.status).toBe(200);
-    expect(res.headers.etag).toBe('"5300"');
+    expect(res.headers.etag).toBe('"test-math-env-5300"');
     expect(res.body).toEqual({ math_tick: 5300 });
   });
 
-  test("a second request from the same zid's cache answers by equality too", async () => {
+  test("a second request from the same zid's cache compares tags the same way", async () => {
     // The first request fills the module-level [math_env, zid] cache; the
     // second is served from it and must apply the same rule.
     serveTick("57");
     const zid = freshZid();
     const first = await request(pca2App(zid)).get("/route?keys=math_tick");
     expect(first.status).toBe(200);
-    const stale = await request(pca2App(zid))
+    const legacy = await request(pca2App(zid))
       .get("/route?keys=math_tick")
-      .set("If-None-Match", '"5234"');
-    expect(stale.status).toBe(200);
-    expect(stale.body).toEqual({ math_tick: 57 });
+      .set("If-None-Match", '"57"');
+    expect(legacy.status).toBe(200);
+    expect(legacy.body).toEqual({ math_tick: 57 });
     const current = await request(pca2App(zid))
       .get("/route")
-      .set("If-None-Match", '"57"');
+      .set("If-None-Match", '"test-math-env-57"');
     expect(current.status).toBe(304);
+  });
+
+  test("the synthesized empty presentation does not carry the tag of a real generation 0", async () => {
+    // A conversation with no committed row is served a synthesized body with
+    // math_tick 0. If it carried "<label>-0", the first real publication (also
+    // generation 0) would answer 304 to it and the empty body would stay.
+    const zid = freshZid();
+    serveNoRow();
+    const empty = await request(pca2App(zid)).get("/route?keys=math_tick,n");
+    expect(empty.status).toBe(200);
+    expect(empty.body).toEqual({ math_tick: 0, n: 0 });
+    expect(empty.headers.etag).not.toBe('"test-math-env-0"');
+
+    const heldEmpty = await request(pca2App(zid))
+      .get("/route")
+      .set("If-None-Match", '"test-math-env-0"');
+    expect(heldEmpty.status).toBe(200);
   });
 });
