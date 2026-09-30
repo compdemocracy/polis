@@ -13,7 +13,7 @@ and, when the admitted holder's discovery or live work has not moved for
 The prefix before the JSON is what the CloudWatch metric filters match (they
 cannot read JSON inside a line that is not itself JSON); the JSON carries the
 evidence the operator's collector (``scripts/collect_readiness.py``) turns into
-a ``polis-backfill-readiness/1`` record. Everything in a line is a count, a
+``polis-backfill-readiness/2`` records. Everything in a line is a count, a
 millisecond clock, a closed label or a digest: no conversation ids, no content,
 no error text.
 

@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""Build a `polis-backfill-readiness/1` record from the math poller's own lines (P-072).
+"""Build `polis-backfill-readiness/2` records from the math poller's own lines (P-072).
 
-The verification job (P-071) needs the admitted holder's liveness, sweep and
-drain evidence as a closed record. This collector reads the poller's lines —
+The verification job (P-071, design (b)) needs the admitted holder's liveness,
+sweep and drain evidence as closed records twice: the history bound at launch
+(``record``) and the current record read immediately before the switch
+(``current``, ``polis-backfill-current-readiness/1``). This collector reads the
+poller's lines —
 ``math_poller readiness/1``, ``discovery_stale/1``, ``readiness_test/1`` and the
 backfill's sweep / COMPLETE / DRAINED lines — plus the two CloudWatch alarms'
 state (read-only), and writes:
 
-  <out>/readiness.json        the record (counts, clocks, closed labels, digests)
+  <out>/readiness.json        the record (counts, clocks, closed labels, digests;
+                              ``current`` writes current-readiness.json instead)
   <out>/readiness-lines.txt   the verbatim lines it was built from (PRIVATE:
                               keep with the operator; bound by lines_sha256)
   <out>/collection.json       how the record was collected: the holder line's
@@ -34,19 +38,30 @@ Alarm state (``--alarm-state``): ``live`` (read-only ``cloudwatch:DescribeAlarms
 or ``file:<describe-alarms.json>``.
 
 Subcommands:
-  record      build, validate and write the record;
+  record      build, validate and write the history record (/2);
+  current     after the proof is available (``--proof verify-proof.json``,
+              ``polis-backfill-proof/1``): the holder's record read now, named
+              for the proven receipt and carrying the alert-test document, as
+              ``polis-backfill-current-readiness/1`` for ``launch-verify.sh ready``;
   alert-test  after the alert test ran, write ``alert-test.json`` binding the
-              ``readiness_test/1`` line to the alarm's ALARM transition(s), the
-              alarm's successful SNS action on the intended topic, the alarm
-              configuration and the operator's received notification; its
-              sha256 is the record's ``monitoring.alert_test_sha256``;
+              ``readiness_test/1`` line to the ALARM transition it caused (one
+              per fired alarm, inside the drill's attribution window), the
+              successful SNS action for THAT transition on the intended topic,
+              the alarm configuration and the operator's received notification
+              of that state change; its sha256 is the record's
+              ``monitoring.alert_test_sha256``;
   holder      print the current admitted holder (run, instance digest) and,
               given ``--instance-id``s, which instance it is: the heartbeat
-              drill must silence that process, not a box chosen by name.
+              drill must silence that process, not a box chosen by name. It
+              selects the evidence exactly as ``record`` does (newest line
+              wins, malformed newer protocol lines degrade, age and future
+              bounds against the collection time) before it names anyone.
 
-``--topic-arn`` (record, alert-test) names the SNS topic the alarms must
-notify; the collector refuses alarms whose actions are disabled, point
-elsewhere or whose configuration differs from ``cdk/mathPollerAlarms.ts``.
+``--topic-arn`` (record, current, alert-test) names the SNS topic the alarms
+must notify; the collector refuses alarms whose actions are disabled, point
+elsewhere or whose configuration (the whole metric identity: namespace, name,
+dimensions, unit, statistic, period, evaluation, threshold, comparison,
+missing-data policy and actions) differs from ``cdk/mathPollerAlarms.ts``.
 
 Nothing here writes to AWS or the database.
 """
@@ -88,20 +103,43 @@ HEARTBEAT_ALARM = "Polis-MathPoller-HeartbeatMissing"
 STALE_ALARM = "Polis-MathPoller-DiscoveryStale"
 ALARMS = (HEARTBEAT_ALARM, STALE_ALARM)
 EVIDENCE_SCHEMA = "math_poller.alert_test_evidence/2"
+READINESS_SCHEMA = "polis-backfill-readiness/2"
+CURRENT_SCHEMA = "polis-backfill-current-readiness/1"
 COLLECTION_SCHEMA = "math_poller.readiness_collection/1"
 # The alarms as cdk/mathPollerAlarms.ts synthesizes them (a test pins these
-# against the CDK snapshot). Checked on every current describe-alarms read.
+# against the CDK snapshot, field for field). Checked on every current
+# describe-alarms read. The metric identity is the whole selection: the log
+# filters publish the two metrics with no dimensions (unit Count), and the
+# alarms name no dimensions and no unit, so an alarm with any dimension or a
+# unit selects another metric (review [1461] R1). TreatMissingData is pinned
+# per alarm: missing heartbeat data is breaching (a dead poller publishes
+# nothing); missing stale data is notBreaching, the only policy under which a
+# healthy poller's stale alarm is OK. That policy is why the stale alarm's
+# metric selection is bound here and exercised by the alert test.
 ALARM_CONFIG = {
     HEARTBEAT_ALARM: {"Namespace": "Polis/MathPoller", "MetricName": "ReadinessHeartbeat",
+                      "Dimensions": [], "Unit": None,
                       "Statistic": "Sum", "Period": 300, "EvaluationPeriods": 3,
                       "DatapointsToAlarm": 3, "Threshold": 1.0,
                       "ComparisonOperator": "LessThanThreshold", "TreatMissingData": "breaching"},
     STALE_ALARM: {"Namespace": "Polis/MathPoller", "MetricName": "DiscoveryStale",
+                  "Dimensions": [], "Unit": None,
                   "Statistic": "Sum", "Period": 300, "EvaluationPeriods": 1,
                   "DatapointsToAlarm": 1, "Threshold": 1.0,
                   "ComparisonOperator": "GreaterThanOrEqualToThreshold",
                   "TreatMissingData": "notBreaching"},
 }
+# Fields of other alarm forms (extended statistics, metric math, anomaly
+# bands, low-sample percentiles). The synthesized alarms set none of them;
+# DescribeAlarms omits them (or returns null / empty). Any value is refused.
+ALARM_UNSUPPORTED = ("ExtendedStatistic", "EvaluateLowSampleCountPercentile", "Metrics",
+                     "ThresholdMetricId")
+# Heartbeat drill: the silence must cover the alarm's evaluated datapoints.
+HEARTBEAT_MIN_SILENCE_S = (ALARM_CONFIG[HEARTBEAT_ALARM]["DatapointsToAlarm"]
+                           * ALARM_CONFIG[HEARTBEAT_ALARM]["Period"])
+# An action's stateUpdateTimestamp (and the message's StateChangeTime) must
+# name its transition's time to within this.
+STATE_MATCH_MS = 1_000
 _TOPIC_ARN = re.compile(r"arn:aws:sns:[a-z0-9-]+:\d{12}:[A-Za-z0-9_-]{1,256}")
 # Clock disagreement tolerated between the holder and the operator (the
 # verifier's own CLOCK_TOLERANCE_MS).
@@ -121,6 +159,15 @@ _DRAINED = re.compile(r"math-backfill DRAINED run=([0-9a-f]{12}):")
 
 class Refused(Exception):
     """A closed reason the record cannot be built honestly."""
+
+
+class Degraded(Refused):
+    """The newest relevant evidence is unusable: no record, and the collection
+    report says why (never a fallback to older, favorable evidence)."""
+
+    def __init__(self, reason: str, report: Dict[str, Any]) -> None:
+        super().__init__(reason)
+        self.report = report
 
 
 # --------------------------------------------------------------------------- #
@@ -265,6 +312,45 @@ def holder_lines(parsed, n: int) -> List[Tuple[str, Dict[str, Any]]]:
     return mine[-n:]
 
 
+def select_evidence(lines: Sequence[str], observed_ms: int, n: int = 1):
+    """The holder's current evidence, selected once for every consumer
+    (``record``, ``current`` and ``holder``; review [1461] R3):
+    (parsed lines, the holder's last ``n`` lines, its newest body, the
+    collection report).
+
+    The newest line of the latest primary run wins, whatever it says. A
+    malformed protocol line after it (a truncated final standby transition)
+    degrades the collection instead of letting the older line through; a
+    newest line that is not primary is no holder; a newest line from the
+    future, or older than MAX_LINE_AGE_INTERVALS of its own intervals at
+    ``observed_ms`` (the collection time), is refused."""
+    parsed = classify(lines)
+    malformed = parsed["malformed"]
+    report: Dict[str, Any] = {"schema": COLLECTION_SCHEMA, "observed_ms": observed_ms,
+                              "malformed_lines": len(malformed), "degraded": False,
+                              "degraded_reason": None}
+    if not parsed["readiness"] and malformed:
+        report.update(degraded=True, degraded_reason="NO_WELLFORMED_READINESS_LINES")
+        raise Degraded("DEGRADED_NO_WELLFORMED_READINESS_LINES", report)
+    held = holder_lines(parsed, n)
+    last = held[-1][1]
+    later = [i for i, _ in malformed if i > last["_index"]]
+    report["malformed_after_newest"] = len(later)
+    if later:
+        report.update(degraded=True, degraded_reason="NEWEST_LINE_MALFORMED")
+        raise Degraded("DEGRADED_NEWEST_LINE_MALFORMED", report)
+    if last["role"] != PRIMARY:
+        raise Refused("NO_PRIMARY_HOLDER")
+    line_age = observed_ms - last["emitted_ms"]
+    if line_age < -CLOCK_TOLERANCE_MS:
+        raise Refused("HOLDER_LINE_FUTURE")
+    if line_age > MAX_LINE_AGE_INTERVALS * 1000 * last["interval_s"]:
+        raise Refused("HOLDER_LINE_STALE")
+    report.update(holder_emitted_ms=last["emitted_ms"], holder_seq=last["seq"], line_age_ms=line_age,
+                  holder_silenced=last["_silenced"], instance_source=last["instance_source"])
+    return parsed, held, last, report
+
+
 # --------------------------------------------------------------------------- #
 # Alarm state and the alert test
 # --------------------------------------------------------------------------- #
@@ -276,13 +362,43 @@ def check_topic(topic_arn: Optional[str]) -> str:
     return topic_arn
 
 
+def _unset(v: Any) -> bool:
+    """An absent, null or empty optional DescribeAlarms field."""
+    return v is None or v == "" or v == [] or v == {}
+
+
+def _effective(a: Dict[str, Any], key: str) -> Any:
+    """A field's effective value: DescribeAlarms omits Unit when none is set
+    and returns Dimensions as a list (empty for none); both normalize here.
+    Nothing else is normalized except an integer Threshold."""
+    got = a.get(key)
+    if key == "Dimensions":
+        if _unset(got):
+            return []
+        if not isinstance(got, list):
+            return got
+        return sorted(({"Name": d.get("Name"), "Value": d.get("Value")} if isinstance(d, dict)
+                       else d for d in got), key=lambda d: json.dumps(d, sort_keys=True))
+    if key == "Unit":
+        return None if _unset(got) else got
+    if key == "Threshold" and isinstance(got, (int, float)) and not isinstance(got, bool):
+        return float(got)
+    return got
+
+
 def alarm_config(described: Dict[str, Any], topic_arn: Optional[str]) -> str:
-    """Refuses unless both alarms exist with actions enabled, ALARM and OK
-    actions on ``topic_arn`` (and nowhere else), and the configuration the
-    CDK synthesizes. Returns the sha256 of the checked fields."""
+    """Refuses unless both alarms exist once each, as single-metric alarms,
+    with actions enabled, ALARM and OK actions on ``topic_arn`` (and nowhere
+    else, no INSUFFICIENT_DATA actions), and exactly the metric identity and
+    evaluation the CDK synthesizes (ALARM_CONFIG: namespace, metric name,
+    dimensions, unit, statistic, period, evaluation and datapoints, threshold,
+    comparison, missing-data policy). Returns the sha256 of the whole
+    effective configuration, so any change to it changes the digest that an
+    alert test was taken against."""
     topic = check_topic(topic_arn)
-    alarms = {a.get("AlarmName"): a for a in described.get("MetricAlarms", [])}
-    if set(alarms) != set(ALARMS):
+    listed = [a for a in described.get("MetricAlarms", []) if isinstance(a, dict)]
+    alarms = {a.get("AlarmName"): a for a in listed}
+    if set(alarms) != set(ALARMS) or len(listed) != len(ALARMS):
         raise Refused("ALARMS_NOT_FOUND")
     checked = {}
     for name in ALARMS:
@@ -292,14 +408,17 @@ def alarm_config(described: Dict[str, Any], topic_arn: Optional[str]) -> str:
         for key in ("AlarmActions", "OKActions"):
             if list(a.get(key) or []) != [topic]:
                 raise Refused(f"ALARM_DESTINATION_MISMATCH:{name}:{key}")
+        if not _unset(a.get("InsufficientDataActions")):
+            raise Refused(f"ALARM_DESTINATION_MISMATCH:{name}:InsufficientDataActions")
+        for key in ALARM_UNSUPPORTED:
+            if not _unset(a.get(key)):
+                raise Refused(f"ALARM_FORM_UNSUPPORTED:{name}:{key}")
         for key, want in ALARM_CONFIG[name].items():
-            got = a.get(key)
-            if isinstance(want, float) and isinstance(got, (int, float)):
-                got = float(got)
-            if got != want:
+            if _effective(a, key) != want:
                 raise Refused(f"ALARM_CONFIG_MISMATCH:{name}:{key}")
         checked[name] = dict(ALARM_CONFIG[name], ActionsEnabled=True, AlarmActions=[topic],
-                             OKActions=[topic])
+                             OKActions=[topic], InsufficientDataActions=[],
+                             **{k: None for k in ALARM_UNSUPPORTED})
     return hashlib.sha256(encoded(checked)).hexdigest()
 
 
@@ -316,46 +435,223 @@ def alarm_state(described: Dict[str, Any]) -> str:
 
 
 def _ms(ts: Any) -> int:
+    if isinstance(ts, bool):
+        raise ValueError("not a time")
     if isinstance(ts, (int, float)):
         return int(ts)
     if isinstance(ts, _dt.datetime):
         return int(ts.timestamp() * 1000)
-    return int(_dt.datetime.fromisoformat(str(ts).replace("Z", "+00:00")).timestamp() * 1000)
+    text = str(ts).strip().replace("Z", "+00:00")
+    m = re.fullmatch(r"(.*[T ]\d\d:\d\d:\d\d(?:\.\d+)?)([+-]\d\d)(\d\d)", text)
+    if m:  # CloudWatch's StateChangeTime: 2026-09-30T07:12:34.567+0000
+        text = f"{m.group(1)}{m.group(2)}:{m.group(3)}"
+    parsed = _dt.datetime.fromisoformat(text)
+    if parsed.tzinfo is None:
+        raise ValueError("a time without a zone")
+    return int(parsed.timestamp() * 1000)
 
 
-def transitions(history: Sequence[Dict[str, Any]], since_ms: int) -> List[Dict[str, Any]]:
-    """ALARM transitions at or after ``since_ms``, closed and sorted."""
+def _json_obj(raw: Any) -> Optional[Dict[str, Any]]:
+    """A JSON object from a string or a dict; None for anything else."""
+    if isinstance(raw, dict):
+        return raw
+    if not isinstance(raw, str):
+        return None
+    try:
+        v = json.loads(raw)
+    except ValueError:
+        return None
+    return v if isinstance(v, dict) else None
+
+
+def _published(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """The alarm notification CloudWatch published (the Action item's
+    ``publishedMessage``: the SNS message, or an SNS envelope with a
+    ``default``/``Message`` string holding it)."""
+    msg = _json_obj(data.get("publishedMessage"))
+    for key in ("default", "Message"):
+        if msg is not None and "AlarmName" not in msg and isinstance(msg.get(key), str):
+            msg = _json_obj(msg[key])
+    return msg
+
+
+def all_transitions(history: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Every state change of the two alarms, closed ({alarm, at_ms, from, to}),
+    sorted. Items that do not parse are not transitions."""
     out = []
     for item in history:
         if item.get("HistoryItemType") != "StateUpdate" or item.get("AlarmName") not in ALARMS:
             continue
-        data = item.get("HistoryData")
-        data = json.loads(data) if isinstance(data, str) else (data or {})
+        data = _json_obj(item.get("HistoryData")) or {}
         new = (data.get("newState") or {}).get("stateValue")
         old = (data.get("oldState") or {}).get("stateValue")
-        at = _ms(item.get("Timestamp"))
-        if new == "ALARM" and at >= since_ms:
-            out.append({"alarm": item["AlarmName"], "at_ms": at, "from": old, "to": new})
+        try:
+            at = _ms(item.get("Timestamp"))
+        except (TypeError, ValueError):
+            continue
+        out.append({"alarm": item["AlarmName"], "at_ms": at, "from": old, "to": new})
     return sorted(out, key=lambda t: (t["at_ms"], t["alarm"]))
 
 
-def notifications(history: Sequence[Dict[str, Any]], since_ms: int,
-                  topic_arn: str) -> List[Dict[str, Any]]:
-    """The alarms' successful action records (``HistoryItemType: Action``) on
-    ``topic_arn`` at or after ``since_ms``: CloudWatch's own record that it
-    published the notification to SNS. Kept verbatim (as strings)."""
+def transitions(history: Sequence[Dict[str, Any]], since_ms: int) -> List[Dict[str, Any]]:
+    """ALARM transitions at or after ``since_ms``, closed and sorted."""
+    return [t for t in all_transitions(history) if t["to"] == "ALARM" and t["at_ms"] >= since_ms]
+
+
+def actions(history: Sequence[Dict[str, Any]], topic_arn: str) -> List[Dict[str, Any]]:
+    """The alarms' successful action records (``HistoryItemType: Action``)
+    on ``topic_arn``, in the stored form ({alarm, at_ms, summary, data}; the
+    data kept verbatim as a string). Which transition each one reported is
+    decided by ``action_for``, never by its time alone."""
     out = []
     for item in history:
         if item.get("HistoryItemType") != "Action" or item.get("AlarmName") not in ALARMS:
             continue
         summary = str(item.get("HistorySummary") or "")
-        at = _ms(item.get("Timestamp"))
-        if summary != f"Successfully executed action {topic_arn}" or at < since_ms:
+        if summary != f"Successfully executed action {topic_arn}":
+            continue
+        try:
+            at = _ms(item.get("Timestamp"))
+        except (TypeError, ValueError):
             continue
         data = item.get("HistoryData")
         out.append({"alarm": item["AlarmName"], "at_ms": at, "summary": summary,
                     "data": data if isinstance(data, str) else encoded(data or {}).decode()})
     return sorted(out, key=lambda t: (t["at_ms"], t["alarm"]))
+
+
+def notifications(history: Sequence[Dict[str, Any]], since_ms: int,
+                  topic_arn: str) -> List[Dict[str, Any]]:
+    """Successful actions on ``topic_arn`` at or after ``since_ms`` (any state)."""
+    return [n for n in actions(history, topic_arn) if n["at_ms"] >= since_ms]
+
+
+def drill_window(alarm: str, emitted_ms: int, silence_s: int) -> Tuple[int, int]:
+    """(earliest, latest) time an ALARM transition of ``alarm`` is attributed
+    to the test line emitted at ``emitted_ms`` (review [1461] R2). This is
+    an attribution window, not a promise about CloudWatch's evaluation delay:
+    a transition outside it (a day-later outage) is not this drill's evidence.
+
+    DiscoveryStale: the test line is itself a stale datapoint, so from the
+    line to (evaluation periods + 2) periods after it. HeartbeatMissing: no
+    earlier than (datapoints to alarm - 1) periods into the silence (the
+    evaluated datapoints must lie inside it), no later than two periods after
+    the silence ended."""
+    cfg = ALARM_CONFIG[alarm]
+    period = 1000 * cfg["Period"]
+    if alarm == STALE_ALARM:
+        return emitted_ms, emitted_ms + (cfg["EvaluationPeriods"] + 2) * period
+    return (emitted_ms + (cfg["DatapointsToAlarm"] - 1) * period,
+            emitted_ms + 1000 * silence_s + 2 * period)
+
+
+def action_for(t: Dict[str, Any], n: Dict[str, Any], topic_arn: str) -> bool:
+    """Whether the stored action ``n`` is the successful notification of
+    transition ``t``: the same alarm, CloudWatch's ``Succeeded`` publication
+    to ``topic_arn``, its ``stateUpdateTimestamp`` naming ``t``'s time, the
+    published message an ALARM of that alarm (its StateChangeTime, when
+    given, naming ``t``'s time), and sent at or after ``t`` within one
+    period. An OK action, an action for an earlier or later transition, or
+    one whose data cannot say which transition it reported is not."""
+    if n.get("alarm") != t["alarm"] or t.get("to") != "ALARM":
+        return False
+    if n.get("summary") != f"Successfully executed action {topic_arn}":
+        return False
+    data = _json_obj(n.get("data"))
+    if not data or data.get("actionState") != "Succeeded":
+        return False
+    if data.get("notificationResource") != topic_arn:
+        return False
+    try:
+        if abs(_ms(data.get("stateUpdateTimestamp")) - t["at_ms"]) > STATE_MATCH_MS:
+            return False
+        msg = _published(data)
+        if not msg or msg.get("AlarmName") != t["alarm"] or msg.get("NewStateValue") != "ALARM":
+            return False
+        if msg.get("StateChangeTime") is not None and \
+                abs(_ms(msg["StateChangeTime"]) - t["at_ms"]) > STATE_MATCH_MS:
+            return False
+        at = int(n["at_ms"])
+    except (TypeError, ValueError, KeyError):
+        return False
+    period = 1000 * ALARM_CONFIG[t["alarm"]]["Period"]
+    return t["at_ms"] - STATE_MATCH_MS <= at <= t["at_ms"] + period
+
+
+def _stamp_forms(at_ms: int) -> List[str]:
+    """How a notification writes the state change's time: ISO seconds (the
+    JSON's StateChangeTime, SNS's Timestamp) and the e-mail's ``Timestamp:``
+    line (``30 September, 2026 07:12:34 UTC``); one second either side."""
+    forms = []
+    for ms in (at_ms - 1000, at_ms, at_ms + 1000):
+        d = _dt.datetime.fromtimestamp(ms / 1000, _dt.timezone.utc)
+        forms += [d.strftime("%Y-%m-%dT%H:%M:%S"),
+                  f"{d.day} {d.strftime('%B')}, {d.year} {d.strftime('%H:%M:%S')} UTC"]
+    return forms
+
+
+def receipt_references(receipt: bytes, t: Dict[str, Any], n: Dict[str, Any]) -> bool:
+    """Whether the received notification is about transition ``t``: it names
+    the alarm, says it entered ALARM, and gives that state change's time (or
+    the published message's own StateChangeTime). An old OK mail that merely
+    names the alarm is not."""
+    text = receipt.decode("utf-8", "replace")
+    name = t["alarm"]
+    if name not in text:
+        return False
+    marker = (re.search(r'ALARM: "%s"' % re.escape(name), text)
+              or re.search(r'NewStateValue\\*"\s*:\s*\\*"ALARM\\*"', text)
+              or re.search(r"->\s*ALARM\b", text))
+    if not marker:
+        return False
+    stamps = _stamp_forms(t["at_ms"])
+    msg = _published(_json_obj(n.get("data")) or {})
+    if msg and isinstance(msg.get("StateChangeTime"), str):
+        stamps.append(msg["StateChangeTime"])
+    return any(s in text for s in stamps)
+
+
+def _select(history, alarm: str, emitted_ms: int, silence_s: int, topic: str,
+            not_fired: str, not_notified: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """The one ALARM transition of ``alarm`` inside its drill window and the
+    successful action for it. None, or more than one, refuses."""
+    lo, hi = drill_window(alarm, emitted_ms, silence_s)
+    moved = [t for t in all_transitions(history)
+             if t["alarm"] == alarm and t["to"] == "ALARM" and lo <= t["at_ms"] <= hi]
+    if not moved:
+        raise Refused(not_fired)
+    if len(moved) > 1:
+        raise Refused(f"ALERT_TEST_AMBIGUOUS:{alarm}")
+    t = moved[0]
+    sent = [n for n in actions(history, topic) if action_for(t, n, topic)]
+    if not sent:
+        raise Refused(not_notified)
+    return t, sent[0]
+
+
+def _silence_held(parsed, run: str, since: int, silence_s: int, t: Dict[str, Any]) -> None:
+    """The heartbeat drill's attribution (review [1461] R2): over the
+    heartbeat alarm's evaluated datapoints that lie in the silence, no process
+    logged a heartbeat line (primary, ok, not silenced), and the tested run
+    held the lock and withheld its heartbeat throughout (only silenced
+    primary lines, no gap longer than two of its intervals)."""
+    cfg = ALARM_CONFIG[HEARTBEAT_ALARM]
+    start = max(since, t["at_ms"] - 1000 * cfg["Period"] * cfg["DatapointsToAlarm"])
+    end = min(t["at_ms"], since + 1000 * silence_s)
+    inside = [b for _, b in parsed["readiness"] if start <= b["emitted_ms"] <= end]
+    if any(b["role"] == PRIMARY and b["progress"] == "ok" and not b["_silenced"] for b in inside):
+        raise Refused("HEARTBEAT_TEST_HEARTBEAT_SEEN")
+    mine = [b for _, b in parsed["readiness"] if b["run"] == run]
+    if any(not (b["role"] == PRIMARY and b["_silenced"]) for b in mine
+           if start <= b["emitted_ms"] <= end):
+        raise Refused("HEARTBEAT_TEST_NOT_HELD")
+    held = sorted(b["emitted_ms"] for b in mine if b["role"] == PRIMARY and b["_silenced"])
+    if not held:
+        raise Refused("HEARTBEAT_TEST_NOT_HOLDER")
+    gap = 2 * 1000 * max(b["interval_s"] for b in mine) + CLOCK_TOLERANCE_MS
+    points = [start] + [x for x in held if start < x < end] + [end]
+    if any(b - a > gap for a, b in zip(points, points[1:])):
+        raise Refused("HEARTBEAT_TEST_NOT_HELD")
 
 
 def encoded(v: Any) -> bytes:
@@ -371,15 +667,24 @@ EVIDENCE_KEYS = ("schema", "nonce", "tested_run", "tested_run_primary", "holder_
 def build_alert_test(lines: Sequence[str], history: Sequence[Dict[str, Any]], nonce: str, *,
                      described: Dict[str, Any], topic_arn: Optional[str],
                      receipt: Optional[bytes]) -> Dict[str, Any]:
-    """The alert-test evidence. It names the run that logged the test line
-    (``tested_run``), whether that run was the admitted holder, and every run
-    that logged primary lines during the test (``holder_runs``): a restarted
-    former holder may come back as a standby, and the discovery-stale test
-    still fires from it, but the heartbeat drill (``silence_s > 0``) proves
-    something only when the tested run is the holder and actually withheld
-    its heartbeat. Notification evidence: CloudWatch's successful SNS action
-    on the intended topic for each fired alarm, and the notification the
-    operator received (``receipt``, kept private; only its sha256 is bound)."""
+    """The alert-test evidence (``math_poller.alert_test_evidence/2``).
+
+    It names the run that logged the test line (``tested_run``), whether that
+    run was the admitted holder, and every run that logged primary lines
+    during the test (``holder_runs``): a restarted former holder may come back
+    as a standby, and the discovery-stale test still fires from it, but the
+    heartbeat drill (``silence_s > 0``) proves something only when the tested
+    run is the holder and actually withheld its heartbeat.
+
+    Each fired alarm is bound as one event (review [1461] R2): the single
+    ALARM transition inside its attribution window (``drill_window``), the
+    successful SNS action for that transition (``action_for``: ALARM state,
+    its stateUpdateTimestamp, the intended topic), and the operator's
+    received notification of that state change (``receipt_references``;
+    kept private, only its sha256 is bound). A heartbeat drill must also
+    have silenced long enough to cover the alarm's evaluated datapoints and
+    held the lock silently over them (``_silence_held``). ``transitions`` and
+    ``notifications`` hold exactly the selected events."""
     topic = check_topic(topic_arn)
     config_sha = alarm_config(described, topic)
     parsed = classify(lines)
@@ -387,46 +692,55 @@ def build_alert_test(lines: Sequence[str], history: Sequence[Dict[str, Any]], no
     if not tests:
         raise Refused("ALERT_TEST_LINE_MISSING")
     line, body = tests[-1]
-    run, since = body["run"], body["emitted_ms"]
-    moved = transitions(history, since)
-    if not any(t["alarm"] == STALE_ALARM for t in moved):
-        raise Refused("ALERT_TEST_NOT_FIRED")
-    sent = notifications(history, since, topic)
-    if not any(n["alarm"] == STALE_ALARM for n in sent):
-        raise Refused("ALERT_TEST_NOT_NOTIFIED")
+    run, since, silence = body["run"], body["emitted_ms"], body["silence_s"]
+    stale_t, stale_n = _select(history, STALE_ALARM, since, silence, topic,
+                               "ALERT_TEST_NOT_FIRED", "ALERT_TEST_NOT_NOTIFIED")
+    # A genuine stale line near the test could have raised the same datapoint.
+    period = 1000 * ALARM_CONFIG[STALE_ALARM]["Period"]
+    if any(since - period <= b["emitted_ms"] <= stale_t["at_ms"] for _, b in parsed["stale"]):
+        raise Refused(f"ALERT_TEST_AMBIGUOUS:{STALE_ALARM}")
+    chosen = [(stale_t, stale_n)]
     after = [b for _, b in parsed["readiness"] if b["emitted_ms"] >= since]
     holder_runs = sorted({b["run"] for b in after if b["role"] == PRIMARY})
     tested_primary = run in holder_runs
-    if body["silence_s"]:
-        silenced = [b for b in after if b["run"] == run and b["_silenced"]
-                    and b["role"] == PRIMARY]
-        if not silenced:
+    if silence:
+        if not any(b["run"] == run and b["_silenced"] and b["role"] == PRIMARY for b in after):
             raise Refused("HEARTBEAT_TEST_NOT_HOLDER")
-        if not any(t["alarm"] == HEARTBEAT_ALARM for t in moved):
-            raise Refused("HEARTBEAT_TEST_NOT_FIRED")
-        if not any(n["alarm"] == HEARTBEAT_ALARM for n in sent):
-            raise Refused("HEARTBEAT_TEST_NOT_NOTIFIED")
+        if silence < HEARTBEAT_MIN_SILENCE_S:
+            raise Refused("HEARTBEAT_TEST_SILENCE_TOO_SHORT")
+        beat_t, beat_n = _select(history, HEARTBEAT_ALARM, since, silence, topic,
+                                 "HEARTBEAT_TEST_NOT_FIRED", "HEARTBEAT_TEST_NOT_NOTIFIED")
+        _silence_held(parsed, run, since, silence, beat_t)
+        chosen.append((beat_t, beat_n))
     if not receipt:
         raise Refused("ALERT_TEST_RECEIPT_MISSING")
-    if STALE_ALARM.encode() not in receipt:
-        raise Refused("ALERT_TEST_RECEIPT_UNRELATED")
+    for t, n in chosen:
+        if not receipt_references(receipt, t, n):
+            raise Refused(f"ALERT_TEST_RECEIPT_UNRELATED:{t['alarm']}")
+    chosen.sort(key=lambda tn: (tn[0]["at_ms"], tn[0]["alarm"]))
     evidence = {"schema": EVIDENCE_SCHEMA, "nonce": nonce, "tested_run": run,
                 "tested_run_primary": tested_primary, "holder_runs": holder_runs,
-                "emitted_ms": since, "silence_s": body["silence_s"],
+                "emitted_ms": since, "silence_s": silence,
                 "test_line_sha256": hashlib.sha256(line.encode()).hexdigest(),
-                "transitions": moved, "notifications": sent, "topic_arn": topic,
-                "alarm_config_sha256": config_sha,
+                "transitions": [t for t, _ in chosen], "notifications": [n for _, n in chosen],
+                "topic_arn": topic, "alarm_config_sha256": config_sha,
                 "receipt_sha256": hashlib.sha256(receipt).hexdigest()}
     return {"evidence": evidence, "sha256": hashlib.sha256(encoded(evidence)).hexdigest()}
 
 
 def check_alert_test(doc: Dict[str, Any], topic_arn: Optional[str] = None,
                      config_sha256: Optional[str] = None) -> str:
-    """The evidence digest, recomputed; refuses a file whose digest disagrees,
-    one without a fired and notified discovery-stale alarm, and (given the
-    current topic and alarm configuration digest) one taken against another
-    topic or another configuration."""
-    if (set(doc) != {"evidence", "sha256"} or not isinstance(doc["evidence"], dict)
+    """The evidence digest, recomputed, after checking the saved evidence's
+    own invariants again (a recomputed digest alone establishes nothing;
+    review [1461] R2): exactly one transition and one action per fired alarm
+    (DiscoveryStale; HeartbeatMissing too for a silence drill), each
+    transition an ALARM inside its drill window, each action the successful
+    ALARM notification of that transition on the evidence's topic, a silence
+    long enough and a tested run that held the lock, and a receipt digest.
+    Given the current topic and alarm configuration digest, refuses evidence
+    taken against another topic or another configuration."""
+    if (not isinstance(doc, dict) or set(doc) != {"evidence", "sha256"}
+            or not isinstance(doc["evidence"], dict)
             or doc["evidence"].get("schema") != EVIDENCE_SCHEMA
             or set(doc["evidence"]) != set(EVIDENCE_KEYS)):
         raise Refused("ALERT_TEST_SCHEMA")
@@ -434,10 +748,30 @@ def check_alert_test(doc: Dict[str, Any], topic_arn: Optional[str] = None,
     digest = hashlib.sha256(encoded(ev)).hexdigest()
     if digest != doc["sha256"]:
         raise Refused("ALERT_TEST_DIGEST")
-    if (not any(t.get("alarm") == STALE_ALARM for t in ev["transitions"])
-            or not any(n.get("alarm") == STALE_ALARM for n in ev["notifications"])
+    silence = ev["silence_s"]
+    if type(silence) is not int or type(ev["emitted_ms"]) is not int:
+        raise Refused("ALERT_TEST_SCHEMA")
+    need = (STALE_ALARM, HEARTBEAT_ALARM) if silence else (STALE_ALARM,)
+    trans, sent = ev["transitions"], ev["notifications"]
+    if (not isinstance(trans, list) or not isinstance(sent, list)
+            or not all(isinstance(x, dict) for x in trans + sent)
+            or sorted(t.get("alarm") for t in trans) != sorted(need)
+            or sorted(n.get("alarm") for n in sent) != sorted(need)
             or not ev["receipt_sha256"]):
         raise Refused("ALERT_TEST_INCOMPLETE")
+    if silence:
+        if silence < HEARTBEAT_MIN_SILENCE_S:
+            raise Refused("HEARTBEAT_TEST_SILENCE_TOO_SHORT")
+        if ev["tested_run_primary"] is not True:
+            raise Refused("HEARTBEAT_TEST_NOT_HOLDER")
+    for alarm in need:
+        t = next(x for x in trans if x.get("alarm") == alarm)
+        n = next(x for x in sent if x.get("alarm") == alarm)
+        lo, hi = drill_window(alarm, ev["emitted_ms"], silence)
+        if (set(t) != {"alarm", "at_ms", "from", "to"} or t["to"] != "ALARM"
+                or type(t["at_ms"]) is not int or not lo <= t["at_ms"] <= hi
+                or not action_for(t, n, ev["topic_arn"])):
+            raise Refused(f"ALERT_TEST_UNBOUND:{alarm}")
     if topic_arn is not None and ev["topic_arn"] != topic_arn:
         raise Refused("ALERT_TEST_OTHER_TOPIC")
     if config_sha256 is not None and ev["alarm_config_sha256"] != config_sha256:
@@ -448,15 +782,6 @@ def check_alert_test(doc: Dict[str, Any], topic_arn: Optional[str] = None,
 # --------------------------------------------------------------------------- #
 # The record
 # --------------------------------------------------------------------------- #
-class Degraded(Refused):
-    """The newest relevant evidence is unusable: no record, and the collection
-    report says why (never a fallback to older, favorable evidence)."""
-
-    def __init__(self, reason: str, report: Dict[str, Any]) -> None:
-        super().__init__(reason)
-        self.report = report
-
-
 def build_record(lines: Sequence[str], described: Dict[str, Any], evaluated_ms: int,
                  observed_ms: int, *, topic_arn: Optional[str], n: int = 20,
                  alert_test: Optional[Dict[str, Any]] = None,
@@ -471,25 +796,15 @@ def build_record(lines: Sequence[str], described: Dict[str, Any], evaluated_ms: 
     holder's newest line was observed at its own ``emitted_ms``, so its queue
     age is aged by the difference (discovery carries absolute clocks and ages
     by itself); a line older than MAX_LINE_AGE_INTERVALS of its intervals, or
-    from the future, is refused."""
-    parsed = classify(lines)
-    malformed = parsed["malformed"]
-    report: Dict[str, Any] = {"schema": COLLECTION_SCHEMA, "observed_ms": observed_ms,
-                              "malformed_lines": len(malformed), "degraded": False,
-                              "degraded_reason": None}
-    if not parsed["readiness"] and malformed:
-        report.update(degraded=True, degraded_reason="NO_WELLFORMED_READINESS_LINES")
-        raise Degraded("DEGRADED_NO_WELLFORMED_READINESS_LINES", report)
-    held = holder_lines(parsed, n)
-    last = held[-1][1]
-    later = [i for i, _ in malformed if i > last["_index"]]
-    report["malformed_after_newest"] = len(later)
-    if later:
-        report.update(degraded=True, degraded_reason="NEWEST_LINE_MALFORMED")
-        raise Degraded("DEGRADED_NEWEST_LINE_MALFORMED", report)
+    from the future, is refused. The selection is ``select_evidence``, the
+    same one ``holder`` uses.
+
+    The record is ``polis-backfill-readiness/2``: it also carries the holder
+    line's ``seq`` and ``queue.parked`` (parked live work, which the verifier
+    ages like pending work)."""
+    parsed, held, last, report = select_evidence(lines, observed_ms, n)
     run, config = last["run"], last["config"]
-    if last["role"] != PRIMARY:
-        raise Refused("NO_PRIMARY_HOLDER")
+    line_age = report["line_age_ms"]
     if last["instance_source"] != "instance_id" and not allow_hostname_identity:
         raise Refused("IDENTITY_HOSTNAME")
     if last["source_commit"] is None:
@@ -499,11 +814,6 @@ def build_record(lines: Sequence[str], described: Dict[str, Any], evaluated_ms: 
     d, q, s, dr = last["discovery"], last["queue"], last["sweep"], last["drain"]
     if d["last_success_ms"] is None:
         raise Refused("NO_DISCOVERY_SUCCESS")
-    line_age = observed_ms - last["emitted_ms"]
-    if line_age < -CLOCK_TOLERANCE_MS:
-        raise Refused("HOLDER_LINE_FUTURE")
-    if line_age > MAX_LINE_AGE_INTERVALS * 1000 * last["interval_s"]:
-        raise Refused("HOLDER_LINE_STALE")
     # Queued, running, retrying or parked work observed at emitted_ms has
     # been unresolved at least that much longer by observed_ms. An empty
     # queue stays empty (nothing was observed), and the discovery gap bounds
@@ -537,15 +847,16 @@ def build_record(lines: Sequence[str], described: Dict[str, Any], evaluated_ms: 
     alert_sha = (check_alert_test(alert_test, topic_arn, config_sha)
                  if alert_test is not None else None)
     record = {
-        "schema": "polis-backfill-readiness/1",
+        "schema": READINESS_SCHEMA,
         "observed_ms": observed_ms,
+        "seq": last["seq"],
         "lines_sha256": hashlib.sha256(("\n".join(bound) + "\n").encode()).hexdigest(),
         "holder": {"role": last["role"], "instance_sha256": last["instance_sha256"],
                    "source_commit": last["source_commit"], "run": run, "config": config},
         "discovery": {"last_success_ms": d["last_success_ms"], "successes": d["successes"],
                       "failures_since_success": d["failures_since_success"]},
-        # Parked zids are unresolved live work, not a separate category.
-        "queue": {"pending": q["pending"] + q["parked"],
+        # Parked zids are unresolved live work: counted apart, aged alike.
+        "queue": {"pending": q["pending"], "parked": q["parked"],
                   "oldest_work_age_ms": q["oldest_work_age_ms"] + aged_by},
         "sweep": {k: s[k] for k in ("sweep_no", "finished_ms", "run", "config", "status",
                                      "unresolved", "parked_live", "in_flight")},
@@ -553,12 +864,53 @@ def build_record(lines: Sequence[str], described: Dict[str, Any], evaluated_ms: 
         "monitoring": {"alarm": alarm_state(described), "evaluated_ms": evaluated_ms,
                        "alert_test_sha256": alert_sha},
     }
-    report.update(holder_emitted_ms=last["emitted_ms"], line_age_ms=line_age,
-                  queue_aged_by_ms=aged_by, queue_parked=q["parked"],
-                  holder_silenced=last["_silenced"], instance_source=last["instance_source"],
+    report.update(queue_aged_by_ms=aged_by, queue_parked=q["parked"],
                   alarm_config_sha256=config_sha, topic_arn=topic_arn,
                   lines_sha256=record["lines_sha256"])
     return record, bound, report
+
+
+def build_current(lines: Sequence[str], described: Dict[str, Any], evaluated_ms: int,
+                  observed_ms: int, *, topic_arn: Optional[str], proof: Dict[str, Any],
+                  alert_test: Optional[Dict[str, Any]], validator=None, n: int = 20,
+                  allow_hostname_identity: bool = False
+                  ) -> Tuple[Dict[str, Any], List[str], Dict[str, Any]]:
+    """(``polis-backfill-current-readiness/1``, the bound lines, the report):
+    the holder's record read now, collected after the proof is available.
+
+    ``proof`` is the receipt phase's ``verify-proof.json``
+    (``polis-backfill-proof/1``), validated by the verifier's own
+    ``validate_proof``; the record names its receipt. The holder's record is
+    built exactly as ``record`` builds it, must be observed after the proof
+    was available and have read the alarms at or after it, and must carry the
+    alert-test document (``alert_test``) whose digest it binds. The whole
+    record is validated with the verifier's ``validate_current``. Whether it
+    is READY is ``handoff``'s decision (``launch-verify.sh ready``), which
+    also compares it with the bound history (same holder, advanced seq,
+    advanced discovery, same DRAINED and alert test)."""
+    validator = validator or load_validator()[0]
+    try:
+        validator.validate_proof(proof)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise Refused(f"PROOF_INVALID:{exc}") from None
+    if alert_test is None:
+        raise Refused("CURRENT_ALERT_TEST_MISSING")
+    record, bound, report = build_record(lines, described, evaluated_ms, observed_ms,
+                                         topic_arn=topic_arn, n=n, alert_test=alert_test,
+                                         allow_hostname_identity=allow_hostname_identity)
+    if observed_ms <= proof["available_ms"]:
+        raise Refused("CURRENT_BEFORE_PROOF")
+    if evaluated_ms < proof["available_ms"]:
+        raise Refused("CURRENT_MONITORING_BEFORE_PROOF")
+    current = {"schema": CURRENT_SCHEMA, "receipt_sha256": proof["receipt_sha256"],
+               "readiness": record, "alert_test": alert_test}
+    try:
+        validator.validate_current(current)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise Refused(f"CURRENT_INVALID:{exc}") from None
+    report.update(proof_run_id=proof["run_id"], proof_available_ms=proof["available_ms"],
+                  receipt_sha256=proof["receipt_sha256"])
+    return current, bound, report
 
 
 def advisory(validator, record: Dict[str, Any], cutoff_ms: int, now_ms: int) -> List[str]:
@@ -618,7 +970,7 @@ def _lines(args) -> List[str]:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for name in ("record", "alert-test", "holder"):
+    for name in ("record", "current", "alert-test", "holder"):
         p = sub.add_parser(name)
         p.add_argument("--source", choices=("cloudwatch", "docker", "file"), default="cloudwatch")
         p.add_argument("--file")
@@ -631,23 +983,32 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         if name == "holder":
             p.add_argument("--instance-id", action="append", default=[],
                            help="an EC2 instance id to match against the holder's digest")
+            p.add_argument("--observed-ms", type=int, help=argparse.SUPPRESS)
             continue
         p.add_argument("--out", required=True, help="an empty or new directory")
         p.add_argument("--topic-arn", help="the SNS topic both alarms must notify (required)")
-    rec = sub.choices["record"]
-    rec.add_argument("--lines", type=int, default=20, help="heartbeat lines to bind")
-    rec.add_argument("--alarm-state", default="live")
-    rec.add_argument("--alert-test", help="alert-test.json from the alert-test subcommand")
-    rec.add_argument("--cutoff-ms", type=int, help="print the verifier's conditions at this cutoff")
-    rec.add_argument("--observed-ms", type=int, help=argparse.SUPPRESS)
-    rec.add_argument("--allow-hostname-identity", action="store_true",
-                     help="accept a holder named by hostname (local runs only)")
+    for name in ("record", "current"):
+        rec = sub.choices[name]
+        rec.add_argument("--lines", type=int, default=20, help="heartbeat lines to bind")
+        rec.add_argument("--alarm-state", default="live")
+        rec.add_argument("--cutoff-ms", type=int,
+                         help="print the verifier's conditions at this cutoff")
+        rec.add_argument("--observed-ms", type=int, help=argparse.SUPPRESS)
+        rec.add_argument("--allow-hostname-identity", action="store_true",
+                         help="accept a holder named by hostname (local runs only)")
+    sub.choices["record"].add_argument("--alert-test",
+                                       help="alert-test.json from the alert-test subcommand")
+    cur = sub.choices["current"]
+    cur.add_argument("--alert-test", required=True,
+                     help="alert-test.json from the alert-test subcommand (the history's)")
+    cur.add_argument("--proof", required=True,
+                     help="verify-proof.json written by the receipt phase (polis-backfill-proof/1)")
     at = sub.choices["alert-test"]
     at.add_argument("--nonce", required=True)
     at.add_argument("--history", default="live", help="live or file:<describe-alarm-history.json>")
     at.add_argument("--alarm-state", default="live")
     at.add_argument("--receipt", required=True,
-                    help="the received notification, saved (private; only its sha256 is bound)")
+                    help="the received notification(s), saved (private; only its sha256 is bound)")
     args = ap.parse_args(argv)
 
     if args.cmd == "holder":
@@ -672,9 +1033,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             ev = result["evidence"]
             print(f"alert test PASSED: tested run={ev['tested_run']} "
                   f"(holder: {'yes' if ev['tested_run_primary'] else 'no'}; holder runs "
-                  f"{','.join(ev['holder_runs']) or 'none'}); {len(ev['transitions'])} ALARM "
-                  f"transition(s), {len(ev['notifications'])} SNS action(s) on {ev['topic_arn']}; "
-                  f"alert_test_sha256={result['sha256']}")
+                  f"{','.join(ev['holder_runs']) or 'none'}); "
+                  + "; ".join(f"{t['alarm']} ALARM at {t['at_ms']} notified at {n['at_ms']}"
+                              for t, n in zip(ev["transitions"], ev["notifications"]))
+                  + f" on {ev['topic_arn']}; alert_test_sha256={result['sha256']}")
             return 0
 
         validator, where = load_validator()
@@ -682,9 +1044,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         alert = json.loads(Path(args.alert_test).read_text()) if args.alert_test else None
         observed = args.observed_ms or int(time.time() * 1000)
         try:
-            record, bound, report = build_record(
-                lines, described, evaluated, observed, topic_arn=args.topic_arn, n=args.lines,
-                alert_test=alert, allow_hostname_identity=args.allow_hostname_identity)
+            if args.cmd == "current":
+                proof = json.loads(Path(args.proof).read_text())
+                current, bound, report = build_current(
+                    lines, described, evaluated, observed, topic_arn=args.topic_arn,
+                    proof=proof, alert_test=alert, validator=validator, n=args.lines,
+                    allow_hostname_identity=args.allow_hostname_identity)
+                record = current["readiness"]
+            else:
+                record, bound, report = build_record(
+                    lines, described, evaluated, observed, topic_arn=args.topic_arn,
+                    n=args.lines, alert_test=alert,
+                    allow_hostname_identity=args.allow_hostname_identity)
         except Degraded as exc:
             _write_create_only(out / "collection.json", encoded(exc.report) + b"\n")
             raise
@@ -693,19 +1064,28 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         except ValueError as exc:
             raise Refused(f"RECORD_INVALID:{exc}") from None
         report["readiness_sha256"] = validator.readiness_digest(record)
+        name = "readiness.json"
+        if args.cmd == "current":
+            name = "current-readiness.json"
+            report["current_sha256"] = validator.readiness_digest(current)
         _write_create_only(out / "readiness-lines.txt", ("\n".join(bound) + "\n").encode())
-        _write_create_only(out / "readiness.json", encoded(record) + b"\n")
+        _write_create_only(out / name, encoded(current if args.cmd == "current" else record)
+                           + b"\n")
         _write_create_only(out / "collection.json", encoded(report) + b"\n")
     except Refused as exc:
         print(f"REFUSED {exc}", file=sys.stderr)
         return 2
-    print(f"record written: {out / 'readiness.json'} (validator: {where})")
-    print(f"readiness sha256={validator.readiness_digest(record)} lines_sha256={record['lines_sha256']}")
+    print(f"record written: {out / name} (validator: {where})")
+    print(f"readiness sha256={validator.readiness_digest(record)} seq={record['seq']} "
+          f"lines_sha256={record['lines_sha256']}")
+    if args.cmd == "current":
+        print(f"current sha256={report['current_sha256']} receipt_sha256="
+              f"{current['receipt_sha256']} (READY only from launch-verify.sh ready)")
     print(f"holder role={record['holder']['role']} run={record['holder']['run']} "
           f"sweep={record['sweep']['sweep_no']} status={record['sweep']['status']} "
           f"drained_ms={record['drain']['drained_ms']} alarm={record['monitoring']['alarm']}")
     print(f"holder line age={report['line_age_ms']}ms queue aged by={report['queue_aged_by_ms']}ms "
-          f"malformed protocol lines={report['malformed_lines']}")
+          f"parked={record['queue']['parked']} malformed protocol lines={report['malformed_lines']}")
     if args.cutoff_ms is not None:
         failed = advisory(validator, record, args.cutoff_ms, observed)
         print("verifier conditions at cutoff: " + (", ".join(failed) if failed else "none failed"))
@@ -717,18 +1097,24 @@ def instance_digest(instance_id: str) -> str:
     return hashlib.sha256(("polis-math-poller-instance:" + instance_id).encode()).hexdigest()
 
 
-def current_holder(lines: Sequence[str]) -> Dict[str, Any]:
-    """The newest readiness line of the latest primary run, for the drill."""
-    parsed = classify(lines)
-    last = holder_lines(parsed, 1)[-1][1]
-    if last["role"] != PRIMARY:
-        raise Refused("NO_PRIMARY_HOLDER")
-    return last
+def current_holder(lines: Sequence[str], observed_ms: Optional[int] = None) -> Dict[str, Any]:
+    """The admitted holder's newest line, for the drill: selected by
+    ``select_evidence`` exactly as ``record`` selects it (review [1461] R3),
+    so a truncated final transition, a line older than three of its
+    intervals or one from the future at ``observed_ms`` refuses instead of
+    naming an instance. It needs no backfill, drain or alarm evidence: the
+    drill precedes them. A silenced holder (a drill in progress) is still
+    the holder. ``observed_ms`` defaults to now."""
+    if observed_ms is None:
+        observed_ms = int(time.time() * 1000)
+    return select_evidence(lines, observed_ms, 1)[2]
 
 
 def _holder_main(args) -> int:
     try:
-        last = current_holder(_lines(args))
+        lines = _lines(args)
+        observed = args.observed_ms or int(time.time() * 1000)
+        last = current_holder(lines, observed)
     except Refused as exc:
         print(f"REFUSED {exc}", file=sys.stderr)
         return 2
