@@ -128,6 +128,7 @@ jobs:
         # Recordings tests also load the packer and its digest helper from ci/.
         # battery_coverage.py is already included in the declared delphi/scripts.
         # test_compose_math_env.py reads the deploy hook's per-role compose lines.
+        # test_before_install_hook.py runs scripts/before_install.sh against a fake docker.
         # Representative payload tests import the box planner/gate and their
         # helpers from this same checkout root; keep their relative paths intact.
         # Light-shadow triage tests also import the compare/triage modules.
@@ -140,7 +141,7 @@ jobs:
           ci/probe_box/contracts.py ci/probe_box/light_shadow.py ci/probe_box/light_shadow_queries.py \
           ci/private_cert/images/light_shadow_compare.py ci/private_cert/images/light_shadow_triage.py \
           ci/private_cert/images/recipe.py \
-          scripts/after_install.sh; do
+          scripts/after_install.sh scripts/before_install.sh; do
           docker compose -f docker-compose.test.yml exec -T delphi mkdir -p "/app/projgate/$(dirname "$rel")"
           docker compose -f docker-compose.test.yml cp "$rel" "delphi:/app/projgate/$rel" \
             || { echo "failed to copy scan input: $rel"; exit 1; }
