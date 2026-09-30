@@ -196,23 +196,38 @@ under `python`. The poller only computes conversations with votes since
 rows and no `python` rows; the server would present them as empty. The switch
 waits for a backfill of those conversations under `python`.
 
-`/api/v3/math/pca2` compares If-None-Match entity tags with the served
-generation for equality: `math_tick` is per `(zid, math_env)`, so a browser's
-tag from `prod` can be higher than the `python` tick, and a "newer than" rule
-would keep answering 304.
+`/api/v3/math/pca2` sends the entity tag `"<math_env>-<math_tick>"` and
+compares held tags as opaque values (weakly): `math_tick` is per
+`(zid, math_env)`, so a tick alone cannot say which label's body a browser
+holds, and an equal tick across labels would answer 304. A legacy numeric tag
+(`"57"`, which client-participation builds from JSON) always gets 200. The
+synthesized empty presentation carries no generation tag. This lands as its own
+PR before the switch.
 
-Order of operations: merge to `stable`, then secret `MATH_ENV=python`, then
-the box deploy. A box that boots in between runs the hook from `stable` with
-whatever the secret says; this order means the worst case is a math box that
-starts nothing while the readers still read `prod`, never a Clojure `math`
-started under `MATH_ENV=python` (it would write the label `python` beside the
-Python poller).
-Rollback, in this order: secret `MATH_ENV=prod`; merge the revert of the
-PR-S2 hook change (restores the math role's `up -d math` line); redeploy. On
-start Clojure re-polls the last 10 days of votes and rewrites those
-conversations' `prod` rows in about a minute. If the switch lasted longer than
-10 days, a conversation whose last vote falls between the switch and 10 days
-before the rollback keeps its pre-switch `prod` row until its next vote.
+Writer safety, independent of the hook: `math/bin/run` refuses to start the
+Clojure engine under `python` always, and under any label but exactly `prod`
+unless `MATH_CLOJURE_ALLOW_NONPROD_ENV=1` (dev/test overlays only;
+`docker-compose.yml` does not forward it). The hook fails closed on an unknown
+role, and the math role fails the deploy unless no container of the compose
+service `math` remains after cleanup.
+
+Order of operations (CodeDeploy runs the hook PACKAGED in a deployment, and an
+ASG replacement gets the last successful revision, so a `stable` merge alone
+does not change the hook a new box runs):
+1. merge to `stable`;
+2. box deploy while the secret still says `MATH_ENV=prod` (packages this hook;
+   confirm it Succeeded and is the deployment group's last successful one);
+3. secret `MATH_ENV=python`;
+4. box deploy again (the readers switch; the math role runs nothing).
+Between 2 and 4 nothing writes `prod` while the readers still read it (served
+math is stale for that interval); keep it short.
+Rollback, in this order: secret `MATH_ENV=prod`; replace the math role's
+retirement check with its `up -d math` line (keep the fail-closed fallback and
+the Clojure guard); redeploy. On start Clojure re-polls the last 10 days of
+votes and rewrites those conversations' `prod` rows in about a minute. If the
+switch lasted longer than 10 days, a conversation whose last vote falls between
+the switch and 10 days before the rollback keeps its pre-switch `prod` row until
+its next vote.
 
 ## Step 3 — decommission (later)
 
