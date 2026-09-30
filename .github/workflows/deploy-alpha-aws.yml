@@ -77,12 +77,25 @@ jobs:
           BUCKET: polis-deployment-packages-050917022930-us-east-1
         run: |
           set -euo pipefail
+          # Hash before uploading, one assignment per line: under set -e a failed
+          # sha256sum fails the step here, where `echo "x=$(...)"` would not.
+          ARCHIVE_SHA256=$(sha256sum deployment-us.zip | cut -d' ' -f1)
+          HOOK_SHA256=$(sha256sum scripts/after_install.sh | cut -d' ' -f1)
+          for H in "$ARCHIVE_SHA256" "$HOOK_SHA256"; do
+            if ! [[ "$H" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "::error::expected a sha256 hex digest, got '$H'" >&2
+              exit 1
+            fi
+          done
           KEY="deployments/${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.zip"
           PUT=$(aws s3api put-object --bucket "$BUCKET" --key "$KEY" --body deployment-us.zip \
             --if-none-match '*' --output json)
           ETAG=$(printf '%s' "$PUT" | jq -er '.ETag' | tr -d '"')
           VERSION=$(printf '%s' "$PUT" | jq -r '.VersionId // empty')
           # Read back what S3 now holds under exactly this key (and version).
+          # head-object with --version-id needs s3:GetObjectVersion (not only
+          # s3:GetObject) for the workflow's AWS identity on this bucket; that
+          # IAM policy is not in this repo (see PR-S2-flip-notes.md, step 0).
           HEAD_ARGS=(--bucket "$BUCKET" --key "$KEY")
           if [ -n "$VERSION" ]; then HEAD_ARGS+=(--version-id "$VERSION"); fi
           HEAD_ETAG=$(aws s3api head-object "${HEAD_ARGS[@]}" --output json | jq -er '.ETag' | tr -d '"')
@@ -95,8 +108,8 @@ jobs:
             echo "key=$KEY"
             echo "etag=$ETAG"
             echo "version=$VERSION"
-            echo "archive_sha256=$(sha256sum deployment-us.zip | cut -d' ' -f1)"
-            echo "hook_sha256=$(sha256sum scripts/after_install.sh | cut -d' ' -f1)"
+            echo "archive_sha256=$ARCHIVE_SHA256"
+            echo "hook_sha256=$HOOK_SHA256"
           } >> "$GITHUB_OUTPUT"
 
       - name: Create US CodeDeploy deployment
