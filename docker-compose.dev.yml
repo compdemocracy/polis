@@ -39,6 +39,10 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - DD_ENABLED=false
+      # math/bin/run refuses any label but `prod` without this (dev uses
+      # MATH_ENV=dev); `python` is refused even with it. docker-compose.yml
+      # deliberately does not forward it.
+      - MATH_CLOJURE_ALLOW_NONPROD_ENV=1
 
   postgres:
     restart: no

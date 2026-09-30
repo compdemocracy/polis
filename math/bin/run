@@ -1,6 +1,32 @@
 #!/bin/sh
 # Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# Write-label guard. The Clojure engine writes its math rows under MATH_ENV,
+# and MATH_ENV is also the label the server and Delphi READ. Production reads
+# `python` after the switch to the Python engine, whose poller writes that
+# label, so a Clojure started there with the shared value (for instance by a
+# CodeDeploy hook packaged before the switch, run on a replacement box with the
+# post-switch secret) would write `python` beside it. Refuse, before anything
+# polls or writes:
+#   - `python` always: it is the Python poller's label in every stack;
+#   - anything but exactly `prod`, unless MATH_CLOJURE_ALLOW_NONPROD_ENV=1.
+#     Only the dev and test compose overlays set that (for MATH_ENV=dev);
+#     docker-compose.yml does not forward it, so production runs `prod` or
+#     nothing. Exit 78 (EX_CONFIG).
+case "${MATH_ENV:-}" in
+  prod) ;;
+  python)
+    echo "math/bin/run: refusing to start: MATH_ENV=python is the Python poller's label; the Clojure engine never writes it" >&2
+    exit 78
+    ;;
+  *)
+    if [ "${MATH_CLOJURE_ALLOW_NONPROD_ENV:-}" != "1" ]; then
+      echo "math/bin/run: refusing to start: MATH_ENV=[${MATH_ENV:-}] is not prod (set MATH_CLOJURE_ALLOW_NONPROD_ENV=1 only in dev/test stacks)" >&2
+      exit 78
+    fi
+    ;;
+esac
+echo "math/bin/run: write label MATH_ENV=${MATH_ENV} admitted"
 
 while [ 1 ]
 do

@@ -98,6 +98,9 @@ services:
       - DD_ENABLED=false
       - LOGGING_LEVEL=${MATH_LOG_LEVEL:-warn}
       - MATH_ENV=${MATH_ENV:-dev}
+      # math/bin/run refuses any label but `prod` without this; `python` is
+      # refused even with it.
+      - MATH_CLOJURE_ALLOW_NONPROD_ENV=1
       - WEBSERVER_USERNAME=${WEBSERVER_USERNAME}
       - WEBSERVER_PASS=${WEBSERVER_PASS}
     networks:

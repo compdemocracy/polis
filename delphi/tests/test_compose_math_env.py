@@ -523,3 +523,88 @@ def test_known_roles_still_start_their_services(tmp_path):
         (up,) = _compose_ups(log)
         assert _services_named(up.split()[1:]) == services
 
+
+# --- Clojure's own write-label guard (math/bin/run, review 1439 R1) ------------
+#
+# CodeDeploy can run a hook packaged BEFORE the switch (an ASG replacement gets
+# the last successful revision) against the current compose and secret. That
+# hook's math role still runs `up -d math`, which builds math/ from the stable
+# checkout, so the engine's entrypoint refuses any label but `prod` itself.
+
+MATH_RUN = Path("math") / "bin" / "run"
+MATH_RUN_TEST = Path("math") / "bin" / "test-run-guard.sh"
+
+
+def _find_in_checkout(rel):
+    override = os.environ.get("POLIS_CHECKOUT_DIR")
+    candidates = [Path(override)] if override else []
+    here = Path(__file__).resolve()
+    candidates += [here.parent, *here.parents]
+    for candidate in candidates:
+        if (candidate / rel).is_file():
+            return candidate / rel
+    return None
+
+
+MATH_RUN_PATH = _find_in_checkout(MATH_RUN)
+MATH_RUN_TEST_PATH = _find_in_checkout(MATH_RUN_TEST)
+requires_math_run = pytest.mark.skipif(
+    MATH_RUN_PATH is None or shutil.which("sh") is None,
+    reason=f"{MATH_RUN} not found in $POLIS_CHECKOUT_DIR nor any ancestor of this file",
+)
+
+
+def _run_math_entrypoint(tmp_path, env):
+    """Run math/bin/run with `env` only; `timeout` (which wraps the JVM) is a
+    stub that records the start and stops the loop. Returns (code, started, stderr)."""
+    stub_dir = tmp_path / "stub-bin"
+    stub_dir.mkdir()
+    started = tmp_path / "started"
+    stub = stub_dir / "timeout"
+    stub.write_text('#!/bin/sh\necho "$*" > "$STARTED"\nkill -PIPE "$PPID"\n')
+    stub.chmod(0o755)
+    full_env = {"PATH": f"{stub_dir}:/usr/bin:/bin", "STARTED": str(started), **env}
+    done = subprocess.run(["sh", str(MATH_RUN_PATH)], env=full_env, capture_output=True, text=True, timeout=60)
+    return done.returncode, started.is_file(), done.stderr
+
+
+@requires_math_run
+@requires_checkout
+@pytest.mark.parametrize(
+    "secret",
+    [POST_SWITCH_SECRET, {**POST_SWITCH_SECRET, "MATH_CLOJURE_ALLOW_NONPROD_ENV": "1"}],
+    ids=["post-switch-secret", "post-switch-secret-with-opt-in"],
+)
+def test_old_hook_with_new_compose_and_python_secret_cannot_start_clojure(tmp_path, secret):
+    math_env = _environment("docker-compose.yml", "math", secret)
+    assert math_env["MATH_ENV"] == "python"
+    # Production compose never forwards the dev/test opt-in, even from the secret.
+    assert "MATH_CLOJURE_ALLOW_NONPROD_ENV" not in math_env
+    code, started, err = _run_math_entrypoint(tmp_path, math_env)
+    assert code == 78 and not started, err
+    assert "refusing to start" in err
+
+
+@requires_math_run
+@requires_checkout
+def test_clojure_starts_under_the_rollback_secret(tmp_path):
+    math_env = _environment("docker-compose.yml", "math", {"MATH_ENV": "prod", "MATH_PYTHON_ENV": "python"})
+    code, started, err = _run_math_entrypoint(tmp_path, math_env)
+    assert started, err
+
+
+@requires_math_run
+@requires_checkout
+def test_test_stack_opts_in_to_its_dev_label(tmp_path):
+    math_env = _environment("docker-compose.test.yml", "math")
+    assert math_env["MATH_ENV"] == "dev"
+    assert math_env["MATH_CLOJURE_ALLOW_NONPROD_ENV"] == "1"
+    code, started, err = _run_math_entrypoint(tmp_path, math_env)
+    assert started, err
+
+
+@pytest.mark.skipif(MATH_RUN_TEST_PATH is None or shutil.which("sh") is None, reason=f"{MATH_RUN_TEST} not found")
+def test_math_run_guard_shell_suite():
+    done = subprocess.run(["sh", str(MATH_RUN_TEST_PATH)], capture_output=True, text=True, timeout=120)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "0 failed" in done.stdout
