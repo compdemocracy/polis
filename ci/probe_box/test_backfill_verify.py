@@ -946,7 +946,9 @@ class Handoff(unittest.TestCase):
         self.assertEqual(r['verdict'], 'BACKFILL-INCOMPLETE')
         self.assertEqual(bv.consumption(r, SNAPSHOT + 1)['status'], 'NOT_COMPLETE')
         out = bv.handoff(r, self.cur(), self.now, proof=None, receipt_sha256=self.rs, job_sha256=sha(j))
-        self.assertEqual((out['status'], out['current']), ('NOT_COMPLETE', None))
+        # The input is still observed (review [1467] R1), never authorized.
+        self.assertEqual((out['status'], out['observation'], out['current']),
+                         ('NOT_COMPLETE', 'valid', bv.readiness_digest(self.cur())))
 
 
 class AttemptLedger(unittest.TestCase):
@@ -1072,12 +1074,16 @@ class AttemptLedger(unittest.TestCase):
         self.attempt(refused, self.NOW)
         self.assertRefused(self.attempt(refused, self.NOW + 1_000), 'current-reused')
         self.assertRefused(self.attempt(self.cur(self.NOW + 500, 43), self.NOW + 1_000), 'newer-attempt-exists')
-        # Attempts without a readable current record observe nothing and block nothing newer.
+        # No input observes nothing; an input with no readable record observes nothing but is
+        # a barrier (review [1467] R1): only a record captured after it may follow.
         self.setUp()
         self.attempt(None, self.NOW)
         self.attempt({'schema': 'unreadable'}, self.NOW + 1_000)
-        self.assertEqual([bv.decode(raw)['current'] for _, raw in self.entries], [None, None])
-        self.assertEqual(self.attempt(self.cur(self.NOW + 1_500, 41), self.NOW + 2_000)['status'], 'READY')
+        self.assertEqual([(bv.decode(raw)['observation'], bv.decode(raw)['current']) for _, raw in self.entries],
+                         [('none', None), ('unknown', None)])
+        self.assertRefused(self.attempt(self.cur(self.NOW + 1_500, 41), self.NOW + 2_000),
+                           'current-not-after-unknown-input')
+        self.assertEqual(self.attempt(self.cur(self.NOW + 6_500, 42), self.NOW + 7_000)['status'], 'READY')
 
     def test_ledger_records_every_attempt(self):
         self.attempt(self.adverse(self.NOW - 1_000, 42, 'alarm'), self.NOW)
@@ -1112,6 +1118,14 @@ class AttemptLedger(unittest.TestCase):
             'other-proof': [(n1, raw1), (n2, encoded(dict(a2, proof_sha256='0' * 64)))],
             'stray-name': [(n1, raw1), (n2, raw2), ('verify-attempt-x.json', raw2)],
             'observation-without-current': [(n1, raw1), (n2, encoded(dict(a2, current=None)))],
+            'observation-unknown-kind': [(n1, raw1), (n2, encoded(dict(a2, observation='partial')))],
+            'observation-unknown-with-current': [(n1, raw1), (n2, encoded(dict(a2, observation='unknown')))],
+            'observation-none-with-input': [(n1, raw1), (n2, encoded(dict(
+                a2, observation='none', current=None, current_seq=None, current_observed_ms=None, holder=None,
+                drain=None)))],
+            'observation-without-input-digest': [(n1, raw1), (n2, encoded(dict(a2, input_sha256=None)))],
+            'ready-from-invalid-envelope': [(n1, raw1), (n2, encoded(dict(a2, outcome='READY', reasons=[],
+                                                                           observation='invalid-envelope')))],
         }
         cur = self.cur(self.NOW + 5_000, 50)
         for name, entries in bad.items():
@@ -1157,6 +1171,137 @@ class AttemptLedger(unittest.TestCase):
         out = self.attempt(self.cur(self.NOW - 1_000, 41, monitoring={'evaluated_ms': SNAPSHOT - 1}), self.NOW,
                            proof=proof)
         self.assertIn('current-monitoring-before-proof', out['reasons'])
+
+
+class RejectedInput(unittest.TestCase):
+    """Review [1467] R1: a rejected current envelope keeps its independently valid
+    readiness observation; an input with no valid readiness record is a barrier."""
+    NOW, ADVERSE = AttemptLedger.NOW, AttemptLedger.ADVERSE
+    setUp, attempt, cur, adverse, assertRefused = (AttemptLedger.setUp, AttemptLedger.attempt, AttemptLedger.cur,
+                                                   AttemptLedger.adverse, AttemptLedger.assertRefused)
+    CORRUPTIONS = ('alert-digest', 'extra-envelope-field', 'alert-missing')
+
+    def corrupt(self, cur, how):
+        cur = copy.deepcopy(cur)
+        if how == 'alert-digest':
+            cur['alert_test']['sha256'] = '0' * 64
+        elif how == 'extra-envelope-field':
+            cur['unexpected'] = True
+        else:
+            del cur['alert_test']
+        return cur
+
+    def test_six_invalid_envelope_reproductions_refuse_the_earlier_file(self):
+        """The reviewer's six exact sequences: 6 then 0 before; now 6 then 6."""
+        for how in self.CORRUPTIONS:
+            for name in ('alarm', 'restart'):
+                with self.subTest(corruption=how, adverse=name):
+                    self.setUp()
+                    bad = self.corrupt(self.adverse(self.NOW - 1_000, 42, name), how)
+                    first = self.attempt(bad, self.NOW)
+                    self.assertRefused(first, 'current-invalid')
+                    entry = bv.decode(self.entries[0][1])
+                    v = bad['readiness']
+                    self.assertEqual((entry['observation'], entry['current'], entry['current_seq'],
+                                      entry['current_observed_ms'], entry['holder'], entry['drain']),
+                                     ('invalid-envelope', bv.readiness_digest(bad), v['seq'], v['observed_ms'],
+                                      v['holder'], v['drain']))
+                    self.assertEqual(entry['input_sha256'], hashlib.sha256(encoded(bad)).hexdigest())
+                    old = self.attempt(self.cur(self.NOW - 2_000, 41), self.NOW + 1_000)
+                    self.assertRefused(old, 'current-not-newer')
+                    self.assertEqual('proof-invalidated' in old['reasons'], name == 'restart')
+                    self.assertEqual(self.records, [])
+
+    def test_readable_restart_keeps_the_proof_invalid(self):
+        for how in self.CORRUPTIONS:
+            with self.subTest(corruption=how):
+                self.setUp()
+                restart = self.attempt(self.corrupt(self.adverse(self.NOW - 1_000, 42, 'restart'), how), self.NOW)
+                self.assertIn('current-holder-mismatch', restart['reasons'])
+                self.assertTrue(set(restart['reasons']) & set(bv.NEW_PROOF_REASONS))
+                # The former run recaptured, genuinely newer than everything seen: still a new proof.
+                former = self.attempt(self.cur(self.NOW + 9_000, 50), self.NOW + 10_000)
+                self.assertEqual(former['reasons'], ['proof-invalidated'])
+                self.assertEqual(self.records, [])
+
+    def test_partial_input_never_authorizes(self):
+        """A healthy readiness record in a rejected envelope is observed, never READY."""
+        for how in self.CORRUPTIONS:
+            with self.subTest(corruption=how):
+                self.setUp()
+                cur = self.corrupt(self.cur(self.NOW - 1_000, 41), how)
+                out = self.attempt(cur, self.NOW)
+                self.assertEqual((out['status'], out['reasons'], out['observation']),
+                                 ('REFUSED', ['current-invalid'], 'invalid-envelope'))
+                with self.assertRaisesRegex(ValueError, 'VERIFY_NOT_READY'):
+                    bv.handoff_record(self.r, out, self.proof, self.rs, cur)
+                # Its own record resubmitted whole is the same observation; a newer one recovers.
+                self.assertRefused(self.attempt(self.cur(self.NOW - 1_000, 41), self.NOW + 1_000),
+                                   'current-not-newer')
+                self.assertEqual(self.attempt(self.cur(self.NOW + 1_500, 42), self.NOW + 2_000)['status'],
+                                 'READY')
+
+    def test_transient_alarm_in_a_rejected_envelope_still_recovers(self):
+        self.assertRefused(self.attempt(self.corrupt(self.adverse(self.NOW - 1_000, 42, 'alarm'), 'alert-digest'),
+                                        self.NOW), 'current-invalid', 'current-monitoring-not-ok')
+        self.assertEqual(self.attempt(self.cur(self.NOW + 1_000, 43), self.NOW + 2_000)['status'], 'READY')
+
+    def test_unknown_input_is_a_barrier(self):
+        """Wholly malformed input, then an earlier healthy file: refused. Policy: only a record
+        captured more than CLOCK_TOLERANCE_MS after the unknown input's attempt may be READY."""
+        tol = bv.CLOCK_TOLERANCE_MS
+        for name, unknown in (('unreadable-marker', {'schema': 'unreadable'}), ('list', [1, 2]),
+                              ('bare-readiness', self.bound), ('readiness-invalid',
+                                                               dict(self.cur(self.NOW, 42), readiness={'seq': 42}))):
+            with self.subTest(unknown=name):
+                self.setUp()
+                first = self.attempt(unknown, self.NOW)
+                self.assertRefused(first, 'current-invalid')
+                entry = bv.decode(self.entries[0][1])
+                self.assertEqual((entry['observation'], entry['current'], entry['holder']), ('unknown', None, None))
+                self.assertEqual(entry['input_sha256'], hashlib.sha256(encoded(unknown)).hexdigest())
+                older = self.attempt(self.cur(self.NOW - 2_000, 41), self.NOW + 1_000)
+                self.assertEqual(older['reasons'], ['current-not-after-unknown-input'])
+                at = self.attempt(self.cur(self.NOW + tol, 42), self.NOW + tol + 1_000)
+                self.assertEqual(at['reasons'], ['current-not-after-unknown-input'])
+                ok = self.attempt(self.cur(self.NOW + tol + 1, 43), self.NOW + tol + 2_000)
+                self.assertEqual((ok['status'], ok['reasons']), ('READY', []))
+        # The operator's digest of the bytes presented is what the barrier records.
+        self.setUp()
+        h = bv.handoff(self.r, {'schema': 'unreadable'}, self.NOW, proof=self.proof, receipt_sha256=self.rs,
+                       job_sha256=sha(self.j), receipts=[self.rs], current_sha256='a' * 64)
+        self.assertEqual((h['observation'], h['input_sha256']), ('unknown', 'a' * 64))
+
+    def test_undecodable_receipt_is_journaled(self):
+        """A changed job (the receipt no longer decodes) is an attempt too, and keeps its observation."""
+        restart = self.adverse(self.NOW - 1_000, 42, 'restart')
+        h = bv.receipt_invalid(restart, self.NOW, run_id=self.r['run_id'], receipt_sha256=self.rs, proof=self.proof,
+                               attempts=self.entries)
+        self.assertEqual((h['status'], h['reasons'], h['observation']), ('REFUSED', ['receipt-invalid'], 'valid'))
+        rec = bv.attempt_record(None, h, proof=self.proof, receipt_sha256=self.rs, current=restart,
+                                attempts=self.entries, run_id=self.r['run_id'])
+        self.entries.append((bv.attempt_name(rec['attempt']), encoded(rec)))
+        self.assertEqual((rec['outcome'], rec['holder']), ('REFUSED', restart['readiness']['holder']))
+        # The job restored: the restart it showed still spends the proof.
+        self.assertEqual(self.attempt(self.cur(self.NOW + 9_000, 50), self.NOW + 10_000)['reasons'],
+                         ['proof-invalidated'])
+        # Unknown input while the receipt is undecodable is still a barrier.
+        self.setUp()
+        h = bv.receipt_invalid({'schema': 'unreadable'}, self.NOW, run_id=self.r['run_id'], receipt_sha256=self.rs,
+                               proof=self.proof, attempts=self.entries)
+        self.assertEqual(h['reasons'], ['receipt-invalid', 'current-invalid'])
+        rec = bv.attempt_record(None, h, proof=self.proof, receipt_sha256=self.rs, current=None,
+                                attempts=self.entries, run_id=self.r['run_id'])
+        self.entries.append((bv.attempt_name(rec['attempt']), encoded(rec)))
+        self.assertRefused(self.attempt(self.cur(self.NOW + 1_000, 42), self.NOW + 2_000),
+                           'current-not-after-unknown-input')
+        # A ledger for another run is invalid and never extended.
+        h = bv.receipt_invalid(None, self.NOW + 3_000, run_id='d' * 32, receipt_sha256=self.rs, proof=self.proof,
+                               attempts=self.entries)
+        self.assertEqual(h['reasons'], ['receipt-invalid', 'attempt-ledger-invalid', 'current-missing'])
+        with self.assertRaises(ValueError):
+            bv.attempt_record(None, h, proof=self.proof, receipt_sha256=self.rs, current=None,
+                              attempts=self.entries, run_id='d' * 32)
 
 
 class Consumption(unittest.TestCase):
