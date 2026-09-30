@@ -1,0 +1,363 @@
+"""Recompute the switch condition from the reader's counts; only this image writes the receipt.
+
+The verifier does not import producer code. It re-derives the evidence from
+the original projection, requires the producer's evidence to equal it
+exactly, runs the live checks and fixed self-tests, and reduces everything
+to the backfill-verify receipt: counts, clocks, condition names and digests,
+with no zid, payload or text.
+"""
+from __future__ import annotations
+import copy
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'probe_box'))
+from backfill_verify import (ACCEPTANCE, ALERT_TEST_SCHEMA, BLOCKING, CONTROLS, COVERAGE, KIND, LIMIT, LIVE_CONTROLS,
+                             POLICY_SHA, PROJECTION_SCHEMA, READINESS_SCHEMA, STALE_ALARM, assess, decode, encoded,
+                             expected_verdict, fail, readiness_digest, validate_projection, validate_receipt,
+                             validate_run_spec)
+import hashlib
+from backfill_verify_queries import SQL_SHA256, TABLES, shipped_statements
+from receipt import sha
+
+
+def receipt(projection, produced, job, source_commit):
+    spec = validate_run_spec(job['run_spec'])
+    validate_projection(projection, spec)
+    if projection['source_commit'] != source_commit:
+        fail('VERIFY_RECONSTRUCTION')
+    expected = assess(projection, spec)
+    if produced != expected:
+        fail('VERIFY_RECONSTRUCTION')
+    complete = projection['status'] == 'COMPLETE'
+    r = {'schema': 'polis-probe-receipt/3', 'kind': KIND, 'run_id': job['run_id'], 'job_sha256': sha(job),
+         'verdict': 'INCOMPLETE', 'acceptance': ACCEPTANCE,
+         'bindings': dict(source_commit=source_commit, query_policy=POLICY_SHA,
+                          verification_sql=spec['verification_sql_sha256'],
+                          server_version_num=projection['server_version_num'],
+                          readiness=readiness_digest(spec['readiness']),
+                          **{k: job[k]['image'].split('@sha256:')[1] for k in ('reader', 'producer', 'verifier')}),
+         'run_spec': dict(spec), 'coverage': dict(COVERAGE, status=projection['status']),
+         'snapshot': expected['snapshot'], 'counts': copy.deepcopy(projection['results']) if complete else None,
+         'blocking': expected['blocking'],
+         'controls': dict(dict.fromkeys(CONTROLS, False), **live_controls(projection, spec))}
+    r['verdict'] = expected_verdict(r)
+    return r
+
+
+def live_controls(projection, spec):
+    complete = projection['status'] == 'COMPLETE'
+    return {'reader-no-write': complete and projection['no_write'],
+            'sql-digest-bound': (projection['verification_sql'] == spec['verification_sql_sha256'] == SQL_SHA256)}
+
+
+SNAPSHOT_MS = 1_900_000_000_000
+CUTOFF_MS = SNAPSHOT_MS - 600_000
+
+
+FIXTURE_TOPIC = 'arn:aws:sns:us-east-1:123456789012:AlarmTopic'
+
+
+def fixture_alert_test(**changes):
+    """P-072 alert-test evidence (schema /3), an hour before the fixture cutoff: the
+    DiscoveryStale alarm fired, CloudWatch notified the topic and the operator's
+    received e-mail names that state change; the drill's private trace and
+    collection manifest are bound by digest. `changes` replaces evidence fields
+    (`trace` and `receipt` values are merged into those sections); the digest is
+    recomputed."""
+    at = CUTOFF_MS - 3_300_000
+    since = CUTOFF_MS - 3_600_000
+    ev = {'schema': ALERT_TEST_SCHEMA, 'nonce': '9' * 32, 'tested_run': 'f' * 12, 'tested_run_primary': False,
+          'holder_runs': ['e' * 12], 'emitted_ms': since, 'silence_s': 0,
+          'test_line_sha256': '8' * 64,
+          'transitions': [{'alarm': STALE_ALARM, 'at_ms': at, 'from': 'OK', 'to': 'ALARM'}],
+          'notifications': [{'alarm': STALE_ALARM, 'at_ms': at, 'data': '{}',
+                             'summary': 'Successfully executed action ' + FIXTURE_TOPIC}],
+          'topic_arn': FIXTURE_TOPIC, 'alarm_config_sha256': 'c' * 64, 'receipt_sha256': 'd' * 64,
+          'trace': {'interval_ms': [since - 300_000, at], 'lines_total': 400, 'test_line_index': 120,
+                    'lines': 12, 'sha256': '7' * 64, 'manifest_sha256': '6' * 64, 'order_violations': 0,
+                    'malformed_total': 0, 'malformed_excluded': []},
+          'receipt': {'files': ['d' * 64],
+                      'selected': [{'alarm': STALE_ALARM, 'file': 0, 'offset': 0, 'sha256': 'd' * 64,
+                                    'form': 'mail', 'at_ms': at, 'seconds': True}]}}
+    for k in ('trace', 'receipt'):
+        if isinstance(changes.get(k), dict):
+            changes[k] = dict(ev[k], **changes[k])
+    ev.update(changes)
+    return {'evidence': ev, 'sha256': hashlib.sha256(encoded(ev)).hexdigest()}
+
+
+def fixture_readiness(cutoff=CUTOFF_MS, observed=SNAPSHOT_MS - 60_000, **changes):
+    """A healthy idle holder after DRAINED: the discovery loop succeeded after the
+    cutoff, nothing unresolved, parked or in flight, monitoring OK. `changes`
+    replaces fields of one section, e.g. holder={'role': 'standby'}, or a
+    top-level value, e.g. seq=8."""
+    r = {'schema': READINESS_SCHEMA, 'observed_ms': observed, 'seq': 40, 'lines_sha256': '4' * 64,
+         'holder': {'role': 'primary', 'instance_sha256': '5' * 64, 'source_commit': '6' * 40,
+                    'run': 'a' * 12, 'config': 'b' * 12},
+         'discovery': {'last_success_ms': observed - 5_000, 'successes': 12, 'failures_since_success': 0},
+         'queue': {'pending': 0, 'parked': 0, 'oldest_work_age_ms': 0},
+         'sweep': {'sweep_no': 7, 'finished_ms': cutoff - 300_000, 'run': 'a' * 12, 'config': 'b' * 12,
+                   'status': 'COMPLETE', 'unresolved': 0, 'parked_live': 0, 'in_flight': 0},
+         'drain': {'run': 'a' * 12, 'drained_ms': cutoff - 60_000},
+         'monitoring': {'alarm': 'OK', 'evaluated_ms': observed - 30_000,
+                        'alert_test_sha256': fixture_alert_test()['sha256']}}
+    for section, values in changes.items():
+        if isinstance(r[section], dict):
+            r[section] = dict(r[section], **values)
+        else:
+            r[section] = values
+    return r
+
+
+def fixture_results(n=10):
+    """A clean backfill: every source conversation has a complete target."""
+    return {'rows': {t: {'source': n, 'target': n} for t in TABLES},
+            'conversations': dict(source_conversations=n, missing_main=0, missing_bidtopid=0, missing_ptptstats=0,
+                                  missing_ticks=0, unequal_generation=0, uninitialized_generation=0,
+                                  invalid_payload=0, behind_source_stale=0, live_lag=0, source_ahead=0, complete=n),
+            'orphans': dict(target_only_main=0, orphan_bidtopid=0, orphan_ptptstats=0, orphan_ticks=0),
+            'payloads': dict(checked=n, main_not_object=0, main_missing_keys=0, main_zid_unbound=0,
+                             main_timestamp_unbound=0, bidtopid_malformed=0, ptptstats_malformed=0,
+                             companion_timestamp_unbound=0, empty_shape=min(n, 1), invalid_payload=0),
+            'cutoff': dict(behind_input_at_cutoff=0, source_ahead_of_input=0, live_tail_after_cutoff=0),
+            'without_target': dict.fromkeys(TABLES, 0),
+            'published': ({'source_newest_ms': SNAPSHOT_MS - 5000, 'target_newest_ms': SNAPSHOT_MS - 4000} if n else
+                          {'source_newest_ms': None, 'target_newest_ms': None})}
+
+
+def fixture_projection(results, status='COMPLETE'):
+    complete = status == 'COMPLETE'
+    return {'schema': PROJECTION_SCHEMA, 'source_commit': '1' * 40, 'query_policy': POLICY_SHA,
+            'verification_sql': SQL_SHA256, 'server_version_num': 170004, 'status': status,
+            'snapshot_ms': SNAPSHOT_MS if complete else None, 'results': results if complete else None,
+            'no_write': complete}
+
+
+def clock_results(**published):
+    results = fixture_results()
+    results['published'].update(published)
+    return results
+
+
+def refused(check):
+    try:
+        check()
+    except (ValueError, KeyError, TypeError):
+        return True
+    return False
+
+
+def controls(job):
+    """Fixed self-tests; every refusal path must refuse and every vector must decide as named.
+
+    The vectors are built from the job's own limits (review [1459]): the cutoff
+    sits inside max_cutoff_age_seconds, and every discovery, queue and alarm
+    boundary is the job's gap or readiness bound plus or minus one millisecond,
+    so any supported configuration gets true controls and no configuration can
+    fail them through a mismatched embedded vector.
+    """
+    from contracts import validate_job
+    limits = job['run_spec']
+    gap = 1000 * limits['max_discovery_gap_seconds']
+    bound = 1000 * limits['max_readiness_age_seconds']
+    age = 1000 * limits['max_cutoff_age_seconds']
+    cutoff = SNAPSHOT_MS - min(SNAPSHOT_MS - CUTOFF_MS, age // 2)
+
+    def rd(**changes):
+        return fixture_readiness(**dict({'cutoff': cutoff}, **changes))
+    # Boundary vectors: a history observed one gap and a second after the cutoff,
+    # so each discovery boundary is the gap and never the cutoff.
+    observed = cutoff + gap + 1_000
+    job = dict(job, run_spec=dict(limits, cutoff_ms=cutoff, readiness=rd()))
+
+    def build(results, status='COMPLETE', spec=None):
+        j = job if spec is None else dict(job, run_spec=dict(job['run_spec'], **spec))
+        p = fixture_projection(results, status)
+        r = receipt(p, assess(p, j['run_spec']), j, '1' * 40)
+        r['controls'] = dict.fromkeys(CONTROLS, True)
+        r['verdict'] = expected_verdict(r)
+        return validate_receipt(r, j), j
+
+    good, _ = build(fixture_results())
+    if good['verdict'] != 'BACKFILL-COMPLETE' or good['blocking']:
+        fail('VERIFY_CONTROL_FIXTURE')
+
+    def mutated(mutate):
+        bad = copy.deepcopy(good)
+        mutate(bad)
+        return lambda: validate_receipt(bad, job)
+
+    def vector(changes, want, **spec):
+        """Apply {group: {name: value}} to a clean fixture; the receipt must block exactly `want`."""
+        results = fixture_results()
+        for group, values in changes.items():
+            for name, value in values.items():
+                if group == 'rows':
+                    results['rows'][name].update(value)
+                else:
+                    results[group][name] = value
+        r, j = build(results, spec=spec)
+        verdict = 'BACKFILL-INCOMPLETE' if want else 'BACKFILL-COMPLETE'
+        if r['blocking'] != [n for n in BLOCKING if n in want] or r['verdict'] != verdict:
+            return False
+        # A blocked receipt claiming completion, or hiding its conditions, is refused.
+        return (not want or (refused(lambda: validate_receipt(dict(r, verdict='BACKFILL-COMPLETE'), j))
+                             and refused(lambda: validate_receipt(dict(r, blocking=[]), j))))
+
+    def incomplete(results=None, status='COMPLETE', unknown=False, **spec):
+        r, j = build(fixture_results() if results is None else results, status, spec or None)
+        return (r['verdict'] == 'INCOMPLETE' and (not unknown or r['snapshot']['clock'] == 'UNKNOWN')
+                and refused(lambda: validate_receipt(dict(r, verdict='BACKFILL-COMPLETE'), j))
+                and refused(lambda: validate_receipt(dict(r, verdict='BACKFILL-INCOMPLETE'), j)))
+
+    p = fixture_projection(fixture_results())
+    evidence = assess(p, job['run_spec'])
+
+    def forged_evidence():
+        tampered = dict(evidence, blocking=['missing_main'])
+        receipt(p, tampered, job, '1' * 40)
+
+    def inconsistent(group, name, value):
+        q = copy.deepcopy(p)
+        q['results'][group][name] = value
+        return lambda: receipt(q, assess(q, job['run_spec']), job, '1' * 40)
+
+    outcomes = {
+        'empty-result-incomplete': incomplete(fixture_results(0)),
+        'not-visible-incomplete': incomplete(status='NOT_VISIBLE')
+            and refused(lambda: validate_projection(dict(fixture_projection(None, 'NOT_VISIBLE'),
+                                                         results=fixture_results()), job['run_spec'])),
+        'forged-evidence-refused': refused(forged_evidence),
+        'forged-projection-refused': refused(inconsistent('conversations', 'missing_main', 1))
+            and refused(lambda: receipt(dict(p, query_policy='0' * 64), evidence, job, '1' * 40))
+            and refused(lambda: receipt(p, evidence, job, '2' * 40)),
+        'wrong-sql-refused': refused(lambda: validate_job(dict(job, run_spec=dict(
+                job['run_spec'], verification_sql_sha256='0' * 64))))
+            and refused(lambda: receipt(dict(p, verification_sql='0' * 64), evidence, job, '1' * 40))
+            and refused(lambda: shipped_statements(b'SELECT 1;'))
+            and refused(mutated(lambda v: v['bindings'].update(verification_sql='0' * 64))),
+        'wrong-ruling-refused': refused(lambda: validate_job(dict(job, run_spec=dict(
+                job['run_spec'], source_ahead_ruling='accept_input')))),
+        'identifier-field-refused': refused(mutated(lambda v: v['counts']['conversations'].update(zid=1)))
+            and refused(mutated(lambda v: v.update(zids=[1]))),
+        'content-field-refused': refused(mutated(lambda v: v['counts']['conversations'].update(complete='ten')))
+            and refused(mutated(lambda v: v.update(note='free text')))
+            and refused(mutated(lambda v: v['blocking'].append('topic text'))),
+        'wrong-kind-refused': refused(mutated(lambda v: v.update(kind='light-shadow-compare'))),
+        'wrong-image-refused': refused(mutated(lambda v: v['bindings'].update(reader='0' * 64))),
+        'wrong-policy-refused': refused(mutated(lambda v: v['bindings'].update(query_policy='0' * 64))),
+        'false-complete-refused': refused(mutated(lambda v: v.update(verdict='PASS')))
+            and refused(mutated(lambda v: v.update(verdict='READY')))
+            and refused(mutated(lambda v: v.update(verdict='BACKFILL-INCOMPLETE'))),
+        'count-mismatch-refused': refused(inconsistent('payloads', 'invalid_payload', 1))
+            and refused(mutated(lambda v: v['counts']['rows']['math_main'].update(source=11)))
+            and refused(mutated(lambda v: v['snapshot'].update(cutoff_age_ms=0))),
+        'stale-cutoff-incomplete': incomplete(cutoff_ms=SNAPSHOT_MS - age - 1),
+        'future-cutoff-incomplete': incomplete(cutoff_ms=SNAPSHOT_MS + 1),
+        'complete-vector': vector({}, ()),
+        'missing-blocks': vector({'conversations': {'missing_bidtopid': 1, 'complete': 9},
+                                  'payloads': {'checked': 9}, 'rows': {'math_bidtopid': {'target': 9}},
+                                  'without_target': {'math_bidtopid': 1}},
+                                 ('missing_bidtopid', 'complete-short', 'without-target-math_bidtopid')),
+        'invalid-blocks': vector({'conversations': {'invalid_payload': 1, 'complete': 9},
+                                  'payloads': {'invalid_payload': 1}},
+                                 ('invalid_payload', 'complete-short')),
+        'source-ahead-blocks': vector({'conversations': {'source_ahead': 1, 'complete': 9},
+                                       'cutoff': {'source_ahead_of_input': 1}},
+                                      ('source_ahead', 'complete-short', 'source_ahead_of_input')),
+        'orphan-blocks': vector({'orphans': {'orphan_ticks': 1}, 'rows': {'math_ticks': {'target': 11}}},
+                                ('orphan_ticks',)),
+        'cutoff-proof-blocks': vector({'cutoff': {'behind_input_at_cutoff': 1}}, ('behind_input_at_cutoff',)),
+        'without-target-blocks': vector({'without_target': {'math_ptptstats': 1},
+                                         'rows': {'math_ptptstats': {'source': 11}}},
+                                        ('without-target-math_ptptstats',)),
+        'live-lag-allowed': vector({'conversations': {'live_lag': 1}, 'cutoff': {'live_tail_after_cutoff': 1}}, ()),
+        # Poller progress comes only from the bound history record.
+        'history-missing-blocks': vector({}, ('history-missing',), readiness=None),
+        'history-mismatch-blocks': all(
+            vector({}, ('history-run-mismatch',), readiness=rd(**change))
+            for change in ({'sweep': {'run': 'c' * 12}}, {'sweep': {'config': 'c' * 12}},
+                           {'drain': {'run': 'c' * 12}})),
+        # Judged at the history's own observation, at the job's limits exactly and one past them.
+        'history-stale-blocks': all(
+            vector({}, want, readiness=rd(**change)) for change, want in (
+                ({'discovery': {'last_success_ms': cutoff - 1}}, ('history-discovery-stale',)),
+                ({'discovery': {'failures_since_success': 1}}, ('history-discovery-stale',)),
+                ({'observed': observed, 'discovery': {'last_success_ms': observed - gap - 1}},
+                 ('history-discovery-stale',)),
+                ({'observed': observed, 'discovery': {'last_success_ms': observed - gap}}, ()),
+                ({'queue': {'pending': 1, 'oldest_work_age_ms': gap + 1}}, ('history-queue-stuck',)),
+                ({'queue': {'parked': 1, 'oldest_work_age_ms': gap}}, ()),
+                ({'sweep': {'unresolved': 1}}, ('history-sweep-unresolved',)),
+                ({'drain': {'drained_ms': None}}, ('history-not-drained',)),
+                ({'drain': {'drained_ms': cutoff + 1}}, ('history-not-drained',)),
+                ({'monitoring': {'alarm': 'INSUFFICIENT_DATA'}}, ('history-monitoring-not-ok',)),
+                ({'monitoring': {'alert_test_sha256': None}}, ('history-monitoring-not-ok',)),
+                ({'observed': observed, 'monitoring': {'evaluated_ms': observed - bound - 1}},
+                 ('history-monitoring-not-ok',)),
+                ({'observed': observed, 'monitoring': {'evaluated_ms': observed - bound}}, ())))
+            and vector({}, ('history-before-cutoff', 'history-discovery-stale'),
+                       readiness=rd(observed=cutoff - 1)),
+        'standby-holder-blocks': vector({}, ('history-holder-not-primary',),
+                                        readiness=rd(holder={'role': 'standby'}))
+            and vector({}, ('history-holder-not-primary',), readiness=rd(holder={'role': 'report'})),
+        # A long launch: history captured just after the cutoff, far more than
+        # the gap before the snapshot, still proves completeness (design (b)).
+        'long-launch-history-allowed': SNAPSHOT_MS - (cutoff + 1_000) > gap and vector(
+            {}, (), readiness=rd(observed=cutoff + 1_000, discovery={'last_success_ms': cutoff + 500},
+                                 monitoring={'evaluated_ms': cutoff + 500},
+                                 queue={'pending': 1, 'oldest_work_age_ms': gap})),
+        # Old publications neither prove nor disprove progress: a day-old tick
+        # with no history blocks; with a healthy idle holder it does not.
+        'old-publication-not-liveness': vector({'published': {'target_newest_ms': SNAPSHOT_MS - 86_400_000,
+                                                              'source_newest_ms': SNAPSHOT_MS - 86_400_000}},
+                                               ('history-missing',), readiness=None)
+            and vector({'published': {'target_newest_ms': SNAPSHOT_MS - 86_400_000,
+                                      'source_newest_ms': SNAPSHOT_MS - 172_800_000}}, ()),
+        'future-clock-incomplete': incomplete(clock_results(target_newest_ms=SNAPSHOT_MS + 86_400_000), unknown=True)
+            and incomplete(clock_results(source_newest_ms=SNAPSHOT_MS + 5_001), unknown=True)
+            and incomplete(readiness=rd(observed=SNAPSHOT_MS + 5_001), unknown=True)
+            and incomplete(readiness=rd(discovery={'last_success_ms': SNAPSHOT_MS + 60_000}), unknown=True)
+            # Never reference + 2 x tolerance through the observation (review [1455] R2).
+            and incomplete(readiness=rd(observed=SNAPSHOT_MS + 4_000,
+                                        discovery={'last_success_ms': SNAPSHOT_MS + 5_001}), unknown=True),
+    }
+    assert set(outcomes) | set(LIVE_CONTROLS) == set(CONTROLS)
+    return outcomes
+
+
+def finish(r, job):
+    r['controls'].update(controls(job))
+    r['verdict'] = expected_verdict(r)
+    return r
+
+
+def export(projection, produced, job, source_commit):
+    r = finish(receipt(projection, produced, job, source_commit), job)
+    if len(encoded(r)) > LIMIT:
+        # Counts are fixed-size, so this cannot happen for a valid projection;
+        # never a truncated completion.
+        fail('VERIFY_LIMIT')
+    return validate_receipt(r, job)
+
+
+def main():
+    if sys.argv[1:] != ['verify']:
+        fail('VERIFY_ACTION')
+    from contracts import validate_job
+    from receipt import decode_json
+    recipe = decode_json(Path('/opt/polis-private-image/recipe.json').read_bytes())
+    job = validate_job(decode_json(Path('/job/job.json').read_bytes()))
+    if job.get('kind') != KIND:
+        fail('VERIFY_KIND')
+    projection = decode(Path('/input/projection.json').read_bytes())
+    produced = decode(Path('/evidence/evidence.json').read_bytes())
+    Path('/verdict/receipt.json').write_bytes(encoded(export(projection, produced, job, recipe['sourceCommit'])))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        raise SystemExit('VERIFY_VERIFIER_FAILED') from None

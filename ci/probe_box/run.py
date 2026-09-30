@@ -36,6 +36,10 @@ WATCH_POLL_SECONDS = 30
 # Consecutive transient failures a watch absorbs in total (the first plus two
 # further observations), whatever operation or category each one hits.
 WATCH_TRANSIENT_ATTEMPTS = 3
+# After a RunInstances call that returned, the client-token describe can lag the
+# launch by a few seconds (EC2 reads are eventually consistent). launch_once alone
+# reads again after these pauses (30 s in total); RunInstances is never reissued.
+LAUNCH_REOBSERVE_SECONDS = (1, 2, 4, 8, 15)
 VOLUME_ID = re.compile(r'vol-[0-9a-z]{1,32}')
 INSTANCE_ID = re.compile(r'i-[0-9a-z]{1,32}')
 INSTANCE_STATES = ('pending', 'running', 'stopping', 'stopped', 'shutting-down', 'terminated')
@@ -289,6 +293,8 @@ class Control:
         self.expiry = dt.datetime.fromisoformat(self.a["expiresAt"].replace("Z", "+00:00")).timestamp()
         self.token = self.c["ADMISSION_SHA256"]
         self.prefix = f'control/{self.a["id"]}/'
+        # Set only inside launch_once, from the RunInstances response.
+        self.launched = None
 
     def read(self, key: object):
         try:
@@ -379,7 +385,7 @@ class Control:
         reported as a terminated instance with no disks."""
         instances = self.instances()
         if instances:
-            return instances[0]
+            return self.launched_here(instances[0])
         prior = self.read(self.prefix + "instance.json")
         if not prior:
             return None
@@ -398,8 +404,16 @@ class Control:
         if found:
             if len(found) != 1 or not self.own(found[0]):
                 raise Unknown("INSTANCE_OWNERSHIP_UNKNOWN", "INSTANCE_DESCRIBE_BY_ID")
-            return found[0]
-        return {"InstanceId": prior["id"], "State": {"Name": "terminated"}, "BlockDeviceMappings": [], "gone": True}
+            return self.launched_here(found[0])
+        return self.launched_here({"InstanceId": prior["id"], "State": {"Name": "terminated"},
+                                   "BlockDeviceMappings": [], "gone": True})
+
+    def launched_here(self, instance):
+        """Inside launch_once, the owned instance must also be the one this
+        RunInstances call returned. Elsewhere there is no response to compare."""
+        if self.launched is not None and instance.get("InstanceId") != self.launched:
+            raise Unknown("INSTANCE_OWNERSHIP_UNKNOWN", "INSTANCE_DESCRIBE")
+        return instance
 
     def inventory(self, iid):
         """The recorded disposal inventory P, validated against the bound run and
@@ -458,10 +472,36 @@ class Control:
             raise Unknown("ADMISSION_EXPIRED")
         self.record(self.prefix + "claim.json", {"admissionSha256": self.token, "started": self.a["started"]})
         # Body contains only fixed template and token. Caller cannot supply overrides.
-        self.ec2.run_instances(LaunchTemplate={"LaunchTemplateId": self.c["TEMPLATE"], "Version": self.c["TEMPLATE_VERSION"]},
+        response = self.ec2.run_instances(LaunchTemplate={"LaunchTemplateId": self.c["TEMPLATE"], "Version": self.c["TEMPLATE_VERSION"]},
                                MinCount=1, MaxCount=1, ClientToken=self.token,
                                TagSpecifications=[{"ResourceType": kind,"Tags":[{"Key":"polis:probe-box","Value":self.c["BOX_ID"]},{"Key":"polis:probe-run","Value":self.a["id"]}]} for kind in ("instance","volume")])
-        return self.reconcile()
+        # RunInstances returned, so the launch happened. An empty client-token
+        # describe now is EC2 read lag, not a lost launch: read again (never
+        # launch again) on the bounded schedule. Every other outcome, including
+        # a claim-absent LAUNCH_ACK_UNKNOWN, is final at once.
+        self.launched = self.response_instance(response)
+        try:
+            for pause in LAUNCH_REOBSERVE_SECONDS + (None,):
+                try:
+                    return self.reconcile()
+                except Unknown as error:
+                    if (pause is None or error.reason != "LAUNCH_ACK_UNKNOWN"
+                            or error.operation != "INSTANCE_DESCRIBE"):
+                        raise
+                time.sleep(pause)
+                self.now = self.clock()
+        finally:
+            self.launched = None
+
+    @staticmethod
+    def response_instance(response):
+        """The one instance ID a RunInstances response names, or None when it
+        names no single well-formed ID (then only the describe is compared)."""
+        found = response.get("Instances") if isinstance(response, dict) else None
+        if not isinstance(found, list) or len(found) != 1 or not isinstance(found[0], dict):
+            return None
+        iid = found[0].get("InstanceId")
+        return iid if type(iid) is str and INSTANCE_ID.fullmatch(iid) else None
 
     def heartbeat_missing(self, instance: object, claim: object):
         if self.c['MODE'] == 'provision':
@@ -589,10 +629,10 @@ class Control:
         if not claim:
             # An INTENT may precede claim creation or the actual launch call.
             # No observation can prove that its actor will never resume.
-            raise Unknown("LAUNCH_ACK_UNKNOWN")
+            raise Unknown("LAUNCH_ACK_UNKNOWN", "CONTROL_GET")
         i = self.observe()
         if i is None:
-            raise Unknown("LAUNCH_ACK_UNKNOWN")
+            raise Unknown("LAUNCH_ACK_UNKNOWN", "INSTANCE_DESCRIBE")
         iid, state = i["InstanceId"], i["State"]["Name"]
         # Every mapping and the recorded inventory P are validated before any
         # mutation in this observation. V is compared with P as a set.

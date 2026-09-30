@@ -80,6 +80,9 @@ from polismath.utils.vote_convention import (
 #: :data:`ADMISSIBLE_MANIFEST_SCHEMA_VERSIONS`.
 MANIFEST_SCHEMA_VERSION = "certify-fixture-manifest/3"
 SAMPLED_MANIFEST_SCHEMA_VERSION = "certify-fixture-manifest/4"
+#: A light-shadow triage capture (box-only, like /4): only the recomputed
+#: triage roles, no coverage roles and no representative sample.
+TRIAGE_MANIFEST_SCHEMA_VERSION = "certify-fixture-manifest/5"
 #: The PREVIOUS closed manifest schema. It stays verifiable and admissible
 #: BYTE-FOR-BYTE (review #2730 F-compat): a /2 manifest carries no
 #: ``transform`` key at all and its polarity block already spells out the -1 it
@@ -88,7 +91,8 @@ SAMPLED_MANIFEST_SCHEMA_VERSION = "certify-fixture-manifest/4"
 #: bundles are always written at /3; nothing re-issues an existing bundle.
 LEGACY_MANIFEST_SCHEMA_VERSION = "certify-fixture-manifest/2"
 ADMISSIBLE_MANIFEST_SCHEMA_VERSIONS = (
-    LEGACY_MANIFEST_SCHEMA_VERSION, MANIFEST_SCHEMA_VERSION, SAMPLED_MANIFEST_SCHEMA_VERSION)
+    LEGACY_MANIFEST_SCHEMA_VERSION, MANIFEST_SCHEMA_VERSION, SAMPLED_MANIFEST_SCHEMA_VERSION,
+    TRIAGE_MANIFEST_SCHEMA_VERSION)
 PROVENANCE_SCHEMA_VERSION = "certify-fixture-provenance/1"
 PINS_SCHEMA_VERSION = "certify-fixture-pins/1"
 #: Bumped to /2 by the r2 admission correction: the policy fields carry CLOSED
@@ -273,6 +277,7 @@ def build_manifest(
     storage_agree_value: int = STORAGE_AGREE_VALUE,
     transform: dict[str, Any] | None = None,
     representative_report: dict[str, Any] | None = None,
+    triage_report: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The PRIVATE manifest. It records everything P-022 A lists EXCEPT the
     role -> zid mapping, which lives in the separate restricted provenance
@@ -289,6 +294,9 @@ def build_manifest(
     validate_storage_agree_value(storage_agree_value)
     from polismath.replay import fixture_samples
     representative = fixture_samples.block(config, representative_report)
+    triage = fixture_samples.triage_block(triage_report)
+    if triage is not None and representative is not None:
+        raise BundleError("TRIAGE_WITH_REPRESENTATIVE")
     # P-052 §4.5. Derived from the role summaries rather than passed in, so no
     # caller has to remember it and no caller can misdeclare it. When no role
     # captured the served rows the manifest is byte-for-byte what it was before
@@ -302,8 +310,10 @@ def build_manifest(
             raise BundleError("; ".join(bad))
     files = scan_files(payload_root)
     return {
-        "schema_version": SAMPLED_MANIFEST_SCHEMA_VERSION if representative else MANIFEST_SCHEMA_VERSION,
+        "schema_version": (TRIAGE_MANIFEST_SCHEMA_VERSION if triage else
+                           SAMPLED_MANIFEST_SCHEMA_VERSION if representative else MANIFEST_SCHEMA_VERSION),
         **({"representative": representative} if representative else {}),
+        **({"triage": triage} if triage else {}),
         "bundle_id": bundle_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "owner": owner,
@@ -627,6 +637,8 @@ def build_derived_manifest(
         raise BundleError(
             "cannot derive from a bundle that is itself derived: the pair is "
             "two sides, not a chain")
+    if "triage" in source_manifest:
+        raise BundleError("TRIAGE_PAYLOADS_BOX_ONLY")
     source_sign = validate_storage_agree_value(
         source_manifest["polarity"]["storage_agree_value"],
         field="source polarity.storage_agree_value")
@@ -998,7 +1010,8 @@ def push(
        conflicting upload leaves an INCOMPLETE, unadmitted prefix rather than a
        mixed bundle that looks published.
     """
-    if manifest.get("schema_version") == SAMPLED_MANIFEST_SCHEMA_VERSION or "representative" in manifest:
+    if (manifest.get("schema_version") in (SAMPLED_MANIFEST_SCHEMA_VERSION, TRIAGE_MANIFEST_SCHEMA_VERSION)
+            or "representative" in manifest or "triage" in manifest):
         raise BundleError("SAMPLED_PAYLOADS_BOX_ONLY")
     if manifest["bundle_id"] != bundle_id or provenance["bundle_id"] != bundle_id:
         raise BundleError("bundle_id mismatch between arguments and manifest/provenance")
@@ -1189,6 +1202,7 @@ MANIFEST_TOP_LEVEL_KEYS_BY_VERSION: dict[str, frozenset[str]] = {
     LEGACY_MANIFEST_SCHEMA_VERSION: MANIFEST_TOP_LEVEL_KEYS - MANIFEST_KEYS_ADDED_IN_V3,
     MANIFEST_SCHEMA_VERSION: MANIFEST_TOP_LEVEL_KEYS,
     SAMPLED_MANIFEST_SCHEMA_VERSION: MANIFEST_TOP_LEVEL_KEYS | {"representative"},
+    TRIAGE_MANIFEST_SCHEMA_VERSION: MANIFEST_TOP_LEVEL_KEYS | {"triage"},
 }
 
 #: Ordering guarantee -> the ONE tie-order policy token that guarantee permits.
@@ -1374,7 +1388,7 @@ def admit_manifest(
     """
     _admit_manifest_structure(manifest, config=config, config_bytes=config_bytes,
                               config_path=config_path, payload_root=payload_root)
-    if "representative" in manifest and payload_root is None:
+    if ("representative" in manifest or "triage" in manifest) and payload_root is None:
         raise AdmissionError("representative payload admission requires payload_root")
     if any("served_math" in row for row in manifest["roles"]):
         if payload_root is None:
@@ -1682,8 +1696,11 @@ def _admit_manifest_structure(
         slug = entry.get("slug")
         P(slug not in by_slug, f"role slug {slug!r} appears twice")
         by_slug[str(slug)] = entry
-    config_roles = {r["slug"]: r for r in config["roles"]}
     from polismath.replay import fixture_samples
+    # A triage capture replays only its recomputed triage roles; the coverage
+    # roles are not part of it (fixture_samples.triage_rules binds that mode).
+    config_roles = ({} if fixture_samples.is_triage(manifest)
+                    else {r["slug"]: r for r in config["roles"]})
     try:
         config_roles.update(fixture_samples.admitted_rules(manifest, config, payload_root))
     except (ValueError, KeyError, TypeError, OSError) as exc:
@@ -2102,7 +2119,8 @@ def pull(
     if sha256_bytes(manifest_bytes) != pins["manifest_sha256"]:
         raise VerificationError("manifest hash does not match the pinned value")
     manifest = json.loads(manifest_bytes)
-    if manifest.get("schema_version") == SAMPLED_MANIFEST_SCHEMA_VERSION or "representative" in manifest:
+    if (manifest.get("schema_version") in (SAMPLED_MANIFEST_SCHEMA_VERSION, TRIAGE_MANIFEST_SCHEMA_VERSION)
+            or "representative" in manifest or "triage" in manifest):
         raise BundleError("SAMPLED_PAYLOADS_BOX_ONLY")
     if manifest["root_digest"] != pins["root_digest"]:
         raise VerificationError("manifest root digest does not match the pinned value")
@@ -2178,7 +2196,8 @@ def public_pin(manifest: dict[str, Any]) -> dict[str, Any]:
     hashes, role names and coverage obligations. NO zid, report id, participant
     id, timeline, vote row, blob or error dump — and no measured metric, which
     could fingerprint a conversation."""
-    if manifest.get("schema_version") == SAMPLED_MANIFEST_SCHEMA_VERSION or "representative" in manifest:
+    if (manifest.get("schema_version") in (SAMPLED_MANIFEST_SCHEMA_VERSION, TRIAGE_MANIFEST_SCHEMA_VERSION)
+            or "representative" in manifest or "triage" in manifest):
         raise BundleError("SAMPLED_PAYLOADS_BOX_ONLY")
     return {
         "bundle_id": manifest["bundle_id"],

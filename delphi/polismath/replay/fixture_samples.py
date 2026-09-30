@@ -12,6 +12,13 @@ from polismath.replay import fixture_config, fixture_selection as selection
 
 MANIFEST_VERSION = "certify-fixture-manifest/4"
 BLOCK_VERSION = "certify-representative-payloads/1"
+# Light-shadow triage mode: the paired battery replays only the conversations
+# its own box recomputes as flagged. The counts-only report is the probe
+# image's (ci/probe_box/light_shadow.py validate_triage_report); this module
+# checks only what payload admission relies on.
+TRIAGE_MANIFEST_VERSION = "certify-fixture-manifest/5"
+TRIAGE_BLOCK_VERSION = "certify-light-shadow-triage-payloads/1"
+TRIAGE_REPORT_VERSION = "polis-light-shadow-triage-report/1"
 PLAN_VERSION = "polis-private-paired-plan/2"
 SCHEDULE_ID = "representative-uniform6-clojure-legacy"
 MAX_PAYLOAD_BYTES = 180 * 1024**3
@@ -38,6 +45,39 @@ def rule(ordinal):
     name = slug(ordinal)
     return dict(slug=name, role=name, group="representative", rank=None,
                 predicates=[], on_missing="fail")
+
+
+def triage_slug(ordinal):
+    if type(ordinal) is not int or not 1 <= ordinal <= selection.TARGET:
+        raise selection.SelectionError("TRIAGE_ORDINAL")
+    return f"triage-{ordinal:03d}"
+
+
+def triage_rule(ordinal):
+    name = triage_slug(ordinal)
+    return dict(slug=name, role=name, group="triage", rank=None, predicates=[], on_missing="fail")
+
+
+def triage_block(report):
+    """The manifest block of a triage capture; None without a report."""
+    if report is None:
+        return None
+    _triage_report(report)
+    return {"schema": TRIAGE_BLOCK_VERSION, "report": report}
+
+
+def _triage_report(report):
+    if type(report) is not dict or report.get("schema") != TRIAGE_REPORT_VERSION:
+        raise selection.SelectionError("TRIAGE_REPORT")
+    chosen, selected = report.get("chosen_entry_sizes"), report.get("selected")
+    if (type(selected) is not int or not 1 <= selected <= selection.TARGET
+            or type(chosen) is not list or len(chosen) != selected):
+        raise selection.SelectionError("TRIAGE_REPORT")
+    for row in chosen:
+        if type(row) is not dict or set(row) != set(selection.SIZE_FIELDS) or not all(
+                type(row[k]) is int and row[k] >= 0 for k in selection.SIZE_FIELDS):
+            raise selection.SelectionError("TRIAGE_REPORT")
+    return report
 
 
 def block(config, report):
@@ -75,8 +115,59 @@ def payload_sizes(directory):
                 registered_participants=len(ids), all_comments=len(events)-len(votes))
 
 
+def _bind_sizes(manifest, rules, group, payload_root, expected):
+    """Every rule has one distinct production payload whose recounted sizes match the report."""
+    rows = [r for r in manifest["roles"] if r.get("slug") in rules]
+    if (len(rows) != len(rules) or {r["slug"] for r in rows} != set(rules)
+            or len({r.get("dir") for r in rows}) != len(rows)):
+        raise selection.SelectionError("SAMPLE_PAYLOAD_CENSUS")
+    sizes = []
+    for row in rows:
+        source = row.get("source")
+        if source == "derived":
+            source = row.get("derived_from", {}).get("source")
+        if source != "production" or row.get("group") != group:
+            raise selection.SelectionError("SAMPLE_SOURCE")
+        metrics = row.get("measured_metrics", {})
+        if not all(type(metrics.get(k)) is int and metrics[k] >= 0 for k in selection.SIZE_FIELDS):
+            raise selection.SelectionError("SAMPLE_METRICS")
+        selected_sizes = {k: metrics[k] for k in selection.SIZE_FIELDS}
+        if payload_root is not None:
+            from polismath.replay.fixture_bundle import safe_join
+            if payload_sizes(safe_join(Path(payload_root), row["dir"])) != selected_sizes:
+                raise selection.SelectionError("SAMPLE_PAYLOAD_SIZE_BINDING")
+        sizes.append(tuple(selected_sizes[k] for k in selection.SIZE_FIELDS))
+    if Counter(sizes) != Counter(tuple(r[k] for k in selection.SIZE_FIELDS) for r in expected):
+        raise selection.SelectionError("SAMPLE_SIZE_REPORT_BINDING")
+
+
+def triage_rules(manifest, config, payload_root=None):
+    """Triage capture: no representative sample and no coverage roles; each
+    `triage-NNN` role is one distinct production payload bound to the report."""
+    declared = manifest.get("triage")
+    if (fixture_config.representative_seed(config) is not None or "representative" in manifest
+            or manifest.get("schema_version") != TRIAGE_MANIFEST_VERSION or type(declared) is not dict
+            or set(declared) != {"schema", "report"} or declared["schema"] != TRIAGE_BLOCK_VERSION):
+        raise selection.SelectionError("TRIAGE_MANIFEST_SCHEMA")
+    report = _triage_report(declared["report"])
+    payload_census(manifest)
+    rules = {r["slug"]: r for r in (triage_rule(i+1) for i in range(report["selected"]))}
+    reserved = {r["slug"] for r in config["roles"] + config["public_fixtures"]}
+    reserved.update(config["coverage_role_map"])
+    if set(rules) & reserved:
+        raise selection.SelectionError("SAMPLE_ROLE_COLLISION")
+    _bind_sizes(manifest, rules, "triage", payload_root, report["chosen_entry_sizes"])
+    return rules
+
+
+def is_triage(manifest):
+    return manifest.get("schema_version") == TRIAGE_MANIFEST_VERSION or "triage" in manifest
+
+
 def admitted_rules(manifest, config, payload_root=None):
     """Closed census, distinct payloads and exact report-to-source size binding."""
+    if is_triage(manifest):
+        return triage_rules(manifest, config, payload_root)
     declared = manifest.get("representative")
     if fixture_config.representative_seed(config) is None:
         if declared is not None or manifest["schema_version"] == MANIFEST_VERSION:
@@ -93,29 +184,7 @@ def admitted_rules(manifest, config, payload_root=None):
     reserved.update(config["coverage_role_map"])
     if set(rules) & reserved:
         raise selection.SelectionError("SAMPLE_ROLE_COLLISION")
-    rows = [r for r in manifest["roles"] if r.get("slug") in rules]
-    if (len(rows) != len(rules) or {r["slug"] for r in rows} != set(rules)
-            or len({r.get("dir") for r in rows}) != len(rows)):
-        raise selection.SelectionError("SAMPLE_PAYLOAD_CENSUS")
-    sizes = []
-    for row in rows:
-        source = row.get("source")
-        if source == "derived":
-            source = row.get("derived_from", {}).get("source")
-        if source != "production" or row.get("group") != "representative":
-            raise selection.SelectionError("SAMPLE_SOURCE")
-        metrics = row.get("measured_metrics", {})
-        if not all(type(metrics.get(k)) is int and metrics[k] >= 0 for k in selection.SIZE_FIELDS):
-            raise selection.SelectionError("SAMPLE_METRICS")
-        selected_sizes = {k: metrics[k] for k in selection.SIZE_FIELDS}
-        if payload_root is not None:
-            from polismath.replay.fixture_bundle import safe_join
-            if payload_sizes(safe_join(Path(payload_root), row["dir"])) != selected_sizes:
-                raise selection.SelectionError("SAMPLE_PAYLOAD_SIZE_BINDING")
-        sizes.append(tuple(selected_sizes[k] for k in selection.SIZE_FIELDS))
-    expected = [tuple(r[k] for k in selection.SIZE_FIELDS) for r in report["chosen_entry_sizes"]]
-    if Counter(sizes) != Counter(expected):
-        raise selection.SelectionError("SAMPLE_SIZE_REPORT_BINDING")
+    _bind_sizes(manifest, rules, "representative", payload_root, report["chosen_entry_sizes"])
     return rules
 
 

@@ -21,7 +21,7 @@ if len(raw) != ca['bytes'] or hashlib.sha256(raw).hexdigest() != ca['sha256']:
 PYCA
 install -d -m 0755 /opt/polis-probe
 install -m 0444 "$PROBE_RDS_CA" /opt/polis-probe/rds-ca.pem
-for file in boot_report.py worker.py contracts.py receipt.py roles_census.py roles_queries.py light_shadow.py light_shadow_queries.py replica.py dns.py provision.py provision_login.py; do install -m 0444 "$(dirname "$0")/$file" "/opt/polis-probe/$file"; done
+for file in boot_report.py worker.py contracts.py receipt.py roles_census.py roles_queries.py light_shadow.py light_shadow_queries.py backfill_verify.py backfill_verify_queries.py replica.py dns.py provision.py provision_login.py; do install -m 0444 "$(dirname "$0")/$file" "/opt/polis-probe/$file"; done
 # Resolver ownership (offline bake).
 # AL2023 links resolv.conf to resolved's DHCP-managed uplink file. Writing
 # through that link lasts only until renewal. Stop its writer before unlinking;
@@ -215,12 +215,26 @@ mkdir -m 0700 /probe-work/tmp /probe-work/docker-client
 export TMPDIR=/probe-work/tmp DOCKER_CONFIG=/probe-work/docker-client
 BOOT_PHASE=container-daemon
 boot_console entry
-systemctl start polis-probe-container.service
-for attempt in $(seq 1 30); do
-  docker --host unix:///probe-work/docker.sock info >/dev/null 2>&1 && break
-  sleep 2
-done
-docker --host unix:///probe-work/docker.sock info >/dev/null 2>&1
+container_daemon_up() {
+  systemctl start polis-probe-container.service || return 1
+  for attempt in $(seq 1 30); do
+    docker --host unix:///probe-work/docker.sock info >/dev/null 2>&1 && return 0
+    sleep 2
+  done
+  return 1
+}
+# Retry a failed daemon start or readiness wait once, from clean runtime state,
+# before failing the phase. The console and boot report keep their closed
+# vocabulary; the retry is recorded only on the private disk.
+if ! container_daemon_up; then
+  { printf 'container-daemon retried\n' >> /probe-work/boot.log; } 2>/dev/null || true
+  systemctl kill --signal=SIGKILL polis-probe-container.service || true
+  systemctl stop polis-probe-container.service || true
+  rm -rf /probe-work/container-run /probe-work/docker.pid
+  systemctl reset-failed polis-probe-container.service || true
+  sleep 5
+  container_daemon_up
+fi
 BOOT_PHASE=worker
 boot_console entry
 /opt/polis-probe/venv/bin/python /opt/polis-probe/worker.py

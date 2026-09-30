@@ -18,7 +18,8 @@ from light_shadow_compare import (cardinality_variant, classify, classify_projec
 from light_shadow import (ACCEPTANCE, CERTIFICATION_POLICY, CONTROLS, COVERED, EMPTY_DEFECT, EVIDENCE, EXCLUDED_FIELDS,
                           KIND, LIMIT, LIVE_CONTROLS, POLICY_SHA, PROD, PROJECTION_SCHEMA, UNCOVERED_TABLES,
                           decode, encoded, expected_verdict, fail, python_shape, tally, validate_entry,
-                          triage_digest, validate_projection, validate_receipt, worst)
+                          TRIAGE_SELECTED, triage_digest, triage_member, validate_projection,
+                          validate_receipt, worst)
 from receipt import sha
 
 
@@ -59,9 +60,8 @@ def receipt(projection, produced, job, source_commit, declared=None):
     listed = entries(projection, expected, spec)
     catalog = projection['catalog']
     # The triage set stays on the box; the receipt binds it by digest.
-    flagged = [[row['zid'], *(c['shadow'].get(k) for k in ('lastVoteTimestamp', 'lastModTimestamp'))]
-               for c, row in zip(projection['conversations'], expected)
-               if row['outcome'] in ('NEAR-TIE-CANDIDATE', 'HISTORY-DIVERGENCE')]
+    flagged = [triage_member(row['zid'], c['shadow'])
+               for c, row in zip(projection['conversations'], expected) if row['outcome'] in TRIAGE_SELECTED]
     r = {'schema': 'polis-probe-receipt/3', 'kind': KIND, 'run_id': job['run_id'], 'job_sha256': sha(job),
          'verdict': 'INCOMPLETE', 'acceptance': ACCEPTANCE,
          'bindings': dict(source_commit=source_commit, query_policy=POLICY_SHA,

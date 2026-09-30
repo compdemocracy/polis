@@ -88,8 +88,9 @@ class TestLoadOrInit:
         assert conv.raw_rating_mat.size > 0
 
     def test_warm_restore_then_full_rebuild(self):
-        # Produce a real math_main blob from a computed conversation.
-        seed = Conversation("42")
+        # Produce a real math_main blob from a computed conversation (int zid,
+        # as the poller writes it: a body naming another zid is not restored).
+        seed = Conversation(42)
         seed = seed.update_votes(
             {"votes": _build_votes(), "lastVoteTimestamp": 9999}, recompute=True
         )
@@ -245,3 +246,44 @@ class TestLastVoteTimestampSeed:
         conv = svc._load_or_init(42)
 
         assert conv.last_updated == 0
+
+
+class TestRestoreValidation:
+    """P-070 review [1447] E: the live restore uses warm state only from a
+    row that passes the shared validity rule and names its own zid."""
+
+    def _svc(self, row, monkeypatch):
+        pg = MagicMock()
+        pg.load_math_main.return_value = row
+        pg.poll_votes.return_value = _build_votes()
+        pg.poll_moderation.return_value = _empty_mods()
+        restored = []
+        orig = Conversation.from_dict
+
+        def spy(data):
+            restored.append(data.get("zid"))
+            return orig(data)
+
+        monkeypatch.setattr(Conversation, "from_dict", staticmethod(spy))
+        return MathPollerService(pg, PollerConfig()), restored
+
+    def _blob(self, zid=42):
+        seed = Conversation(zid)
+        return seed.update_votes({"votes": _build_votes(), "lastVoteTimestamp": 9999},
+                                 recompute=True).to_dict()
+
+    def test_valid_row_is_restored(self, monkeypatch):
+        svc, restored = self._svc({"data": self._blob(), "bundle_valid": True}, monkeypatch)
+        conv = svc._load_or_init(42)
+        assert restored == [42] and conv.conversation_id == 42
+
+    def test_row_failing_the_shared_rule_rebuilds_cold(self, monkeypatch):
+        svc, restored = self._svc({"data": self._blob(), "bundle_valid": False}, monkeypatch)
+        conv = svc._load_or_init(42)
+        assert restored == [] and conv.raw_rating_mat.size > 0
+
+    def test_body_naming_another_zid_rebuilds_cold_and_never_republishes_it(self, monkeypatch):
+        svc, restored = self._svc({"data": self._blob(zid=43)}, monkeypatch)
+        conv = svc._load_or_init(42)
+        assert restored == [] and conv.conversation_id == 42
+        assert conv.to_dict()["zid"] == 42

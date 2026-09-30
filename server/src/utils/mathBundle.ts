@@ -463,9 +463,16 @@ export function bidsForPids(
   const b2p = bundle.bidToPid.bidToPid || [];
   const indexToBid = bundle.main["base-clusters"]?.id || [];
   const result: Record<number, number | undefined> = {};
+  // A malformed mapping entry (not an array) is refused, not dereferenced:
+  // it places no pid (P-070 review [1447] B). Logged once per call.
+  let malformed = 0;
   for (const pid of pids) {
     let bidi = -1;
     for (let i = 0; i < b2p.length; i++) {
+      if (!Array.isArray(b2p[i])) {
+        malformed++;
+        continue;
+      }
       if (b2p[i].indexOf(pid) !== -1) {
         bidi = i;
         break;
@@ -477,6 +484,9 @@ export function bidsForPids(
       bid = -1;
     }
     result[pid] = bid;
+  }
+  if (malformed > 0) {
+    logger.error("polis_err_math_malformed_bidtopid", { malformed });
   }
   return result;
 }
