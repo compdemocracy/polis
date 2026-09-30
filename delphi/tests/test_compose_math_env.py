@@ -120,8 +120,8 @@ def test_delphi_and_math_agree_on_math_env(compose_file, default, env):
 
 @requires_checkout
 def test_delphi_does_not_follow_the_shadow_poller_env():
-    # docker-compose.yml deliberately gives math-python a DISTINCT env so its
-    # shadow rows stay invisible; reports must follow the server's MATH_ENV.
+    # docker-compose.yml gives math-python its own label variable; reports must
+    # follow the server's MATH_ENV, not the writer's label.
     env = {"MATH_ENV": PROBE}
     assert _environment("docker-compose.yml", "delphi", env)["MATH_ENV"] == PROBE
     assert _environment("docker-compose.yml", "math-python", env)["MATH_ENV"] == "python"
@@ -174,13 +174,14 @@ def test_library_default_is_prod(monkeypatch):
     assert ConfigManager.get_config().get("math-env") == "prod"
 
 
-# --- Production shadow wiring (scripts/after_install.sh, Delphi role) --------
+# --- Production wiring (scripts/after_install.sh) ----------------------------
 #
 # Production boxes do not pass --profile: each CodeDeploy role starts its
 # services BY NAME, and Compose enables the profiles of services named on the
-# command line. The shadow poller therefore runs exactly where the Delphi
-# role's `up` line names it. CI copies the script into the checkout-shaped
-# root ($POLIS_CHECKOUT_DIR) beside the projection-gate inputs.
+# command line. The Python poller therefore runs exactly where the Delphi
+# role's `up` line names it, and since the switch to Python no role names the
+# Clojure `math` service. CI copies the script into the checkout-shaped root
+# ($POLIS_CHECKOUT_DIR) beside the projection-gate inputs.
 
 AFTER_INSTALL = Path("scripts") / "after_install.sh"
 # The env lines the deploy hook's comment tells operators to put in the
@@ -298,3 +299,67 @@ def test_math_python_memory_limit_reads_delphi_poller_container_memory():
     assert _interpolate(raw, {"DELPHI_POLLER_CONTAINER_MEMORY": "6g"}) == "6g"
     # Delphi's own cap is a different variable; setting it must not move the poller's.
     assert _interpolate(raw, {"DELPHI_CONTAINER_MEMORY": "8g"}) == "16g"
+
+
+# --- The switch to Python (readers on `python`, Clojure out of the deploy) ---
+#
+# Production sets MATH_ENV=python in the env secret: the server (env_file) and
+# Delphi (interpolation) read the label math-python writes. The Clojure `math`
+# service writes under ${MATH_ENV} too, so it must not be started while that
+# holds; the math role therefore starts nothing. Rollback = MATH_ENV=prod in the
+# secret, restore the math role's `up -d math` line, redeploy.
+
+POST_SWITCH_SECRET = {"MATH_ENV": "python", "MATH_PYTHON_ENV": "python"}
+
+
+@requires_after_install
+def test_math_role_starts_nothing():
+    roles = _role_up_lines()
+    assert "math" in roles, "the math role branch must stay (its boxes still run the hook)"
+    assert roles["math"] == [], "the math role must not run any compose up line"
+
+
+@requires_after_install
+def test_no_role_starts_the_clojure_math_service():
+    roles = _role_up_lines()
+    starting = {role for role, lines in roles.items() if any("math" in _services_named(l) for l in lines)}
+    assert starting == set(), f"roles still starting the Clojure math service: {sorted(starting)}"
+
+
+@requires_after_install
+def test_hook_documents_the_readers_label_and_the_rollback_order():
+    # Comment lines joined, so the checks do not depend on where lines wrap.
+    text = re.sub(r"\s*\n\s*#\s*", " ", AFTER_INSTALL_PATH.read_text())
+    assert "MATH_ENV=python" in text
+    # Forward: the hook reaches stable before the secret moves, so a box booting
+    # in between never starts Clojure under MATH_ENV=python.
+    assert "merge to stable, then MATH_ENV=python in the secret, then the box deploy" in text
+    # Rollback must change the secret before Clojure is restored, or Clojure
+    # would start writing under `python` beside the Python poller.
+    assert "set MATH_ENV=prod in the secret FIRST" in text
+
+
+@requires_checkout
+def test_after_the_switch_readers_serve_what_math_python_writes():
+    delphi = _environment("docker-compose.yml", "delphi", POST_SWITCH_SECRET)
+    writer = _environment("docker-compose.yml", "math-python", POST_SWITCH_SECRET)
+    assert delphi["MATH_ENV"] == writer["MATH_ENV"] == "python"
+
+
+@requires_checkout
+def test_math_python_label_does_not_follow_the_readers_label():
+    # The writer's label comes only from MATH_PYTHON_ENV, so moving the readers
+    # (the switch, or a rollback to MATH_ENV=prod) never moves the writer.
+    raw = yaml.safe_dump(yaml.safe_load((CHECKOUT / "docker-compose.yml").read_text())["services"]["math-python"])
+    assert "${MATH_ENV" not in raw
+    rollback = {"MATH_ENV": "prod", "MATH_PYTHON_ENV": "python"}
+    assert _environment("docker-compose.yml", "math-python", rollback)["MATH_ENV"] == "python"
+    assert _environment("docker-compose.yml", "delphi", rollback)["MATH_ENV"] == "prod"
+
+
+@requires_checkout
+def test_math_python_has_no_env_file():
+    # With an env_file, the secret's MATH_ENV=python would reach the poller's
+    # process directly; the label must come only from the environment block.
+    block = yaml.safe_load((CHECKOUT / "docker-compose.yml").read_text())["services"]["math-python"]
+    assert "env_file" not in block

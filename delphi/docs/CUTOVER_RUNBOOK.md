@@ -178,6 +178,42 @@ One env change, instantly reversible:
 Rollback = revert the env var + restart clojure math. Rows for both envs
 coexist; nothing is destroyed by the flip in either direction.
 
+### Step 2 as built (PR-S2, 2026-09)
+
+Mechanism chosen: the READERS move. One shared `MATH_ENV` in the production env
+secret sets the label the server and Delphi read; at the switch it becomes
+`python`, the label `math-python` has been writing since the shadow started
+(`MATH_PYTHON_ENV=python`, unchanged). In the same deploy the math role in
+`scripts/after_install.sh` stops starting the Clojure `math` service, so the
+math box runs nothing until step 3 deletes the tier. The poller's startup guard
+still refuses to write `prod` (Clojure's label); the override
+`MATH_POLLER_ALLOW_SERVED_ENV` stays unset. The single-writer lock key stays
+`polis-math-python:python`.
+
+Before the switch: every conversation the readers can serve must have a row
+under `python`. The poller only computes conversations with votes since
+`POLL_FROM_DAYS_AGO` days before its start, so older conversations have `prod`
+rows and no `python` rows; the server would present them as empty. The switch
+waits for a backfill of those conversations under `python`.
+
+`/api/v3/math/pca2` compares If-None-Match entity tags with the served
+generation for equality: `math_tick` is per `(zid, math_env)`, so a browser's
+tag from `prod` can be higher than the `python` tick, and a "newer than" rule
+would keep answering 304.
+
+Order of operations: merge to `stable`, then secret `MATH_ENV=python`, then
+the box deploy. A box that boots in between runs the hook from `stable` with
+whatever the secret says; this order means the worst case is a math box that
+starts nothing while the readers still read `prod`, never a Clojure `math`
+started under `MATH_ENV=python` (it would write the label `python` beside the
+Python poller).
+Rollback, in this order: secret `MATH_ENV=prod`; merge the revert of the
+PR-S2 hook change (restores the math role's `up -d math` line); redeploy. On
+start Clojure re-polls the last 10 days of votes and rewrites those
+conversations' `prod` rows in about a minute. If the switch lasted longer than
+10 days, a conversation whose last vote falls between the switch and 10 days
+before the rollback keeps its pre-switch `prod` row until its next vote.
+
 ## Step 3 — decommission (later)
 
 Remove the `math` service from compose/deploy (and its `up -d math`

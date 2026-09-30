@@ -1,8 +1,11 @@
-"""Startup guard: the shadow poller must not write under the served math_env.
+"""Startup guard: the poller must not write under the Clojure engine's label.
 
 ``scripts/math_poller.py`` refuses to start (exit 2, before any database work)
 when MATH_ENV is empty/whitespace, or is ``prod`` without
-MATH_POLLER_ALLOW_SERVED_ENV=1.
+MATH_POLLER_ALLOW_SERVED_ENV=1. Since the switch the readers serve ``python``,
+the poller's own label; the guard is about the label the poller WRITES, so it
+admits ``python`` and still refuses ``prod`` (Clojure's label, served again
+after a rollback).
 """
 
 import pytest
@@ -39,7 +42,7 @@ def test_refuses_the_served_env(monkeypatch, capsys, built, math_env):
     assert _run(monkeypatch, math_env) == 2
     assert built == []
     err = capsys.readouterr().err
-    assert "refusing to start: MATH_ENV=prod is the served namespace" in err
+    assert "refusing to start: MATH_ENV=prod is the Clojure engine's label" in err
     assert "MATH_POLLER_ALLOW_SERVED_ENV=1" in err
 
 
@@ -83,3 +86,33 @@ def test_only_the_exact_override_value_admits_prod(monkeypatch, built, override)
     assert _run(monkeypatch, "prod") == 2
     assert built == []
 
+
+
+def test_admits_python_the_label_served_after_the_switch(monkeypatch, built):
+    # After the switch the server and Delphi read `python` (MATH_ENV=python in
+    # the env secret). The poller writes that same label, and the guard must
+    # admit it without the override: it refuses only the Clojure label.
+    assert _run(monkeypatch, "python") == 0
+    assert built == ["python"]
+
+
+@pytest.mark.parametrize("readers_label", ["python", "prod"])
+def test_prod_is_refused_whatever_the_readers_serve(monkeypatch, capsys, built, readers_label):
+    # The poller never sees the readers' label (compose maps MATH_PYTHON_ENV to
+    # its MATH_ENV); a stray variable carrying it must not change the verdict.
+    monkeypatch.setenv("MATH_PYTHON_ENV", readers_label)
+    assert _run(monkeypatch, "prod") == 2
+    assert built == []
+    assert "refusing to start: MATH_ENV=prod" in capsys.readouterr().err
+
+
+def test_the_refused_label_is_the_clojure_label():
+    assert math_poller.SERVED_MATH_ENV == "prod"
+
+
+def test_single_writer_lock_key_is_unchanged_by_the_switch():
+    # The admission lock is keyed on the poller's own label, which the switch
+    # does not change: the pre-switch holder and the post-switch holder contend
+    # for the same key, so a deploy never runs two writers of `python`.
+    assert math_poller._lock_key("python") == "polis-math-python:python"
+    assert math_poller._lock_key(" python ") == "polis-math-python:python"

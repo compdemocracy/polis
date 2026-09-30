@@ -103,10 +103,20 @@ if [ "$SERVICE_FROM_FILE" == "server" ]; then
   echo "Starting docker-compose up for 'server', 'nginx-proxy', and 'client-participation-alpha' services"
   sudo /usr/local/bin/docker-compose up -d server nginx-proxy client-participation-alpha --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "math" ]; then
-  echo "Starting docker-compose up for 'math' service"
-  sudo /usr/local/bin/docker-compose up -d math --build --force-recreate
+  # The Clojure `math` service is no longer started: the Python poller
+  # (`math-python`, Delphi role below) writes the served math rows under the
+  # label `python`, and the server and Delphi read that label through the shared
+  # MATH_ENV in the env secret. The `down` and `docker rm -f` above have already
+  # removed every container on this box, so it runs nothing until the math tier
+  # is deleted from CDK.
+  # Do NOT start `math` while the secret says MATH_ENV=python: the service writes
+  # under ${MATH_ENV}, so it would write the label `python` beside the Python
+  # poller. Rollback, in this order: set MATH_ENV=prod in the secret, restore
+  # `sudo /usr/local/bin/docker-compose up -d math --build --force-recreate`
+  # here (revert this change), redeploy.
+  echo "math role: the Clojure math service is retired from the deploy; starting nothing"
 elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
-  echo "Starting docker-compose up for 'delphi' and 'math-python' (shadow) services"
+  echo "Starting docker-compose up for 'delphi' and 'math-python' services"
   # The Ollama GPU stack is optional (topic naming defaults to the Anthropic
   # Batch API). Only fetch OLLAMA_HOST if the secret exists; never fail the
   # deploy when it doesn't. Re-enable Ollama with CDK_ENABLE_OLLAMA=true +
@@ -170,15 +180,19 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
     printf "DELPHI_CONTAINER_CPUS=%s\n" "$DELPHI_CONTAINER_CPUS" | sudo tee -a .env > /dev/null
   fi
 
-  # Python math poller, SHADOW ONLY: `math-python` writes math rows under its
-  # own math_env label beside Clojure's; the server and Delphi keep reading
-  # Clojure's rows. Naming a profile-gated service on the `up` command line
-  # starts it without --profile (Compose v2.40.0 enables named services'
-  # profiles: cmd/compose/compose.go `project.WithServicesEnabled(services...)`).
-  # The production env secret (polis-web-app-env-vars) must carry these four
-  # lines BEFORE this deploys:
+  # Python math poller: `math-python` writes the SERVED math rows under the
+  # label `python`. The server and Delphi read that label because the production
+  # env secret (polis-web-app-env-vars) carries MATH_ENV=python; the Clojure
+  # `math` service is no longer started (math role above). Naming a
+  # profile-gated service on the `up` command line starts it without --profile
+  # (Compose v2.40.0 enables named services' profiles: cmd/compose/compose.go
+  # `project.WithServicesEnabled(services...)`).
+  # The production env secret must carry these lines:
+  #   MATH_ENV=python   (the readers' label: the server via env_file, Delphi via
+  #       compose interpolation. math-python does NOT read it: its label comes
+  #       from MATH_PYTHON_ENV, so the writer and the readers are set apart)
   #   MATH_PYTHON_ENV=python   (compose default is also `python`; pinned in the
-  #       secret so the shadow's write label does not depend on a compose default)
+  #       secret so the write label does not depend on a compose default)
   #   DATABASE_SSL_MODE=require   (compose default is `disable`; the Python
   #       Postgres client rebuilds the URL from its parts and appends this mode,
   #       dropping DATABASE_URL's ?sslmode=require. The secret is shared, so the
@@ -188,8 +202,13 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   #   MATH_CONV_CACHE_CAP=200   (compose default is also 200; pinned because the
   #       certified bundle's cohort size is this cap plus one)
   # POLL_FROM_DAYS_AGO stays at its default of 10. MATH_POLLER_ALLOW_SERVED_ENV
-  # must stay UNSET: it is the override that lets the poller write the served
-  # `prod` label, and the shadow must never write there.
+  # must stay UNSET: it is the override that lets the poller write `prod`, the
+  # Clojure engine's label, which Clojure serves again after a rollback.
+  # Switch order: merge to stable, then MATH_ENV=python in the secret, then the
+  # box deploy (a box booting in between must never start `math` under
+  # MATH_ENV=python). Rollback to Clojure: set MATH_ENV=prod in the secret
+  # FIRST, then restore the math role's `up -d math` line and redeploy.
+  # math-python keeps writing `python` beside it, as it did before the switch.
   # Singleton: every Delphi-role box (both launch templates, any ASG scale-out
   # or replacement) runs this line, so the poller admits itself: at startup it
   # takes a Postgres session-level advisory lock keyed on its math_env label
@@ -202,8 +221,10 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   # publication fence. Delphi's report role on every box is unaffected. An
   # ASG max of 1 for the Delphi small group is a later belt-and-braces CDK
   # change, not needed for correctness.
-  # Durable stop: remove `math-python` from this line and redeploy (the hook
-  # removes every container before starting the named ones).
+  # Stopping math-python now stops the served math: nothing updates the
+  # `python` rows the readers serve. A durable stop is therefore the rollback
+  # above (MATH_ENV=prod in the secret, Clojure's line restored, redeploy), not
+  # removing `math-python` from this line on its own.
   # Removing only the holder's container is a FAILOVER, not a stop: a waiting
   # poller on another Delphi box takes the lock. Fleet-wide emergency stop:
   #   1. Pause anything that runs this hook: no deploy, and suspend Launch on
@@ -218,8 +239,8 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   #      zero rows from `SELECT application_name FROM pg_stat_activity WHERE
   #      application_name LIKE 'math-python:%'`; max(math_tick) under
   #      math_env='python' no longer advances.
-  #   5. Make it durable (remove `math-python` here and redeploy) before
-  #      resuming deploys or ASG launches.
+  #   5. The readers now serve `python` rows that no longer advance: follow
+  #      with the rollback above before resuming deploys or ASG launches.
   sudo /usr/local/bin/docker-compose up -d delphi math-python --build --force-recreate
 else
   echo "Error: Unknown service type: [$SERVICE_FROM_FILE]. Starting all services (default docker-compose up -d)"

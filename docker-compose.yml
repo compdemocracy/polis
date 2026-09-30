@@ -109,6 +109,10 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  # Legacy Clojure math engine. Production no longer starts it (the math role in
+  # scripts/after_install.sh starts nothing; `math-python` writes the served
+  # rows). It writes under ${MATH_ENV}, the same variable the server and Delphi
+  # read, so never start it in production while MATH_ENV=python.
   math:
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/math:latest
     build:
@@ -141,9 +145,10 @@ services:
       - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
       - DELPHI_DEV_OR_PROD=${DELPHI_DEV_OR_PROD:-prod}
       # The report pipeline reads math_main/math_ptptstats scoped by math_env, so
-      # delphi must see the SAME env the `math` service writes under (line 88) —
-      # NOT ${MATH_PYTHON_ENV}, which is deliberately distinct so the shadow
-      # poller's rows stay invisible to the server and to reports.
+      # delphi must read the SAME label the server reads: the shared MATH_ENV
+      # (`python` in production, where math-python writes it; `prod` if rolled
+      # back to the `math` service). NOT ${MATH_PYTHON_ENV}: the writer's label
+      # is set separately so a reader rollback never moves the writer.
       - MATH_ENV=${MATH_ENV:-prod}
       # DynamoDB connection settings for local mode (will be overridden in prod)
       - DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT}
@@ -185,13 +190,14 @@ services:
           cpus: ${DELPHI_CONTAINER_CPUS:-2}
     restart: unless-stopped
 
-  # Python math poller — the eventual replacement for the Clojure `math`
-  # container.  Profile-gated so it only runs when explicitly requested
-  # (`--profile math-python`).  Reuses the delphi build target and overrides the
-  # command to run the poller CLI.  Defaults to SHADOW mode: writes under a
-  # DISTINCT math_env (`python`) so its rows are invisible to the prod server
-  # (UNIQUE(zid, math_env)) — zero production risk while parity is validated.
-  # See delphi/docs/MATH_POLLER_DESIGN.md §4.
+  # Python math poller — the replacement for the Clojure `math` container.
+  # Profile-gated so it only runs when explicitly requested (`--profile
+  # math-python`, or named on the `up` line as the production Delphi role does).
+  # Reuses the delphi build target and overrides the command to run the poller
+  # CLI. Writes under its own label, MATH_PYTHON_ENV (default `python`); the
+  # readers follow MATH_ENV. In production MATH_ENV=python, so these are the
+  # served rows; with any other MATH_ENV they are invisible to the server
+  # (UNIQUE(zid, math_env)). See delphi/docs/CUTOVER_RUNBOOK.md.
   math-python:
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
     build:
@@ -205,9 +211,9 @@ services:
       - DATABASE_SSL_MODE=${DATABASE_SSL_MODE:-disable}
       - POSTGRES_CONNECT_TIMEOUT=${POSTGRES_CONNECT_TIMEOUT:-30}
       - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
-      # Shadow-mode math_env (distinct from the Clojure math service's MATH_ENV).
+      # The poller's own write label; deliberately NOT ${MATH_ENV} (the readers').
       - MATH_ENV=${MATH_PYTHON_ENV:-python}
-      # Startup refuses MATH_ENV=prod (the served namespace) unless this is 1.
+      # Startup refuses MATH_ENV=prod (the Clojure engine's label) unless this is 1.
       - MATH_POLLER_ALLOW_SERVED_ENV=${MATH_POLLER_ALLOW_SERVED_ENV:-}
       # Poll cadences (ms) and boot window (days).
       - POLL_VOTE_INTERVAL_MS=${POLL_VOTE_INTERVAL_MS:-1000}

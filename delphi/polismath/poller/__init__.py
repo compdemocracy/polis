@@ -158,9 +158,10 @@ Usage
     # Single poll cycle then exit (smoke test / cron-style)
     uv run python scripts/math_poller.py --once
 
-Shadow-mode deployment writes under a DISTINCT ``MATH_ENV`` (e.g. ``python``)
-next to the Clojure ``math`` container; ``UNIQUE(zid, math_env)`` keeps the rows
-invisible to the prod server until cutover.
+The poller writes under its own ``MATH_ENV`` label (``python`` in production);
+``UNIQUE(zid, math_env)`` keeps labels apart. The server and Delphi serve the
+label named by their own ``MATH_ENV``: ``python`` since the switch, ``prod``
+(the Clojure engine's label) before it and after a rollback.
 """
 
 from polismath.poller.service import (

@@ -36,9 +36,14 @@ def _configure_logging() -> None:
     )
 
 
-# The math_env the server reads (the legacy Clojure engine's namespace). While
-# this poller runs as a shadow beside that engine, writing under it would
-# overwrite the served rows, so startup refuses it unless explicitly allowed.
+# The legacy Clojure engine's label. The readers (server, Delphi) served it
+# until the switch to Python and serve it again after a rollback, when Clojure
+# writes it; this poller writes its own label (`python` in production) and the
+# switch is made by pointing the readers' MATH_ENV at that label, never by this
+# poller writing `prod`. Writing `prod` would collide with Clojure's rows, so
+# startup refuses it unless explicitly allowed. The guard is only about the
+# label this process WRITES: it is the same whether the readers serve `prod`
+# or `python`.
 SERVED_MATH_ENV = "prod"
 ALLOW_SERVED_ENV_VAR = "MATH_POLLER_ALLOW_SERVED_ENV"
 
@@ -46,8 +51,10 @@ ALLOW_SERVED_ENV_VAR = "MATH_POLLER_ALLOW_SERVED_ENV"
 def _refuse_served_env(math_env: str) -> None:
     """Exit non-zero before touching the database when MATH_ENV is unsafe.
 
-    Refused: an empty or whitespace-only MATH_ENV (always), and the served
-    namespace ``prod`` unless MATH_POLLER_ALLOW_SERVED_ENV=1 (cut-over only).
+    Refused: an empty or whitespace-only MATH_ENV (always), and the Clojure
+    engine's label ``prod`` unless MATH_POLLER_ALLOW_SERVED_ENV=1. Any other
+    label is admitted, including ``python``, the label the readers serve after
+    the switch.
     """
     if not math_env.strip():
         print(
@@ -61,9 +68,11 @@ def _refuse_served_env(math_env: str) -> None:
         and os.environ.get(ALLOW_SERVED_ENV_VAR) != "1"
     ):
         print(
-            f"refusing to start: MATH_ENV={SERVED_MATH_ENV} is the served "
-            f"namespace and would overwrite the served math rows; set "
-            f"{ALLOW_SERVED_ENV_VAR}=1 only to cut over",
+            f"refusing to start: MATH_ENV={SERVED_MATH_ENV} is the Clojure "
+            f"engine's label (served before the switch to python and after a "
+            f"rollback) and writing it would collide with Clojure's rows; "
+            f"write this poller's own label (python) and point the readers' "
+            f"MATH_ENV at it. {ALLOW_SERVED_ENV_VAR}=1 overrides this refusal",
             file=sys.stderr,
         )
         raise SystemExit(2)
