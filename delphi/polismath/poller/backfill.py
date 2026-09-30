@@ -1029,6 +1029,7 @@ class BackfillScheduler:
         clock: Callable[[], float] = time.time,
         rss_fn: Callable[[], int] = read_rss_bytes,
         release_fn: Callable[[], None] = release_memory,
+        run_id: Optional[str] = None,
     ) -> None:
         self._host = host
         self._store = store
@@ -1049,7 +1050,11 @@ class BackfillScheduler:
                 f"MATH_BACKFILL_MEMORY_CEILING_MB={config.memory_ceiling_mb:g} is not "
                 f"below the container limit ({self._admission.limit_bytes / _MB:.0f} MiB)"
             )
-        self.run_id = uuid.uuid4().hex[:12]
+        # The poller passes its process run id (P-072) so the readiness lines
+        # and these report lines bind to one run; standalone, a fresh one.
+        if run_id is not None and not re.fullmatch(r"[0-9a-f]{12}", run_id):
+            raise ConfigError("run_id must be 12 lowercase hex characters")
+        self.run_id = run_id or uuid.uuid4().hex[:12]
         self.binding = self._calibration_binding()
         self._lock = threading.RLock()
         self._state = BackfillState.load(config.state_path, config.source_env, host.target_env)
@@ -1071,6 +1076,10 @@ class BackfillScheduler:
         self._pressure_paused: Optional[str] = None
         self._gate_logged = False
         self._drained_logged = False
+        # Readiness evidence (P-072): the last finished sweep's summary and
+        # when DRAINED was logged (None while not drained).
+        self._last_sweep: Optional[Dict[str, Any]] = None
+        self._drained_ms: Optional[int] = None
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
 
@@ -1189,10 +1198,12 @@ class BackfillScheduler:
                 # knows nothing is in flight.
                 if not self._in_flight and not self._drained_logged:
                     self._drained_logged = True
+                    self._drained_ms = int(now * 1000)
                     logger.warning("math-backfill DRAINED run=%s: paused by operator, nothing "
                                    "in flight", self.run_id)
                 return "paused_operator", 5.0
             self._drained_logged = False
+            self._drained_ms = None
             if self.gate_pending:
                 self._log_gate_once()
                 return "gate", 5.0
@@ -1414,7 +1425,13 @@ class BackfillScheduler:
                 self._sweep_no, refused[:50],
                 f" (+{len(refused) - 50} more)" if len(refused) > 50 else "",
             )
-        self._log_completion(unresolved, reconciled, counts, parked)
+        status = self._log_completion(unresolved, reconciled, counts, parked)
+        self._last_sweep = {
+            "sweep_no": self._sweep_no, "finished_ms": int(now * 1000), "run": self.run_id,
+            "config": self.config.digest(), "status": status,
+            "unresolved": sum(int(v) for v in unresolved.values()),
+            "parked_live": int(parked), "in_flight": len(self._in_flight),
+        }
         self._cursor = None
         self._sweep_end = False
         self._buffer.clear()
@@ -1424,19 +1441,20 @@ class BackfillScheduler:
         self._next_sweep_at = now + self.config.resweep_s
 
     def _log_completion(self, unresolved: Dict[str, int], reconciled: Any,
-                        counts: Dict[str, Any], parked: int) -> None:
+                        counts: Dict[str, Any], parked: int) -> str:
         """COMPLETE means the backfill's own queue is empty on fresh evidence;
         it is not cutover readiness (that is the verification SQL at a fixed
-        cutoff, run by the reviewed probe job)."""
+        cutoff, run by the reviewed probe job). Returns the sweep's status for
+        the readiness evidence: COMPLETE, NOT_COMPLETE or UNKNOWN."""
         if self._sweep_seen or self._in_flight or any(unresolved.values()):
-            return
+            return "NOT_COMPLETE"
         blockers = []
         if "error" in counts or (isinstance(reconciled, dict) and "error" in reconciled):
             logger.warning(
                 "math-backfill sweep=%d status=UNKNOWN: the fresh aggregate could not be read "
                 "(%s); not COMPLETE", self._sweep_no,
                 counts.get("error") or reconciled.get("error"))
-            return
+            return "UNKNOWN"
         blocking = ["missing", "incomplete", "stale"]
         if not self.config.accept_source_ahead:
             # Review [1447] C: unresolved source-ahead blocks COMPLETE even
@@ -1451,7 +1469,7 @@ class BackfillScheduler:
             logger.warning("math-backfill sweep=%d status=NOT_COMPLETE: the sweep found no "
                            "eligible target but the fresh aggregate shows %s",
                            self._sweep_no, " ".join(blockers))
-            return
+            return "NOT_COMPLETE"
         logger.warning(
             "math-backfill COMPLETE run=%s sweep=%d: the backfill queue is empty (no missing, "
             "incomplete, invalid or stale %s target of a %s conversation; nothing unresolved, "
@@ -1461,6 +1479,17 @@ class BackfillScheduler:
             int(counts.get("live_lag", 0)), int(counts.get("source_ahead", 0)),
             self.config.source_ahead_ruling,
         )
+        return "COMPLETE"
+
+    def readiness(self) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
+        """(the last finished sweep's summary or None, the drain state) for
+        the readiness line (P-072). Counts, clocks, digests and closed labels
+        only. Lock-free on purpose: the scheduler holds its lock across
+        database reads, and the heartbeat must not wait on them. Each field
+        is replaced whole, never mutated, so a read sees one consistent value."""
+        last = self._last_sweep
+        return (dict(last) if last is not None else None,
+                {"run": self.run_id, "drained_ms": self._drained_ms})
 
     def _unresolved(self) -> Dict[str, int]:
         counts: Dict[str, int] = {}

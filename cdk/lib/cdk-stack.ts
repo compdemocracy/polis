@@ -39,6 +39,7 @@ import createCodedeployConfig from '../codedeploy';
 import createALBAndDNS from '../dns';
 import createSecretsAndDependencies from '../secrets';
 import createOperationalAlarms, { alarmsEnabled, requireAlarmEmail } from '../alarms';
+import createMathPollerAlarms, { mathPollerAlarmsEnabled } from '../mathPollerAlarms';
 import { ImportWorkerService } from './import-worker-service';
 import { CertificationCiEc2 } from '../ciEc2';
 import { CoordinatorInactiveService } from '../coordinator';
@@ -412,6 +413,13 @@ export class CdkStack extends cdk.Stack {
           { id: 'A07', alarm: lowStorageAlarm },
         ],
       });
+    }
+
+    // --- Python math poller readiness alarms (P-072). Off unless synthesized
+    // with `-c enableMathPollerAlarms=true`: two log metric filters on this
+    // log group and two alarms on the application alarm topic. No Lambda.
+    if (mathPollerAlarmsEnabled(this)) {
+      createMathPollerAlarms(this, { logGroup, alarmTopic });
     }
 
     // --- Secrets & Dependencies - creates secrets managed in SSM, grants services permission to interact with each other, etc.

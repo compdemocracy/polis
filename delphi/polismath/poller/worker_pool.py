@@ -13,6 +13,7 @@ Reproduces the Clojure conv-actor semantics (conv_man.clj) without core.async:
 
 import logging
 import threading
+import time
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -107,6 +108,13 @@ class ConversationWorkerPool:
         self._queues: Dict[int, Deque[Message]] = {}
         self._active: Set[int] = set()
         self._parked: Set[int] = set()
+        # Readiness evidence (P-072): when each zid's oldest still-queued live
+        # and backfill message arrived, and when its current run started.
+        # Monotonic seconds; cleared as the worker takes the messages.
+        self._queued_live: Dict[int, float] = {}
+        self._queued_backfill: Dict[int, float] = {}
+        self._running_since: Dict[int, Tuple[float, bool]] = {}
+        self._clock = time.monotonic
         self._lock = threading.Lock()
         self._idle = threading.Condition(self._lock)
         self._closed = False
@@ -116,6 +124,8 @@ class ConversationWorkerPool:
         with self._lock:
             self._parked.add(zid)
             self._queues.pop(zid, None)
+            self._queued_live.pop(zid, None)
+            self._queued_backfill.pop(zid, None)
 
     def unpark(self, zid: int) -> None:
         """Re-enable processing for a previously parked zid (self-heal on new
@@ -150,6 +160,8 @@ class ConversationWorkerPool:
             if self._closed or zid in self._parked:
                 return False
             self._queues.setdefault(zid, deque()).append((message_type, batch))
+            marks = self._queued_backfill if message_type == BACKFILL else self._queued_live
+            marks.setdefault(zid, self._clock())
             if zid not in self._active:
                 self._active.add(zid)
                 self._executor.submit(self._run, zid)
@@ -171,11 +183,21 @@ class ConversationWorkerPool:
                 if not q or zid in self._parked:
                     # Nothing left (or parked mid-flight): release the zid.
                     self._queues.pop(zid, None)
+                    self._queued_live.pop(zid, None)
+                    self._queued_backfill.pop(zid, None)
+                    self._running_since.pop(zid, None)
                     self._active.discard(zid)
                     self._idle.notify_all()
                     return
                 messages = list(q)
                 q.clear()
+                queued = [t for t in (self._queued_live.pop(zid, None),
+                                      self._queued_backfill.pop(zid, None)) if t is not None]
+                live = any(m[0] != BACKFILL for m in messages)
+                started = min(queued) if queued else self._clock()
+                # A run inherits the wait of the messages it drained, so a
+                # wedged worker keeps ageing its work instead of resetting it.
+                self._running_since[zid] = (started, live)
 
             coalesced = coalesce_messages(messages)
             if coalesced.has_work():
@@ -184,6 +206,32 @@ class ConversationWorkerPool:
                 except Exception:  # pragma: no cover - process_fn owns its errors
                     logger.exception("Unhandled error processing zid=%s", zid)
             # loop: re-check for messages that arrived while we were processing
+
+    def queue_stats(self) -> Dict[str, Any]:
+        """Counts and ages for the readiness line; no zids leave the pool.
+
+        ``oldest_live_age_ms`` / ``oldest_backfill_age_ms``: the longest any
+        live (votes, moderation, rebuild) or backfill work has been waiting or
+        running, measured from when its oldest message was queued."""
+        with self._lock:
+            now = self._clock()
+            live = list(self._queued_live.values()) + [
+                t for t, is_live in self._running_since.values() if is_live]
+            backfill = list(self._queued_backfill.values()) + [
+                t for t, is_live in self._running_since.values() if not is_live]
+            pending = len(self._active | {z for z, q in self._queues.items() if q})
+            in_flight = len(self._running_since)
+            parked = len(self._parked)
+
+        def age(marks: List[float]):
+            return None if not marks else int(max(0.0, now - min(marks)) * 1000)
+
+        live_age, backfill_age = age(live), age(backfill)
+        return {
+            "pending": pending, "in_flight": in_flight, "parked": parked,
+            "oldest_live_age_ms": live_age, "oldest_backfill_age_ms": backfill_age,
+            "oldest_work_age_ms": max(live_age or 0, backfill_age or 0),
+        }
 
     def join(self, timeout: float = 30.0) -> bool:
         """Block until all queues are drained and no worker is active.

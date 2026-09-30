@@ -199,3 +199,31 @@ def test_losing_the_lock_connection_stops_the_holder(admin, pollers):
     holder.wait_for("single-writer lock lost", timeout=2)
     assert any("single-writer lock lost" in line for line in holder.lines), holder.lines
     assert _holder_pid(admin, label) == []
+
+
+def test_readiness_lines_follow_the_lock(admin, pollers):
+    """P-072: a waiter logs standby lines, the holder a primary line once
+    admitted, and a holder that loses the lock logs a final standby line
+    before exiting 3."""
+    from polismath.poller.readiness import parse_readiness
+
+    label = f"locktest-{uuid.uuid4().hex[:8]}"
+    holder = pollers(label)
+    assert holder.wait_for("ADMITTED"), holder.lines
+    waiter = pollers(label)
+    assert waiter.wait_for("role=standby progress=waiting"), waiter.lines
+    holder_bodies = [parse_readiness(x) for x in holder.lines if "math_poller readiness/1" in x]
+    roles = [b["role"] for b in holder_bodies]
+    assert roles[0] == "standby" and "primary" in roles, roles
+    (pid,) = _holder_pid(admin, label)
+    with admin.cursor() as cur:
+        cur.execute("SELECT pg_terminate_backend(%s)", (pid,))
+    assert holder.proc.wait(timeout=10) == 3
+    holder.wait_for("single-writer lock lost", timeout=2)
+    bodies = [parse_readiness(x) for x in holder.lines if "math_poller readiness/1" in x]
+    assert bodies[-1]["role"] == "standby" and bodies[-2]["role"] == "primary", bodies
+    seqs = [b["seq"] for b in bodies]
+    assert seqs == list(range(1, len(seqs) + 1))
+    # The waiter takes over and logs as primary.
+    assert waiter.wait_for("ADMITTED", timeout=15), waiter.lines
+    assert waiter.wait_for("role=primary"), waiter.lines
