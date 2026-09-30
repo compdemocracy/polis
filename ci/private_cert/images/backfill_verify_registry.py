@@ -13,7 +13,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'probe_box'))
 from control import sha, encoded
-from image_admission import inspect_oci, validate_recipe, validate_config, file_digest, HEX
+from image_admission import inspect_oci, validate_recipe, validate_config, file_digest, launcher_source, HEX
 from contracts import validate_job
 from backfill_verify import KIND, TEMPLATE_RUN_SPEC
 from backfill_verify_queries import SQL_SHA256
@@ -42,7 +42,9 @@ def admit(archives, recipes, review):
             raise ValueError('VERIFY_IMAGE_SQL')
         image = inspect_oci(archives[role])
         validate_config(image.pop('config'), r)
-        expected = {'recipe.json': sha(r), 'launcher.py': file_digest(Path(__file__).parent / 'launcher.py'),
+        # This kind's own launcher file (launcher_verify.py), staged as
+        # launcher.py; the existing kinds keep launcher.py and its digest.
+        expected = {'recipe.json': sha(r), 'launcher.py': file_digest(launcher_source(r)),
                     **{'payload/' + k: v for k, v in r['files'].items()}}
         if image.pop('privateFiles') != expected:
             raise ValueError('VERIFY_IMAGE_SOURCE')

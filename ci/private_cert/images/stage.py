@@ -13,7 +13,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from control import encoded, sha
-from image_admission import file_digest, json_bytes, validate_recipe
+from image_admission import file_digest, json_bytes, launcher_source, validate_recipe
 
 
 def stage(source, recipe, destination):
@@ -50,12 +50,15 @@ def stage(source, recipe, destination):
         out.chmod(0o444)
     (destination / 'recipe.json').write_bytes(encoded(recipe))
     here = Path(__file__).resolve().parent
-    for name in ('Dockerfile', 'launcher.py'):
-        shutil.copyfile(here / name, destination / name)
+    # The image always runs /opt/polis-private-image/launcher.py; its source
+    # is the kind's launcher (image_admission.LAUNCHERS), bound by digest.
+    launcher = launcher_source(recipe)
+    shutil.copyfile(here / 'Dockerfile', destination / 'Dockerfile')
+    shutil.copyfile(launcher, destination / 'launcher.py')
     (destination / 'build.json').write_bytes(encoded({
         'schema': 'polis-private-image-build/1', 'recipeSha256': sha(recipe),
         'dockerfileSha256': file_digest(here / 'Dockerfile'),
-        'launcherSha256': file_digest(here / 'launcher.py'),
+        'launcherSha256': file_digest(launcher),
         'platform': 'linux/arm64', 'network': 'none',
         'runtimeImage': recipe['runtimeImage'],
     }))

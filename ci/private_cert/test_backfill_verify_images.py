@@ -18,8 +18,8 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE / 'images'))
 sys.path.insert(0, str(HERE.parent / 'probe_box'))
 from control import encoded, sha
-from image_admission import validate_recipe
-from test_roles_images import archive
+from image_admission import file_digest, launcher_source, validate_recipe
+from test_roles_images import archive as fixture_archive
 from contracts import validate_job
 import backfill_verify as bv
 from backfill_verify_queries import SQL_SHA256
@@ -27,6 +27,15 @@ from backfill_verify_recipe import recipe
 from backfill_verify_registry import admit
 
 SQL = 'ci/probe_box/backfill_verification.sql'
+# launcher.py's digest as recorded by the existing admissions (e.g. the bake-20
+# light-shadow battery-image-lock.json and the roles/light-shadow registries).
+RECORDED_LAUNCHER_SHA256 = '567f8c786fe1dedec4cfe3f0a918b14bc893e02ea3cb914521dd53347d5fdb8d'
+VERIFY_LAUNCHER = HERE / 'images/launcher_verify.py'
+
+
+def archive(path, r, source):
+    """A backfill-verify fixture archive: its kind's own launcher, staged as launcher.py."""
+    return fixture_archive(path, r, source, launcher=VERIFY_LAUNCHER)
 
 
 def job():
@@ -101,8 +110,40 @@ class Images(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'VERIFY_IMAGE_SQL'):
                 admit(paths, recipes, review)
 
+    def test_existing_launcher_is_unchanged_and_kinds_are_separate(self):
+        """Old admissions re-validate from this tree: launcher.py keeps its recorded digest."""
+        self.assertEqual(file_digest(HERE / 'images/launcher.py'), RECORDED_LAUNCHER_SHA256)
+        for role, r in self.recipes.items():
+            self.assertEqual(launcher_source(r), VERIFY_LAUNCHER.resolve())
+        from roles_recipe import recipe as roles_recipe
+        from light_shadow_recipe import recipe as shadow_recipe
+        for r in (roles_recipe(REPO, 'reader', 'localhost/runtime@sha256:' + '1' * 64),
+                  shadow_recipe(REPO, 'reader', 'localhost/runtime@sha256:' + '1' * 64)):
+            self.assertEqual(launcher_source(r), (HERE / 'images/launcher.py').resolve())
+        self.assertNotEqual(file_digest(VERIFY_LAUNCHER), RECORDED_LAUNCHER_SHA256)
+
+    def test_old_admission_still_validates_and_launchers_do_not_cross(self):
+        from roles_recipe import recipe as roles_recipe
+        from roles_registry import admit as roles_admit
+        roles = {r: roles_recipe(REPO, r, 'localhost/runtime@sha256:' + '1' * 64)
+                 for r in ('reader', 'producer', 'verifier')}
+        review = dict(schema='polis-roles-image-review/1', recipeSha256={r: sha(s) for r, s in roles.items()},
+                      reviewSha256='2' * 64)
+        old = {r: fixture_archive(self.root / ('roles-' + r + '.oci.tar'), s, REPO) for r, s in roles.items()}
+        roles_admit(old, roles, review)
+        # A roles archive carrying the verify launcher, or a verify archive
+        # carrying the old launcher, is a different closure: refused.
+        crossed = {r: fixture_archive(self.root / ('roles-x-' + r + '.oci.tar'), s, REPO, launcher=VERIFY_LAUNCHER)
+                   for r, s in roles.items()}
+        with self.assertRaises(ValueError):
+            roles_admit(crossed, roles, review)
+        verify_old = {r: fixture_archive(self.root / ('verify-x-' + r + '.oci.tar'), s, REPO)
+                      for r, s in self.recipes.items()}
+        with self.assertRaisesRegex(ValueError, 'VERIFY_IMAGE_SOURCE'):
+            admit(verify_old, self.recipes, self.review())
+
     def test_launcher_admits_only_the_role_action(self):
-        import launcher
+        import launcher_verify as launcher
         original_read = Path.read_bytes
         for role, action in (('reader', 'read'), ('producer', 'produce'), ('verifier', 'verify')):
             root = self.root / role
@@ -122,6 +163,19 @@ class Images(unittest.TestCase):
             with patch.object(launcher, 'ROOT', root), patch.object(launcher.sys, 'argv', ['launcher', 'extract']):
                 with self.assertRaisesRegex(ValueError, 'IMAGE_ACTION'):
                     launcher.main()
+        # The unchanged launcher.py does not know this kind: it never runs a verify reader.
+        import launcher as old_launcher
+        with patch.object(old_launcher, 'ROOT', self.root / 'reader'), \
+             patch.object(old_launcher.sys, 'argv', ['launcher', 'read']):
+            with self.assertRaises(KeyError):
+                old_launcher.main()
+        # And the verify launcher refuses any other kind's recipe.
+        other = self.root / 'other'
+        other.mkdir()
+        (other / 'recipe.json').write_bytes(encoded(dict(self.recipes['reader'], kind='roles-census')))
+        with patch.object(launcher, 'ROOT', other), patch.object(launcher.sys, 'argv', ['launcher', 'read']):
+            with self.assertRaisesRegex(ValueError, 'IMAGE_KIND'):
+                launcher.main()
 
     def stage(self, payload, r):
         for name in r['files']:

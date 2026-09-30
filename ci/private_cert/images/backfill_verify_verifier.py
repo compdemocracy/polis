@@ -13,8 +13,8 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'probe_box'))
 from backfill_verify import (ACCEPTANCE, BLOCKING, CONTROLS, COVERAGE, KIND, LIMIT, LIVE_CONTROLS, POLICY_SHA,
-                             PROJECTION_SCHEMA, assess, decode, encoded, expected_verdict, fail,
-                             validate_projection, validate_receipt, validate_run_spec)
+                             PROJECTION_SCHEMA, READINESS_SCHEMA, assess, decode, encoded, expected_verdict, fail,
+                             readiness_digest, validate_projection, validate_receipt, validate_run_spec)
 from backfill_verify_queries import SQL_SHA256, TABLES, shipped_statements
 from receipt import sha
 
@@ -33,6 +33,7 @@ def receipt(projection, produced, job, source_commit):
          'bindings': dict(source_commit=source_commit, query_policy=POLICY_SHA,
                           verification_sql=spec['verification_sql_sha256'],
                           server_version_num=projection['server_version_num'],
+                          readiness=readiness_digest(spec['readiness']),
                           **{k: job[k]['image'].split('@sha256:')[1] for k in ('reader', 'producer', 'verifier')}),
          'run_spec': dict(spec), 'coverage': dict(COVERAGE, status=projection['status']),
          'snapshot': expected['snapshot'], 'counts': copy.deepcopy(projection['results']) if complete else None,
@@ -49,6 +50,28 @@ def live_controls(projection, spec):
 
 
 SNAPSHOT_MS = 1_900_000_000_000
+CUTOFF_MS = SNAPSHOT_MS - 600_000
+
+
+def fixture_readiness(cutoff=CUTOFF_MS, observed=SNAPSHOT_MS - 120_000, **changes):
+    """A healthy idle holder after DRAINED: the discovery loop succeeded after the
+    cutoff, nothing unresolved, parked or in flight, monitoring OK. `changes`
+    replaces fields of one section, e.g. holder={'role': 'standby'}."""
+    r = {'schema': READINESS_SCHEMA, 'observed_ms': observed, 'lines_sha256': '4' * 64,
+         'holder': {'role': 'primary', 'instance_sha256': '5' * 64, 'source_commit': '6' * 40,
+                    'run': 'a' * 12, 'config': 'b' * 12},
+         'discovery': {'last_success_ms': observed - 5_000, 'successes': 12, 'failures_since_success': 0},
+         'queue': {'pending': 0, 'oldest_work_age_ms': 0},
+         'sweep': {'sweep_no': 7, 'finished_ms': cutoff - 300_000, 'run': 'a' * 12, 'config': 'b' * 12,
+                   'status': 'COMPLETE', 'unresolved': 0, 'parked_live': 0, 'in_flight': 0},
+         'drain': {'run': 'a' * 12, 'drained_ms': cutoff - 60_000},
+         'monitoring': {'alarm': 'OK', 'evaluated_ms': observed - 30_000, 'alert_test_sha256': '7' * 64}}
+    for section, values in changes.items():
+        if isinstance(r[section], dict):
+            r[section] = dict(r[section], **values)
+        else:
+            r[section] = values
+    return r
 
 
 def fixture_results(n=10):
@@ -63,8 +86,8 @@ def fixture_results(n=10):
                              companion_timestamp_unbound=0, empty_shape=min(n, 1), invalid_payload=0),
             'cutoff': dict(behind_input_at_cutoff=0, source_ahead_of_input=0, live_tail_after_cutoff=0),
             'without_target': dict.fromkeys(TABLES, 0),
-            'ticks': ({'source_max_ms': SNAPSHOT_MS - 5000, 'target_max_ms': SNAPSHOT_MS - 4000} if n else
-                      {'source_max_ms': None, 'target_max_ms': None})}
+            'published': ({'source_newest_ms': SNAPSHOT_MS - 5000, 'target_newest_ms': SNAPSHOT_MS - 4000} if n else
+                          {'source_newest_ms': None, 'target_newest_ms': None})}
 
 
 def fixture_projection(results, status='COMPLETE'):
@@ -73,6 +96,12 @@ def fixture_projection(results, status='COMPLETE'):
             'verification_sql': SQL_SHA256, 'server_version_num': 170004, 'status': status,
             'snapshot_ms': SNAPSHOT_MS if complete else None, 'results': results if complete else None,
             'no_write': complete}
+
+
+def clock_results(**published):
+    results = fixture_results()
+    results['published'].update(published)
+    return results
 
 
 def refused(check):
@@ -86,7 +115,7 @@ def refused(check):
 def controls(job):
     """Fixed self-tests; every refusal path must refuse and every vector must decide as named."""
     from contracts import validate_job
-    job = dict(job, run_spec=dict(job['run_spec'], cutoff_ms=SNAPSHOT_MS - 600_000))
+    job = dict(job, run_spec=dict(job['run_spec'], cutoff_ms=CUTOFF_MS, readiness=fixture_readiness()))
 
     def build(results, status='COMPLETE', spec=None):
         j = job if spec is None else dict(job, run_spec=dict(job['run_spec'], **spec))
@@ -122,9 +151,9 @@ def controls(job):
         return (not want or (refused(lambda: validate_receipt(dict(r, verdict='BACKFILL-COMPLETE'), j))
                              and refused(lambda: validate_receipt(dict(r, blocking=[]), j))))
 
-    def incomplete(results=None, status='COMPLETE', **spec):
+    def incomplete(results=None, status='COMPLETE', unknown=False, **spec):
         r, j = build(fixture_results() if results is None else results, status, spec or None)
-        return (r['verdict'] == 'INCOMPLETE'
+        return (r['verdict'] == 'INCOMPLETE' and (not unknown or r['snapshot']['clock'] == 'UNKNOWN')
                 and refused(lambda: validate_receipt(dict(r, verdict='BACKFILL-COMPLETE'), j))
                 and refused(lambda: validate_receipt(dict(r, verdict='BACKFILL-INCOMPLETE'), j)))
 
@@ -188,10 +217,40 @@ def controls(job):
         'without-target-blocks': vector({'without_target': {'math_ptptstats': 1},
                                          'rows': {'math_ptptstats': {'source': 11}}},
                                         ('without-target-math_ptptstats',)),
-        'poller-behind-blocks': vector({'ticks': {'target_max_ms': SNAPSHOT_MS - 900_001}}, ('poller-not-live',))
-            and vector({'ticks': {'target_max_ms': SNAPSHOT_MS - 900_001,
-                                  'source_max_ms': SNAPSHOT_MS - 900_002}}, ()),
         'live-lag-allowed': vector({'conversations': {'live_lag': 1}, 'cutoff': {'live_tail_after_cutoff': 1}}, ()),
+        # Poller progress comes only from the bound readiness record.
+        'readiness-missing-blocks': vector({}, ('readiness-missing',), readiness=None),
+        'readiness-mismatch-blocks': all(
+            vector({}, ('readiness-run-mismatch',), readiness=fixture_readiness(**change))
+            for change in ({'sweep': {'run': 'c' * 12}}, {'sweep': {'config': 'c' * 12}},
+                           {'drain': {'run': 'c' * 12}})),
+        'readiness-stale-blocks': all(
+            vector({}, want, readiness=fixture_readiness(**change)) for change, want in (
+                ({'discovery': {'last_success_ms': CUTOFF_MS - 1}}, ('readiness-discovery-stale',)),
+                ({'discovery': {'failures_since_success': 1}}, ('readiness-discovery-stale',)),
+                ({'queue': {'oldest_work_age_ms': 120_001}}, ('readiness-queue-stuck',)),
+                ({'sweep': {'unresolved': 1}}, ('readiness-sweep-unresolved',)),
+                ({'drain': {'drained_ms': None}}, ('readiness-not-drained',)),
+                ({'monitoring': {'alarm': 'INSUFFICIENT_DATA'}}, ('readiness-monitoring-not-ok',))))
+            and vector({}, ('readiness-before-cutoff', 'readiness-discovery-stale', 'readiness-expired'),
+                       readiness=fixture_readiness(observed=SNAPSHOT_MS - 900_001,
+                                                   drain={'drained_ms': SNAPSHOT_MS - 1_000_000})),
+        'standby-holder-blocks': vector({}, ('readiness-holder-not-primary',),
+                                        readiness=fixture_readiness(holder={'role': 'standby'}))
+            and vector({}, ('readiness-holder-not-primary',),
+                       readiness=fixture_readiness(holder={'role': 'report'})),
+        # Old publications neither prove nor disprove progress: a day-old tick
+        # with no readiness blocks; with a healthy idle holder it does not.
+        'old-publication-not-liveness': vector({'published': {'target_newest_ms': SNAPSHOT_MS - 86_400_000,
+                                                              'source_newest_ms': SNAPSHOT_MS - 86_400_000}},
+                                               ('readiness-missing',), readiness=None)
+            and vector({'published': {'target_newest_ms': SNAPSHOT_MS - 86_400_000,
+                                      'source_newest_ms': SNAPSHOT_MS - 172_800_000}}, ()),
+        'future-clock-incomplete': incomplete(clock_results(target_newest_ms=SNAPSHOT_MS + 86_400_000), unknown=True)
+            and incomplete(clock_results(source_newest_ms=SNAPSHOT_MS + 5_001), unknown=True)
+            and incomplete(readiness=fixture_readiness(observed=SNAPSHOT_MS + 5_001), unknown=True)
+            and incomplete(readiness=fixture_readiness(discovery={'last_success_ms': SNAPSHOT_MS + 60_000}),
+                           unknown=True),
     }
     assert set(outcomes) | set(LIVE_CONTROLS) == set(CONTROLS)
     return outcomes

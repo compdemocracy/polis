@@ -10,8 +10,8 @@ Two sources, both fixed:
    substitutes). Its own BEGIN is replaced by the driver's REPEATABLE READ
    READ ONLY transaction, and its COMMIT by a rollback (nothing was written).
 2. EXTRA below: the snapshot clock, the grant check, the per-table
-   source-without-target counts, the tick liveness maxima and the no-write
-   proof. Plain SELECTs on the `polis_probe_reader` login.
+   source-without-target counts, the newest published tick per label and the
+   no-write proof. Plain SELECTs on the `polis_probe_reader` login.
 
 Every value either source returns is an integer count, an integer
 millisecond timestamp or a closed label; no zid, payload or text leaves.
@@ -91,21 +91,23 @@ def _without_target(table):
 
 
 EXTRA = {
-    # The snapshot's own clock; cutoff age and tick ages are measured from it.
+    # The snapshot's own clock; cutoff, publication and readiness ages are measured from it.
     'clock': "SELECT (pg_catalog.date_part('epoch',pg_catalog.transaction_timestamp())*1000)::bigint",
     # SELECT on every relation read. A missing grant is NOT_VISIBLE, never a zero count.
     'grants': ' UNION ALL '.join(
         f"SELECT '{t}', pg_catalog.has_table_privilege('public.{t}','SELECT')" for t in READ_TABLES),
     # Per table: source rows with no target row for the same conversation.
     'without_target': ' UNION ALL '.join(_without_target(t) for t in TABLES),
-    # Poller liveness, read-only: the newest tick each label's writer published.
-    'ticks': ("SELECT pg_catalog.max(k.modified) FILTER (WHERE k.math_env = %(source)s), "
+    # The newest tick each label's writer published: catch-up evidence only.
+    # Not poller liveness (a stopped writer keeps its old tick, an idle one
+    # publishes nothing); that is the operator's readiness record.
+    'published': ("SELECT pg_catalog.max(k.modified) FILTER (WHERE k.math_env = %(source)s), "
               "pg_catalog.max(k.modified) FILTER (WHERE k.math_env = %(target)s) "
               "FROM public.math_ticks k WHERE k.math_env IN " + ENVS),
     # Proof the snapshot wrote nothing: no transaction id was ever assigned.
     'no_write': 'SELECT pg_catalog.pg_current_xact_id_if_assigned() IS NULL',
 }
-EXTRA_LIMITS = {'clock': 1, 'grants': len(READ_TABLES), 'without_target': len(TABLES), 'ticks': 1, 'no_write': 1}
+EXTRA_LIMITS = {'clock': 1, 'grants': len(READ_TABLES), 'without_target': len(TABLES), 'published': 1, 'no_write': 1}
 # One extra row proves a fixed cap was exceeded without unbounded fetching.
 EXTRA = {name: sql + f' LIMIT {EXTRA_LIMITS[name] + 1}' for name, sql in EXTRA.items()}
 # Session bounds. The shipped file reads every target payload twice (queries 2
