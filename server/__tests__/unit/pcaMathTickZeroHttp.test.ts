@@ -657,3 +657,69 @@ describe("participationInit's served wrapper matches edge, decoded (review r3)",
 function sha256Hex(text: string) {
   return crypto.createHash("sha256").update(text).digest("hex");
 }
+
+// math_tick is per (zid, math_env). When the served label changes (MATH_ENV
+// prod -> python at the switch to the Python engine, or back on a rollback),
+// the served generation can be LOWER than the entity tag a browser cached from
+// the old label. The API sends `Cache-Control: no-cache`, so browsers revalidate
+// with If-None-Match on every load; a "newer than" floor would answer 304 and
+// keep the old label's body on screen until the new label's tick passed it.
+describe("GET /api/v3/math/pca2 If-None-Match across a served-label switch", () => {
+  beforeEach(() => {
+    queryP_readOnly.mockReset();
+  });
+
+  test("a tag from the old label that is higher than the served tick gets 200 and the served generation", async () => {
+    serveTick("57");
+    const res = await request(pca2App(freshZid()))
+      .get("/route?keys=math_tick,n")
+      .set("If-None-Match", '"5234"');
+    expect(res.status).toBe(200);
+    expect(res.headers.etag).toBe('"57"');
+    expect(res.body).toEqual({ math_tick: 57, n: 1 });
+  });
+
+  test("the tag of the served generation still gets 304", async () => {
+    serveTick("57");
+    const res = await request(pca2App(freshZid()))
+      .get("/route")
+      .set("If-None-Match", '"57"');
+    expect(res.status).toBe(304);
+  });
+
+  test("a weak tag of the served generation gets 304", async () => {
+    serveTick("57");
+    const res = await request(pca2App(freshZid()))
+      .get("/route")
+      .set("If-None-Match", 'W/"57"');
+    expect(res.status).toBe(304);
+  });
+
+  test("an older tag (the ordinary case, and the rollback direction) gets 200", async () => {
+    serveTick("5300");
+    const res = await request(pca2App(freshZid()))
+      .get("/route?keys=math_tick")
+      .set("If-None-Match", '"57"');
+    expect(res.status).toBe(200);
+    expect(res.headers.etag).toBe('"5300"');
+    expect(res.body).toEqual({ math_tick: 5300 });
+  });
+
+  test("a second request from the same zid's cache answers by equality too", async () => {
+    // The first request fills the module-level [math_env, zid] cache; the
+    // second is served from it and must apply the same rule.
+    serveTick("57");
+    const zid = freshZid();
+    const first = await request(pca2App(zid)).get("/route?keys=math_tick");
+    expect(first.status).toBe(200);
+    const stale = await request(pca2App(zid))
+      .get("/route?keys=math_tick")
+      .set("If-None-Match", '"5234"');
+    expect(stale.status).toBe(200);
+    expect(stale.body).toEqual({ math_tick: 57 });
+    const current = await request(pca2App(zid))
+      .get("/route")
+      .set("If-None-Match", '"57"');
+    expect(current.status).toBe(304);
+  });
+});
