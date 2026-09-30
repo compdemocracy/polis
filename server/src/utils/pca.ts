@@ -700,7 +700,7 @@ function updatePcaCache(
   });
 }
 
-function processMathObject(o: { [x: string]: any }) {
+export function processMathObject(o: { [x: string]: any }) {
   function remapSubgroupStuff(o: any) {
     if (!o) {
       return o;
@@ -739,6 +739,23 @@ function processMathObject(o: { [x: string]: any }) {
     });
 
     return o;
+  }
+
+  // A malformed group-clusters entry (null, or not an object with an id) is
+  // refused, not dereferenced: the whole field is presented as having no
+  // groups and the refusal is logged (P-070 review [1447] B). The writer's
+  // validity rule never publishes such a bundle; this guards older rows.
+  if (
+    _.isArray(o["group-clusters"]) &&
+    !o["group-clusters"].every(
+      (g: any) => g !== null && typeof g === "object" && !Array.isArray(g)
+    )
+  ) {
+    logger.error("polis_err_math_malformed_group_clusters", {
+      zid: o.zid,
+      count: o["group-clusters"].length,
+    });
+    o["group-clusters"] = [];
   }
 
   // Normalize so everything is arrays of objects (group-clusters is already in this format, but needs to have the val: subobject style too).
@@ -780,7 +797,12 @@ function processMathObject(o: { [x: string]: any }) {
       return obj;
     }
     for (let i = 0; i < a.length; i++) {
-      obj[a[i].id] = a[i].val;
+      const val = a[i].val;
+      if (val === null || typeof val !== "object") {
+        // Refuse a malformed entry rather than throw on it.
+        continue;
+      }
+      obj[a[i].id] = val;
       obj[a[i].id].id = a[i].id;
     }
     return obj;

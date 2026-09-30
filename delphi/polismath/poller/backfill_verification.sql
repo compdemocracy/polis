@@ -24,20 +24,28 @@
 -- lastVoteTimestamp against its column), the bidToPid/base-clusters
 -- alignment, in-conv <= n, and n = 0 only in Python's named empty form.
 --
--- The switch needs, with no ruling outstanding:
+-- The switch needs, while the source-ahead ruling is unresolved (the default,
+-- MATH_BACKFILL_SOURCE_AHEAD_RULING=unresolved):
 --   query 2: missing_* = 0, unequal_generation = 0, uninitialized_generation
---            = 0, invalid_payload = 0, behind_source_stale = 0, and
---            complete = source_conversations;
+--            = 0, invalid_payload = 0, behind_source_stale = 0,
+--            source_ahead = 0, and complete = source_conversations;
 --   query 3: orphan_* = 0;
---   query 5: behind_input_at_cutoff = 0.
--- behind_source_stale counts targets behind their source row that were not
--- themselves published after cutoff_ms: an old target is never exempted
--- because its source is recent. live_lag (behind the source, published after
--- the cutoff) is reported, not exempted: query 5 proves the input up to the
--- cutoff. source_ahead_of_input (query 5) separates a source row that claims
--- a later vote than the votes table holds; it stays unresolved until Colin
--- rules on it. Unresolved backfill work (refusals, exhausted retries) is in
--- the poller's sweep summary, not in these tables.
+--   query 5: behind_input_at_cutoff = 0 and source_ahead_of_input = 0.
+-- Only once Colin's ruling is encoded as accept_input may source-ahead
+-- targets count: then complete + source_ahead = source_conversations, and
+-- source_ahead / source_ahead_of_input are carried with that disposition.
+--
+-- behind_source_stale counts targets behind their source row, with votes
+-- they have not consumed, that were not themselves published after cutoff_ms:
+-- an old target is never exempted because its source is recent. live_lag
+-- (the same, published after the cutoff) is reported, not exempted: query 5
+-- proves the input up to the cutoff. source_ahead (query 2) is a valid target
+-- behind its source row although it reflects every vote in the votes table;
+-- source_ahead_of_input (query 5) counts source rows that claim a later vote
+-- than the votes table holds at all, whatever the target's publication time,
+-- so a recent target cannot hide it (review [1447] C). Unresolved backfill
+-- work (refusals, exhausted retries) is in the poller's sweep summary, not in
+-- these tables.
 
 BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
 
@@ -77,63 +85,128 @@ SELECT
       AND NOT v.valid) AS invalid_payload,
   count(*) FILTER (
     WHERE m.last_vote_timestamp < s.last_vote_timestamp
+      AND NOT COALESCE(m.last_vote_timestamp >= i.input_lvt, false)
       AND m.last_vote_timestamp < :cutoff_ms) AS behind_source_stale,
   count(*) FILTER (
     WHERE m.last_vote_timestamp < s.last_vote_timestamp
+      AND NOT COALESCE(m.last_vote_timestamp >= i.input_lvt, false)
       AND m.last_vote_timestamp >= :cutoff_ms) AS live_lag,
+  count(*) FILTER (
+    WHERE v.valid AND m.last_vote_timestamp < s.last_vote_timestamp
+      AND COALESCE(m.last_vote_timestamp >= i.input_lvt, false)) AS source_ahead,
   count(*) FILTER (
     WHERE v.valid
       AND NOT COALESCE(m.last_vote_timestamp < s.last_vote_timestamp
-                       AND m.last_vote_timestamp < :cutoff_ms, false)) AS complete
+                       AND (m.last_vote_timestamp < :cutoff_ms
+                            OR m.last_vote_timestamp >= i.input_lvt), false)) AS complete
 FROM math_main s
 LEFT JOIN math_main m ON m.zid = s.zid AND m.math_env = :'target'
 LEFT JOIN math_bidtopid b ON b.zid = s.zid AND b.math_env = :'target'
 LEFT JOIN math_ptptstats p ON p.zid = s.zid AND p.math_env = :'target'
 LEFT JOIN math_ticks k ON k.zid = s.zid AND k.math_env = :'target'
 CROSS JOIN LATERAL (SELECT COALESCE((
-      m.zid IS NOT NULL AND b.zid IS NOT NULL AND p.zid IS NOT NULL AND k.zid IS NOT NULL
-      AND m.math_tick >= 0 AND b.math_tick = m.math_tick
-      AND p.math_tick = m.math_tick AND k.math_tick = m.math_tick
-      AND m.last_vote_timestamp IS NOT NULL
-      AND jsonb_typeof(m.data) = 'object'
-      AND CASE WHEN jsonb_typeof(m.data->'zid') = 'number'
-               THEN (m.data->>'zid')::numeric = m.zid ELSE false END
-      AND CASE WHEN jsonb_typeof(m.data->'lastVoteTimestamp') = 'number'
-               THEN (m.data->>'lastVoteTimestamp')::numeric = m.last_vote_timestamp
-               ELSE false END
-      AND jsonb_typeof(m.data->'tids') = 'array'
-      AND jsonb_typeof(m.data->'pca') = 'object'
-      AND jsonb_typeof(m.data->'repness') = 'object'
-      AND jsonb_typeof(b.data) = 'object'
-      AND CASE WHEN jsonb_typeof(b.data->'zid') = 'number'
-               THEN (b.data->>'zid')::numeric = b.zid ELSE false END
-      AND jsonb_typeof(b.data->'lastVoteTimestamp') = 'number'
-      AND jsonb_typeof(p.data) = 'object'
-      AND CASE WHEN jsonb_typeof(p.data->'zid') = 'number'
-               THEN (p.data->>'zid')::numeric = p.zid ELSE false END
-      AND jsonb_typeof(p.data->'ptptstats') = 'object'
-      AND jsonb_typeof(p.data->'lastVoteTimestamp') = 'number'
-      AND CASE WHEN jsonb_typeof(m.data->'n') = 'number'
-                AND jsonb_typeof(m.data->'base-clusters') = 'object'
-                AND jsonb_typeof(m.data->'base-clusters'->'id') = 'array'
-                AND jsonb_typeof(m.data->'base-clusters'->'members') = 'array'
-                AND jsonb_typeof(m.data->'group-clusters') = 'array'
-                AND jsonb_typeof(m.data->'in-conv') = 'array'
-                AND jsonb_typeof(b.data->'bidToPid') = 'array'
-           THEN (m.data->>'n')::numeric >= 0
-                AND jsonb_array_length(m.data->'base-clusters'->'members')
-                    = jsonb_array_length(m.data->'base-clusters'->'id')
-                AND jsonb_array_length(b.data->'bidToPid')
-                    = jsonb_array_length(m.data->'base-clusters'->'id')
-                AND jsonb_array_length(m.data->'in-conv') <= (m.data->>'n')::numeric
-                AND ((m.data->>'n')::numeric > 0
-                     OR (jsonb_array_length(m.data->'base-clusters'->'id') = 0
-                         AND jsonb_array_length(m.data->'group-clusters') = 0
-                         AND jsonb_array_length(m.data->'in-conv') = 0
-                         AND m.last_vote_timestamp = 0
-                         AND p.data->'ptptstats' = '{}'::jsonb))
-           ELSE false END
-  ), false) AS valid) v
+        m.zid IS NOT NULL AND b.zid IS NOT NULL AND p.zid IS NOT NULL AND k.zid IS NOT NULL
+        AND m.math_tick >= 0 AND b.math_tick = m.math_tick
+        AND p.math_tick = m.math_tick AND k.math_tick = m.math_tick
+        AND m.last_vote_timestamp IS NOT NULL
+        AND jsonb_typeof(m.data) = 'object'
+        AND CASE WHEN jsonb_typeof(m.data->'zid') = 'number'
+                 THEN (m.data->>'zid')::numeric = m.zid ELSE false END
+        AND CASE WHEN jsonb_typeof(m.data->'lastVoteTimestamp') = 'number'
+                 THEN (m.data->>'lastVoteTimestamp')::numeric = m.last_vote_timestamp
+                 ELSE false END
+        AND jsonb_typeof(m.data->'tids') = 'array'
+        AND jsonb_typeof(m.data->'pca') = 'object'
+        AND jsonb_typeof(m.data->'repness') = 'object'
+        AND jsonb_typeof(b.data) = 'object'
+        AND CASE WHEN jsonb_typeof(b.data->'zid') = 'number'
+                 THEN (b.data->>'zid')::numeric = b.zid ELSE false END
+        AND CASE WHEN jsonb_typeof(b.data->'lastVoteTimestamp') = 'number'
+                 THEN (b.data->>'lastVoteTimestamp')::numeric = m.last_vote_timestamp
+                 ELSE false END
+        AND jsonb_typeof(p.data) = 'object'
+        AND CASE WHEN jsonb_typeof(p.data->'zid') = 'number'
+                 THEN (p.data->>'zid')::numeric = p.zid ELSE false END
+        AND CASE WHEN jsonb_typeof(p.data->'lastVoteTimestamp') = 'number'
+                 THEN (p.data->>'lastVoteTimestamp')::numeric = m.last_vote_timestamp
+                 ELSE false END
+        AND CASE WHEN jsonb_typeof(p.data->'ptptstats') = 'object'
+             THEN p.data->'ptptstats' = '{}'::jsonb
+                  OR (jsonb_typeof(p.data->'ptptstats'->'pid') = 'array'
+                      AND jsonb_typeof(p.data->'ptptstats'->'gid') = 'array'
+                      AND NOT EXISTS (
+                          SELECT 1 FROM jsonb_each(CASE WHEN jsonb_typeof(p.data->'ptptstats') = 'object'
+                                                        THEN p.data->'ptptstats' ELSE '{}'::jsonb END) e
+                          WHERE (CASE WHEN jsonb_typeof(e.value) = 'array'
+                                      THEN jsonb_array_length(e.value) END)
+                                IS DISTINCT FROM
+                                (CASE WHEN jsonb_typeof(p.data->'ptptstats'->'pid') = 'array'
+                                      THEN jsonb_array_length(p.data->'ptptstats'->'pid') END)))
+             ELSE false END
+        AND jsonb_typeof(m.data->'pca'->'center') = 'array'
+        AND jsonb_typeof(m.data->'pca'->'comps') = 'array'
+        AND NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.data->'pca'->'center') = 'array'
+                                                    THEN m.data->'pca'->'center' ELSE '[]'::jsonb END) x
+            WHERE jsonb_typeof(x) <> 'number')
+        AND NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.data->'pca'->'comps') = 'array'
+                                                    THEN m.data->'pca'->'comps' ELSE '[]'::jsonb END) c
+            WHERE jsonb_typeof(c) <> 'array'
+               OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(c) = 'array'
+                                                                  THEN c ELSE '[]'::jsonb END) x
+                          WHERE jsonb_typeof(x) <> 'number'))
+        AND NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.data->'group-clusters') = 'array'
+                                                    THEN m.data->'group-clusters' ELSE '[]'::jsonb END) g
+            WHERE jsonb_typeof(g) <> 'object'
+               OR jsonb_typeof(g->'id') IS DISTINCT FROM 'number'
+               OR jsonb_typeof(g->'members') IS DISTINCT FROM 'array'
+               OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(g->'members') = 'array'
+                                                                  THEN g->'members' ELSE '[]'::jsonb END) x
+                          WHERE jsonb_typeof(x) <> 'number'))
+        AND NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.data->'base-clusters'->'id') = 'array'
+                                                    THEN m.data->'base-clusters'->'id' ELSE '[]'::jsonb END) x
+            WHERE jsonb_typeof(x) <> 'number')
+        AND NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.data->'base-clusters'->'members') = 'array'
+                                                    THEN m.data->'base-clusters'->'members' ELSE '[]'::jsonb END) c
+            WHERE jsonb_typeof(c) <> 'array'
+               OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(c) = 'array'
+                                                                  THEN c ELSE '[]'::jsonb END) x
+                          WHERE jsonb_typeof(x) <> 'number'))
+        AND NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(b.data->'bidToPid') = 'array'
+                                                    THEN b.data->'bidToPid' ELSE '[]'::jsonb END) c
+            WHERE jsonb_typeof(c) <> 'array'
+               OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(c) = 'array'
+                                                                  THEN c ELSE '[]'::jsonb END) x
+                          WHERE jsonb_typeof(x) <> 'number'))
+        AND CASE WHEN jsonb_typeof(m.data->'n') = 'number'
+                  AND jsonb_typeof(m.data->'base-clusters') = 'object'
+                  AND jsonb_typeof(m.data->'base-clusters'->'id') = 'array'
+                  AND jsonb_typeof(m.data->'base-clusters'->'members') = 'array'
+                  AND jsonb_typeof(m.data->'group-clusters') = 'array'
+                  AND jsonb_typeof(m.data->'in-conv') = 'array'
+                  AND jsonb_typeof(b.data->'bidToPid') = 'array'
+             THEN (m.data->>'n')::numeric >= 0
+                  AND jsonb_array_length(m.data->'base-clusters'->'members')
+                      = jsonb_array_length(m.data->'base-clusters'->'id')
+                  AND jsonb_array_length(b.data->'bidToPid')
+                      = jsonb_array_length(m.data->'base-clusters'->'id')
+                  AND jsonb_array_length(m.data->'in-conv') <= (m.data->>'n')::numeric
+                  AND ((m.data->>'n')::numeric > 0
+                       OR (jsonb_array_length(m.data->'base-clusters'->'id') = 0
+                           AND jsonb_array_length(m.data->'group-clusters') = 0
+                           AND jsonb_array_length(m.data->'in-conv') = 0
+                           AND m.last_vote_timestamp = 0
+                           AND p.data->'ptptstats' = '{}'::jsonb))
+             ELSE false END
+    ), false) AS valid) v
+CROSS JOIN LATERAL (SELECT CASE WHEN m.last_vote_timestamp < s.last_vote_timestamp
+    THEN (SELECT COALESCE(max(x.created), 0) FROM votes x WHERE x.zid = s.zid)
+    END AS input_lvt) i
 WHERE s.math_env = :'source';
 
 -- 3. Target rows outside the source set (conversations created after the
@@ -171,6 +244,10 @@ SELECT
                       OR (b.data->>'zid') IS DISTINCT FROM b.zid::text) AS bidtopid_malformed,
   count(*) FILTER (WHERE jsonb_typeof(p.data->'ptptstats') IS DISTINCT FROM 'object'
                       OR (p.data->>'zid') IS DISTINCT FROM p.zid::text) AS ptptstats_malformed,
+  count(*) FILTER (
+    WHERE (b.data->>'lastVoteTimestamp') IS DISTINCT FROM m.last_vote_timestamp::text
+       OR (p.data->>'lastVoteTimestamp') IS DISTINCT FROM m.last_vote_timestamp::text)
+    AS companion_timestamp_unbound,
   count(*) FILTER (WHERE v.valid AND m.data->>'n' = '0') AS empty_shape,
   count(*) FILTER (WHERE NOT v.valid) AS invalid_payload
 FROM math_main s
@@ -179,72 +256,136 @@ JOIN math_bidtopid b ON b.zid = s.zid AND b.math_env = :'target'
 JOIN math_ptptstats p ON p.zid = s.zid AND p.math_env = :'target'
 JOIN math_ticks k ON k.zid = s.zid AND k.math_env = :'target'
 CROSS JOIN LATERAL (SELECT COALESCE((
-      m.zid IS NOT NULL AND b.zid IS NOT NULL AND p.zid IS NOT NULL AND k.zid IS NOT NULL
-      AND m.math_tick >= 0 AND b.math_tick = m.math_tick
-      AND p.math_tick = m.math_tick AND k.math_tick = m.math_tick
-      AND m.last_vote_timestamp IS NOT NULL
-      AND jsonb_typeof(m.data) = 'object'
-      AND CASE WHEN jsonb_typeof(m.data->'zid') = 'number'
-               THEN (m.data->>'zid')::numeric = m.zid ELSE false END
-      AND CASE WHEN jsonb_typeof(m.data->'lastVoteTimestamp') = 'number'
-               THEN (m.data->>'lastVoteTimestamp')::numeric = m.last_vote_timestamp
-               ELSE false END
-      AND jsonb_typeof(m.data->'tids') = 'array'
-      AND jsonb_typeof(m.data->'pca') = 'object'
-      AND jsonb_typeof(m.data->'repness') = 'object'
-      AND jsonb_typeof(b.data) = 'object'
-      AND CASE WHEN jsonb_typeof(b.data->'zid') = 'number'
-               THEN (b.data->>'zid')::numeric = b.zid ELSE false END
-      AND jsonb_typeof(b.data->'lastVoteTimestamp') = 'number'
-      AND jsonb_typeof(p.data) = 'object'
-      AND CASE WHEN jsonb_typeof(p.data->'zid') = 'number'
-               THEN (p.data->>'zid')::numeric = p.zid ELSE false END
-      AND jsonb_typeof(p.data->'ptptstats') = 'object'
-      AND jsonb_typeof(p.data->'lastVoteTimestamp') = 'number'
-      AND CASE WHEN jsonb_typeof(m.data->'n') = 'number'
-                AND jsonb_typeof(m.data->'base-clusters') = 'object'
-                AND jsonb_typeof(m.data->'base-clusters'->'id') = 'array'
-                AND jsonb_typeof(m.data->'base-clusters'->'members') = 'array'
-                AND jsonb_typeof(m.data->'group-clusters') = 'array'
-                AND jsonb_typeof(m.data->'in-conv') = 'array'
-                AND jsonb_typeof(b.data->'bidToPid') = 'array'
-           THEN (m.data->>'n')::numeric >= 0
-                AND jsonb_array_length(m.data->'base-clusters'->'members')
-                    = jsonb_array_length(m.data->'base-clusters'->'id')
-                AND jsonb_array_length(b.data->'bidToPid')
-                    = jsonb_array_length(m.data->'base-clusters'->'id')
-                AND jsonb_array_length(m.data->'in-conv') <= (m.data->>'n')::numeric
-                AND ((m.data->>'n')::numeric > 0
-                     OR (jsonb_array_length(m.data->'base-clusters'->'id') = 0
-                         AND jsonb_array_length(m.data->'group-clusters') = 0
-                         AND jsonb_array_length(m.data->'in-conv') = 0
-                         AND m.last_vote_timestamp = 0
-                         AND p.data->'ptptstats' = '{}'::jsonb))
-           ELSE false END
-  ), false) AS valid) v
+        m.zid IS NOT NULL AND b.zid IS NOT NULL AND p.zid IS NOT NULL AND k.zid IS NOT NULL
+        AND m.math_tick >= 0 AND b.math_tick = m.math_tick
+        AND p.math_tick = m.math_tick AND k.math_tick = m.math_tick
+        AND m.last_vote_timestamp IS NOT NULL
+        AND jsonb_typeof(m.data) = 'object'
+        AND CASE WHEN jsonb_typeof(m.data->'zid') = 'number'
+                 THEN (m.data->>'zid')::numeric = m.zid ELSE false END
+        AND CASE WHEN jsonb_typeof(m.data->'lastVoteTimestamp') = 'number'
+                 THEN (m.data->>'lastVoteTimestamp')::numeric = m.last_vote_timestamp
+                 ELSE false END
+        AND jsonb_typeof(m.data->'tids') = 'array'
+        AND jsonb_typeof(m.data->'pca') = 'object'
+        AND jsonb_typeof(m.data->'repness') = 'object'
+        AND jsonb_typeof(b.data) = 'object'
+        AND CASE WHEN jsonb_typeof(b.data->'zid') = 'number'
+                 THEN (b.data->>'zid')::numeric = b.zid ELSE false END
+        AND CASE WHEN jsonb_typeof(b.data->'lastVoteTimestamp') = 'number'
+                 THEN (b.data->>'lastVoteTimestamp')::numeric = m.last_vote_timestamp
+                 ELSE false END
+        AND jsonb_typeof(p.data) = 'object'
+        AND CASE WHEN jsonb_typeof(p.data->'zid') = 'number'
+                 THEN (p.data->>'zid')::numeric = p.zid ELSE false END
+        AND CASE WHEN jsonb_typeof(p.data->'lastVoteTimestamp') = 'number'
+                 THEN (p.data->>'lastVoteTimestamp')::numeric = m.last_vote_timestamp
+                 ELSE false END
+        AND CASE WHEN jsonb_typeof(p.data->'ptptstats') = 'object'
+             THEN p.data->'ptptstats' = '{}'::jsonb
+                  OR (jsonb_typeof(p.data->'ptptstats'->'pid') = 'array'
+                      AND jsonb_typeof(p.data->'ptptstats'->'gid') = 'array'
+                      AND NOT EXISTS (
+                          SELECT 1 FROM jsonb_each(CASE WHEN jsonb_typeof(p.data->'ptptstats') = 'object'
+                                                        THEN p.data->'ptptstats' ELSE '{}'::jsonb END) e
+                          WHERE (CASE WHEN jsonb_typeof(e.value) = 'array'
+                                      THEN jsonb_array_length(e.value) END)
+                                IS DISTINCT FROM
+                                (CASE WHEN jsonb_typeof(p.data->'ptptstats'->'pid') = 'array'
+                                      THEN jsonb_array_length(p.data->'ptptstats'->'pid') END)))
+             ELSE false END
+        AND jsonb_typeof(m.data->'pca'->'center') = 'array'
+        AND jsonb_typeof(m.data->'pca'->'comps') = 'array'
+        AND NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.data->'pca'->'center') = 'array'
+                                                    THEN m.data->'pca'->'center' ELSE '[]'::jsonb END) x
+            WHERE jsonb_typeof(x) <> 'number')
+        AND NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.data->'pca'->'comps') = 'array'
+                                                    THEN m.data->'pca'->'comps' ELSE '[]'::jsonb END) c
+            WHERE jsonb_typeof(c) <> 'array'
+               OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(c) = 'array'
+                                                                  THEN c ELSE '[]'::jsonb END) x
+                          WHERE jsonb_typeof(x) <> 'number'))
+        AND NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.data->'group-clusters') = 'array'
+                                                    THEN m.data->'group-clusters' ELSE '[]'::jsonb END) g
+            WHERE jsonb_typeof(g) <> 'object'
+               OR jsonb_typeof(g->'id') IS DISTINCT FROM 'number'
+               OR jsonb_typeof(g->'members') IS DISTINCT FROM 'array'
+               OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(g->'members') = 'array'
+                                                                  THEN g->'members' ELSE '[]'::jsonb END) x
+                          WHERE jsonb_typeof(x) <> 'number'))
+        AND NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.data->'base-clusters'->'id') = 'array'
+                                                    THEN m.data->'base-clusters'->'id' ELSE '[]'::jsonb END) x
+            WHERE jsonb_typeof(x) <> 'number')
+        AND NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.data->'base-clusters'->'members') = 'array'
+                                                    THEN m.data->'base-clusters'->'members' ELSE '[]'::jsonb END) c
+            WHERE jsonb_typeof(c) <> 'array'
+               OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(c) = 'array'
+                                                                  THEN c ELSE '[]'::jsonb END) x
+                          WHERE jsonb_typeof(x) <> 'number'))
+        AND NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(b.data->'bidToPid') = 'array'
+                                                    THEN b.data->'bidToPid' ELSE '[]'::jsonb END) c
+            WHERE jsonb_typeof(c) <> 'array'
+               OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(c) = 'array'
+                                                                  THEN c ELSE '[]'::jsonb END) x
+                          WHERE jsonb_typeof(x) <> 'number'))
+        AND CASE WHEN jsonb_typeof(m.data->'n') = 'number'
+                  AND jsonb_typeof(m.data->'base-clusters') = 'object'
+                  AND jsonb_typeof(m.data->'base-clusters'->'id') = 'array'
+                  AND jsonb_typeof(m.data->'base-clusters'->'members') = 'array'
+                  AND jsonb_typeof(m.data->'group-clusters') = 'array'
+                  AND jsonb_typeof(m.data->'in-conv') = 'array'
+                  AND jsonb_typeof(b.data->'bidToPid') = 'array'
+             THEN (m.data->>'n')::numeric >= 0
+                  AND jsonb_array_length(m.data->'base-clusters'->'members')
+                      = jsonb_array_length(m.data->'base-clusters'->'id')
+                  AND jsonb_array_length(b.data->'bidToPid')
+                      = jsonb_array_length(m.data->'base-clusters'->'id')
+                  AND jsonb_array_length(m.data->'in-conv') <= (m.data->>'n')::numeric
+                  AND ((m.data->>'n')::numeric > 0
+                       OR (jsonb_array_length(m.data->'base-clusters'->'id') = 0
+                           AND jsonb_array_length(m.data->'group-clusters') = 0
+                           AND jsonb_array_length(m.data->'in-conv') = 0
+                           AND m.last_vote_timestamp = 0
+                           AND p.data->'ptptstats' = '{}'::jsonb))
+             ELSE false END
+    ), false) AS valid) v
 WHERE s.math_env = :'source'
   AND m.math_tick >= 0 AND m.math_tick = b.math_tick AND m.math_tick = p.math_tick
   AND m.math_tick = k.math_tick;
 
 -- 5. Input catch-up at the cutoff: every vote created at or before cutoff_ms
 --    is reflected in the target's last_vote_timestamp. Reads each source
---    conversation's votes once (votes_zid_pid_idx). source_ahead_of_input:
---    behind its source row (stale) although every vote up to the cutoff is
---    in; the source claims a vote the table does not hold at the cutoff.
+--    conversation's votes once (votes_zid_pid_idx).
+--    source_ahead_of_input: the source row claims a later vote than any vote
+--    the table holds (the full input, not only up to the cutoff), whenever
+--    the target was published. live_tail_after_cutoff: a target published
+--    after the cutoff that is behind its source because the table holds a
+--    newer vote it has not consumed yet (live ingestion owns it); separated
+--    from source_ahead_of_input, which no amount of live catch-up resolves.
 SELECT
   count(*) FILTER (
     WHERE i.max_created IS NOT NULL
       AND (m.last_vote_timestamp IS NULL OR m.last_vote_timestamp < i.max_created))
     AS behind_input_at_cutoff,
   count(*) FILTER (
+    WHERE s.last_vote_timestamp > COALESCE(i.max_all, 0))
+    AS source_ahead_of_input,
+  count(*) FILTER (
     WHERE m.last_vote_timestamp < s.last_vote_timestamp
-      AND m.last_vote_timestamp < :cutoff_ms
-      AND (i.max_created IS NULL OR m.last_vote_timestamp >= i.max_created))
-    AS source_ahead_of_input
+      AND m.last_vote_timestamp >= :cutoff_ms
+      AND m.last_vote_timestamp < i.max_all)
+    AS live_tail_after_cutoff
 FROM math_main s
 LEFT JOIN math_main m ON m.zid = s.zid AND m.math_env = :'target'
-LEFT JOIN LATERAL (SELECT max(created) AS max_created FROM votes
-                   WHERE votes.zid = s.zid AND votes.created <= :cutoff_ms) i ON true
+LEFT JOIN LATERAL (SELECT max(created) FILTER (WHERE created <= :cutoff_ms) AS max_created,
+                          max(created) AS max_all
+                   FROM votes WHERE votes.zid = s.zid) i ON true
 WHERE s.math_env = :'source';
 
 COMMIT;
