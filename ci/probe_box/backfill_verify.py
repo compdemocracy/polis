@@ -24,10 +24,11 @@ Both are covered by a separately bound input instead: the operator's
 readiness record (`run_spec.readiness`, schema polis-backfill-readiness/1),
 taken from the admitted holder's own lines after DRAINED and after the
 cutoff. BACKFILL-COMPLETE needs it present, matching (one primary holder,
-one run/config across sweep, drain and liveness) and fresh at the snapshot;
+one run/config across sweep, drain and liveness) and fresh at the snapshot:
+every inner age is judged at the snapshot, not only at capture;
 otherwise the verdict is BACKFILL-INCOMPLETE and names the reason. A clock
-from the future (a published tick or a readiness stamp beyond the snapshot
-plus CLOCK_TOLERANCE_MS) makes the snapshot's clocks UNKNOWN and the verdict
+from the future (a published tick or any readiness stamp beyond the snapshot
+plus CLOCK_TOLERANCE_MS, the tolerances never compounded) makes the snapshot's clocks UNKNOWN and the verdict
 INCOMPLETE; it is never clamped to fresh.
 
 The receipt is archival: decoding it is deterministic and never consults the
@@ -220,24 +221,44 @@ def readiness_digest(v):
 
 
 def readiness_future(v, reference_ms):
-    """A readiness clock beyond the reference (snapshot or now), or beyond its own observation."""
+    """Any readiness stamp beyond the reference (snapshot or now) plus the
+    tolerance, or an inner stamp beyond its own observation plus the tolerance.
+
+    Each inner stamp is compared with the reference directly as well as with the
+    observation, so the two allowances never add up (review [1455] R2): no stamp
+    may exceed reference + CLOCK_TOLERANCE_MS.
+    """
     if v is None:
         return False
     observed = v['observed_ms']
     inner = (v['discovery']['last_success_ms'], v['sweep']['finished_ms'], v['drain']['drained_ms'],
              v['monitoring']['evaluated_ms'])
     return (observed > reference_ms + CLOCK_TOLERANCE_MS
-            or any(t is not None and t > observed + CLOCK_TOLERANCE_MS for t in inner))
+            or any(t is not None and (t > reference_ms + CLOCK_TOLERANCE_MS or t > observed + CLOCK_TOLERANCE_MS)
+                   for t in inner))
 
 
 def readiness_failures(v, spec, reference_ms):
-    """Failed READINESS_BLOCKING names for record `v` judged at `reference_ms` (the snapshot, or now)."""
+    """Failed READINESS_BLOCKING names for record `v` judged at `reference_ms`.
+
+    `reference_ms` is the decision time: the verifier's snapshot for the verdict,
+    the current time for launch and handoff. Every inner age (discovery success,
+    queued work, monitoring evaluation) is measured against it, and also against
+    the record's own observation; the record-age bound (`readiness-expired`) is
+    an additional check, never a replacement (review [1455] R1). A record
+    captured earlier is history: its capture-time freshness is never current
+    progress, and waiting inside the 900 s record bound never extends the
+    discovery gap.
+    """
     if v is None:
         return ['readiness-missing']
     failed = set()
     h, d, qu, s, dr, m = (v[k] for k in ('holder', 'discovery', 'queue', 'sweep', 'drain', 'monitoring'))
     observed, cutoff = v['observed_ms'], spec['cutoff_ms']
     gap = 1000 * spec['max_discovery_gap_seconds']
+    bound = 1000 * spec['max_readiness_age_seconds']
+    # Time since capture: the record's own clock may lead the reference by the tolerance.
+    waited = max(0, reference_ms - observed)
     # A standby or report process never satisfies the holder's liveness.
     if h['role'] != 'primary':
         failed.add('readiness-holder-not-primary')
@@ -252,16 +273,19 @@ def readiness_failures(v, spec, reference_ms):
     if observed < cutoff:
         failed.add('readiness-before-cutoff')
     # Genuine discovery-loop progress after the cutoff (empty successful polls
-    # count; publications do not), with no failure since the last success.
-    if (d['successes'] == 0 or d['failures_since_success'] or d['last_success_ms'] < cutoff
-            or observed - d['last_success_ms'] > gap):
+    # count; publications do not), with no failure since the last success,
+    # within the gap at observation AND at the decision.
+    last = d['last_success_ms']
+    if (d['successes'] == 0 or d['failures_since_success'] or last < cutoff
+            or observed - last > gap or reference_ms - last > gap):
         failed.add('readiness-discovery-stale')
-    if qu['oldest_work_age_ms'] > gap:
+    # Pending work keeps ageing while the record waits; an empty queue does not.
+    if qu['oldest_work_age_ms'] > gap or (qu['pending'] and qu['oldest_work_age_ms'] + waited > gap):
         failed.add('readiness-queue-stuck')
     if (m['alarm'] != 'OK' or m['alert_test_sha256'] is None
-            or observed - m['evaluated_ms'] > 1000 * spec['max_readiness_age_seconds']):
+            or observed - m['evaluated_ms'] > bound or reference_ms - m['evaluated_ms'] > bound):
         failed.add('readiness-monitoring-not-ok')
-    if reference_ms - observed > 1000 * spec['max_readiness_age_seconds']:
+    if reference_ms - observed > bound:
         failed.add('readiness-expired')
     return [n for n in READINESS_BLOCKING if n in failed]
 
@@ -558,8 +582,10 @@ def handoff(r, current, now_ms):
 
     The receipt must be fresh now, and `current` (the holder's readiness record
     read now) must be valid, from the same holder, run and config as the one
-    bound into the job, no older than it, and pass every readiness condition
-    against the job's cutoff at `now_ms`. READY only then.
+    bound into the job, captured after it (resubmitting the bound record, or
+    any capture no newer than it, is refused), and pass every readiness
+    condition against the job's cutoff with every inner age judged at
+    `now_ms`. READY only then.
     """
     out = consumption(r, now_ms)
     if out['status'] == 'NOT_COMPLETE':
@@ -579,8 +605,9 @@ def handoff(r, current, now_ms):
             digest = readiness_digest(current)
             if current['holder'] != bound['holder']:
                 reasons.append('current-readiness-mismatch')
-            if current['observed_ms'] < bound['observed_ms']:
-                reasons.append('current-readiness-older')
+            # The launch-bound record is history; only a newer capture is current.
+            if current['observed_ms'] <= bound['observed_ms']:
+                reasons.append('current-readiness-not-refreshed')
             if readiness_future(current, now_ms):
                 reasons.append('future-current-readiness-clock')
             for name in readiness_failures(current, spec, now_ms):
