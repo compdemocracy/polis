@@ -709,6 +709,30 @@ def current(receipt_sha256, observed, seq=41, alert=None, **changes):
             'alert_test': ALERT if alert is None else alert}
 
 
+def heartbeat_drill(**changes):
+    """A valid /3 heartbeat drill: both alarms fired at one boundary after a 1200 s silence."""
+    ev = ALERT['evidence']
+    at = ev['emitted_ms'] + 1_200_000
+    both = (bv.STALE_ALARM, bv.HEARTBEAT_ALARM)
+    return verifier.fixture_alert_test(**dict(dict(
+        silence_s=1200, tested_run_primary=True, holder_runs=['f' * 12],
+        transitions=[{'alarm': a, 'at_ms': at, 'from': 'OK', 'to': 'ALARM'} for a in both],
+        notifications=[dict(ev['notifications'][0], alarm=a, at_ms=at + 500) for a in both],
+        trace={'interval_ms': [ev['emitted_ms'] - 300_000, at]},
+        receipt={'selected': [dict(ev['receipt']['selected'][0], alarm=a, at_ms=at, offset=k * 900)
+                              for k, a in enumerate(both)]}), **changes))
+
+
+def shifted_alert(delta):
+    """The fixture evidence with every clock moved by `delta` ms."""
+    ev = copy.deepcopy(ALERT['evidence'])
+    ev['emitted_ms'] += delta
+    ev['trace']['interval_ms'] = [t + delta for t in ev['trace']['interval_ms']]
+    for x in ev['transitions'] + ev['notifications'] + ev['receipt']['selected']:
+        x['at_ms'] += delta
+    return verifier.fixture_alert_test(**ev)
+
+
 class Handoff(unittest.TestCase):
     """Review [1459], design (b): only the hand-off asserts current switch readiness."""
     GAP = 120_000
@@ -852,10 +876,11 @@ class Handoff(unittest.TestCase):
         late = PROOF_AT + 1_000_000
         self.assertRefused(self.gate(current(self.rs, late - 1_000, monitoring={'evaluated_ms': late - 900_001}),
                                      now=late), 'current-monitoring-not-ok')
-        # The alert-test document, checked structurally (P-072 schema /2).
+        # The alert-test document, checked structurally (P-072 schema /3).
         topic = verifier.FIXTURE_TOPIC
         bad = {
             'schema': verifier.fixture_alert_test(schema='math_poller.alert_test_evidence/1'),
+            'schema-2': verifier.fixture_alert_test(schema='math_poller.alert_test_evidence/2'),
             'no-stale-notification': verifier.fixture_alert_test(notifications=[]),
             'other-topic-action': verifier.fixture_alert_test(notifications=[
                 dict(ALERT['evidence']['notifications'][0], summary='Successfully executed action ' + topic + 'X')]),
@@ -875,12 +900,7 @@ class Handoff(unittest.TestCase):
                 self.assertRefused(self.gate(cur), 'current-invalid')
         # A valid heartbeat drill with both alarms.
         at = ALERT['evidence']['transitions'][0]['at_ms']
-        drill = verifier.fixture_alert_test(
-            silence_s=1200, tested_run_primary=True, holder_runs=['f' * 12],
-            transitions=ALERT['evidence']['transitions'] + [
-                {'alarm': bv.HEARTBEAT_ALARM, 'at_ms': at, 'from': 'OK', 'to': 'ALARM'}],
-            notifications=ALERT['evidence']['notifications'] + [
-                dict(ALERT['evidence']['notifications'][0], alarm=bv.HEARTBEAT_ALARM)])
+        drill = heartbeat_drill()
         self.assertEqual(bv.validate_alert_test(drill), drill['sha256'])
         # A different (valid) alert test than the one the history bound: the monitoring changed.
         out = self.gate(self.cur(alert=drill, monitoring={'alert_test_sha256': drill['sha256']}))
@@ -931,9 +951,7 @@ class Handoff(unittest.TestCase):
                            'future-current-clock', status='UNKNOWN')
         self.assertRefused(self.gate(self.cur(), proof=dict(self.proof, available_ms=self.now + tol + 1)),
                            'future-proof-clock', status='UNKNOWN')
-        future_alert = verifier.fixture_alert_test(emitted_ms=self.now + tol + 1, transitions=[
-            dict(ALERT['evidence']['transitions'][0], at_ms=self.now + tol + 1)], notifications=[
-            dict(ALERT['evidence']['notifications'][0], at_ms=self.now + tol + 1)])
+        future_alert = shifted_alert(self.now + tol + 1 - ALERT['evidence']['transitions'][0]['at_ms'])
         out = self.gate(self.cur(alert=future_alert, monitoring={'alert_test_sha256': future_alert['sha256']}))
         self.assertEqual(out['status'], 'UNKNOWN')
         self.assertIn('future-current-clock', out['reasons'])
@@ -949,6 +967,141 @@ class Handoff(unittest.TestCase):
         # The input is still observed (review [1467] R1), never authorized.
         self.assertEqual((out['status'], out['observation'], out['current']),
                          ('NOT_COMPLETE', 'valid', bv.readiness_digest(self.cur())))
+
+
+def rehashed(ev):
+    return {'evidence': ev, 'sha256': hashlib.sha256(encoded(ev)).hexdigest()}
+
+
+class AlertTestProvenance(unittest.TestCase):
+    """Review [1469] R1: the alert-test evidence (/3) binds the drill's private
+    trace, collection manifest and selected notifications; /2 is refused."""
+
+    def setUp(self):
+        self.h = Handoff('test_ready_only_at_the_handoff')
+        self.h.setUp()
+
+    def refuse(self, doc):
+        with self.assertRaisesRegex(ValueError, 'VERIFY_ALERT_TEST|VERIFY_SCHEMA|VERIFY_'):
+            bv.validate_alert_test(doc)
+
+    def test_previous_schema_documents_are_refused_and_never_ready(self):
+        # A /2 document exactly as the previous collector wrote it: no trace, no receipt provenance.
+        ev = {k: v for k, v in copy.deepcopy(ALERT['evidence']).items() if k not in ('trace', 'receipt')}
+        old = rehashed(dict(ev, schema='math_poller.alert_test_evidence/2'))
+        self.refuse(old)
+        cur = self.h.cur(alert=old, monitoring={'alert_test_sha256': old['sha256']})
+        with self.assertRaises(ValueError):
+            bv.validate_current(cur)
+        out = self.h.gate(cur)
+        self.assertNotEqual(out['status'], 'READY')
+        self.assertIn('current-invalid', out['reasons'])
+        self.assertEqual(bv.observe(cur)['observation'], 'invalid-envelope')
+        # Upgrading the label alone, without the bound provenance, is refused too.
+        self.refuse(rehashed(dict(ev, schema=bv.ALERT_TEST_SCHEMA)))
+
+    def test_the_digest_covers_the_trace_and_selected_messages(self):
+        a = verifier.fixture_alert_test()
+        digests = {a['sha256']}
+        for changes in ({'trace': {'sha256': '1' * 64}}, {'trace': {'manifest_sha256': '2' * 64}},
+                        {'trace': {'lines': 13}}, {'trace': {'test_line_index': 121}},
+                        {'receipt': {'selected': [dict(a['evidence']['receipt']['selected'][0], offset=17)]}}):
+            b = verifier.fixture_alert_test(**changes)
+            self.assertEqual(bv.validate_alert_test(b), b['sha256'])
+            digests.add(b['sha256'])
+        self.assertEqual(len(digests), 6)
+        # A digest that does not cover the bound provenance is refused.
+        changed = copy.deepcopy(a)
+        changed['evidence']['trace']['sha256'] = '1' * 64
+        self.refuse(changed)
+
+    def test_missing_or_malformed_provenance_is_refused(self):
+        a = ALERT['evidence']
+        for name, ev in {
+            'no-trace': {k: v for k, v in a.items() if k != 'trace'},
+            'no-receipt': {k: v for k, v in a.items() if k != 'receipt'},
+            'trace-extra-key': dict(a, trace=dict(a['trace'], note='x')),
+            'trace-missing-key': dict(a, trace={k: v for k, v in a['trace'].items() if k != 'manifest_sha256'}),
+            'trace-digest': dict(a, trace=dict(a['trace'], sha256='x')),
+            'manifest-digest': dict(a, trace=dict(a['trace'], manifest_sha256=None)),
+            'no-lines': dict(a, trace=dict(a['trace'], lines=0)),
+            'index-past-log': dict(a, trace=dict(a['trace'], test_line_index=400)),
+            'interval-after-test-line': dict(a, trace=dict(a['trace'], interval_ms=[a['emitted_ms'] + 1,
+                                                                                   a['trace']['interval_ms'][1]])),
+            'interval-before-transition': dict(a, trace=dict(a['trace'], interval_ms=[
+                a['trace']['interval_ms'][0], a['transitions'][0]['at_ms'] - 1])),
+            'interval-shape': dict(a, trace=dict(a['trace'], interval_ms=[a['emitted_ms']])),
+            'receipt-aggregate': dict(a, receipt_sha256='e' * 64),
+            'receipt-no-files': dict(a, receipt=dict(a['receipt'], files=[])),
+            'selected-missing': dict(a, receipt=dict(a['receipt'], selected=[])),
+            'selected-extra': dict(a, receipt=dict(a['receipt'], selected=a['receipt']['selected'] * 2)),
+            'selected-other-file': dict(a, receipt=dict(a['receipt'], selected=[
+                dict(a['receipt']['selected'][0], file=1)])),
+            'selected-form': dict(a, receipt=dict(a['receipt'], selected=[
+                dict(a['receipt']['selected'][0], form='html')])),
+            'selected-time': dict(a, receipt=dict(a['receipt'], selected=[
+                dict(a['receipt']['selected'][0], at_ms=a['transitions'][0]['at_ms'] - 2_000)])),
+            'selected-extra-key': dict(a, receipt=dict(a['receipt'], selected=[
+                dict(a['receipt']['selected'][0], text='mail body')])),
+            'second-transition': dict(a, transitions=a['transitions'] * 2),
+        }.items():
+            with self.subTest(case=name):
+                self.refuse(rehashed(copy.deepcopy(ev)))
+        # The receipt aggregate over several files, and a whole-second e-mail time.
+        files = ['d' * 64, 'e' * 64]
+        agg = hashlib.sha256(encoded(files)).hexdigest()
+        at = a['transitions'][0]['at_ms']
+        ok = verifier.fixture_alert_test(receipt_sha256=agg, receipt={
+            'files': files, 'selected': [dict(a['receipt']['selected'][0], file=1, at_ms=at - 1_999)]})
+        self.assertEqual(bv.validate_alert_test(ok), ok['sha256'])
+        late = verifier.fixture_alert_test(receipt={'selected': [
+            dict(a['receipt']['selected'][0], at_ms=at - 1_001, seconds=False)]})
+        self.refuse(late)
+
+    def test_malformed_lines_need_an_established_bracket_outside_the_interval(self):
+        a = ALERT['evidence']
+        lo, hi = a['trace']['interval_ms']
+
+        def with_bad(*items, **trace):
+            excluded = [dict(zip(bv.ALERT_MALFORMED, x)) for x in items]
+            return verifier.fixture_alert_test(trace=dict(dict(malformed_total=len(excluded),
+                                                               malformed_excluded=excluded), **trace))
+        before = (3, 'b' * 64, lo - 400_000, lo - 1)
+        after = (390, 'b' * 64, hi + 1, None)
+        for doc in (with_bad(before), with_bad(after), with_bad(before, after), with_bad((3, 'b' * 64, None, lo - 1))):
+            self.assertEqual(bv.validate_alert_test(doc), doc['sha256'])
+        for name, doc in {
+            'inside': with_bad((3, 'b' * 64, lo, lo + 10)),
+            'overlapping': with_bad((3, 'b' * 64, lo - 10, lo)),
+            'unbounded': with_bad((3, 'b' * 64, None, None)),
+            'bounded-only-before-interval-end': with_bad((3, 'b' * 64, lo - 1, None)),
+            # An inverted bracket (a later clock logged earlier) establishes nothing.
+            'inverted': with_bad((3, 'b' * 64, hi + 500_000, lo - 1)),
+            'unordered-clocks': with_bad(before, order_violations=1),
+            'count-mismatch': with_bad(before, malformed_total=2),
+            'unlisted': verifier.fixture_alert_test(trace={'malformed_total': 1}),
+            'out-of-order': with_bad(after, before),
+            'test-line': with_bad((a['trace']['test_line_index'], 'b' * 64, lo - 400_000, lo - 1)),
+        }.items():
+            with self.subTest(case=name):
+                self.refuse(doc)
+        # Clock-order violations with nothing malformed to place are recorded, not refused.
+        doc = verifier.fixture_alert_test(trace={'order_violations': 3})
+        self.assertEqual(bv.validate_alert_test(doc), doc['sha256'])
+
+    def test_future_provenance_clocks_are_unknown(self):
+        tol = bv.CLOCK_TOLERANCE_MS
+        a = ALERT['evidence']
+        late = verifier.fixture_alert_test(receipt={'selected': [
+            dict(a['receipt']['selected'][0], at_ms=self.h.now + tol + 1)]},
+            trace={'interval_ms': [a['trace']['interval_ms'][0], self.h.now + tol + 1]})
+        with self.assertRaises(ValueError):  # the selected time must also name its transition
+            bv.validate_alert_test(late)
+        shifted = heartbeat_drill(trace={'interval_ms': [ALERT['evidence']['emitted_ms'] - 300_000,
+                                                         self.h.now + tol + 1]})
+        self.assertEqual(bv.validate_alert_test(shifted), shifted['sha256'])
+        self.assertTrue(bv.alert_test_future(shifted, self.h.now))
+        self.assertFalse(bv.alert_test_future(heartbeat_drill(), self.h.now))
 
 
 class AttemptLedger(unittest.TestCase):
@@ -1302,6 +1455,129 @@ class RejectedInput(unittest.TestCase):
         with self.assertRaises(ValueError):
             bv.attempt_record(None, h, proof=self.proof, receipt_sha256=self.rs, current=None,
                               attempts=self.entries, run_id='d' * 32)
+
+
+class PresentedInput(unittest.TestCase):
+    """Review [1471]: a supplied JSON null (R1) is an unknown input with its digest,
+    never absence; the current file is read once, hashed and judged as the same bytes (R2)."""
+    NOW, ADVERSE = AttemptLedger.NOW, AttemptLedger.ADVERSE
+    setUp, attempt, cur, adverse, assertRefused = (AttemptLedger.setUp, AttemptLedger.attempt, AttemptLedger.cur,
+                                                   AttemptLedger.adverse, AttemptLedger.assertRefused)
+
+    def ready(self, path, now):
+        """The operator's `ready` on a current file: one read, then judge and journal."""
+        try:
+            raw = Path(path).read_bytes()
+        except OSError:
+            raw = None
+        cur, cs = bv.read_current(raw)
+        h = bv.handoff(self.r, cur, now, proof=self.proof, receipt_sha256=self.rs, job_sha256=sha(self.j),
+                       receipts=[self.rs], previous=list(self.records), attempts=list(self.entries),
+                       current_sha256=cs)
+        rec = bv.attempt_record(self.r, h, proof=self.proof, receipt_sha256=self.rs, current=cur,
+                                attempts=list(self.entries))
+        self.entries.append((bv.attempt_name(rec['attempt']), encoded(rec)))
+        if h['status'] == 'READY':
+            self.records.append(bv.handoff_record(self.r, h, self.proof, self.rs, cur))
+        return h, rec
+
+    def write(self, data):
+        import tempfile
+        self.tmp = getattr(self, 'tmp', None) or tempfile.TemporaryDirectory()
+        path = Path(self.tmp.name) / 'current.json'
+        path.write_bytes(data if isinstance(data, bytes) else encoded(data))
+        return path
+
+    def tearDown(self):
+        if getattr(self, 'tmp', None):
+            self.tmp.cleanup()
+
+    def test_supplied_null_is_an_unknown_barrier(self):
+        tol = bv.CLOCK_TOLERANCE_MS
+        for payload in (b'null', b' \nnull\t'):
+            with self.subTest(payload=payload):
+                self.setUp()
+                first, entry = self.ready(self.write(payload), self.NOW)
+                self.assertRefused(first, 'current-invalid')
+                self.assertNotIn('current-missing', first['reasons'])
+                self.assertEqual((entry['observation'], entry['input_sha256'], entry['current'], entry['holder']),
+                                 ('unknown', hashlib.sha256(payload).hexdigest(), None, None))
+                older, _ = self.ready(self.write(self.cur(self.NOW - 2_000, 41)), self.NOW + 1_000)
+                self.assertEqual((older['status'], older['reasons']), ('REFUSED', ['current-not-after-unknown-input']))
+                at, _ = self.ready(self.write(self.cur(self.NOW + tol, 42)), self.NOW + tol + 1_000)
+                self.assertEqual(at['reasons'], ['current-not-after-unknown-input'])
+                ok, _ = self.ready(self.write(self.cur(self.NOW + tol + 1, 43)), self.NOW + tol + 2_000)
+                self.assertEqual((ok['status'], ok['reasons']), ('READY', []))
+
+    def test_scalar_malformed_and_missing_controls(self):
+        for payload in (b'false', b'0', b'""', b'[]', b'{}', b'null trailing', b''):
+            with self.subTest(payload=payload):
+                self.setUp()
+                first, entry = self.ready(self.write(payload), self.NOW)
+                self.assertEqual((first['status'], entry['observation'], entry['input_sha256']),
+                                 ('REFUSED', 'unknown', hashlib.sha256(payload).hexdigest()))
+                older, _ = self.ready(self.write(self.cur(self.NOW - 2_000, 41)), self.NOW + 1_000)
+                self.assertEqual(older['reasons'], ['current-not-after-unknown-input'])
+        # A missing file: no bytes, the unreadable marker, still a barrier.
+        self.setUp()
+        first, entry = self.ready(Path(self.write(b'x')).parent / 'absent.json', self.NOW)
+        self.assertEqual(entry['observation'], 'unknown')
+        older, _ = self.ready(self.write(self.cur(self.NOW - 2_000, 41)), self.NOW + 1_000)
+        self.assertEqual(older['reasons'], ['current-not-after-unknown-input'])
+        # No input at all (the library's None without a digest) is still `none`.
+        self.assertEqual(bv.observe(None)['observation'], 'none')
+        self.assertEqual(bv.read_current(None), (bv.UNREADABLE, None))
+        # A stable healthy file: READY, the digest its own bytes.
+        self.setUp()
+        healthy = self.cur(self.NOW - 1_000, 41)
+        ok, entry = self.ready(self.write(healthy), self.NOW)
+        self.assertEqual((ok['status'], entry['input_sha256'], entry['current']),
+                         ('READY', hashlib.sha256(encoded(healthy)).hexdigest(), bv.readiness_digest(healthy)))
+
+    def test_undecodable_receipt_with_supplied_null_is_a_barrier(self):
+        cur, cs = bv.read_current(b'null')
+        h = bv.receipt_invalid(cur, self.NOW, run_id=self.r['run_id'], receipt_sha256=self.rs, proof=self.proof,
+                               attempts=self.entries, current_sha256=cs)
+        self.assertEqual((h['reasons'], h['observation'], h['input_sha256']),
+                         (['receipt-invalid', 'current-invalid'], 'unknown', hashlib.sha256(b'null').hexdigest()))
+        rec = bv.attempt_record(None, h, proof=self.proof, receipt_sha256=self.rs, current=cur,
+                                attempts=self.entries, run_id=self.r['run_id'])
+        self.entries.append((bv.attempt_name(rec['attempt']), encoded(rec)))
+        self.assertRefused(self.attempt(self.cur(self.NOW - 2_000, 41), self.NOW + 1_000),
+                           'current-not-after-unknown-input')
+
+    def test_a_file_replaced_after_its_read_never_splits_digest_and_record(self):
+        """The reviewer's schedule: the current file is replaced immediately after the
+        first real read. The decision, digest and record all come from that one read."""
+        for name in ('alarm', 'restart'):
+            for adverse_first in (True, False):
+                with self.subTest(adverse=name, adverse_first=adverse_first):
+                    self.setUp()
+                    bad = self.adverse(self.NOW - 1_000, 42, name)
+                    old = self.cur(self.NOW - 2_000, 41)
+                    first, then = (bad, old) if adverse_first else (old, bad)
+                    path = self.write(first)
+                    reads, real_read = [], Path.read_bytes
+
+                    def replace_after_read(p):
+                        data = real_read(p)
+                        if p == path:
+                            reads.append(hashlib.sha256(data).hexdigest())
+                            if len(reads) == 1:
+                                p.write_bytes(encoded(then))
+                        return data
+                    with patch.object(Path, 'read_bytes', replace_after_read):
+                        h, entry = self.ready(path, self.NOW)
+                    self.assertEqual(len(reads), 1)
+                    self.assertEqual((entry['input_sha256'], entry['current'], entry['current_seq']),
+                                     (hashlib.sha256(encoded(first)).hexdigest(), bv.readiness_digest(first),
+                                      first['readiness']['seq']))
+                    if adverse_first:
+                        self.assertEqual(h['status'], 'REFUSED')
+                        self.assertEqual(self.records, [])
+                        self.assertEqual(entry['holder'], bad['readiness']['holder'])
+                    else:
+                        self.assertEqual(h['status'], 'READY')
 
 
 class Consumption(unittest.TestCase):

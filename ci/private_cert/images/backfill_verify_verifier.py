@@ -59,17 +59,30 @@ FIXTURE_TOPIC = 'arn:aws:sns:us-east-1:123456789012:AlarmTopic'
 
 
 def fixture_alert_test(**changes):
-    """P-072 alert-test evidence (schema /2), an hour before the fixture cutoff: the
-    DiscoveryStale alarm fired and CloudWatch notified the topic. `changes` replaces
-    evidence fields; the digest is recomputed."""
+    """P-072 alert-test evidence (schema /3), an hour before the fixture cutoff: the
+    DiscoveryStale alarm fired, CloudWatch notified the topic and the operator's
+    received e-mail names that state change; the drill's private trace and
+    collection manifest are bound by digest. `changes` replaces evidence fields
+    (`trace` and `receipt` values are merged into those sections); the digest is
+    recomputed."""
     at = CUTOFF_MS - 3_300_000
+    since = CUTOFF_MS - 3_600_000
     ev = {'schema': ALERT_TEST_SCHEMA, 'nonce': '9' * 32, 'tested_run': 'f' * 12, 'tested_run_primary': False,
-          'holder_runs': ['e' * 12], 'emitted_ms': CUTOFF_MS - 3_600_000, 'silence_s': 0,
+          'holder_runs': ['e' * 12], 'emitted_ms': since, 'silence_s': 0,
           'test_line_sha256': '8' * 64,
           'transitions': [{'alarm': STALE_ALARM, 'at_ms': at, 'from': 'OK', 'to': 'ALARM'}],
           'notifications': [{'alarm': STALE_ALARM, 'at_ms': at, 'data': '{}',
                              'summary': 'Successfully executed action ' + FIXTURE_TOPIC}],
-          'topic_arn': FIXTURE_TOPIC, 'alarm_config_sha256': 'c' * 64, 'receipt_sha256': 'd' * 64}
+          'topic_arn': FIXTURE_TOPIC, 'alarm_config_sha256': 'c' * 64, 'receipt_sha256': 'd' * 64,
+          'trace': {'interval_ms': [since - 300_000, at], 'lines_total': 400, 'test_line_index': 120,
+                    'lines': 12, 'sha256': '7' * 64, 'manifest_sha256': '6' * 64, 'order_violations': 0,
+                    'malformed_total': 0, 'malformed_excluded': []},
+          'receipt': {'files': ['d' * 64],
+                      'selected': [{'alarm': STALE_ALARM, 'file': 0, 'offset': 0, 'sha256': 'd' * 64,
+                                    'form': 'mail', 'at_ms': at, 'seconds': True}]}}
+    for k in ('trace', 'receipt'):
+        if isinstance(changes.get(k), dict):
+            changes[k] = dict(ev[k], **changes[k])
     ev.update(changes)
     return {'evidence': ev, 'sha256': hashlib.sha256(encoded(ev)).hexdigest()}
 
