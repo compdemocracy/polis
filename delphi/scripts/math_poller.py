@@ -251,13 +251,28 @@ def _hold_single_writer_lock(config: PollerConfig, log):
     return conn
 
 
+def _backfill_config(log):
+    """The opt-in pre-switch backfill (P-070), or None. A bad MATH_BACKFILL_*
+    value turns the backfill off and is logged; it never stops the poller."""
+    from polismath.poller.backfill import BackfillConfig, ConfigError
+
+    try:
+        cfg = BackfillConfig.from_env()
+    except ConfigError as exc:
+        log.error("math-backfill DISABLED: %s", exc)
+        return None
+    return cfg if cfg.enabled else None
+
+
 def _build_service(config: PollerConfig) -> MathPollerService:
     if not config.database_url:
         print("DATABASE_URL is required", file=sys.stderr)
         raise SystemExit(2)
     pg = PostgresClient(PostgresConfig(url=config.database_url, math_env=config.math_env))
     pg.initialize()
-    return MathPollerService(pg, config)
+    return MathPollerService(
+        pg, config, backfill_config=_backfill_config(logging.getLogger("math_poller"))
+    )
 
 
 def main(argv=None) -> int:
@@ -304,6 +319,22 @@ def main(argv=None) -> int:
 
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
+
+    # Backfill operator controls (P-070): SIGUSR1 approves the gate after the
+    # N largest; SIGUSR2 pauses or resumes. Handlers only set flags (the
+    # scheduler persists them); with the backfill off they log and do nothing.
+    def _handle_backfill_signal(signum, _frame):
+        backfill = getattr(service, "backfill", None)
+        if backfill is None:
+            log.warning("Received signal %s but the backfill is not enabled", signum)
+            return
+        threading.Thread(
+            target=backfill.approve_gate if signum == signal.SIGUSR1 else backfill.toggle_pause,
+            name="backfill-signal", daemon=True,
+        ).start()
+
+    signal.signal(signal.SIGUSR1, _handle_backfill_signal)
+    signal.signal(signal.SIGUSR2, _handle_backfill_signal)
 
     log.info(
         "Starting math poller: math_env=%s vote_interval=%dms mod_interval=%dms "

@@ -298,3 +298,37 @@ def test_math_python_memory_limit_reads_delphi_poller_container_memory():
     assert _interpolate(raw, {"DELPHI_POLLER_CONTAINER_MEMORY": "6g"}) == "6g"
     # Delphi's own cap is a different variable; setting it must not move the poller's.
     assert _interpolate(raw, {"DELPHI_CONTAINER_MEMORY": "8g"}) == "16g"
+
+
+# --- Pre-switch backfill (P-070) ---------------------------------------------
+# The backfill runs inside math-python, off unless the secret sets
+# MATH_BACKFILL=1; switching it on or off is a secret change and a redeploy.
+
+
+@requires_checkout
+def test_math_python_backfill_is_off_by_default_and_its_settings_parse():
+    from polismath.poller.backfill import ENV_NAMES, BackfillConfig
+
+    env = _environment("docker-compose.yml", "math-python", {})
+    forwarded = {k: v for k, v in env.items() if k.startswith("MATH_BACKFILL")}
+    assert set(forwarded) <= set(ENV_NAMES.values())
+    config = BackfillConfig.from_env(forwarded)
+    assert not config.enabled
+    assert config.source_env == "prod" and config.concurrency == 1
+    assert config.gate_after_largest == 10 and not config.gate_approved
+    # The default ceiling sits below the production poller cap (6g).
+    assert config.memory_ceiling_mb < 6 * 1024
+
+    on = BackfillConfig.from_env(
+        _environment("docker-compose.yml", "math-python", {"MATH_BACKFILL": "1"})
+    )
+    assert on.enabled and on.state_path == "/app/backfill-state/state.json"
+
+
+@requires_checkout
+def test_math_python_keeps_backfill_state_on_a_named_volume():
+    document = yaml.safe_load((CHECKOUT / "docker-compose.yml").read_text())
+    block = document["services"]["math-python"]
+    assert "math-backfill-state:/app/backfill-state" in block.get("volumes", [])
+    assert "math-backfill-state" in document["volumes"]
+    assert block.get("profiles") == ["math-python"]
