@@ -769,8 +769,10 @@ class Handoff(unittest.TestCase):
         self.assertRefused(self.gate(self.cur(), proof=dict(self.proof, readiness='CURRENT')), 'proof-invalid')
         self.assertRefused(self.gate(self.cur(), proof={'schema': 'unreadable'}), 'proof-invalid')
         self.assertRefused(self.gate(self.cur(), proof=dict(self.proof, run_id='d' * 32)), 'proof-mismatch')
-        self.assertRefused(self.gate(self.cur(), proof=dict(self.proof, available_ms=SNAPSHOT - 1)),
+        tol = bv.CLOCK_TOLERANCE_MS
+        self.assertRefused(self.gate(self.cur(), proof=dict(self.proof, available_ms=SNAPSHOT - tol - 1)),
                            'clock-reversal', status='UNKNOWN')
+        self.assertEqual(self.gate(self.cur(), proof=dict(self.proof, available_ms=SNAPSHOT - tol))['status'], 'READY')
         with self.assertRaisesRegex(ValueError, 'VERIFY_NOT_COMPLETE'):
             bv.proof_record(export(j=job(readiness=None))[0], self.rs, PROOF_AT)
 
@@ -895,14 +897,14 @@ class Handoff(unittest.TestCase):
         self.assertRefused(self.gate(current('0' * 64, self.now - 1_000)), 'current-for-other-receipt')
         self.assertRefused(self.gate(cur, receipts=[self.rs, '0' * 64]), 'newer-receipt-exists')
         self.assertRefused(self.gate(cur, receipts=[]), 'newer-receipt-exists')
-        # One READY decision; a second needs a newer decision time and a newer current record.
+        # One READY decision per proof (review [1463]); the ledger's own cases are in AttemptLedger.
         first = self.gate(cur)
         record = bv.handoff_record(self.r, first, self.proof, self.rs, cur)
-        self.assertRefused(self.gate(cur, previous=[record]), 'newer-handoff-exists', 'current-reused')
+        self.assertRefused(self.gate(cur, previous=[record]), 'newer-handoff-exists', 'current-reused',
+                           'proof-consumed')
         later = self.now + 30_000
-        self.assertRefused(self.gate(cur, now=later, previous=[record]), 'current-reused')
         again = current(self.rs, later - 1_000, seq=42, discovery={'last_success_ms': later - 2_000})
-        self.assertEqual(self.gate(again, now=later, previous=[record])['status'], 'READY')
+        self.assertRefused(self.gate(again, now=later, previous=[record]), 'proof-consumed')
         self.assertRefused(self.gate(again, now=later, previous=[dict(record, now_ms=later)]), 'newer-handoff-exists')
         self.assertRefused(self.gate(again, now=later, previous=[{'schema': 'unreadable'}]), 'handoff-record-invalid')
 
@@ -945,6 +947,216 @@ class Handoff(unittest.TestCase):
         self.assertEqual(bv.consumption(r, SNAPSHOT + 1)['status'], 'NOT_COMPLETE')
         out = bv.handoff(r, self.cur(), self.now, proof=None, receipt_sha256=self.rs, job_sha256=sha(j))
         self.assertEqual((out['status'], out['current']), ('NOT_COMPLETE', None))
+
+
+class AttemptLedger(unittest.TestCase):
+    """Review [1463] R1: every attempt, refusals included, is remembered for the proof;
+    C1: the proof's clock tolerance matches the receipt phase's."""
+    NOW = SNAPSHOT + 90_000
+
+    def setUp(self):
+        self.r, self.j = export()
+        self.rs = hashlib.sha256(encoded(self.r)).hexdigest()
+        self.bound = self.j['run_spec']['readiness']
+        self.proof = bv.proof_record(self.r, self.rs, PROOF_AT)
+        self.entries, self.records = [], []
+
+    def attempt(self, cur, now, proof=None):
+        """The operator's `ready`: judge, append the attempt, then (READY only) the hand-off record."""
+        proof = self.proof if proof is None else proof
+        h = bv.handoff(self.r, cur, now, proof=proof, receipt_sha256=self.rs, job_sha256=sha(self.j),
+                       receipts=[self.rs], previous=list(self.records), attempts=list(self.entries))
+        rec = bv.attempt_record(self.r, h, proof=proof, receipt_sha256=self.rs, current=cur,
+                                attempts=list(self.entries))
+        self.entries.append((bv.attempt_name(rec['attempt']), encoded(rec)))
+        if h['status'] == 'READY':
+            self.records.append(bv.handoff_record(self.r, h, proof, self.rs, cur))
+        self.assertEqual(h['reasons'], [n for n in bv.REASONS if n in h['reasons']])
+        return h
+
+    def cur(self, observed, seq, **changes):
+        return current(self.rs, observed, seq=seq, **changes)
+
+    ADVERSE = {
+        'standby': ({'holder': {'role': 'standby'}}, True),
+        'alarm': ({'monitoring': {'alarm': 'ALARM'}}, False),
+        'parked': ({'queue': {'parked': 1, 'oldest_work_age_ms': 121_000}}, False),
+        'drain-revoked': ({'drain': {'drained_ms': None}}, True),
+        'restart': ({'holder': {'run': 'e' * 12}, 'sweep': {'run': 'e' * 12}, 'drain': {'run': 'e' * 12},
+                     'seq': 1}, True),
+    }
+
+    def adverse(self, observed, seq, name):
+        changes = dict(self.ADVERSE[name][0])
+        seq = changes.pop('seq', seq)
+        return self.cur(observed, seq, **changes)
+
+    def test_newer_refusal_then_older_healthy_is_refused(self):
+        """The reviewer's five reproductions: exits 6 then 0 before; now both refuse."""
+        for name, (_, invalidates) in self.ADVERSE.items():
+            with self.subTest(adverse=name):
+                self.setUp()
+                bad = self.attempt(self.adverse(self.NOW - 1_000, 42, name), self.NOW)
+                self.assertEqual(bad['status'], 'REFUSED', bad)
+                old = self.attempt(self.cur(self.NOW - 2_000, 41), self.NOW + 1_000)
+                self.assertEqual(old['status'], 'REFUSED', old)
+                self.assertIn('current-not-newer', old['reasons'])
+                self.assertEqual('proof-invalidated' in old['reasons'], invalidates)
+                self.assertEqual((len(self.entries), self.records), (2, []))
+
+    def test_prior_ready_then_refusal_then_older_healthy(self):
+        """READY 41, REFUSED 43, older healthy 42: one READY record, never two."""
+        for name in self.ADVERSE:
+            with self.subTest(adverse=name):
+                self.setUp()
+                self.assertEqual(self.attempt(self.cur(self.NOW - 3_000, 41), self.NOW)['status'], 'READY')
+                bad = self.attempt(self.adverse(self.NOW + 500, 43, name), self.NOW + 1_000)
+                self.assertEqual(bad['status'], 'REFUSED')
+                old = self.attempt(self.cur(self.NOW - 2_000, 42), self.NOW + 2_000)
+                self.assertRefused(old, 'proof-consumed', 'current-not-newer')
+                self.assertEqual((len(self.entries), len(self.records)), (3, 1))
+
+    def assertRefused(self, out, *reasons):
+        self.assertEqual(out['status'], 'REFUSED', out)
+        for reason in reasons:
+            self.assertIn(reason, out['reasons'])
+
+    def test_observed_restart_requires_a_new_proof(self):
+        restart = self.attempt(self.adverse(self.NOW - 1_000, 42, 'restart'), self.NOW)
+        self.assertIn('current-holder-mismatch', restart['reasons'])
+        self.assertTrue(set(restart['reasons']) & set(bv.NEW_PROOF_REASONS))
+        # The former run recaptured, even genuinely newer than everything seen: still a new proof.
+        former = self.attempt(self.cur(self.NOW + 9_000, 50), self.NOW + 10_000)
+        self.assertEqual(former['reasons'], ['proof-invalidated'])
+        self.assertEqual(self.records, [])
+        # A config, source or instance change or a changed drain seen only in a refusal also spends the proof.
+        for section, change in (('holder', {'config': '8' * 12}), ('holder', {'source_commit': '8' * 40}),
+                                ('holder', {'instance_sha256': '8' * 64}),
+                                ('drain', {'drained_ms': self.bound['drain']['drained_ms'] + 1})):
+            with self.subTest(change=change):
+                self.setUp()
+                self.assertRefused(self.attempt(self.cur(self.NOW - 1_000, 42, **{section: change}), self.NOW))
+                self.assertEqual(self.attempt(self.cur(self.NOW + 9_000, 50), self.NOW + 10_000)['reasons'],
+                                 ['proof-invalidated'])
+
+    def test_genuinely_newer_same_run_recovery(self):
+        for name in ('alarm', 'parked'):
+            with self.subTest(transient=name):
+                self.setUp()
+                self.assertRefused(self.attempt(self.adverse(self.NOW - 1_000, 42, name), self.NOW))
+                good = self.attempt(self.cur(self.NOW + 1_000, 43), self.NOW + 2_000)
+                self.assertEqual((good['status'], good['reasons']), ('READY', []))
+                self.assertEqual(len(self.records), 1)
+        # Newer means both: a later capture with the same or older sequence, or a newer sequence captured earlier.
+        self.setUp()
+        self.attempt(self.adverse(self.NOW - 1_000, 42, 'alarm'), self.NOW)
+        self.assertRefused(self.attempt(self.cur(self.NOW + 1_000, 42), self.NOW + 2_000), 'current-not-newer')
+        self.assertRefused(self.attempt(self.cur(self.NOW - 1_000, 44), self.NOW + 3_000), 'current-not-newer')
+        self.assertEqual(self.attempt(self.cur(self.NOW + 3_500, 45), self.NOW + 4_000)['status'], 'READY')
+
+    def test_one_ready_per_proof(self):
+        self.assertEqual(self.attempt(self.cur(self.NOW - 1_000, 41), self.NOW)['status'], 'READY')
+        later = self.NOW + 60_000
+        again = self.attempt(self.cur(later - 1_000, 42, discovery={'last_success_ms': later - 2_000}), later)
+        self.assertEqual(again['reasons'], ['proof-consumed'])
+        self.assertTrue(set(again['reasons']) & set(bv.NEW_PROOF_REASONS))
+        self.assertEqual(len(self.records), 1)
+        # An interrupted hand-off (READY attempt appended, record never written) is still consumed.
+        self.setUp()
+        self.attempt(self.cur(self.NOW - 1_000, 41), self.NOW)
+        self.records.clear()
+        self.assertRefused(self.attempt(self.cur(later - 1_000, 42), later), 'proof-consumed')
+
+    def test_resubmitted_and_same_time_attempts(self):
+        refused = self.cur(self.NOW - 1_000, 42, monitoring={'alarm': 'ALARM'})
+        self.attempt(refused, self.NOW)
+        self.assertRefused(self.attempt(refused, self.NOW + 1_000), 'current-reused')
+        self.assertRefused(self.attempt(self.cur(self.NOW + 500, 43), self.NOW + 1_000), 'newer-attempt-exists')
+        # Attempts without a readable current record observe nothing and block nothing newer.
+        self.setUp()
+        self.attempt(None, self.NOW)
+        self.attempt({'schema': 'unreadable'}, self.NOW + 1_000)
+        self.assertEqual([bv.decode(raw)['current'] for _, raw in self.entries], [None, None])
+        self.assertEqual(self.attempt(self.cur(self.NOW + 1_500, 41), self.NOW + 2_000)['status'], 'READY')
+
+    def test_ledger_records_every_attempt(self):
+        self.attempt(self.adverse(self.NOW - 1_000, 42, 'alarm'), self.NOW)
+        self.attempt(self.cur(self.NOW + 1_000, 43), self.NOW + 2_000)
+        (n1, raw1), (n2, raw2) = self.entries
+        a1, a2 = bv.decode(raw1), bv.decode(raw2)
+        self.assertEqual((n1, n2), ('verify-attempt-000001.json', 'verify-attempt-000002.json'))
+        self.assertEqual((a1['outcome'], a1['reasons'], a1['current_seq'], a1['current_observed_ms']),
+                         ('REFUSED', ['current-monitoring-not-ok'], 42, self.NOW - 1_000))
+        self.assertEqual((a1['holder'], a1['drain']), (self.bound['holder'], self.bound['drain']))
+        self.assertEqual((a1['previous_sha256'], a2['previous_sha256']), (None, hashlib.sha256(raw1).hexdigest()))
+        self.assertEqual((a2['outcome'], a2['proof_sha256']), ('READY', bv.proof_digest(self.proof)))
+        self.assertEqual(self.records[0]['current'], a2['current'])
+        self.assertEqual(bv.ATTEMPT_GLOB, 'verify-attempt-*.json')
+        self.assertFalse(Path('x').match(bv.ATTEMPT_GLOB) or Path('verify-handoff-1.json').match(bv.ATTEMPT_GLOB))
+
+    def test_malformed_ledger_refuses_and_is_never_extended(self):
+        self.attempt(self.adverse(self.NOW - 1_000, 42, 'alarm'), self.NOW)
+        self.attempt(self.cur(self.NOW - 500, 43, monitoring={'alarm': 'ALARM'}), self.NOW + 1_000)
+        (n1, raw1), (n2, raw2) = self.entries
+        a2 = bv.decode(raw2)
+        bad = {
+            'gap': [(n1, raw1), (bv.attempt_name(3), raw2)],
+            'first-missing': [(n2, raw2)],
+            'reordered': [(n1, raw2), (n2, raw1)],
+            'chain': [(n1, raw1), (n2, encoded(dict(a2, previous_sha256='0' * 64)))],
+            'unreadable': [(n1, raw1), (n2, b'{"a":1,"a":2}')],
+            'truncated': [(n1, raw1), (n2, raw2[:-1])],
+            'extra-key': [(n1, raw1), (n2, encoded(dict(a2, note='x')))],
+            'outcome-forged': [(n1, raw1), (n2, encoded(dict(a2, outcome='READY')))],
+            'other-receipt': [(n1, raw1), (n2, encoded(dict(a2, receipt_sha256='0' * 64)))],
+            'other-proof': [(n1, raw1), (n2, encoded(dict(a2, proof_sha256='0' * 64)))],
+            'stray-name': [(n1, raw1), (n2, raw2), ('verify-attempt-x.json', raw2)],
+            'observation-without-current': [(n1, raw1), (n2, encoded(dict(a2, current=None)))],
+        }
+        cur = self.cur(self.NOW + 5_000, 50)
+        for name, entries in bad.items():
+            with self.subTest(ledger=name):
+                h = bv.handoff(self.r, cur, self.NOW + 6_000, proof=self.proof, receipt_sha256=self.rs,
+                               job_sha256=sha(self.j), receipts=[self.rs], attempts=entries)
+                self.assertRefused(h, 'attempt-ledger-invalid')
+                with self.assertRaises(ValueError):
+                    bv.attempt_record(self.r, h, proof=self.proof, receipt_sha256=self.rs, current=cur,
+                                      attempts=entries)
+        # A consistent forged READY entry still only consumes the proof.
+        forged = [(n1, raw1), (n2, encoded(dict(a2, outcome='READY', reasons=[])))]
+        h = bv.handoff(self.r, cur, self.NOW + 6_000, proof=self.proof, receipt_sha256=self.rs,
+                       job_sha256=sha(self.j), receipts=[self.rs], attempts=forged)
+        self.assertRefused(h, 'proof-consumed')
+        # A hand-off record with no READY attempt behind it.
+        record = bv.handoff_record(self.r, bv.handoff(self.r, cur, self.NOW + 6_000, proof=self.proof,
+                                                      receipt_sha256=self.rs, job_sha256=sha(self.j)),
+                                   self.proof, self.rs, cur)
+        h = bv.handoff(self.r, self.cur(self.NOW + 7_000, 51), self.NOW + 8_000, proof=self.proof,
+                       receipt_sha256=self.rs, job_sha256=sha(self.j), previous=[record], attempts=self.entries)
+        self.assertRefused(h, 'attempt-ledger-invalid', 'proof-consumed')
+
+    def test_proof_clock_matches_the_receipt_tolerance(self):
+        """C1: a receipt taken 1 s before the snapshot (inside the receipt's 5 s tolerance)
+        writes a proof that the hand-off accepts; it was UNKNOWN forever before."""
+        tol = bv.CLOCK_TOLERANCE_MS
+        early = SNAPSHOT - 1_000
+        self.assertEqual(bv.consumption(self.r, early)['status'], 'FRESH')
+        proof = bv.proof_record(self.r, self.rs, early)
+        out = self.attempt(self.cur(self.NOW - 1_000, 41), self.NOW, proof=proof)
+        self.assertEqual((out['status'], out['reasons']), ('READY', []))
+        # The same bound on both sides: one past the tolerance was never FRESH and is UNKNOWN here.
+        self.assertEqual(bv.consumption(self.r, SNAPSHOT - tol - 1)['status'], 'UNKNOWN')
+        self.setUp()
+        late = dict(proof, available_ms=SNAPSHOT - tol - 1)
+        self.assertEqual(self.attempt(self.cur(self.NOW - 1_000, 41), self.NOW, proof=late)['status'], 'UNKNOWN')
+        # The current record still postdates the snapshot, not only the proof's earlier local time.
+        self.setUp()
+        out = self.attempt(self.cur(SNAPSHOT, 41, monitoring={'evaluated_ms': SNAPSHOT}), self.NOW, proof=proof)
+        self.assertIn('current-before-proof', out['reasons'])
+        self.setUp()
+        out = self.attempt(self.cur(self.NOW - 1_000, 41, monitoring={'evaluated_ms': SNAPSHOT - 1}), self.NOW,
+                           proof=proof)
+        self.assertIn('current-monitoring-before-proof', out['reasons'])
 
 
 class Consumption(unittest.TestCase):
