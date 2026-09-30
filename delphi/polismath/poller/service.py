@@ -15,7 +15,7 @@ import logging
 import os
 import threading
 import time
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -27,6 +27,7 @@ from polismath.poller.worker_pool import (
     VOTES,
     MODERATION,
     REBUILD,
+    BACKFILL,
 )
 
 logger = logging.getLogger(__name__)
@@ -277,10 +278,55 @@ class PollerConfig:
 # --------------------------------------------------------------------------- #
 # Service
 # --------------------------------------------------------------------------- #
+class _BackfillHost:
+    """What the backfill scheduler (polismath.poller.backfill) may touch in the
+    service: the pool (as BACKFILL messages), cache membership, the shard
+    filter, the first-touch rebuild, the writer and live-poll health."""
+
+    def __init__(self, service: "MathPollerService") -> None:
+        self._svc = service
+        self.target_env = service.config.math_env
+        self.writer = service._writer
+
+    def submit(self, zid: int) -> bool:
+        assert self._svc._pool is not None
+        return self._svc._pool.submit(zid, BACKFILL, [])
+
+    def pending_zids(self) -> set:
+        return self._svc._pool.pending_zids() if self._svc._pool is not None else set()
+
+    def is_pending(self, zid: int) -> bool:
+        return self._svc._pool is not None and self._svc._pool.is_pending(zid)
+
+    def is_cached(self, zid: int) -> bool:
+        with self._svc._convs_lock:
+            return zid in self._svc._convs
+
+    def evict(self, zid: int) -> None:
+        with self._svc._convs_lock:
+            self._svc._convs.pop(zid, None)
+
+    def accepts(self, zid: int) -> bool:
+        c = self._svc.config
+        return should_process_zid(zid, c.allowlist, c.blocklist, c.shard_index, c.shard_count)
+
+    def load_full_history(self, zid: int) -> Conversation:
+        return self._svc._load_or_init(zid)
+
+    def live_poll_health(self):
+        return self._svc._live_poll_health()
+
+
 class MathPollerService:
     """Owns the poll loops, the in-memory conv cache, the worker pool + writer."""
 
-    def __init__(self, pg_client: Any, config: PollerConfig, publisher: Any = None) -> None:
+    def __init__(
+        self,
+        pg_client: Any,
+        config: PollerConfig,
+        publisher: Any = None,
+        backfill_config: Any = None,
+    ) -> None:
         self._pg = pg_client
         self.config = config
         self._writer = MathWriter(pg_client, publisher=publisher)
@@ -306,6 +352,24 @@ class MathPollerService:
         # run concurrently with the scan it is retrying and double-submit.
         self._startup_repair_done = False
         self._startup_repair_lock = threading.Lock()
+        # Live vote-poll health, read by the backfill's admission control:
+        # durations (ms) of the last successful polls and the time of the last
+        # success. Written only by the vote loop.
+        self._vote_poll_ms: "deque[float]" = deque(maxlen=10)
+        self._vote_poll_ok_at: Optional[float] = None
+        # Opt-in pre-switch backfill (P-070). Off unless MATH_BACKFILL=1; a bad
+        # backfill setting disables the backfill, never the poller.
+        self.backfill = None
+        if backfill_config is not None and getattr(backfill_config, "enabled", False):
+            from polismath.poller.backfill import ConfigError, build_scheduler
+
+            try:
+                if publisher is not None:
+                    raise ConfigError("the backfill does not run with a coordinator publisher")
+                self.backfill = build_scheduler(_BackfillHost(self), pg_client, backfill_config)
+            except ConfigError as exc:
+                logger.error("math-backfill DISABLED: %s", exc)
+                self.backfill = None
 
     @property
     def _parked(self) -> set:
@@ -363,6 +427,8 @@ class MathPollerService:
         ]
         for t in self._threads:
             t.start()
+        if self.backfill is not None:
+            self.backfill.start()
         logger.info(
             "MathPollerService started (math_env=%s pool=%d shard=%s)",
             self.config.math_env,
@@ -376,6 +442,8 @@ class MathPollerService:
 
     def stop(self) -> None:
         self._stop.set()
+        if self.backfill is not None:
+            self.backfill.stop()
         for t in self._threads:
             t.join(timeout=5.0)
         if self._pool is not None:
@@ -466,11 +534,22 @@ class MathPollerService:
 
     def _vote_loop(self) -> None:
         while not self._stop.is_set():
+            started = time.monotonic()
             try:
                 self._poll_votes_once()
+                self._vote_poll_ms.append((time.monotonic() - started) * 1000.0)
+                self._vote_poll_ok_at = time.monotonic()
             except Exception:
                 logger.exception("Vote poll cycle failed")
             self._stop.wait(self.config.vote_interval_ms / 1000.0)
+
+    def _live_poll_health(self):
+        """(mean ms of the recent successful vote polls or None, seconds since
+        the last success or None). Read by the backfill admission control."""
+        samples = list(self._vote_poll_ms)
+        mean_ms = sum(samples) / len(samples) if samples else None
+        ok_at = self._vote_poll_ok_at
+        return mean_ms, (None if ok_at is None else time.monotonic() - ok_at)
 
     def _mod_loop(self) -> None:
         while not self._stop.is_set():
@@ -595,12 +674,26 @@ class MathPollerService:
     # -- per-zid processing (runs on pool threads) -------------------------- #
     def _handle_zid(self, zid: int, coalesced: CoalescedBatch) -> None:
         if self._pool is not None and self._pool.is_parked(zid):
+            if coalesced.backfill and self.backfill is not None:
+                self.backfill.job_skipped(zid, "parked_live")
             return
+        if coalesced.backfill and not coalesced.has_live_work():
+            # P-070: a backfill job alone. It never touches the cache, owns
+            # its errors and reports its own outcome.
+            if self.backfill is not None:
+                self.backfill.run_job(zid)
+            return
+        live_ok = False
         try:
             self._run_engine(zid, coalesced)
             self._retry_counts.pop(zid, None)
+            live_ok = True
         except Exception as error:  # noqa: BLE001 - top of the per-zid boundary
             self._on_engine_error(zid, coalesced, error)
+        finally:
+            if coalesced.backfill and self.backfill is not None:
+                # Live work for the zid ran instead of the backfill job.
+                self.backfill.job_superseded_by_live(zid, live_ok)
 
     def _remember(self, zid: int, conv: Conversation) -> None:
         """Store a conversation as most-recently-used, LRU-evicting the coldest

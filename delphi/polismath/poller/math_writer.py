@@ -21,7 +21,7 @@ import os
 import time
 import traceback
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 
@@ -240,11 +240,30 @@ class MathWriter:
         self._pg = pg_client
         self._publisher = publisher
 
-    def write_conv_updates(self, zid: int, conv: Any) -> int:
+    def write_conv_updates(
+        self,
+        zid: int,
+        conv: Any,
+        *,
+        before_publish: Optional[Callable[[Any, int], None]] = None,
+        report: Optional[Dict[str, Any]] = None,
+    ) -> int:
         """Atomically mint one math_tick and publish all three data tables.
 
         Returns the math_tick used (handy for logging / tests).
+
+        ``before_publish(connection, math_tick)``, when given, runs inside the
+        publication transaction right after the tick upsert has locked this
+        ``(zid, math_env)`` and before any payload table is written. Raising
+        from it rolls the whole publication back, the tick included. The
+        backfill (P-070) uses it for its tie rule: a writer that published
+        this zid first holds or has released that same lock, so a re-check
+        made here sees its committed row. Not supported with a coordinator
+        publisher. ``report``, when given, receives ``payload_bytes`` (the
+        three encoded blobs) and ``math_tick``.
         """
+        if before_publish is not None and self._publisher is not None:
+            raise ValueError("before_publish is not supported with a publisher")
         if self._publisher is not None:
             self._publisher.stage("after_worker_compute")
         data = conv.to_dict()
@@ -263,12 +282,18 @@ class MathWriter:
         main_json = encode_math_blob(data)
         bidtopid_json = encode_math_blob(bidtopid)
         ptptstats_json = encode_math_blob(ptptstats)
+        if report is not None:
+            report["payload_bytes"] = (
+                len(main_json) + len(bidtopid_json) + len(ptptstats_json)
+            )
         if self._publisher is not None:
             return self._publisher.publish(zid, main_json, bidtopid_json, ptptstats_json)
         with self._pg.transaction() as connection:
             # The tick upsert locks this (zid, math_env) until all three writes
             # commit. Other zids use independent connections on the shared client.
             math_tick = self._pg.increment_math_tick(zid, connection=connection)
+            if before_publish is not None:
+                before_publish(connection, math_tick)
             # math_main is written LAST, and deliberately so: it is the statement
             # that allocates caching_tick with MAX(caching_tick)+1, and that
             # allocation is not serializable (R12). Keeping it adjacent to the
@@ -286,6 +311,8 @@ class MathWriter:
                 math_tick=math_tick, connection=connection,
             )
 
+        if report is not None:
+            report["math_tick"] = math_tick
         logger.info(
             "Wrote math results for zid=%s math_tick=%s (main+bidtopid+ptptstats)",
             zid,

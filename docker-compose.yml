@@ -240,6 +240,35 @@ services:
       - OMP_NUM_THREADS=1
       - OPENBLAS_NUM_THREADS=1
       - MKL_NUM_THREADS=1
+      # Pre-switch backfill (P-070, delphi/polismath/poller/backfill.py): OFF
+      # unless MATH_BACKFILL=1. When on, the admitted poller also rebuilds, one
+      # at a time and below live work, every conversation that has a
+      # MATH_BACKFILL_SOURCE_ENV (prod) row but no coherent row under its own
+      # label. SIGUSR1 approves the gate after the N largest; SIGUSR2 pauses or
+      # resumes. Every setting and its default: cost-reduction plan P-070 and
+      # BackfillConfig. Only the switches an operator is expected to touch are
+      # forwarded; the rest keep their code defaults.
+      - MATH_BACKFILL=${MATH_BACKFILL:-0}
+      - MATH_BACKFILL_SOURCE_ENV=${MATH_BACKFILL_SOURCE_ENV:-prod}
+      - MATH_BACKFILL_CONCURRENCY=${MATH_BACKFILL_CONCURRENCY:-1}
+      - MATH_BACKFILL_LARGE_THRESHOLD=${MATH_BACKFILL_LARGE_THRESHOLD:-2000}
+      - MATH_BACKFILL_GATE_AFTER_LARGEST=${MATH_BACKFILL_GATE_AFTER_LARGEST:-10}
+      - MATH_BACKFILL_GATE_APPROVED=${MATH_BACKFILL_GATE_APPROVED:-0}
+      - MATH_BACKFILL_MEMORY_CEILING_MB=${MATH_BACKFILL_MEMORY_CEILING_MB:-4500}
+      - MATH_BACKFILL_MEM_PER_MCELL_MB=${MATH_BACKFILL_MEM_PER_MCELL_MB:-116}
+      - MATH_BACKFILL_MEM_PER_VOTE_BYTES=${MATH_BACKFILL_MEM_PER_VOTE_BYTES:-0}
+      - MATH_BACKFILL_MEM_SAFETY=${MATH_BACKFILL_MEM_SAFETY:-1.15}
+      - MATH_BACKFILL_MIN_INTERVAL_S=${MATH_BACKFILL_MIN_INTERVAL_S:-3}
+      - MATH_BACKFILL_LARGE_SLEEP_S=${MATH_BACKFILL_LARGE_SLEEP_S:-30}
+      - MATH_BACKFILL_DUTY_CYCLE=${MATH_BACKFILL_DUTY_CYCLE:-0.5}
+      - MATH_BACKFILL_MAX_VOTES_PER_MIN=${MATH_BACKFILL_MAX_VOTES_PER_MIN:-2000000}
+      - MATH_BACKFILL_PAUSE_POLL_MS=${MATH_BACKFILL_PAUSE_POLL_MS:-1000}
+      - MATH_BACKFILL_STATE_PATH=/app/backfill-state/state.json
+    volumes:
+      # Backfill retry/gate/pause/report state across restarts on this host.
+      # The database stays the progress record; losing this only re-arms the
+      # gate and resets backoff. `docker-compose down` keeps named volumes.
+      - math-backfill-state:/app/backfill-state
     networks:
       - "polis-net"
     extra_hosts:
@@ -452,6 +481,9 @@ networks:
   polis-net:
 
 volumes:
+  math-backfill-state:
+    labels:
+      polis_tag: ${TAG:-dev}
   postgres_data:
     labels:
       polis_tag: ${TAG:-dev}

@@ -30,6 +30,12 @@ MODERATION = "moderation"
 # when the batch carries no votes/moderation. Used by the parked-zid reconciler
 # so an inactive conversation can be recovered without waiting for a new vote.
 REBUILD = "rebuild"
+# A backfill request (P-070): compute this zid from its full history as
+# low-priority background work, publishing only if live ingestion has not
+# published it first. Admitted by polismath.poller.backfill, never by the poll
+# loops. Coalesced with live work for the same zid, the live path runs instead
+# (a cache miss is itself a full-history rebuild) and the backfill is told so.
+BACKFILL = "backfill"
 
 
 @dataclass
@@ -41,8 +47,14 @@ class CoalescedBatch:
     # Set when any REBUILD message was coalesced: the consumer must invalidate the
     # cached conversation and rebuild from authoritative history (M1 recovery).
     rebuild: bool = False
+    # Set when a BACKFILL message was coalesced (P-070).
+    backfill: bool = False
 
     def has_work(self) -> bool:
+        return bool(self.votes) or bool(self.moderation) or self.rebuild or self.backfill
+
+    def has_live_work(self) -> bool:
+        """Anything other than a backfill request."""
         return bool(self.votes) or bool(self.moderation) or self.rebuild
 
 
@@ -58,6 +70,7 @@ def coalesce_messages(messages: List[Message]) -> CoalescedBatch:
     votes: List[Any] = []
     moderation: List[Any] = []
     rebuild = False
+    backfill = False
     for message_type, batch in messages:
         if message_type == VOTES:
             votes.extend(batch)
@@ -65,9 +78,13 @@ def coalesce_messages(messages: List[Message]) -> CoalescedBatch:
             moderation.extend(batch)
         elif message_type == REBUILD:
             rebuild = True
+        elif message_type == BACKFILL:
+            backfill = True
         else:  # pragma: no cover - defensive; unknown types ignored like Clojure
             logger.warning("Ignoring unknown message-type %r", message_type)
-    return CoalescedBatch(votes=votes, moderation=moderation, rebuild=rebuild)
+    return CoalescedBatch(
+        votes=votes, moderation=moderation, rebuild=rebuild, backfill=backfill
+    )
 
 
 class ConversationWorkerPool:
@@ -122,15 +139,30 @@ class ConversationWorkerPool:
         with self._lock:
             return set(self._parked)
 
-    def submit(self, zid: int, message_type: str, batch: List[Any]) -> None:
-        """Queue a batch for a zid; ensure exactly one worker drains it."""
+    def submit(self, zid: int, message_type: str, batch: List[Any]) -> bool:
+        """Queue a batch for a zid; ensure exactly one worker drains it.
+
+        Returns False when the message was dropped (pool closed or zid parked),
+        True when it was queued. The poll loops ignore the result; the backfill
+        scheduler needs it to know whether its job will ever run.
+        """
         with self._lock:
             if self._closed or zid in self._parked:
-                return
+                return False
             self._queues.setdefault(zid, deque()).append((message_type, batch))
             if zid not in self._active:
                 self._active.add(zid)
                 self._executor.submit(self._run, zid)
+            return True
+
+    def pending_zids(self) -> Set[int]:
+        """Snapshot of zids that are being processed or have queued messages."""
+        with self._lock:
+            return set(self._active) | {z for z, q in self._queues.items() if q}
+
+    def is_pending(self, zid: int) -> bool:
+        with self._lock:
+            return zid in self._active or bool(self._queues.get(zid))
 
     def _run(self, zid: int) -> None:
         while True:
