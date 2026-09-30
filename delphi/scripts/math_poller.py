@@ -264,14 +264,41 @@ def _backfill_config(log):
     return cfg if cfg.enabled else None
 
 
+def _memory_admission(config: PollerConfig, log):
+    """The shared memory budget (polismath.poller.admission). Refuses to start
+    (exit 2) when the container limit is unknown: no cgroup limit and no
+    MATH_POLLER_MEMORY_LIMIT_MB. Every compute path reserves against it."""
+    from polismath.poller.admission import MemoryAdmission
+
+    try:
+        admission = MemoryAdmission.from_config(config)
+    except ValueError as exc:
+        log.error("memory admission unusable (%s); refusing to start", exc)
+        raise SystemExit(2)
+    if not admission.limited:
+        log.error(
+            "memory limit unknown: no cgroup limit (/sys/fs/cgroup/memory.max or "
+            "memory.limit_in_bytes) and MATH_POLLER_MEMORY_LIMIT_MB unset; refusing to start"
+        )
+        raise SystemExit(2)
+    log.info(
+        "memory admission: limit_mb=%.0f (%s) budget_mb=%.0f cache_budget_mb=%.0f base_mb=%.0f",
+        admission.limit_bytes / 2**20, admission.source, admission.budget_bytes / 2**20,
+        admission.cache_budget_bytes / 2**20, admission.base_bytes / 2**20,
+    )
+    return admission
+
+
 def _build_service(config: PollerConfig) -> MathPollerService:
     if not config.database_url:
         print("DATABASE_URL is required", file=sys.stderr)
         raise SystemExit(2)
+    log = logging.getLogger("math_poller")
+    admission = _memory_admission(config, log)
     pg = PostgresClient(PostgresConfig(url=config.database_url, math_env=config.math_env))
     pg.initialize()
     return MathPollerService(
-        pg, config, backfill_config=_backfill_config(logging.getLogger("math_poller"))
+        pg, config, backfill_config=_backfill_config(log), admission=admission,
     )
 
 

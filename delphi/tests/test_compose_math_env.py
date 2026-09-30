@@ -316,8 +316,8 @@ def test_math_python_backfill_is_off_by_default_and_its_settings_parse():
     assert not config.enabled
     assert config.source_env == "prod" and config.concurrency == 1
     assert config.gate_after_largest == 10 and not config.gate_approved
-    # The default ceiling sits below the production poller cap (6g).
-    assert config.memory_ceiling_mb < 6 * 1024
+    # No extra per-job ceiling by default: the shared memory budget decides.
+    assert config.memory_ceiling_mb == 0
 
     on = BackfillConfig.from_env(
         _environment("docker-compose.yml", "math-python", {"MATH_BACKFILL": "1"})
@@ -332,3 +332,20 @@ def test_math_python_keeps_backfill_state_on_a_named_volume():
     assert "math-backfill-state:/app/backfill-state" in block.get("volumes", [])
     assert "math-backfill-state" in document["volumes"]
     assert block.get("profiles") == ["math-python"]
+
+
+@requires_checkout
+def test_math_python_forwards_the_shared_memory_admission_settings(monkeypatch):
+    """Every compute path in math-python reserves against the cgroup limit
+    (the deploy.resources limit) minus a headroom; the settings parse."""
+    from polismath.poller.service import PollerConfig
+
+    env = _environment("docker-compose.yml", "math-python", {})
+    assert env["MATH_POLLER_MEMORY_HEADROOM"] == "0.15"
+    assert env["MATH_CONV_CACHE_MB"] == ""
+    for key, value in env.items():
+        if key.startswith(("MATH_POLLER_MEM", "MATH_CONV_CACHE")):
+            monkeypatch.setenv(key, value)
+    cfg = PollerConfig.from_env()
+    assert cfg.memory_headroom == 0.15 and cfg.conv_cache_mb is None
+    assert (cfg.mem_per_mcell_mb, cfg.mem_per_vote_row_bytes, cfg.mem_safety) == (116, 413, 1.15)
