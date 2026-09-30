@@ -278,6 +278,20 @@ services:
       # ruling is encoded as accept_input.
       - MATH_BACKFILL_SOURCE_AHEAD_RULING=${MATH_BACKFILL_SOURCE_AHEAD_RULING:-unresolved}
       - MATH_BACKFILL_STATE_PATH=/app/backfill-state/state.json
+      # Readiness/liveness lines (P-072, polismath/poller/readiness.py): one
+      # `math_poller readiness/1` line per interval; the CDK log metric filters
+      # (cdk/mathPollerAlarms.ts) alarm on a missing holder heartbeat and on
+      # stale discovery. Identity for the collector's record: the deploy hook
+      # writes the source commit and the EC2 instance id into .env (only a
+      # digest of the instance id is logged). The alert-test nonce is set only
+      # for a recorded alert test, then removed.
+      - MATH_POLLER_READINESS_INTERVAL_S=${MATH_POLLER_READINESS_INTERVAL_S:-60}
+      - MATH_POLLER_DISCOVERY_STALE_S=${MATH_POLLER_DISCOVERY_STALE_S:-600}
+      - MATH_POLLER_READINESS_ALERT_TEST=${MATH_POLLER_READINESS_ALERT_TEST:-}
+      - MATH_POLLER_READINESS_ALERT_TEST_SILENCE_S=${MATH_POLLER_READINESS_ALERT_TEST_SILENCE_S:-0}
+      - MATH_POLLER_SOURCE_COMMIT=${MATH_POLLER_SOURCE_COMMIT:-}
+      - MATH_POLLER_INSTANCE_ID=${MATH_POLLER_INSTANCE_ID:-}
+      - MATH_POLLER_IMAGE_DIGEST=${MATH_POLLER_IMAGE_DIGEST:-}
     volumes:
       # Backfill retry/gate/pause/report state across restarts on this host.
       # The database stays the progress record; losing this only re-arms the

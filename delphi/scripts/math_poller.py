@@ -25,6 +25,7 @@ import time
 import psycopg2
 
 from polismath.database.postgres import PostgresClient, PostgresConfig
+from polismath.poller.readiness import ReadinessConfigError, ReadinessReporter, ReadinessSettings
 from polismath.poller.service import MathPollerService, PollerConfig, PoolDrainTimeout
 
 
@@ -187,9 +188,17 @@ def _acquire_single_writer_lock(conn, math_env: str, retry_s: float, log) -> Non
         time.sleep(retry_s)
 
 
+# The process's readiness reporter (P-072), once started: the lock-lost exit
+# logs its final standby line before terminating.
+_READINESS: "ReadinessReporter | None" = None
+
+
 def _exit_lock_lost(log, reason: str) -> None:
     """Terminate the whole process (code 3). Never returns."""
     try:
+        if _READINESS is not None:
+            with contextlib.suppress(Exception):
+                _READINESS.lock_lost()
         log.critical("single-writer lock lost (%s); exiting with code %d", reason, LOCK_LOST_EXIT_CODE)
         for stream in (sys.stdout, sys.stderr):
             with contextlib.suppress(OSError, ValueError):
@@ -247,8 +256,28 @@ def _hold_single_writer_lock(config: PollerConfig, log):
         config.math_env.strip(),
         _lock_application_name(config.math_env),
     )
+    if _READINESS is not None:
+        _READINESS.became_primary()
     _start_lock_watchdog(conn, config.math_env, liveness_s, log)
     return conn
+
+
+def _start_readiness(config: PollerConfig, log) -> ReadinessReporter:
+    """The readiness/liveness lines (P-072), from before the lock is taken,
+    so a waiting standby is visible too. A bad interval setting refuses to
+    start (exit 2): an unmonitored poller must not look monitored."""
+    global _READINESS
+    try:
+        settings = ReadinessSettings.from_env()
+    except ReadinessConfigError as exc:
+        print(f"refusing to start: {exc}", file=sys.stderr)
+        raise SystemExit(2)
+    reporter = ReadinessReporter(settings, config)
+    _READINESS = reporter
+    reporter.start()
+    log.info("readiness lines every %gs (run=%s poller_config=%s stale_after=%gs)",
+             settings.interval_s, reporter.run, reporter.poller_config, settings.stale_s)
+    return reporter
 
 
 def _backfill_config(log):
@@ -299,6 +328,8 @@ def _build_service(config: PollerConfig) -> MathPollerService:
     pg.initialize()
     return MathPollerService(
         pg, config, backfill_config=_backfill_config(log), admission=admission,
+        # One run id for the readiness lines and the backfill's report lines.
+        run_id=_READINESS.run if _READINESS is not None else None,
     )
 
 
@@ -316,9 +347,12 @@ def main(argv=None) -> int:
 
     config = PollerConfig.from_env()
     _refuse_served_env(config.math_env)
+    readiness = None if args.once else _start_readiness(config, log)
     # Held (and referenced) until the process exits; closing it releases the lock.
     lock_conn = _hold_single_writer_lock(config, log)  # noqa: F841
     service = _build_service(config)
+    if readiness is not None and hasattr(service, "readiness_snapshot"):
+        readiness.set_source(service.readiness_snapshot)
 
     if args.once:
         log.info("Running a single poll cycle (--once)")

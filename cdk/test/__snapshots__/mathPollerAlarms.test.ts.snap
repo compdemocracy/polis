@@ -1,0 +1,94 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`alarms snapshot of the synthesized filters and alarms 1`] = `
+{
+  "MathPollerDiscoveryStaleAlarmABFDBF52": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "AlarmDescription": "P-072: the admitted Python math poller reports no successful discovery poll, or live work waiting, for more than 10 minutes (or an alert test ran). Silent when the poller is gone: HeartbeatMissing covers that. Runbook: cost-reduction plan P-072.",
+      "AlarmName": "Polis-MathPoller-DiscoveryStale",
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+      "DatapointsToAlarm": 1,
+      "EvaluationPeriods": 1,
+      "MetricName": "DiscoveryStale",
+      "Namespace": "Polis/MathPoller",
+      "OKActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "Period": 300,
+      "Statistic": "Sum",
+      "Threshold": 1,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+  "MathPollerDiscoveryStaleFilter0633E848": {
+    "Properties": {
+      "FilterName": "Polis-MathPoller-DiscoveryStale",
+      "FilterPattern": "?"math_poller discovery_stale/1" ?"math_poller readiness_test/1"",
+      "LogGroupName": {
+        "Ref": "LogGroupF5B46931",
+      },
+      "MetricTransformations": [
+        {
+          "MetricName": "DiscoveryStale",
+          "MetricNamespace": "Polis/MathPoller",
+          "MetricValue": "1",
+          "Unit": "Count",
+        },
+      ],
+    },
+    "Type": "AWS::Logs::MetricFilter",
+  },
+  "MathPollerHeartbeatFilter6C9A902C": {
+    "Properties": {
+      "FilterName": "Polis-MathPoller-Heartbeat",
+      "FilterPattern": ""math_poller readiness/1 role=primary progress=ok"",
+      "LogGroupName": {
+        "Ref": "LogGroupF5B46931",
+      },
+      "MetricTransformations": [
+        {
+          "MetricName": "ReadinessHeartbeat",
+          "MetricNamespace": "Polis/MathPoller",
+          "MetricValue": "1",
+          "Unit": "Count",
+        },
+      ],
+    },
+    "Type": "AWS::Logs::MetricFilter",
+  },
+  "MathPollerHeartbeatMissingAlarmDD5DFBD1": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "AlarmDescription": "P-072: no heartbeat from the admitted Python math poller for 15 minutes. The holder is dead, lost the single-writer lock, or its poll loops or live work stopped progressing. A standby never satisfies it. Runbook: cost-reduction plan P-072.",
+      "AlarmName": "Polis-MathPoller-HeartbeatMissing",
+      "ComparisonOperator": "LessThanThreshold",
+      "DatapointsToAlarm": 3,
+      "EvaluationPeriods": 3,
+      "MetricName": "ReadinessHeartbeat",
+      "Namespace": "Polis/MathPoller",
+      "OKActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "Period": 300,
+      "Statistic": "Sum",
+      "Threshold": 1,
+      "TreatMissingData": "breaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+}
+`;

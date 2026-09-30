@@ -26,6 +26,7 @@ from polismath.poller.admission import (
     read_conversation_sizes,
 )
 from polismath.poller.math_writer import MathWriter, dump_error
+from polismath.poller.readiness import classify_error
 from polismath.poller.worker_pool import (
     ConversationWorkerPool,
     CoalescedBatch,
@@ -393,8 +394,12 @@ class MathPollerService:
         publisher: Any = None,
         backfill_config: Any = None,
         admission: Optional[MemoryAdmission] = None,
+        run_id: Optional[str] = None,
     ) -> None:
         self._pg = pg_client
+        # The process run id (P-072): shared by the readiness lines and the
+        # backfill's sweep/DRAINED lines so the collector can bind them.
+        self.run_id = run_id
         self.config = config
         # Shared memory admission (P-070 R1): every compute path reserves here
         # before loading, and the cache's retained bytes are accounted here.
@@ -432,6 +437,16 @@ class MathPollerService:
         # success. Written only by the vote loop.
         self._vote_poll_ms: "deque[float]" = deque(maxlen=10)
         self._vote_poll_ok_at: Optional[float] = None
+        # Discovery-loop evidence for the readiness line (P-072), per loop:
+        # successful passes (empty polls count), consecutive successes, wall
+        # clock of the last success, failures since it, and the last failure's
+        # closed class. Written by the two poll loops only.
+        self._health_lock = threading.Lock()
+        self._health: Dict[str, Dict[str, Any]] = {
+            name: {"successes": 0, "consecutive": 0, "last_success_ms": None,
+                   "failures_since_success": 0, "last_error": None, "last_error_ms": None}
+            for name in (VOTES, MODERATION)
+        }
         # Opt-in pre-switch backfill (P-070). Off unless MATH_BACKFILL=1; a bad
         # backfill setting disables the backfill, never the poller.
         self.backfill = None
@@ -441,7 +456,9 @@ class MathPollerService:
             try:
                 if publisher is not None:
                     raise ConfigError("the backfill does not run with a coordinator publisher")
-                self.backfill = build_scheduler(_BackfillHost(self), pg_client, backfill_config)
+                extra = {"run_id": run_id} if run_id else {}
+                self.backfill = build_scheduler(_BackfillHost(self), pg_client, backfill_config,
+                                                **extra)
             except ConfigError as exc:
                 logger.error("math-backfill DISABLED: %s", exc)
                 self.backfill = None
@@ -618,9 +635,63 @@ class MathPollerService:
                 self._poll_votes_once()
                 self._vote_poll_ms.append((time.monotonic() - started) * 1000.0)
                 self._vote_poll_ok_at = time.monotonic()
-            except Exception:
+                self._note_poll(VOTES)
+            except Exception as exc:
+                self._note_poll(VOTES, exc)
                 logger.exception("Vote poll cycle failed")
             self._stop.wait(self.config.vote_interval_ms / 1000.0)
+
+    def _note_poll(self, loop: str, exc: Optional[BaseException] = None) -> None:
+        """Record one discovery-loop pass for the readiness evidence."""
+        now_ms = int(time.time() * 1000)
+        with self._health_lock:
+            h = self._health[loop]
+            if exc is None:
+                h["successes"] += 1
+                h["consecutive"] += 1
+                h["last_success_ms"] = now_ms
+                h["failures_since_success"] = 0
+            else:
+                h["consecutive"] = 0
+                h["failures_since_success"] += 1
+                h["last_error"] = classify_error(exc)
+                h["last_error_ms"] = now_ms
+
+    def readiness_snapshot(self) -> Dict[str, Any]:
+        """Counts, clocks and closed labels for the readiness line (P-072).
+        Discovery is the weaker of the two poll loops: the older last success,
+        the smaller success counts, the failures of both."""
+        with self._health_lock:
+            loops = [dict(self._health[VOTES]), dict(self._health[MODERATION])]
+        lasts = [h["last_success_ms"] for h in loops]
+        errors = sorted((h for h in loops if h["last_error_ms"] is not None),
+                        key=lambda h: h["last_error_ms"])
+        discovery = {
+            "successes": min(h["successes"] for h in loops),
+            "consecutive": min(h["consecutive"] for h in loops),
+            "last_success_ms": None if None in lasts else min(lasts),
+            "failures_since_success": sum(h["failures_since_success"] for h in loops),
+            "last_error": errors[-1]["last_error"] if errors else None,
+            "last_error_ms": errors[-1]["last_error_ms"] if errors else None,
+        }
+        if self._pool is not None:
+            queue = self._pool.queue_stats()
+        else:
+            queue = {"pending": 0, "in_flight": 0, "parked": 0, "oldest_live_age_ms": None,
+                     "oldest_backfill_age_ms": None, "oldest_work_age_ms": 0}
+        snap = self.admission.snapshot()
+        admission = {
+            "budget_mb": snap.get("budget_mb"), "reserved_mb": int(snap.get("reserved_mb") or 0),
+            "granted": int(snap.get("granted") or 0), "held": int(snap.get("held") or 0),
+            "waiting": int(snap.get("waiting") or 0),
+        }
+        sweep = drain = config = None
+        if self.backfill is not None:
+            sweep, drain = self.backfill.readiness()
+            config = self.backfill.config.digest()
+        return {"discovery": discovery, "queue": queue, "sweep": sweep, "drain": drain,
+                "admission": admission, "config": config,
+                "loop_marks": tuple(h["successes"] for h in loops)}
 
     def _live_poll_health(self):
         """(mean ms of the recent successful vote polls or None, seconds since
@@ -634,7 +705,9 @@ class MathPollerService:
         while not self._stop.is_set():
             try:
                 self._poll_moderation_once()
-            except Exception:
+                self._note_poll(MODERATION)
+            except Exception as exc:
+                self._note_poll(MODERATION, exc)
                 logger.exception("Moderation poll cycle failed")
             self._stop.wait(self.config.mod_interval_ms / 1000.0)
 
