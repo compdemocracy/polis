@@ -850,6 +850,7 @@ class BackfillScheduler:
         self._done_since_summary = 0
         self._pressure_paused: Optional[str] = None
         self._gate_logged = False
+        self._drained_logged = False
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
 
@@ -958,7 +959,15 @@ class BackfillScheduler:
             now = self._clock()
             self._reap_lost()
             if self._state.paused:
+                # SIGUSR2 stops admission; it does not cancel a running job.
+                # Confirm the drain once, so an operator (and the S2 handoff)
+                # knows nothing is in flight.
+                if not self._in_flight and not self._drained_logged:
+                    self._drained_logged = True
+                    logger.warning("math-backfill DRAINED run=%s: paused by operator, nothing "
+                                   "in flight", self.run_id)
                 return "paused_operator", 5.0
+            self._drained_logged = False
             if self.gate_pending:
                 self._log_gate_once()
                 return "gate", 5.0

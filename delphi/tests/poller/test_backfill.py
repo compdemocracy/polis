@@ -919,6 +919,21 @@ class TestPauseAndPressure:
         assert t.sched.toggle_pause() is False
         assert t.sched.step()[0] == "admitted"
 
+    def test_pause_confirms_the_drain_once_nothing_is_in_flight(self, caplog):
+        db = FakeDb()
+        db.add(1, 10)
+        t = make(db)
+        assert t.sched.step()[0] == "admitted"
+        t.sched.toggle_pause()
+        caplog.set_level("WARNING")
+        assert t.sched.step()[0] == "paused_operator"
+        assert "DRAINED" not in caplog.text  # the admitted job is still running
+        t.sched.run_job(1)
+        t.host.pending.discard(1)
+        t.sched.step()
+        t.sched.step()
+        assert caplog.text.count("math-backfill DRAINED") == 1
+
     def test_no_live_poll_telemetry_pauses(self):
         db = FakeDb()
         db.add(1, 10)
