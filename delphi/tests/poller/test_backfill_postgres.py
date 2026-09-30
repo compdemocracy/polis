@@ -493,6 +493,29 @@ NESTED = [
     ("bid_timestamp", "math_bidtopid", "jsonb_set(data, '{lastVoteTimestamp}', '-99'::jsonb)"),
     ("stats_timestamp", "math_ptptstats", "jsonb_set(data, '{lastVoteTimestamp}', '-99'::jsonb)"),
 ]
+# Review [1449] B: reader-driven entries. group-votes [null] passed every
+# switch condition and crashed the server's processMathObject; [1] / [{}]
+# passed and were presented as empty. The rest cover each field the readers
+# dereference inside a group-votes or repness entry.
+GROUP_VOTES = [
+    ("null", "'[null]'::jsonb"),
+    ("number", "'[1]'::jsonb"),
+    ("empty_object", "'[{}]'::jsonb"),
+    ("entry_null", "'{\"0\": null}'::jsonb"),
+    ("entry_no_votes", "'{\"0\": {\"n-members\": 1}}'::jsonb"),
+    ("vote_not_counts", "'{\"0\": {\"n-members\": 1, \"votes\": {\"0\": 1}}}'::jsonb"),
+    ("absent", None),
+]
+for _name, _value in GROUP_VOTES:
+    NESTED.append(("group_votes_" + _name, "math_main",
+                   "data - 'group-votes'" if _value is None
+                   else f"jsonb_set(data, '{{group-votes}}', {_value})"))
+NESTED += [
+    ("repness_entry_null", "math_main",
+     "jsonb_set(data, '{repness}', '{\"0\": null}'::jsonb)"),
+    ("repness_item_null", "math_main",
+     "jsonb_set(data, '{repness}', '{\"0\": [null]}'::jsonb)"),
+]
 for _name, _table, _expr in NESTED:
     CORRUPTIONS["nested_" + _name] = (
         f"UPDATE {_table} SET data={_expr} WHERE zid=%s AND math_env=%s")
@@ -536,6 +559,51 @@ class TestValidity:
             assert_switch_ready(run_verification(db, src, tgt, int(time.time() * 1000)), 1)
         finally:
             svc._pool and svc._pool.shutdown()
+            pg.shutdown()
+
+    def test_real_group_votes_and_repness_are_the_valid_control(self, pg_url, db, labels):
+        """[1449] B control: a real engine publication carries keyed,
+        non-empty group-votes and repness, and passes every layer."""
+        src, tgt = labels
+        (zid,) = fresh_zids(1)
+        lvt = seed_conversation(db, zid, participants=12, comments=6)
+        put_main(db, zid, src, lvt)
+        svc, pg = make_service(pg_url, src, tgt)
+        try:
+            publish_real(svc, zid)
+            gv, rep = q(db, "SELECT data->'group-votes', data->'repness' FROM math_main "
+                            "WHERE zid=%s AND math_env=%s", (zid, tgt))[0]
+            assert isinstance(gv, dict) and gv and all(
+                isinstance(g["votes"], dict) and g["votes"] for g in gv.values())
+            assert isinstance(rep, dict) and rep
+            assert_switch_ready(run_verification(db, src, tgt, int(time.time() * 1000)), 1)
+            assert pg.load_math_main(zid)["bundle_valid"] is True
+        finally:
+            pg.shutdown()
+
+    @pytest.mark.parametrize("value", ["[null]", "[1]", "[{}]"])
+    def test_malformed_group_votes_is_never_restored_live(self, pg_url, db, labels, value):
+        """[1449] B, Python layer: load_math_main's same-snapshot validity
+        refuses the row, so a live first touch rebuilds cold and republishes
+        a valid bundle instead of restoring (and re-serving) the corruption."""
+        src, tgt = labels
+        (zid,) = fresh_zids(1)
+        lvt = seed_conversation(db, zid, participants=12, comments=6)
+        put_main(db, zid, src, lvt)
+        svc, pg = make_service(pg_url, src, tgt)
+        try:
+            publish_real(svc, zid)
+            q(db, "UPDATE math_main SET data=jsonb_set(data,'{group-votes}',%s::jsonb) "
+                  "WHERE zid=%s AND math_env=%s", (value, zid, tgt))
+            assert pg.load_math_main(zid)["bundle_valid"] is False
+            assert svc.backfill._store.coherent(zid)[0] is False
+            svc._run_engine(zid, CoalescedBatch())  # first touch: cache miss
+            assert pg.load_math_main(zid)["bundle_valid"] is True
+            gv = q(db, "SELECT data->'group-votes' FROM math_main WHERE zid=%s AND math_env=%s",
+                   (zid, tgt))[0][0]
+            assert isinstance(gv, dict) and gv
+            assert_switch_ready(run_verification(db, src, tgt, int(time.time() * 1000)), 1)
+        finally:
             pg.shutdown()
 
     @pytest.mark.parametrize("table", ["math_main", "math_bidtopid", "math_ptptstats",

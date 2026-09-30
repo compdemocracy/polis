@@ -1381,6 +1381,38 @@ class TestStateUpgrade:
         t = make(state_path=str(p))
         assert t.sched._state.paused and t.sched._state.failures == {}
 
+    @pytest.mark.parametrize("key", ["--1", "-", "", "+1", " 1", "1 ", "1\n", "\u0661", "1.0", "007", "-0"])
+    def test_malformed_failure_key_starts_paused_and_reports(self, tmp_path, key):
+        """Review [1449] D: "--1" passed lstrip/isdigit, loaded unpaused and
+        then raised in _finish_sweep's int() conversion."""
+        p = tmp_path / "state.json"
+        p.write_text(json.dumps({"source_env": "prod", "target_env": "python", "failures": {
+            key: {"attempts": 0, "next_at": 0, "reason": "source_ahead"}}}))
+        t = make(state_path=str(p))
+        assert t.sched._state.paused and t.sched._state.failures == {}
+        assert t.sched._reconcile_failures(NOW) == {}
+        t.sched._finish_sweep(NOW)  # reporting works on the fresh state
+
+    @pytest.mark.parametrize("key", ["0", "1", "-1", "1449"])
+    def test_integer_failure_keys_load_and_report(self, tmp_path, key):
+        p = tmp_path / "state.json"
+        p.write_text(json.dumps({"source_env": "prod", "target_env": "python", "failures": {
+            key: {"attempts": 0, "next_at": 0, "reason": "refused_input_size"}}}))
+        t = make(state_path=str(p))
+        assert not t.sched._state.paused and list(t.sched._state.failures) == [key]
+        t.sched._finish_sweep(NOW)
+
+    @pytest.mark.parametrize("fields", [{"reason": ["lost"]}, {"reason": {"x": 1}},
+                                        {"reason": None}, {"last": ["lost"]},
+                                        {"last": {"x": 1}}])
+    def test_unhashable_reason_or_last_starts_paused(self, tmp_path, fields):
+        p = tmp_path / "state.json"
+        p.write_text(json.dumps({"source_env": "prod", "target_env": "python", "failures": {
+            "1": {"attempts": 0, "next_at": 0, "reason": "refused_input_size", **fields}}}))
+        t = make(state_path=str(p))
+        assert t.sched._state.paused and t.sched._state.failures == {}
+        t.sched._finish_sweep(NOW)
+
     def test_well_formed_records_load_and_report(self, tmp_path):
         p = tmp_path / "state.json"
         p.write_text(json.dumps({"source_env": "prod", "target_env": "python",

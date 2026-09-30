@@ -66,6 +66,7 @@ import json
 import logging
 import math
 import os
+import re
 import threading
 import time
 import uuid
@@ -345,6 +346,13 @@ class PeakSampler:
 # either {} or columnar (pid and gid arrays, every column an array of the pid
 # column's length); and both companions' lastVoteTimestamp equal to main's
 # last_vote_timestamp column (the writer stamps all three from one value).
+# Review [1449] B completed it from the readers' side: the server's
+# processMathObject dereferences every group-votes and repness entry, and the
+# Python warm restore iterates each group-votes entry's votes, so group-votes
+# must be an object whose every entry is an object with numeric n-members and
+# a votes object of {A, D, S} number objects, and every repness entry an array
+# of objects. Absent the check, group-votes [null] passed and crashed the
+# reader, and [1] / [{}] passed and were presented as empty.
 # Every cast, array length and set-returning call is guarded, so a malformed
 # payload evaluates to false instead of raising. The shipped verification SQL
 # contains this exact text (a test holds them together).
@@ -409,6 +417,26 @@ VALID_BUNDLE_SQL = """COALESCE((
            OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(g->'members') = 'array'
                                                               THEN g->'members' ELSE '[]'::jsonb END) x
                       WHERE jsonb_typeof(x) <> 'number'))
+    AND jsonb_typeof(m.data->'group-votes') = 'object'
+    AND NOT EXISTS (
+        SELECT 1 FROM jsonb_each(CASE WHEN jsonb_typeof(m.data->'group-votes') = 'object'
+                                      THEN m.data->'group-votes' ELSE '{}'::jsonb END) g
+        WHERE jsonb_typeof(g.value) IS DISTINCT FROM 'object'
+           OR jsonb_typeof(g.value->'n-members') IS DISTINCT FROM 'number'
+           OR jsonb_typeof(g.value->'votes') IS DISTINCT FROM 'object'
+           OR EXISTS (SELECT 1 FROM jsonb_each(CASE WHEN jsonb_typeof(g.value->'votes') = 'object'
+                                                    THEN g.value->'votes' ELSE '{}'::jsonb END) v
+                      WHERE jsonb_typeof(v.value) IS DISTINCT FROM 'object'
+                         OR jsonb_typeof(v.value->'A') IS DISTINCT FROM 'number'
+                         OR jsonb_typeof(v.value->'D') IS DISTINCT FROM 'number'
+                         OR jsonb_typeof(v.value->'S') IS DISTINCT FROM 'number'))
+    AND NOT EXISTS (
+        SELECT 1 FROM jsonb_each(CASE WHEN jsonb_typeof(m.data->'repness') = 'object'
+                                      THEN m.data->'repness' ELSE '{}'::jsonb END) r
+        WHERE jsonb_typeof(r.value) IS DISTINCT FROM 'array'
+           OR EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(r.value) = 'array'
+                                                              THEN r.value ELSE '[]'::jsonb END) x
+                      WHERE jsonb_typeof(x) IS DISTINCT FROM 'object'))
     AND NOT EXISTS (
         SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(m.data->'base-clusters'->'id') = 'array'
                                                 THEN m.data->'base-clusters'->'id' ELSE '[]'::jsonb END) x
@@ -832,14 +860,26 @@ def _check_state(raw: Any) -> None:
         if key not in ALL_OUTCOMES or isinstance(value, bool) or not isinstance(value, int):
             raise StateError("totals holds a malformed entry")
     for key, value in raw.get("failures", {}).items():
-        if not (isinstance(key, str) and key.lstrip("-").isdigit() and isinstance(value, dict)):
+        # One explicit integer-key contract (review [1449] D): "--1", "+1",
+        # " 1", "1\n" or non-ASCII digits would pass isdigit-style checks
+        # and then raise in int() during reconciliation and sweep reporting.
+        if not (isinstance(key, str) and _ZID_KEY.fullmatch(key) and isinstance(value, dict)):
             raise StateError("failures holds a malformed entry")
         attempts, next_at, reason = value.get("attempts"), value.get("next_at"), value.get("reason")
-        if (not _int_ok(attempts) or not _num_ok(next_at) or reason not in FAILURE_REASONS
-                or ("last" in value and value["last"] not in ALL_OUTCOMES)
+        # reason / last are type-checked before set membership: a list or
+        # object would raise TypeError (unhashable) instead of StateError.
+        if (not _int_ok(attempts) or not _num_ok(next_at)
+                or not isinstance(reason, str) or reason not in FAILURE_REASONS
+                or ("last" in value and (not isinstance(value["last"], str)
+                                         or value["last"] not in ALL_OUTCOMES))
                 or any(k in value and not _num_ok(value[k]) for k in ("est_mb", "bound"))
                 or any(k in value and not _int_ok(value[k]) for k in ("need_bytes", "est_bytes"))):
             raise StateError("failures holds a malformed entry")
+
+
+# A failure-map key is a zid as str(int) writes it: ASCII digits, optional
+# leading minus, no leading zeros (so no two keys can alias one zid).
+_ZID_KEY = re.compile(r"0|-?[1-9][0-9]*")
 
 
 def _int_ok(value: Any) -> bool:
@@ -915,7 +955,9 @@ class BackfillState:
             _check_state(raw)
         except FileNotFoundError:
             return fresh
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, TypeError) as exc:
+            # TypeError: a schema gap must still take the paused/fresh path
+            # rather than stop the scheduler (review [1449] D).
             logger.error(
                 "math-backfill: state file untrusted (%s: %s); starting PAUSED with fresh "
                 "state (resume with SIGUSR2 after review)", exc.__class__.__name__,
