@@ -25,6 +25,12 @@ import time
 import psycopg2
 
 from polismath.database.postgres import PostgresClient, PostgresConfig
+from polismath.poller.readiness import (
+    ReadinessConfigError,
+    ReadinessReporter,
+    ReadinessSettings,
+    check_identity_source,
+)
 from polismath.poller.service import MathPollerService, PollerConfig, PoolDrainTimeout
 
 
@@ -88,6 +94,8 @@ LOCK_LIVENESS_ENV = "MATH_POLLER_LOCK_LIVENESS_S"
 DEFAULT_LOCK_RETRY_S = 30.0
 DEFAULT_LOCK_LIVENESS_S = 5.0
 LOCK_LOST_EXIT_CODE = 3
+# Added to the liveness interval for the handover wait after admission.
+HANDOVER_MARGIN_S = 0.5
 # Accepted range for both intervals, in seconds.
 LOCK_INTERVAL_MIN_S = 1.0
 LOCK_INTERVAL_MAX_S = 3600.0
@@ -187,13 +195,40 @@ def _acquire_single_writer_lock(conn, math_env: str, retry_s: float, log) -> Non
         time.sleep(retry_s)
 
 
+# The process's readiness reporter (P-072), once started: the lock-lost exit
+# tries to log its final standby line before terminating.
+_READINESS: "ReadinessReporter | None" = None
+
+# How long the lock-lost exit gives its last words (the final standby line,
+# the critical log line, the flush) before terminating regardless. Reporting
+# must never delay or prevent the exit: a reporter lock, a blocked snapshot,
+# a blocked log handler or a full pipe only costs the line.
+LOCK_LOST_REPORT_BUDGET_S = 0.1
+
+
 def _exit_lock_lost(log, reason: str) -> None:
-    """Terminate the whole process (code 3). Never returns."""
+    """Terminate the whole process (code 3) within LOCK_LOST_REPORT_BUDGET_S.
+    Never returns."""
     try:
-        log.critical("single-writer lock lost (%s); exiting with code %d", reason, LOCK_LOST_EXIT_CODE)
-        for stream in (sys.stdout, sys.stderr):
-            with contextlib.suppress(OSError, ValueError):
-                stream.flush()
+        done = threading.Event()
+
+        def last_words():
+            try:
+                if _READINESS is not None:
+                    with contextlib.suppress(Exception):
+                        _READINESS.lock_lost()
+                log.critical("single-writer lock lost (%s); exiting with code %d", reason,
+                             LOCK_LOST_EXIT_CODE)
+                for stream in (sys.stdout, sys.stderr):
+                    with contextlib.suppress(OSError, ValueError):
+                        stream.flush()
+            finally:
+                done.set()
+
+        # A helper thread, so nothing it waits on can hold the exit: the
+        # watchdog waits at most the budget, then terminates.
+        threading.Thread(target=last_words, name="lock-lost-report", daemon=True).start()
+        done.wait(LOCK_LOST_REPORT_BUDGET_S)
     finally:
         # os._exit, not SystemExit: this runs on the watchdog thread, and the
         # service's worker threads must not get another write in.
@@ -248,16 +283,90 @@ def _hold_single_writer_lock(config: PollerConfig, log):
         _lock_application_name(config.math_env),
     )
     _start_lock_watchdog(conn, config.math_env, liveness_s, log)
+    # Handover: a previous holder whose session was terminated server-side
+    # (so this process could be admitted) notices on its next watchdog check,
+    # at most liveness_s later, and then exits within the report budget.
+    # Wait out that window before building the service, so it is gone before
+    # this process computes. A scheduling target, like the watchdog itself:
+    # not a fence (a previous holder's check query can be slower).
+    handover_s = liveness_s + LOCK_LOST_REPORT_BUDGET_S + HANDOVER_MARGIN_S
+    log.info("admitted; waiting %.1fs for any previous holder to exit before computing", handover_s)
+    time.sleep(handover_s)
+    if _READINESS is not None:
+        _READINESS.became_primary()
     return conn
+
+
+def _start_readiness(config: PollerConfig, log) -> ReadinessReporter:
+    """The readiness/liveness lines (P-072), from before the lock is taken,
+    so a waiting standby is visible too. A bad interval setting refuses to
+    start (exit 2): an unmonitored poller must not look monitored."""
+    global _READINESS
+    try:
+        settings = ReadinessSettings.from_env()
+        check_identity_source()
+    except ReadinessConfigError as exc:
+        print(f"refusing to start: {exc}", file=sys.stderr)
+        raise SystemExit(2)
+    reporter = ReadinessReporter(settings, config)
+    _READINESS = reporter
+    reporter.start()
+    log.info("readiness lines every %gs (run=%s poller_config=%s stale_after=%gs)",
+             settings.interval_s, reporter.run, reporter.poller_config, settings.stale_s)
+    return reporter
+
+
+def _backfill_config(log):
+    """The opt-in pre-switch backfill (P-070), or None. A bad MATH_BACKFILL_*
+    value turns the backfill off and is logged; it never stops the poller."""
+    from polismath.poller.backfill import BackfillConfig, ConfigError
+
+    try:
+        cfg = BackfillConfig.from_env()
+    except ConfigError as exc:
+        log.error("math-backfill DISABLED: %s", exc)
+        return None
+    return cfg if cfg.enabled else None
+
+
+def _memory_admission(config: PollerConfig, log):
+    """The shared memory budget (polismath.poller.admission). Refuses to start
+    (exit 2) when the container limit is unknown: no cgroup limit and no
+    MATH_POLLER_MEMORY_LIMIT_MB. Every compute path reserves against it."""
+    from polismath.poller.admission import MemoryAdmission
+
+    try:
+        admission = MemoryAdmission.from_config(config)
+    except ValueError as exc:
+        log.error("memory admission unusable (%s); refusing to start", exc)
+        raise SystemExit(2)
+    if not admission.limited:
+        log.error(
+            "memory limit unknown: no cgroup limit (/sys/fs/cgroup/memory.max or "
+            "memory.limit_in_bytes) and MATH_POLLER_MEMORY_LIMIT_MB unset; refusing to start"
+        )
+        raise SystemExit(2)
+    log.info(
+        "memory admission: limit_mb=%.0f (%s) budget_mb=%.0f cache_budget_mb=%.0f base_mb=%.0f",
+        admission.limit_bytes / 2**20, admission.source, admission.budget_bytes / 2**20,
+        admission.cache_budget_bytes / 2**20, admission.base_bytes / 2**20,
+    )
+    return admission
 
 
 def _build_service(config: PollerConfig) -> MathPollerService:
     if not config.database_url:
         print("DATABASE_URL is required", file=sys.stderr)
         raise SystemExit(2)
+    log = logging.getLogger("math_poller")
+    admission = _memory_admission(config, log)
     pg = PostgresClient(PostgresConfig(url=config.database_url, math_env=config.math_env))
     pg.initialize()
-    return MathPollerService(pg, config)
+    return MathPollerService(
+        pg, config, backfill_config=_backfill_config(log), admission=admission,
+        # One run id for the readiness lines and the backfill's report lines.
+        run_id=_READINESS.run if _READINESS is not None else None,
+    )
 
 
 def main(argv=None) -> int:
@@ -274,9 +383,12 @@ def main(argv=None) -> int:
 
     config = PollerConfig.from_env()
     _refuse_served_env(config.math_env)
+    readiness = None if args.once else _start_readiness(config, log)
     # Held (and referenced) until the process exits; closing it releases the lock.
     lock_conn = _hold_single_writer_lock(config, log)  # noqa: F841
     service = _build_service(config)
+    if readiness is not None and hasattr(service, "readiness_snapshot"):
+        readiness.set_source(service.readiness_snapshot)
 
     if args.once:
         log.info("Running a single poll cycle (--once)")
@@ -304,6 +416,22 @@ def main(argv=None) -> int:
 
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
+
+    # Backfill operator controls (P-070): SIGUSR1 approves the gate after the
+    # N largest; SIGUSR2 pauses or resumes. Handlers only set flags (the
+    # scheduler persists them); with the backfill off they log and do nothing.
+    def _handle_backfill_signal(signum, _frame):
+        backfill = getattr(service, "backfill", None)
+        if backfill is None:
+            log.warning("Received signal %s but the backfill is not enabled", signum)
+            return
+        threading.Thread(
+            target=backfill.approve_gate if signum == signal.SIGUSR1 else backfill.toggle_pause,
+            name="backfill-signal", daemon=True,
+        ).start()
+
+    signal.signal(signal.SIGUSR1, _handle_backfill_signal)
+    signal.signal(signal.SIGUSR2, _handle_backfill_signal)
 
     log.info(
         "Starting math poller: math_env=%s vote_interval=%dms mod_interval=%dms "

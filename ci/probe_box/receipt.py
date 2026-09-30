@@ -148,7 +148,7 @@ DIAGNOSTIC_FAMILIES = ("projection", "clusters", "repness", "moderation", "meta"
 DIAGNOSTIC_KINDS = ("numeric-tolerance", "strict-tolerance", "exact-value", "shape", "nonfinite")
 DIAGNOSTIC_MAGNITUDES = ("over1-to2", "over2-to10", "over10", "not-applicable")
 RECIPE_TOKENS = frozenset({
-    "sample-uniform6", "large-r16-uniform6", "large-r8-uniform8", "large-r4-uniform8",
+    "sample-uniform6", "triage-uniform6", "large-r16-uniform6", "large-r8-uniform8", "large-r4-uniform8",
     "large-r2-uniform8", "large-r1-uniform6", "revote-uniform6", "banned-uniform6",
     "smallmix-uniform6", "midmix-uniform6", "zero-empty", "modheavy-single", "meta-single",
     "midmix-restart3", "meta-uniform6", "public-vw-uniform8", "public-vw-front6",
@@ -251,6 +251,9 @@ def validate_receipt(value: object, job: Job) -> dict:
     if job["schema"] == "polis-probe-job/2" and job["kind"] == "light-shadow-compare":
         from light_shadow import validate_receipt as validate_shadow_receipt
         return validate_shadow_receipt(value, job)
+    if job["schema"] == "polis-probe-job/2" and job["kind"] == "backfill-verify":
+        from backfill_verify import validate_receipt as validate_verify_receipt
+        return validate_verify_receipt(value, job)
     if job["schema"] == "polis-probe-job/2":
         from roles_census import validate_receipt as validate_census_receipt
         return validate_census_receipt(value, job)
@@ -309,7 +312,20 @@ def validate_receipt(value: object, job: Job) -> dict:
     if v3 and r["verdict"] != ("PASS" if all_pass else "FAIL"):
         raise ValueError("RECEIPT_FALSE_PASS")
     selection = r["selection"]
-    if v3 and selection is not None:
+    if "triage_selection" in job:
+        # A light-shadow triage battery exports only its counts-only triage
+        # report, bound to the job's spec.
+        if not v5:
+            raise ValueError("RECEIPT_SELECTION")
+        from light_shadow import validate_triage_report
+        validate_triage_report(selection, job["triage_selection"])
+        # Exactly the selected conversations, each replayed with the triage
+        # recipe, under the certification policy the handoff names.
+        if (len(r["entries"]) != selection["selected"]
+                or any(e["recipe"] != "triage-uniform6" for e in r["entries"])
+                or r["digests"]["policy"] != job["triage_selection"]["certification_policy"]):
+            raise ValueError("RECEIPT_TRIAGE_BINDING")
+    elif v3 and selection is not None:
         selected = closed(selection, {"seed", "seed_source", "bucket_counts", "chosen_entry_sizes"})
         if selected["seed_source"] not in ("config", "run-id"):
             raise ValueError("RECEIPT_SELECTION_SEED_SOURCE")
@@ -352,6 +368,9 @@ def receipt_passed(receipt: dict, job: Job) -> bool:
     if job["schema"] == "polis-probe-job/2" and job["kind"] == "light-shadow-compare":
         from light_shadow import passed
         return passed(receipt)
+    if job["schema"] == "polis-probe-job/2" and job["kind"] == "backfill-verify":
+        from backfill_verify import passed as verify_passed
+        return verify_passed(receipt)
     return receipt["verdict"] == "PASS"
 
 

@@ -8,11 +8,23 @@ from polismath.replay import fixture_config
 PROBE_CONFIG_PATH = Path(__file__).resolve().parents[3] / "delphi/scripts/certify_datasets.probe.json"
 
 
+TRIAGE = "light-shadow-triage"
+
+
 def resolve(config, context):
-    if (type(context) is not dict or set(context) - {"representative_selection"} != {"run_id"}
+    if (type(context) is not dict or set(context) - {"representative_selection", "triage_selection"} != {"run_id"}
             or type(context["run_id"]) is not str or re.fullmatch(r"[a-f0-9]{32}", context["run_id"]) is None):
         raise ValueError("SELECTION_CONTEXT")
     result = copy.deepcopy(config)
+    if "triage_selection" in context:
+        # Triage mode replays only the recomputed light-shadow set: no
+        # representative sample and no coverage roles are selected. The
+        # committed config is otherwise unchanged and still bound by digest.
+        if "representative_selection" in context:
+            raise ValueError("SELECTION_CONTEXT")
+        result.pop("representative_selection", None)
+        fixture_config.validate_config(result)
+        return result, TRIAGE
     if "representative_selection" in context:
         override = context["representative_selection"]
         if (type(override) is not dict or set(override) != {"seed_source", "seed"}
@@ -32,7 +44,7 @@ def resolve(config, context):
 
 
 def from_job(job):
-    return {k: job[k] for k in ("run_id", "representative_selection") if k in job}
+    return {k: job[k] for k in ("run_id", "representative_selection", "triage_selection") if k in job}
 
 
 def admit(config, context):

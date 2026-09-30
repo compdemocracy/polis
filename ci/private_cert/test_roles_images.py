@@ -17,9 +17,9 @@ from roles_recipe import recipe
 from roles_registry import admit
 
 
-def archive(path,r,source):
+def archive(path,r,source,launcher=HERE/'images/launcher.py'):
     files={'opt/polis-private-image/recipe.json':encoded(r),
-        'opt/polis-private-image/launcher.py':(HERE/'images/launcher.py').read_bytes(),
+        'opt/polis-private-image/launcher.py':Path(launcher).read_bytes(),
         **{'opt/polis-private-image/payload/'+p:(source/p).read_bytes() for p in r['files']}}
     layer=tar_bytes(files);blobs={}
     def desc(raw,media):

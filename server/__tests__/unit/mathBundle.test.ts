@@ -208,6 +208,34 @@ describe("the accessors are pure and exact", () => {
     expect(pidsForGid(swapped, 0)).not.toEqual(pidsForGid(admittedBundle(), 0));
   });
 
+  test("bidsForPids refuses a malformed mapping entry instead of throwing", () => {
+    // P-070 review [1447] B: a null entry at the correct outer length used to
+    // throw on indexOf. The valid entries still place their pids.
+    const bundle = admittedBundle();
+    const b2p = (bundle.bidToPid as any).bidToPid as unknown[];
+    const corrupt = {
+      ...bundle,
+      bidToPid: {
+        ...(bundle.bidToPid as any),
+        bidToPid: [null, ...b2p.slice(1)],
+      },
+    } as typeof bundle;
+    expect(() => bidsForPids(corrupt, [1, 2, 3])).not.toThrow();
+    expect(bidsForPids(corrupt, [1, 2, 3])).toEqual({
+      1: undefined,
+      2: 20,
+      3: undefined,
+    });
+    const allNull = {
+      ...bundle,
+      bidToPid: { ...(bundle.bidToPid as any), bidToPid: b2p.map(() => null) },
+    } as typeof bundle;
+    expect(bidsForPids(allNull, [1, 2])).toEqual({
+      1: undefined,
+      2: undefined,
+    });
+  });
+
   test("bidsForPids maps every pid, and leaves an unplaced pid undefined", () => {
     const bundle = admittedBundle();
     expect(bidsForPids(bundle, [1, 2, 3])).toEqual({

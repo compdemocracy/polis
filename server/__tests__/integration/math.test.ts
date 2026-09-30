@@ -347,10 +347,20 @@ describe("Math and Analysis Endpoints", () => {
     expect(latestResponse.status).toBe(200);
     expect(latestResponse.body.math_tick).toBe(initialMathTick);
 
-    // Test ETag header functionality (related to math_tick)
+    // Test ETag header functionality. A published generation's tag binds the
+    // served label and the tick ("<math_env>-<math_tick>"); the synthesized
+    // empty presentation carries no generation tag, only express's body-derived
+    // weak validator.
     const etag = initialResponse.headers.etag;
     expect(etag).toBeDefined();
-    expect(etag).toBe(`"${initialMathTick}"`);
+    if (hasMathData) {
+      expect(etag).toMatch(new RegExp(`^"[^"]+-${initialMathTick}"$`));
+      // A legacy numeric tag never earns a 304.
+      const legacyResponse: Response = await agent
+        .get(`/api/v3/math/pca2?conversation_id=${conversationId}`)
+        .set("If-None-Match", `"${initialMathTick}"`);
+      expect(legacyResponse.status).toBe(200);
+    }
 
     // Additional tests when we have real math data (math_tick > 0)
     if (hasMathData) {

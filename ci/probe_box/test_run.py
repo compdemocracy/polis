@@ -877,3 +877,125 @@ class CeilingTests(unittest.TestCase):
         longest = self.longest_job()['max_seconds']
         self.assertEqual(BUDGET_CEILING_SECONDS, longest + BUDGET_MARGIN_SECONDS)
         self.assertGreater(BUDGET_CEILING_SECONDS, longest)
+
+
+def lagging(e, lag):
+    """The client-token describe lists nothing for its first `lag` calls, then
+    e.instances: EC2's eventually consistent read after RunInstances returned."""
+    calls, original = [], e.get_paginator
+    def pages(name):
+        if name != 'describe_instances': return original(name)
+        def observe(**kw):
+            calls.append(kw)
+            return [{'Reservations': [{'Instances': [] if len(calls) <= lag else e.instances}]}]
+        return Pages(observe)
+    e.get_paginator = pages
+    return calls
+
+
+class LaunchAckLagTests(unittest.TestCase):
+    """launch_once reads again, on a bounded schedule, only when RunInstances
+    returned and the describe is still empty. It never launches again."""
+    def diagnostic(self, error):
+        import contextlib
+        from run import unresolved
+        err = io.StringIO()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+            self.assertEqual(unresolved(error), 2)
+        return err.getvalue().split(' ', 2)[2].strip()
+
+    def test_lagging_describe_is_read_again_until_the_instance_is_listed(self):
+        from test_boundaries import job
+        from run import LAUNCH_REOBSERVE_SECONDS
+        for lag in range(1, len(LAUNCH_REOBSERVE_SECONDS) + 1):
+            with self.subTest(lag=lag), patch('run.time.sleep') as sleep:
+                x, c, e, s, i = session_setup(); calls = lagging(e, lag)
+                sleep.side_effect = lambda seconds: setattr(c, 'now', c.now + seconds)
+                self.assertEqual(x.start(job()), dict(run_id=job()['run_id'], complete=False, passed=False))
+                self.assertEqual([a.args[0] for a in sleep.call_args_list], list(LAUNCH_REOBSERVE_SECONDS[:lag]))
+                self.assertEqual(len(e.runs), 1)
+                owned = x.control(x.active()[0])
+                self.assertEqual(owned.read(owned.prefix + 'instance.json')['id'], 'i-test')
+                self.assertIsNotNone(owned.read('boot/worker/arn:aws:ec2:us-east-1:111111111111:instance/i-test.json'))
+                self.assertFalse(e.terminated)
+
+    def test_lag_beyond_the_bound_stays_launch_ack_unknown_after_one_launch(self):
+        from test_boundaries import job
+        from run import LAUNCH_REOBSERVE_SECONDS
+        self.assertEqual(sum(LAUNCH_REOBSERVE_SECONDS), 30)
+        x, c, e, s, i = session_setup(); calls = lagging(e, 10**6)
+        with patch('run.time.sleep') as sleep, self.assertRaisesRegex(Unknown, 'LAUNCH_ACK_UNKNOWN') as raised:
+            x.start(job())
+        self.assertEqual(raised.exception.operation, 'INSTANCE_DESCRIBE')
+        self.assertEqual([a.args[0] for a in sleep.call_args_list], list(LAUNCH_REOBSERVE_SECONDS))
+        self.assertEqual(len(calls), len(LAUNCH_REOBSERVE_SECONDS) + 1)
+        self.assertEqual(len(e.runs), 1)
+        self.assertEqual(x.active()[0]['phase'], 'INTENT')
+        self.assertEqual(self.diagnostic(raised.exception),
+                         'reason=LAUNCH_ACK_UNKNOWN operation=INSTANCE_DESCRIBE disposition=refuse attempt=1')
+
+    def test_other_launch_outcomes_are_never_read_again(self):
+        cases = {'foreign': 'INSTANCE_OWNERSHIP_UNKNOWN', 'transient': 'INSTANCE_DESCRIBE_UNKNOWN',
+                 'other-id': 'INSTANCE_OWNERSHIP_UNKNOWN'}
+        for case, code in cases.items():
+            with self.subTest(case=case), patch('run.time.sleep') as sleep:
+                c, e, s, i = setup(); calls = lagging(e, 0)
+                if case == 'foreign':
+                    i['ClientToken'] = 'forged'
+                elif case == 'transient':
+                    def failing(name):
+                        calls.append(name); raise ApiError('RequestLimitExceeded')
+                    e.get_paginator = lambda name: Pages(lambda **kw: failing(name))
+                else:
+                    e.run_instances = lambda **kw: (e.runs.append(kw), {'Instances': [dict(i, InstanceId='i-other')]})[1]
+                with self.assertRaisesRegex(Unknown, code):
+                    c.launch_once()
+                self.assertEqual(len(calls), 1)
+                sleep.assert_not_called()
+                self.assertEqual(len(e.runs), 1)
+                self.assertFalse(e.terminated)
+                self.assertIsNone(c.read(c.prefix + 'instance.json'))
+                self.assertIsNone(c.launched)
+
+    def test_failed_run_instances_is_never_read_again(self):
+        from test_boundaries import job
+        x, c, e, s, i = session_setup(); e.run_fails = True; calls = lagging(e, 10**6)
+        with patch('run.time.sleep') as sleep:
+            with self.assertRaises(ApiError): x.start(job())
+        sleep.assert_not_called()
+        self.assertEqual(calls, [])
+        self.assertEqual(len(e.runs), 1)
+
+    def test_status_and_watch_stay_single_shot(self):
+        import contextlib
+        import run
+        from test_boundaries import job
+        x, c, e, s, i = session_setup(); calls = lagging(e, 10**6)
+        with patch('run.time.sleep'):
+            with self.assertRaisesRegex(Unknown, 'LAUNCH_ACK_UNKNOWN'): x.start(job())
+        del calls[:]
+        with patch('run.time.sleep') as sleep:
+            for cancel in (False, True):
+                with self.assertRaisesRegex(Unknown, 'LAUNCH_ACK_UNKNOWN'):
+                    x.status(job()['run_id'], cancel=cancel)
+            self.assertEqual(len(calls), 2)
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+                self.assertEqual(run.watch(x, job()['run_id']), 2)
+            self.assertEqual(len(calls), 3)
+            sleep.assert_not_called()
+        self.assertIn('reason=LAUNCH_ACK_UNKNOWN operation=INSTANCE_DESCRIBE disposition=refuse attempt=1',
+                      err.getvalue())
+        self.assertEqual(len(e.runs), 1)
+
+    def test_launch_ack_unknown_names_the_step_that_failed(self):
+        from run import outcome
+        c, e, s, i = setup()
+        with self.assertRaisesRegex(Unknown, 'LAUNCH_ACK_UNKNOWN') as absent: c.reconcile()
+        self.assertEqual(outcome(absent.exception), ('LAUNCH_ACK_UNKNOWN', 'CONTROL_GET', 'refuse'))
+        c.record(c.prefix + 'claim.json', {'admissionSha256': c.token, 'started': c.a['started']})
+        e.instances = []
+        with self.assertRaisesRegex(Unknown, 'LAUNCH_ACK_UNKNOWN') as empty: c.reconcile()
+        self.assertEqual(outcome(empty.exception), ('LAUNCH_ACK_UNKNOWN', 'INSTANCE_DESCRIBE', 'refuse'))
+        self.assertEqual(self.diagnostic(absent.exception),
+                         'reason=LAUNCH_ACK_UNKNOWN operation=CONTROL_GET disposition=refuse attempt=1')

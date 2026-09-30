@@ -15,18 +15,25 @@ import logging
 import os
 import threading
 import time
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
 from polismath.conversation.conversation import Conversation
+from polismath.poller.admission import (
+    MemoryAdmission,
+    conversation_dims,
+    read_conversation_sizes,
+)
 from polismath.poller.math_writer import MathWriter, dump_error
+from polismath.poller.readiness import classify_error
 from polismath.poller.worker_pool import (
     ConversationWorkerPool,
     CoalescedBatch,
     VOTES,
     MODERATION,
     REBUILD,
+    BACKFILL,
 )
 
 logger = logging.getLogger(__name__)
@@ -131,6 +138,13 @@ def _env_first(*names: str, default: Optional[str] = None) -> Optional[str]:
     return default
 
 
+def _env_float(name: str, default: Optional[float] = None) -> Optional[float]:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    return float(raw)
+
+
 # --------------------------------------------------------------------------- #
 # Config
 # --------------------------------------------------------------------------- #
@@ -153,6 +167,12 @@ class PollerConfig:
       retry_cap          MATH_POLLER_RETRY_CAP                       (default 1)
       conv_cache_cap     MATH_CONV_CACHE_CAP                (default 200; 0 = unlimited)
       reconcile_interval_ms MATH_POLLER_RECONCILE_INTERVAL_MS        (default 60000)
+      memory_limit_mb    MATH_POLLER_MEMORY_LIMIT_MB   (fallback when no cgroup limit)
+      memory_headroom    MATH_POLLER_MEMORY_HEADROOM                 (default 0.15)
+      conv_cache_mb      MATH_CONV_CACHE_MB        (default 30% of the memory budget)
+      mem_*              MATH_POLLER_MEM_BASE_MB, _PER_MCELL_MB, _PER_VOTE_ROW_BYTES,
+                         _SAFETY, _RETAINED_BASE_MB, _RETAINED_PER_MCELL_MB,
+                         _RETAINED_PER_VOTER_KB (polismath.poller.admission)
     """
 
     database_url: Optional[str] = None
@@ -191,10 +211,34 @@ class PollerConfig:
     # rebuilds each parked zid from authoritative history so a conversation that
     # failed and received no subsequent vote is still recovered (M1, P-019).
     reconcile_interval_ms: int = 60000
+    # Shared memory admission (polismath.poller.admission). The budget is the
+    # cgroup limit (else memory_limit_mb) minus the headroom fraction; the CLI
+    # refuses to start when neither limit is known. conv_cache_mb bounds the
+    # retained bytes of the live cache (default 30% of the budget); the count
+    # cap above still applies too.
+    memory_limit_mb: Optional[float] = None
+    memory_headroom: float = 0.15
+    conv_cache_mb: Optional[float] = None
+    mem_base_mb: float = 209.0
+    mem_per_mcell_mb: float = 116.0
+    mem_per_vote_row_bytes: float = 413.0
+    mem_safety: float = 1.15
+    mem_retained_base_mb: float = 40.0
+    mem_retained_per_mcell_mb: float = 30.0
+    mem_retained_per_voter_kb: float = 27.0
 
     def __post_init__(self) -> None:
         self._validate_shard()
         self._validate_cache_cap()
+        self._validate_memory()
+
+    def _validate_memory(self) -> None:
+        if self.memory_limit_mb is not None and not (self.memory_limit_mb > 0):
+            raise ValueError(f"memory_limit_mb must be > 0, got {self.memory_limit_mb}")
+        if not (0 <= self.memory_headroom < 1):
+            raise ValueError(f"memory_headroom must be in [0, 1), got {self.memory_headroom}")
+        if self.conv_cache_mb is not None and not (self.conv_cache_mb >= 0):
+            raise ValueError(f"conv_cache_mb must be >= 0, got {self.conv_cache_mb}")
 
     def _validate_cache_cap(self) -> None:
         """Reject a negative cache cap at construction time (M4, P-019).
@@ -271,18 +315,98 @@ class PollerConfig:
             reconcile_interval_ms=int(
                 os.environ.get("MATH_POLLER_RECONCILE_INTERVAL_MS", "60000")
             ),
+            memory_limit_mb=_env_float("MATH_POLLER_MEMORY_LIMIT_MB"),
+            memory_headroom=_env_float("MATH_POLLER_MEMORY_HEADROOM", 0.15),
+            conv_cache_mb=_env_float("MATH_CONV_CACHE_MB"),
+            mem_base_mb=_env_float("MATH_POLLER_MEM_BASE_MB", 209.0),
+            mem_per_mcell_mb=_env_float("MATH_POLLER_MEM_PER_MCELL_MB", 116.0),
+            mem_per_vote_row_bytes=_env_float("MATH_POLLER_MEM_PER_VOTE_ROW_BYTES", 413.0),
+            mem_safety=_env_float("MATH_POLLER_MEM_SAFETY", 1.15),
+            mem_retained_base_mb=_env_float("MATH_POLLER_MEM_RETAINED_BASE_MB", 40.0),
+            mem_retained_per_mcell_mb=_env_float("MATH_POLLER_MEM_RETAINED_PER_MCELL_MB", 30.0),
+            mem_retained_per_voter_kb=_env_float("MATH_POLLER_MEM_RETAINED_PER_VOTER_KB", 27.0),
         )
 
 
 # --------------------------------------------------------------------------- #
 # Service
 # --------------------------------------------------------------------------- #
+class _BackfillHost:
+    """What the backfill scheduler (polismath.poller.backfill) may touch in the
+    service: the pool (as BACKFILL messages), cache membership, the shard
+    filter, the first-touch rebuild, the writer and live-poll health."""
+
+    def __init__(self, service: "MathPollerService") -> None:
+        self._svc = service
+        self.target_env = service.config.math_env
+        self.writer = service._writer
+        self.admission = service.admission
+
+    def submit(self, zid: int) -> bool:
+        assert self._svc._pool is not None
+        return self._svc._pool.submit(zid, BACKFILL, [])
+
+    def pending_zids(self) -> set:
+        return self._svc._pool.pending_zids() if self._svc._pool is not None else set()
+
+    def is_pending(self, zid: int) -> bool:
+        return self._svc._pool is not None and self._svc._pool.is_pending(zid)
+
+    def is_cached(self, zid: int) -> bool:
+        with self._svc._convs_lock:
+            return zid in self._svc._convs
+
+    def evict(self, zid: int) -> None:
+        self._svc._cache_drop(zid)
+
+    def parked_count(self) -> int:
+        return len(self._svc._parked)
+
+    def accepts(self, zid: int) -> bool:
+        c = self._svc.config
+        return should_process_zid(zid, c.allowlist, c.blocklist, c.shard_index, c.shard_count)
+
+    def load_full_history(self, zid: int, restore: bool = False) -> Conversation:
+        """The first-touch rebuild. ``restore=False`` (any target that failed
+        validation) skips the persisted row: a malformed row, a wrong body zid
+        for example, must never be restored into the rebuild that replaces
+        it. Set per call on this thread; ``_load_or_init`` keeps its
+        signature."""
+        if restore:
+            return self._svc._load_or_init(zid)
+        self._svc._cold_start.active = True
+        try:
+            return self._svc._load_or_init(zid)
+        finally:
+            self._svc._cold_start.active = False
+
+    def live_poll_health(self):
+        return self._svc._live_poll_health()
+
+
 class MathPollerService:
     """Owns the poll loops, the in-memory conv cache, the worker pool + writer."""
 
-    def __init__(self, pg_client: Any, config: PollerConfig, publisher: Any = None) -> None:
+    def __init__(
+        self,
+        pg_client: Any,
+        config: PollerConfig,
+        publisher: Any = None,
+        backfill_config: Any = None,
+        admission: Optional[MemoryAdmission] = None,
+        run_id: Optional[str] = None,
+    ) -> None:
         self._pg = pg_client
+        # The process run id (P-072): shared by the readiness lines and the
+        # backfill's sweep/DRAINED lines so the collector can bind them.
+        self.run_id = run_id
         self.config = config
+        # Shared memory admission (P-070 R1): every compute path reserves here
+        # before loading, and the cache's retained bytes are accounted here.
+        # Without a known limit (library/test construction) it grants every
+        # reservation; scripts/math_poller.py refuses to start in that case.
+        self.admission = admission if admission is not None else MemoryAdmission.from_config(config)
+        self.admission.set_evictor(self._evict_for_admission)
         self._writer = MathWriter(pg_client, publisher=publisher)
         self._bridge_stage = publisher.stage if publisher is not None else lambda stage: None
         self._coordinator_rebuild = publisher is not None
@@ -294,6 +418,8 @@ class MathPollerService:
         # the pool serializes each zid, and a worker's local reference survives
         # eviction until it publishes and remembers the updated conversation.
         self._convs_lock = threading.Lock()
+        # Per-thread flag: the backfill's cold rebuild (see _load_or_init).
+        self._cold_start = threading.local()
         self._retry_counts: Dict[int, int] = {}
         self._pool: Optional[ConversationWorkerPool] = None
         self._threads: List[threading.Thread] = []
@@ -306,6 +432,40 @@ class MathPollerService:
         # run concurrently with the scan it is retrying and double-submit.
         self._startup_repair_done = False
         self._startup_repair_lock = threading.Lock()
+        # Live vote-poll health, read by the backfill's admission control:
+        # durations (ms) of the last successful polls and the time of the last
+        # success. Written only by the vote loop.
+        self._vote_poll_ms: "deque[float]" = deque(maxlen=10)
+        self._vote_poll_ok_at: Optional[float] = None
+        # Discovery-loop evidence for the readiness line (P-072), per loop:
+        # successful passes (empty polls count), consecutive successes, wall
+        # clock of the last success, failures since it, and the last failure's
+        # closed class. Written by the two poll loops only.
+        self._health_lock = threading.Lock()
+        self._health: Dict[str, Dict[str, Any]] = {
+            name: {"successes": 0, "consecutive": 0, "last_success_ms": None,
+                   "failures_since_success": 0, "last_error": None, "last_error_ms": None}
+            for name in (VOTES, MODERATION)
+        }
+        # Opt-in pre-switch backfill (P-070). Off unless MATH_BACKFILL=1; a bad
+        # backfill setting disables the backfill, never the poller.
+        self.backfill = None
+        if backfill_config is not None and getattr(backfill_config, "enabled", False):
+            from polismath.poller.backfill import ConfigError, build_scheduler
+
+            try:
+                if publisher is not None:
+                    raise ConfigError("the backfill does not run with a coordinator publisher")
+                extra = {"run_id": run_id} if run_id else {}
+                self.backfill = build_scheduler(_BackfillHost(self), pg_client, backfill_config,
+                                                **extra)
+            except ConfigError as exc:
+                logger.error("math-backfill DISABLED: %s", exc)
+                self.backfill = None
+            except Exception as exc:  # noqa: BLE001 - the optional backfill never stops the poller
+                logger.error("math-backfill DISABLED: construction failed (%s)",
+                             exc.__class__.__name__)
+                self.backfill = None
 
     @property
     def _parked(self) -> set:
@@ -363,6 +523,8 @@ class MathPollerService:
         ]
         for t in self._threads:
             t.start()
+        if self.backfill is not None:
+            self.backfill.start()
         logger.info(
             "MathPollerService started (math_env=%s pool=%d shard=%s)",
             self.config.math_env,
@@ -376,6 +538,8 @@ class MathPollerService:
 
     def stop(self) -> None:
         self._stop.set()
+        if self.backfill is not None:
+            self.backfill.stop()
         for t in self._threads:
             t.join(timeout=5.0)
         if self._pool is not None:
@@ -466,17 +630,84 @@ class MathPollerService:
 
     def _vote_loop(self) -> None:
         while not self._stop.is_set():
+            started = time.monotonic()
             try:
                 self._poll_votes_once()
-            except Exception:
+                self._vote_poll_ms.append((time.monotonic() - started) * 1000.0)
+                self._vote_poll_ok_at = time.monotonic()
+                self._note_poll(VOTES)
+            except Exception as exc:
+                self._note_poll(VOTES, exc)
                 logger.exception("Vote poll cycle failed")
             self._stop.wait(self.config.vote_interval_ms / 1000.0)
+
+    def _note_poll(self, loop: str, exc: Optional[BaseException] = None) -> None:
+        """Record one discovery-loop pass for the readiness evidence."""
+        now_ms = int(time.time() * 1000)
+        with self._health_lock:
+            h = self._health[loop]
+            if exc is None:
+                h["successes"] += 1
+                h["consecutive"] += 1
+                h["last_success_ms"] = now_ms
+                h["failures_since_success"] = 0
+            else:
+                h["consecutive"] = 0
+                h["failures_since_success"] += 1
+                h["last_error"] = classify_error(exc)
+                h["last_error_ms"] = now_ms
+
+    def readiness_snapshot(self) -> Dict[str, Any]:
+        """Counts, clocks and closed labels for the readiness line (P-072).
+        Discovery is the weaker of the two poll loops: the older last success,
+        the smaller success counts, the failures of both."""
+        with self._health_lock:
+            loops = [dict(self._health[VOTES]), dict(self._health[MODERATION])]
+        lasts = [h["last_success_ms"] for h in loops]
+        errors = sorted((h for h in loops if h["last_error_ms"] is not None),
+                        key=lambda h: h["last_error_ms"])
+        discovery = {
+            "successes": min(h["successes"] for h in loops),
+            "consecutive": min(h["consecutive"] for h in loops),
+            "last_success_ms": None if None in lasts else min(lasts),
+            "failures_since_success": sum(h["failures_since_success"] for h in loops),
+            "last_error": errors[-1]["last_error"] if errors else None,
+            "last_error_ms": errors[-1]["last_error_ms"] if errors else None,
+        }
+        if self._pool is not None:
+            queue = self._pool.queue_stats()
+        else:
+            queue = {"pending": 0, "in_flight": 0, "parked": 0, "oldest_live_age_ms": None,
+                     "oldest_backfill_age_ms": None, "oldest_work_age_ms": 0}
+        snap = self.admission.snapshot()
+        admission = {
+            "budget_mb": snap.get("budget_mb"), "reserved_mb": int(snap.get("reserved_mb") or 0),
+            "granted": int(snap.get("granted") or 0), "held": int(snap.get("held") or 0),
+            "waiting": int(snap.get("waiting") or 0),
+        }
+        sweep = drain = config = None
+        if self.backfill is not None:
+            sweep, drain = self.backfill.readiness()
+            config = self.backfill.config.digest()
+        return {"discovery": discovery, "queue": queue, "sweep": sweep, "drain": drain,
+                "admission": admission, "config": config,
+                "loop_marks": tuple(h["successes"] for h in loops)}
+
+    def _live_poll_health(self):
+        """(mean ms of the recent successful vote polls or None, seconds since
+        the last success or None). Read by the backfill admission control."""
+        samples = list(self._vote_poll_ms)
+        mean_ms = sum(samples) / len(samples) if samples else None
+        ok_at = self._vote_poll_ok_at
+        return mean_ms, (None if ok_at is None else time.monotonic() - ok_at)
 
     def _mod_loop(self) -> None:
         while not self._stop.is_set():
             try:
                 self._poll_moderation_once()
-            except Exception:
+                self._note_poll(MODERATION)
+            except Exception as exc:
+                self._note_poll(MODERATION, exc)
                 logger.exception("Moderation poll cycle failed")
             self._stop.wait(self.config.mod_interval_ms / 1000.0)
 
@@ -548,8 +779,7 @@ class MathPollerService:
         if self._pool is None or not self._pool.is_parked(zid):
             return
         self._retry_counts.pop(zid, None)
-        with self._convs_lock:
-            self._convs.pop(zid, None)  # next touch rebuilds full history
+        self._cache_drop(zid)  # next touch rebuilds full history
         self._pool.unpark(zid)  # pool owns parked truth (P-022 R04)
         logger.info(
             "Un-parked zid=%s: invalidated cache; next batch rebuilds full "
@@ -593,45 +823,151 @@ class MathPollerService:
         )
 
     # -- per-zid processing (runs on pool threads) -------------------------- #
-    def _handle_zid(self, zid: int, coalesced: CoalescedBatch) -> None:
+    def _handle_zid(self, zid: int, coalesced: CoalescedBatch) -> Optional[bool]:
+        """Returns whether the live work was resolved (False keeps its age
+        counting in the readiness evidence, P-072); None for a backfill job."""
         if self._pool is not None and self._pool.is_parked(zid):
-            return
+            if coalesced.backfill and self.backfill is not None:
+                self.backfill.job_skipped(zid, "parked_live")
+            return False
+        if coalesced.backfill and not coalesced.has_live_work():
+            # P-070: a backfill job alone. It never touches the cache, owns
+            # its errors and reports its own outcome.
+            if self.backfill is not None:
+                self.backfill.run_job(zid)
+            return None
+        live_ok = False
         try:
             self._run_engine(zid, coalesced)
             self._retry_counts.pop(zid, None)
+            live_ok = True
         except Exception as error:  # noqa: BLE001 - top of the per-zid boundary
             self._on_engine_error(zid, coalesced, error)
+        finally:
+            if coalesced.backfill and self.backfill is not None:
+                # Live work for the zid ran instead of the backfill job.
+                self.backfill.job_superseded_by_live(zid, live_ok)
+        return live_ok
 
     def _remember(self, zid: int, conv: Conversation) -> None:
         """Store a conversation as most-recently-used, LRU-evicting the coldest
-        when conv_cache_cap (>0) is exceeded. An evicted conv is reloaded from
-        math_main and fully rebuilt on its next touch (= Clojure-restart
-        semantics), so eviction is lossless — just a memory/latency trade."""
+        when conv_cache_cap (>0) is exceeded or, with a known memory budget,
+        when the cache's retained bytes exceed their budget (3'.c.3). The
+        most recently used entry is always kept; its bytes still count against
+        the process budget. An evicted conv is reloaded from math_main and
+        fully rebuilt on its next touch (= Clojure-restart semantics), so
+        eviction is lossless — just a memory/latency trade."""
         with self._convs_lock:
             self._convs[zid] = conv
             self._convs.move_to_end(zid)
+            if self.admission.limited:
+                voters, comments = conversation_dims(conv)
+                self.admission.set_retained(
+                    zid, self.admission.model.retained_bytes(voters, comments))
             cap = self.config.conv_cache_cap
-            if cap and len(self._convs) > cap:
-                while len(self._convs) > cap:
-                    evicted_zid, _ = self._convs.popitem(last=False)  # coldest
-                    logger.info(
-                        "LRU-evicting cold conversation zid=%s (cache cap=%d); it will "
-                        "reload from math_main + rebuild on next touch",
-                        evicted_zid, cap,
-                    )
+            # Review [1447] A: evicting a conversation a worker still holds
+            # removes it from the cache, but the accountant keeps its charge
+            # until the worker releases it (drop_retained detaches it), so
+            # memory still referenced is always counted.
+            while len(self._convs) > 1 and (
+                (cap and len(self._convs) > cap) or self.admission.over_cache_budget()
+            ):
+                evicted_zid, _ = self._convs.popitem(last=False)  # coldest
+                self.admission.drop_retained(evicted_zid)
+                logger.info(
+                    "LRU-evicting cold conversation zid=%s (cache cap=%d, retained "
+                    "budget=%s); it will reload from math_main + rebuild on next touch",
+                    evicted_zid, cap, self.admission.cache_budget_bytes,
+                )
+
+    def _cache_drop(self, zid: int) -> None:
+        with self._convs_lock:
+            self._convs.pop(zid, None)
+            self.admission.drop_retained(zid)
+
+    def _evict_for_admission(self, shortfall: int, protect: set) -> int:
+        """Evict least-recently-used cached conversations not held by a
+        running computation until ``shortfall`` bytes are freed. Called by the
+        admission accountant with no admission lock held."""
+        freed = 0
+        with self._convs_lock:
+            for zid in list(self._convs):
+                if freed >= shortfall:
+                    break
+                if zid in protect or self.admission.is_held(zid):
+                    continue
+                self._convs.pop(zid, None)
+                got = self.admission.drop_retained(zid)
+                freed += got
+                logger.info("memory admission: evicted cached zid=%s (%.0f MiB)",
+                            zid, got / (1024 * 1024))
+        return freed
+
+    def _reserve(self, zid: int, conv: Optional[Conversation], coalesced: CoalescedBatch):
+        """Reserve this computation's memory before anything is loaded. A
+        cold touch or rebuild is sized from the database (vote rows, voters,
+        comments); an incremental update from the cached matrix plus the
+        batch. Live work waits for room; it is refused only when it could
+        never fit."""
+        adm = self.admission
+        if not adm.limited:
+            return adm.reserve(zid, 0, kind="live", stop=self._stop)
+        if conv is None:
+            votes, voters, comments = read_conversation_sizes(self._pg, zid)
+            need = adm.model.above_base_bytes(votes, voters, comments)
+            kind = "live_rebuild"
+        else:
+            voters, comments = conversation_dims(conv)
+            batch = coalesced.votes
+            new_voters = len({v.get("pid") for v in batch})
+            new_comments = len({v.get("tid") for v in batch})
+            need = adm.model.above_base_bytes(
+                len(batch) + len(coalesced.moderation), voters + new_voters,
+                comments + new_comments)
+            kind = "live_update"
+        return adm.reserve(zid, need, kind=kind, stop=self._stop)
 
     def _run_engine(self, zid: int, coalesced: CoalescedBatch) -> None:
-        with self._convs_lock:
-            conv = self._convs.get(zid)
-            if conv is not None:
-                self._convs.move_to_end(zid)  # LRU touch
-
         # M1 (P-019): an explicit rebuild request (parked-zid reconciler) forces a
         # full-history reload even when a cached conv exists — the cached state may
         # be missing the interval that failed before the zid was parked.
-        if coalesced.rebuild:
-            conv = None
+        held = False
+        with self._convs_lock:
+            conv = None if coalesced.rebuild else self._convs.get(zid)
+            if conv is not None:
+                self._convs.move_to_end(zid)  # LRU touch
+                # Review [1447] A: hold the object from this lookup, through
+                # any admission wait and the computation, until release. Taken
+                # under the cache lock, so no eviction can slip in between.
+                self.admission.hold(zid)
+                held = True
+        try:
+            reservation = self._reserve(zid, conv, coalesced)
+            try:
+                self._compute_and_publish(zid, conv, coalesced)
+            finally:
+                # Review [1449] A: an immutable recompute caches a distinct
+                # replacement whose charge replaces this zid's retained
+                # charge, while this frame still references the old object.
+                # Only the reservation covers that old object, so drop the
+                # reference and the hold BEFORE releasing the reservation;
+                # a waiter woken by the release never sees the old object
+                # outside the accounting.
+                conv = None
+                if held:
+                    held = False
+                    self.admission.unhold(zid)
+                self.admission.release(reservation)
+        finally:
+            # Reached with the hold still taken only when the reservation
+            # itself failed or raised (nothing was computed).
+            if held:
+                conv = None
+                self.admission.unhold(zid)
 
+    def _compute_and_publish(
+        self, zid: int, conv: Optional[Conversation], coalesced: CoalescedBatch
+    ) -> None:
         if conv is None:
             # First message (or forced rebuild) for this zid: load-or-init (full
             # rebuild + compute from authoritative history).
@@ -670,6 +1006,26 @@ class MathPollerService:
         self._writer.write_conv_updates(zid, conv)
         self._remember(zid, conv)
 
+    def _restorable(self, zid: int, row: Dict[str, Any]) -> bool:
+        """P-070 review [1447] E: warm state is restored only from a row that
+        passes the shared validity rule (``bundle_valid``, computed by
+        ``load_math_main`` in the same snapshot) and whose body names this
+        zid. Anything else rebuilds cold, so a live first touch or rebuild
+        never republishes a malformed body (a wrong zid, say)."""
+        if row.get("bundle_valid") is False:
+            logger.warning(
+                "load-or-init: persisted math for zid=%s math_env=%s fails the shared "
+                "validity rule; discarding it and rebuilding cold", zid, self.config.math_env)
+            return False
+        data = row.get("data")
+        body_zid = data.get("zid") if isinstance(data, dict) else None
+        if body_zid is not None and (isinstance(body_zid, bool) or body_zid != zid):
+            logger.warning(
+                "load-or-init: persisted math for zid=%s names zid=%r in its body; "
+                "discarding it and rebuilding cold", zid, body_zid)
+            return False
+        return True
+
     def _load_or_init(self, zid: int) -> Conversation:
         """Mirror Clojure load-or-init (conv_man.clj:188-207).
 
@@ -693,11 +1049,13 @@ class MathPollerService:
         the true max(created).
         """
         conv: Optional[Conversation] = None
-        try:
-            row = self._pg.load_math_main(zid)
-        except Exception:
-            logger.exception("load_math_main failed for zid=%s; cold start", zid)
-            row = None
+        row = None
+        if not getattr(self._cold_start, "active", False):
+            try:
+                row = self._pg.load_math_main(zid)
+            except Exception:
+                logger.exception("load_math_main failed for zid=%s; cold start", zid)
+                row = None
 
         if row and row.get("snapshot_complete") is False:
             logger.warning(
@@ -705,6 +1063,9 @@ class MathPollerService:
                 "(missing rows or mismatched math_tick); discarding persisted "
                 "state and rebuilding full history", zid, self.config.math_env,
             )
+            row = None
+
+        if row and row.get("data") and not self._restorable(zid, row):
             row = None
 
         if row and row.get("data"):

@@ -173,10 +173,18 @@ class DiagnosticTests(unittest.TestCase):
             role=next((r['role'] for r in config['public_fixtures'] if r['slug']==entry.dataset),config['coverage_role_map'].get(entry.dataset))
             tokens.append(projection.recipe_token(NS(role=role,dataset=entry.dataset,schedule_id=entry.schedule_id)))
         self.assertEqual(len(set(tokens)),20)
-        self.assertEqual(set(tokens)|{'sample-uniform6'}, RECIPE_TOKENS)
+        self.assertEqual(set(tokens)|{'sample-uniform6','triage-uniform6'}, RECIPE_TOKENS)
         for i in range(1,21):
             name=gate.fixture_samples.slug(i)
             self.assertEqual(projection.recipe_token(NS(role=name,dataset=name,schedule_id=gate.fixture_samples.SCHEDULE_ID)),'sample-uniform6')
+            name=gate.fixture_samples.triage_slug(i)
+            self.assertEqual(projection.recipe_token(NS(role=name,dataset=name,schedule_id=gate.fixture_samples.SCHEDULE_ID)),'triage-uniform6')
+        # Mismatched alias, schedule or ordinal stays refused.
+        for bad in (NS(role='triage-001',dataset='triage-002',schedule_id=gate.fixture_samples.SCHEDULE_ID),
+                    NS(role='triage-001',dataset='triage-001',schedule_id='uniform6-clojure-legacy'),
+                    NS(role='triage-021',dataset='triage-021',schedule_id=gate.fixture_samples.SCHEDULE_ID),
+                    NS(role='triage-000',dataset='triage-000',schedule_id=gate.fixture_samples.SCHEDULE_ID)):
+            with self.assertRaisesRegex(ValueError,'DIAGNOSTIC_RECIPE'):projection.recipe_token(bad)
         self.assertNotEqual(projection.ROLE_RECIPES['mid-mix','uniform6-clojure-legacy'],projection.ROLE_RECIPES['mid-mix','uniform6-restart3-clojure-legacy'])
 
     def test_unknown_recipe_or_forged_sample_refused(self):
