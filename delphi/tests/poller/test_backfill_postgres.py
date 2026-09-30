@@ -808,6 +808,7 @@ class TestOperatorSignals:
         env = dict(os.environ, DATABASE_URL=pg_url, DATABASE_SSL_MODE="disable",
                    MATH_ENV=labels[1], PYTHONUNBUFFERED="1",
                    MATH_POLLER_LOCK_RETRY_S="1", MATH_POLLER_LOCK_LIVENESS_S="1",
+                   MATH_POLLER_ALLOW_HOSTNAME_IDENTITY="1",
                    PYTHONPATH=os.pathsep.join(filter(None, [str(root), os.environ.get("PYTHONPATH")])))
         env.pop("MATH_POLLER_ALLOW_SERVED_ENV", None)
         script = ("import faulthandler\nfaulthandler.dump_traceback_later(20, repeat=True)\n"

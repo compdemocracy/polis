@@ -25,7 +25,12 @@ import time
 import psycopg2
 
 from polismath.database.postgres import PostgresClient, PostgresConfig
-from polismath.poller.readiness import ReadinessConfigError, ReadinessReporter, ReadinessSettings
+from polismath.poller.readiness import (
+    ReadinessConfigError,
+    ReadinessReporter,
+    ReadinessSettings,
+    check_identity_source,
+)
 from polismath.poller.service import MathPollerService, PollerConfig, PoolDrainTimeout
 
 
@@ -89,6 +94,8 @@ LOCK_LIVENESS_ENV = "MATH_POLLER_LOCK_LIVENESS_S"
 DEFAULT_LOCK_RETRY_S = 30.0
 DEFAULT_LOCK_LIVENESS_S = 5.0
 LOCK_LOST_EXIT_CODE = 3
+# Added to the liveness interval for the handover wait after admission.
+HANDOVER_MARGIN_S = 0.5
 # Accepted range for both intervals, in seconds.
 LOCK_INTERVAL_MIN_S = 1.0
 LOCK_INTERVAL_MAX_S = 3600.0
@@ -189,20 +196,39 @@ def _acquire_single_writer_lock(conn, math_env: str, retry_s: float, log) -> Non
 
 
 # The process's readiness reporter (P-072), once started: the lock-lost exit
-# logs its final standby line before terminating.
+# tries to log its final standby line before terminating.
 _READINESS: "ReadinessReporter | None" = None
+
+# How long the lock-lost exit gives its last words (the final standby line,
+# the critical log line, the flush) before terminating regardless. Reporting
+# must never delay or prevent the exit: a reporter lock, a blocked snapshot,
+# a blocked log handler or a full pipe only costs the line.
+LOCK_LOST_REPORT_BUDGET_S = 0.1
 
 
 def _exit_lock_lost(log, reason: str) -> None:
-    """Terminate the whole process (code 3). Never returns."""
+    """Terminate the whole process (code 3) within LOCK_LOST_REPORT_BUDGET_S.
+    Never returns."""
     try:
-        if _READINESS is not None:
-            with contextlib.suppress(Exception):
-                _READINESS.lock_lost()
-        log.critical("single-writer lock lost (%s); exiting with code %d", reason, LOCK_LOST_EXIT_CODE)
-        for stream in (sys.stdout, sys.stderr):
-            with contextlib.suppress(OSError, ValueError):
-                stream.flush()
+        done = threading.Event()
+
+        def last_words():
+            try:
+                if _READINESS is not None:
+                    with contextlib.suppress(Exception):
+                        _READINESS.lock_lost()
+                log.critical("single-writer lock lost (%s); exiting with code %d", reason,
+                             LOCK_LOST_EXIT_CODE)
+                for stream in (sys.stdout, sys.stderr):
+                    with contextlib.suppress(OSError, ValueError):
+                        stream.flush()
+            finally:
+                done.set()
+
+        # A helper thread, so nothing it waits on can hold the exit: the
+        # watchdog waits at most the budget, then terminates.
+        threading.Thread(target=last_words, name="lock-lost-report", daemon=True).start()
+        done.wait(LOCK_LOST_REPORT_BUDGET_S)
     finally:
         # os._exit, not SystemExit: this runs on the watchdog thread, and the
         # service's worker threads must not get another write in.
@@ -256,9 +282,18 @@ def _hold_single_writer_lock(config: PollerConfig, log):
         config.math_env.strip(),
         _lock_application_name(config.math_env),
     )
+    _start_lock_watchdog(conn, config.math_env, liveness_s, log)
+    # Handover: a previous holder whose session was terminated server-side
+    # (so this process could be admitted) notices on its next watchdog check,
+    # at most liveness_s later, and then exits within the report budget.
+    # Wait out that window before building the service, so it is gone before
+    # this process computes. A scheduling target, like the watchdog itself:
+    # not a fence (a previous holder's check query can be slower).
+    handover_s = liveness_s + LOCK_LOST_REPORT_BUDGET_S + HANDOVER_MARGIN_S
+    log.info("admitted; waiting %.1fs for any previous holder to exit before computing", handover_s)
+    time.sleep(handover_s)
     if _READINESS is not None:
         _READINESS.became_primary()
-    _start_lock_watchdog(conn, config.math_env, liveness_s, log)
     return conn
 
 
@@ -269,6 +304,7 @@ def _start_readiness(config: PollerConfig, log) -> ReadinessReporter:
     global _READINESS
     try:
         settings = ReadinessSettings.from_env()
+        check_identity_source()
     except ReadinessConfigError as exc:
         print(f"refusing to start: {exc}", file=sys.stderr)
         raise SystemExit(2)

@@ -99,6 +99,7 @@ ALERT_SILENCE_ENV = "MATH_POLLER_READINESS_ALERT_TEST_SILENCE_S"
 INSTANCE_ENV = "MATH_POLLER_INSTANCE_ID"
 IMAGE_ENV = "MATH_POLLER_IMAGE_DIGEST"
 COMMIT_ENV = "MATH_POLLER_SOURCE_COMMIT"
+ALLOW_HOSTNAME_ENV = "MATH_POLLER_ALLOW_HOSTNAME_IDENTITY"
 
 DEFAULT_INTERVAL_S = 60.0
 DEFAULT_STALE_S = 600.0
@@ -173,6 +174,22 @@ def identity(env: Optional[Dict[str, str]] = None) -> Dict[str, Optional[str]]:
     }
 
 
+def check_identity_source(env: Optional[Dict[str, str]] = None) -> str:
+    """The instance identity must come from ``MATH_POLLER_INSTANCE_ID`` (the
+    deploy hook writes the EC2 instance id). Falling back to the hostname (a
+    container id under compose, not a box) is refused unless
+    ``MATH_POLLER_ALLOW_HOSTNAME_IDENTITY=1`` says so explicitly, for local
+    runs. Returns the source that will be used."""
+    env = os.environ if env is None else env
+    if (env.get(INSTANCE_ENV) or "").strip():
+        return "instance_id"
+    if (env.get(ALLOW_HOSTNAME_ENV) or "").strip() == "1":
+        return "hostname"
+    raise ReadinessConfigError(
+        f"{INSTANCE_ENV} is empty; the readiness lines would name the holder by hostname. "
+        f"Set {INSTANCE_ENV} (the deploy hook writes it) or {ALLOW_HOSTNAME_ENV}=1 for a local run")
+
+
 class ReadinessSettings:
     """The validated MATH_POLLER_READINESS_* environment."""
 
@@ -224,6 +241,7 @@ class ReadinessReporter:
         self._primary_since_ms: Optional[int] = None
         self._seq = 0
         self._source: Optional[Callable[[], Dict[str, Any]]] = None
+        self._last_snap: Optional[Dict[str, Any]] = None
         self._last_marks: Optional[tuple] = None
         self._silence_until_ms: Optional[int] = None
         self._stop = threading.Event()
@@ -245,13 +263,30 @@ class ReadinessReporter:
             self._last_marks = None
         self.tick()
 
-    def lock_lost(self) -> None:
-        """Admission is gone (the process is about to exit): a final standby
-        line, so the evidence shows the transition, not just silence."""
-        with self._lock:
-            self._role = STANDBY
+    def lock_lost(self) -> Optional[str]:
+        """Admission is gone and the process is about to exit: a final standby
+        line, so the evidence shows the transition, not just silence.
+
+        Best effort and never blocking on this reporter's work: it takes the
+        reporter lock only if it is free at once, never calls the snapshot
+        source (it reuses the last snapshot), and returns None (no line) when
+        a tick is in progress. The caller still bounds the emission itself
+        (``scripts/math_poller.py`` runs it on a helper thread and exits
+        after a fixed budget whatever happens): a dropped final line is
+        safer than a process that outlives its admission."""
+        self._role = STANDBY
+        if not self._lock.acquire(blocking=False):
+            return None
+        try:
             self._primary_since_ms = None
-        self.tick()
+            now = self._clock()
+            self._seq += 1
+            snap = self._last_snap or _empty_snapshot()
+            line = self._line(HEADER, STANDBY, "waiting", self._seq, now, snap)
+        finally:
+            self._lock.release()
+        self._emit(line)
+        return line
 
     # -- lines -------------------------------------------------------------- #
     def alert_test(self) -> Optional[str]:
@@ -282,24 +317,12 @@ class ReadinessReporter:
                 except Exception as exc:  # noqa: BLE001 - evidence must not stop the poller
                     logger.error("readiness snapshot failed (%s)", exc.__class__.__name__)
                     snap = _empty_snapshot()
+            self._last_snap = snap
             progress, stale_reason, stale_age = self._progress(role, snap, now)
-            discovery = dict(snap["discovery"])
-            last = discovery.get("last_success_ms")
-            discovery["last_success_age_ms"] = None if last is None else max(0, now - last)
-            body = {
-                "schema": SCHEMA, "seq": seq, "emitted_ms": now, "role": role, "progress": progress,
-                **self.identity,
-                "run": self.run, "config": snap.get("config"), "poller_config": self.poller_config,
-                "interval_s": int(self.settings.interval_s), "stale_s": int(self.settings.stale_s),
-                "discovery": {k: discovery.get(k) for k in DISCOVERY_KEYS},
-                "queue": {k: snap["queue"].get(k) for k in QUEUE_KEYS},
-                "sweep": snap.get("sweep"), "drain": snap.get("drain"),
-                "admission": snap.get("admission"),
-            }
             silenced = (role == PRIMARY and self._silence_until_ms is not None
                         and now < self._silence_until_ms)
             header = SILENCED_HEADER if silenced else HEADER
-            lines = [f"{header} role={role} progress={progress} {_dumps(body)}"]
+            lines = [self._line(header, role, progress, seq, now, snap)]
             if stale_reason is not None:
                 stale = {"schema": STALE_SCHEMA, "seq": seq, "emitted_ms": now, "run": self.run,
                          "reason": stale_reason, "age_ms": stale_age,
@@ -308,6 +331,23 @@ class ReadinessReporter:
         for line in lines:
             self._emit(line)
         return lines
+
+    def _line(self, header: str, role: str, progress: str, seq: int, now: int,
+              snap: Dict[str, Any]) -> str:
+        discovery = dict(snap["discovery"])
+        last = discovery.get("last_success_ms")
+        discovery["last_success_age_ms"] = None if last is None else max(0, now - last)
+        body = {
+            "schema": SCHEMA, "seq": seq, "emitted_ms": now, "role": role, "progress": progress,
+            **self.identity,
+            "run": self.run, "config": snap.get("config"), "poller_config": self.poller_config,
+            "interval_s": int(self.settings.interval_s), "stale_s": int(self.settings.stale_s),
+            "discovery": {k: discovery.get(k) for k in DISCOVERY_KEYS},
+            "queue": {k: snap["queue"].get(k) for k in QUEUE_KEYS},
+            "sweep": snap.get("sweep"), "drain": snap.get("drain"),
+            "admission": snap.get("admission"),
+        }
+        return f"{header} role={role} progress={progress} {_dumps(body)}"
 
     def _progress(self, role: str, snap: Dict[str, Any], now: int):
         """(progress, stale reason or None, stale age ms or None)."""
@@ -374,6 +414,15 @@ def _dumps(body: Dict[str, Any]) -> str:
 # --------------------------------------------------------------------------- #
 # Parsing (the collector and the tests)
 # --------------------------------------------------------------------------- #
+# A line carrying one of these is a poller protocol line: it must parse, and
+# the collector counts (never skips) one that does not.
+PROTOCOL_PREFIXES = (HEADER, SILENCED_HEADER, STALE_HEADER, TEST_HEADER)
+
+
+def protocol_prefix(line: str) -> bool:
+    return any(p in line for p in PROTOCOL_PREFIXES)
+
+
 def parse_readiness(line: str) -> Optional[Dict[str, Any]]:
     """The JSON of a readiness (or silenced) line, with its header fields
     checked against the body; None for any other line. Raises ValueError for
@@ -487,6 +536,7 @@ def validate_line(body: Dict[str, Any]) -> None:
 
 __all__ = [
     "HEADER", "PRIMARY", "PROGRESS", "ROLES", "STALE_HEADER", "STANDBY", "TEST_HEADER",
-    "ReadinessConfigError", "ReadinessReporter", "ReadinessSettings", "classify_error",
+    "ReadinessConfigError", "ReadinessReporter", "ReadinessSettings", "check_identity_source",
+    "classify_error",
     "config_digest", "identity", "parse_readiness", "parse_stale", "parse_test", "validate_line",
 ]

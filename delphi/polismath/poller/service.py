@@ -823,17 +823,19 @@ class MathPollerService:
         )
 
     # -- per-zid processing (runs on pool threads) -------------------------- #
-    def _handle_zid(self, zid: int, coalesced: CoalescedBatch) -> None:
+    def _handle_zid(self, zid: int, coalesced: CoalescedBatch) -> Optional[bool]:
+        """Returns whether the live work was resolved (False keeps its age
+        counting in the readiness evidence, P-072); None for a backfill job."""
         if self._pool is not None and self._pool.is_parked(zid):
             if coalesced.backfill and self.backfill is not None:
                 self.backfill.job_skipped(zid, "parked_live")
-            return
+            return False
         if coalesced.backfill and not coalesced.has_live_work():
             # P-070: a backfill job alone. It never touches the cache, owns
             # its errors and reports its own outcome.
             if self.backfill is not None:
                 self.backfill.run_job(zid)
-            return
+            return None
         live_ok = False
         try:
             self._run_engine(zid, coalesced)
@@ -845,6 +847,7 @@ class MathPollerService:
             if coalesced.backfill and self.backfill is not None:
                 # Live work for the zid ran instead of the backfill job.
                 self.backfill.job_superseded_by_live(zid, live_ok)
+        return live_ok
 
     def _remember(self, zid: int, conv: Conversation) -> None:
         """Store a conversation as most-recently-used, LRU-evicting the coldest

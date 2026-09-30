@@ -283,14 +283,17 @@ services:
       # (cdk/mathPollerAlarms.ts) alarm on a missing holder heartbeat and on
       # stale discovery. Identity for the collector's record: the deploy hook
       # writes the source commit and the EC2 instance id into .env (only a
-      # digest of the instance id is logged). The alert-test nonce is set only
-      # for a recorded alert test, then removed.
+      # digest of the instance id is logged). Without an instance id the
+      # poller refuses to start unless MATH_POLLER_ALLOW_HOSTNAME_IDENTITY=1
+      # (local runs only). The alert-test nonce is set only for a recorded
+      # alert test, then removed.
       - MATH_POLLER_READINESS_INTERVAL_S=${MATH_POLLER_READINESS_INTERVAL_S:-60}
       - MATH_POLLER_DISCOVERY_STALE_S=${MATH_POLLER_DISCOVERY_STALE_S:-600}
       - MATH_POLLER_READINESS_ALERT_TEST=${MATH_POLLER_READINESS_ALERT_TEST:-}
       - MATH_POLLER_READINESS_ALERT_TEST_SILENCE_S=${MATH_POLLER_READINESS_ALERT_TEST_SILENCE_S:-0}
       - MATH_POLLER_SOURCE_COMMIT=${MATH_POLLER_SOURCE_COMMIT:-}
       - MATH_POLLER_INSTANCE_ID=${MATH_POLLER_INSTANCE_ID:-}
+      - MATH_POLLER_ALLOW_HOSTNAME_IDENTITY=${MATH_POLLER_ALLOW_HOSTNAME_IDENTITY:-}
       - MATH_POLLER_IMAGE_DIGEST=${MATH_POLLER_IMAGE_DIGEST:-}
     volumes:
       # Backfill retry/gate/pause/report state across restarts on this host.

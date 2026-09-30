@@ -40,9 +40,31 @@ def poller_env(monkeypatch):
     monkeypatch.setenv("MATH_ENV", "python")
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@127.0.0.1:1/db")
     monkeypatch.delenv("MATH_POLLER_ALLOW_SERVED_ENV", raising=False)
+    monkeypatch.setenv("MATH_POLLER_INSTANCE_ID", "i-0guardtest")
+    monkeypatch.delenv("MATH_POLLER_ALLOW_HOSTNAME_IDENTITY", raising=False)
     for name in INTERVAL_VARS:
         monkeypatch.delenv(name, raising=False)
     return attempts
+
+
+@pytest.mark.parametrize("allow", ["", "0", "yes", "true"])
+def test_hostname_identity_is_refused_before_connecting(poller_env, monkeypatch, capsys, allow):
+    """P-072: without MATH_POLLER_INSTANCE_ID the readiness lines would name
+    the holder by container hostname; refused unless explicitly allowed."""
+    monkeypatch.delenv("MATH_POLLER_INSTANCE_ID")
+    monkeypatch.setenv("MATH_POLLER_ALLOW_HOSTNAME_IDENTITY", allow)
+    with pytest.raises(SystemExit) as exc:
+        math_poller.main([])
+    assert exc.value.code == 2 and poller_env == []
+    assert "MATH_POLLER_INSTANCE_ID is empty" in capsys.readouterr().err
+
+
+def test_hostname_identity_proceeds_only_when_allowed(poller_env, monkeypatch):
+    monkeypatch.delenv("MATH_POLLER_INSTANCE_ID")
+    monkeypatch.setenv("MATH_POLLER_ALLOW_HOSTNAME_IDENTITY", "1")
+    with pytest.raises(_Connected):
+        math_poller.main([])
+    assert poller_env == ["python"]
 
 
 @pytest.mark.parametrize("name", INTERVAL_VARS)
