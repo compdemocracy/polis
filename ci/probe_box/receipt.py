@@ -251,6 +251,9 @@ def validate_receipt(value: object, job: Job) -> dict:
     if job["schema"] == "polis-probe-job/2" and job["kind"] == "light-shadow-compare":
         from light_shadow import validate_receipt as validate_shadow_receipt
         return validate_shadow_receipt(value, job)
+    if job["schema"] == "polis-probe-job/2" and job["kind"] == "backfill-verify":
+        from backfill_verify import validate_receipt as validate_verify_receipt
+        return validate_verify_receipt(value, job)
     if job["schema"] == "polis-probe-job/2":
         from roles_census import validate_receipt as validate_census_receipt
         return validate_census_receipt(value, job)
@@ -365,6 +368,9 @@ def receipt_passed(receipt: dict, job: Job) -> bool:
     if job["schema"] == "polis-probe-job/2" and job["kind"] == "light-shadow-compare":
         from light_shadow import passed
         return passed(receipt)
+    if job["schema"] == "polis-probe-job/2" and job["kind"] == "backfill-verify":
+        from backfill_verify import passed as verify_passed
+        return verify_passed(receipt)
     return receipt["verdict"] == "PASS"
 
 

@@ -60,6 +60,33 @@
         "args": ["verify"],
         "image": "localhost/polis-shadow-verifier@sha256:f66c951eac0685c92396ad1bf2e7ddd5ba07400d013ddd1ebd87c0d27a38e782"
       }
+    },
+    "math-backfill-verify-v1": {
+      "kind": "backfill-verify",
+      "max_seconds": 7200,
+      "producer": {
+        "args": ["produce"],
+        "image": "localhost/polis-verify-producer@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "reader": {
+        "args": ["read"],
+        "image": "localhost/polis-verify-reader@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "run_id": "00000000000000000000000000000000",
+      "run_spec": {
+        "cutoff_ms": 1500000000000,
+        "max_cutoff_age_seconds": 3600,
+        "max_tick_age_seconds": 900,
+        "source_ahead_ruling": "unresolved",
+        "source_env": "prod",
+        "target_env": "python",
+        "verification_sql_sha256": "051d7bcb21e467d077c99be05074e73ff06fa99b0cd7a243d4c15bbd3ba0727f"
+      },
+      "schema": "polis-probe-job/2",
+      "verifier": {
+        "args": ["verify"],
+        "image": "localhost/polis-verify-verifier@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      }
     }
   }
 }
