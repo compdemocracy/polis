@@ -32,10 +32,36 @@ VERIFY_SQL = (Path(__file__).resolve().parents[2] / "polismath" / "poller"
               / "backfill_verification.sql")
 
 
-@pytest.fixture(scope="module")
-def pg_url():
+# The migrations declare the math payload columns jsonb; production's are json
+# (the backfill's first production step failed with "function
+# jsonb_typeof(json) does not exist"). Every test here runs against both: json
+# first, as production has it, then jsonb, as the migrations declare it.
+PAYLOAD_TABLES = ("math_main", "math_bidtopid", "math_ptptstats")
+
+
+def set_payload_type(url, column_type):
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    try:
+        for table in PAYLOAD_TABLES:
+            q(conn, f"ALTER TABLE {table} ALTER COLUMN data TYPE {column_type} "
+                    f"USING data::{column_type}")
+        rows = q(conn, "SELECT DISTINCT data_type FROM information_schema.columns "
+                       "WHERE table_schema = 'public' AND column_name = 'data' "
+                       "AND table_name = ANY(%s)", (list(PAYLOAD_TABLES),))
+        assert rows == [(column_type,)], rows
+    finally:
+        conn.close()
+
+
+@pytest.fixture(scope="module", params=["json", "jsonb"])
+def pg_url(request):
     with require_polis_postgres() as url:
-        yield url
+        set_payload_type(url, request.param)
+        try:
+            yield url
+        finally:
+            set_payload_type(url, "jsonb")  # the migrations' type, as found
 
 
 @pytest.fixture
@@ -267,7 +293,7 @@ class TestRunningPoller:
         assert q(db, "SELECT math_tick, caching_tick FROM math_main "
                      "WHERE zid=%s AND math_env=%s", (z[4], tgt))[0] == before  # untouched
         # The zero-vote conversation carries the named empty shape.
-        n, keys = q(db, "SELECT data->>'n', data ?& ARRAY['zid','n','tids','pca',"
+        n, keys = q(db, "SELECT data->>'n', data::jsonb ?& ARRAY['zid','n','tids','pca',"
                         "'base-clusters','group-clusters','repness','in-conv',"
                         "'lastVoteTimestamp'] FROM math_main "
                         "WHERE zid=%s AND math_env=%s", (z[2], tgt))[0]
@@ -469,29 +495,29 @@ CORRUPTIONS = {
     "bid_array": "UPDATE math_bidtopid SET data='[]'::jsonb WHERE zid=%s AND math_env=%s",
     "stats_string": "UPDATE math_ptptstats SET data='\"invalid\"'::jsonb "
                     "WHERE zid=%s AND math_env=%s",
-    "wrong_zid": "UPDATE math_main SET data=jsonb_set(data,'{zid}','-999'::jsonb) "
+    "wrong_zid": "UPDATE math_main SET data=jsonb_set(data::jsonb,'{zid}','-999'::jsonb) "
                  "WHERE zid=%s AND math_env=%s",
-    "blob_timestamp": "UPDATE math_main SET data=jsonb_set(data,'{lastVoteTimestamp}','0'::jsonb) "
+    "blob_timestamp": "UPDATE math_main SET data=jsonb_set(data::jsonb,'{lastVoteTimestamp}','0'::jsonb) "
                       "WHERE zid=%s AND math_env=%s",
-    "false_empty": "UPDATE math_main SET data=jsonb_set(data,'{n}','0'::jsonb) "
+    "false_empty": "UPDATE math_main SET data=jsonb_set(data::jsonb,'{n}','0'::jsonb) "
                    "WHERE zid=%s AND math_env=%s",
 }
 # Review [1447] B: the seven nested corruptions that passed every switch
 # condition of the previous rule (the reviewer's exact expressions).
 NESTED = [
-    ("group_null", "math_main", "jsonb_set(data, '{group-clusters}', '[null]'::jsonb)"),
+    ("group_null", "math_main", "jsonb_set(data::jsonb, '{group-clusters}', '[null]'::jsonb)"),
     ("pca_components", "math_main",
-     "jsonb_set(data, '{pca}', '{\"center\":null,\"comps\":\"broken\"}'::jsonb)"),
+     "jsonb_set(data::jsonb, '{pca}', '{\"center\":null,\"comps\":\"broken\"}'::jsonb)"),
     ("base_members", "math_main",
-     "jsonb_set(data, '{base-clusters,members}', (SELECT jsonb_agg(null::text) "
-     "FROM jsonb_array_elements(data->'base-clusters'->'members')))"),
+     "jsonb_set(data::jsonb, '{base-clusters,members}', (SELECT jsonb_agg(null::text) "
+     "FROM jsonb_array_elements(data::jsonb->'base-clusters'->'members')))"),
     ("bid_members", "math_bidtopid",
-     "jsonb_set(data, '{bidToPid}', (SELECT jsonb_agg(null::text) "
-     "FROM jsonb_array_elements(data->'bidToPid')))"),
+     "jsonb_set(data::jsonb, '{bidToPid}', (SELECT jsonb_agg(null::text) "
+     "FROM jsonb_array_elements(data::jsonb->'bidToPid')))"),
     ("stats_values", "math_ptptstats",
-     "jsonb_set(data, '{ptptstats}', '{\"0\":\"broken\"}'::jsonb)"),
-    ("bid_timestamp", "math_bidtopid", "jsonb_set(data, '{lastVoteTimestamp}', '-99'::jsonb)"),
-    ("stats_timestamp", "math_ptptstats", "jsonb_set(data, '{lastVoteTimestamp}', '-99'::jsonb)"),
+     "jsonb_set(data::jsonb, '{ptptstats}', '{\"0\":\"broken\"}'::jsonb)"),
+    ("bid_timestamp", "math_bidtopid", "jsonb_set(data::jsonb, '{lastVoteTimestamp}', '-99'::jsonb)"),
+    ("stats_timestamp", "math_ptptstats", "jsonb_set(data::jsonb, '{lastVoteTimestamp}', '-99'::jsonb)"),
 ]
 # Review [1449] B: reader-driven entries. group-votes [null] passed every
 # switch condition and crashed the server's processMathObject; [1] / [{}]
@@ -508,13 +534,13 @@ GROUP_VOTES = [
 ]
 for _name, _value in GROUP_VOTES:
     NESTED.append(("group_votes_" + _name, "math_main",
-                   "data - 'group-votes'" if _value is None
-                   else f"jsonb_set(data, '{{group-votes}}', {_value})"))
+                   "data::jsonb - 'group-votes'" if _value is None
+                   else f"jsonb_set(data::jsonb, '{{group-votes}}', {_value})"))
 NESTED += [
     ("repness_entry_null", "math_main",
-     "jsonb_set(data, '{repness}', '{\"0\": null}'::jsonb)"),
+     "jsonb_set(data::jsonb, '{repness}', '{\"0\": null}'::jsonb)"),
     ("repness_item_null", "math_main",
-     "jsonb_set(data, '{repness}', '{\"0\": [null]}'::jsonb)"),
+     "jsonb_set(data::jsonb, '{repness}', '{\"0\": [null]}'::jsonb)"),
 ]
 for _name, _table, _expr in NESTED:
     CORRUPTIONS["nested_" + _name] = (
@@ -528,6 +554,21 @@ class TestValidity:
         norm = lambda t: " ".join(t.split())  # noqa: E731
         body = norm(VERIFY_SQL.read_text())
         assert body.count(norm(VALID_BUNDLE_SQL)) == 2  # queries 2 and 4
+
+    def test_every_payload_reference_is_cast_to_jsonb(self):
+        """Production's payload columns are json, which has none of the jsonb
+        functions and operators the rule uses: every m/b/p.data reference in
+        the rule and the shipped file must go through ::jsonb."""
+        import re
+
+        from polismath.poller.backfill import VALID_BUNDLE_SQL
+
+        code = "\n".join(line.split("--", 1)[0]
+                         for line in VERIFY_SQL.read_text().splitlines())
+        for text in (VALID_BUNDLE_SQL, code):
+            refs = re.findall(r"\b[a-z]\.data\b(?:::jsonb)?", text)
+            assert refs and all(r.endswith("::jsonb") for r in refs), \
+                sorted(set(refs))
 
     @pytest.mark.parametrize("corruption", sorted(CORRUPTIONS))
     def test_malformed_publication_is_selected_repaired_and_verified(
@@ -543,7 +584,7 @@ class TestValidity:
             publish_real(svc, zid)
             cutoff = int(time.time() * 1000)
             assert_switch_ready(run_verification(db, src, tgt, cutoff), 1)  # control
-            assert q(db, "SELECT jsonb_array_length(data->'group-clusters') FROM math_main "
+            assert q(db, "SELECT jsonb_array_length(data::jsonb->'group-clusters') FROM math_main "
                          "WHERE zid=%s AND math_env=%s", (zid, tgt))[0][0] > 0
             q(db, CORRUPTIONS[corruption], (zid, tgt))
             assert q(db, "SELECT count(*) FROM math_main WHERE zid=%s AND math_env=%s "
@@ -593,7 +634,7 @@ class TestValidity:
         svc, pg = make_service(pg_url, src, tgt)
         try:
             publish_real(svc, zid)
-            q(db, "UPDATE math_main SET data=jsonb_set(data,'{group-votes}',%s::jsonb) "
+            q(db, "UPDATE math_main SET data=jsonb_set(data::jsonb,'{group-votes}',%s::jsonb) "
                   "WHERE zid=%s AND math_env=%s", (value, zid, tgt))
             assert pg.load_math_main(zid)["bundle_valid"] is False
             assert svc.backfill._store.coherent(zid)[0] is False
@@ -923,7 +964,7 @@ class TestLiveRestoreValidation:
         svc, pg = make_service(pg_url, src, tgt)
         try:
             publish_real(svc, zid)
-            q(db, "UPDATE math_main SET data=jsonb_set(data,'{zid}',to_jsonb(%s::int)) "
+            q(db, "UPDATE math_main SET data=jsonb_set(data::jsonb,'{zid}',to_jsonb(%s::int)) "
                   "WHERE zid=%s AND math_env=%s", (zid + 1, zid, tgt))
             assert pg.load_math_main(zid)["bundle_valid"] is False
             assert svc.backfill._store.state(zid, lvt + 100)[0] == "invalid"
@@ -945,7 +986,7 @@ class TestLiveRestoreValidation:
         try:
             publish_real(svc, zid)
             assert pg.load_math_main(zid)["bundle_valid"] is True
-            q(db, "UPDATE math_ptptstats SET data=jsonb_set(data,'{lastVoteTimestamp}',"
+            q(db, "UPDATE math_ptptstats SET data=jsonb_set(data::jsonb,'{lastVoteTimestamp}',"
                   "'-99'::jsonb) WHERE zid=%s AND math_env=%s", (zid, tgt))
             svc._run_engine(zid, CoalescedBatch())  # first touch: cache miss
             assert svc.backfill._store.coherent(zid)[0] is True
@@ -961,7 +1002,7 @@ class TestLiveRestoreValidation:
         try:
             svc._run_engine(zid, CoalescedBatch(rebuild=True))  # live owns it now
             assert svc.backfill._host.is_cached(zid)
-            q(db, "UPDATE math_main SET data=jsonb_set(data,'{zid}',to_jsonb(%s::int)) "
+            q(db, "UPDATE math_main SET data=jsonb_set(data::jsonb,'{zid}',to_jsonb(%s::int)) "
                   "WHERE zid=%s AND math_env=%s", (zid + 1, zid, tgt))
             healthy(svc)
             svc.backfill._host.submit = lambda z: True
