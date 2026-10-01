@@ -1016,3 +1016,30 @@ class TestLiveRestoreValidation:
                      (zid, tgt))[0][0] == str(zid)
         finally:
             pg.shutdown()
+
+
+class TestErrorBriefRealDriver:
+    def test_rejected_bound_value_never_reaches_the_brief(self, pg_url, caplog):
+        """PostgreSQL 22P02 prints the rejected bound value in its message; the
+        brief and the log line carry only the SQLSTATE and its fixed label."""
+        from sqlalchemy import create_engine, text
+        from sqlalchemy.exc import DBAPIError
+
+        from polismath.poller import backfill as bf
+
+        secret = "SECRET-VALUE-7731"
+        engine = create_engine(pg_url)
+        try:
+            with engine.connect() as conn, pytest.raises(DBAPIError) as caught:
+                conn.execute(text("SELECT CAST(:v AS integer)"), {"v": secret})
+        finally:
+            engine.dispose()
+        exc = caught.value
+        assert secret in str(exc)  # the driver does echo it
+        brief = bf._exc_brief(exc)
+        assert brief == "sqlstate=22P02 invalid_text_representation"
+        caplog.set_level("ERROR")
+        bf.logger.error("math-backfill zid=%s: state read failed (%s: %s)", 1,
+                        exc.__class__.__name__, brief)
+        assert "sqlstate=22P02 invalid_text_representation" in caplog.text
+        assert secret not in caplog.text
