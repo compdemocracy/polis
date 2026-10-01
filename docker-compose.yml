@@ -259,8 +259,10 @@ services:
       # MATH_BACKFILL_SOURCE_ENV (prod) row but no coherent row under its own
       # label. SIGUSR1 approves the gate after the N largest; SIGUSR2 pauses or
       # resumes. Every setting and its default: cost-reduction plan P-070 and
-      # BackfillConfig. Every BackfillConfig setting is forwarded, so a value
-      # set in the env file reaches the container.
+      # BackfillConfig. Every BackfillConfig setting is forwarded (except
+      # MATH_BACKFILL_STATE_PATH, fixed to the mounted
+      # /app/backfill-state/state.json), so a value set in the env file
+      # reaches the container.
       - MATH_BACKFILL=${MATH_BACKFILL:-0}
       - MATH_BACKFILL_SOURCE_ENV=${MATH_BACKFILL_SOURCE_ENV:-prod}
       - MATH_BACKFILL_CONCURRENCY=${MATH_BACKFILL_CONCURRENCY:-1}
