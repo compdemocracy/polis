@@ -1427,37 +1427,97 @@ class TestStateUpgrade:
 # --------------------------------------------------------------------------- #
 class TestExcBrief:
     STATEMENT = "SELECT zid, data FROM math_main WHERE math_env = %(env)s"
+    SECRET = "SECRET-VALUE-7731"
 
-    def test_sqlalchemy_error_yields_the_driver_cause_without_the_statement(self):
+    @staticmethod
+    def driver_error(pgcode, message):
+        """A psycopg2-shaped driver error: ``pgcode`` and ``diag.sqlstate``."""
+        orig = Exception(message)
+        orig.pgcode = pgcode
+        orig.diag = SimpleNamespace(sqlstate=pgcode)
+        return orig
+
+    def wrapped(self, pgcode, message):
+        from sqlalchemy.exc import DataError
+
+        return DataError(self.STATEMENT, {"env": self.SECRET},
+                         self.driver_error(pgcode, message))
+
+    def test_bound_value_in_driver_message_never_reaches_the_brief(self):
+        exc = self.wrapped("22P02", 'invalid input syntax for type integer: "'
+                           + self.SECRET + '"')
+        assert self.SECRET in str(exc)  # what the brief must keep out
+        brief = bf._exc_brief(exc)
+        assert brief == "sqlstate=22P02 invalid_text_representation"
+        assert self.SECRET not in brief and "SELECT" not in brief
+
+    def test_bound_value_never_reaches_the_formatted_log_record(self, caplog):
+        exc = self.wrapped("22P02", 'invalid input syntax for type integer: "'
+                           + self.SECRET + '"')
+        caplog.set_level("ERROR")
+        bf.logger.error("math-backfill zid=%s: state read failed (%s: %s)", 1,
+                        exc.__class__.__name__, bf._exc_brief(exc))
+        assert ("state read failed (DataError: sqlstate=22P02 "
+                "invalid_text_representation)") in caplog.text
+        assert all(self.SECRET not in r.getMessage() for r in caplog.records)
+        assert self.SECRET not in caplog.text and "SELECT" not in caplog.text
+
+    def test_statement_timeout_label(self):
         from sqlalchemy.exc import OperationalError
 
-        orig = Exception("canceling statement due to statement timeout\n"
-                         "CONTEXT:  SQL statement \"" + self.STATEMENT + "\"")
-        exc = OperationalError(self.STATEMENT, {"env": "secret-param"}, orig)
-        assert self.STATEMENT in str(exc)  # what the brief must keep out
+        exc = OperationalError(self.STATEMENT, {}, self.driver_error(
+            "57014", "canceling statement due to statement timeout"))
+        assert bf._exc_brief(exc) == "sqlstate=57014 statement_timeout"
+
+    def test_class_fallback_and_unknown_code(self):
+        assert bf._exc_brief(self.wrapped("08006", self.SECRET)) == \
+            "sqlstate=08006 connection_exception"
+        brief = bf._exc_brief(self.wrapped("P0001", "raised: " + self.SECRET))
+        assert brief == "sqlstate=P0001 other"
+
+    def test_malformed_code_is_not_trusted(self):
+        exc = self.wrapped("22P02 " + self.SECRET, self.SECRET)
+        exc.orig.diag = SimpleNamespace(sqlstate=None)
         brief = bf._exc_brief(exc)
-        assert brief == "canceling statement due to statement timeout"
-        assert "SELECT" not in brief and "secret-param" not in brief
+        assert brief == "DataError" and self.SECRET not in brief
 
-    def test_plain_error_is_one_line_and_capped(self):
-        brief = bf._exc_brief(RuntimeError("  first\tline  " + "x" * 300 + "\nsecond line"))
-        assert "\n" not in brief and "second" not in brief
-        assert brief.startswith("first line ") and len(brief) == 200
+    def test_statement_error_without_orig_keeps_the_statement_out(self):
+        from sqlalchemy.exc import StatementError
 
-    def test_empty_message_is_empty(self):
-        assert bf._exc_brief(ValueError()) == ""
+        exc = StatementError("bad parameter " + self.SECRET, self.STATEMENT,
+                             {"env": self.SECRET}, None)
+        assert self.STATEMENT in str(exc) and self.SECRET in str(exc)
+        assert bf._exc_brief(exc) == "StatementError"
 
-    def test_scheduling_failure_logs_class_and_brief(self, caplog):
+    def test_plain_error_is_its_class_chain_only(self):
+        assert bf._exc_brief(RuntimeError(self.SECRET)) == "RuntimeError"
+        try:
+            try:
+                raise OSError(self.SECRET)
+            except OSError as inner:
+                raise ValueError(self.SECRET) from inner
+        except ValueError as exc:
+            assert bf._exc_brief(exc) == "ValueError/OSError"
+
+    def test_class_chain_stops_at_three(self):
+        a, b, c, d = KeyError(), OSError(), TypeError(), ValueError()
+        a.__cause__, b.__cause__, c.__cause__ = b, c, d
+        assert bf._exc_brief(a) == "KeyError/OSError/TypeError"
+
+    def test_scheduling_failure_logs_class_and_label(self, caplog):
         t = make()
         checks = iter([False, True])  # one pass through the loop
         t.sched._stop = SimpleNamespace(is_set=lambda: next(checks), wait=lambda _w: None)
 
         def step():
-            raise RuntimeError("canceling statement due to statement timeout\n[SQL: SELECT 1]")
+            from sqlalchemy.exc import OperationalError
+
+            raise OperationalError("SELECT 1", {}, self.driver_error(
+                "57014", "canceling statement due to statement timeout"))
 
         t.sched.step = step
         caplog.set_level("ERROR")
         t.sched._loop()
-        assert ("math-backfill: scheduling step failed (RuntimeError: canceling statement "
-                "due to statement timeout); retrying") in caplog.text
-        assert "SELECT 1" not in caplog.text
+        assert ("math-backfill: scheduling step failed (OperationalError: "
+                "sqlstate=57014 statement_timeout); retrying") in caplog.text
+        assert "SELECT 1" not in caplog.text and "canceling" not in caplog.text

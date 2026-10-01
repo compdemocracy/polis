@@ -87,15 +87,60 @@ from polismath.poller.admission import (  # noqa: F401 - re-exported
 logger = logging.getLogger(__name__)
 
 
+# SQLSTATE -> fixed label. A driver's message can echo bound values or SQL
+# (PostgreSQL 22P02 prints the rejected input), so a brief never carries
+# exception text: only a validated SQLSTATE and a label from these tables.
+_SQLSTATE_LABELS = {
+    "57014": "statement_timeout",
+    "42883": "undefined_function",
+    "22P02": "invalid_text_representation",
+    "22003": "numeric_value_out_of_range",
+    "22P05": "untranslatable_character",
+    "40P01": "deadlock_detected",
+    "40001": "serialization_failure",
+    "55P03": "lock_not_available",
+    "57P01": "admin_shutdown",
+    "42501": "insufficient_privilege",
+}
+_SQLSTATE_CLASS_LABELS = {
+    "08": "connection_exception",
+    "53": "insufficient_resources",
+}
+_SQLSTATE_RE = re.compile(r"[0-9A-Z]{5}")
+
+
+def _sqlstate(exc: BaseException) -> Optional[str]:
+    """The validated SQLSTATE of ``exc`` or its wrapped driver error, if any."""
+    for source in (getattr(exc, "orig", None), exc):
+        if source is None:
+            continue
+        diag = getattr(source, "diag", None)
+        for code in (getattr(source, "pgcode", None), getattr(diag, "sqlstate", None)):
+            if isinstance(code, str) and _SQLSTATE_RE.fullmatch(code):
+                return code
+    return None
+
+
 def _exc_brief(exc: BaseException) -> str:
-    """One sanitized line for a log: the first line of the driver's message,
-    at most 200 characters. A SQLAlchemy error's ``str`` carries the SQL text
-    and parameters on later lines, so the wrapped driver error (``.orig``) is
-    preferred and only its first line is kept."""
-    source = getattr(exc, "orig", None)
-    message = str(source if source is not None else exc).strip()
-    first = message.splitlines()[0] if message else ""
-    return " ".join(first.split())[:200]
+    """A fixed, allowlisted label for a log line; never exception text.
+
+    With a SQLSTATE: ``sqlstate=<code> <label>`` (label ``other`` when the
+    code and its class are not listed). Without one: the class names of the
+    exception and its causes (``OperationalError/OSError``, at most three)."""
+    code = _sqlstate(exc)
+    if code is not None:
+        label = (_SQLSTATE_LABELS.get(code)
+                 or _SQLSTATE_CLASS_LABELS.get(code[:2])
+                 or "other")
+        return f"sqlstate={code} {label}"
+    names: List[str] = []
+    seen = set()
+    current: Optional[BaseException] = exc
+    while current is not None and id(current) not in seen and len(names) < 3:
+        seen.add(id(current))
+        names.append(current.__class__.__name__)
+        current = current.__cause__ or current.__context__
+    return "/".join(names)
 
 
 _MB = 1024 * 1024
