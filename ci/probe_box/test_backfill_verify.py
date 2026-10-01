@@ -1749,19 +1749,21 @@ class Postgres(unittest.TestCase):
                 cur.execute('GRANT SELECT ON math_ptptstats TO polis_probe_reader')
 
 
+# The payload columns are json, as production has them (the migrations say
+# jsonb); the shipped file casts every reference, so it runs on either.
 DDL = """
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'polis_probe_reader') THEN
     CREATE ROLE polis_probe_reader LOGIN PASSWORD 'probe';
   END IF;
 END $$;
-CREATE TABLE IF NOT EXISTS math_main (zid integer NOT NULL, math_env varchar(999) NOT NULL, data jsonb NOT NULL,
+CREATE TABLE IF NOT EXISTS math_main (zid integer NOT NULL, math_env varchar(999) NOT NULL, data json NOT NULL,
   last_vote_timestamp bigint NOT NULL, caching_tick bigint NOT NULL DEFAULT 0, math_tick bigint NOT NULL DEFAULT -1,
   modified bigint, UNIQUE (zid, math_env));
 CREATE TABLE IF NOT EXISTS math_bidtopid (zid integer NOT NULL, math_env varchar(999) NOT NULL,
-  math_tick bigint NOT NULL DEFAULT -1, data jsonb NOT NULL, modified bigint, UNIQUE (zid, math_env));
+  math_tick bigint NOT NULL DEFAULT -1, data json NOT NULL, modified bigint, UNIQUE (zid, math_env));
 CREATE TABLE IF NOT EXISTS math_ptptstats (zid integer NOT NULL, math_env varchar(999) NOT NULL,
-  math_tick bigint NOT NULL DEFAULT -1, data jsonb NOT NULL, modified bigint, UNIQUE (zid, math_env));
+  math_tick bigint NOT NULL DEFAULT -1, data json NOT NULL, modified bigint, UNIQUE (zid, math_env));
 CREATE TABLE IF NOT EXISTS math_ticks (zid integer, math_tick bigint NOT NULL DEFAULT 0,
   caching_tick bigint NOT NULL DEFAULT 0, math_env varchar(999) NOT NULL, modified bigint NOT NULL, UNIQUE (zid, math_env));
 CREATE TABLE IF NOT EXISTS votes (zid integer NOT NULL, pid integer NOT NULL, tid integer NOT NULL,
