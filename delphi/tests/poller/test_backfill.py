@@ -1420,3 +1420,44 @@ class TestStateUpgrade:
         t = make(state_path=str(p))
         assert not t.sched._state.paused and t.sched._state.top_seconds == [GOOD_RECORD]
         t.sched._finish_sweep(NOW)
+
+
+# --------------------------------------------------------------------------- #
+# Error briefs in log lines
+# --------------------------------------------------------------------------- #
+class TestExcBrief:
+    STATEMENT = "SELECT zid, data FROM math_main WHERE math_env = %(env)s"
+
+    def test_sqlalchemy_error_yields_the_driver_cause_without_the_statement(self):
+        from sqlalchemy.exc import OperationalError
+
+        orig = Exception("canceling statement due to statement timeout\n"
+                         "CONTEXT:  SQL statement \"" + self.STATEMENT + "\"")
+        exc = OperationalError(self.STATEMENT, {"env": "secret-param"}, orig)
+        assert self.STATEMENT in str(exc)  # what the brief must keep out
+        brief = bf._exc_brief(exc)
+        assert brief == "canceling statement due to statement timeout"
+        assert "SELECT" not in brief and "secret-param" not in brief
+
+    def test_plain_error_is_one_line_and_capped(self):
+        brief = bf._exc_brief(RuntimeError("  first\tline  " + "x" * 300 + "\nsecond line"))
+        assert "\n" not in brief and "second" not in brief
+        assert brief.startswith("first line ") and len(brief) == 200
+
+    def test_empty_message_is_empty(self):
+        assert bf._exc_brief(ValueError()) == ""
+
+    def test_scheduling_failure_logs_class_and_brief(self, caplog):
+        t = make()
+        checks = iter([False, True])  # one pass through the loop
+        t.sched._stop = SimpleNamespace(is_set=lambda: next(checks), wait=lambda _w: None)
+
+        def step():
+            raise RuntimeError("canceling statement due to statement timeout\n[SQL: SELECT 1]")
+
+        t.sched.step = step
+        caplog.set_level("ERROR")
+        t.sched._loop()
+        assert ("math-backfill: scheduling step failed (RuntimeError: canceling statement "
+                "due to statement timeout); retrying") in caplog.text
+        assert "SELECT 1" not in caplog.text

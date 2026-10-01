@@ -259,8 +259,8 @@ services:
       # MATH_BACKFILL_SOURCE_ENV (prod) row but no coherent row under its own
       # label. SIGUSR1 approves the gate after the N largest; SIGUSR2 pauses or
       # resumes. Every setting and its default: cost-reduction plan P-070 and
-      # BackfillConfig. Only the switches an operator is expected to touch are
-      # forwarded; the rest keep their code defaults.
+      # BackfillConfig. Every BackfillConfig setting is forwarded, so a value
+      # set in the env file reaches the container.
       - MATH_BACKFILL=${MATH_BACKFILL:-0}
       - MATH_BACKFILL_SOURCE_ENV=${MATH_BACKFILL_SOURCE_ENV:-prod}
       - MATH_BACKFILL_CONCURRENCY=${MATH_BACKFILL_CONCURRENCY:-1}
@@ -273,6 +273,19 @@ services:
       - MATH_BACKFILL_DUTY_CYCLE=${MATH_BACKFILL_DUTY_CYCLE:-0.5}
       - MATH_BACKFILL_MAX_VOTES_PER_MIN=${MATH_BACKFILL_MAX_VOTES_PER_MIN:-2000000}
       - MATH_BACKFILL_PAUSE_POLL_MS=${MATH_BACKFILL_PAUSE_POLL_MS:-1000}
+      # These mirror BackfillConfig's env mapping (_ENV_NAMES); defaults match the code.
+      - MATH_BACKFILL_MAX_VOTES=${MATH_BACKFILL_MAX_VOTES:-10000000}
+      - MATH_BACKFILL_TELEMETRY_STALE_S=${MATH_BACKFILL_TELEMETRY_STALE_S:-60}
+      - MATH_BACKFILL_PAGE_SIZE=${MATH_BACKFILL_PAGE_SIZE:-50}
+      - MATH_BACKFILL_RESWEEP_S=${MATH_BACKFILL_RESWEEP_S:-300}
+      - MATH_BACKFILL_STALE_GRACE_S=${MATH_BACKFILL_STALE_GRACE_S:-3600}
+      - MATH_BACKFILL_REVALIDATE_S=${MATH_BACKFILL_REVALIDATE_S:-3600}
+      - MATH_BACKFILL_MAX_ATTEMPTS=${MATH_BACKFILL_MAX_ATTEMPTS:-5}
+      - MATH_BACKFILL_RETRY_BASE_S=${MATH_BACKFILL_RETRY_BASE_S:-60}
+      - MATH_BACKFILL_RETRY_CAP_S=${MATH_BACKFILL_RETRY_CAP_S:-21600}
+      - MATH_BACKFILL_REFUSAL_BACKOFF_S=${MATH_BACKFILL_REFUSAL_BACKOFF_S:-1800}
+      - MATH_BACKFILL_SUMMARY_EVERY=${MATH_BACKFILL_SUMMARY_EVERY:-25}
+      - MATH_BACKFILL_QUERY_TIMEOUT_MS=${MATH_BACKFILL_QUERY_TIMEOUT_MS:-30000}
       # How a source row that claims a later vote than the votes table holds
       # is treated: unresolved (excluded, counted, blocks COMPLETE) until a
       # ruling is encoded as accept_input.
