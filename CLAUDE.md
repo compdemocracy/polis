@@ -70,7 +70,7 @@ npm run test:conversation     # Conversation workflow tests
 ### Services (Docker Compose)
 
 - **server** (Node.js/TypeScript) - REST API, handles votes, comments, conversations
-- **math** (Clojure) - Legacy ML: PCA dimensionality reduction, K-means clustering
+- **math-python** (Python, delphi image) - Math engine: polls votes, runs PCA and K-means, writes `math_main` under its `math_env` label (the Clojure `math` service is retired)
 - **delphi** (Python) - Modern ML: UMAP, topic modeling, LLM narrative synthesis
 - **client-participation-alpha** (Astro/React) - Participant-facing UI
 - **file-server** - Serves static assets for client-admin and client-report
@@ -84,7 +84,6 @@ npm run test:conversation     # Conversation workflow tests
 
 ```
 server/           # Node.js API (TypeScript)
-math/             # Clojure ML service
 delphi/           # Python ML service (see delphi/CLAUDE.md for details)
 client-admin/     # Admin console (React/Webpack)
 client-participation-alpha/  # Participant UI (Astro/React)
@@ -98,7 +97,7 @@ docs/             # Configuration and deployment docs
 
 1. Participants submit votes/comments via client apps
 2. Server stores in PostgreSQL and triggers math/delphi processing
-3. Math service polls DB, runs PCA/K-means, writes results back
+3. Math engine (math-python) polls DB, runs PCA/K-means, writes results back
 4. Delphi service uses DynamoDB job queue for UMAP/LLM processing
 5. Results displayed in client-report and admin dashboards
 
@@ -259,7 +258,7 @@ SELECT COUNT(DISTINCT pid) FROM participants WHERE zid = 123;
 ```bash
 docker logs polis-dev-server-1         # Server logs
 docker logs polis-dev-delphi-1         # Delphi logs
-docker logs polis-dev-math-1           # Math service logs
+docker logs polis-dev-math-python-1    # Math engine logs
 docker logs polis-dev-nginx-proxy-1    # Nginx logs
 ```
 
@@ -348,6 +347,6 @@ make build-web-assets         # Build and extract static assets to build/
 ## Performance Considerations
 
 - Server uses `--max_old_space_size=2048` for Node memory
-- Math service processes conversations in batches
+- Math engine (math-python) processes conversations with a per-conversation worker pool
 - Delphi uses job queue for async processing
 - Client-participation-alpha uses SSR for initial load

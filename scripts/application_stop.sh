@@ -49,8 +49,10 @@ if [ -d "$DEPLOY_DIR" ]; then
     # /usr/local/bin/docker-compose down --remove-orphans server nginx-proxy file-server || echo "Warning..."
 
   elif [ "$SERVICE_TYPE" == "math" ]; then
-    echo "Stopping math service..."
-    /usr/local/bin/docker-compose stop math || echo "Warning: Failed to stop math service, might already be stopped."
+    # The Clojure math service is retired; AfterInstall starts nothing on a
+    # `math` box. Stop a container left by an earlier revision, if any.
+    echo "Service type 'math' is retired; stopping any leftover math container..."
+    docker stop polis-math-1 2>/dev/null || echo "No math container running."
 
   elif [ "$SERVICE_TYPE" == "delphi" ]; then
     echo "Stopping delphi service..."

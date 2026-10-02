@@ -29,19 +29,16 @@ services:
       # Tell Node.js to trust the mkcert CA for HTTPS connections
       - NODE_EXTRA_CA_CERTS=/root/.simulacrum/certs/rootCA.pem
 
-  math:
-    # command: clojure -X:dev-poller
-    volumes:
-      - ./math:/app
-    ports:
-      # nrepl port
-      - "18975:18975"
+  math-python:
+    # Dev runs the Python math engine by default (no --profile needed), writing
+    # the label the dev server reads (MATH_ENV=dev in example.env) unless
+    # MATH_PYTHON_ENV is set. Local runs have no EC2 instance id, so the poller
+    # is allowed to name itself by container hostname. (`!reset` needs Docker
+    # Compose 2.24.4 or later.)
+    profiles: !reset []
     environment:
-      - CHOKIDAR_USEPOLLING=true
-      - DD_ENABLED=false
-      # Dev keeps Clojure writing the label the dev server reads (MATH_ENV=dev
-      # in example.env) unless MATH_ENV_CLOJURE is set.
-      - MATH_ENV=${MATH_ENV_CLOJURE:-${MATH_ENV:-prod}}
+      - MATH_ENV=${MATH_PYTHON_ENV:-${MATH_ENV:-dev}}
+      - MATH_POLLER_ALLOW_HOSTNAME_IDENTITY=1
 
   postgres:
     restart: no

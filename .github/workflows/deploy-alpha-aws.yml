@@ -38,9 +38,6 @@ jobs:
           docker-compose build server
           docker push $ECR_REGISTRY/polis/server:latest
 
-          docker-compose build math
-          docker push $ECR_REGISTRY/polis/math:latest
-
   # =====================================================
   # ==      JOB 2: DEPLOY TO PRODUCTION (US)           ==
   # =====================================================
