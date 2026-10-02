@@ -496,7 +496,7 @@ class TestMemoryBudget:
     def test_estimate_over_the_budget_is_refused_and_reported(self, tmp_path):
         db = FakeDb()
         db.add(1, 60_000, voters=60_000, comments=1_000, votes=3_300_000)
-        db.add(2, 30_000, voters=30_000, comments=1_000, votes=1_650_000)
+        db.add(2, 30_000, voters=20_000, comments=1_000, votes=1_100_000)
         state = str(tmp_path / "s.json")
         t = make(db, state_path=state)  # 6 GiB limit, 300 MiB base
         assert t.sched.step()[0] == bf.OVER_MEMORY_CEILING
@@ -523,7 +523,7 @@ class TestMemoryBudget:
 
     def test_no_room_beside_the_live_cache_is_deferred_not_excluded(self):
         db = FakeDb()
-        db.add(1, 30_000, voters=30_000, comments=1_000, votes=1_650_000)
+        db.add(1, 30_000, voters=20_000, comments=1_000, votes=1_100_000)
         t = make(db)
         t.admission.set_retained(999, 2_000 * MB)  # a cached live conversation
         assert t.sched.step()[0] == "admitted"
@@ -539,7 +539,7 @@ class TestMemoryBudget:
 
     def test_cold_cache_is_evicted_to_make_room(self):
         db = FakeDb()
-        db.add(1, 30_000, voters=30_000, comments=1_000, votes=1_650_000)
+        db.add(1, 30_000, voters=20_000, comments=1_000, votes=1_100_000)
         t = make(db)
         t.admission.set_retained(999, 2_000 * MB)
         t.admission.set_evictor(lambda shortfall, protect: t.admission.drop_retained(999))

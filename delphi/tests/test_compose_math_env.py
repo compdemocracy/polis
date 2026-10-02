@@ -354,5 +354,5 @@ def test_math_python_forwards_the_shared_memory_admission_settings(monkeypatch):
             monkeypatch.setenv(key, value)
     cfg = PollerConfig.from_env()
     assert cfg.memory_headroom == 0.15 and cfg.conv_cache_mb is None
-    assert (cfg.mem_per_mcell_mb, cfg.mem_per_vote_row_bytes, cfg.mem_safety) == (116, 1000, 1.15)
+    assert (cfg.mem_per_mcell_mb, cfg.mem_per_vote_row_bytes, cfg.mem_safety) == (133, 1000, 1.15)
     assert cfg.mem_job_floor_mb == 64

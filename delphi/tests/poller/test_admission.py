@@ -39,9 +39,9 @@ class TestModel:
     m = MemoryModel()
 
     def test_measured_30k_by_1000(self):
-        # 209 base + 116/Mcell x 30 + 1,000 B x 1.65M rows, x1.15.
+        # 209 base + 133/Mcell x 30 + 1,000 B x 1.65M rows, x1.15.
         est = self.m.peak_bytes(1_650_000, 30_000, 1_000) / MB
-        assert est == pytest.approx(1.15 * (209 + 116 * 30 + 1000 * 1_650_000 / MB), rel=1e-6)
+        assert est == pytest.approx(1.15 * (209 + 133 * 30 + 1000 * 1_650_000 / MB), rel=1e-6)
         assert est > 3_530  # above the measured peak
 
     def test_measured_points_are_all_under_the_estimate(self):
@@ -399,10 +399,10 @@ class TestServicePaths:
 
     def test_admission_evicts_cold_cache_for_a_big_rebuild(self, monkeypatch):
         svc, a = service(monkeypatch, limit_mb=3000, cache_mb=2000,
-                         sizes={9: (700_000, 15_000, 1_000)})
+                         sizes={9: (700_000, 12_000, 1_000)})
         for zid in (1, 2, 3):
             svc._remember(zid, conv_of(20_000, 1_000))
-        svc._load_or_init = lambda zid: conv_of(15_000, 1_000)
+        svc._load_or_init = lambda zid: conv_of(12_000, 1_000)
         svc._run_engine(9, CoalescedBatch(rebuild=True))
         assert 1 not in svc._convs  # the coldest went first
         assert 9 in svc._convs
@@ -722,10 +722,13 @@ class TestSnapshotTelemetry:
 # --------------------------------------------------------------------------- #
 # P-073 §2.1: the recalibrated estimator against every recorded attempt
 # --------------------------------------------------------------------------- #
-# (zid, voters, comments, vote rows, observed increment MiB), from the
-# production backfill export of 2026-10-01 05:37-05:50Z: every attempt that
-# ran, published or not (18747's postcondition read failed after a 5,423 MiB
-# increment; it was missing from that run's gate table).
+# (zid, voters, comments, vote rows, observed increment MiB): every attempt
+# that ran in the two production backfill gate windows of 2026-10-01, published
+# or not. GATE #1 (05:37-05:50Z export; 18747's postcondition read failed
+# after a 5,423 MiB increment and was missing from that gate table), then
+# GATE #2 (08:33Z, run 6ab49456f952; 12794 and 12728, under 1 MiB each, are
+# left out: their voter counts were not exported, and the floor alone covers
+# them).
 PRODUCTION_ATTEMPTS = [
     (18747, 33_422, 791, 2_014_024, 5423.0),
     (11712, 13, 7, 54, 0.0),
@@ -738,6 +741,14 @@ PRODUCTION_ATTEMPTS = [
     (15607, 1_071, 182, 8_927, 34.8),
     (15608, 1_071, 182, 8_927, 7.7),
     (15609, 1_071, 182, 8_927, 7.2),
+    (28465, 3_137, 1_797, 123_506, 942.5),
+    (26877, 3_142, 2_138, 307_778, 1107.0),
+    (13706, 922, 157, 7_385, 4.9),
+    (37637, 4_318, 11, 28_464, 9.3),
+    (26876, 3_616, 1_452, 270_366, 729.2),
+    (54978, 3_424, 1_850, 123_896, 628.5),
+    (13085, 2_387, 256, 32_432, 26.4),
+    (19685, 2_740, 1_045, 62_606, 351.5),
 ]
 
 
@@ -745,7 +756,7 @@ class TestRecalibratedModel:
     def test_defaults(self):
         m = MemoryModel()
         assert (m.per_vote_row_bytes, m.job_floor_mb, m.per_mcell_mb, m.safety) == (
-            1000.0, 64.0, 116.0, 1.15)
+            1000.0, 64.0, 133.0, 1.15)
         cfg = PollerConfig()
         assert (cfg.mem_per_vote_row_bytes, cfg.mem_job_floor_mb) == (1000.0, 64.0)
 
@@ -754,25 +765,33 @@ class TestRecalibratedModel:
         assert m.above_base_bytes(0, 0, 0) == 64 * MB
         assert m.above_base_bytes(8_927, 1_071, 182) == 64 * MB
         big = m.above_base_bytes(2_014_024, 33_422, 791)
-        assert big == int(1.15 * (116 * MB * 33_422 * 791 / 1e6 + 1000 * 2_014_024))
+        assert big == int(1.15 * (133 * MB * 33_422 * 791 / 1e6 + 1000 * 2_014_024))
         assert MemoryModel(job_floor_mb=0).above_base_bytes(0, 0, 0) == 0
 
     def test_every_recorded_production_attempt_is_within_its_reservation(self):
+        # With at least 5% margin on the worst attempt (28465).
         m = MemoryModel()
-        old = MemoryModel(per_vote_row_bytes=413.0, job_floor_mb=0.0)
-        old_misses = []
+        old = MemoryModel(per_mcell_mb=116.0, per_vote_row_bytes=413.0, job_floor_mb=0.0)
+        old_misses, ratios = [], {}
         for zid, voters, comments, votes, observed_mb in PRODUCTION_ATTEMPTS:
-            assert observed_mb * MB <= m.above_base_bytes(votes, voters, comments), zid
+            ratios[zid] = observed_mb * MB / m.above_base_bytes(votes, voters, comments)
             if observed_mb * MB > old.above_base_bytes(votes, voters, comments):
                 old_misses.append(zid)
-        assert old_misses == [18747, 15607]
+        assert max(ratios.values()) <= 0.95, ratios
+        assert max(ratios, key=ratios.get) == 28465
+        assert old_misses == [18747, 15607, 28465, 26877]
+        # The 1,000 B row term alone (previous per-cell term) still misses 28465.
+        rows_only = MemoryModel(per_mcell_mb=116.0)
+        assert 942.5 * MB > rows_only.above_base_bytes(123_506, 3_137, 1_797)
 
     def test_env_overrides_restore_the_previous_model(self, monkeypatch):
+        monkeypatch.setenv("MATH_POLLER_MEM_PER_MCELL_MB", "116")
         monkeypatch.setenv("MATH_POLLER_MEM_PER_VOTE_ROW_BYTES", "413")
         monkeypatch.setenv("MATH_POLLER_MEM_JOB_FLOOR_MB", "0")
         cfg = PollerConfig.from_env()
         a = MemoryAdmission.from_config(cfg, cgroup_fn=lambda: 6144 * MB, rss_fn=lambda: 0)
-        assert a.model == MemoryModel(per_vote_row_bytes=413.0, job_floor_mb=0.0)
+        assert a.model == MemoryModel(per_mcell_mb=116.0, per_vote_row_bytes=413.0,
+                                      job_floor_mb=0.0)
         # The 18747 reservation the production poller logged (4,438.9 MiB).
         assert a.model.above_base_bytes(2_014_024, 33_422, 791) / MB == pytest.approx(
             4438.9, abs=0.1)

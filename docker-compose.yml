@@ -232,13 +232,13 @@ services:
       # cache is bounded in retained bytes (MATH_CONV_CACHE_MB, default 30% of
       # the budget) as well as by count. The poller refuses to start when the
       # limit is unknown. Model coefficients: MATH_POLLER_MEM_* (the local
-      # measurement, with the vote-row term and per-job floor recalibrated
-      # against every recorded production attempt, P-073 §2.1; 413 and 0
-      # restore the previous model). Changing any of them re-arms the
+      # measurement, with the per-cell and vote-row terms and the per-job
+      # floor recalibrated against every recorded production attempt, P-073
+      # §2.1; 116, 413 and 0 restore the previous model). Changing any of them re-arms the
       # backfill gate (its calibration binding includes the model).
       - MATH_POLLER_MEMORY_HEADROOM=${MATH_POLLER_MEMORY_HEADROOM:-0.15}
       - MATH_CONV_CACHE_MB=${MATH_CONV_CACHE_MB:-}
-      - MATH_POLLER_MEM_PER_MCELL_MB=${MATH_POLLER_MEM_PER_MCELL_MB:-116}
+      - MATH_POLLER_MEM_PER_MCELL_MB=${MATH_POLLER_MEM_PER_MCELL_MB:-133}
       - MATH_POLLER_MEM_PER_VOTE_ROW_BYTES=${MATH_POLLER_MEM_PER_VOTE_ROW_BYTES:-1000}
       - MATH_POLLER_MEM_JOB_FLOOR_MB=${MATH_POLLER_MEM_JOB_FLOOR_MB:-64}
       - MATH_POLLER_MEM_SAFETY=${MATH_POLLER_MEM_SAFETY:-1.15}

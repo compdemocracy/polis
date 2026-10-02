@@ -27,14 +27,18 @@ test and ``compute_capacity_bytes`` use that baseline.
 
 Estimates (02-findings/python-engine-memory-scaling.md, local measurement,
 recalibrated by P-073 §2.1 against every recorded production attempt):
-  * compute peak above the process base = max(job floor, safety x (116 MiB
+  * compute peak above the process base = max(job floor, safety x (133 MiB
     per million voter x comment cells + 1,000 B per fetched vote row)), job
-    floor 64 MiB. The per-cell figure is the local 30k x 1000 measurement at
-    5.5% density. The row term was 413 B (the measured ~650 MiB for the
-    fetched rows and reformatted vote list of 1.65M votes); a vote-dense
-    production conversation (33,422 voters x 791 comments, 2,014,024 rows)
-    used 1.22x that model's reservation, and covering it needs >= 958 B, so
-    the term is 1,000 B. The floor covers small-job jitter (a 1,071 x 182
+    floor 64 MiB. The previous model was 116 MiB/Mcell (the local 30k x 1000
+    measurement at 5.5% density) and 413 B/row (the measured ~650 MiB for
+    the fetched rows and reformatted vote list of 1.65M votes). Against the
+    21 recorded production attempts of the two backfill gate windows:
+    a vote-dense conversation (33,422 voters x 791 comments, 2,014,024 rows)
+    used 1.22x its reservation, which needs >= 958 B/row; a cell-dense one
+    (3,137 x 1,797, 123,506 rows) used 1.06x even at 1,000 B/row, and the
+    dense temporaries scale with cells, so the per-cell term is the one
+    raised: 133 is the smallest whole MiB leaving every attempt at <= 0.95
+    of its reservation. The floor covers small-job jitter (a 1,071 x 182
     conversation used 34.8 MiB against 30.0 reserved) without inflating
     large jobs.
   * retained by a cached conversation = safety x (40 MiB + max(30 MiB per
@@ -176,7 +180,7 @@ class MemoryModel:
     has a MATH_POLLER_MEM_* variable (see PollerConfig)."""
 
     base_mb: float = 209.0
-    per_mcell_mb: float = 116.0
+    per_mcell_mb: float = 133.0
     per_vote_row_bytes: float = 1000.0
     safety: float = 1.15
     job_floor_mb: float = 64.0

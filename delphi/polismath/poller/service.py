@@ -221,10 +221,11 @@ class PollerConfig:
     memory_headroom: float = 0.15
     conv_cache_mb: Optional[float] = None
     mem_base_mb: float = 209.0
-    mem_per_mcell_mb: float = 116.0
-    # P-073 §2.1: 413 -> 1000 B per vote row and a 64 MiB per-job floor, so
-    # every recorded production attempt's observed increment is within its
-    # reservation. Setting 413 and 0 restores the previous model.
+    # P-073 §2.1: 116 -> 133 MiB per million cells, 413 -> 1000 B per vote
+    # row and a 64 MiB per-job floor, so every recorded production attempt's
+    # observed increment is within 0.95 of its reservation. Setting 116, 413
+    # and 0 restores the previous model.
+    mem_per_mcell_mb: float = 133.0
     mem_per_vote_row_bytes: float = 1000.0
     mem_safety: float = 1.15
     mem_job_floor_mb: float = 64.0
@@ -324,7 +325,7 @@ class PollerConfig:
             memory_headroom=_env_float("MATH_POLLER_MEMORY_HEADROOM", 0.15),
             conv_cache_mb=_env_float("MATH_CONV_CACHE_MB"),
             mem_base_mb=_env_float("MATH_POLLER_MEM_BASE_MB", 209.0),
-            mem_per_mcell_mb=_env_float("MATH_POLLER_MEM_PER_MCELL_MB", 116.0),
+            mem_per_mcell_mb=_env_float("MATH_POLLER_MEM_PER_MCELL_MB", 133.0),
             mem_per_vote_row_bytes=_env_float("MATH_POLLER_MEM_PER_VOTE_ROW_BYTES", 1000.0),
             mem_safety=_env_float("MATH_POLLER_MEM_SAFETY", 1.15),
             mem_job_floor_mb=_env_float("MATH_POLLER_MEM_JOB_FLOOR_MB", 64.0),
