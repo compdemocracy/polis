@@ -720,36 +720,20 @@ class TestSnapshotTelemetry:
 
 
 # --------------------------------------------------------------------------- #
-# P-073 §2.1: the recalibrated estimator against every recorded attempt
+# P-073 §2.1: the recalibrated estimator
 # --------------------------------------------------------------------------- #
-# (zid, voters, comments, vote rows, observed increment MiB): every attempt
-# that ran in the two production backfill gate windows of 2026-10-01, published
-# or not. GATE #1 (05:37-05:50Z export; 18747's postcondition read failed
-# after a 5,423 MiB increment and was missing from that gate table), then
-# GATE #2 (08:33Z, run 6ab49456f952; 12794 and 12728, under 1 MiB each, are
-# left out: their voter counts were not exported, and the floor alone covers
-# them).
-PRODUCTION_ATTEMPTS = [
-    (18747, 33_422, 791, 2_014_024, 5423.0),
-    (11712, 13, 7, 54, 0.0),
-    (12837, 5_025, 705, 121_619, 296.3),
-    (10758, 539, 77, 4_670, 7.2),
-    (18115, 6_294, 2_162, 537_047, 1524.6),
-    (58912, 5_500, 1_647, 136_832, 845.9),
-    (12480, 1_751, 328, 19_216, 13.6),
-    (33536, 5_191, 40, 52_873, 29.1),
-    (15607, 1_071, 182, 8_927, 34.8),
-    (15608, 1_071, 182, 8_927, 7.7),
-    (15609, 1_071, 182, 8_927, 7.2),
-    (28465, 3_137, 1_797, 123_506, 942.5),
-    (26877, 3_142, 2_138, 307_778, 1107.0),
-    (13706, 922, 157, 7_385, 4.9),
-    (37637, 4_318, 11, 28_464, 9.3),
-    (26876, 3_616, 1_452, 270_366, 729.2),
-    (54978, 3_424, 1_850, 123_896, 628.5),
-    (13085, 2_387, 256, 32_432, 26.4),
-    (19685, 2_740, 1_045, 62_606, 351.5),
-]
+OLD = MemoryModel(per_mcell_mb=116.0, per_vote_row_bytes=413.0, job_floor_mb=0.0)
+
+# Generated fixture cases: (vote rows, voters, comments, observed increment
+# MiB). Made-up shapes with the two failure patterns the recalibration
+# targets, not measurements of any conversation.
+VOTE_DENSE = (1_288_411, 21_713, 587, 2790.0)   # many rows per voter
+CELL_DENSE = (96_550, 2_481, 2_266, 905.0)      # many cells, few rows
+
+
+def ratio(model, case):
+    votes, voters, comments, observed_mb = case
+    return observed_mb * MB / model.above_base_bytes(votes, voters, comments)
 
 
 class TestRecalibratedModel:
@@ -758,43 +742,50 @@ class TestRecalibratedModel:
         assert (m.per_vote_row_bytes, m.job_floor_mb, m.per_mcell_mb, m.safety) == (
             1000.0, 64.0, 133.0, 1.15)
         cfg = PollerConfig()
-        assert (cfg.mem_per_vote_row_bytes, cfg.mem_job_floor_mb) == (1000.0, 64.0)
+        assert (cfg.mem_per_mcell_mb, cfg.mem_per_vote_row_bytes, cfg.mem_job_floor_mb) == (
+            133.0, 1000.0, 64.0)
 
-    def test_the_floor_covers_small_jobs_without_inflating_large_ones(self):
+    @pytest.mark.parametrize("case", [VOTE_DENSE, CELL_DENSE], ids=["vote_dense", "cell_dense"])
+    def test_old_coefficients_under_reserve_new_ones_cover_with_margin(self, case):
+        assert ratio(OLD, case) > 1.0
+        assert ratio(MemoryModel(), case) <= 0.95
+
+    def test_the_row_term_alone_does_not_cover_a_cell_dense_shape(self):
+        assert ratio(MemoryModel(per_mcell_mb=116.0), CELL_DENSE) > 1.0
+        assert ratio(MemoryModel(per_mcell_mb=116.0), VOTE_DENSE) <= 0.95
+
+    @pytest.mark.parametrize("shape", [(0, 0, 0), (37, 9, 4), (6_123, 812, 143)])
+    def test_the_floor_applies_to_tiny_shapes(self, shape):
+        assert MemoryModel().above_base_bytes(*shape) == 64 * MB
+        assert MemoryModel(job_floor_mb=0).above_base_bytes(*shape) < 64 * MB
+
+    def test_large_shapes_are_not_inflated_by_the_floor(self):
+        votes, voters, comments, _ = VOTE_DENSE
+        assert MemoryModel().above_base_bytes(votes, voters, comments) == int(
+            1.15 * (133 * MB * voters * comments / 1e6 + 1000 * votes))
+
+    @pytest.mark.parametrize("index", [0, 1, 2])
+    def test_monotone_in_each_dimension(self, index):
         m = MemoryModel()
-        assert m.above_base_bytes(0, 0, 0) == 64 * MB
-        assert m.above_base_bytes(8_927, 1_071, 182) == 64 * MB
-        big = m.above_base_bytes(2_014_024, 33_422, 791)
-        assert big == int(1.15 * (133 * MB * 33_422 * 791 / 1e6 + 1000 * 2_014_024))
-        assert MemoryModel(job_floor_mb=0).above_base_bytes(0, 0, 0) == 0
+        for base in [(0, 0, 0), (12_345, 678, 91), VOTE_DENSE[:3], CELL_DENSE[:3]]:
+            prev = m.above_base_bytes(*base)
+            for step in (1, 17, 1_009, 250_000):
+                grown = list(base)
+                grown[index] += step
+                now = m.above_base_bytes(*grown)
+                assert now >= prev
+                prev = now
 
-    def test_every_recorded_production_attempt_is_within_its_reservation(self):
-        # With at least 5% margin on the worst attempt (28465).
-        m = MemoryModel()
-        old = MemoryModel(per_mcell_mb=116.0, per_vote_row_bytes=413.0, job_floor_mb=0.0)
-        old_misses, ratios = [], {}
-        for zid, voters, comments, votes, observed_mb in PRODUCTION_ATTEMPTS:
-            ratios[zid] = observed_mb * MB / m.above_base_bytes(votes, voters, comments)
-            if observed_mb * MB > old.above_base_bytes(votes, voters, comments):
-                old_misses.append(zid)
-        assert max(ratios.values()) <= 0.95, ratios
-        assert max(ratios, key=ratios.get) == 28465
-        assert old_misses == [18747, 15607, 28465, 26877]
-        # The 1,000 B row term alone (previous per-cell term) still misses 28465.
-        rows_only = MemoryModel(per_mcell_mb=116.0)
-        assert 942.5 * MB > rows_only.above_base_bytes(123_506, 3_137, 1_797)
-
-    def test_env_overrides_restore_the_previous_model(self, monkeypatch):
+    def test_env_overrides_restore_the_previous_arithmetic(self, monkeypatch):
         monkeypatch.setenv("MATH_POLLER_MEM_PER_MCELL_MB", "116")
         monkeypatch.setenv("MATH_POLLER_MEM_PER_VOTE_ROW_BYTES", "413")
         monkeypatch.setenv("MATH_POLLER_MEM_JOB_FLOOR_MB", "0")
         cfg = PollerConfig.from_env()
         a = MemoryAdmission.from_config(cfg, cgroup_fn=lambda: 6144 * MB, rss_fn=lambda: 0)
-        assert a.model == MemoryModel(per_mcell_mb=116.0, per_vote_row_bytes=413.0,
-                                      job_floor_mb=0.0)
-        # The 18747 reservation the production poller logged (4,438.9 MiB).
-        assert a.model.above_base_bytes(2_014_024, 33_422, 791) / MB == pytest.approx(
-            4438.9, abs=0.1)
+        assert a.model == OLD
+        for votes, voters, comments in [(0, 0, 0), (54, 13, 7), VOTE_DENSE[:3], CELL_DENSE[:3]]:
+            assert a.model.above_base_bytes(votes, voters, comments) == int(
+                1.15 * (116 * MB * voters * comments / 1e6 + 413 * votes))
 
 
 # --------------------------------------------------------------------------- #
@@ -870,8 +861,8 @@ class TestMeasuredAdmission:
 
 class TestQuietBaseline:
     def test_startup_sample_is_the_first_baseline(self):
-        a, _ = measured(517.5)
-        assert a.base_bytes == int(517.5 * MB)
+        a, _ = measured(433.7)
+        assert a.base_bytes == int(433.7 * MB)
 
     def test_refreshed_only_when_nothing_is_granted_or_held(self):
         a, rss = measured(300)

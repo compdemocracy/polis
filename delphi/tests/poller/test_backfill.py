@@ -898,8 +898,8 @@ class TestGate:
         assert drain(t) == [3, 4, 5]
 
     def test_gate_records_every_attempt_but_counts_publications(self, tmp_path, caplog):
-        # P-073 x.34: the 18747 attempt (5.4 GiB increment, postcondition
-        # read failed) was missing from the production gate table.
+        # P-073 x.34: an attempt that ran and then failed its postcondition
+        # after a large increment must appear in the gate table.
         db = FakeDb()
         db.add(1, 900, voters=900, comments=50, votes=40_000)
         db.add(2, 800)
@@ -917,7 +917,7 @@ class TestGate:
         t.sched._store.coherent = coherent
 
         def spike(zid):
-            t.rss["v"] = (5_940 if zid == 1 else 520) * MB
+            t.rss["v"] = (4_870 if zid == 1 else 520) * MB
 
         t.host.during_compute = spike
         caplog.set_level("WARNING")
@@ -938,13 +938,59 @@ class TestGate:
         outcomes = [(r["zid"], r["outcome"]) for r in st.gate_records]
         assert outcomes == [(1, bf.FAILED_POSTCONDITION), (2, bf.PUBLISHED), (3, bf.PUBLISHED)]
         failed = st.gate_records[0]
-        assert failed["peak_rss_delta_mb"] == pytest.approx(5_440.0)
+        assert failed["peak_rss_delta_mb"] == pytest.approx(4_370.0)
         assert "GATE zid=1 outcome=failed_postcondition" in caplog.text
-        assert "observed_increment_mb=5440.0" in caplog.text
+        assert "observed_increment_mb=4370.0" in caplog.text
         assert "3 attempts follow" in caplog.text
         assert st.top_memory[0]["zid"] == 1
         assert st.top_memory[0]["outcome"] == bf.FAILED_POSTCONDITION
         assert {r["zid"] for r in st.top_seconds} == {1, 2, 3}
+
+    def test_gate_report_waits_for_jobs_admitted_before_the_threshold(self, caplog):
+        # Concurrency 2, gate after 1: job 2 was admitted before job 1's
+        # publication reached the threshold and finishes after it. It must
+        # be in the table and in the once-only report.
+        db = FakeDb()
+        db.add(1, 900)
+        db.add(2, 800)
+        db.add(3, 700)
+        t = make(db, concurrency=2, gate_after_largest=1)
+        assert t.sched.step()[0] == "admitted"
+        assert t.sched.step()[0] == "admitted"
+        assert sorted(t.sched._in_flight) == [1, 2]
+        t.sched.run_job(1)
+        t.host.pending.discard(1)
+        caplog.set_level("WARNING")
+        assert t.sched.step()[0] == "gate"  # draining: no new admission, no report yet
+        assert "math-backfill GATE run=" not in caplog.text
+        orig = t.sched._store.coherent
+
+        def coherent(zid):
+            if zid == 2:
+                raise RuntimeError("connection lost")
+            return orig(zid)
+
+        t.sched._store.coherent = coherent
+        t.host.during_compute = lambda zid: t.rss.__setitem__("v", 3_917 * MB)
+        t.sched.run_job(2)
+        t.host.pending.discard(2)
+        assert t.sched.step()[0] == "gate"
+        st = t.sched._state
+        assert [(r["zid"], r["outcome"]) for r in st.gate_records] == [
+            (1, bf.PUBLISHED), (2, bf.FAILED_POSTCONDITION)]
+        assert st.gate_published == 1
+        assert "2 attempts follow" in caplog.text
+        assert "GATE zid=2 outcome=failed_postcondition" in caplog.text
+        assert caplog.text.count("math-backfill GATE run=") == 1
+        assert t.sched.step()[0] == "gate"
+        assert caplog.text.count("math-backfill GATE run=") == 1
+        assert 3 not in t.host.submitted
+
+    def test_gate_table_cap_never_drops_publications_below_the_gate_size(self):
+        rows = []
+        for zid in range(1, 60):
+            rows = bf._gate_append(rows, bf.Record(zid, "missing", bf.PUBLISHED), 61)
+        assert len(rows) == 59
 
     def test_gate_records_size_refusals(self, tmp_path):
         db = FakeDb()

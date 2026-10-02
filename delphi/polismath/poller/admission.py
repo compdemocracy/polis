@@ -31,16 +31,13 @@ recalibrated by P-073 §2.1 against every recorded production attempt):
     per million voter x comment cells + 1,000 B per fetched vote row)), job
     floor 64 MiB. The previous model was 116 MiB/Mcell (the local 30k x 1000
     measurement at 5.5% density) and 413 B/row (the measured ~650 MiB for
-    the fetched rows and reformatted vote list of 1.65M votes). Against the
-    21 recorded production attempts of the two backfill gate windows:
-    a vote-dense conversation (33,422 voters x 791 comments, 2,014,024 rows)
-    used 1.22x its reservation, which needs >= 958 B/row; a cell-dense one
-    (3,137 x 1,797, 123,506 rows) used 1.06x even at 1,000 B/row, and the
-    dense temporaries scale with cells, so the per-cell term is the one
-    raised: 133 is the smallest whole MiB leaving every attempt at <= 0.95
-    of its reservation. The floor covers small-job jitter (a 1,071 x 182
-    conversation used 34.8 MiB against 30.0 reserved) without inflating
-    large jobs.
+    the fetched rows and reformatted vote list of 1.65M votes), with no
+    floor. Recorded production attempts showed two kinds of miss: vote-dense
+    conversations (many rows per voter) need the larger row term, and
+    cell-dense ones need the larger per-cell term, since dense temporaries
+    scale with cells. 133 is the smallest whole MiB per million cells that
+    keeps every recorded attempt at <= 0.95 of its reservation. The floor
+    covers small-job jitter without inflating large jobs.
   * retained by a cached conversation = safety x (40 MiB + max(30 MiB per
     million cells, 27 KiB per voter)), an upper bound on every measured
     retained point (33 MiB at 1k x 300 up to 1,320 MiB at 60k x 1000).

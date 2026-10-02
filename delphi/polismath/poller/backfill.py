@@ -1062,7 +1062,9 @@ def _top10(rows: List[Dict[str, Any]], rec: Record, key: str) -> List[Dict[str, 
 
 # Bound on the gate table: every attempt during the gate window is kept
 # (publications always), and past this many the smallest observed increment
-# among the other attempts makes room, so the largest peaks always stay.
+# among the other attempts makes room, so the largest peaks always stay. The
+# effective cap is never below gate_after_largest + concurrency, so the
+# publications (including any that finish while the gate drains) always fit.
 GATE_RECORDS_MAX = 50
 # Refusals recorded in the gate table although nothing ran: each is once per
 # zid (never retried automatically), and it is the size evidence for the
@@ -1070,9 +1072,10 @@ GATE_RECORDS_MAX = 50
 _GATE_REFUSALS = frozenset({OVER_MEMORY_CEILING, REFUSED_INPUT_SIZE})
 
 
-def _gate_append(rows: List[Dict[str, Any]], rec: Record) -> List[Dict[str, Any]]:
+def _gate_append(rows: List[Dict[str, Any]], rec: Record,
+                 cap: int = GATE_RECORDS_MAX) -> List[Dict[str, Any]]:
     rows = rows + [asdict(rec)]
-    while len(rows) > GATE_RECORDS_MAX:
+    while len(rows) > cap:
         others = [i for i, r in enumerate(rows) if r.get("outcome", PUBLISHED) != PUBLISHED]
         if not others:
             break
@@ -1294,6 +1297,11 @@ class BackfillScheduler:
             self._drained_logged = False
             self._drained_ms = None
             if self.gate_pending:
+                # Admission stops at the publication threshold, but jobs
+                # admitted before it are still running: wait for them, so
+                # the once-only report carries every attempt of the window.
+                if self._in_flight:
+                    return "gate", 0.5
                 self._log_gate_once()
                 return "gate", 5.0
             pressure = self._pressure(now)
@@ -1779,12 +1787,17 @@ class BackfillScheduler:
         if ran or rec.outcome == PUBLISHED:
             st.top_seconds = _top10(st.top_seconds, rec, "seconds")
             st.top_memory = _top10(st.top_memory, rec, "peak_rss_delta_mb")
+        # Collected until the GATE report is emitted: after the publication
+        # threshold no new job is admitted, but jobs already in flight drain
+        # into the table first (step() waits for them).
         if (cfg.gate_after_largest and not st.gate_approved and not cfg.gate_approved
-                and st.gate_published < cfg.gate_after_largest
+                and not self._gate_logged
                 and (ran or rec.outcome == PUBLISHED or rec.outcome in _GATE_REFUSALS)):
-            if rec.outcome == PUBLISHED:
+            if rec.outcome == PUBLISHED and st.gate_published < cfg.gate_after_largest:
                 st.gate_published += 1
-            st.gate_records = _gate_append(st.gate_records, rec)
+            st.gate_records = _gate_append(
+                st.gate_records, rec,
+                max(GATE_RECORDS_MAX, cfg.gate_after_largest + cfg.concurrency))
         if compute_s or rec.outcome in (LIVE_OWNED, PARKED_LIVE, LOST, MEMORY_HEADROOM):
             rest = cfg.min_interval_s
             if compute_s:
