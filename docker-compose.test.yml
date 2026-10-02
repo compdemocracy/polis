@@ -114,6 +114,12 @@ services:
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # The poller sizes its memory admission from the cgroup limit and refuses
+    # to start without one.
+    deploy:
+      resources:
+        limits:
+          memory: ${DELPHI_POLLER_CONTAINER_MEMORY:-4g}
 
   ses-local:
     image: dasprid/aws-ses-v2-local:latest
