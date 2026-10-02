@@ -25,10 +25,6 @@
       "path": "../file-server"
     },
     {
-      "name": "math",
-      "path": "../math"
-    },
-    {
       "name": "server",
       "path": "../server"
     },
@@ -40,8 +36,7 @@
       "client-participation",
       "client-report",
       "e2e",
-      "file-server",
-      "math"
+      "file-server"
     ]
   }
 }

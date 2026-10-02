@@ -47,7 +47,7 @@ jobs:
           # file out of a campaign directory still counts as touching that directory.
           changed=$(git diff --name-only --no-renames "$BASE...$HEAD")
           printf '%s\n' "$changed" | sed 's/^/changed: /'
-          if printf '%s\n' "$changed" | grep -Eq '^(coordinator-rs/|delphi/|math/|server/|\.github/workflows/coordinator-ci\.yml$)'; then
+          if printf '%s\n' "$changed" | grep -Eq '^(coordinator-rs/|delphi/|server/|\.github/workflows/coordinator-ci\.yml$)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"; echo "campaign paths changed: running"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"; echo "no campaign path changed: the required check passes without replay"
