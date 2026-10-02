@@ -103,6 +103,9 @@ if [ "$SERVICE_FROM_FILE" == "server" ]; then
   echo "Starting docker-compose up for 'server', 'nginx-proxy', and 'client-participation-alpha' services"
   sudo /usr/local/bin/docker-compose up -d server nginx-proxy client-participation-alpha --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "math" ]; then
+  # The legacy Clojure engine writes ${MATH_ENV_CLOJURE:-prod} (compose), never
+  # the shared MATH_ENV, so it keeps writing `prod` after the readers switch to
+  # `python`: that is the rollback target until its removal.
   echo "Starting docker-compose up for 'math' service"
   sudo /usr/local/bin/docker-compose up -d math --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
@@ -170,11 +173,13 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
     printf "DELPHI_CONTAINER_CPUS=%s\n" "$DELPHI_CONTAINER_CPUS" | sudo tee -a .env > /dev/null
   fi
 
-  # Python math poller, SHADOW ONLY: `math-python` writes math rows under its
-  # own math_env label beside Clojure's; the server and Delphi keep reading
-  # Clojure's rows. Naming a profile-gated service on the `up` command line
-  # starts it without --profile (Compose v2.40.0 enables named services'
-  # profiles: cmd/compose/compose.go `project.WithServicesEnabled(services...)`).
+  # Python math poller: `math-python` writes math rows under its own math_env
+  # label (`python`) beside Clojure's (`prod`). The server and Delphi read the
+  # label the secret's MATH_ENV names: `prod` while shadowing, `python` once the
+  # served math is switched (rollback: MATH_ENV=prod and redeploy). Naming a
+  # profile-gated service on the `up` command line starts it without --profile
+  # (Compose v2.40.0 enables named services' profiles: cmd/compose/compose.go
+  # `project.WithServicesEnabled(services...)`).
   # The production env secret (polis-web-app-env-vars) must carry these four
   # lines BEFORE this deploys:
   #   MATH_PYTHON_ENV=python   (compose default is also `python`; pinned in the

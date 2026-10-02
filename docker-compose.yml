@@ -118,7 +118,10 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - LOGGING_LEVEL=${MATH_LOG_LEVEL:-warn}
-      - MATH_ENV=${MATH_ENV:-prod}
+      # The label the legacy Clojure engine writes; keep `prod`. Deliberately
+      # NOT the shared ${MATH_ENV}: that one sets the label the readers (server,
+      # delphi) serve, and moving it to `python` must not move this writer.
+      - MATH_ENV=${MATH_ENV_CLOJURE:-prod}
       - WEBSERVER_USERNAME=${WEBSERVER_USERNAME}
       - WEBSERVER_PASS=${WEBSERVER_PASS}
       # Database connection pool configuration for math service
@@ -141,9 +144,10 @@ services:
       - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
       - DELPHI_DEV_OR_PROD=${DELPHI_DEV_OR_PROD:-prod}
       # The report pipeline reads math_main/math_ptptstats scoped by math_env, so
-      # delphi must see the SAME env the `math` service writes under (line 88) —
-      # NOT ${MATH_PYTHON_ENV}, which is deliberately distinct so the shadow
-      # poller's rows stay invisible to the server and to reports.
+      # delphi must read the SAME label the server serves: the shared MATH_ENV
+      # (`prod` = Clojure's rows, `python` = math-python's rows). Neither writer
+      # follows it: Clojure writes ${MATH_ENV_CLOJURE}, math-python
+      # ${MATH_PYTHON_ENV}.
       - MATH_ENV=${MATH_ENV:-prod}
       # DynamoDB connection settings for local mode (will be overridden in prod)
       - DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT}
@@ -205,7 +209,8 @@ services:
       - DATABASE_SSL_MODE=${DATABASE_SSL_MODE:-disable}
       - POSTGRES_CONNECT_TIMEOUT=${POSTGRES_CONNECT_TIMEOUT:-30}
       - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
-      # Shadow-mode math_env (distinct from the Clojure math service's MATH_ENV).
+      # The label math-python writes (`python`); independent of the readers'
+      # MATH_ENV and of Clojure's MATH_ENV_CLOJURE.
       - MATH_ENV=${MATH_PYTHON_ENV:-python}
       # Startup refuses MATH_ENV=prod (the served namespace) unless this is 1.
       - MATH_POLLER_ALLOW_SERVED_ENV=${MATH_POLLER_ALLOW_SERVED_ENV:-}
