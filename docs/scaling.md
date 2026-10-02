@@ -64,7 +64,7 @@ These are checked-in CDK defaults at source snapshot `0985a1a58`; they do not es
 | Tier | Instance type | Minimum / desired / maximum | Source |
 | --- | --- | --- | --- |
 | Web | `t3.medium` | 2 / 2 / 10 | [instance type](../cdk/ec2.ts#L3), [ASG](../cdk/autoscaling.ts#L46) |
-| Clojure math | `r8g.2xlarge` | 1 / 1 / 1 | [instance type](../cdk/ec2.ts#L8), [ASG](../cdk/autoscaling.ts#L57) |
+| Clojure math (retired; the Python engine runs on the Delphi tier) | `r8g.2xlarge` | 0 / 0 / 0 | [instance type](../cdk/ec2.ts#L8), [ASG](../cdk/autoscaling.ts#L57) |
 | Delphi small | `r7i.2xlarge` | 1 / 1 / 7 | [instance type](../cdk/ec2.ts#L14), [ASG](../cdk/autoscaling.ts#L72) |
 | Delphi large | `c7i.8xlarge` | 0 / 0 / 3 | [instance type](../cdk/ec2.ts#L20), [ASG](../cdk/autoscaling.ts#L90) |
 | Ollama, when enabled | `g4dn.xlarge` | 1 / 1 / 3 | [instance type](../cdk/ec2.ts#L26), [ASG](../cdk/autoscaling.ts#L26) |

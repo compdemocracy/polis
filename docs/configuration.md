@@ -13,16 +13,14 @@ First things first, it helps to understand a bit how the system is set up.
 | Component Name | Tech | Description |
 |----------------|------|--------|
 | [`server`][dir-server] | Node.js | The main server. Handles client web requests (page loads, vote activity, etc.) |
-| [`math`][dir-math] | Clojure/JVM | The math engine.  |
 | [`client-participation`][dir-participation] | Javascript | The client code for end-users. |
 | [`client-admin`][dir-admin] | Javascript | The client code for administrators. |
 | [`client-report`][dir-report] | Node.js | The code for detailed analytics reports. |
 | [client-participation-alpha](../client-participation-alpha) | Astro / React | Participation client with a Node server adapter; see [adapter configuration](../client-participation-alpha/astro.config.mjs#L15). |
-| [delphi](../delphi) | Python | Narrative pipeline and opt-in PostgreSQL math poller; launch paths and defaults differ. |
+| [delphi](../delphi) | Python | Narrative pipeline and the math engine (the `math-python` PostgreSQL poller, which replaced the retired Clojure `math` service); launch paths and defaults differ. |
 | [coordinator-rs](../coordinator-rs) | Rust | Coordinator substrate and diagnostic/bridge tools; configuration alone does not grant publication authority. |
 
    [dir-server]: /server
-   [dir-math]: /math
    [dir-participation]: /client-participation
    [dir-admin]: /client-admin
    [dir-report]: /client-report
@@ -61,9 +59,7 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 - **`ADMIN_UIDS`** an array of user UIDs for site admins. These users will have moderator capabilities on all conversations hosted on the site.
 - **`EMAIL_TRANSPORT_TYPES`** comma-separated list of email services to use (see [Email Transports](#email-transports) below)
 - **`GIT_HASH`** Set programmatically using `git rev-parse HEAD` (e.g. in `Makefile`) to tag docker container versions and other release assets. Can be left blank.
-- **`MATH_ENV`** The math namespace the readers serve: `prod` (the legacy Clojure engine's rows), `python` (the Python engine's rows), `dev`, `preprod` or an explicitly isolated namespace. The API reads it without a fallback ([config:128](../server/src/config.ts#L128)); Compose passes it to Delphi with fallback `prod` ([Compose:151](../docker-compose.yml#L151)). It does not set any writer's label in `docker-compose.yml`: Clojure writes `MATH_ENV_CLOJURE` and the opt-in `math-python` service writes `MATH_PYTHON_ENV` with fallback `python` ([Compose:214](../docker-compose.yml#L214)), so moving `MATH_ENV` moves only the readers. The standalone Python poller defaults to `dev` ([poller:234](../delphi/polismath/poller/service.py#L234)). The dev overlay keeps Clojure on `MATH_ENV` unless `MATH_ENV_CLOJURE` is set ([dev overlay:44](../docker-compose.dev.yml#L44)).
-- **`MATH_ENV_CLOJURE`** The label the legacy Clojure engine writes; keep `prod`. Compose maps it to the `math` service's `MATH_ENV` with fallback `prod` ([Compose:124](../docker-compose.yml#L124)). It exists so the served-label switch (`MATH_ENV=python`) leaves Clojure writing `prod` for a rollback.
-- **`MATH_LOG_LEVEL`** Used by the math service to determine how much logging to output. Reasonable values are `debug`, `info`, `warn`, and `error`. Defaults to `warn`.
+- **`MATH_ENV`** The math namespace the readers serve: `python` (the Python engine's rows, served in production), `prod` (rows the retired Clojure engine left behind; no longer updated), `dev`, `preprod` or an explicitly isolated namespace. The API reads it without a fallback ([config:128](../server/src/config.ts#L128)); Compose passes it to Delphi with fallback `prod` ([Compose:128](../docker-compose.yml#L128)); production sets it explicitly. It does not set the writer's label in `docker-compose.yml`: the `math-python` service writes `MATH_PYTHON_ENV` with fallback `python` ([Compose:191](../docker-compose.yml#L191)), so moving `MATH_ENV` moves only the readers. The standalone Python poller defaults to `dev` ([poller:234](../delphi/polismath/poller/service.py#L234)). The dev overlay runs `math-python` without a profile and has it write `MATH_ENV` unless `MATH_PYTHON_ENV` is set ([dev overlay:39](../docker-compose.dev.yml#L39)).
 - **`SERVER_ENV_FILE`** The name of an environment file to be passed into the API Server container by docker compose. Defaults to `.env` if left blank. Used especially for building a `test` version of the project for end-to-end testing.
 - **`SERVER_LOG_LEVEL`** Used by Winston.js in the API server. Common values are `debug`, `info`, `warn`, and `error`. The config module reads the raw value ([config:116](../server/src/config.ts#L116)); the logger then falls back to `warn` ([logger.ts:9](../server/src/utils/logger.ts#L9)).
 

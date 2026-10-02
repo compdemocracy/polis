@@ -103,11 +103,12 @@ if [ "$SERVICE_FROM_FILE" == "server" ]; then
   echo "Starting docker-compose up for 'server', 'nginx-proxy', and 'client-participation-alpha' services"
   sudo /usr/local/bin/docker-compose up -d server nginx-proxy client-participation-alpha --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "math" ]; then
-  # The legacy Clojure engine writes ${MATH_ENV_CLOJURE:-prod} (compose), never
-  # the shared MATH_ENV, so it keeps writing `prod` after the readers switch to
-  # `python`: that is the rollback target until its removal.
-  echo "Starting docker-compose up for 'math' service"
-  sudo /usr/local/bin/docker-compose up -d math --build --force-recreate
+  # The Clojure math engine is retired; the Python engine (math-python) runs on
+  # the Delphi role. A box still tagged `math` (the math-worker ASG until it is
+  # scaled to zero) starts nothing. This branch must stay until no such box is
+  # left: without it the box would fall through to the catch-all below and
+  # start every service, including a second Delphi job poller.
+  echo "Service type 'math' is retired (the Clojure engine was removed); starting no services on this box"
 elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   echo "Starting docker-compose up for 'delphi' and 'math-python' (shadow) services"
   # The Ollama GPU stack is optional (topic naming defaults to the Anthropic
