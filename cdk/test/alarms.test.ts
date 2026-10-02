@@ -309,13 +309,13 @@ describe('A17 math worker missing-metric alarm', () => {
     expect(props.Dimensions).toEqual([{ Name: 'AutoScalingGroupName', Value: MATH_ASG }]);
   });
 
-  test('is a presence alarm: unreachable threshold, breaching on missing data', () => {
+  test('is inert while the math ASG is emptied: unreachable threshold, not breaching on missing data', () => {
     const props = alarmByName(synth().template, MATH_WORKER_LIVENESS_ALARM_NAME);
-    // <0% cannot be met by a real CPU reading, so a quiet-but-alive worker
-    // never fires it. The missing-data setting is the entire mechanism.
+    // <0% cannot be met by a real CPU reading. With the Clojure engine retired
+    // the group has no instances, so missing data must not alarm.
     expect(props.Threshold).toBe(0);
     expect(props.ComparisonOperator).toBe('LessThanThreshold');
-    expect(props.TreatMissingData).toBe('breaching');
+    expect(props.TreatMissingData).toBe('notBreaching');
   });
 
   test('Minimum over 300s, 2 of 3 periods', () => {

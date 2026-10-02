@@ -119,6 +119,14 @@ def test_test_stack_delphi_and_math_agree_on_math_env(env):
 
 @requires_checkout
 @pytest.mark.parametrize("compose_file", sorted(COMPOSE_FILES))
+def test_math_python_has_a_memory_limit(compose_file):
+    # The poller refuses to start when the cgroup reports no memory limit.
+    block = yaml.safe_load((CHECKOUT / compose_file).read_text())["services"]["math-python"]
+    assert block["deploy"]["resources"]["limits"]["memory"]
+
+
+@requires_checkout
+@pytest.mark.parametrize("compose_file", sorted(COMPOSE_FILES))
 def test_the_retired_clojure_engine_is_not_wired(compose_file):
     # The Clojure `math` service is retired; its `prod` rows stay in the
     # database, but nothing in a compose stack builds, runs or labels it.

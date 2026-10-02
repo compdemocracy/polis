@@ -121,6 +121,14 @@ cp example.env .env
 docker compose --profile postgres --profile local-services up --build
 ```
 
+**Math engine.** The math engine is the Python poller, the `math-python` service. In `docker-compose.yml` it sits behind the `math-python` profile, so the plain commands in this section do not start it, and the visualization and groups stay empty. To run it:
+
+- `make start` uses the dev overlay (`docker-compose.dev.yml`), which runs `math-python` with no extra flags. It writes the label the server reads (`MATH_ENV` in `.env`).
+- With the base file alone (plain `docker compose`), add `--profile math-python`. `make PROD start` does not pass that profile, so it runs no math engine. Also set three things in `.env`:
+  - `MATH_PYTHON_ENV` to the same value as `MATH_ENV`. It must not be `prod`, which the poller refuses.
+  - `MATH_POLLER_ALLOW_HOSTNAME_IDENTITY=1`.
+  - `DELPHI_POLLER_CONTAINER_MEMORY`, which caps the poller's memory and defaults to `16g`.
+
 If you get a permission error, try running this command with `sudo`.
 If this fixes the problem, sudo will be necessary for all other commands as well.
 To avoid having to use `sudo` in the future (on a Linux or Windows machine with WSL), [you can follow setup instructions here.](https://docs.docker.com/engine/install/linux-postinstall/)
