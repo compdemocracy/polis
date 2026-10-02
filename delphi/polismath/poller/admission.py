@@ -11,19 +11,32 @@ Budget. The container's memory limit, read from the cgroup
 else ``MATH_POLLER_MEMORY_LIMIT_MB``; the poller refuses to start when neither
 is known (scripts/math_poller.py). The budget is that limit minus a headroom
 fraction (``MATH_POLLER_MEMORY_HEADROOM``, default 0.15). A reservation fits
-when
+when (P-073 §2.2)
 
-    process base + retained cache + every granted reservation + this one
-        <= budget.
+    max(accounted resident, measured RSS) + every granted reservation
+        + this one <= budget,
 
-Estimates (02-findings/python-engine-memory-scaling.md, local measurement):
-  * compute peak above the process base = safety x (116 MiB per million
-    voter x comment cells + 413 B per fetched vote row). 413 B/row is the
-    measured ~650 MiB for the fetched rows and the reformatted vote list of
-    1.65M votes (30k x 1000 at 5.5% density). The per-cell figure was measured
-    on that same fixture, so at 5.5% density the row term counts the vote
-    list twice (about 18% extra at 30k x 1000); above that density, or with
-    revote history, the row term is what grows.
+where accounted resident = process base + retained cache, and measured RSS
+is read at each decision (one /proc read) when the accountant has an RSS
+reader (``from_config`` gives it one). A low sample never lowers anything:
+the measured figure only ever adds to the accounted one. The process base is
+the measured quiescent baseline: max(model base, RSS minus the retained
+cache charge), sampled at startup and again by ``refresh_baseline`` whenever
+nothing is granted or held (the readiness tick calls it). The impossible-fit
+test and ``compute_capacity_bytes`` use that baseline.
+
+Estimates (02-findings/python-engine-memory-scaling.md, local measurement,
+recalibrated by P-073 §2.1 against every recorded production attempt):
+  * compute peak above the process base = max(job floor, safety x (116 MiB
+    per million voter x comment cells + 1,000 B per fetched vote row)), job
+    floor 64 MiB. The per-cell figure is the local 30k x 1000 measurement at
+    5.5% density. The row term was 413 B (the measured ~650 MiB for the
+    fetched rows and reformatted vote list of 1.65M votes); a vote-dense
+    production conversation (33,422 voters x 791 comments, 2,014,024 rows)
+    used 1.22x that model's reservation, and covering it needs >= 958 B, so
+    the term is 1,000 B. The floor covers small-job jitter (a 1,071 x 182
+    conversation used 34.8 MiB against 30.0 reserved) without inflating
+    large jobs.
   * retained by a cached conversation = safety x (40 MiB + max(30 MiB per
     million cells, 27 KiB per voter)), an upper bound on every measured
     retained point (33 MiB at 1k x 300 up to 1,320 MiB at 60k x 1000).
@@ -64,6 +77,8 @@ logger = logging.getLogger(__name__)
 
 MB = 1024 * 1024
 KB = 1024
+# A re-measured baseline is logged when it moves at least this much.
+BASELINE_LOG_STEP = 16 * MB
 
 # Uses votes_zid_pid_idx and comments_zid_idx (by zid, never by created).
 SIZES_SQL = """
@@ -75,7 +90,14 @@ SIZES_SQL = """
 
 
 class OverBudget(RuntimeError):
-    """This computation cannot fit under the process memory budget."""
+    """This computation cannot fit under the process memory budget. Carries
+    the bytes it asked for and the most a computation could have had."""
+
+    def __init__(self, message: str, *, need_bytes: Optional[int] = None,
+                 capacity_bytes: Optional[int] = None) -> None:
+        super().__init__(message)
+        self.need_bytes = need_bytes
+        self.capacity_bytes = capacity_bytes
 
 
 class AdmissionStopped(RuntimeError):
@@ -155,8 +177,9 @@ class MemoryModel:
 
     base_mb: float = 209.0
     per_mcell_mb: float = 116.0
-    per_vote_row_bytes: float = 413.0
+    per_vote_row_bytes: float = 1000.0
     safety: float = 1.15
+    job_floor_mb: float = 64.0
     retained_base_mb: float = 40.0
     retained_per_mcell_mb: float = 30.0
     retained_per_voter_kb: float = 27.0
@@ -170,10 +193,11 @@ class MemoryModel:
             raise ValueError(f"memory model safety must be >= 1, got {self.safety}")
 
     def above_base_bytes(self, votes: int, voters: int, comments: int) -> int:
-        """What one computation adds to a process that already has its base."""
+        """What one computation adds to a process that already has its base:
+        the sized estimate, never less than the per-job floor."""
         cells = max(0, voters) * max(0, comments)
         raw = self.per_mcell_mb * MB * cells / 1e6 + self.per_vote_row_bytes * max(0, votes)
-        return int(self.safety * raw)
+        return max(int(self.job_floor_mb * MB), int(self.safety * raw))
 
     def peak_bytes(self, votes: int, voters: int, comments: int) -> int:
         """Estimated peak RSS of a process doing only this computation."""
@@ -227,6 +251,7 @@ class MemoryAdmission:
         cache_fraction: float = 0.3,
         base_bytes: Optional[int] = None,
         source: str = "unset",
+        rss_fn: Optional[Callable[[], int]] = None,
     ) -> None:
         self.model = model or MemoryModel()
         self.model.validate()
@@ -239,6 +264,10 @@ class MemoryAdmission:
             int(self.limit_bytes * (1 - self.headroom)) if self.limit_bytes else None
         )
         self.base_bytes = int(base_bytes) if base_bytes is not None else self.model.base_bytes()
+        # The measured side of the fit rule (P-073 §2.2). None: accounted
+        # bytes only (a directly constructed accountant, as most tests use).
+        self._rss_fn = rss_fn
+        self.measured_rss_bytes: Optional[int] = None
         if self.budget_bytes is not None:
             if self.base_bytes >= self.budget_bytes:
                 raise ValueError(
@@ -275,6 +304,7 @@ class MemoryAdmission:
         model = MemoryModel(
             base_mb=config.mem_base_mb, per_mcell_mb=config.mem_per_mcell_mb,
             per_vote_row_bytes=config.mem_per_vote_row_bytes, safety=config.mem_safety,
+            job_floor_mb=config.mem_job_floor_mb,
             retained_base_mb=config.mem_retained_base_mb,
             retained_per_mcell_mb=config.mem_retained_per_mcell_mb,
             retained_per_voter_kb=config.mem_retained_per_voter_kb,
@@ -289,7 +319,8 @@ class MemoryAdmission:
         base = max(model.base_bytes(), int(rss_fn())) if limit is not None else None
         cache = int(config.conv_cache_mb * MB) if config.conv_cache_mb else None
         return cls(limit, model, headroom=config.memory_headroom, cache_bytes=cache,
-                   base_bytes=base, source=source)
+                   base_bytes=base, source=source,
+                   rss_fn=rss_fn if limit is not None else None)
 
     @property
     def limited(self) -> bool:
@@ -311,6 +342,8 @@ class MemoryAdmission:
             return {
                 "budget_mb": None if self.budget_bytes is None else round(self.budget_bytes / MB),
                 "base_mb": round(self.base_bytes / MB),
+                "rss_mb": (None if self.measured_rss_bytes is None
+                           else round(self.measured_rss_bytes / MB)),
                 "retained_mb": round(sum(self._retained.values()) / MB),
                 "cached": len(self._retained),
                 "reserved_mb": round(sum(r.nbytes for r in self._granted.values()) / MB),
@@ -387,19 +420,71 @@ class MemoryAdmission:
         cap = self.compute_capacity_bytes()
         return cap is None or nbytes <= cap
 
+    def _read_rss_locked(self) -> Optional[int]:
+        """One RSS sample, or None without a reader or when the read fails
+        (the rule then falls back to the accounted bytes alone)."""
+        if self._rss_fn is None:
+            return None
+        try:
+            rss = int(self._rss_fn())
+        except Exception as exc:  # noqa: BLE001 - a failed read must not stop admission
+            logger.warning("memory admission: RSS read failed (%s)", exc.__class__.__name__)
+            return None
+        self.measured_rss_bytes = rss
+        return rss
+
+    def _used_locked(self) -> int:
+        """max(accounted resident, measured RSS) + every granted reservation.
+        The measured figure can only raise the charge, never lower it."""
+        resident = self.base_bytes + sum(self._retained.values())
+        rss = self._read_rss_locked()
+        if rss is not None and rss > resident:
+            resident = rss
+        return resident + sum(r.nbytes for r in self._granted.values())
+
     def _fits_locked(self, nbytes: int) -> bool:
         if self.budget_bytes is None:
             return True
-        used = self.base_bytes + sum(self._retained.values()) + sum(
-            r.nbytes for r in self._granted.values())
-        return used + nbytes <= self.budget_bytes
+        return self._used_locked() + nbytes <= self.budget_bytes
 
     def _shortfall_locked(self, nbytes: int) -> int:
         if self.budget_bytes is None:
             return 0
-        used = self.base_bytes + sum(self._retained.values()) + sum(
-            r.nbytes for r in self._granted.values())
-        return used + nbytes - self.budget_bytes
+        return self._used_locked() + nbytes - self.budget_bytes
+
+    def refresh_baseline(self) -> Optional[int]:
+        """Re-measure the process baseline when the poller is quiet: nothing
+        granted and nothing held. The baseline is max(model base, RSS minus
+        the retained cache charge), the latest quiet sample. Returns the new
+        baseline, or None when not quiet, unlimited or without a reader.
+
+        Lowering the baseline here never lowers a reservation: reservations
+        are sized by the model alone, and every fit decision still charges
+        the live RSS when it is higher than the accounted bytes."""
+        if self.budget_bytes is None or self._rss_fn is None:
+            return None
+        with self._cond:
+            if self._granted or self._holds:
+                return None
+            rss = self._read_rss_locked()
+            if rss is None:
+                return None
+            retained = sum(self._retained.values())
+            before = self.base_bytes
+            self.base_bytes = max(self.model.base_bytes(), rss - retained)
+            if self.base_bytes < before:
+                self._cond.notify_all()
+            after = self.base_bytes
+        if abs(after - before) >= BASELINE_LOG_STEP:
+            logger.info(
+                "memory admission: measured baseline base_mb=%.0f (was %.0f) rss_mb=%.0f "
+                "retained_mb=%.0f budget_mb=%.0f", after / MB, before / MB, rss / MB,
+                retained / MB, self.budget_bytes / MB)
+        if after >= self.budget_bytes:
+            logger.warning("memory admission: measured baseline %.0f MiB is at or above the "
+                           "budget %.0f MiB; every computation is refused until it falls",
+                           after / MB, self.budget_bytes / MB)
+        return after
 
     def _grantable_locked(self, ticket: int, nbytes: int, exclusive: bool) -> bool:
         if self._waiters and self._waiters[0] != ticket:
@@ -412,7 +497,8 @@ class MemoryAdmission:
 
     def _impossible_locked(self, zid: int, nbytes: int) -> bool:
         """Cannot fit even with every other reservation released and every
-        evictable cache entry gone (the zid's own entry stays)."""
+        evictable cache entry gone (the zid's own entry stays), on top of the
+        measured quiescent baseline."""
         if self.budget_bytes is None:
             return False
         own = self._retained.get(zid, 0)
@@ -437,10 +523,13 @@ class MemoryAdmission:
         with self._cond:
             if self._impossible_locked(zid, nbytes):
                 self.stats["refused"] += 1
+                own = self._retained.get(zid, 0)
                 raise OverBudget(
                     f"zid={zid} {kind} needs {nbytes / MB:.0f} MiB; the budget holds "
                     f"{self.budget_bytes / MB:.0f} MiB with base {self.base_bytes / MB:.0f} MiB "
-                    f"and its own cached state {self._retained.get(zid, 0) / MB:.0f} MiB"
+                    f"and its own cached state {own / MB:.0f} MiB",
+                    need_bytes=nbytes,
+                    capacity_bytes=max(0, self.budget_bytes - self.base_bytes - own),
                 )
             ticket = next(self._tokens)
             self._waiters.append(ticket)
@@ -486,7 +575,9 @@ class MemoryAdmission:
                         self.stats["refused"] += 1
                         raise OverBudget(
                             f"zid={zid} {kind} needs {nbytes / MB:.0f} MiB beside the "
-                            f"protected cache; nothing else holds memory"
+                            f"protected cache; nothing else holds memory",
+                            need_bytes=nbytes,
+                            capacity_bytes=max(0, nbytes - self._shortfall_locked(nbytes)),
                         )
                     if stop is not None and stop.is_set():
                         raise AdmissionStopped(f"zid={zid} {kind}: poller stopping")

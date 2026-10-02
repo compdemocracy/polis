@@ -1048,9 +1048,37 @@ class BackfillState:
 
 
 def _top10(rows: List[Dict[str, Any]], rec: Record, key: str) -> List[Dict[str, Any]]:
-    rows = [r for r in rows if r.get("zid") != rec.zid] + [asdict(rec)]
+    """The ten largest by ``key``, one row per zid: the zid's largest
+    attempt, whatever its outcome (a later smaller attempt never hides an
+    earlier dangerous one)."""
+    new = asdict(rec)
+    prior = [r for r in rows if r.get("zid") == rec.zid]
+    if prior and float(prior[0].get(key, 0.0)) > float(new.get(key, 0.0)):
+        new = prior[0]
+    rows = [r for r in rows if r.get("zid") != rec.zid] + [new]
     rows.sort(key=lambda r: (-float(r.get(key, 0.0)), int(r["zid"])))
     return rows[:10]
+
+
+# Bound on the gate table: every attempt during the gate window is kept
+# (publications always), and past this many the smallest observed increment
+# among the other attempts makes room, so the largest peaks always stay.
+GATE_RECORDS_MAX = 50
+# Refusals recorded in the gate table although nothing ran: each is once per
+# zid (never retried automatically), and it is the size evidence for the
+# window.
+_GATE_REFUSALS = frozenset({OVER_MEMORY_CEILING, REFUSED_INPUT_SIZE})
+
+
+def _gate_append(rows: List[Dict[str, Any]], rec: Record) -> List[Dict[str, Any]]:
+    rows = rows + [asdict(rec)]
+    while len(rows) > GATE_RECORDS_MAX:
+        others = [i for i, r in enumerate(rows) if r.get("outcome", PUBLISHED) != PUBLISHED]
+        if not others:
+            break
+        drop = min(others, key=lambda i: float(rows[i].get("peak_rss_delta_mb", 0.0)))
+        rows = rows[:drop] + rows[drop + 1:]
+    return rows
 
 
 # --------------------------------------------------------------------------- #
@@ -1473,8 +1501,10 @@ class BackfillScheduler:
             json.dumps(counts, sort_keys=True),
             json.dumps(self._admission.snapshot(), sort_keys=True),
             json.dumps(self._state.totals, sort_keys=True),
-            [(r["zid"], round(r["seconds"], 1)) for r in self._state.top_seconds],
-            [(r["zid"], round(r["peak_rss_delta_mb"], 1)) for r in self._state.top_memory],
+            [(r["zid"], round(r["seconds"], 1), r.get("outcome", PUBLISHED))
+             for r in self._state.top_seconds],
+            [(r["zid"], round(r["peak_rss_delta_mb"], 1), r.get("outcome", PUBLISHED))
+             for r in self._state.top_memory],
         )
         refused = sorted(
             (int(z), f.get("est_mb"), f["reason"]) for z, f in self._state.failures.items()
@@ -1609,7 +1639,7 @@ class BackfillScheduler:
         rec.result_bytes = int(report.get("payload_bytes", 0))
         with self._lock:
             self._in_flight.pop(zid, None)
-            self._record(rec, large=job.large, compute_s=seconds)
+            self._record(rec, large=job.large, compute_s=seconds, ran=True)
         self._release()
 
     def _execute(self, zid: int, job: _Job, report: Dict[str, Any]) -> str:
@@ -1699,7 +1729,9 @@ class BackfillScheduler:
 
     # -- bookkeeping -------------------------------------------------------- #
     def _record(self, rec: Record, *, large: bool, compute_s: float = 0.0,
-                need: int = 0, est: int = 0) -> None:
+                need: int = 0, est: int = 0, ran: bool = False) -> None:
+        """``ran``: the job held a reservation and executed, so its sampled
+        RSS is evidence whatever the outcome (P-073 x.34)."""
         cfg, st, now = self.config, self._state, self._clock()
         assert rec.outcome in ALL_OUTCOMES, rec.outcome
         logger.info(
@@ -1739,13 +1771,20 @@ class BackfillScheduler:
                 st.failures[key]["est_bytes"] = int(est)
             elif rec.outcome == REFUSED_INPUT_SIZE:
                 st.failures[key]["bound"] = cfg.max_votes
-        if rec.outcome == PUBLISHED:
+        # Every attempt is evidence (P-073 x.34): a job that ran is in the
+        # top lists and the gate table whatever its outcome, and a size
+        # refusal is in the gate table, so a dangerous peak is never omitted
+        # because its job did not publish. The gate still counts
+        # publications only.
+        if ran or rec.outcome == PUBLISHED:
             st.top_seconds = _top10(st.top_seconds, rec, "seconds")
             st.top_memory = _top10(st.top_memory, rec, "peak_rss_delta_mb")
-            if cfg.gate_after_largest and not st.gate_approved and not cfg.gate_approved:
-                if st.gate_published < cfg.gate_after_largest:
-                    st.gate_published += 1
-                    st.gate_records.append(asdict(rec))
+        if (cfg.gate_after_largest and not st.gate_approved and not cfg.gate_approved
+                and st.gate_published < cfg.gate_after_largest
+                and (ran or rec.outcome == PUBLISHED or rec.outcome in _GATE_REFUSALS)):
+            if rec.outcome == PUBLISHED:
+                st.gate_published += 1
+            st.gate_records = _gate_append(st.gate_records, rec)
         if compute_s or rec.outcome in (LIVE_OWNED, PARKED_LIVE, LOST, MEMORY_HEADROOM):
             rest = cfg.min_interval_s
             if compute_s:
@@ -1774,18 +1813,22 @@ class BackfillScheduler:
         logger.warning(
             "math-backfill GATE run=%s binding=%s: the first %d publications (in participant "
             "order, not by estimated memory) are done; admission is PAUSED until approval "
-            "(SIGUSR1 to the poller, or MATH_BACKFILL_GATE_APPROVED=1). Memory figures are "
+            "(SIGUSR1 to the poller, or MATH_BACKFILL_GATE_APPROVED=1). %d attempts follow, "
+            "every outcome (failures and size refusals too). Memory figures are "
             "sampled RSS every 0.2 s: an unobserved transient is not ruled out",
             self.run_id, self.binding, self.config.gate_after_largest,
+            len(self._state.gate_records),
         )
         for r in self._state.gate_records:
             reserved = r.get("reserved_mb", 0.0)
             ratio = (r["peak_rss_delta_mb"] / reserved) if reserved else 0.0
             logger.warning(
-                "math-backfill GATE zid=%d participants=%d voters=%d votes=%d comments=%d "
-                "seconds=%.2f start_rss_mb=%.1f peak_rss_mb=%.1f observed_increment_mb=%.1f "
-                "reserved_increment_mb=%.1f est_peak_mb=%.1f observed_over_reserved=%.2f",
-                r["zid"], r["participants"], r["voters"], r["votes"], r["comments"],
+                "math-backfill GATE zid=%d outcome=%s participants=%d voters=%d votes=%d "
+                "comments=%d seconds=%.2f start_rss_mb=%.1f peak_rss_mb=%.1f "
+                "observed_increment_mb=%.1f reserved_increment_mb=%.1f est_peak_mb=%.1f "
+                "observed_over_reserved=%.2f",
+                r["zid"], r.get("outcome", PUBLISHED), r["participants"], r["voters"],
+                r["votes"], r["comments"],
                 r["seconds"], r.get("start_rss_mb", 0.0), r.get("peak_rss_mb", 0.0),
                 r["peak_rss_delta_mb"], reserved, r["est_mb"], ratio,
             )

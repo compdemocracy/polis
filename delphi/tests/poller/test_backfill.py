@@ -557,7 +557,7 @@ class TestMemoryBudget:
         # Same dimensions, far more fetched rows: the reservation grows.
         db = FakeDb()
         db.add(1, 1_000, voters=1_000, comments=1_000, votes=55_000)
-        db.add(2, 999, voters=1_000, comments=1_000, votes=9_000_000)
+        db.add(2, 999, voters=1_000, comments=1_000, votes=4_000_000)
         t = make(db, concurrency=2, max_votes_per_min=100_000_000)
         assert t.sched.step()[0] == "admitted"
         sparse = t.sched._in_flight[1].need_bytes
@@ -565,7 +565,7 @@ class TestMemoryBudget:
         t.host.pending.discard(1)
         assert t.sched.step()[0] == "admitted"
         dense = t.sched._in_flight[2].need_bytes
-        assert dense - sparse == pytest.approx(1.15 * 413 * (9_000_000 - 55_000), rel=1e-6)
+        assert dense - sparse == pytest.approx(1.15 * 1000 * (4_000_000 - 55_000), rel=1e-6)
 
     def test_a_backfill_job_never_waits_beside_live_work_it_defers(self):
         db = FakeDb()
@@ -896,6 +896,83 @@ class TestGate:
             assert part in caplog.text
         t.sched.approve_gate()
         assert drain(t) == [3, 4, 5]
+
+    def test_gate_records_every_attempt_but_counts_publications(self, tmp_path, caplog):
+        # P-073 x.34: the 18747 attempt (5.4 GiB increment, postcondition
+        # read failed) was missing from the production gate table.
+        db = FakeDb()
+        db.add(1, 900, voters=900, comments=50, votes=40_000)
+        db.add(2, 800)
+        db.add(3, 700)
+        db.add(4, 600)
+        t = make(db, gate_after_largest=2, max_votes=10_000_000,
+                 state_path=str(tmp_path / "s.json"))
+        orig = t.sched._store.coherent
+
+        def coherent(zid):
+            if zid == 1:
+                raise RuntimeError("connection lost")
+            return orig(zid)
+
+        t.sched._store.coherent = coherent
+
+        def spike(zid):
+            t.rss["v"] = (5_940 if zid == 1 else 520) * MB
+
+        t.host.during_compute = spike
+        caplog.set_level("WARNING")
+        statuses = []
+        for _ in range(20):
+            status, _ = t.sched.step()
+            statuses.append(status)
+            if status == "admitted":
+                zid = t.host.submitted[-1]
+                t.sched.run_job(zid)
+                t.host.pending.discard(zid)
+                t.rss["v"] = 500 * MB
+            elif status == "gate":
+                break
+        assert status == "gate"
+        st = t.sched._state
+        assert st.gate_published == 2
+        outcomes = [(r["zid"], r["outcome"]) for r in st.gate_records]
+        assert outcomes == [(1, bf.FAILED_POSTCONDITION), (2, bf.PUBLISHED), (3, bf.PUBLISHED)]
+        failed = st.gate_records[0]
+        assert failed["peak_rss_delta_mb"] == pytest.approx(5_440.0)
+        assert "GATE zid=1 outcome=failed_postcondition" in caplog.text
+        assert "observed_increment_mb=5440.0" in caplog.text
+        assert "3 attempts follow" in caplog.text
+        assert st.top_memory[0]["zid"] == 1
+        assert st.top_memory[0]["outcome"] == bf.FAILED_POSTCONDITION
+        assert {r["zid"] for r in st.top_seconds} == {1, 2, 3}
+
+    def test_gate_records_size_refusals(self, tmp_path):
+        db = FakeDb()
+        db.add(1, 900, votes=50)
+        db.add(2, 800, votes=5)
+        t = make(db, gate_after_largest=1, max_votes=10)
+        drain_until_gate = [t.sched.step()[0] for _ in range(2)]
+        assert drain_until_gate[0] == bf.REFUSED_INPUT_SIZE
+        assert [r["outcome"] for r in t.sched._state.gate_records] == [bf.REFUSED_INPUT_SIZE]
+        assert t.sched._state.gate_published == 0
+        assert t.sched._state.top_memory == []
+
+    def test_gate_table_is_bounded_and_keeps_the_largest_peaks(self):
+        rows = []
+        for zid in range(1, bf.GATE_RECORDS_MAX + 6):
+            rec = bf.Record(zid, "missing", bf.FAILED_WRITE if zid > 1 else bf.PUBLISHED,
+                            peak_rss_delta_mb=float(zid))
+            rows = bf._gate_append(rows, rec)
+        assert len(rows) == bf.GATE_RECORDS_MAX
+        zids = [r["zid"] for r in rows]
+        assert 1 in zids  # a publication is never dropped
+        assert min(z for z in zids if z != 1) == 7  # the smallest others made room
+
+    def test_top_lists_keep_a_zids_largest_attempt(self):
+        big = bf.Record(7, "missing", bf.FAILED_POSTCONDITION, peak_rss_delta_mb=5000.0)
+        small = bf.Record(7, "missing", bf.PUBLISHED, peak_rss_delta_mb=10.0)
+        rows = bf._top10(bf._top10([], big, "peak_rss_delta_mb"), small, "peak_rss_delta_mb")
+        assert [(r["zid"], r["outcome"]) for r in rows] == [(7, bf.FAILED_POSTCONDITION)]
 
     def test_gate_state_survives_a_same_configuration_restart(self, tmp_path):
         db = FakeDb()

@@ -39,9 +39,9 @@ class TestModel:
     m = MemoryModel()
 
     def test_measured_30k_by_1000(self):
-        # 209 base + 116/Mcell x 30 + 413 B x 1.65M rows, x1.15.
+        # 209 base + 116/Mcell x 30 + 1,000 B x 1.65M rows, x1.15.
         est = self.m.peak_bytes(1_650_000, 30_000, 1_000) / MB
-        assert est == pytest.approx(1.15 * (209 + 116 * 30 + 413 * 1_650_000 / MB), rel=1e-6)
+        assert est == pytest.approx(1.15 * (209 + 116 * 30 + 1000 * 1_650_000 / MB), rel=1e-6)
         assert est > 3_530  # above the measured peak
 
     def test_measured_points_are_all_under_the_estimate(self):
@@ -66,7 +66,7 @@ class TestModel:
         # 10M fetched rows. The row term now separates them.
         sparse = self.m.above_base_bytes(55_000, 1_000, 1_000)
         many = self.m.above_base_bytes(10_000_000, 1_000, 1_000)
-        assert many - sparse == pytest.approx(1.15 * 413 * (10_000_000 - 55_000), rel=1e-6)
+        assert many - sparse == pytest.approx(1.15 * 1000 * (10_000_000 - 55_000), rel=1e-6)
         assert many / MB > 4_000
 
     def test_bad_coefficients_are_refused(self):
@@ -332,7 +332,7 @@ class TestServicePaths:
         assert a.granted() == []
 
     def test_cold_touch_is_sized_from_the_database_with_its_history(self, monkeypatch):
-        svc, a = service(monkeypatch, limit_mb=8000, sizes={7: (9_000_000, 1_000, 1_000)})
+        svc, a = service(monkeypatch, limit_mb=16000, sizes={7: (9_000_000, 1_000, 1_000)})
         seen = []
         orig = a.reserve
 
@@ -399,7 +399,7 @@ class TestServicePaths:
 
     def test_admission_evicts_cold_cache_for_a_big_rebuild(self, monkeypatch):
         svc, a = service(monkeypatch, limit_mb=3000, cache_mb=2000,
-                         sizes={9: (1_650_000, 15_000, 1_000)})
+                         sizes={9: (700_000, 15_000, 1_000)})
         for zid in (1, 2, 3):
             svc._remember(zid, conv_of(20_000, 1_000))
         svc._load_or_init = lambda zid: conv_of(15_000, 1_000)
@@ -717,3 +717,193 @@ class TestSnapshotTelemetry:
         snap = a.snapshot()
         assert snap["granted"] == 1 and snap["admitted"] == 2
         a.release(r2)
+
+
+# --------------------------------------------------------------------------- #
+# P-073 §2.1: the recalibrated estimator against every recorded attempt
+# --------------------------------------------------------------------------- #
+# (zid, voters, comments, vote rows, observed increment MiB), from the
+# production backfill export of 2026-10-01 05:37-05:50Z: every attempt that
+# ran, published or not (18747's postcondition read failed after a 5,423 MiB
+# increment; it was missing from that run's gate table).
+PRODUCTION_ATTEMPTS = [
+    (18747, 33_422, 791, 2_014_024, 5423.0),
+    (11712, 13, 7, 54, 0.0),
+    (12837, 5_025, 705, 121_619, 296.3),
+    (10758, 539, 77, 4_670, 7.2),
+    (18115, 6_294, 2_162, 537_047, 1524.6),
+    (58912, 5_500, 1_647, 136_832, 845.9),
+    (12480, 1_751, 328, 19_216, 13.6),
+    (33536, 5_191, 40, 52_873, 29.1),
+    (15607, 1_071, 182, 8_927, 34.8),
+    (15608, 1_071, 182, 8_927, 7.7),
+    (15609, 1_071, 182, 8_927, 7.2),
+]
+
+
+class TestRecalibratedModel:
+    def test_defaults(self):
+        m = MemoryModel()
+        assert (m.per_vote_row_bytes, m.job_floor_mb, m.per_mcell_mb, m.safety) == (
+            1000.0, 64.0, 116.0, 1.15)
+        cfg = PollerConfig()
+        assert (cfg.mem_per_vote_row_bytes, cfg.mem_job_floor_mb) == (1000.0, 64.0)
+
+    def test_the_floor_covers_small_jobs_without_inflating_large_ones(self):
+        m = MemoryModel()
+        assert m.above_base_bytes(0, 0, 0) == 64 * MB
+        assert m.above_base_bytes(8_927, 1_071, 182) == 64 * MB
+        big = m.above_base_bytes(2_014_024, 33_422, 791)
+        assert big == int(1.15 * (116 * MB * 33_422 * 791 / 1e6 + 1000 * 2_014_024))
+        assert MemoryModel(job_floor_mb=0).above_base_bytes(0, 0, 0) == 0
+
+    def test_every_recorded_production_attempt_is_within_its_reservation(self):
+        m = MemoryModel()
+        old = MemoryModel(per_vote_row_bytes=413.0, job_floor_mb=0.0)
+        old_misses = []
+        for zid, voters, comments, votes, observed_mb in PRODUCTION_ATTEMPTS:
+            assert observed_mb * MB <= m.above_base_bytes(votes, voters, comments), zid
+            if observed_mb * MB > old.above_base_bytes(votes, voters, comments):
+                old_misses.append(zid)
+        assert old_misses == [18747, 15607]
+
+    def test_env_overrides_restore_the_previous_model(self, monkeypatch):
+        monkeypatch.setenv("MATH_POLLER_MEM_PER_VOTE_ROW_BYTES", "413")
+        monkeypatch.setenv("MATH_POLLER_MEM_JOB_FLOOR_MB", "0")
+        cfg = PollerConfig.from_env()
+        a = MemoryAdmission.from_config(cfg, cgroup_fn=lambda: 6144 * MB, rss_fn=lambda: 0)
+        assert a.model == MemoryModel(per_vote_row_bytes=413.0, job_floor_mb=0.0)
+        # The 18747 reservation the production poller logged (4,438.9 MiB).
+        assert a.model.above_base_bytes(2_014_024, 33_422, 791) / MB == pytest.approx(
+            4438.9, abs=0.1)
+
+
+# --------------------------------------------------------------------------- #
+# P-073 §2.2: max(accounted, measured RSS) + granted + this <= 0.85 x limit
+# --------------------------------------------------------------------------- #
+class FakeRss:
+    def __init__(self, mb):
+        self.value = int(mb * MB)
+        self.fail = False
+
+    def __call__(self):
+        if self.fail:
+            raise OSError("no /proc")
+        return self.value
+
+    def set(self, mb):
+        self.value = int(mb * MB)
+
+
+def measured(rss_mb, limit_mb=6144, **cfg):
+    rss = FakeRss(rss_mb)
+    a = MemoryAdmission.from_config(PollerConfig(**cfg), cgroup_fn=lambda: limit_mb * MB,
+                                    rss_fn=rss)
+    return a, rss
+
+
+class TestMeasuredAdmission:
+    def test_budget_is_85_percent_of_the_cgroup_limit(self):
+        a, _ = measured(100)
+        assert a.budget_bytes == int(0.85 * 6144 * MB)
+        assert a.base_bytes == MemoryModel().base_bytes()  # 240 MiB beats a 100 MiB sample
+
+    def test_measured_rss_above_the_accounted_bytes_is_charged(self):
+        a, rss = measured(100)
+        budget = a.budget_bytes
+        # Accounted: base 240 MiB; this asks for everything else.
+        ask = budget - a.base_bytes
+        rss.set(1000)  # the process measures 1,000 MiB: the ask no longer fits
+        assert a.reserve(1, ask, kind="backfill", wait=False) is None
+        assert a.snapshot()["rss_mb"] == 1000
+        rss.set(200)  # below the accounted base: the accounted bytes decide
+        res = a.reserve(1, ask, kind="backfill", wait=False)
+        assert res is not None
+        a.release(res)
+
+    def test_granted_reservations_add_to_the_measured_rss(self):
+        a, rss = measured(1000)
+        first = a.reserve(1, 2000 * MB, kind="live_rebuild", wait=False)
+        assert first is not None
+        # 1,000 measured + 2,000 granted + 2,300 > 5,222 MiB.
+        assert a.reserve(2, 2300 * MB, kind="live_rebuild", wait=False) is None
+        assert a.reserve(2, 2200 * MB, kind="live_rebuild", wait=False) is not None
+
+    def test_a_low_sample_never_lowers_the_charge(self):
+        a, rss = measured(0)
+        a.set_retained(9, 3000 * MB)
+        rss.set(1)  # far below base + retained
+        ask = a.budget_bytes - a.base_bytes - 3000 * MB
+        assert a.reserve(1, ask + MB, kind="backfill", wait=False) is None
+        assert a.reserve(1, ask, kind="backfill", wait=False) is not None
+
+    def test_a_failed_read_falls_back_to_the_accounted_bytes(self):
+        a, rss = measured(100)
+        rss.set(4000)
+        rss.fail = True
+        assert a.reserve(1, 4000 * MB, kind="backfill", wait=False) is not None
+
+    def test_a_direct_accountant_has_no_reader(self):
+        a = MemoryAdmission(1000 * MB, headroom=0.0, base_bytes=100 * MB)
+        assert a.refresh_baseline() is None
+        assert a.reserve(1, 900 * MB, kind="backfill", wait=False) is not None
+
+
+class TestQuietBaseline:
+    def test_startup_sample_is_the_first_baseline(self):
+        a, _ = measured(517.5)
+        assert a.base_bytes == int(517.5 * MB)
+
+    def test_refreshed_only_when_nothing_is_granted_or_held(self):
+        a, rss = measured(300)
+        res = a.reserve(1, 100 * MB, kind="live_update", wait=False)
+        rss.set(900)
+        assert a.refresh_baseline() is None and a.base_bytes == 300 * MB
+        a.release(res)
+        a.hold(5)
+        assert a.refresh_baseline() is None and a.base_bytes == 300 * MB
+        a.unhold(5)
+        assert a.refresh_baseline() == 900 * MB and a.base_bytes == 900 * MB
+
+    def test_baseline_excludes_the_retained_cache_and_never_drops_below_the_model(self):
+        a, rss = measured(300)
+        a.set_retained(7, 400 * MB)
+        rss.set(1000)
+        assert a.refresh_baseline() == 600 * MB
+        rss.set(500)  # cache explains nearly all of it: the model base stays
+        assert a.refresh_baseline() == MemoryModel().base_bytes()
+
+    def test_the_baseline_drives_the_impossible_fit_test(self, caplog):
+        a, rss = measured(300)
+        rss.set(4000)
+        caplog.set_level(logging.INFO)
+        a.refresh_baseline()
+        assert "measured baseline base_mb=4000" in caplog.text
+        rss.set(0)  # the next sample is low; the baseline still binds
+        with pytest.raises(OverBudget) as exc:
+            a.reserve(1, 2000 * MB, kind="live_rebuild")
+        assert exc.value.need_bytes == 2000 * MB
+        assert exc.value.capacity_bytes == a.budget_bytes - 4000 * MB
+        assert a.compute_capacity_bytes() == a.budget_bytes - 4000 * MB
+        rss.set(400)
+        a.refresh_baseline()
+        assert a.reserve(1, 2000 * MB, kind="live_rebuild", wait=False) is not None
+
+    def test_the_readiness_tick_refreshes_it_and_keeps_its_keys(self, monkeypatch):
+        from polismath.poller.readiness import ADMISSION_KEYS
+
+        a, rss = measured(300, limit_mb=6144)
+        svc = MathPollerService(MagicMock(), PollerConfig(), admission=a)
+        rss.set(700)
+        snap = svc.readiness_snapshot()
+        assert a.base_bytes == 700 * MB
+        assert tuple(snap["admission"]) == ADMISSION_KEYS
+
+    def test_over_budget_carries_bytes_when_nothing_else_holds_memory(self):
+        a = MemoryAdmission(1000 * MB, headroom=0.0, base_bytes=100 * MB)
+        a.set_retained(3, 300 * MB)
+        a.hold(3)
+        with pytest.raises(OverBudget) as exc:
+            a.reserve(4, 700 * MB, kind="live_rebuild")
+        assert exc.value.need_bytes == 700 * MB
+        assert exc.value.capacity_bytes == 600 * MB
