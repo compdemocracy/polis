@@ -107,21 +107,59 @@ def test_delphi_resolves_to_the_stack_default(compose_file, default):
 
 
 @requires_checkout
-@pytest.mark.parametrize("compose_file,default", sorted(COMPOSE_FILES.items()))
 @pytest.mark.parametrize("env", [{}, {"MATH_ENV": PROBE}], ids=["unset", "MATH_ENV-set"])
-def test_delphi_and_math_agree_on_math_env(compose_file, default, env):
-    delphi = _environment(compose_file, "delphi", env)
-    math = _environment(compose_file, "math", env)
-    assert math["MATH_ENV"] == env.get("MATH_ENV", default)
+def test_test_stack_delphi_and_math_agree_on_math_env(env):
+    delphi = _environment("docker-compose.test.yml", "delphi", env)
+    math = _environment("docker-compose.test.yml", "math", env)
+    assert math["MATH_ENV"] == env.get("MATH_ENV", "dev")
     assert delphi["MATH_ENV"] == math["MATH_ENV"], (
-        f"{compose_file}: delphi reads a different math_env than math writes"
+        "docker-compose.test.yml: delphi reads a different math_env than math writes"
     )
+
+
+# --- The served-label switch (docker-compose.yml) -----------------------------
+# The shared MATH_ENV sets the label the readers serve (the server via .env,
+# delphi here). Neither writer follows it: Clojure writes MATH_ENV_CLOJURE
+# (default prod), math-python writes MATH_PYTHON_ENV (default python). So the
+# switch (MATH_ENV=python) and its rollback (MATH_ENV=prod) move only the
+# readers, and Clojure keeps writing prod through both.
+
+
+@requires_checkout
+@pytest.mark.parametrize(
+    "env",
+    [{}, {"MATH_ENV": "prod"}, {"MATH_ENV": "python"}, {"MATH_ENV": PROBE}, {"MATH_ENV_CLOJURE": ""}],
+    ids=["unset", "prod", "python", "probe", "clojure-empty"],
+)
+def test_clojure_writes_prod_whatever_the_readers_serve(env):
+    assert _environment("docker-compose.yml", "math", env)["MATH_ENV"] == "prod"
+
+
+@requires_checkout
+def test_clojure_label_comes_only_from_math_env_clojure():
+    env = {"MATH_ENV": "python", "MATH_ENV_CLOJURE": PROBE}
+    assert _environment("docker-compose.yml", "math", env)["MATH_ENV"] == PROBE
+    assert _environment("docker-compose.yml", "delphi", env)["MATH_ENV"] == "python"
+    assert _environment("docker-compose.yml", "math-python", env)["MATH_ENV"] == "python"
+
+
+@requires_checkout
+@pytest.mark.parametrize("served", ["prod", "python"], ids=["shadow-or-rollback", "switched"])
+def test_switch_moves_only_the_readers(served):
+    env = {"MATH_ENV": served}
+    labels = {
+        service: _environment("docker-compose.yml", service, env)["MATH_ENV"]
+        for service in ("delphi", "math", "math-python")
+    }
+    assert labels == {"delphi": served, "math": "prod", "math-python": "python"}
+    # Two writers never share a label.
+    assert labels["math"] != labels["math-python"]
 
 
 @requires_checkout
 def test_delphi_does_not_follow_the_shadow_poller_env():
-    # docker-compose.yml deliberately gives math-python a DISTINCT env so its
-    # shadow rows stay invisible; reports must follow the server's MATH_ENV.
+    # docker-compose.yml gives math-python its own write label; reports must
+    # follow the server's MATH_ENV (the served label), not the writer's.
     env = {"MATH_ENV": PROBE}
     assert _environment("docker-compose.yml", "delphi", env)["MATH_ENV"] == PROBE
     assert _environment("docker-compose.yml", "math-python", env)["MATH_ENV"] == "python"
