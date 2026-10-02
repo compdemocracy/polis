@@ -14,7 +14,7 @@ Polis is an AI-powered democratic engagement platform for large-scale opinion ga
 make start                    # Start full dev environment (uses .env)
 make start-rebuild            # Start with rebuild
 make stop                     # Stop all containers
-make PROD start               # Production mode (uses prod.env)
+make PROD start               # Production mode (uses prod.env); runs no math engine (see README "Math engine")
 make DETACH=true start        # Run in background
 ```
 
