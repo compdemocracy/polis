@@ -178,6 +178,51 @@ One env change, instantly reversible:
 Rollback = revert the env var + restart clojure math. Rows for both envs
 coexist; nothing is destroyed by the flip in either direction.
 
+### Step 2 as built (PR-S2)
+
+Mechanism: the READERS move; no writer changes label.
+- The server (`MATH_ENV` from `.env`) and Delphi (`${MATH_ENV:-prod}` in
+  `docker-compose.yml`) read the one shared `MATH_ENV` in the production env
+  secret (`polis-web-app-env-vars`).
+- `math-python` writes `python` whatever the readers serve: its label comes
+  only from `MATH_PYTHON_ENV` (pinned `python` in the secret, compose fallback
+  `python`). Its startup guard still refuses to write `prod`
+  (`MATH_POLLER_ALLOW_SERVED_ENV` stays unset); the single-writer lock key stays
+  `polis-math-python:python`.
+- Clojure (`math`) writes `${MATH_ENV_CLOJURE:-prod}`, not `MATH_ENV`, so it
+  keeps running and writing `prod` through the switch. Leave
+  `MATH_ENV_CLOJURE` unset (or `prod`) in the secret. Two writers never share
+  a label.
+
+Before the switch: every conversation the readers can serve must have a
+`python` row. The poller computes only conversations with votes since
+`POLL_FROM_DAYS_AGO` days before its start; older ones need the backfill
+(`MATH_BACKFILL`) under `python`, or the server presents them as empty.
+
+Flip:
+1. Merge to `stable`. Every box takes `docker-compose.yml` from `stable` at
+   deploy (the hook resets to `origin/stable`), so this must land first: under
+   an older compose file Clojure follows `MATH_ENV` and would write `python`.
+   Do not move `stable` back past this change while the secret says `python`.
+2. Set `MATH_ENV=python` in the env secret.
+3. Deploy. The hook rewrites `.env` from the secret on every box; the server
+   and Delphi restart reading `python`. The math box restarts Clojure, still
+   writing `prod`.
+4. Verify: `/api/v3/math/pca2` for an active conversation returns an `ETag`
+   starting `"python-` (it was `"prod-`), and the body carries groups and
+   base clusters; Delphi reports for a conversation with votes find their math
+   rows; `max(math_tick)` under `prod` keeps advancing (Clojure still writes).
+
+Clients refetch after the flip: pca2's ETag is `"<math_env>-<math_tick>"`
+(already shipped), and a held tag is compared as an opaque value, so a
+browser holding a `prod-` tag gets a 200 with the `python` body, never a 304
+for the other label's bytes, even at an equal tick. A legacy numeric tag
+always gets 200.
+
+Rollback: set `MATH_ENV=prod` in the secret and redeploy. The readers return
+to Clojure's `prod` rows, which stayed current throughout. No hook or compose
+edit. Step 3 (retiring Clojure) is a later PR.
+
 ## Step 3 — decommission (later)
 
 Remove the `math` service from compose/deploy (and its `up -d math`
