@@ -373,14 +373,14 @@ Provisioning helpers write resource settings based on the instance-size label ([
 
 The helper chooses `INSTANCE_SIZE` first, then `/etc/app-info/instance_size.txt`, then its default preset ([detection:55](configure_instance.py#L55)). `DELPHI_MAX_WORKERS` and `DELPHI_WORKER_MEMORY` have no current application readers; retain them here as documented helper outputs, not effective worker controls. `start_poller.py` instead reads `MAX_WORKERS` and passes `--max-workers` ([wrapper:22](start_poller.py#L22)). Compose reads `DELPHI_CONTAINER_MEMORY` / `DELPHI_CONTAINER_CPUS`, with fallbacks `16g` / `2` ([Compose:151](../docker-compose.yml#L151)).
 
-Current CDK uses **c7i.2xlarge** (small) and **c7i.8xlarge** (large), both x86_64; see [ec2.ts:14](../cdk/ec2.ts#L14) and the complete [scaling table](../docs/scaling.md#current-cdk-capacity-reference). These are source defaults, not a report of deployed capacity.
+Current CDK uses **r7i.2xlarge** (small) and **c7i.8xlarge** (large), both x86_64; see [ec2.ts:14](../cdk/ec2.ts#L14) and the complete [scaling table](../docs/scaling.md#current-cdk-capacity-reference). These are source defaults, not a report of deployed capacity.
 
 ### Manual Configuration
 
 The historical helper output can be reproduced with the values below. Only the container memory/CPU names shown here have current Compose readers; these examples do not change worker parallelism. For a worker launched through `start_poller.py`, use `MAX_WORKERS` instead.
 
 ```bash
-# Historical small helper preset (current CDK type is c7i.2xlarge)
+# Historical small helper preset (current CDK type is r7i.2xlarge)
 INSTANCE_SIZE=small
 DELPHI_MAX_WORKERS=3
 DELPHI_WORKER_MEMORY=2g
