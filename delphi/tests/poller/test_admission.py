@@ -783,7 +783,7 @@ class TestRecalibratedModel:
         cfg = PollerConfig.from_env()
         a = MemoryAdmission.from_config(cfg, cgroup_fn=lambda: 6144 * MB, rss_fn=lambda: 0)
         assert a.model == OLD
-        for votes, voters, comments in [(0, 0, 0), (54, 13, 7), VOTE_DENSE[:3], CELL_DENSE[:3]]:
+        for votes, voters, comments in [(0, 0, 0), (61, 17, 5), VOTE_DENSE[:3], CELL_DENSE[:3]]:
             assert a.model.above_base_bytes(votes, voters, comments) == int(
                 1.15 * (116 * MB * voters * comments / 1e6 + 413 * votes))
 
