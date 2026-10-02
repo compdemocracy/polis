@@ -82,7 +82,7 @@
         "source_ahead_ruling": "unresolved",
         "source_env": "prod",
         "target_env": "python",
-        "verification_sql_sha256": "13654de8042f74e0f8021356bee07831be072636c11aa8c32dda9af495718810"
+        "verification_sql_sha256": "e2b0040036dda58e98b7a293917928be0e018dda0728898bdf40c8383d6e6216"
       },
       "schema": "polis-probe-job/2",
       "verifier": {
