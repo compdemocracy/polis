@@ -1043,3 +1043,58 @@ class TestErrorBriefRealDriver:
                         exc.__class__.__name__, brief)
         assert "sqlstate=22P02 invalid_text_representation" in caplog.text
         assert secret not in caplog.text
+
+
+class TestValidityCost:
+    """Production's payload columns are json, so every ``::jsonb`` cast
+    re-parses the text. With one cast per reference, a page holding a 14.7 MB
+    math_main payload ran VALIDITY_SQL past the 120 s statement timeout
+    (sqlstate 57014) and the sweep stalled. The rule now casts each payload
+    once per row."""
+
+    def test_rule_casts_each_payload_once(self):
+        import re
+
+        from polismath.poller.backfill import VALID_BUNDLE_SQL
+
+        assert VALID_BUNDLE_SQL.count("::jsonb") - VALID_BUNDLE_SQL.count("'::jsonb") == 3
+        assert sorted(re.findall(r"\b[a-z]\.data::jsonb", VALID_BUNDLE_SQL)) == [
+            "b.data::jsonb", "m.data::jsonb", "p.data::jsonb"]
+
+    def test_large_main_payload_is_validated_within_the_statement_timeout(
+            self, pg_url, db, labels):
+        """A generated-fixture bundle whose math_main payload is >= 12 MB of
+        json (long pca comps), beside two ordinary bundles: VALIDITY_SQL over
+        the chunk finishes under a 20 s statement timeout and still finds all
+        three valid."""
+        src, tgt = labels
+        zids = fresh_zids(3)
+        for zid in zids:
+            lvt = seed_conversation(db, zid, participants=6, comments=4)
+            put_main(db, zid, src, lvt)
+        svc, pg = make_service(pg_url, src, tgt)
+        try:
+            for zid in zids:
+                publish_real(svc, zid)
+            big = zids[0]
+            q(db, """UPDATE math_main SET data = jsonb_set(data::jsonb, '{pca,comps}', (
+                         SELECT jsonb_agg(c) FROM (
+                             SELECT jsonb_agg(((i::bigint * 7919) %% 100000) / 1000.0 + 0.123456789
+                                              ORDER BY i) AS c
+                             FROM generate_series(1, 650000) i GROUP BY i %% 4) s))
+                     WHERE zid = %s AND math_env = %s""", (big, tgt))
+            size = q(db, "SELECT octet_length(data::text) FROM math_main "
+                         "WHERE zid = %s AND math_env = %s", (big, tgt))[0][0]
+            assert size >= 12_000_000, size
+
+            from polismath.poller.backfill import VALIDITY_SQL
+
+            store = svc.backfill._store
+            store._timeout_ms = 20000
+            started = time.monotonic()
+            rows = store._rows(VALIDITY_SQL, store._params(zids=zids))
+            elapsed = time.monotonic() - started
+            print(f"VALIDITY_SQL over 3 zids, main payload {size} bytes: {elapsed:.2f} s")
+            assert {int(r["zid"]): r["valid"] for r in rows} == {z: True for z in zids}
+        finally:
+            pg.shutdown()

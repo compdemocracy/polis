@@ -171,8 +171,9 @@ class PollerConfig:
       memory_headroom    MATH_POLLER_MEMORY_HEADROOM                 (default 0.15)
       conv_cache_mb      MATH_CONV_CACHE_MB        (default 30% of the memory budget)
       mem_*              MATH_POLLER_MEM_BASE_MB, _PER_MCELL_MB, _PER_VOTE_ROW_BYTES,
-                         _SAFETY, _RETAINED_BASE_MB, _RETAINED_PER_MCELL_MB,
-                         _RETAINED_PER_VOTER_KB (polismath.poller.admission)
+                         _SAFETY, _JOB_FLOOR_MB, _RETAINED_BASE_MB,
+                         _RETAINED_PER_MCELL_MB, _RETAINED_PER_VOTER_KB
+                         (polismath.poller.admission)
     """
 
     database_url: Optional[str] = None
@@ -220,9 +221,14 @@ class PollerConfig:
     memory_headroom: float = 0.15
     conv_cache_mb: Optional[float] = None
     mem_base_mb: float = 209.0
-    mem_per_mcell_mb: float = 116.0
-    mem_per_vote_row_bytes: float = 413.0
+    # P-073 §2.1: 116 -> 133 MiB per million cells, 413 -> 1000 B per vote
+    # row and a 64 MiB per-job floor, so every recorded production attempt's
+    # observed increment is within 0.95 of its reservation. Setting 116, 413
+    # and 0 restores the previous model.
+    mem_per_mcell_mb: float = 133.0
+    mem_per_vote_row_bytes: float = 1000.0
     mem_safety: float = 1.15
+    mem_job_floor_mb: float = 64.0
     mem_retained_base_mb: float = 40.0
     mem_retained_per_mcell_mb: float = 30.0
     mem_retained_per_voter_kb: float = 27.0
@@ -319,9 +325,10 @@ class PollerConfig:
             memory_headroom=_env_float("MATH_POLLER_MEMORY_HEADROOM", 0.15),
             conv_cache_mb=_env_float("MATH_CONV_CACHE_MB"),
             mem_base_mb=_env_float("MATH_POLLER_MEM_BASE_MB", 209.0),
-            mem_per_mcell_mb=_env_float("MATH_POLLER_MEM_PER_MCELL_MB", 116.0),
-            mem_per_vote_row_bytes=_env_float("MATH_POLLER_MEM_PER_VOTE_ROW_BYTES", 413.0),
+            mem_per_mcell_mb=_env_float("MATH_POLLER_MEM_PER_MCELL_MB", 133.0),
+            mem_per_vote_row_bytes=_env_float("MATH_POLLER_MEM_PER_VOTE_ROW_BYTES", 1000.0),
             mem_safety=_env_float("MATH_POLLER_MEM_SAFETY", 1.15),
+            mem_job_floor_mb=_env_float("MATH_POLLER_MEM_JOB_FLOOR_MB", 64.0),
             mem_retained_base_mb=_env_float("MATH_POLLER_MEM_RETAINED_BASE_MB", 40.0),
             mem_retained_per_mcell_mb=_env_float("MATH_POLLER_MEM_RETAINED_PER_MCELL_MB", 30.0),
             mem_retained_per_voter_kb=_env_float("MATH_POLLER_MEM_RETAINED_PER_VOTER_KB", 27.0),
@@ -679,6 +686,11 @@ class MathPollerService:
         else:
             queue = {"pending": 0, "in_flight": 0, "parked": 0, "oldest_live_age_ms": None,
                      "oldest_backfill_age_ms": None, "oldest_work_age_ms": 0}
+        # The readiness tick is the quiet-time baseline sampler (P-073 §2.2):
+        # re-measured only when nothing is granted or held. The readiness
+        # admission keys are closed (readiness.validate_line), so the
+        # baseline is logged by the accountant, not added here.
+        self.admission.refresh_baseline()
         snap = self.admission.snapshot()
         admission = {
             "budget_mb": snap.get("budget_mb"), "reserved_mb": int(snap.get("reserved_mb") or 0),

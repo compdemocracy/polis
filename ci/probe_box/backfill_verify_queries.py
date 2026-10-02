@@ -24,8 +24,9 @@ SOURCE = 'prod'
 TARGET = 'python'
 # sha256 of the shipped verification file (branch math-backfill-before-flip,
 # 8d11df4e4, reviewed in round [1451]; every payload reference cast ::jsonb
-# for production's json columns on branch backfill-json-column-cast).
-SQL_SHA256 = '13654de8042f74e0f8021356bee07831be072636c11aa8c32dda9af495718810'
+# for production's json columns on branch backfill-json-column-cast; each
+# payload cast once per row on branch backfill-validity-cast-once).
+SQL_SHA256 = 'e2b0040036dda58e98b7a293917928be0e018dda0728898bdf40c8383d6e6216'
 SQL_NAME = 'backfill_verification.sql'
 TABLES = ('math_main', 'math_bidtopid', 'math_ptptstats', 'math_ticks')
 # Every relation the shipped file and EXTRA read.

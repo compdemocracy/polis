@@ -183,8 +183,10 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   #       Postgres client rebuilds the URL from its parts and appends this mode,
   #       dropping DATABASE_URL's ?sslmode=require. The secret is shared, so the
   #       delphi service moves from `disable` to `require` too)
-  #   DELPHI_POLLER_CONTAINER_MEMORY=6g   (compose default 16g, the whole box;
-  #       6g fits beside Delphi's 8g DELPHI_CONTAINER_MEMORY on this 16 GiB box)
+  #   DELPHI_POLLER_CONTAINER_MEMORY=6g   (compose default 16g; 6g fit beside
+  #       Delphi's 8g DELPHI_CONTAINER_MEMORY on the old 16 GiB c7i.2xlarge. On
+  #       the 64 GiB r7i.2xlarge raise it to 48g once that box is up; see
+  #       cdk/README.md "Delphi small box: r7i.2xlarge")
   #   MATH_CONV_CACHE_CAP=200   (compose default is also 200; pinned because the
   #       certified bundle's cohort size is this cap plus one)
   # POLL_FROM_DAYS_AGO stays at its default of 10. MATH_POLLER_ALLOW_SERVED_ENV

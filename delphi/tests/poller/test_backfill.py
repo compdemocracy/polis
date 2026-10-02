@@ -496,7 +496,7 @@ class TestMemoryBudget:
     def test_estimate_over_the_budget_is_refused_and_reported(self, tmp_path):
         db = FakeDb()
         db.add(1, 60_000, voters=60_000, comments=1_000, votes=3_300_000)
-        db.add(2, 30_000, voters=30_000, comments=1_000, votes=1_650_000)
+        db.add(2, 30_000, voters=20_000, comments=1_000, votes=1_100_000)
         state = str(tmp_path / "s.json")
         t = make(db, state_path=state)  # 6 GiB limit, 300 MiB base
         assert t.sched.step()[0] == bf.OVER_MEMORY_CEILING
@@ -523,7 +523,7 @@ class TestMemoryBudget:
 
     def test_no_room_beside_the_live_cache_is_deferred_not_excluded(self):
         db = FakeDb()
-        db.add(1, 30_000, voters=30_000, comments=1_000, votes=1_650_000)
+        db.add(1, 30_000, voters=20_000, comments=1_000, votes=1_100_000)
         t = make(db)
         t.admission.set_retained(999, 2_000 * MB)  # a cached live conversation
         assert t.sched.step()[0] == "admitted"
@@ -539,7 +539,7 @@ class TestMemoryBudget:
 
     def test_cold_cache_is_evicted_to_make_room(self):
         db = FakeDb()
-        db.add(1, 30_000, voters=30_000, comments=1_000, votes=1_650_000)
+        db.add(1, 30_000, voters=20_000, comments=1_000, votes=1_100_000)
         t = make(db)
         t.admission.set_retained(999, 2_000 * MB)
         t.admission.set_evictor(lambda shortfall, protect: t.admission.drop_retained(999))
@@ -557,7 +557,7 @@ class TestMemoryBudget:
         # Same dimensions, far more fetched rows: the reservation grows.
         db = FakeDb()
         db.add(1, 1_000, voters=1_000, comments=1_000, votes=55_000)
-        db.add(2, 999, voters=1_000, comments=1_000, votes=9_000_000)
+        db.add(2, 999, voters=1_000, comments=1_000, votes=4_000_000)
         t = make(db, concurrency=2, max_votes_per_min=100_000_000)
         assert t.sched.step()[0] == "admitted"
         sparse = t.sched._in_flight[1].need_bytes
@@ -565,7 +565,7 @@ class TestMemoryBudget:
         t.host.pending.discard(1)
         assert t.sched.step()[0] == "admitted"
         dense = t.sched._in_flight[2].need_bytes
-        assert dense - sparse == pytest.approx(1.15 * 413 * (9_000_000 - 55_000), rel=1e-6)
+        assert dense - sparse == pytest.approx(1.15 * 1000 * (4_000_000 - 55_000), rel=1e-6)
 
     def test_a_backfill_job_never_waits_beside_live_work_it_defers(self):
         db = FakeDb()
@@ -896,6 +896,129 @@ class TestGate:
             assert part in caplog.text
         t.sched.approve_gate()
         assert drain(t) == [3, 4, 5]
+
+    def test_gate_records_every_attempt_but_counts_publications(self, tmp_path, caplog):
+        # P-073 x.34: an attempt that ran and then failed its postcondition
+        # after a large increment must appear in the gate table.
+        db = FakeDb()
+        db.add(1, 900, voters=900, comments=50, votes=40_000)
+        db.add(2, 800)
+        db.add(3, 700)
+        db.add(4, 600)
+        t = make(db, gate_after_largest=2, max_votes=10_000_000,
+                 state_path=str(tmp_path / "s.json"))
+        orig = t.sched._store.coherent
+
+        def coherent(zid):
+            if zid == 1:
+                raise RuntimeError("connection lost")
+            return orig(zid)
+
+        t.sched._store.coherent = coherent
+
+        def spike(zid):
+            t.rss["v"] = (4_870 if zid == 1 else 520) * MB
+
+        t.host.during_compute = spike
+        caplog.set_level("WARNING")
+        statuses = []
+        for _ in range(20):
+            status, _ = t.sched.step()
+            statuses.append(status)
+            if status == "admitted":
+                zid = t.host.submitted[-1]
+                t.sched.run_job(zid)
+                t.host.pending.discard(zid)
+                t.rss["v"] = 500 * MB
+            elif status == "gate":
+                break
+        assert status == "gate"
+        st = t.sched._state
+        assert st.gate_published == 2
+        outcomes = [(r["zid"], r["outcome"]) for r in st.gate_records]
+        assert outcomes == [(1, bf.FAILED_POSTCONDITION), (2, bf.PUBLISHED), (3, bf.PUBLISHED)]
+        failed = st.gate_records[0]
+        assert failed["peak_rss_delta_mb"] == pytest.approx(4_370.0)
+        assert "GATE zid=1 outcome=failed_postcondition" in caplog.text
+        assert "observed_increment_mb=4370.0" in caplog.text
+        assert "3 attempts follow" in caplog.text
+        assert st.top_memory[0]["zid"] == 1
+        assert st.top_memory[0]["outcome"] == bf.FAILED_POSTCONDITION
+        assert {r["zid"] for r in st.top_seconds} == {1, 2, 3}
+
+    def test_gate_report_waits_for_jobs_admitted_before_the_threshold(self, caplog):
+        # Concurrency 2, gate after 1: job 2 was admitted before job 1's
+        # publication reached the threshold and finishes after it. It must
+        # be in the table and in the once-only report.
+        db = FakeDb()
+        db.add(1, 900)
+        db.add(2, 800)
+        db.add(3, 700)
+        t = make(db, concurrency=2, gate_after_largest=1)
+        assert t.sched.step()[0] == "admitted"
+        assert t.sched.step()[0] == "admitted"
+        assert sorted(t.sched._in_flight) == [1, 2]
+        t.sched.run_job(1)
+        t.host.pending.discard(1)
+        caplog.set_level("WARNING")
+        assert t.sched.step()[0] == "gate"  # draining: no new admission, no report yet
+        assert "math-backfill GATE run=" not in caplog.text
+        orig = t.sched._store.coherent
+
+        def coherent(zid):
+            if zid == 2:
+                raise RuntimeError("connection lost")
+            return orig(zid)
+
+        t.sched._store.coherent = coherent
+        t.host.during_compute = lambda zid: t.rss.__setitem__("v", 3_917 * MB)
+        t.sched.run_job(2)
+        t.host.pending.discard(2)
+        assert t.sched.step()[0] == "gate"
+        st = t.sched._state
+        assert [(r["zid"], r["outcome"]) for r in st.gate_records] == [
+            (1, bf.PUBLISHED), (2, bf.FAILED_POSTCONDITION)]
+        assert st.gate_published == 1
+        assert "2 attempts follow" in caplog.text
+        assert "GATE zid=2 outcome=failed_postcondition" in caplog.text
+        assert caplog.text.count("math-backfill GATE run=") == 1
+        assert t.sched.step()[0] == "gate"
+        assert caplog.text.count("math-backfill GATE run=") == 1
+        assert 3 not in t.host.submitted
+
+    def test_gate_table_cap_never_drops_publications_below_the_gate_size(self):
+        rows = []
+        for zid in range(1, 60):
+            rows = bf._gate_append(rows, bf.Record(zid, "missing", bf.PUBLISHED), 61)
+        assert len(rows) == 59
+
+    def test_gate_records_size_refusals(self, tmp_path):
+        db = FakeDb()
+        db.add(1, 900, votes=50)
+        db.add(2, 800, votes=5)
+        t = make(db, gate_after_largest=1, max_votes=10)
+        drain_until_gate = [t.sched.step()[0] for _ in range(2)]
+        assert drain_until_gate[0] == bf.REFUSED_INPUT_SIZE
+        assert [r["outcome"] for r in t.sched._state.gate_records] == [bf.REFUSED_INPUT_SIZE]
+        assert t.sched._state.gate_published == 0
+        assert t.sched._state.top_memory == []
+
+    def test_gate_table_is_bounded_and_keeps_the_largest_peaks(self):
+        rows = []
+        for zid in range(1, bf.GATE_RECORDS_MAX + 6):
+            rec = bf.Record(zid, "missing", bf.FAILED_WRITE if zid > 1 else bf.PUBLISHED,
+                            peak_rss_delta_mb=float(zid))
+            rows = bf._gate_append(rows, rec)
+        assert len(rows) == bf.GATE_RECORDS_MAX
+        zids = [r["zid"] for r in rows]
+        assert 1 in zids  # a publication is never dropped
+        assert min(z for z in zids if z != 1) == 7  # the smallest others made room
+
+    def test_top_lists_keep_a_zids_largest_attempt(self):
+        big = bf.Record(7, "missing", bf.FAILED_POSTCONDITION, peak_rss_delta_mb=5000.0)
+        small = bf.Record(7, "missing", bf.PUBLISHED, peak_rss_delta_mb=10.0)
+        rows = bf._top10(bf._top10([], big, "peak_rss_delta_mb"), small, "peak_rss_delta_mb")
+        assert [(r["zid"], r["outcome"]) for r in rows] == [(7, bf.FAILED_POSTCONDITION)]
 
     def test_gate_state_survives_a_same_configuration_restart(self, tmp_path):
         db = FakeDb()
