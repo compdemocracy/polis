@@ -825,12 +825,22 @@ async function main() {
       if (expected.manifest[k] !== v) throw Error(`manifest ${k} mismatch`);
   }
   const diffs = [];
+  // Stored votes are compared by meaning (P-078 PR-G): the recording's by its
+  // declaration (artifacts/baseline.sign.json), the live rows by the replay
+  // database's own convention.
+  const conventions = expected
+    ? {
+        expected:
+          require("./compare.cjs").baselineDeclaration().storage_agree_value,
+        actual: await require("./seed-vote.cjs").databaseConvention(pool),
+      }
+    : null;
   const { results, fatal } = await executeCases(
     planned,
     (c) => runCase(c, tokens, selected, norm),
     (actual, i) => {
       const field = expected
-        ? firstDifference(expected.cases[i], actual)
+        ? firstDifference(expected.cases[i], actual, conventions)
         : null;
       diffs.push({
         route: actual.routeId,

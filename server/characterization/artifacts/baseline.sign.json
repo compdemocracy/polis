@@ -1,0 +1,16 @@
+{
+  "schema": "declared-vote-sign/1",
+  "fixture": "baseline.json.gz",
+  "fixture_sha256": "28adb5a15cc5f0a99b6957eb334148d6d6e6e59ec7380fad04aa58dac5f6b28c",
+  "storage_agree_value": -1,
+  "stored_vote_tables": ["pg:votes", "pg:votes_latest_unique"],
+  "stored_vote_field": "vote",
+  "cases": {
+    "case-0528": "r77/unauthenticated/effects",
+    "case-0529": "r77/participant/effects",
+    "case-0530": "r77/owner/effects",
+    "case-0531": "r77/admin/effects"
+  },
+  "not_storage": "request.body.vote of POST /api/v3/votes is a WIRE value (agree = -1, frozen by ruling R-wire), not a stored one; it is compared as recorded.",
+  "basis": "The 1,265-case characterization baseline was recorded against a database at agree = -1. Its only stored vote values are the database effect rows of cases 0528-0531 (POST /api/v3/votes). compare.cjs reads each one through this declaration, and the live rows through the replay database's own convention, and compares their meaning; the recorded bytes are not rewritten (P-078 1d)."
+}

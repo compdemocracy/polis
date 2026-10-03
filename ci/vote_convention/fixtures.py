@@ -9,11 +9,10 @@ and later writes it back in the storage convention under test with
 Sources:
 
 * ``pca2``: the 60 conversations of ``server/characterization/pca2-fixtures.json``,
-  regenerated with the same RNG, draws and SQL shape as
-  ``server/characterization/seed-pca2.py`` (which writes its draws into ``votes``
-  as raw storage values, agree = -1).
+  from the one definition of their draw (``server/characterization/pca2_votes.py``,
+  shared with ``seed-pca2.py``) through its declaration ``pca2-fixtures.sign.json``.
 * ``near_tie``, ``revote/<seed>``: the replay harness fixtures, through their
-  ``*.sign.json`` companions.
+  ``*.sign.json`` companions (``delphi/tests/vote_fixtures.load_declared``).
 * ``battery/<name>``: the two real conversations of the public battery. Their
   ``*-votes.csv`` files are exports, already in the export sign (agree = +1,
   ``EXPORT_AGREE_VALUE``) and stay valid as committed.
@@ -21,24 +20,22 @@ Sources:
 from __future__ import annotations
 
 import csv
-import hashlib
-import json
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-import numpy as np
-
 ROOT = Path(__file__).resolve().parents[2]
+sys.path[:0] = [str(ROOT / "server/characterization"), str(ROOT / "delphi/tests")]
 
 from polismath.utils.vote_convention import (  # noqa: E402  (PYTHONPATH=delphi)
     EXPORT_AGREE_VALUE,
     semantic_vote,
-    validate_storage_agree_value,
 )
+import pca2_votes  # noqa: E402  (the pca2 draw, declared)
+from vote_fixtures import load_declared, read_vote  # noqa: E402  (the fixture vote helper)
 
 CLOCK = 1700000000000  # seed-pca2.py's pinned clock
-PCA2_DECLARED = -1  # seed-pca2.py:66-68 writes rng draws into votes as raw storage values
 GATE_MATH_ENV = "p027"  # the server reads this math_env; pca2 rows keep their own
 
 
@@ -60,35 +57,15 @@ class Conversation:
     comment_txt: Dict[int, str] = field(default_factory=dict)
 
 
-def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def declared(companion: Path) -> Tuple[dict, int]:
-    meta = json.loads(companion.read_text())
-    if meta.get("schema") != "declared-vote-sign/1":
-        raise ValueError(f"{companion}: not a declared-vote-sign/1 companion")
-    fixture = companion.parent / meta["fixture"]
-    if sha256(fixture) != meta["fixture_sha256"]:
-        raise ValueError(f"{companion}: {fixture.name} changed after its sign was declared")
-    return json.loads(fixture.read_text()), validate_storage_agree_value(meta["storage_agree_value"])
-
-
 def _semantic_rows(rows, agree_value: int):
-    return [(int(p), int(t), int(semantic_vote(int(v), agree_value)), int(c)) for p, t, v, c in rows]
+    return [(int(p), int(t), read_vote(v, agree_value), int(c)) for p, t, v, c in rows]
 
 
 def pca2() -> List[Conversation]:
-    fixtures = json.loads((ROOT / "server/characterization/pca2-fixtures.json").read_text())
     out = []
-    for f in fixtures:
+    for f in pca2_votes.fixtures():
         zid, nc, npart = f["zid"], f["comments"], f["participants"]
-        rng = np.random.RandomState(f["seed"])
-        votes = []
-        for pid in range(npart):
-            for tid in range(nc):
-                raw = int(rng.choice([-1, 0, 1], p=[.45, .1, .45]))  # seed-pca2.py:66-67 draw
-                votes.append((pid, tid, int(semantic_vote(raw, PCA2_DECLARED)), CLOCK))
+        votes = [(pid, tid, vote, CLOCK) for pid, tid, vote in pca2_votes.semantic_votes(f)]
         mod = 0 if f["shape"] == "zero-approved" else 1
         out.append(Conversation(
             zid=zid, source="pca2", owner=4 if f["shape"] == "foreign" else 1,
@@ -118,9 +95,9 @@ def _stream(zid: int, source: str, rows, replay=None) -> Conversation:
 def replay_fixtures() -> List[Conversation]:
     base = ROOT / "delphi/tests/replay_harness/fixtures"
     out = []
-    near, s = declared(base / "near_tie_votes.sign.json")
+    near, s = load_declared(base / "near_tie_votes.sign.json")
     out.append(_stream(9001, "near_tie", _semantic_rows(near["votes"], s), replay={"cuts": near["cuts"]}))
-    revote, s = declared(base / "revote_column_order.sign.json")
+    revote, s = load_declared(base / "revote_column_order.sign.json")
     for i, case in enumerate(revote["cases"]):
         out.append(_stream(9101 + i, f"revote/{case['seed']}", _semantic_rows(case["votes"], s),
                            replay={"cuts": case["cuts"], "expected": case["expected"]}))
