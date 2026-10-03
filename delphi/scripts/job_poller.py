@@ -1327,6 +1327,11 @@ class JobProcessor:
 KNOWN_JOB_TYPES = frozenset({'FULL_PIPELINE', 'CREATE_NARRATIVE_BATCH', 'AWAITING_NARRATIVE_BATCH'})
 
 
+#: include_moderation is pinned to True (moderated-out comments are dropped)
+#: until honouring an explicit false is ruled on; see report_filter_flags.
+INCLUDE_MODERATION_PINNED = True
+
+
 def report_filter_flags(job_config: Dict[str, Any]) -> tuple:
     """The two report-filter flags a job passes to its script.
 
@@ -1334,10 +1339,11 @@ def report_filter_flags(job_config: Dict[str, Any]) -> tuple:
     ``job_config``; ``POST /delphi/batchReports`` nests it under
     ``stages[0].config``. Both are read, nested first.
 
-    When a job does not say, ``include_moderation`` is True (moderated-out
-    comments are dropped) and ``exclude_comment_selections`` is True. Those are
-    the values every job has actually run with: the scripts used to parse
-    ``--include_moderation=False`` as True.
+    ``include_moderation`` is read and parsed but then pinned to True
+    (moderated-out comments are dropped), with one log line if a job asked for
+    false: the scripts used to parse ``--include_moderation=False`` as True, so
+    True is what every job has run with, and honouring false awaits a ruling.
+    ``exclude_comment_selections`` defaults to True when a job does not say.
     """
     # Imported here, not at module load: the poller must still boot (and fail
     # just this job) if the polismath package were ever missing.
@@ -1355,7 +1361,17 @@ def report_filter_flags(job_config: Dict[str, Any]) -> tuple:
                 return parse_bool_flag(value)
         return default
 
-    return read('include_moderation', True), read('exclude_comment_selections', True)
+    requested = read('include_moderation', True)
+    if not requested:
+        # Pinned pending a ruling. -2 is the default moderation level of every
+        # report, and the report UI sends include_moderation=false for -2, so
+        # honouring false would put moderated-out comments into topics, topic
+        # names and narrative prompts for every default report. Until that is
+        # decided, jobs keep running with the value they have always had.
+        logger.warning(
+            "include_moderation=false requested; pinned to true pending a ruling "
+            "(moderated-out comments stay excluded)")
+    return INCLUDE_MODERATION_PINNED, read('exclude_comment_selections', True)
 
 
 def should_process_job(instance_type: str, job_actual_size: str) -> bool:
