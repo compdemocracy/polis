@@ -128,6 +128,12 @@ export default {
   mathEnv: process.env.MATH_ENV as string,
   nodeEnv: process.env.NODE_ENV as string,
   isTesting: isTrue(process.env.TESTING),
+  // OFFLINE=1 (or true): the server runs on a box with no network. It skips
+  // the hosted services it would otherwise call: the Auth0 Management lookup
+  // in isProConvo, the Akismet key check, dd-trace, Google Translate and (when
+  // SES_ENDPOINT is unset) SES. Unset, nothing changes. See
+  // src/utils/offline.ts and docs/configuration.md.
+  offline: isTrue(process.env.OFFLINE),
   openaiApiKey: process.env.OPENAI_API_KEY || null,
   // Protected operations pages (/api/v3/ops/*, /ops in the admin console).
   // Off unless OPS_ENABLED=true; see docs/configuration.md.

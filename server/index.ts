@@ -6,8 +6,10 @@ import app from "./app";
 import Config from "./src/config";
 import { startNotificationLoop } from "./src/routes/notify";
 import logger from "./src/utils/logger";
+import { logOfflineSkips, shouldInitTracer } from "./src/utils/offline";
 
-if (Config.nodeEnv === "production") {
+// Production mode starts dd-trace, except with OFFLINE set (no agent to reach).
+if (shouldInitTracer(Config)) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-var-requires
   const tracer = require("dd-trace").init();
 }
@@ -23,6 +25,7 @@ function startServer(port = Config.serverPort) {
   return server;
 }
 
+logOfflineSkips(Config);
 startNotificationLoop();
 startServer();
 

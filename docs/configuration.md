@@ -158,6 +158,17 @@ The admin console can show read-only, aggregate operations pages at `/ops` (serv
 
 A request is let through only when, in this order: `OPS_ENABLED=true`; it carries an OIDC access token that passes the server's issuer, audience and signature checks (participant, XID and anonymous tokens do not); the token's `${AUTH_NAMESPACE}connection_strategy` claim is `google-oauth2`; `${AUTH_NAMESPACE}email_verified` is `true`; `${AUTH_NAMESPACE}email` is printable ASCII and matches `OPS_EMAIL_DOMAINS` with no deny entry matching; and `${AUTH_NAMESPACE}hd` equals the email's domain (required when the email is admitted by a domain entry, optional for an address entry). The identity provider must add the `connection_strategy` claim (and `hd` when the login has one); until it does, every request is refused. Refusals answer 403 `polis_err_ops_forbidden`. Refused page reads with a token are logged as `ops_access` lines with the reason; other refusals (mostly the admin console's `whoami` check for logins without access) are counted and summarised in at most one `ops_refused` info line per minute per process. An ops request does not create or update any user record.
 
+### Offline mode (server)
+
+- **`OFFLINE`** Set to `1` or `true` (also `yes`, `on`) when the server runs on a box with no network. Read at [config](../server/src/config.ts) as `offline`; Compose forwards it to the `server` service with fallback empty. Unset, which is the default, nothing changes. When it is set, the server does not call these hosted services, and logs one `OFFLINE: skipping ...` info line per skipped service at start-up ([offline.ts](../server/src/utils/offline.ts)); nothing is logged per request.
+  - **Auth0 Management API.** `isProConvo` ([comments.ts](../server/src/routes/comments.ts)), called on each participant comment post and on comment lists filtered by `mod_gt`, answers `false` without a lookup. `false` is what the function already returns on any error, so an offline box gets today's result without waiting for the network to fail, and the pro moderation it gates (Gemini and ip-api.com, [moderation.ts](../server/src/utils/moderation.ts)) is never reached.
+  - **Akismet.** The API-key check at start-up ([server.ts](../server/src/server.ts)) is not run. Nothing else calls Akismet.
+  - **dd-trace.** Production mode does not initialise the tracer ([index.ts](../server/index.ts)).
+  - **Google Translate.** `SHOULD_USE_TRANSLATION_API` is ignored: no client is built, comments are not translated, and new comments are stored with no language, as when `SHOULD_USE_TRANSLATION_API` is off ([comment.ts](../server/src/comment.ts)).
+  - **SES.** With `SES_ENDPOINT` unset the SDK would reach real AWS, so each email is not sent: the send reports success with no message id and logs `polis_email_not_sent_offline` at debug level with the subject only ([senders.ts](../server/src/email/senders.ts)). With `SES_ENDPOINT` set (for example the `ses-local` inbox) mail is sent there as usual.
+
+  Not changed by the flag: GA4 and Simple Analytics are client-side; DynamoDB, S3 and SQS clients follow their endpoint settings; the report narrative and collective statement need an Anthropic or OpenAI key and fail without one.
+
 ### Third Party API Credentials
 
 (Requirements depend on the selected integration and launch path. Missing values do not universally disable a feature cleanly; constructors and request paths can fail. See the [service inventory](deployment-configuration.md#external-service-touchpoints).)
