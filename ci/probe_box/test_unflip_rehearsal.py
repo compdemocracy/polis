@@ -1383,6 +1383,23 @@ class StepMachine(unittest.TestCase):
         self.sql(db, "INSERT INTO votes (zid, pid, tid, vote) VALUES (1, 98, 0, -1)")
         self.assertEqual(self.sql(db, "SELECT vote FROM vote_insert(1, 98, 1, 1::smallint)"), [(-1,)])
 
+    def test_engine_digest_on_a_json_column_ignores_the_blob_tick(self):
+        """Production's math_main.data is json (the migrations create jsonb)."""
+        db = self.clone()
+        self.sql(db, 'ALTER TABLE math_main ALTER COLUMN data TYPE json USING data::json')
+        self.assertEqual(self.sql(db, "SELECT data_type FROM information_schema.columns "
+                                      "WHERE table_name = 'math_main' AND column_name = 'data'"), [('json',)])
+        for tick in (25001, 25002):
+            self.sql(db, "DELETE FROM math_main WHERE math_env = 'probe'")
+            self.sql(db, "INSERT INTO math_main (zid, math_env, data, last_vote_timestamp) VALUES (1, 'probe', %s, 0)",
+                     (json.dumps({'counts': [1, 2], 'math_tick': tick}),))
+            q = u.parse_queries(QUERIES)
+            rows = self.sql(db, q['engine_rows'][0], {'label': 'probe', 'zids': [1]})
+            if tick == 25001:
+                first = rows
+        self.assertEqual(rows, first)
+        self.assertEqual(len(rows), 1)
+
     def test_lock_wait_above_budget_refuses(self):
         db = self.clone()
         q = u.parse_queries(QUERIES)

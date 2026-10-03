@@ -118,7 +118,7 @@
         "migration_sql_sha256": "3e67e0ab857d49c79462a78ee7013b1b5ad2d41db4ffe21fb930470223adb1f3",
         "min_free_storage_gb": 30,
         "mode": "flip",
-        "queries_sha256": "1a136837809c647845d46ac4d87edaa76ebf4a704aab387f1a64d7bcc7793416",
+        "queries_sha256": "5212e871864fabbab96960beb9953f6967a412721b9a86c6e2942e412a8c1012",
         "r2_host_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
         "restore_observed": {
           "allocated_storage_gb": 60,

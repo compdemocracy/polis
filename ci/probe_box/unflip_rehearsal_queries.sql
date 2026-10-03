@@ -144,7 +144,8 @@ SELECT (SELECT s.semantic_vote::int FROM public.votes_semantic s
 -- name: engine_rows
 -- The blob's own math_tick is engine-local wall-clock (the server overwrites it
 -- from the column); it is dropped from the digest, as in the engine-rebuild tool.
-SELECT m.zid, pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to((m.data - 'math_tick')::text, 'UTF8')), 'hex') AS digest
+-- data is json on production and jsonb in the migrations; the cast covers both.
+SELECT m.zid, pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to((m.data::jsonb - 'math_tick')::text, 'UTF8')), 'hex') AS digest
   FROM public.math_main m WHERE m.math_env = %(label)s AND m.zid = ANY(%(zids)s) ORDER BY m.zid;
 
 -- name: engine_clear
