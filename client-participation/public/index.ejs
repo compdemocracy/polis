@@ -33,7 +33,6 @@
       window.preload = "REPLACE_THIS_WITH_PRELOAD_DATA";
       window.version = "<%= versionString %>";
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/jwt-decode@latest/build/jwt-decode.min.js"></script>
 
     <style>
       .displaynone {
@@ -156,9 +155,26 @@
           return _hasOidcInStorage(window.localStorage) || _hasOidcInStorage(window.sessionStorage);
         }
 
+        // Reads the payload of a JWT the same way jwt-decode 3.x did (base64url,
+        // UTF-8, JSON). Inlined so the page loads no script from a CDN.
+        // It throws on a missing or malformed token, as jwt_decode did.
+        function decodeJwtPayload(token) {
+          var b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+          while (b64.length % 4) {
+            b64 += '=';
+          }
+          var json = decodeURIComponent(
+            atob(b64).replace(/(.)/g, function (m, c) {
+              var code = c.charCodeAt(0).toString(16).toUpperCase();
+              return '%' + (code.length < 2 ? '0' + code : code);
+            })
+          );
+          return JSON.parse(json);
+        }
+
         try {
             let XPT__ = getOidcToken();
-            window.POLIS_DELPHI_ENABLED = jwt_decode(XPT__)['<%= authNamespace %>delphi_enabled'];
+            window.POLIS_DELPHI_ENABLED = decodeJwtPayload(XPT__)['<%= authNamespace %>delphi_enabled'];
           } catch (error) {
             console.error(error);
           }
