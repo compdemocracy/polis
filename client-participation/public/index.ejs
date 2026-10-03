@@ -17,9 +17,11 @@
       </script>
     <% } %>
 
-    <!-- 100% privacy-first analytics -->
+    <!-- 100% privacy-first analytics: production builds only, and never when OFFLINE is set -->
+    <% if (simpleAnalytics) { %>
     <script data-collect-dnt="true" async src="https://scripts.simpleanalyticscdn.com/latest.js"></script>
     <noscript><img src="https://queue.simpleanalyticscdn.com/noscript.gif?collect-dnt=true" alt="" referrerpolicy="no-referrer-when-downgrade"/></noscript>
+    <% } %>
 
     <!-- REPLACE_THIS_WITH_FB_META_TAGS -->
 

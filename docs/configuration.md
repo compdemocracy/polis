@@ -119,6 +119,10 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 - **`SHOULD_USE_TRANSLATION_API`** Set this to `true` if using Google translation service. See [Enabling Comment Translation](#enabling-comment-translation) below.
 - **`USE_NETWORK_HOST`** Set this to `true` if using server within an internal network (e.g. AWS) such that SSL is not required.
 
+### Client Build Flags
+
+- **`OFFLINE`** Build-time flag for the web clients. The client-admin, client-participation and client-report webpack configs read it when the `file-server` image is built ([client-report](../client-report/webpack.common.js), [client-participation](../client-participation/webpack.config.js), [client-admin](../client-admin/webpack.config.js)); pass it with `--build-arg OFFLINE=1`, which each client stage of [file-server/Dockerfile](../file-server/Dockerfile) declares. Set it to `1` or `true` to build pages for a box with no network: the Simple Analytics tag is left out of all three. Unset, which is the default and what pol.is builds with, production-mode builds keep the tag. Development-mode builds (`npm run dev`, `build:dev`, the dev servers) never include it. Compose does not pass this build argument yet.
+
 ### URL/Hostname Settings
 
 - **`API_DEV_HOSTNAME`** defaults to `localhost:5000` in [config:5](../server/src/config.ts#L5); set it to the development hostname and port you actually use.
