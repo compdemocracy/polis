@@ -118,6 +118,24 @@ def main(script):
                      batches=[{"provider": "anthropic", "batch_id": frame["provider"]["batch_id"],
                                "submitted_at": iso(datetime.now(timezone.utc))}])))
         return 0
+    if mode.startswith("invalid:"):
+        # Schema-invalid manifests that must never finalize.
+        m = manifest("succeeded", phase)
+        mutation = mode.split(":", 1)[1]
+        if mutation == "empty_inputs":
+            m["inputs"] = {}
+        if mutation == "bad_tick":
+            m["inputs"]["math_tick"] = "unusable"
+        if mutation == "empty_models":
+            m["models"] = {}
+        if mutation == "missing_duration":
+            del m["duration_ms"]
+        if mutation == "extra_key":
+            m["unexpected"] = True
+        if mutation == "wrong_identity":
+            m["job_id"] = "00000000-0000-4000-8000-000000000099"
+        write_atomic(out, canonical(m))
+        return 0
     if mode == "success":
         write_atomic(out, canonical(manifest("succeeded", phase)))
         return 0

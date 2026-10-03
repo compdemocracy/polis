@@ -35,8 +35,8 @@
           "store": {"const": "dynamodb"},
           "family": {"type": "string", "minLength": 1},
           "table": {"type": "string", "minLength": 1},
-          "key_prefix": {"type": "object", "additionalProperties": {"type": "string"}},
-          "keys": {"type": "array", "items": {"type": "object"}},
+          "key_prefix": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string"}},
+          "keys": {"type": "array", "items": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string"}}},
           "rows": {"type": "integer", "minimum": 0}
         },
         "oneOf": [{"required": ["key_prefix"]}, {"required": ["keys"]}]
@@ -75,6 +75,6 @@
       }
     },
     "recheck_after": {"type": ["string", "null"], "format": "date-time", "description": "Set exactly when outcome is parked."},
-    "duration_ms": {"type": ["integer", "null"], "minimum": 0}
+    "duration_ms": {"type": "integer", "minimum": 0}
   }
 }
