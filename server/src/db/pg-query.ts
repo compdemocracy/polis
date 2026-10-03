@@ -6,6 +6,7 @@ import QueryStream from "pg-query-stream";
 import Config from "../config";
 import logger from "../utils/logger";
 import { MPromise } from "../utils/metered";
+import { QUERY_ABORTED, streamControl } from "./streamControl";
 
 // # DB Connections
 //
@@ -218,25 +219,46 @@ function stream_queryP_readOnly(
   onError: (error: Error) => void
 ) {
   const query = new QueryStream(queryString, params);
+  // Captured now: the pool callback below may run outside the caller's context.
+  const control = streamControl.getStore();
+  const signal = control?.signal;
+  const output = control?.output;
 
   readPool.connect((err, client, done) => {
     if (err) {
       onError(err);
       return;
     }
+    if (signal?.aborted) {
+      done();
+      onError(new Error(QUERY_ABORTED));
+      return;
+    }
 
     const stream = client.query(query);
 
+    // Destroying the stream closes its cursor; the error path below then
+    // discards the client, so nothing of the query outlives the abort.
+    const onAbort = () => stream.destroy(new Error(QUERY_ABORTED));
+    signal?.addEventListener("abort", onAbort, { once: true });
+    const detach = () => signal?.removeEventListener("abort", onAbort);
+
     stream.on("data", (row: QueryResult) => {
       onRow(row);
+      if (output && output.writableNeedDrain && !stream.isPaused()) {
+        stream.pause();
+        output.once("drain", () => stream.resume());
+      }
     });
 
     stream.on("end", () => {
+      detach();
       done();
       onEnd();
     });
 
     stream.on("error", (error: Error) => {
+      detach();
       done(error);
       onError(error);
     });

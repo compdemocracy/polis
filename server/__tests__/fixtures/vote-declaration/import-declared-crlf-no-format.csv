@@ -1,0 +1,3 @@
+# vote-convention: disagree=-1; agree=+1; pass=0
+vote_id,user_id,vote_value,timestamp,comment_id
+v1,public-one,1,2024-01-01T00:00:00Z,comment-one

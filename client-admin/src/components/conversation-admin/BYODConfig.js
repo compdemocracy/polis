@@ -122,6 +122,14 @@ const BYODConfig = () => {
                 </pre>
                 vote_value MUST follow the pattern: 1 = agree, -1 = disagree, 0 = neutral/pass
                 <br />
+                Optionally, the file may declare this sign on a{' '}
+                <code># vote-convention:</code> first line before the header; a file that declares
+                any other sign is refused. See{' '}
+                <a href="https://github.com/compdemocracy/polis/blob/edge/docs/export-format.md">
+                  docs/export-format.md
+                </a>
+                .
+                <br />
               </>
               <Box sx={{ mt: 2, display: 'block' }}>
                 <input onChange={handleFileChange} type="file" id="csvFile" accept=".csv"></input>
