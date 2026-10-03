@@ -60,7 +60,10 @@ fn is_timestamp(s: &str) -> bool {
         && b[13] == b':'
         && b[16] == b':'
         && b[..4].iter().all(u8::is_ascii_digit)
-        && (s.ends_with('Z') || s.ends_with('z') || s[19..].contains('+') || s[19..].contains('-'))
+        && (s.ends_with('Z')
+            || s.ends_with('z')
+            || s.get(19..)
+                .is_some_and(|t| t.contains('+') || t.contains('-')))
 }
 
 fn object(v: &Value, name: &'static str) -> Result<(), Invalid> {
@@ -258,6 +261,23 @@ mod tests {
             let mut bad = v.clone();
             bad[key] = value;
             assert!(check(&bad).is_err(), "{key}");
+        }
+    }
+
+    #[test]
+    fn malformed_recheck_after_is_invalid_not_a_panic() {
+        let mut v = fixture(J, A, "delphi_full_pipeline", "parked");
+        for bad in [
+            "2026-10-03T12:00:0é+00:00",
+            "2026-10-03T12:00:00é",
+            "éééééééééééé",
+        ] {
+            v["recheck_after"] = bad.into();
+            assert_eq!(
+                check(&v).err(),
+                Some(Invalid::Field("recheck_after")),
+                "{bad}"
+            );
         }
     }
 

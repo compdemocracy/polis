@@ -232,7 +232,10 @@ impl Db {
             }
             std::thread::sleep(Duration::from_millis(100));
         }
-        panic!("timed out waiting for {what}");
+        panic!(
+            "timed out waiting for {what}; scratch {}",
+            self.scratch.display()
+        );
     }
 
     fn wait_state(&mut self, job: Uuid, state: &str, secs: u64) {
@@ -449,6 +452,18 @@ fn kill_tree(child_pid: i32) {
     }
 }
 
+/// Journal entries (the `.lock` file and temp files are not entries).
+fn journal_entries(dir: &Path) -> usize {
+    fs::read_dir(dir)
+        .map(|r| {
+            r.flatten()
+                .filter(|e| e.file_name().to_string_lossy().ends_with(".json"))
+                .filter(|e| !e.file_name().to_string_lossy().starts_with('.'))
+                .count()
+        })
+        .unwrap_or(0)
+}
+
 fn full() -> Value {
     json!({"include_moderation": false})
 }
@@ -535,9 +550,7 @@ fn happy_path_claims_heartbeats_and_finalizes_with_the_manifest_row() {
     assert!(db.release(&scope), "terminal root with exit proof releases");
     let journal = d.journal.clone();
     assert_eq!(d.stop(), Some(0));
-    db.wait("journal empty", 10, |_| {
-        fs::read_dir(&journal).unwrap().count() == 0
-    });
+    db.wait("journal empty", 10, |_| journal_entries(&journal) == 0);
 }
 
 #[test]
@@ -685,11 +698,16 @@ fn cancel_fences_the_heartbeat_kills_the_group_and_confirms_exit() {
         "child and grandchild gone"
     );
     assert_eq!(db.job(job).0, "cancelled");
-    assert!(
-        d.transitions()
-            .iter()
-            .any(|t| t["to"] == "exit_confirmed:cancelled" && t["reason"] == "cancelled")
-    );
+    // The transition line follows the final RPC (after the heartbeat stops).
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !d
+        .transitions()
+        .iter()
+        .any(|t| t["to"] == "exit_confirmed:cancelled" && t["reason"] == "cancelled")
+    {
+        assert!(Instant::now() < deadline, "{}", d.log());
+        std::thread::sleep(Duration::from_millis(100));
+    }
     assert!(db.release(&scope));
     assert_eq!(d.stop(), Some(0));
 }
@@ -698,11 +716,11 @@ fn cancel_fences_the_heartbeat_kills_the_group_and_confirms_exit() {
 fn stalled_daemon_is_parked_unconfirmed_then_fenced_confirms_and_the_retry_runs_once() {
     let mut db = Db::new("jobs_v2");
     let (job, _) = db.enqueue("delphi_full_pipeline", 1, Some("s1"), full(), 3);
-    let a = start(&db, Opts::new("stall-a", "sleep"));
+    let a = start(&db, Opts::new("stall-a", "sleep_first"));
     db.wait("child pids", 60, |d| pids(d, "stall-a").len() == 2);
     let child_pids = pids(&db, "stall-a");
     a.signal(libc::SIGSTOP);
-    let b = start(&db, Opts::new("stall-b", "success"));
+    let b = start(&db, Opts::new("stall-b", "sleep_first"));
     db.wait("expiry parks exit_unconfirmed", 40, |d| {
         d.job(job).2.as_deref() == Some("exit_unconfirmed")
     });
@@ -750,7 +768,7 @@ fn journal_restart(after_lease: bool) {
     db.wait("child pids", 60, |d| pids(d, "jr-a").len() == 2);
     let leader = pids(&db, "jr-a")[0];
     assert_eq!(
-        fs::read_dir(&journal).unwrap().count(),
+        journal_entries(&journal),
         1,
         "journaled before the child ran"
     );
@@ -779,9 +797,7 @@ fn journal_restart(after_lease: bool) {
         b.log()
     );
     // The entry is deleted once the final RPC has returned.
-    db.wait("journal empty", 10, |_| {
-        fs::read_dir(&journal).unwrap().count() == 0
-    });
+    db.wait("journal empty", 10, |_| journal_entries(&journal) == 0);
     let _ = b.stop();
 }
 
@@ -844,7 +860,7 @@ fn sigterm_mid_job_interrupts_then_the_next_daemon_retries() {
     assert_eq!(att[0].4.as_deref(), Some("interrupted_by_shutdown"));
     assert!(att[0].5);
     assert_eq!(db.job(job).0, "retry_wait");
-    assert_eq!(fs::read_dir(&a.journal).unwrap().count(), 0);
+    assert_eq!(journal_entries(&a.journal), 0);
     let b = start(&db, Opts::new("term-b", "success"));
     db.wait_state(job, "succeeded", 60);
     assert_eq!(db.job(job).1, 2);
@@ -1217,4 +1233,63 @@ fn offline_profile_over_a_unix_socket_finalizes() {
     d.signal(libc::SIGTERM);
     assert_eq!(d.wait_exit(20), Some(0));
     let _ = fs::remove_dir_all(sock_dir);
+}
+
+#[test]
+fn child_timeout_kills_the_group_and_fails_timeout() {
+    let mut db = Db::new("jobs_v2");
+    let (job, _) = db.enqueue("delphi_full_pipeline", 1, Some("to1"), full(), 1);
+    let d = start(
+        &db,
+        Opts::new("timeout", "sleep").set("POLIS_JOBS_CHILD_TIMEOUT_SECONDS", "3"),
+    );
+    db.wait_state(job, "dead", 60);
+    let a = db.attempts(job);
+    assert_eq!(a[0].4.as_deref(), Some("timeout"));
+    assert!(a[0].5, "exit proof after the group was emptied");
+    assert!(pids(&db, "timeout").iter().all(|p| !group_alive(*p)));
+    assert!(
+        !d.transitions().iter().any(|t| t["to"] == "poison"),
+        "timeout is not poison"
+    );
+    let _ = d.stop();
+}
+
+#[test]
+fn exit_6_and_a_malformed_recheck_after_end_the_attempt() {
+    let mut db = Db::new("jobs_v2");
+    let (job, _) = db.enqueue("delphi_full_pipeline", 1, Some("e6"), full(), 1);
+    let d = start(&db, Opts::new("exit6", "exit:6"));
+    db.wait_state(job, "dead", 60);
+    assert_eq!(
+        db.job(job).2.as_deref(),
+        Some("provider_intent_unacknowledged")
+    );
+    assert!(!d.transitions().iter().any(|t| t["to"] == "poison"));
+    let _ = d.stop();
+    // A malformed recheck_after once panicked the job thread and left the
+    // heartbeat renewing: now it is manifest_invalid and the lease is released.
+    let (job, _) = db.enqueue("delphi_full_pipeline", 2, Some("br"), full(), 1);
+    let d = start(&db, Opts::new("badrecheck", "bad_recheck"));
+    db.wait_state(job, "dead", 60);
+    assert_eq!(db.job(job).2.as_deref(), Some("manifest_invalid"));
+    assert!(db.attempts(job)[0].5);
+    let _ = d.stop();
+}
+
+#[test]
+fn a_second_daemon_on_the_same_journal_refuses_to_start() {
+    let db = Db::new("jobs_v2");
+    let journal = db.scratch.join("journal-shared-lock");
+    let mut first = Opts::new("lock-a", "success");
+    first.journal = Some(journal.clone());
+    let a = start(&db, first);
+    std::thread::sleep(Duration::from_secs(2));
+    let mut second = Opts::new("lock-b", "success");
+    second.journal = Some(journal);
+    second.boot = "boot-lock-a".into();
+    let mut b = start(&db, second);
+    assert_eq!(b.wait_exit(20), Some(2), "{}", b.log());
+    assert!(b.log().contains("locked by another polis-jobs process"));
+    assert_eq!(a.stop(), Some(0));
 }

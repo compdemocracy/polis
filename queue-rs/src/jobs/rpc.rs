@@ -28,6 +28,32 @@ pub struct Rpc {
     env: String,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn db(code: &str) -> anyhow::Error {
+        DbError {
+            sqlstate: Some(code.into()),
+            message: "m".into(),
+        }
+        .into()
+    }
+
+    #[test]
+    fn transient_classes() {
+        for code in [
+            "08006", "40001", "40P01", "53300", "55P03", "57014", "57P01", "57P03",
+        ] {
+            assert!(is_transient(&db(code)), "{code}");
+        }
+        for code in ["P0001", "22023", "42501", "23503"] {
+            assert!(!is_transient(&db(code)), "{code}");
+        }
+        assert!(is_transient(&anyhow::anyhow!("connection reset")));
+    }
+}
+
 #[derive(Debug)]
 pub struct DbError {
     pub sqlstate: Option<String>,
@@ -45,6 +71,27 @@ impl std::fmt::Display for DbError {
     }
 }
 impl std::error::Error for DbError {}
+
+/// SQLSTATEs that say "try again", not "no": connection exceptions (08),
+/// transaction rollbacks (40), insufficient resources (53), lock timeout,
+/// statement timeout and server shutdown/failover (57P0x). A non-SQL error
+/// (lost connection, TLS) is transient too.
+pub fn is_transient(error: &anyhow::Error) -> bool {
+    match error.downcast_ref::<DbError>() {
+        None => true,
+        Some(DbError {
+            sqlstate: Some(s), ..
+        }) => {
+            s.starts_with("08")
+                || s.starts_with("40")
+                || s.starts_with("53")
+                || s.starts_with("57P0")
+                || s == "55P03"
+                || s == "57014"
+        }
+        Some(_) => false,
+    }
+}
 
 /// The server's own exception text, when the error came from SQL (`RAISE`).
 pub fn db_message(error: &anyhow::Error) -> Option<String> {

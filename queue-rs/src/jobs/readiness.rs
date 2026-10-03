@@ -28,6 +28,7 @@ impl Counters {
 }
 
 static STDERR: Mutex<()> = Mutex::new(());
+static SEQ: AtomicU64 = AtomicU64::new(0);
 
 /// One whole line to stderr, never interleaved with another line.
 pub fn emit(line: &str) {
@@ -100,6 +101,9 @@ pub fn readiness_line(s: &Snapshot) -> String {
         "fenced_total": c(&s.counters.fenced), "poison_total": c(&s.counters.poison),
         "exit_unconfirmed_total": c(&s.counters.exit_unconfirmed),
         "contract": super::rpc::CONTRACT, "transport": s.transport,
+        "emitted_ms": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64).unwrap_or(0),
+        "seq": SEQ.fetch_add(1, Ordering::Relaxed),
     });
     format!(
         "polis_jobs readiness/1 role=worker progress={} {}",
@@ -192,6 +196,8 @@ mod tests {
             "parked_total",
             "fenced_total",
             "poison_total",
+            "emitted_ms",
+            "seq",
             "in_flight",
             "transport",
             "owner",

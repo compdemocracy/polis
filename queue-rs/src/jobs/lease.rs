@@ -95,9 +95,48 @@ impl Heartbeat {
     }
 
     pub fn stop(mut self) {
+        self.halt();
+    }
+
+    fn halt(&mut self) {
         self.state.stop.store(true, Ordering::SeqCst);
         if let Some(h) = self.handle.take() {
             let _ = h.join();
         }
+    }
+}
+
+/// A job task that unwinds (a panic) drops its heartbeat: renewal stops, the
+/// lease expires and the reaper parks the job `exit_unconfirmed`, instead of
+/// a live lease being renewed for an attempt nobody will end.
+impl Drop for Heartbeat {
+    fn drop(&mut self) {
+        self.halt();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_dropped_heartbeat_stops_its_thread() {
+        let state = Arc::new(LeaseState::default());
+        let shared = state.clone();
+        let handle = std::thread::spawn(move || {
+            while !shared.stop.load(Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        });
+        let hb = Heartbeat {
+            state: state.clone(),
+            handle: Some(handle),
+        };
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+            let _owned = hb;
+            panic!("job task panicked");
+        }));
+        assert!(result.is_err());
+        assert!(state.stop.load(Ordering::SeqCst));
     }
 }
