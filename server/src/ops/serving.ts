@@ -14,17 +14,19 @@
 //   - load balancer request counts, 5xx and response time.
 
 import os from "os";
-import { MetricDataQuery } from "@aws-sdk/client-cloudwatch";
+import type { Metric, MetricDataQuery } from "@aws-sdk/client-cloudwatch";
 import {
   anyPhrase,
   clockLabel,
+  dimension,
+  listMetrics,
   LogRead,
   readLogEvents,
   readMetrics,
   Sender,
   Series,
 } from "./awsReads";
-import { EVENT_WINDOW_MS, LogSource, SERVER_STREAM } from "./engine";
+import { countRows, EVENT_WINDOW_MS, LogSource, SERVER_STREAM } from "./engine";
 import type { OpsQuery } from "./guardedRead";
 import { OpsRow, OpsSourceError, toCount, toNumberOrNull } from "./types";
 
@@ -116,6 +118,12 @@ export const SERVING_EVENTS = [
     label: "Malformed repness repaired",
   },
   {
+    id: "malformed_bidtopid",
+    message: "polis_err_math_malformed_bidtopid",
+    reason: null,
+    label: "Malformed bidtopid entries repaired",
+  },
+  {
     id: "malformed_group_votes",
     message: "polis_err_math_malformed_group_votes",
     reason: null,
@@ -131,18 +139,23 @@ export const SERVING_EVENTS = [
 
 export function readServingEvents(
   src: LogSource,
-  nowMs: number
+  nowMs: number,
+  signal?: AbortSignal
 ): Promise<LogRead> {
-  return readLogEvents(src.logs, {
-    logGroupName: src.logGroupName,
-    stream: SERVER_STREAM,
-    filterPattern: anyPhrase(
-      Array.from(new Set(SERVING_EVENTS.map((e) => e.message)))
-    ),
-    startMs: nowMs - EVENT_WINDOW_MS,
-    endMs: nowMs,
-    maxPages: 10,
-  });
+  return readLogEvents(
+    src.logs,
+    {
+      logGroupName: src.logGroupName,
+      stream: SERVER_STREAM,
+      filterPattern: anyPhrase(
+        Array.from(new Set(SERVING_EVENTS.map((e) => e.message)))
+      ),
+      startMs: nowMs - EVENT_WINDOW_MS,
+      endMs: nowMs,
+      maxPages: 10,
+    },
+    signal
+  );
 }
 
 /**
@@ -179,11 +192,7 @@ export function servingEventRows(read: LogRead, nowMs: number): OpsRow[] {
     if (nowMs - e.ts <= EVENT_WINDOW_MS) day.set(id, (day.get(id) || 0) + 1);
     if (nowMs - e.ts <= HOUR_MS) hour.set(id, (hour.get(id) || 0) + 1);
   }
-  return SERVING_EVENTS.map((k) => ({
-    event: k.label,
-    last_1h: hour.get(k.id) || 0,
-    last_24h: day.get(k.id) || 0,
-  }));
+  return countRows(SERVING_EVENTS, hour, day, read.truncated);
 }
 
 // ---------------------------------------------------------------------------
@@ -193,43 +202,72 @@ export function servingEventRows(read: LogRead, nowMs: number): OpsRow[] {
 export const ALB_PERIOD_S = 300;
 export const ALB_WINDOW_MS = 6 * HOUR_MS;
 
-function albSearch(metric: string, stat: string): string {
-  return `SEARCH('{AWS/ApplicationELB,LoadBalancer} MetricName="${metric}"', '${stat}', ${ALB_PERIOD_S})`;
+// The stack's load balancer (cdk/dns.ts, construct id "Lb", no explicit
+// name): CloudFormation names it "<stack prefix>-Lb<hash prefix>-<random>",
+// so its LoadBalancer dimension is "app/<that name>/<id>". Only that load
+// balancer is read; another one in the region (a probe box's, say) is not.
+export const POLIS_ALB =
+  /^app\/CdkSt[A-Za-z]*-Lb[A-Za-z0-9]*-[A-Za-z0-9]+\/[0-9a-f]+$/;
+
+/** Pure: the stack's LoadBalancer dimension value among listed metrics. */
+export function polisAlb(metrics: Metric[]): string | null {
+  const values = metrics
+    .filter((m) => m.Dimensions?.length === 1)
+    .map((m) => dimension(m, "LoadBalancer"))
+    .filter((v): v is string => typeof v === "string" && POLIS_ALB.test(v))
+    .sort();
+  return values[0] || null;
 }
 
-// Summed over every load balancer in the account and region (production has
-// one); response time is the worst load balancer's percentile.
-export const ALB_QUERIES: MetricDataQuery[] = [
-  {
-    Id: "requests",
-    Expression: `SUM(${albSearch("RequestCount", "Sum")})`,
-    Label: "requests",
-  },
-  {
-    Id: "target5xx",
-    Expression: `SUM(${albSearch("HTTPCode_Target_5XX_Count", "Sum")})`,
-    Label: "target5xx",
-  },
-  {
-    Id: "elb5xx",
-    Expression: `SUM(${albSearch("HTTPCode_ELB_5XX_Count", "Sum")})`,
-    Label: "elb5xx",
-  },
-  {
-    Id: "p50",
-    Expression: `MAX(${albSearch("TargetResponseTime", "p50")})`,
-    Label: "p50",
-  },
-  {
-    Id: "p95",
-    Expression: `MAX(${albSearch("TargetResponseTime", "p95")})`,
-    Label: "p95",
-  },
+// id -> [metric, statistic]
+const ALB_METRICS: [string, string, string][] = [
+  ["requests", "RequestCount", "Sum"],
+  ["target5xx", "HTTPCode_Target_5XX_Count", "Sum"],
+  ["elb5xx", "HTTPCode_ELB_5XX_Count", "Sum"],
+  ["p50", "TargetResponseTime", "p50"],
+  ["p95", "TargetResponseTime", "p95"],
 ];
 
-export function readAlb(cloudwatch: Sender, nowMs: number) {
+export function albQueries(loadBalancer: string): MetricDataQuery[] {
+  return ALB_METRICS.map(([id, name, stat]) => ({
+    Id: id,
+    MetricStat: {
+      Metric: {
+        Namespace: "AWS/ApplicationELB",
+        MetricName: name,
+        Dimensions: [{ Name: "LoadBalancer", Value: loadBalancer }],
+      },
+      Period: ALB_PERIOD_S,
+      Stat: stat,
+    },
+    ReturnData: true,
+  }));
+}
+
+export async function readAlb(
+  cloudwatch: Sender,
+  nowMs: number,
+  signal?: AbortSignal
+) {
+  const listed = await listMetrics(
+    cloudwatch,
+    {
+      namespace: "AWS/ApplicationELB",
+      metricName: "RequestCount",
+      dimensionNames: ["LoadBalancer"],
+    },
+    signal
+  );
+  const lb = polisAlb(listed);
+  if (!lb) throw new OpsSourceError("aws_not_found");
   const end = Math.floor(nowMs / (ALB_PERIOD_S * 1000)) * ALB_PERIOD_S * 1000;
-  return readMetrics(cloudwatch, ALB_QUERIES, end - ALB_WINDOW_MS, end);
+  return readMetrics(
+    cloudwatch,
+    albQueries(lb),
+    end - ALB_WINDOW_MS,
+    end,
+    signal
+  );
 }
 
 /**

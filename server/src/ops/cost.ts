@@ -1,21 +1,24 @@
 // Page S5, "Cost": daily AWS cost by service, from Cost Explorer.
 //
 // Each GetCostAndUsage request is billed ($0.01), so this page is off unless
-// OPS_COST_EXPLORER=1, and one server process makes at most one request per
-// COST_TTL_MS whatever happens (a failure is held for the same time; see
-// SharedRead). One request covers the page: daily UnblendedCost grouped by
+// OPS_COST_EXPLORER=1, and one server process makes at most one read per
+// COST_TTL_MS (12 hours) whatever happens (a failure is held for the same
+// time; see SharedRead). A read is one request, or two when the answer has a
+// second page (MAX_PAGES), so at most two billed requests per process per 12
+// hours. The read is daily UnblendedCost grouped by
 // SERVICE from the first day of last month (or 30 days ago, if earlier)
 // through today, filtered to this account (sts:GetCallerIdentity, which needs
 // no permission), so other accounts in an organization never appear.
-// Cost Explorer lags by about a day; today's and yesterday's figures are
-// still filling.
+// End is exclusive and set to tomorrow (UTC), so today's partial day is
+// included. Cost Explorer lags by about a day; today's and yesterday's
+// figures are still filling.
 
-import { GetCostAndUsageCommand } from "@aws-sdk/client-cost-explorer";
-import { GetCallerIdentityCommand } from "@aws-sdk/client-sts";
 import { awsSend, dayLabel, Sender } from "./awsReads";
 import { OpsRow, OpsSourceError } from "./types";
 
-export const COST_TTL_MS = 15 * 60 * 1000;
+// Cost Explorer refreshes its data a few times a day; one read per 12 hours
+// per process is enough (plan P-074 R2 S5).
+export const COST_TTL_MS = 12 * 60 * 60 * 1000;
 export const DAILY_DAYS = 30;
 export const SERVICES_SHOWN = 10;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -50,8 +53,12 @@ export function costWindow(nowMs: number): { start: string; end: string } {
   };
 }
 
-export async function readAccount(sts: Sender): Promise<string> {
-  const r = await awsSend(sts, new GetCallerIdentityCommand({}));
+export async function readAccount(
+  sts: Sender,
+  signal?: AbortSignal
+): Promise<string> {
+  const { GetCallerIdentityCommand } = await import("@aws-sdk/client-sts");
+  const r = await awsSend(sts, new GetCallerIdentityCommand({}), signal);
   const account = r?.Account;
   if (typeof account !== "string" || !/^\d{12}$/.test(account)) {
     throw new OpsSourceError("aws_malformed");
@@ -64,8 +71,12 @@ const SERVICE = /^[A-Za-z0-9 ()&.,:/_-]{1,80}$/;
 export async function readCost(
   ce: Sender,
   account: string,
-  nowMs: number
+  nowMs: number,
+  signal?: AbortSignal
 ): Promise<CostRead> {
+  const { GetCostAndUsageCommand } = await import(
+    "@aws-sdk/client-cost-explorer"
+  );
   const { start, end } = costWindow(nowMs);
   const days: DailyCost = new Map();
   let token: string | undefined;
@@ -80,7 +91,8 @@ export async function readCost(
         GroupBy: [{ Type: "DIMENSION", Key: "SERVICE" }],
         Filter: { Dimensions: { Key: "LINKED_ACCOUNT", Values: [account] } },
         NextPageToken: token,
-      })
+      }),
+      signal
     );
     for (const period of r?.ResultsByTime || []) {
       const day = period?.TimePeriod?.Start;

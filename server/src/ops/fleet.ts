@@ -15,16 +15,9 @@
 //     revision's type and file name, instance counts and the error code (never
 //     the error message).
 
-import {
-  AutoScalingGroup,
-  DescribeAutoScalingGroupsCommand,
-} from "@aws-sdk/client-auto-scaling";
-import { Metric, MetricDataQuery } from "@aws-sdk/client-cloudwatch";
-import {
-  BatchGetDeploymentsCommand,
-  DeploymentInfo,
-  ListDeploymentsCommand,
-} from "@aws-sdk/client-codedeploy";
+import type { AutoScalingGroup } from "@aws-sdk/client-auto-scaling";
+import type { Metric, MetricDataQuery } from "@aws-sdk/client-cloudwatch";
+import type { DeploymentInfo } from "@aws-sdk/client-codedeploy";
 import {
   awsSend,
   dimension,
@@ -42,7 +35,9 @@ export const CODEDEPLOY_APPLICATION = "PolisApplication";
 export const CODEDEPLOY_GROUP = "PolisDeploymentGroup";
 export const LOAD_WINDOW_MS = 6 * 60 * 60 * 1000;
 export const LOAD_PERIOD_S = 300;
-export const DEPLOY_LOOKBACK_MS = 30 * 24 * 60 * 60 * 1000;
+export const DEPLOY_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
+// At most this many deployments in the window are read (four batch calls).
+export const MAX_DEPLOY_IDS = 100;
 export const DEPLOYS_SHOWN = 8;
 
 // cdk/autoscaling.ts construct ids -> what the group is for.
@@ -82,8 +77,12 @@ function roleRank(role: string): number {
 }
 
 export async function readGroups(
-  autoscaling: Sender
+  autoscaling: Sender,
+  signal?: AbortSignal
 ): Promise<AutoScalingGroup[]> {
+  const { DescribeAutoScalingGroupsCommand } = await import(
+    "@aws-sdk/client-auto-scaling"
+  );
   const out: AutoScalingGroup[] = [];
   let nextToken: string | undefined;
   let pages = 0;
@@ -96,7 +95,8 @@ export async function readGroups(
         ],
         MaxRecords: 100,
         NextToken: nextToken,
-      })
+      }),
+      signal
     );
     out.push(...(page?.AutoScalingGroups || []));
     nextToken = page?.NextToken || undefined;
@@ -169,21 +169,30 @@ export type LoadInputs = {
   disk: Metric[];
 };
 
-export async function listLoadMetrics(cloudwatch: Sender): Promise<LoadInputs> {
+export async function listLoadMetrics(
+  cloudwatch: Sender,
+  signal?: AbortSignal
+): Promise<LoadInputs> {
   const [cpu, mem, disk] = await Promise.all([
-    listMetrics(cloudwatch, {
-      namespace: "AWS/EC2",
-      metricName: "CPUUtilization",
-      dimensionNames: ["AutoScalingGroupName"],
-    }),
-    listMetrics(cloudwatch, {
-      namespace: "CWAgent",
-      metricName: "mem_used_percent",
-    }),
-    listMetrics(cloudwatch, {
-      namespace: "CWAgent",
-      metricName: "used_percent",
-    }),
+    listMetrics(
+      cloudwatch,
+      {
+        namespace: "AWS/EC2",
+        metricName: "CPUUtilization",
+        dimensionNames: ["AutoScalingGroupName"],
+      },
+      signal
+    ),
+    listMetrics(
+      cloudwatch,
+      { namespace: "CWAgent", metricName: "mem_used_percent" },
+      signal
+    ),
+    listMetrics(
+      cloudwatch,
+      { namespace: "CWAgent", metricName: "used_percent" },
+      signal
+    ),
   ]);
   return {
     // Only the per-group aggregate (the one-dimension form).
@@ -220,15 +229,20 @@ export function loadQueries(inputs: LoadInputs): {
   return { queries, tags };
 }
 
-export async function readLoad(cloudwatch: Sender, nowMs: number) {
-  const inputs = await listLoadMetrics(cloudwatch);
+export async function readLoad(
+  cloudwatch: Sender,
+  nowMs: number,
+  signal?: AbortSignal
+) {
+  const inputs = await listLoadMetrics(cloudwatch, signal);
   const { queries, tags } = loadQueries(inputs);
   const end = Math.floor(nowMs / (LOAD_PERIOD_S * 1000)) * LOAD_PERIOD_S * 1000;
   const series = await readMetrics(
     cloudwatch,
     queries,
     end - LOAD_WINDOW_MS,
-    end
+    end,
+    signal
   );
   return { tags, series };
 }
@@ -297,24 +311,45 @@ export function loadRows(read: {
 
 export async function readDeploys(
   codedeploy: Sender,
-  nowMs: number
+  nowMs: number,
+  signal?: AbortSignal
 ): Promise<DeploymentInfo[]> {
-  const list = await awsSend(
-    codedeploy,
-    new ListDeploymentsCommand({
-      applicationName: CODEDEPLOY_APPLICATION,
-      deploymentGroupName: CODEDEPLOY_GROUP,
-      createTimeRange: { start: new Date(nowMs - DEPLOY_LOOKBACK_MS) },
-    })
+  const { BatchGetDeploymentsCommand, ListDeploymentsCommand } = await import(
+    "@aws-sdk/client-codedeploy"
   );
-  // ListDeployments answers newest first; the first 25 cover the rows shown.
-  const ids: string[] = (list?.deployments || []).slice(0, 25);
-  if (ids.length === 0) return [];
-  const batch = await awsSend(
-    codedeploy,
-    new BatchGetDeploymentsCommand({ deploymentIds: ids })
-  );
-  return batch?.deploymentsInfo || [];
+  // ListDeployments' order is not documented, so every id in the window is
+  // read (up to MAX_DEPLOY_IDS) and the newest are chosen by createTime.
+  const ids: string[] = [];
+  let nextToken: string | undefined;
+  let pages = 0;
+  do {
+    const list = await awsSend(
+      codedeploy,
+      new ListDeploymentsCommand({
+        applicationName: CODEDEPLOY_APPLICATION,
+        deploymentGroupName: CODEDEPLOY_GROUP,
+        createTimeRange: { start: new Date(nowMs - DEPLOY_LOOKBACK_MS) },
+        nextToken,
+      }),
+      signal
+    );
+    ids.push(...(list?.deployments || []));
+    nextToken = list?.nextToken || undefined;
+    pages += 1;
+  } while (nextToken && pages < 3 && ids.length < MAX_DEPLOY_IDS);
+  const infos: DeploymentInfo[] = [];
+  const wanted = ids.slice(0, MAX_DEPLOY_IDS);
+  for (let i = 0; i < wanted.length; i += 25) {
+    const batch = await awsSend(
+      codedeploy,
+      new BatchGetDeploymentsCommand({
+        deploymentIds: wanted.slice(i, i + 25),
+      }),
+      signal
+    );
+    infos.push(...(batch?.deploymentsInfo || []));
+  }
+  return infos;
 }
 
 const FILE = /^[A-Za-z0-9._-]{1,80}$/;

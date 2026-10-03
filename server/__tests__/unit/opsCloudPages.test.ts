@@ -163,6 +163,30 @@ function recordedClients(
       }),
       ListMetricsCommand: (input) => {
         const g = asgName("AsgDelphiSmall");
+        if (input.Namespace === "AWS/ApplicationELB") {
+          // The stack's load balancer and another one (a probe box's).
+          return {
+            Metrics: [
+              {
+                Namespace: "AWS/ApplicationELB",
+                MetricName: "RequestCount",
+                Dimensions: [
+                  { Name: "LoadBalancer", Value: "app/probe-alb/0123abcd" },
+                ],
+              },
+              {
+                Namespace: "AWS/ApplicationELB",
+                MetricName: "RequestCount",
+                Dimensions: [
+                  {
+                    Name: "LoadBalancer",
+                    Value: "app/CdkSta-LbA1B2C-Xy12Ab34Cd56/0123456789abcdef",
+                  },
+                ],
+              },
+            ],
+          };
+        }
         if (input.Namespace === "AWS/EC2") {
           return {
             Metrics: [
@@ -555,10 +579,8 @@ describe("pages from recorded answers", () => {
 
   test("serving", async () => {
     setOpsConnectForTests(async () => dbClient() as any);
-    const body = await page(
-      appWith({ pageOptions: { aws: recordedClients() } }),
-      "serving"
-    );
+    const aws = recordedClients();
+    const body = await page(appWith({ pageOptions: { aws } }), "serving");
     for (const p of body.panels) expect(p.status).toBe("ok");
     expect(panel(body, "label").rows[0]).toMatchObject({
       label: "python",
@@ -582,7 +604,25 @@ describe("pages from recorded answers", () => {
     expect(
       refusals.find((r: any) => r.event.includes("repness")).last_24h
     ).toBe(1);
+    expect(
+      refusals.find((r: any) => r.event.includes("bidtopid"))
+    ).toBeDefined();
+    expect(refusals.every((r: any) => r.coverage === "complete")).toBe(true);
     expect(panel(body, "requests").rows.length).toBeGreaterThan(0);
+    // Only the stack's load balancer is read, never the probe box's.
+    const metricCalls = (aws.cloudwatch as any).send.mock.calls
+      .map((c: any) => c[0])
+      .filter((c: any) => c.constructor.name === "GetMetricDataCommand");
+    const lbs = new Set(
+      metricCalls.flatMap((c: any) =>
+        c.input.MetricDataQueries.map(
+          (q: any) => q.MetricStat.Metric.Dimensions[0].Value
+        )
+      )
+    );
+    expect([...lbs]).toEqual([
+      "app/CdkSta-LbA1B2C-Xy12Ab34Cd56/0123456789abcdef",
+    ]);
   });
 
   test("boxes", async () => {
@@ -747,7 +787,7 @@ describe("a read the instance role may not make", () => {
     }
   );
 
-  test("Cost Explorer is asked at most once per 15 minutes, failures included", async () => {
+  test("Cost Explorer is asked at most once per 12 hours, failures included", async () => {
     let now = NOW;
     const ce = fake({ GetCostAndUsageCommand: denied });
     const aws = recordedClients({ costExplorer: ce });
@@ -761,10 +801,10 @@ describe("a read the instance role may not make", () => {
       await page(app, "cost");
       now += 61_000;
       await page(app, "cost");
-      now += 5 * 60_000;
+      now += 6 * 60 * 60_000;
       await page(app, "cost");
       expect(ce.send).toHaveBeenCalledTimes(1);
-      now = NOW + 15 * 60_000 + 1000;
+      now = NOW + 12 * 60 * 60_000 + 1000;
       await page(app, "cost");
       expect(ce.send).toHaveBeenCalledTimes(2);
     } finally {

@@ -21,7 +21,12 @@ import {
   readTicks,
   summarizeStatus,
 } from "../../src/ops/engine";
-import { anyPhrase, awsReason } from "../../src/ops/awsReads";
+import {
+  anyPhrase,
+  awsReason,
+  readLogEvents,
+  withDeadline,
+} from "../../src/ops/awsReads";
 
 // Generated fixture lines, written by the poller's real emitters
 // (delphi/tests/poller/test_ops_fixture_lines.py, which fails if they drift
@@ -240,7 +245,15 @@ describe("log counts", () => {
     const now = T0;
     const rows = eventCountRows(
       events(
-        [now - 1000, "memory admission: RSS read failed (OSError)"],
+        [
+          now - 1000,
+          "2026-10-03 12:00:00,000 WARNING [poll] polismath.poller.admission: memory admission: RSS read failed (OSError)",
+        ],
+        // The same prefix at info (an eviction) is not a warning.
+        [
+          now - 1000,
+          "2026-10-03 12:00:00,000 INFO [poll] polismath.poller.service: memory admission: evicted cached zid=4 (12 MiB)",
+        ],
         [
           now - 2 * 60 * 60 * 1000,
           "PARKING zid=5 after 3 failed attempts (circuit breaker). Last error: x",
@@ -267,6 +280,25 @@ describe("log counts", () => {
       last_1h: 1,
     });
     expect(JSON.stringify(rows)).not.toMatch(/zid|OSError/);
+    expect(rows.every((r) => r.coverage === "complete")).toBe(true);
+  });
+
+  test("a truncated scan is partial: the last hour is unknown, the day a lower bound", () => {
+    const now = T0;
+    const read = events([
+      now - 3 * 60 * 60 * 1000,
+      "PARKING zid=5 after 3 failed attempts (circuit breaker). Last error: x",
+    ]);
+    read.truncated = true;
+    const rows = eventCountRows(read, now, ENGINE_EVENTS);
+    const parked = rows.find((r) =>
+      String(r.event).startsWith("Conversations parked")
+    );
+    expect(parked).toMatchObject({
+      last_1h: null,
+      last_24h: 1,
+      coverage: "partial",
+    });
   });
 
   test("filter patterns are OR'd quoted phrases", () => {
@@ -382,5 +414,45 @@ describe("awsReason", () => {
     ],
   ])("%o -> %s", (err, reason) => {
     expect(awsReason(err)).toBe(reason);
+  });
+});
+
+describe("the panel deadline aborts an abandoned paginated read", () => {
+  test("no request is sent after the deadline", async () => {
+    let calls = 0;
+    // Every page is empty with a next token, and slow: the shape of a long
+    // scan through unrelated lines.
+    const logs = {
+      send: async (_c: unknown, opts?: { abortSignal?: AbortSignal }) => {
+        calls += 1;
+        await new Promise((r) => setTimeout(r, 30));
+        if (opts?.abortSignal?.aborted) {
+          throw Object.assign(new Error("aborted"), { name: "AbortError" });
+        }
+        return { events: [], nextToken: "more" };
+      },
+    };
+    await expect(
+      withDeadline(
+        (signal) =>
+          readLogEvents(
+            logs,
+            {
+              logGroupName: "g",
+              stream: "delphi",
+              filterPattern: '"x"',
+              startMs: 0,
+              endMs: 1,
+              maxPages: 1000,
+            },
+            signal
+          ),
+        100
+      )
+    ).rejects.toMatchObject({ reason: "aws_timeout" });
+    const atDeadline = calls;
+    await new Promise((r) => setTimeout(r, 150));
+    expect(calls).toBeLessThanOrEqual(atDeadline + 1);
+    expect(calls).toBeLessThan(10);
   });
 });

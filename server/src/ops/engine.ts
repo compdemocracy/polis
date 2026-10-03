@@ -13,7 +13,7 @@
 // Every line is checked against the poller's closed schema (readinessLine.ts)
 // and only counts, ages, closed labels and short digests are relayed.
 
-import { DescribeAlarmsCommand, StateValue } from "@aws-sdk/client-cloudwatch";
+import type { StateValue } from "@aws-sdk/client-cloudwatch";
 import {
   anyPhrase,
   awsSend,
@@ -59,6 +59,10 @@ export const ENGINE_EVENTS = [
     id: "memory_admission",
     phrase: "memory admission:",
     label: "Memory admission warnings",
+    // The same prefix is also logged at info (evictions, baseline updates);
+    // only warning and error lines are counted. The poller's format is
+    // "<time> <LEVEL> [<thread>] <logger>: <message>" (scripts/math_poller.py).
+    levels: ["WARNING", "ERROR"],
   },
   {
     id: "lru_evict",
@@ -102,20 +106,21 @@ export type EngineStatus = {
 
 export function readStatusLines(
   src: LogSource,
-  nowMs: number
+  nowMs: number,
+  signal?: AbortSignal
 ): Promise<LogRead> {
-  return readLogEvents(src.logs, {
-    logGroupName: src.logGroupName,
-    stream: DELPHI_STREAM,
-    filterPattern: anyPhrase(STATUS_PHRASES),
-    startMs: nowMs - STATUS_WINDOW_MS,
-    endMs: nowMs,
-    maxPages: 3,
-  });
-}
-
-function newer(a: Json | null, b: Json, aTs: number, bTs: number): boolean {
-  return a === null || bTs >= aTs;
+  return readLogEvents(
+    src.logs,
+    {
+      logGroupName: src.logGroupName,
+      stream: DELPHI_STREAM,
+      filterPattern: anyPhrase(STATUS_PHRASES),
+      startMs: nowMs - STATUS_WINDOW_MS,
+      endMs: nowMs,
+      maxPages: 3,
+    },
+    signal
+  );
 }
 
 /** Pure: the status panels' view of the last 10 minutes of lines. */
@@ -152,8 +157,7 @@ export function summarizeStatus(read: LogRead, nowMs: number): EngineStatus {
         const better =
           current === null ||
           (c.role === "primary" && current.role !== "primary") ||
-          (c.role === current.role &&
-            newer(current, c, capacityTs[klass], e.ts));
+          (c.role === current.role && e.ts >= capacityTs[klass]);
         if (better) {
           capacity[klass] = c;
           capacityTs[klass] = e.ts;
@@ -298,16 +302,21 @@ export function capacityRows(s: EngineStatus): OpsRow[] {
 
 export function readPublications(
   src: LogSource,
-  nowMs: number
+  nowMs: number,
+  signal?: AbortSignal
 ): Promise<LogRead> {
-  return readLogEvents(src.logs, {
-    logGroupName: src.logGroupName,
-    stream: DELPHI_STREAM,
-    filterPattern: `"${PUBLICATION_PHRASE}"`,
-    startMs: nowMs - PUBLICATION_WINDOW_MS,
-    endMs: nowMs,
-    maxPages: 5,
-  });
+  return readLogEvents(
+    src.logs,
+    {
+      logGroupName: src.logGroupName,
+      stream: DELPHI_STREAM,
+      filterPattern: `"${PUBLICATION_PHRASE}"`,
+      startMs: nowMs - PUBLICATION_WINDOW_MS,
+      endMs: nowMs,
+      maxPages: 5,
+    },
+    signal
+  );
 }
 
 /** Pure: publications per UTC minute for the last 60 minutes, oldest first. */
@@ -331,31 +340,51 @@ export function publicationRows(read: LogRead, nowMs: number): OpsRow[] {
 
 export function readEngineEvents(
   src: LogSource,
-  nowMs: number
+  nowMs: number,
+  signal?: AbortSignal
 ): Promise<LogRead> {
-  return readLogEvents(src.logs, {
-    logGroupName: src.logGroupName,
-    stream: DELPHI_STREAM,
-    filterPattern: anyPhrase(ENGINE_EVENTS.map((e) => e.phrase)),
-    startMs: nowMs - EVENT_WINDOW_MS,
-    endMs: nowMs,
-    maxPages: 10,
-  });
+  return readLogEvents(
+    src.logs,
+    {
+      logGroupName: src.logGroupName,
+      stream: DELPHI_STREAM,
+      filterPattern: anyPhrase(ENGINE_EVENTS.map((e) => e.phrase)),
+      startMs: nowMs - EVENT_WINDOW_MS,
+      endMs: nowMs,
+      maxPages: 10,
+    },
+    signal
+  );
 }
 
 /**
  * Pure: counts per kind of line over the last hour and day. Each event is
- * classified by its first matching phrase; its text goes no further.
+ * classified by its first matching phrase (and, where a kind names levels,
+ * only at those levels); its text goes no further.
+ *
+ * A scan that hit its page cap is partial: FilterLogEvents reads forward from
+ * the window's start, so what is missing is the newest part. The 24-hour
+ * count is then a lower bound and the last-hour count is unknown (null), and
+ * every row says "partial".
  */
 export function eventCountRows(
   read: LogRead,
   nowMs: number,
-  kinds: readonly { id: string; phrase: string; label: string }[]
+  kinds: readonly {
+    id: string;
+    phrase: string;
+    label: string;
+    levels?: readonly string[];
+  }[]
 ): OpsRow[] {
   const hour = new Map<string, number>();
   const day = new Map<string, number>();
   for (const e of read.events) {
-    const kind = kinds.find((k) => e.message.includes(k.phrase));
+    const kind = kinds.find(
+      (k) =>
+        e.message.includes(k.phrase) &&
+        (!k.levels || k.levels.some((l) => e.message.includes(` ${l} [`)))
+    );
     if (!kind) continue;
     if (nowMs - e.ts <= EVENT_WINDOW_MS) {
       day.set(kind.id, (day.get(kind.id) || 0) + 1);
@@ -364,16 +393,26 @@ export function eventCountRows(
       hour.set(kind.id, (hour.get(kind.id) || 0) + 1);
     }
   }
+  return countRows(kinds, hour, day, read.truncated);
+}
+
+export function countRows(
+  kinds: readonly { id: string; label: string }[],
+  hour: Map<string, number>,
+  day: Map<string, number>,
+  truncated: boolean
+): OpsRow[] {
   return kinds.map((k) => ({
     event: k.label,
-    last_1h: hour.get(k.id) || 0,
+    last_1h: truncated ? null : hour.get(k.id) || 0,
     last_24h: day.get(k.id) || 0,
+    coverage: truncated ? "partial" : "complete",
   }));
 }
 
 export function truncatedNote(read: LogRead): string | undefined {
   return read.truncated
-    ? "More lines matched than one refresh reads; the counts are lower bounds."
+    ? "Partial: more lines matched than one refresh reads, and the scan stopped before reaching the newest lines. The 24-hour counts are lower bounds and the last-hour counts are unknown."
     : undefined;
 }
 
@@ -396,7 +435,11 @@ type AlarmLike = {
 };
 
 /** DescribeAlarms for the Polis- prefix, metric and composite, 3 pages. */
-export async function readAlarms(cloudwatch: Sender): Promise<AlarmLike[]> {
+export async function readAlarms(
+  cloudwatch: Sender,
+  signal?: AbortSignal
+): Promise<AlarmLike[]> {
+  const { DescribeAlarmsCommand } = await import("@aws-sdk/client-cloudwatch");
   const out: AlarmLike[] = [];
   let nextToken: string | undefined;
   let pages = 0;
@@ -408,7 +451,8 @@ export async function readAlarms(cloudwatch: Sender): Promise<AlarmLike[]> {
         AlarmTypes: ["MetricAlarm", "CompositeAlarm"],
         MaxRecords: 100,
         NextToken: nextToken,
-      })
+      }),
+      signal
     );
     out.push(...(page?.MetricAlarms || []), ...(page?.CompositeAlarms || []));
     nextToken = page?.NextToken || undefined;

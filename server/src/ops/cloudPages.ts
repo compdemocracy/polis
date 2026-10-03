@@ -177,12 +177,13 @@ const eventColumns: OpsColumn[] = [
   l("event", "Line"),
   c("last_1h", "Last hour"),
   c("last_24h", "Last 24 hours"),
+  l("coverage", "Scan"),
 ];
 
 /** The RDS metrics panel for page S1 (pages.ts adds it to "db"). */
 export function rdsPanel(
   o: CloudOptions,
-  aws: () => OpsAwsClients
+  aws: () => Promise<OpsAwsClients>
 ): CloudPanel {
   const id = rdsInstanceId(o.databaseUrl);
   return {
@@ -208,35 +209,40 @@ export function rdsPanel(
       n("free_disk_gb", "Free storage", "GB", 1),
     ],
     load: async (now) =>
-      rdsRows(await withDeadline(readRds(aws().cloudwatch, id as string, now))),
+      rdsRows(
+        await withDeadline(async (sig) =>
+          readRds((await aws()).cloudwatch, id as string, now, sig)
+        )
+      ),
   };
 }
 
 /** The S2-S5 pages. Builds nothing that reads until a panel loads. */
 export function buildCloudPages(
   o: CloudOptions,
-  aws: () => OpsAwsClients
+  aws: () => Promise<OpsAwsClients>
 ): CloudPage[] {
   const logGroupName = usableLogGroup(o.logGroupName) || "";
-  const logSrc = () => ({ logs: aws().logs, logGroupName });
+  const logSrc = async () => ({ logs: (await aws()).logs, logGroupName });
   const label = o.mathEnv || MATH_LABEL;
 
-  const status = new SharedRead(TTL_S * 1000, async (now) =>
-    summarizeStatus(await readStatusLines(logSrc(), now), now)
+  const status = new SharedRead(TTL_S * 1000, async (now, sig) =>
+    summarizeStatus(await readStatusLines(await logSrc(), now, sig), now)
   );
-  const publications = new SharedRead(TTL_S * 1000, (now) =>
-    readPublications(logSrc(), now)
+  const publications = new SharedRead(TTL_S * 1000, async (now, sig) =>
+    readPublications(await logSrc(), now, sig)
   );
-  const engineEvents = new SharedRead(LONG_TTL_S * 1000, (now) =>
-    readEngineEvents(logSrc(), now)
+  const engineEvents = new SharedRead(LONG_TTL_S * 1000, async (now, sig) =>
+    readEngineEvents(await logSrc(), now, sig)
   );
-  const servingEvents = new SharedRead(LONG_TTL_S * 1000, (now) =>
-    readServingEvents(logSrc(), now)
+  const servingEvents = new SharedRead(LONG_TTL_S * 1000, async (now, sig) =>
+    readServingEvents(await logSrc(), now, sig)
   );
   let account: string | null = null;
-  const cost = new SharedRead(COST_TTL_MS, async (now) => {
-    account = account || (await readAccount(aws().sts));
-    return readCost(aws().costExplorer, account, now);
+  const cost = new SharedRead(COST_TTL_MS, async (now, sig) => {
+    const clients = await aws();
+    account = account || (await readAccount(clients.sts, sig));
+    return readCost(clients.costExplorer, account, now, sig);
   });
 
   const streamSource = (stream: string, what: string) =>
@@ -427,7 +433,11 @@ export function buildCloudPages(
             { key: "since_ms", label: "Since", type: "time" },
           ],
           load: async () =>
-            alarmRows(await withDeadline(readAlarms(aws().cloudwatch))),
+            alarmRows(
+              await withDeadline(async (sig) =>
+                readAlarms((await aws()).cloudwatch, sig)
+              )
+            ),
         },
       ],
     },
@@ -527,7 +537,11 @@ export function buildCloudPages(
             n("p95_ms", "Response time p95", "ms", 0, true),
           ],
           load: async (now) =>
-            albRows(await withDeadline(readAlb(aws().cloudwatch, now))),
+            albRows(
+              await withDeadline(async (sig) =>
+                readAlb((await aws()).cloudwatch, now, sig)
+              )
+            ),
         },
       ],
     },
@@ -559,7 +573,11 @@ export function buildCloudPages(
             l("launch_template", "Launch template version"),
           ],
           load: async () =>
-            groupRows(await withDeadline(readGroups(aws().autoscaling))),
+            groupRows(
+              await withDeadline(async (sig) =>
+                readGroups((await aws()).autoscaling, sig)
+              )
+            ),
         },
         {
           id: "load",
@@ -579,13 +597,17 @@ export function buildCloudPages(
             c("reporting", "Instances reporting memory"),
           ],
           load: async (now) =>
-            loadRows(await withDeadline(readLoad(aws().cloudwatch, now))),
+            loadRows(
+              await withDeadline(async (sig) =>
+                readLoad((await aws()).cloudwatch, now, sig)
+              )
+            ),
         },
         {
           id: "deploys",
           title: "Newest deployments",
           source:
-            "CodeDeploy ListDeployments and BatchGetDeployments, application PolisApplication, group PolisDeploymentGroup (cdk/codedeploy.ts), last 30 days: status, times, creator (user, autoscaling, ...), revision type and file name, instance counts, error code only",
+            "CodeDeploy ListDeployments and BatchGetDeployments, application PolisApplication, group PolisDeploymentGroup (cdk/codedeploy.ts), last 7 days, the newest by start time: status, times, creator (user, autoscaling, ...), revision type and file name, instance counts, error code only",
           ttl_s: TTL_S,
           shape: "table",
           needs: "aws",
@@ -600,7 +622,11 @@ export function buildCloudPages(
             l("error_code", "Error code"),
           ],
           load: async (now) =>
-            deployRows(await withDeadline(readDeploys(aws().codedeploy, now))),
+            deployRows(
+              await withDeadline(async (sig) =>
+                readDeploys((await aws()).codedeploy, now, sig)
+              )
+            ),
         },
       ],
     },
@@ -609,15 +635,15 @@ export function buildCloudPages(
       group: "system",
       title: "Cost",
       summary:
-        "Daily AWS cost for this account by service over the last 30 days, and month to date against last month, from Cost Explorer. Read at most once per 15 minutes per server process.",
-      refresh_s: 15 * 60,
+        "Daily AWS cost for this account by service over the last 30 days, and month to date against last month, from Cost Explorer. Read at most once per 12 hours per server process (one or two billed requests).",
+      refresh_s: 60 * 60,
       panels: [
         {
           id: "daily",
           title: "Per day, last 30 days",
           source:
-            "Cost Explorer GetCostAndUsage, DAILY, UnblendedCost grouped by SERVICE, filtered to this account (sts:GetCallerIdentity); one request per 15 minutes per process at most ($0.01 each)",
-          ttl_s: LONG_TTL_S,
+            "Cost Explorer GetCostAndUsage, DAILY, UnblendedCost grouped by SERVICE, filtered to this account (sts:GetCallerIdentity); at most one read per 12 hours per process, one or two requests ($0.01 each)",
+          ttl_s: COST_TTL_MS / 1000,
           shape: "series",
           needs: "cost",
           columns: [
@@ -638,7 +664,7 @@ export function buildCloudPages(
           title: "By service",
           source:
             "the same Cost Explorer answer: per service, month to date, last month and the last 30 days, the ten largest by the last 30 days",
-          ttl_s: LONG_TTL_S,
+          ttl_s: COST_TTL_MS / 1000,
           shape: "table",
           needs: "cost",
           columns: [
@@ -686,10 +712,18 @@ export function applyNeeds<
 }
 
 /** The lazily built instance-role clients, or the ones a test passed. */
-export function lazyClients(o: CloudOptions): () => OpsAwsClients {
-  let clients: OpsAwsClients | null = o.aws || null;
+export function lazyClients(o: CloudOptions): () => Promise<OpsAwsClients> {
+  let clients: Promise<OpsAwsClients> | null = o.aws
+    ? Promise.resolve(o.aws)
+    : null;
   return () => {
-    if (!clients) clients = makeOpsAwsClients(opsRegion(o.awsRegion));
+    if (!clients) {
+      clients = makeOpsAwsClients(opsRegion(o.awsRegion));
+      // A failed load (it should not happen) is retried on the next read.
+      clients.catch(() => {
+        clients = null;
+      });
+    }
     return clients;
   };
 }

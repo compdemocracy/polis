@@ -4,7 +4,7 @@
 // instance identifier (<id>.<hash>.<region>.rds.amazonaws.com). A database
 // that is not an RDS endpoint has no such metrics and the panel is not shown.
 
-import { MetricDataQuery } from "@aws-sdk/client-cloudwatch";
+import type { MetricDataQuery } from "@aws-sdk/client-cloudwatch";
 import { clockLabel, readMetrics, Sender, Series } from "./awsReads";
 import { OpsRow } from "./types";
 
@@ -59,13 +59,19 @@ export function rdsQueries(instanceId: string): MetricDataQuery[] {
   }));
 }
 
-export function readRds(cloudwatch: Sender, instanceId: string, nowMs: number) {
+export function readRds(
+  cloudwatch: Sender,
+  instanceId: string,
+  nowMs: number,
+  signal?: AbortSignal
+) {
   const end = Math.floor(nowMs / (RDS_PERIOD_S * 1000)) * RDS_PERIOD_S * 1000;
   return readMetrics(
     cloudwatch,
     rdsQueries(instanceId),
     end - RDS_WINDOW_MS,
-    end
+    end,
+    signal
   );
 }
 

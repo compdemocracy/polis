@@ -12,27 +12,17 @@
 // Bounds, the same shape as the Postgres path (guardedRead.ts):
 //   - every request is aborted after REQUEST_TIMEOUT_MS;
 //   - every panel load, however many requests or pages it makes, is abandoned
-//     after LOAD_DEADLINE_MS;
+//     after LOAD_DEADLINE_MS, and its remaining requests are aborted;
 //   - paginated reads stop after a fixed number of pages and say so;
 //   - a failure is reported only as a closed reason code, never SDK text.
 //
 // Nothing here runs unless OPS_ENABLED=true and OPS_DATA_SOURCE=aws, and then
 // only when a staff member opens a page (the panel cache is lazy).
 
-import { FilterLogEventsCommand } from "@aws-sdk/client-cloudwatch-logs";
-import { CloudWatchLogsClient } from "@aws-sdk/client-cloudwatch-logs";
-import {
-  CloudWatchClient,
-  GetMetricDataCommand,
-  ListMetricsCommand,
-  Metric,
-  MetricDataQuery,
-} from "@aws-sdk/client-cloudwatch";
-import { AutoScalingClient } from "@aws-sdk/client-auto-scaling";
-import { CodeDeployClient } from "@aws-sdk/client-codedeploy";
-import { CostExplorerClient } from "@aws-sdk/client-cost-explorer";
-import { STSClient } from "@aws-sdk/client-sts";
-import { fromInstanceMetadata } from "@smithy/credential-provider-imds";
+// SDK modules are loaded on first use (dynamic import), so a server with ops
+// off, or with OPS_DATA_SOURCE unset, never loads them. Only types are
+// imported statically.
+import type { Metric, MetricDataQuery } from "@aws-sdk/client-cloudwatch";
 import { OpsSourceError } from "./types";
 
 export const REQUEST_TIMEOUT_MS = 5000;
@@ -113,14 +103,20 @@ export function awsReason(err: unknown): string {
   return "aws_error";
 }
 
-/** One request, aborted after REQUEST_TIMEOUT_MS; failures become reasons. */
+/**
+ * One request, aborted after REQUEST_TIMEOUT_MS or when `signal` (the panel's
+ * deadline) fires; failures become reasons.
+ */
 export async function awsSend<T = any>(
   client: Sender,
-  command: unknown
+  command: unknown,
+  signal?: AbortSignal
 ): Promise<T> {
+  if (signal?.aborted) throw new OpsSourceError("aws_timeout");
+  const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
   try {
     return await client.send(command, {
-      abortSignal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      abortSignal: signal ? AbortSignal.any([timeout, signal]) : timeout,
     });
   } catch (err) {
     throw new OpsSourceError(awsReason(err));
@@ -128,20 +124,25 @@ export async function awsSend<T = any>(
 }
 
 /**
- * A panel load that has not settled after `ms` is reported as aws_timeout.
- * The requests themselves are bounded by REQUEST_TIMEOUT_MS each, so the
- * abandoned work ends on its own.
+ * A panel load that has not settled after `ms` is reported as aws_timeout,
+ * and the signal handed to `work` is aborted, so a paginated read stops
+ * issuing requests instead of running on after nobody is waiting.
  */
 export function withDeadline<T>(
-  work: Promise<T>,
+  work: (signal: AbortSignal) => Promise<T>,
   ms: number = LOAD_DEADLINE_MS
 ): Promise<T> {
+  const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new OpsSourceError("aws_timeout")), ms);
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new OpsSourceError("aws_timeout"));
+    }, ms);
   });
-  work.catch(() => undefined);
-  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
+  const running = work(controller.signal);
+  running.catch(() => undefined);
+  return Promise.race([running, deadline]).finally(() => clearTimeout(timer));
 }
 
 /**
@@ -155,21 +156,24 @@ export class SharedRead<T> {
 
   constructor(
     private readonly ttlMs: number,
-    private readonly read: (nowMs: number) => Promise<T>
+    private readonly read: (nowMs: number, signal: AbortSignal) => Promise<T>
   ) {}
 
   get(nowMs: number): Promise<T> {
     if (this.current && nowMs - this.current.at_ms < this.ttlMs) {
       return this.current.promise;
     }
-    const promise = withDeadline(this.read(nowMs));
+    const promise = withDeadline((signal) => this.read(nowMs, signal));
     promise.catch(() => undefined);
     this.current = { at_ms: nowMs, promise };
     return promise;
   }
 }
 
-function memoizedInstanceCredentials() {
+async function memoizedInstanceCredentials() {
+  const { fromInstanceMetadata } = await import(
+    "@smithy/credential-provider-imds"
+  );
   const provider = fromInstanceMetadata({ timeout: 1000, maxRetries: 1 });
   let cached: { value: any; until: number } | undefined;
   let inflight: Promise<any> | undefined;
@@ -200,23 +204,33 @@ export function opsRegion(configured: string | null | undefined): string {
 }
 
 /**
- * The production clients. Constructing them makes no request; the first
- * request fetches the instance role's credentials from the instance
- * metadata service.
+ * The production clients, loaded and built on the first AWS read. Building
+ * them makes no request; the first request fetches the instance role's
+ * credentials from the instance metadata service.
  */
-export function makeOpsAwsClients(region: string): OpsAwsClients {
-  const credentials = memoizedInstanceCredentials();
+export async function makeOpsAwsClients(
+  region: string
+): Promise<OpsAwsClients> {
+  const [logs, cw, asg, cd, ce, sts, credentials] = await Promise.all([
+    import("@aws-sdk/client-cloudwatch-logs"),
+    import("@aws-sdk/client-cloudwatch"),
+    import("@aws-sdk/client-auto-scaling"),
+    import("@aws-sdk/client-codedeploy"),
+    import("@aws-sdk/client-cost-explorer"),
+    import("@aws-sdk/client-sts"),
+    memoizedInstanceCredentials(),
+  ]);
   const common = { region, credentials, maxAttempts: 2 };
   return {
-    logs: new CloudWatchLogsClient(common),
-    cloudwatch: new CloudWatchClient(common),
-    autoscaling: new AutoScalingClient(common),
-    codedeploy: new CodeDeployClient(common),
-    costExplorer: new CostExplorerClient({
+    logs: new logs.CloudWatchLogsClient(common),
+    cloudwatch: new cw.CloudWatchClient(common),
+    autoscaling: new asg.AutoScalingClient(common),
+    codedeploy: new cd.CodeDeployClient(common),
+    costExplorer: new ce.CostExplorerClient({
       ...common,
       region: COST_EXPLORER_REGION,
     }),
-    sts: new STSClient(common),
+    sts: new sts.STSClient(common),
   };
 }
 
@@ -243,8 +257,12 @@ export async function readLogEvents(
     startMs: number;
     endMs: number;
     maxPages: number;
-  }
+  },
+  signal?: AbortSignal
 ): Promise<LogRead> {
+  const { FilterLogEventsCommand } = await import(
+    "@aws-sdk/client-cloudwatch-logs"
+  );
   const events: LogEvent[] = [];
   let nextToken: string | undefined;
   let pages = 0;
@@ -259,7 +277,8 @@ export async function readLogEvents(
         endTime: params.endMs,
         limit: LOG_PAGE_LIMIT,
         nextToken,
-      })
+      }),
+      signal
     );
     for (const e of page?.events || []) {
       if (typeof e?.timestamp === "number" && typeof e?.message === "string") {
@@ -295,10 +314,12 @@ export async function readMetrics(
   cloudwatch: Sender,
   queries: MetricDataQuery[],
   startMs: number,
-  endMs: number
+  endMs: number,
+  signal?: AbortSignal
 ): Promise<Map<string, Series>> {
   const out = new Map<string, Series>();
   if (queries.length === 0) return out;
+  const { GetMetricDataCommand } = await import("@aws-sdk/client-cloudwatch");
   let nextToken: string | undefined;
   let pages = 0;
   do {
@@ -310,7 +331,8 @@ export async function readMetrics(
         EndTime: new Date(endMs),
         ScanBy: "TimestampAscending",
         NextToken: nextToken,
-      })
+      }),
+      signal
     );
     for (const r of page?.MetricDataResults || []) {
       if (typeof r?.Id !== "string") continue;
@@ -349,8 +371,10 @@ export async function listMetrics(
     namespace: string;
     metricName: string;
     dimensionNames?: string[];
-  }
+  },
+  signal?: AbortSignal
 ): Promise<Metric[]> {
+  const { ListMetricsCommand } = await import("@aws-sdk/client-cloudwatch");
   const out: Metric[] = [];
   let nextToken: string | undefined;
   let pages = 0;
@@ -363,7 +387,8 @@ export async function listMetrics(
         Dimensions: params.dimensionNames?.map((Name) => ({ Name })),
         RecentlyActive: "PT3H",
         NextToken: nextToken,
-      })
+      }),
+      signal
     );
     out.push(...(page?.Metrics || []));
     nextToken = page?.NextToken || undefined;

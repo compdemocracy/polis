@@ -31,7 +31,7 @@ const REASONS = {
   sa_timeout: 'Simple Analytics did not answer in time',
   sa_unreachable: 'Simple Analytics could not be reached',
   sa_malformed: 'Simple Analytics sent an unexpected answer',
-  not_permitted: 'not permitted (CDK PR3 pending)',
+  not_permitted: 'not permitted by the instance role',
   aws_no_credentials: 'no instance role credentials on this server',
   aws_timeout: 'AWS did not answer in time',
   aws_throttled: 'AWS is rate limiting this server',
@@ -232,8 +232,8 @@ const OpsPage = ({ pageId }) => {
       ) : (
         <Text as="p" sx={{ mb: 4, fontSize: 0, color: 'textSecondary' }}>
           Refreshes every {page.refresh_s} s while this tab is open; the server reads each source at
-          most once a minute (every 15 minutes for the slowest panels) however many people are
-          looking
+          most once a minute (less often for the slowest panels: 15 minutes for 24-hour log counts,
+          12 hours for cost) however many people are looking
           {failure ? '. The last refresh failed; retrying.' : '.'}
         </Text>
       )}
