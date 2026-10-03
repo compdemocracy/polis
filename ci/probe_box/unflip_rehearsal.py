@@ -40,8 +40,10 @@ REPO = HERE.parents[1]
 MIGRATION_NAME = '000024_vote_sign_unflip'
 MIGRATION_PATH = REPO / 'server/postgres/migrations/held' / (MIGRATION_NAME + '.sql')
 QUERIES_PATH = HERE / 'unflip_rehearsal_queries.sql'
-# PR-A is not on edge yet; the tests bind this stand-in (see its header).
-CONVENTION_STANDIN_PATH = HERE / 'fixtures/unflip/vote_convention_standin.sql'
+# PR-A's committed migration (draft #2944), byte for byte. It lives here until
+# PR-A lands on edge, then this path moves to server/postgres/migrations/; the
+# digest, not the path, is the binding.
+CONVENTION_DDL_PATH = HERE / 'fixtures/unflip/000023_vote_convention.sql'
 LEDGER_MARKER = b'-- ledger-self-checksum'
 
 MODES = ('dry', 'flip')
@@ -630,7 +632,8 @@ def build_receipt(state, job):
 # ---------------------------------------------------------------------------
 def file_digests():
     return {'migration_sql_sha256': digest(MIGRATION_PATH.read_bytes()),
-            'queries_sha256': digest(QUERIES_PATH.read_bytes())}
+            'queries_sha256': digest(QUERIES_PATH.read_bytes()),
+            'convention_ddl_sha256': digest(CONVENTION_DDL_PATH.read_bytes())}
 
 
 def main(argv=None):

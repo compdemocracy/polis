@@ -39,7 +39,7 @@ import unflip_rehearsal_verifier as image_verifier
 
 MIGRATION = u.MIGRATION_PATH.read_bytes()
 QUERIES = u.QUERIES_PATH.read_bytes()
-DDL = u.CONVENTION_STANDIN_PATH.read_bytes()
+DDL = u.CONVENTION_DDL_PATH.read_bytes()          # PR-A's 000023, byte for byte
 CERT_IDS = ('genfixcert1', 'genfixcert2')
 CERT = sorted(hashlib.sha256(x.encode()).hexdigest() for x in CERT_IDS)
 NOW_MS = int(time.time() * 1000)
@@ -134,6 +134,11 @@ class HeldMigration(unittest.TestCase):
             self.assertIn(needle, body)
         # The guard precedes every write; the ledger row is the last statement.
         self.assertLess(body.index("'P0785'"), body.index('UPDATE public.votes'))
+        # Lock order (plan §2a amended): convention table, convention row, then the vote tables.
+        order = [body.index('LOCK TABLE public.vote_convention IN EXCLUSIVE MODE;'), body.index('FOR UPDATE;'),
+                 body.index('LOCK TABLE public.votes, public.votes_latest_unique IN SHARE ROW EXCLUSIVE MODE;'),
+                 body.index('CREATE TEMP TABLE vote_sign_unflip_pre'), body.index('UPDATE public.votes SET')]
+        self.assertEqual(order, sorted(order))
         statements = [s.strip() for s in body.strip().split(';\n') if s.strip()]
         self.assertTrue(statements[-1].startswith('INSERT INTO public.schema_migrations'))
         # Only the two vote columns move; the lookalikes are never named.
@@ -220,7 +225,7 @@ class Registry(unittest.TestCase):
         self.assertEqual(s['queries_sha256'], u.digest(QUERIES))
         # PR-A's file is not on edge: the DDL digest stays zero. The operator never
         # replaces registry digests (unflip_operator.registry_binding), so no launch.
-        self.assertEqual(s['convention_ddl_sha256'], u.ZERO)
+        self.assertEqual(s['convention_ddl_sha256'], u.digest(DDL))   # PR-A's 000023 (draft #2944)
         self.assertEqual(s, dict(u.TEMPLATE_RUN_SPEC, **u.file_digests()))
 
     def test_template_is_never_launched(self):
@@ -638,7 +643,7 @@ def pinned_registry(ddl, **spec_changes):
 
 class RegistryBinding(unittest.TestCase):
     """The registry digests are the only source of truth; restore refuses before any RDS call."""
-    PRA = b'-- generated stand-in for the committed PR-A file\n'
+    PRA = b'-- a generated DDL file standing for a pinned one\n'
 
     def restore(self, ddl, registry=None):
         import tempfile
@@ -666,8 +671,9 @@ class RegistryBinding(unittest.TestCase):
         entry['run_spec']['convention_ddl_sha256'] = u.ZERO
         self.assertEqual(self.restore(self.PRA, entry), 'PLACEHOLDER_DIGEST')
 
-    def test_the_stand_in_is_never_a_binding(self):
-        self.assertEqual(self.restore(DDL, pinned_registry(DDL)), 'STANDIN_DDL')
+    def test_the_registry_binds_pr_a(self):
+        self.assertEqual(u.digest(DDL), '351628cfc1bc5e4b95ba43828a4e90297fc3870121b971a81d0bc57441dde090')
+        self.assertEqual(self.restore(b'-- not PR-A\n', pinned_registry(DDL)), 'DDL_DIGEST')
 
     def test_local_files_must_be_the_pinned_bytes(self):
         self.assertEqual(self.restore(b'-- another file\n', pinned_registry(self.PRA)), 'DDL_DIGEST')
@@ -700,7 +706,7 @@ class Restore(unittest.TestCase):
                 dt.datetime.fromtimestamp(NOW_MS / 1000 - 3600, dt.timezone.utc)}
         clock = iter(range(0, 10**6, 7))
         values = op.registry_entry()['run_spec']
-        pra = b'-- generated stand-in for the committed PR-A file\n'
+        pra = b'-- a generated DDL file standing for a pinned one\n'
         pinned = pinned_registry(pra)
         entry, observed = op.restore_one(rds, cfg, cfg['REHEARSAL_INSTANCE'], snap, 'f' * 32, values,
                                          sleep=lambda s: None, clock=lambda: next(clock))
@@ -1344,6 +1350,38 @@ class StepMachine(unittest.TestCase):
         t.start()
         ready.wait(10)
         return t
+
+    def test_open_migration_fences_direct_inserts_and_vote_insert_but_not_reads(self):
+        """While the transaction is open (after its locks, before COMMIT): a direct
+        INSERT and vote_insert() both fail with 55P03; reads and the convention
+        read continue. After ROLLBACK both writers succeed."""
+        db = self.clone()
+        self.sql(db, DDL.decode())
+        migration = self.psycopg2.connect(self.url(db))
+        try:
+            with migration.cursor() as cur:
+                cur.execute(u.migration_body(MIGRATION))          # inside the driver's open transaction
+            other = self.psycopg2.connect(self.url(db))
+            other.autocommit = True
+            try:
+                with other.cursor() as cur:
+                    cur.execute("SET lock_timeout = '300ms'")
+                    for statement in ("INSERT INTO votes (zid, pid, tid, vote) VALUES (1, 98, 0, -1)",
+                                      "SELECT * FROM vote_insert(1, 98, 0, 1::smallint)"):
+                        with self.assertRaises(self.psycopg2.Error) as e:
+                            cur.execute(statement)
+                        self.assertEqual(e.exception.pgcode, '55P03', statement)
+                    cur.execute('SELECT count(*) FROM votes_semantic')
+                    self.assertGreater(cur.fetchone()[0], 0)
+                    cur.execute('SELECT version FROM vote_convention_current()')
+                    self.assertEqual(cur.fetchone(), (0,))          # the snapshot's row, never blocked
+            finally:
+                other.close()
+        finally:
+            migration.rollback()
+            migration.close()
+        self.sql(db, "INSERT INTO votes (zid, pid, tid, vote) VALUES (1, 98, 0, -1)")
+        self.assertEqual(self.sql(db, "SELECT vote FROM vote_insert(1, 98, 1, 1::smallint)"), [(-1,)])
 
     def test_lock_wait_above_budget_refuses(self):
         db = self.clone()

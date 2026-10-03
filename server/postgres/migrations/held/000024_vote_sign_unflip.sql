@@ -10,10 +10,15 @@
 -- (run_spec.migration_sql_sha256); the production day applies the same bytes.
 --
 -- What it does, in one transaction:
+--   0. locks the vote_convention TABLE in EXCLUSIVE mode first, so a stream of
+--      vote_insert() FOR SHARE readers cannot starve the row lock (plain reads,
+--      ACCESS SHARE, are never blocked);
 --   1. locks the vote_convention singleton FOR UPDATE and refuses (SQLSTATE
 --      P0785) unless it is version 0 / agree_value -1 and the ledger has no
 --      un-flip row. A second run, or a run on a post-flip copy, refuses here.
---   2. records the raw count table of votes and votes_latest_unique, and
+--   2. locks votes and votes_latest_unique in SHARE ROW EXCLUSIVE mode, which
+--      blocks every writer, including one that bypasses vote_insert(), while
+--      reads continue; then records the raw count table of both tables, and
 --      refuses (P0786) on any stored value outside {-1, 0, 1, NULL}.
 --   3. negates every -1 and +1 in both tables (the INSERT rule of 000006 does
 --      not cover UPDATE, so votes_latest_unique gets its own UPDATE).
@@ -44,6 +49,8 @@ SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 SET LOCAL lock_timeout = '30s';
 SET LOCAL statement_timeout = 0;
 
+LOCK TABLE public.vote_convention IN EXCLUSIVE MODE;
+
 DO $guard$
 DECLARE
   v_version integer;
@@ -61,6 +68,8 @@ BEGIN
   END IF;
 END
 $guard$;
+
+LOCK TABLE public.votes, public.votes_latest_unique IN SHARE ROW EXCLUSIVE MODE;
 
 CREATE TEMP TABLE vote_sign_unflip_pre ON COMMIT DROP AS
   SELECT 'votes'::text AS t, v.vote, count(*)::bigint AS n FROM public.votes v GROUP BY v.vote
@@ -128,5 +137,5 @@ BEGIN
 END
 $mirror$;
 
-INSERT INTO public.schema_migrations (name, checksum, note) VALUES ('000024_vote_sign_unflip', '05f2317db5601c7962aa09243d668112ddf6dcb77419c4be1b224145901eccaa', 'P-078 un-flip, ruling R-I'); -- ledger-self-checksum
+INSERT INTO public.schema_migrations (name, checksum, note) VALUES ('000024_vote_sign_unflip', '2d1c44328c3ff415b37821d8078f44e15515fd678bf4d4cc68eccb5f0b1cfe43', 'P-078 un-flip, ruling R-I'); -- ledger-self-checksum
 COMMIT;

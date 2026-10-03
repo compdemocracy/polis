@@ -257,8 +257,8 @@ DIGESTS = (('migration_sql_sha256', 'MIGRATION_DIGEST'), ('queries_sha256', 'QUE
 
 def registry_binding(ddl: bytes):
     """The registry entry is the only source of truth for the three file digests
-    and the images. Refuse a template (zero image or file digest), the PR-A
-    stand-in fixture, and any local file that is not the pinned bytes. Runs
+    and the images. Refuse a template (zero image or file digest),
+    and any local file that is not the pinned bytes. Runs
     before any RDS call."""
     from contracts import PLACEHOLDER_DIGEST
     entry = registry_entry()
@@ -267,8 +267,6 @@ def registry_binding(ddl: bytes):
         raise Refused('PLACEHOLDER_IMAGE')
     if any(spec[k] == u.ZERO for k, _ in DIGESTS):
         raise Refused('PLACEHOLDER_DIGEST')
-    if spec['convention_ddl_sha256'] == u.digest(u.CONVENTION_STANDIN_PATH.read_bytes()):
-        raise Refused('STANDIN_DDL')
     local = {'migration_sql_sha256': u.digest(u.MIGRATION_PATH.read_bytes()),
              'queries_sha256': u.digest(u.QUERIES_PATH.read_bytes()), 'convention_ddl_sha256': u.digest(ddl)}
     for k, code in DIGESTS:
@@ -285,8 +283,6 @@ def check_registry(job):
     for k, code in DIGESTS:
         if job['run_spec'][k] != entry['run_spec'][k]:
             raise Refused(code)
-    if job['run_spec']['convention_ddl_sha256'] == u.digest(u.CONVENTION_STANDIN_PATH.read_bytes()):
-        raise Refused('STANDIN_DDL')
 
 
 def draft_job(run_id, *, mode, restore_rule, snap, entry, r2_entry, observed, certification, ddl, server_image,

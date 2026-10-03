@@ -33,9 +33,11 @@ outputs. This document holds no values.
    digests, and that binds `convention_ddl_sha256` to PR-A's committed
    migration file. The registry entry is the only source of truth for the
    images and the three file digests: `restore` and `launch` never replace
-   them. They refuse a template (`PLACEHOLDER_IMAGE`, `PLACEHOLDER_DIGEST`),
-   the tests' PR-A stand-in (`STANDIN_DDL`), and any local file that is not
-   the pinned bytes (`MIGRATION_DIGEST`, `QUERIES_DIGEST`, `DDL_DIGEST`).
+   them. They refuse a template (`PLACEHOLDER_IMAGE`, `PLACEHOLDER_DIGEST`)
+   and any local file that is not the pinned bytes (`MIGRATION_DIGEST`,
+   `QUERIES_DIGEST`, `DDL_DIGEST`). The registry binds PR-A's `000023` by
+   digest; until PR-A lands, its bytes are in
+   `ci/probe_box/fixtures/unflip/000023_vote_convention.sql`.
    `restore` checks all of this before any RDS call.
 4. Write the operator config. It is the stack's `WorkerConfig` output plus
    one key, `DB_SUBNET_GROUP`: the production database's subnet group name.
@@ -172,7 +174,11 @@ reader and producer containers run them in turn
      ticks. The comparison drops `math_tick`, `caching_tick` and the ETag from
      the pca2 bodies, and drops the blob's engine-local `math_tick` from the
      `math_main` digest.
-5. **MIGRATE.**
+5. **MIGRATE.** The transaction takes its locks in order:
+   `LOCK TABLE vote_convention IN EXCLUSIVE MODE`, then the row `FOR UPDATE`,
+   then `LOCK TABLE votes, votes_latest_unique IN SHARE ROW EXCLUSIVE MODE`.
+   While it is open, `vote_insert()` and any direct `INSERT` fail with 55P03;
+   reads continue.
    - `flip` runs the held file and commits it.
    - `dry` runs its body inside a transaction and rolls it back.
 
@@ -207,7 +213,7 @@ a fresh rehearsal on a fresh snapshot.
 | the ledger's last cleanup for a run is unconfirmed | every probe launch, any kind | `CLEANUP_UNCONFIRMED` |
 | free storage (allocation minus all databases and WAL) below `min_free_storage_gb`, or unobservable | worker | `STORAGE_HEADROOM` |
 | restore class/storage differ from the job | worker | `RESTORE_SHAPE` |
-| registry template, or the PR-A stand-in as the DDL | operator restore (before any RDS call) and launch | `PLACEHOLDER_IMAGE`, `PLACEHOLDER_DIGEST`, `STANDIN_DDL` |
+| registry template | operator restore (before any RDS call) and launch | `PLACEHOLDER_IMAGE`, `PLACEHOLDER_DIGEST` |
 | migration, DDL or queries digest mismatch | operator restore and launch; worker | `*_DIGEST` |
 | a tagged instance that is not one of the two fixed copies in the rehearsal group | operator cleanup | not deleted; reported; launches refuse |
 | server not 17.x, superuser session, convention not at version 0 | worker | `SERVER_VERSION`, `SUPERUSER_SESSION`, `CONVENTION_STATE` |
