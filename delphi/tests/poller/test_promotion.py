@@ -371,6 +371,36 @@ class TestPromotionPass:
         loop.tick()
         assert pg.promoted == [7] and router.counts()["promoted_total"] == 1
 
+    def test_a_conversation_un_routed_during_the_pass_is_not_promoted(self, tmp_path):
+        """A pool thread un-routes it after the pass took its snapshot (a
+        re-size that now fits): the small poller owns it again, so the staged
+        bundle is left alone and no verdict is recorded."""
+        loop, router, pg, *_ = make(tmp_path)
+        route(router, 7)
+        route(router, 8)
+        pg.fps[(7, STAGED)] = Fingerprint(3, T0, T0 + 5)
+        pg.fps[(8, STAGED)] = Fingerprint(3, T0, T0 + 5)
+        real = pg.math_fingerprints
+
+        def un_route_then_answer(zids, envs):
+            router.observe(7, sizes=sizes(10))                  # now fits: record removed
+            return real(zids, envs)
+
+        pg.math_fingerprints = un_route_then_answer
+        loop.tick()
+        assert pg.promoted == [8] and router.disposition(7) is None
+        assert router.counts()["promoted_total"] == 1
+
+    def test_a_conversation_re_classified_exceeds_largest_is_not_promoted(self, tmp_path):
+        loop, router, pg, *_ = make(tmp_path, large_budget_mb=1200)
+        route(router, 7)
+        pg.fps[(7, STAGED)] = Fingerprint(3, T0, T0 + 5)
+        real = pg.math_fingerprints
+        pg.math_fingerprints = lambda zids, envs: (
+            router.observe(7, sizes=sizes(1200)), real(zids, envs))[1]
+        loop.tick()
+        assert router.disposition(7) == EXCEEDS_LARGEST and pg.promoted == []
+
     def test_exceeds_largest_is_never_promoted(self, tmp_path):
         loop, router, pg, *_ = make(tmp_path, large_budget_mb=600)
         route(router, 7, need_mb=700)

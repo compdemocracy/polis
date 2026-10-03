@@ -561,6 +561,56 @@ class TestTheLoop:
             s_pg.shutdown()
             l_pg.shutdown()
 
+    def test_a_refusal_while_cached_restages_from_full_history(self, pg_url, db, labels,
+                                                                tmp_path):
+        """Review F1: while the large worker refuses, its loops drop the cached
+        conversation's votes. After the refusal clears, the next stage must be
+        a full rebuild carrying every vote, never a warm update missing the
+        dropped ones."""
+        small, large = labels
+        (big,) = fresh_zids(1)
+        seed_recent(db, big, voters=8, comments=8)
+        manifest = tmp_path / "manifest.json"
+        s_svc, s_pg = small_service(pg_url, small, large, manifest, zids=[big])
+        l_svc, l_pg, driver = large_service(pg_url, small, large, manifest, zids=[big])
+        try:
+            cycle(s_svc)
+            driver.tick()
+            l_svc.poll_once()
+            drain(l_svc)
+            assert big in l_svc.cached_zids() and coherent(db, big, large)
+            driver._source_commit = "b" * 40                   # a refusal (skew) begins
+            driver.tick()
+            assert driver.counts()["refusal"] == "skew" and l_svc.cached_zids() == set()
+            now = int(time.time() * 1000)
+            q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 7, 1, -1, %s)",
+              (big, now))
+            l_svc.poll_once()                                  # dropped by the empty allowlist
+            drain(l_svc)
+            assert fp(l_pg, big, large).lvt < now
+            q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 6, 2, 1, %s)",
+              (big, now + 1))
+            cycle(s_svc)
+            driver._source_commit = None                       # the refusal clears
+            driver.tick()
+            drain(l_svc)
+            l_svc.poll_once()
+            drain(l_svc)
+            staged = fp(l_pg, big, large)
+            assert staged.lvt == now + 1
+            conv = l_svc._convs[big]
+            cells = int(conv.raw_rating_mat.notna().sum().sum())
+            expected = q(db, "SELECT count(*) FROM (SELECT DISTINCT pid, tid FROM votes "
+                             "WHERE zid = %s) v", (big,))[0][0]
+            assert cells == expected                           # both new votes, every old one
+            cycle(s_svc)
+            assert rows(db, big, small) == rows(db, big, large)
+        finally:
+            s_svc.stop()
+            l_svc.stop()
+            s_pg.shutdown()
+            l_pg.shutdown()
+
     def test_skew_guard_and_label_check(self, pg_url, db, labels, tmp_path):
         small, large = labels
         (big,) = fresh_zids(1)

@@ -166,6 +166,13 @@ class SmallCapacityLoop:
             staged = fps.get((rec.zid, staged_label))
             target = fps.get((rec.zid, own))
             usable = staged is not None and staged.complete
+            if self._router.disposition(rec.zid) != LARGE:
+                # Un-routed (or re-classified) by a pool thread since this
+                # pass took its snapshot: the small poller owns the
+                # conversation again, so its staged bundle is left alone.
+                logger.info("capacity: zid=%s no longer routed; staged bundle not promoted",
+                            rec.zid)
+                continue
             if usable and self.settings.promote and staged_newer(staged, target):
                 try:
                     pg.promote_bundle(rec.zid, from_env=staged_label, to_env=own,
