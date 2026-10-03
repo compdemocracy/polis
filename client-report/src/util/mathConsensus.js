@@ -19,4 +19,3 @@ export function getMathConsensus(math) {
 export function mathConsensusFor(math, tid) {
   return getMathConsensus(math)[tid];
 }
-

@@ -34,7 +34,7 @@ const TopicTables = ({ latestRun, statsData, math, report_id, onTopicSelect, onS
         }}>
           Candidate collective statements require at least {THRESHOLDS.MIN_COMMENTS} comments with 
           ≥{(THRESHOLDS.MIN_CONSENSUS * 100)}% normalized consensus (the average of each group&apos;s agree rate,
-          not the Group-Aware Consensus column) and 
+          not the Group-Aware Consensus column) and
           ≥{(THRESHOLDS.MIN_GROUP_PARTICIPATION * 100)}% participation from every group
         </span>
       </div>
