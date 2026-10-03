@@ -82,7 +82,8 @@ has no S3 bucket configured (`AWS_S3_BUCKET_NAME` unset) or runs with
 Each file is byte-identical to what
 `/api/v3/reportExport/<report_id>/<file>` serves for the same conversation at
 the same moment; the zip adds no file and changes no byte. The zip is built
-on request and streamed (deflate, no zip64). A conversation over the
+on request and streamed (deflate, no zip64): the database reads pause while
+the client is not keeping up and stop if it disconnects. A conversation over the
 `DATA_EXPORT_MAX_CELLS` limit is refused with HTTP 413
 `polis_err_data_export_too_large` ([configuration](configuration.md#conversation-data-export)).
 

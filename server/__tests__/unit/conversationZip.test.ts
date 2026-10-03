@@ -52,7 +52,8 @@ import {
   dataExportStreamsLocally,
   writeConversationZip,
 } from "../../src/export/conversationZip";
-import { ZipStreamWriter } from "../../src/export/zipStream";
+import { ZIP_OUTPUT_CLOSED, ZipStreamWriter } from "../../src/export/zipStream";
+import { streamControl } from "../../src/db/streamControl";
 import {
   handle_GET_dataExport,
   handle_GET_dataExport_results,
@@ -239,6 +240,14 @@ describe("ZipStreamWriter", () => {
       expect(e.method).toBe(8);
       expect(e.flags & 0x0808).toBe(0x0808);
     }
+    // Every local header carries the UTC extended timestamp (0x5455).
+    const buf = await bytes;
+    expect(buf.readUInt16LE(28)).toBe(9);
+    const extra = 30 + "a.txt".length;
+    expect(buf.readUInt16LE(extra)).toBe(0x5455);
+    expect(buf.readUInt32LE(extra + 5)).toBe(
+      Date.UTC(2026, 9, 3, 12, 0, 0) / 1000
+    );
   });
 
   test("streams a multi-megabyte entry without holding it: bytes leave before the entry ends", async () => {
@@ -587,6 +596,121 @@ describe("GET /api/v3/dataExport/results", () => {
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.body.error).toBe("polis_err_data_export_results_not_stored");
     expect(res.redirect).not.toHaveBeenCalled();
+    Config.AWS_S3_BUCKET_NAME = saved.bucket;
+  });
+});
+
+// ------------------------------------------------- a client that goes away
+
+/** A producer that writes forever, a row per tick, until the export is aborted. */
+function endlessProducer(seen: { aborted?: boolean; output?: unknown }) {
+  return (_zid: number, _siteUrl: string, res: any) => {
+    const control = streamControl.getStore();
+    seen.output = control?.output;
+    let i = 0;
+    const tick = () => {
+      if (control?.signal?.aborted) {
+        seen.aborted = true;
+        return;
+      }
+      res.write(`${i++},row\n`.repeat(2000));
+      setImmediate(tick);
+    };
+    setImmediate(tick);
+  };
+}
+
+describe("a destroyed response", () => {
+  test("ZipStreamWriter: a write after the output is destroyed throws, and finish() rejects instead of hanging", async () => {
+    const out = new PassThrough();
+    out.resume();
+    const zip = new ZipStreamWriter(out);
+    await zip.entry("a.txt", async (sink) => sink.write("hello"));
+    out.destroy();
+    await expect(
+      zip.entry("b.txt", async (sink) => sink.write("x"))
+    ).rejects.toThrow(ZIP_OUTPUT_CLOSED);
+
+    // Nobody reads out2 and its buffers are small, so end() cannot finish;
+    // the stream is destroyed while finish() waits.
+    const out2 = new PassThrough({ highWaterMark: 16 });
+    const zip2 = new ZipStreamWriter(out2);
+    const noise = Buffer.from(
+      Array.from({ length: 20_000 }, (_, i) => (i * 7919) % 251)
+    );
+    await zip2.entry("noise.bin", async (sink) => sink.write(noise));
+    const finishing = zip2.finish();
+    await new Promise((r) => setImmediate(r));
+    out2.destroy();
+    await expect(finishing).rejects.toThrow(ZIP_OUTPUT_CLOSED);
+  });
+
+  test("writeConversationZip: the export rejects and the producer sees the abort", async () => {
+    const { producers } = generatedFixtures();
+    const seen: { aborted?: boolean; output?: unknown } = {};
+    producers["votes.csv"] = endlessProducer(seen);
+    const out = new PassThrough();
+    let received = 0;
+    out.on("data", (c: Buffer) => {
+      received += c.length;
+      if (received > 200_000) out.destroy();
+    });
+    await expect(
+      writeConversationZip(out, 1, "http://box", producers)
+    ).rejects.toThrow(ZIP_OUTPUT_CLOSED);
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+    expect(seen.aborted).toBe(true);
+    // The producers run with the response as the output to pace against.
+    expect(seen.output).toBe(out);
+  });
+
+  test("an output already destroyed: rejects before running any producer", async () => {
+    const { producers } = generatedFixtures();
+    const formatJson = jest.fn(producers["format.json"]);
+    producers["format.json"] = formatJson as ExportProducer;
+    const out = new PassThrough();
+    out.destroy();
+    await expect(
+      writeConversationZip(out, 1, "http://box", producers)
+    ).rejects.toThrow(ZIP_OUTPUT_CLOSED);
+    expect(formatJson).not.toHaveBeenCalled();
+  });
+
+  test("GET /api/v3/dataExport returns when the client goes away mid-stream", async () => {
+    Config.AWS_S3_BUCKET_NAME = undefined;
+    Config.offline = false;
+    (isModerator as jest.Mock).mockResolvedValue(true as never);
+    (getZinvite as jest.Mock).mockResolvedValue("abc123" as never);
+    counts(10, 2, 2);
+    useGeneratedReport();
+    const seen: { aborted?: boolean } = {};
+    (report.sendVotesSummary as jest.Mock).mockImplementation(
+      async (_zid: any, res: any) => endlessProducer(seen)(0, "", res)
+    );
+    const res = mockRes();
+    let received = 0;
+    res.on("data", (c: Buffer) => {
+      received += c.length;
+      if (received > 200_000) res.destroy();
+    });
+    const handled = handle_GET_dataExport(
+      {
+        p: { uid: 7, zid: 42, unixTimestamp: 1, format: "csv" },
+        headers: { host: "box.local", "x-forwarded-proto": "http" },
+      } as any,
+      res
+    );
+    await expect(
+      Promise.race([
+        handled.then(() => "returned"),
+        new Promise((r) => setTimeout(() => r("hung"), 5000)),
+      ])
+    ).resolves.toBe("returned");
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+    expect(seen.aborted).toBe(true);
+    expect(res.status).not.toHaveBeenCalled();
     Config.AWS_S3_BUCKET_NAME = saved.bucket;
   });
 });

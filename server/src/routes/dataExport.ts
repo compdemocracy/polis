@@ -52,6 +52,11 @@ async function streamConversationExport(
   try {
     await writeConversationZip(res, zid, siteUrl);
   } catch (err) {
+    if (res.destroyed) {
+      // The client went away; the producers and their queries have stopped.
+      logger.info("polis_data_export_client_closed", { zid });
+      return;
+    }
     if (!res.headersSent) {
       return failJson(res, 500, "polis_err_data_export_stream", err);
     }

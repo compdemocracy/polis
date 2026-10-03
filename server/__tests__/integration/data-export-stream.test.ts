@@ -13,6 +13,7 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from "@jest/globals";
 import express from "express";
+import http from "http";
 import request from "supertest";
 import zlib from "zlib";
 import Config from "../../src/config";
@@ -260,4 +261,154 @@ describe("dataExport streamed from the server", () => {
     expect(res.status).toBe(403);
     expect(res.body.error).toBe("polis_err_data_export_auth");
   });
+});
+
+/**
+ * A large generated-fixture conversation (votes written with generate_series),
+ * served over a real socket, to check what happens when the client is slow or
+ * goes away: the Postgres stream behind votes.csv pauses while the response
+ * needs draining, and a client that disconnects ends the handler and leaves no
+ * streaming query behind.
+ */
+describe("dataExport streamed: slow and vanished clients", () => {
+  const tag = `p053y${Date.now().toString(36)}`;
+  const VOTERS = 2000;
+  const COMMENTS = 300;
+  const VOTES_CSV_QUERY = "%FROM votes WHERE zid = $1 ORDER BY tid, pid%";
+  const savedBucket = Config.AWS_S3_BUCKET_NAME;
+  let ownerUid: number;
+  let zid: number;
+  let server: http.Server;
+  let port: number;
+  let lastHandler: Promise<unknown> | undefined;
+
+  beforeAll(async () => {
+    Config.AWS_S3_BUCKET_NAME = undefined;
+    const owner = await pool.query(
+      "INSERT INTO users (hname) VALUES ('Generated fixture owner') RETURNING uid"
+    );
+    ownerUid = owner.rows[0].uid;
+    zid = (
+      await pool.query(
+        "INSERT INTO conversations (topic, description, owner) VALUES ('Generated fixture, large', 'generated', $1) RETURNING zid",
+        [ownerUid]
+      )
+    ).rows[0].zid;
+    await pool.query("INSERT INTO zinvites (zid, zinvite) VALUES ($1, $2)", [
+      zid,
+      tag,
+    ]);
+    const pid = (
+      await pool.query(
+        "INSERT INTO participants (pid, zid, uid) VALUES (NULL, $1, $2) RETURNING pid",
+        [zid, ownerUid]
+      )
+    ).rows[0].pid;
+    await pool.query(
+      `INSERT INTO comments (tid, zid, pid, uid, txt)
+       SELECT g, $1, $2, $3, 'generated statement ' || g FROM generate_series(0, $4 - 1) g`,
+      [zid, pid, ownerUid, COMMENTS]
+    );
+    await pool.query(
+      `INSERT INTO votes (zid, pid, tid, vote, created)
+       SELECT $1, p, t, ((p + t) % 3) - 1, 1700000000000 + p * 1000 + t
+         FROM generate_series(0, $2 - 1) p, generate_series(0, $3 - 1) t`,
+      [zid, VOTERS, COMMENTS]
+    );
+
+    const app = express();
+    app.get("/dataExport", (req: any, res: any) => {
+      req.p = { uid: ownerUid, zid, unixTimestamp: 1, format: "csv" };
+      lastHandler = handle_GET_dataExport(req, res);
+    });
+    server = http.createServer(app);
+    await new Promise<void>((r) => server.listen(0, r));
+    port = (server.address() as { port: number }).port;
+  }, 120000);
+
+  afterAll(async () => {
+    Config.AWS_S3_BUCKET_NAME = savedBucket;
+    await new Promise((r) => server.close(r));
+  });
+
+  /** Backends whose current or last statement is the votes.csv stream. */
+  async function streamingBackends(activeOnly: boolean): Promise<number> {
+    const r = await pool.query(
+      `SELECT count(*)::int AS n FROM pg_stat_activity
+        WHERE query LIKE $1 AND pid <> pg_backend_pid()
+          AND ($2::boolean IS FALSE OR state <> 'idle')`,
+      [VOTES_CSV_QUERY, activeOnly]
+    );
+    return r.rows[0].n;
+  }
+
+  async function waitFor(check: () => Promise<boolean>, ms: number) {
+    const until = Date.now() + ms;
+    while (Date.now() < until) {
+      if (await check()) return true;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return false;
+  }
+
+  test("a client that stops reading holds the votes.csv stream paused; when it disconnects, the handler returns and no query remains", async () => {
+    lastHandler = undefined;
+    let received = 0;
+    const req = http.get({
+      host: "127.0.0.1",
+      port,
+      path: "/dataExport",
+      headers: { host: "box.local", "x-forwarded-proto": "http" },
+    });
+    const response = await new Promise<http.IncomingMessage>((resolve) =>
+      req.on("response", resolve)
+    );
+    expect(response.statusCode).toBe(200);
+    response.on("data", (c: Buffer) => {
+      received += c.length;
+      // Stop reading once votes.csv has started arriving.
+      if (received > 64 * 1024) response.pause();
+    });
+
+    // The votes.csv query is open and stays open while the client does not
+    // read: the stream is paused, not run to the end into Node's buffers.
+    expect(
+      await waitFor(
+        async () => response.isPaused() && (await streamingBackends(true)) > 0,
+        20000
+      )
+    ).toBe(true);
+    const before = received;
+    await new Promise((r) => setTimeout(r, 1500));
+    expect(await streamingBackends(true)).toBe(1);
+    expect(received).toBe(before);
+
+    req.destroy();
+    const outcome = await Promise.race([
+      lastHandler!.then(() => "returned"),
+      new Promise((r) => setTimeout(() => r("hung"), 10000)),
+    ]);
+    expect(outcome).toBe("returned");
+    // The cursor was closed and its client discarded: the backend is gone.
+    expect(
+      await waitFor(async () => (await streamingBackends(false)) === 0, 5000)
+    ).toBe(true);
+  }, 60000);
+
+  test("a reading client still gets the whole zip", async () => {
+    lastHandler = undefined;
+    const res = await request(`http://127.0.0.1:${port}`)
+      .get("/dataExport")
+      .set({ host: "box.local", "x-forwarded-proto": "http" })
+      .buffer(true)
+      .parse(binary);
+    expect(res.status).toBe(200);
+    const votes = unzip(res.body as Buffer)
+      .get("votes.csv")!
+      .toString("utf8");
+    expect(votes.trimEnd().split("\n").length - 1).toBe(VOTERS * COMMENTS);
+    await lastHandler;
+    // Run to the end: the client went back to the pool idle, nothing running.
+    expect(await streamingBackends(true)).toBe(0);
+  }, 60000);
 });

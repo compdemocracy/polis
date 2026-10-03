@@ -12,12 +12,19 @@
  * byte sequence that route serves for the same conversation.
  *
  * The zip is written entry by entry to the response as the rows stream out of
- * Postgres; it is never assembled in memory. A conversation over
+ * Postgres; the writer holds at most one 256 KiB run of input. The Postgres
+ * streams are paused while the response needs draining, so a slow client
+ * slows the reads rather than growing Node's socket buffer, and when the
+ * response closes early (the client went away) the current stream is
+ * destroyed, its cursor closed, and the export rejects (src/db/streamControl.ts).
+ * comments.csv and summary.csv are still built as one string each, exactly as
+ * the report export builds them. A conversation over
  * `Config.dataExportMaxCells` is refused before the first byte (413).
  */
 import type { Writable } from "stream";
 import Config from "../config";
 import pg from "../db/pg-query";
+import { streamControl } from "../db/streamControl";
 import {
   sendCommentSummary,
   sendConversationSummary,
@@ -25,7 +32,7 @@ import {
   sendVotesSummary,
 } from "../report";
 import { exportFormatJson } from "../votes/exportFormat";
-import { ZipEntrySink, ZipStreamWriter } from "./zipStream";
+import { ZIP_OUTPUT_CLOSED, ZipEntrySink, ZipStreamWriter } from "./zipStream";
 
 /** The files in the zip, in order (docs/export-format.md). */
 export const CONVERSATION_ZIP_FILES = [
@@ -92,16 +99,21 @@ export function runProducerIntoEntry(
   produce: ExportProducer,
   zid: number,
   siteUrl: string,
-  sink: ZipEntrySink
+  sink: ZipEntrySink,
+  control: { signal?: AbortSignal; output?: Writable } = {}
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     let settled = false;
+    const onAbort = () => settle(new Error(ZIP_OUTPUT_CLOSED));
     const settle = (err?: unknown) => {
       if (settled) return;
       settled = true;
+      control.signal?.removeEventListener("abort", onAbort);
       if (err) reject(err);
       else resolve();
     };
+    if (control.signal?.aborted) return onAbort();
+    control.signal?.addEventListener("abort", onAbort, { once: true });
     const write = (data: string) => {
       if (settled) return;
       try {
@@ -129,9 +141,13 @@ export function runProducerIntoEntry(
         },
       }),
     };
-    Promise.resolve()
-      .then(() => produce(zid, siteUrl, res))
-      .catch((err) => settle(err));
+    // The producer's Postgres streams see the signal and the output through
+    // this context: they stop on abort and pause while the output drains.
+    streamControl.run(control, () => {
+      Promise.resolve()
+        .then(() => produce(zid, siteUrl, res))
+        .catch((err) => settle(err));
+    });
   });
 }
 
@@ -147,12 +163,23 @@ export async function writeConversationZip(
   modified: Date = new Date()
 ): Promise<void> {
   const zip = new ZipStreamWriter(out, modified);
-  for (const name of CONVERSATION_ZIP_FILES) {
-    await zip.entry(name, (sink) =>
-      runProducerIntoEntry(producers[name], zid, siteUrl, sink)
-    );
+  // A response that closes before the zip is complete (the client went away)
+  // stops the current producer and its query; see streamControl.ts.
+  const aborter = new AbortController();
+  const onClose = () => aborter.abort();
+  out.once("close", onClose);
+  if (out.destroyed) aborter.abort();
+  const control = { signal: aborter.signal, output: out };
+  try {
+    for (const name of CONVERSATION_ZIP_FILES) {
+      await zip.entry(name, (sink) =>
+        runProducerIntoEntry(producers[name], zid, siteUrl, sink, control)
+      );
+    }
+    await zip.finish();
+  } finally {
+    out.off("close", onClose);
   }
-  await zip.finish();
 }
 
 export interface ConversationExportSize {
@@ -168,9 +195,10 @@ export async function conversationExportSize(
   zid: number
 ): Promise<ConversationExportSize> {
   const rows = (await pg.queryP_readOnly(
-    `SELECT (SELECT COUNT(*) FROM votes WHERE zid = $1) AS votes,
-            (SELECT COUNT(DISTINCT pid) FROM votes WHERE zid = $1) AS voters,
-            (SELECT COUNT(*) FROM comments WHERE zid = $1) AS comments`,
+    `SELECT v.votes, v.voters,
+            (SELECT COUNT(*) FROM comments WHERE zid = $1) AS comments
+       FROM (SELECT COUNT(*) AS votes, COUNT(DISTINCT pid) AS voters
+               FROM votes WHERE zid = $1) v`,
     [zid]
   )) as { votes: string; voters: string; comments: string }[];
   const votes = Number(rows[0]?.votes || 0);

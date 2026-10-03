@@ -218,13 +218,13 @@ export default {
   webserverUsername: process.env.WEBSERVER_USERNAME as string,
 };
 
-// Use this function when a value should default to true if not set.
 /** A positive integer from the environment, or the fallback when unset or not one. */
 function positiveIntOr(val: string | undefined, fallback: number): number {
   const n = Number((val || "").trim());
   return Number.isSafeInteger(n) && n > 0 ? n : fallback;
 }
 
+// Use this function when a value should default to true if not set.
 function isTrueOrBlank(val: string | boolean | undefined): boolean {
   return val === undefined || val === "" || isTrue(val);
 }

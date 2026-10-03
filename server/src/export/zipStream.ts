@@ -7,8 +7,17 @@
  * to be known before its first byte goes out. Input is compressed
  * synchronously in runs of BLOCK_BYTES, each ending in a sync flush, so the
  * writer holds at most one run of input; the central directory (about 60 bytes
- * per entry) is kept until `finish()`. Like the report export's CSV routes, it
- * does not wait for `out` to drain.
+ * per entry) is kept until `finish()`. The writer itself never waits for `out`
+ * to drain; the caller paces its producers (conversationZip.ts pauses the
+ * Postgres streams while `out` needs draining).
+ *
+ * Once `out` is destroyed or ended by someone else (a client that went away),
+ * every further write throws ZIP_OUTPUT_CLOSED, and `finish()` rejects rather
+ * than wait for a "finish" that will never come.
+ *
+ * Times: the DOS date/time fields carry UTC (the DOS fields have no zone), and
+ * every entry also carries the extended-timestamp extra field (0x5455) with the
+ * UTC Unix modification time, which unzip, Info-ZIP, bsdtar and 7-Zip prefer.
  *
  * Without zip64 an archive, and every entry in it, must stay under 4 GiB; the
  * writer fails rather than emit a corrupt archive past that. Callers bound the
@@ -32,6 +41,7 @@ const SYNC_FLUSH = zlib.constants.Z_SYNC_FLUSH;
 const FINAL_BLOCK = zlib.deflateRawSync(Buffer.alloc(0));
 
 export const ZIP_TOO_LARGE = "polis_err_zip_too_large";
+export const ZIP_OUTPUT_CLOSED = "polis_err_zip_output_closed";
 
 /** Where an entry's producer writes its uncompressed bytes. */
 export interface ZipEntrySink {
@@ -58,12 +68,25 @@ export class ZipStreamWriter {
   private busy = false;
   private finished = false;
   private readonly stamp: { time: number; date: number };
+  // Extended timestamp extra field: tag 0x5455, 5 data bytes, flags = mtime.
+  private readonly extra: Buffer;
 
   constructor(private readonly out: Writable, modified: Date = new Date()) {
     this.stamp = dosDateTime(modified);
+    this.extra = Buffer.alloc(9);
+    this.extra.writeUInt16LE(0x5455, 0);
+    this.extra.writeUInt16LE(5, 2);
+    this.extra.writeUInt8(1, 4);
+    this.extra.writeUInt32LE(
+      Math.max(0, Math.floor(modified.getTime() / 1000)) >>> 0,
+      5
+    );
   }
 
   private emit(buf: Buffer) {
+    if (this.out.destroyed || this.out.writableEnded) {
+      throw new Error(ZIP_OUTPUT_CLOSED);
+    }
     if (this.offset + buf.length > ZIP32_MAX) {
       throw new Error(ZIP_TOO_LARGE);
     }
@@ -98,9 +121,8 @@ export class ZipStreamWriter {
     local.writeUInt16LE(this.stamp.date, 12);
     // CRC-32 and both sizes stay zero here; the data descriptor carries them.
     local.writeUInt16LE(nameBuf.length, 26);
-    local.writeUInt16LE(0, 28);
-    this.emit(local);
-    this.emit(nameBuf);
+    local.writeUInt16LE(this.extra.length, 28);
+    this.emit(Buffer.concat([local, nameBuf, this.extra]));
 
     let crc = 0;
     let size = 0;
@@ -160,10 +182,11 @@ export class ZipStreamWriter {
     record.writeUInt32LE(compressedSize, 20);
     record.writeUInt32LE(size, 24);
     record.writeUInt16LE(nameBuf.length, 28);
-    // extra length, comment length, disk number, internal attributes: zero
+    record.writeUInt16LE(this.extra.length, 30);
+    // comment length, disk number, internal attributes: zero
     record.writeUInt32LE((FILE_MODE << 16) >>> 0, 38);
     record.writeUInt32LE(headerOffset, 42);
-    this.central.push(Buffer.concat([record, nameBuf]));
+    this.central.push(Buffer.concat([record, nameBuf, this.extra]));
     this.busy = false;
   }
 
@@ -185,6 +208,20 @@ export class ZipStreamWriter {
     end.writeUInt32LE(directorySize, 12);
     end.writeUInt32LE(directoryOffset, 16);
     this.emit(end);
-    await new Promise<void>((resolve) => this.out.end(resolve));
+    await new Promise<void>((resolve, reject) => {
+      // A destroyed response never emits "finish" (and never calls an end
+      // callback); "close" without "finish" first means the zip did not arrive.
+      const onFinish = () => {
+        this.out.off("close", onClose);
+        resolve();
+      };
+      const onClose = () => {
+        this.out.off("finish", onFinish);
+        reject(new Error(ZIP_OUTPUT_CLOSED));
+      };
+      this.out.once("finish", onFinish);
+      this.out.once("close", onClose);
+      this.out.end();
+    });
   }
 }
