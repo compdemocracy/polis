@@ -21,6 +21,9 @@ const port = process.env.PORT || 3002
 export default (env, argv) => {
   const isProduction = argv.mode === 'production'
   const isDevelopment = !isProduction
+  // OFFLINE=1 (or true) builds a bundle for a box with no network: the page
+  // leaves out the Simple Analytics tag. See docs/configuration.md.
+  const isOfflineBuild = ['1', 'true'].includes(String(process.env.OFFLINE || '').toLowerCase())
 
   // Debug OIDC environment variables
   console.log('Building with OIDC configuration:')
@@ -96,7 +99,8 @@ export default (env, argv) => {
         template: 'public/index.html',
         filename: isProduction ? 'index_admin.html' : 'index.html',
         inject: 'body',
-        isProduction: isProduction // Pass isProduction to the template
+        isProduction: isProduction, // Pass isProduction to the template
+        simpleAnalytics: isProduction && !isOfflineBuild
       }),
       new webpack.DefinePlugin({
         'process.env.ADMIN_UIDS': JSON.stringify(process.env.ADMIN_UIDS),

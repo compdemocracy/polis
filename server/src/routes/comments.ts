@@ -252,6 +252,13 @@ interface CommentModerationResult {
 }
 
 export async function isProConvo(owner: number): Promise<boolean> {
+  // OFFLINE: the Auth0 Management API is hosted, so answer false without
+  // calling it. False is what every failure below already returns, so an
+  // offline box keeps its current outcome minus the network timeout, and pro
+  // moderation (Gemini, ip-api.com) is never reached.
+  if (Config.offline) {
+    return false;
+  }
   try {
     const { email } = await getUserInfoForUid2(owner);
     if (!email) {

@@ -490,23 +490,34 @@ def _image_cmd() -> list:
     return json.loads(text[start + len("CMD "):end].replace("\\\n", ""))
 
 
-def _run_cmd(tmp_path, env: dict) -> list:
-    """Run the image CMD with stub `python`/`ddtrace-run` on PATH; return the
-    commands the stubs saw."""
+def _run_cmd_calls(tmp_path, env: dict) -> list:
+    """Run the image CMD with stub `python`/`ddtrace-run` on PATH and a stub
+    `./scripts/setup_ollama.sh`; return every command the stubs saw."""
     import subprocess
 
     log = tmp_path / "calls"
+    log.touch()
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    for name in ("python", "ddtrace-run"):
-        stub = bin_dir / name
+    (tmp_path / "scripts").mkdir()
+    stubs = {
+        bin_dir / "python": "python",
+        bin_dir / "ddtrace-run": "ddtrace-run",
+        tmp_path / "scripts" / "setup_ollama.sh": "setup_ollama.sh",
+    }
+    for stub, name in stubs.items():
         stub.write_text(f'#!/bin/sh\necho "{name} $*" >> "{log}"\n')
         stub.chmod(0o755)
     argv = _image_cmd()
     assert argv[:2] == ["bash", "-c"]
     full_env = {"PATH": f"{bin_dir}:/usr/bin:/bin", "AWS_REGION": "us-east-1", **env}
     subprocess.run(argv, env=full_env, cwd=tmp_path, check=True, capture_output=True, timeout=30)
-    return [line for line in log.read_text().splitlines() if "job_poller.py" in line]
+    return log.read_text().splitlines()
+
+
+def _run_cmd(tmp_path, env: dict) -> list:
+    """The job-poller commands the image CMD ran."""
+    return [line for line in _run_cmd_calls(tmp_path, env) if "job_poller.py" in line]
 
 
 @requires_dockerfile
@@ -528,3 +539,69 @@ def test_compose_leaves_the_tracer_off_unless_enabled():
     assert _environment("docker-compose.yml", "delphi")["DD_TRACE_ENABLED"] == "false"
     on = _environment("docker-compose.yml", "delphi", {"DD_TRACE_ENABLED": "true"})
     assert on["DD_TRACE_ENABLED"] == "true"
+
+
+# --- Ollama model pull (delphi image CMD) and the ollama service -------------
+# On a local stack (DYNAMODB_ENDPOINT set) the image used to pull an Ollama
+# model on every start, whatever LLM_PROVIDER said. It now pulls only when
+# LLM_PROVIDER=ollama, and never when OFFLINE is 1 or true, so a box with no
+# network does not try. The ollama service starts only under its own profile.
+
+LOCAL = {"DYNAMODB_ENDPOINT": "http://dynamodb:8000"}
+
+
+@requires_dockerfile
+@pytest.mark.parametrize(
+    "env,pulls",
+    [
+        ({}, False),
+        ({"LLM_PROVIDER": "anthropic"}, False),
+        ({"LLM_PROVIDER": ""}, False),
+        ({"LLM_PROVIDER": "ollama"}, True),
+        ({"LLM_PROVIDER": "ollama", "OFFLINE": ""}, True),
+        ({"LLM_PROVIDER": "ollama", "OFFLINE": "0"}, True),
+        ({"LLM_PROVIDER": "ollama", "OFFLINE": "1"}, False),
+        ({"LLM_PROVIDER": "ollama", "OFFLINE": "true"}, False),
+        ({"LLM_PROVIDER": "anthropic", "OFFLINE": "1"}, False),
+    ],
+    ids=["provider-unset", "anthropic", "provider-empty", "ollama", "ollama-offline-empty",
+         "ollama-offline-0", "ollama-offline-1", "ollama-offline-true", "anthropic-offline"],
+)
+def test_image_pulls_an_ollama_model_only_for_ollama_and_never_offline(tmp_path, env, pulls):
+    calls = _run_cmd_calls(tmp_path, {**LOCAL, **env})
+    assert any(call.startswith("setup_ollama.sh") for call in calls) == pulls
+    # Whatever happens to the pull, the local setup and the poller still run.
+    assert "python setup_minio.py" in calls
+    assert [c for c in calls if "job_poller.py" in c] == ["python scripts/job_poller.py --interval=2"]
+
+
+@requires_dockerfile
+@pytest.mark.parametrize("env", [{"LLM_PROVIDER": "ollama"}, {}], ids=["ollama", "unset"])
+def test_production_start_never_runs_the_ollama_setup(tmp_path, env):
+    # DYNAMODB_ENDPOINT unset is the production branch: no local setup at all.
+    calls = _run_cmd_calls(tmp_path, env)
+    assert not any(call.startswith("setup_ollama.sh") for call in calls)
+    assert "python setup_minio.py" not in calls
+
+
+@requires_checkout
+def test_ollama_service_is_profile_gated():
+    document = yaml.safe_load((CHECKOUT / "docker-compose.yml").read_text())
+    assert document["services"]["ollama"].get("profiles") == ["ollama"], (
+        "docker-compose.yml's ollama service must start only under --profile ollama"
+    )
+
+
+@requires_checkout
+@pytest.mark.parametrize("compose_file", sorted(COMPOSE_FILES))
+def test_no_stack_starts_ollama_without_its_profile(compose_file):
+    services = yaml.safe_load((CHECKOUT / compose_file).read_text())["services"]
+    for name, service in services.items():
+        if "ollama/ollama" in str(service.get("image", "")):
+            assert service.get("profiles"), f"{compose_file}: {name} runs Ollama with no profile"
+
+
+@requires_checkout
+def test_delphi_forwards_offline():
+    assert _environment("docker-compose.yml", "delphi")["OFFLINE"] == ""
+    assert _environment("docker-compose.yml", "delphi", {"OFFLINE": "1"})["OFFLINE"] == "1"

@@ -85,6 +85,11 @@ module.exports = (env, options) => {
   const conversationId = process.env.CONVERSATION_ID;
   const embedServiceHostname = process.env.EMBED_SERVICE_HOSTNAME || "pol.is";
   const gaTrackingId = process.env.GA_TRACKING_ID;
+  // OFFLINE=1 (or true) builds a bundle for a box with no network. Simple
+  // Analytics is on for production builds, as in client-admin, and off for
+  // development and offline builds. See docs/configuration.md.
+  const isOfflineBuild = ["1", "true"].includes(String(process.env.OFFLINE || "").toLowerCase());
+  const simpleAnalytics = options.mode === "production" && !isOfflineBuild;
   const oidcCacheKeyPrefix = process.env.OIDC_CACHE_KEY_PREFIX || "oidc.user";
   const oidcCacheKeyIdTokenSuffix = process.env.OIDC_CACHE_KEY_ID_TOKEN_SUFFIX || "@@user@@";
   const port = process.env.PORT || 3001;
@@ -229,6 +234,7 @@ module.exports = (env, options) => {
         templateParameters: {
           versionString: pkg.version,
           gaTrackingId: gaTrackingId,
+          simpleAnalytics,
           oidcCacheKeyPrefix: oidcCacheKeyPrefix,
           oidcCacheKeyIdTokenSuffix: oidcCacheKeyIdTokenSuffix,
           authNamespace,

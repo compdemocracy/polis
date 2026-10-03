@@ -1,0 +1,36 @@
+name: Offline compose config
+
+# Parse-only check of the offline profile (docs/offline.md): no images are
+# built or pulled and no containers start.
+
+concurrency:
+  group: offline-compose-config-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    types: ["opened", "reopened", "synchronize"]
+    paths:
+      - 'docker-compose.yml'
+      - 'docker-compose.offline.yml'
+      - 'example.offline.env'
+      - 'Makefile'
+      - 'scripts/offline-bundle.sh'
+      - 'offline-images.lock'
+      - 'ci/offline_compose_config_test.sh'
+      - '.github/workflows/offline-compose-config.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compose version
+        run: docker compose version
+      - name: Offline compose config test
+        run: ci/offline_compose_config_test.sh
+      - name: Bundle script syntax
+        run: bash -n scripts/offline-bundle.sh

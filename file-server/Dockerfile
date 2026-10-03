@@ -37,6 +37,9 @@ ENV AUTH_CLIENT_ID=${AUTH_CLIENT_ID}
 ENV AUTH_ISSUER=${AUTH_ISSUER}
 ENV AUTH_NAMESPACE=${AUTH_NAMESPACE}
 
+# OFFLINE=1 leaves the Simple Analytics tag out of the page (docs/configuration.md).
+ARG OFFLINE
+
 RUN npm run build:prod
 
 
@@ -67,6 +70,9 @@ RUN npm config set fetch-retries 5 && \
 RUN --mount=type=cache,target=/root/.npm npm ci --production=false
 
 COPY client-participation/. .
+
+# OFFLINE=1 leaves the Simple Analytics tag out of the page (docs/configuration.md).
+ARG OFFLINE
 
 RUN npm run build:prod
 
@@ -113,6 +119,9 @@ ENV DD_APPLICATION_ID=${DD_APPLICATION_ID}
 ENV DD_CLIENT_TOKEN=${DD_CLIENT_TOKEN}
 ENV DD_SITE=${DD_SITE}
 ENV SERVICE_URL=${SERVICE_URL}
+
+# OFFLINE=1 leaves the Simple Analytics tag out of the page (docs/configuration.md).
+ARG OFFLINE
 
 RUN npm run build:prod
 

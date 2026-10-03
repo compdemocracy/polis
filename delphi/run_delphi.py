@@ -47,6 +47,11 @@ def main():
 
     args = parser.parse_args()
 
+    # OFFLINE=1 (or true): the pipeline steps below inherit the Hugging Face
+    # offline flags (they read them at import), so no step reaches the hub.
+    from polismath.utils.offline_env import apply_offline_env
+    apply_offline_env()
+
     if args.help:
         show_usage()
         sys.exit(0)

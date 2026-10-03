@@ -119,6 +119,10 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 - **`SHOULD_USE_TRANSLATION_API`** Set this to `true` if using Google translation service. See [Enabling Comment Translation](#enabling-comment-translation) below.
 - **`USE_NETWORK_HOST`** Set this to `true` if using server within an internal network (e.g. AWS) such that SSL is not required.
 
+### Client Build Flags
+
+- **`OFFLINE`** Build-time flag for the web clients. The client-admin, client-participation and client-report webpack configs read it when the `file-server` image is built ([client-report](../client-report/webpack.common.js), [client-participation](../client-participation/webpack.config.js), [client-admin](../client-admin/webpack.config.js)); pass it with `--build-arg OFFLINE=1`, which each client stage of [file-server/Dockerfile](../file-server/Dockerfile) declares. Set it to `1` or `true` to build pages for a box with no network: the Simple Analytics tag is left out of all three. Unset, which is the default and what pol.is builds with, production-mode builds keep the tag. Development-mode builds (`npm run dev`, `build:dev`, the dev servers) never include it. Compose does not pass this build argument yet.
+
 ### URL/Hostname Settings
 
 - **`API_DEV_HOSTNAME`** defaults to `localhost:5000` in [config:5](../server/src/config.ts#L5); set it to the development hostname and port you actually use.
@@ -158,6 +162,19 @@ The admin console can show read-only, aggregate operations pages at `/ops` (serv
 
 A request is let through only when, in this order: `OPS_ENABLED=true`; it carries an OIDC access token that passes the server's issuer, audience and signature checks (participant, XID and anonymous tokens do not); the token's `${AUTH_NAMESPACE}connection_strategy` claim is `google-oauth2`; `${AUTH_NAMESPACE}email_verified` is `true`; `${AUTH_NAMESPACE}email` is printable ASCII and matches `OPS_EMAIL_DOMAINS` with no deny entry matching; and `${AUTH_NAMESPACE}hd` equals the email's domain (required when the email is admitted by a domain entry, optional for an address entry). The identity provider must add the `connection_strategy` claim (and `hd` when the login has one); until it does, every request is refused. Refusals answer 403 `polis_err_ops_forbidden`. Refused page reads with a token are logged as `ops_access` lines with the reason; other refusals (mostly the admin console's `whoami` check for logins without access) are counted and summarised in at most one `ops_refused` info line per minute per process. An ops request does not create or update any user record.
 
+### Offline mode (server)
+
+To run the whole stack on one machine with no network, see [offline](offline.md).
+
+- **`OFFLINE`** Set to `1` or `true` (any case) when the server runs on a box with no network; any other value, including `yes` and `on`, leaves it off. The Delphi image and job poller accept the same two values, so one `OFFLINE` setting means the same thing on every service. Read at [config](../server/src/config.ts) as `offline`; Compose forwards it to the `server` service with fallback empty. Unset, which is the default, nothing changes. When it is set, the server does not call these hosted services, and logs one `OFFLINE: skipping ...` info line per skipped service at start-up ([offline.ts](../server/src/utils/offline.ts)); nothing is logged per request.
+  - **Auth0 Management API.** `isProConvo` ([comments.ts](../server/src/routes/comments.ts)), called on each participant comment post and on comment lists filtered by `mod_gt`, answers `false` without a lookup. `false` is what the function already returns on any error, so an offline box gets today's result without waiting for the network to fail, and the pro moderation it gates (Gemini and ip-api.com, [moderation.ts](../server/src/utils/moderation.ts)) is never reached.
+  - **Akismet.** The API-key check at start-up ([server.ts](../server/src/server.ts)) is not run. Nothing else calls Akismet.
+  - **dd-trace.** Production mode does not initialise the tracer ([index.ts](../server/index.ts)).
+  - **Google Translate.** `SHOULD_USE_TRANSLATION_API` is ignored: no client is built, comments are not translated, and new comments are stored with no language, as when `SHOULD_USE_TRANSLATION_API` is off ([comment.ts](../server/src/comment.ts)).
+  - **SES.** With `SES_ENDPOINT` unset the SDK would reach real AWS, so each email is not sent: the send reports success with no message id and logs `polis_email_not_sent_offline` at debug level with the subject only ([senders.ts](../server/src/email/senders.ts)). With `SES_ENDPOINT` set (for example the `ses-local` inbox) mail is sent there as usual.
+
+  Not changed by the flag: GA4 and Simple Analytics are client-side; DynamoDB, S3 and SQS clients follow their endpoint settings; the report narrative and collective statement need an Anthropic or OpenAI key and fail without one.
+
 ### Third Party API Credentials
 
 (Requirements depend on the selected integration and launch path. Missing values do not universally disable a feature cleanly; constructors and request paths can fail. See the [service inventory](deployment-configuration.md#external-service-touchpoints).)
@@ -196,10 +213,23 @@ The `delphi` service has no `env_file`, so it sees only the keys its `environmen
 - **`TOPIC_BATCH_MAX_WAIT_SECONDS`** Longest wait, in seconds, for one layer's Anthropic topic-naming batch. Compose fallback `1800`.
 - **`SENTENCE_TRANSFORMER_MODEL`** Local embedding model for the narrative pipeline. Compose fallback `all-MiniLM-L6-v2`.
 - **`OLLAMA_HOST`**, **`OLLAMA_ENDPOINT`**, **`OLLAMA_MODEL`** Used only when `LLM_PROVIDER=ollama`. `OLLAMA_ENDPOINT` is the older name for `OLLAMA_HOST`. Compose fallbacks are empty.
+- **`OFFLINE`** (Delphi) Set to `1` or `true` so the Delphi image never pulls an Ollama model at start; the model must already be in the `ollama-models` volume. Compose forwards it with fallback empty. Without it, on a local stack (`DYNAMODB_ENDPOINT` set) the image runs `scripts/setup_ollama.sh` only when `LLM_PROVIDER=ollama` ([Dockerfile](../delphi/Dockerfile)). Production leaves `DYNAMODB_ENDPOINT` unset and never runs it. The same name is the web clients' build flag (see [Client Build Flags](#client-build-flags)).
+
+The `ollama` Compose service is behind the `ollama` profile, so it starts only with `--profile ollama`. `make start` adds that profile when the env file sets `LLM_PROVIDER=ollama`.
 
 ### Datadog Tracing (Delphi)
 
-- **`DD_TRACE_ENABLED`** Set to `true` to start the Delphi job poller under `ddtrace-run` ([Dockerfile](../delphi/Dockerfile)); any other value, or unset, starts it with plain `python`. Compose forwards it to the `delphi` service with fallback `false` ([Compose:174](../docker-compose.yml#L174)). Turn it on only where a Datadog agent is reachable: without one the tracer logs a failed-send error and traceback on every flush. The `ddtrace` package stays in the image. The API server loads `dd-trace` in production independently ([index:10](../server/index.ts#L10)); that library also reads `DD_TRACE_ENABLED` from the server's env file, where unset means enabled.
+- **`DD_TRACE_ENABLED`** Set to `true` to start the Delphi job poller under `ddtrace-run` ([Dockerfile](../delphi/Dockerfile)); any other value, or unset, starts it with plain `python`. Compose forwards it to the `delphi` service with fallback `false` ([Compose:174](../docker-compose.yml#L174)). Turn it on only where a Datadog agent is reachable: without one the tracer logs a failed-send error and traceback on every flush. The `ddtrace` package stays in the image. The API server loads `dd-trace` in production independently, unless `OFFLINE` is set ([index](../server/index.ts)); that library also reads `DD_TRACE_ENABLED` from the server's env file, where unset means enabled.
+
+### Offline embedding model (Delphi)
+
+The narrative pipeline embeds comments with a sentence-transformer model ([embedding.py](../delphi/umap_narrative/polismath_commentgraph/core/embedding.py)). By default the model is downloaded from the Hugging Face hub on first use, into the container, so a box with no network fails its first run.
+
+- **`BAKE_EMBEDDING_MODEL`** (Delphi build argument) Set to `true` to download `SENTENCE_TRANSFORMER_MODEL` into the image at build time ([Dockerfile](../delphi/Dockerfile)), into the default Hugging Face cache where the runtime looks. The download runs in its own stage on top of the dependency layer, so a source change does not download the model again. Default `false`: the step runs nothing and the image is unchanged, which is what production builds. Compose passes it to both `delphi` and `math-python`, which build the same image tag, with fallback `false`. A failed download fails the build. Cost: about 92 MB for the default `all-MiniLM-L6-v2` (its `model.safetensors` is 90.9 MB on the hub, plus tokenizer and config files). Leave `MODEL_CACHE_DIR` unset with a baked model, or point it at a volume that already holds the model: the baked copy is only found in the default cache.
+- **`SENTENCE_TRANSFORMER_MODEL`** is also a build argument with the same fallback, `all-MiniLM-L6-v2`. Build with the same value the container runs with; a different runtime model is not in the image.
+- **`OFFLINE`** (Delphi runtime) When `1` or `true`, the job poller and `run_delphi.py` set `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` before starting any pipeline step, and the embedding engine loads with `local_files_only` ([offline_env.py](../delphi/polismath/utils/offline_env.py)). A missing model then fails fast instead of waiting on the network. Compose forwards `OFFLINE` to the `delphi` service with fallback empty.
+
+For an offline box, build the image with both `BAKE_EMBEDDING_MODEL=true` and `USE_CPU_TORCH=true` (the existing CPU-torch build argument): a box with no GPU does not need the CUDA torch wheels a default build installs, and the CPU build is the smaller image. Neither is set by default; the planned offline Compose overlay sets both.
 
 ### Deprecated
 
