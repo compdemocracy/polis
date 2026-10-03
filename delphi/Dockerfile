@@ -56,6 +56,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
   # Copy source code - this layer rebuilds when code changes but reuses dependency layers above
   COPY polismath/ ./polismath/
   COPY umap_narrative/ ./umap_narrative/
+  COPY delphi_storage/ ./delphi_storage/
   COPY scripts/ ./scripts/
   COPY *.py ./
 
@@ -94,6 +95,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder /app/polismath/ ./polismath/
 COPY --from=builder /app/scripts/ ./scripts/
 COPY --from=builder /app/umap_narrative/ ./umap_narrative/
+COPY --from=builder /app/delphi_storage/ ./delphi_storage/
 COPY --from=builder /app/*.py ./
 
 RUN mkdir -p data

@@ -458,6 +458,8 @@ zict==3.0.0
     # via distributed
 zipp==3.23.0
     # via importlib-metadata
+zstandard==0.25.0
+    # via delphi-polis (pyproject.toml)
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools

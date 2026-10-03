@@ -1,0 +1,124 @@
+{
+  "name": "roundtrip_basic",
+  "description": "put/get round-trips: unicode, nesting, numbers by value, nulls, empty containers, overwrite",
+  "ops": [
+    {
+      "op": "put",
+      "entity": "artifacts",
+      "item": {
+        "pk": "job-rt-1",
+        "sk": "math#pca",
+        "attributes": {
+          "enc": "json",
+          "body": {
+            "unicode": "café 日本語 שלום 😀",
+            "nested": {"a": [1, 2, 3], "b": {"deep": true}},
+            "int": 42,
+            "float": 0.1,
+            "negative": -2.25,
+            "tiny": 1e-09,
+            "big_int": 9007199254740991,
+            "zero": 0,
+            "bool_f": false,
+            "null_v": null,
+            "empty_str": "",
+            "empty_list": [],
+            "empty_obj": {}
+          }
+        }
+      }
+    },
+    {
+      "op": "get",
+      "entity": "artifacts",
+      "pk": "job-rt-1",
+      "sk": "math#pca",
+      "expect": {
+        "found": true,
+        "attributes": {
+          "enc": "json",
+          "body": {
+            "unicode": "café 日本語 שלום 😀",
+            "nested": {"a": [1, 2, 3], "b": {"deep": true}},
+            "int": 42,
+            "float": 0.1,
+            "negative": -2.25,
+            "tiny": 1e-09,
+            "big_int": 9007199254740991,
+            "zero": 0,
+            "bool_f": false,
+            "null_v": null,
+            "empty_str": "",
+            "empty_list": [],
+            "empty_obj": {}
+          }
+        }
+      }
+    },
+    {
+      "op": "get",
+      "entity": "artifacts",
+      "pk": "job-rt-1",
+      "sk": "does#not#exist",
+      "expect": {"found": false}
+    },
+    {
+      "op": "get",
+      "entity": "run_inputs",
+      "pk": "job-rt-1",
+      "sk": "math#pca",
+      "expect": {"found": false}
+    },
+    {
+      "op": "put",
+      "entity": "artifacts",
+      "item": {
+        "pk": "job-rt-1",
+        "sk": "math#pca",
+        "attributes": {"enc": "json", "body": {"overwritten": true}}
+      }
+    },
+    {
+      "op": "get",
+      "entity": "artifacts",
+      "pk": "job-rt-1",
+      "sk": "math#pca",
+      "expect": {
+        "found": true,
+        "attributes": {"enc": "json", "body": {"overwritten": true}}
+      }
+    },
+    {
+      "op": "put",
+      "entity": "run_inputs",
+      "item": {
+        "pk": "job-rt-1",
+        "sk": "votes#0",
+        "attributes": {"rows": 3},
+        "blob_b64": "AAECA/8="
+      }
+    },
+    {
+      "op": "get",
+      "entity": "run_inputs",
+      "pk": "job-rt-1",
+      "sk": "votes#0",
+      "expect": {"found": true, "attributes": {"rows": 3}, "blob_b64": "AAECA/8=", "blob_len": 5}
+    },
+    {
+      "op": "put_batch",
+      "entity": "topic_moderation",
+      "items": [
+        {"pk": "zid#7", "sk": "topic#0#1", "attributes": {"status": "approved"}},
+        {"pk": "zid#7", "sk": "topic#0#2", "attributes": {"status": "rejected"}}
+      ]
+    },
+    {
+      "op": "get",
+      "entity": "topic_moderation",
+      "pk": "zid#7",
+      "sk": "topic#0#2",
+      "expect": {"found": true, "attributes": {"status": "rejected"}}
+    }
+  ]
+}

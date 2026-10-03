@@ -1,0 +1,74 @@
+{
+  "name": "query_ordering",
+  "description": "prefix/between queries return UTF-8 byte order (astral plane sorts after U+FFFD); delete_partition",
+  "ops": [
+    {"op": "put", "entity": "artifacts", "item": {"pk": "job-q-1", "sk": "b", "attributes": {"i": 4}}},
+    {"op": "put", "entity": "artifacts", "item": {"pk": "job-q-1", "sk": "😀", "attributes": {"i": 7}}},
+    {"op": "put", "entity": "artifacts", "item": {"pk": "job-q-1", "sk": "a#2", "attributes": {"i": 3}}},
+    {"op": "put", "entity": "artifacts", "item": {"pk": "job-q-1", "sk": "a", "attributes": {"i": 1}}},
+    {"op": "put", "entity": "artifacts", "item": {"pk": "job-q-1", "sk": "�", "attributes": {"i": 6}}},
+    {"op": "put", "entity": "artifacts", "item": {"pk": "job-q-1", "sk": "a#1", "attributes": {"i": 2}}},
+    {"op": "put", "entity": "artifacts", "item": {"pk": "job-q-1", "sk": "émile", "attributes": {"i": 5}}},
+    {"op": "put", "entity": "artifacts", "item": {"pk": "job-q-other", "sk": "a", "attributes": {"i": 99}}},
+    {
+      "op": "query_prefix",
+      "entity": "artifacts",
+      "pk": "job-q-1",
+      "sk_prefix": "",
+      "expect": {"sks": ["a", "a#1", "a#2", "b", "émile", "�", "😀"]}
+    },
+    {
+      "op": "query_prefix",
+      "entity": "artifacts",
+      "pk": "job-q-1",
+      "sk_prefix": "a#",
+      "expect": {"sks": ["a#1", "a#2"]}
+    },
+    {
+      "op": "query_prefix",
+      "entity": "artifacts",
+      "pk": "job-q-1",
+      "sk_prefix": "nope",
+      "expect": {"sks": []}
+    },
+    {
+      "op": "query_prefix",
+      "entity": "artifacts",
+      "pk": "job-q-missing",
+      "sk_prefix": "",
+      "expect": {"sks": []}
+    },
+    {
+      "op": "query_between",
+      "entity": "artifacts",
+      "pk": "job-q-1",
+      "sk_from": "a#1",
+      "sk_to": "b",
+      "expect": {"sks": ["a#1", "a#2", "b"]}
+    },
+    {
+      "op": "query_between",
+      "entity": "artifacts",
+      "pk": "job-q-1",
+      "sk_from": "b",
+      "sk_to": "😀",
+      "expect": {"sks": ["b", "émile", "�", "😀"]}
+    },
+    {"op": "delete_partition", "entity": "artifacts", "pk": "job-q-1", "expect": {"deleted": 7}},
+    {
+      "op": "query_prefix",
+      "entity": "artifacts",
+      "pk": "job-q-1",
+      "sk_prefix": "",
+      "expect": {"sks": []}
+    },
+    {
+      "op": "get",
+      "entity": "artifacts",
+      "pk": "job-q-other",
+      "sk": "a",
+      "expect": {"found": true, "attributes": {"i": 99}}
+    },
+    {"op": "delete_partition", "entity": "artifacts", "pk": "job-q-1", "expect": {"deleted": 0}}
+  ]
+}

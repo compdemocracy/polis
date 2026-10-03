@@ -1,0 +1,82 @@
+{
+  "name": "blob_chunking",
+  "description": "large blobs round-trip bit-exactly (DynamoDB splits >300KB into hidden chunk rows); queries and delete see only logical items",
+  "ops": [
+    {
+      "op": "put",
+      "entity": "run_inputs",
+      "item": {
+        "pk": "job-blob-1",
+        "sk": "votes#0",
+        "attributes": {"kind": "votes", "count": 150000},
+        "blob_gen": {"kind": "f64_seq", "n": 150000}
+      }
+    },
+    {
+      "op": "put",
+      "entity": "run_inputs",
+      "item": {
+        "pk": "job-blob-1",
+        "sk": "comments#0",
+        "attributes": {"kind": "comments"},
+        "blob_b64": "eyJzbWFsbCI6IHRydWV9"
+      }
+    },
+    {
+      "op": "get",
+      "entity": "run_inputs",
+      "pk": "job-blob-1",
+      "sk": "votes#0",
+      "expect": {
+        "found": true,
+        "attributes": {"kind": "votes", "count": 150000},
+        "blob_gen": {"kind": "f64_seq", "n": 150000},
+        "blob_len": 1200000
+      }
+    },
+    {
+      "op": "get",
+      "entity": "run_inputs",
+      "pk": "job-blob-1",
+      "sk": "comments#0",
+      "expect": {"found": true, "blob_b64": "eyJzbWFsbCI6IHRydWV9", "blob_len": 15}
+    },
+    {
+      "op": "query_prefix",
+      "entity": "run_inputs",
+      "pk": "job-blob-1",
+      "sk_prefix": "",
+      "expect": {"sks": ["comments#0", "votes#0"]}
+    },
+    {
+      "op": "put",
+      "entity": "run_inputs",
+      "item": {
+        "pk": "job-blob-1",
+        "sk": "votes#0",
+        "attributes": {"kind": "votes", "count": 3},
+        "blob_gen": {"kind": "f64_seq", "n": 3}
+      }
+    },
+    {
+      "op": "get",
+      "entity": "run_inputs",
+      "pk": "job-blob-1",
+      "sk": "votes#0",
+      "expect": {
+        "found": true,
+        "attributes": {"kind": "votes", "count": 3},
+        "blob_gen": {"kind": "f64_seq", "n": 3},
+        "blob_len": 24
+      }
+    },
+    {"op": "delete_partition", "entity": "run_inputs", "pk": "job-blob-1", "expect": {"deleted": 2}},
+    {
+      "op": "query_prefix",
+      "entity": "run_inputs",
+      "pk": "job-blob-1",
+      "sk_prefix": "",
+      "expect": {"sks": []}
+    }
+  ]
+}

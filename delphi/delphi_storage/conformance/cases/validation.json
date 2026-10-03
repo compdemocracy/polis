@@ -1,0 +1,209 @@
+{
+  "name": "validation",
+  "description": "writes that violate the contract are rejected with `invalid`; runs/latest are unreachable via generic ops",
+  "ops": [
+    {
+      "op": "put",
+      "entity": "artifacts",
+      "item": {
+        "pk": "job-v-1",
+        "sk": "ok",
+        "attributes": {
+          "_reserved": 1
+        }
+      },
+      "expect_error": "invalid"
+    },
+    {
+      "op": "put",
+      "entity": "artifacts",
+      "item": {
+        "pk": "job-v-1",
+        "sk": "badkey",
+        "attributes": {}
+      },
+      "expect_error": "invalid"
+    },
+    {
+      "op": "put",
+      "entity": "artifacts",
+      "item": {
+        "pk": "job-v-1",
+        "sk": "",
+        "attributes": {}
+      },
+      "expect_error": "invalid"
+    },
+    {
+      "op": "put",
+      "entity": "artifacts",
+      "item": {
+        "pk": "",
+        "sk": "ok",
+        "attributes": {}
+      },
+      "expect_error": "invalid"
+    },
+    {
+      "op": "put",
+      "entity": "runs",
+      "item": {
+        "pk": "job-v-1",
+        "sk": "run",
+        "attributes": {}
+      },
+      "expect_error": "invalid"
+    },
+    {
+      "op": "put",
+      "entity": "latest",
+      "item": {
+        "pk": "zid#1#FULL_PIPELINE",
+        "sk": "latest",
+        "attributes": {}
+      },
+      "expect_error": "invalid"
+    },
+    {
+      "op": "put",
+      "entity": "nonsense",
+      "item": {
+        "pk": "job-v-1",
+        "sk": "ok",
+        "attributes": {}
+      },
+      "expect_error": "invalid"
+    },
+    {
+      "op": "enqueue_run",
+      "run": {
+        "job_id": "v-run-1",
+        "job_type": "FULL_PIPELINE",
+        "zid": 1,
+        "status": "RUNNING",
+        "enqueued_at": "2026-07-06T10:00:00.000Z"
+      },
+      "expect_error": "invalid"
+    },
+    {
+      "op": "enqueue_run",
+      "run": {
+        "job_id": "v-run-2",
+        "job_type": "FULL_PIPELINE",
+        "zid": 1,
+        "enqueued_at": "2026-07-06 10:00:00"
+      },
+      "expect_error": "invalid"
+    },
+    {
+      "op": "enqueue_run",
+      "run": {
+        "job_id": "v-run-3",
+        "job_type": "NOT_A_TYPE",
+        "zid": 1,
+        "enqueued_at": "2026-07-06T10:00:00.000Z"
+      },
+      "expect_error": "invalid"
+    },
+    {
+      "op": "enqueue_run",
+      "run": {
+        "job_id": "",
+        "job_type": "FULL_PIPELINE",
+        "zid": 1,
+        "enqueued_at": "2026-07-06T10:00:00.000Z"
+      },
+      "expect_error": "invalid"
+    },
+    {
+      "op": "get",
+      "entity": "artifacts",
+      "pk": "job-v-1",
+      "sk": "ok",
+      "expect": {
+        "found": false
+      }
+    },
+    {
+      "op": "enqueue_run",
+      "run": {
+        "job_id": "v-run-4",
+        "job_type": "FULL_PIPELINE",
+        "enqueued_at": "2026-07-06T10:00:00.000Z"
+      },
+      "expect_error": "invalid"
+    },
+    {
+      "op": "enqueue_run",
+      "run": {
+        "job_id": "v-run-5",
+        "job_type": "NARRATIVE_BATCH",
+        "zid": 1,
+        "enqueued_at": "2026-07-06T10:00:00.000Z"
+      },
+      "expect_error": "invalid"
+    },
+    {
+      "op": "get_run",
+      "job_id": "v-run-4",
+      "expect": {
+        "found": false
+      }
+    },
+    {
+      "op": "enqueue_run",
+      "run": {
+        "job_id": "v-ok-1",
+        "job_type": "FULL_PIPELINE",
+        "zid": 1,
+        "enqueued_at": "2026-07-06T10:00:00.000Z"
+      }
+    },
+    {
+      "op": "update_run_status",
+      "job_id": "v-ok-1",
+      "status": "BOGUS",
+      "now": "2026-07-06T10:01:00.000Z",
+      "expect_error": "invalid"
+    },
+    {
+      "op": "get_run",
+      "job_id": "v-ok-1",
+      "expect": {
+        "found": true,
+        "status": "QUEUED"
+      }
+    },
+    {
+      "op": "advance_latest",
+      "scope": "zid#1#FULL_PIPELINE",
+      "job_id": "v-ok-1",
+      "job_type": "BOGUS",
+      "now": "2026-07-06T10:01:00.000Z",
+      "expect_error": "invalid"
+    },
+    {
+      "op": "get_latest",
+      "scope": "zid#1#FULL_PIPELINE",
+      "expect": {
+        "found": false
+      }
+    },
+    {
+      "op": "list_runs",
+      "zid": 1,
+      "status": "BOGUS",
+      "expect_error": "invalid"
+    },
+    {
+      "op": "list_runs",
+      "zid": 1,
+      "rid": 2,
+      "expect_error": "invalid"
+    },
+    {
+      "op": "list_runs",
+      "expect_error": "invalid"
+    }
+  ]
+}

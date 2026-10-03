@@ -1,0 +1,160 @@
+{
+  "name": "latest_pointer",
+  "description": "monotonic seq per scope, idempotent completion, importer no-clobber invariant (design §6.2 invariant 1), rid scopes",
+  "ops": [
+    {"op": "get_latest", "scope": "zid#5#FULL_PIPELINE", "expect": {"found": false}},
+    {
+      "op": "enqueue_run",
+      "run": {"job_id": "r1", "job_type": "FULL_PIPELINE", "zid": 5, "enqueued_at": "2026-07-06T09:00:00.000Z"}
+    },
+    {
+      "op": "claim_next_run",
+      "worker_id": "w1",
+      "lease_seconds": 300,
+      "now": "2026-07-06T09:01:00.000Z",
+      "expect": {"job_id": "r1"}
+    },
+    {
+      "op": "complete_run",
+      "job_id": "r1",
+      "now": "2026-07-06T09:02:00.000Z",
+      "expect": {
+        "status": "COMPLETED",
+        "latest": [{"scope": "zid#5#FULL_PIPELINE", "job_id": "r1", "seq": 1}]
+      }
+    },
+    {
+      "op": "get_latest",
+      "scope": "zid#5#FULL_PIPELINE",
+      "expect": {"found": true, "job_id": "r1", "seq": 1, "job_type": "FULL_PIPELINE"}
+    },
+    {
+      "op": "complete_run",
+      "job_id": "r1",
+      "now": "2026-07-06T09:03:00.000Z",
+      "expect": {
+        "status": "COMPLETED",
+        "latest": [{"scope": "zid#5#FULL_PIPELINE", "job_id": "r1", "seq": 1}]
+      }
+    },
+    {
+      "op": "enqueue_run",
+      "run": {"job_id": "r2", "job_type": "FULL_PIPELINE", "zid": 5, "enqueued_at": "2026-07-06T09:10:00.000Z"}
+    },
+    {
+      "op": "claim_next_run",
+      "worker_id": "w1",
+      "lease_seconds": 300,
+      "now": "2026-07-06T09:11:00.000Z",
+      "expect": {"job_id": "r2"}
+    },
+    {
+      "op": "complete_run",
+      "job_id": "r2",
+      "now": "2026-07-06T09:12:00.000Z",
+      "expect": {
+        "status": "COMPLETED",
+        "latest": [{"scope": "zid#5#FULL_PIPELINE", "job_id": "r2", "seq": 2}]
+      }
+    },
+    {
+      "op": "advance_latest",
+      "scope": "zid#5#FULL_PIPELINE",
+      "job_id": "imp1",
+      "job_type": "IMPORTED",
+      "only_if_absent_or_imported": true,
+      "now": "2026-07-06T09:13:00.000Z",
+      "expect": {"advanced": false, "seq": 2}
+    },
+    {
+      "op": "get_latest",
+      "scope": "zid#5#FULL_PIPELINE",
+      "expect": {"found": true, "job_id": "r2", "seq": 2}
+    },
+    {
+      "op": "advance_latest",
+      "scope": "zid#6#FULL_PIPELINE",
+      "job_id": "imp2",
+      "job_type": "IMPORTED",
+      "only_if_absent_or_imported": true,
+      "now": "2026-07-06T09:14:00.000Z",
+      "expect": {"advanced": true, "seq": 1}
+    },
+    {
+      "op": "advance_latest",
+      "scope": "zid#6#FULL_PIPELINE",
+      "job_id": "imp3",
+      "job_type": "IMPORTED",
+      "only_if_absent_or_imported": true,
+      "now": "2026-07-06T09:15:00.000Z",
+      "expect": {"advanced": true, "seq": 2}
+    },
+    {
+      "op": "get_latest",
+      "scope": "zid#6#FULL_PIPELINE",
+      "expect": {"found": true, "job_id": "imp3", "seq": 2, "job_type": "IMPORTED"}
+    },
+    {
+      "op": "enqueue_run",
+      "run": {"job_id": "r3", "job_type": "FULL_PIPELINE", "zid": 6, "enqueued_at": "2026-07-06T09:20:00.000Z"}
+    },
+    {
+      "op": "claim_next_run",
+      "worker_id": "w1",
+      "lease_seconds": 300,
+      "now": "2026-07-06T09:21:00.000Z",
+      "expect": {"job_id": "r3"}
+    },
+    {
+      "op": "complete_run",
+      "job_id": "r3",
+      "now": "2026-07-06T09:22:00.000Z",
+      "expect": {
+        "status": "COMPLETED",
+        "latest": [{"scope": "zid#6#FULL_PIPELINE", "job_id": "r3", "seq": 3}]
+      }
+    },
+    {
+      "op": "advance_latest",
+      "scope": "zid#6#FULL_PIPELINE",
+      "job_id": "imp4",
+      "job_type": "IMPORTED",
+      "only_if_absent_or_imported": true,
+      "now": "2026-07-06T09:23:00.000Z",
+      "expect": {"advanced": false, "seq": 3}
+    },
+    {
+      "op": "advance_latest",
+      "scope": "zid#6#FULL_PIPELINE",
+      "job_id": "r3",
+      "job_type": "FULL_PIPELINE",
+      "now": "2026-07-06T09:24:00.000Z",
+      "expect": {"advanced": false, "seq": 3}
+    },
+    {
+      "op": "enqueue_run",
+      "run": {"job_id": "n1", "job_type": "NARRATIVE_BATCH", "zid": 5, "rid": 42, "enqueued_at": "2026-07-06T09:30:00.000Z"}
+    },
+    {
+      "op": "claim_next_run",
+      "worker_id": "w1",
+      "lease_seconds": 300,
+      "now": "2026-07-06T09:31:00.000Z",
+      "expect": {"job_id": "n1"}
+    },
+    {
+      "op": "complete_run",
+      "job_id": "n1",
+      "now": "2026-07-06T09:32:00.000Z",
+      "expect": {
+        "status": "COMPLETED",
+        "latest": [{"scope": "rid#42#NARRATIVE_BATCH", "job_id": "n1", "seq": 1}]
+      }
+    },
+    {
+      "op": "get_latest",
+      "scope": "zid#5#FULL_PIPELINE",
+      "expect": {"found": true, "job_id": "r2", "seq": 2}
+    }
+  ]
+}
