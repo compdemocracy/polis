@@ -208,11 +208,21 @@ def test_no_other_delphi_module_reads_votes_raw():
     root = pathlib.Path(__file__).resolve().parents[1]
     pattern = re.compile(r"SELECT[^;]*?\bv?\.?vote\b[^;]*?FROM\s+(?:public\.)?votes(?:_latest_unique)?\b",
                          re.S | re.I)
-    readers = sorted(
+    def nested_copy(p):
+        # The CI image also carries the package at umap_narrative/umap_narrative/
+        # (a mounted copy). Skip that path only when it is a byte-identical copy
+        # of the tracked file, so a real second reader there still fails.
+        rel = p.relative_to(root).parts
+        if len(rel) > 1 and rel[0] == rel[1]:
+            canonical = root.joinpath(*rel[1:])
+            return canonical.is_file() and canonical.read_bytes() == p.read_bytes()
+        return False
+
+    readers = sorted({
         str(p.relative_to(root)) for base in ("umap_narrative", "scripts")
         for p in (root / base).rglob("*.py")
-        if pattern.search(p.read_text(errors="ignore"))
-    )
+        if pattern.search(p.read_text(errors="ignore")) and not nested_copy(p)
+    })
     assert readers == [
         "scripts/generate_cold_start_clojure.py",
         "scripts/job_poller.py",
