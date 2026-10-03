@@ -186,6 +186,21 @@ A request is let through only when, in this order: `OPS_ENABLED=true`; it carrie
 - **`GEMINI_API_KEY`** For using Gemini as a generative AI model.
 - **`OPENAI_API_KEY`** For using OpenAI as a generative AI model.
 
+### Delphi LLM Selection
+
+The `delphi` service has no `env_file`, so it sees only the keys its `environment` block lists ([Compose:137](../docker-compose.yml#L137)). Setting any other key in `.env` or the production env document has no effect on the job service. `delphi/tests/test_compose_math_env.py` fails if the Delphi code reads a provider or model key that Compose does not forward.
+
+- **`LLM_PROVIDER`** Topic-naming provider: `anthropic` (Batch API) or `ollama`. Compose fallback `anthropic`.
+- **`ANTHROPIC_MODEL`** Narrative-report model, and the topic-naming fallback when `ANTHROPIC_TOPIC_MODEL` is empty.
+- **`ANTHROPIC_TOPIC_MODEL`** Topic-naming model. Resolution order is `ANTHROPIC_TOPIC_MODEL`, then `ANTHROPIC_MODEL`, then `claude-haiku-4-5-20251001` ([topic_naming:76](../delphi/umap_narrative/topic_naming.py#L76)). Compose fallback empty.
+- **`TOPIC_BATCH_MAX_WAIT_SECONDS`** Longest wait, in seconds, for one layer's Anthropic topic-naming batch. Compose fallback `1800`.
+- **`SENTENCE_TRANSFORMER_MODEL`** Local embedding model for the narrative pipeline. Compose fallback `all-MiniLM-L6-v2`.
+- **`OLLAMA_HOST`**, **`OLLAMA_ENDPOINT`**, **`OLLAMA_MODEL`** Used only when `LLM_PROVIDER=ollama`. `OLLAMA_ENDPOINT` is the older name for `OLLAMA_HOST`. Compose fallbacks are empty.
+
+### Datadog Tracing (Delphi)
+
+- **`DD_TRACE_ENABLED`** Set to `true` to start the Delphi job poller under `ddtrace-run` ([Dockerfile](../delphi/Dockerfile)); any other value, or unset, starts it with plain `python`. Compose forwards it to the `delphi` service with fallback `false` ([Compose:174](../docker-compose.yml#L174)). Turn it on only where a Datadog agent is reachable: without one the tracer logs a failed-send error and traceback on every flush. The `ddtrace` package stays in the image. The API server loads `dd-trace` in production independently ([index:10](../server/index.ts#L10)); that library also reads `DD_TRACE_ENABLED` from the server's env file, where unset means enabled.
+
 ### Deprecated
 
 - **`ENCRYPTION_PASSWORD_00001`** (legacy) remains a config input, including the `LOGIN_CODE_PEPPER` fallback ([config:120](../server/src/config.ts#L120)); do not classify it as unread solely because it is in this historical section.
