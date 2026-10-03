@@ -32,7 +32,7 @@ import numpy as np
 import pandas as pd
 import re  # Added re import for regex operations
 import requests  # Added for HTTP error handling
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union, Tuple
 import xml.etree.ElementTree as ET
@@ -218,6 +218,12 @@ class BatchReportGenerator:
         self.postgres_client = PostgresClient()
         self.include_moderation = include_moderation
         self.exclude_comment_selections = exclude_comment_selections
+        # Set by main() when the polis-jobs daemon runs this script (DELPHI_OUTPUT_MANIFEST).
+        # Then the queue row lives in Postgres, so nothing here writes Delphi_JobQueue,
+        # and the provider call waits for the daemon to record the intent first.
+        self.job = None
+        self.provider_refused = False
+        self.submitted_at = None
 
         logger.info(f"include_moderation: {include_moderation}")
         logger.info(f"exclude_comment_selections: {exclude_comment_selections}")
@@ -1208,7 +1214,7 @@ class BatchReportGenerator:
         anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not anthropic_api_key:
             logger.error("ERROR: ANTHROPIC_API_KEY environment variable is not set. Cannot submit batch.")
-            if self.job_id:
+            if self.job_id and self.job is None:
                 try:
                     job_table = self.dynamodb.Table('Delphi_JobQueue')
                     job_table.update_item(
@@ -1360,11 +1366,38 @@ class BatchReportGenerator:
                 logger.error("No valid formatted batch requests to submit")
                 return None
 
+            if self.job is not None:
+                # Record before submit: the daemon records the intent and
+                # acknowledges it before any paid request leaves this process.
+                from polismath import job_child
+                try:
+                    job_child.request_provider_intent(
+                        self.job,
+                        provider="anthropic",
+                        model=self.model,
+                        batch={
+                            "api": "messages.batches",
+                            "conversation_id": self.conversation_id,
+                            "report_id": self.report_id,
+                            "request_count": len(formatted_batch_requests),
+                            "requests_sha256": job_child.requests_sha256(formatted_batch_requests),
+                            "max_batch_size": self.max_batch_size,
+                            "max_tokens": max(r["params"]["max_tokens"] for r in formatted_batch_requests),
+                        },
+                    )
+                except job_child.ProviderIntentRefused as e:
+                    logger.error(f"Provider intent not acknowledged; no batch submitted: {e}")
+                    self.provider_refused = True
+                    return None
+
             logger.info(f"Submitting {len(formatted_batch_requests)} requests to Anthropic Batch API")
 
             # Submit the batch to Anthropic with detailed error handling
             try:
                 batch = anthropic.beta.messages.batches.create(requests=formatted_batch_requests)
+                if self.job is not None:
+                    from polismath import job_child
+                    self.submitted_at = job_child.utc_now_iso()
                 logger.info("Successfully submitted batch to Anthropic API")
                 logger.info(f"Batch ID: {batch.id}")
                 logger.info(f"Batch status: {batch.processing_status}")
@@ -1390,7 +1423,7 @@ class BatchReportGenerator:
                 return None
 
             # Store batch information in DynamoDB if we have a job ID
-            if self.job_id:
+            if self.job_id and self.job is None:
                 logger.info(f"Updating job {self.job_id} with batch information in DynamoDB...")
                 try:
                     job_table = self.dynamodb.Table('Delphi_JobQueue') 
@@ -1507,7 +1540,7 @@ class BatchReportGenerator:
             logger.error(traceback.format_exc())
 
             # Try to update job status in DynamoDB
-            if self.job_id:
+            if self.job_id and self.job is None:
                 try:
                     job_table = self.dynamodb.Table('Delphi_JobQueue')
                     job_table.update_item(
@@ -1524,6 +1557,59 @@ class BatchReportGenerator:
                     logger.error(f"Failed to update job status after error: {str(update_error)}")
 
             return None
+
+# --- run by the polis-jobs daemon (P-077 P1) --------------------------------
+# Active only when DELPHI_OUTPUT_MANIFEST is set; the legacy poller never sets it.
+
+def _start_daemon_job(conversation_id):
+    """Check the daemon's environment and frame and observe the inputs before any work."""
+    from polismath import job_child
+    from polismath.job_child import census
+
+    try:
+        job = job_child.JobContext.from_env(
+            expected_stage=job_child.STAGE_NARRATIVE, zid=conversation_id,
+            allowed_phases={job_child.PHASE_SUBMIT}, default_phase=job_child.PHASE_SUBMIT,
+        )
+    except job_child.JobEnvError as e:
+        job_child.refuse(str(e))
+    if job.report_id and not os.environ.get('DELPHI_REPORT_ID'):
+        os.environ['DELPHI_REPORT_ID'] = job.report_id
+    try:
+        job.inputs = census.observe_inputs(conversation_id, job_child.effective_math_env(),
+                                           census.default_pg_query())
+    except census.CensusError as e:
+        print(f"polis-jobs child: {e}", file=sys.stderr, flush=True)
+        sys.exit(job_child.EXIT_MANIFEST_UNBUILDABLE)
+    return job
+
+
+def _finish_daemon_job(job, generator, batch_id):
+    """Write the parked manifest naming the submitted batch, or exit with the code that says why not."""
+    from polismath import job_child
+
+    if not batch_id:
+        sys.exit(job_child.EXIT_PROVIDER_INTENT_REFUSED if generator.provider_refused
+                 else job_child.EXIT_STAGE_FAILED)
+    try:
+        recheck_seconds = int(os.environ.get("DELPHI_RECHECK_SECONDS", "300"))
+        recheck_after = (datetime.now(timezone.utc) + timedelta(seconds=recheck_seconds)).strftime(
+            "%Y-%m-%dT%H:%M:%S.%fZ")
+        manifest = job_child.build_manifest(
+            job, outcome="parked", inputs=job.inputs, outputs=[],
+            models={"embed": None, "topic": None, "narrative": generator.model},
+            cost={"llm_tokens_in": None, "llm_tokens_out": None,
+                  "provider_batches": [{"provider": "anthropic", "batch_id": str(batch_id),
+                                        "submitted_at": generator.submitted_at or job_child.utc_now_iso()}]},
+            recheck_after=recheck_after,
+        )
+        job_child.write_manifest(job, manifest)
+    except (job_child.ManifestError, OSError, ValueError) as e:
+        print(f"polis-jobs child: batch {batch_id} was submitted but the manifest could not be written: {e}",
+              file=sys.stderr, flush=True)
+        sys.exit(job_child.EXIT_MANIFEST_UNBUILDABLE)
+    sys.exit(job_child.EXIT_OK)
+
 
 async def main():
     """Main entry point."""
@@ -1575,6 +1661,8 @@ async def main():
     if report_id:
         logger.info(f"- Report ID: {report_id}")
 
+    job = _start_daemon_job(args.conversation_id) if os.environ.get("DELPHI_OUTPUT_MANIFEST", "").strip() else None
+
     # Create batch report generator
     generator = BatchReportGenerator(
         conversation_id=args.conversation_id,
@@ -1586,9 +1674,13 @@ async def main():
         include_moderation=args.include_moderation,
         exclude_comment_selections=args.exclude_comment_selections
     )
+    generator.job = job
 
     # Process reports
     result = await generator.submit_batch()
+
+    if job is not None:
+        _finish_daemon_job(job, generator, result)
 
     if result:
         logger.info(f"Narrative reports generated successfully")

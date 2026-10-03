@@ -49,6 +49,10 @@ class BatchStatusChecker:
         self.dynamodb = boto3.resource('dynamodb', endpoint_url=endpoint_url, region_name=os.environ.get('AWS_REGION', 'us-east-1'))
         self.job_table = self.dynamodb.Table('Delphi_JobQueue')
         self.report_table = self.dynamodb.Table('Delphi_NarrativeReports')
+        # Provider token usage summed over the stored results (reported in the
+        # polis-jobs manifest; nothing on the legacy path reads it).
+        self.tokens_in = 0
+        self.tokens_out = 0
 
         try:
             from anthropic import Anthropic
@@ -138,6 +142,10 @@ class BatchStatusChecker:
                     custom_id = entry.custom_id
                     response_message = entry.result.message
                     model = response_message.model
+                    usage = getattr(response_message, "usage", None)
+                    if usage is not None:
+                        self.tokens_in += int(getattr(usage, "input_tokens", 0) or 0)
+                        self.tokens_out += int(getattr(usage, "output_tokens", 0) or 0)
                     if response_message.stop_reason == "max_tokens":
                         logger.warning(
                             f"Job {job_id}: response for {custom_id} was truncated by max_tokens; "
@@ -306,11 +314,129 @@ class BatchStatusChecker:
         
         return None
 
+# --- run by the polis-jobs daemon (P-077 P1) --------------------------------
+# The recheck is the same logical job as the submit, parked and reclaimed. The
+# batch id and report id come from the daemon's frame; the queue row lives in
+# Postgres, so nothing here writes Delphi_JobQueue. Active only when
+# DELPHI_OUTPUT_MANIFEST is set; the legacy poller never sets it.
+
+class _NoQueueWrites:
+    """Stands in for Delphi_JobQueue in daemon mode: the daemon owns the job's state."""
+
+    def update_item(self, **kwargs):
+        return {}
+
+    def put_item(self, **kwargs):
+        return {}
+
+
+class _RecordingTable:
+    """Passes writes through to Delphi_NarrativeReports and keeps each written item's key."""
+
+    def __init__(self, table):
+        self._table = table
+        self.keys = []
+
+    def put_item(self, Item, **kwargs):
+        response = self._table.put_item(Item=Item, **kwargs)
+        self.keys.append({"rid_section_model": str(Item["rid_section_model"]), "timestamp": str(Item["timestamp"])})
+        return response
+
+
+def _iso(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    return str(value) or None
+
+
+async def run_daemon_recheck(cli_job_id: str, checker_factory=None) -> int:
+    """Check the job's provider batch; store results and write the manifest. Returns the exit code."""
+    from polismath import job_child
+
+    try:
+        job = job_child.JobContext.from_env(
+            expected_stage=job_child.STAGE_NARRATIVE, zid=None,
+            allowed_phases={job_child.PHASE_RECHECK}, default_phase=job_child.PHASE_RECHECK,
+        )
+    except job_child.JobEnvError as e:
+        job_child.refuse(str(e))
+    if cli_job_id != job.job_id:
+        job_child.refuse("--job-id does not match DELPHI_JOB_ID")
+    batch_id = job.provider_batch_id
+    report_id = job.report_id or os.environ.get('DELPHI_REPORT_ID')
+    if not batch_id:
+        job_child.refuse("the frame names no provider batch_id to recheck")
+    if not report_id:
+        job_child.refuse("the frame names no report_id")
+
+    checker = (checker_factory or BatchStatusChecker)()
+    if not checker.anthropic:
+        return job_child.EXIT_STAGE_FAILED
+    checker.job_table = _NoQueueWrites()
+    recorder = _RecordingTable(checker.report_table)
+    checker.report_table = recorder
+
+    try:
+        batch = checker.anthropic.beta.messages.batches.retrieve(batch_id)
+        status = batch.processing_status
+        logger.info(f"Anthropic API returned status '{status}' for batch {batch_id}.")
+        submitted_at = _iso(getattr(batch, "created_at", None))
+        provider_batches = ([{"provider": "anthropic", "batch_id": str(batch_id), "submitted_at": submitted_at}]
+                            if submitted_at else None)
+        model = (job.frame.get("config") or {}).get("model") or os.environ.get("ANTHROPIC_MODEL") or None
+
+        if status in ("in_progress", "preparing"):
+            recheck_seconds = int(os.environ.get("DELPHI_RECHECK_SECONDS", "300"))
+            manifest = job_child.build_manifest(
+                job, outcome="parked", inputs=job_child.empty_inputs(), outputs=[],
+                models={"embed": None, "topic": None, "narrative": model},
+                cost={"llm_tokens_in": None, "llm_tokens_out": None, "provider_batches": provider_batches},
+                recheck_after=_iso(datetime.now(timezone.utc) + timedelta(seconds=recheck_seconds)),
+            )
+        elif status in ("completed", "ended"):
+            ok = await checker.process_batch_results({'job_id': job.job_id, 'batch_id': batch_id, 'report_id': report_id})
+            if not ok:
+                logger.error(f"Batch {batch_id}: no result could be stored.")
+                return job_child.EXIT_STAGE_FAILED
+            keys = sorted(recorder.keys, key=lambda k: (k["rid_section_model"], k["timestamp"]))
+            manifest = job_child.build_manifest(
+                job, outcome="succeeded", inputs=job_child.empty_inputs(),
+                outputs=[{"store": "dynamodb", "family": "Delphi_NarrativeReports",
+                          "table": "Delphi_NarrativeReports", "keys": keys, "rows": len(keys)}],
+                models={"embed": None, "topic": None, "narrative": model},
+                cost={"llm_tokens_in": checker.tokens_in, "llm_tokens_out": checker.tokens_out,
+                      "provider_batches": provider_batches},
+            )
+        else:
+            logger.error(f"Batch {batch_id} ended in state '{status}'.")
+            return job_child.EXIT_STAGE_FAILED
+    except job_child.ManifestError as e:
+        print(f"polis-jobs child: the manifest could not be built: {e}", file=sys.stderr, flush=True)
+        return job_child.EXIT_MANIFEST_UNBUILDABLE
+    except Exception as e:
+        logger.error(f"Recheck of batch {batch_id} failed: {e}", exc_info=True)
+        return job_child.EXIT_STAGE_FAILED
+
+    try:
+        job_child.write_manifest(job, manifest)
+    except (job_child.ManifestError, OSError) as e:
+        print(f"polis-jobs child: the manifest could not be written: {e}", file=sys.stderr, flush=True)
+        return job_child.EXIT_MANIFEST_UNBUILDABLE
+    return job_child.EXIT_OK
+
+
 async def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(description='Check a single Anthropic Batch Job status.')
     parser.add_argument('--job-id', type=str, required=True, help='The main job ID (e.g., batch_report_...) to check.')
     args = parser.parse_args()
+
+    if os.environ.get("DELPHI_OUTPUT_MANIFEST", "").strip():
+        sys.exit(await run_daemon_recheck(args.job_id))
 
     checker = BatchStatusChecker()
     exit_signal = await checker.check_and_process_job(args.job_id)
