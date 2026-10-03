@@ -185,11 +185,26 @@ class Disposition:
     refusals: int = 0
 
     @classmethod
-    def from_dict(cls, raw: Dict[str, Any]) -> "Disposition":
-        rec = cls(**{k: raw[k] for k in cls.__dataclass_fields__ if k in raw})
-        if type(rec.zid) is not int or rec.disposition not in DISPOSITIONS:
+    def from_dict(cls, raw: Any) -> "Disposition":
+        """A record read back from the state file, every field type-checked:
+        anything else raises ValueError (the loader drops that record)."""
+        if not isinstance(raw, dict):
             raise ValueError("bad capacity record")
-        return rec
+        for k in ("zid", "need_bytes", "sized_ms", "refusals"):
+            if k in raw and not _is_count(raw[k]):
+                raise ValueError(f"bad capacity record field {k}")
+        for k in ("votes", "voters", "comments", "input_through_ms", "first_unresolved_ms"):
+            if raw.get(k) is not None and not _is_count(raw[k]):
+                raise ValueError(f"bad capacity record field {k}")
+        if not isinstance(raw.get("binding", ""), str):
+            raise ValueError("bad capacity record field binding")
+        if "zid" not in raw or "need_bytes" not in raw or raw.get("disposition") not in DISPOSITIONS:
+            raise ValueError("bad capacity record")
+        return cls(**{k: raw[k] for k in cls.__dataclass_fields__ if k in raw})
+
+
+def _is_count(v: Any) -> bool:
+    return type(v) is int and v >= 0
 
 
 class CapacityRouter:
@@ -288,16 +303,16 @@ class CapacityRouter:
             if disposition == SMALL and not refused:
                 if rec is not None:
                     del self._records[zid]
-                    logger.warning("capacity: zid=%s now fits the small class; un-routed", zid)
+                    logger.info("capacity: zid=%s now fits the small class; un-routed", zid)
                     self._save_locked()
                 return SMALL
             if rec is None:
                 rec = Disposition(zid, disposition, int(need))
                 self._records[zid] = rec
-                logger.warning("capacity: zid=%s disposition=%s need_mb=%.0f", zid,
+                logger.info("capacity: zid=%s disposition=%s need_mb=%.0f", zid,
                                disposition, need / MB)
             elif rec.disposition != disposition:
-                logger.warning("capacity: zid=%s disposition %s -> %s need_mb=%.0f", zid,
+                logger.info("capacity: zid=%s disposition %s -> %s need_mb=%.0f", zid,
                                rec.disposition, disposition, need / MB)
             rec.disposition = disposition
             rec.need_bytes = int(need)
@@ -378,13 +393,23 @@ class CapacityRouter:
         try:
             with open(path) as fh:
                 raw = json.load(fh)
-            if raw.get("schema") != STATE_SCHEMA:
+            if not isinstance(raw, dict) or raw.get("schema") != STATE_SCHEMA:
                 raise ValueError("unknown schema")
-            records = [Disposition.from_dict(r) for r in raw.get("records", [])]
+            rows = raw.get("records", [])
+            if not isinstance(rows, list):
+                raise ValueError("records is not a list")
         except Exception as exc:  # noqa: BLE001 - a bad file starts empty, never stops the poller
             logger.error("capacity: state file unreadable (%s); starting with no records",
                          exc.__class__.__name__)
             return
+        records, dropped = [], 0
+        for row in rows:
+            try:
+                records.append(Disposition.from_dict(row))
+            except (TypeError, ValueError):
+                dropped += 1
+        if dropped:
+            logger.error("capacity: dropped %d malformed records from the state file", dropped)
         self._records = {r.zid: r for r in records}
         logger.info("capacity: restored %d records", len(self._records))
 

@@ -4,6 +4,7 @@ to sit on one side of a configured threshold. No Postgres."""
 
 import json
 import logging
+import os
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -200,6 +201,7 @@ class TestRecords:
         assert r.needs_resize(9)
 
     def test_unroutes_below_the_keep_fraction(self, caplog):
+        caplog.set_level(logging.INFO)
         r = router()
         r.observe(10, sizes=sizes(850))
         assert r.is_routed(10)
@@ -547,3 +549,106 @@ class TestBackfillHook:
         BackfillScheduler._note_capacity(SimpleNamespace(_host=SimpleNamespace(
             capacity_refused=boom)), 63, sizes(1500))
         assert "capacity record failed" in caplog.text
+
+
+# --------------------------------------------------------------------------- #
+# Review round 1: state-file faults, bookkeeping isolation, the root handler
+# --------------------------------------------------------------------------- #
+class TestFaultIsolation:
+    def test_a_type_corrupt_state_file_drops_only_the_bad_records(self, tmp_path, caplog):
+        path = tmp_path / "capacity.json"
+        good = {"zid": 1, "disposition": "large", "need_bytes": 5, "first_unresolved_ms": T0}
+        bad = [
+            {"zid": 2, "disposition": "large", "need_bytes": 5, "first_unresolved_ms": "abc"},
+            {"zid": "3", "disposition": "large", "need_bytes": 5},
+            {"zid": 4, "disposition": "large", "need_bytes": True},
+            {"zid": 5, "disposition": "huge", "need_bytes": 5},
+            {"zid": 6, "disposition": "small", "need_bytes": 5, "votes": -1},
+            {"zid": 7, "disposition": "small", "need_bytes": 5, "binding": 9},
+            "not a record",
+        ]
+        path.write_text(json.dumps({"schema": "polis-math-capacity-state/1",
+                                    "records": [good] + bad}))
+        r = router(CapacitySettings(state_path=str(path)))
+        assert list(r._records) == [1]
+        assert "dropped 7 malformed records" in caplog.text
+        assert r.counts()["large_demand"] == 1  # counts() works on what was kept
+
+    def test_records_not_a_list_starts_empty(self, tmp_path):
+        path = tmp_path / "capacity.json"
+        path.write_text(json.dumps({"schema": "polis-math-capacity-state/1", "records": {}}))
+        assert router(CapacitySettings(state_path=str(path)))._records == {}
+
+    @pytest.mark.skipif(not hasattr(os, "geteuid") or os.geteuid() == 0,
+                        reason="root ignores directory permissions")
+    def test_a_read_only_state_path_keeps_records_in_memory(self, tmp_path, caplog):
+        d = tmp_path / "ro"
+        d.mkdir()
+        d.chmod(0o500)
+        try:
+            r = router(CapacitySettings(state_path=str(d / "sub" / "capacity.json")))
+            assert r.observe(1, sizes=sizes(1500), refused=True) == LARGE
+            assert r.counts()["large_demand"] == 1
+            assert "state file not written" in caplog.text
+        finally:
+            d.chmod(0o700)
+
+    def test_a_counts_fault_never_degrades_the_readiness_line(self, monkeypatch, tmp_path):
+        svc, cap, _ = service(monkeypatch, tmp_path, routing=False, sizes_by_zid={})
+
+        def broken():
+            raise TypeError("corrupt record")
+
+        monkeypatch.setattr(cap, "counts", broken)
+        snap = svc.readiness_snapshot()
+        assert snap["capacity"] is None and snap["admission"] is not None
+        # Through the reporter: the heartbeat stays ok and no capacity line is logged.
+        snap = dict(snap, discovery=dict(snap["discovery"], successes=5, consecutive=5,
+                                         last_success_ms=T0 - 1000), loop_marks=(5, 5))
+        r, out, caps = _reporter()
+        r.set_source(lambda: snap)
+        r.became_primary()
+        assert out[-1].startswith(HEARTBEAT) and caps == []
+
+    def test_a_close_failure_after_publication_is_not_an_engine_error(self, monkeypatch,
+                                                                      tmp_path):
+        svc, cap, loads = service(monkeypatch, tmp_path, routing=False,
+                                  sizes_by_zid={71: sizes(100)})
+
+        def broken(zid):
+            raise RuntimeError("bookkeeping")
+
+        monkeypatch.setattr(cap, "resolved", broken)
+        assert svc._handle_zid(71, rebuild()) is True
+        assert loads == [71]
+        svc._on_engine_error.assert_not_called()
+
+    def test_routing_off_keeps_the_backfill_outcome(self, monkeypatch, tmp_path):
+        svc, _, _ = service(monkeypatch, tmp_path, routing=False,
+                            sizes_by_zid={72: sizes(100)})
+        svc.backfill = MagicMock()
+        batch = rebuild()
+        batch.backfill = True
+        assert svc._handle_zid(72, batch) is True
+        svc.backfill.job_superseded_by_live.assert_called_once_with(72, True)
+
+    def test_the_line_is_bare_json_beside_the_production_root_handler(self, capsys):
+        from scripts import math_poller
+
+        root = logging.getLogger()
+        saved, level = root.handlers[:], root.level
+        root.handlers = []
+        try:
+            math_poller._configure_logging()  # the production basicConfig format
+            logging.getLogger("math_poller.readiness").warning("a prefixed line")
+            cap_mod.emit_line(build_line("primary", "python", router().counts()))
+            for h in root.handlers:
+                h.flush()
+        finally:
+            root.handlers = saved
+            root.setLevel(level)
+        err = capsys.readouterr().err.strip().splitlines()
+        assert len(err) == 2
+        assert "WARNING [" in err[0] and err[0].endswith("a prefixed line")
+        body = json.loads(err[1])
+        assert body["schema"] == "math_poller.capacity/1" and set(body) == set(LINE_KEYS)
