@@ -68,9 +68,10 @@ jobs:
         continue-on-error: true
         run: python ci/vote_convention/compare.py v1 "$OUT"
       - name: v1 ratchet — no unexpected red (required)
-        # Fails on a red family outside the expected list, a red must-hold family
-        # (stored rows, the declared fold, math_bidtopid / math_ptptstats, the
-        # sign-blind summary and participant-importance exports), or a missing output.
+        # Accepts a v0/v1 difference only in a file pinned in expected-red-v1.json
+        # and only when it is sign-shaped. Fails on any other difference (including
+        # the must-hold families), an output missing from either leg's inventory,
+        # a failed export or an HTTP 5xx on either leg.
         run: python ci/vote_convention/compare.py v1 "$OUT" --ratchet
       - name: Keep the verdicts and outputs
         if: always()
