@@ -1354,6 +1354,7 @@ class BackfillScheduler:
                 # for a reviewed larger-budget run; never truncate.
                 rec.outcome = OVER_MEMORY_CEILING
                 self._record(rec, large=large, need=need, est=est)
+                self._note_capacity(target.zid, (votes, voters, comments))
                 return OVER_MEMORY_CEILING, 0.0
             window = self._window_votes(now)
             if window and window + votes > self.config.max_votes_per_min:
@@ -1371,6 +1372,17 @@ class BackfillScheduler:
             self._sweep_admitted += 1
             self._next_admit_at = now + self.config.min_interval_s
             return "admitted", 0.0
+
+    def _note_capacity(self, zid: int, sizes: Tuple[int, int, int]) -> None:
+        """P-073: an over-ceiling refusal joins the poller's capacity
+        dispositions (a host without them, as in most tests, skips this)."""
+        note = getattr(self._host, "capacity_refused", None)
+        if note is None:
+            return
+        try:
+            note(zid, sizes)
+        except Exception as exc:  # noqa: BLE001 - the record never stops the scheduler
+            logger.error("math-backfill: capacity record failed (%s)", exc.__class__.__name__)
 
     def _pressure(self, now: float) -> Optional[str]:
         mean_ms, since_ok = self._host.live_poll_health()

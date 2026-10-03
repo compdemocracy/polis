@@ -74,8 +74,9 @@ def test_standby_line_is_closed_and_waiting():
     assert lines[0].startswith("math_poller readiness/1 role=standby progress=waiting {")
     body = parse_readiness(lines[0])
     assert body["role"] == "standby" and body["seq"] == 1 and body["run"] == RUN
-    assert set(body) - {"_silenced"} == set(rd.LINE_KEYS)
+    assert set(body) - {"_silenced"} == set(rd.LINE_KEYS) | set(rd.OPTIONAL_LINE_KEYS)
     assert body["sweep"] is None and body["drain"] is None and body["config"] is None
+    assert body["capacity"] is None
 
 
 def test_every_leaf_is_a_count_clock_label_or_digest():

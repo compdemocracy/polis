@@ -17,14 +17,16 @@ import threading
 import time
 from collections import OrderedDict, deque
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from polismath.conversation.conversation import Conversation
 from polismath.poller.admission import (
     MemoryAdmission,
+    OverBudget,
     conversation_dims,
     read_conversation_sizes,
 )
+from polismath.poller.capacity import SMALL, CapacityRouter, CapacitySettings
 from polismath.poller.math_writer import MathWriter, dump_error
 from polismath.poller.readiness import classify_error
 from polismath.poller.worker_pool import (
@@ -109,6 +111,15 @@ def should_process_zid(
     if blocklist:
         return zid not in blocklist
     return True
+
+
+def _newest_input_ms(coalesced: CoalescedBatch) -> Optional[int]:
+    """The newest input a batch carries: vote ``created`` or moderation
+    ``modified`` (None for a rebuild with no rows)."""
+    marks = [v.get("created") for v in coalesced.votes if hasattr(v, "get")]
+    marks += [m.get("modified") for m in coalesced.moderation if hasattr(m, "get")]
+    marks = [int(m) for m in marks if isinstance(m, (int, float)) and not isinstance(m, bool)]
+    return max(marks) if marks else None
 
 
 def _group_by_zid(rows: List[Dict[str, Any]]) -> Dict[int, List[Dict[str, Any]]]:
@@ -390,6 +401,11 @@ class _BackfillHost:
     def live_poll_health(self):
         return self._svc._live_poll_health()
 
+    def capacity_refused(self, zid: int, sizes: Tuple[int, int, int]) -> None:
+        """An over-ceiling backfill refusal, recorded under its capacity
+        disposition (P-073)."""
+        self._svc.capacity.observe(zid, sizes=sizes, refused=True)
+
 
 class MathPollerService:
     """Owns the poll loops, the in-memory conv cache, the worker pool + writer."""
@@ -402,6 +418,7 @@ class MathPollerService:
         backfill_config: Any = None,
         admission: Optional[MemoryAdmission] = None,
         run_id: Optional[str] = None,
+        capacity: Optional[CapacityRouter] = None,
     ) -> None:
         self._pg = pg_client
         # The process run id (P-072): shared by the readiness lines and the
@@ -414,6 +431,11 @@ class MathPollerService:
         # reservation; scripts/math_poller.py refuses to start in that case.
         self.admission = admission if admission is not None else MemoryAdmission.from_config(config)
         self.admission.set_evictor(self._evict_for_admission)
+        # Capacity disposition (P-073): records memory refusals and, with
+        # MATH_CAPACITY_ROUTING=1, routes oversized conversations away from
+        # this process instead of refusing them over and over.
+        self.capacity = capacity if capacity is not None else CapacityRouter(
+            self.admission, CapacitySettings.from_env_or_off())
         self._writer = MathWriter(pg_client, publisher=publisher)
         self._bridge_stage = publisher.stage if publisher is not None else lambda stage: None
         self._coordinator_rebuild = publisher is not None
@@ -702,7 +724,7 @@ class MathPollerService:
             sweep, drain = self.backfill.readiness()
             config = self.backfill.config.digest()
         return {"discovery": discovery, "queue": queue, "sweep": sweep, "drain": drain,
-                "admission": admission, "config": config,
+                "admission": admission, "config": config, "capacity": self.capacity.counts(),
                 "loop_marks": tuple(h["successes"] for h in loops)}
 
     def _live_poll_health(self):
@@ -849,16 +871,33 @@ class MathPollerService:
                 self.backfill.run_job(zid)
             return None
         live_ok = False
+        routed = False
         try:
-            self._run_engine(zid, coalesced)
+            routed = self._run_engine(zid, coalesced)
             self._retry_counts.pop(zid, None)
+            if not routed:
+                self.capacity.resolved(zid)
             live_ok = True
+        except OverBudget as error:
+            # P-073: a memory refusal is a capacity disposition, not an
+            # engine error. Routed (routing on, classified large): resolved
+            # for the pool, no dump, retry or park. Otherwise today's path.
+            try:
+                routed = self._capacity_refusal(zid, coalesced, error)
+            except Exception:  # noqa: BLE001 - the record never changes the error path
+                logger.exception("capacity: refusal record failed for zid=%s", zid)
+            if routed:
+                self._retry_counts.pop(zid, None)
+                live_ok = True
+            else:
+                self._on_engine_error(zid, coalesced, error)
         except Exception as error:  # noqa: BLE001 - top of the per-zid boundary
             self._on_engine_error(zid, coalesced, error)
         finally:
             if coalesced.backfill and self.backfill is not None:
-                # Live work for the zid ran instead of the backfill job.
-                self.backfill.job_superseded_by_live(zid, live_ok)
+                # Live work for the zid ran instead of the backfill job. A
+                # routed zid published nothing: the job is deferred, not done.
+                self.backfill.job_superseded_by_live(zid, live_ok and not routed)
         return live_ok
 
     def _remember(self, zid: int, conv: Conversation) -> None:
@@ -915,6 +954,59 @@ class MathPollerService:
                             zid, got / (1024 * 1024))
         return freed
 
+    # -- capacity disposition (P-073) ------------------------------------- #
+    def _capacity_refusal(self, zid: int, coalesced: CoalescedBatch,
+                          error: OverBudget) -> bool:
+        """Record a memory refusal under its disposition, classified by the
+        conversation's cold-rebuild size (the refusal's own need when the
+        size query fails). True when it is routed away (routing on and not
+        ``small``): the caller then resolves the live work."""
+        sizes = None
+        try:
+            sizes = read_conversation_sizes(self._pg, zid)
+        except Exception as exc:  # noqa: BLE001 - classify from the refusal instead
+            logger.warning("capacity: size query failed for zid=%s (%s)", zid,
+                           exc.__class__.__name__)
+        need = error.need_bytes if sizes is None else None
+        if sizes is None and need is None:
+            return False
+        disposition = self.capacity.observe(zid, sizes=sizes, need=need,
+                                            input_ms=_newest_input_ms(coalesced), refused=True)
+        if not self.capacity.routing or disposition == SMALL:
+            return False
+        self._cache_drop(zid)
+        self.capacity.note_routed()
+        return True
+
+    def _route_before_reserve(self, zid: int, coalesced: CoalescedBatch, cold: bool) -> bool:
+        """With routing on: True when this work is routed to the large class
+        and must not be computed here. A cold touch or rebuild is sized and
+        classified; a warm update is not (its conversation was small when it
+        was cached). A recorded large conversation is re-sized only when its
+        binding changed or its sizing is older than MATH_CAPACITY_RESIZE_S;
+        otherwise new input only advances its record."""
+        cap = self.capacity
+        if not cap.routing:
+            return False
+        input_ms = _newest_input_ms(coalesced)
+        if cap.is_routed(zid):
+            if cap.needs_resize(zid):
+                sizes = read_conversation_sizes(self._pg, zid)
+                disposition = cap.observe(zid, sizes=sizes, input_ms=input_ms)
+            else:
+                cap.advance(zid, input_ms)
+                disposition = cap.disposition(zid)
+        elif cold:
+            sizes = read_conversation_sizes(self._pg, zid)
+            disposition = cap.observe(zid, sizes=sizes, input_ms=input_ms)
+        else:
+            return False
+        if disposition == SMALL:
+            return False
+        self._cache_drop(zid)
+        cap.note_routed()
+        return True
+
     def _reserve(self, zid: int, conv: Optional[Conversation], coalesced: CoalescedBatch):
         """Reserve this computation's memory before anything is loaded. A
         cold touch or rebuild is sized from the database (vote rows, voters,
@@ -939,7 +1031,14 @@ class MathPollerService:
             kind = "live_update"
         return adm.reserve(zid, need, kind=kind, stop=self._stop)
 
-    def _run_engine(self, zid: int, coalesced: CoalescedBatch) -> None:
+    def _run_engine(self, zid: int, coalesced: CoalescedBatch) -> bool:
+        """Compute and publish. Returns True when the work was routed to the
+        large class instead (P-073; only with MATH_CAPACITY_ROUTING=1)."""
+        if self.capacity.routing:
+            with self._convs_lock:
+                cold = coalesced.rebuild or zid not in self._convs
+            if self._route_before_reserve(zid, coalesced, cold):
+                return True
         # M1 (P-019): an explicit rebuild request (parked-zid reconciler) forces a
         # full-history reload even when a cached conv exists — the cached state may
         # be missing the interval that failed before the zid was parked.
@@ -976,6 +1075,7 @@ class MathPollerService:
             if held:
                 conv = None
                 self.admission.unhold(zid)
+        return False
 
     def _compute_and_publish(
         self, zid: int, conv: Optional[Conversation], coalesced: CoalescedBatch
