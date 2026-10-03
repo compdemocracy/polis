@@ -29,7 +29,11 @@ export default (
   instanceTypeOllama: ec2.InstanceType | undefined,
   ollamaKeyPair: ec2.IKeyPair | undefined,
   ollamaSecurityGroup: ec2.ISecurityGroup | undefined,
-  enableOllama: boolean = false
+  enableOllama: boolean = false,
+  // P-073 large memory class (-c enableLargeClass=true): the Delphi large
+  // template becomes the delphi-large box (math-python-large only), with its
+  // own instance type and role. Undefined: the template is unchanged.
+  delphiLargeClass?: { instanceType: ec2.InstanceType; role: cdk.aws_iam.IRole }
 ) => {
   const usrdata = (CLOUDWATCH_LOG_GROUP_NAME: string, service: string, instanceSize?: string) => {
     let ld: ec2.UserData;
@@ -113,6 +117,9 @@ const cwAgentConfigAsset = new s3_assets.Asset(self, 'CwAgentConfigAsset', {
 
 // Grant the instance role read access to the asset bucket
 cwAgentConfigAsset.grantRead(instanceRole);
+if (delphiLargeClass) {
+  cwAgentConfigAsset.grantRead(delphiLargeClass.role);
+}
 const cwAgentConfigPath = '/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json';
 const cwAgentTempPath = '/tmp/amazon-cloudwatch-agent.json'; // Temporary download location
 
@@ -208,13 +215,19 @@ if (enableOllama) {
     ],
   });
   // Delphi Large Launch Template
+  // With the large class on, the service type is `delphi-large`: after_install.sh then starts
+  // only math-python-large (no Delphi job poller, no second small poller), and the awslogs
+  // stream is `delphi-large` in the same log group the capacity metric filters read. The
+  // 100 GB root volume holds the on-box `--build` of the delphi image.
   const delphiLargeLaunchTemplate = new ec2.LaunchTemplate(self, 'DelphiLargeLaunchTemplate', {
     machineImage: machineImageDelphiLarge,
-    userData: usrdata(logGroup.logGroupName, "delphi", "large"),
-    instanceType: instanceTypeDelphiLarge,
+    userData: delphiLargeClass
+      ? usrdata(logGroup.logGroupName, "delphi-large")
+      : usrdata(logGroup.logGroupName, "delphi", "large"),
+    instanceType: delphiLargeClass ? delphiLargeClass.instanceType : instanceTypeDelphiLarge,
     securityGroup: delphiSecurityGroup,
     keyPair: delphiLargeKeyPair,
-    role: instanceRole,
+    role: delphiLargeClass ? delphiLargeClass.role : instanceRole,
     blockDevices: [
       {
         deviceName: '/dev/xvda',

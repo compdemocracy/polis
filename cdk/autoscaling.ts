@@ -19,7 +19,9 @@ export default (
   delphiLargeLaunchTemplate: cdk.aws_ec2.LaunchTemplate,
   ollamaNamespace: string,
   alarmTopic: cdk.aws_sns.Topic,
-  enableOllama: boolean = false
+  enableOllama: boolean = false,
+  // P-073 large memory class (-c enableLargeClass=true); see the AsgDelphiLarge comment.
+  largeClassEnabled: boolean = false
 ) => {
   const commonAsgProps = { vpc, role: instanceRole };
 
@@ -86,18 +88,38 @@ export default (
   });
 
   // Delphi Large ASG
-  const asgDelphiLarge = new autoscaling.AutoScalingGroup(self, 'AsgDelphiLarge', {
-    vpc,
-    launchTemplate: delphiLargeLaunchTemplate,
-    // Set to 0 in the console on 2026-07-31 (c7i.8xlarge, ~$1,040/mo, was idle). Match it here so a
-    // cdk deploy does not bring it back. NOTE: delphi/scripts/job_poller.py still routes >5000-comment
-    // jobs to this class, so until that gate is removed such jobs will wait; tracked in P-004/P-003.
-    minCapacity: 0,
-    desiredCapacity: 0,
-    maxCapacity: 3,
-    vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-    healthCheck: autoscaling.HealthCheck.ec2({ grace: cdk.Duration.minutes(5) }),
-  });
+  // With -c enableLargeClass=true (P-073) this group is repurposed as the large memory class for
+  // the Python math poller: its boxes have service type `delphi-large` and run only
+  // math-python-large. It is already in the CodeDeploy deployment group, the Postgres ingress, the
+  // log/secret/DB dependencies and the Delphi security group, and it has been at 0 since
+  // 2026-07-31, so repurposing it gives up nothing that runs: the large Delphi report tier (jobs
+  // job_poller.py routes to the `large` size) has had no box since then and keeps having none.
+  // min 0 / max 1 and NO desired count: the step policies in largeClass.ts own the count, and a
+  // cdk deploy must never reset a running worker. No CPU target tracking: a busy large worker
+  // uses one or two of eight vCPUs, so CPU tracking would scale it in mid-job.
+  const asgDelphiLarge = largeClassEnabled
+    ? new autoscaling.AutoScalingGroup(self, 'AsgDelphiLarge', {
+      vpc,
+      launchTemplate: delphiLargeLaunchTemplate,
+      minCapacity: 0,
+      maxCapacity: 1,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      healthCheck: autoscaling.HealthCheck.ec2({ grace: cdk.Duration.minutes(10) }),
+      // GroupInServiceInstances feeds the LongRunning cost alarm.
+      groupMetrics: [new autoscaling.GroupMetrics(autoscaling.GroupMetric.IN_SERVICE_INSTANCES)],
+    })
+    : new autoscaling.AutoScalingGroup(self, 'AsgDelphiLarge', {
+      vpc,
+      launchTemplate: delphiLargeLaunchTemplate,
+      // Set to 0 in the console on 2026-07-31 (c7i.8xlarge, ~$1,040/mo, was idle). Match it here so a
+      // cdk deploy does not bring it back. NOTE: delphi/scripts/job_poller.py still routes >5000-comment
+      // jobs to this class, so until that gate is removed such jobs will wait; tracked in P-004/P-003.
+      minCapacity: 0,
+      desiredCapacity: 0,
+      maxCapacity: 3,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      healthCheck: autoscaling.HealthCheck.ec2({ grace: cdk.Duration.minutes(5) }),
+    });
 
 
   // --- Scaling Policies & Alarms
@@ -116,7 +138,7 @@ export default (
   });
 
   // Add Delphi CPU Scaling Policies & Alarms
-  const createDelphiCpuScaling = (asg: autoscaling.AutoScalingGroup, name: string, target: number): cloudwatch.Metric => {
+  const createDelphiCpuScaling = (asg: autoscaling.AutoScalingGroup, name: string, target: number, track: boolean = true): cloudwatch.Metric => {
     const cpuMetric = new cloudwatch.Metric({
       namespace: 'AWS/EC2',
       metricName: 'CPUUtilization',
@@ -124,10 +146,12 @@ export default (
       statistic: 'Average',
       period: cdk.Duration.minutes(5),
     });
-    asg.scaleToTrackMetric(`${name}CpuTracking`, {
-      metric: cpuMetric,
-      targetValue: target
-    });
+    if (track) {
+      asg.scaleToTrackMetric(`${name}CpuTracking`, {
+        metric: cpuMetric,
+        targetValue: target
+      });
+    }
 
     // High CPU Alarm
     const alarm = new cloudwatch.Alarm(self, `${name}HighCpuAlarm`, {
@@ -144,7 +168,8 @@ export default (
     return cpuMetric;
   };
   const delphiSmallCpuMetric = createDelphiCpuScaling(asgDelphiSmall, 'DelphiSmall', 60); // Target 60% CPU
-  const delphiLargeCpuMetric = createDelphiCpuScaling(asgDelphiLarge, 'DelphiLarge', 60); // Target 60% CPU
+  // Target 60% CPU; no tracking for the large memory class (see AsgDelphiLarge), the alarm stays.
+  const delphiLargeCpuMetric = createDelphiCpuScaling(asgDelphiLarge, 'DelphiLarge', 60, !largeClassEnabled);
 
   // Add Ollama GPU Scaling Policy (only when the GPU stack is enabled)
   if (enableOllama && asgOllama) {
