@@ -1,4 +1,4 @@
-import { submitVote } from '../votes'
+import { WIRE_AGREE, WIRE_DISAGREE, WIRE_PASS, fromWire, submitVote, type Vote } from '../votes'
 import PolisNet from '../../lib/net'
 import * as langModule from '../../lib/lang'
 
@@ -20,8 +20,10 @@ describe('votes API', () => {
       conversation_id: 'conv123',
       pid: 456,
       tid: 789,
-      vote: 1
+      vote: 'agree' as Vote
     }
+    // What goes on the wire: the same payload with the vote as its wire number.
+    const baseWire = { ...basePayload, vote: WIRE_AGREE }
 
     it('should submit vote with auto-detected language when lang not provided', async () => {
       mockedLang.uiLanguage.mockReturnValue('en-US')
@@ -32,7 +34,7 @@ describe('votes API', () => {
 
       expect(mockedLang.uiLanguage).toHaveBeenCalled()
       expect(mockedPolisNet.polisPost).toHaveBeenCalledWith('/votes', {
-        ...basePayload,
+        ...baseWire,
         lang: 'en-US'
       })
       expect(result).toEqual(mockResponse)
@@ -46,7 +48,7 @@ describe('votes API', () => {
 
       expect(mockedLang.uiLanguage).not.toHaveBeenCalled()
       expect(mockedPolisNet.polisPost).toHaveBeenCalledWith('/votes', {
-        ...basePayload,
+        ...baseWire,
         lang: 'fr'
       })
       expect(result).toEqual(mockResponse)
@@ -60,7 +62,7 @@ describe('votes API', () => {
 
       expect(mockedLang.uiLanguage).not.toHaveBeenCalled()
       expect(mockedPolisNet.polisPost).toHaveBeenCalledWith('/votes', {
-        ...basePayload,
+        ...baseWire,
         lang: null
       })
       expect(result).toEqual(mockResponse)
@@ -74,7 +76,7 @@ describe('votes API', () => {
 
       expect(mockedLang.uiLanguage).not.toHaveBeenCalled()
       expect(mockedPolisNet.polisPost).toHaveBeenCalledWith('/votes', {
-        ...basePayload,
+        ...baseWire,
         lang: ''
       })
       expect(result).toEqual(mockResponse)
@@ -88,7 +90,7 @@ describe('votes API', () => {
       const result = await submitVote({ ...basePayload, high_priority: true })
 
       expect(mockedPolisNet.polisPost).toHaveBeenCalledWith('/votes', {
-        ...basePayload,
+        ...baseWire,
         high_priority: true
       })
       expect(result).toEqual(mockResponse)
@@ -102,7 +104,7 @@ describe('votes API', () => {
       const result = await submitVote({ ...basePayload, tid: 'tid-string-123' })
 
       expect(mockedPolisNet.polisPost).toHaveBeenCalledWith('/votes', {
-        ...basePayload,
+        ...baseWire,
         tid: 'tid-string-123'
       })
       expect(result).toEqual(mockResponse)
@@ -115,8 +117,30 @@ describe('votes API', () => {
 
       const result = await submitVote(basePayload)
 
-      expect(mockedPolisNet.polisPost).toHaveBeenCalledWith('/votes', basePayload)
+      expect(mockedPolisNet.polisPost).toHaveBeenCalledWith('/votes', baseWire)
       expect(result).toEqual(mockResponse)
+    })
+
+    it.each([
+      ['agree', WIRE_AGREE],
+      ['disagree', WIRE_DISAGREE],
+      ['pass', WIRE_PASS]
+    ] as const)('posts %s as its wire number', async (vote, wire) => {
+      mockedLang.uiLanguage.mockReturnValue(null)
+      mockedPolisNet.polisPost.mockResolvedValue({})
+
+      await submitVote({ ...basePayload, vote })
+
+      const [, body] = mockedPolisNet.polisPost.mock.calls[0] as [string, { vote: number }]
+      expect(body.vote).toBe(wire)
+      expect(fromWire(body.vote)).toBe(vote)
+    })
+
+    it('refuses a value that is not a semantic vote', async () => {
+      await expect(
+        submitVote({ ...basePayload, vote: WIRE_AGREE as unknown as Vote })
+      ).rejects.toThrow(/not a vote/)
+      expect(mockedPolisNet.polisPost).not.toHaveBeenCalled()
     })
   })
 })
