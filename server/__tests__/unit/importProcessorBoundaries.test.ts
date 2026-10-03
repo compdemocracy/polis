@@ -95,6 +95,13 @@ beforeEach(() => {
 });
 
 describe("CSV import transaction and lifecycle boundaries", () => {
+  test("stores an out-of-range vote_value unchanged, as before the convention module", async () => {
+    csv += "v2,public-one,2,2024-01-02T00:00:00Z,comment-one\n";
+    csv += "v3,public-two,-7,2024-01-03T00:00:00Z,comment-one\n";
+    await processImportJob(payload);
+    expect(voteInserts()[0][1][3]).toEqual([-1, 2, -7]);
+  });
+
   test("maps public CSV signs and comment IDs, retains participant zero, and skips unknown comments", async () => {
     csv += "v2,public-one,-1,2024-01-02T00:00:00Z,comment-one\n";
     csv += "v3,public-two,0,2024-01-03T00:00:00Z,comment-one\n";
