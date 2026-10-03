@@ -381,8 +381,13 @@ class _BackfillHost:
         return len(self._svc._parked)
 
     def accepts(self, zid: int) -> bool:
-        c = self._svc.config
-        return should_process_zid(zid, c.allowlist, c.blocklist, c.shard_index, c.shard_count)
+        """The poller's own filter, and never a conversation routed to the
+        large class (P-073: with routing on, the small label of a routed
+        conversation is written only by promotion)."""
+        if not self._svc._accepts(zid):
+            return False
+        cap = self._svc.capacity
+        return not (cap.routing and cap.is_routed(zid))
 
     def load_full_history(self, zid: int, restore: bool = False) -> Conversation:
         """The first-touch rebuild. ``restore=False`` (any target that failed
@@ -436,6 +441,21 @@ class MathPollerService:
         # this process instead of refusing them over and over.
         self.capacity = capacity if capacity is not None else CapacityRouter(
             self.admission, CapacitySettings.from_env_or_off())
+        # The large memory class (P-073 PR3). The large worker's driver sets
+        # a dynamic allowlist (None: no such filter; an empty set: nothing)
+        # and makes every live reservation exclusive. The small poller's
+        # promotion loop runs on the reconciler's cadence when routing is on.
+        self._dynamic_allow: Optional[frozenset] = None
+        self.exclusive_live = False
+        self.large_driver: Any = None
+        self._start_hooks: List[Any] = []
+        self.capacity_loop = None
+        if (self.capacity.routing and not self.capacity.settings.large
+                and publisher is None):
+            self.capacity_loop = self._build_capacity_loop()
+            # Once at start (restore the manifest's records without waiting
+            # a reconcile interval), then on the reconciler's cadence.
+            self._start_hooks.append(self._capacity_tick)
         self._writer = MathWriter(pg_client, publisher=publisher)
         self._bridge_stage = publisher.stage if publisher is not None else lambda stage: None
         self._coordinator_rebuild = publisher is not None
@@ -496,6 +516,64 @@ class MathPollerService:
                              exc.__class__.__name__)
                 self.backfill = None
 
+    def _build_capacity_loop(self):
+        from polismath.poller.capacity_manifest import open_store
+        from polismath.poller.promotion import SmallCapacityLoop
+        from polismath.poller.readiness import identity
+
+        settings = self.capacity.settings
+        store = None
+        if settings.manifest_uri:
+            try:
+                store = open_store(settings.manifest_uri)
+            except Exception as exc:  # noqa: BLE001 - no hand-off, routing still works
+                logger.error("capacity: manifest store unusable (%s); no manifest is written",
+                             exc.__class__.__name__)
+        return SmallCapacityLoop(self, self.capacity, settings, store=store,
+                                 source_commit=identity()["source_commit"], run=self.run_id)
+
+    # -- filters and pool access (the large-class driver, P-073 PR3) ----------- #
+    def _accepts(self, zid: int) -> bool:
+        """The static filter (allow/block lists, shard) and, on the large
+        worker, the dynamic allowlist from the capacity manifest."""
+        c = self.config
+        if not should_process_zid(zid, c.allowlist, c.blocklist, c.shard_index, c.shard_count):
+            return False
+        dynamic = self._dynamic_allow
+        return dynamic is None or zid in dynamic
+
+    def set_dynamic_allowlist(self, zids) -> None:
+        self._dynamic_allow = frozenset(zids)
+
+    def is_cached(self, zid: int) -> bool:
+        with self._convs_lock:
+            return zid in self._convs
+
+    def cached_zids(self) -> set:
+        with self._convs_lock:
+            return set(self._convs)
+
+    def cache_drop(self, zid: int) -> None:
+        self._cache_drop(zid)
+
+    def is_pending(self, zid: int) -> bool:
+        return self._pool is not None and self._pool.is_pending(zid)
+
+    def pending_zids(self) -> set:
+        return self._pool.pending_zids() if self._pool is not None else set()
+
+    def submit_rebuild(self, zid: int) -> bool:
+        """A full-history rebuild of one conversation (cold first touch).
+        Creates the runtime when called before start() (the ``--once`` path;
+        in a daemon the driver's start hook runs after it exists)."""
+        if self._pool is None:
+            self._ensure_runtime()
+        return self._pool.submit(zid, REBUILD, [])
+
+    def add_start_hook(self, hook) -> None:
+        """Called at the end of start(), once the pool exists."""
+        self._start_hooks.append(hook)
+
     @property
     def _parked(self) -> set:
         """Parked-zid truth is owned SOLELY by the worker pool — one
@@ -554,6 +632,8 @@ class MathPollerService:
             t.start()
         if self.backfill is not None:
             self.backfill.start()
+        for hook in self._start_hooks:
+            hook()
         logger.info(
             "MathPollerService started (math_env=%s pool=%d shard=%s)",
             self.config.math_env,
@@ -645,10 +725,7 @@ class MathPollerService:
             if self._startup_repair_done:  # won by another entry point
                 return
             for zid in self._pg.find_incomplete_math_snapshots():
-                if should_process_zid(
-                    zid, self.config.allowlist, self.config.blocklist,
-                    self.config.shard_index, self.config.shard_count,
-                ):
+                if self._accepts(zid):
                     logger.warning(
                         "Startup repair: incomplete math snapshot for zid=%s "
                         "math_env=%s (missing rows or mismatched math_tick); "
@@ -725,14 +802,23 @@ class MathPollerService:
             config = self.backfill.config.digest()
         # The capacity counts (P-073) in their own try: a fault there means no
         # capacity object and no capacity line, never a degraded readiness line.
+        capacity_line = None
         try:
-            capacity = self.capacity.counts()
+            if self.large_driver is not None:
+                # The large worker: its own counts on its capacity line; the
+                # readiness body's capacity object is the small poller's.
+                capacity, capacity_line = None, self.large_driver.counts()
+            else:
+                capacity = self.capacity.counts()
         except Exception as exc:  # noqa: BLE001
             logger.error("capacity: counts unavailable (%s)", exc.__class__.__name__)
             capacity = None
-        return {"discovery": discovery, "queue": queue, "sweep": sweep, "drain": drain,
+        snap = {"discovery": discovery, "queue": queue, "sweep": sweep, "drain": drain,
                 "admission": admission, "config": config, "capacity": capacity,
                 "loop_marks": tuple(h["successes"] for h in loops)}
+        if self.large_driver is not None:
+            snap["capacity_line"] = capacity_line
+        return snap
 
     def _live_poll_health(self):
         """(mean ms of the recent successful vote polls or None, seconds since
@@ -803,6 +889,17 @@ class MathPollerService:
             logger.info("Reconciler recovering parked zid=%s (M1)", zid)
             self._unpark(zid)  # clears park + invalidates cache
             self._pool.submit(zid, REBUILD, [])
+        if self.capacity_loop is not None:
+            # P-073 PR3: restore, restage, re-size on a binding change,
+            # promotion and the manifest.
+            self._capacity_tick()
+
+    def _capacity_tick(self) -> None:
+        """Contained: the capacity loop never stops reconciling or startup."""
+        try:
+            self.capacity_loop.tick()
+        except Exception as exc:  # noqa: BLE001
+            logger.error("capacity: loop tick failed (%s)", exc.__class__.__name__)
 
     def _unpark(self, zid: int) -> None:
         """Self-heal a parked zid when a NEW batch arrives (Clojure retry-chan
@@ -832,13 +929,7 @@ class MathPollerService:
         rows = self._pg.poll_votes_since(self._vote_wm)
         logger.info("Polled %d votes since watermark %s", len(rows), self._vote_wm)
         for zid, batch in _group_by_zid(rows).items():
-            if should_process_zid(
-                zid,
-                self.config.allowlist,
-                self.config.blocklist,
-                self.config.shard_index,
-                self.config.shard_count,
-            ):
+            if self._accepts(zid):
                 self._unpark(zid)  # new batch self-heals a parked zid
                 self._pool.submit(zid, VOTES, batch)
         self._vote_wm = advance_watermark(
@@ -850,13 +941,7 @@ class MathPollerService:
         rows = self._pg.poll_moderation_since(self._mod_wm)
         logger.info("Polled %d mod changes since watermark %s", len(rows), self._mod_wm)
         for zid, batch in _group_by_zid(rows).items():
-            if should_process_zid(
-                zid,
-                self.config.allowlist,
-                self.config.blocklist,
-                self.config.shard_index,
-                self.config.shard_count,
-            ):
+            if self._accepts(zid):
                 self._unpark(zid)  # new batch self-heals a parked zid
                 self._pool.submit(zid, MODERATION, batch)
         self._mod_wm = advance_watermark(
@@ -875,7 +960,11 @@ class MathPollerService:
             # P-070: a backfill job alone. It never touches the cache, owns
             # its errors and reports its own outcome.
             if self.backfill is not None:
-                self.backfill.run_job(zid)
+                if self.capacity.routing and self.capacity.is_routed(zid):
+                    # Routed after admission (P-073): not computed here.
+                    self.backfill.job_superseded_by_live(zid, False)
+                else:
+                    self.backfill.run_job(zid)
             return None
         live_ok = False
         routed = False
@@ -1027,7 +1116,8 @@ class MathPollerService:
         never fit."""
         adm = self.admission
         if not adm.limited:
-            return adm.reserve(zid, 0, kind="live", stop=self._stop)
+            return adm.reserve(zid, 0, kind="live", exclusive=self.exclusive_live,
+                               stop=self._stop)
         if conv is None:
             votes, voters, comments = read_conversation_sizes(self._pg, zid)
             need = adm.model.above_base_bytes(votes, voters, comments)
@@ -1041,7 +1131,8 @@ class MathPollerService:
                 len(batch) + len(coalesced.moderation), voters + new_voters,
                 comments + new_comments)
             kind = "live_update"
-        return adm.reserve(zid, need, kind=kind, stop=self._stop)
+        # The large worker (P-073): one computation at a time.
+        return adm.reserve(zid, need, kind=kind, exclusive=self.exclusive_live, stop=self._stop)
 
     def _run_engine(self, zid: int, coalesced: CoalescedBatch) -> bool:
         """Compute and publish. Returns True when the work was routed to the

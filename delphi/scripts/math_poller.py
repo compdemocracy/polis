@@ -25,11 +25,26 @@ import time
 import psycopg2
 
 from polismath.database.postgres import PostgresClient, PostgresConfig
+from polismath.poller.capacity import (
+    CLASS_ENV,
+    CLASS_LARGE,
+    CLASS_SMALL,
+    CapacityConfigError,
+    CapacityRouter,
+    CapacitySettings,
+)
+from polismath.poller.large_class import (
+    LargeClassDriver,
+    LargeStartupError,
+    check_large_budget,
+    check_large_startup,
+)
 from polismath.poller.readiness import (
     ReadinessConfigError,
     ReadinessReporter,
     ReadinessSettings,
     check_identity_source,
+    identity,
 )
 from polismath.poller.service import MathPollerService, PollerConfig, PoolDrainTimeout
 
@@ -73,6 +88,31 @@ def _refuse_served_env(math_env: str) -> None:
             file=sys.stderr,
         )
         raise SystemExit(2)
+
+
+def _large_class_settings(config: PollerConfig):
+    """The large memory class (P-073 PR3), or None for the small poller.
+
+    ``MATH_CAPACITY_CLASS`` other than small/large refuses to start (exit 2).
+    For the large class every MATH_CAPACITY_* value must parse and the
+    static refusals hold (polismath.poller.large_class.check_large_startup):
+    an unconfigured large worker must never run as an ordinary poller. The
+    small poller keeps PR2's rule (a bad value turns routing off)."""
+    raw = (os.environ.get(CLASS_ENV) or "").strip()
+    if raw not in ("", CLASS_SMALL, CLASS_LARGE):
+        print(f"refusing to start: {CLASS_ENV}={raw!r} must be {CLASS_SMALL} or {CLASS_LARGE}",
+              file=sys.stderr)
+        raise SystemExit(2)
+    if raw != CLASS_LARGE:
+        return None
+    try:
+        settings = CapacitySettings.from_env()
+        check_large_startup(settings, config.math_env, served_env=SERVED_MATH_ENV,
+                            env=os.environ, shard_count=config.shard_count)
+    except (CapacityConfigError, LargeStartupError) as exc:
+        print(f"refusing to start: {exc}", file=sys.stderr)
+        raise SystemExit(2)
+    return settings
 
 
 # --- Single-writer admission -------------------------------------------------
@@ -297,10 +337,11 @@ def _hold_single_writer_lock(config: PollerConfig, log):
     return conn
 
 
-def _start_readiness(config: PollerConfig, log) -> ReadinessReporter:
+def _start_readiness(config: PollerConfig, log, klass: str = CLASS_SMALL) -> ReadinessReporter:
     """The readiness/liveness lines (P-072), from before the lock is taken,
     so a waiting standby is visible too. A bad interval setting refuses to
-    start (exit 2): an unmonitored poller must not look monitored."""
+    start (exit 2): an unmonitored poller must not look monitored. The large
+    worker's lines carry its class token (P-073)."""
     global _READINESS
     try:
         settings = ReadinessSettings.from_env()
@@ -308,7 +349,7 @@ def _start_readiness(config: PollerConfig, log) -> ReadinessReporter:
     except ReadinessConfigError as exc:
         print(f"refusing to start: {exc}", file=sys.stderr)
         raise SystemExit(2)
-    reporter = ReadinessReporter(settings, config)
+    reporter = ReadinessReporter(settings, config, klass=klass)
     _READINESS = reporter
     reporter.start()
     log.info("readiness lines every %gs (run=%s poller_config=%s stale_after=%gs)",
@@ -354,19 +395,44 @@ def _memory_admission(config: PollerConfig, log):
     return admission
 
 
-def _build_service(config: PollerConfig) -> MathPollerService:
+def _build_service(config: PollerConfig, large=None) -> MathPollerService:
     if not config.database_url:
         print("DATABASE_URL is required", file=sys.stderr)
         raise SystemExit(2)
     log = logging.getLogger("math_poller")
     admission = _memory_admission(config, log)
+    store = None
+    if large is not None:
+        from polismath.poller.capacity_manifest import open_store
+
+        try:
+            check_large_budget(large, admission)
+            store = open_store(large.manifest_uri)
+        except (LargeStartupError, ValueError) as exc:
+            print(f"refusing to start: {exc}", file=sys.stderr)
+            raise SystemExit(2)
     pg = PostgresClient(PostgresConfig(url=config.database_url, math_env=config.math_env))
     pg.initialize()
-    return MathPollerService(
-        pg, config, backfill_config=_backfill_config(log), admission=admission,
+    service = MathPollerService(
+        pg, config, backfill_config=None if large is not None else _backfill_config(log),
+        admission=admission,
         # One run id for the readiness lines and the backfill's report lines.
         run_id=_READINESS.run if _READINESS is not None else None,
+        capacity=CapacityRouter(admission, large) if large is not None else None,
     )
+    if large is not None:
+        # The large memory class (P-073 PR3): nothing is computed until the
+        # driver reads the manifest; every computation is exclusive.
+        service.exclusive_live = True
+        service.set_dynamic_allowlist(frozenset())
+        interval = _READINESS.settings.interval_s if _READINESS is not None else 60.0
+        driver = LargeClassDriver(service, large, store,
+                                  source_commit=identity()["source_commit"], interval_s=interval)
+        service.large_driver = driver
+        service.add_start_hook(driver.start)
+        log.warning("large memory class: label=%s promote_into=%s manifest=%s",
+                    config.math_env, large.promote_into, store.describe())
+    return service
 
 
 def main(argv=None) -> int:
@@ -383,15 +449,19 @@ def main(argv=None) -> int:
 
     config = PollerConfig.from_env()
     _refuse_served_env(config.math_env)
-    readiness = None if args.once else _start_readiness(config, log)
+    large = _large_class_settings(config)
+    klass = CLASS_LARGE if large is not None else CLASS_SMALL
+    readiness = None if args.once else _start_readiness(config, log, klass)
     # Held (and referenced) until the process exits; closing it releases the lock.
     lock_conn = _hold_single_writer_lock(config, log)  # noqa: F841
-    service = _build_service(config)
+    service = _build_service(config) if large is None else _build_service(config, large)
     if readiness is not None and hasattr(service, "readiness_snapshot"):
         readiness.set_source(service.readiness_snapshot)
 
     if args.once:
         log.info("Running a single poll cycle (--once)")
+        if getattr(service, "large_driver", None) is not None:
+            service.large_driver.tick()
         try:
             service.poll_once()
         except PoolDrainTimeout as exc:
