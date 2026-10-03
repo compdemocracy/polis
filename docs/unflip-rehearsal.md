@@ -148,9 +148,14 @@ reader and producer containers run them in turn
      directory (`pg_ls_waldir`, which needs `pg_monitor`). If it cannot be
      read, the run refuses. `min_free_storage_gb` is the margin for the flip's
      new heap, index and WAL.
-2. **PR-A's DDL**, only if the copy predates it. The convention must then
+2. **Copy marker.** The first write is `COMMENT ON DATABASE <copy> IS
+   'polis-unflip-rehearsal-copy'`, made on the temporary copy the secret
+   names and never on production. The engine-rebuild tool writes only with
+   `--i-am-a-copy --require-copy-marker`, so it refuses any database without
+   the marker. If the comment cannot be set, the run refuses (`COPY_MARKER`).
+3. **PR-A's DDL**, only if the copy predates it. The convention must then
    read version 0 / agree -1, with no un-flip row in the ledger.
-3. **PRE.** Recorded in one repeatable-read snapshot:
+4. **PRE.** Recorded in one repeatable-read snapshot:
    - semantic aggregates per conversation;
    - one hash per participant;
    - raw counts and sizes.
@@ -167,27 +172,27 @@ reader and producer containers run them in turn
      ticks. The comparison drops `math_tick`, `caching_tick` and the ETag from
      the pca2 bodies, and drops the blob's engine-local `math_tick` from the
      `math_main` digest.
-4. **MIGRATE.**
+5. **MIGRATE.**
    - `flip` runs the held file and commits it.
    - `dry` runs its body inside a transaction and rolls it back.
 
    A monitor connection samples lock waiters. It cancels the migration past
    the wall budget (90 minutes). Wall time, WAL bytes and heap and index
    growth are recorded.
-5. **RE-RUN.** The file must fail at its version guard (SQLSTATE `P0785`). In
+6. **RE-RUN.** The file must fail at its version guard (SQLSTATE `P0785`). In
    `dry` mode the re-run happens inside the open transaction, behind a
    savepoint.
-6. **POST** (`flip`). Runs `VACUUM (VERBOSE)`, then the PRE recordings again
+7. **POST** (`flip`). Runs `VACUUM (VERBOSE)`, then the PRE recordings again
    (the rebuild, then pca2 from it), the convention row, and one
    `vote_insert()` round trip on the copy (rolled back). In
    `dry` mode the SQL recording is repeated after the rollback, to prove the
    copy is unchanged.
-7. **Restore rule** (`flip`, `restore_rule`), on the second copy:
+8. **Restore rule** (`flip`, `restore_rule`), on the second copy:
    - absent table: apply PR-A, then the forward migration, then assert
      version 1;
    - version 1 with the ledger row: passes as is;
    - anything else: REFUSE.
-8. **Receipt.** The verifier writes `polis-unflip-rehearsal-receipt/1`, and
+9. **Receipt.** The verifier writes `polis-unflip-rehearsal-receipt/1`, and
    the worker validates it with the closed decoder before it leaves the box.
 
 ## Refusals
@@ -206,6 +211,7 @@ a fresh rehearsal on a fresh snapshot.
 | migration, DDL or queries digest mismatch | operator restore and launch; worker | `*_DIGEST` |
 | a tagged instance that is not one of the two fixed copies in the rehearsal group | operator cleanup | not deleted; reported; launches refuse |
 | server not 17.x, superuser session, convention not at version 0 | worker | `SERVER_VERSION`, `SUPERUSER_SESSION`, `CONVENTION_STATE` |
+| the copy marker cannot be set on the copy | worker | `COPY_MARKER` (before any other write) |
 | lock wait above `lock_wait_budget_ms`; wall time above 90 min | worker | `LOCK_BUDGET`, `WALL_BUDGET` (the transaction rolls back) |
 | an assertion inside the migration fails | worker | `MIGRATION_FAILED` (nothing committed) |
 | the re-run is not refused by the guard | worker | `RERUN_NOT_REFUSED` (PR-I must not ship) |

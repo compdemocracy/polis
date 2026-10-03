@@ -5,7 +5,8 @@
 -- queries (P-078 section 2c step 5): Colin runs them on the box, never from a
 -- laptop, and compares their shape with the rehearsal receipt. Print them with
 --   python3 ci/probe_box/unflip_rehearsal.py --print-sql
--- No block writes except insert_roundtrip (rehearsal only, always inside a
+-- No block writes except copy_marker (a comment on the temporary copy),
+-- insert_roundtrip (rehearsal only, always inside a
 -- transaction its caller rolls back) and the engine label cleanup (its own
 -- non-served label only). insert_roundtrip and insert_readback are NOT
 -- production-day queries: on production they would overwrite a real
@@ -22,6 +23,19 @@ SELECT pg_catalog.current_setting('server_version_num')::int AS server_version_n
 SELECT pg_catalog.to_regclass('public.vote_convention') IS NOT NULL AS convention,
        pg_catalog.to_regclass('public.schema_migrations') IS NOT NULL AS ledger,
        pg_catalog.to_regclass('public.votes_semantic') IS NOT NULL AS views;
+
+-- name: copy_marker
+-- Marks the temporary restored copy (never production) for the engine-rebuild
+-- tool's --require-copy-marker. Run by the rehearsal's preflight, before any
+-- other write, on the copy its secret names.
+DO $marker$ BEGIN
+  EXECUTE 'COMMENT ON DATABASE ' || pg_catalog.quote_ident(pg_catalog.current_database())
+       || ' IS ' || pg_catalog.quote_literal('polis-unflip-rehearsal-copy');
+END $marker$;
+
+-- name: copy_marker_read
+SELECT pg_catalog.shobj_description(d.oid, 'pg_database') AS marker
+  FROM pg_catalog.pg_database d WHERE d.datname = pg_catalog.current_database();
 
 -- name: convention (day)
 SELECT version, agree_value FROM public.vote_convention WHERE singleton;

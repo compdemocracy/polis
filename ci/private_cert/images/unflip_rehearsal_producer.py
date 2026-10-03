@@ -35,7 +35,9 @@ def command_rebuild(zids, label):
     with tempfile.NamedTemporaryFile('w', dir='/tmp', suffix='.json', delete=False) as f:
         json.dump(sorted(zids), f)
     env = dict(os.environ, PGSERVICE='probe', MATH_ENV=label)
-    subprocess.run(ENGINE_COMMAND + ['--label', label, '--zids-file', f.name], env=env, check=True,
+    # Writes only to an acknowledged copy carrying the preflight's database marker.
+    subprocess.run(ENGINE_COMMAND + ['--label', label, '--zids-file', f.name, '--i-am-a-copy',
+                                     '--require-copy-marker'], env=env, check=True,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 

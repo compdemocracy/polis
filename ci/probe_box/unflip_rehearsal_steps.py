@@ -25,7 +25,7 @@ import hashlib
 import threading
 import time
 
-from unflip_rehearsal import (ENGINE_LABEL, GUARD_SQLSTATE, SERVER_MAJOR, WALL_BUDGET_SECONDS, digest, empty_state,
+from unflip_rehearsal import (COPY_MARKER, ENGINE_LABEL, GUARD_SQLSTATE, SERVER_MAJOR, WALL_BUDGET_SECONDS, digest, empty_state,
                               encoded, migration_body, parse_queries, restore_shape, validate_run_spec, zid_key)
 
 # The monitor's sampling cadence during the migration (pg_locks waiters).
@@ -143,6 +143,16 @@ def preflight(copy, state, spec, *, ddl, migration, queries):
                 if pf['free_storage_gb'] < spec['min_free_storage_gb']:
                     refuse(state, 'STORAGE_HEADROOM')
             if stopped(state):
+                return state
+            # The first write: mark this temporary copy (never production) so
+            # the engine-rebuild tool's --require-copy-marker accepts it.
+            try:
+                copy.run(cur, 'copy_marker')
+                (marker,) = copy.one(cur, 'copy_marker_read')
+            except Exception:
+                marker = None
+            if marker != COPY_MARKER:
+                refuse(state, 'COPY_MARKER')
                 return state
             current = convention_state(copy, cur)
             if current is None:

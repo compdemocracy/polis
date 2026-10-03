@@ -189,7 +189,10 @@ class Queries(unittest.TestCase):
         for name, (sql, _) in q.items():
             self.assertNotIn('%', re.sub(r'%\([a-z_]+\)s', '', sql), name)
             writes = re.search(r'\b(INSERT|UPDATE|DELETE|ALTER|DROP|CREATE|TRUNCATE)\b', sql)
-            if name == 'engine_clear':
+            if name == 'copy_marker':
+                self.assertIn("'COMMENT ON DATABASE ' || pg_catalog.quote_ident(pg_catalog.current_database())", sql)
+                self.assertIn("pg_catalog.quote_literal('polis-unflip-rehearsal-copy')", sql)
+            elif name == 'engine_clear':
                 self.assertEqual(sql.split('\n'), [f'DELETE FROM public.{t} WHERE math_env = %(label)s;' for t in
                                                     ('math_main', 'math_bidtopid', 'math_ptptstats', 'math_ticks')])
             else:
@@ -448,6 +451,16 @@ class BoxState(unittest.TestCase):
         for changed in (dict(body, pca={'comps': [[-0.5]]}), dict(body, lastVoteTimestamp=2)):
             self.assertNotEqual(image_reader.pca2_digest(200, json.dumps(changed).encode()), base)
         self.assertNotEqual(image_reader.pca2_digest(304, json.dumps(body).encode()), base)
+
+    def test_producer_writes_only_to_an_acknowledged_marked_copy(self):
+        calls = []
+        with mock.patch.object(image_producer.subprocess, 'run', side_effect=lambda argv, **kw: calls.append(argv)):
+            image_producer.command_rebuild([3, 1], 'probe')
+        argv = calls[0]
+        self.assertEqual(argv[:3], ['/opt/polis-unflip/engine-rebuild', '--label', 'probe'])
+        self.assertIn('--i-am-a-copy', argv)
+        self.assertIn('--require-copy-marker', argv)
+        self.assertEqual(u.COPY_MARKER, 'polis-unflip-rehearsal-copy')
 
     def test_image_actions_are_closed(self):
         for module, action in ((image_reader, 'read'), (image_producer, 'produce'), (image_verifier, 'verify')):
@@ -926,11 +939,11 @@ class StepMachine(unittest.TestCase):
         auth = f'{user}:{MASTER_PASSWORD}@' if user == MASTER else f'{p.username or "postgres"}@'
         return f'postgresql://{auth}{p.hostname}:{p.port}/{db}'
 
-    def clone(self, template='unflip_base'):
+    def clone(self, template='unflip_base', owner=MASTER):
         type(self).counter += 1
         name = f'unflip_case_{os.getpid()}_{type(self).counter}'
         with self.admin.cursor() as cur:
-            cur.execute(f'CREATE DATABASE {name} TEMPLATE {template} OWNER {MASTER}')
+            cur.execute(f'CREATE DATABASE {name} TEMPLATE {template} OWNER {owner}')
         self.addCleanup(self.drop, name)
         return name
 
@@ -1048,6 +1061,8 @@ class StepMachine(unittest.TestCase):
         self.assertEqual(self.sql(db, 'SELECT version, agree_value FROM vote_convention_history ORDER BY version'),
                          [(0, -1), (1, 1)])
         self.assertEqual(self.sql(r2, 'SELECT version, agree_value FROM vote_convention'), [(1, 1)])
+        self.assertEqual(self.sql(db, "SELECT shobj_description(oid, 'pg_database') FROM pg_database "
+                                      "WHERE datname = current_database()"), [('polis-unflip-rehearsal-copy',)])
         # The insert round trip was rolled back.
         self.assertEqual(self.sql(db, 'SELECT count(*) FROM votes')[0][0], r['post']['votes'])
 
@@ -1257,6 +1272,12 @@ class StepMachine(unittest.TestCase):
                 cur.execute(f'GRANT pg_monitor TO {MASTER}')
         self.assertEqual(state['refusals'], ['STORAGE_HEADROOM'])
         self.assertIsNone(state['preflight']['free_storage_gb'])
+
+    def test_unmarkable_copy_refuses_before_any_other_write(self):
+        db = self.clone(owner='postgres')            # the session cannot comment on a database it does not own
+        state = steps.rehearse(self.connector(db), spec(), ddl=DDL, migration=MIGRATION, queries=QUERIES)
+        self.assertEqual(state['refusals'], ['COPY_MARKER'])
+        self.assertEqual(self.sql(db, "SELECT to_regclass('public.vote_convention') IS NULL"), [(True,)])
 
     def test_convention_state_and_certification_refusals(self):
         db = self.clone()

@@ -54,7 +54,8 @@ OUTCOMES = ('PASS', 'FAIL', 'NOT_COLLECTED')
 RULE_OUTCOMES = ('PASS', 'REFUSE', 'NOT_RUN')
 # Why the step machine stopped or the run cannot pass. Closed names only.
 REFUSALS = ('SNAPSHOT_STALE', 'SERVER_VERSION', 'SUPERUSER_SESSION', 'STORAGE_HEADROOM', 'RESTORE_SHAPE',
-            'DDL_DIGEST', 'MIGRATION_DIGEST', 'QUERIES_DIGEST', 'CONVENTION_STATE', 'CERTIFICATION_MISSING',
+            'DDL_DIGEST', 'MIGRATION_DIGEST', 'QUERIES_DIGEST', 'COPY_MARKER', 'CONVENTION_STATE',
+            'CERTIFICATION_MISSING',
             'LOCK_BUDGET', 'WALL_BUDGET', 'MIGRATION_FAILED', 'RERUN_NOT_REFUSED', 'COLLECTION_FAILED')
 # The SQLSTATE the held file raises at its version guard.
 GUARD_SQLSTATE = 'P0785'
@@ -63,6 +64,9 @@ WALL_BUDGET_SECONDS = 5400
 SERVER_MAJOR = 17
 # The engine's cold rebuilds publish under this label; nothing serves it.
 ENGINE_LABEL = 'probe'
+# COMMENT ON DATABASE text the preflight puts on the temporary copy; the
+# engine-rebuild tool writes only where it finds it (--require-copy-marker).
+COPY_MARKER = 'polis-unflip-rehearsal-copy'
 
 HEX64 = re.compile('[a-f0-9]{64}')
 IMAGE = re.compile('sha256:[a-f0-9]{64}')
@@ -198,7 +202,7 @@ def render_queries(raw: bytes) -> str:
 
 
 REQUIRED_QUERIES = frozenset({
-    'session', 'objects', 'convention', 'unflip_ledger', 'storage_bytes', 'raw_counts', 'totals',
+    'session', 'objects', 'copy_marker', 'copy_marker_read', 'convention', 'unflip_ledger', 'storage_bytes', 'raw_counts', 'totals',
     'aggregates_votes', 'aggregates_latest', 'participant_hashes', 'sizes', 'wal_lsn', 'wal_since', 'backend',
     'lock_sample', 'cancel_backend', 'certification', 'certification_handles', 'sample', 'insert_target', 'insert_roundtrip',
     'insert_readback', 'engine_rows', 'engine_clear', 'restore_detection'})
