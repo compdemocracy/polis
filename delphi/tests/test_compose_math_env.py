@@ -399,3 +399,71 @@ def test_math_python_forwards_the_shared_memory_admission_settings(monkeypatch):
     assert cfg.memory_headroom == 0.15 and cfg.conv_cache_mb is None
     assert (cfg.mem_per_mcell_mb, cfg.mem_per_vote_row_bytes, cfg.mem_safety) == (133, 1000, 1.15)
     assert cfg.mem_job_floor_mb == 64
+
+
+# --- LLM selection keys (delphi service) --------------------------------------
+# The delphi service has no env_file, so a provider/model key the code reads is
+# invisible unless the service block lists it: a deployment env document that
+# sets LLM_PROVIDER or ANTHROPIC_TOPIC_MODEL would otherwise be silently ignored
+# and topic naming would fall back to ANTHROPIC_MODEL.
+
+# key -> value the container sees when the stack leaves it unset. Each default
+# must be one the code accepts: TOPIC_BATCH_MAX_WAIT_SECONDS is parsed with
+# float() and SENTENCE_TRANSFORMER_MODEL is used as given, so neither may be "".
+LLM_SELECTION_DEFAULTS = {
+    "LLM_PROVIDER": "anthropic",
+    "ANTHROPIC_MODEL": "",
+    "ANTHROPIC_TOPIC_MODEL": "",
+    "TOPIC_BATCH_MAX_WAIT_SECONDS": "1800",
+    "SENTENCE_TRANSFORMER_MODEL": "all-MiniLM-L6-v2",
+    "OLLAMA_HOST": "",
+    "OLLAMA_ENDPOINT": "",
+    "OLLAMA_MODEL": "",
+}
+_LLM_KEY_READ = re.compile(
+    r"""(?:environ\.get|getenv|environ\[)\(?\s*["'](?P<key>(?:LLM_|ANTHROPIC_|OLLAMA_)[A-Z_]+|SENTENCE_TRANSFORMER_MODEL|TOPIC_BATCH_[A-Z_]+)["']"""
+)
+# Read by the code but not a selection knob: the API key is already forwarded
+# on its own line and checked below as part of the environment block.
+_NOT_SELECTION = {"ANTHROPIC_API_KEY"}
+
+
+def _llm_keys_read_by_delphi() -> set:
+    """Every LLM-selection key some Delphi module reads, found by scanning the
+    source beside tests/ (the delphi dir in a checkout, /app in the CI image)."""
+    root = Path(__file__).resolve().parent.parent
+    keys = set()
+    for path in root.rglob("*.py"):
+        parts = path.relative_to(root).parts
+        # Skip the tests and any installed packages (a local .venv, site-packages).
+        if "tests" in parts or "site-packages" in parts or any(p.startswith(".") for p in parts):
+            continue
+        keys |= {m["key"] for m in _LLM_KEY_READ.finditer(path.read_text(errors="ignore"))}
+    return keys - _NOT_SELECTION
+
+
+def test_every_llm_key_the_code_reads_is_listed_here():
+    read = _llm_keys_read_by_delphi()
+    assert {"LLM_PROVIDER", "ANTHROPIC_TOPIC_MODEL"} <= read, "source scan found nothing"
+    assert read <= set(LLM_SELECTION_DEFAULTS), (
+        f"Delphi reads {sorted(read - set(LLM_SELECTION_DEFAULTS))} but this test "
+        "(and docker-compose.yml's delphi service) does not forward them"
+    )
+
+
+@requires_checkout
+@pytest.mark.parametrize("key", sorted(LLM_SELECTION_DEFAULTS))
+def test_delphi_forwards_llm_selection_key(key):
+    probe = f"probe-{key.lower()}"
+    forwarded = _environment("docker-compose.yml", "delphi", {key: probe})
+    assert forwarded.get(key) == probe, (
+        f"docker-compose.yml's delphi service does not forward {key}; a value set "
+        "in .env or the deployment env document never reaches the container"
+    )
+
+
+@requires_checkout
+def test_delphi_llm_selection_defaults_when_unset():
+    env = _environment("docker-compose.yml", "delphi", {})
+    assert {key: env.get(key) for key in LLM_SELECTION_DEFAULTS} == LLM_SELECTION_DEFAULTS
+    assert "ANTHROPIC_API_KEY" in env
