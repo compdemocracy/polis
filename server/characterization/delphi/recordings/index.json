@@ -2,7 +2,8 @@
  "format": "delphi-characterization/1",
  "codec": "delphi-storage-codec/1",
  "clockMs": 1700000000000,
- "fixtureSha256": "1c8ae68d4af2ff00252d3f66ccbc1678b765f471a64a76c228886e459bc8e6d3",
+ "randomSeed": "mulberry32(sha256(case id)[0..4]) per case",
+ "fixtureSha256": "ed257b7c02e1af9089beab048b1f80e60fcb3342c366e1d2f65710ebdbffe7c6",
  "excludedHeaders": [
   "date",
   "connection",
@@ -46,7 +47,7 @@
   "WEBSERVER_PASS",
   "WEBSERVER_USERNAME"
  ],
- "caseCount": 255,
+ "caseCount": 272,
  "cases": [
   {
    "id": "boundary/delphi-missing-report",
@@ -199,6 +200,11 @@
    "sha256": "6688d8855684d5a55b1540c126b02476d44e680aef377d413ff410eb6b4e3058"
   },
   {
+   "id": "not_run/nextComment/pid-1",
+   "status": 200,
+   "sha256": "6ccd1eafcf362cecad46058be70f5e0d5abbf262de8c0940532b7ccca9a03d98"
+  },
+  {
    "id": "not_run/reportNarrative/no-delphi-claim",
    "status": 503,
    "sha256": "47df1e86895b0ac8a3ba9b243c90f751529141a1e49550a8bc06f4a62363ef40"
@@ -289,9 +295,9 @@
    "sha256": "dd867368f918ef71e08fd361bbf3e20732d1b4caa42b5eab65a13a352e1c472c"
   },
   {
-   "id": "pending/topicMod-topics/job",
+   "id": "pending/topicMod-topics/job-00000066-0000-4000-8000-000000000001",
    "status": 200,
-   "sha256": "63688914bfceff87937ec1ba741905ee62f02d2cd61d0615db26e45cdf023482"
+   "sha256": "0d3e747d7c99773371a35b7cb4912c4266e95f0e72e94349fc3afd2c62a89c04"
   },
   {
    "id": "pending/topicMod-proximity",
@@ -307,6 +313,11 @@
    "id": "pending/topicMod-stats",
    "status": 200,
    "sha256": "08ea38df7133c717472c22bcd1e9d0c1077ed3dc499671f6ccb1c2ab3ed3e328"
+  },
+  {
+   "id": "pending/nextComment/pid-1",
+   "status": 200,
+   "sha256": "89a060e58824f4d4390e93f22dac0914a10ebd95f85d84e707f2ed9e038f5efb"
   },
   {
    "id": "pending/reportNarrative/no-delphi-claim",
@@ -399,9 +410,9 @@
    "sha256": "ca27708aff84a9d904fb98acfbe19af1c24a87fc0acd4099c716d4f1bd2619ed"
   },
   {
-   "id": "running/topicMod-topics/job",
+   "id": "running/topicMod-topics/job-00000067-0000-4000-8000-000000000001",
    "status": 200,
-   "sha256": "005d8df3c7b6ed6391de80174a7947749e52ed0dc9766629e63de9a354b3cf6f"
+   "sha256": "623308fa00bdf80481b000bac7b14380feaffa08486d214fcb474f3c429c89a2"
   },
   {
    "id": "running/topicMod-proximity",
@@ -417,6 +428,11 @@
    "id": "running/topicMod-stats",
    "status": 200,
    "sha256": "d13a26d3cae2ea93e99a059ecda522dc7fa53bd1cae111c185e53946ad83c900"
+  },
+  {
+   "id": "running/nextComment/pid-1",
+   "status": 200,
+   "sha256": "d553695f4e1403b07a4ac15cb5aabc7e1d1fa5d609d94277e04e63b93c29af9d"
   },
   {
    "id": "running/reportNarrative/no-delphi-claim",
@@ -509,9 +525,9 @@
    "sha256": "11b49f054077c7aa177e71c5f4b9ef245eae3697743a5eb5ea1f442f82507064"
   },
   {
-   "id": "failed/topicMod-topics/job",
+   "id": "failed/topicMod-topics/job-00000068-0000-4000-8000-000000000001",
    "status": 200,
-   "sha256": "4acecae7f7ca8885ce9adc739c37ec712652c60194959e93dab88b2014aef73c"
+   "sha256": "a884f63001b2f38c13951e6723855bc5de03aa86b2f476c10d6976b287d30846"
   },
   {
    "id": "failed/topicMod-proximity",
@@ -527,6 +543,11 @@
    "id": "failed/topicMod-stats",
    "status": 200,
    "sha256": "e0d36c647652c8299d50cfb08994ed8fcaee385a87fc6656c1d5acbd39ab846b"
+  },
+  {
+   "id": "failed/nextComment/pid-1",
+   "status": 200,
+   "sha256": "00dc814710b1542eabf64f1d5b856d7d6178a89d2f185a6c7f47133255a219a2"
   },
   {
    "id": "failed/reportNarrative/no-delphi-claim",
@@ -639,6 +660,11 @@
    "sha256": "d7834afbeb887e561526b55b252a88735e6a85ce62e2119a5a8afb82ae8a7176"
   },
   {
+   "id": "completed/topicAgenda-selections/pid-3",
+   "status": 200,
+   "sha256": "9131665490ed63e650a05e7d33cc63880b6d5e04e6a9d7304fe4c554b71a702a"
+  },
+  {
    "id": "completed/reportExport-comment-clusters",
    "status": 200,
    "sha256": "c32f3106114d2aba072979a7b06441cf7d01af8edb9023b1fbcaa0b1be55d923"
@@ -664,9 +690,9 @@
    "sha256": "304ffc27e1cbd42ac9441c90b2ba45e87e298980b1291b45fdf9488e2607f8b6"
   },
   {
-   "id": "completed/topicMod-topics/job",
+   "id": "completed/topicMod-topics/job-00000069-0000-4000-8000-000000000001",
    "status": 200,
-   "sha256": "b2d5215ba60537d9c16a25a22783d5f6b00af06f1c6f26b2e92a8efb14ef1bd2"
+   "sha256": "ae461fb8e6f4b4067e69b2d5b49d6d0831b843cdf2f398ac674a934be0864fcf"
   },
   {
    "id": "completed/topicMod-proximity",
@@ -687,6 +713,26 @@
    "id": "completed/topicMod-topic-comments",
    "status": 503,
    "sha256": "778b50082a7e9d6f822950580e0eaf70f9ea014fa31e4488aaf94186fd16222c"
+  },
+  {
+   "id": "completed/nextComment/pid-1",
+   "status": 200,
+   "sha256": "9585570011dd87c3c5c7ad9b52285d826adb546890faf72842a64c955dc8f528"
+  },
+  {
+   "id": "completed/nextComment/pid-3",
+   "status": 200,
+   "sha256": "a7b48dd1e9ba7bed63148f7188bbcf7593b88efe1314b60d22db255bc5a9bf93"
+  },
+  {
+   "id": "completed/nextComment/pid-3-without-topical-pool",
+   "status": 200,
+   "sha256": "c70b9ac4ff9deb7a6a4f57ca68dc95e63b27d1a59dedc89c7592139e5e17c2e3"
+  },
+  {
+   "id": "completed/nextComment/anonymous",
+   "status": 200,
+   "sha256": "de0fde81b0625886c75e45840b4df7a211a8cd70d2bf831801b249a46157f5ad"
   },
   {
    "id": "completed/reportNarrative/no-delphi-claim",
@@ -839,9 +885,19 @@
    "sha256": "f928b0fd62cf74f8ae329997355af23e70f0d5d5222b5e3a571f194c29fe1722"
   },
   {
-   "id": "two_models/topicMod-topics/job",
+   "id": "two_models/topicMod-topics/job-0000006a-0000-4000-8000-000000000001",
    "status": 200,
-   "sha256": "8a7eca15547e7e3e7861ce222a5c7539f6a632eb8a1593a57ef0706b38c1d696"
+   "sha256": "7404ad091bbf313bd8a346615f14958dc01f7295104a55e1edb5ca58bbbdf8da"
+  },
+  {
+   "id": "two_models/topicMod-topics/job-0000006a-0000-4000-8000-000000000002",
+   "status": 200,
+   "sha256": "a5cdfce33d8306f77e6d6f4248f366d8fc4002b3f97116b3b110c1935b653680"
+  },
+  {
+   "id": "two_models/topicMod-topics/job-0000006a-0000-4000-8000-000000000003",
+   "status": 200,
+   "sha256": "6dfd2c184a4d02687785e6d32ca61ef9193154cc9ecdd17fcf4c5edb406507d4"
   },
   {
    "id": "two_models/topicMod-proximity",
@@ -862,6 +918,11 @@
    "id": "two_models/topicMod-topic-comments",
    "status": 503,
    "sha256": "b951050e239c57aa6654ddbc754c5eeb2902b5f5580b44fa1b589b7e7385481b"
+  },
+  {
+   "id": "two_models/nextComment/pid-1",
+   "status": 200,
+   "sha256": "84ce00ca067ba5fb2a782f78d4b3ea35591fbeffa4965d3a779d8988729da257"
   },
   {
    "id": "two_models/reportNarrative/no-delphi-claim",
@@ -1014,9 +1075,14 @@
    "sha256": "16796d87df839b5bb56abb3fa5664a8c73f1d185e704f68ec9bac0acfca23f89"
   },
   {
-   "id": "rerun_after_votes/topicMod-topics/job",
+   "id": "rerun_after_votes/topicMod-topics/job-0000006b-0000-4000-8000-000000000002",
    "status": 200,
-   "sha256": "eb4990726d3a795440a8e9dcb6e6cf4c869e3409a9718e0144cd7a8c71102ed4"
+   "sha256": "ac1dc63d7d3e32fe9c767c5aab3b77e7ee3ac847987e173f412901e3a0993823"
+  },
+  {
+   "id": "rerun_after_votes/topicMod-topics/job-0000006b-0000-4000-8000-000000000001",
+   "status": 200,
+   "sha256": "8e46ef36de6c1dfc62fd24218b5f0e5b921f5090628c5c98ef86978c03fc665d"
   },
   {
    "id": "rerun_after_votes/topicMod-proximity",
@@ -1037,6 +1103,16 @@
    "id": "rerun_after_votes/topicMod-topic-comments",
    "status": 503,
    "sha256": "2de5a43b1b3fa57e7be1714e50c535340bed59df7eca70e194a388ecf61dce4c"
+  },
+  {
+   "id": "rerun_after_votes/nextComment/pid-1",
+   "status": 200,
+   "sha256": "2cb934a11326ec1475a48dbc664bf18f5348f27b925ced133bf108b08688334c"
+  },
+  {
+   "id": "rerun_after_votes/nextComment/pid-2",
+   "status": 200,
+   "sha256": "fd6b726e6f78c65aaec2121831eec3e6319a7096e91762688d709300ccdf3fc5"
   },
   {
    "id": "rerun_after_votes/reportNarrative/no-delphi-claim",
@@ -1154,9 +1230,9 @@
    "sha256": "502485b7ac2c311e48407dc7c9ab6201aa5d4e8ca7427192efd648b085875e7d"
   },
   {
-   "id": "truncated_narrative/topicMod-topics/job",
+   "id": "truncated_narrative/topicMod-topics/job-0000006c-0000-4000-8000-000000000001",
    "status": 200,
-   "sha256": "9c4b73b277b250212d11425a268d807c8cb261e9a963c33c09378fb1109d0f7a"
+   "sha256": "bb404233fada602998e9daa38b95361f7517c60ea55f81ce453e2bdf2902a0bc"
   },
   {
    "id": "truncated_narrative/topicMod-proximity",
@@ -1177,6 +1253,11 @@
    "id": "truncated_narrative/topicMod-topic-comments",
    "status": 503,
    "sha256": "39550d4fc19233cf451703f61aebdb53226013397dcabb412eabfd2a38052179"
+  },
+  {
+   "id": "truncated_narrative/nextComment/pid-1",
+   "status": 200,
+   "sha256": "841c474151179c8fbf29f08d05acb8cedf9bd0027afa4bd74e8b6a730b8826b4"
   },
   {
    "id": "truncated_narrative/reportNarrative/no-delphi-claim",
@@ -1294,9 +1375,9 @@
    "sha256": "c6f8760c2943cee0733827ff9b8de50001fc94df0763cbc162ee8ae26bd10a1f"
   },
   {
-   "id": "zero_vote/topicMod-topics/job",
+   "id": "zero_vote/topicMod-topics/job-0000006d-0000-4000-8000-000000000001",
    "status": 200,
-   "sha256": "6d21241523dbc9f0faa06ac01d5432d1958e35694ea93a8cba51ca89c5480667"
+   "sha256": "1b1e87191ce1849bef17b6f5acafce7537e384c439097ea4f945ce62ecdf4264"
   },
   {
    "id": "zero_vote/topicMod-proximity",
@@ -1317,6 +1398,11 @@
    "id": "zero_vote/topicMod-topic-comments",
    "status": 503,
    "sha256": "825e0d0ae2800b898d605b1bc8e0a8a555eb591db283bb165b94bb343d9957bc"
+  },
+  {
+   "id": "zero_vote/nextComment/pid-1",
+   "status": 200,
+   "sha256": "20212e101218a5a37ff2fe3fe8c8765308edac642ed0a633a9b3f86242be59d1"
   },
   {
    "id": "zero_vote/reportNarrative/no-delphi-claim",

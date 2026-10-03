@@ -1,6 +1,6 @@
 {
  "format": "delphi-characterization/1",
- "case": "two_models/topicMod-topics/job",
+ "case": "two_models/topicMod-topics/job-0000006a-0000-4000-8000-000000000003",
  "state": "two_models",
  "route": "GET /api/v3/topicMod/topics",
  "request": {

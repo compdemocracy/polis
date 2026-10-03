@@ -1,6 +1,6 @@
 {
  "format": "delphi-characterization/1",
- "case": "truncated_narrative/topicMod-topics/job",
+ "case": "truncated_narrative/topicMod-topics/job-0000006c-0000-4000-8000-000000000001",
  "state": "truncated_narrative",
  "route": "GET /api/v3/topicMod/topics",
  "request": {

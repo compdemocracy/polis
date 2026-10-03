@@ -84,7 +84,8 @@ const PINNED_ENV = {
   ADMIN_UIDS: "[2]",
   WEBSERVER_USERNAME: "generated-worker",
   WEBSERVER_PASS: "generated-worker",
-  TOPICAL_COMMENT_RATIO: "0",
+  // Always take the topical next-comment branch so it is recorded.
+  TOPICAL_COMMENT_RATIO: "1",
   ANTHROPIC_API_KEY: "",
   OPENAI_API_KEY: "",
   GEMINI_API_KEY: "",
@@ -373,6 +374,18 @@ async function main() {
 
   const clock = require("../clock.cjs");
   clock.install();
+  // Math.random is pinned the way the clock is: a seeded generator, reseeded
+  // from the case id before every request (nextComment draws randomN from it).
+  let rng = 0;
+  Math.random = () => {
+    rng = (rng + 0x6d2b79f5) | 0;
+    let t = Math.imul(rng ^ (rng >>> 15), 1 | rng);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const reseed = (id) => {
+    rng = crypto.createHash("sha256").update(id).digest().readInt32BE(0);
+  };
   const { default: app, appReady } = require(path.join(SERVER, "app.ts"));
   await appReady;
   await require(path.join(SERVER, "src/utils/moderation.ts")).moderationReady;
@@ -412,6 +425,7 @@ async function main() {
     format: FORMAT,
     codec: codec.CODEC_VERSION,
     clockMs: clock.instant,
+    randomSeed: "mulberry32(sha256(case id)[0..4]) per case",
     fixtureSha256: fixtureDigest(),
     excludedHeaders: [...EXCLUDED_HEADERS],
     pinnedEnv: Object.keys(PINNED_ENV).sort(),
@@ -421,7 +435,9 @@ async function main() {
   const failures = [];
   const statusCounts = {};
   for (const c of cases) {
-    const r = await request(c.path, tokenFor(c));
+    const token = tokenFor(c);
+    reseed(c.id);
+    const r = await request(c.path, token);
     statusCounts[r.status] = (statusCounts[r.status] || 0) + 1;
     const text = serialize(c, r);
     const file = path.join(RECORDINGS, `${c.id}.json`);

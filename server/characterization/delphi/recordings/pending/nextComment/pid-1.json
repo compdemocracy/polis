@@ -1,12 +1,12 @@
 {
  "format": "delphi-characterization/1",
- "case": "failed/topicMod-topics/job",
- "state": "failed",
- "route": "GET /api/v3/topicMod/topics",
+ "case": "pending/nextComment/pid-1",
+ "state": "pending",
+ "route": "GET /api/v3/nextComment",
  "request": {
   "method": "GET",
-  "path": "/api/v3/topicMod/topics?conversation_id=8p2z104&job_id=00000068-0000-4000-8000-000000000001",
-  "auth": "none"
+  "path": "/api/v3/nextComment?conversation_id=8p2z102",
+  "auth": "participant:1"
  },
  "response": {
   "status": 200,
@@ -37,11 +37,11 @@
    ],
    [
     "content-length",
-    "82"
+    "247"
    ],
    [
     "etag",
-    "W/\"52-62/I8yxkTTWrr7O5PAmVKg\""
+    "W/\"f7-Klfkxc7i/nilWhZtoQSA6g\""
    ],
    [
     "vary",
@@ -49,7 +49,7 @@
    ]
   ],
   "bodyEncoding": "utf8",
-  "body": "{\"status\":\"success\",\"message\":\"No topics found for this conversation\",\"topics\":[]}",
-  "bodySha256": "10217ed373f1cfd5606bfb8adf29072a43c1cee1f046bf4a7bd3d836c790a2bc"
+  "body": "{\"txt\":\"Generated statement 102.4\",\"tid\":4,\"created\":\"1699740805000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":1.6203893423080444,\"remaining\":2,\"total\":7,\"translations\":[],\"currentPid\":1}",
+  "bodySha256": "ca85301cf05ed6c41e607ebb5c768378468306df7fd207bffb04f53e18a13796"
  }
 }

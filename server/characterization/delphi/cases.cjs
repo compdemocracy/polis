@@ -158,13 +158,13 @@ function stateCases(s) {
     "GET /api/v3/topicMod/topics",
     `/api/v3/topicMod/topics?conversation_id=${C}`
   );
-  if (pipelines.length)
+  // One case per pipeline job: in the rerun state that is the current job and
+  // the reset-wiped older one (the latter records the empty answer as a control).
+  for (const j of pipelines)
     add(
-      "topicMod-topics/job",
+      `topicMod-topics/job-${j}`,
       "GET /api/v3/topicMod/topics",
-      `/api/v3/topicMod/topics?conversation_id=${C}&job_id=${
-        pipelines[pipelines.length - 1]
-      }`
+      `/api/v3/topicMod/topics?conversation_id=${C}&job_id=${j}`
     );
   add(
     "topicMod-proximity",
@@ -189,6 +189,30 @@ function stateCases(s) {
         m.topic_keys[0]
       )}/comments?conversation_id=${C}`
     );
+
+  // The topical next-comment path (TOPICAL_COMMENT_RATIO pinned to 1,
+  // Math.random reseeded per case): topic agenda selections -> topic names ->
+  // cached assignments -> one comment.
+  for (const pid of [...new Set([1, ...m.selections])])
+    add(
+      `nextComment/pid-${pid}`,
+      "GET /api/v3/nextComment",
+      `/api/v3/nextComment?conversation_id=${C}`,
+      `participant:${pid}`
+    );
+  if (s === "completed") {
+    add(
+      "nextComment/pid-3-without-topical-pool",
+      "GET /api/v3/nextComment",
+      `/api/v3/nextComment?conversation_id=${C}&without=2`,
+      "participant:3"
+    );
+    add(
+      "nextComment/anonymous",
+      "GET /api/v3/nextComment",
+      `/api/v3/nextComment?conversation_id=${C}`
+    );
+  }
 
   add(
     "reportNarrative/no-delphi-claim",

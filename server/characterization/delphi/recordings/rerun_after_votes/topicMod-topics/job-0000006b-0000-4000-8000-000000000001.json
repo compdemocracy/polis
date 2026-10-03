@@ -1,11 +1,11 @@
 {
  "format": "delphi-characterization/1",
- "case": "pending/topicMod-topics/job",
- "state": "pending",
+ "case": "rerun_after_votes/topicMod-topics/job-0000006b-0000-4000-8000-000000000001",
+ "state": "rerun_after_votes",
  "route": "GET /api/v3/topicMod/topics",
  "request": {
   "method": "GET",
-  "path": "/api/v3/topicMod/topics?conversation_id=8p2z102&job_id=00000066-0000-4000-8000-000000000001",
+  "path": "/api/v3/topicMod/topics?conversation_id=8p2z107&job_id=0000006b-0000-4000-8000-000000000001",
   "auth": "none"
  },
  "response": {

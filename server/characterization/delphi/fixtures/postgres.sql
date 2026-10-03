@@ -268,6 +268,7 @@ INSERT INTO votes(zid,pid,tid,vote,weight_x_32767,created) VALUES
  (105,6,6,-1,0,1699827806000),
  (105,6,7,1,0,1699827807000);
 INSERT INTO topic_agenda_selections(zid,pid,archetypal_selections,delphi_job_id,total_selections,created_at,updated_at) VALUES(105,1,'[{"layer_id":0,"cluster_id":1,"topic_key":"00000069-0000-4000-8000-000000000001#0#1","archetypal_comments":[{"comment_id":1,"comment_text":"Generated statement 105.1"}]}]','batch_check_r2p2zero105_1699990101_1051',1,'2023-11-14T21:00:00+00','2023-11-14T21:00:00+00');
+INSERT INTO topic_agenda_selections(zid,pid,archetypal_selections,delphi_job_id,total_selections,created_at,updated_at) VALUES(105,3,'[{"layer_id":0,"cluster_id":2,"topic_key":"00000069-0000-4000-8000-000000000001#0#2","archetypal_comments":[{"comment_id":2,"comment_text":"Generated statement 105.2"}]}]','batch_check_r2p2zero105_1699990101_1051',1,'2023-11-14T21:05:00+00','2023-11-14T21:05:00+00');
 INSERT INTO conversations(zid,owner,topic,description,is_active,is_draft,is_public,profanity_filter,spam_filter,created,modified) VALUES(106,1,'Generated conversation 106 (two_models)','Generated fixture only',true,false,true,false,false,1699740800000,1699740800000);
 INSERT INTO zinvites(zid,zinvite,created) VALUES(106,'8p2z106',1700000000000);
 INSERT INTO reports(rid,zid,report_id,created,modified) VALUES(106,106,'r2p2zero106',1699827200000,1699827200000);

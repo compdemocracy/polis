@@ -130,9 +130,10 @@ class Fixture:
         return {"zid": zid, "state": state, "conversation_id": conv_id(zid), "report_id": report_id(zid),
                 "rid": zid, "comments": n_comments, "participants": n_participants, "votes": len(votes)}
 
-    def selection(self, zid, pid, job_id, stamp):
-        sel = [{"layer_id": 0, "cluster_id": 1, "topic_key": f"{job_uuid(zid, 1)}#0#1",
-                "archetypal_comments": [{"comment_id": 1, "comment_text": f"Generated statement {zid}.1"}]}]
+    def selection(self, zid, pid, job_id, stamp, cluster=1):
+        sel = [{"layer_id": 0, "cluster_id": cluster, "topic_key": f"{job_uuid(zid, 1)}#0#{cluster}",
+                "archetypal_comments": [{"comment_id": cluster,
+                                         "comment_text": f"Generated statement {zid}.{cluster}"}]}]
         self.sql.append(
             "INSERT INTO topic_agenda_selections(zid,pid,archetypal_selections,delphi_job_id,total_selections,"
             f"created_at,updated_at) VALUES({zid},{pid},'{json.dumps(sel, separators=(',', ':'))}',"
@@ -331,7 +332,10 @@ class Fixture:
                             self.statement(zid, keys[1], 2, "2023-11-14T20:20:00.000Z"),
                             self.statement(zid, keys[3], 3, "2023-11-14T20:15:00.000Z")]
         self.selection(zid, 1, m["jobs"]["checker1"], "2023-11-14T21:00:00+00")
-        m["selections"] = [1]
+        # pid 3's topic (layer 0, cluster 2) holds tids 2 and 5; pid 3 voted on 5 only,
+        # so the topical next-comment pool is exactly tid 2 (no SQL random() tie).
+        self.selection(zid, 3, m["jobs"]["checker1"], "2023-11-14T21:05:00+00", cluster=2)
+        m["selections"] = [1, 3]
 
     def state_two_models(self, zid, m):
         # Two pipeline runs on one day with different models, plus a third run with the
