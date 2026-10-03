@@ -7,6 +7,7 @@ import AllCommentsScatterplot from "../topicStats/visualizations/AllCommentsScat
 import CommentList from "../lists/commentList.jsx";
 import * as globals from "../globals";
 import { canGenerateCollectiveStatement, getTopicConsensusValues } from "../../util/consensusThreshold";
+import { getMathConsensus } from "../../util/mathConsensus";
 
 const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCount, formatTid, voteColors, onBack, token }) => {
   const [loading, setLoading] = useState(true);
@@ -91,8 +92,8 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
             setTopicStats(enrichedStats);
             setTopicComments(topicCommentsData);
             
-            // Sort by group consensus
-            const consensusData = math?.["group-consensus-normalized"] || math?.["group-aware-consensus"];
+            // Sort by the math engine's group consensus (one ordering across the report)
+            const consensusData = getMathConsensus(math);
             if (consensusData) {
               const sorted = topicCommentsData
                 .map(comment => ({

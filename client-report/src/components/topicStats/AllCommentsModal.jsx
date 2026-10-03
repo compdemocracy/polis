@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AllCommentsScatterplot from './visualizations/AllCommentsScatterplot.jsx';
 import CommentList from '../lists/commentList.jsx';
+import { mathConsensusFor } from '../../util/mathConsensus';
 
 const AllCommentsModal = ({ 
   isOpen, 
@@ -38,7 +39,7 @@ const AllCommentsModal = ({
       // Sort by group-aware consensus
       const commentsWithConsensus = topicCommentsData.map(comment => ({
         ...comment,
-        groupConsensus: math["group-aware-consensus"]?.[comment.tid] || 0
+        groupConsensus: mathConsensusFor(math, comment.tid) || 0
       }));
       
       const sorted = [...commentsWithConsensus].sort((a, b) => 

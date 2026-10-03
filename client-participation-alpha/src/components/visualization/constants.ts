@@ -3,6 +3,9 @@ export const LENGTH_THRESHOLD = 200
 
 export const REFRESH_DELAY_MS = 1000
 
+// Total width of a group's vote bar (agree + disagree + pass segments)
+export const VOTE_BAR_WIDTH = 60
+
 export const width = 800
 export const height = 600
 export const margin = { top: 40, right: 40, bottom: 60, left: 60 }

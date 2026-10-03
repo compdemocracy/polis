@@ -42,7 +42,7 @@ export default function VisualizationContainer({
           'group-aware-consensus',
           'group-votes',
           'repness',
-          'mathTick'
+          'math_tick'
         ]
 
         // Fetch both PCA data and comments in parallel
@@ -51,18 +51,17 @@ export default function VisualizationContainer({
           fetchComments(conversation_id)
         ])
 
-        // Check if mathTick has changed (skip update if unchanged)
-        if (
-          pcaDataResult.mathTick !== undefined &&
-          pcaDataResult.mathTick === currentMathTick.current
-        ) {
-          // Math hasn't been recalculated yet, data is the same
-          return
-        }
-
-        currentMathTick.current = pcaDataResult.mathTick
-        setPcaData(pcaDataResult)
+        // Comments are fetched independently of the math: always apply them
         setComments(commentsResult)
+
+        // Skip the PCA update only when math_tick is unchanged
+        if (
+          pcaDataResult.math_tick === undefined ||
+          pcaDataResult.math_tick !== currentMathTick.current
+        ) {
+          currentMathTick.current = pcaDataResult.math_tick
+          setPcaData(pcaDataResult)
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch data')
         console.error('Error fetching data:', err)
@@ -74,6 +73,11 @@ export default function VisualizationContainer({
     },
     [conversation_id]
   )
+
+  // A math_tick only identifies a generation within one conversation
+  useEffect(() => {
+    currentMathTick.current = undefined
+  }, [conversation_id])
 
   // Initial load
   useEffect(() => {

@@ -32,6 +32,7 @@ import TopicStats from "./topicStats/TopicStats.jsx";
 import TopicPage from "./topicPage/TopicPage.jsx";
 import CollectiveStatementsReport from "./collectiveStatementsReport/CollectiveStatementsReport.jsx";
 import { enrichMathWithNormalizedConsensus } from "../util/normalizeConsensus.js";
+import { mathConsensusFor, MATH_CONSENSUS_KEY } from "../util/mathConsensus.js";
 
 const pathname = window.location.pathname; // "/report/2arcefpshi" or "/commentsReport/2arcefpshi" or "/topicReport/2arcefpshi" or "/topicsVizReport/2arcefpshi" or "/exportReport/2arcefpshi" or "/topicStats/2arcefpshi"
 const pathParts = pathname.split("/");
@@ -554,10 +555,9 @@ const App = (props) => {
         var uniqueCommenters = {};
         var voteTotals = DataUtils.getVoteTotals(mathResult);
         _comments = _comments.map((c) => {
-          // Use normalized consensus if available, fall back to raw
-          c["group-aware-consensus"] = mathResult["group-consensus-normalized"] ? 
-            mathResult["group-consensus-normalized"][c.tid] : 
-            mathResult["group-aware-consensus"]?.[c.tid];
+          // Comments are ranked by the math engine's consensus (one ordering
+          // across the report); see util/mathConsensus.js.
+          c[MATH_CONSENSUS_KEY] = mathConsensusFor(mathResult, c.tid);
           uniqueCommenters[c.pid] = 1;
           c = Object.assign(c, voteTotals[c.tid]);
           return c;
