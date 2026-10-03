@@ -286,9 +286,9 @@ export function renderContracts(): ContractOutput[] {
 
 /** Outputs whose client directory is present (a server-only checkout, such as the server image, has none). */
 export function presentOutputs(root = REPO_ROOT): ContractOutput[] {
-  return renderContracts().filter(
-    (o) =>
-      o.client === null ||
-      fs.existsSync(path.join(root, o.client, "package.json"))
+  // In the server image the server directory is the build root, so the
+  // resolved repository root is not a checkout: write nothing there.
+  return renderContracts().filter((o) =>
+    fs.existsSync(path.join(root, o.client ?? "server", "package.json"))
   );
 }

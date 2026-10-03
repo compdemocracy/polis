@@ -253,4 +253,23 @@ describe("delphi-job-result/1 schema", () => {
   ];
 
   test.each(rejected)("rejects %s", (_name, build) => expectInvalid(build()));
+
+  test("the generated topic stats define seen as agree + disagree + pass", () => {
+    for (const envelope of Object.values(nineStateEnvelopes())) {
+      for (const entry of Object.values<any>(
+        envelope.outputs.topic_stats || {}
+      )) {
+        expect(entry.seen).toBe(entry.agree + entry.disagree + entry.pass);
+      }
+    }
+  });
+
+  test("a zero-vote ready root carries the math families present and empty", () => {
+    const zero = nineStateEnvelopes().zero_vote;
+    expect(zero.omitted).not.toContain("consensus_inputs");
+    expect(zero.omitted).not.toContain("topic_stats");
+    for (const map of Object.values<any>(zero.outputs.consensus_inputs)) {
+      expect(Object.keys(map)).toHaveLength(0);
+    }
+  });
 });

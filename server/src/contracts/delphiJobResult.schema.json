@@ -764,7 +764,7 @@
               "patternProperties": {
                 "^(.*)$": {
                   "title": "TopicStatsEntry",
-                  "description": "Computed server-side from the captured math snapshot.",
+                  "description": "Computed server-side from the captured math snapshot; vote counts are over every voter, not only clustered participants.",
                   "type": "object",
                   "properties": {
                     "comment_tids": {
@@ -782,7 +782,12 @@
                       "type": "integer",
                       "minimum": 0
                     },
+                    "pass": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
                     "seen": {
+                      "description": "agree + disagree + pass, summed over the topic's comments.",
                       "type": "integer",
                       "minimum": 0
                     },
@@ -811,6 +816,7 @@
                     "comment_tids",
                     "agree",
                     "disagree",
+                    "pass",
                     "seen",
                     "group_aware_consensus",
                     "normalized_consensus"
@@ -821,7 +827,7 @@
             },
             "consensus_inputs": {
               "title": "ConsensusInputs",
-              "description": "The subset of the captured math (inputs.math_tick) the topic pages need, so a page never mixes live pca2 with an older topic set.",
+              "description": "The per-comment math the topic pages read, from the captured snapshot (inputs.math_tick), so a page never mixes live pca2 or live comment counts with an older topic set. On a zero-vote root every map is present and empty.",
               "type": "object",
               "properties": {
                 "group_votes": {
@@ -899,11 +905,63 @@
                       }
                     }
                   }
+                },
+                "group_aware_consensus": {
+                  "description": "Keyed by tid: pca2 group-aware-consensus at the captured tick.",
+                  "type": "object",
+                  "patternProperties": {
+                    "^(.*)$": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "group_consensus_normalized": {
+                  "description": "Keyed by tid: group-aware consensus normalized server-side (the client's group-consensus-normalized).",
+                  "type": "object",
+                  "patternProperties": {
+                    "^(.*)$": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "comment_votes": {
+                  "description": "Keyed by tid.",
+                  "type": "object",
+                  "patternProperties": {
+                    "^(.*)$": {
+                      "title": "CommentVotes",
+                      "description": "One comment's vote counts over every voter (the /comments agree_count, disagree_count, pass_count).",
+                      "type": "object",
+                      "properties": {
+                        "agree_count": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "disagree_count": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "pass_count": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "agree_count",
+                        "disagree_count",
+                        "pass_count"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
                 }
               },
               "required": [
                 "group_votes",
-                "repness"
+                "repness",
+                "group_aware_consensus",
+                "group_consensus_normalized",
+                "comment_votes"
               ],
               "additionalProperties": false
             }

@@ -206,20 +206,34 @@ export interface TopicStats {
   [key: string]: TopicStatsEntry
 }
 
-/** Computed server-side from the captured math snapshot. */
+/** Computed server-side from the captured math snapshot; vote counts are over every voter, not only clustered participants. */
 export interface TopicStatsEntry {
   comment_tids: number[]
   agree: number
   disagree: number
+  pass: number
+  /** agree + disagree + pass, summed over the topic's comments. */
   seen: number
   group_aware_consensus: number | null
   normalized_consensus: number | null
 }
 
-/** The subset of the captured math (inputs.math_tick) the topic pages need, so a page never mixes live pca2 with an older topic set. */
+/** The per-comment math the topic pages read, from the captured snapshot (inputs.math_tick), so a page never mixes live pca2 or live comment counts with an older topic set. On a zero-vote root every map is present and empty. */
 export interface ConsensusInputs {
   group_votes: Pca2GroupVotes
   repness: Pca2Repness
+  /** Keyed by tid: pca2 group-aware-consensus at the captured tick. */
+  group_aware_consensus: {
+    [key: string]: number
+  }
+  /** Keyed by tid: group-aware consensus normalized server-side (the client's group-consensus-normalized). */
+  group_consensus_normalized: {
+    [key: string]: number
+  }
+  /** Keyed by tid. */
+  comment_votes: {
+    [key: string]: CommentVotes
+  }
 }
 
 /** Keyed by group id. */
@@ -256,6 +270,13 @@ export interface Pca2RepnessEntry {
   'repful-for'?: string
   'p-success'?: number
   [key: string]: unknown
+}
+
+/** One comment's vote counts over every voter (the /comments agree_count, disagree_count, pass_count). */
+export interface CommentVotes {
+  agree_count: number
+  disagree_count: number
+  pass_count: number
 }
 
 export type DelphiFamily =

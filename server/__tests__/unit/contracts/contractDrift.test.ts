@@ -4,10 +4,12 @@
 
 import { describe, expect, test } from "@jest/globals";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { Type } from "@sinclair/typebox";
 import {
   REPO_ROOT,
+  presentOutputs,
   renderContracts,
   schemaDocument,
 } from "../../../src/contracts/generate";
@@ -55,6 +57,21 @@ describe("generated contract files", () => {
           JSON.parse(fs.readFileSync(path.join(REPO_ROOT, client), "utf8"))
         ).toEqual(server);
       }
+    }
+  });
+
+  test("a root that is not a checkout (the server image) gets no outputs at all", () => {
+    const bare = fs.mkdtempSync(path.join(os.tmpdir(), "contract-root-"));
+    try {
+      expect(presentOutputs(bare)).toEqual([]);
+      fs.mkdirSync(path.join(bare, "server"));
+      fs.writeFileSync(path.join(bare, "server", "package.json"), "{}");
+      expect(
+        presentOutputs(bare).every((o) => o.path.startsWith("server/"))
+      ).toBe(true);
+      expect(presentOutputs(bare)).toHaveLength(2);
+    } finally {
+      fs.rmSync(bare, { recursive: true, force: true });
     }
   });
 

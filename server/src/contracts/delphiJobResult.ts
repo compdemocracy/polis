@@ -258,14 +258,19 @@ export const TopicStatsEntry = Type.Object(
     comment_tids: Type.Array(Tid),
     agree: Count,
     disagree: Count,
-    seen: Count,
+    pass: Count,
+    seen: Type.Integer({
+      minimum: 0,
+      description: "agree + disagree + pass, summed over the topic's comments.",
+    }),
     group_aware_consensus: Nullable(Type.Number()),
     normalized_consensus: Nullable(Type.Number()),
   },
   {
     ...strict,
     title: "TopicStatsEntry",
-    description: "Computed server-side from the captured math snapshot.",
+    description:
+      "Computed server-side from the captured math snapshot; vote counts are over every voter, not only clustered participants.",
   }
 );
 
@@ -274,13 +279,37 @@ export const TopicStats = Type.Record(Type.String(), TopicStatsEntry, {
   description: "Keyed by topic_key.",
 });
 
+export const CommentVotes = Type.Object(
+  { agree_count: Count, disagree_count: Count, pass_count: Count },
+  {
+    ...strict,
+    title: "CommentVotes",
+    description:
+      "One comment's vote counts over every voter (the /comments agree_count, disagree_count, pass_count).",
+  }
+);
+
 export const ConsensusInputs = Type.Object(
-  { group_votes: Pca2GroupVotes, repness: Pca2Repness },
+  {
+    group_votes: Pca2GroupVotes,
+    repness: Pca2Repness,
+    group_aware_consensus: Type.Record(Type.String(), Type.Number(), {
+      description:
+        "Keyed by tid: pca2 group-aware-consensus at the captured tick.",
+    }),
+    group_consensus_normalized: Type.Record(Type.String(), Type.Number(), {
+      description:
+        "Keyed by tid: group-aware consensus normalized server-side (the client's group-consensus-normalized).",
+    }),
+    comment_votes: Type.Record(Type.String(), CommentVotes, {
+      description: "Keyed by tid.",
+    }),
+  },
   {
     ...strict,
     title: "ConsensusInputs",
     description:
-      "The subset of the captured math (inputs.math_tick) the topic pages need, so a page never mixes live pca2 with an older topic set.",
+      "The per-comment math the topic pages read, from the captured snapshot (inputs.math_tick), so a page never mixes live pca2 or live comment counts with an older topic set. On a zero-vote root every map is present and empty.",
   }
 );
 

@@ -305,6 +305,28 @@ const STATES: Array<[string, string]> = [
       );
     });
 
+    test.each(["completed", "two_models", "rerun_after_votes", "zero_vote"])(
+      "every recorded %s narrative section lifts as valid",
+      (state) => {
+        for (const envelope of lift(state)) {
+          const sections = Object.entries<any>(envelope.outputs.narratives);
+          expect(sections.length).toBeGreaterThan(0);
+          expect(
+            sections.filter(([, n]) => n.validity !== "valid").map(([k]) => k)
+          ).toEqual([]);
+        }
+      }
+    );
+
+    test("the parseable truncated_narrative sections lift as valid; only the broken ones are invalid", () => {
+      const [envelope] = lift("truncated_narrative");
+      const reasons = Object.values<any>(envelope.outputs.narratives).map(
+        (n) => n.invalid_reason
+      );
+      expect(reasons).not.toContain("schema_mismatch");
+      expect(reasons.filter((r) => r === null).length).toBeGreaterThan(0);
+    });
+
     test("the recorded completed bodies populate every legacy-served family", () => {
       const [envelope] = lift("completed");
       for (const family of [
