@@ -291,5 +291,66 @@ class Ratchet(unittest.TestCase):
         self.assertFails("not a sign change")
 
 
+class StandInConventionTable:
+    """A cursor over a stand-in for PR-A's public.vote_convention: the singleton
+    row and its monotonic guard (version + 1, sign changes), or no table at all."""
+
+    def __init__(self, exists=True, row=(0, -1)):
+        self.exists, self.row, self.statements, self._result = exists, row, [], None
+
+    def execute(self, sql, params=None):
+        self.statements.append(" ".join(sql.split()))
+        if "to_regclass('public.vote_convention')" in sql:
+            self._result = (self.exists,)
+        elif sql.lstrip().startswith("SELECT version, agree_value"):
+            assert self.exists
+            self._result = self.row
+        elif sql.lstrip().startswith("UPDATE public.vote_convention"):
+            assert self.exists and "WHERE singleton" in sql
+            new = (1, 1)
+            if new[0] != self.row[0] + 1 or new[1] == self.row[1]:
+                raise RuntimeError("P0782 monotonic guard")
+            self.row = new
+            self._result = None
+        else:
+            raise AssertionError(f"unexpected statement: {sql}")
+
+    def fetchone(self):
+        return self._result
+
+
+class ProvisionConventionRow(unittest.TestCase):
+    def setUp(self):
+        import provision
+
+        self.provision = provision
+
+    def test_v0_leaves_the_seed(self):
+        cur = StandInConventionTable()
+        self.assertEqual(self.provision.declare_convention(cur, -1), (0, -1))
+        self.assertFalse(any(s.startswith("UPDATE") for s in cur.statements))
+
+    def test_v1_applies_the_plans_version_bump(self):
+        cur = StandInConventionTable()
+        self.assertEqual(self.provision.declare_convention(cur, 1), (1, 1))
+        updates = [s for s in cur.statements if s.startswith("UPDATE")]
+        self.assertEqual(len(updates), 1)
+        for part in ("SET version = 1, agree_value = 1", "changed_at = clock_timestamp()",
+                     "changed_by = session_user", "WHERE singleton"):
+            self.assertIn(part, updates[0])
+
+    def test_without_the_table_nothing_happens(self):
+        for agree in (-1, 1):
+            cur = StandInConventionTable(exists=False)
+            self.assertIsNone(self.provision.declare_convention(cur, agree))
+            self.assertEqual(len(cur.statements), 1)
+
+    def test_a_database_not_at_the_seed_is_refused(self):
+        with self.assertRaises(SystemExit):
+            self.provision.declare_convention(StandInConventionTable(row=(1, 1)), 1)
+        with self.assertRaises(SystemExit):
+            self.provision.declare_convention(StandInConventionTable(row=(1, 1)), -1)
+
+
 if __name__ == "__main__":
     unittest.main()
