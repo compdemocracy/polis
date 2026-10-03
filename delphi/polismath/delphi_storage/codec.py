@@ -80,7 +80,7 @@ FAMILIES: Dict[str, Dict[str, Any]] = {
 }
 
 _TAGS = ("S", "N", "B", "BOOL", "NULL", "L", "M", "SS", "NS", "BS")
-_NUMBER = re.compile(r"^([+-]?)(\d+\.?\d*|\.\d+)(?:[eE]([+-]?\d+))?$")
+_NUMBER = re.compile(r"^([+-]?)([0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE]([+-]?[0-9]+))?$")
 _B64 = re.compile(r"^[A-Za-z0-9+/]*={0,2}$")
 
 
@@ -205,7 +205,7 @@ def _encode_av(av: Any) -> Dict[str, Any]:
     if tag == "N":
         return {"N": canonical_number(v)}
     if tag == "B":
-        if isinstance(v, str):
+        if not isinstance(v, (bytes, bytearray)):
             raise CodecError("B must be bytes")
         return {"B": _b64(bytes(v))}
     if tag == "BOOL":
@@ -227,19 +227,18 @@ def _encode_av(av: Any) -> Dict[str, Any]:
             if not isinstance(k, str):
                 raise CodecError("M keys must be text")
         return {"M": {k: _encode_av(x) for k, x in v.items()}}
+    if tag in ("SS", "NS", "BS") and not isinstance(v, (list, tuple)):
+        raise CodecError(f"{tag} must be a list")
     if tag == "SS":
-        for e in v:
-            if not isinstance(e, str):
-                raise CodecError("SS elements must be text")
+        if not all(isinstance(e, str) for e in v):
+            raise CodecError("SS elements must be text")
         return {"SS": _set_sort("SS", list(v))}
     if tag == "NS":
         return {"NS": _set_sort("NS", [canonical_number(e) for e in v])}
     if tag == "BS":
-        raws = [bytes(e) for e in v]
-        for e in v:
-            if isinstance(e, str):
-                raise CodecError("BS elements must be bytes")
-        return {"BS": [_b64(e) for e in _set_sort("BS", raws)]}
+        if not all(isinstance(e, (bytes, bytearray)) for e in v):
+            raise CodecError("BS elements must be bytes")
+        return {"BS": [_b64(e) for e in _set_sort("BS", [bytes(e) for e in v])]}
     raise CodecError(f"unknown AttributeValue tag {tag!r}")
 
 

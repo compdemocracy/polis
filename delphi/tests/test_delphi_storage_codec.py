@@ -55,7 +55,8 @@ class Rules(unittest.TestCase):
         for given, want in [("1.50", "1.5"), ("1E+2", "100"), ("-0", "0"), ("0.0", "0"), ("1e-10", "0.0000000001"),
                             ("00012", "12"), (".5", "0.5"), ("5.", "5"), ("-1.2300e5", "-123000")]:
             self.assertEqual(codec.canonical_number(given), want)
-        for bad in ["", "1e", "NaN", "Infinity", "0x10", "1E+126", "1E-131", "1" * 39]:
+        for bad in ["", "1e", "NaN", "Infinity", "0x10", "1E+126", "1E-131", "1" * 39,
+                    "\u0663", "1\u0663", "\uff11", "1e\u0663"]:
             with self.assertRaises(codec.CodecError):
                 codec.canonical_number(bad)
 
@@ -67,6 +68,14 @@ class Rules(unittest.TestCase):
         with self.assertRaises(codec.CodecError):
             codec.from_python(Decimal("NaN"))
         self.assertEqual(codec.to_python({"NS": ["1", "2"]}), {Decimal(1), Decimal(2)})
+
+    def test_refuses_malformed_attribute_values(self):
+        bad = [{"SS": "ab"}, {"NS": "12"}, {"BS": b"ab"}, {"B": 3}, {"B": "AQ=="}, {"BS": ["AQ=="]},
+               {"BS": [3]}, {"SS": [1]}, {"L": "x"}, {"M": []}, {"BOOL": 1}, {"NULL": False}, {"S": 1},
+               {"N": 1}, {"X": "1"}, {"S": "a", "N": "1"}]
+        for av in bad:
+            with self.assertRaises(codec.CodecError, msg=repr(av)):
+                codec.encode_item("Delphi_JobQueue", {"job_id": {"S": "a"}, "x": av})
 
     def test_refuses_non_canonical(self):
         head = '{"codec":"delphi-storage-codec/1","family":"Delphi_JobQueue","key":["job_id"]}'

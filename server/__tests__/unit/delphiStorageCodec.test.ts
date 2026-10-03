@@ -116,9 +116,48 @@ describe("delphi storage codec", () => {
       ["-1.2300e5", "-123000"],
     ];
     for (const [input, out] of cases) expect(canonicalNumber(input)).toBe(out);
-    for (const bad of ["", "1e", "NaN", "Infinity", "0x10", "1E+126", "1E-131"])
+    for (const bad of [
+      "",
+      "1e",
+      "NaN",
+      "Infinity",
+      "0x10",
+      "1E+126",
+      "1E-131",
+      "\u0663",
+      "1\u0663",
+      "\uff11",
+      "1e\u0663",
+    ])
       expect(() => canonicalNumber(bad)).toThrow(CodecError);
     expect(() => canonicalNumber("1" + "1".repeat(38))).toThrow(CodecError);
+  });
+
+  it("refuses malformed attribute values instead of building data", () => {
+    const bad: unknown[] = [
+      { SS: "ab" },
+      { NS: "12" },
+      { BS: new Uint8Array([1]) },
+      { B: 3 },
+      { B: "AQ==" },
+      { BS: ["AQ=="] },
+      { BS: [3] },
+      { SS: [1] },
+      { L: "x" },
+      { M: [] },
+      { BOOL: 1 },
+      { NULL: false },
+      { S: 1 },
+      { N: 1 },
+      { X: "1" },
+      { S: "a", N: "1" },
+    ];
+    for (const av of bad)
+      expect(() =>
+        encodeFamily("Delphi_JobQueue", [
+          { job_id: { S: "a" }, x: av } as unknown as Item,
+        ])
+      ).toThrow(CodecError);
   });
 
   it("refuses anything that is not byte-canonical", () => {

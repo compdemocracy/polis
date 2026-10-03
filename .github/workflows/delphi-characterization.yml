@@ -43,7 +43,7 @@ jobs:
       # Started by hand rather than as a service: -sharedDb needs a command
       # argument, and without it DynamoDB Local keys its data by access key.
       - name: Start DynamoDB Local
-        run: docker run -d --name p2zero-dynamodb -p 127.0.0.1:8472:8000 amazon/dynamodb-local:latest -jar DynamoDBLocal.jar -sharedDb -inMemory
+        run: docker run -d --name p2zero-dynamodb -p 127.0.0.1:8472:8000 amazon/dynamodb-local:3.3.1@sha256:ff89bd48ff32cd8d9be5fee8873b65b8854dc408f1afe881be6eb00247bc0dab -jar DynamoDBLocal.jar -sharedDb -inMemory
 
       - uses: actions/setup-node@v4
         with:

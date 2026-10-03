@@ -5,8 +5,10 @@ rewrites ``golden/<family>.jsonl`` and ``golden/SHA256SUMS``. The committed
 files are the cross-language contract: the Python test regenerates them and
 requires identical bytes; the server's Node test decodes and re-encodes them and
 requires identical bytes. Every item is a generated fixture; no conversation
-content, no production data. Attribute names follow each table's current
-writers (P-076 catalog), so the corpus doubles as the shape record per family.
+content, no production data. It is a value-kind corpus keyed by each table's
+real primary key, not a record of what the writers store: attribute names
+mostly follow the current writers (P-076 catalog) but some items are invented
+to exercise a value kind.
 
 ``cross_items()`` is the small item set the Node test builds independently in
 TypeScript and writes to ``golden/cross/written-by-node.jsonl``; the Python
@@ -166,6 +168,8 @@ def corpus() -> Dict[str, List[Dict[str, Any]]]:
         "conversation_id": zid, "comment_id": str(t), "extremity_value": D("0.5") + t,
         "calculation_method": "pca_based", "calculation_timestamp": "2023-11-14T20:05:00",
         "component_values": {"pc1": D("0.25")}}) for t in range(2)]
+    # T18 has no observed item payload (P-076 T18: zero rows, no writer); this
+    # item only exercises the key and a nested list, it is not a shape record.
     c["Delphi_TopicAgendaSelections"] = [item_from_python({
         "conversation_id": zid, "participant_id": "3", "selections": [{"layer_id": 0, "cluster_id": 1}]})]
     c["Delphi_CollectiveStatement"] = [item_from_python({
