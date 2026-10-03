@@ -113,3 +113,53 @@ seam for job-id/run-manifest fields).
   poll→compute→write on a seeded conversation; shadow-mode row invisibility
   (`math_env` isolation); restart resumes from math_main.
 - Live shadow soak on dev compose = phase 2.
+
+## 7. Capacity disposition and the demand line
+
+`polismath/poller/capacity.py`. Every conversation the poller's memory budget
+refuses (a live `OverBudget`, or a backfill `over_memory_ceiling`) gets one record,
+classified by its cold-rebuild size under the admission model:
+
+| Disposition | Meaning |
+|---|---|
+| `small` | fits this poller's budget after all; the refusal had another cause |
+| `large` | above `MATH_CAPACITY_ROUTE_FRACTION` of the small compute capacity (budget minus the measured baseline); `MATH_CAPACITY_KEEP_FRACTION` once already routed |
+| `exceeds_largest` | above `MATH_CAPACITY_LARGE_BUDGET_MB` minus the model base; never counted as demand |
+
+A `large` record is demand from its first refusal (or routed batch) until this poller
+publishes the conversation itself. Records live in memory, and in
+`MATH_CAPACITY_STATE_PATH` when set (a private file; it names zids).
+
+| Setting | Default | Effect |
+|---|---|---|
+| `MATH_CAPACITY_ROUTING` | `0` | `1`: a cold touch or rebuild classified `large` or `exceeds_largest` is not computed here (cache entry dropped, work resolved, no dump/retry/park); a refusal classified `large` is resolved the same way. `0`: nothing changes in what is computed; the records and lines are observation only |
+| `MATH_CAPACITY_ROUTE_FRACTION` | `0.9` | route before the wall |
+| `MATH_CAPACITY_KEEP_FRACTION` | `0.7` | hysteresis: un-route only below this |
+| `MATH_CAPACITY_LARGE_BUDGET_MB` | unset | unset: nothing is `exceeds_largest` |
+| `MATH_CAPACITY_RESIZE_S` | `3600` | a routed conversation is re-sized at most this often on new input (or when the binding changes) |
+| `MATH_CAPACITY_STATE_PATH` | unset | unset: records are in memory only |
+
+A bad value turns routing off and is logged; it never stops the poller. These settings
+are not part of `PollerConfig`, so the readiness `poller_config` digest and the
+backfill's calibration binding do not change.
+
+The demand line, once per readiness interval, is a bare JSON event (no log prefix):
+
+```json
+{"class":"small","exceeds_largest":0,"fits_small":0,"label":"python","large_demand":1,
+ "oldest_unresolved_age_ms":412000,"pending_promotion":0,"refusals_total":3,
+ "role":"primary","routed_total":0,"routing":0,"schema":"math_poller.capacity/1"}
+```
+
+Counts and closed labels only. A primary always reports counts (0 with no demand); a
+standby reports `role=standby` with null counts; a primary whose snapshot failed logs
+no line, so a missing small poller is missing data, never a false 0. CloudWatch Logs
+Insights:
+`filter schema = "math_poller.capacity/1" and role = "primary" | stats max(large_demand) by bin(5m)`.
+A metric filter pattern:
+`{ ($.schema = "math_poller.capacity/1") && ($.class = "small") && ($.role = "primary") }`
+with metric value `$.large_demand`.
+
+The same counts ride on the `math_poller readiness/1` line as `capacity` (null on a
+standby; optional on parse, so earlier lines still validate). The heartbeat phrase and
+every other readiness key are unchanged.

@@ -34,6 +34,13 @@ Progress (closed):
                 stale bound;
   ``waiting``   standby.
 
+Capacity (P-073). The line's ``capacity`` object carries the capacity
+disposition counts (``polismath.poller.capacity.COUNT_KEYS``; null on a
+standby), and each tick also logs the separate ``math_poller.capacity/1``
+line, a bare JSON event that a CloudWatch JSON metric filter can read.
+``capacity`` is optional on parse, so lines logged before it existed still
+validate.
+
 The alert test (``MATH_POLLER_READINESS_ALERT_TEST=<16-64 lowercase hex nonce>``)
 logs one ``math_poller readiness_test/1`` line at start, which the
 discovery-stale metric filter also counts, so the real filter, metric, alarm
@@ -57,6 +64,8 @@ import time
 import uuid
 from dataclasses import asdict, is_dataclass
 from typing import Any, Callable, Dict, Optional
+
+from polismath.poller import capacity as capacity_line
 
 logger = logging.getLogger("math_poller.readiness")
 
@@ -89,6 +98,10 @@ SWEEP_KEYS = ("sweep_no", "finished_ms", "run", "config", "status", "unresolved"
               "in_flight")
 DRAIN_KEYS = ("run", "drained_ms")
 ADMISSION_KEYS = ("budget_mb", "reserved_mb", "granted", "held", "waiting")
+# Added by P-073 (capacity disposition): the capacity counts
+# (polismath.poller.capacity.COUNT_KEYS), null without a service. Optional on
+# parse, so lines logged before it existed still validate.
+OPTIONAL_LINE_KEYS = ("capacity",)
 STALE_KEYS = ("schema", "seq", "emitted_ms", "run", "reason", "age_ms", "stale_s")
 TEST_KEYS = ("schema", "emitted_ms", "run", "nonce", "silence_s")
 
@@ -229,10 +242,16 @@ class ReadinessReporter:
     def __init__(self, settings: ReadinessSettings, poller_config: Any, *,
                  run: Optional[str] = None, env: Optional[Dict[str, str]] = None,
                  clock_ms: Callable[[], int] = _now_ms,
-                 emit: Optional[Callable[[str], None]] = None) -> None:
+                 emit: Optional[Callable[[str], None]] = None,
+                 emit_capacity: Optional[Callable[[str], None]] = None) -> None:
         self.settings = settings
         self.run = run or uuid.uuid4().hex[:12]
         self.poller_config = config_digest(poller_config)
+        # The label this process writes, for the capacity line (P-073).
+        label = (poller_config.get("math_env") if isinstance(poller_config, dict)
+                 else getattr(poller_config, "math_env", None))
+        self.label = str(label or "")
+        self._emit_capacity = emit_capacity or capacity_line.emit_line
         self.identity = identity(env)
         self._clock = clock_ms
         self._emit = emit or (lambda line: logger.warning("%s", line))
@@ -328,8 +347,19 @@ class ReadinessReporter:
                          "reason": stale_reason, "age_ms": stale_age,
                          "stale_s": int(self.settings.stale_s)}
                 lines.append(f"{STALE_HEADER} {_dumps(stale)}")
+            # The capacity line (P-073): a primary's counts, a standby's
+            # nulls; a primary whose snapshot failed logs none (missing data,
+            # never a false 0).
+            counts = snap.get("capacity") if role == PRIMARY else None
+            capacity = (None if role == PRIMARY and counts is None
+                        else capacity_line.build_line(role, self.label, counts))
         for line in lines:
             self._emit(line)
+        if capacity is not None:
+            try:
+                self._emit_capacity(capacity)
+            except Exception as exc:  # noqa: BLE001 - evidence must not stop the poller
+                logger.error("capacity line failed (%s)", exc.__class__.__name__)
         return lines
 
     def _line(self, header: str, role: str, progress: str, seq: int, now: int,
@@ -346,6 +376,7 @@ class ReadinessReporter:
             "queue": {k: snap["queue"].get(k) for k in QUEUE_KEYS},
             "sweep": snap.get("sweep"), "drain": snap.get("drain"),
             "admission": snap.get("admission"),
+            "capacity": snap.get("capacity") if role == PRIMARY else None,
         }
         return f"{header} role={role} progress={progress} {_dumps(body)}"
 
@@ -403,7 +434,8 @@ def _empty_snapshot() -> Dict[str, Any]:
                       "failures_since_success": 0, "last_error": None, "last_error_ms": None},
         "queue": {"pending": 0, "in_flight": 0, "parked": 0, "oldest_live_age_ms": None,
                   "oldest_backfill_age_ms": None, "oldest_work_age_ms": 0},
-        "sweep": None, "drain": None, "admission": None, "config": None, "loop_marks": (),
+        "sweep": None, "drain": None, "admission": None, "config": None, "capacity": None,
+        "loop_marks": (),
     }
 
 
@@ -483,7 +515,7 @@ def _hex(v: Any, width: int, nullable: bool = False) -> None:
 
 def validate_line(body: Dict[str, Any]) -> None:
     """The closed vocabulary of a readiness line body."""
-    _closed(body, LINE_KEYS)
+    _closed({k: v for k, v in body.items() if k not in OPTIONAL_LINE_KEYS}, LINE_KEYS)
     if body["schema"] != SCHEMA or body["role"] not in ROLES or body["progress"] not in PROGRESS:
         raise ValueError("bad schema, role or progress")
     if (body["role"] == STANDBY) != (body["progress"] == "waiting"):
@@ -532,6 +564,8 @@ def validate_line(body: Dict[str, Any]) -> None:
         _closed(a, ADMISSION_KEYS)
         for k in ADMISSION_KEYS:
             _count(a[k], nullable=(k == "budget_mb"))
+    if body.get("capacity") is not None:
+        capacity_line.validate_counts(body["capacity"])
 
 
 __all__ = [
