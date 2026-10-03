@@ -57,6 +57,11 @@ jobs:
         run: |
           python -m pip install -r coordinator-rs/evidence/python-requirements.txt
           npm ci --prefix server
+      - name: Fixture declarations, fixture writers, fold adapter, +1 pins (P-078 PR-G)
+        run: |
+          PYTHONPATH=delphi python -m unittest ci/vote_convention/test_fixtures_declared.py
+          node --test server/characterization/stored-votes.test.cjs
+          python coordinator-rs/ci/replay_pins_convention.py --check
       - name: v0 (agree = -1) — provision both conventions, run every leg, verdict on v0
         env:
           VOTE_GATE_V1: separate
