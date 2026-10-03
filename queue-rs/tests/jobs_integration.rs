@@ -1293,3 +1293,39 @@ fn a_second_daemon_on_the_same_journal_refuses_to_start() {
     assert!(b.log().contains("locked by another polis-jobs process"));
     assert_eq!(a.stop(), Some(0));
 }
+
+/// The second review's witnesses: each schema-invalid manifest once reached
+/// `succeeded` through the real daemon and S1 SQL. Now each, and the
+/// wrong-identity control, ends `dead` with `manifest_invalid`.
+#[test]
+fn schema_invalid_manifests_never_finalize() {
+    let mut db = Db::new("jobs_v2");
+    let modes = [
+        "invalid:empty_inputs",
+        "invalid:bad_tick",
+        "invalid:empty_models",
+        "invalid:missing_duration",
+        "invalid:extra_key",
+        "invalid:wrong_identity",
+    ];
+    for (i, mode) in modes.iter().enumerate() {
+        let rid = format!("w{i}");
+        let (job, _) = db.enqueue("delphi_full_pipeline", 1, Some(&rid), full(), 1);
+        let d = start(&db, Opts::new("schema-witness", mode));
+        db.wait_state(job, "dead", 60);
+        assert_eq!(db.job(job).2.as_deref(), Some("manifest_invalid"), "{mode}");
+        let a = db.attempts(job);
+        assert_eq!(a.len(), 1);
+        assert!(a[0].5, "{mode}: exit proof recorded");
+        let digest: Option<Vec<u8>> = db
+            .sql
+            .query_one(
+                "SELECT output_manifest_digest FROM delphi_jobs WHERE job_id=$1",
+                &[&job],
+            )
+            .unwrap()
+            .get(0);
+        assert!(digest.is_none(), "{mode}: no manifest receipt");
+        assert_eq!(d.stop(), Some(0));
+    }
+}
