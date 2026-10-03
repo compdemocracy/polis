@@ -210,7 +210,7 @@ def test_run_pipeline_main_exit_code_follows_process_conversation(monkeypatch, p
 # --- the poller refuses a job type it does not know --------------------------
 
 
-@pytest.mark.parametrize("job_type", ["FULL_PIPELIN", "full_pipeline", "", None])
+@pytest.mark.parametrize("job_type", ["FULL_PIPELIN", "full_pipeline", "", None, ["FULL_PIPELINE"], {"type": "FULL_PIPELINE"}])
 def test_poller_rejects_unknown_job_type_without_running_anything(app_dir, monkeypatch, job_type):
     import scripts.job_poller as jp
 
