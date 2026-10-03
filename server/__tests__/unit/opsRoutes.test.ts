@@ -243,6 +243,11 @@ describe("the gate", () => {
     expect(res.body.ops).toBe(true);
     expect(res.body.pages.map((p: { id: string }) => p.id)).toEqual([
       "activity",
+      "history",
+      "origin",
+      "topics",
+      "consensus",
+      "db",
     ]);
     expect(res.headers["cache-control"]).toBe("private, no-store");
   });
@@ -284,7 +289,9 @@ describe("page/activity", () => {
       on: jest.fn(),
       removeListener: jest.fn(),
       release: jest.fn(),
-      query: jest.fn(async (text: string) => {
+      query: jest.fn(async (q: string | { text: string }) => {
+        // guardedRead passes a config object (text, values, query_timeout).
+        const text = typeof q === "string" ? q : q.text;
         statements.push(text.trim().split(/\s+/).slice(0, 3).join(" "));
         if (/FROM votes/.test(text)) {
           return {
@@ -369,4 +376,57 @@ describe("page/activity", () => {
       rows: [],
     });
   });
+});
+
+describe("every registered page on an empty database", () => {
+  test.each(["activity", "history", "topics", "consensus", "db"])(
+    "%s answers with all panels ok, each in its own read-only transaction",
+    async (id) => {
+      const begins: string[] = [];
+      const client = {
+        on: jest.fn(),
+        removeListener: jest.fn(),
+        release: jest.fn(),
+        query: jest.fn(async (q: string | { text: string }) => {
+          const text = typeof q === "string" ? q : q.text;
+          if (text.startsWith("BEGIN")) begins.push(text);
+          // U1 expects one row of counts; everything else is empty.
+          if (/_24h/.test(text)) {
+            const row: Record<string, string> = {};
+            for (const m of text.matchAll(/AS (\w+_(?:5m|1h|24h))/g)) {
+              row[m[1]] = "0";
+            }
+            return { rows: [row] };
+          }
+          return { rows: [] };
+        }),
+      };
+      setOpsConnectForTests(async () => client as any);
+      const topicNames = jest.fn(async () => new Map());
+      const app = appWith({
+        cache: new PanelCache(),
+        pageOptions: { topicNames },
+      });
+      const res = await request(app)
+        .get(`/api/v3/ops/page/${id}`)
+        .set("Authorization", "Bearer staff");
+      expect(res.status).toBe(200);
+      expect(res.body.panels.length).toBeGreaterThan(0);
+      for (const p of res.body.panels) {
+        expect({ id: p.id, status: p.status }).toEqual({
+          id: p.id,
+          status: "ok",
+        });
+        expect(typeof p.source).toBe("string");
+        expect(p.shape).toBeDefined();
+      }
+      expect(begins.every((b) => b === "BEGIN READ ONLY")).toBe(true);
+      expect(begins).toHaveLength(res.body.panels.length);
+      if (id === "topics") {
+        // Nobody passed the threshold: Delphi is asked about no conversation.
+        expect(topicNames).toHaveBeenCalledWith([]);
+        expect(res.body.panels[0].note).toContain("fewer than 20 voters");
+      }
+    }
+  );
 });
