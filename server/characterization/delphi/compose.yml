@@ -1,0 +1,44 @@
+# Throwaway local stack for recording or replaying the Delphi read-route
+# characterization: Postgres, DynamoDB Local and the unchanged server (run by
+# main.cjs inside a Node container). CI uses the same three pieces as job
+# services (.github/workflows/delphi-characterization.yml).
+#
+#   export COMPOSE_PROJECT_NAME=p2zero P2ZERO_PG_PORT=5472 P2ZERO_DYNAMO_PORT=8472
+#   P2ZERO_MODE=record docker compose -f server/characterization/delphi/compose.yml up \
+#     --abort-on-container-exit --exit-code-from server
+#   docker compose -f server/characterization/delphi/compose.yml down -v
+name: ${COMPOSE_PROJECT_NAME:?set a unique project name}
+services:
+  postgres:
+    image: postgres:17.11
+    environment:
+      POSTGRES_PASSWORD: generatedlocal
+    ports: ["127.0.0.1:${P2ZERO_PG_PORT:?set a free Postgres port}:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    ports: ["127.0.0.1:${P2ZERO_DYNAMO_PORT:?set a free DynamoDB port}:8000"]
+  server:
+    image: node:22-bookworm-slim
+    working_dir: /repo/server
+    volumes:
+      - ../../..:/repo
+      - node_modules:/repo/server/node_modules
+    environment:
+      P2ZERO_PG_ADMIN_URL: postgres://postgres:generatedlocal@postgres:5432/postgres
+      DYNAMODB_ENDPOINT: http://dynamodb:8000
+      TZ: UTC
+    command:
+      - sh
+      - -c
+      - npm ci --no-audit --no-fund --loglevel=error && node characterization/delphi/main.cjs ${P2ZERO_MODE:-replay}
+    depends_on:
+      postgres: { condition: service_healthy }
+      dynamodb: { condition: service_started }
+volumes:
+  node_modules:
