@@ -1238,8 +1238,7 @@ class JobProcessor:
         try:
             # 1. Build the command
             job_config = json.loads(job.get('job_config', '{}'))
-            include_moderation = job_config.get('include_moderation', False)
-            exclude_comment_selections = job_config.get('exclude_comment_selections', True)
+            include_moderation, exclude_comment_selections = report_filter_flags(job_config)
             app_path = os.environ.get('DELPHI_APP_PATH', '/app')
             if job_type == 'CREATE_NARRATIVE_BATCH':
                 model = os.environ.get("ANTHROPIC_MODEL")
@@ -1324,6 +1323,37 @@ class JobProcessor:
             logger.error(f"Critical error processing job {job_id}: {e}", exc_info=True)
             confirmation = self.stop_child_process(child_process, job_id, job_pgid)
             self._complete_with_confirmation(job, False, confirmation, error=f"Critical poller error: {str(e)}")
+
+
+def report_filter_flags(job_config: Dict[str, Any]) -> tuple:
+    """The two report-filter flags a job passes to its script.
+
+    ``POST /delphi/jobs`` puts ``include_moderation`` at the top level of
+    ``job_config``; ``POST /delphi/batchReports`` nests it under
+    ``stages[0].config``. Both are read, nested first.
+
+    When a job does not say, ``include_moderation`` is True (moderated-out
+    comments are dropped) and ``exclude_comment_selections`` is True. Those are
+    the values every job has actually run with: the scripts used to parse
+    ``--include_moderation=False`` as True.
+    """
+    # Imported here, not at module load: the poller must still boot (and fail
+    # just this job) if the polismath package were ever missing.
+    from polismath.utils.cli_flags import parse_bool_flag
+
+    stages = job_config.get('stages') or []
+    stage_config = {}
+    if stages and isinstance(stages[0], dict):
+        stage_config = stages[0].get('config') or {}
+
+    def read(name: str, default: bool) -> bool:
+        for source in (stage_config, job_config):
+            value = source.get(name)
+            if value is not None:
+                return parse_bool_flag(value)
+        return default
+
+    return read('include_moderation', True), read('exclude_comment_selections', True)
 
 
 def should_process_job(instance_type: str, job_actual_size: str) -> bool:

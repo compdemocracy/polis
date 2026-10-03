@@ -24,6 +24,7 @@ from polismath_commentgraph.utils.converter import DataConverter
 
 # Import from local modules
 from polismath_commentgraph.utils.storage import DynamoDBStorage, PostgresClient
+from polismath.utils.cli_flags import parse_bool_flag
 from sentence_transformers import SentenceTransformer
 from umap_narrative.topic_naming import (
     generate_cluster_topic_labels,
@@ -1300,13 +1301,13 @@ def main():
     )
     parser.add_argument(
         "--include_moderation",
-        type=bool,
+        type=parse_bool_flag,
         default=False,
         help="Whether or not to include moderated comments in reports. If false, moderated comments will appear.",
     )
     parser.add_argument(
         "--exclude_comment_selections",
-        type=bool,
+        type=parse_bool_flag,
         default=True,
         help="Whether to exclude comments with selection=-1 in report_comment_selections table.",
     )
