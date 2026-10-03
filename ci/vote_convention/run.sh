@@ -8,7 +8,8 @@
 # Python engine leg and the server leg under each, then:
 #   compare.py v0  -> required: today's convention reproduces its recordings
 #   compare.py v1  -> v0 against v1, byte for byte; expected red until PR-A/B/C
-# Exit status: that of the v0 verdict; set VOTE_GATE_STRICT=1 to also fail on v1,
+# Exit status: non-zero when v0 is red or v1 has an unexpected red (the ratchet);
+# set VOTE_GATE_STRICT=1 to also fail on an expected v1 red,
 # VOTE_GATE_V1=separate to leave the v1 verdict to the caller (the CI workflow).
 #
 # Needs: docker, Python with delphi's requirements (PYTHON, default python3),
@@ -40,6 +41,13 @@ done
 "$PY" "$HERE/compare.py" v0 "$OUT"; v0=$?
 if [ "${VOTE_GATE_V1:-}" = separate ]; then exit $v0; fi  # CI runs the v1 verdict as its own step
 "$PY" "$HERE/compare.py" v1 "$OUT"; v1=$?
-echo "two-convention gate: v0 $([ $v0 = 0 ] && echo green || echo RED); v1 $([ $v1 = 0 ] && echo green || echo 'red (expected until PR-A/B/C)')"
+case $v1 in
+  0) v1_text=green ;;
+  3) v1_text="red, every red family expected (until PR-A/B/C)" ;;
+  *) v1_text="UNEXPECTED red (the ratchet fails)" ;;
+esac
+echo "two-convention gate: v0 $([ $v0 = 0 ] && echo green || echo RED); v1 $v1_text"
+[ $v0 != 0 ] && exit $v0
+[ $v1 != 0 ] && [ $v1 != 3 ] && exit 1
 [ -n "${VOTE_GATE_STRICT:-}" ] && [ $v1 != 0 ] && exit 1
-exit $v0
+exit 0

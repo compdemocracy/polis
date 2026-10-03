@@ -6,8 +6,9 @@
 
 A *vote-sign literal* is a sign constant or sign test that sits within WINDOW
 lines of the word ``vote``: a bare ``-1``, ``* -1``, an equality against ``±1``
-(``=== 1``, ``== -1``, ``!== -1`` ...), a sign test (``vote < 0``, ``0 > vote``)
-or a negated vote (``-row.vote``, ``-vote``). Each one restates the storage or
+(``=== 1``, ``== -1``, ``!== -1``, SQL ``vote = 1``), a sign test (``vote < 0``,
+``0 > vote``) or a negated vote (``-row.vote``, ``-vote``, ``-int(r['vote'])``,
+``vote=-v``, ``0 - vote``, Clojure ``(- (long sign))``). Each one restates the storage or
 wire sign instead of asking the one place that owns it.
 
 Outside the chokepoint modules (CHOKEPOINTS) every hit must be in the allowlist
@@ -47,7 +48,10 @@ CHOKEPOINTS: Dict[str, str] = {
     "client-participation/js/util/voteConvention.js": "legacy client helper (chokepoint 7, PR-D)",
     "client-participation-alpha/src/api/votes.ts": "alpha client helper (chokepoint 8, PR-D)",
     "client-report/src/util/voteCounts.js": "client-report helper (chokepoint 9, PR-D)",
-    "ci/vote_convention/": "the two-convention gate: its fixtures declare their sign",
+    "ci/vote_convention/provision.py": "the gate's fixture loader: it writes raw values at the convention under test",
+    # The lint and its test spell the patterns they look for.
+    "ci/vote_convention/sign_lint.py": "this lint (its patterns)",
+    "ci/vote_convention/test_gate.py": "this lint's test (its inputs)",
 }
 
 SOURCE_SUFFIXES = {
@@ -67,6 +71,15 @@ PATTERNS: List[Tuple[str, re.Pattern]] = [
     ("sign-test", re.compile(r"(?<![\w])(?:\w+\.)?vote(?:_?val(?:ue)?)?\s*[<>]=?\s*0(?![\d.])"
                              r"|(?<![\w.])0\s*[<>]=?\s*(?:\w+\.)?vote\b")),
     ("negated-vote", re.compile(r"(?<![\w)\]\-])-\(?(?:[\w\[\]'\"]+\.)*vote\b(?!-)")),
+    # -int(r['vote']), -v['vote'], -r[:vote], 0 - vote
+    ("negated-subscript", re.compile(r"(?<![\w)\]\-])-\s*(?:\w+\()*[\w.]*\[\s*['\"]?:?vote\w*['\"]?\s*\]"
+                                     r"|(?<![\w.])0\s*-\s*\(?[\w.\[\]'\"]*vote", re.I)),
+    # vote=-v, 'vote': -sign, :vote (- ...)
+    ("assigned-negation", re.compile(r"vote\w*['\"]?\s*(?<![=!<>])(?:=|:)(?!=)\s*-\s*\(?[A-Za-z_]", re.I)),
+    # Clojure unary minus: (- x), (- (long sign))
+    ("clojure-negation", re.compile(r"\(-\s+(?:\([\w\-.]+\s+[\w\-.?!*]+\)|[\w\-.?!*]+)\s*\)")),
+    # SQL single '=' against a sign: vote = 1, vote=-1
+    ("sql-equals-sign", re.compile(r"\bvote\s*(?<![=!<>])=(?!=)\s*[-+]?\s*1(?![\d.\w])", re.I)),
     ("minus-one", re.compile(r"(?<![\w.\-)\]])-1(?![\d.\w])")),
 ]
 #: Index and shape idioms that spell -1 without meaning a vote.
@@ -76,8 +89,8 @@ NOT_A_SIGN = re.compile(r"\[\s*-1\s*\]|\[\s*:\s*-1\s*\]|::-1|:-1\]|\[-1:|reshape
 VOTE = re.compile(r"vote", re.I)
 
 
-def tracked() -> List[str]:
-    out = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT, check=True, capture_output=True).stdout
+def tracked(root: Path = ROOT) -> List[str]:
+    out = subprocess.run(["git", "ls-files", "-z"], cwd=root, check=True, capture_output=True).stdout
     return [p for p in out.decode().split("\0") if p]
 
 
@@ -99,9 +112,9 @@ def classify(line: str) -> Optional[str]:
     return next((name for name, rx in PATTERNS if rx.search(probe)), None)
 
 
-def hits(path: str) -> Iterator[Tuple[int, str, str]]:
+def hits(path: str, root: Path = ROOT) -> Iterator[Tuple[int, str, str]]:
     try:
-        lines = (ROOT / path).read_text(encoding="utf-8").splitlines()
+        lines = (root / path).read_text(encoding="utf-8").splitlines()
     except (UnicodeDecodeError, FileNotFoundError, IsADirectoryError):
         return
     if not any(VOTE.search(line) for line in lines):
@@ -117,11 +130,11 @@ def hits(path: str) -> Iterator[Tuple[int, str, str]]:
             yield i + 1, normalise(line), kind
 
 
-def scan() -> Dict[Tuple[str, str], List[Tuple[int, str]]]:
+def scan(root: Path = ROOT) -> Dict[Tuple[str, str], List[Tuple[int, str]]]:
     found: Dict[Tuple[str, str], List[Tuple[int, str]]] = {}
-    for path in tracked():
+    for path in tracked(root):
         if in_scope(path):
-            for lineno, text, kind in hits(path):
+            for lineno, text, kind in hits(path, root):
                 found.setdefault((path, text), []).append((lineno, kind))
     return found
 
@@ -131,11 +144,11 @@ def load_allowlist() -> Dict[Tuple[str, str], dict]:
     return {(e["path"], e["text"]): e for e in data["entries"]}
 
 
-def main() -> int:
+def main(argv: Optional[List[str]] = None, root: Path = ROOT) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--list", action="store_true", help="print every current hit as JSON lines")
-    args = parser.parse_args()
-    found = scan()
+    args = parser.parse_args(argv)
+    found = scan(root)
     if args.list:
         for (path, text), where in sorted(found.items()):
             print(json.dumps({"path": path, "text": text, "lines": [n for n, _ in where],

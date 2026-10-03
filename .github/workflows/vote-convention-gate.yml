@@ -5,7 +5,8 @@ name: Vote convention gate
 # data) and v1 (agree = +1), every vote-reading suite runs under each, and the
 # outputs must be byte-identical. v0 is required. v1 is expected red until the
 # convention row (PR-A) and the chokepoints (PR-B/C) land; its step reports the
-# failing families and why, and becomes required when they do.
+# failing families and why, and becomes required when they do; meanwhile a
+# required ratchet step fails on any red that is not on the expected list.
 # The lint fails on any NEW vote-sign literal outside the chokepoint modules.
 
 concurrency:
@@ -62,9 +63,15 @@ jobs:
           PYTHON: python
         run: ci/vote_convention/run.sh "$OUT"
       - name: v1 (agree = +1) against v0 — expected red until PR-A/B/C
-        # Flip to required (remove continue-on-error) when PR-A and PR-B/C land.
+        # The full byte comparison. Flip to required (remove continue-on-error)
+        # when PR-A and PR-B/C land. Exit 3: red, every red family expected.
         continue-on-error: true
         run: python ci/vote_convention/compare.py v1 "$OUT"
+      - name: v1 ratchet — no unexpected red (required)
+        # Fails on a red family outside the expected list, a red must-hold family
+        # (stored rows, the declared fold, math_bidtopid / math_ptptstats, the
+        # sign-blind summary and participant-importance exports), or a missing output.
+        run: python ci/vote_convention/compare.py v1 "$OUT" --ratchet
       - name: Keep the verdicts and outputs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
