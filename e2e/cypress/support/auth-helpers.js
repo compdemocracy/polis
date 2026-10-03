@@ -6,6 +6,11 @@
  * 3. XID participants (custom JWT)
  */
 
+import { expectVoteBody } from './voteWire'
+
+// Vote bodies are asserted by meaning ('agree' | 'disagree' | 'pass'), never by number.
+export { expectVoteBody }
+
 /**
  * Helper to authenticate a standard user via OIDC simulator using UI
  * @param {string} email - User email
@@ -557,7 +562,8 @@ export function voteOnComment(voteType = 'agree') {
     pass: '#passButton',
   }
 
-  const buttonId = voteButtonIds[voteType.toLowerCase()]
+  const semantic = voteType.toLowerCase()
+  const buttonId = voteButtonIds[semantic]
   if (!buttonId) {
     throw new Error(`Invalid vote type: ${voteType}. Must be 'agree', 'disagree', or 'pass'`)
   }
@@ -569,6 +575,8 @@ export function voteOnComment(voteType = 'agree') {
   // Wait for vote response
   cy.wait('@voteRequest').then((interception) => {
     expect(interception.response.statusCode).to.eq(200)
+    // The button posted the vote it names, as its wire number.
+    expectVoteBody(interception, semantic)
 
     // Debug: Log the response to see what we're getting
     cy.log('🔍 Vote response body:', JSON.stringify(interception.response.body, null, 2))
