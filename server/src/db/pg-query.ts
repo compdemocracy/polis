@@ -249,6 +249,14 @@ function connect() {
   return readWritePool.connect();
 }
 
+// A raw client from the read pool (the replica when READ_ONLY_DATABASE_URL is
+// set, otherwise a second pool on the primary). The caller must release it.
+// Used by the ops pages (src/ops/guardedRead.ts), which run one bounded
+// READ ONLY transaction per checkout.
+function connectReadOnly() {
+  return readPool.connect();
+}
+
 // Session policy applied immediately after BEGIN, from
 // cost-reduction/04-plans/P-024-queue-substrate.md. These are declared initial
 // bounds for the queue substrate, not a general-purpose transaction profile;
@@ -363,5 +371,6 @@ export default {
   queryP_readOnly_wRetryIfEmpty,
   stream_queryP_readOnly,
   connect,
+  connectReadOnly,
   withTransaction,
 };

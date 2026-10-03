@@ -129,6 +129,10 @@ export default {
   nodeEnv: process.env.NODE_ENV as string,
   isTesting: isTrue(process.env.TESTING),
   openaiApiKey: process.env.OPENAI_API_KEY || null,
+  // Protected operations pages (/api/v3/ops/*, /ops in the admin console).
+  // Off unless OPS_ENABLED=true; see docs/configuration.md.
+  opsEnabled: isTrue(process.env.OPS_ENABLED),
+  opsEmailDomains: process.env.OPS_EMAIL_DOMAINS || "",
   polisFromAddress: process.env.POLIS_FROM_ADDRESS as string,
   polisJwtIssuer: process.env.POLIS_JWT_ISSUER || "https://pol.is/",
   polisJwtAudience: process.env.POLIS_JWT_AUDIENCE || "participants",
