@@ -1,0 +1,16 @@
+name: Migration ledger checksums
+
+on:
+  pull_request:
+    types: ["opened", "reopened", "synchronize"]
+    paths:
+      - "server/postgres/**"
+      - ".github/workflows/migration-ledger.yml"
+
+jobs:
+  ledger-checksums:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Recompute the self-checksum of every migration from 000023 on
+      run: python3 server/postgres/check_ledger_checksums.py

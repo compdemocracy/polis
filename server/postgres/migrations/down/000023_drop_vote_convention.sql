@@ -1,8 +1,9 @@
 -- down/000023_drop_vote_convention.sql
 --
 -- Reverses 000023_vote_convention.sql: drops the vote convention row and its
--- history, the two semantic views, the four functions, the three trigger
--- functions and the migration ledger. No vote is read or changed; votes,
+-- history, the two semantic views, the four functions, the four trigger
+-- functions and the migration ledger. DROP fires no DELETE or TRUNCATE
+-- trigger, so the permanence guards do not stand in its way. No vote is read or changed; votes,
 -- votes_latest_unique and the 000006 rule are untouched. Every grant 000023
 -- made is on an object dropped here, so the drops remove exactly those grants.
 --
@@ -17,6 +18,8 @@
 --   * the ledger holds a row for any later migration (it would be lost);
 --   * only some of the objects exist (a partial copy: inspect by hand).
 -- On a database that never had 000023 it is a no-op.
+-- Before running it in production, take the server back to raw INSERTs (roll
+-- back the server change that calls vote_insert): this file drops vote_insert.
 -- No CASCADE: an object someone built on top of these makes the DROP fail.
 --
 -- Order with 000021: run this file before down/000021_drop_polis_coordinator.sql.
@@ -46,13 +49,14 @@ BEGIN
        + (to_regprocedure('public.vote_convention_record_history()') IS NOT NULL)::int
        + (to_regprocedure('public.vote_convention_history_immutable()') IS NOT NULL)::int
        + (to_regprocedure('public.vote_convention_monotonic()') IS NOT NULL)::int
+       + (to_regprocedure('public.vote_convention_permanent()') IS NOT NULL)::int
     INTO present;
   IF present = 0 THEN
     RAISE NOTICE '000023 down: nothing to drop';
     RETURN;
   END IF;
-  IF present <> 12 THEN
-    RAISE EXCEPTION '000023 down: refusing: only % of the 12 objects exist (a partial copy); nothing changed', present
+  IF present <> 13 THEN
+    RAISE EXCEPTION '000023 down: refusing: only % of the 13 objects exist (a partial copy); nothing changed', present
       USING ERRCODE = 'P0789';
   END IF;
   -- Lock the row as the un-flip does, so no convention change races this check.
@@ -83,6 +87,7 @@ DROP FUNCTION IF EXISTS public.vote_semantic(smallint, smallint);
 DROP FUNCTION IF EXISTS public.vote_convention_current();
 DROP TABLE IF EXISTS public.vote_convention;
 DROP TABLE IF EXISTS public.vote_convention_history;
+DROP FUNCTION IF EXISTS public.vote_convention_permanent();
 DROP FUNCTION IF EXISTS public.vote_convention_monotonic();
 DROP FUNCTION IF EXISTS public.vote_convention_history_immutable();
 DROP FUNCTION IF EXISTS public.vote_convention_record_history();

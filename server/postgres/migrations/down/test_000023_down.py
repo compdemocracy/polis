@@ -7,7 +7,9 @@ fixtures (zid 990001 and up); no application data exists in the container.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -26,6 +28,12 @@ NAME = "000023_vote_convention"
 MARKER = b"-- ledger-self-checksum"
 LOGINS = ("vc_exec_only", "vc_writer")
 RESULTS: list = []
+SKIPPED: list = []
+
+
+class Skip(Exception):
+    pass
+
 FAILURES: list = []
 
 # Pinned function catalog: name, identity args, result, volatility, SECURITY DEFINER, STRICT, proconfig, language.
@@ -34,6 +42,7 @@ EXPECTED_FUNCTIONS = [
      ["search_path=pg_catalog, pg_temp"], "sql"],
     ["vote_convention_history_immutable", "", "trigger", "v", False, False, ["search_path=pg_catalog, pg_temp"], "plpgsql"],
     ["vote_convention_monotonic", "", "trigger", "v", False, False, ["search_path=pg_catalog, pg_temp"], "plpgsql"],
+    ["vote_convention_permanent", "", "trigger", "v", False, False, ["search_path=pg_catalog, pg_temp"], "plpgsql"],
     ["vote_convention_record_history", "", "trigger", "v", False, False, ["search_path=pg_catalog, pg_temp"], "plpgsql"],
     ["vote_insert",
      "p_zid integer, p_pid integer, p_tid integer, p_semantic smallint, p_weight_x_32767 smallint DEFAULT 0, "
@@ -50,8 +59,6 @@ EXPECTED_TABLE_GRANTS = [
     ["polis_coordinator_control", "vote_convention", "SELECT"],
     ["polis_coordinator_observer", "vote_convention", "SELECT"],
     ["polis_coordinator_observer", "vote_convention_history", "SELECT"],
-    ["polis_coordinator_observer", "votes_latest_unique_semantic", "SELECT"],
-    ["polis_coordinator_observer", "votes_semantic", "SELECT"],
     ["polis_coordinator_publisher", "vote_convention", "SELECT"],
 ]
 # Non-owner EXECUTE entries on the new functions (PUBLIC is grantee 0).
@@ -59,6 +66,7 @@ EXPECTED_FUNCTION_ACL = [
     ["PUBLIC", "vote_convention_current"],
     ["PUBLIC", "vote_convention_history_immutable"],
     ["PUBLIC", "vote_convention_monotonic"],
+    ["PUBLIC", "vote_convention_permanent"],
     ["PUBLIC", "vote_convention_record_history"],
     ["PUBLIC", "vote_semantic"],
     ["PUBLIC", "vote_storage"],
@@ -67,14 +75,12 @@ EXPECTED_FUNCTION_ACL = [
     ["polis_coordinator_publisher", "vote_convention_current"],
 ]
 EXPECTED_GRANT_NOTE = (
-    "P-078 PR-A, ruling R-A; grants: "
+    "vote storage convention; grants: "
     "polis_coordinator_control:SELECT:public.vote_convention "
     "polis_coordinator_control:EXECUTE:public.vote_convention_current() "
     "polis_coordinator_observer:SELECT:public.vote_convention "
     "polis_coordinator_observer:EXECUTE:public.vote_convention_current() "
     "polis_coordinator_observer:SELECT:public.vote_convention_history "
-    "polis_coordinator_observer:SELECT:public.votes_latest_unique_semantic "
-    "polis_coordinator_observer:SELECT:public.votes_semantic "
     "polis_coordinator_publisher:SELECT:public.vote_convention "
     "polis_coordinator_publisher:EXECUTE:public.vote_convention_current()")
 
@@ -136,7 +142,7 @@ SELECT coalesce(json_agg(json_build_array(p.proname, pg_get_function_arguments(p
   FROM pg_proc p JOIN pg_language l ON l.oid = p.prolang
  WHERE p.pronamespace = 'public'::regnamespace
    AND p.proname IN ('vote_convention_current','vote_convention_history_immutable','vote_convention_monotonic',
-                     'vote_convention_record_history','vote_insert','vote_semantic','vote_storage');"""))
+                     'vote_convention_record_history','vote_insert','vote_semantic','vote_storage','vote_convention_permanent');"""))
 
 
 def table_grants(db):
@@ -163,6 +169,10 @@ def case(name, body):
         body(db)
         RESULTS.append({"case": name, "status": "PASS"})
         print(f"PASS {len(RESULTS):02d}: {name}", flush=True)
+    except Skip as why:
+        SKIPPED.append({"case": name, "reason": str(why)})
+        RESULTS.append({"case": name, "status": "SKIP"})
+        print(f"SKIP {len(RESULTS):02d}: {name}: {why}", flush=True)
     except Exception as exc:  # noqa: BLE001 - recorded and reported
         FAILURES.append({"case": name, "error": str(exc)})
         RESULTS.append({"case": name, "status": "FAIL"})
@@ -188,6 +198,9 @@ def main():
     (WORK / "baseline.sql").write_text(baseline)
     (WORK / "profile.txt").write_text(sql("postgres", "SELECT version(); SHOW server_encoding;").stdout)
     assert val("vc_base", "SELECT count(*) FROM pg_roles WHERE rolname LIKE 'polis_coordinator_%';") == "5"
+    rule = re.search(r"<!-- restore-rule -->\n```sql\n(.*?)```\n<!-- /restore-rule -->", DOCS.read_text(), re.S)
+    assert rule, "restore rule block missing from docs/vote-convention.md"
+    restore_sql = rule.group(1)
 
     # 1. up -> down -> up, exact catalog replay; re-apply refuses and changes nothing.
     def roundtrip(db):
@@ -216,8 +229,10 @@ def main():
         assert val(db, "SELECT singleton, version, agree_value, contract_version, reason, changed_by FROM public.vote_convention;") == \
             "t|0|-1|1|storage convention since 2012: agree = -1, disagree = +1, pass = 0|postgres"
         assert val(db, "SELECT count(*), min(version), min(agree_value) FROM public.vote_convention_history;") == "1|0|-1"
-        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason) VALUES (0, -1, 'second');", "23505")
-        fails(db, "INSERT INTO public.vote_convention (singleton, version, agree_value, reason) VALUES (false, 0, -1, 'x');", "23514")
+        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason) VALUES (0, -1, 'second');", "P0782")
+        # A second row that would pass the guard still meets the constant primary key.
+        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason) VALUES (1, 1, 'second');", "23505")
+        fails(db, "INSERT INTO public.vote_convention (singleton, version, agree_value, reason) VALUES (false, 1, 1, 'x');", "23514")
         fails(db, "UPDATE public.vote_convention SET contract_version = 2, version = 1, agree_value = 1;", "23514")
         assert val(db, "SELECT count(*) FROM public.vote_convention;") == "1"
     case("seed: one row (0, -1, contract 1), one history row; a second row refuses", seed)
@@ -238,7 +253,37 @@ def main():
         fails(db, "UPDATE public.vote_convention_history SET reason = 'rewritten';", "P0781")
         fails(db, "DELETE FROM public.vote_convention_history;", "P0781")
         assert val(db, "SELECT count(*) FROM public.vote_convention_history;") == "3"
+        fails(db, "TRUNCATE public.vote_convention_history;", "P0781")
+        assert val(db, "SELECT count(*) FROM public.vote_convention_history;") == "3"
     case("triggers: +1 with a sign change appends history; skip/same sign P0782; history UPDATE/DELETE P0781", triggers)
+
+    # 3b. The row is permanent; vote_insert refuses without it; a row put back must continue the history.
+    def permanence(db):
+        apply(db)
+        eq(val(db, "SELECT changed_at = (SELECT changed_at FROM public.vote_convention_history WHERE version = 0) FROM public.vote_convention;"), "t", "seed stamp")
+        sql(db, "SELECT pg_sleep(0.02);")
+        flip(db)
+        eq(val(db, "SELECT h1.changed_at > h0.changed_at, h1.changed_by FROM public.vote_convention_history h0, public.vote_convention_history h1 "
+                   "WHERE h0.version = 0 AND h1.version = 1;"), "t|postgres", "flip stamps changed_at/changed_by")
+        fails(db, "DELETE FROM public.vote_convention;", "P0790")
+        fails(db, "TRUNCATE public.vote_convention;", "P0790")
+        eq(val(db, "SELECT count(*) FROM public.vote_convention;"), "1", "row kept")
+        # Remove it the only way left (triggers off, owner/superuser): vote_insert must refuse, not write NULL.
+        sql(db, "ALTER TABLE public.vote_convention DISABLE TRIGGER vote_convention_no_delete; DELETE FROM public.vote_convention; "
+                "ALTER TABLE public.vote_convention ENABLE TRIGGER vote_convention_no_delete;")
+        fails(db, "SELECT * FROM public.vote_insert(990001, 1, 1, 1::smallint);", "P0791")
+        fails(db, "SELECT * FROM public.vote_insert(990001, 1, 1, 1::smallint, 0::smallint, false, 1);", "P0791")
+        eq(val(db, "SELECT count(*) FROM votes WHERE zid = 990001;"), "0", "nothing written")
+        eq(val(db, "SELECT count(*) FROM votes_semantic;"), "0", "views empty without the row")
+        # Putting a row back must continue the history: version 2 with the opposite sign of version 1.
+        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason) VALUES (0, -1, 'restart');", "P0782")
+        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason) VALUES (2, 1, 'same sign');", "P0782")
+        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason) VALUES (5, -1, 'skip');", "P0782")
+        sql(db, "INSERT INTO public.vote_convention (version, agree_value, reason) VALUES (2, -1, 'put back');")
+        eq(val(db, "SELECT max(version), count(*) FROM public.vote_convention_history;"), "2|3", "history continues")
+        eq(val(db, "SELECT vote, convention_version FROM public.vote_insert(990001, 1, 1, 1::smallint);"), "-1|2", "writes again")
+    case("permanence: DELETE/TRUNCATE refuse P0790; history TRUNCATE P0781; a missing row makes vote_insert refuse P0791 "
+         "(no NULL vote); a row put back must be version+1 with a sign change (P0782); UPDATE stamps changed_at/by", permanence)
 
     # 4. Functions at both versions.
     def functions_both(db):
@@ -316,6 +361,79 @@ def main():
     case("vote_insert: agree round trip at v0 (-1) and v1 (+1), rule copies to votes_latest_unique, views read +1; "
          "P0783, P0784; FOR UPDATE holder -> 55P03 in ~2 s; caller lock_timeout untouched", insert_round_trip)
 
+    # 5b. A writer blocked by the flip re-reads the row and writes with the new sign.
+    def writer_across_flip(db):
+        apply(db)
+        eq(val(db, "SELECT vote FROM public.vote_insert(990005, 1, 1, 1::smallint);"), "-1", "v0 agree")
+        flipper = subprocess.Popen(["docker", "exec", "-i", CONTAINER, "psql", "-X", "-q", "-At", "-v", "ON_ERROR_STOP=1",
+                                    "-U", "postgres", "-d", db],
+                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        flipper.stdin.write("BEGIN;\n"
+                            "UPDATE public.vote_convention SET version = 1, agree_value = 1, reason = 'test flip' WHERE singleton;\n"
+                            "UPDATE public.votes SET vote = -vote WHERE vote IN (-1, 1);\n"
+                            "UPDATE public.votes_latest_unique SET vote = -vote WHERE vote IN (-1, 1);\n"
+                            "SELECT pg_sleep(1.2);\nCOMMIT;\n")
+        flipper.stdin.close()
+        try:
+            for _ in range(100):
+                if val(db, "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() "
+                           "AND query LIKE '%pg_sleep(1.2)%' AND pid <> pg_backend_pid();") == "1":
+                    break
+                time.sleep(0.05)
+            else:
+                raise AssertionError("flip session did not start")
+            t0 = time.monotonic()
+            r = val(db, "SELECT vote, convention_version FROM public.vote_insert(990005, 2, 1, 1::smallint);")
+            waited = time.monotonic() - t0
+        finally:
+            flipper.wait(timeout=30)
+        assert flipper.returncode == 0, flipper.stderr.read()
+        eq(r, "1|1", "the blocked writer stores agree as +1 under version 1")
+        assert 0.2 < waited < 2.0, f"waited {waited:.2f}s"
+        eq(val(db, "SELECT string_agg(pid || ':' || vote, ',' ORDER BY pid) FROM votes WHERE zid = 990005;"), "1:1,2:1", "stored")
+        eq(val(db, "SELECT string_agg(semantic_vote::text, ',' ORDER BY pid) FROM votes_semantic WHERE zid = 990005;"), "1,1", "both agree")
+        eq(val(db, "SELECT string_agg(semantic_vote::text, ',' ORDER BY pid) FROM votes_latest_unique_semantic WHERE zid = 990005;"), "1,1", "latest")
+        (WORK / "writer-across-flip.txt").write_text(f"blocked writer returned after {waited:.2f}s with {r}\n")
+    case("flip under a waiting writer: vote_insert blocks on FOR SHARE, then writes +1 under version 1; no vote double-flipped", writer_across_flip)
+
+    # 5c. Restore detection with the real held un-flip migration, when it is in the tree (or HELD_UNFLIP_SQL names it).
+    held = Path(os.environ.get("HELD_UNFLIP_SQL") or ROOT / "held/000024_vote_sign_unflip.sql")
+
+    def real_unflip(db):
+        if not held.is_file():
+            raise Skip(f"{held} not present")
+        apply(db)
+        sql(db, "SELECT * FROM public.vote_insert(990006, 1, 1, 1::smallint); SELECT * FROM public.vote_insert(990006, 2, 1, -1::smallint); "
+                "SELECT * FROM public.vote_insert(990006, 3, 1, 0::smallint);")
+        eq(val(db, restore_sql), "pre-flip", "before")
+        sql(db, held.read_text())
+        eq(val(db, restore_sql), "post-flip", "after the real un-flip")
+        eq(val(db, "SELECT string_agg(vote::text, ',' ORDER BY pid) FROM votes WHERE zid = 990006;"), "1,-1,0", "stored signs mirrored")
+        eq(val(db, "SELECT string_agg(semantic_vote::text, ',' ORDER BY pid) FROM votes_semantic WHERE zid = 990006;"), "1,-1,0", "meaning unchanged")
+        eq(val(db, "SELECT vote FROM public.vote_insert(990006, 4, 1, 1::smallint);"), "1", "agree now stored +1")
+        fails(db, held.read_text(), "P0785")
+        fails(db, DOWN.read_text(), "P0789")
+    case("restore detection against the real held un-flip: pre-flip -> post-flip; re-run refuses P0785; down refuses P0789", real_unflip)
+
+    # 5d. The ledger checksum checker the CI workflow runs.
+    def checker(_db):
+        spec = importlib.util.spec_from_file_location("check_ledger_checksums", ROOT.parent / "check_ledger_checksums.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        eq(mod.check(UP), [], "committed file")
+        tampered = WORK / UP.name
+        tampered.write_bytes(UP.read_bytes().replace(b"VALUES (0, -1, 'storage convention", b"VALUES (0, -1, 'Storage convention", 1))
+        assert mod.check(tampered) and "hashes to" in mod.check(tampered)[0], mod.check(tampered)
+        renamed = WORK / "000099_other.sql"
+        renamed.write_bytes(UP.read_bytes())
+        assert any("names" in p for p in mod.check(renamed)), mod.check(renamed)
+        unmarked = WORK / "000098_unmarked.sql"
+        unmarked.write_bytes(b"BEGIN;\nCOMMIT;\n")
+        assert "0 ledger marker lines" in mod.check(unmarked)[0]
+        p = subprocess.run([sys.executable, str(ROOT.parent / "check_ledger_checksums.py")], capture_output=True, text=True)
+        assert p.returncode == 0, p.stdout + p.stderr
+    case("ledger checker: the committed file passes; an edited body, a renamed file and a missing marker fail", checker)
+
     # 6. Grants.
     def grants(db):
         sql("postgres", "DROP ROLE IF EXISTS polis_probe_reader; CREATE ROLE polis_probe_reader LOGIN;")
@@ -347,10 +465,10 @@ def main():
         eq(val(db, "SELECT agree_value FROM public.vote_convention_current();", user="polis_probe_reader"), "-1", "case 6")
         # The coordinator grants are recorded in the ledger note, exactly.
         eq(val(db, f"SELECT note FROM public.schema_migrations WHERE name = '{NAME}';"), EXPECTED_GRANT_NOTE, "case 6")
-        # Coordinator observer reads the views; control cannot.
+        # No coordinator role reads the semantic views (they read votes with the owner's rights).
         eq(val(db, "SELECT has_table_privilege('polis_coordinator_observer', 'public.votes_semantic', 'SELECT'), "
                        "has_table_privilege('polis_coordinator_control', 'public.votes_semantic', 'SELECT'), "
-                       "has_table_privilege('polis_coordinator_observer', 'public.vote_convention', 'UPDATE');"), "t|f|f", "case 6")
+                       "has_table_privilege('polis_coordinator_observer', 'public.vote_convention', 'UPDATE');"), "f|f|f", "case 6")
         eq(val(db, "SELECT has_table_privilege('vc_writer', 'votes', 'INSERT');"), "f", "case 6")
         fails(db, "INSERT INTO votes (zid, pid, tid, vote) VALUES (990009, 1, 1, -1);", "42501", user="vc_writer")
         sql(db, "REVOKE USAGE ON SCHEMA public FROM vc_writer, vc_exec_only, polis_probe_reader;")
@@ -383,9 +501,6 @@ def main():
     case("ledger: own row = sha256 of the file without its marker line; backfill = every earlier file; last statement", ledger)
 
     # 8. The restore-detection rule (the query in docs/vote-convention.md, verbatim).
-    rule = re.search(r"<!-- restore-rule -->\n```sql\n(.*?)```\n<!-- /restore-rule -->", DOCS.read_text(), re.S)
-    assert rule, "restore rule block missing from docs/vote-convention.md"
-    restore_sql = rule.group(1)
 
     def restore(db):
         assert val(db, "SELECT to_regclass('public.vote_convention') IS NOT NULL;") == "f"
@@ -453,8 +568,8 @@ def main():
     for login in LOGINS:
         sql("postgres", f"DROP ROLE IF EXISTS {login};")
 
-    summary = {"schema": "polis-vote-convention-migration-test/1", "passed": len(RESULTS) - len(FAILURES),
-               "failed": len(FAILURES), "failures": FAILURES, "skipped": 0, "cases": RESULTS,
+    summary = {"schema": "polis-vote-convention-migration-test/1", "passed": len(RESULTS) - len(FAILURES) - len(SKIPPED),
+               "failed": len(FAILURES), "failures": FAILURES, "skipped": len(SKIPPED), "skip_reasons": SKIPPED, "cases": RESULTS,
                "migration_count_before_000023": len(migrations),
                "source_sha256": {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
                                  for p in [UP, DOWN, Path(__file__), ROOT / "down/test_000023_down.sh",

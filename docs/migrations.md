@@ -55,3 +55,9 @@ grep -v -e '-- ledger-self-checksum' server/postgres/migrations/0000NN_name.sql 
 A copy whose ledger stops early is older than the files it is missing. See
 [vote-convention.md](vote-convention.md) for the restore-detection rule that
 depends on it.
+
+`server/postgres/check_ledger_checksums.py` recomputes this checksum for every
+migration from 000023 on (including `held/`) and fails on a mismatch, a
+missing or duplicate marker, or a row naming another file. CI runs it on every
+pull request that touches `server/postgres/` (`.github/workflows/migration-ledger.yml`).
+Run it before applying a migration by hand.

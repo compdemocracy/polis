@@ -1,6 +1,6 @@
--- 000023_vote_convention.sql: the vote convention lives in the database (P-078 PR-A).
+-- 000023_vote_convention.sql: the vote storage convention lives in the database.
 --
--- SCHEMA CHANGE, ruling R-A. NO DATA CHANGE: no existing row is read for
+-- SCHEMA CHANGE. NO DATA CHANGE: no existing row is read for
 -- writing, updated or deleted. The seed row states today's storage convention
 -- (agree = -1, disagree = +1, pass = 0), so every reader that consults it
 -- computes exactly what it computes today.
@@ -22,12 +22,17 @@
 -- Named SQLSTATEs (class P0, user-defined):
 --   P0780  this file refuses: already applied (or a partial copy), or PostgreSQL < 13
 --   P0781  vote_convention_history is append-only (UPDATE/DELETE refused)
---   P0782  vote_convention update is not exactly version+1 with a sign change
+--   P0782  a new vote_convention state is not exactly version+1 with a sign change
+--          (an UPDATE, or an INSERT after the row was removed with triggers off)
 --   P0783  vote_insert: semantic vote is not -1, 0 or 1
 --   P0784  vote_insert: p_expected_version differs from the current version
---   55P03  (lock_not_available) vote_insert waited 2 s on the convention row,
---          i.e. the un-flip holds it FOR UPDATE; the server answers 503
---          polis_err_votes_paused_retry
+--   55P03  (lock_not_available) vote_insert waited 2 s for a lock: almost
+--          always the convention row held FOR UPDATE by the un-flip; rarely a
+--          contended votes_latest_unique row (the same vote submitted twice
+--          inside a long caller transaction). Retryable either way; the server
+--          answers 503 polis_err_votes_paused_retry.
+--   P0790  vote_convention: DELETE and TRUNCATE are refused (the row is permanent)
+--   P0791  vote_insert: the vote_convention row is missing; nothing is written
 --   P0785..P0788 are the held un-flip's; P0789 is the down file's refusal.
 --
 -- Ledger rule, from this file on: every migration file inserts its own
@@ -73,7 +78,7 @@ BEGIN
                  WHERE p.pronamespace = 'public'::regnamespace
                    AND p.proname IN ('vote_convention_current', 'vote_semantic', 'vote_storage', 'vote_insert',
                                      'vote_convention_record_history', 'vote_convention_history_immutable',
-                                     'vote_convention_monotonic')) THEN
+                                     'vote_convention_monotonic', 'vote_convention_permanent')) THEN
     RAISE EXCEPTION '000023: refusing: the vote convention objects or the ledger already exist; nothing changed'
       USING ERRCODE = 'P0780',
             HINT = 'Already applied, or a partial copy. Inspect: SELECT * FROM public.vote_convention_current(); SELECT * FROM public.schema_migrations ORDER BY name;';
@@ -94,7 +99,7 @@ CREATE TABLE public.vote_convention (
   contract_version integer     NOT NULL DEFAULT 1 CHECK (contract_version = 1)
 );
 COMMENT ON TABLE public.vote_convention IS
-  'P-078: the storage sign of votes.vote and votes_latest_unique.vote. agree_value is the raw value that means AGREE; disagree is -agree_value; pass is 0. Read it in the same statement as the votes. Updated in place by the un-flip migration only.';
+  'The storage sign of votes.vote and votes_latest_unique.vote. agree_value is the raw value that means AGREE; disagree is -agree_value; pass is 0. Read it in the same statement as the votes. Updated in place by the un-flip migration only.';
 
 -- 1.2 Append-only history.
 CREATE TABLE public.vote_convention_history (
@@ -106,7 +111,7 @@ CREATE TABLE public.vote_convention_history (
   contract_version integer     NOT NULL
 );
 COMMENT ON TABLE public.vote_convention_history IS
-  'P-078: every state public.vote_convention has had, one row per version, written by trigger. Append-only.';
+  'Every state public.vote_convention has had, one row per version, written by trigger. Append-only.';
 
 CREATE FUNCTION public.vote_convention_record_history() RETURNS trigger
 LANGUAGE plpgsql SET search_path = pg_catalog, pg_temp AS $$
@@ -127,23 +132,67 @@ END $$;
 CREATE TRIGGER vote_convention_history_ro
   BEFORE UPDATE OR DELETE ON public.vote_convention_history
   FOR EACH ROW EXECUTE FUNCTION public.vote_convention_history_immutable();
+-- Row triggers do not fire on TRUNCATE; this statement trigger does.
+CREATE TRIGGER vote_convention_history_no_truncate
+  BEFORE TRUNCATE ON public.vote_convention_history
+  FOR EACH STATEMENT EXECUTE FUNCTION public.vote_convention_history_immutable();
 
--- The monotonic guard: a new version is exactly old + 1 and changes the sign.
+-- The monotonic guard: a new state is exactly old + 1 and changes the sign.
+-- On UPDATE "old" is the row; on INSERT (the seed, or a row put back after it
+-- was removed with triggers disabled) "old" is the newest history row, and
+-- with no history the first state must be version 0. The guard also stamps
+-- changed_at and changed_by, so a bare UPDATE of version and sign records
+-- who changed it and when.
 CREATE FUNCTION public.vote_convention_monotonic() RETURNS trigger
 LANGUAGE plpgsql SET search_path = pg_catalog, pg_temp AS $$
+DECLARE
+  old_version integer;
+  old_agree smallint;
 BEGIN
-  IF NEW.version <> OLD.version + 1 THEN
-    RAISE EXCEPTION 'vote_convention.version must advance by exactly 1 (old %, new %)', OLD.version, NEW.version
+  IF TG_OP = 'UPDATE' THEN
+    old_version := OLD.version;
+    old_agree := OLD.agree_value;
+  ELSE
+    SELECT h.version, h.agree_value INTO old_version, old_agree
+      FROM public.vote_convention_history h ORDER BY h.version DESC LIMIT 1;
+    IF NOT FOUND THEN
+      IF NEW.version <> 0 THEN
+        RAISE EXCEPTION 'vote_convention: the first state must be version 0 (got %)', NEW.version
+          USING ERRCODE = 'P0782';
+      END IF;
+      NEW.changed_at := clock_timestamp();
+      NEW.changed_by := session_user;
+      RETURN NEW;
+    END IF;
+  END IF;
+  IF NEW.version <> old_version + 1 THEN
+    RAISE EXCEPTION 'vote_convention.version must advance by exactly 1 (old %, new %)', old_version, NEW.version
       USING ERRCODE = 'P0782';
   END IF;
-  IF NEW.agree_value = OLD.agree_value THEN
+  IF NEW.agree_value = old_agree THEN
     RAISE EXCEPTION 'vote_convention update must change agree_value' USING ERRCODE = 'P0782';
   END IF;
+  NEW.changed_at := clock_timestamp();
+  NEW.changed_by := session_user;
   RETURN NEW;
 END $$;
 CREATE TRIGGER vote_convention_monotonic_trg
-  BEFORE UPDATE ON public.vote_convention
+  BEFORE INSERT OR UPDATE ON public.vote_convention
   FOR EACH ROW EXECUTE FUNCTION public.vote_convention_monotonic();
+
+-- The row is permanent: DELETE (row trigger) and TRUNCATE (statement trigger)
+-- refuse. Without it vote_insert would have no sign to write with.
+CREATE FUNCTION public.vote_convention_permanent() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog, pg_temp AS $$
+BEGIN
+  RAISE EXCEPTION 'vote_convention: % is refused; the row is permanent', TG_OP USING ERRCODE = 'P0790';
+END $$;
+CREATE TRIGGER vote_convention_no_delete
+  BEFORE DELETE ON public.vote_convention
+  FOR EACH ROW EXECUTE FUNCTION public.vote_convention_permanent();
+CREATE TRIGGER vote_convention_no_truncate
+  BEFORE TRUNCATE ON public.vote_convention
+  FOR EACH STATEMENT EXECUTE FUNCTION public.vote_convention_permanent();
 
 -- 1.3 The seed: today's convention, version 0. History gets its first row
 -- through the trigger.
@@ -159,7 +208,7 @@ CREATE TABLE public.schema_migrations (
   note        text        NOT NULL DEFAULT ''
 );
 COMMENT ON TABLE public.schema_migrations IS
-  'P-078: one row per applied migration file from 000023 on (sha256 of the file without its ledger line). Rows for earlier files are backfilled as pre-ledger. A restored copy whose rows stop early is older than its missing migrations.';
+  'One row per applied migration file from 000023 on (sha256 of the file without its ledger line). Rows for earlier files are backfilled as pre-ledger. A restored copy whose rows stop early is older than its missing migrations.';
 -- Backfill: every top-level migration file on edge before this one, assumed
 -- applied. (There is no 000020.)
 INSERT INTO public.schema_migrations (name, checksum, note)
@@ -202,7 +251,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
   SELECT c.version, c.agree_value FROM public.vote_convention c WHERE c.singleton
 $$;
 COMMENT ON FUNCTION public.vote_convention_current() IS
-  'P-078: the current vote storage convention (version, agree_value). Call it in the same statement as the votes it interprets.';
+  'The current vote storage convention (version, agree_value). Call it in the same statement as the votes it interprets.';
 
 -- 2.2 Pure conversions. IMMUTABLE: the sign is an argument, the row is never
 -- read. STRICT: NULL in, NULL out (refuse or skip is the caller's policy).
@@ -212,13 +261,13 @@ LANGUAGE sql IMMUTABLE STRICT SET search_path = pg_catalog, pg_temp AS $$
   SELECT CASE WHEN raw = 0 THEN 0::smallint ELSE (raw * agree_value)::smallint END
 $$;
 COMMENT ON FUNCTION public.vote_semantic(smallint, smallint) IS
-  'P-078: stored vote -> semantic vote (+1 agree, -1 disagree, 0 pass) under the given agree_value.';
+  'Stored vote -> semantic vote (+1 agree, -1 disagree, 0 pass) under the given agree_value.';
 CREATE FUNCTION public.vote_storage(semantic smallint, agree_value smallint) RETURNS smallint
 LANGUAGE sql IMMUTABLE STRICT SET search_path = pg_catalog, pg_temp AS $$
   SELECT CASE WHEN semantic = 0 THEN 0::smallint ELSE (semantic * agree_value)::smallint END
 $$;
 COMMENT ON FUNCTION public.vote_storage(smallint, smallint) IS
-  'P-078: semantic vote (+1 agree, -1 disagree, 0 pass) -> stored vote under the given agree_value.';
+  'Semantic vote (+1 agree, -1 disagree, 0 pass) -> stored vote under the given agree_value.';
 
 -- 2.3 The write path: the only sanctioned INSERT into votes.
 -- SECURITY DEFINER: SELECT ... FOR SHARE needs UPDATE privilege on
@@ -231,6 +280,10 @@ COMMENT ON FUNCTION public.vote_storage(smallint, smallint) IS
 -- FOR SHARE on the singleton: writers do not block each other; the un-flip's
 -- FOR UPDATE blocks them (2 s, then 55P03), and a writer that waited re-reads
 -- the updated row.
+-- Call it in READ COMMITTED: a REPEATABLE READ or SERIALIZABLE caller whose
+-- FOR SHARE meets a committed un-flip gets 40001 instead of re-reading the row.
+-- The un-flip is safe only when every writer goes through this function: a raw
+-- INSERT into votes carries no convention and keeps the old sign.
 -- votes_latest_unique is maintained by the existing INSERT rule
 -- on_vote_insert_update_unique_table (000006); the un-flip UPDATEs both tables
 -- itself because that rule covers INSERT only.
@@ -254,6 +307,9 @@ BEGIN
   END IF;
   SELECT c.version, c.agree_value INTO v_version, v_agree
     FROM public.vote_convention c WHERE c.singleton FOR SHARE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'vote_insert: the vote_convention row is missing; no vote written' USING ERRCODE = 'P0791';
+  END IF;
   IF p_expected_version IS NOT NULL AND p_expected_version <> v_version THEN
     RAISE EXCEPTION 'vote_insert: convention version % expected, % current', p_expected_version, v_version
       USING ERRCODE = 'P0784';
@@ -264,7 +320,7 @@ BEGIN
     RETURNING v.zid, v.pid, v.tid, v.vote, v.created, v_version;
 END $$;
 COMMENT ON FUNCTION public.vote_insert(integer, integer, integer, smallint, smallint, boolean, integer) IS
-  'P-078: insert one vote given its semantic value (+1 agree, -1 disagree, 0 pass) under the current convention. 55P03 after 2 s: the convention is being changed; retry.';
+  'Insert one vote given its semantic value (+1 agree, -1 disagree, 0 pass) under the current convention. 55P03 after 2 s: the convention is being changed; retry.';
 REVOKE ALL ON FUNCTION public.vote_insert(integer, integer, integer, smallint, smallint, boolean, integer) FROM PUBLIC;
 
 -- 3. Views: one statement, one snapshot; the join to the singleton costs one row.
@@ -276,7 +332,7 @@ CREATE VIEW public.votes_semantic AS
          c.version AS convention_version
   FROM public.votes v CROSS JOIN public.vote_convention c;
 COMMENT ON VIEW public.votes_semantic IS
-  'P-078: votes with semantic_vote (+1 agree, -1 disagree, 0 pass, NULL) and the convention version, in one snapshot.';
+  'Votes with semantic_vote (+1 agree, -1 disagree, 0 pass, NULL) and the convention version, in one snapshot.';
 CREATE VIEW public.votes_latest_unique_semantic AS
   SELECT u.zid, u.pid, u.tid, u.modified, u.weight_x_32767,
          public.vote_semantic(u.vote, c.agree_value) AS semantic_vote,
@@ -285,7 +341,7 @@ CREATE VIEW public.votes_latest_unique_semantic AS
          c.version AS convention_version
   FROM public.votes_latest_unique u CROSS JOIN public.vote_convention c;
 COMMENT ON VIEW public.votes_latest_unique_semantic IS
-  'P-078: votes_latest_unique with semantic_vote (+1 agree, -1 disagree, 0 pass, NULL) and the convention version, in one snapshot.';
+  'votes_latest_unique with semantic_vote (+1 agree, -1 disagree, 0 pass, NULL) and the convention version, in one snapshot.';
 
 -- 4. Grants.
 -- * The server, math and Delphi logins: every deployment in this repository
@@ -320,8 +376,6 @@ BEGIN
         ('polis_coordinator_observer',  'TABLE',    'public.vote_convention',                'SELECT'),
         ('polis_coordinator_observer',  'TABLE',    'public.vote_convention_history',        'SELECT'),
         ('polis_coordinator_observer',  'FUNCTION', 'public.vote_convention_current()',      'EXECUTE'),
-        ('polis_coordinator_observer',  'TABLE',    'public.votes_semantic',                 'SELECT'),
-        ('polis_coordinator_observer',  'TABLE',    'public.votes_latest_unique_semantic',   'SELECT'),
         ('polis_coordinator_control',   'TABLE',    'public.vote_convention',                'SELECT'),
         ('polis_coordinator_control',   'FUNCTION', 'public.vote_convention_current()',      'EXECUTE'),
         ('polis_coordinator_publisher', 'TABLE',    'public.vote_convention',                'SELECT'),
@@ -343,5 +397,5 @@ $grants$;
 
 -- The ledger row for this file, as its last statement (the checksum is the
 -- sha256 of this file without the next line).
-INSERT INTO public.schema_migrations (name, checksum, note) VALUES ('000023_vote_convention', '0185488a8855451c50f19b9a1381b43a1e14a5f1a6cb4bae5933c691742a9a48', 'P-078 PR-A, ruling R-A; grants: ' || current_setting('polis.vote_convention_grants')); -- ledger-self-checksum
+INSERT INTO public.schema_migrations (name, checksum, note) VALUES ('000023_vote_convention', '879c1445a742fe5787e7428c85f81c185911d3a0c60c26b0bf86d54b70852b5e', 'vote storage convention; grants: ' || current_setting('polis.vote_convention_grants')); -- ledger-self-checksum
 COMMIT;

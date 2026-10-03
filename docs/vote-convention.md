@@ -8,9 +8,12 @@ next to the data:
 - `public.vote_convention`: one row, `(version, agree_value)`, seeded at
   **(0, -1)**, today's convention. It is updated in place, only by the
   un-flip migration, and only to exactly `version + 1` with the opposite sign
-  (trigger, SQLSTATE P0782).
+  (trigger, SQLSTATE P0782; the trigger also stamps `changed_at` and
+  `changed_by`). The row is permanent: DELETE and TRUNCATE refuse (P0790). A
+  row put back after a forced removal must continue the history (version + 1,
+  opposite sign; P0782).
 - `public.vote_convention_history`: every state the row has had (trigger;
-  append-only, P0781).
+  append-only: UPDATE, DELETE and TRUNCATE refuse with P0781).
 - `public.schema_migrations`: the migration ledger (see
   [migrations.md](migrations.md#the-migration-ledger-schema_migrations-from-000023-on)).
 
@@ -32,9 +35,17 @@ object by schema. `lock_timeout` on `vote_insert` is a function `SET` clause:
 the caller's own setting is restored when the function returns.
 
 Named SQLSTATEs: P0780 (000023 refuses: already applied, partial copy, or
-PostgreSQL < 13), P0781, P0782, P0783, P0784 as above, 55P03 (`vote_insert`
-waited 2 s on the row: the un-flip holds it), P0785–P0788 (the held un-flip),
-P0789 (the down file refuses).
+PostgreSQL < 13), P0781, P0782, P0783, P0784 as above, P0790 (DELETE or
+TRUNCATE of the convention row), P0791 (`vote_insert` found no convention
+row; nothing is written), P0785–P0788 (the held un-flip), P0789 (the down file
+refuses). 55P03: `vote_insert` waited 2 s for a lock. Almost always that is
+the convention row held by the un-flip; rarely it is a contended
+`votes_latest_unique` row (the same vote submitted twice inside a long caller
+transaction). It is retryable either way.
+
+Call `vote_insert` in READ COMMITTED (the default). A REPEATABLE READ or
+SERIALIZABLE caller whose `FOR SHARE` meets a committed un-flip gets 40001
+instead of re-reading the row.
 
 ## Grants
 
@@ -46,7 +57,7 @@ P0789 (the down file refuses).
 | `vote_convention_current()` EXECUTE | PUBLIC | PUBLIC | PUBLIC | PUBLIC + explicit to observer, control, publisher |
 | `vote_semantic`, `vote_storage` EXECUTE | PUBLIC | PUBLIC | PUBLIC | PUBLIC |
 | `vote_insert()` EXECUTE | owner only (revoked from PUBLIC) | no | no | no |
-| `votes_semantic`, `votes_latest_unique_semantic` SELECT | owner | — (allowlist follow-up) | owner | observer |
+| `votes_semantic`, `votes_latest_unique_semantic` SELECT | owner | — (allowlist follow-up) | owner | — |
 | `vote_convention` UPDATE | owner only (the un-flip) | no | no | no |
 
 - Every deployment in this repository connects the server, math and Delphi as
@@ -57,7 +68,8 @@ P0789 (the down file refuses).
   plus SELECT on the tables and views above. `vote_insert` is SECURITY
   DEFINER because its `FOR SHARE` on `vote_convention` needs UPDATE privilege
   on that table, which no role but the owner holds; so EXECUTE is the only
-  write grant such a login needs, and it needs no INSERT on `votes`.
+  write grant such a login needs, and it needs no INSERT on `votes`. Granting
+  EXECUTE on `vote_insert` is therefore the same as granting INSERT on `votes`.
 - `polis_probe_reader` gets no direct grant from 000023:
   `ci/probe_box/provision_login.py` refuses a reader holding a direct grant on
   any object outside its fixed table list. It reads the convention through
@@ -68,7 +80,9 @@ P0789 (the down file refuses).
   down file's DROPs remove exactly them. Run the 000023 down before the 000021
   down: 000021's down refuses to drop a role that still holds a grant.
 - Views run with their owner's rights: SELECT on `votes_semantic` reads vote
-  rows even without SELECT on `votes`.
+  rows even without SELECT on `votes`. That is why no coordinator role gets
+  SELECT on the views: the observer has no read of `votes` today, and a grant
+  on the views would give it one.
 
 ## Restore detection
 
@@ -100,9 +114,26 @@ SELECT CASE
 is. `corrupt` (the un-flip row with version 0, version 1 without the row, or
 no row at all): **stop**.
 
+The rule knows two states, (0, -1) and (1, +1). The guard would allow a
+second change (version 2), but before anyone makes one this rule (and the
+down file's guard) must be extended first.
+
+The `pre-ledger` rows for 000000–000022 are asserted by 000023, not observed:
+000023 cannot tell whether a copy that predates, say, 000021 really ran it.
+The ledger's evidence starts at 000023.
+
 ## Production runbook (after ruling R-A)
 
-1. As the migration (owner) role, from inside the VPC, in one session:
+1. Check the file before applying it. The checksum it will write must match
+   its own bytes:
+   ```sh
+   python3 server/postgres/check_ledger_checksums.py      # every ledger-bearing file: ok
+   grep -v -e '-- ledger-self-checksum' server/postgres/migrations/000023_vote_convention.sql | sha256sum
+   grep -o "'000023_vote_convention', '[0-9a-f]*'" server/postgres/migrations/000023_vote_convention.sql
+   ```
+   The two hashes must be equal. After applying, the same hash must be in
+   `SELECT checksum FROM public.schema_migrations WHERE name = '000023_vote_convention';`.
+   As the migration (owner) role, from inside the VPC, in one session:
    `psql -X -v ON_ERROR_STOP=1 -f server/postgres/migrations/000023_vote_convention.sql`
 2. Verify:
    ```sql
@@ -116,7 +147,35 @@ no row at all): **stop**.
    ```
 3. Rollback: `psql -X -v ON_ERROR_STOP=1 -f server/postgres/migrations/down/000023_drop_vote_convention.sql`.
    It drops the objects and touches no vote; it refuses (P0789) once the
-   convention has moved or a later migration is in the ledger.
+   convention has moved or a later migration is in the ledger. Before you run
+   it, roll back any server release that calls `vote_insert`, because this
+   file drops the function.
+
+## The un-flip's precondition: every writer goes through `vote_insert`
+
+`vote_insert` is the chokepoint only for writers that use it. The owner role
+can still INSERT into `votes` directly; the server's current vote route, the
+import processor and the fixture generators all do. A raw INSERT carries no
+convention. If it commits after the un-flip's `UPDATE votes SET vote = -vote`
+took its snapshot, it keeps the old sign under the new convention, and that
+vote's meaning is silently inverted. So the un-flip is safe only when:
+
+1. the server release that writes through `vote_insert` is deployed, and the
+   import path is switched to it (checked as a runbook precondition); and
+2. the un-flip fences the tables itself. Proposed preamble for the held
+   un-flip file, right after `BEGIN;` and its `SET LOCAL` lines:
+   ```sql
+   -- Table locks queue fairly. A row-level FOR UPDATE alone can be starved by a
+   -- steady stream of vote_insert FOR SHARE lockers. EXCLUSIVE conflicts with
+   -- their ROW SHARE but not with vote_convention_current()'s ACCESS SHARE,
+   -- so reads continue.
+   LOCK TABLE public.vote_convention IN EXCLUSIVE MODE;
+   -- Blocks raw INSERT/UPDATE/DELETE on the vote tables for the flip's window
+   -- (reads continue), so no writer outside vote_insert can commit an
+   -- old-sign vote after the UPDATEs below took their snapshot.
+   LOCK TABLE public.votes, public.votes_latest_unique IN SHARE ROW EXCLUSIVE MODE;
+   ```
+   The rehearsal must run under write load to measure how long writers wait.
 
 ## How the readers and writers bind to it
 
@@ -169,6 +228,7 @@ const sql = "SELECT * FROM public.vote_insert($1, $2, $3, $4, $5, $6, $7)";
 // SQLSTATE 55P03 -> 503 polis_err_votes_paused_retry
 // SQLSTATE P0784 -> refresh the convention, retry once
 // SQLSTATE P0783 -> 400 (the route already validates)
+// SQLSTATE P0791 -> 500 (the convention row is missing; nothing was written)
 ```
 
 Semantic reads move to `votes_semantic` / `votes_latest_unique_semantic`. The
