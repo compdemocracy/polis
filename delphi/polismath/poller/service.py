@@ -723,8 +723,15 @@ class MathPollerService:
         if self.backfill is not None:
             sweep, drain = self.backfill.readiness()
             config = self.backfill.config.digest()
+        # The capacity counts (P-073) in their own try: a fault there means no
+        # capacity object and no capacity line, never a degraded readiness line.
+        try:
+            capacity = self.capacity.counts()
+        except Exception as exc:  # noqa: BLE001
+            logger.error("capacity: counts unavailable (%s)", exc.__class__.__name__)
+            capacity = None
         return {"discovery": discovery, "queue": queue, "sweep": sweep, "drain": drain,
-                "admission": admission, "config": config, "capacity": self.capacity.counts(),
+                "admission": admission, "config": config, "capacity": capacity,
                 "loop_marks": tuple(h["successes"] for h in loops)}
 
     def _live_poll_health(self):
@@ -875,17 +882,22 @@ class MathPollerService:
         try:
             routed = self._run_engine(zid, coalesced)
             self._retry_counts.pop(zid, None)
-            if not routed:
-                self.capacity.resolved(zid)
             live_ok = True
+            if not routed:
+                # Bookkeeping after a publication: a failure here must never
+                # turn a published zid into an engine error.
+                try:
+                    self.capacity.resolved(zid)
+                except Exception as exc:  # noqa: BLE001
+                    logger.error("capacity: record close failed (%s)", exc.__class__.__name__)
         except OverBudget as error:
             # P-073: a memory refusal is a capacity disposition, not an
             # engine error. Routed (routing on, classified large): resolved
             # for the pool, no dump, retry or park. Otherwise today's path.
             try:
                 routed = self._capacity_refusal(zid, coalesced, error)
-            except Exception:  # noqa: BLE001 - the record never changes the error path
-                logger.exception("capacity: refusal record failed for zid=%s", zid)
+            except Exception as exc:  # noqa: BLE001 - the record never changes the error path
+                logger.error("capacity: refusal record failed (%s)", exc.__class__.__name__)
             if routed:
                 self._retry_counts.pop(zid, None)
                 live_ok = True
@@ -965,8 +977,8 @@ class MathPollerService:
         try:
             sizes = read_conversation_sizes(self._pg, zid)
         except Exception as exc:  # noqa: BLE001 - classify from the refusal instead
-            logger.warning("capacity: size query failed for zid=%s (%s)", zid,
-                           exc.__class__.__name__)
+            logger.info("capacity: size query failed for zid=%s (%s)", zid,
+                        exc.__class__.__name__)
         need = error.need_bytes if sizes is None else None
         if sizes is None and need is None:
             return False
