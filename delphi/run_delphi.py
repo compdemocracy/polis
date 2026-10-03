@@ -4,6 +4,8 @@ import os
 import subprocess
 import sys
 
+from polismath.utils.cli_flags import parse_bool_flag
+
 # Define colors for output
 GREEN = '\033[0;32m'
 YELLOW = '\033[0;33m'
@@ -39,8 +41,8 @@ def main():
     parser.add_argument("--force", action="store_true", help="Force reprocessing even if data exists")
     parser.add_argument("--validate", action="store_true", help="Run extra validation checks")
     parser.add_argument("--help", action="store_true", help="Show this help message")
-    parser.add_argument('--include_moderation', type=bool, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
-    parser.add_argument('--exclude_comment_selections', type=bool, default=True, help='Whether to exclude comments with selection=-1 in report_comment_selections table.')
+    parser.add_argument('--include_moderation', type=parse_bool_flag, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
+    parser.add_argument('--exclude_comment_selections', type=parse_bool_flag, default=True, help='Whether to exclude comments with selection=-1 in report_comment_selections table.')
     parser.add_argument('--region', type=str, default='us-east-1', help='AWS region')
 
     args = parser.parse_args()
