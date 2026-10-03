@@ -56,6 +56,8 @@ The P065 static service census has **153 entries across 15 families**. Each entr
 | SES | 6 | `SES_ENDPOINT`, AWS region/credentials and sender configuration. Current sender constructs SESv2 directly; a read of legacy Mailgun settings does not select Mailgun. |
 | SQS | 3 | `SQS_LOCAL_ENDPOINT`, `SQS_QUEUE_URL`, AWS region/credential routing; import worker also requires database/S3 config. |
 
+Not in the P065 census (added later): **Simple Analytics**. The ops "Where visitors come from" page reads the Simple Analytics Stats API (`https://simpleanalytics.com/<site>.json`) from the server with `SIMPLE_ANALYTICS_API_KEY` (secret, sent only as the `Api-Key` header) for the site `SIMPLE_ANALYTICS_HOSTNAME` (default `pol.is`), only when `OPS_ENABLED=true` and a staff member opens that page; with the key unset nothing is requested ([simpleAnalytics.ts](../server/src/ops/simpleAnalytics.ts)). The browser-side script tags in client-admin, client-participation and client-report take no configuration.
+
 ### Complete P065 crosswalk
 
 The last column lists direct named environment reads in the same source file, if any. It is an index, not a dataflow claim: a file may have unrelated reads, and imports/arguments/SDKs can supply configuration even when the column is empty. The family table above explains shared configuration routes.

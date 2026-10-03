@@ -9,8 +9,9 @@
 // Caching is lazy and single-flight: nothing is read while nobody is looking,
 // concurrent viewers share one load, and a fresh value is served from memory
 // until its TTL passes. A failed load is served as "unavailable" with the last
-// good rows for TTL x backoff, the backoff doubling on each consecutive failure
-// (capped at 16) and resetting on the next success. The upper bound on work is
+// good rows for min(TTL, 60 s) x backoff, the backoff doubling on each
+// consecutive failure, the hold capped at 5 minutes, and reset on the next
+// success. The upper bound on work is
 // therefore (web processes) x (panels) / TTL, however many tabs are open.
 
 import { guardedRead, OpsReadError } from "./guardedRead";
@@ -97,6 +98,9 @@ export type OpsPageOptions = {
 };
 
 const MAX_BACKOFF = 16;
+// A failed read is retried after min(TTL, 60 s) x backoff, at most 5 minutes.
+export const FAILURE_BASE_S = 60;
+export const MAX_FAILURE_HOLD_MS = 5 * 60 * 1000;
 // Every panel is cached for at least this long, shared by all viewers.
 export const DEFAULT_TTL_S = 60;
 // The 90-day and all-time series change slowly and read the most rows.
@@ -601,7 +605,14 @@ export class PanelCache {
             err instanceof OpsReadError || err instanceof OpsSourceError
               ? err.reason
               : "error";
-          e.failure = { reason, until_ms: now + def.ttl_s * 1000 * e.backoff };
+          // The hold after a failure starts from at most 60 s, whatever the
+          // panel's TTL, and never exceeds MAX_FAILURE_HOLD_MS: a single
+          // timeout on a 15-minute panel must not hide it for hours.
+          const holdMs = Math.min(
+            Math.min(def.ttl_s, FAILURE_BASE_S) * 1000 * e.backoff,
+            MAX_FAILURE_HOLD_MS
+          );
+          e.failure = { reason, until_ms: now + holdMs };
           e.fresh_until_ms = e.failure.until_ms;
           e.backoff = Math.min(e.backoff * 2, MAX_BACKOFF);
         }

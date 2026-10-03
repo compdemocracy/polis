@@ -14,10 +14,13 @@ import { OpsRow, toCount, toNumberOrNull } from "./types";
 
 // Grouped by the client's application_name up to its first ':' (the Python
 // math poller names itself "math-python:<env>@<host>"; the Node pools set no
-// name and show as "unnamed").
+// name and show as "unnamed"). Without pg_read_all_stats the server's role
+// sees other roles' sessions with state and backend_type NULL: they are kept,
+// counted under "not visible (counts only)", never dropped. (Production
+// connects as the RDS master user, which has pg_read_all_stats.)
 export const CONNECTIONS_SQL = `
 SELECT coalesce(nullif(split_part(application_name, ':', 1), ''), 'unnamed') AS app,
-       coalesce(state, 'unknown')                                            AS state,
+       coalesce(state, 'not visible (counts only)')                          AS state,
        count(*)                                                              AS connections,
        max(extract(epoch FROM now() - query_start))
          FILTER (WHERE state = 'active')                                     AS longest_active_s,
@@ -26,7 +29,7 @@ SELECT coalesce(nullif(split_part(application_name, ':', 1), ''), 'unnamed') AS 
          FILTER (WHERE state LIKE 'idle in transaction%')                    AS longest_idle_in_xact_s
 FROM pg_stat_activity
 WHERE datname = current_database()
-  AND backend_type = 'client backend'
+  AND coalesce(backend_type, 'client backend') = 'client backend'
   AND pid <> pg_backend_pid()
 GROUP BY 1, 2`;
 

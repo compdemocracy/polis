@@ -91,6 +91,37 @@ describe("shapeConnections", () => {
   });
 });
 
+describe("sessions the server role cannot fully see", () => {
+  test("are kept and counted, not filtered out by a NULL backend_type", () => {
+    expect(CONNECTIONS_SQL).toContain(
+      "coalesce(backend_type, 'client backend') = 'client backend'"
+    );
+    expect(CONNECTIONS_SQL).toContain(
+      "coalesce(state, 'not visible (counts only)')"
+    );
+    const rows = shapeConnections([
+      {
+        app: "unnamed",
+        state: "not visible (counts only)",
+        connections: "4",
+        waiting_on_lock: "0",
+        longest_active_s: null,
+        longest_idle_in_xact_s: null,
+      },
+    ]);
+    expect(rows).toEqual([
+      {
+        app: "unnamed",
+        state: "not visible (counts only)",
+        connections: 4,
+        waiting_on_lock: 0,
+        longest_active_s: null,
+        longest_idle_in_xact_s: null,
+      },
+    ]);
+  });
+});
+
 describe("RateTracker", () => {
   test("first read has no rate; then per minute; a reset restarts", () => {
     const t = new RateTracker();

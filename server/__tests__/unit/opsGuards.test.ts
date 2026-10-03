@@ -238,6 +238,35 @@ describe("PanelCache", () => {
     expect(load).toHaveBeenCalledTimes(4);
   });
 
+  test("a failure on a long-TTL panel is retried after 60 s, and the hold never passes 5 minutes", async () => {
+    let now = 0;
+    const cache = new PanelCache(() => now);
+    const load = jest.fn(async () => {
+      throw new OpsReadError("timeout");
+    });
+    const def = { ...panel(load as any), ttl_s: 15 * 60 };
+    await cache.get("page", def);
+    expect(load).toHaveBeenCalledTimes(1);
+    // Hold 1x: 60 s, not the 15-minute TTL.
+    now += 59_000;
+    await cache.get("page", def);
+    expect(load).toHaveBeenCalledTimes(1);
+    now += 2_000;
+    await cache.get("page", def);
+    expect(load).toHaveBeenCalledTimes(2);
+    // Keep failing: holds 120, 240, then capped at 300 s from there on.
+    for (const hold of [120_000, 240_000, 300_000, 300_000, 300_000]) {
+      const calls = load.mock.calls.length;
+      now += hold - 1_000;
+      await cache.get("page", def);
+      expect(load).toHaveBeenCalledTimes(calls);
+      now += 2_000;
+      await cache.get("page", def);
+      expect(load).toHaveBeenCalledTimes(calls + 1);
+      now -= 1_000;
+    }
+  });
+
   test("an unexpected error is reported with a closed reason", async () => {
     const cache = new PanelCache(() => 0);
     const { panel: p } = await cache.get(
