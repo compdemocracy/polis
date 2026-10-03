@@ -458,9 +458,14 @@ def test_control_18_stripping_the_marker_loses_geometry_provenance(
 
     cert.validate_checkpoint_blob(view, "unmarked projected view")  # no error
     restored = Conversation.from_dict(view)
-    assert restored.group_clusters == view["group-clusters"]
+    # Kebab group centers restore through the geometry pair (P-078), like
+    # pca.center and base-clusters.
+    from polismath.utils.vote_convention import restore_axis
+    assert restored.group_clusters == [
+        {**g, "center": restore_axis(g["center"])} for g in view["group-clusters"]]
     assert restored.group_clusters
-    assert restored.group_clusters != pol.payload(_projected(real_driver_blob))["group-clusters"]
+    untransformed = Conversation.from_dict(pol.payload(_projected(real_driver_blob)))
+    assert restored.group_clusters != untransformed.group_clusters
 
 
 # ---------------------------------------------------------------------------

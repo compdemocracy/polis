@@ -32,6 +32,11 @@ from polismath.pca_kmeans_rep.legacy_kmeans import (
 )
 from polismath.utils.clj_hash import clojure_hash_map_key_order
 from polismath.utils.output_profile import assert_restorable
+from polismath.utils.vote_convention import (
+    GEOMETRY_AXIS_AGREE_VALUE,
+    emit_axis,
+    restore_axis,
+)
 
 if TYPE_CHECKING:  # import cycle-free: annotation-only reference
     from polismath.database.dynamodb import DynamoDBClient
@@ -1698,11 +1703,16 @@ class Conversation:
         fingerprints: docs/divergences.json + journal session 2026-07-22-3.
 
         - Sign parity (FP-80ca42344a/FP-3781b5768f/FP-af281c8386/
-          FP-194ee5ad04): Delphi's rating matrix is the NEGATION of Clojure's
-          (AGREE=+1 vs AGREE=-1), so every mean/projection-derived float
-          (pca.center, base-clusters x/y, group-cluster centers,
-          comment-projection) negates at this boundary; comps are
-          covariance-derived and already equal — emitted unchanged.
+          FP-194ee5ad04): the engine's rating matrix is semantic (AGREE=+1);
+          the served geometry is in the axis of a matrix whose agree is the
+          frozen wire value (vote_convention.GEOMETRY_AXIS_AGREE_VALUE),
+          the axis the legacy client projects itself in. Every
+          mean/projection-derived float (pca.center, base-clusters x/y,
+          group-cluster centers, comment-projection) goes through
+          ``emit_axis`` at this boundary and ``restore_axis`` in
+          ``from_dict``; comps are covariance-derived and emitted unchanged.
+          The axis is keyed to the wire, never to storage, so a change of the
+          storage sign changes no served byte.
         - pca comment-projection/comment-extremity (FP-2393072de1): Clojure's
           with-proj-and-extremtiy (conversation.clj:341-352); projection is
           emitted TRANSPOSED (component-major), extremity is a norm and
@@ -1751,9 +1761,9 @@ class Conversation:
                 comps = comps[:, perm]
                 cmnt_proj = cmnt_proj[perm, :]
                 extremity = extremity[perm]
-            pca_out['center'] = (-center).tolist()
+            pca_out['center'] = emit_axis(center).tolist()
             pca_out['comps'] = comps.tolist()
-            pca_out['comment-projection'] = (-cmnt_proj.T).tolist()
+            pca_out['comment-projection'] = emit_axis(cmnt_proj.T).tolist()
             pca_out['comment-extremity'] = extremity.tolist()
             result['pca'] = pca_out
         else:
@@ -1762,14 +1772,14 @@ class Conversation:
 
         bc = result.get('base-clusters')
         if bc:
-            bc['x'] = [-v for v in bc['x']]
-            bc['y'] = [-v for v in bc['y']]
+            bc['x'] = emit_axis(bc['x'])
+            bc['y'] = emit_axis(bc['y'])
 
         result['group-clusters'] = [
             {
                 'id': g['id'],
                 'members': list(g['members']),
-                'center': [-c for c in g['center']],
+                'center': emit_axis(list(g['center'])),
             }
             for g in (self.group_clusters or [])
         ]
@@ -2671,12 +2681,17 @@ class Conversation:
         Conversation._conversion_cache = {}
     
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Conversation':
+    def from_dict(cls, data: Dict[str, Any], *,
+                  geometry_axis_agree_value: int = GEOMETRY_AXIS_AGREE_VALUE) -> 'Conversation':
         """
         Create a conversation from a dictionary.
 
         Args:
            data: Dictionary representation of a conversation
+           geometry_axis_agree_value: the axis the blob's served (kebab)
+               geometry was emitted in. Every blob written today is in
+               ``GEOMETRY_AXIS_AGREE_VALUE``; a blob declared in the other
+               axis restores correctly when that axis is passed here.
 
         Returns:
             Conversation instance
@@ -2735,10 +2750,9 @@ class Conversation:
         if pca_data:
             center = np.array(pca_data['center'])
             comps = np.array(pca_data['comps'])
-            # Inverse of the legacy emission sign parity: blobs carry the
-            # Clojure-convention (negated) center; internal state stays in
-            # Delphi convention (see _apply_legacy_blob_shape).
-            center = -center
+            # Inverse of the emission axis (see _apply_legacy_blob_shape):
+            # internal state stays in the semantic axis.
+            center = restore_axis(center, geometry_axis_agree_value)
             # Blobs and the rating matrix both use first-vote column order.
             # Preserve that order when restoring positional warm starts.
             conv.pca = {
@@ -2753,9 +2767,16 @@ class Conversation:
         
         # Preserve the internal alias when present, including an explicit [];
         # legacy rows may carry only the wire spelling.
+        # The snake alias is in the semantic axis; the kebab spelling is in
+        # the served axis and its centers are restored like pca.center and
+        # base-clusters (a kebab-only blob used to restore them un-negated).
         groups = data.get('group_clusters')
         if groups is None:
-            groups = data.get('group-clusters')
+            groups = [
+                {**g, 'center': restore_axis(list(g['center']), geometry_axis_agree_value)}
+                if isinstance(g, dict) and g.get('center') is not None else g
+                for g in (data.get('group-clusters') or [])
+            ]
         conv.group_clusters = groups or []
 
         # Restore base clusters — the blob emits them in the Clojure folded
@@ -2772,7 +2793,7 @@ class Conversation:
         if folded_bc:
             unfolded_bc = conv._unfold_base_clusters(folded_bc)
             for c in unfolded_bc:
-                c['center'] = [-v for v in c['center']]
+                c['center'] = restore_axis(list(c['center']), geometry_axis_agree_value)
             conv.base_clusters = unfolded_bc
 
         # Restore group-votes — restructure-json-conv keeps :group-votes
