@@ -108,6 +108,14 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 - **`ADMIN_EMAILS`** array of email addresses to receive team notifications.
 - **`POLIS_FROM_ADDRESS`** email address from which other emails are sent.
 
+### Conversation data export
+
+`GET /api/v3/dataExport?conversation_id=<id>` (conversation owners only) has two modes, chosen per request:
+
+- **`AWS_S3_BUCKET_NAME` set and `OFFLINE` unset** (production): unchanged. The route queues a `generate_export_data` task in `worker_tasks` and answers `{}`; `/api/v3/dataExport/results` signs a URL into the `polis-datadump` bucket. Nothing has consumed those tasks since the Clojure export worker stopped in 2022.
+- **`AWS_S3_BUCKET_NAME` unset, or `OFFLINE` set to `1`/`true`**: the server streams the export itself as `polis-export-<conversation_id>-<millis>.zip`, holding the report export's `format.json`, `summary.csv`, `comments.csv`, `votes.csv` and `participant-votes.csv`, each byte-identical to `/api/v3/reportExport/<report_id>/<file>` ([export-format.md](export-format.md#the-conversation-zip)). `/api/v3/dataExport/results` answers 404 `polis_err_data_export_results_not_stored`.
+- **`DATA_EXPORT_MAX_CELLS`** (default `20000000`) the largest conversation the second mode streams, counted as the larger of its vote rows and its voters × comments. Over it the route answers 413 `polis_err_data_export_too_large` with `cells` and `limit`, before any byte of zip. A value that is not a positive integer means the default. The zip has no zip64 records, so it must stay under 4 GiB; at the default, `votes.csv` is about 2 GB at most.
+
 ### Boolean Flags
 
 (All can be left blank, or `false`)

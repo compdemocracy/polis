@@ -60,12 +60,35 @@ bytes exactly as before. The declaration is carried beside them:
 
 The report page's "Raw Data Export" section links every file, `format.json`
 included. Each file is served from
-`/api/v3/reportExport/<report_id>/<file>`; there is no zip bundle, so a
-downloader who wants the declaration with the data fetches `format.json` (or
-`summary.csv`) along with the CSVs.
+`/api/v3/reportExport/<report_id>/<file>`, so a downloader who wants the
+declaration with the data fetches `format.json` (or `summary.csv`) along with
+the CSVs, or takes the conversation zip below, which carries it.
 
-The older `/api/v3/dataExport` zip (the Clojure math worker's export) has no
-producer since that worker was retired; it is not a source of these files.
+## The conversation zip
+
+`GET /api/v3/dataExport?conversation_id=<id>` (conversation owners only)
+streams one zip, `polis-export-<conversation_id>-<millis>.zip`, when the server
+has no S3 bucket configured (`AWS_S3_BUCKET_NAME` unset) or runs with
+`OFFLINE` set. It holds, in this order:
+
+| file                    | contents                                   |
+|-------------------------|--------------------------------------------|
+| `format.json`           | the sidecar: format id and declaration     |
+| `summary.csv`           | ends with the `vote-convention` row        |
+| `comments.csv`          | as below                                   |
+| `votes.csv`             | as below                                   |
+| `participant-votes.csv` | as below                                   |
+
+Each file is byte-identical to what
+`/api/v3/reportExport/<report_id>/<file>` serves for the same conversation at
+the same moment; the zip adds no file and changes no byte. The zip is built
+on request and streamed (deflate, no zip64). A conversation over the
+`DATA_EXPORT_MAX_CELLS` limit is refused with HTTP 413
+`polis_err_data_export_too_large` ([configuration](configuration.md#conversation-data-export)).
+
+With a bucket configured and `OFFLINE` unset, the route keeps its older
+behaviour: it queues a task for the Clojure math worker's export, which has had
+no consumer since that worker stopped; that path is not a source of these files.
 
 ## Every file and column
 
