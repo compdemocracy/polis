@@ -26,6 +26,11 @@ from polismath.utils.vote_convention import STORAGE_AGREE_VALUE
 if TYPE_CHECKING:  # psycopg2 stays a lazy, in-function import at runtime
     from psycopg2.extensions import connection as PgConnection
 
+#: Exit code for "the math was computed but its DynamoDB export failed".
+#: run_delphi.py (MATH_EXPORT_FAILED_EXIT_CODE) records it as a failed stage and
+#: still runs the later stages, as it did when this case exited 0.
+MATH_EXPORT_FAILED_EXIT_CODE = 4
+
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -432,6 +437,12 @@ def main() -> None:
             import traceback
 
             traceback.print_exc()
+            success = False
+
+        if not success:
+            # The math was computed but not published. Say so in the exit code;
+            # run_delphi.py records it as a failed stage and carries on.
+            sys.exit(MATH_EXPORT_FAILED_EXIT_CODE)
 
     except Exception as e:
         logger.error(f"Pipeline failed: {e}")
