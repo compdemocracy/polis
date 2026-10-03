@@ -475,7 +475,7 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
               </span>
             )}
             {statementMetadata && (
-              <LocalModelNote provider={statementMetadata.provider} model={statementMetadata.model} style={{ fontSize: "13px" }} />
+              <LocalModelNote as="span" provider={statementMetadata.provider} model={statementMetadata.model} style={{ fontSize: "13px" }} />
             )}
           </p>
           

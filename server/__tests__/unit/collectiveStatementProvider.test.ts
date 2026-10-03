@@ -93,6 +93,8 @@ import {
   ollamaBaseUrl,
   ollamaChat,
   resolveStatementModel,
+  STATEMENT_TIMEOUT_CAP_SECONDS,
+  statementTimeoutSeconds,
 } from "../../src/utils/statementModel";
 
 const STATEMENT = {
@@ -191,6 +193,16 @@ describe("resolveStatementModel", () => {
       "http://host.docker.internal:11434"
     );
     expect(ollamaBaseUrl(null)).toBe("http://localhost:11434");
+  });
+});
+
+describe("statementTimeoutSeconds", () => {
+  it("caps the local statement timeout below nginx's 300 s", () => {
+    expect(STATEMENT_TIMEOUT_CAP_SECONDS).toBeLessThan(300);
+    expect(statementTimeoutSeconds(600)).toBe(240);
+    expect(statementTimeoutSeconds(90)).toBe(90);
+    expect(statementTimeoutSeconds(NaN)).toBe(240);
+    expect(statementTimeoutSeconds(0)).toBe(240);
   });
 });
 

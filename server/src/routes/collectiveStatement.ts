@@ -17,6 +17,7 @@ import {
   ollamaChat,
   resolveStatementModel,
   StatementModel,
+  statementTimeoutSeconds,
 } from "../utils/statementModel";
 
 const dynamoDBConfig: any = {
@@ -162,7 +163,9 @@ You MUST respond with valid JSON that follows the exact schema above. Each claus
           host: Config.ollamaHost,
           model: llm.model,
           numCtx: Config.ollamaNumCtx,
-          timeoutSeconds: Config.ollamaRequestTimeoutSeconds,
+          timeoutSeconds: statementTimeoutSeconds(
+            Config.ollamaRequestTimeoutSeconds
+          ),
         },
         systemPrompt,
         userPrompt,

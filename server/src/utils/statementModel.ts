@@ -8,6 +8,22 @@
 
 export const HOSTED_STATEMENT_MODEL = "claude-opus-4-8";
 
+/**
+ * Longest a local statement request may run. nginx gives the API 300 s
+ * (proxy_read_timeout, file-server/nginx/nginx-ssl.site.default.conf); a call
+ * that outlived it would reach the browser as a 504 while the server went on
+ * to store the statement. Capping below it returns a clean error instead.
+ */
+export const STATEMENT_TIMEOUT_CAP_SECONDS = 240;
+
+export function statementTimeoutSeconds(configured: number): number {
+  const value =
+    Number.isFinite(configured) && configured > 0
+      ? configured
+      : STATEMENT_TIMEOUT_CAP_SECONDS;
+  return Math.min(value, STATEMENT_TIMEOUT_CAP_SECONDS);
+}
+
 export type StatementProvider = "anthropic" | "ollama";
 
 export interface StatementModel {

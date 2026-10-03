@@ -321,6 +321,17 @@ def test_job_budget_stops_sending(batch_module, monkeypatch, fake_ollama):
     assert "time budget" in last["report_data"]
 
 
+def test_all_sections_failing_writes_nothing(batch_module, monkeypatch, fake_ollama):
+    # The report shows the newest job that has rows; a run with no good
+    # section must not replace an earlier good run with error placeholders.
+    server = fake_ollama(lambda body: (500, {"error": "model not found"}, 0))
+    gen = make_generator(batch_module, monkeypatch)
+    assert run_local(gen, server.endpoint) is False
+    assert gen.dynamodb.Table("Delphi_NarrativeReports").puts == []
+    assert _failed_job_message(gen).startswith("4 of 4 sections failed")
+    assert "HTTP 500" in _failed_job_message(gen)
+
+
 def test_failed_store_is_not_counted_as_success(batch_module, monkeypatch, fake_ollama):
     server = fake_ollama(lambda body: ok(section_json(title_of(body))))
     gen = make_generator(batch_module, monkeypatch)

@@ -138,8 +138,14 @@ def run_requests_locally(
     raises. ``store(request, section, content)`` returns False when the write
     did not land. ``store_error(request, section, reason)`` writes a visible
     placeholder for a failed section. Sections are stored in completion order.
+
+    Placeholders are written only after at least one section was stored. A run
+    in which every section fails writes nothing, so the report keeps showing
+    the previous run (it shows the newest job that has rows) instead of a run
+    made only of error sections.
     """
     result = LocalRunResult()
+    failed: List[tuple] = []
     deadline = clock() + settings.job_timeout
     pending = list(requests_)
 
@@ -171,10 +177,7 @@ def run_requests_locally(
             error = "the section could not be written to NarrativeReports"
         logger.error(f"Local-model section {section} failed: {error}")
         result.failures[section] = error
-        try:
-            store_error(request, section, error)
-        except Exception as e:  # noqa: BLE001
-            logger.error(f"Could not store the error placeholder for {section}: {e}")
+        failed.append((request, section, error))
 
     workers = max(1, settings.concurrency)
     with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -185,4 +188,14 @@ def run_requests_locally(
             done, in_flight = wait(in_flight, return_when=FIRST_COMPLETED)
             for future in done:
                 record(*future.result())
+
+    if not result.stored:
+        if failed:
+            logger.error("No section was generated; writing nothing, so the previous run stays visible")
+        return result
+    for request, section, error in failed:
+        try:
+            store_error(request, section, error)
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"Could not store the error placeholder for {section}: {e}")
     return result

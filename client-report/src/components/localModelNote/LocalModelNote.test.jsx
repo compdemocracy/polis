@@ -11,6 +11,17 @@ describe("LocalModelNote", () => {
     );
   });
 
+  it("renders as a span inside an existing paragraph", () => {
+    render(
+      <p data-testid="outer">
+        text <LocalModelNote as="span" provider="ollama" model="llama3.1:8b" />
+      </p>
+    );
+    const note = screen.getByTestId("local-model-note");
+    expect(note.tagName).toBe("SPAN");
+    expect(screen.getByTestId("outer").querySelector("p")).toBeNull();
+  });
+
   it("renders nothing for hosted or unrecorded provenance", () => {
     const { container, rerender } = render(<LocalModelNote provider="anthropic" model="claude-opus-4-8" />);
     expect(container).toBeEmptyDOMElement();
