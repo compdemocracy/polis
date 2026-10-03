@@ -462,6 +462,67 @@ def shutdown_minutes(remaining: float) -> int:
     return max(1, math.ceil(remaining/60))
 
 
+# The un-flip rehearsal (unflip_rehearsal.py) interleaves its two recording
+# containers: the reader runs the step machine's phases against the restored
+# copy, the producer the engine's cold rebuilds between them. The phase name
+# reaches the container through the read-only selection context.
+REHEARSAL_PHASES = (('reader', 'pre'), ('producer', 'engine-pre'), ('reader', 'migrate'), ('reader', 'post'),
+                    ('producer', 'engine-post'), ('reader', 'restore-rule'))
+
+
+def pgpass_field(value: str) -> str:
+    if any(c in value for c in '\r\n\0'): raise ValueError('CREDENTIAL_FORMAT')
+    return value.replace('\\','\\\\').replace(':','\\:')
+
+
+def rehearsal_phases(job, boot, identity, dirs, loaded_images, deadline, diagnostics, stage) -> None:
+    """Credentials for the temporary copies come from the stack's rehearsal
+    secret, bound to the job by the sha256 of each host; the relays reach those
+    hosts only. No production credential is read, and the worker makes no RDS call."""
+    import boto3
+    import contextlib
+    from unflip_rehearsal import validate_run_spec, validate_secret
+    data, output, verdict, specification, selection_context = dirs
+    spec = validate_run_spec(job['run_spec'])
+    stage('secret', 'prepare')
+    secret_client=boto3.client('secretsmanager',region_name=identity['region'],endpoint_url=boot['secretsUrl'])
+    doc=validate_secret(json.loads(secret_client.get_secret_value(SecretId=boot['rehearsalSecretArn'])['SecretString']),spec)
+    # The second copy's directory always exists (empty when the restore rule is
+    # not run), so both containers' mount lists stay fixed literals.
+    sock,sock_r2=shared_dir(SCRATCH/'replica'),shared_dir(SCRATCH/'replica-r2')
+    copies=[('probe','/replica',doc,sock)]+([('probe_r2','/replica-r2',doc['r2'],sock_r2)] if 'r2' in doc else [])
+    service=''.join(f'[{name}]\nhost={mount}\nport=5432\nsslmode=disable\nuser={d["username"]}\n'
+                    f'passfile=/replica/pgpass\ndbname={d["dbname"]}\n' for name,mount,d,_ in copies)
+    (sock/'service.conf').write_text(service);(sock/'service.conf').chmod(0o444)
+    (sock/'pgpass').write_text(''.join(':'.join(pgpass_field(v) for v in [mount,'5432',d['dbname'],d['username'],d['password']])+'\n'
+                                       for _,mount,d,_ in copies))
+    (sock/'pgpass').chmod(0o600);os.chown(sock/'pgpass',65534,65534)
+    del doc,service
+    with contextlib.ExitStack() as relays:
+        for _,_,d,directory in copies:
+            relay=relays.enter_context(ReplicaSocket(directory,d['host'],ROOT/'rds-ca.pem'))
+            diagnostics.relay=diagnostics.relay or relay
+        for role,phase in REHEARSAL_PHASES:
+            if role=='producer' and spec['mode']=='dry':
+                continue
+            if phase=='restore-rule' and not spec['restore_rule']:
+                continue
+            (selection_context/'phase.json').unlink(missing_ok=True)
+            (selection_context/'phase.json').write_bytes(canonical({'phase':phase}))
+            (selection_context/'phase.json').chmod(0o444)
+            stage(role,'execute')
+            if role=='reader':
+                sandbox(job['reader'],'reader',[(sock,'/replica','ro'),(sock_r2,'/replica-r2','ro'),(data,'/output','rw'),
+                        (selection_context,'/selection','ro')],deadline-300,loaded_images[job['reader']['image']],diagnostics)
+            else:
+                sandbox(job['producer'],'producer',[(sock,'/replica','ro'),(selection_context,'/selection','ro'),
+                        (data,'/input','ro'),(output,'/output','rw')],deadline-240,loaded_images[job['producer']['image']],diagnostics)
+    (sock/'service.conf').unlink();(sock/'pgpass').unlink()
+    stage('verifier','execute')
+    sandbox(job['verifier'],'verifier',[(data,'/input','ro'),(output,'/evidence','ro'),(specification,'/job','ro'),
+            (verdict,'/verdict','rw')],deadline-30,loaded_images[job['verifier']['image']],diagnostics)
+
+
 def load_receipt(path: Path, job: dict) -> dict:
     if path.is_symlink() or not path.is_file() or path.stat().st_size>receipt_limit(job):
         raise ValueError("RECEIPT_FILE")
@@ -548,7 +609,11 @@ def run(diagnostics=None) -> None:
                    if k in job}
         (selection_context/'context.json').write_bytes(canonical(context))
         (selection_context/'context.json').chmod(0o444)
-        if 'reader' in job:
+        rehearsal = job.get('kind') == 'unflip-rehearsal'
+        if rehearsal:
+            rehearsal_phases(job, boot, identity, (data, output, verdict, specification, selection_context),
+                             loaded_images, deadline, diagnostics, stage)
+        elif 'reader' in job:
             stage('secret', 'prepare')
             secret_client=boto3.client('secretsmanager',region_name=identity['region'],endpoint_url=boot['secretsUrl'])
             secret=json.loads(secret_client.get_secret_value(SecretId=boot['secretArn'])['SecretString'])
@@ -580,11 +645,12 @@ def run(diagnostics=None) -> None:
         verifier_mounts=[(data,'/input','ro'),(output,'/evidence','ro'),(run_spec,'/run-spec','ro'),(specification,'/job','ro'),(verdict,'/verdict','rw')]
         if fixture.is_dir():
             producer_mounts.append((fixture,'/fixture','ro'));verifier_mounts.append((fixture,'/fixture','ro'))
-        stage('producer', 'execute')
-        write_engine_deadline(run_spec, deadline)
-        sandbox(job['producer'],'producer',producer_mounts,deadline-120,loaded_images[job['producer']['image']], diagnostics)
-        stage('verifier', 'execute')
-        sandbox(job['verifier'],'verifier',verifier_mounts,deadline-30,loaded_images[job['verifier']['image']], diagnostics)
+        if not rehearsal:
+            stage('producer', 'execute')
+            write_engine_deadline(run_spec, deadline)
+            sandbox(job['producer'],'producer',producer_mounts,deadline-120,loaded_images[job['producer']['image']], diagnostics)
+            stage('verifier', 'execute')
+            sandbox(job['verifier'],'verifier',verifier_mounts,deadline-30,loaded_images[job['verifier']['image']], diagnostics)
         stage('receipt', 'validate')
         result=verdict/'receipt.json'
         receipt=load_receipt(result,job)

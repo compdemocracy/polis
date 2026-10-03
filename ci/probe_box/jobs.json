@@ -89,6 +89,56 @@
         "args": ["verify"],
         "image": "localhost/polis-verify-verifier@sha256:0000000000000000000000000000000000000000000000000000000000000000"
       }
+    },
+    "unflip-rehearsal-v1": {
+      "kind": "unflip-rehearsal",
+      "max_seconds": 14400,
+      "producer": {
+        "args": ["produce"],
+        "image": "localhost/polis-unflip-producer@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "reader": {
+        "args": ["read"],
+        "image": "localhost/polis-unflip-reader@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "run_id": "00000000000000000000000000000000",
+      "run_spec": {
+        "allocated_storage_gb": 60,
+        "certification_conversations": 2,
+        "certification_sha256": [
+          "1111111111111111111111111111111111111111111111111111111111111111",
+          "2222222222222222222222222222222222222222222222222222222222222222"
+        ],
+        "convention_ddl_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "db_host_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "engine_image": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "instance_class": "db.t3.large",
+        "lock_wait_budget_ms": 30000,
+        "max_snapshot_age_seconds": 129600,
+        "migration_sql_sha256": "ec9ba72d848971687db2e061dadf136fb4b176f0ed94f48216b6e0698901fdd0",
+        "min_free_storage_gb": 30,
+        "mode": "flip",
+        "queries_sha256": "bb827e96c9da62722ab62be095df9700d215176bea878c10a73166ada1bcc801",
+        "r2_host_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "restore_observed": {
+          "allocated_storage_gb": 60,
+          "duration_s": 0,
+          "instance_class": "db.t3.large",
+          "storage_growth_s": 0,
+          "storage_type": "gp3"
+        },
+        "restore_rule": true,
+        "sample_conversations": 200,
+        "server_image": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "snapshot_created_ms": 1500000000000,
+        "snapshot_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "storage_type": "gp3"
+      },
+      "schema": "polis-probe-job/2",
+      "verifier": {
+        "args": ["verify"],
+        "image": "localhost/polis-unflip-verifier@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      }
     }
   }
 }
