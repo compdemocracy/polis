@@ -176,6 +176,27 @@ def parse_queries(raw: bytes) -> dict:
     return out
 
 
+ROLLED_BACK = ('insert_roundtrip', 'insert_readback')
+
+
+def render_queries(raw: bytes) -> str:
+    """The bound queries for reading and for the production day: each block
+    under its name, day blocks marked, and the vote_insert round trip only ever
+    wrapped in BEGIN; ... ROLLBACK; (rehearsal copies only, never production)."""
+    q = parse_queries(raw)
+    out = []
+    for name, (sql, day) in q.items():
+        if name == ROLLED_BACK[1]:
+            continue
+        if name == ROLLED_BACK[0]:
+            out.append('-- name: insert_roundtrip + insert_readback (rehearsal copies only; NEVER on production;\n'
+                       '--   it would overwrite a real participant\'s vote. Always rolled back.)\n'
+                       f'BEGIN;\n{sql}\n{q[ROLLED_BACK[1]][0]}\nROLLBACK;\n')
+            continue
+        out.append(f'-- name: {name}{" (day)" if day else ""}\n{sql}\n')
+    return '\n'.join(out)
+
+
 REQUIRED_QUERIES = frozenset({
     'session', 'objects', 'convention', 'unflip_ledger', 'database_bytes', 'raw_counts', 'totals',
     'aggregates_votes', 'aggregates_latest', 'participant_hashes', 'sizes', 'wal_lsn', 'wal_since', 'backend',
@@ -587,9 +608,8 @@ def main(argv=None):
     a = p.parse_args(argv)
     if a.print_sql:
         raw = QUERIES_PATH.read_bytes()
-        parse_queries(raw)
         sys.stdout.write(f'-- queries_sha256 {digest(raw)}\n')
-        sys.stdout.write(raw.decode('utf-8'))
+        sys.stdout.write(render_queries(raw))
     else:
         raw = MIGRATION_PATH.read_bytes()
         migration_body(raw)

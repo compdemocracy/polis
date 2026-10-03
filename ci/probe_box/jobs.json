@@ -115,10 +115,10 @@
         "instance_class": "db.t3.large",
         "lock_wait_budget_ms": 30000,
         "max_snapshot_age_seconds": 129600,
-        "migration_sql_sha256": "ec9ba72d848971687db2e061dadf136fb4b176f0ed94f48216b6e0698901fdd0",
+        "migration_sql_sha256": "a63611e8e1c9b78956e7e339ec561ee86010a9bde5e269878eef1a56ae6e76b8",
         "min_free_storage_gb": 30,
         "mode": "flip",
-        "queries_sha256": "bb827e96c9da62722ab62be095df9700d215176bea878c10a73166ada1bcc801",
+        "queries_sha256": "dbc69b1b4e3bcd0c4ea719c96cdbc494d375d2ce9521295a523e85d931403fa2",
         "r2_host_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
         "restore_observed": {
           "allocated_storage_gb": 60,

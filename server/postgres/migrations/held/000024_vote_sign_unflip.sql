@@ -24,7 +24,8 @@
 --   6. records itself in public.schema_migrations as its last statement.
 --
 -- Requires PR-A (public.vote_convention, public.schema_migrations). Read
--- committed (the default), never repeatable read: see P-078 section 2a.
+-- committed, set explicitly so no role or database default can change it;
+-- never repeatable read: see P-078 section 2a.
 -- Writers calling vote_insert() wait at most 2 s on the convention row and are
 -- answered 503 polis_err_votes_paused_retry; reads are never blocked.
 --
@@ -39,6 +40,7 @@
 -- Print it with: python3 ci/probe_box/unflip_rehearsal.py --print-migration
 
 BEGIN;
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 SET LOCAL lock_timeout = '30s';
 SET LOCAL statement_timeout = 0;
 
@@ -126,5 +128,5 @@ BEGIN
 END
 $mirror$;
 
-INSERT INTO public.schema_migrations (name, checksum, note) VALUES ('000024_vote_sign_unflip', 'ff75b1c9e792b253fd4d80aa852e2e542a298db438721a8f48c0d84c6d57436b', 'P-078 un-flip, ruling R-I'); -- ledger-self-checksum
+INSERT INTO public.schema_migrations (name, checksum, note) VALUES ('000024_vote_sign_unflip', '05f2317db5601c7962aa09243d668112ddf6dcb77419c4be1b224145901eccaa', 'P-078 un-flip, ruling R-I'); -- ledger-self-checksum
 COMMIT;

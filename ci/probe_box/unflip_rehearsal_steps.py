@@ -1,8 +1,9 @@
 """The un-flip rehearsal's step machine, run against a temporary restored copy.
 
-    preflight -> PR-A DDL if absent -> PRE -> MIGRATE (dry: inside a ROLLBACK;
-    flip: committed) -> RE-RUN (must refuse at the version guard) -> POST +
-    VACUUM -> restore rule on a second copy -> state for the verifier
+    preflight -> PR-A DDL if absent -> PRE -> engine rebuild -> served pca2 ->
+    MIGRATE (dry: inside a ROLLBACK; flip: committed) -> RE-RUN (must refuse at
+    the version guard) -> POST + VACUUM -> engine rebuild -> served pca2 ->
+    restore rule on a second copy -> state for the verifier
 
 Every phase reads and returns a box-local state document
 (polis-unflip-rehearsal-state/1). The state never leaves the box: it holds
@@ -253,8 +254,7 @@ def phase_pre(copy, state, spec, *, ddl, migration, queries, collectors=None):
         state['pre'] = snapshot(copy, lambda cur: record_sql(copy, cur))
         if spec['mode'] == 'flip':
             cert = state['zids']['certification']
-            state['pre_cases'] = {'pca2': collect(collectors, 'served', 'pre', cert),
-                                  'exports': collect(collectors, 'exports', 'pre', cert)}
+            state['pre_cases'] = {'exports': collect(collectors, 'exports', 'pre', cert)}
     except Refusal as r:
         refuse(state, r.code)
     return state
@@ -297,6 +297,23 @@ def phase_engine(copy, state, which, rebuild):
         refuse(state, 'COLLECTION_FAILED')
         return state
     state[which + '_cases']['math'] = got
+    return state
+
+
+def phase_served(copy, state, spec, which, collectors=None):
+    """Served pca2 bytes for the certification conversations, collected after
+    the engine's cold rebuild of the same side, from a loopback server reading
+    the rebuild's label (MATH_ENV=probe). The route serves stored math_main, so
+    this is what makes pca2 reflect a cold recompute before and after the flip."""
+    if (spec['mode'] != 'flip' or stopped(state) or state['zids'] is None
+            or (which == 'post' and state['post'] is None)):
+        return state
+    try:
+        cases = collect(collectors, 'served', which, state['zids']['certification'])
+    except Refusal as r:
+        refuse(state, r.code)
+        return state
+    state[which + '_cases'] = dict(state[which + '_cases'] or {}, pca2=cases)
     return state
 
 
@@ -487,8 +504,7 @@ def phase_post(copy, state, spec, *, collectors=None):
         state['convention_after'] = snapshot(copy, lambda cur: list(map(int, copy.one(cur, 'convention'))))
         if spec['mode'] == 'flip':
             cert = state['zids']['certification']
-            state['post_cases'] = {'pca2': collect(collectors, 'served', 'post', cert),
-                                   'exports': collect(collectors, 'exports', 'post', cert)}
+            state['post_cases'] = {'exports': collect(collectors, 'exports', 'post', cert)}
             state['insert_roundtrip'] = insert_roundtrip(copy)
     except Refusal as r:
         refuse(state, r.code)
@@ -549,9 +565,11 @@ def rehearse(connect, spec, *, ddl, migration, queries, collectors=None, rebuild
     phase_pre(copy, state, spec, ddl=ddl, migration=migration, queries=queries, collectors=collectors)
     if spec['mode'] == 'flip' and rebuild is not None:
         phase_engine(copy, state, 'pre', rebuild)
+    phase_served(copy, state, spec, 'pre', collectors)
     phase_migrate(copy, state, spec, migration=migration, wall_budget_s=wall_budget_s, interval=interval)
     phase_post(copy, state, spec, collectors=collectors)
     if spec['mode'] == 'flip' and rebuild is not None:
         phase_engine(copy, state, 'post', rebuild)
+    phase_served(copy, state, spec, 'post', collectors)
     phase_restore_rule(Copy(connect_r2, q) if connect_r2 else None, state, spec, ddl=ddl, migration=migration)
     return state

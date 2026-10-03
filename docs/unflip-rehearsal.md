@@ -31,8 +31,12 @@ outputs. This document holds no values.
    `unflip_rehearsal.py` is a baked file.
 3. Merge the registry PR that pins the reader, producer and verifier image
    digests, and that binds `convention_ddl_sha256` to PR-A's committed
-   migration file. Until then the template refuses to launch
-   (`PLACEHOLDER_IMAGE`, `PLACEHOLDER_RUN_SPEC`).
+   migration file. The registry entry is the only source of truth for the
+   images and the three file digests: `restore` and `launch` never replace
+   them. They refuse a template (`PLACEHOLDER_IMAGE`, `PLACEHOLDER_DIGEST`),
+   the tests' PR-A stand-in (`STANDIN_DDL`), and any local file that is not
+   the pinned bytes (`MIGRATION_DIGEST`, `QUERIES_DIGEST`, `DDL_DIGEST`).
+   `restore` checks all of this before any RDS call.
 4. Write the operator config. It is the stack's `WorkerConfig` output plus
    one key, `DB_SUBNET_GROUP`: the production database's subnet group name.
    Save it as `<operator dir>/config.json`.
@@ -49,7 +53,9 @@ python3 ci/probe_box/run.py unflip-rehearsal check \
   --config <operator dir>/config.json --profile <operator profile> \
   --source-db-instance <production instance identifier>
 
-# 2. Restore. Restores the latest automated snapshot into the stack-named copy
+# 2. Restore. Refuses first, before any RDS call, unless the registry is pinned
+#    and the local held migration, queries file and --ddl are its exact bytes.
+#    Then restores the latest automated snapshot into the stack-named copy
 #    (and its -r2 twin when the restore rule runs), sets a one-time master
 #    password on each copy, writes the rehearsal secret, and drafts the job in
 #    <operator dir>/unflip-<run8>/.
@@ -60,8 +66,8 @@ python3 ci/probe_box/run.py unflip-rehearsal restore \
   --certification <public conversation id> --certification <public conversation id> \
   --ddl <PR-A migration file> --server-image sha256:<server digest> --engine-image sha256:<engine digest>
 
-# 3. Launch. Refuses on a digest mismatch, a placeholder, or a leftover copy
-#    from another run.
+# 3. Launch. Refuses unless the drafted job carries the registry's images and
+#    digests (and the local files match), or on a leftover copy from another run.
 python3 ci/probe_box/run.py unflip-rehearsal launch \
   --config <operator dir>/config.json --profile <operator profile> --run-id <32 hex> --ddl <PR-A migration file>
 
@@ -74,7 +80,10 @@ python3 ci/probe_box/run.py unflip-rehearsal watch \
 python3 ci/probe_box/run.py unflip-rehearsal receipt \
   --config <operator dir>/config.json --profile <operator profile> --run-id <32 hex>
 
-# 6. Cleanup. Run it again by hand if the watch did not end cleanly.
+# 6. Cleanup. Run it again by hand if the watch did not end cleanly. It deletes
+#    only this run's copies at the stack's two fixed identifiers, and only when
+#    their sole security group is the rehearsal group. Anything else carrying
+#    the tags is refused, kept and reported (the ledger then refuses launches).
 python3 ci/probe_box/run.py unflip-rehearsal cleanup \
   --config <operator dir>/config.json --profile <operator profile> --run-id <32 hex>
 ```
@@ -142,11 +151,13 @@ reader and producer containers run them in turn
    - one hash per participant;
    - raw counts and sizes.
 
-   In `flip` mode it also records, for the certification conversations:
-   - served pca2 bytes, from a loopback server;
-   - `votes.csv` exports;
+   In `flip` mode it also records:
+   - `votes.csv` exports of the certification conversations;
    - the engine's cold rebuilds of the sample, under the non-served label
-     `probe`.
+     `probe` (producer phase `engine-pre`);
+   - then served pca2 bytes for the certification conversations, from a
+     loopback server running with `MATH_ENV=probe`, so pca2 reflects the cold
+     rebuild rather than the stored rows (reader phase `served-pre`).
 4. **MIGRATE.**
    - `flip` runs the held file and commits it.
    - `dry` runs its body inside a transaction and rolls it back.
@@ -157,8 +168,9 @@ reader and producer containers run them in turn
 5. **RE-RUN.** The file must fail at its version guard (SQLSTATE `P0785`). In
    `dry` mode the re-run happens inside the open transaction, behind a
    savepoint.
-6. **POST** (`flip`). Runs `VACUUM (VERBOSE)`, then the PRE recordings again,
-   the convention row, and one `vote_insert()` round trip (rolled back). In
+6. **POST** (`flip`). Runs `VACUUM (VERBOSE)`, then the PRE recordings again
+   (the rebuild, then pca2 from it), the convention row, and one
+   `vote_insert()` round trip on the copy (rolled back). In
    `dry` mode the SQL recording is repeated after the rollback, to prove the
    copy is unchanged.
 7. **Restore rule** (`flip`, `restore_rule`), on the second copy:
@@ -181,7 +193,9 @@ a fresh rehearsal on a fresh snapshot.
 | the ledger's last cleanup for a run is unconfirmed | every probe launch, any kind | `CLEANUP_UNCONFIRMED` |
 | free storage below `min_free_storage_gb` | worker | `STORAGE_HEADROOM` |
 | restore class/storage differ from the job | worker | `RESTORE_SHAPE` |
-| migration, DDL or queries digest mismatch | operator launch; worker | `*_DIGEST` |
+| registry template, or the PR-A stand-in as the DDL | operator restore (before any RDS call) and launch | `PLACEHOLDER_IMAGE`, `PLACEHOLDER_DIGEST`, `STANDIN_DDL` |
+| migration, DDL or queries digest mismatch | operator restore and launch; worker | `*_DIGEST` |
+| a tagged instance that is not one of the two fixed copies in the rehearsal group | operator cleanup | not deleted; reported; launches refuse |
 | server not 17.x, superuser session, convention not at version 0 | worker | `SERVER_VERSION`, `SUPERUSER_SESSION`, `CONVENTION_STATE` |
 | lock wait above `lock_wait_budget_ms`; wall time above 90 min | worker | `LOCK_BUDGET`, `WALL_BUDGET` (the transaction rolls back) |
 | an assertion inside the migration fails | worker | `MIGRATION_FAILED` (nothing committed) |
@@ -235,7 +249,10 @@ python3 ci/probe_box/unflip_rehearsal.py --print-migration
 
 Print the verification queries with the command below. The blocks marked
 `(day)` are run on the box, never from a laptop, and compared with the
-receipt.
+receipt. The `vote_insert()` round trip is **not** a production-day query:
+on production it would overwrite a real participant's vote. It is printed
+only wrapped in `BEGIN; … ROLLBACK;`, for rehearsal copies. The production
+day checks the write path with one browser vote (P-078 §2c step 5).
 
 ```bash
 python3 ci/probe_box/unflip_rehearsal.py --print-sql

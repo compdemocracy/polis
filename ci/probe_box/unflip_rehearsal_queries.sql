@@ -5,8 +5,13 @@
 -- queries (P-078 section 2c step 5): Colin runs them on the box, never from a
 -- laptop, and compares their shape with the rehearsal receipt. Print them with
 --   python3 ci/probe_box/unflip_rehearsal.py --print-sql
--- No block writes except insert_roundtrip (rolled back by its caller) and the
--- engine label cleanup (its own non-served label only).
+-- No block writes except insert_roundtrip (rehearsal only, always inside a
+-- transaction its caller rolls back) and the engine label cleanup (its own
+-- non-served label only). insert_roundtrip and insert_readback are NOT
+-- production-day queries: on production they would overwrite a real
+-- participant's vote. The production day checks the write path with one
+-- browser vote (P-078 section 2c step 5); --print-sql prints the two blocks
+-- only wrapped in BEGIN; ... ROLLBACK;.
 
 -- name: session
 SELECT pg_catalog.current_setting('server_version_num')::int AS server_version_num,
@@ -107,11 +112,11 @@ SELECT d.zid FROM (SELECT DISTINCT v.zid FROM public.votes v) d
 -- name: insert_target
 SELECT u.zid, u.pid, u.tid FROM public.votes_latest_unique u ORDER BY u.zid, u.pid, u.tid LIMIT 1;
 
--- name: insert_roundtrip (day)
+-- name: insert_roundtrip
 SELECT r.vote::int AS vote, r.created, r.convention_version
   FROM public.vote_insert(%(zid)s, %(pid)s, %(tid)s, 1::smallint) r;
 
--- name: insert_readback (day)
+-- name: insert_readback
 SELECT (SELECT s.semantic_vote::int FROM public.votes_semantic s
          WHERE s.zid = %(zid)s AND s.pid = %(pid)s AND s.tid = %(tid)s AND s.created = %(created)s LIMIT 1) AS semantic,
        (SELECT u.semantic_vote::int FROM public.votes_latest_unique_semantic u

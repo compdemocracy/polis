@@ -466,8 +466,9 @@ def shutdown_minutes(remaining: float) -> int:
 # containers: the reader runs the step machine's phases against the restored
 # copy, the producer the engine's cold rebuilds between them. The phase name
 # reaches the container through the read-only selection context.
-REHEARSAL_PHASES = (('reader', 'pre'), ('producer', 'engine-pre'), ('reader', 'migrate'), ('reader', 'post'),
-                    ('producer', 'engine-post'), ('reader', 'restore-rule'))
+REHEARSAL_PHASES = (('reader', 'pre'), ('producer', 'engine-pre'), ('reader', 'served-pre'), ('reader', 'migrate'),
+                    ('reader', 'post'), ('producer', 'engine-post'), ('reader', 'served-post'),
+                    ('reader', 'restore-rule'))
 
 
 def pgpass_field(value: str) -> str:
@@ -503,7 +504,7 @@ def rehearsal_phases(job, boot, identity, dirs, loaded_images, deadline, diagnos
             relay=relays.enter_context(ReplicaSocket(directory,d['host'],ROOT/'rds-ca.pem'))
             diagnostics.relay=diagnostics.relay or relay
         for role,phase in REHEARSAL_PHASES:
-            if role=='producer' and spec['mode']=='dry':
+            if (role=='producer' or phase.startswith('served-')) and spec['mode']=='dry':
                 continue
             if phase=='restore-rule' and not spec['restore_rule']:
                 continue

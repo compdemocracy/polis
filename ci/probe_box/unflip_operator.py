@@ -146,7 +146,7 @@ def check_job_files(job, ddl: bytes):
         raise Refused('MIGRATION_DIGEST')
     if s['queries_sha256'] != u.digest(u.QUERIES_PATH.read_bytes()):
         raise Refused('QUERIES_DIGEST')
-    if s['convention_ddl_sha256'] != u.digest(ddl):
+    if ddl is not None and s['convention_ddl_sha256'] != u.digest(ddl):
         raise Refused('DDL_DIGEST')
 
 
@@ -251,18 +251,55 @@ def registry_entry():
     return json.loads((u.HERE / 'jobs.json').read_bytes())['jobs']['unflip-rehearsal-v1']
 
 
+DIGESTS = (('migration_sql_sha256', 'MIGRATION_DIGEST'), ('queries_sha256', 'QUERIES_DIGEST'),
+           ('convention_ddl_sha256', 'DDL_DIGEST'))
+
+
+def registry_binding(ddl: bytes):
+    """The registry entry is the only source of truth for the three file digests
+    and the images. Refuse a template (zero image or file digest), the PR-A
+    stand-in fixture, and any local file that is not the pinned bytes. Runs
+    before any RDS call."""
+    from contracts import PLACEHOLDER_DIGEST
+    entry = registry_entry()
+    spec = entry['run_spec']
+    if any(entry[k]['image'].endswith(PLACEHOLDER_DIGEST) for k in ('reader', 'producer', 'verifier')):
+        raise Refused('PLACEHOLDER_IMAGE')
+    if any(spec[k] == u.ZERO for k, _ in DIGESTS):
+        raise Refused('PLACEHOLDER_DIGEST')
+    if spec['convention_ddl_sha256'] == u.digest(u.CONVENTION_STANDIN_PATH.read_bytes()):
+        raise Refused('STANDIN_DDL')
+    local = {'migration_sql_sha256': u.digest(u.MIGRATION_PATH.read_bytes()),
+             'queries_sha256': u.digest(u.QUERIES_PATH.read_bytes()), 'convention_ddl_sha256': u.digest(ddl)}
+    for k, code in DIGESTS:
+        if local[k] != spec[k]:
+            raise Refused(code)
+    return entry
+
+
+def check_registry(job):
+    """A drafted job must carry exactly the registry's images and file digests."""
+    entry = registry_entry()
+    if any(job[k] != entry[k] for k in ('reader', 'producer', 'verifier')):
+        raise Refused('IMAGE_BINDING')
+    for k, code in DIGESTS:
+        if job['run_spec'][k] != entry['run_spec'][k]:
+            raise Refused(code)
+    if job['run_spec']['convention_ddl_sha256'] == u.digest(u.CONVENTION_STANDIN_PATH.read_bytes()):
+        raise Refused('STANDIN_DDL')
+
+
 def draft_job(run_id, *, mode, restore_rule, snap, entry, r2_entry, observed, certification, ddl, server_image,
               engine_image):
     from contracts import validate_job
-    job = registry_entry()
+    job = registry_binding(ddl)
     spec = dict(job['run_spec'], mode=mode, restore_rule=restore_rule,
                 snapshot_sha256=sha(snap['DBSnapshotIdentifier']),
                 snapshot_created_ms=int(snap['SnapshotCreateTime'].timestamp() * 1000),
                 db_host_sha256=sha(entry['host']), r2_host_sha256=sha(r2_entry['host']) if r2_entry else None,
                 certification_conversations=len(certification),
                 certification_sha256=sorted(sha(x) for x in certification),
-                convention_ddl_sha256=u.digest(ddl), server_image=server_image, engine_image=engine_image,
-                restore_observed=observed, **u.file_digests())
+                server_image=server_image, engine_image=engine_image, restore_observed=observed)
     return validate_job(dict(job, run_id=run_id, run_spec=spec))
 
 
@@ -286,6 +323,7 @@ def cmd_restore(a, cfg, state_dir):
     if any(not PUBLIC_ID.fullmatch(x) for x in a.certification) or len(set(a.certification)) != len(a.certification):
         raise Refused('CERTIFICATION_ID')
     restore_rule = a.mode == 'flip' and not a.no_restore_rule
+    registry_binding(Path(a.ddl).read_bytes())   # before any RDS call
     rds = client('rds', cfg, a.profile)
     refuse_ledger(state_dir)
     refuse_leftovers(rds, cfg['BOX_ID'])
@@ -321,8 +359,8 @@ def load_job(state_dir, run_id, ddl=None):
     job = validate_job(json.loads((run_dir(state_dir, run_id) / 'job.json').read_bytes()))
     if job['run_id'] != run_id or job.get('kind') != u.KIND:
         raise Refused('JOB_BINDING')
-    if ddl is not None:
-        check_job_files(job, ddl)
+    check_registry(job)
+    check_job_files(job, ddl)
     return refuse_placeholder(job)
 
 
@@ -332,19 +370,42 @@ def cmd_launch(a, cfg, state_dir, session):
     return session.start(job)
 
 
+def deletable(instance, cfg):
+    """Only the stack's two fixed copies, and only inside the rehearsal group."""
+    groups = [g.get('VpcSecurityGroupId') for g in instance.get('VpcSecurityGroups') or []]
+    return (instance.get('DBInstanceIdentifier') in (cfg['REHEARSAL_INSTANCE'], cfg['REHEARSAL_INSTANCE_R2'])
+            and groups == [cfg['REHEARSAL_SECURITY_GROUP']])
+
+
 def cmd_cleanup(a, cfg, state_dir, rds=None, secrets_client=None, *, sleep=time.sleep, clock=time.monotonic):
-    """Delete every instance of this box and run, empty the secret, record the outcome."""
+    """Delete this run's copies (the stack's two fixed identifiers inside the
+    rehearsal group, nothing else), empty the secret, record the outcome."""
     if not RUN_ID.fullmatch(a.run_id or ''):
         raise Refused('RUN_ID')
     rds = rds or client('rds', cfg, a.profile)
     confirmed, remaining = True, []
     try:
-        mine = [i['DBInstanceIdentifier'] for i, t in tagged(rds, cfg['BOX_ID']) if t.get(RUN_TAG) == a.run_id]
+        mine = []
+        for i, t in tagged(rds, cfg['BOX_ID']):
+            if t.get(RUN_TAG) != a.run_id:
+                continue
+            if deletable(i, cfg):
+                mine.append(i['DBInstanceIdentifier'])
+            else:
+                # Tags alone never authorize a delete: refused, reported, kept.
+                remaining.append(i['DBInstanceIdentifier'])
+        deleting = []
         for name in mine:
             i = describe(rds, name)
-            if i is not None and i['DBInstanceStatus'] != 'deleting':
+            if i is None:
+                continue
+            if not deletable(i, cfg):
+                remaining.append(name)
+                continue
+            if i['DBInstanceStatus'] != 'deleting':
                 rds.delete_db_instance(DBInstanceIdentifier=name, SkipFinalSnapshot=True, DeleteAutomatedBackups=True)
-        for name in mine:
+            deleting.append(name)
+        for name in deleting:
             try:
                 wait(rds, name, lambda x: x is None, DELETE_SECONDS, sleep=sleep, clock=clock)
             except Refused:

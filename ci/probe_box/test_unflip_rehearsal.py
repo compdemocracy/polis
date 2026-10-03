@@ -125,6 +125,7 @@ class HeldMigration(unittest.TestCase):
         body = u.migration_body(MIGRATION)
         self.assertNotIn('BEGIN;', body)
         self.assertNotIn('COMMIT;', body)
+        self.assertTrue(body.lstrip('\n').startswith('SET TRANSACTION ISOLATION LEVEL READ COMMITTED;\n'))
         for needle in ("SET LOCAL lock_timeout = '30s'", 'FOR UPDATE', "ERRCODE = 'P0785'", "ERRCODE = 'P0786'",
                        "ERRCODE = 'P0787'", "ERRCODE = 'P0788'", 'UPDATE public.votes SET vote = -vote WHERE vote IN (-1, 1);',
                        'UPDATE public.votes_latest_unique SET vote = -vote WHERE vote IN (-1, 1);'):
@@ -162,7 +163,16 @@ class HeldMigration(unittest.TestCase):
         out = io.StringIO()
         with redirect_stdout(out):
             self.assertEqual(u.main(['--print-sql']), 0)
-        self.assertEqual(out.getvalue(), f'-- queries_sha256 {u.digest(QUERIES)}\n' + QUERIES.decode())
+        text = out.getvalue()
+        self.assertTrue(text.startswith(f'-- queries_sha256 {u.digest(QUERIES)}\n'))
+        # The vote_insert round trip is never a production-day query and is only
+        # ever printed inside a transaction that rolls back.
+        block = re.search(r'\nBEGIN;\n(.*?)\nROLLBACK;\n', text, re.S)
+        self.assertIsNotNone(block)
+        self.assertEqual(text.count('vote_insert('), 1)
+        self.assertIn('vote_insert(', block.group(1))
+        self.assertIn('NEVER on production', text)
+        self.assertNotRegex(text, r'name: insert_(roundtrip|readback)[^\n]*\(day\)')
 
 
 class Queries(unittest.TestCase):
@@ -170,8 +180,7 @@ class Queries(unittest.TestCase):
         q = u.parse_queries(QUERIES)
         self.assertEqual(set(q), u.REQUIRED_QUERIES)
         self.assertEqual({n for n, (_, day) in q.items() if day},
-                         {'convention', 'unflip_ledger', 'raw_counts', 'insert_roundtrip', 'insert_readback',
-                          'restore_detection'})
+                         {'convention', 'unflip_ledger', 'raw_counts', 'restore_detection'})
 
     def test_no_literal_percent_and_one_writer(self):
         q = u.parse_queries(QUERIES)
@@ -203,7 +212,8 @@ class Registry(unittest.TestCase):
         self.assertEqual((self.entry['kind'], self.entry['max_seconds']), ('unflip-rehearsal', 14400))
         self.assertEqual(s['migration_sql_sha256'], u.digest(MIGRATION))
         self.assertEqual(s['queries_sha256'], u.digest(QUERIES))
-        # PR-A's file is not on edge: the template's DDL digest stays zero, so no launch.
+        # PR-A's file is not on edge: the DDL digest stays zero. The operator never
+        # replaces registry digests (unflip_operator.registry_binding), so no launch.
         self.assertEqual(s['convention_ddl_sha256'], u.ZERO)
         self.assertEqual(s, dict(u.TEMPLATE_RUN_SPEC, **u.file_digests()))
 
@@ -440,10 +450,10 @@ class FakeRds:
         raise AssertionError('unknown resource')
 
 
-def instance(name, box='box1', run='f' * 32, status='available'):
+def instance(name, box='box1', run='f' * 32, status='available', groups=('sg',)):
     tags = [{'Key': 'polis:probe-box', 'Value': box}] + ([{'Key': 'polis:probe-run', 'Value': run}] if run else [])
     return {'DBInstanceIdentifier': name, 'DBInstanceArn': 'arn:aws:rds:::db:' + name, 'TagList': tags,
-            'DBInstanceStatus': status}
+            'DBInstanceStatus': status, 'VpcSecurityGroups': [{'VpcSecurityGroupId': g} for g in groups]}
 
 
 class Operator(unittest.TestCase):
@@ -570,6 +580,69 @@ class RestoreRds:
         return {'DBInstances': [self.state[DBInstanceIdentifier]]}
 
 
+def pinned_registry(ddl, **spec_changes):
+    entry = copy.deepcopy(op.registry_entry())
+    for role, n in (('reader', '1'), ('producer', '2'), ('verifier', '3')):
+        entry[role]['image'] = entry[role]['image'].split('@')[0] + '@sha256:' + n * 64
+    entry['run_spec'].update(convention_ddl_sha256=u.digest(ddl), **spec_changes)
+    return entry
+
+
+class RegistryBinding(unittest.TestCase):
+    """The registry digests are the only source of truth; restore refuses before any RDS call."""
+    PRA = b'-- generated stand-in for the committed PR-A file\n'
+
+    def restore(self, ddl, registry=None):
+        import tempfile
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / 'ddl.sql'
+            path.write_bytes(ddl)
+            a = SimpleNamespace(run_id='f' * 32, mode='flip', ddl=str(path), server_image='sha256:' + 'd' * 64,
+                                engine_image='sha256:' + 'e' * 64, certification=list(CERT_IDS),
+                                no_restore_rule=False, profile='p', source_db_instance='s',
+                                max_snapshot_age_seconds=129600)
+            import contextlib
+            with contextlib.ExitStack() as stack:
+                stack.enter_context(mock.patch.object(
+                    op, 'client', side_effect=AssertionError('an RDS call before the binding')))
+                if registry is not None:
+                    stack.enter_context(mock.patch.object(op, 'registry_entry', return_value=registry))
+                with self.assertRaises(op.Refused) as e:
+                    op.cmd_restore(a, Cleanup.CFG, Path(d))
+            return e.exception.code
+
+    def test_template_refuses_before_any_rds_call(self):
+        self.assertEqual(self.restore(self.PRA), 'PLACEHOLDER_IMAGE')
+        entry = pinned_registry(self.PRA)
+        entry['run_spec']['convention_ddl_sha256'] = u.ZERO
+        self.assertEqual(self.restore(self.PRA, entry), 'PLACEHOLDER_DIGEST')
+
+    def test_the_stand_in_is_never_a_binding(self):
+        self.assertEqual(self.restore(DDL, pinned_registry(DDL)), 'STANDIN_DDL')
+
+    def test_local_files_must_be_the_pinned_bytes(self):
+        self.assertEqual(self.restore(b'-- another file\n', pinned_registry(self.PRA)), 'DDL_DIGEST')
+        self.assertEqual(self.restore(self.PRA, pinned_registry(self.PRA, migration_sql_sha256='f' * 64)),
+                         'MIGRATION_DIGEST')
+        self.assertEqual(self.restore(self.PRA, pinned_registry(self.PRA, queries_sha256='f' * 64)),
+                         'QUERIES_DIGEST')
+
+    def test_a_drafted_job_must_carry_the_registry_values(self):
+        pinned = pinned_registry(self.PRA)
+        j = dict(pinned, run_id='f' * 32, run_spec=dict(spec(), convention_ddl_sha256=u.digest(self.PRA)))
+        with mock.patch.object(op, 'registry_entry', return_value=pinned):
+            op.check_registry(j)
+            for change, code in (({'convention_ddl_sha256': u.digest(DDL)}, 'DDL_DIGEST'),
+                                 ({'queries_sha256': 'f' * 64}, 'QUERIES_DIGEST')):
+                with self.assertRaises(op.Refused) as e:
+                    op.check_registry(dict(j, run_spec=dict(j['run_spec'], **change)))
+                self.assertEqual(e.exception.code, code)
+            with self.assertRaises(op.Refused) as e:
+                op.check_registry(dict(j, reader={'image': 'localhost/x@sha256:' + '9' * 64, 'args': ['read']}))
+            self.assertEqual(e.exception.code, 'IMAGE_BINDING')
+
+
 class Restore(unittest.TestCase):
     def test_restore_sizes_sets_a_one_time_password_and_drafts_a_hashed_job(self):
         import datetime as dt
@@ -579,6 +652,8 @@ class Restore(unittest.TestCase):
                 dt.datetime.fromtimestamp(NOW_MS / 1000 - 3600, dt.timezone.utc)}
         clock = iter(range(0, 10**6, 7))
         values = op.registry_entry()['run_spec']
+        pra = b'-- generated stand-in for the committed PR-A file\n'
+        pinned = pinned_registry(pra)
         entry, observed = op.restore_one(rds, cfg, cfg['REHEARSAL_INSTANCE'], snap, 'f' * 32, values,
                                          sleep=lambda s: None, clock=lambda: next(clock))
         first, second = rds.calls[0][1], rds.calls[1][1]
@@ -597,9 +672,13 @@ class Restore(unittest.TestCase):
         self.assertEqual(entry['password'], modifies[1]['MasterUserPassword'])
         self.assertEqual((observed['allocated_storage_gb'], observed['storage_type']), (60, 'gp3'))
         r2_entry = dict(entry, host='polis-unflip-box1-r2.generated.example')
-        j = op.draft_job('f' * 32, mode='flip', restore_rule=True, snap=snap, entry=entry, r2_entry=r2_entry,
-                         observed=observed, certification=list(CERT_IDS), ddl=DDL,
-                         server_image='sha256:' + 'd' * 64, engine_image='sha256:' + 'e' * 64)
+        with mock.patch.object(op, 'registry_entry', return_value=pinned):
+            j = op.draft_job('f' * 32, mode='flip', restore_rule=True, snap=snap, entry=entry, r2_entry=r2_entry,
+                             observed=observed, certification=list(CERT_IDS), ddl=pra,
+                             server_image='sha256:' + 'd' * 64, engine_image='sha256:' + 'e' * 64)
+        for k in ('migration_sql_sha256', 'queries_sha256', 'convention_ddl_sha256'):
+            self.assertEqual(j['run_spec'][k], pinned['run_spec'][k])
+        self.assertEqual(j['reader'], pinned['reader'])
         text = json.dumps(j)
         for identifier in ('generated-snapshot', 'generated.example', 'generated_master', entry['password']) + CERT_IDS:
             self.assertNotIn(identifier, text)
@@ -625,13 +704,13 @@ class Cleanup(unittest.TestCase):
 
     def test_cleanup_deletes_this_run_and_empties_the_secret(self):
         import tempfile
-        rds = DeletingRds([instance('polis-unflip-ffffffff'), instance('polis-unflip-ffffffff-r2'),
+        rds = DeletingRds([instance('polis-unflip-box1'), instance('polis-unflip-box1-r2'),
                            instance('elsewhere', box='box2')])
         with tempfile.TemporaryDirectory() as d:
             result, secrets, err = self.run_cleanup(rds, Path(d))
             self.assertEqual(result, {'cleanup': 'PASS', 'run_id': 'f' * 32})
             self.assertEqual(sorted(kw['DBInstanceIdentifier'] for n, kw in rds.calls if n == 'delete'),
-                             ['polis-unflip-ffffffff', 'polis-unflip-ffffffff-r2'])
+                             ['polis-unflip-box1', 'polis-unflip-box1-r2'])
             self.assertTrue(all(kw['SkipFinalSnapshot'] and kw['DeleteAutomatedBackups']
                                 for n, kw in rds.calls if n == 'delete'))
             self.assertEqual(secrets.values, ['{}'])
@@ -640,16 +719,31 @@ class Cleanup(unittest.TestCase):
 
     def test_unconfirmed_cleanup_names_the_instance_and_keeps_refusing(self):
         import tempfile
-        rds = DeletingRds([instance('polis-unflip-ffffffff')], after=None)
+        rds = DeletingRds([instance('polis-unflip-box1')], after=None)
         with tempfile.TemporaryDirectory() as d:
             result, secrets, err = self.run_cleanup(rds, Path(d))
             self.assertEqual(result['cleanup'], 'REFUSE')
-            self.assertIn('polis-unflip-ffffffff', err)
+            self.assertIn('polis-unflip-box1', err)
             self.assertEqual(secrets.values, ['{}'])
             with self.assertRaises(op.Refused):
                 op.refuse_ledger(Path(d))
             with self.assertRaises(op.Refused):
                 op.launch_preflight(self.CFG, 'p', Path(d), rds=FakeRds())
+
+    def test_tags_alone_never_authorize_a_delete(self):
+        import tempfile
+        cases = [instance('production-like', groups=('sg',)),            # a tagged non-copy identifier
+                 instance('polis-unflip-box1', groups=('sg-other',)),     # the copy name outside the rehearsal group
+                 instance('polis-unflip-box1-r2', groups=('sg', 'sg-2'))]  # an extra group
+        for bad in cases:
+            with self.subTest(bad['DBInstanceIdentifier']), tempfile.TemporaryDirectory() as d:
+                rds = DeletingRds([bad])
+                result, _, err = self.run_cleanup(rds, Path(d))
+                self.assertEqual([n for n, _ in rds.calls if n == 'delete'], [])
+                self.assertEqual(result['cleanup'], 'REFUSE')
+                self.assertIn(bad['DBInstanceIdentifier'], err)
+                with self.assertRaises(op.Refused):
+                    op.refuse_ledger(Path(d))
 
     def test_every_launch_checks_leftovers_when_the_stack_has_the_rehearsal(self):
         import tempfile
@@ -821,10 +915,21 @@ class StepMachine(unittest.TestCase):
 
     def collectors(self, db, raw_served=False, hard_flip=False):
         def served(phase, zids):
+            """A server reading math_main under the rebuild's label (MATH_ENV=probe);
+            raw_served=True is a route that reads the stored column itself."""
             conn = self.psycopg2.connect(self.url(db))
             try:
                 with conn.cursor() as cur:
-                    return semantic_cases(cur, zids, raw=raw_served)
+                    if raw_served:
+                        return semantic_cases(cur, zids, raw=True)
+                    out = {}
+                    for i, zid in enumerate(zids):
+                        cur.execute("SELECT data::text FROM math_main WHERE zid = %s AND math_env = 'probe'", (zid,))
+                        row = cur.fetchone()
+                        if row is None:
+                            raise RuntimeError('no rebuild under the label')
+                        out[str(i)] = hashlib.sha256(row[0].encode()).hexdigest()
+                    return out
             finally:
                 conn.close()
 
@@ -925,8 +1030,9 @@ class StepMachine(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             out = Path(d)
             docs = []
-            for role, phase in (('reader', 'pre'), ('producer', 'engine-pre'), ('reader', 'migrate'),
-                                ('reader', 'post'), ('producer', 'engine-post'), ('reader', 'restore-rule')):
+            for role, phase in (('reader', 'pre'), ('producer', 'engine-pre'), ('reader', 'served-pre'),
+                                ('reader', 'migrate'), ('reader', 'post'), ('producer', 'engine-post'),
+                                ('reader', 'served-post'), ('reader', 'restore-rule')):
                 if role == 'reader':
                     image_reader.run_phase(phase, s, out, connect=self.connector(db), connect_r2=self.connector(r2),
                                            collectors=self.collectors(db), ddl=DDL, migration=MIGRATION, queries=QUERIES)
@@ -1008,11 +1114,13 @@ class StepMachine(unittest.TestCase):
         engine = rebuild if rebuild is not None else self.engine(db)
         steps.phase_pre(c, state, s, ddl=DDL, migration=MIGRATION, queries=QUERIES, collectors=coll)
         steps.phase_engine(c, state, 'pre', engine)
+        steps.phase_served(c, state, s, 'pre', coll)
         steps.phase_migrate(c, state, s, migration=MIGRATION, interval=0.05)
         if between:
             between(db)
         steps.phase_post(c, state, s, collectors=coll)
         steps.phase_engine(c, state, 'post', engine)
+        steps.phase_served(c, state, s, 'post', coll)
         return self.receipt(state, s)
 
     def test_each_assertion_fails_alone(self):
@@ -1026,7 +1134,7 @@ class StepMachine(unittest.TestCase):
                 {'hashes'}),
             'pca2': ('served', {'pca2'}),
             'exports': ('exports', {'exports'}),
-            'math': ('engine', {'math'}),
+            'math': ('engine', {'math', 'pca2'}),    # served pca2 follows the rebuild
             'convention_version': (dict(between=lambda db: self.sql(
                 db, "UPDATE vote_convention SET version = 2, agree_value = -1, reason = 'generated fault'")),
                 {'convention_version', 'aggregates', 'hashes', 'pca2', 'exports', 'math', 'insert_roundtrip'}),

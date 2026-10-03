@@ -12,7 +12,8 @@ before anything is written.
 Served bytes and exports come from the polis/server this image is built on,
 started on loopback only against the copy (no external integrations: the
 image's server.env leaves their keys empty, as the two-convention gate's v0
-leg does in CI).
+leg does in CI). The server runs with MATH_ENV=probe, the engine rebuild's
+label, and pca2 is collected after each rebuild (served-pre, served-post).
 """
 from __future__ import annotations
 
@@ -37,7 +38,7 @@ SERVER_ENV = IMAGE_ROOT / 'server.env'
 SERVER_DIR = Path('/app')
 SERVER_PORT = 5000
 STATE = 'state.json'
-PHASES = ('pre', 'migrate', 'post', 'restore-rule')
+PHASES = ('pre', 'served-pre', 'migrate', 'post', 'served-post', 'restore-rule')
 
 
 def load_state(out: Path, phase: str):
@@ -62,6 +63,8 @@ def run_phase(phase, spec, out: Path, *, connect, connect_r2=None, collectors=No
     state = load_state(out, phase)
     if phase == 'pre':
         steps.phase_pre(copy, state, spec, ddl=ddl, migration=migration, queries=queries, collectors=collectors)
+    elif phase in ('served-pre', 'served-post'):
+        steps.phase_served(copy, state, spec, phase.split('-')[1], collectors)
     elif phase == 'migrate':
         steps.phase_migrate(copy, state, spec, migration=migration)
     elif phase == 'post':
@@ -100,7 +103,7 @@ def server_env():
     host, port, db, user, password = pgpass_entry()
     from urllib.parse import quote
     env.update(DATABASE_URL=f'postgresql://{quote(user)}:{quote(password)}@localhost/{quote(db)}?host={host}',
-               PORT=str(SERVER_PORT), HOME='/tmp', npm_config_cache='/tmp/npm', PATH=os.environ.get('PATH', ''))
+               PORT=str(SERVER_PORT), MATH_ENV=u.ENGINE_LABEL, HOME='/tmp', npm_config_cache='/tmp/npm', PATH=os.environ.get('PATH', ''))
     return env
 
 
@@ -165,6 +168,8 @@ def loopback_collectors(connect, queries):
 def main():
     if sys.argv[1:] != ['read']:
         u.fail('UNFLIP_ACTION')
+    # The worker's sandbox sets it too; psycopg2 needs it to find `probe`.
+    os.environ.setdefault('PGSERVICEFILE', '/replica/service.conf')
     import psycopg2
     context = json.loads(Path('/selection/context.json').read_bytes())
     phase = json.loads(Path('/selection/phase.json').read_bytes())['phase']

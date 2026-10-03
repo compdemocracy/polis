@@ -49,6 +49,7 @@ def produce(phase, state, *, connect, queries, rebuild):
 def main():
     if sys.argv[1:] != ['produce']:
         u.fail('UNFLIP_ACTION')
+    os.environ.setdefault('PGSERVICEFILE', '/replica/service.conf')
     import psycopg2
     phase = json.loads(Path('/selection/phase.json').read_bytes())['phase']
     state = u.decode_state(Path('/input/state.json').read_bytes())
