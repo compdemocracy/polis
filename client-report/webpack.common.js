@@ -47,7 +47,4 @@ module.exports = {
       'process.env.DD_SITE': JSON.stringify(process.env.DD_SITE),
     }),
   ],
-  externals: {
-    d3: "d3",
-  },
 };
