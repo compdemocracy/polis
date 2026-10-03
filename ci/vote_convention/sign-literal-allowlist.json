@@ -2,7 +2,7 @@
  "schema": "vote-sign-allowlist/1",
  "about": "Vote-sign literals present on origin/edge when the lint landed (P-078 PR-F). Seeded from the tree and the 350-row vote-sign audit of 2026-10-03 (snapshot 344c557ad), matched by path and by line mapped back to that snapshot. 'audit' names the row; 'file rows' means the file is audited but this line is not itemised; 'not in the audit' means the audit did not list the file. Delete an entry when its site moves into a chokepoint. Never add one to make a new literal pass: take the sign from the chokepoint of that layer.",
  "window": 3,
- "sites": 644,
+ "sites": 645,
  "entries": [
   {
    "path": "ci/private_cert/images/g12.py",
@@ -3713,6 +3713,13 @@
    "count": 1,
    "kind": "minus-one",
    "audit": "audit 2026-10-03 §2 file rows 57, 58, 59 (server/__tests__/unit/exportRoutes.test.ts); this line is not itemised there"
+  },
+  {
+   "path": "server/__tests__/unit/importProcessorBoundaries.test.ts",
+   "text": "expect(voteInserts()[0][1][3]).toEqual([-1, 2, -7]);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: #2931's assertion that the import path's raw values reach the insert (pre-existing file)"
   },
   {
    "path": "server/__tests__/unit/pcaMathTickZeroHttp.test.ts",
