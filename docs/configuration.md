@@ -144,6 +144,20 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 - **`OIDC_CACHE_KEY_PREFIX`** Legacy participation cache-key prefix, default `oidc.user` ([webpack:88](../client-participation/webpack.config.js#L88)); Compose maps it to Alpha `PUBLIC_OIDC_CACHE_KEY_PREFIX` ([Compose:47](../docker-compose.yml#L47)).
 - **`OIDC_CACHE_KEY_ID_TOKEN_SUFFIX`** The suffix for the OIDC cache key. Defaults to `@@user@@`.
 
+### Operations pages
+
+The admin console can show read-only, aggregate operations pages at `/ops` (served by `/api/v3/ops/*`). They are off by default.
+
+- **`OPS_ENABLED`** Set to `true` to switch the pages on. Unset or anything else: every `/api/v3/ops` path answers 404, the server does not serve `/ops`, and the admin console shows no link. Read at [config](../server/src/config.ts) as `opsEnabled`.
+- **`OPS_EMAIL_DOMAINS`** Who may open the pages; read only when `OPS_ENABLED=true`. A comma-separated list; entries are trimmed and lower-cased, and empty entries are ignored. Each entry is one of:
+  - a **domain**, e.g. `example.org`: the verified email's domain part equals it exactly (`evilexample.org`, `sub.example.org` and `example.org.example.com` do not match);
+  - an **address**, e.g. `someone@example.org`: the verified email equals it exactly;
+  - either form prefixed with **`!`**, e.g. `!former@example.org`: a deny entry. A deny match wins over every allow entry.
+
+  Examples: `OPS_EMAIL_DOMAINS=example.org` (everyone at one domain); `OPS_EMAIL_DOMAINS=example.org,collaborator@example.com` (plus one outside address); `OPS_EMAIL_DOMAINS=example.org,!former@example.org` (everyone at the domain except one person). With `OPS_ENABLED=true` the server refuses to start, naming the entry, when the list has no allow entry or an entry is malformed (a `*`, whitespace inside an entry, more than one `@`, a leading `@`, a domain without a dot). An allow entry on `polis.test` is refused unless `DEV_MODE=true`.
+
+A request is let through only when, in this order: `OPS_ENABLED=true`; it carries an OIDC access token that passes the server's issuer, audience and signature checks (participant, XID and anonymous tokens do not); the token's `${AUTH_NAMESPACE}connection_strategy` claim is `google-oauth2`; `${AUTH_NAMESPACE}email_verified` is `true`; `${AUTH_NAMESPACE}email` matches `OPS_EMAIL_DOMAINS` with no deny entry matching; and `${AUTH_NAMESPACE}hd`, when present, equals the email's domain. The identity provider must add the `connection_strategy` claim (and `hd` when the login has one); until it does, every request is refused. Refusals answer 403 `polis_err_ops_forbidden`, and the reason is written only to the server's `ops_access` log line. An ops request does not create or update any user record.
+
 ### Third Party API Credentials
 
 (Requirements depend on the selected integration and launch path. Missing values do not universally disable a feature cleanly; constructors and request paths can fail. See the [service inventory](deployment-configuration.md#external-service-touchpoints).)

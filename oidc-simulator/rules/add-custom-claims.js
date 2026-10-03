@@ -38,6 +38,12 @@ function mergeUsers(user, context, callback) {
       context.accessToken[`${namespace}merge_date`] = user.app_metadata.merge_date;
     }
 
+    // The login's connection strategy, as the production post-login Action
+    // emits it (event.connection.strategy). Every simulator login stands for
+    // a Google login, so the ops gate (server/src/utils/opsGate.ts) runs the
+    // same path locally as in production; OPS_EMAIL_DOMAINS decides who passes.
+    context.accessToken[`${namespace}connection_strategy`] = 'google-oauth2';
+
     // Add timestamp for debugging
     context.accessToken[`${namespace}issued_at`] = new Date().toISOString();
 

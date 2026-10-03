@@ -3,8 +3,11 @@
 import { Flex, Box } from 'theme-ui'
 import { Outlet, Link } from 'react-router'
 import InteriorHeader from './InteriorHeader'
+import useOpsAccess from './ops/useOpsAccess'
 
 const MainLayout = () => {
+  // Shown only after the server answers 200 to /api/v3/ops/whoami.
+  const { ops } = useOpsAccess()
   return (
     <InteriorHeader>
       <Flex
@@ -45,6 +48,13 @@ const MainLayout = () => {
               Account
             </Link>
           </Box>
+          {ops ? (
+            <Box sx={{ mb: [0, 0, 3] }}>
+              <Link sx={{ variant: 'links.nav', whiteSpace: 'nowrap' }} to={`/ops`}>
+                Operations
+              </Link>
+            </Box>
+          ) : null}
         </Box>
         {/* Main Content Area */}
         <Box
