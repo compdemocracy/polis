@@ -119,6 +119,10 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 - **`SHOULD_USE_TRANSLATION_API`** Set this to `true` if using Google translation service. See [Enabling Comment Translation](#enabling-comment-translation) below.
 - **`USE_NETWORK_HOST`** Set this to `true` if using server within an internal network (e.g. AWS) such that SSL is not required.
 
+### Client Build Flags
+
+- **`OFFLINE`** Build-time flag for the web clients. The client-admin, client-participation and client-report webpack configs read it when the `file-server` image is built ([client-report](../client-report/webpack.common.js), [client-participation](../client-participation/webpack.config.js), [client-admin](../client-admin/webpack.config.js)); pass it with `--build-arg OFFLINE=1`, which each client stage of [file-server/Dockerfile](../file-server/Dockerfile) declares. Set it to `1` or `true` to build pages for a box with no network: the Simple Analytics tag is left out of all three. Unset, which is the default and what pol.is builds with, production-mode builds keep the tag. Development-mode builds (`npm run dev`, `build:dev`, the dev servers) never include it. Compose does not pass this build argument yet.
+
 ### URL/Hostname Settings
 
 - **`API_DEV_HOSTNAME`** defaults to `localhost:5000` in [config:5](../server/src/config.ts#L5); set it to the development hostname and port you actually use.
@@ -196,6 +200,9 @@ The `delphi` service has no `env_file`, so it sees only the keys its `environmen
 - **`TOPIC_BATCH_MAX_WAIT_SECONDS`** Longest wait, in seconds, for one layer's Anthropic topic-naming batch. Compose fallback `1800`.
 - **`SENTENCE_TRANSFORMER_MODEL`** Local embedding model for the narrative pipeline. Compose fallback `all-MiniLM-L6-v2`.
 - **`OLLAMA_HOST`**, **`OLLAMA_ENDPOINT`**, **`OLLAMA_MODEL`** Used only when `LLM_PROVIDER=ollama`. `OLLAMA_ENDPOINT` is the older name for `OLLAMA_HOST`. Compose fallbacks are empty.
+- **`OFFLINE`** (Delphi) Set to `1` or `true` so the Delphi image never pulls an Ollama model at start; the model must already be in the `ollama-models` volume. Compose forwards it with fallback empty. Without it, on a local stack (`DYNAMODB_ENDPOINT` set) the image runs `scripts/setup_ollama.sh` only when `LLM_PROVIDER=ollama` ([Dockerfile](../delphi/Dockerfile)). Production leaves `DYNAMODB_ENDPOINT` unset and never runs it. The same name is the web clients' build flag (see [Client Build Flags](#client-build-flags)).
+
+The `ollama` Compose service is behind the `ollama` profile, so it starts only with `--profile ollama`. `make start` adds that profile when the env file sets `LLM_PROVIDER=ollama`.
 
 ### Datadog Tracing (Delphi)
 

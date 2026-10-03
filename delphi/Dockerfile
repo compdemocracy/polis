@@ -107,6 +107,8 @@ RUN chmod +x run_delphi.py scripts/setup_ollama.sh
 # only when DD_TRACE_ENABLED=true. With no Datadog agent listening, ddtrace-run
 # logs a failed-send error and traceback for every flush, which buried the
 # poller's own output; tracing is therefore off unless explicitly enabled.
+# With DYNAMODB_ENDPOINT set (local stacks), the CMD pulls an Ollama model only
+# when LLM_PROVIDER=ollama, and never when OFFLINE is 1 or true.
 CMD ["bash", "-c", "\
   echo 'Ensuring DynamoDB tables are set up (runs in all environments)...'; \
   python create_dynamodb_tables.py --region ${AWS_REGION} && \
@@ -114,8 +116,14 @@ CMD ["bash", "-c", "\
   \
   if [ -n \"${DYNAMODB_ENDPOINT}\" ]; then \
     echo 'DYNAMODB_ENDPOINT is set, assuming local/dev environment. Running additional local setup scripts...'; \
-    echo 'Setting up MinIO bucket...' && python setup_minio.py && \
-    echo 'Setting up Ollama model (local script)...' && ./scripts/setup_ollama.sh || echo 'Ollama setup failed or skipped — continuing to start job poller...'; \
+    echo 'Setting up MinIO bucket...' && python setup_minio.py; \
+    if [ \"${OFFLINE}\" = \"1\" ] || [ \"${OFFLINE}\" = \"true\" ]; then \
+      echo 'OFFLINE is set: not pulling an Ollama model (ship it in the ollama-models volume).'; \
+    elif [ \"${LLM_PROVIDER}\" != \"ollama\" ]; then \
+      echo \"LLM_PROVIDER is '${LLM_PROVIDER}', not ollama: not pulling an Ollama model.\"; \
+    else \
+      echo 'Setting up Ollama model (local script)...' && ./scripts/setup_ollama.sh || echo 'Ollama setup failed or skipped — continuing to start job poller...'; \
+    fi; \
     echo 'Starting job poller without ddtrace...' && \
     python scripts/job_poller.py --interval=2; \
   else \

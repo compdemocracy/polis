@@ -6,7 +6,21 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
+// OFFLINE=1 (or true) builds a bundle for a box with no network: the page
+// leaves out the Simple Analytics tag. See docs/configuration.md.
+const isOfflineBuild = ['1', 'true'].includes(String(process.env.OFFLINE || '').toLowerCase());
+
+// The HTML page for a given mode. Simple Analytics is on for production
+// builds, as in client-admin, and off for development and offline builds.
+const htmlPlugin = (mode) =>
+  new HtmlWebpackPlugin({
+    template: "public/index.html",
+    filename: "index_report.html",
+    simpleAnalytics: mode === 'production' && !isOfflineBuild,
+  });
+
 module.exports = {
+  htmlPlugin,
   entry: "./src/index.js",
   module: {
     rules: [
@@ -32,10 +46,6 @@ module.exports = {
   plugins: [
     new CopyWebpackPlugin({
       patterns: [{ from: "public/favicon.ico", to: "favicon.ico" }],
-    }),
-    new HtmlWebpackPlugin({
-      template: "public/index.html",
-      filename: "index_report.html",
     }),
     new webpack.DefinePlugin({
       'process.env.AUTH_AUDIENCE': JSON.stringify(process.env.AUTH_AUDIENCE),

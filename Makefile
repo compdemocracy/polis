@@ -33,8 +33,9 @@ define get_env_vars
 	$(eval export POSTGRES_VOLUME = $(if $(filter true,$(USE_PRODCLONE)),prodclone_data,postgres_data))
 	# Only set COMPOSE_FILE_ARGS if not already set by environment-specific targets
 	$(eval COMPOSE_FILE_ARGS ?= -f docker-compose.yml -f docker-compose.dev.yml)
-	$(eval COMPOSE_FILE_ARGS += $(if $(POSTGRES_DOCKER),--profile postgres,))
-	$(eval COMPOSE_FILE_ARGS += $(if $(LOCAL_SERVICES_DOCKER),--profile local-services,))
+	$(eval COMPOSE_FILE_ARGS += $(if $(filter true,$(POSTGRES_DOCKER)),--profile postgres,))
+	$(eval COMPOSE_FILE_ARGS += $(if $(filter true,$(LOCAL_SERVICES_DOCKER)),--profile local-services,))
+	$(eval COMPOSE_FILE_ARGS += $(if $(filter ollama,$(call parse_env_value,LLM_PROVIDER)),--profile ollama,))
 endef
 
 # Support for detached mode
@@ -56,8 +57,9 @@ define setup_env
 	$(eval DB_INIT_MODE = $(if $(filter true,$(USE_PRODCLONE)),pdb,db))
 	$(eval POSTGRES_VOLUME = $(if $(filter true,$(USE_PRODCLONE)),prodclone_data,postgres_data))
 	$(eval COMPOSE_FILE_ARGS = $(2))
-	$(eval COMPOSE_FILE_ARGS += $(if $(POSTGRES_DOCKER),--profile postgres,))
-	$(eval COMPOSE_FILE_ARGS += $(if $(LOCAL_SERVICES_DOCKER),--profile local-services,))
+	$(eval COMPOSE_FILE_ARGS += $(if $(filter true,$(POSTGRES_DOCKER)),--profile postgres,))
+	$(eval COMPOSE_FILE_ARGS += $(if $(filter true,$(LOCAL_SERVICES_DOCKER)),--profile local-services,))
+	$(eval COMPOSE_FILE_ARGS += $(if $(filter ollama,$(call parse_env_value,LLM_PROVIDER)),--profile ollama,))
 endef
 
 # Function to open psql shell
@@ -72,6 +74,21 @@ PROD:
 
 TEST:
 	$(call setup_env,test.env,-f docker-compose.test.yml)
+
+# Placeholder for the offline profile: one small machine with no network.
+# It prints the plan and exits non-zero, so `make OFFLINE start` cannot fall
+# through to the development stack. The overlay it names does not exist yet.
+OFFLINE:
+	@echo 'make OFFLINE is not available yet: docker-compose.offline.yml has not landed.'
+	@echo 'When it does, `make OFFLINE start` will:'
+	@echo '  - read offline.env, the same way PROD reads prod.env and TEST reads test.env;'
+	@echo '  - run docker compose -f docker-compose.yml -f docker-compose.offline.yml;'
+	@echo '  - start postgres, server, file-server, nginx-proxy, math-python and an admin login issuer'
+	@echo '    (the oidc-simulator until a local issuer lands);'
+	@echo '  - build the web clients with OFFLINE=1 (no analytics tag; see docs/configuration.md);'
+	@echo '  - start delphi and ollama only under a topics profile, with OFFLINE=1 so delphi never pulls a model.'
+	@echo 'Nothing was started.'
+	@exit 2
 
 echo_vars:
 	$(call get_env_vars)
