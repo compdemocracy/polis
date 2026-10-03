@@ -149,6 +149,13 @@ services:
       - OLLAMA_HOST=${OLLAMA_HOST:-}
       - OLLAMA_ENDPOINT=${OLLAMA_ENDPOINT:-}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-}
+      # Local narrative generation (LLM_PROVIDER=ollama); empty means the code
+      # default: 1 request at a time, 600 s per request, 3000 s per job, and a
+      # 16384-token context window.
+      - OLLAMA_NARRATIVE_CONCURRENCY=${OLLAMA_NARRATIVE_CONCURRENCY:-}
+      - OLLAMA_REQUEST_TIMEOUT_SECONDS=${OLLAMA_REQUEST_TIMEOUT_SECONDS:-}
+      - OLLAMA_NARRATIVE_JOB_TIMEOUT_SECONDS=${OLLAMA_NARRATIVE_JOB_TIMEOUT_SECONDS:-}
+      - OLLAMA_NUM_CTX=${OLLAMA_NUM_CTX:-}
       # AWS credentials. Declared ONCE: this single pair is shared by every AWS
       # client in the delphi container (DynamoDB and the S3/MinIO clients), so a
       # second declaration would silently win and swap one service's identity for

@@ -44,6 +44,19 @@ from botocore.exceptions import ClientError
 import urllib
 
 
+def narrative_model_for_provider(env) -> str:
+    """The --model 801 runs with. LLM_PROVIDER=ollama uses OLLAMA_MODEL (the
+    topic-naming default when unset) and generates the narrative inline; any
+    other provider keeps the Anthropic batch path, which requires
+    ANTHROPIC_MODEL."""
+    if (env.get("LLM_PROVIDER") or "anthropic").strip().lower() == "ollama":
+        return env.get("OLLAMA_MODEL") or "llama3.1:8b"
+    model = env.get("ANTHROPIC_MODEL")
+    if not model:
+        raise ValueError("ANTHROPIC_MODEL must be set")
+    return model
+
+
 class PostgresConfig:
     """Configuration for PostgreSQL connection."""
     
@@ -1242,8 +1255,7 @@ class JobProcessor:
             exclude_comment_selections = job_config.get('exclude_comment_selections', True)
             app_path = os.environ.get('DELPHI_APP_PATH', '/app')
             if job_type == 'CREATE_NARRATIVE_BATCH':
-                model = os.environ.get("ANTHROPIC_MODEL")
-                if not model: raise ValueError("ANTHROPIC_MODEL must be set")
+                model = narrative_model_for_provider(os.environ)
                 max_batch_size = job_config.get('max_batch_size', 20)
                 cmd = ['python', f'{app_path}/umap_narrative/801_narrative_report_batch.py', f'--conversation_id={conversation_id}', f'--model={model}', f'--include_moderation={include_moderation}', f'--exclude_comment_selections={exclude_comment_selections}', f'--max-batch-size={str(max_batch_size)}']
                 if job_config.get('no_cache'): cmd.append('--no-cache')

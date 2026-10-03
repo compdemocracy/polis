@@ -97,6 +97,18 @@ def _check_response_for_issues(response_json: dict, model_name: Optional[str]) -
     return None
 
 
+class OllamaRequestError(RuntimeError):
+    """A local-model call that did not produce usable text."""
+
+
+def ollama_base_url(endpoint: Optional[str]) -> str:
+    """Normalise OLLAMA_HOST-style values ("ollama:11434", "http://x:11434/")."""
+    base = (endpoint or "http://localhost:11434").strip().rstrip("/")
+    if "://" not in base:
+        base = f"http://{base}"
+    return base
+
+
 class ModelProvider:
     """Base class for model providers."""
 
@@ -144,10 +156,11 @@ class OllamaProvider(ModelProvider):
         # Import ollama here to allow for optional dependency
         try:
             import ollama
-            self.ollama = ollama
-            # Configure endpoint if specified
-            if endpoint != "http://localhost:11434":
-                self.ollama.client.api_base = endpoint
+            # A client bound to the endpoint. The module-level functions always
+            # talk to localhost (or the process's OLLAMA_HOST), and the module
+            # has no ``client.api_base`` to point elsewhere: setting it raised
+            # AttributeError, so any non-default endpoint failed here.
+            self.ollama = ollama.Client(host=ollama_base_url(endpoint))
         except ImportError:
             logger.warning("Ollama package not installed. Using direct HTTP requests instead.")
             self.ollama = None
@@ -218,6 +231,62 @@ class OllamaProvider(ModelProvider):
                 ]
             })
     
+    def chat_strict(
+        self,
+        system_message: str,
+        user_message: str,
+        *,
+        max_tokens: Optional[int] = None,
+        timeout: Optional[float] = None,
+        json_format: bool = False,
+        num_ctx: Optional[int] = None,
+    ) -> str:
+        """
+        One non-streaming chat call that raises on any failure.
+
+        ``get_response`` above turns every error into an error-shaped JSON
+        string, which suits topic naming (it falls back to keyword labels) but
+        would let a narrative job store an error as if it were a section. This
+        method always uses plain HTTP so ``timeout`` bounds the call, and raises
+        ``OllamaRequestError`` on a timeout, a transport or HTTP error, or a
+        response with no message content.
+        """
+        options: Dict[str, Any] = {}
+        if max_tokens is not None:
+            options["num_predict"] = int(max_tokens)
+        if num_ctx is not None:
+            options["num_ctx"] = int(num_ctx)
+        body: Dict[str, Any] = {
+            "model": self.model_name,
+            "messages": [
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_message},
+            ],
+            "stream": False,
+        }
+        if json_format:
+            body["format"] = "json"
+        if options:
+            body["options"] = options
+        url = f"{ollama_base_url(self.endpoint)}/api/chat"
+        try:
+            response = requests.post(url, json=body, timeout=timeout)
+        except requests.Timeout as e:
+            raise OllamaRequestError(f"Ollama request timed out after {timeout}s") from e
+        except requests.RequestException as e:
+            raise OllamaRequestError(f"Ollama request failed: {e}") from e
+        if response.status_code != 200:
+            raise OllamaRequestError(
+                f"Ollama returned HTTP {response.status_code}: {response.text[:200]}"
+            )
+        try:
+            content = response.json()["message"]["content"]
+        except (ValueError, KeyError, TypeError) as e:
+            raise OllamaRequestError("Ollama response has no message content") from e
+        if not isinstance(content, str) or not content.strip():
+            raise OllamaRequestError("Ollama returned an empty message")
+        return content.strip()
+
     def list_available_models(self) -> List[str]:
         """
         List available Ollama models.
