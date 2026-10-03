@@ -4,10 +4,12 @@ import CommentList from "../lists/commentList.jsx";
 import TopicDataProvider from "./TopicDataProvider.jsx";
 import TopicSectionsBuilder from "./TopicSectionsBuilder.jsx";
 import TopicSelector from "./TopicSelector.jsx";
+import LocalModelNote from "../localModelNote/LocalModelNote.jsx";
 
 const TopicReport = ({ report_id, math, comments, conversation, ptptCount, formatTid, voteColors }) => {
   const [selectedTopic, setSelectedTopic] = useState("");
   const [topicContent, setTopicContent] = useState(null);
+  const [contentProvenance, setContentProvenance] = useState(null);
   const [contentLoading, setContentLoading] = useState(false);
 
   // Extract content fetching logic for reuse
@@ -34,6 +36,7 @@ const TopicReport = ({ report_id, math, comments, conversation, ptptCount, forma
               ? JSON.parse(sectionData.report_data) 
               : sectionData.report_data;
             setTopicContent(reportData);
+            setContentProvenance({ provider: sectionData.metadata?.provider, model: sectionData.model });
           } else {
             setTopicContent({
               error: true,
@@ -109,6 +112,7 @@ const TopicReport = ({ report_id, math, comments, conversation, ptptCount, forma
       <div className="topic-layout-container">
         <div className="topic-text-content">
           <div className="topic-content">
+            <LocalModelNote provider={contentProvenance?.provider} model={contentProvenance?.model} />
             {topicContent.paragraphs && topicContent.paragraphs.map((paragraph, idx) => (
             <div key={idx} className="paragraph">
               <h3>{paragraph.title}</h3>

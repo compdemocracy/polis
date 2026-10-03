@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import net from "../../util/net";
 import CommentList from "../lists/commentList.jsx";
 import { canGenerateCollectiveStatement, getTopicConsensusValues } from "../../util/consensusThreshold";
+import LocalModelNote from "../localModelNote/LocalModelNote.jsx";
 
 const CollectiveStatementModal = ({
   isOpen,
@@ -82,7 +83,8 @@ const CollectiveStatementModal = ({
         setCommentsData(existingStatement.comments_data);
         setStatementMetadata({
           created_at: existingStatement.created_at,
-          model: existingStatement.model
+          model: existingStatement.model,
+          provider: existingStatement.provider
         });
         setLoading(false);
         return;
@@ -133,7 +135,8 @@ const CollectiveStatementModal = ({
         setCommentsData(response.commentsData);
         setStatementMetadata({
           created_at: response.created_at,
-          model: response.model
+          model: response.model,
+          provider: response.provider
         });
       } else {
         setError(response.message || "Failed to generate statement");
@@ -309,6 +312,9 @@ const CollectiveStatementModal = ({
                           Generated {new Date(statementMetadata.created_at).toLocaleDateString()} at {new Date(statementMetadata.created_at).toLocaleTimeString()} 
                           {statementMetadata.model && ` (${statementMetadata.model.includes('claude') ? 'Claude Opus 4' : statementMetadata.model})`}
                         </p>
+                      )}
+                      {statementMetadata && (
+                        <LocalModelNote provider={statementMetadata.provider} model={statementMetadata.model} />
                       )}
                     </div>
                     <div

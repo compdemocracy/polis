@@ -119,6 +119,9 @@ export default {
     process.env.LOGIN_CODE_PEPPER ||
     process.env.ENCRYPTION_PASSWORD_00001 ||
     "polis_treevite_pepper",
+  // Provider for the collective statement (and, in Delphi, topic names and the
+  // narrative report): "anthropic" (default) or "ollama" for a local model.
+  llmProvider: (process.env.LLM_PROVIDER || "anthropic").trim().toLowerCase(),
   mailgunApiKey: process.env.MAILGUN_API_KEY || null,
   mailgunDomain: process.env.MAILGUN_DOMAIN || null,
   maxReportCacheDuration: parseInt(
@@ -128,6 +131,11 @@ export default {
   mathEnv: process.env.MATH_ENV as string,
   nodeEnv: process.env.NODE_ENV as string,
   isTesting: isTrue(process.env.TESTING),
+  ollamaHost: process.env.OLLAMA_HOST || process.env.OLLAMA_ENDPOINT || null,
+  ollamaModel: process.env.OLLAMA_MODEL || "llama3.1:8b",
+  ollamaNumCtx: parseInt(process.env.OLLAMA_NUM_CTX || "16384", 10) || 16384,
+  ollamaRequestTimeoutSeconds:
+    parseFloat(process.env.OLLAMA_REQUEST_TIMEOUT_SECONDS || "600") || 600,
   openaiApiKey: process.env.OPENAI_API_KEY || null,
   // Protected operations pages (/api/v3/ops/*, /ops in the admin console).
   // Off unless OPS_ENABLED=true; see docs/configuration.md.

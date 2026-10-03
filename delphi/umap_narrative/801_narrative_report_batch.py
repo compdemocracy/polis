@@ -8,6 +8,11 @@ This script is an optimized version of 800_report_topic_clusters.py that:
 3. Stores batch job metadata in DynamoDB
 4. Provides a way to check batch job status
 
+With LLM_PROVIDER=ollama the same prompts run synchronously on the local
+Ollama model instead (OLLAMA_HOST/OLLAMA_MODEL; see narrative_local.py): no
+batch is submitted, no 803 checker job is created, and each stored section is
+marked provider "ollama" so the report can say a local model wrote it.
+
 Usage:
     python 801_narrative_report_batch.py --conversation_id CONVERSATION_ID [--model MODEL] [--no-cache] [--layers LAYER_NUMBERS...]
 
@@ -45,6 +50,7 @@ import traceback  # Added for detailed error tracing
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from umap_narrative.llm_factory_constructor import get_model_provider
 from umap_narrative.llm_factory_constructor.model_provider import AnthropicProvider
+from umap_narrative.topic_naming import resolve_model_name, resolve_provider_type
 
 # Import from local modules
 from polismath_commentgraph.utils.storage import PostgresClient, DynamoDBStorage
@@ -74,7 +80,7 @@ class NarrativeReportService:
         
         self.table = self.dynamodb.Table(self.table_name)
 
-    def store_report(self, report_id, section, model, report_data, job_id=None, metadata=None):
+    def store_report(self, report_id, section, model, report_data, job_id=None, metadata=None, provider=None):
         """Store a report in DynamoDB.
 
         Args:
@@ -112,6 +118,11 @@ class NarrativeReportService:
             # Add metadata if provided
             if metadata:
                 item['metadata'] = metadata
+
+            # Which provider produced the section (set by the local-model path;
+            # the hosted batch path's rows are written by 803 without it)
+            if provider:
+                item['provider'] = provider
 
             # Store in DynamoDB
             response = self.table.put_item(Item=item)
@@ -205,8 +216,14 @@ class BatchReportGenerator:
     def __init__(self, conversation_id, model=None, no_cache=False, max_batch_size=20, job_id=None, layers=None, include_moderation=False, exclude_comment_selections=True):
         """Initialize the batch report generator."""
         self.conversation_id = str(conversation_id)
+        # LLM_PROVIDER=ollama runs the prompts on a local model (run_local);
+        # every other value keeps the Anthropic batch path.
+        self.provider = "ollama" if resolve_provider_type().strip() == "ollama" else "anthropic"
         if not model:
-            model = os.environ.get("ANTHROPIC_MODEL")
+            if self.provider == "ollama":
+                model = resolve_model_name("ollama")
+            else:
+                model = os.environ.get("ANTHROPIC_MODEL")
             if not model:
                 raise ValueError("Model must be specified via --model argument or ANTHROPIC_MODEL environment variable")
         self.model = model
@@ -1123,6 +1140,156 @@ class BatchReportGenerator:
         logger.info(f"Prepared {len(batch_requests)} batch requests")
         return batch_requests
     
+    def _batch_custom_id(self, section_name):
+        """The Anthropic batch custom_id for a section. 803 stores each result
+        under the part after the first '_', so this also fixes the section name
+        the report reads (e.g. the client's "batch_re_global_groups")."""
+        # Create a valid custom_id (only allow a-zA-Z0-9_-)
+        # For versioned section names, shorten the job_id portion to avoid long custom_ids
+        if self.job_id and self.job_id in section_name:
+            # Replace the full job_id with just the first 8 characters
+            short_job_id = self.job_id[:8]
+            shortened_section = section_name.replace(self.job_id, short_job_id)
+            custom_id = f"{self.conversation_id}_{shortened_section}"
+        else:
+            # Legacy format or no job_id in section name
+            custom_id = f"{self.conversation_id}_{section_name}"
+
+        safe_custom_id = re.sub(r'[^a-zA-Z0-9_-]', '_', custom_id)
+
+        # Debug logging to trace the custom_id construction
+        logger.info(f"Custom ID construction: conversation_id={self.conversation_id}, section_name='{section_name}', custom_id='{custom_id}', safe_custom_id='{safe_custom_id}'")
+
+        # Validate custom_id length (max 64 chars for Anthropic API)
+        if len(safe_custom_id) > 64:
+            safe_custom_id = safe_custom_id[:64]
+            logger.warning(f"Truncated custom_id to 64 chars: {safe_custom_id}")
+        return safe_custom_id
+
+    def stored_section_name(self, section_name):
+        """The NarrativeReports section a result is stored under: what 803
+        derives from the batch custom_id (the part after the first '_')."""
+        return self._batch_custom_id(section_name).split('_', 1)[1]
+
+    def _update_job(self, update_expression, values, names=None):
+        """Best-effort write to this job's queue row; returns False on failure."""
+        if not self.job_id:
+            return False
+        try:
+            kwargs = {
+                'Key': {'job_id': self.job_id},
+                'UpdateExpression': update_expression,
+                'ExpressionAttributeValues': values,
+            }
+            if names:
+                kwargs['ExpressionAttributeNames'] = names
+            self.dynamodb.Table('Delphi_JobQueue').update_item(**kwargs)
+            return True
+        except Exception as e:
+            logger.error(f"Could not update job {self.job_id}: {e}")
+            return False
+
+    async def run_local(self, ollama_provider=None, settings=None):
+        """Generate every section synchronously on the local Ollama model.
+
+        Same prompts and section order as the batch path; each section is
+        stored as it completes, in the shape 803 writes, with provider and
+        model recorded on the section and on the job row. No batch is
+        submitted and no checker job is created: the job completes when this
+        script exits. Returns True only when every section was stored.
+        """
+        from umap_narrative.narrative_local import (
+            PROVIDER_OLLAMA,
+            LocalRunSettings,
+            run_requests_locally,
+        )
+        from umap_narrative.llm_factory_constructor.model_provider import _narrative_error_json
+
+        settings = settings or LocalRunSettings.from_env()
+        provider = ollama_provider or get_model_provider(PROVIDER_OLLAMA, self.model)
+        logger.info(
+            f"=== Local narrative generation: model {self.model} at {provider.endpoint}, "
+            f"concurrency {settings.concurrency}, request timeout {settings.request_timeout}s, "
+            f"job budget {settings.job_timeout}s ==="
+        )
+        self._update_job(
+            "SET provider = :provider, model = :model",
+            {':provider': PROVIDER_OLLAMA, ':model': self.model},
+        )
+
+        try:
+            requests_ = await self.prepare_batch_requests()
+        except Exception as e:
+            logger.error(f"Error preparing narrative requests: {e}")
+            logger.error(traceback.format_exc())
+            requests_ = []
+        if not requests_:
+            message = "No narrative requests were prepared"
+            logger.error(message)
+            self._update_job("SET error_message = :error", {':error': message})
+            return False
+        if not self.report_id:
+            message = "DELPHI_REPORT_ID is not set; sections would have nowhere to go"
+            logger.error(message)
+            self._update_job("SET error_message = :error", {':error': message})
+            return False
+
+        def section_for(request):
+            return self.stored_section_name(request.get('metadata', {}).get('section_name', 'unknown_section'))
+
+        def chat(system, user, **kwargs):
+            return provider.chat_strict(system, user, json_format=True, **kwargs)
+
+        def section_metadata(request):
+            metadata = request.get('metadata', {})
+            return {
+                'provider': PROVIDER_OLLAMA,
+                'model': self.model,
+                'topic_name': metadata.get('topic_name'),
+                'cluster_id': metadata.get('cluster_id'),
+            }
+
+        def store(request, section, content):
+            return self.report_storage.store_report(
+                report_id=self.report_id,
+                section=section,
+                model=self.model,
+                report_data=content,
+                job_id=self.job_id,
+                metadata=section_metadata(request),
+                provider=PROVIDER_OLLAMA,
+            ) is not None
+
+        def store_error(request, section, reason):
+            self.report_storage.store_report(
+                report_id=self.report_id,
+                section=section,
+                model=self.model,
+                report_data=_narrative_error_json(
+                    "Local Model Error",
+                    f"This section could not be generated by the local model ({self.model}): {reason}",
+                ),
+                job_id=self.job_id,
+                metadata=section_metadata(request),
+                provider=PROVIDER_OLLAMA,
+            )
+
+        result = run_requests_locally(
+            requests_,
+            chat=chat,
+            section_for=section_for,
+            store=store,
+            store_error=store_error,
+            settings=settings,
+        )
+        summary = result.summary()
+        if result.ok:
+            logger.info(f"=== Local narrative generation completed: {summary} ===")
+        else:
+            logger.error(f"=== Local narrative generation failed: {summary} ===")
+            self._update_job("SET error_message = :error", {':error': summary})
+        return result.ok
+
     async def process_request(self, request):
         """Process a single topic report request."""
         try:
@@ -1265,27 +1432,7 @@ class BatchReportGenerator:
                     # Extract metadata for custom_id
                     metadata = request.get('metadata', {})
                     section_name = metadata.get('section_name', 'unknown_section')
-
-                    # Create a valid custom_id (only allow a-zA-Z0-9_-)
-                    # For versioned section names, shorten the job_id portion to avoid long custom_ids
-                    if self.job_id and self.job_id in section_name:
-                        # Replace the full job_id with just the first 8 characters
-                        short_job_id = self.job_id[:8]
-                        shortened_section = section_name.replace(self.job_id, short_job_id)
-                        custom_id = f"{self.conversation_id}_{shortened_section}"
-                    else:
-                        # Legacy format or no job_id in section name
-                        custom_id = f"{self.conversation_id}_{section_name}"
-                    
-                    safe_custom_id = re.sub(r'[^a-zA-Z0-9_-]', '_', custom_id)
-                    
-                    # Debug logging to trace the custom_id construction
-                    logger.info(f"Custom ID construction: conversation_id={self.conversation_id}, section_name='{section_name}', custom_id='{custom_id}', safe_custom_id='{safe_custom_id}'")
-
-                    # Validate custom_id length (max 64 chars for Anthropic API)
-                    if len(safe_custom_id) > 64:
-                        safe_custom_id = safe_custom_id[:64]
-                        logger.warning(f"Truncated custom_id to 64 chars: {safe_custom_id}")
+                    safe_custom_id = self._batch_custom_id(section_name)
 
                     # Make sure we have system and user messages
                     system_content = request.get('system', '')
@@ -1531,7 +1678,7 @@ async def main():
     parser.add_argument('--conversation_id', '--zid', type=str, required=True,
                         help='Conversation ID to process')
     parser.add_argument('--model', type=str, default=None,
-                        help='LLM model to use (defaults to ANTHROPIC_MODEL env var)')
+                        help='LLM model to use (defaults to ANTHROPIC_MODEL, or OLLAMA_MODEL when LLM_PROVIDER=ollama)')
     parser.add_argument('--no-cache', action='store_true',
                         help='Ignore cached report data')
     parser.add_argument('--max-batch-size', type=int, default=5,
@@ -1587,8 +1734,13 @@ async def main():
         exclude_comment_selections=args.exclude_comment_selections
     )
 
-    # Process reports
-    result = await generator.submit_batch()
+    # Process reports. LLM_PROVIDER=ollama generates every section here and
+    # completes the job inline; otherwise submit the Anthropic batch, which the
+    # 803 checker job collects.
+    if generator.provider == "ollama":
+        result = await generator.run_local()
+    else:
+        result = await generator.submit_batch()
 
     if result:
         logger.info(f"Narrative reports generated successfully")

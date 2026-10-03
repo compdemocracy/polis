@@ -419,6 +419,11 @@ LLM_SELECTION_DEFAULTS = {
     "OLLAMA_HOST": "",
     "OLLAMA_ENDPOINT": "",
     "OLLAMA_MODEL": "",
+    # Local narrative knobs: "" means the code default (narrative_local.py).
+    "OLLAMA_NARRATIVE_CONCURRENCY": "",
+    "OLLAMA_REQUEST_TIMEOUT_SECONDS": "",
+    "OLLAMA_NARRATIVE_JOB_TIMEOUT_SECONDS": "",
+    "OLLAMA_NUM_CTX": "",
 }
 _LLM_KEY_READ = re.compile(
     r"""(?:environ\.get|getenv|environ\[)\(?\s*["'](?P<key>(?:LLM_|ANTHROPIC_|OLLAMA_)[A-Z_]+|SENTENCE_TRANSFORMER_MODEL|TOPIC_BATCH_[A-Z_]+)["']"""
