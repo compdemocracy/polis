@@ -13,6 +13,7 @@ import {
 } from "@aws-sdk/client-sesv2";
 import Config from "../config";
 import logger from "../utils/logger";
+import { shouldSkipEmail } from "../utils/offline";
 
 const sesClient = new SESv2Client({
   region: Config.awsRegion,
@@ -54,6 +55,12 @@ async function sendTextEmail(
     FromEmailAddress: sender,
   };
 
+  if (shouldSkipEmail(Config)) {
+    // OFFLINE with no SES_ENDPOINT: the SDK would reach real AWS. Log the
+    // subject only (no recipient, no body) and report success with no id.
+    logger.debug("polis_email_not_sent_offline", { subject });
+    return { $metadata: {} } as SendEmailCommandOutput;
+  }
   const command = new SendEmailCommand(params);
   return sesClient.send(command);
 }

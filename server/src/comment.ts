@@ -50,7 +50,9 @@ type Docs = {
   rows: CommentRow[];
 };
 
-const useTranslateApi: boolean = Config.shouldUseTranslationAPI;
+// OFFLINE overrides SHOULD_USE_TRANSLATION_API: Google Translate is hosted.
+const useTranslateApi: boolean =
+  Config.shouldUseTranslationAPI && !Config.offline;
 const translateClient = useTranslateApi ? new Translate() : null;
 
 function getComment(zid: number, tid: number): Promise<CommentRow | null> {

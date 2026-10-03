@@ -1,5 +1,5 @@
 # ---- Stage 1: Builder ----
-  FROM python:3.12-slim AS builder
+  FROM python:3.12-slim AS builder-deps
 
   # Define a build argument to signal if we should install CPU-specific torch
   ARG USE_CPU_TORCH=false
@@ -52,6 +52,30 @@ RUN --mount=type=cache,target=/root/.cache/uv \
         uv pip install -r requirements.lock; \
     fi
 
+# ---- Stage 1b: embedding model (optional) ----
+# BAKE_EMBEDDING_MODEL=true downloads the sentence-transformer model so a box
+# with no network never reaches the Hugging Face hub (offline profile). This
+# stage builds on the dependency layer only, so a source change does not
+# re-download the model. The model lands in /models/.cache/huggingface, which
+# the final stage copies into /root, the default Hugging Face cache the
+# runtime reads when MODEL_CACHE_DIR is unset (about 92 MB for
+# all-MiniLM-L6-v2). With the default (false) /models stays empty, so the copy
+# adds no files and the final image contents are unchanged. Keep
+# SENTENCE_TRANSFORMER_MODEL equal to the runtime value. At runtime,
+# OFFLINE=1 (or true) sets HF_HUB_OFFLINE=1 and TRANSFORMERS_OFFLINE=1 for the
+# pipeline (polismath/utils/offline_env.py). See docs/configuration.md.
+FROM builder-deps AS embedding-model
+ARG BAKE_EMBEDDING_MODEL=false
+ARG SENTENCE_TRANSFORMER_MODEL=all-MiniLM-L6-v2
+RUN mkdir -m 700 /models
+RUN if [ "$BAKE_EMBEDDING_MODEL" = "true" ]; then \
+      echo "Baking sentence-transformer model ${SENTENCE_TRANSFORMER_MODEL} into the image..." && \
+      HOME=/models python -c "import sys; from sentence_transformers import SentenceTransformer; m = SentenceTransformer(sys.argv[1], device='cpu'); print('dimension', m.get_sentence_embedding_dimension())" "${SENTENCE_TRANSFORMER_MODEL}"; \
+    fi
+
+# ---- Stage 1c: builder (project source) ----
+FROM builder-deps AS builder
+
   # ===== OPTIMIZATION: Copy source code LAST (busts cache on code changes) =====
   # Copy source code - this layer rebuilds when code changes but reuses dependency layers above
   COPY polismath/ ./polismath/
@@ -85,6 +109,9 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
+# The optional baked embedding model (empty unless BAKE_EMBEDDING_MODEL=true).
+COPY --from=embedding-model /models/ /root/
 
 # Copy installed packages from builder stage
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages

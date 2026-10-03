@@ -53,11 +53,14 @@ const akismet = akismetLib.client({
   apiKey: Config.akismetAntispamApiKey,
 });
 
-akismet.verifyKey(function (err: any, verified: any) {
-  if (verified) {
-    logger.debug("Akismet: API key successfully verified.");
-  }
-});
+// The key check is a call to Akismet's hosted API; OFFLINE skips it.
+if (!Config.offline) {
+  akismet.verifyKey(function (err: any, verified: any) {
+    if (verified) {
+      logger.debug("Akismet: API key successfully verified.");
+    }
+  });
+}
 
 function haltOnTimeout(req: { timedout: any }, res: any, next: () => void) {
   if (req.timedout) {
