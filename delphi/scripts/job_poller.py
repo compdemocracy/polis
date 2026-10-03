@@ -7,21 +7,6 @@ and execute them.
 """
 
 import argparse
-
-
-def _postgres_vote_to_delphi(pg_vote):
-    """
-    Convert PostgreSQL vote convention to Delphi convention.
-
-    PostgreSQL/Server/Client: AGREE=-1, DISAGREE=+1, PASS=0
-    Delphi internal:          AGREE=+1, DISAGREE=-1, PASS=0
-
-    Note: The canonical definition is in polismath.utils.general.postgres_vote_to_delphi()
-    This local copy exists to avoid import dependencies in the standalone poller.
-    """
-    return pg_vote * -1
-
-
 from contextlib import contextmanager
 import sqlalchemy as sa
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, scoped_session
@@ -304,15 +289,16 @@ class PostgresClient:
         """
         Get all votes in a conversation.
 
-        Vote signs are flipped at this PostgreSQL boundary:
-        - PostgreSQL stores: AGREE=-1, DISAGREE=+1
-        - Delphi expects:    AGREE=+1, DISAGREE=-1
+        Votes are converted from the raw storage sign to semantic votes
+        (+1 agree) by the one vote convention,
+        polismath.utils.vote_convention.load_semantic_votes. A NULL vote stays
+        None, as before.
 
         Args:
             zid: Conversation ID
 
         Returns:
-            List of votes with signs converted to Delphi convention
+            List of votes with semantic signs
         """
         sql = """
         SELECT 
@@ -326,12 +312,12 @@ class PostgresClient:
             v.zid = :zid
         """
 
+        # Imported here, not at module load, so the poller still boots without
+        # the polismath package; only this loader needs it.
+        from polismath.utils.vote_convention import load_semantic_votes
+
         results = self.query(sql, {"zid": zid})
-        # Flip vote signs at PostgreSQL boundary
-        for r in results:
-            if r.get("vote") is not None:
-                r["vote"] = _postgres_vote_to_delphi(r["vote"])
-        return results
+        return load_semantic_votes(results, null_policy="keep")
 
     def get_participants_by_conversation(self, zid: int) -> List[Dict[str, Any]]:
         """
