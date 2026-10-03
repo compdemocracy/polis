@@ -88,23 +88,39 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-  math:
+  # The math engine: the Python poller, run from the same image as the `delphi`
+  # service below and writing the label the test server reads.
+  math-python:
+    image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
     build:
-      context: ./math
+      context: ./delphi
+      target: test
+      args:
+        USE_CPU_TORCH: "true"
+    command: ["python", "scripts/math_poller.py"]
     labels:
       polis_tag: test
     environment:
       - DATABASE_URL=${DATABASE_URL}
-      - DD_ENABLED=false
-      - LOGGING_LEVEL=${MATH_LOG_LEVEL:-warn}
+      - DATABASE_SSL_MODE=disable
+      - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
       - MATH_ENV=${MATH_ENV:-dev}
-      - WEBSERVER_USERNAME=${WEBSERVER_USERNAME}
-      - WEBSERVER_PASS=${WEBSERVER_PASS}
+      # No EC2 instance id here; name the poller by its container hostname.
+      - MATH_POLLER_ALLOW_HOSTNAME_IDENTITY=1
     networks:
       - polis-test
+    depends_on:
+      - postgres
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # The poller sizes its memory admission from the cgroup limit and refuses
+    # to start without one. Same limit and default as docker-compose.yml, which
+    # the dev overlay inherits.
+    deploy:
+      resources:
+        limits:
+          memory: ${DELPHI_POLLER_CONTAINER_MEMORY:-16g}
 
   ses-local:
     image: dasprid/aws-ses-v2-local:latest
@@ -236,8 +252,8 @@ services:
       - AWS_SECRET_ACCESS_KEY=minioadmin
       - AWS_S3_BUCKET_NAME=polis-delphi
       - LOG_LEVEL=DEBUG
-      # Must match the `math` service's MATH_ENV (line 67): the report pipeline
-      # reads math rows scoped by math_env, and the test stack's math writes dev.
+      # Must match the `math-python` service's MATH_ENV: the report pipeline
+      # reads math rows scoped by math_env, and the test stack's poller writes dev.
       - MATH_ENV=${MATH_ENV:-dev}
     networks:
       - "polis-test"
