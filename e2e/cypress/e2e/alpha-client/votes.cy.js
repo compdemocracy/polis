@@ -6,6 +6,7 @@
  */
 
 import { setupTestConversation } from '../../support/conversation-helpers.js'
+import { AGREE, DISAGREE, PASS, expectVoteBody } from '../../support/voteWire.js'
 
 describe('Alpha Client: Voting', function () {
   let conversationId
@@ -35,15 +36,27 @@ describe('Alpha Client: Voting', function () {
 
     // 1) Agree
     cy.get('[data-testid="vote-agree"]').click()
-    cy.wait('@vote').its('response.statusCode').should('eq', 200)
+    cy.wait('@vote').then((interception) => {
+      expect(interception.response.statusCode).to.eq(200)
+      // The labelled button posted that vote, as its wire number.
+      expectVoteBody(interception, AGREE)
+    })
 
     // 2) Disagree
     cy.get('[data-testid="vote-disagree"]').should('be.visible').click()
-    cy.wait('@vote').its('response.statusCode').should('eq', 200)
+    cy.wait('@vote').then((interception) => {
+      expect(interception.response.statusCode).to.eq(200)
+      // The labelled button posted that vote, as its wire number.
+      expectVoteBody(interception, DISAGREE)
+    })
 
     // 3) Pass
     cy.get('[data-testid="vote-pass"]').should('be.visible').click()
-    cy.wait('@vote').its('response.statusCode').should('eq', 200)
+    cy.wait('@vote').then((interception) => {
+      expect(interception.response.statusCode).to.eq(200)
+      // The labelled button posted that vote, as its wire number.
+      expectVoteBody(interception, PASS)
+    })
 
     // End-state: when no statements remain, Survey renders EmailSubscribeForm.
     // IMPORTANT: We expect exhaustion after exactly 3 votes (since we seeded 3 comments).
