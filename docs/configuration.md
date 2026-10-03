@@ -164,6 +164,8 @@ A request is let through only when, in this order: `OPS_ENABLED=true`; it carrie
 
 ### Offline mode (server)
 
+To run the whole stack on one machine with no network, see [offline](offline.md).
+
 - **`OFFLINE`** Set to `1` or `true` (any case) when the server runs on a box with no network; any other value, including `yes` and `on`, leaves it off. The Delphi image and job poller accept the same two values, so one `OFFLINE` setting means the same thing on every service. Read at [config](../server/src/config.ts) as `offline`; Compose forwards it to the `server` service with fallback empty. Unset, which is the default, nothing changes. When it is set, the server does not call these hosted services, and logs one `OFFLINE: skipping ...` info line per skipped service at start-up ([offline.ts](../server/src/utils/offline.ts)); nothing is logged per request.
   - **Auth0 Management API.** `isProConvo` ([comments.ts](../server/src/routes/comments.ts)), called on each participant comment post and on comment lists filtered by `mod_gt`, answers `false` without a lookup. `false` is what the function already returns on any error, so an offline box gets today's result without waiting for the network to fail, and the pro moderation it gates (Gemini and ip-api.com, [moderation.ts](../server/src/utils/moderation.ts)) is never reached.
   - **Akismet.** The API-key check at start-up ([server.ts](../server/src/server.ts)) is not run. Nothing else calls Akismet.
