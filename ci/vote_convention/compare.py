@@ -25,9 +25,11 @@ on EXPECTED_RED; 1 anything else. ``--ratchet`` exits 0 for 0 or 3 and 1
 otherwise: the required step, while the strict comparison stays informative.
 
 The ratchet accepts a v0/v1 difference only in a file pinned in
-expected-red-v1.json, and only when it is sign-shaped (same status, headers but
-etag/content-length, CSV header and row count, JSON keys; votes.csv rows equal
-but for the vote's sign). Both legs must write exactly the inventory derived from
+expected-red-v1.json, and only when it is sign-shaped: structurally identical to
+v0 (status, headers but etag/content-length; JSON keys recursively, list
+lengths, types and identity fields such as tids / n / in-conv; CSV header, row
+count and every column but the declared sign-carrying ones), so only leaf values
+differ (inside the comment-selection subtrees, only the container). Both legs must write exactly the inventory derived from
 the fixture set and the pca2 case list, with no failed export and no HTTP 5xx.
 ``--write-pins`` re-baselines the pin file from OUT (review its diff).
 """
@@ -213,24 +215,108 @@ def _decode_body(base: Path, rel: str) -> bytes:
     return gzip.decompress(raw) if head.get("headers", {}).get("content-encoding") == "gzip" and raw else raw
 
 
-def _same_shape_json(x: bytes, y: bytes) -> Tuple[bool, str]:
+#: Fields that identify what an output is about. They must be EQUAL across the
+#: legs inside a pinned file: a storage-sign dependence changes values, never these.
+IDENTITY_FIELDS = frozenset({
+    "tids", "zid", "n", "n-cmts", "in-conv", "user-vote-counts", "math_tick", "meta-tids", "mod-in", "mod-out",
+    "participant_count", "comment_count", "lastVoteTimestamp", "lastModTimestamp", "moderation",
+    "source", "cut", "event_count", "user_vote_counts", "last_vote_timestamp", "ambiguous",
+})
+
+#: Subtrees that SELECT comments by sign (which comments are consensus or
+#: representative flips with the sign). Inside them only the container type and,
+#: for a dict, its keys (group ids, agree/disagree) must match.
+SELECTION_SUBTREES = frozenset({
+    "/consensus/agree", "/consensus/disagree", "/repness/#", "/repness_full/group_repness/#",
+    "/repness_full/consensus_comments/agree", "/repness_full/consensus_comments/disagree",
+})
+
+#: CSV columns whose values carry the sign (everything else must be equal).
+#: participant-votes.csv also carries one vote column per comment id, and
+#: comment-groups.csv group-<g>-agrees / -disagrees / -passes per group.
+CSV_SIGN_COLUMNS = {
+    "votes.csv": {"vote"},
+    "comments.csv": {"agrees", "disagrees"},
+    "participant-votes.csv": {"n-agree", "n-disagree"},
+    "comment-groups.csv": {"total-agrees", "total-disagrees", "total-passes"},
+}
+
+
+def _number(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def structural_diff(a, b, path: str = "") -> Optional[str]:
+    """The first structural difference between two JSON values, or None.
+
+    Same types (int and float are one number type), same dict keys recursively,
+    same list lengths, equal IDENTITY_FIELDS; only leaf values may differ, and
+    inside SELECTION_SUBTREES only the container type."""
+    if not (type(a) is type(b) or (_number(a) and _number(b))):
+        return f"{path or '/'}: type {type(a).__name__} -> {type(b).__name__}"
+    norm = re.sub(r"/\d+(?=/|$)", "/#", path)
+    if norm in SELECTION_SUBTREES:
+        return None
+    if isinstance(a, dict):
+        if set(a) != set(b):
+            return f"{path or '/'}: keys changed {sorted(set(a) ^ set(b))[:6]}"
+        for k in a:
+            if k in IDENTITY_FIELDS and a[k] != b[k]:
+                return f"{path}/{k}: identity field changed"
+            why = structural_diff(a[k], b[k], f"{path}/{k}")
+            if why:
+                return why
+    elif isinstance(a, list):
+        if len(a) != len(b):
+            return f"{path or '/'}: length {len(a)} -> {len(b)}"
+        for n, (x, y) in enumerate(zip(a, b)):
+            why = structural_diff(x, y, f"{path}/{n}")
+            if why:
+                return why
+    return None
+
+
+def _same_structure_json(x: bytes, y: bytes) -> Tuple[bool, str]:
     try:
-        a, b = json.loads(x.decode().split("\n", 1)[-1] if x.startswith(b"{\"math_env\"") else x), \
-               json.loads(y.decode().split("\n", 1)[-1] if y.startswith(b"{\"math_env\"") else y)
+        a, b = json.loads(x) if x.strip() else None, json.loads(y) if y.strip() else None
     except ValueError as exc:
         return False, f"not JSON ({exc})"
-    if type(a) is not type(b):
-        return False, "JSON type changed"
-    if isinstance(a, dict) and set(a) != set(b):
-        return False, f"keys changed: {sorted(set(a) ^ set(b))[:6]}"
-    if isinstance(a, list) and len(a) != len(b):
-        return False, f"length {len(a)} -> {len(b)}"
+    why = structural_diff(a, b)
+    return (why is None, why or "")
+
+
+def _same_structure_csv(rel: str, x: bytes, y: bytes) -> Tuple[bool, str]:
+    sa, _, ta = x.decode().partition("\n")
+    sb, _, tb = y.decode().partition("\n")
+    if sa != sb:
+        return False, f"status line changed ({sa} -> {sb})"
+    ra, rb = list(csv.reader(io.StringIO(ta))), list(csv.reader(io.StringIO(tb)))
+    if not ra or not rb or ra[0] != rb[0]:
+        return False, "CSV header changed"
+    if len(ra) != len(rb):
+        return False, f"row count {len(ra) - 1} -> {len(rb) - 1}"
+    header = ra[0]
+    name = rel.split(".", 1)[1]
+    free = CSV_SIGN_COLUMNS.get(name, set())
+    for n, (row_a, row_b) in enumerate(zip(ra[1:], rb[1:]), 1):
+        if len(row_a) != len(row_b):
+            return False, f"row {n}: column count changed"
+        for col, va, vb in zip(header, row_a, row_b):
+            if va == vb:
+                continue
+            per_comment = name == "participant-votes.csv" and col.isdigit()
+            per_group = name == "comment-groups.csv" and re.fullmatch(r"group-[a-z]+-(agrees|disagrees|passes)", col)
+            if col not in free and not per_comment and not per_group:
+                return False, f"row {n}: identity column {col!r} changed"
+            if name == "votes.csv" and str(-int(va or 0)) != vb:
+                return False, f"row {n}: vote {va} -> {vb} is not a sign change"
     return True, ""
 
 
 def sign_shaped(rel: str, v0: Path, v1: Path) -> Tuple[bool, str]:
     """Is the v0/v1 difference of ``rel`` the kind a storage-sign dependence makes?
-    Values may change; shape, status and identities may not."""
+    Structure is identical to v0 (keys, lengths, types, identity fields, CSV
+    header, row count and identity columns); only sign-carrying leaf values differ."""
     x, y = (v0 / rel).read_bytes(), (v1 / rel).read_bytes()
     if rel.endswith(".head.json"):
         a, b = json.loads(x), json.loads(y)
@@ -238,26 +324,16 @@ def sign_shaped(rel: str, v0: Path, v1: Path) -> Tuple[bool, str]:
                                            if k not in ("etag", "content-length")}}
         return (drop(a) == drop(b), "status or a header other than etag/content-length changed")
     if rel.endswith(".body"):
-        return _same_shape_json(_decode_body(v0, rel), _decode_body(v1, rel))
+        return _same_structure_json(_decode_body(v0, rel), _decode_body(v1, rel))
     if rel.startswith("export/"):
-        la, lb = x.decode().split("\n"), y.decode().split("\n")
-        if la[:2] != lb[:2]:
-            return False, "status line or CSV header changed"
-        if len(la) != len(lb):
-            return False, f"row count {len(la)} -> {len(lb)}"
-        if rel.endswith(".votes.csv"):
-            for ra, rb in zip(la[2:], lb[2:]):
-                fa, fb = ra.rsplit(",", 1), rb.rsplit(",", 1)
-                if fa[0] != fb[0] or (fa[-1] != fb[-1] and str(-int(fa[-1] or 0)) != fb[-1]):
-                    return False, "a votes.csv row changed other than its vote's sign"
-        return True, ""
+        return _same_structure_csv(rel, x, y)
     if rel.startswith("math/"):
         ha, _, ba = x.partition(b"\n")
         hb, _, bb = y.partition(b"\n")
         if ha != hb:
             return False, "math row identity (zid, math_env, math_tick) changed"
-        return _same_shape_json(ba, bb)
-    return _same_shape_json(x, y)
+        return _same_structure_json(ba, bb)
+    return _same_structure_json(x, y)
 
 
 def write_pins(out: Path) -> int:

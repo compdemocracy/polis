@@ -183,7 +183,9 @@ class Ratchet(unittest.TestCase):
             self.put(leg, "export/00001.votes.csv",
                      f"status 200\ntimestamp,datetime,comment-id,voter-id,vote\n1,d,0,0,{'1' if leg == 'v0' else '-1'}\n2,d,0,1,0")
             self.put(leg, "export/00001.summary.csv", "status 200\ntopic,t\nvoters,2")
-            body = json.dumps({"tids": [0], "pca": {"center": [sign * 0.5]}})
+            body = json.dumps({"tids": [0, 1, 2, 3, 4, 5], "n": 2,
+                               "pca": {"center": [sign * 0.5, 0.25], "comps": [[sign * 0.1, 0.2], [0.3, sign * 0.4]]},
+                               "consensus": {"agree": [0, 1] if leg == "v0" else [2], "disagree": []}})
             self.put(leg, self.CASE + ".head.json", json.dumps(
                 {"caseId": "c", "status": 200, "headers": {"content-type": "application/json",
                                                          "etag": f"W/{leg}", "content-length": str(len(body))}}))
@@ -248,6 +250,40 @@ class Ratchet(unittest.TestCase):
         self.put("v1", "export/00001.votes.csv",
                  "status 200\ntimestamp,datetime,comment-id,voter-id,vote\n1,d,0,9,-1\n2,d,0,1,0")
         self.assertFails("not a sign-shaped difference")
+
+    def body(self, leg):
+        return json.loads((self.out / leg / (self.CASE + ".body")).read_text())
+
+    def put_body(self, leg, obj):
+        self.put(leg, self.CASE + ".body", json.dumps(obj))
+
+    def test_witness_pinned_pca_replaced_by_null(self):
+        self.put_body("v1", {**self.body("v1"), "pca": None})
+        self.assertFails("type dict -> NoneType")
+
+    def test_witness_pinned_tids_emptied(self):
+        self.put_body("v1", {**self.body("v1"), "tids": []})
+        self.assertFails("tids: identity field changed")
+
+    def test_a_pinned_nested_list_that_changes_length_fails(self):
+        b = self.body("v1")
+        b["pca"]["comps"][0] = [0.1]
+        self.put_body("v1", b)
+        self.assertFails("length 2 -> 1")
+
+    def test_a_pinned_nested_key_that_disappears_fails(self):
+        b = self.body("v1")
+        del b["pca"]["comps"]
+        self.put_body("v1", b)
+        self.assertFails("keys changed")
+
+    def test_selection_lists_may_change_with_the_sign(self):
+        # consensus.agree differs in length in the base tree; that alone passes.
+        self.assertTrue(self.verdict()["ratchet_ok"])
+
+    def test_witness_pinned_csv_loses_a_row(self):
+        self.put("v1", "export/00001.votes.csv", "status 200\ntimestamp,datetime,comment-id,voter-id,vote\n1,d,0,0,-1")
+        self.assertFails("row count 2 -> 1")
 
     def test_stored_rows_must_differ_by_sign_only(self):
         self.put("v1", "db/00001.votes.json", json.dumps([{"pid": 0, "tid": 0, "vote": -1, "created": 1},
