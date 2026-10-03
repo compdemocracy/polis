@@ -232,14 +232,15 @@ import {
 const app = express();
 const devMode = Config.isDevMode;
 
-// Protected operations pages. Built here, at module load, so that with
-// OPS_ENABLED=true a malformed OPS_EMAIL_DOMAINS stops the server instead of
-// being swallowed by the asynchronous route set-up below.
+// Protected operations pages. Never throws: a bad ops setting logs one error
+// and leaves ops answering 404, and every other route is unaffected.
 const opsRoutes = createOpsRoutes({
   enabled: Config.opsEnabled,
   emailDomains: Config.opsEmailDomains,
   devMode: Config.isDevMode,
   namespace: Config.authNamespace,
+  audience: Config.authAudience,
+  issuer: Config.authIssuer,
   validateJwt: jwtValidation,
 });
 const hostname = Config.staticFilesHost;
@@ -904,7 +905,8 @@ export const appReady = helpersInitialized.then(
 
     app.get("/api/v3/testDatabase", moveToBody, handle_GET_testDatabase);
 
-    // Off unless OPS_ENABLED=true: then every path below answers 404.
+    // Unless OPS_ENABLED=true and its settings are valid, every path below
+    // answers 404.
     app.get("/api/v3/ops/whoami", opsRoutes.gate, opsRoutes.whoami);
     app.get("/api/v3/ops/page/:id", opsRoutes.gate, opsRoutes.page);
     app.all(/^\/api\/v3\/ops(\/.*)?$/, opsRoutes.notFound);
@@ -2040,7 +2042,7 @@ export const appReady = helpersInitialized.then(
     app.get(/^\/integrate(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/other-conversations(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/account(\/.*)?/, fetchIndexForAdminPage);
-    if (Config.opsEnabled) {
+    if (opsRoutes.active) {
       app.get(/^\/ops(\/.*)?$/, fetchIndexForAdminPage);
     }
     app.get(/^\/bot(\/.*)?/, fetchIndexForAdminPage);

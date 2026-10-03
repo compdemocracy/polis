@@ -21,6 +21,7 @@ import type { NextFunction, Response } from "express";
 import logger from "../utils/logger";
 import {
   decideOps,
+  OpsConfigError,
   OpsEmailPolicy,
   parseOpsEmailDomains,
 } from "../utils/opsGate";
@@ -33,11 +34,16 @@ export type OpsRouteOptions = {
   emailDomains: string | null | undefined;
   devMode: boolean;
   namespace: string | null | undefined;
+  audience: string | null | undefined;
+  issuer: string | null | undefined;
   validateJwt: Middleware;
   cache?: PanelCache;
+  clock?: () => number;
 };
 
 export type OpsRoutes = {
+  // True only when OPS_ENABLED is on and the configuration was accepted.
+  active: boolean;
   gate: Middleware;
   whoami: (req: any, res: Response) => void;
   page: (req: any, res: Response) => Promise<void>;
@@ -75,17 +81,66 @@ function noStore(res: Response) {
   res.setHeader("X-Content-Type-Options", "nosniff");
 }
 
+// Refusals are counted, not logged one by one: every admin page load asks
+// whoami, so a line per refusal would be log volume driven by ordinary admin
+// traffic. One info line per minute per process at most, with counts by
+// route and reason.
+const REFUSAL_LOG_INTERVAL_MS = 60 * 1000;
+
+function makeRefusalCounter(clock: () => number) {
+  let counts: Record<string, number> = {};
+  let windowStart = clock();
+  return (route: string, reason: string) => {
+    const key = `${route}:${reason}`;
+    counts[key] = (counts[key] || 0) + 1;
+    const now = clock();
+    if (now - windowStart >= REFUSAL_LOG_INTERVAL_MS) {
+      logger.info("ops_refused", { window_ms: now - windowStart, counts });
+      counts = {};
+      windowStart = now;
+    }
+  };
+}
+
 /**
- * Build the ops handlers. With `enabled` true, OPS_EMAIL_DOMAINS is parsed
- * here and a malformed or empty list throws, so app.ts must call this at
- * module load, where a throw stops the server rather than being swallowed by
- * the asynchronous route set-up.
+ * Decide, once at start-up, whether ops can run. Never throws: a missing auth
+ * setting or a malformed OPS_EMAIL_DOMAINS logs one error and leaves ops off
+ * (every ops path answers 404). The rest of the API never depends on an ops
+ * setting.
+ */
+function startupPolicy(options: OpsRouteOptions): OpsEmailPolicy | null {
+  if (!options.enabled) return null;
+  const missing = [
+    ["AUTH_NAMESPACE", options.namespace],
+    ["AUTH_AUDIENCE", options.audience],
+    ["AUTH_ISSUER", options.issuer],
+  ]
+    .filter(([, value]) => !value)
+    .map(([name]) => name);
+  if (missing.length > 0) {
+    logger.error("ops_disabled", {
+      error: "polis_err_ops_auth_config_missing",
+      missing,
+    });
+    return null;
+  }
+  try {
+    return parseOpsEmailDomains(options.emailDomains, options.devMode);
+  } catch (err) {
+    logger.error("ops_disabled", {
+      error: err instanceof OpsConfigError ? err.message : "invalid_config",
+    });
+    return null;
+  }
+}
+
+/**
+ * Build the ops handlers. Called once by app.ts at module load.
  */
 export function createOpsRoutes(options: OpsRouteOptions): OpsRoutes {
-  const policy: OpsEmailPolicy | null = options.enabled
-    ? parseOpsEmailDomains(options.emailDomains, options.devMode)
-    : null;
+  const policy = startupPolicy(options);
   const cache = options.cache || new PanelCache();
+  const countRefusal = makeRefusalCounter(options.clock || Date.now);
 
   const notFound = (_req: any, res: Response) => {
     noStore(res);
@@ -93,13 +148,19 @@ export function createOpsRoutes(options: OpsRouteOptions): OpsRoutes {
   };
 
   const forbid = (req: any, res: Response, reason: string) => {
-    logAccess({
-      route: req.path,
-      page: req.params?.id,
-      status: 403,
-      reason,
-      sub: req.jwtPayload?.sub,
-    });
+    const route = req.params?.id !== undefined ? "page" : "whoami";
+    if (route === "page" && reason !== "token_missing") {
+      // A token-bearing request for page data is the access record.
+      logAccess({
+        route,
+        page: req.params.id,
+        status: 403,
+        reason,
+        sub: req.jwtPayload?.sub,
+      });
+    } else {
+      countRefusal(route, reason);
+    }
     noStore(res);
     res.status(403).json({ error: "polis_err_ops_forbidden" });
   };
@@ -180,5 +241,5 @@ export function createOpsRoutes(options: OpsRouteOptions): OpsRoutes {
     });
   };
 
-  return { gate, whoami, page, notFound };
+  return { active: policy !== null, gate, whoami, page, notFound };
 }

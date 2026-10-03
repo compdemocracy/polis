@@ -16,9 +16,18 @@
 //   !former@compdemocracy.org  a deny entry (domain or address); a deny match
 //                              wins over every allow entry
 //
-// Anything else is malformed and stops the server at startup when OPS_ENABLED
-// is true: an "@" in a domain position, more than one "@", whitespace inside an
-// entry, a "*", a domain without a dot, an empty or dotted-edge label.
+// Anything else is malformed: an "@" in a domain position, more than one "@",
+// whitespace inside an entry, a "*", a domain without a dot, an empty or
+// dotted-edge label, any character outside printable ASCII. With OPS_ENABLED
+// true a malformed list keeps ops switched off (src/routes/ops.ts logs the
+// error); it never stops the rest of the API.
+//
+// Domain entries and hd: an email admitted only through a domain entry must
+// also carry hd equal to that domain, i.e. it must be a Google Workspace
+// account of that domain. A consumer Google account created on a domain
+// address (which keeps email_verified=true after the person loses the mailbox)
+// has no hd and is refused. Exact-address entries do not need hd, so a
+// collaborator on a consumer domain can be listed by address.
 
 export type OpsEntryKind = "domain" | "address";
 
@@ -45,6 +54,7 @@ export type OpsRefusal =
   | "email_denied"
   | "email_not_allowed"
   | "hd_mismatch"
+  | "hd_missing"
   | "namespace_unset";
 
 export type OpsDecision =
@@ -57,6 +67,12 @@ export class OpsConfigError extends Error {
     this.name = "OpsConfigError";
   }
 }
+
+// Printable ASCII without space. Checked before any lower-casing, because
+// String.prototype.toLowerCase folds some non-ASCII letters into ASCII ones
+// (the Kelvin sign U+212A becomes "k"), which would let a different mailbox
+// match an address entry.
+const PRINTABLE_ASCII = /^[\x21-\x7e]+$/;
 
 // One DNS label: letters, digits and inner hyphens. Punycode (xn--) passes.
 const LABEL = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
@@ -75,15 +91,18 @@ function isLocalPart(value: string): boolean {
 }
 
 function parseEntry(raw: string): { deny: boolean; entry: OpsEntry } {
-  const trimmed = raw.trim().toLowerCase();
-  const deny = trimmed.startsWith("!");
-  const body = deny ? trimmed.slice(1) : trimmed;
   const bad = (why: string) =>
     new OpsConfigError(
       `polis_err_ops_email_domains_malformed: entry "${raw.trim()}" ${why}`
     );
+  const rawTrimmed = raw.trim();
+  if (/\s/.test(rawTrimmed)) throw bad("contains whitespace");
+  if (!PRINTABLE_ASCII.test(rawTrimmed))
+    throw bad("contains a character outside printable ASCII");
+  const trimmed = rawTrimmed.toLowerCase();
+  const deny = trimmed.startsWith("!");
+  const body = deny ? trimmed.slice(1) : trimmed;
   if (body.length === 0) throw bad("is empty after its prefix");
-  if (/\s/.test(body)) throw bad("contains whitespace");
   if (body.includes("*"))
     throw bad("contains a wildcard; list domains exactly");
   if (body.includes("!"))
@@ -151,7 +170,9 @@ export function splitEmail(
   email: unknown
 ): { address: string; domain: string } | null {
   if (typeof email !== "string") return null;
-  const address = email.trim().toLowerCase();
+  const trimmed = email.trim();
+  if (!PRINTABLE_ASCII.test(trimmed)) return null;
+  const address = trimmed.toLowerCase();
   if (address.split("@").length !== 2) return null;
   const [local, domain] = address.split("@");
   if (!isLocalPart(local) || !isDomain(domain)) return null;
@@ -172,8 +193,10 @@ function matches(entry: OpsEntry, address: string, domain: string): boolean {
  *   1. connection_strategy present and in OPS_CONNECTION_STRATEGIES
  *      (absent: refused, so ops stays dark until the Auth0 Action emits it)
  *   2. email_verified === true (the boolean, not a truthy string)
- *   3. email well formed; no deny entry matches; some allow entry matches
- *   4. hd, when present, equals the email's domain part
+ *   3. email well formed (printable ASCII, one "@"); no deny entry matches;
+ *      some allow entry matches
+ *   4. hd, when present, equals the email's domain part; and when no address
+ *      entry matched (admitted through a domain entry only), hd is required
  */
 export function decideOps(
   payload: Record<string, unknown> | null | undefined,
@@ -205,15 +228,28 @@ export function decideOps(
   if (policy.deny.some((e) => matches(e, email.address, email.domain))) {
     return { ok: false, reason: "email_denied" };
   }
-  if (!policy.allow.some((e) => matches(e, email.address, email.domain))) {
+  const byAddress = policy.allow.some(
+    (e) => e.kind === "address" && e.value === email.address
+  );
+  const byDomain = policy.allow.some(
+    (e) => e.kind === "domain" && e.value === email.domain
+  );
+  if (!byAddress && !byDomain) {
     return { ok: false, reason: "email_not_allowed" };
   }
 
   const hd = claim("hd");
-  if (hd !== undefined && hd !== null) {
-    if (typeof hd !== "string" || hd.trim().toLowerCase() !== email.domain) {
-      return { ok: false, reason: "hd_mismatch" };
-    }
+  if (hd === undefined || hd === null) {
+    // A domain entry admits Workspace accounts of that domain only.
+    if (!byAddress) return { ok: false, reason: "hd_missing" };
+    return { ok: true };
+  }
+  if (
+    typeof hd !== "string" ||
+    !PRINTABLE_ASCII.test(hd.trim()) ||
+    hd.trim().toLowerCase() !== email.domain
+  ) {
+    return { ok: false, reason: "hd_mismatch" };
   }
   return { ok: true };
 }

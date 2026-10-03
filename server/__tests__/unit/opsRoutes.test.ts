@@ -1,7 +1,15 @@
-import { afterEach, describe, expect, jest, test } from "@jest/globals";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  jest,
+  test,
+} from "@jest/globals";
 import express from "express";
 import request from "supertest";
 import { createOpsRoutes, OpsRouteOptions } from "../../src/routes/ops";
+import logger from "../../src/utils/logger";
 import { OpsPanelDef, PanelCache } from "../../src/ops/pages";
 import { OpsReadError, setOpsConnectForTests } from "../../src/ops/guardedRead";
 
@@ -15,6 +23,7 @@ const staff = {
   [`${NS}connection_strategy`]: "google-oauth2",
   [`${NS}email`]: "staff.one@example.org",
   [`${NS}email_verified`]: true,
+  [`${NS}hd`]: "example.org",
 };
 
 const TOKENS: Record<string, Record<string, unknown>> = {
@@ -46,10 +55,15 @@ function appWith(over: Partial<OpsRouteOptions> = {}) {
     emailDomains: "example.org,!former@example.org",
     devMode: false,
     namespace: NS,
+    audience: "users",
+    issuer: "https://issuer.example.org/",
     validateJwt: fakeValidateJwt,
     ...over,
   });
   const app = express();
+  // A route that has nothing to do with ops, standing in for the rest of the
+  // API: it must keep answering whatever the ops settings are.
+  app.get("/api/v3/votes", (_req, res) => res.status(200).json({ ok: true }));
   app.get("/api/v3/ops/whoami", ops.gate, ops.whoami);
   app.get("/api/v3/ops/page/:id", ops.gate, ops.page);
   app.all(/^\/api\/v3\/ops(\/.*)?$/, ops.notFound);
@@ -85,21 +99,112 @@ describe("OPS_ENABLED unset", () => {
   });
 });
 
-describe("startup guard", () => {
-  test("enabled with an empty list throws", () => {
-    expect(() => appWith({ emailDomains: "" })).toThrow(
-      "polis_err_ops_email_domains_empty"
-    );
+describe("bad ops settings keep ops off and never stop the API", () => {
+  let errorSpy: jest.SpiedFunction<typeof logger.error>;
+  beforeEach(() => {
+    errorSpy = jest.spyOn(logger, "error").mockImplementation(() => logger);
   });
-  test("enabled with a malformed entry throws", () => {
-    expect(() =>
-      appWith({ emailDomains: "example.org,*.example.org" })
-    ).toThrow("polis_err_ops_email_domains_malformed");
+  afterEach(() => {
+    errorSpy.mockRestore();
   });
-  test("enabled with the local test domain outside DEV_MODE throws", () => {
-    expect(() => appWith({ emailDomains: "polis.test" })).toThrow(
-      "polis_err_ops_email_domains_dev_only"
-    );
+
+  test.each([
+    [
+      "an empty list",
+      { emailDomains: "" },
+      "polis_err_ops_email_domains_empty",
+    ],
+    [
+      "a malformed entry",
+      { emailDomains: "example.org,*.example.org" },
+      "polis_err_ops_email_domains_malformed",
+    ],
+    [
+      "the local test domain outside DEV_MODE",
+      { emailDomains: "polis.test" },
+      "polis_err_ops_email_domains_dev_only",
+    ],
+    [
+      "no AUTH_NAMESPACE",
+      { namespace: "" },
+      "polis_err_ops_auth_config_missing",
+    ],
+    [
+      "no AUTH_AUDIENCE",
+      { audience: null },
+      "polis_err_ops_auth_config_missing",
+    ],
+    [
+      "no AUTH_ISSUER",
+      { issuer: undefined },
+      "polis_err_ops_auth_config_missing",
+    ],
+  ])(
+    "%s: one error at start-up, ops 404, other routes 200",
+    async (_name, over, code) => {
+      let app: express.Express;
+      expect(() => {
+        app = appWith(over as Partial<OpsRouteOptions>);
+      }).not.toThrow();
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(errorSpy.mock.calls[0])).toContain(code);
+      for (const path of ["/api/v3/ops/whoami", "/api/v3/ops/page/activity"]) {
+        const res = await request(app!)
+          .get(path)
+          .set("Authorization", "Bearer staff");
+        expect(res.status).toBe(404);
+      }
+      expect((await request(app!).get("/api/v3/votes")).status).toBe(200);
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  test("the missing auth settings are named", () => {
+    appWith({ audience: "", issuer: "" });
+    expect(errorSpy.mock.calls[0][1]).toEqual({
+      error: "polis_err_ops_auth_config_missing",
+      missing: ["AUTH_AUDIENCE", "AUTH_ISSUER"],
+    });
+  });
+
+  test("valid settings log no error and report active", () => {
+    const ops = createOpsRoutes({
+      enabled: true,
+      emailDomains: "example.org",
+      devMode: false,
+      namespace: NS,
+      audience: "users",
+      issuer: "https://issuer.example.org/",
+      validateJwt: fakeValidateJwt,
+    });
+    expect(ops.active).toBe(true);
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("refusal logging", () => {
+  test("whoami refusals write no warn line; at most one info line per minute", async () => {
+    const warn = jest.spyOn(logger, "warn").mockImplementation(() => logger);
+    const info = jest.spyOn(logger, "info").mockImplementation(() => logger);
+    let now = 0;
+    const app = appWith({ clock: () => now });
+    for (let i = 0; i < 5; i++) {
+      await request(app).get("/api/v3/ops/whoami");
+      await request(app)
+        .get("/api/v3/ops/whoami")
+        .set("Authorization", "Bearer outsider");
+    }
+    expect(warn).not.toHaveBeenCalled();
+    expect(info).not.toHaveBeenCalled();
+    now += 60_000;
+    await request(app).get("/api/v3/ops/whoami");
+    expect(info).toHaveBeenCalledTimes(1);
+    expect(info.mock.calls[0][1]).toMatchObject({
+      counts: { "whoami:token_missing": 6, "whoami:email_not_allowed": 5 },
+    });
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+    info.mockRestore();
   });
 });
 
@@ -156,6 +261,8 @@ describe("the gate", () => {
       emailDomains: "example.org",
       devMode: false,
       namespace: NS,
+      audience: "users",
+      issuer: "https://issuer.example.org/",
       validateJwt: (_req: any, _res: any, next: any) => next(),
     });
     pre.use((req: any, _res, next) => {
