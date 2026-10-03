@@ -467,3 +467,64 @@ def test_delphi_llm_selection_defaults_when_unset():
     env = _environment("docker-compose.yml", "delphi", {})
     assert {key: env.get(key) for key in LLM_SELECTION_DEFAULTS} == LLM_SELECTION_DEFAULTS
     assert "ANTHROPIC_API_KEY" in env
+
+
+# --- Datadog tracer gate (delphi image CMD) -----------------------------------
+# The job poller runs under ddtrace-run only when DD_TRACE_ENABLED=true. With no
+# Datadog agent listening the tracer only logs failed sends, so the default is
+# off; the ddtrace package stays installed so tracing can be switched back on.
+
+DOCKERFILE = Path(__file__).resolve().parent.parent / "Dockerfile"
+requires_dockerfile = pytest.mark.skipif(
+    not DOCKERFILE.is_file(), reason=f"{DOCKERFILE} not found (CI copies only tests/)"
+)
+
+
+def _image_cmd() -> list:
+    """The final stage's CMD exec form, with Dockerfile line continuations joined."""
+    import json
+
+    text = DOCKERFILE.read_text()
+    start = text.index('CMD ["bash", "-c"')
+    end = text.index('"]', start) + 2
+    return json.loads(text[start + len("CMD "):end].replace("\\\n", ""))
+
+
+def _run_cmd(tmp_path, env: dict) -> list:
+    """Run the image CMD with stub `python`/`ddtrace-run` on PATH; return the
+    commands the stubs saw."""
+    import subprocess
+
+    log = tmp_path / "calls"
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    for name in ("python", "ddtrace-run"):
+        stub = bin_dir / name
+        stub.write_text(f'#!/bin/sh\necho "{name} $*" >> "{log}"\n')
+        stub.chmod(0o755)
+    argv = _image_cmd()
+    assert argv[:2] == ["bash", "-c"]
+    full_env = {"PATH": f"{bin_dir}:/usr/bin:/bin", "AWS_REGION": "us-east-1", **env}
+    subprocess.run(argv, env=full_env, cwd=tmp_path, check=True, capture_output=True, timeout=30)
+    return [line for line in log.read_text().splitlines() if "job_poller.py" in line]
+
+
+@requires_dockerfile
+@pytest.mark.parametrize(
+    "env,traced",
+    [({}, False), ({"DD_TRACE_ENABLED": "false"}, False), ({"DD_TRACE_ENABLED": ""}, False),
+     ({"DD_TRACE_ENABLED": "true"}, True)],
+    ids=["unset", "false", "empty", "true"],
+)
+def test_job_poller_runs_under_ddtrace_only_when_enabled(tmp_path, env, traced):
+    (call,) = _run_cmd(tmp_path, env)
+    assert call.startswith("ddtrace-run python ") == traced
+    if not traced:
+        assert call.startswith("python scripts/job_poller.py")
+
+
+@requires_checkout
+def test_compose_leaves_the_tracer_off_unless_enabled():
+    assert _environment("docker-compose.yml", "delphi")["DD_TRACE_ENABLED"] == "false"
+    on = _environment("docker-compose.yml", "delphi", {"DD_TRACE_ENABLED": "true"})
+    assert on["DD_TRACE_ENABLED"] == "true"

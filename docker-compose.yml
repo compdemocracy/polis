@@ -172,6 +172,10 @@ services:
       - DATABASE_SSL_MODE=${DATABASE_SSL_MODE:-disable}
       - INSTANCE_SIZE=${INSTANCE_SIZE:-default}
       - AWS_LOG_GROUP_NAME=${AWS_LOG_GROUP_NAME}
+      # The image starts the job poller under ddtrace-run only when this is
+      # `true`. Off by default: with no Datadog agent listening, the tracer only
+      # logs failed sends. Set it (with an agent) to turn tracing back on.
+      - DD_TRACE_ENABLED=${DD_TRACE_ENABLED:-false}
     networks:
       - "polis-net"
     extra_hosts:
