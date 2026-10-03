@@ -7,6 +7,8 @@
  */
 import { describe, expect, jest, test, beforeEach } from "@jest/globals";
 import { Request, Response } from "express";
+import { readFileSync } from "fs";
+import path from "path";
 
 const admitDelphiJob = jest.fn();
 jest.mock("../../src/routes/delphi/jobGuard", () => ({
@@ -81,6 +83,24 @@ describe("POST /delphi/jobs job_type allow-list", () => {
       "CREATE_NARRATIVE_BATCH",
       "FULL_PIPELINE",
     ]);
+  });
+
+  test("the route and the Delphi poller allow exactly the same job types", () => {
+    // Read the poller's KNOWN_JOB_TYPES from its source so the two lists
+    // cannot drift apart.
+    const pollerSource = readFileSync(
+      path.join(__dirname, "../../../delphi/scripts/job_poller.py"),
+      "utf8"
+    );
+    const match = pollerSource.match(
+      /^KNOWN_JOB_TYPES\s*=\s*frozenset\(\{([^}]*)\}\)/m
+    );
+    expect(match).not.toBeNull();
+    const pollerTypes = [...match![1].matchAll(/'([A-Z_]+)'|"([A-Z_]+)"/g)]
+      .map((m) => m[1] ?? m[2])
+      .sort();
+    expect(pollerTypes.length).toBeGreaterThan(0);
+    expect([...DELPHI_JOB_TYPES].sort()).toEqual(pollerTypes);
   });
 
   test("an omitted job_type still defaults to FULL_PIPELINE and is admitted", async () => {

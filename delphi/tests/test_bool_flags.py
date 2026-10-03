@@ -128,18 +128,32 @@ def test_run_delphi_forwards_parsed_flags(app_dir, monkeypatch, flags, include_m
 
 
 def test_full_pipeline_job_config_top_level():
-    # POST /delphi/jobs: {"include_moderation": false}
-    assert report_filter_flags({"include_moderation": False}) == (False, True)
+    # POST /delphi/jobs: {"include_moderation": true}
     assert report_filter_flags({"include_moderation": True}) == (True, True)
+    assert report_filter_flags({"exclude_comment_selections": False}) == (True, False)
 
 
 def test_narrative_job_config_nested_under_first_stage():
-    # POST /delphi/batchReports nests the flag under stages[0].config.
+    # POST /delphi/batchReports nests the flags under stages[0].config.
     nested = {"job_type": "CREATE_NARRATIVE_BATCH",
-              "stages": [{"stage": "X", "config": {"include_moderation": False}}]}
-    assert report_filter_flags(nested) == (False, True)
-    nested["stages"][0]["config"]["include_moderation"] = True
-    assert report_filter_flags(nested) == (True, True)
+              "stages": [{"stage": "X", "config": {"include_moderation": True,
+                                                   "exclude_comment_selections": False}}]}
+    assert report_filter_flags(nested) == (True, False)
+
+
+@pytest.mark.parametrize("config", [
+    {"include_moderation": False},
+    {"include_moderation": "False"},
+    {"stages": [{"config": {"include_moderation": False}}]},
+])
+def test_explicit_false_include_moderation_is_pinned_to_true(config, caplog):
+    """-2 is every report's default moderation level and the UI sends false for
+    it, so honouring false awaits a ruling; the poller pins it and says so."""
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="delphi_poller"):
+        assert report_filter_flags(config)[0] is True
+    assert sum("pinned to true pending a ruling" in r.getMessage() for r in caplog.records) == 1
 
 
 def test_absent_flags_keep_the_values_jobs_have_run_with():
