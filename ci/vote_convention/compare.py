@@ -23,16 +23,26 @@ Writes OUT/verdict-<leg>.json and a Markdown summary (to $GITHUB_STEP_SUMMARY
 when set). Exit status: 0 fully green; 3 (v1 only) red, but every red family is
 on EXPECTED_RED; 1 anything else. ``--ratchet`` exits 0 for 0 or 3 and 1
 otherwise: the required step, while the strict comparison stays informative.
+
+The ratchet accepts a v0/v1 difference only in a file pinned in
+expected-red-v1.json, and only when it is sign-shaped (same status, headers but
+etag/content-length, CSV header and row count, JSON keys; votes.csv rows equal
+but for the vote's sign). Both legs must write exactly the inventory derived from
+the fixture set and the pca2 case list, with no failed export and no HTTP 5xx.
+``--write-pins`` re-baselines the pin file from OUT (review its diff).
 """
 from __future__ import annotations
 
 import csv
+import gzip
 import io
 import json
 import os
+import re
+import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -112,10 +122,179 @@ def same_but_sign(a: bytes, b: bytes) -> Tuple[bool, str]:
     return True, ""
 
 
-def compare_v1(out: Path) -> dict:
-    a, b = files(out / "v0"), files(out / "v1")
-    result = {"leg": "v1", "families": {}, "unexpected": [], "missing": sorted(set(a) ^ set(b))}
-    for rel in sorted(set(a) & set(b)):
+PINNED_RED = HERE / "expected-red-v1.json"
+EXPORTS = ("summary.csv", "comments.csv", "votes.csv", "participant-votes.csv",
+           "participant-importance.csv", "comment-groups.csv")
+MATH_TABLES = ("math_main", "math_bidtopid", "math_ptptstats")
+
+
+def case_file(case_id: str) -> str:
+    """server_leg.cjs's file stem for a pca2 case."""
+    return "pca2/" + re.sub(r"[^A-Za-z0-9._-]+", "_", case_id)
+
+
+def pca2_case_ids() -> List[str]:
+    """The case identities of server/characterization/pca2-cases.cjs, from the module itself."""
+    script = ("process.stdout.write(JSON.stringify(require(process.argv[1]).pca2Cases().map((c) => c.caseId)))")
+    out = subprocess.run(["node", "-e", script, str(ROOT / "server/characterization/pca2-cases.cjs")],
+                         check=True, capture_output=True, text=True).stdout
+    return json.loads(out)
+
+
+def expected_inventory() -> Set[str]:
+    """Every output each leg must write, derived from the declared fixture set and
+    the pca2 case list, never from what a leg reports about itself."""
+    import fixtures
+
+    inv: Set[str] = set()
+    for c in fixtures.all_conversations():
+        inv.add(f"db/{c.zid:05d}.votes.json")
+        if c.votes:
+            inv |= {f"fold/{c.zid:05d}.direct.json", f"fold/{c.zid:05d}.declared.json"}
+        inv |= {f"export/{c.zid:05d}.{name}" for name in EXPORTS}
+        if c.math_env:
+            inv |= {f"math/{c.zid:05d}.{c.math_env}.{t}.json" for t in MATH_TABLES}
+        if c.replay:
+            inv.add(f"replay/{c.source.replace('/', '-')}.json")
+    for case_id in pca2_case_ids():
+        inv |= {case_file(case_id) + ".head.json", case_file(case_id) + ".body"}
+    return inv
+
+
+def load_pinned() -> Set[str]:
+    data = json.loads(PINNED_RED.read_text())
+    return {rel for rels in data["files"].values() for rel in rels}
+
+
+def leg_problems(base: Path, inventory: Set[str]) -> List[str]:
+    """One leg on its own: complete inventory, no failed export, no server error,
+    and its self-reported counts agree with the inventory."""
+    leg = base.name
+    problems = []
+    have = set(files(base)) if base.exists() else set()
+    problems += [f"{leg}: missing output {rel}" for rel in sorted(inventory - have)]
+    problems += [f"{leg}: output outside the inventory {rel}" for rel in sorted(have - inventory)]
+    try:
+        server = json.loads((base / "_meta" / "server-leg.json").read_text())
+        n_cases = sum(1 for rel in inventory if rel.endswith(".head.json"))
+        if server.get("exportFailures") != 0:
+            problems.append(f"{leg}: server leg reports {server.get('exportFailures')} export failure(s)")
+        if server.get("pca2Cases") != n_cases:
+            problems.append(f"{leg}: server leg recorded {server.get('pca2Cases')} pca2 cases, {n_cases} expected")
+    except (OSError, ValueError) as exc:
+        problems.append(f"{leg}: no server-leg metadata ({exc})")
+    try:
+        engine = json.loads((base / "engine-leg.json").read_text())
+        n_replay = sum(1 for rel in inventory if rel.startswith("replay/"))
+        if len(engine.get("replay", {})) != n_replay:
+            problems.append(f"{leg}: engine leg replayed {len(engine.get('replay', {}))} fixtures, {n_replay} expected")
+    except (OSError, ValueError) as exc:
+        problems.append(f"{leg}: no engine-leg metadata ({exc})")
+    for rel in sorted(have & inventory):
+        path = base / rel
+        if rel.startswith("export/"):
+            status = path.read_text(errors="replace").partition("\n")[0]
+            if status != "status 200":
+                problems.append(f"{leg}: {rel} failed ({status})")
+        elif rel.endswith(".head.json"):
+            try:
+                code = json.loads(path.read_text())["status"]
+            except (ValueError, KeyError) as exc:
+                problems.append(f"{leg}: {rel} unreadable ({exc})")
+                continue
+            if not isinstance(code, int) or code >= 500:
+                problems.append(f"{leg}: {rel} HTTP {code}")
+    return problems
+
+
+def _decode_body(base: Path, rel: str) -> bytes:
+    raw = (base / rel).read_bytes()
+    head = json.loads((base / (rel[: -len(".body")] + ".head.json")).read_text())
+    return gzip.decompress(raw) if head.get("headers", {}).get("content-encoding") == "gzip" and raw else raw
+
+
+def _same_shape_json(x: bytes, y: bytes) -> Tuple[bool, str]:
+    try:
+        a, b = json.loads(x.decode().split("\n", 1)[-1] if x.startswith(b"{\"math_env\"") else x), \
+               json.loads(y.decode().split("\n", 1)[-1] if y.startswith(b"{\"math_env\"") else y)
+    except ValueError as exc:
+        return False, f"not JSON ({exc})"
+    if type(a) is not type(b):
+        return False, "JSON type changed"
+    if isinstance(a, dict) and set(a) != set(b):
+        return False, f"keys changed: {sorted(set(a) ^ set(b))[:6]}"
+    if isinstance(a, list) and len(a) != len(b):
+        return False, f"length {len(a)} -> {len(b)}"
+    return True, ""
+
+
+def sign_shaped(rel: str, v0: Path, v1: Path) -> Tuple[bool, str]:
+    """Is the v0/v1 difference of ``rel`` the kind a storage-sign dependence makes?
+    Values may change; shape, status and identities may not."""
+    x, y = (v0 / rel).read_bytes(), (v1 / rel).read_bytes()
+    if rel.endswith(".head.json"):
+        a, b = json.loads(x), json.loads(y)
+        drop = lambda h: {**h, "headers": {k: v for k, v in h.get("headers", {}).items()
+                                           if k not in ("etag", "content-length")}}
+        return (drop(a) == drop(b), "status or a header other than etag/content-length changed")
+    if rel.endswith(".body"):
+        return _same_shape_json(_decode_body(v0, rel), _decode_body(v1, rel))
+    if rel.startswith("export/"):
+        la, lb = x.decode().split("\n"), y.decode().split("\n")
+        if la[:2] != lb[:2]:
+            return False, "status line or CSV header changed"
+        if len(la) != len(lb):
+            return False, f"row count {len(la)} -> {len(lb)}"
+        if rel.endswith(".votes.csv"):
+            for ra, rb in zip(la[2:], lb[2:]):
+                fa, fb = ra.rsplit(",", 1), rb.rsplit(",", 1)
+                if fa[0] != fb[0] or (fa[-1] != fb[-1] and str(-int(fa[-1] or 0)) != fb[-1]):
+                    return False, "a votes.csv row changed other than its vote's sign"
+        return True, ""
+    if rel.startswith("math/"):
+        ha, _, ba = x.partition(b"\n")
+        hb, _, bb = y.partition(b"\n")
+        if ha != hb:
+            return False, "math row identity (zid, math_env, math_tick) changed"
+        return _same_shape_json(ba, bb)
+    return _same_shape_json(x, y)
+
+
+def write_pins(out: Path) -> int:
+    """Pin today's differing outputs (outside the must-hold families) as the
+    expected-red cases. Run only to re-baseline, and review the diff."""
+    inventory = expected_inventory()
+    v0, v1 = out / "v0", out / "v1"
+    a, b = files(v0), files(v1)
+    pins: Dict[str, List[str]] = {}
+    for rel in sorted(inventory & set(a) & set(b)):
+        fam = family(rel)
+        if fam not in MUST_HOLD and a[rel].read_bytes() != b[rel].read_bytes():
+            pins.setdefault(fam, []).append(rel)
+    PINNED_RED.write_text(json.dumps({
+        "schema": "vote-gate-expected-red/1",
+        "about": "Outputs that differ between v0 and v1 on today's code, pinned file by file (P-078 PR-F). "
+                 "A difference elsewhere, or one here that is not sign-shaped, fails the ratchet. "
+                 "Delete entries as PR-A/B/C turn them green; never add one to hide a regression.",
+        "counts": {fam: len(rels) for fam, rels in sorted(pins.items())},
+        "files": pins,
+    }, indent=1, sort_keys=True) + "\n")
+    print(json.dumps({fam: len(rels) for fam, rels in sorted(pins.items())}))
+    return 0
+
+
+def compare_v1(out: Path, inventory: Optional[Set[str]] = None, pinned: Optional[Set[str]] = None) -> dict:
+    """v0 against v1. A difference is accepted only where it is pinned (the file
+    is listed in expected-red-v1.json) and sign-shaped; every leg must be complete
+    and free of failures. Anything else is a failure of the required ratchet."""
+    inventory = expected_inventory() if inventory is None else inventory
+    pinned = load_pinned() if pinned is None else pinned
+    v0, v1 = out / "v0", out / "v1"
+    failures = leg_problems(v0, inventory) + leg_problems(v1, inventory)
+    a, b = files(v0) if v0.exists() else {}, files(v1) if v1.exists() else {}
+    result = {"leg": "v1", "families": {}, "failures": failures, "now_green": [],
+              "missing": sorted((inventory - set(a)) | (inventory - set(b)))}
+    for rel in sorted(inventory & set(a) & set(b)):
         fam = family(rel)
         entry = result["families"].setdefault(fam, {"files": 0, "differ": []})
         entry["files"] += 1
@@ -123,23 +302,33 @@ def compare_v1(out: Path) -> dict:
         if fam == "db":
             ok, why = same_but_sign(x, y)
             if not ok:
-                entry["differ"].append(f"{rel}: {why}")
-        elif x != y:
-            entry["differ"].append(rel)
-    for fam in list(MUST_HOLD) + list(EXPECTED_RED):
-        if fam not in result["families"]:  # a family that vanished is a regression too
-            result["unexpected"].append(fam)
+                entry["differ"].append(rel)
+                failures.append(f"{rel}: {why}")
+            continue
+        if x == y:
+            if rel in pinned:
+                result["now_green"].append(rel)
+            continue
+        entry["differ"].append(rel)
+        if fam in MUST_HOLD:
+            failures.append(f"{rel}: must-hold family {fam} changed")
+        elif rel not in pinned:
+            failures.append(f"{rel}: differs but is not a pinned expected-red case")
+        else:
+            ok, why = sign_shaped(rel, v0, v1)
+            if not ok:
+                failures.append(f"{rel}: not a sign-shaped difference: {why}")
     for fam, entry in sorted(result["families"].items()):
         entry["status"] = "green" if not entry["differ"] else "red"
         if fam in MUST_HOLD:
             entry["reason"] = "must hold: " + MUST_HOLD[fam]
         elif fam in EXPECTED_RED:
             entry["reason"] = EXPECTED_RED[fam]
-        if entry["differ"] and (fam in MUST_HOLD or fam not in EXPECTED_RED):
-            result["unexpected"].append(fam)
-    result["green"] = not result["unexpected"] and not result["missing"] and all(
-        e["status"] == "green" for e in result["families"].values())
-    # Lists of failing cases are the evidence; keep them but cap the summary.
+    failed_rels = {f.split(":", 1)[0] for f in failures}
+    result["unexpected"] = sorted({family(r) for r in failed_rels if "/" in r} |
+                                  {f.split(":", 1)[0] for f in failures if f.startswith(("v0:", "v1:"))})
+    result["ratchet_ok"] = not failures
+    result["green"] = not failures and all(e["status"] == "green" for e in result["families"].values())
     return result
 
 
@@ -170,18 +359,14 @@ def battery_roundtrip(out: Path) -> List[str]:
     return problems
 
 
-def check_v0(out: Path) -> dict:
+def check_v0(out: Path, inventory: Optional[Set[str]] = None) -> dict:
     base = out / "v0"
-    problems = []
+    problems = leg_problems(base, expected_inventory() if inventory is None else inventory)
     engine = json.loads((base / "engine-leg.json").read_text())
     for source, verdict in sorted(engine["replay"].items()):
         if verdict is False:
             problems.append(f"replay/{source}: no longer reproduces its recorded components")
     server = json.loads((base / "_meta" / "server-leg.json").read_text())
-    if server["pca2Cases"] != 336:
-        problems.append(f"pca2: {server['pca2Cases']} cases recorded, 336 expected")
-    if server["exportFailures"]:
-        problems.append(f"export: {server['exportFailures']} exports failed")
     fold = sorted((base / "fold").glob("*.direct.json"))
     for direct in fold:
         declared = direct.with_name(direct.name.replace(".direct.", ".declared."))
@@ -204,10 +389,11 @@ def markdown(v: dict) -> str:
         return "\n".join(lines) + "\n"
     lines = ["## Two-convention gate: v1 (agree = +1) against v0", "",
              "Expected red until PR-A (convention row) and PR-B/C (chokepoints). "
-             "A red family outside the expected list, or a red `db` / `fold/declared`, is a regression.", "",
+             "Only a pinned, sign-shaped difference is expected; any other difference, a missing output, "
+             "a failed export or an HTTP 5xx fails the required ratchet.", "",
              "| family | files | differing | status | why |", "|---|---|---|---|---|"]
     for fam, e in sorted(v["families"].items()):
-        status = e["status"] if e["status"] == "green" else ("UNEXPECTED red" if fam in v["unexpected"] else "expected red")
+        status = e["status"] if e["status"] == "green" else ("UNEXPECTED red" if fam in v["unexpected"] else "expected red (pinned)")
         lines.append(f"| {fam} | {e['files']} | {len(e['differ'])} | {status} | {e.get('reason', '')} |")
     for fam, e in sorted(v["families"].items()):
         if e["differ"]:
@@ -215,36 +401,40 @@ def markdown(v: dict) -> str:
             lines += ["", f"<details><summary>{fam}: {len(e['differ'])} differing</summary>", "", "```"]
             lines += shown + ([f"... {len(e['differ']) - len(shown)} more"] if len(e["differ"]) > len(shown) else [])
             lines += ["```", "</details>"]
-    if v["missing"]:
-        lines += ["", f"Outputs present on one side only: {', '.join(v['missing'][:20])}"]
+    if v["failures"]:
+        lines += ["", f"**Unexpected failures ({len(v['failures'])})** — these fail the required ratchet:", ""]
+        lines += [f"- {f}" for f in v["failures"][:60]]
+    if v["now_green"]:
+        lines += ["", f"Pinned expected-red outputs now green ({len(v['now_green'])}); delete them from "
+                  "expected-red-v1.json: " + ", ".join(v["now_green"][:20])]
     return "\n".join(lines) + "\n"
 
 
 def main() -> None:
-    args = [a for a in sys.argv[1:] if a != "--ratchet"]
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
     ratchet = "--ratchet" in sys.argv[1:]
     leg, out = args[0], Path(args[1])
+    if "--write-pins" in sys.argv[1:]:
+        sys.exit(write_pins(out))
     verdict = check_v0(out) if leg == "v0" else compare_v1(out)
     (out / f"verdict-{leg}.json").write_text(json.dumps(verdict, indent=1, sort_keys=True) + "\n")
     text = markdown(verdict)
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if ratchet:
-        text = (f"## Two-convention ratchet: {'green' if not verdict['unexpected'] and not verdict['missing'] else 'RED'}\n\n"
-                f"Unexpected red families: {verdict['unexpected'] or 'none'}; one-sided outputs: {len(verdict['missing'])}\n")
+        text = (f"## Two-convention ratchet: {'green' if verdict['ratchet_ok'] else 'RED'}\n\n"
+                f"Failures: {len(verdict['failures'])}\n" + "".join(f"- {f}\n" for f in verdict["failures"][:60]))
     if summary:
         with open(summary, "a") as fh:
             fh.write(text)
     print(text)
-    if leg == "v1" and verdict["unexpected"]:
-        print(f"UNEXPECTED red families: {verdict['unexpected']}", file=sys.stderr)
+    if leg == "v1" and verdict["failures"]:
+        print(f"{len(verdict['failures'])} UNEXPECTED failure(s); first: {verdict['failures'][:5]}", file=sys.stderr)
     if leg == "v1" and ratchet:
-        # Required step: fail only on a red that is not on the expected list
-        # (or a must-hold family, or an output present on one side only).
-        sys.exit(0 if not verdict["unexpected"] and not verdict["missing"] else 1)
+        # Required step: fail on anything but a pinned, sign-shaped difference.
+        sys.exit(0 if verdict["ratchet_ok"] else 1)
     if verdict["green"]:
         sys.exit(0)
-    sys.exit(EXIT_EXPECTED_RED if leg == "v1" and not verdict["unexpected"] and not verdict["missing"] else 1)
-
+    sys.exit(EXIT_EXPECTED_RED if leg == "v1" and verdict["ratchet_ok"] else 1)
 
 if __name__ == "__main__":
     main()

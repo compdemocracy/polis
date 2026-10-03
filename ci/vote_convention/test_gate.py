@@ -35,6 +35,13 @@ class SignLintPatterns(unittest.TestCase):
             ("{:pid pid :vote (when (some? sign) (- (long sign)))}", "clojure-negation"),
             ("SELECT count(*) FILTER (WHERE vote = 1) FROM votes", "sql-equals-sign"),
             ("UPDATE votes SET vote=-1 WHERE zid=1", "sql-equals-sign"),
+            # Positive comparisons through a subscript or a wrapped read (second review R3).
+            ("agree = row['vote'] == 1", "equals-one"),
+            ('const testAgree = row["vote"] === 1;', "equals-one"),
+            ("if int(r['vote']) == 1:", "equals-one"),
+            ('if (1 === row["vote"]) {', "equals-one"),
+            ("const agree = row.vote === 1;", "equals-one"),
+            ("agree = r['vote'] == -1", "equals-minus-one"),
         ]:
             with self.subTest(line=line):
                 self.assertEqual(sign_lint.classify(line), kind)
@@ -50,6 +57,10 @@ class SignLintPatterns(unittest.TestCase):
             "since = t - 1",
             "- Vote data, one row per vote",
             "user-vote-counts",
+            'assert census["null_votes"] == 1',
+            "if (x.votes.length === 1) {",
+            "assert len(r['votes']) == 1",
+            "ok = row['vote'] == 10",
         ]:
             with self.subTest(line=line):
                 self.assertIsNone(sign_lint.classify(line))
@@ -108,6 +119,14 @@ class SignLintOnATree(unittest.TestCase):
         self.append("ci/vote_convention/compare.py", "\nAGREE = [r for r in rows if r['vote'] == -1]\n")
         self.assertEqual(self.lint(), 1)
 
+    def test_a_positive_subscript_comparison_fails_in_python(self):
+        self.append("ci/vote_convention/compare.py", "\nagree = row['vote'] == 1\n")
+        self.assertEqual(self.lint(), 1)
+
+    def test_a_positive_subscript_comparison_fails_in_ts(self):
+        self.append("server/src/report.ts", '\nconst testAgree = (row) => row["vote"] === 1;\n')
+        self.assertEqual(self.lint(), 1)
+
     def test_one_more_copy_of_an_allowlisted_line_fails(self):
         allowed = [e for e in json.loads(sign_lint.ALLOWLIST.read_text())["entries"]
                    if e["path"] == "server/src/report.ts" and "vote" in e["text"]]
@@ -137,20 +156,103 @@ class SameButSign(unittest.TestCase):
         self.assertFalse(compare.same_but_sign(v0, bad)[0])
 
 
-    def test_a_sign_blind_export_that_changes_is_an_unexpected_red(self):
+class Ratchet(unittest.TestCase):
+    """compare.py v1 --ratchet on a small two-leg tree. The witnesses of the
+    second review: each must fail the ratchet, and the base tree must pass."""
+
+    CASE = "pca2/r5_moderator_pca2_f401_populated"
+    INVENTORY = {
+        "db/00001.votes.json", "export/00001.votes.csv", "export/00001.summary.csv",
+        CASE + ".head.json", CASE + ".body",
+        "pca2/r5_moderator_pca2_f400_zero-approved.head.json", "pca2/r5_moderator_pca2_f400_zero-approved.body",
+    }
+    PINNED = {"export/00001.votes.csv", CASE + ".head.json", CASE + ".body"}
+
+    def setUp(self):
         import compare
 
-        out = Path(tempfile.mkdtemp(prefix="gate-"))
-        self.addCleanup(shutil.rmtree, out, ignore_errors=True)
-        for leg, summary, votes in (("v0", "voters,3", "1"), ("v1", "voters,4", "-1")):
-            (out / leg / "export").mkdir(parents=True)
-            (out / leg / "export" / "00001.summary.csv").write_text(summary)
-            (out / leg / "export" / "00001.votes.csv").write_text(votes)
-        verdict = compare.compare_v1(out)
-        self.assertIn("export/summary.csv", verdict["unexpected"])
-        self.assertNotIn("export/votes.csv", verdict["unexpected"])  # expected red
-        (out / "v1" / "export" / "00001.summary.csv").write_text("voters,3")
-        self.assertNotIn("export/summary.csv", compare.compare_v1(out)["unexpected"])
+        self.compare = compare
+        self.out = Path(tempfile.mkdtemp(prefix="gate-"))
+        self.addCleanup(shutil.rmtree, self.out, ignore_errors=True)
+        for leg, sign in (("v0", -1), ("v1", 1)):
+            base = self.out / leg
+            self.put(leg, "_meta/server-leg.json", json.dumps({"pca2Cases": 2, "exports": 2, "exportFailures": 0}))
+            self.put(leg, "engine-leg.json", json.dumps({"replay": {}}))
+            self.put(leg, "db/00001.votes.json", json.dumps([{"pid": 0, "tid": 0, "vote": sign, "created": 1},
+                                                            {"pid": 1, "tid": 0, "vote": 0, "created": 2}]))
+            self.put(leg, "export/00001.votes.csv",
+                     f"status 200\ntimestamp,datetime,comment-id,voter-id,vote\n1,d,0,0,{'1' if leg == 'v0' else '-1'}\n2,d,0,1,0")
+            self.put(leg, "export/00001.summary.csv", "status 200\ntopic,t\nvoters,2")
+            body = json.dumps({"tids": [0], "pca": {"center": [sign * 0.5]}})
+            self.put(leg, self.CASE + ".head.json", json.dumps(
+                {"caseId": "c", "status": 200, "headers": {"content-type": "application/json",
+                                                         "etag": f"W/{leg}", "content-length": str(len(body))}}))
+            self.put(leg, self.CASE + ".body", body)
+            self.put(leg, "pca2/r5_moderator_pca2_f400_zero-approved.head.json",
+                     json.dumps({"caseId": "z", "status": 200, "headers": {"etag": "W/z"}}))
+            self.put(leg, "pca2/r5_moderator_pca2_f400_zero-approved.body", json.dumps({"tids": []}))
+            assert base.exists()
+
+    def put(self, leg, rel, text):
+        path = self.out / leg / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+
+    def verdict(self):
+        return self.compare.compare_v1(self.out, inventory=set(self.INVENTORY), pinned=set(self.PINNED))
+
+    def assertFails(self, needle):
+        v = self.verdict()
+        self.assertFalse(v["ratchet_ok"], v)
+        self.assertTrue(any(needle in f for f in v["failures"]), v["failures"])
+
+    def test_the_base_tree_is_expected_red_and_passes(self):
+        v = self.verdict()
+        self.assertTrue(v["ratchet_ok"], v["failures"])
+        self.assertFalse(v["green"])  # the pinned files do differ
+
+    def test_witness_pca2_http_500(self):
+        self.put("v1", "pca2/r5_moderator_pca2_f400_zero-approved.head.json",
+                 json.dumps({"caseId": "z", "status": 500, "headers": {"etag": "W/z"}}))
+        self.assertFails("HTTP 500")
+
+    def test_witness_pca2_500_inside_a_pinned_case(self):
+        head = json.loads((self.out / "v1" / (self.CASE + ".head.json")).read_text())
+        self.put("v1", self.CASE + ".head.json", json.dumps({**head, "status": 500}))
+        self.assertFails("HTTP 500")
+
+    def test_witness_v1_export_exception(self):
+        self.put("v1", "export/00001.votes.csv", "status error\nboom")
+        self.put("v1", "_meta/server-leg.json", json.dumps({"pca2Cases": 2, "exports": 2, "exportFailures": 1}))
+        self.assertFails("export failure")
+        self.assertFails("failed (status error)")
+
+    def test_witness_same_output_deleted_from_both_legs(self):
+        for leg in ("v0", "v1"):
+            (self.out / leg / "db/00001.votes.json").unlink()
+        self.assertFails("missing output db/00001.votes.json")
+
+    def test_witness_one_sided_deletion(self):
+        (self.out / "v1" / "export/00001.summary.csv").unlink()
+        self.assertFails("v1: missing output export/00001.summary.csv")
+
+    def test_witness_must_hold_summary_changes(self):
+        self.put("v1", "export/00001.summary.csv", "status 200\ntopic,t\nvoters,3")
+        self.assertFails("must-hold")
+
+    def test_an_unpinned_difference_fails(self):
+        self.put("v1", "pca2/r5_moderator_pca2_f400_zero-approved.body", json.dumps({"tids": [1]}))
+        self.assertFails("not a pinned expected-red case")
+
+    def test_a_pinned_difference_that_is_not_sign_shaped_fails(self):
+        self.put("v1", "export/00001.votes.csv",
+                 "status 200\ntimestamp,datetime,comment-id,voter-id,vote\n1,d,0,9,-1\n2,d,0,1,0")
+        self.assertFails("not a sign-shaped difference")
+
+    def test_stored_rows_must_differ_by_sign_only(self):
+        self.put("v1", "db/00001.votes.json", json.dumps([{"pid": 0, "tid": 0, "vote": -1, "created": 1},
+                                                          {"pid": 1, "tid": 0, "vote": 0, "created": 2}]))
+        self.assertFails("not a sign change")
 
 
 if __name__ == "__main__":

@@ -66,8 +66,10 @@ PATTERNS: List[Tuple[str, re.Pattern]] = [
     # Equality against -1 anywhere in the window; against +1 only on a line that names the vote
     # (``len(x) == 1`` is not a sign).
     ("equals-minus-one", re.compile(r"[!=]==?\s*-\s*1(?![\d.\w])|(?<![\w.])-1\s*[!=]==?(?!=)")),
+    # row.vote === 1, vote == 1, row["vote"] === 1, int(r['vote']) == 1, 1 === row["vote"]
     ("equals-one", re.compile(r"(?i)vote\w*(?:\[[^\]]*\]|\.\w+)*\s*[!=]==?\s*\+?1(?![\d.\w])"
-                              r"|(?<![\w.\-])\+?1\s*[!=]==?\s*[\w.]*vote")),
+                              r"|\[\s*['\"]?:?vote(?:_?val(?:ue)?)?['\"]?\s*\]\)*\s*[!=]==?\s*\+?1(?![\d.\w])"
+                              r"|(?<![\w.\-])\+?1\s*[!=]==?\s*(?:\w+\()*[\w.]*(?:\[\s*['\"]?:?)?vote\b")),
     ("sign-test", re.compile(r"(?<![\w])(?:\w+\.)?vote(?:_?val(?:ue)?)?\s*[<>]=?\s*0(?![\d.])"
                              r"|(?<![\w.])0\s*[<>]=?\s*(?:\w+\.)?vote\b")),
     ("negated-vote", re.compile(r"(?<![\w)\]\-])-\(?(?:[\w\[\]'\"]+\.)*vote\b(?!-)")),
@@ -85,7 +87,10 @@ PATTERNS: List[Tuple[str, re.Pattern]] = [
 #: Index and shape idioms that spell -1 without meaning a vote.
 NOT_A_SIGN = re.compile(r"\[\s*-1\s*\]|\[\s*:\s*-1\s*\]|::-1|:-1\]|\[-1:|reshape\([^)]*-1|axis\s*=\s*-1"
                         r"|(?:indexOf|findIndex|lastIndexOf|search|find)\([^)]*\)\s*[!=]==?\s*-1"
-                        r"|-1\s*[!=]==?\s*\w+\.(?:indexOf|findIndex)\(")
+                        r"|-1\s*[!=]==?\s*\w+\.(?:indexOf|findIndex)\("
+                        # counts and sizes compared with 1 are not signs
+                        r"|\b(?:len|count|size)\([^()]*(?:\([^()]*\)[^()]*)*\)\s*[!=]==?\s*\d"
+                        r"|\.(?:length|size|count|shape\[\d\])\b\)?\s*[!=]==?\s*\d")
 VOTE = re.compile(r"vote", re.I)
 
 
