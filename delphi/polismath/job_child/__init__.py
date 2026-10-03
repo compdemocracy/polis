@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 import sys
@@ -213,6 +214,7 @@ class JobContext:
         self.frame = frame
         self.started_monotonic = started_monotonic
         self.inputs = empty_inputs()
+        self.ack_timeout_seconds = DEFAULT_ACK_TIMEOUT_SECONDS
 
     @property
     def attempt_dir(self) -> str:
@@ -252,6 +254,9 @@ class JobContext:
             raise JobEnvError("DELPHI_JOB_ID is not a uuid")
         if not _is_uuid(attempt_id):
             raise JobEnvError("DELPHI_ATTEMPT_ID is not a uuid")
+        if not _is_uuid(run_id):
+            raise JobEnvError("DELPHI_RUN_ID is not a uuid")
+        ack_timeout = parse_ack_timeout(environ.get(ACK_TIMEOUT_ENV))
         if not _DECIMAL.match(lease_epoch):
             raise JobEnvError("DELPHI_LEASE_EPOCH is not a decimal integer")
         if stage != expected_stage:
@@ -273,8 +278,8 @@ class JobContext:
         for key, value in (("job_id", job_id), ("attempt_id", attempt_id), ("run_id", run_id), ("stage", stage)):
             if str(frame.get(key)) != value:
                 raise JobEnvError(f"frame {key} does not match {('DELPHI_' + key.upper())}")
-        if str(frame.get("lease_epoch")) != lease_epoch:
-            raise JobEnvError("frame lease_epoch does not match DELPHI_LEASE_EPOCH")
+        if not isinstance(frame.get("lease_epoch"), str) or frame["lease_epoch"] != lease_epoch:
+            raise JobEnvError("frame lease_epoch must be a decimal string equal to DELPHI_LEASE_EPOCH")
         if zid is not None and str(frame.get("zid")) != str(zid):
             raise JobEnvError(f"frame zid {frame.get('zid')!r} does not match the command line {zid!r}")
 
@@ -298,9 +303,24 @@ class JobContext:
                     f"{effective_math_env(environ)!r}"
                 )
 
-        return cls(job_id=job_id, run_id=run_id, attempt_id=attempt_id, lease_epoch=lease_epoch,
-                   stage=stage, phase=phase, manifest_path=manifest_path, frame_path=frame_path,
-                   frame=frame, started_monotonic=started)
+        ctx = cls(job_id=job_id, run_id=run_id, attempt_id=attempt_id, lease_epoch=lease_epoch,
+                  stage=stage, phase=phase, manifest_path=manifest_path, frame_path=frame_path,
+                  frame=frame, started_monotonic=started)
+        ctx.ack_timeout_seconds = ack_timeout
+        return ctx
+
+
+def parse_ack_timeout(raw: Optional[str]) -> float:
+    """DELPHI_PROVIDER_ACK_TIMEOUT_SECONDS: a finite, positive number of seconds, else refused."""
+    if raw is None or not raw.strip():
+        return DEFAULT_ACK_TIMEOUT_SECONDS
+    try:
+        value = float(raw)
+    except ValueError:
+        raise JobEnvError(f"{ACK_TIMEOUT_ENV} is not a number") from None
+    if not math.isfinite(value) or value <= 0:
+        raise JobEnvError(f"{ACK_TIMEOUT_ENV} must be a finite number of seconds above zero")
+    return value
 
 
 def refuse(message: str) -> None:
@@ -483,10 +503,7 @@ def request_provider_intent(ctx: JobContext, *, provider: str, model: str, batch
           file=sys.stderr, flush=True)
 
     if timeout_seconds is None:
-        try:
-            timeout_seconds = float(os.environ.get(ACK_TIMEOUT_ENV, DEFAULT_ACK_TIMEOUT_SECONDS))
-        except ValueError:
-            timeout_seconds = DEFAULT_ACK_TIMEOUT_SECONDS
+        timeout_seconds = ctx.ack_timeout_seconds
     deadline = clock() + timeout_seconds
     while True:
         if os.path.exists(ack_path):

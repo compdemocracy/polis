@@ -272,7 +272,10 @@ def test_legacy_failure_exit_code_is_unchanged_for_the_math_export(app_dir, monk
         ({"STUB_EXIT_MATH": "4"}, 4, ALL_STAGES),
         ({"STUB_EXIT_MATH": "4", "STUB_EXIT_PRIORITY": "1"}, 4, ALL_STAGES),
         ({"STUB_EXIT_MATH": "1"}, 1, ["reset", "math"]),
-        ({"STUB_EXIT_RESET": "3"}, 3, ["reset"]),
+        ({"STUB_EXIT_MATH": "137"}, 1, ["reset", "math"]),  # a killed stage: any other code is 1
+        ({"STUB_EXIT_MATH": "2"}, 1, ["reset", "math"]),  # never confused with "environment refused"
+        ({"STUB_EXIT_RESET": "3"}, 1, ["reset"]),
+        ({"STUB_EXIT_RESET": "6"}, 1, ["reset"]),
     ],
 )
 def test_daemon_failure_exit_codes_and_no_manifest(app_dir, monkeypatch, stub, code, stages):
@@ -309,7 +312,8 @@ def test_daemon_input_census_failure_exits_5_before_any_stage(app_dir, monkeypat
 @pytest.mark.parametrize(
     "breakage",
     ["missing_attempt", "wrong_stage", "frame_job_mismatch", "frame_zid_mismatch", "math_env_mismatch",
-     "manifest_exists", "relative_manifest", "bad_epoch"],
+     "manifest_exists", "relative_manifest", "bad_epoch", "run_id_not_uuid", "frame_epoch_number",
+     "ack_timeout_nan", "ack_timeout_inf", "ack_timeout_text", "ack_timeout_zero"],
 )
 def test_daemon_refuses_a_bad_environment_before_any_stage(app_dir, monkeypatch, breakage):
     daemon = FakeDaemon(app_dir.root, stage="delphi_full_pipeline",
@@ -330,6 +334,16 @@ def test_daemon_refuses_a_bad_environment_before_any_stage(app_dir, monkeypatch,
         monkeypatch.setenv("DELPHI_OUTPUT_MANIFEST", "output-manifest.json")
     elif breakage == "bad_epoch":
         monkeypatch.setenv("DELPHI_LEASE_EPOCH", "3.0")
+    elif breakage == "run_id_not_uuid":
+        monkeypatch.setenv("DELPHI_RUN_ID", "run-1")
+        daemon.frame["run_id"] = "run-1"
+        daemon.frame_path.write_text(json.dumps(daemon.frame))
+    elif breakage == "frame_epoch_number":
+        daemon.frame["lease_epoch"] = 3
+        daemon.frame_path.write_text(json.dumps(daemon.frame))
+    elif breakage.startswith("ack_timeout_"):
+        monkeypatch.setenv(job_child.ACK_TIMEOUT_ENV,
+                           {"nan": "nan", "inf": "inf", "text": "ten", "zero": "0"}[breakage.rsplit("_", 1)[1]])
     result = run_delphi(app_dir)
     assert result.returncode == job_child.EXIT_JOB_ENV_INVALID, result.stderr
     assert "polis-jobs child: refused:" in result.stderr
@@ -677,7 +691,7 @@ def test_801_daemon_submit_without_an_ack_never_calls_the_provider(tmp_path, mon
     events, job_table = [], RecordingJobTable()
     monkeypatch.setitem(sys.modules, "anthropic", fake_anthropic_module(events, daemon.attempt_dir))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "generated-fixture-key")
-    monkeypatch.setenv(job_child.ACK_TIMEOUT_ENV, "0.3")
+    ctx.ack_timeout_seconds = 0.3  # parsed from DELPHI_PROVIDER_ACK_TIMEOUT_SECONDS at start
     gen = make_generator(narrative_modules.submit, ctx, job_table)
     assert asyncio.run(gen.submit_batch()) is None
     assert events == [] and gen.provider_refused
@@ -686,6 +700,24 @@ def test_801_daemon_submit_without_an_ack_never_calls_the_provider(tmp_path, mon
         narrative_modules.submit._finish_daemon_job(ctx, gen, None)
     assert exit_info.value.code == job_child.EXIT_PROVIDER_INTENT_REFUSED
     assert not daemon.manifest.exists()
+
+
+def test_801_daemon_submit_intent_write_error_is_exit_6(tmp_path, monkeypatch, narrative_modules):
+    daemon, ctx = _ctx(tmp_path, monkeypatch, stage="delphi_narrative", phase="submit", report_id="r1")
+    events, job_table = [], RecordingJobTable()
+    monkeypatch.setitem(sys.modules, "anthropic", fake_anthropic_module(events, daemon.attempt_dir))
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "generated-fixture-key")
+
+    def broken_write(path, data):
+        raise OSError("generated fixture: disk full")
+
+    monkeypatch.setattr(job_child, "write_atomic", broken_write)
+    gen = make_generator(narrative_modules.submit, ctx, job_table)
+    assert asyncio.run(gen.submit_batch()) is None
+    assert events == [] and gen.provider_refused
+    with pytest.raises(SystemExit) as exit_info:
+        narrative_modules.submit._finish_daemon_job(ctx, gen, None)
+    assert exit_info.value.code == job_child.EXIT_PROVIDER_INTENT_REFUSED
 
 
 def test_801_legacy_submit_is_unchanged(tmp_path, monkeypatch, narrative_modules):
@@ -773,6 +805,16 @@ def test_803_daemon_recheck_stores_results_and_lists_their_keys(tmp_path, monkey
     assert len(store.items) == 2 and all(i["job_id"] == daemon.job_id for i in store.items)
     assert (manifest["cost"]["llm_tokens_in"], manifest["cost"]["llm_tokens_out"]) == (200, 40)
     assert job_table.writes == []
+
+
+def test_803_legacy_results_do_not_touch_usage(narrative_modules):
+    store, job_table = StoreTable(), RecordingJobTable()
+    checker = make_checker(narrative_modules.check, FakeResults("ended", [result_entry("1_topic_0", "{}")]),
+                           store, job_table)()
+    checker.count_usage = False
+    assert asyncio.run(checker.process_batch_results({"job_id": "legacy", "batch_id": "b", "report_id": "r1"}))
+    assert (checker.tokens_in, checker.tokens_out) == (0, 0)
+    assert len(store.items) == 1 and job_table.writes[0][0] == "update_item"
 
 
 @pytest.mark.parametrize("status", ["failed", "cancelled", "unknown"])

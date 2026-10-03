@@ -1385,7 +1385,9 @@ class BatchReportGenerator:
                             "max_tokens": max(r["params"]["max_tokens"] for r in formatted_batch_requests),
                         },
                     )
-                except job_child.ProviderIntentRefused as e:
+                except Exception as e:
+                    # Refused, timed out, or the intent could not even be written:
+                    # in every case no provider call was made (exit 6, "not submitted").
                     logger.error(f"Provider intent not acknowledged; no batch submitted: {e}")
                     self.provider_refused = True
                     return None

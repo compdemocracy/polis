@@ -131,7 +131,8 @@ def main():
     reset_process = subprocess.run(reset_command)
     if reset_process.returncode != 0:
         print(f"{RED}Data reset failed with exit code {reset_process.returncode}. Aborting pipeline.{NC}")
-        sys.exit(reset_process.returncode)
+        # Under the daemon the exit-code set is closed (0/1/2/4/5/6): any other failure is 1.
+        sys.exit(1 if job is not None else reset_process.returncode)
     print(f"{GREEN}Data reset complete.{NC}")
 
     print(f"{GREEN}Processing conversation {zid}...{NC}")
@@ -194,7 +195,7 @@ def main():
         failed_stages.append(("math export", math_exit_code))
     elif math_exit_code != 0:
         print(f"{RED}Math pipeline failed with exit code {math_exit_code}{NC}")
-        sys.exit(math_exit_code)
+        sys.exit(1 if job is not None else math_exit_code)
 
     # Run the UMAP narrative pipeline
     print(f"{GREEN}Running UMAP narrative pipeline...{NC}")

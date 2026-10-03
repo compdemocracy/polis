@@ -49,8 +49,9 @@ class BatchStatusChecker:
         self.dynamodb = boto3.resource('dynamodb', endpoint_url=endpoint_url, region_name=os.environ.get('AWS_REGION', 'us-east-1'))
         self.job_table = self.dynamodb.Table('Delphi_JobQueue')
         self.report_table = self.dynamodb.Table('Delphi_NarrativeReports')
-        # Provider token usage summed over the stored results (reported in the
-        # polis-jobs manifest; nothing on the legacy path reads it).
+        # Provider token usage summed over the stored results, only when the
+        # polis-jobs daemon runs this script (count_usage); the legacy run is unchanged.
+        self.count_usage = False
         self.tokens_in = 0
         self.tokens_out = 0
 
@@ -142,7 +143,7 @@ class BatchStatusChecker:
                     custom_id = entry.custom_id
                     response_message = entry.result.message
                     model = response_message.model
-                    usage = getattr(response_message, "usage", None)
+                    usage = getattr(response_message, "usage", None) if self.count_usage else None
                     if usage is not None:
                         self.tokens_in += int(getattr(usage, "input_tokens", 0) or 0)
                         self.tokens_out += int(getattr(usage, "output_tokens", 0) or 0)
@@ -377,6 +378,7 @@ async def run_daemon_recheck(cli_job_id: str, checker_factory=None) -> int:
     if not checker.anthropic:
         return job_child.EXIT_STAGE_FAILED
     checker.job_table = _NoQueueWrites()
+    checker.count_usage = True
     recorder = _RecordingTable(checker.report_table)
     checker.report_table = recorder
 
