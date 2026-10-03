@@ -162,7 +162,7 @@ What the pages read, all from the server process (nothing is read while nobody h
 
 - **Activity now** and **Activity over time**: platform-wide counts from `votes` and `comments`, on the `votes(created)` and `comments(modified)` indexes, per hour (48 h), per day (90 d), and conversations started per month (one pass over `conversations`).
 - **What people are talking about** and **What consensus they found**: the most active conversations of the last 7 days with their topic, Delphi topic names (DynamoDB `Delphi_CommentClustersLLMTopicNames`), and the common-ground and group-distinctive statements from the published math (`math_main`, label `python`), with statement text only for statements visible to participants.
-- **Database**: Postgres statistics views (`pg_stat_activity` without query text, user or client address; `pg_stat_user_tables`; `pg_stat_database`).
+- **Database**: Postgres statistics views (`pg_stat_activity` without query text, user or client address; `pg_stat_user_tables`; `pg_stat_database`). The `pg_read_all_stats` role is optional: without it, sessions of other database roles are still counted but their state shows as "not visible (counts only)". (On RDS the master user has it.)
 - **Where visitors come from**: the Simple Analytics Stats API (below).
 
 Every database read runs in a `READ ONLY` transaction with a 3 s statement timeout, one at a time per server process, with a client-side timeout so a lost connection cannot hold the pages' one connection.
