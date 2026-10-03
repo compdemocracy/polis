@@ -20,8 +20,10 @@ How each +1 value is obtained (also written into the file, per pin):
   schedule's ``positive``/``paired`` likewise; the tie key's
   ``mirrored_digest`` is the ordering digest the +1 run declared. At +1 the
   run at the database's own convention is the old ``b``/``paired`` and the
-  paired run is the old ``a``/``positive``; ``negative`` (rows read at the
-  wrong convention) is the same value. These are swaps of recorded values.
+  paired run is the old ``a``/``positive``. These are swaps of recorded values.
+* CARRIED, ASSUMED SYMMETRIC. ``negative`` in the -1 set is +1 rows read at -1;
+  its +1 counterpart (-1 rows read at +1) was never recorded. It is carried
+  unchanged and labelled as such, not as recorded.
 * CONVENTION-INVARIANT, RECORDED AT -1 ONLY. The live-equivalence checkpoint
   digests and the D4 served-byte witnesses hash semantic output and served
   bytes, which the polarity property (``a == b`` in every witness above, on
@@ -117,11 +119,16 @@ def tie_key_plus_one(witness: dict) -> dict:
 
 PROVENANCE = {
     "recorded_at_plus_one": [
-        "witnesses/polarity-*.json a (the -1 registry's b), b (its a), negative",
-        "witnesses/polarity-rebuild-schedule.json positive (the -1 registry's paired), paired (its positive), negative",
-        "witnesses/semantic-tie-key.json declared.algorithm_digest (the -1 registry's mirrored_digest), a, b, negative",
+        "witnesses/polarity-*.json a (the -1 registry's b), b (its a)",
+        "witnesses/polarity-rebuild-schedule.json positive (the -1 registry's paired), paired (its positive)",
+        "witnesses/semantic-tie-key.json declared.algorithm_digest (the -1 registry's mirrored_digest), a, b",
     ],
     "declared": ["witnesses/semantic-tie-key.json declared.storage_agree_value = 1"],
+    "carried_assumed_symmetric_not_recorded": [
+        "witnesses/polarity-*.json, polarity-rebuild-schedule.json, semantic-tie-key.json negative: the -1 "
+        "registry's negative is +1 rows read at -1; its +1 counterpart (-1 rows read at +1) was never "
+        "recorded and is carried on the assumption that the two wrong-sign readings hash alike",
+    ],
     "convention_invariant_recorded_at_minus_one_only": [
         "checkpoints[*].rust (semantic math output of the live-equivalence cuts)",
         "witnesses/d4-node-reader.json, witnesses/d4-node-reader-empty.json (served bytes)",

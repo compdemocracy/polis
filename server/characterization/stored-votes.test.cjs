@@ -2,12 +2,20 @@
 // P-078 PR-G: the baseline's stored votes (cases 0528-0531) are compared by
 // meaning through the baseline's sign declaration, never by their raw sign.
 const test = require("node:test"),
-  assert = require("node:assert/strict");
+  assert = require("node:assert/strict"),
+  fs = require("node:fs"),
+  os = require("node:os"),
+  path = require("node:path");
 const { readRecording } = require("./recording.cjs");
 const {
   baselineDeclaration,
   comparable,
   firstDifference,
+  recordingConvention,
+  recordingConventionArtifact,
+  RECORDING_CONVENTION,
+  STORED_VOTE_TABLES,
+  STORED_VOTE_FIELD,
 } = require("./compare.cjs");
 const { readVote, seedVote } = require("./seed-vote.cjs");
 const root = require("./baseline.cjs").testBaseline();
@@ -48,8 +56,10 @@ for (const [casePath, caseId] of Object.entries(declared.cases)) {
     assert(rows.length > 0);
     for (const row of rows)
       assert.equal(row.vote, seedVote("agree", declared.storage_agree_value));
-    for (const row of storedRows(comparable(c)))
+    for (const row of storedRows(comparable(c, declared.storage_agree_value)))
       assert.equal(row.vote, "agree");
+    // Without a convention the comparator compares raw values, as before.
+    assert.deepEqual(storedRows(comparable(c)), rows);
   });
   test(`${casePath}: the same request under the other convention is the same case`, () => {
     assert.equal(
@@ -75,3 +85,47 @@ for (const [casePath, caseId] of Object.entries(declared.cases)) {
     }
   });
 }
+
+test("the committed baseline states no convention of its own, so the companion applies", () => {
+  assert(!fs.existsSync(path.join(root, RECORDING_CONVENTION)));
+  assert.deepEqual(recordingConvention(root), {
+    storageAgreeValue: declared.storage_agree_value,
+    source: "artifacts/baseline.sign.json",
+  });
+  assert.deepEqual(declared.stored_vote_tables, STORED_VOTE_TABLES);
+  assert.equal(declared.stored_vote_field, STORED_VOTE_FIELD);
+});
+
+test("a recording's own vote-convention.json wins over the companion (a re-record)", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "p078-recording-"));
+  try {
+    for (const value of [declared.storage_agree_value, flipped]) {
+      fs.writeFileSync(
+        path.join(tmp, RECORDING_CONVENTION),
+        JSON.stringify(recordingConventionArtifact(value))
+      );
+      assert.deepEqual(recordingConvention(tmp), {
+        storageAgreeValue: value,
+        source: RECORDING_CONVENTION,
+      });
+    }
+    fs.writeFileSync(
+      path.join(tmp, RECORDING_CONVENTION),
+      JSON.stringify({
+        ...recordingConventionArtifact(1),
+        storage_agree_value: 0,
+      })
+    );
+    assert.throws(() => recordingConvention(tmp), /-1 or \+1/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+  assert.throws(() => recordingConventionArtifact(2), /-1 or \+1/);
+});
+
+test("without conventions a mirrored case differs (raw comparison is unchanged)", () => {
+  const c = baseline.cases.find(
+    (x) => x.caseId === Object.values(declared.cases)[0]
+  );
+  assert.match(firstDifference(c, mirrored(c)), /\.vote$/);
+});

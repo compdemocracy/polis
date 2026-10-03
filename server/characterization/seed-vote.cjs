@@ -107,6 +107,7 @@ async function databaseConvention(client) {
 module.exports = {
   VOTES,
   SeedVoteError,
+  validAgreeValue,
   declaredStorageAgreeValue,
   seedVote,
   readVote,

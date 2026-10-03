@@ -418,12 +418,15 @@
       "forced_kernel": "not-forced",
       "convention_provenance": {
         "recorded_at_plus_one": [
-          "witnesses/polarity-*.json a (the -1 registry's b), b (its a), negative",
-          "witnesses/polarity-rebuild-schedule.json positive (the -1 registry's paired), paired (its positive), negative",
-          "witnesses/semantic-tie-key.json declared.algorithm_digest (the -1 registry's mirrored_digest), a, b, negative"
+          "witnesses/polarity-*.json a (the -1 registry's b), b (its a)",
+          "witnesses/polarity-rebuild-schedule.json positive (the -1 registry's paired), paired (its positive)",
+          "witnesses/semantic-tie-key.json declared.algorithm_digest (the -1 registry's mirrored_digest), a, b"
         ],
         "declared": [
           "witnesses/semantic-tie-key.json declared.storage_agree_value = 1"
+        ],
+        "carried_assumed_symmetric_not_recorded": [
+          "witnesses/polarity-*.json, polarity-rebuild-schedule.json, semantic-tie-key.json negative: the -1 registry's negative is +1 rows read at -1; its +1 counterpart (-1 rows read at +1) was never recorded and is carried on the assumption that the two wrong-sign readings hash alike"
         ],
         "convention_invariant_recorded_at_minus_one_only": [
           "checkpoints[*].rust (semantic math output of the live-equivalence cuts)",
@@ -996,12 +999,15 @@
       },
       "convention_provenance": {
         "recorded_at_plus_one": [
-          "witnesses/polarity-*.json a (the -1 registry's b), b (its a), negative",
-          "witnesses/polarity-rebuild-schedule.json positive (the -1 registry's paired), paired (its positive), negative",
-          "witnesses/semantic-tie-key.json declared.algorithm_digest (the -1 registry's mirrored_digest), a, b, negative"
+          "witnesses/polarity-*.json a (the -1 registry's b), b (its a)",
+          "witnesses/polarity-rebuild-schedule.json positive (the -1 registry's paired), paired (its positive)",
+          "witnesses/semantic-tie-key.json declared.algorithm_digest (the -1 registry's mirrored_digest), a, b"
         ],
         "declared": [
           "witnesses/semantic-tie-key.json declared.storage_agree_value = 1"
+        ],
+        "carried_assumed_symmetric_not_recorded": [
+          "witnesses/polarity-*.json, polarity-rebuild-schedule.json, semantic-tie-key.json negative: the -1 registry's negative is +1 rows read at -1; its +1 counterpart (-1 rows read at +1) was never recorded and is carried on the assumption that the two wrong-sign readings hash alike"
         ],
         "convention_invariant_recorded_at_minus_one_only": [
           "checkpoints[*].rust (semantic math output of the live-equivalence cuts)",

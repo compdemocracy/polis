@@ -43,6 +43,8 @@ WRITERS = {
     "delphi/tests/coordinator/test_step1_review_controls.py": "vote_fixtures",
     "delphi/tests/coordinator/test_writer_authority.py": "vote_fixtures",
     "delphi/tests/poller/recovery/conftest.py": "vote_fixtures",
+    "delphi/tests/poller/recovery/test_empty_publication.py": "vote_fixtures",
+    "delphi/tests/poller/recovery/test_r01_stage_failures.py": "vote_fixtures",
     "delphi/tests/poller/test_backfill_postgres.py": "vote_fixtures",
     "delphi/tests/poller/test_integration_postgres.py": "vote_fixtures",
     "delphi/tests/poller/test_postgres_client_pid_types.py": "vote_fixtures",
@@ -240,6 +242,42 @@ class FoldAdapter(unittest.TestCase):
 
         self.assertEqual(self.fd.fold_votes_declared(self.ROWS, storage_agree_value=1, fold=Spy), "folded")
         self.assertEqual([r["vote"] for r in calls[0]], [-r["vote"] for r in self.ROWS])
+
+
+class CoordinatorCoherenceFold(unittest.TestCase):
+    """``assert_coherent``'s fold uses the convention the FIXTURE wrote, and
+    requires the generation's own declaration to match it (review F2)."""
+
+    def setUp(self):
+        import importlib
+        from unittest.mock import patch
+
+        import fold_declared
+
+        cf = importlib.import_module("coordinator.conftest")
+        self.oracle = fold_declared.oracle()
+        for name, value in (("FOLD", self.oracle), ("FOLD_DECLARED", fold_declared)):
+            patcher = patch.object(cf, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.cf = cf
+        self.rows = [dict(pid=p, tid=t, vote=vf.seed_vote(v), created=10 * p + t)
+                     for p, t, v in ((0, 0, "agree"), (0, 1, "disagree"), (1, 0, "pass"), (1, 1, "agree"))]
+
+    def summary(self, fold):
+        return {"totals": sorted(fold.per_comment_totals().items()), "events": fold.event_count}
+
+    def test_folds_at_the_written_convention(self):
+        written = {"ordering": {"storage_agree_value": vf.convention()}}
+        expected = self.summary(self.oracle.fold_votes(
+            [{**r, "vote": vf.seed_vote(vf.read_vote(r["vote"]), self.oracle.RAW_AGREE)} for r in self.rows]))
+        self.assertEqual(self.summary(self.cf.fold_stored(self.rows, written)), expected)
+        self.assertEqual(self.summary(self.cf.fold_stored(self.rows)), expected)
+
+    def test_a_generation_that_misreads_the_sign_fails(self):
+        for checkpoint in ({"ordering": {"storage_agree_value": -vf.convention()}}, {"ordering": {}}, {}):
+            with self.assertRaises(AssertionError):
+                self.cf.fold_stored(self.rows, checkpoint)
 
 
 class PlusOnePins(unittest.TestCase):

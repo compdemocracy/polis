@@ -2,17 +2,35 @@
 const fs = require("node:fs"),
   path = require("node:path"),
   crypto = require("node:crypto");
-const { readVote } = require("./seed-vote.cjs");
+const { readVote, validAgreeValue } = require("./seed-vote.cjs");
 
 // P-078 PR-G. Recorded database effects carry stored vote values, whose sign is
-// the storage convention of the database they were recorded against. The
-// committed baseline declares its own (artifacts/baseline.sign.json); a live
-// replay passes the convention of the database it runs against. The comparator
-// compares the MEANING of each stored vote, so the same request is the same
-// case under either convention, while a changed vote still differs. No
-// recorded byte is rewritten.
+// the storage convention of the database they were recorded against. Each
+// recording states its own: the recorder writes vote-convention.json into the
+// recording (integrity-pinned in its index like every shared artifact), and a
+// recording without one (the committed baseline, recorded before this) falls
+// back to the committed companion artifacts/baseline.sign.json, checked against
+// the committed baseline bytes. A live replay passes the convention of the
+// database it runs against. Given conventions, the comparator compares the
+// MEANING of each stored vote, so the same request is the same case under
+// either convention while a changed vote still differs; without them it
+// compares raw values, as it always has. No recorded byte is rewritten.
+const STORED_VOTE_TABLES = Object.freeze([
+  "pg:votes",
+  "pg:votes_latest_unique",
+]);
+const STORED_VOTE_FIELD = "vote";
+const RECORDING_CONVENTION = "vote-convention.json";
 const DECLARATION = path.join(__dirname, "artifacts/baseline.sign.json");
+function agreeValueOf(value, where) {
+  try {
+    return validAgreeValue(value);
+  } catch (e) {
+    throw Error(`${where}: ${e.message}`);
+  }
+}
 let declaration = null;
+/** The committed baseline's companion, checked against the committed bytes. */
 function baselineDeclaration() {
   if (declaration === null) {
     const meta = JSON.parse(fs.readFileSync(DECLARATION, "utf8"));
@@ -28,11 +46,42 @@ function baselineDeclaration() {
       throw Error(
         `${DECLARATION}: ${meta.fixture} changed after its sign was declared`
       );
-    if (meta.storage_agree_value !== 1 && meta.storage_agree_value !== -1)
-      throw Error(`${DECLARATION}: storage_agree_value must be -1 or +1`);
+    agreeValueOf(meta.storage_agree_value, DECLARATION);
     declaration = meta;
   }
   return declaration;
+}
+/** What the recorder writes into a recording: the convention it recorded under. */
+function recordingConventionArtifact(storageAgreeValue) {
+  return {
+    schema: "recording-vote-convention/1",
+    storage_agree_value: agreeValueOf(storageAgreeValue, "recorder"),
+    stored_vote_tables: STORED_VOTE_TABLES,
+    stored_vote_field: STORED_VOTE_FIELD,
+    source:
+      "vote_convention_current() of the recorded database when present, else the declared fallback (seed-vote.cjs)",
+  };
+}
+/**
+ * The storage convention a recording directory was recorded under: its own
+ * vote-convention.json, else (a recording made before recorders wrote one)
+ * the committed baseline's companion.
+ */
+function recordingConvention(dir) {
+  const own = path.join(dir, RECORDING_CONVENTION);
+  if (fs.existsSync(own)) {
+    const meta = JSON.parse(fs.readFileSync(own, "utf8"));
+    if (meta.schema !== "recording-vote-convention/1")
+      throw Error(`${own}: not a recording-vote-convention/1 artifact`);
+    return {
+      storageAgreeValue: agreeValueOf(meta.storage_agree_value, own),
+      source: RECORDING_CONVENTION,
+    };
+  }
+  return {
+    storageAgreeValue: baselineDeclaration().storage_agree_value,
+    source: path.relative(__dirname, DECLARATION),
+  };
 }
 function storedVoteMeaning(raw, agreeValue) {
   if (raw === null || raw === undefined) return raw;
@@ -44,17 +93,17 @@ function storedVoteMeaning(raw, agreeValue) {
 }
 /** Replace each stored vote in the recorded effects with its meaning. */
 function normalizeStoredVotes(copy, agreeValue) {
-  const meta = baselineDeclaration();
-  const agree = agreeValue ?? meta.storage_agree_value;
-  for (const table of meta.stored_vote_tables) {
+  if (agreeValue === undefined || agreeValue === null) return copy;
+  agreeValueOf(agreeValue, "comparator");
+  for (const table of STORED_VOTE_TABLES) {
     const effect = copy.effects?.db?.[table];
     if (!effect) continue;
     for (const side of ["added", "removed"])
       for (const row of effect[side] || [])
-        if (Object.prototype.hasOwnProperty.call(row, meta.stored_vote_field))
-          row[meta.stored_vote_field] = storedVoteMeaning(
-            row[meta.stored_vote_field],
-            agree
+        if (Object.prototype.hasOwnProperty.call(row, STORED_VOTE_FIELD))
+          row[STORED_VOTE_FIELD] = storedVoteMeaning(
+            row[STORED_VOTE_FIELD],
+            agreeValue
           );
   }
   return copy;
@@ -82,14 +131,17 @@ function comparable(c, storageAgreeValue) {
 }
 /**
  * The first field in which `actual` differs from `expected`. `conventions`
- * names the storage convention of each side's stored votes: `expected`
- * defaults to the baseline's declaration, `actual` to the same value (a replay
- * passes the live database's own, see cli.cjs).
+ * names the storage convention of each side's stored votes (a replay passes
+ * the recording's own, recordingConvention(dir), and the live database's,
+ * see cli.cjs); a side left out takes the other's. With neither, stored votes
+ * are compared raw.
  */
 function firstDifference(expected, actual, conventions = {}) {
   const { firstDiff } = require("./core.cjs");
-  const a = comparable(expected, conventions.expected),
-    b = comparable(actual, conventions.actual);
+  const e = conventions.expected ?? conventions.actual,
+    l = conventions.actual ?? conventions.expected;
+  const a = comparable(expected, e),
+    b = comparable(actual, l);
   // Name served fields before their serialized bytes and derived headers.
   const field = firstDiff(a, b, "$", {
     $: [
@@ -136,4 +188,9 @@ module.exports = {
   firstDifference,
   baselineDeclaration,
   normalizeStoredVotes,
+  recordingConvention,
+  recordingConventionArtifact,
+  RECORDING_CONVENTION,
+  STORED_VOTE_TABLES,
+  STORED_VOTE_FIELD,
 };

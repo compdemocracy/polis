@@ -629,7 +629,11 @@ async function main() {
       after.process.slice(before.process.length)
     );
     console.log(
-      JSON.stringify({ route: "GET /api/v3/testConnection", response, verdict })
+      JSON.stringify({
+        route: "GET /api/v3/testConnection",
+        response,
+        verdict,
+      })
     );
     if (!verdict.pass) process.exitCode = 1;
     return;
@@ -825,14 +829,18 @@ async function main() {
       if (expected.manifest[k] !== v) throw Error(`manifest ${k} mismatch`);
   }
   const diffs = [];
-  // Stored votes are compared by meaning (P-078 PR-G): the recording's by its
-  // declaration (artifacts/baseline.sign.json), the live rows by the replay
-  // database's own convention.
+  // Stored votes are compared by meaning (P-078 PR-G): the recording's by the
+  // convention it states (its vote-convention.json, else the committed
+  // baseline's companion), the live rows by the replay database's own. The
+  // recorder writes the live one into the recording it makes.
+  const liveConvention = await require("./seed-vote.cjs").databaseConvention(
+    pool
+  );
   const conventions = expected
     ? {
         expected:
-          require("./compare.cjs").baselineDeclaration().storage_agree_value,
-        actual: await require("./seed-vote.cjs").databaseConvention(pool),
+          require("./compare.cjs").recordingConvention(dir).storageAgreeValue,
+        actual: liveConvention,
       }
     : null;
   const { results, fatal } = await executeCases(
@@ -922,6 +930,9 @@ async function main() {
           }
         : {}),
       "schema.json": schemaRows,
+      // The storage convention the recorded database's vote rows are in.
+      "vote-convention.json":
+        require("./compare.cjs").recordingConventionArtifact(liveConvention),
       "boot.json": dump.boot,
       "routes.json": dump,
       "normalization.json": {

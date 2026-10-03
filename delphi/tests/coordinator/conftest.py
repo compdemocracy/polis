@@ -248,14 +248,18 @@ def rows(url, zid=1, env="rustproto"):
 
 
 def fold_stored(events, checkpoint=None, storage_agree_value=None):
-    """The oracle's fold of rows read from ``votes``. The convention the rows
-    were stored under is the one the generation declared in its input
-    checkpoint (``ordering.storage_agree_value``), else the argument, else the
-    fixtures' default."""
-    declared = ((checkpoint or {}).get("ordering") or {}).get("storage_agree_value")
-    if declared is None:
-        declared = fixture_convention(storage_agree_value)
-    return FOLD_DECLARED.fold_votes_declared(events, storage_agree_value=declared, fold=FOLD)
+    """The oracle's fold of rows read from ``votes``, at the convention the
+    FIXTURE WROTE them in (the argument, else the fixtures' default; never the
+    coordinator's own word for it). When the generation's input checkpoint is
+    given, its declared ``ordering.storage_agree_value`` must equal that
+    convention: a coordinator that misreads the sign fails here instead of
+    having the oracle reinterpret the rows the same wrong way."""
+    written = fixture_convention(storage_agree_value)
+    if checkpoint is not None:
+        declared = (checkpoint.get("ordering") or {}).get("storage_agree_value")
+        assert declared == written, (
+            f"the generation declares storage_agree_value={declared!r}; the fixture wrote {written}")
+    return FOLD_DECLARED.fold_votes_declared(events, storage_agree_value=written, fold=FOLD)
 
 
 def fold_semantic(events):
