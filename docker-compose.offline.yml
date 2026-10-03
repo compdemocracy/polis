@@ -56,9 +56,19 @@ services:
         DD_APPLICATION_ID: ""
         DD_CLIENT_TOKEN: ""
         DD_SITE: ""
+    # Back after a reboot without re-running make (base sets no policy).
+    restart: unless-stopped
 
   nginx-proxy:
     image: polis-offline/nginx-proxy:${TAG:-offline}
+    restart: unless-stopped
+    # Serve 443 with the mkcert certificate in place of the image's snakeoil
+    # pair, so admin devices that trust the mkcert CA (already needed for the
+    # issuer) get no warning. Admin login needs https: oidc-client-ts uses
+    # crypto.subtle, which browsers give only to secure contexts.
+    volumes:
+      - ${AUTH_CERTS_PATH:-~/.simulacrum/certs}/localhost.pem:/etc/nginx/certs/snakeoil.cert.pem:ro
+      - ${AUTH_CERTS_PATH:-~/.simulacrum/certs}/localhost-key.pem:/etc/nginx/certs/snakeoil.key.pem:ro
 
   # Kept in the core tier although the legacy page is the default: nginx-proxy
   # proxies /alpha/ and /_astro/ to this container by name, and nginx will not
@@ -148,12 +158,15 @@ services:
       - ollama
 
   ollama:
+    # Upstream images (ollama, dynamodb, minio) are pinned by digest in
+    # offline-images.lock; scripts/offline-bundle.sh pull fetches them.
     # The model is not pulled on the box: it is shipped in the ollama-models
     # volume (scripts/offline-bundle.sh --with-models).
     profiles: [offline-topics]
 
   dynamodb:
     profiles: [offline-topics]
+    restart: unless-stopped
 
   minio:
     # The same build docker-compose.yml pins by digest, named by tag here:
@@ -162,3 +175,4 @@ services:
     # id and repo digest in its manifest and checks the id on the box.
     image: docker.io/bitnamilegacy/minio:2025.7.23-debian-12-r5
     profiles: [offline-topics]
+    restart: unless-stopped

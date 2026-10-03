@@ -1,0 +1,8 @@
+# Upstream images the offline topic tier runs, pinned by repo digest
+# (docs/offline.md). scripts/offline-bundle.sh pull fetches exactly these
+# and tags them with the name the compose files use; save refuses an image
+# whose local copy is not the pinned one, so two bundles carry the same bytes.
+# Format: <name used in compose> <sha256 repo digest>
+ollama/ollama:latest sha256:de659b95818c5ea17dc287a2e4f147f81e202d84f1dc4ad3f256c53fb81e8dd0
+amazon/dynamodb-local:latest sha256:1856c05cc66a0e49dc1099e483ad2851477eeebe2135250ac11a1d1227db54b1
+docker.io/bitnamilegacy/minio:2025.7.23-debian-12-r5 sha256:6dabb4a2088c9a79908de3bc05f4586c23ad2182c8908e7e3acbf61c1467fb20

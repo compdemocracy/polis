@@ -16,6 +16,7 @@ on:
       - 'example.offline.env'
       - 'Makefile'
       - 'scripts/offline-bundle.sh'
+      - 'offline-images.lock'
       - 'ci/offline_compose_config_test.sh'
       - '.github/workflows/offline-compose-config.yml'
 

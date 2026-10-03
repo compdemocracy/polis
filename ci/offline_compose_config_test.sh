@@ -36,7 +36,8 @@ check_services core "$CORE"
 check_services offline-topics "$TOPICS" --profile offline-topics
 
 
-HOSTED='amazonaws|auth0|anthropic|simpleanalytics|googleapis'
+# pol.is is deliberately absent: https://pol.is/ is the JWT claim namespace, never fetched.
+HOSTED='amazonaws|auth0|anthropic|simpleanalytics|googleapis|datadoghq|huggingface|ollama\.com|cloudflare|jsdelivr|unpkg'
 core_rendered=$(compose config)
 if hits=$(grep -niE "$HOSTED" <<<"$core_rendered"); then
   fail "core tier names a hosted endpoint:"; echo "$hits" >&2
@@ -50,6 +51,21 @@ if hits=$(grep -niE "$HOSTED" <<<"$topics_images"); then
 else
   pass "topic tier images name no hosted registry"
 fi
+
+# Every upstream image in the topic tier is pinned in offline-images.lock.
+unpinned=""
+while IFS= read -r image; do
+  case "$image" in polis-offline/*) continue ;; esac
+  awk -v n="$image" '$1 == n { found = 1 } END { exit !found }' offline-images.lock || unpinned="$unpinned $image"
+done <<<"$topics_images"
+if [ -n "$unpinned" ]; then fail "upstream images not pinned in offline-images.lock:$unpinned"; else pass "upstream images pinned in offline-images.lock"; fi
+
+# Every service restarts after a reboot without re-running make.
+for tier_flag in "" "--profile offline-topics"; do
+  # shellcheck disable=SC2086
+  norestart=$(compose $tier_flag config --format json | python3 -c 'import json,sys; print(" ".join(sorted(n for n,s in json.load(sys.stdin)["services"].items() if s.get("restart") not in ("always","unless-stopped"))))')
+  if [ -n "$norestart" ]; then fail "no restart policy (${tier_flag:-core}): $norestart"; else pass "restart policy on every service (${tier_flag:-core})"; fi
+done
 
 # Every image the overlay builds has a local name the bundle script can save.
 core_images=$(compose config --images | sort -u)

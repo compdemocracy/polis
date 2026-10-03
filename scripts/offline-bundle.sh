@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 # Ship the offline profile to a box with no network (docs/offline.md).
 #
+#   scripts/offline-bundle.sh pull
+#       On the build machine (online). Pulls each upstream image in
+#       offline-images.lock by its pinned digest and tags it with the name the
+#       compose files use.
+#
 #   scripts/offline-bundle.sh save [--topics] [--with-models] [--env-file FILE] [--output FILE]
 #       On the build machine (online), after `make OFFLINE build` (and, for
-#       --topics, after the topic images are pulled and the model is in the
-#       ollama-models volume). Writes ONE archive holding:
+#       --topics, after `pull` and once the model is in the ollama-models
+#       volume). Refuses an upstream image that is not the pinned one.
+#       Writes ONE archive holding:
 #         images.tar    `docker save` of every image the chosen tier runs
 #         manifest.tsv  each image's name, content id (sha256) and repo digest
 #         source.tar    `git archive HEAD` of this checkout (compose files, Makefile)
@@ -19,8 +25,16 @@
 #
 # The manifest pins images by content id: a tag that now names a different
 # image fails the load check.
+# --- end of usage ---
 
 set -euo pipefail
+
+# The scratch directory, global so the EXIT trap can still see it after the
+# function that created it has returned.
+WORK=""
+cleanup() { if [ -n "$WORK" ]; then rm -rf "$WORK"; fi; }
+trap cleanup EXIT
+LOCKFILE=offline-images.lock
 
 die() { echo "offline-bundle: $*" >&2; exit 1; }
 
@@ -32,7 +46,31 @@ sha256_check() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum -c "$1"; else shasum -a 256 -c "$1"; fi
 }
 
-usage() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+usage() { sed -n '2,/^# --- end of usage ---$/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+
+# The pinned digest for a compose image name, or nothing when it is not locked.
+locked_digest() { awk -v n="$1" '$1 == n { print $2 }' "$LOCKFILE"; }
+
+# The repository part of an image name: everything before the last ':' that
+# follows the last '/'.
+repo_of() { local name=$1; local last=${name##*/}; case "$last" in *:*) echo "${name%:*}" ;; *) echo "$name" ;; esac; }
+
+pull() {
+  case "${1:-}" in
+    -h|--help) usage ;;
+    "") ;;
+    *) die "unknown option for pull: $1" ;;
+  esac
+  cd "$(git rev-parse --show-toplevel)" || die "run from inside the polis checkout"
+  local name digest repo
+  while read -r name digest; do
+    case "$name" in ''|'#'*) continue ;; esac
+    repo=$(repo_of "$name")
+    echo "Pulling $repo@$digest as $name"
+    docker pull "$repo@$digest"
+    docker tag "$repo@$digest" "$name"
+  done < "$LOCKFILE"
+}
 
 # The image that unpacks and packs the model volume: the ollama image itself,
 # which is in the bundle whenever there is a model volume to ship.
@@ -69,9 +107,8 @@ save() {
   rev=$(git rev-parse --short HEAD)
   [ -n "$output" ] || output="polis-offline-${tier}-${rev}.tar"
 
-  local work
-  work=$(mktemp -d "${TMPDIR:-/tmp}/polis-offline-bundle.XXXXXX")
-  trap 'rm -rf "$work"' EXIT
+  WORK=$(mktemp -d "${TMPDIR:-/tmp}/polis-offline-bundle.XXXXXX")
+  local work=$WORK
 
   local -a images=()
   while IFS= read -r image; do
@@ -85,6 +122,11 @@ save() {
     id=$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null) \
       || die "image $image is not on this machine: run 'make OFFLINE build' (and pull the topic images) first"
     digest=$(docker image inspect --format '{{if .RepoDigests}}{{index .RepoDigests 0}}{{end}}' "$image")
+    local pinned
+    pinned=$(locked_digest "$image")
+    if [ -n "$pinned" ] && ! docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image" | grep -q "@$pinned\$"; then
+      die "$image is not the digest pinned in $LOCKFILE ($pinned): run 'scripts/offline-bundle.sh pull'"
+    fi
     printf '%s\t%s\t%s\n' "$image" "$id" "${digest:--}" >> "$work/manifest.tsv"
   done
   echo "Saving ${#images[@]} images:"
@@ -112,7 +154,9 @@ save() {
   (cd "$work" && sha256 "${parts[@]}" > SHA256SUMS)
   parts+=(SHA256SUMS)
   tar -C "$work" -cf "$output" "${parts[@]}"
-  echo "Wrote $output ($(du -h "$output" | cut -f1)). Copy it to the box and run:"
+  echo "Wrote $output ($(du -h "$output" | cut -f1))."
+  echo "Archive sha256 (compare it on the box, out of band): $(sha256 "$output" | cut -d' ' -f1)"
+  echo "Copy it to the box and run:"
   echo "  scripts/offline-bundle.sh load $(basename "$output")   (or: tar -xf it, then tar -xf source.tar, then this)"
 }
 
@@ -130,9 +174,8 @@ load() {
   [ -n "$archive" ] || usage 1
   [ -f "$archive" ] || die "$archive not found"
 
-  local work
-  work=$(mktemp -d "${TMPDIR:-/tmp}/polis-offline-load.XXXXXX")
-  trap 'rm -rf "$work"' EXIT
+  WORK=$(mktemp -d "${TMPDIR:-/tmp}/polis-offline-load.XXXXXX")
+  local work=$WORK
   tar -C "$work" -xf "$archive"
   (cd "$work" && sha256_check SHA256SUMS) || die "checksum mismatch: the archive is damaged"
 
@@ -173,8 +216,10 @@ load() {
 }
 
 case "${1:-}" in
+  pull) shift; pull "$@" ;;
   save) shift; save "$@" ;;
   load) shift; load "$@" ;;
   -h|--help|"") usage ;;
   *) die "unknown command: $1 (save or load)" ;;
 esac
+exit 0

@@ -20,7 +20,7 @@ The profile has three parts:
 | postgres | core | The only store. In this profile it always starts, whatever the `postgres` profile says. |
 | server | core | API server, production build, run with `OFFLINE=1`, which skips Auth0 Management, Akismet, dd-trace, Google Translate and AWS SES. See [configuration](configuration.md#offline-mode-server). |
 | file-server | core | Serves the admin, participation and report clients. They are built with `OFFLINE=1`, so the pages carry no analytics tags. d3 and Plotly are bundled. |
-| nginx-proxy | core | Ports 80 and 443. |
+| nginx-proxy | core | Ports 80 and 443. Port 443 serves the mkcert certificate (the same one the issuer uses) instead of the image's built-in test certificate. |
 | client-participation-alpha | core | Serves `/alpha/`. It stays in the core tier because nginx proxies to it by name and will not start if that name does not resolve. The legacy page is still the default `/<conversation>` page. |
 | math-python | core | The math engine: PCA, groups and consensus. It runs one worker with a 1.5 GB memory limit and uses the container hostname as its identity. It writes the `MATH_ENV` label that the server reads. |
 | oidc-simulator | core | Admin login issuer: the development simulator, built and served over HTTPS with mkcert certificates. A local issuer will replace it. |
@@ -40,7 +40,7 @@ With `OFFLINE=1` and `SES_ENDPOINT` unset, the server logs each email (subject o
 | Core | 4 GB | 2 vCPU, x86-64 | ~20 GB: about 4 GB of images, plus data |
 | Core + `offline-topics` with `llama3.1:8b` | 16 GB | 2 vCPU or more; topic naming on CPU is slow but bounded | ~35 GB: about 6 GB of images, plus the ollama image (~4.75 GB), the model (~4.9 GB) and data |
 
-These figures are standard model sizes and earlier local image sizes, not measurements of this profile. A 3B-class model (about 2 GB on disk and 3 GB of RAM) brings the topic tier down. arm64 boards are untested.
+These figures are standard model sizes and earlier local image sizes, not measurements of this profile. During `load`, peak disk use is about twice the archive: the archive, its extracted copy and the loaded images. The extracted copy is removed when `load` finishes. A 3B-class model (about 2 GB on disk and 3 GB of RAM) brings the topic tier down. arm64 boards are untested.
 
 ## 1. Prepare on a machine with network access
 
@@ -58,7 +58,9 @@ The build machine must have the same CPU architecture as the box (x86-64).
    #   OFFLINE_TOPICS=true     if the box runs the topic tier
    ```
 
-3. Create the issuer's certificate. It must name the box, and `oidc-simulator`, which is the name the server uses inside the compose network:
+   The box's name is fixed at build time. `OFFLINE_HOSTNAME` is compiled into the client images: the admin and report clients' issuer URL, the embed host, and alpha's API URL. If you change it, rebuild and save a new bundle.
+
+3. Create the certificate. nginx (port 443) and the issuer both serve it, so it must name the box. It must also name `oidc-simulator`, which is the name the server uses inside the compose network. Use the exact value of `OFFLINE_HOSTNAME` from step 2:
 
    ```bash
    mkcert -install
@@ -71,11 +73,11 @@ The build machine must have the same CPU architecture as the box (x86-64).
 
 4. Generate the participant JWT keys: `make generate-jwt-keys`. This writes `server/keys/`.
 5. Build the images. `make OFFLINE build` builds the core tier. For the topic tier, run `make OFFLINE_TOPICS=true OFFLINE build`. Both pass `OFFLINE=1`, `BAKE_EMBEDDING_MODEL=true` and `USE_CPU_TORCH=true`.
-6. Topic tier only: pull the three upstream images and put the model into the volume.
+6. Topic tier only: pull the three upstream images at their pinned digests, then put the model into the volume. `pull` fetches exactly the digests in [`offline-images.lock`](../offline-images.lock), and `save` refuses any other copy, so two bundles carry the same upstream bytes.
 
    ```bash
+   scripts/offline-bundle.sh pull
    C="docker compose -f docker-compose.yml -f docker-compose.offline.yml --env-file offline.env --profile offline-topics"
-   $C pull ollama dynamodb minio
    $C up -d ollama
    $C exec ollama ollama pull llama3.1:8b   # the OLLAMA_MODEL in offline.env
    $C stop ollama
@@ -96,11 +98,11 @@ The build machine must have the same CPU architecture as the box (x86-64).
    - the model volume, if you asked for it;
    - checksums.
 
-   The archive does not contain `offline.env`, the certificates or the JWT keys, because they are secrets. Copy those separately.
+   The archive does not contain `offline.env`, the certificates or the JWT keys, because they are secrets. Copy those separately. `save` prints the archive's sha256. Compare it on the box by a separate channel, because the checksums inside the archive only detect damage.
 
 ## 2. Install on the box
 
-The box needs Docker Engine with the Compose plugin, installed from offline packages for its OS.
+The box needs Docker Engine with the Compose plugin, `make` and bash, installed from offline packages for its OS. Enable the Docker service at boot (`systemctl enable docker`). Every container has a restart policy, so the stack comes back after a reboot without anyone running `make` again.
 
 ```bash
 # Unpack the source first; the load script lives in it.
@@ -125,7 +127,9 @@ mkdir -p ~/.simulacrum && cp -r /path/to/certs ~/.simulacrum/certs
 make DETACH=true OFFLINE start
 ```
 
-Admin devices must trust `rootCA.pem`: install it, or accept the browser's certificate warning once at `https://<OFFLINE_HOSTNAME>:3000/`. Participants never touch the issuer.
+**Admins use `https://<OFFLINE_HOSTNAME>/`.** Plain http works only on the box itself. The admin login library (oidc-client-ts) needs `crypto.subtle`, and browsers provide that only in a secure context: `https://`, or `http://localhost`. Over `http://<LAN name or IP>` from another device, login fails. Install `rootCA.pem` on each admin device so that both `https://<OFFLINE_HOSTNAME>/` and the issuer at `https://<OFFLINE_HOSTNAME>:3000/` are trusted. Otherwise, accept the certificate warning once on each of the two.
+
+Participants can use `http://` or `https://` and never touch the issuer.
 
 Admin accounts are the simulator's: `admin@polis.test` and `moderator@polis.test`. Both use the password `Te$tP@ssw0rd*`. The accounts are held in memory and cannot be changed.
 
@@ -135,15 +139,41 @@ The acceptance test: **a participant can open a conversation, vote, and see grou
 
 Run the checks with the network cable unplugged and DNS unreachable, after `docker load` of the shipped archive:
 
-1. `make OFFLINE start` brings every core service up with zero outbound connections. To check, run a host firewall that logs and denies egress; its deny log stays empty.
+1. `make OFFLINE start` brings every core service up with zero outbound connections.
+   - Check that every service is up with `docker compose -f docker-compose.yml -f docker-compose.offline.yml --env-file offline.env ps`.
+   - For egress, add a logging deny rule before starting, for example `iptables -I DOCKER-USER -o <uplink> -j LOG --log-prefix "polis-egress "` followed by `iptables -I DOCKER-USER 2 -o <uplink> -j DROP`. Then confirm that `journalctl -k | grep polis-egress` stays empty.
 2. A participant opens `/<conversation_id>` on a phone on the box's Wi-Fi. In the browser's network panel, every request goes to the box. Known exception: see the legacy page's pol.is images under [What still reaches out today](#what-still-reaches-out-today-and-why).
-3. The participant votes. Each vote lands in `votes`, and math-python writes a new `math_main` row within its poll interval.
-4. The participant sees groups and consensus: `math/pca2` returns groups and group-aware consensus for that update.
-5. An admin logs in at `http://<OFFLINE_HOSTNAME>/`, creates a conversation and seeds comments.
+3. The participant votes. Each vote lands in `votes`, and math-python writes a new `math_main` row within its poll interval. Open a database shell with `make OFFLINE psql-shell`, then run:
+
+   ```sql
+   select zid, math_env, math_tick, last_vote_timestamp, modified from math_main order by modified desc limit 5;
+   ```
+
+   Run it again after a vote: `math_tick` goes up.
+4. The participant sees groups and consensus. To check, run `curl -sk --compressed "https://<OFFLINE_HOSTNAME>/api/v3/math/pca2?conversation_id=<conversation_id>"`. The response should contain `group-clusters` and `group-aware-consensus`.
+5. **From a second device, not the box itself**, an admin logs in at `https://<OFFLINE_HOSTNAME>/`, creates a conversation and seeds comments. A browser on the box passes even over http, so a check made there proves nothing.
 6. The admin opens the report. The participant graphs and beeswarm render from the bundled d3 and Plotly, and the report CSVs download.
 7. Topic tier: the admin starts a Delphi run. The local model names the topics; if the model is absent, keyword labels do. Narrative and collective statement are not available offline yet.
-8. Restart the box with the cable still unplugged. Everything comes back, and nothing is downloaded again.
-9. A search of the shipped client bundles finds no third-party host apart from the known exceptions below.
+8. Reboot the box with the cable still unplugged. Without running `make`, `docker ps` lists every service again, the participant page loads, and the egress log from item 1 stays empty.
+9. Search the shipped client bundles for third-party hosts:
+
+   ```bash
+   docker run --rm --entrypoint sh polis-offline/file-server:offline -c \
+     "grep -rhoE 'https?://[a-zA-Z0-9.-]+' /app/build | sort | uniq -c | sort -rn"
+   ```
+
+   The only hosts in the output should be the known exceptions below, plus URLs that appear in library source and are never fetched, such as licence and documentation links.
+
+## `DEV_MODE=true` and how to avoid it
+
+`example.offline.env` sets `DEV_MODE=true`, as the test stack does. This makes the production server build use plain-http host handling. It has side effects:
+- 500 responses include the error message and stack trace;
+- request bodies are written to the log;
+- the JSON access log is off;
+- the email notification loop does not run;
+- the database pool has two connections.
+
+On a closed LAN this is acceptable. To avoid it, set `DEV_MODE=false`. The server then builds absolute links as `https://<API_PROD_HOSTNAME>`, which the https entry on port 443 serves. Every user then has to use `https://`, because plain http links would point at https. This variant has not been run yet.
 
 ## What still reaches out today, and why
 
