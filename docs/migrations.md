@@ -38,3 +38,20 @@ where `polis-dev-postgres-1` is the name of the running container (see the outpu
 You'd do this for each new file, in numeric order.
 
    [`server/postgres/migrations/`]: /server/postgres/migrations
+
+## The migration ledger (`schema_migrations`, from 000023 on)
+
+Migration `000023_vote_convention.sql` adds `public.schema_migrations`: one row
+per applied migration file. The rows for 000000–000022 are backfilled with the
+checksum `pre-ledger`. **Every migration file from 000023 on inserts its own row
+as its last statement**, carrying the sha256 of the file with exactly one line
+removed: the line holding the `-- ledger-self-checksum` marker (the INSERT
+itself, so the hash can live inside the file it hashes):
+
+```sh
+grep -v -e '-- ledger-self-checksum' server/postgres/migrations/0000NN_name.sql | shasum -a 256
+```
+
+A copy whose ledger stops early is older than the files it is missing. See
+[vote-convention.md](vote-convention.md) for the restore-detection rule that
+depends on it.
