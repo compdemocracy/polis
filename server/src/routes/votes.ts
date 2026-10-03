@@ -23,7 +23,11 @@ import {
 import Config from "../config";
 import { SendMessageCommand } from "@aws-sdk/client-sqs";
 import { sqsClient } from "../utils/sqs";
-import { wireToSemantic, wireToStorage } from "../votes/convention";
+import {
+  storageRowToWire,
+  wireToSemantic,
+  wireToStorage,
+} from "../votes/convention";
 
 const sql_votes_latest_unique = SQL.sql_votes_latest_unique;
 
@@ -157,7 +161,7 @@ async function votesGet(p: {
         if (err) {
           reject(err);
         } else {
-          resolve(results.rows);
+          resolve(results.rows.map((row) => storageRowToWire(row)));
         }
       }
     );
@@ -184,7 +188,10 @@ function handle_GET_votes_me(
         for (let i = 0; i < docs.rows.length; i++) {
           docs.rows[i].weight = docs.rows[i].weight / 32767;
         }
-        finishArray(res, docs.rows);
+        finishArray(
+          res,
+          docs.rows.map((row) => storageRowToWire(row))
+        );
       }
     );
   });

@@ -31,6 +31,7 @@ import {
   storageSqlValue,
   storageToExport,
   storageToSemantic,
+  storageRowToWire,
   storageToWire,
   wireToSemantic,
   wireToStorage,
@@ -254,6 +255,31 @@ describe("round trips", () => {
       });
     });
   }
+});
+
+describe("storageRowToWire (the vote read routes)", () => {
+  test("keeps key order and every other field; maps the vote", () => {
+    const row = { zid: 1, pid: 2, tid: 3, vote: -1, weight_x_32767: 0 };
+    const before = JSON.stringify(row);
+    expect(JSON.stringify(storageRowToWire(row))).toBe(before);
+    expect(
+      storageRowToWire({ pid: 2, vote: 1 }, { convention: FLIPPED })
+    ).toEqual({ pid: 2, vote: -1 });
+  });
+
+  test("NULL stays null, an out-of-range value is returned as stored", () => {
+    expect(storageRowToWire({ vote: null }).vote).toBeNull();
+    expect(storageRowToWire({ vote: 7 }).vote).toBe(7);
+    expect(() => storageRowToWire({ vote: 7 }, { onInvalid: "throw" })).toThrow(
+      VoteConventionError
+    );
+  });
+
+  test("a row without a vote field is untouched", () => {
+    const row = { pid: 2 };
+    expect(storageRowToWire(row)).toEqual({ pid: 2 });
+    expect("vote" in row).toBe(false);
+  });
 });
 
 describe("tally", () => {

@@ -333,6 +333,26 @@ export function storageToExport(
 }
 
 /**
+ * A votes / votes_latest_unique row as the read routes return it (GET /votes,
+ * GET /votes/me, participationInit's votes): the vote in the wire convention.
+ * Today wire equals storage, so the value is unchanged. An out-of-range stored
+ * value is returned as stored, as the routes always have. The row is updated in
+ * place so the JSON key order does not change.
+ */
+export function storageRowToWire<T extends { vote?: RawVote }>(
+  row: T,
+  options?: ConversionOptions
+): T {
+  if (row && "vote" in row) {
+    row.vote = storageToWire(row.vote, {
+      ...options,
+      onInvalid: options?.onInvalid ?? "keep",
+    });
+  }
+  return row;
+}
+
+/**
  * The integer to put in a SQL predicate that selects a stored vote, e.g.
  * `CASE WHEN v.vote = ${storageSqlValue("agree")} THEN 1 ...`. Always an
  * integer, so interpolation is safe.
