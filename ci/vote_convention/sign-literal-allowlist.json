@@ -1,7 +1,8 @@
 {
  "schema": "vote-sign-allowlist/1",
  "about": "Vote-sign literals present on origin/edge when the lint landed (P-078 PR-F). Seeded from the tree and the 350-row vote-sign audit of 2026-10-03 (snapshot 344c557ad), matched by path and by line mapped back to that snapshot. 'audit' names the row; 'file rows' means the file is audited but this line is not itemised; 'not in the audit' means the audit did not list the file. Delete an entry when its site moves into a chokepoint. Never add one to make a new literal pass: take the sign from the chokepoint of that layer.",
- "sites": 601,
+ "window": 3,
+ "sites": 642,
  "entries": [
   {
    "path": "ci/private_cert/images/g12.py",
@@ -81,6 +82,13 @@
    "audit": "audit 2026-10-03 §2 file rows 81, 82, 83, 84 (ci/probe_box/local/pipeline_seed.py); this line is not itemised there"
   },
   {
+   "path": "ci/probe_box/local/pipeline_seed.py",
+   "text": "vote=-int(r['vote']),weight_x_32767=0,created=BASE_MS+i+1000)",
+   "count": 1,
+   "kind": "negated-subscript",
+   "audit": "audit 2026-10-03 §2 row 81: ci/probe_box/local/pipeline_seed.py:19-24"
+  },
+  {
    "path": "ci/probe_box/test_backfill_verify.py",
    "text": "last_vote_timestamp bigint NOT NULL, caching_tick bigint NOT NULL DEFAULT 0, math_tick bigint NOT NULL DEFAULT -1,",
    "count": 1,
@@ -114,6 +122,111 @@
    "count": 1,
    "kind": "minus-one",
    "audit": "audit 2026-10-03 §2 file rows 85 (ci/probe_box/test_pipeline_seed.py); this line is not itemised there"
+  },
+  {
+   "path": "ci/probe_box/test_pipeline_seed.py",
+   "text": "self.assertEqual([v['vote'] for v in votes],[-int(r['vote']) for r in source])",
+   "count": 1,
+   "kind": "negated-subscript",
+   "audit": "audit 2026-10-03 §2 row 85: ci/probe_box/test_pipeline_seed.py:19"
+  },
+  {
+   "path": "ci/vote_convention/compare.py",
+   "text": "\"export/comments.csv\": \"PR-A + PR-B: server/src/report.ts counts agrees as row.vote === -1 and disagrees as === 1.\",",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "not in the audit's 350 rows (ci/vote_convention/compare.py); added by P-078 PR-F: the gate's declared-sign harness"
+  },
+  {
+   "path": "ci/vote_convention/compare.py",
+   "text": "\"export/participant-importance.csv\": \"sign-blind (not evidence): -row.vote only feeds .size; group ids survive a mirror\",",
+   "count": 1,
+   "kind": "negated-vote",
+   "audit": "not in the audit's 350 rows (ci/vote_convention/compare.py); added by P-078 PR-F: the gate's declared-sign harness"
+  },
+  {
+   "path": "ci/vote_convention/compare.py",
+   "text": "\"export/participant-votes.csv\": \"PR-A + PR-B: server/src/report.ts sets -row.vote per participant and counts \"",
+   "count": 1,
+   "kind": "negated-vote",
+   "audit": "not in the audit's 350 rows (ci/vote_convention/compare.py); added by P-078 PR-F: the gate's declared-sign harness"
+  },
+  {
+   "path": "ci/vote_convention/compare.py",
+   "text": "\"export/votes.csv\": \"PR-A + PR-B: server/src/report.ts writes String(-row.vote): the export negates the raw row \"",
+   "count": 1,
+   "kind": "negated-vote",
+   "audit": "not in the audit's 350 rows (ci/vote_convention/compare.py); added by P-078 PR-F: the gate's declared-sign harness"
+  },
+  {
+   "path": "ci/vote_convention/compare.py",
+   "text": "\"math/math_main\": \"PR-A + PR-C: the poller reads votes with the code constant STORAGE_AGREE_VALUE = -1 \"",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (ci/vote_convention/compare.py); added by P-078 PR-F: the gate's declared-sign harness"
+  },
+  {
+   "path": "ci/vote_convention/compare.py",
+   "text": "elif y[\"vote\"] != -x[\"vote\"]:",
+   "count": 1,
+   "kind": "negated-subscript",
+   "audit": "not in the audit's 350 rows (ci/vote_convention/compare.py); added by P-078 PR-F: the gate's declared-sign harness"
+  },
+  {
+   "path": "ci/vote_convention/fixtures.py",
+   "text": "PCA2_DECLARED = -1 # seed-pca2.py:66-68 writes rng draws into votes as raw storage values",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (ci/vote_convention/fixtures.py); added by P-078 PR-F: the gate's declared-sign harness"
+  },
+  {
+   "path": "ci/vote_convention/fixtures.py",
+   "text": "as raw storage values, agree = -1).",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (ci/vote_convention/fixtures.py); added by P-078 PR-F: the gate's declared-sign harness"
+  },
+  {
+   "path": "ci/vote_convention/fixtures.py",
+   "text": "comments = [(t, 0, 0 if t in tids else -1, first) for t in range(max(tids) + 1)]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (ci/vote_convention/fixtures.py); added by P-078 PR-F: the gate's declared-sign harness"
+  },
+  {
+   "path": "ci/vote_convention/fixtures.py",
+   "text": "comments[tid] = (tid, 0, -1, first)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (ci/vote_convention/fixtures.py); added by P-078 PR-F: the gate's declared-sign harness"
+  },
+  {
+   "path": "ci/vote_convention/fixtures.py",
+   "text": "raw = int(rng.choice([-1, 0, 1], p=[.45, .1, .45])) # seed-pca2.py:66-67 draw",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (ci/vote_convention/fixtures.py); added by P-078 PR-F: the gate's declared-sign harness"
+  },
+  {
+   "path": "ci/vote_convention/fixtures.py",
+   "text": "turns each raw value into a SEMANTIC vote (+1 agree, -1 disagree, 0 pass) with",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (ci/vote_convention/fixtures.py); added by P-078 PR-F: the gate's declared-sign harness"
+  },
+  {
+   "path": "ci/vote_convention/run.sh",
+   "text": "# same semantic fixture set at v0 (agree = -1) and at v1 (agree = +1), runs the",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (ci/vote_convention/run.sh); added by P-078 PR-F: the gate's declared-sign harness"
+  },
+  {
+   "path": "ci/vote_convention/run.sh",
+   "text": "export TZ=UTC OMP_NUM_THREADS=\"${OMP_NUM_THREADS:-1}\" OPENBLAS_NUM_THREADS=\"${OPENBLAS_NUM_THREADS:-1}\"",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (ci/vote_convention/run.sh); added by P-078 PR-F: the gate's declared-sign harness"
   },
   {
    "path": "client-admin/src/components/conversation-admin/BYODConfig.js",
@@ -466,11 +579,32 @@
    "audit": "not in the audit's 350 rows (coordinator-rs/tools/d07/readiness.py); pre-existing at 344c557ad"
   },
   {
+   "path": "coordinator-rs/tools/d07/run.py",
+   "text": "rows=[(pids[int(r['voter-id'])],tids[int(r['comment-id'])],-int(r['vote']),int(float(r['timestamp'])*1000)) for r in raw]",
+   "count": 1,
+   "kind": "negated-subscript",
+   "audit": "audit 2026-10-03 §2 row 140: coordinator-rs/tools/d07/run.py:133"
+  },
+  {
+   "path": "coordinator-rs/tools/d07/startup.py",
+   "text": "rows=[(pids[int(r['voter-id'])],tids[int(r['comment-id'])],-int(r['vote']),int(r['timestamp'])*1000) for r in raw[:1170]]",
+   "count": 1,
+   "kind": "negated-subscript",
+   "audit": "audit 2026-10-03 §2 row 141: coordinator-rs/tools/d07/startup.py:89"
+  },
+  {
    "path": "coordinator-rs/tools/d07/test_readiness.py",
    "text": "fold=SimpleNamespace(cells={(0,0):1,(1,0):-1},comments={0},participants={0,1})",
    "count": 1,
    "kind": "minus-one",
    "audit": "not in the audit's 350 rows (coordinator-rs/tools/d07/test_readiness.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "coordinator-rs/tools/shadow/test_daily.py",
+   "text": "rows=[dict(pid=1,tid=1,vote=1,created=100),dict(pid=2,tid=1,vote=1,created=200)]",
+   "count": 1,
+   "kind": "sql-equals-sign",
+   "audit": "not in the audit's 350 rows (coordinator-rs/tools/shadow/test_daily.py); pre-existing at 344c557ad"
   },
   {
    "path": "delphi/notebooks/run_analysis.py",
@@ -679,7 +813,7 @@
    "path": "delphi/polismath/replay/fixture_generate.py",
    "text": "vote = -1",
    "count": 1,
-   "kind": "minus-one",
+   "kind": "sql-equals-sign",
    "audit": "audit 2026-10-03 §2 row 195: delphi/polismath/replay/fixture_generate.py:42,120-122,153-155"
   },
   {
@@ -730,6 +864,13 @@
    "count": 1,
    "kind": "minus-one",
    "audit": "not in the audit's 350 rows (delphi/polismath/replay/fixture_survey.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/polismath/replay/polarity.py",
+   "text": "new[\"vote\"] = -row[\"vote\"]",
+   "count": 1,
+   "kind": "negated-subscript",
+   "audit": "audit 2026-10-03 §2 row 197: delphi/polismath/replay/polarity.py:375-386"
   },
   {
    "path": "delphi/polismath/replay/polarity.py",
@@ -812,7 +953,7 @@
    "path": "delphi/polismath/replay/prodclone.py",
    "text": "``vote = -1`` would silently count disagreements as agreements.",
    "count": 1,
-   "kind": "minus-one",
+   "kind": "sql-equals-sign",
    "audit": "audit 2026-10-03 §2 row 203: delphi/polismath/replay/prodclone.py:181-201"
   },
   {
@@ -985,6 +1126,13 @@
   },
   {
    "path": "delphi/scripts/prove_event_ingress.py",
+   "text": "dict(created=t, pid=p, tid=c, vote=-v, weight_x_32767=None) for t, p, c, v in rows",
+   "count": 1,
+   "kind": "assigned-negation",
+   "audit": "audit 2026-10-03 §2 row 264: delphi/scripts/prove_event_ingress.py:32"
+  },
+  {
+   "path": "delphi/scripts/prove_event_ingress.py",
    "text": "meta = {'schema_version': 'certify-events/2', 'polarity': {'storage_agree_value': -1},",
    "count": 1,
    "kind": "minus-one",
@@ -1097,6 +1245,20 @@
   },
   {
    "path": "delphi/tests/coordinator/test_bundle_reader.py",
+   "text": "cur.execute(\"UPDATE votes SET vote=1 WHERE zid=1 AND pid=1 AND tid=2\")",
+   "count": 1,
+   "kind": "sql-equals-sign",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_bundle_reader.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_bundle_reader.py",
+   "text": "def add_vote(db, created, pid=0, tid=0, vote=1):",
+   "count": 1,
+   "kind": "sql-equals-sign",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_bundle_reader.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_bundle_reader.py",
    "text": "value = [-1, 1, 0][(model_pid + tid) % 3]",
    "count": 1,
    "kind": "minus-one",
@@ -1118,10 +1280,24 @@
   },
   {
    "path": "delphi/tests/coordinator/test_equivalence.py",
+   "text": "fold=FOLD.fold_votes([dict(pid=v.pid,tid=v.tid,vote=-v.sign,created=v.t_ms) for v in events[:cut]])",
+   "count": 1,
+   "kind": "assigned-negation",
+   "audit": "audit 2026-10-03 §2 row 225: delphi/tests/coordinator/test_equivalence.py:81,118,125"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_equivalence.py",
    "text": "for value in (1,-1):",
    "count": 1,
    "kind": "minus-one",
    "audit": "audit 2026-10-03 §2 row 227: delphi/tests/coordinator/test_equivalence.py:167-198"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_equivalence.py",
+   "text": "subset=FOLD.fold_votes([dict(pid=v.pid,tid=v.tid,vote=-v.sign,created=v.t_ms) for v in events[:cut] if v.pid in member_set])",
+   "count": 1,
+   "kind": "assigned-negation",
+   "audit": "audit 2026-10-03 §2 row 225: delphi/tests/coordinator/test_equivalence.py:81,118,125"
   },
   {
    "path": "delphi/tests/coordinator/test_equivalence.py",
@@ -1141,14 +1317,28 @@
    "path": "delphi/tests/coordinator/test_incremental.py",
    "text": "query(db, \"UPDATE votes SET vote=-1 WHERE zid=1 AND pid=0 AND tid=1\")",
    "count": 1,
-   "kind": "minus-one",
+   "kind": "sql-equals-sign",
    "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_incremental.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_incremental.py",
+   "text": "query(db, \"UPDATE votes SET vote=1 WHERE zid=1 AND pid=0 AND tid=0\")",
+   "count": 1,
+   "kind": "sql-equals-sign",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_incremental.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_recovery.py",
+   "text": "cur.execute(\"SELECT count(*) FROM votes WHERE zid=1 AND pid=0 AND tid=0 AND vote=1 AND created=%s\",(created,))",
+   "count": 1,
+   "kind": "sql-equals-sign",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_recovery.py); pre-existing at 344c557ad"
   },
   {
    "path": "delphi/tests/coordinator/test_recovery.py",
    "text": "cur.execute('UPDATE votes SET vote=-1 WHERE zid=1 AND pid=0 AND tid=0')",
    "count": 1,
-   "kind": "minus-one",
+   "kind": "sql-equals-sign",
    "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_recovery.py); pre-existing at 344c557ad"
   },
   {
@@ -1162,14 +1352,21 @@
    "path": "delphi/tests/coordinator/test_step2_review_controls.py",
    "text": "query(db, \"UPDATE votes SET vote=-1 WHERE zid=1 AND pid=0 AND tid=1\")",
    "count": 1,
-   "kind": "minus-one",
+   "kind": "sql-equals-sign",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_step2_review_controls.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_step2_review_controls.py",
+   "text": "query(db, \"UPDATE votes SET vote=1 WHERE zid=1 AND pid=0 AND tid=0\")",
+   "count": 1,
+   "kind": "sql-equals-sign",
    "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_step2_review_controls.py); pre-existing at 344c557ad"
   },
   {
    "path": "delphi/tests/coordinator/test_store.py",
    "text": "conv=conv.update_votes({'votes':[dict(pid=p,tid=t,vote=1 if p%2 else -1,created=1000+p*4+t) for p in range(6) for t in range(4)],'lastVoteTimestamp':1023},recompute=False)",
    "count": 1,
-   "kind": "minus-one",
+   "kind": "sql-equals-sign",
    "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_store.py); pre-existing at 344c557ad"
   },
   {
@@ -1398,6 +1595,13 @@
   },
   {
    "path": "delphi/tests/projgate/projection_gate_test.py",
+   "text": "(1, 0, 1, 0, 3000), # revote -> vlu upserts to modified=3000, vote=1",
+   "count": 1,
+   "kind": "sql-equals-sign",
+   "audit": "not in the audit's 350 rows (delphi/tests/projgate/projection_gate_test.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/projgate/projection_gate_test.py",
    "text": "after = [(0, 1), (1, -1)] # both comments' votes swapped; column bags unchanged",
    "count": 1,
    "kind": "minus-one",
@@ -1603,7 +1807,14 @@
    "path": "delphi/tests/replay_harness/test_event_ingress.py",
    "text": "dict(created=1001, pid=1, tid=2, vote=-1, weight_x_32767=0),",
    "count": 1,
-   "kind": "minus-one",
+   "kind": "sql-equals-sign",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_event_ingress.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_event_ingress.py",
+   "text": "dict(created=1001, pid=1, tid=2, vote=1, weight_x_32767=None),",
+   "count": 1,
+   "kind": "sql-equals-sign",
    "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_event_ingress.py); pre-existing at 344c557ad"
   },
   {
@@ -1965,6 +2176,20 @@
   },
   {
    "path": "delphi/tests/test_certify_bundle.py",
+   "text": "assert csv_rows[1].split(\",\")[-1] == str(-first_vote[\"vote\"])",
+   "count": 1,
+   "kind": "negated-subscript",
+   "audit": "audit 2026-10-03 §2 row 235: delphi/tests/test_certify_bundle.py:146,1647"
+  },
+  {
+   "path": "delphi/tests/test_certify_bundle.py",
+   "text": "event[\"vote\"] = -event[\"vote\"]",
+   "count": 1,
+   "kind": "negated-subscript",
+   "audit": "audit 2026-10-03 §2 row 235: delphi/tests/test_certify_bundle.py:146,1647"
+  },
+  {
+   "path": "delphi/tests/test_certify_bundle.py",
    "text": "{\"created\": 1000 + i, \"pid\": pid, \"tid\": tid, \"vote\": -1,",
    "count": 1,
    "kind": "minus-one",
@@ -1997,6 +2222,13 @@
    "count": 1,
    "kind": "minus-one",
    "audit": "audit 2026-10-03 §2 file rows 236 (delphi/tests/test_certify_bundle_integration.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_certify_bundle_integration.py",
+   "text": "assert int(row[\"vote\"]) == -event[\"vote\"] # export negates the storage sign",
+   "count": 1,
+   "kind": "negated-subscript",
+   "audit": "audit 2026-10-03 §2 row 236: delphi/tests/test_certify_bundle_integration.py:494"
   },
   {
    "path": "delphi/tests/test_certify_bundle_integration.py",
@@ -2658,10 +2890,31 @@
   },
   {
    "path": "delphi/tests/test_pca_column_order.py",
+   "text": "conv = conv.update_votes({'votes': [dict(pid=0, tid=8, vote=1, created=1),",
+   "count": 1,
+   "kind": "sql-equals-sign",
+   "audit": "audit 2026-10-03 §2 file rows 237 (delphi/tests/test_pca_column_order.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_pca_column_order.py",
+   "text": "dict(pid=0, tid=2, vote=1, created=5)]}, recompute=False)",
+   "count": 1,
+   "kind": "sql-equals-sign",
+   "audit": "audit 2026-10-03 §2 file rows 237 (delphi/tests/test_pca_column_order.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_pca_column_order.py",
    "text": "dict(pid=0, tid=8, vote=-1, created=3)]}, recompute=False)",
    "count": 1,
-   "kind": "minus-one",
+   "kind": "sql-equals-sign",
    "audit": "audit 2026-10-03 §2 file rows 237 (delphi/tests/test_pca_column_order.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_pca_column_order.py",
+   "text": "return {'votes': [dict(pid=p, tid=t, vote=-v, created=ms) for p, t, v, ms in rows]}",
+   "count": 1,
+   "kind": "assigned-negation",
+   "audit": "audit 2026-10-03 §2 row 237: delphi/tests/test_pca_column_order.py:20-21"
   },
   {
    "path": "delphi/tests/test_pca_smoke.py",
@@ -2980,6 +3233,13 @@
   },
   {
    "path": "math/dev/replay.clj",
+   "text": "(cond-> {:pid pid :tid tid :vote (when (some? sign) (- (long sign))) :created t-ms}",
+   "count": 1,
+   "kind": "clojure-negation",
+   "audit": "audit 2026-10-03 §2 row 89: math/dev/replay.clj:291"
+  },
+  {
+   "path": "math/dev/replay.clj",
    "text": "(contains? #{nil -1 0 1} (get e \"vote\"))",
    "count": 1,
    "kind": "minus-one",
@@ -3026,6 +3286,13 @@
    "count": 1,
    "kind": "minus-one",
    "audit": "audit 2026-10-03 §2 row 91: math/dev/replay.clj:476-484,784,820,863-864"
+  },
+  {
+   "path": "math/dev/replay.clj",
+   "text": "[pid tid (when (some? sign) (- (long sign)))])",
+   "count": 1,
+   "kind": "clojure-negation",
+   "audit": "audit 2026-10-03 §2 row 90: math/dev/replay.clj:353"
   },
   {
    "path": "math/dev/replay_smoke.sh",
@@ -3493,7 +3760,7 @@
    "path": "server/characterization/corrections.test.cjs",
    "text": "const changed = JSON.parse(corrected.body); changed.votes[0].vote = -1;",
    "count": 1,
-   "kind": "minus-one",
+   "kind": "sql-equals-sign",
    "audit": "audit 2026-10-03 §2 file rows 63 (server/characterization/corrections.test.cjs); this line is not itemised there"
   },
   {
@@ -3508,6 +3775,13 @@
    "text": "(c) => assert(c.effects.db[\"pg:votes\"].added.some((r) => r.vote === -1)),",
    "count": 1,
    "kind": "equals-minus-one",
+   "audit": "not in the audit's 350 rows (server/characterization/recorded.test.cjs); pre-existing at 344c557ad"
+  },
+  {
+   "path": "server/characterization/recorded.test.cjs",
+   "text": "c.effects.db[\"pg:votes\"].added[0].vote = 1;",
+   "count": 1,
+   "kind": "sql-equals-sign",
    "audit": "not in the audit's 350 rows (server/characterization/recorded.test.cjs); pre-existing at 344c557ad"
   },
   {
@@ -3528,8 +3802,15 @@
    "path": "server/characterization/seed-pca2.py",
    "text": "votes=[{**v,'vote':-v['vote']} for v in raw] # DB agree=-1; engine agree=+1.",
    "count": 1,
-   "kind": "minus-one",
+   "kind": "negated-subscript",
    "audit": "audit 2026-10-03 §2 row 67: server/characterization/seed-pca2.py:75"
+  },
+  {
+   "path": "server/characterization/test.cjs",
+   "text": "[\"flip vote\", (x) => (x.response.body.vote = 1), \"$.response.body.vote\"],",
+   "count": 1,
+   "kind": "sql-equals-sign",
+   "audit": "audit 2026-10-03 §2 row 68: server/characterization/test.cjs:95-118,192-193,248-262"
   },
   {
    "path": "server/characterization/test.cjs",
@@ -3696,7 +3977,14 @@
    "path": "server/src/routes/collectiveStatement.ts",
    "text": "COALESCE(SUM(CASE WHEN v.vote = -1 THEN 1 ELSE 0 END), 0) as agrees,",
    "count": 1,
-   "kind": "minus-one",
+   "kind": "sql-equals-sign",
+   "audit": "audit 2026-10-03 §2 row 22: server/src/routes/collectiveStatement.ts:582-592"
+  },
+  {
+   "path": "server/src/routes/collectiveStatement.ts",
+   "text": "COALESCE(SUM(CASE WHEN v.vote = 1 THEN 1 ELSE 0 END), 0) as disagrees,",
+   "count": 1,
+   "kind": "sql-equals-sign",
    "audit": "audit 2026-10-03 §2 row 22: server/src/routes/collectiveStatement.ts:582-592"
   },
   {

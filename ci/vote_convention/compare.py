@@ -17,8 +17,12 @@ the convention, not assume it. Until PR-A (the convention row) and PR-B/C (the
 chokepoints) land, they do not, and this comparison fails. EXPECTED_RED names
 every family that is red today and why; a red outside it is a regression.
 
+    python ci/vote_convention/compare.py v1 OUT --ratchet   # required in CI
+
 Writes OUT/verdict-<leg>.json and a Markdown summary (to $GITHUB_STEP_SUMMARY
-when set). Exit 0 only when the leg is fully green.
+when set). Exit status: 0 fully green; 3 (v1 only) red, but every red family is
+on EXPECTED_RED; 1 anything else. ``--ratchet`` exits 0 for 0 or 3 and 1
+otherwise: the required step, while the strict comparison stays informative.
 """
 from __future__ import annotations
 
@@ -37,9 +41,9 @@ sys.path.insert(0, str(HERE))
 
 #: Families of output and the reason each is red at v1 on today's code.
 EXPECTED_RED: Dict[str, str] = {
-    "math": "PR-A + PR-C: the poller reads votes with the code constant STORAGE_AGREE_VALUE = -1 "
-            "(delphi/polismath/database/postgres.py poll_votes), so v1 rows are folded as their opposite; "
-            "math_main inverts (math_bidtopid and math_ptptstats are expected to stay green).",
+    "math/math_main": "PR-A + PR-C: the poller reads votes with the code constant STORAGE_AGREE_VALUE = -1 "
+                      "(delphi/polismath/database/postgres.py poll_votes), so v1 rows are folded as their opposite "
+                      "and math_main inverts.",
     "replay": "PR-A + PR-C: the replay cuts are read back through the same production loader "
               "(PostgresClient.poll_votes) and inherit the constant; the recorded column order no longer reproduces.",
     "pca2": "PR-A + PR-C: GET /api/v3/math/pca2 serves the math_main the poller wrote; the body (and its ETag / "
@@ -50,22 +54,35 @@ EXPECTED_RED: Dict[str, str] = {
                                     "n-agree / n-disagree on the result.",
     "export/comments.csv": "PR-A + PR-B: server/src/report.ts counts agrees as row.vote === -1 and disagrees as === 1.",
     "export/comment-groups.csv": "PR-A + PR-C: built from math_main group-votes (A/D/S), which invert with the math.",
-    "export/participant-importance.csv": "PR-A + PR-B: report.ts negates -row.vote (only .size is used, so it is "
-                                         "expected to stay green).",
-    "export/summary.csv": "PR-A + PR-C: group count from math_main group-clusters.",
     "fold/direct": "PR-G (retire or wrap): the frozen fold oracle reads raw rows at its own literal RAW_AGREE = -1. "
                    "Its declared-sign companion (fold/declared) is the form every caller moves to.",
 }
 
-#: Families that must be green at v1 even today: they prove the fixture loader
-#: and the companions, not the production code.
-MUST_HOLD = ("db", "fold/declared")
+#: Exit status of ``compare.py v1`` when every red is expected (1 = an unexpected red).
+EXIT_EXPECTED_RED = 3
+
+#: Families that must be green at v1 even today: the fixture loader, the
+#: companions, and the outputs no vote value reaches or that are sign-blind.
+
+MUST_HOLD: Dict[str, str] = {
+    "db": "the loader writes the opposite sign and nothing else",
+    "fold/declared": "the declared-sign companion of the fold oracle",
+    "math/math_bidtopid": "unchanged by the inversion today (the pid/bid mapping); a change is a regression",
+    "math/math_ptptstats": "unchanged by the inversion today; a change is a regression",
+    # Sign-blind: they stay green even with math_main inverted (counts, a mirrored
+    # clustering's group count and group ids). Their green is not evidence that
+    # the sign does not matter, but a change in them is a regression.
+    "export/summary.csv": "sign-blind (not evidence): counts and the group count",
+    "export/participant-importance.csv": "sign-blind (not evidence): -row.vote only feeds .size; group ids survive a mirror",
+}
 
 
 def family(rel: str) -> str:
     head = rel.split("/", 1)[0]
     if head == "export":
         return "export/" + rel.split(".", 1)[1]
+    if head == "math":
+        return "math/" + rel.rsplit(".", 2)[-2]
     if head == "fold":
         return "fold/" + rel.rsplit(".", 2)[-2]
     return head
@@ -109,13 +126,17 @@ def compare_v1(out: Path) -> dict:
                 entry["differ"].append(f"{rel}: {why}")
         elif x != y:
             entry["differ"].append(rel)
+    for fam in list(MUST_HOLD) + list(EXPECTED_RED):
+        if fam not in result["families"]:  # a family that vanished is a regression too
+            result["unexpected"].append(fam)
     for fam, entry in sorted(result["families"].items()):
         entry["status"] = "green" if not entry["differ"] else "red"
-        if entry["differ"]:
-            if fam in MUST_HOLD or fam not in EXPECTED_RED:
-                result["unexpected"].append(fam)
-            else:
-                entry["reason"] = EXPECTED_RED[fam]
+        if fam in MUST_HOLD:
+            entry["reason"] = "must hold: " + MUST_HOLD[fam]
+        elif fam in EXPECTED_RED:
+            entry["reason"] = EXPECTED_RED[fam]
+        if entry["differ"] and (fam in MUST_HOLD or fam not in EXPECTED_RED):
+            result["unexpected"].append(fam)
     result["green"] = not result["unexpected"] and not result["missing"] and all(
         e["status"] == "green" for e in result["families"].values())
     # Lists of failing cases are the evidence; keep them but cap the summary.
@@ -200,18 +221,29 @@ def markdown(v: dict) -> str:
 
 
 def main() -> None:
-    leg, out = sys.argv[1], Path(sys.argv[2])
+    args = [a for a in sys.argv[1:] if a != "--ratchet"]
+    ratchet = "--ratchet" in sys.argv[1:]
+    leg, out = args[0], Path(args[1])
     verdict = check_v0(out) if leg == "v0" else compare_v1(out)
     (out / f"verdict-{leg}.json").write_text(json.dumps(verdict, indent=1, sort_keys=True) + "\n")
     text = markdown(verdict)
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if ratchet:
+        text = (f"## Two-convention ratchet: {'green' if not verdict['unexpected'] and not verdict['missing'] else 'RED'}\n\n"
+                f"Unexpected red families: {verdict['unexpected'] or 'none'}; one-sided outputs: {len(verdict['missing'])}\n")
     if summary:
         with open(summary, "a") as fh:
             fh.write(text)
     print(text)
     if leg == "v1" and verdict["unexpected"]:
         print(f"UNEXPECTED red families: {verdict['unexpected']}", file=sys.stderr)
-    sys.exit(0 if verdict["green"] else 1)
+    if leg == "v1" and ratchet:
+        # Required step: fail only on a red that is not on the expected list
+        # (or a must-hold family, or an output present on one side only).
+        sys.exit(0 if not verdict["unexpected"] and not verdict["missing"] else 1)
+    if verdict["green"]:
+        sys.exit(0)
+    sys.exit(EXIT_EXPECTED_RED if leg == "v1" and not verdict["unexpected"] and not verdict["missing"] else 1)
 
 
 if __name__ == "__main__":
