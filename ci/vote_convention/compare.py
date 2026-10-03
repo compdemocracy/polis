@@ -5,13 +5,13 @@
 
 ``v0`` checks the leg recorded at today's convention on its own: every leg ran,
 the replay fixtures still reproduce their recorded components, the declared-sign
-fold companion is the identity at the oracle's own sign, the public battery
+fold adapter is the identity at the oracle's own sign, the public battery
 exports back to its committed votes file, and no export failed.
 
 ``v1`` compares OUT/v0 with OUT/v1 byte for byte. Exactly one field is
 normalised: ``vote`` of the stored rows (``db/``), which must differ by sign and
 in nothing else. Every other output (pca2 bodies and heads, every CSV export,
-math_main / math_bidtopid / math_ptptstats, the replay cuts, both folds) must be
+math_main / math_bidtopid / math_ptptstats, the replay cuts, the fold) must be
 byte-identical: the export sign is fixed at +1 and the engines are meant to read
 the convention, not assume it. Until PR-A (the convention row) and PR-B/C (the
 chokepoints) land, they do not, and this comparison fails. EXPECTED_RED names
@@ -66,8 +66,6 @@ EXPECTED_RED: Dict[str, str] = {
                                     "n-agree / n-disagree on the result.",
     "export/comments.csv": "PR-A + PR-B: server/src/report.ts counts agrees as row.vote === -1 and disagrees as === 1.",
     "export/comment-groups.csv": "PR-A + PR-C: built from math_main group-votes (A/D/S), which invert with the math.",
-    "fold/direct": "PR-G (retire or wrap): the frozen fold oracle reads raw rows at its own literal RAW_AGREE = -1. "
-                   "Its declared-sign companion (fold/declared) is the form every caller moves to.",
 }
 
 #: Exit status of ``compare.py v1`` when every red is expected (1 = an unexpected red).
@@ -78,7 +76,7 @@ EXIT_EXPECTED_RED = 3
 
 MUST_HOLD: Dict[str, str] = {
     "db": "the loader writes the opposite sign and nothing else",
-    "fold/declared": "the declared-sign companion of the fold oracle",
+    "fold/declared": "the frozen fold oracle through its declared-sign adapter, the way every caller calls it (PR-G)",
     "math/math_bidtopid": "unchanged by the inversion today (the pid/bid mapping); a change is a regression",
     "math/math_ptptstats": "unchanged by the inversion today; a change is a regression",
     # Sign-blind: they stay green even with math_main inverted (counts, a mirrored
@@ -152,7 +150,7 @@ def expected_inventory() -> Set[str]:
     for c in fixtures.all_conversations():
         inv.add(f"db/{c.zid:05d}.votes.json")
         if c.votes:
-            inv |= {f"fold/{c.zid:05d}.direct.json", f"fold/{c.zid:05d}.declared.json"}
+            inv.add(f"fold/{c.zid:05d}.declared.json")
         inv |= {f"export/{c.zid:05d}.{name}" for name in EXPORTS}
         if c.math_env:
             inv |= {f"math/{c.zid:05d}.{c.math_env}.{t}.json" for t in MATH_TABLES}
@@ -443,11 +441,9 @@ def check_v0(out: Path, inventory: Optional[Set[str]] = None) -> dict:
         if verdict is False:
             problems.append(f"replay/{source}: no longer reproduces its recorded components")
     server = json.loads((base / "_meta" / "server-leg.json").read_text())
-    fold = sorted((base / "fold").glob("*.direct.json"))
-    for direct in fold:
-        declared = direct.with_name(direct.name.replace(".direct.", ".declared."))
-        if direct.read_bytes() != declared.read_bytes():
-            problems.append(f"fold/{direct.name}: the declared companion is not the identity at the oracle's sign")
+    fold = sorted((base / "fold").glob("*.declared.json"))
+    if engine.get("fold", {}).get("fold_identity") is not True:
+        problems.append("fold: the declared-sign adapter is not the identity at the oracle's own sign")
     problems += battery_roundtrip(out)
     return {"leg": "v0", "replay": engine["replay"], "math_conversations": engine["math"]["conversations"],
             "pca2_cases": server["pca2Cases"], "exports": server["exports"], "folds": len(fold),

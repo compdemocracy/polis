@@ -28,6 +28,8 @@ import psycopg2
 import pytest
 import sqlalchemy as sa
 
+from tests.vote_fixtures import AGREE, DISAGREE, PASS, convention as fixture_convention, seed_vote
+
 _HERE = Path(__file__).resolve()
 _MARKER = "coordinator-rs/Cargo.toml"
 
@@ -105,10 +107,13 @@ def oracle_module():
 
 # Guarded only so that an uncollectable tree (see the module docstring) cannot
 # load assets while pytest is still importing conftests.
-FOLD = MAPPING = None
+FOLD = MAPPING = FOLD_DECLARED = None
 if not _UNAVAILABLE:
     sys.path.insert(0, str(ROOT / "coordinator-rs/ci"))
     FOLD = oracle_module()
+    # Every fold goes through the declared-sign adapter: the oracle keeps its
+    # literal RAW_AGREE and is fed rows at that sign, whatever the database stores.
+    import fold_declared as FOLD_DECLARED
     _tree = ast.parse(asset("test_r09_partial_tables_readers.py"))
     _mapping = next(n for n in _tree.body if isinstance(n, ast.FunctionDef) and n.name == "_mapping_problems")
     _scope = {}
@@ -210,7 +215,7 @@ def seed(url, zid=1, n_ptpts=6, n_cmts=4, votes=True):
         if votes:
             for pid in range(n_ptpts):
                 for tid in range(n_cmts):
-                    value = [-1,1,0][(pid+tid)%3]
+                    value = seed_vote((AGREE, DISAGREE, PASS)[(pid+tid)%3])
                     cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(%s,%s,%s,%s,%s)", (zid,pid,tid,value,1000+pid*n_cmts+tid))
     c.close()
 
@@ -242,6 +247,23 @@ def rows(url, zid=1, env="rustproto"):
     return result
 
 
+def fold_stored(events, checkpoint=None, storage_agree_value=None):
+    """The oracle's fold of rows read from ``votes``. The convention the rows
+    were stored under is the one the generation declared in its input
+    checkpoint (``ordering.storage_agree_value``), else the argument, else the
+    fixtures' default."""
+    declared = ((checkpoint or {}).get("ordering") or {}).get("storage_agree_value")
+    if declared is None:
+        declared = fixture_convention(storage_agree_value)
+    return FOLD_DECLARED.fold_votes_declared(events, storage_agree_value=declared, fold=FOLD)
+
+
+def fold_semantic(events):
+    """The oracle's fold of events whose ``vote`` is semantic (+1 agree):
+    semantic values are rows stored under agree = +1."""
+    return FOLD_DECLARED.fold_votes_declared(events, storage_agree_value=AGREE, fold=FOLD)
+
+
 def assert_coherent(url, zid=1, env="rustproto", fold=True):
     tables = rows(url,zid,env)
     assert all(tables.values()), tables
@@ -254,7 +276,7 @@ def assert_coherent(url, zid=1, env="rustproto", fold=True):
             cur.execute("SELECT pid,tid,vote,created FROM votes WHERE zid=%s ORDER BY created,tid,pid,vote", (zid,))
             events = [dict(zip(("pid","tid","vote","created"), r)) for r in cur]
         c.close()
-        expected = FOLD.fold_votes(events)
+        expected = fold_stored(events, tables["math_ticks"]["input_checkpoint"])
         assert FOLD.check_published_against_fold(main, expected) == []
         assert tables["math_ticks"]["input_checkpoint"]["event_count"] == len(events)
     return tables
