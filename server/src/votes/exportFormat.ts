@@ -8,7 +8,7 @@
  * carries the same declaration as its `vote-convention` row.
  *
  * docs/export-format.md is the prose version of this document; the unit test
- * exportFormatDeclaration.test.ts keeps the two file lists the same.
+ * __tests__/unit/voteDeclaration.test.ts keeps the two file lists the same.
  */
 import {
   EXPORT_FORMAT_ID,
@@ -36,7 +36,7 @@ export const EXPORT_FILES: Readonly<
   Record<string, Record<string, ColumnKind>>
 > = Object.freeze({
   "summary.csv": { [VOTE_CONVENTION_KEY]: "declaration" },
-  "votes.csv": { vote: "vote" },
+  "votes.csv": { vote: "vote", important: "flag" },
   "participant-votes.csv": {
     "<comment-id>": "vote",
     "n-votes": "count",
@@ -48,7 +48,7 @@ export const EXPORT_FILES: Readonly<
     "n-votes": "count",
     "n-important": "count",
   },
-  "comments.csv": { agrees: "count", disagrees: "count" },
+  "comments.csv": { agrees: "count", disagrees: "count", importance: "count" },
   "comment-groups.csv": {
     "total-votes": "count",
     "total-agrees": "count",

@@ -82,6 +82,8 @@ One row per vote event: `timestamp`, `datetime`, `comment-id`, `voter-id`,
 
 - `vote`: a vote value in the export convention. A vote stored as NULL is
   written `0`, as it always has been.
+- `important` (only when importance is enabled): `1` when the vote was
+  marked important, `0` otherwise. An importance flag, not a vote value.
 
 ### `participant-votes.csv`
 
@@ -105,10 +107,12 @@ Same layout as `participant-votes.csv` with `n-important` in place of
 ### `comments.csv`
 
 One row per comment: `timestamp`, `datetime`, `comment-id`, `author-id`,
-`agrees`, `disagrees`, `moderated`, `comment-body` (and `importance` when
-enabled).
+`agrees`, `disagrees`, `moderated`, then `importance` when enabled, then
+`comment-body`.
 
 - `agrees`, `disagrees`: counts of agree and disagree votes; no sign involved.
+- `importance` (only when importance is enabled, before `comment-body`): the
+  number of votes on the comment marked important; no sign involved.
 
 ### `comment-groups.csv`
 

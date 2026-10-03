@@ -11,7 +11,8 @@
       "vote-convention": "declaration"
     },
     "votes.csv": {
-      "vote": "vote"
+      "vote": "vote",
+      "important": "flag"
     },
     "participant-votes.csv": {
       "<comment-id>": "vote",
@@ -26,7 +27,8 @@
     },
     "comments.csv": {
       "agrees": "count",
-      "disagrees": "count"
+      "disagrees": "count",
+      "importance": "count"
     },
     "comment-groups.csv": {
       "total-votes": "count",
