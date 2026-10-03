@@ -1,0 +1,164 @@
+# The offline profile: Polis on one small machine with no network.
+#
+# An overlay on docker-compose.yml, in the same way docker-compose.dev.yml is.
+# Run it with `make OFFLINE start` (see docs/offline.md), which reads
+# offline.env (copy example.offline.env) and runs
+#
+#   docker compose -f docker-compose.yml -f docker-compose.offline.yml --env-file offline.env up
+#
+# Two tiers:
+#   core (no profile flag):   postgres, server, file-server, nginx-proxy,
+#                             client-participation-alpha, math-python and
+#                             oidc-simulator (the admin login issuer).
+#   --profile offline-topics: adds delphi, ollama, dynamodb and minio.
+#
+# Every image this overlay builds gets a local `polis-offline/*` name instead
+# of the registry names in docker-compose.yml, so `docker compose config` never
+# names a hosted registry and scripts/offline-bundle.sh can find each image.
+# ci/offline_compose_config_test.sh checks the service list per tier and that
+# the rendered core tier names no hosted endpoint.
+#
+# Needs Docker Compose 2.24.4 or later (`!reset` / `!override`).
+
+services:
+  postgres:
+    image: polis-offline/postgres:${TAG:-offline}
+    # Always part of the core tier: Postgres is the only store.
+    profiles: !reset []
+
+  server:
+    image: polis-offline/server:${TAG:-offline}
+    # docker-compose.yml already builds the `prod` target with no source mount.
+    env_file: !override
+      - ${SERVER_ENV_FILE:-offline.env}
+    environment:
+      # Skip the hosted services the server would otherwise call
+      # (docs/configuration.md, "Offline mode (server)").
+      - OFFLINE=1
+      # Trust the mkcert CA that signed the issuer's certificate, so the server
+      # can fetch the issuer's JWKS over HTTPS.
+      - NODE_EXTRA_CA_CERTS=/root/.simulacrum/certs/rootCA.pem
+    volumes:
+      - ${AUTH_CERTS_PATH:-~/.simulacrum/certs}:/root/.simulacrum/certs:ro
+      # Participant JWT keys (`make generate-jwt-keys`, no network needed).
+      - ${AUTH_KEYS_PATH:-./server/keys}:/app/keys:ro
+    depends_on:
+      - postgres
+      - oidc-simulator
+
+  file-server:
+    image: polis-offline/file-server:${TAG:-offline}
+    build:
+      args:
+        # Leaves the analytics tags out of every client page.
+        OFFLINE: "1"
+        GA_TRACKING_ID: ""
+        DD_APPLICATION_ID: ""
+        DD_CLIENT_TOKEN: ""
+        DD_SITE: ""
+
+  nginx-proxy:
+    image: polis-offline/nginx-proxy:${TAG:-offline}
+
+  # Kept in the core tier although the legacy page is the default: nginx-proxy
+  # proxies /alpha/ and /_astro/ to this container by name, and nginx will not
+  # start when an upstream name does not resolve.
+  client-participation-alpha:
+    image: polis-offline/client-participation-alpha:${TAG:-offline}
+
+  # The math engine. Sized for a small box: one worker, a 1.5 GB limit (the
+  # poller sizes its memory admission from this cgroup limit, so it must not
+  # claim more than the box has), and the container hostname as its identity
+  # (there is no EC2 instance id here). It writes the label the server and
+  # delphi read: MATH_ENV from offline.env, one label for all three.
+  math-python:
+    image: polis-offline/delphi:${TAG:-offline}
+    build:
+      args:
+        USE_CPU_TORCH: "true"
+        BAKE_EMBEDDING_MODEL: "true"
+    profiles: !reset []
+    environment:
+      - MATH_ENV=${MATH_ENV:-python}
+      - MATH_WORKER_POOL_SIZE=${MATH_WORKER_POOL_SIZE:-1}
+      - MATH_POLLER_ALLOW_HOSTNAME_IDENTITY=1
+      - OFFLINE=1
+    deploy:
+      resources:
+        limits:
+          memory: ${DELPHI_POLLER_CONTAINER_MEMORY:-1536m}
+    depends_on:
+      - postgres
+
+  # The admin login issuer. For now this is the development OIDC simulator,
+  # built (no source mount, no nodemon) and served over HTTPS with mkcert
+  # certificates. Its users and password are fixed (docs/offline.md). A local
+  # issuer is planned to replace it.
+  oidc-simulator:
+    image: polis-offline/oidc-simulator:${TAG:-offline}
+    build:
+      context: ./oidc-simulator
+      dockerfile: Dockerfile
+    environment:
+      - AUTH_AUDIENCE=${AUTH_AUDIENCE:-users}
+      - AUTH_CLIENT_ID=${AUTH_CLIENT_ID:-dev-client-id}
+      - AUTH_NAMESPACE=${AUTH_NAMESPACE:-https://pol.is/}
+      - AUTH_ISSUER=${AUTH_ISSUER}
+      - AUTH_SIMULATOR_PORT=${AUTH_SIMULATOR_PORT:-3000}
+      - CERT_DIR=/root/.simulacrum/certs
+    ports:
+      - "${AUTH_SIMULATOR_PORT:-3000}:${AUTH_SIMULATOR_PORT:-3000}"
+    volumes:
+      - ${AUTH_CERTS_PATH:-~/.simulacrum/certs}:/root/.simulacrum/certs:ro
+    labels:
+      polis_tag: ${TAG:-offline}
+    networks:
+      - polis-net
+    restart: unless-stopped
+
+  # --- offline-topics -------------------------------------------------------
+  # Topic naming with a local model. DynamoDB Local and MinIO stay until the
+  # job queue moves to Postgres and plots move to the filesystem.
+
+  delphi:
+    image: polis-offline/delphi:${TAG:-offline}
+    build:
+      args:
+        USE_CPU_TORCH: "true"
+        BAKE_EMBEDDING_MODEL: "true"
+    profiles: [offline-topics]
+    environment:
+      # Never pull a model at start; HF hub and transformers stay offline.
+      - OFFLINE=1
+      - LLM_PROVIDER=ollama
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_ENDPOINT=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.1:8b}
+      - DYNAMODB_ENDPOINT=http://dynamodb:8000
+      - AWS_S3_ENDPOINT=http://minio:9000
+      - DD_TRACE_ENABLED=false
+    deploy:
+      resources:
+        limits:
+          memory: ${DELPHI_CONTAINER_MEMORY:-4g}
+    depends_on:
+      - postgres
+      - dynamodb
+      - minio
+      - ollama
+
+  ollama:
+    # The model is not pulled on the box: it is shipped in the ollama-models
+    # volume (scripts/offline-bundle.sh --with-models).
+    profiles: [offline-topics]
+
+  dynamodb:
+    profiles: [offline-topics]
+
+  minio:
+    # The same build docker-compose.yml pins by digest, named by tag here:
+    # `docker load` does not always restore a repo digest, and compose would
+    # then try to pull. scripts/offline-bundle.sh records the image's content
+    # id and repo digest in its manifest and checks the id on the box.
+    image: docker.io/bitnamilegacy/minio:2025.7.23-debian-12-r5
+    profiles: [offline-topics]

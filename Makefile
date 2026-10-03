@@ -33,9 +33,9 @@ define get_env_vars
 	$(eval export POSTGRES_VOLUME = $(if $(filter true,$(USE_PRODCLONE)),prodclone_data,postgres_data))
 	# Only set COMPOSE_FILE_ARGS if not already set by environment-specific targets
 	$(eval COMPOSE_FILE_ARGS ?= -f docker-compose.yml -f docker-compose.dev.yml)
-	$(eval COMPOSE_FILE_ARGS += $(if $(filter true,$(POSTGRES_DOCKER)),--profile postgres,))
-	$(eval COMPOSE_FILE_ARGS += $(if $(filter true,$(LOCAL_SERVICES_DOCKER)),--profile local-services,))
-	$(eval COMPOSE_FILE_ARGS += $(if $(filter ollama,$(call parse_env_value,LLM_PROVIDER)),--profile ollama,))
+	$(if $(PROFILES_SET),,$(eval COMPOSE_FILE_ARGS += $(if $(filter true,$(POSTGRES_DOCKER)),--profile postgres,)))
+	$(if $(PROFILES_SET),,$(eval COMPOSE_FILE_ARGS += $(if $(filter true,$(LOCAL_SERVICES_DOCKER)),--profile local-services,)))
+	$(if $(PROFILES_SET),,$(eval COMPOSE_FILE_ARGS += $(if $(filter ollama,$(call parse_env_value,LLM_PROVIDER)),--profile ollama,)))
 endef
 
 # Support for detached mode
@@ -60,6 +60,7 @@ define setup_env
 	$(eval COMPOSE_FILE_ARGS += $(if $(filter true,$(POSTGRES_DOCKER)),--profile postgres,))
 	$(eval COMPOSE_FILE_ARGS += $(if $(filter true,$(LOCAL_SERVICES_DOCKER)),--profile local-services,))
 	$(eval COMPOSE_FILE_ARGS += $(if $(filter ollama,$(call parse_env_value,LLM_PROVIDER)),--profile ollama,))
+	$(eval PROFILES_SET = true)
 endef
 
 # Function to open psql shell
@@ -75,20 +76,24 @@ PROD:
 TEST:
 	$(call setup_env,test.env,-f docker-compose.test.yml)
 
-# Placeholder for the offline profile: one small machine with no network.
-# It prints the plan and exits non-zero, so `make OFFLINE start` cannot fall
-# through to the development stack. The overlay it names does not exist yet.
+# The offline profile: one small machine with no network (docs/offline.md).
+# Reads offline.env (copy example.offline.env), or OFFLINE_ENV_FILE if set.
+# Core tier: postgres, server, file-server, nginx-proxy,
+# client-participation-alpha, math-python and the oidc-simulator issuer.
+# OFFLINE_TOPICS=true (in the env file or on the command line) adds
+# --profile offline-topics: delphi, ollama, dynamodb and minio.
+# Builds with OFFLINE=1, BAKE_EMBEDDING_MODEL=true and USE_CPU_TORCH=true
+# (docker-compose.offline.yml sets the same build args).
+OFFLINE_ENV_FILE ?= offline.env
 OFFLINE:
-	@echo 'make OFFLINE is not available yet: docker-compose.offline.yml has not landed.'
-	@echo 'When it does, `make OFFLINE start` will:'
-	@echo '  - read offline.env, the same way PROD reads prod.env and TEST reads test.env;'
-	@echo '  - run docker compose -f docker-compose.yml -f docker-compose.offline.yml;'
-	@echo '  - start postgres, server, file-server, nginx-proxy, math-python and an admin login issuer'
-	@echo '    (the oidc-simulator until a local issuer lands);'
-	@echo '  - build the web clients with OFFLINE=1 (no analytics tag; see docs/configuration.md);'
-	@echo '  - start delphi and ollama only under a topics profile, with OFFLINE=1 so delphi never pulls a model.'
-	@echo 'Nothing was started.'
-	@exit 2
+	$(call setup_env,$(OFFLINE_ENV_FILE),-f docker-compose.yml -f docker-compose.offline.yml)
+	$(eval OFFLINE_TOPICS_VALUE = $(shell echo $(or $(OFFLINE_TOPICS),$(call parse_env_value,OFFLINE_TOPICS)) | tr '[:upper:]' '[:lower:]'))
+	$(eval COMPOSE_FILE_ARGS = -f docker-compose.yml -f docker-compose.offline.yml $(if $(filter true,$(OFFLINE_TOPICS_VALUE)),--profile offline-topics,))
+	$(eval export SERVER_ENV_FILE = $(OFFLINE_ENV_FILE))
+	$(eval export OFFLINE = 1)
+	$(eval export BAKE_EMBEDDING_MODEL = true)
+	$(eval export USE_CPU_TORCH = true)
+	@test -f $(OFFLINE_ENV_FILE) || { echo '$(OFFLINE_ENV_FILE) not found: cp example.offline.env offline.env (docs/offline.md).'; exit 2; }
 
 echo_vars:
 	$(call get_env_vars)
