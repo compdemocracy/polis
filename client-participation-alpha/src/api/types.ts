@@ -1,3 +1,5 @@
+import type { VoteCell } from './voteCounts'
+
 export interface Comment {
   txt: string
   tid: number
@@ -34,11 +36,8 @@ export interface ConsensusItem {
 export interface GroupVotes {
   'n-members': number
   votes: {
-    [tid: string]: {
-      A: number // Agree
-      D: number // Disagree
-      S: number // Skip
-    }
+    // A = agrees, D = disagrees, S = seen (agrees + disagrees + passes); see voteCounts.ts
+    [tid: string]: VoteCell
   }
 }
 
@@ -67,7 +66,8 @@ export interface PCAData {
   repness?: {
     [groupId: string]: RepnessItem[]
   }
-  mathTick?: number
+  // The server's field is math_tick; a key it does not recognise is dropped
+  math_tick?: number
 }
 
 export interface Topic {

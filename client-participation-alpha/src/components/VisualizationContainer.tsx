@@ -42,7 +42,7 @@ export default function VisualizationContainer({
           'group-aware-consensus',
           'group-votes',
           'repness',
-          'mathTick'
+          'math_tick'
         ]
 
         // Fetch both PCA data and comments in parallel
@@ -51,16 +51,16 @@ export default function VisualizationContainer({
           fetchComments(conversation_id)
         ])
 
-        // Check if mathTick has changed (skip update if unchanged)
+        // Check if math_tick has changed (skip update if unchanged)
         if (
-          pcaDataResult.mathTick !== undefined &&
-          pcaDataResult.mathTick === currentMathTick.current
+          pcaDataResult.math_tick !== undefined &&
+          pcaDataResult.math_tick === currentMathTick.current
         ) {
           // Math hasn't been recalculated yet, data is the same
           return
         }
 
-        currentMathTick.current = pcaDataResult.mathTick
+        currentMathTick.current = pcaDataResult.math_tick
         setPcaData(pcaDataResult)
         setComments(commentsResult)
       } catch (err) {

@@ -1,4 +1,5 @@
 import { Group } from '@visx/group'
+import { voteShares } from '../../api/voteCounts'
 import type { GroupVoteInfo, Hull } from './types'
 
 interface VoteBarChartsProps {
@@ -15,27 +16,25 @@ export function VoteBarCharts({ hulls, groupVoteData }: VoteBarChartsProps) {
         if (!center) return null
 
         const voteInfo = groupVoteData.find((v) => v.groupId === groupId)
-        if (!voteInfo || voteInfo.total === 0) return null
+        if (!voteInfo || voteInfo.seen === 0) return null
 
         const barWidth = 60 // Total width of the bar chart
         const barHeight = 8
         const barOffsetY = 20 // Position below the label
 
         // Calculate proportions
-        const agreeRatio = voteInfo.agree / voteInfo.total
-        const disagreeRatio = voteInfo.disagree / voteInfo.total
-        const skipRatio = voteInfo.skip / voteInfo.total
+        const { agree: agreeRatio, disagree: disagreeRatio, pass: passRatio } = voteShares(voteInfo)
 
         // Calculate segment widths
         const agreeWidth = agreeRatio * barWidth
         const disagreeWidth = disagreeRatio * barWidth
-        const skipWidth = skipRatio * barWidth
+        const passWidth = passRatio * barWidth
 
         // Starting position
         const startX = -barWidth / 2
         const agreeX = startX
         const disagreeX = startX + agreeWidth
-        const skipX = startX + agreeWidth + disagreeWidth
+        const passX = startX + agreeWidth + disagreeWidth
 
         return (
           <Group
@@ -66,12 +65,12 @@ export function VoteBarCharts({ hulls, groupVoteData }: VoteBarChartsProps) {
               />
             )}
 
-            {/* Skip segment (gray/neutral) */}
-            {skipWidth > 0 && (
+            {/* Pass segment (gray/neutral) */}
+            {passWidth > 0 && (
               <rect
-                x={skipX}
+                x={passX}
                 y={-barHeight / 2}
-                width={skipWidth}
+                width={passWidth}
                 height={barHeight}
                 fill="#9ca3af"
                 fillOpacity={0.5}
