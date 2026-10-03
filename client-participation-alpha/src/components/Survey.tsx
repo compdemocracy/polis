@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchNextComment } from '../api/comments'
-import { submitVote } from '../api/votes'
+import { submitVote, type Vote } from '../api/votes'
 import { getConversationToken } from '../lib/auth'
 import type { Translations } from '../strings/types'
 import EmailSubscribeForm from './EmailSubscribeForm'
@@ -130,7 +130,7 @@ export default function Survey({
     }
   }, [conversation_id, requiresInviteCode])
 
-  const handleVote = async (voteType: number, tid: number | string) => {
+  const handleVote = async (voteType: Vote, tid: number | string) => {
     setIsFetchingNext(true)
     setVoteError(null)
 
