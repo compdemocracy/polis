@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "pending/delphi-reports/job-unknown",
+ "state": "pending",
+ "route": "GET /api/v3/delphi/reports",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/reports?report_id=r2p2zero102&job_id=generated-unknown-job",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "167"
+   ],
+   [
+    "etag",
+    "W/\"a7-C32JyI/bkX/ng1ivrqUgPQ\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"No reports found for the given report identifier.\",\"request_report_id\":\"r2p2zero102\",\"queried_gsi_report_id\":\"r2p2zero102\",\"reports\":{}}",
+  "bodySha256": "3a56fd5d3f288f0f68d78f1bcc646bd533ece268cb7b1d90994f02cea8a42521"
+ }
+}

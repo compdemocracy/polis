@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "two_models/delphi-logs/0000006a-0000-4000-8000-000000000001",
+ "state": "two_models",
+ "route": "GET /api/v3/delphi/logs",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/logs?job_id=0000006a-0000-4000-8000-000000000001",
+  "auth": "owner"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "273"
+   ],
+   [
+    "etag",
+    "W/\"111-caOVM26Gmi6BqF+du9N/Kw\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "[{\"timestamp\":1699988460000,\"message\":\"[DELPHI JOB 0000006a-0000-4000-8000-000000000001] INFO: Starting FULL_PIPELINE\"},{\"timestamp\":1699990200000,\"message\":\"[DELPHI JOB 0000006a-0000-4000-8000-000000000001] INFO: [stdout] Results stored in DynamoDB for conversation 106\"}]",
+  "bodySha256": "98dbb841832b0be8939f49c52f7b6660108695e3fb4e35cbe52cacdde969cc8c"
+ }
+}
