@@ -21,7 +21,7 @@ from polismath.types import (
     VotesPayload,
 )
 from polismath.utils.general import postgres_vote_to_delphi
-from polismath.utils.vote_convention import STORAGE_AGREE_VALUE
+from polismath.utils.vote_convention import STORAGE_AGREE_VALUE, load_semantic_votes
 
 if TYPE_CHECKING:  # psycopg2 stays a lazy, in-function import at runtime
     from psycopg2.extensions import connection as PgConnection
@@ -347,15 +347,20 @@ def main() -> None:
             db_fetch_time = time.time()
             logger.info(f"[{time.time() - start_time:.2f}s] Database fetch completed in {db_fetch_time - batch_start_time:.2f}s")
             
-            votes_list = []
+            raw_votes = []
             for vote in vote_batch:
                 created_time = int(float(vote[0]) * 1000) if vote[0] else None
-                votes_list.append({
+                raw_votes.append({
                     'pid': str(vote[2]),
                     'tid': str(vote[1]),
                     'vote': float(vote[3]),
                     'created': created_time
                 })
+            # votes.vote is the raw storage sign; the engine counts +1 as agree.
+            # Convert through the one vote convention, as fetch_votes does.
+            votes_list = load_semantic_votes(
+                raw_votes, storage_agree_value=STORAGE_AGREE_VALUE
+            )
             
             transform_time = time.time()
             logger.info(f"[{time.time() - start_time:.2f}s] Data transformation completed in {transform_time - db_fetch_time:.2f}s")
