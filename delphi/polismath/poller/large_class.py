@@ -27,7 +27,9 @@ readiness interval ``LargeClassDriver.tick()`` reads the capacity manifest
   newest input, when it is not cached, when the restage nonce changed, or
   when its input is older than the grace (a safety net for input the loops
   missed);
-* drops cached conversations that left the manifest.
+* drops cached conversations that left the manifest; a refusal drops the
+  whole cache, because the loops drop the batches of every conversation the
+  allowlist excludes (the next computation is a cold full-history rebuild).
 
 Every large computation is an exclusive reservation against the worker's own
 budget. Its readiness lines carry a class token before the line kind
@@ -167,8 +169,19 @@ class LargeClassDriver:
         return manifest
 
     def _refuse(self, reason: str, **extra: Any) -> None:
+        """Compute nothing. The cache goes too: while the allowlist is empty
+        the poll loops drop these conversations' batches (and advance past
+        them), so a cached entry kept across the refusal would later take a
+        warm update missing those votes. Every conversation's next
+        computation after a refusal is a cold full-history rebuild."""
         self._svc.set_dynamic_allowlist(frozenset())
+        self._drop_cache()
         self._set_counts(refusal=reason, skew=1 if reason == "skew" else 0, **extra)
+
+    def _drop_cache(self, keep: frozenset = frozenset()) -> None:
+        for zid in self._svc.cached_zids() - keep:
+            self._svc.cache_drop(zid)
+            logger.info("capacity: zid=%s dropped from the large-class cache", zid)
 
     def tick(self) -> None:
         try:
@@ -231,9 +244,9 @@ class LargeClassDriver:
             old_input = e.input_through_ms is None or now - e.input_through_ms > self._grace_ms
             if not svc.is_cached(e.zid) or restage_changed or old_input:
                 svc.submit_rebuild(e.zid)
-        for zid in svc.cached_zids() - allow:
-            svc.cache_drop(zid)
-            logger.info("capacity: zid=%s left the large class; cache entry dropped", zid)
+        # Conversations that left the class: their batches are filtered out
+        # from now on, so their cache entries must not survive.
+        self._drop_cache(keep=allow)
         pending = svc.pending_zids() & allow
         self._set_counts(busy=len(pending | set(stale)), queued=len(stale),
                          allowlisted=len(allow), unfit=len(entries) - len(fit))

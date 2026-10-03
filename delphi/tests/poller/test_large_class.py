@@ -377,6 +377,44 @@ class TestDriver:
         d.tick()
         assert submitted(svc) == [1]
 
+    @pytest.mark.parametrize("refuse", ["missing", "unreadable", "label", "budget", "skew"])
+    def test_a_refusal_drops_the_cache_so_the_next_stage_is_a_full_rebuild(self, tmp_path,
+                                                                           refuse):
+        """The loops drop an excluded conversation's batches while the
+        allowlist is empty; a cached entry kept across the refusal would take
+        a warm update missing them. After any refusal the next computation is
+        a cold rebuild, even inside the grace."""
+        fps = {(1, "python-large"): Fingerprint(5, T0, T0 - 5)}       # behind its input
+        svc = large_service(fps)
+        d, store = driver_for(tmp_path, svc)
+        put(store, manifest([entry(1)]))
+        d.tick()
+        svc._convs[1] = object()                                      # warm while computing
+        svc._pool.submit.reset_mock()
+        d.tick()
+        assert submitted(svc) == []                                   # cached, inside grace
+        if refuse == "missing":
+            import os
+            os.remove(store.path)
+        elif refuse == "unreadable":
+            put(store, manifest([entry(1)]))
+            open(store.path, "w").write("{not json")
+        elif refuse == "label":
+            put(store, manifest([entry(1)], label="other"))
+        elif refuse == "budget":
+            put(store, manifest([entry(1)], large_budget=10**6 * MB))
+        else:
+            put(store, manifest([entry(1)], commit="d" * 40))
+        d.tick()
+        assert d.counts()["refusal"] is not None
+        assert svc.cached_zids() == set() and submitted(svc) == []
+        import os
+        if os.path.exists(store.path):
+            os.remove(store.path)
+        put(store, manifest([entry(1)], generation=3))               # the refusal clears
+        d.tick()
+        assert d.counts()["refusal"] is None and submitted(svc) == [1]
+
     def test_conversations_that_left_the_class_are_dropped(self, tmp_path):
         svc = large_service({(1, "python-large"): Fingerprint(5, T0, T0 + 1)})
         d, store = driver_for(tmp_path, svc)
