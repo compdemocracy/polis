@@ -20,8 +20,14 @@ from polismath.types import (
     VoteRecord,
     VotesPayload,
 )
-from polismath.utils.general import postgres_vote_to_delphi
-from polismath.utils.vote_convention import STORAGE_AGREE_VALUE, load_semantic_votes
+from polismath.utils.vote_convention import (
+    CONVENTION_JOIN_SQL,
+    ROW_AGREE_KEY,
+    RowConventionSource,
+    StorageConvention,
+    database_row_fetcher,
+    load_semantic_votes,
+)
 
 if TYPE_CHECKING:  # psycopg2 stays a lazy, in-function import at runtime
     from psycopg2.extensions import connection as PgConnection
@@ -93,19 +99,35 @@ def connect_to_db() -> Optional["PgConnection"]:
         return None
 
 
+def database_convention(conn: "PgConnection") -> StorageConvention:
+    """This database's storage convention (its ``vote_convention`` row, or
+    version 0 at the code fallback when it has none), read once per job."""
+
+    def query(sql: str) -> list:
+        cursor = conn.cursor()
+        try:
+            cursor.execute(sql)
+            names = [d[0] for d in cursor.description]
+            return [dict(zip(names, row)) for row in cursor.fetchall()]
+        finally:
+            cursor.close()
+
+    return RowConventionSource(database_row_fetcher(query)).current()
+
+
 def fetch_votes(
     conn: "PgConnection",
     conversation_id: int,
-    storage_agree_value: int = STORAGE_AGREE_VALUE,
+    storage_agree_value: Optional[int] = None,
 ) -> VotesPayload:
     """
     Fetch votes for a specific conversation from PostgreSQL.
     Returns a dictionary containing votes in the format expected by Conversation.
 
     Vote signs are converted at this PostgreSQL boundary, through the DECLARED
-    storage convention (``storage_agree_value``, -1 or +1 — the one
-    authoritative definition in polismath.utils.vote_convention), never a
-    literal:
+    storage convention (``storage_agree_value``, -1 or +1; omitted, the
+    installed ConventionSource's — polismath.utils.vote_convention), never a
+    literal. A NULL vote is not a vote and is skipped:
     - PostgreSQL stores: AGREE=storage_agree_value (today -1)
     - Delphi expects:    AGREE=+1, DISAGREE=-1
     """
@@ -127,7 +149,7 @@ def fetch_votes(
         logger.error(f"Error fetching votes: {e}")
         cursor.close()
         return {"votes": []}
-    votes_list: list[VoteRecord] = []
+    raw_votes = []
     for vote in votes:
         if vote["timestamp"]:
             try:
@@ -136,16 +158,18 @@ def fetch_votes(
                 created_time = None
         else:
             created_time = None
-        votes_list.append(
+        raw_votes.append(
             {
                 "pid": str(vote["voter_id"]),
                 "tid": str(vote["comment_id"]),
-                "vote": postgres_vote_to_delphi(
-                    float(vote["vote"]), storage_agree_value
-                ),  # Declared-convention conversion at the boundary
+                "vote": None if vote["vote"] is None else float(vote["vote"]),
                 "created": created_time,
             }
         )
+    # Declared-convention conversion at the boundary (the one vote convention).
+    votes_list: list[VoteRecord] = load_semantic_votes(
+        raw_votes, storage_agree_value=storage_agree_value, null_policy="skip"
+    )
     return {"votes": votes_list}
 
 
@@ -314,6 +338,10 @@ def main() -> None:
         conv = conv.update_moderation(moderation, recompute=False)
         logger.info(f"[{time.time() - start_time:.2f}s] Moderation applied")
 
+        convention = database_convention(conn)
+        joined = convention.origin == "database"
+        logger.info(f"[{time.time() - start_time:.2f}s] Vote storage convention: {convention}")
+
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM votes WHERE zid = %s", (zid,))
         total_votes = cursor.fetchone()[0]
@@ -337,8 +365,12 @@ def main() -> None:
             logger.info(f"[{time.time() - start_time:.2f}s] Processing votes {offset+1} to {end_idx} of {total_votes}")
             
             cursor = conn.cursor()
-            batch_query = """
-            SELECT v.created, v.tid, v.pid, v.vote FROM votes v WHERE v.zid = %s ORDER BY v.created LIMIT %s OFFSET %s
+            # With a vote_convention row, each page reads it in the same
+            # statement as its votes, and each row is converted by its own.
+            batch_query = f"""
+            SELECT v.created, v.tid, v.pid, v.vote{', vc.agree_value' if joined else ''}
+            FROM votes v {CONVENTION_JOIN_SQL if joined else ''}
+            WHERE v.zid = %s ORDER BY v.created LIMIT %s OFFSET %s
             """
             cursor.execute(batch_query, (zid, batch_size, offset))
             vote_batch = cursor.fetchall()
@@ -350,16 +382,21 @@ def main() -> None:
             raw_votes = []
             for vote in vote_batch:
                 created_time = int(float(vote[0]) * 1000) if vote[0] else None
-                raw_votes.append({
+                row = {
                     'pid': str(vote[2]),
                     'tid': str(vote[1]),
-                    'vote': float(vote[3]),
+                    'vote': None if vote[3] is None else float(vote[3]),
                     'created': created_time
-                })
+                }
+                if joined:
+                    row[ROW_AGREE_KEY] = vote[4]
+                raw_votes.append(row)
             # votes.vote is the raw storage sign; the engine counts +1 as agree.
-            # Convert through the one vote convention, as fetch_votes does.
+            # Convert through the one vote convention; NULL is not a vote.
             votes_list = load_semantic_votes(
-                raw_votes, storage_agree_value=STORAGE_AGREE_VALUE
+                raw_votes,
+                storage_agree_value=None if joined else convention.agree_value,
+                null_policy="skip",
             )
             
             transform_time = time.time()

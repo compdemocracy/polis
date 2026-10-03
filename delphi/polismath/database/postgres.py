@@ -25,10 +25,16 @@ from sqlalchemy.sql import text
 import numpy as np
 import pandas as pd
 
-from polismath.utils.general import postgres_vote_to_delphi
 from polismath.utils.serialization import convert_numpy_types
 from polismath.utils.vote_convention import (
-    STORAGE_AGREE_VALUE,
+    CONVENTION_COLUMNS_SQL,
+    CONVENTION_JOIN_SQL,
+    ConstantConventionSource,
+    ConventionSource,
+    RowConventionSource,
+    StorageConvention,
+    database_row_fetcher,
+    load_semantic_votes,
     validate_storage_agree_value,
 )
 
@@ -402,21 +408,35 @@ class PostgresClient:
     def __init__(
         self,
         config: Optional[PostgresConfig] = None,
-        storage_agree_value: int = STORAGE_AGREE_VALUE,
+        storage_agree_value: Optional[int] = None,
+        convention_source: Optional[ConventionSource] = None,
     ) -> None:
         """
         Initialize PostgreSQL client.
 
         Args:
             config: PostgreSQL configuration
-            storage_agree_value: the DECLARED raw storage sign of AGREE in the
-                database this client reads, -1 or +1 (P-022-G rev4). Validated
-                here so an unknown convention fails at construction rather than
-                silently mis-signing every vote at ingress. Production remains
-                -1 until the P-023 storage migration.
+            storage_agree_value: a DECLARED raw storage sign of AGREE, -1 or
+                +1, for a database whose convention the caller knows (a
+                derived paired fixture). Validated here, so an unknown
+                convention fails at construction.
+            convention_source: where the sign comes from otherwise. Default:
+                this database's own ``vote_convention`` row (P-078), read once
+                per poll cycle; a database without the row (every database
+                before P-078 PR-A) is version 0 at
+                ``vote_convention.STORAGE_AGREE_VALUE``. When the row exists the
+                vote polls also read it in the same statement as the votes.
         """
-        self.storage_agree_value = validate_storage_agree_value(
-            storage_agree_value)
+        if storage_agree_value is not None and convention_source is not None:
+            raise ValueError("pass storage_agree_value or convention_source, not both")
+        if storage_agree_value is not None:
+            self.convention_source: ConventionSource = ConstantConventionSource(
+                validate_storage_agree_value(storage_agree_value), origin="declared")
+        elif convention_source is not None:
+            self.convention_source = convention_source
+        else:
+            self.convention_source = RowConventionSource(
+                database_row_fetcher(lambda sql: self.query(sql)))
         self.config = config or PostgresConfig.from_env()
         self.engine = None
         self.session_factory = None
@@ -467,6 +487,39 @@ class PostgresClient:
             logger.info(
                 f"Initialized PostgreSQL connection to {self.config.host}:{self.config.port}/{self.config.database}"
             )
+
+    @property
+    def storage_agree_value(self) -> int:
+        """The storage sign of AGREE this client reads votes with (its source's)."""
+        return self.convention_source.current().agree_value
+
+    def begin_convention_cycle(self) -> None:
+        """Start a poll cycle: the next vote read asks the source again."""
+        self.convention_source.begin_cycle()
+
+    def _vote_rows(self, where: str, params: Dict[str, Any],
+                   columns: str = "v.zid, v.tid, v.pid, v.vote, v.created") -> List[Dict[str, Any]]:
+        """``votes`` rows as semantic votes: the polismath vote chokepoint.
+
+        Every vote read of this client comes through here. The sign is the
+        convention source's; when the database carries the ``vote_convention``
+        row it is joined into the same statement (one snapshot for the votes
+        and their sign) and each row is converted by its own. NULL votes are not
+        votes: the SQL filters them and the conversion skips any that remain.
+        Row order is ``zid, tid, pid, created`` (Clojure conv-poll parity).
+        """
+        convention: StorageConvention = self.convention_source.current()
+        joined = convention.origin == "database"
+        sql = (f"SELECT {columns}"
+               + (f", {CONVENTION_COLUMNS_SQL}" if joined else "")
+               + " FROM votes v"
+               + (f" {CONVENTION_JOIN_SQL}" if joined else "")
+               + f" WHERE v.vote IS NOT NULL{where}"
+               + " ORDER BY v.zid, v.tid, v.pid, v.created")
+        rows = self.query(sql, params)
+        return load_semantic_votes(
+            rows, storage_agree_value=None if joined else convention.agree_value,
+            null_policy="skip")
 
     def shutdown(self) -> None:
         """
@@ -621,11 +674,10 @@ class PostgresClient:
         self, zid: int, since: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """
-        Poll for new votes in a conversation.
+        Poll for new votes in a conversation, as semantic votes (+1 agree).
 
-        Vote signs are flipped at this PostgreSQL boundary:
-        - PostgreSQL stores: AGREE=-1, DISAGREE=+1
-        - Delphi expects:    AGREE=+1, DISAGREE=-1
+        The raw storage sign is converted at this PostgreSQL boundary by the
+        one vote convention (``_vote_rows``); NULL votes are skipped.
 
         Args:
             zid: Conversation ID
@@ -636,37 +688,18 @@ class PostgresClient:
         Returns:
             List of votes with signs converted to Delphi convention
         """
-        params = {"zid": zid}
-
-        # Build SQL query
-        sql = """
-        SELECT
-            zid,
-            tid,
-            pid,
-            vote,
-            created
-        FROM
-            votes
-        WHERE
-            zid = :zid
-        """
-
-        # Add timestamp filter if provided
+        params: Dict[str, Any] = {"zid": zid}
+        where = " AND v.zid = :zid"
         if since is not None:
-            sql += " AND created > :since"
+            where += " AND v.created > :since"
             params["since"] = since
 
         # Row order matters for parity: Clojure conv-poll orders by
         # [:zid :tid :pid :created] (postgres.clj:197-212).  update_votes assigns
         # base-cluster IDs by first-appearance order of participants, which seeds
-        # k-means; a different row order changes k.  So we must ORDER identically.
-        sql += " ORDER BY zid, tid, pid, created"
+        # k-means; a different row order changes k.  _vote_rows orders identically.
+        votes = self._vote_rows(where, params)
 
-        # Execute query
-        votes = self.query(sql, params)
-
-        # Format votes for processing, flipping sign at PostgreSQL boundary.
         # pid AND tid are kept as the DB's native int (votes.pid/tid are both
         # INTEGER) — NOT str()-wrapped. Found live (2026-07-24, poller-
         # equivalence harness, session 2): the pid cast was the ONLY source
@@ -690,8 +723,7 @@ class PostgresClient:
             {
                 "pid": v["pid"],
                 "tid": v["tid"],
-                "vote": postgres_vote_to_delphi(
-                    int(v["vote"]), self.storage_agree_value),
+                "vote": v["vote"],
                 "created": v["created"],
             }
             for v in votes
@@ -704,23 +736,16 @@ class PostgresClient:
         Mirrors the Clojure vote poller query (postgres.clj:132-145):
             SELECT * FROM votes WHERE created > watermark
             ORDER BY zid, tid, pid, created
-        Signs are flipped to the Delphi convention at this ingress boundary.
+        Signs are converted to the Delphi convention at this ingress boundary
+        (``_vote_rows``); a NULL vote is skipped rather than stalling the poll.
 
         Args:
             since: Watermark (millis since epoch); returns rows with created > since
 
         Returns:
-            List of votes {zid, pid, tid, vote, created}, sign-flipped, ordered.
+            List of votes {zid, pid, tid, vote, created}, semantic sign, ordered.
         """
-        rows = self.query(
-            """
-            SELECT zid, tid, pid, vote, created
-            FROM votes
-            WHERE created > :since
-            ORDER BY zid, tid, pid, created
-            """,
-            {"since": since},
-        )
+        rows = self._vote_rows(" AND v.created > :since", {"since": since})
         # pid AND tid kept as the DB's native int — see poll_votes's
         # docstring/comment above for the full root-cause rationale
         # (2026-07-24 live findings, sessions 2-3).
@@ -729,8 +754,7 @@ class PostgresClient:
                 "zid": int(v["zid"]),
                 "pid": v["pid"],
                 "tid": v["tid"],
-                "vote": postgres_vote_to_delphi(
-                    int(v["vote"]), self.storage_agree_value),
+                "vote": v["vote"],
                 "created": v["created"],
             }
             for v in rows

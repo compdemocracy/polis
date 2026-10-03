@@ -17,16 +17,27 @@ import polismath.run_math_pipeline as rmp
 
 
 class FakeCursor:
-    def __init__(self, rows):
+    def __init__(self, rows, convention_row=None):
         self.rows = rows
+        self.convention_row = convention_row
         self._result = None
 
-    def execute(self, sql, params):
-        if "COUNT(*)" in sql:
+    def execute(self, sql, params=None):
+        if "to_regprocedure" in sql:
+            # Without convention_row: a database before P-078 PR-A.
+            self.description = [("present",)]
+            self._result = [(self.convention_row is not None,)]
+        elif "FROM public.vote_convention_current()" in sql:
+            self.description = [("version",), ("agree_value",)]
+            self._result = [self.convention_row]
+        elif "COUNT(*)" in sql:
             self._result = [(len(self.rows),)]
         else:
             _zid, limit, offset = params
-            self._result = self.rows[offset:offset + limit]
+            page = self.rows[offset:offset + limit]
+            if "vote_convention_current()" in sql:
+                page = [row + (self.convention_row[1],) for row in page]
+            self._result = page
 
     def fetchone(self):
         return self._result[0]
@@ -39,11 +50,12 @@ class FakeCursor:
 
 
 class FakeConn:
-    def __init__(self, rows):
+    def __init__(self, rows, convention_row=None):
         self.rows = rows
+        self.convention_row = convention_row
 
     def cursor(self, *args, **kwargs):
-        return FakeCursor(self.rows)
+        return FakeCursor(self.rows, self.convention_row)
 
     def close(self):
         pass
@@ -102,10 +114,10 @@ class FakeDynamoDBClient:
 def run_main(monkeypatch):
     """Run main() over generated vote rows ``(created, tid, pid, raw_vote)``."""
 
-    def _run(rows, *, export_result=True):
+    def _run(rows, *, export_result=True, convention_row=None):
         RecordingConversation.instances.clear()
         RecordingConversation.export_result = export_result
-        monkeypatch.setattr(rmp, "connect_to_db", lambda: FakeConn(rows))
+        monkeypatch.setattr(rmp, "connect_to_db", lambda: FakeConn(rows, convention_row))
         monkeypatch.setattr(rmp, "fetch_comments", lambda conn, zid: {"comments": []})
         monkeypatch.setattr(rmp, "fetch_moderation", lambda conn, zid: {})
         monkeypatch.setattr(conversation_module, "Conversation", RecordingConversation)

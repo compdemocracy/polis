@@ -39,9 +39,8 @@ if TYPE_CHECKING:  # psycopg2 is a runtime dependency of the CALLER, not of this
     from psycopg2.extensions import cursor as PgCursor
 
 from polismath.utils.vote_convention import (
-    STORAGE_AGREE_VALUE,
+    resolve_storage_agree_value,
     semantic_vote,
-    validate_storage_agree_value,
 )
 
 
@@ -179,7 +178,7 @@ def sql_comments_export() -> str:
 
 
 def sql_comment_vote_counts(
-    storage_agree_value: int = STORAGE_AGREE_VALUE,
+    storage_agree_value: int | None = None,
 ) -> str:
     """Agrees/disagrees per comment, counted over ALL vote rows (including
     revotes) — mirrors server/src/report.ts's sendCommentSummary, which
@@ -190,7 +189,7 @@ def sql_comment_vote_counts(
     as literals: under a flipped storage convention the same SQL with a bare
     ``vote = -1`` would silently count disagreements as agreements.
     """
-    agree = validate_storage_agree_value(storage_agree_value)
+    agree = resolve_storage_agree_value(storage_agree_value)
     return f"""
         SELECT tid,
                COUNT(*) FILTER (WHERE vote = {agree}) AS agrees,
@@ -387,7 +386,7 @@ def format_export_datetime(created_ms: int) -> str:
 
 def format_votes_rows(
     raw_rows: Iterable[dict[str, Any]],
-    *, storage_agree_value: int = STORAGE_AGREE_VALUE,
+    *, storage_agree_value: int | None = None,
 ) -> list[dict[str, str]]:
     """``raw_rows``: dicts with keys tid, pid, vote (RAW db sign), created (ms).
     Returns export-format row dicts, one per input row, in the SAME order —
@@ -400,7 +399,7 @@ def format_votes_rows(
     (agree = +1) and does not move with storage — an export row is already
     semantic input and must never be negated a second time.
     """
-    agree = validate_storage_agree_value(storage_agree_value)
+    agree = resolve_storage_agree_value(storage_agree_value)
     out = []
     for row in raw_rows:
         if row["vote"] is None:

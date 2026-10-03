@@ -85,6 +85,26 @@ def test_math_stage_keeps_pass_as_pass(run_main):
     assert [v["vote"] for v in fed] == [SEMANTIC_PASS]
 
 
+def test_math_stage_reads_the_database_convention(run_main):
+    """With the vote_convention row (P-078 PR-A) at the other sign, the stage
+    converts each page by the row read in the same statement."""
+    other = vc.flipped(STORAGE_AGREE_VALUE)
+    rows = [
+        (1000, 7, 1, storage_vote(SEMANTIC_AGREE, other)),
+        (2000, 7, 2, storage_vote(SEMANTIC_DISAGREE, other)),
+    ]
+    exit_code, fed = run_main(rows, convention_row=(1, other))
+    assert exit_code == 0
+    assert {v["pid"]: v["vote"] for v in fed} == {"1": SEMANTIC_AGREE, "2": SEMANTIC_DISAGREE}
+
+
+def test_math_stage_skips_a_null_vote(run_main):
+    """float(None) used to raise here. NULL is not a vote."""
+    exit_code, fed = run_main([(1000, 7, 1, RAW_AGREE), (2000, 7, 2, None)])
+    assert exit_code == 0
+    assert [(v["pid"], v["vote"]) for v in fed] == [("1", SEMANTIC_AGREE)]
+
+
 def test_math_stage_matches_the_other_math_loader(run_main, monkeypatch):
     """main() and fetch_votes (already on the convention) now agree."""
     import polismath.run_math_pipeline as rmp

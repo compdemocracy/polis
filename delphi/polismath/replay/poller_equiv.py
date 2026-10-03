@@ -140,7 +140,6 @@ from polismath.replay.stepcompare import DEFAULT_TOLERANT_STAT_KEYS, StepCompare
 from polismath.replay.store import _safe_path_component
 from polismath.replay.types import ModEvent, ReplayDataset
 from polismath.utils.general import delphi_vote_to_postgres
-from polismath.utils.vote_convention import STORAGE_AGREE_VALUE
 
 # poller_equiv.py -> replay -> polismath -> delphi -> repo root (mirrors
 # certify.py / store.py).
@@ -510,7 +509,7 @@ def seed_conversation(conn: Any, dataset: ReplayDataset, zid: int = DEFAULT_ZID)
 
 def insert_votes(
     conn: Any, dataset: ReplayDataset, from_slot: int, to_slot: int,
-    zid: int = DEFAULT_ZID, *, storage_agree_value: int = STORAGE_AGREE_VALUE,
+    zid: int = DEFAULT_ZID, *, storage_agree_value: int | None = None,
 ) -> int:
     """Insert ``dataset.votes[from_slot:to_slot]`` (plain 0-based Python slice
     — consistent with :func:`polismath.replay.schedule.slice_schedule`'s own
@@ -519,8 +518,8 @@ def insert_votes(
     sign from the dataset's Delphi (semantic) convention to the DECLARED RAW DB
     convention (module docstring) via
     :func:`polismath.utils.general.delphi_vote_to_postgres` — which reads the
-    declared ``storage_agree_value`` (-1 or +1, defaulting to the one
-    authoritative constant), never a literal, so a seeded DB and the ingress
+    declared ``storage_agree_value`` (-1 or +1, defaulting to the installed
+    ConventionSource's value), never a literal, so a seeded DB and the ingress
     that reads it back cannot disagree about polarity.
 
     ATOMIC per batch — ONE multi-row ``INSERT ... VALUES (...), (...), ...``
