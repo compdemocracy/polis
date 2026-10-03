@@ -4,6 +4,7 @@ import type { PCAData } from '../../../api/types'
 import { DB_VOTE, cellFromVotes } from '../../../api/voteCounts'
 import { useVisualizationData } from '../useVisualizationData'
 import { VoteBarCharts } from '../VoteBarCharts'
+import { VOTE_BAR_WIDTH } from '../constants'
 import type { Hull } from '../types'
 
 jest.mock('concaveman', () => ({ __esModule: true, default: jest.fn(() => []) }))
@@ -15,7 +16,7 @@ const AGREES = 6
 const DISAGREES = 3
 const PASSES = 3
 const SEEN = AGREES + DISAGREES + PASSES
-const BAR_WIDTH = 60 // VoteBarCharts' total bar width
+const BAR_WIDTH = VOTE_BAR_WIDTH
 
 const cell = cellFromVotes([
   ...Array<number>(AGREES).fill(DB_VOTE.AGREE),

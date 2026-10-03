@@ -6,6 +6,11 @@ const AGREES = 6
 const DISAGREES = 3
 const PASSES = 3
 const SEEN = AGREES + DISAGREES + PASSES
+const PERCENT = 100
+// The shares a reader sees for this vote set: 6, 3 and 3 of 12 who saw it.
+const EXPECTED_AGREE_PERCENT = 50
+const EXPECTED_DISAGREE_PERCENT = 25
+const EXPECTED_PASS_PERCENT = 25
 
 const generatedVotes = (): number[] => [
   ...Array<number>(AGREES).fill(DB_VOTE.AGREE),
@@ -51,9 +56,9 @@ describe('voteShares', () => {
     expect(shares.disagree).toBeCloseTo(DISAGREES / SEEN)
     expect(shares.pass).toBeCloseTo(PASSES / SEEN)
     // 50% / 25% / 25%; the old A + D + S denominator drew 29% / 14% / 57%.
-    expect(Math.round(shares.agree * 100)).toBe(50)
-    expect(Math.round(shares.disagree * 100)).toBe(25)
-    expect(Math.round(shares.pass * 100)).toBe(25)
+    expect(Math.round(shares.agree * PERCENT)).toBe(EXPECTED_AGREE_PERCENT)
+    expect(Math.round(shares.disagree * PERCENT)).toBe(EXPECTED_DISAGREE_PERCENT)
+    expect(Math.round(shares.pass * PERCENT)).toBe(EXPECTED_PASS_PERCENT)
   })
 
   test('all zero when nobody saw the statement', () => {

@@ -1,5 +1,6 @@
 import { Group } from '@visx/group'
 import { voteShares } from '../../api/voteCounts'
+import { VOTE_BAR_WIDTH } from './constants'
 import type { GroupVoteInfo, Hull } from './types'
 
 interface VoteBarChartsProps {
@@ -18,7 +19,7 @@ export function VoteBarCharts({ hulls, groupVoteData }: VoteBarChartsProps) {
         const voteInfo = groupVoteData.find((v) => v.groupId === groupId)
         if (!voteInfo || voteInfo.seen === 0) return null
 
-        const barWidth = 60 // Total width of the bar chart
+        const barWidth = VOTE_BAR_WIDTH
         const barHeight = 8
         const barOffsetY = 20 // Position below the label
 
