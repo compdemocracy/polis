@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { canGenerateCollectiveStatement, THRESHOLDS } from '../../../util/consensusThreshold';
+import { getMathConsensus } from '../../../util/mathConsensus';
 
 const TopicTables = ({ latestRun, statsData, math, report_id, onTopicSelect, onScatterplot, onBeeswarm, onLayerDistribution, onViewTopic }) => {
   const [sortConfig, setSortConfig] = useState({ key: 'comment_count', direction: 'desc' });
@@ -114,9 +115,9 @@ const TopicTables = ({ latestRun, statsData, math, report_id, onTopicSelect, onS
                   
                   // Calculate average group consensus for this topic
                   let groupConsensus = null;
-                  // Use normalized consensus if available, fall back to raw
-                  const consensusData = math?.["group-consensus-normalized"] || math?.["group-aware-consensus"];
-                  if (consensusData && stats.comment_tids) {
+                  // The math engine's consensus: the same number the comment lists rank by
+                  const consensusData = getMathConsensus(math);
+                  if (stats.comment_tids) {
                     const consensusValues = stats.comment_tids
                       .map(tid => consensusData[tid])
                       .filter(val => val !== undefined);

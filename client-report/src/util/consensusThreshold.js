@@ -2,6 +2,8 @@
  * Centralized logic for determining if a topic can generate a collective statement
  */
 
+import { voteCounts } from "./voteCounts.js";
+
 const MIN_CONSENSUS = 0.8;
 const MIN_COMMENTS = 3;
 const MIN_GROUP_PARTICIPATION = 0.05; // 5% of each group must have voted
@@ -31,8 +33,9 @@ function checkGroupParticipation(tid, groupVotes) {
       continue;
     }
 
-    const totalVotes = (votes.A || 0) + (votes.D || 0) + (votes.S || 0);
-    const participationRate = groupSize > 0 ? totalVotes / groupSize : 0;
+    // S is "seen" (agrees + disagrees + passes); it already contains A and D.
+    const { seen } = voteCounts(votes);
+    const participationRate = groupSize > 0 ? seen / groupSize : 0;
     
     if (participationRate < MIN_GROUP_PARTICIPATION) {
       allGroupsMeetThreshold = false;
