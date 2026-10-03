@@ -1403,6 +1403,12 @@ def main():
 
     logger.info("Starting Delphi Job Poller Service...")
 
+    # OFFLINE=1 (or true): every job this poller spawns inherits the Hugging
+    # Face offline flags, so the embedding model is read from the image only.
+    from polismath.utils.offline_env import HF_OFFLINE_FLAGS, apply_offline_env
+    if apply_offline_env():
+        logger.info("OFFLINE is set: jobs run with %s", " ".join(f"{k}={v}" for k, v in HF_OFFLINE_FLAGS.items()))
+
     # Become the reaper for orphaned job descendants before any job is spawned,
     # so process-exit confirmation can trust the kernel (killpg -> ESRCH) instead
     # of scanning /proc. On Linux this must succeed or the poller refuses to

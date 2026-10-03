@@ -210,7 +210,17 @@ The `delphi` service has no `env_file`, so it sees only the keys its `environmen
 
 ### Datadog Tracing (Delphi)
 
-- **`DD_TRACE_ENABLED`** Set to `true` to start the Delphi job poller under `ddtrace-run` ([Dockerfile](../delphi/Dockerfile)); any other value, or unset, starts it with plain `python`. Compose forwards it to the `delphi` service with fallback `false` ([Compose:174](../docker-compose.yml#L174)). Turn it on only where a Datadog agent is reachable: without one the tracer logs a failed-send error and traceback on every flush. The `ddtrace` package stays in the image. The API server loads `dd-trace` in production independently ([index:10](../server/index.ts#L10)); that library also reads `DD_TRACE_ENABLED` from the server's env file, where unset means enabled.
+- **`DD_TRACE_ENABLED`** Set to `true` to start the Delphi job poller under `ddtrace-run` ([Dockerfile](../delphi/Dockerfile)); any other value, or unset, starts it with plain `python`. Compose forwards it to the `delphi` service with fallback `false` ([Compose:174](../docker-compose.yml#L174)). Turn it on only where a Datadog agent is reachable: without one the tracer logs a failed-send error and traceback on every flush. The `ddtrace` package stays in the image. The API server loads `dd-trace` in production independently, unless `OFFLINE` is set ([index](../server/index.ts)); that library also reads `DD_TRACE_ENABLED` from the server's env file, where unset means enabled.
+
+### Offline embedding model (Delphi)
+
+The narrative pipeline embeds comments with a sentence-transformer model ([embedding.py](../delphi/umap_narrative/polismath_commentgraph/core/embedding.py)). By default the model is downloaded from the Hugging Face hub on first use, into the container, so a box with no network fails its first run.
+
+- **`BAKE_EMBEDDING_MODEL`** (Delphi build argument) Set to `true` to download `SENTENCE_TRANSFORMER_MODEL` into the image at build time ([Dockerfile](../delphi/Dockerfile)), into the default Hugging Face cache where the runtime looks. Default `false`: the step runs nothing and the image is unchanged, which is what production builds. Compose passes it to both `delphi` and `math-python`, which build the same image tag, with fallback `false`. A failed download fails the build. Cost: about 92 MB for the default `all-MiniLM-L6-v2` (its `model.safetensors` is 90.9 MB on the hub, plus tokenizer and config files). Leave `MODEL_CACHE_DIR` unset with a baked model, or point it at a volume that already holds the model: the baked copy is only found in the default cache.
+- **`SENTENCE_TRANSFORMER_MODEL`** is also a build argument with the same fallback, `all-MiniLM-L6-v2`. Build with the same value the container runs with; a different runtime model is not in the image.
+- **`OFFLINE`** (Delphi runtime) When `1` or `true`, the job poller and `run_delphi.py` set `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` before starting any pipeline step, and the embedding engine loads with `local_files_only` ([offline_env.py](../delphi/polismath/utils/offline_env.py)). A missing model then fails fast instead of waiting on the network. Compose forwards `OFFLINE` to the `delphi` service with fallback empty.
+
+For an offline box, build the image with both `BAKE_EMBEDDING_MODEL=true` and `USE_CPU_TORCH=true` (the existing CPU-torch build argument): a box with no GPU does not need the CUDA torch wheels a default build installs, and the CPU build is the smaller image. Neither is set by default; the planned offline Compose overlay sets both.
 
 ### Deprecated
 

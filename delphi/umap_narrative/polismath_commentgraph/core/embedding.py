@@ -11,6 +11,8 @@ import time
 from pathlib import Path
 import torch
 
+from polismath.utils.offline_env import is_offline
+
 logger = logging.getLogger(__name__)
 
 class EmbeddingEngine:
@@ -63,18 +65,23 @@ class EmbeddingEngine:
             logger.info(f"Loading SentenceTransformer model: {self.model_name}")
             
             try:
+                # OFFLINE=1 (or true): read the model from the local cache only
+                # (baked into the image with BAKE_EMBEDDING_MODEL=true).
+                offline = is_offline()
                 # Load with cache dir if specified
                 if self.cache_dir:
                     os.makedirs(self.cache_dir, exist_ok=True)
                     self._model = SentenceTransformer(
                         self.model_name, 
                         cache_folder=self.cache_dir,
-                        device=self.device
+                        device=self.device,
+                        local_files_only=offline,
                     )
                 else:
                     self._model = SentenceTransformer(
                         self.model_name,
-                        device=self.device
+                        device=self.device,
+                        local_files_only=offline,
                     )
                 
                 self.vector_dim = self._model.get_sentence_embedding_dimension()

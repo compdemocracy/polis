@@ -121,6 +121,12 @@ services:
     build:
       context: ./delphi
       target: final
+      # BAKE_EMBEDDING_MODEL=true downloads the sentence-transformer model into
+      # the image at build time (offline boxes). Default false: image unchanged.
+      # math-python builds the same image tag, so it passes the same args.
+      args:
+        BAKE_EMBEDDING_MODEL: ${BAKE_EMBEDDING_MODEL:-false}
+        SENTENCE_TRANSFORMER_MODEL: ${SENTENCE_TRANSFORMER_MODEL:-all-MiniLM-L6-v2}
     labels:
       polis_tag: ${TAG:-dev}
     environment:
@@ -179,6 +185,8 @@ services:
       # `true`. Off by default: with no Datadog agent listening, the tracer only
       # logs failed sends. Set it (with an agent) to turn tracing back on.
       - DD_TRACE_ENABLED=${DD_TRACE_ENABLED:-false}
+      # OFFLINE=1 (or true): the image never pulls an Ollama model at start.
+      - OFFLINE=${OFFLINE:-}
     networks:
       - "polis-net"
     extra_hosts:
@@ -202,6 +210,9 @@ services:
     build:
       context: ./delphi
       target: final
+      args:
+        BAKE_EMBEDDING_MODEL: ${BAKE_EMBEDDING_MODEL:-false}
+        SENTENCE_TRANSFORMER_MODEL: ${SENTENCE_TRANSFORMER_MODEL:-all-MiniLM-L6-v2}
     labels:
       polis_tag: ${TAG:-dev}
     command: ["python", "scripts/math_poller.py"]

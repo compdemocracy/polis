@@ -96,6 +96,22 @@ COPY --from=builder /app/scripts/ ./scripts/
 COPY --from=builder /app/umap_narrative/ ./umap_narrative/
 COPY --from=builder /app/*.py ./
 
+# Optionally bake the sentence-transformer model into the image, so a box with
+# no network never reaches the Hugging Face hub (offline profile). The default
+# (false) runs nothing and the image contents are unchanged. With true, the
+# model is downloaded at build time into the default Hugging Face cache
+# (/root/.cache/huggingface), where the runtime looks when MODEL_CACHE_DIR is
+# unset; it adds about 92 MB for all-MiniLM-L6-v2. Keep SENTENCE_TRANSFORMER_MODEL
+# equal to the runtime value. At runtime, OFFLINE=1 (or true) sets
+# HF_HUB_OFFLINE=1 and TRANSFORMERS_OFFLINE=1 for the pipeline
+# (polismath/utils/offline_env.py). See docs/configuration.md.
+ARG BAKE_EMBEDDING_MODEL=false
+ARG SENTENCE_TRANSFORMER_MODEL=all-MiniLM-L6-v2
+RUN if [ "$BAKE_EMBEDDING_MODEL" = "true" ]; then \
+      echo "Baking sentence-transformer model ${SENTENCE_TRANSFORMER_MODEL} into the image..." && \
+      python -c "import sys; from sentence_transformers import SentenceTransformer; m = SentenceTransformer(sys.argv[1], device='cpu'); print('dimension', m.get_sentence_embedding_dimension())" "${SENTENCE_TRANSFORMER_MODEL}"; \
+    fi
+
 RUN mkdir -p data
 EXPOSE 8080
 # PYTHONPATH not needed since packages are properly installed via pip
