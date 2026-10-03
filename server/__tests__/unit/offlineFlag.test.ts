@@ -66,8 +66,14 @@ describe("Config.offline", () => {
     ["", false],
     ["0", false],
     ["false", false],
+    ["yes", false],
+    ["on", false],
+    ["y", false],
+    ["t", false],
     ["1", true],
     ["true", true],
+    ["TRUE", true],
+    [" 1 ", true],
   ])("OFFLINE=%p reads as %p", (value, expected) => {
     expect(read(value)).toBe(expected);
   });

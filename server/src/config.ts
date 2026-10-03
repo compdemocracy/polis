@@ -133,7 +133,11 @@ export default {
   // in isProConvo, the Akismet key check, dd-trace, Google Translate and (when
   // SES_ENDPOINT is unset) SES. Unset, nothing changes. See
   // src/utils/offline.ts and docs/configuration.md.
-  offline: isTrue(process.env.OFFLINE),
+  // Only `1` and `true` (any case), the values the Delphi image and its
+  // job poller accept, so one OFFLINE value means the same on every service.
+  offline: ["1", "true"].includes(
+    (process.env.OFFLINE || "").trim().toLowerCase()
+  ),
   openaiApiKey: process.env.OPENAI_API_KEY || null,
   // Protected operations pages (/api/v3/ops/*, /ops in the admin console).
   // Off unless OPS_ENABLED=true; see docs/configuration.md.

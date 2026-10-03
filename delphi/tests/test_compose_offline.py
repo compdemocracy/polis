@@ -79,21 +79,42 @@ def test_services_sharing_the_image_tag_build_it_the_same_way():
     assert services["delphi"]["build"]["args"] == services["math-python"]["build"]["args"]
 
 
-def _final_stage() -> str:
+def _stage(name: str) -> str:
+    """The text of one Dockerfile stage, from its FROM line to the next FROM."""
     text = DOCKERFILE.read_text()
-    return text[text.index("AS final"):text.index("AS test")]
+    match = re.search(rf"^[ \t]*FROM \S+ AS {re.escape(name)}$", text, re.M)
+    following = re.search(r"^[ \t]*FROM ", text[match.end():], re.M)
+    return text[match.start():match.end() + following.start()] if following else text[match.start():]
+
+
+@requires_dockerfile
+def test_model_stage_builds_on_dependencies_only():
+    # A source change must not re-download the model: the bake stage starts
+    # from the dependency stage, which copies no project source.
+    model = _stage("embedding-model")
+    assert model.lstrip().startswith("FROM builder-deps AS embedding-model")
+    assert "COPY" not in _stage("builder-deps").split("requirements.lock ./", 1)[1]
+    assert "COPY polismath/" in _stage("builder")
+
+
+@requires_dockerfile
+def test_final_stage_copies_the_model_cache_into_root_before_the_packages():
+    final = _stage("final")
+    copy = "COPY --from=embedding-model /models/ /root/"
+    assert copy in final
+    assert final.index(copy) < final.index("COPY --from=builder")
 
 
 @requires_dockerfile
 def test_dockerfile_bake_defaults_match_compose():
-    stage = _final_stage()
+    stage = _stage("embedding-model")
     assert re.search(r"^ARG BAKE_EMBEDDING_MODEL=false$", stage, re.M)
     assert re.search(rf"^ARG SENTENCE_TRANSFORMER_MODEL={re.escape(DEFAULT_MODEL)}$", stage, re.M)
 
 
 def _bake_run() -> str:
-    """The shell of the final stage's bake RUN, continuations joined."""
-    stage = _final_stage()
+    """The shell of the model stage's bake RUN, continuations joined."""
+    stage = _stage("embedding-model")
     start = stage.index('RUN if [ "$BAKE_EMBEDDING_MODEL"')
     end = stage.index("fi\n", start) + len("fi")
     return stage[start + len("RUN "):end].replace("\\\n", "")
@@ -106,14 +127,14 @@ def _bake_run() -> str:
         ("false", DEFAULT_MODEL, []),
         ("", DEFAULT_MODEL, []),
         ("1", DEFAULT_MODEL, []),
-        ("true", DEFAULT_MODEL, [DEFAULT_MODEL]),
-        ("true", "paraphrase-multilingual-MiniLM-L12-v2", ["paraphrase-multilingual-MiniLM-L12-v2"]),
+        ("true", DEFAULT_MODEL, [f"/models {DEFAULT_MODEL}"]),
+        ("true", "paraphrase-multilingual-MiniLM-L12-v2", ["/models paraphrase-multilingual-MiniLM-L12-v2"]),
     ],
 )
 def test_bake_step_downloads_only_when_true(tmp_path, bake, model, expected):
     log = tmp_path / "calls"
     log.touch()
-    (tmp_path / "python").write_text(f'#!/bin/sh\nfor a; do last="$a"; done\necho "$last" >> "{log}"\n')
+    (tmp_path / "python").write_text(f'#!/bin/sh\nfor a; do last="$a"; done\necho "$HOME $last" >> "{log}"\n')
     (tmp_path / "python").chmod(0o755)
     env = {"PATH": f"{tmp_path}:/usr/bin:/bin", "BAKE_EMBEDDING_MODEL": bake, "SENTENCE_TRANSFORMER_MODEL": model}
     subprocess.run(["sh", "-c", _bake_run()], env=env, check=True, capture_output=True, timeout=30)
