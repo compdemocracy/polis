@@ -15,6 +15,7 @@ function claims(over: Record<string, unknown> = {}): Record<string, unknown> {
     [`${NS}connection_strategy`]: "google-oauth2",
     [`${NS}email`]: "staff.one@example.org",
     [`${NS}email_verified`]: true,
+    [`${NS}hd`]: "example.org",
     ...over,
   };
 }
@@ -231,12 +232,33 @@ describe("decideOps", () => {
       false
     );
 
-    test("the listed address passes", () => {
+    test("the listed address passes without hd", () => {
+      const c = claims({ [ns("email")]: "collab@example.com" });
+      delete c[ns("hd")];
+      expect(decideOps(c, NS, policy)).toEqual({ ok: true });
+    });
+
+    test("the listed address with its own Workspace hd passes", () => {
       expect(
-        decideOps(claims({ [ns("email")]: "collab@example.com" }), NS, policy)
-      ).toEqual({
-        ok: true,
-      });
+        decideOps(
+          claims({
+            [ns("email")]: "collab@example.com",
+            [ns("hd")]: "example.com",
+          }),
+          NS,
+          policy
+        )
+      ).toEqual({ ok: true });
+    });
+
+    test("an address on a listed domain that is also listed by address needs no hd", () => {
+      const both = parseOpsEmailDomains(
+        "example.org,staff.one@example.org",
+        false
+      );
+      const c = claims();
+      delete c[ns("hd")];
+      expect(decideOps(c, NS, both)).toEqual({ ok: true });
     });
 
     test("another address on the same domain does not", () => {
@@ -288,8 +310,17 @@ describe("decideOps", () => {
   });
 
   describe("hd", () => {
-    test("absent hd is accepted", () => {
-      expect(decideOps(claims(), NS, domain)).toEqual({ ok: true });
+    test("a domain entry refuses a login without hd (a consumer Google account on the domain)", () => {
+      const c = claims();
+      delete c[ns("hd")];
+      expect(decideOps(c, NS, domain)).toEqual({
+        ok: false,
+        reason: "hd_missing",
+      });
+      expect(decideOps(claims({ [ns("hd")]: null }), NS, domain)).toEqual({
+        ok: false,
+        reason: "hd_missing",
+      });
     });
 
     test("hd equal to the email domain passes, in any case", () => {
@@ -314,6 +345,45 @@ describe("decideOps", () => {
     expect(decideOps(claims(), "", domain)).toEqual({
       ok: false,
       reason: "namespace_unset",
+    });
+  });
+
+  describe("printable ASCII only, checked before case folding", () => {
+    // U+212A KELVIN SIGN lower-cases to ASCII "k".
+    const kelvin = "\u212Aim@example.com";
+
+    test("the fold really happens, which is why the check exists", () => {
+      expect(kelvin.toLowerCase()).toBe("kim@example.com");
+    });
+
+    test("a non-ASCII email cannot match an ASCII address entry", () => {
+      const policy = parseOpsEmailDomains("example.org,kim@example.com", false);
+      const c = claims({ [ns("email")]: kelvin });
+      delete c[ns("hd")];
+      expect(decideOps(c, NS, policy)).toEqual({
+        ok: false,
+        reason: "email_malformed",
+      });
+    });
+
+    test.each([
+      "staff\u00e9@example.org",
+      "staff@ex\u00e4mple.org",
+      "st\u0430ff@example.org",
+    ])("email %p is malformed", (email) => {
+      expect(splitEmail(email)).toBeNull();
+    });
+
+    test("a non-ASCII entry in OPS_EMAIL_DOMAINS is malformed", () => {
+      expect(() =>
+        parseOpsEmailDomains(`example.org,${kelvin}`, false)
+      ).toThrow("outside printable ASCII");
+    });
+
+    test("a non-ASCII hd is refused", () => {
+      expect(
+        decideOps(claims({ [ns("hd")]: "ex\u00e4mple.org" }), NS, domain)
+      ).toEqual({ ok: false, reason: "hd_mismatch" });
     });
   });
 

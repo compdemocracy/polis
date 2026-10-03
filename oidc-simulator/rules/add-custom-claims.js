@@ -43,6 +43,12 @@ function mergeUsers(user, context, callback) {
     // a Google login, so the ops gate (server/src/utils/opsGate.ts) runs the
     // same path locally as in production; OPS_EMAIL_DOMAINS decides who passes.
     context.accessToken[`${namespace}connection_strategy`] = 'google-oauth2';
+    // Simulator accounts on polis.test stand for Workspace accounts of that
+    // domain, so they carry Google's hosted-domain claim the way a production
+    // Workspace login does (a domain entry in OPS_EMAIL_DOMAINS requires it).
+    if (typeof user.email === 'string' && user.email.toLowerCase().endsWith('@polis.test')) {
+      context.accessToken[`${namespace}hd`] = 'polis.test';
+    }
 
     // Add timestamp for debugging
     context.accessToken[`${namespace}issued_at`] = new Date().toISOString();
