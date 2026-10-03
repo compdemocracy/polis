@@ -1087,7 +1087,9 @@ class JobProcessor:
         """Try to prove the job's process group is empty. See ExitConfirmation.
 
         Every completion that claims `process_exit_confirmed` goes through here,
-        not just the timeout and error paths. A parent that exits — with any
+        not just the timeout and error paths (the one exception is a job of an
+        unknown type, refused in process_job before any process is started, so
+        there is no tree to prove gone). A parent that exits — with any
         status, including 0 — does not take its own subprocesses with it, so
         `process.wait()` returning is evidence about one process and not about
         the tree.
@@ -1233,6 +1235,16 @@ class JobProcessor:
 
         self.update_job_logs(job, {'level': 'INFO', 'message': f'Worker {self.worker_id} starting job {job_id}'})
 
+        if job_type not in KNOWN_JOB_TYPES:
+            # Refuse before anything runs. An unknown type used to fall through
+            # to run_delphi.py, which starts by deleting the conversation's
+            # existing results. No child was started, so its exit is certain.
+            error = f"Unknown job_type {job_type!r}; expected one of {sorted(KNOWN_JOB_TYPES)}. Nothing was run."
+            logger.error(f"Job {job_id}: {error}")
+            self.update_job_logs(job, {'level': 'ERROR', 'message': error})
+            self.complete_job(job, False, error=error, process_exited=True)
+            return
+
         child_process = None
         job_pgid = None
         try:
@@ -1249,7 +1261,7 @@ class JobProcessor:
             elif job_type == 'AWAITING_NARRATIVE_BATCH':
                 cmd_job_id = job.get('batch_job_id', job_id)
                 cmd = ['python', f'{app_path}/umap_narrative/803_check_batch_status.py', f'--job-id={cmd_job_id}']
-            else: # FULL_PIPELINE
+            elif job_type == 'FULL_PIPELINE':
                 # Base command
                 cmd = ['python', f'{app_path}/run_delphi.py', f'--zid={conversation_id}', f'--include_moderation={include_moderation}', f'--exclude_comment_selections={exclude_comment_selections}',]
                 # Check for report_id and append if it exists
@@ -1323,6 +1335,10 @@ class JobProcessor:
             logger.error(f"Critical error processing job {job_id}: {e}", exc_info=True)
             confirmation = self.stop_child_process(child_process, job_id, job_pgid)
             self._complete_with_confirmation(job, False, confirmation, error=f"Critical poller error: {str(e)}")
+
+
+#: The job types this poller runs. Anything else is refused without running.
+KNOWN_JOB_TYPES = frozenset({'FULL_PIPELINE', 'CREATE_NARRATIVE_BATCH', 'AWAITING_NARRATIVE_BATCH'})
 
 
 def report_filter_flags(job_config: Dict[str, Any]) -> tuple:

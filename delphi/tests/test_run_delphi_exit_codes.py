@@ -205,3 +205,45 @@ def test_run_pipeline_main_exit_code_follows_process_conversation(monkeypatch, p
         with pytest.raises(SystemExit) as exc:
             run_pipeline.main()
         assert exc.value.code == expected_exit
+
+
+# --- the poller refuses a job type it does not know --------------------------
+
+
+@pytest.mark.parametrize("job_type", ["FULL_PIPELIN", "full_pipeline", "", None])
+def test_poller_rejects_unknown_job_type_without_running_anything(app_dir, monkeypatch, job_type):
+    import scripts.job_poller as jp
+
+    started = []
+    monkeypatch.setattr(jp.subprocess, "Popen", lambda *a, **kw: started.append(a) or None)
+
+    table = RecordingTable()
+    worker = jp.JobProcessor.__new__(jp.JobProcessor)
+    worker.worker_id = "generated-fixture-worker"
+    worker.table = table
+    worker.update_job_logs = lambda *args, **kwargs: None
+    worker.release_lock = lambda *args, **kwargs: None
+    job = {
+        "job_id": "generated-fixture-job",
+        "conversation_id": "1",
+        "job_config": "{}",
+        "version": 1,
+    }
+    if job_type is not None:
+        job["job_type"] = job_type
+    worker.process_job(job)
+
+    assert started == []
+    assert ran_stages(app_dir) == []  # in particular, no reset
+    (update,) = table.updates
+    values = update["ExpressionAttributeValues"]
+    assert values[":new_status"] == "FAILED"
+    assert "Unknown job_type" in json.loads(values[":job_results"])["error"]
+    # Nothing was started, so the exit is certain and the guard may release.
+    assert values[":process_exited"] is True
+
+
+def test_known_job_types_are_exactly_the_three_the_poller_runs():
+    from scripts.job_poller import KNOWN_JOB_TYPES
+
+    assert KNOWN_JOB_TYPES == {"FULL_PIPELINE", "CREATE_NARRATIVE_BATCH", "AWAITING_NARRATIVE_BATCH"}
