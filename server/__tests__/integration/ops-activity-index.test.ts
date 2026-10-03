@@ -1,15 +1,17 @@
 /**
  * Ops page U1 ("Activity now") against the migrated test database.
  *
- * 1. Index pinning. Each U1 statement declares the index its predicate must be
- *    able to use (src/ops/activityNow.ts, U1_STATEMENTS). With sequential
- *    scans disabled, the plan must use that index and must not scan the table.
- *    On an empty test database the planner would pick a sequential scan
- *    whatever indexes exist, so this proves that an index path EXISTS for the
- *    predicate, which is the property that keeps these reads off a full scan
- *    of votes or comments in production. A statement whose predicate stops
- *    being index-answerable, or a migration that drops or renames the index,
- *    fails here with the statement named.
+ * 1. No sequential scan. With sequential scans disabled, each U1 statement
+ *    must read its table through an index whose condition is the window
+ *    predicate (created >= $1 on votes, modified >= $1 on comments), and never
+ *    by a Seq Scan. On small test data the planner would pick a sequential
+ *    scan whatever indexes exist, so this proves an index path EXISTS for the
+ *    predicate, which is what keeps these reads off a full scan of votes or
+ *    comments in production. Which index is used is reported, not asserted:
+ *    the declared one (U1_STATEMENTS) is expected, but the planner may choose
+ *    another index on the same column. A statement whose predicate stops being
+ *    index-answerable, or a migration that drops the last index on the
+ *    column, fails here with the statement named.
  *
  * 2. The comments invariant the statements query relies on: modified >= created
  *    on every row, because both columns default to now_as_millis() and nothing
@@ -39,6 +41,8 @@ type PlanNode = {
   "Node Type": string;
   "Relation Name"?: string;
   "Index Name"?: string;
+  "Index Cond"?: string;
+  "Recheck Cond"?: string;
   Plans?: PlanNode[];
 };
 
@@ -56,7 +60,13 @@ afterAll(async () => {
   await pool.end();
 });
 
-describe("U1 statements can be answered from their declared index", () => {
+// The column each U1 statement's window predicate is on.
+const PREDICATE_COLUMN: Record<string, string> = {
+  votes: "created",
+  comments: "modified",
+};
+
+describe("U1 statements read their table through an index on the window predicate", () => {
   test.each(U1_STATEMENTS.map((s) => [s.name, s] as const))(
     "%s",
     async (_name, statement) => {
@@ -64,25 +74,50 @@ describe("U1 statements can be answered from their declared index", () => {
       try {
         await client.query("BEGIN READ ONLY");
         await client.query("SET LOCAL enable_seqscan = off");
+        // Plan for a window later than every row in the table. In production
+        // the 24 h window is a sliver of the table (about 5.5k of 19M votes);
+        // in the test database every row is recent, and a window that covers
+        // the whole table lets the planner legitimately prefer any index
+        // (CI chose votes_latest_unique_zid_tid_idx, which is on votes(zid,
+        // tid), as a full index scan). A bound past the newest row reproduces
+        // the production shape on any test data.
         const { rows } = await client.query(
           `EXPLAIN (FORMAT JSON) ${statement.sql}`,
-          windowBounds(Date.now())
+          windowBounds(Date.now() + 365 * 24 * 60 * 60 * 1000)
         );
         const plan = nodes(rows[0]["QUERY PLAN"][0].Plan);
-        const indexes = plan.map((n) => n["Index Name"]).filter(Boolean);
-        const seqScans = plan.filter(
-          (n) =>
-            n["Node Type"] === "Seq Scan" &&
-            n["Relation Name"] === statement.table
+        const column = PREDICATE_COLUMN[statement.table];
+        const onTable = plan.filter(
+          (n) => n["Relation Name"] === statement.table
         );
-        expect({ statement: statement.name, indexes }).toEqual({
-          statement: statement.name,
-          indexes: expect.arrayContaining([statement.index]),
-        });
+        const seqScans = onTable.filter((n) => n["Node Type"] === "Seq Scan");
+        // An index node whose condition is the window predicate. A full scan
+        // of some other index with the window as a Filter reads the whole
+        // table and does not count.
+        const bounded = plan.filter((n) =>
+          [n["Index Cond"], n["Recheck Cond"]].some(
+            (cond) => typeof cond === "string" && cond.includes(`(${column} >=`)
+          )
+        );
         expect({ statement: statement.name, seqScans }).toEqual({
           statement: statement.name,
           seqScans: [],
         });
+        expect({
+          statement: statement.name,
+          boundedByIndex: bounded.length > 0,
+        }).toEqual({ statement: statement.name, boundedByIndex: true });
+        // Informational: which index the planner used. The expected one is
+        // declared in U1_STATEMENTS; another index on the same column is fine.
+        const used = plan.map((n) => n["Index Name"]).filter(Boolean);
+        if (!used.includes(statement.index)) {
+          // eslint-disable-next-line no-console
+          console.info(
+            `ops index test: ${statement.name} used ${used.join(
+              ", "
+            )}, declared ${statement.index}`
+          );
+        }
       } finally {
         await client.query("ROLLBACK");
         client.release();
