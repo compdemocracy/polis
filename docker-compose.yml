@@ -176,6 +176,8 @@ services:
       # `true`. Off by default: with no Datadog agent listening, the tracer only
       # logs failed sends. Set it (with an agent) to turn tracing back on.
       - DD_TRACE_ENABLED=${DD_TRACE_ENABLED:-false}
+      # OFFLINE=1 (or true): the image never pulls an Ollama model at start.
+      - OFFLINE=${OFFLINE:-}
     networks:
       - "polis-net"
     extra_hosts:
@@ -443,7 +445,8 @@ services:
     profiles:
       - local-services
 
-  # Ollama for LLM processing
+  # Ollama for LLM processing. Started only with `--profile ollama`; the
+  # Makefile adds that profile when the env file sets LLM_PROVIDER=ollama.
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
@@ -456,6 +459,8 @@ services:
     # Run ollama server
     command: serve
     restart: unless-stopped
+    profiles:
+      - ollama
     
   import-worker:
     build:

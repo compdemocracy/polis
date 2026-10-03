@@ -35,6 +35,7 @@ define get_env_vars
 	$(eval COMPOSE_FILE_ARGS ?= -f docker-compose.yml -f docker-compose.dev.yml)
 	$(eval COMPOSE_FILE_ARGS += $(if $(filter true,$(POSTGRES_DOCKER)),--profile postgres,))
 	$(eval COMPOSE_FILE_ARGS += $(if $(filter true,$(LOCAL_SERVICES_DOCKER)),--profile local-services,))
+	$(eval COMPOSE_FILE_ARGS += $(if $(filter ollama,$(call parse_env_value,LLM_PROVIDER)),--profile ollama,))
 endef
 
 # Support for detached mode
@@ -58,6 +59,7 @@ define setup_env
 	$(eval COMPOSE_FILE_ARGS = $(2))
 	$(eval COMPOSE_FILE_ARGS += $(if $(filter true,$(POSTGRES_DOCKER)),--profile postgres,))
 	$(eval COMPOSE_FILE_ARGS += $(if $(filter true,$(LOCAL_SERVICES_DOCKER)),--profile local-services,))
+	$(eval COMPOSE_FILE_ARGS += $(if $(filter ollama,$(call parse_env_value,LLM_PROVIDER)),--profile ollama,))
 endef
 
 # Function to open psql shell
