@@ -3,6 +3,7 @@ import pytest
 
 from coordinator.conftest import assert_coherent, connect, lease, rows, seed, wait
 from coordinator.test_s1_identity import CommitProxy
+from tests.vote_fixtures import DISAGREE, seed_vote
 
 RESERVATION = 67108864
 
@@ -121,7 +122,7 @@ def test_replacement_reconciles_durable_operation_without_replaying_zid(db, laun
 def test_protected_cleanup_and_floor_survive_pointer_damage(db, launch, damage):
     seed(db); launch(db).done()
     old = operations(db)[0][0]
-    query(db, "INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,1,2000)")
+    query(db, "INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,%s,2000)",(seed_vote(DISAGREE),))
     launch(db).done()
     assert assert_coherent(db)["math_ticks"]["math_tick"] == 1
     query(db, "SET ROLE p027_bridge_control; SELECT pc_protect('rustproto',1,%s,true)", (old,))
