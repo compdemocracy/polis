@@ -29,7 +29,7 @@ What it does, per conversation, in zid order:
   poller's ``MathWriter`` (``--dry`` computes and writes nothing);
 * prints one JSON document on stdout: per zid the ``math_tick`` (``null`` when
   dry), the convention it read, and ``digest`` = sha256 of
-  ``(math_main.data - 'math_tick')::text`` as Postgres renders the jsonb. The
+  ``(math_main.data::jsonb - 'math_tick')::text`` as Postgres renders the jsonb. The
   blob's own ``math_tick`` is wall-clock (see DIGEST_OF_JSON_SQL); the
   rehearsal's ``engine_rows`` query must use the same definition. Logs go to
   stderr.
@@ -89,13 +89,14 @@ LOCK_KEY_PREFIX = "polis-math-python:"
 #: The digest leaves out the blob's top-level ``math_tick``: ``Conversation.to_dict``
 #: sets it from the wall clock (25000 + time % 10000), and the server overwrites
 #: it with the column (server/src/utils/pca.ts). Everything else in the blob is
-#: a function of the database rows on the cold path.
+#: a function of the database rows on the cold path. ``data`` is cast to jsonb
+#: first: ``-`` exists only for jsonb, and production's column is ``json``.
 DIGEST_OF_JSON_SQL = (
     "SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to("
     "(cast(:data AS jsonb) - 'math_tick')::text, 'UTF8')), 'hex') AS digest")
 PUBLISHED_SQL = (
     "SELECT m.math_tick, pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to("
-    "(m.data - 'math_tick')::text, 'UTF8')), 'hex') AS digest "
+    "(m.data::jsonb - 'math_tick')::text, 'UTF8')), 'hex') AS digest "
     "FROM public.math_main m WHERE m.zid = :zid AND m.math_env = :label")
 
 
@@ -254,15 +255,25 @@ def rebuild_one(pg: Any, svc: Any, host: Any, zid: int, label: str, dry: bool) -
 
 
 def configured_database(environ: Dict[str, str]) -> Optional[Tuple[str, int, str]]:
-    """(host, port, dbname) of the database this engine is configured for, if any."""
-    from urllib.parse import urlparse
+    """(host, port, dbname) of the database this engine is configured for, if any.
+
+    A best-effort spelling check, not proof of physical identity: it reads the
+    URL authority and path, and the libpq ``?host=&port=&dbname=`` query form,
+    and compares names as written (a host alias or a different address for the
+    same server is not recognized). It backs up ``--i-am-a-copy``; it does not
+    replace the rehearsal's copy-only credentials and network."""
+    from urllib.parse import parse_qs, urlparse
 
     url = environ.get("DATABASE_URL")
     if url:
         u = urlparse(url)
-        if not u.hostname:
+        q = {k: v[-1] for k, v in parse_qs(u.query).items()}
+        host = q.get("host") or u.hostname
+        if not host:
             return None
-        return u.hostname.lower(), u.port or 5432, u.path.lstrip("/")
+        port = q.get("port") or u.port or 5432
+        dbname = q.get("dbname") or u.path.lstrip("/")
+        return host.lower(), int(port), dbname
     host = environ.get("DATABASE_HOST")
     if not host:
         return None

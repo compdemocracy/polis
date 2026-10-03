@@ -67,6 +67,9 @@ def test_configured_database():
     assert er.configured_database({"DATABASE_URL": "postgresql://u:p@DB.example:6432/polis"}) == (
         "db.example", 6432, "polis")
     assert er.configured_database({"DATABASE_HOST": "h", "DATABASE_NAME": "x"}) == ("h", 5432, "x")
+    assert er.configured_database(
+        {"DATABASE_URL": "postgresql:///?host=127.0.0.1&port=55590&dbname=d&user=u"}) == (
+        "127.0.0.1", 55590, "d")
 
 
 def test_math_env_naming_another_label_is_refused():
@@ -207,8 +210,10 @@ DROP_STANDIN_SQL = ("DROP FUNCTION IF EXISTS public.vote_convention_current(); "
                     "DROP TABLE IF EXISTS public.vote_convention;")
 
 
-@pytest.fixture
-def fixture_db(pg_url):
+@pytest.fixture(params=["jsonb", "json"])
+def fixture_db(pg_url, request):
+    """The generated fixture, with ``math_main.data`` as jsonb (fresh installs)
+    and as json (production's column type)."""
     with _conn(pg_url) as cur:
         cur.execute("SELECT to_regclass('public.vote_convention') IS NOT NULL "
                     "OR to_regprocedure('public.vote_convention_current()') IS NOT NULL")
@@ -218,11 +223,14 @@ def fixture_db(pg_url):
             _generated_fixture(cur, zid)
         cur.execute("DELETE FROM math_main WHERE math_env LIKE 'probe%%'")
         cur.execute("DELETE FROM math_ticks WHERE math_env LIKE 'probe%%'")
+        cur.execute(f"ALTER TABLE math_main ALTER COLUMN data TYPE {request.param} "
+                    f"USING data::{request.param}")
     try:
         yield pg_url
     finally:
         with _conn(pg_url) as cur:
             cur.execute(DROP_STANDIN_SQL)
+            cur.execute("ALTER TABLE math_main ALTER COLUMN data TYPE jsonb USING data::jsonb")
 
 
 def _rows(url, label):
@@ -282,7 +290,7 @@ def test_dry_writes_nothing_and_digests_match_the_published_rows(fixture_db):
     for table in ("math_main", "math_bidtopid", "math_ptptstats", "math_ticks"):
         assert dict(rows[table]) == ticks, table
     with _conn(fixture_db) as cur:   # the rehearsal's engine_rows definition
-        cur.execute("SELECT m.zid, encode(sha256(convert_to((m.data - 'math_tick')::text, "
+        cur.execute("SELECT m.zid, encode(sha256(convert_to((m.data::jsonb - 'math_tick')::text, "
                     "'UTF8')), 'hex') "
                     "FROM public.math_main m WHERE m.math_env = %s AND m.zid = ANY(%s) "
                     "ORDER BY m.zid", (LABEL, list(ZIDS)))
