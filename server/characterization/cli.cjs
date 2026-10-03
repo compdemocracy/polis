@@ -836,12 +836,13 @@ async function main() {
   const liveConvention = await require("./seed-vote.cjs").databaseConvention(
     pool
   );
-  const conventions = expected
-    ? {
-        expected:
-          require("./compare.cjs").recordingConvention(dir).storageAgreeValue,
-        actual: liveConvention,
-      }
+  // Only a convention bound to the recording's verified index is honoured;
+  // with none, stored votes are compared raw.
+  const recorded = expected
+    ? require("./compare.cjs").recordingConvention(dir)
+    : null;
+  const conventions = recorded
+    ? { expected: recorded.storageAgreeValue, actual: liveConvention }
     : null;
   const { results, fatal } = await executeCases(
     planned,

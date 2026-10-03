@@ -6,7 +6,7 @@ const test = require("node:test"),
   fs = require("node:fs"),
   os = require("node:os"),
   path = require("node:path");
-const { readRecording } = require("./recording.cjs");
+const { readRecording, pin } = require("./recording.cjs");
 const {
   baselineDeclaration,
   comparable,
@@ -96,31 +96,90 @@ test("the committed baseline states no convention of its own, so the companion a
   assert.equal(declared.stored_vote_field, STORED_VOTE_FIELD);
 });
 
-test("a recording's own vote-convention.json wins over the companion (a re-record)", () => {
+function withRecordingCopy(fn) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "p078-recording-"));
   try {
-    for (const value of [declared.storage_agree_value, flipped]) {
-      fs.writeFileSync(
-        path.join(tmp, RECORDING_CONVENTION),
-        JSON.stringify(recordingConventionArtifact(value))
-      );
-      assert.deepEqual(recordingConvention(tmp), {
-        storageAgreeValue: value,
-        source: RECORDING_CONVENTION,
-      });
-    }
-    fs.writeFileSync(
-      path.join(tmp, RECORDING_CONVENTION),
-      JSON.stringify({
-        ...recordingConventionArtifact(1),
-        storage_agree_value: 0,
-      })
-    );
-    assert.throws(() => recordingConvention(tmp), /-1 or \+1/);
+    fs.cpSync(root, tmp, { recursive: true });
+    return fn(tmp);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
+}
+function writeSidecar(dir, artifact, { indexed }) {
+  fs.writeFileSync(
+    path.join(dir, RECORDING_CONVENTION),
+    JSON.stringify(artifact)
+  );
+  if (!indexed) return;
+  const file = path.join(dir, "index.json"),
+    index = JSON.parse(fs.readFileSync(file));
+  index.files.push(pin(dir, RECORDING_CONVENTION));
+  fs.writeFileSync(file, JSON.stringify(index));
+}
+
+test("review witness: an unindexed +1 sidecar beside the baseline is refused, never a MATCH", () => {
+  const c = baseline.cases.find(
+    (x) => x.caseId === Object.values(declared.cases)[0]
+  );
+  withRecordingCopy((dir) => {
+    writeSidecar(dir, recordingConventionArtifact(flipped), { indexed: false });
+    assert.throws(() => recordingConvention(dir), /P078_CONVENTION_REFUSED/);
+  });
+  // Had it been honoured, the inverted rows would have compared equal.
+  assert.equal(
+    firstDifference(mirrored(c), c, {
+      expected: flipped,
+      actual: declared.storage_agree_value,
+    }),
+    null
+  );
+});
+
+test("an indexed vote-convention.json is honoured at either convention (a re-record)", () => {
+  for (const value of [declared.storage_agree_value, flipped])
+    withRecordingCopy((dir) => {
+      writeSidecar(dir, recordingConventionArtifact(value), { indexed: true });
+      assert.deepEqual(recordingConvention(dir), {
+        storageAgreeValue: value,
+        source: RECORDING_CONVENTION,
+      });
+    });
+});
+
+test("an indexed sidecar that no longer matches its index entry is refused", () => {
+  withRecordingCopy((dir) => {
+    writeSidecar(
+      dir,
+      recordingConventionArtifact(declared.storage_agree_value),
+      {
+        indexed: true,
+      }
+    );
+    fs.writeFileSync(
+      path.join(dir, RECORDING_CONVENTION),
+      JSON.stringify(recordingConventionArtifact(flipped))
+    );
+    assert.throws(() => recordingConvention(dir), /does not match its index/);
+  });
+  withRecordingCopy((dir) => {
+    writeSidecar(
+      dir,
+      { ...recordingConventionArtifact(1), storage_agree_value: 0 },
+      { indexed: true }
+    );
+    assert.throws(() => recordingConvention(dir), /-1 or \+1/);
+  });
   assert.throws(() => recordingConventionArtifact(2), /-1 or \+1/);
+});
+
+test("a recording with no indexed convention, other than the committed baseline, compares raw", () => {
+  withRecordingCopy((dir) => {
+    const file = path.join(dir, "index.json"),
+      index = JSON.parse(fs.readFileSync(file));
+    index.meta.note = "not the committed baseline";
+    fs.writeFileSync(file, JSON.stringify(index));
+    assert.equal(recordingConvention(dir), null);
+  });
 });
 
 test("without conventions a mirrored case differs (raw comparison is unchanged)", () => {

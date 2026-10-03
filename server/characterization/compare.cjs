@@ -62,25 +62,64 @@ function recordingConventionArtifact(storageAgreeValue) {
       "vote_convention_current() of the recorded database when present, else the declared fallback (seed-vote.cjs)",
   };
 }
+function sha256(bytes) {
+  return crypto.createHash("sha256").update(bytes).digest("hex");
+}
 /**
- * The storage convention a recording directory was recorded under: its own
- * vote-convention.json, else (a recording made before recorders wrote one)
- * the committed baseline's companion.
+ * The storage convention a recording directory was recorded under, honoured
+ * ONLY when it is bound to the recording's integrity-pinned index:
+ *   - vote-convention.json listed in index.json files, its bytes matching the
+ *     listed sha256 and byte_length (what the recorder writes);
+ *   - else the committed companion artifacts/baseline.sign.json, only for the
+ *     recording whose index.json hashes to its recording_index_sha256 (the
+ *     unpacked committed baseline, recorded before recorders wrote one).
+ * A vote-convention.json present but not indexed, or not matching its index
+ * entry, is refused with a closed error: a sidecar dropped beside a recording
+ * must never make inverted stored votes compare equal. Otherwise null: no
+ * convention is known and stored votes are compared raw.
  */
 function recordingConvention(dir) {
+  const indexBytes = fs.readFileSync(path.join(dir, "index.json"));
+  const index = JSON.parse(indexBytes);
   const own = path.join(dir, RECORDING_CONVENTION);
-  if (fs.existsSync(own)) {
-    const meta = JSON.parse(fs.readFileSync(own, "utf8"));
-    if (meta.schema !== "recording-vote-convention/1")
-      throw Error(`${own}: not a recording-vote-convention/1 artifact`);
-    return {
-      storageAgreeValue: agreeValueOf(meta.storage_agree_value, own),
-      source: RECORDING_CONVENTION,
-    };
+  const entries = (index.files || []).filter(
+    (f) => f.path === RECORDING_CONVENTION
+  );
+  if (entries.length > 1)
+    throw Error(
+      `P078_CONVENTION_REFUSED: ${RECORDING_CONVENTION} indexed twice`
+    );
+  if (!entries.length) {
+    if (fs.existsSync(own))
+      throw Error(
+        `P078_CONVENTION_REFUSED: ${own} is not listed in the recording's index`
+      );
+    const meta = baselineDeclaration();
+    if (sha256(indexBytes) === meta.recording_index_sha256)
+      return {
+        storageAgreeValue: meta.storage_agree_value,
+        source: path.relative(__dirname, DECLARATION),
+      };
+    return null;
   }
+  if (!fs.existsSync(own))
+    throw Error(`P078_CONVENTION_REFUSED: indexed ${own} is missing`);
+  const bytes = fs.readFileSync(own);
+  if (
+    sha256(bytes) !== entries[0].sha256 ||
+    bytes.length !== entries[0].byte_length
+  )
+    throw Error(
+      `P078_CONVENTION_REFUSED: ${own} does not match its index entry`
+    );
+  const meta = JSON.parse(bytes);
+  if (meta.schema !== "recording-vote-convention/1")
+    throw Error(
+      `P078_CONVENTION_REFUSED: ${own}: not a recording-vote-convention/1 artifact`
+    );
   return {
-    storageAgreeValue: baselineDeclaration().storage_agree_value,
-    source: path.relative(__dirname, DECLARATION),
+    storageAgreeValue: agreeValueOf(meta.storage_agree_value, own),
+    source: RECORDING_CONVENTION,
   };
 }
 function storedVoteMeaning(raw, agreeValue) {
