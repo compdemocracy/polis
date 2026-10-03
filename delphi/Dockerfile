@@ -103,6 +103,10 @@ EXPOSE 8080
 # Make scripts executable
 RUN chmod +x run_delphi.py scripts/setup_ollama.sh
 
+# The Datadog tracer (the ddtrace package stays installed) wraps the job poller
+# only when DD_TRACE_ENABLED=true. With no Datadog agent listening, ddtrace-run
+# logs a failed-send error and traceback for every flush, which buried the
+# poller's own output; tracing is therefore off unless explicitly enabled.
 CMD ["bash", "-c", "\
   echo 'Ensuring DynamoDB tables are set up (runs in all environments)...'; \
   python create_dynamodb_tables.py --region ${AWS_REGION} && \
@@ -116,11 +120,11 @@ CMD ["bash", "-c", "\
     python scripts/job_poller.py --interval=2; \
   else \
     echo 'DYNAMODB_ENDPOINT is not set, assuming production-like environment. Skipping local setup scripts.'; \
-    if [ \"${AWS_REGION}\" = \"us-east-1\" ]; then \
-      echo 'Starting job poller WITH ddtrace in us-east-1...' && \
+    if [ \"${DD_TRACE_ENABLED}\" = \"true\" ]; then \
+      echo 'DD_TRACE_ENABLED=true: starting job poller WITH ddtrace...' && \
       ddtrace-run python scripts/job_poller.py --interval=2 --region ${AWS_REGION}; \
     else \
-      echo 'Starting job poller WITHOUT ddtrace in other regions...' && \
+      echo 'Starting job poller WITHOUT ddtrace (set DD_TRACE_ENABLED=true to trace)...' && \
       python scripts/job_poller.py --interval=2 --region ${AWS_REGION}; \
     fi; \
   fi \
