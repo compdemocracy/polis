@@ -57,12 +57,12 @@ export default (
   const asgMathWorker = new autoscaling.AutoScalingGroup(self, 'AsgMathWorker', {
     vpc,
     launchTemplate: mathWorkerLaunchTemplate,
-    minCapacity: 1,
-    desiredCapacity: 1,
-    // Keep at 1: every math worker polls every conversation and holds its own actors
-    // (math/src/polismath/components/{poller,conv_man}.clj); a second instance duplicates
-    // the computation and the writes rather than sharing the load.
-    maxCapacity: 1,
+    // Emptied: the Clojure math engine is retired and the Python engine (math-python) runs on
+    // the Delphi boxes. scripts/after_install.sh starts nothing on a `math` box. The construct
+    // stays until this group has scaled to zero in production; removing it is a later change.
+    minCapacity: 0,
+    desiredCapacity: 0,
+    maxCapacity: 0,
     vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
     healthCheck: autoscaling.HealthCheck.ec2({ grace: cdk.Duration.minutes(2) }),
   });

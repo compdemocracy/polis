@@ -44,7 +44,7 @@ If you're trying to set up a Polis deployment or development environment, then p
 Polis comes with Docker infrastructure for running a complete system, whether for a [production deployment](#-production-deployment) or a [development environment](#-development-tooling) (details for each can be found in later sections of this document).
 As a consequence, the only prerequisite to running Polis is that you install a recent `docker` (and Docker Desktop if you are on Mac or Windows).
 
-If you aren't able to use Docker for some reason, the various Dockerfiles found in subdirectories (`math`, `server`, `delphi`, `*-client`) of this repository _can_ be used as a reference for how you'd set up a system manually.
+If you aren't able to use Docker for some reason, the various Dockerfiles found in subdirectories (`server`, `delphi`, `*-client`) of this repository _can_ be used as a reference for how you'd set up a system manually.
 If you're interested in doing the legwork to support alternative infrastructure, please [let us know in an issue](https://github.com/compdemocracy.org/issues).
 
 ### Quick Start
@@ -120,6 +120,14 @@ cp example.env .env
 ```sh
 docker compose --profile postgres --profile local-services up --build
 ```
+
+**Math engine.** The math engine is the Python poller, the `math-python` service. In `docker-compose.yml` it sits behind the `math-python` profile, so the plain commands in this section do not start it, and the visualization and groups stay empty. To run it:
+
+- `make start` uses the dev overlay (`docker-compose.dev.yml`), which runs `math-python` with no extra flags. It writes the label the server reads (`MATH_ENV` in `.env`).
+- With the base file alone (plain `docker compose`), add `--profile math-python`. `make PROD start` does not pass that profile, so it runs no math engine. Also set three things in `.env`:
+  - `MATH_PYTHON_ENV` to the same value as `MATH_ENV`. It must not be `prod`, which the poller refuses.
+  - `MATH_POLLER_ALLOW_HOSTNAME_IDENTITY=1`.
+  - `DELPHI_POLLER_CONTAINER_MEMORY`, which caps the poller's memory and defaults to `16g`.
 
 If you get a permission error, try running this command with `sudo`.
 If this fixes the problem, sudo will be necessary for all other commands as well.

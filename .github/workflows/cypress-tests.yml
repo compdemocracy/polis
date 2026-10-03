@@ -183,6 +183,11 @@ jobs:
         # Run all Cypress tests
         npm test
 
+    - name: Show math engine logs
+      if: failure()
+      run: |
+        docker compose -f docker-compose.test.yml logs --tail 300 math-python || true
+
     - name: Upload Cypress screenshots
       if: failure()
       uses: actions/upload-artifact@v4

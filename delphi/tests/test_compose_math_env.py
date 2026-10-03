@@ -1,4 +1,4 @@
-"""Every compose stack must hand delphi the math_env its math service writes.
+"""Every compose stack must hand delphi the math_env its math engine writes.
 
 The report pipeline reads ``math_main`` / ``math_ptptstats`` scoped by
 ``math_env`` (see ``tests/test_report_math_env.py``). The delphi service has no
@@ -7,8 +7,8 @@ container environment, and nothing on the report import path calls
 ``load_dotenv()``: unless the service block lists ``MATH_ENV``, the report
 container falls back to the library default in
 ``polismath/components/config.py`` regardless of what the stack is configured
-for. If that resolves to a different env than the one the ``math`` service
-writes under, ``GroupDataProcessor.get_math_main_by_conversation`` finds no row
+for. If that resolves to a different env than the one the math engine
+(``math-python``) writes under, ``GroupDataProcessor.get_math_main_by_conversation`` finds no row
 and silently synthesises groups from raw votes.
 
 Runs without a docker daemon: the compose files are parsed as YAML and their
@@ -110,50 +110,47 @@ def test_delphi_resolves_to_the_stack_default(compose_file, default):
 @pytest.mark.parametrize("env", [{}, {"MATH_ENV": PROBE}], ids=["unset", "MATH_ENV-set"])
 def test_test_stack_delphi_and_math_agree_on_math_env(env):
     delphi = _environment("docker-compose.test.yml", "delphi", env)
-    math = _environment("docker-compose.test.yml", "math", env)
+    math = _environment("docker-compose.test.yml", "math-python", env)
     assert math["MATH_ENV"] == env.get("MATH_ENV", "dev")
     assert delphi["MATH_ENV"] == math["MATH_ENV"], (
-        "docker-compose.test.yml: delphi reads a different math_env than math writes"
+        "docker-compose.test.yml: delphi reads a different math_env than math-python writes"
     )
 
 
-# --- The served-label switch (docker-compose.yml) -----------------------------
+@requires_checkout
+@pytest.mark.parametrize("compose_file", sorted(COMPOSE_FILES))
+def test_math_python_has_a_memory_limit(compose_file):
+    # The poller refuses to start when the cgroup reports no memory limit.
+    block = yaml.safe_load((CHECKOUT / compose_file).read_text())["services"]["math-python"]
+    assert block["deploy"]["resources"]["limits"]["memory"]
+
+
+@requires_checkout
+@pytest.mark.parametrize("compose_file", sorted(COMPOSE_FILES))
+def test_the_retired_clojure_engine_is_not_wired(compose_file):
+    # The Clojure `math` service is retired; its `prod` rows stay in the
+    # database, but nothing in a compose stack builds, runs or labels it.
+    document = yaml.safe_load((CHECKOUT / compose_file).read_text())
+    assert "math" not in document["services"]
+    assert "MATH_ENV_CLOJURE" not in (CHECKOUT / compose_file).read_text()
+
+
+# --- The served label (docker-compose.yml) ------------------------------------
 # The shared MATH_ENV sets the label the readers serve (the server via .env,
-# delphi here). Neither writer follows it: Clojure writes MATH_ENV_CLOJURE
-# (default prod), math-python writes MATH_PYTHON_ENV (default python). So the
-# switch (MATH_ENV=python) and its rollback (MATH_ENV=prod) move only the
-# readers, and Clojure keeps writing prod through both.
+# delphi here). The writer does not follow it: math-python writes
+# MATH_PYTHON_ENV (default python). So moving the readers (MATH_ENV=python, or
+# back to the frozen `prod` rows) never moves the writer.
 
 
 @requires_checkout
-@pytest.mark.parametrize(
-    "env",
-    [{}, {"MATH_ENV": "prod"}, {"MATH_ENV": "python"}, {"MATH_ENV": PROBE}, {"MATH_ENV_CLOJURE": ""}],
-    ids=["unset", "prod", "python", "probe", "clojure-empty"],
-)
-def test_clojure_writes_prod_whatever_the_readers_serve(env):
-    assert _environment("docker-compose.yml", "math", env)["MATH_ENV"] == "prod"
-
-
-@requires_checkout
-def test_clojure_label_comes_only_from_math_env_clojure():
-    env = {"MATH_ENV": "python", "MATH_ENV_CLOJURE": PROBE}
-    assert _environment("docker-compose.yml", "math", env)["MATH_ENV"] == PROBE
-    assert _environment("docker-compose.yml", "delphi", env)["MATH_ENV"] == "python"
-    assert _environment("docker-compose.yml", "math-python", env)["MATH_ENV"] == "python"
-
-
-@requires_checkout
-@pytest.mark.parametrize("served", ["prod", "python"], ids=["shadow-or-rollback", "switched"])
+@pytest.mark.parametrize("served", ["prod", "python"], ids=["frozen-prod", "python"])
 def test_switch_moves_only_the_readers(served):
     env = {"MATH_ENV": served}
     labels = {
         service: _environment("docker-compose.yml", service, env)["MATH_ENV"]
-        for service in ("delphi", "math", "math-python")
+        for service in ("delphi", "math-python")
     }
-    assert labels == {"delphi": served, "math": "prod", "math-python": "python"}
-    # Two writers never share a label.
-    assert labels["math"] != labels["math-python"]
+    assert labels == {"delphi": served, "math-python": "python"}
 
 
 @requires_checkout
@@ -292,6 +289,14 @@ def test_only_the_delphi_role_starts_the_shadow_poller():
     assert {"server", "math", "delphi"} <= set(roles)
     starting = {role for role, lines in roles.items() if any("math-python" in _services_named(l) for l in lines)}
     assert starting == {"delphi"}
+
+
+@requires_after_install
+def test_the_retired_math_role_starts_nothing():
+    # A box still tagged `math` must neither start the removed Clojure service
+    # nor fall through to the hook's start-everything catch-all.
+    roles = _role_up_lines()
+    assert roles.get("math") == []
 
 
 @requires_after_install

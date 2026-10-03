@@ -103,13 +103,14 @@ if [ "$SERVICE_FROM_FILE" == "server" ]; then
   echo "Starting docker-compose up for 'server', 'nginx-proxy', and 'client-participation-alpha' services"
   sudo /usr/local/bin/docker-compose up -d server nginx-proxy client-participation-alpha --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "math" ]; then
-  # The legacy Clojure engine writes ${MATH_ENV_CLOJURE:-prod} (compose), never
-  # the shared MATH_ENV, so it keeps writing `prod` after the readers switch to
-  # `python`: that is the rollback target until its removal.
-  echo "Starting docker-compose up for 'math' service"
-  sudo /usr/local/bin/docker-compose up -d math --build --force-recreate
+  # The Clojure math engine is retired; the Python engine (math-python) runs on
+  # the Delphi role. A box still tagged `math` (the math-worker ASG until it is
+  # scaled to zero) starts nothing. This branch must stay until no such box is
+  # left: without it the box would fall through to the catch-all below and
+  # start every service, including a second Delphi job poller.
+  echo "Service type 'math' is retired (the Clojure engine was removed); starting no services on this box"
 elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
-  echo "Starting docker-compose up for 'delphi' and 'math-python' (shadow) services"
+  echo "Starting docker-compose up for 'delphi' and 'math-python' (math engine) services"
   # The Ollama GPU stack is optional (topic naming defaults to the Anthropic
   # Batch API). Only fetch OLLAMA_HOST if the secret exists; never fail the
   # deploy when it doesn't. Re-enable Ollama with CDK_ENABLE_OLLAMA=true +
@@ -173,17 +174,18 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
     printf "DELPHI_CONTAINER_CPUS=%s\n" "$DELPHI_CONTAINER_CPUS" | sudo tee -a .env > /dev/null
   fi
 
-  # Python math poller: `math-python` writes math rows under its own math_env
-  # label (`python`) beside Clojure's (`prod`). The server and Delphi read the
-  # label the secret's MATH_ENV names: `prod` while shadowing, `python` once the
-  # served math is switched (rollback: MATH_ENV=prod and redeploy). Naming a
+  # Python math poller: `math-python` is the math engine. It writes math rows
+  # under its own math_env label (`python`), which the server and Delphi serve
+  # (the secret's MATH_ENV=python). The retired Clojure engine's `prod` rows are
+  # frozen; pointing MATH_ENV back at `prod` would serve stale math, so rolling
+  # back the engine means reverting the code change. Naming a
   # profile-gated service on the `up` command line starts it without --profile
   # (Compose v2.40.0 enables named services' profiles: cmd/compose/compose.go
   # `project.WithServicesEnabled(services...)`).
   # The production env secret (polis-web-app-env-vars) must carry these four
   # lines BEFORE this deploys:
   #   MATH_PYTHON_ENV=python   (compose default is also `python`; pinned in the
-  #       secret so the shadow's write label does not depend on a compose default)
+  #       secret so the poller's write label does not depend on a compose default)
   #   DATABASE_SSL_MODE=require   (compose default is `disable`; the Python
   #       Postgres client rebuilds the URL from its parts and appends this mode,
   #       dropping DATABASE_URL's ?sslmode=require. The secret is shared, so the
@@ -195,8 +197,8 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   #   MATH_CONV_CACHE_CAP=200   (compose default is also 200; pinned because the
   #       certified bundle's cohort size is this cap plus one)
   # POLL_FROM_DAYS_AGO stays at its default of 10. MATH_POLLER_ALLOW_SERVED_ENV
-  # must stay UNSET: it is the override that lets the poller write the served
-  # `prod` label, and the shadow must never write there.
+  # must stay UNSET: it is the override that lets the poller write the `prod`
+  # label (the retired engine's frozen rows), and the poller must never write there.
   # Singleton: every Delphi-role box (both launch templates, any ASG scale-out
   # or replacement) runs this line, so the poller admits itself: at startup it
   # takes a Postgres session-level advisory lock keyed on its math_env label
