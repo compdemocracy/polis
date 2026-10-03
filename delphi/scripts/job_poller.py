@@ -1221,7 +1221,7 @@ class JobProcessor:
 
         self.update_job_logs(job, {'level': 'INFO', 'message': f'Worker {self.worker_id} starting job {job_id}'})
 
-        if job_type not in KNOWN_JOB_TYPES:
+        if not isinstance(job_type, str) or job_type not in KNOWN_JOB_TYPES:
             # Refuse before anything runs. An unknown type used to fall through
             # to run_delphi.py, which starts by deleting the conversation's
             # existing results. No child was started, so its exit is certain.
