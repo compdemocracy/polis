@@ -126,9 +126,11 @@ classified by its cold-rebuild size under the admission model:
 | `large` | above `MATH_CAPACITY_ROUTE_FRACTION` of the small compute capacity (budget minus the measured baseline); `MATH_CAPACITY_KEEP_FRACTION` once already routed |
 | `exceeds_largest` | above `MATH_CAPACITY_LARGE_BUDGET_MB` minus the model base; never counted as demand |
 
-A `large` record is demand from its first refusal (or routed batch) until this poller
-publishes the conversation itself. Records live in memory, and in
-`MATH_CAPACITY_STATE_PATH` when set (a private file; it names zids).
+A `large` record is unresolved from its first refusal (or routed batch) until this poller
+publishes the conversation itself, or until this poller's label carries a promoted
+large-class bundle that covers its newest input (§8). It is demand while unresolved and
+no staged bundle covering its input already waits for promotion. Records live in memory,
+and in `MATH_CAPACITY_STATE_PATH` when set (a private file; it names zids).
 
 | Setting | Default | Effect |
 |---|---|---|
@@ -147,9 +149,15 @@ The demand line, once per readiness interval, is a bare JSON event (no log prefi
 
 ```json
 {"class":"small","exceeds_largest":0,"fits_small":0,"label":"python","large_demand":1,
- "oldest_unresolved_age_ms":412000,"pending_promotion":0,"refusals_total":3,
- "role":"primary","routed_total":0,"routing":0,"schema":"math_poller.capacity/1"}
+ "oldest_unresolved_age_ms":412000,"pending_promotion":0,"promoted_total":0,
+ "refusals_total":3,"role":"primary","routed_total":0,"routing":0,
+ "schema":"math_poller.capacity/1"}
 ```
+
+`pending_promotion` counts unresolved `large` records whose staged bundle covers their
+input and is newer than this label's bundle; `promoted_total` counts promotions since
+the process started; `oldest_unresolved_age_ms` covers every unresolved `large` record,
+pending promotion included (§8).
 
 Counts and closed labels only. A primary always reports counts (0 with no demand); a
 standby reports `role=standby` with null counts; a primary whose snapshot failed logs
@@ -163,3 +171,146 @@ with metric value `$.large_demand`.
 The same counts ride on the `math_poller readiness/1` line as `capacity` (null on a
 standby; optional on parse, so earlier lines still validate). The heartbeat phrase and
 every other readiness key are unchanged.
+
+## 8. The large memory class (P-073 PR3)
+
+Conversations the small poller routes away (§7) are computed by a second process of the
+same image, the **large worker**, and published into the small poller's label by the small
+poller itself. Everything here is off by default: nothing changes until
+`MATH_CAPACITY_ROUTING=1` on the small poller and a large worker runs.
+
+```
+small poller (MATH_ENV=python)            large worker (MATH_ENV=python-large,
+  routes by size, never computes a          MATH_CAPACITY_CLASS=large)
+  routed conversation                         reads the manifest each readiness interval
+  writes the capacity manifest  ───────►      computes only the manifest's conversations
+  (private store, conditional put)            publishes them under python-large (its own
+                                              lock, the ordinary writer)
+  promotes python-large -> python  ◄──────    never writes python
+  (one transaction, compare-and-set)
+```
+
+One writer per label holds: the small poller is the only writer of `python` (its own
+publications and promotions, both under the target tick lock), the large worker the only
+writer of `python-large` (lock key `polis-math-python:python-large`). No schema change:
+`python-large` is a third value of the existing `math_env` column.
+
+### 8.1 The capacity manifest
+
+`polismath/poller/capacity_manifest.py`. One private JSON object
+(`polis-math-capacity-manifest/1`), written only by the small primary, read by the large
+worker: the routed records (zid, sizes, need, input mark, first-unresolved time,
+`exceeds_largest`), the writer's label, run, source commit, binding, small compute
+capacity and declared large budget, the staged label and the applied restage nonce. It
+names zids, so it lives only in a private store, never in a log line, metric or receipt.
+
+| `MATH_CAPACITY_MANIFEST_URI` | Backend |
+|---|---|
+| `s3://<bucket>/<key>` | an object in the bucket the Delphi service already uses (`AWS_S3_BUCKET_NAME`), recommended key `math-capacity/<label>/manifest.json`; `AWS_S3_ENDPOINT` (MinIO under docker) and `AWS_REGION` as the rest of Delphi; credentials from the environment or the instance role |
+| `file:///<path>` or an absolute path | a local file (tests; docker runs sharing a volume) |
+
+Writes are conditional (`If-Match` on the last-read ETag, `If-None-Match: *` to create);
+a lost precondition writes nothing and the writer re-reads before its next write. The
+pinned boto3 predates the `IfMatch` parameter, so the S3 backend sets the two headers
+through botocore's event hooks (signed with the request; S3 and MinIO answer 412). The
+large worker reads with `If-None-Match` and reuses its last manifest when unchanged.
+
+### 8.2 The small poller's loop
+
+`polismath/poller/promotion.py`, once at start and then on the reconciler's cadence
+(`MATH_POLLER_RECONCILE_INTERVAL_MS`), only with routing on:
+
+1. **Restore** (once, retried until the store answers): routed records the state file
+   lacks are read back from the manifest. A manifest written for another label is never
+   overwritten; an unreadable one is replaced.
+2. **Restage** (`MATH_CAPACITY_RESTAGE=<16-64 hex>`, once per value, kept in the state
+   file and the manifest): every `large` record gets an input mark of the database clock,
+   so the large worker rebuilds it and the loop promotes the result (same votes, later
+   write). Remove the nonce after use.
+3. **Re-size on a binding change**: a routed record classified under another binding (a
+   resized box, a recalibrated model, changed fractions or large budget) is sized again
+   without waiting for new input; one that now fits is un-routed and submitted as a
+   REBUILD, so the small poller computes it at once.
+4. **Promotion** (`MATH_CAPACITY_PROMOTE=1`): every `large` record's staged and target
+   bundles are fingerprinted (`math_fingerprints`: tick, newest vote, write time,
+   completeness; no payload read). A complete staged bundle newer than the target is
+   promoted with `PostgresClient.promote_bundle`.
+5. **Manifest**: written when its content changed.
+
+`promote_bundle` is one transaction: mint the target tick (row-locks `(zid, python)`),
+take the staged tick row `FOR SHARE` (a staged publication in progress is waited for; the
+staged writer cannot publish mid-copy), re-read both bundles and compare with what the
+loop saw (`superseded`), require the staged bundle complete and valid by the shared
+validity SQL (`invalid_staged`, `missing_staged`) and newer (`not_newer`: never an
+older newest vote, and on an equal newest vote only a later write), copy the two
+companions and then `math_main` (same `caching_tick` rule as every publication), and
+check the target's four ticks. Any refusal rolls everything back, the tick included. The
+payloads never leave Postgres.
+
+A record is resolved when the staged bundle covers its input (written at or after its
+newest input) and the target is not older than it. The backfill skips routed
+conversations (`_BackfillHost.accepts`), and a backfill job admitted before a
+conversation was routed is not run.
+
+### 8.3 The large worker
+
+`polismath/poller/large_class.py`, `MATH_CAPACITY_CLASS=large`. Each readiness interval
+the driver reads the manifest and either refuses to compute anything (empty dynamic
+allowlist; the reason on its capacity line) or drives the pool:
+
+| `refusal` | When |
+|---|---|
+| `manifest_missing` / `manifest_unreadable` | no manifest yet, or not the closed shape |
+| `label` | written for another label pair (writer label is not `MATH_CAPACITY_PROMOTE_INTO`, or staged label is not this worker's `MATH_ENV`) |
+| `skew` | the version-skew guard: the small poller's source commit (`MATH_POLLER_SOURCE_COMMIT`) differs from this worker's; it waits for the deploy |
+| `budget` | the manifest declares a large budget above this worker's own memory budget |
+
+Otherwise the dynamic allowlist is the manifest's conversations that fit this worker's
+compute capacity (`exceeds_largest` and oversized entries are never attempted; the
+latter count as `unfit`); the ordinary vote and moderation loops update them warm; a
+conversation whose staged bundle is missing, incomplete or older than its input is
+submitted as a REBUILD (cold full history) when it is not cached, when the restage nonce
+changed, or when its input is older than two readiness intervals; cached conversations
+that left the manifest are dropped. Every reservation is exclusive. A transient store
+failure keeps the last allowlist.
+
+Startup refusals (exit 2, before any connection): `MATH_CAPACITY_CLASS` other than
+`small`/`large`; for `large`, any unparsable `MATH_CAPACITY_*` value, no manifest URI, no
+`MATH_CAPACITY_PROMOTE_INTO`, `MATH_ENV` equal to it or to the served label or different
+from `MATH_CAPACITY_STAGED_LABEL`, `MATH_POLLER_ALLOW_SERVED_ENV=1`, `MATH_BACKFILL=1`,
+routing/promotion/restage set (small-poller settings), sharding, and a declared
+`MATH_CAPACITY_LARGE_BUDGET_MB` above this worker's own budget.
+
+Its readiness lines carry a class token before the line kind, so no large line contains
+the heartbeat, discovery-stale or alert-test phrases (the P-072 filters match them across
+the whole log group) and the readiness collector never selects them:
+
+```
+math_poller class=large readiness/1 role=primary progress=ok {...}
+math_poller class=large discovery_stale/1 {...}
+```
+
+The JSON bodies are unchanged (`capacity` is null). Its capacity line:
+
+```json
+{"allowlisted":1,"busy":1,"class":"large","label":"python-large","queued":1,
+ "refusal":null,"role":"primary","schema":"math_poller.capacity/1","skew":0,"unfit":0}
+```
+
+`busy`: allowlisted conversations queued, running or behind their input (the scale-in
+input); `queued`: those behind their input.
+
+### 8.4 Settings
+
+| Setting | Default | Where | Effect |
+|---|---|---|---|
+| `MATH_CAPACITY_CLASS` | `small` | both | `large` runs the large worker |
+| `MATH_CAPACITY_MANIFEST_URI` | unset | both | unset: no hand-off (small); refused (large) |
+| `MATH_CAPACITY_PROMOTE` | `0` | small | `1` (needs routing): promote staged bundles |
+| `MATH_CAPACITY_STAGED_LABEL` | `python-large` | both | the large worker's label |
+| `MATH_CAPACITY_PROMOTE_INTO` | unset | large | the small poller's label; required |
+| `MATH_CAPACITY_RESTAGE` | unset | small | a 16-64 hex nonce; a malformed one is ignored and logged |
+| `MATH_CAPACITY_LARGE_BUDGET_MB` | unset | both | small: the `exceeds_largest` line and the manifest's declared budget; large: refused when above its own budget |
+
+On the small poller a bad value turns routing off and is logged (§7); on the large worker
+it refuses to start.

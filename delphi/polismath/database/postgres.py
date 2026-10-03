@@ -289,6 +289,113 @@ class WorkerTasks(Base):
         return f"<WorkerTasks(task_type='{self.task_type}', finished_time={self.finished_time})"
 
 
+# --------------------------------------------------------------------------- #
+# Bundle promotion (P-073 §4.4): a staged label's bundle copied into the
+# small poller's label inside one publication transaction. The payloads never
+# leave Postgres.
+# --------------------------------------------------------------------------- #
+class Fingerprint(tuple):
+    """(math_tick, last_vote_timestamp, modified) of one label's math_main row,
+    plus whether its bundle is structurally complete (all four rows at one
+    initialized tick). Compared as the plain triple."""
+
+    __slots__ = ()
+
+    def __new__(cls, math_tick: int, last_vote_timestamp: int, modified: int,
+                complete: bool = True) -> "Fingerprint":
+        return super().__new__(cls, (int(math_tick), int(last_vote_timestamp),
+                                     int(modified), bool(complete)))
+
+    math_tick = property(lambda self: self[0])
+    lvt = property(lambda self: self[1])
+    modified = property(lambda self: self[2])
+    complete = property(lambda self: self[3])
+
+    def key(self) -> Tuple[int, int, int]:
+        return (self[0], self[1], self[2])
+
+
+def fingerprint_key(fp: Optional["Fingerprint"]) -> Optional[Tuple[int, int, int]]:
+    return None if fp is None else fp.key()
+
+
+def staged_newer(staged: "Fingerprint", target: Optional["Fingerprint"]) -> bool:
+    """Never an older input over a newer one: a staged bundle replaces the
+    target only when its newest vote is later, or equal with a later write
+    (a moderation update or a restage of the same votes)."""
+    if target is None:
+        return True
+    return staged.lvt > target.lvt or (staged.lvt == target.lvt
+                                       and staged.modified > target.modified)
+
+
+class PromotionRefused(RuntimeError):
+    """A promotion rolled back (the target tick included). ``reason`` is one
+    of PROMOTION_REASONS."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+PROMOTION_REASONS = ("superseded", "missing_staged", "invalid_staged", "not_newer",
+                     "postcondition")
+
+_FINGERPRINT_COLUMNS = """
+    m.zid AS zid, m.math_env AS math_env, m.math_tick AS math_tick,
+    m.last_vote_timestamp AS last_vote_timestamp,
+    COALESCE(m.modified, 0) AS modified,
+    COALESCE(m.math_tick >= 0 AND b.math_tick = m.math_tick AND p.math_tick = m.math_tick
+             AND k.math_tick = m.math_tick, false) AS complete
+"""
+_BUNDLE_JOINS = """
+    FROM math_main m
+    LEFT JOIN math_bidtopid b ON b.zid = m.zid AND b.math_env = m.math_env
+    LEFT JOIN math_ptptstats p ON p.zid = m.zid AND p.math_env = m.math_env
+    LEFT JOIN math_ticks k ON k.zid = m.zid AND k.math_env = m.math_env
+"""
+FINGERPRINTS_SQL = ("SELECT" + _FINGERPRINT_COLUMNS + _BUNDLE_JOINS
+                    + " WHERE m.zid = ANY(:zids) AND m.math_env = ANY(:envs)")
+
+_COPY_COMPANION_SQL = """
+    insert into {table} (zid, math_env, math_tick, data)
+    select s.zid, :dst, :tick, s.data from {table} s
+    where s.zid = :zid and s.math_env = :src
+    on conflict (zid, math_env)
+    do update set modified = now_as_millis(),
+                  data = excluded.data,
+                  math_tick = excluded.math_tick
+"""
+COPY_BIDTOPID_SQL = _COPY_COMPANION_SQL.format(table="math_bidtopid")
+COPY_PTPTSTATS_SQL = _COPY_COMPANION_SQL.format(table="math_ptptstats")
+# Same columns and caching_tick rule as write_math_main; the source is the
+# staged row.
+COPY_MAIN_SQL = """
+    insert into math_main (zid, math_env, last_vote_timestamp, math_tick, data, caching_tick)
+    select s.zid, :dst, s.last_vote_timestamp, :tick, s.data,
+           COALESCE((select max(caching_tick) + 1 from math_main where math_env = :dst), 1)
+    from math_main s where s.zid = :zid and s.math_env = :src
+    on conflict (zid, math_env)
+    do update set modified = now_as_millis(),
+                  data = excluded.data,
+                  last_vote_timestamp = excluded.last_vote_timestamp,
+                  math_tick = excluded.math_tick,
+                  caching_tick = excluded.caching_tick
+"""
+PROMOTED_POSTCONDITION_SQL = """
+    SELECT (SELECT math_tick FROM math_main WHERE zid = :zid AND math_env = :dst) AS main_tick,
+           (SELECT math_tick FROM math_bidtopid WHERE zid = :zid AND math_env = :dst) AS bid_tick,
+           (SELECT math_tick FROM math_ptptstats WHERE zid = :zid AND math_env = :dst) AS stats_tick,
+           (SELECT math_tick FROM math_ticks WHERE zid = :zid AND math_env = :dst) AS ticks_tick
+"""
+
+
+def _fingerprint_row(row: Any) -> Fingerprint:
+    lvt = row["last_vote_timestamp"]
+    return Fingerprint(row["math_tick"], -1 if lvt is None else lvt, row["modified"] or 0,
+                       bool(row["complete"]))
+
+
 class PostgresClient:
     """PostgreSQL client for Pol.is math."""
 
@@ -1050,6 +1157,93 @@ class PostgresClient:
             connection=connection,
         )
         return rows[0]["math_tick"]
+
+    def math_fingerprints(
+        self, zids: List[int], envs: List[str], *, timeout_ms: int = 30000,
+    ) -> Dict[Tuple[int, str], Fingerprint]:
+        """{(zid, math_env): Fingerprint} for the math_main rows of these zids
+        under these labels. No payload is read."""
+        zids = sorted({int(z) for z in zids})
+        if not zids or not envs:
+            return {}
+        with self.transaction() as conn:
+            conn.execute(text(f"SET LOCAL statement_timeout = {int(timeout_ms)}"))
+            rows = conn.execute(text(FINGERPRINTS_SQL),
+                                {"zids": zids, "envs": list(envs)}).mappings().all()
+        return {(int(r["zid"]), str(r["math_env"])): _fingerprint_row(r) for r in rows}
+
+    def promote_bundle(
+        self,
+        zid: int,
+        *,
+        from_env: str,
+        to_env: str,
+        expected_target: Optional[Fingerprint],
+        expected_staged: Fingerprint,
+        timeout_ms: int = 120000,
+        lock_timeout_ms: int = 30000,
+    ) -> int:
+        """Copy the ``from_env`` bundle of ``zid`` into ``to_env`` (this
+        client's own label) as one new publication, or refuse.
+
+        One transaction, modelled on MathWriter.write_conv_updates and the
+        backfill's tie rule: mint the target tick (the upsert row-locks
+        ``(zid, to_env)``, serialising every publication of the target); take
+        the staged label's tick row FOR SHARE (its single writer cannot
+        publish mid-copy; a publication already in progress is waited for);
+        re-read both bundles and compare with what the caller saw (any change
+        -> ``superseded``); require the staged bundle to be complete and valid
+        by VALID_BUNDLE_SQL and newer than the target (``staged_newer``); copy
+        the two companions, then math_main last (its caching_tick allocation
+        stays next to COMMIT); check the target's four ticks. Any refusal
+        raises PromotionRefused and rolls everything back, the tick included.
+        Lock order is fixed (target tick, then staged tick); the staged writer
+        only ever locks its own label's rows. Returns the new math_tick.
+        """
+        if to_env != self.config.math_env:
+            raise ValueError("a promotion writes only this client's own label")
+        if from_env == to_env:
+            raise ValueError("a promotion needs two distinct labels")
+        from polismath.poller.backfill import VALID_BUNDLE_SQL
+
+        params = {"zid": zid, "src": from_env, "dst": to_env}
+        with self.transaction() as conn:
+            conn.execute(text(f"SET LOCAL statement_timeout = {int(timeout_ms)}"))
+            conn.execute(text(f"SET LOCAL lock_timeout = {int(lock_timeout_ms)}"))
+            tick = self.increment_math_tick(zid, connection=conn)
+            conn.execute(text("SELECT 1 FROM math_ticks WHERE zid = :zid AND math_env = :src "
+                              "FOR SHARE"), params)
+            rows = conn.execute(
+                # Validity is read for the staged row only (CASE: the target's
+                # payload is never parsed here).
+                text("SELECT" + _FINGERPRINT_COLUMNS + ", CASE WHEN m.math_env = :src THEN "
+                     + VALID_BUNDLE_SQL + " END AS valid" + _BUNDLE_JOINS
+                     + " WHERE m.zid = :zid AND m.math_env IN (:src, :dst)"),
+                params).mappings().all()
+            found = {str(r["math_env"]): r for r in rows}
+            target = _fingerprint_row(found[to_env]) if to_env in found else None
+            if fingerprint_key(target) != fingerprint_key(expected_target):
+                raise PromotionRefused("superseded")
+            if from_env not in found:
+                raise PromotionRefused("missing_staged")
+            staged = _fingerprint_row(found[from_env])
+            if staged.key() != expected_staged.key():
+                raise PromotionRefused("superseded")
+            if not staged.complete or found[from_env]["valid"] is not True:
+                raise PromotionRefused("invalid_staged")
+            if not staged_newer(staged, target):
+                raise PromotionRefused("not_newer")
+            copy = dict(params, tick=tick)
+            conn.execute(text(COPY_BIDTOPID_SQL), copy)
+            conn.execute(text(COPY_PTPTSTATS_SQL), copy)
+            conn.execute(text(COPY_MAIN_SQL), copy)
+            post = conn.execute(text(PROMOTED_POSTCONDITION_SQL), params).mappings().first()
+            if post is None or {post["main_tick"], post["bid_tick"], post["stats_tick"],
+                                post["ticks_tick"]} != {tick}:
+                raise PromotionRefused("postcondition")
+        logger.info("Promoted math for zid=%s %s -> %s math_tick=%s", zid, from_env, to_env,
+                    tick)
+        return tick
 
     def poll_tasks(
         self, task_type: str, last_timestamp: int = 0, limit: int = 10
