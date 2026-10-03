@@ -204,14 +204,14 @@ Off by default; nothing here changes behaviour until `MATH_CAPACITY_ROUTING=1`. 
 | Service | Role | Label (`math_env`) and lock | Memory limit |
 |---|---|---|---|
 | `math-python` | small poller, the single writer of the served label; routes, writes the manifest, promotes | `MATH_PYTHON_ENV` (`python`) | `DELPHI_POLLER_CONTAINER_MEMORY` (16g) |
-| `math-python-large` (profile `math-python-large`) | large worker (`math-large`): computes only manifest conversations, writes only its own label | `MATH_PYTHON_LARGE_ENV` (`python-large`) | `MATH_LARGE_CONTAINER_MEMORY` (52g) |
+| `math-python-large` (profile `math-python-large`) | large worker (`math-large`): computes only manifest conversations, writes only its own label | `python-large` (a literal, not a setting) | `MATH_LARGE_CONTAINER_MEMORY` (52g) |
 
 - **`MATH_CAPACITY_ROUTING`** (`math-python`, default `0`) `1` sizes each cold touch before computing it and hands a conversation above `MATH_CAPACITY_ROUTE_FRACTION` (0.9; `MATH_CAPACITY_KEEP_FRACTION` 0.7 once routed) of the small compute capacity to the large class. A routed conversation is not computed by the small poller at all, so do not set it without a running large worker. `MATH_CAPACITY_RESIZE_S` (3600) bounds re-sizing; `MATH_CAPACITY_STATE_PATH` (unset) keeps the records across restarts.
 - **`MATH_CAPACITY_PROMOTE`** (`math-python`, default `0`; needs routing) promotes staged `python-large` bundles into `python`.
 - **`MATH_CAPACITY_RESTAGE`** (`math-python`, unset) a 16-64 hex nonce that marks every routed conversation for one rebuild; remove it after use.
-- **`MATH_CAPACITY_MANIFEST_URI`** (both, unset) `s3://<bucket>/<key>` (the client reads `AWS_REGION`, `AWS_S3_ENDPOINT` and the `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` pair, falling through to the instance role when they are empty) or `file:///<path>`. The large worker refuses to start without it.
+- **`MATH_CAPACITY_MANIFEST_URI`** (both, unset) `s3://<bucket>/<key>` (the client reads `AWS_REGION` and `AWS_S3_ENDPOINT` and signs as the instance role: neither poller receives the `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` pair the env document holds for Delphi) or `file:///<path>`. The large worker refuses to start without it.
 - **`MATH_CAPACITY_LARGE_BUDGET_MB`** (both, unset) the large class's budget; the large worker refuses to start if it exceeds 0.85 of its own memory limit.
-- **`MATH_PYTHON_LARGE_ENV`** (both, default `python-large`) the large worker's label and lock, and the label the small poller promotes from. It must differ from `MATH_PYTHON_ENV` and from `prod`.
+- The large worker's label and lock are the literal `python-large` in both services (the label the small poller promotes from), so no env document can point it at a served label; the worker also refuses to start under `prod` or `python`.
 - **`MATH_LARGE_CONTAINER_MEMORY`**, **`MATH_LARGE_WORKER_POOL_SIZE`** (2), **`MATH_LARGE_CONV_CACHE_CAP`** (10), **`MATH_LARGE_CONV_CACHE_MB`** (unset) the large worker's own limit, pool and cache; the small poller's values do not move them.
 
 The large worker pins what it must never take from a shared env document: `MATH_CAPACITY_CLASS=large`, routing, promotion, the nonce, the state path, `MATH_BACKFILL=0`, no sharding and no served-label override. `math-python` pins `MATH_CAPACITY_CLASS=small`.

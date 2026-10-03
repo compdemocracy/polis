@@ -560,8 +560,8 @@ LARGE_PINNED = {
 # Read from their own variables on the large worker (its own label, pool and
 # cache), so the small poller's values never size the large class.
 LARGE_OWN = {
-    "MATH_ENV": "${MATH_PYTHON_LARGE_ENV:-python-large}",
-    "MATH_CAPACITY_STAGED_LABEL": "${MATH_PYTHON_LARGE_ENV:-python-large}",
+    "MATH_ENV": "python-large",
+    "MATH_CAPACITY_STAGED_LABEL": "python-large",
     "MATH_CAPACITY_PROMOTE_INTO": "${MATH_PYTHON_ENV:-python}",
     "MATH_WORKER_POOL_SIZE": "${MATH_LARGE_WORKER_POOL_SIZE:-2}",
     "MATH_CONV_CACHE_CAP": "${MATH_LARGE_CONV_CACHE_CAP:-10}",
@@ -585,7 +585,10 @@ SHARED_DOCUMENT = {
     "MATH_WORKER_POOL_SIZE": "4",
     "MATH_CONV_CACHE_CAP": "200",
 }
-AWS_CLIENT_KEYS = ("AWS_REGION", "AWS_S3_ENDPOINT", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY")
+AWS_CLIENT_KEYS = ("AWS_REGION", "AWS_S3_ENDPOINT")
+# Never forwarded to a poller: the env document carries an IAM user's keys for
+# the delphi service, and the manifest client must sign as the instance role.
+AWS_KEY_PAIR = ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY")
 
 
 def _capacity_keys_read() -> set:
@@ -690,12 +693,14 @@ def test_the_large_worker_starts_under_a_shared_env_document(document):
 @requires_checkout
 @pytest.mark.parametrize("env", [
     {}, {"MATH_ENV": "python"}, {"MATH_PYTHON_ENV": PROBE},
-    {"MATH_PYTHON_LARGE_ENV": "probe-large"}, SHARED_DOCUMENT,
-], ids=["unset", "served-python", "small-label", "large-label", "shared-document"])
+    {"MATH_PYTHON_LARGE_ENV": "python", "MATH_PYTHON_ENV": "python-relabel"}, SHARED_DOCUMENT,
+], ids=["unset", "served-python", "small-label", "large-label-is-not-a-knob", "shared-document"])
 def test_the_two_pollers_never_share_a_label_and_agree_on_the_hand_off(env):
     small = _environment("docker-compose.yml", "math-python", env)
     large = _environment("docker-compose.yml", LARGE, env)
-    # Different labels, hence different single-writer locks.
+    # A literal label, whatever the env document says; different labels,
+    # hence different single-writer locks.
+    assert large["MATH_ENV"] == LARGE_LABEL
     assert large["MATH_ENV"] != small["MATH_ENV"]
     assert large["MATH_ENV"] not in ("prod", "")
     # The small poller promotes from the label the large worker writes, and
@@ -727,14 +732,14 @@ def test_the_large_worker_shares_every_other_setting_with_math_python():
 @pytest.mark.parametrize("service", ["math-python", LARGE])
 def test_the_manifest_client_settings_are_forwarded(service):
     env = _environment("docker-compose.yml", service, {})
-    # Unset credentials stay empty, so the client falls through to the
-    # instance role; the region has the Delphi default.
-    assert {k: env.get(k) for k in AWS_CLIENT_KEYS} == {
-        "AWS_REGION": "us-east-1", "AWS_S3_ENDPOINT": "", "AWS_ACCESS_KEY_ID": "",
-        "AWS_SECRET_ACCESS_KEY": ""}
-    probe = {k: f"probe-{k.lower()}" for k in AWS_CLIENT_KEYS}
-    assert {k: v for k, v in _environment("docker-compose.yml", service, probe).items()
-            if k in AWS_CLIENT_KEYS} == probe
+    assert {k: env.get(k) for k in AWS_CLIENT_KEYS} == {"AWS_REGION": "us-east-1",
+                                                         "AWS_S3_ENDPOINT": ""}
+    probe = {k: f"probe-{k.lower()}" for k in AWS_CLIENT_KEYS + AWS_KEY_PAIR}
+    forwarded = _environment("docker-compose.yml", service, probe)
+    assert {k: forwarded.get(k) for k in AWS_CLIENT_KEYS} == {k: probe[k] for k in AWS_CLIENT_KEYS}
+    # The env document's key pair never reaches a poller: the manifest
+    # client signs as the instance role.
+    assert not set(AWS_KEY_PAIR) & set(forwarded)
 
 
 @requires_checkout

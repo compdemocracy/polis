@@ -320,12 +320,14 @@ it refuses to start.
 `docker-compose.yml` forwards every setting above to `math-python` (which pins
 `MATH_CAPACITY_CLASS=small`) and runs the large worker as its own service,
 `math-python-large`: same image and entrypoint, profile `math-python-large` (so
-`make start`, the dev overlay and `--profile math-python` never run it), label
-`MATH_PYTHON_LARGE_ENV` (`python-large`) for both `MATH_ENV` and the staged label,
+`make start`, the dev overlay and `--profile math-python` never run it),
+the literal label `python-large` for both `MATH_ENV` and the staged label,
 `MATH_CAPACITY_PROMOTE_INTO=${MATH_PYTHON_ENV}`, its own state volume and its own
 memory limit `MATH_LARGE_CONTAINER_MEMORY` (52g). It pins off everything it refuses
 (routing, promotion, the nonce, the state path, backfill, sharding, the served-label
-override), so one shared env document configures both. `docs/configuration.md` lists
+override), so one shared env document configures both. Neither poller receives the
+env document's AWS key pair: the manifest client signs as the instance role.
+`docs/configuration.md` lists
 the knobs; `tests/test_compose_math_env.py` pins the forwarding.
 
 A box whose service type is `delphi-large` starts only `math-python-large`

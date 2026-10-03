@@ -127,14 +127,18 @@ class Stack:
             "POLL_FROM_DAYS_AGO": "10",
         }
         if use_minio:
-            env.update({"AWS_S3_ENDPOINT": "http://minio:9000", "AWS_REGION": "us-east-1",
-                        "AWS_ACCESS_KEY_ID": "minioadmin", "AWS_SECRET_ACCESS_KEY": "minioadmin"})
+            env.update({"AWS_S3_ENDPOINT": "http://minio:9000", "AWS_REGION": "us-east-1"})
         self.env_file = workdir / "parity.env"
         self.env_file.write_text("".join(f"{k}={v}\n" for k, v in env.items()))
         # The override only adapts the stack to a test host: a prebuilt image,
         # a private Postgres port, no dump mount, no published MinIO ports, and
         # (file mode) one volume both pollers see, standing in for the bucket.
         shared = "" if use_minio else "      - parity-capacity:/app/capacity\n"
+        # The pollers never receive the env document's AWS key pair (they
+        # sign as the instance role); local MinIO needs one, so only this
+        # test override gives it to them.
+        minio_keys = ("    environment:\n      - AWS_ACCESS_KEY_ID=minioadmin\n"
+                      "      - AWS_SECRET_ACCESS_KEY=minioadmin\n") if use_minio else ""
         self.override = workdir / "override.yml"
         self.override.write_text(
             "services:\n"
@@ -146,11 +150,13 @@ class Stack:
             f"    image: {image}\n"
             "    pull_policy: never\n"
             "    restart: \"no\"\n"
+            + minio_keys
             + ("    volumes:\n" + shared if shared else "")
             + f"  {LARGE}:\n"
             f"    image: {image}\n"
             "    pull_policy: never\n"
             "    restart: \"no\"\n"
+            + minio_keys
             + ("    volumes:\n" + shared if shared else "")
             + "  minio:\n"
             "    ports: !reset []\n"

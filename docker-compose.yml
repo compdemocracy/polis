@@ -335,16 +335,18 @@ services:
       - MATH_CAPACITY_MANIFEST_URI=${MATH_CAPACITY_MANIFEST_URI:-}
       - MATH_CAPACITY_PROMOTE=${MATH_CAPACITY_PROMOTE:-0}
       - MATH_CAPACITY_RESTAGE=${MATH_CAPACITY_RESTAGE:-}
-      # The large worker's label: one knob for both sides, so the label the
-      # small poller promotes from is always the label math-python-large writes.
-      - MATH_CAPACITY_STAGED_LABEL=${MATH_PYTHON_LARGE_ENV:-python-large}
+      # The large worker's label, a literal on both sides: the label the small
+      # poller promotes from is always the one math-python-large writes, and no
+      # env document can point the large worker at a served label.
+      - MATH_CAPACITY_STAGED_LABEL=python-large
       # The manifest store (an s3:// MATH_CAPACITY_MANIFEST_URI) uses the
-      # existing Delphi client pattern. Empty defaults: unset credentials fall
-      # through to the instance role; AWS_S3_ENDPOINT is MinIO locally only.
+      # existing Delphi client pattern for region and endpoint
+      # (AWS_S3_ENDPOINT is MinIO locally only). The AWS key pair is
+      # deliberately NOT forwarded: the env document carries an IAM user's keys
+      # for the delphi service, and the pollers must sign as the instance role
+      # (the role the manifest bucket is granted to).
       - AWS_REGION=${AWS_REGION:-us-east-1}
       - AWS_S3_ENDPOINT=${AWS_S3_ENDPOINT:-}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
     volumes:
       # Backfill retry/gate/pause/report state across restarts on this host.
       # The database stays the progress record; losing this only re-arms the
@@ -369,7 +371,7 @@ services:
 
   # The large memory class (P-073; role `math-large`): the same image and
   # entrypoint as math-python, run as MATH_CAPACITY_CLASS=large under its own
-  # label (`python-large`), hence its own single-writer lock
+  # literal label (`python-large`), hence its own single-writer lock
   # (polis-math-python:python-large). It computes only the conversations the
   # small poller hands it through the capacity manifest, writes them under its
   # own label and never writes `python`: the small poller promotes the staged
@@ -398,10 +400,10 @@ services:
       - POSTGRES_CONNECT_TIMEOUT=${POSTGRES_CONNECT_TIMEOUT:-30}
       - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
       # Its own label and lock; never the small poller's, never the served one.
-      - MATH_ENV=${MATH_PYTHON_LARGE_ENV:-python-large}
+      - MATH_ENV=python-large
       - MATH_POLLER_ALLOW_SERVED_ENV=
       - MATH_CAPACITY_CLASS=large
-      - MATH_CAPACITY_STAGED_LABEL=${MATH_PYTHON_LARGE_ENV:-python-large}
+      - MATH_CAPACITY_STAGED_LABEL=python-large
       # The small poller's label: what its bundles are promoted into (by the
       # small poller; this worker never writes it).
       - MATH_CAPACITY_PROMOTE_INTO=${MATH_PYTHON_ENV:-python}
@@ -452,11 +454,10 @@ services:
       - MATH_POLLER_INSTANCE_ID=${MATH_POLLER_INSTANCE_ID:-}
       - MATH_POLLER_ALLOW_HOSTNAME_IDENTITY=${MATH_POLLER_ALLOW_HOSTNAME_IDENTITY:-}
       - MATH_POLLER_IMAGE_DIGEST=${MATH_POLLER_IMAGE_DIGEST:-}
-      # The manifest store's client (see math-python).
+      # The manifest store's client (see math-python): region and endpoint
+      # only; it signs as the instance role, never with the env document's keys.
       - AWS_REGION=${AWS_REGION:-us-east-1}
       - AWS_S3_ENDPOINT=${AWS_S3_ENDPOINT:-}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
     volumes:
       # Its own state volume; never the small poller's backfill state.
       - math-large-state:/app/backfill-state
