@@ -72,7 +72,7 @@ def delphi_vote_to_postgres(
 
     Args:
         delphi_vote: Vote value in Delphi convention (+1=agree, -1=disagree, 0=pass)
-        storage_agree_value: the DECLARED raw storage sign of AGREE, -1 or +1;
+        storage_agree_value: the DECLARED raw storage sign of AGREE;
             omitted: the installed ConventionSource's value.
 
     Returns:

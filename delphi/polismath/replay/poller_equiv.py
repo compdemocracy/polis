@@ -518,7 +518,7 @@ def insert_votes(
     sign from the dataset's Delphi (semantic) convention to the DECLARED RAW DB
     convention (module docstring) via
     :func:`polismath.utils.general.delphi_vote_to_postgres` — which reads the
-    declared ``storage_agree_value`` (-1 or +1, defaulting to the installed
+    declared ``storage_agree_value`` (either admissible sign, defaulting to the installed
     ConventionSource's value), never a literal, so a seeded DB and the ingress
     that reads it back cannot disagree about polarity.
 

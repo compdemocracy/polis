@@ -147,9 +147,10 @@ GENERATED_ROWS = [
 
 
 def _expected():
+    # NULL is not a vote: the loader skips it (P-078, one NULL rule).
     return [
-        {**r, "vote": None if r["vote"] is None else semantic_vote(r["vote"], STORAGE_AGREE_VALUE)}
-        for r in GENERATED_ROWS
+        {**r, "vote": semantic_vote(r["vote"], STORAGE_AGREE_VALUE)}
+        for r in GENERATED_ROWS if r["vote"] is not None
     ]
 
 
@@ -174,8 +175,47 @@ def test_former_private_copy_sites_match_the_convention(make):
     module, client = make()
     out = client.get_votes_by_conversation(1)
     assert out == _expected()
-    assert [r["vote"] for r in out] == [SEMANTIC_AGREE, SEMANTIC_DISAGREE, SEMANTIC_PASS, None]
+    assert [r["vote"] for r in out] == [SEMANTIC_AGREE, SEMANTIC_DISAGREE, SEMANTIC_PASS]
     # The private copy is gone and the module routes through the convention.
     assert not hasattr(module, "_postgres_vote_to_delphi")
     assert "* -1" not in inspect.getsource(module)
     assert "load_semantic_votes" in inspect.getsource(module.PostgresClient.get_votes_by_conversation)
+
+
+@pytest.mark.parametrize("make", [_narrative_client, _poller_client], ids=["storage.py", "job_poller.py"])
+def test_delphi_loaders_follow_the_convention_source(make):
+    """The loaders take the sign from the installed ConventionSource, so the
+    row PR-A supplies reaches them without another code change."""
+    other = vc.flipped(STORAGE_AGREE_VALUE)
+    _, client = make()
+    stored = [dict(r, vote=storage_vote(semantic_vote(r["vote"], STORAGE_AGREE_VALUE), other))
+              for r in GENERATED_ROWS if r["vote"] is not None]
+    client.query = lambda sql, params=None: [dict(r) for r in stored]
+    with vc.using_convention_source(vc.RowConventionSource(lambda: (1, other))):
+        out = client.get_votes_by_conversation(1)
+    assert [r["vote"] for r in out] == [SEMANTIC_AGREE, SEMANTIC_DISAGREE, SEMANTIC_PASS]
+
+
+def test_no_other_delphi_module_reads_votes_raw():
+    """The Delphi pipeline's only vote loaders are the two above (one live,
+    one without a caller) and both go through the convention. Two other
+    files match and never interpret the sign: a cold-start fixture generator
+    that copies raw rows to raw rows, and the column-projection gate, which
+    compares the server's served columns as they are."""
+    import pathlib
+    import re
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    pattern = re.compile(r"SELECT[^;]*?\bv?\.?vote\b[^;]*?FROM\s+(?:public\.)?votes(?:_latest_unique)?\b",
+                         re.S | re.I)
+    readers = sorted(
+        str(p.relative_to(root)) for base in ("umap_narrative", "scripts")
+        for p in (root / base).rglob("*.py")
+        if pattern.search(p.read_text(errors="ignore"))
+    )
+    assert readers == [
+        "scripts/generate_cold_start_clojure.py",
+        "scripts/job_poller.py",
+        "scripts/projection_gate.py",
+        "umap_narrative/polismath_commentgraph/utils/storage.py",
+    ], readers

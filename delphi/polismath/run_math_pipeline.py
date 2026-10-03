@@ -125,7 +125,7 @@ def fetch_votes(
     Returns a dictionary containing votes in the format expected by Conversation.
 
     Vote signs are converted at this PostgreSQL boundary, through the DECLARED
-    storage convention (``storage_agree_value``, -1 or +1; omitted, the
+    storage convention (``storage_agree_value``, an admissible sign; omitted, the
     installed ConventionSource's — polismath.utils.vote_convention), never a
     literal. A NULL vote is not a vote and is skipped:
     - PostgreSQL stores: AGREE=storage_agree_value (today -1)
@@ -367,11 +367,11 @@ def main() -> None:
             cursor = conn.cursor()
             # With a vote_convention row, each page reads it in the same
             # statement as its votes, and each row is converted by its own.
-            batch_query = f"""
-            SELECT v.created, v.tid, v.pid, v.vote{', vc.agree_value' if joined else ''}
-            FROM votes v {CONVENTION_JOIN_SQL if joined else ''}
-            WHERE v.zid = %s ORDER BY v.created LIMIT %s OFFSET %s
-            """
+            batch_query = (
+                "SELECT v.created, v.tid, v.pid, v.vote"
+                + (", vc.agree_value FROM votes v " + CONVENTION_JOIN_SQL if joined else " FROM votes v")
+                + " WHERE v.zid = %s ORDER BY v.created LIMIT %s OFFSET %s"
+            )
             cursor.execute(batch_query, (zid, batch_size, offset))
             vote_batch = cursor.fetchall()
             cursor.close()

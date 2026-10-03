@@ -291,8 +291,9 @@ class PostgresClient:
 
         Votes are converted from the raw storage sign to semantic votes
         (+1 agree) by the one vote convention,
-        polismath.utils.vote_convention.load_semantic_votes. A NULL vote stays
-        None, as before.
+        polismath.utils.vote_convention.load_semantic_votes. A NULL vote is
+        not a vote and is skipped. (No caller: the live Delphi loader is
+        umap_narrative/polismath_commentgraph/utils/storage.py.)
 
         Args:
             zid: Conversation ID
@@ -317,7 +318,7 @@ class PostgresClient:
         from polismath.utils.vote_convention import load_semantic_votes
 
         results = self.query(sql, {"zid": zid})
-        return load_semantic_votes(results, null_policy="keep")
+        return load_semantic_votes(results, null_policy="skip")
 
     def get_participants_by_conversation(self, zid: int) -> List[Dict[str, Any]]:
         """
