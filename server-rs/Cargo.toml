@@ -1,0 +1,25 @@
+[package]
+name = "polis-api"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "AGPL-3.0-or-later"
+
+[features]
+characterization = []
+
+[dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+tokio-postgres = "0.7"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+ryu-js = "1"
+url = "2"
+httparse = "1"
+tower = { version = "0.5", features = ["util"] }
+md5 = "0.7"
+base64 = "0.22"
+
+[build-dependencies]
+cc = "1"

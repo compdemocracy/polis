@@ -1,0 +1,1707 @@
+{
+  "baselineSchema": {
+    "passed": 336,
+    "total": 336
+  },
+  "rustSchema": {
+    "passed": 336,
+    "total": 336
+  },
+  "replay": {
+    "matched": 336,
+    "total": 336
+  },
+  "oracleFailures": 0,
+  "keyReorderControl": {
+    "schema": "PASS",
+    "replay": "FAIL",
+    "field": "$.wireBody",
+    "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/keys-pair"
+  },
+  "rows": [
+    {
+      "caseId": "r5/unauthenticated/pca2/f100/env-p027/row-none/tick-0/zero-approved",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/populated",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/conditional-equal",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/conditional-older",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/conditional-newer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/conditional-weak",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/conditional-weak-lower",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/conditional-list",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/conditional-star",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/conditional-conflict",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/keys-pair",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/keys-reverse",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/keys-duplicate",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/keys-unknown",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/keys-empty",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/keys-prototype",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/keys-integer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/keys-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/keys-empty-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/keys-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f101/env-p027/row-p027/tick-1/keys-small-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f102/env-p027/row-p027-other/tick-0/env-mismatch",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f103/env-p027/row-none/tick-0/not-ready-cold",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f103/env-p027/row-none/tick-0/not-ready-warm",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f103/env-p027/row-none/tick-0/not-ready-latest",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f104/env-p027/row-p027/tick-1/cross-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f104/env-p027/row-p027/tick-1/malformed-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f104/env-p027/row-p027/tick-1/missing-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f110/env-p027/row-none/tick-0/zero-approved",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/populated",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/conditional-equal",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/conditional-older",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/conditional-newer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/conditional-weak",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/conditional-weak-lower",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/conditional-list",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/conditional-star",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/conditional-conflict",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/keys-pair",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/keys-reverse",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/keys-duplicate",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/keys-unknown",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/keys-empty",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/keys-prototype",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/keys-integer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/keys-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/keys-empty-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/keys-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f111/env-p027/row-p027/tick-1/keys-small-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f112/env-p027/row-p027-other/tick-0/env-mismatch",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f113/env-p027/row-none/tick-0/not-ready-cold",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f113/env-p027/row-none/tick-0/not-ready-warm",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f113/env-p027/row-none/tick-0/not-ready-latest",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f114/env-p027/row-p027/tick-1/cross-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f114/env-p027/row-p027/tick-1/malformed-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f114/env-p027/row-p027/tick-1/missing-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f120/env-p027/row-none/tick-0/zero-approved",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/populated",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/conditional-equal",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/conditional-older",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/conditional-newer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/conditional-weak",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/conditional-weak-lower",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/conditional-list",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/conditional-star",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/conditional-conflict",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/keys-pair",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/keys-reverse",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/keys-duplicate",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/keys-unknown",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/keys-empty",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/keys-prototype",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/keys-integer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/keys-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/keys-empty-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/keys-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f121/env-p027/row-p027/tick-1/keys-small-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f122/env-p027/row-p027-other/tick-0/env-mismatch",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f123/env-p027/row-none/tick-0/not-ready-cold",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f123/env-p027/row-none/tick-0/not-ready-warm",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f123/env-p027/row-none/tick-0/not-ready-latest",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f124/env-p027/row-p027/tick-1/cross-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f124/env-p027/row-p027/tick-1/malformed-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/unauthenticated/pca2/f124/env-p027/row-p027/tick-1/missing-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f200/env-p027/row-none/tick-0/zero-approved",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/populated",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/conditional-equal",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/conditional-older",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/conditional-newer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/conditional-weak",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/conditional-weak-lower",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/conditional-list",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/conditional-star",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/conditional-conflict",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/keys-pair",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/keys-reverse",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/keys-duplicate",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/keys-unknown",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/keys-empty",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/keys-prototype",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/keys-integer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/keys-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/keys-empty-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/keys-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f201/env-p027/row-p027/tick-1/keys-small-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f202/env-p027/row-p027-other/tick-0/env-mismatch",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f203/env-p027/row-none/tick-0/not-ready-cold",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f203/env-p027/row-none/tick-0/not-ready-warm",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f203/env-p027/row-none/tick-0/not-ready-latest",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f204/env-p027/row-p027/tick-1/cross-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f204/env-p027/row-p027/tick-1/malformed-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f204/env-p027/row-p027/tick-1/missing-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f210/env-p027/row-none/tick-0/zero-approved",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/populated",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/conditional-equal",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/conditional-older",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/conditional-newer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/conditional-weak",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/conditional-weak-lower",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/conditional-list",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/conditional-star",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/conditional-conflict",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/keys-pair",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/keys-reverse",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/keys-duplicate",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/keys-unknown",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/keys-empty",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/keys-prototype",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/keys-integer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/keys-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/keys-empty-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/keys-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f211/env-p027/row-p027/tick-1/keys-small-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f212/env-p027/row-p027-other/tick-0/env-mismatch",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f213/env-p027/row-none/tick-0/not-ready-cold",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f213/env-p027/row-none/tick-0/not-ready-warm",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f213/env-p027/row-none/tick-0/not-ready-latest",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f214/env-p027/row-p027/tick-1/cross-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f214/env-p027/row-p027/tick-1/malformed-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f214/env-p027/row-p027/tick-1/missing-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f220/env-p027/row-none/tick-0/zero-approved",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/populated",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/conditional-equal",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/conditional-older",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/conditional-newer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/conditional-weak",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/conditional-weak-lower",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/conditional-list",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/conditional-star",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/conditional-conflict",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/keys-pair",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/keys-reverse",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/keys-duplicate",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/keys-unknown",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/keys-empty",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/keys-prototype",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/keys-integer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/keys-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/keys-empty-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/keys-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f221/env-p027/row-p027/tick-1/keys-small-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f222/env-p027/row-p027-other/tick-0/env-mismatch",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f223/env-p027/row-none/tick-0/not-ready-cold",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f223/env-p027/row-none/tick-0/not-ready-warm",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f223/env-p027/row-none/tick-0/not-ready-latest",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f224/env-p027/row-p027/tick-1/cross-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f224/env-p027/row-p027/tick-1/malformed-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/participant/pca2/f224/env-p027/row-p027/tick-1/missing-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f300/env-p027/row-none/tick-0/zero-approved",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/populated",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/conditional-equal",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/conditional-older",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/conditional-newer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/conditional-weak",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/conditional-weak-lower",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/conditional-list",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/conditional-star",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/conditional-conflict",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/keys-pair",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/keys-reverse",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/keys-duplicate",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/keys-unknown",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/keys-empty",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/keys-prototype",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/keys-integer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/keys-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/keys-empty-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/keys-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f301/env-p027/row-p027/tick-1/keys-small-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f302/env-p027/row-p027-other/tick-0/env-mismatch",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f303/env-p027/row-none/tick-0/not-ready-cold",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f303/env-p027/row-none/tick-0/not-ready-warm",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f303/env-p027/row-none/tick-0/not-ready-latest",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f304/env-p027/row-p027/tick-1/cross-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f304/env-p027/row-p027/tick-1/malformed-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f304/env-p027/row-p027/tick-1/missing-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f310/env-p027/row-none/tick-0/zero-approved",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/populated",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/conditional-equal",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/conditional-older",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/conditional-newer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/conditional-weak",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/conditional-weak-lower",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/conditional-list",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/conditional-star",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/conditional-conflict",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/keys-pair",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/keys-reverse",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/keys-duplicate",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/keys-unknown",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/keys-empty",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/keys-prototype",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/keys-integer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/keys-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/keys-empty-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/keys-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f311/env-p027/row-p027/tick-1/keys-small-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f312/env-p027/row-p027-other/tick-0/env-mismatch",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f313/env-p027/row-none/tick-0/not-ready-cold",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f313/env-p027/row-none/tick-0/not-ready-warm",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f313/env-p027/row-none/tick-0/not-ready-latest",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f314/env-p027/row-p027/tick-1/cross-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f314/env-p027/row-p027/tick-1/malformed-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f314/env-p027/row-p027/tick-1/missing-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f320/env-p027/row-none/tick-0/zero-approved",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/populated",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/conditional-equal",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/conditional-older",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/conditional-newer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/conditional-weak",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/conditional-weak-lower",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/conditional-list",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/conditional-star",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/conditional-conflict",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/keys-pair",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/keys-reverse",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/keys-duplicate",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/keys-unknown",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/keys-empty",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/keys-prototype",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/keys-integer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/keys-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/keys-empty-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/keys-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f321/env-p027/row-p027/tick-1/keys-small-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f322/env-p027/row-p027-other/tick-0/env-mismatch",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f323/env-p027/row-none/tick-0/not-ready-cold",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f323/env-p027/row-none/tick-0/not-ready-warm",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f323/env-p027/row-none/tick-0/not-ready-latest",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f324/env-p027/row-p027/tick-1/cross-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f324/env-p027/row-p027/tick-1/malformed-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/owner/pca2/f324/env-p027/row-p027/tick-1/missing-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f400/env-p027/row-none/tick-0/zero-approved",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/populated",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/conditional-equal",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/conditional-older",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/conditional-newer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/conditional-weak",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/conditional-weak-lower",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/conditional-list",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/conditional-star",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/conditional-conflict",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/keys-pair",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/keys-reverse",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/keys-duplicate",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/keys-unknown",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/keys-empty",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/keys-prototype",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/keys-integer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/keys-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/keys-empty-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/keys-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f401/env-p027/row-p027/tick-1/keys-small-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f402/env-p027/row-p027-other/tick-0/env-mismatch",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f403/env-p027/row-none/tick-0/not-ready-cold",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f403/env-p027/row-none/tick-0/not-ready-warm",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f403/env-p027/row-none/tick-0/not-ready-latest",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f404/env-p027/row-p027/tick-1/cross-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f404/env-p027/row-p027/tick-1/malformed-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f404/env-p027/row-p027/tick-1/missing-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f410/env-p027/row-none/tick-0/zero-approved",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/populated",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/conditional-equal",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/conditional-older",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/conditional-newer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/conditional-weak",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/conditional-weak-lower",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/conditional-list",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/conditional-star",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/conditional-conflict",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/keys-pair",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/keys-reverse",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/keys-duplicate",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/keys-unknown",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/keys-empty",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/keys-prototype",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/keys-integer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/keys-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/keys-empty-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/keys-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f411/env-p027/row-p027/tick-1/keys-small-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f412/env-p027/row-p027-other/tick-0/env-mismatch",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f413/env-p027/row-none/tick-0/not-ready-cold",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f413/env-p027/row-none/tick-0/not-ready-warm",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f413/env-p027/row-none/tick-0/not-ready-latest",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f414/env-p027/row-p027/tick-1/cross-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f414/env-p027/row-p027/tick-1/malformed-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f414/env-p027/row-p027/tick-1/missing-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f420/env-p027/row-none/tick-0/zero-approved",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/populated",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/conditional-equal",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/conditional-older",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/conditional-newer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/conditional-weak",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/conditional-weak-lower",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/conditional-list",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/conditional-star",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/conditional-conflict",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/keys-pair",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/keys-reverse",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/keys-duplicate",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/keys-unknown",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/keys-empty",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/keys-prototype",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/keys-integer",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/keys-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/keys-empty-array",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/keys-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f421/env-p027/row-p027/tick-1/keys-small-gzip",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f422/env-p027/row-p027-other/tick-0/env-mismatch",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f423/env-p027/row-none/tick-0/not-ready-cold",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f423/env-p027/row-none/tick-0/not-ready-warm",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f423/env-p027/row-none/tick-0/not-ready-latest",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f424/env-p027/row-p027/tick-1/cross-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f424/env-p027/row-p027/tick-1/malformed-capability",
+      "difference": null,
+      "schemaError": null
+    },
+    {
+      "caseId": "r5/moderator/pca2/f424/env-p027/row-p027/tick-1/missing-capability",
+      "difference": null,
+      "schemaError": null
+    }
+  ],
+  "limitations": [
+    "Node dispatch markers disabled via pinned comparator switch",
+    "Outbound/filesystem absence is source capability inspection plus child lifecycle and runtime-directory observation, not syscall interception"
+  ]
+}

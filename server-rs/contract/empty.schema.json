@@ -1,0 +1,189 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "P-032 provisional empty-math decoded PCA only \u2014 not an admitted general PCA contract",
+  "type": "object",
+  "required": [
+    "group-clusters",
+    "base-clusters",
+    "group-votes",
+    "group-aware-consensus",
+    "user-vote-counts",
+    "in-conv",
+    "n-cmts",
+    "pca",
+    "tids",
+    "n",
+    "repness",
+    "consensus",
+    "votes-base",
+    "lastModTimestamp",
+    "lastVoteTimestamp",
+    "comment-priorities",
+    "math_tick"
+  ],
+  "properties": {
+    "group-clusters": {
+      "type": "array",
+      "maxItems": 0,
+      "items": false
+    },
+    "base-clusters": {
+      "type": "object",
+      "required": [
+        "x",
+        "y",
+        "id",
+        "count",
+        "members"
+      ],
+      "properties": {
+        "x": {
+          "type": "array",
+          "maxItems": 0,
+          "items": false
+        },
+        "y": {
+          "type": "array",
+          "maxItems": 0,
+          "items": false
+        },
+        "id": {
+          "type": "array",
+          "maxItems": 0,
+          "items": false
+        },
+        "count": {
+          "type": "array",
+          "maxItems": 0,
+          "items": false
+        },
+        "members": {
+          "type": "array",
+          "maxItems": 0,
+          "items": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "group-votes": {
+      "type": "object",
+      "maxProperties": 0,
+      "additionalProperties": false
+    },
+    "group-aware-consensus": {
+      "type": "object",
+      "maxProperties": 0,
+      "additionalProperties": false
+    },
+    "user-vote-counts": {
+      "type": "object",
+      "maxProperties": 0,
+      "additionalProperties": false
+    },
+    "in-conv": {
+      "type": "array",
+      "maxItems": 0,
+      "items": false
+    },
+    "n-cmts": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "pca": {
+      "type": "object",
+      "required": [
+        "comps",
+        "center",
+        "comment-extremity",
+        "comment-projection"
+      ],
+      "properties": {
+        "comps": {
+          "const": [
+            [],
+            []
+          ]
+        },
+        "center": {
+          "const": [
+            0,
+            0
+          ]
+        },
+        "comment-extremity": {
+          "type": "array",
+          "items": {
+            "const": 0
+          }
+        },
+        "comment-projection": {
+          "type": "object",
+          "maxProperties": 0,
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "tids": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "n": {
+      "type": "integer",
+      "const": 0
+    },
+    "repness": {
+      "type": "object",
+      "maxProperties": 0,
+      "additionalProperties": false
+    },
+    "consensus": {
+      "type": "object",
+      "required": [
+        "agree",
+        "disagree"
+      ],
+      "properties": {
+        "agree": {
+          "type": "array",
+          "maxItems": 0,
+          "items": false
+        },
+        "disagree": {
+          "type": "array",
+          "maxItems": 0,
+          "items": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "votes-base": {
+      "type": "object",
+      "maxProperties": 0,
+      "additionalProperties": false
+    },
+    "lastModTimestamp": {
+      "type": "null"
+    },
+    "lastVoteTimestamp": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "comment-priorities": {
+      "type": "object",
+      "maxProperties": 0,
+      "additionalProperties": false
+    },
+    "math_tick": {
+      "type": "integer",
+      "const": 0
+    }
+  },
+  "additionalProperties": false
+}
