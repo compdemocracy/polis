@@ -26,7 +26,7 @@ import threading
 import time
 
 from unflip_rehearsal import (ENGINE_LABEL, GUARD_SQLSTATE, SERVER_MAJOR, WALL_BUDGET_SECONDS, digest, empty_state,
-                              encoded, migration_body, parse_queries, restore_shape, validate_run_spec)
+                              encoded, migration_body, parse_queries, restore_shape, validate_run_spec, zid_key)
 
 # The monitor's sampling cadence during the migration (pg_locks waiters).
 SAMPLE_SECONDS = 1.0
@@ -129,12 +129,19 @@ def preflight(copy, state, spec, *, ddl, migration, queries):
             pf['snapshot_age_s'] = round(max(0, int(now_ms) - spec['snapshot_created_ms']) / 1000, 3)
             if pf['snapshot_age_s'] > spec['max_snapshot_age_seconds']:
                 refuse(state, 'SNAPSHOT_STALE')
-            (used,) = copy.one(cur, 'database_bytes')
-            # The copy's observed allocation (restore step), never below zero.
-            allocated = spec['restore_observed']['allocated_storage_gb']
-            pf['free_storage_gb'] = round(max(0.0, allocated - int(used) / GIB), 3)
-            if pf['free_storage_gb'] < spec['min_free_storage_gb']:
+            # Headroom = the copy's observed allocation minus every database
+            # and the WAL directory, never below zero; min_free_storage_gb is the
+            # margin for the flip's new heap, index and WAL. Unobservable is a refusal.
+            try:
+                databases, wal = copy.one(cur, 'storage_bytes')
+            except Exception:
                 refuse(state, 'STORAGE_HEADROOM')
+            else:
+                allocated = spec['restore_observed']['allocated_storage_gb']
+                used = int(databases) + int(wal)
+                pf['free_storage_gb'] = round(max(0.0, allocated - used / GIB), 3)
+                if pf['free_storage_gb'] < spec['min_free_storage_gb']:
+                    refuse(state, 'STORAGE_HEADROOM')
             if stopped(state):
                 return state
             current = convention_state(copy, cur)
@@ -210,10 +217,6 @@ def snapshot(copy, fn):
             conn.rollback()
         finally:
             conn.close()
-
-
-def zid_key(zid):
-    return digest(str(int(zid)).encode())
 
 
 def select_zids(copy, spec):

@@ -198,7 +198,7 @@ def render_queries(raw: bytes) -> str:
 
 
 REQUIRED_QUERIES = frozenset({
-    'session', 'objects', 'convention', 'unflip_ledger', 'database_bytes', 'raw_counts', 'totals',
+    'session', 'objects', 'convention', 'unflip_ledger', 'storage_bytes', 'raw_counts', 'totals',
     'aggregates_votes', 'aggregates_latest', 'participant_hashes', 'sizes', 'wal_lsn', 'wal_since', 'backend',
     'lock_sample', 'cancel_backend', 'certification', 'certification_handles', 'sample', 'insert_target', 'insert_roundtrip',
     'insert_readback', 'engine_rows', 'engine_clear', 'restore_detection'})
@@ -460,10 +460,40 @@ def compare(pre, post):
     return 'PASS' if pre == post else 'FAIL'
 
 
-def compare_cases(pre, post):
-    if not pre and not post:
+def compare_cases(pre, post, expected):
+    """PASS only when both legs hold exactly the expected case inventory and
+    every case matches: an omission on one leg or on both is a FAIL."""
+    if expected is None:
         return 'NOT_COLLECTED'
-    return 'PASS' if pre and pre == post else 'FAIL'
+    pre, post = pre or {}, post or {}
+    if not expected or set(pre) != expected or set(post) != expected:
+        return 'FAIL'
+    return 'PASS' if pre == post else 'FAIL'
+
+
+def zid_key(zid):
+    return digest(str(int(zid)).encode())
+
+
+def inventories(state, spec):
+    """The case keys each leg must hold, from the reader's selection (box-local
+    zids): one pca2 case and one export per certification conversation, one
+    math case per sampled conversation. None when no selection was made;
+    empty sets (so every case assertion FAILs) when the selection is not the
+    size the job asked for."""
+    z = state.get('zids')
+    if z is None:
+        return None
+    if (type(z) is not dict or set(z) != {'certification', 'sample'}
+            or any(type(z[k]) is not list or any(type(x) is not int for x in z[k]) for k in z)):
+        fail('UNFLIP_STATE')
+    cert, sample = z['certification'], z['sample']
+    if (len(cert) != spec['certification_conversations'] or len(set(cert)) != len(cert)
+            or len(sample) != spec['sample_conversations'] or len(set(sample)) != len(sample)
+            or not set(cert) <= set(sample)):
+        return {'pca2': set(), 'exports': set(), 'math': set()}
+    keys = {str(i) for i in range(len(cert))}
+    return {'pca2': keys, 'exports': keys, 'math': {zid_key(x) for x in sample}}
 
 
 def section(rec, cases):
@@ -479,7 +509,7 @@ def section(rec, cases):
             'lsn_before_sha256': rec['lsn_before_sha256']}
 
 
-def assertions(state, mode):
+def assertions(state, mode, spec):
     pre, post = state.get('pre'), state.get('post')
     pre_cases, post_cases = state.get('pre_cases') or {}, state.get('post_cases') or {}
     out = dict.fromkeys(ASSERTIONS, 'NOT_COLLECTED')
@@ -489,8 +519,10 @@ def assertions(state, mode):
         out['hashes'] = compare((pre['hashes_sha256'], pre['participants']),
                                 (post['hashes_sha256'], post['participants']))
     if mode == 'flip' and post is not None:
+        expected = inventories(state, spec)
         for name in ('pca2', 'math', 'exports'):
-            out[name] = compare_cases(pre_cases.get(name), post_cases.get(name))
+            out[name] = compare_cases(pre_cases.get(name), post_cases.get(name),
+                                      None if expected is None else expected[name])
     convention = state.get('convention_after')
     if convention is not None:
         out['convention_version'] = 'PASS' if tuple(convention) == ((1, 1) if mode == 'flip' else (0, -1)) else 'FAIL'
@@ -582,7 +614,7 @@ def build_receipt(state, job):
          'migrate': state['migrate'],
          'rerun_refused': rerun['refused'], 'rerun_sqlstate_class': rerun['sqlstate_class'],
          'post': section(state['post'], state['post_cases'] if mode == 'flip' else {}),
-         'assertions': assertions(state, mode),
+         'assertions': assertions(state, mode, spec),
          'restore_rule': state['restore_rule'] if mode == 'flip' else 'NOT_RUN',
          'refusals': sorted(set(state['refusals'])), 'cleanup_confirmed': False}
     r['verdict'] = expected_verdict(r, spec)

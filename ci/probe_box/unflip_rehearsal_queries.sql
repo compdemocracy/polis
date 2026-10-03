@@ -30,10 +30,15 @@ SELECT version, agree_value FROM public.vote_convention WHERE singleton;
 SELECT count(*)::bigint AS unflip_rows FROM public.schema_migrations
  WHERE pg_catalog.right(name, 17) = '_vote_sign_unflip';
 
--- name: database_bytes
-SELECT coalesce(sum(pg_catalog.pg_database_size(d.datname)), 0)::bigint AS bytes
-  FROM pg_catalog.pg_database d
- WHERE d.datallowconn AND pg_catalog.has_database_privilege(d.datname, 'CONNECT');
+-- name: storage_bytes
+-- Used storage on the copy: every database the session may size plus the WAL
+-- directory (pg_ls_waldir needs pg_monitor, which RDS's rds_superuser holds).
+-- An estimate of the instance's used disk; the rehearsal refuses when it
+-- cannot be read.
+SELECT (SELECT coalesce(sum(pg_catalog.pg_database_size(d.datname)), 0)
+          FROM pg_catalog.pg_database d
+         WHERE d.datallowconn AND pg_catalog.has_database_privilege(d.datname, 'CONNECT'))::bigint AS databases,
+       (SELECT coalesce(sum(w.size), 0) FROM pg_catalog.pg_ls_waldir() w)::bigint AS wal;
 
 -- name: raw_counts (day)
 SELECT 'votes'::text AS t, v.vote::int AS vote, count(*)::bigint AS n FROM public.votes v GROUP BY v.vote
@@ -123,11 +128,18 @@ SELECT (SELECT s.semantic_vote::int FROM public.votes_semantic s
          WHERE u.zid = %(zid)s AND u.pid = %(pid)s AND u.tid = %(tid)s) AS latest;
 
 -- name: engine_rows
-SELECT m.zid, pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(m.data::text, 'UTF8')), 'hex') AS digest
+-- The blob's own math_tick is engine-local wall-clock (the server overwrites it
+-- from the column); it is dropped from the digest, as in the engine-rebuild tool.
+SELECT m.zid, pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to((m.data - 'math_tick')::text, 'UTF8')), 'hex') AS digest
   FROM public.math_main m WHERE m.math_env = %(label)s AND m.zid = ANY(%(zids)s) ORDER BY m.zid;
 
 -- name: engine_clear
+-- Every table the engine publishes under its label, so each rebuild mints the
+-- same ticks (math_ticks restarts) and pre/post served pca2 are comparable.
 DELETE FROM public.math_main WHERE math_env = %(label)s;
+DELETE FROM public.math_bidtopid WHERE math_env = %(label)s;
+DELETE FROM public.math_ptptstats WHERE math_env = %(label)s;
+DELETE FROM public.math_ticks WHERE math_env = %(label)s;
 
 -- name: restore_detection (day)
 SELECT CASE

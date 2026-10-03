@@ -88,8 +88,10 @@ def passing_state(mode='flip'):
                     'counts_mirrored': True, 'vacuum_s': 1.5 if mode == 'flip' else None}
     s['rerun'] = {'refused': True, 'sqlstate_class': 'P0'}
     if mode == 'flip':
+        # The selection the reader made (box-local) and one case per selected item.
+        s['zids'] = {'certification': [101, 102], 'sample': [101, 102, 103, 104, 105, 106]}
         cases = {'pca2': {'0': '8' * 64, '1': '9' * 64}, 'exports': {'0': 'a' * 64, '1': 'b' * 64},
-                 'math': {'c' * 64: 'd' * 64}}
+                 'math': {u.zid_key(z): 'd' * 64 for z in s['zids']['sample']}}
         s['pre_cases'], s['post_cases'] = copy.deepcopy(cases), copy.deepcopy(cases)
         s['convention_after'] = [1, 1]
         s['insert_roundtrip'] = 'PASS'
@@ -188,7 +190,8 @@ class Queries(unittest.TestCase):
             self.assertNotIn('%', re.sub(r'%\([a-z_]+\)s', '', sql), name)
             writes = re.search(r'\b(INSERT|UPDATE|DELETE|ALTER|DROP|CREATE|TRUNCATE)\b', sql)
             if name == 'engine_clear':
-                self.assertEqual(sql, 'DELETE FROM public.math_main WHERE math_env = %(label)s;')
+                self.assertEqual(sql.split('\n'), [f'DELETE FROM public.{t} WHERE math_env = %(label)s;' for t in
+                                                    ('math_main', 'math_bidtopid', 'math_ptptstats', 'math_ticks')])
             else:
                 self.assertIsNone(writes, name)
 
@@ -321,6 +324,26 @@ class Receipt(unittest.TestCase):
             self.assertEqual(r['verdict'], 'REFUSE', name)
             self.assertFalse(receipt_passed(r, j), name)
 
+    def test_case_inventory_must_be_complete_on_both_legs(self):
+        j = job()
+        for name, key in (('pca2', '1'), ('exports', '0'), ('math', u.zid_key(104))):
+            for legs in (('pre_cases',), ('post_cases',), ('pre_cases', 'post_cases')):
+                with self.subTest(case=name, legs=legs):
+                    s = passing_state()
+                    for leg in legs:
+                        del s[leg][name][key]
+                    r = u.build_receipt(s, j)
+                    self.assertEqual((r['assertions'][name], r['verdict']), ('FAIL', 'REFUSE'))
+        # A selection smaller than the job asked for fails every case assertion.
+        for change in ({'certification': [101], 'sample': [101, 102, 103, 104, 105, 106]},
+                       {'certification': [101, 102], 'sample': [101, 102, 103]},
+                       {'certification': [101, 107], 'sample': [101, 102, 103, 104, 105, 106]}):
+            s = passing_state()
+            s['zids'] = change
+            r = u.build_receipt(s, j)
+            self.assertEqual({r['assertions'][k] for k in ('pca2', 'math', 'exports')}, {'FAIL'}, change)
+            self.assertEqual(r['verdict'], 'REFUSE')
+
     def test_restore_shape_and_rule_by_configuration(self):
         observed = dict(spec()['restore_observed'], instance_class='db.t3.medium')
         r = u.build_receipt(passing_state(), job(restore_observed=observed))
@@ -403,6 +426,7 @@ class BoxState(unittest.TestCase):
         s = passing_state()
         math_cases = s['pre_cases'].pop('math')
         s['post_cases'].pop('math')
+        self.assertEqual(len(math_cases), 6)
         r = image_verifier.verify(s, [{'which': 'pre', 'math': math_cases, 'refusals': []},
                                       {'which': 'post', 'math': math_cases, 'refusals': []}], job())
         self.assertEqual((r['verdict'], r['assertions']['math']), ('PASS', 'PASS'))
@@ -413,6 +437,17 @@ class BoxState(unittest.TestCase):
                     {'which': 'pre', 'math': {}, 'refusals': ['free text']}, {'which': 'pre', 'math': {}}):
             with self.assertRaises(ValueError):
                 u.merge_engine(passing_state(), bad)
+
+    def test_pca2_digest_ignores_ticks_and_etag_only(self):
+        import gzip
+        body = {'pca': {'comps': [[0.5]]}, 'math_tick': 7, 'caching_tick': 3, 'lastVoteTimestamp': 1}
+        base = image_reader.pca2_digest(200, json.dumps(body).encode())
+        later = dict(body, math_tick=8, caching_tick=4)
+        self.assertEqual(image_reader.pca2_digest(200, json.dumps(later, indent=1).encode()), base)
+        self.assertEqual(image_reader.pca2_digest(200, gzip.compress(json.dumps(later).encode()), 'gzip'), base)
+        for changed in (dict(body, pca={'comps': [[-0.5]]}), dict(body, lastVoteTimestamp=2)):
+            self.assertNotEqual(image_reader.pca2_digest(200, json.dumps(changed).encode()), base)
+        self.assertNotEqual(image_reader.pca2_digest(304, json.dumps(body).encode()), base)
 
     def test_image_actions_are_closed(self):
         for module, action in ((image_reader, 'read'), (image_producer, 'produce'), (image_verifier, 'verify')):
@@ -851,10 +886,14 @@ class StepMachine(unittest.TestCase):
         with admin.cursor() as cur:
             cur.execute("SELECT current_database() = 'probe_test' AND current_setting('is_superuser') = 'on'")
             assert cur.fetchone()[0], 'refusing a non-disposable database'
+            cur.execute(f"DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{MASTER}') THEN "
+                        f"GRANT pg_monitor TO {MASTER}; END IF; END $$")
             cur.execute("SELECT 1 FROM pg_database WHERE datname = 'unflip_base'")
             if cur.fetchone() is None:
                 cur.execute(f"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{MASTER}') THEN "
                             f"CREATE ROLE {MASTER} LOGIN NOSUPERUSER PASSWORD '{MASTER_PASSWORD}'; END IF; END $$")
+                # RDS's rds_superuser holds pg_monitor (the WAL size read needs it).
+                cur.execute(f'GRANT pg_monitor TO {MASTER}')
                 cur.execute('CREATE DATABASE unflip_build')
                 build = psycopg2.connect(cls.url('unflip_build', 'postgres'))
                 build.autocommit = True
@@ -924,11 +963,14 @@ class StepMachine(unittest.TestCase):
                         return semantic_cases(cur, zids, raw=True)
                     out = {}
                     for i, zid in enumerate(zids):
-                        cur.execute("SELECT data::text FROM math_main WHERE zid = %s AND math_env = 'probe'", (zid,))
+                        # As the route serves it: the blob with the column ticks laid over it.
+                        cur.execute("SELECT m.data, m.math_tick, t.math_tick FROM math_main m JOIN math_ticks t "
+                                    "USING (zid, math_env) WHERE m.zid = %s AND m.math_env = 'probe'", (zid,))
                         row = cur.fetchone()
                         if row is None:
                             raise RuntimeError('no rebuild under the label')
-                        out[str(i)] = hashlib.sha256(row[0].encode()).hexdigest()
+                        served = dict(row[0], math_tick=row[2], caching_tick=row[1])
+                        out[str(i)] = image_reader.pca2_digest(200, json.dumps(served).encode())
                     return out
             finally:
                 conn.close()
@@ -952,8 +994,14 @@ class StepMachine(unittest.TestCase):
                 with conn.cursor() as cur:
                     for zid in zids:
                         blob = semantic_cases(cur, [zid], raw=raw)['0']
-                        cur.execute("INSERT INTO math_main (zid, math_env, data, last_vote_timestamp) "
-                                    "VALUES (%s, %s, %s, 0)", (zid, label, json.dumps({'counts': blob})))
+                        # Like the engine: an in-blob wall-clock math_tick and a minted column tick.
+                        cur.execute("INSERT INTO math_ticks (zid, math_env, math_tick) VALUES (%s, %s, 1) "
+                                    "ON CONFLICT (zid, math_env) DO UPDATE SET math_tick = math_ticks.math_tick + 1 "
+                                    "RETURNING math_tick", (zid, label))
+                        (tick,) = cur.fetchone()
+                        cur.execute("INSERT INTO math_main (zid, math_env, data, last_vote_timestamp, math_tick) "
+                                    "VALUES (%s, %s, %s, 0, %s)",
+                                    (zid, label, json.dumps({'counts': blob, 'math_tick': time.time_ns()}), tick))
             finally:
                 conn.close()
         return rebuild
@@ -1185,6 +1233,30 @@ class StepMachine(unittest.TestCase):
             db = self.clone()
             state = steps.rehearse(self.connector(db), spec(), ddl=DDL, migration=MIGRATION, queries=QUERIES)
             self.assertEqual(state['refusals'], ['SERVER_VERSION'])
+
+    def test_storage_headroom_counts_wal_and_refuses_when_unobservable(self):
+        db = self.clone()
+        q = u.parse_queries(QUERIES)
+        conn = self.psycopg2.connect(self.url(db))
+        try:
+            with conn.cursor() as cur:
+                cur.execute(q['storage_bytes'][0])
+                databases, wal = cur.fetchone()
+                cur.execute('SELECT pg_database_size(current_database())')
+                (current,) = cur.fetchone()
+        finally:
+            conn.close()
+        self.assertGreater(wal, 0)
+        self.assertGreater(databases, current)     # every database, not only this one
+        with self.admin.cursor() as cur:
+            cur.execute(f'REVOKE pg_monitor FROM {MASTER}')
+        try:
+            state = steps.rehearse(self.connector(db), spec(), ddl=DDL, migration=MIGRATION, queries=QUERIES)
+        finally:
+            with self.admin.cursor() as cur:
+                cur.execute(f'GRANT pg_monitor TO {MASTER}')
+        self.assertEqual(state['refusals'], ['STORAGE_HEADROOM'])
+        self.assertIsNone(state['preflight']['free_storage_gb'])
 
     def test_convention_state_and_certification_refusals(self):
         db = self.clone()

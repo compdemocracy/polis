@@ -131,6 +131,27 @@ class Server:
             self.p.kill()
 
 
+# Served pca2 carries the column ticks (server/src/utils/pca.ts); they and the
+# ETag derived from them are not semantic and are stripped before comparing.
+PCA2_TICK_FIELDS = ('math_tick', 'caching_tick')
+
+
+def pca2_digest(status, body: bytes, content_encoding=None):
+    """Status and the pca2 body as canonical JSON without the tick fields; no ETag."""
+    import gzip
+    if content_encoding == 'gzip':
+        body = gzip.decompress(body)
+    doc = json.loads(body)
+    if isinstance(doc, dict):
+        doc = {k: v for k, v in doc.items() if k not in PCA2_TICK_FIELDS}
+    return hashlib.sha256(f'{status}\n'.encode() + u.encoded(doc)).hexdigest()
+
+
+def fetch_pca2(path):
+    with urllib.request.urlopen(f'http://127.0.0.1:{SERVER_PORT}{path}', timeout=120) as r:
+        return pca2_digest(r.status, r.read(), r.headers.get('Content-Encoding'))
+
+
 def fetch(path):
     with urllib.request.urlopen(f'http://127.0.0.1:{SERVER_PORT}{path}', timeout=120) as r:
         body = r.read()
@@ -155,7 +176,7 @@ def loopback_collectors(connect, queries):
 
     def served(phase, zids):
         with Server():
-            return {str(i): fetch('/api/v3/math/pca2?conversation_id=' + zinvite)
+            return {str(i): fetch_pca2('/api/v3/math/pca2?conversation_id=' + zinvite)
                     for i, (_, zinvite, _) in enumerate(handles(zids))}
 
     def exports(phase, zids):

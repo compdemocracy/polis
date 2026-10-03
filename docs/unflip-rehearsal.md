@@ -143,7 +143,11 @@ reader and producer containers run them in turn
    - the session is not a superuser;
    - the snapshot age;
    - the restore shape (class, storage type and size);
-   - free storage against `min_free_storage_gb`.
+   - free storage against `min_free_storage_gb`. Free storage is an estimate:
+     the copy's observed allocation minus every database and the WAL
+     directory (`pg_ls_waldir`, which needs `pg_monitor`). If it cannot be
+     read, the run refuses. `min_free_storage_gb` is the margin for the flip's
+     new heap, index and WAL.
 2. **PR-A's DDL**, only if the copy predates it. The convention must then
    read version 0 / agree -1, with no un-flip row in the ledger.
 3. **PRE.** Recorded in one repeatable-read snapshot:
@@ -157,7 +161,12 @@ reader and producer containers run them in turn
      `probe` (producer phase `engine-pre`);
    - then served pca2 bytes for the certification conversations, from a
      loopback server running with `MATH_ENV=probe`, so pca2 reflects the cold
-     rebuild rather than the stored rows (reader phase `served-pre`).
+     rebuild rather than the stored rows (reader phase `served-pre`). Each
+     rebuild first clears the label's `math_main`, `math_bidtopid`,
+     `math_ptptstats` and `math_ticks` rows, so both sides mint the same
+     ticks. The comparison drops `math_tick`, `caching_tick` and the ETag from
+     the pca2 bodies, and drops the blob's engine-local `math_tick` from the
+     `math_main` digest.
 4. **MIGRATE.**
    - `flip` runs the held file and commits it.
    - `dry` runs its body inside a transaction and rolls it back.
@@ -191,7 +200,7 @@ a fresh rehearsal on a fresh snapshot.
 | snapshot older than 36 h | operator check/restore; worker preflight | `SNAPSHOT_STALE` |
 | a copy tagged with this box exists | every probe launch, any kind | `REHEARSAL_INSTANCE_REMAINS` |
 | the ledger's last cleanup for a run is unconfirmed | every probe launch, any kind | `CLEANUP_UNCONFIRMED` |
-| free storage below `min_free_storage_gb` | worker | `STORAGE_HEADROOM` |
+| free storage (allocation minus all databases and WAL) below `min_free_storage_gb`, or unobservable | worker | `STORAGE_HEADROOM` |
 | restore class/storage differ from the job | worker | `RESTORE_SHAPE` |
 | registry template, or the PR-A stand-in as the DDL | operator restore (before any RDS call) and launch | `PLACEHOLDER_IMAGE`, `PLACEHOLDER_DIGEST`, `STANDIN_DDL` |
 | migration, DDL or queries digest mismatch | operator restore and launch; worker | `*_DIGEST` |
@@ -200,7 +209,7 @@ a fresh rehearsal on a fresh snapshot.
 | lock wait above `lock_wait_budget_ms`; wall time above 90 min | worker | `LOCK_BUDGET`, `WALL_BUDGET` (the transaction rolls back) |
 | an assertion inside the migration fails | worker | `MIGRATION_FAILED` (nothing committed) |
 | the re-run is not refused by the guard | worker | `RERUN_NOT_REFUSED` (PR-I must not ship) |
-| a post assertion fails | verifier | the assertion is named `FAIL` |
+| a post assertion fails, including a pca2, export or math case missing on either leg (every certification conversation and every sampled conversation must be present PRE and POST) | verifier | the assertion is named `FAIL` |
 | cleanup fails | operator | the ledger records it; every later launch refuses; the instance identifiers are printed for deletion by hand |
 
 ## The receipt
