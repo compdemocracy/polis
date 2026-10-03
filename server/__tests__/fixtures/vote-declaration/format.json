@@ -1,0 +1,44 @@
+{
+  "format": "polis-export/1",
+  "vote-convention": "agree=+1;disagree=-1;pass=0;format=polis-export/1",
+  "vote": {
+    "agree": 1,
+    "disagree": -1,
+    "pass": 0
+  },
+  "files": {
+    "summary.csv": {
+      "vote-convention": "declaration"
+    },
+    "votes.csv": {
+      "vote": "vote"
+    },
+    "participant-votes.csv": {
+      "<comment-id>": "vote",
+      "n-votes": "count",
+      "n-agree": "count",
+      "n-disagree": "count"
+    },
+    "participant-importance.csv": {
+      "<comment-id>": "flag",
+      "n-votes": "count",
+      "n-important": "count"
+    },
+    "comments.csv": {
+      "agrees": "count",
+      "disagrees": "count"
+    },
+    "comment-groups.csv": {
+      "total-votes": "count",
+      "total-agrees": "count",
+      "total-disagrees": "count",
+      "total-passes": "count",
+      "group-<letter>-votes": "count",
+      "group-<letter>-agrees": "count",
+      "group-<letter>-disagrees": "count",
+      "group-<letter>-passes": "count"
+    },
+    "comment-clusters.csv": {}
+  },
+  "docs": "https://github.com/compdemocracy/polis/blob/edge/docs/export-format.md"
+}

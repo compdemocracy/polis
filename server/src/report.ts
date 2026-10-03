@@ -8,9 +8,11 @@ import { getPcaFromBundle } from "./utils/pca";
 import { failJson } from "./utils/fail";
 import logger from "./utils/logger";
 import {
+  EXPORT_VOTE_CONVENTION,
   RawVote,
   storageToExport,
   storageToSemantic,
+  VOTE_CONVENTION_KEY,
 } from "./votes/convention";
 import { getCommentsWithClusters } from "./utils/commentClusters";
 import { presentPca } from "./utils/pcaPresentation";
@@ -289,6 +291,9 @@ export async function loadConversationSummary(zid: number, siteUrl: string) {
         : Object.keys(groupClusters).length,
     ],
     ["conversation-description", formatEscapedText(convo.description)],
+    // The declared vote sign of every export file (P-078 PR-E). Last, so every
+    // row above keeps its position and bytes.
+    [VOTE_CONVENTION_KEY, EXPORT_VOTE_CONVENTION],
   ].map((row) => row.join(","));
 }
 
