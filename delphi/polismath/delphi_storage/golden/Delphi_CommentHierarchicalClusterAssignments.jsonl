@@ -1,0 +1,4 @@
+{"codec":"delphi-storage-codec/1","family":"Delphi_CommentHierarchicalClusterAssignments","key":["conversation_id","comment_id"]}
+{"cluster_confidence":{"M":{"0":{"N":"0.95"},"1":{"N":"0.87"}}},"comment_id":{"N":"0"},"conversation_id":{"S":"9001"},"distance_to_centroid":{"M":{"0":{"N":"0.123"},"1":{"N":"0.5"}}},"is_outlier":{"BOOL":false},"layer0_cluster_id":{"N":"0"},"layer1_cluster_id":{"N":"0"}}
+{"cluster_confidence":{"M":{"0":{"N":"0.95"},"1":{"N":"0.87"}}},"comment_id":{"N":"1"},"conversation_id":{"S":"9001"},"distance_to_centroid":{"M":{"0":{"N":"0.123"},"1":{"N":"0.5"}}},"is_outlier":{"BOOL":false},"layer0_cluster_id":{"N":"1"},"layer1_cluster_id":{"N":"0"},"layer2_cluster_id":{"NULL":true}}
+{"cluster_confidence":{"M":{"0":{"N":"0.95"},"1":{"N":"0.87"}}},"comment_id":{"N":"2"},"conversation_id":{"S":"9001"},"distance_to_centroid":{"M":{"0":{"N":"0.123"},"1":{"N":"0.5"}}},"is_outlier":{"BOOL":true},"layer0_cluster_id":{"N":"-1"},"layer1_cluster_id":{"N":"0"}}
