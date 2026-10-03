@@ -2,7 +2,7 @@
  "schema": "vote-sign-allowlist/1",
  "about": "Vote-sign literals present on origin/edge when the lint landed (P-078 PR-F). Seeded from the tree and the 350-row vote-sign audit of 2026-10-03 (snapshot 344c557ad), matched by path and by line mapped back to that snapshot. 'audit' names the row; 'file rows' means the file is audited but this line is not itemised; 'not in the audit' means the audit did not list the file. Delete an entry when its site moves into a chokepoint. Never add one to make a new literal pass: take the sign from the chokepoint of that layer.",
  "window": 3,
- "sites": 642,
+ "sites": 644,
  "entries": [
   {
    "path": "ci/private_cert/images/g12.py",
@@ -2439,6 +2439,20 @@
    "count": 1,
    "kind": "minus-one",
    "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_delphi_vote_convention_sites.py",
+   "text": "and the poller each carried a private ``pg_vote * -1``. All three now go",
+   "count": 1,
+   "kind": "times-minus-one",
+   "audit": "not in the 2026-10-03 audit: #2923's test of the deleted private copies (docstring)"
+  },
+  {
+   "path": "delphi/tests/test_delphi_vote_convention_sites.py",
+   "text": "assert \"* -1\" not in inspect.getsource(module)",
+   "count": 1,
+   "kind": "times-minus-one",
+   "audit": "not in the 2026-10-03 audit: #2923's test asserting the private copies are gone"
   },
   {
    "path": "delphi/tests/test_discrepancy_fixes.py",

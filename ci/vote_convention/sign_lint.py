@@ -46,7 +46,11 @@ CHOKEPOINTS: Dict[str, str] = {
     "delphi/polismath/utils/vote_convention.py": "the Python storage convention (chokepoint 3)",
     "coordinator-rs/src/vote_convention.rs": "the Rust StorageConvention (chokepoint 5, PR-C)",
     "client-participation/js/util/voteConvention.js": "legacy client helper (chokepoint 7, PR-D)",
+    "client-participation/js/util/__tests__/voteConvention.test.cjs": "its test pins the wire values (PR-D)",
     "client-participation-alpha/src/api/votes.ts": "alpha client helper (chokepoint 8, PR-D)",
+    "client-participation-alpha/src/api/__tests__/voteWire.test.ts": "its test pins the wire values (PR-D)",
+    "server/__tests__/setup/vote-wire.ts": "the server tests' wire helper (chokepoint 11, PR-D)",
+    "e2e/cypress/support/voteWire.js": "the e2e wire helper, expectVoteBody (chokepoint 11, PR-D)",
     "client-report/src/util/voteCounts.js": "client-report helper (chokepoint 9, PR-D)",
     "ci/vote_convention/provision.py": "the gate's fixture loader: it writes raw values at the convention under test",
     # The lint and its test spell the patterns they look for.

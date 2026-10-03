@@ -69,7 +69,7 @@ class SignLintPatterns(unittest.TestCase):
         data = json.loads(sign_lint.ALLOWLIST.read_text())
         self.assertEqual(data["sites"], sum(e["count"] for e in data["entries"]))
         for e in data["entries"]:
-            self.assertTrue(e["audit"].startswith(("audit 2026-10-03", "not in the audit")), e)
+            self.assertTrue(e["audit"].startswith(("audit 2026-10-03", "not in the audit", "not in the 2026-10-03 audit")), e)
             self.assertGreater(e["count"], 0)
 
     def test_chokepoints_are_exempt(self):
