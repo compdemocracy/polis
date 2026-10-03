@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polis-jobs.output-manifest/1",
+  "title": "Output manifest written by a Delphi child as its last act",
+  "description": "The daemon inserts the exact file bytes as the attempt's stream='manifest' log row; pq_finalize matches its sha256. The child writes canonical bytes (sorted keys, no insignificant whitespace, one trailing newline). At most 1 MiB, UTF-8, no NUL.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "job_id", "attempt_id", "stage", "phase", "outcome", "inputs", "outputs", "models", "cost", "recheck_after", "duration_ms"],
+  "properties": {
+    "schema": {"const": "polis-jobs.output-manifest/1"},
+    "job_id": {"type": "string", "format": "uuid"},
+    "attempt_id": {"type": "string", "format": "uuid"},
+    "stage": {"enum": ["delphi_full_pipeline", "delphi_narrative"]},
+    "phase": {"enum": ["run", "submit", "recheck"]},
+    "outcome": {"enum": ["succeeded", "parked"]},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["math_env", "math_tick", "math_caching_tick", "comment_set_sha256", "vote_hwm"],
+      "properties": {
+        "math_env": {"type": ["string", "null"]},
+        "math_tick": {"type": ["integer", "null"]},
+        "math_caching_tick": {"type": ["integer", "null"]},
+        "comment_set_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "vote_hwm": {"type": ["integer", "null"]}
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["store", "family", "table", "rows"],
+        "properties": {
+          "store": {"const": "dynamodb"},
+          "family": {"type": "string", "minLength": 1},
+          "table": {"type": "string", "minLength": 1},
+          "key_prefix": {"type": "object", "additionalProperties": {"type": "string"}},
+          "keys": {"type": "array", "items": {"type": "object"}},
+          "rows": {"type": "integer", "minimum": 0}
+        },
+        "oneOf": [{"required": ["key_prefix"]}, {"required": ["keys"]}]
+      }
+    },
+    "models": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["embed", "topic", "narrative"],
+      "properties": {
+        "embed": {"type": ["string", "null"]},
+        "topic": {"type": ["string", "null"]},
+        "narrative": {"type": ["string", "null"]}
+      }
+    },
+    "cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["llm_tokens_in", "llm_tokens_out", "provider_batches"],
+      "properties": {
+        "llm_tokens_in": {"type": ["integer", "null"]},
+        "llm_tokens_out": {"type": ["integer", "null"]},
+        "provider_batches": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["provider", "batch_id", "submitted_at"],
+            "properties": {
+              "provider": {"type": "string", "minLength": 1},
+              "batch_id": {"type": "string", "minLength": 1},
+              "submitted_at": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
+    "recheck_after": {"type": ["string", "null"], "format": "date-time", "description": "Set exactly when outcome is parked."},
+    "duration_ms": {"type": ["integer", "null"], "minimum": 0}
+  }
+}
