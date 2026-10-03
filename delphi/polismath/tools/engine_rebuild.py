@@ -7,8 +7,8 @@ from the copy's votes and write the results under a label nothing serves.
 This module is that command; the engine image installs it as
 ``/opt/polis-unflip/engine-rebuild``::
 
-    engine-rebuild --label probe --zids-file zids.json [--dsn URL] [--dry]
-    engine-rebuild --label probe --zids 12,34 --dsn postgresql://...
+    engine-rebuild --label probe --zids-file zids.json --i-am-a-copy [--dsn URL]
+    engine-rebuild --label probe --zids 12,34 --dsn postgresql://... --dry
 
 What it does, per conversation, in zid order:
 
@@ -29,14 +29,27 @@ What it does, per conversation, in zid order:
   poller's ``MathWriter`` (``--dry`` computes and writes nothing);
 * prints one JSON document on stdout: per zid the ``math_tick`` (``null`` when
   dry), the convention it read, and ``digest`` = sha256 of
-  ``math_main.data::text`` as Postgres renders the jsonb, the same definition
-  the rehearsal's ``engine_rows`` query uses. Logs go to stderr.
+  ``(math_main.data - 'math_tick')::text`` as Postgres renders the jsonb. The
+  blob's own ``math_tick`` is wall-clock (see DIGEST_OF_JSON_SQL); the
+  rehearsal's ``engine_rows`` query must use the same definition. Logs go to
+  stderr.
 
-Refusals (exit 3), all before anything is written: a served label (``prod``,
-``python``) or a label outside ``[a-z][a-z0-9_-]{0,31}``; a ``MATH_ENV`` that
-names a different label; an engine without the convention source; zids that
-are not conversations on the database; and, when writing, another process
-holding the label's single-writer lock (the poller's own advisory lock).
+Refusals (exit 3), all before anything is written:
+
+* a label other than ``probe`` / ``probe-<suffix>``, and always a served one
+  (``prod``, ``python``, ``python-large``, ``dev``, ``preprod``, and the values
+  of ``MATH_PYTHON_ENV`` and ``MATH_CAPACITY_STAGED_LABEL``); a ``MATH_ENV``
+  that names a different label;
+* an engine without the convention source; zids that are not conversations
+  on the database;
+* when writing: no ``--i-am-a-copy`` acknowledgement; a target that is the
+  database this engine is configured for (``DATABASE_URL``, else
+  ``DATABASE_HOST``/``DATABASE_PORT``/``DATABASE_NAME``: on a Delphi host that
+  is production); with ``--require-copy-marker``, a database whose
+  ``COMMENT ON DATABASE`` is not ``polis-unflip-rehearsal-copy``; another
+  process holding the label's single-writer lock (the poller's advisory lock).
+
+``--dry`` needs none of the write guards: it only reads.
 Usage errors exit 2; any failure while rebuilding or writing exits 4 after
 the remaining zids have been tried (the summary says which failed).
 
@@ -52,7 +65,7 @@ import logging
 import os
 import re
 import sys
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 logger = logging.getLogger("polismath.tools.engine_rebuild")
 
@@ -61,18 +74,28 @@ EXIT_USAGE = 2
 EXIT_REFUSED = 3
 EXIT_FAILED = 4
 
-#: Labels a reader serves or a live poller owns. Never written by this tool.
-SERVED_LABELS = frozenset({"prod", "python"})
-LABEL_PATTERN = re.compile(r"[a-z][a-z0-9_-]{0,31}")
+#: The only labels this tool writes: ``probe`` or ``probe-<suffix>``.
+LABEL_PATTERN = re.compile(r"probe(-[a-z0-9_-]{1,26})?")
+#: Labels a reader serves, a poller owns or a stage promotes from. Refused even
+#: if the allowlist ever widens; the values of the environment variables in
+#: SERVED_LABEL_ENVS are refused too.
+SERVED_LABELS = frozenset({"prod", "python", "python-large", "dev", "preprod"})
+SERVED_LABEL_ENVS = ("MATH_PYTHON_ENV", "MATH_CAPACITY_STAGED_LABEL")
+#: ``COMMENT ON DATABASE`` text that marks a rehearsal copy (--require-copy-marker).
+COPY_MARKER = "polis-unflip-rehearsal-copy"
 #: The poller's single-writer advisory lock key prefix (scripts/math_poller.py).
 LOCK_KEY_PREFIX = "polis-math-python:"
 
+#: The digest leaves out the blob's top-level ``math_tick``: ``Conversation.to_dict``
+#: sets it from the wall clock (25000 + time % 10000), and the server overwrites
+#: it with the column (server/src/utils/pca.ts). Everything else in the blob is
+#: a function of the database rows on the cold path.
 DIGEST_OF_JSON_SQL = (
     "SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to("
-    "cast(:data AS jsonb)::text, 'UTF8')), 'hex') AS digest")
+    "(cast(:data AS jsonb) - 'math_tick')::text, 'UTF8')), 'hex') AS digest")
 PUBLISHED_SQL = (
     "SELECT m.math_tick, pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to("
-    "m.data::text, 'UTF8')), 'hex') AS digest "
+    "(m.data - 'math_tick')::text, 'UTF8')), 'hex') AS digest "
     "FROM public.math_main m WHERE m.zid = :zid AND m.math_env = :label")
 
 
@@ -85,10 +108,12 @@ class UsageError(Exception):
 
 
 def check_label(label: str, environ: Dict[str, str]) -> str:
-    if label in SERVED_LABELS or label.strip().lower() in SERVED_LABELS:
+    served = set(SERVED_LABELS)
+    served.update(v.strip() for k in SERVED_LABEL_ENVS if (v := environ.get(k) or "").strip())
+    if label in served or label.strip().lower() in served:
         raise Refusal(f"label {label!r} is served; this tool writes only a non-served label")
     if not LABEL_PATTERN.fullmatch(label):
-        raise Refusal(f"label {label!r} is not [a-z][a-z0-9_-]{{0,31}}")
+        raise Refusal(f"label {label!r} is not 'probe' or 'probe-<suffix>'")
     env_label = environ.get("MATH_ENV")
     if env_label is not None and env_label != label:
         raise Refusal(f"MATH_ENV={env_label!r} names a different label than --label {label!r}")
@@ -228,10 +253,49 @@ def rebuild_one(pg: Any, svc: Any, host: Any, zid: int, label: str, dry: bool) -
     return {"zid": zid, "math_tick": tick, "digest": rows[0]["digest"], "convention": convention}
 
 
+def configured_database(environ: Dict[str, str]) -> Optional[Tuple[str, int, str]]:
+    """(host, port, dbname) of the database this engine is configured for, if any."""
+    from urllib.parse import urlparse
+
+    url = environ.get("DATABASE_URL")
+    if url:
+        u = urlparse(url)
+        if not u.hostname:
+            return None
+        return u.hostname.lower(), u.port or 5432, u.path.lstrip("/")
+    host = environ.get("DATABASE_HOST")
+    if not host:
+        return None
+    return (host.lower(), int(environ.get("DATABASE_PORT") or 5432),
+            environ.get("DATABASE_NAME") or "polis")
+
+
+def check_copy(lock_conn: Any, environ: Dict[str, str], require_marker: bool) -> None:
+    """The write guards against a production database (see the module doc)."""
+    info = lock_conn.connection.dbapi_connection.info
+    target = ((info.host or "").lower(), int(info.port), info.dbname)
+    configured = configured_database(environ)
+    if configured is not None and configured == target:
+        raise Refusal("the target is the database this engine is configured for "
+                      "(DATABASE_URL / DATABASE_HOST); writes go only to a copy")
+    if require_marker:
+        from sqlalchemy import text
+
+        marker = lock_conn.execute(text(
+            "SELECT pg_catalog.shobj_description(d.oid, 'pg_database') FROM pg_catalog.pg_database d "
+            "WHERE d.datname = pg_catalog.current_database()")).scalar()
+        lock_conn.commit()
+        if marker != COPY_MARKER:
+            raise Refusal(f"the database does not carry the copy marker {COPY_MARKER!r}")
+
+
 def run(args: argparse.Namespace, environ: Dict[str, str], out) -> int:
     label = check_label(args.label, environ)
     zids = parse_zids(args.zids, args.zids_file)
     uri = database_uri(args.dsn, environ)
+    if not args.dry and not args.i_am_a_copy:
+        raise Refusal("writing needs --i-am-a-copy (the target must be a rehearsal copy); "
+                      "--dry needs nothing")
     require_convention_source()
 
     pg = _client(uri, label)
@@ -246,6 +310,7 @@ def run(args: argparse.Namespace, environ: Dict[str, str], out) -> int:
             from sqlalchemy import text
 
             lock_conn = pg.engine.connect()
+            check_copy(lock_conn, environ, args.require_copy_marker)
             got = lock_conn.execute(text("SELECT pg_try_advisory_lock(hashtext(:k))"),
                                     {"k": LOCK_KEY_PREFIX + label}).scalar()
             lock_conn.commit()
@@ -286,6 +351,10 @@ def build_parser() -> argparse.ArgumentParser:
                    help="postgresql:// URL of the database copy (default: PGSERVICE)")
     p.add_argument("--dry", action="store_true",
                    help="compute and print digests; write nothing")
+    p.add_argument("--i-am-a-copy", action="store_true",
+                   help="required to write: the target is a rehearsal copy, never production")
+    p.add_argument("--require-copy-marker", action="store_true",
+                   help=f"also require COMMENT ON DATABASE = {COPY_MARKER!r} before writing")
     return p
 
 

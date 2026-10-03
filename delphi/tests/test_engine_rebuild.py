@@ -38,14 +38,39 @@ def run(argv, environ=None):
 # --- refusals and usage (no database) ------------------------------------------
 
 
-@pytest.mark.parametrize("label", ["prod", "python", " prod", "PROD", "Python", "",
-                                   "a b", "x" * 33, "probe;drop", "1probe"])
-def test_served_or_malformed_label_is_refused(label):
-    assert run(["--label", label, "--zids", "1", "--dsn", NOWHERE])[0] == er.EXIT_REFUSED
+@pytest.mark.parametrize("label", ["prod", "python", "python-large", "dev", "preprod",
+                                   " prod", "PROD", "Python", "", "a b", "probe" + "x" * 30,
+                                   "probe;drop", "1probe", "shadow", "probe-", "probex",
+                                   "probe-" + "x" * 27])
+def test_served_or_unlisted_label_is_refused(label):
+    assert run(["--label", label, "--zids", "1", "--dsn", NOWHERE, "--dry"])[0] == er.EXIT_REFUSED
+
+
+@pytest.mark.parametrize("name", er.SERVED_LABEL_ENVS)
+def test_labels_named_by_the_served_label_environment_are_refused(name):
+    code, _ = run(["--label", "probe-x", "--zids", "1", "--dsn", NOWHERE, "--dry"],
+                  environ={name: "probe-x"})
+    assert code == er.EXIT_REFUSED
+
+
+def test_probe_labels_pass_the_label_check():
+    for label in ("probe", "probe-2", "probe-pre_1"):
+        assert er.check_label(label, {}) == label
+
+
+def test_writing_without_the_copy_acknowledgement_is_refused():
+    assert run(["--label", LABEL, "--zids", "1", "--dsn", NOWHERE])[0] == er.EXIT_REFUSED
+
+
+def test_configured_database():
+    assert er.configured_database({}) is None
+    assert er.configured_database({"DATABASE_URL": "postgresql://u:p@DB.example:6432/polis"}) == (
+        "db.example", 6432, "polis")
+    assert er.configured_database({"DATABASE_HOST": "h", "DATABASE_NAME": "x"}) == ("h", 5432, "x")
 
 
 def test_math_env_naming_another_label_is_refused():
-    code, _ = run(["--label", LABEL, "--zids", "1", "--dsn", NOWHERE],
+    code, _ = run(["--label", LABEL, "--zids", "1", "--dsn", NOWHERE, "--dry"],
                   environ={"MATH_ENV": "python"})
     assert code == er.EXIT_REFUSED
 
@@ -83,14 +108,15 @@ def test_pgservice_is_the_default_database():
 
 def test_engine_without_convention_source_is_refused(monkeypatch):
     monkeypatch.delattr(vote_convention, "load_semantic_votes", raising=False)
-    assert run(["--label", LABEL, "--zids", "1", "--dsn", NOWHERE])[0] == er.EXIT_REFUSED
+    assert run(["--label", LABEL, "--zids", "1", "--dsn", NOWHERE, "--dry"])[0] == er.EXIT_REFUSED
 
 
 def _wrapper_env(extra=None):
     env = dict(os.environ)
     env["PATH"] = os.path.dirname(sys.executable) + os.pathsep + env.get("PATH", "")
     env["PYTHONPATH"] = DELPHI + os.pathsep + env.get("PYTHONPATH", "")
-    env.pop("MATH_ENV", None)
+    for name in ("MATH_ENV", "DATABASE_URL", "DATABASE_HOST", *er.SERVED_LABEL_ENVS):
+        env.pop(name, None)
     env.update(extra or {})
     return env
 
@@ -215,10 +241,32 @@ def _digests(summary):
 
 
 def _rebuild(url, *extra):
+    flags = list(extra) if "--dry" in extra else ["--i-am-a-copy", *extra]
     code, summary = run(["--label", LABEL, "--zids", ",".join(map(str, ZIDS)),
-                         "--dsn", url, *extra])
+                         "--dsn", url, *flags])
     assert code == er.EXIT_OK
     return summary
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    """Move the wall clock: ``clock(seconds)``. The blob's own ``math_tick`` is
+    25000 + time.time() % 10000 (``Conversation.to_dict`` imports ``time``
+    locally, so the module function itself is patched, for this test only)."""
+    import time
+
+    real = time.time
+
+    def step(offset):
+        monkeypatch.setattr(time, "time", lambda: real() + offset)
+    return step
+
+
+def _blob_ticks(url):
+    with _conn(url) as cur:
+        cur.execute("SELECT zid, (data->>'math_tick')::int FROM math_main WHERE math_env = %s "
+                    "ORDER BY zid", (LABEL,))
+        return dict(cur.fetchall())
 
 
 @needs_convention
@@ -234,7 +282,8 @@ def test_dry_writes_nothing_and_digests_match_the_published_rows(fixture_db):
     for table in ("math_main", "math_bidtopid", "math_ptptstats", "math_ticks"):
         assert dict(rows[table]) == ticks, table
     with _conn(fixture_db) as cur:   # the rehearsal's engine_rows definition
-        cur.execute("SELECT m.zid, encode(sha256(convert_to(m.data::text, 'UTF8')), 'hex') "
+        cur.execute("SELECT m.zid, encode(sha256(convert_to((m.data - 'math_tick')::text, "
+                    "'UTF8')), 'hex') "
                     "FROM public.math_main m WHERE m.math_env = %s AND m.zid = ANY(%s) "
                     "ORDER BY m.zid", (LABEL, list(ZIDS)))
         assert dict(cur.fetchall()) == _digests(wet)
@@ -245,9 +294,13 @@ def test_dry_writes_nothing_and_digests_match_the_published_rows(fixture_db):
 
 @needs_convention
 @pytest.mark.integration
-def test_rebuild_is_deterministic(fixture_db):
+def test_rebuild_is_deterministic(fixture_db, clock):
+    clock(0)
     first = _rebuild(fixture_db)
+    before = _blob_ticks(fixture_db)
+    clock(1)
     second = _rebuild(fixture_db)
+    assert _blob_ticks(fixture_db) != before   # the wall clock reached the blob
     assert _digests(first) == _digests(second)
     assert [r["math_tick"] for r in second["results"]] == [
         r["math_tick"] + 1 for r in first["results"]]
@@ -255,11 +308,13 @@ def test_rebuild_is_deterministic(fixture_db):
 
 @needs_convention
 @pytest.mark.integration
-def test_same_digest_at_both_conventions(fixture_db):
+def test_same_digest_at_both_conventions(fixture_db, clock):
+    clock(0)
     absent = _rebuild(fixture_db, "--dry")
     assert {r["convention"]["origin"] for r in absent["results"]} == {"database-absent"}
     with _conn(fixture_db) as cur:
         cur.execute(STANDIN_SQL)
+    clock(1)
     v0 = _rebuild(fixture_db)
     assert {(r["convention"]["version"], r["convention"]["agree_value"],
              r["convention"]["origin"]) for r in v0["results"]} == {(0, -1, "database")}
@@ -267,6 +322,7 @@ def test_same_digest_at_both_conventions(fixture_db):
         cur.execute("BEGIN; UPDATE votes SET vote = -vote WHERE zid = ANY(%s); "
                     "UPDATE vote_convention SET version = 1, agree_value = 1; COMMIT;",
                     (list(ZIDS),))
+    clock(2)
     v1 = _rebuild(fixture_db)
     assert {(r["convention"]["version"], r["convention"]["agree_value"])
             for r in v1["results"]} == {(1, 1)}
@@ -282,7 +338,8 @@ def test_same_digest_at_both_conventions(fixture_db):
 @needs_convention
 @pytest.mark.integration
 def test_unknown_zid_is_refused_before_any_write(fixture_db):
-    code, summary = run(["--label", LABEL, "--zids", f"{ZIDS[0]},987654321", "--dsn", fixture_db])
+    code, summary = run(["--label", LABEL, "--zids", f"{ZIDS[0]},987654321", "--dsn", fixture_db,
+                         "--i-am-a-copy"])
     assert code == er.EXIT_REFUSED and summary is None
     assert all(not rows for rows in _rows(fixture_db, LABEL).values())
 
@@ -296,7 +353,8 @@ def test_a_held_label_lock_refuses_writes_not_dry_runs(fixture_db):
     try:
         with holder.cursor() as cur:
             cur.execute("SELECT pg_advisory_lock(hashtext(%s))", (er.LOCK_KEY_PREFIX + LABEL,))
-        code, _ = run(["--label", LABEL, "--zids", str(ZIDS[0]), "--dsn", fixture_db])
+        code, _ = run(["--label", LABEL, "--zids", str(ZIDS[0]), "--dsn", fixture_db,
+                       "--i-am-a-copy"])
         assert code == er.EXIT_REFUSED
         assert run(["--label", LABEL, "--zids", str(ZIDS[0]), "--dsn", fixture_db, "--dry"])[0] == 0
     finally:
@@ -306,7 +364,7 @@ def test_a_held_label_lock_refuses_writes_not_dry_runs(fixture_db):
 
 @needs_convention
 def test_unreachable_database_exits_4():
-    assert run(["--label", LABEL, "--zids", "1", "--dsn", NOWHERE])[0] == er.EXIT_FAILED
+    assert run(["--label", LABEL, "--zids", "1", "--dsn", NOWHERE, "--dry"])[0] == er.EXIT_FAILED
 
 
 @needs_convention
@@ -324,9 +382,39 @@ def test_the_producers_invocation(fixture_db, tmp_path):
     zids_file.write_text(json.dumps(sorted(ZIDS)))
     env = _wrapper_env({"PGSERVICE": "probe", "PGSERVICEFILE": str(service_file),
                         "MATH_ENV": LABEL})
-    done = subprocess.run(["sh", WRAPPER, "--label", LABEL, "--zids-file", str(zids_file)],
+    done = subprocess.run(["sh", WRAPPER, "--label", LABEL, "--zids-file", str(zids_file),
+                           "--i-am-a-copy"],
                           env=env, capture_output=True, text=True, timeout=300)
     assert done.returncode == 0, done.stderr[-2000:]
     summary = json.loads(done.stdout)
     assert sorted(_digests(summary)) == sorted(ZIDS)
     assert [z for z, _ in _rows(fixture_db, LABEL)["math_main"]] == sorted(ZIDS)
+
+
+@needs_convention
+@pytest.mark.integration
+def test_writes_to_the_configured_database_are_refused(fixture_db):
+    """On a Delphi host DATABASE_URL is production: never a write target."""
+    argv = ["--label", LABEL, "--zids", str(ZIDS[0]), "--dsn", fixture_db, "--i-am-a-copy"]
+    assert run(argv, environ={"DATABASE_URL": fixture_db})[0] == er.EXIT_REFUSED
+    assert all(not rows for rows in _rows(fixture_db, LABEL).values())
+    assert run(argv[:-1] + ["--dry"], environ={"DATABASE_URL": fixture_db})[0] == er.EXIT_OK
+
+
+@needs_convention
+@pytest.mark.integration
+def test_the_copy_marker_when_required(fixture_db):
+    argv = ["--label", LABEL, "--zids", str(ZIDS[0]), "--dsn", fixture_db, "--i-am-a-copy",
+            "--require-copy-marker"]
+    with _conn(fixture_db) as cur:
+        cur.execute("SELECT current_database()")
+        name = cur.fetchone()[0]
+    try:
+        assert run(argv)[0] == er.EXIT_REFUSED
+        assert all(not rows for rows in _rows(fixture_db, LABEL).values())
+        with _conn(fixture_db) as cur:
+            cur.execute(f'COMMENT ON DATABASE "{name}" IS %s', (er.COPY_MARKER,))
+        assert run(argv)[0] == er.EXIT_OK
+    finally:
+        with _conn(fixture_db) as cur:
+            cur.execute(f'COMMENT ON DATABASE "{name}" IS NULL')
