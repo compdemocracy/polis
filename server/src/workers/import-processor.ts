@@ -216,8 +216,8 @@ function mapRowData(
     const parsed = Date.parse(row.timestamp);
     if (!isNaN(parsed)) ts = parsed;
   }
-  // vote_value is in the export convention (agree = +1, as the admin import
-  // screen documents). Values other than -1/0/1 are stored as given, as before;
+  // vote_value is in the export convention (EXPORT_AGREE_VALUE, as the admin import
+  // screen documents). Values outside the export set are stored as given, as before;
   // refusing them is a separate change (P-078 PR-E).
   const voteValue = exportToStorage(parseInt(row.vote_value, 10), {
     onInvalid: "keep",
