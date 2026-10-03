@@ -13,6 +13,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import { v4 as uuidv4 } from "uuid";
 import pgQuery from "../db/pg-query";
 import { getCommentIdsForCluster } from "../utils/commentClusters";
+import {
+  ollamaChat,
+  resolveStatementModel,
+  StatementModel,
+} from "../utils/statementModel";
 
 const dynamoDBConfig: any = {
   region: Config.AWS_REGION || "us-east-1",
@@ -45,16 +50,23 @@ const anthropic = Config.anthropicApiKey
     })
   : null;
 
+/** The provider and model that will write the next statement. */
+export function statementModel(): StatementModel {
+  return resolveStatementModel(Config.llmProvider, Config.ollamaModel);
+}
+
 /**
- * Generate a collective statement for a topic using Claude
+ * Generate a collective statement for a topic using Claude, or the local
+ * Ollama model when LLM_PROVIDER=ollama (same prompt, same JSON shape).
  */
-async function generateCollectiveStatement(
+export async function generateCollectiveStatement(
   zid: number,
   topicKey: string,
   topicName: string,
-  commentsData: any
+  commentsData: any,
+  llm: StatementModel = statementModel()
 ): Promise<any> {
-  if (!anthropic) {
+  if (llm.provider === "anthropic" && !anthropic) {
     throw new Error("Anthropic API key not configured");
   }
 
@@ -143,33 +155,51 @@ ${JSON.stringify(formattedComments, null, 2)}
 You MUST respond with valid JSON that follows the exact schema above. Each clause must have at least one citation. The full JSON object, including closing brackets, must fit within the available output length — prioritize finishing the JSON structure over exhaustive detail.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-opus-4-8",
-      // max_tokens is a hard cap on thinking + response text combined
-      // (adaptive thinking is on by default on Opus 4.8+), so this needs
-      // real headroom beyond the visible JSON text length.
-      max_tokens: 8000,
-      output_config: { effort: "medium" },
-      system: systemPrompt,
-      messages: [
+    let responseText: string;
+    if (llm.provider === "ollama") {
+      responseText = await ollamaChat(
         {
-          role: "user",
-          content: userPrompt,
+          host: Config.ollamaHost,
+          model: llm.model,
+          numCtx: Config.ollamaNumCtx,
+          timeoutSeconds: Config.ollamaRequestTimeoutSeconds,
         },
-      ],
-    });
-
-    if (response.stop_reason === "max_tokens") {
-      logger.warn(
-        "Anthropic collective statement response was truncated by max_tokens; output may be incomplete/invalid JSON."
+        systemPrompt,
+        userPrompt,
+        8000
       );
-    }
+    } else {
+      const response = await anthropic.messages.create({
+        model: llm.model,
+        // max_tokens is a hard cap on thinking + response text combined
+        // (adaptive thinking is on by default on Opus 4.8+), so this needs
+        // real headroom beyond the visible JSON text length.
+        max_tokens: 8000,
+        output_config: { effort: "medium" },
+        system: systemPrompt,
+        messages: [
+          {
+            role: "user",
+            content: userPrompt,
+          },
+        ],
+      });
 
-    // Parse the JSON response — find text block (adaptive thinking may add thinking blocks)
-    const textBlock = response.content.find((b) => b.type === "text");
-    let responseText = textBlock?.type === "text" ? textBlock.text : "";
+      if (response.stop_reason === "max_tokens") {
+        logger.warn(
+          "Anthropic collective statement response was truncated by max_tokens; output may be incomplete/invalid JSON."
+        );
+      }
+
+      // Parse the JSON response — find text block (adaptive thinking may add thinking blocks)
+      const textBlock = response.content.find((b) => b.type === "text");
+      responseText = textBlock?.type === "text" ? textBlock.text : "";
+    }
     // Strip markdown code fences if the model wraps the JSON
-    responseText = responseText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+    responseText = responseText
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/, "")
+      .trim();
 
     try {
       const statementData = JSON.parse(responseText);
@@ -178,6 +208,8 @@ You MUST respond with valid JSON that follows the exact schema above. Each claus
       return {
         statementData,
         commentsData: formattedComments,
+        provider: llm.provider,
+        model: llm.model,
       };
     } catch (parseError) {
       logger.error(`Error parsing Claude response: ${parseError}`);
@@ -206,6 +238,8 @@ You MUST respond with valid JSON that follows the exact schema above. Each claus
           ],
         },
         commentsData: formattedComments,
+        provider: llm.provider,
+        model: llm.model,
       };
     }
   } catch (error) {
@@ -337,7 +371,8 @@ export async function handle_POST_collectiveStatement(
       filteredComments
     );
 
-    // Store in DynamoDB
+    // Store in DynamoDB. provider and model record which model wrote the
+    // statement; the report shows a note when it was a local model.
     const item = {
       zid_topic_jobid: statementKey,
       zid: zid.toString(),
@@ -346,7 +381,8 @@ export async function handle_POST_collectiveStatement(
       statement_data: JSON.stringify(result.statementData),
       comments_data: JSON.stringify(result.commentsData),
       created_at: new Date().toISOString(),
-      model: "claude-opus-4-8",
+      model: result.model,
+      provider: result.provider,
     };
 
     await docClient.send(
@@ -361,6 +397,9 @@ export async function handle_POST_collectiveStatement(
       statementData: result.statementData,
       commentsData: result.commentsData,
       id: statementKey,
+      created_at: item.created_at,
+      model: item.model,
+      provider: item.provider,
     });
   } catch (err: any) {
     logger.error(`Error in handle_POST_collectiveStatement: ${err.message}`);

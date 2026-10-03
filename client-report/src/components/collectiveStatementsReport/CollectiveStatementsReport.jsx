@@ -4,6 +4,7 @@ import Heading from "../framework/heading.jsx";
 import Footer from "../framework/Footer.jsx";
 import CommentList from "../lists/commentList.jsx";
 import * as globals from "../globals";
+import LocalModelNote from "../localModelNote/LocalModelNote.jsx";
 
 const CollectiveStatementsReport = ({ conversation, report_id, math, comments, ptptCount, formatTid, voteColors }) => {
   const [loading, setLoading] = useState(true);
@@ -235,6 +236,7 @@ const CollectiveStatementsReport = ({ conversation, report_id, math, comments, p
             Generated {new Date(statement.created_at).toLocaleDateString()} at {new Date(statement.created_at).toLocaleTimeString()}
             {statement.model && ` • ${statement.model.includes('claude') ? 'Claude Opus 4' : statement.model}`}
           </p>
+          <LocalModelNote provider={statement.provider} model={statement.model} />
         </div>
 
         {/* Content */}

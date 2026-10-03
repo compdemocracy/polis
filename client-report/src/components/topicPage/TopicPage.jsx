@@ -6,6 +6,7 @@ import TopicBeeswarm from "../topicStats/visualizations/TopicBeeswarm.jsx";
 import AllCommentsScatterplot from "../topicStats/visualizations/AllCommentsScatterplot.jsx";
 import CommentList from "../lists/commentList.jsx";
 import * as globals from "../globals";
+import LocalModelNote from "../localModelNote/LocalModelNote.jsx";
 import { canGenerateCollectiveStatement, getTopicConsensusValues } from "../../util/consensusThreshold";
 
 const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCount, formatTid, voteColors, onBack, token }) => {
@@ -19,6 +20,7 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
   const [topicComments, setTopicComments] = useState([]);
   const [sortedComments, setSortedComments] = useState([]);
   const [topicNarrative, setTopicNarrative] = useState(null);
+  const [narrativeProvenance, setNarrativeProvenance] = useState(null);
   const [narrativeLoading, setNarrativeLoading] = useState(false);
 
   useEffect(() => {
@@ -160,7 +162,8 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
         setStatementGenerated(true);
         setStatementMetadata({
           created_at: existingStatement.created_at,
-          model: existingStatement.model
+          model: existingStatement.model,
+          provider: existingStatement.provider
         });
         setLoadingStatement(false);
         return;
@@ -214,7 +217,8 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
         setStatementGenerated(true);
         setStatementMetadata({
           created_at: response.created_at,
-          model: response.model
+          model: response.model,
+          provider: response.provider
         });
       } else if (response.statement) {
         setCollectiveStatement(response.statement);
@@ -256,6 +260,7 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
             ? JSON.parse(sectionData.report_data) 
             : sectionData.report_data;
           setTopicNarrative(reportData);
+          setNarrativeProvenance({ provider: sectionData.metadata?.provider, model: sectionData.model });
         }
       }
     } catch (err) {
@@ -469,6 +474,9 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
                 {statementMetadata.model && ` (${statementMetadata.model.includes('claude') ? 'Claude Opus 4' : statementMetadata.model})`}
               </span>
             )}
+            {statementMetadata && (
+              <LocalModelNote provider={statementMetadata.provider} model={statementMetadata.model} style={{ fontSize: "13px" }} />
+            )}
           </p>
           
           {loadingStatement && (
@@ -632,6 +640,7 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
             letterSpacing: "0.5px",
             textTransform: "uppercase"
           }}>Narrative Summary</p>
+          <LocalModelNote provider={narrativeProvenance?.provider} model={narrativeProvenance?.model} />
           
           {/* Extract all citations from the narrative */}
           {(() => {

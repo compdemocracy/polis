@@ -5,6 +5,7 @@ import { useReportId } from "../framework/useReportId";
 import CommentList from "../lists/commentList.jsx";
 import { jwtDecode } from "jwt-decode"
 import "./CommentsReport.css";
+import LocalModelNote from "../localModelNote/LocalModelNote.jsx";
 
 const decodedJwt = (token) => {
   if (token) {
@@ -1120,6 +1121,7 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
               <span> | Model: {report.model || "N/A"}</span>
             </div>
           )}
+          {report && <LocalModelNote provider={report.metadata?.provider} model={report.model} />}
           {selectedSection.topicMetadata && (
             <div className="metadata-row">
               <span className="metadata-label">Topic Info:</span>
