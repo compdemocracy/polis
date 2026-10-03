@@ -1,0 +1,3759 @@
+{
+ "schema": "vote-sign-allowlist/1",
+ "about": "Vote-sign literals present on origin/edge when the lint landed (P-078 PR-F). Seeded from the tree and the 350-row vote-sign audit of 2026-10-03 (snapshot 344c557ad), matched by path and by line mapped back to that snapshot. 'audit' names the row; 'file rows' means the file is audited but this line is not itemised; 'not in the audit' means the audit did not list the file. Delete an entry when its site moves into a chokepoint. Never add one to make a new literal pass: take the sign from the chokepoint of that layer.",
+ "sites": 601,
+ "entries": [
+  {
+   "path": "ci/private_cert/images/g12.py",
+   "text": "# recordings; d = product => -1 when the two sides differ (raw-db vs delphi).",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 76: ci/private_cert/images/g12.py:65-67"
+  },
+  {
+   "path": "ci/private_cert/images/g12.py",
+   "text": "(clj `raw-db` vs py `delphi` => d=-1), a documented constant, NOT a",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 76, 77, 78 (ci/private_cert/images/g12.py); this line is not itemised there"
+  },
+  {
+   "path": "ci/private_cert/images/g12.py",
+   "text": "CONV_SIGN = {\"raw-db\": -1, \"delphi\": +1}",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 76: ci/private_cert/images/g12.py:65-67"
+  },
+  {
+   "path": "ci/private_cert/images/g12.py",
+   "text": "self.s = s # list[+/-1] or None",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 76, 77, 78 (ci/private_cert/images/g12.py); this line is not itemised there"
+  },
+  {
+   "path": "ci/probe_box/light_shadow.py",
+   "text": "if type(vote) is not int or vote < 0:",
+   "count": 1,
+   "kind": "sign-test",
+   "audit": "not in the audit's 350 rows (ci/probe_box/light_shadow.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "ci/probe_box/local/pipeline_seed.py",
+   "text": "banned=copy.deepcopy(vw);banned[2][0]['mod']=-1;add('public-banned',banned)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 81, 82, 83, 84 (ci/probe_box/local/pipeline_seed.py); this line is not itemised there"
+  },
+  {
+   "path": "ci/probe_box/local/pipeline_seed.py",
+   "text": "banned={r['pid'] for r in participants if r['mod']==-1}",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 81, 82, 83, 84 (ci/probe_box/local/pipeline_seed.py); this line is not itemised there"
+  },
+  {
+   "path": "ci/probe_box/local/pipeline_seed.py",
+   "text": "eligible={r['tid'] for r in comments if r['mod']!=-1 and not r['is_meta']}",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 81, 82, 83, 84 (ci/probe_box/local/pipeline_seed.py); this line is not itemised there"
+  },
+  {
+   "path": "ci/probe_box/local/pipeline_seed.py",
+   "text": "if i%fraction==0:c[field]=-1 if field=='mod' else True",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 81, 82, 83, 84 (ci/probe_box/local/pipeline_seed.py); this line is not itemised there"
+  },
+  {
+   "path": "ci/probe_box/local/pipeline_seed.py",
+   "text": "math_eligible_comments=len(eligible),mod_out_or_meta_comments=sum(c['mod']==-1 or c['is_meta'] for c in comments),",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 81, 82, 83, 84 (ci/probe_box/local/pipeline_seed.py); this line is not itemised there"
+  },
+  {
+   "path": "ci/probe_box/local/pipeline_seed.py",
+   "text": "mod_out_comments=sum(c['mod']==-1 for c in comments),meta_comments=sum(c['is_meta'] for c in comments),",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 81, 82, 83, 84 (ci/probe_box/local/pipeline_seed.py); this line is not itemised there"
+  },
+  {
+   "path": "ci/probe_box/test_backfill_verify.py",
+   "text": "last_vote_timestamp bigint NOT NULL, caching_tick bigint NOT NULL DEFAULT 0, math_tick bigint NOT NULL DEFAULT -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (ci/probe_box/test_backfill_verify.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "ci/probe_box/test_backfill_verify.py",
+   "text": "math_tick bigint NOT NULL DEFAULT -1, data json NOT NULL, modified bigint, UNIQUE (zid, math_env));",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (ci/probe_box/test_backfill_verify.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "ci/probe_box/test_light_shadow.py",
+   "text": "for bad in ([], dict(self.base, n='3'), dict(self.base, lastVoteTimestamp=-1),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (ci/probe_box/test_light_shadow.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "ci/probe_box/test_pipeline_seed.py",
+   "text": "[{'pid':0,'mod':-1},{'pid':1,'mod':0}])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 85 (ci/probe_box/test_pipeline_seed.py); this line is not itemised there"
+  },
+  {
+   "path": "ci/probe_box/test_pipeline_seed.py",
+   "text": "[{'tid':0,'mod':-1,'is_meta':False},{'tid':1,'mod':0,'is_meta':True}],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 85 (ci/probe_box/test_pipeline_seed.py); this line is not itemised there"
+  },
+  {
+   "path": "client-admin/src/components/conversation-admin/BYODConfig.js",
+   "text": "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22,user_beta,-1,2025-01-01T10:05:00Z,550e8400-e29b-41d4-a716-446655440000",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 348: client-admin/src/components/conversation-admin/BYODConfig.js:116-123"
+  },
+  {
+   "path": "client-admin/src/components/conversation-admin/BYODConfig.js",
+   "text": "vote_value MUST follow the pattern: 1 = agree, -1 = disagree, 0 = neutral/pass",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 348: client-admin/src/components/conversation-admin/BYODConfig.js:116-123"
+  },
+  {
+   "path": "client-participation-alpha/src/components/Statement.tsx",
+   "text": "onClick={() => handleVoteClick(-1)}",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 321: client-participation-alpha/src/components/Statement.tsx:191"
+  },
+  {
+   "path": "client-participation-alpha/src/components/Survey.tsx",
+   "text": "pid: decodedToken?.pid || -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 324: client-participation-alpha/src/components/Survey.tsx:30-32,133-140"
+  },
+  {
+   "path": "client-participation-alpha/src/components/SurveyForm.tsx",
+   "text": "pid: pid || -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 325: client-participation-alpha/src/components/SurveyForm.tsx:21"
+  },
+  {
+   "path": "client-participation-alpha/src/components/SurveyForm.tsx",
+   "text": "vote: -1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 325: client-participation-alpha/src/components/SurveyForm.tsx:21"
+  },
+  {
+   "path": "client-participation-alpha/src/components/visualization/PCAVisualization.tsx",
+   "text": "// PID is -1 or invalid - user hasn't voted yet, so they don't have a position on the PCA",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (client-participation-alpha/src/components/visualization/PCAVisualization.tsx); pre-existing at 344c557ad"
+  },
+  {
+   "path": "client-participation/js/models/vote.js",
+   "text": "votes: undefined, // agree = -1, pass = 0, disagree = 1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 285: client-participation/js/models/vote.js:16"
+  },
+  {
+   "path": "client-participation/js/routers/__tests__/mainRouter.test.cjs",
+   "text": "assert.deepEqual(f.gets, [\"/api/v3/nextComment?not_voted_by_pid=-1&limit=1&conversation_id=7Public\"]);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (client-participation/js/routers/__tests__/mainRouter.test.cjs); pre-existing at 344c557ad"
+  },
+  {
+   "path": "client-participation/js/routers/main-polis-router.js",
+   "text": "\"/api/v3/nextComment?not_voted_by_pid=-1&limit=1&conversation_id=\" + conversation_id",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (client-participation/js/routers/main-polis-router.js); pre-existing at 344c557ad"
+  },
+  {
+   "path": "client-participation/js/stores/__tests__/polis.test.cjs",
+   "text": "models: [{ attributes: { tid: 2, vote: -1 } }],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 287: client-participation/js/stores/__tests__/polis.test.cjs:38,80-82"
+  },
+  {
+   "path": "client-participation/js/stores/__tests__/polis.test.cjs",
+   "text": "not_voted_by_pid: -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 287 (client-participation/js/stores/__tests__/polis.test.cjs); this line is not itemised there"
+  },
+  {
+   "path": "client-participation/js/stores/__tests__/polis.test.cjs",
+   "text": "{ high_priority: false, vote: 1, tid: 3, starred: true, pid: -1, conversation_id: \"7Public\", agid: 1 },",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 287: client-participation/js/stores/__tests__/polis.test.cjs:38,80-82"
+  },
+  {
+   "path": "client-participation/js/stores/__tests__/polis.test.cjs",
+   "text": "{ high_priority: true, vote: -1, tid: 2, starred: false, pid: -1, conversation_id: \"7Public\", agid: 1 },",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 287: client-participation/js/stores/__tests__/polis.test.cjs:38,80-82"
+  },
+  {
+   "path": "client-participation/js/stores/__tests__/polis.test.cjs",
+   "text": "{ vote: 0, tid: 4, pid: -1, conversation_id: \"7Public\", agid: 1 }",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 287: client-participation/js/stores/__tests__/polis.test.cjs:38,80-82"
+  },
+  {
+   "path": "client-participation/js/stores/polis.js",
+   "text": "if (gid === -1) {",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 288, 289, 290, 291, 292, 293 (client-participation/js/stores/polis.js); this line is not itemised there"
+  },
+  {
+   "path": "client-participation/js/stores/polis.js",
+   "text": "if (numVotes > 0 && (o.pid !== -1 || USE_JETPACK_FOR_SELF)) {",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 288, 289, 290, 291, 292, 293 (client-participation/js/stores/polis.js); this line is not itemised there"
+  },
+  {
+   "path": "client-participation/js/stores/polis.js",
+   "text": "vote: -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 296: client-participation/js/stores/polis.js:1287-1301"
+  },
+  {
+   "path": "client-participation/js/views/comment-form.js",
+   "text": "attrs.pid = -1;",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 301 (client-participation/js/views/comment-form.js); this line is not itemised there"
+  },
+  {
+   "path": "client-participation/js/views/conversation.js",
+   "text": "pid: this.ptptModel ? this.ptptModel.get(\"pid\") : -1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (client-participation/js/views/conversation.js); pre-existing at 344c557ad"
+  },
+  {
+   "path": "client-participation/js/views/participation.js",
+   "text": "pid: -1,",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 302, 303 (client-participation/js/views/participation.js); this line is not itemised there"
+  },
+  {
+   "path": "client-participation/js/views/participation.js",
+   "text": "that.groupSelectionView.setSelectedGroup(-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 302, 303 (client-participation/js/views/participation.js); this line is not itemised there"
+  },
+  {
+   "path": "client-participation/js/views/vote-view.js",
+   "text": "if (this.wipVote.vote === -1) {",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 row 308: client-participation/js/views/vote-view.js:546-552"
+  },
+  {
+   "path": "client-participation/js/views/vote-view.js",
+   "text": "vote: -1,",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 304: client-participation/js/views/vote-view.js:463"
+  },
+  {
+   "path": "client-participation/js/views/vote-view.js",
+   "text": "} else if (this.wipVote.vote === 1) {",
+   "count": 1,
+   "kind": "equals-one",
+   "audit": "audit 2026-10-03 §2 row 308: client-participation/js/views/vote-view.js:546-552"
+  },
+  {
+   "path": "client-participation/setup/__tests__/devServerHelper.test.cjs",
+   "text": "const data = { conversation: { conversation_id: \"7Public\" }, votes: [{ tid: 0, vote: -1 }] };",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (client-participation/setup/__tests__/devServerHelper.test.cjs); pre-existing at 344c557ad"
+  },
+  {
+   "path": "client-participation/vis2/util/graphUtil.js",
+   "text": "-1 * Math.min(Math.abs(xScaleCandidateForRightSide), Math.abs(xScaleCandidateForLeftSide));",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 313: client-participation/vis2/util/graphUtil.js:281-286"
+  },
+  {
+   "path": "client-participation/vis2/util/graphUtil.js",
+   "text": "// TODO_VOTE_FLIP: we can probably remove the -1 below if we flip the vote values.",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 313: client-participation/vis2/util/graphUtil.js:281-286"
+  },
+  {
+   "path": "coordinator-rs/ci/pinned/aaaf7ca5c93f9a758b28e7a361c3b9544e24305a/delphi/tests/poller/recovery/fold.py.txt",
+   "text": "(-1 today). Written out here rather than imported from",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (coordinator-rs/ci/pinned/aaaf7ca5c93f9a758b28e7a361c3b9544e24305a/delphi/tests/poller/recovery/fold.py.txt); pre-existing at 344c557ad"
+  },
+  {
+   "path": "coordinator-rs/ci/pinned/aaaf7ca5c93f9a758b28e7a361c3b9544e24305a/delphi/tests/poller/recovery/fold.py.txt",
+   "text": "AGREE=+1 / DISAGREE=-1 / PASS=0.",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (coordinator-rs/ci/pinned/aaaf7ca5c93f9a758b28e7a361c3b9544e24305a/delphi/tests/poller/recovery/fold.py.txt); pre-existing at 344c557ad"
+  },
+  {
+   "path": "coordinator-rs/ci/pinned/aaaf7ca5c93f9a758b28e7a361c3b9544e24305a/delphi/tests/poller/recovery/fold.py.txt",
+   "text": "Postgres stores AGREE=-1 / DISAGREE=+1 / PASS=0; the math engine uses",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (coordinator-rs/ci/pinned/aaaf7ca5c93f9a758b28e7a361c3b9544e24305a/delphi/tests/poller/recovery/fold.py.txt); pre-existing at 344c557ad"
+  },
+  {
+   "path": "coordinator-rs/ci/pinned/b3262008f/delphi/polismath/database/postgres.py.txt",
+   "text": "\"math_tick\": math_tick if math_tick is not None else -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (coordinator-rs/ci/pinned/b3262008f/delphi/polismath/database/postgres.py.txt); pre-existing at 344c557ad"
+  },
+  {
+   "path": "coordinator-rs/ci/pinned/b3262008f/delphi/polismath/database/postgres.py.txt",
+   "text": "- Delphi expects: AGREE=+1, DISAGREE=-1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (coordinator-rs/ci/pinned/b3262008f/delphi/polismath/database/postgres.py.txt); pre-existing at 344c557ad"
+  },
+  {
+   "path": "coordinator-rs/ci/pinned/b3262008f/delphi/polismath/database/postgres.py.txt",
+   "text": "- PostgreSQL stores: AGREE=-1, DISAGREE=+1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (coordinator-rs/ci/pinned/b3262008f/delphi/polismath/database/postgres.py.txt); pre-existing at 344c557ad"
+  },
+  {
+   "path": "coordinator-rs/ci/pinned/b3262008f/delphi/polismath/database/postgres.py.txt",
+   "text": "math_tick = sa.Column(sa.BigInteger, nullable=False, default=-1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (coordinator-rs/ci/pinned/b3262008f/delphi/polismath/database/postgres.py.txt); pre-existing at 344c557ad"
+  },
+  {
+   "path": "coordinator-rs/examples/shadow_replay.rs",
+   "text": "\"mod_out_ptpts\":participants.iter().filter(|r|r[\"mod\"] == -1).map(|r|r[\"pid\"].clone()).collect::<Vec<_>>(),\"lastModTimestamp\":null});",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 122, 123, 124, 125 (coordinator-rs/examples/shadow_replay.rs); this line is not itemised there"
+  },
+  {
+   "path": "coordinator-rs/examples/shadow_replay.rs",
+   "text": "json!({\"schema\":\"polis-shadow-replay-input/1\",\"host\":\"fixture-host\",\"legacy_namespace\":\"legacy\",\"namespace\":\"shadow-test\",\"zid\":1,\"cut_sha256\":digest(bytes.as_bytes()),\"cut_bytes\":bytes,\"history_sha256\":\"2\".repeat(64),\"expected_tick\":null,\"prior_bundle_sha256\":null,\"storage_agree_value\":-1,\"reference\":\"daily-1\"}),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 122, 123, 124, 125 (coordinator-rs/examples/shadow_replay.rs); this line is not itemised there"
+  },
+  {
+   "path": "coordinator-rs/examples/shadow_replay.rs",
+   "text": "let rows = json!({\"votes\":votes,\"comments\":[{\"tid\":0,\"mod\":0,\"is_meta\":false,\"modified\":10}],\"participants\":[{\"pid\":0,\"mod\":0}],\"ordering\":ordering::manifest(-1,ordering::census(&votes))?});",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 125: coordinator-rs/examples/shadow_replay.rs:338,412-413"
+  },
+  {
+   "path": "coordinator-rs/examples/shadow_replay.rs",
+   "text": "let votes = vec![json!({\"pid\":0,\"tid\":0,\"vote\":-1,\"created\":10,\"weight_x_32767\":null})];",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 125: coordinator-rs/examples/shadow_replay.rs:338,412-413"
+  },
+  {
+   "path": "coordinator-rs/examples/shadow_replay.rs",
+   "text": "{\"pid\":0,\"tid\":0,\"vote\":-1,\"created\":10,\"weight_x_32767\":null}])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 125: coordinator-rs/examples/shadow_replay.rs:338,412-413"
+  },
+  {
+   "path": "coordinator-rs/examples/shadow_replay.rs",
+   "text": "{\"pid\":1,\"tid\":0,\"vote\":-1,\"created\":10,\"weight_x_32767\":null},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 125: coordinator-rs/examples/shadow_replay.rs:338,412-413"
+  },
+  {
+   "path": "coordinator-rs/src/coordinator.rs",
+   "text": "\"mod_out_ptpts\":participants.iter().filter(|r|r[\"mod\"] == -1).map(|r|r[\"pid\"].clone()).collect::<Vec<_>>(),",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 128 (coordinator-rs/src/coordinator.rs); this line is not itemised there"
+  },
+  {
+   "path": "coordinator-rs/tests/validation.rs",
+   "text": "assert_eq!(manifest[\"storage_agree_value\"], -1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 136: coordinator-rs/tests/validation.rs:85-118"
+  },
+  {
+   "path": "coordinator-rs/tests/validation.rs",
+   "text": "let manifest = ordering::manifest(-1, census.clone())?;",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 136: coordinator-rs/tests/validation.rs:85-118"
+  },
+  {
+   "path": "coordinator-rs/tools/d05/cases.py",
+   "text": "body=json.dumps({\"conversation_id\": c.capability(1), \"tid\": 1, \"vote\": -1}).encode())",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 137: coordinator-rs/tools/d05/cases.py:184"
+  },
+  {
+   "path": "coordinator-rs/tools/d05/cases.py",
+   "text": "c.query(\"INSERT INTO votes(zid,pid,tid,vote,created) VALUES(6,0,9,-1,3001)\")",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 138: coordinator-rs/tools/d05/cases.py:189"
+  },
+  {
+   "path": "coordinator-rs/tools/d05/run.py",
+   "text": "self.query(\"INSERT INTO votes(zid,pid,tid,vote,created) VALUES(%s,%s,%s,%s,%s)\", (zid,pid,tid,[-1,1,0][(pid+tid)%3],1000+pid*4+tid))",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (coordinator-rs/tools/d05/run.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "coordinator-rs/tools/d07/boundary.py",
+   "text": "if any(int(r[\"vote\"]) not in (-1, 0, 1) for r in rows):",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 139: coordinator-rs/tools/d07/boundary.py:61,68"
+  },
+  {
+   "path": "coordinator-rs/tools/d07/readiness.py",
+   "text": "elif vote==-1:entry['D'][i]+=1",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "not in the audit's 350 rows (coordinator-rs/tools/d07/readiness.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "coordinator-rs/tools/d07/readiness.py",
+   "text": "if vote==1:entry['A'][i]+=1",
+   "count": 1,
+   "kind": "equals-one",
+   "audit": "not in the audit's 350 rows (coordinator-rs/tools/d07/readiness.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "coordinator-rs/tools/d07/test_readiness.py",
+   "text": "fold=SimpleNamespace(cells={(0,0):1,(1,0):-1},comments={0},participants={0,1})",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (coordinator-rs/tools/d07/test_readiness.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/notebooks/run_analysis.py",
+   "text": "# Ensure vote value is a float (-1, 0, or 1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 255: delphi/notebooks/run_analysis.py:63-81"
+  },
+  {
+   "path": "delphi/notebooks/run_analysis.py",
+   "text": "# Normalize to ensure only -1, 0, or 1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 255: delphi/notebooks/run_analysis.py:63-81"
+  },
+  {
+   "path": "delphi/notebooks/run_analysis.py",
+   "text": "elif vote_val < 0:",
+   "count": 1,
+   "kind": "sign-test",
+   "audit": "audit 2026-10-03 §2 row 255: delphi/notebooks/run_analysis.py:63-81"
+  },
+  {
+   "path": "delphi/notebooks/run_analysis.py",
+   "text": "if vote_val > 0:",
+   "count": 1,
+   "kind": "sign-test",
+   "audit": "audit 2026-10-03 §2 row 255: delphi/notebooks/run_analysis.py:63-81"
+  },
+  {
+   "path": "delphi/polismath/conversation/conversation.py",
+   "text": "# Normalize to -1, 0, 1",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 150: delphi/polismath/conversation/conversation.py:325-345"
+  },
+  {
+   "path": "delphi/polismath/conversation/conversation.py",
+   "text": "# Values are -1, +1, 0, or an explicit null update.",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 148, 149, 150, 151, 152, 153 (delphi/polismath/conversation/conversation.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/conversation/conversation.py",
+   "text": "elif vote_value < 0:",
+   "count": 2,
+   "kind": "sign-test",
+   "audit": "audit 2026-10-03 §2 row 150: delphi/polismath/conversation/conversation.py:325-345"
+  },
+  {
+   "path": "delphi/polismath/conversation/conversation.py",
+   "text": "if vote_value > 0:",
+   "count": 2,
+   "kind": "sign-test",
+   "audit": "audit 2026-10-03 §2 row 150: delphi/polismath/conversation/conversation.py:325-345"
+  },
+  {
+   "path": "delphi/polismath/database/postgres.py",
+   "text": "\"math_tick\": math_tick if math_tick is not None else -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 167, 168, 169, 170 (delphi/polismath/database/postgres.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/database/postgres.py",
+   "text": "- Delphi expects: AGREE=+1, DISAGREE=-1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 168: delphi/polismath/database/postgres.py:519-521,600,606"
+  },
+  {
+   "path": "delphi/polismath/database/postgres.py",
+   "text": "- PostgreSQL stores: AGREE=-1, DISAGREE=+1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 168: delphi/polismath/database/postgres.py:519-521,600,606"
+  },
+  {
+   "path": "delphi/polismath/database/postgres.py",
+   "text": "-1 until the P-023 storage migration.",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 167: delphi/polismath/database/postgres.py:298-312"
+  },
+  {
+   "path": "delphi/polismath/database/postgres.py",
+   "text": "database this client reads, -1 or +1 (P-022-G rev4). Validated",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 167: delphi/polismath/database/postgres.py:298-312"
+  },
+  {
+   "path": "delphi/polismath/database/postgres.py",
+   "text": "math_tick = sa.Column(sa.BigInteger, nullable=False, default=-1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 167, 168, 169, 170 (delphi/polismath/database/postgres.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/database/postgres.py",
+   "text": "return Fingerprint(row[\"math_tick\"], -1 if lvt is None else lvt, row[\"modified\"] or 0,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 167, 168, 169, 170 (delphi/polismath/database/postgres.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/engine_adapter.py",
+   "text": "if row[\"slot\"] != i or type(row[\"raw_vote\"]) is not int or row[\"raw_vote\"] not in (-1, 0, 1):",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 171, 172, 173 (delphi/polismath/engine_adapter.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/engine_adapter.py",
+   "text": "if type(self.sign) is not int or self.sign not in (-1, 1):",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 171: delphi/polismath/engine_adapter.py:206-207"
+  },
+  {
+   "path": "delphi/polismath/pca_kmeans_rep/pca.py",
+   "text": "**Convention note (D1b):** Clojure uses the literal vote value `-1` here",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 174 (delphi/polismath/pca_kmeans_rep/pca.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/pca_kmeans_rep/pca.py",
+   "text": "AGREE = -1 (and its `center` is the mean in that same convention). Delphi",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 174 (delphi/polismath/pca_kmeans_rep/pca.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/pca_kmeans_rep/repness.py",
+   "text": "Values should be AGREE (1), DISAGREE (-1), PASS (0), or NaN (unvoted)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 175, 176 (delphi/polismath/pca_kmeans_rep/repness.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/poller/backfill.py",
+   "text": "return (int(row[\"math_tick\"]), int(lvt) if lvt is not None else -1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/polismath/poller/backfill.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/polismath/poller/coordinator_bridge.py",
+   "text": "if event[\"vote\"] not in (-1, 0, 1):",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 178: delphi/polismath/poller/coordinator_bridge.py:340-343"
+  },
+  {
+   "path": "delphi/polismath/regression/utils.py",
+   "text": "# (server/src/report.ts ~393 — `vote: String(-row.vote) // flip -1 to 1`),",
+   "count": 1,
+   "kind": "negated-vote",
+   "audit": "audit 2026-10-03 §2 row 181: delphi/polismath/regression/utils.py:270-285"
+  },
+  {
+   "path": "delphi/polismath/regression/utils.py",
+   "text": "# which ALREADY flips raw Postgres (AGREE=-1) into Delphi convention",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 181: delphi/polismath/regression/utils.py:270-285"
+  },
+  {
+   "path": "delphi/polismath/replay/event_ingress.py",
+   "text": "if e[\"vote\"] not in (None, -1, 0, 1):",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 186, 187 (delphi/polismath/replay/event_ingress.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/replay/fixture_bundle.py",
+   "text": "#: original it was involuted from. Production-source bundles remain -1 by",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 188, 189 (delphi/polismath/replay/fixture_bundle.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/replay/fixture_extract.py",
+   "text": "#: \"-1 = Agree, 1 = Disagree, 0 = Pass/Unsure\"), and the export CSV's own",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 190: delphi/polismath/replay/fixture_extract.py:85-88,117-123"
+  },
+  {
+   "path": "delphi/polismath/replay/fixture_extract.py",
+   "text": "#: -1 until the separately approved P-023 storage migration.",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 190: delphi/polismath/replay/fixture_extract.py:85-88,117-123"
+  },
+  {
+   "path": "delphi/polismath/replay/fixture_generate.py",
+   "text": "_VOTE_VALUES = (-1, 1, 0) # raw storage signs: agree, disagree, pass",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 195: delphi/polismath/replay/fixture_generate.py:42,120-122,153-155"
+  },
+  {
+   "path": "delphi/polismath/replay/fixture_generate.py",
+   "text": "vote = -1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 195: delphi/polismath/replay/fixture_generate.py:42,120-122,153-155"
+  },
+  {
+   "path": "delphi/polismath/replay/fixture_generate.py",
+   "text": "votes.append({\"pid\": p, \"tid\": tid, \"vote\": -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 195: delphi/polismath/replay/fixture_generate.py:42,120-122,153-155"
+  },
+  {
+   "path": "delphi/polismath/replay/fixture_survey.py",
+   "text": "\"banned_voters\": \"COUNT(DISTINCT pid) over votes whose participants row has mod = -1\",",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/polismath/replay/fixture_survey.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/polismath/replay/fixture_survey.py",
+   "text": "\"math_eligible_comments\": \"COUNT(*) over comments with mod <> -1 AND is_meta = false\",",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/polismath/replay/fixture_survey.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/polismath/replay/fixture_survey.py",
+   "text": "\"mod_out_or_meta_comments\": \"COUNT(*) over comments with is_meta OR mod = -1 (the engine's mod-out set)\",",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/polismath/replay/fixture_survey.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/polismath/replay/fixture_survey.py",
+   "text": "\"mod_out_share\": \"comments with mod = -1 / all_comments; None when all_comments = 0\",",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/polismath/replay/fixture_survey.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/polismath/replay/fixture_survey.py",
+   "text": "AND c2.mod <> -1 AND NOT c2.is_meta",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/polismath/replay/fixture_survey.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/polismath/replay/fixture_survey.py",
+   "text": "ON pp.zid = v3.zid AND pp.pid = v3.pid AND pp.mod = -1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/polismath/replay/fixture_survey.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/polismath/replay/polarity.py",
+   "text": "side = PAIR_SIDE_ORIGINAL if s == -1 else PAIR_SIDE_FLIPPED",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 196, 197, 198, 199 (delphi/polismath/replay/polarity.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/replay/polarity.py",
+   "text": "storage convention ``s`` (exactly the integer -1 or +1; semantic vote is",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 196, 197, 198, 199 (delphi/polismath/replay/polarity.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/replay/polarity.py",
+   "text": "vote = (-1, 1, 0)[(pid + tid) % 3]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 196, 197, 198, 199 (delphi/polismath/replay/polarity.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/replay/polarity.py",
+   "text": "vote stream ``V`` carry raw votes in ``{-1, 0, +1, NULL}`` with a declared",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 196, 197, 198, 199 (delphi/polismath/replay/polarity.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/replay/poller_equiv.py",
+   "text": "(``polismath.utils.general.postgres_vote_to_delphi``, ``vote * -1``) inside",
+   "count": 1,
+   "kind": "times-minus-one",
+   "audit": "audit 2026-10-03 §2 row 200: delphi/polismath/replay/poller_equiv.py:104-116"
+  },
+  {
+   "path": "delphi/polismath/replay/poller_equiv.py",
+   "text": "-- RAW DB convention: -1=agree, +1=disagree, 0=pass/unsure (migrations.sql:742-747).",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 200, 201 (delphi/polismath/replay/poller_equiv.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/replay/poller_equiv.py",
+   "text": "``votes.vote`` in production is RAW-DB convention: AGREE=-1, DISAGREE=+1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 200: delphi/polismath/replay/poller_equiv.py:104-116"
+  },
+  {
+   "path": "delphi/polismath/replay/poller_equiv.py",
+   "text": "declared ``storage_agree_value`` (-1 or +1, defaulting to the one",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 200, 201 (delphi/polismath/replay/poller_equiv.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/replay/poller_equiv.py",
+   "text": "math_tick BIGINT NOT NULL DEFAULT -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 200, 201 (delphi/polismath/replay/poller_equiv.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/replay/prodclone.py",
+   "text": "WHERE pp.mod = -1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 202, 203, 204 (delphi/polismath/replay/prodclone.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/replay/prodclone.py",
+   "text": "``storage_agree_value = -1``. The export convention itself is FIXED",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 204: delphi/polismath/replay/prodclone.py:389-426"
+  },
+  {
+   "path": "delphi/polismath/replay/prodclone.py",
+   "text": "``vote = -1`` would silently count disagreements as agreements.",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 203: delphi/polismath/replay/prodclone.py:181-201"
+  },
+  {
+   "path": "delphi/polismath/replay/prodclone.py",
+   "text": "declared convention (``storage_agree_value``, -1 or +1) rather than written",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 203: delphi/polismath/replay/prodclone.py:181-201"
+  },
+  {
+   "path": "delphi/polismath/replay/prodclone.py",
+   "text": "mirroring the production export's ``String(-row.vote)`` at the default",
+   "count": 1,
+   "kind": "negated-vote",
+   "audit": "audit 2026-10-03 §2 row 204: delphi/polismath/replay/prodclone.py:389-426"
+  },
+  {
+   "path": "delphi/polismath/replay/prodclone.py",
+   "text": "moderated-out (comments.mod = -1).\"\"\"",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 202, 203, 204 (delphi/polismath/replay/prodclone.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/replay/stagecompare.py",
+   "text": "two engines legitimately spell the same vote as ``-1`` and ``-1.0``.",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 206 (delphi/polismath/replay/stagecompare.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/replay/stages.py",
+   "text": "in raw-DB convention (AGREE=-1, utils.clj:40-49); this engine computes in Delphi",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 207: delphi/polismath/replay/stages.py:35-41,109"
+  },
+  {
+   "path": "delphi/polismath/replay/types.py",
+   "text": "``-1`` before any cut — production serves with all-default weights until the",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 209 (delphi/polismath/replay/types.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/replay/types.py",
+   "text": "lefts = [-1, *schedule]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 209 (delphi/polismath/replay/types.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/polismath/replay/types.py",
+   "text": "the mapping: the polis DB stores agree as -1, and export CSVs flip signs",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 209: delphi/polismath/replay/types.py:22-32"
+  },
+  {
+   "path": "delphi/polismath/run_math_pipeline.py",
+   "text": "- Delphi expects: AGREE=+1, DISAGREE=-1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 210: delphi/polismath/run_math_pipeline.py:91-145"
+  },
+  {
+   "path": "delphi/polismath/run_math_pipeline.py",
+   "text": "- PostgreSQL stores: AGREE=storage_agree_value (today -1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 210: delphi/polismath/run_math_pipeline.py:91-145"
+  },
+  {
+   "path": "delphi/polismath/run_math_pipeline.py",
+   "text": "storage convention (``storage_agree_value``, -1 or +1 — the one",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 210: delphi/polismath/run_math_pipeline.py:91-145"
+  },
+  {
+   "path": "delphi/polismath/types.py",
+   "text": "DISAGREE=-1, PASS=0) at that Postgres boundary; see",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 212: delphi/polismath/types.py:14-16"
+  },
+  {
+   "path": "delphi/polismath/utils/general.py",
+   "text": "- PostgreSQL DISAGREE (-s) → Delphi DISAGREE (-1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 214: delphi/polismath/utils/general.py:28-58"
+  },
+  {
+   "path": "delphi/polismath/utils/general.py",
+   "text": "DISAGREE = -1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 213: delphi/polismath/utils/general.py:23-25"
+  },
+  {
+   "path": "delphi/polismath/utils/general.py",
+   "text": "Delphi uses: AGREE=+1, DISAGREE=-1, PASS=0",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 214: delphi/polismath/utils/general.py:28-58"
+  },
+  {
+   "path": "delphi/polismath/utils/general.py",
+   "text": "PostgreSQL/Server/Client use: AGREE=storage_agree_value (today -1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 214: delphi/polismath/utils/general.py:28-58"
+  },
+  {
+   "path": "delphi/polismath/utils/general.py",
+   "text": "Vote value in Delphi convention (+1=agree, -1=disagree, 0=pass)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 214: delphi/polismath/utils/general.py:28-58"
+  },
+  {
+   "path": "delphi/polismath/utils/general.py",
+   "text": "delphi_vote: Vote value in Delphi convention (+1=agree, -1=disagree, 0=pass)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 215: delphi/polismath/utils/general.py:61-80"
+  },
+  {
+   "path": "delphi/polismath/utils/general.py",
+   "text": "storage_agree_value: the DECLARED raw storage sign of AGREE, -1 or +1.",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 214: delphi/polismath/utils/general.py:28-58"
+  },
+  {
+   "path": "delphi/scripts/job_poller.py",
+   "text": "- Delphi expects: AGREE=+1, DISAGREE=-1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 260: delphi/scripts/job_poller.py:303-334"
+  },
+  {
+   "path": "delphi/scripts/job_poller.py",
+   "text": "- PostgreSQL stores: AGREE=-1, DISAGREE=+1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 260: delphi/scripts/job_poller.py:303-334"
+  },
+  {
+   "path": "delphi/scripts/job_poller.py",
+   "text": "Delphi internal: AGREE=+1, DISAGREE=-1, PASS=0",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 259: delphi/scripts/job_poller.py:12-21"
+  },
+  {
+   "path": "delphi/scripts/job_poller.py",
+   "text": "PostgreSQL/Server/Client: AGREE=-1, DISAGREE=+1, PASS=0",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 259: delphi/scripts/job_poller.py:12-21"
+  },
+  {
+   "path": "delphi/scripts/job_poller.py",
+   "text": "return pg_vote * -1",
+   "count": 1,
+   "kind": "times-minus-one",
+   "audit": "audit 2026-10-03 §2 row 259: delphi/scripts/job_poller.py:12-21"
+  },
+  {
+   "path": "delphi/scripts/prove_event_ingress.py",
+   "text": "meta = {'schema_version': 'certify-events/2', 'polarity': {'storage_agree_value': -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 265: delphi/scripts/prove_event_ingress.py:36"
+  },
+  {
+   "path": "delphi/tests/common_utils.py",
+   "text": "# Ensure vote value is a float (-1, 0, or 1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/common_utils.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/common_utils.py",
+   "text": "# Normalize to ensure only -1, 0, or 1",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/common_utils.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/common_utils.py",
+   "text": "elif vote_val < 0:",
+   "count": 2,
+   "kind": "sign-test",
+   "audit": "not in the audit's 350 rows (delphi/tests/common_utils.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/common_utils.py",
+   "text": "if vote_val > 0:",
+   "count": 2,
+   "kind": "sign-test",
+   "audit": "not in the audit's 350 rows (delphi/tests/common_utils.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/conversation_profiler.py",
+   "text": "# Normalize to -1, 0, 1",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/conversation_profiler.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/conversation_profiler.py",
+   "text": "elif vote_value < 0:",
+   "count": 2,
+   "kind": "sign-test",
+   "audit": "not in the audit's 350 rows (delphi/tests/conversation_profiler.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/conversation_profiler.py",
+   "text": "if vote_value > 0:",
+   "count": 2,
+   "kind": "sign-test",
+   "audit": "not in the audit's 350 rows (delphi/tests/conversation_profiler.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/conftest.py",
+   "text": "value = [-1,1,0][(pid+tid)%3]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/conftest.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/reference_child.py",
+   "text": "conn.execute(sa.text(\"INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,1,:t),(1,2,2,-1,:later)\"),{\"t\":t,\"later\":t+1000})",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/reference_child.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_adapter.py",
+   "text": "@pytest.mark.parametrize(\"vote\",[None,True,2,\"-1\"])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_adapter.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_adapter.py",
+   "text": "assert worker.conv.raw_rating_mat.loc[2,3]==-1",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_adapter.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_adapter.py",
+   "text": "def setup(tmp_path, votes=None, ops=None, sign=-1):",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_adapter.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_adapter.py",
+   "text": "worker,p=setup(tmp_path,[-1,0,1],[op]);worker.handle(req(\"initialize\",p))",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_adapter.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_adapter.py",
+   "text": "worker,p=setup(tmp_path,[-1,1],[op]);worker.handle(req(\"initialize\",p))",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_adapter.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_bundle_reader.py",
+   "text": "\"\"\"Change one seeded vote (pid 1, tid 2: -1 -> 1). The public seed has only",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_bundle_reader.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_bundle_reader.py",
+   "text": "value = [-1, 1, 0][(model_pid + tid) % 3]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_bundle_reader.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_equivalence.py",
+   "text": "assert declared['storage_agree_value']==-1 and declared['algorithm_digest']",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 row 227: delphi/tests/coordinator/test_equivalence.py:167-198"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_equivalence.py",
+   "text": "events=[(p,t,(-1 if p%2==0 else 1),1000+p*4+t) for p in range(6) for t in range(4)]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 226: delphi/tests/coordinator/test_equivalence.py:149"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_equivalence.py",
+   "text": "for value in (1,-1):",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 227: delphi/tests/coordinator/test_equivalence.py:167-198"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_equivalence.py",
+   "text": "with c.cursor() as cur:cur.execute(\"UPDATE votes SET vote=-vote\")",
+   "count": 1,
+   "kind": "negated-vote",
+   "audit": "audit 2026-10-03 §2 row 224: delphi/tests/coordinator/test_equivalence.py:46,191"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_equivalence.py",
+   "text": "with c.cursor() as cur:cur.execute('UPDATE votes SET vote=-vote WHERE zid=1')",
+   "count": 1,
+   "kind": "negated-vote",
+   "audit": "audit 2026-10-03 §2 row 224: delphi/tests/coordinator/test_equivalence.py:46,191"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_incremental.py",
+   "text": "query(db, \"UPDATE votes SET vote=-1 WHERE zid=1 AND pid=0 AND tid=1\")",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_incremental.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_recovery.py",
+   "text": "cur.execute('UPDATE votes SET vote=-1 WHERE zid=1 AND pid=0 AND tid=0')",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_recovery.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_recovery.py",
+   "text": "for value in (-1,0):",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_recovery.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_step2_review_controls.py",
+   "text": "query(db, \"UPDATE votes SET vote=-1 WHERE zid=1 AND pid=0 AND tid=1\")",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_step2_review_controls.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/coordinator/test_store.py",
+   "text": "conv=conv.update_votes({'votes':[dict(pid=p,tid=t,vote=1 if p%2 else -1,created=1000+p*4+t) for p in range(6) for t in range(4)],'lastVoteTimestamp':1023},recompute=False)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_store.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/poller/recovery/conftest.py",
+   "text": "Raw DB vote signs (AGREE=-1, DISAGREE=+1) are written directly, so the",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 228: delphi/tests/poller/recovery/conftest.py:367-424"
+  },
+  {
+   "path": "delphi/tests/poller/recovery/conftest.py",
+   "text": "return -1 if pid % 2 == 0 else 1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 228: delphi/tests/poller/recovery/conftest.py:367-424"
+  },
+  {
+   "path": "delphi/tests/poller/recovery/fold.py",
+   "text": "(-1 today). Written out here rather than imported from",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 229: delphi/tests/poller/recovery/fold.py:27-56,123"
+  },
+  {
+   "path": "delphi/tests/poller/recovery/fold.py",
+   "text": "AGREE=+1 / DISAGREE=-1 / PASS=0.",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 229: delphi/tests/poller/recovery/fold.py:27-56,123"
+  },
+  {
+   "path": "delphi/tests/poller/recovery/fold.py",
+   "text": "Postgres stores AGREE=-1 / DISAGREE=+1 / PASS=0; the math engine uses",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 229: delphi/tests/poller/recovery/fold.py:27-56,123"
+  },
+  {
+   "path": "delphi/tests/poller/recovery/test_empty_publication.py",
+   "text": "assert voted[\"main\"][\"data\"][\"n\"] == 1",
+   "count": 1,
+   "kind": "equals-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/poller/recovery/test_empty_publication.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/poller/recovery/test_empty_publication.py",
+   "text": "commit_vote(engine, 1, 0, 0, -1, created)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/poller/recovery/test_empty_publication.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/poller/recovery/test_r01_stage_failures.py",
+   "text": "commit_vote(engine, 1, 1, 1, -1, newer)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/poller/recovery/test_r01_stage_failures.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/poller/test_backfill_postgres.py",
+   "text": "q(db, \"INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 0, 3, -1, %s)\",",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_backfill_postgres.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/poller/test_backfill_postgres.py",
+   "text": "q(db, \"INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 1, 0, -1, %s)\",",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_backfill_postgres.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/poller/test_backfill_postgres.py",
+   "text": "raw = -1 if (p % 2 == 0) == (t % 2 == 0) else 1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_backfill_postgres.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/poller/test_capacity.py",
+   "text": "{\"zid\": 6, \"disposition\": \"small\", \"need_bytes\": 5, \"votes\": -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_capacity.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/poller/test_coalescing.py",
+   "text": "assert c.moderation == [{\"tid\": \"1\", \"mod\": -1}, {\"tid\": \"2\", \"mod\": 1}]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_coalescing.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/poller/test_integration_postgres.py",
+   "text": "# Raw DB vote signs: AGREE=-1, DISAGREE=+1. Two opposing camps.",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 230: delphi/tests/poller/test_integration_postgres.py:77-85"
+  },
+  {
+   "path": "delphi/tests/poller/test_integration_postgres.py",
+   "text": "raw = -1 if p % 2 == 0 else 1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 230: delphi/tests/poller/test_integration_postgres.py:77-85"
+  },
+  {
+   "path": "delphi/tests/poller/test_load_or_init.py",
+   "text": "camp = 1 if p % 2 == 0 else -1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_load_or_init.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/poller/test_postgres_client_pid_types.py",
+   "text": "[{\"zid\": 1, \"tid\": 10, \"pid\": 5, \"vote\": -1, \"created\": 1000}]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 231 (delphi/tests/poller/test_postgres_client_pid_types.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/poller/test_postgres_client_pid_types.py",
+   "text": "[{\"zid\": 1, \"tid\": 10, \"pid\": 5, \"vote\": -1, \"created\": 1000}] # raw DB AGREE",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 231: delphi/tests/poller/test_postgres_client_pid_types.py:73-81"
+  },
+  {
+   "path": "delphi/tests/poller/test_postgres_client_pid_types.py",
+   "text": "assert votes[0][\"vote\"] == 1 # Delphi AGREE",
+   "count": 1,
+   "kind": "equals-one",
+   "audit": "audit 2026-10-03 §2 row 231: delphi/tests/poller/test_postgres_client_pid_types.py:73-81"
+  },
+  {
+   "path": "delphi/tests/poller/test_postgres_client_pid_types.py",
+   "text": "assert votes[0][\"zid\"] == 1",
+   "count": 1,
+   "kind": "equals-one",
+   "audit": "audit 2026-10-03 §2 file rows 231 (delphi/tests/poller/test_postgres_client_pid_types.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/poller/test_postgres_client_pid_types.py",
+   "text": "{\"zid\": 1, \"tid\": 11, \"pid\": 9, \"vote\": -1, \"created\": 1001},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 231 (delphi/tests/poller/test_postgres_client_pid_types.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/poller/test_promotion_postgres.py",
+   "text": "q(db, \"INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 1, 1, -1, %s)\",",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_promotion_postgres.py); added after 344c557ad"
+  },
+  {
+   "path": "delphi/tests/poller/test_promotion_postgres.py",
+   "text": "q(db, \"INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 7, 1, -1, %s)\",",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_promotion_postgres.py); added after 344c557ad"
+  },
+  {
+   "path": "delphi/tests/poller/test_recovery.py",
+   "text": "assert final.values[(1, 1)] == -1, \"newer revote must win\"",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_recovery.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/poller/test_recovery.py",
+   "text": "newer = _vote(1, 1, 1, -1, 20)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_recovery.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/poller/test_recovery.py",
+   "text": "pg.votes.append(_vote(1, 2, 2, -1, 20)) # vote B",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_recovery.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/poller/test_revote_order.py",
+   "text": "{\"pid\": 1, \"tid\": 1, \"vote\": -1, \"created\": 10},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_revote_order.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/poller/test_revote_order.py",
+   "text": "{\"pid\": 1, \"tid\": 1, \"vote\": -1, \"created\": 20},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_revote_order.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/poller/test_revote_order.py",
+   "text": "{\"pid\": 1, \"tid\": 1, \"vote\": -1, \"created\": 20}, # newer, first",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_revote_order.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/projgate/projection_gate_test.py",
+   "text": "\"resolve(results.rows.map((r) => ({ ...r, vote: -r.vote })));\"))",
+   "count": 1,
+   "kind": "negated-vote",
+   "audit": "not in the audit's 350 rows (delphi/tests/projgate/projection_gate_test.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/projgate/projection_gate_test.py",
+   "text": "(0, 0, -1, 0, 1000), # equal-created pair (same created=1000, ...",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/projgate/projection_gate_test.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/projgate/projection_gate_test.py",
+   "text": "(1, 0, -1, 0, 2000), # revote base",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/projgate/projection_gate_test.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/projgate/projection_gate_test.py",
+   "text": "after = [(0, 1), (1, -1)] # both comments' votes swapped; column bags unchanged",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/projgate/projection_gate_test.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/projgate/projection_gate_test.py",
+   "text": "before = [(0, -1), (1, 1)] # (tid, vote)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/projgate/projection_gate_test.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/event_ingress_test.clj",
+   "text": "(def vote-events [{\"ord\" 0 \"kind\" \"vote\" \"created\" 1001 \"pid\" 1 \"tid\" 2 \"vote\" -1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/event_ingress_test.clj); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/event_ingress_test.clj",
+   "text": "(doseq [s [true nil 0 -1.0 \"-1\"]]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/event_ingress_test.clj); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/event_ingress_test.clj",
+   "text": "(is (= [1 -1 nil] (mapv :sign votes)))",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/event_ingress_test.clj); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/event_ingress_test.clj",
+   "text": "(is (= [{:pid 1 :tid 2 :vote -1 :created 1001 :weight_x_32767 0}",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/event_ingress_test.clj); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/event_ingress_test.clj",
+   "text": "(with-stream [] -1 #(is (= [] (:votes (replay/read-event-stream %))))))",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/event_ingress_test.clj); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/event_ingress_test.clj",
+   "text": "(with-stream events -1 #(is (thrown? Exception (replay/read-event-stream %))))))",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/event_ingress_test.clj); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/event_ingress_test.clj",
+   "text": "(with-stream vote-events -1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/event_ingress_test.clj); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/representative_schedule_test.clj",
+   "text": "\"modified\" (when (zero? i) 9000) \"mod\" (if (zero? i) 0 -1) \"is_meta\" (= i 1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/representative_schedule_test.clj); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/representative_schedule_test.clj",
+   "text": "votes (mapv (fn [i] {\"ord\" i \"kind\" \"vote\" \"created\" 1001 \"pid\" 1 \"tid\" 0 \"vote\" -1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/representative_schedule_test.clj); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/representative_schedule_test.clj",
+   "text": "{\"schema_version\" \"certify-events/2\" \"polarity\" {\"storage_agree_value\" -1}",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/representative_schedule_test.clj); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/strict_schedule_test.clj",
+   "text": "{:t-ms 20 :pid 2 :tid 1 :sign -1}])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/strict_schedule_test.clj); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_certify_strict_gate.py",
+   "text": "ds = ReplayDataset.build([(10, 1, 1, 1), (20, 2, 1, -1)])",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_certify_strict_gate.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_certify_strict_gate.py",
+   "text": "votes.write_text(\"timestamp,participant,comment,vote\\n10,1,1,1\\n20,2,1,-1\\n\")",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_certify_strict_gate.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_cli.py",
+   "text": "ds = ReplayDataset.build([(10, 0, 1, 1), (11, 1, 1, -1), (12, 0, 2, 1), (13, 1, 2, -1)])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_cli.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_clj_moderation_tail.py",
+   "text": "c['mod'] = -1 if c['tid'] == 0 else 0",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_clj_moderation_tail.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_driver.py",
+   "text": "(10, 0, 100, 1), (20, 1, 100, -1), (30, 0, 101, 1),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_driver.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_driver.py",
+   "text": "(100 * (i + 1), (i % 4) + 1, (i % 3) + 10, [1, -1, 1][i % 3])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_driver.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_driver.py",
+   "text": "(40, 1, 101, -1), (50, 2, 100, 1), (60, 2, 101, -1),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_driver.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_driver.py",
+   "text": "mods = [ModEvent(35, 100, -1), ModEvent(35, 101, 1), ModEvent(55, 100, 0)]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_driver.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_driver.py",
+   "text": "mods = [ModEvent(35, 100, -1), ModEvent(55, 101, 1)]",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_driver.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_driver.py",
+   "text": "mods = [ModEvent(35, 100, -1)]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_driver.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_driver.py",
+   "text": "mods = [ModEvent(t_ms=150, tid=10, mod=-1)]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_driver.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_driver.py",
+   "text": "raw = [(0, 0, 100, 1), (1, 1, 100, -1), (2, 0, 101, 1), (3, 1, 101, -1)]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_driver.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_event_ingress.py",
+   "text": "(1, 1001, 1, 0, False, 0), (2, 1001, -1, None, True, 1), (3, 1999, None, 123, True, 2)]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_event_ingress.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_event_ingress.py",
+   "text": "], [dict(created=900, modified=1500, pid=1, tid=2, mod=-1, is_meta=True)])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_event_ingress.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_event_ingress.py",
+   "text": "assert [v['vote'] for v in seen[0]['votes']] == [1, -1, None]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_event_ingress.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_event_ingress.py",
+   "text": "csv_path.write_text(csv_path.read_text().replace(',1\\n', ',-1\\n'))",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_event_ingress.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_event_ingress.py",
+   "text": "dict(created=1001, pid=1, tid=2, vote=-1, weight_x_32767=0),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_event_ingress.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_event_ingress.py",
+   "text": "e['vote'] *= -1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_event_ingress.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_polarity_property.py",
+   "text": "\"\"\"Control 1. agree = +1, disagree = -1, pass = 0, for both conventions.\"\"\"",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 233 (delphi/tests/replay_harness/test_polarity_property.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_polarity_property.py",
+   "text": "\"bad\", [True, False, None, 0, -1.0, 1.0, \"-1\", \"+1\", [-1], 2, -2])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 233 (delphi/tests/replay_harness/test_polarity_property.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_polarity_property.py",
+   "text": "RAW_DOMAIN = (-1, 0, 1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 233: delphi/tests/replay_harness/test_polarity_property.py:43,68"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_polarity_property.py",
+   "text": "SIGNS = (-1, 1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 233 (delphi/tests/replay_harness/test_polarity_property.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_polarity_property.py",
+   "text": "csv_a = write_side(\"a\", list(case.rows), -1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 233 (delphi/tests/replay_harness/test_polarity_property.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_polarity_property.py",
+   "text": "rows = [{\"created\": 1, \"pid\": 0, \"tid\": 0, \"vote\": -1},",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 233 (delphi/tests/replay_harness/test_polarity_property.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_polarity_property.py",
+   "text": "rows = [{\"created\": 1000, \"pid\": 0, \"tid\": 0, \"vote\": -1},",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 233 (delphi/tests/replay_harness/test_polarity_property.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_polarity_property.py",
+   "text": "s = -1",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 233 (delphi/tests/replay_harness/test_polarity_property.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_polarity_property.py",
+   "text": "vc.semantic_vote(None, -1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 233 (delphi/tests/replay_harness/test_polarity_property.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_poller_equiv_compare.py",
+   "text": "(1003, 1, 10, -1), # revote: same (pid=1, tid=10) as the first vote",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_poller_equiv_compare.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_poller_equiv_seed.py",
+   "text": "# migrations.sql:742-747 — RAW DB: -1=agree, +1=disagree, 0=pass.",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 234: delphi/tests/replay_harness/test_poller_equiv_seed.py:39-42,163-198"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_poller_equiv_seed.py",
+   "text": "(1001, 1, 11, -1), # DISAGREE",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 234: delphi/tests/replay_harness/test_poller_equiv_seed.py:39-42,163-198"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_poller_equiv_seed.py",
+   "text": "@pytest.mark.parametrize(\"delphi_sign\", [1, -1, 0])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 234: delphi/tests/replay_harness/test_poller_equiv_seed.py:39-42,163-198"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_poller_equiv_seed.py",
+   "text": "ModEvent(t_ms=1000, tid=10, mod=-1), # lands in the FIRST window (<=1001)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 234 (delphi/tests/replay_harness/test_poller_equiv_seed.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_poller_equiv_seed.py",
+   "text": "ModEvent(t_ms=1500, tid=11, mod=-1), # AFTER the last cut (1003) — dropped, like tail votes",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 234 (delphi/tests/replay_harness/test_poller_equiv_seed.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_poller_equiv_seed.py",
+   "text": "[(1, -1), (-1, 1), (0, 0)], # AGREE, DISAGREE, PASS",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 234: delphi/tests/replay_harness/test_poller_equiv_seed.py:39-42,163-198"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_poller_equiv_seed.py",
+   "text": "assert params[\"vote0\"] == -1",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 row 234: delphi/tests/replay_harness/test_poller_equiv_seed.py:39-42,163-198"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_real_data_mod_events.py",
+   "text": "(150, 10, -1), (250, 11, 1),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_real_data_mod_events.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_real_data_mod_events.py",
+   "text": "[100, \"t1\", 10, 1, 3, 1, -1, \"\", \"False\", 111],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_real_data_mod_events.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_real_data_mod_events.py",
+   "text": "[200, \"t2\", 11, 2, -1],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_real_data_mod_events.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_real_data_mod_events.py",
+   "text": "[[100, \"t1\", 10, 1, 3, 1, -1, \"\"]],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_real_data_mod_events.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_real_data_mod_events.py",
+   "text": "assert (events[0].t_ms, events[0].tid, events[0].mod) == (150, 10, -1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_real_data_mod_events.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_schedule.py",
+   "text": "\"moderation\": [ModEvent(t_ms=250, tid=10, mod=-1, is_meta=True)],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_schedule.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_schedule.py",
+   "text": "\"moderation\": [{\"t_ms\": 250, \"tid\": 10, \"mod\": -1, \"is_meta\": True}],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_schedule.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_schedule.py",
+   "text": "\"moderation\": [{\"t_ms\": 250, \"tid\": 10, \"mod\": -1}],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_schedule.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_schedule.py",
+   "text": "(300, 3, 11, -1),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_schedule.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_schedule.py",
+   "text": "(400, 1, 10, -1), # revote by pid 1 on tid 10 (later-vote-wins is engine's job)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_schedule.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_schedule.py",
+   "text": "ModEvent(t_ms=9000, tid=1, mod=-1, is_meta=False)]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_schedule.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_schedule.py",
+   "text": "assert (1, 10, 1) in all_pairs and (1, 10, -1) in all_pairs",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_schedule.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_schedule.py",
+   "text": "assert (revote.pid, revote.tid, revote.sign) == (1, 10, -1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_schedule.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_schedule.py",
+   "text": "mods = [ModEvent(t_ms=250, tid=10, mod=-1)]",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_schedule.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_schedule.py",
+   "text": "mods = [ModEvent(t_ms=2500, tid=0, mod=-1, is_meta=False),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_schedule.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_schedule.py",
+   "text": "raw = _raw([(1000, 0, 0, 1), (2000, 1, 0, -1), (3000, 0, 1, 1), (4000, 1, 1, 1)])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_schedule.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_stages.py",
+   "text": "\"\"\"Clojure writes a vote as -1, this engine as -1.0. Same integer.\"\"\"",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_stages.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_stages.py",
+   "text": "\"mods\": [[2, 1, -1, 5]],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_stages.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_stages.py",
+   "text": "\"votes\": [[1, 2, 1, 1000], [1, 3, -1, 2000]],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_stages.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_stages.py",
+   "text": "'{\"mods\":[[2,1,-1,5]],\"votes\":[[1,2,1,1000],[1,3,-1,2000]]}')",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_stages.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_stages.py",
+   "text": "[(2, True, -1, 5)]).startswith(\"sha256:\")",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_stages.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_stages.py",
+   "text": "assert base != stages.input_digest([(1, 2, -1, 1000)], [])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_stages.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_stages.py",
+   "text": "assert base != stages.input_digest(votes, [(2, 1, -1, 5)])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_stages.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_stages.py",
+   "text": "assert stages.input_digest([(1, 2, 1, 1000), (1, 3, -1, 2000)],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_stages.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/replay_harness/test_stages.py",
+   "text": "votes = [(1, 2, 1, 1000), (1, 3, -1, 2000)]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/replay_harness/test_stages.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/simplified_test.py",
+   "text": "# Normalize to ensure only -1, 0, or 1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/simplified_test.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/simplified_test.py",
+   "text": "elif vote_val < 0:",
+   "count": 1,
+   "kind": "sign-test",
+   "audit": "not in the audit's 350 rows (delphi/tests/simplified_test.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/simplified_test.py",
+   "text": "if vote_val > 0:",
+   "count": 1,
+   "kind": "sign-test",
+   "audit": "not in the audit's 350 rows (delphi/tests/simplified_test.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_benchmark_boundaries.py",
+   "text": "path.write_text(\"voter-id,comment-id,vote,timestamp\\n0,2,-1,300\\n0,2,1,100\\n4,0,0,200\\n\")",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_benchmark_boundaries.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_benchmark_boundaries.py",
+   "text": "path.write_text(\"voter-id,comment-id,vote\\n0,0,1\\n1,0,-1\\n\")",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_benchmark_boundaries.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_benchmark_boundaries.py",
+   "text": "{\"pid\": 0, \"tid\": 2, \"vote\": -1, \"created\": 300},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_benchmark_boundaries.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_certify_bundle.py",
+   "text": "'{\"ord\":0,\"kind\":\"vote\",\"created\":1,\"pid\":1,\"tid\":1,\"vote\":-1,'",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 235 (delphi/tests/test_certify_bundle.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_certify_bundle.py",
+   "text": "[{\"created\": 1000, \"pid\": 7, \"tid\": 9, \"vote\": -1, \"weight_x_32767\": None},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 235 (delphi/tests/test_certify_bundle.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_certify_bundle.py",
+   "text": "{\"created\": 1000 + i, \"pid\": pid, \"tid\": tid, \"vote\": -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 235 (delphi/tests/test_certify_bundle.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_certify_bundle.py",
+   "text": "{\"created\": 1000, \"pid\": 1, \"tid\": 1, \"vote\": -1, \"weight_x_32767\": None},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 235 (delphi/tests/test_certify_bundle.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_certify_bundle.py",
+   "text": "{\"created\": 1001, \"pid\": 7, \"tid\": 9, \"vote\": -1, \"weight_x_32767\": 1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 235 (delphi/tests/test_certify_bundle.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_certify_bundle.py",
+   "text": "{\"created\": 2000, \"pid\": 2, \"tid\": 1, \"vote\": -1, \"weight_x_32767\": None},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 235 (delphi/tests/test_certify_bundle.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_certify_bundle_integration.py",
+   "text": "\" CASE (p + c) % 3 WHEN 0 THEN -1 WHEN 1 THEN 1 ELSE 0 END, \"",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 236 (delphi/tests/test_certify_bundle_integration.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_certify_bundle_integration.py",
+   "text": "banned 20 4 5 one voter with participants.mod=-1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 236 (delphi/tests/test_certify_bundle_integration.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_certify_served_math.py",
+   "text": "#: real query would return them in. Raw STORAGE signs (-1 = agree).",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_certify_served_math.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_certify_served_math.py",
+   "text": "{\"pid\": 1, \"tid\": 0, \"vote\": -1, \"weight_x_32767\": 0, \"created\": BASE_MS + 100},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_certify_served_math.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_certify_served_math.py",
+   "text": "{\"pid\": 2, \"tid\": 1, \"vote\": -1, \"weight_x_32767\": 0, \"created\": BASE_MS + 400},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_certify_served_math.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_certify_served_math.py",
+   "text": "{\"pid\": 3, \"tid\": 2, \"vote\": -1, \"weight_x_32767\": 0, \"created\": BASE_MS + 600},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_certify_served_math.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_clj_hash_order.py",
+   "text": "votes.append({\"pid\": pid, \"tid\": j, \"vote\": -1})",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_clj_hash_order.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_clj_hash_order.py",
+   "text": "votes.append({\"pid\": str(pid), \"tid\": j, \"vote\": -1})",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_clj_hash_order.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "# Alternate between 1 and -1 votes",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "# {'pid': 'p1', 'tid': 'c2', 'vote': -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "# {'pid': 'p2', 'tid': 'c1', 'vote': -1}",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "assert updated_conv.raw_rating_mat.loc['p1', 'c2'] == -1",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "assert updated_conv.raw_rating_mat.loc['p3', 'c3'] == -1",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "vote_val = 1 if (hash(str(ptpt_id)) + hash(str(comment_id))) % 2 == 0 else -1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "{'pid': 'gamma', 'tid': 1, 'vote': -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "{'pid': 'p1', 'tid': 'c2', 'vote': -1},",
+   "count": 4,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "{'pid': 'p2', 'tid': 'c1', 'vote': -1}",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "{'pid': 'p3', 'tid': 'c3', 'vote': -1}",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "{'pid': 1, 'tid': 'zeta', 'vote': -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "{'pid': 1, 'tid': 20, 'vote': -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "{'pid': 9, 'tid': 20, 'vote': -1}, # Second new column",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "{'pid': pid, 'tid': 'c1', 'vote': -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "{'pid': pid, 'tid': 'c10', 'vote': -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "{'pid': pid, 'tid': 'c2', 'vote': -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "{'pid': pid, 'tid': 'c3', 'vote': -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "{'pid': pid, 'tid': 'c4', 'vote': -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "{'pid': pid, 'tid': 'c5', 'vote': -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "{'pid': pid, 'tid': 'c6', 'vote': -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "{'pid': pid, 'tid': 'c7', 'vote': -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "{'pid': pid, 'tid': 'c8', 'vote': -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_conversation.py",
+   "text": "{'pid': pid, 'tid': 'c9', 'vote': -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_conversation.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_discrepancy_fixes.py",
+   "text": "# 5 participants, 4 comments. Votes: agree=1, disagree=-1, pass=0, no vote=NaN",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_discrepancy_fixes.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_discrepancy_fixes.py",
+   "text": "# pid 4=-1 (D) → A=2, D=2, S=5",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_discrepancy_fixes.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_discrepancy_fixes.py",
+   "text": "# tid 1 (not moderated): pid 0=-1, pid 1=1, pid 2=1, pid 3=0, pid 4=-1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_discrepancy_fixes.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_discrepancy_fixes.py",
+   "text": "# tid 1: pid 0=-1 (D), pid 1=1 (A), pid 2=0 (pass), pid 3=1 (A),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_discrepancy_fixes.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_discrepancy_fixes.py",
+   "text": "of `-1` because Clojure stays in raw-Postgres convention where AGREE = -1.",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_discrepancy_fixes.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_dynamodb_float_serialization.py",
+   "text": "# AGREE=1, DISAGREE=-1, PASS=0, unvoted=NaN. Rows are pids, columns are tids.",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_dynamodb_float_serialization.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_edge_cases.py",
+   "text": "{'pid': 'p3', 'vote': -1}, # Missing 'tid'",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_edge_cases.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_generator_vote_copy.py",
+   "text": "(0, 0): [-1, 1, -1],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_generator_vote_copy.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_generator_vote_copy.py",
+   "text": "(0, 1): [1, -1],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_generator_vote_copy.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_in_conv_greedy_carry.py",
+   "text": "honored participants.mod = -1), so banning can no longer shrink the",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_in_conv_greedy_carry.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_legacy_blob_shape.py",
+   "text": "# driver 2026-07-22 s4 (votes +1/+1/-1 on tid 0; same pinned start).",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_legacy_blob_shape.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_legacy_blob_shape.py",
+   "text": "sign = 1 if i < 10 else -1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_legacy_blob_shape.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_legacy_blob_shape.py",
+   "text": "sign = 1 if pid < 10 else -1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_legacy_blob_shape.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_legacy_blob_shape.py",
+   "text": "{\"participant\": 3, \"comment\": 0, \"vote\": -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_legacy_blob_shape.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_legacy_blob_shape.py",
+   "text": "{\"participant\": 4, \"comment\": 0, \"vote\": -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_legacy_blob_shape.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_legacy_blob_shape.py",
+   "text": "{\"pid\": 12, \"tid\": 0, \"vote\": -1}]},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_legacy_blob_shape.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_legacy_blob_shape.py",
+   "text": "{\"pid\": 2, \"tid\": 9, \"vote\": -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_legacy_blob_shape.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_legacy_clojure_regression.py",
+   "text": "(Python: agree=+1, Clojure: agree=-1), but the eigenvectors should match.",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_legacy_clojure_regression.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_light_shadow_triage.py",
+   "text": "assert ls.triage_member(5, {'lastVoteTimestamp': -1, 'lastModTimestamp': None}) == [5, 'MALFORMED', None]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_light_shadow_triage.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_mod_update_parity.py",
+   "text": "conv = conv.mod_update([_row(0, mod=-1, modified=100)])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_mod_update_parity.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_mod_update_parity.py",
+   "text": "conv = conv.mod_update([_row(0, mod=-1, modified=777)])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_mod_update_parity.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_mod_update_parity.py",
+   "text": "for pid, (v0, v1) in enumerate([(1, 1), (1, -1), (-1, -1), (1, 1)]):",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_mod_update_parity.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_mod_update_parity.py",
+   "text": "{\"pid\": 1, \"tid\": 0, \"vote\": -1, \"created\": 20},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_mod_update_parity.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_null_vote_fold.py",
+   "text": "conv = fold(Conversation('public-fixture'), [vote(1), vote(-1, pid=1)])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_null_vote_fold.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_null_vote_fold.py",
+   "text": "conv = fold(conv, [vote(-1, created=5), vote(None, created=4)])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_null_vote_fold.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_null_vote_fold.py",
+   "text": "conv = fold(conv, [vote(-1, pid=1, created=3)])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_null_vote_fold.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_null_vote_fold.py",
+   "text": "for values in [(1, None), (None, -1), (0, None), (None, 0)]:",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_null_vote_fold.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_null_vote_fold.py",
+   "text": "old = fold(Conversation('public-fixture'), [vote(1), vote(-1, tid=1)])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_null_vote_fold.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_null_vote_fold.py",
+   "text": "self.assertEqual(conv.rating_mat.loc[1, 0], -1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_null_vote_fold.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_null_vote_fold.py",
+   "text": "self.assertEqual(conv.raw_rating_mat.loc[0, 0], -1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_null_vote_fold.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_null_vote_fold.py",
+   "text": "self.assertEqual(new.raw_rating_mat.loc[0, 1], -1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_null_vote_fold.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "\"\"\"Group all +1, participant all -1 → group std=0 → corr=0.0.\"\"\"",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "# Col 0: members 1(1), 2(-1), 3(1) → 3 non-zero → valid",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "0: {0: -1, 1: -1, 2: -1, 3: -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "0: {0: -1, 1: 1, 2: -1, 3: 1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "0: {0: 0, 1: 1, 2: 0, 3: -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "0: {0: 1, 1: -1, 2: 0, 3: 1, 4: -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "0: {0: 1, 1: -1, 2: 1, 3: -1},",
+   "count": 8,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "0: {0: 1, 1: -1, 2: 1, 3: -1}, # not in any group",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "0: {0: 1, 1: -1, 2: 1, 3: 1, 4: -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "0: {0: 1, 1: -1, 2: 1},",
+   "count": 3,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "0: {0: 1, 1: float(\"nan\"), 2: -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "1: {0: -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "1: {0: 1, 1: -1, 2: 0},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "1: {0: 1, 1: -1, 2: 1, 3: -1},",
+   "count": 7,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "1: {0: 1, 1: -1, 2: 1, 3: 0, 4: 0}, # votes on 0,1,2 only",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "1: {0: 1, 1: -1, 2: 1},",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "1: {0: 1, 1: -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "2: {0: -1, 1: -1, 2: -1, 3: -1, 4: -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "2: {0: -1, 1: -1, 2: -1, 3: -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "2: {0: -1, 1: -1, 2: -1},",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "2: {0: -1, 1: 1, 2: -1, 3: 0, 4: 0},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "2: {0: -1, 1: 1, 2: -1, 3: 1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "2: {0: -1, 1: 1, 2: 0},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "2: {0: 1, 1: -1, 2: 1, 3: -1},",
+   "count": 5,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "2: {0: 1, 1: -1, 2: 1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "2: {0: 1, 1: 1, 2: -1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "3: {0: 1, 1: -1, 2: 1, 3: 0, 4: 0},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "3: {0: 1, 1: -1, 2: 1},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "3: {0: 1, 1: -1, 2: 1}, # only member 3 votes non-zero on col 2",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "p0_votes = {tid: int(np.random.choice([-1, 0, 1])) for tid in range(n_comments)}",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "pattern = {0: 1, 1: -1, 2: 1, 3: -1}",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_participant_info.py",
+   "text": "tid: int(np.random.choice([-1, 0, 1]))",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_participant_info.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_pca_column_order.py",
+   "text": "assert conv.raw_rating_mat.loc[0].tolist() == [-1, 1, 0]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 237 (delphi/tests/test_pca_column_order.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_pca_column_order.py",
+   "text": "dict(pid=0, tid=8, vote=-1, created=3)]}, recompute=False)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 237 (delphi/tests/test_pca_column_order.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_pca_smoke.py",
+   "text": "elif vote_val < 0:",
+   "count": 1,
+   "kind": "sign-test",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_pca_smoke.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_pca_smoke.py",
+   "text": "if vote_val > 0:",
+   "count": 1,
+   "kind": "sign-test",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_pca_smoke.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_pca_warm_start.py",
+   "text": "# A: +1 on first half, -1 on second; B: mirror.",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_pca_warm_start.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_prodclone_extract.py",
+   "text": "assert row[\"vote\"] == \"1\" # raw -1 (agree) flips to export +1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_prodclone_extract.py",
+   "text": "assert rows[1][\"vote\"] == \"-1\"",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_prodclone_extract.py",
+   "text": "base_votes = [(p, t, -1, 3000 + p * 10 + t)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_prodclone_extract.py",
+   "text": "comments=[(t, 0, 1000 + t, (-1 if t < 3 else 0), False)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_prodclone_extract.py",
+   "text": "raw = [{\"tid\": 5, \"pid\": 2, \"created\": 0, \"mod\": -1, \"is_meta\": False, \"modified\": None}]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_prodclone_extract.py",
+   "text": "raw = [{\"tid\": 5, \"pid\": 2, \"created\": 0, \"mod\": -1, \"is_meta\": True, \"modified\": 12345}]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_prodclone_extract.py",
+   "text": "raw = [{\"tid\": 5, \"pid\": 2, \"created\": 0, \"mod\": -1}]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_prodclone_extract.py",
+   "text": "raw = [{\"tid\": 7, \"pid\": 3, \"vote\": -1, \"created\": 1_700_000_000_123}]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_prodclone_extract.py",
+   "text": "raw = [{\"tid\": 9, \"pid\": 2, \"created\": 0, \"mod\": -1}]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_prodclone_extract.py",
+   "text": "votes=[(0, 0, -1, 4001), (1, 0, 1, 4002)],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_prodclone_extract.py",
+   "text": "votes=[(0, 0, -1, 5001)],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_prodclone_extract.py",
+   "text": "votes=[(0, 0, -1, 7001), (1, 0, 1, 7002)],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_prodclone_extract.py",
+   "text": "votes=[(p, t, -1, 2000 + p * 10 + t)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_prodclone_extract.py",
+   "text": "{\"tid\": 1, \"pid\": 1, \"vote\": -1, \"created\": 100_000},",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_prodclone_extract.py",
+   "text": "{\"tid\": 1, \"pid\": 1, \"vote\": -1, \"created\": 1_700_000_000_000},",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_repness_unit.py",
+   "text": "'vote': [1, 1, 1, 1, -1, -1, -1, -1] # AGREE=1, DISAGREE=-1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 239 (delphi/tests/test_repness_unit.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_repness_unit.py",
+   "text": "'vote': [1, np.nan, 1, 1, -1, -1] # p1 didn't vote on c2",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 239 (delphi/tests/test_repness_unit.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_repness_unit.py",
+   "text": "[-1, -1, 1, -1], # Participant 3",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 239 (delphi/tests/test_repness_unit.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_repness_unit.py",
+   "text": "[-1, 1, -1], # p3",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 239 (delphi/tests/test_repness_unit.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_repness_unit.py",
+   "text": "[1, -1, 1], # p2",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 239 (delphi/tests/test_repness_unit.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_repness_unit.py",
+   "text": "[1, 1, -1, 1], # Participant 2",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 239 (delphi/tests/test_repness_unit.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_repness_unit.py",
+   "text": "[1, 1, -1, None], # Participant 1",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 239 (delphi/tests/test_repness_unit.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_repness_unit.py",
+   "text": "[1, 1, -1], # p1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 239 (delphi/tests/test_repness_unit.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/tests/test_representative_payloads.py",
+   "text": "assert [(m.t_ms,m.tid,m.mod,m.is_meta) for m in steps[-1].mod_events]==[(5000,0,0,False),(0,1,-1,True)]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_representative_payloads.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_representative_payloads.py",
+   "text": "pid=0, tid=i, mod=-1 if i else 0, is_meta=bool(i)) for i in range(2)],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_representative_payloads.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_representative_payloads.py",
+   "text": "vote=(-1,0,1)[i%3], weight_x_32767=None) for i in range(n)],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_representative_payloads.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_serialization_unfolding.py",
+   "text": "sign = 1 if i < 10 else -1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (delphi/tests/test_serialization_unfolding.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/umap_narrative/polismath_commentgraph/utils/group_data.py",
+   "text": "data['num_groups'] = len([g for g in groups_data.keys() if g != -1])",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 275, 276, 277, 278, 279 (delphi/umap_narrative/polismath_commentgraph/utils/group_data.py); this line is not itemised there"
+  },
+  {
+   "path": "delphi/umap_narrative/polismath_commentgraph/utils/group_data.py",
+   "text": "elif vote_val == -1:",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 row 276: delphi/umap_narrative/polismath_commentgraph/utils/group_data.py:328-344"
+  },
+  {
+   "path": "delphi/umap_narrative/polismath_commentgraph/utils/group_data.py",
+   "text": "group_id = group_assignments.get(str(pid), -1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 276: delphi/umap_narrative/polismath_commentgraph/utils/group_data.py:328-344"
+  },
+  {
+   "path": "delphi/umap_narrative/polismath_commentgraph/utils/group_data.py",
+   "text": "if group_i != -1 and group_j != -1:",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 row 277: delphi/umap_narrative/polismath_commentgraph/utils/group_data.py:366-390"
+  },
+  {
+   "path": "delphi/umap_narrative/polismath_commentgraph/utils/group_data.py",
+   "text": "if group_id != -1: # Skip unassigned participants",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 row 279: delphi/umap_narrative/polismath_commentgraph/utils/group_data.py:637-658"
+  },
+  {
+   "path": "delphi/umap_narrative/polismath_commentgraph/utils/group_data.py",
+   "text": "if vote_val == 1:",
+   "count": 1,
+   "kind": "equals-one",
+   "audit": "audit 2026-10-03 §2 row 276: delphi/umap_narrative/polismath_commentgraph/utils/group_data.py:328-344"
+  },
+  {
+   "path": "delphi/umap_narrative/polismath_commentgraph/utils/storage.py",
+   "text": "- Delphi expects: AGREE=+1, DISAGREE=-1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 281: delphi/umap_narrative/polismath_commentgraph/utils/storage.py:309-340"
+  },
+  {
+   "path": "delphi/umap_narrative/polismath_commentgraph/utils/storage.py",
+   "text": "- PostgreSQL stores: AGREE=-1, DISAGREE=+1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 281: delphi/umap_narrative/polismath_commentgraph/utils/storage.py:309-340"
+  },
+  {
+   "path": "delphi/umap_narrative/polismath_commentgraph/utils/storage.py",
+   "text": "Delphi internal: AGREE=+1, DISAGREE=-1, PASS=0",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 280: delphi/umap_narrative/polismath_commentgraph/utils/storage.py:8-18"
+  },
+  {
+   "path": "delphi/umap_narrative/polismath_commentgraph/utils/storage.py",
+   "text": "PostgreSQL/Server/Client: AGREE=-1, DISAGREE=+1, PASS=0",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 280: delphi/umap_narrative/polismath_commentgraph/utils/storage.py:8-18"
+  },
+  {
+   "path": "delphi/umap_narrative/polismath_commentgraph/utils/storage.py",
+   "text": "return pg_vote * -1",
+   "count": 1,
+   "kind": "times-minus-one",
+   "audit": "audit 2026-10-03 §2 row 280: delphi/umap_narrative/polismath_commentgraph/utils/storage.py:8-18"
+  },
+  {
+   "path": "e2e/cypress/e2e/client-participation/debug-participant-count.cy.js",
+   "text": "pid: -1, // New participant",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 349: e2e/cypress/e2e/client-participation/debug-participant-count.cy.js:107-113"
+  },
+  {
+   "path": "e2e/cypress/e2e/client-participation/pid-tracking-simple.cy.js",
+   "text": "// First vote might be -1 (anonymous user not created yet)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (e2e/cypress/e2e/client-participation/pid-tracking-simple.cy.js); pre-existing at 344c557ad"
+  },
+  {
+   "path": "e2e/cypress/e2e/client-participation/pid-tracking-simple.cy.js",
+   "text": "expect(pidHistory[0]).to.be.oneOf([-1, '-1', serverAssignedPid])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (e2e/cypress/e2e/client-participation/pid-tracking-simple.cy.js); pre-existing at 344c557ad"
+  },
+  {
+   "path": "e2e/cypress/e2e/client-participation/pid-tracking-simple.cy.js",
+   "text": "expect(pidHistory[1]).to.not.equal(-1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (e2e/cypress/e2e/client-participation/pid-tracking-simple.cy.js); pre-existing at 344c557ad"
+  },
+  {
+   "path": "math/dev/replay.clj",
+   "text": "(contains? #{nil -1 0 1} (get e \"vote\"))",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 86, 87, 88, 89, 90, 91 (math/dev/replay.clj); this line is not itemised there"
+  },
+  {
+   "path": "math/dev/replay.clj",
+   "text": "(export.clj:106-113). The Clojure math consumes RAW-DB signs (AGREE=-1), so",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 86: math/dev/replay.clj:24-27"
+  },
+  {
+   "path": "math/dev/replay.clj",
+   "text": "(integer? (get e \"mod\")) (#{-1 0 1} (get e \"mod\"))",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 86, 87, 88, 89, 90, 91 (math/dev/replay.clj); this line is not itemised there"
+  },
+  {
+   "path": "math/dev/replay.clj",
+   "text": "(loop [prev (if allow-zero -1 0) [s & more] slots]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 86, 87, 88, 89, 90, 91 (math/dev/replay.clj); this line is not itemised there"
+  },
+  {
+   "path": "math/dev/replay.clj",
+   "text": "-1 45 0 48 1 43",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 86, 87, 88, 89, 90, 91 (math/dev/replay.clj); this line is not itemised there"
+  },
+  {
+   "path": "math/dev/replay.clj",
+   "text": ":vote_sign_note \"export CSV signs (AGREE=+1) are FLIPPED to raw-DB (AGREE=-1) before conv-update; the flip is export-only (export.clj:106-113)\"",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 91: math/dev/replay.clj:476-484,784,820,863-864"
+  },
+  {
+   "path": "math/dev/replay.clj",
+   "text": ";; computes in raw-DB convention (AGREE=-1, utils.clj:40-49) while the Python",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 91: math/dev/replay.clj:476-484,784,820,863-864"
+  },
+  {
+   "path": "math/dev/replay_smoke.sh",
+   "text": "VOTES=\"$(ls \"$VW_DIR\"/*-votes.csv | head -1)\"",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (math/dev/replay_smoke.sh); pre-existing at 344c557ad"
+  },
+  {
+   "path": "math/dev/replay_smoke.sh",
+   "text": "VW_DIR=\"$(ls -d \"$DELPHI\"/real_data/*-vw 2>/dev/null | head -1)\"",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (math/dev/replay_smoke.sh); pre-existing at 344c557ad"
+  },
+  {
+   "path": "math/dev/user.clj",
+   "text": "updated-conv' (conv/conv-update updated-conv [{:zid 15228 :pid 0 :tid 0 :vote -1 :created (System/currentTimeMillis)}])",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 92: math/dev/user.clj:417,421"
+  },
+  {
+   "path": "math/src/polismath/darwin/export.clj",
+   "text": "(map #(update-in % [:vote] (partial * -1)))",
+   "count": 1,
+   "kind": "times-minus-one",
+   "audit": "audit 2026-10-03 §2 row 96: math/src/polismath/darwin/export.clj:106-111"
+  },
+  {
+   "path": "math/src/polismath/darwin/export.clj",
+   "text": "disagrees (filter #(= -1 (:vote %)) comment-votes)]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 99: math/src/polismath/darwin/export.clj:392-393"
+  },
+  {
+   "path": "math/src/polismath/math/conversation.clj",
+   "text": "(s/def ::vote #{-1 0 1 -1.0 1.0 0.0})",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 103: math/src/polismath/math/conversation.clj:44"
+  },
+  {
+   "path": "math/src/polismath/math/repness.clj",
+   "text": "{:na (fnk [votes] (count-votes votes -1))",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 110: math/src/polismath/math/repness.clj:65-73"
+  },
+  {
+   "path": "math/src/polismath/meta/simulation.clj",
+   "text": "; (> r p-agree) -1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 113: math/src/polismath/meta/simulation.clj:26-27"
+  },
+  {
+   "path": "math/test/conv_man_tests.clj",
+   "text": "{:vote -1 :pid 1 :tid 2 :zid 0 :created 9009}]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 117: math/test/conv_man_tests.clj:27-30"
+  },
+  {
+   "path": "math/test/conv_man_tests.clj",
+   "text": "{:vote -1 :pid 2 :tid 0 :zid 0 :created 9005}",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 117: math/test/conv_man_tests.clj:27-30"
+  },
+  {
+   "path": "math/test/conversation_test.clj",
+   "text": "(is (conversation/conv-update fleshed-conv [{:created 999 :pid :j :tid :k :vote -1}]))))",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 120: math/test/conversation_test.clj:128,163-168"
+  },
+  {
+   "path": "math/test/conversation_test.clj",
+   "text": "{:created 200 :pid :p3 :tid :c3 :vote -1}]})))",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 120: math/test/conversation_test.clj:128,163-168"
+  },
+  {
+   "path": "math/test/conversation_test.clj",
+   "text": "{:created 200 :pid :p5 :tid :c5 :vote -1}]})))))",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 120: math/test/conversation_test.clj:128,163-168"
+  },
+  {
+   "path": "math/test/named_matrix_test.clj",
+   "text": "[[0 0 nil] [-1 0 1] [-1 0 nil]]))",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (math/test/named_matrix_test.clj); pre-existing at 344c557ad"
+  },
+  {
+   "path": "math/test/replay_tail_test.clj",
+   "text": "(def votes [{:t-ms 10 :pid 0 :tid 0 :sign -1}",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (math/test/replay_tail_test.clj); pre-existing at 344c557ad"
+  },
+  {
+   "path": "math/test/stage_json_test.clj",
+   "text": "(is (= [[-1 1] [0 nil]] (get parsed \"matrix\")))))))",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 121 (math/test/stage_json_test.clj); this line is not itemised there"
+  },
+  {
+   "path": "math/test/stage_json_test.clj",
+   "text": "{:pid 1 :tid 3 :sign -1 :t-ms 2000}]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 121: math/test/stage_json_test.clj:150-164"
+  },
+  {
+   "path": "server/__tests__/feature/comment-repetition.test.ts",
+   "text": "] as -1 | 0 | 1;",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 41 (server/__tests__/feature/comment-repetition.test.ts); this line is not itemised there"
+  },
+  {
+   "path": "server/__tests__/feature/comment-repetition.test.ts",
+   "text": "const voteOptions = [-1, 1, 0]; // -1 agree, 1 disagree, 0 pass",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 41: server/__tests__/feature/comment-repetition.test.ts:107"
+  },
+  {
+   "path": "server/__tests__/feature/concurrent-participant-creation.test.ts",
+   "text": "pid: -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (server/__tests__/feature/concurrent-participant-creation.test.ts); pre-existing at 344c557ad"
+  },
+  {
+   "path": "server/__tests__/feature/concurrent-participant-creation.test.ts",
+   "text": "vote: ((index % 3) - 1) as -1 | 0 | 1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (server/__tests__/feature/concurrent-participant-creation.test.ts); pre-existing at 344c557ad"
+  },
+  {
+   "path": "server/__tests__/integration/anonymous-jwt.test.ts",
+   "text": "`/api/v3/votes?conversation_id=${conversationId}&pid=-1`",
+   "count": 4,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 42 (server/__tests__/integration/anonymous-jwt.test.ts); this line is not itemised there"
+  },
+  {
+   "path": "server/__tests__/integration/anonymous-jwt.test.ts",
+   "text": "pid: -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 42: server/__tests__/integration/anonymous-jwt.test.ts:51,93,152,198"
+  },
+  {
+   "path": "server/__tests__/integration/auth-jwt-only.test.ts",
+   "text": "vote: -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 43: server/__tests__/integration/auth-jwt-only.test.ts:94,118"
+  },
+  {
+   "path": "server/__tests__/integration/auth.test.ts",
+   "text": "vote: -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 44: server/__tests__/integration/auth.test.ts:170,198"
+  },
+  {
+   "path": "server/__tests__/integration/data-export.test.ts",
+   "text": "// Use deterministic vote pattern: alternate between -1, 1, 0",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 47: server/__tests__/integration/data-export.test.ts:88-93"
+  },
+  {
+   "path": "server/__tests__/integration/data-export.test.ts",
+   "text": "const vote = [-1, 1, 0][j % 3] as -1 | 0 | 1;",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 47: server/__tests__/integration/data-export.test.ts:88-93"
+  },
+  {
+   "path": "server/__tests__/integration/data-export.test.ts",
+   "text": "expect(voteLines.length - 1).toBe(testData.stats.totalVotes); // -1 for header row",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 47 (server/__tests__/integration/data-export.test.ts); this line is not itemised there"
+  },
+  {
+   "path": "server/__tests__/integration/math.test.ts",
+   "text": "const vote = [-1, 1, 0][Math.floor(Math.random() * 3)] as -1 | 0 | 1;",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (server/__tests__/integration/math.test.ts); pre-existing at 344c557ad"
+  },
+  {
+   "path": "server/__tests__/integration/routes-jwt-validation.test.ts",
+   "text": "vote: -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 50: server/__tests__/integration/routes-jwt-validation.test.ts:146"
+  },
+  {
+   "path": "server/__tests__/integration/treevite.test.ts",
+   "text": "vote: -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 51: server/__tests__/integration/treevite.test.ts:853,864,910"
+  },
+  {
+   "path": "server/__tests__/integration/treevite.test.ts",
+   "text": "vote: -1, // Agree vote",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 51: server/__tests__/integration/treevite.test.ts:853,864,910"
+  },
+  {
+   "path": "server/__tests__/integration/vote.test.ts",
+   "text": "// Submit a vote (-1 = AGREE)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 53 (server/__tests__/integration/vote.test.ts); this line is not itemised there"
+  },
+  {
+   "path": "server/__tests__/integration/vote.test.ts",
+   "text": "// Vote -1 (AGREE)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 53 (server/__tests__/integration/vote.test.ts); this line is not itemised there"
+  },
+  {
+   "path": "server/__tests__/integration/vote.test.ts",
+   "text": "expect(votes[0].vote).toBe(-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 53 (server/__tests__/integration/vote.test.ts); this line is not itemised there"
+  },
+  {
+   "path": "server/__tests__/integration/vote.test.ts",
+   "text": "test(\"should accept votes of -1, 0, or 1\", async () => {",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 53 (server/__tests__/integration/vote.test.ts); this line is not itemised there"
+  },
+  {
+   "path": "server/__tests__/integration/vote.test.ts",
+   "text": "vote: -1, // -1 = AGREE in this system",
+   "count": 5,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 53: server/__tests__/integration/vote.test.ts:30,86,94,102,117,130,163,198"
+  },
+  {
+   "path": "server/__tests__/integration/xid-auth.test.ts",
+   "text": "expect(votes[0].vote).toBe(-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 54 (server/__tests__/integration/xid-auth.test.ts); this line is not itemised there"
+  },
+  {
+   "path": "server/__tests__/integration/xid-auth.test.ts",
+   "text": "vote: -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 54: server/__tests__/integration/xid-auth.test.ts:101,158,191"
+  },
+  {
+   "path": "server/__tests__/integration/xid-auth.test.ts",
+   "text": "vote: -1, // Agree",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 54: server/__tests__/integration/xid-auth.test.ts:101,158,191"
+  },
+  {
+   "path": "server/__tests__/setup/api-test-helpers.ts",
+   "text": "// Random vote generator: -1 (agree), 1 (disagree), 0 (pass)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 56: server/__tests__/setup/api-test-helpers.ts:820-822"
+  },
+  {
+   "path": "server/__tests__/setup/api-test-helpers.ts",
+   "text": "[-1, 1, 0][Math.floor(Math.random() * 3)] as -1 | 0 | 1;",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 56: server/__tests__/setup/api-test-helpers.ts:820-822"
+  },
+  {
+   "path": "server/__tests__/unit/experimentalTopicsBoundaries.test.ts",
+   "text": "\",-1\\n\",",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (server/__tests__/unit/experimentalTopicsBoundaries.test.ts); pre-existing at 344c557ad"
+  },
+  {
+   "path": "server/__tests__/unit/exportRoutes.test.ts",
+   "text": "\"20,8,1,1,0,1,,-1,,\\n\"",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 58: server/__tests__/unit/exportRoutes.test.ts:425-444,498-517,560-590"
+  },
+  {
+   "path": "server/__tests__/unit/exportRoutes.test.ts",
+   "text": "// It has 1 comment, 1 vote (agree, which is -1, flipped to 1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 58: server/__tests__/unit/exportRoutes.test.ts:425-444,498-517,560-590"
+  },
+  {
+   "path": "server/__tests__/unit/exportRoutes.test.ts",
+   "text": "// Note: The vote is flipped from -1 to 1 in the code",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 58: server/__tests__/unit/exportRoutes.test.ts:425-444,498-517,560-590"
+  },
+  {
+   "path": "server/__tests__/unit/exportRoutes.test.ts",
+   "text": "expect(mockRes.write).toHaveBeenCalledWith(\"1,1,2,2,1,1,1,-1,\\n\");",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 58: server/__tests__/unit/exportRoutes.test.ts:425-444,498-517,560-590"
+  },
+  {
+   "path": "server/__tests__/unit/exportRoutes.test.ts",
+   "text": "mockStreamWithRows([{ timestamp: 94668411, tid: 1, pid: 1, vote: -1 }]);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 57: server/__tests__/unit/exportRoutes.test.ts:308-322"
+  },
+  {
+   "path": "server/__tests__/unit/exportRoutes.test.ts",
+   "text": "{ pid: 1, tid: 1, vote: -1 },",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 58: server/__tests__/unit/exportRoutes.test.ts:425-444,498-517,560-590"
+  },
+  {
+   "path": "server/__tests__/unit/exportRoutes.test.ts",
+   "text": "{ pid: 1, tid: 1, vote: -1, high_priority: false },",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 59: server/__tests__/unit/exportRoutes.test.ts:629-631,664-665,726-727"
+  },
+  {
+   "path": "server/__tests__/unit/exportRoutes.test.ts",
+   "text": "{ pid: 1, tid: 1, vote: -1, high_priority: true },",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 59: server/__tests__/unit/exportRoutes.test.ts:629-631,664-665,726-727"
+  },
+  {
+   "path": "server/__tests__/unit/exportRoutes.test.ts",
+   "text": "{ pid: 10, tid: 101, vote: -1 }, // Participant 10 voted on their comment (agree)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 58: server/__tests__/unit/exportRoutes.test.ts:425-444,498-517,560-590"
+  },
+  {
+   "path": "server/__tests__/unit/exportRoutes.test.ts",
+   "text": "{ pid: 2, tid: 3, vote: -1 },",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 58: server/__tests__/unit/exportRoutes.test.ts:425-444,498-517,560-590"
+  },
+  {
+   "path": "server/__tests__/unit/exportRoutes.test.ts",
+   "text": "{ pid: 2, tid: 3, vote: -1, high_priority: true },",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 59: server/__tests__/unit/exportRoutes.test.ts:629-631,664-665,726-727"
+  },
+  {
+   "path": "server/__tests__/unit/exportRoutes.test.ts",
+   "text": "{ pid: 3, tid: 2, vote: -1 },",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 58: server/__tests__/unit/exportRoutes.test.ts:425-444,498-517,560-590"
+  },
+  {
+   "path": "server/__tests__/unit/exportRoutes.test.ts",
+   "text": "{ pid: 3, tid: 2, vote: -1, high_priority: false },",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 59: server/__tests__/unit/exportRoutes.test.ts:629-631,664-665,726-727"
+  },
+  {
+   "path": "server/__tests__/unit/exportRoutes.test.ts",
+   "text": "{ pid: 30, tid: 103, vote: -1 }, // Participant 30 voted on their comment (agree)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 58: server/__tests__/unit/exportRoutes.test.ts:425-444,498-517,560-590"
+  },
+  {
+   "path": "server/__tests__/unit/exportRoutes.test.ts",
+   "text": "{ timestamp: 94668411, tid: 1, pid: 1, vote: -1, high_priority: true },",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 57, 58, 59 (server/__tests__/unit/exportRoutes.test.ts); this line is not itemised there"
+  },
+  {
+   "path": "server/__tests__/unit/pcaMathTickZeroHttp.test.ts",
+   "text": "// failJson 500. -1 matches /api/v3/votes/famous and",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (server/__tests__/unit/pcaMathTickZeroHttp.test.ts); pre-existing at 344c557ad"
+  },
+  {
+   "path": "server/__tests__/unit/pcaMathTickZeroHttp.test.ts",
+   "text": "// getBidIndexToPidMapping's own `math_tick || -1` (utils/participants.ts:7),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (server/__tests__/unit/pcaMathTickZeroHttp.test.ts); pre-existing at 344c557ad"
+  },
+  {
+   "path": "server/__tests__/unit/scriptsBoundaries.test.ts",
+   "text": "const row = { zid: 7, pid: 0, tid: 3, vote: -1, weight_x_32767: 32767 };",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 62: server/__tests__/unit/scriptsBoundaries.test.ts:66"
+  },
+  {
+   "path": "server/app.ts",
+   "text": "// first-generation window. -1 is the \"give me the latest\" sentinel used",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 6, 7 (server/app.ts); this line is not itemised there"
+  },
+  {
+   "path": "server/app.ts",
+   "text": "// getBidIndexToPidMapping's own `math_tick || -1`",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 6, 7 (server/app.ts); this line is not itemised there"
+  },
+  {
+   "path": "server/app.ts",
+   "text": "need(\"vote\", getIntInRange(-1, 1), assignToP),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 7: server/app.ts:1238"
+  },
+  {
+   "path": "server/app.ts",
+   "text": "want(\"math_tick\", getInt, assignToP, -1),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 6, 7 (server/app.ts); this line is not itemised there"
+  },
+  {
+   "path": "server/app.ts",
+   "text": "want(\"vote\", getIntInRange(-1, 1), assignToP),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 6: server/app.ts:799"
+  },
+  {
+   "path": "server/characterization/corrections.test.cjs",
+   "text": "const changed = JSON.parse(corrected.body); changed.votes[0].vote = -1;",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 63 (server/characterization/corrections.test.cjs); this line is not itemised there"
+  },
+  {
+   "path": "server/characterization/generate.cjs",
+   "text": "vote: -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 64: server/characterization/generate.cjs:96"
+  },
+  {
+   "path": "server/characterization/recorded.test.cjs",
+   "text": "(c) => assert(c.effects.db[\"pg:votes\"].added.some((r) => r.vote === -1)),",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "not in the audit's 350 rows (server/characterization/recorded.test.cjs); pre-existing at 344c557ad"
+  },
+  {
+   "path": "server/characterization/seed-comments.cjs",
+   "text": "`INSERT INTO votes(zid,pid,tid,vote,created) SELECT zid,$2,tid,CASE tid%3 WHEN 0 THEN -1 WHEN 1 THEN 0 ELSE 1 END,$3 FROM comments WHERE zid=$1`,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 65: server/characterization/seed-comments.cjs:146"
+  },
+  {
+   "path": "server/characterization/seed-pca2.py",
+   "text": "vote = int(rng.choice([-1,0,1], p=[.45,.1,.45]))",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 66: server/characterization/seed-pca2.py:66-68"
+  },
+  {
+   "path": "server/characterization/seed-pca2.py",
+   "text": "votes=[{**v,'vote':-v['vote']} for v in raw] # DB agree=-1; engine agree=+1.",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 67: server/characterization/seed-pca2.py:75"
+  },
+  {
+   "path": "server/characterization/test.cjs",
+   "text": "b = { lastVoteTimestamp: 1700000000002, vote: -1 };",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 68: server/characterization/test.cjs:95-118,192-193,248-262"
+  },
+  {
+   "path": "server/characterization/test.cjs",
+   "text": "canonical(n.normalize({ vote: -1 })),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 68: server/characterization/test.cjs:95-118,192-193,248-262"
+  },
+  {
+   "path": "server/characterization/test.cjs",
+   "text": "const a = { lastVoteTimestamp: 1700000000001, vote: -1 },",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 68: server/characterization/test.cjs:95-118,192-193,248-262"
+  },
+  {
+   "path": "server/characterization/test.cjs",
+   "text": "delta({ t: [{ vote: -1 }, { vote: -1 }] }, { t: [{ vote: 1 }] }),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 68: server/characterization/test.cjs:95-118,192-193,248-262"
+  },
+  {
+   "path": "server/characterization/test.cjs",
+   "text": "t: { removed: [{ vote: -1 }, { vote: -1 }], added: [{ vote: 1 }] },",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 68: server/characterization/test.cjs:95-118,192-193,248-262"
+  },
+  {
+   "path": "server/characterization/test.cjs",
+   "text": "vote: -1,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 68: server/characterization/test.cjs:95-118,192-193,248-262"
+  },
+  {
+   "path": "server/characterization/test_pseudonymize.py",
+   "text": "self.assertEqual((r['vote'],r['tick'],r['lang']),(-1,1700000000123,'en'));self.assertNotEqual(r['cap'],'2generated')",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (server/characterization/test_pseudonymize.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "server/characterization/test_pseudonymize.py",
+   "text": "self.rows={'users':[{'email':'generated@example.invalid','name':'Álpha ЖΩ文','cap':'2generated','vote':-1,'tick':1700000000123,'lang':'en'}]}",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (server/characterization/test_pseudonymize.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "server/postgres/migrations/000000_initial.sql",
+   "text": "-- -1 = Agree, 1 = Disagree, 0 = Pass/Unsure.",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 1: server/postgres/migrations/000000_initial.sql:739-747"
+  },
+  {
+   "path": "server/postgres/migrations/000000_initial.sql",
+   "text": "-- Divide by 32767 before using! (and multiply by 32767 before storing). Applications should refer to this as \"weight\" after converting to a float in the range [-1, 1]",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 1: server/postgres/migrations/000000_initial.sql:739-747"
+  },
+  {
+   "path": "server/postgres/migrations/000000_initial.sql",
+   "text": "math_tick BIGINT NOT NULL DEFAULT -1, -- this will get its value from math_ticks",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 1, 2, 3 (server/postgres/migrations/000000_initial.sql); this line is not itemised there"
+  },
+  {
+   "path": "server/postgres/migrations/down/test_000022.sh",
+   "text": "echo \" (f) $1: $(echo \"$nodes\" | grep \":$3\\$\" | head -1)\"",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 5 (server/postgres/migrations/down/test_000022.sh); this line is not itemised there"
+  },
+  {
+   "path": "server/src/report.ts",
+   "text": "// const pca = await getPca(zid, -1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 13, 14, 15, 16, 17, 18 (server/src/report.ts); this line is not itemised there"
+  },
+  {
+   "path": "server/src/report.ts",
+   "text": "// have to flip vote from -1 to 1 and vice versa",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 17: server/src/report.ts:486-498"
+  },
+  {
+   "path": "server/src/report.ts",
+   "text": "// note that -1 means agree and 1 means disagree",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 14: server/src/report.ts:330-340"
+  },
+  {
+   "path": "server/src/report.ts",
+   "text": "currentParticipantVotes.set(row.tid, -row.vote);",
+   "count": 2,
+   "kind": "negated-vote",
+   "audit": "audit 2026-10-03 §2 row 17: server/src/report.ts:486-498"
+  },
+  {
+   "path": "server/src/report.ts",
+   "text": "else if (row.vote === 1) comment.disagrees += 1;",
+   "count": 1,
+   "kind": "equals-one",
+   "audit": "audit 2026-10-03 §2 row 14: server/src/report.ts:330-340"
+  },
+  {
+   "path": "server/src/report.ts",
+   "text": "else if (vote === -1) disagrees += 1;",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 row 16: server/src/report.ts:449-451,462-467"
+  },
+  {
+   "path": "server/src/report.ts",
+   "text": "if (currentParticipantId != -1) {",
+   "count": 2,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 row 17: server/src/report.ts:486-498"
+  },
+  {
+   "path": "server/src/report.ts",
+   "text": "if (row.vote === -1) comment.agrees += 1;",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 row 14: server/src/report.ts:330-340"
+  },
+  {
+   "path": "server/src/report.ts",
+   "text": "if (vote === 1) agrees += 1;",
+   "count": 1,
+   "kind": "equals-one",
+   "audit": "audit 2026-10-03 §2 row 16: server/src/report.ts:449-451,462-467"
+  },
+  {
+   "path": "server/src/report.ts",
+   "text": "let currentParticipantId = -1;",
+   "count": 2,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 13, 14, 15, 16, 17, 18 (server/src/report.ts); this line is not itemised there"
+  },
+  {
+   "path": "server/src/report.ts",
+   "text": "vote: (row) => String(-row.vote), // have to flip -1 to 1 and vice versa",
+   "count": 1,
+   "kind": "negated-vote",
+   "audit": "audit 2026-10-03 §2 row 15: server/src/report.ts:403"
+  },
+  {
+   "path": "server/src/routes/collectiveStatement.ts",
+   "text": "COALESCE(SUM(CASE WHEN v.vote = -1 THEN 1 ELSE 0 END), 0) as agrees,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 22: server/src/routes/collectiveStatement.ts:582-592"
+  },
+  {
+   "path": "server/src/routes/comments.ts",
+   "text": "let { pid } = req.p; // pid may be reassigned if it's -1",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 23, 24 (server/src/routes/comments.ts); this line is not itemised there"
+  },
+  {
+   "path": "server/src/routes/votes.ts",
+   "text": "const weight_x_32767 = Math.trunc(weight * 32767); // weight is stored as a SMALLINT, so convert from a [-1,1] float to [-32767,32767] int",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 30, 31, 32, 33 (server/src/routes/votes.ts); this line is not itemised there"
+  },
+  {
+   "path": "server/src/server-helpers.ts",
+   "text": "return getBidsForPids(zid, -1, pids, ownedRead).then(",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 file rows 34, 35 (server/src/server-helpers.ts); this line is not itemised there"
+  },
+  {
+   "path": "server/src/utils/pca.ts",
+   "text": "* - an uninitialized row (`math_tick` still at -1) gets a synthesized empty",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit's 350 rows (server/src/utils/pca.ts); pre-existing at 344c557ad"
+  },
+  {
+   "path": "server/src/workers/import-processor.ts",
+   "text": "if (voteValue === 1) {",
+   "count": 1,
+   "kind": "equals-one",
+   "audit": "audit 2026-10-03 §2 row 38: server/src/workers/import-processor.ts:218-224"
+  },
+  {
+   "path": "server/src/workers/import-processor.ts",
+   "text": "voteValue = -1;",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 38: server/src/workers/import-processor.ts:218-224"
+  },
+  {
+   "path": "server/src/workers/import-processor.ts",
+   "text": "} else if (voteValue === -1) {",
+   "count": 1,
+   "kind": "equals-minus-one",
+   "audit": "audit 2026-10-03 §2 row 38: server/src/workers/import-processor.ts:218-224"
+  },
+  {
+   "path": "server/types/test-helpers.d.ts",
+   "text": "vote: -1 | 0 | 1;",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "audit 2026-10-03 §2 row 69: server/types/test-helpers.d.ts:51"
+  }
+ ]
+}
