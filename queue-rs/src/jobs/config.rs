@@ -235,28 +235,34 @@ impl Config {
     }
 }
 
+/// Only host(s), port(s), database and user, parsed by the driver; no
+/// password form (URL userinfo, `?password=`, quoted key/value) can leak.
 pub fn redact(dsn: &str) -> String {
-    if let Some(rest) = dsn
-        .strip_prefix("postgresql://")
-        .or_else(|| dsn.strip_prefix("postgres://"))
-    {
-        if let Some(at) = rest.find('@') {
-            let (user, host) = rest.split_at(at);
-            let user = user.split(':').next().unwrap_or("");
-            return format!("postgresql://{user}:***{host}");
-        }
-        return dsn.to_owned();
-    }
-    dsn.split_whitespace()
-        .map(|kv| {
-            if kv.starts_with("password=") {
-                "password=***".to_owned()
-            } else {
-                kv.to_owned()
-            }
+    let Ok(c) = dsn.parse::<postgres::Config>() else {
+        return "<unparseable DSN>".into();
+    };
+    let hosts = c
+        .get_hosts()
+        .iter()
+        .map(|h| match h {
+            postgres::config::Host::Tcp(s) => s.clone(),
+            #[cfg(unix)]
+            postgres::config::Host::Unix(p) => p.display().to_string(),
         })
         .collect::<Vec<_>>()
-        .join(" ")
+        .join(",");
+    let ports = c
+        .get_ports()
+        .iter()
+        .map(u16::to_string)
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        "host={hosts} port={} dbname={} user={}",
+        if ports.is_empty() { "-".into() } else { ports },
+        c.get_dbname().unwrap_or("-"),
+        c.get_user().unwrap_or("-")
+    )
 }
 
 pub fn hostname() -> String {
@@ -409,14 +415,21 @@ mod tests {
 
     #[test]
     fn redaction_hides_passwords() {
+        for dsn in [
+            "postgresql://jobs:secret@db:5432/x",
+            "postgresql://jobs@db:5432/x?password=secret",
+            "postgresql://jobs:se%40cret@db:5432/x",
+            "host=/run/pg user=jobs password='sec ret' dbname=x",
+            "host=/run/pg user=jobs password=secret dbname=x",
+        ] {
+            let r = redact(dsn);
+            assert!(!r.contains("sec"), "{dsn} -> {r}");
+            assert!(r.contains("user=jobs") && r.contains("dbname=x"), "{r}");
+        }
         assert_eq!(
             redact("postgresql://jobs:secret@db:5432/x"),
-            "postgresql://jobs:***@db:5432/x"
+            "host=db port=5432 dbname=x user=jobs"
         );
-        assert_eq!(
-            redact("host=/run/pg user=jobs password=secret dbname=x"),
-            "host=/run/pg user=jobs password=*** dbname=x"
-        );
-        assert_eq!(redact("postgresql://db/x"), "postgresql://db/x");
+        assert_eq!(redact("postgresql://u:p@[bad"), "<unparseable DSN>");
     }
 }

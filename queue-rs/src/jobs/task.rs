@@ -29,8 +29,9 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct Pending {
     pub entry: journal::Entry,
-    /// `pq_fail(…,'daemon_restarted',true)` (recovery) or `confirm_exit`.
-    pub recover: bool,
+    /// `Some(code)`: `pq_fail(…, false, code, true)` (journal recovery, an
+    /// uncertain claim); `None`: `pq_end_attempt(…,'confirm_exit',NULL,true)`.
+    pub code: Option<String>,
 }
 
 pub struct Ctx {
@@ -93,8 +94,9 @@ pub fn terminal(rpc: &mut Rpc, name: &str, args: &[Value]) -> anyhow::Result<Val
             }
             Ok(Completion::Unknown(_)) => uncertain = true,
             Err(e) => {
-                // A refusal raised by SQL is an answer, not a transport fault.
-                if db_message(&e).is_some() {
+                // A definite refusal raised by SQL is an answer; timeouts,
+                // failover and lost connections are retried.
+                if !super::rpc::is_transient(&e) {
                     return Err(e);
                 }
                 last_err = Some(e);
@@ -429,7 +431,41 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
             return;
         }
     };
-    let _ = ctx.journal.write(&entry_for(&ctx, &claim, Some(pgid)));
+    if ctx
+        .journal
+        .write(&entry_for(&ctx, &claim, Some(pgid)))
+        .is_err()
+    {
+        // Without the pgid on disk a restart could not prove this child's
+        // exit: stop it now and end the attempt while the proof is local.
+        let (_, empty) = child::kill_and_reap(&mut proc, pgid, cfg.kill_grace);
+        if empty {
+            let _ = terminal(
+                &mut rpc,
+                "pq_fail",
+                &with(
+                    identity(&claim),
+                    &[json!(false), json!("journal_unwritable"), json!(true)],
+                ),
+            );
+            let _ = ctx.journal.remove(&claim.attempt_id);
+        }
+        heartbeat.stop();
+        Counters::bump(&ctx.counters.failed);
+        transition(
+            &ctx,
+            &claim,
+            &phase,
+            if empty {
+                "retry_wait"
+            } else {
+                "exit_unconfirmed"
+            },
+            Some("journal_unwritable".into()),
+        )
+        .emit();
+        return;
+    }
     if let Ok(mut map) = ctx.in_flight.lock() {
         map.insert(
             claim.attempt_id.clone(),
@@ -663,13 +699,15 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
                     (_, Err(e)) => Err(e),
                     (_, Ok(r)) if r["outcome"] != "exit_confirmed" => Ok(r),
                     (false, Ok(_)) => {
-                        reason = Some("manifest_invalid".into());
+                        // The database refused or lost the row, not the child:
+                        // retryable and not counted as poison.
+                        reason = Some("manifest_row_unrecorded".into());
                         terminal(
                             &mut rpc,
                             "pq_fail",
                             &with(
                                 id.clone(),
-                                &[json!(false), json!("manifest_invalid"), json!(true)],
+                                &[json!(false), json!("manifest_row_unrecorded"), json!(true)],
                             ),
                         )
                     }
@@ -758,6 +796,8 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
     match result {
         Ok(reply) => {
             let _ = ctx.journal.remove(&claim.attempt_id);
+            // The manifest's bytes are in polis_queue_logs; the work dir goes.
+            let _ = std::fs::remove_dir_all(&dir);
             let outcome_s = reply["outcome"].as_str().unwrap_or_default().to_owned();
             let state = reply["state"].as_str().unwrap_or_default().to_owned();
             t.to = match (&action, outcome_s.as_str()) {
@@ -806,7 +846,7 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
             if let Ok(mut p) = ctx.pending.lock() {
                 p.push(Pending {
                     entry: entry_for(&ctx, &claim, Some(pgid)),
-                    recover: false,
+                    code: None,
                 });
             }
         }

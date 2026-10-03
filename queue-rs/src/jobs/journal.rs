@@ -34,6 +34,8 @@ pub const SCHEMA: &str = "polis_jobs.journal/1";
 
 pub struct Journal {
     dir: PathBuf,
+    /// Held for the process lifetime: one daemon per journal directory.
+    _lock: File,
 }
 
 fn fsync_dir(dir: &Path) -> std::io::Result<()> {
@@ -44,6 +46,24 @@ impl Journal {
     /// Open the directory; refuse (exit 2 at the caller) if it is not writable.
     pub fn open(dir: &Path) -> anyhow::Result<Self> {
         fs::create_dir_all(dir)?;
+        // Two daemons sharing a journal would read each other's live entries
+        // as provably gone (different container id). Refuse instead.
+        let lock = OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(dir.join(".lock"))?;
+        // SAFETY: flock on a file descriptor we own.
+        let rc = unsafe {
+            libc::flock(
+                std::os::fd::AsRawFd::as_raw_fd(&lock),
+                libc::LOCK_EX | libc::LOCK_NB,
+            )
+        };
+        anyhow::ensure!(
+            rc == 0,
+            "journal directory is locked by another polis-jobs process"
+        );
         let probe = dir.join(format!(".probe-{}", std::process::id()));
         {
             let mut f = OpenOptions::new()
@@ -57,6 +77,7 @@ impl Journal {
         fs::remove_file(&probe)?;
         Ok(Self {
             dir: dir.to_owned(),
+            _lock: lock,
         })
     }
 
@@ -141,8 +162,9 @@ pub fn provably_gone(entry: &Entry, boot_id: &str, container_id: &str, owner_id:
     let daemon_gone = i32::try_from(entry.daemon_pid).is_ok_and(|p| !pid_alive(p));
     let group_gone = match entry.pgid {
         Some(pgid) if pgid > 1 => !pid_alive(-pgid),
-        // Written before spawn and never updated: no child was started.
-        None => true,
+        // Written before spawn and never rewritten: a child may have been
+        // spawned before a crash, so the group is unknown, not gone.
+        None => false,
         Some(_) => false,
     };
     daemon_gone && group_gone
@@ -180,13 +202,27 @@ mod tests {
     }
 
     #[test]
+    fn one_daemon_per_journal_directory() {
+        let dir = std::env::temp_dir().join(format!("polis-jobs-lock-{}", uuid::Uuid::new_v4()));
+        let first = Journal::open(&dir).unwrap_or_else(|e| panic!("{e}"));
+        assert!(Journal::open(&dir).is_err(), "second holder refused");
+        drop(first);
+        assert!(Journal::open(&dir).is_ok(), "free again once released");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn provenance_rules() {
         let e = entry("00000000-0000-4000-8000-000000000002");
         let me = "00000000-0000-4000-8000-0000000000bb";
         assert!(provably_gone(&e, "boot-b", "box-a", me));
         assert!(provably_gone(&e, "boot-a", "box-b", me));
-        // Same host, recorded daemon pid and group gone (no child was spawned).
-        assert!(provably_gone(&e, "boot-a", "box-a", me));
+        // Same host, daemon gone, but no pgid recorded: exit is unproven.
+        assert!(!provably_gone(&e, "boot-a", "box-a", me));
+        // Same host, daemon and recorded group gone.
+        let mut gone = e.clone();
+        gone.pgid = Some(999_998);
+        assert!(provably_gone(&gone, "boot-a", "box-a", me));
         // Our own live entry is never recovered.
         assert!(!provably_gone(&e, "boot-a", "box-a", &e.owner_id));
         // Same host and the recorded daemon is alive (this test process).

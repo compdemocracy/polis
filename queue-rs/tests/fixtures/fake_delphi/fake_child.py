@@ -96,6 +96,11 @@ def main(script):
     frame = json.load(open(os.environ["DELPHI_FRAME"]))
     stdin_frame = json.loads(sys.stdin.readline())
     assert stdin_frame == frame, "stdin frame differs from DELPHI_FRAME"
+    runs_path = os.environ.get("FAKE_DELPHI_RUNS")
+    earlier_runs = len(open(runs_path).read().splitlines()) if runs_path and os.path.exists(runs_path) else 0
+    if mode == "sleep_first":
+        # The first run of the job hangs; any later run succeeds, on whichever daemon.
+        mode = "sleep" if earlier_runs == 0 else "success"
     record("FAKE_DELPHI_RUNS", f"{os.environ['DELPHI_ATTEMPT_ID']} {script} {phase} {os.getpid()}")
     for key in ("DELPHI_JOB_ID", "DELPHI_RUN_ID", "DELPHI_ATTEMPT_ID", "DELPHI_LEASE_EPOCH",
                 "DELPHI_STAGE", "DELPHI_PHASE"):
@@ -148,6 +153,13 @@ def main(script):
         write_atomic(out, canonical(manifest("parked", "submit",
                      batches=[{"provider": "anthropic", "batch_id": batch, "submitted_at": iso(now)}],
                      recheck_after=iso(now + timedelta(seconds=2)))))
+        return 0
+    if mode == "bad_recheck":
+        # A parked manifest whose recheck_after is not a timestamp.
+        m = manifest("parked", phase, batches=[{"provider": "anthropic", "batch_id": "b",
+                     "submitted_at": iso(datetime.now(timezone.utc))}],
+                     recheck_after="2026-10-03T12:00:0\u00e9+00:00")
+        write_atomic(out, canonical(m))
         return 0
     if mode == "intent_crash":
         intent_handshake(attempt_dir)

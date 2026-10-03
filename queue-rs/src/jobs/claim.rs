@@ -44,7 +44,12 @@ fn claim_of(reply: &Value, owner: &str) -> Option<Claim> {
 }
 
 /// One claim pass over the priority lanes. `Ok(None)` when nothing is ready.
-fn claim_one(rpc: &mut Rpc, cfg: &Config, owner: &str) -> anyhow::Result<Option<(Claim, Value)>> {
+fn claim_one(
+    rpc: &mut Rpc,
+    ctx: &Ctx,
+    cfg: &Config,
+    owner: &str,
+) -> anyhow::Result<Option<(Claim, Value)>> {
     for priority in 0..=2i16 {
         let attempt = Uuid::new_v4().to_string();
         let args = [
@@ -75,7 +80,36 @@ fn claim_one(rpc: &mut Rpc, cfg: &Config, owner: &str) -> anyhow::Result<Option<
                 );
                 match hb {
                     Ok(Completion::Committed(h)) if h["outcome"] == "owned" => r,
-                    _ => continue,
+                    _ => {
+                        // Maybe owned, never run: end it with honest proof (no
+                        // child was spawned) so it cannot sit unconfirmed. If
+                        // the claim never committed the call is simply fenced.
+                        line(&format!(
+                            "uncertain claim of job {} not renewed; ending it as claim_uncertain",
+                            r["job_id"].as_str().unwrap_or("?")
+                        ));
+                        if let Ok(mut p) = ctx.pending.lock() {
+                            p.push(Pending {
+                                entry: journal::Entry {
+                                    schema: journal::SCHEMA.into(),
+                                    env: cfg.env.clone(),
+                                    owner_id: owner.to_owned(),
+                                    job_id: r["job_id"].as_str().unwrap_or_default().to_owned(),
+                                    attempt_id: attempt.clone(),
+                                    lease_epoch: r["lease_epoch"]
+                                        .as_str()
+                                        .unwrap_or_default()
+                                        .to_owned(),
+                                    pgid: None,
+                                    daemon_pid: std::process::id(),
+                                    boot_id: cfg.boot_id.clone(),
+                                    container_id: cfg.container_id.clone(),
+                                },
+                                code: Some("claim_uncertain".into()),
+                            });
+                        }
+                        continue;
+                    }
                 }
             }
         };
@@ -108,11 +142,11 @@ fn retry_pending(ctx: &Ctx, rpc: &mut Rpc) {
             json!(e.attempt_id),
             json!(e.lease_epoch),
         ];
-        let (name, rest, reason) = if item.recover {
+        let (name, rest, reason) = if let Some(code) = &item.code {
             (
                 "pq_fail",
-                vec![json!(false), json!("daemon_restarted"), json!(true)],
-                "daemon_restarted",
+                vec![json!(false), json!(code), json!(true)],
+                code.as_str(),
             )
         } else {
             (
@@ -145,12 +179,18 @@ fn retry_pending(ctx: &Ctx, rpc: &mut Rpc) {
                 }
                 .emit();
             }
-            Err(e) if super::rpc::db_message(&e).is_some() => {
-                // Refused by SQL (e.g. the job vanished): nothing to retry.
+            Err(e) if !super::rpc::is_transient(&e) => {
+                // A definite refusal by SQL: nothing to retry.
                 let _ = ctx.journal.remove(&item.entry.attempt_id);
                 line(&format!("journal entry dropped after refusal: {e}"));
             }
-            _ => keep.push(item),
+            Err(e) => {
+                // Lock/statement timeout, failover, lost connection: keep the
+                // entry and retry on the next reaper tick.
+                line(&format!("journal entry kept for retry: {e}"));
+                keep.push(item);
+            }
+            Ok(Completion::Unknown(_)) => keep.push(item),
         }
     }
     if let Ok(mut p) = ctx.pending.lock() {
@@ -175,7 +215,7 @@ fn recover(ctx: &Ctx, rpc: &mut Rpc) {
         if let Ok(mut p) = ctx.pending.lock() {
             p.push(Pending {
                 entry,
-                recover: true,
+                code: Some("daemon_restarted".into()),
             });
         }
     }
@@ -207,7 +247,7 @@ pub fn run(cfg: Config) -> i32 {
         Ok(j) => j,
         Err(e) => {
             line(&format!(
-                "config refused: POLIS_JOBS_JOURNAL_DIR {} is not writable ({e})",
+                "config refused: POLIS_JOBS_JOURNAL_DIR {} is not usable ({e})",
                 cfg.journal_dir.display()
             ));
             return EXIT_CONFIG;
@@ -285,7 +325,7 @@ pub fn run(cfg: Config) -> i32 {
             next_poll = Instant::now() + cfg.poll;
         }
         while wake && jobs.len() < cfg.concurrency && !shutdown::requested() {
-            match claim_one(&mut rpc, &cfg, &owner) {
+            match claim_one(&mut rpc, &ctx, &cfg, &owner) {
                 Ok(Some((claim, reply))) => {
                     db_failures = 0;
                     Counters::bump(&ctx.counters.claimed);
