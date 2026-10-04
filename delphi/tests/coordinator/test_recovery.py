@@ -5,7 +5,8 @@ import threading
 import time
 import pytest
 from coordinator.conftest import (ARTIFACTS, FOLD, MAPPING, seed, rows, connect, assert_coherent, expire,
-    lease, wait, repair_after_unclean_death)
+    lease, wait, repair_after_unclean_death, fold_stored)
+from tests.vote_fixtures import AGREE, DISAGREE, seed_vote
 
 PUBLISH_STAGES=["after_lease","after_source_selection","after_input_checkpoint","before_worker_apply",
     "after_worker_compute","before_ticks","after_ticks","before_bidtopid","after_bidtopid",
@@ -99,7 +100,7 @@ def test_r06_cache_eviction_contends_with_same_zid_update(db,launch,tmp_path):
     assert context["evicted_zid"]==1 and context["inserted_zid"]==2
     assert context["capacity"]==1 and context["cache_len"]==1
     c=connect(db)
-    with c.cursor() as cur:cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,1,2000)")
+    with c.cursor() as cur:cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,%s,2000)",(seed_vote(DISAGREE),))
     c.close()
     child.release()
     wait(lambda: rows(db)["math_ticks"]["input_checkpoint"]["event_count"]==25,
@@ -149,8 +150,8 @@ def test_r08_late_and_equal_commit(db,launch,created):
     launch(db).done()
     c=connect(db)
     with c.cursor() as cur:
-        cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,1,%s)",(created,))
-        cur.execute("SELECT count(*) FROM votes WHERE zid=1 AND pid=0 AND tid=0 AND vote=1 AND created=%s",(created,))
+        cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,%s,%s)",(seed_vote(DISAGREE),created))
+        cur.execute("SELECT count(*) FROM votes WHERE zid=1 AND pid=0 AND tid=0 AND vote=%s AND created=%s",(seed_vote(DISAGREE),created))
         assert cur.fetchone()[0]==1 # preserved committed-row control
     c.close()
     launch(db).done()
@@ -173,7 +174,7 @@ def test_r08_moderation_and_unmoderation_without_votes(db,launch):
 def test_r09_snapshot_reader_during_actual_writer(db,launch,tmp_path):
     seed(db);launch(db).done()
     c=connect(db)
-    with c.cursor() as cur:cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,1,2000)")
+    with c.cursor() as cur:cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,%s,2000)",(seed_vote(DISAGREE),))
     c.close()
     writer=launch(db,stage="after_bidtopid",directory=tmp_path/"writer")
     writer.ack()
@@ -272,7 +273,7 @@ def test_unrelated_failure_is_not_refusal(db,launch):
 def test_restore_stage_recovery(db,launch,tmp_path,stage):
     seed(db);launch(db).done()
     c=connect(db)
-    with c.cursor() as cur:cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,1,2000)")
+    with c.cursor() as cur:cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,%s,2000)",(seed_vote(DISAGREE),))
     c.close()
     child=launch(db,stage=stage,directory=tmp_path/'restore',extra={'P026_LEASE_SECONDS':'2'})
     ack=child.ack();child.kill()
@@ -303,7 +304,7 @@ def test_pinned_bundle_survives_replacement(db,launch,tmp_path,stage):
     child=launch(db,'read',stage=stage,directory=tmp_path/'read',args=(1,))
     ack=child.ack()
     c=connect(db)
-    with c.cursor() as cur:cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,1,2000)")
+    with c.cursor() as cur:cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,%s,2000)",(seed_vote(DISAGREE),))
     c.close();launch(db).done()
     child.release();out,_=child.done();bundle=json.loads(out)
     assert bundle['math_tick']==old
@@ -373,7 +374,7 @@ def test_failed_zid_does_not_starve_source_sweep(db,launch):
     with c.cursor() as cur:
         cur.execute("SELECT attempts FROM polis_coordinator_failures WHERE zid=1 AND math_env='rustproto'")
         assert cur.fetchone()[0]>=1
-        cur.execute('UPDATE votes SET vote=-1 WHERE zid=1 AND pid=0 AND tid=0')
+        cur.execute('UPDATE votes SET vote=%s WHERE zid=1 AND pid=0 AND tid=0',(seed_vote(AGREE),))
     deadline=time.monotonic()+30
     while not rows(db,1)['math_main'] and time.monotonic()<deadline:time.sleep(.05)
     assert_coherent(db,1)
@@ -419,7 +420,7 @@ def test_r08_reference_warm_cache_negative_control(db,launch):
         events=[dict(zip(('pid','tid','vote','created'),r)) for r in cur]
     c.close()
     assert len(events)==26
-    problems=FOLD.check_published_against_fold(rows(db,env='python')['math_main']['data'],FOLD.fold_votes(events))
+    problems=FOLD.check_published_against_fold(rows(db,env='python')['math_main']['data'],fold_stored(events))
     assert problems, 'warm strict-watermark reference must miss the committed boundary vote'
     launch(db).done();assert_coherent(db)
 

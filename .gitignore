@@ -17,3 +17,6 @@ xids.csv
 # Python bytecode caches anywhere in the tree
 __pycache__/
 *.pyc
+
+# two-convention gate outputs (ci/vote_convention/run.sh)
+.vote-gate/

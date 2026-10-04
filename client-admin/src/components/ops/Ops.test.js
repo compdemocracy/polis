@@ -127,10 +127,10 @@ describe('/ops', () => {
   it('lists the pages', async () => {
     respond({ whoami: { status: 200, body: WHOAMI } })
     renderAt('/ops', ops)
-    expect(await screen.findByRole('link', { name: 'Activity now' })).toHaveAttribute(
-      'href',
-      '/ops/usage/activity'
-    )
+    // Once in the tab row and once in the overview list.
+    const links = await screen.findAllByRole('link', { name: 'Activity now' })
+    expect(links).toHaveLength(2)
+    for (const link of links) expect(link).toHaveAttribute('href', '/ops/usage/activity')
   })
 
   it('draws U1 as one tile per window, with source, timing and an unavailable panel', async () => {

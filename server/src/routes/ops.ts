@@ -25,7 +25,14 @@ import {
   OpsEmailPolicy,
   parseOpsEmailDomains,
 } from "../utils/opsGate";
-import { findPage, PAGES, PanelCache } from "../ops/pages";
+import {
+  buildPages,
+  findPage,
+  OpsPageDef,
+  OpsPageOptions,
+  PanelCache,
+} from "../ops/pages";
+import { minVotersForTextFromConfig } from "../ops/textThreshold";
 
 type Middleware = (req: any, res: Response, next: NextFunction) => unknown;
 
@@ -37,6 +44,13 @@ export type OpsRouteOptions = {
   audience: string | null | undefined;
   issuer: string | null | undefined;
   validateJwt: Middleware;
+  // OPS_MIN_VOTERS_FOR_TEXT as configured (parsed here; default 20).
+  minVotersForText?: string | null;
+  simpleAnalyticsApiKey?: string | null;
+  simpleAnalyticsHostname?: string | null;
+  // Tests replace the page registry or its outside readers.
+  pages?: OpsPageDef[];
+  pageOptions?: Partial<OpsPageOptions>;
   cache?: PanelCache;
   clock?: () => number;
 };
@@ -140,6 +154,19 @@ function startupPolicy(options: OpsRouteOptions): OpsEmailPolicy | null {
 export function createOpsRoutes(options: OpsRouteOptions): OpsRoutes {
   const policy = startupPolicy(options);
   const cache = options.cache || new PanelCache();
+  // Building the registry reads nothing; with ops off it is never consulted.
+  const pages: OpsPageDef[] =
+    options.pages ||
+    (policy
+      ? buildPages({
+          minVotersForText: minVotersForTextFromConfig(
+            options.minVotersForText
+          ),
+          simpleAnalyticsApiKey: options.simpleAnalyticsApiKey || "",
+          simpleAnalyticsHostname: options.simpleAnalyticsHostname || "pol.is",
+          ...options.pageOptions,
+        })
+      : []);
   const countRefusal = makeRefusalCounter(options.clock || Date.now);
 
   const notFound = (_req: any, res: Response) => {
@@ -199,7 +226,7 @@ export function createOpsRoutes(options: OpsRouteOptions): OpsRoutes {
     noStore(res);
     res.status(200).json({
       ops: true,
-      pages: PAGES.map((p) => ({
+      pages: pages.map((p) => ({
         id: p.id,
         group: p.group,
         title: p.title,
@@ -210,10 +237,33 @@ export function createOpsRoutes(options: OpsRouteOptions): OpsRoutes {
   };
 
   const page = async (req: any, res: Response) => {
-    const def = findPage(String(req.params?.id || ""));
+    const def = findPage(pages, String(req.params?.id || ""));
     if (!def) {
       logAccess({ route: "page", status: 404, sub: req.jwtPayload?.sub });
       return notFound(req, res);
+    }
+    const notice = def.unconfigured ? def.unconfigured() : null;
+    if (notice) {
+      // Nothing is read: the page is only the sentence saying why.
+      logAccess({
+        route: "page",
+        page: def.id,
+        status: 200,
+        sub: req.jwtPayload?.sub,
+        cache: "unconfigured",
+      });
+      noStore(res);
+      res.status(200).json({
+        id: def.id,
+        group: def.group,
+        title: def.title,
+        summary: def.summary,
+        refresh_s: def.refresh_s,
+        generated_ms: Date.now(),
+        notice,
+        panels: [],
+      });
+      return;
     }
     const panels = [];
     let hits = 0;

@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types'
-import { Routes, Route, Link, useParams } from 'react-router'
+import { Routes, Route, Link, useLocation, useParams } from 'react-router'
 import { Box, Heading, Text } from 'theme-ui'
 import useOpsAccess from './useOpsAccess'
 import OpsPage from './OpsPage'
@@ -51,6 +51,68 @@ Overview.propTypes = {
   ).isRequired
 }
 
+const GROUP_LABELS = { usage: 'Usage', system: 'System' }
+
+// A plain tab row: every page, grouped as the server groups them. The current
+// page is marked with aria-current and an underline.
+export const OpsTabs = ({ pages }) => {
+  const { pathname } = useLocation()
+  // Array.from, not spread: the build compiles spread loosely, which breaks on a Set.
+  const groups = Array.from(new Set(pages.map((p) => p.group)))
+  const tab = (to, label, active) => (
+    <Link
+      key={to}
+      to={to}
+      aria-current={active ? 'page' : undefined}
+      sx={{
+        display: 'inline-block',
+        px: 2,
+        py: 2,
+        fontSize: 1,
+        color: active ? 'text' : 'textSecondary',
+        fontWeight: active ? 'bold' : 'body',
+        textDecoration: 'none',
+        borderBottom: '2px solid',
+        borderColor: active ? 'primary' : 'transparent'
+      }}>
+      {label}
+    </Link>
+  )
+  const overview = pathname.replace(/\/+$/, '') === '/ops'
+  return (
+    <Box
+      as="nav"
+      aria-label="Operations pages"
+      sx={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        columnGap: 3,
+        rowGap: 1,
+        mb: 4,
+        borderBottom: '1px solid',
+        borderColor: 'border'
+      }}>
+      {tab('/ops', 'Overview', overview)}
+      {groups.map((g) => (
+        <Box key={g} sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+          <Text sx={{ fontSize: 0, color: 'textSecondary', textTransform: 'uppercase', mr: 1 }}>
+            {GROUP_LABELS[g] || g}
+          </Text>
+          {pages
+            .filter((p) => p.group === g)
+            .map((p) => {
+              const to = `/ops/${p.group}/${p.id}`
+              return tab(to, p.title, pathname.startsWith(to))
+            })}
+        </Box>
+      ))}
+    </Box>
+  )
+}
+
+OpsTabs.propTypes = Overview.propTypes
+
 const PageRoute = () => {
   const { id } = useParams()
   return <OpsPage pageId={id} />
@@ -61,10 +123,13 @@ const Ops = () => {
   if (loading) return <Text sx={{ color: 'textSecondary' }}>Loading…</Text>
   if (!ops) return <NoAccess />
   return (
-    <Routes>
-      <Route index element={<Overview pages={pages} />} />
-      <Route path=":group/:id" element={<PageRoute />} />
-    </Routes>
+    <Box>
+      <OpsTabs pages={pages} />
+      <Routes>
+        <Route index element={<Overview pages={pages} />} />
+        <Route path=":group/:id" element={<PageRoute />} />
+      </Routes>
+    </Box>
   )
 }
 

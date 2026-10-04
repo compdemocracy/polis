@@ -1,6 +1,7 @@
 import { uiLanguage } from '../lib/lang'
 import PolisNet from '../lib/net'
 import type { Comment, NextCommentResponse } from './types'
+import { toWire, type Vote } from './votes'
 
 export async function fetchComments(
   conversationId: string,
@@ -42,8 +43,10 @@ export async function submitComment(payload: {
   txt: string
   pid: number
   is_seed?: boolean
-  vote?: number
+  /** The author's own vote on the new comment, sent as its wire number. */
+  vote?: Vote
   agid?: number
 }): Promise<unknown> {
-  return await PolisNet.polisPost('/comments', payload)
+  const body = payload.vote === undefined ? payload : { ...payload, vote: toWire(payload.vote) }
+  return await PolisNet.polisPost('/comments', body)
 }

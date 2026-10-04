@@ -9,6 +9,7 @@ import {
   submitVote,
 } from "../setup/api-test-helpers";
 import { getPooledTestUser } from "../setup/test-user-helpers";
+import { fromWire, toWire } from "../setup/vote-wire";
 
 describe("Participation API", () => {
   let conversationId: string;
@@ -67,7 +68,7 @@ describe("Participation API", () => {
       const voteResponse = await submitVote(agent, {
         conversation_id: conversationId,
         tid: commentId,
-        vote: 1, // Agree
+        vote: toWire("agree"), // was a literal 1, which is disagree on the wire
       });
 
       expect(voteResponse.status).toBe(200);
@@ -89,12 +90,13 @@ describe("Participation API", () => {
     expect(currentResponse.votes).toBeDefined();
     expect(currentResponse.votes.length).toBe(votedComments.length);
 
-    // Verify each vote is recorded
+    // Verify each vote is recorded, and recorded as the agree that was posted
     for (const commentId of votedComments) {
-      const hasVote = currentResponse.votes.some(
+      const recorded = currentResponse.votes.find(
         (vote: any) => vote.tid === commentId
       );
-      expect(hasVote).toBe(true);
+      expect(recorded).toBeDefined();
+      expect(fromWire(recorded.vote)).toBe("agree");
     }
   });
 
