@@ -48,6 +48,9 @@ def _vote_convention():
     path = Path(__file__).resolve().parents[1] / "polismath" / "utils" / "vote_convention.py"
     spec = importlib.util.spec_from_file_location("_vote_fixtures_convention", path)
     module = importlib.util.module_from_spec(spec)
+    # Registered before it runs: a @dataclass with postponed annotations looks
+    # its own module up in sys.modules while the class is being built.
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
