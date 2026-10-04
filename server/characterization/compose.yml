@@ -109,6 +109,8 @@ services:
     volumes:
       [
         "./:/app/characterization:ro",
+        # seed-vote.cjs reads the declared storage convention from its one statement.
+        "../../delphi/polismath/utils/vote_convention.py:/delphi/polismath/utils/vote_convention.py:ro",
         "./artifacts:/artifacts",
         "certs:/certs:ro",
       ]

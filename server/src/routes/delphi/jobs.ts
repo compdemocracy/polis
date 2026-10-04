@@ -10,6 +10,15 @@ import {
   JOB_QUEUE_TABLE,
 } from "./jobGuard";
 
+// The job types delphi/scripts/job_poller.py runs (KNOWN_JOB_TYPES there).
+// Anything else is refused here; the poller used to send an unknown type to
+// run_delphi.py, which starts by deleting the conversation's results.
+export const DELPHI_JOB_TYPES: ReadonlySet<string> = new Set([
+  "FULL_PIPELINE",
+  "CREATE_NARRATIVE_BATCH",
+  "AWAITING_NARRATIVE_BATCH",
+]);
+
 // Handler for POST /api/v3/delphi/jobs - Create a new Delphi job
 export async function handle_POST_delphi_jobs(
   req: Request,
@@ -32,6 +41,16 @@ export async function handle_POST_delphi_jobs(
       include_moderation = false, // ignore comments that recieve a failing moderation score
       idempotency_key = null,
     } = req.body;
+
+    if (typeof job_type !== "string" || !DELPHI_JOB_TYPES.has(job_type)) {
+      res.status(400).json({
+        status: "error",
+        error: `Unknown job_type: expected one of ${[...DELPHI_JOB_TYPES].join(
+          ", "
+        )}`,
+      });
+      return;
+    }
 
     // Validate required parameters
     if (!report_id && !conversation_id) {

@@ -1,0 +1,645 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`flag off snapshot of every IAM policy and the web launch template 1`] = `
+{
+  "CoordinatorInactiveTaskExecutionRoleDefaultPolicy51BA7A89": {
+    "Properties": {
+      "PolicyDocument": {
+        "Statement": [
+          {
+            "Action": [
+              "logs:CreateLogStream",
+              "logs:PutLogEvents",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Fn::GetAtt": [
+                "CoordinatorInactiveLogs95EDC376",
+                "Arn",
+              ],
+            },
+          },
+          {
+            "Action": [
+              "secretsmanager:GetSecretValue",
+              "secretsmanager:DescribeSecret",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Ref": "CoordinatorInactiveLoginSecretArn",
+            },
+          },
+          {
+            "Action": [
+              "ecr:BatchCheckLayerAvailability",
+              "ecr:GetDownloadUrlForLayer",
+              "ecr:BatchGetImage",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Fn::GetAtt": [
+                "CoordinatorInactiveRepository16C8DC6B",
+                "Arn",
+              ],
+            },
+          },
+          {
+            "Action": "ecr:GetAuthorizationToken",
+            "Effect": "Allow",
+            "Resource": "*",
+          },
+        ],
+        "Version": "2012-10-17",
+      },
+      "PolicyName": "CoordinatorInactiveTaskExecutionRoleDefaultPolicy51BA7A89",
+      "Roles": [
+        {
+          "Ref": "CoordinatorInactiveTaskExecutionRoleC239A571",
+        },
+      ],
+    },
+    "Type": "AWS::IAM::Policy",
+  },
+  "DBBackupLambdaRoleDefaultPolicy77E92EFE": {
+    "Properties": {
+      "PolicyDocument": {
+        "Statement": [
+          {
+            "Action": [
+              "secretsmanager:GetSecretValue",
+              "secretsmanager:DescribeSecret",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Ref": "DatabaseSecretAttachmentE5D1B020",
+            },
+          },
+          {
+            "Action": [
+              "s3:DeleteObject*",
+              "s3:PutObject",
+              "s3:PutObjectLegalHold",
+              "s3:PutObjectRetention",
+              "s3:PutObjectTagging",
+              "s3:PutObjectVersionTagging",
+              "s3:Abort*",
+            ],
+            "Effect": "Allow",
+            "Resource": [
+              {
+                "Fn::GetAtt": [
+                  "DBBackupBucketB33F3E96",
+                  "Arn",
+                ],
+              },
+              {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Fn::GetAtt": [
+                        "DBBackupBucketB33F3E96",
+                        "Arn",
+                      ],
+                    },
+                    "/*",
+                  ],
+                ],
+              },
+            ],
+          },
+          {
+            "Action": "ssm:GetParameter",
+            "Effect": "Allow",
+            "Resource": [
+              "arn:aws:ssm:us-east-1:123456789012:parameter/polis/db-secret-arn",
+              "arn:aws:ssm:us-east-1:123456789012:parameter/polis/db-host",
+              "arn:aws:ssm:us-east-1:123456789012:parameter/polis/db-port",
+              "arn:aws:ssm:us-east-1:123456789012:parameter/polis/db-backup-bucket-name",
+            ],
+          },
+          {
+            "Action": "secretsmanager:GetSecretValue",
+            "Effect": "Allow",
+            "Resource": "*",
+          },
+        ],
+        "Version": "2012-10-17",
+      },
+      "PolicyName": "DBBackupLambdaRoleDefaultPolicy77E92EFE",
+      "Roles": [
+        {
+          "Ref": "DBBackupLambdaRoleEB1FC7B8",
+        },
+      ],
+    },
+    "Type": "AWS::IAM::Policy",
+  },
+  "ImportWorkerImportWorkerTaskExecutionRoleDefaultPolicy71105A46": {
+    "Properties": {
+      "PolicyDocument": {
+        "Statement": [
+          {
+            "Action": [
+              "ecr:BatchCheckLayerAvailability",
+              "ecr:GetDownloadUrlForLayer",
+              "ecr:BatchGetImage",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Fn::Join": [
+                "",
+                [
+                  "arn:",
+                  {
+                    "Ref": "AWS::Partition",
+                  },
+                  ":ecr:us-east-1:123456789012:repository/polis/server",
+                ],
+              ],
+            },
+          },
+          {
+            "Action": "ecr:GetAuthorizationToken",
+            "Effect": "Allow",
+            "Resource": "*",
+          },
+          {
+            "Action": [
+              "logs:CreateLogStream",
+              "logs:PutLogEvents",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Fn::GetAtt": [
+                "LogGroupF5B46931",
+                "Arn",
+              ],
+            },
+          },
+          {
+            "Action": [
+              "secretsmanager:GetSecretValue",
+              "secretsmanager:DescribeSecret",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Ref": "DatabaseSecretAttachmentE5D1B020",
+            },
+          },
+        ],
+        "Version": "2012-10-17",
+      },
+      "PolicyName": "ImportWorkerImportWorkerTaskExecutionRoleDefaultPolicy71105A46",
+      "Roles": [
+        {
+          "Ref": "ImportWorkerImportWorkerTaskExecutionRole564D6307",
+        },
+      ],
+    },
+    "Type": "AWS::IAM::Policy",
+  },
+  "ImportWorkerImportWorkerTaskTaskRoleDefaultPolicyF4FC388C": {
+    "Properties": {
+      "PolicyDocument": {
+        "Statement": [
+          {
+            "Action": [
+              "s3:GetObject",
+              "s3:DeleteObject",
+              "s3:ListBucket",
+              "s3:PutObject",
+            ],
+            "Effect": "Allow",
+            "Resource": [
+              "arn:aws:s3:::polis-delphi",
+              "arn:aws:s3:::polis-delphi/*",
+            ],
+          },
+          {
+            "Action": [
+              "sqs:ReceiveMessage",
+              "sqs:ChangeMessageVisibility",
+              "sqs:GetQueueUrl",
+              "sqs:DeleteMessage",
+              "sqs:GetQueueAttributes",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Fn::GetAtt": [
+                "ImportWorkerImportJobsQueueB777D0EA",
+                "Arn",
+              ],
+            },
+          },
+        ],
+        "Version": "2012-10-17",
+      },
+      "PolicyName": "ImportWorkerImportWorkerTaskTaskRoleDefaultPolicyF4FC388C",
+      "Roles": [
+        {
+          "Ref": "ImportWorkerImportWorkerTaskTaskRoleA6B4DA0B",
+        },
+      ],
+    },
+    "Type": "AWS::IAM::Policy",
+  },
+  "InstanceRoleDefaultPolicy1531605C": {
+    "Properties": {
+      "PolicyDocument": {
+        "Statement": [
+          {
+            "Action": [
+              "s3:PutObject",
+              "s3:PutObjectAcl",
+              "s3:AbortMultipartUpload",
+              "s3:ListBucket",
+              "s3:GetObject",
+              "s3:DeleteObject",
+            ],
+            "Effect": "Allow",
+            "Resource": [
+              "arn:aws:s3:::*",
+              "arn:aws:s3:::*/*",
+            ],
+          },
+          {
+            "Action": [
+              "dynamodb:PutItem",
+              "dynamodb:GetItem",
+              "dynamodb:UpdateItem",
+              "dynamodb:DeleteItem",
+              "dynamodb:Query",
+              "dynamodb:Scan",
+            ],
+            "Effect": "Allow",
+            "Resource": [
+              {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":dynamodb:us-east-1:123456789012:table/Delphi_*",
+                  ],
+                ],
+              },
+              {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":dynamodb:us-east-1:123456789012:table/Delphi_*/index/*",
+                  ],
+                ],
+              },
+            ],
+          },
+          {
+            "Action": [
+              "ecr:BatchCheckLayerAvailability",
+              "ecr:GetDownloadUrlForLayer",
+              "ecr:BatchGetImage",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Fn::GetAtt": [
+                "PolisRepositoryServerDC34C99F",
+                "Arn",
+              ],
+            },
+          },
+          {
+            "Action": "ecr:GetAuthorizationToken",
+            "Effect": "Allow",
+            "Resource": "*",
+          },
+          {
+            "Action": [
+              "ecr:BatchCheckLayerAvailability",
+              "ecr:GetDownloadUrlForLayer",
+              "ecr:BatchGetImage",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Fn::GetAtt": [
+                "PolisRepositoryMath7E4D6E7E",
+                "Arn",
+              ],
+            },
+          },
+          {
+            "Action": [
+              "ecr:BatchCheckLayerAvailability",
+              "ecr:GetDownloadUrlForLayer",
+              "ecr:BatchGetImage",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Fn::GetAtt": [
+                "PolisRepositoryDelphi6D3F2A32",
+                "Arn",
+              ],
+            },
+          },
+          {
+            "Action": [
+              "s3:GetObject*",
+              "s3:GetBucket*",
+              "s3:List*",
+            ],
+            "Effect": "Allow",
+            "Resource": [
+              {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":s3:::cdk-hnb659fds-assets-123456789012-us-east-1",
+                  ],
+                ],
+              },
+              {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":s3:::cdk-hnb659fds-assets-123456789012-us-east-1/*",
+                  ],
+                ],
+              },
+            ],
+          },
+          {
+            "Action": [
+              "s3:GetObject*",
+              "s3:GetBucket*",
+              "s3:List*",
+            ],
+            "Effect": "Allow",
+            "Resource": [
+              {
+                "Fn::GetAtt": [
+                  "DeploymentPackageBucket9264F134",
+                  "Arn",
+                ],
+              },
+              {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Fn::GetAtt": [
+                        "DeploymentPackageBucket9264F134",
+                        "Arn",
+                      ],
+                    },
+                    "/*",
+                  ],
+                ],
+              },
+            ],
+          },
+          {
+            "Action": [
+              "s3:GetObject*",
+              "s3:GetBucket*",
+              "s3:List*",
+            ],
+            "Effect": "Allow",
+            "Resource": [
+              {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":s3:::aws-codedeploy-us-east-1",
+                  ],
+                ],
+              },
+              {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":s3:::aws-codedeploy-us-east-1/latest/*",
+                  ],
+                ],
+              },
+            ],
+          },
+          {
+            "Action": [
+              "secretsmanager:GetSecretValue",
+              "secretsmanager:DescribeSecret",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Ref": "WebAppEnvVarsSecret7E5CDB10",
+            },
+          },
+          {
+            "Action": [
+              "secretsmanager:GetSecretValue",
+              "secretsmanager:DescribeSecret",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Ref": "ClientAdminEnvVarsSecret3BE245F1",
+            },
+          },
+          {
+            "Action": [
+              "secretsmanager:GetSecretValue",
+              "secretsmanager:DescribeSecret",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Ref": "ClientReportEnvVarsSecretC29628E7",
+            },
+          },
+        ],
+        "Version": "2012-10-17",
+      },
+      "PolicyName": "InstanceRoleDefaultPolicy1531605C",
+      "Roles": [
+        {
+          "Ref": "InstanceRole3CCE2F1D",
+        },
+      ],
+    },
+    "Type": "AWS::IAM::Policy",
+  },
+  "WebLaunchTemplate387D86DD": {
+    "DependsOn": [
+      "InstanceRoleDefaultPolicy1531605C",
+      "InstanceRole3CCE2F1D",
+    ],
+    "Properties": {
+      "LaunchTemplateData": {
+        "IamInstanceProfile": {
+          "Arn": {
+            "Fn::GetAtt": [
+              "WebLaunchTemplateProfile22F3936E",
+              "Arn",
+            ],
+          },
+        },
+        "ImageId": {
+          "Ref": "SsmParameterValueawsserviceamiamazonlinuxlatestal2023amikernel61x8664C96584B6F00A464EAD1953AFF4B05118Parameter",
+        },
+        "InstanceType": "t3.medium",
+        "SecurityGroupIds": [
+          {
+            "Fn::GetAtt": [
+              "WebSecurityGroup73AF7387",
+              "GroupId",
+            ],
+          },
+        ],
+        "TagSpecifications": [
+          {
+            "ResourceType": "instance",
+            "Tags": [
+              {
+                "Key": "Name",
+                "Value": "CdkStack/WebLaunchTemplate",
+              },
+            ],
+          },
+          {
+            "ResourceType": "volume",
+            "Tags": [
+              {
+                "Key": "Name",
+                "Value": "CdkStack/WebLaunchTemplate",
+              },
+            ],
+          },
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash
+#!/bin/bash
+set -e
+set -x
+sudo mkdir -p /etc/app-info
+sudo chown root:root /etc/app-info
+sudo chmod 755 /etc/app-info
+echo "Writing service type 'server' to /etc/app-info/service_type.txt"
+echo "server" | sudo tee /etc/app-info/service_type.txt
+
+
+sudo yum update -y
+sudo yum install -y amazon-cloudwatch-agent -y
+sudo dnf install -y wget ruby docker
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -a -G docker ec2-user
+sudo curl -L https://github.com/docker/compose/releases/download/v2.40.0/docker-compose-linux-$(uname -m) -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+docker-compose --version
+sudo yum install -y jq
+export SERVICE=server
+
+echo "",
+                {
+                  "Ref": "LogGroupF5B46931",
+                },
+                "" | sudo tee /etc/app-info/log_group_name.txt
+echo "Configuring CloudWatch Agent..."
+aws s3 cp s3://cdk-hnb659fds-assets-123456789012-us-east-1/3db27e4a07cd71a9a4e08d49f3dc1148d4b6b1ba272289dbc824f0f9196144d5.json /tmp/amazon-cloudwatch-agent.json || echo "CW agent config download failed; continuing"
+sudo mkdir -p $(dirname /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json) || true
+sudo mv /tmp/amazon-cloudwatch-agent.json /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json || true
+sudo chmod 644 /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json || true
+sudo chown root:root /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json || true
+sudo systemctl enable amazon-cloudwatch-agent || true
+sudo systemctl start amazon-cloudwatch-agent || echo "CW agent failed to start; continuing"
+exec 1>>/var/log/user-data.log 2>&1
+echo "Finished User Data Execution at $(date)"
+sudo mkdir -p /etc/docker
+cat << EOF | sudo tee /etc/docker/daemon.json
+{
+  "log-driver": "awslogs",
+  "log-opts": {
+    "awslogs-group": "",
+                {
+                  "Ref": "LogGroupF5B46931",
+                },
+                "",
+    "awslogs-region": "us-east-1",
+    "awslogs-stream": "server"
+  }
+}
+EOF
+sudo chmod 644 /etc/docker/daemon.json
+sudo systemctl restart docker
+sudo systemctl status docker
+set +e
+PKG_CMD=\`which yum 2>/dev/null\`
+set -e
+if [ -z "$PKG_CMD" ]; then
+PKG_CMD=apt-get
+else
+PKG_CMD=yum
+fi
+$PKG_CMD update -y
+set +e
+$PKG_CMD install -y ruby2.0
+RUBY2_INSTALL=$?
+set -e
+if [ $RUBY2_INSTALL -ne 0 ]; then
+$PKG_CMD install -y ruby
+fi
+AWS_CLI_PACKAGE_NAME=awscli
+if [ "$PKG_CMD" = "yum" ]; then
+AWS_CLI_PACKAGE_NAME=aws-cli
+fi
+$PKG_CMD install -y $AWS_CLI_PACKAGE_NAME
+TMP_DIR=\`mktemp -d\`
+cd $TMP_DIR
+aws s3 cp s3://aws-codedeploy-us-east-1/latest/install . --region us-east-1
+chmod +x ./install
+./install auto
+rm -fr $TMP_DIR",
+              ],
+            ],
+          },
+        },
+      },
+      "TagSpecifications": [
+        {
+          "ResourceType": "launch-template",
+          "Tags": [
+            {
+              "Key": "Name",
+              "Value": "CdkStack/WebLaunchTemplate",
+            },
+          ],
+        },
+      ],
+    },
+    "Type": "AWS::EC2::LaunchTemplate",
+  },
+}
+`;

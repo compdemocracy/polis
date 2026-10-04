@@ -37,6 +37,8 @@ from typing import Iterator
 
 import pytest
 
+from tests.vote_fixtures import seed_rows
+
 # delphi/scripts is put on sys.path by conftest.py (the checkout locator); the
 # implementation lives there, this test lives under delphi/tests/scripts so the
 # Delphi CI job collects it. The import fails closed to a per-test skip ONLY when
@@ -143,14 +145,14 @@ def _seed(url: str) -> None:
     populates votes_latest_unique. Includes an equal-created pair."""
     import psycopg2
 
-    rows = [
-        # (pid, tid, vote, weight_x_32767, created)
-        (0, 0, -1, 0, 1000),      # equal-created pair (same created=1000, ...
-        (0, 1, 1, 0, 1000),       #   ... different tid) -> deterministic ordering
-        (1, 0, -1, 0, 2000),      # revote base
-        (1, 0, 1, 0, 3000),       # revote -> vlu upserts to modified=3000, vote=1
-        (2, 0, 0, 30000, 4000),   # non-zero weight
-    ]
+    rows = seed_rows([
+        # (pid, tid, vote by meaning, weight_x_32767, created)
+        (0, 0, "agree", 0, 1000),     # equal-created pair (same created=1000, ...
+        (0, 1, "disagree", 0, 1000),  #   ... different tid) -> deterministic ordering
+        (1, 0, "agree", 0, 2000),     # revote base
+        (1, 0, "disagree", 0, 3000),  # revote -> vlu upserts to modified=3000, the disagree
+        (2, 0, "pass", 30000, 4000),  # non-zero weight
+    ])
     conn = psycopg2.connect(url)
     try:
         conn.autocommit = True
@@ -560,7 +562,7 @@ def test_wire_gate_negative_control_extra_field(dsn: str) -> None:
 
 
 def _copy_server_src(dst_root: str) -> str:
-    """Copy the two real source files the witness reads into <dst_root>/src."""
+    """Copy the real source files the witness reads into <dst_root>/src."""
     import shutil
 
     server_dir = pg._resolve_server_dir()
@@ -569,6 +571,9 @@ def _copy_server_src(dst_root: str) -> str:
     src = os.path.join(dst_root, "src")
     os.makedirs(os.path.join(src, "routes"), exist_ok=True)
     os.makedirs(os.path.join(src, "db"), exist_ok=True)
+    os.makedirs(os.path.join(src, "votes"), exist_ok=True)
+    shutil.copy(os.path.join(server_dir, "src", "votes", "convention.ts"),
+                os.path.join(src, "votes", "convention.ts"))
     shutil.copy(os.path.join(server_dir, "src", "routes", "votes.ts"),
                 os.path.join(src, "routes", "votes.ts"))
     shutil.copy(os.path.join(server_dir, "src", "server-helpers.ts"),
@@ -606,9 +611,10 @@ def test_wire_gate_is_source_bound(dsn: str, tmp_path) -> None:
         return {r.site.name: r for r in _wire_or_skip(dsn, {"zid": PUBLIC_FIXTURE_ZID, "pid": 0}, **kw)}
 
     # Mutation A: flip the served vote sign in the ACTUAL route.
-    assert "resolve(results.rows);" in votes_orig
+    served_rows = "resolve(results.rows.map((row) => storageRowToWire(row)));"
+    assert served_rows in votes_orig
     _write(votes_ts, votes_orig.replace(
-        "resolve(results.rows);",
+        served_rows,
         "resolve(results.rows.map((r) => ({ ...r, vote: -r.vote })));"))
     rA = _findings()
     assert not rA["votesGet"].ok

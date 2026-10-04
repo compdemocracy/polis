@@ -326,6 +326,8 @@ class FrozenSource:
         return self.prior
 
     def poll_votes(self, zid, since):
+        from polismath.utils.vote_convention import semantic_vote
+
         if zid != self.zid or since is not None:
             raise BridgeError("UNDECLARED_SOURCE_READ")
         result = []
@@ -339,8 +341,9 @@ class FrozenSource:
                 raise BridgeError("UNSUPPORTED_SOURCE_WEIGHT")
             if event["vote"] not in (-1, 0, 1):
                 raise BridgeError("UNSUPPORTED_SOURCE_VOTE")
+            # The checkpoint's declared storage sign, through the one formula.
             result.append({"pid": event["pid"], "tid": event["tid"],
-                           "vote": event["vote"] * self.agree, "created": event["created"]})
+                           "vote": semantic_vote(event["vote"], self.agree), "created": event["created"]})
         return result
 
     def poll_moderation(self, zid, since):

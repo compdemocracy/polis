@@ -84,8 +84,7 @@ from polismath.replay.served_math import (
 )
 from polismath.utils.vote_convention import (
     EXPORT_AGREE_VALUE,
-    STORAGE_AGREE_VALUE,
-    validate_storage_agree_value,
+    resolve_storage_agree_value,
 )
 
 #: Bumped to /2 by the lossless correction: ``weight_x_32767`` and ``vote`` are
@@ -462,8 +461,9 @@ def logical_digest(events: Sequence[dict[str, Any]]) -> str:
 def stream_meta(
     *, slug: str, role: str, tie_key: dict[str, Any],
     events: Sequence[dict[str, Any]], n_participants: int,
-    storage_agree_value: int = STORAGE_AGREE_VALUE,
+    storage_agree_value: int | None = None,
 ) -> dict[str, Any]:
+    storage_agree_value = resolve_storage_agree_value(storage_agree_value)
     vote_events = [e for e in events if e["kind"] == "vote"]
     comment_events = [e for e in events if e["kind"] == "comment"]
     return {
@@ -696,7 +696,7 @@ COMPAT_NULL_VOTE_POLICY = "drop-counted"
 
 def compat_rows_from_events(
     events: Sequence[dict[str, Any]],
-    *, storage_agree_value: int = STORAGE_AGREE_VALUE,
+    *, storage_agree_value: int | None = None,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]], dict[str, Any]]:
     """Derive the compatibility votes/comments CSV rows FROM the event stream
     (never from a second query), reusing the existing formatters so the export
@@ -725,7 +725,7 @@ def compat_rows_from_events(
     votable = [e for e in vote_events if e["vote"] is not None]
     null_vote_events = [e for e in vote_events if e["vote"] is None]
 
-    agree = validate_storage_agree_value(storage_agree_value)
+    agree = resolve_storage_agree_value(storage_agree_value)
     votes_rows = pc.format_votes_rows([
         {"tid": e["tid"], "pid": e["pid"], "vote": e["vote"], "created": e["created"]}
         for e in votable
@@ -833,7 +833,7 @@ def fetch_served_math(
 def extract_conversation(
     conn: PgConnection, *, zid: int, slug: str, role: str, payload_root: Path, guard_root: Path,
     dir_name: str, tie_key: dict[str, Any], measured: dict[str, Any] | None = None,
-    storage_agree_value: int = STORAGE_AGREE_VALUE,
+    storage_agree_value: int | None = None,
     capture_served_math: bool = False,
     served_math_envs: Sequence[str] | None = None,
 ) -> dict[str, Any]:
@@ -849,6 +849,9 @@ def extract_conversation(
     the queries and writes exactly the bytes it did before the option existed —
     the summary gains no key either, so a manifest built from it is unchanged.
     """
+    # Undeclared: the installed ConventionSource's value, resolved once so the
+    # stream's declaration and the compatibility CSV agree.
+    storage_agree_value = resolve_storage_agree_value(storage_agree_value)
     target = pc.assert_under_local(payload_root / dir_name, guard_root)
     raw = fetch_conversation(conn, zid, tie_key)
     events = build_events(raw["votes"], raw["comments"])

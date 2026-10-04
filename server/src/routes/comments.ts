@@ -13,6 +13,7 @@ import { getZinvite } from "../utils/zinvite";
 import { isModerator, polisTypes } from "../utils/common";
 import { MPromise } from "../utils/metered";
 import { votesPost } from "./votes";
+import { WIRE_PASS } from "../votes/convention";
 import analyzeComment from "../utils/moderation";
 import Config from "../config";
 import logger from "../utils/logger";
@@ -515,7 +516,7 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
 
     // 7. Handle voting on the comment if specified
     const shouldDefaultVote = req.p.is_seed && _.isUndefined(vote);
-    const finalVote = shouldDefaultVote ? 0 : vote;
+    const finalVote = shouldDefaultVote ? WIRE_PASS : vote;
 
     if (!_.isUndefined(finalVote)) {
       await votesPost(uid, pid, zid, tid, finalVote, 0, false);
@@ -948,7 +949,7 @@ async function handle_POST_comments_bulk(
 
         // Handle default vote for seed comments (matching handle_POST_comments behavior)
         if (is_seed) {
-          await votesPost(uid!, finalPid, zid!, tid, 0, 0, false);
+          await votesPost(uid!, finalPid, zid!, tid, WIRE_PASS, 0, false);
           // Schedule vote count update
           setTimeout(() => {
             updateVoteCount(zid!, finalPid);

@@ -7,7 +7,9 @@ import sys
 import threading
 from pathlib import Path
 import pytest
-from coordinator.conftest import ROOT, ARTIFACTS, FOLD, MAPPING, seed, connect, rows, assert_coherent
+from coordinator.conftest import ROOT, ARTIFACTS, FOLD, MAPPING, seed, connect, rows, assert_coherent, fold_semantic
+from tests.vote_fixtures import AGREE, DISAGREE, PASS, convention, seed_vote
+from polismath.utils.vote_convention import flipped
 from polismath.replay.crosslang import canonicalize_blob
 
 
@@ -78,7 +80,7 @@ def seed_vw(db,limit=None,slug="vw"):
 def insert_events(db,events):
     c=connect(db)
     with c.cursor() as cur:
-        cur.executemany("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,%s,%s,%s,%s)",[(v.pid,v.tid,-v.sign,v.t_ms) for v in events])
+        cur.executemany("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,%s,%s,%s,%s)",[(v.pid,v.tid,seed_vote(v.sign),v.t_ms) for v in events])
     c.close()
 
 
@@ -115,14 +117,14 @@ def test_vw_dual_namespace_live_equivalence(db,launch):
             assert a['math_main']['math_tick']==b['math_main']['math_tick']
             ca,cb=canonical(a),canonical(b)
             deltas=diff(ca,cb)
-            fold=FOLD.fold_votes([dict(pid=v.pid,tid=v.tid,vote=-v.sign,created=v.t_ms) for v in events[:cut]])
+            fold=fold_semantic([dict(pid=v.pid,tid=v.tid,vote=v.sign,created=v.t_ms) for v in events[:cut]])
             fold_errors={env:FOLD.check_published_against_fold(t['math_main']['data'],fold,require_all_clustered=False) for env,t in [('rustproto',a),('python',b)]}
             clustered={env:{pid for bucket in t['math_bidtopid']['data']['bidToPid'] for pid in bucket} for env,t in [('rustproto',a),('python',b)]}
             for env,tables in [('rustproto',a),('python',b)]:
                 main=tables['math_main']['data']
                 for index,members in enumerate(tables['math_bidtopid']['data']['bidToPid']):
                     member_set=set(members)
-                    subset=FOLD.fold_votes([dict(pid=v.pid,tid=v.tid,vote=-v.sign,created=v.t_ms) for v in events[:cut] if v.pid in member_set])
+                    subset=fold_semantic([dict(pid=v.pid,tid=v.tid,vote=v.sign,created=v.t_ms) for v in events[:cut] if v.pid in member_set])
                     totals=subset.per_comment_totals()
                     for tid,buckets in main['votes-base'].items():
                         expected=totals.get(int(tid),{'A':0,'D':0,'S':0})
@@ -142,18 +144,19 @@ def test_vw_dual_namespace_live_equivalence(db,launch):
 
 def test_polarity_rebuild_schedule_with_revotes(db,launch):
     seed(db,votes=False)
-    def write(sign,events):
+    def write(storage_agree_value,events):
         c=connect(db)
         with c.cursor() as cur:
             cur.execute('DELETE FROM votes WHERE zid=1')
-            cur.executemany('INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,%s,%s,%s,%s)',[(p,t,v*sign,stamp) for p,t,v,stamp in events])
+            cur.executemany('INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,%s,%s,%s,%s)',[(p,t,seed_vote(v,storage_agree_value),stamp) for p,t,v,stamp in events])
         c.close()
-    events=[(p,t,(-1 if p%2==0 else 1),1000+p*4+t) for p in range(6) for t in range(4)]
+    # Semantic events; write() stores them at the convention each engine run declares.
+    events=[(p,t,(AGREE if p%2==0 else DISAGREE),1000+p*4+t) for p in range(6) for t in range(4)]
     variants=[]
     for step in range(3):
-        if step:events.append((0,0,step-1,2000+step))
-        write(1,events);launch(db).done();a=canonical(rows(db))
-        write(-1,events);launch(db,env='positive',extra={'STORAGE_AGREE_VALUE':'1'}).done();b=canonical(rows(db,env='positive'))
+        if step:events.append((0,0,(PASS,DISAGREE)[step-1],2000+step))
+        write(convention(),events);launch(db).done();a=canonical(rows(db))
+        write(flipped(convention()),events);launch(db,env='positive',extra={'STORAGE_AGREE_VALUE':str(flipped(convention()))}).done();b=canonical(rows(db,env='positive'))
         launch(db,env='negative').done();n=canonical(rows(db,env='negative'))
         assert hash_blob(a)==hash_blob(b)
         assert hash_blob(a)!=hash_blob(n)
@@ -172,7 +175,7 @@ def test_semantic_tie_key_is_a_declared_contract_term(db,launch):
     with c.cursor() as cur:
         cur.execute('SET session_replication_role=replica')
         cur.execute('DELETE FROM votes WHERE zid=1 AND pid=0 AND tid=0')
-        for value in (1,-1):
+        for value in (seed_vote(DISAGREE),seed_vote(AGREE)):
             cur.execute('INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,%s,1500)',(value,))
     c.close()
     launch(db).done()

@@ -1,0 +1,9 @@
+{
+  "schema": "declared-vote-sign/1",
+  "fixture": "../evidence/polarity-public-fixture.json",
+  "fixture_sha256": "82b469384621e344ff55b4fced672c36cd43c6ce76f91d92d29a194335e35f49",
+  "storage_agree_value": -1,
+  "vote_field": "none stored: a is the run with rows stored at agree = -1, b the same semantic rows stored at +1 (engine STORAGE_AGREE_VALUE=1), negative the +1 rows read at -1",
+  "paired_set": "polarity-public-fixture.agree-plus-one.json",
+  "basis": "Evidence, kept as history. Declared so the +1 witness (polarity-public-fixture.agree-plus-one.json) can be generated from its recorded +1 run (P-078 1d). Kept beside the pins, not in evidence/, so the campaign's evidence inventory is unchanged."
+}

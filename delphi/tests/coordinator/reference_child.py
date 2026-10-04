@@ -43,9 +43,11 @@ with tempfile.TemporaryDirectory(prefix="p026-reference-") as tmp:
     assert not svc._pool.parked_zids(), "reference failed/parked"
     if "--warm-boundary" in sys.argv:
         import sqlalchemy as sa
+        from tests.vote_fixtures import AGREE, DISAGREE, seed_vote
         t=svc._vote_wm
         with pg.engine.begin() as conn:
-            conn.execute(sa.text("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,1,:t),(1,2,2,-1,:later)"),{"t":t,"later":t+1000})
+            conn.execute(sa.text("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,:boundary,:t),(1,2,2,:later_vote,:later)"),
+                         {"t":t,"later":t+1000,"boundary":seed_vote(DISAGREE),"later_vote":seed_vote(AGREE)})
         svc.poll_once()
         assert not svc._pool.parked_zids()
     svc.stop();pg.shutdown()

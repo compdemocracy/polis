@@ -18,6 +18,8 @@
 export const RESERVED_POOLED_USER_INDEXES = {
   /** server/__tests__/integration/domain-whitelist.test.ts */
   domainWhitelist: 40,
+  /** server/__tests__/integration/vote-path-recordings.test.ts */
+  votePathRecordings: 41,
 } as const;
 
 export function getPooledTestUser(index: number): {

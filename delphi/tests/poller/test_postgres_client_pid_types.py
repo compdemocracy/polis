@@ -48,11 +48,15 @@ in postgres.py without a live DB.
 from __future__ import annotations
 
 from polismath.database.postgres import PostgresClient, PostgresConfig
+from tests.vote_fixtures import AGREE, DISAGREE, seed_vote
 
 
 def _client_with_canned_rows(rows: list[dict]) -> PostgresClient:
     client = PostgresClient(PostgresConfig(url="postgresql://ignored/db", math_env="t3"))
-    client.query = lambda sql, params=None: rows
+    # A database without the P-078 vote_convention row answers the presence
+    # probe "absent"; every other query gets the canned vote rows.
+    client.query = lambda sql, params=None: (
+        [{"present": False}] if "to_regprocedure" in sql else rows)
     return client
 
 
@@ -62,7 +66,7 @@ class TestPollVotesPidType:
         SQLAlchemy/psycopg2 already return native Python ints for them; this
         just asserts poll_votes does NOT wrap EITHER in str() anymore."""
         client = _client_with_canned_rows(
-            [{"zid": 1, "tid": 10, "pid": 5, "vote": -1, "created": 1000}]
+            [{"zid": 1, "tid": 10, "pid": 5, "vote": seed_vote(AGREE), "created": 1000}]
         )
         votes = client.poll_votes(zid=1)
         assert len(votes) == 1
@@ -75,16 +79,16 @@ class TestPollVotesPidType:
         """The pid/tid-type fix must not disturb the (unrelated) sign flip
         at the same ingress boundary."""
         client = _client_with_canned_rows(
-            [{"zid": 1, "tid": 10, "pid": 5, "vote": -1, "created": 1000}]  # raw DB AGREE
+            [{"zid": 1, "tid": 10, "pid": 5, "vote": seed_vote(AGREE), "created": 1000}]  # stored AGREE
         )
         votes = client.poll_votes(zid=1)
-        assert votes[0]["vote"] == 1  # Delphi AGREE
+        assert votes[0]["vote"] == AGREE  # Delphi (semantic) AGREE
 
 
 class TestPollVotesSincePidType:
     def test_pid_and_tid_are_native_ints(self):
         client = _client_with_canned_rows(
-            [{"zid": 1, "tid": 10, "pid": 7, "vote": 1, "created": 2000}]
+            [{"zid": 1, "tid": 10, "pid": 7, "vote": seed_vote(DISAGREE), "created": 2000}]
         )
         votes = client.poll_votes_since(since=0)
         assert len(votes) == 1
@@ -95,7 +99,7 @@ class TestPollVotesSincePidType:
 
     def test_zid_type_is_unchanged_already_int(self):
         client = _client_with_canned_rows(
-            [{"zid": "1", "tid": 10, "pid": 7, "vote": 1, "created": 2000}]
+            [{"zid": "1", "tid": 10, "pid": 7, "vote": seed_vote(DISAGREE), "created": 2000}]
         )
         votes = client.poll_votes_since(since=0)
         assert votes[0]["zid"] == 1
@@ -103,8 +107,8 @@ class TestPollVotesSincePidType:
 
     def test_multiple_rows_preserve_order_and_all_get_int_pids_and_tids(self):
         client = _client_with_canned_rows([
-            {"zid": 1, "tid": 10, "pid": 3, "vote": 1, "created": 1000},
-            {"zid": 1, "tid": 11, "pid": 9, "vote": -1, "created": 1001},
+            {"zid": 1, "tid": 10, "pid": 3, "vote": seed_vote(DISAGREE), "created": 1000},
+            {"zid": 1, "tid": 11, "pid": 9, "vote": seed_vote(AGREE), "created": 1001},
         ])
         votes = client.poll_votes_since(since=0)
         assert [v["pid"] for v in votes] == [3, 9]
