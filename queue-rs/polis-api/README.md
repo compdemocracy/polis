@@ -19,10 +19,44 @@ Only if you turn it on. Two switches, both off by default:
 
 With `RUST_API_ROUTES` unset (production today), nginx's rendered config is
 the same as before this change and every request goes to Node. With it set,
-only the exact path `/api/v3/math/pca2` goes to polis-api. If polis-api is
-down, slow, or answers 502, nginx asks Node instead. An unknown name in
-`RUST_API_ROUTES` stops nginx from starting, so a typo is never silently
-ignored.
+only the exact path `/api/v3/math/pca2` goes to polis-api, and Node answers
+instead whenever polis-api does not answer well:
+
+- the polis-api container is absent, restarting or gone (nginx looks it up
+  per request through Docker's DNS, so nginx itself always starts);
+- polis-api does not connect within 2 seconds or answer within 5;
+- polis-api answers 502, which it does whenever its database fails it (no
+  connection, no free pool slot within 2 seconds, a statement over its
+  3-second timeout, any query error), and for any path other than the exact
+  route.
+
+A name in `RUST_API_ROUTES` that is not a known route never stops nginx: it
+logs an `ERROR RUST_API_ROUTES` line and leaves every route on Node.
+`nginx-routing.sh` checks all of this against stub upstreams, in CI.
+
+## Before turning it on anywhere real
+
+- **Database transport.** The compose default `docker-internal` is plain TCP
+  to the dev Postgres container. Against RDS set `POLIS_API_DB_TRANSPORT=tls`,
+  `POLIS_API_DB_CA_FILE` and `POLIS_API_DB_HOST_ALLOWLIST`; with the default
+  it refuses the RDS host and exits, and nginx keeps sending pca2 to Node.
+- **Which database.** Like Node's read pool, it reads `READ_ONLY_DATABASE_URL`
+  when that is set and not empty, else `DATABASE_URL`
+  (`POLIS_API_DATABASE_URL` overrides both).
+- **Database login.** It uses the same login as Node's read pool. A dedicated
+  read-only login (SELECT on `zinvites`, `math_main`, `comments` only) is a
+  role change and is left out until Colin rules on it; until then the
+  session is set read-only, which is the only guard.
+- **`NODE_ENV`.** The image defaults to `production`, as the server's prod
+  image does, and the shared env file overrides both alike. The error pages
+  depend on it.
+- **Logs.** One JSON line per request on stdout, in the shape of the server's
+  `http_request` log: method, path (no query string), status, duration and
+  whether the math came from the cache. With the switch on, pca2 requests
+  appear here instead of in the server's log, and the server's in-memory
+  `pcaGetQuery` metric stops counting them.
+- **Through nginx.** The byte replay talks to Node and polis-api directly.
+  An on/off replay through nginx-proxy itself has not been run yet.
 
 ## What "the same" means
 
@@ -73,7 +107,8 @@ program reproduces each one that changes the answer:
 
 Three read-only queries (`db.rs`), each with a typed result: conversation
 code to conversation id, the `math_main` row for `(conversation, MATH_ENV)`,
-and the approved comment ids. The session is set read-only. Connections use
+and the approved comment ids. The session is set read-only, every statement
+has a timeout, and connections are retired after a fixed lifetime. Connections use
 this workspace's shared transport rules (`queue-rs/src/jobs/transport.rs`):
 verify-full TLS to listed hosts, a Unix socket, or plain TCP to loopback.
 `docker-internal` (plain TCP to named hosts) exists for the dev and test
@@ -82,7 +117,8 @@ compose stacks, whose Postgres has no TLS.
 ## Configuration
 
 It reads the Node server's env file, so these match Node: `MATH_ENV`
-(required; there is no default, as in Node), `DEV_MODE`, `NODE_ENV`,
+(required; there is no default, as in Node), `READ_ONLY_DATABASE_URL` and
+`DATABASE_URL`, `DD_ENV` (the log's `env`), `DEV_MODE`, `NODE_ENV`,
 `DOMAIN_OVERRIDE`, `USE_NETWORK_HOST`, `TESTING`, `API_DEV_HOSTNAME`,
 `API_PROD_HOSTNAME`, `DOMAIN_WHITELIST_ITEM_01..08`, `CACHE_MATH_RESULTS`.
 It refuses to start if `POLIS_REACHABLE_ERROR_HANDLER` is on, because it only
@@ -93,14 +129,29 @@ Its own settings: `POLIS_API_DATABASE_URL` (else `DATABASE_URL`),
 `docker-internal`), `POLIS_API_DB_CA_FILE` and `POLIS_API_DB_HOST_ALLOWLIST`
 (tls), `POLIS_API_DB_PLAIN_HOSTS` (docker-internal),
 `POLIS_API_DB_PASSWORD_FILE`, `POLIS_API_DB_POOL` (8),
-`POLIS_API_DB_ACQUIRE_TIMEOUT_MS` (5000), `POLIS_API_LISTEN`
+`POLIS_API_DB_ACQUIRE_TIMEOUT_MS` (2000), `POLIS_API_DB_STATEMENT_TIMEOUT_MS`
+(3000), `POLIS_API_DB_MAX_LIFETIME_MS` (300000, after which a connection is
+replaced), `POLIS_API_LISTEN`
 (`127.0.0.1:5100`; the image uses `0.0.0.0:5100`). `GET /health` reports
 database reachability and counts; it is not routed by nginx.
 
 ## Known differences from Node (none reached by any recorded request)
 
-- A database error gives the same 500 status, but Node's body lists the
-  Postgres error's fields and this one prints `{}`.
+- **The math cache is not shared.** Node's 3-second math cache is shared
+  with participationInit, reports and nextComment. A report can put an empty
+  presentation there that Node's pca2 then serves as a 200 for up to 3
+  seconds, where polis-api, which sees only pca2 requests, answers 304. The
+  difference lasts at most one cache window, and real generations carry the
+  same entity tag on both sides.
+- **Odd paths.** nginx matches the normalised path (`//pca2`, `%70ca2`) but
+  forwards the raw one. polis-api answers 502 for anything but the exact
+  path, so Node answers those requests as it always has; only a client
+  talking to polis-api directly sees the 502.
+- **Whitespace.** Trimming follows JavaScript's whitespace (U+FEFF counts,
+  U+0085 does not), as Node's `trim()` and `parseInt` do.
+- **Database failures** are 502s here, so nginx asks Node, which answers
+  with whatever its own database gives it. Node prints the Postgres error's
+  fields in a 500 body; polis-api never prints database error text.
 - With `NODE_ENV` other than `production`, an unparseable JSON body gets
   Node's stack trace on Node and a plain message here.
 - A `math_main.data` value that is not a JSON object (no writer produces one)
@@ -116,6 +167,8 @@ cd queue-rs
 cargo fmt -p polis-api --check
 cargo clippy --locked -p polis-api --all-targets -- -D warnings
 cargo test --locked -p polis-api
+POLIS_API_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:5432/scratch \
+  cargo test --locked -p polis-api --features db-tests   # a throwaway Postgres
 cd ..
 queue-rs/polis-api/conformance/nginx-routing.sh      # needs Docker
 # Byte-for-byte replay (needs Docker and the local characterization images;

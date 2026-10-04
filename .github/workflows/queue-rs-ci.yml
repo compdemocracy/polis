@@ -69,9 +69,21 @@ jobs:
         run: cargo test --locked --features jobs-integration --test jobs_integration -- --test-threads 4
 
   polis-api:
-    name: polis-api build, clippy, tests and nginx routing
+    name: polis-api build, clippy, tests, image and nginx routing
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: polis_api_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d polis_api_test"
+          --health-interval 2s --health-timeout 3s --health-retries 30
     defaults:
       run:
         working-directory: queue-rs
@@ -84,11 +96,17 @@ jobs:
       - name: Format
         run: cargo fmt -p polis-api --check
       - name: Clippy
-        run: cargo clippy --locked -p polis-api --all-targets -- -D warnings
-      - name: Unit tests
-        run: cargo test --locked -p polis-api
+        run: |
+          cargo clippy --locked -p polis-api --all-targets -- -D warnings
+          cargo clippy --locked -p polis-api --all-targets --features db-tests -- -D warnings
+      - name: Unit tests and the three queries against PostgreSQL 17
+        env:
+          POLIS_API_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/polis_api_test
+        run: cargo test --locked -p polis-api --features db-tests
       - name: Release build
         run: cargo build --locked --release -p polis-api
-      - name: nginx routing switch (RUST_API_ROUTES off, on, fallback, refusal)
+      - name: Docker image
+        run: docker build -t polis-api:ci -f polis-api/Dockerfile .
+      - name: nginx routing switch (off, polis-api absent/up/502/dead, unknown name)
         working-directory: .
         run: queue-rs/polis-api/conformance/nginx-routing.sh
