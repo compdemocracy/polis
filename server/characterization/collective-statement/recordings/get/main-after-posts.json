@@ -1,0 +1,63 @@
+{
+ "format": "collective-statement-recording/1",
+ "case": "get/main-after-posts",
+ "about": "the main report after every POST above, no token",
+ "requests": [
+  {
+   "method": "GET",
+   "path": "/api/v3/collectiveStatement?report_id=r1csrec201",
+   "auth": "none"
+  }
+ ],
+ "responses": [
+  {
+   "status": 200,
+   "headers": [
+    [
+     "content-type",
+     "application/json; charset=utf-8"
+    ],
+    [
+     "cache-control",
+     "no-cache"
+    ],
+    [
+     "access-control-allow-origin",
+     "http://localhost"
+    ],
+    [
+     "access-control-allow-credentials",
+     "true"
+    ],
+    [
+     "access-control-allow-headers",
+     "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+    ],
+    [
+     "access-control-allow-methods",
+     "GET, PUT, POST, DELETE, OPTIONS"
+    ],
+    [
+     "content-length",
+     "6137"
+    ],
+    [
+     "vary",
+     "Accept-Encoding"
+    ]
+   ],
+   "body": "{\"status\":\"success\",\"statements\":[{\"zid\":\"201\",\"topic_key\":\"0000c5a1-0000-0000-0000-0000000000b2#0#1\",\"statement_data\":{\"id\":\"collective_statement\",\"title\":\"Collective Statement: Generated topic: shared spaces\",\"paragraphs\":[{\"id\":\"shared_values\",\"title\":\"Our Shared Values\",\"sentences\":[{\"clauses\":[{\"text\":\"We agree that shared spaces matter\",\"citations\":[0,1]},{\"text\":\" and should be easy to reach.\",\"citations\":[2]}]}]}]},\"comments_data\":[{\"comment_id\":0,\"comment_text\":\"Generated: parks should be within a short walk of every home.\",\"voters_who_agreed_with_comment_text\":\"19\",\"voters_who_disagreed_with_comment_text\":\"2\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"3\",\"total_voters_on_comment_text\":\"24\",\"group_consensus_on_comment_text\":0.92},{\"comment_id\":1,\"comment_text\":\"Generated: the library should open on Sunday afternoons.\",\"voters_who_agreed_with_comment_text\":\"18\",\"voters_who_disagreed_with_comment_text\":\"3\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"3\",\"total_voters_on_comment_text\":\"24\",\"group_consensus_on_comment_text\":0.88},{\"comment_id\":2,\"comment_text\":\"Generated: bus shelters need lighting after dark.\",\"voters_who_agreed_with_comment_text\":\"19\",\"voters_who_disagreed_with_comment_text\":\"3\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"2\",\"total_voters_on_comment_text\":\"24\",\"group_consensus_on_comment_text\":0.85},{\"comment_id\":4,\"comment_text\":\"Generated: a \\\"quoted\\\" phrase, a backslash \\\\ and a <tag> stay as typed.\",\"voters_who_agreed_with_comment_text\":\"19\",\"voters_who_disagreed_with_comment_text\":\"3\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"2\",\"total_voters_on_comment_text\":\"24\",\"group_consensus_on_comment_text\":0.81}],\"topic_name\":\"Generated topic: shared spaces\",\"zid_topic_jobid\":\"201#0000c5a1-0000-0000-0000-0000000000b2#0#1#<uuid:post/provider-slower-than-proxy#1>\",\"created_at\":\"2023-11-14T22:43:20.000Z\",\"model\":\"claude-opus-4-8\"},{\"zid\":\"201\",\"topic_key\":\"0000c5a1-0000-0000-0000-0000000000b2#0#2\",\"statement_data\":{\"id\":\"collective_statement\",\"title\":\"Collective Statement: Generated topic: shared spaces\",\"paragraphs\":[{\"id\":\"shared_values\",\"title\":\"Our Shared Values\",\"sentences\":[{\"clauses\":[{\"text\":\"We agree that shared spaces matter\",\"citations\":[0,1]},{\"text\":\" and should be easy to reach.\",\"citations\":[2]}]}]}]},\"comments_data\":[{\"comment_id\":7,\"comment_text\":\"Generated: cycle lanes should be separated from traffic.\",\"voters_who_agreed_with_comment_text\":\"19\",\"voters_who_disagreed_with_comment_text\":\"2\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"2\",\"total_voters_on_comment_text\":\"23\",\"group_consensus_on_comment_text\":0.91},{\"comment_id\":8,\"comment_text\":\"Generated: market stalls should be free for the first month.\",\"voters_who_agreed_with_comment_text\":\"16\",\"voters_who_disagreed_with_comment_text\":\"2\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"3\",\"total_voters_on_comment_text\":\"21\",\"group_consensus_on_comment_text\":0.86},{\"comment_id\":6,\"comment_text\":\"Generated: street trees should be watered by the city in summer.\",\"voters_who_agreed_with_comment_text\":\"20\",\"voters_who_disagreed_with_comment_text\":\"2\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"2\",\"total_voters_on_comment_text\":\"24\",\"group_consensus_on_comment_text\":0.82}],\"topic_name\":\"Generated topic: shared spaces\",\"zid_topic_jobid\":\"201#0000c5a1-0000-0000-0000-0000000000b2#0#2#<uuid:post/concurrent-first-requests#either>\",\"created_at\":\"2023-11-14T22:45:20.000Z\",\"model\":\"claude-opus-4-8\"},{\"zid\":\"201\",\"topic_key\":\"0000c5a1-0000-0000-0000-0000000000b2#0#3\",\"statement_data\":{\"id\":\"collective_statement\",\"title\":\"Collective Statement: Generated topic: river path\",\"paragraphs\":[{\"id\":\"shared_values\",\"title\":\"Our Shared Values\",\"sentences\":[{\"clauses\":[{\"text\":\"We agree that shared spaces matter\",\"citations\":[]},{\"text\":\" and should be easy to reach.\",\"citations\":[]}]}]}]},\"comments_data\":[],\"topic_name\":\"Generated topic: river path\",\"zid_topic_jobid\":\"201#0000c5a1-0000-0000-0000-0000000000b2#0#3#<uuid:post/legacy-consensus-only-empty-set#1>\",\"created_at\":\"2023-11-14T22:31:20.000Z\",\"model\":\"claude-opus-4-8\"},{\"zid\":\"201\",\"topic_key\":\"layer0_1\",\"statement_data\":{\"id\":\"collective_statement\",\"title\":\"Collective Statement: Generated topic: shared spaces\",\"paragraphs\":[{\"id\":\"shared_values\",\"title\":\"Our Shared Values\",\"sentences\":[{\"clauses\":[{\"text\":\"We agree that shared spaces matter\",\"citations\":[0,1]},{\"text\":\" and should be easy to reach.\",\"citations\":[2]}]}]}]},\"comments_data\":[{\"comment_id\":0,\"comment_text\":\"Generated: parks should be within a short walk of every home.\",\"voters_who_agreed_with_comment_text\":\"19\",\"voters_who_disagreed_with_comment_text\":\"2\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"3\",\"total_voters_on_comment_text\":\"24\",\"group_consensus_on_comment_text\":0.92},{\"comment_id\":1,\"comment_text\":\"Generated: the library should open on Sunday afternoons.\",\"voters_who_agreed_with_comment_text\":\"18\",\"voters_who_disagreed_with_comment_text\":\"3\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"3\",\"total_voters_on_comment_text\":\"24\",\"group_consensus_on_comment_text\":0.88},{\"comment_id\":2,\"comment_text\":\"Generated: bus shelters need lighting after dark.\",\"voters_who_agreed_with_comment_text\":\"19\",\"voters_who_disagreed_with_comment_text\":\"3\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"2\",\"total_voters_on_comment_text\":\"24\",\"group_consensus_on_comment_text\":0.85},{\"comment_id\":4,\"comment_text\":\"Generated: a \\\"quoted\\\" phrase, a backslash \\\\ and a <tag> stay as typed.\",\"voters_who_agreed_with_comment_text\":\"19\",\"voters_who_disagreed_with_comment_text\":\"3\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"2\",\"total_voters_on_comment_text\":\"24\",\"group_consensus_on_comment_text\":0.81}],\"topic_name\":\"Generated topic: shared spaces\",\"zid_topic_jobid\":\"201#layer0_1#<uuid:post/underscore-topic-key#1>\",\"created_at\":\"2023-11-14T22:33:20.000Z\",\"model\":\"claude-opus-4-8\"}],\"count\":4}"
+  }
+ ],
+ "provider": [],
+ "unusedProviderReplies": 0,
+ "stored": {
+  "added": [],
+  "removed": [],
+  "changed": []
+ },
+ "logs": [],
+ "orderExemptions": [
+  "statements"
+ ]
+}

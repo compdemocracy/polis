@@ -1,0 +1,5 @@
+{
+ "schema": "collective-statement-expected-differences/1",
+ "about": "Intended changes to the recorded collective-statement behaviour. A PR that changes a recorded case on purpose adds one entry here instead of re-recording: an id, the question it answers, the ruling state (pending | accepted | rejected) and, for each case it changes, the sha256 of the new recording text (main.cjs replay prints it). Replay passes a differing case only under an accepted entry with exactly those bytes; pending and rejected entries fail with their state; an entry whose cases no longer differ fails as stale. After the change merges, re-record on edge (no server code in that PR) and delete the entry.",
+ "entries": []
+}

@@ -1,0 +1,63 @@
+{
+ "format": "collective-statement-recording/1",
+ "case": "get/several-across-jobs",
+ "about": "rows from two jobs and both key formats: newest per layer_cluster, no token",
+ "requests": [
+  {
+   "method": "GET",
+   "path": "/api/v3/collectiveStatement?report_id=r1csrec205",
+   "auth": "none"
+  }
+ ],
+ "responses": [
+  {
+   "status": 200,
+   "headers": [
+    [
+     "content-type",
+     "application/json; charset=utf-8"
+    ],
+    [
+     "cache-control",
+     "no-cache"
+    ],
+    [
+     "access-control-allow-origin",
+     "http://localhost"
+    ],
+    [
+     "access-control-allow-credentials",
+     "true"
+    ],
+    [
+     "access-control-allow-headers",
+     "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+    ],
+    [
+     "access-control-allow-methods",
+     "GET, PUT, POST, DELETE, OPTIONS"
+    ],
+    [
+     "content-length",
+     "3183"
+    ],
+    [
+     "vary",
+     "Accept-Encoding"
+    ]
+   ],
+   "body": "{\"status\":\"success\",\"statements\":[{\"zid\":\"205\",\"topic_key\":\"0000c5a1-0000-0000-0000-0000000000a1#0#3\",\"statement_data\":{\"id\":\"collective_statement\",\"title\":\"Collective Statement: Generated topic 0.3 (older job, newest row)\",\"paragraphs\":[{\"id\":\"p1\",\"title\":\"Generated stored statement 8\",\"sentences\":[{\"clauses\":[{\"text\":\"We agree, stored row 8.\",\"citations\":[0]}]}]}]},\"comments_data\":[{\"comment_id\":0,\"comment_text\":\"Generated stored comment\",\"total_voters_on_comment_text\":\"3\"}],\"topic_name\":\"Generated topic 0.3 (older job, newest row)\",\"zid_topic_jobid\":\"205#0000c5a1-0000-0000-0000-0000000000a1#0#3#0000c5a1-0000-0000-0000-00000000c008\",\"created_at\":\"2023-11-14T09:00:00.000Z\",\"model\":\"claude-opus-4-8\"},{\"zid\":\"205\",\"topic_key\":\"0000c5a1-0000-0000-0000-0000000000b2#0#1\",\"statement_data\":{\"id\":\"collective_statement\",\"title\":\"Collective Statement: Generated topic 0.1\",\"paragraphs\":[{\"id\":\"p1\",\"title\":\"Generated stored statement 3\",\"sentences\":[{\"clauses\":[{\"text\":\"We agree, stored row 3.\",\"citations\":[0]}]}]}]},\"comments_data\":[{\"comment_id\":0,\"comment_text\":\"Generated stored comment\",\"total_voters_on_comment_text\":\"3\"}],\"topic_name\":\"Generated topic 0.1\",\"zid_topic_jobid\":\"205#0000c5a1-0000-0000-0000-0000000000b2#0#1#0000c5a1-0000-0000-0000-00000000c003\",\"created_at\":\"2023-11-12T09:00:00.000Z\",\"model\":\"claude-opus-4-8\"},{\"zid\":\"205\",\"topic_key\":\"0000c5a1-0000-0000-0000-0000000000b2#0#2\",\"statement_data\":{\"id\":\"collective_statement\",\"title\":\"Collective Statement: Generated topic 0.2\",\"paragraphs\":[{\"id\":\"p1\",\"title\":\"Generated stored statement 4\",\"sentences\":[{\"clauses\":[{\"text\":\"We agree, stored row 4.\",\"citations\":[0]}]}]}]},\"comments_data\":[{\"comment_id\":0,\"comment_text\":\"Generated stored comment\",\"total_voters_on_comment_text\":\"3\"}],\"topic_name\":\"Generated topic 0.2\",\"zid_topic_jobid\":\"205#0000c5a1-0000-0000-0000-0000000000b2#0#2#0000c5a1-0000-0000-0000-00000000c004\",\"created_at\":\"2023-11-12T10:00:00.000Z\",\"model\":\"claude-opus-4-8\"},{\"zid\":\"205\",\"topic_key\":\"bare\",\"statement_data\":{\"id\":\"collective_statement\",\"title\":\"Collective Statement: Generated topic with no layer in key or title\",\"paragraphs\":[{\"id\":\"p1\",\"title\":\"Generated stored statement 7\",\"sentences\":[{\"clauses\":[{\"text\":\"We agree, stored row 7.\",\"citations\":[0]}]}]}]},\"comments_data\":[{\"comment_id\":0,\"comment_text\":\"Generated stored comment\",\"total_voters_on_comment_text\":\"3\"}],\"topic_name\":\"Generated topic with no layer in key or title\",\"zid_topic_jobid\":\"205#bare#0000c5a1-0000-0000-0000-00000000c007\",\"created_at\":\"2023-11-11T10:00:00.000Z\",\"model\":\"claude-opus-4-8\"},{\"zid\":\"205\",\"topic_key\":\"layer0_1\",\"statement_data\":{\"id\":\"collective_statement\",\"title\":\"Collective Statement: Generated topic 0.1 (underscore key)\",\"paragraphs\":[{\"id\":\"p1\",\"title\":\"Generated stored statement 5\",\"sentences\":[{\"clauses\":[{\"text\":\"We agree, stored row 5.\",\"citations\":[0]}]}]}]},\"comments_data\":[{\"comment_id\":0,\"comment_text\":\"Generated stored comment\",\"total_voters_on_comment_text\":\"3\"}],\"topic_name\":\"Generated topic 0.1 (underscore key)\",\"zid_topic_jobid\":\"205#layer0_1#0000c5a1-0000-0000-0000-00000000c005\",\"created_at\":\"2023-11-13T09:00:00.000Z\",\"model\":\"claude-opus-4-8\"}],\"count\":5}"
+  }
+ ],
+ "provider": [],
+ "unusedProviderReplies": 0,
+ "stored": {
+  "added": [],
+  "removed": [],
+  "changed": []
+ },
+ "logs": [],
+ "orderExemptions": [
+  "statements"
+ ]
+}

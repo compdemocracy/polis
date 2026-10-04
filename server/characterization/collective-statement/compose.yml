@@ -1,0 +1,27 @@
+# Throwaway local stack for recording or replaying the collective-statement
+# recordings: Postgres and DynamoDB Local only. The harness (main.cjs) runs on
+# the host, with the server in its own process and the model provider replaced
+# by a local stub; CI starts the same two pieces
+# (.github/workflows/collective-statement-recordings.yml).
+#
+#   export COMPOSE_PROJECT_NAME=csrec CSREC_PG_PORT=5481 CSREC_DYNAMO_PORT=8481
+#   docker compose -f server/characterization/collective-statement/compose.yml up -d --wait
+#   (cd server && CSREC_PG_ADMIN_URL=postgres://postgres:generatedlocal@127.0.0.1:5481/postgres \
+#      DYNAMODB_ENDPOINT=http://127.0.0.1:8481 node characterization/collective-statement/main.cjs replay)
+#   docker compose -f server/characterization/collective-statement/compose.yml down -v
+name: ${COMPOSE_PROJECT_NAME:?set a unique project name}
+services:
+  postgres:
+    image: postgres:17.11
+    environment:
+      POSTGRES_PASSWORD: generatedlocal
+    ports: ["127.0.0.1:${CSREC_PG_PORT:?set a free Postgres port}:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  dynamodb:
+    image: amazon/dynamodb-local:3.3.1@sha256:ff89bd48ff32cd8d9be5fee8873b65b8854dc408f1afe881be6eb00247bc0dab
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    ports: ["127.0.0.1:${CSREC_DYNAMO_PORT:?set a free DynamoDB port}:8000"]

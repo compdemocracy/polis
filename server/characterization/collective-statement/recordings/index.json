@@ -1,0 +1,245 @@
+{
+ "format": "collective-statement-recording/1",
+ "clock": "1700000000000 + 60000 * case index",
+ "randomSeed": "mulberry32(sha256(case id)[0..4]) per case",
+ "pinnedEnv": [
+  "ADMIN_UIDS",
+  "ANTHROPIC_API_KEY",
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_LOG",
+  "AUTH_AUDIENCE",
+  "AUTH_ISSUER",
+  "AUTH_NAMESPACE",
+  "AWS_ACCESS_KEY_ID",
+  "AWS_EC2_METADATA_DISABLED",
+  "AWS_ENDPOINT_URL_SQS",
+  "AWS_REGION",
+  "AWS_S3_BUCKET_NAME",
+  "AWS_S3_ENDPOINT",
+  "AWS_SECRET_ACCESS_KEY",
+  "DATABASE_SSL",
+  "DATABASE_URL",
+  "DEV_MODE",
+  "DOMAIN_OVERRIDE",
+  "EMBED_SERVICE_HOSTNAME",
+  "GEMINI_API_KEY",
+  "JWKS_URI",
+  "MATH_ENV",
+  "NODE_ENV",
+  "OPENAI_API_KEY",
+  "POLIS_FROM_ADDRESS",
+  "POLIS_JWT_AUDIENCE",
+  "POLIS_JWT_ISSUER",
+  "SERVER_LOG_LEVEL",
+  "SERVICE_URL",
+  "SES_ENDPOINT",
+  "SHOULD_USE_TRANSLATION_API",
+  "STATIC_FILES_HOST",
+  "STATIC_FILES_PORT",
+  "TZ",
+  "WEBSERVER_PASS",
+  "WEBSERVER_USERNAME"
+ ],
+ "egress": {
+  "selfTest": "api.anthropic.com:443 refused",
+  "allowedHosts": "loopback + the Postgres and DynamoDB hosts",
+  "refusedAtServerLoad": [
+   "rest.akismet.com:80"
+  ],
+  "refusedDuringCases": [],
+  "providerStubRequests": 26,
+  "providerRequestsRecorded": 26
+ },
+ "postgres": {
+  "migrations": 22,
+  "answers": 241
+ },
+ "caseCount": 46,
+ "cases": [
+  {
+   "id": "post/missing-topic-name",
+   "sha256": "fd40c95acb91b43fdde92f14cd5c2200bebdaad535c794e34433e1669fbe6c0e"
+  },
+  {
+   "id": "post/unauthenticated",
+   "sha256": "fb23cf7479a3b66ece8392b4d105088233b8f7afd966b385129a2d771410c0d7"
+  },
+  {
+   "id": "post/participant-token",
+   "sha256": "00386b25d061d6e435bf15eeee9b9955f347b611d7a70cd99da750d5383df330"
+  },
+  {
+   "id": "post/oidc-without-delphi-claim",
+   "sha256": "b6fbc73e97342788e6dfee3cb7c35b12de8293c7b6957143f69efb5da1a8af3c"
+  },
+  {
+   "id": "post/oidc-delphi-claim-false",
+   "sha256": "c3ad9d906e83f2109c724165041760658ee75473eeb572bbee94258d871101f3"
+  },
+  {
+   "id": "post/unknown-report",
+   "sha256": "6a950ed96452c26d8b8e42e2052365e0348809a2d2efce878f56f8f77cab9e92"
+  },
+  {
+   "id": "post/malformed-topic-key",
+   "sha256": "0a99c97daacc0e5003fee5a0955e66117d250dd3887120afa6d7ffec98d6f19d"
+  },
+  {
+   "id": "post/topic-with-no-members",
+   "sha256": "148e2466ad7de903ae5eb1e83b42cfbeb18320dfcce47abc6b2e4275ab5cd09a"
+  },
+  {
+   "id": "post/topic-members-missing-from-postgres",
+   "sha256": "cb06e14e1f870dc1fb8d2b5afade9a4828943ae1b6dd857a9b59daa5935c0454"
+  },
+  {
+   "id": "post/one-qualifying-tid",
+   "sha256": "c8602dd50ccbe2c16bb8b77ec93cec198777404e3f403615bcc58b34261ad6bb"
+  },
+  {
+   "id": "post/qualifying-tids-as-strings",
+   "sha256": "09c0ab0b40571ff6c2f312d19002fd4b7945b2cf966a36d3d47ced1a6ff55d20"
+  },
+  {
+   "id": "post/qualifying-tids-without-group-consensus",
+   "sha256": "5b33bf98d633cb61415f2556188c5c949ef347759afa402f484f6d651288d567"
+  },
+  {
+   "id": "post/eligible",
+   "sha256": "be3a42572c6a49dfa6142c157326f27aea20c33816716f23fcb084325c681014"
+  },
+  {
+   "id": "post/eligible-tid-outside-topic",
+   "sha256": "6c992c0f021a7a345b822a8c6baa8145b74fa7e38e4751ea16776e60d6245761"
+  },
+  {
+   "id": "post/eligible-moderated-out-tid",
+   "sha256": "6d6ac34644750465c0a57c7615d295be3fc3f68ec447168deab18e920adc1c4a"
+  },
+  {
+   "id": "post/no-qualifying-tids-no-consensus",
+   "sha256": "d717d5c5f7e2a40cc46a52b661654891a81f81c399f255c84b62676760cc37d0"
+  },
+  {
+   "id": "post/legacy-consensus-only",
+   "sha256": "3006e1bab94c0351a319cee8a9fa133a196a1dc2cc37a855c67c012102ede2ec"
+  },
+  {
+   "id": "post/legacy-consensus-only-empty-set",
+   "sha256": "67e91bd442cbcb9de2735ffc63c04ed4dc23e78a9685095d47f16eefa1328171"
+  },
+  {
+   "id": "post/older-job-topic-key",
+   "sha256": "f0ebb4041752954677117674a44b8a692ed557157ae3d05649983d37c7716d52"
+  },
+  {
+   "id": "post/underscore-topic-key",
+   "sha256": "261e5526e9b8aa754f3b954c52513b0a4197d6371d63f03ec10b6567fb78fc3d"
+  },
+  {
+   "id": "post/non-owner-delphi-enabled",
+   "sha256": "a5515ff412c02e91918d2d9cbe7d8d7f1b2429c26f9d114c98644d17b701f289"
+  },
+  {
+   "id": "post/provider-json-in-code-fence",
+   "sha256": "d53a28eac2f480007f3bd606f2ba00227844416f4cc6c267abade4618affaeec"
+  },
+  {
+   "id": "post/provider-truncated-max-tokens",
+   "sha256": "32324c84d1d1d450c145dfaef1c8e081f14935dab518adcccd3345d3f7aa8297"
+  },
+  {
+   "id": "post/provider-unparseable-prose",
+   "sha256": "d04927261f5d18a5cd17f52d18a72b6ba7337b6b49190791c2b0fbdb6bfc369a"
+  },
+  {
+   "id": "post/provider-no-text-block",
+   "sha256": "d5657880a2d1deb987a978506a77f27c9e6fb1b28961cdae84b64748f05e7e47"
+  },
+  {
+   "id": "post/provider-429-every-attempt",
+   "sha256": "6a2e0a74f45a85845bfab115511e67830ee0784bc576f74ff79feb88a540a541"
+  },
+  {
+   "id": "post/provider-500-then-success",
+   "sha256": "a2b28821b047d0c62b694a121e3523ed9148b5ccb1ab46fc04df711be64b7f1b"
+  },
+  {
+   "id": "post/provider-400-invalid-request",
+   "sha256": "c7a2374e27d071a7a14df3c5ff45337084240fe8b82d05e66f14c527c161c613"
+  },
+  {
+   "id": "post/provider-connection-reset",
+   "sha256": "da1a8f43280ad795ab002148790d6b036d888df8143bcc199323c75e901810ca"
+  },
+  {
+   "id": "post/provider-slower-than-proxy",
+   "sha256": "a72c7b10abb2e8ff30e5af09d778834acbea7036c22edd6b19fdd11400360c40"
+  },
+  {
+   "id": "post/dynamodb-write-fails-after-call",
+   "sha256": "6e26321a4c13e5230d558ebf981aa4663c2a91b5187619c8c49cef510eb26f0b"
+  },
+  {
+   "id": "post/concurrent-first-requests",
+   "sha256": "169b7b0bd6cd559db95d76de8128f1ebef437c5d7bec63d93a3ba552d09eee72"
+  },
+  {
+   "id": "get/none-stored",
+   "sha256": "530c6d7d2d4f04e26b2ab2aef56113fc1d28669922d88b7f71a03d37abb6137f"
+  },
+  {
+   "id": "get/one-stored",
+   "sha256": "3da8e399e8309b9125498d840bc15f174406cf86df09406caa3c027e3760e685"
+  },
+  {
+   "id": "get/several-across-jobs",
+   "sha256": "9133985fcc21dec80cce7003ae4f7771f88b4c4461726fe2b04fafc55b84061f"
+  },
+  {
+   "id": "get/several-across-jobs-owner-token",
+   "sha256": "429318f4fbf994c8e6c66c106796afd34f50105bcc453f07afab4e6dda29a995"
+  },
+  {
+   "id": "get/unknown-report",
+   "sha256": "905b513b3e50dee99c9c46cf36e91ddb194447f2984e566c00cdea253daf950f"
+  },
+  {
+   "id": "get/malformed-stored-row",
+   "sha256": "05011b9ee493072ab09ec638f393e835e7541bb5b4f9bc270b445fa313801c26"
+  },
+  {
+   "id": "get/statement-id",
+   "sha256": "8547b766eee5a41059ec67174e772e34f5e189fb165afbeeabe468788faf8384"
+  },
+  {
+   "id": "get/statement-id-unknown",
+   "sha256": "939bdfaed8b12be2d5e95d25fe072adab27e9128bc9af1c0f2dd69c3731a04dc"
+  },
+  {
+   "id": "get/no-params",
+   "sha256": "a4f8c790e1c61f6dd9b6b4dd66902eb95e8964e1c1e654e96883ffc74a2af2eb"
+  },
+  {
+   "id": "get/main-after-posts",
+   "sha256": "a2506695275ff7e9a17f13b37a77619cc3febc279eaab51901e03800f2ecb2ca"
+  },
+  {
+   "id": "reset/before",
+   "sha256": "2c14715e45412a518fe70785e5f55df8502c8a454c32d179121bf4d5543415ea"
+  },
+  {
+   "id": "reset/delete-routine",
+   "sha256": "4efad70e0dfed57830685c6a94d208ee687de2240a1192cbb8742ba0da825671"
+  },
+  {
+   "id": "reset/after",
+   "sha256": "6621a038aca495289a784deaa6994b089d80da4b0d7d3c2b7803ecbe18643a16"
+  },
+  {
+   "id": "reset/other-report-untouched",
+   "sha256": "100f32cbf3746ea5cff3cdf9a24e44da0728eb72479c5a6fc4867f6bc4f99822"
+  }
+ ]
+}
