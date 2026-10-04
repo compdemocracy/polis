@@ -76,6 +76,8 @@ from typing import Any, Callable, Dict, Iterable, List, Optional
 import pytest
 import sqlalchemy as sa
 
+from tests.vote_fixtures import AGREE, DISAGREE, seed_vote
+
 # Every module in this package is part of the required recovery job.
 pytestmark = pytest.mark.recovery
 
@@ -364,16 +366,18 @@ def seed_conversation(
 ) -> SeededConversation:
     """Seed one conversation: conversations/participants/comments/votes rows.
 
-    Raw DB vote signs (AGREE=-1, DISAGREE=+1) are written directly, so the
-    poller's ingress conversion is genuinely exercised.  Two opposing camps by
-    participant parity gives a non-degenerate PCA.
+    Stored (raw) vote values are written directly, so the poller's ingress
+    conversion is genuinely exercised. ``vote_pattern`` returns the STORED value;
+    the default names its votes by meaning and takes the stored number from
+    ``tests.vote_fixtures``. Two opposing camps by participant parity gives a
+    non-degenerate PCA.
     """
     now = int(time.time() * 1000)
     base_created = now - 60_000 if base_created is None else base_created
     long_ago = now - 2 * 24 * 60 * 60 * 1000
     if vote_pattern is None:
         def vote_pattern(pid: int, tid: int) -> int:  # noqa: ARG001
-            return -1 if pid % 2 == 0 else 1
+            return seed_vote(AGREE if pid % 2 == 0 else DISAGREE)
 
     seeded = SeededConversation(zid=zid)
     with engine.begin() as conn:
@@ -420,7 +424,9 @@ def seed_conversation(
 
 def commit_vote(engine_or_conn, zid: int, pid: int, tid: int, raw_vote: int,
                 created: int) -> Dict[str, Any]:
-    """Commit ONE vote row (raw storage sign) and return the fold event."""
+    """Commit ONE vote row (``raw_vote`` is the stored value: take it from
+    ``tests.vote_fixtures.seed_vote`` or this suite's declared ``fold.RAW_*``)
+    and return the fold event."""
     stmt = sa.text("INSERT INTO votes (zid, pid, tid, vote, created) "
                    "VALUES (:zid, :pid, :tid, :vote, :created)")
     params = {"zid": zid, "pid": pid, "tid": tid, "vote": raw_vote,

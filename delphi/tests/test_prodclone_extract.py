@@ -26,6 +26,7 @@ import pytest
 from click.testing import CliRunner
 
 from polismath.replay import prodclone as pc
+from tests.vote_fixtures import AGREE, DISAGREE, PASS, seed_vote
 
 _CLI_PATH = Path(__file__).resolve().parents[1] / "scripts" / "prodclone_extract.py"
 
@@ -303,7 +304,7 @@ def test_compute_extract_dir_confines_to_local(tmp_path):
 
 
 def test_format_votes_rows_flips_sign_and_maps_columns():
-    raw = [{"tid": 7, "pid": 3, "vote": -1, "created": 1_700_000_000_123}]
+    raw = [{"tid": 7, "pid": 3, "vote": seed_vote(AGREE), "created": 1_700_000_000_123}]
     rows = pc.format_votes_rows(raw)
     assert len(rows) == 1
     row = rows[0]
@@ -311,14 +312,14 @@ def test_format_votes_rows_flips_sign_and_maps_columns():
     assert row["timestamp"] == "1700000000"
     assert row["comment-id"] == "7"
     assert row["voter-id"] == "3"
-    assert row["vote"] == "1"  # raw -1 (agree) flips to export +1
+    assert row["vote"] == "1"  # the stored agree exports as +1
 
 
 def test_format_votes_rows_preserves_all_rows_no_dedup():
     """Full revote history: two rows for the same (pid, tid) must both survive."""
     raw = [
-        {"tid": 1, "pid": 1, "vote": -1, "created": 100_000},
-        {"tid": 1, "pid": 1, "vote": 1, "created": 200_000},
+        {"tid": 1, "pid": 1, "vote": seed_vote(AGREE), "created": 100_000},
+        {"tid": 1, "pid": 1, "vote": seed_vote(DISAGREE), "created": 200_000},
     ]
     rows = pc.format_votes_rows(raw)
     assert len(rows) == 2
@@ -328,8 +329,8 @@ def test_format_votes_rows_preserves_all_rows_no_dedup():
 
 def test_format_votes_rows_preserves_input_order():
     raw = [
-        {"tid": 2, "pid": 1, "vote": 0, "created": 300},
-        {"tid": 1, "pid": 1, "vote": 0, "created": 100},
+        {"tid": 2, "pid": 1, "vote": seed_vote(PASS), "created": 300},
+        {"tid": 1, "pid": 1, "vote": seed_vote(PASS), "created": 100},
     ]
     rows = pc.format_votes_rows(raw)
     assert [r["comment-id"] for r in rows] == ["2", "1"]
@@ -402,8 +403,8 @@ def test_format_comments_rows_modified_none_becomes_empty_string():
 
 def test_write_votes_csv_round_trips(tmp_path):
     raw = [
-        {"tid": 1, "pid": 1, "vote": -1, "created": 1_700_000_000_000},
-        {"tid": 2, "pid": 1, "vote": 1, "created": 1_700_000_001_000},
+        {"tid": 1, "pid": 1, "vote": seed_vote(AGREE), "created": 1_700_000_000_000},
+        {"tid": 2, "pid": 1, "vote": seed_vote(DISAGREE), "created": 1_700_000_001_000},
     ]
     path = tmp_path / "votes.csv"
     pc.write_votes_csv(path, pc.format_votes_rows(raw))
@@ -487,8 +488,8 @@ def test_extract_cli_writes_files_and_updates_map(tmp_path, monkeypatch):
     monkeypatch.setattr(mod.psycopg2, "connect", lambda url: _FakeConn())
 
     votes_raw = [
-        {"tid": 1, "pid": 1, "vote": -1, "created": 1_700_000_000_000},
-        {"tid": 1, "pid": 1, "vote": 1, "created": 1_700_000_001_000},
+        {"tid": 1, "pid": 1, "vote": seed_vote(AGREE), "created": 1_700_000_000_000},
+        {"tid": 1, "pid": 1, "vote": seed_vote(DISAGREE), "created": 1_700_000_001_000},
     ]
     comments_raw = [{"tid": 1, "pid": 1, "created": 1_700_000_000_000, "mod": 0}]
     monkeypatch.setattr(mod.pc, "fetch_votes", lambda conn, zid: votes_raw)
@@ -606,7 +607,8 @@ def _seed(cur, zid, uid_start, *, votes, comments, participants, banned_pids=())
     explicit tid values are kept verbatim instead of being reassigned).
     Mirrors the pattern in tests/poller/test_integration_postgres.py.
 
-    votes: list of (pid, tid, vote_sign, created_ms)  [raw DB sign]
+    votes: list of (pid, tid, vote, created_ms), the vote by meaning
+           (stored through tests.vote_fixtures.seed_vote)
     comments: list of (tid, pid, created_ms, mod, is_meta)
     participants: list of pid
     """
@@ -631,7 +633,7 @@ def _seed(cur, zid, uid_start, *, votes, comments, participants, banned_pids=())
     for pid, tid, vote, created in votes:
         cur.execute(
             "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, %s, %s, %s, %s)",
-            (zid, pid, tid, vote, created),
+            (zid, pid, tid, seed_vote(vote), created),
         )
 
 
@@ -653,13 +655,13 @@ def test_survey_and_extract_round_trip(tmp_path, monkeypatch):
                     participants=[0, 1, 2, 3],
                     comments=[(t, 0, 1000 + t, (-1 if t < 3 else 0), False)
                               for t in range(10)],
-                    votes=[(p, t, -1, 2000 + p * 10 + t)
+                    votes=[(p, t, AGREE, 2000 + p * 10 + t)
                            for p in range(1, 4) for t in range(10)],
                 )
                 # zid 2: revote-heavy — 2 of 10 distinct pairs revoted (>=10%).
-                base_votes = [(p, t, -1, 3000 + p * 10 + t)
+                base_votes = [(p, t, AGREE, 3000 + p * 10 + t)
                               for p in range(2) for t in range(5)]
-                revotes = [(0, 0, 1, 3999), (0, 1, 1, 3998)]
+                revotes = [(0, 0, DISAGREE, 3999), (0, 1, DISAGREE, 3998)]
                 _seed(
                     cur, zid=101_002, uid_start=100,
                     participants=[0, 1],
@@ -672,14 +674,14 @@ def test_survey_and_extract_round_trip(tmp_path, monkeypatch):
                     participants=[0, 1],
                     banned_pids=[1],
                     comments=[(0, 0, 4000, 0, False)],
-                    votes=[(0, 0, -1, 4001), (1, 0, 1, 4002)],
+                    votes=[(0, 0, AGREE, 4001), (1, 0, DISAGREE, 4002)],
                 )
                 # zid 4: has a meta comment.
                 _seed(
                     cur, zid=101_004, uid_start=300,
                     participants=[0],
                     comments=[(0, 0, 5000, 0, True)],
-                    votes=[(0, 0, -1, 5001)],
+                    votes=[(0, 0, AGREE, 5001)],
                 )
                 # zid 5: zerovote.
                 _seed(
@@ -693,7 +695,7 @@ def test_survey_and_extract_round_trip(tmp_path, monkeypatch):
                     cur, zid=101_006, uid_start=500,
                     participants=[0, 1],
                     comments=[(0, 0, 7000, 0, False)],
-                    votes=[(0, 0, -1, 7001), (1, 0, 1, 7002)],
+                    votes=[(0, 0, AGREE, 7001), (1, 0, DISAGREE, 7002)],
                 )
 
             stats = pc.fetch_conversation_stats(conn)

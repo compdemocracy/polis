@@ -44,6 +44,7 @@ from .conftest import (
     terminate_backends,
 )
 from . import fold as F
+from tests.vote_fixtures import AGREE, DISAGREE, seed_vote
 
 pytestmark = pytest.mark.recovery
 
@@ -313,7 +314,7 @@ def test_terminating_an_idle_backend_is_not_evidence_of_a_failed_write(
 
         from .conftest import commit_vote
         events = read_vote_events(engine, 1)
-        commit_vote(engine, 1, 0, 0, 1, max(e["created"] for e in events) + 1000)
+        commit_vote(engine, 1, 0, 0, seed_vote(DISAGREE), max(e["created"] for e in events) + 1000)
         svc._vote_wm = 0
         svc.poll_once()
     finally:
@@ -379,7 +380,7 @@ def test_real_serialization_failure_recovers(engine, pg_url, make_service):
     # Force another cycle by committing one more vote.
     from .conftest import commit_vote
     events = read_vote_events(engine, 1)
-    commit_vote(engine, 1, 0, 0, 1, max(e["created"] for e in events) + 10)
+    commit_vote(engine, 1, 0, 0, seed_vote(DISAGREE), max(e["created"] for e in events) + 10)
     svc._vote_wm = 0
     svc.poll_once()
     svc._pg.write_math_main = original
@@ -484,7 +485,7 @@ def test_failed_write_leaves_prior_cached_object_unchanged(engine, pg_url,
 
     events = read_vote_events(engine, 1)
     newer = max(e["created"] for e in events) + 1000
-    commit_vote(engine, 1, 0, 0, 1, newer)
+    commit_vote(engine, 1, 0, 0, seed_vote(DISAGREE), newer)
 
     injector = FaultInjector(name="write_math_main", mode="always")
     undo = fail_stage(svc._pg, "write_math_main", injector)
@@ -551,7 +552,7 @@ def test_recovered_state_matches_a_clean_reference_computation(engine, pg_url,
 
     events = read_vote_events(engine, 1)
     newer = max(e["created"] for e in events) + 1000
-    commit_vote(engine, 1, 0, 0, 1, newer)
+    commit_vote(engine, 1, 0, 0, seed_vote(DISAGREE), newer)
 
     # Checkpoint 2: the warm cycle.  The subject's write fails once and the
     # service retries it within the cycle; the reference's does not fail.
@@ -594,7 +595,7 @@ def test_tick_gap_is_allowed_but_votes_are_not_lost(engine, pg_url, make_service
     undo = fail_stage(svc._pg, "write_math_main", injector)
     events = read_vote_events(engine, 1)
     newer = max(e["created"] for e in events) + 1000
-    commit_vote(engine, 1, 1, 1, -1, newer)
+    commit_vote(engine, 1, 1, 1, seed_vote(AGREE), newer)
     svc._vote_wm = 0
     svc.poll_once()          # mints a tick, then fails
     undo()

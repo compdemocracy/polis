@@ -15,6 +15,14 @@
 //      SET LOCAL so nothing leaks to the pooled session.
 //   4. Closed failure codes. A failure is reported as one of OpsReadReason and
 //      never as driver text.
+//   5. A client-side clock. statement_timeout is enforced by the server; if the
+//      server's answer never arrives (a dropped connection, a network black
+//      hole) the server-side timeout cannot help, and without a client-side
+//      bound the mutex in 1 would be held forever. So every statement carries
+//      pg's query_timeout (CLIENT_QUERY_TIMEOUT_MS), and the whole transaction
+//      has a deadline (TRANSACTION_DEADLINE_MS). Either one firing reports
+//      "timeout", destroys the client instead of returning it to the pool
+//      (its protocol state is unknown) and frees the mutex.
 //
 // Which index each statement must be able to use is pinned separately, by
 // __tests__/integration/ops-activity-index.test.ts.
@@ -24,6 +32,11 @@ import type { PoolClient } from "pg";
 export const STATEMENT_TIMEOUT_MS = 3000;
 export const LOCK_TIMEOUT_MS = 100;
 export const CONNECT_WAIT_MS = 3000;
+// The server cancels a statement at STATEMENT_TIMEOUT_MS; the client gives up
+// waiting for any answer two seconds later.
+export const CLIENT_QUERY_TIMEOUT_MS = STATEMENT_TIMEOUT_MS + 2000;
+// No ops transaction runs longer than this, however many statements it has.
+export const TRANSACTION_DEADLINE_MS = 12000;
 
 const TRANSACTION_POLICY = [
   `SET LOCAL statement_timeout = '${STATEMENT_TIMEOUT_MS}ms'`,
@@ -112,6 +125,13 @@ function checkout(): Promise<PoolClient> {
   });
 }
 
+// pg's own message when query_timeout fires; it carries no SQLSTATE.
+const PG_READ_TIMEOUT = "Query read timeout";
+
+function isClientTimeout(err: unknown): boolean {
+  return (err as { message?: unknown } | null)?.message === PG_READ_TIMEOUT;
+}
+
 /**
  * Run `work` inside one READ ONLY transaction on one read-pool client, with
  * the guards above. Rejects only with OpsReadError.
@@ -119,36 +139,92 @@ function checkout(): Promise<PoolClient> {
 export function guardedRead<T>(
   work: (query: OpsQuery) => Promise<T>
 ): Promise<T> {
-  return exclusive(async () => {
-    let client: PoolClient;
-    try {
-      client = await checkout();
-    } catch (err) {
-      throw new OpsReadError(classify(err));
-    }
-    let discard = false;
-    const onError = () => {
-      discard = true;
+  return exclusive(() => {
+    // Shared between the transaction and its deadline, so exactly one of them
+    // returns the client and the other sees that it is gone.
+    const held: {
+      client?: PoolClient;
+      released: boolean;
+      discard: boolean;
+      expired: boolean;
+    } = { released: false, discard: false, expired: false };
+    const release = () => {
+      if (!held.client || held.released) return;
+      held.released = true;
+      held.client.release(held.discard);
     };
-    client.on("error", onError);
-    try {
-      await client.query("BEGIN READ ONLY");
-      await client.query(TRANSACTION_POLICY);
-      const query: OpsQuery = async (text, values) =>
-        (await client.query(text, values)).rows;
-      const result = await work(query);
-      await client.query("COMMIT");
-      return result;
-    } catch (err) {
+
+    const transaction = (async () => {
+      let client: PoolClient;
       try {
-        await client.query("ROLLBACK");
-      } catch {
-        discard = true;
+        client = await checkout();
+      } catch (err) {
+        throw new OpsReadError(classify(err));
       }
-      throw new OpsReadError(classify(err));
-    } finally {
-      client.release(discard);
-      if (!discard) client.removeListener("error", onError);
-    }
+      if (held.expired) {
+        // The deadline passed while waiting for the pool.
+        client.release();
+        throw new OpsReadError("timeout");
+      }
+      held.client = client;
+      const onError = () => {
+        held.discard = true;
+      };
+      client.on("error", onError);
+      const run = async (text: string, values?: unknown[]) => {
+        if (held.expired || held.released) throw new OpsReadError("timeout");
+        try {
+          return await client.query({
+            text,
+            values,
+            query_timeout: CLIENT_QUERY_TIMEOUT_MS,
+          } as any);
+        } catch (err) {
+          if (isClientTimeout(err)) {
+            held.discard = true;
+            throw new OpsReadError("timeout");
+          }
+          throw err;
+        }
+      };
+      try {
+        await run("BEGIN READ ONLY");
+        await run(TRANSACTION_POLICY);
+        const query: OpsQuery = async (text, values) =>
+          (await run(text, values)).rows;
+        const result = await work(query);
+        await run("COMMIT");
+        return result;
+      } catch (err) {
+        // After a client-side timeout the connection's state is unknown:
+        // do not wait on a ROLLBACK, destroy it.
+        if (!held.discard && !held.released) {
+          try {
+            await run("ROLLBACK");
+          } catch {
+            held.discard = true;
+          }
+        }
+        throw new OpsReadError(classify(err));
+      } finally {
+        if (!held.discard) client.removeListener("error", onError);
+        release();
+      }
+    })();
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => {
+        held.expired = true;
+        held.discard = true;
+        release();
+        reject(new OpsReadError("timeout"));
+      }, TRANSACTION_DEADLINE_MS);
+    });
+    // The losing side of the race must not surface as an unhandled rejection.
+    transaction.catch(() => undefined);
+    return Promise.race([transaction, deadline]).finally(() =>
+      clearTimeout(timer)
+    );
   });
 }

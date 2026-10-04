@@ -230,6 +230,12 @@ test-recovery-races: ## Re-run the deterministic race schedules 20x (P-022 accep
 		done; \
 		echo "20/20 race iterations passed"
 
+vote-convention-gate: ## P-078: load the vote fixtures at both storage signs and compare every vote suite (PYTHON=, VOTE_GATE_STRICT=1)
+	ci/vote_convention/run.sh
+
+vote-sign-lint: ## P-078: fail on a new vote-sign literal outside the chokepoint modules
+	python3 ci/vote_convention/sign_lint.py
+
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install
 
@@ -266,7 +272,8 @@ rbs: start-rebuild
 	refresh-db refresh-devdb refresh-prodclone regenerate-jwt-keys \
 	rm-ALL rm-containers rm-images rm-volumes \
 	start-FULL-REBUILD start-prodclone start-rebuild start-recreate \
-	test-recovery test-recovery-up test-recovery-down test-recovery-races
+	test-recovery test-recovery-up test-recovery-down test-recovery-races \
+	vote-convention-gate vote-sign-lint
 
 
 help: ## Show this help message
