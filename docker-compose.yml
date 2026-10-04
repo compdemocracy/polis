@@ -320,6 +320,36 @@ services:
       - MATH_POLLER_INSTANCE_ID=${MATH_POLLER_INSTANCE_ID:-}
       - MATH_POLLER_ALLOW_HOSTNAME_IDENTITY=${MATH_POLLER_ALLOW_HOSTNAME_IDENTITY:-}
       - MATH_POLLER_IMAGE_DIGEST=${MATH_POLLER_IMAGE_DIGEST:-}
+      # Large memory class (P-073, delphi/docs/MATH_POLLER_DESIGN.md §7-§8).
+      # Everything here is OFF by default: with MATH_CAPACITY_ROUTING unset the
+      # poller computes and publishes exactly as before. A key not listed here
+      # never reaches the container (the service has no env_file), so every
+      # MATH_CAPACITY_* setting the code reads is forwarded; the forwarding is
+      # pinned by tests/test_compose_math_env.py. This service is always the
+      # small class: the class is fixed here, not read from the env file, so a
+      # shared env file can never turn the small poller into the large worker.
+      - MATH_CAPACITY_CLASS=small
+      - MATH_CAPACITY_ROUTING=${MATH_CAPACITY_ROUTING:-0}
+      - MATH_CAPACITY_ROUTE_FRACTION=${MATH_CAPACITY_ROUTE_FRACTION:-0.9}
+      - MATH_CAPACITY_KEEP_FRACTION=${MATH_CAPACITY_KEEP_FRACTION:-0.7}
+      - MATH_CAPACITY_RESIZE_S=${MATH_CAPACITY_RESIZE_S:-3600}
+      - MATH_CAPACITY_STATE_PATH=${MATH_CAPACITY_STATE_PATH:-}
+      - MATH_CAPACITY_LARGE_BUDGET_MB=${MATH_CAPACITY_LARGE_BUDGET_MB:-}
+      - MATH_CAPACITY_MANIFEST_URI=${MATH_CAPACITY_MANIFEST_URI:-}
+      - MATH_CAPACITY_PROMOTE=${MATH_CAPACITY_PROMOTE:-0}
+      - MATH_CAPACITY_RESTAGE=${MATH_CAPACITY_RESTAGE:-}
+      # The large worker's label, a literal on both sides: the label the small
+      # poller promotes from is always the one math-python-large writes, and no
+      # env document can point the large worker at a served label.
+      - MATH_CAPACITY_STAGED_LABEL=python-large
+      # The manifest store (an s3:// MATH_CAPACITY_MANIFEST_URI) uses the
+      # existing Delphi client pattern for region and endpoint
+      # (AWS_S3_ENDPOINT is MinIO locally only). The AWS key pair is
+      # deliberately NOT forwarded: the env document carries an IAM user's keys
+      # for the delphi service, and the pollers must sign as the instance role
+      # (the role the manifest bucket is granted to).
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_S3_ENDPOINT=${AWS_S3_ENDPOINT:-}
     volumes:
       # Backfill retry/gate/pause/report state across restarts on this host.
       # The database stays the progress record; losing this only re-arms the
@@ -341,6 +371,112 @@ services:
     restart: unless-stopped
     profiles:
       - math-python
+
+  # The large memory class (P-073; role `math-large`): the same image and
+  # entrypoint as math-python, run as MATH_CAPACITY_CLASS=large under its own
+  # literal label (`python-large`), hence its own single-writer lock
+  # (polis-math-python:python-large). It computes only the conversations the
+  # small poller hands it through the capacity manifest, writes them under its
+  # own label and never writes `python`: the small poller promotes the staged
+  # bundles (MATH_CAPACITY_PROMOTE=1). Profile-gated: `make start` and the
+  # Delphi box never run it; the deploy hook starts it, by name, only on a box
+  # whose service type is `delphi-large` (scripts/after_install.sh). It refuses
+  # to start (exit 2) without MATH_CAPACITY_MANIFEST_URI.
+  # Written out rather than `extends: math-python`, because `extends` merges
+  # the profiles list (the large worker would also join `--profile
+  # math-python`). The settings it shares with math-python read the same
+  # variables, so one env document configures both; the settings the large
+  # class must never take from a shared env document (backfill, routing,
+  # promotion, the restage nonce, sharding, the served-label override, the
+  # class) are pinned. tests/test_compose_math_env.py checks both lists.
+  math-python-large:
+    image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
+    build:
+      context: ./delphi
+      target: final
+    labels:
+      polis_tag: ${TAG:-dev}
+    command: ["python", "scripts/math_poller.py"]
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_SSL_MODE=${DATABASE_SSL_MODE:-disable}
+      - POSTGRES_CONNECT_TIMEOUT=${POSTGRES_CONNECT_TIMEOUT:-30}
+      - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
+      # Its own label and lock; never the small poller's, never the served one.
+      - MATH_ENV=python-large
+      - MATH_POLLER_ALLOW_SERVED_ENV=
+      - MATH_CAPACITY_CLASS=large
+      - MATH_CAPACITY_STAGED_LABEL=python-large
+      # The small poller's label: what its bundles are promoted into (by the
+      # small poller; this worker never writes it).
+      - MATH_CAPACITY_PROMOTE_INTO=${MATH_PYTHON_ENV:-python}
+      - MATH_CAPACITY_MANIFEST_URI=${MATH_CAPACITY_MANIFEST_URI:-}
+      # When set, the worker refuses to start unless it fits this container's
+      # budget (0.85 of the memory limit below).
+      - MATH_CAPACITY_LARGE_BUDGET_MB=${MATH_CAPACITY_LARGE_BUDGET_MB:-}
+      # Small-poller settings, pinned off: the worker refuses any of them.
+      - MATH_CAPACITY_ROUTING=0
+      - MATH_CAPACITY_PROMOTE=0
+      - MATH_CAPACITY_RESTAGE=
+      - MATH_CAPACITY_STATE_PATH=
+      - MATH_BACKFILL=0
+      - POLL_SHARD_INDEX=0
+      - POLL_SHARD_COUNT=1
+      # Few conversations, each large: a small pool and cache; every job is an
+      # exclusive reservation against this container's budget.
+      - MATH_WORKER_POOL_SIZE=${MATH_LARGE_WORKER_POOL_SIZE:-2}
+      - MATH_CONV_CACHE_CAP=${MATH_LARGE_CONV_CACHE_CAP:-10}
+      - MATH_CONV_CACHE_MB=${MATH_LARGE_CONV_CACHE_MB:-}
+      # Shared with math-python (same variables, same defaults).
+      - POLL_VOTE_INTERVAL_MS=${POLL_VOTE_INTERVAL_MS:-1000}
+      - POLL_MOD_INTERVAL_MS=${POLL_MOD_INTERVAL_MS:-1000}
+      - POLL_FROM_DAYS_AGO=${POLL_FROM_DAYS_AGO:-10}
+      - POLL_ALLOWLIST=${POLL_ALLOWLIST:-}
+      - POLL_BLOCKLIST=${POLL_BLOCKLIST:-}
+      - MATH_POLLER_DUMP_DIR=${MATH_POLLER_DUMP_DIR:-scratch/errorconv}
+      - MATH_POLLER_RETRY_CAP=${MATH_POLLER_RETRY_CAP:-1}
+      - MATH_POLLER_MEMORY_HEADROOM=${MATH_POLLER_MEMORY_HEADROOM:-0.15}
+      - MATH_POLLER_MEM_PER_MCELL_MB=${MATH_POLLER_MEM_PER_MCELL_MB:-133}
+      - MATH_POLLER_MEM_PER_VOTE_ROW_BYTES=${MATH_POLLER_MEM_PER_VOTE_ROW_BYTES:-1000}
+      - MATH_POLLER_MEM_JOB_FLOOR_MB=${MATH_POLLER_MEM_JOB_FLOOR_MB:-64}
+      - MATH_POLLER_MEM_SAFETY=${MATH_POLLER_MEM_SAFETY:-1.15}
+      - MATH_POLLER_RECONCILE_INTERVAL_MS=${MATH_POLLER_RECONCILE_INTERVAL_MS:-60000}
+      - OMP_NUM_THREADS=1
+      - OPENBLAS_NUM_THREADS=1
+      - MKL_NUM_THREADS=1
+      # Readiness (P-072). The large worker's lines carry a class token, so
+      # they never match the small poller's heartbeat or stale filters. The
+      # deploy hook writes the commit and instance id on this box too; the
+      # skew guard computes nothing unless the commit equals the one in the
+      # small poller's manifest.
+      - MATH_POLLER_READINESS_INTERVAL_S=${MATH_POLLER_READINESS_INTERVAL_S:-60}
+      - MATH_POLLER_DISCOVERY_STALE_S=${MATH_POLLER_DISCOVERY_STALE_S:-600}
+      - MATH_POLLER_READINESS_ALERT_TEST=${MATH_POLLER_READINESS_ALERT_TEST:-}
+      - MATH_POLLER_READINESS_ALERT_TEST_SILENCE_S=${MATH_POLLER_READINESS_ALERT_TEST_SILENCE_S:-0}
+      - MATH_POLLER_SOURCE_COMMIT=${MATH_POLLER_SOURCE_COMMIT:-}
+      - MATH_POLLER_INSTANCE_ID=${MATH_POLLER_INSTANCE_ID:-}
+      - MATH_POLLER_ALLOW_HOSTNAME_IDENTITY=${MATH_POLLER_ALLOW_HOSTNAME_IDENTITY:-}
+      - MATH_POLLER_IMAGE_DIGEST=${MATH_POLLER_IMAGE_DIGEST:-}
+      # The manifest store's client (see math-python): region and endpoint
+      # only; it signs as the instance role, never with the env document's keys.
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_S3_ENDPOINT=${AWS_S3_ENDPOINT:-}
+    volumes:
+      # Its own state volume; never the small poller's backfill state.
+      - math-large-state:/app/backfill-state
+    networks:
+      - "polis-net"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Its own cgroup limit: the small poller's DELPHI_POLLER_CONTAINER_MEMORY
+    # does not move it. 52g leaves room for the OS and Docker on a 64 GiB box.
+    deploy:
+      resources:
+        limits:
+          memory: ${MATH_LARGE_CONTAINER_MEMORY:-52g}
+    restart: unless-stopped
+    profiles:
+      - math-python-large
 
   postgres:
     restart: always
@@ -538,6 +674,9 @@ networks:
 
 volumes:
   math-backfill-state:
+    labels:
+      polis_tag: ${TAG:-dev}
+  math-large-state:
     labels:
       polis_tag: ${TAG:-dev}
   postgres_data:
