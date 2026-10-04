@@ -24,7 +24,9 @@ import Config from "../config";
 import { SendMessageCommand } from "@aws-sdk/client-sqs";
 import { sqsClient } from "../utils/sqs";
 import {
+  checkImportDeclaration,
   storageRowToWire,
+  VoteDeclarationError,
   wireToSemantic,
   wireToStorage,
 } from "../votes/convention";
@@ -382,6 +384,25 @@ async function handle_POST_votes_bulk(
 
   if (!csv) {
     failJson(res, 400, "polis_err_param_missing_csv_votes");
+    return;
+  }
+
+  // The optional declared sign: a `# vote-convention:` first line in the CSV,
+  // or a `format` object (format.json's shape) sent beside it. Absent both, the
+  // file is read in the export convention as it always has been. A malformed or
+  // mismatched declaration is refused here with its closed code; the worker
+  // checks the stored file's first line again before it reads a row.
+  try {
+    checkImportDeclaration(
+      typeof csv === "string" ? csv.split("\n", 1)[0] : null,
+      req.body.format
+    );
+  } catch (err) {
+    if (err instanceof VoteDeclarationError) {
+      failJson(res, 400, err.code, err);
+      return;
+    }
+    failJson(res, 500, "polis_err_post_votes_bulk", err);
     return;
   }
 
