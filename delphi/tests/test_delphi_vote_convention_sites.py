@@ -85,6 +85,27 @@ def test_math_stage_keeps_pass_as_pass(run_main):
     assert [v["vote"] for v in fed] == [SEMANTIC_PASS]
 
 
+def test_math_stage_reads_the_database_convention(run_main):
+    """With the vote_convention row (P-078 PR-A) at the other sign, the stage
+    converts each page by the row read in the same statement."""
+    other = vc.flipped(STORAGE_AGREE_VALUE)
+    rows = [
+        (1000, 7, 1, storage_vote(SEMANTIC_AGREE, other)),
+        (2000, 7, 2, storage_vote(SEMANTIC_DISAGREE, other)),
+    ]
+    exit_code, fed = run_main(rows, convention_row=(1, other))
+    assert exit_code == 0
+    assert {v["pid"]: v["vote"] for v in fed} == {"1": SEMANTIC_AGREE, "2": SEMANTIC_DISAGREE}
+
+
+def test_math_stage_fails_on_a_null_vote(run_main):
+    """Unchanged behaviour: float(None) raises and the math stage fails the
+    job. Whether NULL should be skipped instead is an open question."""
+    exit_code, fed = run_main([(1000, 7, 1, RAW_AGREE), (2000, 7, 2, None)])
+    assert exit_code == 1
+    assert fed == []
+
+
 def test_math_stage_matches_the_other_math_loader(run_main, monkeypatch):
     """main() and fetch_votes (already on the convention) now agree."""
     import polismath.run_math_pipeline as rmp
@@ -159,3 +180,52 @@ def test_former_private_copy_sites_match_the_convention(make):
     assert not hasattr(module, "_postgres_vote_to_delphi")
     assert "* -1" not in inspect.getsource(module)
     assert "load_semantic_votes" in inspect.getsource(module.PostgresClient.get_votes_by_conversation)
+
+
+@pytest.mark.parametrize("make", [_narrative_client, _poller_client], ids=["storage.py", "job_poller.py"])
+def test_delphi_loaders_follow_the_convention_source(make):
+    """The loaders take the sign from the installed ConventionSource, so the
+    row PR-A supplies reaches them without another code change."""
+    other = vc.flipped(STORAGE_AGREE_VALUE)
+    _, client = make()
+    stored = [dict(r, vote=storage_vote(semantic_vote(r["vote"], STORAGE_AGREE_VALUE), other))
+              for r in GENERATED_ROWS if r["vote"] is not None]
+    client.query = lambda sql, params=None: [dict(r) for r in stored]
+    with vc.using_convention_source(vc.RowConventionSource(lambda: (1, other))):
+        out = client.get_votes_by_conversation(1)
+    assert [r["vote"] for r in out] == [SEMANTIC_AGREE, SEMANTIC_DISAGREE, SEMANTIC_PASS]
+
+
+def test_no_other_delphi_module_reads_votes_raw():
+    """The Delphi pipeline's only vote loaders are the two above (one live,
+    one without a caller) and both go through the convention. Two other
+    files match and never interpret the sign: a cold-start fixture generator
+    that copies raw rows to raw rows, and the column-projection gate, which
+    compares the server's served columns as they are."""
+    import pathlib
+    import re
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    pattern = re.compile(r"SELECT[^;]*?\bv?\.?vote\b[^;]*?FROM\s+(?:public\.)?votes(?:_latest_unique)?\b",
+                         re.S | re.I)
+    def nested_copy(p):
+        # The CI image also carries the package at umap_narrative/umap_narrative/
+        # (a mounted copy). Skip that path only when it is a byte-identical copy
+        # of the tracked file, so a real second reader there still fails.
+        rel = p.relative_to(root).parts
+        if len(rel) > 1 and rel[0] == rel[1]:
+            canonical = root.joinpath(*rel[1:])
+            return canonical.is_file() and canonical.read_bytes() == p.read_bytes()
+        return False
+
+    readers = sorted({
+        str(p.relative_to(root)) for base in ("umap_narrative", "scripts")
+        for p in (root / base).rglob("*.py")
+        if pattern.search(p.read_text(errors="ignore")) and not nested_copy(p)
+    })
+    assert readers == [
+        "scripts/generate_cold_start_clojure.py",
+        "scripts/job_poller.py",
+        "scripts/projection_gate.py",
+        "umap_narrative/polismath_commentgraph/utils/storage.py",
+    ], readers
