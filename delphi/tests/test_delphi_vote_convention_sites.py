@@ -98,11 +98,12 @@ def test_math_stage_reads_the_database_convention(run_main):
     assert {v["pid"]: v["vote"] for v in fed} == {"1": SEMANTIC_AGREE, "2": SEMANTIC_DISAGREE}
 
 
-def test_math_stage_skips_a_null_vote(run_main):
-    """float(None) used to raise here. NULL is not a vote."""
+def test_math_stage_fails_on_a_null_vote(run_main):
+    """Unchanged behaviour: float(None) raises and the math stage fails the
+    job. Whether NULL should be skipped instead is an open question."""
     exit_code, fed = run_main([(1000, 7, 1, RAW_AGREE), (2000, 7, 2, None)])
-    assert exit_code == 0
-    assert [(v["pid"], v["vote"]) for v in fed] == [("1", SEMANTIC_AGREE)]
+    assert exit_code == 1
+    assert fed == []
 
 
 def test_math_stage_matches_the_other_math_loader(run_main, monkeypatch):
@@ -147,10 +148,9 @@ GENERATED_ROWS = [
 
 
 def _expected():
-    # NULL is not a vote: the loader skips it (P-078, one NULL rule).
     return [
-        {**r, "vote": semantic_vote(r["vote"], STORAGE_AGREE_VALUE)}
-        for r in GENERATED_ROWS if r["vote"] is not None
+        {**r, "vote": None if r["vote"] is None else semantic_vote(r["vote"], STORAGE_AGREE_VALUE)}
+        for r in GENERATED_ROWS
     ]
 
 
@@ -175,7 +175,7 @@ def test_former_private_copy_sites_match_the_convention(make):
     module, client = make()
     out = client.get_votes_by_conversation(1)
     assert out == _expected()
-    assert [r["vote"] for r in out] == [SEMANTIC_AGREE, SEMANTIC_DISAGREE, SEMANTIC_PASS]
+    assert [r["vote"] for r in out] == [SEMANTIC_AGREE, SEMANTIC_DISAGREE, SEMANTIC_PASS, None]
     # The private copy is gone and the module routes through the convention.
     assert not hasattr(module, "_postgres_vote_to_delphi")
     assert "* -1" not in inspect.getsource(module)

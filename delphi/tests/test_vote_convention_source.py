@@ -175,12 +175,15 @@ def test_a_declaration_contradicting_the_row_is_refused():
 
 def test_null_policies():
     rows = [{"pid": 1, "vote": raw(SEMANTIC_AGREE, TODAY)}, {"pid": 2, "vote": None}]
-    assert load_semantic_votes(rows, null_policy="skip") == [{"pid": 1, "vote": SEMANTIC_AGREE}]
     assert load_semantic_votes(rows, null_policy="keep")[1] == {"pid": 2, "vote": None}
     with pytest.raises(VoteConventionError):
         load_semantic_votes(rows, null_policy="refuse")
     with pytest.raises(VoteConventionError):
         load_semantic_votes(rows, null_policy="zero")
+    # No policy silently drops NULL rows (the existing behaviour is kept;
+    # skipping NULL is an open question, not decided here).
+    with pytest.raises(VoteConventionError):
+        load_semantic_votes(rows, null_policy="skip")
     # semantic_vote itself never invents a pass.
     with pytest.raises(VoteConventionError):
         semantic_vote(None)

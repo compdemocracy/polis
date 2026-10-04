@@ -127,7 +127,7 @@ def fetch_votes(
     Vote signs are converted at this PostgreSQL boundary, through the DECLARED
     storage convention (``storage_agree_value``, an admissible sign; omitted, the
     installed ConventionSource's — polismath.utils.vote_convention), never a
-    literal. A NULL vote is not a vote and is skipped:
+    literal. A NULL vote raises (``float(None)``), as before the chokepoint:
     - PostgreSQL stores: AGREE=storage_agree_value (today -1)
     - Delphi expects:    AGREE=+1, DISAGREE=-1
     """
@@ -162,13 +162,13 @@ def fetch_votes(
             {
                 "pid": str(vote["voter_id"]),
                 "tid": str(vote["comment_id"]),
-                "vote": None if vote["vote"] is None else float(vote["vote"]),
+                "vote": float(vote["vote"]),
                 "created": created_time,
             }
         )
     # Declared-convention conversion at the boundary (the one vote convention).
     votes_list: list[VoteRecord] = load_semantic_votes(
-        raw_votes, storage_agree_value=storage_agree_value, null_policy="skip"
+        raw_votes, storage_agree_value=storage_agree_value
     )
     return {"votes": votes_list}
 
@@ -385,18 +385,18 @@ def main() -> None:
                 row = {
                     'pid': str(vote[2]),
                     'tid': str(vote[1]),
-                    'vote': None if vote[3] is None else float(vote[3]),
+                    'vote': float(vote[3]),
                     'created': created_time
                 }
                 if joined:
                     row[ROW_AGREE_KEY] = vote[4]
                 raw_votes.append(row)
             # votes.vote is the raw storage sign; the engine counts +1 as agree.
-            # Convert through the one vote convention; NULL is not a vote.
+            # Convert through the one vote convention. A NULL vote has already
+            # raised in float() above and fails the job, as before.
             votes_list = load_semantic_votes(
                 raw_votes,
                 storage_agree_value=None if joined else convention.agree_value,
-                null_policy="skip",
             )
             
             transform_time = time.time()

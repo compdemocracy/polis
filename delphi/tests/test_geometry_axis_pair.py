@@ -5,12 +5,12 @@ geometry of ``math_main`` (pca.center, pca.comment-projection, base-clusters
 x/y, group-clusters centers) is emitted through ``vote_convention.emit_axis``
 in the frozen wire axis and restored on warm start through ``restore_axis``.
 
-Pinned here: every restored field equals the engine's own value, including
-group-cluster centers restored from a blob that carries only the kebab
-spelling (``conversation.py`` used to restore those un-negated, so a warm start
-from such a blob put the group centers on the wrong axis); a blob declared in
-the other axis restores correctly when its axis is passed; and a different
-storage sign moves nothing.
+Pinned here: every restored field equals the engine's own value; a blob
+declared in the other axis restores correctly when its axis is passed; a
+different storage sign moves nothing; and, unchanged from before this module,
+a blob that carries only the kebab ``group-clusters`` spelling restores those
+centers as served, without ``restore_axis`` (an open question for a ruling, not
+changed here).
 """
 
 from __future__ import annotations
@@ -77,12 +77,23 @@ def test_round_trip_restores_the_engine_geometry(conv):
     _assert_geometry_restored(conv, Conversation.from_dict(conv.to_dict()))
 
 
-def test_kebab_only_blob_restores_group_centers_on_the_engine_axis(conv):
-    """The warm-start asymmetry: only the kebab ``group-clusters`` present."""
+def _assert_kebab_groups_restored_as_served(blob, restored):
+    assert restored.group_clusters == blob["group-clusters"]
+    assert restored.group_clusters
+
+
+def test_kebab_only_blob_restores_group_centers_as_served(conv):
+    """Today's behaviour, kept: with only the kebab ``group-clusters`` present,
+    their centers are restored as served (no restore_axis), while pca.center
+    and base-clusters go through restore_axis."""
     blob = conv.to_dict()
     del blob["group_clusters"]
     restored = Conversation.from_dict(blob)
-    _assert_geometry_restored(conv, restored)
+    _assert_kebab_groups_restored_as_served(blob, restored)
+    np.testing.assert_array_equal(np.asarray(restored.pca["center"]), np.asarray(conv.pca["center"]))
+    groups = {g["id"]: g["center"] for g in conv.group_clusters}
+    for g in restored.group_clusters:
+        assert g["center"] == emit_axis(list(groups[g["id"]]))
 
 
 def _reemit(blob, axis):
@@ -104,9 +115,18 @@ def _reemit(blob, axis):
 @pytest.mark.parametrize("axis", [GEOMETRY_AXIS_AGREE_VALUE, flipped(GEOMETRY_AXIS_AGREE_VALUE)])
 def test_a_blob_in_either_axis_restores_by_its_declaration(conv, axis):
     blob = _reemit(conv.to_dict(), axis)
-    del blob["group_clusters"]
     restored = Conversation.from_dict(blob, geometry_axis_agree_value=axis)
     _assert_geometry_restored(conv, restored)
+
+
+@pytest.mark.parametrize("axis", [GEOMETRY_AXIS_AGREE_VALUE, flipped(GEOMETRY_AXIS_AGREE_VALUE)])
+def test_kebab_only_group_centers_ignore_the_declared_axis(conv, axis):
+    """Unchanged from before: the declared axis does not reach kebab-only
+    group-clusters centers."""
+    blob = _reemit(conv.to_dict(), axis)
+    del blob["group_clusters"]
+    restored = Conversation.from_dict(blob, geometry_axis_agree_value=axis)
+    _assert_kebab_groups_restored_as_served(blob, restored)
 
 
 def test_storage_sign_does_not_move_served_geometry(conv):

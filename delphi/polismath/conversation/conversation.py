@@ -1710,7 +1710,9 @@ class Conversation:
           mean/projection-derived float (pca.center, base-clusters x/y,
           group-cluster centers, comment-projection) goes through
           ``emit_axis`` at this boundary and ``restore_axis`` in
-          ``from_dict``; comps are covariance-derived and emitted unchanged.
+          ``from_dict`` (except kebab-only group-clusters centers, which
+          ``from_dict`` restores as served, unchanged from before); comps are
+          covariance-derived and emitted unchanged.
           The axis is keyed to the wire, never to storage, so a change of the
           storage sign changes no served byte.
         - pca comment-projection/comment-extremity (FP-2393072de1): Clojure's
@@ -2692,6 +2694,8 @@ class Conversation:
                geometry was emitted in. Every blob written today is in
                ``GEOMETRY_AXIS_AGREE_VALUE``; a blob declared in the other
                axis restores correctly when that axis is passed here.
+               Applies to pca.center and base-clusters; kebab-only
+               group-clusters centers are restored as served (unchanged).
 
         Returns:
             Conversation instance
@@ -2767,16 +2771,12 @@ class Conversation:
         
         # Preserve the internal alias when present, including an explicit [];
         # legacy rows may carry only the wire spelling.
-        # The snake alias is in the semantic axis; the kebab spelling is in
-        # the served axis and its centers are restored like pca.center and
-        # base-clusters (a kebab-only blob used to restore them un-negated).
+        # A kebab-only blob's group centers are restored as served, without
+        # restore_axis (unlike pca.center and base-clusters). That asymmetry is
+        # today's behaviour and an open question, not changed here.
         groups = data.get('group_clusters')
         if groups is None:
-            groups = [
-                {**g, 'center': restore_axis(list(g['center']), geometry_axis_agree_value)}
-                if isinstance(g, dict) and g.get('center') is not None else g
-                for g in (data.get('group-clusters') or [])
-            ]
+            groups = data.get('group-clusters')
         conv.group_clusters = groups or []
 
         # Restore base clusters — the blob emits them in the Clojure folded

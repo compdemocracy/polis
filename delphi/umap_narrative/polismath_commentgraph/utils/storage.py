@@ -300,7 +300,7 @@ class PostgresClient:
         (+1 agree) at this PostgreSQL boundary by the one vote convention,
         polismath.utils.vote_convention.load_semantic_votes, the single Delphi
         vote loader; the sign is the installed ConventionSource's. A NULL vote
-        is not a vote and is skipped (group_data already ignored it).
+        stays None, as before; group_data skips it.
 
         Args:
             zid: Conversation ID
@@ -321,7 +321,7 @@ class PostgresClient:
         """
 
         results = self.query(sql, {"zid": zid})
-        return load_semantic_votes(results, null_policy="skip")
+        return load_semantic_votes(results, null_policy="keep")
 
     def get_participants_by_conversation(self, zid: int) -> List[Dict[str, Any]]:
         """

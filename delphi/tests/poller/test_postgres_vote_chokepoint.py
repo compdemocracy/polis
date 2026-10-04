@@ -67,14 +67,14 @@ def client(recorder, **kwargs):
 EXPECTED = [SEMANTIC_AGREE, SEMANTIC_DISAGREE, SEMANTIC_PASS]
 
 
-def test_without_the_row_reads_at_the_constant_and_filters_null():
+def test_without_the_row_reads_at_the_constant():
     rec = Recorder(stored(TODAY))
     c = client(rec)
     assert [v["vote"] for v in c.poll_votes(1)] == EXPECTED
     assert [v["vote"] for v in c.poll_votes_since(0)] == EXPECTED
     assert rec.probes() == 1  # once per cycle
     for sql in rec.vote_sql():
-        assert "v.vote IS NOT NULL" in sql
+        assert "IS NOT NULL" not in sql  # NULL rows are not filtered (as before)
         assert "vote_convention_current" not in sql
         assert sql.rstrip().endswith("ORDER BY v.zid, v.tid, v.pid, v.created")
     c.begin_convention_cycle()
@@ -108,13 +108,14 @@ def test_the_statement_wins_over_a_stale_cached_row():
 
 
 @pytest.mark.parametrize("poll", ["poll_votes", "poll_votes_since"])
-def test_a_null_vote_is_skipped_not_a_crash(poll):
-    """The live poller used to call int(None) here (TypeError, a stalled global
-    poll). NULL is not a vote: the row is skipped."""
+def test_a_null_vote_fails_the_poll_as_before(poll):
+    """Unchanged behaviour: the readers call int() on each vote, so a NULL row
+    raises TypeError and the poll fails rather than skipping it. Whether NULL
+    should be skipped is an open question, not decided here."""
     rows = stored(TODAY) + [{"zid": 1, "tid": 11, "pid": 4, "vote": None, "created": 1003}]
     c = client(Recorder(rows))
-    out = getattr(c, poll)(1) if poll == "poll_votes" else c.poll_votes_since(0)
-    assert [v["vote"] for v in out] == EXPECTED
+    with pytest.raises(TypeError):
+        getattr(c, poll)(1) if poll == "poll_votes" else c.poll_votes_since(0)
 
 
 def test_a_declared_sign_does_not_ask_the_database():

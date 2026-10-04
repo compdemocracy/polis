@@ -504,8 +504,10 @@ class PostgresClient:
         Every vote read of this client comes through here. The sign is the
         convention source's; when the database carries the ``vote_convention``
         row it is joined into the same statement (one snapshot for the votes
-        and their sign) and each row is converted by its own. NULL votes are not
-        votes: the SQL filters them and the conversion skips any that remain.
+        and their sign) and each row is converted by its own. A NULL vote is
+        not filtered: ``int(None)`` raises ``TypeError`` and fails the poll,
+        exactly as before the chokepoint (whether NULL should instead be
+        skipped is an open question, not decided here).
         Row order is ``zid, tid, pid, created`` (Clojure conv-poll parity).
         """
         convention: StorageConvention = self.convention_source.current()
@@ -514,12 +516,14 @@ class PostgresClient:
                + (f", {CONVENTION_COLUMNS_SQL}" if joined else "")
                + " FROM votes v"
                + (f" {CONVENTION_JOIN_SQL}" if joined else "")
-               + f" WHERE v.vote IS NOT NULL{where}"
+               + f" WHERE {where}"
                + " ORDER BY v.zid, v.tid, v.pid, v.created")
-        rows = self.query(sql, params)
+        # int() first, as the pre-chokepoint readers did: a NULL row raises
+        # TypeError here and the poll fails rather than skipping it.
+        rows = [{**r, "vote": int(r["vote"])} for r in self.query(sql, params)]
         return load_semantic_votes(
             rows, storage_agree_value=None if joined else convention.agree_value,
-            null_policy="skip")
+            null_policy="refuse")
 
     def shutdown(self) -> None:
         """
@@ -677,7 +681,7 @@ class PostgresClient:
         Poll for new votes in a conversation, as semantic votes (+1 agree).
 
         The raw storage sign is converted at this PostgreSQL boundary by the
-        one vote convention (``_vote_rows``); NULL votes are skipped.
+        one vote convention (``_vote_rows``); a NULL vote raises, as before.
 
         Args:
             zid: Conversation ID
@@ -689,7 +693,7 @@ class PostgresClient:
             List of votes with signs converted to Delphi convention
         """
         params: Dict[str, Any] = {"zid": zid}
-        where = " AND v.zid = :zid"
+        where = "v.zid = :zid"
         if since is not None:
             where += " AND v.created > :since"
             params["since"] = since
@@ -737,7 +741,8 @@ class PostgresClient:
             SELECT * FROM votes WHERE created > watermark
             ORDER BY zid, tid, pid, created
         Signs are converted to the Delphi convention at this ingress boundary
-        (``_vote_rows``); a NULL vote is skipped rather than stalling the poll.
+        (``_vote_rows``); a NULL vote raises TypeError and fails the poll, as
+        before the chokepoint.
 
         Args:
             since: Watermark (millis since epoch); returns rows with created > since
@@ -745,7 +750,7 @@ class PostgresClient:
         Returns:
             List of votes {zid, pid, tid, vote, created}, semantic sign, ordered.
         """
-        rows = self._vote_rows(" AND v.created > :since", {"since": since})
+        rows = self._vote_rows("v.created > :since", {"since": since})
         # pid AND tid kept as the DB's native int — see poll_votes's
         # docstring/comment above for the full root-cause rationale
         # (2026-07-24 live findings, sessions 2-3).

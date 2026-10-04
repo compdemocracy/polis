@@ -48,15 +48,9 @@ def test_restore_declared_empty_or_legacy_omissions(legacy):
 
 @pytest.mark.parametrize("alias", ["group_clusters", "group-clusters"])
 def test_restore_populated_group_alias(alias):
-    from polismath.utils.vote_convention import restore_axis
-
     groups = [{"id": 3, "members": [4, 7], "center": [0.25, -0.5]}]
     conv = Conversation.from_dict({"zid": "public-fixture-populated", alias: groups})
-    # The snake alias is in the engine's axis; the kebab spelling is in the
-    # served axis and its centers restore through the geometry pair (P-078).
-    expected = groups if alias == "group_clusters" else [
-        {**g, "center": restore_axis(g["center"])} for g in groups]
-    assert conv.group_clusters == expected
+    assert conv.group_clusters == groups
 
 
 @pytest.mark.parametrize("snake", [None, []])

@@ -44,11 +44,11 @@ definition. A row read in the same statement as the votes it governs
 (:data:`CONVENTION_JOIN_SQL`) carries its own declaration, and
 :func:`load_semantic_votes` converts it by that, never by a cached value.
 
-**NULL (P-078 §1b, chokepoint 3).** A NULL ``votes.vote`` is not a vote: the
-loaders skip it (``null_policy="skip"``; the poller's SQL also filters
-``vote IS NOT NULL``) and it neither clears nor overwrites an earlier vote.
-:func:`semantic_vote` itself still refuses NULL, so a caller without a policy
-fails loudly instead of inventing a pass.
+**NULL.** :func:`semantic_vote` refuses NULL, so a caller without a policy
+fails loudly instead of inventing a pass. The loaders keep each site's
+existing NULL behaviour: the math readers fail on a NULL row, the narrative
+loader keeps it as ``None``. Whether NULL should instead be skipped is an open
+question, not decided by this module.
 
 **The geometry axis (P-078 §1f).** The engine computes PCA on semantic votes;
 the served (kebab-case) geometry of ``math_main`` is emitted in the axis the
@@ -360,12 +360,10 @@ def storage_vote(
     return semantic_vote(semantic, storage_agree_value)
 
 
-#: What a loader does with a NULL ``votes.vote``. ``"skip"`` (the documented
-#: rule for every live loader, P-078) drops the row: NULL is not a vote, so it
-#: neither counts nor clears an earlier vote. ``"refuse"`` raises (via
-#: :func:`semantic_vote`). ``"keep"`` leaves ``None`` in place for a consumer
-#: that handles it itself (the replay harness).
-NullPolicy = Literal["skip", "refuse", "keep"]
+#: What a loader does with a NULL ``votes.vote``. ``"refuse"`` raises (via
+#: :func:`semantic_vote`); ``"keep"`` leaves ``None`` in place for a consumer
+#: that already skips it (the narrative loader's long-standing behaviour).
+NullPolicy = Literal["refuse", "keep"]
 
 
 def load_semantic_votes(
@@ -391,12 +389,11 @@ def load_semantic_votes(
     """
     declared = (None if storage_agree_value is None
                 else validate_storage_agree_value(storage_agree_value))
-    if null_policy not in ("skip", "refuse", "keep"):
+    if null_policy not in ("refuse", "keep"):
         raise VoteConventionError(
-            f"null_policy must be 'skip', 'refuse' or 'keep', got {null_policy!r}")
+            f"null_policy must be 'refuse' or 'keep', got {null_policy!r}")
     fallback: Optional[int] = declared
     out: list[dict[str, Any]] = []
-    skipped = 0
     for row in rows:
         converted = dict(row)
         if ROW_AGREE_KEY in converted:
@@ -411,18 +408,11 @@ def load_semantic_votes(
                 fallback = _source.current().agree_value
             s = fallback
         raw = converted.get(vote_key)
-        if raw is None:
-            if null_policy == "skip":
-                skipped += 1
-                continue
-            if null_policy == "keep":
-                converted[vote_key] = None
-                out.append(converted)
-                continue
-        converted[vote_key] = semantic_vote(raw, s)
+        if raw is None and null_policy == "keep":
+            converted[vote_key] = None
+        else:
+            converted[vote_key] = semantic_vote(raw, s)
         out.append(converted)
-    if skipped:
-        logger.info("skipped %d NULL vote row(s): NULL is not a vote", skipped)
     return out
 
 
