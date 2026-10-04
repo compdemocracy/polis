@@ -1,4 +1,14 @@
 {
   "about": "Intended, ruled differences from the edge-recorded golden (vote-path-golden.json), one entry per changed case. See the header of __tests__/integration/vote-path-recordings.test.ts. Emptied whenever the golden is re-recorded on edge.",
-  "entries": []
+  "entries": [
+    {
+      "case": "V/owner/nextComment",
+      "find": "{\"txt\":\"Vote path statement c3-owner-pass\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":3,\"remaining\":6,\"total\":6,\"translations\":[]}",
+      "replace": "{\"currentPid\":0}",
+      "whole_response": true,
+      "whole_response_reason": "The recorded response was the bug (#2952): the owner, pid 0, was served their own already-voted statement with remaining equal to total. Nothing is left for the owner, so the whole response becomes the existing no-statement response.",
+      "why": "GET /nextComment honours pid 0 (the first participant): it no longer offers statements that participant has already voted on, and counts remaining against their votes (#2956).",
+      "ruling": "ruled:colin-2026-10-04-issue-2952"
+    }
+  ]
 }
