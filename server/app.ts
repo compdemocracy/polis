@@ -228,6 +228,7 @@ import {
   want,
   wantHeader,
 } from "./src/utils/parameter";
+import { WIRE_VOTE_MAX, WIRE_VOTE_MIN } from "./src/votes/convention";
 
 const app = express();
 const devMode = Config.isDevMode;
@@ -819,7 +820,7 @@ export const appReady = helpersInitialized.then(
       want("xid", getStringLimitLength(1, 999), assignToP),
       ensureParticipant({ createIfMissing: true, issueJWT: true }),
       need("txt", getStringLimitLength(1, 997), assignToP),
-      want("vote", getIntInRange(-1, 1), assignToP),
+      want("vote", getIntInRange(WIRE_VOTE_MIN, WIRE_VOTE_MAX), assignToP),
       want("is_seed", getBool, assignToP),
       attachAuthToken(),
       handle_POST_comments
@@ -1264,7 +1265,7 @@ export const appReady = helpersInitialized.then(
       want("xid", getStringLimitLength(1, 999), assignToP),
       ensureParticipant({ createIfMissing: true, issueJWT: true }),
       need("tid", getInt, assignToP),
-      need("vote", getIntInRange(-1, 1), assignToP),
+      need("vote", getIntInRange(WIRE_VOTE_MIN, WIRE_VOTE_MAX), assignToP),
       want("starred", getBool, assignToP),
       want("high_priority", getBool, assignToP, false),
       want("lang", getStringLimitLength(1, 10), assignToP),
