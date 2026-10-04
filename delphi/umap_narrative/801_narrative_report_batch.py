@@ -50,6 +50,7 @@ from umap_narrative.llm_factory_constructor.model_provider import AnthropicProvi
 from polismath_commentgraph.utils.storage import PostgresClient, DynamoDBStorage
 from polismath_commentgraph.utils.group_data import GroupDataProcessor
 from polismath.components.config import ConfigManager
+from polismath.utils.cli_flags import parse_bool_flag
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -1537,8 +1538,8 @@ async def main():
                         help='Maximum number of topics to include in a single batch (default: 5)')
     parser.add_argument('--layers', type=int, nargs='+', default=None,
                         help='Specific layer numbers to process (e.g., --layers 0 1 2). If not specified, all layers will be processed.')
-    parser.add_argument('--include_moderation', type=bool, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
-    parser.add_argument('--exclude_comment_selections', type=bool, default=True, help='Whether to exclude comments with selection=-1 in report_comment_selections table.')
+    parser.add_argument('--include_moderation', type=parse_bool_flag, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
+    parser.add_argument('--exclude_comment_selections', type=parse_bool_flag, default=True, help='Whether to exclude comments with selection=-1 in report_comment_selections table.')
     args = parser.parse_args()
 
     # Get environment variables for job
