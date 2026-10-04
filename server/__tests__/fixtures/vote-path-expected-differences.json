@@ -16,7 +16,7 @@
       "status": 200,
       "whole_response_reason": "the 404 error body is replaced by the whole format.json document",
       "why": "New report type format.json: the export set's machine-readable declaration (format id, vote convention, vote values, the sign-bearing columns of every export file). Edge answered 404 polis_error_data_unknown_report.",
-      "ruling": "pending"
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
     },
     {
       "case": "E/reportExport/summary.csv",
@@ -54,7 +54,7 @@
       "status": 400,
       "whole_response_reason": "the 200 'processing' body is replaced by the 400 error body",
       "why": "POST /votes-bulk refuses a file whose `# vote-convention:` first line declares a sign other than the export convention (400 polis_err_vote_convention_declaration_mismatch); nothing stored or queued. Edge accepted and queued it (and the worker then failed it).",
-      "ruling": "pending"
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
     },
     {
       "case": "I/votes-bulk-declared/line-unknown-format",
@@ -64,7 +64,7 @@
       "status": 400,
       "whole_response_reason": "the 200 'processing' body is replaced by the 400 error body",
       "why": "POST /votes-bulk refuses a declared format other than polis-export/1 (400 polis_err_vote_convention_declaration_mismatch); nothing stored or queued. Edge accepted and queued it.",
-      "ruling": "pending"
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
     },
     {
       "case": "I/votes-bulk-declared/line-malformed",
@@ -74,14 +74,14 @@
       "status": 400,
       "whole_response_reason": "the 200 'processing' body is replaced by the 400 error body",
       "why": "POST /votes-bulk refuses a malformed `# vote-convention:` first line (400 polis_err_vote_convention_declaration_malformed); nothing stored or queued. Edge accepted and queued it.",
-      "ruling": "pending"
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
     },
     {
       "case": "I/votes-bulk-declared/queued",
       "find": "7",
       "replace": "4",
       "why": "The three refused posts are not queued: 4 in-test queue messages instead of 7 (a consequence of the three refusals above, not a separate change).",
-      "ruling": "pending"
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
     },
     {
       "case": "I3/declared-export-convention/import-job",
@@ -90,35 +90,35 @@
       "whole_response": true,
       "whole_response_reason": "the job outcome and state change as a whole",
       "why": "The import worker reads a file whose first line declares the export convention: the line is checked and dropped and the job completes. Edge read the line as the CSV header and failed the job (Invalid Record Length).",
-      "ruling": "pending"
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
     },
     {
       "case": "I3/declared-storage-convention/import-job",
       "find": "Invalid Record Length: columns length is 1, got 5 on line 2\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"Invalid Record Length: columns length is 1, got 5 on line 2",
       "replace": "polis_err_vote_convention_declaration_mismatch\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"polis_err_vote_convention_declaration_mismatch",
       "why": "The import worker fails a file declaring another sign with polis_err_vote_convention_declaration_mismatch before reading a row. Edge failed it with Invalid Record Length.",
-      "ruling": "pending"
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
     },
     {
       "case": "I3/declared-malformed/import-job",
       "find": "Invalid Record Length: columns length is 1, got 5 on line 2\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"Invalid Record Length: columns length is 1, got 5 on line 2",
       "replace": "polis_err_vote_convention_declaration_malformed\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"polis_err_vote_convention_declaration_malformed",
       "why": "The import worker fails a malformed declaration with polis_err_vote_convention_declaration_malformed before reading a row. Edge failed it with Invalid Record Length.",
-      "ruling": "pending"
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
     },
     {
       "case": "I3/after-import/db/votes",
       "find": "[",
       "replace": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false}",
       "why": "The declared export-convention file's two votes are stored, converted as an undeclared file's would be (export +1 -> stored -1, export -1 -> stored +1). Edge stored nothing.",
-      "ruling": "pending"
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
     },
     {
       "case": "I3/after-import/db/votes_latest_unique",
       "find": "[",
       "replace": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0}",
       "why": "As I3/after-import/db/votes, in votes_latest_unique.",
-      "ruling": "pending"
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
     },
     {
       "case": "R/reportExport/summary.csv",
