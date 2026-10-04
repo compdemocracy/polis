@@ -119,6 +119,10 @@ class TestStartupRefusals:
         (dict(promote_into="python-large"), "python-large", {}, 1,
          "never writes the small poller's label"),
         (dict(staged_label="prod"), "prod", {}, 1, "served label"),
+        # The served `python` label is refused even when the small poller
+        # runs under another label (a relabel), so promote_into differs.
+        (dict(staged_label="python", promote_into="python-relabel"), "python", {}, 1,
+         "served label"),
         ({}, "python-large", {"MATH_POLLER_ALLOW_SERVED_ENV": "1"}, 1, "served label"),
         ({}, "something-else", {}, 1, "must equal MATH_CAPACITY_STAGED_LABEL"),
         ({}, "python-large", {"MATH_BACKFILL": "1"}, 1, "MATH_BACKFILL=1"),

@@ -125,6 +125,15 @@ def test_delphi_box_stops_delphi_but_not_math_python(fake_docker):
     assert stops == ["polis-delphi-1"]
 
 
+def test_large_box_stops_nothing(fake_docker):
+    # The large memory class box (service type delphi-large) runs only
+    # polis-math-python-large-1, which no anchored filter names; AfterInstall
+    # removes it before starting the new revision.
+    result, stops = fake_docker("polis-math-python-large-1")
+    assert result.returncode == 0, result.stderr
+    assert stops == []
+
+
 def test_math_box_stops_math(fake_docker):
     result, stops = fake_docker("polis-math-1")
     assert result.returncode == 0, result.stderr
