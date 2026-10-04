@@ -77,6 +77,7 @@ import {
 } from "../../src/ops/engine";
 import { FRESHNESS_SQL, readFreshness } from "../../src/ops/serving";
 import { newAgent } from "../setup/api-test-helpers";
+import { toWire } from "../setup/vote-wire";
 
 dotenv.config({ override: false });
 
@@ -447,8 +448,8 @@ describe("U4 and U5 on a generated conversation", () => {
     }
     for (const pid of pids) {
       await pool.query(
-        "INSERT INTO votes (zid, pid, tid, vote) VALUES ($1, $2, 0, -1)",
-        [zid, pid]
+        "INSERT INTO votes (zid, pid, tid, vote) VALUES ($1, $2, 0, $3)",
+        [zid, pid, toWire("agree")]
       );
     }
     const votes = {
