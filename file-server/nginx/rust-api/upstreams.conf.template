@@ -1,19 +1,16 @@
-# Rendered only when RUST_API_ROUTES names at least one route (see
+# Rendered only when RUST_API_ROUTES names a known route (see
 # docker-entrypoint.sh); otherwise this file is empty and nginx routes every
 # path to Node exactly as before.
-upstream polis_node_api {
-    server server:${API_SERVER_PORT};
-}
 
-upstream polis_rust_api {
-    server ${RUST_API_UPSTREAM} max_fails=0;
-    # Node answers whenever polis-api is down, times out or answers 502.
-    server server:${API_SERVER_PORT} backup;
-}
+# polis-api is looked up per request through Docker's DNS, not once at start,
+# so nginx starts and keeps serving when the polis-api container is absent,
+# restarting or gone; those requests go to Node (@polis_node_api).
+resolver ${RUST_API_RESOLVER} valid=5s ipv6=off;
+resolver_timeout 2s;
 
-# Which upstream serves each path that has a Rust implementation. The
-# entrypoint writes one line per route named in RUST_API_ROUTES.
-map $uri $polis_api_backend {
-    default polis_node_api;
+# Which paths polis-api serves. The entrypoint writes one line per route
+# named in RUST_API_ROUTES.
+map $uri $polis_api_target {
+    default "";
 ${RUST_API_MAP_ENTRIES}
 }

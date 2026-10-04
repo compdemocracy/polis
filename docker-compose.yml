@@ -398,10 +398,17 @@ services:
     build:
       context: ./queue-rs
       dockerfile: polis-api/Dockerfile
+      args:
+        # NODE_ENV reaches this process exactly as it reaches `server`: the
+        # image default (production, as the server's prod target), then the
+        # shared env file.
+        NODE_ENV: production
     env_file:
       - ${SERVER_ENV_FILE:-.env}
     environment:
-      - POLIS_API_DATABASE_URL=${POLIS_API_DATABASE_URL:-${DATABASE_URL}}
+      # Empty: READ_ONLY_DATABASE_URL, else DATABASE_URL, from the env file,
+      # which is how Node picks the database for this route.
+      - POLIS_API_DATABASE_URL=${POLIS_API_DATABASE_URL:-}
       # The dev Postgres container has no TLS; anywhere else use tls with
       # POLIS_API_DB_CA_FILE and POLIS_API_DB_HOST_ALLOWLIST.
       - POLIS_API_DB_TRANSPORT=${POLIS_API_DB_TRANSPORT:-docker-internal}

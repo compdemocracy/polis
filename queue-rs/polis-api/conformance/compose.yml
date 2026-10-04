@@ -23,3 +23,8 @@ services:
   driver:
     volumes:
       - ../../queue-rs/polis-api/conformance:/conformance:ro
+  math-seed:
+    environment:
+      # seed-pca2.py imports delphi/tests/vote_fixtures before pca2_votes has
+      # put that directory on sys.path; the path is given up front here.
+      PYTHONPATH: /repo/delphi/tests
