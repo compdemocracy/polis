@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 
 from coordinator.conftest import BINARY, assert_coherent, connect, rows, seed, wait
+from tests.vote_fixtures import AGREE, DISAGREE, seed_vote
 
 
 def query(db, sql, args=()):
@@ -67,7 +68,7 @@ def test_probe_skips_the_full_source_read_and_a_real_change_still_publishes(db, 
 
     # A committed vote changes the probe, so the full authoritative snapshot is
     # taken and the new generation is published.
-    query(db, "INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,1,2000)")
+    query(db, "INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,%s,2000)",(seed_vote(DISAGREE),))
     launch(db, extra={"P026_METRICS": str(third)}).done()
     pass_three = emf(third, "source_pass")[-1]
     assert pass_three["SourcePassSkipped"] == 0
@@ -87,8 +88,8 @@ def test_the_aggregate_probe_is_weak_but_the_reconciliation_ceiling_repairs_it(d
     before = rows(db)["math_main"]
     # Swap two votes' values: count, min/max/sum(created), sum(vote), sum(weight),
     # comment and participant aggregates are all identical afterwards.
-    query(db, "UPDATE votes SET vote=1 WHERE zid=1 AND pid=0 AND tid=0")
-    query(db, "UPDATE votes SET vote=-1 WHERE zid=1 AND pid=0 AND tid=1")
+    query(db, "UPDATE votes SET vote=%s WHERE zid=1 AND pid=0 AND tid=0", (seed_vote(DISAGREE),))
+    query(db, "UPDATE votes SET vote=%s WHERE zid=1 AND pid=0 AND tid=1", (seed_vote(AGREE),))
     hidden = tmp_path / "hidden.jsonl"
     launch(db, extra={"P026_METRICS": str(hidden), "P026_RECONCILE_SECONDS": "3600"}).done()
     skipped = emf(hidden, "source_pass")[-1]

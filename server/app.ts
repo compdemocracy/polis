@@ -31,6 +31,8 @@ import {
 } from "./src/server-middleware";
 
 import { handle_GET_conversationUuid } from "./src/routes/conversationUuid";
+import { jwtValidation } from "./src/auth/jwt-middleware";
+import { createOpsRoutes } from "./src/routes/ops";
 import { handle_GET_xidReport } from "./src/routes/export";
 import {
   handle_GET_delphi,
@@ -229,6 +231,27 @@ import {
 
 const app = express();
 const devMode = Config.isDevMode;
+
+// Protected operations pages. Never throws: a bad ops setting logs one error
+// and leaves ops answering 404, and every other route is unaffected.
+const opsRoutes = createOpsRoutes({
+  enabled: Config.opsEnabled,
+  emailDomains: Config.opsEmailDomains,
+  devMode: Config.isDevMode,
+  namespace: Config.authNamespace,
+  audience: Config.authAudience,
+  issuer: Config.authIssuer,
+  validateJwt: jwtValidation,
+  minVotersForText: Config.opsMinVotersForText,
+  simpleAnalyticsApiKey: Config.simpleAnalyticsApiKey,
+  simpleAnalyticsHostname: Config.simpleAnalyticsHostname,
+  dataSource: Config.opsDataSource,
+  costExplorer: Config.opsCostExplorer,
+  awsRegion: Config.awsRegion,
+  logGroupName: Config.awsLogGroupName,
+  databaseUrl: Config.databaseURL,
+  mathEnv: Config.mathEnv,
+});
 const hostname = Config.staticFilesHost;
 const staticFilesAdminPort = Config.staticFilesAdminPort;
 const staticFilesParticipationPort = Config.staticFilesParticipationPort;
@@ -890,6 +913,12 @@ export const appReady = helpersInitialized.then(
     app.get("/api/v3/testConnection", moveToBody, handle_GET_testConnection);
 
     app.get("/api/v3/testDatabase", moveToBody, handle_GET_testDatabase);
+
+    // Unless OPS_ENABLED=true and its settings are valid, every path below
+    // answers 404.
+    app.get("/api/v3/ops/whoami", opsRoutes.gate, opsRoutes.whoami);
+    app.get("/api/v3/ops/page/:id", opsRoutes.gate, opsRoutes.page);
+    app.all(/^\/api\/v3\/ops(\/.*)?$/, opsRoutes.notFound);
 
     app.get("/api/v3/delphi", moveToBody, handle_GET_delphi);
 
@@ -2022,6 +2051,9 @@ export const appReady = helpersInitialized.then(
     app.get(/^\/integrate(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/other-conversations(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/account(\/.*)?/, fetchIndexForAdminPage);
+    if (opsRoutes.active) {
+      app.get(/^\/ops(\/.*)?$/, fetchIndexForAdminPage);
+    }
     app.get(/^\/bot(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/conversations(\/.*)?/, fetchIndexForAdminPage);
     app.get(/^\/signout(\/.*)?/, fetchIndexForAdminPage);

@@ -3,6 +3,7 @@
  */
 
 import { setupTestConversation } from '../../support/conversation-helpers.js'
+import { AGREE, fromWire, toWire } from '../../support/voteWire.js'
 
 describe('Debug Participant Count', function () {
   let conversationId
@@ -102,16 +103,20 @@ describe('Debug Participant Count', function () {
     // Try a raw API vote to see if UI is the issue
     cy.log('🔍 Testing raw API vote')
 
+    // An agree, as its wire number (the earlier literal 1 here was a disagree).
+    const rawVote = {
+      conversation_id: conversationId,
+      tid: 0, // First comment
+      vote: toWire(AGREE),
+      pid: -1, // New participant
+      xid: `api-test-xid-${Date.now()}`,
+    }
+    expect(fromWire(rawVote.vote)).to.eq(AGREE)
+
     cy.request({
       method: 'POST',
       url: '/api/v3/votes',
-      body: {
-        conversation_id: conversationId,
-        tid: 0, // First comment
-        vote: 1, // Agree
-        pid: -1, // New participant
-        xid: `api-test-xid-${Date.now()}`,
-      },
+      body: rawVote,
       failOnStatusCode: false,
     }).then((response) => {
       cy.log(`🔍 Raw API vote response:`, JSON.stringify(response.body))

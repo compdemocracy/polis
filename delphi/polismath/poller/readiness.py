@@ -34,6 +34,26 @@ Progress (closed):
                 stale bound;
   ``waiting``   standby.
 
+Capacity (P-073). The line's ``capacity`` object carries the capacity
+disposition counts (``polismath.poller.capacity.COUNT_KEYS``; null on a
+standby), and each tick also logs the separate ``math_poller.capacity/1``
+line, a bare JSON event that a CloudWatch JSON metric filter can read.
+``capacity`` is optional on parse, so lines logged before it existed still
+validate.
+
+The large memory class (P-073 PR3). The large worker's lines carry a class
+token between ``math_poller`` and the line kind::
+
+    math_poller class=large readiness/1 role=<role> progress=<progress> {json}
+    math_poller class=large discovery_stale/1 {json}
+
+so no large line contains the heartbeat phrase, the discovery-stale phrase or
+the alert-test phrase the P-072 metric filters match across the whole log
+group, and the readiness collector (which selects lines by those phrases)
+never sees them. The JSON bodies are unchanged; the large worker's
+``capacity`` object is null (its counts are on its own capacity line).
+``parse_readiness`` returns a large line only when asked for that class.
+
 The alert test (``MATH_POLLER_READINESS_ALERT_TEST=<16-64 lowercase hex nonce>``)
 logs one ``math_poller readiness_test/1`` line at start, which the
 discovery-stale metric filter also counts, so the real filter, metric, alarm
@@ -57,6 +77,8 @@ import time
 import uuid
 from dataclasses import asdict, is_dataclass
 from typing import Any, Callable, Dict, Optional
+
+from polismath.poller import capacity as capacity_line
 
 logger = logging.getLogger("math_poller.readiness")
 
@@ -89,6 +111,10 @@ SWEEP_KEYS = ("sweep_no", "finished_ms", "run", "config", "status", "unresolved"
               "in_flight")
 DRAIN_KEYS = ("run", "drained_ms")
 ADMISSION_KEYS = ("budget_mb", "reserved_mb", "granted", "held", "waiting")
+# Added by P-073 (capacity disposition): the capacity counts
+# (polismath.poller.capacity.COUNT_KEYS), null without a service. Optional on
+# parse, so lines logged before it existed still validate.
+OPTIONAL_LINE_KEYS = ("capacity",)
 STALE_KEYS = ("schema", "seq", "emitted_ms", "run", "reason", "age_ms", "stale_s")
 TEST_KEYS = ("schema", "emitted_ms", "run", "nonce", "silence_s")
 
@@ -110,9 +136,24 @@ SILENCE_RANGE = (0.0, 3600.0)
 _HEX40 = re.compile(r"[0-9a-f]{40}")
 _IMAGE = re.compile(r"sha256:[0-9a-f]{64}")
 _NONCE = re.compile(r"[0-9a-f]{16,64}")
-_LINE = re.compile(r"math_poller (readiness|readiness_silenced)/1 role=(\w+) progress=(\w+) (\{.*\})\s*$")
-_STALE_LINE = re.compile(r"math_poller discovery_stale/1 (\{.*\})\s*$")
-_TEST_LINE = re.compile(r"math_poller readiness_test/1 (\{.*\})\s*$")
+_LINE = re.compile(r"math_poller (?:class=(\w+) )?(readiness|readiness_silenced)/1 role=(\w+) "
+                   r"progress=(\w+) (\{.*\})\s*$")
+_STALE_LINE = re.compile(r"math_poller (?:class=(\w+) )?discovery_stale/1 (\{.*\})\s*$")
+_TEST_LINE = re.compile(r"math_poller (?:class=(\w+) )?readiness_test/1 (\{.*\})\s*$")
+
+CLASS_SMALL = "small"
+CLASS_LARGE = "large"
+
+
+def class_header(header: str, klass: str = CLASS_SMALL) -> str:
+    """A line header for a poller class: unchanged for the small poller; the
+    large worker's token goes before the line kind (``math_poller
+    class=large readiness/1``), so no large line contains a P-072 phrase."""
+    if klass == CLASS_SMALL:
+        return header
+    prefix = "math_poller "
+    assert header.startswith(prefix)
+    return f"{prefix}class={klass} {header[len(prefix):]}"
 
 
 class ReadinessConfigError(ValueError):
@@ -229,10 +270,20 @@ class ReadinessReporter:
     def __init__(self, settings: ReadinessSettings, poller_config: Any, *,
                  run: Optional[str] = None, env: Optional[Dict[str, str]] = None,
                  clock_ms: Callable[[], int] = _now_ms,
-                 emit: Optional[Callable[[str], None]] = None) -> None:
+                 emit: Optional[Callable[[str], None]] = None,
+                 emit_capacity: Optional[Callable[[str], None]] = None,
+                 klass: str = CLASS_SMALL) -> None:
+        if klass not in (CLASS_SMALL, CLASS_LARGE):
+            raise ReadinessConfigError(f"unknown poller class {klass!r}")
+        self.klass = klass
         self.settings = settings
         self.run = run or uuid.uuid4().hex[:12]
         self.poller_config = config_digest(poller_config)
+        # The label this process writes, for the capacity line (P-073).
+        label = (poller_config.get("math_env") if isinstance(poller_config, dict)
+                 else getattr(poller_config, "math_env", None))
+        self.label = str(label or "")
+        self._emit_capacity = emit_capacity or capacity_line.emit_line
         self.identity = identity(env)
         self._clock = clock_ms
         self._emit = emit or (lambda line: logger.warning("%s", line))
@@ -282,7 +333,8 @@ class ReadinessReporter:
             now = self._clock()
             self._seq += 1
             snap = self._last_snap or _empty_snapshot()
-            line = self._line(HEADER, STANDBY, "waiting", self._seq, now, snap)
+            line = self._line(class_header(HEADER, self.klass), STANDBY, "waiting", self._seq,
+                              now, snap)
         finally:
             self._lock.release()
         self._emit(line)
@@ -299,7 +351,7 @@ class ReadinessReporter:
             self._silence_until_ms = now + int(self.settings.silence_s * 1000)
         body = {"schema": TEST_SCHEMA, "emitted_ms": now, "run": self.run, "nonce": nonce,
                 "silence_s": int(self.settings.silence_s)}
-        line = f"{TEST_HEADER} {_dumps(body)}"
+        line = f"{class_header(TEST_HEADER, self.klass)} {_dumps(body)}"
         self._emit(line)
         return line
 
@@ -321,15 +373,28 @@ class ReadinessReporter:
             progress, stale_reason, stale_age = self._progress(role, snap, now)
             silenced = (role == PRIMARY and self._silence_until_ms is not None
                         and now < self._silence_until_ms)
-            header = SILENCED_HEADER if silenced else HEADER
+            header = class_header(SILENCED_HEADER if silenced else HEADER, self.klass)
             lines = [self._line(header, role, progress, seq, now, snap)]
             if stale_reason is not None:
                 stale = {"schema": STALE_SCHEMA, "seq": seq, "emitted_ms": now, "run": self.run,
                          "reason": stale_reason, "age_ms": stale_age,
                          "stale_s": int(self.settings.stale_s)}
-                lines.append(f"{STALE_HEADER} {_dumps(stale)}")
+                lines.append(f"{class_header(STALE_HEADER, self.klass)} {_dumps(stale)}")
+            # The capacity line (P-073): a primary's counts, a standby's
+            # nulls; a primary whose snapshot failed logs none (missing data,
+            # never a false 0). The large worker's counts ride under
+            # ``capacity_line``.
+            counts = snap.get("capacity_line", snap.get("capacity")) if role == PRIMARY else None
+            capacity = (None if role == PRIMARY and counts is None
+                        else capacity_line.build_line(role, self.label, counts,
+                                                      klass=self.klass))
         for line in lines:
             self._emit(line)
+        if capacity is not None:
+            try:
+                self._emit_capacity(capacity)
+            except Exception as exc:  # noqa: BLE001 - evidence must not stop the poller
+                logger.error("capacity line failed (%s)", exc.__class__.__name__)
         return lines
 
     def _line(self, header: str, role: str, progress: str, seq: int, now: int,
@@ -346,6 +411,7 @@ class ReadinessReporter:
             "queue": {k: snap["queue"].get(k) for k in QUEUE_KEYS},
             "sweep": snap.get("sweep"), "drain": snap.get("drain"),
             "admission": snap.get("admission"),
+            "capacity": snap.get("capacity") if role == PRIMARY else None,
         }
         return f"{header} role={role} progress={progress} {_dumps(body)}"
 
@@ -403,7 +469,8 @@ def _empty_snapshot() -> Dict[str, Any]:
                       "failures_since_success": 0, "last_error": None, "last_error_ms": None},
         "queue": {"pending": 0, "in_flight": 0, "parked": 0, "oldest_live_age_ms": None,
                   "oldest_backfill_age_ms": None, "oldest_work_age_ms": 0},
-        "sweep": None, "drain": None, "admission": None, "config": None, "loop_marks": (),
+        "sweep": None, "drain": None, "admission": None, "config": None, "capacity": None,
+        "loop_marks": (),
     }
 
 
@@ -423,14 +490,17 @@ def protocol_prefix(line: str) -> bool:
     return any(p in line for p in PROTOCOL_PREFIXES)
 
 
-def parse_readiness(line: str) -> Optional[Dict[str, Any]]:
-    """The JSON of a readiness (or silenced) line, with its header fields
-    checked against the body; None for any other line. Raises ValueError for
-    a readiness line that does not match the closed shape."""
+def parse_readiness(line: str, *, klass: str = CLASS_SMALL) -> Optional[Dict[str, Any]]:
+    """The JSON of a readiness (or silenced) line of poller class ``klass``,
+    with its header fields checked against the body; None for any other line
+    (another class's included). Raises ValueError for a readiness line that
+    does not match the closed shape."""
     m = _LINE.search(line)
     if not m:
         return None
-    kind, role, progress, raw = m.groups()
+    line_class, kind, role, progress, raw = m.groups()
+    if (line_class or CLASS_SMALL) != klass:
+        return None
     body = json.loads(raw)
     validate_line(body)
     if body["role"] != role or body["progress"] != progress:
@@ -440,22 +510,22 @@ def parse_readiness(line: str) -> Optional[Dict[str, Any]]:
     return body
 
 
-def parse_stale(line: str) -> Optional[Dict[str, Any]]:
+def parse_stale(line: str, *, klass: str = CLASS_SMALL) -> Optional[Dict[str, Any]]:
     m = _STALE_LINE.search(line)
-    if not m:
+    if not m or (m.group(1) or CLASS_SMALL) != klass:
         return None
-    body = json.loads(m.group(1))
+    body = json.loads(m.group(2))
     _closed(body, STALE_KEYS)
     if body["schema"] != STALE_SCHEMA or body["reason"] not in STALE_REASONS:
         raise ValueError("bad discovery_stale line")
     return body
 
 
-def parse_test(line: str) -> Optional[Dict[str, Any]]:
+def parse_test(line: str, *, klass: str = CLASS_SMALL) -> Optional[Dict[str, Any]]:
     m = _TEST_LINE.search(line)
-    if not m:
+    if not m or (m.group(1) or CLASS_SMALL) != klass:
         return None
-    body = json.loads(m.group(1))
+    body = json.loads(m.group(2))
     _closed(body, TEST_KEYS)
     if body["schema"] != TEST_SCHEMA or not _NONCE.fullmatch(str(body["nonce"])):
         raise ValueError("bad readiness_test line")
@@ -483,7 +553,7 @@ def _hex(v: Any, width: int, nullable: bool = False) -> None:
 
 def validate_line(body: Dict[str, Any]) -> None:
     """The closed vocabulary of a readiness line body."""
-    _closed(body, LINE_KEYS)
+    _closed({k: v for k, v in body.items() if k not in OPTIONAL_LINE_KEYS}, LINE_KEYS)
     if body["schema"] != SCHEMA or body["role"] not in ROLES or body["progress"] not in PROGRESS:
         raise ValueError("bad schema, role or progress")
     if (body["role"] == STANDBY) != (body["progress"] == "waiting"):
@@ -532,10 +602,12 @@ def validate_line(body: Dict[str, Any]) -> None:
         _closed(a, ADMISSION_KEYS)
         for k in ADMISSION_KEYS:
             _count(a[k], nullable=(k == "budget_mb"))
+    if body.get("capacity") is not None:
+        capacity_line.validate_counts(body["capacity"])
 
 
 __all__ = [
-    "HEADER", "PRIMARY", "PROGRESS", "ROLES", "STALE_HEADER", "STANDBY", "TEST_HEADER",
+    "CLASS_LARGE", "CLASS_SMALL", "HEADER", "PRIMARY", "class_header", "PROGRESS", "ROLES", "STALE_HEADER", "STANDBY", "TEST_HEADER",
     "ReadinessConfigError", "ReadinessReporter", "ReadinessSettings", "check_identity_source",
     "classify_error",
     "config_digest", "identity", "parse_readiness", "parse_stale", "parse_test", "validate_line",

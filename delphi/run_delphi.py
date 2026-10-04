@@ -4,6 +4,8 @@ import os
 import subprocess
 import sys
 
+from polismath.utils.cli_flags import parse_bool_flag
+
 # Define colors for output
 GREEN = '\033[0;32m'
 YELLOW = '\033[0;33m'
@@ -25,6 +27,12 @@ def show_usage():
     print("  --validate                Run extra validation checks")
     print("  --help                    Show this help message")
 
+# Exit code run_math_pipeline.py uses when the math was computed but its
+# DynamoDB export failed. Before this code existed that case exited 0, so the
+# later stages still run exactly as they did; only the job's status changes.
+MATH_EXPORT_FAILED_EXIT_CODE = 4
+
+
 def main():
     parser = argparse.ArgumentParser(description="Process a Polis conversation with the Delphi analytics pipeline.", add_help=False)
     parser.add_argument("--zid", required=True, help="The Polis conversation ID to process")
@@ -33,8 +41,8 @@ def main():
     parser.add_argument("--force", action="store_true", help="Force reprocessing even if data exists")
     parser.add_argument("--validate", action="store_true", help="Run extra validation checks")
     parser.add_argument("--help", action="store_true", help="Show this help message")
-    parser.add_argument('--include_moderation', type=bool, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
-    parser.add_argument('--exclude_comment_selections', type=bool, default=True, help='Whether to exclude comments with selection=-1 in report_comment_selections table.')
+    parser.add_argument('--include_moderation', type=parse_bool_flag, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
+    parser.add_argument('--exclude_comment_selections', type=parse_bool_flag, default=True, help='Whether to exclude comments with selection=-1 in report_comment_selections table.')
     parser.add_argument('--region', type=str, default='us-east-1', help='AWS region')
 
     args = parser.parse_args()
@@ -115,10 +123,18 @@ def main():
     if batch_size_arg:
         math_command.append(batch_size_arg)
 
+    # Every stage that fails is recorded here. Stages after a failure still run
+    # as before, but the run exits non-zero so the job is marked FAILED rather
+    # than COMPLETED.
+    failed_stages = []
+
     math_process = subprocess.run(math_command)
     math_exit_code = math_process.returncode
 
-    if math_exit_code != 0:
+    if math_exit_code == MATH_EXPORT_FAILED_EXIT_CODE:
+        print(f"{RED}Math pipeline computed but its DynamoDB export failed (exit code {math_exit_code}){NC}")
+        failed_stages.append(("math export", math_exit_code))
+    elif math_exit_code != 0:
         print(f"{RED}Math pipeline failed with exit code {math_exit_code}{NC}")
         sys.exit(math_exit_code)
 
@@ -136,6 +152,8 @@ def main():
 
     pipeline_process = subprocess.run(umap_command)
     pipeline_exit_code = pipeline_process.returncode
+    if pipeline_exit_code != 0:
+        failed_stages.append(("UMAP narrative pipeline", pipeline_exit_code))
 
     # Calculate and store comment extremity values
     print(f"{GREEN}Calculating comment extremity values...{NC}")
@@ -154,8 +172,9 @@ def main():
     extremity_exit_code = extremity_process.returncode
 
     if extremity_exit_code != 0:
-        print(f"{RED}Warning: Extremity calculation failed with exit code {extremity_exit_code}{NC}")
+        print(f"{RED}Extremity calculation failed with exit code {extremity_exit_code}{NC}")
         print("Continuing with priority calculation...")
+        failed_stages.append(("comment extremity", extremity_exit_code))
 
     # Calculate comment priorities using group-based extremity
     print(f"{GREEN}Calculating comment priorities with group-based extremity...{NC}")
@@ -170,8 +189,9 @@ def main():
     priority_exit_code = priority_process.returncode
 
     if priority_exit_code != 0:
-        print(f"{RED}Warning: Priority calculation failed with exit code {priority_exit_code}{NC}")
+        print(f"{RED}Priority calculation failed with exit code {priority_exit_code}{NC}")
         print("Continuing with visualization...")
+        failed_stages.append(("comment priorities", priority_exit_code))
 
     if pipeline_exit_code == 0:
         print(f"{YELLOW}Creating visualizations with datamapplot...{NC}")
@@ -255,30 +275,22 @@ def main():
             if result.returncode == 0:
                 print(f"{GREEN}Layer {layer_id} visualization completed{NC}")
             else:
-                print(f"{RED}Warning: Layer {layer_id} visualization failed{NC}")
+                print(f"{RED}Layer {layer_id} visualization failed with exit code {result.returncode}{NC}")
+                failed_stages.append((f"layer {layer_id} visualization", result.returncode))
 
-        print(f"{GREEN}UMAP Narrative pipeline completed successfully!{NC}")
-        print(f"Results stored in DynamoDB and visualizations for conversation {zid}")
+        print(f"{GREEN}UMAP Narrative pipeline stage finished.{NC}")
     else:
-        print(f"{RED}Warning: UMAP Narrative pipeline returned non-zero exit code: {pipeline_exit_code}{NC}")
-        print("The pipeline may have encountered errors but might still have produced partial results.")
-        # Don't fail the overall script, just warn
-        pipeline_exit_code = 0
+        print(f"{RED}UMAP Narrative pipeline failed with exit code {pipeline_exit_code}; skipping visualizations.{NC}")
 
-
-    exit_code = pipeline_exit_code # Based on the logic, this will be 0 unless math pipeline failed earlier
-
-    if exit_code == 0: # This condition relies on math_exit_code check above.
+    if not failed_stages:
         print(f"{GREEN}Pipeline completed successfully!{NC}")
         print(f"Results stored in DynamoDB for conversation {zid}")
-    else:
-        # This part of the logic seems unreachable given the sys.exit() after math_pipeline failure
-        # and resetting pipeline_exit_code to 0 in the warning case.
-        # However, keeping it for structural parity.
-        print(f"{RED}Pipeline failed with exit code {exit_code}{NC}")
-        print("Please check logs for more details")
+        sys.exit(0)
 
-    sys.exit(exit_code)
+    summary = ", ".join(f"{name} (exit code {code})" for name, code in failed_stages)
+    print(f"{RED}Pipeline failed: {len(failed_stages)} stage(s) failed: {summary}{NC}")
+    print("Please check logs for more details")
+    sys.exit(1)
 
 if __name__ == "__main__":
     main()

@@ -1,13 +1,14 @@
 """Public late-column revotes against independently recorded Clojure PCA."""
-import json
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 from polismath.conversation.conversation import Conversation
+from tests.vote_fixtures import load_declared, read_vote
 
-FIXTURE = json.loads((Path(__file__).parent / 'replay_harness/fixtures/revote_column_order.json').read_text())
+# The fixture's raw votes are read through its sign declaration (P-078 PR-G).
+FIXTURE, DECLARED = load_declared(Path(__file__).parent / 'replay_harness/fixtures/revote_column_order.sign.json')
 
 
 def assert_g12(actual, expected):
@@ -17,8 +18,8 @@ def assert_g12(actual, expected):
 
 
 def batch(rows):
-    # Fixture signs are raw storage; the Python ingress negates them.
-    return {'votes': [dict(pid=p, tid=t, vote=-v, created=ms) for p, t, v, ms in rows]}
+    # Fixture votes are raw storage under DECLARED; the engine takes them by meaning.
+    return {'votes': [dict(pid=p, tid=t, vote=read_vote(v, DECLARED), created=ms) for p, t, v, ms in rows]}
 
 
 @pytest.mark.parametrize('case', FIXTURE['cases'], ids=lambda case: str(case['seed']))

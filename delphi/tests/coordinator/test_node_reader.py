@@ -28,6 +28,7 @@ import pytest
 from coordinator.conftest import ROOT, assert_coherent, connect, rows, seed
 from coordinator.test_equivalence import python_checkpoint
 from coordinator._node_gate import require_node
+from tests.vote_fixtures import DISAGREE, seed_vote
 
 HARNESS = ROOT / "coordinator-rs/tools/node_reader.cjs"
 EVIDENCE = ROOT / "coordinator-rs/evidence"
@@ -73,7 +74,7 @@ def test_real_node_reader_serves_identical_bytes_for_both_writers(db, launch):
     # Both namespaces advance together.
     c = connect(db)
     with c.cursor() as cur:
-        cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,1,2000)")
+        cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,%s,2000)",(seed_vote(DISAGREE),))
     c.close()
     tables, _ = rust_and_python_publish(db, launch)
     assert tables["math_main"]["math_tick"] == 1

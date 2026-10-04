@@ -12,7 +12,7 @@ from pathlib import Path
 import shutil
 import tempfile
 from unittest.mock import patch
-from public_revote_columns import ROOT, gate, record_case
+from public_revote_columns import FIXTURES, ROOT, gate, load_declared, record_case
 import near_ties
 
 
@@ -25,9 +25,9 @@ def main():
     os.environ['PYTHONPATH']=str(ROOT/'delphi')
     for key in ('OPENBLAS_NUM_THREADS','OMP_NUM_THREADS','MKL_NUM_THREADS'):
         os.environ[key]='1'
-    fixture=ROOT/'delphi/tests/replay_harness/fixtures/near_tie_votes.json'
-    case=json.loads(fixture.read_text())
-    report=record_case(case,out/'case')
+    fixture=FIXTURES/'near_tie_votes.json'
+    case,declared=load_declared(FIXTURES/'near_tie_votes.sign.json')
+    report=record_case(case,out/'case',declared)
     expected=gate.certify.prepare_entry(gate.certify.BatteryEntry('pc-revote-02',
         'uniform6-clojure-legacy',schedule_path=out/'case/schedule.json',role='revote-heavy'))
     with tempfile.TemporaryDirectory() as tmp, patch.object(near_ties,'measure_recording',return_value=None):
