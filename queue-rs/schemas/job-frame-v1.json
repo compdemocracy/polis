@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polis-jobs.frame/1",
+  "title": "Job frame the daemon gives a Delphi child (stdin and DELPHI_FRAME)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "env", "zid", "report_id", "job_id", "run_id", "attempt_id", "lease_epoch", "stage", "phase", "config", "inputs", "provider"],
+  "properties": {
+    "schema": {"const": "polis-jobs.frame/1"},
+    "env": {"type": "string"},
+    "zid": {"type": "integer", "minimum": 1},
+    "report_id": {"type": ["string", "null"]},
+    "job_id": {"type": "string", "format": "uuid"},
+    "run_id": {"type": "string", "format": "uuid"},
+    "attempt_id": {"type": "string", "format": "uuid"},
+    "lease_epoch": {"type": "string", "pattern": "^(0|[1-9][0-9]*)$"},
+    "stage": {"enum": ["delphi_full_pipeline", "delphi_narrative"]},
+    "phase": {"enum": ["run", "submit", "recheck", null]},
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["include_moderation", "exclude_comment_selections", "model", "batch_size"],
+      "properties": {
+        "include_moderation": {"type": "boolean"},
+        "exclude_comment_selections": {"type": "boolean"},
+        "model": {"type": ["string", "null"]},
+        "batch_size": {"type": ["integer", "null"]}
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["math_env", "requested_math_tick"],
+      "properties": {
+        "math_env": {"type": ["string", "null"]},
+        "requested_math_tick": {"type": ["integer", "null"]}
+      }
+    },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["batch_id"],
+      "properties": {"batch_id": {"type": ["string", "null"]}}
+    }
+  }
+}

@@ -15,19 +15,24 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path[:0] = [str(ROOT / 'ci/private_cert/images'), str(ROOT / 'delphi')]
+sys.path[:0] = [str(ROOT / 'ci/private_cert/images'), str(ROOT / 'delphi'), str(ROOT / 'delphi/tests')]
 import gate
+from vote_fixtures import load_declared, read_vote, seed_vote
+
+FIXTURES = ROOT / 'delphi/tests/replay_harness/fixtures'
 from polismath.replay import fixture_generate as fg, fixture_extract as fx
 
 
-def record_case(case, dest):
+def record_case(case, dest, storage_agree_value):
+    """``case['votes']`` are raw rows stored under ``storage_agree_value`` (the
+    fixture's declaration); they enter the stream at the stream's own convention."""
     stream = dest / 'stream'
     stream.mkdir(parents=True)
     n = max(row[0] for row in case['votes']) + 1
     d = max(row[1] for row in case['votes']) + 1
     _, comments, participants = fg.build_case_rows(
         dict(shape='sparse-strip', participants=n, comments=d, votes_per_participant=1), random.Random(1))
-    votes = [dict(pid=p, tid=t, vote=v, created=ms, weight_x_32767=0)
+    votes = [dict(pid=p, tid=t, vote=seed_vote(read_vote(v, storage_agree_value)), created=ms, weight_x_32767=0)
              for p, t, v, ms in case['votes']]
     events = fx.build_events(votes, comments)
     fx.write_events_jsonl(stream / 'events.jsonl', events)
@@ -79,10 +84,10 @@ def main():
     os.environ['PYTHONPATH'] = str(ROOT / 'delphi')
     for key in ('OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS'):
         os.environ[key] = '1'
-    fixture = json.loads((ROOT / 'delphi/tests/replay_harness/fixtures/revote_column_order.json').read_text())
+    fixture, declared = load_declared(FIXTURES / 'revote_column_order.sign.json')
     results = []
     for case in fixture['cases']:
-        report = record_case(case, out / str(case['seed']))
+        report = record_case(case, out / str(case['seed']), declared)
         results.append(dict(seed=case['seed'], verdict=report['verdict'], checks=report['checks']))
         assert report['verdict'] == args.expect, results[-1]
     gate.dump(out / 'summary.json', results)

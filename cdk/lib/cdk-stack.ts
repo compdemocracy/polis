@@ -40,6 +40,7 @@ import createALBAndDNS from '../dns';
 import createSecretsAndDependencies from '../secrets';
 import createOperationalAlarms, { alarmsEnabled, requireAlarmEmail } from '../alarms';
 import createMathPollerAlarms, { mathPollerAlarmsEnabled } from '../mathPollerAlarms';
+import createOpsDashboardsAccess, { opsDashboardsEnabled } from '../opsDashboards';
 import { ImportWorkerService } from './import-worker-service';
 import { CertificationCiEc2 } from '../ciEc2';
 import { CoordinatorInactiveService } from '../coordinator';
@@ -74,10 +75,6 @@ export class CdkStack extends cdk.Stack {
 
     // Create VPC
     const vpc = createPolisVPC(this);
-    vpc.addInterfaceEndpoint('SqsEndpoint', {
-      service: ec2.InterfaceVpcEndpointAwsService.SQS,
-      subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-    });
 
     const alarmTopic = new sns.Topic(this, 'AlarmTopic', {
       displayName: 'Polis Application Alarms',
@@ -420,6 +417,19 @@ export class CdkStack extends cdk.Stack {
     // log group and two alarms on the application alarm topic. No Lambda.
     if (mathPollerAlarmsEnabled(this)) {
       createMathPollerAlarms(this, { logGroup, alarmTopic });
+    }
+
+    // --- Ops dashboards (P-074 PR3). Off unless synthesized with
+    // `-c enableOpsDashboards=true`: one read-only policy on InstanceRole
+    // (CloudWatch metrics/alarms, Auto Scaling, CodeDeploy, Cost Explorer)
+    // and IMDS hop limit 2 on the web launch template. No Lambda.
+    if (opsDashboardsEnabled(this)) {
+      createOpsDashboardsAccess(this, {
+        instanceRole,
+        webLaunchTemplate,
+        codeDeployApplicationName: application.applicationName,
+        codeDeployDeploymentGroupName: deploymentGroup.deploymentGroupName,
+      });
     }
 
     // --- Secrets & Dependencies - creates secrets managed in SSM, grants services permission to interact with each other, etc.

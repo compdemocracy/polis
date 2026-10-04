@@ -1,4 +1,5 @@
 artifacts/*
 !artifacts/baseline.json.gz
 !artifacts/baseline.sha256
+!artifacts/baseline.sign.json
 __pycache__/

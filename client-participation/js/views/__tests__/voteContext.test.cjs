@@ -28,6 +28,7 @@ function fixture(initial = {}, options = {}) {
     handlebones: { ModelView: { prototype: base, extend: (definition) => definition } },
     "../util/postMessageUtils": {},
     "../util/preloadHelper": {},
+    "../util/voteConvention": require("../../util/voteConvention"),
     "../templates/vote-view.handlebars": {},
     "../util/utils": {
       isIos: () => false,

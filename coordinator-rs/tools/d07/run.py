@@ -28,6 +28,8 @@ from observer import sample
 sys.path.insert(0,str(ROOT/'coordinator-rs/ci'))
 from replay_pins import kernel_environment, runtime_identity, select_pin
 from reference_assets import load_asset
+import fold_declared
+from vote_fixtures import convention as fixture_convention, seed_vote_from_export  # d05's run.py put delphi/tests on sys.path
 FOLD=types.ModuleType("d07_reference_fold")
 sys.modules[FOLD.__name__]=FOLD
 exec(compile(load_asset(ROOT,"aaaf7ca5c93f9a758b28e7a361c3b9544e24305a","delphi/tests/poller/recovery/fold.py"),"pinned-d07-fold.py","exec"),FOLD.__dict__)
@@ -130,7 +132,7 @@ class Rehearsal(Readers):
             raw=list(csv.DictReader(path.read_text().splitlines()))
             pids={v:i for i,v in enumerate(sorted({int(r['voter-id']) for r in raw}))}
             tids={v:i for i,v in enumerate(sorted({int(r['comment-id']) for r in raw}))}
-            rows=[(pids[int(r['voter-id'])],tids[int(r['comment-id'])],-int(r['vote']),int(float(r['timestamp'])*1000)) for r in raw]
+            rows=[(pids[int(r['voter-id'])],tids[int(r['comment-id'])],seed_vote_from_export(r['vote']),int(float(r['timestamp'])*1000)) for r in raw]
             self.inputs[zid]=rows;self.loaded[zid]=0
             for pid in pids.values():
                 uid=10000+zid*1000+pid
@@ -339,7 +341,7 @@ class Rehearsal(Readers):
         bundle=self.bundle(zid,'rustproto')
         events=[dict(zip(('pid','tid','vote','created'),r)) for r in self.query(
             'SELECT pid,tid,vote,created FROM votes WHERE zid=%s ORDER BY created,tid,pid,vote',(zid,))]
-        fold=FOLD.fold_votes(events)
+        fold=fold_declared.fold_votes_declared(events,storage_agree_value=fixture_convention(),fold=FOLD)
         problems=FOLD.check_published_against_fold(bundle['main']['data'],fold,require_all_clustered=False)
         if not bucket_counts_match(bundle['main']['data'],fold):problems.append('clustered vote buckets differ from independent raw fold')
         generation=self.query("SELECT input_checkpoint FROM polis_coordinator_generations WHERE math_env='rustproto' AND zid=%s AND math_tick=%s",(zid,bundle['ticks']['math_tick']))
