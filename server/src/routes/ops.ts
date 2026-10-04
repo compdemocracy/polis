@@ -48,6 +48,14 @@ export type OpsRouteOptions = {
   minVotersForText?: string | null;
   simpleAnalyticsApiKey?: string | null;
   simpleAnalyticsHostname?: string | null;
+  // The AWS-backed system pages (src/ops/cloudPages.ts): OPS_DATA_SOURCE
+  // ("aws" turns them on), OPS_COST_EXPLORER, and where they read.
+  dataSource?: string | null;
+  costExplorer?: boolean;
+  awsRegion?: string | null;
+  logGroupName?: string | null;
+  databaseUrl?: string | null;
+  mathEnv?: string | null;
   // Tests replace the page registry or its outside readers.
   pages?: OpsPageDef[];
   pageOptions?: Partial<OpsPageOptions>;
@@ -164,6 +172,16 @@ export function createOpsRoutes(options: OpsRouteOptions): OpsRoutes {
           ),
           simpleAnalyticsApiKey: options.simpleAnalyticsApiKey || "",
           simpleAnalyticsHostname: options.simpleAnalyticsHostname || "pol.is",
+          awsReads:
+            String(options.dataSource || "")
+              .trim()
+              .toLowerCase() === "aws",
+          costExplorer: Boolean(options.costExplorer),
+          awsRegion: options.awsRegion,
+          logGroupName: options.logGroupName,
+          databaseUrl: options.databaseUrl,
+          mathEnv: options.mathEnv,
+          startedMs: Date.now(),
           ...options.pageOptions,
         })
       : []);
