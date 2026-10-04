@@ -16,7 +16,7 @@ function named(j:any,prefix:string,type?:string):any{return (Object.entries(j.Re
 test('existing VPC isolated routes and no public ingress',()=>{const t=build(),j=t.toJSON();
  for(const type of ['AWS::EC2::VPC','AWS::EC2::NatGateway','AWS::EC2::InternetGateway','AWS::EC2::Route','AWS::EC2::Instance','AWS::SSM::Document'])t.resourceCountIs(type,0);
  t.resourceCountIs('AWS::EC2::Subnet',1);t.resourceCountIs('AWS::EC2::VPCEndpoint',3);
- const sg=named(j,'BoxWorkerSg');expect(sg.SecurityGroupIngress).toBeUndefined();expect(sg.SecurityGroupEgress).toHaveLength(3);expect(JSON.stringify(sg)).not.toContain('0.0.0.0/0');});
+ const sg=named(j,'BoxWorkerSg');expect(sg.SecurityGroupIngress).toBeUndefined();expect(sg.SecurityGroupEgress).toHaveLength(4);expect(JSON.stringify(sg)).not.toContain('0.0.0.0/0');});
 test('fixed encrypted disposable launch and restricted metadata',()=>{const d=resources(build().toJSON(),'AWS::EC2::LaunchTemplate')[0].Properties.LaunchTemplateData;
  expect(d.ImageId).toBe(config.ami);expect(d.KeyName).toBeUndefined();expect(d.MetadataOptions.HttpTokens).toBe('required');expect(d.MetadataOptions.HttpPutResponseHopLimit).toBe(1);
  expect(d.InstanceInitiatedShutdownBehavior).toBe('terminate');expect(d.NetworkInterfaces[0].AssociatePublicIpAddress).toBe(false);
@@ -38,8 +38,8 @@ test('operator SSO trust and constrained infrastructure authority',()=>{const j=
  for(const s of launches){expect(s.Condition.Bool['ec2:IsLaunchTemplateResource']).toBe('true');expect(s.Condition.ArnEquals['ec2:LaunchTemplate']).toBeDefined();}
  expect(policy.Statement.filter((s:any)=>s.Action==='iam:PassRole')).toHaveLength(2);
 });
-test('native reader secret and disposable provisioner have no automatic database action',()=>{const t=build(),j=t.toJSON();t.resourceCountIs('AWS::SecretsManager::Secret',1);
- expect(resources(j,'AWS::SecretsManager::Secret')[0].DeletionPolicy).toBe('Retain');
+test('native reader secret and disposable provisioner have no automatic database action',()=>{const t=build(),j=t.toJSON();t.resourceCountIs('AWS::SecretsManager::Secret',2);
+ expect(j.Resources[Object.keys(j.Resources).find(k=>k.startsWith('BoxReaderSecret'))!].DeletionPolicy).toBe('Retain');
  t.resourceCountIs('AWS::EC2::LaunchTemplate',2);t.resourceCountIs('AWS::IAM::InstanceProfile',2);
  const policy=JSON.stringify(named(j,'BoxProvisionerDefaultPolicy').PolicyDocument);
  expect(policy).toContain(config.adminSecretArn);expect(policy).toContain('boot/provision/');
@@ -66,7 +66,7 @@ test.each([false,true])('read target and provisioner rules remain distinct (live
  expect(validateProbeConfig(input)).toBe(input);
  const j=build(input).toJSON();
  const ingress=resources(j,'AWS::EC2::SecurityGroupIngress').map(r=>r.Properties);
- const db=ingress.filter(r=>r.FromPort===5432);
+ const db=ingress.filter(r=>r.FromPort===5432&&typeof r.GroupId==='string');
  expect(db).toHaveLength(2);
  expect(db.map(r=>r.GroupId)).toEqual([input.replicaSecurityGroupId,input.primarySecurityGroupId]);
  expect(db[0].SourceSecurityGroupId).not.toEqual(db[1].SourceSecurityGroupId);
@@ -121,4 +121,34 @@ test('pulse authority is one tag on the calling worker instance through its priv
  expect(JSON.stringify(named(j,'BoxProvisionerDefaultPolicy'))).not.toContain('ec2:CreateTags');
  const metric=named(j,'BoxOperatorDefaultPolicy').PolicyDocument.Statement.find((s:any)=>s.Action==='cloudwatch:GetMetricStatistics');
  expect(metric.Resource).toBe('*');
+});
+
+// P-078 PR-H: deployed separately, from the ProbeStack's own worktree with its context flags.
+test('un-flip rehearsal: one copy group reachable from the worker only, one secret, no RDS rights',()=>{
+ const j=build().toJSON();
+ const sgId=Object.keys(j.Resources).find(k=>k.startsWith('BoxRehearsalDbSg'))!;
+ const workerSgId=Object.keys(j.Resources).find(k=>k.startsWith('BoxWorkerSg'))!;
+ expect(j.Resources[sgId].Properties.SecurityGroupIngress).toBeUndefined();
+ const into=resources(j,'AWS::EC2::SecurityGroupIngress').map(r=>r.Properties)
+  .filter(r=>JSON.stringify(r.GroupId).includes(sgId));
+ expect(into).toEqual([{GroupId:{'Fn::GetAtt':[sgId,'GroupId']},SourceSecurityGroupId:{'Fn::GetAtt':[workerSgId,'GroupId']},
+  IpProtocol:'tcp',FromPort:5432,ToPort:5432}]);
+ expect(named(j,'BoxWorkerSg').SecurityGroupEgress).toContainEqual({IpProtocol:'tcp',FromPort:5432,ToPort:5432,
+  DestinationSecurityGroupId:{'Fn::GetAtt':[sgId,'GroupId']}});
+ for(const prefix of ['BoxWorkerDefaultPolicy','BoxOperatorDefaultPolicy','BoxProvisionerDefaultPolicy'])
+  expect(JSON.stringify(named(j,prefix).PolicyDocument)).not.toMatch(/"rds:|rds-db:|rds-data:/);
+ const secretId=Object.keys(j.Resources).find(k=>k.startsWith('BoxRehearsalDbSecret'))!;
+ expect(j.Resources[secretId].Properties.SecretString).toBe('{}');
+ const reads=named(j,'BoxWorkerDefaultPolicy').PolicyDocument.Statement
+  .filter((s:any)=>s.Action==='secretsmanager:GetSecretValue'&&JSON.stringify(s.Resource).includes(secretId));
+ expect(reads).toHaveLength(1);expect(reads[0].Condition.StringEquals['aws:SourceVpce']).toBeDefined();
+ expect(JSON.stringify(named(j,'BoxSecretEndpoint').PolicyDocument)).toContain(secretId);
+ expect(JSON.stringify(named(j,'BoxProvisionerDefaultPolicy').PolicyDocument)).not.toContain(secretId);
+ const boot=JSON.stringify(named(j,'BoxTemplate').LaunchTemplateData.UserData);
+ for(const host of ['polis-unflip-public-fixture.abc.us-east-1.rds.amazonaws.com','polis-unflip-public-fixture-r2.abc.us-east-1.rds.amazonaws.com'])
+  expect(boot).toContain(host);
+ expect(JSON.stringify(named(j,'BoxProvisionTemplate').LaunchTemplateData.UserData)).not.toContain('polis-unflip');
+ const output=(prefix:string)=>JSON.stringify(Object.entries(j.Outputs).find(([k])=>k.startsWith(prefix))![1]);
+ for(const k of ['REHEARSAL_SECRET_ARN','REHEARSAL_SECURITY_GROUP','REHEARSAL_INSTANCE','REHEARSAL_INSTANCE_R2'])expect(output('BoxWorkerConfig')).toContain(k);
+ expect(output('BoxProvisionConfig')).not.toContain('REHEARSAL');
 });

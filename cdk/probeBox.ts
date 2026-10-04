@@ -57,13 +57,20 @@ export class ProbeBox extends Construct {
     new ec2.CfnSubnetRouteTableAssociation(this, 'RouteAssociation', {routeTableId: routes.ref, subnetId: subnet.ref});
     const endpointSg = new ec2.CfnSecurityGroup(this, 'EndpointSg', {vpcId: a.vpcId,
       groupDescription: 'Probe private API endpoints', securityGroupEgress: []});
+    // P-078 un-flip rehearsal: temporary copies restored by the operator (deploy SSO)
+    // into this group. Their only ingress is the worker; the worker has no RDS rights.
+    const rehearsalDbSg = new ec2.CfnSecurityGroup(this, 'RehearsalDbSg', {vpcId: a.vpcId,
+      groupDescription: 'Probe un-flip rehearsal copies: ingress from the probe worker only'});
     const workerSg = new ec2.CfnSecurityGroup(this, 'WorkerSg', {vpcId: a.vpcId,
       groupDescription: 'Probe: no ingress; replica, private assets and receipt only',
       securityGroupEgress: [
         {ipProtocol: 'tcp', fromPort: 5432, toPort: 5432, destinationSecurityGroupId: a.replicaSecurityGroupId},
+        {ipProtocol: 'tcp', fromPort: 5432, toPort: 5432, destinationSecurityGroupId: rehearsalDbSg.attrGroupId},
         {ipProtocol: 'tcp', fromPort: 443, toPort: 443, destinationPrefixListId: a.s3PrefixListId},
         {ipProtocol: 'tcp', fromPort: 443, toPort: 443, destinationSecurityGroupId: endpointSg.attrGroupId}]});
     new ec2.CfnSecurityGroupIngress(this, 'ReplicaIngress', {groupId: a.replicaSecurityGroupId,
+      sourceSecurityGroupId: workerSg.attrGroupId, ipProtocol: 'tcp', fromPort: 5432, toPort: 5432});
+    new ec2.CfnSecurityGroupIngress(this, 'RehearsalDbIngress', {groupId: rehearsalDbSg.attrGroupId,
       sourceSecurityGroupId: workerSg.attrGroupId, ipProtocol: 'tcp', fromPort: 5432, toPort: 5432});
     new ec2.CfnSecurityGroupIngress(this, 'EndpointIngress', {groupId: endpointSg.attrGroupId,
       sourceSecurityGroupId: workerSg.attrGroupId, ipProtocol: 'tcp', fromPort: 443, toPort: 443});
@@ -75,6 +82,14 @@ export class ProbeBox extends Construct {
     const evidence = bucket('Evidence', 'evidence'), control = bucket('Control', 'control'), assets = bucket('Assets', 'assets');
     evidence.addLifecycleRule({expiration: cdk.Duration.days(90), noncurrentVersionExpiration: cdk.Duration.days(90)});
     const readerSecret = new secrets.Secret(this,'ReaderSecret',{generateSecretString:{secretStringTemplate:JSON.stringify({username:'polis_probe_reader'}),generateStringKey:'password'},removalPolicy:cdk.RemovalPolicy.RETAIN});
+    // Empty until the operator's restore step writes the copies' one-time master
+    // passwords; emptied again by its cleanup. Never a production credential.
+    const rehearsalSecret = new secrets.Secret(this,'RehearsalDbSecret',{secretObjectValue:{},
+      description:'Probe un-flip rehearsal: temporary copy credentials (operator-written)',removalPolicy:cdk.RemovalPolicy.DESTROY});
+    // Fixed copy identifiers so the worker's exact-name DNS allowlist can name them;
+    // one rehearsal at a time (the operator refuses while a tagged copy exists).
+    const rehearsalInstance = `polis-unflip-${a.id}`, rehearsalInstanceR2 = `polis-unflip-${a.id}-r2`;
+    const rdsSuffix = a.replicaHost.split('.').slice(1).join('.');
     const endpoint = new ec2.CfnVPCEndpoint(this, 'S3Endpoint', {vpcId: a.vpcId, vpcEndpointType: 'Gateway',
       serviceName: `com.amazonaws.${a.region}.s3`, routeTableIds: [routes.ref], policyDocument: {
         Version: '2012-10-17', Statement: [{Effect: 'Allow', Principal: '*', Action: ['s3:GetObject','s3:PutObject'],
@@ -82,7 +97,7 @@ export class ProbeBox extends Construct {
     const secretEndpoint = new ec2.CfnVPCEndpoint(this, 'SecretEndpoint', {vpcId: a.vpcId,
       vpcEndpointType: 'Interface', privateDnsEnabled: false, subnetIds: [subnet.ref], securityGroupIds: [endpointSg.attrGroupId],
       serviceName: `com.amazonaws.${a.region}.secretsmanager`, policyDocument: {Version: '2012-10-17',
-        Statement: [{Effect:'Allow',Principal:'*',Action:'secretsmanager:GetSecretValue',Resource:[readerSecret.secretArn,a.adminSecretArn]}]}});
+        Statement: [{Effect:'Allow',Principal:'*',Action:'secretsmanager:GetSecretValue',Resource:[readerSecret.secretArn,a.adminSecretArn,rehearsalSecret.secretArn]}]}});
     const secretHost = cdk.Fn.select(1, cdk.Fn.split(':', cdk.Fn.select(0, secretEndpoint.attrDnsEntries)));
     const provisionSg = new ec2.CfnSecurityGroup(this,'ProvisionSg',{vpcId:a.vpcId,groupDescription:'Reader-login provisioning only',
       securityGroupEgress:[{ipProtocol:'tcp',fromPort:5432,toPort:5432,destinationSecurityGroupId:a.primarySecurityGroupId},
@@ -127,6 +142,7 @@ export class ProbeBox extends Construct {
     statement(worker,['s3:PutObject'],[evidence.arnForObjects(`results/${own}/receipt.json`)],{
       StringEquals: {...encryptedWrite,'s3:if-none-match':'*'}});
     statement(worker,['secretsmanager:GetSecretValue'],[readerSecret.secretArn],{StringEquals:{'aws:SourceVpce':secretEndpoint.ref}});
+    statement(worker,['secretsmanager:GetSecretValue'],[rehearsalSecret.secretArn],{StringEquals:{'aws:SourceVpce':secretEndpoint.ref}});
     const kmsCondition = {StringEquals:{'kms:ViaService':`s3.${a.region}.amazonaws.com`},
       StringLike:{'kms:EncryptionContext:aws:s3:arn':[control.arnForObjects('*'),assets.arnForObjects('images/*'),evidence.arnForObjects(`results/${own}/receipt.json`)]}};
     statement(worker,['kms:Decrypt','kms:GenerateDataKey'],[key.keyArn],kmsCondition);
@@ -171,7 +187,8 @@ export class ProbeBox extends Construct {
       StringLike:{'kms:EncryptionContext:aws:s3:arn':[control.arnForObjects('*'),evidence.arnForObjects('results/*/receipt.json')]}});
     const boot = {mode:'worker',account:a.account,region:a.region,controlBucket:control.bucketName,
       ec2Url: `https://${pulseHost}`,controlKey:key.keyArn,
-      dnsNames:[a.replicaHost,secretHost,pulseHost,...[control,evidence,assets].map(b=>`${b.bucketName}.s3.${a.region}.amazonaws.com`)],resolver:a.resolverAddress};
+      dnsNames:[a.replicaHost,secretHost,pulseHost,...[control,evidence,assets].map(b=>`${b.bucketName}.s3.${a.region}.amazonaws.com`),
+        ...[rehearsalInstance,rehearsalInstanceR2].map(i=>`${i}.${rdsSuffix}`)],resolver:a.resolverAddress};
     // Only root reads this public boot configuration. No code or credentials in user-data.
     const template = new ec2.CfnLaunchTemplate(this,'Template',{launchTemplateData:{imageId:a.ami,instanceType:'r8g.4xlarge',
       iamInstanceProfile:{arn:profile.attrArn},metadataOptions:{httpTokens:'required',httpPutResponseHopLimit:1},
@@ -223,7 +240,8 @@ export class ProbeBox extends Construct {
     new cdk.CfnOutput(this,'OperatorRoleArn',{value:operator.roleArn});
     new cdk.CfnOutput(this,'WorkerConfig',{value:cdk.Fn.toJsonString({...common,MODE:'worker',INSTANCE_TYPE:'r8g.4xlarge',
       TEMPLATE:template.ref,TEMPLATE_VERSION:template.attrLatestVersionNumber,PROFILE:profile.attrArn,
-      SECURITY_GROUP:workerSg.attrGroupId,REPLICA_HOST:a.replicaHost})});
+      SECURITY_GROUP:workerSg.attrGroupId,REPLICA_HOST:a.replicaHost,REHEARSAL_SECRET_ARN:rehearsalSecret.secretArn,
+      REHEARSAL_SECURITY_GROUP:rehearsalDbSg.attrGroupId,REHEARSAL_INSTANCE:rehearsalInstance,REHEARSAL_INSTANCE_R2:rehearsalInstanceR2})});
     new cdk.CfnOutput(this,'ProvisionConfig',{value:cdk.Fn.toJsonString({...common,MODE:'provision',INSTANCE_TYPE:'t4g.small',
       TEMPLATE:provisionTemplate.ref,TEMPLATE_VERSION:provisionTemplate.attrLatestVersionNumber,PROFILE:provisionProfile.attrArn,
       SECURITY_GROUP:provisionSg.attrGroupId,REPLICA_HOST:a.primaryHost,ADMIN_SECRET_ARN:a.adminSecretArn,PROVISION_OWNER:a.provisionOwner})});

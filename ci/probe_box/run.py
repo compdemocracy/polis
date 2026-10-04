@@ -52,7 +52,7 @@ OPERATIONS = frozenset({
     'CONFIG_LOAD', 'CLIENT_SETUP', 'ACTIVE_GET', 'CONTROL_GET', 'HEARTBEAT_HEAD',
     'RECEIPT_GET', 'INSTANCE_DESCRIBE', 'INSTANCE_DESCRIBE_BY_ID', 'VOLUME_DESCRIBE',
     'VOLUME_DESCRIBE_BY_ID', 'CPU_METRIC_READ', 'ALARM_PUT', 'ALARM_DELETE', 'RECORD_PUT',
-    'TERMINAL_CAS', 'INSTANCE_TERMINATE', 'VOLUME_DELETE', 'UNKNOWN_OPERATION'})
+    'TERMINAL_CAS', 'INSTANCE_TERMINATE', 'VOLUME_DELETE', 'REHEARSAL_PREFLIGHT', 'UNKNOWN_OPERATION'})
 # The reads a watch may repeat, the alarm calls, and the lifecycle writes whose
 # retry is a fresh bound observation that re-derives authority before reissuing
 # the same write (never a blind replay). Launch, image lookup, the launch CAS and
@@ -74,6 +74,7 @@ REASONS = frozenset({
     'LAUNCH_CONFIGURATION_CHANGED', 'LIVENESS_BINDING', 'LIVENESS_UNKNOWN', 'MODE_CONFLICT',
     'PREVIOUS_RUN_NOT_CLEAN', 'PROVISION_RECEIPT', 'PROVISION_REQUEST', 'RECEIPT_INVALID',
     'RECEIPT_LIMIT', 'RECEIPT_READ_UNKNOWN', 'RECORD_CONFLICT', 'RECORD_WRITE_UNKNOWN',
+    'REHEARSAL_CLEANUP_UNCONFIRMED', 'REHEARSAL_INSTANCE_REMAINS', 'REHEARSAL_PREFLIGHT_UNKNOWN',
     'RELEASE_ATTESTATION', 'RELEASE_REFUSED_RUNNING', 'REQUEST_REFUSED', 'RETRY_EXHAUSTED',
     'RUN_CLOSED', 'RUN_CONFLICT', 'TERMINATION_PENDING', 'UNCLASSIFIED', 'UNKNOWN_DISK',
     'WATCH_CEILING'})
@@ -700,6 +701,9 @@ class Control:
                 "controlBucket": self.c["CONTROL_BUCKET"], "evidenceKey": self.c["CONTROL_KEY"],
                 "endpoint": self.c["ENDPOINT"], "started": claim["started"],
                 "terminateBy": self.expiry}
+        if 'REHEARSAL_SECRET_ARN' in self.c:
+            # The un-flip rehearsal's copy credentials; only that kind reads it (worker.py).
+            boot['rehearsalSecretArn'] = self.c['REHEARSAL_SECRET_ARN']
         if self.c['MODE'] == 'provision':
             boot['provision'] = self.a['provision']
             boot['adminSecretArn'] = self.c['ADMIN_SECRET_ARN']
@@ -1283,9 +1287,54 @@ def watch(session, run_id):
         time.sleep(min(WATCH_POLL_SECONDS, remaining))
 
 
+def launch_preflight(cfg, profile, state_dir, request):
+    """Every launch, of any kind: refuse while a rehearsal copy of this box exists
+    or the operator ledger records an unconfirmed cleanup (unflip_operator.py)."""
+    from unflip_operator import Refused, launch_preflight as rehearsal_preflight
+    allow = request.get('run_id') if isinstance(request, dict) and request.get('kind') == 'unflip-rehearsal' else None
+    try:
+        rehearsal_preflight(cfg, profile, state_dir, allow_run=allow)
+    except Refused as r:
+        reason = {'REHEARSAL_INSTANCE_REMAINS': 'REHEARSAL_INSTANCE_REMAINS',
+                  'CLEANUP_UNCONFIRMED': 'REHEARSAL_CLEANUP_UNCONFIRMED'}.get(r.code, 'REHEARSAL_PREFLIGHT_UNKNOWN')
+        raise Unknown(reason, 'REHEARSAL_PREFLIGHT') from None
+    except Exception as error:
+        raise sdk_error('REHEARSAL_PREFLIGHT_UNKNOWN', 'REHEARSAL_PREFLIGHT', error) from None
+
+
+def unflip_session(cfg, profile, fn, raw=False):
+    """The un-flip subcommands' use of the ordinary lifecycle (launch, watch, receipt)."""
+    from unflip_operator import Refused
+    try:
+        if cfg.get('MODE') != 'worker':
+            raise Unknown('MODE_CONFLICT')
+        ec2, s3, monitoring = clients(cfg['REGION'], profile)
+        session = Session(ec2, s3, cfg, monitoring=monitoring)
+    except Unknown as error:
+        if raw:
+            raise
+        return unresolved(error)
+    except Exception as error:
+        if raw:
+            raise
+        return unresolved(sdk_error('CLIENT_SETUP_UNKNOWN', 'CLIENT_SETUP', error))
+    if raw:
+        return fn(session)
+    try:
+        result = fn(session)
+    except Refused:
+        raise
+    except Exception as error:
+        return unresolved(error)
+    return result if isinstance(result, int) else finish(result)
+
+
 def main():
     import argparse
     from pathlib import Path
+    if sys.argv[1:2] == ['unflip-rehearsal']:
+        from unflip_operator import main as unflip_main
+        return unflip_main(sys.argv[2:], session_factory=unflip_session, watch=watch)
     parser = argparse.ArgumentParser(description='Operator probe lifecycle; local closed-receipt validation')
     parser.add_argument('action', choices=('launch', 'status', 'cancel', 'watch', 'release'))
     parser.add_argument('--config', type=Path, required=True)
@@ -1313,6 +1362,7 @@ def main():
             if not args.job or args.run_id or args.attest_volume:
                 raise Unknown('REQUEST_REFUSED')
             request = json.loads(args.job.read_bytes())
+            launch_preflight(cfg, args.profile, args.config.resolve().parent, request)
             # Exactly one SDK attempt and no application retry.
             return finish(session.start_provision(request) if mode == 'provision' else session.start(request))
         if not args.run_id or args.job or args.attest_volume:
