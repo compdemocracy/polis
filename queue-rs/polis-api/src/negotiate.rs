@@ -341,7 +341,7 @@ mod tests {
         assert_eq!(encoding(Some("gzip;q=0, deflate")), Coding::Deflate);
         assert_eq!(encoding(None), Coding::Identity);
     }
-    /// Astra round 4 #1. Four legacy `Accept-Encoding` forms that the resolved
+    /// Four legacy `Accept-Encoding` forms that the resolved
     /// middleware accepts and this module answered `identity` for: leading
     /// whitespace and a literal tab before the quality, `Infinity`, and a NaN
     /// quality that must fall through the `||` chain to the header-order
