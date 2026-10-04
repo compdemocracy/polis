@@ -56,6 +56,13 @@ CHOKEPOINTS: Dict[str, str] = {
     "e2e/cypress/support/voteWire.js": "the e2e wire helper, expectVoteBody (chokepoint 11, PR-D)",
     "client-report/src/util/voteCounts.js": "client-report helper (chokepoint 9, PR-D)",
     "ci/vote_convention/provision.py": "the gate's fixture loader: it writes raw values at the convention under test",
+    # The fixture writers' helpers and the oracle adapter (PR-G): every test, seed
+    # and tool that writes a vote row takes the stored number from one of these.
+    "delphi/tests/vote_fixtures.py": "the Python fixture vote writer (PR-G)",
+    "server/characterization/seed-vote.cjs": "the server fixture vote writer (PR-G)",
+    "server/characterization/pca2_votes.py": "the pca2 draw, read through its sign declaration (PR-G)",
+    "coordinator-rs/ci/fold_declared.py": "the declared-sign adapter of the frozen fold oracle (PR-G)",
+    "ci/vote_convention/test_fixtures_declared.py": "pins the fixture helpers' and the fold adapter's conversions (PR-G)",
     # The lint and its test spell the patterns they look for.
     "ci/vote_convention/sign_lint.py": "this lint (its patterns)",
     "ci/vote_convention/test_gate.py": "this lint's test (its inputs)",

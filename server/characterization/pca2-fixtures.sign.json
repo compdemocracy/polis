@@ -1,0 +1,10 @@
+{
+  "schema": "declared-vote-sign/1",
+  "fixture": "pca2-fixtures.json",
+  "fixture_sha256": "f321936e8405e49505e1d78277fdfda2112208e2690285e08016a383f9031f6a",
+  "storage_agree_value": -1,
+  "vote_field": "the per-cell draw of pca2_votes.py: np.random.RandomState(seed).choice(DRAW, p=DRAW_P) for pid in range(participants) for tid in range(comments)",
+  "row_shape": ["pid", "tid", "vote"],
+  "writer": "server/characterization/seed-pca2.py",
+  "basis": "Generated fixture conversations. Since they were first recorded, seed-pca2.py wrote each draw into votes verbatim, i.e. as a stored value at agree = -1. This companion declares that sign; pca2_votes.py reads every draw through it and seed-pca2.py stores the meaning at the database's convention through delphi/tests/vote_fixtures.py, so the pca2 recordings no longer depend on the storage sign. No fixture byte is rewritten (P-078 1d)."
+}

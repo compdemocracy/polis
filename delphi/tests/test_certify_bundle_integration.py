@@ -35,6 +35,10 @@ from polismath.replay import fixture_config as fc
 from polismath.replay import fixture_extract as fx
 from polismath.replay import fixture_survey as fs
 from tests.conftest import require_polis_postgres
+from tests.vote_fixtures import seed_vote, seed_vote_from_export
+
+#: The stored value of each vote the seeds write, named by meaning.
+STORED = {name: seed_vote(name) for name in ("agree", "disagree", "pass")}
 
 pytestmark = pytest.mark.integration
 
@@ -201,17 +205,17 @@ def _seed(engine):
         conn.execute(sa.text(
             "INSERT INTO votes (zid, pid, tid, vote, created) "
             "SELECT :zid, p, (p + c) % :n_c, "
-            "       CASE (p + c) % 3 WHEN 0 THEN -1 WHEN 1 THEN 1 ELSE 0 END, "
+            "       CASE (p + c) % 3 WHEN 0 THEN :agree WHEN 1 THEN :disagree ELSE :pass END, "
             "       :t + p * 1000 + c "
             "FROM generate_series(0, :n_p - 1) p, generate_series(0, :per - 1) c"),
-            {"zid": zid, "n_p": n_p, "n_c": n_c, "per": per, "t": BASE_MS})
+            {"zid": zid, "n_p": n_p, "n_c": n_c, "per": per, "t": BASE_MS, **STORED})
         if extra_revotes:
             conn.execute(sa.text(
                 "INSERT INTO votes (zid, pid, tid, vote, created) "
-                "SELECT :zid, g % :n_p, g % :n_c, 1, :t + 900000000 + g "
+                "SELECT :zid, g % :n_p, g % :n_c, :disagree, :t + 900000000 + g "
                 "FROM generate_series(0, :n - 1) g"),
                 {"zid": zid, "n_p": n_p, "n_c": n_c, "n": extra_revotes,
-                 "t": BASE_MS})
+                 "t": BASE_MS, **STORED})
 
     def served_math(conn, zid, rows):
         """A published math_main + math_ticks row per math_env — what the
@@ -491,7 +495,8 @@ def test_compat_csv_is_second_resolution_and_derived_from_the_stream(extracted):
         assert int(row["timestamp"]) == event["created"] // 1000
         assert int(row["comment-id"]) == event["tid"]
         assert int(row["voter-id"]) == event["pid"]
-        assert int(row["vote"]) == -event["vote"]  # export negates the storage sign
+        # The export carries agree = +1; the event carries the stored value.
+        assert seed_vote_from_export(row["vote"]) == event["vote"]
 
 
 def test_participant_moderation_flags_are_exported(extracted):

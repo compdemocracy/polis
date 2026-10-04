@@ -14,13 +14,16 @@ OUT for compare.py:
   loader and replayed cut by cut exactly as delphi/tests/test_pca_column_order.py
   does; each cut's ``tids``/``pca`` and the verdict against the recorded
   expectation.
-* ``fold/``: the frozen fold oracle on the raw rows, once as today's callers call
-  it (its own declared sign) and once through its declared-sign companion.
+* ``fold/``: the frozen fold oracle on the stored rows, through its declared-sign
+  adapter (``coordinator-rs/ci/fold_declared.py``), the one way every caller in
+  the repository now calls it (P-078 PR-G). At the oracle's own sign the leg
+  also checks that the adapter is the identity (``fold_identity`` in
+  engine-leg.json).
 * ``db/``: the stored ``votes`` rows; ``vote`` is the one declared-sign field.
 
 Nothing reads the convention from the database yet (that is PR-A); the only
-place this leg knows the convention is the declared-sign companion of the fold,
-which takes it from --convention.
+place this leg knows the convention is the fold adapter's declaration, which
+takes it from --convention.
 """
 from __future__ import annotations
 
@@ -35,6 +38,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 sys.path.insert(0, str(ROOT / "delphi"))
 sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(ROOT / "coordinator-rs/ci"))
 
 import logging  # noqa: E402
 
@@ -147,6 +151,10 @@ def replay_leg(database: str, out: Path, convs) -> dict:
 def fold_and_rows_leg(database: str, out: Path, convs, agree_value: int) -> dict:
     db = psycopg2.connect(dsn(database))
     summary = {}
+    oracle = fold_declared.oracle()
+    # The adapter must be the identity at the oracle's own sign (a control, not
+    # an output: no caller hands the oracle stored rows directly any more).
+    identity = True if agree_value == oracle.RAW_AGREE else None
     with db.cursor(cursor_factory=RealDictCursor) as cur:
         for c in convs:
             cur.execute("SELECT pid, tid, vote, created FROM votes WHERE zid=%s ORDER BY created, pid, tid", (c.zid,))
@@ -154,13 +162,13 @@ def fold_and_rows_leg(database: str, out: Path, convs, agree_value: int) -> dict
             write(out / "db" / f"{c.zid:05d}.votes.json", rows)
             if not rows:
                 continue
-            direct = fold_declared.fold_summary(fold_declared.oracle().fold_votes(rows))
             declared = fold_declared.fold_summary(fold_declared.fold_votes_declared(rows, storage_agree_value=agree_value))
-            write(out / "fold" / f"{c.zid:05d}.direct.json", direct)
             write(out / "fold" / f"{c.zid:05d}.declared.json", declared)
+            if identity is not None and fold_declared.fold_summary(oracle.fold_votes(rows)) != declared:
+                identity = False
             summary[c.zid] = len(rows)
     db.close()
-    return {"conversations": len(summary)}
+    return {"conversations": len(summary), "fold_identity": identity}
 
 
 def main() -> None:
