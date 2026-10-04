@@ -712,7 +712,7 @@ async function handle_GET_nextComment(
     return;
   }
 
-  const pid = req.p.pid || req.p.not_voted_by_pid;
+  const pid = req.p.pid ?? req.p.not_voted_by_pid;
 
   try {
     const next = await getNextComment(
