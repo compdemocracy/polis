@@ -6,7 +6,6 @@
   "scripts": {
     "contract:generate": "ts-node --transpile-only scripts/generate-contracts.ts",
     "contract:check": "ts-node --transpile-only scripts/generate-contracts.ts --check",
-    "prebuild": "npm run contract:generate",
     "build": "tsc",
     "build:watch": "tsc --watch & nodemon --inspect=0.0.0.0:9229 dist/index.js",
     "debug": "SERVER_LOG_LEVEL=debug nodemon --inspect=0.0.0.0:9229 dist/index.js",

@@ -136,6 +136,14 @@ jobs:
         cd server
         npm ci
 
+    - name: Generated contract files match the TypeBox source
+      run: |
+        # Fails when a committed generated file (server, client-participation-alpha,
+        # client-report) differs from what server/src/contracts would generate.
+        # Fix with `npm run contract:generate` in server/ and commit the result.
+        cd server
+        npm run contract:check
+
     - name: Run server integration tests
       run: |
         cd server

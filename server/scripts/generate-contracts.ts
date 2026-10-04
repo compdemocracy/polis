@@ -1,9 +1,10 @@
 // npm run contract:generate  -> write every generated contract file
 // npm run contract:check     -> exit 1 if any committed file differs
 //
-// Outputs whose directory has no package.json at the resolved repository root
-// are skipped: in the server image build (WORKDIR /app, no checkout above it)
-// nothing is written. Nothing is ever written outside the repository root.
+// Generation is explicit: `npm run build` (tsc) never runs it. The generated
+// files are committed; CI runs contract:check (jest-server-test.yml) and the
+// drift unit test. Outputs whose directory has no package.json at the resolved
+// repository root are skipped. Nothing is ever written outside the repository root.
 
 import fs from "fs";
 import path from "path";
