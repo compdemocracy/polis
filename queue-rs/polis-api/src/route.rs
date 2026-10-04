@@ -44,6 +44,8 @@ pub struct App {
     zids: Mutex<Lru<String, i32>>,
     pub served: AtomicU64,
     pub failed: AtomicU64,
+    /// `Config.ddEnv || "prod"`, as the server's request log labels itself.
+    dd_env: String,
 }
 
 impl App {
@@ -59,6 +61,10 @@ impl App {
             zids: Mutex::new(Lru::new(1000)),
             served: AtomicU64::new(0),
             failed: AtomicU64::new(0),
+            dd_env: std::env::var("DD_ENV")
+                .ok()
+                .filter(|v| !v.is_empty())
+                .unwrap_or_else(|| "prod".into()),
         }
     }
 }
@@ -426,7 +432,7 @@ fn strip_spaces(s: &str) -> String {
 
 /// JavaScript `String.prototype.trim`.
 fn js_trim(s: &str) -> &str {
-    s.trim_matches(|c: char| c.is_whitespace() || c == '\u{FEFF}')
+    s.trim_matches(js::is_js_whitespace)
 }
 
 /// `_integerOrUndefined` + `getInt` (utils/parameter.ts).
@@ -525,14 +531,67 @@ fn host(req: &Request) -> &str {
     req.headers.get("host").unwrap_or("undefined")
 }
 
+/// A 502 that nginx turns into the Node server's answer
+/// (`proxy_intercept_errors` with `error_page 502`). Also the answer for a
+/// request path this process does not serve: nginx forwards the raw URI, so
+/// a path nginx normalised to the route (`//`, `%70ca2`) arrives here
+/// unnormalised and goes back to Node, which answers it as it always has.
+pub fn bad_gateway() -> Outgoing {
+    let bytes = b"Bad Gateway\n".to_vec();
+    Outgoing {
+        status: 502,
+        headers: vec![
+            ("Content-Type".into(), "text/plain; charset=utf-8".into()),
+            ("Content-Length".into(), bytes.len().to_string()),
+        ],
+        body: Body::Fixed(bytes),
+        close: false,
+    }
+}
+
 pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
-    let out = serve(&app, &req).await;
+    let started = std::time::Instant::now();
+    let (out, cache) = crate::pca::CACHE_OUTCOME
+        .scope(std::cell::Cell::new("none"), async {
+            let out = serve(&app, &req).await;
+            (out, crate::pca::CACHE_OUTCOME.with(std::cell::Cell::get))
+        })
+        .await;
     if out.status >= 500 {
         app.failed.fetch_add(1, Ordering::Relaxed);
     } else {
         app.served.fetch_add(1, Ordering::Relaxed);
     }
+    access_log(&app, &req, out.status, started.elapsed(), cache);
     out
+}
+
+/// One line per request, in the shape family of the Node server's
+/// `http_request` log (`middleware_http_json_logger`). The path only: no
+/// query string, no headers, nothing a credential could ride in.
+fn access_log(app: &App, req: &Request, status: u16, took: std::time::Duration, cache: &str) {
+    let level = match status {
+        500.. => "error",
+        400.. => "warn",
+        _ => "info",
+    };
+    let mut http = Obj::new();
+    http.set("method", Js::Str(req.method.clone()));
+    http.set("url", Js::Str(req.path().to_string()));
+    http.set("route", Js::Str(PATH.into()));
+    http.set("status_code", Js::Num(f64::from(status)));
+    let mut line = Obj::new();
+    line.set("level", Js::Str(level.into()));
+    line.set("message", Js::Str("http_request".into()));
+    line.set("service", Js::Str("polis-api".into()));
+    line.set("env", Js::Str(app.dd_env.clone()));
+    line.set("http", Js::Obj(http));
+    line.set(
+        "duration_ms",
+        Js::Num((took.as_secs_f64() * 1000.0 * 1000.0).round() / 1000.0),
+    );
+    line.set("cache", Js::Str(cache.into()));
+    println!("{}", js::stringify(&Js::Obj(line)));
 }
 
 async fn serve(app: &App, req: &Request) -> Outgoing {
@@ -593,6 +652,13 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     match pca2(app, req, &body, res).await {
         Ok(out) => out,
+        Err(e) if db::is_unavailable(&e) => {
+            eprintln!(
+                "{{\"event\":\"pca2_database_unavailable\",\"detail\":{:?}}}",
+                format!("{e:#}")
+            );
+            bad_gateway()
+        }
         Err(e) => {
             eprintln!(
                 "{{\"event\":\"pca2_failed\",\"detail\":{:?}}}",
@@ -676,12 +742,9 @@ async fn pca2(app: &App, req: &Request, body: &Js, mut res: Res) -> anyhow::Resu
                         ),
                     );
                 }
-                Err(e) => {
-                    return reject(
-                        res,
-                        parse_failed("conversation_id", cid, &format!("Error: {e}")),
-                    );
-                }
+                // A database failure is not the client's fault: 502, so nginx
+                // asks Node.
+                Err(e) => return Err(e),
             }
         }
     };
@@ -853,6 +916,42 @@ mod tests {
             with_utf8_charset("text/html; charset=UTF-8"),
             "text/html; charset=utf-8"
         );
+    }
+
+    /// With its database unreachable the route answers 502 (nginx then asks
+    /// Node), never the 400 or 500 a lookup failure would otherwise produce.
+    #[tokio::test]
+    async fn an_unreachable_database_is_a_502() {
+        let cfg = Config {
+            listen: String::new(),
+            math_env: "p".into(),
+            cache_size: 300,
+            dev_mode: true,
+            use_network_host: false,
+            production: true,
+            pool: crate::db::Limits {
+                size: 1,
+                acquire_timeout: std::time::Duration::from_millis(500),
+                statement_timeout: std::time::Duration::from_millis(500),
+                max_lifetime: std::time::Duration::from_secs(60),
+            },
+        };
+        let mut pg: postgres::Config = "postgresql://u@127.0.0.1:1/d".parse().unwrap();
+        pg.connect_timeout(std::time::Duration::from_secs(2));
+        let pool = Pool::new(
+            polis_queue_adapter::jobs::transport::Connector::Plain(Box::new(pg)),
+            cfg.pool.clone(),
+        );
+        let app = Arc::new(App::new(&cfg, pool));
+        let mut req = request("GET", &[("host", "h"), ("x-forwarded-proto", "https")]);
+        req.target = format!("{PATH}?conversation_id=abc");
+        let out = handle(app, req).await;
+        assert_eq!(out.status, 502);
+    }
+
+    #[test]
+    fn trimming_uses_javascript_whitespace() {
+        assert_eq!(js_trim("\u{85}x\u{FEFF} "), "\u{85}x");
     }
 
     #[test]

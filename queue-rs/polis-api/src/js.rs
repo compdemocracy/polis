@@ -191,10 +191,17 @@ pub fn number_to_string(n: f64) -> String {
     ryu_js::Buffer::new().format(n).to_string()
 }
 
+/// JavaScript's whitespace (`String.prototype.trim`, `\s`, `Number()`):
+/// Unicode `White_Space` plus U+FEFF, minus U+0085, which Unicode counts as
+/// white space and JavaScript does not.
+pub fn is_js_whitespace(c: char) -> bool {
+    (c.is_whitespace() && c != '\u{85}') || c == '\u{FEFF}'
+}
+
 /// `Number(s)` for a string: whitespace-trimmed decimal, `0x`/`0o`/`0b`
 /// integers, `Infinity`, and `""` as 0; anything else is NaN.
 pub fn string_to_number(s: &str) -> f64 {
-    let t = s.trim_matches(|c: char| c.is_whitespace() || c == '\u{FEFF}');
+    let t = s.trim_matches(is_js_whitespace);
     if t.is_empty() {
         return 0.0;
     }
@@ -624,6 +631,9 @@ mod tests {
         assert_eq!(string_to_number("5."), 5.0);
         assert_eq!(number_to_string(f64::NAN), "NaN");
         assert_eq!(number_to_string(-0.0), "0");
+        // U+0085 is not JavaScript whitespace; U+FEFF and U+2028 are.
+        assert!(string_to_number("\u{85}1").is_nan());
+        assert_eq!(string_to_number("\u{FEFF}1\u{2028}"), 1.0);
     }
 
     #[test]

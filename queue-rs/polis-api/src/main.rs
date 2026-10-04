@@ -51,24 +51,12 @@ async fn health(app: &route::App) -> Outgoing {
     }
 }
 
-fn not_found() -> Outgoing {
-    let bytes = b"Not Found\n".to_vec();
-    Outgoing {
-        status: 404,
-        headers: vec![
-            ("Content-Type".into(), "text/plain; charset=utf-8".into()),
-            ("Content-Length".into(), bytes.len().to_string()),
-        ],
-        body: Body::Fixed(bytes),
-        close: false,
-    }
-}
-
 async fn dispatch(app: Arc<route::App>, req: Request) -> Outgoing {
     match req.path() {
         route::PATH => route::handle(app, req).await,
         "/health" if req.method == "GET" => health(&app).await,
-        _ => not_found(),
+        // Not a path this process serves: nginx gives the request to Node.
+        _ => route::bad_gateway(),
     }
 }
 
@@ -76,7 +64,7 @@ async fn dispatch(app: Arc<route::App>, req: Request) -> Outgoing {
 async fn main() -> Result<()> {
     let cfg = config::Config::from_env()?;
     let connector = config::db_connector()?;
-    let pool = db::Pool::new(connector, cfg.pool_size, cfg.acquire_timeout);
+    let pool = db::Pool::new(connector, cfg.pool.clone());
     let app = Arc::new(route::App::new(&cfg, pool));
     let listener = tokio::net::TcpListener::bind(&cfg.listen)
         .await

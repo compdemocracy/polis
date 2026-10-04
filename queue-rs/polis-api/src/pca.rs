@@ -66,6 +66,20 @@ pub struct Pca {
 
 const TTL_MS: f64 = 3000.0;
 
+tokio::task_local! {
+    /// The first math-cache outcome of the request being served, for the
+    /// access log: "hit", "miss", or "none" when the math was not read.
+    pub static CACHE_OUTCOME: std::cell::Cell<&'static str>;
+}
+
+fn record_cache(outcome: &'static str) {
+    let _ = CACHE_OUTCOME.try_with(|c| {
+        if c.get() == "none" {
+            c.set(outcome);
+        }
+    });
+}
+
 fn lock<T>(m: &Mutex<T>) -> Result<std::sync::MutexGuard<'_, T>> {
     m.lock().map_err(|_| anyhow::anyhow!("cache lock poisoned"))
 }
@@ -95,6 +109,7 @@ impl Pca {
     pub async fn get_pca(&self, zid: i32, math_tick: f64) -> Result<Option<Arc<PcaItem>>> {
         let cached = lock(&self.cache)?.get(&zid);
         if let Some(item) = cached.filter(|c| c.expiration > now_ms()) {
+            record_cache("hit");
             if math_tick == -1.0 {
                 return Ok(Some(item));
             }
@@ -104,6 +119,7 @@ impl Pca {
             }
             return Ok(Some(item));
         }
+        record_cache("miss");
         let env = self.math_env.clone();
         let row = self.db.with(move |c| db::math_main(c, zid, &env)).await?;
         let Some(row) = row else {
@@ -176,17 +192,10 @@ impl Pca {
             return Ok(p.presented);
         }
         let tids = if fill_tids || fill_count || fill_extremity {
-            // Node serves an empty list when this read fails, not an error.
-            match self.db.with(move |c| db::approved_tids(c, zid)).await {
-                Ok(t) => t,
-                Err(e) => {
-                    eprintln!(
-                        "{{\"event\":\"pca2_backfill_tids_failed\",\"zid\":{zid},\"detail\":{:?}}}",
-                        e.to_string()
-                    );
-                    Vec::new()
-                }
-            }
+            // Node serves an empty list when its own read fails. Here a failed
+            // read is a 502, so nginx asks Node, which has its own database
+            // connection, instead of this process guessing.
+            self.db.with(move |c| db::approved_tids(c, zid)).await?
         } else {
             Vec::new()
         };

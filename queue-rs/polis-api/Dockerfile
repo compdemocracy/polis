@@ -17,6 +17,10 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends libssl3t64 ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=build /polis-api /usr/local/bin/polis-api
+# As the server image's prod target: production unless built otherwise, and
+# an env file can still override it at run time, for both processes alike.
+ARG NODE_ENV=production
+ENV NODE_ENV=${NODE_ENV}
 ENV POLIS_API_LISTEN=0.0.0.0:5100
 EXPOSE 5100
 USER 65534:65534

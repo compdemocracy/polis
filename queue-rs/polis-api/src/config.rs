@@ -17,8 +17,7 @@ pub struct Config {
     pub dev_mode: bool,
     pub use_network_host: bool,
     pub production: bool,
-    pub pool_size: usize,
-    pub acquire_timeout: Duration,
+    pub pool: crate::db::Limits,
 }
 
 /// The `boolean` package's `isTrue`, which the Node config uses.
@@ -70,9 +69,11 @@ impl Config {
         if !(1..=64).contains(&pool_size) {
             bail!("POLIS_API_DB_POOL must be 1..=64");
         }
-        let acquire_ms: u64 = match env("POLIS_API_DB_ACQUIRE_TIMEOUT_MS") {
-            Some(v) => v.parse().context("POLIS_API_DB_ACQUIRE_TIMEOUT_MS")?,
-            None => 5000,
+        let millis = |var: &str, default: u64| -> Result<Duration> {
+            Ok(Duration::from_millis(match env(var) {
+                Some(v) => v.parse().with_context(|| var.to_string())?,
+                None => default,
+            }))
         };
         Ok(Self {
             listen: env("POLIS_API_LISTEN").unwrap_or_else(|| "127.0.0.1:5100".into()),
@@ -81,8 +82,14 @@ impl Config {
             dev_mode: is_true(std::env::var("DEV_MODE").ok().as_deref()),
             use_network_host: is_true(std::env::var("USE_NETWORK_HOST").ok().as_deref()),
             production: std::env::var("NODE_ENV").ok().as_deref() == Some("production"),
-            pool_size,
-            acquire_timeout: Duration::from_millis(acquire_ms),
+            pool: crate::db::Limits {
+                size: pool_size,
+                // Short, so a busy or absent database turns into a 502 (and
+                // Node's answer) quickly rather than a slow page.
+                acquire_timeout: millis("POLIS_API_DB_ACQUIRE_TIMEOUT_MS", 2000)?,
+                statement_timeout: millis("POLIS_API_DB_STATEMENT_TIMEOUT_MS", 3000)?,
+                max_lifetime: millis("POLIS_API_DB_MAX_LIFETIME_MS", 300_000)?,
+            },
         })
     }
 }
@@ -94,9 +101,12 @@ impl Config {
 /// on a private container network (the dev and test compose stacks, whose
 /// Postgres has no TLS); it is refused unless the hosts are listed.
 pub fn db_connector() -> Result<Connector> {
+    // Node reads this route through its read pool:
+    // `READ_ONLY_DATABASE_URL || DATABASE_URL` (config.ts readOnlyDatabaseURL).
     let dsn = env("POLIS_API_DATABASE_URL")
+        .or_else(|| env("READ_ONLY_DATABASE_URL"))
         .or_else(|| env("DATABASE_URL"))
-        .context("POLIS_API_DATABASE_URL or DATABASE_URL is required")?;
+        .context("POLIS_API_DATABASE_URL, READ_ONLY_DATABASE_URL or DATABASE_URL is required")?;
     let password_file = env("POLIS_API_DB_PASSWORD_FILE").map(PathBuf::from);
     let name = "polis-api/1";
     let list = |var: &str| -> Vec<String> {

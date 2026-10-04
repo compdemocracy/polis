@@ -60,7 +60,7 @@ struct Priority {
 /// of the first three and rejects the rest outright, so this is spelled out.
 fn parse_float(text: &str) -> f64 {
     // JS StrWhiteSpace, which is Unicode White_Space plus the BOM.
-    let text = text.trim_start_matches(|c: char| c.is_whitespace() || c == '\u{FEFF}');
+    let text = text.trim_start_matches(crate::js::is_js_whitespace);
     let (sign, rest) = match text.strip_prefix('-') {
         Some(rest) => (-1.0, rest),
         None => (1.0, text.strip_prefix('+').unwrap_or(text)),
@@ -122,14 +122,14 @@ fn js_or(first: f64, second: f64, third: f64) -> f64 {
 /// That differs from a `[^\s;]+` reading: `";q=1"` has no such short token, and
 /// the lazy group grows until it swallows the whole string as the encoding name.
 fn parse_encoding(text: &str, i: usize) -> Option<Spec> {
-    let rest = text.trim_start();
+    let rest = text.trim_start_matches(crate::js::is_js_whitespace);
     let mut token_end = None;
     for (offset, c) in rest.char_indices() {
-        if c.is_whitespace() {
+        if crate::js::is_js_whitespace(c) {
             break;
         }
         let end = offset + c.len_utf8();
-        let tail = rest[end..].trim_start();
+        let tail = rest[end..].trim_start_matches(crate::js::is_js_whitespace);
         if tail.is_empty() || tail.starts_with(';') {
             token_end = Some(end);
             break;
@@ -137,11 +137,11 @@ fn parse_encoding(text: &str, i: usize) -> Option<Spec> {
     }
     let token_end = token_end?;
     let encoding = &rest[..token_end];
-    let tail = rest[token_end..].trim_start();
+    let tail = rest[token_end..].trim_start_matches(crate::js::is_js_whitespace);
     let mut q = 1.0;
     if let Some(params) = tail.strip_prefix(';') {
         for param in params.split(';') {
-            let mut parts = param.trim().split('=');
+            let mut parts = param.trim_matches(crate::js::is_js_whitespace).split('=');
             if parts.next() == Some("q") {
                 q = parse_float(parts.next().unwrap_or(""));
                 break;
@@ -170,7 +170,7 @@ fn parse_accept(accept: &str) -> Vec<Spec> {
     let mut has_identity = false;
     let mut min_quality: f64 = 1.0;
     for (i, part) in parts.iter().enumerate() {
-        if let Some(spec) = parse_encoding(part.trim(), i) {
+        if let Some(spec) = parse_encoding(part.trim_matches(crate::js::is_js_whitespace), i) {
             has_identity = has_identity
                 || spec.encoding.eq_ignore_ascii_case("identity")
                 || spec.encoding == "*";

@@ -43,11 +43,17 @@ impl Cors {
         let dev_mode = is_true(std::env::var("DEV_MODE").ok());
         // Config.getServerHostname()
         let hostname = if dev_mode {
-            std::env::var("API_DEV_HOSTNAME").unwrap_or("localhost:5000".into())
+            std::env::var("API_DEV_HOSTNAME")
+                .ok()
+                .filter(|h| !h.is_empty())
+                .unwrap_or("localhost:5000".into())
         } else if let Some(domain) = &domain_override {
             domain.clone()
         } else {
-            std::env::var("API_PROD_HOSTNAME").unwrap_or("pol.is".into())
+            std::env::var("API_PROD_HOSTNAME")
+                .ok()
+                .filter(|h| !h.is_empty())
+                .unwrap_or("pol.is".into())
         };
         let mut whitelist = vec![hostname];
         for i in 1..=8 {
@@ -75,7 +81,12 @@ impl Cors {
     fn protocol(headers: &Headers) -> &str {
         headers
             .get("x-forwarded-proto")
-            .map(|v| v.split(',').next().unwrap_or(v).trim())
+            .map(|v| {
+                v.split(',')
+                    .next()
+                    .unwrap_or(v)
+                    .trim_matches(crate::js::is_js_whitespace)
+            })
             .filter(|v| !v.is_empty())
             .unwrap_or("http")
     }

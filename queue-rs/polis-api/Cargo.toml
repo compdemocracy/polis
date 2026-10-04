@@ -13,6 +13,9 @@ default = []
 # characterization harness pins Node's Date.now(). A release build without this
 # feature has no way to fake the clock.
 fixture-clock = []
+# Tests of the three queries against a real Postgres. With the feature on, a
+# missing POLIS_API_TEST_DATABASE_URL fails the run.
+db-tests = []
 
 [dependencies]
 anyhow = "1"
