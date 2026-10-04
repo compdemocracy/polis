@@ -1,0 +1,5 @@
+# Same compiler pin as coordinator-rs; run cargo inside this directory.
+[toolchain]
+channel = "1.98.1"
+components = ["clippy", "rustfmt"]
+profile = "minimal"
