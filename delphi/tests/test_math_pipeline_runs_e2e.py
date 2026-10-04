@@ -168,8 +168,12 @@ def test_run_math_pipeline_e2e(mock_connect, dynamodb_resource, mock_comments_da
     # Define the behavior of the mock cursor
     def mock_execute(sql, params=None):
         sql = sql.strip()
+        # 0. The vote-convention probe: a database before P-078 PR-A.
+        if "to_regprocedure" in sql:
+            sql_results['last'] = 'convention_probe'
+            mock_cursor.description = [("present",)]
         # 1. Mock COUNT(*) query
-        if "SELECT COUNT(*) FROM votes" in sql:
+        elif "SELECT COUNT(*) FROM votes" in sql:
             sql_results['last'] = 'count'
         
         # 2. Mock batched SELECT from votes
@@ -210,6 +214,8 @@ def test_run_math_pipeline_e2e(mock_connect, dynamodb_resource, mock_comments_da
         return None
 
     def mock_fetchall():
+        if sql_results.get('last') == 'convention_probe':
+            return [(False,)]
         if sql_results.get('last') == 'batch':
             return sql_results.get('batch_data', [])
         if sql_results.get('last') == 'mod_ptpts':

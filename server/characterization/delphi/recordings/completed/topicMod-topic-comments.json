@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "completed/topicMod-topic-comments",
+ "state": "completed",
+ "route": "GET /api/v3/topicMod/topics/:topicKey/comments",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/topicMod/topics/00000069-0000-4000-8000-000000000001%230%230/comments?conversation_id=8p2z105",
+  "auth": "none"
+ },
+ "response": {
+  "status": 503,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "195"
+   ],
+   [
+    "etag",
+    "W/\"c3-QKpsTm4hWyPT+/h116sPVQ\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"error\":\"polis_err_topicMod_comments_store_missing\",\"message\":\"polis_err_topicMod_comments_store_missing\",\"status\":503,\"hint\":\"Per-topic comment listing is not available for this conversation.\"}",
+  "bodySha256": "c96007977bbd1e61b9ec6a682d3a3c0a6caa8eb3de3168197276a4e3998c7e26"
+ }
+}

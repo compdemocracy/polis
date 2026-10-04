@@ -1,0 +1,11 @@
+{
+  "schema": "declared-vote-sign/1",
+  "fixture": "fixtures/postgres.sql",
+  "fixture_sha256": "f608fc17c3cabf2f177aeb4b2558490b336d66d4680526e0551898edcdf20542",
+  "storage_agree_value": -1,
+  "stored_vote_tables": ["pg:votes"],
+  "stored_vote_field": "vote",
+  "not_votes": "comments.mod (the last column of the comments rows: 1 accepted, 0 unmoderated, -1 moderated out) is a moderation status, not a vote.",
+  "writer": "server/characterization/delphi/generate.py",
+  "basis": "Generated fixture conversations. generate.py has always written each vote row's draw verbatim as a stored value at agree = -1, and the 272 Delphi route recordings were made from that database. This companion declares that sign; generate.py names each draw by meaning and takes the stored number from delphi/tests/vote_fixtures.py at this declared convention, and generate.py --check refuses a fixture changed after its sign was declared. It sits outside fixtures/ so the recordings' fixture digest is unchanged; no fixture byte is rewritten (P-078 1d)."
+}

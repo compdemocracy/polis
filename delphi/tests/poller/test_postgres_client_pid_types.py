@@ -53,7 +53,10 @@ from tests.vote_fixtures import AGREE, DISAGREE, seed_vote
 
 def _client_with_canned_rows(rows: list[dict]) -> PostgresClient:
     client = PostgresClient(PostgresConfig(url="postgresql://ignored/db", math_env="t3"))
-    client.query = lambda sql, params=None: rows
+    # A database without the P-078 vote_convention row answers the presence
+    # probe "absent"; every other query gets the canned vote rows.
+    client.query = lambda sql, params=None: (
+        [{"present": False}] if "to_regprocedure" in sql else rows)
     return client
 
 

@@ -62,6 +62,7 @@ WRITERS = {
     "coordinator-rs/tools/d07/run.py": "vote_fixtures",
     "coordinator-rs/tools/d07/startup.py": "vote_fixtures",
     "server/characterization/seed-pca2.py": "vote_fixtures",
+    "server/characterization/delphi/generate.py": "vote_fixtures",
     "server/postgres/migrations/down/test_000022.sh": "vote_fixtures",
     "ci/vote_convention/fixtures.py": "vote_fixtures",
     # Server seeds and tests: server/characterization/seed-vote.cjs
@@ -77,6 +78,7 @@ COMPANIONS = {
     "server/characterization/artifacts/baseline.json.gz": "server/characterization/artifacts/baseline.sign.json",
     "coordinator-rs/ci/replay-pins.json": "coordinator-rs/ci/replay-pins.sign.json",
     "coordinator-rs/evidence/polarity-public-fixture.json": "coordinator-rs/ci/polarity-public-fixture.sign.json",
+    "server/characterization/delphi/fixtures/postgres.sql": "server/characterization/delphi/postgres.sql.sign.json",
 }
 
 

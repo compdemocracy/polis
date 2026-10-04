@@ -2,7 +2,7 @@
  "schema": "vote-sign-allowlist/1",
  "about": "Vote-sign literals present on origin/edge when the lint landed (P-078 PR-F). Seeded from the tree and the 350-row vote-sign audit of 2026-10-03 (snapshot 344c557ad), matched by path and by line mapped back to that snapshot. 'audit' names the row; 'file rows' means the file is audited but this line is not itemised; 'not in the audit' means the audit did not list the file. Delete an entry when its site moves into a chokepoint. Never add one to make a new literal pass: take the sign from the chokepoint of that layer.",
  "window": 3,
- "sites": 585,
+ "sites": 591,
  "entries": [
   {
    "path": "ci/private_cert/images/g12.py",
@@ -2203,6 +2203,13 @@
    "audit": "not in the audit's 350 rows (delphi/tests/test_in_conv_greedy_carry.py); pre-existing at 344c557ad"
   },
   {
+   "path": "delphi/tests/test_job_child_protocol.py",
+   "text": "lambda m: m.update(duration_ms=-1),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a negative duration_ms the manifest validator must reject, not a vote value (vote_hwm two lines up is the manifest's input field)"
+  },
+  {
    "path": "delphi/tests/test_legacy_blob_shape.py",
    "text": "# driver 2026-07-22 s4 (votes +1/+1/-1 on tid 0; same pinned start).",
    "count": 1,
@@ -3141,6 +3148,20 @@
    "audit": "audit 2026-10-03 §2 row 51: server/__tests__/integration/treevite.test.ts:853,864,910"
   },
   {
+   "path": "server/__tests__/integration/vote-path-recordings.test.ts",
+   "text": "const EXPORT_VOTE = { agree: \"1\", disagree: \"-1\", pass: \"0\" } as const;",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit: the votes-bulk import CSV and participant-votes.csv cells are in the export convention (agree = +1); the server tests have no export-convention helper, so this one line states it (PR #2949)"
+  },
+  {
+   "path": "server/__tests__/integration/vote-path-recordings.test.ts",
+   "text": "const NEW_PID = \"pid=-1\";",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit: participationInit's pid=-1 sentinel (a participant id, not a vote) (PR #2949)"
+  },
+  {
    "path": "server/__tests__/integration/vote.test.ts",
    "text": "// Submit a vote (-1 = AGREE)",
    "count": 1,
@@ -3330,6 +3351,13 @@
    "audit": "not in the 2026-10-03 audit: #2931's assertion that the import path's raw values reach the insert (pre-existing file)"
   },
   {
+   "path": "server/__tests__/unit/opsHistory.test.ts",
+   "text": "[{ bucket: current, votes: \"-1\", voters: 0, conversations: 0 }],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: #2924's ops history test feeds a negative vote COUNT (a tally, not a vote value) to check the shaper refuses it; no sign is restated (on edge before the lint landed)"
+  },
+  {
    "path": "server/__tests__/unit/pcaMathTickZeroHttp.test.ts",
    "text": "// failJson 500. -1 matches /api/v3/votes/famous and",
    "count": 1,
@@ -3366,24 +3394,10 @@
   },
   {
    "path": "server/app.ts",
-   "text": "need(\"vote\", getIntInRange(-1, 1), assignToP),",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 7: server/app.ts:1238"
-  },
-  {
-   "path": "server/app.ts",
    "text": "want(\"math_tick\", getInt, assignToP, -1),",
    "count": 1,
    "kind": "minus-one",
    "audit": "audit 2026-10-03 §2 file rows 6, 7 (server/app.ts); this line is not itemised there"
-  },
-  {
-   "path": "server/app.ts",
-   "text": "want(\"vote\", getIntInRange(-1, 1), assignToP),",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 6: server/app.ts:799"
   },
   {
    "path": "server/characterization/corrections.test.cjs",
@@ -3391,6 +3405,132 @@
    "count": 1,
    "kind": "sql-equals-sign",
    "audit": "audit 2026-10-03 §2 file rows 63 (server/characterization/corrections.test.cjs); this line is not itemised there"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(101,0,1,'Generated statement 101.7','en',1699740808000,1699740808000,-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a comments.mod value (-1 = moderated out) in the Delphi route fixture, not a vote"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(101,1,1,-1,0,1699827301000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(102,0,1,'Generated statement 102.7','en',1699740808000,1699740808000,-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a comments.mod value (-1 = moderated out) in the Delphi route fixture, not a vote"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(102,1,1,-1,0,1699827301000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(103,0,1,'Generated statement 103.7','en',1699740808000,1699740808000,-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a comments.mod value (-1 = moderated out) in the Delphi route fixture, not a vote"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(103,1,1,-1,0,1699827301000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(104,0,1,'Generated statement 104.7','en',1699740808000,1699740808000,-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a comments.mod value (-1 = moderated out) in the Delphi route fixture, not a vote"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(104,1,1,-1,0,1699827301000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(105,0,1,'Generated statement 105.7','en',1699740808000,1699740808000,-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a comments.mod value (-1 = moderated out) in the Delphi route fixture, not a vote"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(105,1,1,-1,0,1699827301000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(106,0,1,'Generated statement 106.7','en',1699740808000,1699740808000,-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a comments.mod value (-1 = moderated out) in the Delphi route fixture, not a vote"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(106,1,1,-1,0,1699827301000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(106,6,6,-1,0,1699827806000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(107,0,1,'Generated statement 107.9','en',1699740810000,1699740810000,-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a comments.mod value (-1 = moderated out) in the Delphi route fixture, not a vote"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(107,1,1,-1,0,1699827301000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(108,0,1,'Generated statement 108.7','en',1699740808000,1699740808000,-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a comments.mod value (-1 = moderated out) in the Delphi route fixture, not a vote"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(108,1,1,-1,0,1699827301000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(108,6,6,-1,0,1699827806000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
   },
   {
    "path": "server/characterization/generate.cjs",
@@ -3513,41 +3653,6 @@
   },
   {
    "path": "server/src/report.ts",
-   "text": "// have to flip vote from -1 to 1 and vice versa",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 17: server/src/report.ts:486-498"
-  },
-  {
-   "path": "server/src/report.ts",
-   "text": "// note that -1 means agree and 1 means disagree",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 14: server/src/report.ts:330-340"
-  },
-  {
-   "path": "server/src/report.ts",
-   "text": "currentParticipantVotes.set(row.tid, -row.vote);",
-   "count": 2,
-   "kind": "negated-vote",
-   "audit": "audit 2026-10-03 §2 row 17: server/src/report.ts:486-498"
-  },
-  {
-   "path": "server/src/report.ts",
-   "text": "else if (row.vote === 1) comment.disagrees += 1;",
-   "count": 1,
-   "kind": "equals-one",
-   "audit": "audit 2026-10-03 §2 row 14: server/src/report.ts:330-340"
-  },
-  {
-   "path": "server/src/report.ts",
-   "text": "else if (vote === -1) disagrees += 1;",
-   "count": 1,
-   "kind": "equals-minus-one",
-   "audit": "audit 2026-10-03 §2 row 16: server/src/report.ts:449-451,462-467"
-  },
-  {
-   "path": "server/src/report.ts",
    "text": "if (currentParticipantId != -1) {",
    "count": 2,
    "kind": "equals-minus-one",
@@ -3555,45 +3660,10 @@
   },
   {
    "path": "server/src/report.ts",
-   "text": "if (row.vote === -1) comment.agrees += 1;",
-   "count": 1,
-   "kind": "equals-minus-one",
-   "audit": "audit 2026-10-03 §2 row 14: server/src/report.ts:330-340"
-  },
-  {
-   "path": "server/src/report.ts",
-   "text": "if (vote === 1) agrees += 1;",
-   "count": 1,
-   "kind": "equals-one",
-   "audit": "audit 2026-10-03 §2 row 16: server/src/report.ts:449-451,462-467"
-  },
-  {
-   "path": "server/src/report.ts",
    "text": "let currentParticipantId = -1;",
    "count": 2,
    "kind": "minus-one",
    "audit": "audit 2026-10-03 §2 file rows 13, 14, 15, 16, 17, 18 (server/src/report.ts); this line is not itemised there"
-  },
-  {
-   "path": "server/src/report.ts",
-   "text": "vote: (row) => String(-row.vote), // have to flip -1 to 1 and vice versa",
-   "count": 1,
-   "kind": "negated-vote",
-   "audit": "audit 2026-10-03 §2 row 15: server/src/report.ts:403"
-  },
-  {
-   "path": "server/src/routes/collectiveStatement.ts",
-   "text": "COALESCE(SUM(CASE WHEN v.vote = -1 THEN 1 ELSE 0 END), 0) as agrees,",
-   "count": 1,
-   "kind": "sql-equals-sign",
-   "audit": "audit 2026-10-03 §2 row 22: server/src/routes/collectiveStatement.ts:582-592"
-  },
-  {
-   "path": "server/src/routes/collectiveStatement.ts",
-   "text": "COALESCE(SUM(CASE WHEN v.vote = 1 THEN 1 ELSE 0 END), 0) as disagrees,",
-   "count": 1,
-   "kind": "sql-equals-sign",
-   "audit": "audit 2026-10-03 §2 row 22: server/src/routes/collectiveStatement.ts:582-592"
   },
   {
    "path": "server/src/routes/comments.ts",
@@ -3622,27 +3692,6 @@
    "count": 1,
    "kind": "minus-one",
    "audit": "not in the audit's 350 rows (server/src/utils/pca.ts); pre-existing at 344c557ad"
-  },
-  {
-   "path": "server/src/workers/import-processor.ts",
-   "text": "if (voteValue === 1) {",
-   "count": 1,
-   "kind": "equals-one",
-   "audit": "audit 2026-10-03 §2 row 38: server/src/workers/import-processor.ts:218-224"
-  },
-  {
-   "path": "server/src/workers/import-processor.ts",
-   "text": "voteValue = -1;",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 38: server/src/workers/import-processor.ts:218-224"
-  },
-  {
-   "path": "server/src/workers/import-processor.ts",
-   "text": "} else if (voteValue === -1) {",
-   "count": 1,
-   "kind": "equals-minus-one",
-   "audit": "audit 2026-10-03 §2 row 38: server/src/workers/import-processor.ts:218-224"
   },
   {
    "path": "server/types/test-helpers.d.ts",

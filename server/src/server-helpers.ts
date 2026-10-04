@@ -10,7 +10,7 @@ import { getMathBundle } from "./utils/mathBundle";
 import { getSocialParticipants } from "./participant";
 import { getUserInfoForUid2 } from "./user";
 import { getZinvite, getZinvites } from "./utils/zinvite";
-import { ifDefinedFirstElseSecond, polisTypes } from "./utils/common";
+import { ifDefinedFirstElseSecond } from "./utils/common";
 import { MPromise } from "./utils/metered";
 import { PcaCacheItem } from "./utils/pca";
 import { sendTextEmail } from "./email/senders";
@@ -18,6 +18,7 @@ import { UserInfo } from "./d";
 import Config from "./config";
 import logger from "./utils/logger";
 import pg from "./db/pg-query";
+import { storageToSemantic } from "./votes/convention";
 
 // TODO consider "p2a24a2dadadu15" format
 const votesForZidPidCache = new LruCache({
@@ -606,12 +607,12 @@ function aggregateVotesToPidVotesObj(votes: any[]): { [key: string]: string } {
     // set up a vector for the participant, if not there already
     vectors[v.pid] = vectors[v.pid] || createEmptyVoteVector(greatestTid);
     // assign a vote value at that location
-    const vote = v.vote;
-    if (polisTypes.reactions.push === vote) {
+    const vote = storageToSemantic(v.vote, { onInvalid: "skip" });
+    if (vote === "disagree") {
       vectors[v.pid][v.tid] = "d";
-    } else if (polisTypes.reactions.pull === vote) {
+    } else if (vote === "agree") {
       vectors[v.pid][v.tid] = "a";
-    } else if (polisTypes.reactions.pass === vote) {
+    } else if (vote === "pass") {
       vectors[v.pid][v.tid] = "p";
     } else {
       logger.error("unknown vote value");

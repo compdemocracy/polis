@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "zero_vote/delphi",
+ "state": "zero_vote",
+ "route": "GET /api/v3/delphi",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi?report_id=r2p2zero109",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "1236"
+   ],
+   [
+    "etag",
+    "W/\"4d4-sRqqc1/N8sv+nTa9QHO7Mg\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"LLM topics retrieved successfully\",\"report_id\":\"r2p2zero109\",\"runs\":{\"generated-model-alpha_2023-11-14\":{\"model_name\":\"generated-model-alpha\",\"created_date\":\"2023-11-14T19:20:01.000000\",\"topics_by_layer\":{\"0\":{\"0\":{\"topic_name\":\"Generated topic 0.0 by alpha\",\"model_name\":\"generated-model-alpha\",\"created_at\":\"2023-11-14T19:20:01.000000\",\"topic_key\":\"0000006d-0000-4000-8000-000000000001#0#0\"},\"1\":{\"topic_name\":\"Generated topic 0.1 by alpha\",\"model_name\":\"generated-model-alpha\",\"created_at\":\"2023-11-14T19:20:01.000000\",\"topic_key\":\"0000006d-0000-4000-8000-000000000001#0#1\"},\"2\":{\"topic_name\":\"Generated topic 0.2 by alpha\",\"model_name\":\"generated-model-alpha\",\"created_at\":\"2023-11-14T19:20:01.000000\",\"topic_key\":\"0000006d-0000-4000-8000-000000000001#0#2\"}},\"1\":{\"0\":{\"topic_name\":\"Generated topic 1.0 by alpha\",\"model_name\":\"generated-model-alpha\",\"created_at\":\"2023-11-14T19:20:01.000000\",\"topic_key\":\"0000006d-0000-4000-8000-000000000001#1#0\"},\"1\":{\"topic_name\":\"Generated topic 1.1 by alpha\",\"model_name\":\"generated-model-alpha\",\"created_at\":\"2023-11-14T19:20:01.000000\",\"topic_key\":\"0000006d-0000-4000-8000-000000000001#1#1\"}}},\"item_count\":5,\"job_uuid\":\"0000006d-0000-4000-8000-000000000001\"}}}",
+  "bodySha256": "7a22d2e78afc01d69fd51eab3a4bb0cd6d502786d19fc5d1c98560b68eb2596c"
+ }
+}

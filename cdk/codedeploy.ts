@@ -10,7 +10,9 @@ export default (
   asgMathWorker: cdk.aws_autoscaling.AutoScalingGroup,
   asgDelphiSmall: cdk.aws_autoscaling.AutoScalingGroup,
   asgDelphiLarge: cdk.aws_autoscaling.AutoScalingGroup,
-  codeDeployRole: cdk.aws_iam.Role
+  codeDeployRole: cdk.aws_iam.Role,
+  // P-073: the delphi-large box's own role fetches revisions too.
+  delphiLargeRole?: cdk.aws_iam.IRole
 ) => {
   const application = new codedeploy.ServerApplication(self, 'CodeDeployApplication', {
     applicationName: 'PolisApplication',
@@ -25,6 +27,9 @@ export default (
     blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
   });
   deploymentBucket.grantRead(instanceRole);
+  if (delphiLargeRole) {
+    deploymentBucket.grantRead(delphiLargeRole);
+  }
 
   // Deployment Group
   const deploymentGroup = new codedeploy.ServerDeploymentGroup(self, 'DeploymentGroup', {

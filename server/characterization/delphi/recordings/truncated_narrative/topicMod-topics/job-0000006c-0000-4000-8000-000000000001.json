@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "truncated_narrative/topicMod-topics/job-0000006c-0000-4000-8000-000000000001",
+ "state": "truncated_narrative",
+ "route": "GET /api/v3/topicMod/topics",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/topicMod/topics?conversation_id=8p2z108&job_id=0000006c-0000-4000-8000-000000000001",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "1625"
+   ],
+   [
+    "etag",
+    "W/\"659-t5rZLzGpYHrl0dKFdFG4gQ\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"Topics retrieved successfully\",\"topics_by_layer\":{\"0\":[{\"topic_name\":\"Generated topic 0.0 by alpha\",\"model_name\":\"generated-model-alpha\",\"created_at\":\"2023-11-14T19:20:01.000000\",\"topic_key\":\"0000006c-0000-4000-8000-000000000001#0#0\",\"layer_id\":0,\"cluster_id\":0,\"moderation\":{\"status\":\"pending\",\"moderator\":null,\"moderated_at\":null,\"comment_count\":0}},{\"topic_name\":\"Generated topic 0.1 by alpha\",\"model_name\":\"generated-model-alpha\",\"created_at\":\"2023-11-14T19:20:01.000000\",\"topic_key\":\"0000006c-0000-4000-8000-000000000001#0#1\",\"layer_id\":0,\"cluster_id\":1,\"moderation\":{\"status\":\"pending\",\"moderator\":null,\"moderated_at\":null,\"comment_count\":0}},{\"topic_name\":\"Generated topic 0.2 by alpha\",\"model_name\":\"generated-model-alpha\",\"created_at\":\"2023-11-14T19:20:01.000000\",\"topic_key\":\"0000006c-0000-4000-8000-000000000001#0#2\",\"layer_id\":0,\"cluster_id\":2,\"moderation\":{\"status\":\"pending\",\"moderator\":null,\"moderated_at\":null,\"comment_count\":0}}],\"1\":[{\"topic_name\":\"Generated topic 1.0 by alpha\",\"model_name\":\"generated-model-alpha\",\"created_at\":\"2023-11-14T19:20:01.000000\",\"topic_key\":\"0000006c-0000-4000-8000-000000000001#1#0\",\"layer_id\":1,\"cluster_id\":0,\"moderation\":{\"status\":\"pending\",\"moderator\":null,\"moderated_at\":null,\"comment_count\":0}},{\"topic_name\":\"Generated topic 1.1 by alpha\",\"model_name\":\"generated-model-alpha\",\"created_at\":\"2023-11-14T19:20:01.000000\",\"topic_key\":\"0000006c-0000-4000-8000-000000000001#1#1\",\"layer_id\":1,\"cluster_id\":1,\"moderation\":{\"status\":\"pending\",\"moderator\":null,\"moderated_at\":null,\"comment_count\":0}}]},\"total_topics\":5,\"moderation_available\":false}",
+  "bodySha256": "80d4331755b3d36a26049f184f476de78222793bfe6926ec65d6e6ae4aafbbe9"
+ }
+}

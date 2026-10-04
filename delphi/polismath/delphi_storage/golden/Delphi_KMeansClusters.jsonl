@@ -1,0 +1,3 @@
+{"codec":"delphi-storage-codec/1","family":"Delphi_KMeansClusters","key":["zid_tick","group_id"]}
+{"center":{"L":[{"N":"0.5"},{"N":"-0.25"}]},"group_id":{"N":"0"},"member_count":{"N":"3"},"members":{"L":[{"N":"0"},{"N":"1"},{"N":"2"}]},"zid":{"S":"9001"},"zid_tick":{"S":"9001:7"}}
+{"center":{"L":[{"N":"1"},{"N":"-0.25"}]},"group_id":{"N":"1"},"member_count":{"N":"3"},"members":{"L":[{"N":"3"},{"N":"4"},{"N":"5"}]},"zid":{"S":"9001"},"zid_tick":{"S":"9001:7"}}
