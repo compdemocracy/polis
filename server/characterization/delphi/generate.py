@@ -36,6 +36,14 @@ _spec = importlib.util.spec_from_file_location(
 codec = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(codec)
 
+# The stored vote numbers come from the fixture vote writer, at the sign that
+# postgres.sql.sign.json declares for fixtures/postgres.sql (P-078 PR-G).
+_vf_spec = importlib.util.spec_from_file_location("vote_fixtures", ROOT / "delphi/tests/vote_fixtures.py")
+vote_fixtures = importlib.util.module_from_spec(_vf_spec)
+_vf_spec.loader.exec_module(vote_fixtures)
+SIGN_DECLARATION = HERE / "postgres.sql.sign.json"
+STORED_AT = json.loads(SIGN_DECLARATION.read_text())["storage_agree_value"]
+
 CLOCK_MS = 1700000000000  # 2023-11-14T22:13:20Z, the harness's pinned instant
 OWNER, ADMIN, OTHER = 1, 2, 3  # uids: conversation owner, global admin, unrelated user
 PARTICIPANT_UIDS = list(range(10, 20))
@@ -250,7 +258,8 @@ class Fixture:
     # -------------------------------------------------------------- states
     def build(self):
         self.users()
-        votes = lambda p, t: [-1, 1, 0, None][(p * 3 + t) % 4]  # noqa: E731
+        draw = [vote_fixtures.seed_vote(name, STORED_AT) for name in ("agree", "disagree", "pass")] + [None]
+        votes = lambda p, t: draw[(p * 3 + t) % 4]  # noqa: E731
         for zid, state in STATES:
             n_comments = {107: 10, 109: 6}.get(zid, 8)
             m = self.conversation(zid, state, n_comments, 6, (lambda p, t: None) if state == "zero_vote" else votes)
@@ -439,6 +448,7 @@ def main(argv):
         if bad or extra:
             print("fixtures differ from a fresh generation:", bad, "unexpected:", extra, file=sys.stderr)
             return 1
+        vote_fixtures.declaration(SIGN_DECLARATION)  # refuses a fixture changed after its sign was declared
         print(f"fixtures match ({len(files)} files)")
         return 0
     for name, data in files.items():

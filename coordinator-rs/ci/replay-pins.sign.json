@@ -1,0 +1,9 @@
+{
+  "schema": "declared-vote-sign/1",
+  "fixture": "replay-pins.json",
+  "fixture_sha256": "27b67f84c39683409f4f6c474f5992074d95cc7c23d812cd643ff93e8a6b93c2",
+  "storage_agree_value": -1,
+  "vote_field": "none stored: every pinned digest was recorded against a database storing agree = -1 (each polarity witness's a/positive run; semantic-tie-key.json declared.storage_agree_value)",
+  "paired_set": "replay-pins.agree-plus-one.json",
+  "basis": "The platform replay pins are history and stay byte-identical. This companion declares the convention they were recorded under; replay_pins_convention.py generates the agree = +1 set from the same semantic data (P-078 1d)."
+}

@@ -1,3 +1,5 @@
+import type { Vote } from '../api/votes'
+
 export interface StatementData {
   tid: number | string
   txt: string
@@ -16,7 +18,7 @@ export interface StatementData {
 
 export interface VoteData {
   tid: number | string
-  vote: number
+  vote: Vote
 }
 
 export interface VoteResponse {

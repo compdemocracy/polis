@@ -1,0 +1,21 @@
+# Throwaway Postgres for the two-convention gate (P-078 PR-F).
+# The server migrations initialise the template database; the gate clones it once
+# per storage convention. Nothing here talks to a cloud service.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: gate
+      POSTGRES_DB: gate_template
+    ports:
+      - "127.0.0.1:${VOTE_GATE_PG_PORT:-5470}:5432"
+    volumes:
+      - ../../server/postgres/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d gate_template"]  # TCP: up only after the init scripts
+      interval: 2s
+      timeout: 3s
+      retries: 60
+    tmpfs:
+      - /var/lib/postgresql/data
