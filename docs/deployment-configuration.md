@@ -58,6 +58,8 @@ The P065 static service census has **153 entries across 15 families**. Each entr
 
 Not in the P065 census (added later): **Simple Analytics**. The ops "Where visitors come from" page reads the Simple Analytics Stats API (`https://simpleanalytics.com/<site>.json`) from the server with `SIMPLE_ANALYTICS_API_KEY` (secret, sent only as the `Api-Key` header) for the site `SIMPLE_ANALYTICS_HOSTNAME` (default `pol.is`), only when `OPS_ENABLED=true` and a staff member opens that page; with the key unset nothing is requested ([simpleAnalytics.ts](../server/src/ops/simpleAnalytics.ts)). The browser-side script tags in client-admin, client-participation and client-report take no configuration.
 
+Also added later: **the ops system pages' AWS reads** ([cloudPages.ts](../server/src/ops/cloudPages.ts), [awsReads.ts](../server/src/ops/awsReads.ts)). Only with `OPS_ENABLED=true` and `OPS_DATA_SOURCE=aws`, and only while a staff member has a page open, the server calls CloudWatch Logs `FilterLogEvents`, CloudWatch `GetMetricData`, `ListMetrics` and `DescribeAlarms`, Auto Scaling `DescribeAutoScalingGroups`, CodeDeploy `ListDeployments` and `BatchGetDeployments`, STS `GetCallerIdentity` and (with `OPS_COST_EXPLORER=1`) Cost Explorer `GetCostAndUsage`, with the EC2 instance role from the instance metadata service and never the configured access key. Read-only; a missing permission shows as "not permitted" on the panel.
+
 ### Complete P065 crosswalk
 
 The last column lists direct named environment reads in the same source file, if any. It is an index, not a dataflow claim: a file may have unrelated reads, and imports/arguments/SDKs can supply configuration even when the column is empty. The family table above explains shared configuration routes.
