@@ -2,7 +2,7 @@
  "schema": "vote-sign-allowlist/1",
  "about": "Vote-sign literals present on origin/edge when the lint landed (P-078 PR-F). Seeded from the tree and the 350-row vote-sign audit of 2026-10-03 (snapshot 344c557ad), matched by path and by line mapped back to that snapshot. 'audit' names the row; 'file rows' means the file is audited but this line is not itemised; 'not in the audit' means the audit did not list the file. Delete an entry when its site moves into a chokepoint. Never add one to make a new literal pass: take the sign from the chokepoint of that layer.",
  "window": 3,
- "sites": 585,
+ "sites": 586,
  "entries": [
   {
    "path": "ci/private_cert/images/g12.py",
@@ -3328,6 +3328,13 @@
    "count": 1,
    "kind": "minus-one",
    "audit": "not in the 2026-10-03 audit: #2931's assertion that the import path's raw values reach the insert (pre-existing file)"
+  },
+  {
+   "path": "server/__tests__/unit/opsHistory.test.ts",
+   "text": "[{ bucket: current, votes: \"-1\", voters: 0, conversations: 0 }],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: #2924's ops history test feeds a negative vote COUNT (a tally, not a vote value) to check the shaper refuses it; no sign is restated (on edge before the lint landed)"
   },
   {
    "path": "server/__tests__/unit/pcaMathTickZeroHttp.test.ts",
