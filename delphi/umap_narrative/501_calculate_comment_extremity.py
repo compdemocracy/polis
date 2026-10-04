@@ -24,6 +24,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import GroupDataProcessor for extremity calculation
 from polismath_commentgraph.utils.storage import PostgresClient
+from polismath.utils.cli_flags import parse_bool_flag
 from polismath_commentgraph.utils.group_data import GroupDataProcessor
 
 # Configure logging
@@ -189,8 +190,8 @@ def main():
     parser.add_argument('--zid', type=int, required=True, help='Conversation ID')
     parser.add_argument('--force', action='store_true', help='Force recalculation of values')
     parser.add_argument('--verbose', action='store_true', help='Show detailed output')
-    parser.add_argument('--include_moderation', type=bool, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
-    parser.add_argument('--exclude_comment_selections', type=bool, default=True, help='Whether to exclude comments with selection=-1 in report_comment_selections table.')
+    parser.add_argument('--include_moderation', type=parse_bool_flag, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
+    parser.add_argument('--exclude_comment_selections', type=parse_bool_flag, default=True, help='Whether to exclude comments with selection=-1 in report_comment_selections table.')
     args = parser.parse_args()
     
     # Set log level based on verbosity

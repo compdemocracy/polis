@@ -1,4 +1,5 @@
 import { fetchComments, fetchNextComment, submitComment } from '../comments'
+import { WIRE_AGREE } from '../votes'
 import PolisNet from '../../lib/net'
 import * as langModule from '../../lib/lang'
 
@@ -173,13 +174,17 @@ describe('comments API', () => {
         txt: 'My comment',
         pid: 456,
         is_seed: true,
-        vote: 1,
+        vote: 'agree' as const,
         agid: 789
       }
 
       await submitComment(payload)
 
-      expect(mockedPolisNet.polisPost).toHaveBeenCalledWith('/comments', payload)
+      // The author's vote goes on the wire as its number.
+      expect(mockedPolisNet.polisPost).toHaveBeenCalledWith('/comments', {
+        ...payload,
+        vote: WIRE_AGREE
+      })
     })
   })
 })

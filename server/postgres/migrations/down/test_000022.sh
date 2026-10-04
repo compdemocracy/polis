@@ -53,6 +53,9 @@ CONTAINER="pg000022-test-$$"
 PW="test"
 
 [ -f "$POSTGRES_PY" ] || { echo "FAIL: $POSTGRES_PY not found"; exit 1; }
+# The stored value of each vote the fixture rows carry, from the one fixture
+# vote writer (delphi/tests/vote_fixtures.py); this file never spells a sign.
+read -r V_AGREE V_PASS V_DISAGREE < <(python3 "$REPO_ROOT/delphi/tests/vote_fixtures.py" agree pass disagree)
 
 PORT=""
 for p in $(seq 56050 56059); do
@@ -180,10 +183,11 @@ echo "== (d) populated tables without the indexes: 000022 refuses =="
 createdb t_d; apply_upto t_d 21
 # session_replication_role=replica skips FK triggers and the votes rule, so the
 # fixture needs no users/participants; tid is given explicitly (no tid_auto).
-psql_su -d t_d >/dev/null <<'SQL'
+psql_su -d t_d -v agree="$V_AGREE" -v pass="$V_PASS" -v disagree="$V_DISAGREE" >/dev/null <<'SQL'
 SET session_replication_role = replica;
 INSERT INTO votes (zid, pid, tid, vote, created)
-  SELECT 1 + g % 300, g % 5000, g % 400, (g % 3) - 1, 1700000000000 + g * 10
+  SELECT 1 + g % 300, g % 5000, g % 400,
+         (ARRAY[:agree, :pass, :disagree]::smallint[])[1 + g % 3], 1700000000000 + g * 10
   FROM generate_series(1, 300000) g;
 INSERT INTO comments (tid, zid, pid, uid, txt, created, modified, mod)
   SELECT g, 1 + g % 500, g % 5000, 1, 'fixture comment ' || g,

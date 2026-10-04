@@ -1,6 +1,7 @@
 "use strict";
 const { fixtures, actors } = require("./comments-cases.cjs");
 const { hash } = require("./core.cjs");
+const { databaseConvention, seedVote } = require("./seed-vote.cjs");
 const CLOCK = 1700000000000;
 // Public-fixture INPUT rows only. Response bodies are always produced by the real app.
 function rows(f) {
@@ -67,6 +68,10 @@ function rows(f) {
   return out;
 }
 async function seedComments(pool, tokens) {
+  // Votes are named by meaning; the stored numbers come from the fixture vote
+  // writer at the database's own convention.
+  const agreeValue = await databaseConvention(pool);
+  const stored = (vote) => seedVote(vote, agreeValue);
   const evidence = [];
   for (const a of actors) {
     if (a.uid !== 4)
@@ -143,8 +148,15 @@ async function seedComments(pool, tokens) {
       [f.zid, JSON.stringify(comments)]
     );
     await pool.query(
-      `INSERT INTO votes(zid,pid,tid,vote,created) SELECT zid,$2,tid,CASE tid%3 WHEN 0 THEN -1 WHEN 1 THEN 0 ELSE 1 END,$3 FROM comments WHERE zid=$1`,
-      [f.zid, f.participantPid, CLOCK]
+      `INSERT INTO votes(zid,pid,tid,vote,created) SELECT zid,$2,tid,CASE tid%3 WHEN 0 THEN $4::smallint WHEN 1 THEN $5::smallint ELSE $6::smallint END,$3 FROM comments WHERE zid=$1`,
+      [
+        f.zid,
+        f.participantPid,
+        CLOCK,
+        stored("agree"),
+        stored("pass"),
+        stored("disagree"),
+      ]
     );
     const actual = (
       await pool.query(

@@ -1,0 +1,9 @@
+{
+  "schema": "declared-vote-sign/1",
+  "fixture": "near_tie_votes.json",
+  "fixture_sha256": "8163bdf360ea59cc028a0ec9787ccadafd48cc63f6bcb7acee2188f4f297b33b",
+  "storage_agree_value": -1,
+  "vote_field": "votes[*][2]",
+  "row_shape": ["pid", "tid", "vote", "created"],
+  "basis": "Generated public fixture written in the raw storage sign of its time (agree = -1). ci/private_cert/public_near_ties.py feeds it through the same raw-stream path as revote_column_order.json. This companion declares the sign so a loader converts through polismath.utils.vote_convention instead of assuming it; the fixture bytes are not rewritten (P-078 1d)."
+}

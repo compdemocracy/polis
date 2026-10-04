@@ -27,6 +27,7 @@ import psycopg2
 import pytest
 
 from tests.conftest import require_polis_postgres
+from tests.vote_fixtures import AGREE, DISAGREE, seed_vote
 
 pytestmark = pytest.mark.integration
 
@@ -48,16 +49,18 @@ def _load_generator():
 SOURCE_ZID = 990101
 FAKE_ZID = 990102
 
-# (pid, tid) -> list of vote values, one row per revote in chronological order.
+# (pid, tid) -> list of votes (by meaning), one row per revote in chronological
+# order; each is stored through tests.vote_fixtures.seed_vote.
 # Two keys have 3 revotes, two have 2, two have 1: 3+2+1+2+1+3 = 12 source rows,
 # 6 distinct (pid,tid) keys.
+A, D = AGREE, DISAGREE
 _REVOTES = {
-    (0, 0): [-1, 1, -1],
-    (0, 1): [1, -1],
-    (1, 0): [-1],
-    (1, 1): [1, 1],
-    (2, 0): [-1],
-    (2, 1): [1, -1, 1],
+    (0, 0): [A, D, A],
+    (0, 1): [D, A],
+    (1, 0): [A],
+    (1, 1): [D, D],
+    (2, 0): [A],
+    (2, 1): [D, A, D],
 }
 
 
@@ -96,7 +99,7 @@ def _seed_source(url):
                         cur.execute(
                             "INSERT INTO votes (zid, pid, tid, vote, created) "
                             "VALUES (%s, %s, %s, %s, %s)",
-                            (SOURCE_ZID, pid, tid, votes[k], created),
+                            (SOURCE_ZID, pid, tid, seed_vote(votes[k]), created),
                         )
                         n_rows += 1
     finally:

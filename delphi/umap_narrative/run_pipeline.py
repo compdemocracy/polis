@@ -9,6 +9,7 @@ EVōC for clustering, and generates interactive visualizations with topic labeli
 import json
 import logging
 import os
+import sys
 import time
 import traceback
 import uuid  # For generating job_id
@@ -23,6 +24,7 @@ from polismath_commentgraph.utils.converter import DataConverter
 
 # Import from local modules
 from polismath_commentgraph.utils.storage import DynamoDBStorage, PostgresClient
+from polismath.utils.cli_flags import parse_bool_flag
 from sentence_transformers import SentenceTransformer
 from umap_narrative.topic_naming import (
     generate_cluster_topic_labels,
@@ -1299,13 +1301,13 @@ def main():
     )
     parser.add_argument(
         "--include_moderation",
-        type=bool,
+        type=parse_bool_flag,
         default=False,
         help="Whether or not to include moderated comments in reports. If false, moderated comments will appear.",
     )
     parser.add_argument(
         "--exclude_comment_selections",
-        type=bool,
+        type=parse_bool_flag,
         default=True,
         help="Whether to exclude comments with selection=-1 in report_comment_selections table.",
     )
@@ -1386,14 +1388,19 @@ def main():
             name_topics=name_topics,
         )
     else:
-        # Process with real data from PostgreSQL
-        process_conversation(
+        # Process with real data from PostgreSQL. process_conversation returns
+        # False when it could not fetch the conversation; that is a failed
+        # stage, and the exit code must say so (run_delphi.py reads it).
+        ok = process_conversation(
             args.zid,
             export_dynamo=not args.no_dynamo,
             name_topics=name_topics,
             include_moderation=args.include_moderation,
             exclude_comment_selections=args.exclude_comment_selections,
         )
+        if not ok:
+            logger.error(f"Processing conversation {args.zid} failed.")
+            sys.exit(1)
 
 
 if __name__ == "__main__":
