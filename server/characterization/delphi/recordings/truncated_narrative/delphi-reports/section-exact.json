@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "truncated_narrative/delphi-reports/section-exact",
+ "state": "truncated_narrative",
+ "route": "GET /api/v3/delphi/reports",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/reports?report_id=r2p2zero108&section=0000006c-0000-4000-8000-000000000001_0_0",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "997"
+   ],
+   [
+    "etag",
+    "W/\"3e5-glSCY874PwnM5LNoM6Xcaw\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"Reports retrieved successfully\",\"request_report_id\":\"r2p2zero108\",\"queried_gsi_report_id\":\"r2p2zero108\",\"reports\":{\"0000006c-0000-4000-8000-000000000001_0_0\":{\"section\":\"0000006c-0000-4000-8000-000000000001_0_0\",\"model\":\"generated-model-beta\",\"timestamp\":\"2023-11-14T19:52:00.000001+00:00\",\"report_data\":{\"paragraphs\":[],\"id\":\"generated_map_form\"},\"job_id\":\"batch_check_r2p2zero108_1699990101_1081\",\"metadata\":null}},\"current_job_id\":\"batch_check_r2p2zero108_1699990101_1081\",\"available_runs\":[{\"job_id\":\"batch_check_r2p2zero108_1699990101_1081\",\"latest_timestamp\":\"2023-11-14T19:52:00.000001+00:00\",\"model\":\"generated-model-alpha\",\"sectionCount\":9,\"isCurrent\":true},{\"job_id\":\"legacy-generated-job\",\"latest_timestamp\":\"2023-11-12T08:00:01.000000+00:00\",\"model\":\"unknown\",\"sectionCount\":1,\"isCurrent\":false},{\"job_id\":\"unknown_job_2023-11-12\",\"latest_timestamp\":\"2023-11-12T08:00:00.000000+00:00\",\"model\":\"generated-model-alpha\",\"sectionCount\":1,\"isCurrent\":false}]}",
+  "bodySha256": "69ad5321853363052ffc580a2c1695ba9dd2fcc5852a6e6fd90250927a55ebe4"
+ }
+}

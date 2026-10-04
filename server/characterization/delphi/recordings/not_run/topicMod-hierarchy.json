@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "not_run/topicMod-hierarchy",
+ "state": "not_run",
+ "route": "GET /api/v3/topicMod/hierarchy",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/topicMod/hierarchy?conversation_id=8p2z101",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "73"
+   ],
+   [
+    "etag",
+    "W/\"49-LCH+B0G24fnFVW9JF9pDMg\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"No hierarchy data found\",\"hierarchy\":null}",
+  "bodySha256": "74d4287a2b9c7525892a765b30c7c6d80acc1bc9269388ea6869b70e450849ae"
+ }
+}

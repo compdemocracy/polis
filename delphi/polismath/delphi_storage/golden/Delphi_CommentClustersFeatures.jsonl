@@ -1,0 +1,2 @@
+{"codec":"delphi-storage-codec/1","family":"Delphi_CommentClustersFeatures","key":["conversation_id","cluster_key"]}
+{"cluster_id":{"N":"0"},"cluster_key":{"S":"layer0_0"},"conversation_id":{"S":"9001"},"layer_id":{"N":"0"},"sample_comments":{"L":[{"S":"generated"}]},"size":{"N":"2"},"top_tfidf_scores":{"L":[{"N":"0.5"}]},"top_words":{"L":[{"S":"alpha"}]}}

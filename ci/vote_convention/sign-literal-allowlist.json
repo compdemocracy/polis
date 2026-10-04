@@ -2,7 +2,7 @@
  "schema": "vote-sign-allowlist/1",
  "about": "Vote-sign literals present on origin/edge when the lint landed (P-078 PR-F). Seeded from the tree and the 350-row vote-sign audit of 2026-10-03 (snapshot 344c557ad), matched by path and by line mapped back to that snapshot. 'audit' names the row; 'file rows' means the file is audited but this line is not itemised; 'not in the audit' means the audit did not list the file. Delete an entry when its site moves into a chokepoint. Never add one to make a new literal pass: take the sign from the chokepoint of that layer.",
  "window": 3,
- "sites": 572,
+ "sites": 590,
  "entries": [
   {
    "path": "ci/private_cert/images/g12.py",
@@ -3398,6 +3398,132 @@
    "count": 1,
    "kind": "sql-equals-sign",
    "audit": "audit 2026-10-03 §2 file rows 63 (server/characterization/corrections.test.cjs); this line is not itemised there"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(101,0,1,'Generated statement 101.7','en',1699740808000,1699740808000,-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a comments.mod value (-1 = moderated out) in the Delphi route fixture, not a vote"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(101,1,1,-1,0,1699827301000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(102,0,1,'Generated statement 102.7','en',1699740808000,1699740808000,-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a comments.mod value (-1 = moderated out) in the Delphi route fixture, not a vote"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(102,1,1,-1,0,1699827301000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(103,0,1,'Generated statement 103.7','en',1699740808000,1699740808000,-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a comments.mod value (-1 = moderated out) in the Delphi route fixture, not a vote"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(103,1,1,-1,0,1699827301000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(104,0,1,'Generated statement 104.7','en',1699740808000,1699740808000,-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a comments.mod value (-1 = moderated out) in the Delphi route fixture, not a vote"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(104,1,1,-1,0,1699827301000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(105,0,1,'Generated statement 105.7','en',1699740808000,1699740808000,-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a comments.mod value (-1 = moderated out) in the Delphi route fixture, not a vote"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(105,1,1,-1,0,1699827301000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(106,0,1,'Generated statement 106.7','en',1699740808000,1699740808000,-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a comments.mod value (-1 = moderated out) in the Delphi route fixture, not a vote"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(106,1,1,-1,0,1699827301000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(106,6,6,-1,0,1699827806000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(107,0,1,'Generated statement 107.9','en',1699740810000,1699740810000,-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a comments.mod value (-1 = moderated out) in the Delphi route fixture, not a vote"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(107,1,1,-1,0,1699827301000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(108,0,1,'Generated statement 108.7','en',1699740808000,1699740808000,-1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a comments.mod value (-1 = moderated out) in the Delphi route fixture, not a vote"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(108,1,1,-1,0,1699827301000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
+  },
+  {
+   "path": "server/characterization/delphi/fixtures/postgres.sql",
+   "text": "(108,6,6,-1,0,1699827806000),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a recorded vote row of the Delphi route fixture, stored at agree = -1 as server/characterization/delphi/postgres.sql.sign.json declares; generate.py writes it through delphi/tests/vote_fixtures.py and the recorded bytes are not rewritten"
   },
   {
    "path": "server/characterization/generate.cjs",
