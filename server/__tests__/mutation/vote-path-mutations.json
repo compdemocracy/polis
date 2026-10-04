@@ -18,6 +18,8 @@
         "I/after-votes-bulk-route/db/votes_latest_unique",
         "I2/reportExport/participant-votes.csv",
         "I2/reportExport/votes.csv",
+        "I3/after-import/db/votes",
+        "I3/after-import/db/votes_latest_unique",
         "R/db/votes",
         "R/db/votes_latest_unique",
         "R/reportExport/participant-votes.csv",
@@ -322,7 +324,9 @@
         "I2/after-import/db/votes",
         "I2/after-import/db/votes_latest_unique",
         "I2/reportExport/participant-votes.csv",
-        "I2/reportExport/votes.csv"
+        "I2/reportExport/votes.csv",
+        "I3/after-import/db/votes",
+        "I3/after-import/db/votes_latest_unique"
       ]
     },
     {
