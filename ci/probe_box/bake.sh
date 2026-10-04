@@ -21,7 +21,7 @@ if len(raw) != ca['bytes'] or hashlib.sha256(raw).hexdigest() != ca['sha256']:
 PYCA
 install -d -m 0755 /opt/polis-probe
 install -m 0444 "$PROBE_RDS_CA" /opt/polis-probe/rds-ca.pem
-for file in boot_report.py worker.py contracts.py receipt.py roles_census.py roles_queries.py light_shadow.py light_shadow_queries.py backfill_verify.py backfill_verify_queries.py replica.py dns.py provision.py provision_login.py; do install -m 0444 "$(dirname "$0")/$file" "/opt/polis-probe/$file"; done
+for file in boot_report.py worker.py contracts.py receipt.py roles_census.py roles_queries.py light_shadow.py light_shadow_queries.py backfill_verify.py backfill_verify_queries.py unflip_rehearsal.py replica.py dns.py provision.py provision_login.py; do install -m 0444 "$(dirname "$0")/$file" "/opt/polis-probe/$file"; done
 # Resolver ownership (offline bake).
 # AL2023 links resolv.conf to resolved's DHCP-managed uplink file. Writing
 # through that link lasts only until renewal. Stop its writer before unlinking;

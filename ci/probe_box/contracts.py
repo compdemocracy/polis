@@ -23,7 +23,7 @@ class ImageCommand(TypedDict):
 
 class Job(TypedDict):
     schema: Literal["polis-probe-job/1", "polis-probe-job/2"]
-    kind: NotRequired[Literal["roles-census", "light-shadow-compare", "backfill-verify"]]
+    kind: NotRequired[Literal["roles-census", "light-shadow-compare", "backfill-verify", "unflip-rehearsal"]]
     run_id: str
     producer: ImageCommand
     verifier: ImageCommand
@@ -56,10 +56,10 @@ def validate_job(value: object) -> Job:
     census = type(value) is dict and value.get("schema") == "polis-probe-job/2"
     if census:
         # Job/2 kinds share the three-image shape; the light-shadow
-        # comparison and the backfill verification carry a closed operator
-        # run-spec (no ids, no SQL).
+        # comparison, the backfill verification and the un-flip rehearsal
+        # carry a closed operator run-spec (no ids, no SQL).
         fields = {"schema","kind","run_id","reader","producer","verifier","max_seconds"}
-        if value.get("kind") in ("light-shadow-compare", "backfill-verify"):
+        if value.get("kind") in ("light-shadow-compare", "backfill-verify", "unflip-rehearsal"):
             fields = fields | {"run_spec"}
         elif value.get("kind") != "roles-census":
             raise BoundaryError("JOB_SCHEMA")
@@ -119,6 +119,12 @@ def validate_job(value: object) -> Job:
                 result["run_spec"] = validate_verify_spec(value["run_spec"])
             except (ValueError, TypeError):
                 raise BoundaryError("RUN_SPEC") from None
+        elif value["kind"] == "unflip-rehearsal":
+            from unflip_rehearsal import validate_run_spec as validate_unflip_spec
+            try:
+                result["run_spec"] = validate_unflip_spec(value["run_spec"])
+            except (ValueError, TypeError):
+                raise BoundaryError("RUN_SPEC") from None
     return result
 
 
@@ -134,6 +140,12 @@ def refuse_placeholder(job: Job) -> Job:
         # The template's floor cutoff; the operator states the real one.
         from backfill_verify import TEMPLATE_RUN_SPEC
         if spec["cutoff_ms"] == TEMPLATE_RUN_SPEC["cutoff_ms"]:
+            raise BoundaryError("PLACEHOLDER_RUN_SPEC")
+    elif spec is not None and job.get("kind") == "unflip-rehearsal":
+        # All-zero digests or the floor snapshot clock: the operator's restore
+        # step has not filled the template.
+        from unflip_rehearsal import placeholder
+        if placeholder(spec):
             raise BoundaryError("PLACEHOLDER_RUN_SPEC")
     elif spec is not None and (set(spec["engine_commit"]) == {"0"} or spec["engine_image"] == "sha256:" + "0" * 64):
         raise BoundaryError("PLACEHOLDER_RUN_SPEC")
