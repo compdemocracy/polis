@@ -50,7 +50,7 @@ def file_digest(path):
 # stays byte-identical for every kind admitted before backfill-verify: their
 # archives recorded its digest, and re-admission compares against the file.
 # A new kind gets its own launcher file rather than editing that one.
-LAUNCHERS = {'backfill-verify': 'launcher_verify.py'}
+LAUNCHERS = {'backfill-verify': 'launcher_verify.py', 'vote-census': 'launcher_vote_census.py'}
 
 
 def launcher_source(recipe):
@@ -85,7 +85,7 @@ def validate_recipe(recipe):
     kind = recipe.get('kind') if census else None
     if census:
         fields.add('kind')
-        if kind not in ('roles-census', 'light-shadow-compare', 'backfill-verify'):
+        if kind not in ('roles-census', 'light-shadow-compare', 'backfill-verify', 'vote-census'):
             raise ValueError('IMAGE_RECIPE_KIND')
     if (type(recipe) is not dict or set(recipe) != fields
             or recipe['schema'] != ('polis-private-image-recipe/2' if census else 'polis-private-image-recipe/1')
@@ -128,6 +128,18 @@ def validate_recipe(recipe):
         if any(p.startswith('math/') or (recipe['role'] == 'reader' and p.startswith('delphi/'))
                for p in files):
             raise ValueError('SHADOW_SOURCE_CLOSURE')
+    elif kind == 'vote-census':
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'probe_box'))
+        from vote_census import POLICY_SHA as VOTE_POLICY_SHA, SQL_SHA256
+        expected = {'ci/probe_box/' + n + '.py' for n in ('vote_census', 'receipt', 'contracts')}
+        expected.add('ci/private_cert/images/vote_census_' + recipe['role'] + '.py')
+        if recipe['role'] == 'reader':
+            expected.add('ci/probe_box/vote_census.sql')
+        if (recipe['entrypoint'] != 'ci/private_cert/images/vote_census_' + recipe['role'] + '.py'
+                or recipe['policySha256'] != VOTE_POLICY_SHA or set(files) != expected
+                or (recipe['role'] == 'reader' and files['ci/probe_box/vote_census.sql'] != SQL_SHA256)):
+            raise ValueError('VOTE_CENSUS_SOURCE_CLOSURE')
     elif kind == 'backfill-verify':
         if recipe['entrypoint'] != 'ci/private_cert/images/backfill_verify_' + recipe['role'] + '.py':
             raise ValueError('VERIFY_ENTRYPOINT')
