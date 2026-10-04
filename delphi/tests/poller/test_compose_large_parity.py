@@ -46,6 +46,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.vote_fixtures import AGREE, DISAGREE, seed_vote
+
 pytestmark = pytest.mark.integration
 
 SMALL, LARGE = "math-python", "math-python-large"
@@ -222,11 +224,11 @@ def seed(conn, zid, participants, comments, created_ms):
             "SELECT t, %s, 0, 100000, 'c' || t, 0, false, %s, %s FROM generate_series(0, %s - 1) t",
       (zid, created_ms, created_ms, comments))
     q(conn, "INSERT INTO votes (zid, pid, tid, vote, created) "
-            "SELECT %s, p, t, CASE WHEN (p %% 2 = 0) = (t %% 2 = 0) THEN -1 ELSE 1 END, "
+            "SELECT %s, p, t, CASE WHEN (p %% 2 = 0) = (t %% 2 = 0) THEN %s ELSE %s END, "
             "       %s + p * %s + t "
             "FROM generate_series(0, %s - 1) p, generate_series(0, %s - 1) t "
             "WHERE (p + t) %% 3 <> 0",
-      (zid, created_ms, comments, participants, comments))
+      (zid, seed_vote(AGREE), seed_vote(DISAGREE), created_ms, comments, participants, comments))
     q(conn, "SET session_replication_role = DEFAULT")
     return q(conn, "SELECT max(created) FROM votes WHERE zid = %s", (zid,))[0][0]
 
