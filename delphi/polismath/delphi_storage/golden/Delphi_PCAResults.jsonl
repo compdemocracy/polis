@@ -1,0 +1,2 @@
+{"codec":"delphi-storage-codec/1","family":"Delphi_PCAResults","key":["zid","math_tick"]}
+{"comment_count":{"N":"6"},"consensus_comments":{"M":{"agree":{"L":[{"M":{"p-success":{"N":"0.9"},"tid":{"N":"1"}}}]},"disagree":{"L":[]}}},"math_tick":{"N":"7"},"participant_count":{"N":"12"},"pca":{"M":{"center":{"L":[{"N":"0.25"},{"N":"-0.125"},{"N":"0"}]},"components":{"L":[{"L":[{"N":"0.6"},{"N":"-0.8"}]},{"L":[{"N":"0.8"},{"N":"0.6"}]}]}}},"timestamp":{"N":"1700000000000"},"zid":{"S":"9001"}}

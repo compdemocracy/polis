@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "completed/collectiveStatement/statement-1",
+ "state": "completed",
+ "route": "GET /api/v3/collectiveStatement",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/collectiveStatement?statement_id=105%2300000069-0000-4000-8000-000000000001%230%231%2300000069-0000-4000-8000-00000000c002",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "580"
+   ],
+   [
+    "etag",
+    "W/\"244-CLPnrVhJww4wcvljaoxNFA\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"statement\":{\"statement_data\":\"{\\\"paragraphs\\\":[{\\\"id\\\":\\\"s1\\\",\\\"title\\\":\\\"Generated statement 2\\\",\\\"sentences\\\":[{\\\"clauses\\\":[{\\\"text\\\":\\\"Generated.\\\",\\\"citations\\\":[0]}]}]}]}\",\"topic_key\":\"00000069-0000-4000-8000-000000000001#0#1\",\"zid\":\"105\",\"comments_data\":\"[{\\\"comment_id\\\":0,\\\"comment_text\\\":\\\"Generated statement 105.0\\\",\\\"total_votes\\\":3}]\",\"topic_name\":\"Generated topic 0.1\",\"created_at\":\"2023-11-14T20:20:00.000Z\",\"zid_topic_jobid\":\"105#00000069-0000-4000-8000-000000000001#0#1#00000069-0000-4000-8000-00000000c002\",\"model\":\"generated-model-alpha\"}}",
+  "bodySha256": "da090ff8cd615b96b88571015b67642055a10060c6b1932fb25f37a43d4f8eb5"
+ }
+}

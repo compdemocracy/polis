@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "boundary/collectiveStatement-unknown-statement",
+ "state": "boundary",
+ "route": "GET /api/v3/collectiveStatement",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/collectiveStatement?statement_id=generated-unknown",
+  "auth": "none"
+ },
+ "response": {
+  "status": 404,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "50"
+   ],
+   [
+    "etag",
+    "W/\"32-p0GKlH4qMFUcxfCBsEHQGw\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"error\",\"message\":\"Statement not found\"}",
+  "bodySha256": "c4d9ef45a1bdcdc67d157fabf84bcc73eaf6d572db80fb398e897cca5d016a8a"
+ }
+}

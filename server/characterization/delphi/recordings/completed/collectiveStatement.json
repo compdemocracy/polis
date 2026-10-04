@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "completed/collectiveStatement",
+ "state": "completed",
+ "route": "GET /api/v3/collectiveStatement",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/collectiveStatement?report_id=r2p2zero105",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "1077"
+   ],
+   [
+    "etag",
+    "W/\"435-ZGemhu6oH4N//HWqkggQWw\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"statements\":[{\"statement_data\":{\"paragraphs\":[{\"id\":\"s1\",\"title\":\"Generated statement 2\",\"sentences\":[{\"clauses\":[{\"text\":\"Generated.\",\"citations\":[0]}]}]}]},\"topic_key\":\"00000069-0000-4000-8000-000000000001#0#1\",\"zid\":\"105\",\"comments_data\":[{\"comment_id\":0,\"comment_text\":\"Generated statement 105.0\",\"total_votes\":3}],\"topic_name\":\"Generated topic 0.1\",\"created_at\":\"2023-11-14T20:20:00.000Z\",\"zid_topic_jobid\":\"105#00000069-0000-4000-8000-000000000001#0#1#00000069-0000-4000-8000-00000000c002\",\"model\":\"generated-model-alpha\"},{\"statement_data\":{\"paragraphs\":[{\"id\":\"s1\",\"title\":\"Generated statement 3\",\"sentences\":[{\"clauses\":[{\"text\":\"Generated.\",\"citations\":[0]}]}]}]},\"topic_key\":\"00000069-0000-4000-8000-000000000001#1#0\",\"zid\":\"105\",\"comments_data\":[{\"comment_id\":0,\"comment_text\":\"Generated statement 105.0\",\"total_votes\":3}],\"topic_name\":\"Generated topic 1.0\",\"created_at\":\"2023-11-14T20:15:00.000Z\",\"zid_topic_jobid\":\"105#00000069-0000-4000-8000-000000000001#1#0#00000069-0000-4000-8000-00000000c003\",\"model\":\"generated-model-alpha\"}],\"count\":2}",
+  "bodySha256": "aeb48470b387d6ad1b6041ac41f65ca58ad61f8c038f08d0d32070e093d7f67e"
+ }
+}

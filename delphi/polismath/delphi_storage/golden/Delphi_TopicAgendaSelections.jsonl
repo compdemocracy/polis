@@ -1,0 +1,2 @@
+{"codec":"delphi-storage-codec/1","family":"Delphi_TopicAgendaSelections","key":["conversation_id","participant_id"]}
+{"conversation_id":{"S":"9001"},"participant_id":{"S":"3"},"selections":{"L":[{"M":{"cluster_id":{"N":"1"},"layer_id":{"N":"0"}}}]}}

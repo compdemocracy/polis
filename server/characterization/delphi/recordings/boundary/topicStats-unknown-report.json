@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "boundary/topicStats-unknown-report",
+ "state": "boundary",
+ "route": "GET /api/v3/topicStats",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/topicStats?report_id=r2p2zerounknown",
+  "auth": "none"
+ },
+ "response": {
+  "status": 404,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "102"
+   ],
+   [
+    "etag",
+    "W/\"66-mbBw1Kf7WJuFJFvK0jCVPQ\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"error\",\"message\":\"Could not find conversation for report_id\",\"report_id\":\"r2p2zerounknown\"}",
+  "bodySha256": "195b4a08cbf37337e5d26d13d5ea7468d8bfbd669fd3084b6cdbc10a7167590d"
+ }
+}

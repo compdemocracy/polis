@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "rerun_after_votes/delphi-logs/0000006b-0000-4000-8000-000000000002",
+ "state": "rerun_after_votes",
+ "route": "GET /api/v3/delphi/logs",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/logs?job_id=0000006b-0000-4000-8000-000000000002",
+  "auth": "owner"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "273"
+   ],
+   [
+    "etag",
+    "W/\"111-MF9GkdL22HzFG3krvoe4Zg\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "[{\"timestamp\":1699988460000,\"message\":\"[DELPHI JOB 0000006b-0000-4000-8000-000000000002] INFO: Starting FULL_PIPELINE\"},{\"timestamp\":1699990200000,\"message\":\"[DELPHI JOB 0000006b-0000-4000-8000-000000000002] INFO: [stdout] Results stored in DynamoDB for conversation 107\"}]",
+  "bodySha256": "733ff2cf49c520594e338ffd56bf3e908c01a23c1f681ae39fd2d0a8489a89cf"
+ }
+}

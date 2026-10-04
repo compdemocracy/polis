@@ -1,0 +1,3 @@
+{"codec":"delphi-storage-codec/1","family":"Delphi_CommentExtremity","key":["conversation_id","comment_id"]}
+{"calculation_method":{"S":"pca_based"},"calculation_timestamp":{"S":"2023-11-14T20:05:00"},"comment_id":{"S":"0"},"component_values":{"M":{"pc1":{"N":"0.25"}}},"conversation_id":{"S":"9001"},"extremity_value":{"N":"0.5"}}
+{"calculation_method":{"S":"pca_based"},"calculation_timestamp":{"S":"2023-11-14T20:05:00"},"comment_id":{"S":"1"},"component_values":{"M":{"pc1":{"N":"0.25"}}},"conversation_id":{"S":"9001"},"extremity_value":{"N":"1.5"}}

@@ -1,0 +1,2 @@
+{"codec":"delphi-storage-codec/1","family":"Delphi_JobActiveGuard","key":["guard_key"]}
+{"config_hash":{"S":"generated-config-hash"},"conversation_id":{"S":"102"},"created_at":{"S":"2023-11-14T22:00:00.000Z"},"guard_key":{"S":"scope#FULL_PIPELINE#102#r2p2zero102"},"job_id":{"S":"00000066-0000-4000-8000-000000000001"},"job_type":{"S":"FULL_PIPELINE"},"report_id":{"S":"r2p2zero102"},"updated_at":{"S":"2023-11-14T22:00:00.000Z"},"version":{"N":"1"}}

@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "completed/nextComment/anonymous",
+ "state": "completed",
+ "route": "GET /api/v3/nextComment",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/nextComment?conversation_id=8p2z105",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "231"
+   ],
+   [
+    "etag",
+    "W/\"e7-ntr+aQIAyjhRmb2f0XVlWg\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"txt\":\"Generated statement 105.5\",\"tid\":5,\"created\":\"1699740806000\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":\"en\",\"pid\":0,\"original_id\":null,\"randomN\":5.270419610198587,\"remaining\":7,\"total\":7,\"translations\":[]}",
+  "bodySha256": "5d37ba0678e0a43f28c4051f4fd4997b2df3b113b986cb09ff6dbac2ba8d0359"
+ }
+}
