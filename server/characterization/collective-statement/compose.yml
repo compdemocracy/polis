@@ -4,7 +4,10 @@
 # by a local stub; CI starts the same two pieces
 # (.github/workflows/collective-statement-recordings.yml).
 #
-#   export COMPOSE_PROJECT_NAME=csrec CSREC_PG_PORT=5481 CSREC_DYNAMO_PORT=8481
+# The ports are fixed: the harness refuses any other (safety.cjs), so it can
+# never be pointed at a developer's dev stores.
+#
+#   export COMPOSE_PROJECT_NAME=csrec
 #   docker compose -f server/characterization/collective-statement/compose.yml up -d --wait
 #   (cd server && CSREC_PG_ADMIN_URL=postgres://postgres:generatedlocal@127.0.0.1:5481/postgres \
 #      DYNAMODB_ENDPOINT=http://127.0.0.1:8481 node characterization/collective-statement/main.cjs replay)
@@ -12,10 +15,10 @@
 name: ${COMPOSE_PROJECT_NAME:?set a unique project name}
 services:
   postgres:
-    image: postgres:17.11
+    image: postgres:17.11@sha256:f4c66b820c6f974249089d3d16d86a3698eae11e8746eb6644b2271031e91232
     environment:
       POSTGRES_PASSWORD: generatedlocal
-    ports: ["127.0.0.1:${CSREC_PG_PORT:?set a free Postgres port}:5432"]
+    ports: ["127.0.0.1:5481:5432"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 2s
@@ -24,4 +27,4 @@ services:
   dynamodb:
     image: amazon/dynamodb-local:3.3.1@sha256:ff89bd48ff32cd8d9be5fee8873b65b8854dc408f1afe881be6eb00247bc0dab
     command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
-    ports: ["127.0.0.1:${CSREC_DYNAMO_PORT:?set a free DynamoDB port}:8000"]
+    ports: ["127.0.0.1:8481:8000"]

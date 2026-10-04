@@ -39,11 +39,15 @@
  *   - absolute repository paths -> <repo>; stub and app ports -> <provider-stub>,
  *     <app>; stack frames in logged errors are cut ("<stack frames>"), so a
  *     line moving in a source file is not a behaviour change;
+ *   - V8's wording "Cannot read properties of undefined (reading 'x')" ->
+ *     <TypeError: read 'x' of undefined> (the engine's text, not the server's);
  *   - response headers date, connection, keep-alive and etag (a hash of the
  *     body, which holds a random uuid before naming) are not recorded.
  * Order exemptions (compared as sorted sets, each named on the case):
- *   - "statements": the GET list's rows come back in the index's order with
- *     ties among equal created_at; sorted by statement key;
+ *   - "statement-ties": in a GET list, rows that share one created_at come
+ *     back in the index's tie order; those rows (only) are put in key order
+ *     within the positions they occupy, so any other change of the served
+ *     order still fails;
  *   - "provider" / "logs": two concurrent requests reach the stub and log in
  *     either order; sorted;
  *   - "uuids": the two statement keys two concurrent requests mint are
@@ -62,12 +66,21 @@
  *   node characterization/collective-statement/main.cjs record
  *   diff -r /tmp/cs-1 characterization/collective-statement/recordings
  *
- * A PR that changes this behaviour on purpose does NOT re-record: it adds an
- * entry to expected-differences.json naming the cases and the sha256 of each
- * new recording, with a ruling state. Replay passes a differing case only when
- * an entry with ruling "accepted" names it with exactly those bytes; "pending"
- * and "rejected" entries fail with their state. An entry whose case no longer
- * differs fails as stale (re-record on edge after the merge, then delete it).
+ * A PR that changes this behaviour on purpose does NOT re-record: it adds one
+ * entry per changed case to expected-differences.json, spelling the change out
+ * as literal find/replace text on the committed recording, with a ruling
+ * (`pending` | `ruled:<who, when, where>` | `rejected`). The rules are in
+ * expected.cjs (unit-tested by expected.test.cjs): one entry per case, `find`
+ * occurs exactly once, no more unchanged context than needed, whole-recording
+ * entries flagged with a reason. Only a `ruled:` entry lets its case pass. A
+ * re-record on edge absorbs the entries and must empty the file (the guard
+ * checks).
+ *
+ * Safety. Setup drops a Postgres database and every Delphi table, so the
+ * harness refuses any store that is not its own throwaway one (safety.cjs,
+ * unit-tested by safety.test.cjs): loopback on ports 5481/8481 only, a
+ * Postgres with no other database, a DynamoDB that is empty or carries the
+ * harness's sentinel table. The checks run before anything is dropped.
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -82,7 +95,8 @@ const RECORDINGS = path.join(HERE, "recordings");
 const EXPECTED = path.join(HERE, "expected-differences.json");
 const FORMAT = "collective-statement-recording/1";
 const EXCLUDED_HEADERS = new Set(["date", "connection", "keep-alive", "etag"]);
-const RULINGS = new Set(["pending", "accepted", "rejected"]);
+const { applyExpectedDifferences } = require("./expected.cjs");
+const safety = require("./safety.cjs");
 
 const argv = process.argv.slice(2);
 const mode = argv[0];
@@ -99,6 +113,20 @@ for (const k of ["CSREC_PG_ADMIN_URL", "DYNAMODB_ENDPOINT"])
     process.exit(2);
   }
 
+{
+  const refused = safety.checkUrls(
+    process.env.CSREC_PG_ADMIN_URL,
+    process.env.DYNAMODB_ENDPOINT
+  );
+  if (refused.length) {
+    console.error(
+      `refusing to run: these are not the harness's throwaway stores\n  ${refused.join(
+        "\n  "
+      )}\nStart them with compose.yml (ports 5481 and 8481).`
+    );
+    process.exit(2);
+  }
+}
 const pgAdmin = new URL(process.env.CSREC_PG_ADMIN_URL);
 const pgApp = new URL(process.env.CSREC_PG_ADMIN_URL);
 pgApp.pathname = "/csrec";
@@ -123,10 +151,32 @@ function sha256(x) {
 
 // ------------------------------------------------------------------ Postgres
 
+class SafetyRefusal extends Error {
+  constructor(problems) {
+    super(`refusing to run: ${problems.join("; ")}`);
+    this.problems = problems;
+  }
+}
+
+/** Refuse a DynamoDB store that is not this harness's; claim an empty one. */
+async function claimDynamo(db) {
+  const { claim, problems } = safety.checkDynamoTables(await db.tables());
+  if (problems.length) throw new SafetyRefusal(problems);
+  if (claim) await db.createSentinel();
+}
+
 async function setupPostgres() {
   const { Client } = require("pg");
   const admin = new Client({ connectionString: pgAdmin.toString() });
   await admin.connect();
+  const dbs = (await admin.query("SELECT datname FROM pg_database")).rows.map(
+    (r) => r.datname
+  );
+  const pgRefused = safety.checkPgDatabases(dbs);
+  if (pgRefused.length) {
+    await admin.end();
+    throw new SafetyRefusal(pgRefused);
+  }
   await admin.query("DROP DATABASE IF EXISTS csrec WITH (FORCE)");
   await admin.query("CREATE DATABASE csrec");
   await admin.end();
@@ -188,6 +238,16 @@ function dynamo() {
       if ((await api.tables()).has(name))
         await client.send(new DeleteTableCommand({ TableName: name }));
       await client.send(new CreateTableCommand(definition(name)));
+    },
+    async createSentinel() {
+      await client.send(
+        new CreateTableCommand({
+          TableName: safety.SENTINEL,
+          KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+          AttributeDefinitions: [{ AttributeName: "id", AttributeType: "S" }],
+          BillingMode: "PAY_PER_REQUEST",
+        })
+      );
     },
     async drop(name) {
       await client.send(new DeleteTableCommand({ TableName: name }));
@@ -306,7 +366,16 @@ class Names {
   text(s) {
     let out = String(s);
     for (const [v, sym] of this.fixed) out = out.split(v).join(sym);
-    return out.replace(V4, (u) => this.uuids.get(u) || "<uuid:unregistered>");
+    return (
+      out
+        .replace(V4, (u) => this.uuids.get(u) || "<uuid:unregistered>")
+        // The engine's wording of a property read on undefined/null changes
+        // between Node releases; the fact (a TypeError on that read) stays.
+        .replace(
+          /Cannot read properties of (undefined|null) \(reading '([^']*)'\)/g,
+          "<TypeError: read '$2' of $1>"
+        )
+    );
   }
 }
 
@@ -322,6 +391,35 @@ function splitLines(x) {
   return x;
 }
 
+/**
+ * The served order is kept, except that rows sharing one created_at (whose
+ * relative order is the index's tie order) are put in key order within the
+ * positions they occupy.
+ */
+function sortTies(rows) {
+  const groups = new Map();
+  rows.forEach((r, i) => {
+    const g = groups.get(r.created_at) || [];
+    g.push(i);
+    groups.set(r.created_at, g);
+  });
+  const out = [...rows];
+  for (const positions of groups.values()) {
+    if (positions.length < 2) continue;
+    const members = positions
+      .map((i) => rows[i])
+      .sort((a, b) =>
+        a.zid_topic_jobid < b.zid_topic_jobid
+          ? -1
+          : a.zid_topic_jobid > b.zid_topic_jobid
+          ? 1
+          : 0
+      );
+    positions.forEach((p, k) => (out[p] = members[k]));
+  }
+  return out;
+}
+
 function stripStack(message) {
   const s = String(message);
   const cut = s.replace(/\n\s+at [^\n]*/g, "");
@@ -335,12 +433,15 @@ function keyOf(item) {
 // ---------------------------------------------------------------------- main
 
 async function main() {
-  const pg = await setupPostgres();
   const db = dynamo();
+  await claimDynamo(db); // before Postgres is touched, too
+  const pg = await setupPostgres();
   await setupDynamo(db);
   const selfTest = await egress.selfTest();
 
   const signer = oidcSigner();
+  // A second key under the same kid: its tokens fail signature verification.
+  const rogue = oidcSigner();
   const stub = await require("./stub.cjs").start(signer.jwks);
 
   // Every setting that can reach a recorded byte is pinned here, whatever the
@@ -460,14 +561,14 @@ async function main() {
 
   const tokenFor = (auth) => {
     const now = Math.floor(clockMs / 1000);
-    const oidc = (who, claim) =>
-      signer.sign({
+    const oidc = (who, claim, { key = signer, age = 60, life = 3660 } = {}) =>
+      key.sign({
         iss: PINNED_ENV.AUTH_ISSUER,
         aud: PINNED_ENV.AUTH_AUDIENCE,
         sub: F.OIDC[who],
         email: `${who}@example.invalid`,
-        iat: now - 60,
-        exp: now + 3600,
+        iat: now - age,
+        exp: now - age + life,
         ...(claim === undefined
           ? {}
           : { [`${PINNED_ENV.AUTH_NAMESPACE}delphi_enabled`]: claim }),
@@ -483,6 +584,29 @@ async function main() {
         return oidc("plain", undefined);
       case "flaggedOff":
         return oidc("flaggedOff", false);
+      case "ownerExpired":
+        return oidc("owner", true, { age: 7200, life: 3600 });
+      case "ownerBadSignature":
+        return oidc("owner", true, { key: rogue });
+      case "xid": {
+        const { issueXidJWT } = require(path.join(
+          SERVER,
+          "src/auth/xid-jwt.ts"
+        ));
+        return issueXidJWT("csrec-xid-1", `csrec${F.ZID.main}`, 11, 2);
+      }
+      case "standardUser": {
+        const { issueStandardUserJWT } = require(path.join(
+          SERVER,
+          "src/auth/standard-user-jwt.ts"
+        ));
+        return issueStandardUserJWT(
+          F.OIDC.plain,
+          `csrec${F.ZID.main}`,
+          F.UID.plain,
+          3
+        );
+      }
       case "participant": {
         const { issueAnonymousJWT } = require(path.join(
           SERVER,
@@ -595,15 +719,7 @@ async function main() {
     return JSON.parse(r.stdout.trim().split("\n").pop());
   };
 
-  const expected = JSON.parse(fs.readFileSync(EXPECTED, "utf8"));
-  for (const e of expected.entries) {
-    if (!RULINGS.has(e.ruling))
-      throw new Error(
-        `expected difference ${e.id}: ruling must be one of ${[...RULINGS]}`
-      );
-    if (!e.question || !e.cases || typeof e.cases !== "object")
-      throw new Error(`expected difference ${e.id}: needs question and cases`);
-  }
+  const expectedEntries = JSON.parse(fs.readFileSync(EXPECTED, "utf8")).entries;
 
   // The server's load-time outbound attempts (the spam filter's key check)
   // were refused above; they are listed in the index, and any refusal from
@@ -612,11 +728,18 @@ async function main() {
 
   const { allCases } = require("./cases.cjs");
   const cases = allCases();
-  const caseIds = new Set(cases.map((c) => c.id));
-  for (const e of expected.entries)
-    for (const id of Object.keys(e.cases))
-      if (!caseIds.has(id))
-        throw new Error(`expected difference ${e.id} names no case: ${id}`);
+  // The committed recordings, and what each case must serve: the recording
+  // with its expected difference (if any) applied.
+  const committed = {};
+  if (mode === "replay")
+    for (const c of cases) {
+      const f = path.join(RECORDINGS, `${c.id}.json`);
+      if (fs.existsSync(f)) committed[c.id] = fs.readFileSync(f, "utf8");
+    }
+  const ed = applyExpectedDifferences(
+    committed,
+    mode === "replay" ? expectedEntries : []
+  );
   const index = {
     format: FORMAT,
     clock: `${F.CLOCK_MS} + 60000 * case index`,
@@ -634,6 +757,11 @@ async function main() {
   const failures = [];
   const failedIds = new Set();
   const notes = [];
+  for (const p of ed.problems) {
+    failures.push(`expected differences: ${p}`);
+    const id = p.split(": ")[0];
+    if (cases.some((c) => c.id === id)) failedIds.add(id);
+  }
   let providerRecorded = 0;
   const providerTotalBefore = stub.state.total;
 
@@ -654,13 +782,13 @@ async function main() {
       poll,
       note: (k, v) => (rec.notes[k] = v),
       storedCount: async () => (await db.scan(STATEMENTS)).length,
-      dropStatementTable: async () => {
-        snapshot = await db.scan(STATEMENTS);
-        await db.drop(STATEMENTS);
+      dropTable: async (name) => {
+        snapshot = { name, rows: await db.scan(name) };
+        await db.drop(name);
       },
-      restoreStatementTable: async () => {
-        await db.recreate(STATEMENTS);
-        await db.writeRaw(STATEMENTS, snapshot);
+      restoreTable: async () => {
+        await db.recreate(snapshot.name);
+        await db.writeRaw(snapshot.name, snapshot.rows);
         snapshot = null;
       },
       runReset: (zid) => runResetStep(zid),
@@ -754,18 +882,12 @@ async function main() {
     let text = names.text(JSON.stringify(rec));
     const n = JSON.parse(text);
     for (const r of n.responses) {
-      if (!r || !r.body || !unordered.has("statements")) continue;
+      if (!r || !r.body || !unordered.has("statement-ties")) continue;
       const parsed = JSON.parse(r.body);
       if (JSON.stringify(parsed) !== r.body)
         throw new Error(`${c.id}: not compact JSON, cannot reorder exactly`);
       if (Array.isArray(parsed.statements))
-        parsed.statements.sort((a, b) =>
-          a.zid_topic_jobid < b.zid_topic_jobid
-            ? -1
-            : a.zid_topic_jobid > b.zid_topic_jobid
-            ? 1
-            : 0
-        );
+        parsed.statements = sortTies(parsed.statements);
       r.body = JSON.stringify(parsed);
     }
     const byText = (a, b) => {
@@ -785,7 +907,6 @@ async function main() {
     const file = path.join(RECORDINGS, `${c.id}.json`);
     const digest = sha256(text);
     index.cases.push({ id: c.id, sha256: digest });
-    const entries = expected.entries.filter((e) => e.cases[c.id] !== undefined);
     const fail = (why) => {
       failures.push(`${c.id}: ${why}`);
       failedIds.add(c.id);
@@ -793,30 +914,21 @@ async function main() {
     if (mode === "record") {
       fs.mkdirSync(path.dirname(file), { recursive: true });
       fs.writeFileSync(file, text);
-    } else if (!fs.existsSync(file)) fail("no recording");
+    } else if (!(c.id in committed)) fail("no recording");
     else {
-      const recorded = fs.readFileSync(file, "utf8");
-      if (recorded === text) {
-        for (const e of entries)
-          fail(
-            `expected difference "${e.id}" is stale: the case matches its recording`
-          );
-      } else if (!entries.length)
-        fail(`${firstDifference(text, recorded)} (served sha256 ${digest})`);
-      else {
-        const e = entries[0];
-        if (e.ruling !== "accepted")
-          fail(
-            `differs; expected difference "${e.id}" is ${
-              e.ruling
-            }, not accepted (${firstDifference(text, recorded)})`
-          );
-        else if (e.cases[c.id] !== digest)
-          fail(
-            `differs from accepted expected difference "${e.id}" (served sha256 ${digest})`
-          );
-        else notes.push(`${c.id}: accepted expected difference "${e.id}"`);
-      }
+      const want = ed.expected[c.id];
+      const ruling = ed.rulings[c.id];
+      if (text !== want)
+        fail(
+          ruling
+            ? `differs from the recording with its expected difference applied (${ruling}): ${firstDifference(
+                text,
+                want
+              )}`
+            : firstDifference(text, want)
+        );
+      else if (ruling)
+        notes.push(`${c.id}: expected difference applied (${ruling})`);
     }
   }
 
@@ -874,7 +986,7 @@ async function main() {
     mode === "record"
       ? "recorded"
       : notes.length
-      ? `replay matches every recording byte for byte, except ${notes.length} case(s) through accepted expected differences`
+      ? `replay matches every recording byte for byte, except ${notes.length} case(s) through ruled expected differences`
       : "replay matches every recording byte for byte"
   );
   process.exit(0);
@@ -892,6 +1004,10 @@ function firstDifference(a, b) {
 }
 
 main().catch((err) => {
+  if (err instanceof SafetyRefusal) {
+    console.error(err.message);
+    process.exit(2);
+  }
   console.error(err);
   process.exit(1);
 });

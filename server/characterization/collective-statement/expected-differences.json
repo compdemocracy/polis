@@ -1,5 +1,5 @@
 {
- "schema": "collective-statement-expected-differences/1",
- "about": "Intended changes to the recorded collective-statement behaviour. A PR that changes a recorded case on purpose adds one entry here instead of re-recording: an id, the question it answers, the ruling state (pending | accepted | rejected) and, for each case it changes, the sha256 of the new recording text (main.cjs replay prints it). Replay passes a differing case only under an accepted entry with exactly those bytes; pending and rejected entries fail with their state; an entry whose cases no longer differ fails as stale. After the change merges, re-record on edge (no server code in that PR) and delete the entry.",
+ "schema": "collective-statement-expected-differences/2",
+ "about": "Intended, ruled differences from the edge recordings, one entry per changed case: {case, find, replace, whole_response?, whole_response_reason?, why, ruling: pending | ruled:<who, when, where> | rejected}. find/replace are literal text on the committed recording file (find occurs exactly once; at most 120 characters of unchanged context; a whole-recording entry needs whole_response: true and a reason). Only a ruled: entry lets its case pass. Rules: expected.cjs. A re-record on edge absorbs the entries and empties this file.",
  "entries": []
 }

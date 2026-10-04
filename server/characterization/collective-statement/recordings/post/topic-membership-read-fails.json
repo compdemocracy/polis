@@ -1,7 +1,7 @@
 {
  "format": "collective-statement-recording/1",
- "case": "post/qualifying-tids-without-group-consensus",
- "about": "qualifying tids and no group_consensus",
+ "case": "post/topic-membership-read-fails",
+ "about": "the topic-membership table (Delphi_CommentHierarchicalClusterAssignments) cannot be read",
  "requests": [
   {
    "method": "POST",
@@ -14,14 +14,24 @@
     "qualifying_tids": [
      0,
      1,
-     2
-    ]
+     2,
+     4
+    ],
+    "group_consensus": {
+     "0": 0.92,
+     "1": 0.88,
+     "2": 0.85,
+     "3": 0.9,
+     "4": 0.81,
+     "5": 0.83,
+     "7": 0.95
+    }
    }
   }
  ],
  "responses": [
   {
-   "status": 500,
+   "status": 200,
    "headers": [
     [
      "content-type",
@@ -49,14 +59,14 @@
     ],
     [
      "content-length",
-     "128"
+     "63"
     ],
     [
      "vary",
      "Accept-Encoding"
     ]
    ],
-   "body": "{\"status\":\"error\",\"message\":\"Error generating collective statement\",\"error\":\"<TypeError: read '0' of undefined>\"}"
+   "body": "{\"status\":\"error\",\"message\":\"No comments found for this topic\"}"
   }
  ],
  "provider": [],
@@ -68,12 +78,8 @@
  },
  "logs": [
   "info: CollectiveStatement API request received",
-  "info: Retrieved 13 cluster assignments for conversation 201",
-  "info: Found 6 comments in layer 0, cluster 1 for conversation 201",
-  "info: Comment IDs for topic 0000c5a1-0000-0000-0000-0000000000b2#0#1: [0,1,2,3,4,5]",
-  "info: SQL query returned 6 comments for topic 0000c5a1-0000-0000-0000-0000000000b2#0#1",
-  "info: Found 6 comments for topic 0000c5a1-0000-0000-0000-0000000000b2#0#1",
-  "error: Error in handle_POST_collectiveStatement: <TypeError: read '0' of undefined>",
-  "error: Error stack: TypeError: <TypeError: read '0' of undefined> <stack frames>"
+  "warn: Could not retrieve cluster assignments for conversation 201: Cannot do operations on a non-existent table",
+  "info: Found 0 comments in layer 0, cluster 1 for conversation 201",
+  "info: Found 0 comments for topic 0000c5a1-0000-0000-0000-0000000000b2#0#1"
  ]
 }

@@ -55,7 +55,7 @@
   "migrations": 22,
   "answers": 241
  },
- "caseCount": 46,
+ "caseCount": 51,
  "cases": [
   {
    "id": "post/missing-topic-name",
@@ -68,6 +68,22 @@
   {
    "id": "post/participant-token",
    "sha256": "00386b25d061d6e435bf15eeee9b9955f347b611d7a70cd99da750d5383df330"
+  },
+  {
+   "id": "post/xid-participant-token",
+   "sha256": "5aa32a87ab81d9bd69c88b933ff4f82e5ff60f29cea4e26205f2e2d231beed4f"
+  },
+  {
+   "id": "post/standard-user-token",
+   "sha256": "13cb46e27da7a166f7c4c4bfd908adf57aa395d08485e35c769b088068af26b2"
+  },
+  {
+   "id": "post/oidc-expired",
+   "sha256": "16325bd13dd15d9637434dc32cb2b458f9325fcafa9eb57c7c86313efd2ff451"
+  },
+  {
+   "id": "post/oidc-bad-signature",
+   "sha256": "a91097ffb694f4170c44140b0753cdcffd08146be9262da69d748f9f18cb28b0"
   },
   {
    "id": "post/oidc-without-delphi-claim",
@@ -94,6 +110,10 @@
    "sha256": "cb06e14e1f870dc1fb8d2b5afade9a4828943ae1b6dd857a9b59daa5935c0454"
   },
   {
+   "id": "post/topic-membership-read-fails",
+   "sha256": "f4c9f7b6819a745b1a53c4a011bec2fd76fa90d911fb92a6ae340731896acfbe"
+  },
+  {
    "id": "post/one-qualifying-tid",
    "sha256": "c8602dd50ccbe2c16bb8b77ec93cec198777404e3f403615bcc58b34261ad6bb"
   },
@@ -103,59 +123,59 @@
   },
   {
    "id": "post/qualifying-tids-without-group-consensus",
-   "sha256": "5b33bf98d633cb61415f2556188c5c949ef347759afa402f484f6d651288d567"
+   "sha256": "775f7baa366dc907663ed99f8e6129ee137dc830336c08925aca8694d1157203"
   },
   {
    "id": "post/eligible",
-   "sha256": "be3a42572c6a49dfa6142c157326f27aea20c33816716f23fcb084325c681014"
+   "sha256": "5c0837d69c5de1ef19d45c63ce9acd26350f6fc1f70eab6e54b5f1046f61899b"
   },
   {
    "id": "post/eligible-tid-outside-topic",
-   "sha256": "6c992c0f021a7a345b822a8c6baa8145b74fa7e38e4751ea16776e60d6245761"
+   "sha256": "9a49c5ff2a2331c9209e93fa4680fde085c29ee1fb0e4e2109f3e645f75ce4a3"
   },
   {
    "id": "post/eligible-moderated-out-tid",
-   "sha256": "6d6ac34644750465c0a57c7615d295be3fc3f68ec447168deab18e920adc1c4a"
+   "sha256": "3d12a133a7f91271b5f72a02b913b81af2062f59ec1d7bfed95661cc07c2c72b"
   },
   {
    "id": "post/no-qualifying-tids-no-consensus",
-   "sha256": "d717d5c5f7e2a40cc46a52b661654891a81f81c399f255c84b62676760cc37d0"
+   "sha256": "96cc47ae9babd9d4edae7069a4c01b45d543ad4f99dceb40f94ede46953acadd"
   },
   {
    "id": "post/legacy-consensus-only",
-   "sha256": "3006e1bab94c0351a319cee8a9fa133a196a1dc2cc37a855c67c012102ede2ec"
+   "sha256": "52691abdaee74f1d053bc8b214d3bb7d08a78574618df1a3675b9cedd0395e7e"
   },
   {
    "id": "post/legacy-consensus-only-empty-set",
-   "sha256": "67e91bd442cbcb9de2735ffc63c04ed4dc23e78a9685095d47f16eefa1328171"
+   "sha256": "d85c008fb3690989e548c2ffad0979db7b66f37e2253b15f8df42a1a32de271e"
   },
   {
    "id": "post/older-job-topic-key",
-   "sha256": "f0ebb4041752954677117674a44b8a692ed557157ae3d05649983d37c7716d52"
+   "sha256": "80d2a3be2687e1c8151cb86f26b035cc2073638aa968e19273b80d2d49b298a6"
   },
   {
    "id": "post/underscore-topic-key",
-   "sha256": "261e5526e9b8aa754f3b954c52513b0a4197d6371d63f03ec10b6567fb78fc3d"
+   "sha256": "56cab8006fc9a3fdf48749c1db53f1845ee1e1e5b9306b5c27d6bcf5726fd422"
   },
   {
    "id": "post/non-owner-delphi-enabled",
-   "sha256": "a5515ff412c02e91918d2d9cbe7d8d7f1b2429c26f9d114c98644d17b701f289"
+   "sha256": "93719f1084a2620c94cbbf4f44740356df7c86c7d7b87b2520ca3ff270468c35"
   },
   {
    "id": "post/provider-json-in-code-fence",
-   "sha256": "d53a28eac2f480007f3bd606f2ba00227844416f4cc6c267abade4618affaeec"
+   "sha256": "55e05e2f64643b52d2b9b0136624ab1dab174e31f77305088dcac5b7c6442566"
   },
   {
    "id": "post/provider-truncated-max-tokens",
-   "sha256": "32324c84d1d1d450c145dfaef1c8e081f14935dab518adcccd3345d3f7aa8297"
+   "sha256": "6780ae666870e4b7e28c117939118a504a735afba0c8f9ae3720e380ec557d9e"
   },
   {
    "id": "post/provider-unparseable-prose",
-   "sha256": "d04927261f5d18a5cd17f52d18a72b6ba7337b6b49190791c2b0fbdb6bfc369a"
+   "sha256": "45a01a5afe45aee1b1d29e7eda33c43f0997eb61f96733d78e88a5f674915b0f"
   },
   {
    "id": "post/provider-no-text-block",
-   "sha256": "d5657880a2d1deb987a978506a77f27c9e6fb1b28961cdae84b64748f05e7e47"
+   "sha256": "9cdd8b5bb89d2f65b2c45ded7cbd9e2e020cd8a2329df5c8884ed76251437b30"
   },
   {
    "id": "post/provider-429-every-attempt",
@@ -163,7 +183,7 @@
   },
   {
    "id": "post/provider-500-then-success",
-   "sha256": "a2b28821b047d0c62b694a121e3523ed9148b5ccb1ab46fc04df711be64b7f1b"
+   "sha256": "37bd6454c59fc57b8e002483c763e2636afc72c68d0ee4ea7ff52f6ce2c2b036"
   },
   {
    "id": "post/provider-400-invalid-request",
@@ -175,7 +195,7 @@
   },
   {
    "id": "post/provider-slower-than-proxy",
-   "sha256": "a72c7b10abb2e8ff30e5af09d778834acbea7036c22edd6b19fdd11400360c40"
+   "sha256": "2f44e9fb265bf2cd2e73a91237e68d1b7d4f90b2c6864c70ec2780ae8ce684f5"
   },
   {
    "id": "post/dynamodb-write-fails-after-call",
@@ -183,7 +203,7 @@
   },
   {
    "id": "post/concurrent-first-requests",
-   "sha256": "169b7b0bd6cd559db95d76de8128f1ebef437c5d7bec63d93a3ba552d09eee72"
+   "sha256": "63d807e1bbd4e97d8e123370a96359cdd623a379d1de61022b93a0e50fc15353"
   },
   {
    "id": "get/none-stored",
@@ -195,11 +215,11 @@
   },
   {
    "id": "get/several-across-jobs",
-   "sha256": "9133985fcc21dec80cce7003ae4f7771f88b4c4461726fe2b04fafc55b84061f"
+   "sha256": "75091223a3d162f839b81dc03b40e917cde09083c1a6fb4cb605d97e998ca336"
   },
   {
    "id": "get/several-across-jobs-owner-token",
-   "sha256": "429318f4fbf994c8e6c66c106796afd34f50105bcc453f07afab4e6dda29a995"
+   "sha256": "98b4d4776434c2e35c7fc2b69e5ba4b174972eecaa15546d76edbd58fe508f1a"
   },
   {
    "id": "get/unknown-report",
@@ -223,11 +243,11 @@
   },
   {
    "id": "get/main-after-posts",
-   "sha256": "a2506695275ff7e9a17f13b37a77619cc3febc279eaab51901e03800f2ecb2ca"
+   "sha256": "8b79bb80a9875ade20f7f06da1d7555fae3e00f026c59252beb4b00cc0099943"
   },
   {
    "id": "reset/before",
-   "sha256": "2c14715e45412a518fe70785e5f55df8502c8a454c32d179121bf4d5543415ea"
+   "sha256": "a8e5aa09422be4d976a70d399d9d8ec139e78a8163dbeae56e4a17c3921ce8c6"
   },
   {
    "id": "reset/delete-routine",
@@ -239,7 +259,7 @@
   },
   {
    "id": "reset/other-report-untouched",
-   "sha256": "100f32cbf3746ea5cff3cdf9a24e44da0728eb72479c5a6fc4867f6bc4f99822"
+   "sha256": "c9f0fdacec07a846c26b4e4e493355bd3b759257ab30588b0ea7a0c208ca6f22"
   }
  ]
 }

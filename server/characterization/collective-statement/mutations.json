@@ -1,5 +1,5 @@
 {
- "about": "One textual mutation per place in server/src/routes/collectiveStatement.ts that decides what reaches the model, what is stored, who may call, or what the GET returns. mutations.cjs applies each to a scratch copy and requires the collective-statement recordings to fail exactly expectFailing (case ids). Line text as of origin/edge 840607c98.",
+ "about": "One textual mutation per place in server/src/routes/collectiveStatement.ts that decides what reaches the model, what is stored, who may call, or what the GET returns. mutations.cjs applies each to a scratch copy and requires the collective-statement recordings to fail exactly expectFailing (case ids). Line text as of origin/edge 840607c98. Every find is literal text from edge: an edit to collectiveStatement.ts that touches one of these lines makes the mutation step ERROR until its entry is updated here (this file may change together with server code).",
  "mutations": [
   {
    "id": "PROMPT",
@@ -73,6 +73,35 @@
     "post/eligible-tid-outside-topic",
     "post/legacy-consensus-only",
     "post/legacy-consensus-only-empty-set",
+    "post/no-qualifying-tids-no-consensus",
+    "post/non-owner-delphi-enabled",
+    "post/older-job-topic-key",
+    "post/provider-400-invalid-request",
+    "post/provider-429-every-attempt",
+    "post/provider-500-then-success",
+    "post/provider-connection-reset",
+    "post/provider-json-in-code-fence",
+    "post/provider-no-text-block",
+    "post/provider-slower-than-proxy",
+    "post/provider-truncated-max-tokens",
+    "post/provider-unparseable-prose",
+    "post/underscore-topic-key"
+   ]
+  },
+  {
+   "id": "SIGN",
+   "what": "the vote sign: the topic query counts agrees as disagrees and disagrees as agrees",
+   "file": "src/routes/collectiveStatement.ts",
+   "find": "COALESCE(SUM(CASE WHEN v.vote = ${disagree} THEN 1 ELSE 0 END), 0) as disagrees,\n        COALESCE(SUM(CASE WHEN v.vote = ${agree} THEN 1 ELSE 0 END), 0) as agrees,",
+   "replace": "COALESCE(SUM(CASE WHEN v.vote = ${agree} THEN 1 ELSE 0 END), 0) as disagrees,\n        COALESCE(SUM(CASE WHEN v.vote = ${disagree} THEN 1 ELSE 0 END), 0) as agrees,",
+   "expectFailing": [
+    "get/main-after-posts",
+    "post/concurrent-first-requests",
+    "post/dynamodb-write-fails-after-call",
+    "post/eligible",
+    "post/eligible-moderated-out-tid",
+    "post/eligible-tid-outside-topic",
+    "post/legacy-consensus-only",
     "post/no-qualifying-tids-no-consensus",
     "post/non-owner-delphi-enabled",
     "post/older-job-topic-key",
@@ -213,7 +242,9 @@
    "expectFailing": [
     "post/oidc-delphi-claim-false",
     "post/oidc-without-delphi-claim",
-    "post/participant-token"
+    "post/participant-token",
+    "post/standard-user-token",
+    "post/xid-participant-token"
    ]
   },
   {
@@ -237,6 +268,20 @@
     "get/main-after-posts",
     "get/several-across-jobs",
     "get/several-across-jobs-owner-token",
+    "reset/other-report-untouched"
+   ]
+  },
+  {
+   "id": "GET-ORDER",
+   "what": "GET list: the served order of the statements is reversed",
+   "file": "src/routes/collectiveStatement.ts",
+   "find": "const uniqueStatements = Array.from(deduplicated.values());",
+   "replace": "const uniqueStatements = Array.from(deduplicated.values()).reverse();",
+   "expectFailing": [
+    "get/main-after-posts",
+    "get/several-across-jobs",
+    "get/several-across-jobs-owner-token",
+    "reset/before",
     "reset/other-report-untouched"
    ]
   }

@@ -120,6 +120,30 @@ function allCases() {
       eligible()
     ),
     post(
+      "post/xid-participant-token",
+      "an XID participant token (no delphi claim)",
+      "xid",
+      eligible()
+    ),
+    post(
+      "post/standard-user-token",
+      "a standard-user participant token (no delphi claim)",
+      "standardUser",
+      eligible()
+    ),
+    post(
+      "post/oidc-expired",
+      "the owner's delphi-enabled OIDC token, expired an hour ago",
+      "ownerExpired",
+      eligible()
+    ),
+    post(
+      "post/oidc-bad-signature",
+      "a delphi-enabled OIDC token signed by a key the JWKS does not hold",
+      "ownerBadSignature",
+      eligible()
+    ),
+    post(
       "post/oidc-without-delphi-claim",
       "a signed-in account whose token has no delphi_enabled claim",
       "plain",
@@ -155,6 +179,21 @@ function allCases() {
       "owner",
       eligible({ topic_key: K4 })
     ),
+    {
+      id: "post/topic-membership-read-fails",
+      about:
+        "the topic-membership table (Delphi_CommentHierarchicalClusterAssignments) cannot be read",
+      async before(ctx) {
+        await ctx.dropTable("Delphi_CommentHierarchicalClusterAssignments");
+      },
+      async after(ctx) {
+        await ctx.restoreTable();
+      },
+      async run(ctx) {
+        ctx.arm([]);
+        await ctx.post(eligible(), "owner");
+      },
+    },
     post(
       "post/one-qualifying-tid",
       "one qualifying tid (fewer than three)",
@@ -413,10 +452,10 @@ function allCases() {
       about:
         "the statement table refuses the write after the model has answered",
       async before(ctx) {
-        await ctx.dropStatementTable();
+        await ctx.dropTable("Delphi_CollectiveStatement");
       },
       async after(ctx) {
-        await ctx.restoreStatementTable();
+        await ctx.restoreTable();
       },
       async run(ctx) {
         ctx.arm([ok([0, 1, 2])]);
@@ -481,15 +520,13 @@ function allCases() {
       "get/several-across-jobs",
       "rows from two jobs and both key formats: newest per layer_cluster, no token",
       "none",
-      `/api/v3/collectiveStatement?report_id=${F.REPORT.several}`,
-      { unordered: ["statements"] }
+      `/api/v3/collectiveStatement?report_id=${F.REPORT.several}`
     ),
     get(
       "get/several-across-jobs-owner-token",
       "the same read with the owner's token",
       "owner",
-      `/api/v3/collectiveStatement?report_id=${F.REPORT.several}`,
-      { unordered: ["statements"] }
+      `/api/v3/collectiveStatement?report_id=${F.REPORT.several}`
     ),
     get(
       "get/unknown-report",
@@ -528,7 +565,7 @@ function allCases() {
       "the main report after every POST above, no token",
       "none",
       `/api/v3/collectiveStatement?report_id=${R}`,
-      { unordered: ["statements"] }
+      { unordered: ["statement-ties"] }
     ),
 
     // ------------------------------------------------------------------- reset
@@ -536,8 +573,7 @@ function allCases() {
       "reset/before",
       "the reset target's statements before the reset",
       "none",
-      `/api/v3/collectiveStatement?report_id=${F.REPORT.reset}`,
-      { unordered: ["statements"] }
+      `/api/v3/collectiveStatement?report_id=${F.REPORT.reset}`
     ),
     {
       id: "reset/delete-routine",
@@ -558,8 +594,7 @@ function allCases() {
       "reset/other-report-untouched",
       "another conversation's statements after the reset",
       "none",
-      `/api/v3/collectiveStatement?report_id=${F.REPORT.several}`,
-      { unordered: ["statements"] }
+      `/api/v3/collectiveStatement?report_id=${F.REPORT.several}`
     ),
   ];
   const ids = new Set();
