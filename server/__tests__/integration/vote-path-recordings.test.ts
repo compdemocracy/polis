@@ -79,6 +79,7 @@ import {
  *     (numbered by first appearance, so identity across responses is kept)
  *   - epoch milliseconds/seconds, ISO and Date.toString() datetimes -> <ms> etc.
  *   - JWTs -> <jwt>; polis_site_id_... -> <site-id>; epoch microseconds -> <us>
+ *   - a conversation's "modified" -> <modified> (ms or µs: two writers race)
  *   - gzipped JSON inside a serialized Buffer is decoded first ($gunzip)
  *   - four row orders that edge itself does not define are compared as sets
  *     of rows, and participant-votes.csv cells for a changed vote are masked
@@ -123,8 +124,24 @@ const GOLDEN_PATH = path.join(
  *     (see that file). Every listed sign mutation must still fail exactly its
  *     expected cases; review any change before rewriting it with --record.
  *
- * The committed golden was recorded on origin/edge 962783fc7, twice, with
- * identical results (234 cases).
+ * The committed golden was recorded on origin/edge f2b496bd6, twice, with
+ * identical results (248 cases).
+ *
+ * An INTENDED, ruled change to a recorded response (a PR that changes the
+ * server on purpose) never re-records the golden. Instead the PR adds one
+ * entry per changed case to vote-path-expected-differences.json:
+ *
+ *   { "case": "<recorded case name>", "find": "<exact text in the golden>",
+ *     "replace": "<the new text>", "status"?: n, "contentType"?: "...",
+ *     "why": "<the change>", "ruling": "<who ruled it acceptable, where>" }
+ *
+ * The suite applies each entry to edge's golden before comparing, and fails
+ * when an entry names no recorded case, when its `find` is not in that case's
+ * golden text exactly once, or when `why`/`ruling` is empty. So every changed
+ * byte is named and reviewed in the PR's diff, and every case not named stays
+ * byte-identical to edge. When the golden is next re-recorded on edge, the
+ * re-record absorbs the entries and the file must be emptied in that same PR
+ * (the guard refuses a golden change while entries remain).
  *
  * In record mode every comparison returns early; it records, it does not judge.
  */
@@ -140,6 +157,52 @@ type Observation = {
 const golden: Record<string, Observation> = RECORDING
   ? {}
   : JSON.parse(fs.readFileSync(GOLDEN_PATH, "utf8"));
+
+type ExpectedDifference = {
+  case: string;
+  find: string;
+  replace: string;
+  status?: number;
+  contentType?: string | null;
+  why: string;
+  ruling: string;
+};
+const EXPECTED_DIFFERENCES_PATH = path.join(
+  __dirname,
+  "..",
+  "fixtures",
+  "vote-path-expected-differences.json"
+);
+const expectedDifferences: ExpectedDifference[] = JSON.parse(
+  fs.readFileSync(EXPECTED_DIFFERENCES_PATH, "utf8")
+).entries;
+
+/** Edge's golden with every named, ruled expected difference applied. */
+function expectedObservations(): {
+  expected: Record<string, Observation>;
+  problems: string[];
+} {
+  const expected: Record<string, Observation> = {};
+  for (const [name, obs] of Object.entries(golden)) expected[name] = { ...obs };
+  const problems: string[] = [];
+  for (const d of expectedDifferences) {
+    const target = expected[d.case];
+    if (!target) {
+      problems.push(`${d.case}: names no recorded case`);
+      continue;
+    }
+    if (!d.why || !d.ruling) problems.push(`${d.case}: why/ruling missing`);
+    const hits = target.text.split(d.find).length - 1;
+    if (!d.find || hits !== 1) {
+      problems.push(`${d.case}: find occurs ${hits} times in the golden`);
+      continue;
+    }
+    target.text = target.text.replace(d.find, () => d.replace);
+    if (d.status !== undefined) target.status = d.status;
+    if (d.contentType !== undefined) target.contentType = d.contentType;
+  }
+  return { expected, problems };
+}
 
 // A run token that makes every generated identity unique to this run; it is
 // normalized away, so it never reaches the comparison.
@@ -200,6 +263,10 @@ class Normalizer {
         "<datetime>"
       )
       .replace(/polis_site_id_[A-Za-z0-9]+/g, "<site-id>")
+      // conversations.modified is written by two paths in different units
+      // (epoch ms, and epoch microseconds from the deferred vote update), and
+      // which one lands last varies between runs on edge itself.
+      .replace(/"modified":"1\d{12}(?:\d{3})?"/g, '"modified":"<modified>"')
       .replace(/\b1\d{15}\b/g, "<us>")
       .replace(/\b1\d{12}\b/g, "<ms>")
       .replace(/\b1\d{9}\b/g, "<s>");
@@ -230,6 +297,16 @@ const PASS = toWire("pass");
 // convention (agree = +1, the admin import screen's documented format). The
 // tests have no export-convention helper; this one line states it.
 const EXPORT_VOTE = { agree: "1", disagree: "-1", pass: "0" } as const;
+
+// A `# vote-convention:` first line, as an export-convention file would
+// declare itself, and two wrong declarations, built from EXPORT_VOTE.
+const DECLARED = `agree=+${EXPORT_VOTE.agree};disagree=${EXPORT_VOTE.disagree};pass=${EXPORT_VOTE.pass}`;
+const DECLARATION_LINES = {
+  "export-convention": `# vote-convention: ${DECLARED};format=polis-export/1`,
+  "storage-convention": `# vote-convention: agree=${EXPORT_VOTE.disagree};disagree=+${EXPORT_VOTE.agree};pass=${EXPORT_VOTE.pass};format=polis-export/1`,
+  "unknown-format": `# vote-convention: ${DECLARED};format=polis-export/2`,
+  malformed: `# vote-convention: agree=+${EXPORT_VOTE.agree};disagree=+${EXPORT_VOTE.agree};pass=${EXPORT_VOTE.pass}`,
+};
 
 // participationInit's "no participant yet" sentinel (a participant id).
 const NEW_PID = "pid=-1";
@@ -931,6 +1008,13 @@ describe("vote paths serve exactly the bytes edge served", () => {
     );
     const reportV = await newReport("V", V.conversationId);
     await recordExports("V", reportV);
+    // A report type the export route may or may not know.
+    recordResponse(
+      "V/reportExport/format.json",
+      await owner
+        .get(`/api/v3/reportExport/${reportV}/format.json`)
+        .set("x-forwarded-proto", "http")
+    );
     const zinviteUuid = (
       await pool.query("SELECT uuid FROM zinvites WHERE zid = $1", [V.zid])
     ).rows[0]?.uuid;
@@ -1112,8 +1196,14 @@ describe("vote paths serve exactly the bytes edge served", () => {
     await settle(I.zid);
     await recordStored("I/after-comments-bulk", I.zid);
 
-    const runImport = async (label: string, zid: number, rows: string[][]) => {
+    const runImport = async (
+      label: string,
+      zid: number,
+      rows: string[][],
+      firstLine?: string
+    ) => {
       const csv = [
+        ...(firstLine ? [firstLine] : []),
         "vote_id,user_id,vote_value,timestamp,comment_id",
         ...rows.map((r) => r.join(",")),
       ].join("\n");
@@ -1316,8 +1406,105 @@ describe("vote paths serve exactly the bytes edge served", () => {
         object: bulkObject,
       }),
     });
+    // POST /votes-bulk with a declared sign: a `# vote-convention:` first
+    // line, or a `format` object beside the csv (format.json's shape).
+    const bulkRow = [
+      "1",
+      u(5),
+      EXPORT_VOTE.agree,
+      "2023-11-14T22:13:20Z",
+      orig("a"),
+    ].join(",");
+    const bulkHeader = "vote_id,user_id,vote_value,timestamp,comment_id";
+    const exportVotes = {
+      agree: Number(EXPORT_VOTE.agree),
+      disagree: Number(EXPORT_VOTE.disagree),
+      pass: Number(EXPORT_VOTE.pass),
+    };
+    const wireVotes = { agree: AGREE, disagree: DISAGREE, pass: PASS };
+    const declaredPosts: Array<[string, object]> = [
+      ...Object.entries(DECLARATION_LINES).map(
+        ([label, line]) =>
+          [
+            `line-${label}`,
+            { csv: [line, bulkHeader, bulkRow].join("\n") },
+          ] as [string, object]
+      ),
+      [
+        "format-object-export-convention",
+        {
+          csv: [bulkHeader, bulkRow].join("\n"),
+          format: { format: "polis-export/1", vote: exportVotes },
+        },
+      ],
+      [
+        "format-object-wire-convention",
+        {
+          csv: [bulkHeader, bulkRow].join("\n"),
+          format: { format: "polis-export/1", vote: wireVotes },
+        },
+      ],
+    ];
+    const declaredSent: unknown[] = [];
+    const declaredSpy = jest
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .spyOn(sqsClient as any, "send")
+      .mockImplementation(async (command: unknown) => {
+        declaredSent.push((command as { input: unknown }).input);
+        return {};
+      });
+    try {
+      for (const [label, body] of declaredPosts)
+        recordResponse(
+          `I/votes-bulk-declared/${label}`,
+          await admin
+            .post("/api/v3/votes-bulk")
+            .send({ conversation_id: I.conversationId, ...body })
+        );
+    } finally {
+      declaredSpy.mockRestore();
+    }
+    record("I/votes-bulk-declared/queued", {
+      status: 0,
+      contentType: "sqs/message",
+      text: JSON.stringify({ messages: declaredSent.length }),
+    });
     await settle(I.zid);
     await recordStored("I/after-votes-bulk-route", I.zid);
+
+    // I3: the import worker reading files that declare their sign.
+    const I3 = await newConversation("I3");
+    await owner.post("/api/v3/comments-bulk").send({
+      conversation_id: I3.conversationId,
+      csv: [
+        "comment_text,original_id",
+        `Vote path declared import statement a,${orig("i3a")}`,
+        `Vote path declared import statement b,${orig("i3b")}`,
+      ].join("\n"),
+    });
+    await runImport(
+      "I3/declared-export-convention",
+      I3.zid,
+      [
+        ["1", u(31), EXPORT_VOTE.agree, "2023-11-14T22:13:20Z", orig("i3a")],
+        ["2", u(31), EXPORT_VOTE.disagree, "2023-11-14T22:13:21Z", orig("i3b")],
+      ],
+      DECLARATION_LINES["export-convention"]
+    );
+    await runImport(
+      "I3/declared-storage-convention",
+      I3.zid,
+      [["3", u(32), EXPORT_VOTE.agree, "2023-11-14T22:13:22Z", orig("i3a")]],
+      DECLARATION_LINES["storage-convention"]
+    );
+    await runImport(
+      "I3/declared-malformed",
+      I3.zid,
+      [["4", u(33), EXPORT_VOTE.agree, "2023-11-14T22:13:23Z", orig("i3a")]],
+      DECLARATION_LINES.malformed
+    );
+    await settle(I3.zid);
+    await recordStored("I3/after-import", I3.zid);
 
     // ----------------------------------------------------------------------
     // CL: a closed conversation refuses votes.
@@ -1453,9 +1640,14 @@ describe("vote paths serve exactly the bytes edge served", () => {
     expect([...observed.keys()]).toEqual(Object.keys(golden));
   });
 
+  test("every expected difference names a recorded case and applies exactly once", () => {
+    if (RECORDING) return;
+    expect(expectedObservations().problems).toEqual([]);
+  });
+
   // Jest refuses an empty table, so record mode runs one placeholder case.
   test.each(RECORDING ? ["(recording)"] : Object.keys(golden))("%s", (name) => {
     if (RECORDING) return;
-    expect(observed.get(name)).toEqual(golden[name]);
+    expect(observed.get(name)).toEqual(expectedObservations().expected[name]);
   });
 });

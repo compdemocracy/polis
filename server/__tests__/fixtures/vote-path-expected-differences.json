@@ -1,0 +1,4 @@
+{
+  "about": "Intended, ruled differences from the edge-recorded golden (vote-path-golden.json), one entry per changed case. See the header of __tests__/integration/vote-path-recordings.test.ts. Emptied whenever the golden is re-recorded on edge.",
+  "entries": []
+}
