@@ -3,7 +3,10 @@
 # is edge's served bytes. It may only be re-recorded on edge itself, so a change
 # that touches it must not also change the server code it characterizes:
 # otherwise a branch could re-record the golden on its own changed server and
-# pass. Re-record procedure: see the header of
+# pass. An intended, ruled change ships instead as named entries in
+# server/__tests__/fixtures/vote-path-expected-differences.json, which the suite
+# applies on top of the golden; a golden re-record must leave that file empty.
+# Re-record procedure: see the header of
 # server/__tests__/integration/vote-path-recordings.test.ts.
 #
 #   sh ci/vote_path_golden_guard.sh <base-ref>     e.g. origin/edge
@@ -19,7 +22,13 @@ if printf '%s\n' "$changed" | grep -qx "$golden"; then
     printf '%s\n' "$server"
     exit 1
   fi
-  echo "vote-path golden changed; no server code changed alongside it."
+  # A re-record absorbs every intended difference: the file must be empty.
+  expected="server/__tests__/fixtures/vote-path-expected-differences.json"
+  if [ -f "$expected" ] && ! python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1]))["entries"] == [] else 1)' "$expected"; then
+    echo "::error::$golden is re-recorded while $expected still has entries. A re-record on edge absorbs them: empty the file in the same PR."
+    exit 1
+  fi
+  echo "vote-path golden changed; no server code changed alongside it; no expected differences remain."
 else
   echo "vote-path golden unchanged."
 fi
