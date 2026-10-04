@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "failed/topicPrioritize",
+ "state": "failed",
+ "route": "GET /api/v3/participation/topicPrioritize",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/participation/topicPrioritize?conversation_id=8p2z104",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "148"
+   ],
+   [
+    "etag",
+    "W/\"94-Csf+79eEZG91Vsh5ARzk4A\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"conversation_id\":\"8p2z104\",\"report_id\":\"r2p2zero104\",\"has_report\":true,\"has_delphi_data\":true,\"report_created\":\"1699827200000\"}",
+  "bodySha256": "d4a3e97cc4962aa4fe60bf90339076a25862201992d217ededbf4a95ebcd3f4f"
+ }
+}

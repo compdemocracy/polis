@@ -1,0 +1,85 @@
+name: Delphi characterization
+
+# Replays the recorded Delphi read-route characterization (P-077 P2-0) against
+# the current server, and checks the frozen storage codec in both languages.
+# Generated fixtures only: no production data, no cloud credentials, no
+# provider calls. A failure here means a Delphi read route no longer serves the
+# recorded bytes, the fixtures no longer regenerate identically, or the codec
+# drifted. Re-record only for a deliberate, reviewed behaviour change (see the
+# header of server/characterization/delphi/main.cjs).
+
+on:
+  pull_request:
+    branches: [edge, stable]
+  push:
+    branches: [edge]
+  workflow_dispatch:
+
+concurrency:
+  group: delphi-characterization-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.11
+        env:
+          POSTGRES_PASSWORD: generatedlocal
+        ports: ["5472:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s --health-timeout 2s --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # Started by hand rather than as a service: -sharedDb needs a command
+      # argument, and without it DynamoDB Local keys its data by access key.
+      - name: Start DynamoDB Local
+        run: docker run -d --name p2zero-dynamodb -p 127.0.0.1:8472:8000 amazon/dynamodb-local:3.3.1@sha256:ff89bd48ff32cd8d9be5fee8873b65b8854dc408f1afe881be6eb00247bc0dab -jar DynamoDBLocal.jar -sharedDb -inMemory
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci --no-audit --no-fund
+
+      - name: Codec golden test (Python writes, reads the file Node wrote)
+        working-directory: delphi
+        run: |
+          python -m pip install --quiet pyyaml
+          python -m unittest tests.test_delphi_storage_codec -v
+
+      - name: Codec golden test (Node reads the files Python wrote, writes the cross file)
+        working-directory: server
+        run: npx jest --config characterization/delphi/jest.codec.config.json
+
+      - name: Fixtures regenerate byte for byte
+        run: python3 server/characterization/delphi/generate.py --check
+
+      - name: Replay every recorded case against the current routes
+        working-directory: server
+        env:
+          P2ZERO_PG_ADMIN_URL: postgres://postgres:generatedlocal@127.0.0.1:5472/postgres
+          DYNAMODB_ENDPOINT: http://127.0.0.1:8472
+          TZ: UTC
+        run: node characterization/delphi/main.cjs replay
+
+      - name: Remove DynamoDB Local
+        if: always()
+        run: docker rm -f p2zero-dynamodb

@@ -1,0 +1,3 @@
+{"codec":"delphi-storage-codec/1","family":"Delphi_CommentClustersLLMTopicNames","key":["conversation_id","topic_key"]}
+{"cluster_id":{"N":"0"},"conversation_id":{"S":"9001"},"created_at":{"S":"2023-11-14T20:20:00.000000"},"job_id":{"S":"00000000-0000-4000-8000-000000009001"},"layer_id":{"N":"0"},"model_name":{"S":"generated-model-a"},"topic_key":{"S":"00000000-0000-4000-8000-000000009001#0#0"},"topic_name":{"S":"Generated topic"}}
+{"cluster_id":{"N":"1"},"conversation_id":{"S":"9001"},"created_at":{"S":"2023-11-13T08:00:00"},"layer_id":{"N":"0"},"model_name":{"S":"unknown"},"topic_key":{"S":"layer0_1"},"topic_name":{"S":"Generated legacy-key topic"}}
