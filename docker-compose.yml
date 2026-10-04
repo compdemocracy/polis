@@ -94,6 +94,8 @@ services:
       - OPS_MIN_VOTERS_FOR_TEXT=${OPS_MIN_VOTERS_FOR_TEXT:-}
       - SIMPLE_ANALYTICS_API_KEY=${SIMPLE_ANALYTICS_API_KEY:-}
       - SIMPLE_ANALYTICS_HOSTNAME=${SIMPLE_ANALYTICS_HOSTNAME:-}
+      - OPS_DATA_SOURCE=${OPS_DATA_SOURCE:-}
+      - OPS_COST_EXPLORER=${OPS_COST_EXPLORER:-}
     env_file:
       - ${SERVER_ENV_FILE:-.env}
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/server:latest

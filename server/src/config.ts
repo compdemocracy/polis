@@ -137,6 +137,13 @@ export default {
   // the ops pages show their topic, Delphi topic names or statement text.
   // Raw string; parsed (default 20) by src/ops/textThreshold.ts.
   opsMinVotersForText: process.env.OPS_MIN_VOTERS_FOR_TEXT || "",
+  // "aws": the ops system pages read CloudWatch, Auto Scaling and CodeDeploy
+  // with the instance role. Anything else (the default): those panels are
+  // left out and nothing is requested from AWS.
+  opsDataSource: process.env.OPS_DATA_SOURCE || "",
+  // Cost Explorer for the ops cost page (each request is billed $0.01). Off
+  // unless set; read only when OPS_DATA_SOURCE=aws.
+  opsCostExplorer: isTrue(process.env.OPS_COST_EXPLORER),
   // Ops "Where from" page: Simple Analytics Stats API key and the site name
   // the three web apps report under. Key unset: the page says so and reads
   // nothing.
