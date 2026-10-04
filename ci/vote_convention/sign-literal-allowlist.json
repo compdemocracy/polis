@@ -2,7 +2,7 @@
  "schema": "vote-sign-allowlist/1",
  "about": "Vote-sign literals present on origin/edge when the lint landed (P-078 PR-F). Seeded from the tree and the 350-row vote-sign audit of 2026-10-03 (snapshot 344c557ad), matched by path and by line mapped back to that snapshot. 'audit' names the row; 'file rows' means the file is audited but this line is not itemised; 'not in the audit' means the audit did not list the file. Delete an entry when its site moves into a chokepoint. Never add one to make a new literal pass: take the sign from the chokepoint of that layer.",
  "window": 3,
- "sites": 589,
+ "sites": 573,
  "entries": [
   {
    "path": "ci/private_cert/images/g12.py",
@@ -3394,24 +3394,10 @@
   },
   {
    "path": "server/app.ts",
-   "text": "need(\"vote\", getIntInRange(-1, 1), assignToP),",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 7: server/app.ts:1238"
-  },
-  {
-   "path": "server/app.ts",
    "text": "want(\"math_tick\", getInt, assignToP, -1),",
    "count": 1,
    "kind": "minus-one",
    "audit": "audit 2026-10-03 §2 file rows 6, 7 (server/app.ts); this line is not itemised there"
-  },
-  {
-   "path": "server/app.ts",
-   "text": "want(\"vote\", getIntInRange(-1, 1), assignToP),",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 6: server/app.ts:799"
   },
   {
    "path": "server/characterization/corrections.test.cjs",
@@ -3541,41 +3527,6 @@
   },
   {
    "path": "server/src/report.ts",
-   "text": "// have to flip vote from -1 to 1 and vice versa",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 17: server/src/report.ts:486-498"
-  },
-  {
-   "path": "server/src/report.ts",
-   "text": "// note that -1 means agree and 1 means disagree",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 14: server/src/report.ts:330-340"
-  },
-  {
-   "path": "server/src/report.ts",
-   "text": "currentParticipantVotes.set(row.tid, -row.vote);",
-   "count": 2,
-   "kind": "negated-vote",
-   "audit": "audit 2026-10-03 §2 row 17: server/src/report.ts:486-498"
-  },
-  {
-   "path": "server/src/report.ts",
-   "text": "else if (row.vote === 1) comment.disagrees += 1;",
-   "count": 1,
-   "kind": "equals-one",
-   "audit": "audit 2026-10-03 §2 row 14: server/src/report.ts:330-340"
-  },
-  {
-   "path": "server/src/report.ts",
-   "text": "else if (vote === -1) disagrees += 1;",
-   "count": 1,
-   "kind": "equals-minus-one",
-   "audit": "audit 2026-10-03 §2 row 16: server/src/report.ts:449-451,462-467"
-  },
-  {
-   "path": "server/src/report.ts",
    "text": "if (currentParticipantId != -1) {",
    "count": 2,
    "kind": "equals-minus-one",
@@ -3583,45 +3534,10 @@
   },
   {
    "path": "server/src/report.ts",
-   "text": "if (row.vote === -1) comment.agrees += 1;",
-   "count": 1,
-   "kind": "equals-minus-one",
-   "audit": "audit 2026-10-03 §2 row 14: server/src/report.ts:330-340"
-  },
-  {
-   "path": "server/src/report.ts",
-   "text": "if (vote === 1) agrees += 1;",
-   "count": 1,
-   "kind": "equals-one",
-   "audit": "audit 2026-10-03 §2 row 16: server/src/report.ts:449-451,462-467"
-  },
-  {
-   "path": "server/src/report.ts",
    "text": "let currentParticipantId = -1;",
    "count": 2,
    "kind": "minus-one",
    "audit": "audit 2026-10-03 §2 file rows 13, 14, 15, 16, 17, 18 (server/src/report.ts); this line is not itemised there"
-  },
-  {
-   "path": "server/src/report.ts",
-   "text": "vote: (row) => String(-row.vote), // have to flip -1 to 1 and vice versa",
-   "count": 1,
-   "kind": "negated-vote",
-   "audit": "audit 2026-10-03 §2 row 15: server/src/report.ts:403"
-  },
-  {
-   "path": "server/src/routes/collectiveStatement.ts",
-   "text": "COALESCE(SUM(CASE WHEN v.vote = -1 THEN 1 ELSE 0 END), 0) as agrees,",
-   "count": 1,
-   "kind": "sql-equals-sign",
-   "audit": "audit 2026-10-03 §2 row 22: server/src/routes/collectiveStatement.ts:582-592"
-  },
-  {
-   "path": "server/src/routes/collectiveStatement.ts",
-   "text": "COALESCE(SUM(CASE WHEN v.vote = 1 THEN 1 ELSE 0 END), 0) as disagrees,",
-   "count": 1,
-   "kind": "sql-equals-sign",
-   "audit": "audit 2026-10-03 §2 row 22: server/src/routes/collectiveStatement.ts:582-592"
   },
   {
    "path": "server/src/routes/comments.ts",
@@ -3650,27 +3566,6 @@
    "count": 1,
    "kind": "minus-one",
    "audit": "not in the audit's 350 rows (server/src/utils/pca.ts); pre-existing at 344c557ad"
-  },
-  {
-   "path": "server/src/workers/import-processor.ts",
-   "text": "if (voteValue === 1) {",
-   "count": 1,
-   "kind": "equals-one",
-   "audit": "audit 2026-10-03 §2 row 38: server/src/workers/import-processor.ts:218-224"
-  },
-  {
-   "path": "server/src/workers/import-processor.ts",
-   "text": "voteValue = -1;",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 38: server/src/workers/import-processor.ts:218-224"
-  },
-  {
-   "path": "server/src/workers/import-processor.ts",
-   "text": "} else if (voteValue === -1) {",
-   "count": 1,
-   "kind": "equals-minus-one",
-   "audit": "audit 2026-10-03 §2 row 38: server/src/workers/import-processor.ts:218-224"
   },
   {
    "path": "server/types/test-helpers.d.ts",
