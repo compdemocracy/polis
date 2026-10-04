@@ -2,7 +2,7 @@
  "schema": "vote-sign-allowlist/1",
  "about": "Vote-sign literals present on origin/edge when the lint landed (P-078 PR-F). Seeded from the tree and the 350-row vote-sign audit of 2026-10-03 (snapshot 344c557ad), matched by path and by line mapped back to that snapshot. 'audit' names the row; 'file rows' means the file is audited but this line is not itemised; 'not in the audit' means the audit did not list the file. Delete an entry when its site moves into a chokepoint. Never add one to make a new literal pass: take the sign from the chokepoint of that layer.",
  "window": 3,
- "sites": 587,
+ "sites": 589,
  "entries": [
   {
    "path": "ci/private_cert/images/g12.py",
@@ -3146,6 +3146,20 @@
    "count": 1,
    "kind": "minus-one",
    "audit": "audit 2026-10-03 §2 row 51: server/__tests__/integration/treevite.test.ts:853,864,910"
+  },
+  {
+   "path": "server/__tests__/integration/vote-path-recordings.test.ts",
+   "text": "const EXPORT_VOTE = { agree: \"1\", disagree: \"-1\", pass: \"0\" } as const;",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit: the votes-bulk import CSV and participant-votes.csv cells are in the export convention (agree = +1); the server tests have no export-convention helper, so this one line states it (PR #2949)"
+  },
+  {
+   "path": "server/__tests__/integration/vote-path-recordings.test.ts",
+   "text": "const NEW_PID = \"pid=-1\";",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the audit: participationInit's pid=-1 sentinel (a participant id, not a vote) (PR #2949)"
   },
   {
    "path": "server/__tests__/integration/vote.test.ts",

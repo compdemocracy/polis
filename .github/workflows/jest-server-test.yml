@@ -19,6 +19,21 @@ on:
   workflow_dispatch:
 
 jobs:
+  # The vote-path recordings' golden is edge's served bytes: a PR may change it
+  # or the server code it characterizes, never both (re-record from edge in a
+  # PR of its own; see server/__tests__/integration/vote-path-recordings.test.ts).
+  vote-path-golden-guard:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: The vote-path golden never changes together with server code
+      run: sh ci/vote_path_golden_guard.sh "origin/${{ github.base_ref }}"
+
   server-integration-tests:
     runs-on: ubuntu-latest
     
