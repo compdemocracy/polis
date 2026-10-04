@@ -1,0 +1,12 @@
+# GET /api/v3/math/pca2 to polis-api (RUST_API_ROUTES contains pca2).
+location = /api/v3/math/pca2 {
+    proxy_pass http://$polis_api_backend;
+    proxy_next_upstream error timeout http_502;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Host $host;
+    proxy_connect_timeout 300;
+    proxy_send_timeout 300;
+    proxy_read_timeout 300;
+    proxy_buffering off;
+    proxy_request_buffering off;
+}
