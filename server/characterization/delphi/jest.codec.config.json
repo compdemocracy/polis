@@ -1,0 +1,6 @@
+{
+  "rootDir": "../../",
+  "transform": { "^.+\\.ts$": ["ts-jest", { "tsconfig": "./tsconfig.json" }] },
+  "testEnvironment": "node",
+  "testMatch": ["**/__tests__/unit/delphiStorageCodec.test.ts"]
+}

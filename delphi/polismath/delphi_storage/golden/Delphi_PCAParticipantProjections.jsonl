@@ -1,0 +1,4 @@
+{"codec":"delphi-storage-codec/1","family":"Delphi_PCAParticipantProjections","key":["zid_tick","participant_id"]}
+{"coordinates":{"L":[{"N":"0"},{"N":"-0.2"}]},"group_id":{"N":"0"},"participant_id":{"S":"0"},"zid":{"S":"9001"},"zid_tick":{"S":"9001:7"}}
+{"coordinates":{"L":[{"N":"0.1"},{"N":"-0.2"}]},"group_id":{"N":"1"},"participant_id":{"S":"1"},"zid":{"S":"9001"},"zid_tick":{"S":"9001:7"}}
+{"coordinates":{"L":[{"N":"0.2"},{"N":"-0.2"}]},"group_id":{"N":"0"},"participant_id":{"S":"2"},"zid":{"S":"9001"},"zid_tick":{"S":"9001:7"}}

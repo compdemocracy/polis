@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "two_models/delphi-reports/section-topic-key-missing",
+ "state": "two_models",
+ "route": "GET /api/v3/delphi/reports",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/reports?report_id=r2p2zero106&section=global_groups&topic_key=generated-missing",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "183"
+   ],
+   [
+    "etag",
+    "W/\"b7-mlohwld1Bg4e1H+uhPwcZQ\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"error\",\"message\":\"Topic report not found\",\"request_report_id\":\"r2p2zero106\",\"queried_gsi_report_id\":\"r2p2zero106\",\"section\":\"global_groups\",\"topic_key\":\"generated-missing\"}",
+  "bodySha256": "c15878b74eb2c8ab6f5566b253f6f3d8fe679c329abc422db865e6f23bc4e561"
+ }
+}
