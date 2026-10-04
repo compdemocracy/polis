@@ -242,6 +242,9 @@ const opsRoutes = createOpsRoutes({
   audience: Config.authAudience,
   issuer: Config.authIssuer,
   validateJwt: jwtValidation,
+  minVotersForText: Config.opsMinVotersForText,
+  simpleAnalyticsApiKey: Config.simpleAnalyticsApiKey,
+  simpleAnalyticsHostname: Config.simpleAnalyticsHostname,
 });
 const hostname = Config.staticFilesHost;
 const staticFilesAdminPort = Config.staticFilesAdminPort;

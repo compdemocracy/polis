@@ -3,21 +3,6 @@ Storage utilities for the Polis comment graph microservice.
 """
 
 import boto3
-
-
-def _postgres_vote_to_delphi(pg_vote):
-    """
-    Convert PostgreSQL vote convention to Delphi convention.
-
-    PostgreSQL/Server/Client: AGREE=-1, DISAGREE=+1, PASS=0
-    Delphi internal:          AGREE=+1, DISAGREE=-1, PASS=0
-
-    Note: The canonical definition is in polismath.utils.general.postgres_vote_to_delphi()
-    This local copy exists because polismath_commentgraph is a separate package.
-    """
-    return pg_vote * -1
-
-
 import os
 import json
 import logging
@@ -26,6 +11,7 @@ from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
 import numpy as np
 from decimal import Decimal
+from polismath.utils.vote_convention import load_semantic_votes
 from .converter import DataConverter
 from ..schemas.dynamo_models import (
     ConversationMeta,
@@ -310,15 +296,16 @@ class PostgresClient:
         """
         Get all votes in a conversation.
 
-        Vote signs are flipped at this PostgreSQL boundary:
-        - PostgreSQL stores: AGREE=-1, DISAGREE=+1
-        - Delphi expects:    AGREE=+1, DISAGREE=-1
+        Votes are converted from the raw storage sign to semantic votes
+        (+1 agree) at this PostgreSQL boundary by the one vote convention,
+        polismath.utils.vote_convention.load_semantic_votes. A NULL vote stays
+        None, as before; group_data skips it.
 
         Args:
             zid: Conversation ID
 
         Returns:
-            List of votes with signs converted to Delphi convention
+            List of votes with semantic signs
         """
         sql = """
         SELECT 
@@ -333,11 +320,7 @@ class PostgresClient:
         """
 
         results = self.query(sql, {"zid": zid})
-        # Flip vote signs at PostgreSQL boundary
-        for r in results:
-            if r.get("vote") is not None:
-                r["vote"] = _postgres_vote_to_delphi(r["vote"])
-        return results
+        return load_semantic_votes(results, null_policy="keep")
 
     def get_participants_by_conversation(self, zid: int) -> List[Dict[str, Any]]:
         """

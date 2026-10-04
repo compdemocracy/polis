@@ -21,6 +21,7 @@ import sqlalchemy as sa
 from click.testing import CliRunner
 
 from polismath.replay import poller_equiv as pe
+from tests.vote_fixtures import AGREE, PASS, seed_vote
 from polismath.replay.types import CommentMeta, ModEvent, ReplayDataset
 from polismath.utils.general import delphi_vote_to_postgres, postgres_vote_to_delphi
 
@@ -188,16 +189,16 @@ class TestVoteSignConvention:
         sql, params = conn.calls[0]
         assert "INSERT INTO votes" in sql
         assert sql.count("VALUES") == 1
-        # First vote: sign=+1 (AGREE, Delphi) -> raw DB must be -1.
-        assert params["vote0"] == -1
+        # First vote: sign=+1 (AGREE, Delphi) -> the stored agree.
+        assert params["vote0"] == seed_vote(AGREE)
         assert params["pid0"] == ds.votes[0].pid
         assert params["tid0"] == ds.votes[0].tid
         assert params["created0"] == ds.votes[0].t_ms
         assert params["zid"] == pe.DEFAULT_ZID
 
-        # Third vote (index 2, sorted order) is the PASS (sign=0) -> raw 0.
-        pass_idx = next(i for i, v in enumerate(ds.votes) if v.sign == 0)
-        assert params[f"vote{pass_idx}"] == 0
+        # Third vote (index 2, sorted order) is the PASS (sign=0) -> the stored pass.
+        pass_idx = next(i for i, v in enumerate(ds.votes) if v.sign == PASS)
+        assert params[f"vote{pass_idx}"] == seed_vote(PASS)
 
     def test_insert_votes_is_one_atomic_statement(self):
         """ROOT CAUSE #5 (2026-07-24 live-debug task, discovered AFTER root

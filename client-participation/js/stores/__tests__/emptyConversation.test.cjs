@@ -85,6 +85,7 @@ function fixture(math) {
       getAnonPicUrl: () => "",
       projectComments: false
     },
+    "../util/voteConvention": require("../../util/voteConvention"),
     "../util/net": { polisGet: () => Deferred().resolve(math, null, { status: 200 }) },
     jquery: { extend: Object.assign, Callbacks: () => ({ add() {}, remove() {}, fire() {} }), Deferred },
     lodash: _,

@@ -20,6 +20,8 @@ import psycopg2
 from tunnel import Tunnel
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "delphi/tests"))
+from vote_fixtures import AGREE, DISAGREE, PASS, seed_vote  # noqa: E402  (the fixture vote writer)
 TABLES = ("ticks", "bidtopid", "ptptstats", "main")
 FIXTURES = {1: "populated", 2: "zero", 3: "published-empty", 4: "absent", 5: "dormant", 6: "import"}
 
@@ -179,7 +181,7 @@ class Campaign:
             for tid in range(4):
                 self.query("INSERT INTO comments(zid,tid,pid,uid,txt,mod,is_meta,created,modified) VALUES(%s,%s,0,%s,%s,0,false,1000,1000)", (zid,tid,zid*100,f"Generated statement {tid}"))
                 for pid in range(6):
-                    self.query("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(%s,%s,%s,%s,%s)", (zid,pid,tid,[-1,1,0][(pid+tid)%3],1000+pid*4+tid))
+                    self.query("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(%s,%s,%s,%s,%s)", (zid,pid,tid,seed_vote((AGREE,DISAGREE,PASS)[(pid+tid)%3]),1000+pid*4+tid))
         self.receipt["migrations"] = {p.name: digest(p.read_bytes()) for p in sorted((ROOT/"server/postgres/migrations").glob("*.sql"))}
         self.receipt["schema_seal"] = self.query("SELECT catalog_fingerprint FROM polis_coordinator_install")[0][0]
 
