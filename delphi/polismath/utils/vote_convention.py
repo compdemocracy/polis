@@ -39,7 +39,7 @@ without dragging in the candidate converter.
 
 from __future__ import annotations
 
-from typing import Any, Union
+from typing import Any, Iterable, Literal, Mapping, Union
 
 Number = Union[int, float]
 
@@ -132,3 +132,39 @@ def storage_vote(
     because the two directions mean different things at a boundary, and a
     reader must never have to work out which way a bare ``* -1`` points."""
     return semantic_vote(semantic, storage_agree_value)
+
+
+#: What a loader does with a NULL ``votes.vote``. ``"refuse"`` raises (via
+#: :func:`semantic_vote`); ``"keep"`` leaves ``None`` in place for a consumer
+#: that already skips it (the narrative loader's long-standing behaviour).
+NullPolicy = Literal["refuse", "keep"]
+
+
+def load_semantic_votes(
+    rows: Iterable[Mapping[str, Any]],
+    *,
+    storage_agree_value: int = STORAGE_AGREE_VALUE,
+    vote_key: str = "vote",
+    null_policy: NullPolicy = "refuse",
+) -> list[dict[str, Any]]:
+    """Copies of ``rows`` with ``row[vote_key]`` turned from a raw storage
+    vote into a semantic vote by :func:`semantic_vote`.
+
+    This is the one place a Delphi loader turns database vote rows into
+    semantic votes; every other field is copied unchanged. The input rows are
+    not modified.
+    """
+    s = validate_storage_agree_value(storage_agree_value)
+    if null_policy not in ("refuse", "keep"):
+        raise VoteConventionError(
+            f"null_policy must be 'refuse' or 'keep', got {null_policy!r}")
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        converted = dict(row)
+        raw = converted.get(vote_key)
+        if raw is None and null_policy == "keep":
+            converted[vote_key] = None
+        else:
+            converted[vote_key] = semantic_vote(raw, s)
+        out.append(converted)
+    return out

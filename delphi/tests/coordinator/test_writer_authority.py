@@ -8,6 +8,7 @@ import psycopg2
 import pytest
 
 from coordinator.conftest import ARTIFACTS, ROOT, assert_coherent, connect, lease, rows, seed, wait
+from tests.vote_fixtures import DISAGREE, seed_vote
 
 
 def role_url(url, kind="control", env="rustproto"):
@@ -49,7 +50,7 @@ def test_restart_refuses_withdrawn_zid_and_daemon_serves_unaffected_zid(db, laun
     assert restarted.proc.pid != first.proc.pid
     assert lease(db)["owner_epoch"] == old["owner_epoch"]
     assert rows(db) == frozen
-    query(db, "INSERT INTO votes(zid,pid,tid,vote,created) VALUES(2,0,0,1,9000)")
+    query(db, "INSERT INTO votes(zid,pid,tid,vote,created) VALUES(2,0,0,%s,9000)",(seed_vote(DISAGREE),))
     live = launch(db, mode="run", extra={"P026_POLL_MS":"20"})
     wait(lambda: rows(db,2)["math_ticks"]["math_tick"] == 1,
          alive=live, why="unaffected conversation publication")

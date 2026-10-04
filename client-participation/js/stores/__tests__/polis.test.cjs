@@ -1,8 +1,13 @@
 const assert = require("node:assert/strict");
+// The participant id the store sends before the server assigns one.
+const UNASSIGNED_PID = -1;
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const test = require("node:test");
+const VoteConvention = require("../../util/voteConvention");
+
+const { WIRE } = VoteConvention;
 
 // Run the actual factory. Transport, event bus, model collection, and jQuery
 // are external doubles. Geometry/polling/Deferred settlement are not exercised.
@@ -28,6 +33,7 @@ function fixture({ language = "", conversation = "7Public" } = {}) {
       uiLanguage: () => language,
       getBestTranslation: (rows, lang) => rows.find((row) => row.lang === lang)
     },
+    "../util/voteConvention": VoteConvention,
     "../util/net": { polisPost: transport("POST"), polisPut: transport("PUT"), polisGet: transport("GET") },
     "../util/polisStorage": { setJwtToken: (token) => tokens.push(token) },
     jquery: { extend: Object.assign, Callbacks: () => ({ add() {}, remove() {} }), Deferred: () => ({}) },
@@ -35,7 +41,7 @@ function fixture({ language = "", conversation = "7Public" } = {}) {
     "../3rdparty/d3.v4.min": {}
   };
   const votes = {
-    models: [{ attributes: { tid: 2, vote: -1 } }],
+    models: [{ attributes: { tid: 2, vote: WIRE.AGREE } }],
     map: (fn) => [{ get: () => 2 }, { get: () => 3 }].map(fn),
     add: (...args) => additions.push(args)
   };
@@ -77,10 +83,30 @@ test("vote actions preserve polarity, optional star state, and conversation scop
   assert.deepEqual(
     f.calls.map((call) => plain(call.body)),
     [
-      { high_priority: true, vote: -1, tid: 2, starred: false, pid: -1, conversation_id: "7Public", agid: 1 },
-      { high_priority: false, vote: 1, tid: 3, starred: true, pid: -1, conversation_id: "7Public", agid: 1 },
-      { vote: 0, tid: 4, pid: -1, conversation_id: "7Public", agid: 1 }
+      {
+        high_priority: true,
+        vote: WIRE.AGREE,
+        tid: 2,
+        starred: false,
+        pid: UNASSIGNED_PID,
+        conversation_id: "7Public",
+        agid: 1
+      },
+      {
+        high_priority: false,
+        vote: WIRE.DISAGREE,
+        tid: 3,
+        starred: true,
+        pid: UNASSIGNED_PID,
+        conversation_id: "7Public",
+        agid: 1
+      },
+      { vote: WIRE.PASS, tid: 4, pid: UNASSIGNED_PID, conversation_id: "7Public", agid: 1 }
     ]
+  );
+  assert.deepEqual(
+    f.calls.map((call) => VoteConvention.fromWire(call.body.vote)),
+    [VoteConvention.AGREE, VoteConvention.DISAGREE, VoteConvention.PASS]
   );
   assert.ok(f.calls.every((call) => call.method === "POST" && call.url === "api/v3/votes"));
 });
