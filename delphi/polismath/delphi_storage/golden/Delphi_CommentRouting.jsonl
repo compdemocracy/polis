@@ -1,0 +1,4 @@
+{"codec":"delphi-storage-codec/1","family":"Delphi_CommentRouting","key":["zid_tick","comment_id"]}
+{"comment_id":{"S":"0"},"consensus_score":{"N":"0.125"},"priority":{"N":"0.75"},"stats":{"M":{"agree":{"N":"0"},"disagree":{"N":"1"},"pass":{"N":"0"}}},"zid":{"S":"9001"},"zid_tick":{"S":"9001:7"}}
+{"comment_id":{"S":"1"},"consensus_score":{"N":"0.125"},"priority":{"N":"0.65"},"stats":{"M":{"agree":{"N":"1"},"disagree":{"N":"1"},"pass":{"N":"0"}}},"zid":{"S":"9001"},"zid_tick":{"S":"9001:7"}}
+{"comment_id":{"S":"2"},"consensus_score":{"N":"0.125"},"priority":{"N":"0.55"},"stats":{"M":{"agree":{"N":"2"},"disagree":{"N":"1"},"pass":{"N":"0"}}},"zid":{"S":"9001"},"zid_tick":{"S":"9001:7"}}

@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "pending/topicAgenda-selections/anonymous",
+ "state": "pending",
+ "route": "GET /api/v3/topicAgenda/selections",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/topicAgenda/selections?conversation_id=8p2z102",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "64"
+   ],
+   [
+    "etag",
+    "W/\"40-DFMpEvCb+KiwUh9PvxG8vA\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"No selections found\",\"data\":null}",
+  "bodySha256": "a14d1d9f253195f535ca617bedf46f17ada237993ab05b1a8ff9ef6e76a9ac50"
+ }
+}

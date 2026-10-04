@@ -1,0 +1,3 @@
+{"codec":"delphi-storage-codec/1","family":"report_narrative_store","key":["rid_section_model","timestamp"]}
+{"errors":{"NULL":true},"model":{"S":"openai"},"report_data":{"S":"{\"id\":\"generated\"}"},"report_id":{"S":"r9001generated"},"rid_section_model":{"S":"r9001generated#group_informed_consensus#openai"},"timestamp":{"S":"2023-11-14T21:30:00.000Z"}}
+{"report_data":{"S":"[{\"name\":\"generated\"}]"},"rid_section_model":{"S":"r9001generated#topics"},"timestamp":{"S":"2023-11-14T21:31:00.000Z"}}

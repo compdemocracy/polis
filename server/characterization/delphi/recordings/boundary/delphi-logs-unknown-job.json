@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "boundary/delphi-logs-unknown-job",
+ "state": "boundary",
+ "route": "GET /api/v3/delphi/logs",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/logs?job_id=generated-unknown-job",
+  "auth": "owner"
+ },
+ "response": {
+  "status": 404,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "44"
+   ],
+   [
+    "etag",
+    "W/\"2c-3rhPoFthgK22teQ87W53nQ\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"error\",\"message\":\"Job not found\"}",
+  "bodySha256": "c7ae52e2236e932c78734770e742c4ea2c342a3e6503f5606321e3de39e667c6"
+ }
+}

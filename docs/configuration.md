@@ -2,6 +2,8 @@
 
 Most application settings are environment variables. Copy the repository-root `example.env` to `.env` and modify it for your launch path; example values are not universal runtime defaults. CDK context and explicit CLI/config arguments are separate configuration inputs.
 
+The data export and vote import file formats, including the vote sign every file declares, are described in [export and import file formats](export-format.md).
+
 The [environment read reference](configuration-env-reference.md) records all 233 named inputs and 680 read sites in the scoped API, Delphi, coordinator and CDK source, including file:line, fallback and secret status. The [deployment reference](deployment-configuration.md) connects those settings to all 153 P065 service entries and explains dynamic/SDK input limits.
 
 </br>
@@ -212,6 +214,27 @@ The `delphi` service has no `env_file`, so it sees only the keys its `environmen
 - **`TOPIC_BATCH_MAX_WAIT_SECONDS`** Longest wait, in seconds, for one layer's Anthropic topic-naming batch. Compose fallback `1800`.
 - **`SENTENCE_TRANSFORMER_MODEL`** Local embedding model for the narrative pipeline. Compose fallback `all-MiniLM-L6-v2`.
 - **`OLLAMA_HOST`**, **`OLLAMA_ENDPOINT`**, **`OLLAMA_MODEL`** Used only when `LLM_PROVIDER=ollama`. `OLLAMA_ENDPOINT` is the older name for `OLLAMA_HOST`. Compose fallbacks are empty.
+
+### Large Memory Class (math-python-large)
+
+Off by default; nothing here changes behaviour until `MATH_CAPACITY_ROUTING=1`. The design is in [MATH_POLLER_DESIGN.md §7-§8](../delphi/docs/MATH_POLLER_DESIGN.md). Compose lists every setting explicitly (neither poller service has an `env_file`), so a value set in `.env` or the deployment env document reaches a container only through these lines.
+
+| Service | Role | Label (`math_env`) and lock | Memory limit |
+|---|---|---|---|
+| `math-python` | small poller, the single writer of the served label; routes, writes the manifest, promotes | `MATH_PYTHON_ENV` (`python`) | `DELPHI_POLLER_CONTAINER_MEMORY` (16g) |
+| `math-python-large` (profile `math-python-large`) | large worker (`math-large`): computes only manifest conversations, writes only its own label | `python-large` (a literal, not a setting) | `MATH_LARGE_CONTAINER_MEMORY` (52g) |
+
+- **`MATH_CAPACITY_ROUTING`** (`math-python`, default `0`) `1` sizes each cold touch before computing it and hands a conversation above `MATH_CAPACITY_ROUTE_FRACTION` (0.9; `MATH_CAPACITY_KEEP_FRACTION` 0.7 once routed) of the small compute capacity to the large class. A routed conversation is not computed by the small poller at all, so do not set it without a running large worker. `MATH_CAPACITY_RESIZE_S` (3600) bounds re-sizing; `MATH_CAPACITY_STATE_PATH` (unset) keeps the records across restarts.
+- **`MATH_CAPACITY_PROMOTE`** (`math-python`, default `0`; needs routing) promotes staged `python-large` bundles into `python`.
+- **`MATH_CAPACITY_RESTAGE`** (`math-python`, unset) a 16-64 hex nonce that marks every routed conversation for one rebuild; remove it after use.
+- **`MATH_CAPACITY_MANIFEST_URI`** (both, unset) `s3://<bucket>/<key>` (the client reads `AWS_REGION` and `AWS_S3_ENDPOINT` and signs as the instance role: neither poller receives the `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` pair the env document holds for Delphi) or `file:///<path>`. The large worker refuses to start without it.
+- **`MATH_CAPACITY_LARGE_BUDGET_MB`** (both, unset) the large class's budget; the large worker refuses to start if it exceeds 0.85 of its own memory limit.
+- The large worker's label and lock are the literal `python-large` in both services (the label the small poller promotes from), so no env document can point it at a served label; the worker also refuses to start under `prod` or `python`.
+- **`MATH_LARGE_CONTAINER_MEMORY`**, **`MATH_LARGE_WORKER_POOL_SIZE`** (2), **`MATH_LARGE_CONV_CACHE_CAP`** (10), **`MATH_LARGE_CONV_CACHE_MB`** (unset) the large worker's own limit, pool and cache; the small poller's values do not move them.
+
+The large worker pins what it must never take from a shared env document: `MATH_CAPACITY_CLASS=large`, routing, promotion, the nonce, the state path, `MATH_BACKFILL=0`, no sharding and no served-label override. `math-python` pins `MATH_CAPACITY_CLASS=small`.
+
+Deploy hooks: a box whose `/etc/app-info/service_type.txt` says `delphi-large` starts only `math-python-large` ([after_install.sh](../scripts/after_install.sh)), with the same readiness identity lines as the Delphi box; `application_stop.sh` stops it. A `delphi` box is unchanged (`delphi` and `math-python`).
 
 ### Datadog Tracing (Delphi)
 

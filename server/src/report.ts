@@ -7,6 +7,13 @@ import { getXids } from "./routes/xids";
 import { getPcaFromBundle } from "./utils/pca";
 import { failJson } from "./utils/fail";
 import logger from "./utils/logger";
+import {
+  EXPORT_VOTE_CONVENTION,
+  RawVote,
+  storageToExport,
+  storageToSemantic,
+  VOTE_CONVENTION_KEY,
+} from "./votes/convention";
 import { getCommentsWithClusters } from "./utils/commentClusters";
 import { presentPca } from "./utils/pcaPresentation";
 import type { XidRecord } from "./d";
@@ -284,6 +291,9 @@ export async function loadConversationSummary(zid: number, siteUrl: string) {
         : Object.keys(groupClusters).length,
     ],
     ["conversation-description", formatEscapedText(convo.description)],
+    // The declared vote sign of every export file (P-078 PR-E). Last, so every
+    // row above keeps its position and bytes.
+    [VOTE_CONVENTION_KEY, EXPORT_VOTE_CONVENTION],
   ].map((row) => row.join(","));
 }
 
@@ -334,10 +344,11 @@ export async function sendCommentSummary(zid: number, res: ResponseLike) {
       (row) => {
         const comment = comments.get(row.tid);
         if (comment) {
-          // note that -1 means agree and 1 means disagree
-          if (row.vote === -1) comment.agrees += 1;
-          else if (row.vote === 1) comment.disagrees += 1;
-          else if (row.vote === 0) comment.pass += 1;
+          // NULL and out-of-range stored values are counted nowhere, as before.
+          const vote = storageToSemantic(row.vote, { onInvalid: "skip" });
+          if (vote === "agree") comment.agrees += 1;
+          else if (vote === "disagree") comment.disagrees += 1;
+          else if (vote === "pass") comment.pass += 1;
 
           // Count high priority votes if enabled
           if (importanceEnabled && row.high_priority) {
@@ -400,7 +411,8 @@ export async function sendVotesSummary(zid: number, res: ResponseLike) {
       datetime: (row) => formatDatetime(row.timestamp),
       "comment-id": (row) => String(row.tid),
       "voter-id": (row) => String(row.pid),
-      vote: (row) => String(-row.vote), // have to flip -1 to 1 and vice versa
+      // The export's own convention (agree = +1); NULL is EXPORT_NULL_VALUE.
+      vote: (row) => String(storageToExport(row.vote, { onInvalid: "keep" })),
     };
 
     // Add important column if enabled
@@ -455,15 +467,17 @@ export async function sendParticipantVotesSummary(
 
   // Query the votes in participant order so that we can summarize them in a streaming pass
   let currentParticipantId = -1;
-  const currentParticipantVotes = new Map<number, number>();
+  // tid -> the stored vote value, converted only when the row is written
+  const currentParticipantVotes = new Map<number, RawVote>();
 
   const sendCurrentParticipantRow = () => {
     const totalVotes = currentParticipantVotes.size;
     let agrees = 0;
     let disagrees = 0;
-    for (const vote of currentParticipantVotes.values()) {
-      if (vote === 1) agrees += 1;
-      else if (vote === -1) disagrees += 1;
+    for (const raw of currentParticipantVotes.values()) {
+      const vote = storageToSemantic(raw, { onInvalid: "skip" });
+      if (vote === "agree") agrees += 1;
+      else if (vote === "disagree") disagrees += 1;
     }
     const values = [
       currentParticipantId,
@@ -472,7 +486,13 @@ export async function sendParticipantVotesSummary(
       totalVotes,
       agrees,
       disagrees,
-      ...commentIds.map((tid) => currentParticipantVotes.get(tid)),
+      ...commentIds.map((tid) =>
+        currentParticipantVotes.has(tid)
+          ? storageToExport(currentParticipantVotes.get(tid), {
+              onInvalid: "keep",
+            })
+          : undefined
+      ),
     ];
     res.write(
       values
@@ -493,8 +513,7 @@ export async function sendParticipantVotesSummary(
         currentParticipantId = pid;
         currentParticipantVotes.clear();
       }
-      // have to flip vote from -1 to 1 and vice versa
-      currentParticipantVotes.set(row.tid, -row.vote);
+      currentParticipantVotes.set(row.tid, row.vote);
     },
     () => {
       if (currentParticipantId != -1) {
@@ -536,12 +555,12 @@ export async function sendParticipantImportance(
 
   // Query the votes in participant order so that we can summarize them in a streaming pass
   let currentParticipantId = -1;
-  const currentParticipantVotes = new Map<number, number>();
   const currentParticipantImportance = new Map<number, boolean>();
   const currentParticipantVotedComments = new Set<number>();
 
   const sendCurrentParticipantRow = () => {
-    const totalVotes = currentParticipantVotes.size;
+    // The vote value plays no part in this export; only which tids were voted.
+    const totalVotes = currentParticipantVotedComments.size;
     let importantVotes = 0;
     for (const tid of currentParticipantVotedComments) {
       if (currentParticipantImportance.get(tid)) {
@@ -581,14 +600,12 @@ export async function sendParticipantImportance(
           sendCurrentParticipantRow();
         }
         currentParticipantId = pid;
-        currentParticipantVotes.clear();
         currentParticipantImportance.clear();
         currentParticipantVotedComments.clear();
       }
       if (!commentIdSet.has(row.tid)) {
         return;
       }
-      currentParticipantVotes.set(row.tid, -row.vote);
       currentParticipantImportance.set(row.tid, row.high_priority || false);
       currentParticipantVotedComments.add(row.tid);
     },

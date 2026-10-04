@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "boundary/collectiveStatement-no-params",
+ "state": "boundary",
+ "route": "GET /api/v3/collectiveStatement",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/collectiveStatement",
+  "auth": "none"
+ },
+ "response": {
+  "status": 400,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "68"
+   ],
+   [
+    "etag",
+    "W/\"44-YZI3mjPxmfBiQug/r1WyjA\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"error\",\"message\":\"statement_id or report_id is required\"}",
+  "bodySha256": "b97caf6cb6fe432613fc5e2aff00d31c6478677fd5a52331d176829703af22ab"
+ }
+}

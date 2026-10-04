@@ -562,7 +562,7 @@ def test_wire_gate_negative_control_extra_field(dsn: str) -> None:
 
 
 def _copy_server_src(dst_root: str) -> str:
-    """Copy the two real source files the witness reads into <dst_root>/src."""
+    """Copy the real source files the witness reads into <dst_root>/src."""
     import shutil
 
     server_dir = pg._resolve_server_dir()
@@ -571,6 +571,9 @@ def _copy_server_src(dst_root: str) -> str:
     src = os.path.join(dst_root, "src")
     os.makedirs(os.path.join(src, "routes"), exist_ok=True)
     os.makedirs(os.path.join(src, "db"), exist_ok=True)
+    os.makedirs(os.path.join(src, "votes"), exist_ok=True)
+    shutil.copy(os.path.join(server_dir, "src", "votes", "convention.ts"),
+                os.path.join(src, "votes", "convention.ts"))
     shutil.copy(os.path.join(server_dir, "src", "routes", "votes.ts"),
                 os.path.join(src, "routes", "votes.ts"))
     shutil.copy(os.path.join(server_dir, "src", "server-helpers.ts"),
@@ -608,9 +611,10 @@ def test_wire_gate_is_source_bound(dsn: str, tmp_path) -> None:
         return {r.site.name: r for r in _wire_or_skip(dsn, {"zid": PUBLIC_FIXTURE_ZID, "pid": 0}, **kw)}
 
     # Mutation A: flip the served vote sign in the ACTUAL route.
-    assert "resolve(results.rows);" in votes_orig
+    served_rows = "resolve(results.rows.map((row) => storageRowToWire(row)));"
+    assert served_rows in votes_orig
     _write(votes_ts, votes_orig.replace(
-        "resolve(results.rows);",
+        served_rows,
         "resolve(results.rows.map((r) => ({ ...r, vote: -r.vote })));"))
     rA = _findings()
     assert not rA["votesGet"].ok

@@ -4,6 +4,10 @@ import { afterAll, beforeAll, describe, expect, test } from "@jest/globals";
 import type { Agent } from "supertest";
 import Config from "../../src/config";
 import { loadConversationSummary } from "../../src/report";
+import {
+  EXPORT_VOTE_CONVENTION,
+  VOTE_CONVENTION_KEY,
+} from "../../src/votes/convention";
 import { setupAuthAndConvo, newAgent } from "../setup/api-test-helpers";
 import { pool, closePool } from "../setup/db-test-helpers";
 
@@ -516,6 +520,14 @@ describe("zero-vote conversations serve exactly the bytes edge served", () => {
       `/api/v3/nextComment?conversation_id=${conversationId}&lang=en`
     );
     const summary = await loadConversationSummary(zid, SITE_URL);
+    // summary.csv's last row is the declared vote sign (P-078 PR-E), added
+    // after the golden was recorded on edge. It is asserted here and set aside,
+    // so `summaryCsv` stays the edge-recorded rows the golden compares; the
+    // golden is not re-recorded on this branch.
+    expect(summary[summary.length - 1]).toBe(
+      `${VOTE_CONVENTION_KEY},${EXPORT_VOTE_CONVENTION}`
+    );
+    const summaryBeforeDeclaration = summary.slice(0, -1);
 
     const servedTids: number[] = (comments.body || []).map(
       (c: { tid: number }) => c.tid
@@ -548,7 +560,7 @@ describe("zero-vote conversations serve exactly the bytes edge served", () => {
         keys: next.body ? Object.keys(next.body).sort() : null,
         isServedComment: servedTids.includes(next.body?.tid),
       },
-      summaryCsv: summary.map((row) => t(row)),
+      summaryCsv: summaryBeforeDeclaration.map((row) => t(row)),
     };
   }
 

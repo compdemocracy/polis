@@ -1,0 +1,2 @@
+{"codec":"delphi-storage-codec/1","family":"Delphi_UMAPConversationConfig","key":["conversation_id"]}
+{"cluster_layers":{"L":[{"N":"6"},{"N":"3"}]},"conversation_id":{"S":"9001"},"embedding_model":{"S":"generated-embedding-model"},"evoc_parameters":{"M":{"min_samples":{"N":"5"}}},"metadata":{"M":{"generated":{"BOOL":true},"notes":{"NULL":true}}},"num_comments":{"N":"6"},"num_participants":{"N":"12"},"processed_date":{"S":"2023-11-14T20:10:00"},"umap_parameters":{"M":{"metric":{"S":"cosine"},"min_dist":{"N":"0.1"},"n_components":{"N":"2"},"n_neighbors":{"N":"15"}}}}
