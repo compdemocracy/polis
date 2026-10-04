@@ -2,7 +2,7 @@
  "schema": "vote-sign-allowlist/1",
  "about": "Vote-sign literals present on origin/edge when the lint landed (P-078 PR-F). Seeded from the tree and the 350-row vote-sign audit of 2026-10-03 (snapshot 344c557ad), matched by path and by line mapped back to that snapshot. 'audit' names the row; 'file rows' means the file is audited but this line is not itemised; 'not in the audit' means the audit did not list the file. Delete an entry when its site moves into a chokepoint. Never add one to make a new literal pass: take the sign from the chokepoint of that layer.",
  "window": 3,
- "sites": 646,
+ "sites": 586,
  "entries": [
   {
    "path": "ci/private_cert/images/g12.py",
@@ -82,13 +82,6 @@
    "audit": "audit 2026-10-03 §2 file rows 81, 82, 83, 84 (ci/probe_box/local/pipeline_seed.py); this line is not itemised there"
   },
   {
-   "path": "ci/probe_box/local/pipeline_seed.py",
-   "text": "vote=-int(r['vote']),weight_x_32767=0,created=BASE_MS+i+1000)",
-   "count": 1,
-   "kind": "negated-subscript",
-   "audit": "audit 2026-10-03 §2 row 81: ci/probe_box/local/pipeline_seed.py:19-24"
-  },
-  {
    "path": "ci/probe_box/test_backfill_verify.py",
    "text": "last_vote_timestamp bigint NOT NULL, caching_tick bigint NOT NULL DEFAULT 0, math_tick bigint NOT NULL DEFAULT -1,",
    "count": 1,
@@ -122,13 +115,6 @@
    "count": 1,
    "kind": "minus-one",
    "audit": "audit 2026-10-03 §2 file rows 85 (ci/probe_box/test_pipeline_seed.py); this line is not itemised there"
-  },
-  {
-   "path": "ci/probe_box/test_pipeline_seed.py",
-   "text": "self.assertEqual([v['vote'] for v in votes],[-int(r['vote']) for r in source])",
-   "count": 1,
-   "kind": "negated-subscript",
-   "audit": "audit 2026-10-03 §2 row 85: ci/probe_box/test_pipeline_seed.py:19"
   },
   {
    "path": "ci/vote_convention/compare.py",
@@ -174,20 +160,6 @@
   },
   {
    "path": "ci/vote_convention/fixtures.py",
-   "text": "PCA2_DECLARED = -1 # seed-pca2.py:66-68 writes rng draws into votes as raw storage values",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (ci/vote_convention/fixtures.py); added by P-078 PR-F: the gate's declared-sign harness"
-  },
-  {
-   "path": "ci/vote_convention/fixtures.py",
-   "text": "as raw storage values, agree = -1).",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (ci/vote_convention/fixtures.py); added by P-078 PR-F: the gate's declared-sign harness"
-  },
-  {
-   "path": "ci/vote_convention/fixtures.py",
    "text": "comments = [(t, 0, 0 if t in tids else -1, first) for t in range(max(tids) + 1)]",
    "count": 1,
    "kind": "minus-one",
@@ -196,13 +168,6 @@
   {
    "path": "ci/vote_convention/fixtures.py",
    "text": "comments[tid] = (tid, 0, -1, first)",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (ci/vote_convention/fixtures.py); added by P-078 PR-F: the gate's declared-sign harness"
-  },
-  {
-   "path": "ci/vote_convention/fixtures.py",
-   "text": "raw = int(rng.choice([-1, 0, 1], p=[.45, .1, .45])) # seed-pca2.py:66-67 draw",
    "count": 1,
    "kind": "minus-one",
    "audit": "not in the audit's 350 rows (ci/vote_convention/fixtures.py); added by P-078 PR-F: the gate's declared-sign harness"
@@ -544,20 +509,6 @@
    "audit": "audit 2026-10-03 §2 row 137: coordinator-rs/tools/d05/cases.py:184"
   },
   {
-   "path": "coordinator-rs/tools/d05/cases.py",
-   "text": "c.query(\"INSERT INTO votes(zid,pid,tid,vote,created) VALUES(6,0,9,-1,3001)\")",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 138: coordinator-rs/tools/d05/cases.py:189"
-  },
-  {
-   "path": "coordinator-rs/tools/d05/run.py",
-   "text": "self.query(\"INSERT INTO votes(zid,pid,tid,vote,created) VALUES(%s,%s,%s,%s,%s)\", (zid,pid,tid,[-1,1,0][(pid+tid)%3],1000+pid*4+tid))",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (coordinator-rs/tools/d05/run.py); pre-existing at 344c557ad"
-  },
-  {
    "path": "coordinator-rs/tools/d07/boundary.py",
    "text": "if any(int(r[\"vote\"]) not in (-1, 0, 1) for r in rows):",
    "count": 1,
@@ -577,20 +528,6 @@
    "count": 1,
    "kind": "equals-one",
    "audit": "not in the audit's 350 rows (coordinator-rs/tools/d07/readiness.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "coordinator-rs/tools/d07/run.py",
-   "text": "rows=[(pids[int(r['voter-id'])],tids[int(r['comment-id'])],-int(r['vote']),int(float(r['timestamp'])*1000)) for r in raw]",
-   "count": 1,
-   "kind": "negated-subscript",
-   "audit": "audit 2026-10-03 §2 row 140: coordinator-rs/tools/d07/run.py:133"
-  },
-  {
-   "path": "coordinator-rs/tools/d07/startup.py",
-   "text": "rows=[(pids[int(r['voter-id'])],tids[int(r['comment-id'])],-int(r['vote']),int(r['timestamp'])*1000) for r in raw[:1170]]",
-   "count": 1,
-   "kind": "negated-subscript",
-   "audit": "audit 2026-10-03 §2 row 141: coordinator-rs/tools/d07/startup.py:89"
   },
   {
    "path": "coordinator-rs/tools/d07/test_readiness.py",
@@ -1188,20 +1125,6 @@
    "audit": "not in the audit's 350 rows (delphi/tests/conversation_profiler.py); pre-existing at 344c557ad"
   },
   {
-   "path": "delphi/tests/coordinator/conftest.py",
-   "text": "value = [-1,1,0][(pid+tid)%3]",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/conftest.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/coordinator/reference_child.py",
-   "text": "conn.execute(sa.text(\"INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,1,:t),(1,2,2,-1,:later)\"),{\"t\":t,\"later\":t+1000})",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/reference_child.py); pre-existing at 344c557ad"
-  },
-  {
    "path": "delphi/tests/coordinator/test_adapter.py",
    "text": "@pytest.mark.parametrize(\"vote\",[None,True,2,\"-1\"])",
    "count": 1,
@@ -1237,67 +1160,11 @@
    "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_adapter.py); pre-existing at 344c557ad"
   },
   {
-   "path": "delphi/tests/coordinator/test_bundle_reader.py",
-   "text": "\"\"\"Change one seeded vote (pid 1, tid 2: -1 -> 1). The public seed has only",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_bundle_reader.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/coordinator/test_bundle_reader.py",
-   "text": "cur.execute(\"UPDATE votes SET vote=1 WHERE zid=1 AND pid=1 AND tid=2\")",
-   "count": 1,
-   "kind": "sql-equals-sign",
-   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_bundle_reader.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/coordinator/test_bundle_reader.py",
-   "text": "def add_vote(db, created, pid=0, tid=0, vote=1):",
-   "count": 1,
-   "kind": "sql-equals-sign",
-   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_bundle_reader.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/coordinator/test_bundle_reader.py",
-   "text": "value = [-1, 1, 0][(model_pid + tid) % 3]",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_bundle_reader.py); pre-existing at 344c557ad"
-  },
-  {
    "path": "delphi/tests/coordinator/test_equivalence.py",
    "text": "assert declared['storage_agree_value']==-1 and declared['algorithm_digest']",
    "count": 1,
    "kind": "equals-minus-one",
    "audit": "audit 2026-10-03 §2 row 227: delphi/tests/coordinator/test_equivalence.py:167-198"
-  },
-  {
-   "path": "delphi/tests/coordinator/test_equivalence.py",
-   "text": "events=[(p,t,(-1 if p%2==0 else 1),1000+p*4+t) for p in range(6) for t in range(4)]",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 226: delphi/tests/coordinator/test_equivalence.py:149"
-  },
-  {
-   "path": "delphi/tests/coordinator/test_equivalence.py",
-   "text": "fold=FOLD.fold_votes([dict(pid=v.pid,tid=v.tid,vote=-v.sign,created=v.t_ms) for v in events[:cut]])",
-   "count": 1,
-   "kind": "assigned-negation",
-   "audit": "audit 2026-10-03 §2 row 225: delphi/tests/coordinator/test_equivalence.py:81,118,125"
-  },
-  {
-   "path": "delphi/tests/coordinator/test_equivalence.py",
-   "text": "for value in (1,-1):",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 227: delphi/tests/coordinator/test_equivalence.py:167-198"
-  },
-  {
-   "path": "delphi/tests/coordinator/test_equivalence.py",
-   "text": "subset=FOLD.fold_votes([dict(pid=v.pid,tid=v.tid,vote=-v.sign,created=v.t_ms) for v in events[:cut] if v.pid in member_set])",
-   "count": 1,
-   "kind": "assigned-negation",
-   "audit": "audit 2026-10-03 §2 row 225: delphi/tests/coordinator/test_equivalence.py:81,118,125"
   },
   {
    "path": "delphi/tests/coordinator/test_equivalence.py",
@@ -1312,34 +1179,6 @@
    "count": 1,
    "kind": "negated-vote",
    "audit": "audit 2026-10-03 §2 row 224: delphi/tests/coordinator/test_equivalence.py:46,191"
-  },
-  {
-   "path": "delphi/tests/coordinator/test_incremental.py",
-   "text": "query(db, \"UPDATE votes SET vote=-1 WHERE zid=1 AND pid=0 AND tid=1\")",
-   "count": 1,
-   "kind": "sql-equals-sign",
-   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_incremental.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/coordinator/test_incremental.py",
-   "text": "query(db, \"UPDATE votes SET vote=1 WHERE zid=1 AND pid=0 AND tid=0\")",
-   "count": 1,
-   "kind": "sql-equals-sign",
-   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_incremental.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/coordinator/test_recovery.py",
-   "text": "cur.execute(\"SELECT count(*) FROM votes WHERE zid=1 AND pid=0 AND tid=0 AND vote=1 AND created=%s\",(created,))",
-   "count": 1,
-   "kind": "sql-equals-sign",
-   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_recovery.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/coordinator/test_recovery.py",
-   "text": "cur.execute('UPDATE votes SET vote=-1 WHERE zid=1 AND pid=0 AND tid=0')",
-   "count": 1,
-   "kind": "sql-equals-sign",
-   "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_recovery.py); pre-existing at 344c557ad"
   },
   {
    "path": "delphi/tests/coordinator/test_recovery.py",
@@ -1370,20 +1209,6 @@
    "audit": "not in the audit's 350 rows (delphi/tests/coordinator/test_store.py); pre-existing at 344c557ad"
   },
   {
-   "path": "delphi/tests/poller/recovery/conftest.py",
-   "text": "Raw DB vote signs (AGREE=-1, DISAGREE=+1) are written directly, so the",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 228: delphi/tests/poller/recovery/conftest.py:367-424"
-  },
-  {
-   "path": "delphi/tests/poller/recovery/conftest.py",
-   "text": "return -1 if pid % 2 == 0 else 1",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 228: delphi/tests/poller/recovery/conftest.py:367-424"
-  },
-  {
    "path": "delphi/tests/poller/recovery/fold.py",
    "text": "(-1 today). Written out here rather than imported from",
    "count": 1,
@@ -1412,41 +1237,6 @@
    "audit": "not in the audit's 350 rows (delphi/tests/poller/recovery/test_empty_publication.py); pre-existing at 344c557ad"
   },
   {
-   "path": "delphi/tests/poller/recovery/test_empty_publication.py",
-   "text": "commit_vote(engine, 1, 0, 0, -1, created)",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/poller/recovery/test_empty_publication.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/poller/recovery/test_r01_stage_failures.py",
-   "text": "commit_vote(engine, 1, 1, 1, -1, newer)",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/poller/recovery/test_r01_stage_failures.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/poller/test_backfill_postgres.py",
-   "text": "q(db, \"INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 0, 3, -1, %s)\",",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_backfill_postgres.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/poller/test_backfill_postgres.py",
-   "text": "q(db, \"INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 1, 0, -1, %s)\",",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_backfill_postgres.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/poller/test_backfill_postgres.py",
-   "text": "raw = -1 if (p % 2 == 0) == (t % 2 == 0) else 1",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_backfill_postgres.py); pre-existing at 344c557ad"
-  },
-  {
    "path": "delphi/tests/poller/test_capacity.py",
    "text": "{\"zid\": 6, \"disposition\": \"small\", \"need_bytes\": 5, \"votes\": -1},",
    "count": 1,
@@ -1461,20 +1251,6 @@
    "audit": "not in the audit's 350 rows (delphi/tests/poller/test_coalescing.py); pre-existing at 344c557ad"
   },
   {
-   "path": "delphi/tests/poller/test_integration_postgres.py",
-   "text": "# Raw DB vote signs: AGREE=-1, DISAGREE=+1. Two opposing camps.",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 230: delphi/tests/poller/test_integration_postgres.py:77-85"
-  },
-  {
-   "path": "delphi/tests/poller/test_integration_postgres.py",
-   "text": "raw = -1 if p % 2 == 0 else 1",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 230: delphi/tests/poller/test_integration_postgres.py:77-85"
-  },
-  {
    "path": "delphi/tests/poller/test_load_or_init.py",
    "text": "camp = 1 if p % 2 == 0 else -1",
    "count": 1,
@@ -1483,52 +1259,10 @@
   },
   {
    "path": "delphi/tests/poller/test_postgres_client_pid_types.py",
-   "text": "[{\"zid\": 1, \"tid\": 10, \"pid\": 5, \"vote\": -1, \"created\": 1000}]",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 file rows 231 (delphi/tests/poller/test_postgres_client_pid_types.py); this line is not itemised there"
-  },
-  {
-   "path": "delphi/tests/poller/test_postgres_client_pid_types.py",
-   "text": "[{\"zid\": 1, \"tid\": 10, \"pid\": 5, \"vote\": -1, \"created\": 1000}] # raw DB AGREE",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 231: delphi/tests/poller/test_postgres_client_pid_types.py:73-81"
-  },
-  {
-   "path": "delphi/tests/poller/test_postgres_client_pid_types.py",
-   "text": "assert votes[0][\"vote\"] == 1 # Delphi AGREE",
-   "count": 1,
-   "kind": "equals-one",
-   "audit": "audit 2026-10-03 §2 row 231: delphi/tests/poller/test_postgres_client_pid_types.py:73-81"
-  },
-  {
-   "path": "delphi/tests/poller/test_postgres_client_pid_types.py",
    "text": "assert votes[0][\"zid\"] == 1",
    "count": 1,
    "kind": "equals-one",
    "audit": "audit 2026-10-03 §2 file rows 231 (delphi/tests/poller/test_postgres_client_pid_types.py); this line is not itemised there"
-  },
-  {
-   "path": "delphi/tests/poller/test_postgres_client_pid_types.py",
-   "text": "{\"zid\": 1, \"tid\": 11, \"pid\": 9, \"vote\": -1, \"created\": 1001},",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 file rows 231 (delphi/tests/poller/test_postgres_client_pid_types.py); this line is not itemised there"
-  },
-  {
-   "path": "delphi/tests/poller/test_promotion_postgres.py",
-   "text": "q(db, \"INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 1, 1, -1, %s)\",",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_promotion_postgres.py); added after 344c557ad"
-  },
-  {
-   "path": "delphi/tests/poller/test_promotion_postgres.py",
-   "text": "q(db, \"INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 7, 1, -1, %s)\",",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/poller/test_promotion_postgres.py); added after 344c557ad"
   },
   {
    "path": "delphi/tests/poller/test_recovery.py",
@@ -1577,27 +1311,6 @@
    "text": "\"resolve(results.rows.map((r) => ({ ...r, vote: -r.vote })));\"))",
    "count": 1,
    "kind": "negated-vote",
-   "audit": "not in the audit's 350 rows (delphi/tests/projgate/projection_gate_test.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/projgate/projection_gate_test.py",
-   "text": "(0, 0, -1, 0, 1000), # equal-created pair (same created=1000, ...",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/projgate/projection_gate_test.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/projgate/projection_gate_test.py",
-   "text": "(1, 0, -1, 0, 2000), # revote base",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/projgate/projection_gate_test.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/projgate/projection_gate_test.py",
-   "text": "(1, 0, 1, 0, 3000), # revote -> vlu upserts to modified=3000, vote=1",
-   "count": 1,
-   "kind": "sql-equals-sign",
    "audit": "not in the audit's 350 rows (delphi/tests/projgate/projection_gate_test.py); pre-existing at 344c557ad"
   },
   {
@@ -1937,13 +1650,6 @@
    "audit": "audit 2026-10-03 §2 row 234: delphi/tests/replay_harness/test_poller_equiv_seed.py:39-42,163-198"
   },
   {
-   "path": "delphi/tests/replay_harness/test_poller_equiv_seed.py",
-   "text": "assert params[\"vote0\"] == -1",
-   "count": 1,
-   "kind": "equals-minus-one",
-   "audit": "audit 2026-10-03 §2 row 234: delphi/tests/replay_harness/test_poller_equiv_seed.py:39-42,163-198"
-  },
-  {
    "path": "delphi/tests/replay_harness/test_real_data_mod_events.py",
    "text": "(150, 10, -1), (250, 11, 1),",
    "count": 1,
@@ -2218,20 +1924,6 @@
   },
   {
    "path": "delphi/tests/test_certify_bundle_integration.py",
-   "text": "\" CASE (p + c) % 3 WHEN 0 THEN -1 WHEN 1 THEN 1 ELSE 0 END, \"",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 file rows 236 (delphi/tests/test_certify_bundle_integration.py); this line is not itemised there"
-  },
-  {
-   "path": "delphi/tests/test_certify_bundle_integration.py",
-   "text": "assert int(row[\"vote\"]) == -event[\"vote\"] # export negates the storage sign",
-   "count": 1,
-   "kind": "negated-subscript",
-   "audit": "audit 2026-10-03 §2 row 236: delphi/tests/test_certify_bundle_integration.py:494"
-  },
-  {
-   "path": "delphi/tests/test_certify_bundle_integration.py",
    "text": "banned 20 4 5 one voter with participants.mod=-1",
    "count": 1,
    "kind": "minus-one",
@@ -2502,20 +2194,6 @@
    "count": 1,
    "kind": "minus-one",
    "audit": "not in the audit's 350 rows (delphi/tests/test_edge_cases.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/test_generator_vote_copy.py",
-   "text": "(0, 0): [-1, 1, -1],",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/test_generator_vote_copy.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/test_generator_vote_copy.py",
-   "text": "(0, 1): [1, -1],",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/test_generator_vote_copy.py); pre-existing at 344c557ad"
   },
   {
    "path": "delphi/tests/test_in_conv_greedy_carry.py",
@@ -2924,13 +2602,6 @@
    "audit": "audit 2026-10-03 §2 file rows 237 (delphi/tests/test_pca_column_order.py); this line is not itemised there"
   },
   {
-   "path": "delphi/tests/test_pca_column_order.py",
-   "text": "return {'votes': [dict(pid=p, tid=t, vote=-v, created=ms) for p, t, v, ms in rows]}",
-   "count": 1,
-   "kind": "assigned-negation",
-   "audit": "audit 2026-10-03 §2 row 237: delphi/tests/test_pca_column_order.py:20-21"
-  },
-  {
    "path": "delphi/tests/test_pca_smoke.py",
    "text": "elif vote_val < 0:",
    "count": 1,
@@ -2953,21 +2624,7 @@
   },
   {
    "path": "delphi/tests/test_prodclone_extract.py",
-   "text": "assert row[\"vote\"] == \"1\" # raw -1 (agree) flips to export +1",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/test_prodclone_extract.py",
    "text": "assert rows[1][\"vote\"] == \"-1\"",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/test_prodclone_extract.py",
-   "text": "base_votes = [(p, t, -1, 3000 + p * 10 + t)",
    "count": 1,
    "kind": "minus-one",
    "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
@@ -3002,57 +2659,8 @@
   },
   {
    "path": "delphi/tests/test_prodclone_extract.py",
-   "text": "raw = [{\"tid\": 7, \"pid\": 3, \"vote\": -1, \"created\": 1_700_000_000_123}]",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/test_prodclone_extract.py",
    "text": "raw = [{\"tid\": 9, \"pid\": 2, \"created\": 0, \"mod\": -1}]",
    "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/test_prodclone_extract.py",
-   "text": "votes=[(0, 0, -1, 4001), (1, 0, 1, 4002)],",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/test_prodclone_extract.py",
-   "text": "votes=[(0, 0, -1, 5001)],",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/test_prodclone_extract.py",
-   "text": "votes=[(0, 0, -1, 7001), (1, 0, 1, 7002)],",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/test_prodclone_extract.py",
-   "text": "votes=[(p, t, -1, 2000 + p * 10 + t)",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/test_prodclone_extract.py",
-   "text": "{\"tid\": 1, \"pid\": 1, \"vote\": -1, \"created\": 100_000},",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
-  },
-  {
-   "path": "delphi/tests/test_prodclone_extract.py",
-   "text": "{\"tid\": 1, \"pid\": 1, \"vote\": -1, \"created\": 1_700_000_000_000},",
-   "count": 2,
    "kind": "minus-one",
    "audit": "not in the audit's 350 rows (delphi/tests/test_prodclone_extract.py); pre-existing at 344c557ad"
   },
@@ -3811,27 +3419,6 @@
    "count": 1,
    "kind": "sql-equals-sign",
    "audit": "not in the audit's 350 rows (server/characterization/recorded.test.cjs); pre-existing at 344c557ad"
-  },
-  {
-   "path": "server/characterization/seed-comments.cjs",
-   "text": "`INSERT INTO votes(zid,pid,tid,vote,created) SELECT zid,$2,tid,CASE tid%3 WHEN 0 THEN -1 WHEN 1 THEN 0 ELSE 1 END,$3 FROM comments WHERE zid=$1`,",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 65: server/characterization/seed-comments.cjs:146"
-  },
-  {
-   "path": "server/characterization/seed-pca2.py",
-   "text": "vote = int(rng.choice([-1,0,1], p=[.45,.1,.45]))",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "audit 2026-10-03 §2 row 66: server/characterization/seed-pca2.py:66-68"
-  },
-  {
-   "path": "server/characterization/seed-pca2.py",
-   "text": "votes=[{**v,'vote':-v['vote']} for v in raw] # DB agree=-1; engine agree=+1.",
-   "count": 1,
-   "kind": "negated-subscript",
-   "audit": "audit 2026-10-03 §2 row 67: server/characterization/seed-pca2.py:75"
   },
   {
    "path": "server/characterization/test.cjs",

@@ -33,6 +33,7 @@ from tests.poller.test_backfill_postgres import (
     seed_conversation,
     set_payload_type,
 )
+from tests.vote_fixtures import AGREE, DISAGREE, seed_vote
 
 pytestmark = pytest.mark.integration
 
@@ -225,8 +226,8 @@ class TestPromoteBundle:
         mine, tpg = publisher(pg_url, small)
         try:
             publish(stage, z)                                 # staged at the old votes
-            q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 0, 0, 1, %s)",
-              (z, int(time.time() * 1000)))
+            q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 0, 0, %s, %s)",
+              (z, seed_vote(DISAGREE), int(time.time() * 1000)))
             publish(mine, z)                                  # target has a newer vote
             staged, target = fp(tpg, z, large), fp(tpg, z, small)
             assert staged.lvt < target.lvt
@@ -527,8 +528,8 @@ class TestTheLoop:
             # 4. A new vote: the small poller does not compute it, demand
             # returns; the large worker updates warm; promotion follows.
             now = int(time.time() * 1000)
-            q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 1, 1, -1, %s)",
-              (big, now))
+            q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 1, 1, %s, %s)",
+              (big, seed_vote(AGREE), now))
             cycle(s_svc)
             assert counts(s_svc)["large_demand"] == 1 and big not in s_svc.cached_zids()
             l_svc.poll_once()
@@ -583,13 +584,13 @@ class TestTheLoop:
             driver.tick()
             assert driver.counts()["refusal"] == "skew" and l_svc.cached_zids() == set()
             now = int(time.time() * 1000)
-            q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 7, 1, -1, %s)",
-              (big, now))
+            q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 7, 1, %s, %s)",
+              (big, seed_vote(AGREE), now))
             l_svc.poll_once()                                  # dropped by the empty allowlist
             drain(l_svc)
             assert fp(l_pg, big, large).lvt < now
-            q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 6, 2, 1, %s)",
-              (big, now + 1))
+            q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 6, 2, %s, %s)",
+              (big, seed_vote(DISAGREE), now + 1))
             cycle(s_svc)
             driver._source_commit = None                       # the refusal clears
             driver.tick()

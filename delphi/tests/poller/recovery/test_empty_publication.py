@@ -8,6 +8,7 @@ import pytest
 import sqlalchemy as sa
 
 from .conftest import seed_conversation, read_math_tables, tables_are_coherent, commit_vote
+from tests.vote_fixtures import AGREE, seed_vote
 
 pytestmark = pytest.mark.recovery
 SCHEDULE = Path(__file__).resolve().parents[3] / "scripts/schedules/pc-zerovote-01-empty.json"
@@ -62,7 +63,7 @@ def test_moderation_empty_publish_restart_and_first_vote(engine, pg_url, make_se
     fresh.poll_once()
     assert_empty(read_math_tables(engine, 1, "recovery"))
     created = int(time.time()*1000)
-    commit_vote(engine, 1, 0, 0, -1, created)
+    commit_vote(engine, 1, 0, 0, seed_vote(AGREE), created)
     fresh.poll_once()
     voted = read_math_tables(engine, 1, "recovery")
     assert tables_are_coherent(voted) == []
