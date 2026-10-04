@@ -8,6 +8,8 @@ from pathlib import Path
 import sys
 
 ROOT=Path(__file__).resolve().parents[3]
+sys.path.insert(0,str(ROOT/'delphi/tests'))
+from vote_fixtures import seed_vote_from_export  # noqa: E402  (the fixture vote writer)
 BASE_MS=1704067200000
 
 
@@ -17,11 +19,11 @@ def exported(alias):
     with path.open(newline='') as stream:
         rows=list(csv.DictReader(stream))
     # Rebase public CSV identities/timestamps to local fixture coordinates;
-    # preserve relative row order and raw storage sign (CSV sign is opposite).
+    # preserve relative row order; each export vote is stored through the fixture writer.
     pids={n:i for i,n in enumerate(sorted({int(r['voter-id']) for r in rows}))}
     tids={n:i for i,n in enumerate(sorted({int(r['comment-id']) for r in rows}))}
     votes=[dict(pid=pids[int(r['voter-id'])],tid=tids[int(r['comment-id'])],
-                vote=-int(r['vote']),weight_x_32767=0,created=BASE_MS+i+1000)
+                vote=seed_vote_from_export(r['vote']),weight_x_32767=0,created=BASE_MS+i+1000)
            for i,r in enumerate(rows)]
     comments=[dict(tid=t,pid=0,created=BASE_MS+t,modified=BASE_MS+t,mod=0,is_meta=False) for t in tids.values()]
     participants=[dict(pid=p,mod=0,created=BASE_MS+p) for p in pids.values()]

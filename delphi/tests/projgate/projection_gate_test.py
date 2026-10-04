@@ -37,6 +37,8 @@ from typing import Iterator
 
 import pytest
 
+from tests.vote_fixtures import seed_rows
+
 # delphi/scripts is put on sys.path by conftest.py (the checkout locator); the
 # implementation lives there, this test lives under delphi/tests/scripts so the
 # Delphi CI job collects it. The import fails closed to a per-test skip ONLY when
@@ -143,14 +145,14 @@ def _seed(url: str) -> None:
     populates votes_latest_unique. Includes an equal-created pair."""
     import psycopg2
 
-    rows = [
-        # (pid, tid, vote, weight_x_32767, created)
-        (0, 0, -1, 0, 1000),      # equal-created pair (same created=1000, ...
-        (0, 1, 1, 0, 1000),       #   ... different tid) -> deterministic ordering
-        (1, 0, -1, 0, 2000),      # revote base
-        (1, 0, 1, 0, 3000),       # revote -> vlu upserts to modified=3000, vote=1
-        (2, 0, 0, 30000, 4000),   # non-zero weight
-    ]
+    rows = seed_rows([
+        # (pid, tid, vote by meaning, weight_x_32767, created)
+        (0, 0, "agree", 0, 1000),     # equal-created pair (same created=1000, ...
+        (0, 1, "disagree", 0, 1000),  #   ... different tid) -> deterministic ordering
+        (1, 0, "agree", 0, 2000),     # revote base
+        (1, 0, "disagree", 0, 3000),  # revote -> vlu upserts to modified=3000, the disagree
+        (2, 0, "pass", 30000, 4000),  # non-zero weight
+    ])
     conn = psycopg2.connect(url)
     try:
         conn.autocommit = True

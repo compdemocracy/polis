@@ -11,6 +11,7 @@ from urllib.parse import urlsplit,urlunsplit
 
 import pytest
 from coordinator.conftest import ROOT,ARTIFACTS,connect,seed,rows,lease,wait,assert_coherent
+from tests.vote_fixtures import DISAGREE, seed_vote
 
 
 def publisher_url(url):
@@ -209,7 +210,7 @@ def test_retained_history_repairs_lost_or_regressed_current_rows(db,launch,damag
     seed(db);launch(db).done()
     c=connect(db)
     with c.cursor() as cur:
-        cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,1,2000)")
+        cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,%s,2000)",(seed_vote(DISAGREE),))
     launch(db).done()
     before=assert_coherent(db)
     assert before["math_ticks"]["math_tick"]==1
