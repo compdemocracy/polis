@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, jest, test } from "@jest/globals";
 import { Readable } from "node:stream";
+// The fixture vote helper: the stored value of a vote named by meaning.
+import { seedVote } from "../../characterization/seed-vote.cjs";
 
 jest.mock("@aws-sdk/client-s3", () => ({
   S3Client: jest.fn().mockImplementation(() => ({ send: jest.fn() })),
@@ -105,7 +107,8 @@ describe("CSV import transaction and lifecycle boundaries", () => {
       7,
       [0, 0, 1],
       [0, 0, 0],
-      [-1, 1, 0],
+      // The three CSV vote_value cells (export convention) stored as agree, disagree, pass.
+      [seedVote("agree"), seedVote("disagree"), seedVote("pass")],
       [1704067200000, 1704153600000, 1704240000000],
     ]);
     expect(logger.warn).toHaveBeenCalledWith(

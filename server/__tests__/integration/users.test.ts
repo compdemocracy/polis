@@ -7,6 +7,7 @@ import {
   newAgent,
 } from "../setup/api-test-helpers";
 import type { Response } from "supertest";
+import { toWire } from "../setup/vote-wire";
 import type { TestUser } from "../../types/test-helpers";
 
 interface UserInfo {
@@ -90,7 +91,7 @@ describe("User Management Endpoints", () => {
       const voteResponse = await xidAgent.post("/api/v3/votes").send({
         conversation_id: conversationId,
         tid: comments[0].tid,
-        vote: 1, // agree
+        vote: toWire("agree"), // was a literal 1, which is disagree on the wire
         xid: testXid, // Include XID parameter for XID record creation
       });
       expect(voteResponse.status).toBe(200);

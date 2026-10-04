@@ -43,6 +43,7 @@ import createMathPollerAlarms, { mathPollerAlarmsEnabled } from '../mathPollerAl
 import createLargeClass, {
   createLargeClassRole, grantManifestReadWrite, largeClassEnabled, largeClassSettings,
 } from '../largeClass';
+import createOpsDashboardsAccess, { opsDashboardsEnabled } from '../opsDashboards';
 import { ImportWorkerService } from './import-worker-service';
 import { CertificationCiEc2 } from '../ciEc2';
 import { CoordinatorInactiveService } from '../coordinator';
@@ -438,6 +439,19 @@ export class CdkStack extends cdk.Stack {
     if (largeClass) {
       createLargeClass(this, { asg: asgDelphiLarge, logGroup, alarmTopic, settings: largeClass });
       grantManifestReadWrite(instanceRole, largeClass);
+    }
+
+    // --- Ops dashboards (P-074 PR3). Off unless synthesized with
+    // `-c enableOpsDashboards=true`: one read-only policy on InstanceRole
+    // (CloudWatch metrics/alarms, Auto Scaling, CodeDeploy, Cost Explorer)
+    // and IMDS hop limit 2 on the web launch template. No Lambda.
+    if (opsDashboardsEnabled(this)) {
+      createOpsDashboardsAccess(this, {
+        instanceRole,
+        webLaunchTemplate,
+        codeDeployApplicationName: application.applicationName,
+        codeDeployDeploymentGroupName: deploymentGroup.deploymentGroupName,
+      });
     }
 
     // --- Secrets & Dependencies - creates secrets managed in SSM, grants services permission to interact with each other, etc.

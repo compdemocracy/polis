@@ -32,6 +32,8 @@ from psycopg2.extras import RealDictCursor
 from polismath.conversation.conversation import Conversation
 from polismath.database.postgres import PostgresClient, PostgresConfig
 from polismath.poller.math_writer import MathWriter
+from pca2_votes import semantic_votes
+from vote_fixtures import database_convention, read_vote, seed_vote  # pca2_votes put delphi/tests on sys.path
 
 HERE = Path(__file__).resolve().parent
 CLOCK = 1700000000000
@@ -44,6 +46,8 @@ def main():
     db.autocommit = True
     with db.cursor() as cur:
         cur.execute("INSERT INTO users(uid,hname,email,is_owner,site_id,created) VALUES(4,'Generated foreign owner','foreign@example.invalid',true,'p027r4-foreign',%s)",(CLOCK,))
+        # Votes are drawn by meaning (pca2_votes.py) and stored at the database's own convention.
+        agree_value = database_convention(cur)
     evidence = []
     for f in fixtures:
         zid, nc, npart = f['zid'], f['comments'], f['participants']
@@ -61,18 +65,15 @@ def main():
                 cur.execute('INSERT INTO participants(zid,uid,created) VALUES(%s,%s,%s)',(zid,uid,CLOCK))
             for tid in range(nc):
                 cur.execute('INSERT INTO comments(zid,pid,uid,txt,lang,created,modified,mod) VALUES(%s,0,1,%s,\'en\',%s,%s,%s)',(zid,f'Generated fixture {zid} statement {tid}',CLOCK,CLOCK,0 if f['shape']=='zero-approved' else 1))
-            rng=np.random.RandomState(f['seed'])
-            for pid in range(npart):
-                for tid in range(nc):
-                    vote = int(rng.choice([-1,0,1], p=[.45,.1,.45]))
-                    cur.execute('INSERT INTO votes(zid,pid,tid,vote,created) VALUES(%s,%s,%s,%s,%s)',(zid,pid,tid,vote,CLOCK))
+            for pid, tid, vote in semantic_votes(f):
+                cur.execute('INSERT INTO votes(zid,pid,tid,vote,created) VALUES(%s,%s,%s,%s,%s)',(zid,pid,tid,seed_vote(vote,agree_value),CLOCK))
             cur.execute('SELECT pid,tid,vote,created FROM votes WHERE zid=%s ORDER BY pid,tid',(zid,))
             raw=[dict(r) for r in cur.fetchall()]
             cur.execute('SELECT tid,mod,is_meta,modified FROM comments WHERE zid=%s ORDER BY tid',(zid,))
             mods=[dict(r) for r in cur.fetchall()]
         tick=None
         if f['rowMathEnv']:
-            votes=[{**v,'vote':-v['vote']} for v in raw] # DB agree=-1; engine agree=+1.
+            votes=[{**v,'vote':read_vote(v['vote'],agree_value)} for v in raw] # stored -> semantic (engine agree=+1)
             with patch('time.time', return_value=CLOCK/1000):
                 conv=Conversation(zid,last_updated=CLOCK)
                 conv.pca={'center':np.zeros(1),'comps':np.array([[1.0],[1.0]])}

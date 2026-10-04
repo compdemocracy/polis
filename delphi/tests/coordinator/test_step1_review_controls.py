@@ -17,6 +17,7 @@ import sys
 
 import pytest
 from coordinator.conftest import assert_coherent, connect, lease, rows, seed, wait
+from tests.vote_fixtures import DISAGREE, seed_vote
 
 
 def query(db, sql, args=()):
@@ -109,7 +110,7 @@ def test_publish_fixture_reports_expiry_with_the_typed_exit_code(db, launch, tmp
     assert rows(db) == before
 
     # Control from the review, retained: the same seam through `once`.
-    query(db, "INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,1,2000)")
+    query(db, "INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,%s,2000)",(seed_vote(DISAGREE),))
     control = launch(db, stage="before_commit", directory=tmp_path / "normal",
                      extra={"P026_LEASE_SECONDS": "30"})
     control.ack()

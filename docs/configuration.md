@@ -158,6 +158,19 @@ The admin console can show read-only, aggregate operations pages at `/ops` (serv
 
 A request is let through only when, in this order: `OPS_ENABLED=true`; it carries an OIDC access token that passes the server's issuer, audience and signature checks (participant, XID and anonymous tokens do not); the token's `${AUTH_NAMESPACE}connection_strategy` claim is `google-oauth2`; `${AUTH_NAMESPACE}email_verified` is `true`; `${AUTH_NAMESPACE}email` is printable ASCII and matches `OPS_EMAIL_DOMAINS` with no deny entry matching; and `${AUTH_NAMESPACE}hd` equals the email's domain (required when the email is admitted by a domain entry, optional for an address entry). The identity provider must add the `connection_strategy` claim (and `hd` when the login has one); until it does, every request is refused. Refusals answer 403 `polis_err_ops_forbidden`. Refused page reads with a token are logged as `ops_access` lines with the reason; other refusals (mostly the admin console's `whoami` check for logins without access) are counted and summarised in at most one `ops_refused` info line per minute per process. An ops request does not create or update any user record.
 
+What the pages read, all from the server process (nothing is read while nobody has a page open, and each panel is cached for at least 60 s and shared by every viewer):
+
+- **Activity now** and **Activity over time**: platform-wide counts from `votes` and `comments`, on the `votes(created)` and `comments(modified)` indexes, per hour (48 h), per day (90 d), and conversations started per month (one pass over `conversations`).
+- **What people are talking about** and **What consensus they found**: the most active conversations of the last 7 days with their topic, Delphi topic names (DynamoDB `Delphi_CommentClustersLLMTopicNames`), and the common-ground and group-distinctive statements from the published math (`math_main`, label `python`), with statement text only for statements visible to participants.
+- **Database**: Postgres statistics views (`pg_stat_activity` without query text, user or client address; `pg_stat_user_tables`; `pg_stat_database`). The `pg_read_all_stats` role is optional: without it, sessions of other database roles are still counted but their state shows as "not visible (counts only)". (On RDS the master user has it.)
+- **Where visitors come from**: the Simple Analytics Stats API (below).
+
+Every database read runs in a `READ ONLY` transaction with a 3 s statement timeout, one at a time per server process, with a client-side timeout so a lost connection cannot hold the pages' one connection.
+
+- **`OPS_MIN_VOTERS_FOR_TEXT`** The topics and consensus pages show a conversation's topic, its Delphi topic names and statement text only when it had at least this many distinct voters in the last 7 days; below that it is counted, never named. A whole number, at least 1. Default `20`. Any other value is logged once as an `ops_config_invalid` error and `20` is used, so a typo cannot lower it. Read at [config](../server/src/config.ts) as `opsMinVotersForText`.
+- **`SIMPLE_ANALYTICS_API_KEY`** A Simple Analytics API key (Simple Analytics account settings) for the "Where visitors come from" page, which shows pageviews of the participation, admin and report apps by country and by referring site over the last 30 days. Sent only as the `Api-Key` header to `simpleanalytics.com`, never logged or returned. Unset (the default): the page says so and reads nothing.
+- **`SIMPLE_ANALYTICS_HOSTNAME`** The site name the apps report under in Simple Analytics. Default `pol.is`. The three apps share it and are told apart by the paths the server serves each one on.
+
 ### Third Party API Credentials
 
 (Requirements depend on the selected integration and launch path. Missing values do not universally disable a feature cleanly; constructors and request paths can fail. See the [service inventory](deployment-configuration.md#external-service-touchpoints).)

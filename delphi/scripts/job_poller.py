@@ -7,21 +7,6 @@ and execute them.
 """
 
 import argparse
-
-
-def _postgres_vote_to_delphi(pg_vote):
-    """
-    Convert PostgreSQL vote convention to Delphi convention.
-
-    PostgreSQL/Server/Client: AGREE=-1, DISAGREE=+1, PASS=0
-    Delphi internal:          AGREE=+1, DISAGREE=-1, PASS=0
-
-    Note: The canonical definition is in polismath.utils.general.postgres_vote_to_delphi()
-    This local copy exists to avoid import dependencies in the standalone poller.
-    """
-    return pg_vote * -1
-
-
 from contextlib import contextmanager
 import sqlalchemy as sa
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, scoped_session
@@ -304,15 +289,16 @@ class PostgresClient:
         """
         Get all votes in a conversation.
 
-        Vote signs are flipped at this PostgreSQL boundary:
-        - PostgreSQL stores: AGREE=-1, DISAGREE=+1
-        - Delphi expects:    AGREE=+1, DISAGREE=-1
+        Votes are converted from the raw storage sign to semantic votes
+        (+1 agree) by the one vote convention,
+        polismath.utils.vote_convention.load_semantic_votes. A NULL vote stays
+        None, as before.
 
         Args:
             zid: Conversation ID
 
         Returns:
-            List of votes with signs converted to Delphi convention
+            List of votes with semantic signs
         """
         sql = """
         SELECT 
@@ -326,12 +312,12 @@ class PostgresClient:
             v.zid = :zid
         """
 
+        # Imported here, not at module load, so the poller still boots without
+        # the polismath package; only this loader needs it.
+        from polismath.utils.vote_convention import load_semantic_votes
+
         results = self.query(sql, {"zid": zid})
-        # Flip vote signs at PostgreSQL boundary
-        for r in results:
-            if r.get("vote") is not None:
-                r["vote"] = _postgres_vote_to_delphi(r["vote"])
-        return results
+        return load_semantic_votes(results, null_policy="keep")
 
     def get_participants_by_conversation(self, zid: int) -> List[Dict[str, Any]]:
         """
@@ -1087,7 +1073,9 @@ class JobProcessor:
         """Try to prove the job's process group is empty. See ExitConfirmation.
 
         Every completion that claims `process_exit_confirmed` goes through here,
-        not just the timeout and error paths. A parent that exits — with any
+        not just the timeout and error paths (the one exception is a job of an
+        unknown type, refused in process_job before any process is started, so
+        there is no tree to prove gone). A parent that exits — with any
         status, including 0 — does not take its own subprocesses with it, so
         `process.wait()` returning is evidence about one process and not about
         the tree.
@@ -1233,13 +1221,22 @@ class JobProcessor:
 
         self.update_job_logs(job, {'level': 'INFO', 'message': f'Worker {self.worker_id} starting job {job_id}'})
 
+        if not isinstance(job_type, str) or job_type not in KNOWN_JOB_TYPES:
+            # Refuse before anything runs. An unknown type used to fall through
+            # to run_delphi.py, which starts by deleting the conversation's
+            # existing results. No child was started, so its exit is certain.
+            error = f"Unknown job_type {job_type!r}; expected one of {sorted(KNOWN_JOB_TYPES)}. Nothing was run."
+            logger.error(f"Job {job_id}: {error}")
+            self.update_job_logs(job, {'level': 'ERROR', 'message': error})
+            self.complete_job(job, False, error=error, process_exited=True)
+            return
+
         child_process = None
         job_pgid = None
         try:
             # 1. Build the command
             job_config = json.loads(job.get('job_config', '{}'))
-            include_moderation = job_config.get('include_moderation', False)
-            exclude_comment_selections = job_config.get('exclude_comment_selections', True)
+            include_moderation, exclude_comment_selections = report_filter_flags(job_config)
             app_path = os.environ.get('DELPHI_APP_PATH', '/app')
             if job_type == 'CREATE_NARRATIVE_BATCH':
                 model = os.environ.get("ANTHROPIC_MODEL")
@@ -1250,7 +1247,7 @@ class JobProcessor:
             elif job_type == 'AWAITING_NARRATIVE_BATCH':
                 cmd_job_id = job.get('batch_job_id', job_id)
                 cmd = ['python', f'{app_path}/umap_narrative/803_check_batch_status.py', f'--job-id={cmd_job_id}']
-            else: # FULL_PIPELINE
+            elif job_type == 'FULL_PIPELINE':
                 # Base command
                 cmd = ['python', f'{app_path}/run_delphi.py', f'--zid={conversation_id}', f'--include_moderation={include_moderation}', f'--exclude_comment_selections={exclude_comment_selections}',]
                 # Check for report_id and append if it exists
@@ -1324,6 +1321,57 @@ class JobProcessor:
             logger.error(f"Critical error processing job {job_id}: {e}", exc_info=True)
             confirmation = self.stop_child_process(child_process, job_id, job_pgid)
             self._complete_with_confirmation(job, False, confirmation, error=f"Critical poller error: {str(e)}")
+
+
+#: The job types this poller runs. Anything else is refused without running.
+KNOWN_JOB_TYPES = frozenset({'FULL_PIPELINE', 'CREATE_NARRATIVE_BATCH', 'AWAITING_NARRATIVE_BATCH'})
+
+
+#: include_moderation is pinned to True (moderated-out comments are dropped)
+#: until honouring an explicit false is ruled on; see report_filter_flags.
+INCLUDE_MODERATION_PINNED = True
+
+
+def report_filter_flags(job_config: Dict[str, Any]) -> tuple:
+    """The two report-filter flags a job passes to its script.
+
+    ``POST /delphi/jobs`` puts ``include_moderation`` at the top level of
+    ``job_config``; ``POST /delphi/batchReports`` nests it under
+    ``stages[0].config``. Both are read, nested first.
+
+    ``include_moderation`` is read and parsed but then pinned to True
+    (moderated-out comments are dropped), with one log line if a job asked for
+    false: the scripts used to parse ``--include_moderation=False`` as True, so
+    True is what every job has run with, and honouring false awaits a ruling.
+    ``exclude_comment_selections`` defaults to True when a job does not say.
+    """
+    # Imported here, not at module load: the poller must still boot (and fail
+    # just this job) if the polismath package were ever missing.
+    from polismath.utils.cli_flags import parse_bool_flag
+
+    stages = job_config.get('stages') or []
+    stage_config = {}
+    if stages and isinstance(stages[0], dict):
+        stage_config = stages[0].get('config') or {}
+
+    def read(name: str, default: bool) -> bool:
+        for source in (stage_config, job_config):
+            value = source.get(name)
+            if value is not None:
+                return parse_bool_flag(value)
+        return default
+
+    requested = read('include_moderation', True)
+    if not requested:
+        # Pinned pending a ruling. -2 is the default moderation level of every
+        # report, and the report UI sends include_moderation=false for -2, so
+        # honouring false would put moderated-out comments into topics, topic
+        # names and narrative prompts for every default report. Until that is
+        # decided, jobs keep running with the value they have always had.
+        logger.warning(
+            "include_moderation=false requested; pinned to true pending a ruling "
+            "(moderated-out comments stay excluded)")
+    return INCLUDE_MODERATION_PINNED, read('exclude_comment_selections', True)
 
 
 def should_process_job(instance_type: str, job_actual_size: str) -> bool:

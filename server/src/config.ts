@@ -133,6 +133,15 @@ export default {
   // Off unless OPS_ENABLED=true; see docs/configuration.md.
   opsEnabled: isTrue(process.env.OPS_ENABLED),
   opsEmailDomains: process.env.OPS_EMAIL_DOMAINS || "",
+  // Conversations need at least this many distinct voters in the window before
+  // the ops pages show their topic, Delphi topic names or statement text.
+  // Raw string; parsed (default 20) by src/ops/textThreshold.ts.
+  opsMinVotersForText: process.env.OPS_MIN_VOTERS_FOR_TEXT || "",
+  // Ops "Where from" page: Simple Analytics Stats API key and the site name
+  // the three web apps report under. Key unset: the page says so and reads
+  // nothing.
+  simpleAnalyticsApiKey: process.env.SIMPLE_ANALYTICS_API_KEY || "",
+  simpleAnalyticsHostname: process.env.SIMPLE_ANALYTICS_HOSTNAME || "pol.is",
   polisFromAddress: process.env.POLIS_FROM_ADDRESS as string,
   polisJwtIssuer: process.env.POLIS_JWT_ISSUER || "https://pol.is/",
   polisJwtAudience: process.env.POLIS_JWT_AUDIENCE || "participants",
