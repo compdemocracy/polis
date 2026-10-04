@@ -245,6 +245,12 @@ const opsRoutes = createOpsRoutes({
   minVotersForText: Config.opsMinVotersForText,
   simpleAnalyticsApiKey: Config.simpleAnalyticsApiKey,
   simpleAnalyticsHostname: Config.simpleAnalyticsHostname,
+  dataSource: Config.opsDataSource,
+  costExplorer: Config.opsCostExplorer,
+  awsRegion: Config.awsRegion,
+  logGroupName: Config.awsLogGroupName,
+  databaseUrl: Config.databaseURL,
+  mathEnv: Config.mathEnv,
 });
 const hostname = Config.staticFilesHost;
 const staticFilesAdminPort = Config.staticFilesAdminPort;

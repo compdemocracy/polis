@@ -69,7 +69,15 @@ import {
   readDatabase,
   readTables,
 } from "../../src/ops/database";
+import {
+  LOCK_SQL,
+  readLock,
+  readTicks,
+  TICKS_SQL as ENGINE_TICKS_SQL,
+} from "../../src/ops/engine";
+import { FRESHNESS_SQL, readFreshness } from "../../src/ops/serving";
 import { newAgent } from "../setup/api-test-helpers";
+import { toWire } from "../setup/vote-wire";
 
 dotenv.config({ override: false });
 
@@ -440,8 +448,8 @@ describe("U4 and U5 on a generated conversation", () => {
     }
     for (const pid of pids) {
       await pool.query(
-        "INSERT INTO votes (zid, pid, tid, vote) VALUES ($1, $2, 0, -1)",
-        [zid, pid]
+        "INSERT INTO votes (zid, pid, tid, vote) VALUES ($1, $2, 0, $3)",
+        [zid, pid, toWire("agree")]
       );
     }
     const votes = {
@@ -533,5 +541,51 @@ describe("U4 and U5 on a generated conversation", () => {
       ["Group B · 10 people", null],
     ]);
     expect(JSON.stringify(r.rows)).not.toMatch(/Unmoderated|Rejected/);
+  });
+});
+
+describe("S2 and S3 statements (engine lock, math_ticks, freshness)", () => {
+  const LARGE = [
+    "votes",
+    "votes_latest_unique",
+    "comments",
+    "math_main",
+    "participants",
+    "participants_extended",
+  ];
+  test.each([
+    [
+      "S3 freshness of live conversations",
+      FRESHNESS_SQL,
+      [YEAR_AHEAD, MATH_LABEL],
+    ],
+    ["S2/S3 math_ticks for the label", ENGINE_TICKS_SQL, [MATH_LABEL, 0, 0]],
+    ["S2 single-writer lock", LOCK_SQL, [[MATH_LABEL, "python-large"]]],
+  ] as const)(
+    "%s never scans a large table sequentially",
+    async (name, sql, values) => {
+      const plan = await explain(sql, values as unknown as unknown[]);
+      const seqScans = plan
+        .filter(
+          (n) =>
+            n["Node Type"] === "Seq Scan" &&
+            LARGE.includes(String(n["Relation Name"]))
+        )
+        .map((n) => n["Relation Name"]);
+      expect({ name, seqScans }).toEqual({ name, seqScans: [] });
+    }
+  );
+
+  test("all three run through the guards", async () => {
+    const now = Date.now();
+    const fresh = await guardedRead((q) => readFreshness(q, MATH_LABEL, now));
+    expect(fresh.label).toBe(MATH_LABEL);
+    const ticks = await guardedRead((q) => readTicks(q, MATH_LABEL, now));
+    expect(ticks.conversations as number).toBeGreaterThanOrEqual(0);
+    const lock = await guardedRead((q) =>
+      readLock(q, [MATH_LABEL, "python-large"])
+    );
+    // No poller holds the lock in the test database.
+    expect(lock.map((r) => r.held)).toEqual(["free", "free"]);
   });
 });
