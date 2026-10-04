@@ -41,20 +41,30 @@ export default function EmailSubscribeForm({ s, conversation_id }: EmailSubscrib
   }
 
   if (feedback) {
-    return <p style={{ textAlign: 'center', color: '#28a745', fontWeight: 'bold' }}>{feedback}</p>
+    return (
+      <p role="status" style={{ textAlign: 'center', color: '#28a745', fontWeight: 'bold' }}>
+        {feedback}
+      </p>
+    )
   }
 
   return (
     <div className="email-subscribe-container">
       <h2>{s.notificationsGetNotified}</h2>
       <form className="email-subscribe-form" onSubmit={handleSubmit}>
+        <label className="email-subscribe-label" htmlFor="email-subscribe-input">
+          {s.notificationsEnterEmail}
+        </label>
         <input
+          id="email-subscribe-input"
           type="email"
-          placeholder={s.notificationsEnterEmail}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={isSubmitting}
           required
+          autoComplete="email"
+          aria-invalid={!!errorFeedback}
+          aria-describedby={errorFeedback ? 'email-subscribe-error' : undefined}
         />
         <button
           type="submit"
@@ -64,7 +74,11 @@ export default function EmailSubscribeForm({ s, conversation_id }: EmailSubscrib
           {isSubmitting ? '...' : s.notificationsSubscribeButton}
         </button>
       </form>
-      {errorFeedback && <p className="subscribe-error">{errorFeedback}</p>}
+      {errorFeedback && (
+        <p id="email-subscribe-error" className="subscribe-error" role="alert">
+          {errorFeedback}
+        </p>
+      )}
     </div>
   )
 }
