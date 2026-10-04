@@ -4,19 +4,11 @@ import pg from "../db/pg-query";
 import { getConversationInfo } from "../conversation";
 import Config from "../config";
 
+// Vote values are not here: they live in src/votes/convention.ts.
 type PolisTypes = {
-  reactions: Reactions;
   staractions: StarActions;
   mod: Mod;
-  reactionValues?: any;
   starValues?: any;
-};
-
-type Reactions = {
-  push: number;
-  pull: number;
-  see: number;
-  pass: number;
 };
 
 type StarActions = {
@@ -58,12 +50,6 @@ function hexToStr(hexString: string) {
 }
 
 const polisTypes: PolisTypes = {
-  reactions: {
-    push: 1,
-    pull: -1,
-    see: 0,
-    pass: 0,
-  },
   staractions: {
     unstar: 0,
     star: 1,
@@ -74,7 +60,6 @@ const polisTypes: PolisTypes = {
     ok: 1,
   },
 };
-polisTypes.reactionValues = _.values(polisTypes.reactions);
 polisTypes.starValues = _.values(polisTypes.staractions);
 
 function isConversationOwner(

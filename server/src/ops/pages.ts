@@ -39,6 +39,15 @@ import {
   WINDOW_DAYS,
 } from "./simpleAnalytics";
 import {
+  applyNeeds,
+  buildCloudPages,
+  CloudNeed,
+  CloudOptions,
+  lazyClients,
+  rdsPanel,
+} from "./cloudPages";
+import type { OpsAwsClients } from "./awsReads";
+import {
   OpsColumn,
   OpsLoadResult,
   OpsRow,
@@ -57,6 +66,9 @@ export type OpsPanelDef = {
   // How the admin console draws it; "tiles" when absent.
   shape?: OpsShape;
   columns: OpsColumn[];
+  // What the panel needs beyond the database (src/ops/cloudPages.ts); a
+  // panel whose need is not met on this server is left out of its page.
+  needs?: CloudNeed;
   load: (nowMs: number) => Promise<OpsLoadResult>;
 };
 
@@ -92,9 +104,20 @@ export type OpsPageOptions = {
   minVotersForText: number;
   simpleAnalyticsApiKey: string;
   simpleAnalyticsHostname: string;
+  // The AWS-backed system pages (src/ops/cloudPages.ts). All off unless
+  // awsReads (OPS_DATA_SOURCE=aws); Cost Explorer also needs costExplorer
+  // (OPS_COST_EXPLORER=1).
+  awsReads?: boolean;
+  costExplorer?: boolean;
+  awsRegion?: string | null;
+  logGroupName?: string | null;
+  databaseUrl?: string | null;
+  mathEnv?: string | null;
+  startedMs?: number;
   // Tests replace the outside readers; production uses the defaults.
   topicNames?: TopicNameReader;
   simpleAnalyticsFetch?: Fetcher;
+  aws?: OpsAwsClients;
 };
 
 const MAX_BACKOFF = 16;
@@ -175,7 +198,19 @@ export function buildPages(options: OpsPageOptions): OpsPageDef[] {
     `Simple Analytics Stats API, site ${options.simpleAnalyticsHostname}, last ${WINDOW_DAYS} days (UTC), ${what}; each app selected by the paths server/app.ts serves it on; under ${MIN_PAGEVIEWS_SHOWN} pageviews in total folds into Other`;
   const threshold = `Named only with at least ${minVoters} distinct voters in the last 7 days (OPS_MIN_VOTERS_FOR_TEXT)`;
 
-  return [
+  const cloud: CloudOptions = {
+    awsReads: Boolean(options.awsReads),
+    costExplorer: Boolean(options.costExplorer),
+    awsRegion: options.awsRegion,
+    logGroupName: options.logGroupName,
+    databaseUrl: options.databaseUrl,
+    mathEnv: options.mathEnv,
+    startedMs: options.startedMs ?? Date.now(),
+    aws: options.aws,
+  };
+  const aws = lazyClients(cloud);
+
+  const pages: OpsPageDef[] = [
     {
       id: "activity",
       group: "usage",
@@ -407,6 +442,7 @@ export function buildPages(options: OpsPageOptions): OpsPageDef[] {
         "Who holds database connections, which large tables are being scanned sequentially, and the database's own counters. Read from Postgres's statistics views; no query text.",
       refresh_s: 60,
       panels: [
+        rdsPanel(cloud, aws),
         {
           id: "connections",
           title: "Connections by application and state",
@@ -527,7 +563,14 @@ export function buildPages(options: OpsPageOptions): OpsPageDef[] {
         },
       ],
     },
+    ...buildCloudPages(cloud, aws),
   ];
+
+  // Leave out the AWS panels this server cannot read, and say why.
+  return pages.map((def) => {
+    const { page, notice } = applyNeeds(def, cloud);
+    return notice ? { ...page, unconfigured: () => notice } : page;
+  });
 }
 
 export function findPage(
