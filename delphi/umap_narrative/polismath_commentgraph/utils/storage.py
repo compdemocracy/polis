@@ -298,8 +298,9 @@ class PostgresClient:
 
         Votes are converted from the raw storage sign to semantic votes
         (+1 agree) at this PostgreSQL boundary by the one vote convention,
-        polismath.utils.vote_convention.load_semantic_votes. A NULL vote stays
-        None, as before; group_data skips it.
+        polismath.utils.vote_convention.load_semantic_votes, the single Delphi
+        vote loader; the sign is the installed ConventionSource's. A NULL vote
+        stays None, as before; group_data skips it.
 
         Args:
             zid: Conversation ID

@@ -9,7 +9,6 @@ import numpy as np
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
 from polismath.utils.vote_convention import (
-    STORAGE_AGREE_VALUE,
     semantic_vote,
     storage_vote,
 )
@@ -27,7 +26,7 @@ PASS = 0
 
 def postgres_vote_to_delphi(
     pg_vote: Union[int, float],
-    storage_agree_value: int = STORAGE_AGREE_VALUE,
+    storage_agree_value: Optional[int] = None,
 ) -> Union[int, float]:
     """
     Convert a RAW PostgreSQL vote to the Delphi (semantic) convention.
@@ -48,7 +47,8 @@ def postgres_vote_to_delphi(
     Args:
         pg_vote: Raw vote value from PostgreSQL
         storage_agree_value: the DECLARED raw storage sign of AGREE, -1 or +1.
-            Defaults to the authoritative constant; a caller replaying a
+            Omitted: the installed ConventionSource's value
+            (vote_convention.storage_agree_value()); a caller replaying a
             derived paired fixture declares the other one. NULL is refused,
             never coerced to pass.
 
@@ -60,7 +60,7 @@ def postgres_vote_to_delphi(
 
 def delphi_vote_to_postgres(
     delphi_vote: Union[int, float],
-    storage_agree_value: int = STORAGE_AGREE_VALUE,
+    storage_agree_value: Optional[int] = None,
 ) -> Union[int, float]:
     """
     Convert a Delphi (semantic) vote to the RAW PostgreSQL convention.
@@ -72,7 +72,8 @@ def delphi_vote_to_postgres(
 
     Args:
         delphi_vote: Vote value in Delphi convention (+1=agree, -1=disagree, 0=pass)
-        storage_agree_value: the DECLARED raw storage sign of AGREE, -1 or +1.
+        storage_agree_value: the DECLARED raw storage sign of AGREE;
+            omitted: the installed ConventionSource's value.
 
     Returns:
         Raw vote value for PostgreSQL (AGREE=storage_agree_value)
