@@ -4,7 +4,7 @@ import { ConversationInfo, PidReadyResult, RequestWithP } from "../d";
 import { failJson } from "../utils/fail";
 import { getNextComment } from "../nextComment";
 import { getPid } from "../user";
-import { isDuplicateKey, polisTypes } from "../utils/common";
+import { isDuplicateKey } from "../utils/common";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
 import SQL from "../db/sql";
@@ -23,6 +23,11 @@ import {
 import Config from "../config";
 import { SendMessageCommand } from "@aws-sdk/client-sqs";
 import { sqsClient } from "../utils/sqs";
+import {
+  storageRowToWire,
+  wireToSemantic,
+  wireToStorage,
+} from "../votes/convention";
 
 const sql_votes_latest_unique = SQL.sql_votes_latest_unique;
 
@@ -63,13 +68,16 @@ async function doVotesPost(
   high_priority?: boolean
 ): Promise<VoteResult> {
   const zid = conv?.zid;
+  // voteType is a wire value (range-checked by the route's parser); the row
+  // stores the storage convention's value.
+  const storageVote = wireToStorage(voteType);
   weight = weight || 0;
   const weight_x_32767 = Math.trunc(weight * 32767); // weight is stored as a SMALLINT, so convert from a [-1,1] float to [-32767,32767] int
 
   return new Promise((resolve, reject) => {
     const query =
       "INSERT INTO votes (pid, zid, tid, vote, weight_x_32767, high_priority, created) VALUES ($1, $2, $3, $4, $5, $6, default) RETURNING *;";
-    const params = [pid, zid, tid, voteType, weight_x_32767, high_priority];
+    const params = [pid, zid, tid, storageVote, weight_x_32767, high_priority];
 
     pg.query(query, params, function (err: any, result: { rows: any[] }) {
       if (err) {
@@ -153,7 +161,7 @@ async function votesGet(p: {
         if (err) {
           reject(err);
         } else {
-          resolve(results.rows);
+          resolve(results.rows.map((row) => storageRowToWire(row)));
         }
       }
     );
@@ -180,7 +188,10 @@ function handle_GET_votes_me(
         for (let i = 0; i < docs.rows.length; i++) {
           docs.rows[i].weight = docs.rows[i].weight / 32767;
         }
-        finishArray(res, docs.rows);
+        finishArray(
+          res,
+          docs.rows.map((row) => storageRowToWire(row))
+        );
       }
     );
   });
@@ -246,15 +257,16 @@ async function handle_POST_votes(req: RequestWithP, res: any) {
     // 6. Handle moderation options
     if (result.shouldMod) {
       result.modOptions = {};
-      if (req.p.vote === polisTypes.reactions.pull) {
+      const vote = wireToSemantic(req.p.vote, { onInvalid: "skip" });
+      if (vote === "agree") {
         result.modOptions.as_important = true;
         result.modOptions.as_factual = true;
         result.modOptions.as_feeling = true;
-      } else if (req.p.vote === polisTypes.reactions.push) {
+      } else if (vote === "disagree") {
         result.modOptions.as_notmyfeeling = true;
         result.modOptions.as_notgoodidea = true;
         result.modOptions.as_abusive = true;
-      } else if (req.p.vote === polisTypes.reactions.pass) {
+      } else if (vote === "pass") {
         result.modOptions.as_unsure = true;
         result.modOptions.as_spam = true;
         result.modOptions.as_abusive = true;

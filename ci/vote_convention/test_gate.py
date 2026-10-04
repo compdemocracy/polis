@@ -129,9 +129,9 @@ class SignLintOnATree(unittest.TestCase):
 
     def test_one_more_copy_of_an_allowlisted_line_fails(self):
         allowed = [e for e in json.loads(sign_lint.ALLOWLIST.read_text())["entries"]
-                   if e["path"] == "server/src/report.ts" and "vote" in e["text"]]
+                   if e["path"] == "ci/vote_convention/compare.py" and "vote" in e["text"]]
         self.assertTrue(allowed)
-        self.append("server/src/report.ts", "\n" + allowed[0]["text"] + "\n")
+        self.append("ci/vote_convention/compare.py", "\n" + allowed[0]["text"] + "\n")
         self.assertEqual(self.lint(), 1)
 
     def test_a_literal_far_from_vote_passes(self):

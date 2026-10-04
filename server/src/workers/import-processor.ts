@@ -6,6 +6,7 @@ import pg from "../db/pg-query";
 import logger from "../utils/logger";
 import Config from "../config";
 import { sendTextEmail } from "../email/senders";
+import { exportToStorage } from "../votes/convention";
 
 const customEndpoint = Config.AWS_S3_ENDPOINT;
 const config: S3ClientConfig = {
@@ -215,13 +216,12 @@ function mapRowData(
     const parsed = Date.parse(row.timestamp);
     if (!isNaN(parsed)) ts = parsed;
   }
-  // INTETNIONAL VOTE FLIPPING, REMOVE AFTER VOTES REFACTOR
-  let voteValue = parseInt(row.vote_value, 10);
-  if (voteValue === 1) {
-    voteValue = -1;
-  } else if (voteValue === -1) {
-    voteValue = 1;
-  }
+  // vote_value is in the export convention (EXPORT_AGREE_VALUE, as the admin import
+  // screen documents). Values outside the export set are stored as given, as before;
+  // refusing them is a separate change (P-078 PR-E).
+  const voteValue = exportToStorage(parseInt(row.vote_value, 10), {
+    onInvalid: "keep",
+  });
 
   return [zid, internalTid, row.user_id, voteValue, ts];
 }
