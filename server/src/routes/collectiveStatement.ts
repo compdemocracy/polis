@@ -13,6 +13,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { v4 as uuidv4 } from "uuid";
 import pgQuery from "../db/pg-query";
 import { getCommentIdsForCluster } from "../utils/commentClusters";
+import { storageSqlValue } from "../votes/convention";
 
 const dynamoDBConfig: any = {
   region: Config.AWS_REGION || "us-east-1",
@@ -578,15 +579,19 @@ async function getCommentsForTopic(
       return [];
     }
 
-    // Get full comment data with voting information
+    // Get full comment data with voting information. The stored values come
+    // from the vote convention module (integers, safe to interpolate).
+    const agree = storageSqlValue("agree");
+    const disagree = storageSqlValue("disagree");
+    const pass = storageSqlValue("pass");
     const commentsQuery = `
       SELECT 
         c.tid as comment_id,
         c.txt as comment_text,
         COALESCE(COUNT(DISTINCT v.pid), 0) as total_votes,
-        COALESCE(SUM(CASE WHEN v.vote = 1 THEN 1 ELSE 0 END), 0) as disagrees,
-        COALESCE(SUM(CASE WHEN v.vote = -1 THEN 1 ELSE 0 END), 0) as agrees,
-        COALESCE(SUM(CASE WHEN v.vote = 0 THEN 1 ELSE 0 END), 0) as passes
+        COALESCE(SUM(CASE WHEN v.vote = ${disagree} THEN 1 ELSE 0 END), 0) as disagrees,
+        COALESCE(SUM(CASE WHEN v.vote = ${agree} THEN 1 ELSE 0 END), 0) as agrees,
+        COALESCE(SUM(CASE WHEN v.vote = ${pass} THEN 1 ELSE 0 END), 0) as passes
       FROM comments c
       LEFT JOIN votes_latest_unique v ON c.tid = v.tid AND c.zid = v.zid
       WHERE c.zid = $1 AND c.tid = ANY($2::int[])
