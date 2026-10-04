@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, jest, test } from "@jest/globals";
 import {
+  CLIENT_QUERY_TIMEOUT_MS,
   guardedRead,
   OpsReadError,
   setOpsConnectForTests,
+  TRANSACTION_DEADLINE_MS,
 } from "../../src/ops/guardedRead";
 import { OpsPanelDef, PanelCache } from "../../src/ops/pages";
 
@@ -18,7 +20,9 @@ function fakeClient(onQuery: (text: string) => Promise<unknown> | unknown) {
     on: jest.fn(),
     removeListener: jest.fn(),
     release: jest.fn(),
-    query: jest.fn(async (text: string) => {
+    query: jest.fn(async (q: string | { text: string }) => {
+      // guardedRead passes a config object (text, values, query_timeout).
+      const text = typeof q === "string" ? q : q.text;
       log.push(text);
       const r = await onQuery(text);
       return r || { rows: [] };
@@ -109,6 +113,54 @@ describe("guardedRead", () => {
   });
 });
 
+describe("guardedRead client-side bounds (a server answer that never comes)", () => {
+  test("every statement carries query_timeout", async () => {
+    const client = fakeClient(() => ({ rows: [] }));
+    setOpsConnectForTests(async () => client as any);
+    await guardedRead((q) => q("SELECT 1", []));
+    for (const [arg] of client.query.mock.calls as any[]) {
+      expect(arg.query_timeout).toBe(CLIENT_QUERY_TIMEOUT_MS);
+    }
+    expect(CLIENT_QUERY_TIMEOUT_MS).toBeGreaterThan(3000);
+  });
+
+  test("pg's read timeout is reported as timeout, the client is destroyed without a ROLLBACK, and the next read runs", async () => {
+    let first = true;
+    const client = fakeClient((text) => {
+      if (text === "SELECT stuck" && first) {
+        first = false;
+        throw new Error("Query read timeout");
+      }
+    });
+    setOpsConnectForTests(async () => client as any);
+    const err = await guardedRead((q) => q("SELECT stuck", [])).catch((e) => e);
+    expect(err).toBeInstanceOf(OpsReadError);
+    expect(err.reason).toBe("timeout");
+    expect(client.log).not.toContain("ROLLBACK");
+    expect(client.release).toHaveBeenCalledWith(true);
+    await expect(guardedRead((q) => q("SELECT 1", []))).resolves.toEqual([]);
+  });
+
+  test("a transaction past its deadline frees the mutex and destroys the client", async () => {
+    jest.useFakeTimers();
+    const stuck = fakeClient((text) =>
+      text === "SELECT never" ? new Promise(() => undefined) : undefined
+    );
+    const fresh = fakeClient(() => ({ rows: [{ ok: 1 }] }));
+    let n = 0;
+    setOpsConnectForTests(async () => (n++ === 0 ? stuck : fresh) as any);
+    const pending = guardedRead((q) => q("SELECT never", [])).catch((e) => e);
+    const next = guardedRead((q) => q("SELECT 1", []));
+    await jest.advanceTimersByTimeAsync(TRANSACTION_DEADLINE_MS + 1);
+    const err = await pending;
+    expect(err).toBeInstanceOf(OpsReadError);
+    expect(err.reason).toBe("timeout");
+    expect(stuck.release).toHaveBeenCalledTimes(1);
+    expect(stuck.release).toHaveBeenCalledWith(true);
+    await expect(next).resolves.toEqual([{ ok: 1 }]);
+  });
+});
+
 describe("PanelCache", () => {
   function panel(load: OpsPanelDef["load"]): OpsPanelDef {
     return {
@@ -184,6 +236,35 @@ describe("PanelCache", () => {
     const ok = await cache.get("page", def);
     expect(ok.panel.status).toBe("ok");
     expect(load).toHaveBeenCalledTimes(4);
+  });
+
+  test("a failure on a long-TTL panel is retried after 60 s, and the hold never passes 5 minutes", async () => {
+    let now = 0;
+    const cache = new PanelCache(() => now);
+    const load = jest.fn(async () => {
+      throw new OpsReadError("timeout");
+    });
+    const def = { ...panel(load as any), ttl_s: 15 * 60 };
+    await cache.get("page", def);
+    expect(load).toHaveBeenCalledTimes(1);
+    // Hold 1x: 60 s, not the 15-minute TTL.
+    now += 59_000;
+    await cache.get("page", def);
+    expect(load).toHaveBeenCalledTimes(1);
+    now += 2_000;
+    await cache.get("page", def);
+    expect(load).toHaveBeenCalledTimes(2);
+    // Keep failing: holds 120, 240, then capped at 300 s from there on.
+    for (const hold of [120_000, 240_000, 300_000, 300_000, 300_000]) {
+      const calls = load.mock.calls.length;
+      now += hold - 1_000;
+      await cache.get("page", def);
+      expect(load).toHaveBeenCalledTimes(calls);
+      now += 2_000;
+      await cache.get("page", def);
+      expect(load).toHaveBeenCalledTimes(calls + 1);
+      now -= 1_000;
+    }
   });
 
   test("an unexpected error is reported with a closed reason", async () => {

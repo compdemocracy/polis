@@ -21,6 +21,8 @@ from psycopg2.extras import execute_values
 from boundary import Boundary, ROOT, SQL, SQL_SHA256, sha, public_census
 sys.path.insert(0,str(ROOT/'coordinator-rs/tools/d05'))
 from tunnel import Tunnel
+sys.path.insert(0,str(ROOT/'delphi/tests'))
+from vote_fixtures import seed_vote_from_export  # noqa: E402  (the fixture vote writer)
 
 
 class Startup(Boundary):
@@ -86,7 +88,7 @@ class Startup(Boundary):
         raw=list(csv.DictReader(path.read_text().splitlines()))
         pids={v:i for i,v in enumerate(sorted({int(r['voter-id']) for r in raw}))}
         tids={v:i for i,v in enumerate(sorted({int(r['comment-id']) for r in raw}))}
-        rows=[(pids[int(r['voter-id'])],tids[int(r['comment-id'])],-int(r['vote']),int(r['timestamp'])*1000) for r in raw[:1170]]
+        rows=[(pids[int(r['voter-id'])],tids[int(r['comment-id'])],seed_vote_from_export(r['vote']),int(r['timestamp'])*1000) for r in raw[:1170]]
         for pid in pids.values():
             q('INSERT INTO users(uid,email) VALUES(%s,%s)',(200+pid,f'public-{pid}@example.invalid'))
             q('INSERT INTO participants(zid,pid,uid) VALUES(1,%s,%s)',(pid,200+pid))
@@ -103,7 +105,7 @@ class Startup(Boundary):
             q('INSERT INTO comments(zid,tid,pid,uid,txt,mod,is_meta,created,modified) VALUES(1,%s,0,1,%s,0,false,1000,1000)',(tid,f'Public statement {tid}'))
         actual=q('SELECT pid,tid,vote,created FROM votes WHERE zid=1 ORDER BY pid,tid,vote,created')
         self.check('public-prefix',actual==sorted(rows),events=len(actual),cells=len({r[:2] for r in rows}),
-                   storage_sign='negative of export',timestamp_resolution='seconds expanded to milliseconds')
+                   storage_sign='the export rows stored through vote_fixtures.seed_vote_from_export',timestamp_resolution='seconds expanded to milliseconds')
         started=time.monotonic();self.command(dc+['up','-d','--pull','never','legacy'])
         cid=self.command(dc+['ps','-q','legacy']).strip()
         self.receipt['legacy_container']=cid

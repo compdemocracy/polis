@@ -2,6 +2,7 @@ import _ from "lodash";
 import React from "react";
 import * as globals from "./globals";
 import BarChart from "./barChart";
+import { AGREE, DISAGREE, PASS, fromWire, toWire } from "../../js/util/voteConvention";
 
 const checkmark =
   "M1299 813l-422 422q-19 19-45 19t-45-19l-294-294q-19-19-19-45t19-45l102-102q19-19 45-19t45 19l147 147 275-275q19-19 45-19t45 19l102 102q19 19 19 45t-19 45zm141 83q0-148-73-273t-198-198-273-73-273 73-198 198-73 273 73 273 198 198 273 73 273-73 198-198 73-273zm224 0q0 209-103 385.5t-279.5 279.5-385.5 103-385.5-103-279.5-279.5-103-385.5 103-385.5 279.5-279.5 385.5-103 385.5 103 279.5 279.5 103 385.5z";
@@ -118,19 +119,19 @@ class ExploreTid extends React.Component {
   handleAgree() {
     this.props.onVoteClicked({
       tid: this.props.selectedComment.tid,
-      vote: window.polisTypes.reactions.pull
+      vote: toWire(AGREE)
     });
   }
   handleDisagree() {
     this.props.onVoteClicked({
       tid: this.props.selectedComment.tid,
-      vote: window.polisTypes.reactions.push
+      vote: toWire(DISAGREE)
     });
   }
   handlePass() {
     this.props.onVoteClicked({
       tid: this.props.selectedComment.tid,
-      vote: window.polisTypes.reactions.pass
+      vote: toWire(PASS)
     });
   }
 
@@ -224,19 +225,19 @@ class ExploreTid extends React.Component {
             {agreeButton} {disagreeButton} {passButton}
           </span>
         );
-      } else if (currentVote === window.polisTypes.reactions.pass) {
+      } else if (fromWire(currentVote) === PASS) {
         buttons = (
           <span>
             Change vote: {agreeButton} {disagreeButton}
           </span>
         );
-      } else if (currentVote === window.polisTypes.reactions.pull) {
+      } else if (fromWire(currentVote) === AGREE) {
         buttons = (
           <span>
             Change vote: {disagreeButton} {passButton}
           </span>
         );
-      } else if (currentVote === window.polisTypes.reactions.push) {
+      } else if (fromWire(currentVote) === DISAGREE) {
         buttons = (
           <span>
             Change vote: {agreeButton} {passButton}
@@ -248,11 +249,11 @@ class ExploreTid extends React.Component {
     let changeVotesElements = null;
     if (!_.isNumber(currentVote)) {
       changeVotesElements = <span> {buttons}</span>;
-    } else if (currentVote === window.polisTypes.reactions.pass) {
+    } else if (fromWire(currentVote) === PASS) {
       changeVotesElements = <span> You passed. {buttons}</span>;
-    } else if (currentVote === window.polisTypes.reactions.pull) {
+    } else if (fromWire(currentVote) === AGREE) {
       changeVotesElements = <span> You agreed. {buttons}</span>;
-    } else if (currentVote === window.polisTypes.reactions.push) {
+    } else if (fromWire(currentVote) === DISAGREE) {
       changeVotesElements = <span> You disagreed. {buttons}</span>;
     }
 

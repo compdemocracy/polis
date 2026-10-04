@@ -18,7 +18,7 @@ const submitPerspectiveAPI = async (text: string, conversation_id: string) => {
       txt: text.replace(/\n/g, ' '),
       conversation_id,
       pid: pid || -1,
-      vote: -1
+      vote: 'agree' // the author agrees with their own comment
     })
 
     // Dispatch event to notify visualization to update

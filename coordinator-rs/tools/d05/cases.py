@@ -6,6 +6,7 @@ import urllib.parse
 
 import psycopg2
 from psycopg2.extras import Json
+from vote_fixtures import AGREE, seed_vote  # run.py puts delphi/tests on sys.path
 
 
 def pca(c, reader, zid, etag=None):
@@ -186,7 +187,7 @@ def exercise(c):
     c.publish("continued-vote-publication", (1,))
     # Imported durable rows use the same authoritative rebuild path.
     c.query("INSERT INTO comments(zid,tid,pid,uid,txt,mod,is_meta,created,modified) VALUES(6,9,0,600,'Generated imported statement',0,false,3000,3000)")
-    c.query("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(6,0,9,-1,3001)")
+    c.query("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(6,0,9,%s,3001)", (seed_vote(AGREE),))
     c.publish("import-publication", (6,))
     current = {zid: c.query("SELECT math_tick FROM math_main WHERE math_env='rustproto' AND zid=%s", (zid,))[0][0] for zid in range(1,7)}
     # Negative torn-row control is observed through a fresh real HTTP export.

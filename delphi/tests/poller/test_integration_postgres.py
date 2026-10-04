@@ -21,6 +21,7 @@ import time
 import pytest
 
 from tests.conftest import require_polis_postgres
+from tests.vote_fixtures import AGREE, DISAGREE, seed_vote
 
 pytestmark = pytest.mark.integration
 
@@ -74,9 +75,9 @@ def _seed_conversation(engine, zid=1, n_ptpts=8, n_cmts=5):
                  "created": old_modified, "modified": old_modified},
             )
         created = vote_created
-        # Raw DB vote signs: AGREE=-1, DISAGREE=+1. Two opposing camps.
+        # Stored vote values, named by meaning (tests.vote_fixtures). Two opposing camps.
         for p in range(n_ptpts):
-            raw = -1 if p % 2 == 0 else 1
+            raw = seed_vote(AGREE if p % 2 == 0 else DISAGREE)
             for t in range(n_cmts):
                 created += 1
                 conn.execute(

@@ -1,0 +1,9 @@
+{
+  "schema": "declared-vote-sign/1",
+  "fixture": "revote_column_order.json",
+  "fixture_sha256": "5fb9f4ae162a91745fb9ff7bc0fc0f44b4ea22dcf329f94e5dd918b002b55533",
+  "storage_agree_value": -1,
+  "vote_field": "cases[*].votes[*][2]",
+  "row_shape": ["pid", "tid", "vote", "created"],
+  "basis": "The fixture's own provenance says \"raw storage signs\", and delphi/tests/test_pca_column_order.py negates each vote at ingress. This companion declares that sign so a loader converts through polismath.utils.vote_convention; the recorded cases and their expected components are not rewritten (P-078 1d)."
+}
