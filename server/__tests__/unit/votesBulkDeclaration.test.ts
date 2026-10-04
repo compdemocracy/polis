@@ -46,7 +46,6 @@ import { failJson } from "../../src/utils/fail";
 import { handle_POST_votes_bulk } from "../../src/routes/votes";
 import {
   VOTE_DECLARATION_ERRORS,
-  EXPORT_VOTE_CONVENTION,
 } from "../../src/votes/convention";
 import { exportFormatDocument } from "../../src/votes/exportFormat";
 
@@ -108,17 +107,21 @@ describe("votes-bulk declared sign", () => {
     expect(res.json).toHaveBeenCalledTimes(1);
   });
 
-  test("present beside the file (format.json's shape) and matching: accepted", async () => {
+  test("a `format` field is ignored, whatever it holds: accepted, stored as sent", async () => {
     const csv = undeclared(fixture("import-declared.csv"));
     for (const format of [
       exportFormatDocument(),
       JSON.stringify(exportFormatDocument()),
-      { "vote-convention": EXPORT_VOTE_CONVENTION },
+      ...declarations.documents.map((d) => d.doc),
+      "csv",
+      7,
+      {},
     ]) {
       jest.clearAllMocks();
       const { res, done } = post({ csv, format });
       await done;
       expect(failJson).not.toHaveBeenCalled();
+      expect(stored()).toBe(csv);
       expect(res.json).toHaveBeenCalledTimes(1);
     }
   });
@@ -139,23 +142,4 @@ describe("votes-bulk declared sign", () => {
       expect(res.json).not.toHaveBeenCalled();
     }
   );
-
-  test.each(
-    declarations.documents
-      .filter((d) => d.outcome !== "accepted")
-      .map((d) => [JSON.stringify(d.doc), d.doc, d.outcome] as const)
-  )("format beside the file %s: refused", async (_, format, outcome) => {
-    const csv = undeclared(fixture("import-declared.csv"));
-    const { res, done } = post({ csv, format });
-    await done;
-    expect(failJson).toHaveBeenCalledWith(
-      res,
-      400,
-      outcome === "mismatch"
-        ? VOTE_DECLARATION_ERRORS.mismatch
-        : VOTE_DECLARATION_ERRORS.malformed,
-      expect.anything()
-    );
-    expect(s3Send).not.toHaveBeenCalled();
-  });
 });

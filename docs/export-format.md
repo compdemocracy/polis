@@ -147,9 +147,8 @@ A file may declare its sign. The declaration is optional:
   Keys may come in any order; `format` may be omitted. Any other first line
   (including another `#` line) is read as the CSV header, as before.
 
-- **beside the file**, as a `format` field in the request body with the shape
-  of `format.json` (an object, or that object as a JSON string). It must carry
-  `vote-convention`, `vote`, or both.
+Nothing else declares a sign. Other fields in the request body (a `format`
+field among them) are ignored, as everywhere in the API.
 
 The rule:
 

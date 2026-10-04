@@ -387,15 +387,15 @@ async function handle_POST_votes_bulk(
     return;
   }
 
-  // The optional declared sign: a `# vote-convention:` first line in the CSV,
-  // or a `format` object (format.json's shape) sent beside it. Absent both, the
-  // file is read in the export convention as it always has been. A malformed or
-  // mismatched declaration is refused here with its closed code; the worker
-  // checks the stored file's first line again before it reads a row.
+  // The optional declared sign: a `# vote-convention:` first line in the CSV.
+  // Absent, the file is read in the export convention as it always has been.
+  // A malformed or mismatched declaration is refused here with its closed
+  // code; the worker checks the stored file's first line again before it reads
+  // a row. Other body fields (a `format` field among them) are ignored, as
+  // everywhere in the API.
   try {
     checkImportDeclaration(
-      typeof csv === "string" ? csv.split("\n", 1)[0] : null,
-      req.body.format
+      typeof csv === "string" ? csv.split("\n", 1)[0] : null
     );
   } catch (err) {
     if (err instanceof VoteDeclarationError) {

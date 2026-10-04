@@ -86,8 +86,12 @@ describe("the declaration value", () => {
     }
   );
 
-  test("the served format.json is itself an accepted import declaration", () => {
-    expect(checkImportDeclaration(null, exportFormatDocument())).toEqual({
+  test("the served format.json is itself an accepted declaration", () => {
+    expect(
+      requireExportConvention(
+        parseVoteConventionDocument(exportFormatDocument())
+      )
+    ).toEqual({
       agreeValue: EXPORT_AGREE_VALUE,
       format: EXPORT_FORMAT_ID,
     });
@@ -101,8 +105,7 @@ describe("the import's first line", () => {
     const header = "vote_id,user_id,vote_value,timestamp,comment_id\n";
     expect(readImportDeclarationLine(header)).toBeNull();
     expect(checkImportDeclaration(header)).toBeNull();
-    expect(checkImportDeclaration(header, undefined)).toBeNull();
-    expect(checkImportDeclaration(null, "")).toBeNull();
+    expect(checkImportDeclaration(null)).toBeNull();
     // Another comment line is not a declaration either: it reaches the CSV
     // parser as the header, exactly as it did before.
     expect(readImportDeclarationLine("# exported by a script\n")).toBeNull();
@@ -118,33 +121,6 @@ describe("the import's first line", () => {
       agreeValue: EXPORT_AGREE_VALUE,
       format: EXPORT_FORMAT_ID,
     });
-  });
-
-  test("a mismatched line is refused even when the format beside it matches", () => {
-    const mismatched = readFileSync(
-      join(
-        __dirname,
-        "..",
-        "fixtures",
-        "vote-declaration",
-        "import-mismatch-sign.csv"
-      ),
-      "utf8"
-    ).split("\n", 1)[0];
-    expect(
-      outcomeOf(() =>
-        checkImportDeclaration(mismatched, exportFormatDocument())
-      )
-    ).toBe("mismatch");
-  });
-
-  test("a matched line is refused when the format beside it is mismatched", () => {
-    const mismatchedDoc = fixture.documents.find(
-      (d) => d.outcome === "mismatch"
-    )!.doc;
-    expect(
-      outcomeOf(() => checkImportDeclaration(declared, mismatchedDoc))
-    ).toBe("mismatch");
   });
 });
 

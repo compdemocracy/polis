@@ -395,8 +395,8 @@ export function addToTally(
 // The CSV exports and the votes-bulk import carry the export convention above.
 // They now say so: summary.csv has a `vote-convention` row, the export set has
 // a format.json sidecar (exportFormat.ts), and a votes-bulk CSV may declare its
-// sign on its first line or in a `format` object sent beside it. All three
-// carry the same value, built here from the export constants:
+// sign on its first line. All three carry the same value, built here from the
+// export constants:
 //
 //   agree=+1;disagree=-1;pass=0;format=polis-export/1
 //
@@ -642,22 +642,16 @@ export function readImportDeclarationLine(
 
 /**
  * The votes-bulk rule in one call, used by the route (to refuse early) and the
- * worker (which reads the stored file). `firstLine` is the CSV's first line;
- * `formatDoc` the optional `format` sent beside it. Absent both: null, and the
- * file is read as it always has been (export convention). Present: each must
- * be the export convention, or this throws VoteDeclarationError.
+ * worker (which reads the stored file). `firstLine` is the CSV's first line.
+ * Not a declaration: null, and the file is read as it always has been (export
+ * convention). A declaration: it must be the export convention, or this throws
+ * VoteDeclarationError. Nothing else in a request declares a sign.
  */
 export function checkImportDeclaration(
-  firstLine: string | null,
-  formatDoc?: unknown
+  firstLine: string | null
 ): DeclaredVoteConvention | null {
   const inFile =
     firstLine === null ? null : readImportDeclarationLine(firstLine);
-  const beside =
-    formatDoc === undefined || formatDoc === null || formatDoc === ""
-      ? null
-      : parseVoteConventionDocument(formatDoc);
   if (inFile) requireExportConvention(inFile);
-  if (beside) requireExportConvention(beside);
-  return inFile ?? beside;
+  return inFile;
 }

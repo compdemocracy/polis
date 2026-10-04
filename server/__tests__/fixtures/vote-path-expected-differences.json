@@ -6,124 +6,126 @@
       "find": "conversation-description,\"Vote path recording: V\"",
       "replace": "conversation-description,\"Vote path recording: V\"\nvote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1",
       "why": "summary.csv gains a last row declaring the export vote convention: vote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1. Every earlier row keeps its position and bytes.",
-      "ruling": "Colin, 2026-10-03, on PR #2932: \"2932 sounds benign\" (the summary.csv declaration row)."
+      "ruling": "ruled:Colin 2026-10-03, on PR #2932: \"2932 sounds benign\""
     },
     {
       "case": "V/reportExport/format.json",
       "find": "{\"error\":\"polis_error_data_unknown_report\",\"message\":\"polis_error_data_unknown_report\",\"status\":404}",
       "replace": "{\n  \"format\": \"polis-export/1\",\n  \"vote-convention\": \"agree=+1;disagree=-1;pass=0;format=polis-export/1\",\n  \"vote\": {\n    \"agree\": 1,\n    \"disagree\": -1,\n    \"pass\": 0\n  },\n  \"files\": {\n    \"summary.csv\": {\n      \"vote-convention\": \"declaration\"\n    },\n    \"votes.csv\": {\n      \"vote\": \"vote\",\n      \"important\": \"flag\"\n    },\n    \"participant-votes.csv\": {\n      \"<comment-id>\": \"vote\",\n      \"n-votes\": \"count\",\n      \"n-agree\": \"count\",\n      \"n-disagree\": \"count\"\n    },\n    \"participant-importance.csv\": {\n      \"<comment-id>\": \"flag\",\n      \"n-votes\": \"count\",\n      \"n-important\": \"count\"\n    },\n    \"comments.csv\": {\n      \"agrees\": \"count\",\n      \"disagrees\": \"count\",\n      \"importance\": \"count\"\n    },\n    \"comment-groups.csv\": {\n      \"total-votes\": \"count\",\n      \"total-agrees\": \"count\",\n      \"total-disagrees\": \"count\",\n      \"total-passes\": \"count\",\n      \"group-<letter>-votes\": \"count\",\n      \"group-<letter>-agrees\": \"count\",\n      \"group-<letter>-disagrees\": \"count\",\n      \"group-<letter>-passes\": \"count\"\n    },\n    \"comment-clusters.csv\": {}\n  },\n  \"docs\": \"https://github.com/compdemocracy/polis/blob/edge/docs/export-format.md\"\n}\n",
+      "whole_response": true,
       "status": 200,
-      "why": "New report type format.json: the export set's machine-readable declaration (vote convention and the sign-bearing columns of every export file). Edge answered 404 polis_error_data_unknown_report.",
-      "ruling": "Intended by PR #2932 (P-078 PR-E) and listed under its Observable changes for Colin's ruling; the PR as a whole was called benign on 2026-10-03, this item not individually ruled."
+      "whole_response_reason": "the 404 error body is replaced by the whole format.json document",
+      "why": "New report type format.json: the export set's machine-readable declaration (format id, vote convention, vote values, the sign-bearing columns of every export file). Edge answered 404 polis_error_data_unknown_report.",
+      "ruling": "pending"
     },
     {
       "case": "E/reportExport/summary.csv",
       "find": "conversation-description,\"Vote path recording: E\"",
       "replace": "conversation-description,\"Vote path recording: E\"\nvote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1",
       "why": "summary.csv gains a last row declaring the export vote convention: vote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1. Every earlier row keeps its position and bytes.",
-      "ruling": "Colin, 2026-10-03, on PR #2932: \"2932 sounds benign\" (the summary.csv declaration row)."
+      "ruling": "ruled:Colin 2026-10-03, on PR #2932: \"2932 sounds benign\""
     },
     {
       "case": "Z/reportExport/summary.csv",
       "find": "conversation-description,\"Vote path recording: Z\"",
       "replace": "conversation-description,\"Vote path recording: Z\"\nvote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1",
       "why": "summary.csv gains a last row declaring the export vote convention: vote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1. Every earlier row keeps its position and bytes.",
-      "ruling": "Colin, 2026-10-03, on PR #2932: \"2932 sounds benign\" (the summary.csv declaration row)."
+      "ruling": "ruled:Colin 2026-10-03, on PR #2932: \"2932 sounds benign\""
     },
     {
       "case": "I/reportExport/summary.csv",
       "find": "conversation-description,\"Vote path recording: I\"",
       "replace": "conversation-description,\"Vote path recording: I\"\nvote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1",
       "why": "summary.csv gains a last row declaring the export vote convention: vote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1. Every earlier row keeps its position and bytes.",
-      "ruling": "Colin, 2026-10-03, on PR #2932: \"2932 sounds benign\" (the summary.csv declaration row)."
+      "ruling": "ruled:Colin 2026-10-03, on PR #2932: \"2932 sounds benign\""
     },
     {
       "case": "I2/reportExport/summary.csv",
       "find": "conversation-description,\"Vote path recording: I2\"",
       "replace": "conversation-description,\"Vote path recording: I2\"\nvote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1",
       "why": "summary.csv gains a last row declaring the export vote convention: vote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1. Every earlier row keeps its position and bytes.",
-      "ruling": "Colin, 2026-10-03, on PR #2932: \"2932 sounds benign\" (the summary.csv declaration row)."
+      "ruling": "ruled:Colin 2026-10-03, on PR #2932: \"2932 sounds benign\""
     },
     {
       "case": "I/votes-bulk-declared/line-storage-convention",
       "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
       "replace": "{\"error\":\"polis_err_vote_convention_declaration_mismatch\",\"message\":\"polis_err_vote_convention_declaration_mismatch\",\"status\":400}",
+      "whole_response": true,
       "status": 400,
-      "why": "POST /votes-bulk refuses a file whose `# vote-convention:` line declares a sign other than the export convention (400 polis_err_vote_convention_declaration_mismatch). Edge accepted and queued it.",
-      "ruling": "Intended by PR #2932 (P-078 PR-E) and listed under its Observable changes for Colin's ruling; the PR as a whole was called benign on 2026-10-03, this item not individually ruled."
+      "whole_response_reason": "the 200 'processing' body is replaced by the 400 error body",
+      "why": "POST /votes-bulk refuses a file whose `# vote-convention:` first line declares a sign other than the export convention (400 polis_err_vote_convention_declaration_mismatch); nothing stored or queued. Edge accepted and queued it (and the worker then failed it).",
+      "ruling": "pending"
     },
     {
       "case": "I/votes-bulk-declared/line-unknown-format",
       "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
       "replace": "{\"error\":\"polis_err_vote_convention_declaration_mismatch\",\"message\":\"polis_err_vote_convention_declaration_mismatch\",\"status\":400}",
+      "whole_response": true,
       "status": 400,
-      "why": "POST /votes-bulk refuses a declared format other than polis-export/1 (400 polis_err_vote_convention_declaration_mismatch). Edge accepted and queued it.",
-      "ruling": "Intended by PR #2932 (P-078 PR-E) and listed under its Observable changes for Colin's ruling; the PR as a whole was called benign on 2026-10-03, this item not individually ruled."
+      "whole_response_reason": "the 200 'processing' body is replaced by the 400 error body",
+      "why": "POST /votes-bulk refuses a declared format other than polis-export/1 (400 polis_err_vote_convention_declaration_mismatch); nothing stored or queued. Edge accepted and queued it.",
+      "ruling": "pending"
     },
     {
       "case": "I/votes-bulk-declared/line-malformed",
       "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
       "replace": "{\"error\":\"polis_err_vote_convention_declaration_malformed\",\"message\":\"polis_err_vote_convention_declaration_malformed\",\"status\":400}",
+      "whole_response": true,
       "status": 400,
-      "why": "POST /votes-bulk refuses a malformed `# vote-convention:` line (400 polis_err_vote_convention_declaration_malformed). Edge accepted and queued it.",
-      "ruling": "Intended by PR #2932 (P-078 PR-E) and listed under its Observable changes for Colin's ruling; the PR as a whole was called benign on 2026-10-03, this item not individually ruled."
-    },
-    {
-      "case": "I/votes-bulk-declared/format-object-wire-convention",
-      "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
-      "replace": "{\"error\":\"polis_err_vote_convention_declaration_mismatch\",\"message\":\"polis_err_vote_convention_declaration_mismatch\",\"status\":400}",
-      "status": 400,
-      "why": "POST /votes-bulk refuses a `format` object beside the csv that declares the wire convention (agree=-1) (400 polis_err_vote_convention_declaration_mismatch). Edge ignored the object and queued the file.",
-      "ruling": "Intended by PR #2932 (P-078 PR-E) and listed under its Observable changes for Colin's ruling; the PR as a whole was called benign on 2026-10-03, this item not individually ruled."
+      "whole_response_reason": "the 200 'processing' body is replaced by the 400 error body",
+      "why": "POST /votes-bulk refuses a malformed `# vote-convention:` first line (400 polis_err_vote_convention_declaration_malformed); nothing stored or queued. Edge accepted and queued it.",
+      "ruling": "pending"
     },
     {
       "case": "I/votes-bulk-declared/queued",
-      "find": "{\"messages\":6}",
-      "replace": "{\"messages\":2}",
-      "why": "Only the two accepted declared posts reach the queue (the export-convention line and the export-convention format object), 2 messages instead of 6.",
-      "ruling": "Intended by PR #2932 (P-078 PR-E) and listed under its Observable changes for Colin's ruling; the PR as a whole was called benign on 2026-10-03, this item not individually ruled."
+      "find": "7",
+      "replace": "4",
+      "why": "The three refused posts are not queued: 4 in-test queue messages instead of 7 (a consequence of the three refusals above, not a separate change).",
+      "ruling": "pending"
     },
     {
       "case": "I3/declared-export-convention/import-job",
       "find": "{\"outcome\":\"threw: Invalid Record Length: columns length is 1, got 5 on line 2\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"Invalid Record Length: columns length is 1, got 5 on line 2\"}}",
       "replace": "{\"outcome\":\"completed\",\"state\":{\"status\":\"completed\",\"stage\":\"finished\",\"error_message\":null}}",
-      "why": "The import worker reads a file whose first line declares the export convention: the line is checked and dropped, and the job completes. Edge read the line as the CSV header and failed the job (Invalid Record Length).",
-      "ruling": "Intended by PR #2932 (P-078 PR-E) and listed under its Observable changes for Colin's ruling; the PR as a whole was called benign on 2026-10-03, this item not individually ruled."
+      "whole_response": true,
+      "whole_response_reason": "the job outcome and state change as a whole",
+      "why": "The import worker reads a file whose first line declares the export convention: the line is checked and dropped and the job completes. Edge read the line as the CSV header and failed the job (Invalid Record Length).",
+      "ruling": "pending"
     },
     {
       "case": "I3/declared-storage-convention/import-job",
-      "find": "{\"outcome\":\"threw: Invalid Record Length: columns length is 1, got 5 on line 2\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"Invalid Record Length: columns length is 1, got 5 on line 2\"}}",
-      "replace": "{\"outcome\":\"threw: polis_err_vote_convention_declaration_mismatch\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"polis_err_vote_convention_declaration_mismatch\"}}",
-      "why": "The import worker fails a file declaring a sign other than the export convention with polis_err_vote_convention_declaration_mismatch before reading a row. Edge failed it with Invalid Record Length.",
-      "ruling": "Intended by PR #2932 (P-078 PR-E) and listed under its Observable changes for Colin's ruling; the PR as a whole was called benign on 2026-10-03, this item not individually ruled."
+      "find": "Invalid Record Length: columns length is 1, got 5 on line 2\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"Invalid Record Length: columns length is 1, got 5 on line 2",
+      "replace": "polis_err_vote_convention_declaration_mismatch\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"polis_err_vote_convention_declaration_mismatch",
+      "why": "The import worker fails a file declaring another sign with polis_err_vote_convention_declaration_mismatch before reading a row. Edge failed it with Invalid Record Length.",
+      "ruling": "pending"
     },
     {
       "case": "I3/declared-malformed/import-job",
-      "find": "{\"outcome\":\"threw: Invalid Record Length: columns length is 1, got 5 on line 2\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"Invalid Record Length: columns length is 1, got 5 on line 2\"}}",
-      "replace": "{\"outcome\":\"threw: polis_err_vote_convention_declaration_malformed\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"polis_err_vote_convention_declaration_malformed\"}}",
+      "find": "Invalid Record Length: columns length is 1, got 5 on line 2\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"Invalid Record Length: columns length is 1, got 5 on line 2",
+      "replace": "polis_err_vote_convention_declaration_malformed\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"polis_err_vote_convention_declaration_malformed",
       "why": "The import worker fails a malformed declaration with polis_err_vote_convention_declaration_malformed before reading a row. Edge failed it with Invalid Record Length.",
-      "ruling": "Intended by PR #2932 (P-078 PR-E) and listed under its Observable changes for Colin's ruling; the PR as a whole was called benign on 2026-10-03, this item not individually ruled."
+      "ruling": "pending"
     },
     {
       "case": "I3/after-import/db/votes",
-      "find": "[]",
-      "replace": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false}]",
-      "why": "The declared export-convention file's two votes are stored (export agree +1 -> stored -1, export disagree -1 -> stored +1). Edge stored nothing.",
-      "ruling": "Intended by PR #2932 (P-078 PR-E) and listed under its Observable changes for Colin's ruling; the PR as a whole was called benign on 2026-10-03, this item not individually ruled."
+      "find": "[",
+      "replace": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false}",
+      "why": "The declared export-convention file's two votes are stored, converted as an undeclared file's would be (export +1 -> stored -1, export -1 -> stored +1). Edge stored nothing.",
+      "ruling": "pending"
     },
     {
       "case": "I3/after-import/db/votes_latest_unique",
-      "find": "[]",
-      "replace": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0}]",
+      "find": "[",
+      "replace": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0}",
       "why": "As I3/after-import/db/votes, in votes_latest_unique.",
-      "ruling": "Intended by PR #2932 (P-078 PR-E) and listed under its Observable changes for Colin's ruling; the PR as a whole was called benign on 2026-10-03, this item not individually ruled."
+      "ruling": "pending"
     },
     {
       "case": "R/reportExport/summary.csv",
       "find": "conversation-description,\"Vote path recording: R\"",
       "replace": "conversation-description,\"Vote path recording: R\"\nvote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1",
       "why": "summary.csv gains a last row declaring the export vote convention: vote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1. Every earlier row keeps its position and bytes.",
-      "ruling": "Colin, 2026-10-03, on PR #2932: \"2932 sounds benign\" (the summary.csv declaration row)."
+      "ruling": "ruled:Colin 2026-10-03, on PR #2932: \"2932 sounds benign\""
     }
   ]
 }
