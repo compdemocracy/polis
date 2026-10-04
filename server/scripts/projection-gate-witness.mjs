@@ -5,7 +5,8 @@
 // `sql_votes_latest_unique` builder DEFINITION from server/src/db/sql.ts, the real
 // `votesGet` / `getVotesForSingleParticipant` / `handle_GET_votes` /
 // `handle_GET_votes_me` from server/src/routes/votes.ts, and the real
-// `addConversationIds` / `finishArray` from server/src/server-helpers.ts (via the
+// `addConversationIds` / `finishArray` from server/src/server-helpers.ts, and the
+// vote convention module server/src/votes/convention.ts (via the
 // TypeScript compiler), and runs them in a `vm` wired to the installed `pg`/`sql`/
 // `underscore`. So a change to the real route, serializer, OR the builder definition
 // changes the SERVED output. Nothing is a copy.
@@ -84,8 +85,24 @@ function pickVariableInitializer(file, name) {
   throw new Error(`variable ${name} not found in ${file}`);
 }
 
-function buildRealApp(defText, routeText, serializerText, client, servedPidForGetPid, sqlLog) {
+// The real vote convention module (server/src/votes/convention.ts), which the
+// read routes call to put each row's vote in the wire convention. Transpiled and
+// run as-is, like the route code; a source tree that predates the module gets
+// none (its routes do not reference it).
+function loadConvention(srcRoot) {
+  const file = path.join(srcRoot, "votes", "convention.ts");
+  if (!fs.existsSync(file)) return {};
+  const compiled = ts.transpileModule(fs.readFileSync(file, "utf8"), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  const mod = { exports: {} };
+  vm.runInNewContext(compiled, { module: mod, exports: mod.exports });
+  return mod.exports;
+}
+
+function buildRealApp(defText, routeText, serializerText, client, servedPidForGetPid, sqlLog, convention) {
   const context = {
+    ...convention,
     _,
     sql, // the real builder definition runs against the real library
     pg: {
@@ -170,10 +187,10 @@ async function frozenExpected(client, site, zid, pid, tid) {
   return rows;
 }
 
-async function captureSite(client, site, a, defText, routeText, serializerText) {
+async function captureSite(client, site, a, defText, routeText, serializerText, convention) {
   const pid = a.pid;
   const sqlLog = { last: null };
-  const context = buildRealApp(defText, routeText, serializerText, client, pid === null ? 0 : pid, sqlLog);
+  const context = buildRealApp(defText, routeText, serializerText, client, pid === null ? 0 : pid, sqlLog, convention);
 
   let served;
   if (site === "votesGet") {
@@ -210,6 +227,7 @@ async function main() {
     "addConversationIds",
     "finishArray",
   ]);
+  const convention = loadConvention(srcRoot);
 
   const client = new Client({ connectionString: a.dsn });
   await client.connect();
@@ -218,7 +236,7 @@ async function main() {
     for (const site of a.sites) {
       await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
       try {
-        out[site] = await captureSite(client, site, a, defText, routeText, serializerText);
+        out[site] = await captureSite(client, site, a, defText, routeText, serializerText, convention);
         await client.query("ROLLBACK");
       } catch (e) {
         await client.query("ROLLBACK");
