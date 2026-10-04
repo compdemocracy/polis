@@ -35,6 +35,7 @@ const {
   valid: validKernel,
   compareKernels,
   recordingKernel,
+  replayKernelAdmitted,
 } = require("./math-kernel.cjs");
 const readContext = { enabled: false, caseId: null, phase: "initial" };
 const readRetries = [];
@@ -485,9 +486,9 @@ async function main() {
   if (
     !/^\d+$/.test(fromRoute) ||
     Number(fromRoute) < 1 ||
-    Number(fromRoute) > 201
+    Number(fromRoute) > 205
   )
-    throw Error("from-route must be an inventory ID from 1 through 201");
+    throw Error("from-route must be an inventory ID from 1 through 205");
   if (command === "seed-pages") {
     const TableName = "Delphi_NarrativeReports";
     await dynamo.send(
@@ -640,7 +641,7 @@ async function main() {
   }
   if (command === "coverage") {
     console.log(
-      `PASS: ${dump.routes.length} runtime entries -> ${routes.length} enabled + 1 explicitly disabled = 201`
+      `PASS: ${dump.routes.length} runtime entries -> ${routes.length} enabled + 2 explicitly disabled = 205`
     );
     return;
   }
@@ -772,6 +773,8 @@ async function main() {
   const norm = new Normalizer(),
     initial = await snapshot(selected);
   const expected = command === "replay" ? readRecording(dir) : null;
+  let kernelStatus = null,
+    censusDifferences = null;
   if (expected) {
     const previousKernel = recordingKernel(
       JSON.parse(fs.readFileSync(path.join(dir, "run.json"))),
@@ -779,8 +782,37 @@ async function main() {
     );
     const kernels = compareKernels(previousKernel, mathKernel);
     write(diagnosticOut, "math-kernel.json", kernels);
-    if (kernels.status !== "MATCH")
-      throw Error("REPLAY_KERNEL_PROVENANCE_MISMATCH");
+    kernelStatus = kernels.status;
+    if (!replayKernelAdmitted(kernels, process.env))
+      throw Error(
+        kernels.status === "CROSS_PLATFORM"
+          ? `REPLAY_KERNEL_PROVENANCE_MISMATCH: recorded on ${kernels.recorded.system}/${kernels.recorded.machine}, replaying on ${kernels.fresh.system}/${kernels.fresh.machine}; set P027_CROSS_PLATFORM_REPLAY=1 for an exact, labelled cross-platform replay`
+          : "REPLAY_KERNEL_PROVENANCE_MISMATCH"
+      );
+  }
+  // P027_REPLAY_PREFIX=<n>|before-pca2: replay only the first n recorded cases,
+  // in recorded order. A prefix runs against exactly the state the full run had at
+  // that point, so it is a strict subset of the full replay, never a reordering.
+  // The admission checks above (inventory, census, catalog, kernel) still run in
+  // full. The fast PR job uses it; the full replay stays the complete evidence.
+  let replayPrefix = null;
+  if (process.env.P027_REPLAY_PREFIX) {
+    if (!expected) throw Error("a replay prefix applies to replay only");
+    const p = process.env.P027_REPLAY_PREFIX;
+    replayPrefix =
+      p === "before-pca2"
+        ? expected.cases.findIndex((c) => c.caseId.includes("/pca2/"))
+        : /^[1-9][0-9]*$/.test(p)
+        ? Number(p)
+        : NaN;
+    if (!(replayPrefix > 0 && replayPrefix <= expected.cases.length))
+      throw Error("invalid replay prefix");
+    expected.cases = expected.cases.slice(0, replayPrefix);
+    console.log(
+      `REPLAY PREFIX: first ${replayPrefix} recorded cases (through ${
+        expected.cases[replayPrefix - 1].caseId
+      })`
+    );
   }
   if (process.env.P027_PARITY_ONLY) {
     if (!expected || process.env.P027_MARKERS !== "0")
@@ -814,11 +846,40 @@ async function main() {
     const recordedDump = JSON.parse(
       fs.readFileSync(path.join(dir, "routes.json"))
     );
+    const recordedRoutes = normalizeDump(recordedDump, inventory);
     if (
-      firstDiff(normalizeDump(recordedDump, inventory), routes) ||
+      firstDiff(recordedRoutes, routes) ||
       firstDiff(recordedDump.middleware, dump.middleware)
-    )
-      throw Error("runtime route callback/middleware inventory mismatch");
+    ) {
+      // P027_CENSUS_DIFFS=report: list every differing registration, replay the
+      // cases anyway, and still fail the run. For measuring a branch that changes
+      // handlers on purpose; it never turns a census difference green.
+      if (process.env.P027_CENSUS_DIFFS !== "report")
+        throw Error("runtime route callback/middleware inventory mismatch");
+      censusDifferences = {
+        middleware: firstDiff(recordedDump.middleware, dump.middleware),
+        routes: routes
+          .map((r, i) => ({
+            registrationIndex: i,
+            method: r.method,
+            path: r.path,
+            firstField: firstDiff(recordedRoutes[i], r),
+            recorded: recordedRoutes[i],
+            actual: r,
+          }))
+          .filter((d) => d.firstField),
+      };
+      write(diagnosticOut, "census-differences.json", censusDifferences);
+      console.log(
+        `CENSUS DIFFERENCES (reported, run will fail): ${censusDifferences.routes
+          .map((d) => `${d.method} ${d.path} ${d.firstField}`)
+          .join("; ")}${
+          censusDifferences.middleware
+            ? "; middleware " + censusDifferences.middleware
+            : ""
+        }`
+      );
+    }
     for (const [k, v] of Object.entries({
       inventoryHash: hash(inventory),
       schemaHash: hash(schemaRows),
@@ -996,6 +1057,15 @@ async function main() {
     snapshotRetries: readRetries,
     failures: failures + Number(Boolean(fatal)),
     differences: diffs.filter((d) => d.result === "different").length,
+    ...(kernelStatus ? { kernel: kernelStatus } : {}),
+    ...(replayPrefix ? { replayPrefix } : {}),
+    ...(censusDifferences
+      ? {
+          censusDifferences:
+            censusDifferences.routes.length +
+            Number(Boolean(censusDifferences.middleware)),
+        }
+      : {}),
     coverage: cov,
     rows: diffs,
   });
@@ -1037,7 +1107,8 @@ async function main() {
     (cov.missing &&
       !["pca2", "comments-read"].includes(profile) &&
       process.env.P027_MARKERS !== "0") ||
-    diffs.some((d) => d.result === "different")
+    diffs.some((d) => d.result === "different") ||
+    censusDifferences
   )
     process.exitCode = 1;
 }

@@ -20,10 +20,10 @@ services:
     command: "-jar DynamoDBLocal.jar -sharedDb -inMemory"
     networks: [sealed]
   file-server:
-    image: p027-file-server:latest
+    image: ${P027_FILE_SERVER_IMAGE:-p027-file-server:latest}
     networks: [sealed]
   oidc-simulator:
-    image: p027-oidc-simulator:latest
+    image: ${P027_OIDC_IMAGE:-p027-oidc-simulator:latest}
     command:
       [
         "sh",
@@ -39,7 +39,7 @@ services:
       AUTH_SIMULATOR_PORT: "3000"
     networks: [sealed]
   server:
-    image: p027-server
+    image: ${P027_SERVER_IMAGE:-p027-server}
     working_dir: /app
     command: ["node", "characterization/entry.cjs"]
     volumes:
@@ -103,7 +103,7 @@ services:
       oidc-simulator: { condition: service_healthy }
       postgres: { condition: service_healthy }
   driver:
-    image: p027-server
+    image: ${P027_SERVER_IMAGE:-p027-server}
     working_dir: /app
     command: ["tail", "-f", "/dev/null"]
     volumes:
@@ -121,7 +121,7 @@ services:
     networks: [sealed]
 
   math-seed:
-    image: p011-delphi-test:latest
+    image: ${P027_MATH_SEED_IMAGE:-p011-delphi-test:latest}
     profiles: [seed]
     entrypoint: [python3]
     command: [/repo/server/characterization/seed-pca2.py]

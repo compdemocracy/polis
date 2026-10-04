@@ -23,6 +23,9 @@ isolated_environment(os.environ)
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'delphi'))
+# vote_fixtures lives in delphi/tests. pca2_votes adds that directory only when one
+# of its functions runs, which is too late for the module-level import below.
+sys.path.insert(0, str(ROOT / 'delphi' / 'tests'))
 import numpy as np
 import pandas
 import scipy
@@ -33,7 +36,7 @@ from polismath.conversation.conversation import Conversation
 from polismath.database.postgres import PostgresClient, PostgresConfig
 from polismath.poller.math_writer import MathWriter
 from pca2_votes import semantic_votes
-from vote_fixtures import database_convention, read_vote, seed_vote  # pca2_votes put delphi/tests on sys.path
+from vote_fixtures import database_convention, read_vote, seed_vote
 
 HERE = Path(__file__).resolve().parent
 CLOCK = 1700000000000

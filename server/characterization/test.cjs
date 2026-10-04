@@ -29,10 +29,10 @@ function dump() {
       ),
   };
 }
-test("Express 3: 302 live entries normalize to 200, accounting for all 201 source registrations", () => {
+test("Express 3: 339 live entries normalize to 203, accounting for all 205 source registrations", () => {
   const d = dump();
-  assert.equal(d.routes.length, 302);
-  assert.equal(normalizeDump(d, inventory).length, 200);
+  assert.equal(d.routes.length, 339);
+  assert.equal(normalizeDump(d, inventory).length, 203);
 });
 test("route dump cannot run before readiness", () =>
   assert.throws(

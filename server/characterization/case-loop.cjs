@@ -16,6 +16,14 @@ async function executeCases(planned, run, observed, phase) {
             ? error.message
             : "CASE_EXECUTION_FAILED",
       };
+      // The cause goes to this run's own log only, never into results.json, so
+      // a stopped run says why (a lost database connection, a full disk) and
+      // not only where.
+      console.error(
+        `${fatal.code} ${fatal.caseId} ${fatal.phase}: ${
+          error?.code ? error.code + " " : ""
+        }${String(error?.message ?? error).slice(0, 300)}`
+      );
       break;
     }
     results.push(actual);

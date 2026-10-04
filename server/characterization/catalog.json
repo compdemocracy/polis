@@ -2256,6 +2256,24 @@
     "udt_name": "timestamptz"
   },
   {
+    "table_name": "polis_coordinator_writer_authority",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "polis_coordinator_writer_authority",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "polis_coordinator_writer_authority",
+    "column_name": "enabled",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
     "table_name": "polis_queue_attempts",
     "column_name": "env",
     "data_type": "text",

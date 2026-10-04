@@ -1,0 +1,132 @@
+name: Characterization replay
+
+# Replays the committed API characterization baseline
+# (server/characterization/artifacts/baseline.json.gz) against the checked-out
+# server, byte for byte, in the sealed six-service stack. Never records, never
+# repacks, never edits the baseline: a difference fails the job and is a finding.
+#
+# Time budget (ubuntu-24.04 hosted runner, 4 CPUs):
+#   pull requests  - image builds plus the recorded prefix before the PCA2 slice
+#                    (544 of 1,277 cases, every route registration and the vote
+#                    effect cases); job limit 60 minutes.
+#   nightly, manual and pushes to edge - image builds plus all 1,277 cases;
+#                    job limit 150 minutes. The full corpus is too slow for every
+#                    PR, so the PR job replays the strict prefix and the full replay
+#                    runs on edge, nightly and on demand (any target SHA).
+
+on:
+  pull_request:
+    branches: [edge, stable]
+    paths:
+      - 'server/src/**'
+      - 'server/app.ts'
+      - 'server/index.ts'
+      - 'server/package.json'
+      - 'server/package-lock.json'
+      - 'server/Dockerfile'
+      - 'server/Dockerfile-db'
+      - 'server/postgres/migrations/**'
+      - 'server/characterization/**'
+      - 'delphi/polismath/**'
+      - 'ci/p027_replay.sh'
+      - 'ci/p027_rerecord_build.sh'
+      - '.github/workflows/characterization-replay.yml'
+  push:
+    branches: [edge]
+    paths:
+      - 'server/src/**'
+      - 'server/app.ts'
+      - 'server/index.ts'
+      - 'server/package-lock.json'
+      - 'server/postgres/migrations/**'
+      - 'server/characterization/**'
+      - 'delphi/polismath/**'
+  schedule:
+    - cron: '23 10 * * *'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Full 40-character SHA to replay against the committed baseline (empty uses the dispatch SHA)
+        type: string
+        required: false
+        default: ''
+      scope:
+        description: full (all cases) or prefix (cases before the PCA2 slice)
+        type: choice
+        options: [full, prefix]
+        default: full
+
+permissions:
+  contents: read
+
+concurrency:
+  group: characterization-replay-${{ github.event.pull_request.number || github.ref }}-${{ inputs.target || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  replay:
+    name: replay committed baseline (${{ (github.event_name == 'pull_request' || inputs.scope == 'prefix') && 'prefix before PCA2' || 'full corpus' }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ (github.event_name == 'pull_request' || inputs.scope == 'prefix') && 60 || 150 }}
+    env:
+      OPENBLAS_CORETYPE: Haswell
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      COMPOSE_PROJECT_NAME: p027-replay-${{ github.run_id }}-${{ github.run_attempt }}
+      P027_PORT_MIN: '55930'
+      P027_PORT_MAX: '55939'
+      POLIS_RECOVERY_PG_PORT: '55930'
+      RECOVERY_PG_PORT: '55930'
+      P027_HTTP_PORT: '55931'
+      P027_CONTROL_PORT: '55932'
+      P027_REPLAY_PREFIX: ${{ (github.event_name == 'pull_request' || inputs.scope == 'prefix') && 'before-pca2' || '' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.target || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Read the Node version the baseline was recorded with
+        id: pin
+        run: |
+          node=$(node -e 'const z=require("node:zlib"),f=require("node:fs");const m=JSON.parse(z.gunzipSync(f.readFileSync("server/characterization/artifacts/baseline.json.gz")));process.stdout.write(JSON.parse(m["routes.json"]).runtime.node)')
+          echo "Baseline Node runtime: $node"
+          echo "node_base=docker.io/node:${node#v}-alpine" >> "$GITHUB_OUTPUT"
+      - name: Build the sealed stack images (server pinned to the baseline's Node)
+        env:
+          P027_NODE_BASE: ${{ steps.pin.outputs.node_base }}
+        run: bash ci/p027_rerecord_build.sh
+      - name: Replay
+        run: bash ci/p027_replay.sh
+      - name: Remove only this job's stack
+        if: always()
+        run: python3 server/characterization/run.py down
+      - name: Show replay summary
+        if: always()
+        run: |
+          out=server/characterization/artifacts/replay-job
+          {
+            if [[ -f $out/summary.json ]]; then
+              printf '```json\n'; cat "$out/summary.json"; printf '```\n'
+            else
+              echo 'No replay summary; see replay.log in the artifact.'
+            fi
+            if [[ -s $out/differences.txt ]]; then
+              printf 'Differing or failing cases:\n```\n'; head -n 200 "$out/differences.txt"; printf '```\n'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload replay evidence (including failed runs)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: characterization-replay-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            server/characterization/artifacts/replay-job/*.json
+            server/characterization/artifacts/replay-job/*.jsonl
+            server/characterization/artifacts/replay-job/*.log
+            server/characterization/artifacts/replay-job/*.txt
+            server/characterization/artifacts/replay-job/*.md
+          retention-days: 14
+          if-no-files-found: warn

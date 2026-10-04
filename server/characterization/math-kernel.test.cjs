@@ -1,7 +1,12 @@
 "use strict";
 const test = require("node:test"),
   assert = require("node:assert/strict");
-const { valid, compareKernels, recordingKernel } = require("./math-kernel.cjs");
+const {
+  valid,
+  compareKernels,
+  recordingKernel,
+  replayKernelAdmitted,
+} = require("./math-kernel.cjs");
 const identity = () => ({
   schema: "polis-math-kernel/1",
   system: "Linux",
@@ -79,4 +84,60 @@ test("native Darwin may report only NumPy OpenBLAS", () => {
   x.observed = [x.observed[0]];
   x.observed[0].architecture = "armv8";
   assert.ok(valid(x));
+});
+const arm = () => {
+  const x = identity();
+  x.machine = "aarch64";
+  x.requested = "not-forced";
+  x.observed.forEach((r) => (r.architecture = "armv8"));
+  return x;
+};
+test("x86_64 against x86_64 stays exact: any identity change is refused", () => {
+  const x = identity();
+  x.observed[0].version = "changed";
+  for (const env of [{}, { P027_CROSS_PLATFORM_REPLAY: "1" }]) {
+    assert.equal(
+      replayKernelAdmitted(compareKernels(identity(), x), env),
+      false
+    );
+    assert.equal(
+      replayKernelAdmitted(compareKernels(identity(), identity()), env),
+      true
+    );
+  }
+});
+test("a different platform is CROSS_PLATFORM, refused unless explicitly requested", () => {
+  for (const [recorded, fresh] of [
+    [identity(), arm()],
+    [arm(), identity()],
+  ]) {
+    const k = compareKernels(recorded, fresh);
+    assert.equal(k.status, "CROSS_PLATFORM");
+    assert.equal(replayKernelAdmitted(k, {}), false);
+    assert.equal(
+      replayKernelAdmitted(k, { P027_CROSS_PLATFORM_REPLAY: "true" }),
+      false
+    );
+    assert.equal(
+      replayKernelAdmitted(k, { P027_CROSS_PLATFORM_REPLAY: "1" }),
+      true
+    );
+  }
+});
+test("the cross-platform request never admits an invalid or same-platform mismatch", () => {
+  const env = { P027_CROSS_PLATFORM_REPLAY: "1" };
+  const changed = arm();
+  changed.observed[0].version = "changed";
+  assert.equal(compareKernels(arm(), changed).status, "MISMATCH");
+  assert.equal(
+    replayKernelAdmitted(compareKernels(arm(), changed), env),
+    false
+  );
+  const unforced = identity();
+  unforced.requested = "not-forced";
+  assert.equal(
+    replayKernelAdmitted(compareKernels(unforced, arm()), env),
+    false
+  );
+  assert.equal(replayKernelAdmitted(compareKernels(null, arm()), env), false);
 });

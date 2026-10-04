@@ -37,6 +37,11 @@ function valid(k) {
       (!linux || r.architecture.toLowerCase() === "haswell")
   );
 }
+const platform = (k) => k.system + "/" + k.machine;
+// Same platform: the identity must match exactly (MISMATCH otherwise). Different
+// platforms (an x86_64 recording replayed on arm64, or the reverse) can never
+// match; they are reported as CROSS_PLATFORM so a caller can refuse them or, on
+// explicit request, run an exact but labelled cross-platform replay.
 function compareKernels(recorded, fresh) {
   const known = valid(recorded) && valid(fresh);
   return {
@@ -44,10 +49,22 @@ function compareKernels(recorded, fresh) {
     fresh: fresh || null,
     status: !known
       ? "UNKNOWN_OR_INVALID"
+      : platform(recorded) !== platform(fresh)
+      ? "CROSS_PLATFORM"
       : canonical(recorded) === canonical(fresh)
       ? "MATCH"
       : "MISMATCH",
   };
+}
+// Only an explicit P027_CROSS_PLATFORM_REPLAY=1 admits a CROSS_PLATFORM replay;
+// every response byte is still compared exactly. MISMATCH and unknown kernels
+// are never admitted.
+function replayKernelAdmitted(kernels, env) {
+  if (kernels.status === "MATCH") return true;
+  return (
+    kernels.status === "CROSS_PLATFORM" &&
+    env.P027_CROSS_PLATFORM_REPLAY === "1"
+  );
 }
 function recordingKernel(run, seed) {
   if (
@@ -57,4 +74,9 @@ function recordingKernel(run, seed) {
     return null;
   return run.mathKernel;
 }
-module.exports = { valid, compareKernels, recordingKernel };
+module.exports = {
+  valid,
+  compareKernels,
+  recordingKernel,
+  replayKernelAdmitted,
+};
