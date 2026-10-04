@@ -195,73 +195,112 @@ const Conversations = () => {
 
   const renderAllControls = () => {
     if (!(activeView === 'all' && superAdmin)) return null
+    const fieldSx = {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 1,
+      fontSize: 1,
+      fontWeight: 600
+    }
     return (
       <Box sx={{ mb: [3] }}>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, alignItems: 'center' }}>
-          <input
-            type="text"
-            placeholder="Owner email contains..."
-            value={filters.owner_email}
-            onChange={(e) => setFilters((f) => ({ ...f, owner_email: e.target.value }))}
-          />
-          <select
-            value={filters.is_active}
-            onChange={(e) =>
-              setFilters((f) => ({
-                ...f,
-                is_active: e.target.value === '' ? '' : e.target.value === 'true'
-              }))
-            }>
-            <option value="">All statuses</option>
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
-          </select>
-          <input
-            type="number"
-            min="0"
-            placeholder="Min comments"
-            value={filters.min_comment_count}
-            onChange={(e) => setFilters((f) => ({ ...f, min_comment_count: e.target.value }))}
-            style={{ width: 120 }}
-          />
-          <input
-            type="number"
-            min="0"
-            placeholder="Min participants"
-            value={filters.min_participant_count}
-            onChange={(e) => setFilters((f) => ({ ...f, min_participant_count: e.target.value }))}
-            style={{ width: 140 }}
-          />
-          <input
-            type="number"
-            min="0"
-            placeholder="Updated in last N days"
-            value={filters.recently_updated_days}
-            onChange={(e) => setFilters((f) => ({ ...f, recently_updated_days: e.target.value }))}
-            style={{ width: 200 }}
-          />
-          <input
-            type="number"
-            min="0"
-            placeholder="Created in last N days"
-            value={filters.recently_created_days}
-            onChange={(e) => setFilters((f) => ({ ...f, recently_created_days: e.target.value }))}
-            style={{ width: 200 }}
-          />
-          <select
-            value={sort.sort_by}
-            onChange={(e) => setSort((s) => ({ ...s, sort_by: e.target.value }))}>
-            <option value="updated">Sort: Updated</option>
-            <option value="created">Sort: Created</option>
-            <option value="participant_count">Sort: Participants</option>
-            <option value="comment_count">Sort: Comments</option>
-          </select>
-          <select
-            value={sort.sort_dir}
-            onChange={(e) => setSort((s) => ({ ...s, sort_dir: e.target.value }))}>
-            <option value="desc">Desc</option>
-            <option value="asc">Asc</option>
-          </select>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, alignItems: 'flex-end' }}>
+          <Box as="label" htmlFor="filter-owner-email" sx={fieldSx}>
+            Owner email
+            <input
+              id="filter-owner-email"
+              type="text"
+              placeholder="Owner email contains..."
+              value={filters.owner_email}
+              onChange={(e) => setFilters((f) => ({ ...f, owner_email: e.target.value }))}
+            />
+          </Box>
+          <Box as="label" htmlFor="filter-is-active" sx={fieldSx}>
+            Status
+            <select
+              id="filter-is-active"
+              value={filters.is_active}
+              onChange={(e) =>
+                setFilters((f) => ({
+                  ...f,
+                  is_active: e.target.value === '' ? '' : e.target.value === 'true'
+                }))
+              }>
+              <option value="">All statuses</option>
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </Box>
+          <Box as="label" htmlFor="filter-min-comments" sx={fieldSx}>
+            Min comments
+            <input
+              id="filter-min-comments"
+              type="number"
+              min="0"
+              placeholder="Min comments"
+              value={filters.min_comment_count}
+              onChange={(e) => setFilters((f) => ({ ...f, min_comment_count: e.target.value }))}
+              style={{ width: 120 }}
+            />
+          </Box>
+          <Box as="label" htmlFor="filter-min-participants" sx={fieldSx}>
+            Min participants
+            <input
+              id="filter-min-participants"
+              type="number"
+              min="0"
+              placeholder="Min participants"
+              value={filters.min_participant_count}
+              onChange={(e) => setFilters((f) => ({ ...f, min_participant_count: e.target.value }))}
+              style={{ width: 140 }}
+            />
+          </Box>
+          <Box as="label" htmlFor="filter-updated-days" sx={fieldSx}>
+            Updated in last N days
+            <input
+              id="filter-updated-days"
+              type="number"
+              min="0"
+              placeholder="Updated in last N days"
+              value={filters.recently_updated_days}
+              onChange={(e) => setFilters((f) => ({ ...f, recently_updated_days: e.target.value }))}
+              style={{ width: 200 }}
+            />
+          </Box>
+          <Box as="label" htmlFor="filter-created-days" sx={fieldSx}>
+            Created in last N days
+            <input
+              id="filter-created-days"
+              type="number"
+              min="0"
+              placeholder="Created in last N days"
+              value={filters.recently_created_days}
+              onChange={(e) => setFilters((f) => ({ ...f, recently_created_days: e.target.value }))}
+              style={{ width: 200 }}
+            />
+          </Box>
+          <Box as="label" htmlFor="filter-sort-by" sx={fieldSx}>
+            Sort by
+            <select
+              id="filter-sort-by"
+              value={sort.sort_by}
+              onChange={(e) => setSort((s) => ({ ...s, sort_by: e.target.value }))}>
+              <option value="updated">Sort: Updated</option>
+              <option value="created">Sort: Created</option>
+              <option value="participant_count">Sort: Participants</option>
+              <option value="comment_count">Sort: Comments</option>
+            </select>
+          </Box>
+          <Box as="label" htmlFor="filter-sort-dir" sx={fieldSx}>
+            Sort direction
+            <select
+              id="filter-sort-dir"
+              value={sort.sort_dir}
+              onChange={(e) => setSort((s) => ({ ...s, sort_dir: e.target.value }))}>
+              <option value="desc">Desc</option>
+              <option value="asc">Asc</option>
+            </select>
+          </Box>
           <Button
             onClick={() => {
               setAllConversations(null)

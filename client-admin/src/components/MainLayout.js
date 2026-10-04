@@ -19,6 +19,8 @@ const MainLayout = () => {
         }}>
         {/* Navigation Sidebar - stacks vertically on mobile/tablet, sidebar on desktop */}
         <Box
+          as="nav"
+          aria-label="Admin"
           sx={{
             py: [2, 2, 4],
             px: [2, 3, 4],
@@ -58,6 +60,7 @@ const MainLayout = () => {
         </Box>
         {/* Main Content Area */}
         <Box
+          as="main"
           sx={{
             p: [2, 3, 4],
             flex: '1 1 auto',

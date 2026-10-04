@@ -13,7 +13,7 @@ interface StatementInfoProps {
 
 export function StatementInfo({ selectedStatement, selectedComment, s }: StatementInfoProps) {
   return (
-    <>
+    <div role="status">
       {/* Comment text display */}
       {selectedComment && (
         <div
@@ -74,6 +74,6 @@ export function StatementInfo({ selectedStatement, selectedComment, s }: Stateme
           })()}
         </span>
       </div>
-    </>
+    </div>
   )
 }
