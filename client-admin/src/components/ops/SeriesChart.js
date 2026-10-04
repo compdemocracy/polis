@@ -24,7 +24,8 @@ function Bars({ column, rows, labelKey }) {
       <Text as="figcaption" sx={{ fontSize: 1, mb: 1, color: 'text' }}>
         {column.label}{' '}
         <Text as="span" sx={{ color: 'textSecondary', fontSize: 0 }}>
-          peak {formatValue(column, peak)}, total {formatValue(column, total)}
+          peak {formatValue(column, peak)}
+          {column.type === 'count' ? `, total ${formatValue(column, total)}` : ''}
         </Text>
       </Text>
       <svg

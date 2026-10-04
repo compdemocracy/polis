@@ -1,4 +1,9 @@
-# Local Rust queue adapter and shared acceptance cases
+# Local Rust queue adapter, shared acceptance cases, and the `polis-jobs` daemon
+
+This crate holds two binaries. `polis-queue-adapter` (below, "Local Rust queue
+adapter") is the one-shot `polis-queue/1` transport. `polis-jobs` (the last
+section) is a daemon that runs Delphi jobs on the `polis-queue/2` contract. It
+is off by default and nothing in compose, the deploy hooks or CI starts it.
 
 This independent crate exercises `polis-queue/1` without changing the coordinator
 or Python science package. It is a local, opt-in transport for the twelve public
@@ -74,3 +79,64 @@ count/byte admission, protected-reference retention/cleanup and eventual real
 math-stage admission require their separately reviewed schema/authority work.
 No queue finalize occurs in the math bridge, so a restart between math COMMIT
 and queue finalize cannot yet be a live queue integration witness.
+
+## `polis-jobs`: the Delphi job daemon (off by default)
+
+What it does, in plain terms: it takes one Delphi job at a time from the
+Postgres queue, holds a lease on it (120 s, renewed every 30 s), runs the
+unchanged Delphi script as a child process in its own process group, copies
+the child's output lines into `polis_queue_logs`, and records how the attempt
+ended. A job succeeds only when the child exits 0 *and* writes a valid output
+manifest; the manifest's exact bytes are stored as the attempt's `manifest` log
+row and its sha256 is what the queue records. If the job is cancelled, or the
+lease is lost, the daemon kills the child's whole process group, waits until
+the group is empty, and only then tells the database the process has exited.
+The database never treats an expired lease as proof that a process stopped: a
+job whose worker vanished stays parked until its exit is confirmed, either by
+the daemon's restart journal or by an operator (who reads the identity from
+`pd_job_view.last_attempt`).
+
+What it needs to run: a database with migration 000019 and the `polis-queue/2`
+migration 000023 applied (`polis_queue_install.contract_version` reads
+`polis-queue/2`; otherwise the daemon exits 3), and a login that is a plain
+member of `polis_queue_executor`. Neither is applied to any shared database by
+this crate; 000023 is vendored only as a test fixture
+(`tests/fixtures/migrations`).
+
+Configuration is by environment; `POLIS_JOBS_ENABLED` must be exactly `1` or
+the daemon exits 0 at once. Transports: `tls` (default; CA file and exact host
+allowlist required), `local` (Unix socket, must be chosen explicitly) and
+`loopback` (literal 127.0.0.1/::1 only). `POLIS_JOBS_JOURNAL_DIR` must be a
+writable directory that survives container re-creation (exit 2 otherwise).
+Exit codes: 0 disabled or clean shutdown, 2 configuration refused, 3 contract
+missing.
+
+The child sees `DELPHI_JOB_ID`, `DELPHI_RUN_ID`, `DELPHI_ATTEMPT_ID`,
+`DELPHI_LEASE_EPOCH`, `DELPHI_STAGE`, `DELPHI_PHASE`, `DELPHI_OUTPUT_MANIFEST`
+and `DELPHI_FRAME`, never the queue DSN. Before a provider batch is submitted
+the child writes `provider_intent.json`; the daemon records it with
+`pd_provider_intent`, and only after that commits writes `provider_intent.ack`
+(`{schema, request_id, intent_sha256}`). Schemas: `schemas/`.
+
+Lines on stderr: one bare-JSON `polis_jobs.transition/1` per state change, and
+every `POLIS_JOBS_READINESS_SECONDS` a readiness line
+`polis_jobs readiness/1 role=worker progress=<idle|running|draining|degraded> {json}`
+with claimed/finalized/failed/parked/fenced/poison/exit_unconfirmed totals.
+
+Tests: `cargo test` runs the unit tests. The integration tests need a
+throwaway PostgreSQL 17 on a loopback port and the feature flag:
+
+```sh
+COMPOSE_PROJECT_NAME=p077-jobs-example POLIS_RECOVERY_PG_PORT=56170 \
+  docker compose -f queue-rs/compose.yml up -d --wait
+POLIS_JOBS_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:56170/queue_acceptance \
+POLIS_JOBS_TEST_PYTHON=$(command -v python3) \
+  cargo test --manifest-path queue-rs/Cargo.toml --features jobs-integration -- --test-threads 4
+COMPOSE_PROJECT_NAME=p077-jobs-example POLIS_RECOVERY_PG_PORT=56170 \
+  docker compose -f queue-rs/compose.yml down -v
+```
+
+They apply the repository's 000000–000022 chain plus the vendored 000023 to a
+template database, then run real daemon processes against copies of it with a
+generated fixture child (`tests/fixtures/fake_delphi`) in place of the Delphi
+scripts.

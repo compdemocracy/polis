@@ -10,6 +10,8 @@ use serde_json::{Value, json};
 use std::{collections::BTreeSet, time::Duration};
 use uuid::Uuid;
 
+pub mod jobs;
+
 pub const QUEUE_SQL_SHA256: &str =
     "2d8e205f1d36e0e2e6a4fc63d1d03cbf8837ca57ccaac503c88238fa2a14a055";
 pub const LANES: [i16; 6] = [0, 0, 0, 1, 1, 2];
@@ -54,6 +56,100 @@ fn signature(name: &str) -> Result<&'static [&'static str]> {
         "pq_cancel" => &["text", "uuid", "bigint"],
         _ => anyhow::bail!("queue_rpc_name"),
     })
+}
+
+/// Typed argument lists of the `polis-queue/2` RPCs the `polis-jobs` daemon
+/// calls (migration 000023). Overloads are resolved by these exact casts, so
+/// the six-argument claim, the eight-argument fail/park, the six-argument
+/// release and the four-argument reaper can never fall back to a `/1` form.
+pub fn signature_v2(name: &str) -> Result<&'static [&'static str]> {
+    Ok(match name {
+        "pq_claim" => &["text", "smallint", "uuid", "uuid", "integer", "text"],
+        "pq_heartbeat" => &["text", "uuid", "uuid", "uuid", "bigint", "integer"],
+        "pq_end_attempt" => &[
+            "text", "uuid", "uuid", "uuid", "bigint", "text", "text", "boolean",
+        ],
+        "pq_finalize" => &["text", "uuid", "uuid", "uuid", "bigint", "text", "text"],
+        "pq_fail" => &[
+            "text", "uuid", "uuid", "uuid", "bigint", "boolean", "text", "boolean",
+        ],
+        "pq_release" => &["text", "uuid", "uuid", "uuid", "bigint", "boolean"],
+        "pq_park" => &[
+            "text",
+            "uuid",
+            "uuid",
+            "uuid",
+            "bigint",
+            "text",
+            "boolean",
+            "timestamptz",
+        ],
+        "pq_reap" => &["text", "uuid", "integer", "text"],
+        "pq_cancel" => &["text", "uuid", "bigint"],
+        "pq_job_status" | "pd_job_view" => &["text", "uuid"],
+        "pd_release_scope" => &["text", "text"],
+        "pd_provider_intent" => &[
+            "text", "uuid", "uuid", "uuid", "bigint", "uuid", "text", "bytea",
+        ],
+        "pd_provider_update" => &[
+            "text", "uuid", "uuid", "uuid", "bigint", "uuid", "text", "text",
+        ],
+        _ => anyhow::bail!("queue_rpc_name"),
+    })
+}
+
+/// Bind JSON arguments to their declared SQL types. UUIDs bind as UUIDs,
+/// priority as i16, counts as i32, epochs (decimal strings) as i64, digests
+/// (lowercase hex strings) as bytea, timestamps as text cast by the server.
+pub fn bind_args(casts: &[&str], args: &[Value]) -> Result<Vec<Box<dyn ToSql + Sync>>> {
+    ensure!(casts.len() == args.len(), "queue_rpc_arity");
+    let mut values: Vec<Box<dyn ToSql + Sync>> = Vec::new();
+    for (kind, value) in casts.iter().zip(args) {
+        let invalid = || anyhow::anyhow!("queue_rpc_type");
+        values.push(match *kind {
+            "text" | "timestamptz" => Box::new(if value.is_null() {
+                None
+            } else {
+                Some(value.as_str().ok_or_else(invalid)?.to_owned())
+            }),
+            "uuid" => Box::new(if value.is_null() {
+                None
+            } else {
+                Some(Uuid::parse_str(value.as_str().ok_or_else(invalid)?)?)
+            }),
+            "boolean" => Box::new(value.as_bool().ok_or_else(invalid)?),
+            "smallint" => Box::new(i16::try_from(value.as_i64().ok_or_else(invalid)?)?),
+            "integer" => Box::new(i32::try_from(value.as_i64().ok_or_else(invalid)?)?),
+            "bigint" => Box::new(value.as_str().ok_or_else(invalid)?.parse::<i64>()?),
+            "bytea" => {
+                let hex = value.as_str().ok_or_else(invalid)?;
+                ensure!(
+                    hex.len() % 2 == 0 && hex.bytes().all(|b| b.is_ascii_hexdigit()),
+                    "queue_rpc_type"
+                );
+                let bytes = (0..hex.len())
+                    .step_by(2)
+                    .map(|i| u8::from_str_radix(&hex[i..i + 2], 16))
+                    .collect::<std::result::Result<Vec<u8>, _>>()?;
+                Box::new(bytes)
+            }
+            _ => anyhow::bail!("queue_rpc_type"),
+        });
+    }
+    Ok(values)
+}
+
+/// `$1::text,$2::uuid,...`; a timestamp travels as text and is cast in SQL.
+pub fn placeholders(casts: &[&str]) -> String {
+    casts
+        .iter()
+        .enumerate()
+        .map(|(i, cast)| match *cast {
+            "timestamptz" => format!("${}::text::timestamptz", i + 1),
+            _ => format!("${}::{cast}", i + 1),
+        })
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 fn fields(value: &Value, expected: &str) -> Result<()> {
@@ -211,33 +307,8 @@ impl Database {
             request.args.first().and_then(Value::as_str) == Some(&self.env),
             "queue_rpc_environment"
         );
-        let mut values: Vec<Box<dyn ToSql + Sync>> = Vec::new();
-        for (kind, value) in casts.iter().zip(&request.args) {
-            let invalid = || anyhow::anyhow!("queue_rpc_type");
-            values.push(match *kind {
-                "text" => Box::new(if value.is_null() {
-                    None
-                } else {
-                    Some(value.as_str().ok_or_else(invalid)?.to_owned())
-                }),
-                "uuid" => Box::new(if value.is_null() {
-                    None
-                } else {
-                    Some(Uuid::parse_str(value.as_str().ok_or_else(invalid)?)?)
-                }),
-                "boolean" => Box::new(value.as_bool().ok_or_else(invalid)?),
-                "smallint" => Box::new(i16::try_from(value.as_i64().ok_or_else(invalid)?)?),
-                "integer" => Box::new(i32::try_from(value.as_i64().ok_or_else(invalid)?)?),
-                "bigint" => Box::new(value.as_str().ok_or_else(invalid)?.parse::<i64>()?),
-                _ => anyhow::bail!("queue_rpc_type"),
-            });
-        }
-        let placeholders = casts
-            .iter()
-            .enumerate()
-            .map(|(i, cast)| format!("${}::{cast}", i + 1))
-            .collect::<Vec<_>>()
-            .join(",");
+        let values = bind_args(casts, &request.args)?;
+        let placeholders = placeholders(casts);
         let query = format!(
             "SELECT {}public.{}({})",
             if request.name == "pq_due" {

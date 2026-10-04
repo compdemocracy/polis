@@ -248,6 +248,10 @@ describe("the gate", () => {
       "topics",
       "consensus",
       "db",
+      "engine",
+      "serving",
+      "boxes",
+      "cost",
     ]);
     expect(res.headers["cache-control"]).toBe("private, no-store");
   });
