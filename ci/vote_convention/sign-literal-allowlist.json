@@ -3120,6 +3120,13 @@
    "audit": "audit 2026-10-03 §2 file rows 47 (server/__tests__/integration/data-export.test.ts); this line is not itemised there"
   },
   {
+   "path": "server/__tests__/integration/empty-math-comments.test.ts",
+   "text": "const summaryBeforeDeclaration = summary.slice(0, -1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a slice index (drops summary.csv's last row, the declared-sign row), not a vote value"
+  },
+  {
    "path": "server/__tests__/integration/math.test.ts",
    "text": "const vote = [-1, 1, 0][Math.floor(Math.random() * 3)] as -1 | 0 | 1;",
    "count": 1,
@@ -3153,13 +3160,6 @@
    "count": 1,
    "kind": "minus-one",
    "audit": "not in the audit: the votes-bulk import CSV and participant-votes.csv cells are in the export convention (agree = +1); the server tests have no export-convention helper, so this one line states it (PR #2949)"
-  },
-  {
-   "path": "server/__tests__/integration/vote-path-recordings.test.ts",
-   "text": "const NEW_PID = \"pid=-1\";",
-   "count": 1,
-   "kind": "minus-one",
-   "audit": "not in the audit: participationInit's pid=-1 sentinel (a participant id, not a vote) (PR #2949)"
   },
   {
    "path": "server/__tests__/integration/vote.test.ts",

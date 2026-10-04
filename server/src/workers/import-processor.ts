@@ -6,7 +6,11 @@ import pg from "../db/pg-query";
 import logger from "../utils/logger";
 import Config from "../config";
 import { sendTextEmail } from "../email/senders";
-import { exportToStorage } from "../votes/convention";
+import {
+  checkImportDeclaration,
+  DeclaredVoteConvention,
+  exportToStorage,
+} from "../votes/convention";
 
 const customEndpoint = Config.AWS_S3_ENDPOINT;
 const config: S3ClientConfig = {
@@ -61,7 +65,17 @@ export async function processImportJob(payload: {
     });
     const response = await s3Client.send(command);
     if (!response.Body) throw new Error("Empty body from S3");
-    const stream = response.Body as Readable;
+    // A `# vote-convention:` first line declares the file's sign; it is checked
+    // (a mismatch fails the job with the closed code) and removed before the CSV
+    // header is read. Without one the file is read as it always was.
+    const { body: stream, declared } = await splitImportDeclaration(
+      response.Body as Readable
+    );
+    if (declared) {
+      logger.info(
+        `[Worker] Job ${jobId} declares agree=${declared.agreeValue}, format=${declared.format}`
+      );
+    }
     let batch: any[] = [];
 
     await new Promise<void>((resolve, reject) => {
@@ -177,6 +191,46 @@ export async function processImportJob(payload: {
   }
 }
 
+/**
+ * Reads the stored votes-bulk CSV up to its first line ending. If that line is
+ * a `# vote-convention:` declaration it is checked through the convention
+ * module (VoteDeclarationError on a malformed or mismatched one) and dropped;
+ * otherwise every byte is passed on unchanged. `body` replays the rest.
+ */
+export async function splitImportDeclaration(source: Readable): Promise<{
+  body: Readable;
+  declared: DeclaredVoteConvention | null;
+}> {
+  const iterator = source[Symbol.asyncIterator]();
+  let head = Buffer.alloc(0);
+  let newline = -1;
+  for (;;) {
+    const next = await iterator.next();
+    if (next.done) break;
+    head = Buffer.concat([head, Buffer.from(next.value)]);
+    newline = head.indexOf(0x0a);
+    if (newline !== -1) break;
+  }
+  const firstLine = (
+    newline === -1 ? head : head.subarray(0, newline + 1)
+  ).toString("utf8");
+  const declared = checkImportDeclaration(firstLine);
+  const rest = declared
+    ? newline === -1
+      ? Buffer.alloc(0)
+      : head.subarray(newline + 1)
+    : head;
+  async function* replay() {
+    if (rest.length > 0) yield rest;
+    for (;;) {
+      const next = await iterator.next();
+      if (next.done) return;
+      yield next.value;
+    }
+  }
+  return { body: Readable.from(replay()), declared };
+}
+
 async function markJobAsFailedInDb(jobId: number, errorMessage: string) {
   const query = `
     UPDATE byod_import_jobs 
@@ -216,9 +270,9 @@ function mapRowData(
     const parsed = Date.parse(row.timestamp);
     if (!isNaN(parsed)) ts = parsed;
   }
-  // vote_value is in the export convention (EXPORT_AGREE_VALUE, as the admin import
-  // screen documents). Values outside the export set are stored as given, as before;
-  // refusing them is a separate change (P-078 PR-E).
+  // vote_value is in the export convention (agree = +1, as the admin import
+  // screen documents and as a declared file must state; docs/export-format.md).
+  // A value outside the convention is stored as given, as before.
   const voteValue = exportToStorage(parseInt(row.vote_value, 10), {
     onInvalid: "keep",
   });

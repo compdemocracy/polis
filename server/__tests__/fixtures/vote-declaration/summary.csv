@@ -1,0 +1,9 @@
+topic,"Test Topic"
+url,https://example.com/test-zinvite
+voters,2
+voters-in-conv,3
+commenters,10
+comments,20
+groups,1
+conversation-description,"Test Description"
+vote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1
