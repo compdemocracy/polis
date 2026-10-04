@@ -1,0 +1,37 @@
+{
+  "about": "Declaration values for the votes-bulk import and format.json (docs/export-format.md). Each case: the text after `# vote-convention:`, and the outcome the convention module must give. Generated fixture; no conversation data.",
+  "cases": [
+    { "text": "agree=+1;disagree=-1;pass=0;format=polis-export/1", "outcome": "accepted", "format": "polis-export/1" },
+    { "text": "agree=1;disagree=-1;pass=0", "outcome": "accepted", "format": null },
+    { "text": " pass=0 ; disagree=-1 ; agree=+1 ", "outcome": "accepted", "format": null },
+    { "text": "agree=+1;disagree=-1;pass=0;", "outcome": "accepted", "format": null },
+    { "text": "agree=-1;disagree=+1;pass=0;format=polis-export/1", "outcome": "mismatch" },
+    { "text": "agree=-1;disagree=1;pass=0", "outcome": "mismatch" },
+    { "text": "agree=+1;disagree=-1;pass=0;format=polis-export/2", "outcome": "mismatch" },
+    { "text": "agree=+1;disagree=-1;pass=0;format=other", "outcome": "mismatch" },
+    { "text": "", "outcome": "malformed" },
+    { "text": "agree=+1;disagree=-1", "outcome": "malformed" },
+    { "text": "agree=+1;disagree=+1;pass=0", "outcome": "malformed" },
+    { "text": "agree=+1;disagree=-1;pass=1", "outcome": "malformed" },
+    { "text": "agree=2;disagree=-2;pass=0", "outcome": "malformed" },
+    { "text": "agree=yes;disagree=no;pass=0", "outcome": "malformed" },
+    { "text": "agree=+1;agree=+1;disagree=-1;pass=0", "outcome": "malformed" },
+    { "text": "agree=+1;disagree=-1;pass=0;skip=0", "outcome": "malformed" },
+    { "text": "agree +1, disagree -1, pass 0", "outcome": "malformed" }
+  ],
+  "documents": [
+    { "doc": { "vote-convention": "agree=+1;disagree=-1;pass=0;format=polis-export/1" }, "outcome": "accepted" },
+    { "doc": { "format": "polis-export/1", "vote": { "agree": 1, "disagree": -1, "pass": 0 } }, "outcome": "accepted" },
+    { "doc": { "format": "polis-export/1", "vote-convention": "agree=+1;disagree=-1;pass=0;format=polis-export/1", "vote": { "agree": 1, "disagree": -1, "pass": 0 } }, "outcome": "accepted" },
+    { "doc": "{\"vote\": {\"agree\": 1, \"disagree\": -1, \"pass\": 0}}", "outcome": "accepted" },
+    { "doc": { "vote": { "agree": -1, "disagree": 1, "pass": 0 } }, "outcome": "mismatch" },
+    { "doc": { "format": "polis-export/2", "vote": { "agree": 1, "disagree": -1, "pass": 0 } }, "outcome": "mismatch" },
+    { "doc": { "vote-convention": "agree=+1;disagree=-1;pass=0", "vote": { "agree": -1, "disagree": 1, "pass": 0 } }, "outcome": "malformed" },
+    { "doc": { "format": "polis-export/1", "vote-convention": "agree=+1;disagree=-1;pass=0;format=polis-export/2" }, "outcome": "malformed" },
+    { "doc": { "format": "polis-export/1" }, "outcome": "malformed" },
+    { "doc": { "vote": [1, -1, 0] }, "outcome": "malformed" },
+    { "doc": { "vote-convention": 1 }, "outcome": "malformed" },
+    { "doc": "not json", "outcome": "malformed" },
+    { "doc": [], "outcome": "malformed" }
+  ]
+}

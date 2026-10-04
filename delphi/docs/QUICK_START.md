@@ -89,6 +89,7 @@ To work with your own data:
 
 1. Prepare your data in CSV format with the following structure:
    - Votes: columns `voter-id`, `comment-id`, and `vote` (values: 1=agree, -1=disagree, 0=pass)
+     (the Polis export convention; see [docs/export-format.md](../../docs/export-format.md) for every export file's declared sign)
    - Comments: columns `comment-id` and `comment-body`
 
 2. Use the Conversation class:

@@ -387,3 +387,271 @@ export function addToTally(
   else tally[vote] += n;
   return tally;
 }
+
+// ---------------------------------------------------------------------------
+// The declared sign of the export file formats (P-078 PR-E)
+// ---------------------------------------------------------------------------
+//
+// The CSV exports and the votes-bulk import carry the export convention above.
+// They now say so: summary.csv has a `vote-convention` row, the export set has
+// a format.json sidecar (exportFormat.ts), and a votes-bulk CSV may declare its
+// sign on its first line. All three carry the same value, built here from the
+// export constants:
+//
+//   agree=+1;disagree=-1;pass=0;format=polis-export/1
+//
+// docs/export-format.md is the prose statement of the same thing.
+
+/** The version of the export file formats the declaration names. */
+export const EXPORT_FORMAT_ID = "polis-export/1";
+
+/** The summary.csv key, the format.json key and the import comment's name. */
+export const VOTE_CONVENTION_KEY = "vote-convention";
+
+/** A votes-bulk CSV whose first line starts with this declares its sign. */
+export const IMPORT_DECLARATION_PREFIX = `# ${VOTE_CONVENTION_KEY}:`;
+
+function signedText(n: number): string {
+  return n > 0 ? `+${n}` : String(n);
+}
+
+/** The declaration of the export convention, as written in every file that carries it. */
+export const EXPORT_VOTE_CONVENTION = [
+  `agree=${signedText(EXPORT_AGREE)}`,
+  `disagree=${signedText(EXPORT_DISAGREE)}`,
+  `pass=${signedText(EXPORT_PASS)}`,
+  `format=${EXPORT_FORMAT_ID}`,
+].join(";");
+
+/** The vote values of the export convention, as format.json states them. */
+export const EXPORT_VOTE_VALUES: Readonly<Record<Vote, number>> = Object.freeze(
+  {
+    agree: EXPORT_AGREE,
+    disagree: EXPORT_DISAGREE,
+    pass: EXPORT_PASS,
+  }
+);
+
+/**
+ * The closed set of reasons a declared sign is refused. A declaration that
+ * cannot be read is malformed; one that reads as a valid convention other than
+ * the export convention (agree = -1, say, or another format id) is a mismatch.
+ * Neither is ever converted: an import that names a sign the reader does not
+ * hold is refused, never guessed at.
+ */
+export const VOTE_DECLARATION_ERRORS = Object.freeze({
+  malformed: "polis_err_vote_convention_declaration_malformed",
+  mismatch: "polis_err_vote_convention_declaration_mismatch",
+} as const);
+
+export type VoteDeclarationErrorCode =
+  (typeof VOTE_DECLARATION_ERRORS)[keyof typeof VOTE_DECLARATION_ERRORS];
+
+export class VoteDeclarationError extends Error {
+  readonly code: VoteDeclarationErrorCode;
+  readonly detail: string;
+  constructor(code: VoteDeclarationErrorCode, detail: string) {
+    super(code);
+    this.name = "VoteDeclarationError";
+    this.code = code;
+    this.detail = detail;
+  }
+}
+
+export interface DeclaredVoteConvention {
+  /** The value agree takes in the declared file. */
+  readonly agreeValue: AgreeValue;
+  /** The format id the declaration names, or null when it names none. */
+  readonly format: string | null;
+}
+
+function malformed(detail: string): VoteDeclarationError {
+  return new VoteDeclarationError(VOTE_DECLARATION_ERRORS.malformed, detail);
+}
+
+function declaredInteger(key: string, text: unknown): number {
+  const s = typeof text === "number" ? String(text) : text;
+  if (typeof s !== "string" || !/^[+-]?\d+$/.test(s.trim())) {
+    throw malformed(`${key} is not an integer`);
+  }
+  return parseInt(s.trim(), 10);
+}
+
+/**
+ * The three declared values must form a convention: pass is 0, agree is +1 or
+ * -1, disagree is its negation. Anything else is malformed, not a mismatch.
+ */
+function declaredConvention(
+  values: Record<string, unknown>,
+  format: unknown
+): DeclaredVoteConvention {
+  for (const key of VOTES) {
+    if (!(key in values)) throw malformed(`${key} is missing`);
+  }
+  const agree = declaredInteger("agree", values.agree);
+  const disagree = declaredInteger("disagree", values.disagree);
+  const pass = declaredInteger("pass", values.pass);
+  if (pass !== 0 || (agree !== 1 && agree !== -1) || disagree !== -agree) {
+    throw malformed(
+      `agree=${agree};disagree=${disagree};pass=${pass} is not a vote convention`
+    );
+  }
+  if (format !== undefined && format !== null && typeof format !== "string") {
+    throw malformed("format is not a string");
+  }
+  return Object.freeze({
+    agreeValue: agree as AgreeValue,
+    format: typeof format === "string" ? format.trim() : null,
+  });
+}
+
+/**
+ * Reads a declaration value: `agree=+1;disagree=-1;pass=0[;format=<id>]`, keys
+ * in any order, whitespace around parts ignored. Unknown or repeated keys are
+ * malformed.
+ */
+export function parseVoteConventionDeclaration(
+  text: string
+): DeclaredVoteConvention {
+  if (typeof text !== "string" || text.trim() === "") {
+    throw malformed("empty declaration");
+  }
+  const values: Record<string, string> = {};
+  for (const part of text.split(";")) {
+    const trimmed = part.trim();
+    if (trimmed === "") continue;
+    const eq = trimmed.indexOf("=");
+    if (eq <= 0) throw malformed(`"${trimmed}" is not key=value`);
+    const key = trimmed.slice(0, eq).trim();
+    const value = trimmed.slice(eq + 1).trim();
+    if (!isVote(key) && key !== "format") {
+      throw malformed(`unknown key "${key}"`);
+    }
+    if (key in values) throw malformed(`"${key}" is repeated`);
+    values[key] = value;
+  }
+  return declaredConvention(values, values.format);
+}
+
+/**
+ * Reads a format.json document (the export sidecar, or the `format` object a
+ * votes-bulk request sends beside its CSV). It must carry the declaration
+ * string under `vote-convention`, the values under `vote`, or both; when both
+ * are present they must agree. A top-level `format` names the format id.
+ */
+export function parseVoteConventionDocument(
+  doc: unknown
+): DeclaredVoteConvention {
+  let value = doc;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      throw malformed("format is not JSON");
+    }
+  }
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw malformed("format is not an object");
+  }
+  const record = value as Record<string, unknown>;
+  const text = record[VOTE_CONVENTION_KEY];
+  const values = record.vote;
+  if (text === undefined && values === undefined) {
+    throw malformed(
+      `format carries neither "${VOTE_CONVENTION_KEY}" nor "vote"`
+    );
+  }
+  if (text !== undefined && typeof text !== "string") {
+    throw malformed(`"${VOTE_CONVENTION_KEY}" is not a string`);
+  }
+  if (
+    values !== undefined &&
+    (values === null || typeof values !== "object" || Array.isArray(values))
+  ) {
+    throw malformed(`"vote" is not an object`);
+  }
+  const fromText =
+    text === undefined ? null : parseVoteConventionDeclaration(text as string);
+  const fromValues =
+    values === undefined
+      ? null
+      : declaredConvention(values as Record<string, unknown>, null);
+  if (fromText && fromValues && fromText.agreeValue !== fromValues.agreeValue) {
+    throw malformed(`"${VOTE_CONVENTION_KEY}" and "vote" disagree`);
+  }
+  if (
+    fromText?.format != null &&
+    record.format != null &&
+    fromText.format !== record.format
+  ) {
+    throw malformed(
+      `"${VOTE_CONVENTION_KEY}" and "format" name different formats`
+    );
+  }
+  const declared = (fromText ?? fromValues) as DeclaredVoteConvention;
+  const format = record.format ?? declared.format;
+  if (format !== null && typeof format !== "string") {
+    throw malformed("format is not a string");
+  }
+  return Object.freeze({
+    agreeValue: declared.agreeValue,
+    format: typeof format === "string" ? format.trim() : null,
+  });
+}
+
+/**
+ * The import rule. A declared sign must be the export convention (and, when it
+ * names a format, this one); otherwise it is refused with the mismatch code.
+ * The returned convention is the one the reader then converts from, through
+ * exportToStorage.
+ */
+export function requireExportConvention(
+  declared: DeclaredVoteConvention
+): DeclaredVoteConvention {
+  if (declared.agreeValue !== EXPORT_AGREE_VALUE) {
+    throw new VoteDeclarationError(
+      VOTE_DECLARATION_ERRORS.mismatch,
+      `declared agree=${signedText(
+        declared.agreeValue
+      )}; the import reads ${EXPORT_VOTE_CONVENTION}`
+    );
+  }
+  if (declared.format !== null && declared.format !== EXPORT_FORMAT_ID) {
+    throw new VoteDeclarationError(
+      VOTE_DECLARATION_ERRORS.mismatch,
+      `declared format=${declared.format}; the import reads ${EXPORT_FORMAT_ID}`
+    );
+  }
+  return declared;
+}
+
+/**
+ * If `line` (a CSV's first line, with or without its line ending or a byte
+ * order mark) is a `# vote-convention:` declaration, returns it parsed;
+ * otherwise null, and the line is the CSV header as it always was.
+ */
+export function readImportDeclarationLine(
+  line: string
+): DeclaredVoteConvention | null {
+  const text = line.replace(/^\uFEFF/, "").replace(/\r?\n$/, "");
+  if (!text.startsWith(IMPORT_DECLARATION_PREFIX)) return null;
+  return parseVoteConventionDeclaration(
+    text.slice(IMPORT_DECLARATION_PREFIX.length)
+  );
+}
+
+/**
+ * The votes-bulk rule in one call, used by the route (to refuse early) and the
+ * worker (which reads the stored file). `firstLine` is the CSV's first line.
+ * Not a declaration: null, and the file is read as it always has been (export
+ * convention). A declaration: it must be the export convention, or this throws
+ * VoteDeclarationError. Nothing else in a request declares a sign.
+ */
+export function checkImportDeclaration(
+  firstLine: string | null
+): DeclaredVoteConvention | null {
+  const inFile =
+    firstLine === null ? null : readImportDeclarationLine(firstLine);
+  if (inFile) requireExportConvention(inFile);
+  return inFile;
+}
