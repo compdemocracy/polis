@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "two_models/topicStats",
+ "state": "two_models",
+ "route": "GET /api/v3/topicStats",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/topicStats?report_id=r2p2zero106",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "1364"
+   ],
+   [
+    "etag",
+    "W/\"554-xM/K8ylKuwufVy8U0ZaRcw\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"Topic statistics retrieved successfully\",\"report_id\":\"r2p2zero106\",\"stats\":{\"0000006a-0000-4000-8000-000000000001#0#0\":{\"comment_count\":0,\"comment_tids\":[]},\"0000006a-0000-4000-8000-000000000001#0#1\":{\"comment_count\":0,\"comment_tids\":[]},\"0000006a-0000-4000-8000-000000000001#0#2\":{\"comment_count\":0,\"comment_tids\":[]},\"0000006a-0000-4000-8000-000000000001#1#0\":{\"comment_count\":0,\"comment_tids\":[]},\"0000006a-0000-4000-8000-000000000001#1#1\":{\"comment_count\":0,\"comment_tids\":[]},\"0000006a-0000-4000-8000-000000000002#0#0\":{\"comment_count\":0,\"comment_tids\":[]},\"0000006a-0000-4000-8000-000000000002#0#1\":{\"comment_count\":0,\"comment_tids\":[]},\"0000006a-0000-4000-8000-000000000002#0#2\":{\"comment_count\":0,\"comment_tids\":[]},\"0000006a-0000-4000-8000-000000000002#1#0\":{\"comment_count\":0,\"comment_tids\":[]},\"0000006a-0000-4000-8000-000000000002#1#1\":{\"comment_count\":0,\"comment_tids\":[]},\"0000006a-0000-4000-8000-000000000003#0#0\":{\"comment_count\":3,\"comment_tids\":[0,3,6]},\"0000006a-0000-4000-8000-000000000003#0#1\":{\"comment_count\":3,\"comment_tids\":[1,4,7]},\"0000006a-0000-4000-8000-000000000003#0#2\":{\"comment_count\":1,\"comment_tids\":[2]},\"0000006a-0000-4000-8000-000000000003#1#0\":{\"comment_count\":4,\"comment_tids\":[0,2,4,6]},\"0000006a-0000-4000-8000-000000000003#1#1\":{\"comment_count\":3,\"comment_tids\":[1,3,7]}},\"total_topics\":15}",
+  "bodySha256": "d2d0d0cd9f745d84f25b5de312fc26e150125ce9b094808697879448a1f08f2c"
+ }
+}

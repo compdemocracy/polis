@@ -14,6 +14,7 @@ import {
   sendCommentSummary,
 } from "../report";
 import logger from "../utils/logger";
+import { exportFormatJson } from "../votes/exportFormat";
 
 export async function handle_GET_reportExport(
   req: {
@@ -36,6 +37,13 @@ export async function handle_GET_reportExport(
         await sendConversationSummary(zid, siteUrl, res);
         break;
       }
+
+      // The export set's sidecar: the declared vote sign and the
+      // sign-bearing columns of every file above (docs/export-format.md).
+      case "format.json":
+        res.setHeader("content-type", "application/json");
+        res.send(exportFormatJson());
+        break;
 
       case "comments.csv":
         await sendCommentSummary(zid, res);

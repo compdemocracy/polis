@@ -16,6 +16,10 @@ import { getXids } from "../../src/routes/xids";
 import { jest } from "@jest/globals";
 import logger from "../../src/utils/logger";
 import { failJson } from "../../src/utils/fail";
+import {
+  EXPORT_VOTE_CONVENTION,
+  VOTE_CONVENTION_KEY,
+} from "../../src/votes/convention";
 
 type Formatters<T> = Record<string, (row: T) => string>;
 
@@ -202,6 +206,7 @@ describe("handle_GET_reportExport", () => {
         "comments,20",
         "groups,1",
         'conversation-description,"Test Description"',
+        `${VOTE_CONVENTION_KEY},${EXPORT_VOTE_CONVENTION}`,
       ]);
     });
 

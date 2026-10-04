@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "truncated_narrative/delphi-visualizations/job-0000006c-0000-4000-8000-000000000001",
+ "state": "truncated_narrative",
+ "route": "GET /api/v3/delphi/visualizations",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/visualizations?report_id=r2p2zero108&job_id=0000006c-0000-4000-8000-000000000001",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "2554"
+   ],
+   [
+    "etag",
+    "W/\"9fa-gDsT+mrP0GnsvcIiFVroIQ\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"Visualizations retrieved successfully\",\"report_id\":\"r2p2zero108\",\"jobs\":[{\"jobId\":\"batch_check_r2p2zero108_1699990101_1081\",\"status\":\"COMPLETED\",\"createdAt\":\"2023-11-14T19:42:00.000Z\",\"startedAt\":\"2023-11-14T19:50:00.000Z\",\"completedAt\":\"2023-11-14T19:51:00.000Z\",\"results\":{\"status\":\"completed\",\"processed\":8},\"workLive\":false,\"visualizations\":[]},{\"jobId\":\"batch_report_r2p2zero108_1699990001_1081\",\"status\":\"COMPLETED\",\"createdAt\":\"2023-11-14T19:40:00.000Z\",\"startedAt\":\"2023-11-14T19:41:00.000Z\",\"completedAt\":\"2023-11-14T19:42:00.000Z\",\"results\":{\"status\":\"submitted\",\"batch_id\":\"msgbatch_generated_108\"},\"workLive\":false,\"visualizations\":[]},{\"jobId\":\"0000006c-0000-4000-8000-000000000001\",\"status\":\"COMPLETED\",\"createdAt\":\"2023-11-14T19:00:00.000Z\",\"startedAt\":\"2023-11-14T19:01:00.000Z\",\"completedAt\":\"2023-11-14T19:30:00.000Z\",\"results\":{\"status\":\"completed\",\"result_type\":\"FULL_PIPELINE\"},\"workLive\":false,\"visualizations\":[{\"key\":\"visualizations/r2p2zero108/0000006c-0000-4000-8000-000000000001/layer_0_datamapplot.html\",\"url\":\"http://s3.p2zero.invalid/polis-delphi/visualizations/r2p2zero108/0000006c-0000-4000-8000-000000000001/layer_0_datamapplot.html\",\"layerId\":0,\"type\":\"interactive\",\"lastModified\":\"2023-11-14T20:35:00.000Z\",\"size\":20480},{\"key\":\"visualizations/r2p2zero108/0000006c-0000-4000-8000-000000000001/layer_0_static.png\",\"url\":\"http://s3.p2zero.invalid/polis-delphi/visualizations/r2p2zero108/0000006c-0000-4000-8000-000000000001/layer_0_static.png\",\"layerId\":0,\"type\":\"static_png\",\"lastModified\":\"2023-11-14T20:35:00.000Z\",\"size\":4096},{\"key\":\"visualizations/r2p2zero108/0000006c-0000-4000-8000-000000000001/layer_1_datamapplot.html\",\"url\":\"http://s3.p2zero.invalid/polis-delphi/visualizations/r2p2zero108/0000006c-0000-4000-8000-000000000001/layer_1_datamapplot.html\",\"layerId\":1,\"type\":\"interactive\",\"lastModified\":\"2023-11-14T20:35:00.000Z\",\"size\":20481},{\"key\":\"visualizations/r2p2zero108/0000006c-0000-4000-8000-000000000001/layer_1_presentation.png\",\"url\":\"http://s3.p2zero.invalid/polis-delphi/visualizations/r2p2zero108/0000006c-0000-4000-8000-000000000001/layer_1_presentation.png\",\"layerId\":1,\"type\":\"presentation_png\",\"lastModified\":\"2023-11-14T20:35:00.000Z\",\"size\":4097},{\"key\":\"visualizations/r2p2zero108/0000006c-0000-4000-8000-000000000001/layer_1_static.svg\",\"url\":\"http://s3.p2zero.invalid/polis-delphi/visualizations/r2p2zero108/0000006c-0000-4000-8000-000000000001/layer_1_static.svg\",\"layerId\":1,\"type\":\"static_svg\",\"lastModified\":\"2023-11-14T20:35:00.000Z\",\"size\":2048}]}]}",
+  "bodySha256": "e294a70b132171a0d935464443e8f9757b600dcec6c358ebca7aa93de8846923"
+ }
+}

@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "truncated_narrative/topicMod-hierarchy",
+ "state": "truncated_narrative",
+ "route": "GET /api/v3/topicMod/hierarchy",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/topicMod/hierarchy?conversation_id=8p2z108",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "660"
+   ],
+   [
+    "etag",
+    "W/\"294-XVbklm4W8vmJnagt8hSt8Q\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"Hierarchy data retrieved successfully\",\"hierarchy\":{\"name\":\"Topics Hierarchy\",\"children\":[{\"id\":\"layer1_0\",\"name\":\"Layer 1 Cluster 0\",\"layer\":1,\"clusterId\":0,\"size\":2,\"children\":[{\"id\":\"layer0_0\",\"name\":\"Layer 0 Cluster 0\",\"layer\":0,\"clusterId\":0,\"size\":2,\"children\":[]},{\"id\":\"layer0_2\",\"name\":\"Layer 0 Cluster 2\",\"layer\":0,\"clusterId\":2,\"size\":4,\"children\":[]}]},{\"id\":\"layer1_1\",\"name\":\"Layer 1 Cluster 1\",\"layer\":1,\"clusterId\":1,\"size\":3,\"children\":[{\"id\":\"layer0_1\",\"name\":\"Layer 0 Cluster 1\",\"layer\":0,\"clusterId\":1,\"size\":3,\"children\":[]}]}],\"totalClusters\":5,\"layerCounts\":{\"0\":3,\"1\":2}},\"totalClusters\":5,\"layers\":[0,1]}",
+  "bodySha256": "87387056f090227f52e15c1132a76dd42222d95d4c2cd794b79adb45e683dc27"
+ }
+}

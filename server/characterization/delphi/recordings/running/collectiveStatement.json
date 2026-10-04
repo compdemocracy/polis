@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "running/collectiveStatement",
+ "state": "running",
+ "route": "GET /api/v3/collectiveStatement",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/collectiveStatement?report_id=r2p2zero103",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "46"
+   ],
+   [
+    "etag",
+    "W/\"2e-dCU6Lrq88oYNUjrVBMHtBQ\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"statements\":[],\"count\":0}",
+  "bodySha256": "d09805b6472fd0638743fcdcfbfca4f8f722846c7687f4275c7adba0bf90cc3d"
+ }
+}

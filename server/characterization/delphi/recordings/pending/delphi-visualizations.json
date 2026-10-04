@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "pending/delphi-visualizations",
+ "state": "pending",
+ "route": "GET /api/v3/delphi/visualizations",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/visualizations?report_id=r2p2zero102",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "283"
+   ],
+   [
+    "etag",
+    "W/\"11b-pF6xlxYGdrbyIURUZBp1Rw\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"No visualizations found\",\"report_id\":\"r2p2zero102\",\"visualizations\":[],\"jobs\":[{\"jobId\":\"00000066-0000-4000-8000-000000000001\",\"status\":\"PENDING\",\"createdAt\":\"2023-11-14T22:00:00.000Z\",\"startedAt\":null,\"completedAt\":null,\"results\":{},\"workLive\":true}]}",
+  "bodySha256": "ae1570baa0f802ee1b527517961cf6c9fb2fdadfe06e94529921fa00436db734"
+ }
+}

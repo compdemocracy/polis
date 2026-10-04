@@ -34,7 +34,17 @@ jest.mock("../../src/email/senders", () => ({ sendTextEmail: jest.fn() }));
 import pg from "../../src/db/pg-query";
 import logger from "../../src/utils/logger";
 import { sendTextEmail } from "../../src/email/senders";
-import { processImportJob, s3Client } from "../../src/workers/import-processor";
+import {
+  processImportJob,
+  s3Client,
+  splitImportDeclaration,
+} from "../../src/workers/import-processor";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  semanticToStorage,
+  VOTE_DECLARATION_ERRORS,
+} from "../../src/votes/convention";
 
 const query = jest.mocked(pg.queryP);
 const connect = jest.mocked(pg.connect);
@@ -97,6 +107,13 @@ beforeEach(() => {
 });
 
 describe("CSV import transaction and lifecycle boundaries", () => {
+  test("stores an out-of-range vote_value unchanged, as before the convention module", async () => {
+    csv += "v2,public-one,2,2024-01-02T00:00:00Z,comment-one\n";
+    csv += "v3,public-two,-7,2024-01-03T00:00:00Z,comment-one\n";
+    await processImportJob(payload);
+    expect(voteInserts()[0][1][3]).toEqual([-1, 2, -7]);
+  });
+
   test("maps public CSV signs and comment IDs, retains participant zero, and skips unknown comments", async () => {
     csv += "v2,public-one,-1,2024-01-02T00:00:00Z,comment-one\n";
     csv += "v3,public-two,0,2024-01-03T00:00:00Z,comment-one\n";
@@ -277,5 +294,83 @@ describe("CSV import transaction and lifecycle boundaries", () => {
     expect(logger.error).toHaveBeenCalledWith(
       expect.stringContaining("CRITICAL DOUBLE FAULT")
     );
+  });
+});
+
+// The declared sign (P-078 PR-E). Fixture files hold the declaration lines; see
+// docs/export-format.md for the rule.
+const declarationFixture = (name: string) =>
+  readFileSync(
+    join(__dirname, "..", "fixtures", "vote-declaration", name),
+    "utf8"
+  );
+const withoutFirstLine = (text: string) => text.slice(text.indexOf("\n") + 1);
+const storedValues = () => voteInserts()[0][1][3];
+
+describe("a declared vote sign on the import file", () => {
+  test("absent: the file is read in the export convention, as before", async () => {
+    csv = withoutFirstLine(declarationFixture("import-declared.csv"));
+    await processImportJob(payload);
+    expect(storedValues()).toEqual(
+      (["agree", "disagree", "pass"] as const).map((v) => semanticToStorage(v))
+    );
+    expect(jobUpdates("completed")).toHaveLength(1);
+  });
+
+  test("present and matching: the declaration line is dropped and every row stores what the undeclared file stores", async () => {
+    csv = withoutFirstLine(declarationFixture("import-declared.csv"));
+    await processImportJob(payload);
+    const undeclared = storedValues();
+    jest.clearAllMocks();
+    csv = declarationFixture("import-declared.csv");
+    await processImportJob(payload);
+    expect(voteInserts()).toHaveLength(1);
+    expect(storedValues()).toEqual(undeclared);
+    expect(voteInserts()[0][1][1]).toEqual([0, 1, 2]); // three participants, header read
+    expect(jobUpdates("completed")).toHaveLength(1);
+    expect(jobUpdates("failed")).toHaveLength(0);
+  });
+
+  test("present with CRLF line endings and no format id: accepted", async () => {
+    csv = declarationFixture("import-declared-crlf-no-format.csv");
+    await processImportJob(payload);
+    expect(storedValues()).toEqual([semanticToStorage("agree")]);
+    expect(jobUpdates("completed")).toHaveLength(1);
+  });
+
+  test.each([
+    ["import-mismatch-sign.csv", VOTE_DECLARATION_ERRORS.mismatch],
+    ["import-mismatch-format.csv", VOTE_DECLARATION_ERRORS.mismatch],
+    ["import-malformed.csv", VOTE_DECLARATION_ERRORS.malformed],
+  ])("%s: refused with %s before any row is written", async (file, code) => {
+    csv = declarationFixture(file);
+    await expect(processImportJob(payload)).rejects.toThrow(code);
+    expect(connect).not.toHaveBeenCalled();
+    expect(jobUpdates("failed")[0][1]).toEqual([11, code]);
+    expect(jobUpdates("completed")).toHaveLength(0);
+    expect(mail.mock.calls[0][3]).toContain(code);
+  });
+
+  test("the declaration is found however the object body is chunked, and no byte after it is lost", async () => {
+    const text = declarationFixture("import-declared.csv");
+    const chunks = Array.from(text, (c) => Buffer.from(c));
+    const { body, declared } = await splitImportDeclaration(
+      Readable.from(chunks)
+    );
+    expect(declared).not.toBeNull();
+    let rest = "";
+    for await (const chunk of body) rest += Buffer.from(chunk).toString();
+    expect(rest).toBe(withoutFirstLine(text));
+  });
+
+  test("an undeclared body is replayed byte for byte", async () => {
+    const text = withoutFirstLine(declarationFixture("import-declared.csv"));
+    const { body, declared } = await splitImportDeclaration(
+      Readable.from([text.slice(0, 7), text.slice(7)])
+    );
+    expect(declared).toBeNull();
+    let rest = "";
+    for await (const chunk of body) rest += Buffer.from(chunk).toString();
+    expect(rest).toBe(text);
   });
 });
