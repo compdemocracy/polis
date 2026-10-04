@@ -25,6 +25,11 @@ import {
 } from "../setup/api-test-helpers";
 import { fromWire, toWire } from "../setup/vote-wire";
 import {
+  applyExpectedDifferences,
+  ExpectedDifference,
+  Observation,
+} from "../setup/vote-path-expected";
+import {
   getPooledTestUser,
   RESERVED_POOLED_USER_INDEXES,
 } from "../setup/test-user-helpers";
@@ -79,7 +84,8 @@ import {
  *     (numbered by first appearance, so identity across responses is kept)
  *   - epoch milliseconds/seconds, ISO and Date.toString() datetimes -> <ms> etc.
  *   - JWTs -> <jwt>; polis_site_id_... -> <site-id>; epoch microseconds -> <us>
- *   - a conversation's "modified" -> <modified> (ms or µs: two writers race)
+ *   - the conversation object's "modified" -> <modified> (ms or µs: two
+ *     writers race); every other "modified" stays <ms>
  *   - gzipped JSON inside a serialized Buffer is decoded first ($gunzip)
  *   - four row orders that edge itself does not define are compared as sets
  *     of rows, and participant-votes.csv cells for a changed vote are masked
@@ -124,22 +130,25 @@ const GOLDEN_PATH = path.join(
  *     (see that file). Every listed sign mutation must still fail exactly its
  *     expected cases; review any change before rewriting it with --record.
  *
- * The committed golden was recorded on origin/edge f2b496bd6, twice, with
- * identical results (248 cases).
+ * The committed golden was recorded on origin/edge 8e4ebd5ff, twice, with
+ * identical results (249 cases).
  *
  * An INTENDED, ruled change to a recorded response (a PR that changes the
  * server on purpose) never re-records the golden. Instead the PR adds one
  * entry per changed case to vote-path-expected-differences.json:
  *
- *   { "case": "<recorded case name>", "find": "<exact text in the golden>",
- *     "replace": "<the new text>", "status"?: n, "contentType"?: "...",
- *     "why": "<the change>", "ruling": "<who ruled it acceptable, where>" }
+ *   { "case", "find", "replace", "status"?, "contentType"?,
+ *     "whole_response"?, "whole_response_reason"?, "why",
+ *     "ruling": "pending" | "ruled:<reference>" }
  *
- * The suite applies each entry to edge's golden before comparing, and fails
- * when an entry names no recorded case, when its `find` is not in that case's
- * golden text exactly once, or when `why`/`ruling` is empty. So every changed
- * byte is named and reviewed in the PR's diff, and every case not named stays
- * byte-identical to edge. When the golden is next re-recorded on edge, the
+ * The rules live in __tests__/setup/vote-path-expected.ts (and its unit test):
+ * one entry per case; `find` occurs exactly once and carries only the changed
+ * text plus the little context that makes it unique; an entry replacing the
+ * whole response must say so with a reason; the ruling is a closed set. A
+ * pending entry passes this suite but not a merge: CI's vote-path golden
+ * guard fails a pull request to edge while any entry is pending. So every
+ * changed byte is named, ruled and reviewed in the PR's diff, and every case
+ * not named stays byte-identical to edge. When the golden is next re-recorded on edge, the
  * re-record absorbs the entries and the file must be emptied in that same PR
  * (the guard refuses a golden change while entries remain).
  *
@@ -148,25 +157,10 @@ const GOLDEN_PATH = path.join(
 const RECORD_ENV = "VOTE_PATH_RECORD_GOLDEN";
 const RECORDING = process.env[RECORD_ENV] === "1";
 
-type Observation = {
-  status: number;
-  contentType: string | null;
-  text: string;
-};
-
 const golden: Record<string, Observation> = RECORDING
   ? {}
   : JSON.parse(fs.readFileSync(GOLDEN_PATH, "utf8"));
 
-type ExpectedDifference = {
-  case: string;
-  find: string;
-  replace: string;
-  status?: number;
-  contentType?: string | null;
-  why: string;
-  ruling: string;
-};
 const EXPECTED_DIFFERENCES_PATH = path.join(
   __dirname,
   "..",
@@ -178,30 +172,8 @@ const expectedDifferences: ExpectedDifference[] = JSON.parse(
 ).entries;
 
 /** Edge's golden with every named, ruled expected difference applied. */
-function expectedObservations(): {
-  expected: Record<string, Observation>;
-  problems: string[];
-} {
-  const expected: Record<string, Observation> = {};
-  for (const [name, obs] of Object.entries(golden)) expected[name] = { ...obs };
-  const problems: string[] = [];
-  for (const d of expectedDifferences) {
-    const target = expected[d.case];
-    if (!target) {
-      problems.push(`${d.case}: names no recorded case`);
-      continue;
-    }
-    if (!d.why || !d.ruling) problems.push(`${d.case}: why/ruling missing`);
-    const hits = target.text.split(d.find).length - 1;
-    if (!d.find || hits !== 1) {
-      problems.push(`${d.case}: find occurs ${hits} times in the golden`);
-      continue;
-    }
-    target.text = target.text.replace(d.find, () => d.replace);
-    if (d.status !== undefined) target.status = d.status;
-    if (d.contentType !== undefined) target.contentType = d.contentType;
-  }
-  return { expected, problems };
+function expectedObservations() {
+  return applyExpectedDifferences(golden, expectedDifferences);
 }
 
 // A run token that makes every generated identity unique to this run; it is
@@ -265,8 +237,13 @@ class Normalizer {
       .replace(/polis_site_id_[A-Za-z0-9]+/g, "<site-id>")
       // conversations.modified is written by two paths in different units
       // (epoch ms, and epoch microseconds from the deferred vote update), and
-      // which one lands last varies between runs on edge itself.
-      .replace(/"modified":"1\d{12}(?:\d{3})?"/g, '"modified":"<modified>"')
+      // which one lands last varies between runs on edge itself. Only the
+      // conversation object's field: it is the one followed by its own
+      // "created" and "importance_enabled".
+      .replace(
+        /"modified":"1\d{12}(?:\d{3})?"(?=,"created":"\d+","importance_enabled")/g,
+        '"modified":"<modified>"'
+      )
       .replace(/\b1\d{15}\b/g, "<us>")
       .replace(/\b1\d{12}\b/g, "<ms>")
       .replace(/\b1\d{9}\b/g, "<s>");
@@ -1436,6 +1413,11 @@ describe("vote paths serve exactly the bytes edge served", () => {
           csv: [bulkHeader, bulkRow].join("\n"),
           format: { format: "polis-export/1", vote: exportVotes },
         },
+      ],
+      // A `format` field that is not a declaration at all.
+      [
+        "format-field-string",
+        { csv: [bulkHeader, bulkRow].join("\n"), format: "csv" },
       ],
       [
         "format-object-wire-convention",
