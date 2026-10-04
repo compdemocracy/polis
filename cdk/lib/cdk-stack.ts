@@ -40,6 +40,9 @@ import createALBAndDNS from '../dns';
 import createSecretsAndDependencies from '../secrets';
 import createOperationalAlarms, { alarmsEnabled, requireAlarmEmail } from '../alarms';
 import createMathPollerAlarms, { mathPollerAlarmsEnabled } from '../mathPollerAlarms';
+import createLargeClass, {
+  createLargeClassRole, grantManifestReadWrite, largeClassEnabled, largeClassSettings,
+} from '../largeClass';
 import createOpsDashboardsAccess, { opsDashboardsEnabled } from '../opsDashboards';
 import { ImportWorkerService } from './import-worker-service';
 import { CertificationCiEc2 } from '../ciEc2';
@@ -142,6 +145,12 @@ export class CdkStack extends cdk.Stack {
 
     const { instanceRole, codeDeployRole, dbBackupLambdaRole } = createRoles(this);
 
+    // --- P-073 large memory class for the Python math poller. Off unless
+    // synthesized with `-c enableLargeClass=true` (see cdk/largeClass.ts).
+    const enableLargeClass = largeClassEnabled(this);
+    const largeClass = enableLargeClass ? largeClassSettings(this) : undefined;
+    const delphiLargeRole = largeClass ? createLargeClassRole(this, largeClass, logGroup) : undefined;
+
     // ALB Security Group
     const lbSecurityGroup = new ec2.SecurityGroup(this, 'LBSecurityGroup', {
       vpc,
@@ -234,7 +243,10 @@ export class CdkStack extends cdk.Stack {
       instanceTypeOllama,
       ollamaKeyPair,
       ollamaSecurityGroup,
-      enableOllama
+      enableOllama,
+      largeClass && delphiLargeRole
+        ? { instanceType: largeClass.instanceType, role: delphiLargeRole }
+        : undefined
     );
 
     // Auto Scaling Groups and alarms
@@ -258,7 +270,8 @@ export class CdkStack extends cdk.Stack {
       delphiLargeLaunchTemplate,
       ollamaNamespace,
       alarmTopic,
-      enableOllama
+      enableOllama,
+      enableLargeClass
     );
 
     // --- DEPLOY STUFF
@@ -273,7 +286,8 @@ export class CdkStack extends cdk.Stack {
       asgMathWorker,
       asgDelphiSmall,
       asgDelphiLarge,
-      codeDeployRole
+      codeDeployRole,
+      delphiLargeRole
     );
 
     // --- Ollama Network Load Balancer + service-URL secret (only when enabled)
@@ -419,6 +433,14 @@ export class CdkStack extends cdk.Stack {
       createMathPollerAlarms(this, { logGroup, alarmTopic });
     }
 
+    // --- P-073 large memory class: capacity-line metric filters, exact-capacity
+    // step scaling of AsgDelphiLarge (0..1), DemandUnmet and LongRunning on the
+    // application alarm topic, and the small poller's manifest grant. No Lambda.
+    if (largeClass) {
+      createLargeClass(this, { asg: asgDelphiLarge, logGroup, alarmTopic, settings: largeClass });
+      grantManifestReadWrite(instanceRole, largeClass);
+    }
+
     // --- Ops dashboards (P-074 PR3). Off unless synthesized with
     // `-c enableOpsDashboards=true`: one read-only policy on InstanceRole
     // (CloudWatch metrics/alarms, Auto Scaling, CodeDeploy, Cost Explorer)
@@ -443,7 +465,8 @@ export class CdkStack extends cdk.Stack {
       asgDelphiSmall,
       asgDelphiLarge,
       asgOllama,
-      fileSystem
+      fileSystem,
+      delphiLargeRole
     );
 
     // add ECS Fargate service for BYOPD import worker

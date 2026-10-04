@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "pending/topicStats",
+ "state": "pending",
+ "route": "GET /api/v3/topicStats",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/topicStats?report_id=r2p2zero102",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "81"
+   ],
+   [
+    "etag",
+    "W/\"51-YGh1koQrAJ4sYTEA/xvwOA\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"No topics found for this conversation\",\"stats\":{}}",
+  "bodySha256": "8198c04ef7fd6b5800fafc4904caada553aeffd4bf69cc942d7ca1d7820f5a21"
+ }
+}

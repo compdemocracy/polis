@@ -1,0 +1,3 @@
+{"codec":"delphi-storage-codec/1","family":"Delphi_JobQueue","key":["job_id"]}
+{"empty":{"S":""},"job_id":{"S":"cross-0"}}
+{"b":{"B":"AP8="},"bs":{"BS":["AQ==","CQ=="]},"job_id":{"S":"cross-1"},"l":{"L":[{"BOOL":false},{"NULL":true}]},"m":{"M":{"k1":{"S":"{\"json\":true}"},"k2":{"N":"1"}}},"n":{"N":"-12.5"},"ns":{"NS":["10","2"]},"s":{"S":"café\u0000😀"},"ss":{"SS":["a","z"]}}

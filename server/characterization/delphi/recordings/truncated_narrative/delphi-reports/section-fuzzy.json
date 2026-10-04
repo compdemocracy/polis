@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "truncated_narrative/delphi-reports/section-fuzzy",
+ "state": "truncated_narrative",
+ "route": "GET /api/v3/delphi/reports",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/reports?report_id=r2p2zero108&section=global_uncertainty",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "969"
+   ],
+   [
+    "etag",
+    "W/\"3c9-jOprfk7Yfz3o+FMU4sH0hg\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"Reports retrieved successfully\",\"request_report_id\":\"r2p2zero108\",\"queried_gsi_report_id\":\"r2p2zero108\",\"reports\":{\"global_uncertainty\":{\"section\":\"batch_report_r2p2zero108_1699990001_1081_global_uncertainty\",\"model\":\"generated-model-alpha\",\"timestamp\":\"2023-11-14T19:51:01.000008+00:00\",\"report_data\":\"not json at all\",\"job_id\":\"batch_check_r2p2zero108_1699990101_1081\",\"metadata\":null}},\"current_job_id\":\"batch_check_r2p2zero108_1699990101_1081\",\"available_runs\":[{\"job_id\":\"batch_check_r2p2zero108_1699990101_1081\",\"latest_timestamp\":\"2023-11-14T19:52:00.000001+00:00\",\"model\":\"generated-model-alpha\",\"sectionCount\":9,\"isCurrent\":true},{\"job_id\":\"legacy-generated-job\",\"latest_timestamp\":\"2023-11-12T08:00:01.000000+00:00\",\"model\":\"unknown\",\"sectionCount\":1,\"isCurrent\":false},{\"job_id\":\"unknown_job_2023-11-12\",\"latest_timestamp\":\"2023-11-12T08:00:00.000000+00:00\",\"model\":\"generated-model-alpha\",\"sectionCount\":1,\"isCurrent\":false}]}",
+  "bodySha256": "1760209570d859a38e396989fd3e509fdf4bb87d81a5b63be3f064b5033212cb"
+ }
+}

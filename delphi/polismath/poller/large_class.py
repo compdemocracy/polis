@@ -38,7 +38,8 @@ the P-072 heartbeat, discovery-stale or alert-test phrases.
 
 Startup refusals (``check_large_startup``; ``scripts/math_poller.py`` exits 2
 before touching the database): a manifest URI is required; the label must
-differ from the promotion target and the served label and equal the staged
+differ from the promotion target and from every served label (``prod``,
+``python``, and the caller's served label) and equal the staged
 label; the backfill, routing, promotion and restage settings belong to the
 small poller; sharding is refused; and a declared
 ``MATH_CAPACITY_LARGE_BUDGET_MB`` above this worker's own budget (the class
@@ -69,6 +70,13 @@ logger = logging.getLogger(__name__)
 GRACE_INTERVALS = 2
 
 
+# The labels a deployment serves: the retired engine's frozen rows (`prod`)
+# and the Python engine's (`python`). What the readers serve is their MATH_ENV,
+# not a setting of this process, so both are refused by name: the large class
+# never writes a label anything reads directly.
+SERVED_LABELS = frozenset({"prod", "python"})
+
+
 class LargeStartupError(ValueError):
     """The large worker is misconfigured; it must not start."""
 
@@ -85,7 +93,8 @@ def check_large_startup(settings: CapacitySettings, math_env: str, *,
     if label == settings.promote_into:
         raise LargeStartupError("MATH_ENV equals MATH_CAPACITY_PROMOTE_INTO: the large class "
                                 "never writes the small poller's label")
-    if label == served_env or (env.get("MATH_POLLER_ALLOW_SERVED_ENV") or "").strip() == "1":
+    if (label == served_env or label in SERVED_LABELS
+            or (env.get("MATH_POLLER_ALLOW_SERVED_ENV") or "").strip() == "1"):
         raise LargeStartupError("the large class never writes the served label")
     if label != settings.staged_label:
         raise LargeStartupError("MATH_ENV must equal MATH_CAPACITY_STAGED_LABEL "
