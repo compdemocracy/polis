@@ -275,9 +275,12 @@ class Adapter:
         return start, end
 
     def apply_votes(self, p):
+        from polismath.utils.vote_convention import semantic_vote
+
         start, end = self.range(p, self.vote_cursor, len(self.votes))
+        # The manifest's declared storage sign, through the one formula.
         rows = [{"pid": v["pid"], "tid": v["tid"], "created": v["created_ms"],
-                 "vote": v["raw_vote"] * self.sign} for v in self.votes[start:end]]
+                 "vote": semantic_vote(v["raw_vote"], self.sign)} for v in self.votes[start:end]]
         self.conv = self.conv.update_votes({"votes": rows,
             "lastVoteTimestamp": max([self.conv.last_updated] + [v["created"] for v in rows])}, recompute=False)
         self.vote_cursor = end

@@ -926,6 +926,10 @@ class MathPollerService:
 
     def _poll_votes_once(self) -> None:
         assert self._pool is not None
+        # One vote-poll cycle: the storage convention is asked again (P-078).
+        begin_cycle = getattr(self._pg, "begin_convention_cycle", None)
+        if begin_cycle is not None:
+            begin_cycle()
         rows = self._pg.poll_votes_since(self._vote_wm)
         logger.info("Polled %d votes since watermark %s", len(rows), self._vote_wm)
         for zid, batch in _group_by_zid(rows).items():
@@ -1326,7 +1330,7 @@ class MathPollerService:
             conv = Conversation(zid, last_updated=1)
             conv.last_updated = 0
 
-        votes = self._pg.poll_votes(zid, None)  # full history, ordered, sign-flipped
+        votes = self._pg.poll_votes(zid, None)  # full history, ordered, semantic sign
         if votes:
             last_ts = advance_watermark(
                 conv.last_updated, (v.get("created") for v in votes)
