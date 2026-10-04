@@ -33,6 +33,63 @@ def show_usage():
 MATH_EXPORT_FAILED_EXIT_CODE = 4
 
 
+# --- run by the polis-jobs daemon (P-077 P1) --------------------------------
+# Active only when DELPHI_OUTPUT_MANIFEST is set. The legacy DynamoDB poller
+# never sets it, so on that path none of these functions is called and nothing
+# new is imported or printed.
+
+def _start_daemon_job(zid):
+    """Check the daemon's environment and frame, and observe the run's inputs, before any stage runs."""
+    from polismath import job_child
+    from polismath.job_child import census
+
+    try:
+        job = job_child.JobContext.from_env(
+            expected_stage=job_child.STAGE_FULL_PIPELINE, zid=zid,
+            allowed_phases={job_child.PHASE_RUN}, default_phase=job_child.PHASE_RUN,
+        )
+    except job_child.JobEnvError as e:
+        job_child.refuse(str(e))
+    try:
+        job.inputs = census.observe_inputs(zid, job_child.effective_math_env(), census.default_pg_query())
+    except census.CensusError as e:
+        print(f"polis-jobs child: {e}", file=sys.stderr, flush=True)
+        sys.exit(job_child.EXIT_MANIFEST_UNBUILDABLE)
+    return job
+
+
+def _topic_model_name():
+    if os.environ.get("LLM_PROVIDER", "anthropic").lower() == "ollama":
+        return os.environ.get("OLLAMA_MODEL") or None
+    return (os.environ.get("ANTHROPIC_TOPIC_MODEL") or os.environ.get("ANTHROPIC_MODEL")
+            or "claude-haiku-4-5-20251001")
+
+
+def _finish_daemon_job(job, zid, region):
+    """Count what the run wrote and write the output manifest; exit 5 if that cannot be done."""
+    from polismath import job_child
+    from polismath.job_child import census
+
+    try:
+        outputs = census.count_full_pipeline_outputs(zid, census.default_dynamodb(region))
+        manifest = job_child.build_manifest(
+            job, outcome="succeeded", inputs=job.inputs, outputs=outputs,
+            models={
+                "embed": os.environ.get("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2"),
+                "topic": _topic_model_name(),
+                "narrative": None,
+            },
+            # Topic naming's provider batches are submitted and awaited inside
+            # the UMAP stage; P1 does not observe them, so cost stays unknown.
+            cost={"llm_tokens_in": None, "llm_tokens_out": None, "provider_batches": None},
+        )
+        job_child.write_manifest(job, manifest)
+    except (census.CensusError, job_child.ManifestError, OSError) as e:
+        print(f"polis-jobs child: the stages succeeded but the manifest could not be written: {e}",
+              file=sys.stderr, flush=True)
+        sys.exit(job_child.EXIT_MANIFEST_UNBUILDABLE)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Process a Polis conversation with the Delphi analytics pipeline.", add_help=False)
     parser.add_argument("--zid", required=True, help="The Polis conversation ID to process")
@@ -53,6 +110,7 @@ def main():
 
     zid = args.zid
     rid = args.rid
+    job = _start_daemon_job(zid) if os.environ.get("DELPHI_OUTPUT_MANIFEST", "").strip() else None
     verbose_arg = "--verbose" if args.verbose else ""
     force_arg = "--force" if args.force else ""
     # validate_arg is not used in the python script execution steps, but kept for parity with bash
@@ -73,7 +131,8 @@ def main():
     reset_process = subprocess.run(reset_command)
     if reset_process.returncode != 0:
         print(f"{RED}Data reset failed with exit code {reset_process.returncode}. Aborting pipeline.{NC}")
-        sys.exit(reset_process.returncode)
+        # Under the daemon the exit-code set is closed (0/1/2/4/5/6): any other failure is 1.
+        sys.exit(1 if job is not None else reset_process.returncode)
     print(f"{GREEN}Data reset complete.{NC}")
 
     print(f"{GREEN}Processing conversation {zid}...{NC}")
@@ -136,7 +195,7 @@ def main():
         failed_stages.append(("math export", math_exit_code))
     elif math_exit_code != 0:
         print(f"{RED}Math pipeline failed with exit code {math_exit_code}{NC}")
-        sys.exit(math_exit_code)
+        sys.exit(1 if job is not None else math_exit_code)
 
     # Run the UMAP narrative pipeline
     print(f"{GREEN}Running UMAP narrative pipeline...{NC}")
@@ -285,11 +344,16 @@ def main():
     if not failed_stages:
         print(f"{GREEN}Pipeline completed successfully!{NC}")
         print(f"Results stored in DynamoDB for conversation {zid}")
+        if job is not None:
+            _finish_daemon_job(job, zid, args.region)
         sys.exit(0)
 
     summary = ", ".join(f"{name} (exit code {code})" for name, code in failed_stages)
     print(f"{RED}Pipeline failed: {len(failed_stages)} stage(s) failed: {summary}{NC}")
     print("Please check logs for more details")
+    if job is not None and any(name == "math export" for name, _ in failed_stages):
+        # The daemon records this as stage_failed:math_export (P-077 P1 spec 1.3).
+        sys.exit(MATH_EXPORT_FAILED_EXIT_CODE)
     sys.exit(1)
 
 if __name__ == "__main__":
