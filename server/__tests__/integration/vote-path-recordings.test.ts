@@ -11,11 +11,19 @@ import {
   test,
 } from "@jest/globals";
 import type { Response } from "supertest";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import Config from "../../src/config";
 import pgQuery from "../../src/db/pg-query";
 import { processImportJob, s3Client } from "../../src/workers/import-processor";
-import { getOidcToken, newAgent, wait } from "../setup/api-test-helpers";
+import { sqsClient } from "../../src/utils/sqs";
+import http from "http";
+import request from "supertest";
+import {
+  createAppInstance,
+  getOidcToken,
+  wait,
+} from "../setup/api-test-helpers";
+import { fromWire, toWire } from "../setup/vote-wire";
 import {
   getPooledTestUser,
   RESERVED_POOLED_USER_INDEXES,
@@ -89,23 +97,34 @@ const GOLDEN_PATH = path.join(
 );
 
 /**
- * How the golden was made, and how to remake it (only ever on `origin/edge`):
+ * How the golden was made, and the ONLY way to remake it:
  *
- *   git worktree add --detach /tmp/edge-tree origin/edge
- *   cp server/__tests__/integration/vote-path-recordings.test.ts \
- *      /tmp/edge-tree/server/__tests__/integration/
- *   (plus the reserved pooled-user index in setup/test-user-helpers.ts)
- *   cd /tmp/edge-tree/server && VOTE_PATH_RECORD_GOLDEN=1 \
- *     npx jest --ci vote-path-recordings
- *   cp /tmp/edge-tree/server/__tests__/fixtures/vote-path-golden.json \
- *      "$OLDPWD/server/__tests__/fixtures/"
+ *  1. Re-record on `origin/edge` itself, in a PR that changes no server code.
+ *     CI enforces this: the "vote-path-golden-guard" job of Server Integration
+ *     Tests (ci/vote_path_golden_guard.sh) fails any PR that changes this
+ *     golden together with server/src, app.ts, index.ts, package*.json or
+ *     server/postgres. A branch can therefore never re-record the golden on
+ *     its own changed server and pass.
+ *  2. Record twice and require the two goldens to be identical:
  *
- * The committed golden was recorded this way on origin/edge f29779d36, twice,
- * with identical results (220 cases).
+ *       git worktree add --detach /tmp/edge-tree origin/edge
+ *       cp -R server/__tests__ /tmp/edge-tree/server/   (this PR's test files)
+ *       cd /tmp/edge-tree/server && npm ci
+ *       VOTE_PATH_RECORD_GOLDEN=1 npx jest --ci vote-path-recordings
+ *       cp __tests__/fixtures/vote-path-golden.json /tmp/golden-1.json
+ *       VOTE_PATH_RECORD_GOLDEN=1 npx jest --ci vote-path-recordings
+ *       diff /tmp/golden-1.json __tests__/fixtures/vote-path-golden.json
  *
- * Run it twice on edge and diff the two goldens before committing: a case that
- * differs between two edge runs is nondeterministic and must be fixed in the
- * normalization here (named, lexical) before it can gate anything.
+ *     A case that differs between two edge runs is nondeterministic: fix it
+ *     in the named normalization or order exemptions here, never by masking
+ *     a whole response.
+ *  3. Re-check the mutation list on a tree that has the server's vote
+ *     convention module: `node __tests__/mutation/vote-path-mutations.cjs`
+ *     (see that file). Every listed sign mutation must still fail exactly its
+ *     expected cases; review any change before rewriting it with --record.
+ *
+ * The committed golden was recorded on origin/edge 962783fc7, twice, with
+ * identical results (234 cases).
  *
  * In record mode every comparison returns early; it records, it does not judge.
  */
@@ -202,28 +221,51 @@ function orig(label: string): string {
   return origIds.get(label)!;
 }
 
+// Wire votes come from the tests' wire helper; no vote number is written here.
+const AGREE = toWire("agree");
+const DISAGREE = toWire("disagree");
+const PASS = toWire("pass");
+
+// The votes-bulk import CSV and the participant-votes.csv cells use the EXPORT
+// convention (agree = +1, the admin import screen's documented format). The
+// tests have no export-convention helper; this one line states it.
+const EXPORT_VOTE = { agree: "1", disagree: "-1", pass: "0" } as const;
+
+// participationInit's "no participant yet" sentinel (a participant id).
+const NEW_PID = "pid=-1";
+
 /**
- * Order exemptions: two responses whose rows come from a query with no ORDER
- * BY, which two recordings on edge itself returned in different orders. Their
- * rows are compared as a set (sorted by key); every row's bytes are still
- * exact, and the response must be the compact JSON it always is, or the
- * exemption refuses rather than reserializing.
+ * Order exemptions. Each names a response whose row order edge does not
+ * define (a query with no ORDER BY, or ties inside one). Its rows are compared
+ * as a set, sorted by a key; every row's bytes are still exact, and the JSON
+ * must be the compact JSON it always is or the exemption refuses rather than
+ * reserializing. Reordering runs on the raw bytes, before normalization, so
+ * rows are matched by identity (pid, tid, created) before their vote is seen.
  *
- *  - the moderation list with voting patterns: `... full outer join comments`
- *    (src/comment.ts, _getCommentsForModerationList);
+ *  - every GET /comments list: the moderation list with voting patterns is a
+ *    `full outer join` and the others a plain select, none ordered
+ *    (src/comment.ts); two edge runs returned different orders. Sorted by tid.
  *  - the votes_latest_unique rows of GET /votes and participationInit's
- *    `votes` (src/routes/votes.ts, votesGet). Rows move when ON CONFLICT
- *    updates them, so a changed vote reorders the heap;
+ *    `votes` (src/routes/votes.ts, votesGet): rows move when ON CONFLICT
+ *    updates them, so a changed vote reorders the heap. Sorted by (pid, tid).
  *  - GET /votes/me (`SELECT * FROM votes WHERE zid AND pid`, no ORDER BY): a
- *    changed vote's history rows came back in different orders;
- *  - votes.csv (`ORDER BY tid, pid`): rows that tie on (tid, pid) -- a changed
- *    vote's history -- came back in different orders. The ORDER BY itself is
- *    kept: only lines inside one (tid, pid) group are sorted.
- * And one masked cell: participant-votes.csv keeps the LAST row it streams for
- * each (pid, tid) under that same tie, so for a changed vote the cell is
- * whichever history row the sort left last -- edge's value there is not
- * defined. Those cells (and only those) are replaced by <changed-vote>; the
- * rest of the file is exact. See the findings for this behaviour.
+ *    changed vote's history rows. Sorted by (pid, tid, created).
+ *  - comments.csv and comment-clusters.csv (no ORDER BY; physical order moved
+ *    after a moderation UPDATE). Sorted by comment-id.
+ *  - votes.csv (`ORDER BY tid, pid`): a changed vote's history rows tie. The
+ *    ORDER BY is kept; inside one (tid, pid) group lines are put in timestamp
+ *    order, and the cases make every changed vote land in a distinct second
+ *    (a same-second tie throws), so a flipped history row is visible.
+ *
+ * participant-votes.csv keeps the LAST row it streams for each (pid, tid)
+ * under that same tie, so for a changed vote the cell -- and the row's
+ * n-agree/n-disagree, which count the cells -- are whichever history row the
+ * sort left last. Edge does not define that value, so it is not pinned.
+ * Instead, for a participant with a changed vote, each changed cell must be
+ * the export value of one of that (pid, tid)'s stored history rows
+ * (<changed-vote:in-history>), and n-agree/n-disagree must equal the row's own
+ * agree/disagree cells (<counts:consistent>). Anything else is written into
+ * the recording and fails the comparison.
  */
 type Row = { tid: number; pid?: number };
 type HistoryRow = Row & { created?: string | number; vote?: number | null };
@@ -232,67 +274,134 @@ const byPidTid = (a: HistoryRow, b: HistoryRow) =>
   a.tid - b.tid ||
   Number(a.created ?? 0) - Number(b.created ?? 0) ||
   (a.vote ?? 9) - (b.vote ?? 9);
-const UNORDERED: Array<{ pattern: RegExp; field: string | null }> = [
-  { pattern: /\/comments\/moderation-voting-patterns/, field: null },
-  { pattern: /\/votes-(mypid|pid-\d+(-tid-\d+)?|no-pid)$/, field: null },
-  { pattern: /participationInit/, field: "votes" },
-  { pattern: /\/votes-me$/, field: null },
+const byTid = (a: Row, b: Row) => a.tid - b.tid;
+const UNORDERED: Array<{
+  pattern: RegExp;
+  field: string | null;
+  sort: (a: HistoryRow, b: HistoryRow) => number;
+}> = [
+  { pattern: /\/comments\//, field: null, sort: byTid },
+  {
+    pattern: /\/votes-(mypid|pid-\d+(-tid-\d+)?|no-pid)$/,
+    field: null,
+    sort: byPidTid,
+  },
+  { pattern: /participationInit/, field: "votes", sort: byPidTid },
+  { pattern: /\/votes-me$/, field: null, sort: byPidTid },
 ];
 
-/** votes.csv: sort the lines inside each (comment-id, voter-id) tie group. */
-function unorderTies(text: string): string {
+function csvParts(text: string) {
   const lines = text.split("\n");
-  const header = lines[0].split(",");
-  const tidAt = header.indexOf("comment-id");
-  const pidAt = header.indexOf("voter-id");
-  const trailing = lines[lines.length - 1] === "" ? [""] : [];
-  const rows = lines.slice(1, trailing.length ? -1 : undefined);
-  const key = (l: string) => {
-    const f = l.split(",");
-    return [Number(f[tidAt]), Number(f[pidAt])];
-  };
-  const sorted = [...rows].sort((a, b) => {
-    const [ta, pa] = key(a);
-    const [tb, pb] = key(b);
-    return ta - tb || pa - pb || (a < b ? -1 : a > b ? 1 : 0);
-  });
-  // The primary order must already hold; only ties may move.
-  rows.forEach((l, i) => {
-    const [t, p] = key(l);
-    const [t2, p2] = key(sorted[i]);
-    if (t !== t2 || p !== p2)
-      throw new Error("votes.csv not in (tid, pid) order");
-  });
-  return [lines[0], ...sorted, ...trailing].join("\n");
+  const trailing = lines[lines.length - 1] === "";
+  const rows = lines.slice(1, trailing ? lines.length - 1 : lines.length);
+  return { header: lines[0], rows, trailing };
 }
 
-/** participant-votes.csv: mask the cells whose (pid, tid) has vote history. */
-function maskChangedVoteCells(text: string, changed: Set<string>): string {
-  const lines = text.split("\n");
-  const header = lines[0].split(",");
-  return [
-    lines[0],
-    ...lines.slice(1).map((l) => {
-      if (!l) return l;
-      const f = l.split(",");
-      header.forEach((h, i) => {
-        if (/^\d+$/.test(h) && changed.has(`${f[0]}:${h}`))
-          f[i] = "<changed-vote>";
-      });
-      return f.join(",");
-    }),
-  ].join("\n");
+function csvJoin(header: string, rows: string[], trailing: boolean) {
+  return [header, ...rows, ...(trailing ? [""] : [])].join("\n");
+}
+
+/** comments.csv, comment-clusters.csv: rows sorted by their unique comment-id. */
+function sortByCommentId(text: string): string {
+  const { header, rows, trailing } = csvParts(text);
+  const at = header.split(",").indexOf("comment-id");
+  if (at < 0) return text;
+  const id = (l: string) => Number(l.split(",")[at]);
+  return csvJoin(
+    header,
+    [...rows].sort((a, b) => id(a) - id(b)),
+    trailing
+  );
+}
+
+/** votes.csv: timestamp order inside each (comment-id, voter-id) tie group. */
+function unorderTies(name: string, text: string): string {
+  const { header, rows, trailing } = csvParts(text);
+  const cols = header.split(",");
+  const tidAt = cols.indexOf("comment-id");
+  const pidAt = cols.indexOf("voter-id");
+  const tsAt = cols.indexOf("timestamp");
+  const key = (l: string) => {
+    const f = l.split(",");
+    return [Number(f[tidAt]), Number(f[pidAt]), Number(f[tsAt])];
+  };
+  const sorted = [...rows].sort((a, b) => {
+    const [ta, pa, sa] = key(a);
+    const [tb, pb, sb] = key(b);
+    return ta - tb || pa - pb || sa - sb;
+  });
+  sorted.forEach((l, i) => {
+    const [t, p, ts] = key(l);
+    const [t0, p0] = key(rows[i]);
+    // The ORDER BY tid, pid must already hold; only ties may move.
+    if (t !== t0 || p !== p0)
+      throw new Error(`${name}: not in (tid, pid) order`);
+    if (i > 0) {
+      const [tp, pp, tsp] = key(sorted[i - 1]);
+      if (t === tp && p === pp && ts === tsp)
+        throw new Error(`${name}: two history rows share a second`);
+    }
+  });
+  return csvJoin(header, sorted, trailing);
+}
+
+/** The export value of a stored vote (NULL exports as 0, as edge writes it). */
+function exportOfStored(stored: number | null): string {
+  if (stored === null) return EXPORT_VOTE.pass;
+  const vote = fromWire(stored); // storage equals the wire today
+  return vote ? EXPORT_VOTE[vote] : `stored:${stored}`;
+}
+
+/** participant-votes.csv: verify, then mark, the changed-vote cells. */
+function checkChangedVoteRows(
+  text: string,
+  history: Map<string, Array<number | null>>
+): string {
+  const { header, rows, trailing } = csvParts(text);
+  const cols = header.split(",");
+  const agreeAt = cols.indexOf("n-agree");
+  const disagreeAt = cols.indexOf("n-disagree");
+  const tidCols = cols
+    .map((h, i) => [h, i] as const)
+    .filter(([h]) => /^\d+$/.test(h));
+  const out = rows.map((line) => {
+    if (!line) return line;
+    const f = line.split(",");
+    const changed = tidCols.filter(([h]) => history.has(`${f[0]}:${h}`));
+    if (!changed.length) return line;
+    const cells = tidCols.map(([, i]) => f[i]);
+    const agrees = cells.filter((c) => c === EXPORT_VOTE.agree).length;
+    const disagrees = cells.filter((c) => c === EXPORT_VOTE.disagree).length;
+    const consistent =
+      String(agrees) === f[agreeAt] && String(disagrees) === f[disagreeAt];
+    for (const [h, i] of changed) {
+      const allowed = history.get(`${f[0]}:${h}`)!.map(exportOfStored);
+      f[i] = allowed.includes(f[i])
+        ? "<changed-vote:in-history>"
+        : `<changed-vote:NOT-IN-HISTORY:${f[i]}>`;
+    }
+    f[agreeAt] = consistent
+      ? "<counts:consistent>"
+      : `<counts:INCONSISTENT:${f[agreeAt]}>`;
+    f[disagreeAt] = consistent
+      ? "<counts:consistent>"
+      : `<counts:INCONSISTENT:${f[disagreeAt]}>`;
+    return f.join(",");
+  });
+  return csvJoin(header, out, trailing);
 }
 
 function unorder(name: string, text: string): string {
-  if (name.endsWith("/votes.csv")) return unorderTies(text);
+  if (name.endsWith("/votes.csv")) return unorderTies(name, text);
+  if (/\/(comments|comment-clusters)\.csv$/.test(name))
+    return sortByCommentId(text);
   const rule = UNORDERED.find((r) => r.pattern.test(name));
   if (!rule || !text.startsWith(rule.field ? "{" : "[")) return text;
   const parsed = JSON.parse(text);
   if (JSON.stringify(parsed) !== text)
     throw new Error(`${name}: not compact JSON, cannot reorder exactly`);
-  if (rule.field === null) return JSON.stringify([...parsed].sort(byPidTid));
-  if (Array.isArray(parsed[rule.field])) parsed[rule.field].sort(byPidTid);
+  if (rule.field === null) return JSON.stringify([...parsed].sort(rule.sort));
+  if (Array.isArray(parsed[rule.field])) parsed[rule.field].sort(rule.sort);
   return JSON.stringify(parsed);
 }
 
@@ -327,7 +436,25 @@ async function recordQuery(name: string, sql: string, params: unknown[]) {
   });
 }
 
-type Agent = Awaited<ReturnType<typeof newAgent>>;
+type Agent = ReturnType<typeof request.agent>;
+
+/**
+ * Every agent talks to ONE server this file starts on 127.0.0.1, built on this
+ * file's own app instance. supertest's default (listen on every interface,
+ * then dial 127.0.0.1) can reach another local process that holds the same
+ * port number on 127.0.0.1 only; binding 127.0.0.1 ourselves rules that out.
+ */
+let server: http.Server | null = null;
+async function newAgent(): Promise<Agent> {
+  if (!server) {
+    const app = await createAppInstance();
+    server = http.createServer(app);
+    await new Promise<void>((resolve) =>
+      server!.listen(0, "127.0.0.1", () => resolve())
+    );
+  }
+  return request.agent(server);
+}
 
 /** POST with the participant's own token picked up from the response. */
 async function post(
@@ -357,9 +484,53 @@ async function zidOf(conversationId: string): Promise<number> {
   return rows[0].zid;
 }
 
-// Settle the handlers' 100 ms deferred updates (vote counts, modified times)
-// before reading, so every read sees the same state on every run.
-const SETTLE_MS = 600;
+/**
+ * Wait for the handlers' deferred updates (POST /votes and POST /comments run
+ * updateVoteCount and the modified/last-interaction updates on a 100 ms timer)
+ * before reading. Polls instead of sleeping: done when every participant's
+ * vote_count equals its stored rows and the conversation's participant and
+ * modified state has not changed across three polls. A path that never
+ * updates vote_count is accepted once its state has been still for 2 s.
+ */
+async function settle(zid: number): Promise<void> {
+  const state = async () =>
+    JSON.stringify(
+      (
+        await pool.query(
+          `SELECT p.pid, p.vote_count, p.last_interaction, c.modified,
+                  (SELECT count(*) FROM votes v WHERE v.zid = p.zid AND v.pid = p.pid) AS stored
+             FROM participants p JOIN conversations c ON c.zid = p.zid
+            WHERE p.zid = $1 ORDER BY p.pid`,
+          [zid]
+        )
+      ).rows
+    );
+  const counted = (snapshot: string) =>
+    (
+      JSON.parse(snapshot) as Array<{ vote_count: number; stored: string }>
+    ).every((r) => Number(r.vote_count) === Number(r.stored));
+  const deadline = Date.now() + 15000;
+  let last = await state();
+  let stillSince = Date.now();
+  let stillPolls = 0;
+  for (;;) {
+    await wait(150);
+    const now = await state();
+    if (now === last) stillPolls++;
+    else {
+      last = now;
+      stillPolls = 0;
+      stillSince = Date.now();
+    }
+    if (stillPolls >= 3 && (counted(now) || Date.now() - stillSince >= 2000))
+      return;
+    if (Date.now() > deadline) throw new Error(`zid ${zid} did not settle`);
+  }
+}
+
+// Changed votes are spaced so each lands in its own second (votes.csv carries
+// whole seconds, and a same-second history would tie).
+const NEXT_SECOND_MS = 1100;
 
 const REPORT_TYPES = [
   "summary.csv",
@@ -419,13 +590,19 @@ describe("vote paths serve exactly the bytes edge served", () => {
         reportId,
       ])
     ).rows[0].zid;
-    const changed = new Set<string>(
+    // (pid, tid) -> its stored history, for every changed vote.
+    const history = new Map<string, Array<number | null>>(
       (
         await pool.query(
-          "SELECT pid, tid FROM votes WHERE zid = $1 GROUP BY pid, tid HAVING count(*) > 1",
+          "SELECT pid, tid, array_agg(vote ORDER BY created) AS stored FROM votes WHERE zid = $1 GROUP BY pid, tid HAVING count(*) > 1",
           [zid]
         )
-      ).rows.map((r: { pid: number; tid: number }) => `${r.pid}:${r.tid}`)
+      ).rows.map(
+        (r: { pid: number; tid: number; stored: Array<number | null> }) => [
+          `${r.pid}:${r.tid}`,
+          r.stored,
+        ]
+      )
     );
     for (const type of REPORT_TYPES) {
       const response = await owner
@@ -437,7 +614,7 @@ describe("vote paths serve exactly the bytes edge served", () => {
           contentType: response.headers["content-type"]
             ? String(response.headers["content-type"])
             : null,
-          text: maskChangedVoteCells(response.text, changed),
+          text: checkChangedVoteRows(response.text, history),
         });
       else recordResponse(`${name}/reportExport/${type}`, response);
     }
@@ -512,12 +689,12 @@ describe("vote paths serve exactly the bytes edge served", () => {
     );
     const commentBodies: Array<[string, object]> = [
       ["c0-seed-default-vote", { is_seed: true }],
-      ["c1-owner-agree", { vote: -1 }],
-      ["c2-owner-disagree", { vote: 1 }],
-      ["c3-owner-pass", { vote: 0 }],
+      ["c1-owner-agree", { vote: AGREE }],
+      ["c2-owner-disagree", { vote: DISAGREE }],
+      ["c3-owner-pass", { vote: PASS }],
       ["c4-no-vote", {}],
       ["c5-to-moderate-out", {}],
-      ["c6-seed-explicit-agree", { is_seed: true, vote: -1 }],
+      ["c6-seed-explicit-agree", { is_seed: true, vote: AGREE }],
     ];
     for (const [label, extra] of commentBodies)
       recordResponse(
@@ -552,7 +729,7 @@ describe("vote paths serve exactly the bytes edge served", () => {
         velocity: 1,
       })
     );
-    await wait(SETTLE_MS);
+    await settle(V.zid);
     await recordStored("V/after-owner-comments", V.zid);
 
     // Anonymous participant A.
@@ -561,7 +738,7 @@ describe("vote paths serve exactly the bytes edge served", () => {
       "V/A/participationInit-before-votes",
       await getJson(
         A,
-        `/api/v3/participationInit?conversation_id=${V.conversationId}&pid=-1&lang=en`
+        `/api/v3/participationInit?conversation_id=${V.conversationId}&${NEW_PID}&lang=en`
       )
     );
     const voteA = async (
@@ -580,20 +757,21 @@ describe("vote paths serve exactly the bytes edge served", () => {
           ...extra,
         })
       );
-    await voteA("t0-agree", 0, -1);
-    await voteA("t1-disagree", 1, 1);
-    await voteA("t2-pass", 2, 0);
-    await voteA("t3-change-1-agree", 3, -1);
-    await voteA("t3-change-2-disagree", 3, 1);
-    await voteA("t3-change-3-pass", 3, 0);
-    await voteA("t4-agree-high-priority", 4, -1, { high_priority: true });
-    await voteA("t5-moderated-out-agree", 5, -1);
-    await voteA("t6-disagree-starred", 6, 1, { starred: true });
+    await voteA("t0-agree", 0, AGREE);
+    await voteA("t1-disagree", 1, DISAGREE);
+    await voteA("t2-pass", 2, PASS);
+    await voteA("t3-change-1-agree", 3, AGREE);
+    await wait(NEXT_SECOND_MS);
+    await voteA("t3-change-2-disagree", 3, DISAGREE);
+    await wait(NEXT_SECOND_MS);
+    await voteA("t3-change-3-pass", 3, PASS);
+    await voteA("t4-agree-high-priority", 4, AGREE, { high_priority: true });
+    await voteA("t5-moderated-out-agree", 5, AGREE);
+    await voteA("t6-disagree-starred", 6, DISAGREE, { starred: true });
     await voteA("rejected-out-of-range-2", 0, 2);
     await voteA("rejected-out-of-range-minus-2", 0, -2);
     await voteA("rejected-string", 0, "agree");
     await voteA("rejected-missing-vote", 0, undefined);
-    await voteA("rejected-unknown-tid", 99, -1);
 
     // XID participant X.
     const xid = `${RUN}-xid-1`;
@@ -602,7 +780,7 @@ describe("vote paths serve exactly the bytes edge served", () => {
       "V/X/participationInit-before-votes",
       await getJson(
         X,
-        `/api/v3/participationInit?conversation_id=${V.conversationId}&xid=${xid}&pid=-1&lang=en`
+        `/api/v3/participationInit?conversation_id=${V.conversationId}&xid=${xid}&${NEW_PID}&lang=en`
       )
     );
     const voteX = async (label: string, tid: number, vote: number) =>
@@ -616,13 +794,15 @@ describe("vote paths serve exactly the bytes edge served", () => {
           lang: "en",
         })
       );
-    await voteX("t0-disagree", 0, 1);
-    await voteX("t1-agree", 1, -1);
-    await voteX("t2-pass", 2, 0);
-    await voteX("t3-change-1-pass", 3, 0);
-    await voteX("t3-change-2-agree", 3, -1);
-    await voteX("t3-change-3-disagree", 3, 1);
-    await voteX("t5-moderated-out-disagree", 5, 1);
+    await voteX("t0-disagree", 0, DISAGREE);
+    await voteX("t1-agree", 1, AGREE);
+    await voteX("t2-pass", 2, PASS);
+    await voteX("t3-change-1-pass", 3, PASS);
+    await wait(NEXT_SECOND_MS);
+    await voteX("t3-change-2-agree", 3, AGREE);
+    await wait(NEXT_SECOND_MS);
+    await voteX("t3-change-3-disagree", 3, DISAGREE);
+    await voteX("t5-moderated-out-disagree", 5, DISAGREE);
 
     // Anonymous participant B votes once; C never votes.
     const B = await newAgent();
@@ -631,7 +811,37 @@ describe("vote paths serve exactly the bytes edge served", () => {
       await post(B, "/api/v3/votes", {
         conversation_id: V.conversationId,
         tid: 1,
-        vote: -1,
+        vote: AGREE,
+        lang: "en",
+      })
+    );
+    // B (no changed votes) also votes on a tid that does not exist.
+    recordResponse(
+      "V/B/vote/unknown-tid-99-agree",
+      await post(B, "/api/v3/votes", {
+        conversation_id: V.conversationId,
+        tid: 99,
+        vote: AGREE,
+        lang: "en",
+      })
+    );
+    // The owner (an OIDC user) votes through POST /votes, not only through
+    // POST /comments.
+    recordResponse(
+      "V/owner/vote/t4-agree",
+      await post(owner, "/api/v3/votes", {
+        conversation_id: V.conversationId,
+        tid: 4,
+        vote: AGREE,
+        lang: "en",
+      })
+    );
+    recordResponse(
+      "V/owner/vote/t5-moderated-out-disagree",
+      await post(owner, "/api/v3/votes", {
+        conversation_id: V.conversationId,
+        tid: 5,
+        vote: DISAGREE,
         lang: "en",
       })
     );
@@ -640,10 +850,10 @@ describe("vote paths serve exactly the bytes edge served", () => {
       "V/C/participationInit-no-votes",
       await getJson(
         C,
-        `/api/v3/participationInit?conversation_id=${V.conversationId}&pid=-1&lang=en`
+        `/api/v3/participationInit?conversation_id=${V.conversationId}&${NEW_PID}&lang=en`
       )
     );
-    await wait(SETTLE_MS);
+    await settle(V.zid);
     await recordStored("V/after-participant-votes", V.zid);
     await recordQuery(
       "V/db/participants",
@@ -674,7 +884,7 @@ describe("vote paths serve exactly the bytes edge served", () => {
       );
       recordResponse(
         `V/${actor}/participationInit-after-votes`,
-        await agent.get(`/api/v3/participationInit?${vq}&pid=-1&lang=en`)
+        await agent.get(`/api/v3/participationInit?${vq}&${NEW_PID}&lang=en`)
       );
       recordResponse(
         `V/${actor}/nextComment`,
@@ -780,7 +990,7 @@ describe("vote paths serve exactly the bytes edge served", () => {
     const EA = await newAgent();
     recordResponse(
       "E/anonymous/participationInit",
-      await getJson(EA, `/api/v3/participationInit?${eq}&pid=-1&lang=en`)
+      await getJson(EA, `/api/v3/participationInit?${eq}&${NEW_PID}&lang=en`)
     );
     recordResponse(
       "E/anonymous/votes-me",
@@ -808,7 +1018,7 @@ describe("vote paths serve exactly the bytes edge served", () => {
     );
     recordResponse(
       "E/owner/participationInit",
-      await owner.get(`/api/v3/participationInit?${eq}&pid=-1&lang=en`)
+      await owner.get(`/api/v3/participationInit?${eq}&${NEW_PID}&lang=en`)
     );
     recordResponse(
       "E/owner/conversationStats",
@@ -825,10 +1035,10 @@ describe("vote paths serve exactly the bytes edge served", () => {
       await post(EA, "/api/v3/votes", {
         conversation_id: E.conversationId,
         tid: 0,
-        vote: -1,
+        vote: AGREE,
       })
     );
-    await wait(SETTLE_MS);
+    await settle(E.zid);
     await recordStored("E/after-vote-on-missing-comment", E.zid);
     recordResponse(
       "E/after-vote-on-missing-comment/votes.csv",
@@ -850,11 +1060,11 @@ describe("vote paths serve exactly the bytes edge served", () => {
           txt: `Vote path zero-vote statement ${label}`,
         })
       );
-    await wait(SETTLE_MS);
+    await settle(Z.zid);
     const ZA = await newAgent();
     recordResponse(
       "Z/anonymous/participationInit",
-      await getJson(ZA, `/api/v3/participationInit?${zq}&pid=-1&lang=en`)
+      await getJson(ZA, `/api/v3/participationInit?${zq}&${NEW_PID}&lang=en`)
     );
     recordResponse(
       "Z/owner/votes-me",
@@ -899,7 +1109,7 @@ describe("vote paths serve exactly the bytes edge served", () => {
         csv: "vote_id,user_id,vote_value,timestamp,comment_id\n",
       })
     );
-    await wait(SETTLE_MS);
+    await settle(I.zid);
     await recordStored("I/after-comments-bulk", I.zid);
 
     const runImport = async (label: string, zid: number, rows: string[][]) => {
@@ -946,31 +1156,31 @@ describe("vote paths serve exactly the bytes edge served", () => {
     // the votes rule turns into a double ON CONFLICT update. Recorded as edge
     // behaves (the whole job fails and nothing is written).
     await runImport("I/changed-vote-in-one-file", I.zid, [
-      ["1", u(9), "-1", "2023-11-14T22:13:20Z", orig("a")],
-      ["2", u(9), "1", "2023-11-14T22:13:21Z", orig("a")],
+      ["1", u(9), EXPORT_VOTE.disagree, "2023-11-14T22:13:20Z", orig("a")],
+      ["2", u(9), EXPORT_VOTE.agree, "2023-11-14T22:13:21Z", orig("a")],
     ]);
     // One new user per file: the importer assigns pids from SELECT DISTINCT
     // over unnest, whose order is not defined, so two new users in one file
     // could take either pid.
     await runImport("I/file-u1", I.zid, [
-      ["1", u(1), "1", "2023-11-14T22:13:20Z", orig("a")],
-      ["2", u(1), "-1", "2023-11-14T22:13:21Z", orig("b")],
-      ["3", u(1), "0", "2023-11-14T22:13:22Z", orig("c")],
-      ["8", u(1), "1", "2023-11-14T22:13:27Z", orig("unknown")],
+      ["1", u(1), EXPORT_VOTE.agree, "2023-11-14T22:13:20Z", orig("a")],
+      ["2", u(1), EXPORT_VOTE.disagree, "2023-11-14T22:13:21Z", orig("b")],
+      ["3", u(1), EXPORT_VOTE.pass, "2023-11-14T22:13:22Z", orig("c")],
+      ["8", u(1), EXPORT_VOTE.agree, "2023-11-14T22:13:27Z", orig("unknown")],
     ]);
     await runImport("I/file-u2", I.zid, [
-      ["4", u(2), "-1", "2023-11-14T22:13:23Z", orig("a")],
-      ["6", u(2), "0", "2023-11-14T22:13:25Z", orig("b")],
+      ["4", u(2), EXPORT_VOTE.disagree, "2023-11-14T22:13:23Z", orig("a")],
+      ["6", u(2), EXPORT_VOTE.pass, "2023-11-14T22:13:25Z", orig("b")],
     ]);
     await runImport("I/file-u3", I.zid, [
-      ["7", u(3), "1", "2023-11-14T22:13:26Z", orig("c")],
+      ["7", u(3), EXPORT_VOTE.agree, "2023-11-14T22:13:26Z", orig("c")],
     ]);
     // Changed votes, in a later file: u2 disagree -> agree, u3 agree -> pass.
     await runImport("I/file-changed-votes", I.zid, [
-      ["5", u(2), "1", "2023-11-14T22:13:24Z", orig("a")],
-      ["9", u(3), "0", "2023-11-14T22:13:28Z", orig("c")],
+      ["5", u(2), EXPORT_VOTE.agree, "2023-11-14T22:13:24Z", orig("a")],
+      ["9", u(3), EXPORT_VOTE.pass, "2023-11-14T22:13:28Z", orig("c")],
     ]);
-    await wait(SETTLE_MS);
+    await settle(I.zid);
     await recordStored("I/after-import", I.zid);
     for (let pid = 0; pid <= 3; pid++)
       recordResponse(
@@ -1005,7 +1215,7 @@ describe("vote paths serve exactly the bytes edge served", () => {
     await runImport("I2/unparseable", I2.zid, [
       ["3", u(22), "agree", "2023-11-14T22:13:22Z", `${orig("i2a")}`],
     ]);
-    await wait(SETTLE_MS);
+    await settle(I2.zid);
     await recordStored("I2/after-import", I2.zid);
     recordResponse(
       "I2/owner/votes-pid-0",
@@ -1015,6 +1225,144 @@ describe("vote paths serve exactly the bytes edge served", () => {
     );
     await recordModerationLists("I2", I2.conversationId);
     await recordExports("I2", await newReport("I2", I2.conversationId));
+
+    // POST /votes-bulk with the Delphi-enabled admin: the route itself, through
+    // the S3 upload and the job row it queues (no SQS consumer runs here).
+    const bulkCsv = [
+      "vote_id,user_id,vote_value,timestamp,comment_id",
+      ["1", u(4), EXPORT_VOTE.agree, "2023-11-14T22:13:20Z", orig("a")].join(
+        ","
+      ),
+    ].join("\n");
+    // The queue send is replaced for this one request (no SQS runs in the
+    // test stack, and a real send would leave the machine): the message the
+    // route builds is recorded instead, by shape.
+    const sent: unknown[] = [];
+    const sqsSpy = jest
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .spyOn(sqsClient as any, "send")
+      .mockImplementation(async (command: unknown) => {
+        sent.push((command as { input: unknown }).input);
+        return {};
+      });
+    try {
+      recordResponse(
+        "I/votes-bulk-route-admin",
+        await admin
+          .post("/api/v3/votes-bulk")
+          .send({ conversation_id: I.conversationId, csv: bulkCsv })
+      );
+    } finally {
+      sqsSpy.mockRestore();
+    }
+    record("I/votes-bulk-route-admin/queued-message", {
+      status: 0,
+      contentType: "sqs/message",
+      text: JSON.stringify(
+        sent.map((input) => {
+          const m = input as {
+            MessageBody: string;
+            MessageAttributes: unknown;
+          };
+          const body = JSON.parse(m.MessageBody);
+          return {
+            keys: Object.keys(body),
+            zidMatches: body.zid === I.zid,
+            jobIdIsNumber: typeof body.jobId === "number",
+            s3KeyShape: /^imports\/votes\/\d+\/\d+\.csv$/.test(body.s3Key),
+            email: body.email,
+            attributes: m.MessageAttributes,
+          };
+        })
+      ),
+    });
+    const bulkJob = (
+      await pool.query(
+        "SELECT id, status, stage, error_message, s3_key FROM byod_import_jobs WHERE zid = $1 AND s3_key NOT LIKE $2 ORDER BY id DESC LIMIT 1",
+        [I.zid, `%${RUN}%`]
+      )
+    ).rows[0];
+    let bulkObject = "absent";
+    if (bulkJob?.s3_key) {
+      try {
+        const got = await s3Client.send(
+          new GetObjectCommand({
+            Bucket: Config.AWS_S3_BUCKET_NAME || "polis-delphi",
+            Key: bulkJob.s3_key,
+          })
+        );
+        bulkObject =
+          (await got.Body?.transformToString()) === bulkCsv
+            ? "uploaded, bytes equal to the posted csv"
+            : "uploaded, bytes differ";
+      } catch (err) {
+        bulkObject = `absent: ${(err as Error)?.name}`;
+      }
+    }
+    record("I/votes-bulk-route-admin/job", {
+      status: 0,
+      contentType: "db/rows",
+      text: JSON.stringify({
+        job: bulkJob
+          ? {
+              status: bulkJob.status,
+              stage: bulkJob.stage,
+              error_message: bulkJob.error_message,
+              s3_key_shape: /^imports\/votes\/\d+\/\d+\.csv$/.test(
+                bulkJob.s3_key
+              ),
+            }
+          : null,
+        object: bulkObject,
+      }),
+    });
+    await settle(I.zid);
+    await recordStored("I/after-votes-bulk-route", I.zid);
+
+    // ----------------------------------------------------------------------
+    // CL: a closed conversation refuses votes.
+    // ----------------------------------------------------------------------
+    const CL = await newConversation("CL");
+    await post(owner, "/api/v3/comments", {
+      conversation_id: CL.conversationId,
+      txt: "Vote path closed statement",
+    });
+    const CLA = await newAgent();
+    recordResponse(
+      "CL/anonymous/vote-before-close",
+      await post(CLA, "/api/v3/votes", {
+        conversation_id: CL.conversationId,
+        tid: 0,
+        vote: AGREE,
+        lang: "en",
+      })
+    );
+    recordResponse(
+      "CL/close",
+      await owner
+        .put("/api/v3/conversations")
+        .send({ conversation_id: CL.conversationId, is_active: false })
+    );
+    recordResponse(
+      "CL/anonymous/vote-after-close",
+      await post(CLA, "/api/v3/votes", {
+        conversation_id: CL.conversationId,
+        tid: 0,
+        vote: DISAGREE,
+        lang: "en",
+      })
+    );
+    recordResponse(
+      "CL/owner/vote-after-close",
+      await post(owner, "/api/v3/votes", {
+        conversation_id: CL.conversationId,
+        tid: 0,
+        vote: AGREE,
+        lang: "en",
+      })
+    );
+    await settle(CL.zid);
+    await recordStored("CL", CL.zid);
 
     // ----------------------------------------------------------------------
     // R: stored values no client can post. votes.vote is a nullable SMALLINT
@@ -1034,11 +1382,11 @@ describe("vote paths serve exactly the bytes edge served", () => {
       await post(RA, "/api/v3/votes", {
         conversation_id: R.conversationId,
         tid: 0,
-        vote: -1,
+        vote: AGREE,
         lang: "en",
       })
     );
-    await wait(SETTLE_MS);
+    await settle(R.zid);
     const raPid = (
       await pool.query(
         "SELECT pid FROM votes WHERE zid = $1 AND tid = 0 ORDER BY created DESC LIMIT 1",
@@ -1070,7 +1418,7 @@ describe("vote paths serve exactly the bytes edge served", () => {
     );
     recordResponse(
       "R/RA/participationInit",
-      await RA.get(`/api/v3/participationInit?${rq}&pid=-1&lang=en`)
+      await RA.get(`/api/v3/participationInit?${rq}&${NEW_PID}&lang=en`)
     );
     recordResponse(
       "R/RA/nextComment",
@@ -1096,6 +1444,7 @@ describe("vote paths serve exactly the bytes edge served", () => {
       // eslint-disable-next-line no-console
       console.log(`wrote golden: ${GOLDEN_PATH} (${observed.size} cases)`);
     }
+    if (server) await new Promise((resolve) => server!.close(resolve));
     await closePool();
   });
 
