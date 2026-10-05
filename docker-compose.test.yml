@@ -3,6 +3,9 @@
 # DO NOT USE THIS IN PRODUCTION.
 
 # Run with: `docker compose -f docker-compose.test.yml --env-file test.env up --build`.
+# The checks that use this stack run it through `make check-<suite>` (ci/local/),
+# which may move the published host ports (POLIS_TEST_*_PORT, defaults below are
+# CI's) and the project name so several stacks can share one host.
 
 services:
   coordinator-idle:
@@ -56,7 +59,7 @@ services:
     networks:
       - polis-test
     ports:
-      - "4321:4321"
+      - "${POLIS_TEST_ALPHA_PORT:-4321}:4321"
     restart: unless-stopped
 
   server:
@@ -66,7 +69,7 @@ services:
       - NODE_ENV=development
       - NODE_EXTRA_CA_CERTS=/root/.simulacrum/certs/rootCA.pem
     env_file:
-      - test.env
+      - ${SERVER_ENV_FILE:-test.env}
     build:
       context: ./server
       dockerfile: Dockerfile
@@ -91,7 +94,7 @@ services:
   # The math engine: the Python poller, run from the same image as the `delphi`
   # service below and writing the label the test server reads.
   math-python:
-    image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
+    image: ${POLIS_TEST_DELPHI_IMAGE:-050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest}
     build:
       context: ./delphi
       target: test
@@ -125,7 +128,7 @@ services:
   ses-local:
     image: dasprid/aws-ses-v2-local:latest
     ports:
-      - "8005:8005"
+      - "${POLIS_TEST_SES_PORT:-8005}:8005"
     networks:
       - "polis-test"
     environment:
@@ -143,14 +146,14 @@ services:
       - AUTH_AUDIENCE=users
       - AUTH_CLIENT_ID=dev-client-id
       - AUTH_NAMESPACE=https://pol.is/
-      - AUTH_SIMULATOR_PORT=3000
+      - AUTH_SIMULATOR_PORT=${POLIS_TEST_OIDC_PORT:-3000}
       - CERT_DIR=/root/.simulacrum/certs
     labels:
       polis_tag: test
     networks:
       - polis-test
     ports:
-      - 3000:3000
+      - ${POLIS_TEST_OIDC_PORT:-3000}:${POLIS_TEST_OIDC_PORT:-3000}
     volumes:
       - ${AUTH_CERTS_PATH:-~/.simulacrum/certs}:/root/.simulacrum/certs:ro
 
@@ -173,7 +176,7 @@ services:
     networks:
       - polis-test
     ports:
-      - 5432:5432
+      - ${POLIS_TEST_PG_PORT:-5432}:5432
     restart: unless-stopped
     # PostgreSQL configuration for development/testing
     command: >
@@ -206,8 +209,8 @@ services:
     networks:
       - polis-test
     ports:
-      - 80:80
-      - 443:443
+      - ${POLIS_TEST_HTTP_PORT:-80}:80
+      - ${POLIS_TEST_HTTPS_PORT:-443}:443
 
   file-server:
     build:
@@ -232,7 +235,7 @@ services:
       - polis-test
 
   delphi:
-    image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
+    image: ${POLIS_TEST_DELPHI_IMAGE:-050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest}
     build:
       context: ./delphi
       target: test
@@ -279,7 +282,7 @@ services:
       - MINIO_ROOT_USER=${AWS_ACCESS_KEY_ID:-DUMMYIDEXAMPLE}
       - MINIO_ROOT_PASSWORD=${AWS_SECRET_ACCESS_KEY:-DUMMYEXAMPLEKEY}
     ports:
-      - "9000:9000"
+      - "${POLIS_TEST_MINIO_PORT:-9000}:9000"
     networks:
       - polis-test
     labels:
@@ -305,7 +308,7 @@ services:
   dynamodb:
     image: amazon/dynamodb-local:latest
     ports:
-      - "8000:8000"
+      - "${POLIS_TEST_DYNAMODB_PORT:-8000}:8000"
     networks:
       - polis-test
     environment:

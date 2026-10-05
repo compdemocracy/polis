@@ -22,10 +22,5 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Install dependencies
-        run: npm install
-        working-directory: client-report
-
-      - name: Run Jest tests
-        run: npm test
-        working-directory: client-report
+      - name: Install and run the Jest tests (ci/local/client-report.sh)
+        run: make check-client-report

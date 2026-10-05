@@ -32,7 +32,9 @@ jobs:
         fetch-depth: 0
 
     - name: The vote-path golden never changes together with server code
-      run: sh ci/vote_path_golden_guard.sh "origin/${{ github.base_ref }}"
+      env:
+        BASE_REF: origin/${{ github.base_ref }}
+      run: make check-vote-path-guard
 
   server-integration-tests:
     runs-on: ubuntu-latest
@@ -41,88 +43,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install mkcert
-      run: |
-        # Install mkcert for certificate generation
-        curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
-        chmod +x mkcert-v*-linux-amd64
-        sudo cp mkcert-v*-linux-amd64 /usr/local/bin/mkcert
-        
-        # Install CA in system trust store
-        mkcert -install
-
-    - name: Generate certificates
-      run: |
-        # Create certificate directory in workspace (not home directory)
-        mkdir -p ./.simulacrum/certs
-        cd ./.simulacrum/certs
-        
-        # Generate certificates for all required hostnames
-        mkcert -cert-file localhost.pem -key-file localhost-key.pem \
-          localhost 127.0.0.1 ::1 oidc-simulator host.docker.internal
-        
-        # Copy mkcert root CA to the certs directory for Docker containers
-        cp "$(mkcert -CAROOT)/rootCA.pem" ./rootCA.pem
-        
-        # List generated files for debugging
-        echo "Generated certificates:"
-        ls -la
-
+    # Certificates, the edited test.env, the service list, readiness waits, the
+    # jest environment and teardown all live in ci/local/server-integration.sh,
+    # so `make check-server-integration` gives the same verdict on any Docker host.
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-
-    - name: Create test.env with CI-specific paths
-      run: |
-        # Update AUTH_CERTS_PATH to use workspace-relative path
-        sed -i 's|AUTH_CERTS_PATH=.*|AUTH_CERTS_PATH=./.simulacrum/certs|' test.env
-        # Update JWKS_URI to use localhost for OIDC simulator
-        sed -i 's|JWKS_URI=.*|JWKS_URI=https://localhost:3000/.well-known/jwks.json|' test.env
-        
-        # Copy test.env to .env for docker-compose variable interpolation
-        cp test.env .env
-        
-        # Also copy test.env to server directory for the test environment
-        cp test.env server/.env
-        
-        # Show relevant env vars for debugging
-        echo "Environment variables:"
-        grep -E "AUTH_|CERT|DATABASE_URL|POSTGRES_|JWT_|JWKS_URI" test.env || true
-
-    - name: Build Docker images
-      run: |
-        # Build only the services these tests need (tests run on host).
-        # The math engine (math-python) is intentionally excluded: the server
-        # integration tests insert math_* rows directly and gate all live-math
-        # assertions behind a hasMathData flag, so they pass with or without it.
-        docker compose -f docker-compose.test.yml --env-file test.env build \
-          postgres file-server ses-local oidc-simulator dynamodb
-
-    - name: Start services
-      run: |
-        # Start only required services in detached mode (exclude server + math-python)
-        docker compose -f docker-compose.test.yml --env-file test.env up -d \
-          postgres file-server ses-local oidc-simulator dynamodb minio minio-init
-        
-        # Wait for services to be ready
-        echo "Waiting for services to start..."
-        sleep 30
-        
-        # Show running containers
-        docker compose -f docker-compose.test.yml ps
-
-    - name: Check service health
-      run: |
-        # Check if key services are responding
-        echo "Checking postgres..."
-        docker compose -f docker-compose.test.yml exec -T postgres pg_isready -U postgres || true
-        
-        echo "Checking oidc-simulator..."
-        curl -k -f https://localhost:3000/.well-known/jwks.json || true
-        
-        echo "Checking DynamoDB..."
-        curl -f http://localhost:8000 || true
-        # Alternative check using AWS CLI if available
-        aws dynamodb list-tables --endpoint-url http://localhost:8000 --region us-east-1 2>/dev/null || true
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -131,36 +56,14 @@ jobs:
         cache: 'npm'
         cache-dependency-path: server/package-lock.json
 
-    - name: Install server dependencies
-      run: |
-        cd server
-        npm ci
-
     - name: Generated contract files match the TypeBox source
-      run: |
-        # Fails when a committed generated file (server, client-participation-alpha,
-        # client-report) differs from what server/src/contracts would generate.
-        # Fix with `npm run contract:generate` in server/ and commit the result.
-        cd server
-        npm run contract:check
+      # Fails when a committed generated file (server, client-participation-alpha,
+      # client-report) differs from what server/src/contracts would generate.
+      # Fix with `npm run contract:generate` in server/ and commit the result.
+      run: make check-contracts
 
     - name: Run server integration tests
-      run: |
-        cd server
-        
-        NODE_EXTRA_CA_CERTS=$(pwd)/../.simulacrum/certs/rootCA.pem \
-        CI=true \
-        NODE_ENV=test \
-        DATABASE_URL=postgres://postgres:PdwPNS2mDN73Vfbc@localhost:5432/polis-test \
-        STATIC_FILES_HOST=localhost \
-        DYNAMODB_ENDPOINT=http://localhost:8000 \
-        SES_ENDPOINT=http://localhost:8005 \
-        AWS_S3_ENDPOINT=http://localhost:9000 \
-        AWS_S3_BUCKET_NAME=polis-delphi \
-        AWS_ACCESS_KEY_ID=DUMMYIDEXAMPLE \
-        AWS_SECRET_ACCESS_KEY=DUMMYEXAMPLEKEY \
-        AWS_REGION=us-east-1 \
-        npm test -- --ci --coverage --maxWorkers=2
+      run: make check-server-integration
 
     - name: Upload test coverage
       if: always()
@@ -169,21 +72,3 @@ jobs:
         name: coverage-report
         path: server/coverage
         if-no-files-found: ignore
-
-    - name: Show service logs
-      if: failure()
-      run: |
-        # Show logs from critical services for debugging
-        echo "=== OIDC Simulator logs ==="
-        docker compose -f docker-compose.test.yml logs oidc-simulator | tail -100
-        
-        echo "=== Postgres logs ==="
-        docker compose -f docker-compose.test.yml logs postgres | tail -100
-
-        echo "=== DynamoDB logs ==="
-        docker compose -f docker-compose.test.yml logs dynamodb | tail -100
-
-    - name: Clean up
-      if: always()
-      run: |
-        docker compose -f docker-compose.test.yml down -v

@@ -28,25 +28,8 @@ jobs:
           cache: "npm"
           cache-dependency-path: client-participation-alpha/package-lock.json
 
-      - name: Install dependencies
-        run: npm ci
-        working-directory: client-participation-alpha
-
-      - name: Check formatting
-        run: npm run format -- --check
-        working-directory: client-participation-alpha
-
-      - name: Run linter
-        run: npm run lint
-        working-directory: client-participation-alpha
-
-      - name: Run tests with coverage
-        run: npm run test:coverage
-        working-directory: client-participation-alpha
-
-      - name: Build
-        run: npm run build
-        working-directory: client-participation-alpha
+      - name: Install, check and test (ci/local/client-alpha.sh)
+        run: make check-client-alpha
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4

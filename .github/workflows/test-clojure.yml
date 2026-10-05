@@ -35,6 +35,6 @@ jobs:
           cli: 1.10.1.693
 
       - name: Run Clojure tests
-        working-directory: math
         # Runs all except integration tests which require database and setup/teardown
-        run: "clojure -M:test"
+        # (ci/local/math.sh; it uses this job's clojure CLI).
+        run: make check-math

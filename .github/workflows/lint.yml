@@ -32,34 +32,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-node-
 
-    - name: "Install & Build: client-admin"
-      working-directory: client-admin
-      run: npm install
-
-    - name: "ESLint: client-admin"
-      working-directory: client-admin
-      run: npm run lint
-
-    - name: "Install & Build: server"
-      working-directory: server
-      run: npm install
-
-    - name: "ESLint: server"
-      working-directory: server
-      run: npm run lint
-
-    - name: "Install & Build: client-report"
-      working-directory: client-report
-      run: npm install
-
-    - name: "ESLint: client-report"
-      working-directory: client-report
-      run: npm run lint
-
-    - name: "Install & Build: e2e"
-      working-directory: e2e
-      run: npm install
-
-    - name: "ESLint: e2e"
-      working-directory: e2e
-      run: npm run lint
+    # Install and ESLint client-admin, server, client-report and e2e, in that
+    # order: ci/local/lint.sh (`make check-lint`).
+    - name: "Install and ESLint: client-admin, server, client-report, e2e"
+      run: make check-lint

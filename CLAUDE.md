@@ -39,7 +39,16 @@ psql postgresql://postgres:oiPorg3Nrz0yqDLE@localhost:5432/polis-dev
 
 ### Testing
 
+Every hosted CI check is a local entry point (`ci/local/`, docs/local-checks.md); the
+workflows call the same targets:
+
 ```bash
+make check-fast               # seconds: sign lint, golden guards, contracts, server unit, ESLint
+make check-changed            # the suites a change can reach (BASE_REF, default origin/edge)
+make check                    # every check CI runs, same order, with a summary
+make check-<suite>            # one suite (make check-list)
+```
+
 make e2e-run                  # Run E2E tests (Cypress)
 make e2e-run-interactive      # Open Cypress GUI
 

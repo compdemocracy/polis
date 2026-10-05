@@ -30,35 +30,12 @@ jobs:
     name: queue-rs build, clippy and tests
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_DB: queue_acceptance
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d queue_acceptance"
-          --health-interval 2s --health-timeout 3s --health-retries 30
-    defaults:
-      run:
-        working-directory: queue-rs
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - name: Toolchain (pinned by queue-rs/rust-toolchain.toml)
-        run: rustup show active-toolchain
-      - name: Clippy
-        run: |
-          cargo clippy --locked --all-targets -- -D warnings
-          cargo clippy --locked --all-targets --features jobs-integration -- -D warnings
-      - name: Unit and protocol tests
-        run: cargo test --locked
-      - name: Integration tests (PostgreSQL 17 service)
-        env:
-          POLIS_JOBS_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/queue_acceptance
-          POLIS_JOBS_TEST_PYTHON: python3
-        run: cargo test --locked --features jobs-integration --test jobs_integration -- --test-threads 4
+      # The toolchain (pinned by queue-rs/rust-toolchain.toml), clippy, the unit
+      # and protocol tests, and the integration tests against a throwaway
+      # PostgreSQL 17 (host port 5432) live in ci/local/queue-rs.sh.
+      - name: Clippy, unit, protocol and integration tests
+        run: make check-queue-rs
