@@ -8,7 +8,11 @@
 //!
 //! Connections are synchronous `postgres` clients (the transport this
 //! workspace already certifies); each query runs on Tokio's blocking pool, and
-//! a fixed-size pool bounds how many run at once.
+//! a fixed-size pool bounds how many run at once. The pool slot belongs to
+//! the blocking operation, not to the caller awaiting it: a caller that gives
+//! up (a request deadline, a dropped connection) leaves the slot held until
+//! the database work has really finished, so at most `size` operations ever
+//! run and at most `size` clients are ever kept.
 
 use anyhow::Result;
 use polis_queue_adapter::jobs::transport::Connector;
@@ -92,7 +96,7 @@ pub struct Limits {
 pub struct Pool {
     connector: Connector,
     idle: Mutex<Vec<(Client, Instant)>>,
-    permits: Semaphore,
+    permits: Arc<Semaphore>,
     limits: Limits,
 }
 
@@ -101,7 +105,7 @@ impl Pool {
         Arc::new(Self {
             connector,
             idle: Mutex::new(Vec::new()),
-            permits: Semaphore::new(limits.size),
+            permits: Arc::new(Semaphore::new(limits.size)),
             limits,
         })
     }
@@ -119,17 +123,26 @@ impl Pool {
     /// Runs `f` on a pooled connection on the blocking thread pool. Any
     /// failure is [`Unavailable`]. A client whose connection broke, or that
     /// has outlived `max_lifetime`, is discarded; the next call opens a fresh one.
+    ///
+    /// The slot is moved into the blocking closure and released only when
+    /// that closure returns, after the client is back in `idle` or dropped.
+    /// Cancelling the returned future (dropping it while the query or the
+    /// connect is still running) therefore frees nothing early.
     pub async fn with<T, F>(self: &Arc<Self>, f: F) -> Result<T>
     where
         T: Send + 'static,
         F: FnOnce(&mut Client) -> Result<T> + Send + 'static,
     {
-        let permit = tokio::time::timeout(self.limits.acquire_timeout, self.permits.acquire())
-            .await
-            .map_err(|_| unavailable("pool acquire timeout"))?
-            .map_err(unavailable)?;
+        let permit = tokio::time::timeout(
+            self.limits.acquire_timeout,
+            self.permits.clone().acquire_owned(),
+        )
+        .await
+        .map_err(|_| unavailable("pool acquire timeout"))?
+        .map_err(unavailable)?;
         let pool = self.clone();
-        let result = tokio::task::spawn_blocking(move || -> Result<T> {
+        tokio::task::spawn_blocking(move || -> Result<T> {
+            let _permit = permit;
             let cached = pool
                 .idle
                 .lock()
@@ -143,17 +156,20 @@ impl Pool {
             };
             let out = f(&mut client).map_err(unavailable);
             if !client.is_closed() && born.elapsed() < pool.limits.max_lifetime {
-                pool.idle
-                    .lock()
-                    .map_err(|_| unavailable("pool lock"))?
-                    .push((client, born));
+                let mut idle = pool.idle.lock().map_err(|_| unavailable("pool lock"))?;
+                if idle.len() < pool.limits.size {
+                    idle.push((client, born));
+                }
             }
             out
         })
         .await
-        .map_err(unavailable)?;
-        drop(permit);
-        result
+        .map_err(unavailable)?
+    }
+
+    #[cfg(all(test, feature = "db-tests"))]
+    fn idle_len(&self) -> usize {
+        self.idle.lock().unwrap().len()
     }
 
     /// `select 1` through the pool, for `/health`.
@@ -212,6 +228,52 @@ mod tests {
             is_unavailable(&err) && format!("{err}").contains("acquire"),
             "{err:#}"
         );
+    }
+
+    /// A caller that gives up while its connect is still stalled (a listener
+    /// that accepts, says nothing for 600 ms, then hangs up) does not free its
+    /// slot: with a pool of one, the next call waits for the slot and times
+    /// out instead of starting a second connection alongside the first. The
+    /// slot comes back once the stalled connect itself has ended.
+    #[tokio::test]
+    async fn a_cancelled_caller_keeps_its_slot_until_the_work_ends() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let accepted = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = accepted.clone();
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(600));
+                    drop(stream);
+                });
+            }
+        });
+        let mut cfg: PgConfig = format!("postgresql://u@127.0.0.1:{port}/d")
+            .parse()
+            .unwrap();
+        cfg.connect_timeout(Duration::from_millis(800));
+        let pool = Pool::new(
+            Connector::Plain(Box::new(cfg)),
+            Limits {
+                size: 1,
+                acquire_timeout: Duration::from_millis(200),
+                ..limits()
+            },
+        );
+        let cancelled =
+            tokio::time::timeout(Duration::from_millis(100), pool.with(|_| Ok(()))).await;
+        assert!(cancelled.is_err(), "the first caller should have given up");
+        let err = pool.with(|_| Ok(())).await.unwrap_err();
+        assert!(
+            is_unavailable(&err) && format!("{err}").contains("acquire"),
+            "{err:#}"
+        );
+        assert_eq!(accepted.load(std::sync::atomic::Ordering::SeqCst), 1);
+        // Once the stalled connect has ended, the slot is free again.
+        tokio::time::sleep(Duration::from_millis(1000)).await;
+        assert_eq!(pool.permits.available_permits(), 1);
     }
 
     /// Against a real Postgres (`--features db-tests`, `POLIS_API_TEST_DATABASE_URL`):
@@ -306,6 +368,38 @@ mod tests {
             .await
             .unwrap();
         assert_ne!(first, second);
+        // Cancellation: a caller abandons a running `pg_sleep`. Its slot stays
+        // taken until the statement ends, so with a pool of one a second call
+        // cannot run beside it, and no more than one client is ever kept.
+        let mut one: PgConfig = url.parse().unwrap();
+        one.options(&format!("-c search_path={schema}"));
+        let single = Pool::new(
+            Connector::Plain(Box::new(one)),
+            Limits {
+                size: 1,
+                acquire_timeout: Duration::from_millis(100),
+                statement_timeout: Duration::from_secs(5),
+                max_lifetime: Duration::from_secs(60),
+            },
+        );
+        assert_eq!(single.with(|_| Ok(())).await.unwrap(), ());
+        let abandoned = tokio::time::timeout(
+            Duration::from_millis(100),
+            single.with(|c| Ok(c.batch_execute("SELECT pg_sleep(0.5)")?)),
+        )
+        .await;
+        assert!(
+            abandoned.is_err(),
+            "the sleeping caller should have given up"
+        );
+        let err = single.with(|_| Ok(())).await.unwrap_err();
+        assert!(format!("{err}").contains("acquire"), "{err:#}");
+        tokio::time::sleep(Duration::from_millis(700)).await;
+        single.with(|_| Ok(())).await.unwrap();
+        assert_eq!(single.idle_len(), 1);
+        tokio::task::spawn_blocking(move || drop(single))
+            .await
+            .unwrap();
         // Synchronous clients must be dropped off the async runtime.
         tokio::task::spawn_blocking(move || drop(pool))
             .await
