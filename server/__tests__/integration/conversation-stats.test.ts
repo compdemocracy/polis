@@ -78,8 +78,10 @@ describe("Conversation Stats API", () => {
     // Should have two comment times (seed comment + test comment)
     expect(data.commentTimes.length).toBe(2);
 
-    // Should have three vote times (auth user votes on seed comment, auth user implicit vote on test comment creation, participant vote)
-    expect(data.voteTimes.length).toBe(3);
+    // Should have two vote times: the owner's explicit pass on the seed
+    // comment (cast by the createComment helper) and the participant's vote.
+    // Creating the seed comment itself records no vote.
+    expect(data.voteTimes.length).toBe(2);
   });
 
   test("GET /api/v3/conversationStats - should accept until parameter", async () => {
@@ -98,7 +100,7 @@ describe("Conversation Stats API", () => {
 
     // All the data should be present because until is in the future
     expect(data.commentTimes.length).toBe(2);
-    expect(data.voteTimes.length).toBe(3);
+    expect(data.voteTimes.length).toBe(2);
   });
 
   test("GET /api/v3/conversationStats - should filter data with until parameter", async () => {

@@ -223,7 +223,8 @@ describe("comment creation during translation failures", () => {
     await done;
     expectCreated(res, "ja", 1);
     expect(mockWarn).not.toHaveBeenCalled();
-    expect(mockVote).toHaveBeenCalledWith(11, 0, 7, 3, 0, 0, false);
+    // A seed gets no automatic vote, and this request carries none.
+    expect(mockVote).not.toHaveBeenCalled();
   });
 
   test("a synchronous provider throw also falls back", async () => {
