@@ -107,6 +107,6 @@ jobs:
         run: cargo build --locked --release -p polis-api
       - name: Docker image
         run: docker build -t polis-api:ci -f polis-api/Dockerfile .
-      - name: nginx routing switch (off, polis-api absent/up/502/dead, unknown name)
+      - name: nginx routing switch (off, absent/up/502/dead, bad names and settings, method and body gate, truncation limit)
         working-directory: .
         run: queue-rs/polis-api/conformance/nginx-routing.sh
