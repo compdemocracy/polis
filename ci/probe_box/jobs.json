@@ -89,6 +89,34 @@
         "args": ["verify"],
         "image": "localhost/polis-verify-verifier@sha256:0000000000000000000000000000000000000000000000000000000000000000"
       }
+    },
+    "vote-census-v1": {
+      "schema": "polis-probe-job/2",
+      "kind": "vote-census",
+      "run_id": "00000000000000000000000000000000",
+      "max_seconds": 2400,
+      "run_spec": {
+        "source_commit": "0000000000000000000000000000000000000000",
+        "sql_sha256": "b0080d7c7dcb2952e35f82547e192486041b12fbd34c1dea903e3b0b32d8c94e"
+      },
+      "reader": {
+        "image": "localhost/polis-vote-census-reader@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "args": [
+          "read"
+        ]
+      },
+      "producer": {
+        "image": "localhost/polis-vote-census-producer@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "args": [
+          "produce"
+        ]
+      },
+      "verifier": {
+        "image": "localhost/polis-vote-census-verifier@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "args": [
+          "verify"
+        ]
+      }
     }
   }
 }
