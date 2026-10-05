@@ -10,8 +10,8 @@ cd "$CHECK_ROOT"
 PG_PORT="$(check_port 13 5432)"
 PG="$CHECK_PROJECT-postgres"
 check_wait_ports "$PG_PORT"
-check_on_exit "docker rm -f $PG >/dev/null 2>&1 || true"
-docker rm -f "$PG" >/dev/null 2>&1 || true
+check_on_exit "docker rm -fv $PG >/dev/null 2>&1 || true"
+docker rm -fv "$PG" >/dev/null 2>&1 || true
 docker run -d --name "$PG" --label "com.polis.check=$CHECK_PROJECT" \
   -e POSTGRES_USER=postgres -e POSTGRES_DB=queue_acceptance -e POSTGRES_HOST_AUTH_METHOD=trust \
   -p "127.0.0.1:$PG_PORT:5432" \

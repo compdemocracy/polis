@@ -13,8 +13,8 @@ DDB_PORT="$(check_port 12 8472)"
 PG="$CHECK_PROJECT-postgres"
 DDB="$CHECK_PROJECT-dynamodb"
 check_wait_ports "$PG_PORT" "$DDB_PORT"
-check_on_exit "docker rm -f $PG $DDB >/dev/null 2>&1 || true"
-docker rm -f "$PG" "$DDB" >/dev/null 2>&1 || true
+check_on_exit "docker rm -fv $PG $DDB >/dev/null 2>&1 || true"
+docker rm -fv "$PG" "$DDB" >/dev/null 2>&1 || true
 
 check_group "start PostgreSQL 17.11 and DynamoDB Local"
 docker run -d --name "$PG" --label "com.polis.check=$CHECK_PROJECT" \
