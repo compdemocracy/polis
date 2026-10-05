@@ -9,6 +9,7 @@
 . "$(dirname "$0")/lib.sh"
 check_init vote-gate
 check_use_node 24
+check_use_python 3.12
 cd "$CHECK_ROOT"
 check_venv engine coordinator-rs/evidence/python-requirements.txt
 check_npm server ci

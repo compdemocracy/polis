@@ -1,9 +1,8 @@
 # Shared helpers for the local check entry points (ci/local/*.sh).
 #
-# Every check that hosted CI runs is a script in this directory. A workflow job
-# calls the same script through `make check-<suite>`, so a check passes or fails
-# the same way on a laptop, a build box or a hosted runner. See
-# docs/local-checks.md for the list and the knobs.
+# Every check that hosted CI runs has a script in this directory. Workflow jobs
+# call the same script through `make check-<suite>`, except for the documented
+# coordinator exception. See docs/local-checks.md for the list and the knobs.
 #
 # Written for bash 3.2 (macOS /bin/bash) as well as Linux bash 5.
 #
@@ -12,6 +11,8 @@
 #   CHECK_PORT_BASE  move every published host port to BASE+offset (default: CI's fixed ports)
 #   CHECK_PORT_WAIT  seconds to wait for busy host ports to free up (default 600)
 #   CHECK_KEEP=1     leave containers running after the check (for debugging)
+#   CHECK_STRICT_READY=1           make readiness failures fatal (default: warn and continue)
+#   CHECK_ALLOW_RUNTIME_MISMATCH=1 warn instead of failing on a hosted-runtime mismatch
 #   BASE_REF         the ref the guards diff against (default origin/edge)
 #   CHECK_PYTHON     the Python used to build venvs (default python3.12, else python3)
 
@@ -107,13 +108,21 @@ check_wait_ports() {
   done
 }
 
+check_runtime_mismatch() {
+  if [ "${CHECK_ALLOW_RUNTIME_MISMATCH:-0}" = 1 ]; then
+    check_log "WARNING: $*; continuing because CHECK_ALLOW_RUNTIME_MISMATCH=1"
+    return 0
+  fi
+  check_die "$*; install the hosted version or set CHECK_ALLOW_RUNTIME_MISMATCH=1"
+}
+
 # check_use_node <major | exact version>: put that Node on PATH when the current
 # one differs and mise has it (an exact version is installed through mise if
 # missing). Hosted jobs select it with setup-node first.
 check_use_node() {
   local want="$1" have dir
-  case "$want" in *.*) have="$(node --version 2>/dev/null | sed 's/^v//')" ;;
-                  *) have="$(node --version 2>/dev/null | sed 's/^v\([0-9]*\).*/\1/')" ;; esac
+  case "$want" in *.*) have="$(node --version 2>/dev/null | sed 's/^v//' || true)" ;;
+                  *) have="$(node --version 2>/dev/null | sed 's/^v\([0-9]*\).*/\1/' || true)" ;; esac
   if [ "$have" != "$want" ] && command -v mise >/dev/null 2>&1; then
     dir="$(mise where "node@$want" 2>/dev/null || true)"
     if [ -z "$dir" ] && [ "$want" != "${want#*.*.}" ]; then
@@ -125,9 +134,43 @@ check_use_node() {
     fi
   fi
   if [ "$have" != "$want" ]; then
-    check_log "WARNING: CI runs Node $want; this run uses $(node --version 2>/dev/null || echo none)"
+    check_runtime_mismatch "Node $want is required; found $(node --version 2>/dev/null || echo none)"
   fi
-  check_log "node $(node --version)"
+  check_log "node $(node --version 2>/dev/null || echo none)"
+}
+
+# check_use_python <major.minor>: choose and validate the Python version that
+# the hosted workflow selects before check_venv builds its environment.
+check_use_python() {
+  local want="$1" base have
+  base="${CHECK_PYTHON:-}"
+  if [ -z "$base" ]; then
+    if command -v "python$want" >/dev/null 2>&1; then base="python$want"; else base=python3; fi
+  fi
+  have="$("$base" --version 2>&1 | sed -n 's/^Python \([0-9]*\.[0-9]*\).*/\1/p' || true)"
+  if [ "$have" != "$want" ]; then
+    check_runtime_mismatch "Python $want is required; found $("$base" --version 2>&1 || echo none)"
+  fi
+  CHECK_PYTHON="$base"
+  export CHECK_PYTHON
+  check_log "python runtime $("$base" --version 2>&1 || echo none)"
+}
+
+# check_use_rust <directory>: the crate's rust-toolchain.toml is the pin the
+# hosted job uses; verify that rustc in that directory resolves to it.
+check_use_rust() {
+  local directory="$1" toolchain want have
+  toolchain="$CHECK_ROOT/$directory/rust-toolchain.toml"
+  want=""
+  if [ -f "$toolchain" ]; then
+    want="$(sed -n 's/^channel *= *"\([^"]*\)".*/\1/p' "$toolchain" | head -1 || true)"
+  fi
+  [ -n "$want" ] || check_die "no toolchain channel in $directory/rust-toolchain.toml"
+  have="$(cd "$CHECK_ROOT/$directory" && rustc --version 2>/dev/null | awk '{print $2}' || true)"
+  if [ "$have" != "$want" ]; then
+    check_runtime_mismatch "Rust $want (pinned by $directory/rust-toolchain.toml) is required; found ${have:-none}"
+  fi
+  check_log "rust ${have:-none} ($directory)"
 }
 
 # check_npm <dir> <ci|install> [extra npm args]: install a package's modules once
@@ -274,20 +317,72 @@ check_wait_port() {
   check_log "port $p listening after ${waited}s"
 }
 
+# check_ready <description> <command>...: preserve the hosted workflows' prior
+# non-fatal readiness verdict by default, while keeping strict readiness opt-in.
+check_ready() {
+  local description="$1" rc
+  shift
+  CHECK_READY_WARNED=0
+  if "$@"; then
+    return 0
+  else
+    rc=$?
+  fi
+  if [ "${CHECK_STRICT_READY:-0}" = 1 ]; then
+    check_log "ERROR: readiness probe failed: $description"
+    return "$rc"
+  fi
+  check_log "WARNING: non-fatal readiness probe failed; continuing: $description"
+  CHECK_READY_WARNED=1
+  return 0
+}
+
 # check_up <service>...: start long-running services and wait for their
 # healthchecks (or for them to be running when they have none); then start the
-# one-shot init containers named in CHECK_INIT_SERVICES and wait for each to
-# exit 0. Replaces CI's fixed sleeps.
+# one-shot init containers named in CHECK_INIT_SERVICES. Starting a container is
+# fatal as before; readiness is not. By default the wait is bounded by
+# CHECK_UP_SETTLE seconds (default 30, the old fixed sleep); a failed wait
+# prints a warning, sleeps out the rest of that period and continues.
+# CHECK_STRICT_READY=1 makes readiness fatal and waits up to CHECK_UP_TIMEOUT
+# seconds (default 300).
 check_up() {
+  local s code state waited limit settle started left
+  settle="${CHECK_UP_SETTLE:-30}"
+  if [ "${CHECK_STRICT_READY:-0}" = 1 ]; then
+    limit="${CHECK_UP_TIMEOUT:-300}"
+  else
+    limit="$settle"
+  fi
   check_group "start: $* ${CHECK_INIT_SERVICES:-}"
-  check_compose up -d --wait --wait-timeout "${CHECK_UP_TIMEOUT:-300}" "$@"
-  local s code
+  check_compose up -d "$@"
+  started=$SECONDS
+  check_ready "compose services did not become ready: $*" \
+    check_compose up -d --wait --wait-timeout "$limit" "$@"
+  if [ "$CHECK_READY_WARNED" = 1 ]; then
+    left=$((settle - (SECONDS - started)))
+    if [ "$left" -gt 0 ]; then
+      check_log "waiting the remaining ${left}s of the ${settle}s the hosted workflow slept"
+      sleep "$left"
+    fi
+  fi
   for s in ${CHECK_INIT_SERVICES:-}; do
     check_compose up -d "$s"
-    check_compose wait "$s" >/dev/null 2>&1 || true
+    waited=0
+    state="$(docker inspect -f '{{.State.Status}}' "$(check_compose ps -a -q "$s")" 2>/dev/null || echo '?')"
+    while [ "$state" = running ] && [ "$waited" -lt "$limit" ]; do
+      sleep 1
+      waited=$((waited + 1))
+      state="$(docker inspect -f '{{.State.Status}}' "$(check_compose ps -a -q "$s")" 2>/dev/null || echo '?')"
+    done
     code="$(docker inspect -f '{{.State.ExitCode}}' "$(check_compose ps -a -q "$s")" 2>/dev/null || echo '?')"
-    if [ "$code" != 0 ]; then check_compose logs "$s"; check_die "$s exited $code"; fi
-    check_log "$s finished"
+    if [ "$state" != exited ]; then
+      check_ready "$s did not finish after ${limit}s (state $state)" false
+    elif [ "$code" != 0 ]; then
+      check_compose logs "$s" || true
+      check_ready "$s exited $code" false
+    else
+      check_log "$s finished"
+    fi
   done
   check_compose ps
   check_endgroup

@@ -14,6 +14,8 @@
 . "$(dirname "$0")/lib.sh"
 check_init coordinator
 check_use_node 24
+check_use_python 3.12
+check_use_rust coordinator-rs
 cd "$CHECK_ROOT"
 export PYTHONDONTWRITEBYTECODE=1
 

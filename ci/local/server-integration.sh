@@ -28,9 +28,10 @@ check_compose build postgres file-server ses-local oidc-simulator dynamodb
 check_endgroup
 
 CHECK_INIT_SERVICES="minio-init" check_up postgres file-server ses-local oidc-simulator dynamodb minio
-check_wait_url "https://localhost:$POLIS_TEST_OIDC_PORT/.well-known/jwks.json"
-check_wait_port "$POLIS_TEST_DYNAMODB_PORT"
-check_wait_port "$POLIS_TEST_SES_PORT"
+check_ready "OIDC discovery endpoint" \
+  check_wait_url "https://localhost:$POLIS_TEST_OIDC_PORT/.well-known/jwks.json"
+check_ready "DynamoDB port $POLIS_TEST_DYNAMODB_PORT" check_wait_port "$POLIS_TEST_DYNAMODB_PORT"
+check_ready "SES port $POLIS_TEST_SES_PORT" check_wait_port "$POLIS_TEST_SES_PORT"
 
 check_npm server ci
 (cd server && node "$CHECK_LOCAL/clock-skew.cjs" "postgres://postgres:PdwPNS2mDN73Vfbc@localhost:$POLIS_TEST_PG_PORT/polis-test") || true

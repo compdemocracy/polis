@@ -9,6 +9,7 @@
 check_init collective-statement
 # The recordings were made on this Node; V8's error wording can change between releases.
 check_use_node 22.23.1
+check_use_python 3.12
 cd "$CHECK_ROOT"
 
 # The harness refuses any store not on its own ports (safety.cjs: Postgres 5481,

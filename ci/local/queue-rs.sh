@@ -5,6 +5,7 @@
 # by queue-rs/rust-toolchain.toml (rustup installs it on first use).
 . "$(dirname "$0")/lib.sh"
 check_init queue-rs
+check_use_rust queue-rs
 cd "$CHECK_ROOT"
 
 PG_PORT="$(check_port 13 5432)"

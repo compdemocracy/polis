@@ -43,8 +43,10 @@ check_compose run --rm --no-deps -T -v "$CHECK_ROOT/server:/polis-server:ro" \
   --entrypoint sh postgres /polis-server/bin/run-migrations.sh
 check_endgroup
 
-check_wait_url "https://localhost:3000/.well-known/jwks.json"
-check_wait_url "http://localhost:$POLIS_TEST_HTTP_PORT/api/v3/testConnection"
+check_ready "OIDC discovery endpoint" \
+  check_wait_url "https://localhost:3000/.well-known/jwks.json"
+check_ready "server participation initialization endpoint" \
+  check_wait_url "http://localhost:$POLIS_TEST_HTTP_PORT/api/v3/participationInit"
 
 check_group "postgres initialization log"
 { check_compose logs postgres 2>&1 || true; } | head -200 || true

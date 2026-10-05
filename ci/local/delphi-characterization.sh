@@ -6,6 +6,7 @@
 . "$(dirname "$0")/lib.sh"
 check_init delphi-characterization
 check_use_node 22
+check_use_python 3.12
 cd "$CHECK_ROOT"
 
 PG_PORT="$(check_port 11 5472)"

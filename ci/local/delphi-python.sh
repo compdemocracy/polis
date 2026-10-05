@@ -27,7 +27,7 @@ check_endgroup
 # are not part of this check.
 check_group "start every service"
 check_compose up -d
-CHECK_INIT_SERVICES="dynamodb-init minio-init" check_up postgres dynamodb minio delphi
+CHECK_UP_SETTLE=20 CHECK_INIT_SERVICES="dynamodb-init minio-init" check_up postgres dynamodb minio delphi
 check_compose exec -T postgres bash -c 'until pg_isready -U $POSTGRES_USER; do sleep 1; done'
 check_compose ps -a --format '{{.Service}} {{.State}} {{.Status}}' | grep -v -e ' running ' || true
 check_endgroup
