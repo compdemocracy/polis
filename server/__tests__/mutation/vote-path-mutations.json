@@ -1,5 +1,5 @@
 {
-  "about": "One-line sign mutations at each vote-handling site of PR #2931 (the vote convention call sites; line text as of #2931 head eab84eda9). vote-path-mutations.cjs applies each to a scratch copy and requires the vote-path recordings to fail exactly expectFailing. Site ids follow the coverage census in the findings (S01-S17).",
+  "about": "One-line sign mutations at each vote-handling site of PR #2931 (the vote convention call sites; line text as of #2931 head eab84eda9). vote-path-mutations.cjs applies each to a scratch copy and requires the vote-path recordings to fail exactly expectFailing. Site ids follow the coverage census in the findings (S01-S17). S10 (routes/comments.ts is_seed default vote) and S11 (routes/comments.ts comments-bulk seed vote) left the list when those two sites were removed: a seed statement no longer gets an automatic vote from its author on either route, so there is no vote value there to mutate.",
   "mutations": [
     {
       "id": "STORAGE",
@@ -327,49 +327,6 @@
         "I2/reportExport/votes.csv",
         "I3/after-import/db/votes",
         "I3/after-import/db/votes_latest_unique"
-      ]
-    },
-    {
-      "id": "S10",
-      "site": "routes/comments.ts is_seed default vote",
-      "file": "src/routes/comments.ts",
-      "find": "shouldDefaultVote ? WIRE_PASS : vote",
-      "replace": "shouldDefaultVote ? WIRE_PASS - 1 : vote",
-      "expectFailing": [
-        "V/after-owner-comments/db/votes",
-        "V/after-owner-comments/db/votes_latest_unique",
-        "V/after-participant-votes/db/votes",
-        "V/after-participant-votes/db/votes_latest_unique",
-        "V/collectiveStatement/topic-query",
-        "V/comments/moderation-voting-patterns",
-        "V/comments/moderation-voting-patterns-mod-in",
-        "V/owner/participationInit-after-votes",
-        "V/owner/votes-pid-0",
-        "V/reportExport/comments.csv",
-        "V/reportExport/participant-votes.csv",
-        "V/reportExport/votes.csv"
-      ]
-    },
-    {
-      "id": "S11",
-      "site": "routes/comments.ts comments-bulk seed vote",
-      "file": "src/routes/comments.ts",
-      "find": "tid, WIRE_PASS, 0, false)",
-      "replace": "tid, WIRE_PASS + 1, 0, false)",
-      "expectFailing": [
-        "I/after-comments-bulk/db/votes",
-        "I/after-comments-bulk/db/votes_latest_unique",
-        "I/after-import/db/votes",
-        "I/after-import/db/votes_latest_unique",
-        "I/after-votes-bulk-route/db/votes",
-        "I/after-votes-bulk-route/db/votes_latest_unique",
-        "I/comments/moderation-voting-patterns",
-        "I/comments/moderation-voting-patterns-mod-in",
-        "I/owner/votes-famous",
-        "I/owner/votes-pid-0",
-        "I/reportExport/comments.csv",
-        "I/reportExport/participant-votes.csv",
-        "I/reportExport/votes.csv"
       ]
     },
     {

@@ -7,18 +7,20 @@ import {
   submitVote,
 } from "../setup/api-test-helpers";
 import { getPooledTestUser } from "../setup/test-user-helpers";
+import { toWire } from "../setup/vote-wire";
 import pg from "../../src/db/pg-query";
 
 /**
  * Issue #2952: GET /nextComment for the conversation's first participant
  * (pid 0, normally the owner).
  *
- * The owner writes two seed statements (each carries the owner's default pass
- * vote) and one ordinary statement (no vote). The owner is therefore pid 0 and
- * has voted on exactly the two seeds. GET /nextComment for the owner must
- * offer only the statement the owner has not voted on, count `remaining`
- * against the owner's own votes, and offer nothing once the owner has voted on
- * everything. A second participant (pid 1) is checked the same way.
+ * The owner writes two seed statements and one ordinary statement. None of
+ * them records a vote for the owner (a seed gets no automatic vote), so the
+ * owner, pid 0, is first offered all three. The owner then passes on the two
+ * seeds. GET /nextComment for the owner must from then on offer only the
+ * statement the owner has not voted on, count `remaining` against the owner's
+ * own votes, and offer nothing once the owner has voted on everything. A
+ * second participant (pid 1) is checked the same way.
  *
  * The requests mirror the participation client: no `not_voted_by_pid`
  * parameter, the participant comes from the request's own auth.
@@ -62,18 +64,46 @@ describe("GET /nextComment for the first participant (pid 0)", () => {
     zid = Number(zidRows[0].zid);
   });
 
-  test("the owner is pid 0 and has voted on exactly the two seeds", async () => {
+  async function ownerVotedTids(): Promise<number[]> {
+    const voteRows = (await pg.queryP_readOnly(
+      "select tid from votes_latest_unique where zid = ($1) and pid = 0 order by tid;",
+      [zid]
+    )) as Array<{ tid: number }>;
+    return voteRows.map((r) => Number(r.tid));
+  }
+
+  test("the owner is pid 0, has no vote from writing the statements, and is offered all three", async () => {
     const ownerRows = (await pg.queryP_readOnly(
       "select p.pid from participants p join conversations c on c.zid = p.zid and c.owner = p.uid where p.zid = ($1);",
       [zid]
     )) as Array<{ pid: number }>;
     expect(ownerRows.map((r) => Number(r.pid))).toEqual([0]);
 
-    const voteRows = (await pg.queryP_readOnly(
-      "select tid from votes_latest_unique where zid = ($1) and pid = 0 order by tid;",
-      [zid]
-    )) as Array<{ tid: number }>;
-    expect(voteRows.map((r) => Number(r.tid))).toEqual(
+    expect(await ownerVotedTids()).toEqual([]);
+
+    for (let i = 0; i < 5; i++) {
+      const res: Response = await owner.get(
+        `/api/v3/nextComment?conversation_id=${conversationId}`
+      );
+      expect(res.status).toBe(200);
+      expect([seedA, seedB, unvoted]).toContain(res.body.tid);
+      expect(res.body.remaining).toBe(3);
+      expect(res.body.total).toBe(3);
+      expect(Number(res.body.currentPid)).toBe(0);
+    }
+  });
+
+  test("the owner passes on the two seeds and has then voted on exactly those", async () => {
+    for (const tid of [seedA, seedB]) {
+      const vote = await submitVote(owner, {
+        conversation_id: conversationId,
+        tid,
+        vote: toWire("pass"),
+      });
+      expect(vote.status).toBe(200);
+      expect(Number(vote.body.currentPid)).toBe(0);
+    }
+    expect(await ownerVotedTids()).toEqual(
       [seedA, seedB].sort((a, b) => a - b)
     );
   });

@@ -1,9 +1,11 @@
-// The legacy cutoff for a seed statement's automatic pass, pinned on the real
-// comment handler with no database: a seed created with no vote takes an
-// automatic pass from its author in a conversation numbered 17037 or below, and
-// no vote at all from 17038 up. Stubbed at the boundary: the database, the vote
-// writer (whose calls are what this test reads), the identity provider and the
-// helpers the handler schedules afterwards.
+// A seed statement never takes an automatic vote from its author, pinned on the
+// real comment handler with no database. Until #2964's follow-up a seed created
+// with no vote took an automatic pass in a conversation numbered 17037 or below
+// (the legacy cutoff) and none from 17038 up; the conversation number no longer
+// matters, and the numbers on both sides of the old cutoff are kept here to say
+// so. Stubbed at the boundary: the database, the vote writer (whose calls are
+// what this test reads), the identity provider and the helpers the handler
+// schedules afterwards.
 import {
   afterEach,
   beforeEach,
@@ -12,7 +14,7 @@ import {
   jest,
   test,
 } from "@jest/globals";
-import { toWire, WIRE_PASS } from "../setup/vote-wire";
+import { toWire } from "../setup/vote-wire";
 
 const mockQuery = jest.fn<(sql: string) => Promise<unknown[]>>();
 const mockVotesPost = jest.fn();
@@ -106,24 +108,15 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-describe("a seed statement's automatic pass and the legacy cutoff", () => {
-  test.each([1, 17036, 17037])(
-    "conversation %d (at or below the cutoff): a seed with no vote takes an automatic pass",
-    async (zid) => {
-      expect(await createStatement({ zid, is_seed: true })).toEqual([
-        [OWNER_UID, OWNER_PID, zid, NEW_TID, WIRE_PASS, 0, false],
-      ]);
-    }
-  );
-
-  test.each([17038, 17039, 250000])(
-    "conversation %d (above the cutoff): a seed with no vote records no vote",
+describe("a seed statement takes no automatic vote, whatever the conversation number", () => {
+  test.each([1, 17036, 17037, 17038, 17039, 250000])(
+    "conversation %d: a seed with no vote records no vote",
     async (zid) => {
       expect(await createStatement({ zid, is_seed: true })).toEqual([]);
     }
   );
 
-  test.each([17037, 17038])(
+  test.each([1, 17037, 17038])(
     "conversation %d: a seed with an explicit vote records that vote",
     async (zid) => {
       for (const vote of ["agree", "disagree", "pass"] as const) {
@@ -137,8 +130,8 @@ describe("a seed statement's automatic pass and the legacy cutoff", () => {
     }
   );
 
-  test.each([17037, 17038])(
-    "conversation %d: a statement that is not a seed takes no automatic pass",
+  test.each([1, 17037, 17038])(
+    "conversation %d: a statement that is not a seed takes no automatic vote",
     async (zid) => {
       expect(await createStatement({ zid, is_seed: false })).toEqual([]);
       expect(await createStatement({ zid })).toEqual([]);

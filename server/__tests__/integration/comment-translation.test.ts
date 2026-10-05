@@ -46,7 +46,7 @@ describe("POST comments with unavailable language detection", () => {
   });
 
   test.each(["rejection", "malformed", "timeout", "success"])(
-    "%s preserves a durable seed comment and default vote",
+    "%s preserves a durable seed comment, which records no vote",
     async (scenario) => {
       if (scenario === "rejection")
         mockDetect.mockRejectedValue(
@@ -85,7 +85,8 @@ describe("POST comments with unavailable language detection", () => {
           lang: scenario === "success" ? "en" : null,
           lang_confidence: scenario === "success" ? 0.75 : null,
           is_seed: true,
-          vote: 0,
+          // The LEFT JOIN finds no vote row: a seed gets no automatic vote.
+          vote: null,
         },
       ]);
     }
