@@ -37,6 +37,20 @@ import {
 } from "../server-helpers";
 import { parsePagination, createPaginationMeta } from "../utils/pagination";
 
+/**
+ * The legacy cutoff for a seed statement's automatic pass: the highest
+ * conversation number (zid) in which a seed created with no vote is given a
+ * pass vote from its author. Conversations at or below it have always carried
+ * that automatic pass and keep it; above it a seed records no vote unless the
+ * request carries one, so an owner is offered their own seeds to vote on.
+ *
+ * History: the condition `Number(zid) <= 17037` stood in the original handler
+ * (server/src/server.ts) and was kept by #2024 (2025-07-24). #2117
+ * (2025-08-08) dropped it, which gave every seed in every conversation an
+ * automatic pass; it is restored here as it was (follow-up to #2952).
+ */
+const SEED_AUTO_PASS_LAST_ZID = 17037;
+
 /* this is a concept and can be generalized to other handlers */
 interface PolisRequestParams {
   zid?: number;
@@ -508,7 +522,10 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
     const tid = comment.tid;
 
     // 7. Handle voting on the comment if specified
-    const shouldDefaultVote = req.p.is_seed && _.isUndefined(vote);
+    const shouldDefaultVote =
+      req.p.is_seed &&
+      _.isUndefined(vote) &&
+      Number(zid) <= SEED_AUTO_PASS_LAST_ZID;
     const finalVote = shouldDefaultVote ? WIRE_PASS : vote;
 
     if (!_.isUndefined(finalVote)) {
