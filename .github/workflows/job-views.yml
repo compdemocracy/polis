@@ -1,0 +1,27 @@
+name: Job view recordings
+on:
+  pull_request:
+    paths: ['client-report/**', 'client-participation-alpha/**', 'server/characterization/jobviews/**', 'server/characterization/delphi/recordings/**', '.github/workflows/job-views.yml']
+  push:
+    branches: [edge]
+    paths: ['client-report/**', 'client-participation-alpha/**', 'server/characterization/jobviews/**', 'server/characterization/delphi/recordings/**', '.github/workflows/job-views.yml']
+permissions:
+  contents: read
+jobs:
+  views:
+    runs-on: ubuntu-latest
+    env:
+      TZ: UTC
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - run: npm ci --no-audit --no-fund
+        working-directory: server
+      - run: npm ci --no-audit --no-fund
+        working-directory: client-report
+      - if: github.event_name == 'pull_request'
+        run: node server/characterization/jobviews/view-guard.cjs '${{ github.event.pull_request.base.sha }}'
+      - run: npm run test:jobviews
+        working-directory: client-report
