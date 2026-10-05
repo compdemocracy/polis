@@ -18,7 +18,7 @@ import { Response, NextFunction } from "express";
 import { addParticipantAndMetadata } from "../participant";
 import { checkLegacyCookieAndIssueJWT } from "./legacyCookies";
 import { createAnonUser } from "./create-user";
-import { createXidRecord, getXidRecord, isXidAllowed, xidExists } from "../xids";
+import { createXidRecord, getXidRecord, isXidAllowed } from "../xids";
 import { failJson } from "../utils/fail";
 import { getConversationInfo, getZidFromConversationId } from "../conversation";
 import { getPidPromise } from "../user";
@@ -483,19 +483,59 @@ async function _ensureParticipantInternal(
     // This mirrors the order used by _joinWithZidOrSuzinvite and ensures
     // the FK (zid, pid) → participants(zid, pid) can be satisfied.
     // See: https://github.com/compdemocracy/polis/issues/2538
-    if (req.p.xid && isNewlyCreatedUser && pid !== undefined) {
+    //
+    // Intentionally NOT gated on isNewlyCreatedUser. A request can present an
+    // xid while the user is already identified by an existing session for this
+    // conversation — e.g. someone who voted anonymously and then opened their
+    // ?xid= link. Gating on isNewlyCreatedUser silently dropped the xid in that
+    // case, leaving the participant's votes unlinkable and with no trace in any
+    // export.
+    //
+    // xids enforce a per-owner bijection — UNIQUE(owner, uid) and
+    // UNIQUE(owner, xid) — so bind the presented xid to the current participant
+    // only when neither side is already taken; otherwise keep the existing
+    // binding rather than erroring or overwriting it:
+    //   - presented xid already bound to this uid  → nothing to do
+    //   - presented xid bound to a DIFFERENT uid   → refuse, keep it (log)
+    //   - this uid already has a DIFFERENT xid      → refuse, keep it (log)
+    //   - neither bound                             → register it
+    if (req.p.xid && pid !== undefined) {
       const conv = await getConversationInfo(zid);
-      const alreadyExists = await xidExists(req.p.xid, conv.owner, uid);
-      if (!alreadyExists) {
-        await createXidRecord(
-          req.p.xid,
-          conv.owner,
-          uid,
-          zid,
-          req.p.x_profile_image_url,
-          req.p.x_name,
-          req.p.x_email
-        );
+      const byXid = await getXidRecord(req.p.xid, zid);
+      if (byXid && byXid.length > 0) {
+        if (byXid[0].uid !== uid) {
+          // Presented xid belongs to a different user under this owner.
+          // Do not create a second, ambiguous binding — keep the existing one.
+          logger.warn("polis_xid_presented_but_bound_to_other_uid", {
+            zid,
+            uid,
+          });
+        }
+        // else: already bound to this uid → nothing to do
+      } else {
+        // Presented xid is unused under this owner. Only bind it if this user
+        // does not already have a (different) xid; if they do, keep the old one.
+        const existingForUid = (await pg.queryP_readOnly(
+          "select xid from xids where owner = ($1) and uid = ($2);",
+          [conv.owner, uid]
+        )) as { xid: string }[];
+        if (!existingForUid || existingForUid.length === 0) {
+          await createXidRecord(
+            req.p.xid,
+            conv.owner,
+            uid,
+            zid,
+            req.p.x_profile_image_url,
+            req.p.x_name,
+            req.p.x_email
+          );
+        } else {
+          // User already has an xid under this owner; refuse the new one.
+          logger.warn("polis_xid_presented_but_user_already_bound", {
+            zid,
+            uid,
+          });
+        }
       }
     }
   } else if ((pid === undefined || pid === -1) && uid !== undefined) {
