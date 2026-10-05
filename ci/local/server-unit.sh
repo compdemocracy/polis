@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The server's unit tests alone (server/__tests__/unit), no containers. CI runs
-# them inside check-server-integration; this is the seconds-long agent-loop tier.
+# them inside check-server-integration; this is the seconds-long fast-loop tier.
 . "$(dirname "$0")/lib.sh"
 check_init server-unit
 check_use_node 24
