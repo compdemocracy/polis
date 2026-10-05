@@ -68,6 +68,7 @@ WRITERS = {
     # Server seeds and tests: server/characterization/seed-vote.cjs
     "server/characterization/seed-comments.cjs": "seed-vote.cjs",
     "server/__tests__/unit/importProcessorBoundaries.test.ts": "seed-vote.cjs",
+    "server/characterization/collective-statement/main.cjs": "seed-vote.cjs",
 }
 
 #: Raw fixtures the plan names (§1d) and the companion that declares each.

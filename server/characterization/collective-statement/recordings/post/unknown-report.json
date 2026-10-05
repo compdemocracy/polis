@@ -1,0 +1,83 @@
+{
+ "format": "collective-statement-recording/1",
+ "case": "post/unknown-report",
+ "about": "a report_id no report has",
+ "requests": [
+  {
+   "method": "POST",
+   "path": "/api/v3/collectiveStatement",
+   "auth": "owner",
+   "body": {
+    "report_id": "r1csrecunknown",
+    "topic_key": "0000c5a1-0000-0000-0000-0000000000b2#0#1",
+    "topic_name": "Generated topic: shared spaces",
+    "qualifying_tids": [
+     0,
+     1,
+     2,
+     4
+    ],
+    "group_consensus": {
+     "0": 0.92,
+     "1": 0.88,
+     "2": 0.85,
+     "3": 0.9,
+     "4": 0.81,
+     "5": 0.83,
+     "7": 0.95
+    }
+   }
+  }
+ ],
+ "responses": [
+  {
+   "status": 404,
+   "headers": [
+    [
+     "content-type",
+     "application/json; charset=utf-8"
+    ],
+    [
+     "cache-control",
+     "no-cache"
+    ],
+    [
+     "access-control-allow-origin",
+     "http://localhost"
+    ],
+    [
+     "access-control-allow-credentials",
+     "true"
+    ],
+    [
+     "access-control-allow-headers",
+     "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+    ],
+    [
+     "access-control-allow-methods",
+     "GET, PUT, POST, DELETE, OPTIONS"
+    ],
+    [
+     "content-length",
+     "72"
+    ],
+    [
+     "vary",
+     "Accept-Encoding"
+    ]
+   ],
+   "body": "{\"status\":\"error\",\"message\":\"Could not find conversation for report_id\"}"
+  }
+ ],
+ "provider": [],
+ "unusedProviderReplies": 0,
+ "stored": {
+  "added": [],
+  "removed": [],
+  "changed": []
+ },
+ "logs": [
+  "info: CollectiveStatement API request received",
+  "warn: No zid found for report_id: r1csrecunknown"
+ ]
+}

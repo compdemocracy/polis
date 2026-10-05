@@ -1,0 +1,5 @@
+{
+ "schema": "collective-statement-expected-differences/2",
+ "about": "Intended, ruled differences from the edge recordings, one entry per changed case: {case, find, replace, whole_response?, whole_response_reason?, why, ruling: pending | ruled:<who, when, where> | rejected}. find/replace are literal text on the committed recording file (find occurs exactly once; at most 120 characters of unchanged context; a whole-recording entry needs whole_response: true and a reason). Only a ruled: entry lets its case pass. Rules: expected.cjs. A re-record on edge absorbs the entries and empties this file.",
+ "entries": []
+}
