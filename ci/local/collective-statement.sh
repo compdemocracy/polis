@@ -11,8 +11,11 @@ check_init collective-statement
 check_use_node 22.23.1
 cd "$CHECK_ROOT"
 
-PG_PORT="$(check_port 16 5481)"
-DDB_PORT="$(check_port 17 8481)"
+# The harness refuses any store not on its own ports (safety.cjs: Postgres 5481,
+# DynamoDB 8481), so these stay fixed even with CHECK_PORT_BASE: one run per
+# host at a time (the run waits for the ports to be free).
+PG_PORT=5481
+DDB_PORT=8481
 PG="$CHECK_PROJECT-postgres"
 DDB="$CHECK_PROJECT-dynamodb"
 check_wait_ports "$PG_PORT" "$DDB_PORT"

@@ -56,7 +56,7 @@ first failure.
 | `vote-gate` | Vote convention gate / two storage conventions | Docker, Node, Python |
 | `delphi-characterization` | Delphi characterization / replay | Docker, Node 22, Python |
 | `collective-statement-guard` | Collective statement recordings / collective-statement-golden-guard | git; `BASE_REF` |
-| `collective-statement` | Collective statement recordings / replay | Docker, Node 22.23.1, Python |
+| `collective-statement` | Collective statement recordings / replay | Docker, Node 22.23.1, Python; host ports 5481, 8481 |
 | `lint` | Lint / eslint | Node |
 | `delphi-python` | Delphi Python Tests / test | Docker |
 | `queue-rs` | queue-rs / queue-rs build, clippy and tests | Docker, Rust |
@@ -81,8 +81,7 @@ Each run uses its own Compose project and, if you ask, its own host ports:
   one.
 - `CHECK_PORT_BASE=<n>`: move every published host port to `n + offset` (Postgres +0,
   DynamoDB +1, SES +2, MinIO +3, OIDC +4, alpha +5, HTTP +6, HTTPS +7, vote gate +10,
-  Delphi characterization +11/+12, queue-rs +13, coordinator +14/+15, collective statement
-  +16/+17). The coordinator
+  Delphi characterization +11/+12, queue-rs +13, coordinator +14/+15). The coordinator
   harness needs ports from 55432 to 65000, so a base such as `56000` suits every suite.
   Without it, the ports are CI's (5432, 8000, 3000, 80 and so on).
 - Before starting, a run waits (up to `CHECK_PORT_WAIT` seconds, default 600) for its host
@@ -91,6 +90,8 @@ Each run uses its own Compose project and, if you ask, its own host ports:
 
 The E2E specs address the stack as `http://localhost` and `https://localhost:3000`, so
 `check-e2e` always uses ports 80, 443 and 3000: one E2E run per machine at a time.
+Likewise the collective-statement harness refuses any store that is not on its own
+ports, so `check-collective-statement` always uses 5481 and 8481.
 
 ## Other knobs
 
