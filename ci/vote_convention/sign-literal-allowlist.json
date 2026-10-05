@@ -2,7 +2,7 @@
  "schema": "vote-sign-allowlist/1",
  "about": "Vote-sign literals present on origin/edge when the lint landed (P-078 PR-F). Seeded from the tree and the 350-row vote-sign audit of 2026-10-03 (snapshot 344c557ad), matched by path and by line mapped back to that snapshot. 'audit' names the row; 'file rows' means the file is audited but this line is not itemised; 'not in the audit' means the audit did not list the file. Delete an entry when its site moves into a chokepoint. Never add one to make a new literal pass: take the sign from the chokepoint of that layer.",
  "window": 3,
- "sites": 609,
+ "sites": 617,
  "entries": [
   {
    "path": "ci/private_cert/images/g12.py",
@@ -1095,6 +1095,27 @@
    "count": 1,
    "kind": "minus-one",
    "audit": "audit 2026-10-03 §2 row 210: delphi/polismath/run_math_pipeline.py:91-145"
+  },
+  {
+   "path": "delphi/polismath/tools/engine_rebuild.py",
+   "text": "votes, or version 0 / agree = -1 when the database has no row. A rebuild",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: docstring prose naming the default convention (agree = -1), not a vote value"
+  },
+  {
+   "path": "delphi/polismath/tools/engine_rebuild.py",
+   "text": "before the flip (raw -1, convention -1) and after it (raw +1, convention +1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: docstring prose describing raw votes and convention before and after the flip, not a vote value"
+  },
+  {
+   "path": "delphi/polismath/tools/engine_rebuild.py",
+   "text": "database at agree = -1 and would publish a different blob after the flip.\"\"\"",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: docstring prose naming the pre-flip convention (agree = -1), not a vote value"
   },
   {
    "path": "delphi/polismath/types.py",
@@ -2320,6 +2341,41 @@
    "count": 1,
    "kind": "minus-one",
    "audit": "not in the audit's 350 rows (delphi/tests/test_edge_cases.py); pre-existing at 344c557ad"
+  },
+  {
+   "path": "delphi/tests/test_engine_rebuild.py",
+   "text": "one moderated-out comment. Stored at agree = -1 (raw = -semantic).\"\"\"",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: docstring prose stating the fixture's convention (agree = -1), not a vote value"
+  },
+  {
+   "path": "delphi/tests/test_engine_rebuild.py",
+   "text": "agree_value smallint NOT NULL CHECK (agree_value IN (-1, 1)));",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: the CHECK constraint of the test's stand-in vote_convention table (agree_value in -1, 1), not a stored vote"
+  },
+  {
+   "path": "delphi/tests/test_engine_rebuild.py",
+   "text": "INSERT INTO public.vote_convention (version, agree_value) VALUES (0, -1);",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: the stand-in vote_convention row (version 0, agree_value -1), a convention value, not a stored vote"
+  },
+  {
+   "path": "delphi/tests/test_engine_rebuild.py",
+   "text": "r[\"convention\"][\"origin\"]) for r in v0[\"results\"]} == {(0, -1, \"database\")}",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: asserts the rebuild reported convention (0, agree_value -1, database), a convention value, not a stored vote"
+  },
+  {
+   "path": "delphi/tests/test_engine_rebuild.py",
+   "text": "cur.execute(\"BEGIN; UPDATE votes SET vote = -vote WHERE zid = ANY(%s); \"",
+   "count": 1,
+   "kind": "negated-vote",
+   "audit": "not in the 2026-10-03 audit: the test's deliberate flip of its own fixture copy (negate every stored vote, then set the convention row to agree = +1), the migration under test; no fixture helper expresses a flip"
   },
   {
    "path": "delphi/tests/test_in_conv_greedy_carry.py",
