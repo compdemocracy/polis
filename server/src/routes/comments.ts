@@ -13,7 +13,6 @@ import { getZinvite } from "../utils/zinvite";
 import { isModerator, polisTypes } from "../utils/common";
 import { MPromise } from "../utils/metered";
 import { votesPost } from "./votes";
-import { WIRE_PASS } from "../votes/convention";
 import analyzeComment from "../utils/moderation";
 import Config from "../config";
 import logger from "../utils/logger";
@@ -38,18 +37,27 @@ import {
 import { parsePagination, createPaginationMeta } from "../utils/pagination";
 
 /**
- * The legacy cutoff for a seed statement's automatic pass: the highest
- * conversation number (zid) in which a seed created with no vote is given a
- * pass vote from its author. Conversations at or below it have always carried
- * that automatic pass and keep it; above it a seed records no vote unless the
+ * A seed statement never gets an automatic vote from its author: not on
+ * POST /comments, not on a CSV upload (POST /comments-bulk), in any
+ * conversation. A statement records a vote for its author only when the
  * request carries one, so an owner is offered their own seeds to vote on.
  *
- * History: the condition `Number(zid) <= 17037` stood in the original handler
- * (server/src/server.ts) and was kept by #2024 (2025-07-24). #2117
- * (2025-08-08) dropped it, which gave every seed in every conversation an
- * automatic pass; it is restored here as it was (follow-up to #2952).
+ * History of the automatic pass that used to be cast here:
+ *  - The original handler (server/src/server.ts) gave a seed created with no
+ *    vote a pass from its author only in old conversations:
+ *    `is_seed && _.isUndefined(vote) && Number(zid) <= 17037`. #2024
+ *    (2025-07-24) kept that condition.
+ *  - #2117 (2025-08-08) dropped `Number(zid) <= 17037`, so every seed in
+ *    every conversation took the automatic pass.
+ *  - #2213 (2025-10-09) added an unconditional automatic pass for every seed
+ *    uploaded as a CSV.
+ *  - #2964 (2026-10-05) restored the cutoff for single seeds as a named
+ *    constant (17037). That number is a pol.is conversation number: a fresh
+ *    database numbers conversations from 1, so every other installation
+ *    stayed on the automatic-pass side, and the CSV path was untouched.
+ *  - Now there is no automatic pass and no cutoff (follow-up to #2952 and
+ *    #2964). Vote rows written by the earlier rules are left as they are.
  */
-const SEED_AUTO_PASS_LAST_ZID = 17037;
 
 /* this is a concept and can be generalized to other handlers */
 interface PolisRequestParams {
@@ -521,15 +529,10 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
     const comment = insertedComment[0];
     const tid = comment.tid;
 
-    // 7. Handle voting on the comment if specified
-    const shouldDefaultVote =
-      req.p.is_seed &&
-      _.isUndefined(vote) &&
-      Number(zid) <= SEED_AUTO_PASS_LAST_ZID;
-    const finalVote = shouldDefaultVote ? WIRE_PASS : vote;
-
-    if (!_.isUndefined(finalVote)) {
-      await votesPost(uid, pid, zid, tid, finalVote, 0, false);
+    // 7. Record the author's vote only when the request carries one. A seed
+    // gets no automatic vote (see the note above PolisRequestParams).
+    if (!_.isUndefined(vote)) {
+      await votesPost(uid, pid, zid, tid, vote, 0, false);
     }
 
     // 8. Handle moderation notifications
@@ -563,7 +566,7 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
     setTimeout(() => {
       updateConversationModifiedTime(zid, new Date(createdTimeMillis));
       updateLastInteractionTimeForConversation(zid, uid);
-      if (!_.isUndefined(finalVote)) {
+      if (!_.isUndefined(vote)) {
         updateVoteCount(zid, pid);
       }
     }, 100);
@@ -957,14 +960,9 @@ async function handle_POST_comments_bulk(
           lastInteractionTime = createdTime;
         }
 
-        // Handle default vote for seed comments (matching handle_POST_comments behavior)
-        if (is_seed) {
-          await votesPost(uid!, finalPid, zid!, tid, WIRE_PASS, 0, false);
-          // Schedule vote count update
-          setTimeout(() => {
-            updateVoteCount(zid!, finalPid);
-          }, 100);
-        }
+        // No vote is recorded for the uploader: an uploaded seed gets no
+        // automatic vote, and this route carries no vote of its own (see the
+        // note above PolisRequestParams).
 
         if (!active) {
           addNotificationTask(zid!);
