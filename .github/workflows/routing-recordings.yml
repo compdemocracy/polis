@@ -25,8 +25,6 @@ jobs:
         with: {fetch-depth: 0}
       - uses: actions/setup-node@v4
         with: {node-version: 22, cache: npm, cache-dependency-path: server/package-lock.json}
-      - run: npm ci --no-audit --no-fund
-        working-directory: server
-      - if: github.event_name == 'pull_request'
-        run: node server/characterization/routing/guard.cjs '${{ github.event.pull_request.base.sha }}'
-      - run: sh server/characterization/routing/check.sh
+      - run: make check-routing-recordings
+        env:
+          BASE_REF: '${{ github.event.pull_request.base.sha }}'

@@ -3,7 +3,7 @@
 #
 #   ci/local/check.sh <suite>...      run each in turn (all of them, even after a failure)
 #   ci/local/check.sh --gate          every check CI runs (make check)
-#   ci/local/check.sh --fast          the agent-loop tier (make check-fast)
+#   ci/local/check.sh --fast          the fast-loop tier (make check-fast)
 #   ci/local/check.sh --ungated       test sets no workflow runs yet (make check-ungated)
 #   ci/local/check.sh --changed       the suites whose inputs differ from BASE_REF (make check-changed)
 #   ci/local/check.sh --list          list the suites
@@ -24,7 +24,7 @@ case "${1:-}" in
     echo "check-changed: $changed"
     set -- $changed ;;
   --list)
-    echo "gate:    $CHECK_GATE_SUITES"; echo "fast:    $CHECK_FAST_SUITES"; echo "ungated: $CHECK_UNGATED_SUITES"; exit 0 ;;
+    echo "gate:    $CHECK_GATE_SUITES"; echo "fast:    $CHECK_FAST_SUITES"; echo "ungated: $CHECK_UNGATED_SUITES"; echo "tooling: $CHECK_TOOLING_SUITES"; exit 0 ;;
   '') echo "usage: ci/local/check.sh <suite>... | --gate | --fast | --ungated | --changed | --list" >&2; exit 2 ;;
 esac
 

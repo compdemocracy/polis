@@ -258,15 +258,15 @@ psql-shell: echo_vars ## Open psql shell for the default environment
 start-prodclone: ## Start with production clone database (USE_PRODCLONE=true)
 	$(MAKE) USE_PRODCLONE=true start
 
-# Local checks: every check hosted CI runs is a script in ci/local/, and each
-# workflow job calls the same `make check-<suite>`. See docs/local-checks.md.
+# Local checks: every check hosted CI runs has a script in ci/local/. Workflows
+# call the matching target except the documented coordinator exception.
 # Knobs: BASE_REF (default origin/edge), CHECK_PROJECT, CHECK_PORT_BASE, CHECK_KEEP=1.
 LOCAL_CHECK = ci/local/check.sh
 
 check: ## Every check CI runs, in CI's order, with a summary (one command, plain Docker host)
 	@$(LOCAL_CHECK) --gate
 
-check-fast: ## The agent-loop tier: lint, guards, contracts, server unit tests (seconds, no containers)
+check-fast: ## The fast-loop tier: lint, guards, contracts, server unit tests (seconds, no containers)
 	@$(LOCAL_CHECK) --fast
 
 check-changed: ## Only the suites whose inputs differ from BASE_REF (default origin/edge)
@@ -277,6 +277,9 @@ check-ungated: ## Test sets no workflow runs yet (legacy client, cdk, ci/ Python
 
 check-list: ## List the check suites
 	@$(LOCAL_CHECK) --list
+
+check-routing-recordings: ## Replay routing recordings and enforce their guard
+	@$(LOCAL_CHECK) routing-recordings
 
 check-%: ## One suite, e.g. make check-server-integration (make check-list)
 	@$(LOCAL_CHECK) $*
@@ -297,7 +300,7 @@ rbs: start-rebuild
 	start-FULL-REBUILD start-prodclone start-rebuild start-recreate \
 	test-recovery test-recovery-up test-recovery-down test-recovery-races \
 	vote-convention-gate vote-sign-lint \
-	check check-fast check-changed check-ungated check-list
+	check check-fast check-changed check-ungated check-list check-routing-recordings
 
 
 help: ## Show this help message
