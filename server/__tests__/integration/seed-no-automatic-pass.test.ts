@@ -18,17 +18,18 @@ import { pool } from "../setup/db-test-helpers";
  * in conversations numbered at or below a legacy cutoff (zid <= 17037). From
  * that day it did so in every conversation, so an owner who wrote every
  * statement had "passed" on all of them and was offered nothing to vote on
- * (issue #2952, follow-up of 2026-10-05). The cutoff is restored.
+ * (issue #2952, follow-up of 2026-10-05). #2964 restored the cutoff; its
+ * follow-up removed the automatic pass altogether, so the conversation number
+ * no longer matters.
  *
- * A test database numbers its conversations from 1, far below the cutoff, so a
- * conversation made through the API alone would exercise only the legacy
- * branch. This suite therefore lets the owner create a conversation through
- * the API and then copies that row, column for column, to a number above the
- * cutoff with an invite code of its own. Everything after that goes through
- * the API. The legacy branch (the boundary at 17037 / 17038) is pinned without
- * a database in __tests__/unit/seedAutomaticPass.test.ts, and an API-made
- * (low-numbered) conversation still showing the automatic pass is pinned by
- * next-comment-first-participant.test.ts.
+ * A test database numbers its conversations from 1. This suite keeps the case
+ * of a conversation with a very high number: the owner creates a conversation
+ * through the API and the suite copies that row, column for column, to a
+ * number above the old cutoff with an invite code of its own. Everything after
+ * that goes through the API. Conversations made through the API alone (low
+ * numbers) and seeds uploaded as a CSV are pinned by
+ * seed-never-auto-votes.test.ts, and the handler itself, without a database,
+ * by __tests__/unit/seedAutomaticPass.test.ts.
  */
 const LEGACY_CUTOFF_ZID = 17037;
 
