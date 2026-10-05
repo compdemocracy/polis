@@ -1,0 +1,32 @@
+name: Routing recordings
+on:
+  pull_request:
+    paths: ['server/**', '.github/workflows/routing-recordings.yml']
+  push:
+    branches: [edge]
+    paths: ['server/**', '.github/workflows/routing-recordings.yml']
+permissions:
+  contents: read
+jobs:
+  routing:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.11
+        env:
+          POSTGRES_PASSWORD: generatedlocal
+          POSTGRES_DB: routing_recordings
+        ports: ['55630:5432']
+        options: --health-cmd pg_isready --health-interval 2s --health-retries 30
+    env:
+      POLIS_RECOVERY_PG_PORT: '55630'
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm, cache-dependency-path: server/package-lock.json}
+      - run: npm ci --no-audit --no-fund
+        working-directory: server
+      - if: github.event_name == 'pull_request'
+        run: node server/characterization/routing/guard.cjs '${{ github.event.pull_request.base.sha }}'
+      - run: sh server/characterization/routing/check.sh
