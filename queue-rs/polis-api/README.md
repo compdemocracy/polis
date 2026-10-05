@@ -19,20 +19,36 @@ Only if you turn it on. Two switches, both off by default:
 
 With `RUST_API_ROUTES` unset (production today), nginx's rendered config is
 the same as before this change and every request goes to Node. With it set,
-only the exact path `/api/v3/math/pca2` goes to polis-api, and Node answers
-instead whenever polis-api does not answer well:
+only GET and HEAD requests on the exact path `/api/v3/math/pca2` that carry
+no body (no `Content-Length`, no `Transfer-Encoding`) go to polis-api. Every
+other method on that path (OPTIONS, POST, ...) and any request with a body go
+to Node before nginx reads any of it, so Node's own body parsing and non-GET
+answers are unchanged. For the requests polis-api gets, Node answers instead
+whenever polis-api fails **before it starts its response**:
 
 - the polis-api container is absent, restarting or gone (nginx looks it up
   per request through Docker's DNS, so nginx itself always starts);
 - polis-api does not connect within 2 seconds or answer within 5;
 - polis-api answers 502, which it does whenever its database fails it (no
   connection, no free pool slot within 2 seconds, a statement over its
-  3-second timeout, any query error), and for any path other than the exact
-  route.
+  3-second timeout, any query error), for any path other than the exact
+  route, and for a request body it does not model (a `Content-Encoding`, a
+  non-UTF-8 charset, multipart), which nginx does not send it anyway.
 
-A name in `RUST_API_ROUTES` that is not a known route never stops nginx: it
-logs an `ERROR RUST_API_ROUTES` line and leaves every route on Node.
-`nginx-routing.sh` checks all of this against stub upstreams, in CI.
+That fallback ends once polis-api has sent its status line and headers
+(nginx does not buffer the answer). A reply cut short after that point, for
+example by the process dying mid-body, reaches the client truncated (shorter
+than its `Content-Length`, or chunked without its end); the client sees a
+failed request, and the page's next poll a few seconds later is a new request
+that falls back as above. polis-api's own 500 answers pass through, as Node's
+would.
+
+No value of these settings stops nginx: an unknown route name, an upstream
+that is not `host:port`, a resolver that is not a list of addresses, or any
+rendered configuration that `nginx -t` refuses is logged as an `ERROR
+RUST_API_...` line and leaves every route on Node. A route named twice is
+rendered once. `nginx-routing.sh` checks all of this against stub upstreams,
+in CI, including the truncated-reply limit.
 
 ## Before turning it on anywhere real
 
@@ -135,6 +151,12 @@ replaced), `POLIS_API_LISTEN`
 (`127.0.0.1:5100`; the image uses `0.0.0.0:5100`). `GET /health` reports
 database reachability and counts; it is not routed by nginx.
 
+A pool slot belongs to the database operation, not to the request waiting
+for it: a request that is abandoned (its 30-second deadline, a dropped
+connection) keeps its slot until the statement or connect has really ended,
+so at most `POLIS_API_DB_POOL` operations run and at most that many idle
+connections are kept.
+
 ## Known differences from Node (none reached by any recorded request)
 
 - **The math cache is not shared.** Node's 3-second math cache is shared
@@ -157,8 +179,10 @@ database reachability and counts; it is not routed by nginx.
 - A `math_main.data` value that is not a JSON object (no writer produces one)
   is answered 500 here.
 - Request bodies over 1 MB, chunked request bodies and multipart bodies are
-  refused or ignored; Node accepts up to 50 MB. The route reads no body field
-  that a client sends in practice.
+  refused or ignored; Node accepts up to 50 MB. A body with a
+  `Content-Encoding` or a non-UTF-8 charset is answered 502. nginx sends
+  polis-api no request with a body, so none of these is reachable through
+  it; the route reads no body field that a client sends in practice.
 
 ## Running the checks
 

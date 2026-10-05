@@ -301,8 +301,13 @@ enum Payload {
     Bytes(Vec<u8>),
 }
 
-/// Express 3 `res.send(body)`.
-fn send(req: &Request, mut res: Res, payload: Payload) -> Outgoing {
+/// Express 3 `res.send(body)`, with the compression middleware installed.
+fn send(req: &Request, res: Res, payload: Payload) -> Outgoing {
+    send_in(req, res, payload, true)
+}
+
+/// Express 3 `res.send(body)`; `installed` as in [`finish`].
+fn send_in(req: &Request, mut res: Res, payload: Payload, installed: bool) -> Outgoing {
     let bytes = match payload {
         Payload::Text(text) => {
             if res.get("Content-Type").is_none() {
@@ -338,7 +343,7 @@ fn send(req: &Request, mut res: Res, payload: Payload) -> Outgoing {
     } else {
         bytes
     };
-    finish(req, res, Ending::End(bytes), true)
+    finish(req, res, Ending::End(bytes), installed)
 }
 
 /// Express 3 `res.json(value)`.
@@ -605,11 +610,13 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
                 return finish(req, res, Ending::WriteHeadThenEnd, false);
             }
             // Node sends this, then keeps running the chain against a
-            // finished response and ends up destroying the socket.
-            let mut out = send(
+            // finished response and ends up destroying the socket. It runs
+            // before `express.compress()`, so no `Vary` is added.
+            let mut out = send_in(
                 req,
                 Res::new(400),
                 Payload::Text("Please use HTTPS when submitting data.".into()),
+                false,
             );
             out.close = true;
             return out;
@@ -621,6 +628,14 @@ async fn serve(app: &App, req: &Request) -> Outgoing {
             .headers
             .get("content-length")
             .is_some_and(|v| !js::string_to_number(v).is_nan());
+    if has_body
+        && !params::body_is_modelled(
+            req.headers.get("content-type"),
+            req.headers.get("content-encoding"),
+        )
+    {
+        return bad_gateway();
+    }
     let body = match params::parse_body(req.headers.get("content-type"), has_body, &req.body) {
         params::Body::Parsed(v) => v,
         params::Body::Invalid => {
@@ -918,15 +933,13 @@ mod tests {
         );
     }
 
-    /// With its database unreachable the route answers 502 (nginx then asks
-    /// Node), never the 400 or 500 a lookup failure would otherwise produce.
-    #[tokio::test]
-    async fn an_unreachable_database_is_a_502() {
+    /// An app whose database is unreachable (nothing listens on port 1).
+    fn app(dev_mode: bool) -> Arc<App> {
         let cfg = Config {
             listen: String::new(),
             math_env: "p".into(),
             cache_size: 300,
-            dev_mode: true,
+            dev_mode,
             use_network_host: false,
             production: true,
             pool: crate::db::Limits {
@@ -942,11 +955,83 @@ mod tests {
             polis_queue_adapter::jobs::transport::Connector::Plain(Box::new(pg)),
             cfg.pool.clone(),
         );
-        let app = Arc::new(App::new(&cfg, pool));
+        Arc::new(App::new(&cfg, pool))
+    }
+
+    fn header<'a>(out: &'a Outgoing, name: &str) -> Option<&'a str> {
+        out.headers
+            .iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case(name))
+            .map(|(_, v)| v.as_str())
+    }
+
+    /// With its database unreachable the route answers 502 (nginx then asks
+    /// Node), never the 400 or 500 a lookup failure would otherwise produce.
+    #[tokio::test]
+    async fn an_unreachable_database_is_a_502() {
+        let app = app(true);
         let mut req = request("GET", &[("host", "h"), ("x-forwarded-proto", "https")]);
         req.target = format!("{PATH}?conversation_id=abc");
         let out = handle(app, req).await;
         assert_eq!(out.status, 502);
+    }
+
+    /// Plain-HTTP HEAD, OPTIONS and POST: Node's `redirectIfNotHttps` answers
+    /// 400 before the compression middleware, so there is no `Vary` header.
+    #[tokio::test]
+    async fn the_https_refusal_is_sent_before_compression() {
+        for method in ["HEAD", "OPTIONS", "POST"] {
+            let out = handle(app(false), request(method, &[("host", "h")])).await;
+            assert_eq!(out.status, 400, "{method}");
+            assert!(out.close, "{method}");
+            assert_eq!(header(&out, "Vary"), None, "{method}");
+            assert_eq!(
+                header(&out, "Content-Type"),
+                Some("text/html; charset=utf-8"),
+                "{method}"
+            );
+        }
+        let out = handle(app(false), request("GET", &[("host", "h")])).await;
+        assert_eq!(out.status, 302);
+        assert_eq!(header(&out, "Location"), Some("https://h/api/v3/math/pca2"));
+    }
+
+    /// A body this process does not reproduce Node's handling of is answered
+    /// 502, which nginx turns into Node's answer; a UTF-8 JSON body is not.
+    #[tokio::test]
+    async fn bodies_outside_the_model_go_back_to_node() {
+        let https = [("host", "h"), ("x-forwarded-proto", "https")];
+        let cases: [(&[(&str, &str)], u16); 5] = [
+            (
+                &[
+                    ("content-type", "application/json"),
+                    ("content-encoding", "gzip"),
+                ],
+                502,
+            ),
+            (
+                &[
+                    ("content-type", "application/json"),
+                    ("content-encoding", "x-unknown"),
+                ],
+                502,
+            ),
+            (
+                &[("content-type", "application/json; charset=iso-8859-1")],
+                502,
+            ),
+            (&[("content-type", "multipart/form-data; boundary=x")], 502),
+            (&[("content-type", "application/json; charset=utf-8")], 204),
+        ];
+        for (headers, want) in cases {
+            let mut all: Vec<(&str, &str)> = https.to_vec();
+            all.extend_from_slice(headers);
+            all.push(("content-length", "2"));
+            let mut req = request("OPTIONS", &all);
+            req.body = b"{}".to_vec();
+            let out = handle(app(true), req).await;
+            assert_eq!(out.status, want, "{headers:?}");
+        }
     }
 
     #[test]

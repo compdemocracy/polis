@@ -145,6 +145,36 @@ fn media_type(content_type: Option<&str>) -> String {
         .to_ascii_lowercase()
 }
 
+/// False for a request body whose handling this process does not reproduce:
+/// any `Content-Encoding` other than `identity` (the Node middleware inflates
+/// gzip and refuses unknown codings with 415), a JSON or urlencoded body in a
+/// charset other than UTF-8 (415 there), and multipart forms (Node's own
+/// multipart handling). The route answers these with a 502 so nginx asks
+/// Node, rather than answering differently. nginx itself sends only GET and
+/// HEAD requests without a body here, so in deployment these never arrive.
+pub fn body_is_modelled(content_type: Option<&str>, content_encoding: Option<&str>) -> bool {
+    if content_encoding.is_some_and(|e| !e.trim().eq_ignore_ascii_case("identity")) {
+        return false;
+    }
+    let media = media_type(content_type);
+    if media.starts_with("multipart/") {
+        return false;
+    }
+    let textual = media == "application/json"
+        || media.ends_with("+json")
+        || media == "application/x-www-form-urlencoded";
+    let foreign_charset = content_type
+        .unwrap_or_default()
+        .split(';')
+        .skip(1)
+        .filter_map(|p| p.split_once('='))
+        .any(|(k, v)| {
+            k.trim().eq_ignore_ascii_case("charset")
+                && !v.trim().trim_matches('"').eq_ignore_ascii_case("utf-8")
+        });
+    !(textual && foreign_charset)
+}
+
 /// `express.bodyParser()`: JSON (strict: an object or array) and urlencoded
 /// bodies; any other body leaves `req.body` empty.
 pub fn parse_body(content_type: Option<&str>, has_body: bool, body: &[u8]) -> Body {
@@ -236,6 +266,32 @@ mod tests {
         assert!(matches!(
             parse_body(Some("text/plain"), true, b"{bad"),
             Body::Parsed(_)
+        ));
+    }
+
+    #[test]
+    fn bodies_outside_the_model_are_named() {
+        let json = Some("application/json");
+        assert!(body_is_modelled(json, None));
+        assert!(body_is_modelled(json, Some("identity")));
+        assert!(body_is_modelled(
+            Some("application/json; charset=UTF-8"),
+            None
+        ));
+        assert!(body_is_modelled(Some("text/plain; charset=latin1"), None));
+        assert!(!body_is_modelled(json, Some("gzip")));
+        assert!(!body_is_modelled(json, Some("x-unknown")));
+        assert!(!body_is_modelled(
+            Some("application/json; charset=iso-8859-1"),
+            None
+        ));
+        assert!(!body_is_modelled(
+            Some("application/x-www-form-urlencoded; charset=\"latin1\""),
+            None
+        ));
+        assert!(!body_is_modelled(
+            Some("multipart/form-data; boundary=x"),
+            None
         ));
     }
 
