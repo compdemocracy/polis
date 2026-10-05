@@ -322,8 +322,7 @@ function moderateCommentQuery(
 // Note: Seed and moderator comments bypass this function entirely
 async function moderateComment(
   txt: string,
-  conversation: any,
-  ip?: string | undefined
+  conversation: any
 ): Promise<CommentModerationResult> {
   let active = true;
   const classifications: string[] = [];
@@ -331,7 +330,7 @@ async function moderateComment(
 
   // Run moderation checks in parallel
   const [polisModResponse, bad] = await Promise.all([
-    analyzeComment(txt, conversation.topic, ip),
+    analyzeComment(txt, conversation.topic),
     Promise.resolve(hasBadWords(txt)),
   ]);
 
@@ -463,12 +462,6 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
       return;
     }
 
-    const ip =
-      req.headers["x-forwarded-for"] ||
-      req.connection?.remoteAddress ||
-      req.socket?.remoteAddress ||
-      req.connection?.socket?.remoteAddress;
-
     // 4. Moderate the comment
     let active = true;
     let mod = 0;
@@ -479,7 +472,7 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
       active = true;
     } else if (await isProConvo(conversation.owner)) {
       // Only apply pro moderation features to non-seed comments
-      const moderationResult = await moderateComment(txt, conversation, ip);
+      const moderationResult = await moderateComment(txt, conversation);
       active = moderationResult.active;
       mod = moderationResult.mod;
     }
