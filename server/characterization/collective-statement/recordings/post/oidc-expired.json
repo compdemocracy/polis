@@ -1,0 +1,83 @@
+{
+ "format": "collective-statement-recording/1",
+ "case": "post/oidc-expired",
+ "about": "the owner's delphi-enabled OIDC token, expired an hour ago",
+ "requests": [
+  {
+   "method": "POST",
+   "path": "/api/v3/collectiveStatement",
+   "auth": "ownerExpired",
+   "body": {
+    "report_id": "r1csrec201",
+    "topic_key": "0000c5a1-0000-0000-0000-0000000000b2#0#1",
+    "topic_name": "Generated topic: shared spaces",
+    "qualifying_tids": [
+     0,
+     1,
+     2,
+     4
+    ],
+    "group_consensus": {
+     "0": 0.92,
+     "1": 0.88,
+     "2": 0.85,
+     "3": 0.9,
+     "4": 0.81,
+     "5": 0.83,
+     "7": 0.95
+    }
+   }
+  }
+ ],
+ "responses": [
+  {
+   "status": 401,
+   "headers": [
+    [
+     "content-type",
+     "application/json; charset=utf-8"
+    ],
+    [
+     "cache-control",
+     "no-cache"
+    ],
+    [
+     "access-control-allow-origin",
+     "http://localhost"
+    ],
+    [
+     "access-control-allow-credentials",
+     "true"
+    ],
+    [
+     "access-control-allow-headers",
+     "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+    ],
+    [
+     "access-control-allow-methods",
+     "GET, PUT, POST, DELETE, OPTIONS"
+    ],
+    [
+     "content-length",
+     "64"
+    ],
+    [
+     "vary",
+     "Accept-Encoding"
+    ]
+   ],
+   "body": "{\"error\":\"Invalid authentication token\",\"details\":\"jwt expired\"}"
+  }
+ ],
+ "provider": [],
+ "unusedProviderReplies": 0,
+ "stored": {
+  "added": [],
+  "removed": [],
+  "changed": []
+ },
+ "logs": [
+  "error: OIDC JWT validation failed {\"error\":\"jwt expired\",\"code\":\"invalid_token\",\"name\":\"UnauthorizedError\",\"inner\":{\"name\":\"TokenExpiredError\",\"message\":\"jwt expired\",\"expiredAt\":\"2023-11-14T21:19:20.000Z\"}}",
+  "error: JWT validation failed jwt expired {\"name\":\"UnauthorizedError\"}"
+ ]
+}

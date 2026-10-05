@@ -1,0 +1,289 @@
+{
+ "about": "One textual mutation per place in server/src/routes/collectiveStatement.ts that decides what reaches the model, what is stored, who may call, or what the GET returns. mutations.cjs applies each to a scratch copy and requires the collective-statement recordings to fail exactly expectFailing (case ids). Line text as of origin/edge 840607c98. Every find is literal text from edge: an edit to collectiveStatement.ts that touches one of these lines makes the mutation step ERROR until its entry is updated here (this file may change together with server code).",
+ "mutations": [
+  {
+   "id": "PROMPT",
+   "what": "(a) the prompt text: one instruction line changed",
+   "file": "src/routes/collectiveStatement.ts",
+   "find": "- Write 2-3 paragraphs that synthesize the consensus views",
+   "replace": "- Write 2-4 paragraphs that synthesize the consensus views",
+   "expectFailing": [
+    "post/concurrent-first-requests",
+    "post/dynamodb-write-fails-after-call",
+    "post/eligible",
+    "post/eligible-moderated-out-tid",
+    "post/eligible-tid-outside-topic",
+    "post/legacy-consensus-only",
+    "post/legacy-consensus-only-empty-set",
+    "post/no-qualifying-tids-no-consensus",
+    "post/non-owner-delphi-enabled",
+    "post/older-job-topic-key",
+    "post/provider-400-invalid-request",
+    "post/provider-429-every-attempt",
+    "post/provider-500-then-success",
+    "post/provider-connection-reset",
+    "post/provider-json-in-code-fence",
+    "post/provider-no-text-block",
+    "post/provider-slower-than-proxy",
+    "post/provider-truncated-max-tokens",
+    "post/provider-unparseable-prose",
+    "post/underscore-topic-key"
+   ]
+  },
+  {
+   "id": "MODEL",
+   "what": "the model the call names",
+   "file": "src/routes/collectiveStatement.ts",
+   "find": "    const response = await anthropic.messages.create({\n      model: \"claude-opus-4-8\",",
+   "replace": "    const response = await anthropic.messages.create({\n      model: \"claude-opus-4-7\",",
+   "expectFailing": [
+    "post/concurrent-first-requests",
+    "post/dynamodb-write-fails-after-call",
+    "post/eligible",
+    "post/eligible-moderated-out-tid",
+    "post/eligible-tid-outside-topic",
+    "post/legacy-consensus-only",
+    "post/legacy-consensus-only-empty-set",
+    "post/no-qualifying-tids-no-consensus",
+    "post/non-owner-delphi-enabled",
+    "post/older-job-topic-key",
+    "post/provider-400-invalid-request",
+    "post/provider-429-every-attempt",
+    "post/provider-500-then-success",
+    "post/provider-connection-reset",
+    "post/provider-json-in-code-fence",
+    "post/provider-no-text-block",
+    "post/provider-slower-than-proxy",
+    "post/provider-truncated-max-tokens",
+    "post/provider-unparseable-prose",
+    "post/underscore-topic-key"
+   ]
+  },
+  {
+   "id": "MAX-TOKENS",
+   "what": "the output cap the call sends",
+   "file": "src/routes/collectiveStatement.ts",
+   "find": "max_tokens: 8000,",
+   "replace": "max_tokens: 4000,",
+   "expectFailing": [
+    "post/concurrent-first-requests",
+    "post/dynamodb-write-fails-after-call",
+    "post/eligible",
+    "post/eligible-moderated-out-tid",
+    "post/eligible-tid-outside-topic",
+    "post/legacy-consensus-only",
+    "post/legacy-consensus-only-empty-set",
+    "post/no-qualifying-tids-no-consensus",
+    "post/non-owner-delphi-enabled",
+    "post/older-job-topic-key",
+    "post/provider-400-invalid-request",
+    "post/provider-429-every-attempt",
+    "post/provider-500-then-success",
+    "post/provider-connection-reset",
+    "post/provider-json-in-code-fence",
+    "post/provider-no-text-block",
+    "post/provider-slower-than-proxy",
+    "post/provider-truncated-max-tokens",
+    "post/provider-unparseable-prose",
+    "post/underscore-topic-key"
+   ]
+  },
+  {
+   "id": "SIGN",
+   "what": "the vote sign: the topic query counts agrees as disagrees and disagrees as agrees",
+   "file": "src/routes/collectiveStatement.ts",
+   "find": "COALESCE(SUM(CASE WHEN v.vote = ${disagree} THEN 1 ELSE 0 END), 0) as disagrees,\n        COALESCE(SUM(CASE WHEN v.vote = ${agree} THEN 1 ELSE 0 END), 0) as agrees,",
+   "replace": "COALESCE(SUM(CASE WHEN v.vote = ${agree} THEN 1 ELSE 0 END), 0) as disagrees,\n        COALESCE(SUM(CASE WHEN v.vote = ${disagree} THEN 1 ELSE 0 END), 0) as agrees,",
+   "expectFailing": [
+    "get/main-after-posts",
+    "post/concurrent-first-requests",
+    "post/dynamodb-write-fails-after-call",
+    "post/eligible",
+    "post/eligible-moderated-out-tid",
+    "post/eligible-tid-outside-topic",
+    "post/legacy-consensus-only",
+    "post/no-qualifying-tids-no-consensus",
+    "post/non-owner-delphi-enabled",
+    "post/older-job-topic-key",
+    "post/provider-400-invalid-request",
+    "post/provider-429-every-attempt",
+    "post/provider-500-then-success",
+    "post/provider-connection-reset",
+    "post/provider-json-in-code-fence",
+    "post/provider-no-text-block",
+    "post/provider-slower-than-proxy",
+    "post/provider-truncated-max-tokens",
+    "post/provider-unparseable-prose",
+    "post/underscore-topic-key"
+   ]
+  },
+  {
+   "id": "KEY",
+   "what": "(b) the stored key shape: <zid>#<topic_key>#<uuid> becomes <zid>|<topic_key>|<uuid>",
+   "file": "src/routes/collectiveStatement.ts",
+   "find": "const statementKey = `${zid}#${topic_key}#${uuidv4()}`;",
+   "replace": "const statementKey = `${zid}|${topic_key}|${uuidv4()}`;",
+   "expectFailing": [
+    "get/main-after-posts",
+    "post/concurrent-first-requests",
+    "post/eligible",
+    "post/eligible-moderated-out-tid",
+    "post/eligible-tid-outside-topic",
+    "post/legacy-consensus-only",
+    "post/legacy-consensus-only-empty-set",
+    "post/no-qualifying-tids-no-consensus",
+    "post/non-owner-delphi-enabled",
+    "post/older-job-topic-key",
+    "post/provider-500-then-success",
+    "post/provider-json-in-code-fence",
+    "post/provider-no-text-block",
+    "post/provider-slower-than-proxy",
+    "post/provider-truncated-max-tokens",
+    "post/provider-unparseable-prose",
+    "post/underscore-topic-key"
+   ]
+  },
+  {
+   "id": "TIDS-NOT-TRUSTED",
+   "what": "(c) the client's qualifying_tids are not trusted (ignored; the request falls through to the other paths)",
+   "file": "src/routes/collectiveStatement.ts",
+   "find": "if (qualifying_tids && qualifying_tids.length > 0) {",
+   "replace": "if (false && qualifying_tids && qualifying_tids.length > 0) {",
+   "expectFailing": [
+    "get/main-after-posts",
+    "post/concurrent-first-requests",
+    "post/dynamodb-write-fails-after-call",
+    "post/eligible",
+    "post/eligible-moderated-out-tid",
+    "post/eligible-tid-outside-topic",
+    "post/non-owner-delphi-enabled",
+    "post/older-job-topic-key",
+    "post/one-qualifying-tid",
+    "post/provider-400-invalid-request",
+    "post/provider-429-every-attempt",
+    "post/provider-500-then-success",
+    "post/provider-connection-reset",
+    "post/provider-json-in-code-fence",
+    "post/provider-no-text-block",
+    "post/provider-slower-than-proxy",
+    "post/provider-truncated-max-tokens",
+    "post/provider-unparseable-prose",
+    "post/qualifying-tids-as-strings",
+    "post/qualifying-tids-without-group-consensus",
+    "post/underscore-topic-key"
+   ]
+  },
+  {
+   "id": "CONSENSUS-NOT-TRUSTED",
+   "what": "(c) the client's group_consensus numbers are not trusted on the qualifying path (every tid gets 0)",
+   "file": "src/routes/collectiveStatement.ts",
+   "find": "      filteredComments = filteredComments.map((comment) => ({\n        ...comment,\n        group_consensus: groupConsensus[comment.comment_id] || 0,",
+   "replace": "      filteredComments = filteredComments.map((comment) => ({\n        ...comment,\n        group_consensus: 0,",
+   "expectFailing": [
+    "get/main-after-posts",
+    "post/concurrent-first-requests",
+    "post/dynamodb-write-fails-after-call",
+    "post/eligible",
+    "post/eligible-moderated-out-tid",
+    "post/eligible-tid-outside-topic",
+    "post/non-owner-delphi-enabled",
+    "post/older-job-topic-key",
+    "post/one-qualifying-tid",
+    "post/provider-400-invalid-request",
+    "post/provider-429-every-attempt",
+    "post/provider-500-then-success",
+    "post/provider-connection-reset",
+    "post/provider-json-in-code-fence",
+    "post/provider-no-text-block",
+    "post/provider-slower-than-proxy",
+    "post/provider-truncated-max-tokens",
+    "post/provider-unparseable-prose",
+    "post/qualifying-tids-without-group-consensus",
+    "post/underscore-topic-key"
+   ]
+  },
+  {
+   "id": "MIN-COMMENTS",
+   "what": "(d) the server's minimum of 3 qualifying comments becomes 2",
+   "file": "src/routes/collectiveStatement.ts",
+   "find": "const MIN_COMMENTS = 3;",
+   "replace": "const MIN_COMMENTS = 2;",
+   "expectFailing": [
+    "post/one-qualifying-tid",
+    "post/qualifying-tids-as-strings"
+   ]
+  },
+  {
+   "id": "MIN-VOTES",
+   "what": "(d) the legacy path's 20-vote floor becomes 21",
+   "file": "src/routes/collectiveStatement.ts",
+   "find": "filteredComments.filter((c) => c.total_votes >= 20);",
+   "replace": "filteredComments.filter((c) => c.total_votes >= 21);",
+   "expectFailing": [
+    "post/legacy-consensus-only"
+   ]
+  },
+  {
+   "id": "QUARTILE",
+   "what": "(d) the legacy path's top quartile becomes the top half",
+   "file": "src/routes/collectiveStatement.ts",
+   "find": "Math.ceil(filteredComments.length / 4);",
+   "replace": "Math.ceil(filteredComments.length / 2);",
+   "expectFailing": [
+    "post/legacy-consensus-only"
+   ]
+  },
+  {
+   "id": "DELPHI-GATE",
+   "what": "who may generate: the delphi_enabled check is dropped",
+   "file": "src/routes/collectiveStatement.ts",
+   "find": "if (!req.p.delphiEnabled) {",
+   "replace": "if (false && !req.p.delphiEnabled) {",
+   "expectFailing": [
+    "post/oidc-delphi-claim-false",
+    "post/oidc-without-delphi-claim",
+    "post/participant-token",
+    "post/standard-user-token",
+    "post/xid-participant-token"
+   ]
+  },
+  {
+   "id": "FALLBACK",
+   "what": "unparseable output: the stored fallback keeps no text",
+   "file": "src/routes/collectiveStatement.ts",
+   "find": "text: responseText,",
+   "replace": "text: \"\",",
+   "expectFailing": [
+    "post/provider-truncated-max-tokens",
+    "post/provider-unparseable-prose"
+   ]
+  },
+  {
+   "id": "DEDUPE",
+   "what": "GET list: the newest-per-layer_cluster pick keeps the first row instead",
+   "file": "src/routes/collectiveStatement.ts",
+   "find": "deduplicated.set(layerCluster, stmt);",
+   "replace": "if (!deduplicated.has(layerCluster)) deduplicated.set(layerCluster, stmt);",
+   "expectFailing": [
+    "get/main-after-posts",
+    "get/several-across-jobs",
+    "get/several-across-jobs-owner-token",
+    "reset/other-report-untouched"
+   ]
+  },
+  {
+   "id": "GET-ORDER",
+   "what": "GET list: the served order of the statements is reversed",
+   "file": "src/routes/collectiveStatement.ts",
+   "find": "const uniqueStatements = Array.from(deduplicated.values());",
+   "replace": "const uniqueStatements = Array.from(deduplicated.values()).reverse();",
+   "expectFailing": [
+    "get/main-after-posts",
+    "get/several-across-jobs",
+    "get/several-across-jobs-owner-token",
+    "reset/before",
+    "reset/other-report-untouched"
+   ]
+  }
+ ]
+}

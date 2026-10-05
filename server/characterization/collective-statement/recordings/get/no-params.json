@@ -1,0 +1,60 @@
+{
+ "format": "collective-statement-recording/1",
+ "case": "get/no-params",
+ "about": "neither report_id nor statement_id",
+ "requests": [
+  {
+   "method": "GET",
+   "path": "/api/v3/collectiveStatement",
+   "auth": "none"
+  }
+ ],
+ "responses": [
+  {
+   "status": 400,
+   "headers": [
+    [
+     "content-type",
+     "application/json; charset=utf-8"
+    ],
+    [
+     "cache-control",
+     "no-cache"
+    ],
+    [
+     "access-control-allow-origin",
+     "http://localhost"
+    ],
+    [
+     "access-control-allow-credentials",
+     "true"
+    ],
+    [
+     "access-control-allow-headers",
+     "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+    ],
+    [
+     "access-control-allow-methods",
+     "GET, PUT, POST, DELETE, OPTIONS"
+    ],
+    [
+     "content-length",
+     "68"
+    ],
+    [
+     "vary",
+     "Accept-Encoding"
+    ]
+   ],
+   "body": "{\"status\":\"error\",\"message\":\"statement_id or report_id is required\"}"
+  }
+ ],
+ "provider": [],
+ "unusedProviderReplies": 0,
+ "stored": {
+  "added": [],
+  "removed": [],
+  "changed": []
+ },
+ "logs": []
+}

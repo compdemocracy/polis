@@ -1,0 +1,36 @@
+// Generated fixtures only. Each state runs with the ordinary and topical coin.
+const states = [
+  ['owner-current', {pid:0}], ['owner-all-voted', {pid:0,allVoted:true}],
+  ['owner-seeds', {pid:0,seeds:[0,2,4],voted:[0,2,4],seedFirst:true}],
+  ['owner-seeds-only', {pid:0,count:3,seeds:[0,1,2],voted:[0,1,2],seedFirst:true}],
+  ['stale-in-process', {warm:true,newerDb:true}],
+  ['large-math-cold', {paddingBytes:12*1024*1024}],
+  ['large-math-warm', {paddingBytes:12*1024*1024,warm:true}],
+  ['large-math-expired', {paddingBytes:12*1024*1024,warm:true,expire:true}],
+  ['no-topics', { picks: null }], ['current-job', {}],
+  ['older-job-deleted', { picks: ['old#0#1'], oldDeleted: true }],
+  ['older-job-retained', { picks: ['old#0#1'] }],
+  ['empty-picks', { picks: [] }], ['duplicate-picks', { picks: ['job#0#1','job#0#1'] }],
+  ['overlapping-layers', { picks: ['job#0#1','job#1#0'] }],
+  ['all-voted', { allVoted: true }], ['topical-voted', { voted: [0,2,4] }],
+  ['moderated-out', { banned: [0,2,4] }], ['strict', { strict: true }],
+  ['inactive-muted', { inactive: [0], muted: [2] }],
+  ['seed-first', { seeds: [4], seedFirst: true }],
+  ['seed-no-priority', { seeds: [4] }],
+  ['oldest-window', { count: 1005 }],
+  ['without', { without: [0,2,4] }],
+  ['translation-hit', { lang: 'fr', translation: true }],
+  ['translation-miss', { lang: 'fr' }],
+  ['translation-off', { lang: 'fr', translate: false }],
+  ['math-absent', { math: false }], ['math-generation-zero', { tick: 0 }],
+  ['math-cache-warm', { warm: true }], ['math-cache-expired', { warm: true, expire: true }],
+  ['math-old-generation', { stale: true }],
+  ['no-assignments', { assignments: false, warm: true }],
+  ['assignment-pagination', { pageSize: 2 }],
+  ['topic-store-error', { topicError: true }], ['assignment-store-error', { assignmentError: true }],
+  ['anonymous', { pid: -1 }], ['empty-conversation', { count: 0 }],
+  ['zero-priority', { zero: true }], ['new-comment-after-math', { unscored: true }],
+];
+module.exports = states.flatMap(([name, options]) => [0,1].map(ratio => ({name:`${ratio ? 'topical':'ordinary'}/${name}`, ratio, ...options})));
+
+for(const ratio of [0,1]) for(const pid of [0,7]) for(const method of ['GET','POST']) for(const state of ['seeds','all-voted','large-math']) module.exports.push({name:`http/${ratio?'topical':'ordinary'}/${pid===0?'owner':'second'}/${method}/${state}`,http:method,ratio,pid,seeds:[0,2,4],voted:pid===0?[0,2,4]:[],seedFirst:true,allVoted:state==='all-voted',paddingBytes:state==='large-math'?12*1024*1024:8192});

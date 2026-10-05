@@ -1,0 +1,265 @@
+{
+ "format": "collective-statement-recording/1",
+ "clock": "1700000000000 + 60000 * case index",
+ "randomSeed": "mulberry32(sha256(case id)[0..4]) per case",
+ "pinnedEnv": [
+  "ADMIN_UIDS",
+  "ANTHROPIC_API_KEY",
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_LOG",
+  "AUTH_AUDIENCE",
+  "AUTH_ISSUER",
+  "AUTH_NAMESPACE",
+  "AWS_ACCESS_KEY_ID",
+  "AWS_EC2_METADATA_DISABLED",
+  "AWS_ENDPOINT_URL_SQS",
+  "AWS_REGION",
+  "AWS_S3_BUCKET_NAME",
+  "AWS_S3_ENDPOINT",
+  "AWS_SECRET_ACCESS_KEY",
+  "DATABASE_SSL",
+  "DATABASE_URL",
+  "DEV_MODE",
+  "DOMAIN_OVERRIDE",
+  "EMBED_SERVICE_HOSTNAME",
+  "GEMINI_API_KEY",
+  "JWKS_URI",
+  "MATH_ENV",
+  "NODE_ENV",
+  "OPENAI_API_KEY",
+  "POLIS_FROM_ADDRESS",
+  "POLIS_JWT_AUDIENCE",
+  "POLIS_JWT_ISSUER",
+  "SERVER_LOG_LEVEL",
+  "SERVICE_URL",
+  "SES_ENDPOINT",
+  "SHOULD_USE_TRANSLATION_API",
+  "STATIC_FILES_HOST",
+  "STATIC_FILES_PORT",
+  "TZ",
+  "WEBSERVER_PASS",
+  "WEBSERVER_USERNAME"
+ ],
+ "egress": {
+  "selfTest": "api.anthropic.com:443 refused",
+  "allowedHosts": "loopback + the Postgres and DynamoDB hosts",
+  "refusedAtServerLoad": [
+   "rest.akismet.com:80"
+  ],
+  "refusedDuringCases": [],
+  "providerStubRequests": 26,
+  "providerRequestsRecorded": 26
+ },
+ "postgres": {
+  "migrations": 22,
+  "answers": 241
+ },
+ "caseCount": 51,
+ "cases": [
+  {
+   "id": "post/missing-topic-name",
+   "sha256": "fd40c95acb91b43fdde92f14cd5c2200bebdaad535c794e34433e1669fbe6c0e"
+  },
+  {
+   "id": "post/unauthenticated",
+   "sha256": "fb23cf7479a3b66ece8392b4d105088233b8f7afd966b385129a2d771410c0d7"
+  },
+  {
+   "id": "post/participant-token",
+   "sha256": "00386b25d061d6e435bf15eeee9b9955f347b611d7a70cd99da750d5383df330"
+  },
+  {
+   "id": "post/xid-participant-token",
+   "sha256": "5aa32a87ab81d9bd69c88b933ff4f82e5ff60f29cea4e26205f2e2d231beed4f"
+  },
+  {
+   "id": "post/standard-user-token",
+   "sha256": "13cb46e27da7a166f7c4c4bfd908adf57aa395d08485e35c769b088068af26b2"
+  },
+  {
+   "id": "post/oidc-expired",
+   "sha256": "16325bd13dd15d9637434dc32cb2b458f9325fcafa9eb57c7c86313efd2ff451"
+  },
+  {
+   "id": "post/oidc-bad-signature",
+   "sha256": "a91097ffb694f4170c44140b0753cdcffd08146be9262da69d748f9f18cb28b0"
+  },
+  {
+   "id": "post/oidc-without-delphi-claim",
+   "sha256": "b6fbc73e97342788e6dfee3cb7c35b12de8293c7b6957143f69efb5da1a8af3c"
+  },
+  {
+   "id": "post/oidc-delphi-claim-false",
+   "sha256": "c3ad9d906e83f2109c724165041760658ee75473eeb572bbee94258d871101f3"
+  },
+  {
+   "id": "post/unknown-report",
+   "sha256": "6a950ed96452c26d8b8e42e2052365e0348809a2d2efce878f56f8f77cab9e92"
+  },
+  {
+   "id": "post/malformed-topic-key",
+   "sha256": "0a99c97daacc0e5003fee5a0955e66117d250dd3887120afa6d7ffec98d6f19d"
+  },
+  {
+   "id": "post/topic-with-no-members",
+   "sha256": "148e2466ad7de903ae5eb1e83b42cfbeb18320dfcce47abc6b2e4275ab5cd09a"
+  },
+  {
+   "id": "post/topic-members-missing-from-postgres",
+   "sha256": "cb06e14e1f870dc1fb8d2b5afade9a4828943ae1b6dd857a9b59daa5935c0454"
+  },
+  {
+   "id": "post/topic-membership-read-fails",
+   "sha256": "f4c9f7b6819a745b1a53c4a011bec2fd76fa90d911fb92a6ae340731896acfbe"
+  },
+  {
+   "id": "post/one-qualifying-tid",
+   "sha256": "c8602dd50ccbe2c16bb8b77ec93cec198777404e3f403615bcc58b34261ad6bb"
+  },
+  {
+   "id": "post/qualifying-tids-as-strings",
+   "sha256": "09c0ab0b40571ff6c2f312d19002fd4b7945b2cf966a36d3d47ced1a6ff55d20"
+  },
+  {
+   "id": "post/qualifying-tids-without-group-consensus",
+   "sha256": "775f7baa366dc907663ed99f8e6129ee137dc830336c08925aca8694d1157203"
+  },
+  {
+   "id": "post/eligible",
+   "sha256": "5c0837d69c5de1ef19d45c63ce9acd26350f6fc1f70eab6e54b5f1046f61899b"
+  },
+  {
+   "id": "post/eligible-tid-outside-topic",
+   "sha256": "9a49c5ff2a2331c9209e93fa4680fde085c29ee1fb0e4e2109f3e645f75ce4a3"
+  },
+  {
+   "id": "post/eligible-moderated-out-tid",
+   "sha256": "3d12a133a7f91271b5f72a02b913b81af2062f59ec1d7bfed95661cc07c2c72b"
+  },
+  {
+   "id": "post/no-qualifying-tids-no-consensus",
+   "sha256": "96cc47ae9babd9d4edae7069a4c01b45d543ad4f99dceb40f94ede46953acadd"
+  },
+  {
+   "id": "post/legacy-consensus-only",
+   "sha256": "52691abdaee74f1d053bc8b214d3bb7d08a78574618df1a3675b9cedd0395e7e"
+  },
+  {
+   "id": "post/legacy-consensus-only-empty-set",
+   "sha256": "d85c008fb3690989e548c2ffad0979db7b66f37e2253b15f8df42a1a32de271e"
+  },
+  {
+   "id": "post/older-job-topic-key",
+   "sha256": "80d2a3be2687e1c8151cb86f26b035cc2073638aa968e19273b80d2d49b298a6"
+  },
+  {
+   "id": "post/underscore-topic-key",
+   "sha256": "56cab8006fc9a3fdf48749c1db53f1845ee1e1e5b9306b5c27d6bcf5726fd422"
+  },
+  {
+   "id": "post/non-owner-delphi-enabled",
+   "sha256": "93719f1084a2620c94cbbf4f44740356df7c86c7d7b87b2520ca3ff270468c35"
+  },
+  {
+   "id": "post/provider-json-in-code-fence",
+   "sha256": "55e05e2f64643b52d2b9b0136624ab1dab174e31f77305088dcac5b7c6442566"
+  },
+  {
+   "id": "post/provider-truncated-max-tokens",
+   "sha256": "6780ae666870e4b7e28c117939118a504a735afba0c8f9ae3720e380ec557d9e"
+  },
+  {
+   "id": "post/provider-unparseable-prose",
+   "sha256": "45a01a5afe45aee1b1d29e7eda33c43f0997eb61f96733d78e88a5f674915b0f"
+  },
+  {
+   "id": "post/provider-no-text-block",
+   "sha256": "9cdd8b5bb89d2f65b2c45ded7cbd9e2e020cd8a2329df5c8884ed76251437b30"
+  },
+  {
+   "id": "post/provider-429-every-attempt",
+   "sha256": "6a2e0a74f45a85845bfab115511e67830ee0784bc576f74ff79feb88a540a541"
+  },
+  {
+   "id": "post/provider-500-then-success",
+   "sha256": "37bd6454c59fc57b8e002483c763e2636afc72c68d0ee4ea7ff52f6ce2c2b036"
+  },
+  {
+   "id": "post/provider-400-invalid-request",
+   "sha256": "c7a2374e27d071a7a14df3c5ff45337084240fe8b82d05e66f14c527c161c613"
+  },
+  {
+   "id": "post/provider-connection-reset",
+   "sha256": "da1a8f43280ad795ab002148790d6b036d888df8143bcc199323c75e901810ca"
+  },
+  {
+   "id": "post/provider-slower-than-proxy",
+   "sha256": "2f44e9fb265bf2cd2e73a91237e68d1b7d4f90b2c6864c70ec2780ae8ce684f5"
+  },
+  {
+   "id": "post/dynamodb-write-fails-after-call",
+   "sha256": "6e26321a4c13e5230d558ebf981aa4663c2a91b5187619c8c49cef510eb26f0b"
+  },
+  {
+   "id": "post/concurrent-first-requests",
+   "sha256": "63d807e1bbd4e97d8e123370a96359cdd623a379d1de61022b93a0e50fc15353"
+  },
+  {
+   "id": "get/none-stored",
+   "sha256": "530c6d7d2d4f04e26b2ab2aef56113fc1d28669922d88b7f71a03d37abb6137f"
+  },
+  {
+   "id": "get/one-stored",
+   "sha256": "3da8e399e8309b9125498d840bc15f174406cf86df09406caa3c027e3760e685"
+  },
+  {
+   "id": "get/several-across-jobs",
+   "sha256": "75091223a3d162f839b81dc03b40e917cde09083c1a6fb4cb605d97e998ca336"
+  },
+  {
+   "id": "get/several-across-jobs-owner-token",
+   "sha256": "98b4d4776434c2e35c7fc2b69e5ba4b174972eecaa15546d76edbd58fe508f1a"
+  },
+  {
+   "id": "get/unknown-report",
+   "sha256": "905b513b3e50dee99c9c46cf36e91ddb194447f2984e566c00cdea253daf950f"
+  },
+  {
+   "id": "get/malformed-stored-row",
+   "sha256": "05011b9ee493072ab09ec638f393e835e7541bb5b4f9bc270b445fa313801c26"
+  },
+  {
+   "id": "get/statement-id",
+   "sha256": "8547b766eee5a41059ec67174e772e34f5e189fb165afbeeabe468788faf8384"
+  },
+  {
+   "id": "get/statement-id-unknown",
+   "sha256": "939bdfaed8b12be2d5e95d25fe072adab27e9128bc9af1c0f2dd69c3731a04dc"
+  },
+  {
+   "id": "get/no-params",
+   "sha256": "a4f8c790e1c61f6dd9b6b4dd66902eb95e8964e1c1e654e96883ffc74a2af2eb"
+  },
+  {
+   "id": "get/main-after-posts",
+   "sha256": "8b79bb80a9875ade20f7f06da1d7555fae3e00f026c59252beb4b00cc0099943"
+  },
+  {
+   "id": "reset/before",
+   "sha256": "a8e5aa09422be4d976a70d399d9d8ec139e78a8163dbeae56e4a17c3921ce8c6"
+  },
+  {
+   "id": "reset/delete-routine",
+   "sha256": "4efad70e0dfed57830685c6a94d208ee687de2240a1192cbb8742ba0da825671"
+  },
+  {
+   "id": "reset/after",
+   "sha256": "6621a038aca495289a784deaa6994b089d80da4b0d7d3c2b7803ecbe18643a16"
+  },
+  {
+   "id": "reset/other-report-untouched",
+   "sha256": "c9f0fdacec07a846c26b4e4e493355bd3b759257ab30588b0ea7a0c208ca6f22"
+  }
+ ]
+}
