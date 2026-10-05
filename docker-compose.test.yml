@@ -146,14 +146,16 @@ services:
       - AUTH_AUDIENCE=users
       - AUTH_CLIENT_ID=dev-client-id
       - AUTH_NAMESPACE=https://pol.is/
-      - AUTH_SIMULATOR_PORT=${POLIS_TEST_OIDC_PORT:-3000}
+      - AUTH_SIMULATOR_PORT=3000
+      # The issuer it signs with; it must name the host port when that moves.
+      - AUTH_ISSUER=${POLIS_TEST_OIDC_ISSUER:-https://localhost:3000/}
       - CERT_DIR=/root/.simulacrum/certs
     labels:
       polis_tag: test
     networks:
       - polis-test
     ports:
-      - ${POLIS_TEST_OIDC_PORT:-3000}:${POLIS_TEST_OIDC_PORT:-3000}
+      - ${POLIS_TEST_OIDC_PORT:-3000}:3000
     volumes:
       - ${AUTH_CERTS_PATH:-~/.simulacrum/certs}:/root/.simulacrum/certs:ro
 

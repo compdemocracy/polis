@@ -181,6 +181,11 @@ check_stack_env() {
   local out="$1" kv k
   shift
   cp "$CHECK_ROOT/test.env" "$out"
+  # test.env sends the server container to DynamoDB through the host port
+  # (host.docker.internal:8000); follow it when CHECK_PORT_BASE moves that port.
+  if [ -n "${CHECK_PORT_BASE:-}" ]; then
+    set -- "DYNAMODB_ENDPOINT=http://host.docker.internal:$(check_port 1 8000)" "$@"
+  fi
   for kv in "$@"; do
     k="${kv%%=*}"
     if grep -q "^$k=" "$out"; then
@@ -195,6 +200,7 @@ check_stack_env() {
   export POLIS_TEST_SES_PORT="$(check_port 2 8005)"
   export POLIS_TEST_MINIO_PORT="$(check_port 3 9000)"
   export POLIS_TEST_OIDC_PORT="${POLIS_TEST_OIDC_PORT:-$(check_port 4 3000)}"
+  export POLIS_TEST_OIDC_ISSUER="https://localhost:$POLIS_TEST_OIDC_PORT/"
   export POLIS_TEST_ALPHA_PORT="$(check_port 5 4321)"
   export POLIS_TEST_HTTP_PORT="${POLIS_TEST_HTTP_PORT:-$(check_port 6 80)}"
   export POLIS_TEST_HTTPS_PORT="${POLIS_TEST_HTTPS_PORT:-$(check_port 7 443)}"
