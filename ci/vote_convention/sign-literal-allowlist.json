@@ -2,7 +2,7 @@
  "schema": "vote-sign-allowlist/1",
  "about": "Vote-sign literals present on origin/edge when the lint landed (P-078 PR-F). Seeded from the tree and the 350-row vote-sign audit of 2026-10-03 (snapshot 344c557ad), matched by path and by line mapped back to that snapshot. 'audit' names the row; 'file rows' means the file is audited but this line is not itemised; 'not in the audit' means the audit did not list the file. Delete an entry when its site moves into a chokepoint. Never add one to make a new literal pass: take the sign from the chokepoint of that layer.",
  "window": 3,
- "sites": 599,
+ "sites": 617,
  "entries": [
   {
    "path": "ci/private_cert/images/g12.py",
@@ -115,6 +115,132 @@
    "count": 1,
    "kind": "minus-one",
    "audit": "audit 2026-10-03 §2 file rows 85 (ci/probe_box/test_pipeline_seed.py); this line is not itemised there"
+  },
+  {
+   "path": "ci/probe_box/test_vote_census.py",
+   "text": "[(-1,1),(1,1)],[(-1,None),(1,2)],[(2,1)],[(1,1),(1,1)]]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: raw stored values for the vote census's non-zero witness edge-class test on a disposable local database; sign-neutral"
+  },
+  {
+   "path": "ci/probe_box/test_vote_census.py",
+   "text": "for table,metric,direction in [('latest','latest:has_earlier_nonnull',-1),('votes','votes:followed_by_nonnull',1)]:",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a time-ordering direction (earlier/later) in the vote census test's NULL oracle, not a vote value"
+  },
+  {
+   "path": "ci/probe_box/test_vote_census.py",
+   "text": "nz=[(n,s) for n,s in rows if n in (-1,1)]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: the vote census test's independent oracle for the non-zero witness: stored values in {-1,+1}, sign-neutral"
+  },
+  {
+   "path": "ci/probe_box/test_vote_census.py",
+   "text": "rows=[[],[(0,1),(None,2)],[(0,1),(-1,2)],[(None,None),(1,3)],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: raw stored values for the vote census's non-zero witness edge-class test on a disposable local database; sign-neutral"
+  },
+  {
+   "path": "ci/probe_box/vote_census.sql",
+   "text": "AND a.created=f.first_ms AND a.vote IN(-1,1)",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: vote-census/1's non-zero witness (P-078 §2.4) selects stored values in {-1,+1} and records which occurred first, without deciding which sign means agree; hash-pinned reviewed SQL"
+  },
+  {
+   "path": "ci/probe_box/vote_census.sql",
+   "text": "CASE WHEN vote=-1 THEN 'neg' WHEN vote=0 THEN 'zero' WHEN vote=1 THEN 'pos' WHEN vote IS NULL THEN 'null' ELSE 'other' END AS value FROM rows",
+   "count": 1,
+   "kind": "sql-equals-sign",
+   "audit": "not in the 2026-10-03 audit: vote-census/1 buckets the raw stored value as neg/zero/pos/null/other; a measurement of storage that restates no convention (labels carry no meaning), in hash-pinned reviewed SQL"
+  },
+  {
+   "path": "ci/probe_box/vote_census.sql",
+   "text": "SELECT f.*,bool_or(a.vote=-1) AS minus,bool_or(a.vote=1) AS plus",
+   "count": 1,
+   "kind": "sql-equals-sign",
+   "audit": "not in the 2026-10-03 audit: vote-census/1's non-zero witness (P-078 §2.4) selects stored values in {-1,+1} and records which occurred first, without deciding which sign means agree; hash-pinned reviewed SQL"
+  },
+  {
+   "path": "ci/probe_box/vote_census.sql",
+   "text": "SELECT zid,tid,pid,min(created) FILTER(WHERE vote IN(-1,1)) AS first_ms,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: vote-census/1's non-zero witness (P-078 §2.4) selects stored values in {-1,+1} and records which occurred first, without deciding which sign means agree; hash-pinned reviewed SQL"
+  },
+  {
+   "path": "ci/probe_box/vote_census.sql",
+   "text": "WHEN f.variants>1 THEN 'ambiguous' ELSE CASE WHEN f.first_vote=-1 THEN 'neg' WHEN f.first_vote=0 THEN 'zero' WHEN f.first_vote=1 THEN 'pos' WHEN f.first_vote IS NULL THEN 'null' ELSE 'other' END END AS value,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: vote-census/1 buckets the raw stored value as neg/zero/pos/null/other; a measurement of storage that restates no convention (labels carry no meaning), in hash-pinned reviewed SQL"
+  },
+  {
+   "path": "ci/probe_box/vote_census.sql",
+   "text": "bool_or(created IS NULL AND vote IN(-1,1)) AS unknown_time,",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: vote-census/1's non-zero witness (P-078 §2.4) selects stored values in {-1,+1} and records which occurred first, without deciding which sign means agree; hash-pinned reviewed SQL"
+  },
+  {
+   "path": "ci/probe_box/vote_census.sql",
+   "text": "bool_or(vote IS NOT NULL AND vote NOT IN(-1,0,1)) AS other",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: vote-census/1's non-zero witness (P-078 §2.4) selects stored values in {-1,+1} and records which occurred first, without deciding which sign means agree; hash-pinned reviewed SQL"
+  },
+  {
+   "path": "ci/probe_box/vote_census_fixture.py",
+   "text": "(1,1,88,-1,old),(1,99,0,1,old),(99,0,0,None,old)]",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: raw stored values in the vote census's generated fixture; both signs appear and no convention is assumed"
+  },
+  {
+   "path": "ci/probe_box/vote_census_fixture.py",
+   "text": "(10,1,0,-1,-1),(10,1,1,None,None),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: raw stored values (and a -1 created timestamp) in the vote census's generated fixture; both signs appear and no convention is assumed"
+  },
+  {
+   "path": "ci/probe_box/vote_census_fixture.py",
+   "text": "(3,0,0,-1,old),(3,0,1,1,old),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: raw stored values in the vote census's generated fixture; both signs appear and no convention is assumed"
+  },
+  {
+   "path": "ci/probe_box/vote_census_fixture.py",
+   "text": "(5,0,0,-1,old),(5,0,0,1,old),(5,0,1,-1,old),(5,0,1,-1,old),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: raw stored values in the vote census's generated fixture; both signs appear and no convention is assumed"
+  },
+  {
+   "path": "ci/probe_box/vote_census_fixture.py",
+   "text": "None if z==7 else -1 if z==8 else 4133980800000 if z==10 else old+(z%2)*366*86400000) for z,t,p in comments],",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: a comment created timestamp of -1 (an out-of-range time) in the vote census's generated fixture, not a vote value"
+  },
+  {
+   "path": "ci/probe_box/vote_census_fixture.py",
+   "text": "latest[1,0,0]=(-1,old+1) # wrong value at correct newest time",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: raw stored values in the vote census's generated fixture; both signs appear and no convention is assumed"
+  },
+  {
+   "path": "ci/probe_box/vote_census_fixture.py",
+   "text": "votes=[(1,0,0,-1,old),(1,0,0,1,old+1),(1,0,1,-1,old),",
+   "count": 1,
+   "kind": "minus-one",
+   "audit": "not in the 2026-10-03 audit: raw stored values in the vote census's generated fixture; both signs appear and no convention is assumed"
   },
   {
    "path": "ci/vote_convention/compare.py",
