@@ -1,4 +1,3 @@
-import request from "request-promise";
 import { GoogleGenAI } from "@google/genai";
 import config from "../config";
 import { convertXML } from "simple-xml-to-json";
@@ -25,43 +24,19 @@ async function loadFiles() {
 
 export const moderationReady = loadFiles();
 
-async function analyzeComment(
-  txt: string,
-  convo_topic: string,
-  geographical_context?: string // ip address if available
-) {
+// The location context is always this neutral default. Until 2026-10 the
+// commenter's IP address was sent to a third-party geolocation service to
+// fill it in; that lookup was stopped by ruling (2026-10-05) "until better
+// option or we do our own internal service".
+const GEOGRAPHICAL_CONTEXT = "US or Europe (EU)";
+
+async function analyzeComment(txt: string, convo_topic: string) {
   try {
     const json = await convertXML(internal_config.fileContents);
-    const getRegionFromIP = async (ip: string): Promise<string> => {
-      if (!ip) {
-        return "US or Europe (EU)";
-      }
-      try {
-        // Using a free IP geolocation service.
-        // Consider replacing with a more robust, authenticated service for production.
-        const response = await request.get(`http://ip-api.com/json/${ip}`);
-        const data = JSON.parse(response);
-        if (data.status === "success" && data.country) {
-          const locationParts = [
-            data.city,
-            data.regionName,
-            data.country,
-          ].filter(Boolean);
-          return locationParts.join(", ");
-        }
-        return "US or Europe (EU)"; // fallback
-      } catch (error) {
-        logger.error("Error fetching region from IP:", { ip, error });
-        return "US or Europe (EU)"; // fallback on any error
-      }
-    };
-    const finalGeographicalContext = geographical_context
-      ? await getRegionFromIP(geographical_context)
-      : "US or Europe (EU)";
     json.polis_moderation_rubric.children[11].task.children[1].input = {
       comment_text: txt,
       conversation_topic: convo_topic,
-      geographical_context: finalGeographicalContext,
+      geographical_context: GEOGRAPHICAL_CONTEXT,
     };
 
     const prompt_xml = js2xmlparser.parse("polis_moderation_rubric", json);
