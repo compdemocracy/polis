@@ -31,17 +31,14 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Lint and gate unit checks
-        run: |
-          python3 -m unittest ci/vote_convention/test_gate.py
-          python3 ci/vote_convention/sign_lint.py
+        run: make check-vote-sign-lint
 
   two-convention:
     name: two storage conventions
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      COMPOSE_PROJECT_NAME: vote-gate-${{ github.run_id }}-${{ github.run_attempt }}
-      VOTE_GATE_PG_PORT: '5470'
+      CHECK_PROJECT: vote-gate-${{ github.run_id }}-${{ github.run_attempt }}
       OUT: ${{ github.workspace }}/.vote-gate
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -53,31 +50,12 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: server/package-lock.json
-      - name: Install the locked engine requirements and the server modules
-        run: |
-          python -m pip install -r coordinator-rs/evidence/python-requirements.txt
-          npm ci --prefix server
-      - name: Fixture declarations, fixture writers, fold adapter, +1 pins (P-078 PR-G)
-        run: |
-          PYTHONPATH=delphi python -m unittest ci/vote_convention/test_fixtures_declared.py
-          node --test server/characterization/stored-votes.test.cjs
-          python coordinator-rs/ci/replay_pins_convention.py --check
-      - name: v0 (agree = -1) — provision both conventions, run every leg, verdict on v0
-        env:
-          VOTE_GATE_V1: separate
-          PYTHON: python
-        run: ci/vote_convention/run.sh "$OUT"
-      - name: v1 (agree = +1) against v0 — expected red until PR-A/B/C
-        # The full byte comparison. Flip to required (remove continue-on-error)
-        # when PR-A and PR-B/C land. Exit 3: red, every red family expected.
-        continue-on-error: true
-        run: python ci/vote_convention/compare.py v1 "$OUT"
-      - name: v1 ratchet — no unexpected red (required)
-        # Accepts a v0/v1 difference only in a file pinned in expected-red-v1.json
-        # and only when it is sign-shaped. Fails on any other difference (including
-        # the must-hold families), an output missing from either leg's inventory,
-        # a failed export or an HTTP 5xx on either leg.
-        run: python ci/vote_convention/compare.py v1 "$OUT" --ratchet
+      # The locked engine requirements, the server modules, the fixture checks,
+      # both legs (Postgres on host port 5470), the v1 report (not required:
+      # exit 3 means every red family is expected) and the required ratchet
+      # live in ci/local/vote-gate.sh: `make check-vote-gate` runs it anywhere.
+      - name: Fixture checks, v0 verdict (required), v1 report, v1 ratchet (required)
+        run: make check-vote-gate
       - name: Keep the verdicts and outputs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

@@ -20,3 +20,7 @@ __pycache__/
 
 # two-convention gate outputs (ci/vote_convention/run.sh)
 .vote-gate/
+
+# Local check entry points (ci/local/): state, venvs, tools, test certificates
+.check/
+.simulacrum/

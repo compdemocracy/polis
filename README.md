@@ -284,6 +284,9 @@ To work on the **delphi** Python ML service outside Docker (run tests locally, g
 We use Cypress for automated, end-to-end browser testing for PRs on GitHub (see badge above).
 Please see [`e2e/README.md`](/e2e/README.md) for more information on running these tests locally.
 
+Every check that CI runs can be run locally with one command on a plain Docker host: `make check`
+(or `make check-<suite>` for one). See [`docs/local-checks.md`](/docs/local-checks.md).
+
 ### Miscellaneous & troubleshooting
 
 #### Docker Problems
