@@ -1,0 +1,5 @@
+#!/bin/sh
+# The un-flip rehearsal's one-shot engine rebuild (P-078 PR-H). The engine
+# image installs this file as /opt/polis-unflip/engine-rebuild. See
+# polismath/tools/engine_rebuild.py for arguments, refusals and exit codes.
+exec python -m polismath.tools.engine_rebuild "$@"

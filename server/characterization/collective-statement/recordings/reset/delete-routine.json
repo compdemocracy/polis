@@ -1,0 +1,120 @@
+{
+ "format": "collective-statement-recording/1",
+ "case": "reset/delete-routine",
+ "about": "the FULL_PIPELINE reset's DynamoDB delete routine (delphi/umap_narrative/reset_conversation.py, delete_dynamodb_data) for the reset target",
+ "requests": [],
+ "responses": [],
+ "notes": {
+  "reset": {
+   "deleted_total": 4,
+   "log": [
+    "INFO: Local environment detected. Connecting dynamodb to endpoint: <dynamodb>",
+    "INFO: \nDeleting DynamoDB data for conversation 207...",
+    "INFO:   ✓ Delphi_PCAConversationConfig: 1 item deleted.",
+    "INFO:   ✓ Delphi_UMAPConversationConfig: 1 item deleted.",
+    "INFO: Starting query for Delphi_CommentEmbeddings...",
+    "INFO: [<s>] Delphi_CommentEmbeddings: Fetched 0 items across 1 pages in <s>",
+    "INFO: [<s>] Delphi_CommentEmbeddings: No items to delete",
+    "INFO: Starting query for Delphi_CommentHierarchicalClusterAssignments...",
+    "INFO: [<s>] Delphi_CommentHierarchicalClusterAssignments: Fetched 0 items across 1 pages in <s>",
+    "INFO: [<s>] Delphi_CommentHierarchicalClusterAssignments: No items to delete",
+    "INFO: Starting query for Delphi_CommentClustersStructureKeywords...",
+    "INFO: [<s>] Delphi_CommentClustersStructureKeywords: Fetched 0 items across 1 pages in <s>",
+    "INFO: [<s>] Delphi_CommentClustersStructureKeywords: No items to delete",
+    "INFO: Starting query for Delphi_CommentClustersFeatures...",
+    "INFO: [<s>] Delphi_CommentClustersFeatures: Fetched 0 items across 1 pages in <s>",
+    "INFO: [<s>] Delphi_CommentClustersFeatures: No items to delete",
+    "INFO: Starting query for Delphi_CommentClustersLLMTopicNames...",
+    "INFO: [<s>] Delphi_CommentClustersLLMTopicNames: Fetched 0 items across 1 pages in <s>",
+    "INFO: [<s>] Delphi_CommentClustersLLMTopicNames: No items to delete",
+    "INFO: Starting query for Delphi_UMAPGraph...",
+    "INFO: [<s>] Delphi_UMAPGraph: Fetched 0 items across 1 pages in <s>",
+    "INFO: [<s>] Delphi_UMAPGraph: No items to delete",
+    "INFO: Starting query for Delphi_CommentExtremity...",
+    "INFO: [<s>] Delphi_CommentExtremity: Fetched 0 items across 1 pages in <s>",
+    "INFO: [<s>] Delphi_CommentExtremity: No items to delete",
+    "INFO: Starting query for Delphi_PCAResults...",
+    "INFO: [<s>] Delphi_PCAResults: Fetched 0 items across 1 pages in <s>",
+    "INFO: [<s>] Delphi_PCAResults: No items to delete",
+    "INFO: Starting query for Delphi_CommentRouting...",
+    "INFO: [<s>] Delphi_CommentRouting: Fetched 0 items across 1 pages in <s>",
+    "INFO: [<s>] Delphi_CommentRouting: No items to delete",
+    "INFO: Starting query for Delphi_CollectiveStatement...",
+    "INFO: [<s>] Delphi_CollectiveStatement: Fetched 2 items across 1 pages in <s>",
+    "INFO:   ✓ Delphi_CollectiveStatement: 2 items deleted.",
+    "INFO: [<s>] Delphi_CollectiveStatement: Deletion completed in <s>",
+    "INFO: [<s>] Delphi_CollectiveStatement: Total operation completed in <s>",
+    "INFO: Starting query for Delphi_KMeansClusters...",
+    "INFO: [<s>] Delphi_KMeansClusters: Fetched 0 items across 1 pages in <s>",
+    "INFO: [<s>] Delphi_KMeansClusters: No items to delete",
+    "INFO: Starting query for Delphi_RepresentativeComments...",
+    "INFO: [<s>] Delphi_RepresentativeComments: Fetched 0 items across 1 pages in <s>",
+    "INFO: [<s>] Delphi_RepresentativeComments: No items to delete",
+    "INFO: Starting query for Delphi_PCAParticipantProjections...",
+    "INFO: [<s>] Delphi_PCAParticipantProjections: Fetched 0 items across 1 pages in <s>",
+    "INFO: [<s>] Delphi_PCAParticipantProjections: No items to delete"
+   ]
+  }
+ },
+ "provider": [],
+ "unusedProviderReplies": 0,
+ "stored": {
+  "added": [],
+  "removed": [
+   {
+    "zid": {
+     "S": "207"
+    },
+    "topic_key": {
+     "S": "0000c5a1-0000-0000-0000-0000000000b2#0#1"
+    },
+    "statement_data": {
+     "S": "{\"id\":\"collective_statement\",\"title\":\"Collective Statement: Generated topic 0.1\",\"paragraphs\":[{\"id\":\"p1\",\"title\":\"Generated stored statement 11\",\"sentences\":[{\"clauses\":[{\"text\":\"We agree, stored row 11.\",\"citations\":[0]}]}]}]}"
+    },
+    "comments_data": {
+     "S": "[{\"comment_id\":0,\"comment_text\":\"Generated stored comment\",\"total_voters_on_comment_text\":\"3\"}]"
+    },
+    "topic_name": {
+     "S": "Generated topic 0.1"
+    },
+    "zid_topic_jobid": {
+     "S": "207#0000c5a1-0000-0000-0000-0000000000b2#0#1#0000c5a1-0000-0000-0000-00000000c011"
+    },
+    "created_at": {
+     "S": "2023-11-12T09:00:00.000Z"
+    },
+    "model": {
+     "S": "claude-opus-4-8"
+    }
+   },
+   {
+    "zid": {
+     "S": "207"
+    },
+    "topic_key": {
+     "S": "0000c5a1-0000-0000-0000-0000000000b2#0#2"
+    },
+    "statement_data": {
+     "S": "{\"id\":\"collective_statement\",\"title\":\"Collective Statement: Generated topic 0.2\",\"paragraphs\":[{\"id\":\"p1\",\"title\":\"Generated stored statement 12\",\"sentences\":[{\"clauses\":[{\"text\":\"We agree, stored row 12.\",\"citations\":[0]}]}]}]}"
+    },
+    "comments_data": {
+     "S": "[{\"comment_id\":0,\"comment_text\":\"Generated stored comment\",\"total_voters_on_comment_text\":\"3\"}]"
+    },
+    "topic_name": {
+     "S": "Generated topic 0.2"
+    },
+    "zid_topic_jobid": {
+     "S": "207#0000c5a1-0000-0000-0000-0000000000b2#0#2#0000c5a1-0000-0000-0000-00000000c012"
+    },
+    "created_at": {
+     "S": "2023-11-12T10:00:00.000Z"
+    },
+    "model": {
+     "S": "claude-opus-4-8"
+    }
+   }
+  ],
+  "changed": []
+ },
+ "logs": []
+}

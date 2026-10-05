@@ -103,6 +103,11 @@ EXPOSE 8080
 # Make scripts executable
 RUN chmod +x run_delphi.py scripts/setup_ollama.sh
 
+# The un-flip rehearsal's one-shot rebuild of listed conversations under a
+# non-served label (P-078 PR-H): polismath/tools/engine_rebuild.py.
+RUN install -d /opt/polis-unflip && \
+    install -m 0755 scripts/engine-rebuild /opt/polis-unflip/engine-rebuild
+
 # The Datadog tracer (the ddtrace package stays installed) wraps the job poller
 # only when DD_TRACE_ENABLED=true. With no Datadog agent listening, ddtrace-run
 # logs a failed-send error and traceback for every flush, which buried the

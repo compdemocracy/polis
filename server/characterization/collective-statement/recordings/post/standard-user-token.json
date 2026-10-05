@@ -1,0 +1,84 @@
+{
+ "format": "collective-statement-recording/1",
+ "case": "post/standard-user-token",
+ "about": "a standard-user participant token (no delphi claim)",
+ "requests": [
+  {
+   "method": "POST",
+   "path": "/api/v3/collectiveStatement",
+   "auth": "standardUser",
+   "body": {
+    "report_id": "r1csrec201",
+    "topic_key": "0000c5a1-0000-0000-0000-0000000000b2#0#1",
+    "topic_name": "Generated topic: shared spaces",
+    "qualifying_tids": [
+     0,
+     1,
+     2,
+     4
+    ],
+    "group_consensus": {
+     "0": 0.92,
+     "1": 0.88,
+     "2": 0.85,
+     "3": 0.9,
+     "4": 0.81,
+     "5": 0.83,
+     "7": 0.95
+    }
+   }
+  }
+ ],
+ "responses": [
+  {
+   "status": 500,
+   "headers": [
+    [
+     "content-type",
+     "application/json; charset=utf-8"
+    ],
+    [
+     "cache-control",
+     "no-cache"
+    ],
+    [
+     "access-control-allow-origin",
+     "http://localhost"
+    ],
+    [
+     "access-control-allow-credentials",
+     "true"
+    ],
+    [
+     "access-control-allow-headers",
+     "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+    ],
+    [
+     "access-control-allow-methods",
+     "GET, PUT, POST, DELETE, OPTIONS"
+    ],
+    [
+     "content-length",
+     "91"
+    ],
+    [
+     "vary",
+     "Accept-Encoding"
+    ]
+   ],
+   "body": "{\"status\":\"error\",\"message\":\"Error generating collective statement\",\"error\":\"Unauthorized\"}"
+  }
+ ],
+ "provider": [],
+ "unusedProviderReplies": 0,
+ "stored": {
+  "added": [],
+  "removed": [],
+  "changed": []
+ },
+ "logs": [
+  "info: CollectiveStatement API request received",
+  "error: Error in handle_POST_collectiveStatement: Unauthorized",
+  "error: Error stack: Error: Unauthorized <stack frames>"
+ ]
+}
