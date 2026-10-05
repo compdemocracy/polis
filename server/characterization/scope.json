@@ -432,6 +432,12 @@
       "method": "GET",
       "path": "/^\\/[^(api\\/)]?.*/",
       "reason": "Static proxy/routing tail retained in Node; unmatched API GET behavior is separately recorded by the mandatory proxied-HTML oracle."
+    },
+    {
+      "id": 205,
+      "method": "GET",
+      "path": "/^\\/ops(\\/.*)?$/",
+      "reason": "Registered only when the ops gate is active (OPS_ENABLED=true with valid settings); absent in default configuration. Must remain absent in runtime census."
     }
   ]
 }

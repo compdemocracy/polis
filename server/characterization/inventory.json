@@ -798,6 +798,43 @@
       "consumer_family_inferred": "operations/diagnostics"
     },
     {
+      "id": 202,
+      "method": "GET",
+      "path": "/api/v3/ops/whoami",
+      "registration": "server/app.ts:919",
+      "middleware": [
+        "opsRoutes.gate"
+      ],
+      "auth": "opsRoutes.gate (OPS_ENABLED and valid OPS_EMAIL_DOMAINS; otherwise every ops path answers 404)",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "operations/diagnostics"
+    },
+    {
+      "id": 203,
+      "method": "GET",
+      "path": "/api/v3/ops/page/:id",
+      "registration": "server/app.ts:920",
+      "middleware": [
+        "opsRoutes.gate"
+      ],
+      "auth": "opsRoutes.gate (OPS_ENABLED and valid OPS_EMAIL_DOMAINS; otherwise every ops path answers 404)",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "operations/diagnostics"
+    },
+    {
+      "id": 204,
+      "method": "ALL",
+      "path": "/^\\/api\\/v3\\/ops(\\/.*)?$/",
+      "registration": "server/app.ts:921",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [],
+      "registered_in_default_config": true,
+      "consumer_family_inferred": "operations/diagnostics"
+    },
+    {
       "id": 52,
       "method": "GET",
       "path": "/api/v3/delphi",
@@ -2315,6 +2352,19 @@
       "auth": "no route authentication middleware",
       "conditions": [],
       "registered_in_default_config": true,
+      "consumer_family_inferred": "admin/page shell"
+    },
+    {
+      "id": 205,
+      "method": "GET",
+      "path": "/^\\/ops(\\/.*)?$/",
+      "registration": "server/app.ts:2055",
+      "middleware": [],
+      "auth": "no route authentication middleware",
+      "conditions": [
+        "opsRoutes.active"
+      ],
+      "registered_in_default_config": false,
       "consumer_family_inferred": "admin/page shell"
     },
     {

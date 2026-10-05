@@ -5,7 +5,14 @@ set -euo pipefail
 export DOCKER_BUILDKIT=1
 # Sequential builds bound peak memory; inspect disk receipts when sizing the runner.
 df -h .
-docker build --target prod --build-arg NODE_ENV=production -t p027-server -f server/Dockerfile server
+# P027_NODE_BASE (optional) pins the server's node:22-alpine base, e.g. to the exact
+# Node version a committed baseline was recorded with; replay refuses any other.
+node_pin=()
+if [[ -n ${P027_NODE_BASE:-} ]]; then
+  node_pin=(--build-context "docker.io/node:22-alpine=docker-image://$P027_NODE_BASE")
+fi
+docker build "${node_pin[@]}" --target prod --build-arg NODE_ENV=production -t p027-server -f server/Dockerfile server
+docker run --rm p027-server node -v
 docker build -t p027-postgres -f server/Dockerfile-db server
 docker build -t p027-oidc-simulator oidc-simulator
 docker build -t p027-file-server --build-arg NODE_ENV=production \

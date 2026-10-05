@@ -97,6 +97,69 @@ production (runtime.test.cjs probes the actual SDK resolver without transport).
 No SQS emulator/success coverage is claimed; any real SQS attempt still fails
 ordinary admission. No egress exception was added.
 
+## Running on edge (October 2026 repair)
+
+**The committed archive below predates this repair.** Its route census (201
+registrations), case list (1,265) and catalog no longer match edge, so it cannot
+be replayed on edge on any platform; it must be replaced by an x86_64 re-record of
+edge through the re-record workflow. Until then the CI replay job is expected to
+fail at the census check. Local evidence for the repair (arm64, same-platform
+record and replay) is in the PR that introduced this section.
+
+Edge had drifted from the harness in four ways; each was repaired without
+relaxing a check:
+
+- **Route census.** The ops pages (#2918/#2924/#2933) added four registrations.
+  `inventory.json` lists them with new ids 202-205 at their registration
+  positions (existing ids, and so every existing case id, are unchanged): GET
+  `/api/v3/ops/whoami`, GET `/api/v3/ops/page/:id`, the ALL ops catch-all, and
+  the GET `/ops` page shell, registered only when the ops gate is active and
+  excluded in `scope.json` like route 200. The census now accounts for 339
+  runtime entries, 203 enabled plus two absent-by-default = 205 registrations,
+  still exactly. The generator adds 12 cases (r202, r203 and four
+  `r204/*/unknown-ops-path`): **1,277 cases**, all ops answers being the 404 of
+  the default (ops off) configuration.
+- **Catalog.** Regenerated from a fresh database built from every migration:
+  the only change is the three `polis_coordinator_writer_authority` columns
+  (000021 rev7), 600 -> 603; the policy skeleton gains the same three entries,
+  every one `REVIEW`.
+- **Seed import.** `seed-pca2.py` puts `delphi/tests` on `sys.path` before it
+  imports `vote_fixtures` (broken since #2939).
+- **Kernel platform.** `compareKernels` reports `CROSS_PLATFORM` when the
+  recording and the replay ran on different platforms (an x86_64 Haswell
+  recording on an arm64 laptop). Such a replay is refused unless
+  `P027_CROSS_PLATFORM_REPLAY=1` asks for it; it then compares every byte
+  exactly and `results.json` carries `kernel: "CROSS_PLATFORM"`. It is never
+  admission evidence. Same-platform comparison is unchanged: any identity
+  change is still `MISMATCH` and refused.
+
+Other switches: `P027_CENSUS_DIFFS=report` lists every differing route
+registration in `<name>-replay/census-differences.json`, replays the cases
+anyway, and still exits nonzero (for measuring a branch that changes handlers on
+purpose). `P027_REPLAY_PREFIX=<n>|before-pca2` replays only the first cases in
+recorded order, which run against exactly the state the full replay has at that
+point; the admission checks still run in full. `P027_SERVER_IMAGE`,
+`P027_FILE_SERVER_IMAGE`, `P027_OIDC_IMAGE` and `P027_MATH_SEED_IMAGE` select
+uniquely named local images (as `P027_POSTGRES_IMAGE` already did), so a fresh
+build never retags another checkout's shared images. Replay also requires the
+recorded Node version: `server/Dockerfile` follows `node:22-alpine`, so
+`ci/p027_rerecord_build.sh` takes `P027_NODE_BASE` to pin the server base.
+
+Disk: each full record or replay makes Postgres write 40 GB or more of
+temporary sort files (every snapshot sorts each table's rows as JSON text with
+the default 4 MB `work_mem`). They are deleted as they go, but the Docker disk
+image and the host need that headroom; a run on a nearly full disk stops with
+`CASE_EXECUTION_FAILED` in the after-request phase. A stopped run now logs the
+underlying error after the `CASE_EXECUTION_FAILED` line; `results.json` still
+carries only the case, phase and code.
+
+CI: `.github/workflows/characterization-replay.yml` runs `ci/p027_replay.sh`
+against the committed baseline on the hosted x86_64 runner (Haswell kernel, the
+baseline's Node). PRs that touch the server or the harness replay the prefix
+before the PCA2 slice; pushes to edge, the nightly schedule and manual dispatch
+(any target SHA) replay all cases. Any difference, oracle failure, coverage gap,
+census difference or kernel other than `MATCH` fails the job.
+
 ## Isolated operation
 
 Use three unused host ports and a fresh random project suffix. The shared host/

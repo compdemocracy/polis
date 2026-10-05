@@ -40,6 +40,29 @@ function generate(inventory, scope, seed = "p027-v1", profile = "boundary") {
               body: null,
             },
           });
+      // The ops catch-all answers every other /api/v3/ops path (404 while ops is off).
+      if (r.id === 204)
+        for (const auth of modes)
+          cases.push({
+            caseId: `r204/${auth}/unknown-ops-path`,
+            routeId: 204,
+            auth,
+            case: "unknown-ops-path",
+            seed: hash(`${seed}/204/${auth}/unknown-ops-path`).slice(0, 12),
+            request: {
+              method: "GET",
+              path: "/api/v3/ops/p027-unknown",
+              query: {},
+              headers: {
+                accept: "application/json",
+                "x-forwarded-proto": "https",
+                ...(auth !== "unauthenticated"
+                  ? { authorization: `$auth:${auth}` }
+                  : {}),
+              },
+              body: null,
+            },
+          });
       continue;
     }
     for (const auth of modes) {

@@ -98,10 +98,10 @@ function normalizeDump(dump, inventory) {
     .filter((r) => r.registered_in_default_config)
     .map((r, i) => ({ method: r.method, path: r.path, registrationIndex: i }));
   const difference = firstDiff(expected, normalized);
-  if (inventory.routes.length !== 201 || difference)
+  if (inventory.routes.length !== 205 || difference)
     throw Error(
       `route inventory mismatch: ${
-        difference || "expected 201 source registrations"
+        difference || "expected 205 source registrations"
       }`
     );
   return normalized.map((r, i) => ({ ...r, ...groups.get(i)[0] }));

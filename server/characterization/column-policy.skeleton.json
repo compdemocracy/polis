@@ -1991,6 +1991,23 @@
       "reason": ""
     }
   },
+  "polis_coordinator_writer_authority": {
+    "math_env": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "zid": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    },
+    "enabled": {
+      "action": "REVIEW",
+      "reviewed": false,
+      "reason": ""
+    }
+  },
   "polis_queue_attempts": {
     "env": {
       "action": "REVIEW",
