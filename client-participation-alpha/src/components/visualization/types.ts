@@ -31,8 +31,9 @@ export interface GroupVoteInfo {
   groupId: number
   agree: number
   disagree: number
-  skip: number
-  total: number
+  pass: number
+  /** everyone in the group who saw the statement: agree + disagree + pass */
+  seen: number
 }
 
 export interface UserPosition {

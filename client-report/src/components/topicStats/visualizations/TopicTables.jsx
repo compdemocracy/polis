@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { canGenerateCollectiveStatement, THRESHOLDS } from '../../../util/consensusThreshold';
+import { getMathConsensus } from '../../../util/mathConsensus';
 
 const TopicTables = ({ latestRun, statsData, math, report_id, onTopicSelect, onScatterplot, onBeeswarm, onLayerDistribution, onViewTopic }) => {
   const [sortConfig, setSortConfig] = useState({ key: 'comment_count', direction: 'desc' });
@@ -32,7 +33,8 @@ const TopicTables = ({ latestRun, statsData, math, report_id, onTopicSelect, onS
           lineHeight: 1.4
         }}>
           Candidate collective statements require at least {THRESHOLDS.MIN_COMMENTS} comments with 
-          ≥{(THRESHOLDS.MIN_CONSENSUS * 100)}% consensus and 
+          ≥{(THRESHOLDS.MIN_CONSENSUS * 100)}% normalized consensus (the average of each group&apos;s agree rate,
+          not the Group-Aware Consensus column) and
           ≥{(THRESHOLDS.MIN_GROUP_PARTICIPATION * 100)}% participation from every group
         </span>
       </div>
@@ -101,8 +103,8 @@ const TopicTables = ({ latestRun, statsData, math, report_id, onTopicSelect, onS
                 </th>
                 <th style={{ padding: "5px", textAlign: "right", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
                     onClick={() => handleSort('group_consensus')}
-                    title="Group-aware consensus from PCA2">
-                  Group Consensus {sortConfig.key === 'group_consensus' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                    title="Average over the topic's comments of the math engine's group-aware consensus: each group's agree rate multiplied together, so it is lower when there are more groups. It is not the normalized consensus the collective-statement threshold uses.">
+                  Group-Aware Consensus {sortConfig.key === 'group_consensus' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
                 </th>
                 <th style={{ padding: "10px", textAlign: "center", whiteSpace: "nowrap" }}>Action</th>
               </tr>
@@ -114,9 +116,9 @@ const TopicTables = ({ latestRun, statsData, math, report_id, onTopicSelect, onS
                   
                   // Calculate average group consensus for this topic
                   let groupConsensus = null;
-                  // Use normalized consensus if available, fall back to raw
-                  const consensusData = math?.["group-consensus-normalized"] || math?.["group-aware-consensus"];
-                  if (consensusData && stats.comment_tids) {
+                  // The math engine's consensus: the same number the comment lists rank by
+                  const consensusData = getMathConsensus(math);
+                  if (stats.comment_tids) {
                     const consensusValues = stats.comment_tids
                       .map(tid => consensusData[tid])
                       .filter(val => val !== undefined);
