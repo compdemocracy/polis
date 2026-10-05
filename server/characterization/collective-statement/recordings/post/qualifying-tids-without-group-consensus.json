@@ -1,0 +1,79 @@
+{
+ "format": "collective-statement-recording/1",
+ "case": "post/qualifying-tids-without-group-consensus",
+ "about": "qualifying tids and no group_consensus",
+ "requests": [
+  {
+   "method": "POST",
+   "path": "/api/v3/collectiveStatement",
+   "auth": "owner",
+   "body": {
+    "report_id": "r1csrec201",
+    "topic_key": "0000c5a1-0000-0000-0000-0000000000b2#0#1",
+    "topic_name": "Generated topic: shared spaces",
+    "qualifying_tids": [
+     0,
+     1,
+     2
+    ]
+   }
+  }
+ ],
+ "responses": [
+  {
+   "status": 500,
+   "headers": [
+    [
+     "content-type",
+     "application/json; charset=utf-8"
+    ],
+    [
+     "cache-control",
+     "no-cache"
+    ],
+    [
+     "access-control-allow-origin",
+     "http://localhost"
+    ],
+    [
+     "access-control-allow-credentials",
+     "true"
+    ],
+    [
+     "access-control-allow-headers",
+     "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+    ],
+    [
+     "access-control-allow-methods",
+     "GET, PUT, POST, DELETE, OPTIONS"
+    ],
+    [
+     "content-length",
+     "128"
+    ],
+    [
+     "vary",
+     "Accept-Encoding"
+    ]
+   ],
+   "body": "{\"status\":\"error\",\"message\":\"Error generating collective statement\",\"error\":\"<TypeError: read '0' of undefined>\"}"
+  }
+ ],
+ "provider": [],
+ "unusedProviderReplies": 0,
+ "stored": {
+  "added": [],
+  "removed": [],
+  "changed": []
+ },
+ "logs": [
+  "info: CollectiveStatement API request received",
+  "info: Retrieved 13 cluster assignments for conversation 201",
+  "info: Found 6 comments in layer 0, cluster 1 for conversation 201",
+  "info: Comment IDs for topic 0000c5a1-0000-0000-0000-0000000000b2#0#1: [0,1,2,3,4,5]",
+  "info: SQL query returned 6 comments for topic 0000c5a1-0000-0000-0000-0000000000b2#0#1",
+  "info: Found 6 comments for topic 0000c5a1-0000-0000-0000-0000000000b2#0#1",
+  "error: Error in handle_POST_collectiveStatement: <TypeError: read '0' of undefined>",
+  "error: Error stack: TypeError: <TypeError: read '0' of undefined> <stack frames>"
+ ]
+}

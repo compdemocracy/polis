@@ -1,0 +1,104 @@
+name: Collective statement recordings
+
+# Replays the recorded behaviour of every collective-statement route in every
+# state (server/characterization/collective-statement/) against the current
+# server, with the model provider replaced by a local stub at the HTTP
+# boundary, then proves the recordings catch each listed mutation of the route
+# by case name. Generated fixtures only: no production data, no cloud
+# credentials, no provider calls (the harness refuses any connection outside
+# loopback and the two stack services). A failure means a route no longer does
+# what edge recorded: rule on it through expected-differences.json, never by
+# re-recording on the same branch (see the header of main.cjs).
+
+on:
+  pull_request:
+    branches: [edge, stable]
+  push:
+    branches: [edge]
+  workflow_dispatch:
+
+concurrency:
+  group: collective-statement-recordings-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The recordings are edge's behaviour: a PR may change them (or the harness
+  # inputs that decide what is recorded) or the code they record, never both.
+  collective-statement-golden-guard:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: The collective-statement recordings never change together with the code they record
+        run: sh ci/collective_statement_golden_guard.sh "origin/${{ github.base_ref }}"
+
+  replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.11@sha256:f4c66b820c6f974249089d3d16d86a3698eae11e8746eb6644b2271031e91232
+        env:
+          POSTGRES_PASSWORD: generatedlocal
+        ports: ["127.0.0.1:5481:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s --health-timeout 2s --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # Started by hand rather than as a service: -sharedDb needs a command
+      # argument, and without it DynamoDB Local keys its data by access key.
+      - name: Start DynamoDB Local
+        run: docker run -d --name csrec-dynamodb -p 127.0.0.1:8481:8000 amazon/dynamodb-local:3.3.1@sha256:ff89bd48ff32cd8d9be5fee8873b65b8854dc408f1afe881be6eb00247bc0dab -jar DynamoDBLocal.jar -sharedDb -inMemory
+
+      - uses: actions/setup-node@v4
+        with:
+          # The recordings were made on this Node; V8's error wording can
+          # change between releases.
+          node-version: "22.23.1"
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install server dependencies and the reset routine's boto3 (delphi's locked versions)
+        run: |
+          npm ci --prefix server --no-audit --no-fund
+          python -m pip install --quiet boto3==1.34.70 botocore==1.34.162 s3transfer==0.10.4
+
+      - name: The harness's own rules (expected differences, refusal of foreign stores)
+        working-directory: server
+        run: node --test characterization/collective-statement/expected.test.cjs characterization/collective-statement/safety.test.cjs
+
+      - name: Replay every recorded case against the current routes
+        working-directory: server
+        env:
+          CSREC_PG_ADMIN_URL: postgres://postgres:generatedlocal@127.0.0.1:5481/postgres
+          DYNAMODB_ENDPOINT: http://127.0.0.1:8481
+          CSREC_PYTHON: python
+          TZ: UTC
+        run: node characterization/collective-statement/main.cjs replay
+
+      - name: Every listed mutation of the route fails exactly its named cases
+        working-directory: server
+        env:
+          CSREC_PG_ADMIN_URL: postgres://postgres:generatedlocal@127.0.0.1:5481/postgres
+          DYNAMODB_ENDPOINT: http://127.0.0.1:8481
+          CSREC_PYTHON: python
+          TZ: UTC
+        run: node characterization/collective-statement/mutations.cjs
+
+      - name: Remove DynamoDB Local
+        if: always()
+        run: docker rm -f csrec-dynamodb
