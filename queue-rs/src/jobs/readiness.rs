@@ -19,6 +19,9 @@ pub struct Counters {
     pub fenced: AtomicU64,
     pub poison: AtomicU64,
     pub exit_unconfirmed: AtomicU64,
+    /// Scopes this process released through pd_release_scope after a
+    /// terminal attempt (the SQL re-checked every condition).
+    pub released: AtomicU64,
 }
 
 impl Counters {
@@ -103,6 +106,7 @@ pub fn readiness_line(s: &Snapshot) -> String {
         "failed_total": c(&s.counters.failed), "parked_total": c(&s.counters.parked),
         "fenced_total": c(&s.counters.fenced), "poison_total": c(&s.counters.poison),
         "exit_unconfirmed_total": c(&s.counters.exit_unconfirmed),
+        "released_total": c(&s.counters.released),
         "contract": s.contract, "transport": s.transport,
         "emitted_ms": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis() as u64).unwrap_or(0),
@@ -200,6 +204,7 @@ mod tests {
             "parked_total",
             "fenced_total",
             "poison_total",
+            "released_total",
             "emitted_ms",
             "seq",
             "in_flight",

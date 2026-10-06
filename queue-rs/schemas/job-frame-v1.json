@@ -4,43 +4,182 @@
   "title": "Job frame the daemon gives a Delphi child (stdin and DELPHI_FRAME)",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "env", "zid", "report_id", "job_id", "run_id", "attempt_id", "lease_epoch", "stage", "phase", "config", "inputs", "provider"],
+  "required": [
+    "schema",
+    "env",
+    "zid",
+    "report_id",
+    "job_id",
+    "run_id",
+    "attempt_id",
+    "lease_epoch",
+    "stage",
+    "phase",
+    "config",
+    "inputs",
+    "provider"
+  ],
   "properties": {
-    "schema": {"const": "polis-jobs.frame/1"},
-    "env": {"type": "string"},
-    "zid": {"type": "integer", "minimum": 1},
-    "report_id": {"type": ["string", "null"]},
-    "job_id": {"type": "string", "format": "uuid"},
-    "run_id": {"type": "string", "format": "uuid"},
-    "attempt_id": {"type": "string", "format": "uuid"},
-    "lease_epoch": {"type": "string", "pattern": "^(0|[1-9][0-9]*)$"},
-    "stage": {"enum": ["delphi_full_pipeline", "delphi_narrative", "math_rebuild"]},
-    "phase": {"enum": ["run", "submit", "recheck", null]},
+    "schema": {
+      "const": "polis-jobs.frame/1"
+    },
+    "env": {
+      "type": "string"
+    },
+    "zid": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "report_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "job_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "attempt_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "lease_epoch": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$"
+    },
+    "stage": {
+      "enum": [
+        "delphi_full_pipeline",
+        "delphi_narrative",
+        "math_rebuild"
+      ]
+    },
+    "phase": {
+      "enum": [
+        "run",
+        "submit",
+        "recheck",
+        null
+      ]
+    },
     "config": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["include_moderation", "exclude_comment_selections", "model", "batch_size"],
-      "properties": {
-        "include_moderation": {"type": "boolean"},
-        "exclude_comment_selections": {"type": "boolean"},
-        "model": {"type": ["string", "null"]},
-        "batch_size": {"type": ["integer", "null"]}
-      }
+      "description": "The Delphi stages' four keys, or (stage math_rebuild) the typed math config carried whole from the admission: every key required and typed, checked by the daemon before the child spawns and by the child before it computes.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "include_moderation",
+            "exclude_comment_selections",
+            "model",
+            "batch_size"
+          ],
+          "properties": {
+            "include_moderation": {
+              "type": "boolean"
+            },
+            "exclude_comment_selections": {
+              "type": "boolean"
+            },
+            "model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "batch_size": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "staged_label",
+            "target_label",
+            "need_bytes",
+            "input_through_ms",
+            "binding",
+            "source_commit"
+          ],
+          "properties": {
+            "staged_label": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]{1,64}$"
+            },
+            "target_label": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]{1,64}$"
+            },
+            "need_bytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "input_through_ms": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "binding": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "source_commit": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{7,64}$"
+            }
+          }
+        }
+      ]
     },
     "inputs": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["math_env", "requested_math_tick"],
+      "required": [
+        "math_env",
+        "requested_math_tick"
+      ],
       "properties": {
-        "math_env": {"type": ["string", "null"]},
-        "requested_math_tick": {"type": ["integer", "null"]}
+        "math_env": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "requested_math_tick": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
       }
     },
     "provider": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["batch_id"],
-      "properties": {"batch_id": {"type": ["string", "null"]}}
+      "required": [
+        "batch_id"
+      ],
+      "properties": {
+        "batch_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
     }
   }
 }

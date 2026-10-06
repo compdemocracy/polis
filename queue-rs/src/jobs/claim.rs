@@ -162,6 +162,7 @@ fn retry_pending(ctx: &Ctx, rpc: &mut Rpc) {
         match rpc.call(name, &args) {
             Ok(Completion::Committed(reply)) => {
                 let _ = ctx.journal.remove(&e.attempt_id);
+                let state = reply["state"].as_str().unwrap_or_default().to_owned();
                 Transition {
                     env: e.env.clone(),
                     job_id: e.job_id.clone(),
@@ -180,6 +181,14 @@ fn retry_pending(ctx: &Ctx, rpc: &mut Rpc) {
                     ..Default::default()
                 }
                 .emit();
+                super::scope::after_terminal(
+                    rpc,
+                    &ctx.counters,
+                    &ctx.owner,
+                    &e.env,
+                    &e.job_id,
+                    &state,
+                );
             }
             Err(e) if !super::rpc::is_transient(&e) => {
                 // A definite refusal by SQL: nothing to retry.

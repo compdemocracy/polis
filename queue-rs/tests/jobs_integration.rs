@@ -187,10 +187,32 @@ impl Db {
         config: Value,
         max_attempts: i32,
     ) -> (Uuid, String) {
+        let (reply, job, scope) =
+            self.admit(stage, zid, report, config, max_attempts, "fixture-image");
+        assert_eq!(reply["outcome"], "enqueued", "{reply}");
+        (job, scope)
+    }
+
+    /// The admission as `pd_enqueue` answers it: (reply, the job id asked
+    /// for, the scope). A rebuild's admission carries `inputs.math_env` (the
+    /// staged label) as the poller's does; `image` is the run's code image.
+    fn admit(
+        &self,
+        stage: &str,
+        zid: i32,
+        report: Option<&str>,
+        config: Value,
+        max_attempts: i32,
+        image: &str,
+    ) -> (Value, Uuid, String) {
         let job = Uuid::new_v4();
         let run = Uuid::new_v4();
-        let admission =
-            json!({"schema":"polis-jobs.admission/1","zid":zid,"report_id":report,"config":config});
+        let inputs = match stage {
+            "math_rebuild" => json!({"math_env": "python-large", "requested_math_tick": null}),
+            _ => json!({}),
+        };
+        let admission = json!({"schema":"polis-jobs.admission/1","zid":zid,"report_id":report,
+            "config":config,"inputs":inputs});
         let bytes = serde_json::to_vec(&admission).unwrap();
         let uri = polis_queue_adapter::jobs::child::encode_admission(&bytes);
         // A rebuild's scope is `math:<label>:<zid>` (P-073 r2); the Delphi
@@ -208,14 +230,24 @@ impl Db {
         let mut tx = ex.transaction().unwrap();
         let reply: Value = tx
             .query_one(
-                "SELECT pd_enqueue($1,$2,$3,'fixture-actor',$4,repeat('a',64),$5,$6,$7,$8,repeat('c',64),'fixture-image',0::smallint,$9,$10,$11,$12,$13)",
-                &[&ENV, &zid, &product, &job.to_string(), &run, &job, &uri, &sha_hex(&bytes), &max_attempts, &stage, &report, &scope, &json!({})],
+                "SELECT pd_enqueue($1,$2,$3,'fixture-actor',$4,repeat('a',64),$5,$6,$7,$8,repeat('c',64),$14,0::smallint,$9,$10,$11,$12,$13)",
+                &[&ENV, &zid, &product, &job.to_string(), &run, &job, &uri, &sha_hex(&bytes), &max_attempts, &stage, &report, &scope, &json!({}), &image],
             )
             .unwrap()
             .get(0);
         tx.commit().unwrap();
-        assert_eq!(reply["outcome"], "enqueued", "{reply}");
-        (job, scope)
+        (reply, job, scope)
+    }
+
+    /// The root job holding a scope's guard, if any.
+    fn guard(&mut self, scope: &str) -> Option<Uuid> {
+        self.sql
+            .query_opt(
+                "SELECT root_job_id FROM delphi_job_guards WHERE env=$1 AND scope_key=$2",
+                &[&ENV, &scope],
+            )
+            .unwrap()
+            .map(|r| r.get(0))
     }
 
     fn job(&mut self, job: Uuid) -> (String, i32, Option<String>) {
@@ -495,6 +527,33 @@ fn journal_entries(dir: &Path) -> usize {
 
 fn full() -> Value {
     json!({"include_moderation": false})
+}
+
+/// The typed math config a rebuild's admission carries (P-073 r2).
+fn math() -> Value {
+    json!({"staged_label": "python-large", "target_label": "python", "need_bytes": 850_000_000u64,
+        "input_through_ms": 1_790_000_000_000i64, "binding": "0000000000000000",
+        "source_commit": "0123456789abcdef0123456789abcdef01234567"})
+}
+
+/// Wait for a transition of this job to `to`.
+fn wait_transition(d: &Daemon, job: Uuid, to: &str, secs: u64) -> Value {
+    let deadline = Instant::now() + Duration::from_secs(secs);
+    loop {
+        if let Some(t) = d
+            .transitions()
+            .into_iter()
+            .find(|t| t["job_id"] == job.to_string() && t["to"] == to)
+        {
+            return t;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "no transition to {to} for {job}:\n{}",
+            d.log()
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1218,8 +1277,8 @@ fn run_to_exit(env: &[(&str, String)]) -> (Option<i32>, String) {
 #[test]
 fn large_worker_runs_only_the_rebuild_and_the_delphi_worker_only_delphi_jobs() {
     let mut db = Db::new("jobs_v3");
-    let (rebuild, scope) = db.enqueue("math_rebuild", 1, None, json!({"need_bytes": 1}), 3);
-    let (delphi, _) = db.enqueue("delphi_full_pipeline", 2, Some("l1"), full(), 3);
+    let (rebuild, scope) = db.enqueue("math_rebuild", 1, None, math(), 3);
+    let (delphi, delphi_scope) = db.enqueue("delphi_full_pipeline", 2, Some("l1"), full(), 3);
     assert_eq!(db.depth("large"), (1, 0));
     assert_eq!(db.depth("delphi"), (1, 0));
     let large = start(
@@ -1251,6 +1310,13 @@ fn large_worker_runs_only_the_rebuild_and_the_delphi_worker_only_delphi_jobs() {
         .collect();
     assert!(lines.iter().any(|l| l == "argv=--job"), "{lines:?}");
     assert!(lines.iter().any(|l| l == "rebuild zid=1"), "{lines:?}");
+    // The typed math config reached the child whole, through the real frame.
+    let carried: Value = lines
+        .iter()
+        .find_map(|l| l.strip_prefix("math_config="))
+        .map(|j| serde_json::from_str(j).unwrap())
+        .unwrap();
+    assert_eq!(carried, math());
     assert!(lines.iter().any(|l| l == "DELPHI_STAGE=math_rebuild"));
     assert!(lines.iter().any(|l| l == "queue_dsn_visible=False"));
     let manifest: String = lines
@@ -1273,14 +1339,31 @@ fn large_worker_runs_only_the_rebuild_and_the_delphi_worker_only_delphi_jobs() {
         digest.map(|d| d.iter().map(|b| format!("{b:02x}")).collect::<String>()),
         Some(sha_hex(manifest.as_bytes()))
     );
-    assert!(db.release(&scope), "the finished rebuild's scope releases");
+    // The daemon released the finished rebuild's scope itself (finding 2):
+    // the guard is gone, a second release has nothing to do, and the same
+    // conversation admits a fresh rebuild.
+    let t = wait_transition(&large, rebuild, "scope_released", 10);
+    assert_eq!(t["from"], "succeeded");
+    assert_eq!(t["reason"], scope);
+    assert_eq!(db.guard(&scope), None, "the guard is gone");
+    assert!(!db.release(&scope), "nothing left to release");
+    let (again, _) = db.enqueue("math_rebuild", 1, None, math(), 3);
+    assert_ne!(again, rebuild);
+    db.wait_state(again, "succeeded", 60);
+    wait_transition(&large, again, "scope_released", 10);
     let delphi_worker = start(&db, Opts::new("delphi-on-v3", "success"));
     db.wait_state(delphi, "succeeded", 60);
+    wait_transition(&delphi_worker, delphi, "scope_released", 10);
+    assert_eq!(
+        db.guard(&delphi_scope),
+        None,
+        "a Delphi job on /3 frees its scope too"
+    );
     assert_eq!(db.attempts(rebuild).len(), 1, "the rebuild ran once");
-    assert_eq!(runs(&db).len(), 2);
+    assert_eq!(runs(&db).len(), 3);
     assert_eq!(db.depth("delphi"), (0, 0));
     std::thread::sleep(Duration::from_millis(1500));
-    for (d, class) in [(&large, "large"), (&delphi_worker, "delphi")] {
+    for (d, class, finalized) in [(&large, "large", 2), (&delphi_worker, "delphi", 1)] {
         assert!(d.log().contains(&format!("class={class}")), "{class}");
         let ready: Vec<_> = d
             .log()
@@ -1292,7 +1375,16 @@ fn large_worker_runs_only_the_rebuild_and_the_delphi_worker_only_delphi_jobs() {
             "polis-queue/3",
             "{class}"
         );
-        assert_eq!(ready.last().unwrap().2["finalized_total"], 1, "{class}");
+        assert_eq!(
+            ready.last().unwrap().2["finalized_total"],
+            finalized,
+            "{class}"
+        );
+        assert_eq!(
+            ready.last().unwrap().2["released_total"],
+            finalized,
+            "{class}"
+        );
     }
     assert_eq!(large.stop(), Some(0));
     assert_eq!(delphi_worker.stop(), Some(0));
@@ -1333,6 +1425,101 @@ fn large_worker_refuses_the_second_contract_and_foreign_stages() {
     assert!(err.contains("stages of class large"), "{err}");
     let (code, err) = run_to_exit(&base(&[("POLIS_JOBS_WORKER_CLASS", "noop".to_owned())]));
     assert_eq!(code, Some(2), "{err}");
+}
+
+/// A rebuild whose admission lacks the typed math config never spawns a
+/// child: the daemon ends the attempt before dispatch (`math_config_invalid`,
+/// permanent, exit proof honest), the job is dead, and its scope is free.
+#[test]
+fn a_rebuild_without_the_typed_math_config_is_refused_before_any_child() {
+    let mut db = Db::new("jobs_v3");
+    let (job, scope) = db.enqueue("math_rebuild", 1, None, json!({"need_bytes": 1}), 3);
+    let d = start(
+        &db,
+        Opts::new("untyped", "success").set("POLIS_JOBS_WORKER_CLASS", "large"),
+    );
+    db.wait_state(job, "dead", 60);
+    let (_, count, code) = db.job(job);
+    assert_eq!((count, code.as_deref()), (1, Some("math_config_invalid")));
+    assert!(db.attempts(job)[0].5, "exit proof is honest: no child ran");
+    assert!(runs(&db).is_empty(), "no child ran");
+    wait_transition(&d, job, "scope_released", 10);
+    assert_eq!(db.guard(&scope), None);
+    // The same conversation admits a typed rebuild at once.
+    let (typed, _) = db.enqueue("math_rebuild", 1, None, math(), 3);
+    db.wait_state(typed, "succeeded", 60);
+    assert_eq!(runs(&db).len(), 1);
+    assert_eq!(d.stop(), Some(0));
+}
+
+/// Scope release on the failure paths (finding 2): a cancelled rebuild frees
+/// its scope once the daemon proved the child's exit; a dead rebuild frees it
+/// too; and after three deaths under one code image the fourth admission is
+/// `poisoned` (no job, no guard) until a new image is admitted.
+#[test]
+fn cancel_and_death_free_the_scope_and_three_deaths_poison_it() {
+    let mut db = Db::new("jobs_v3");
+    let (job, scope) = db.enqueue("math_rebuild", 1, None, math(), 3);
+    let d = start(
+        &db,
+        Opts::new("cancel-large", "sleep").set("POLIS_JOBS_WORKER_CLASS", "large"),
+    );
+    db.wait("child pids", 60, |d| pids(d, "cancel-large").len() == 2);
+    let mgmt: Value = db
+        .executor()
+        .query_one("SELECT pq_job_status($1,$2)", &[&ENV, &job])
+        .unwrap()
+        .get(0);
+    let mgmt: i64 = mgmt["mgmt_version"].as_str().unwrap().parse().unwrap();
+    let r: Value = db
+        .executor()
+        .query_one("SELECT pq_cancel($1,$2,$3)", &[&ENV, &job, &mgmt])
+        .unwrap()
+        .get(0);
+    assert_eq!(r["outcome"], "cancelled");
+    db.wait("exit confirmed", 30, |d| d.attempts(job)[0].5);
+    let t = wait_transition(&d, job, "scope_released", 15);
+    assert_eq!(t["from"], "cancelled");
+    assert_eq!(db.guard(&scope), None, "cancel freed the conversation");
+    // The same conversation admits a fresh rebuild: cancel -> re-enqueue.
+    let (again, _) = db.enqueue("math_rebuild", 1, None, math(), 3);
+    assert_ne!(again, job);
+    assert_eq!(d.stop(), Some(0));
+
+    // Deaths: a failing child (exit 1), one attempt per job.
+    let d = start(
+        &db,
+        Opts::new("dying-large", "exit:1").set("POLIS_JOBS_WORKER_CLASS", "large"),
+    );
+    db.wait_state(again, "dead", 60);
+    wait_transition(&d, again, "scope_released", 15);
+    assert_eq!(db.guard(&scope), None, "death freed the conversation");
+    let mut dead = vec![again];
+    for _ in 0..2 {
+        let (j, _) = db.enqueue("math_rebuild", 1, None, math(), 1);
+        db.wait_state(j, "dead", 60);
+        wait_transition(&d, j, "scope_released", 15);
+        dead.push(j);
+    }
+    // The latch: the last three jobs of the scope died under this image.
+    let (reply, _, _) = db.admit("math_rebuild", 1, None, math(), 3, "fixture-image");
+    assert_eq!(reply["outcome"], "poisoned", "{reply}");
+    assert_eq!(reply["job_id"], dead.last().unwrap().to_string());
+    assert_eq!(
+        db.guard(&scope),
+        None,
+        "a poisoned admission holds no guard"
+    );
+    assert_eq!(db.depth("large"), (0, 0));
+    std::thread::sleep(Duration::from_secs(2));
+    // The cancelled job ran once, the first dead job spent its three
+    // attempts, the next two one each: six child runs, and no fourth job.
+    assert_eq!(runs(&db).len(), 1 + 3 + 1 + 1, "no fourth job ran");
+    // A new image (a deploy) admits again.
+    let (reply, fresh, _) = db.admit("math_rebuild", 1, None, math(), 1, "fixture-image-next");
+    assert_eq!(reply["outcome"], "enqueued", "{reply}");
+    db.wait_state(fresh, "dead", 60);
+    assert_eq!(d.stop(), Some(0));
 }
 
 /// Offline profile: Unix-socket transport, no network settings, no AWS
