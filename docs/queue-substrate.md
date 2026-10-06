@@ -48,14 +48,69 @@ A **fresh** container applies it automatically: the postgres image copies
 `server/postgres/migrations/*.sql` into `/docker-entrypoint-initdb.d`, so
 `make start` on a new volume comes up with the schema present and the flag off.
 
-An **existing** database needs the file applied by hand, exactly as
-[docs/migrations.md](migrations.md) describes. Apply this file alone; never
-replay the migrations directory as an upgrade mechanism.
+An **existing** database needs the file applied by hand, through the checked
+wrapper, which feeds it to psql exactly as [docs/migrations.md](migrations.md)
+describes. Apply this file alone; never replay the migrations directory as an
+upgrade mechanism.
 
 ```sh
-docker exec -i polis-dev-postgres-1 psql -v ON_ERROR_STOP=1 -U postgres -d polis-dev \
-  < server/postgres/migrations/000019_create_polis_queue.sql
+server/postgres/bin/apply-migration.sh --free-bytes <bytes free on the database host> 000019 -- \
+  docker exec -i polis-dev-postgres-1 psql -U postgres -d polis-dev
 ```
+
+### What the apply locks, and the window it needs
+
+Both 000019 and 000023 create foreign keys to `public.conversations`
+(`polis_queue_runs` and `polis_queue_heads` here; `delphi_jobs` and
+`delphi_current` in 000023). Creating a foreign key takes
+**`ShareRowExclusiveLock` on the parent table**, and each file holds it on
+`conversations` from that statement until its `COMMIT`. While it is held,
+every `INSERT`, `UPDATE` and `DELETE` on `conversations` waits (plain `SELECT`
+continues), and the apply itself waits, up to its `lock_timeout`, behind any
+open transaction that already wrote a `conversations` row; when the timeout
+fires the transaction aborts and nothing is applied. The changed queue tables
+and the new objects are `ACCESS EXCLUSIVE` for the same span. So "additive and
+empty" is not "cannot block users": **apply in an idle or controlled writer
+window** (producers paused, no open writer on `conversations`), and apply
+000019 and 000023 as two separate steps, each with its own window.
+
+### The wrapper: preflight and budgets
+
+`server/postgres/bin/apply-migration.sh` is the one way to apply 000019 or
+000023 to an existing database. It takes the migration number and, after `--`,
+the psql command to run (the SQL goes on its stdin, so `docker exec -i … psql`
+and a plain `psql` both work). It refuses, sending nothing, unless every
+preflight check passes, and prints each one:
+
+| check | what it requires |
+|---|---|
+| seal | the file's sha256 matches its recorded value (000019: `QUEUE_SQL_SHA256` in `server/src/queue/protocol.ts`; 000023: `down/000023-files.sha256`) |
+| server | PostgreSQL 17 (the catalog fingerprints and `transaction_timeout` need it) |
+| rights | the login can do what the file needs (000019: superuser, or `CREATEROLE` while a queue role is absent / SET membership in `polis_queue_owner`, plus the `public` and `conversations` privileges with grant option listed below; 000023: superuser or SET membership in `polis_queue_owner`) |
+| chain | 000023 only: 000019 is installed |
+| rows | every `polis_queue_*` and `delphi_*` data table that exists is empty; the wrapper is for a first install (the two install/provenance tables are exempt) |
+| xacts | no other transaction on the database is older than `--max-xact-age` (default 30 s); the login must be able to see other sessions (superuser or `pg_read_all_stats`), otherwise the check refuses rather than passing blind |
+| disk | `--free-bytes`, the free disk on the database host measured by the operator (RDS `FreeStorageSpace`; `df` on the data directory for a self-hosted server), is at or above `--disk-floor-bytes` (default 5 GiB) |
+
+It then sends four session settings ahead of the file, each printed and
+overridable: `lock_timeout` 5 s (`--lock-timeout`), `statement_timeout` 60 s
+(`--statement-timeout`), `transaction_timeout` 120 s
+(`--transaction-timeout`) and `idle_in_transaction_session_timeout` 30 s
+(`--idle-timeout`). `lock_timeout` bounds each lock acquisition wait, not how
+long an acquired lock is held; the transaction and statement budgets bound
+that. 000019 sets no timeout itself; 000023 pins `lock_timeout` to 5 s inside
+its own transaction (`SET LOCAL`), so for it the acquisition budget is 5 s
+whatever the flag says. A budget that fires aborts the transaction, nothing is
+applied, and the wrapper exits non-zero. After the file it checks the result
+(000019: the `polis_queue_install` record exists; 000023: `contract_version`
+reads `polis-queue/2`). `--preflight-only` runs the checks and stops.
+
+The contended-parent witness, check (i) of `test_000023_down.sh`, proves the
+lock claim and the budgets for both files: with a concurrent uncommitted
+`UPDATE` on `conversations`, the apply is seen waiting for
+`ShareRowExclusiveLock` on `conversations`, fails on `lock_timeout`, and the
+schema dump is unchanged; with that transaction older than `--max-xact-age`,
+the preflight refuses first; once the writer is gone, the same command applies.
 
 The applying login must be able to `SET ROLE` to the object owner. On a first
 apply that creates the roles it needs `CREATEROLE` (or superuser); on every
@@ -313,13 +368,40 @@ stages beside `noop`, and adds `worker_class`, `process_exit_confirmed_at` and
 `binding_expires_at`. The `/1` noop path is untouched. Results stay in
 DynamoDB: there is no result table and no result-writing function.
 
+Two of those tables deserve plain words:
+
+* `delphi_job_guards` holds **one guard row per scope, held until safe
+  explicit release**. `pd_enqueue` creates it with the root job and the
+  request digest; while it exists, an identical request returns the existing
+  job and a different one is a `conflict`. Only `pd_release_scope` removes it,
+  and it refuses (returns `false`) while any job in the root's tree is not
+  terminal, any of their attempts lacks exit proof, or any provider request of
+  theirs is open. Nothing releases a guard automatically, a terminal root
+  included; a scope whose guard is never released stays closed to new
+  admissions until an operator or the daemon calls `pd_release_scope`.
+* `polis_queue_logs` holds the attempt logs, and the daemon writes them with
+  **direct `INSERT`s** under the executor role's table-level `INSERT` grant,
+  not through an RPC. The database enforces **one limit per row** (`line` at
+  most 1 MiB, the table's `CHECK`) and nothing per attempt: the daemon's own
+  buffer caps an attempt at `POLIS_JOBS_LOG_MAX_LINES` / `_BYTES` (20,000
+  lines, 8 MiB by default) and writes one `truncated` marker row, but any
+  login holding the executor grant can insert without limit. **There is no
+  retention**: nothing deletes, rotates or sweeps log rows, no index exists
+  beyond the primary key, and the down script refuses while any row exists.
+
 Schema ruling S1 (2026-10-05) approved it as direction: one datastore and typed
 contracts, flag off, DynamoDB running every job family until each is moved one
 at a time. **Applying it to production is a separate, explicit step by the
-owner**, 000019 first (it has never been applied there), then 000023:
+owner**, 000019 first (it has never been applied there), then 000023, each
+through the wrapper and in its own idle or controlled writer window, because
+each holds `ShareRowExclusiveLock` on `conversations` until it commits
+([what the apply locks](#what-the-apply-locks-and-the-window-it-needs); the
+wrapper's preflight and budgets are
+[described above](#the-wrapper-preflight-and-budgets)):
 
 ```sh
-docker exec -i polis-dev-postgres-1 psql -v ON_ERROR_STOP=1 -U postgres -d polis-dev   < server/postgres/migrations/000023_create_delphi_foundation.sql
+server/postgres/bin/apply-migration.sh --free-bytes <bytes free on the database host> 000023 -- \
+  docker exec -i polis-dev-postgres-1 psql -U postgres -d polis-dev
 ```
 
 The applier must be able to `SET ROLE polis_queue_owner`; the file creates no
@@ -338,8 +420,13 @@ exists (no force override). Both files are sealed in
 `bash server/postgres/migrations/down/test_000023_down.sh` (docker only):
 forward against the real chain, a refused second apply, a refused 000019
 replay, the noop /1 path still working on /2, a refused down with data, the
-down restoring a byte-identical schema dump, apply again after the down, and
-the down failing cleanly where 000023 was never applied.
+down restoring a byte-identical schema dump, apply again after the down, the
+down failing cleanly where 000023 was never applied, and (i) the
+contended-parent witness through the wrapper for both 000019 and 000023: an
+uncommitted writer on `conversations` makes the apply wait for
+`ShareRowExclusiveLock`, fail on `lock_timeout` and change nothing; an older
+writer is refused by the preflight; the same command applies once the writer
+is gone.
 
 ## polis-queue/3: the large worker class (migration 000024)
 

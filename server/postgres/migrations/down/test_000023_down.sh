@@ -34,6 +34,15 @@
 #   (h) the noop /1 path still works on the /2 schema: as the executor,
 #       pq_enqueue -> pq_claim (five arguments) -> pq_heartbeat -> pq_finalize
 #       on a noop job succeeds, and the delphi_jobs table stays empty.
+#   (i) the contended-parent witness, through the checked apply wrapper
+#       (server/postgres/bin/apply-migration.sh), for 000019 on a chain to
+#       000018 and for 000023 on a chain to 000022: with a concurrent
+#       uncommitted UPDATE on public.conversations, the wrapper's preflight
+#       refuses once that transaction is older than --max-xact-age; with the
+#       age allowed, the apply is seen waiting for ShareRowExclusiveLock on
+#       conversations (the foreign-key creation's parent lock), fails on
+#       lock_timeout, and the schema dump is unchanged; once the writer is
+#       terminated the same command applies and the post-check passes.
 #
 # Shell rather than a jest or pytest because the checks are schema-diff shaped
 # (pg_dump of a full migration chain in an isolated cluster). Needs only docker.
@@ -248,4 +257,61 @@ dump_schema g > "$WORK/g.after"
 cmp -s "$WORK/g.before" "$WORK/g.after" || fail "(g) the failed down changed a database without 000023"
 pass "(g) down without 000023 fails before changing anything"
 
-echo "ALL CHECKS PASSED (seal, a-h)"
+# ------------------------------------------------------------------ (i)
+echo "== (i) contended parent: the wrapper refuses an old writer, waits behind a young one, fails on lock_timeout, applies nothing =="
+WRAP="$MIGRATIONS_DIR/../bin/apply-migration.sh"
+# The wrapper reads the migration from this checkout and streams it to the
+# container's psql on stdin, the production shape with a different psql command.
+wrap() { local db="$1" num="$2"; shift 2; bash "$WRAP" --free-bytes 12000000000 "$@" "$num" -- docker exec -i "$CONTAINER" psql -U postgres -d "$db"; }
+# A serving write: one conversations row updated, the transaction left open.
+hold_writer() {
+  docker exec -i "$CONTAINER" psql -X -q -U postgres -d "$1" \
+    -c "BEGIN; UPDATE public.conversations SET topic='held' WHERE zid=$2; SELECT pg_sleep(120); COMMIT;" >/dev/null 2>&1 &
+  echo $!
+}
+conversations_locks() { # db granted(t|f): the lock modes held/awaited on conversations by other sessions
+  scalar "$1" "SELECT coalesce(string_agg(l.mode, ',' ORDER BY l.mode), '') FROM pg_locks l JOIN pg_stat_activity a ON a.pid=l.pid
+    WHERE a.datname=current_database() AND a.pid<>pg_backend_pid() AND l.relation='public.conversations'::regclass AND l.granted=$2"
+}
+witness() { # label db num chain_max
+  local label="$1" db="$2" num="$3" upto="$4" wpid apid out rc mode=""
+  createdb "$db"
+  apply_upto "$db" "$upto"
+  psql_su -d "$db" -c "INSERT INTO public.conversations(zid,topic) VALUES (7,'fixture')" >/dev/null
+  dump_schema "$db" > "$WORK/$db.before"
+  wpid="$(hold_writer "$db" 7)"
+  for _ in $(seq 1 50); do
+    case "$(conversations_locks "$db" true)" in *RowExclusiveLock*) break;; esac
+    sleep 0.2
+  done
+  case "$(conversations_locks "$db" true)" in *RowExclusiveLock*) ;; *) fail "(i $label) the writer never took its lock on conversations";; esac
+  sleep 2
+  # (i.1) the writer's transaction is older than --max-xact-age: refused before anything is sent.
+  set +e; out="$(wrap "$db" "$num" --max-xact-age 1 2>&1)"; rc=$?; set -e
+  [ "$rc" -eq 4 ] || fail "(i $label) preflight did not refuse the old transaction (exit $rc): $out"
+  printf '%s' "$out" | grep -q '^FAIL  xacts' || fail "(i $label) refused for another reason: $out"
+  # (i.2) the age allowed: the apply waits for the parent lock and fails on lock_timeout.
+  wrap "$db" "$num" --max-xact-age 600 --lock-timeout 3s > "$WORK/$db.apply" 2>&1 & apid=$!
+  for _ in $(seq 1 150); do
+    mode="$(conversations_locks "$db" false)"
+    [ -n "$mode" ] && break
+    sleep 0.1
+  done
+  set +e; wait "$apid"; rc=$?; set -e
+  [ "$mode" = "ShareRowExclusiveLock" ] || fail "(i $label) the apply was not seen waiting for ShareRowExclusiveLock on conversations (saw '$mode'): $(cat "$WORK/$db.apply")"
+  [ "$rc" -eq 5 ] || fail "(i $label) the contended apply did not fail as an apply failure (exit $rc): $(cat "$WORK/$db.apply")"
+  grep -q 'lock timeout' "$WORK/$db.apply" || fail "(i $label) the apply failed for another reason: $(cat "$WORK/$db.apply")"
+  dump_schema "$db" > "$WORK/$db.after_fail"
+  cmp -s "$WORK/$db.before" "$WORK/$db.after_fail" || fail "(i $label) the failed apply changed the catalog"
+  [ "$(scalar "$db" "SELECT count(*) FROM pg_class WHERE relnamespace='public'::regnamespace AND (relname LIKE 'delphi\\_%' OR relname='polis_queue_logs')")" = "0" ] || fail "(i $label) a job table survived the failed apply"
+  # (i.3) the writer is gone: the same command applies.
+  psql_su -d "$db" -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND query LIKE '%pg_sleep(120)%'" >/dev/null
+  wait "$wpid" 2>/dev/null || true
+  wrap "$db" "$num" --max-xact-age 600 > "$WORK/$db.apply2" 2>&1 || fail "(i $label) the apply after the writer left failed: $(cat "$WORK/$db.apply2")"
+  grep -q '^applied: ' "$WORK/$db.apply2" || fail "(i $label) no post-check line: $(cat "$WORK/$db.apply2")"
+  pass "(i $label) old writer refused by preflight; young writer: waited for ShareRowExclusiveLock on conversations, failed on lock_timeout, catalog unchanged; applied once the writer left"
+}
+witness 000019 i19 000019 000018
+witness 000023 i23 000023 000022
+
+echo "ALL CHECKS PASSED (seal, a-i)"
