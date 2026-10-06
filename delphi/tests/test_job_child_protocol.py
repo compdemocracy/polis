@@ -267,16 +267,19 @@ def test_legacy_failure_exit_code_is_unchanged_for_the_math_export(app_dir, monk
 @pytest.mark.parametrize(
     "stub, code, stages",
     [
-        ({"STUB_EXIT_UMAP": "1"}, 1, ["reset", "math", "umap", "extremity", "priority"]),
+        ({"STUB_EXIT_UMAP": "1"}, 1, ["convention", "reset", "math", "umap", "extremity", "priority"]),
         ({"STUB_EXIT_EXTREMITY": "2"}, 1, ALL_STAGES),
         ({"STUB_EXIT_VISUALIZATION": "2"}, 1, ALL_STAGES),
         ({"STUB_EXIT_MATH": "4"}, 4, ALL_STAGES),
         ({"STUB_EXIT_MATH": "4", "STUB_EXIT_PRIORITY": "1"}, 4, ALL_STAGES),
-        ({"STUB_EXIT_MATH": "1"}, 1, ["reset", "math"]),
-        ({"STUB_EXIT_MATH": "137"}, 1, ["reset", "math"]),  # a killed stage: any other code is 1
-        ({"STUB_EXIT_MATH": "2"}, 1, ["reset", "math"]),  # never confused with "environment refused"
-        ({"STUB_EXIT_RESET": "3"}, 1, ["reset"]),
-        ({"STUB_EXIT_RESET": "6"}, 1, ["reset"]),
+        ({"STUB_EXIT_MATH": "1"}, 1, ["convention", "reset", "math"]),
+        ({"STUB_EXIT_MATH": "137"}, 1, ["convention", "reset", "math"]),  # a killed stage: any other code is 1
+        ({"STUB_EXIT_MATH": "2"}, 1, ["convention", "reset", "math"]),  # never confused with "environment refused"
+        ({"STUB_EXIT_RESET": "3"}, 1, ["convention", "reset"]),
+        ({"STUB_EXIT_RESET": "6"}, 1, ["convention", "reset"]),
+        # The vote convention check is the first stage: a refusal there runs nothing else (the reset never removes anything).
+        ({"STUB_EXIT_CONVENTION": "1"}, 1, ["convention"]),
+        ({"STUB_EXIT_CONVENTION": "2"}, 1, ["convention"]),
     ],
 )
 def test_daemon_failure_exit_codes_and_no_manifest(app_dir, monkeypatch, stub, code, stages):
