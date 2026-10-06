@@ -93,6 +93,10 @@ pub struct Config {
     pub child_timeout: Duration,
     pub max_attempts: u32,
     pub poll: Duration,
+    /// The fallback poll while the `LISTEN` connection is up (P-082): a
+    /// `NOTIFY` wakes the claim pass, so an idle worker need not ask every
+    /// `poll`. Without the listener the worker polls every `poll`.
+    pub idle_poll: Duration,
     pub log_max_lines: u64,
     pub log_max_bytes: u64,
     pub log_batch_lines: usize,
@@ -225,6 +229,7 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
     )?;
     let max_attempts = number(&get, "POLIS_JOBS_MAX_ATTEMPTS", 3, 1, 100)?;
     let poll = number(&get, "POLIS_JOBS_POLL_SECONDS", 5, 1, 3600)?;
+    let idle_poll = number(&get, "POLIS_JOBS_IDLE_POLL_SECONDS", 60, 1, 3600)?;
     let log_max_lines = number(&get, "POLIS_JOBS_LOG_MAX_LINES", 20000, 1, 100_000_000)?;
     let log_max_bytes = number(&get, "POLIS_JOBS_LOG_MAX_BYTES", 8_388_608, 1024, 1 << 34)?;
     let log_batch = number(&get, "POLIS_JOBS_LOG_BATCH", 50, 1, 10_000)?;
@@ -266,6 +271,7 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
         child_timeout: Duration::from_secs(child_timeout),
         max_attempts: max_attempts as u32,
         poll: Duration::from_secs(poll),
+        idle_poll: Duration::from_secs(idle_poll),
         log_max_lines,
         log_max_bytes,
         log_batch_lines: log_batch as usize,
@@ -387,6 +393,7 @@ mod tests {
         assert_eq!(c.child_timeout, Duration::from_secs(14400));
         assert_eq!(c.max_attempts, 3);
         assert_eq!(c.poll, Duration::from_secs(5));
+        assert_eq!(c.idle_poll, Duration::from_secs(60));
         assert_eq!((c.log_max_lines, c.log_max_bytes), (20000, 8_388_608));
         assert_eq!(c.log_batch_lines, 50);
         assert_eq!(c.log_batch_interval, Duration::from_secs(2));
@@ -403,6 +410,22 @@ mod tests {
             c.stages.iter().map(String::as_str).collect::<Vec<_>>(),
             vec!["delphi_full_pipeline", "delphi_narrative"]
         );
+    }
+
+    #[test]
+    fn idle_poll_is_bounded() {
+        let mut pairs = BASE.to_vec();
+        pairs.push(("POLIS_JOBS_IDLE_POLL_SECONDS", "1"));
+        assert_eq!(ready(&pairs).idle_poll, Duration::from_secs(1));
+        for bad in ["0", "3601", "x"] {
+            let mut pairs = BASE.to_vec();
+            pairs.push(("POLIS_JOBS_IDLE_POLL_SECONDS", bad));
+            assert_eq!(
+                with(&pairs).err().map(|e| e.0),
+                Some("POLIS_JOBS_IDLE_POLL_SECONDS must be an integer in 1..=3600".into()),
+                "{bad}"
+            );
+        }
     }
 
     #[test]
