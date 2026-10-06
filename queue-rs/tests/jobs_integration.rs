@@ -1287,7 +1287,11 @@ fn large_worker_runs_only_the_rebuild_and_the_delphi_worker_only_delphi_jobs() {
             .lines()
             .filter_map(polis_queue_adapter::jobs::readiness::parse_readiness)
             .collect();
-        assert_eq!(ready.last().unwrap().2["contract"], "polis-queue/3", "{class}");
+        assert_eq!(
+            ready.last().unwrap().2["contract"],
+            "polis-queue/3",
+            "{class}"
+        );
         assert_eq!(ready.last().unwrap().2["finalized_total"], 1, "{class}");
     }
     assert_eq!(large.stop(), Some(0));
@@ -1321,7 +1325,10 @@ fn large_worker_refuses_the_second_contract_and_foreign_stages() {
             && err.contains("class large needs polis-queue/3"),
         "{err}"
     );
-    let (code, err) = run_to_exit(&base(&[("POLIS_JOBS_STAGES", "delphi_full_pipeline".to_owned())]));
+    let (code, err) = run_to_exit(&base(&[(
+        "POLIS_JOBS_STAGES",
+        "delphi_full_pipeline".to_owned(),
+    )]));
     assert_eq!(code, Some(2), "{err}");
     assert!(err.contains("stages of class large"), "{err}");
     let (code, err) = run_to_exit(&base(&[("POLIS_JOBS_WORKER_CLASS", "noop".to_owned())]));

@@ -1,14 +1,16 @@
-//! The main loop (build spec §1.3): contract check, restart-journal recovery,
+//! The main loop (build spec §1.3): contract check (the installed contract
+//! must be one the worker's class may start on), restart-journal recovery,
 //! then LISTEN `polis_queue_wakeup_v1` with a poll fallback, the six-argument
-//! `/2` `pq_claim` with the worker class (reply `owned` or `none`), admission
-//! of known stages only, the reaper cadence and the readiness cadence.
+//! `pq_claim` with the worker class (reply `owned` or `none`; a worker sees
+//! only jobs of its class), admission of the class's stages only, the reaper
+//! cadence and the readiness cadence.
 use super::{
     child::{self, Claim},
     config::Config,
     journal::{self, Journal},
     readiness::{self, Counters, Snapshot, Transition},
     reaper::Reaper,
-    rpc::{CONTRACT, Rpc},
+    rpc::{CONTRACTS, Rpc},
     shutdown,
     task::{self, Ctx, Pending},
     transport::Connector,
@@ -17,7 +19,7 @@ use crate::Completion;
 use postgres::fallible_iterator::FallibleIterator;
 use serde_json::{Value, json};
 use std::{
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
     thread::JoinHandle,
     time::{Duration, Instant},
 };
@@ -58,7 +60,7 @@ fn claim_one(
             json!(owner),
             json!(attempt),
             json!(cfg.lease_seconds),
-            json!(cfg.worker_class),
+            json!(cfg.worker_class.name()),
         ];
         let reply = match rpc.call("pq_claim", &args)? {
             Completion::Committed(r) => r,
@@ -236,6 +238,7 @@ fn snapshot_line(ctx: &Ctx, progress: &str) -> String {
         in_flight,
         counters: &ctx.counters,
         transport: ctx.cfg.transport.name(),
+        contract: ctx.contract(),
     })
 }
 
@@ -269,26 +272,38 @@ pub fn run(cfg: Config) -> i32 {
         counters: Counters::default(),
         pending: Mutex::new(vec![]),
         in_flight: Mutex::new(Default::default()),
+        contract: OnceLock::new(),
     });
     let cfg = ctx.cfg.clone();
     line(&format!(
-        "starting owner={owner} identity={} env={} transport={} dsn={}",
+        "starting owner={owner} identity={} env={} class={} transport={} dsn={}",
         cfg.identity,
         cfg.env,
+        cfg.worker_class.name(),
         cfg.transport.name(),
         cfg.redacted_dsn()
     ));
     let mut rpc = Rpc::new(connector.clone(), &cfg.env);
-    // Contract: polis_queue_install.contract_version must read polis-queue/2.
+    // Contract: polis_queue_install.contract_version must read one the class
+    // may start on (delphi: /2 or /3; large: /3 only).
     let mut failures = 0u32;
     loop {
         if shutdown::requested() {
             return 0;
         }
         match rpc.contract() {
-            Ok(Some(v)) if v == CONTRACT => break,
-            Ok(_) => {
-                line("contract missing: polis_queue_install.contract_version is not polis-queue/2");
+            Ok(Some(v)) if cfg.worker_class.admits_contract(&v) => {
+                let _ = ctx.contract.set(v);
+                break;
+            }
+            Ok(found) => {
+                line(&format!(
+                    "contract missing: polis_queue_install.contract_version is {}; class {} needs {} (known: {})",
+                    found.as_deref().unwrap_or("absent"),
+                    cfg.worker_class.name(),
+                    cfg.worker_class.contracts().join(" or "),
+                    CONTRACTS.join(", ")
+                ));
                 return EXIT_CONTRACT;
             }
             Err(e) if e.to_string().starts_with("queue_login_boundary") => {
@@ -363,7 +378,7 @@ pub fn run(cfg: Config) -> i32 {
         if Instant::now() >= next_reap {
             next_reap = Instant::now() + cfg.reap_interval;
             retry_pending(&ctx, &mut rpc);
-            if let Err(e) = reaper.tick(&mut rpc, &cfg.worker_class, &owner, &ctx.counters) {
+            if let Err(e) = reaper.tick(&mut rpc, cfg.worker_class.name(), &owner, &ctx.counters) {
                 db_failures += 1;
                 line(&format!("reap failed: {e}"));
             }

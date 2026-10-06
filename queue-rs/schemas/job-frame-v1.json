@@ -14,7 +14,7 @@
     "run_id": {"type": "string", "format": "uuid"},
     "attempt_id": {"type": "string", "format": "uuid"},
     "lease_epoch": {"type": "string", "pattern": "^(0|[1-9][0-9]*)$"},
-    "stage": {"enum": ["delphi_full_pipeline", "delphi_narrative"]},
+    "stage": {"enum": ["delphi_full_pipeline", "delphi_narrative", "math_rebuild"]},
     "phase": {"enum": ["run", "submit", "recheck", null]},
     "config": {
       "type": "object",

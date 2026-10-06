@@ -107,6 +107,21 @@ database, and a fresh container applies it at initdb like every migration.
 Applying it to an existing database, production included, is the operator's
 explicit step (`docs/queue-substrate.md`).
 
+**Worker classes.** `POLIS_JOBS_WORKER_CLASS` (default `delphi`) says which
+jobs this daemon claims; a worker sees only jobs of its class, by the SQL
+contract. `delphi` runs the two Delphi stages (`delphi_full_pipeline`,
+`delphi_narrative`, the scripts above) and starts on `polis-queue/2` or `/3`.
+`large` runs one stage, `math_rebuild` (an oversized conversation's cold
+rebuild on the large box, `delphi/scripts/math_poller.py --job` with the zid
+in the frame; design `P-073 r2`), and starts only on `polis-queue/3`
+(migration 000024, sealed in `down/000024-files.sha256`): on a `/2` database
+it exits 3 naming the contract it needs. `POLIS_JOBS_STAGES` must be a subset
+of the class's stages; a stage of another class is refused before any
+connection (exit 2). A rebuild's output manifest lists no DynamoDB outputs:
+its staged bundle is in Postgres under the staged label and is named by the
+manifest's `inputs`. No deployment runs a large worker yet; the math poller's
+job entry is a later change.
+
 Configuration is by environment; `POLIS_JOBS_ENABLED` must be exactly `1` or
 the daemon exits 0 at once. Transports: `tls` (default; CA file and exact host
 allowlist required), `local` (Unix socket, must be chosen explicitly) and
@@ -141,7 +156,8 @@ COMPOSE_PROJECT_NAME=p077-jobs-example POLIS_RECOVERY_PG_PORT=56170 \
 ```
 
 They apply the repository's 000000–000022 chain to one template database
-(`jobs_base`, the "contract missing" shape) and the repository's 000023 on top
-of it to another (`jobs_v2`), then run real daemon processes against copies of
-`jobs_v2` with a generated fixture child (`tests/fixtures/fake_delphi`) in
-place of the Delphi scripts.
+(`jobs_base`, the "contract missing" shape), the repository's 000023 on top
+of it to another (`jobs_v2`) and 000024 on top of that to a third (`jobs_v3`,
+the large class), then run real daemon processes against copies of them with
+a generated fixture child (`tests/fixtures/fake_delphi`) in place of the
+Delphi scripts and the math poller's job entry.

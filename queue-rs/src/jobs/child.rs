@@ -148,7 +148,9 @@ fn py_bool(v: Option<&Value>, default: bool) -> &'static str {
     }
 }
 
-/// Script and arguments per stage/phase (today's `job_poller.py:1243-1258`).
+/// Script and arguments per stage/phase (today's `job_poller.py:1243-1258`
+/// for the Delphi stages; the math poller's job entry for a rebuild, which
+/// reads the one zid from the frame and runs the cold rebuild for it).
 pub fn command_args(
     app: &Path,
     claim: &Claim,
@@ -212,6 +214,7 @@ pub fn command_args(
             app.join("umap_narrative/803_check_batch_status.py"),
             vec![format!("--job-id={}", claim.job_id)],
         ),
+        ("math_rebuild", "run") => (app.join("scripts/math_poller.py"), vec!["--job".to_owned()]),
         (stage, phase) => bail!("no command for stage {stage} phase {phase}"),
     })
 }
@@ -458,6 +461,32 @@ mod tests {
         assert!(script.ends_with("umap_narrative/803_check_batch_status.py"));
         assert_eq!(args, vec!["--job-id=j"]);
         assert!(command_args(app, &claim("delphi_full_pipeline"), &adm, "recheck").is_err());
+    }
+
+    #[test]
+    fn the_rebuild_runs_the_math_poller_for_one_job() {
+        let adm = Admission {
+            zid: 22154,
+            report_id: None,
+            config: json!({"need_bytes": 1, "staged_label": "python-large"}),
+            inputs: json!({}),
+        };
+        let app = Path::new("/app");
+        let (script, args) =
+            command_args(app, &claim("math_rebuild"), &adm, "run").unwrap_or_default();
+        assert_eq!(script, PathBuf::from("/app/scripts/math_poller.py"));
+        // The zid travels in the frame (DELPHI_FRAME and stdin), never argv.
+        assert_eq!(args, vec!["--job"]);
+        for phase in ["submit", "recheck", "none"] {
+            assert!(
+                command_args(app, &claim("math_rebuild"), &adm, phase).is_err(),
+                "{phase}"
+            );
+        }
+        let frame = frame(&claim("math_rebuild"), &adm, "run", None);
+        assert_eq!(frame["stage"], "math_rebuild");
+        assert_eq!(frame["zid"], 22154);
+        assert!(frame["report_id"].is_null());
     }
 
     #[test]

@@ -7,7 +7,7 @@
 //! before it touches any connection string.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use polis_queue_adapter::jobs::config::KNOWN_STAGES;
+use polis_queue_adapter::jobs::config::{KNOWN_STAGES, LARGE_STAGES};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fs, path::PathBuf, process::Command};
 
@@ -99,9 +99,10 @@ fn the_large_class_up_script_admits_class_large_and_stage_math_rebuild() {
     let text = fs::read_to_string(migrations().join(UP_LARGE)).unwrap();
     assert!(text.contains("CHECK(contract_version='polis-queue/3')"));
     let stages = format!(
-        "CHECK(stage IN ('noop',{},'math_rebuild'))",
+        "CHECK(stage IN ('noop',{}))",
         KNOWN_STAGES
             .iter()
+            .chain(LARGE_STAGES.iter())
             .map(|s| format!("'{s}'"))
             .collect::<Vec<_>>()
             .join(",")
