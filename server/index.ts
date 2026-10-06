@@ -32,14 +32,43 @@ function startServer(port = Config.serverPort) {
 // this build is built for (P-078; docs/vote-convention-upgrade.md). Nothing
 // listens until it does; a refusal exits 1 with the operator message.
 const primary = (sql: string) =>
-    pg.queryP(sql) as Promise<Array<Record<string, unknown>>>;
+  pg.queryP(sql) as Promise<Array<Record<string, unknown>>>;
 const replica =
   Config.databaseURL === Config.readOnlyDatabaseURL
     ? undefined
     : (sql: string) =>
         pg.queryP_readOnly(sql) as Promise<Array<Record<string, unknown>>>;
 
-requireDeclaredConvention(primary, "server", replica).then(
+// A database that does not answer yet (a compose stack whose postgres is still
+// starting) is not a refusal: the read is retried every 2 s for about a
+// minute, as the server tolerated before this check. A refusal (no table, no
+// row, another sign, an unknown contract) exits at once.
+const STARTUP_READ_ATTEMPTS = 30;
+const STARTUP_READ_INTERVAL_MS = 2000;
+async function readConventionAtStartup() {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await requireDeclaredConvention(primary, "server", replica);
+    } catch (err) {
+      if (
+        err instanceof VoteConventionStartupError ||
+        attempt >= STARTUP_READ_ATTEMPTS
+      ) {
+        throw err;
+      }
+      logger.warn(
+        `could not read the database's vote convention (attempt ${attempt} of ${STARTUP_READ_ATTEMPTS}); retrying in ${
+          STARTUP_READ_INTERVAL_MS / 1000
+        } s: ${err instanceof Error ? err.message : String(err)}`
+      );
+      await new Promise((resolve) =>
+        setTimeout(resolve, STARTUP_READ_INTERVAL_MS)
+      );
+    }
+  }
+}
+
+readConventionAtStartup().then(
   (convention) => {
     logger.info(
       `vote convention: version ${convention.version}, agree stored as ${convention.agreeValue}`
