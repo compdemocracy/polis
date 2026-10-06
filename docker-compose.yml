@@ -512,6 +512,11 @@ services:
       polis_tag: ${TAG:-dev}
     environment:
       - API_SERVER_PORT=${API_SERVER_PORT:-5000}
+      # Comma-separated routes polis-api serves instead of Node (today only
+      # "pca2"). Unset: every request goes to Node, as before. Set it only
+      # with the polis-api service running (`--profile rust-api`).
+      - RUST_API_ROUTES=${RUST_API_ROUTES:-}
+      - RUST_API_UPSTREAM=${RUST_API_UPSTREAM:-polis-api:5100}
     depends_on:
       - "client-participation-alpha"
       - "server"
@@ -520,6 +525,39 @@ services:
     ports:
       - ${HTTP_PORT:-80}:80
       - ${HTTPS_PORT:-443}:443
+
+  # Rust process serving GET /api/v3/math/pca2 (queue-rs/polis-api/README.md).
+  # Off unless started with `--profile rust-api`; nginx-proxy sends it traffic
+  # only when RUST_API_ROUTES names the route. It reads the server's env file
+  # so MATH_ENV, DEV_MODE, NODE_ENV and the domain settings match Node's.
+  polis-api:
+    profiles: [rust-api]
+    image: polis/polis-api:local
+    build:
+      context: ./queue-rs
+      dockerfile: polis-api/Dockerfile
+      args:
+        # NODE_ENV reaches this process exactly as it reaches `server`: the
+        # image default (production, as the server's prod target), then the
+        # shared env file.
+        NODE_ENV: production
+    env_file:
+      - ${SERVER_ENV_FILE:-.env}
+    environment:
+      # Empty: READ_ONLY_DATABASE_URL, else DATABASE_URL, from the env file,
+      # which is how Node picks the database for this route.
+      - POLIS_API_DATABASE_URL=${POLIS_API_DATABASE_URL:-}
+      # The dev Postgres container has no TLS; anywhere else use tls with
+      # POLIS_API_DB_CA_FILE and POLIS_API_DB_HOST_ALLOWLIST.
+      - POLIS_API_DB_TRANSPORT=${POLIS_API_DB_TRANSPORT:-docker-internal}
+      - POLIS_API_DB_PLAIN_HOSTS=${POLIS_API_DB_PLAIN_HOSTS:-postgres}
+      - POLIS_API_LISTEN=0.0.0.0:5100
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks:
+      - "polis-net"
+    restart: unless-stopped
 
   file-server:
     image: docker.io/compdem/polis-file-server:${TAG:-dev}
