@@ -17,7 +17,8 @@
 # (compatible with ordinary reads and writes; an ACCESS EXCLUSIVE holder on
 # either table makes it wait up to its own 5 s lock_timeout, then roll back),
 # and its other locks are on the objects it creates. It needs the vote tables
-# (000000, 000006) and nothing else; it does not need 000019, 000021 or 000023.
+# (000000, 000006) and nothing else; it does not need 000019, 000021, 000023
+# or 000024.
 #
 #   PREFLIGHT (refuses, applying nothing, when any check fails)
 #     seal        the file matches its recorded sha256 (000023: down/000023-files.sha256;

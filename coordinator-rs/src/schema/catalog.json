@@ -2563,7 +2563,7 @@
         {
           "table": "delphi_jobs",
           "name": "delphi_jobs_kind_check",
-          "definition": "CHECK ((kind = ANY (ARRAY['full_pipeline'::text, 'embed'::text, 'snapshot'::text, 'umap'::text, 'cluster'::text, 'keywords'::text, 'topic_name'::text, 'narrative'::text, 'collective_statement'::text, 'visualize'::text, 'legacy_import'::text, 'legacy_queue_record'::text])))"
+          "definition": "CHECK ((kind = ANY (ARRAY['full_pipeline'::text, 'embed'::text, 'snapshot'::text, 'umap'::text, 'cluster'::text, 'keywords'::text, 'topic_name'::text, 'narrative'::text, 'collective_statement'::text, 'visualize'::text, 'legacy_import'::text, 'legacy_queue_record'::text, 'math_rebuild'::text])))"
         },
         {
           "table": "delphi_jobs",
@@ -7535,7 +7535,7 @@
           "sql_type": "text",
           "udt": "text",
           "nullable": "NO",
-          "default": "'polis-queue/2'::text",
+          "default": "'polis-queue/3'::text",
           "ordinal": 7,
           "definition_type": "text",
           "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:205"
@@ -7552,7 +7552,7 @@
         {
           "table": "polis_queue_install",
           "name": "polis_queue_install_contract_version_check",
-          "definition": "CHECK ((contract_version = 'polis-queue/2'::text))"
+          "definition": "CHECK ((contract_version = 'polis-queue/3'::text))"
         },
         {
           "table": "polis_queue_install",
@@ -7931,7 +7931,7 @@
         {
           "table": "polis_queue_jobs",
           "name": "polis_queue_jobs_stage_check",
-          "definition": "CHECK ((stage = ANY (ARRAY['noop'::text, 'delphi_full_pipeline'::text, 'delphi_narrative'::text])))"
+          "definition": "CHECK ((stage = ANY (ARRAY['noop'::text, 'delphi_full_pipeline'::text, 'delphi_narrative'::text, 'math_rebuild'::text])))"
         },
         {
           "table": "polis_queue_jobs",
@@ -7946,12 +7946,75 @@
         {
           "table": "polis_queue_jobs",
           "name": "polis_queue_jobs_worker_class_check",
-          "definition": "CHECK ((worker_class = ANY (ARRAY['noop'::text, 'delphi'::text])))"
+          "definition": "CHECK ((worker_class = ANY (ARRAY['noop'::text, 'delphi'::text, 'large'::text])))"
+        },
+        {
+          "table": "polis_queue_jobs",
+          "name": "pq_stage_large",
+          "definition": "CHECK (((stage = 'math_rebuild'::text) = (worker_class = 'large'::text)))"
         },
         {
           "table": "polis_queue_jobs",
           "name": "pq_stage_worker",
           "definition": "CHECK (((stage = 'noop'::text) = (worker_class = 'noop'::text)))"
+        }
+      ]
+    },
+    {
+      "table": "polis_queue_large_class_install",
+      "introduced": "server/postgres/migrations/000024_create_polis_queue_large_class.sql:368",
+      "columns": [
+        {
+          "table": "polis_queue_large_class_install",
+          "name": "singleton",
+          "sql_type": "boolean",
+          "udt": "bool",
+          "nullable": "NO",
+          "default": "true",
+          "ordinal": 1,
+          "definition_type": "boolean",
+          "introduced": "server/postgres/migrations/000024_create_polis_queue_large_class.sql:369"
+        },
+        {
+          "table": "polis_queue_large_class_install",
+          "name": "baseline",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000024_create_polis_queue_large_class.sql:369"
+        },
+        {
+          "table": "polis_queue_large_class_install",
+          "name": "installed",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000024_create_polis_queue_large_class.sql:369"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "polis_queue_large_class_install",
+          "name": "polis_queue_large_class_install_pkey",
+          "definition": "CREATE UNIQUE INDEX polis_queue_large_class_install_pkey ON public.polis_queue_large_class_install USING btree (singleton)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "polis_queue_large_class_install",
+          "name": "polis_queue_large_class_install_pkey",
+          "definition": "PRIMARY KEY (singleton)"
+        },
+        {
+          "table": "polis_queue_large_class_install",
+          "name": "polis_queue_large_class_install_singleton_check",
+          "definition": "CHECK (singleton)"
         }
       ]
     },
@@ -8416,7 +8479,7 @@
         {
           "table": "polis_queue_runs",
           "name": "polis_queue_runs_contract_version_check",
-          "definition": "CHECK ((contract_version = ANY (ARRAY['polis-queue/1'::text, 'polis-queue/2'::text])))"
+          "definition": "CHECK ((contract_version = ANY (ARRAY['polis-queue/1'::text, 'polis-queue/2'::text, 'polis-queue/3'::text])))"
         },
         {
           "table": "polis_queue_runs",
@@ -8891,7 +8954,7 @@
     },
     {
       "table": "schema_migrations",
-      "introduced": "server/postgres/migrations/000025_vote_convention.sql:277",
+      "introduced": "server/postgres/migrations/000025_vote_convention.sql:276",
       "columns": [
         {
           "table": "schema_migrations",
@@ -8902,7 +8965,7 @@
           "default": null,
           "ordinal": 1,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:278"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:277"
         },
         {
           "table": "schema_migrations",
@@ -8913,7 +8976,7 @@
           "default": "clock_timestamp()",
           "ordinal": 2,
           "definition_type": "timestamp with time zone",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:279"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:278"
         },
         {
           "table": "schema_migrations",
@@ -8924,7 +8987,7 @@
           "default": "SESSION_USER",
           "ordinal": 3,
           "definition_type": "name",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:280"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:279"
         },
         {
           "table": "schema_migrations",
@@ -8935,7 +8998,7 @@
           "default": null,
           "ordinal": 4,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:285"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:284"
         },
         {
           "table": "schema_migrations",
@@ -8946,7 +9009,7 @@
           "default": "''::text",
           "ordinal": 5,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:286"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:285"
         }
       ],
       "indexes": [
@@ -10400,7 +10463,7 @@
     },
     {
       "table": "vote_convention",
-      "introduced": "server/postgres/migrations/000025_vote_convention.sql:145",
+      "introduced": "server/postgres/migrations/000025_vote_convention.sql:144",
       "columns": [
         {
           "table": "vote_convention",
@@ -10411,7 +10474,7 @@
           "default": "true",
           "ordinal": 1,
           "definition_type": "boolean",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:146"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:145"
         },
         {
           "table": "vote_convention",
@@ -10422,7 +10485,7 @@
           "default": null,
           "ordinal": 2,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:147"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:146"
         },
         {
           "table": "vote_convention",
@@ -10433,7 +10496,7 @@
           "default": null,
           "ordinal": 3,
           "definition_type": "smallint",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:148"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:147"
         },
         {
           "table": "vote_convention",
@@ -10444,7 +10507,7 @@
           "default": "clock_timestamp()",
           "ordinal": 4,
           "definition_type": "timestamp with time zone",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:149"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:148"
         },
         {
           "table": "vote_convention",
@@ -10455,7 +10518,7 @@
           "default": "SESSION_USER",
           "ordinal": 5,
           "definition_type": "name",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:150"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:149"
         },
         {
           "table": "vote_convention",
@@ -10466,7 +10529,7 @@
           "default": null,
           "ordinal": 6,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:151"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:150"
         },
         {
           "table": "vote_convention",
@@ -10477,7 +10540,7 @@
           "default": "1",
           "ordinal": 7,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:152"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:151"
         },
         {
           "table": "vote_convention",
@@ -10488,7 +10551,7 @@
           "default": null,
           "ordinal": 8,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:156"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:155"
         },
         {
           "table": "vote_convention",
@@ -10499,7 +10562,7 @@
           "default": null,
           "ordinal": 9,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:157"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:156"
         }
       ],
       "indexes": [
@@ -10554,7 +10617,7 @@
     },
     {
       "table": "vote_convention_history",
-      "introduced": "server/postgres/migrations/000025_vote_convention.sql:163",
+      "introduced": "server/postgres/migrations/000025_vote_convention.sql:162",
       "columns": [
         {
           "table": "vote_convention_history",
@@ -10565,7 +10628,7 @@
           "default": null,
           "ordinal": 1,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:164"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:163"
         },
         {
           "table": "vote_convention_history",
@@ -10576,7 +10639,7 @@
           "default": null,
           "ordinal": 2,
           "definition_type": "smallint",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:165"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:164"
         },
         {
           "table": "vote_convention_history",
@@ -10587,7 +10650,7 @@
           "default": null,
           "ordinal": 3,
           "definition_type": "timestamp with time zone",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:166"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:165"
         },
         {
           "table": "vote_convention_history",
@@ -10598,7 +10661,7 @@
           "default": null,
           "ordinal": 4,
           "definition_type": "name",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:167"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:166"
         },
         {
           "table": "vote_convention_history",
@@ -10609,7 +10672,7 @@
           "default": null,
           "ordinal": 5,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:168"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:167"
         },
         {
           "table": "vote_convention_history",
@@ -10620,7 +10683,7 @@
           "default": null,
           "ordinal": 6,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:169"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:168"
         },
         {
           "table": "vote_convention_history",
@@ -10631,7 +10694,7 @@
           "default": null,
           "ordinal": 7,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:170"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:169"
         },
         {
           "table": "vote_convention_history",
@@ -10642,7 +10705,7 @@
           "default": null,
           "ordinal": 8,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:171"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:170"
         }
       ],
       "indexes": [
@@ -11375,8 +11438,12 @@
       "sha256": "97437ea57d90c51cc664385ebb6e8ec3d8684ac0f8e7b0c60e84df1a010531f7"
     },
     {
+      "path": "server/postgres/migrations/000024_create_polis_queue_large_class.sql",
+      "sha256": "68261afb81f286bed45fdff6ab52e052392d1dd32abdb1e78579f72644116697"
+    },
+    {
       "path": "server/postgres/migrations/000025_vote_convention.sql",
-      "sha256": "be9f19f415988643e78ce956363e062fc034d73e2e7812aa47cb73160647ad40"
+      "sha256": "cfff57e4f416744d90d1beddc6daa48f730a6c0538cc9400a84a19bafc60c812"
     }
   ]
 }

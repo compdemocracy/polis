@@ -147,7 +147,7 @@ declaration): **stop**.
 The rule knows these states only. Before anyone makes a second change
 (version 2), this rule (and the down file's guard) must be extended first.
 
-The rows for 000000–000023 are what 000025 observed in the catalog when it
+The rows for 000000–000024 are what 000025 observed in the catalog when it
 created the ledger (`verified`: the file's signature object is present;
 `unverified`: it is not, with the probe named in `note`), never an assumption.
 A deployment that left out a dormant file (pol.is, for example, has not

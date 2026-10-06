@@ -763,6 +763,13 @@ row! {
 }
 
 row! {
+    PolisQueueLargeClassInstallRow, "polis_queue_large_class_install", "server/postgres/migrations/000024_create_polis_queue_large_class.sql:368";
+    singleton: bool => ("singleton", "bool", false, "server/postgres/migrations/000024_create_polis_queue_large_class.sql:369"),
+    baseline: PgJson => ("baseline", "jsonb", false, "server/postgres/migrations/000024_create_polis_queue_large_class.sql:369"),
+    installed: PgJson => ("installed", "jsonb", false, "server/postgres/migrations/000024_create_polis_queue_large_class.sql:369"),
+}
+
+row! {
     PolisQueueLogsRow, "polis_queue_logs", "server/postgres/migrations/000023_create_delphi_foundation.sql:292";
     env: String => ("env", "text", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:293"),
     attempt_id: PgUuid => ("attempt_id", "uuid", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:293"),
@@ -846,12 +853,12 @@ row! {
 }
 
 row! {
-    SchemaMigrationsRow, "schema_migrations", "server/postgres/migrations/000025_vote_convention.sql:277";
-    name: String => ("name", "text", false, "server/postgres/migrations/000025_vote_convention.sql:278"),
-    applied_at: PgTimestamp => ("applied_at", "timestamptz", false, "server/postgres/migrations/000025_vote_convention.sql:279"),
-    applied_by: String => ("applied_by", "name", false, "server/postgres/migrations/000025_vote_convention.sql:280"),
-    checksum: String => ("checksum", "text", false, "server/postgres/migrations/000025_vote_convention.sql:285"),
-    note: String => ("note", "text", false, "server/postgres/migrations/000025_vote_convention.sql:286"),
+    SchemaMigrationsRow, "schema_migrations", "server/postgres/migrations/000025_vote_convention.sql:276";
+    name: String => ("name", "text", false, "server/postgres/migrations/000025_vote_convention.sql:277"),
+    applied_at: PgTimestamp => ("applied_at", "timestamptz", false, "server/postgres/migrations/000025_vote_convention.sql:278"),
+    applied_by: String => ("applied_by", "name", false, "server/postgres/migrations/000025_vote_convention.sql:279"),
+    checksum: String => ("checksum", "text", false, "server/postgres/migrations/000025_vote_convention.sql:284"),
+    note: String => ("note", "text", false, "server/postgres/migrations/000025_vote_convention.sql:285"),
 }
 
 row! {
@@ -989,28 +996,28 @@ row! {
 }
 
 row! {
-    VoteConventionRow, "vote_convention", "server/postgres/migrations/000025_vote_convention.sql:145";
-    singleton: bool => ("singleton", "bool", false, "server/postgres/migrations/000025_vote_convention.sql:146"),
-    version: i32 => ("version", "int4", false, "server/postgres/migrations/000025_vote_convention.sql:147"),
-    agree_value: i16 => ("agree_value", "int2", false, "server/postgres/migrations/000025_vote_convention.sql:148"),
-    changed_at: PgTimestamp => ("changed_at", "timestamptz", false, "server/postgres/migrations/000025_vote_convention.sql:149"),
-    changed_by: String => ("changed_by", "name", false, "server/postgres/migrations/000025_vote_convention.sql:150"),
-    reason: String => ("reason", "text", false, "server/postgres/migrations/000025_vote_convention.sql:151"),
-    contract_version: i32 => ("contract_version", "int4", false, "server/postgres/migrations/000025_vote_convention.sql:152"),
-    operation: String => ("operation", "text", false, "server/postgres/migrations/000025_vote_convention.sql:156"),
-    operation_checksum: Option<String> => ("operation_checksum", "text", true, "server/postgres/migrations/000025_vote_convention.sql:157"),
+    VoteConventionRow, "vote_convention", "server/postgres/migrations/000025_vote_convention.sql:144";
+    singleton: bool => ("singleton", "bool", false, "server/postgres/migrations/000025_vote_convention.sql:145"),
+    version: i32 => ("version", "int4", false, "server/postgres/migrations/000025_vote_convention.sql:146"),
+    agree_value: i16 => ("agree_value", "int2", false, "server/postgres/migrations/000025_vote_convention.sql:147"),
+    changed_at: PgTimestamp => ("changed_at", "timestamptz", false, "server/postgres/migrations/000025_vote_convention.sql:148"),
+    changed_by: String => ("changed_by", "name", false, "server/postgres/migrations/000025_vote_convention.sql:149"),
+    reason: String => ("reason", "text", false, "server/postgres/migrations/000025_vote_convention.sql:150"),
+    contract_version: i32 => ("contract_version", "int4", false, "server/postgres/migrations/000025_vote_convention.sql:151"),
+    operation: String => ("operation", "text", false, "server/postgres/migrations/000025_vote_convention.sql:155"),
+    operation_checksum: Option<String> => ("operation_checksum", "text", true, "server/postgres/migrations/000025_vote_convention.sql:156"),
 }
 
 row! {
-    VoteConventionHistoryRow, "vote_convention_history", "server/postgres/migrations/000025_vote_convention.sql:163";
-    version: i32 => ("version", "int4", false, "server/postgres/migrations/000025_vote_convention.sql:164"),
-    agree_value: i16 => ("agree_value", "int2", false, "server/postgres/migrations/000025_vote_convention.sql:165"),
-    changed_at: PgTimestamp => ("changed_at", "timestamptz", false, "server/postgres/migrations/000025_vote_convention.sql:166"),
-    changed_by: String => ("changed_by", "name", false, "server/postgres/migrations/000025_vote_convention.sql:167"),
-    reason: String => ("reason", "text", false, "server/postgres/migrations/000025_vote_convention.sql:168"),
-    contract_version: i32 => ("contract_version", "int4", false, "server/postgres/migrations/000025_vote_convention.sql:169"),
-    operation: String => ("operation", "text", false, "server/postgres/migrations/000025_vote_convention.sql:170"),
-    operation_checksum: Option<String> => ("operation_checksum", "text", true, "server/postgres/migrations/000025_vote_convention.sql:171"),
+    VoteConventionHistoryRow, "vote_convention_history", "server/postgres/migrations/000025_vote_convention.sql:162";
+    version: i32 => ("version", "int4", false, "server/postgres/migrations/000025_vote_convention.sql:163"),
+    agree_value: i16 => ("agree_value", "int2", false, "server/postgres/migrations/000025_vote_convention.sql:164"),
+    changed_at: PgTimestamp => ("changed_at", "timestamptz", false, "server/postgres/migrations/000025_vote_convention.sql:165"),
+    changed_by: String => ("changed_by", "name", false, "server/postgres/migrations/000025_vote_convention.sql:166"),
+    reason: String => ("reason", "text", false, "server/postgres/migrations/000025_vote_convention.sql:167"),
+    contract_version: i32 => ("contract_version", "int4", false, "server/postgres/migrations/000025_vote_convention.sql:168"),
+    operation: String => ("operation", "text", false, "server/postgres/migrations/000025_vote_convention.sql:169"),
+    operation_checksum: Option<String> => ("operation_checksum", "text", true, "server/postgres/migrations/000025_vote_convention.sql:170"),
 }
 
 row! {
@@ -1483,6 +1490,12 @@ pub const TABLES: &[Table] = &[
         columns: PolisQueueJobsRow::COLUMNS,
         roundtrip: roundtrip::<PolisQueueJobsRow>,
         decode: decode::<PolisQueueJobsRow>,
+    },
+    Table {
+        name: "polis_queue_large_class_install",
+        columns: PolisQueueLargeClassInstallRow::COLUMNS,
+        roundtrip: roundtrip::<PolisQueueLargeClassInstallRow>,
+        decode: decode::<PolisQueueLargeClassInstallRow>,
     },
     Table {
         name: "polis_queue_logs",

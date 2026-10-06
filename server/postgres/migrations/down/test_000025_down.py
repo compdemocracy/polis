@@ -1,8 +1,7 @@
 """000025 (vote convention) controls on a real PostgreSQL 17; only the wrapper's own container.
 
 No DATABASE_URL is accepted. Every case runs in a disposable database cloned
-from the full pre-000025 migration chain (000000..000023; there is no 000020
-and no 000024: the chain neither has nor needs it). All rows written are
+from the full pre-000025 migration chain (000000..000024; there is no 000020). All rows written are
 generated fixtures (zid 990001 and up); no application data exists in the
 container.
 
@@ -247,8 +246,7 @@ def main():
     sql("postgres", "CREATE DATABASE vc_base;")
     migrations = [p for p in sorted(ROOT.glob("0*.sql")) if p.name < UP.name]
     numbers = [int(p.name[:6]) for p in migrations]
-    assert numbers == [n for n in range(24) if n != 20], numbers   # 000000..000023, no 000020, no 000024
-    assert not list(ROOT.glob("000024_*.sql")), "000024 is held by another change; this chain must not carry it"
+    assert numbers == [n for n in range(25) if n != 20], numbers   # 000000..000024, no 000020
     for path in migrations:
         sql("vc_base", path.read_text())
     baseline = dump("vc_base")
@@ -683,13 +681,14 @@ def main():
     case("ledger: own row = sha256 of the file without its marker line; every earlier file verified from the catalog; "
          "last statement; the operation carries its checksum the same way", ledger)
 
-    # 7b. A copy shaped like pol.is: the dormant files 000019, 000021 and 000023 were never applied.
+    # 7b. A copy shaped like pol.is: the dormant files 000019, 000021, 000023 and 000024 were never applied.
     # The ledger says so (unverified, with the probe) instead of assuming them, and 000025 needs none of them.
     def ledger_dormant_absent(_db):
         name = "vc_dormant"
         sql("postgres", f"CREATE DATABASE {name} TEMPLATE template0;")
         try:
-            dormant = {"000019_create_polis_queue", "000021_create_polis_coordinator", "000023_create_delphi_foundation"}
+            dormant = {"000019_create_polis_queue", "000021_create_polis_coordinator", "000023_create_delphi_foundation",
+                       "000024_create_polis_queue_large_class"}
             for path in migrations:
                 if path.stem not in dormant:
                     sql(name, path.read_text())
@@ -697,7 +696,7 @@ def main():
             p = apply(name)
             assert DECLARE_NEEDED in p.stderr, p.stderr
             assert "migration ledger: 20 earlier files verified in the catalog; unverified: 000019_create_polis_queue, " \
-                   "000021_create_polis_coordinator, 000023_create_delphi_foundation" in p.stderr, p.stderr
+                   "000021_create_polis_coordinator, 000023_create_delphi_foundation, 000024_create_polis_queue_large_class" in p.stderr, p.stderr
             eq(val(name, "SELECT string_agg(name, ',' ORDER BY name) FROM public.schema_migrations WHERE checksum = 'unverified';"),
                ",".join(sorted(dormant)), "unverified rows")
             eq(val(name, "SELECT note FROM public.schema_migrations WHERE name = '000019_create_polis_queue';"),
@@ -713,7 +712,7 @@ def main():
             eq(val(name, "SELECT to_regclass('public.schema_migrations') IS NULL;"), "t", "down drops the ledger with its unverified rows")
         finally:
             sql("postgres", f"DROP DATABASE {name} WITH (FORCE);")
-    case("ledger on a copy without the dormant 000019/000021/000023: those rows are unverified with the probe named, "
+    case("ledger on a copy without the dormant 000019/000021/000023/000024: those rows are unverified with the probe named, "
          "000025 applies, declares and reverses without them", ledger_dormant_absent)
 
     # 7c. The prerequisites: no vote tables, no apply.
@@ -785,7 +784,7 @@ def main():
         p = run_wrapper()
         for line in ("ok    seal:", "ok    server:", "ok    rights:", "ok    chain: the vote tables exist", "ok    rows: no vote convention object exists yet",
                      "budgets: lock_timeout=5s statement_timeout=60s transaction_timeout=120s idle_in_transaction_session_timeout=30s",
-                     "applied: 000025_vote_convention.sql (post-check 1)", "convention: DECLARE_NEEDED (earlier files in the ledger: 23 verified, 0 unverified)",
+                     "applied: 000025_vote_convention.sql (post-check 1)", "convention: DECLARE_NEEDED (earlier files in the ledger: 24 verified, 0 unverified)",
                      "next: the database holds votes; declare its sign once"):
             assert line in p.stdout, (line, p.stdout)
         (WORK / "wrapper-apply.txt").write_text(p.stdout)
@@ -801,7 +800,7 @@ def main():
             cmd = ["bash", str(WRAPPER), "--free-bytes", str(50 * 1024 ** 3), "000025", "--",
                    "docker", "exec", "-i", CONTAINER, "psql", "-U", "postgres", "-d", name]
             p = subprocess.run(cmd, text=True, capture_output=True)
-            assert p.returncode == 0 and "convention: GUARDED v0 agree -1 (earlier files in the ledger: 23 verified, 0 unverified)" in p.stdout, p.stdout + p.stderr
+            assert p.returncode == 0 and "convention: GUARDED v0 agree -1 (earlier files in the ledger: 24 verified, 0 unverified)" in p.stdout, p.stdout + p.stderr
             assert "next:" not in p.stdout
         finally:
             sql("postgres", f"DROP DATABASE {name} WITH (FORCE);")
@@ -909,7 +908,7 @@ def main():
                     assert before == after
             finally:
                 sql("postgres", f"DROP DATABASE {name} WITH (FORCE);")
-    case("chain: 000000..000023 then 000025 (no 000024) on an empty database (psql -f and one driver call) seeds v0; on a database "
+    case("chain: 000000..000024 then 000025 on an empty database (psql -f and one driver call) seeds v0; on a database "
          "holding votes it leaves the row for the declaration; replay without ON_ERROR_STOP is harmless", chain)
 
     for login in LOGINS:

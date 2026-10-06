@@ -3,8 +3,9 @@
 every operation file.
 
 Rule (docs/migrations.md): each migration file numbered 000025 or later ends
-(000023, the Delphi job table, and the held 000024 predate the ledger and
-carry no marker; 000025 records what the catalog shows for them instead)
+(000023, the Delphi job table, and 000024, the large worker class, predate
+the ledger and carry no marker; 000025 records what the catalog shows for
+them instead)
 with an INSERT of its own public.schema_migrations row, on the one line that
 carries the marker comment below. Each operation file in
 server/postgres/operations/ (run by an operator, never by the runner) carries

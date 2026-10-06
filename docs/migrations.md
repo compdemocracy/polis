@@ -51,9 +51,8 @@ itself, so the hash can live inside the file it hashes):
 grep -v -e '-- ledger-self-checksum' server/postgres/migrations/0000NN_name.sql | shasum -a 256
 ```
 
-The rows for the files before 000025 (000000–000023; there is no 000020, and
-000024 is held by a change that 000025 neither requires nor records) are not
-assumed. For each one 000025 probes the catalog for the object that file
+The rows for the files before 000025 (000000–000024; there is no 000020) are
+not assumed. For each one 000025 probes the catalog for the object that file
 leaves behind and records what it found: checksum `verified` (the signature
 is present) or `unverified` (it is not: the file may never have run there, or
 the deployment left it out on purpose). The `note` names the probe. A row

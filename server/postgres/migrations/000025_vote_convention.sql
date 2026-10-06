@@ -61,9 +61,8 @@
 --   grep -v -e '-- ledger-self''-checksum' 000025_vote_convention.sql | shasum -a 256
 -- (the quote pair keeps this comment line from matching; the shell joins it).
 --
--- The rows for the files before this one (000000..000023; there is no 000020,
--- and 000024 is held by another change that this file neither requires nor
--- records) are NOT assumed applied. For each one this file probes the catalog
+-- The rows for the files before this one (000000..000024; there is no 000020)
+-- are NOT assumed applied. For each one this file probes the catalog
 -- for the object that file leaves behind and records what it found:
 -- checksum 'verified' (the signature is present) or 'unverified' (it is not:
 -- the file may never have run here, or a deployment left it out on purpose,
@@ -72,7 +71,7 @@
 --
 -- PREREQUISITES. The only earlier files this one needs are 000000 (votes) and
 -- 000006 (votes_latest_unique and its rule): it refuses (P0780) when either
--- vote table is missing. It does not need 000019, 000021 or 000023: the
+-- vote table is missing. It does not need 000019, 000021, 000023 or 000024: the
 -- grants to the coordinator roles are conditional on the roles existing, and
 -- nothing here reads the queue or Delphi tables.
 --
@@ -288,7 +287,7 @@ CREATE TABLE public.schema_migrations (
 COMMENT ON TABLE public.schema_migrations IS
   'One row per migration file. From 000025 on: the file inserts its own row (sha256 of the file without its ledger line). Earlier files: what the catalog showed when the ledger was created, verified (the file''s signature object is present) or unverified (it is not); the note names the probe. A copy whose ledger-era rows stop early is older than its missing migrations.';
 -- The earlier files, each with the catalog probe for what it leaves behind.
--- (There is no 000020; 000024 is held by another change.) 000006 recreates
+-- (There is no 000020.) 000006 recreates
 -- the rule 000000 first defined, so its probe is the rule's definition.
 INSERT INTO public.schema_migrations (name, checksum, note)
 SELECT p.name,
@@ -364,7 +363,10 @@ FROM (VALUES
      'indexes public.votes_created_idx and public.comments_modified_idx'),
   ('000023_create_delphi_foundation',
      to_regclass('public.delphi_foundation_install') IS NOT NULL,
-     'table public.delphi_foundation_install')
+     'table public.delphi_foundation_install'),
+  ('000024_create_polis_queue_large_class',
+     to_regclass('public.polis_queue_large_class_install') IS NOT NULL,
+     'table public.polis_queue_large_class_install')
 ) AS p(name, found, probe);
 DO $ledger$
 DECLARE
@@ -539,5 +541,5 @@ $grants$;
 
 -- The ledger row for this file, as its last statement (the checksum is the
 -- sha256 of this file without the next line).
-INSERT INTO public.schema_migrations (name, checksum, note) VALUES ('000025_vote_convention', '0d396acee93c04c9998ea78e44a86af27cc6d492cc03175b878dbbad0a701576', 'vote storage convention; grants: ' || current_setting('polis.vote_convention_grants')); -- ledger-self-checksum
+INSERT INTO public.schema_migrations (name, checksum, note) VALUES ('000025_vote_convention', '3c39aadd679d9c5aa4f4d5c1a42cf39cd0b15659cb1112ccdad4d8f438c10047', 'vote storage convention; grants: ' || current_setting('polis.vote_convention_grants')); -- ledger-self-checksum
 COMMIT;
