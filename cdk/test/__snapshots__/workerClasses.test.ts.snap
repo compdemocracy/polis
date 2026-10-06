@@ -5321,3 +5321,1910 @@ rm -fr $TMP_DIR",
   },
 }
 `;
+
+exports[`enableLargeClass on the DelphiLarge class its resources match the snapshot 1`] = `
+{
+  "AsgDelphiLargeASG": {
+    "DependsOn": [
+      "DatabaseB269D8BB",
+      "DatabaseSecretAttachmentE5D1B020",
+      "CdkStackDatabaseSecretB048648C3fdaad7efa858a3daf9490cf0a702aeb",
+      "DatabaseSecurityGroupfromCdkStackCoordinatorInactiveSecurityGroup6F94BCBC5432C63E8C7A",
+      "DatabaseSecurityGroupfromCdkStackDatabaseSecurityGroup606AD34254329E0CEDE5",
+      "DatabaseSecurityGroupfromCdkStackDelphiSecurityGroupE6A4306A543215DB2463",
+      "DatabaseSecurityGroupfromCdkStackImportWorkerImportWorkerServiceSecurityGroupE74F360554325117B3AB",
+      "DatabaseSecurityGroupfromCdkStackMathWorkerSGC237C089543234C6E0E5",
+      "DatabaseSecurityGroupfromCdkStackWebSecurityGroup1F83F8B35432C8E31C28",
+      "DatabaseSecurityGroup5C91FDCB",
+      "LogGroupF5B46931",
+      "WebAppEnvVarsSecret7E5CDB10",
+    ],
+    "Properties": {
+      "HealthCheckGracePeriod": 600,
+      "HealthCheckType": "EC2",
+      "LaunchTemplate": {
+        "LaunchTemplateId": {
+          "Ref": "DelphiLargeLaunchTemplateCF600447",
+        },
+        "Version": {
+          "Fn::GetAtt": [
+            "DelphiLargeLaunchTemplateCF600447",
+            "LatestVersionNumber",
+          ],
+        },
+      },
+      "MaxSize": "1",
+      "MetricsCollection": [
+        {
+          "Granularity": "1Minute",
+          "Metrics": [
+            "GroupInServiceInstances",
+          ],
+        },
+      ],
+      "MinSize": "0",
+      "VPCZoneIdentifier": [
+        {
+          "Ref": "VpcPrivateWithEgressSubnet1Subnet980F0B3D",
+        },
+        {
+          "Ref": "VpcPrivateWithEgressSubnet2SubnetA337C6C2",
+        },
+      ],
+    },
+    "Type": "AWS::AutoScaling::AutoScalingGroup",
+    "UpdatePolicy": {
+      "AutoScalingScheduledAction": {
+        "IgnoreUnmodifiedGroupSizeProperties": true,
+      },
+    },
+  },
+  "DelphiLargeBusyFilter": {
+    "Properties": {
+      "FilterName": "Polis-LargeClass-LargeBusy",
+      "FilterPattern": "{ $.schema = "math_poller.capacity/1" && $.class = "small" && $.role = "primary" }",
+      "LogGroupName": {
+        "Ref": "LogGroupF5B46931",
+      },
+      "MetricTransformations": [
+        {
+          "MetricName": "LargeBusy",
+          "MetricNamespace": "Polis/MathCapacity",
+          "MetricValue": "$.large_leased",
+          "Unit": "Count",
+        },
+      ],
+    },
+    "Type": "AWS::Logs::MetricFilter",
+  },
+  "DelphiLargeDeadAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "AlarmDescription": "Queue class math-large: a job of worker class large is dead (attempts exhausted and not yet released), or a routed conversation is poisoned under this source commit. A ruling is owed, as for exceeds_largest.",
+      "AlarmName": "Polis-LargeClass-Dead",
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+      "DatapointsToAlarm": 1,
+      "EvaluationPeriods": 1,
+      "Metrics": [
+        {
+          "Expression": "FILL(dead, 0) + FILL(poisoned, 0)",
+          "Id": "expr_1",
+          "Label": "math-large dead + poisoned",
+          "ReturnData": true,
+        },
+        {
+          "Id": "dead",
+          "MetricStat": {
+            "Metric": {
+              "MetricName": "LargeDead",
+              "Namespace": "Polis/MathCapacity",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+        {
+          "Id": "poisoned",
+          "MetricStat": {
+            "Metric": {
+              "MetricName": "LargePoisoned",
+              "Namespace": "Polis/MathCapacity",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+      ],
+      "OKActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "Threshold": 1,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+  "DelphiLargeDeadFilter": {
+    "Properties": {
+      "FilterName": "Polis-LargeClass-LargeDead",
+      "FilterPattern": "{ $.schema = "math_poller.capacity/1" && $.class = "small" && $.role = "primary" }",
+      "LogGroupName": {
+        "Ref": "LogGroupF5B46931",
+      },
+      "MetricTransformations": [
+        {
+          "MetricName": "LargeDead",
+          "MetricNamespace": "Polis/MathCapacity",
+          "MetricValue": "$.large_dead",
+          "Unit": "Count",
+        },
+      ],
+    },
+    "Type": "AWS::Logs::MetricFilter",
+  },
+  "DelphiLargeDemandFilter": {
+    "Properties": {
+      "FilterName": "Polis-LargeClass-LargeDemand",
+      "FilterPattern": "{ $.schema = "math_poller.capacity/1" && $.class = "small" && $.role = "primary" }",
+      "LogGroupName": {
+        "Ref": "LogGroupF5B46931",
+      },
+      "MetricTransformations": [
+        {
+          "MetricName": "LargeDemand",
+          "MetricNamespace": "Polis/MathCapacity",
+          "MetricValue": "$.large_demand",
+          "Unit": "Count",
+        },
+      ],
+    },
+    "Type": "AWS::Logs::MetricFilter",
+  },
+  "DelphiLargeDemandUnmetAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "AlarmDescription": "Queue class math-large: work is staged but not promoted, or a routed conversation has had input not reflected in the served label for 10800000 ms. Expected while MATH_CAPACITY_PROMOTE=0. Otherwise check the worker (skew, capacity) and the small poller's promotion loop. Runbook: cost-reduction plan P-073.",
+      "AlarmName": "Polis-LargeClass-DemandUnmet",
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+      "DatapointsToAlarm": 6,
+      "EvaluationPeriods": 6,
+      "Metrics": [
+        {
+          "Expression": "IF(pending >= 1 || FILL(oldest, 0) >= 10800000, 1, 0)",
+          "Id": "expr_1",
+          "Label": "math-large demand unmet",
+          "ReturnData": true,
+        },
+        {
+          "Id": "pending",
+          "MetricStat": {
+            "Metric": {
+              "MetricName": "PendingPromotion",
+              "Namespace": "Polis/MathCapacity",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+        {
+          "Id": "oldest",
+          "MetricStat": {
+            "Metric": {
+              "MetricName": "OldestUnresolvedAgeMs",
+              "Namespace": "Polis/MathCapacity",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+      ],
+      "OKActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "Threshold": 1,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+  "DelphiLargeHighCpuAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "AlarmDescription": "Alert when DelphiLarge instances CPU exceeds 80% for 10 minutes",
+      "ComparisonOperator": "GreaterThanThreshold",
+      "DatapointsToAlarm": 2,
+      "Dimensions": [
+        {
+          "Name": "AutoScalingGroupName",
+          "Value": {
+            "Ref": "AsgDelphiLargeASG487476CC",
+          },
+        },
+      ],
+      "EvaluationPeriods": 2,
+      "MetricName": "CPUUtilization",
+      "Namespace": "AWS/EC2",
+      "Period": 300,
+      "Statistic": "Average",
+      "Threshold": 80,
+      "TreatMissingData": "ignore",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+  "DelphiLargeInstanceRole": {
+    "Properties": {
+      "AssumeRolePolicyDocument": {
+        "Statement": [
+          {
+            "Action": "sts:AssumeRole",
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "ec2.amazonaws.com",
+            },
+          },
+        ],
+        "Version": "2012-10-17",
+      },
+      "Description": "Queue worker class math-large (service type delphi-large): the jobs daemon only",
+      "ManagedPolicyArns": [
+        {
+          "Fn::Join": [
+            "",
+            [
+              "arn:",
+              {
+                "Ref": "AWS::Partition",
+              },
+              ":iam::aws:policy/AmazonSSMManagedInstanceCore",
+            ],
+          ],
+        },
+        {
+          "Fn::Join": [
+            "",
+            [
+              "arn:",
+              {
+                "Ref": "AWS::Partition",
+              },
+              ":iam::aws:policy/CloudWatchAgentServerPolicy",
+            ],
+          ],
+        },
+      ],
+    },
+    "Type": "AWS::IAM::Role",
+  },
+  "DelphiLargeInstanceRoleDefaultPolicy": {
+    "Properties": {
+      "PolicyDocument": {
+        "Statement": [
+          {
+            "Action": [
+              "logs:CreateLogStream",
+              "logs:PutLogEvents",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Fn::GetAtt": [
+                "LogGroupF5B46931",
+                "Arn",
+              ],
+            },
+          },
+          {
+            "Action": "ssm:GetParameter",
+            "Effect": "Allow",
+            "Resource": [
+              "arn:aws:ssm:us-east-1:123456789012:parameter/polis/db-secret-arn",
+              "arn:aws:ssm:us-east-1:123456789012:parameter/polis/db-host",
+              "arn:aws:ssm:us-east-1:123456789012:parameter/polis/db-port",
+            ],
+          },
+          {
+            "Action": "secretsmanager:GetSecretValue",
+            "Effect": "Allow",
+            "Resource": "arn:aws:secretsmanager:us-east-1:123456789012:secret:polis-queue-login-*",
+            "Sid": "QueueLoginRead",
+          },
+          {
+            "Action": [
+              "s3:GetObject*",
+              "s3:GetBucket*",
+              "s3:List*",
+            ],
+            "Effect": "Allow",
+            "Resource": [
+              {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":s3:::cdk-hnb659fds-assets-123456789012-us-east-1",
+                  ],
+                ],
+              },
+              {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":s3:::cdk-hnb659fds-assets-123456789012-us-east-1/*",
+                  ],
+                ],
+              },
+            ],
+          },
+          {
+            "Action": [
+              "s3:GetObject*",
+              "s3:GetBucket*",
+              "s3:List*",
+            ],
+            "Effect": "Allow",
+            "Resource": [
+              {
+                "Fn::GetAtt": [
+                  "DeploymentPackageBucket9264F134",
+                  "Arn",
+                ],
+              },
+              {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Fn::GetAtt": [
+                        "DeploymentPackageBucket9264F134",
+                        "Arn",
+                      ],
+                    },
+                    "/*",
+                  ],
+                ],
+              },
+            ],
+          },
+          {
+            "Action": [
+              "s3:GetObject*",
+              "s3:GetBucket*",
+              "s3:List*",
+            ],
+            "Effect": "Allow",
+            "Resource": [
+              {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":s3:::aws-codedeploy-us-east-1",
+                  ],
+                ],
+              },
+              {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":s3:::aws-codedeploy-us-east-1/latest/*",
+                  ],
+                ],
+              },
+            ],
+          },
+          {
+            "Action": [
+              "secretsmanager:GetSecretValue",
+              "secretsmanager:DescribeSecret",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Ref": "WebAppEnvVarsSecret7E5CDB10",
+            },
+          },
+          {
+            "Action": [
+              "secretsmanager:GetSecretValue",
+              "secretsmanager:DescribeSecret",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Ref": "DatabaseSecretAttachmentE5D1B020",
+            },
+          },
+        ],
+        "Version": "2012-10-17",
+      },
+      "PolicyName": "DelphiLargeInstanceRoleDefaultPolicyE4B4679A",
+      "Roles": [
+        {
+          "Ref": "DelphiLargeInstanceRole52DCE5FD",
+        },
+      ],
+    },
+    "Type": "AWS::IAM::Policy",
+  },
+  "DelphiLargeLaunchTemplate": {
+    "DependsOn": [
+      "DelphiLargeInstanceRoleDefaultPolicyE4B4679A",
+      "DelphiLargeInstanceRole52DCE5FD",
+    ],
+    "Properties": {
+      "LaunchTemplateData": {
+        "BlockDeviceMappings": [
+          {
+            "DeviceName": "/dev/xvda",
+            "Ebs": {
+              "DeleteOnTermination": true,
+              "VolumeSize": 100,
+              "VolumeType": "gp3",
+            },
+          },
+        ],
+        "IamInstanceProfile": {
+          "Arn": {
+            "Fn::GetAtt": [
+              "DelphiLargeLaunchTemplateProfileB3D33557",
+              "Arn",
+            ],
+          },
+        },
+        "ImageId": {
+          "Ref": "SsmParameterValueawsserviceamiamazonlinuxlatestal2023amikernel61x8664C96584B6F00A464EAD1953AFF4B05118Parameter",
+        },
+        "InstanceType": "r7i.2xlarge",
+        "SecurityGroupIds": [
+          {
+            "Fn::GetAtt": [
+              "DelphiSecurityGroup53B17A30",
+              "GroupId",
+            ],
+          },
+        ],
+        "TagSpecifications": [
+          {
+            "ResourceType": "instance",
+            "Tags": [
+              {
+                "Key": "Name",
+                "Value": "CdkStack/DelphiLargeLaunchTemplate",
+              },
+            ],
+          },
+          {
+            "ResourceType": "volume",
+            "Tags": [
+              {
+                "Key": "Name",
+                "Value": "CdkStack/DelphiLargeLaunchTemplate",
+              },
+            ],
+          },
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash
+#!/bin/bash
+set -e
+set -x
+sudo mkdir -p /etc/app-info
+sudo chown root:root /etc/app-info
+sudo chmod 755 /etc/app-info
+echo "Writing service type 'delphi-large' to /etc/app-info/service_type.txt"
+echo "delphi-large" | sudo tee /etc/app-info/service_type.txt
+
+
+echo "Writing queue worker class 'large' to /etc/app-info/worker_class.txt"
+echo "large" | sudo tee /etc/app-info/worker_class.txt
+echo "52g" | sudo tee /etc/app-info/worker_memory.txt
+echo "polis-queue-login" | sudo tee /etc/app-info/queue_login_secret.txt
+printf 'POLIS_JOBS_WORKER_CLASS=%s
+POLIS_JOBS_CONTAINER_MEMORY=%s
+POLIS_JOBS_LOGIN_SECRET_NAME=%s
+POLIS_JOBS_IMAGE=%s
+' "large" "52g" "polis-queue-login" "123456789012.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest" | sudo tee /etc/app-info/polis-jobs.env
+sudo chmod 644 /etc/app-info/polis-jobs.env
+sudo yum update -y
+sudo yum install -y amazon-cloudwatch-agent -y
+sudo dnf install -y wget ruby docker
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -a -G docker ec2-user
+sudo curl -L https://github.com/docker/compose/releases/download/v2.40.0/docker-compose-linux-$(uname -m) -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+docker-compose --version
+sudo yum install -y jq
+export SERVICE=delphi-large
+
+echo "",
+                {
+                  "Ref": "LogGroupF5B46931",
+                },
+                "" | sudo tee /etc/app-info/log_group_name.txt
+echo "Configuring CloudWatch Agent..."
+aws s3 cp s3://cdk-hnb659fds-assets-123456789012-us-east-1/b0f3a98face9a32be47e361c9b6cdac568e47a2ca613d26c8779d512e17b6050.json /tmp/amazon-cloudwatch-agent.json || echo "CW agent config download failed; continuing"
+sudo mkdir -p $(dirname /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json) || true
+sudo mv /tmp/amazon-cloudwatch-agent.json /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json || true
+sudo chmod 644 /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json || true
+sudo chown root:root /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json || true
+sudo systemctl enable amazon-cloudwatch-agent || true
+sudo systemctl start amazon-cloudwatch-agent || echo "CW agent failed to start; continuing"
+exec 1>>/var/log/user-data.log 2>&1
+echo "Finished User Data Execution at $(date)"
+sudo mkdir -p /etc/docker
+cat << EOF | sudo tee /etc/docker/daemon.json
+{
+  "log-driver": "awslogs",
+  "log-opts": {
+    "awslogs-group": "",
+                {
+                  "Ref": "LogGroupF5B46931",
+                },
+                "",
+    "awslogs-region": "us-east-1",
+    "awslogs-stream": "delphi-large"
+  }
+}
+EOF
+sudo chmod 644 /etc/docker/daemon.json
+sudo systemctl restart docker
+sudo systemctl status docker
+cat << 'POLIS_JOBS_START' | sudo tee /usr/local/bin/polis-jobs-start
+#!/bin/bash
+# Starts the queue worker daemon with this box's class (written by the launch template).
+set -euo pipefail
+. /etc/app-info/polis-jobs.env
+test -f /opt/polis/polis/.env  # the env document; the deploy writes it, systemd retries until then
+umask 077
+mkdir -p /run/polis-jobs /var/lib/polis-jobs/journal
+aws secretsmanager get-secret-value --region us-east-1 --secret-id "$POLIS_JOBS_LOGIN_SECRET_NAME" --query SecretString --output text | jq -er .password > /run/polis-jobs/password
+exec docker run --rm --name polis-jobs --memory "$POLIS_JOBS_CONTAINER_MEMORY" \\
+  --env-file /opt/polis/polis/.env --env-file /etc/app-info/polis-jobs.env \\
+  -e POLIS_JOBS_ENABLED=1 -e POLIS_JOBS_PASSWORD_FILE=/run/secrets/queue-login \\
+  -e POLIS_JOBS_JOURNAL_DIR=/var/lib/polis-jobs/journal \\
+  -v /run/polis-jobs/password:/run/secrets/queue-login:ro -v /var/lib/polis-jobs:/var/lib/polis-jobs \\
+  "$POLIS_JOBS_IMAGE" polis-jobs
+POLIS_JOBS_START
+sudo chmod 755 /usr/local/bin/polis-jobs-start
+cat << 'POLIS_JOBS_UNIT' | sudo tee /etc/systemd/system/polis-jobs.service
+[Unit]
+Description=Polis queue worker daemon (class in /etc/app-info/polis-jobs.env)
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+[Service]
+ExecStartPre=-/usr/bin/docker rm -f polis-jobs
+ExecStart=/usr/local/bin/polis-jobs-start
+ExecStop=/usr/bin/docker stop -t 900 polis-jobs
+TimeoutStopSec=960
+Restart=always
+RestartSec=60
+[Install]
+WantedBy=multi-user.target
+POLIS_JOBS_UNIT
+sudo systemctl daemon-reload
+sudo systemctl enable --now polis-jobs.service || echo "polis-jobs unit failed to start; it retries"
+set +e
+PKG_CMD=\`which yum 2>/dev/null\`
+set -e
+if [ -z "$PKG_CMD" ]; then
+PKG_CMD=apt-get
+else
+PKG_CMD=yum
+fi
+$PKG_CMD update -y
+set +e
+$PKG_CMD install -y ruby2.0
+RUBY2_INSTALL=$?
+set -e
+if [ $RUBY2_INSTALL -ne 0 ]; then
+$PKG_CMD install -y ruby
+fi
+AWS_CLI_PACKAGE_NAME=awscli
+if [ "$PKG_CMD" = "yum" ]; then
+AWS_CLI_PACKAGE_NAME=aws-cli
+fi
+$PKG_CMD install -y $AWS_CLI_PACKAGE_NAME
+TMP_DIR=\`mktemp -d\`
+cd $TMP_DIR
+aws s3 cp s3://aws-codedeploy-us-east-1/latest/install . --region us-east-1
+chmod +x ./install
+./install auto
+rm -fr $TMP_DIR",
+              ],
+            ],
+          },
+        },
+      },
+      "TagSpecifications": [
+        {
+          "ResourceType": "launch-template",
+          "Tags": [
+            {
+              "Key": "Name",
+              "Value": "CdkStack/DelphiLargeLaunchTemplate",
+            },
+          ],
+        },
+      ],
+    },
+    "Type": "AWS::EC2::LaunchTemplate",
+  },
+  "DelphiLargeLaunchTemplateProfile": {
+    "Properties": {
+      "Roles": [
+        {
+          "Ref": "DelphiLargeInstanceRole52DCE5FD",
+        },
+      ],
+    },
+    "Type": "AWS::IAM::InstanceProfile",
+  },
+  "DelphiLargeLongRunningAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "AlarmDescription": "Queue class math-large: a worker has been in service for 6 hours. Cost guard: repeated firing is the evidence for a fixed resize instead of the autoscaled class.",
+      "AlarmName": "Polis-LargeClass-LongRunning",
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+      "DatapointsToAlarm": 72,
+      "Dimensions": [
+        {
+          "Name": "AutoScalingGroupName",
+          "Value": {
+            "Ref": "AsgDelphiLargeASG487476CC",
+          },
+        },
+      ],
+      "EvaluationPeriods": 72,
+      "MetricName": "GroupInServiceInstances",
+      "Namespace": "AWS/AutoScaling",
+      "OKActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "Period": 300,
+      "Statistic": "Maximum",
+      "Threshold": 1,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+  "DelphiLargeMissingWorkerAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "AlarmDescription": "Queue class math-large: the group has an instance in service and no jobs daemon has logged a readiness line. Box up, daemon not running: check the deploy hook and the daemon's refusals in the box's log stream.",
+      "AlarmName": "Polis-LargeClass-MissingWorker",
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+      "DatapointsToAlarm": 3,
+      "EvaluationPeriods": 3,
+      "Metrics": [
+        {
+          "Expression": "IF(instances >= 1 && FILL(heartbeat, 0) < 1, 1, 0)",
+          "Id": "expr_1",
+          "Label": "math-large instance up, no daemon heartbeat",
+          "ReturnData": true,
+        },
+        {
+          "Id": "instances",
+          "MetricStat": {
+            "Metric": {
+              "Dimensions": [
+                {
+                  "Name": "AutoScalingGroupName",
+                  "Value": {
+                    "Ref": "AsgDelphiLargeASG487476CC",
+                  },
+                },
+              ],
+              "MetricName": "GroupInServiceInstances",
+              "Namespace": "AWS/AutoScaling",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+        {
+          "Id": "heartbeat",
+          "MetricStat": {
+            "Metric": {
+              "MetricName": "WorkerHeartbeat",
+              "Namespace": "Polis/MathCapacity",
+            },
+            "Period": 300,
+            "Stat": "Sum",
+          },
+          "ReturnData": false,
+        },
+      ],
+      "OKActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "Threshold": 1,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+  "DelphiLargeOldestQueuedAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "AlarmDescription": "Queue class math-large: the oldest claimable job of worker class large has waited 7200000 ms. Demand is not being met: check ScaleOut, the group's capacity and MissingWorker.",
+      "AlarmName": "Polis-LargeClass-OldestQueued",
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+      "DatapointsToAlarm": 1,
+      "EvaluationPeriods": 1,
+      "MetricName": "LargeOldestQueuedAgeMs",
+      "Namespace": "Polis/MathCapacity",
+      "OKActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "Period": 300,
+      "Statistic": "Maximum",
+      "Threshold": 7200000,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+  "DelphiLargeOldestQueuedFilter": {
+    "Properties": {
+      "FilterName": "Polis-LargeClass-LargeOldestQueuedAgeMs",
+      "FilterPattern": "{ $.schema = "math_poller.capacity/1" && $.class = "small" && $.role = "primary" }",
+      "LogGroupName": {
+        "Ref": "LogGroupF5B46931",
+      },
+      "MetricTransformations": [
+        {
+          "MetricName": "LargeOldestQueuedAgeMs",
+          "MetricNamespace": "Polis/MathCapacity",
+          "MetricValue": "$.oldest_queued_age_ms",
+          "Unit": "Count",
+        },
+      ],
+    },
+    "Type": "AWS::Logs::MetricFilter",
+  },
+  "DelphiLargeOldestUnresolvedFilter": {
+    "Properties": {
+      "FilterName": "Polis-LargeClass-OldestUnresolvedAgeMs",
+      "FilterPattern": "{ $.schema = "math_poller.capacity/1" && $.class = "small" && $.role = "primary" }",
+      "LogGroupName": {
+        "Ref": "LogGroupF5B46931",
+      },
+      "MetricTransformations": [
+        {
+          "MetricName": "OldestUnresolvedAgeMs",
+          "MetricNamespace": "Polis/MathCapacity",
+          "MetricValue": "$.oldest_unresolved_age_ms",
+          "Unit": "Count",
+        },
+      ],
+    },
+    "Type": "AWS::Logs::MetricFilter",
+  },
+  "DelphiLargeParkedAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "AlarmDescription": "Queue class math-large: a job of worker class large is parked (exit not proven, or a provider is open). Run the recovery in cost-reduction plan P-086: the daemon rediscovers it from SQL; a terminated instance is confirmed with one operator command.",
+      "AlarmName": "Polis-LargeClass-Parked",
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+      "DatapointsToAlarm": 3,
+      "EvaluationPeriods": 3,
+      "MetricName": "LargeParked",
+      "Namespace": "Polis/MathCapacity",
+      "OKActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "Period": 300,
+      "Statistic": "Maximum",
+      "Threshold": 1,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+  "DelphiLargeParkedFilter": {
+    "Properties": {
+      "FilterName": "Polis-LargeClass-LargeParked",
+      "FilterPattern": "{ $.schema = "math_poller.capacity/1" && $.class = "small" && $.role = "primary" }",
+      "LogGroupName": {
+        "Ref": "LogGroupF5B46931",
+      },
+      "MetricTransformations": [
+        {
+          "MetricName": "LargeParked",
+          "MetricNamespace": "Polis/MathCapacity",
+          "MetricValue": "$.large_parked",
+          "Unit": "Count",
+        },
+      ],
+    },
+    "Type": "AWS::Logs::MetricFilter",
+  },
+  "DelphiLargePendingPromotionFilter": {
+    "Properties": {
+      "FilterName": "Polis-LargeClass-PendingPromotion",
+      "FilterPattern": "{ $.schema = "math_poller.capacity/1" && $.class = "small" && $.role = "primary" }",
+      "LogGroupName": {
+        "Ref": "LogGroupF5B46931",
+      },
+      "MetricTransformations": [
+        {
+          "MetricName": "PendingPromotion",
+          "MetricNamespace": "Polis/MathCapacity",
+          "MetricValue": "$.pending_promotion",
+          "Unit": "Count",
+        },
+      ],
+    },
+    "Type": "AWS::Logs::MetricFilter",
+  },
+  "DelphiLargePoisonedFilter": {
+    "Properties": {
+      "FilterName": "Polis-LargeClass-LargePoisoned",
+      "FilterPattern": "{ $.schema = "math_poller.capacity/1" && $.class = "small" && $.role = "primary" }",
+      "LogGroupName": {
+        "Ref": "LogGroupF5B46931",
+      },
+      "MetricTransformations": [
+        {
+          "MetricName": "LargePoisoned",
+          "MetricNamespace": "Polis/MathCapacity",
+          "MetricValue": "$.large_poisoned",
+          "Unit": "Count",
+        },
+      ],
+    },
+    "Type": "AWS::Logs::MetricFilter",
+  },
+  "DelphiLargeScaleInAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "DelphiLargeScaleInPolicy7AE5566D",
+        },
+      ],
+      "AlarmDescription": "Queue class math-large: nothing queued, leased or parked for worker class large. Stops the workers (exact capacity 0). Parked blocks scale-in: a terminated box loses its journal and a job parked on it could never prove its exit.",
+      "AlarmName": "Polis-LargeClass-ScaleIn",
+      "ComparisonOperator": "LessThanOrEqualToThreshold",
+      "DatapointsToAlarm": 6,
+      "EvaluationPeriods": 6,
+      "Metrics": [
+        {
+          "Expression": "demand + leased + parked",
+          "Id": "expr_1",
+          "Label": "math-large queued + leased + parked",
+          "ReturnData": true,
+        },
+        {
+          "Id": "demand",
+          "MetricStat": {
+            "Metric": {
+              "MetricName": "LargeDemand",
+              "Namespace": "Polis/MathCapacity",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+        {
+          "Id": "leased",
+          "MetricStat": {
+            "Metric": {
+              "MetricName": "LargeBusy",
+              "Namespace": "Polis/MathCapacity",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+        {
+          "Id": "parked",
+          "MetricStat": {
+            "Metric": {
+              "MetricName": "LargeParked",
+              "Namespace": "Polis/MathCapacity",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+      ],
+      "Threshold": 0,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+  "DelphiLargeScaleInPolicy": {
+    "Properties": {
+      "AdjustmentType": "ExactCapacity",
+      "AutoScalingGroupName": {
+        "Ref": "AsgDelphiLargeASG487476CC",
+      },
+      "PolicyType": "StepScaling",
+      "StepAdjustments": [
+        {
+          "MetricIntervalUpperBound": 0,
+          "ScalingAdjustment": 0,
+        },
+      ],
+    },
+    "Type": "AWS::AutoScaling::ScalingPolicy",
+  },
+  "DelphiLargeScaleOutAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "DelphiLargeScaleOutPolicyC80260D1",
+        },
+      ],
+      "AlarmDescription": "Queue class math-large: jobs of worker class large are queued (large_demand on the capacity line). Starts workers: one per 1 queued jobs, at most 1.",
+      "AlarmName": "Polis-LargeClass-ScaleOut",
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+      "DatapointsToAlarm": 2,
+      "EvaluationPeriods": 2,
+      "MetricName": "LargeDemand",
+      "Namespace": "Polis/MathCapacity",
+      "Period": 300,
+      "Statistic": "Maximum",
+      "Threshold": 1,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+  "DelphiLargeScaleOutPolicy": {
+    "Properties": {
+      "AdjustmentType": "ExactCapacity",
+      "AutoScalingGroupName": {
+        "Ref": "AsgDelphiLargeASG487476CC",
+      },
+      "PolicyType": "StepScaling",
+      "StepAdjustments": [
+        {
+          "MetricIntervalLowerBound": 0,
+          "ScalingAdjustment": 1,
+        },
+      ],
+    },
+    "Type": "AWS::AutoScaling::ScalingPolicy",
+  },
+  "DelphiLargeWorkerDiskAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "AlarmDescription": "Queue class math-large: a worker's root volume (journal and work directory) has 5368709120 bytes free or less (the CloudWatch agent's disk_free).",
+      "AlarmName": "Polis-LargeClass-WorkerDisk",
+      "ComparisonOperator": "LessThanOrEqualToThreshold",
+      "DatapointsToAlarm": 1,
+      "Dimensions": [
+        {
+          "Name": "AutoScalingGroupName",
+          "Value": {
+            "Ref": "AsgDelphiLargeASG487476CC",
+          },
+        },
+      ],
+      "EvaluationPeriods": 1,
+      "MetricName": "disk_free",
+      "Namespace": "CWAgent",
+      "OKActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "Period": 300,
+      "Statistic": "Minimum",
+      "Threshold": 5368709120,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+}
+`;
+
+exports[`enableLargeClass on the WorkerDelphi class its resources match the snapshot 1`] = `
+{
+  "AsgWorkerDelphiASG": {
+    "DependsOn": [
+      "DatabaseB269D8BB",
+      "DatabaseSecretAttachmentE5D1B020",
+      "CdkStackDatabaseSecretB048648C3fdaad7efa858a3daf9490cf0a702aeb",
+      "DatabaseSecurityGroupfromCdkStackCoordinatorInactiveSecurityGroup6F94BCBC5432C63E8C7A",
+      "DatabaseSecurityGroupfromCdkStackDatabaseSecurityGroup606AD34254329E0CEDE5",
+      "DatabaseSecurityGroupfromCdkStackDelphiSecurityGroupE6A4306A543215DB2463",
+      "DatabaseSecurityGroupfromCdkStackImportWorkerImportWorkerServiceSecurityGroupE74F360554325117B3AB",
+      "DatabaseSecurityGroupfromCdkStackMathWorkerSGC237C089543234C6E0E5",
+      "DatabaseSecurityGroupfromCdkStackWebSecurityGroup1F83F8B35432C8E31C28",
+      "DatabaseSecurityGroup5C91FDCB",
+      "LogGroupF5B46931",
+      "WebAppEnvVarsSecret7E5CDB10",
+    ],
+    "Properties": {
+      "HealthCheckGracePeriod": 600,
+      "HealthCheckType": "EC2",
+      "LaunchTemplate": {
+        "LaunchTemplateId": {
+          "Ref": "WorkerDelphiLaunchTemplate49F180A1",
+        },
+        "Version": {
+          "Fn::GetAtt": [
+            "WorkerDelphiLaunchTemplate49F180A1",
+            "LatestVersionNumber",
+          ],
+        },
+      },
+      "MaxSize": "3",
+      "MetricsCollection": [
+        {
+          "Granularity": "1Minute",
+          "Metrics": [
+            "GroupInServiceInstances",
+          ],
+        },
+      ],
+      "MinSize": "0",
+      "VPCZoneIdentifier": [
+        {
+          "Ref": "VpcPrivateWithEgressSubnet1Subnet980F0B3D",
+        },
+        {
+          "Ref": "VpcPrivateWithEgressSubnet2SubnetA337C6C2",
+        },
+      ],
+    },
+    "Type": "AWS::AutoScaling::AutoScalingGroup",
+    "UpdatePolicy": {
+      "AutoScalingScheduledAction": {
+        "IgnoreUnmodifiedGroupSizeProperties": true,
+      },
+    },
+  },
+  "WorkerDelphiBusyFilter": {
+    "Properties": {
+      "FilterName": "Polis-DelphiClass-DelphiBusy",
+      "FilterPattern": "{ $.schema = "math_poller.capacity/1" && $.class = "small" && $.role = "primary" }",
+      "LogGroupName": {
+        "Ref": "LogGroupF5B46931",
+      },
+      "MetricTransformations": [
+        {
+          "MetricName": "DelphiBusy",
+          "MetricNamespace": "Polis/MathCapacity",
+          "MetricValue": "$.delphi_leased",
+          "Unit": "Count",
+        },
+      ],
+    },
+    "Type": "AWS::Logs::MetricFilter",
+  },
+  "WorkerDelphiDeadAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "AlarmDescription": "Queue class delphi: a job of worker class delphi is dead (attempts exhausted and not yet released). A ruling is owed, as for exceeds_largest.",
+      "AlarmName": "Polis-DelphiClass-Dead",
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+      "DatapointsToAlarm": 1,
+      "EvaluationPeriods": 1,
+      "MetricName": "DelphiDead",
+      "Namespace": "Polis/MathCapacity",
+      "OKActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "Period": 300,
+      "Statistic": "Maximum",
+      "Threshold": 1,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+  "WorkerDelphiDeadFilter": {
+    "Properties": {
+      "FilterName": "Polis-DelphiClass-DelphiDead",
+      "FilterPattern": "{ $.schema = "math_poller.capacity/1" && $.class = "small" && $.role = "primary" }",
+      "LogGroupName": {
+        "Ref": "LogGroupF5B46931",
+      },
+      "MetricTransformations": [
+        {
+          "MetricName": "DelphiDead",
+          "MetricNamespace": "Polis/MathCapacity",
+          "MetricValue": "$.delphi_dead",
+          "Unit": "Count",
+        },
+      ],
+    },
+    "Type": "AWS::Logs::MetricFilter",
+  },
+  "WorkerDelphiDemandFilter": {
+    "Properties": {
+      "FilterName": "Polis-DelphiClass-DelphiDemand",
+      "FilterPattern": "{ $.schema = "math_poller.capacity/1" && $.class = "small" && $.role = "primary" }",
+      "LogGroupName": {
+        "Ref": "LogGroupF5B46931",
+      },
+      "MetricTransformations": [
+        {
+          "MetricName": "DelphiDemand",
+          "MetricNamespace": "Polis/MathCapacity",
+          "MetricValue": "$.delphi_demand",
+          "Unit": "Count",
+        },
+      ],
+    },
+    "Type": "AWS::Logs::MetricFilter",
+  },
+  "WorkerDelphiInstanceRole": {
+    "Properties": {
+      "AssumeRolePolicyDocument": {
+        "Statement": [
+          {
+            "Action": "sts:AssumeRole",
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "ec2.amazonaws.com",
+            },
+          },
+        ],
+        "Version": "2012-10-17",
+      },
+      "Description": "Queue worker class delphi (service type delphi-worker): the jobs daemon only",
+      "ManagedPolicyArns": [
+        {
+          "Fn::Join": [
+            "",
+            [
+              "arn:",
+              {
+                "Ref": "AWS::Partition",
+              },
+              ":iam::aws:policy/AmazonSSMManagedInstanceCore",
+            ],
+          ],
+        },
+        {
+          "Fn::Join": [
+            "",
+            [
+              "arn:",
+              {
+                "Ref": "AWS::Partition",
+              },
+              ":iam::aws:policy/CloudWatchAgentServerPolicy",
+            ],
+          ],
+        },
+      ],
+    },
+    "Type": "AWS::IAM::Role",
+  },
+  "WorkerDelphiInstanceRoleDefaultPolicy": {
+    "Properties": {
+      "PolicyDocument": {
+        "Statement": [
+          {
+            "Action": [
+              "logs:CreateLogStream",
+              "logs:PutLogEvents",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Fn::GetAtt": [
+                "LogGroupF5B46931",
+                "Arn",
+              ],
+            },
+          },
+          {
+            "Action": "ssm:GetParameter",
+            "Effect": "Allow",
+            "Resource": [
+              "arn:aws:ssm:us-east-1:123456789012:parameter/polis/db-secret-arn",
+              "arn:aws:ssm:us-east-1:123456789012:parameter/polis/db-host",
+              "arn:aws:ssm:us-east-1:123456789012:parameter/polis/db-port",
+            ],
+          },
+          {
+            "Action": "secretsmanager:GetSecretValue",
+            "Effect": "Allow",
+            "Resource": "arn:aws:secretsmanager:us-east-1:123456789012:secret:polis-queue-login-*",
+            "Sid": "QueueLoginRead",
+          },
+          {
+            "Action": [
+              "s3:GetObject*",
+              "s3:GetBucket*",
+              "s3:List*",
+            ],
+            "Effect": "Allow",
+            "Resource": [
+              {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":s3:::cdk-hnb659fds-assets-123456789012-us-east-1",
+                  ],
+                ],
+              },
+              {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":s3:::cdk-hnb659fds-assets-123456789012-us-east-1/*",
+                  ],
+                ],
+              },
+            ],
+          },
+          {
+            "Action": [
+              "s3:GetObject*",
+              "s3:GetBucket*",
+              "s3:List*",
+            ],
+            "Effect": "Allow",
+            "Resource": [
+              {
+                "Fn::GetAtt": [
+                  "DeploymentPackageBucket9264F134",
+                  "Arn",
+                ],
+              },
+              {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Fn::GetAtt": [
+                        "DeploymentPackageBucket9264F134",
+                        "Arn",
+                      ],
+                    },
+                    "/*",
+                  ],
+                ],
+              },
+            ],
+          },
+          {
+            "Action": [
+              "secretsmanager:GetSecretValue",
+              "secretsmanager:DescribeSecret",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Ref": "WebAppEnvVarsSecret7E5CDB10",
+            },
+          },
+          {
+            "Action": [
+              "secretsmanager:GetSecretValue",
+              "secretsmanager:DescribeSecret",
+            ],
+            "Effect": "Allow",
+            "Resource": {
+              "Ref": "DatabaseSecretAttachmentE5D1B020",
+            },
+          },
+        ],
+        "Version": "2012-10-17",
+      },
+      "PolicyName": "WorkerDelphiInstanceRoleDefaultPolicy055F822B",
+      "Roles": [
+        {
+          "Ref": "WorkerDelphiInstanceRole62FDA741",
+        },
+      ],
+    },
+    "Type": "AWS::IAM::Policy",
+  },
+  "WorkerDelphiLaunchTemplate": {
+    "DependsOn": [
+      "WorkerDelphiInstanceRoleDefaultPolicy055F822B",
+      "WorkerDelphiInstanceRole62FDA741",
+    ],
+    "Properties": {
+      "LaunchTemplateData": {
+        "BlockDeviceMappings": [
+          {
+            "DeviceName": "/dev/xvda",
+            "Ebs": {
+              "DeleteOnTermination": true,
+              "VolumeSize": 100,
+              "VolumeType": "gp3",
+            },
+          },
+        ],
+        "IamInstanceProfile": {
+          "Arn": {
+            "Fn::GetAtt": [
+              "WorkerDelphiLaunchTemplateProfile53F960AE",
+              "Arn",
+            ],
+          },
+        },
+        "ImageId": {
+          "Ref": "SsmParameterValueawsserviceamiamazonlinuxlatestal2023amikernel61x8664C96584B6F00A464EAD1953AFF4B05118Parameter",
+        },
+        "InstanceType": "r7i.2xlarge",
+        "SecurityGroupIds": [
+          {
+            "Fn::GetAtt": [
+              "DelphiSecurityGroup53B17A30",
+              "GroupId",
+            ],
+          },
+        ],
+        "TagSpecifications": [
+          {
+            "ResourceType": "instance",
+            "Tags": [
+              {
+                "Key": "Name",
+                "Value": "CdkStack/WorkerDelphiLaunchTemplate",
+              },
+            ],
+          },
+          {
+            "ResourceType": "volume",
+            "Tags": [
+              {
+                "Key": "Name",
+                "Value": "CdkStack/WorkerDelphiLaunchTemplate",
+              },
+            ],
+          },
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash
+#!/bin/bash
+set -e
+set -x
+sudo mkdir -p /etc/app-info
+sudo chown root:root /etc/app-info
+sudo chmod 755 /etc/app-info
+echo "Writing service type 'delphi-worker' to /etc/app-info/service_type.txt"
+echo "delphi-worker" | sudo tee /etc/app-info/service_type.txt
+
+
+echo "Writing queue worker class 'delphi' to /etc/app-info/worker_class.txt"
+echo "delphi" | sudo tee /etc/app-info/worker_class.txt
+echo "52g" | sudo tee /etc/app-info/worker_memory.txt
+echo "polis-queue-login" | sudo tee /etc/app-info/queue_login_secret.txt
+printf 'POLIS_JOBS_WORKER_CLASS=%s
+POLIS_JOBS_CONTAINER_MEMORY=%s
+POLIS_JOBS_LOGIN_SECRET_NAME=%s
+POLIS_JOBS_IMAGE=%s
+' "delphi" "52g" "polis-queue-login" "123456789012.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest" | sudo tee /etc/app-info/polis-jobs.env
+sudo chmod 644 /etc/app-info/polis-jobs.env
+sudo yum update -y
+sudo yum install -y amazon-cloudwatch-agent -y
+sudo dnf install -y wget ruby docker
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -a -G docker ec2-user
+sudo curl -L https://github.com/docker/compose/releases/download/v2.40.0/docker-compose-linux-$(uname -m) -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+docker-compose --version
+sudo yum install -y jq
+export SERVICE=delphi-worker
+
+echo "",
+                {
+                  "Ref": "LogGroupF5B46931",
+                },
+                "" | sudo tee /etc/app-info/log_group_name.txt
+echo "Configuring CloudWatch Agent..."
+aws s3 cp s3://cdk-hnb659fds-assets-123456789012-us-east-1/b0f3a98face9a32be47e361c9b6cdac568e47a2ca613d26c8779d512e17b6050.json /tmp/amazon-cloudwatch-agent.json || echo "CW agent config download failed; continuing"
+sudo mkdir -p $(dirname /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json) || true
+sudo mv /tmp/amazon-cloudwatch-agent.json /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json || true
+sudo chmod 644 /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json || true
+sudo chown root:root /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json || true
+sudo systemctl enable amazon-cloudwatch-agent || true
+sudo systemctl start amazon-cloudwatch-agent || echo "CW agent failed to start; continuing"
+exec 1>>/var/log/user-data.log 2>&1
+echo "Finished User Data Execution at $(date)"
+sudo mkdir -p /etc/docker
+cat << EOF | sudo tee /etc/docker/daemon.json
+{
+  "log-driver": "awslogs",
+  "log-opts": {
+    "awslogs-group": "",
+                {
+                  "Ref": "LogGroupF5B46931",
+                },
+                "",
+    "awslogs-region": "us-east-1",
+    "awslogs-stream": "delphi-worker"
+  }
+}
+EOF
+sudo chmod 644 /etc/docker/daemon.json
+sudo systemctl restart docker
+sudo systemctl status docker
+cat << 'POLIS_JOBS_START' | sudo tee /usr/local/bin/polis-jobs-start
+#!/bin/bash
+# Starts the queue worker daemon with this box's class (written by the launch template).
+set -euo pipefail
+. /etc/app-info/polis-jobs.env
+test -f /opt/polis/polis/.env  # the env document; the deploy writes it, systemd retries until then
+umask 077
+mkdir -p /run/polis-jobs /var/lib/polis-jobs/journal
+aws secretsmanager get-secret-value --region us-east-1 --secret-id "$POLIS_JOBS_LOGIN_SECRET_NAME" --query SecretString --output text | jq -er .password > /run/polis-jobs/password
+exec docker run --rm --name polis-jobs --memory "$POLIS_JOBS_CONTAINER_MEMORY" \\
+  --env-file /opt/polis/polis/.env --env-file /etc/app-info/polis-jobs.env \\
+  -e POLIS_JOBS_ENABLED=1 -e POLIS_JOBS_PASSWORD_FILE=/run/secrets/queue-login \\
+  -e POLIS_JOBS_JOURNAL_DIR=/var/lib/polis-jobs/journal \\
+  -v /run/polis-jobs/password:/run/secrets/queue-login:ro -v /var/lib/polis-jobs:/var/lib/polis-jobs \\
+  "$POLIS_JOBS_IMAGE" polis-jobs
+POLIS_JOBS_START
+sudo chmod 755 /usr/local/bin/polis-jobs-start
+cat << 'POLIS_JOBS_UNIT' | sudo tee /etc/systemd/system/polis-jobs.service
+[Unit]
+Description=Polis queue worker daemon (class in /etc/app-info/polis-jobs.env)
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+[Service]
+ExecStartPre=-/usr/bin/docker rm -f polis-jobs
+ExecStart=/usr/local/bin/polis-jobs-start
+ExecStop=/usr/bin/docker stop -t 900 polis-jobs
+TimeoutStopSec=960
+Restart=always
+RestartSec=60
+[Install]
+WantedBy=multi-user.target
+POLIS_JOBS_UNIT
+sudo systemctl daemon-reload
+sudo systemctl enable --now polis-jobs.service || echo "polis-jobs unit failed to start; it retries"",
+              ],
+            ],
+          },
+        },
+      },
+      "TagSpecifications": [
+        {
+          "ResourceType": "launch-template",
+          "Tags": [
+            {
+              "Key": "Name",
+              "Value": "CdkStack/WorkerDelphiLaunchTemplate",
+            },
+          ],
+        },
+      ],
+    },
+    "Type": "AWS::EC2::LaunchTemplate",
+  },
+  "WorkerDelphiLaunchTemplateProfile": {
+    "Properties": {
+      "Roles": [
+        {
+          "Ref": "WorkerDelphiInstanceRole62FDA741",
+        },
+      ],
+    },
+    "Type": "AWS::IAM::InstanceProfile",
+  },
+  "WorkerDelphiLongRunningAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "AlarmDescription": "Queue class delphi: a worker has been in service for 6 hours. Cost guard: repeated firing is the evidence for a fixed resize instead of the autoscaled class.",
+      "AlarmName": "Polis-DelphiClass-LongRunning",
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+      "DatapointsToAlarm": 72,
+      "Dimensions": [
+        {
+          "Name": "AutoScalingGroupName",
+          "Value": {
+            "Ref": "AsgWorkerDelphiASGB84F6A99",
+          },
+        },
+      ],
+      "EvaluationPeriods": 72,
+      "MetricName": "GroupInServiceInstances",
+      "Namespace": "AWS/AutoScaling",
+      "OKActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "Period": 300,
+      "Statistic": "Maximum",
+      "Threshold": 1,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+  "WorkerDelphiMissingWorkerAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "AlarmDescription": "Queue class delphi: the group has an instance in service and no jobs daemon has logged a readiness line. Box up, daemon not running: check the deploy hook and the daemon's refusals in the box's log stream.",
+      "AlarmName": "Polis-DelphiClass-MissingWorker",
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+      "DatapointsToAlarm": 3,
+      "EvaluationPeriods": 3,
+      "Metrics": [
+        {
+          "Expression": "IF(instances >= 1 && FILL(heartbeat, 0) < 1, 1, 0)",
+          "Id": "expr_1",
+          "Label": "delphi instance up, no daemon heartbeat",
+          "ReturnData": true,
+        },
+        {
+          "Id": "instances",
+          "MetricStat": {
+            "Metric": {
+              "Dimensions": [
+                {
+                  "Name": "AutoScalingGroupName",
+                  "Value": {
+                    "Ref": "AsgWorkerDelphiASGB84F6A99",
+                  },
+                },
+              ],
+              "MetricName": "GroupInServiceInstances",
+              "Namespace": "AWS/AutoScaling",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+        {
+          "Id": "heartbeat",
+          "MetricStat": {
+            "Metric": {
+              "MetricName": "WorkerHeartbeat",
+              "Namespace": "Polis/MathCapacity",
+            },
+            "Period": 300,
+            "Stat": "Sum",
+          },
+          "ReturnData": false,
+        },
+      ],
+      "OKActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "Threshold": 1,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+  "WorkerDelphiOldestQueuedAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "AlarmDescription": "Queue class delphi: the oldest claimable job of worker class delphi has waited 7200000 ms. Demand is not being met: check ScaleOut, the group's capacity and MissingWorker.",
+      "AlarmName": "Polis-DelphiClass-OldestQueued",
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+      "DatapointsToAlarm": 1,
+      "EvaluationPeriods": 1,
+      "MetricName": "DelphiOldestQueuedAgeMs",
+      "Namespace": "Polis/MathCapacity",
+      "OKActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "Period": 300,
+      "Statistic": "Maximum",
+      "Threshold": 7200000,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+  "WorkerDelphiOldestQueuedFilter": {
+    "Properties": {
+      "FilterName": "Polis-DelphiClass-DelphiOldestQueuedAgeMs",
+      "FilterPattern": "{ $.schema = "math_poller.capacity/1" && $.class = "small" && $.role = "primary" }",
+      "LogGroupName": {
+        "Ref": "LogGroupF5B46931",
+      },
+      "MetricTransformations": [
+        {
+          "MetricName": "DelphiOldestQueuedAgeMs",
+          "MetricNamespace": "Polis/MathCapacity",
+          "MetricValue": "$.delphi_oldest_queued_age_ms",
+          "Unit": "Count",
+        },
+      ],
+    },
+    "Type": "AWS::Logs::MetricFilter",
+  },
+  "WorkerDelphiParkedAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "AlarmDescription": "Queue class delphi: a job of worker class delphi is parked (exit not proven, or a provider is open). Run the recovery in cost-reduction plan P-086: the daemon rediscovers it from SQL; a terminated instance is confirmed with one operator command.",
+      "AlarmName": "Polis-DelphiClass-Parked",
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+      "DatapointsToAlarm": 3,
+      "EvaluationPeriods": 3,
+      "MetricName": "DelphiParked",
+      "Namespace": "Polis/MathCapacity",
+      "OKActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "Period": 300,
+      "Statistic": "Maximum",
+      "Threshold": 1,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+  "WorkerDelphiParkedFilter": {
+    "Properties": {
+      "FilterName": "Polis-DelphiClass-DelphiParked",
+      "FilterPattern": "{ $.schema = "math_poller.capacity/1" && $.class = "small" && $.role = "primary" }",
+      "LogGroupName": {
+        "Ref": "LogGroupF5B46931",
+      },
+      "MetricTransformations": [
+        {
+          "MetricName": "DelphiParked",
+          "MetricNamespace": "Polis/MathCapacity",
+          "MetricValue": "$.delphi_parked",
+          "Unit": "Count",
+        },
+      ],
+    },
+    "Type": "AWS::Logs::MetricFilter",
+  },
+  "WorkerDelphiScaleInAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "WorkerDelphiScaleInPolicy22E90A95",
+        },
+      ],
+      "AlarmDescription": "Queue class delphi: nothing queued, leased or parked for worker class delphi. Stops the workers (exact capacity 0). Parked blocks scale-in: a terminated box loses its journal and a job parked on it could never prove its exit.",
+      "AlarmName": "Polis-DelphiClass-ScaleIn",
+      "ComparisonOperator": "LessThanOrEqualToThreshold",
+      "DatapointsToAlarm": 6,
+      "EvaluationPeriods": 6,
+      "Metrics": [
+        {
+          "Expression": "demand + leased + parked",
+          "Id": "expr_1",
+          "Label": "delphi queued + leased + parked",
+          "ReturnData": true,
+        },
+        {
+          "Id": "demand",
+          "MetricStat": {
+            "Metric": {
+              "MetricName": "DelphiDemand",
+              "Namespace": "Polis/MathCapacity",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+        {
+          "Id": "leased",
+          "MetricStat": {
+            "Metric": {
+              "MetricName": "DelphiBusy",
+              "Namespace": "Polis/MathCapacity",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+        {
+          "Id": "parked",
+          "MetricStat": {
+            "Metric": {
+              "MetricName": "DelphiParked",
+              "Namespace": "Polis/MathCapacity",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+      ],
+      "Threshold": 0,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+  "WorkerDelphiScaleInPolicy": {
+    "Properties": {
+      "AdjustmentType": "ExactCapacity",
+      "AutoScalingGroupName": {
+        "Ref": "AsgWorkerDelphiASGB84F6A99",
+      },
+      "PolicyType": "StepScaling",
+      "StepAdjustments": [
+        {
+          "MetricIntervalUpperBound": 0,
+          "ScalingAdjustment": 0,
+        },
+      ],
+    },
+    "Type": "AWS::AutoScaling::ScalingPolicy",
+  },
+  "WorkerDelphiScaleOutAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "WorkerDelphiScaleOutPolicy1C42902D",
+        },
+      ],
+      "AlarmDescription": "Queue class delphi: jobs of worker class delphi are queued (delphi_demand on the capacity line). Starts workers: one per 2 queued jobs, at most 3.",
+      "AlarmName": "Polis-DelphiClass-ScaleOut",
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+      "DatapointsToAlarm": 2,
+      "EvaluationPeriods": 2,
+      "MetricName": "DelphiDemand",
+      "Namespace": "Polis/MathCapacity",
+      "Period": 300,
+      "Statistic": "Maximum",
+      "Threshold": 1,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+  "WorkerDelphiScaleOutPolicy": {
+    "Properties": {
+      "AdjustmentType": "ExactCapacity",
+      "AutoScalingGroupName": {
+        "Ref": "AsgWorkerDelphiASGB84F6A99",
+      },
+      "PolicyType": "StepScaling",
+      "StepAdjustments": [
+        {
+          "MetricIntervalLowerBound": 0,
+          "MetricIntervalUpperBound": 2,
+          "ScalingAdjustment": 1,
+        },
+        {
+          "MetricIntervalLowerBound": 2,
+          "MetricIntervalUpperBound": 4,
+          "ScalingAdjustment": 2,
+        },
+        {
+          "MetricIntervalLowerBound": 4,
+          "ScalingAdjustment": 3,
+        },
+      ],
+    },
+    "Type": "AWS::AutoScaling::ScalingPolicy",
+  },
+  "WorkerDelphiWorkerDiskAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "AlarmDescription": "Queue class delphi: a worker's root volume (journal and work directory) has 5368709120 bytes free or less (the CloudWatch agent's disk_free).",
+      "AlarmName": "Polis-DelphiClass-WorkerDisk",
+      "ComparisonOperator": "LessThanOrEqualToThreshold",
+      "DatapointsToAlarm": 1,
+      "Dimensions": [
+        {
+          "Name": "AutoScalingGroupName",
+          "Value": {
+            "Ref": "AsgWorkerDelphiASGB84F6A99",
+          },
+        },
+      ],
+      "EvaluationPeriods": 1,
+      "MetricName": "disk_free",
+      "Namespace": "CWAgent",
+      "OKActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "Period": 300,
+      "Statistic": "Minimum",
+      "Threshold": 5368709120,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
+}
+`;

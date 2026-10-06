@@ -5,6 +5,7 @@ import * as autoscaling from 'aws-cdk-lib/aws-autoscaling';
 import * as cdk from 'aws-cdk-lib';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cloudwatch_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
+import { ByClass, WorkerClassesSettings, mathLargeRow } from './workerClasses';
 
 export default (
   self: Construct,
@@ -20,8 +21,9 @@ export default (
   ollamaNamespace: string,
   alarmTopic: cdk.aws_sns.Topic,
   enableOllama: boolean = false,
-  // P-073 large memory class (-c enableLargeClass=true); see the AsgDelphiLarge comment.
-  largeClassEnabled: boolean = false
+  // Queue worker classes (-c enableLargeClass=true, cdk/workerClasses.ts): one group per row
+  // of the class table; see the AsgDelphiLarge comment. Undefined: no worker group.
+  workers?: { settings: WorkerClassesSettings; launchTemplates: ByClass<cdk.aws_ec2.LaunchTemplate> }
 ) => {
   const commonAsgProps = { vpc, role: instanceRole };
 
@@ -87,27 +89,33 @@ export default (
     healthCheck: autoscaling.HealthCheck.ec2({ grace: cdk.Duration.minutes(5) }),
   });
 
-  // Delphi Large ASG
-  // With -c enableLargeClass=true (P-073) this group is repurposed as the large memory class for
-  // the Python math poller: its boxes have service type `delphi-large` and run only
-  // math-python-large. It is already in the CodeDeploy deployment group, the Postgres ingress, the
-  // log/secret/DB dependencies and the Delphi security group, and it has been at 0 since
-  // 2026-07-31, so repurposing it gives up nothing that runs: the large Delphi report tier (jobs
-  // job_poller.py routes to the `large` size) has had no box since then and keeps having none.
-  // min 0 / max 1 and NO desired count: the step policies in largeClass.ts own the count, and a
-  // cdk deploy must never reset a running worker. No CPU target tracking: a busy large worker
-  // uses one or two of eight vCPUs, so CPU tracking would scale it in mid-job.
-  const asgDelphiLarge = largeClassEnabled
-    ? new autoscaling.AutoScalingGroup(self, 'AsgDelphiLarge', {
+  // Worker class groups (cdk/workerClasses.ts): one per row of the class table. The row's
+  // min/max and NO desired count: the step policies in workerClasses.ts own the count, and a
+  // cdk deploy must never reset a running worker. No CPU target tracking: a busy worker uses
+  // one or two of eight vCPUs, so CPU tracking would scale it in mid-job.
+  const workerGroup = (name: string, id: string) => {
+    const spec = workers!.settings.classes.find((c) => c.name === name)!;
+    return new autoscaling.AutoScalingGroup(self, id, {
       vpc,
-      launchTemplate: delphiLargeLaunchTemplate,
-      minCapacity: 0,
-      maxCapacity: 1,
+      launchTemplate: workers!.launchTemplates[name],
+      minCapacity: spec.minCapacity,
+      maxCapacity: spec.maxCapacity,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       healthCheck: autoscaling.HealthCheck.ec2({ grace: cdk.Duration.minutes(10) }),
-      // GroupInServiceInstances feeds the LongRunning cost alarm.
+      // GroupInServiceInstances feeds the LongRunning and MissingWorker alarms.
       groupMetrics: [new autoscaling.GroupMetrics(autoscaling.GroupMetric.IN_SERVICE_INSTANCES)],
-    })
+    });
+  };
+
+  // Delphi Large ASG
+  // With -c enableLargeClass=true this group is the math-large worker class: its boxes have
+  // service type `delphi-large` and run only the large worker. It is already in the CodeDeploy
+  // deployment group, the Postgres ingress, the log/secret/DB dependencies and the Delphi security
+  // group, and it has been at 0 since 2026-07-31, so repurposing it gives up nothing that runs:
+  // the large Delphi report tier (jobs job_poller.py routes to the `large` size) has had no box
+  // since then and keeps having none.
+  const asgDelphiLarge = workers
+    ? workerGroup(mathLargeRow(workers.settings).name, 'AsgDelphiLarge')
     : new autoscaling.AutoScalingGroup(self, 'AsgDelphiLarge', {
       vpc,
       launchTemplate: delphiLargeLaunchTemplate,
@@ -120,6 +128,14 @@ export default (
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       healthCheck: autoscaling.HealthCheck.ec2({ grace: cdk.Duration.minutes(5) }),
     });
+  const workerGroups: ByClass<autoscaling.AutoScalingGroup> = {};
+  if (workers) {
+    const large = mathLargeRow(workers.settings);
+    workerGroups[large.name] = asgDelphiLarge;
+    for (const spec of workers.settings.classes) {
+      if (spec.name !== large.name) workerGroups[spec.name] = workerGroup(spec.name, `Asg${spec.id}`);
+    }
+  }
 
 
   // --- Scaling Policies & Alarms
@@ -168,8 +184,8 @@ export default (
     return cpuMetric;
   };
   const delphiSmallCpuMetric = createDelphiCpuScaling(asgDelphiSmall, 'DelphiSmall', 60); // Target 60% CPU
-  // Target 60% CPU; no tracking for the large memory class (see AsgDelphiLarge), the alarm stays.
-  const delphiLargeCpuMetric = createDelphiCpuScaling(asgDelphiLarge, 'DelphiLarge', 60, !largeClassEnabled);
+  // Target 60% CPU; no tracking for a worker class (see AsgDelphiLarge), the alarm stays.
+  const delphiLargeCpuMetric = createDelphiCpuScaling(asgDelphiLarge, 'DelphiLarge', 60, !workers);
 
   // Add Ollama GPU Scaling Policy (only when the GPU stack is enabled)
   if (enableOllama && asgOllama) {
@@ -195,6 +211,7 @@ export default (
     asgMathWorker,
     asgDelphiSmall,
     asgDelphiLarge,
+    workerGroups,
     commonAsgProps
   }
 }

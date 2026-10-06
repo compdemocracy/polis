@@ -58,6 +58,9 @@ MANIFEST_MAX_BYTES = 1 << 20
 
 STAGE_FULL_PIPELINE = "delphi_full_pipeline"
 STAGE_NARRATIVE = "delphi_narrative"
+# The large memory class as a queue child (P-073 r2; polismath.poller.rebuild_child).
+STAGE_MATH_REBUILD = "math_rebuild"
+STAGES = (STAGE_FULL_PIPELINE, STAGE_NARRATIVE, STAGE_MATH_REBUILD)
 PHASE_RUN = "run"
 PHASE_SUBMIT = "submit"
 PHASE_RECHECK = "recheck"
@@ -375,7 +378,7 @@ def validate_manifest(m: Any) -> None:
     for key in ("job_id", "attempt_id"):
         if not _is_uuid(m[key]):
             raise ManifestError(f"{key} must be a uuid")
-    if m["stage"] not in (STAGE_FULL_PIPELINE, STAGE_NARRATIVE):
+    if m["stage"] not in STAGES:
         raise ManifestError("unknown stage")
     _nullable(m["phase"], str, "phase")
     if m["outcome"] not in ("succeeded", "parked"):

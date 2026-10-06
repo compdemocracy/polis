@@ -59,10 +59,10 @@ if [ -d "$DEPLOY_DIR" ]; then
     /usr/local/bin/docker-compose stop delphi || echo "Warning: Failed to stop delphi service, might already be stopped."
 
   elif [ "$SERVICE_TYPE" == "delphi-large" ]; then
-    # The large memory class box (P-073) runs only math-python-large
-    # (AfterInstall starts nothing else there).
-    echo "Stopping math-python-large service..."
-    /usr/local/bin/docker-compose stop math-python-large || echo "Warning: Failed to stop math-python-large service, might already be stopped."
+    # The large memory class box (P-073 r2) runs no compose service from
+    # this file yet: its worker is the polis-jobs daemon (class large), whose
+    # service and stop line land with the daemon. Nothing to stop here.
+    echo "Service type 'delphi-large': no compose service to stop"
 
   else
     echo "Warning: Unknown service type '$SERVICE_TYPE' found in $SERVICE_TYPE_FILE. No specific services stopped."
