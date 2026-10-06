@@ -1,7 +1,8 @@
 //! `polis-jobs` against a throwaway PostgreSQL 17 holding the repository's
 //! migration chain: `jobs_base` is 000000–000022 (polis-queue/1, no foundation)
 //! and `jobs_v2` adds the repository's 000023 (polis-queue/2, the Delphi job
-//! table). Run with `--features jobs-integration` and
+//! table; 000024, the large class, is not applied to it, so these tests run
+//! on the contract the class-delphi daemon runs on). Run with `--features jobs-integration` and
 //! `POLIS_JOBS_TEST_DATABASE_URL` (a superuser DSN on a loopback port); see
 //! the README. Each test copies a template database, runs real daemon
 //! processes and the generated fixture child, and inspects committed state.
@@ -102,8 +103,8 @@ fn ensure_templates() {
                     .unwrap()
             })
             .collect();
-        let expected: Vec<u32> = (0..=23).filter(|n| *n != 20).collect();
-        assert_eq!(numbers, expected, "complete 000000-000023 chain required");
+        let expected: Vec<u32> = (0..=24).filter(|n| *n != 20).collect();
+        assert_eq!(numbers, expected, "complete 000000-000024 chain required");
         // `jobs_base` stops before the foundation: it is the polis-queue/1
         // shape the "contract missing" start refusal is proven against.
         for (m, n) in chain.iter().zip(&numbers).filter(|(_, n)| **n <= 22) {
