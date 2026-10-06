@@ -93,8 +93,10 @@ DEPTH_OUTCOME = "class_depth"
 #: Reply schema versions a job reply may carry: 000024 answers
 #: ``polis-queue/3`` for a math_rebuild job; ``/2`` is the Delphi stages'.
 REPLY_VERSIONS = frozenset(("polis-queue/2", "polis-queue/3"))
-#: The depth read exists only from 000024 and answers its own version.
+#: The depth read exists only from 000024 and answers its own version;
+#: 000026 adds ``oldest_eligible_at`` and answers ``polis-queue/4``.
 DEPTH_VERSION = "polis-queue/3"
+DEPTH_VERSION_4 = "polis-queue/4"
 
 #: The closed statement inventory with fixed casts (``executor.RPC`` pattern).
 #: ``pd_enqueue`` is the one admission RPC (000023, admitting math_rebuild
@@ -133,6 +135,9 @@ DEPTH_FIELDS = frozenset(
     "schema_version outcome env worker_class queued leased parked dead "
     "oldest_unresolved_created_at".split()
 )
+#: 000026's depth reply: the same, plus the eligible_at of the oldest job a
+#: worker of the class could claim now (null when there is none).
+DEPTH_FIELDS_4 = DEPTH_FIELDS | {"oldest_eligible_at"}
 DEPTH_COUNTS = ("queued", "leased", "parked", "dead")
 ENQUEUE_OUTCOMES = frozenset(("enqueued", "existing", "conflict", "poisoned"))
 #: Admission caps (cost-reduction plan P-084). The SQL does not enforce
@@ -289,10 +294,15 @@ def validate_job(reply: Any) -> Dict[str, Any]:
 
 
 def validate_depth(reply: Any) -> Dict[str, Any]:
-    """Reject a reply that is not 000024's depth envelope, exactly."""
-    if not isinstance(reply, dict) or set(reply) != DEPTH_FIELDS:
+    """Reject a reply that is not exactly 000024's depth envelope (version
+    ``/3``) or 000026's (version ``/4``, with ``oldest_eligible_at``)."""
+    if not isinstance(reply, dict):
         raise QueueProtocolError("queue_wire_depth_fields")
-    if reply["schema_version"] != DEPTH_VERSION or reply["outcome"] != DEPTH_OUTCOME:
+    version = reply.get("schema_version")
+    fields = DEPTH_FIELDS_4 if version == DEPTH_VERSION_4 else DEPTH_FIELDS
+    if set(reply) != fields:
+        raise QueueProtocolError("queue_wire_depth_fields")
+    if version not in (DEPTH_VERSION, DEPTH_VERSION_4) or reply["outcome"] != DEPTH_OUTCOME:
         raise QueueProtocolError("queue_wire_depth_version")
     if reply["worker_class"] not in ("delphi", "large") or not isinstance(reply["env"], str):
         raise QueueProtocolError("queue_wire_depth_class")
@@ -300,9 +310,10 @@ def validate_depth(reply: Any) -> Dict[str, Any]:
         value = reply[key]
         if type(value) is not int or value < 0:
             raise QueueProtocolError("queue_wire_depth_count")
-    oldest = reply["oldest_unresolved_created_at"]
-    if oldest is not None and not isinstance(oldest, str):
-        raise QueueProtocolError("queue_wire_depth_timestamp")
+    for key in ("oldest_unresolved_created_at", "oldest_eligible_at"):
+        stamp = reply.get(key)
+        if stamp is not None and not isinstance(stamp, str):
+            raise QueueProtocolError("queue_wire_depth_timestamp")
     return reply
 
 
@@ -676,7 +687,8 @@ def enqueue_routed(queue: Any, router: Any, zid: int, *, staged_label: str,
 
 
 __all__ = [
-    "ACTIVE_STATES", "ADMISSION_SCHEMA", "DEPTH_COUNTS", "DEPTH_FIELDS", "DEPTH_VERSION",
+    "ACTIVE_STATES", "ADMISSION_SCHEMA", "DEPTH_COUNTS", "DEPTH_FIELDS", "DEPTH_FIELDS_4",
+    "DEPTH_VERSION", "DEPTH_VERSION_4",
     "JOB_FIELDS", "MANIFEST_SCHEMA", "MANIFEST_STREAM", "QueueClient", "QueueProtocolError",
     "QUEUE_CAP_LARGE", "QueueRefused", "QueueSettings", "RPC", "Receipt", "SCOPE_DAILY_CAP",
     "STAGE_MATH_REBUILD", "STAGE_POLICY",

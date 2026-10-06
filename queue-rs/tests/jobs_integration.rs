@@ -70,16 +70,16 @@ fn exists(admin: &mut Client, db: &str) -> bool {
         .is_some()
 }
 
-/// Build `jobs_base` (chain to 000022), `jobs_v2` (+ the repository's 000023)
-/// and `jobs_v3` (+ the repository's 000024) once.
+/// Build `jobs_base` (chain to 000022), `jobs_v2` (+ the repository's 000023),
+/// `jobs_v3` (+ the repository's 000024) and `jobs_v4` (+ 000026) once.
 fn ensure_templates() {
     let mut done = TEMPLATE.lock().unwrap();
     if *done {
         return;
     }
     let mut admin = Client::connect(&admin_url(), NoTls).unwrap();
-    if !exists(&mut admin, "jobs_v3") {
-        for db in ["jobs_v3", "jobs_v2", "jobs_base"] {
+    if !exists(&mut admin, "jobs_v4") {
+        for db in ["jobs_v4", "jobs_v3", "jobs_v2", "jobs_base"] {
             admin
                 .batch_execute(&format!("DROP DATABASE IF EXISTS {db}"))
                 .unwrap();
@@ -106,7 +106,12 @@ fn ensure_templates() {
             })
             .collect();
         let expected: Vec<u32> = (0..=24).filter(|n| *n != 20).collect();
-        assert_eq!(numbers, expected, "complete 000000-000024 chain required");
+        let head: Vec<u32> = numbers.iter().copied().filter(|n| *n <= 24).collect();
+        assert_eq!(head, expected, "complete 000000-000024 chain required");
+        assert!(
+            numbers.contains(&26),
+            "000026 (queue retention) required for jobs_v4"
+        );
         // `jobs_base` stops before the foundation: it is the polis-queue/1
         // shape the "contract missing" start refusal is proven against.
         for (m, n) in chain.iter().zip(&numbers).filter(|(_, n)| **n <= 22) {
@@ -139,6 +144,16 @@ fn ensure_templates() {
         let mut v3 = Client::connect(&url_for("jobs_v3", "postgres"), NoTls).unwrap();
         v3.batch_execute(
             &fs::read_to_string(dir.join("000024_create_polis_queue_large_class.sql")).unwrap(),
+        )
+        .unwrap();
+        drop(v3);
+        // `jobs_v4`: 000026, queue retention and the parked read, on /3.
+        admin
+            .batch_execute("CREATE DATABASE jobs_v4 TEMPLATE jobs_v3")
+            .unwrap();
+        let mut v4 = Client::connect(&url_for("jobs_v4", "postgres"), NoTls).unwrap();
+        v4.batch_execute(
+            &fs::read_to_string(dir.join("000026_create_polis_queue_retention.sql")).unwrap(),
         )
         .unwrap();
     }
