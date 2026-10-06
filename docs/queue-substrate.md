@@ -297,6 +297,50 @@ The language-neutral specification harness stays outside the repository, in the
 cost-reduction notes (`scripts/p024-queue-sql-smoke.py`). This repository's
 regression test is the server integration suite.
 
+## polis-queue/2: the Delphi job table (migration 000023)
+
+`server/postgres/migrations/000023_create_delphi_foundation.sql` is the second
+contract on the same substrate, the one the `polis-jobs` daemon
+(`queue-rs/`, `POLIS_JOBS_ENABLED`) runs on. Its header lists every object it
+creates. In short: `delphi_jobs` (one row per Delphi job, with its parent for
+sub-jobs, its run, its status kept in step with `polis_queue_jobs` by trigger),
+`delphi_job_aliases`, `delphi_job_inputs`, `delphi_current` (created empty;
+nothing in /2 moves it), `delphi_job_guards`, `delphi_provider_requests` (a
+paid provider batch is recorded *before* it is submitted), `polis_queue_logs`,
+and `delphi_foundation_install` (the catalog baseline the down script
+restores). On 000019's tables it adds `contract_version`, admits the two Delphi
+stages beside `noop`, and adds `worker_class`, `process_exit_confirmed_at` and
+`binding_expires_at`. The `/1` noop path is untouched. Results stay in
+DynamoDB: there is no result table and no result-writing function.
+
+Schema ruling S1 (2026-10-05) approved it as direction: one datastore and typed
+contracts, flag off, DynamoDB running every job family until each is moved one
+at a time. **Applying it to production is a separate, explicit step by the
+owner**, 000019 first (it has never been applied there), then 000023:
+
+```sh
+docker exec -i polis-dev-postgres-1 psql -v ON_ERROR_STOP=1 -U postgres -d polis-dev   < server/postgres/migrations/000023_create_delphi_foundation.sql
+```
+
+The applier must be able to `SET ROLE polis_queue_owner`; the file creates no
+role. It refuses, changing nothing, when 000019 is absent, when any
+`public.delphi_*` table or `pd_*` function already exists (so a second apply is
+refused, not a no-op), or when the installed /1 catalog differs from what
+000019 recorded. 000019 in turn refuses to replay over a /2 database, so no /2
+function reverts to its /1 body by accident. A fresh container applies both at
+initdb, so `make start` on a new volume has the tables, empty, and the flags
+off.
+
+Reversal: `server/postgres/migrations/down/000023_drop_delphi_foundation.sql`
+restores the /1 catalog from the recorded baseline and refuses if any /2 row
+exists (no force override). Both files are sealed in
+`down/000023-files.sha256`. The proof is
+`bash server/postgres/migrations/down/test_000023_down.sh` (docker only):
+forward against the real chain, a refused second apply, a refused 000019
+replay, the noop /1 path still working on /2, a refused down with data, the
+down restoring a byte-identical schema dump, apply again after the down, and
+the down failing cleanly where 000023 was never applied.
+
 ## Gates still open
 
 None of the eight acceptance gates has been earned. They must run from both

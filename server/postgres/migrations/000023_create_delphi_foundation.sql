@@ -1,6 +1,77 @@
 -- 000023_create_delphi_foundation.sql
--- DRAFT schema change; dormant until schema and runtime rulings.
--- Apply once, after 000019. Reapply refuses. No application data is copied.
+--
+-- The Delphi job table: contract polis-queue/2 on top of 000019's polis-queue/1
+-- substrate. Design: cost-reduction/04-plans/P-077-delphi-job-model.md (P1, the
+-- job table under a Rust daemon running the unchanged pipeline); schema ruling
+-- S1 approved as direction on 2026-10-05. The polis-jobs daemon (queue-rs)
+-- runs on exactly this contract; until this file was placed here it lived only
+-- as the daemon's test fixture, byte for byte the DDL below.
+--
+-- WHAT IT CREATES (all owned by polis_queue_owner, all empty on apply)
+-- -------------------------------------------------------------------
+--   delphi_jobs              one row per Delphi job: id, env, conversation,
+--                            kind, parent (sub-jobs), run, status, digests,
+--                            cost, timestamps, error. Status is kept in step
+--                            with polis_queue_jobs by trigger.
+--   delphi_job_aliases       closed table of public ids for imported jobs.
+--   delphi_job_inputs        producer -> consumer edges with the producer's
+--                            output digest; a consumer is claimable only once
+--                            every producer succeeded with that digest.
+--   delphi_current           the per-conversation pointer rows. Created empty;
+--                            nothing in /2 moves them (P1 publishes no result).
+--   delphi_job_guards        one active root job per scope ("active identical
+--                            run returns the existing job").
+--   delphi_provider_requests intent/submission/completion of each paid provider
+--                            batch, written BEFORE submission so a lost ACK or a
+--                            fenced attempt is reconciled, never paid twice.
+--   polis_queue_logs         the child's stdout/stderr and its manifest row.
+--   delphi_foundation_install the catalog baseline this apply recorded, read
+--                            by the down script.
+-- Plus, on 000019's tables: contract_version on polis_queue_install (reads
+-- 'polis-queue/2'); the stage CHECK admits delphi_full_pipeline and
+-- delphi_narrative beside noop; worker_class; process_exit_confirmed_at on
+-- attempts; binding_expires_at on requests. The /1 noop path is untouched.
+-- Results stay where they are (DynamoDB): no result table, no result function.
+--
+-- HOW TO APPLY
+-- ------------
+-- A fresh container applies it once from /docker-entrypoint-initdb.d in
+-- file-name order, after 000019. An existing database needs THIS FILE ALONE,
+-- by hand, as docs/migrations.md describes; 000019 must already be applied:
+--
+--   docker exec -i polis-dev-postgres-1 psql -v ON_ERROR_STOP=1 -U postgres -d polis-dev \
+--     < server/postgres/migrations/000023_create_delphi_foundation.sql
+--
+-- Applying it to production is a separate, explicit step by the owner.
+--
+-- APPLIER REQUIREMENTS
+-- --------------------
+-- The applying login must be able to SET ROLE polis_queue_owner (the roles and
+-- grants come from 000019; this file creates no role and stores no password).
+-- It runs in one transaction with lock_timeout 5s and refuses, changing
+-- nothing, when: 000019 is absent; the installed /1 catalog differs from what
+-- 000019 recorded ("queue catalog drift", which is also what a second apply
+-- says, since the tables are then already in /2 shape); or any public.delphi_*
+-- table or pd_* function already exists ("foundation object collision").
+-- Re-applying is therefore NOT a no-op: it is refused. 000019 itself refuses to
+-- replay over this schema for the same reason, so nothing reverts to /1 by
+-- accident.
+--
+-- SCOPE
+-- -----
+-- Installing this schema wires nothing. No route calls it; the server's queue
+-- helper is behind POLIS_QUEUE_SUBSTRATE_ENABLED (default off) and admits only
+-- the noop stage; the polis-jobs daemon starts only with POLIS_JOBS_ENABLED=1
+-- and is started by no compose service. DynamoDB keeps running every Delphi
+-- job family until each is moved, one at a time, in its own reviewed change.
+--
+-- REVERSAL
+-- --------
+-- down/000023_drop_delphi_foundation.sql restores the /1 catalog exactly as
+-- recorded at apply time; it refuses if any /2 row exists. Proven by
+-- down/test_000023_down.sh against the real chain (forward, backward,
+-- re-apply, refusals). Both files are sealed in down/000023-files.sha256;
+-- a change to either reseals in the same reviewed change.
 BEGIN;
 SET LOCAL lock_timeout='5s';
 SET LOCAL ROLE polis_queue_owner;

@@ -100,8 +100,12 @@ What it needs to run: a database with migration 000019 and the `polis-queue/2`
 migration 000023 applied (`polis_queue_install.contract_version` reads
 `polis-queue/2`; otherwise the daemon exits 3), and a login that is a plain
 member of `polis_queue_executor`. Neither is applied to any shared database by
-this crate; 000023 is vendored only as a test fixture
-(`tests/fixtures/migrations`).
+this crate. 000023 is `server/postgres/migrations/000023_create_delphi_foundation.sql`,
+sealed with its down script in `server/postgres/migrations/down/000023-files.sha256`;
+`tests/foundation_migration.rs` checks the seal and the stage list without a
+database, and a fresh container applies it at initdb like every migration.
+Applying it to an existing database, production included, is the operator's
+explicit step (`docs/queue-substrate.md`).
 
 Configuration is by environment; `POLIS_JOBS_ENABLED` must be exactly `1` or
 the daemon exits 0 at once. Transports: `tls` (default; CA file and exact host
@@ -136,7 +140,8 @@ COMPOSE_PROJECT_NAME=p077-jobs-example POLIS_RECOVERY_PG_PORT=56170 \
   docker compose -f queue-rs/compose.yml down -v
 ```
 
-They apply the repository's 000000–000022 chain plus the vendored 000023 to a
-template database, then run real daemon processes against copies of it with a
-generated fixture child (`tests/fixtures/fake_delphi`) in place of the Delphi
-scripts.
+They apply the repository's 000000–000022 chain to one template database
+(`jobs_base`, the "contract missing" shape) and the repository's 000023 on top
+of it to another (`jobs_v2`), then run real daemon processes against copies of
+`jobs_v2` with a generated fixture child (`tests/fixtures/fake_delphi`) in
+place of the Delphi scripts.
