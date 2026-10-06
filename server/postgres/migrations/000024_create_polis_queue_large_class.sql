@@ -36,6 +36,25 @@
 --                         dead jobs of that class, and the oldest unresolved
 --                         created_at. The small poller's capacity line reads
 --                         it; no table grant is needed.
+--   pd_enqueue            the poison latch: when the scope's last three jobs
+--                         all died under the code image being admitted now,
+--                         no fresh job is admitted; the reply is outcome
+--                         `poisoned` naming the latest dead job. A different
+--                         image (a deploy), or a succeeded or cancelled job
+--                         in between, resets it. Without it an automated
+--                         producer re-admits a permanent failure forever,
+--                         one attempt budget per pass.
+--   pd_job_view           gains `scope_key`: the guard the job's root holds
+--                         (null once released), so the daemon can name the
+--                         scope it releases after a terminal attempt. Who
+--                         releases, and when: the polis-jobs daemon, after a
+--                         terminal reply whose attempt exit it proved, through
+--                         pd_release_scope (which still refuses while any job
+--                         of the root's tree is not terminal, lacks exit proof
+--                         or has an open provider request); the poller as a
+--                         fallback when an admission hands it a terminal job
+--                         still holding its guard. Terminal status alone never
+--                         releases anything.
 --   polis_queue_large_class_install
 --                         the catalog baseline this apply recorded, read by
 --                         the down script.
@@ -225,7 +244,7 @@ CREATE OR REPLACE FUNCTION public.pd_enqueue(p_env text,p_zid integer,p_product 
  p_run uuid,p_job uuid,p_input_uri text,p_input_sha text,p_config_sha text,p_image text,p_priority smallint,p_max_attempts integer,
  p_stage text,p_report text,p_scope text,p_config jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET TimeZone='UTC' AS $$
-DECLARE g public.delphi_job_guards; j public.polis_queue_jobs; alias public.polis_queue_requests; reply jsonb; v_kind text; v_class text; v_contract text;
+DECLARE g public.delphi_job_guards; j public.polis_queue_jobs; alias public.polis_queue_requests; reply jsonb; v_kind text; v_class text; v_contract text; v_dead integer;
 BEGIN
  IF p_stage IS NULL OR p_stage NOT IN ('delphi_full_pipeline','delphi_narrative','math_rebuild') OR p_scope IS NULL OR p_scope=''
  OR p_config IS NULL OR jsonb_typeof(p_config)<>'object' OR (p_stage='delphi_narrative' AND COALESCE(p_report,'')='')
@@ -260,6 +279,20 @@ BEGIN
    VALUES(p_env,p_actor,p_product,p_key,p_request_sha,j.run_id,j.job_id,clock_timestamp()+interval '24 hours');
   RETURN public.pq_result('existing',j);
  END IF;
+ -- The poison latch (no guard is held): the scope's last three jobs all dead
+ -- under the image being admitted now means no fresh job; the reply names the
+ -- latest dead job. A new image, or any succeeded or cancelled job among the
+ -- last three, admits again. The runs' (env,zid,created_at) index serves it.
+ SELECT count(*) FILTER (WHERE t.state='dead' AND t.image=p_image) INTO v_dead FROM (
+  SELECT q.state,r.code_image_digest AS image FROM public.polis_queue_runs r
+  JOIN public.polis_queue_jobs q ON q.env=r.env AND q.run_id=r.run_id
+  WHERE r.env=p_env AND r.zid=p_zid AND r.product_key=p_product
+  ORDER BY r.created_at DESC,r.run_id DESC LIMIT 3) t;
+ IF v_dead>=3 THEN
+  SELECT q.* INTO j FROM public.polis_queue_runs r JOIN public.polis_queue_jobs q ON q.env=r.env AND q.run_id=r.run_id
+  WHERE r.env=p_env AND r.zid=p_zid AND r.product_key=p_product ORDER BY r.created_at DESC,r.run_id DESC LIMIT 1;
+  RETURN public.pq_result('poisoned',j);
+ END IF;
  reply=public.pq_enqueue(p_env,p_zid,p_product,p_actor,p_key,p_request_sha,p_run,p_job,p_input_uri,p_input_sha,p_config_sha,p_image,p_priority,p_max_attempts);
  IF reply->>'outcome'<>'enqueued' THEN RAISE EXCEPTION 'unexpected admission conflict'; END IF;
  UPDATE public.polis_queue_runs SET contract_version=v_contract WHERE env=p_env AND run_id=p_run;
@@ -290,6 +323,25 @@ BEGIN
  THEN RAISE EXCEPTION 'invalid logical execution binding'; END IF;
  RETURN NULL;
 END $$;
+
+-- The job view with the scope its root job holds (null once released):
+-- 000023's pd_job_view plus `scope_key`, so the daemon can name the scope it
+-- releases through pd_release_scope after a terminal attempt.
+CREATE OR REPLACE FUNCTION public.pd_job_view(p_env text,p_job uuid)
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+ SELECT public.pq_result('job_status',q)||jsonb_build_object('kind',j.kind,'report_id',j.report_id,
+ 'manifest_sha256',encode(j.output_manifest_digest,'hex'),'manifest_uri',CASE WHEN q.state='succeeded' THEN r.expected_output_uri END,
+ 'scope_key',(SELECT g.scope_key FROM public.delphi_job_guards g WHERE g.env=q.env AND g.root_job_id=q.job_id LIMIT 1),
+ -- Preserve the original attempt identity after lease ownership is cleared.
+ 'last_attempt',(SELECT jsonb_build_object('attempt_id',a.attempt_id,'owner_id',a.owner_id,
+   'lease_epoch',a.lease_epoch::text,'process_exit_confirmed_at',a.process_exit_confirmed_at)
+   FROM public.polis_queue_attempts a WHERE a.env=q.env AND a.job_id=q.job_id
+   AND a.attempt_id=COALESCE(q.attempt_id,q.terminal_attempt_id)),
+ 'provider_requests',COALESCE((SELECT jsonb_agg(jsonb_build_object('request_id',p.request_id,'provider',p.provider,
+ 'batch_id',p.provider_batch_id,'state',p.state) ORDER BY p.created_at,p.request_id) FROM public.delphi_provider_requests p WHERE p.env=p_env AND p.job_id=p_job),'[]'::jsonb))
+ FROM public.delphi_jobs j JOIN public.polis_queue_jobs q ON q.env=j.env AND q.job_id=j.job_id
+ JOIN public.polis_queue_runs r ON r.env=q.env AND r.run_id=q.run_id WHERE j.env=p_env AND j.job_id=p_job
+$$;
 
 -- The class depth read: what the scale-out and scale-in signals are made of.
 -- `queued` is demand (queued + retry_wait), `leased` is busy (running);
