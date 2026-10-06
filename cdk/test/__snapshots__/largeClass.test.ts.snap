@@ -2075,7 +2075,7 @@ echo "polis-ci bootstrap ready at $(date -u --iso-8601=seconds) sha=$(cat /var/l
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "38ce7dd552c2a2c5484ee3731b02665c8fdb529979e9a61e518b0a2c1349a8fe.zip",
+          "S3Key": "7627bf1413b97178c1f503313660828dafa457e250ede350f4d2897073221950.zip",
         },
         "EphemeralStorage": {
           "Size": 4096,

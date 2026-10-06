@@ -76,6 +76,14 @@
  * re-record on edge absorbs the entries and must empty the file (the guard
  * checks).
  *
+ * Schema pin. The index does not pin the migration count: it pins the shape
+ * (columns, constraints, rules, triggers) of the relations the fixture writes
+ * and the routes read, and the one function the vote writer asks for
+ * (schema.cjs, unit-tested by schema.test.cjs). A migration that touches none
+ * of them passes replay; one that changes a pinned relation fails it with the
+ * relation and the change named, and is re-recorded on edge like any other
+ * behaviour change.
+ *
  * Safety. Setup drops a Postgres database and every Delphi table, so the
  * harness refuses any store that is not its own throwaway one (safety.cjs,
  * unit-tested by safety.test.cjs): loopback on ports 5481/8481 only, a
@@ -97,6 +105,7 @@ const FORMAT = "collective-statement-recording/1";
 const EXCLUDED_HEADERS = new Set(["date", "connection", "keep-alive", "etag"]);
 const { applyExpectedDifferences } = require("./expected.cjs");
 const safety = require("./safety.cjs");
+const { readSchema, schemaDrift } = require("./schema.cjs");
 
 const argv = process.argv.slice(2);
 const mode = argv[0];
@@ -189,6 +198,9 @@ async function setupPostgres() {
     .sort();
   for (const f of files)
     await db.query(fs.readFileSync(path.join(dir, f), "utf8"));
+  // The shape the recordings stand on, read after the migrations and before
+  // the fixture (which replaces now_as_millis() and adds rows, not shape).
+  const schema = await readSchema((sql, params) => db.query(sql, params));
   await db.query(F.postgresSql());
   const agree = await databaseConvention(db);
   const rows = F.answers();
@@ -198,7 +210,8 @@ async function setupPostgres() {
       [zid, pid, tid, seedVote(meaning, agree), created]
     );
   await db.end();
-  return { migrations: files.length, answers: rows.length };
+  console.log(`postgres: ${files.length} migrations applied`);
+  return { schema, answers: rows.length };
 }
 
 // ------------------------------------------------------------------ DynamoDB
@@ -960,7 +973,13 @@ async function main() {
       if (f !== "index.json" && !listed.has(f))
         failures.push(`${f}: recording with no case`);
     const recordedIndex = JSON.parse(fs.readFileSync(indexFile, "utf8"));
-    const strip = (x) => ({ ...x, cases: x.cases.map((c) => c.id) });
+    for (const d of schemaDrift(recordedIndex.postgres?.schema, pg.schema))
+      failures.push(`postgres schema the recordings read changed: ${d}`);
+    const strip = (x) => ({
+      ...x,
+      postgres: { ...x.postgres, schema: undefined },
+      cases: x.cases.map((c) => c.id),
+    });
     if (JSON.stringify(strip(recordedIndex)) !== JSON.stringify(strip(index)))
       failures.push(
         "index.json differs (case list, pins, egress or fixture counts changed)"

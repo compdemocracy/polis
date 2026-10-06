@@ -52,7 +52,248 @@
   "providerRequestsRecorded": 26
  },
  "postgres": {
-  "migrations": 22,
+  "schema": {
+   "relations": {
+    "comments": {
+     "kind": "table",
+     "columns": [
+      "tid integer not null",
+      "zid integer not null",
+      "pid integer not null",
+      "uid integer not null",
+      "created bigint default now_as_millis()",
+      "modified bigint default now_as_millis()",
+      "txt character varying(1000) not null",
+      "velocity real not null default 1",
+      "mod integer not null default 0",
+      "lang character varying(10)",
+      "lang_confidence real",
+      "active boolean not null default true",
+      "is_meta boolean not null default false",
+      "tweet_id bigint",
+      "quote_src_url character varying(1000)",
+      "anon boolean not null default false",
+      "is_seed boolean not null default false",
+      "original_id uuid"
+     ],
+     "constraints": [
+      "comments_zid_pid_fkey FOREIGN KEY (zid, pid) REFERENCES participants(zid, pid)",
+      "comments_zid_tid_key UNIQUE (zid, tid)",
+      "comments_zid_txt_key UNIQUE (zid, txt)"
+     ],
+     "rules": [],
+     "triggers": [
+      "tid_auto: CREATE TRIGGER tid_auto BEFORE INSERT ON public.comments FOR EACH ROW EXECUTE FUNCTION tid_auto()",
+      "tid_auto_unlock: CREATE TRIGGER tid_auto_unlock AFTER INSERT ON public.comments FOR EACH ROW EXECUTE FUNCTION tid_auto_unlock()"
+     ]
+    },
+    "conversations": {
+     "kind": "table",
+     "columns": [
+      "zid integer not null default nextval('conversations_zid_seq'::regclass)",
+      "topic character varying(1000)",
+      "description character varying(50000)",
+      "link_url character varying(9999)",
+      "parent_url character varying(9999)",
+      "upvotes integer not null default 1",
+      "participant_count integer default 0",
+      "is_anon boolean default true",
+      "is_active boolean default false",
+      "is_draft boolean default false",
+      "is_public boolean default true",
+      "is_data_open boolean default false",
+      "profanity_filter boolean default true",
+      "spam_filter boolean default true",
+      "strict_moderation boolean default false",
+      "prioritize_seed boolean default false",
+      "vis_type integer not null default 0",
+      "write_type integer not null default 1",
+      "help_type integer not null default 1",
+      "write_hint_type integer not null default 1",
+      "style_btn character varying(500)",
+      "socialbtn_type integer not null default 0",
+      "subscribe_type integer not null default 1",
+      "branding_type integer not null default 1",
+      "bgcolor character varying(20)",
+      "help_bgcolor character varying(20)",
+      "help_color character varying(20)",
+      "email_domain character varying(200)",
+      "use_xid_whitelist boolean default false",
+      "owner integer",
+      "org_id integer",
+      "context character varying(1000)",
+      "course_id integer",
+      "owner_sees_participation_stats boolean default false",
+      "auth_needed_to_vote boolean",
+      "auth_needed_to_write boolean",
+      "auth_opt_fb boolean",
+      "auth_opt_tw boolean",
+      "auth_opt_allow_3rdparty boolean",
+      "modified bigint default now_as_millis()",
+      "created bigint default now_as_millis()",
+      "importance_enabled boolean not null default false",
+      "treevite_enabled boolean default false",
+      "xid_required boolean not null default false",
+      "topics_enabled boolean not null default false"
+     ],
+     "constraints": [
+      "conversations_course_id_fkey FOREIGN KEY (course_id) REFERENCES courses(course_id)",
+      "conversations_org_id_fkey FOREIGN KEY (org_id) REFERENCES users(uid)",
+      "conversations_owner_fkey FOREIGN KEY (owner) REFERENCES users(uid)",
+      "conversations_zid_key UNIQUE (zid)"
+     ],
+     "rules": [],
+     "triggers": []
+    },
+    "oidc_user_mappings": {
+     "kind": "table",
+     "columns": [
+      "oidc_sub character varying(255) not null",
+      "uid integer not null",
+      "created bigint default now_as_millis()"
+     ],
+     "constraints": [
+      "oidc_user_mappings_pkey PRIMARY KEY (oidc_sub)",
+      "oidc_user_mappings_uid_fkey FOREIGN KEY (uid) REFERENCES users(uid) ON DELETE CASCADE",
+      "oidc_user_mappings_uid_key UNIQUE (uid)"
+     ],
+     "rules": [],
+     "triggers": []
+    },
+    "participants": {
+     "kind": "table",
+     "columns": [
+      "pid integer not null",
+      "uid integer not null",
+      "zid integer not null",
+      "vote_count integer not null default 0",
+      "last_interaction bigint not null default 0",
+      "subscribed integer not null default 0",
+      "last_notified bigint default 0",
+      "nsli smallint not null default 0",
+      "mod integer not null default 0",
+      "created bigint default now_as_millis()"
+     ],
+     "constraints": [
+      "participants_uid_fkey FOREIGN KEY (uid) REFERENCES users(uid)",
+      "participants_zid_fkey FOREIGN KEY (zid) REFERENCES conversations(zid)",
+      "participants_zid_pid_key UNIQUE (zid, pid)",
+      "participants_zid_uid_key UNIQUE (zid, uid)"
+     ],
+     "rules": [],
+     "triggers": [
+      "pid_auto: CREATE TRIGGER pid_auto BEFORE INSERT ON public.participants FOR EACH ROW EXECUTE FUNCTION pid_auto()",
+      "pid_auto_unlock: CREATE TRIGGER pid_auto_unlock AFTER INSERT ON public.participants FOR EACH ROW EXECUTE FUNCTION pid_auto_unlock()"
+     ]
+    },
+    "reports": {
+     "kind": "table",
+     "columns": [
+      "rid bigint not null default nextval('reports_rid_seq'::regclass)",
+      "report_id character varying(300) not null",
+      "zid integer not null",
+      "created bigint default now_as_millis()",
+      "modified bigint default now_as_millis()",
+      "report_name character varying(999)",
+      "label_x_neg character varying(999)",
+      "label_x_pos character varying(999)",
+      "label_y_neg character varying(999)",
+      "label_y_pos character varying(999)",
+      "label_group_0 character varying(999)",
+      "label_group_1 character varying(999)",
+      "label_group_2 character varying(999)",
+      "label_group_3 character varying(999)",
+      "label_group_4 character varying(999)",
+      "label_group_5 character varying(999)",
+      "label_group_6 character varying(999)",
+      "label_group_7 character varying(999)",
+      "label_group_8 character varying(999)",
+      "label_group_9 character varying(999)",
+      "mod_level smallint not null default '-2'::integer"
+     ],
+     "constraints": [
+      "reports_report_id_key UNIQUE (report_id)",
+      "reports_rid_key UNIQUE (rid)",
+      "reports_zid_fkey FOREIGN KEY (zid) REFERENCES conversations(zid)"
+     ],
+     "rules": [],
+     "triggers": []
+    },
+    "users": {
+     "kind": "table",
+     "columns": [
+      "uid integer not null default nextval('users_uid_seq'::regclass)",
+      "hname character varying(746)",
+      "created bigint default now_as_millis()",
+      "username character varying(128)",
+      "email character varying(256)",
+      "is_owner boolean default false",
+      "zinvite character varying(300)",
+      "oinvite character varying(300)",
+      "tut smallint default 0",
+      "site_id character varying(256) not null default random_polis_site_id()",
+      "site_owner boolean default true"
+     ],
+     "constraints": [
+      "users_email_key UNIQUE (email)",
+      "users_uid_key UNIQUE (uid)"
+     ],
+     "rules": [],
+     "triggers": []
+    },
+    "votes": {
+     "kind": "table",
+     "columns": [
+      "zid integer not null",
+      "pid integer not null",
+      "tid integer not null",
+      "vote smallint",
+      "weight_x_32767 smallint default 0",
+      "created bigint default now_as_millis()",
+      "high_priority boolean not null default false"
+     ],
+     "constraints": [],
+     "rules": [
+      "on_vote_insert_update_unique_table: CREATE RULE on_vote_insert_update_unique_table AS ON INSERT TO public.votes DO INSERT INTO votes_latest_unique (zid, pid, tid, vote, weight_x_32767, modified) VALUES (new.zid, new.pid, new.tid, new.vote, new.weight_x_32767, new.created) ON CONFLICT(zid, pid, tid) DO UPDATE SET vote = excluded.vote, modified = excluded.modified;"
+     ],
+     "triggers": []
+    },
+    "votes_latest_unique": {
+     "kind": "table",
+     "columns": [
+      "zid integer not null",
+      "pid integer not null",
+      "tid integer not null",
+      "vote smallint",
+      "weight_x_32767 smallint default 0",
+      "modified bigint default now_as_millis()"
+     ],
+     "constraints": [
+      "votes_latest_unique_zid_pid_tid_key UNIQUE (zid, pid, tid)"
+     ],
+     "rules": [],
+     "triggers": []
+    },
+    "zinvites": {
+     "kind": "table",
+     "columns": [
+      "zid integer not null",
+      "zinvite character varying(300) not null",
+      "created bigint default now_as_millis()",
+      "uuid uuid"
+     ],
+     "constraints": [
+      "zinvites_zid_fkey FOREIGN KEY (zid) REFERENCES conversations(zid)",
+      "zinvites_zinvite_key UNIQUE (zinvite)"
+     ],
+     "rules": [],
+     "triggers": []
+    }
+   },
+   "functions": {
+    "public.vote_convention_current()": null
+   }
+  },
   "answers": 241
  },
  "caseCount": 51,
