@@ -1,0 +1,174 @@
+/**
+ * The Delphi job table: migration 000023, contract polis-queue/2.
+ *
+ * The migration reaches the test database the way every migration does: the
+ * postgres image applies server/postgres/migrations/*.sql once at initdb. So
+ * this file reads the live catalog and applies nothing. It pins what the
+ * deploy creates (the tables, who owns them, that they are empty, which RPCs
+ * the executor may call) and that, with the flag off, the server's queue
+ * helper refuses before it opens a transaction.
+ *
+ * The migration's forward/backward proof against the real chain is
+ * server/postgres/migrations/down/test_000023_down.sh.
+ */
+import dotenv from "dotenv";
+import { Pool } from "pg";
+
+dotenv.config({ override: false });
+
+const DATABASE_URL =
+  process.env.DATABASE_URL ||
+  "postgres://postgres:postgres@localhost:5432/polis-dev";
+
+/** Every table 000023 creates, owned by polis_queue_owner like 000019's. */
+const JOB_TABLES = [
+  "delphi_jobs",
+  "delphi_job_aliases",
+  "delphi_job_inputs",
+  "delphi_current",
+  "delphi_job_guards",
+  "delphi_provider_requests",
+  "polis_queue_logs",
+];
+
+/**
+ * The /2 RPCs the executor login may call, by exact signature (several names
+ * also have a /1 overload that stays ungranted), and nothing else may.
+ */
+const EXECUTOR_RPCS = [
+  "pd_enqueue(text,integer,text,text,text,text,uuid,uuid,text,text,text,text,smallint,integer,text,text,text,jsonb)",
+  "pd_release_scope(text,text)",
+  "pd_job_view(text,uuid)",
+  "pd_provider_intent(text,uuid,uuid,uuid,bigint,uuid,text,bytea)",
+  "pd_provider_update(text,uuid,uuid,uuid,bigint,uuid,text,text)",
+  "pq_attempt_logs(text,uuid,bigint,integer)",
+  "pq_claim(text,smallint,uuid,uuid,integer,text)",
+  "pq_end_attempt(text,uuid,uuid,uuid,bigint,text,text,boolean,timestamptz)",
+  "pq_reap(text,uuid,integer,text)",
+];
+
+let pool: Pool;
+
+beforeAll(() => {
+  pool = new Pool({ connectionString: DATABASE_URL, max: 2 });
+});
+
+afterAll(async () => {
+  await pool.end();
+});
+
+async function one<T>(text: string, values?: unknown[]): Promise<T> {
+  const result = await pool.query(text, values);
+  return Object.values(result.rows[0] ?? {})[0] as T;
+}
+
+describe("the Delphi job table (migration 000023)", () => {
+  it("records contract polis-queue/2 in the queue's install row", async () => {
+    expect(
+      await one<string>(
+        "SELECT contract_version FROM public.polis_queue_install"
+      )
+    ).toBe("polis-queue/2");
+  });
+
+  it.each(JOB_TABLES)(
+    "creates %s owned by polis_queue_owner, and the deploy leaves it empty",
+    async (table) => {
+      const name = `public.${table}`;
+      expect(await one<string>("SELECT to_regclass($1)::text", [name])).toBe(
+        table
+      );
+      expect(
+        await one<string>(
+          "SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid = to_regclass($1)",
+          [name]
+        )
+      ).toBe("polis_queue_owner");
+      expect(await one<number>(`SELECT count(*)::int FROM ${name}`)).toBe(0);
+    }
+  );
+
+  it("records its own install baseline once", async () => {
+    expect(
+      await one<number>(
+        "SELECT count(*)::int FROM public.delphi_foundation_install"
+      )
+    ).toBe(1);
+  });
+
+  it("admits exactly the daemon's two stages beside noop, and holds no job of either", async () => {
+    expect(
+      await one<string>(
+        "SELECT pg_get_constraintdef(oid) FROM pg_constraint " +
+          "WHERE conrelid = 'public.polis_queue_jobs'::regclass AND conname = 'polis_queue_jobs_stage_check'"
+      )
+    ).toBe(
+      "CHECK ((stage = ANY (ARRAY['noop'::text, 'delphi_full_pipeline'::text, 'delphi_narrative'::text])))"
+    );
+    expect(
+      await one<number>(
+        "SELECT count(*)::int FROM public.polis_queue_jobs WHERE stage <> 'noop' OR worker_class <> 'noop'"
+      )
+    ).toBe(0);
+  });
+
+  it.each(EXECUTOR_RPCS)(
+    "grants %s to polis_queue_executor and not to PUBLIC",
+    async (signature) => {
+      expect(
+        await one<boolean>(
+          "SELECT has_function_privilege('polis_queue_executor', $1, 'EXECUTE')",
+          [`public.${signature}`]
+        )
+      ).toBe(true);
+      expect(
+        await one<boolean>(
+          "SELECT EXISTS (SELECT 1 FROM aclexplode((SELECT proacl FROM pg_proc WHERE oid = $1::regprocedure)) a WHERE a.grantee = 0)",
+          [`public.${signature}`]
+        )
+      ).toBe(false);
+    }
+  );
+
+  it("grants no queue function or job table to PUBLIC", async () => {
+    expect(
+      await one<number>(
+        "SELECT count(*)::int FROM pg_proc p, aclexplode(p.proacl) x " +
+          "WHERE p.pronamespace = 'public'::regnamespace AND (p.proname LIKE 'pq\\_%' OR p.proname LIKE 'pd\\_%') AND x.grantee = 0"
+      )
+    ).toBe(0);
+    expect(
+      await one<number>(
+        "SELECT count(*)::int FROM pg_class c, aclexplode(c.relacl) x " +
+          "WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r' AND (c.relname LIKE 'delphi\\_%' OR c.relname = 'polis_queue_logs') AND x.grantee = 0"
+      )
+    ).toBe(0);
+  });
+});
+
+describe("with the flag off, nothing in the server reaches the job table", () => {
+  it("the queue helper refuses before it opens a transaction", async () => {
+    const saved = process.env.POLIS_QUEUE_SUBSTRATE_ENABLED;
+    delete process.env.POLIS_QUEUE_SUBSTRATE_ENABLED;
+    try {
+      await jest.isolateModulesAsync(async () => {
+        const { enqueueNoopJob } = await import("../../src/queue/enqueue");
+        await expect(
+          enqueueNoopJob({
+            env: "test",
+            zid: 1,
+            productKey: "flag-off",
+            actorScope: "flag-off",
+            requestKey: "flag-off",
+            priority: 1,
+            maxAttempts: 1,
+          })
+        ).rejects.toThrow(/queue substrate is disabled/);
+      });
+    } finally {
+      if (saved !== undefined) {
+        process.env.POLIS_QUEUE_SUBSTRATE_ENABLED = saved;
+      }
+    }
+  });
+});
