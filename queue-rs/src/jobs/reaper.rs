@@ -56,17 +56,20 @@ impl Reaper {
                 }
                 Transition {
                     env: env.clone(),
-                    job_id: job,
+                    job_id: job.clone(),
                     run_id: t["run_id"].as_str().map(str::to_owned),
                     attempt_id: t["attempt_id"].as_str().map(str::to_owned),
                     stage: t["stage"].as_str().map(str::to_owned),
                     from: "reaper".into(),
-                    to: state,
+                    to: state.clone(),
                     reason: code,
                     owner: owner.to_owned(),
                     ..Default::default()
                 }
                 .emit();
+                // A job the reaper declared dead (every exit proven, or it
+                // would not have) frees its scope.
+                super::scope::after_terminal(rpc, counters, owner, &env, &job, &state);
             }
             after = page["next_after_job_id"].clone();
             if after.is_null() {

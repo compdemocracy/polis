@@ -1,5 +1,6 @@
 //! `polis-jobs`: the daemon that runs Delphi jobs on the `polis-queue/2`
-//! Postgres queue (migration 000023). It claims with a worker class, holds a
+//! Postgres queue (migration 000023) and, as a worker of class `large`, the
+//! math rebuild on `polis-queue/3` (000024). It claims with a worker class, holds a
 //! 120 s lease renewed every 30 s, runs the unchanged pipeline as a child in
 //! its own process group, records the child's output in `polis_queue_logs`,
 //! and ends every attempt through the `/2` exit-proof forms. It is off unless
@@ -15,6 +16,7 @@ pub mod outcome;
 pub mod readiness;
 pub mod reaper;
 pub mod rpc;
+pub mod scope;
 pub mod shutdown;
 pub mod task;
 pub mod transport;
