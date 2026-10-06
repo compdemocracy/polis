@@ -117,6 +117,19 @@ describe("the TypeScript port of the poller's line validators", () => {
     ).toThrow(LineShapeError);
   });
 
+  test("large_parked is a closed, nullable count of the capacity line", () => {
+    const cap = LINES.find((l) => l.startsWith('{"class":"small"'))!;
+    expect(cap).toContain('"large_parked":');
+    expect(parseCapacity(cap)).not.toBeNull();
+    // Null (no queue read this tick) parses; absent does not.
+    const nulled = cap.replace(/"large_parked":\d+/, '"large_parked":null');
+    expect(nulled).not.toEqual(cap);
+    expect(parseCapacity(nulled)).not.toBeNull();
+    const absent = cap.replace(/"large_parked":\d+,/, "");
+    expect(absent).not.toEqual(cap);
+    expect(() => parseCapacity(absent)).toThrow(LineShapeError);
+  });
+
   test("other lines are not readiness lines", () => {
     expect(
       parseReadiness("Wrote math results for zid=1 math_tick=2")
