@@ -456,6 +456,9 @@ class MathPollerService:
                 and publisher is None):
             self.capacity_queue = self._open_capacity_queue()
             self.capacity_loop = self._build_capacity_loop()
+            # P-084: routing is refused until the queue answers once (at
+            # start, before the first tick), and whenever it does not.
+            self._start_hooks.append(self._check_capacity_queue)
             # Once at start, then on the reconciler's cadence.
             self._start_hooks.append(self._capacity_tick)
         self._writer = MathWriter(pg_client, publisher=publisher)
@@ -519,28 +522,62 @@ class MathPollerService:
                 self.backfill = None
 
     def _open_capacity_queue(self):
-        """The queue client (never connects here), or None without a DSN:
-        routing still works, but no routed conversation is enqueued."""
+        """The queue client (never connects here), or None without a usable
+        DSN. Routing is refused (P-084: the small poller computes as with
+        routing off, and the capacity line says queue_unreachable=1) without
+        a queue or a source commit, and until the queue has answered once."""
         from polismath.poller.capacity_queue import QueueClient
 
         try:
             queue = QueueClient.from_capacity(self.capacity.settings)
-        except Exception as exc:  # noqa: BLE001 - no hand-off, routing still works
-            logger.error("capacity: queue settings unusable (%s); routed conversations are "
-                         "not enqueued", exc.__class__.__name__)
+        except Exception as exc:  # noqa: BLE001 - routing refused, never the poller stopped
+            logger.error("capacity: queue settings unusable (%s); routing refused",
+                         exc.__class__.__name__)
+            self.capacity.set_queue_refused("queue_settings_unusable")
             return None
         if queue is None:
-            logger.error("capacity: routing is on without MATH_CAPACITY_QUEUE_DSN; routed "
-                         "conversations are not enqueued")
-        else:
-            from polismath.poller.readiness import COMMIT_ENV, identity
+            logger.error("capacity: routing is on without MATH_CAPACITY_QUEUE_DSN; routing "
+                         "refused (routed conversations could not be enqueued)")
+            self.capacity.set_queue_refused("queue_dsn_missing")
+            return None
+        from polismath.poller.readiness import COMMIT_ENV, identity
 
-            if identity()["source_commit"] is None:
-                # The admission carries this poller's commit and the child
-                # refuses any other or none: nothing is enqueued without it.
-                logger.error("capacity: routing is on without %s; routed conversations are "
-                             "not enqueued (the queue child would refuse them)", COMMIT_ENV)
+        if identity()["source_commit"] is None:
+            # The admission carries this poller's commit and the child
+            # refuses any other or none: nothing could be enqueued.
+            logger.error("capacity: routing is on without %s; routing refused (the queue "
+                         "child would refuse every job)", COMMIT_ENV)
+            self.capacity.set_queue_refused("source_commit_missing")
+            return queue
+        self.capacity.set_queue_refused("queue_unproven")
         return queue
+
+    def _check_capacity_queue(self) -> None:
+        """P-084: one depth read before routing starts; it succeeds or routing
+        stays refused (the readiness tick asks again)."""
+        self._note_queue_depth()
+
+    def _note_queue_depth(self) -> None:
+        """The queue's counts of class large, once: published on the next
+        capacity line, and the reachability routing depends on (a failed
+        read refuses routing until a read succeeds; a missing source commit
+        stays refused)."""
+        if self.capacity_queue is None:
+            return
+        depth = None
+        try:
+            depth = self.capacity_queue.class_depth()
+        except Exception as exc:  # noqa: BLE001
+            logger.error("capacity: queue depth unavailable (%s)", exc.__class__.__name__)
+        self.capacity.set_queue_depth(depth)
+        if self.capacity.queue_refused == "source_commit_missing":
+            return
+        was = self.capacity.queue_refused
+        self.capacity.set_queue_refused(None if depth is not None else "queue_unreachable")
+        if was is not None and depth is not None:
+            logger.info("capacity: the queue answers; routing allowed (was refused: %s)", was)
+        elif was is None and depth is None:
+            logger.error("capacity: the queue does not answer; routing refused until it does")
 
     def _build_capacity_loop(self):
         from polismath.poller.promotion import SmallCapacityLoop
@@ -850,13 +887,8 @@ class MathPollerService:
             if self.capacity_queue is not None:
                 # The queue's counts of class large (r2), once per tick; a
                 # failed read is missing data (large_leased null, demand from
-                # the records), never a false 0.
-                depth = None
-                try:
-                    depth = self.capacity_queue.class_depth()
-                except Exception as exc:  # noqa: BLE001
-                    logger.error("capacity: queue depth unavailable (%s)", exc.__class__.__name__)
-                self.capacity.set_queue_depth(depth)
+                # the records), never a false 0, and refuses routing (P-084).
+                self._note_queue_depth()
             capacity = self.capacity.counts()
         except Exception as exc:  # noqa: BLE001
             logger.error("capacity: counts unavailable (%s)", exc.__class__.__name__)

@@ -63,8 +63,9 @@ The large memory class (P-073 r2; ``polismath.poller.capacity_queue``,
 ``large`` conversation becomes one ``math_rebuild`` job of worker class
 ``large`` on the Postgres job queue, inserted by the small poller through the
 queue's SQL contract over ``MATH_CAPACITY_QUEUE_DSN`` (an executor-member
-login; unset: routed conversations are not enqueued) in the namespace
-``MATH_CAPACITY_QUEUE_ENV``; the large box's jobs daemon runs
+login, its password from the secret named by
+``MATH_CAPACITY_QUEUE_LOGIN_SECRET``; without a queue that answers, routing
+is refused, P-084) in the namespace ``MATH_CAPACITY_QUEUE_ENV``; the large box's jobs daemon runs
 ``scripts/math_poller.py --job`` for it, which stages the bundle under
 ``MATH_CAPACITY_STAGED_LABEL`` (``python-large``), and the small poller
 promotes it (``MATH_CAPACITY_PROMOTE``, 1 needs routing on;
@@ -91,7 +92,7 @@ import re
 import sys
 import threading
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -118,6 +119,11 @@ COUNT_KEYS = ("routing", "large_demand", "large_leased", "large_poisoned", "pend
 # Nullable on a primary: ``oldest_unresolved_age_ms`` with nothing unresolved,
 # ``large_leased`` with no queue read (no DSN, or the read failed this tick).
 NULLABLE_COUNT_KEYS = frozenset(("oldest_unresolved_age_ms", "large_leased"))
+# Admission (cost-reduction plan P-084): ``queue_full`` is 1 while the last
+# admission was refused at the queued-job cap; ``queue_unreachable`` is 1
+# while routing is configured on and refused because the queue is missing,
+# unproven or failing (the small poller then computes as with routing off).
+COUNT_KEYS = COUNT_KEYS + ("queue_full", "queue_unreachable")
 LINE_KEYS = ("schema", "class", "role", "label") + COUNT_KEYS
 # The former large worker's line (``class=large``, P-073 PR3): its closed
 # counts, kept so recorded lines still parse. Nothing emits it since r2: the
@@ -135,6 +141,7 @@ STATE_PATH_ENV = "MATH_CAPACITY_STATE_PATH"
 CLASS_ENV = "MATH_CAPACITY_CLASS"
 QUEUE_DSN_ENV = "MATH_CAPACITY_QUEUE_DSN"
 QUEUE_ENV_ENV = "MATH_CAPACITY_QUEUE_ENV"
+QUEUE_LOGIN_SECRET_ENV = "MATH_CAPACITY_QUEUE_LOGIN_SECRET"
 PROMOTE_ENV = "MATH_CAPACITY_PROMOTE"
 STAGED_LABEL_ENV = "MATH_CAPACITY_STAGED_LABEL"
 PROMOTE_INTO_ENV = "MATH_CAPACITY_PROMOTE_INTO"
@@ -146,6 +153,7 @@ _NONCE = re.compile(r"[0-9a-f]{16,64}")
 _QUEUE_ENV = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
 
 MB = 1024 * 1024
+DAY_MS = 86_400_000
 MAX_RECORDS = 1000
 
 
@@ -189,6 +197,9 @@ class CapacitySettings:
     capacity_class: str = CLASS_SMALL
     queue_dsn: Optional[str] = None
     queue_env: Optional[str] = None
+    # The NAME of the secret holding the queue login's password (P-084); the
+    # DSN itself never carries one.
+    queue_login_secret: Optional[str] = None
     promote: bool = False
     staged_label: str = DEFAULT_STAGED_LABEL
     promote_into: Optional[str] = None
@@ -218,6 +229,14 @@ class CapacitySettings:
         if self.queue_dsn is not None and not _QUEUE_ENV.fullmatch(self.queue_env or ""):
             raise CapacityConfigError(f"{QUEUE_ENV_ENV} must be set with {QUEUE_DSN_ENV}: 1-64 of "
                                       "[a-z0-9-], starting with a letter or digit")
+        if self.queue_dsn is not None and _dsn_has_password(self.queue_dsn):
+            # The login is referenced by its secret's name only (P-084).
+            raise CapacityConfigError(f"{QUEUE_DSN_ENV} must not carry a password; name the "
+                                      f"login's secret in {QUEUE_LOGIN_SECRET_ENV}")
+        if self.queue_login_secret is not None and (
+                self.queue_dsn is None or not _SECRET_NAME.fullmatch(self.queue_login_secret)):
+            raise CapacityConfigError(f"{QUEUE_LOGIN_SECRET_ENV} must be a secret name "
+                                      f"(1-512 of [A-Za-z0-9/_+=.@-]) set with {QUEUE_DSN_ENV}")
 
     @property
     def large(self) -> bool:
@@ -248,6 +267,7 @@ class CapacitySettings:
             capacity_class=(env.get(CLASS_ENV) or "").strip() or CLASS_SMALL,
             queue_dsn=(env.get(QUEUE_DSN_ENV) or "").strip() or None,
             queue_env=(env.get(QUEUE_ENV_ENV) or "").strip() or None,
+            queue_login_secret=(env.get(QUEUE_LOGIN_SECRET_ENV) or "").strip() or None,
             promote=promote == "1",
             staged_label=(env.get(STAGED_LABEL_ENV) or "").strip() or DEFAULT_STAGED_LABEL,
             promote_into=(env.get(PROMOTE_INTO_ENV) or "").strip() or None,
@@ -289,6 +309,9 @@ class Disposition:
     # deploy asks again and the same one does not. ``job_id`` then names the
     # latest dead job.
     poisoned_commit: Optional[str] = None
+    # Wall clock of each job the queue admitted for this record in the last
+    # 24 hours (P-084: at most 2 a day per scope; older ones are dropped).
+    admitted_ms: List[int] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, raw: Any) -> "Disposition":
@@ -308,6 +331,9 @@ class Disposition:
             raise ValueError("bad capacity record field job_id")
         if raw.get("poisoned_commit") is not None and not isinstance(raw["poisoned_commit"], str):
             raise ValueError("bad capacity record field poisoned_commit")
+        admitted = raw.get("admitted_ms", [])
+        if not isinstance(admitted, list) or not all(_is_count(v) for v in admitted):
+            raise ValueError("bad capacity record field admitted_ms")
         if "zid" not in raw or "need_bytes" not in raw or raw.get("disposition") not in DISPOSITIONS:
             raise ValueError("bad capacity record")
         return cls(**{k: raw[k] for k in cls.__dataclass_fields__ if k in raw})
@@ -315,6 +341,19 @@ class Disposition:
 
 def _is_count(v: Any) -> bool:
     return type(v) is int and v >= 0
+
+
+_SECRET_NAME = re.compile(r"[A-Za-z0-9/_+=.@-]{1,512}")
+
+
+def _dsn_has_password(dsn: str) -> bool:
+    """True when a libpq DSN (URL or key/value) names a password."""
+    try:
+        from psycopg2.extensions import parse_dsn
+
+        return bool(parse_dsn(dsn).get("password"))
+    except Exception:  # noqa: BLE001 - an unparseable DSN is refused later, at connect
+        return False
 
 
 class CapacityRouter:
@@ -340,11 +379,51 @@ class CapacityRouter:
         # The queue's counts of class large (P-073 r2), set by the service
         # once per readiness tick from pq_class_depth; None without a queue.
         self._queue_depth: Optional[Dict[str, Any]] = None
+        # P-084: why routing is refused right now (None: it is not). Set by
+        # the service: the queue is missing, unproven at start, or its last
+        # read failed. While refused the small poller computes as with
+        # routing off.
+        self._queue_refused: Optional[str] = None
+        # P-084: the last admission was refused at the queued-job cap.
+        self._queue_full = False
         self._load()
 
     @property
     def routing(self) -> bool:
-        return self.settings.routing
+        """Routing is on: configured on and not refused (P-084)."""
+        return self.settings.routing and self._queue_refused is None
+
+    def set_queue_refused(self, reason: Optional[str]) -> None:
+        """Refuse routing for ``reason`` (``queue_dsn_missing``,
+        ``source_commit_missing``, ``queue_unproven``,
+        ``queue_unreachable``), or None to allow it again."""
+        with self._lock:
+            self._queue_refused = reason
+
+    @property
+    def queue_refused(self) -> Optional[str]:
+        return self._queue_refused
+
+    def set_queue_full(self, full: bool) -> None:
+        with self._lock:
+            self._queue_full = bool(full)
+
+    def admissions_today(self, zid: int) -> int:
+        """Jobs the queue admitted for ``zid`` in the last 24 hours."""
+        now = self._clock()
+        with self._lock:
+            rec = self._records.get(zid)
+            return 0 if rec is None else sum(1 for t in rec.admitted_ms if now - t < DAY_MS)
+
+    def note_admitted(self, zid: int) -> None:
+        """The queue admitted a new job for ``zid`` (outcome ``enqueued``)."""
+        now = self._clock()
+        with self._lock:
+            rec = self._records.get(zid)
+            if rec is None:
+                return
+            rec.admitted_ms = [t for t in rec.admitted_ms if now - t < DAY_MS] + [now]
+            self._save_locked()
 
     # -- classification ----------------------------------------------------- #
     def binding(self) -> str:
@@ -641,6 +720,7 @@ class CapacityRouter:
             refusals, routed = self.refusals_total, self.routed_total
             promoted = self.promoted_total
             depth = self._queue_depth
+            queue_full, refused = self._queue_full, self._queue_refused
         unresolved = [r for r in recs
                       if r.disposition == LARGE and r.first_unresolved_ms is not None]
         # Demand: unresolved and no staged bundle already waiting for
@@ -666,6 +746,8 @@ class CapacityRouter:
             "refusals_total": refusals,
             "routed_total": routed,
             "promoted_total": promoted,
+            "queue_full": int(queue_full),
+            "queue_unreachable": int(self.settings.routing and refused is not None),
         }
 
     # -- persistence (the private state volume) ------------------------------ #

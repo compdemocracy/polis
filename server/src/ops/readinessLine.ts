@@ -94,6 +94,9 @@ export const COUNT_KEYS = [
   "refusals_total",
   "routed_total",
   "promoted_total",
+  // P-084 (admission): the queued-job cap and the queue's reachability.
+  "queue_full",
+  "queue_unreachable",
 ] as const;
 export const LARGE_COUNT_KEYS = [
   "busy",

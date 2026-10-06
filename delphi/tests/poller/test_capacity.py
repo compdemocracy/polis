@@ -152,7 +152,7 @@ class TestRecords:
         assert c == {"routing": 0, "large_demand": 1, "large_leased": None, "large_poisoned": 0,
                      "pending_promotion": 0, "exceeds_largest": 1, "fits_small": 1,
                      "oldest_unresolved_age_ms": 4000, "refusals_total": 3, "routed_total": 0,
-                     "promoted_total": 0}
+                     "promoted_total": 0, "queue_full": 0, "queue_unreachable": 0}
 
     def test_record_fields(self):
         r = router()
@@ -369,6 +369,9 @@ def service(monkeypatch, tmp_path, *, routing, sizes_by_zid, large_budget_mb=Non
     svc = MathPollerService(MagicMock(), PollerConfig(dump_dir=str(tmp_path), retry_cap=0,
                                                       worker_pool_size=1),
                             admission=adm, capacity=cap)
+    # These are routing mechanics; the queue that allows routing in production
+    # (P-084) is covered in test_capacity_queue.py.
+    cap.set_queue_refused(None)
     svc._writer = MagicMock()
     svc._on_engine_error = MagicMock()
     loads = []

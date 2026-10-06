@@ -44,6 +44,16 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.fixture(autouse=True)
+def _many_admissions_a_day(monkeypatch):
+    """These walks admit several jobs for one conversation inside a day;
+    production's per-conversation cap (2 a day, P-084) is pinned in
+    test_capacity_queue.py."""
+    from polismath.poller import capacity_queue as cq
+
+    monkeypatch.setattr(cq, "SCOPE_DAILY_CAP", 1000)
+
+
+@pytest.fixture(autouse=True)
 def _source_commit(monkeypatch):
     """The poller's own source commit: the admission config carries it and
     the child refuses any other (or none)."""
