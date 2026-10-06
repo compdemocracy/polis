@@ -9,7 +9,8 @@ import {
 import { HEARTBEAT_PHRASE, STALE_PHRASES } from '../mathPollerAlarms';
 
 // The whole production stack, synthesized the way it is deployed
-// (`-c enableCiEc2=true`). Asset bundling is skipped so no Docker is needed.
+// (`-c enableCiEc2=true`). Asset bundling is skipped so the backup
+// function's package is not built (no pip run) and the tests stay hermetic.
 const synth = (context: Record<string, unknown> = {}) => {
   const app = new cdk.App({
     context: { 'aws:cdk:bundling-stacks': [], enableCiEc2: true, ...context },
