@@ -129,6 +129,12 @@ let zid = 0;
  * 000023, so the fresh-apply and replay checks there are unchanged.
  */
 let foundationInstalled = false;
+/**
+ * True when the test database also carries migration 000024 (polis-queue/3,
+ * the large worker class) on top of 000023: the install row then reads /3,
+ * one more pq_ function (pq_class_depth) exists and is granted.
+ */
+let largeClassInstalled = false;
 /** Public-fixture parent zid inside the scratch database. */
 const SCRATCH_ZID = 1;
 
@@ -657,6 +663,10 @@ beforeAll(async () => {
     mainPool,
     "SELECT to_regclass('public.delphi_foundation_install') IS NOT NULL"
   );
+  largeClassInstalled = await sql(
+    mainPool,
+    "SELECT to_regclass('public.polis_queue_large_class_install') IS NOT NULL"
+  );
   if (foundationInstalled) {
     await expect(runMigration(mainPool)).rejects.toThrow(/queue catalog drift/);
   } else {
@@ -825,7 +835,7 @@ describeProvisioned(
             mainPool,
             "SELECT contract_version FROM public.polis_queue_install"
           )
-        ).toBe("polis-queue/2");
+        ).toBe(largeClassInstalled ? "polis-queue/3" : "polis-queue/2");
         return;
       }
       await runMigration(mainPool);
@@ -1619,7 +1629,8 @@ describe("P-024 queue substrate protocol", () => {
     );
     // 000023 (polis-queue/2) adds seven pq_ overloads beside the /1 twenty-one.
     // Six of them pin search_path but not the time zone: none reads a clock
-    // for a reply, and the daemon never compares their timestamps.
+    // for a reply, and the daemon never compares their timestamps. 000024
+    // (polis-queue/3) adds pq_class_depth, which pins both.
     const utcUnpinnedUnderFoundation = [
       "pq_attempt_logs(text,uuid,bigint,integer)",
       "pq_claim(text,smallint,uuid,uuid,integer,text)",
@@ -1628,7 +1639,9 @@ describe("P-024 queue substrate protocol", () => {
       "pq_reap(text,uuid,integer,text)",
       "pq_release(text,uuid,uuid,uuid,bigint,boolean)",
     ];
-    expect(functions).toHaveLength(foundationInstalled ? 28 : 21);
+    expect(functions).toHaveLength(
+      largeClassInstalled ? 29 : foundationInstalled ? 28 : 21
+    );
     const utcUnpinned: string[] = [];
     for (const fn of functions) {
       expect(fn.proconfig).toContain("search_path=pg_catalog, pg_temp");
@@ -1647,7 +1660,7 @@ describe("P-024 queue substrate protocol", () => {
     ).toBe(false);
   }, 30000);
 
-  it("40. grants EXECUTE to the executor on exactly the twelve RPCs (plus the three /2 names once 000023 is in place)", async () => {
+  it("40. grants EXECUTE to the executor on exactly the twelve RPCs (plus the three /2 names once 000023 is in place, plus pq_class_depth once 000024 is)", async () => {
     const acl = await rows(
       mainPool,
       "SELECT p.proname, has_function_privilege('polis_queue_executor', p.oid, 'EXECUTE') AS granted " +
@@ -1677,6 +1690,8 @@ describe("P-024 queue substrate protocol", () => {
         ...(foundationInstalled
           ? ["pq_attempt_logs", "pq_end_attempt", "pq_reap"]
           : []),
+        // 000024 grants the class depth read.
+        ...(largeClassInstalled ? ["pq_class_depth"] : []),
       ].sort()
     );
     expect(acl.length).toBeGreaterThan(granted.length);

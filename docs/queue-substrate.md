@@ -428,6 +428,70 @@ uncommitted writer on `conversations` makes the apply wait for
 writer is refused by the preflight; the same command applies once the writer
 is gone.
 
+## polis-queue/3: the large worker class (migration 000024)
+
+`server/postgres/migrations/000024_create_polis_queue_large_class.sql` is the
+third contract on the same substrate, on top of 000023. It creates no job
+table. It admits a second worker class, `large`, and one stage for it,
+`math_rebuild` (an oversized conversation's cold rebuild, run on the large box
+as a job instead of through an S3 manifest; design
+`P-073-r2-queue.md`, decision #350). In short, on 000023's objects: the
+`worker_class` CHECK admits `large`, the `stage` CHECK admits `math_rebuild`,
+a new CHECK (`pq_stage_large`) binds the two to each other, `delphi_jobs.kind`
+admits `math_rebuild` (so the one-active-job-per-scope guard covers a rebuild
+unchanged), `polis_queue_runs.contract_version` admits `polis-queue/3`, and
+`polis_queue_install.contract_version` reads `polis-queue/3`. The six-argument
+`pq_claim` and four-argument `pq_reap` take the class as given (`delphi` or
+`large`) instead of being pinned to `delphi`; `pd_enqueue` admits
+`math_rebuild` (no report id; scope `math:<label>:<zid>` by convention) under
+the guards it already applies; `pd_queue_binding` binds the rebuild row to its
+kind, class and contract; `pq_result` reports `polis-queue/3` for a rebuild.
+One new read, `pq_class_depth(env, worker_class)`, returns the counts of
+queued (queued + retry_wait), leased (running), parked and dead jobs of a
+class and the oldest unresolved `created_at`: the small poller's capacity line
+is made of it, so no table grant is needed. `pd_enqueue` gains the poison
+latch: when a scope's last three jobs all died under the code image being
+admitted now, the reply is outcome `poisoned` naming the latest dead job and
+no job is made; a different image (a deploy), or a succeeded or cancelled job
+among the last three, admits again. `pd_job_view` gains `scope_key`, the guard
+the job's root holds (null once released). Who releases a scope, and when: the
+`polis-jobs` daemon, after a terminal reply (succeeded, dead, cancelled) whose
+attempt exit it proved, through `pd_release_scope`, which still refuses while
+any job of the root's tree is not terminal, lacks exit proof or has an open
+provider request; the small poller as a fallback, through the same function,
+when an admission hands it a terminal job still holding its guard. Terminal
+status alone never releases anything. `polis_queue_large_class_install`
+holds the catalog baseline the down script restores. The `/1` noop path and
+the `/2` Delphi path are unchanged; a class-`delphi` worker never sees a
+rebuild and a class-`large` worker never sees a Delphi job.
+
+**Applying it to production is a separate, explicit step by the owner**, after
+000019 and 000023:
+
+```sh
+docker exec -i polis-dev-postgres-1 psql -v ON_ERROR_STOP=1 -U postgres -d polis-dev   < server/postgres/migrations/000024_create_polis_queue_large_class.sql
+```
+
+The applier must be able to `SET ROLE polis_queue_owner`; the file creates no
+role. It refuses, changing nothing, when 000023 is absent, when the installed
+/2 catalog differs from what 000023 recorded (so a second apply is refused,
+not a no-op), or when its install table or `pq_class_depth` already exists.
+000019 and 000023 in turn refuse to replay over a /3 database.
+
+Reversal: `server/postgres/migrations/down/000024_drop_polis_queue_large_class.sql`
+restores the /2 catalog from the recorded baseline and refuses if any /3 row
+exists (a rebuild or class-large job, a `math_rebuild` kind, a /3 run; no
+force override). After it, 000023's own down applies as if 000024 had never
+been. Both files are sealed in `down/000024-files.sha256`. The proof is
+`bash server/postgres/migrations/down/test_000024_down.sh` (docker only):
+forward against the real chain, refused replays, the rebuild admitted, guarded,
+claimed by its class only, finalized and released, the job view naming the
+scope, three deaths making the fourth admission `poisoned` and a new image
+admitting again, a refused down with /3 data,
+the down restoring a byte-identical schema dump, apply again after the down,
+the down failing cleanly where 000024 (or 000023) was never applied, and
+000023's down unwinding the chain after it.
+
 ## Gates still open
 
 None of the eight acceptance gates has been earned. They must run from both

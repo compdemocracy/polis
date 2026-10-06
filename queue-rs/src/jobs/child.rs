@@ -5,7 +5,7 @@
 //! `delphi/scripts/job_poller.py` (`start_new_session`, signal the group,
 //! grace, SIGKILL), and adds "reap until the group is empty", which is the
 //! only state in which the daemon passes exit proof `true`.
-use anyhow::{Result, bail, ensure};
+use anyhow::{Result, anyhow, bail, ensure};
 use serde_json::{Value, json};
 use std::{
     os::unix::process::CommandExt,
@@ -107,6 +107,117 @@ pub fn decode_admission(uri: &str, sha256: &str) -> Result<Admission> {
     })
 }
 
+/// The typed math config a `math_rebuild` admission carries across the
+/// daemon boundary (P-073 r2): what the child checks before it computes, and
+/// what an operator reads on the row. Every key is required and typed; the
+/// daemon refuses a frame without them before any child runs
+/// (`math_config_invalid`, permanent), so the child never sees a config it
+/// cannot check.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MathConfig {
+    /// The label the child stages under; equals the admission's `inputs.math_env`.
+    pub staged_label: String,
+    /// The small poller's own (served) label, which the child never writes.
+    pub target_label: String,
+    /// The estimated bytes the rebuild needs above the base (the child refuses
+    /// what its own capacity cannot give).
+    pub need_bytes: u64,
+    /// The input watermark the small poller admitted the job for (ms), or null.
+    pub input_through_ms: Option<i64>,
+    /// The sizing binding the estimate was made under.
+    pub binding: String,
+    /// The small poller's source commit: the child refuses another one.
+    pub source_commit: String,
+}
+
+pub const MATH_CONFIG_KEYS: [&str; 6] = [
+    "staged_label",
+    "target_label",
+    "need_bytes",
+    "input_through_ms",
+    "binding",
+    "source_commit",
+];
+
+fn label(v: &Value, key: &str) -> Result<String> {
+    let s = v.as_str().ok_or_else(|| anyhow!("math_config:{key}"))?;
+    ensure!(
+        !s.is_empty()
+            && s.len() <= 64
+            && s.bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'.' || b == b'-'),
+        "math_config:{key}"
+    );
+    Ok(s.to_owned())
+}
+
+impl MathConfig {
+    /// The admission's `config` as the typed math config, or why it is not one.
+    pub fn from_admission(adm: &Admission) -> Result<Self> {
+        let keys = adm
+            .config
+            .as_object()
+            .ok_or_else(|| anyhow!("math_config:object"))?;
+        for key in keys.keys() {
+            ensure!(
+                MATH_CONFIG_KEYS.contains(&key.as_str()),
+                "math_config:unknown_key"
+            );
+        }
+        // `Value` indexing never panics: a missing key reads as null.
+        let c = &adm.config;
+        let staged_label = label(&c["staged_label"], "staged_label")?;
+        let target_label = label(&c["target_label"], "target_label")?;
+        ensure!(staged_label != target_label, "math_config:labels_equal");
+        ensure!(
+            adm.inputs.get("math_env").and_then(Value::as_str) == Some(staged_label.as_str()),
+            "math_config:staged_label_is_not_the_input_label"
+        );
+        let need_bytes = c["need_bytes"]
+            .as_u64()
+            .filter(|n| *n > 0)
+            .ok_or_else(|| anyhow!("math_config:need_bytes"))?;
+        let input_through_ms = match &c["input_through_ms"] {
+            Value::Null => None,
+            v => Some(
+                v.as_i64()
+                    .filter(|ms| *ms >= 0)
+                    .ok_or_else(|| anyhow!("math_config:input_through_ms"))?,
+            ),
+        };
+        let binding = c["binding"]
+            .as_str()
+            .filter(|b| !b.is_empty() && b.len() <= 128)
+            .ok_or_else(|| anyhow!("math_config:binding"))?
+            .to_owned();
+        let source_commit = c["source_commit"]
+            .as_str()
+            .filter(|h| (7..=64).contains(&h.len()) && h.bytes().all(|b| b.is_ascii_hexdigit()))
+            .ok_or_else(|| anyhow!("math_config:source_commit"))?
+            .to_owned();
+        Ok(Self {
+            staged_label,
+            target_label,
+            need_bytes,
+            input_through_ms,
+            binding,
+            source_commit,
+        })
+    }
+
+    /// The frame's `config` object for a rebuild: exactly these six keys.
+    pub fn to_json(&self) -> Value {
+        json!({
+            "staged_label": self.staged_label,
+            "target_label": self.target_label,
+            "need_bytes": self.need_bytes,
+            "input_through_ms": self.input_through_ms,
+            "binding": self.binding,
+            "source_commit": self.source_commit,
+        })
+    }
+}
+
 /// Identity of the claimed attempt.
 #[derive(Debug, Clone)]
 pub struct Claim {
@@ -119,24 +230,30 @@ pub struct Claim {
     pub stage: String,
 }
 
-/// The job frame (`schemas/job-frame-v1.json`).
-pub fn frame(claim: &Claim, adm: &Admission, phase: &str, batch_id: Option<&str>) -> Value {
-    json!({
-        "schema": FRAME_SCHEMA, "env": claim.env, "zid": adm.zid, "report_id": adm.report_id,
-        "job_id": claim.job_id, "run_id": claim.run_id, "attempt_id": claim.attempt_id,
-        "lease_epoch": claim.lease_epoch, "stage": claim.stage, "phase": phase,
-        "config": {
+/// The job frame (`schemas/job-frame-v1.json`). A rebuild's `config` is the
+/// typed math config, carried whole; the Delphi stages keep their four keys.
+pub fn frame(claim: &Claim, adm: &Admission, phase: &str, batch_id: Option<&str>) -> Result<Value> {
+    let config = if claim.stage == "math_rebuild" {
+        MathConfig::from_admission(adm)?.to_json()
+    } else {
+        json!({
             "include_moderation": adm.config.get("include_moderation").cloned().unwrap_or(Value::Bool(false)),
             "exclude_comment_selections": adm.config.get("exclude_comment_selections").cloned().unwrap_or(Value::Bool(true)),
             "model": adm.config.get("model").cloned().unwrap_or(Value::Null),
             "batch_size": adm.config.get("batch_size").cloned().unwrap_or(Value::Null),
-        },
+        })
+    };
+    Ok(json!({
+        "schema": FRAME_SCHEMA, "env": claim.env, "zid": adm.zid, "report_id": adm.report_id,
+        "job_id": claim.job_id, "run_id": claim.run_id, "attempt_id": claim.attempt_id,
+        "lease_epoch": claim.lease_epoch, "stage": claim.stage, "phase": phase,
+        "config": config,
         "inputs": {
             "math_env": adm.inputs.get("math_env").cloned().unwrap_or(Value::Null),
             "requested_math_tick": adm.inputs.get("requested_math_tick").cloned().unwrap_or(Value::Null),
         },
         "provider": {"batch_id": batch_id},
-    })
+    }))
 }
 
 fn py_bool(v: Option<&Value>, default: bool) -> &'static str {
@@ -148,7 +265,9 @@ fn py_bool(v: Option<&Value>, default: bool) -> &'static str {
     }
 }
 
-/// Script and arguments per stage/phase (today's `job_poller.py:1243-1258`).
+/// Script and arguments per stage/phase (today's `job_poller.py:1243-1258`
+/// for the Delphi stages; the math poller's job entry for a rebuild, which
+/// reads the one zid from the frame and runs the cold rebuild for it).
 pub fn command_args(
     app: &Path,
     claim: &Claim,
@@ -212,6 +331,7 @@ pub fn command_args(
             app.join("umap_narrative/803_check_batch_status.py"),
             vec![format!("--job-id={}", claim.job_id)],
         ),
+        ("math_rebuild", "run") => (app.join("scripts/math_poller.py"), vec!["--job".to_owned()]),
         (stage, phase) => bail!("no command for stage {stage} phase {phase}"),
     })
 }
@@ -458,6 +578,180 @@ mod tests {
         assert!(script.ends_with("umap_narrative/803_check_batch_status.py"));
         assert_eq!(args, vec!["--job-id=j"]);
         assert!(command_args(app, &claim("delphi_full_pipeline"), &adm, "recheck").is_err());
+    }
+
+    fn math_config() -> Value {
+        json!({"staged_label": "python-large", "target_label": "python", "need_bytes": 850_000_000u64,
+            "input_through_ms": 1_790_000_000_000i64, "binding": "0000000000000000",
+            "source_commit": "0123456789abcdef0123456789abcdef01234567"})
+    }
+
+    fn rebuild(config: Value, math_env: &str) -> Admission {
+        Admission {
+            zid: 22154,
+            report_id: None,
+            config,
+            inputs: json!({"math_env": math_env, "requested_math_tick": null}),
+        }
+    }
+
+    #[test]
+    fn the_rebuild_runs_the_math_poller_for_one_job() {
+        let adm = rebuild(math_config(), "python-large");
+        let app = Path::new("/app");
+        let (script, args) =
+            command_args(app, &claim("math_rebuild"), &adm, "run").unwrap_or_default();
+        assert_eq!(script, PathBuf::from("/app/scripts/math_poller.py"));
+        // The zid travels in the frame (DELPHI_FRAME and stdin), never argv.
+        assert_eq!(args, vec!["--job"]);
+        for phase in ["submit", "recheck", "none"] {
+            assert!(
+                command_args(app, &claim("math_rebuild"), &adm, phase).is_err(),
+                "{phase}"
+            );
+        }
+        let frame = frame(&claim("math_rebuild"), &adm, "run", None).unwrap_or_default();
+        assert_eq!(frame["stage"], "math_rebuild");
+        assert_eq!(frame["zid"], 22154);
+        assert!(frame["report_id"].is_null());
+        // The typed math config crosses the boundary whole, nothing else.
+        assert_eq!(frame["config"], math_config());
+        assert_eq!(frame["inputs"]["math_env"], "python-large");
+    }
+
+    #[test]
+    fn a_rebuild_without_the_typed_math_config_makes_no_frame() {
+        let c = claim("math_rebuild");
+        let ok = rebuild(math_config(), "python-large");
+        assert!(MathConfig::from_admission(&ok).is_ok());
+        let cases: Vec<(&str, Value, &str)> = vec![
+            (
+                "the old untyped shape",
+                json!({"need_bytes": 1, "staged_label": "python-large"}),
+                "python-large",
+            ),
+            ("empty", json!({}), "python-large"),
+            (
+                "a Delphi config",
+                json!({"include_moderation": false}),
+                "python-large",
+            ),
+            (
+                "a missing source commit",
+                {
+                    let mut c = math_config();
+                    c.as_object_mut().map(|o| o.remove("source_commit"));
+                    c
+                },
+                "python-large",
+            ),
+            (
+                "a null source commit",
+                {
+                    let mut c = math_config();
+                    c["source_commit"] = Value::Null;
+                    c
+                },
+                "python-large",
+            ),
+            (
+                "a non-hex source commit",
+                {
+                    let mut c = math_config();
+                    c["source_commit"] = "not-a-commit".into();
+                    c
+                },
+                "python-large",
+            ),
+            (
+                "need_bytes zero",
+                {
+                    let mut c = math_config();
+                    c["need_bytes"] = 0.into();
+                    c
+                },
+                "python-large",
+            ),
+            (
+                "need_bytes as text",
+                {
+                    let mut c = math_config();
+                    c["need_bytes"] = "850".into();
+                    c
+                },
+                "python-large",
+            ),
+            (
+                "a negative watermark",
+                {
+                    let mut c = math_config();
+                    c["input_through_ms"] = (-1).into();
+                    c
+                },
+                "python-large",
+            ),
+            (
+                "an empty binding",
+                {
+                    let mut c = math_config();
+                    c["binding"] = "".into();
+                    c
+                },
+                "python-large",
+            ),
+            (
+                "equal labels",
+                {
+                    let mut c = math_config();
+                    c["target_label"] = "python-large".into();
+                    c
+                },
+                "python-large",
+            ),
+            (
+                "a served target label spelled with a slash",
+                {
+                    let mut c = math_config();
+                    c["target_label"] = "py/thon".into();
+                    c
+                },
+                "python-large",
+            ),
+            (
+                "an extra key",
+                {
+                    let mut c = math_config();
+                    c["manifest_uri"] = "s3://x".into();
+                    c
+                },
+                "python-large",
+            ),
+            (
+                "a staged label that is not the input label",
+                math_config(),
+                "python",
+            ),
+        ];
+        for (name, config, math_env) in cases {
+            let adm = rebuild(config, math_env);
+            assert!(MathConfig::from_admission(&adm).is_err(), "{name}");
+            assert!(frame(&c, &adm, "run", None).is_err(), "{name}");
+        }
+        // A null watermark is a watermark the small poller did not have.
+        let mut c0 = math_config();
+        c0["input_through_ms"] = Value::Null;
+        let m = MathConfig::from_admission(&rebuild(c0, "python-large"))
+            .unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(m.input_through_ms, None);
+        // The Delphi stages never carry the math keys, and still frame.
+        let delphi = Admission {
+            zid: 1,
+            report_id: Some("r".into()),
+            config: json!({}),
+            inputs: json!({}),
+        };
+        let f = frame(&claim("delphi_full_pipeline"), &delphi, "run", None).unwrap_or_default();
+        assert_eq!(f["config"]["include_moderation"], false);
     }
 
     #[test]

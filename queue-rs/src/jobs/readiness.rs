@@ -19,6 +19,9 @@ pub struct Counters {
     pub fenced: AtomicU64,
     pub poison: AtomicU64,
     pub exit_unconfirmed: AtomicU64,
+    /// Scopes this process released through pd_release_scope after a
+    /// terminal attempt (the SQL re-checked every condition).
+    pub released: AtomicU64,
 }
 
 impl Counters {
@@ -87,6 +90,9 @@ pub struct Snapshot<'a> {
     pub in_flight: Vec<InFlight>,
     pub counters: &'a Counters,
     pub transport: &'a str,
+    /// The installed contract the daemon started on, or `unknown` before
+    /// the contract check passed.
+    pub contract: &'a str,
 }
 
 pub fn readiness_line(s: &Snapshot) -> String {
@@ -100,7 +106,8 @@ pub fn readiness_line(s: &Snapshot) -> String {
         "failed_total": c(&s.counters.failed), "parked_total": c(&s.counters.parked),
         "fenced_total": c(&s.counters.fenced), "poison_total": c(&s.counters.poison),
         "exit_unconfirmed_total": c(&s.counters.exit_unconfirmed),
-        "contract": super::rpc::CONTRACT, "transport": s.transport,
+        "released_total": c(&s.counters.released),
+        "contract": s.contract, "transport": s.transport,
         "emitted_ms": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis() as u64).unwrap_or(0),
         "seq": SEQ.fetch_add(1, Ordering::Relaxed),
@@ -180,6 +187,7 @@ mod tests {
             in_flight: vec![],
             counters: &counters,
             transport: "loopback",
+            contract: "polis-queue/2",
         });
         let log = format!("2026-10-03 INFO polis_jobs claimed job\n{line}\n");
         let found: Vec<_> = log.lines().filter_map(parse_readiness).collect();
@@ -196,6 +204,7 @@ mod tests {
             "parked_total",
             "fenced_total",
             "poison_total",
+            "released_total",
             "emitted_ms",
             "seq",
             "in_flight",
