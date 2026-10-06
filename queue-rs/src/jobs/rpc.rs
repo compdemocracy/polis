@@ -20,7 +20,10 @@ const TABLES: [&str; 5] = [
     "public.polis_queue_requests",
 ];
 
-pub const CONTRACT: &str = "polis-queue/2";
+/// The installed contracts the daemon knows: `polis-queue/2` (000023) and
+/// `polis-queue/3` (000024, the large class). Which one a worker may start
+/// on is the class's say (`WorkerClass::contracts`).
+pub const CONTRACTS: [&str; 2] = ["polis-queue/2", "polis-queue/3"];
 
 pub struct Rpc {
     connector: Arc<Connector>,

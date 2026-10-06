@@ -10,7 +10,7 @@
     "schema": {"const": "polis-jobs.output-manifest/1"},
     "job_id": {"type": "string", "format": "uuid"},
     "attempt_id": {"type": "string", "format": "uuid"},
-    "stage": {"enum": ["delphi_full_pipeline", "delphi_narrative"]},
+    "stage": {"enum": ["delphi_full_pipeline", "delphi_narrative", "math_rebuild"]},
     "phase": {"enum": ["run", "submit", "recheck"]},
     "outcome": {"enum": ["succeeded", "parked"]},
     "inputs": {
@@ -26,6 +26,7 @@
       }
     },
     "outputs": {
+      "description": "DynamoDB rows the Delphi stages wrote. A math_rebuild lists none: its staged bundle lives in Postgres under the staged label and is named by inputs.",
       "type": "array",
       "items": {
         "type": "object",

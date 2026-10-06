@@ -51,8 +51,10 @@ def manifest(outcome, phase, batches=None, recheck_after=None):
         "outcome": outcome,
         "inputs": {"math_env": "test", "math_tick": 3, "math_caching_tick": 3,
                    "comment_set_sha256": "0" * 64, "vote_hwm": 9},
-        "outputs": [{"store": "dynamodb", "family": "Delphi_UMAPGraph", "table": "Delphi_UMAPGraph",
-                     "key_prefix": {"conversation_id": "1"}, "rows": 4}],
+        # A rebuild publishes no DynamoDB rows: its bundle is staged in Postgres.
+        "outputs": [] if stage == "math_rebuild" else [
+            {"store": "dynamodb", "family": "Delphi_UMAPGraph", "table": "Delphi_UMAPGraph",
+             "key_prefix": {"conversation_id": "1"}, "rows": 4}],
         "models": {"embed": "fixture-embed", "topic": None, "narrative": None},
         "cost": {"llm_tokens_in": 10, "llm_tokens_out": 20, "provider_batches": batches},
         "recheck_after": recheck_after,
@@ -106,6 +108,11 @@ def main(script):
                 "DELPHI_STAGE", "DELPHI_PHASE"):
         print(f"{key}={os.environ.get(key)}", flush=True)
     print("argv=" + " ".join(sys.argv[1:]), flush=True)
+    if script == "math_poller":
+        # The job entry of the math poller: the zid comes from the frame, never argv.
+        assert sys.argv[1:] == ["--job"], sys.argv[1:]
+        assert frame["stage"] == "math_rebuild" and frame["zid"] > 0, frame
+        print(f"rebuild zid={frame['zid']}", flush=True)
     print("queue_dsn_visible=" + str("QUEUE_DATABASE_URL" in os.environ), flush=True)
     print("fake child stderr line", file=sys.stderr, flush=True)
     if os.environ.get("FAKE_DELPHI_LONG") == "1":

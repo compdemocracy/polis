@@ -20,7 +20,7 @@ use std::{
     collections::BTreeMap,
     io::Write,
     path::Path,
-    sync::{Arc, Mutex, mpsc},
+    sync::{Arc, Mutex, OnceLock, mpsc},
     time::{Duration, Instant},
 };
 use uuid::Uuid;
@@ -42,6 +42,14 @@ pub struct Ctx {
     pub counters: Counters,
     pub pending: Mutex<Vec<Pending>>,
     pub in_flight: Mutex<BTreeMap<String, InFlight>>,
+    /// The installed contract, set once the start-up check accepted it.
+    pub contract: OnceLock<String>,
+}
+
+impl Ctx {
+    pub fn contract(&self) -> &str {
+        self.contract.get().map_or("unknown", String::as_str)
+    }
 }
 
 pub fn identity(c: &Claim) -> Vec<Value> {

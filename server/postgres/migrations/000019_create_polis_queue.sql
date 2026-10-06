@@ -10,11 +10,30 @@
 --
 -- HOW TO APPLY
 -- ------------
--- Apply THIS FILE ALONE, manually, on a pinned read-write connection, exactly as
--- docs/migrations.md describes for a post-provisioning migration:
+-- Apply THIS FILE ALONE, manually, on a pinned read-write connection, through
+-- the checked wrapper (docs/queue-substrate.md), which feeds it to psql exactly
+-- as docs/migrations.md describes for a post-provisioning migration after a
+-- preflight and with explicit budgets:
 --
---   docker exec -i polis-dev-postgres-1 psql -v ON_ERROR_STOP=1 -U postgres -d polis-dev \
---     < server/postgres/migrations/000019_create_polis_queue.sql
+--   server/postgres/bin/apply-migration.sh --free-bytes <bytes free on the db host> 000019 -- \
+--     docker exec -i polis-dev-postgres-1 psql -U postgres -d polis-dev
+--
+-- WHAT IT LOCKS
+-- -------------
+-- The foreign keys from polis_queue_runs and polis_queue_heads to
+-- public.conversations take ShareRowExclusiveLock on conversations, held from
+-- that statement until COMMIT. While it is held, every INSERT, UPDATE and
+-- DELETE on conversations waits (plain SELECT continues), and the apply itself
+-- waits, up to its lock_timeout, behind any open transaction that already
+-- wrote a conversations row; lock_timeout then aborts it with nothing applied.
+-- Apply in an idle or controlled writer window (producers paused, no open
+-- writer on conversations). This file sets no timeout itself; the wrapper
+-- sends lock_timeout 5s, statement_timeout 60s, transaction_timeout 120s and
+-- idle_in_transaction_session_timeout 30s (defaults, printed, overridable) and
+-- refuses to send the file unless its seal matches, the server is PostgreSQL
+-- 17, the rights below hold, every queue table that exists is empty, no other
+-- transaction on the database is older than 30 s and the operator-measured
+-- free disk is at or above 5 GiB. Witnessed by down/test_000023_down.sh (i).
 --
 -- Never replay the migrations directory as an upgrade mechanism:
 -- server/bin/run-migrations.sh has no version ledger and the existing files in

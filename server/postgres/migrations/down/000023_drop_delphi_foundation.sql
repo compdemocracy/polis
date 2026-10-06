@@ -1,5 +1,21 @@
--- Reversal of dormant 000023. Refuses any /2 data; no force override.
--- Stop writers. This script restores /1 fully; reapplying 000019 is optional verification.
+-- 000023_drop_delphi_foundation.sql
+--
+-- Reversal of 000023 (the Delphi job table, polis-queue/2). Stop every writer
+-- first (the polis-jobs daemon; the server's queue helper, if its flag is on).
+-- In one transaction it locks every polis_queue_* and delphi_* table ACCESS
+-- EXCLUSIVE, verifies the installed catalog is exactly what 000023 recorded,
+-- refuses if any /2 row exists (a delphi_* or polis_queue_logs row, a non-noop
+-- job, a /2 run, an exit-confirmed attempt, a bound request) - there is no
+-- force override - and then drops the /2 objects and restores every /1
+-- function and ACL from the recorded baseline, checking the result against it.
+--
+-- Run it the same way as the up script:
+--
+--   docker exec -i polis-dev-postgres-1 psql -v ON_ERROR_STOP=1 -U postgres -d polis-dev \
+--     < server/postgres/migrations/down/000023_drop_delphi_foundation.sql
+--
+-- A database without 000023 has no delphi_foundation_install table, so the
+-- script fails before changing anything. Proven by test_000023_down.sh.
 BEGIN;
 SET LOCAL lock_timeout='5s';
 SET LOCAL ROLE polis_queue_owner;

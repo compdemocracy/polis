@@ -1,6 +1,9 @@
-//! `polis-jobs` against a throwaway PostgreSQL 17 holding the full migration
-//! chain (000000–000022 from the repository) plus the vendored draft 000023
-//! (`tests/fixtures/migrations`). Run with `--features jobs-integration` and
+//! `polis-jobs` against a throwaway PostgreSQL 17 holding the repository's
+//! migration chain: `jobs_base` is 000000–000022 (polis-queue/1, no foundation),
+//! `jobs_v2` adds the repository's 000023 (polis-queue/2, the Delphi job
+//! table; the contract a class-delphi daemon runs on, so the Delphi tests stay
+//! on it) and `jobs_v3` adds 000024 (polis-queue/3, the large worker class).
+//! Run with `--features jobs-integration` and
 //! `POLIS_JOBS_TEST_DATABASE_URL` (a superuser DSN on a loopback port); see
 //! the README. Each test copies a template database, runs real daemon
 //! processes and the generated fixture child, and inspects committed state.
@@ -67,15 +70,16 @@ fn exists(admin: &mut Client, db: &str) -> bool {
         .is_some()
 }
 
-/// Build `jobs_base` (chain to 000022) and `jobs_v2` (+ draft 000023) once.
+/// Build `jobs_base` (chain to 000022), `jobs_v2` (+ the repository's 000023)
+/// and `jobs_v3` (+ the repository's 000024) once.
 fn ensure_templates() {
     let mut done = TEMPLATE.lock().unwrap();
     if *done {
         return;
     }
     let mut admin = Client::connect(&admin_url(), NoTls).unwrap();
-    if !exists(&mut admin, "jobs_v2") {
-        for db in ["jobs_v2", "jobs_base"] {
+    if !exists(&mut admin, "jobs_v3") {
+        for db in ["jobs_v3", "jobs_v2", "jobs_base"] {
             admin
                 .batch_execute(&format!("DROP DATABASE IF EXISTS {db}"))
                 .unwrap();
@@ -101,10 +105,13 @@ fn ensure_templates() {
                     .unwrap()
             })
             .collect();
-        let expected: Vec<u32> = (0..23).filter(|n| *n != 20).collect();
-        assert_eq!(numbers, expected, "complete 000000-000022 chain required");
-        for m in &chain {
-            base.batch_execute(&fs::read_to_string(m).unwrap()).unwrap();
+        let expected: Vec<u32> = (0..=24).filter(|n| *n != 20).collect();
+        assert_eq!(numbers, expected, "complete 000000-000024 chain required");
+        // `jobs_base` stops before the foundation: it is the polis-queue/1
+        // shape the "contract missing" start refusal is proven against.
+        for (m, n) in chain.iter().zip(&numbers).filter(|(_, n)| **n <= 22) {
+            base.batch_execute(&fs::read_to_string(m).unwrap())
+                .unwrap_or_else(|e| panic!("{n:06}: {e}"));
         }
         base.batch_execute(
             "INSERT INTO conversations(zid,topic) VALUES(1,'fixture'),(2,'fixture two');",
@@ -122,10 +129,16 @@ fn ensure_templates() {
             .unwrap();
         let mut v2 = Client::connect(&url_for("jobs_v2", "postgres"), NoTls).unwrap();
         v2.batch_execute(
-            &fs::read_to_string(
-                root().join("tests/fixtures/migrations/000023_create_delphi_foundation.sql"),
-            )
-            .unwrap(),
+            &fs::read_to_string(dir.join("000023_create_delphi_foundation.sql")).unwrap(),
+        )
+        .unwrap();
+        drop(v2);
+        admin
+            .batch_execute("CREATE DATABASE jobs_v3 TEMPLATE jobs_v2")
+            .unwrap();
+        let mut v3 = Client::connect(&url_for("jobs_v3", "postgres"), NoTls).unwrap();
+        v3.batch_execute(
+            &fs::read_to_string(dir.join("000024_create_polis_queue_large_class.sql")).unwrap(),
         )
         .unwrap();
     }
@@ -180,9 +193,15 @@ impl Db {
             json!({"schema":"polis-jobs.admission/1","zid":zid,"report_id":report,"config":config});
         let bytes = serde_json::to_vec(&admission).unwrap();
         let uri = polis_queue_adapter::jobs::child::encode_admission(&bytes);
-        let scope = format!("scope-{stage}-{zid}-{}", report.unwrap_or("-"));
+        // A rebuild's scope is `math:<label>:<zid>` (P-073 r2); the Delphi
+        // scopes are the fixture's own.
+        let scope = match stage {
+            "math_rebuild" => format!("math:python-large:{zid}"),
+            _ => format!("scope-{stage}-{zid}-{}", report.unwrap_or("-")),
+        };
         let product = match stage {
             "delphi_narrative" => format!("delphi:narrative:{}", report.unwrap()),
+            "math_rebuild" => format!("math:rebuild:{zid}"),
             _ => format!("delphi:full:{zid}:{}", report.unwrap_or("")),
         };
         let mut ex = self.executor();
@@ -240,6 +259,16 @@ impl Db {
 
     fn wait_state(&mut self, job: Uuid, state: &str, secs: u64) {
         self.wait(&format!("state {state}"), secs, |d| d.job(job).0 == state);
+    }
+
+    /// `pq_class_depth` as the executor: (queued, leased).
+    fn depth(&self, class: &str) -> (i64, i64) {
+        let d: Value = self
+            .executor()
+            .query_one("SELECT pq_class_depth($1,$2)", &[&ENV, &class])
+            .unwrap()
+            .get(0);
+        (d["queued"].as_i64().unwrap(), d["leased"].as_i64().unwrap())
     }
 
     fn release(&self, scope: &str) -> bool {
@@ -1157,6 +1186,153 @@ fn killed_daemon_blocks_the_other_until_its_restart_confirms_then_retry_runs_onc
         .get(0);
     assert_eq!(logged, 2, "the logs show both attempts");
     let _ = (a2.stop(), b.stop());
+}
+
+/// Run the binary to exit with this environment only; (exit code, stderr).
+fn run_to_exit(env: &[(&str, String)]) -> (Option<i32>, String) {
+    let mut cmd = Command::new(bin());
+    cmd.env_clear().stderr(Stdio::piped()).stdout(Stdio::null());
+    for (k, v) in env {
+        cmd.env(k, v);
+    }
+    let mut c = cmd.spawn().unwrap();
+    let start = Instant::now();
+    loop {
+        if let Some(s) = c.try_wait().unwrap() {
+            let mut err = String::new();
+            c.stderr.take().unwrap().read_to_string(&mut err).unwrap();
+            return (s.code(), err);
+        }
+        assert!(
+            start.elapsed() < Duration::from_secs(20),
+            "daemon did not exit"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+/// The large class (polis-queue/3): a class-large worker claims only the
+/// math rebuild and runs the math poller's job entry for it; a class-delphi
+/// worker on the same database never sees the rebuild and still runs the
+/// Delphi stages; both report the installed contract.
+#[test]
+fn large_worker_runs_only_the_rebuild_and_the_delphi_worker_only_delphi_jobs() {
+    let mut db = Db::new("jobs_v3");
+    let (rebuild, scope) = db.enqueue("math_rebuild", 1, None, json!({"need_bytes": 1}), 3);
+    let (delphi, _) = db.enqueue("delphi_full_pipeline", 2, Some("l1"), full(), 3);
+    assert_eq!(db.depth("large"), (1, 0));
+    assert_eq!(db.depth("delphi"), (1, 0));
+    let large = start(
+        &db,
+        Opts::new("large", "success").set("POLIS_JOBS_WORKER_CLASS", "large"),
+    );
+    db.wait_state(rebuild, "succeeded", 60);
+    std::thread::sleep(Duration::from_secs(3));
+    assert_eq!(
+        db.job(delphi).0,
+        "queued",
+        "a large worker never claims a Delphi job"
+    );
+    assert_eq!(db.depth("large"), (0, 0));
+    assert_eq!(db.depth("delphi"), (1, 0));
+    let r = runs(&db);
+    assert_eq!(r.len(), 1);
+    assert!(r[0].contains(" math_poller run "), "{r:?}");
+    let attempt = db.attempts(rebuild)[0].0;
+    let lines: Vec<String> = db
+        .sql
+        .query(
+            "SELECT line FROM polis_queue_logs WHERE env=$1 AND attempt_id=$2 ORDER BY seq",
+            &[&ENV, &attempt],
+        )
+        .unwrap()
+        .iter()
+        .map(|r| r.get(0))
+        .collect();
+    assert!(lines.iter().any(|l| l == "argv=--job"), "{lines:?}");
+    assert!(lines.iter().any(|l| l == "rebuild zid=1"), "{lines:?}");
+    assert!(lines.iter().any(|l| l == "DELPHI_STAGE=math_rebuild"));
+    assert!(lines.iter().any(|l| l == "queue_dsn_visible=False"));
+    let manifest: String = lines
+        .iter()
+        .find(|l| l.contains("\"outcome\":\"succeeded\""))
+        .cloned()
+        .unwrap();
+    let m: Value = serde_json::from_str(&manifest).unwrap();
+    assert_eq!(m["stage"], "math_rebuild");
+    assert_eq!(m["outputs"], json!([]));
+    let digest: Option<Vec<u8>> = db
+        .sql
+        .query_one(
+            "SELECT output_manifest_digest FROM delphi_jobs WHERE job_id=$1",
+            &[&rebuild],
+        )
+        .unwrap()
+        .get(0);
+    assert_eq!(
+        digest.map(|d| d.iter().map(|b| format!("{b:02x}")).collect::<String>()),
+        Some(sha_hex(manifest.as_bytes()))
+    );
+    assert!(db.release(&scope), "the finished rebuild's scope releases");
+    let delphi_worker = start(&db, Opts::new("delphi-on-v3", "success"));
+    db.wait_state(delphi, "succeeded", 60);
+    assert_eq!(db.attempts(rebuild).len(), 1, "the rebuild ran once");
+    assert_eq!(runs(&db).len(), 2);
+    assert_eq!(db.depth("delphi"), (0, 0));
+    std::thread::sleep(Duration::from_millis(1500));
+    for (d, class) in [(&large, "large"), (&delphi_worker, "delphi")] {
+        assert!(d.log().contains(&format!("class={class}")), "{class}");
+        let ready: Vec<_> = d
+            .log()
+            .lines()
+            .filter_map(polis_queue_adapter::jobs::readiness::parse_readiness)
+            .collect();
+        assert_eq!(
+            ready.last().unwrap().2["contract"],
+            "polis-queue/3",
+            "{class}"
+        );
+        assert_eq!(ready.last().unwrap().2["finalized_total"], 1, "{class}");
+    }
+    assert_eq!(large.stop(), Some(0));
+    assert_eq!(delphi_worker.stop(), Some(0));
+}
+
+/// A class-large worker refuses to start without the /3 contract (exit 3),
+/// and refuses a Delphi stage in its stage list before any connection (exit 2);
+/// class delphi still starts on /2 (the other tests) and on /3 (above).
+#[test]
+fn large_worker_refuses_the_second_contract_and_foreign_stages() {
+    let db = Db::new("jobs_v2");
+    let journal = db.scratch.join("j-large").display().to_string();
+    let base = |extra: &[(&'static str, String)]| -> Vec<(&'static str, String)> {
+        let mut v = vec![
+            ("POLIS_JOBS_ENABLED", "1".to_owned()),
+            ("QUEUE_ENV", ENV.to_owned()),
+            ("QUEUE_DATABASE_URL", url_for(&db.name, LOGIN)),
+            ("POLIS_JOBS_TRANSPORT", "loopback".to_owned()),
+            ("POLIS_JOBS_JOURNAL_DIR", journal.clone()),
+            ("POLIS_JOBS_WORKER_CLASS", "large".to_owned()),
+        ];
+        v.extend(extra.iter().cloned());
+        v
+    };
+    let (code, err) = run_to_exit(&base(&[]));
+    assert_eq!(code, Some(3), "{err}");
+    assert!(
+        err.contains("contract missing")
+            && err.contains("is polis-queue/2")
+            && err.contains("class large needs polis-queue/3"),
+        "{err}"
+    );
+    let (code, err) = run_to_exit(&base(&[(
+        "POLIS_JOBS_STAGES",
+        "delphi_full_pipeline".to_owned(),
+    )]));
+    assert_eq!(code, Some(2), "{err}");
+    assert!(err.contains("stages of class large"), "{err}");
+    let (code, err) = run_to_exit(&base(&[("POLIS_JOBS_WORKER_CLASS", "noop".to_owned())]));
+    assert_eq!(code, Some(2), "{err}");
 }
 
 /// Offline profile: Unix-socket transport, no network settings, no AWS
