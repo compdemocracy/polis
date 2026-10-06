@@ -19,12 +19,23 @@
 --                            every producer succeeded with that digest.
 --   delphi_current           the per-conversation pointer rows. Created empty;
 --                            nothing in /2 moves them (P1 publishes no result).
---   delphi_job_guards        one active root job per scope ("active identical
---                            run returns the existing job").
+--   delphi_job_guards        one guard row per scope, bound to its root job and
+--                            request digest, held until safe explicit release
+--                            (pd_release_scope, which refuses while any job in
+--                            the root's tree is not terminal, lacks exit proof
+--                            or has an open provider request; nothing releases
+--                            a guard automatically). While it is held, an
+--                            identical request returns the existing job and a
+--                            different one is a conflict.
 --   delphi_provider_requests intent/submission/completion of each paid provider
 --                            batch, written BEFORE submission so a lost ACK or a
 --                            fenced attempt is reconciled, never paid twice.
 --   polis_queue_logs         the child's stdout/stderr and its manifest row.
+--                            The daemon writes it with direct INSERTs under the
+--                            executor's table grant (no RPC); the database
+--                            limits one row (line <= 1 MiB), not the rows per
+--                            attempt (the daemon's own buffer caps those); there
+--                            is no retention: nothing deletes or sweeps log rows.
 --   delphi_foundation_install the catalog baseline this apply recorded, read
 --                            by the down script.
 -- Plus, on 000019's tables: contract_version on polis_queue_install (reads
@@ -42,14 +53,42 @@
 --   docker exec -i polis-dev-postgres-1 psql -v ON_ERROR_STOP=1 -U postgres -d polis-dev \
 --     < server/postgres/migrations/000023_create_delphi_foundation.sql
 --
--- Applying it to production is a separate, explicit step by the owner.
+-- Applying it to production is a separate, explicit step by the owner, through
+-- the checked wrapper, which runs the preflight below and sends the budgets:
 --
--- APPLIER REQUIREMENTS
--- --------------------
+--   server/postgres/bin/apply-migration.sh --free-bytes <bytes free on the db host> 000023 -- \
+--     docker exec -i polis-dev-postgres-1 psql -U postgres -d polis-dev
+--
+-- WHAT IT LOCKS
+-- -------------
+-- The foreign keys from delphi_jobs and delphi_current to public.conversations
+-- take ShareRowExclusiveLock on conversations, held from that statement until
+-- COMMIT. While it is held, every INSERT, UPDATE and DELETE on conversations
+-- waits (plain SELECT continues), and the apply itself waits, up to its
+-- lock_timeout, behind any open transaction that already wrote a conversations
+-- row; lock_timeout then aborts it with nothing applied. The changed /1 tables
+-- and the new objects are AccessExclusive for the same span. "Additive and
+-- empty" is therefore not "cannot block users": apply in an idle or controlled
+-- writer window (producers paused, no open writer on conversations), the
+-- window the wrapper's preflight checks. 000019 holds the same parent lock for
+-- the same reason. Witnessed by down/test_000023_down.sh check (i).
+--
+-- APPLIER REQUIREMENTS AND BUDGETS
+-- --------------------------------
 -- The applying login must be able to SET ROLE polis_queue_owner (the roles and
 -- grants come from 000019; this file creates no role and stores no password).
--- It runs in one transaction with lock_timeout 5s and refuses, changing
--- nothing, when: 000019 is absent; the installed /1 catalog differs from what
+-- The wrapper refuses before sending the file unless: the file matches its
+-- seal; the server is PostgreSQL 17; the login can SET ROLE polis_queue_owner;
+-- 000019 is installed; every polis_queue_* and delphi_* data table is empty (a
+-- first install); no other transaction on the database is older than
+-- --max-xact-age (30 s), which the login must be able to see; and the free
+-- disk the operator measured (--free-bytes) is at or above the floor (5 GiB).
+-- It then sends the budgets lock_timeout 5s, statement_timeout 60s,
+-- transaction_timeout 120s and idle_in_transaction_session_timeout 30s
+-- (defaults, each printed and overridable). This file pins lock_timeout to 5s
+-- inside its transaction itself. A budget that fires aborts the transaction.
+-- The file refuses, changing nothing, when: 000019 is absent; the installed /1
+-- catalog differs from what
 -- 000019 recorded ("queue catalog drift", which is also what a second apply
 -- says, since the tables are then already in /2 shape); or any public.delphi_*
 -- table or pd_* function already exists ("foundation object collision").
