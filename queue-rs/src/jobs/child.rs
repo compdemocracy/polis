@@ -619,6 +619,31 @@ mod tests {
         assert_eq!(frame["inputs"]["math_env"], "python-large");
     }
 
+    /// The frame a rebuild's child receives is pinned to the golden the math
+    /// poller's tests drive their child with
+    /// (`delphi/tests/poller/fixtures/queue/math_rebuild_frame.json`): one
+    /// file, both sides of the boundary.
+    #[test]
+    fn the_rebuild_frame_matches_the_pollers_golden() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../delphi/tests/poller/fixtures/queue/math_rebuild_frame.json");
+        let golden: Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap_or_default())
+                .unwrap_or_default();
+        let c = Claim {
+            env: "test".into(),
+            job_id: "00000000-0000-4000-8000-000000000001".into(),
+            run_id: "00000000-0000-4000-8000-000000000002".into(),
+            attempt_id: "00000000-0000-4000-8000-000000000003".into(),
+            owner_id: "o".into(),
+            lease_epoch: "1".into(),
+            stage: "math_rebuild".into(),
+        };
+        let adm = rebuild(math_config(), "python-large");
+        let written = frame(&c, &adm, "run", None).unwrap_or_default();
+        assert_eq!(written, golden, "{}", path.display());
+    }
+
     #[test]
     fn a_rebuild_without_the_typed_math_config_makes_no_frame() {
         let c = claim("math_rebuild");

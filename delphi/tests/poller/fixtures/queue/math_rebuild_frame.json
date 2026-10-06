@@ -1,0 +1,27 @@
+{
+  "schema": "polis-jobs.frame/1",
+  "env": "test",
+  "zid": 22154,
+  "report_id": null,
+  "job_id": "00000000-0000-4000-8000-000000000001",
+  "run_id": "00000000-0000-4000-8000-000000000002",
+  "attempt_id": "00000000-0000-4000-8000-000000000003",
+  "lease_epoch": "1",
+  "stage": "math_rebuild",
+  "phase": "run",
+  "config": {
+    "staged_label": "python-large",
+    "target_label": "python",
+    "need_bytes": 850000000,
+    "input_through_ms": 1790000000000,
+    "binding": "0000000000000000",
+    "source_commit": "0123456789abcdef0123456789abcdef01234567"
+  },
+  "inputs": {
+    "math_env": "python-large",
+    "requested_math_tick": null
+  },
+  "provider": {
+    "batch_id": null
+  }
+}

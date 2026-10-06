@@ -58,15 +58,26 @@ backfill's calibration binding do not move): ``MATH_CAPACITY_ROUTING`` (0),
 records live in memory only). A bad value turns routing off and is logged;
 it never stops the small poller.
 
-The large memory class (P-073 PR3; ``polismath.poller.large_class`` and
-``polismath.poller.promotion``): ``MATH_CAPACITY_CLASS`` (``small``; ``large``
-runs the large-class worker), ``MATH_CAPACITY_MANIFEST_URI`` (unset: no
-hand-off; ``polismath.poller.capacity_manifest``), ``MATH_CAPACITY_PROMOTE``
-(0; 1 needs routing on), ``MATH_CAPACITY_STAGED_LABEL`` (``python-large``),
-``MATH_CAPACITY_PROMOTE_INTO`` (the large worker's target label, required in
-large mode), ``MATH_CAPACITY_RESTAGE`` (a 16-64 hex nonce; unset). For the
-large class a bad value refuses to start (``scripts/math_poller.py``): an
-unconfigured large worker must never run as an ordinary poller.
+The large memory class (P-073 r2; ``polismath.poller.capacity_queue``,
+``polismath.poller.promotion`` and ``polismath.poller.rebuild_child``): a
+``large`` conversation becomes one ``math_rebuild`` job of worker class
+``large`` on the Postgres job queue, inserted by the small poller through the
+queue's SQL contract over ``MATH_CAPACITY_QUEUE_DSN`` (an executor-member
+login; unset: routed conversations are not enqueued) in the namespace
+``MATH_CAPACITY_QUEUE_ENV``; the large box's jobs daemon runs
+``scripts/math_poller.py --job`` for it, which stages the bundle under
+``MATH_CAPACITY_STAGED_LABEL`` (``python-large``), and the small poller
+promotes it (``MATH_CAPACITY_PROMOTE``, 1 needs routing on;
+``MATH_CAPACITY_PROMOTE_INTO`` names the target label on the child's side;
+``MATH_CAPACITY_RESTAGE`` is a 16-64 hex nonce; unset). With a queue DSN,
+``large_demand`` and the new ``large_leased`` on the line are the queue's
+counts of class ``large`` (``pq_class_depth``: ``queued`` and ``leased``);
+without one ``large_demand`` is the records' count as before and
+``large_leased`` is null. ``large_poisoned`` counts the routed records the
+queue refused as poisoned (their last jobs died under this source commit),
+parked here until a new deploy or a ruling.
+``MATH_CAPACITY_CLASS`` is ``small``; ``large`` is refused at start (the
+large class runs only as a queue child).
 """
 
 from __future__ import annotations
@@ -99,17 +110,18 @@ CLASSES = (CLASS_SMALL, CLASS_LARGE)
 
 # The capacity line's keys, closed (tests pin them), and the counts it shares
 # with the readiness line's ``capacity`` object. ``promoted_total`` was added
-# with the promotion loop (P-073 PR3).
-COUNT_KEYS = ("routing", "large_demand", "pending_promotion", "exceeds_largest", "fits_small",
-              "oldest_unresolved_age_ms", "refusals_total", "routed_total", "promoted_total")
+# with the promotion loop (P-073 PR3), ``large_leased`` and ``large_poisoned``
+# with the queue (r2).
+COUNT_KEYS = ("routing", "large_demand", "large_leased", "large_poisoned", "pending_promotion",
+              "exceeds_largest", "fits_small", "oldest_unresolved_age_ms", "refusals_total",
+              "routed_total", "promoted_total")
+# Nullable on a primary: ``oldest_unresolved_age_ms`` with nothing unresolved,
+# ``large_leased`` with no queue read (no DSN, or the read failed this tick).
+NULLABLE_COUNT_KEYS = frozenset(("oldest_unresolved_age_ms", "large_leased"))
 LINE_KEYS = ("schema", "class", "role", "label") + COUNT_KEYS
-# The large worker's line (``class=large``): its own closed counts. ``busy``:
-# manifest conversations with work queued, running or not yet staged (the
-# scale-in input); ``queued``: those whose staged bundle is behind their
-# input; ``skew``: 1 while the version-skew guard holds it idle;
-# ``allowlisted``: manifest conversations it may compute; ``unfit``: manifest
-# conversations above its own compute capacity; ``refusal``: why it computes
-# nothing (closed label) or null.
+# The former large worker's line (``class=large``, P-073 PR3): its closed
+# counts, kept so recorded lines still parse. Nothing emits it since r2: the
+# large class runs as a queue child, which prints no capacity line.
 LARGE_COUNT_KEYS = ("busy", "queued", "skew", "allowlisted", "unfit", "refusal")
 LARGE_LINE_KEYS = ("schema", "class", "role", "label") + LARGE_COUNT_KEYS
 REFUSALS = ("manifest_missing", "manifest_unreadable", "label", "skew", "budget")
@@ -121,7 +133,8 @@ LARGE_BUDGET_ENV = "MATH_CAPACITY_LARGE_BUDGET_MB"
 RESIZE_ENV = "MATH_CAPACITY_RESIZE_S"
 STATE_PATH_ENV = "MATH_CAPACITY_STATE_PATH"
 CLASS_ENV = "MATH_CAPACITY_CLASS"
-MANIFEST_URI_ENV = "MATH_CAPACITY_MANIFEST_URI"
+QUEUE_DSN_ENV = "MATH_CAPACITY_QUEUE_DSN"
+QUEUE_ENV_ENV = "MATH_CAPACITY_QUEUE_ENV"
 PROMOTE_ENV = "MATH_CAPACITY_PROMOTE"
 STAGED_LABEL_ENV = "MATH_CAPACITY_STAGED_LABEL"
 PROMOTE_INTO_ENV = "MATH_CAPACITY_PROMOTE_INTO"
@@ -130,6 +143,7 @@ DEFAULT_STAGED_LABEL = "python-large"
 
 _LABEL = re.compile(r"[A-Za-z0-9_.-]{1,64}")
 _NONCE = re.compile(r"[0-9a-f]{16,64}")
+_QUEUE_ENV = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
 
 MB = 1024 * 1024
 MAX_RECORDS = 1000
@@ -171,9 +185,10 @@ class CapacitySettings:
     large_budget_mb: Optional[float] = None
     resize_s: float = 3600.0
     state_path: Optional[str] = None
-    # P-073 PR3: the large memory class.
+    # P-073 PR3/r2: the large memory class.
     capacity_class: str = CLASS_SMALL
-    manifest_uri: Optional[str] = None
+    queue_dsn: Optional[str] = None
+    queue_env: Optional[str] = None
     promote: bool = False
     staged_label: str = DEFAULT_STAGED_LABEL
     promote_into: Optional[str] = None
@@ -200,6 +215,9 @@ class CapacitySettings:
             raise CapacityConfigError(f"{PROMOTE_INTO_ENV} must be 1-64 of [A-Za-z0-9_.-]")
         if self.restage is not None and not _NONCE.fullmatch(self.restage):
             raise CapacityConfigError(f"{RESTAGE_ENV} must be 16-64 lowercase hex characters")
+        if self.queue_dsn is not None and not _QUEUE_ENV.fullmatch(self.queue_env or ""):
+            raise CapacityConfigError(f"{QUEUE_ENV_ENV} must be set with {QUEUE_DSN_ENV}: 1-64 of "
+                                      "[a-z0-9-], starting with a letter or digit")
 
     @property
     def large(self) -> bool:
@@ -228,7 +246,8 @@ class CapacitySettings:
             resize_s=_number(env, RESIZE_ENV, 3600.0, 0.0, 30 * 86400.0),
             state_path=(env.get(STATE_PATH_ENV) or "").strip() or None,
             capacity_class=(env.get(CLASS_ENV) or "").strip() or CLASS_SMALL,
-            manifest_uri=(env.get(MANIFEST_URI_ENV) or "").strip() or None,
+            queue_dsn=(env.get(QUEUE_DSN_ENV) or "").strip() or None,
+            queue_env=(env.get(QUEUE_ENV_ENV) or "").strip() or None,
             promote=promote == "1",
             staged_label=(env.get(STAGED_LABEL_ENV) or "").strip() or DEFAULT_STAGED_LABEL,
             promote_into=(env.get(PROMOTE_INTO_ENV) or "").strip() or None,
@@ -263,6 +282,13 @@ class Disposition:
     # Wall clock when its input first became unresolved; None when caught up.
     first_unresolved_ms: Optional[int] = None
     refusals: int = 0
+    # The active math_rebuild job for a ``large`` record (P-073 r2), or None.
+    job_id: Optional[str] = None
+    # Set when the queue refused the record as poisoned (its last jobs died
+    # under this source commit): the commit it happened under, so a new
+    # deploy asks again and the same one does not. ``job_id`` then names the
+    # latest dead job.
+    poisoned_commit: Optional[str] = None
 
     @classmethod
     def from_dict(cls, raw: Any) -> "Disposition":
@@ -278,6 +304,10 @@ class Disposition:
                 raise ValueError(f"bad capacity record field {k}")
         if not isinstance(raw.get("binding", ""), str):
             raise ValueError("bad capacity record field binding")
+        if raw.get("job_id") is not None and not isinstance(raw["job_id"], str):
+            raise ValueError("bad capacity record field job_id")
+        if raw.get("poisoned_commit") is not None and not isinstance(raw["poisoned_commit"], str):
+            raise ValueError("bad capacity record field poisoned_commit")
         if "zid" not in raw or "need_bytes" not in raw or raw.get("disposition") not in DISPOSITIONS:
             raise ValueError("bad capacity record")
         return cls(**{k: raw[k] for k in cls.__dataclass_fields__ if k in raw})
@@ -307,6 +337,9 @@ class CapacityRouter:
         self._waiting: set = set()
         # The restage nonce last applied (persisted with the records).
         self.restage_applied: Optional[str] = None
+        # The queue's counts of class large (P-073 r2), set by the service
+        # once per readiness tick from pq_class_depth; None without a queue.
+        self._queue_depth: Optional[Dict[str, Any]] = None
         self._load()
 
     @property
@@ -461,7 +494,7 @@ class CapacityRouter:
     # -- the large class hand-off (P-073 PR3) -------------------------------- #
     def routed_records(self) -> List[Disposition]:
         """Copies of the routed records (``large`` and ``exceeds_largest``),
-        by zid: what the manifest carries."""
+        by zid."""
         with self._lock:
             return [Disposition(**asdict(r)) for r in sorted(self._records.values(),
                                                              key=lambda r: r.zid)
@@ -477,8 +510,9 @@ class CapacityRouter:
                           if r.disposition in ROUTED and r.binding != binding)
 
     def restore(self, rows: List[Dict[str, Any]], *, binding: str, sized_ms: int) -> int:
-        """Routed records read back from the manifest, for zids this process
-        has no record of (a lost or unset state file). Returns how many."""
+        """Routed records given back (rows of zid, need_bytes, exceeds_largest
+        and the optional sizes and marks), for zids this process has no
+        record of. Returns how many."""
         added = 0
         with self._lock:
             for row in rows:
@@ -501,9 +535,12 @@ class CapacityRouter:
         """The operator's restage nonce (``MATH_CAPACITY_RESTAGE``), once per
         value: every ``large`` record gets an input mark of ``mark_ms`` (the
         database clock, which stamps the staged bundle's write time; this
-        process's clock when not given), so the large worker rebuilds it and
-        the small poller promotes the result. Returns how many records were
-        marked (0 when this nonce was already applied)."""
+        process's clock when not given), so the promotion pass enqueues a
+        fresh rebuild and promotes the result. A record parked as poisoned is
+        un-parked by it (the nonce is the operator's ruling: the queue is
+        asked again, and answers ``poisoned`` again unless the code image
+        changed). Returns how many records were marked (0 when this nonce
+        was already applied)."""
         now = self._clock()
         mark = now if mark_ms is None else int(mark_ms)
         with self._lock:
@@ -516,6 +553,7 @@ class CapacityRouter:
                 rec.input_through_ms = max(rec.input_through_ms or 0, mark)
                 if rec.first_unresolved_ms is None:
                     rec.first_unresolved_ms = now
+                rec.poisoned_commit = None
                 self._waiting.discard(rec.zid)
                 marked += 1
             self.restage_applied = nonce
@@ -549,6 +587,49 @@ class CapacityRouter:
         with self._lock:
             self.promoted_total += 1
 
+    # -- the queue (P-073 r2) -------------------------------------------------- #
+    def record(self, zid: int) -> Optional[Disposition]:
+        """A copy of one record, or None."""
+        with self._lock:
+            rec = self._records.get(zid)
+            return None if rec is None else Disposition(**asdict(rec))
+
+    def set_job(self, zid: int, job_id: Optional[str]) -> None:
+        """The math_rebuild job admitted for a routed conversation (a job
+        admitted means the record is not poisoned)."""
+        with self._lock:
+            rec = self._records.get(zid)
+            if rec is not None and (rec.job_id != job_id or rec.poisoned_commit is not None):
+                rec.job_id = job_id
+                rec.poisoned_commit = None
+                self._save_locked()
+
+    def park_poisoned(self, zid: int, job_id: Optional[str], source_commit: Optional[str]) -> None:
+        """The queue refused the record as poisoned under ``source_commit``:
+        parked with the reason; ``job_id`` is the latest dead job."""
+        with self._lock:
+            rec = self._records.get(zid)
+            if rec is None:
+                return
+            rec.job_id = job_id
+            rec.poisoned_commit = source_commit or "unknown"
+            self._save_locked()
+
+    def poisoned(self, zid: int, source_commit: Optional[str]) -> bool:
+        """Parked as poisoned under this very source commit (a new deploy
+        asks the queue again)."""
+        with self._lock:
+            rec = self._records.get(zid)
+            return (rec is not None and rec.poisoned_commit is not None
+                    and rec.poisoned_commit == (source_commit or "unknown"))
+
+    def set_queue_depth(self, depth: Optional[Dict[str, Any]]) -> None:
+        """The queue's counts of class large for this tick (000024's
+        ``queued`` and ``leased``), or None when there is no queue or the read
+        failed."""
+        with self._lock:
+            self._queue_depth = None if depth is None else dict(depth)
+
 
     # -- the demand ---------------------------------------------------------- #
     def counts(self) -> Dict[str, Any]:
@@ -559,6 +640,7 @@ class CapacityRouter:
             waiting = set(self._waiting)
             refusals, routed = self.refusals_total, self.routed_total
             promoted = self.promoted_total
+            depth = self._queue_depth
         unresolved = [r for r in recs
                       if r.disposition == LARGE and r.first_unresolved_ms is not None]
         # Demand: unresolved and no staged bundle already waiting for
@@ -566,9 +648,17 @@ class CapacityRouter:
         demand = [r for r in unresolved if r.zid not in waiting]
         oldest = min((r.first_unresolved_ms for r in unresolved
                       if r.first_unresolved_ms is not None), default=None)
+        # With a queue, demand and leased are the queue's counts of class
+        # large (000024: queued = queued + retry_wait, leased = running);
+        # without one, demand is the records' count as before and leased is
+        # unknown (null, never 0). Poisoned records are parked here, so they
+        # are neither demand nor pending promotion.
         return {
             "routing": int(self.settings.routing),
-            "large_demand": len(demand),
+            "large_demand": len(demand) if depth is None else int(depth["queued"]),
+            "large_leased": None if depth is None else int(depth["leased"]),
+            "large_poisoned": sum(1 for r in recs
+                                  if r.disposition == LARGE and r.poisoned_commit is not None),
             "pending_promotion": sum(1 for r in unresolved if r.zid in waiting),
             "exceeds_largest": sum(1 for r in recs if r.disposition == EXCEEDS_LARGEST),
             "fits_small": sum(1 for r in recs if r.disposition == SMALL),
@@ -698,7 +788,7 @@ def validate_counts(counts: Any, *, nullable: bool = False) -> None:
     if not isinstance(counts, dict) or set(counts) != set(COUNT_KEYS):
         raise ValueError(f"expected keys {sorted(COUNT_KEYS)}")
     for k in COUNT_KEYS:
-        _count(counts[k], nullable or k == "oldest_unresolved_age_ms")
+        _count(counts[k], nullable or k in NULLABLE_COUNT_KEYS)
     if counts["routing"] not in (None, 0, 1):
         raise ValueError("routing must be 0 or 1")
 
@@ -743,6 +833,7 @@ def parse_line(line: str) -> Optional[Dict[str, Any]]:
 __all__ = [
     "CLASS_LARGE", "CLASS_SMALL", "COUNT_KEYS", "CapacityConfigError", "CapacityRouter",
     "CapacitySettings", "DISPOSITIONS", "Disposition", "EXCEEDS_LARGEST", "LARGE",
-    "LARGE_COUNT_KEYS", "LARGE_LINE_KEYS", "LINE_KEYS", "LINE_SCHEMA", "REFUSALS", "SMALL",
-    "build_line", "emit_line", "parse_line", "validate_counts", "validate_large_counts",
+    "LARGE_COUNT_KEYS", "LARGE_LINE_KEYS", "LINE_KEYS", "LINE_SCHEMA", "NULLABLE_COUNT_KEYS",
+    "REFUSALS", "SMALL", "build_line", "emit_line", "parse_line", "validate_counts",
+    "validate_large_counts",
 ]

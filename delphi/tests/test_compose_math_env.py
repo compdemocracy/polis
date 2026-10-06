@@ -530,65 +530,24 @@ def test_compose_leaves_the_tracer_off_unless_enabled():
     assert on["DD_TRACE_ENABLED"] == "true"
 
 
-# --- The large memory class (P-073): math-python-large and the forwarding ----
+# --- The large memory class (P-073, r2): the forwarding on math-python ---------
 # Compose forwards only what a service lists, so a MATH_CAPACITY_* setting the
 # code reads but the service does not list is invisible in production. Every
-# key is checked against the names the code itself declares.
+# key is checked against the names the code itself declares. There is no large
+# poller service: the large class runs as queue jobs (a child under the
+# polis-jobs daemon on the large box), never as a resident poller.
 
-LARGE = "math-python-large"
 LARGE_LABEL = "python-large"
-# Read only by the large worker (its promotion target); the small poller
-# promotes into its own label.
-LARGE_ONLY_CAPACITY_KEYS = {"MATH_CAPACITY_PROMOTE_INTO"}
-# Read only with routing on, which only the small poller does; the large
-# worker's routing is pinned off, so it does not list them.
-ROUTING_ONLY_CAPACITY_KEYS = {"MATH_CAPACITY_ROUTE_FRACTION", "MATH_CAPACITY_KEEP_FRACTION",
-                              "MATH_CAPACITY_RESIZE_S"}
-# What the large worker must never take from a shared env document: pinned in
-# its service block, whatever the document says.
-LARGE_PINNED = {
-    "MATH_CAPACITY_CLASS": "large",
-    "MATH_CAPACITY_ROUTING": "0",
-    "MATH_CAPACITY_PROMOTE": "0",
-    "MATH_CAPACITY_RESTAGE": "",
-    "MATH_CAPACITY_STATE_PATH": "",
-    "MATH_BACKFILL": "0",
-    "MATH_POLLER_ALLOW_SERVED_ENV": "",
-    "POLL_SHARD_INDEX": "0",
-    "POLL_SHARD_COUNT": "1",
+CAPACITY_KEYS = {
+    "MATH_CAPACITY_ROUTING", "MATH_CAPACITY_ROUTE_FRACTION", "MATH_CAPACITY_KEEP_FRACTION",
+    "MATH_CAPACITY_RESIZE_S", "MATH_CAPACITY_STATE_PATH", "MATH_CAPACITY_LARGE_BUDGET_MB",
+    "MATH_CAPACITY_PROMOTE", "MATH_CAPACITY_RESTAGE", "MATH_CAPACITY_QUEUE_DSN",
+    "MATH_CAPACITY_QUEUE_ENV",
 }
-# Read from their own variables on the large worker (its own label, pool and
-# cache), so the small poller's values never size the large class.
-LARGE_OWN = {
-    "MATH_ENV": "python-large",
-    "MATH_CAPACITY_STAGED_LABEL": "python-large",
-    "MATH_CAPACITY_PROMOTE_INTO": "${MATH_PYTHON_ENV:-python}",
-    "MATH_WORKER_POOL_SIZE": "${MATH_LARGE_WORKER_POOL_SIZE:-2}",
-    "MATH_CONV_CACHE_CAP": "${MATH_LARGE_CONV_CACHE_CAP:-10}",
-    "MATH_CONV_CACHE_MB": "${MATH_LARGE_CONV_CACHE_MB:-}",
-}
-# A shared env document as production could hold it for the small poller:
-# none of it may reach, or stop, the large worker.
-SHARED_DOCUMENT = {
-    "MATH_ENV": "python",
-    "MATH_PYTHON_ENV": "python",
-    "MATH_CAPACITY_CLASS": "small",
-    "MATH_CAPACITY_ROUTING": "1",
-    "MATH_CAPACITY_PROMOTE": "1",
-    "MATH_CAPACITY_RESTAGE": "0123456789abcdef",
-    "MATH_CAPACITY_STATE_PATH": "/app/backfill-state/capacity.json",
-    "MATH_CAPACITY_MANIFEST_URI": "s3://generated-bucket/math-capacity/python/manifest.json",
-    "MATH_BACKFILL": "1",
-    "MATH_POLLER_ALLOW_SERVED_ENV": "1",
-    "POLL_SHARD_INDEX": "1",
-    "POLL_SHARD_COUNT": "2",
-    "MATH_WORKER_POOL_SIZE": "4",
-    "MATH_CONV_CACHE_CAP": "200",
-}
-AWS_CLIENT_KEYS = ("AWS_REGION", "AWS_S3_ENDPOINT")
-# Never forwarded to a poller: the env document carries an IAM user's keys for
-# the delphi service, and the manifest client must sign as the instance role.
-AWS_KEY_PAIR = ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY")
+# Read only by the queue child (its own side of the hand-off), never a
+# small-poller setting.
+CHILD_ONLY_CAPACITY_KEYS = {"MATH_CAPACITY_PROMOTE_INTO"}
+AWS_KEYS = ("AWS_REGION", "AWS_S3_ENDPOINT", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY")
 
 
 def _capacity_keys_read() -> set:
@@ -597,7 +556,8 @@ def _capacity_keys_read() -> set:
 
     keys = {value for name, value in vars(capacity).items()
             if name.endswith("_ENV") and isinstance(value, str) and value.startswith("MATH_CAPACITY_")}
-    assert {"MATH_CAPACITY_ROUTING", "MATH_CAPACITY_MANIFEST_URI"} <= keys, "found no settings"
+    assert {"MATH_CAPACITY_ROUTING", "MATH_CAPACITY_QUEUE_DSN"} <= keys, "found no settings"
+    assert "MATH_CAPACITY_MANIFEST_URI" not in keys, "the manifest is gone (P-073 r2)"
     return keys
 
 
@@ -613,22 +573,13 @@ def _service(service: str) -> dict:
 @requires_checkout
 def test_math_python_forwards_every_capacity_setting():
     env = _environment("docker-compose.yml", "math-python")
-    missing = _capacity_keys_read() - LARGE_ONLY_CAPACITY_KEYS - set(env)
+    missing = _capacity_keys_read() - CHILD_ONLY_CAPACITY_KEYS - set(env)
     assert not missing, f"math-python does not forward {sorted(missing)}"
+    assert CAPACITY_KEYS <= _capacity_keys_read()
 
 
 @requires_checkout
-def test_the_large_worker_receives_every_capacity_setting():
-    env = _environment("docker-compose.yml", LARGE)
-    missing = _capacity_keys_read() - ROUTING_ONLY_CAPACITY_KEYS - set(env)
-    assert not missing, f"{LARGE} does not forward {sorted(missing)}"
-
-
-@requires_checkout
-@pytest.mark.parametrize("key", sorted(
-    {"MATH_CAPACITY_ROUTING", "MATH_CAPACITY_ROUTE_FRACTION", "MATH_CAPACITY_KEEP_FRACTION",
-     "MATH_CAPACITY_RESIZE_S", "MATH_CAPACITY_STATE_PATH", "MATH_CAPACITY_LARGE_BUDGET_MB",
-     "MATH_CAPACITY_MANIFEST_URI", "MATH_CAPACITY_PROMOTE", "MATH_CAPACITY_RESTAGE"}))
+@pytest.mark.parametrize("key", sorted(CAPACITY_KEYS))
 def test_math_python_passes_each_capacity_value_through(key):
     probe = f"probe-{key.lower()}"
     assert _environment("docker-compose.yml", "math-python", {key: probe})[key] == probe
@@ -642,139 +593,47 @@ def test_math_python_capacity_defaults_are_off_and_equal_the_code_defaults():
     settings = CapacitySettings.from_env(env)
     assert settings == CapacitySettings()
     assert not settings.routing and not settings.promote and not settings.large
-    assert settings.manifest_uri is None and settings.state_path is None
+    assert settings.queue_dsn is None and settings.queue_env is None
+    assert settings.state_path is None
     assert settings.staged_label == LARGE_LABEL
 
 
 @requires_checkout
 def test_math_python_is_always_the_small_class():
     # A shared env document that names the large class must not turn the
-    # small poller (the `python` writer) into the large worker.
+    # small poller (the `python` writer) into a large worker; the CLI refuses
+    # MATH_CAPACITY_CLASS=large outright (the large class is a queue child).
     env = _environment("docker-compose.yml", "math-python", {"MATH_CAPACITY_CLASS": "large"})
     assert env["MATH_CAPACITY_CLASS"] == "small"
 
 
 @requires_checkout
-def test_the_large_worker_refuses_to_start_until_a_manifest_is_set():
-    from polismath.poller.capacity import CapacitySettings
-    from polismath.poller.large_class import LargeStartupError, check_large_startup
-
-    env = _environment("docker-compose.yml", LARGE, {})
-    settings = CapacitySettings.from_env(env)
-    assert settings.large and settings.manifest_uri is None
-    with pytest.raises(LargeStartupError, match="MANIFEST_URI"):
-        check_large_startup(settings, env["MATH_ENV"], served_env="prod", env=env,
-                            shard_count=int(env["POLL_SHARD_COUNT"]))
-
-
-@requires_checkout
-@pytest.mark.parametrize("document", [
-    {"MATH_CAPACITY_MANIFEST_URI": "s3://generated-bucket/m.json"},
-    SHARED_DOCUMENT,
-], ids=["manifest-only", "shared-small-document"])
-def test_the_large_worker_starts_under_a_shared_env_document(document):
-    # The production env document is shared by every box; with the small
-    # poller's settings in it (routing, promotion, a nonce, backfill, shards,
-    # the served-label override) the large worker must still pass its own
-    # startup refusals rather than exit 2.
-    from polismath.poller.capacity import CapacitySettings
-    from polismath.poller.large_class import check_large_startup
-
-    env = _environment("docker-compose.yml", LARGE, document)
-    settings = CapacitySettings.from_env(env)
-    check_large_startup(settings, env["MATH_ENV"], served_env="prod", env=env,
-                        shard_count=int(env["POLL_SHARD_COUNT"]))
-    assert settings.large and not settings.routing and not settings.promote
-    assert settings.restage is None and settings.state_path is None
-    assert env["MATH_BACKFILL"] == "0"
-    assert (env["MATH_WORKER_POOL_SIZE"], env["MATH_CONV_CACHE_CAP"]) == ("2", "10")
-
-
-@requires_checkout
-@pytest.mark.parametrize("env", [
-    {}, {"MATH_ENV": "python"}, {"MATH_PYTHON_ENV": PROBE},
-    {"MATH_PYTHON_LARGE_ENV": "python", "MATH_PYTHON_ENV": "python-relabel"}, SHARED_DOCUMENT,
-], ids=["unset", "served-python", "small-label", "large-label-is-not-a-knob", "shared-document"])
-def test_the_two_pollers_never_share_a_label_and_agree_on_the_hand_off(env):
+@pytest.mark.parametrize("env", [{}, {"MATH_ENV": "python"}, {"MATH_PYTHON_ENV": PROBE},
+                                 {"MATH_CAPACITY_STAGED_LABEL": "python"}],
+                         ids=["unset", "served-python", "small-label", "label-is-not-a-knob"])
+def test_the_staged_label_is_the_literal_and_never_the_small_one(env):
     small = _environment("docker-compose.yml", "math-python", env)
-    large = _environment("docker-compose.yml", LARGE, env)
-    # A literal label, whatever the env document says; different labels,
-    # hence different single-writer locks.
-    assert large["MATH_ENV"] == LARGE_LABEL
-    assert large["MATH_ENV"] != small["MATH_ENV"]
-    assert large["MATH_ENV"] not in ("prod", "")
-    # The small poller promotes from the label the large worker writes, and
-    # the large worker's target is the small poller's label.
-    assert small["MATH_CAPACITY_STAGED_LABEL"] == large["MATH_ENV"] == large["MATH_CAPACITY_STAGED_LABEL"]
-    assert large["MATH_CAPACITY_PROMOTE_INTO"] == small["MATH_ENV"]
-    # Both read one manifest.
-    assert large["MATH_CAPACITY_MANIFEST_URI"] == small["MATH_CAPACITY_MANIFEST_URI"]
+    assert small["MATH_CAPACITY_STAGED_LABEL"] == LARGE_LABEL
+    assert small["MATH_CAPACITY_STAGED_LABEL"] != small["MATH_ENV"]
+    assert small["MATH_ENV"] not in ("prod", "")
 
 
 @requires_checkout
-def test_the_large_worker_shares_every_other_setting_with_math_python():
-    # Written out rather than `extends` (which would merge the profiles); this
-    # pins the two lists against drift. The backfill and routing settings are
-    # absent from the large worker (both are pinned off and refused).
-    small, large = _raw_environment("math-python"), _raw_environment(LARGE)
-    for key, value in LARGE_PINNED.items():
-        assert large.get(key) == value, f"{LARGE} must pin {key}={value}"
-    for key, value in LARGE_OWN.items():
-        assert large.get(key) == value, f"{LARGE} must read {key} as {value}"
-    shared = set(small) - set(LARGE_PINNED) - set(LARGE_OWN) - ROUTING_ONLY_CAPACITY_KEYS - {
-        k for k in small if k.startswith("MATH_BACKFILL_")}
-    assert set(large) == shared | set(LARGE_PINNED) | set(LARGE_OWN)
-    differing = {k for k in shared if small[k] != large[k]}
-    assert not differing, f"{LARGE} reads {sorted(differing)} differently from math-python"
-
-
-@requires_checkout
-@pytest.mark.parametrize("service", ["math-python", LARGE])
-def test_the_manifest_client_settings_are_forwarded(service):
-    env = _environment("docker-compose.yml", service, {})
-    assert {k: env.get(k) for k in AWS_CLIENT_KEYS} == {"AWS_REGION": "us-east-1",
-                                                         "AWS_S3_ENDPOINT": ""}
-    probe = {k: f"probe-{k.lower()}" for k in AWS_CLIENT_KEYS + AWS_KEY_PAIR}
-    forwarded = _environment("docker-compose.yml", service, probe)
-    assert {k: forwarded.get(k) for k in AWS_CLIENT_KEYS} == {k: probe[k] for k in AWS_CLIENT_KEYS}
-    # The env document's key pair never reaches a poller: the manifest
-    # client signs as the instance role.
-    assert not set(AWS_KEY_PAIR) & set(forwarded)
-
-
-@requires_checkout
-def test_the_large_worker_is_profile_gated_on_its_own_profile():
-    # `make start`, the dev overlay and `--profile math-python` never run it.
-    assert _service(LARGE).get("profiles") == [LARGE]
-    assert _service("math-python").get("profiles") == ["math-python"]
-    assert "extends" not in _service(LARGE)
-
-
-@requires_checkout
-def test_the_large_worker_runs_the_poller_image_and_entrypoint():
-    small, large = _service("math-python"), _service(LARGE)
-    for key in ("image", "build", "command", "networks", "extra_hosts", "restart"):
-        assert large[key] == small[key], key
-
-
-@requires_checkout
-def test_the_large_memory_limit_has_its_own_knob():
-    raw = _service(LARGE)["deploy"]["resources"]["limits"]["memory"]
-    assert raw == "${MATH_LARGE_CONTAINER_MEMORY:-52g}"
-    assert _interpolate(raw, {}) == "52g"
-    assert _interpolate(raw, {"MATH_LARGE_CONTAINER_MEMORY": "4g"}) == "4g"
-    # The small poller's knob moves only the small poller.
-    assert _interpolate(raw, {"DELPHI_POLLER_CONTAINER_MEMORY": "6g"}) == "52g"
-    small = _math_python_memory()
-    assert _interpolate(small, {"MATH_LARGE_CONTAINER_MEMORY": "4g"}) == "16g"
-
-
-@requires_checkout
-def test_the_large_worker_keeps_its_own_state_volume():
+def test_there_is_no_large_poller_service_and_no_manifest():
     document = yaml.safe_load((CHECKOUT / "docker-compose.yml").read_text())
-    assert _service(LARGE)["volumes"] == ["math-large-state:/app/backfill-state"]
-    assert "math-large-state" in document["volumes"]
-    assert "math-large-state" not in str(_service("math-python")["volumes"])
+    assert "math-python-large" not in document["services"]
+    assert "math-large-state" not in (document.get("volumes") or {})
+    text = (CHECKOUT / "docker-compose.yml").read_text()
+    assert "MATH_CAPACITY_MANIFEST_URI" not in text
+    # The queue is reached over its own DSN; the broad DATABASE_URL login is
+    # never the queue login, and the small poller receives no AWS client
+    # settings (the manifest store that needed them is gone).
+    raw = _raw_environment("math-python")
+    assert raw["MATH_CAPACITY_QUEUE_DSN"] == "${MATH_CAPACITY_QUEUE_DSN:-}"
+    assert raw["MATH_CAPACITY_QUEUE_ENV"] == "${MATH_CAPACITY_QUEUE_ENV:-}"
+    forwarded = _environment("docker-compose.yml", "math-python",
+                             {k: f"probe-{k.lower()}" for k in AWS_KEYS})
+    assert not set(AWS_KEYS) & set(forwarded)
 
 
 # --- The large box's deploy hooks (service type `delphi-large`) ---------------
@@ -803,33 +662,41 @@ def _role_bodies() -> dict:
 
 
 @requires_after_install
-def test_the_large_box_starts_only_the_large_worker():
+def test_the_large_box_starts_no_compose_service():
+    # The large box's worker is the polis-jobs daemon (class large), whose
+    # service lands with the daemon; until then the branch starts nothing.
     roles = _role_up_lines()
-    assert len(roles.get("delphi-large", [])) == 1
-    (line,) = roles["delphi-large"]
-    assert _services_named(line) == {LARGE}
-    assert {"-d", "--build", "--force-recreate"} <= set(line)
+    assert roles.get("delphi-large", []) == []
+    assert "delphi-large" in _role_bodies()
 
 
 @requires_after_install
-def test_only_the_large_box_starts_the_large_worker():
+def test_no_role_starts_a_large_poller():
     roles = _role_up_lines()
-    starting = {role for role, lines in roles.items() if any(LARGE in _services_named(l) for l in lines)}
-    assert starting == {"delphi-large"}
+    starting = {role for role, lines in roles.items()
+                if any("math-python-large" in _services_named(l) for l in lines)}
+    assert starting == set()
     # The Delphi box is unchanged.
     (delphi,) = roles["delphi"]
     assert _services_named(delphi) == {"delphi", "math-python"}
 
 
 @requires_after_install
-@pytest.mark.parametrize("role", ["delphi", "delphi-large"])
-def test_both_poller_boxes_write_the_readiness_identity_before_starting(role):
-    body = _role_bodies()[role]
+def test_the_delphi_box_writes_the_readiness_identity_before_starting():
+    body = _role_bodies()["delphi"]
     assert "poller_identity" in body
     up = next(i for i, line in enumerate(body) if line.startswith("sudo /usr/local/bin/docker-compose up"))
     assert body.index("poller_identity") < up
     text = AFTER_INSTALL_PATH.read_text()
     assert text.index("poller_identity() {") < text.index('"$SERVICE_FROM_FILE" == "server"')
+
+
+@requires_after_install
+def test_the_large_box_still_writes_the_readiness_identity():
+    # The queue child's version-skew guard reads MATH_POLLER_SOURCE_COMMIT.
+    body = _role_bodies()["delphi-large"]
+    assert "poller_identity" in body
+    assert not any(line.startswith("sudo /usr/local/bin/docker-compose") for line in body)
 
 
 def _find_stop_hook():
@@ -861,10 +728,8 @@ def _stop_lines() -> dict:
 
 
 @requires_stop_hook
-def test_the_stop_hook_stops_the_large_worker_on_the_large_box_only():
+def test_the_stop_hook_stops_nothing_on_the_large_box_and_no_large_poller_anywhere():
     roles = _stop_lines()
-    (line,) = roles["delphi-large"]
-    assert line[line.index("stop") + 1] == LARGE
-    others = {role for role, lines in roles.items() if role != "delphi-large"
-              and any(LARGE in l for l in lines)}
-    assert not others
+    assert roles.get("delphi-large", []) == []
+    assert not any("math-python-large" in l for lines in roles.values() for l in lines)
+    assert "delphi-large" in STOP_HOOK.read_text()
