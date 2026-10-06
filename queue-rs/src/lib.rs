@@ -92,6 +92,8 @@ pub fn signature_v2(name: &str) -> Result<&'static [&'static str]> {
         "pd_release_scope" => &["text", "text"],
         // 000026: one bounded page of queue retention (built-in sweep).
         "pq_sweep" => &["text", "uuid", "integer", "integer"],
+        // 000026: a class's parked jobs with their unproven attempts.
+        "pq_class_parked" => &["text", "text", "uuid", "integer"],
         "pd_provider_intent" => &[
             "text", "uuid", "uuid", "uuid", "bigint", "uuid", "text", "bytea",
         ],

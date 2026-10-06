@@ -1815,6 +1815,10 @@ fn the_sweep_turns_itself_off_without_000026() {
         d.log()
             .contains("polis_jobs sweep off: the database has no pq_sweep")
     });
+    db.wait("the rediscovery-off line", 30, |_| {
+        d.log()
+            .contains("polis_jobs parked rediscovery off: the database has no pq_class_parked")
+    });
     std::thread::sleep(Duration::from_secs(2));
     assert!(
         d.child.try_wait().unwrap().is_none(),
@@ -1828,4 +1832,78 @@ fn the_sweep_turns_itself_off_without_000026() {
     let (job, _) = db.enqueue("math_rebuild", 1, None, math(), 3);
     db.wait_state(job, "succeeded", 60);
     assert_eq!(d.stop(), Some(0));
+}
+
+/// Restart-safe parked rediscovery (000026, P-086). A worker dies with its
+/// child (the box is gone, its journal with it); a second worker's reaper
+/// parks the job `exit_unconfirmed` and stops. A third worker, which never
+/// saw that transition, finds the row from the database and prints
+/// `polis_jobs.alarm/1` with `reason: exit_unproven` on every tick, inventing
+/// no proof. Once the exit is proven (the operator's recorded proof, here
+/// the same SQL form), the alarm stops and the job runs to success.
+#[test]
+fn a_parked_job_is_rediscovered_after_a_restart_and_alarms_until_proven() {
+    let mut db = Db::new("jobs_v4");
+    let (job, _) = db.enqueue("math_rebuild", 1, None, math(), 3);
+    let a = start(
+        &db,
+        Opts::new("park-a", "sleep").set("POLIS_JOBS_WORKER_CLASS", "large"),
+    );
+    db.wait("child pids", 60, |d| pids(d, "park-a").len() == 2);
+    let leader = pids(&db, "park-a")[0];
+    a.signal(libc::SIGKILL);
+    drop(a);
+    kill_tree(leader);
+    let (attempt, owner, epoch) = {
+        let at = &db.attempts(job)[0];
+        (at.0, at.1, at.2)
+    };
+    let b = start(
+        &db,
+        Opts::new("park-b", "success").set("POLIS_JOBS_WORKER_CLASS", "large"),
+    );
+    db.wait("expiry parks exit_unconfirmed", 40, |d| {
+        let (state, _, code) = d.job(job);
+        state == "parked" && code.as_deref() == Some("exit_unconfirmed")
+    });
+    assert_eq!(b.stop(), Some(0));
+    let c = start(
+        &db,
+        Opts::new("park-c", "success").set("POLIS_JOBS_WORKER_CLASS", "large"),
+    );
+    let alarms = |d: &Daemon| -> Vec<Value> {
+        d.log()
+            .lines()
+            .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+            .filter(|v| {
+                v["schema"] == "polis_jobs.alarm/1"
+                    && v["reason"] == "exit_unproven"
+                    && v["job_id"] == job.to_string()
+            })
+            .collect()
+    };
+    db.wait("two rediscovered alarms", 30, |_| alarms(&c).len() >= 2);
+    let first = alarms(&c).remove(0);
+    assert_eq!(first["rediscovered"], true, "{first}");
+    assert_eq!(
+        first["attempts"][0]["attempt_id"],
+        attempt.to_string(),
+        "{first}"
+    );
+    assert_eq!(db.job(job).0, "parked", "no proof was invented");
+    // The recorded proof, then the job is claimable and runs.
+    let proof: Value = db
+        .executor()
+        .query_one(
+            "SELECT pq_end_attempt($1,$2,$3,$4,$5,'confirm_exit','instance-terminated:fixture',true)",
+            &[&ENV, &job, &owner, &attempt, &epoch],
+        )
+        .unwrap()
+        .get(0);
+    assert_eq!(proof["outcome"], "exit_confirmed", "{proof}");
+    db.wait_state(job, "succeeded", 60);
+    let settled = alarms(&c).len();
+    std::thread::sleep(Duration::from_secs(3));
+    assert_eq!(alarms(&c).len(), settled, "the alarm stopped once proven");
+    assert_eq!(c.stop(), Some(0));
 }

@@ -401,6 +401,17 @@ pub fn run(cfg: Config) -> i32 {
                 db_failures += 1;
                 line(&format!("reap failed: {e}"));
             }
+            // P-086: parked rows outlive this process's memory.
+            let known: std::collections::BTreeSet<String> = ctx
+                .journal
+                .entries()
+                .into_iter()
+                .map(|e| e.attempt_id)
+                .collect();
+            if let Err(e) = reaper.rediscover(&mut rpc, cfg.worker_class.name(), &owner, &known) {
+                db_failures += 1;
+                line(&format!("parked rediscovery failed: {e}"));
+            }
         }
         if Instant::now() >= next_ready {
             next_ready = Instant::now() + cfg.readiness;
