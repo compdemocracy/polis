@@ -49,6 +49,7 @@ CHOKEPOINTS: Dict[str, str] = {
     "server/postgres/migrations/000023_vote_convention.sql": "migration 000023: the vote_convention row and its functions declare the storage sign",
     "server/postgres/migrations/down/000023_drop_vote_convention.sql": "its reversal (refuses once the sign has moved)",
     "server/postgres/operations/vote_convention_declare.sql": "the operator's declaration of an existing database's sign",
+    "server/bin/vote-convention-declare.sh": "the operator's entry point to that declaration (it names the sign it writes)",
     "server/postgres/migrations/down/test_000023_down.py": "pins the database chokepoint's seed, declaration, conversions and reversal (PR-A)",
     "delphi/polismath/utils/vote_convention.py": "the Python storage convention (chokepoint 3)",
     "coordinator-rs/src/vote_convention.rs": "the Rust StorageConvention (chokepoint 5, PR-C)",
