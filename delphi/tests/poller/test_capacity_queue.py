@@ -811,6 +811,18 @@ class TestClientWire:
             cq.validate_depth({**good, "schema_version": "polis-queue/2"})
         with pytest.raises(cq.QueueProtocolError):
             cq.validate_depth({**good, "worker_class": "noop"})
+        # 000026: version /4 carries oldest_eligible_at, exactly; neither
+        # shape is accepted under the other's version.
+        good4 = {**good, "schema_version": "polis-queue/4",
+                 "oldest_eligible_at": "2026-10-06T18:00:00+00:00"}
+        assert cq.validate_depth(good4) is good4
+        assert cq.validate_depth({**good4, "oldest_eligible_at": None})
+        with pytest.raises(cq.QueueProtocolError):
+            cq.validate_depth({**good, "schema_version": "polis-queue/4"})
+        with pytest.raises(cq.QueueProtocolError):
+            cq.validate_depth({**good4, "schema_version": "polis-queue/3"})
+        with pytest.raises(cq.QueueProtocolError):
+            cq.validate_depth({**good4, "oldest_eligible_at": 5})
         with pytest.raises(cq.QueueProtocolError):
             cq.validate_release("t")
         assert cq.validate_release(True) is True

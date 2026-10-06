@@ -51,6 +51,13 @@ const EXECUTOR_RPCS = [
   "pq_class_depth(text,text)",
 ];
 
+/** 000026 (queue retention): the parked read, the usage read and the sweep. */
+const RETENTION_RPCS = [
+  "pq_class_parked(text,text,uuid,integer)",
+  "pq_queue_usage(text)",
+  "pq_sweep(text,uuid,integer,integer)",
+];
+
 let pool: Pool;
 
 beforeAll(() => {
@@ -169,14 +176,32 @@ describe("the Delphi job table (000023) under the large class (000024)", () => {
     ).toBe(0);
   });
 
+  it("grants the 000026 retention RPCs to the executor when 000026 is installed", async () => {
+    const installed = await one<boolean>(
+      "SELECT to_regclass('public.polis_queue_retention_install') IS NOT NULL",
+    );
+    for (const signature of RETENTION_RPCS) {
+      expect(
+        await one<boolean>(
+          "SELECT to_regprocedure($1) IS NOT NULL AND has_function_privilege('polis_queue_executor', to_regprocedure($1), 'EXECUTE')",
+          [`public.${signature}`],
+        ),
+      ).toBe(installed);
+    }
+  });
+
   it("reads an empty class depth for both classes and refuses any other class", async () => {
+    // 000026 answers polis-queue/4 with oldest_eligible_at; 000024 alone, /3.
+    const retention = await one<boolean>(
+      "SELECT to_regclass('public.polis_queue_retention_install') IS NOT NULL",
+    );
     for (const cls of ["delphi", "large"]) {
       const depth = await one<Record<string, unknown>>(
         "SELECT public.pq_class_depth('test-000024', $1)",
         [cls],
       );
       expect(depth).toMatchObject({
-        schema_version: "polis-queue/3",
+        schema_version: retention ? "polis-queue/4" : "polis-queue/3",
         outcome: "class_depth",
         worker_class: cls,
         queued: 0,
@@ -185,6 +210,7 @@ describe("the Delphi job table (000023) under the large class (000024)", () => {
         dead: 0,
         oldest_unresolved_created_at: null,
       });
+      expect("oldest_eligible_at" in depth).toBe(retention);
     }
     await expect(
       pool.query("SELECT public.pq_class_depth('test-000024', 'noop')"),

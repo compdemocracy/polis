@@ -1,5 +1,6 @@
-//! The `polis-queue/2` foundation migration the daemon runs on (000023) and
-//! the `polis-queue/3` large-class migration (000024) live in the
+//! The `polis-queue/2` foundation migration the daemon runs on (000023), the
+//! `polis-queue/3` large-class migration (000024) and the retention migration
+//! (000026, on /3) live in the
 //! repository's migration chain, `server/postgres/migrations`, each sealed by
 //! digest next to its down script. These checks need no database: the files
 //! are present and match their seal, the up scripts admit exactly the stages
@@ -17,6 +18,9 @@ const SEAL: &str = "down/000023-files.sha256";
 const UP_LARGE: &str = "000024_create_polis_queue_large_class.sql";
 const DOWN_LARGE: &str = "down/000024_drop_polis_queue_large_class.sql";
 const SEAL_LARGE: &str = "down/000024-files.sha256";
+const UP_RETENTION: &str = "000026_create_polis_queue_retention.sql";
+const DOWN_RETENTION: &str = "down/000026_drop_polis_queue_retention.sql";
+const SEAL_RETENTION: &str = "down/000026-files.sha256";
 
 fn migrations() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../server/postgres/migrations")
@@ -75,6 +79,28 @@ fn the_foundation_migration_is_in_the_repository_chain_and_sealed() {
 #[test]
 fn the_large_class_migration_is_in_the_repository_chain_and_sealed() {
     sealed_in_the_chain(UP_LARGE, DOWN_LARGE, SEAL_LARGE);
+}
+
+#[test]
+fn the_retention_migration_is_in_the_repository_chain_and_sealed() {
+    sealed_in_the_chain(UP_RETENTION, DOWN_RETENTION, SEAL_RETENTION);
+}
+
+/// 000026 leaves the contract at /3 and the stage and class sets alone; it
+/// adds the parked read, the usage read and the bounded sweep.
+#[test]
+fn the_retention_up_script_adds_reads_and_the_sweep_only() {
+    let text = fs::read_to_string(migrations().join(UP_RETENTION)).unwrap();
+    assert!(!text.contains("contract_version='polis-queue/4'"));
+    assert!(!text.contains("CHECK(stage IN"));
+    assert!(!text.contains("CHECK(worker_class IN"));
+    for f in [
+        "CREATE FUNCTION public.pq_class_parked(p_env text,p_worker_class text,p_after_job uuid,p_limit integer)",
+        "CREATE FUNCTION public.pq_queue_usage(p_env text)",
+        "CREATE FUNCTION public.pq_sweep(p_env text,p_sweep uuid,p_page integer,p_max_pages integer)",
+    ] {
+        assert!(text.contains(f), "missing {f}");
+    }
 }
 
 #[test]
