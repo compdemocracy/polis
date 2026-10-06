@@ -3,8 +3,8 @@ name: queue-rs
 # Build, lint and test the queue-rs workspace: the polis-queue/1 adapter and
 # the polis-jobs daemon (job `queue-rs`), and the polis-api route server with
 # its nginx routing switch (job `polis-api`). The integration tests run against a throwaway
-# PostgreSQL 17 service container with the repository's migration chain and
-# the draft 000023 vendored under queue-rs/tests/fixtures.
+# PostgreSQL 17 service container with the repository's migration chain,
+# 000023 (the Delphi job table) included.
 on:
   pull_request:
     paths:

@@ -1,6 +1,7 @@
-//! `polis-jobs` against a throwaway PostgreSQL 17 holding the full migration
-//! chain (000000–000022 from the repository) plus the vendored draft 000023
-//! (`tests/fixtures/migrations`). Run with `--features jobs-integration` and
+//! `polis-jobs` against a throwaway PostgreSQL 17 holding the repository's
+//! migration chain: `jobs_base` is 000000–000022 (polis-queue/1, no foundation)
+//! and `jobs_v2` adds the repository's 000023 (polis-queue/2, the Delphi job
+//! table). Run with `--features jobs-integration` and
 //! `POLIS_JOBS_TEST_DATABASE_URL` (a superuser DSN on a loopback port); see
 //! the README. Each test copies a template database, runs real daemon
 //! processes and the generated fixture child, and inspects committed state.
@@ -67,7 +68,7 @@ fn exists(admin: &mut Client, db: &str) -> bool {
         .is_some()
 }
 
-/// Build `jobs_base` (chain to 000022) and `jobs_v2` (+ draft 000023) once.
+/// Build `jobs_base` (chain to 000022) and `jobs_v2` (+ the repository's 000023) once.
 fn ensure_templates() {
     let mut done = TEMPLATE.lock().unwrap();
     if *done {
@@ -101,10 +102,13 @@ fn ensure_templates() {
                     .unwrap()
             })
             .collect();
-        let expected: Vec<u32> = (0..23).filter(|n| *n != 20).collect();
-        assert_eq!(numbers, expected, "complete 000000-000022 chain required");
-        for m in &chain {
-            base.batch_execute(&fs::read_to_string(m).unwrap()).unwrap();
+        let expected: Vec<u32> = (0..=23).filter(|n| *n != 20).collect();
+        assert_eq!(numbers, expected, "complete 000000-000023 chain required");
+        // `jobs_base` stops before the foundation: it is the polis-queue/1
+        // shape the "contract missing" start refusal is proven against.
+        for (m, n) in chain.iter().zip(&numbers).filter(|(_, n)| **n <= 22) {
+            base.batch_execute(&fs::read_to_string(m).unwrap())
+                .unwrap_or_else(|e| panic!("{n:06}: {e}"));
         }
         base.batch_execute(
             "INSERT INTO conversations(zid,topic) VALUES(1,'fixture'),(2,'fixture two');",
@@ -122,10 +126,7 @@ fn ensure_templates() {
             .unwrap();
         let mut v2 = Client::connect(&url_for("jobs_v2", "postgres"), NoTls).unwrap();
         v2.batch_execute(
-            &fs::read_to_string(
-                root().join("tests/fixtures/migrations/000023_create_delphi_foundation.sql"),
-            )
-            .unwrap(),
+            &fs::read_to_string(dir.join("000023_create_delphi_foundation.sql")).unwrap(),
         )
         .unwrap();
     }
