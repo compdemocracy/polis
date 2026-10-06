@@ -301,6 +301,11 @@ printf '%s' "$out" | grep -q '"outcome": *"enqueued"' || fail "(h) re-admission 
 adm1() { # db zid product key sha run job scope image
   ex "$1" "SELECT public.pd_enqueue('$ENVN',$2,'$3','poller','$4','$5','$6'::uuid,'$7'::uuid,'public-fixture-input','$SHA1','$SHA1','$9',0::smallint,1,'math_rebuild',NULL,'$8','{\"need_bytes\":1}'::jsonb)"
 }
+# The re-admitted rebuild of zid 1 is older, so a large claim would take it
+# first: hold it under a lease for the witness and hand it back afterwards.
+own_x="$(scalar a "SELECT gen_random_uuid()")"; att_x="$(scalar a "SELECT gen_random_uuid()")"
+out="$(ex a "SELECT public.pq_claim('$ENVN',0::smallint,'$own_x'::uuid,'$att_x'::uuid,60,'large')->>'job_id'")"
+[ "$out" = "$j3" ] || fail "(h) holding claim took $out, not the re-admitted rebuild"
 last_dead=""
 for n in 1 2 3; do
   rp="$(scalar a "SELECT gen_random_uuid()")"; jp="$(scalar a "SELECT gen_random_uuid()")"
@@ -322,6 +327,8 @@ printf '%s' "$out" | grep -q "\"job_id\": *\"$last_dead\"" || fail "(h) poisoned
 [ -z "$(scalar a "SELECT root_job_id FROM public.delphi_job_guards WHERE env='$ENVN' AND scope_key='math:python-large:2'")" ] || fail "(h) a poisoned admission left a guard"
 out="$(adm1 a 2 'math:rebuild:2' kp5 "$SHA1" "$rp" "$jp" 'math:python-large:2' 'fixture-image-next')"
 printf '%s' "$out" | grep -q '"outcome": *"enqueued"' || fail "(h) a new image did not reset the poison latch: $out"
+out="$(ex a "SELECT public.pq_release('$ENVN','$j3'::uuid,'$own_x'::uuid,'$att_x'::uuid,1,true)->>'state'")"
+[ "$out" = "retry_wait" ] || fail "(h) handing the held rebuild back: $out"
 [ "$(depth a large)" = "2/0/0/3/true" ] || fail "(h) large depth after the poison witness: $(depth a large)"
 # The noop /1 path still works on /3.
 rn="$(scalar a "SELECT gen_random_uuid()")"; jn="$(scalar a "SELECT gen_random_uuid()")"
