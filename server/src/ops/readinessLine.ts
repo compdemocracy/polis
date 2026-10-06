@@ -98,6 +98,11 @@ export const COUNT_KEYS = [
   // P-084 (admission): the queued-job cap and the queue's reachability.
   "queue_full",
   "queue_unreachable",
+  // P-086 (observability, migration 000026): null without their read.
+  "large_dead",
+  "oldest_queued_age_ms",
+  "queue_bytes",
+  "sweep_age_ms",
 ] as const;
 export const LARGE_COUNT_KEYS = [
   "busy",
@@ -294,6 +299,10 @@ const NULLABLE_COUNT_KEYS = [
   "oldest_unresolved_age_ms",
   "large_leased",
   "large_parked",
+  "large_dead",
+  "oldest_queued_age_ms",
+  "queue_bytes",
+  "sweep_age_ms",
 ] as const;
 
 /** capacity.py validate_counts. */

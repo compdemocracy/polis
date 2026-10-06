@@ -109,6 +109,7 @@ RPC: Dict[str, Tuple[str, ...]] = {
                    "jsonb"),
     "pd_release_scope": ("text", "text"),
     "pq_class_depth": ("text", "text"),
+    "pq_queue_usage": ("text",),
     "pq_job_status": ("text", "uuid"),
     "pq_cancel": ("text", "uuid", "bigint"),
     "pq_attempt_logs": ("text", "uuid", "bigint", "integer"),
@@ -139,6 +140,8 @@ DEPTH_FIELDS = frozenset(
 #: worker of the class could claim now (null when there is none).
 DEPTH_FIELDS_4 = DEPTH_FIELDS | {"oldest_eligible_at"}
 DEPTH_COUNTS = ("queued", "leased", "parked", "dead")
+#: 000026's usage reply (P-086), exactly.
+USAGE_FIELDS = frozenset("schema_version outcome env queue_bytes last_sweep_finished_at".split())
 ENQUEUE_OUTCOMES = frozenset(("enqueued", "existing", "conflict", "poisoned"))
 #: Admission caps (cost-reduction plan P-084). The SQL does not enforce
 #: them; the poller does, before it asks. ``queue_full``: at least this many
@@ -314,6 +317,20 @@ def validate_depth(reply: Any) -> Dict[str, Any]:
         stamp = reply.get(key)
         if stamp is not None and not isinstance(stamp, str):
             raise QueueProtocolError("queue_wire_depth_timestamp")
+    return reply
+
+
+def validate_usage(reply: Any) -> Dict[str, Any]:
+    """Reject a reply that is not exactly 000026's usage envelope."""
+    if not isinstance(reply, dict) or set(reply) != USAGE_FIELDS:
+        raise QueueProtocolError("queue_wire_usage_fields")
+    if reply["schema_version"] != DEPTH_VERSION_4 or reply["outcome"] != "queue_usage":
+        raise QueueProtocolError("queue_wire_usage_version")
+    if type(reply["queue_bytes"]) is not int or reply["queue_bytes"] < 0:
+        raise QueueProtocolError("queue_wire_usage_bytes")
+    last = reply["last_sweep_finished_at"]
+    if last is not None and not isinstance(last, str):
+        raise QueueProtocolError("queue_wire_usage_timestamp")
     return reply
 
 
@@ -500,6 +517,8 @@ class QueueClient:
                 raise QueueProtocolError("queue_unexpected_null_reply")
             if name == "pq_class_depth":
                 validate_depth(reply)
+            elif name == "pq_queue_usage":
+                validate_usage(reply)
             elif name == "pd_release_scope":
                 validate_release(reply)
             elif name == "pq_attempt_logs":
@@ -620,6 +639,10 @@ class QueueClient:
         """The counts of one worker class in this env."""
         return self.call("pq_class_depth", [self.settings.env, worker_class])
 
+    def queue_usage(self) -> Dict[str, Any]:
+        """The queue's bytes and this env's last finished sweep (000026)."""
+        return self.call("pq_queue_usage", [self.settings.env])
+
     def job_status(self, job_id: str) -> Dict[str, Any]:
         return self.call("pq_job_status", [self.settings.env, str(uuid.UUID(job_id))])
 
@@ -693,8 +716,9 @@ __all__ = [
     "QUEUE_CAP_LARGE", "QueueRefused", "QueueSettings", "RPC", "Receipt", "SCOPE_DAILY_CAP",
     "STAGE_MATH_REBUILD", "STAGE_POLICY",
     "StagePolicy", "TABLE_RPC",
-    "TERMINAL_STATES", "WORKER_CLASS_LARGE", "admission", "canonical_bytes",
+    "TERMINAL_STATES", "USAGE_FIELDS", "WORKER_CLASS_LARGE", "admission", "canonical_bytes",
     "decode_frame_uri", "dsn_with_secret_password", "encode_frame_uri", "enqueue_routed",
     "receipt_of", "request_key", "scope_key",
     "sha256_hex", "validate_depth", "validate_job", "validate_log_rows", "validate_release",
+    "validate_usage",
 ]

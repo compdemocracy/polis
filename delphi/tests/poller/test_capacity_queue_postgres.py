@@ -296,6 +296,16 @@ class TestTheContract:
         assert depth["oldest_unresolved_created_at"] is not None and depth["worker_class"] == "large"
         if depth["schema_version"] == "polis-queue/4":
             assert depth["oldest_eligible_at"] is not None
+            # 000026's usage read through the closed inventory (P-086).
+            usage = c.queue_usage()
+            assert set(usage) == cq.USAGE_FIELDS and usage["queue_bytes"] > 0
+            router = router_for(large)
+            router.set_queue_depth(depth)
+            router.set_queue_usage(usage)
+            counts = router.counts()
+            validate_counts(counts)
+            assert counts["queue_bytes"] == usage["queue_bytes"]
+            assert counts["oldest_queued_age_ms"] is not None and counts["large_dead"] == 0
         assert (c.class_depth("delphi")["queued"], c.class_depth("delphi")["leased"]) == (0, 0)
         # The daemon claims one as worker class large: leased.
         daemon = Daemon(queue_db[1], env)

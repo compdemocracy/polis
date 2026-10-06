@@ -127,6 +127,15 @@ NULLABLE_COUNT_KEYS = frozenset(("oldest_unresolved_age_ms", "large_leased", "la
 # while routing is configured on and refused because the queue is missing,
 # unproven or failing (the small poller then computes as with routing off).
 COUNT_KEYS = COUNT_KEYS + ("queue_full", "queue_unreachable")
+# Observability (cost-reduction plan P-086, migration 000026), every one null
+# without its read this tick: ``large_dead`` (dead jobs of class large, a
+# ruling is owed), ``oldest_queued_age_ms`` (how long the oldest claimable
+# job has waited since it became eligible; null before 000026 too),
+# ``queue_bytes`` (the queue and job tables' size) and ``sweep_age_ms`` (since
+# this env's last finished sweep; null before the first one).
+COUNT_KEYS = COUNT_KEYS + ("large_dead", "oldest_queued_age_ms", "queue_bytes", "sweep_age_ms")
+NULLABLE_COUNT_KEYS = NULLABLE_COUNT_KEYS | {"large_dead", "oldest_queued_age_ms",
+                                             "queue_bytes", "sweep_age_ms"}
 LINE_KEYS = ("schema", "class", "role", "label") + COUNT_KEYS
 # The former large worker's line (``class=large``, P-073 PR3): its closed
 # counts, kept so recorded lines still parse. Nothing emits it since r2: the
@@ -346,6 +355,22 @@ def _is_count(v: Any) -> bool:
     return type(v) is int and v >= 0
 
 
+def _age_ms(now_ms: int, stamp: Any) -> Optional[int]:
+    """Milliseconds from an ISO-8601 timestamp the queue sent to now (never
+    negative), or None without one."""
+    if not isinstance(stamp, str):
+        return None
+    from datetime import datetime
+
+    try:
+        then = datetime.fromisoformat(stamp)
+    except ValueError:
+        return None
+    if then.tzinfo is None:
+        return None
+    return max(0, now_ms - int(then.timestamp() * 1000))
+
+
 _SECRET_NAME = re.compile(r"[A-Za-z0-9/_+=.@-]{1,512}")
 
 
@@ -389,6 +414,9 @@ class CapacityRouter:
         self._queue_refused: Optional[str] = None
         # P-084: the last admission was refused at the queued-job cap.
         self._queue_full = False
+        # P-086: the queue's size and last sweep (pq_queue_usage, 000026),
+        # set by the service once per readiness tick; None without the read.
+        self._queue_usage: Optional[Dict[str, Any]] = None
         self._load()
 
     @property
@@ -705,6 +733,12 @@ class CapacityRouter:
             return (rec is not None and rec.poisoned_commit is not None
                     and rec.poisoned_commit == (source_commit or "unknown"))
 
+    def set_queue_usage(self, usage: Optional[Dict[str, Any]]) -> None:
+        """The queue's bytes and last finished sweep for this tick (000026's
+        ``pq_queue_usage``), or None."""
+        with self._lock:
+            self._queue_usage = None if usage is None else dict(usage)
+
     def set_queue_depth(self, depth: Optional[Dict[str, Any]]) -> None:
         """The queue's counts of class large for this tick (000024's
         ``queued`` and ``leased``), or None when there is no queue or the read
@@ -724,6 +758,7 @@ class CapacityRouter:
             promoted = self.promoted_total
             depth = self._queue_depth
             queue_full, refused = self._queue_full, self._queue_refused
+            usage = self._queue_usage
         unresolved = [r for r in recs
                       if r.disposition == LARGE and r.first_unresolved_ms is not None]
         # Demand: unresolved and no staged bundle already waiting for
@@ -752,6 +787,12 @@ class CapacityRouter:
             "promoted_total": promoted,
             "queue_full": int(queue_full),
             "queue_unreachable": int(self.settings.routing and refused is not None),
+            "large_dead": None if depth is None else int(depth["dead"]),
+            "oldest_queued_age_ms": _age_ms(now, None if depth is None
+                                            else depth.get("oldest_eligible_at")),
+            "queue_bytes": None if usage is None else int(usage["queue_bytes"]),
+            "sweep_age_ms": _age_ms(now, None if usage is None
+                                    else usage.get("last_sweep_finished_at")),
         }
 
     # -- persistence (the private state volume) ------------------------------ #

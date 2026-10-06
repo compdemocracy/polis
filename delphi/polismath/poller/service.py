@@ -451,6 +451,7 @@ class MathPollerService:
         self.exclusive_live = False
         self._start_hooks: List[Any] = []
         self.capacity_queue: Any = None
+        self._usage_unavailable_logged = False
         self.capacity_loop = None
         if (self.capacity.routing and not self.capacity.settings.large
                 and publisher is None):
@@ -570,6 +571,18 @@ class MathPollerService:
         except Exception as exc:  # noqa: BLE001
             logger.error("capacity: queue depth unavailable (%s)", exc.__class__.__name__)
         self.capacity.set_queue_depth(depth)
+        # P-086: the queue's size and last sweep (000026). Missing data when
+        # unavailable (before 000026 it does not exist); never a refusal.
+        usage = None
+        if depth is not None:
+            try:
+                usage = self.capacity_queue.queue_usage()
+            except Exception as exc:  # noqa: BLE001
+                if not self._usage_unavailable_logged:
+                    self._usage_unavailable_logged = True
+                    logger.warning("capacity: queue usage unavailable (%s); queue_bytes and "
+                                   "sweep_age_ms stay null", exc.__class__.__name__)
+        self.capacity.set_queue_usage(usage)
         if self.capacity.queue_refused == "source_commit_missing":
             return
         was = self.capacity.queue_refused

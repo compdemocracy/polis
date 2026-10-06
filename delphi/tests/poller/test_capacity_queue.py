@@ -83,6 +83,8 @@ class FakeQueue:
         self.receipts = {}      # job_id -> Receipt, once finalized
         self.poisoned = {}      # scope -> the latest dead job id
         self.known = []         # known_job of each ask
+        self.oldest_eligible_at = None   # set: a 000026 depth reply
+        self.usage = None                # set: 000026's pq_queue_usage reply
 
     def enqueue_math_rebuild(self, zid, *, config, staged_label, target_label, known_job=None):
         self.calls.append((zid, dict(config), staged_label, target_label))
@@ -126,9 +128,18 @@ class FakeQueue:
         return cq.Receipt(job_id=job_id, state=self.jobs[job_id]["state"], output_sha256=None)
 
     def class_depth(self, worker_class="large"):
-        return {"schema_version": "polis-queue/3", "outcome": "class_depth", "env": "test",
-                "worker_class": worker_class, "oldest_unresolved_created_at": None,
-                **self.depth}
+        reply = {"schema_version": "polis-queue/3", "outcome": "class_depth", "env": "test",
+                 "worker_class": worker_class, "oldest_unresolved_created_at": None,
+                 **self.depth}
+        if self.oldest_eligible_at is not None:
+            reply.update(schema_version="polis-queue/4",
+                         oldest_eligible_at=self.oldest_eligible_at)
+        return reply
+
+    def queue_usage(self):
+        if self.usage is None:
+            raise psycopg2.errors.UndefinedFunction("pq_queue_usage does not exist")
+        return dict(self.usage)
 
 
 class FakePg:
@@ -575,6 +586,42 @@ class TestCapacityLineCounts:
         line = parse_line(build_line("primary", SMALL_LABEL, c))
         assert (line["large_demand"], line["large_leased"], line["large_parked"]) == (3, 2, 1)
 
+    def test_the_observability_keys_come_from_the_queue(self):
+        """P-086, the keys the CDK filters read (cdk/workerClasses.ts):
+        large_dead from the depth, oldest_queued_age_ms from 000026's
+        oldest_eligible_at, queue_bytes and sweep_age_ms from
+        pq_queue_usage; every one null without its read, never 0."""
+        from datetime import datetime, timezone
+
+        svc = service()
+        now = svc.capacity._clock()
+        stamp = lambda ms: datetime.fromtimestamp((now - ms) / 1000, tz=timezone.utc).isoformat()
+        q = svc.capacity_queue
+        q.depth = {"queued": 1, "leased": 0, "parked": 0, "dead": 2}
+        q.oldest_eligible_at = stamp(90_000)
+        q.usage = {"schema_version": "polis-queue/4", "outcome": "queue_usage", "env": "test",
+                   "queue_bytes": 811_008, "last_sweep_finished_at": stamp(3_600_000)}
+        c = svc.readiness_snapshot()["capacity"]
+        validate_counts(c)
+        assert c["large_dead"] == 2 and c["queue_bytes"] == 811_008
+        assert 90_000 <= c["oldest_queued_age_ms"] < 91_000
+        assert 3_600_000 <= c["sweep_age_ms"] < 3_601_000
+        line = parse_line(build_line("primary", SMALL_LABEL, c))
+        assert (line["large_dead"], line["queue_bytes"]) == (2, 811_008)
+        # Before 000026: the /3 depth has no oldest_eligible_at and the usage
+        # read does not exist. Null, and the depth keys still come through.
+        q.oldest_eligible_at = None
+        q.usage = None
+        c = svc.readiness_snapshot()["capacity"]
+        validate_counts(c)
+        assert (c["large_dead"], c["oldest_queued_age_ms"], c["queue_bytes"],
+                c["sweep_age_ms"]) == (2, None, None, None)
+        assert svc.capacity.routing is True             # a missing usage read refuses nothing
+        # No queue read at all: every one null.
+        svc.capacity.set_queue_depth(None)
+        c = svc.capacity.counts()
+        assert all(c[k] is None for k in ("large_dead", "oldest_queued_age_ms"))
+
     def test_an_empty_queue_reports_every_scale_in_term_as_zero(self):
         """The scale-in alarm (cdk/workerClasses.ts) sums the metric filters
         on $.large_demand, $.large_leased and $.large_parked and fires only
@@ -907,7 +954,8 @@ class TestAdmission:
 class TestClientWire:
     def test_the_inventory_is_closed(self):
         assert set(cq.RPC) == {"pd_enqueue", "pd_release_scope", "pq_class_depth",
-                               "pq_job_status", "pq_cancel", "pq_attempt_logs"}
+                               "pq_queue_usage", "pq_job_status", "pq_cancel",
+                               "pq_attempt_logs"}
         assert len(cq.RPC["pd_enqueue"]) == 18 and set(cq.TABLE_RPC) == {"pq_attempt_logs"}
         client = cq.QueueClient(cq.QueueSettings("postgresql://x@127.0.0.1:1/x", "test"))
         with pytest.raises(KeyError):
@@ -1059,6 +1107,13 @@ class TestClientWire:
             cq.validate_depth({**good4, "schema_version": "polis-queue/3"})
         with pytest.raises(cq.QueueProtocolError):
             cq.validate_depth({**good4, "oldest_eligible_at": 5})
+        usage = {"schema_version": "polis-queue/4", "outcome": "queue_usage", "env": "t",
+                 "queue_bytes": 1, "last_sweep_finished_at": None}
+        assert cq.validate_usage(usage) is usage
+        for bad in ({**usage, "queue_bytes": -1}, {**usage, "schema_version": "polis-queue/3"},
+                    {**usage, "extra": 1}, {**usage, "last_sweep_finished_at": 5}):
+            with pytest.raises(cq.QueueProtocolError):
+                cq.validate_usage(bad)
         with pytest.raises(cq.QueueProtocolError):
             cq.validate_release("t")
         assert cq.validate_release(True) is True

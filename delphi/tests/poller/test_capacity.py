@@ -153,7 +153,9 @@ class TestRecords:
                      "large_poisoned": 0,
                      "pending_promotion": 0, "exceeds_largest": 1, "fits_small": 1,
                      "oldest_unresolved_age_ms": 4000, "refusals_total": 3, "routed_total": 0,
-                     "promoted_total": 0, "queue_full": 0, "queue_unreachable": 0}
+                     "promoted_total": 0, "queue_full": 0, "queue_unreachable": 0,
+                     "large_dead": None, "oldest_queued_age_ms": None, "queue_bytes": None,
+                     "sweep_age_ms": None}
 
     def test_record_fields(self):
         r = router()
