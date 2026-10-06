@@ -10,8 +10,8 @@ import {
 } from '../opsDashboards';
 
 // The whole CdkStack, synthesized without bundling (the backup Lambda's
-// Python bundling needs Docker; skipping it does not change any resource
-// this flag touches).
+// package is built with pip at synth time; skipping it keeps the tests
+// hermetic and does not change any resource this flag touches).
 const synth = (context: Record<string, unknown> = {}) => {
   const app = new cdk.App({ context: { 'aws:cdk:bundling-stacks': [], ...context } });
   const stack = new CdkStack(app, 'CdkStack', {

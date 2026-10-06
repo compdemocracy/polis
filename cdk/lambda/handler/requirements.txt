@@ -1,1 +1,9 @@
-psycopg2-binary
+# Installed by lambda/lambda.ts (packageHandler) with pip for the Lambda's own
+# platform: CPython 3.12, x86_64, manylinux2014. The hash is the wheel's, so
+# the exact file is verified; it is the version the deployed function carries.
+# To move the pin:
+#   python3 -m pip download --no-deps --only-binary=:all: --platform manylinux2014_x86_64 \
+#     --implementation cp --python-version 3.12 --abi cp312 -d /tmp/wheel 'psycopg2-binary==X.Y.Z'
+#   shasum -a 256 /tmp/wheel/*.whl
+psycopg2-binary==2.9.10 \
+    --hash=sha256:8cd9b4f2cfab88ed4a9106192de509464b75a906462fb846b936eabe45c2063e

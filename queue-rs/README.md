@@ -105,7 +105,26 @@ sealed with its down script in `server/postgres/migrations/down/000023-files.sha
 `tests/foundation_migration.rs` checks the seal and the stage list without a
 database, and a fresh container applies it at initdb like every migration.
 Applying it to an existing database, production included, is the operator's
-explicit step (`docs/queue-substrate.md`).
+explicit step through `server/postgres/bin/apply-migration.sh`
+(`docs/queue-substrate.md`): 000019 and then 000023, each in its own idle or
+controlled writer window, because each creates foreign keys to
+`conversations` and so holds `ShareRowExclusiveLock` on that table until it
+commits, blocking every insert, update and delete of a conversation meanwhile.
+The wrapper refuses unless the file matches its seal, the server is
+PostgreSQL 17, the login has the rights, the queue tables are empty, no other
+transaction is older than 30 s and the operator-measured free disk is above
+5 GiB; it then sends `lock_timeout` 5 s, `statement_timeout` 60 s,
+`transaction_timeout` 120 s and `idle_in_transaction_session_timeout` 30 s.
+
+Two things the schema does not do: the per-scope guard row in
+`delphi_job_guards` is held until safe explicit release (`pd_release_scope`,
+which refuses while any job in the root's tree is unfinished, lacks exit proof
+or has an open provider request; no guard is released automatically); and the
+attempt logs this daemon writes to `polis_queue_logs` are direct `INSERT`s
+under the executor's table grant, limited by the database per row only (1 MiB
+a line; the per-attempt cap, `POLIS_JOBS_LOG_MAX_LINES` / `_BYTES`, is this
+daemon's own buffer, not a database rule), with no retention
+yet: nothing deletes or sweeps them.
 
 **Worker classes.** `POLIS_JOBS_WORKER_CLASS` (default `delphi`) says which
 jobs this daemon claims; a worker sees only jobs of its class, by the SQL
