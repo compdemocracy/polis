@@ -5,6 +5,7 @@
 
 /** @type {import('jest').Config} */
 const config = {
+  testPathIgnorePatterns: ["/node_modules/", "/src/data/__tests__/jobViews\\..*"],
   // All imported modules in your tests should be mocked automatically
   // automock: false,
 

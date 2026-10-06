@@ -8,7 +8,8 @@
     "start": "webpack serve --config webpack.dev.js",
     "lint": "eslint --quiet .",
     "lint:verbose": "eslint .",
-    "test": "jest"
+    "test": "jest",
+    "test:jobviews": "TZ=UTC node ../server/characterization/jobviews/check-views.cjs"
   },
   "author": "Colin Megill",
   "license": "",
