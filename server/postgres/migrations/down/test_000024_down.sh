@@ -44,6 +44,14 @@
 #       one without 000023 (chain to 000022) fails before changing anything.
 #   (i) after 000024's down, 000023's own down still unwinds the chain to the
 #       dump taken before 000023.
+#   (w) the checked apply wrapper (server/postgres/bin/apply-migration.sh)
+#       accepts 000024: on a chain to 000022 its preflight refuses (chain:
+#       000023 absent, exit 4) and changes nothing; on a chain to 000023 with a
+#       queued noop job it refuses (rows, exit 4) and changes nothing; with
+#       the queue empty --preflight-only passes and changes nothing, then the
+#       apply runs (exit 0) and its post-check reads polis-queue/3, giving the
+#       same schema dump as a plain psql apply; a second run is refused at
+#       preflight (chain: the install reads polis-queue/3, exit 4).
 #
 # Shell rather than a jest or pytest because the checks are schema-diff shaped
 # (pg_dump of a full migration chain in an isolated cluster). Needs only docker.
@@ -419,4 +427,62 @@ dump_schema i > "$WORK/i.after"
 cmp -s "$WORK/i.before23" "$WORK/i.after" || fail "(i) after both downs the catalog differs from before 000023"
 pass "(i) 000023's down refuses over /3 and unwinds after 000024's down; dump identical to before 000023"
 
-echo "ALL CHECKS PASSED (seal, a-i)"
+# ------------------------------------------------------------------ (w)
+echo "== (w) the apply wrapper: 000024's preflight (chain /2, queue empty), apply, post-check /3, second run refused =="
+WRAP="$MIGRATIONS_DIR/../bin/apply-migration.sh"
+wrap() { local db="$1"; shift; bash "$WRAP" --free-bytes 12000000000 "$@" 000024 -- docker exec -i "$CONTAINER" psql -U postgres -d "$db"; }
+wrap_rc() { # db expected_rc label [options]: runs the wrapper, checks its exit code, prints its output
+  local db="$1" want="$2" label="$3" out rc; shift 3
+  set +e; out="$(wrap "$db" "$@" 2>&1)"; rc=$?; set -e
+  [ "$rc" -eq "$want" ] || fail "(w) $label: exit $rc, expected $want: $out"
+  printf '%s' "$out"
+}
+# Without 000023: refused at the chain check, nothing changes.
+createdb w0
+apply_upto w0 000022
+dump_schema w0 > "$WORK/w0.before"
+out="$(wrap_rc w0 4 "chain to 000022")"
+grep -q '^FAIL  chain: 000023 is not installed' <<<"$out" || fail "(w) chain to 000022 refused for another reason: $out"
+dump_schema w0 > "$WORK/w0.after"
+cmp -s "$WORK/w0.before" "$WORK/w0.after" || fail "(w) the refused wrapper changed a database without 000023"
+# On /2 with a queued job: refused at the rows check, nothing changes.
+createdb w
+apply_upto w 000023
+psql_su -d w -c "INSERT INTO public.conversations(zid,topic) VALUES (1,'fixture')" >/dev/null
+sha="$(printf '%064d' 1)"
+out="$(ex w "SELECT public.pq_enqueue('$ENVN',1,'product','actor','key','$sha',gen_random_uuid(),gen_random_uuid(),'public-fixture-input','$sha','$sha','$sha',1::smallint,3)->>'outcome'")"
+[ "$out" = "enqueued" ] || fail "(w) noop enqueue: $out"
+dump_schema w > "$WORK/w.before"
+out="$(wrap_rc w 4 "queue holds a job")"
+grep -q '^FAIL  rows: .*polis_queue_jobs=1' <<<"$out" || fail "(w) the queued job was not named by the rows check: $out"
+grep -q '^ok    chain: 000023 is installed; polis_queue_install reads polis-queue/2' <<<"$out" || fail "(w) the /2 chain was not recognised: $out"
+dump_schema w > "$WORK/w.after_refused"
+cmp -s "$WORK/w.before" "$WORK/w.after_refused" || fail "(w) the refused wrapper changed the catalog"
+[ "$(scalar w "SELECT contract_version FROM public.polis_queue_install")" = "polis-queue/2" ] || fail "(w) the refusal moved the contract version"
+# Queue emptied: preflight only, then the apply.
+psql_su -d w -c "DO \$\$ DECLARE t text; BEGIN
+  FOR t IN SELECT relname FROM pg_class WHERE relnamespace='public'::regnamespace AND relkind='r'
+    AND (relname LIKE 'polis\\_queue\\_%' OR relname LIKE 'delphi\\_%') AND relname NOT IN ('polis_queue_install','delphi_foundation_install')
+  LOOP EXECUTE format('TRUNCATE public.%I CASCADE', t); END LOOP; END \$\$" >/dev/null
+out="$(wrap_rc w 0 "preflight only" --preflight-only)"
+grep -q '^ok    seal: ' <<<"$out" || fail "(w) no seal line: $out"
+grep -q 'preflight passed (--preflight-only); nothing applied' <<<"$out" || fail "(w) preflight-only did not pass: $out"
+dump_schema w > "$WORK/w.after_preflight"
+cmp -s "$WORK/w.before" "$WORK/w.after_preflight" || fail "(w) --preflight-only changed the catalog"
+out="$(wrap_rc w 0 "apply")"
+grep -q '^applied: 000024_create_polis_queue_large_class.sql (post-check polis-queue/3)' <<<"$out" || fail "(w) no post-check line: $out"
+grep -q 'none on public.conversations' <<<"$out" || fail "(w) the lock line does not describe 000024: $out"
+# The same catalog as a plain apply of the same chain.
+createdb wp
+apply_upto wp 000024
+dump_schema w > "$WORK/w.applied"
+dump_schema wp > "$WORK/wp.applied"
+cmp -s "$WORK/w.applied" "$WORK/wp.applied" || fail "(w) the wrapper's apply differs from a plain psql apply: $(diff "$WORK/wp.applied" "$WORK/w.applied" | head -20)"
+# A second run: refused at preflight, nothing changes.
+out="$(wrap_rc w 4 "second run")"
+grep -q "^FAIL  chain: polis_queue_install reads 'polis-queue/3', not polis-queue/2" <<<"$out" || fail "(w) the second run was refused for another reason: $out"
+dump_schema w > "$WORK/w.after_second"
+cmp -s "$WORK/w.applied" "$WORK/w.after_second" || fail "(w) the refused second run changed the catalog"
+pass "(w) wrapper: refused without 000023 and with a queued job (nothing changed); preflight-only passes; applies with post-check /3, same dump as plain apply; second run refused"
+
+echo "ALL CHECKS PASSED (seal, a-i, w)"
