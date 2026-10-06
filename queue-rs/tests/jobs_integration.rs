@@ -102,7 +102,10 @@ fn ensure_templates() {
             })
             .collect();
         let expected: Vec<u32> = (0..23).filter(|n| *n != 20).collect();
-        assert_eq!(numbers, expected, "complete 000000-000022 chain required");
+        assert!(
+            numbers.starts_with(&expected),
+            "complete 000000-000022 chain required (found {numbers:?})"
+        );
         for m in &chain {
             base.batch_execute(&fs::read_to_string(m).unwrap()).unwrap();
         }

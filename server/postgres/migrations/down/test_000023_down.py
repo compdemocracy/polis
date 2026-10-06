@@ -3,6 +3,21 @@
 No DATABASE_URL is accepted. Every case runs in a disposable database cloned
 from the full pre-000023 migration chain. All rows written are generated
 fixtures (zid 990001 and up); no application data exists in the container.
+
+What is pinned here (P-078, ruling R-A):
+  * the migration writes THE ONE ROW only on an empty database (version 0,
+    agree -1); a database holding votes is left undeclared with the
+    DECLARE_NEEDED notice, and nothing reads a sign from its data;
+  * the declare operation (server/postgres/operations/vote_convention_declare.sql,
+    through server/bin/vote-convention-declare.sh) writes the row once, at -1
+    or +1, refuses a second declaration, a bad sign, an empty reason and a
+    database without the migration, and records its own checksum;
+  * the row's guards: permanent, monotonic, append-only history, the two
+    admissible first states;
+  * the functions and views at both signs; the write path's lock behaviour;
+  * the ledger and the checksum checker (migrations and operations);
+  * the down file: exact catalog replay from a seeded, an undeclared and a
+    declared database; refusals once the sign has moved.
 """
 from __future__ import annotations
 
@@ -23,6 +38,9 @@ ROOT = Path(__file__).resolve().parent.parent
 REPO = ROOT.parent.parent.parent
 UP = ROOT / "000023_vote_convention.sql"
 DOWN = ROOT / "down/000023_drop_vote_convention.sql"
+DECLARE = REPO / "server/postgres/operations/vote_convention_declare.sql"
+DECLARE_SH = REPO / "server/bin/vote-convention-declare.sh"
+CHECKER = REPO / "server/postgres/check_ledger_checksums.py"
 DOCS = REPO / "docs/vote-convention.md"
 NAME = "000023_vote_convention"
 MARKER = b"-- ledger-self-checksum"
@@ -38,7 +56,7 @@ FAILURES: list = []
 
 # Pinned function catalog: name, identity args, result, volatility, SECURITY DEFINER, STRICT, proconfig, language.
 EXPECTED_FUNCTIONS = [
-    ["vote_convention_current", "", "TABLE(version integer, agree_value smallint)", "s", True, False,
+    ["vote_convention_current", "", "TABLE(version integer, agree_value smallint, contract_version integer)", "s", True, False,
      ["search_path=pg_catalog, pg_temp"], "sql"],
     ["vote_convention_history_immutable", "", "trigger", "v", False, False, ["search_path=pg_catalog, pg_temp"], "plpgsql"],
     ["vote_convention_monotonic", "", "trigger", "v", False, False, ["search_path=pg_catalog, pg_temp"], "plpgsql"],
@@ -83,19 +101,24 @@ EXPECTED_GRANT_NOTE = (
     "polis_coordinator_observer:SELECT:public.vote_convention_history "
     "polis_coordinator_publisher:SELECT:public.vote_convention "
     "polis_coordinator_publisher:EXECUTE:public.vote_convention_current()")
+SEED_REASON = "seeded on an empty database: agree = -1, disagree = +1, pass = 0 (the storage convention since 2012)"
+DECLARE_NEEDED = 'vote convention: DECLARE_NEEDED. This database holds votes and records no sign.'
+DECLARE_COMMAND = 'make vote-convention-declare AGREE=-1'
 
 
-def run(args, content=None, ok=True):
-    p = subprocess.run(["docker", "exec", "-i", CONTAINER, *args], input=content, text=True, capture_output=True)
+def run(args, content=None, ok=True, env=None):
+    p = subprocess.run(["docker", "exec", "-i", CONTAINER, *args], input=content, text=True, capture_output=True, env=env)
     if ok and p.returncode:
         raise AssertionError(p.stdout + p.stderr)
     return p
 
 
-def sql(db, content, ok=True, user="postgres", stop=True):
+def sql(db, content, ok=True, user="postgres", stop=True, variables=()):
     args = ["psql", "-X", "-q", "-At", "-U", user, "-d", db]
     if stop:
         args[2:2] = ["-v", "ON_ERROR_STOP=1"]
+    for name, value in variables:
+        args[2:2] = ["-v", f"{name}={value}"]
     return run(args, content, ok)
 
 
@@ -107,9 +130,9 @@ def eq(actual, expected, what=""):
     assert actual == expected, f"{what}: expected {expected!r}, got {actual!r}"
 
 
-def fails(db, content, sqlstate, user="postgres"):
+def fails(db, content, sqlstate, user="postgres", variables=()):
     """Run content; require an error with exactly this SQLSTATE."""
-    p = sql(db, "\\set VERBOSITY verbose\n" + content, ok=False, user=user)
+    p = sql(db, "\\set VERBOSITY verbose\n" + content, ok=False, user=user, variables=variables)
     assert p.returncode != 0, f"expected {sqlstate}, statement succeeded: {content}"
     assert re.search(rf"ERROR:\s+{sqlstate}:", p.stderr), f"expected {sqlstate}, got: {p.stderr}"
     return p
@@ -121,6 +144,29 @@ def apply(db, ok=True):
 
 def down(db, ok=True):
     return sql(db, DOWN.read_text(), ok)
+
+
+def declare(db, agree, reason="generated fixture declaration"):
+    return sql(db, DECLARE.read_text(), variables=(("agree", agree), ("reason", reason)))
+
+
+def declare_fails(db, sqlstate, agree, reason="generated fixture declaration"):
+    return fails(db, DECLARE.read_text(), sqlstate, variables=(("agree", agree), ("reason", reason)))
+
+
+def declare_sh(db, *args, ok=True):
+    """The operator's entry point, through the container's psql."""
+    env = dict(os.environ, PSQL=f"docker exec -i {CONTAINER} psql -U postgres -d {db}")
+    env.pop("DATABASE_URL", None)
+    p = subprocess.run(["bash", str(DECLARE_SH), *args], text=True, capture_output=True, env=env)
+    if ok and p.returncode:
+        raise AssertionError(p.stdout + p.stderr)
+    return p
+
+
+def hold_votes(db, zid=990000):
+    """Make the database one that holds votes (a raw row, as every writer before 000023 wrote)."""
+    sql(db, f"INSERT INTO votes (zid, pid, tid, vote) VALUES ({zid}, 1, 1, -1);")
 
 
 def dump(db):
@@ -201,10 +247,12 @@ def main():
     rule = re.search(r"<!-- restore-rule -->\n```sql\n(.*?)```\n<!-- /restore-rule -->", DOCS.read_text(), re.S)
     assert rule, "restore rule block missing from docs/vote-convention.md"
     restore_sql = rule.group(1)
+    declare_checksum = ledger_checksum(DECLARE.read_bytes())
 
     # 1. up -> down -> up, exact catalog replay; re-apply refuses and changes nothing.
     def roundtrip(db):
-        apply(db)
+        p = apply(db)
+        assert "GUARDED v0 agree -1 (seeded" in p.stderr, p.stderr
         first = dump(db)
         assert functions(db) == EXPECTED_FUNCTIONS, functions(db)
         assert table_grants(db) == EXPECTED_TABLE_GRANTS, table_grants(db)
@@ -223,19 +271,120 @@ def main():
         (WORK / "post-up.sql").write_text(first)
     case("up/down/up: exact catalog replay; pinned signatures and grants; re-apply refuses P0780", roundtrip)
 
-    # 2. Seed.
+    # 2. The seed: only on an empty database.
     def seed(db):
         apply(db)
-        assert val(db, "SELECT singleton, version, agree_value, contract_version, reason, changed_by FROM public.vote_convention;") == \
-            "t|0|-1|1|storage convention since 2012: agree = -1, disagree = +1, pass = 0|postgres"
-        assert val(db, "SELECT count(*), min(version), min(agree_value) FROM public.vote_convention_history;") == "1|0|-1"
-        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason) VALUES (0, -1, 'second');", "P0782")
+        eq(val(db, "SELECT singleton, version, agree_value, contract_version, operation, operation_checksum IS NULL, reason, changed_by "
+                   "FROM public.vote_convention;"),
+           f"t|0|-1|1|seed-empty|t|{SEED_REASON}|postgres", "seed row")
+        eq(val(db, "SELECT count(*), min(version), min(agree_value), min(operation) FROM public.vote_convention_history;"),
+           "1|0|-1|seed-empty", "history")
+        eq(val(db, "SELECT version || '|' || agree_value || '|' || contract_version FROM public.vote_convention_current();"), "0|-1|1", "current()")
+        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason, operation) VALUES (0, -1, 'second', 'x');", "P0782")
         # A second row that would pass the guard still meets the constant primary key.
-        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason) VALUES (1, 1, 'second');", "23505")
-        fails(db, "INSERT INTO public.vote_convention (singleton, version, agree_value, reason) VALUES (false, 1, 1, 'x');", "23514")
+        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason, operation) VALUES (1, 1, 'second', 'x');", "23505")
+        fails(db, "INSERT INTO public.vote_convention (singleton, version, agree_value, reason, operation) VALUES (false, 1, 1, 'x', 'x');", "23514")
         fails(db, "UPDATE public.vote_convention SET contract_version = 2, version = 1, agree_value = 1;", "23514")
-        assert val(db, "SELECT count(*) FROM public.vote_convention;") == "1"
-    case("seed: one row (0, -1, contract 1), one history row; a second row refuses", seed)
+        eq(val(db, "SELECT count(*) FROM public.vote_convention;"), "1", "one row")
+    case("seed on an empty database: one row (0, -1, contract 1, seed-empty), one history row; a second row refuses", seed)
+
+    def undeclared(db):
+        hold_votes(db)
+        p = apply(db)
+        assert DECLARE_NEEDED in p.stderr and DECLARE_COMMAND in p.stderr, p.stderr
+        assert "GUARDED" not in p.stderr
+        eq(val(db, "SELECT count(*) FROM public.vote_convention;"), "0", "no row")
+        eq(val(db, "SELECT count(*) FROM public.vote_convention_history;"), "0", "no history")
+        eq(val(db, "SELECT count(*) FROM public.vote_convention_current();"), "0", "current() is empty")
+        eq(val(db, "SELECT vote FROM votes WHERE zid = 990000;"), "-1", "the stored vote is untouched")
+        # Nothing reads a sign from the data: the write path and the views refuse/empty.
+        fails(db, "SELECT * FROM public.vote_insert(990001, 1, 1, 1::smallint);", "P0791")
+        eq(val(db, "SELECT count(*) FROM votes WHERE zid = 990001;"), "0", "nothing written")
+        eq(val(db, "SELECT count(*) FROM votes_semantic;"), "0", "views empty without the row")
+        # The ledger still records the migration: it is applied, the declaration is separate.
+        eq(val(db, f"SELECT count(*) FROM public.schema_migrations WHERE name = '{NAME}';"), "1", "ledger row")
+        fails(db, UP.read_text(), "P0780")
+        # Only the two first states are admissible while nothing has been declared.
+        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason, operation) VALUES (1, -1, 'x', 'x');", "P0782")
+        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason, operation) VALUES (0, 1, 'x', 'x');", "P0782")
+        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason, operation) VALUES (2, 1, 'x', 'x');", "P0782")
+        # An admissible first state still meets the column checks.
+        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason, operation) VALUES (0, -1, 'x', '');", "23514")
+        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason, operation, operation_checksum) VALUES (0, -1, 'x', 'x', 'abc');", "23514")
+        eq(val(db, "SELECT count(*) FROM public.vote_convention_history;"), "0", "refused inserts leave no history")
+    case("a database holding votes is left undeclared: no row, DECLARE_NEEDED notice naming the command; "
+         "vote_insert refuses P0791; only (0,-1) or (1,+1) may be the first state", undeclared)
+
+    # 2b. The declare operation.
+    def declare_minus(db):
+        hold_votes(db)
+        apply(db)
+        declare_fails(db, "P0797", "2")
+        declare_fails(db, "P0797", "agree")
+        declare_fails(db, "P0797", "-1", reason="   ")
+        eq(val(db, "SELECT count(*) FROM public.vote_convention;"), "0", "refusals wrote nothing")
+        p = declare(db, "-1", reason="the original Polis convention")
+        assert "GUARDED v0 agree -1 (declared by postgres)" in p.stderr, p.stderr
+        eq(val(db, "SELECT version, agree_value, contract_version, operation, operation_checksum, reason, changed_by FROM public.vote_convention;"),
+           f"0|-1|1|vote_convention_declare|{declare_checksum}|the original Polis convention|postgres", "declared row")
+        eq(val(db, "SELECT count(*), min(operation) FROM public.vote_convention_history;"), "1|vote_convention_declare", "history")
+        eq(val(db, "SELECT version || '|' || agree_value FROM public.vote_convention_current();"), "0|-1", "current()")
+        declare_fails(db, "P0798", "-1")
+        declare_fails(db, "P0798", "1")
+        eq(val(db, "SELECT count(*) FROM public.vote_convention_history;"), "1", "a second declaration changes nothing")
+        # The declared row behaves exactly like the seed: writes, reads and the flip.
+        eq(val(db, "SELECT vote, convention_version FROM public.vote_insert(990001, 1, 1, 1::smallint);"), "-1|0", "writes at -1")
+        eq(val(db, "SELECT semantic_vote FROM votes_semantic WHERE zid = 990000;"), "1", "the pre-existing vote reads as agree")
+        flip(db)
+        eq(val(db, "SELECT version || '|' || agree_value FROM public.vote_convention_current();"), "1|1", "flip after declare")
+    case("declare AGREE=-1 on an undeclared database: one row (0, -1) with the operation's checksum and reason; "
+         "bad sign / empty reason refuse P0797; a second declaration refuses P0798; the row then behaves like the seed", declare_minus)
+
+    def declare_plus(db):
+        hold_votes(db)
+        apply(db)
+        p = declare(db, "1", reason="this deployment reversed its own signs")
+        assert "GUARDED v1 agree 1 (declared by postgres)" in p.stderr, p.stderr
+        eq(val(db, "SELECT version, agree_value, operation FROM public.vote_convention;"), "1|1|vote_convention_declare", "declared +1")
+        eq(val(db, "SELECT string_agg(version::text, ',' ORDER BY version) FROM public.vote_convention_history;"), "1",
+           "one history row: no -1 era that never existed")
+        eq(val(db, "SELECT vote, convention_version FROM public.vote_insert(990001, 1, 1, 1::smallint);"), "1|1", "writes agree as +1")
+        eq(val(db, "SELECT semantic_vote FROM votes_semantic WHERE zid = 990001;"), "1", "reads back as agree")
+        # The next state continues from version 1: (2, -1) is the reverse flip.
+        fails(db, "UPDATE public.vote_convention SET version = 1, agree_value = -1, reason = 'x';", "P0782")
+        sql(db, "UPDATE public.vote_convention SET version = 2, agree_value = -1, reason = 'reverse' WHERE singleton;")
+        eq(val(db, "SELECT count(*) FROM public.vote_convention_history;"), "2", "history continues")
+        fails(db, DOWN.read_text(), "P0789")
+    case("declare AGREE=+1 (a deployment that reversed its own signs): first state (1, +1), one history row; "
+         "vote_insert writes +1; the next state is version 2; the down file refuses", declare_plus)
+
+    def declare_without_migration(db):
+        declare_fails(db, "P0796", "-1")
+        assert val(db, "SELECT to_regclass('public.vote_convention') IS NULL;") == "t"
+        assert dump(db) == baseline, "a refused declaration changed the catalog"
+    case("declare before the migration refuses P0796 and changes nothing", declare_without_migration)
+
+    def declare_script(db):
+        p = declare_sh(db, "--status", ok=False)
+        assert p.returncode == 1 and p.stdout.startswith("GUARD_NEEDED"), p.stdout + p.stderr
+        hold_votes(db)
+        apply(db)
+        p = declare_sh(db, "--status", ok=False)
+        assert p.returncode == 1 and p.stdout.startswith("DECLARE_NEEDED") and DECLARE_COMMAND in p.stdout, p.stdout + p.stderr
+        p = declare_sh(db, "0", ok=False)
+        assert p.returncode == 2 and "AGREE must be -1 or +1" in p.stderr, p.stdout + p.stderr
+        eq(val(db, "SELECT count(*) FROM public.vote_convention;"), "0", "the script refused before psql")
+        p = declare_sh(db, "-1")
+        assert p.stdout.strip().endswith("GUARDED v0 agree -1 (contract 1; written by vote_convention_declare as postgres: "
+                                         "declared by the operator: the original Polis convention (agree stored as -1))"), p.stdout
+        p = declare_sh(db, "--status")
+        assert p.stdout.startswith("GUARDED v0 agree -1"), p.stdout
+        p = declare_sh(db, "+1", "again", ok=False)
+        assert p.returncode != 0 and "already declares its convention" in p.stderr, p.stderr
+        eq(val(db, "SELECT version || '|' || agree_value FROM public.vote_convention_current();"), "0|-1", "unchanged")
+        (WORK / "declare-script.txt").write_text(p.stderr)
+    case("vote-convention-declare.sh: --status says GUARD_NEEDED / DECLARE_NEEDED / GUARDED; AGREE=-1 declares; "
+         "a bad sign and a second declaration are refused", declare_script)
 
     # 3. Triggers.
     def triggers(db):
@@ -246,7 +395,7 @@ def main():
         assert val(db, "SELECT count(*) FROM public.vote_convention_history;") == "1"
         flip(db)
         assert val(db, "SELECT version || '|' || agree_value || '|' || reason FROM public.vote_convention_history ORDER BY version;") == \
-            "0|-1|storage convention since 2012: agree = -1, disagree = +1, pass = 0\n1|1|test flip"
+            f"0|-1|{SEED_REASON}\n1|1|test flip"
         fails(db, "UPDATE public.vote_convention SET version = 1, agree_value = -1, reason = 'back';", "P0782")
         sql(db, "UPDATE public.vote_convention SET version = 2, agree_value = -1, reason = 'and back' WHERE singleton;")
         assert val(db, "SELECT count(*) FROM public.vote_convention_history;") == "3"
@@ -276,10 +425,12 @@ def main():
         eq(val(db, "SELECT count(*) FROM votes WHERE zid = 990001;"), "0", "nothing written")
         eq(val(db, "SELECT count(*) FROM votes_semantic;"), "0", "views empty without the row")
         # Putting a row back must continue the history: version 2 with the opposite sign of version 1.
-        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason) VALUES (0, -1, 'restart');", "P0782")
-        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason) VALUES (2, 1, 'same sign');", "P0782")
-        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason) VALUES (5, -1, 'skip');", "P0782")
-        sql(db, "INSERT INTO public.vote_convention (version, agree_value, reason) VALUES (2, -1, 'put back');")
+        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason, operation) VALUES (0, -1, 'restart', 'x');", "P0782")
+        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason, operation) VALUES (2, 1, 'same sign', 'x');", "P0782")
+        fails(db, "INSERT INTO public.vote_convention (version, agree_value, reason, operation) VALUES (5, -1, 'skip', 'x');", "P0782")
+        # The declare operation does not put it back either: history exists, so the first-state rule does not apply.
+        declare_fails(db, "P0782", "-1")
+        sql(db, "INSERT INTO public.vote_convention (version, agree_value, reason, operation) VALUES (2, -1, 'put back', 'repair');")
         eq(val(db, "SELECT max(version), count(*) FROM public.vote_convention_history;"), "2|3", "history continues")
         eq(val(db, "SELECT vote, convention_version FROM public.vote_insert(990001, 1, 1, 1::smallint);"), "-1|2", "writes again")
     case("permanence: DELETE/TRUNCATE refuse P0790; history TRUNCATE P0781; a missing row makes vote_insert refuse P0791 "
@@ -298,12 +449,14 @@ def main():
                 assert val(db, f"SELECT vote_semantic(vote_storage({s}::smallint,{agree}::smallint),{agree}::smallint);") == str(s)
         assert val(db, "SELECT vote_storage(1::smallint,-1::smallint), vote_storage(-1::smallint,-1::smallint), "
                        "vote_storage(1::smallint,1::smallint), vote_storage(NULL,1::smallint) IS NULL;") == "-1|1|1|t"
-        assert val(db, "SELECT version || '|' || agree_value FROM vote_convention_current();") == "0|-1"
+        assert val(db, "SELECT version || '|' || agree_value || '|' || contract_version FROM vote_convention_current();") == "0|-1|1"
         assert val(db, "SELECT to_regprocedure('public.vote_convention_current()') IS NOT NULL;") == "t"
         assert val(db, "SELECT count(*) FROM votes v LEFT JOIN public.vote_convention_current() AS vc ON true;") == "0"
+        # The engines' row read selects by name and is unchanged by the third column.
+        assert val(db, "SELECT version, agree_value FROM public.vote_convention_current();") == "0|-1"
         flip(db)
-        assert val(db, "SELECT version || '|' || agree_value FROM vote_convention_current();") == "1|1"
-    case("functions: vote_semantic/vote_storage inverse at both signs, NULL -> NULL; current() at v0 then (1, 1)", functions_both)
+        assert val(db, "SELECT version || '|' || agree_value || '|' || contract_version FROM vote_convention_current();") == "1|1|1"
+    case("functions: vote_semantic/vote_storage inverse at both signs, NULL -> NULL; current() carries the contract at v0 then (1, 1)", functions_both)
 
     # 5. vote_insert round trip at both versions.
     def insert_round_trip(db):
@@ -415,24 +568,35 @@ def main():
         fails(db, DOWN.read_text(), "P0789")
     case("restore detection against the real held un-flip: pre-flip -> post-flip; re-run refuses P0785; down refuses P0789", real_unflip)
 
-    # 5d. The ledger checksum checker the CI workflow runs.
+    # 5d. The ledger checksum checker the CI workflow runs: migrations and operations.
     def checker(_db):
-        spec = importlib.util.spec_from_file_location("check_ledger_checksums", ROOT.parent / "check_ledger_checksums.py")
+        spec = importlib.util.spec_from_file_location("check_ledger_checksums", CHECKER)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
-        eq(mod.check(UP), [], "committed file")
+        eq(mod.check(UP), [], "committed migration")
+        eq(mod.check(DECLARE), [], "committed operation")
+        assert DECLARE in mod.files() and UP in mod.files()
         tampered = WORK / UP.name
-        tampered.write_bytes(UP.read_bytes().replace(b"VALUES (0, -1, 'storage convention", b"VALUES (0, -1, 'Storage convention", 1))
+        tampered.write_bytes(UP.read_bytes().replace(b"'seed-empty'", b"'Seed-empty'", 1))
         assert mod.check(tampered) and "hashes to" in mod.check(tampered)[0], mod.check(tampered)
+        ops = WORK / "operations"
+        ops.mkdir(exist_ok=True)
+        tampered_op = ops / DECLARE.name
+        tampered_op.write_bytes(DECLARE.read_bytes().replace(b"CASE WHEN v_agree = -1 THEN 0 ELSE 1 END", b"CASE WHEN v_agree = -1 THEN 0 ELSE 2 END", 1))
+        assert mod.check(tampered_op) and "hashes to" in mod.check(tampered_op)[0], mod.check(tampered_op)
+        renamed_op = ops / "vote_convention_other.sql"
+        renamed_op.write_bytes(DECLARE.read_bytes())
+        assert any("names" in p for p in mod.check(renamed_op)), mod.check(renamed_op)
         renamed = WORK / "000099_other.sql"
         renamed.write_bytes(UP.read_bytes())
         assert any("names" in p for p in mod.check(renamed)), mod.check(renamed)
         unmarked = WORK / "000098_unmarked.sql"
         unmarked.write_bytes(b"BEGIN;\nCOMMIT;\n")
         assert "0 ledger marker lines" in mod.check(unmarked)[0]
-        p = subprocess.run([sys.executable, str(ROOT.parent / "check_ledger_checksums.py")], capture_output=True, text=True)
+        p = subprocess.run([sys.executable, str(CHECKER)], capture_output=True, text=True)
         assert p.returncode == 0, p.stdout + p.stderr
-    case("ledger checker: the committed file passes; an edited body, a renamed file and a missing marker fail", checker)
+        assert "operations/vote_convention_declare.sql" in p.stdout
+    case("ledger checker: the committed migration and operation pass; an edited body, a renamed file and a missing marker fail", checker)
 
     # 6. Grants.
     def grants(db):
@@ -498,25 +662,39 @@ def main():
         assert code[-2].startswith("INSERT INTO public.schema_migrations") and code[-2].endswith(MARKER.decode()), code[-2]
         fails(db, "INSERT INTO public.schema_migrations (name, checksum) VALUES ('000099_bad', 'short');", "23514")
         fails(db, "INSERT INTO public.schema_migrations (name, checksum) VALUES ('99_bad', 'pre-ledger');", "23514")
-    case("ledger: own row = sha256 of the file without its marker line; backfill = every earlier file; last statement", ledger)
+        # The operation file carries its own checksum the same way.
+        in_op = re.search(rb"'vote_convention_declare', '([0-9a-f]{64})'\); " + MARKER, DECLARE.read_bytes())
+        assert in_op and in_op.group(1).decode() == declare_checksum, "operation checksum"
+    case("ledger: own row = sha256 of the file without its marker line; backfill = every earlier file; last statement; "
+         "the operation carries its checksum the same way", ledger)
 
     # 8. The restore-detection rule (the query in docs/vote-convention.md, verbatim).
-
     def restore(db):
         assert val(db, "SELECT to_regclass('public.vote_convention') IS NOT NULL;") == "f"
+        hold_votes(db)
         apply(db)
-        assert val(db, restore_sql) == "pre-flip"
+        eq(val(db, restore_sql), "undeclared", "a database that held votes: declare it")
+        declare(db, "-1")
+        eq(val(db, restore_sql), "pre-flip", "declared -1")
         sql(db, "INSERT INTO public.schema_migrations (name, checksum) VALUES ('000024_vote_sign_unflip', repeat('a', 64));")
-        assert val(db, restore_sql) == "corrupt"   # the un-flip row at version 0
+        eq(val(db, restore_sql), "corrupt", "the un-flip row at version 0")
         flip(db)
-        assert val(db, restore_sql) == "post-flip"
+        eq(val(db, restore_sql), "post-flip", "flip and row")
         sql(db, "DELETE FROM public.schema_migrations WHERE name = '000024_vote_sign_unflip';")
-        assert val(db, restore_sql) == "corrupt"   # version 1 without the row
-        sql(db, "ALTER TABLE public.vote_convention DISABLE TRIGGER USER; DELETE FROM public.vote_convention;")
-        assert val(db, restore_sql) == "corrupt"   # no row at all
-    case("restore detection: absent table -> apply; fresh = pre-flip; flip+row = post-flip; either alone or no row = corrupt", restore)
+        eq(val(db, restore_sql), "corrupt", "version 1 without the row, not a declaration")
+        sql(db, "ALTER TABLE public.vote_convention DISABLE TRIGGER USER; DELETE FROM public.vote_convention; ALTER TABLE public.vote_convention ENABLE TRIGGER USER;")
+        eq(val(db, restore_sql), "undeclared", "no row at all: the components refuse until it is declared")
+    case("restore detection: absent table -> apply; no row = undeclared; declared/seeded = pre-flip; flip+row = post-flip; "
+         "either alone = corrupt", restore)
 
-    # 9. Down refuses when dropping would lose information.
+    def restore_declared_plus(db):
+        hold_votes(db)
+        apply(db)
+        declare(db, "1")
+        assert val(db, restore_sql) == "declared-agree-plus"
+    case("restore detection: a deployment that declared +1 is its own state, not corruption", restore_declared_plus)
+
+    # 9. Down refuses when dropping would lose information; drops an undeclared database.
     def down_refusals(db):
         apply(db)
         flip(db)
@@ -534,18 +712,43 @@ def main():
         fails(db, DOWN.read_text(), "P0789")   # a partial copy
     case("down refuses P0789 with a later ledger row, and on a partial copy", down_later)
 
-    # 10. The full chain on an empty database, three ways.
+    def down_undeclared(db):
+        hold_votes(db)
+        apply(db)
+        eq(val(db, "SELECT count(*) FROM public.vote_convention;"), "0", "undeclared")
+        down(db)
+        assert dump(db) == baseline, "down of an undeclared database did not restore the catalog"
+        eq(val(db, "SELECT vote FROM votes WHERE zid = 990000;"), "-1", "the vote is untouched")
+        # Declared at -1 (the seed's state): down is allowed too; the row carried no information the data lacks.
+        apply(db)
+        declare(db, "-1")
+        down(db)
+        assert dump(db) == baseline
+        # The row removed by hand with history behind it: refuse (inspect first).
+        apply(db)
+        declare(db, "-1")
+        sql(db, "ALTER TABLE public.vote_convention DISABLE TRIGGER USER; DELETE FROM public.vote_convention; ALTER TABLE public.vote_convention ENABLE TRIGGER USER;")
+        fails(db, DOWN.read_text(), "P0789")
+    case("down of an undeclared database, and of one declared -1, restores the catalog exactly; a row removed by hand "
+         "with history behind it refuses P0789", down_undeclared)
+
+    # 10. The full chain on an empty database, three ways; and on a database holding votes.
     def chain(_db):
         everything = [p for p in sorted(ROOT.glob("0*.sql"))]
         assert everything[-1] == UP, [p.name for p in everything[-3:]]
-        for name, how in (("vc_chain_f", "file"), ("vc_chain_c", "single-call")):
+        for name, how in (("vc_chain_f", "file"), ("vc_chain_c", "single-call"), ("vc_chain_v", "with-votes")):
             sql("postgres", f"CREATE DATABASE {name} TEMPLATE template0;")
             try:
                 for path in everything:
+                    if how == "with-votes" and path == UP:
+                        hold_votes(name)
                     if how == "single-call" and path == UP:
                         run(["psql", "-X", "-At", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", name, "-c", path.read_text()])
                     else:
                         sql(name, path.read_text())
+                if how == "with-votes":
+                    assert val(name, "SELECT count(*) FROM public.vote_convention;") == "0"
+                    declare(name, "-1")
                 assert val(name, "SELECT version || '|' || agree_value FROM public.vote_convention_current();") == "0|-1"
                 assert val(name, "SELECT count(*) FROM public.schema_migrations;") == str(len(everything))
                 if how == "file":
@@ -560,7 +763,8 @@ def main():
                     assert before == after
             finally:
                 sql("postgres", f"DROP DATABASE {name} WITH (FORCE);")
-    case("chain: 000000..000022 then 000023 on an empty database (psql -f and one driver call); replay without ON_ERROR_STOP is harmless", chain)
+    case("chain: 000000..000022 then 000023 on an empty database (psql -f and one driver call) seeds v0; on a database "
+         "holding votes it leaves the row for the declaration; replay without ON_ERROR_STOP is harmless", chain)
 
     for login in LOGINS:
         sql("postgres", f"DROP OWNED BY {login} CASCADE;", ok=False)
@@ -568,13 +772,14 @@ def main():
     for login in LOGINS:
         sql("postgres", f"DROP ROLE IF EXISTS {login};")
 
-    summary = {"schema": "polis-vote-convention-migration-test/1", "passed": len(RESULTS) - len(FAILURES) - len(SKIPPED),
+    summary = {"schema": "polis-vote-convention-migration-test/2", "passed": len(RESULTS) - len(FAILURES) - len(SKIPPED),
                "failed": len(FAILURES), "failures": FAILURES, "skipped": len(SKIPPED), "skip_reasons": SKIPPED, "cases": RESULTS,
                "migration_count_before_000023": len(migrations),
-               "source_sha256": {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
-                                 for p in [UP, DOWN, Path(__file__), ROOT / "down/test_000023_down.sh",
+               "source_sha256": {str(p.relative_to(REPO)): hashlib.sha256(p.read_bytes()).hexdigest()
+                                 for p in [UP, DOWN, DECLARE, DECLARE_SH, CHECKER, Path(__file__), ROOT / "down/test_000023_down.sh",
                                            ROOT / "down/test_000023.compose.yml"]},
                "ledger_checksum": ledger_checksum(UP.read_bytes()),
+               "declare_checksum": declare_checksum,
                "baseline_sha256": hashlib.sha256(baseline.encode()).hexdigest()}
     (WORK / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     print(json.dumps({k: summary[k] for k in ("passed", "failed", "skipped")}))
