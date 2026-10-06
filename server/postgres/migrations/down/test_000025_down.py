@@ -879,7 +879,7 @@ def main():
     def chain(_db):
         everything = [p for p in sorted(ROOT.glob("0*.sql"))]
         assert everything[-1] == UP, [p.name for p in everything[-3:]]
-        assert [int(p.name[:6]) for p in everything] == [n for n in range(24) if n != 20] + [25], [p.name for p in everything]
+        assert [int(p.name[:6]) for p in everything] == [n for n in range(25) if n != 20] + [25], [p.name for p in everything]
         for name, how in (("vc_chain_f", "file"), ("vc_chain_c", "single-call"), ("vc_chain_v", "with-votes")):
             sql("postgres", f"CREATE DATABASE {name} TEMPLATE template0;")
             try:
