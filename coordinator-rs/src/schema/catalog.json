@@ -7651,6 +7651,91 @@
       ]
     },
     {
+      "table": "schema_migrations",
+      "introduced": "server/postgres/migrations/000023_vote_convention.sql:244",
+      "columns": [
+        {
+          "table": "schema_migrations",
+          "name": "name",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:245"
+        },
+        {
+          "table": "schema_migrations",
+          "name": "applied_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 2,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:246"
+        },
+        {
+          "table": "schema_migrations",
+          "name": "applied_by",
+          "sql_type": "name",
+          "udt": "name",
+          "nullable": "NO",
+          "default": "SESSION_USER",
+          "ordinal": 3,
+          "definition_type": "name",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:247"
+        },
+        {
+          "table": "schema_migrations",
+          "name": "checksum",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:248"
+        },
+        {
+          "table": "schema_migrations",
+          "name": "note",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": "''::text",
+          "ordinal": 5,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:249"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "schema_migrations",
+          "name": "schema_migrations_pkey",
+          "definition": "CREATE UNIQUE INDEX schema_migrations_pkey ON public.schema_migrations USING btree (name)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "schema_migrations",
+          "name": "schema_migrations_checksum_check",
+          "definition": "CHECK (((length(checksum) = 64) OR (checksum = 'pre-ledger'::text)))"
+        },
+        {
+          "table": "schema_migrations",
+          "name": "schema_migrations_name_check",
+          "definition": "CHECK ((name ~ '^[0-9]{6}_[a-z0-9_]+$'::text))"
+        },
+        {
+          "table": "schema_migrations",
+          "name": "schema_migrations_pkey",
+          "definition": "PRIMARY KEY (name)"
+        }
+      ]
+    },
+    {
       "table": "site_domain_whitelist",
       "introduced": "server/postgres/migrations/000000_initial.sql:86",
       "columns": [
@@ -9075,6 +9160,273 @@
       ]
     },
     {
+      "table": "vote_convention",
+      "introduced": "server/postgres/migrations/000023_vote_convention.sql:112",
+      "columns": [
+        {
+          "table": "vote_convention",
+          "name": "singleton",
+          "sql_type": "boolean",
+          "udt": "bool",
+          "nullable": "NO",
+          "default": "true",
+          "ordinal": 1,
+          "definition_type": "boolean",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:113"
+        },
+        {
+          "table": "vote_convention",
+          "name": "version",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:114"
+        },
+        {
+          "table": "vote_convention",
+          "name": "agree_value",
+          "sql_type": "smallint",
+          "udt": "int2",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "smallint",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:115"
+        },
+        {
+          "table": "vote_convention",
+          "name": "changed_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 4,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:116"
+        },
+        {
+          "table": "vote_convention",
+          "name": "changed_by",
+          "sql_type": "name",
+          "udt": "name",
+          "nullable": "NO",
+          "default": "SESSION_USER",
+          "ordinal": 5,
+          "definition_type": "name",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:117"
+        },
+        {
+          "table": "vote_convention",
+          "name": "reason",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:118"
+        },
+        {
+          "table": "vote_convention",
+          "name": "contract_version",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": "1",
+          "ordinal": 7,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:119"
+        },
+        {
+          "table": "vote_convention",
+          "name": "operation",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 8,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:123"
+        },
+        {
+          "table": "vote_convention",
+          "name": "operation_checksum",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 9,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:124"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "vote_convention",
+          "name": "vote_convention_pkey",
+          "definition": "CREATE UNIQUE INDEX vote_convention_pkey ON public.vote_convention USING btree (singleton)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "vote_convention",
+          "name": "vote_convention_agree_value_check",
+          "definition": "CHECK ((agree_value = ANY (ARRAY['-1'::integer, 1])))"
+        },
+        {
+          "table": "vote_convention",
+          "name": "vote_convention_contract_version_check",
+          "definition": "CHECK ((contract_version = 1))"
+        },
+        {
+          "table": "vote_convention",
+          "name": "vote_convention_operation_check",
+          "definition": "CHECK ((length(operation) > 0))"
+        },
+        {
+          "table": "vote_convention",
+          "name": "vote_convention_operation_checksum_check",
+          "definition": "CHECK (((operation_checksum IS NULL) OR (length(operation_checksum) = 64)))"
+        },
+        {
+          "table": "vote_convention",
+          "name": "vote_convention_pkey",
+          "definition": "PRIMARY KEY (singleton)"
+        },
+        {
+          "table": "vote_convention",
+          "name": "vote_convention_reason_check",
+          "definition": "CHECK ((length(reason) > 0))"
+        },
+        {
+          "table": "vote_convention",
+          "name": "vote_convention_singleton_check",
+          "definition": "CHECK (singleton)"
+        },
+        {
+          "table": "vote_convention",
+          "name": "vote_convention_version_check",
+          "definition": "CHECK ((version >= 0))"
+        }
+      ]
+    },
+    {
+      "table": "vote_convention_history",
+      "introduced": "server/postgres/migrations/000023_vote_convention.sql:130",
+      "columns": [
+        {
+          "table": "vote_convention_history",
+          "name": "version",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:131"
+        },
+        {
+          "table": "vote_convention_history",
+          "name": "agree_value",
+          "sql_type": "smallint",
+          "udt": "int2",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "smallint",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:132"
+        },
+        {
+          "table": "vote_convention_history",
+          "name": "changed_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:133"
+        },
+        {
+          "table": "vote_convention_history",
+          "name": "changed_by",
+          "sql_type": "name",
+          "udt": "name",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "name",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:134"
+        },
+        {
+          "table": "vote_convention_history",
+          "name": "reason",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:135"
+        },
+        {
+          "table": "vote_convention_history",
+          "name": "contract_version",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:136"
+        },
+        {
+          "table": "vote_convention_history",
+          "name": "operation",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 7,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:137"
+        },
+        {
+          "table": "vote_convention_history",
+          "name": "operation_checksum",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 8,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_vote_convention.sql:138"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "vote_convention_history",
+          "name": "vote_convention_history_pkey",
+          "definition": "CREATE UNIQUE INDEX vote_convention_history_pkey ON public.vote_convention_history USING btree (version)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "vote_convention_history",
+          "name": "vote_convention_history_agree_value_check",
+          "definition": "CHECK ((agree_value = ANY (ARRAY['-1'::integer, 1])))"
+        },
+        {
+          "table": "vote_convention_history",
+          "name": "vote_convention_history_pkey",
+          "definition": "PRIMARY KEY (version)"
+        }
+      ]
+    },
+    {
       "table": "votes",
       "introduced": "server/postgres/migrations/000000_initial.sql:737",
       "columns": [
@@ -9778,6 +10130,10 @@
     {
       "path": "server/postgres/migrations/000022_add_poll_timestamp_indexes.sql",
       "sha256": "14efc95b14787b52d70680ea06cfef020cd2224e82495258fd8eb324501b7b3e"
+    },
+    {
+      "path": "server/postgres/migrations/000023_vote_convention.sql",
+      "sha256": "f0da435518cdb2987bf65c3c26e13cdda5b77c2243b11b0816d760ff2e094257"
     }
   ]
 }

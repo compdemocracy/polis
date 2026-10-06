@@ -1,15 +1,30 @@
 -- 000023_vote_convention.sql: the vote storage convention lives in the database.
 --
 -- SCHEMA CHANGE. NO DATA CHANGE: no existing row is read for
--- writing, updated or deleted. The seed row states today's storage convention
--- (agree = -1, disagree = +1, pass = 0), so every reader that consults it
--- computes exactly what it computes today.
+-- writing, updated or deleted. No vote value changes.
+--
+-- THE ONE ROW. public.vote_convention holds at most one row naming the
+-- storage convention: agree_value is the raw value that means AGREE
+-- (disagree is its negation, pass is 0). Every component reads it at start
+-- and refuses to run against a database that declares no convention, or one
+-- it was not built for (docs/vote-convention-upgrade.md).
+--
+-- WHO WRITES THE ROW. This file writes it ONLY when both vote tables are
+-- empty (a fresh install): version 0, agree = -1, the convention since 2012.
+-- A database that already holds votes is left UNDECLARED, with the NOTICE
+-- below: its operator declares the sign explicitly with
+--   make vote-convention-declare AGREE=-1      (AGREE=+1 only for a deployment
+--                                              that reversed its own signs)
+-- which runs server/postgres/operations/vote_convention_declare.sql. Old
+-- code never reads the row, so it keeps working next to an undeclared
+-- database; every guard-era component refuses to start until the declaration
+-- is made. The data's own evidence never decides the sign.
 --
 -- Adds, in one transaction:
 --   public.vote_convention          the singleton (version, agree_value), updated in place
 --   public.vote_convention_history  append-only, filled by trigger
 --   public.schema_migrations        the migration ledger, with the earlier files backfilled
---   public.vote_convention_current()                 STABLE SECURITY DEFINER read
+--   public.vote_convention_current()                 STABLE SECURITY DEFINER read: (version, agree_value, contract_version)
 --   public.vote_semantic(raw, agree_value)           IMMUTABLE STRICT storage -> semantic
 --   public.vote_storage(semantic, agree_value)       IMMUTABLE STRICT semantic -> storage
 --   public.vote_insert(zid, pid, tid, semantic, ...) SECURITY DEFINER; the only sanctioned INSERT into votes
@@ -23,7 +38,8 @@
 --   P0780  this file refuses: already applied (or a partial copy), or PostgreSQL < 13
 --   P0781  vote_convention_history is append-only (UPDATE/DELETE refused)
 --   P0782  a new vote_convention state is not exactly version+1 with a sign change
---          (an UPDATE, or an INSERT after the row was removed with triggers off)
+--          (an UPDATE, or an INSERT after the row was removed with triggers off);
+--          or a first state other than (0, -1) seeded/declared or (1, +1) declared
 --   P0783  vote_insert: semantic vote is not -1, 0 or 1
 --   P0784  vote_insert: p_expected_version differs from the current version
 --   55P03  (lock_not_available) vote_insert waited 2 s for a lock: almost
@@ -33,7 +49,8 @@
 --          answers 503 polis_err_votes_paused_retry.
 --   P0790  vote_convention: DELETE and TRUNCATE are refused (the row is permanent)
 --   P0791  vote_insert: the vote_convention row is missing; nothing is written
---   P0785..P0788 are the held un-flip's; P0789 is the down file's refusal.
+--   P0785..P0788 are the held un-flip's; P0789 is the down file's refusal;
+--   P0796..P0798 are the declare operation's refusals.
 --
 -- Ledger rule, from this file on: every migration file inserts its own
 -- public.schema_migrations row as its last statement. The row's checksum is
@@ -45,15 +62,18 @@
 --
 -- Restore detection (runbook): a restored copy is pre-flip iff
 --   vote_convention.version = 0 AND no schema_migrations row named %_vote_sign_unflip.
--- No vote_convention table at all: older than this file; apply it, then decide.
--- version = 1 with the un-flip row: post-flip, serve as is. Any other
--- combination (the row without version 1, or version 1 without the row) is
--- corruption: stop. docs/vote-convention.md has the query.
+-- No vote_convention table at all: older than this file; apply it, then declare.
+-- A table with no row: undeclared; declare it. version = 1 with the un-flip
+-- row: post-flip, serve as is. Any other combination (the un-flip row at
+-- version 0, or version 1 without it) is corruption: stop.
+-- docs/vote-convention.md has the query.
 --
 -- Applied like 000022: fresh databases through docker-entrypoint-initdb.d and
--- server/bin/run-migrations.sh; production by the operator, by hand, as the
--- migration (owner) role, in one session:
+-- server/bin/run-migrations.sh (both seed version 0, the database being
+-- empty); an existing database by the operator, by hand, as the migration
+-- (owner) role, in one session, followed by the declaration:
 --   psql -X -v ON_ERROR_STOP=1 -f server/postgres/migrations/000023_vote_convention.sql
+--   make vote-convention-declare AGREE=-1
 -- The file carries its own BEGIN/COMMIT; it also works as one driver call
 -- (the test harnesses and the probe-box rehearsal). No CONCURRENTLY, no
 -- superuser, no extension. Requires PostgreSQL >= 13; production is 17.
@@ -96,10 +116,15 @@ CREATE TABLE public.vote_convention (
   changed_at       timestamptz NOT NULL DEFAULT clock_timestamp(),
   changed_by       name        NOT NULL DEFAULT session_user,
   reason           text        NOT NULL CHECK (length(reason) > 0),
-  contract_version integer     NOT NULL DEFAULT 1 CHECK (contract_version = 1)
+  contract_version integer     NOT NULL DEFAULT 1 CHECK (contract_version = 1),
+  -- What wrote this state: 'seed-empty' (this file, on an empty database),
+  -- 'vote_convention_declare' (the operator's declaration), later the flip
+  -- tool. An operation file records its own ledger checksum here.
+  operation          text      NOT NULL CHECK (length(operation) > 0),
+  operation_checksum text      CHECK (operation_checksum IS NULL OR length(operation_checksum) = 64)
 );
 COMMENT ON TABLE public.vote_convention IS
-  'The storage sign of votes.vote and votes_latest_unique.vote. agree_value is the raw value that means AGREE; disagree is -agree_value; pass is 0. Read it in the same statement as the votes. Updated in place by the un-flip migration only.';
+  'The storage sign of votes.vote and votes_latest_unique.vote: at most one row. agree_value is the raw value that means AGREE; disagree is -agree_value; pass is 0. Written by migration 000023 on an empty database or by the operator''s declaration; changed in place by the flip tool only. Every component refuses to start without it.';
 
 -- 1.2 Append-only history.
 CREATE TABLE public.vote_convention_history (
@@ -108,7 +133,9 @@ CREATE TABLE public.vote_convention_history (
   changed_at       timestamptz NOT NULL,
   changed_by       name        NOT NULL,
   reason           text        NOT NULL,
-  contract_version integer     NOT NULL
+  contract_version integer     NOT NULL,
+  operation          text      NOT NULL,
+  operation_checksum text
 );
 COMMENT ON TABLE public.vote_convention_history IS
   'Every state public.vote_convention has had, one row per version, written by trigger. Append-only.';
@@ -116,8 +143,8 @@ COMMENT ON TABLE public.vote_convention_history IS
 CREATE FUNCTION public.vote_convention_record_history() RETURNS trigger
 LANGUAGE plpgsql SET search_path = pg_catalog, pg_temp AS $$
 BEGIN
-  INSERT INTO public.vote_convention_history (version, agree_value, changed_at, changed_by, reason, contract_version)
-  VALUES (NEW.version, NEW.agree_value, NEW.changed_at, NEW.changed_by, NEW.reason, NEW.contract_version);
+  INSERT INTO public.vote_convention_history (version, agree_value, changed_at, changed_by, reason, contract_version, operation, operation_checksum)
+  VALUES (NEW.version, NEW.agree_value, NEW.changed_at, NEW.changed_by, NEW.reason, NEW.contract_version, NEW.operation, NEW.operation_checksum);
   RETURN NEW;
 END $$;
 CREATE TRIGGER vote_convention_history_trg
@@ -138,11 +165,14 @@ CREATE TRIGGER vote_convention_history_no_truncate
   FOR EACH STATEMENT EXECUTE FUNCTION public.vote_convention_history_immutable();
 
 -- The monotonic guard: a new state is exactly old + 1 and changes the sign.
--- On UPDATE "old" is the row; on INSERT (the seed, or a row put back after it
--- was removed with triggers disabled) "old" is the newest history row, and
--- with no history the first state must be version 0. The guard also stamps
--- changed_at and changed_by, so a bare UPDATE of version and sign records
--- who changed it and when.
+-- On UPDATE "old" is the row; on INSERT (the seed, the declaration, or a row
+-- put back after it was removed with triggers disabled) "old" is the newest
+-- history row, and with no history the first state must be (0, -1) (the
+-- empty-database seed or a -1 declaration) or (1, +1) (a +1 declaration by a
+-- deployment that reversed its own signs; no -1 era that never existed is
+-- recorded). Version parity then means the sign: even = -1, odd = +1. The
+-- guard also stamps changed_at and changed_by, so a bare UPDATE of version
+-- and sign records who changed it and when.
 CREATE FUNCTION public.vote_convention_monotonic() RETURNS trigger
 LANGUAGE plpgsql SET search_path = pg_catalog, pg_temp AS $$
 DECLARE
@@ -156,9 +186,9 @@ BEGIN
     SELECT h.version, h.agree_value INTO old_version, old_agree
       FROM public.vote_convention_history h ORDER BY h.version DESC LIMIT 1;
     IF NOT FOUND THEN
-      IF NEW.version <> 0 THEN
-        RAISE EXCEPTION 'vote_convention: the first state must be version 0 (got %)', NEW.version
-          USING ERRCODE = 'P0782';
+      IF NOT ((NEW.version = 0 AND NEW.agree_value = -1) OR (NEW.version = 1 AND NEW.agree_value = 1)) THEN
+        RAISE EXCEPTION 'vote_convention: the first state must be (version 0, agree -1) or a declared (version 1, agree +1); got (%, %)',
+          NEW.version, NEW.agree_value USING ERRCODE = 'P0782';
       END IF;
       NEW.changed_at := clock_timestamp();
       NEW.changed_by := session_user;
@@ -194,10 +224,21 @@ CREATE TRIGGER vote_convention_no_truncate
   BEFORE TRUNCATE ON public.vote_convention
   FOR EACH STATEMENT EXECUTE FUNCTION public.vote_convention_permanent();
 
--- 1.3 The seed: today's convention, version 0. History gets its first row
--- through the trigger.
-INSERT INTO public.vote_convention (version, agree_value, reason)
-VALUES (0, -1, 'storage convention since 2012: agree = -1, disagree = +1, pass = 0');
+-- 1.3 The seed, ONLY on an empty database (no row in either vote table):
+-- today's convention, version 0. History gets its first row through the
+-- trigger. A database that holds votes is left undeclared, with the NOTICE:
+-- its operator declares the sign (make vote-convention-declare AGREE=-1).
+DO $seed$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.votes) AND NOT EXISTS (SELECT 1 FROM public.votes_latest_unique) THEN
+    INSERT INTO public.vote_convention (version, agree_value, reason, operation)
+    VALUES (0, -1, 'seeded on an empty database: agree = -1, disagree = +1, pass = 0 (the storage convention since 2012)', 'seed-empty');
+    RAISE NOTICE 'vote convention: GUARDED v0 agree -1 (seeded: this database held no votes)';
+  ELSE
+    RAISE NOTICE 'vote convention: DECLARE_NEEDED. This database holds votes and records no sign. Polis components will not start until you declare it. Next: "make vote-convention-declare AGREE=-1" (the original convention) or AGREE=+1 only if your deployment reversed its vote signs itself. Guide: docs/vote-convention-upgrade.md#declare';
+  END IF;
+END
+$seed$;
 
 -- 1.4 The migration ledger.
 CREATE TABLE public.schema_migrations (
@@ -239,19 +280,21 @@ FROM unnest(ARRAY[
 ]) AS n
 ON CONFLICT DO NOTHING;
 
--- 2.1 The read: one row, in the caller's statement snapshot.
+-- 2.1 The read: one row (or none: undeclared), in the caller's statement snapshot.
 -- STABLE and a plain SELECT: it never waits on the un-flip's FOR UPDATE; it
 -- reads the row its snapshot sees, together with the votes of that snapshot.
 -- SECURITY DEFINER: a role with EXECUTE needs no SELECT on the table.
 -- The shape matches the engines' join:
 --   LEFT JOIN public.vote_convention_current() AS vc ON true  -> vc.version, vc.agree_value
+-- contract_version names the installed surface; a component refuses a
+-- contract it was not built for.
 CREATE FUNCTION public.vote_convention_current()
-RETURNS TABLE (version integer, agree_value smallint)
+RETURNS TABLE (version integer, agree_value smallint, contract_version integer)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
-  SELECT c.version, c.agree_value FROM public.vote_convention c WHERE c.singleton
+  SELECT c.version, c.agree_value, c.contract_version FROM public.vote_convention c WHERE c.singleton
 $$;
 COMMENT ON FUNCTION public.vote_convention_current() IS
-  'The current vote storage convention (version, agree_value). Call it in the same statement as the votes it interprets.';
+  'The current vote storage convention (version, agree_value, contract_version); no row means undeclared. Call it in the same statement as the votes it interprets.';
 
 -- 2.2 Pure conversions. IMMUTABLE: the sign is an argument, the row is never
 -- read. STRICT: NULL in, NULL out (refuse or skip is the caller's policy).
@@ -397,5 +440,5 @@ $grants$;
 
 -- The ledger row for this file, as its last statement (the checksum is the
 -- sha256 of this file without the next line).
-INSERT INTO public.schema_migrations (name, checksum, note) VALUES ('000023_vote_convention', '879c1445a742fe5787e7428c85f81c185911d3a0c60c26b0bf86d54b70852b5e', 'vote storage convention; grants: ' || current_setting('polis.vote_convention_grants')); -- ledger-self-checksum
+INSERT INTO public.schema_migrations (name, checksum, note) VALUES ('000023_vote_convention', '4be1197e0fa037beffb407b125dffcf318afdb8075cf1196626b4cee114b6043', 'vote storage convention; grants: ' || current_setting('polis.vote_convention_grants')); -- ledger-self-checksum
 COMMIT;

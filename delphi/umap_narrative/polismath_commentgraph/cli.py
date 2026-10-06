@@ -175,6 +175,9 @@ def test_postgres(args):
     try:
         # Try to initialize the connection
         pg_client.initialize()
+        # The database must declare its stored vote sign (P-078).
+        declared = pg_client.require_declared_convention("commentgraph CLI")
+        logger.info(f"Vote convention declared: version {declared.version}, agree stored as {declared.agree_value}")
 
         # Test a simple query
         if args.zid:

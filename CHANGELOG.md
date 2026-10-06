@@ -28,6 +28,20 @@ Changes which have been merged to `edge` but are not yet versioned on `stable` c
 
 ## edge changes
 
+**Upgrade action required: the database declares its vote convention (migration 000023).**
+Polis stores each vote as a number, and since 2012 the number for "agree" has
+been -1 in the database (exports have always shown agree as +1). From this
+release the database records that fact itself, in a one-row table
+`vote_convention`, and every Polis component (server, import worker, math
+poller, Delphi jobs, coordinator) reads it at startup instead of assuming it.
+A fresh install needs nothing: the migration writes the row. **An existing
+deployment**: back up the database, apply the migration, then run
+`make vote-convention-declare AGREE=-1` once (`AGREE=+1` only if your
+deployment reversed its vote signs itself). New containers refuse to start
+until you do, with a message naming that command; old containers keep working.
+**No vote value changes.** Your deployment can stay on this convention
+forever. Guide: `docs/vote-convention-upgrade.md`.
+
 * ...
 
 

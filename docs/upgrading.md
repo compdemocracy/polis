@@ -1,5 +1,15 @@
 # Upgrade Guide
 
+## Vote convention (migration 000023)
+
+**Upgrade action required for existing deployments.** The database now records
+which stored vote value means "agree" (one row, `public.vote_convention`), and
+every Polis component refuses to start until it does. Back up the database,
+apply migration `000023_vote_convention.sql`, and, if the database already
+holds votes, run `make vote-convention-declare AGREE=-1` once. No vote value
+changes; nothing requires you to change the convention later. What you will
+see and what to run: [vote-convention-upgrade.md](vote-convention-upgrade.md).
+
 ## Configuration Changes (Q1 2023)
 
 `polis.config.template.js` and `polis.config.js` files are removed and no longer used.

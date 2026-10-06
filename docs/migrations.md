@@ -61,3 +61,23 @@ migration from 000023 on (including `held/`) and fails on a mismatch, a
 missing or duplicate marker, or a row naming another file. CI runs it on every
 pull request that touches `server/postgres/` (`.github/workflows/migration-ledger.yml`).
 Run it before applying a migration by hand.
+
+## Operations are not migrations (`server/postgres/operations/`)
+
+An *operation* is a SQL file an operator runs on purpose, once, through its
+own `make` target; the migration runner and the Docker initialisation never
+apply it. The first is `vote_convention_declare.sql`
+(`make vote-convention-declare AGREE=-1`), which declares the stored vote
+sign of a database that already held votes when migration 000023 ran. See
+[vote-convention-upgrade.md](vote-convention-upgrade.md). An operation records
+itself in `public.vote_convention_history` (not in `schema_migrations`), with
+its own ledger checksum computed by the same rule; the checker above verifies
+operation files too.
+
+## Migration 000023 and existing databases
+
+000023 writes the `vote_convention` row only when the database holds no
+votes. On an existing database it prints `DECLARE_NEEDED`, and every
+component of the release that reads the row refuses to start until you run
+`make vote-convention-declare AGREE=-1`. Old containers keep working
+meanwhile. The guide: [vote-convention-upgrade.md](vote-convention-upgrade.md).

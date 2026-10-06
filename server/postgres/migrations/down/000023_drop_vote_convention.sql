@@ -14,7 +14,8 @@
 -- Refuses (SQLSTATE P0789) when dropping would lose information:
 --   * the convention has moved (version <> 0, agree_value <> -1, or more than
 --     one history row), or the ledger records an un-flip: the stored votes are
---     then in a sign that only these rows declare;
+--     then in a sign that only these rows declare. A database that was never
+--     declared (no row, no history) is dropped: nothing is lost;
 --   * the ledger holds a row for any later migration (it would be lost);
 --   * only some of the objects exist (a partial copy: inspect by hand).
 -- On a database that never had 000023 it is a no-op.
@@ -60,10 +61,18 @@ BEGIN
       USING ERRCODE = 'P0789';
   END IF;
   -- Lock the row as the un-flip does, so no convention change races this check.
+  LOCK TABLE public.vote_convention IN EXCLUSIVE MODE;
   SELECT c.version, c.agree_value INTO v_version, v_agree
     FROM public.vote_convention c WHERE c.singleton FOR UPDATE;
   SELECT count(*) INTO v_history FROM public.vote_convention_history;
-  IF v_version IS DISTINCT FROM 0 OR v_agree IS DISTINCT FROM -1 OR v_history <> 1 THEN
+  IF v_version IS NULL THEN
+    -- No row (the column is NOT NULL, so NULL means none): an undeclared
+    -- database, one that held votes when 000023 ran. Nothing is lost.
+    IF v_history <> 0 THEN
+      RAISE EXCEPTION '000023 down: refusing: no convention row but % history rows (the row was removed by hand); inspect vote_convention_history first',
+        v_history USING ERRCODE = 'P0789';
+    END IF;
+  ELSIF v_version IS DISTINCT FROM 0 OR v_agree IS DISTINCT FROM -1 OR v_history <> 1 THEN
     RAISE EXCEPTION '000023 down: refusing: the convention is version %, agree_value % with % history rows; dropping it would leave the stored sign undeclared',
       v_version, v_agree, v_history USING ERRCODE = 'P0789';
   END IF;

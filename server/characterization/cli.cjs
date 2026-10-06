@@ -553,11 +553,20 @@ async function main() {
   if (command === "seed") {
     if (new URL(process.env.DATABASE_URL).pathname !== "/p027")
       throw Error("seed only accepts disposable p027 database");
+    // The vote convention row, its history and the migration ledger (000023)
+    // are not application data and refuse TRUNCATE; they stay as seeded.
+    const permanent = new Set([
+      "vote_convention",
+      "vote_convention_history",
+      "schema_migrations",
+    ]);
     const tables = (
       await pool.query(
         "select tablename from pg_tables where schemaname='public' order by tablename"
       )
-    ).rows.map((r) => r.tablename);
+    ).rows
+      .map((r) => r.tablename)
+      .filter((t) => !permanent.has(t));
     await pool.query(
       `TRUNCATE ${tables.map(quoted).join(",")} RESTART IDENTITY CASCADE`
     );

@@ -47,6 +47,11 @@ from polismath.poller.readiness import (
     identity,
 )
 from polismath.poller.service import MathPollerService, PollerConfig, PoolDrainTimeout
+from polismath.utils.vote_convention_boot import (
+    VoteConventionRefusal,
+    refuse_and_exit,
+    require_declared_convention,
+)
 
 
 def _configure_logging() -> None:
@@ -413,6 +418,14 @@ def _build_service(config: PollerConfig, large=None) -> MathPollerService:
             raise SystemExit(2)
     pg = PostgresClient(PostgresConfig(url=config.database_url, math_env=config.math_env))
     pg.initialize()
+    # The database must declare its stored vote sign, and it must be the sign
+    # this build is built for (P-078; docs/vote-convention-upgrade.md). The
+    # poller refuses to start otherwise; readiness never reaches primary/ok.
+    try:
+        declared = require_declared_convention(lambda sql: pg.query(sql), "math poller")
+    except VoteConventionRefusal as exc:
+        refuse_and_exit(exc, log, exit_code=2)
+    log.info("vote convention: version %s, agree stored as %s", declared.version, declared.agree_value)
     service = MathPollerService(
         pg, config, backfill_config=None if large is not None else _backfill_config(log),
         admission=admission,
