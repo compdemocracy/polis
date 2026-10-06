@@ -29,6 +29,7 @@ import pytest
 import sqlalchemy as sa
 
 from tests.vote_fixtures import AGREE, DISAGREE, PASS, convention as fixture_convention, seed_vote
+from polismath.utils.vote_convention import STORAGE_AGREE_VALUE, flipped
 
 _HERE = Path(__file__).resolve()
 _MARKER = "coordinator-rs/Cargo.toml"
@@ -134,6 +135,33 @@ def connect(url):
     c = psycopg2.connect(url)
     c.autocommit = True
     return c
+
+
+def declare_convention(url, agree_value):
+    """Set the stored sign the database declares, the only way its row admits a
+    change: the next version with the other sign (migration 000025's triggers
+    record it in the history). The coordinator reads this row at startup and in
+    every snapshot; STORAGE_AGREE_VALUE never overrides it, so a build for the
+    other sign refuses. A no-op when the row already says ``agree_value``."""
+    c = connect(url)
+    with c.cursor() as cur:
+        cur.execute("SELECT version, agree_value FROM public.vote_convention_current()")
+        version, current = cur.fetchone()
+        if current != agree_value:
+            cur.execute("UPDATE public.vote_convention SET version=%s, agree_value=%s, reason=%s WHERE singleton",
+                        (version + 1, agree_value, "coordinator campaign: the stored sign changes with the votes"))
+    c.close()
+
+
+def reverse_votes(url, where="TRUE"):
+    """Store every matching vote with the other sign, leaving the declared row as
+    it is: a conversation in which every participant voted the other way."""
+    # The factor that maps a vote stored under one convention onto the other.
+    other = flipped(STORAGE_AGREE_VALUE) // STORAGE_AGREE_VALUE
+    c = connect(url)
+    with c.cursor() as cur:
+        cur.execute(f"UPDATE votes SET vote=vote*%s WHERE {where}", (other,))
+    c.close()
 
 
 @pytest.fixture(scope="session")

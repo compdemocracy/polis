@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
-# apply-migration.sh: the checked apply wrapper for the queue migrations
-# 000019 (polis-queue/1), 000023 (polis-queue/2, the Delphi job table) and
-# 000024 (polis-queue/3, the large worker class).
+# apply-migration.sh: the checked apply wrapper for the migrations that an
+# existing database takes by hand: 000019 (polis-queue/1), 000023
+# (polis-queue/2, the Delphi job table), 000024 (polis-queue/3, the large
+# worker class) and 000025 (the vote convention).
 #
 # 000019 and 000023 create a foreign key to public.conversations, so each one holds
 # ShareRowExclusiveLock on `conversations` from that statement until its
@@ -11,6 +12,14 @@
 # any open transaction that already wrote a conversations row. Apply in an idle
 # or controlled writer window. This wrapper makes that window checkable and
 # bounds what the apply may do:
+#
+# 000025 takes no lock on conversations and rewrites nothing: its empty-table
+# checks hold AccessShareLock on votes and votes_latest_unique until COMMIT
+# (compatible with ordinary reads and writes; an ACCESS EXCLUSIVE holder on
+# either table makes it wait up to its own 5 s lock_timeout, then roll back),
+# and its other locks are on the objects it creates. It needs the vote tables
+# (000000, 000006) and nothing else; it does not need 000019, 000021, 000023
+# or 000024.
 #
 # 000024 takes no lock on conversations: it alters CHECK constraints on
 # polis_queue_install, polis_queue_runs, polis_queue_jobs and delphi_jobs
@@ -23,20 +32,27 @@
 #   PREFLIGHT (refuses, applying nothing, when any check fails)
 #     seal        the file matches its recorded sha256 (000023: down/000023-files.sha256;
 #                 000024: down/000024-files.sha256;
+#                 000025: down/000025-files.sha256;
 #                 000019: QUEUE_SQL_SHA256 in server/src/queue/protocol.ts)
 #     server      PostgreSQL 17 (the catalog fingerprints and transaction_timeout need it)
 #     rights      the applier can do what the file needs (000019: superuser, or
 #                 CREATEROLE while a role is absent / SET membership in
 #                 polis_queue_owner, plus public and conversations privileges with
 #                 grant option; 000023 and 000024: superuser or SET membership in
-#                 polis_queue_owner)
+#                 polis_queue_owner; 000025: superuser, or CREATE on schema public
+#                 plus ownership of votes and votes_latest_unique, which its
+#                 SECURITY DEFINER functions and views need)
 #     chain       000023: 000019 is installed (public.polis_queue_install exists);
 #                 000024: 000023 is installed (public.delphi_foundation_install
-#                 exists) and polis_queue_install reads polis-queue/2
-#     rows        every polis_queue_* and delphi_* data table that exists is empty
-#                 (for 000019 and 000023 a first install; for 000024 the queue
-#                 is empty, nothing queued, running, parked or kept; the
-#                 install/provenance tables are exempt)
+#                 exists) and polis_queue_install reads polis-queue/2;
+#                 000025: the vote tables exist (000000, 000006)
+#     rows        000019/000023/000024: every polis_queue_* and delphi_* data
+#                 table that exists is empty (for 000019 and 000023 a first
+#                 install; for 000024 the queue is empty, nothing queued,
+#                 running, parked or kept; the install/provenance tables are
+#                 exempt); 000025: none of the thirteen objects it creates
+#                 exists yet (vote_convention, its history, the ledger, the
+#                 views and the functions: a first install, not a repair)
 #     xacts       no other transaction on this database is older than
 #                 --max-xact-age seconds; the applier must be able to see other
 #                 sessions (superuser or pg_read_all_stats), otherwise this check
@@ -50,13 +66,14 @@
 #     statement_timeout                   --statement-timeout   default 60s
 #     transaction_timeout                 --transaction-timeout default 120s
 #     idle_in_transaction_session_timeout --idle-timeout        default 30s
-#   000023 and 000024 pin lock_timeout to 5s inside their own transaction
-#   (SET LOCAL), so for them the acquisition wait is 5s whatever --lock-timeout
-#   says; the other three budgets apply to every file. A budget that fires aborts the
-#   transaction: nothing is applied, and the wrapper exits non-zero.
+#   000023, 000024 and 000025 pin lock_timeout to 5s inside their own
+#   transaction (SET LOCAL), so for them the acquisition wait is 5s whatever
+#   --lock-timeout says; the other three budgets apply to every file. A budget
+#   that fires aborts the transaction: nothing is applied, and the wrapper
+#   exits non-zero.
 #
 # Usage:
-#   server/postgres/bin/apply-migration.sh [options] <000019|000023|000024> -- <psql command...>
+#   server/postgres/bin/apply-migration.sh [options] <000019|000023|000024|000025> -- <psql command...>
 #
 #   server/postgres/bin/apply-migration.sh --free-bytes 12000000000 000023 -- \
 #     docker exec -i polis-dev-postgres-1 psql -U postgres -d polis-dev
@@ -71,6 +88,10 @@
 # with a concurrent uncommitted UPDATE on conversations the apply waits, fails
 # on lock_timeout and leaves the catalog unchanged; with that transaction older
 # than --max-xact-age the preflight refuses first; once the writer is gone the
+# same command applies. For 000025, test_000025_down.sh's wrapper case: the
+# preflight passes on the real chain and the file applies; a second run is
+# refused at preflight (the objects exist); an ACCESS EXCLUSIVE holder on votes
+# makes the apply fail on lock_timeout with the catalog unchanged.
 # same command applies. For 000024, test_000024_down.sh check (w): the
 # preflight refuses a chain without 000023 and a queue holding a row, the
 # file applies on the real chain with post-check polis-queue/3, and a second
@@ -117,8 +138,9 @@ case "$NUMBER" in
   000019) FILE="000019_create_polis_queue.sql";;
   000023) FILE="000023_create_delphi_foundation.sql";;
   000024) FILE="000024_create_polis_queue_large_class.sql";;
-  "") echo "apply-migration: a migration number (000019, 000023 or 000024) is required" >&2; usage;;
-  *) echo "apply-migration: this wrapper covers 000019, 000023 and 000024 only; $NUMBER has no apply policy here" >&2; exit 2;;
+  000025) FILE="000025_vote_convention.sql";;
+  "") echo "apply-migration: a migration number (000019, 000023, 000024 or 000025) is required" >&2; usage;;
+  *) echo "apply-migration: this wrapper covers 000019, 000023, 000024 and 000025 only; $NUMBER has no apply policy here" >&2; exit 2;;
 esac
 PATH_SQL="$MIGRATIONS_DIR/$FILE"
 [ -f "$PATH_SQL" ] || { echo "apply-migration: $PATH_SQL is missing" >&2; exit 2; }
@@ -149,7 +171,7 @@ echo "psql: ${PSQL[*]}"
 # ---------------------------------------------------------------- seal
 actual="$(sha256_of "$PATH_SQL")"
 case "$NUMBER" in
-  000023|000024)
+  000023|000024|000025)
     pinned="$(grep -E "  $FILE\$" "$MIGRATIONS_DIR/down/$NUMBER-files.sha256" | cut -d' ' -f1 || true)";;
   000019)
     pinned="$(tr -d '\n ' < "$REPO_ROOT/server/src/queue/protocol.ts" | grep -oE 'QUEUE_SQL_SHA256="[0-9a-f]{64}"' | grep -oE '[0-9a-f]{64}' || true)";;
@@ -191,6 +213,16 @@ case "$NUMBER" in
       WHEN pg_has_role(current_user,'polis_queue_owner','SET') THEN 'ok ' || rolname || ' can SET ROLE polis_queue_owner'
       ELSE 'FAIL $who cannot SET ROLE polis_queue_owner'
       END FROM pg_roles WHERE rolname=current_user")";;
+  000025)
+    r="$(scalar "SELECT CASE
+      WHEN rolsuper THEN 'ok superuser'
+      WHEN NOT has_schema_privilege(current_user,'public','CREATE') THEN 'FAIL $who lacks CREATE on schema public'
+      WHEN to_regclass('public.votes') IS NULL OR to_regclass('public.votes_latest_unique') IS NULL THEN 'FAIL the vote tables are missing (see chain)'
+      WHEN NOT pg_has_role(current_user,(SELECT relowner FROM pg_class WHERE oid=to_regclass('public.votes')),'USAGE')
+        OR NOT pg_has_role(current_user,(SELECT relowner FROM pg_class WHERE oid=to_regclass('public.votes_latest_unique')),'USAGE')
+        THEN 'FAIL $who does not own public.votes and public.votes_latest_unique (vote_insert and the semantic views run with the owner''s rights)'
+      ELSE 'ok ' || rolname || ' owns the vote tables and can CREATE in public'
+      END FROM pg_roles WHERE rolname=current_user")";;
 esac
 case "$r" in ok\ *) ok rights "${r#ok }";; *) fail rights "${r#FAIL }";; esac
 
@@ -198,6 +230,11 @@ case "$r" in ok\ *) ok rights "${r#ok }";; *) fail rights "${r#FAIL }";; esac
 if [ "$NUMBER" = 000023 ]; then
   if [ "$(scalar "SELECT to_regclass('public.polis_queue_install') IS NOT NULL")" = "t" ]; then ok chain "000019 is installed"
   else fail chain "000019 is not installed (no public.polis_queue_install); apply it first"; fi
+fi
+if [ "$NUMBER" = 000025 ]; then
+  if [ "$(scalar "SELECT to_regclass('public.votes') IS NOT NULL AND to_regclass('public.votes_latest_unique') IS NOT NULL")" = "t" ]; then
+    ok chain "the vote tables exist (000000, 000006); nothing later is required"
+  else fail chain "public.votes or public.votes_latest_unique is missing (000000, 000006); apply the earlier migrations first"; fi
 fi
 if [ "$NUMBER" = 000024 ]; then
   if [ "$(scalar "SELECT to_regclass('public.delphi_foundation_install') IS NOT NULL")" != "t" ]; then
@@ -210,6 +247,23 @@ if [ "$NUMBER" = 000024 ]; then
 fi
 
 # ---------------------------------------------------------------- rows
+if [ "$NUMBER" = 000025 ]; then
+  present="$(scalar "SELECT (to_regclass('public.vote_convention') IS NOT NULL)::int
+       + (to_regclass('public.vote_convention_history') IS NOT NULL)::int
+       + (to_regclass('public.schema_migrations') IS NOT NULL)::int
+       + (to_regclass('public.votes_semantic') IS NOT NULL)::int
+       + (to_regclass('public.votes_latest_unique_semantic') IS NOT NULL)::int
+       + (to_regprocedure('public.vote_convention_current()') IS NOT NULL)::int
+       + (to_regprocedure('public.vote_semantic(smallint,smallint)') IS NOT NULL)::int
+       + (to_regprocedure('public.vote_storage(smallint,smallint)') IS NOT NULL)::int
+       + (to_regprocedure('public.vote_insert(integer,integer,integer,smallint,smallint,boolean,integer)') IS NOT NULL)::int
+       + (to_regprocedure('public.vote_convention_record_history()') IS NOT NULL)::int
+       + (to_regprocedure('public.vote_convention_history_immutable()') IS NOT NULL)::int
+       + (to_regprocedure('public.vote_convention_monotonic()') IS NOT NULL)::int
+       + (to_regprocedure('public.vote_convention_permanent()') IS NOT NULL)::int")"
+  if [ "$present" = "0" ]; then ok rows "no vote convention object exists yet (a first install)"
+  else fail rows "$present of the 13 vote convention objects already exist; 000025 is applied or partially applied (inspect: SELECT * FROM public.schema_migrations ORDER BY name)"; fi
+else
 rows="$(scalar "SELECT string_agg(relname || '=' || n, ', ' ORDER BY relname) FROM (
   SELECT c.relname,
     (xpath('/row/n/text()', query_to_xml(format('SELECT count(*) AS n FROM %s', c.oid::regclass), false, true, '')))[1]::text::bigint AS n
@@ -220,6 +274,7 @@ rows="$(scalar "SELECT string_agg(relname || '=' || n, ', ' ORDER BY relname) FR
 if [ -z "$rows" ]; then ok rows "every existing queue and job table is empty"
 elif [ "$NUMBER" = 000024 ]; then fail rows "queue or job tables hold rows ($rows); 000024 alters the queue tables and is applied only while the queue is empty"
 else fail rows "queue or job tables hold rows ($rows); this wrapper applies a first install only"; fi
+fi
 
 # ---------------------------------------------------------------- xacts
 sees="$(scalar "SELECT rolsuper OR pg_has_role(current_user,'pg_read_all_stats','MEMBER') FROM pg_roles WHERE rolname=current_user")"
@@ -245,8 +300,10 @@ if [ "$PREFLIGHT_ONLY" -eq 1 ]; then echo "preflight passed (--preflight-only); 
 
 # ---------------------------------------------------------------- apply
 echo "budgets: lock_timeout=$LOCK_TIMEOUT statement_timeout=$STATEMENT_TIMEOUT transaction_timeout=$TRANSACTION_TIMEOUT idle_in_transaction_session_timeout=$IDLE_TIMEOUT"
-case "$NUMBER" in 000023|000024) echo "note: $NUMBER sets lock_timeout to 5s inside its transaction; that is its acquisition budget";; esac
-if [ "$NUMBER" = 000024 ]; then
+case "$NUMBER" in 000023|000024|000025) echo "note: $NUMBER sets lock_timeout to 5s inside its transaction; that is its acquisition budget";; esac
+if [ "$NUMBER" = 000025 ]; then
+  echo "lock: this file holds AccessShareLock on public.votes and public.votes_latest_unique until COMMIT (its empty-table checks); no vote table is rewritten"
+elif [ "$NUMBER" = 000024 ]; then
   echo "lock: this file holds ACCESS EXCLUSIVE on polis_queue_install, polis_queue_runs, polis_queue_jobs and delphi_jobs until COMMIT; none on public.conversations"
 else
   echo "lock: this file holds ShareRowExclusiveLock on public.conversations from its foreign-key creation until COMMIT"
@@ -263,7 +320,15 @@ fi
 case "$NUMBER" in
   000019) post="$(scalar "SELECT count(*) FROM public.polis_queue_install")"; want="1";;
   000023) post="$(scalar "SELECT contract_version FROM public.polis_queue_install")"; want="polis-queue/2";;
+  000025) post="$(scalar "SELECT count(*) FROM public.schema_migrations WHERE name='000025_vote_convention' AND length(checksum)=64")"; want="1";;
   000024) post="$(scalar "SELECT contract_version FROM public.polis_queue_install")"; want="polis-queue/3";;
 esac
 if [ "$post" = "$want" ]; then echo "applied: $FILE (post-check $post)"
 else echo "FAILED: $FILE post-check expected '$want', found '$post'" >&2; exit 6; fi
+if [ "$NUMBER" = 000025 ]; then
+  # What the operator does next depends on whether the file seeded the row.
+  state="$(scalar "SELECT coalesce((SELECT 'GUARDED v' || version || ' agree ' || agree_value FROM public.vote_convention_current()), 'DECLARE_NEEDED')")"
+  ledger="$(scalar "SELECT count(*) FILTER (WHERE checksum='verified') || ' verified, ' || count(*) FILTER (WHERE checksum='unverified') || ' unverified' FROM public.schema_migrations WHERE length(checksum)<>64")"
+  echo "convention: $state (earlier files in the ledger: $ledger)"
+  [ "$state" != DECLARE_NEEDED ] || echo "next: the database holds votes; declare its sign once with server/bin/vote-convention-declare.sh (the command and the sign: docs/vote-convention-upgrade.md#declare)"
+fi

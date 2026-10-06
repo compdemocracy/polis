@@ -106,9 +106,14 @@ fn ensure_templates() {
             })
             .collect();
         let expected: Vec<u32> = (0..=24).filter(|n| *n != 20).collect();
-        assert_eq!(numbers, expected, "complete 000000-000024 chain required");
+        assert!(
+            numbers.starts_with(&expected),
+            "complete 000000-000024 chain required (found {numbers:?})"
+        );
         // `jobs_base` stops before the foundation: it is the polis-queue/1
         // shape the "contract missing" start refusal is proven against.
+        // Files after 000024 (the vote convention, 000025) are not part of
+        // any template: the daemon's contract ends at polis-queue/3.
         for (m, n) in chain.iter().zip(&numbers).filter(|(_, n)| **n <= 22) {
             base.batch_execute(&fs::read_to_string(m).unwrap())
                 .unwrap_or_else(|e| panic!("{n:06}: {e}"));

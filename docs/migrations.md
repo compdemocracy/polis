@@ -38,3 +38,61 @@ where `polis-dev-postgres-1` is the name of the running container (see the outpu
 You'd do this for each new file, in numeric order.
 
    [`server/postgres/migrations/`]: /server/postgres/migrations
+
+## The migration ledger (`schema_migrations`, from 000025 on)
+
+Migration `000025_vote_convention.sql` adds `public.schema_migrations`: one row
+per migration file. **Every migration file from 000025 on inserts its own row
+as its last statement**, carrying the sha256 of the file with exactly one line
+removed: the line holding the `-- ledger-self-checksum` marker (the INSERT
+itself, so the hash can live inside the file it hashes):
+
+```sh
+grep -v -e '-- ledger-self-checksum' server/postgres/migrations/0000NN_name.sql | shasum -a 256
+```
+
+The rows for the files before 000025 (000000–000024; there is no 000020) are
+not assumed. For each one 000025 probes the catalog for the object that file
+leaves behind and records what it found: checksum `verified` (the signature
+is present) or `unverified` (it is not: the file may never have run there, or
+the deployment left it out on purpose). The `note` names the probe. A row
+with a 64-character checksum is evidence that the file itself ran; a
+`verified` row is evidence that its result is present. The ledger's evidence
+of execution starts at 000025, and a copy whose ledger-era rows stop early is
+older than the files it is missing. See
+[vote-convention.md](vote-convention.md) for the restore-detection rule that
+depends on it.
+
+`server/postgres/check_ledger_checksums.py` recomputes this checksum for every
+migration from 000025 on (including `held/`) and fails on a mismatch, a
+missing or duplicate marker, or a row naming another file. CI runs it on every
+pull request that touches `server/postgres/` (`.github/workflows/migration-ledger.yml`).
+Run it before applying a migration by hand.
+
+Apply 000025 to an existing database through
+`server/postgres/bin/apply-migration.sh` (the same wrapper that applies the
+queue migrations 000019 and 000023): it checks the file's seal, the server
+version, the login's rights, the prerequisites, that no convention object
+exists yet, that no old transaction is open and the free disk, then sends the
+statement, transaction and idle budgets ahead of the file. The guide:
+[vote-convention-upgrade.md](vote-convention-upgrade.md#guard).
+
+## Operations are not migrations (`server/postgres/operations/`)
+
+An *operation* is a SQL file an operator runs on purpose, once, through its
+own `make` target; the migration runner and the Docker initialisation never
+apply it. The first is `vote_convention_declare.sql`
+(`make vote-convention-declare AGREE=-1`), which declares the stored vote
+sign of a database that already held votes when migration 000025 ran. See
+[vote-convention-upgrade.md](vote-convention-upgrade.md). An operation records
+itself in `public.vote_convention_history` (not in `schema_migrations`), with
+its own ledger checksum computed by the same rule; the checker above verifies
+operation files too.
+
+## Migration 000025 and existing databases
+
+000025 writes the `vote_convention` row only when the database holds no
+votes. On an existing database it prints `DECLARE_NEEDED`, and every
+component of the release that reads the row refuses to start until you run
+`make vote-convention-declare AGREE=-1`. Old containers keep working
+meanwhile. The guide: [vote-convention-upgrade.md](vote-convention-upgrade.md).

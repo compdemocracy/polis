@@ -28,6 +28,11 @@ from polismath.utils.vote_convention import (
     database_row_fetcher,
     load_semantic_votes,
 )
+from polismath.utils.vote_convention_boot import (
+    VoteConventionRefusal,
+    refuse_and_exit,
+    require_declared_convention,
+)
 
 if TYPE_CHECKING:  # psycopg2 stays a lazy, in-function import at runtime
     from psycopg2.extensions import connection as PgConnection
@@ -99,9 +104,8 @@ def connect_to_db() -> Optional["PgConnection"]:
         return None
 
 
-def database_convention(conn: "PgConnection") -> StorageConvention:
-    """This database's storage convention (its ``vote_convention`` row, or
-    version 0 at the code fallback when it has none), read once per job."""
+def _query_over(conn: "PgConnection"):
+    """``query(sql) -> rows`` (as dicts) over a psycopg2 connection."""
 
     def query(sql: str) -> list:
         cursor = conn.cursor()
@@ -112,7 +116,23 @@ def database_convention(conn: "PgConnection") -> StorageConvention:
         finally:
             cursor.close()
 
-    return RowConventionSource(database_row_fetcher(query)).current()
+    return query
+
+
+def database_convention(conn: "PgConnection") -> StorageConvention:
+    """This database's storage convention (its ``vote_convention`` row, or
+    version 0 at the code fallback when it has none), read once per job."""
+    return RowConventionSource(database_row_fetcher(_query_over(conn))).current()
+
+
+def require_vote_convention(conn: "PgConnection") -> StorageConvention:
+    """The startup check (P-078): the database must declare its stored vote
+    sign, and it must be the sign this build is built for; otherwise the
+    stage exits 1 with the operator message and computes nothing."""
+    try:
+        return require_declared_convention(_query_over(conn), "math pipeline")
+    except VoteConventionRefusal as exc:
+        refuse_and_exit(exc, logger)
 
 
 def fetch_votes(
@@ -324,6 +344,9 @@ def main() -> None:
         sys.exit(1)
 
     try:
+        declared = require_vote_convention(conn)
+        logger.info(f"[{time.time() - start_time:.2f}s] Vote convention declared: version {declared.version}, "
+                    f"agree stored as {declared.agree_value}")
         logger.info(f"[{time.time() - start_time:.2f}s] Creating conversation object for zid: {zid}")
         conv = Conversation(str(zid))
 

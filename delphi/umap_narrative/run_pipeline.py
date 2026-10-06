@@ -24,6 +24,7 @@ from polismath_commentgraph.utils.converter import DataConverter
 
 # Import from local modules
 from polismath_commentgraph.utils.storage import DynamoDBStorage, PostgresClient
+from polismath.utils.vote_convention_boot import VoteConventionRefusal, refuse_and_exit
 from polismath.utils.cli_flags import parse_bool_flag
 from sentence_transformers import SentenceTransformer
 from umap_narrative.topic_naming import (
@@ -98,6 +99,15 @@ def fetch_conversation_data(zid):
     try:
         # Initialize connection
         postgres_client.initialize()
+
+        # The database must declare its stored vote sign, and it must be the
+        # sign this build is built for (P-078; docs/vote-convention-upgrade.md).
+        # A refusal ends the stage before any vote is read; the job fails.
+        try:
+            declared = postgres_client.require_declared_convention("Delphi job")
+        except VoteConventionRefusal as exc:
+            refuse_and_exit(exc, logger)
+        logger.info(f"Vote convention declared: version {declared.version}, agree stored as {declared.agree_value}")
 
         # Get conversation metadata
         conversation = postgres_client.get_conversation_by_id(zid)

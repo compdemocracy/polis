@@ -4,7 +4,7 @@ These unused storage types describe the schema; they grant no authority and do
 not change runtime queries. `store`, `bridge`, `lease`, migrations, engine
 manifests and replay expectations retain their existing behavior.
 
-`rows.rs` has 84 relation types and all 603 current public columns. `catalog.json`
+`rows.rs` has 96 relation types and all 697 current public columns. `catalog.json`
 is the PostgreSQL 17.11 result after applying the current numbered migrations to
 a fresh disposable database. Its column declaration pointers also account for
 the password-reset relation/column rename. The tests require the exact migration
