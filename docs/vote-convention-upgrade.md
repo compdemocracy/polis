@@ -140,6 +140,14 @@ each job before it removes anything). A process that is already running when
 the row changes is not stopped by this release; stop the components before
 any later change of the declaration.
 
+Exit codes on a refusal: the server, the import worker, the Delphi job poller
+and a Delphi job exit 1; the math poller exits 2 (its "refusing to start"
+code); the commentgraph CLI's `test-postgres` exits 1. The refusal is logged
+at error level, so it shows at the server's default log level; the success
+line `vote convention: version 0, agree stored as -1` is logged at info level
+and shows only with `SERVER_LOG_LEVEL=info` (the Python processes print it at
+their default level).
+
 ## Mismatch
 
 A component built for one sign refuses a database that declares the other:

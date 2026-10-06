@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 from .utils.converter import DataConverter
-from .utils.storage import DynamoDBStorage, PostgresClient
+from .utils.storage import DynamoDBStorage, PostgresClient, PostgresConfig
 from polismath.utils.vote_convention_boot import VoteConventionRefusal
 
 # Configure logging
@@ -163,14 +163,16 @@ def test_postgres(args):
     Args:
         args: Command-line arguments containing connection info
     """
-    # Initialize the PostgreSQL client
-    pg_config = {
-        "host": args.pg_host,
-        "port": args.pg_port,
-        "database": args.pg_database,
-        "user": args.pg_user,
-        "password": args.pg_password,
-    }
+    # Initialize the PostgreSQL client (a PostgresConfig, as PostgresClient
+    # requires; a plain dict has no get_uri and the command failed before it
+    # reached the database). Unset arguments fall back to the DATABASE_* variables.
+    pg_config = PostgresConfig(
+        host=args.pg_host,
+        port=args.pg_port,
+        database=args.pg_database,
+        user=args.pg_user,
+        password=args.pg_password,
+    )
 
     pg_client = PostgresClient(pg_config)
 

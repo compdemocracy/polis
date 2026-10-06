@@ -117,6 +117,7 @@ def main():
     # validate_arg = "--validate" if args.validate else ""
 
     app_path = os.environ.get('DELPHI_APP_PATH', '/app')
+    os.environ["PYTHONPATH"] = f"{app_path}:{os.environ.get('PYTHONPATH', '')}"
 
     # --- The database must declare its stored vote sign (P-078) ---
     # Checked here, before the reset below removes anything: a job launched
@@ -168,7 +169,6 @@ def main():
         print(f"{YELLOW}Using {llm_provider} topic model: {topic_model}{NC}")
 
     # Set up environment for the pipeline
-    os.environ["PYTHONPATH"] = f"{app_path}:{os.environ.get('PYTHONPATH', '')}"
     max_votes = os.environ.get("MAX_VOTES")
     max_votes_arg = f"--max-votes={max_votes}" if max_votes else ""
     if max_votes:

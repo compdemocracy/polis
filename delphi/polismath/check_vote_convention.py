@@ -15,12 +15,25 @@ Exit 0 prints the declared convention. It writes nothing anywhere.
 """
 from __future__ import annotations
 
-import logging
 import os
 import sys
 
-from polismath.database.postgres import PostgresClient, PostgresConfig
-from polismath.utils.vote_convention_boot import (
+# Run by file path from run_delphi.py (python /app/polismath/check_vote_convention.py),
+# which puts this package directory first on sys.path, where polismath/types.py
+# would shadow the standard library's ``types`` for every later import. Drop it
+# before anything else is imported; the package itself is reached through
+# PYTHONPATH (run_delphi.py sets it to the app directory first).
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if sys.path and os.path.abspath(sys.path[0]) == _HERE and os.path.isfile(os.path.join(_HERE, "__init__.py")):
+    sys.path.pop(0)
+_APP = os.path.dirname(_HERE)
+if _APP not in (os.path.abspath(p) for p in sys.path):
+    sys.path.insert(0, _APP)
+
+import logging  # noqa: E402
+
+from polismath.database.postgres import PostgresClient, PostgresConfig  # noqa: E402
+from polismath.utils.vote_convention_boot import (  # noqa: E402
     VoteConventionRefusal,
     refuse_and_exit,
     require_declared_convention,
