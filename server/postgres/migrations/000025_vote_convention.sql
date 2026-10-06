@@ -23,7 +23,8 @@
 -- Adds, in one transaction:
 --   public.vote_convention          the singleton (version, agree_value), updated in place
 --   public.vote_convention_history  append-only, filled by trigger
---   public.schema_migrations        the migration ledger, with the earlier files backfilled
+--   public.schema_migrations        the migration ledger; one row per earlier file recording
+--                                   what the catalog showed (verified / unverified), never an assumption
 --   public.vote_convention_current()                 STABLE SECURITY DEFINER read: (version, agree_value, contract_version)
 --   public.vote_semantic(raw, agree_value)           IMMUTABLE STRICT storage -> semantic
 --   public.vote_storage(semantic, agree_value)       IMMUTABLE STRICT semantic -> storage
@@ -60,6 +61,29 @@
 --   grep -v -e '-- ledger-self''-checksum' 000025_vote_convention.sql | shasum -a 256
 -- (the quote pair keeps this comment line from matching; the shell joins it).
 --
+-- The rows for the files before this one (000000..000023; there is no 000020,
+-- and 000024 is held by another change that this file neither requires nor
+-- records) are NOT assumed applied. For each one this file probes the catalog
+-- for the object that file leaves behind and records what it found:
+-- checksum 'verified' (the signature is present) or 'unverified' (it is not:
+-- the file may never have run here, or a deployment left it out on purpose,
+-- as pol.is did with some dormant schema). The note names the probe. The
+-- ledger's evidence of execution starts with this file's own row.
+--
+-- PREREQUISITES. The only earlier files this one needs are 000000 (votes) and
+-- 000006 (votes_latest_unique and its rule): it refuses (P0780) when either
+-- vote table is missing. It does not need 000019, 000021 or 000023: the
+-- grants to the coordinator roles are conditional on the roles existing, and
+-- nothing here reads the queue or Delphi tables.
+--
+-- LOCKS. The seed's two NOT EXISTS reads take AccessShareLock on votes and on
+-- votes_latest_unique, held until COMMIT; ordinary reads and writes on those
+-- tables are compatible with it, but an ACCESS EXCLUSIVE holder (a concurrent
+-- rewrite, VACUUM FULL, CLUSTER, a schema change) makes this file wait up to
+-- lock_timeout (5 s, SET LOCAL below) and then roll back with 55P03, nothing
+-- applied. Everything else it locks is new: the objects it creates. No vote
+-- row is read for writing and no vote table is rewritten or indexed.
+--
 -- Restore detection (runbook): a restored copy is pre-flip iff
 --   vote_convention.version = 0 AND no schema_migrations row named %_vote_sign_unflip.
 -- No vote_convention table at all: older than this file; apply it, then declare.
@@ -70,9 +94,14 @@
 --
 -- Applied like 000022: fresh databases through docker-entrypoint-initdb.d and
 -- server/bin/run-migrations.sh (both seed version 0, the database being
--- empty); an existing database by the operator, by hand, as the migration
--- (owner) role, in one session, followed by the declaration:
---   psql -X -v ON_ERROR_STOP=1 -f server/postgres/migrations/000025_vote_convention.sql
+-- empty); an existing database by the operator, as the migration (owner)
+-- role, through the checked apply wrapper, which runs its preflight (seal,
+-- server version, rights, the vote tables present, no convention object yet,
+-- no old transaction, disk) and sends the statement/transaction/idle budgets
+-- before this file, then checks the ledger row:
+--   server/postgres/bin/apply-migration.sh --free-bytes <bytes free on the db host> 000025 -- \
+--     psql "$DATABASE_URL"
+-- followed by the declaration:
 --   make vote-convention-declare AGREE=-1
 -- The file carries its own BEGIN/COMMIT; it also works as one driver call
 -- (the test harnesses and the probe-box rehearsal). No CONCURRENTLY, no
@@ -88,6 +117,10 @@ DO $pre$
 BEGIN
   IF current_setting('server_version_num')::integer < 130000 THEN
     RAISE EXCEPTION '000025: refusing: PostgreSQL 13 or newer is required' USING ERRCODE = 'P0780';
+  END IF;
+  IF to_regclass('public.votes') IS NULL OR to_regclass('public.votes_latest_unique') IS NULL THEN
+    RAISE EXCEPTION '000025: refusing: the vote tables are missing (public.votes from 000000, public.votes_latest_unique from 000006); apply the earlier migrations first. Nothing changed'
+      USING ERRCODE = 'P0780';
   END IF;
   IF to_regclass('public.vote_convention') IS NOT NULL
      OR to_regclass('public.vote_convention_history') IS NOT NULL
@@ -245,40 +278,106 @@ CREATE TABLE public.schema_migrations (
   name        text        PRIMARY KEY CHECK (name ~ '^[0-9]{6}_[a-z0-9_]+$'),
   applied_at  timestamptz NOT NULL DEFAULT clock_timestamp(),
   applied_by  name        NOT NULL DEFAULT session_user,
-  checksum    text        NOT NULL CHECK (length(checksum) = 64 OR checksum = 'pre-ledger'),
+  -- A ledger-era file (this one and later): the sha256 of the file without
+  -- its ledger line. An earlier file: 'verified' when its signature object
+  -- was found in the catalog when this ledger was created, 'unverified' when
+  -- it was not. Nothing is recorded as assumed.
+  checksum    text        NOT NULL CHECK (length(checksum) = 64 OR checksum IN ('verified', 'unverified')),
   note        text        NOT NULL DEFAULT ''
 );
 COMMENT ON TABLE public.schema_migrations IS
-  'One row per applied migration file from 000025 on (sha256 of the file without its ledger line). Rows for earlier files are backfilled as pre-ledger. A restored copy whose rows stop early is older than its missing migrations.';
--- Backfill: every top-level migration file on edge before this one, assumed
--- applied. (There is no 000020.)
+  'One row per migration file. From 000025 on: the file inserts its own row (sha256 of the file without its ledger line). Earlier files: what the catalog showed when the ledger was created, verified (the file''s signature object is present) or unverified (it is not); the note names the probe. A copy whose ledger-era rows stop early is older than its missing migrations.';
+-- The earlier files, each with the catalog probe for what it leaves behind.
+-- (There is no 000020; 000024 is held by another change.) 000006 recreates
+-- the rule 000000 first defined, so its probe is the rule's definition.
 INSERT INTO public.schema_migrations (name, checksum, note)
-SELECT n, 'pre-ledger', 'assumed applied before the ledger existed'
-FROM unnest(ARRAY[
-  '000000_initial',
-  '000001_update_pwreset_table',
-  '000002_add_xid_constraint',
-  '000003_add_origin_permanent_cookie_columns',
-  '000004_drop_waitinglist_table',
-  '000005_drop_slack_stripe_canvas',
-  '000006_update_votes_rule',
-  '000007_drop_geolocation_fields',
-  '000008_add_comment_priority',
-  '000009_add_uuid_to_zinvites',
-  '000010_create_oidc_user_mappings',
-  '000011_alter_suzinvites_xid_to_text',
-  '000012_create_topic_agenda_selections',
-  '000013_create_treevite',
-  '000014_alter_reports_modlevel',
-  '000015_add_xid_requirements',
-  '000016_add_orig_id',
-  '000017_create_byod_job_table',
-  '000018_add_topics_enabled',
-  '000019_create_polis_queue',
-  '000021_create_polis_coordinator',
-  '000022_add_poll_timestamp_indexes'
-]) AS n
-ON CONFLICT DO NOTHING;
+SELECT p.name,
+       CASE WHEN p.found THEN 'verified' ELSE 'unverified' END,
+       CASE WHEN p.found THEN 'signature observed when the ledger was created: '
+            ELSE 'signature NOT observed when the ledger was created (the file may never have run here): ' END || p.probe
+FROM (VALUES
+  ('000000_initial',
+     to_regclass('public.users') IS NOT NULL AND to_regclass('public.votes') IS NOT NULL,
+     'tables public.users and public.votes'),
+  ('000001_update_pwreset_table',
+     to_regclass('public.pwreset_tokens') IS NOT NULL AND to_regclass('public.password_reset_tokens') IS NULL,
+     'table public.pwreset_tokens (renamed from password_reset_tokens)'),
+  ('000002_add_xid_constraint',
+     EXISTS (SELECT 1 FROM pg_catalog.pg_constraint c WHERE c.conname = 'xids_owner_xid_key' AND c.conrelid = to_regclass('public.xids')),
+     'constraint xids_owner_xid_key on public.xids'),
+  ('000003_add_origin_permanent_cookie_columns',
+     EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid = to_regclass('public.participants_extended') AND a.attname = 'permanent_cookie' AND NOT a.attisdropped),
+     'column public.participants_extended.permanent_cookie'),
+  ('000004_drop_waitinglist_table',
+     to_regclass('public.waitinglist') IS NULL,
+     'no table public.waitinglist'),
+  ('000005_drop_slack_stripe_canvas',
+     to_regclass('public.slack_users') IS NULL AND to_regclass('public.stripe_accounts') IS NULL AND to_regclass('public.lti_users') IS NULL,
+     'no tables public.slack_users, public.stripe_accounts, public.lti_users'),
+  ('000006_update_votes_rule',
+     EXISTS (SELECT 1 FROM pg_catalog.pg_rules r WHERE r.schemaname = 'public' AND r.tablename = 'votes' AND r.rulename = 'on_vote_insert_update_unique_table' AND r.definition LIKE '%ON CONFLICT%'),
+     'rule on_vote_insert_update_unique_table on public.votes with ON CONFLICT'),
+  ('000007_drop_geolocation_fields',
+     to_regclass('public.geolocation_cache') IS NULL AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid = to_regclass('public.participants_extended') AND a.attname = 'ip_address' AND NOT a.attisdropped),
+     'no table public.geolocation_cache, no column public.participants_extended.ip_address'),
+  ('000008_add_comment_priority',
+     EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid = to_regclass('public.votes') AND a.attname = 'high_priority' AND NOT a.attisdropped),
+     'column public.votes.high_priority'),
+  ('000009_add_uuid_to_zinvites',
+     EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid = to_regclass('public.zinvites') AND a.attname = 'uuid' AND NOT a.attisdropped),
+     'column public.zinvites.uuid'),
+  ('000010_create_oidc_user_mappings',
+     to_regclass('public.oidc_user_mappings') IS NOT NULL,
+     'table public.oidc_user_mappings'),
+  ('000011_alter_suzinvites_xid_to_text',
+     EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid = to_regclass('public.suzinvites') AND a.attname = 'xid' AND NOT a.attisdropped AND a.atttypid = 'text'::regtype),
+     'column public.suzinvites.xid of type text'),
+  ('000012_create_topic_agenda_selections',
+     to_regclass('public.topic_agenda_selections') IS NOT NULL,
+     'table public.topic_agenda_selections'),
+  ('000013_create_treevite',
+     to_regclass('public.treevite_waves') IS NOT NULL AND to_regclass('public.treevite_invites') IS NOT NULL,
+     'tables public.treevite_waves and public.treevite_invites'),
+  ('000014_alter_reports_modlevel',
+     EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid = to_regclass('public.reports') AND a.attname = 'mod_level' AND NOT a.attisdropped),
+     'column public.reports.mod_level'),
+  ('000015_add_xid_requirements',
+     EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid = to_regclass('public.conversations') AND a.attname = 'xid_required' AND NOT a.attisdropped),
+     'column public.conversations.xid_required'),
+  ('000016_add_orig_id',
+     EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid = to_regclass('public.comments') AND a.attname = 'original_id' AND NOT a.attisdropped),
+     'column public.comments.original_id'),
+  ('000017_create_byod_job_table',
+     to_regclass('public.byod_import_jobs') IS NOT NULL,
+     'table public.byod_import_jobs'),
+  ('000018_add_topics_enabled',
+     EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid = to_regclass('public.conversations') AND a.attname = 'topics_enabled' AND NOT a.attisdropped),
+     'column public.conversations.topics_enabled'),
+  ('000019_create_polis_queue',
+     to_regclass('public.polis_queue_install') IS NOT NULL,
+     'table public.polis_queue_install'),
+  ('000021_create_polis_coordinator',
+     to_regclass('public.polis_coordinator_install') IS NOT NULL,
+     'table public.polis_coordinator_install'),
+  ('000022_add_poll_timestamp_indexes',
+     to_regclass('public.votes_created_idx') IS NOT NULL AND to_regclass('public.comments_modified_idx') IS NOT NULL,
+     'indexes public.votes_created_idx and public.comments_modified_idx'),
+  ('000023_create_delphi_foundation',
+     to_regclass('public.delphi_foundation_install') IS NOT NULL,
+     'table public.delphi_foundation_install')
+) AS p(name, found, probe);
+DO $ledger$
+DECLARE
+  n_verified integer;
+  missing text;
+BEGIN
+  SELECT count(*) FILTER (WHERE checksum = 'verified'),
+         string_agg(name, ', ' ORDER BY name) FILTER (WHERE checksum = 'unverified')
+    INTO n_verified, missing
+    FROM public.schema_migrations;
+  RAISE NOTICE 'migration ledger: % earlier files verified in the catalog; unverified: %', n_verified, coalesce(missing, 'none');
+END
+$ledger$;
 
 -- 2.1 The read: one row (or none: undeclared), in the caller's statement snapshot.
 -- STABLE and a plain SELECT: it never waits on the un-flip's FOR UPDATE; it
@@ -440,5 +539,5 @@ $grants$;
 
 -- The ledger row for this file, as its last statement (the checksum is the
 -- sha256 of this file without the next line).
-INSERT INTO public.schema_migrations (name, checksum, note) VALUES ('000025_vote_convention', '7619d9e00f8cb23c46a2aa446477b7db08737dfa84fcbb348ae046fa4dc86ae0', 'vote storage convention; grants: ' || current_setting('polis.vote_convention_grants')); -- ledger-self-checksum
+INSERT INTO public.schema_migrations (name, checksum, note) VALUES ('000025_vote_convention', '0d396acee93c04c9998ea78e44a86af27cc6d492cc03175b878dbbad0a701576', 'vote storage convention; grants: ' || current_setting('polis.vote_convention_grants')); -- ledger-self-checksum
 COMMIT;

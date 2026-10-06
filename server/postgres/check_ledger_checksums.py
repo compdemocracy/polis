@@ -3,6 +3,8 @@
 every operation file.
 
 Rule (docs/migrations.md): each migration file numbered 000025 or later ends
+(000023, the Delphi job table, and the held 000024 predate the ledger and
+carry no marker; 000025 records what the catalog shows for them instead)
 with an INSERT of its own public.schema_migrations row, on the one line that
 carries the marker comment below. Each operation file in
 server/postgres/operations/ (run by an operator, never by the runner) carries
@@ -24,7 +26,7 @@ import re
 import sys
 
 MARKER = b"-- ledger-" + b"self-checksum"
-FIRST = 23
+FIRST = 25
 ROOT = Path(__file__).resolve().parent / "migrations"
 OPERATIONS = Path(__file__).resolve().parent / "operations"
 MIGRATION_ROW = re.compile(rb"INSERT INTO public\.schema_migrations \(name, checksum(?:, note)?\) VALUES \('([0-9a-z_]+)', '([0-9a-f]{64})'")

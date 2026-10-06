@@ -116,6 +116,18 @@ def main():
     # validate_arg is not used in the python script execution steps, but kept for parity with bash
     # validate_arg = "--validate" if args.validate else ""
 
+    app_path = os.environ.get('DELPHI_APP_PATH', '/app')
+
+    # --- The database must declare its stored vote sign (P-078) ---
+    # Checked here, before the reset below removes anything: a job launched
+    # directly, or by an older poller that never checked at boot, refuses
+    # with nothing changed. The check script exits 1 with the operator message.
+    convention_check = subprocess.run(["python", f"{app_path}/polismath/check_vote_convention.py"])
+    if convention_check.returncode != 0:
+        print(f"{RED}Vote convention check failed with exit code {convention_check.returncode}. "
+              f"Nothing has been reset or changed. Aborting pipeline.{NC}")
+        sys.exit(1 if job is not None else convention_check.returncode)
+
     # --- Reset all data before processing ---
     print(f"{YELLOW}Resetting all existing data for conversation {zid} before processing...{NC}")
     reset_command = [
@@ -156,7 +168,6 @@ def main():
         print(f"{YELLOW}Using {llm_provider} topic model: {topic_model}{NC}")
 
     # Set up environment for the pipeline
-    app_path = os.environ.get('DELPHI_APP_PATH', '/app')
     os.environ["PYTHONPATH"] = f"{app_path}:{os.environ.get('PYTHONPATH', '')}"
     max_votes = os.environ.get("MAX_VOTES")
     max_votes_arg = f"--max-votes={max_votes}" if max_votes else ""

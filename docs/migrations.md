@@ -42,8 +42,7 @@ You'd do this for each new file, in numeric order.
 ## The migration ledger (`schema_migrations`, from 000025 on)
 
 Migration `000025_vote_convention.sql` adds `public.schema_migrations`: one row
-per applied migration file. The rows for 000000–000022 are backfilled with the
-checksum `pre-ledger`. **Every migration file from 000025 on inserts its own row
+per migration file. **Every migration file from 000025 on inserts its own row
 as its last statement**, carrying the sha256 of the file with exactly one line
 removed: the line holding the `-- ledger-self-checksum` marker (the INSERT
 itself, so the hash can live inside the file it hashes):
@@ -52,7 +51,16 @@ itself, so the hash can live inside the file it hashes):
 grep -v -e '-- ledger-self-checksum' server/postgres/migrations/0000NN_name.sql | shasum -a 256
 ```
 
-A copy whose ledger stops early is older than the files it is missing. See
+The rows for the files before 000025 (000000–000023; there is no 000020, and
+000024 is held by a change that 000025 neither requires nor records) are not
+assumed. For each one 000025 probes the catalog for the object that file
+leaves behind and records what it found: checksum `verified` (the signature
+is present) or `unverified` (it is not: the file may never have run there, or
+the deployment left it out on purpose). The `note` names the probe. A row
+with a 64-character checksum is evidence that the file itself ran; a
+`verified` row is evidence that its result is present. The ledger's evidence
+of execution starts at 000025, and a copy whose ledger-era rows stop early is
+older than the files it is missing. See
 [vote-convention.md](vote-convention.md) for the restore-detection rule that
 depends on it.
 
@@ -61,6 +69,14 @@ migration from 000025 on (including `held/`) and fails on a mismatch, a
 missing or duplicate marker, or a row naming another file. CI runs it on every
 pull request that touches `server/postgres/` (`.github/workflows/migration-ledger.yml`).
 Run it before applying a migration by hand.
+
+Apply 000025 to an existing database through
+`server/postgres/bin/apply-migration.sh` (the same wrapper that applies the
+queue migrations 000019 and 000023): it checks the file's seal, the server
+version, the login's rights, the prerequisites, that no convention object
+exists yet, that no old transaction is open and the free disk, then sends the
+statement, transaction and idle budgets ahead of the file. The guide:
+[vote-convention-upgrade.md](vote-convention-upgrade.md#guard).
 
 ## Operations are not migrations (`server/postgres/operations/`)
 

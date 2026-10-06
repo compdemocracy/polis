@@ -1,8 +1,10 @@
 """000025 (vote convention) controls on a real PostgreSQL 17; only the wrapper's own container.
 
 No DATABASE_URL is accepted. Every case runs in a disposable database cloned
-from the full pre-000025 migration chain. All rows written are generated
-fixtures (zid 990001 and up); no application data exists in the container.
+from the full pre-000025 migration chain (000000..000023; there is no 000020
+and no 000024: the chain neither has nor needs it). All rows written are
+generated fixtures (zid 990001 and up); no application data exists in the
+container.
 
 What is pinned here (P-078, ruling R-A):
   * the migration writes THE ONE ROW only on an empty database (version 0,
@@ -15,7 +17,11 @@ What is pinned here (P-078, ruling R-A):
   * the row's guards: permanent, monotonic, append-only history, the two
     admissible first states;
   * the functions and views at both signs; the write path's lock behaviour;
-  * the ledger and the checksum checker (migrations and operations);
+  * the ledger (every earlier file recorded as verified or unverified from
+    the catalog, never assumed) and the checksum checker (migrations and
+    operations);
+  * the prerequisite refusal (no vote tables) and the apply wrapper's
+    preflight, budgets, lock behaviour and post-check;
   * the down file: exact catalog replay from a seeded, an undeclared and a
     declared database; refusals once the sign has moved.
 """
@@ -41,6 +47,8 @@ DOWN = ROOT / "down/000025_drop_vote_convention.sql"
 DECLARE = REPO / "server/postgres/operations/vote_convention_declare.sql"
 DECLARE_SH = REPO / "server/bin/vote-convention-declare.sh"
 CHECKER = REPO / "server/postgres/check_ledger_checksums.py"
+WRAPPER = REPO / "server/postgres/bin/apply-migration.sh"
+SEAL = ROOT / "down/000025-files.sha256"
 DOCS = REPO / "docs/vote-convention.md"
 NAME = "000025_vote_convention"
 MARKER = b"-- ledger-self-checksum"
@@ -238,6 +246,9 @@ def main():
         sql("postgres", f"DROP ROLE IF EXISTS {login}; CREATE ROLE {login} LOGIN;")
     sql("postgres", "CREATE DATABASE vc_base;")
     migrations = [p for p in sorted(ROOT.glob("0*.sql")) if p.name < UP.name]
+    numbers = [int(p.name[:6]) for p in migrations]
+    assert numbers == [n for n in range(24) if n != 20], numbers   # 000000..000023, no 000020, no 000024
+    assert not list(ROOT.glob("000024_*.sql")), "000024 is held by another change; this chain must not carry it"
     for path in migrations:
         sql("vc_base", path.read_text())
     baseline = dump("vc_base")
@@ -550,7 +561,8 @@ def main():
     case("flip under a waiting writer: vote_insert blocks on FOR SHARE, then writes +1 under version 1; no vote double-flipped", writer_across_flip)
 
     # 5c. Restore detection with the real held un-flip migration, when it is in the tree (or HELD_UNFLIP_SQL names it).
-    held = Path(os.environ.get("HELD_UNFLIP_SQL") or ROOT / "held/000026_vote_sign_unflip.sql")
+    held_files = sorted(ROOT.glob("held/*_vote_sign_unflip.sql"))
+    held = Path(os.environ.get("HELD_UNFLIP_SQL") or (held_files[0] if held_files else ROOT / "held/vote_sign_unflip.sql (absent)"))
 
     def real_unflip(db):
         if not held.is_file():
@@ -654,8 +666,11 @@ def main():
         assert expected != hashlib.sha256(raw).hexdigest()
         assert val(db, f"SELECT checksum FROM public.schema_migrations WHERE name = '{NAME}';") == expected
         stems = [p.stem for p in migrations]
-        assert val(db, "SELECT string_agg(name, ',' ORDER BY name) FROM public.schema_migrations WHERE checksum = 'pre-ledger';") == ",".join(stems)
+        assert val(db, "SELECT string_agg(name, ',' ORDER BY name) FROM public.schema_migrations WHERE checksum = 'verified';") == ",".join(stems)
+        eq(val(db, "SELECT count(*) FROM public.schema_migrations WHERE checksum = 'unverified';"), "0", "full chain: nothing unverified")
         assert val(db, "SELECT count(*) FROM public.schema_migrations;") == str(len(stems) + 1)
+        assert val(db, "SELECT bool_and(note LIKE 'signature observed when the ledger was created: %') FROM public.schema_migrations WHERE checksum = 'verified';") == "t"
+        fails(db, "INSERT INTO public.schema_migrations (name, checksum) VALUES ('000098_bad', 'pre-ledger');", "23514")
         # The ledger line is the file's last statement, followed only by COMMIT.
         code = [line for line in raw.decode().splitlines() if line.strip() and not line.startswith("--")]
         eq(code[-1], "COMMIT;", "last line")
@@ -665,8 +680,137 @@ def main():
         # The operation file carries its own checksum the same way.
         in_op = re.search(rb"'vote_convention_declare', '([0-9a-f]{64})'\); " + MARKER, DECLARE.read_bytes())
         assert in_op and in_op.group(1).decode() == declare_checksum, "operation checksum"
-    case("ledger: own row = sha256 of the file without its marker line; backfill = every earlier file; last statement; "
-         "the operation carries its checksum the same way", ledger)
+    case("ledger: own row = sha256 of the file without its marker line; every earlier file verified from the catalog; "
+         "last statement; the operation carries its checksum the same way", ledger)
+
+    # 7b. A copy shaped like pol.is: the dormant files 000019, 000021 and 000023 were never applied.
+    # The ledger says so (unverified, with the probe) instead of assuming them, and 000025 needs none of them.
+    def ledger_dormant_absent(_db):
+        name = "vc_dormant"
+        sql("postgres", f"CREATE DATABASE {name} TEMPLATE template0;")
+        try:
+            dormant = {"000019_create_polis_queue", "000021_create_polis_coordinator", "000023_create_delphi_foundation"}
+            for path in migrations:
+                if path.stem not in dormant:
+                    sql(name, path.read_text())
+            hold_votes(name)
+            p = apply(name)
+            assert DECLARE_NEEDED in p.stderr, p.stderr
+            assert "migration ledger: 20 earlier files verified in the catalog; unverified: 000019_create_polis_queue, " \
+                   "000021_create_polis_coordinator, 000023_create_delphi_foundation" in p.stderr, p.stderr
+            eq(val(name, "SELECT string_agg(name, ',' ORDER BY name) FROM public.schema_migrations WHERE checksum = 'unverified';"),
+               ",".join(sorted(dormant)), "unverified rows")
+            eq(val(name, "SELECT note FROM public.schema_migrations WHERE name = '000019_create_polis_queue';"),
+               "signature NOT observed when the ledger was created (the file may never have run here): table public.polis_queue_install", "probe named")
+            eq(val(name, "SELECT count(*) FROM public.schema_migrations WHERE checksum = 'verified';"), "20", "verified rows")
+            # Roles are cluster-wide: 000021 ran in vc_base, so the coordinator roles exist here too and
+            # the grants are made; a cluster that never ran 000021 records 'grants: none'.
+            assert val(name, "SELECT note FROM public.schema_migrations WHERE name = '{}';".format(NAME)) in (
+                EXPECTED_GRANT_NOTE, "vote storage convention; grants: none")
+            declare(name, "-1")
+            eq(val(name, "SELECT version || '|' || agree_value FROM public.vote_convention_current();"), "0|-1", "declared without the dormant files")
+            down(name)
+            eq(val(name, "SELECT to_regclass('public.schema_migrations') IS NULL;"), "t", "down drops the ledger with its unverified rows")
+        finally:
+            sql("postgres", f"DROP DATABASE {name} WITH (FORCE);")
+    case("ledger on a copy without the dormant 000019/000021/000023: those rows are unverified with the probe named, "
+         "000025 applies, declares and reverses without them", ledger_dormant_absent)
+
+    # 7c. The prerequisites: no vote tables, no apply.
+    def prerequisites(_db):
+        name = "vc_empty"
+        sql("postgres", f"CREATE DATABASE {name} TEMPLATE template0;")
+        try:
+            before = dump(name)
+            p = fails(name, UP.read_text(), "P0780")
+            assert "the vote tables are missing" in p.stderr, p.stderr
+            assert dump(name) == before, "a refused apply changed the catalog"
+            eq(val(name, "SELECT to_regclass('public.schema_migrations') IS NULL;"), "t", "no ledger either")
+        finally:
+            sql("postgres", f"DROP DATABASE {name} WITH (FORCE);")
+    case("prerequisites: without the vote tables (000000, 000006) the migration refuses P0780 and creates nothing", prerequisites)
+
+    # 7d. The apply wrapper: preflight, budgets, the lock the file takes, the post-check and its refusals.
+    def wrapper(db):
+        assert SEAL.is_file(), SEAL
+        def run_wrapper(*extra, ok=True):
+            cmd = ["bash", str(WRAPPER), "--free-bytes", str(50 * 1024 ** 3), *extra, "000025", "--",
+                   "docker", "exec", "-i", CONTAINER, "psql", "-U", "postgres", "-d", db]
+            p = subprocess.run(cmd, text=True, capture_output=True, env=dict(os.environ, DATABASE_URL=""))
+            if ok and p.returncode:
+                raise AssertionError(p.stdout + p.stderr)
+            return p
+        hold_votes(db)
+        p = run_wrapper("--preflight-only")
+        assert "preflight passed (--preflight-only); nothing applied" in p.stdout, p.stdout
+        eq(val(db, "SELECT to_regclass('public.vote_convention') IS NULL;"), "t", "preflight-only applied nothing")
+        # An old open transaction: the preflight refuses before sending the file.
+        holder = subprocess.Popen(["docker", "exec", "-i", CONTAINER, "psql", "-X", "-At", "-U", "postgres", "-d", db],
+                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        holder.stdin.write("BEGIN; SELECT 1 FROM votes LIMIT 1; SELECT pg_sleep(3); COMMIT;\n")
+        holder.stdin.close()
+        try:
+            time.sleep(1.2)
+            p = run_wrapper("--max-xact-age", "1", ok=False)
+            assert p.returncode == 4 and "FAIL  xacts" in p.stdout and "REFUSED: preflight failed" in p.stderr, p.stdout + p.stderr
+        finally:
+            holder.wait(timeout=30)
+        eq(val(db, "SELECT to_regclass('public.vote_convention') IS NULL;"), "t", "refused preflight applied nothing")
+        # An ACCESS EXCLUSIVE holder on votes: the file waits its 5 s lock budget, then rolls back; the wrapper exits 5.
+        before = dump(db)
+        holder = subprocess.Popen(["docker", "exec", "-i", CONTAINER, "psql", "-X", "-At", "-U", "postgres", "-d", db],
+                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        holder.stdin.write("BEGIN; LOCK TABLE public.votes IN ACCESS EXCLUSIVE MODE; SELECT pg_sleep(9); COMMIT;\n")
+        holder.stdin.close()
+        try:
+            for _ in range(100):
+                if val(db, "SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid WHERE l.relation = 'public.votes'::regclass "
+                           "AND l.mode = 'AccessExclusiveLock' AND l.granted;") == "1":
+                    break
+                time.sleep(0.1)
+            else:
+                raise AssertionError("lock holder did not start")
+            t0 = time.monotonic()
+            p = run_wrapper(ok=False)
+            waited = time.monotonic() - t0
+            assert p.returncode == 5 and "FAILED: 000025_vote_convention.sql did not apply" in p.stderr, p.stdout + p.stderr
+            assert "lock_timeout" in p.stderr or "55P03" in p.stderr or "canceling statement" in p.stderr, p.stderr
+            assert 4.5 <= waited < 12, f"rolled back after {waited:.1f}s"
+            assert "lock: this file holds AccessShareLock on public.votes and public.votes_latest_unique" in p.stdout, p.stdout
+        finally:
+            holder.wait(timeout=60)
+        assert dump(db) == before, "a failed apply changed the catalog"
+        (WORK / "wrapper-lock.txt").write_text(f"apply rolled back behind an ACCESS EXCLUSIVE holder after {waited:.2f}s\n")
+        # The apply itself.
+        p = run_wrapper()
+        for line in ("ok    seal:", "ok    server:", "ok    rights:", "ok    chain: the vote tables exist", "ok    rows: no vote convention object exists yet",
+                     "budgets: lock_timeout=5s statement_timeout=60s transaction_timeout=120s idle_in_transaction_session_timeout=30s",
+                     "applied: 000025_vote_convention.sql (post-check 1)", "convention: DECLARE_NEEDED (earlier files in the ledger: 23 verified, 0 unverified)",
+                     "next: the database holds votes; declare its sign once"):
+            assert line in p.stdout, (line, p.stdout)
+        (WORK / "wrapper-apply.txt").write_text(p.stdout)
+        eq(val(db, f"SELECT length(checksum) FROM public.schema_migrations WHERE name = '{NAME}';"), "64", "ledger row")
+        eq(val(db, "SELECT vote FROM votes WHERE zid = 990000;"), "-1", "the stored vote is untouched")
+        # A second run is refused at the preflight: the objects exist.
+        p = run_wrapper(ok=False)
+        assert p.returncode == 4 and "FAIL  rows: 13 of the 13 vote convention objects already exist" in p.stdout, p.stdout + p.stderr
+        # After the declaration the post-apply state line reads GUARDED (shown here through a fresh database).
+        name = "vc_wrap_empty"
+        sql("postgres", f"CREATE DATABASE {name} TEMPLATE vc_base;")
+        try:
+            cmd = ["bash", str(WRAPPER), "--free-bytes", str(50 * 1024 ** 3), "000025", "--",
+                   "docker", "exec", "-i", CONTAINER, "psql", "-U", "postgres", "-d", name]
+            p = subprocess.run(cmd, text=True, capture_output=True)
+            assert p.returncode == 0 and "convention: GUARDED v0 agree -1 (earlier files in the ledger: 23 verified, 0 unverified)" in p.stdout, p.stdout + p.stderr
+            assert "next:" not in p.stdout
+        finally:
+            sql("postgres", f"DROP DATABASE {name} WITH (FORCE);")
+        # The seal: a file that differs from down/000025-files.sha256 is refused before any check.
+        p = subprocess.run(["bash", "-c", f"cd {ROOT} && shasum -a 256 -c {SEAL}"], text=True, capture_output=True)
+        assert p.returncode == 0, p.stdout + p.stderr
+    case("apply wrapper: --preflight-only applies nothing; an old transaction refuses (exit 4); an ACCESS EXCLUSIVE holder on votes "
+         "makes the apply roll back on its 5 s lock budget (exit 5, catalog unchanged); the apply passes every check, records the "
+         "ledger row and prints DECLARE_NEEDED / GUARDED; a second run is refused (exit 4); the seal verifies", wrapper)
 
     # 8. The restore-detection rule (the query in docs/vote-convention.md, verbatim).
     def restore(db):
@@ -736,6 +880,7 @@ def main():
     def chain(_db):
         everything = [p for p in sorted(ROOT.glob("0*.sql"))]
         assert everything[-1] == UP, [p.name for p in everything[-3:]]
+        assert [int(p.name[:6]) for p in everything] == [n for n in range(24) if n != 20] + [25], [p.name for p in everything]
         for name, how in (("vc_chain_f", "file"), ("vc_chain_c", "single-call"), ("vc_chain_v", "with-votes")):
             sql("postgres", f"CREATE DATABASE {name} TEMPLATE template0;")
             try:
@@ -754,6 +899,7 @@ def main():
                 if how == "file":
                     # run-migrations.sh replays the directory without ON_ERROR_STOP (the CI path):
                     # 000025 refuses and rolls back; the convention and ledger are unchanged.
+                    # (000023, the Delphi job table, refuses its own replay the same way.)
                     before = val(name, "SELECT row_to_json(c)::text FROM public.vote_convention c;") + \
                         val(name, "SELECT string_agg(name || checksum, ',' ORDER BY name) FROM public.schema_migrations;")
                     p = sql(name, UP.read_text(), ok=False, stop=False)
@@ -763,7 +909,7 @@ def main():
                     assert before == after
             finally:
                 sql("postgres", f"DROP DATABASE {name} WITH (FORCE);")
-    case("chain: 000000..000022 then 000025 on an empty database (psql -f and one driver call) seeds v0; on a database "
+    case("chain: 000000..000023 then 000025 (no 000024) on an empty database (psql -f and one driver call) seeds v0; on a database "
          "holding votes it leaves the row for the declaration; replay without ON_ERROR_STOP is harmless", chain)
 
     for login in LOGINS:
@@ -772,11 +918,11 @@ def main():
     for login in LOGINS:
         sql("postgres", f"DROP ROLE IF EXISTS {login};")
 
-    summary = {"schema": "polis-vote-convention-migration-test/2", "passed": len(RESULTS) - len(FAILURES) - len(SKIPPED),
+    summary = {"schema": "polis-vote-convention-migration-test/3", "passed": len(RESULTS) - len(FAILURES) - len(SKIPPED),
                "failed": len(FAILURES), "failures": FAILURES, "skipped": len(SKIPPED), "skip_reasons": SKIPPED, "cases": RESULTS,
                "migration_count_before_000025": len(migrations),
                "source_sha256": {str(p.relative_to(REPO)): hashlib.sha256(p.read_bytes()).hexdigest()
-                                 for p in [UP, DOWN, DECLARE, DECLARE_SH, CHECKER, Path(__file__), ROOT / "down/test_000025_down.sh",
+                                 for p in [UP, DOWN, DECLARE, DECLARE_SH, CHECKER, WRAPPER, SEAL, Path(__file__), ROOT / "down/test_000025_down.sh",
                                            ROOT / "down/test_000025.compose.yml"]},
                "ledger_checksum": ledger_checksum(UP.read_bytes()),
                "declare_checksum": declare_checksum,

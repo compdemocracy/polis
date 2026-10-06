@@ -39,6 +39,7 @@ DELPHI_ROOT = Path(__file__).resolve().parents[1]
 RUN_DELPHI = DELPHI_ROOT / "run_delphi.py"
 
 STAGES = {
+    "convention": "polismath/check_vote_convention.py",
     "reset": "umap_narrative/reset_conversation.py",
     "math": "polismath/run_math_pipeline.py",
     "umap": "umap_narrative/run_pipeline.py",
@@ -46,7 +47,7 @@ STAGES = {
     "priority": "umap_narrative/502_calculate_priorities.py",
     "visualization": "umap_narrative/700_datamapplot_for_layer.py",
 }
-ALL_STAGES = ["reset", "math", "umap", "extremity", "priority", "visualization"]
+ALL_STAGES = ["convention", "reset", "math", "umap", "extremity", "priority", "visualization"]
 
 STUB = '''import os, sys
 name = {name!r}

@@ -7652,7 +7652,7 @@
     },
     {
       "table": "schema_migrations",
-      "introduced": "server/postgres/migrations/000025_vote_convention.sql:244",
+      "introduced": "server/postgres/migrations/000025_vote_convention.sql:277",
       "columns": [
         {
           "table": "schema_migrations",
@@ -7663,7 +7663,7 @@
           "default": null,
           "ordinal": 1,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:245"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:278"
         },
         {
           "table": "schema_migrations",
@@ -7674,7 +7674,7 @@
           "default": "clock_timestamp()",
           "ordinal": 2,
           "definition_type": "timestamp with time zone",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:246"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:279"
         },
         {
           "table": "schema_migrations",
@@ -7685,7 +7685,7 @@
           "default": "SESSION_USER",
           "ordinal": 3,
           "definition_type": "name",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:247"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:280"
         },
         {
           "table": "schema_migrations",
@@ -7696,7 +7696,7 @@
           "default": null,
           "ordinal": 4,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:248"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:285"
         },
         {
           "table": "schema_migrations",
@@ -7707,7 +7707,7 @@
           "default": "''::text",
           "ordinal": 5,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:249"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:286"
         }
       ],
       "indexes": [
@@ -9161,7 +9161,7 @@
     },
     {
       "table": "vote_convention",
-      "introduced": "server/postgres/migrations/000025_vote_convention.sql:112",
+      "introduced": "server/postgres/migrations/000025_vote_convention.sql:145",
       "columns": [
         {
           "table": "vote_convention",
@@ -9172,7 +9172,7 @@
           "default": "true",
           "ordinal": 1,
           "definition_type": "boolean",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:113"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:146"
         },
         {
           "table": "vote_convention",
@@ -9183,7 +9183,7 @@
           "default": null,
           "ordinal": 2,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:114"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:147"
         },
         {
           "table": "vote_convention",
@@ -9194,7 +9194,7 @@
           "default": null,
           "ordinal": 3,
           "definition_type": "smallint",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:115"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:148"
         },
         {
           "table": "vote_convention",
@@ -9205,7 +9205,7 @@
           "default": "clock_timestamp()",
           "ordinal": 4,
           "definition_type": "timestamp with time zone",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:116"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:149"
         },
         {
           "table": "vote_convention",
@@ -9216,7 +9216,7 @@
           "default": "SESSION_USER",
           "ordinal": 5,
           "definition_type": "name",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:117"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:150"
         },
         {
           "table": "vote_convention",
@@ -9227,7 +9227,7 @@
           "default": null,
           "ordinal": 6,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:118"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:151"
         },
         {
           "table": "vote_convention",
@@ -9238,7 +9238,7 @@
           "default": "1",
           "ordinal": 7,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:119"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:152"
         },
         {
           "table": "vote_convention",
@@ -9249,7 +9249,7 @@
           "default": null,
           "ordinal": 8,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:123"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:156"
         },
         {
           "table": "vote_convention",
@@ -9260,7 +9260,7 @@
           "default": null,
           "ordinal": 9,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:124"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:157"
         }
       ],
       "indexes": [
@@ -9315,7 +9315,7 @@
     },
     {
       "table": "vote_convention_history",
-      "introduced": "server/postgres/migrations/000025_vote_convention.sql:130",
+      "introduced": "server/postgres/migrations/000025_vote_convention.sql:163",
       "columns": [
         {
           "table": "vote_convention_history",
@@ -9326,7 +9326,7 @@
           "default": null,
           "ordinal": 1,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:131"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:164"
         },
         {
           "table": "vote_convention_history",
@@ -9337,7 +9337,7 @@
           "default": null,
           "ordinal": 2,
           "definition_type": "smallint",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:132"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:165"
         },
         {
           "table": "vote_convention_history",
@@ -9348,7 +9348,7 @@
           "default": null,
           "ordinal": 3,
           "definition_type": "timestamp with time zone",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:133"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:166"
         },
         {
           "table": "vote_convention_history",
@@ -9359,7 +9359,7 @@
           "default": null,
           "ordinal": 4,
           "definition_type": "name",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:134"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:167"
         },
         {
           "table": "vote_convention_history",
@@ -9370,7 +9370,7 @@
           "default": null,
           "ordinal": 5,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:135"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:168"
         },
         {
           "table": "vote_convention_history",
@@ -9381,7 +9381,7 @@
           "default": null,
           "ordinal": 6,
           "definition_type": "integer",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:136"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:169"
         },
         {
           "table": "vote_convention_history",
@@ -9392,7 +9392,7 @@
           "default": null,
           "ordinal": 7,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:137"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:170"
         },
         {
           "table": "vote_convention_history",
@@ -9403,7 +9403,7 @@
           "default": null,
           "ordinal": 8,
           "definition_type": "text",
-          "introduced": "server/postgres/migrations/000025_vote_convention.sql:138"
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:171"
         }
       ],
       "indexes": [
@@ -10132,8 +10132,12 @@
       "sha256": "14efc95b14787b52d70680ea06cfef020cd2224e82495258fd8eb324501b7b3e"
     },
     {
+      "path": "server/postgres/migrations/000023_create_delphi_foundation.sql",
+      "sha256": "97437ea57d90c51cc664385ebb6e8ec3d8684ac0f8e7b0c60e84df1a010531f7"
+    },
+    {
       "path": "server/postgres/migrations/000025_vote_convention.sql",
-      "sha256": "f0da435518cdb2987bf65c3c26e13cdda5b77c2243b11b0816d760ff2e094257"
+      "sha256": "be9f19f415988643e78ce956363e062fc034d73e2e7812aa47cb73160647ad40"
     }
   ]
 }

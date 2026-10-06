@@ -84,20 +84,32 @@ container.
 ### Guard
 
 Back up the database (`pg_dump -Fc`, schema and data). Then apply the
-migration the way [migrations.md](migrations.md) describes, for example:
+migration through the checked wrapper, which refuses before sending anything
+unless its preflight passes (the file matches its seal, PostgreSQL 17, the
+login owns the vote tables, the vote tables exist, no vote convention object
+exists yet, no other transaction older than 30 s, and the free disk you
+measured is above the floor) and sends statement, transaction and idle
+budgets ahead of the file:
 
 ```sh
-docker exec -i polis-dev-postgres-1 psql -U postgres -d polis-dev -v ON_ERROR_STOP=1 < server/postgres/migrations/000025_vote_convention.sql
+server/postgres/bin/apply-migration.sh --free-bytes <bytes free on the database host> 000025 -- \
+  docker exec -i polis-dev-postgres-1 psql -U postgres -d polis-dev
 ```
 
-or, outside Docker:
+or, outside Docker, with `psql "$DATABASE_URL"` after the `--`. The wrapper
+prints each check, the budgets, the lock the file takes, and after the apply
+the convention state (`DECLARE_NEEDED` or `GUARDED`) and what the ledger
+recorded for the earlier migrations. Applying it a second time is refused at
+the preflight (and by the file itself, `P0780`): nothing changes.
 
-```sh
-psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f server/postgres/migrations/000025_vote_convention.sql
-```
-
-Applying it twice is harmless: the second run refuses (`P0780`) and changes
-nothing. The migration touches no vote and takes no lock on the vote tables.
+**What it locks.** The migration reads no vote and rewrites nothing, but its
+two "is the table empty" checks hold `AccessShareLock` on `votes` and
+`votes_latest_unique` until it commits. Ordinary reads and writes are
+compatible with that lock; a concurrent `ACCESS EXCLUSIVE` holder on either
+table (a rewrite, `VACUUM FULL`, a schema change) makes the migration wait up
+to its 5-second lock budget and then roll back with nothing applied. The
+budget is per lock acquisition; the wrapper's transaction budget (120 s by
+default) bounds the whole apply.
 
 ### Declare
 
@@ -122,6 +134,11 @@ recorded with `REASON="..."`.
 
 In any order. Each one refuses on its own until the row exists, and none of
 them needs any other.
+
+The checks are made **at startup** (and, for a Delphi job, at the start of
+each job before it removes anything). A process that is already running when
+the row changes is not stopped by this release; stop the components before
+any later change of the declaration.
 
 ## Mismatch
 
@@ -165,9 +182,10 @@ until the status reads `GUARDED`.
 ## Replicas
 
 The server checks `DATABASE_URL` and, when it differs, `READ_ONLY_DATABASE_URL`
-too; both must declare the same version. A physical replica replays the
-migration and the declaration on its own; until it has, the server waits for it
-(restart it when the replica has caught up).
+too; both must declare the same version. The import worker, the pollers and
+the job stages check the one database they read (`DATABASE_URL`). A physical
+replica replays the migration and the declaration on its own; until it has,
+the server refuses to start (start it again when the replica has caught up).
 
 ## Restores
 
@@ -190,11 +208,14 @@ old ones never needed the row.
 If you maintain a fork, the one change you must take is the vote convention
 migration (or its equivalent) **before** you take any code that reads the row,
 and then declare your database's sign. If you have reversed your vote signs
-yourself, declare `AGREE=+1`; this release's components will then refuse to
-run against your database rather than read it inverted. If you never take any
-later optional flip, nothing changes for you: a database at the original
-convention is supported indefinitely. Never copy rows from a vote table into
-another deployment's database by hand.
+yourself, declare `AGREE=+1`: the declaration records that fact, and this
+release's components then refuse to run against your database rather than
+read it inverted. **This release does not serve a +1 database**; a fork that
+declares +1 keeps running the code it runs today until a release built for
+that convention exists. If you never take any later optional flip, nothing
+changes for you: a database at the original convention is supported
+indefinitely. Never copy rows from a vote table into another deployment's
+database by hand.
 
 ## Not in this release
 

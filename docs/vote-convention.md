@@ -147,9 +147,12 @@ declaration): **stop**.
 The rule knows these states only. Before anyone makes a second change
 (version 2), this rule (and the down file's guard) must be extended first.
 
-The `pre-ledger` rows for 000000–000022 are asserted by 000025, not observed:
-000025 cannot tell whether a copy that predates, say, 000021 really ran it.
-The ledger's evidence starts at 000025.
+The rows for 000000–000023 are what 000025 observed in the catalog when it
+created the ledger (`verified`: the file's signature object is present;
+`unverified`: it is not, with the probe named in `note`), never an assumption.
+A deployment that left out a dormant file (pol.is, for example, has not
+applied the queue substrate 000019) sees those rows as `unverified`, and
+000025 does not need them. The ledger's evidence that a file itself ran starts at 000025.
 
 ## Production runbook (ruling R-A, 2026-10-05)
 
@@ -158,15 +161,24 @@ owner, before the release that reads the row is deployed (the new images
 refuse to start until the row exists; the running images never read it).
 
 1. Check the files before applying them. The checksum each will write must
-   match its own bytes:
+   match its own bytes, and the sealed files must match their seal:
    ```sh
    python3 server/postgres/check_ledger_checksums.py      # every ledger-bearing file: ok
+   (cd server/postgres/migrations && shasum -a 256 -c down/000025-files.sha256)
    ```
-   As the migration (owner) role, from inside the VPC, in one session:
+   As the migration (owner) role, from inside the VPC, through the checked
+   wrapper (preflight: seal, PostgreSQL 17, the login owns the vote tables,
+   the vote tables exist, no convention object yet, no transaction older than
+   30 s, free disk above the floor; then the budgets lock 5 s / statement
+   60 s / transaction 120 s / idle 30 s, each printed):
    ```sh
-   psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f server/postgres/migrations/000025_vote_convention.sql
+   server/postgres/bin/apply-migration.sh --free-bytes <RDS FreeStorageSpace in bytes> 000025 -- psql "$DATABASE_URL"
    ```
-   Production holds votes, so this prints `DECLARE_NEEDED` and writes no row.
+   Production holds votes, so this prints `DECLARE_NEEDED` and writes no row;
+   the wrapper then prints `convention: DECLARE_NEEDED` and what the ledger
+   recorded for the earlier files. The file holds `AccessShareLock` on both
+   vote tables until it commits (its empty-table checks); ordinary traffic is
+   compatible, a concurrent exclusive lock makes it roll back after 5 s.
 2. Declare the sign (one row, one transaction, no vote touched):
    ```sh
    DATABASE_URL=... server/bin/vote-convention-declare.sh -1 "pol.is: the storage convention since 2012"
@@ -178,7 +190,7 @@ refuse to start until the row exists; the running images never read it).
    SELECT * FROM public.vote_convention;                 -- (true, 0, -1, ..., contract_version 1, 'vote_convention_declare', <checksum>)
    SELECT * FROM public.vote_convention_current();       -- (0, -1, 1)
    SELECT count(*) FROM public.vote_convention_history;  -- 1
-   SELECT name, checksum, note FROM public.schema_migrations ORDER BY name;  -- 22 pre-ledger + 000025
+   SELECT name, checksum, note FROM public.schema_migrations ORDER BY name;  -- 23 earlier files (verified / unverified) + 000025
    BEGIN;                                                -- a vote_insert dry run, rolled back
    SELECT * FROM public.vote_insert(<zid>, <pid>, <tid>, 1::smallint);   -- vote = -1, convention_version 0
    ROLLBACK;
@@ -187,7 +199,9 @@ refuse to start until the row exists; the running images never read it).
 4. Rollback: stop the components that read the row, then
    `psql -X -v ON_ERROR_STOP=1 -f server/postgres/migrations/down/000025_drop_vote_convention.sql`.
    It drops the objects and touches no vote; it refuses (P0789) once the
-   convention has moved past (0, -1) or a later migration is in the ledger.
+   convention has moved past (0, -1) or a ledger-era row for another
+   migration is in the ledger. The old images never read the row, so they
+   run before, during and after the rollback.
 
 ## The un-flip's precondition: every writer goes through `vote_insert`
 

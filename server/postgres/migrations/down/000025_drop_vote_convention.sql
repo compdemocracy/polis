@@ -16,7 +16,10 @@
 --     one history row), or the ledger records an un-flip: the stored votes are
 --     then in a sign that only these rows declare. A database that was never
 --     declared (no row, no history) is dropped: nothing is lost;
---   * the ledger holds a row for any later migration (it would be lost);
+--   * the ledger holds a ledger-era row for another migration (a 64-hex
+--     checksum other than this file's own: it would be lost). The rows for
+--     the earlier files ('verified' / 'unverified') carry no information the
+--     catalog lacks and go with the table;
 --   * only some of the objects exist (a partial copy: inspect by hand).
 -- On a database that never had 000025 it is a no-op.
 -- Before running it in production, take the server back to raw INSERTs (roll
@@ -78,7 +81,7 @@ BEGIN
   END IF;
   SELECT string_agg(m.name, ', ' ORDER BY m.name) INTO later
     FROM public.schema_migrations m
-   WHERE m.name <> '000025_vote_convention' AND m.checksum <> 'pre-ledger';
+   WHERE m.name <> '000025_vote_convention' AND length(m.checksum) = 64;
   IF later IS NOT NULL OR EXISTS (SELECT 1 FROM public.schema_migrations m WHERE m.name LIKE '%\_vote\_sign\_unflip') THEN
     RAISE EXCEPTION '000025 down: refusing: the ledger records later migrations (%); reverse them first', later
       USING ERRCODE = 'P0789';
