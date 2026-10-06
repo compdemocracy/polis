@@ -610,8 +610,6 @@ volumes:
   math-backfill-state:
     labels:
       polis_tag: ${TAG:-dev}
-    labels:
-      polis_tag: ${TAG:-dev}
   postgres_data:
     labels:
       polis_tag: ${TAG:-dev}
