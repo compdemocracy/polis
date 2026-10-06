@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 #
 # apply-migration.sh: the checked apply wrapper for the queue migrations
-# 000019 (polis-queue/1) and 000023 (polis-queue/2, the Delphi job table).
+# 000019 (polis-queue/1), 000023 (polis-queue/2, the Delphi job table) and
+# 000024 (polis-queue/3, the large worker class).
 #
-# Both files create a foreign key to public.conversations, so each one holds
+# 000019 and 000023 create a foreign key to public.conversations, so each one holds
 # ShareRowExclusiveLock on `conversations` from that statement until its
 # COMMIT. That lock blocks every INSERT, UPDATE and DELETE on conversations
 # (plain SELECT continues) while it is held, and the apply itself waits behind
@@ -11,18 +12,31 @@
 # or controlled writer window. This wrapper makes that window checkable and
 # bounds what the apply may do:
 #
+# 000024 takes no lock on conversations: it alters CHECK constraints on
+# polis_queue_install, polis_queue_runs, polis_queue_jobs and delphi_jobs
+# (ACCESS EXCLUSIVE on those four queue tables until COMMIT, which blocks
+# queue readers and writers, hence the empty-queue preflight) and replaces
+# the queue functions. It needs 000023 installed and unchanged (contract
+# polis-queue/2); its own guard refuses a drifted /2 catalog and a second
+# apply.
+#
 #   PREFLIGHT (refuses, applying nothing, when any check fails)
 #     seal        the file matches its recorded sha256 (000023: down/000023-files.sha256;
+#                 000024: down/000024-files.sha256;
 #                 000019: QUEUE_SQL_SHA256 in server/src/queue/protocol.ts)
 #     server      PostgreSQL 17 (the catalog fingerprints and transaction_timeout need it)
 #     rights      the applier can do what the file needs (000019: superuser, or
 #                 CREATEROLE while a role is absent / SET membership in
 #                 polis_queue_owner, plus public and conversations privileges with
-#                 grant option; 000023: superuser or SET membership in polis_queue_owner)
-#     chain       000023 only: 000019 is installed (public.polis_queue_install exists)
+#                 grant option; 000023 and 000024: superuser or SET membership in
+#                 polis_queue_owner)
+#     chain       000023: 000019 is installed (public.polis_queue_install exists);
+#                 000024: 000023 is installed (public.delphi_foundation_install
+#                 exists) and polis_queue_install reads polis-queue/2
 #     rows        every polis_queue_* and delphi_* data table that exists is empty
-#                 (this wrapper is for a first install; the install/provenance
-#                 tables are exempt)
+#                 (for 000019 and 000023 a first install; for 000024 the queue
+#                 is empty, nothing queued, running, parked or kept; the
+#                 install/provenance tables are exempt)
 #     xacts       no other transaction on this database is older than
 #                 --max-xact-age seconds; the applier must be able to see other
 #                 sessions (superuser or pg_read_all_stats), otherwise this check
@@ -36,13 +50,13 @@
 #     statement_timeout                   --statement-timeout   default 60s
 #     transaction_timeout                 --transaction-timeout default 120s
 #     idle_in_transaction_session_timeout --idle-timeout        default 30s
-#   000023 pins lock_timeout to 5s inside its own transaction (SET LOCAL), so
-#   for it the acquisition wait is 5s whatever --lock-timeout says; the other
-#   three budgets apply to both files. A budget that fires aborts the
+#   000023 and 000024 pin lock_timeout to 5s inside their own transaction
+#   (SET LOCAL), so for them the acquisition wait is 5s whatever --lock-timeout
+#   says; the other three budgets apply to every file. A budget that fires aborts the
 #   transaction: nothing is applied, and the wrapper exits non-zero.
 #
 # Usage:
-#   server/postgres/bin/apply-migration.sh [options] <000019|000023> -- <psql command...>
+#   server/postgres/bin/apply-migration.sh [options] <000019|000023|000024> -- <psql command...>
 #
 #   server/postgres/bin/apply-migration.sh --free-bytes 12000000000 000023 -- \
 #     docker exec -i polis-dev-postgres-1 psql -U postgres -d polis-dev
@@ -57,7 +71,10 @@
 # with a concurrent uncommitted UPDATE on conversations the apply waits, fails
 # on lock_timeout and leaves the catalog unchanged; with that transaction older
 # than --max-xact-age the preflight refuses first; once the writer is gone the
-# same command applies.
+# same command applies. For 000024, test_000024_down.sh check (w): the
+# preflight refuses a chain without 000023 and a queue holding a row, the
+# file applies on the real chain with post-check polis-queue/3, and a second
+# run is refused at preflight (the install reads /3, not /2).
 
 set -euo pipefail
 
@@ -65,7 +82,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MIGRATIONS_DIR="$(cd "$HERE/../migrations" && pwd)"
 REPO_ROOT="$(cd "$HERE/../../.." && pwd)"
 
-usage() { sed -n '2,60p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '2,/^$/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 
 FREE_BYTES=""
 DISK_FLOOR_BYTES=$((5 * 1024 * 1024 * 1024))
@@ -99,8 +116,9 @@ PSQL=("$@")
 case "$NUMBER" in
   000019) FILE="000019_create_polis_queue.sql";;
   000023) FILE="000023_create_delphi_foundation.sql";;
-  "") echo "apply-migration: a migration number (000019 or 000023) is required" >&2; usage;;
-  *) echo "apply-migration: this wrapper covers 000019 and 000023 only; $NUMBER has no apply policy here" >&2; exit 2;;
+  000024) FILE="000024_create_polis_queue_large_class.sql";;
+  "") echo "apply-migration: a migration number (000019, 000023 or 000024) is required" >&2; usage;;
+  *) echo "apply-migration: this wrapper covers 000019, 000023 and 000024 only; $NUMBER has no apply policy here" >&2; exit 2;;
 esac
 PATH_SQL="$MIGRATIONS_DIR/$FILE"
 [ -f "$PATH_SQL" ] || { echo "apply-migration: $PATH_SQL is missing" >&2; exit 2; }
@@ -131,8 +149,8 @@ echo "psql: ${PSQL[*]}"
 # ---------------------------------------------------------------- seal
 actual="$(sha256_of "$PATH_SQL")"
 case "$NUMBER" in
-  000023)
-    pinned="$(grep -E "  $FILE\$" "$MIGRATIONS_DIR/down/000023-files.sha256" | cut -d' ' -f1 || true)";;
+  000023|000024)
+    pinned="$(grep -E "  $FILE\$" "$MIGRATIONS_DIR/down/$NUMBER-files.sha256" | cut -d' ' -f1 || true)";;
   000019)
     pinned="$(tr -d '\n ' < "$REPO_ROOT/server/src/queue/protocol.ts" | grep -oE 'QUEUE_SQL_SHA256="[0-9a-f]{64}"' | grep -oE '[0-9a-f]{64}' || true)";;
 esac
@@ -167,7 +185,7 @@ case "$NUMBER" in
         THEN 'FAIL $who lacks public USAGE/CREATE or conversations SELECT/UPDATE(topic)/REFERENCES(zid) with grant option'
       ELSE 'ok ' || rolname || ' (createrole=' || rolcreaterole || ', owner member=' || pg_has_role(current_user,'polis_queue_owner','SET') || ')'
       END FROM pg_roles WHERE rolname=current_user")";;
-  000023)
+  000023|000024)
     r="$(scalar "SELECT CASE
       WHEN rolsuper THEN 'ok superuser'
       WHEN pg_has_role(current_user,'polis_queue_owner','SET') THEN 'ok ' || rolname || ' can SET ROLE polis_queue_owner'
@@ -181,6 +199,15 @@ if [ "$NUMBER" = 000023 ]; then
   if [ "$(scalar "SELECT to_regclass('public.polis_queue_install') IS NOT NULL")" = "t" ]; then ok chain "000019 is installed"
   else fail chain "000019 is not installed (no public.polis_queue_install); apply it first"; fi
 fi
+if [ "$NUMBER" = 000024 ]; then
+  if [ "$(scalar "SELECT to_regclass('public.delphi_foundation_install') IS NOT NULL")" != "t" ]; then
+    fail chain "000023 is not installed (no public.delphi_foundation_install); apply it first"
+  else
+    cv="$(scalar "SELECT coalesce(string_agg(contract_version, ','), 'no row') FROM public.polis_queue_install")"
+    if [ "$cv" = "polis-queue/2" ]; then ok chain "000023 is installed; polis_queue_install reads polis-queue/2"
+    else fail chain "polis_queue_install reads '$cv', not polis-queue/2; 000024 applies once, on top of 000023"; fi
+  fi
+fi
 
 # ---------------------------------------------------------------- rows
 rows="$(scalar "SELECT string_agg(relname || '=' || n, ', ' ORDER BY relname) FROM (
@@ -189,8 +216,9 @@ rows="$(scalar "SELECT string_agg(relname || '=' || n, ', ' ORDER BY relname) FR
   FROM pg_class c
   WHERE c.relnamespace='public'::regnamespace AND c.relkind='r'
     AND (c.relname LIKE 'polis\\_queue\\_%' OR c.relname LIKE 'delphi\\_%')
-    AND c.relname NOT IN ('polis_queue_install','delphi_foundation_install')) t WHERE n > 0")"
+    AND c.relname NOT IN ('polis_queue_install','delphi_foundation_install','polis_queue_large_class_install')) t WHERE n > 0")"
 if [ -z "$rows" ]; then ok rows "every existing queue and job table is empty"
+elif [ "$NUMBER" = 000024 ]; then fail rows "queue or job tables hold rows ($rows); 000024 alters the queue tables and is applied only while the queue is empty"
 else fail rows "queue or job tables hold rows ($rows); this wrapper applies a first install only"; fi
 
 # ---------------------------------------------------------------- xacts
@@ -217,8 +245,12 @@ if [ "$PREFLIGHT_ONLY" -eq 1 ]; then echo "preflight passed (--preflight-only); 
 
 # ---------------------------------------------------------------- apply
 echo "budgets: lock_timeout=$LOCK_TIMEOUT statement_timeout=$STATEMENT_TIMEOUT transaction_timeout=$TRANSACTION_TIMEOUT idle_in_transaction_session_timeout=$IDLE_TIMEOUT"
-[ "$NUMBER" != 000023 ] || echo "note: 000023 sets lock_timeout to 5s inside its transaction; that is its acquisition budget"
-echo "lock: this file holds ShareRowExclusiveLock on public.conversations from its foreign-key creation until COMMIT"
+case "$NUMBER" in 000023|000024) echo "note: $NUMBER sets lock_timeout to 5s inside its transaction; that is its acquisition budget";; esac
+if [ "$NUMBER" = 000024 ]; then
+  echo "lock: this file holds ACCESS EXCLUSIVE on polis_queue_install, polis_queue_runs, polis_queue_jobs and delphi_jobs until COMMIT; none on public.conversations"
+else
+  echo "lock: this file holds ShareRowExclusiveLock on public.conversations from its foreign-key creation until COMMIT"
+fi
 if ! {
   printf "SET lock_timeout = '%s';\nSET statement_timeout = '%s';\nSET transaction_timeout = '%s';\nSET idle_in_transaction_session_timeout = '%s';\n" \
     "$LOCK_TIMEOUT" "$STATEMENT_TIMEOUT" "$TRANSACTION_TIMEOUT" "$IDLE_TIMEOUT"
@@ -231,6 +263,7 @@ fi
 case "$NUMBER" in
   000019) post="$(scalar "SELECT count(*) FROM public.polis_queue_install")"; want="1";;
   000023) post="$(scalar "SELECT contract_version FROM public.polis_queue_install")"; want="polis-queue/2";;
+  000024) post="$(scalar "SELECT contract_version FROM public.polis_queue_install")"; want="polis-queue/3";;
 esac
 if [ "$post" = "$want" ]; then echo "applied: $FILE (post-check $post)"
 else echo "FAILED: $FILE post-check expected '$want', found '$post'" >&2; exit 6; fi
