@@ -11,8 +11,12 @@ export default (
   asgDelphiSmall: cdk.aws_autoscaling.AutoScalingGroup,
   asgDelphiLarge: cdk.aws_autoscaling.AutoScalingGroup,
   codeDeployRole: cdk.aws_iam.Role,
-  // P-073: the delphi-large box's own role fetches revisions too.
-  delphiLargeRole?: cdk.aws_iam.IRole
+  // Queue worker classes (cdk/workerClasses.ts): each class role fetches revisions too. Only
+  // asgDelphiLarge (service type delphi-large, which scripts/after_install.sh handles) is in
+  // the deployment group. The other worker groups stay out until the deploy hooks have a
+  // branch for their service type: today an unknown type makes after_install.sh start every
+  // service on the box.
+  workers?: { roles: cdk.aws_iam.IRole[]; extraGroups: cdk.aws_autoscaling.AutoScalingGroup[] }
 ) => {
   const application = new codedeploy.ServerApplication(self, 'CodeDeployApplication', {
     applicationName: 'PolisApplication',
@@ -27,8 +31,8 @@ export default (
     blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
   });
   deploymentBucket.grantRead(instanceRole);
-  if (delphiLargeRole) {
-    deploymentBucket.grantRead(delphiLargeRole);
+  for (const role of workers?.roles ?? []) {
+    deploymentBucket.grantRead(role);
   }
 
   // Deployment Group
