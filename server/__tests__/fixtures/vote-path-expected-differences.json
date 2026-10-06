@@ -1,0 +1,355 @@
+{
+  "about": "Intended, ruled differences from the edge-recorded golden (vote-path-golden.json), one entry per changed case. See the header of __tests__/integration/vote-path-recordings.test.ts. Emptied whenever the golden is re-recorded on edge.",
+  "entries": [
+    {
+      "case": "V/owner/nextComment",
+      "find": "{\"txt\":\"Vote path statement c3-owner-pass\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":3,\"remaining\":6,\"total\":6,\"translations\":[]}",
+      "replace": "{\"txt\":\"Vote path statement c0-seed-default-vote\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":0.5,\"remaining\":1,\"total\":6,\"translations\":[],\"currentPid\":0}",
+      "whole_response": true,
+      "whole_response_reason": "The recorded response was the bug (#2952): the owner, pid 0, was served their own already-voted statement (tid 3) with remaining equal to total. The response is now a different statement with different counts, so the whole response is replaced.",
+      "why": "Two ruled changes meet in this case. (1) #2956: GET /nextComment honours pid 0 (the first participant); it no longer offers statements that participant has already voted on, and counts remaining against their votes. With that alone nothing was left for the owner and the response was {\"currentPid\":0}. (2) POST /comments no longer casts an automatic pass for a seed's author, so the owner has not voted on seed tid 0 and is offered it: remaining 1 of total 6.",
+      "ruling": "ruled:colin-2026-10-04-issue-2952 and colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "V/reportExport/summary.csv",
+      "find": "conversation-description,\"Vote path recording: V\"",
+      "replace": "conversation-description,\"Vote path recording: V\"\nvote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1",
+      "why": "summary.csv gains a last row declaring the export vote convention: vote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1. Every earlier row keeps its position and bytes.",
+      "ruling": "ruled:Colin 2026-10-03, on PR #2932: \"2932 sounds benign\""
+    },
+    {
+      "case": "V/reportExport/format.json",
+      "find": "{\"error\":\"polis_error_data_unknown_report\",\"message\":\"polis_error_data_unknown_report\",\"status\":404}",
+      "replace": "{\n  \"format\": \"polis-export/1\",\n  \"vote-convention\": \"agree=+1;disagree=-1;pass=0;format=polis-export/1\",\n  \"vote\": {\n    \"agree\": 1,\n    \"disagree\": -1,\n    \"pass\": 0\n  },\n  \"files\": {\n    \"summary.csv\": {\n      \"vote-convention\": \"declaration\"\n    },\n    \"votes.csv\": {\n      \"vote\": \"vote\",\n      \"important\": \"flag\"\n    },\n    \"participant-votes.csv\": {\n      \"<comment-id>\": \"vote\",\n      \"n-votes\": \"count\",\n      \"n-agree\": \"count\",\n      \"n-disagree\": \"count\"\n    },\n    \"participant-importance.csv\": {\n      \"<comment-id>\": \"flag\",\n      \"n-votes\": \"count\",\n      \"n-important\": \"count\"\n    },\n    \"comments.csv\": {\n      \"agrees\": \"count\",\n      \"disagrees\": \"count\",\n      \"importance\": \"count\"\n    },\n    \"comment-groups.csv\": {\n      \"total-votes\": \"count\",\n      \"total-agrees\": \"count\",\n      \"total-disagrees\": \"count\",\n      \"total-passes\": \"count\",\n      \"group-<letter>-votes\": \"count\",\n      \"group-<letter>-agrees\": \"count\",\n      \"group-<letter>-disagrees\": \"count\",\n      \"group-<letter>-passes\": \"count\"\n    },\n    \"comment-clusters.csv\": {}\n  },\n  \"docs\": \"https://github.com/compdemocracy/polis/blob/edge/docs/export-format.md\"\n}\n",
+      "whole_response": true,
+      "status": 200,
+      "whole_response_reason": "the 404 error body is replaced by the whole format.json document",
+      "why": "New report type format.json: the export set's machine-readable declaration (format id, vote convention, vote values, the sign-bearing columns of every export file). Edge answered 404 polis_error_data_unknown_report.",
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
+    },
+    {
+      "case": "E/reportExport/summary.csv",
+      "find": "conversation-description,\"Vote path recording: E\"",
+      "replace": "conversation-description,\"Vote path recording: E\"\nvote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1",
+      "why": "summary.csv gains a last row declaring the export vote convention: vote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1. Every earlier row keeps its position and bytes.",
+      "ruling": "ruled:Colin 2026-10-03, on PR #2932: \"2932 sounds benign\""
+    },
+    {
+      "case": "Z/reportExport/summary.csv",
+      "find": "conversation-description,\"Vote path recording: Z\"",
+      "replace": "conversation-description,\"Vote path recording: Z\"\nvote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1",
+      "why": "summary.csv gains a last row declaring the export vote convention: vote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1. Every earlier row keeps its position and bytes.",
+      "ruling": "ruled:Colin 2026-10-03, on PR #2932: \"2932 sounds benign\""
+    },
+    {
+      "case": "I/reportExport/summary.csv",
+      "find": "conversation-description,\"Vote path recording: I\"",
+      "replace": "conversation-description,\"Vote path recording: I\"\nvote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1",
+      "why": "summary.csv gains a last row declaring the export vote convention: vote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1. Every earlier row keeps its position and bytes.",
+      "ruling": "ruled:Colin 2026-10-03, on PR #2932: \"2932 sounds benign\""
+    },
+    {
+      "case": "I2/reportExport/summary.csv",
+      "find": "conversation-description,\"Vote path recording: I2\"",
+      "replace": "conversation-description,\"Vote path recording: I2\"\nvote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1",
+      "why": "summary.csv gains a last row declaring the export vote convention: vote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1. Every earlier row keeps its position and bytes.",
+      "ruling": "ruled:Colin 2026-10-03, on PR #2932: \"2932 sounds benign\""
+    },
+    {
+      "case": "I/votes-bulk-declared/line-storage-convention",
+      "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
+      "replace": "{\"error\":\"polis_err_vote_convention_declaration_mismatch\",\"message\":\"polis_err_vote_convention_declaration_mismatch\",\"status\":400}",
+      "whole_response": true,
+      "status": 400,
+      "whole_response_reason": "the 200 'processing' body is replaced by the 400 error body",
+      "why": "POST /votes-bulk refuses a file whose `# vote-convention:` first line declares a sign other than the export convention (400 polis_err_vote_convention_declaration_mismatch); nothing stored or queued. Edge accepted and queued it (and the worker then failed it).",
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
+    },
+    {
+      "case": "I/votes-bulk-declared/line-unknown-format",
+      "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
+      "replace": "{\"error\":\"polis_err_vote_convention_declaration_mismatch\",\"message\":\"polis_err_vote_convention_declaration_mismatch\",\"status\":400}",
+      "whole_response": true,
+      "status": 400,
+      "whole_response_reason": "the 200 'processing' body is replaced by the 400 error body",
+      "why": "POST /votes-bulk refuses a declared format other than polis-export/1 (400 polis_err_vote_convention_declaration_mismatch); nothing stored or queued. Edge accepted and queued it.",
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
+    },
+    {
+      "case": "I/votes-bulk-declared/line-malformed",
+      "find": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}",
+      "replace": "{\"error\":\"polis_err_vote_convention_declaration_malformed\",\"message\":\"polis_err_vote_convention_declaration_malformed\",\"status\":400}",
+      "whole_response": true,
+      "status": 400,
+      "whole_response_reason": "the 200 'processing' body is replaced by the 400 error body",
+      "why": "POST /votes-bulk refuses a malformed `# vote-convention:` first line (400 polis_err_vote_convention_declaration_malformed); nothing stored or queued. Edge accepted and queued it.",
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
+    },
+    {
+      "case": "I/votes-bulk-declared/queued",
+      "find": "7",
+      "replace": "4",
+      "why": "The three refused posts are not queued: 4 in-test queue messages instead of 7 (a consequence of the three refusals above, not a separate change).",
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
+    },
+    {
+      "case": "I3/declared-export-convention/import-job",
+      "find": "{\"outcome\":\"threw: Invalid Record Length: columns length is 1, got 5 on line 2\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"Invalid Record Length: columns length is 1, got 5 on line 2\"}}",
+      "replace": "{\"outcome\":\"completed\",\"state\":{\"status\":\"completed\",\"stage\":\"finished\",\"error_message\":null}}",
+      "whole_response": true,
+      "whole_response_reason": "the job outcome and state change as a whole",
+      "why": "The import worker reads a file whose first line declares the export convention: the line is checked and dropped and the job completes. Edge read the line as the CSV header and failed the job (Invalid Record Length).",
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
+    },
+    {
+      "case": "I3/declared-storage-convention/import-job",
+      "find": "Invalid Record Length: columns length is 1, got 5 on line 2\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"Invalid Record Length: columns length is 1, got 5 on line 2",
+      "replace": "polis_err_vote_convention_declaration_mismatch\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"polis_err_vote_convention_declaration_mismatch",
+      "why": "The import worker fails a file declaring another sign with polis_err_vote_convention_declaration_mismatch before reading a row. Edge failed it with Invalid Record Length.",
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
+    },
+    {
+      "case": "I3/declared-malformed/import-job",
+      "find": "Invalid Record Length: columns length is 1, got 5 on line 2\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"Invalid Record Length: columns length is 1, got 5 on line 2",
+      "replace": "polis_err_vote_convention_declaration_malformed\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"polis_err_vote_convention_declaration_malformed",
+      "why": "The import worker fails a malformed declaration with polis_err_vote_convention_declaration_malformed before reading a row. Edge failed it with Invalid Record Length.",
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
+    },
+    {
+      "case": "I3/after-import/db/votes",
+      "find": "[",
+      "replace": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false}",
+      "why": "The declared export-convention file's two votes are stored, converted as an undeclared file's would be (export +1 -> stored -1, export -1 -> stored +1). Edge stored nothing.",
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
+    },
+    {
+      "case": "I3/after-import/db/votes_latest_unique",
+      "find": "[",
+      "replace": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0}",
+      "why": "As I3/after-import/db/votes, in votes_latest_unique.",
+      "ruling": "ruled:colin-2026-10-04-exports-imports-declare-sign"
+    },
+    {
+      "case": "R/reportExport/summary.csv",
+      "find": "conversation-description,\"Vote path recording: R\"",
+      "replace": "conversation-description,\"Vote path recording: R\"\nvote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1",
+      "why": "summary.csv gains a last row declaring the export vote convention: vote-convention,agree=+1;disagree=-1;pass=0;format=polis-export/1. Every earlier row keeps its position and bytes.",
+      "ruling": "ruled:Colin 2026-10-03, on PR #2932: \"2932 sounds benign\""
+    },
+    {
+      "case": "V/after-owner-comments/db/votes",
+      "find": "{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},",
+      "replace": "",
+      "why": "POST /comments no longer casts an automatic pass for a seed's author: the stored pass row (pid 0, tid 0) for seed c0-seed-default-vote, created with no vote, is gone. The owner's four explicit votes (tid 1, 2, 3, 6) are unchanged.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "V/after-owner-comments/db/votes_latest_unique",
+      "find": "{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0},",
+      "replace": "",
+      "why": "As V/after-owner-comments/db/votes, in votes_latest_unique: the owner's automatic pass row on seed tid 0 is gone.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "V/owner/vote/t4-agree",
+      "find": "{\"currentPid\":0}",
+      "replace": "{\"nextComment\":{\"txt\":\"Vote path statement c0-seed-default-vote\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":0.5,\"remaining\":1,\"total\":6,\"translations\":[]},\"currentPid\":0}",
+      "whole_response": true,
+      "whole_response_reason": "The vote response gains a nextComment object, which is most of the new body; the 16-character body is replaced whole.",
+      "why": "POST /comments no longer casts an automatic pass for a seed's author, so the owner has not voted on seed tid 0: after this vote one statement is still left for the owner, and the vote response carries it as nextComment (remaining 1 of total 6). Edge had nothing left to offer.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "V/owner/vote/t5-moderated-out-disagree",
+      "find": "{\"currentPid\":0}",
+      "replace": "{\"nextComment\":{\"txt\":\"Vote path statement c0-seed-default-vote\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":0.5,\"remaining\":1,\"total\":6,\"translations\":[]},\"currentPid\":0}",
+      "whole_response": true,
+      "whole_response_reason": "The vote response gains a nextComment object, which is most of the new body; the 16-character body is replaced whole.",
+      "why": "POST /comments no longer casts an automatic pass for a seed's author, so the owner has not voted on seed tid 0: the vote response still carries it as nextComment (remaining 1 of total 6). Edge had nothing left to offer.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "V/after-participant-votes/db/votes",
+      "find": "{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},",
+      "replace": "",
+      "why": "As V/after-owner-comments/db/votes: the owner's automatic pass row (pid 0, tid 0) is gone; every other row is unchanged.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "V/after-participant-votes/db/votes_latest_unique",
+      "find": "{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0},",
+      "replace": "",
+      "why": "As V/after-owner-comments/db/votes_latest_unique: the owner's automatic pass row (pid 0, tid 0) is gone; every other row is unchanged.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "V/db/participants",
+      "find": "{\"pid\":0,\"vote_count\":7",
+      "replace": "{\"pid\":0,\"vote_count\":6",
+      "why": "The owner's stored vote_count is 6 instead of 7: it no longer counts the automatic pass on seed tid 0.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "V/owner/participationInit-after-votes",
+      "find": "\"vote_count\":7,\"last_interaction\":\"<ms>\",\"subscribed\":0,\"last_notified\":\"0\",\"nsli\":0,\"mod\":0,\"created\":\"<ms>\"},\"nextComment\":null,\"conversation\":{\"topic\":\"Vote path V <run>\",\"description\":\"Vote path recording: V\",\"link_url\":null,\"parent_url\":null,\"upvotes\":1,\"participant_count\":4,\"is_anon\":false,\"is_active\":true,\"is_draft\":false,\"is_public\":true,\"is_data_open\":false,\"profanity_filter\":false,\"spam_filter\":false,\"strict_moderation\":false,\"prioritize_seed\":false,\"vis_type\":0,\"write_type\":1,\"help_type\":1,\"write_hint_type\":1,\"style_btn\":null,\"socialbtn_type\":0,\"subscribe_type\":1,\"branding_type\":1,\"bgcolor\":null,\"help_bgcolor\":null,\"help_color\":null,\"email_domain\":null,\"use_xid_whitelist\":false,\"owner\":\"<uid#1>\",\"org_id\":\"<uid#1>\",\"context\":null,\"course_id\":null,\"owner_sees_participation_stats\":false,\"auth_needed_to_vote\":false,\"auth_needed_to_write\":false,\"auth_opt_fb\":null,\"auth_opt_tw\":null,\"auth_opt_allow_3rdparty\":true,\"modified\":\"<modified>\",\"created\":\"<ms>\",\"importance_enabled\":true,\"treevite_enabled\":false,\"xid_required\":false,\"topics_enabled\":false,\"site_id\":\"<site-id>\",\"translations\":[],\"ownername\":\"Test User 41\",\"is_mod\":true,\"is_owner\":true,\"conversation_id\":\"<conv:V>\"},\"votes\":[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\"},",
+      "replace": "\"vote_count\":6,\"last_interaction\":\"<ms>\",\"subscribed\":0,\"last_notified\":\"0\",\"nsli\":0,\"mod\":0,\"created\":\"<ms>\"},\"nextComment\":{\"txt\":\"Vote path statement c0-seed-default-vote\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":0.5,\"remaining\":1,\"total\":6,\"translations\":[],\"currentPid\":0},\"conversation\":{\"topic\":\"Vote path V <run>\",\"description\":\"Vote path recording: V\",\"link_url\":null,\"parent_url\":null,\"upvotes\":1,\"participant_count\":4,\"is_anon\":false,\"is_active\":true,\"is_draft\":false,\"is_public\":true,\"is_data_open\":false,\"profanity_filter\":false,\"spam_filter\":false,\"strict_moderation\":false,\"prioritize_seed\":false,\"vis_type\":0,\"write_type\":1,\"help_type\":1,\"write_hint_type\":1,\"style_btn\":null,\"socialbtn_type\":0,\"subscribe_type\":1,\"branding_type\":1,\"bgcolor\":null,\"help_bgcolor\":null,\"help_color\":null,\"email_domain\":null,\"use_xid_whitelist\":false,\"owner\":\"<uid#1>\",\"org_id\":\"<uid#1>\",\"context\":null,\"course_id\":null,\"owner_sees_participation_stats\":false,\"auth_needed_to_vote\":false,\"auth_needed_to_write\":false,\"auth_opt_fb\":null,\"auth_opt_tw\":null,\"auth_opt_allow_3rdparty\":true,\"modified\":\"<modified>\",\"created\":\"<ms>\",\"importance_enabled\":true,\"treevite_enabled\":false,\"xid_required\":false,\"topics_enabled\":false,\"site_id\":\"<site-id>\",\"translations\":[],\"ownername\":\"Test User 41\",\"is_mod\":true,\"is_owner\":true,\"conversation_id\":\"<conv:V>\"},\"votes\":[",
+      "why": "Three consequences of the owner having no automatic pass on seed tid 0, in one response: the owner's vote_count is 6 instead of 7; nextComment is that seed (remaining 1 of total 6) instead of null; and the owner's votes list no longer starts with the pass on tid 0.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "V/owner/votes-pid-0",
+      "find": "{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},",
+      "replace": "",
+      "why": "GET /votes for the owner no longer lists the automatic pass on seed tid 0; the owner's six explicit votes are unchanged.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "V/comments/moderation-voting-patterns",
+      "find": "\"pass_count\":1,\"count\":3",
+      "replace": "\"pass_count\":0,\"count\":2",
+      "why": "Seed tid 0's counts no longer include its author's automatic pass: pass_count 1 -> 0 and count (seen) 3 -> 2. Every other statement's counts are unchanged.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "V/comments/moderation-voting-patterns-mod-in",
+      "find": "\"pass_count\":1,\"count\":3",
+      "replace": "\"pass_count\":0,\"count\":2",
+      "why": "As V/comments/moderation-voting-patterns: seed tid 0's pass_count 1 -> 0 and count 3 -> 2.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "V/owner/conversationStats",
+      "find": ",<ms>],\"firstVoteTimes\":[<ms>,<ms>,<ms>,<ms>],\"commentTimes\":[<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>],\"firstCommentTimes\":[<ms>],\"votesHistogram\":[{\"n_votes\":2,\"n_ptpts\":1},{\"n_votes\":9,\"n_ptpts\":1},{\"n_votes\":7,\"n_ptpts\":2",
+      "replace": "],\"firstVoteTimes\":[<ms>,<ms>,<ms>,<ms>],\"commentTimes\":[<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>],\"firstCommentTimes\":[<ms>],\"votesHistogram\":[{\"n_votes\":2,\"n_ptpts\":1},{\"n_votes\":6,\"n_ptpts\":1},{\"n_votes\":7,\"n_ptpts\":1},{\"n_votes\":9,\"n_ptpts\":1",
+      "why": "One vote fewer in the conversation (the automatic pass): voteTimes has 24 entries instead of 25, and votesHistogram follows from the owner's vote count falling from 7 to 6 (n_votes/n_ptpts 2/1, 6/1, 7/1, 9/1 instead of 2/1, 9/1, 7/2).",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "V/reportExport/votes.csv",
+      "find": "\n<s>,<datetime>,0,0,0,0",
+      "replace": "",
+      "why": "votes.csv no longer has the row for the owner's automatic pass on comment 0 (comment-id 0, voter-id 0, vote 0).",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "V/reportExport/participant-votes.csv",
+      "find": "\n0,,7,7,3,2,0",
+      "replace": "\n0,,7,6,3,2,",
+      "why": "The owner's row: n-votes 7 -> 6 and the cell for comment 0 is empty instead of 0 (pass). n-agree and n-disagree are unchanged.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "V/reportExport/participant-importance.csv",
+      "find": "\n0,,7,7,0,0",
+      "replace": "\n0,,7,6,0,",
+      "why": "The owner's row: n-votes 7 -> 6 and the cell for comment 0 is empty instead of 0.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "V/collectiveStatement/topic-query",
+      "find": "{\"comment_id\":0,\"comment_text\":\"Vote path statement c0-seed-default-vote\",\"total_votes\":\"3\",\"disagrees\":\"1\",\"agrees\":\"1\",\"passes\":\"1\"},{\"comment_id\":3,\"comment_text\":\"Vote path statement c3-owner-pass\",\"total_votes\":\"3\",\"disagrees\":\"1\",\"agrees\":\"0\",\"passes\":\"2\"},{\"comment_id\":5,\"comment_text\":\"Vote path statement c5-to-moderate-out\",\"total_votes\":\"3\",\"disagrees\":\"2\",\"agrees\":\"1\",\"passes\":\"0\"},{\"comment_id\":6,\"comment_text\":\"Vote path statement c6-seed-explicit-agree\",\"total_votes\":\"2\",\"disagrees\":\"1\",\"agrees\":\"1\",\"passes\":\"0\"},{\"comment_id\":4,\"comment_text\":\"Vote path statement c4-no-vote\",\"total_votes\":\"2\",\"disagrees\":\"0\",\"agrees\":\"2",
+      "replace": "{\"comment_id\":3,\"comment_text\":\"Vote path statement c3-owner-pass\",\"total_votes\":\"3\",\"disagrees\":\"1\",\"agrees\":\"0\",\"passes\":\"2\"},{\"comment_id\":5,\"comment_text\":\"Vote path statement c5-to-moderate-out\",\"total_votes\":\"3\",\"disagrees\":\"2\",\"agrees\":\"1\",\"passes\":\"0\"},{\"comment_id\":4,\"comment_text\":\"Vote path statement c4-no-vote\",\"total_votes\":\"2\",\"disagrees\":\"0\",\"agrees\":\"2\",\"passes\":\"0\"},{\"comment_id\":6,\"comment_text\":\"Vote path statement c6-seed-explicit-agree\",\"total_votes\":\"2\",\"disagrees\":\"1\",\"agrees\":\"1\",\"passes\":\"0\"},{\"comment_id\":0,\"comment_text\":\"Vote path statement c0-seed-default-vote\",\"total_votes\":\"2\",\"disagrees\":\"1\",\"agrees\":\"1",
+      "why": "The topic query's vote counts for seed comment 0 no longer include its author's pass (total_votes 3 -> 2, passes 1 -> 0). The query orders by total_votes only, so comment 0 leaves the three-vote group for the two-vote group, whose rows come back as 4, 6, 0 where edge returned 6, 4 (the query does not define the order of equal totals). No other comment's counts change.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "I/after-comments-bulk/db/votes",
+      "find": "[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false}]",
+      "replace": "[]",
+      "whole_response": true,
+      "whole_response_reason": "The three rows were the whole recording; no row is left.",
+      "why": "POST /comments-bulk no longer casts an automatic pass for the uploader on each uploaded seed: no vote row is stored after the CSV upload. Edge stored three pass rows for pid 0.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "I/after-comments-bulk/db/votes_latest_unique",
+      "find": "[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0}]",
+      "replace": "[]",
+      "whole_response": true,
+      "whole_response_reason": "The three rows were the whole recording; no row is left.",
+      "why": "As I/after-comments-bulk/db/votes, in votes_latest_unique: no row after the CSV upload.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "I/after-import/db/votes",
+      "find": "{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},",
+      "replace": "",
+      "why": "The uploader's three automatic pass rows (pid 0, tid 0-2) are gone; the rows written by the vote import are unchanged.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "I/after-import/db/votes_latest_unique",
+      "find": "{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0},",
+      "replace": "",
+      "why": "As I/after-import/db/votes, in votes_latest_unique.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "I/owner/votes-pid-0",
+      "find": "[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:I>\"},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:I>\"},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:I>\"}]",
+      "replace": "[]",
+      "whole_response": true,
+      "whole_response_reason": "The three votes were the whole response; the list is now empty.",
+      "why": "GET /votes for the owner is empty: the owner's only votes were the three automatic passes on the uploaded seeds.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "I/owner/votes-famous",
+      "find": "{\"0\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":0,\"isSelf\":true,\"votes\":\"ppp\"}}",
+      "replace": "{}",
+      "whole_response": true,
+      "whole_response_reason": "The owner's entry was the whole response; the object is now empty.",
+      "why": "GET /votes/famous no longer lists the owner (pid 0, isSelf, votes \"ppp\"): the owner has no votes, so has no entry.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "I/comments/moderation-voting-patterns",
+      "find": "\"pass_count\":1,\"count\":3,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:b>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":1,\"pass_count\":2,\"count\":3,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement c\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:c>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":3,\"count\":3",
+      "replace": "\"pass_count\":0,\"count\":2,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:b>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":1,\"pass_count\":1,\"count\":2,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement c\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:c>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":2,\"count\":2",
+      "why": "Each uploaded seed's counts no longer include the uploader's automatic pass: pass_count 1 -> 0, 2 -> 1 and 3 -> 2, and count (seen) 3 -> 2 on each. agree_count and disagree_count are unchanged.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "I/comments/moderation-voting-patterns-mod-in",
+      "find": "\"pass_count\":1,\"count\":3,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:b>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":1,\"pass_count\":2,\"count\":3,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement c\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:c>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":3,\"count\":3",
+      "replace": "\"pass_count\":0,\"count\":2,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:b>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":1,\"pass_count\":1,\"count\":2,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement c\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:c>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":2,\"count\":2",
+      "why": "As I/comments/moderation-voting-patterns: each uploaded seed's pass_count falls by one and its count goes 3 -> 2.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "I/reportExport/votes.csv",
+      "find": "\n<s>,<datetime>,0,0,0\n<s>,<datetime>,0,1,1\n<s>,<datetime>,0,2,-1\n<s>,<datetime>,0,2,1\n<s>,<datetime>,1,0,0\n<s>,<datetime>,1,1,-1\n<s>,<datetime>,1,2,0\n<s>,<datetime>,2,0",
+      "replace": "\n<s>,<datetime>,0,1,1\n<s>,<datetime>,0,2,-1\n<s>,<datetime>,0,2,1\n<s>,<datetime>,1,1,-1\n<s>,<datetime>,1,2",
+      "why": "votes.csv no longer has the three rows for the uploader's automatic passes (voter-id 0 on comment-id 0, 1 and 2); the imported votes are unchanged.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "I/reportExport/participant-votes.csv",
+      "find": "\n0,,3,3,0,0,0,0,0",
+      "replace": "",
+      "why": "participant-votes.csv no longer has a row for the owner (participant 0, three votes, all pass): a participant with no votes has no row.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "I/reportExport/participant-importance.csv",
+      "find": "0,,3,3,0,0,0,0\n",
+      "replace": "",
+      "why": "participant-importance.csv no longer has a row for the owner (participant 0): a participant with no votes has no row.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "I/after-votes-bulk-route/db/votes",
+      "find": "{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},",
+      "replace": "",
+      "why": "As I/after-import/db/votes: the uploader's three automatic pass rows are gone; the imported rows are unchanged.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    },
+    {
+      "case": "I/after-votes-bulk-route/db/votes_latest_unique",
+      "find": "{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0},",
+      "replace": "",
+      "why": "As I/after-import/db/votes_latest_unique.",
+      "ruling": "ruled:colin-2026-10-05-seeds-never-auto-vote"
+    }
+  ]
+}

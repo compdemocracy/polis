@@ -3,6 +3,7 @@
 var eb = require("../eventBus");
 var display = require("../util/display");
 var Utils = require("../util/utils");
+var VoteConvention = require("../util/voteConvention");
 var $ = require("jquery");
 var _ = require("lodash");
 var d3_old = require("d3");
@@ -1191,8 +1192,8 @@ module.exports = function VisView(params) {
 
     comments = comments.map(function (c) {
       c.target = {
-        x: scaleX(-2 * c.proj.x),
-        y: scaleY(-1 * c.proj.y)
+        x: scaleX(2 * VoteConvention.COMMENT_PLACEMENT_SIGN * c.proj.x),
+        y: scaleY(VoteConvention.COMMENT_PLACEMENT_SIGN * c.proj.y)
       };
       return c;
     });

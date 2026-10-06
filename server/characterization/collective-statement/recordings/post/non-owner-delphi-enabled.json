@@ -1,0 +1,250 @@
+{
+ "format": "collective-statement-recording/1",
+ "case": "post/non-owner-delphi-enabled",
+ "about": "a delphi-enabled account that does not own the report",
+ "requests": [
+  {
+   "method": "POST",
+   "path": "/api/v3/collectiveStatement",
+   "auth": "other",
+   "body": {
+    "report_id": "r1csrec201",
+    "topic_key": "0000c5a1-0000-0000-0000-0000000000b2#0#1",
+    "topic_name": "Generated topic: shared spaces",
+    "qualifying_tids": [
+     0,
+     1,
+     2,
+     4
+    ],
+    "group_consensus": {
+     "0": 0.92,
+     "1": 0.88,
+     "2": 0.85,
+     "3": 0.9,
+     "4": 0.81,
+     "5": 0.83,
+     "7": 0.95
+    }
+   }
+  }
+ ],
+ "responses": [
+  {
+   "status": 200,
+   "headers": [
+    [
+     "content-type",
+     "application/json; charset=utf-8"
+    ],
+    [
+     "cache-control",
+     "no-cache"
+    ],
+    [
+     "access-control-allow-origin",
+     "http://localhost"
+    ],
+    [
+     "access-control-allow-credentials",
+     "true"
+    ],
+    [
+     "access-control-allow-headers",
+     "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+    ],
+    [
+     "access-control-allow-methods",
+     "GET, PUT, POST, DELETE, OPTIONS"
+    ],
+    [
+     "content-length",
+     "1781"
+    ],
+    [
+     "vary",
+     "Accept-Encoding"
+    ]
+   ],
+   "body": "{\"status\":\"success\",\"statementData\":{\"id\":\"collective_statement\",\"title\":\"Collective Statement: Generated topic: shared spaces\",\"paragraphs\":[{\"id\":\"shared_values\",\"title\":\"Our Shared Values\",\"sentences\":[{\"clauses\":[{\"text\":\"We agree that shared spaces matter\",\"citations\":[0,1]},{\"text\":\" and should be easy to reach.\",\"citations\":[2]}]}]}]},\"commentsData\":[{\"comment_id\":0,\"comment_text\":\"Generated: parks should be within a short walk of every home.\",\"voters_who_agreed_with_comment_text\":\"19\",\"voters_who_disagreed_with_comment_text\":\"2\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"3\",\"total_voters_on_comment_text\":\"24\",\"group_consensus_on_comment_text\":0.92},{\"comment_id\":1,\"comment_text\":\"Generated: the library should open on Sunday afternoons.\",\"voters_who_agreed_with_comment_text\":\"18\",\"voters_who_disagreed_with_comment_text\":\"3\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"3\",\"total_voters_on_comment_text\":\"24\",\"group_consensus_on_comment_text\":0.88},{\"comment_id\":2,\"comment_text\":\"Generated: bus shelters need lighting after dark.\",\"voters_who_agreed_with_comment_text\":\"19\",\"voters_who_disagreed_with_comment_text\":\"3\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"2\",\"total_voters_on_comment_text\":\"24\",\"group_consensus_on_comment_text\":0.85},{\"comment_id\":4,\"comment_text\":\"Generated: a \\\"quoted\\\" phrase, a backslash \\\\ and a <tag> stay as typed.\",\"voters_who_agreed_with_comment_text\":\"19\",\"voters_who_disagreed_with_comment_text\":\"3\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"2\",\"total_voters_on_comment_text\":\"24\",\"group_consensus_on_comment_text\":0.81}],\"id\":\"201#0000c5a1-0000-0000-0000-0000000000b2#0#1#<uuid:post/non-owner-delphi-enabled#1>\"}"
+  }
+ ],
+ "provider": [
+  {
+   "method": "POST",
+   "path": "/v1/messages",
+   "headers": {
+    "anthropic-version": "2023-06-01",
+    "content-type": "application/json",
+    "x-stainless-retry-count": "0",
+    "x-stainless-timeout": "600",
+    "x-api-key": "<generated key>"
+   },
+   "body": {
+    "model": "claude-opus-4-8",
+    "max_tokens": 8000,
+    "output_config": {
+     "effort": "medium"
+    },
+    "system": "You are a professional facilitator analyzing voting patterns across different participant groups. Your primary focus is on understanding how different groups voted on comments - looking for patterns of agreement within and between groups. Use the voting data to identify shared perspectives and create collective statements that reflect the actual voting consensus.",
+    "messages": [
+     {
+      "role": "user",
+      "content": {
+       "$lines": [
+        "<task>",
+        "Analyze the voting patterns in this topic to write a collective statement. ",
+        "",
+        "IMPORTANT CONTEXT: All comments provided have already been filtered to meet strict criteria:",
+        "- Each has ≥80% consensus (normalized group-aware consensus)",
+        "- Each has ≥5% participation from EVERY group",
+        "- These represent the highest consensus comments from the topic",
+        "",
+        "Since all comments already meet high consensus thresholds, focus on synthesizing them into a coherent statement rather than filtering further.",
+        "",
+        "CRITICAL WRITING RULES:",
+        "- Write ONLY in first person plural (\"We found consensus on...\", \"We agree...\", \"We support...\")",
+        "- NEVER say \"of participants\", \"of those voting\", \"of those who expressed an opinion\"",
+        "- DO NOT include percentages or voting statistics in the text",
+        "- DO NOT qualify statements with voting data",
+        "- Trust that only high-consensus comments are being provided",
+        "- Let the citations [number] handle the reference to specific data",
+        "- Maintain the collective voice throughout - write as if everyone agrees because this is a candidate statement supported by votes that are transparently available",
+        "",
+        "GOOD: \"We strongly believe cities should include nature in their designs[81]\"",
+        "BAD: \"97% of participants believe cities should include nature[81]\"",
+        "BAD: \"We believe cities should include nature, with 97% agreeing[81]\"",
+        "",
+        "Base your analysis on the voting data, but express the results as collective statements without the statistics. Ensure results match the statistics however, as they should align with voters_who_agreed_with_comment_text, voters_who_disagreed_with_comment_text, and voters_who_clicked_pass_instead_of_agree_or_disagree values. This alignment is the most critically important result. Double check your work.",
+        "</task>",
+        "",
+        "<topic>",
+        "Generated topic: shared spaces",
+        "</topic>",
+        "",
+        "<data>",
+        "[",
+        "  {",
+        "    \"comment_id\": 0,",
+        "    \"comment_text\": \"Generated: parks should be within a short walk of every home.\",",
+        "    \"voters_who_agreed_with_comment_text\": \"19\",",
+        "    \"voters_who_disagreed_with_comment_text\": \"2\",",
+        "    \"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\": \"3\",",
+        "    \"total_voters_on_comment_text\": \"24\",",
+        "    \"group_consensus_on_comment_text\": 0.92",
+        "  },",
+        "  {",
+        "    \"comment_id\": 1,",
+        "    \"comment_text\": \"Generated: the library should open on Sunday afternoons.\",",
+        "    \"voters_who_agreed_with_comment_text\": \"18\",",
+        "    \"voters_who_disagreed_with_comment_text\": \"3\",",
+        "    \"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\": \"3\",",
+        "    \"total_voters_on_comment_text\": \"24\",",
+        "    \"group_consensus_on_comment_text\": 0.88",
+        "  },",
+        "  {",
+        "    \"comment_id\": 2,",
+        "    \"comment_text\": \"Generated: bus shelters need lighting after dark.\",",
+        "    \"voters_who_agreed_with_comment_text\": \"19\",",
+        "    \"voters_who_disagreed_with_comment_text\": \"3\",",
+        "    \"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\": \"2\",",
+        "    \"total_voters_on_comment_text\": \"24\",",
+        "    \"group_consensus_on_comment_text\": 0.85",
+        "  },",
+        "  {",
+        "    \"comment_id\": 4,",
+        "    \"comment_text\": \"Generated: a \\\"quoted\\\" phrase, a backslash \\\\ and a <tag> stay as typed.\",",
+        "    \"voters_who_agreed_with_comment_text\": \"19\",",
+        "    \"voters_who_disagreed_with_comment_text\": \"3\",",
+        "    \"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\": \"2\",",
+        "    \"total_voters_on_comment_text\": \"24\",",
+        "    \"group_consensus_on_comment_text\": 0.81",
+        "  }",
+        "]",
+        "</data>",
+        "",
+        "<instructions>",
+        "- Focus on comments with high agreement rates (more agrees than disagrees)",
+        "- Write 2-3 paragraphs that synthesize the consensus views",
+        "- Each claim must be supported by specific comment citations",
+        "- Be inclusive of different perspectives while highlighting common ground",
+        "- Keep the tone constructive and forward-looking",
+        "</instructions>",
+        "",
+        "<responseFormat>",
+        "<condensedJSONSchema>",
+        "{",
+        "  \"id\": \"collective_statement\",",
+        "  \"title\": \"Collective Statement: Generated topic: shared spaces\",",
+        "  \"paragraphs\": [",
+        "    {",
+        "      \"id\": \"string\", // e.g. \"shared_values\"",
+        "      \"title\": \"string\", // e.g. \"Our Shared Values\"",
+        "      \"sentences\": [",
+        "        {",
+        "          \"clauses\": [",
+        "            {",
+        "              \"text\": \"string\", // The actual text content",
+        "              \"citations\": [123] // Required: ID of the comment",
+        "            }",
+        "          ]",
+        "        }",
+        "      ]",
+        "    }",
+        "  ]",
+        "}",
+        "</condensedJSONSchema>",
+        "</responseFormat>",
+        "",
+        "You MUST respond with valid JSON that follows the exact schema above. Each clause must have at least one citation. The full JSON object, including closing brackets, must fit within the available output length — prioritize finishing the JSON structure over exhaustive detail."
+       ]
+      }
+     }
+    ]
+   }
+  }
+ ],
+ "unusedProviderReplies": 0,
+ "stored": {
+  "added": [
+   {
+    "zid": {
+     "S": "201"
+    },
+    "topic_key": {
+     "S": "0000c5a1-0000-0000-0000-0000000000b2#0#1"
+    },
+    "statement_data": {
+     "S": "{\"id\":\"collective_statement\",\"title\":\"Collective Statement: Generated topic: shared spaces\",\"paragraphs\":[{\"id\":\"shared_values\",\"title\":\"Our Shared Values\",\"sentences\":[{\"clauses\":[{\"text\":\"We agree that shared spaces matter\",\"citations\":[0,1]},{\"text\":\" and should be easy to reach.\",\"citations\":[2]}]}]}]}"
+    },
+    "comments_data": {
+     "S": "[{\"comment_id\":0,\"comment_text\":\"Generated: parks should be within a short walk of every home.\",\"voters_who_agreed_with_comment_text\":\"19\",\"voters_who_disagreed_with_comment_text\":\"2\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"3\",\"total_voters_on_comment_text\":\"24\",\"group_consensus_on_comment_text\":0.92},{\"comment_id\":1,\"comment_text\":\"Generated: the library should open on Sunday afternoons.\",\"voters_who_agreed_with_comment_text\":\"18\",\"voters_who_disagreed_with_comment_text\":\"3\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"3\",\"total_voters_on_comment_text\":\"24\",\"group_consensus_on_comment_text\":0.88},{\"comment_id\":2,\"comment_text\":\"Generated: bus shelters need lighting after dark.\",\"voters_who_agreed_with_comment_text\":\"19\",\"voters_who_disagreed_with_comment_text\":\"3\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"2\",\"total_voters_on_comment_text\":\"24\",\"group_consensus_on_comment_text\":0.85},{\"comment_id\":4,\"comment_text\":\"Generated: a \\\"quoted\\\" phrase, a backslash \\\\ and a <tag> stay as typed.\",\"voters_who_agreed_with_comment_text\":\"19\",\"voters_who_disagreed_with_comment_text\":\"3\",\"voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text\":\"2\",\"total_voters_on_comment_text\":\"24\",\"group_consensus_on_comment_text\":0.81}]"
+    },
+    "topic_name": {
+     "S": "Generated topic: shared spaces"
+    },
+    "zid_topic_jobid": {
+     "S": "201#0000c5a1-0000-0000-0000-0000000000b2#0#1#<uuid:post/non-owner-delphi-enabled#1>"
+    },
+    "created_at": {
+     "S": "2023-11-14T22:39:20.000Z"
+    },
+    "model": {
+     "S": "claude-opus-4-8"
+    }
+   }
+  ],
+  "removed": [],
+  "changed": []
+ },
+ "logs": [
+  "info: CollectiveStatement API request received",
+  "info: Retrieved 13 cluster assignments for conversation 201",
+  "info: Found 6 comments in layer 0, cluster 1 for conversation 201",
+  "info: Comment IDs for topic 0000c5a1-0000-0000-0000-0000000000b2#0#1: [0,1,2,3,4,5]",
+  "info: SQL query returned 6 comments for topic 0000c5a1-0000-0000-0000-0000000000b2#0#1",
+  "info: Found 6 comments for topic 0000c5a1-0000-0000-0000-0000000000b2#0#1",
+  "info: Using 4 pre-qualified comments from client (from 6 total)",
+  "info: Consensus range: 0.920 to 0.810"
+ ]
+}

@@ -1,0 +1,86 @@
+{
+ "format": "collective-statement-recording/1",
+ "case": "post/one-qualifying-tid",
+ "about": "one qualifying tid (fewer than three)",
+ "requests": [
+  {
+   "method": "POST",
+   "path": "/api/v3/collectiveStatement",
+   "auth": "owner",
+   "body": {
+    "report_id": "r1csrec201",
+    "topic_key": "0000c5a1-0000-0000-0000-0000000000b2#0#1",
+    "topic_name": "Generated topic: shared spaces",
+    "qualifying_tids": [
+     0
+    ],
+    "group_consensus": {
+     "0": 0.92,
+     "1": 0.88,
+     "2": 0.85,
+     "3": 0.9,
+     "4": 0.81,
+     "5": 0.83,
+     "7": 0.95
+    }
+   }
+  }
+ ],
+ "responses": [
+  {
+   "status": 200,
+   "headers": [
+    [
+     "content-type",
+     "application/json; charset=utf-8"
+    ],
+    [
+     "cache-control",
+     "no-cache"
+    ],
+    [
+     "access-control-allow-origin",
+     "http://localhost"
+    ],
+    [
+     "access-control-allow-credentials",
+     "true"
+    ],
+    [
+     "access-control-allow-headers",
+     "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+    ],
+    [
+     "access-control-allow-methods",
+     "GET, PUT, POST, DELETE, OPTIONS"
+    ],
+    [
+     "content-length",
+     "167"
+    ],
+    [
+     "vary",
+     "Accept-Encoding"
+    ]
+   ],
+   "body": "{\"status\":\"error\",\"message\":\"Not enough qualifying comments. Need at least 3 comments with ≥0.8 consensus and ≥5% participation from every group. Only 1 qualify.\"}"
+  }
+ ],
+ "provider": [],
+ "unusedProviderReplies": 0,
+ "stored": {
+  "added": [],
+  "removed": [],
+  "changed": []
+ },
+ "logs": [
+  "info: CollectiveStatement API request received",
+  "info: Retrieved 13 cluster assignments for conversation 201",
+  "info: Found 6 comments in layer 0, cluster 1 for conversation 201",
+  "info: Comment IDs for topic 0000c5a1-0000-0000-0000-0000000000b2#0#1: [0,1,2,3,4,5]",
+  "info: SQL query returned 6 comments for topic 0000c5a1-0000-0000-0000-0000000000b2#0#1",
+  "info: Found 6 comments for topic 0000c5a1-0000-0000-0000-0000000000b2#0#1",
+  "info: Using 1 pre-qualified comments from client (from 6 total)",
+  "info: Consensus range: 0.920 to 0.920"
+ ]
+}

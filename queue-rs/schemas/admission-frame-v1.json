@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polis-jobs.admission/1",
+  "title": "Admission frame carried by a /2 run's input_uri",
+  "description": "input_uri = 'frame://inline/' + base64url (no padding) of these exact JSON bytes; input_sha256 = their sha256. The restricted executor cannot read polis_queue_runs.zid, so the daemon learns the conversation only from this frame, bound by the digest.",
+  "type": "object",
+  "required": ["schema", "zid"],
+  "properties": {
+    "schema": {"const": "polis-jobs.admission/1"},
+    "zid": {"type": "integer", "minimum": 1},
+    "report_id": {"type": ["string", "null"], "maxLength": 512},
+    "config": {
+      "type": "object",
+      "properties": {
+        "include_moderation": {"type": "boolean"},
+        "exclude_comment_selections": {"type": "boolean"},
+        "model": {"type": ["string", "null"]},
+        "batch_size": {"type": ["integer", "null"]},
+        "region": {"type": ["string", "null"]},
+        "no_cache": {"type": "boolean"}
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "math_env": {"type": ["string", "null"]},
+        "requested_math_tick": {"type": ["integer", "null"]}
+      }
+    }
+  }
+}

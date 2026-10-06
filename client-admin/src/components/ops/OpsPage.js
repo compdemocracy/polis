@@ -3,6 +3,10 @@ import PropTypes from 'prop-types'
 import { Box, Flex, Heading, Text } from 'theme-ui'
 import { opsGet } from './opsApi'
 import WindowTiles from './WindowTiles'
+import OpsTable from './OpsTable'
+import StatTiles from './StatTiles'
+import SeriesChart from './SeriesChart'
+import { formatAge } from './format'
 
 const MAX_BACKOFF_MS = 5 * 60 * 1000
 
@@ -14,20 +18,45 @@ function formatClock(ms) {
   })
 }
 
-function formatAge(ms, now) {
-  const s = Math.max(0, Math.round((now - ms) / 1000))
-  if (s < 60) return `${s} s ago`
-  const m = Math.floor(s / 60)
-  if (m < 60) return `${m} min ago`
-  return `${Math.floor(m / 60)} h ago`
-}
-
 const REASONS = {
   timeout: 'the query passed its 3 s limit',
   lock_timeout: 'the query waited on a lock',
   pool_busy: 'no database connection was free',
   db_error: 'the database refused the query',
+  bad_value: 'the source returned a value out of range',
+  sa_unauthorized: 'Simple Analytics refused the API key',
+  sa_not_found: 'Simple Analytics does not know this site',
+  sa_rate_limited: 'Simple Analytics is rate limiting this server',
+  sa_http_error: 'Simple Analytics answered with an error',
+  sa_timeout: 'Simple Analytics did not answer in time',
+  sa_unreachable: 'Simple Analytics could not be reached',
+  sa_malformed: 'Simple Analytics sent an unexpected answer',
+  not_permitted: 'not permitted by the instance role',
+  aws_no_credentials: 'no instance role credentials on this server',
+  aws_timeout: 'AWS did not answer in time',
+  aws_throttled: 'AWS is rate limiting this server',
+  aws_not_found: 'AWS does not know this resource',
+  aws_malformed: 'AWS sent an unexpected answer',
+  aws_error: 'the AWS read failed',
   error: 'the read failed'
+}
+
+function PanelBody({ panel, now }) {
+  switch (panel.shape) {
+    case 'table':
+      return <OpsTable columns={panel.columns} rows={panel.rows} now={now} />
+    case 'series':
+      return <SeriesChart columns={panel.columns} rows={panel.rows} now={now} />
+    case 'stats':
+      return <StatTiles columns={panel.columns} row={panel.rows[0]} now={now} />
+    default:
+      return <WindowTiles columns={panel.columns} rows={panel.rows} />
+  }
+}
+
+PanelBody.propTypes = {
+  panel: PropTypes.object.isRequired,
+  now: PropTypes.number.isRequired
 }
 
 export function PanelFooter({ panel, now }) {
@@ -90,10 +119,17 @@ export function Panel({ panel, now }) {
       </Flex>
       <Box sx={{ opacity: unavailable ? 0.5 : 1 }}>
         {panel.rows.length ? (
-          <WindowTiles columns={panel.columns} rows={panel.rows} />
+          <PanelBody panel={panel} now={now} />
         ) : (
-          <Text sx={{ color: 'textSecondary' }}>No data yet.</Text>
+          <Text sx={{ color: 'textSecondary' }}>
+            {panel.status === 'ok' && panel.as_of_ms ? 'Nothing in this window.' : 'No data yet.'}
+          </Text>
         )}
+        {panel.note ? (
+          <Text as="p" sx={{ mt: 3, mb: 0, fontSize: 1, maxWidth: '50em' }}>
+            {panel.note}
+          </Text>
+        ) : null}
       </Box>
       <PanelFooter panel={panel} now={now} />
     </Box>
@@ -105,6 +141,8 @@ Panel.propTypes = {
     id: PropTypes.string.isRequired,
     title: PropTypes.string.isRequired,
     source: PropTypes.string.isRequired,
+    shape: PropTypes.string,
+    note: PropTypes.string,
     status: PropTypes.string.isRequired,
     reason: PropTypes.string,
     as_of_ms: PropTypes.number,
@@ -187,10 +225,18 @@ const OpsPage = ({ pageId }) => {
       <Text as="p" sx={{ mb: 2, maxWidth: '40em' }}>
         {page.summary}
       </Text>
-      <Text as="p" sx={{ mb: 4, fontSize: 0, color: 'textSecondary' }}>
-        Refreshes every {page.refresh_s} s while this tab is open
-        {failure ? '. The last refresh failed; retrying.' : '.'}
-      </Text>
+      {page.notice ? (
+        <Text as="p" role="status" sx={{ mb: 4, p: 3, bg: 'secondary', borderRadius: 'md' }}>
+          {page.notice}
+        </Text>
+      ) : (
+        <Text as="p" sx={{ mb: 4, fontSize: 0, color: 'textSecondary' }}>
+          Refreshes every {page.refresh_s} s while this tab is open; the server reads each source at
+          most once a minute (less often for the slowest panels: 15 minutes for 24-hour log counts,
+          12 hours for cost) however many people are looking
+          {failure ? '. The last refresh failed; retrying.' : '.'}
+        </Text>
+      )}
       {page.panels.map((panel) => (
         <Panel key={panel.id} panel={panel} now={now} />
       ))}

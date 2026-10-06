@@ -1,0 +1,1247 @@
+{
+  "V/create-conversation": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"url\":\"<local-origin>/<conv:V>\",\"conversation_id\":\"<conv:V>\"}"
+  },
+  "V/put-importance-enabled": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"topic\":\"Vote path V <run>\",\"description\":\"Vote path recording: V\",\"link_url\":null,\"parent_url\":null,\"upvotes\":1,\"participant_count\":0,\"is_anon\":false,\"is_active\":true,\"is_draft\":false,\"is_public\":true,\"is_data_open\":false,\"profanity_filter\":false,\"spam_filter\":false,\"strict_moderation\":false,\"prioritize_seed\":false,\"vis_type\":0,\"write_type\":1,\"help_type\":1,\"write_hint_type\":1,\"style_btn\":null,\"socialbtn_type\":0,\"subscribe_type\":1,\"branding_type\":1,\"bgcolor\":null,\"help_bgcolor\":null,\"help_color\":null,\"email_domain\":null,\"use_xid_whitelist\":false,\"owner\":\"<uid#1>\",\"org_id\":\"<uid#1>\",\"context\":null,\"course_id\":null,\"owner_sees_participation_stats\":false,\"auth_needed_to_vote\":false,\"auth_needed_to_write\":false,\"auth_opt_fb\":null,\"auth_opt_tw\":null,\"auth_opt_allow_3rdparty\":true,\"modified\":\"<modified>\",\"created\":\"<ms>\",\"importance_enabled\":true,\"treevite_enabled\":false,\"xid_required\":false,\"topics_enabled\":false,\"is_mod\":true,\"conversation_id\":\"<conv:V>\"}"
+  },
+  "V/post-comment/c0-seed-default-vote": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"tid\":0,\"currentPid\":0}"
+  },
+  "V/post-comment/c1-owner-agree": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"tid\":1,\"currentPid\":0}"
+  },
+  "V/post-comment/c2-owner-disagree": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"tid\":2,\"currentPid\":0}"
+  },
+  "V/post-comment/c3-owner-pass": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"tid\":3,\"currentPid\":0}"
+  },
+  "V/post-comment/c4-no-vote": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"tid\":4,\"currentPid\":0}"
+  },
+  "V/post-comment/c5-to-moderate-out": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"tid\":5,\"currentPid\":0}"
+  },
+  "V/post-comment/c6-seed-explicit-agree": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"tid\":6,\"currentPid\":0}"
+  },
+  "V/post-comment/rejected-out-of-range-2": {
+    "status": 400,
+    "contentType": "text/html; charset=utf-8",
+    "text": "polis_err_param_parse_failed_vote (val=&#39;2&#39;, error=Error: polis_fail_parse_int_out_of_range)\n"
+  },
+  "V/post-comment/rejected-out-of-range-minus-2": {
+    "status": 400,
+    "contentType": "text/html; charset=utf-8",
+    "text": "polis_err_param_parse_failed_vote (val=&#39;-2&#39;, error=Error: polis_fail_parse_int_out_of_range)\n"
+  },
+  "V/post-comment/rejected-non-integer-string": {
+    "status": 400,
+    "contentType": "text/html; charset=utf-8",
+    "text": "polis_err_param_parse_failed_vote (val=&#39;agree&#39;, error=polis_fail_parse_int agree)\n"
+  },
+  "V/moderate-out-c5": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{}"
+  },
+  "V/after-owner-comments/db/votes": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":1,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":2,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":3,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":6,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false}]"
+  },
+  "V/after-owner-comments/db/votes_latest_unique": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":1,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":0,\"tid\":2,\"vote\":1,\"weight_x_32767\":0},{\"pid\":0,\"tid\":3,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":6,\"vote\":-1,\"weight_x_32767\":0}]"
+  },
+  "V/A/participationInit-before-votes": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"user\":{},\"ptpt\":null,\"nextComment\":{\"txt\":\"Vote path statement c3-owner-pass\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":3,\"remaining\":6,\"total\":6,\"translations\":[],\"currentPid\":-1},\"conversation\":{\"topic\":\"Vote path V <run>\",\"description\":\"Vote path recording: V\",\"link_url\":null,\"parent_url\":null,\"upvotes\":1,\"participant_count\":1,\"is_anon\":false,\"is_active\":true,\"is_draft\":false,\"is_public\":true,\"is_data_open\":false,\"profanity_filter\":false,\"spam_filter\":false,\"strict_moderation\":false,\"prioritize_seed\":false,\"vis_type\":0,\"write_type\":1,\"help_type\":1,\"write_hint_type\":1,\"style_btn\":null,\"socialbtn_type\":0,\"subscribe_type\":1,\"branding_type\":1,\"bgcolor\":null,\"help_bgcolor\":null,\"help_color\":null,\"email_domain\":null,\"use_xid_whitelist\":false,\"owner\":\"<uid#1>\",\"org_id\":\"<uid#1>\",\"context\":null,\"course_id\":null,\"owner_sees_participation_stats\":false,\"auth_needed_to_vote\":false,\"auth_needed_to_write\":false,\"auth_opt_fb\":null,\"auth_opt_tw\":null,\"auth_opt_allow_3rdparty\":true,\"modified\":\"<modified>\",\"created\":\"<ms>\",\"importance_enabled\":true,\"treevite_enabled\":false,\"xid_required\":false,\"topics_enabled\":false,\"site_id\":\"<site-id>\",\"translations\":[],\"ownername\":\"Test User 41\",\"is_mod\":false,\"is_owner\":false,\"conversation_id\":\"<conv:V>\"},\"votes\":[],\"pca\":{\"asPOJO\":{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,6],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":<ms>,\"comment-priorities\":{},\"math_tick\":0},\"asJSON\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":6,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0,0,0,0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1,2,3,4,6],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\",\"asBufferOfGzippedJson\":{\"$gunzip\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":6,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0,0,0,0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1,2,3,4,6],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\"},\"expiration\":<ms>,\"consensus\":{\"agree\":[],\"disagree\":[]},\"repness\":{}},\"famous\":{},\"acceptLanguage\":\"en-US\"}"
+  },
+  "V/A/vote/t0-agree": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"nextComment\":{\"txt\":\"Vote path statement c3-owner-pass\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":2.5,\"remaining\":5,\"total\":6,\"translations\":[]},\"currentPid\":1,\"auth\":{\"token\":\"<jwt>\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}"
+  },
+  "V/A/vote/t1-disagree": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"nextComment\":{\"txt\":\"Vote path statement c4-no-vote\",\"tid\":4,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":2,\"remaining\":4,\"total\":6,\"translations\":[]},\"currentPid\":1}"
+  },
+  "V/A/vote/t2-pass": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"nextComment\":{\"txt\":\"Vote path statement c4-no-vote\",\"tid\":4,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":1.5,\"remaining\":3,\"total\":6,\"translations\":[]},\"currentPid\":1}"
+  },
+  "V/A/vote/t3-change-1-agree": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"nextComment\":{\"txt\":\"Vote path statement c6-seed-explicit-agree\",\"tid\":6,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":1,\"remaining\":2,\"total\":6,\"translations\":[]},\"currentPid\":1}"
+  },
+  "V/A/vote/t3-change-2-disagree": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"nextComment\":{\"txt\":\"Vote path statement c6-seed-explicit-agree\",\"tid\":6,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":1,\"remaining\":2,\"total\":6,\"translations\":[]},\"currentPid\":1}"
+  },
+  "V/A/vote/t3-change-3-pass": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"nextComment\":{\"txt\":\"Vote path statement c6-seed-explicit-agree\",\"tid\":6,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":1,\"remaining\":2,\"total\":6,\"translations\":[]},\"currentPid\":1}"
+  },
+  "V/A/vote/t4-agree-high-priority": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"nextComment\":{\"txt\":\"Vote path statement c6-seed-explicit-agree\",\"tid\":6,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":0.5,\"remaining\":1,\"total\":6,\"translations\":[]},\"currentPid\":1}"
+  },
+  "V/A/vote/t5-moderated-out-agree": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"nextComment\":{\"txt\":\"Vote path statement c6-seed-explicit-agree\",\"tid\":6,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":0.5,\"remaining\":1,\"total\":6,\"translations\":[]},\"currentPid\":1}"
+  },
+  "V/A/vote/t6-disagree-starred": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"currentPid\":1}"
+  },
+  "V/A/vote/rejected-out-of-range-2": {
+    "status": 400,
+    "contentType": "text/html; charset=utf-8",
+    "text": "polis_err_param_parse_failed_vote (val=&#39;2&#39;, error=Error: polis_fail_parse_int_out_of_range)\n"
+  },
+  "V/A/vote/rejected-out-of-range-minus-2": {
+    "status": 400,
+    "contentType": "text/html; charset=utf-8",
+    "text": "polis_err_param_parse_failed_vote (val=&#39;-2&#39;, error=Error: polis_fail_parse_int_out_of_range)\n"
+  },
+  "V/A/vote/rejected-string": {
+    "status": 400,
+    "contentType": "text/html; charset=utf-8",
+    "text": "polis_err_param_parse_failed_vote (val=&#39;agree&#39;, error=polis_fail_parse_int agree)\n"
+  },
+  "V/A/vote/rejected-missing-vote": {
+    "status": 400,
+    "contentType": "text/html; charset=utf-8",
+    "text": "polis_err_param_missing_vote\n"
+  },
+  "V/X/participationInit-before-votes": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"user\":{\"uid\":\"<uid#2>\",\"email\":null,\"hname\":null,\"hasXid\":true,\"xInfo\":{\"uid\":\"<uid#2>\",\"xid\":\"<run>-xid-1\",\"x_profile_image_url\":null,\"x_name\":null,\"x_email\":null,\"modified\":\"<ms>\",\"zid\":\"<zid#1>\",\"pid\":2},\"finishedTutorial\":false,\"site_ids\":[\"<site-id>\"],\"created\":<ms>},\"ptpt\":{\"pid\":2,\"uid\":\"<uid#2>\",\"vote_count\":0,\"last_interaction\":\"0\",\"subscribed\":0,\"last_notified\":\"0\",\"nsli\":0,\"mod\":0,\"created\":\"<ms>\"},\"nextComment\":{\"txt\":\"Vote path statement c3-owner-pass\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":3,\"remaining\":6,\"total\":6,\"translations\":[],\"currentPid\":2},\"conversation\":{\"topic\":\"Vote path V <run>\",\"description\":\"Vote path recording: V\",\"link_url\":null,\"parent_url\":null,\"upvotes\":1,\"participant_count\":3,\"is_anon\":false,\"is_active\":true,\"is_draft\":false,\"is_public\":true,\"is_data_open\":false,\"profanity_filter\":false,\"spam_filter\":false,\"strict_moderation\":false,\"prioritize_seed\":false,\"vis_type\":0,\"write_type\":1,\"help_type\":1,\"write_hint_type\":1,\"style_btn\":null,\"socialbtn_type\":0,\"subscribe_type\":1,\"branding_type\":1,\"bgcolor\":null,\"help_bgcolor\":null,\"help_color\":null,\"email_domain\":null,\"use_xid_whitelist\":false,\"owner\":\"<uid#1>\",\"org_id\":\"<uid#1>\",\"context\":null,\"course_id\":null,\"owner_sees_participation_stats\":false,\"auth_needed_to_vote\":false,\"auth_needed_to_write\":false,\"auth_opt_fb\":null,\"auth_opt_tw\":null,\"auth_opt_allow_3rdparty\":true,\"modified\":\"<modified>\",\"created\":\"<ms>\",\"importance_enabled\":true,\"treevite_enabled\":false,\"xid_required\":false,\"topics_enabled\":false,\"site_id\":\"<site-id>\",\"translations\":[],\"ownername\":\"Test User 41\",\"is_mod\":false,\"is_owner\":false,\"conversation_id\":\"<conv:V>\"},\"votes\":[],\"pca\":{\"asPOJO\":{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,6],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":<ms>,\"comment-priorities\":{},\"math_tick\":0},\"asJSON\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":6,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0,0,0,0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1,2,3,4,6],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\",\"asBufferOfGzippedJson\":{\"$gunzip\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":6,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0,0,0,0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1,2,3,4,6],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\"},\"expiration\":<ms>,\"consensus\":{\"agree\":[],\"disagree\":[]},\"repness\":{}},\"famous\":{},\"acceptLanguage\":\"en-US\",\"auth\":{\"token\":\"<jwt>\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}"
+  },
+  "V/X/vote/t0-disagree": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"nextComment\":{\"txt\":\"Vote path statement c3-owner-pass\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":2.5,\"remaining\":5,\"total\":6,\"translations\":[]},\"currentPid\":2}"
+  },
+  "V/X/vote/t1-agree": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"nextComment\":{\"txt\":\"Vote path statement c4-no-vote\",\"tid\":4,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":2,\"remaining\":4,\"total\":6,\"translations\":[]},\"currentPid\":2}"
+  },
+  "V/X/vote/t2-pass": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"nextComment\":{\"txt\":\"Vote path statement c4-no-vote\",\"tid\":4,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":1.5,\"remaining\":3,\"total\":6,\"translations\":[]},\"currentPid\":2}"
+  },
+  "V/X/vote/t3-change-1-pass": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"nextComment\":{\"txt\":\"Vote path statement c6-seed-explicit-agree\",\"tid\":6,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":1,\"remaining\":2,\"total\":6,\"translations\":[]},\"currentPid\":2}"
+  },
+  "V/X/vote/t3-change-2-agree": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"nextComment\":{\"txt\":\"Vote path statement c6-seed-explicit-agree\",\"tid\":6,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":1,\"remaining\":2,\"total\":6,\"translations\":[]},\"currentPid\":2}"
+  },
+  "V/X/vote/t3-change-3-disagree": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"nextComment\":{\"txt\":\"Vote path statement c6-seed-explicit-agree\",\"tid\":6,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":1,\"remaining\":2,\"total\":6,\"translations\":[]},\"currentPid\":2}"
+  },
+  "V/X/vote/t5-moderated-out-disagree": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"nextComment\":{\"txt\":\"Vote path statement c6-seed-explicit-agree\",\"tid\":6,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":1,\"remaining\":2,\"total\":6,\"translations\":[]},\"currentPid\":2}"
+  },
+  "V/B/vote/t1-agree": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"nextComment\":{\"txt\":\"Vote path statement c3-owner-pass\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":2.5,\"remaining\":5,\"total\":6,\"translations\":[]},\"currentPid\":3,\"auth\":{\"token\":\"<jwt>\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}"
+  },
+  "V/B/vote/unknown-tid-99-agree": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"nextComment\":{\"txt\":\"Vote path statement c3-owner-pass\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":2.5,\"remaining\":5,\"total\":6,\"translations\":[]},\"currentPid\":3}"
+  },
+  "V/owner/vote/t4-agree": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"currentPid\":0}"
+  },
+  "V/owner/vote/t5-moderated-out-disagree": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"currentPid\":0}"
+  },
+  "V/C/participationInit-no-votes": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"user\":{},\"ptpt\":null,\"nextComment\":{\"txt\":\"Vote path statement c3-owner-pass\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":3,\"remaining\":6,\"total\":6,\"translations\":[],\"currentPid\":-1},\"conversation\":{\"topic\":\"Vote path V <run>\",\"description\":\"Vote path recording: V\",\"link_url\":null,\"parent_url\":null,\"upvotes\":1,\"participant_count\":4,\"is_anon\":false,\"is_active\":true,\"is_draft\":false,\"is_public\":true,\"is_data_open\":false,\"profanity_filter\":false,\"spam_filter\":false,\"strict_moderation\":false,\"prioritize_seed\":false,\"vis_type\":0,\"write_type\":1,\"help_type\":1,\"write_hint_type\":1,\"style_btn\":null,\"socialbtn_type\":0,\"subscribe_type\":1,\"branding_type\":1,\"bgcolor\":null,\"help_bgcolor\":null,\"help_color\":null,\"email_domain\":null,\"use_xid_whitelist\":false,\"owner\":\"<uid#1>\",\"org_id\":\"<uid#1>\",\"context\":null,\"course_id\":null,\"owner_sees_participation_stats\":false,\"auth_needed_to_vote\":false,\"auth_needed_to_write\":false,\"auth_opt_fb\":null,\"auth_opt_tw\":null,\"auth_opt_allow_3rdparty\":true,\"modified\":\"<modified>\",\"created\":\"<ms>\",\"importance_enabled\":true,\"treevite_enabled\":false,\"xid_required\":false,\"topics_enabled\":false,\"site_id\":\"<site-id>\",\"translations\":[],\"ownername\":\"Test User 41\",\"is_mod\":false,\"is_owner\":false,\"conversation_id\":\"<conv:V>\"},\"votes\":[],\"pca\":{\"asPOJO\":{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,6],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":<ms>,\"comment-priorities\":{},\"math_tick\":0},\"asJSON\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":6,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0,0,0,0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1,2,3,4,6],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\",\"asBufferOfGzippedJson\":{\"$gunzip\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":6,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0,0,0,0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1,2,3,4,6],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\"},\"expiration\":<ms>,\"consensus\":{\"agree\":[],\"disagree\":[]},\"repness\":{}},\"famous\":{},\"acceptLanguage\":\"en-US\"}"
+  },
+  "V/after-participant-votes/db/votes": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":1,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":2,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":3,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":4,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":5,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":6,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":3,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":3,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":3,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":4,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":true},{\"pid\":1,\"tid\":5,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":6,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":0,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":1,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":3,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":3,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":3,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":5,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":3,\"tid\":1,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":3,\"tid\":99,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false}]"
+  },
+  "V/after-participant-votes/db/votes_latest_unique": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":1,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":0,\"tid\":2,\"vote\":1,\"weight_x_32767\":0},{\"pid\":0,\"tid\":3,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":4,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":0,\"tid\":5,\"vote\":1,\"weight_x_32767\":0},{\"pid\":0,\"tid\":6,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":2,\"vote\":0,\"weight_x_32767\":0},{\"pid\":1,\"tid\":3,\"vote\":0,\"weight_x_32767\":0},{\"pid\":1,\"tid\":4,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":5,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":6,\"vote\":1,\"weight_x_32767\":0},{\"pid\":2,\"tid\":0,\"vote\":1,\"weight_x_32767\":0},{\"pid\":2,\"tid\":1,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":2,\"tid\":2,\"vote\":0,\"weight_x_32767\":0},{\"pid\":2,\"tid\":3,\"vote\":1,\"weight_x_32767\":0},{\"pid\":2,\"tid\":5,\"vote\":1,\"weight_x_32767\":0},{\"pid\":3,\"tid\":1,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":3,\"tid\":99,\"vote\":-1,\"weight_x_32767\":0}]"
+  },
+  "V/db/participants": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":0,\"vote_count\":7,\"mod\":0},{\"pid\":1,\"vote_count\":9,\"mod\":0},{\"pid\":2,\"vote_count\":7,\"mod\":0},{\"pid\":3,\"vote_count\":2,\"mod\":0}]"
+  },
+  "V/A/votes-me": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":3,\"vote\":-1,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":3,\"vote\":1,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":3,\"vote\":0,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":4,\"vote\":-1,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":true,\"weight\":null,\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":5,\"vote\":-1,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":6,\"vote\":1,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:V>\"}]"
+  },
+  "V/A/votes-mypid": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":3,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":4,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":5,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":6,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"}]"
+  },
+  "V/A/votes-famous": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"adppaad\"}}"
+  },
+  "V/A/participationInit-after-votes": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"user\":{\"uid\":\"<uid#3>\",\"email\":null,\"hname\":null,\"hasXid\":false,\"finishedTutorial\":false,\"site_ids\":[\"<site-id>\"],\"created\":<ms>},\"ptpt\":{\"pid\":1,\"uid\":\"<uid#3>\",\"vote_count\":9,\"last_interaction\":\"<ms>\",\"subscribed\":0,\"last_notified\":\"0\",\"nsli\":0,\"mod\":0,\"created\":\"<ms>\"},\"nextComment\":null,\"conversation\":{\"topic\":\"Vote path V <run>\",\"description\":\"Vote path recording: V\",\"link_url\":null,\"parent_url\":null,\"upvotes\":1,\"participant_count\":4,\"is_anon\":false,\"is_active\":true,\"is_draft\":false,\"is_public\":true,\"is_data_open\":false,\"profanity_filter\":false,\"spam_filter\":false,\"strict_moderation\":false,\"prioritize_seed\":false,\"vis_type\":0,\"write_type\":1,\"help_type\":1,\"write_hint_type\":1,\"style_btn\":null,\"socialbtn_type\":0,\"subscribe_type\":1,\"branding_type\":1,\"bgcolor\":null,\"help_bgcolor\":null,\"help_color\":null,\"email_domain\":null,\"use_xid_whitelist\":false,\"owner\":\"<uid#1>\",\"org_id\":\"<uid#1>\",\"context\":null,\"course_id\":null,\"owner_sees_participation_stats\":false,\"auth_needed_to_vote\":false,\"auth_needed_to_write\":false,\"auth_opt_fb\":null,\"auth_opt_tw\":null,\"auth_opt_allow_3rdparty\":true,\"modified\":\"<modified>\",\"created\":\"<ms>\",\"importance_enabled\":true,\"treevite_enabled\":false,\"xid_required\":false,\"topics_enabled\":false,\"site_id\":\"<site-id>\",\"translations\":[],\"ownername\":\"Test User 41\",\"is_mod\":false,\"is_owner\":false,\"conversation_id\":\"<conv:V>\"},\"votes\":[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":1,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":1,\"tid\":3,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":1,\"tid\":4,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":1,\"tid\":5,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":1,\"tid\":6,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\"}],\"pca\":{\"asPOJO\":{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,6],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":<ms>,\"comment-priorities\":{},\"math_tick\":0},\"asJSON\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":6,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0,0,0,0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1,2,3,4,6],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\",\"asBufferOfGzippedJson\":{\"$gunzip\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":6,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0,0,0,0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1,2,3,4,6],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\"},\"expiration\":<ms>,\"consensus\":{\"agree\":[],\"disagree\":[]},\"repness\":{}},\"famous\":{},\"acceptLanguage\":\"en-US\"}"
+  },
+  "V/A/nextComment": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"currentPid\":1}"
+  },
+  "V/X/votes-me": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":2,\"tid\":0,\"vote\":1,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:V>\"},{\"pid\":2,\"tid\":1,\"vote\":-1,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:V>\"},{\"pid\":2,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:V>\"},{\"pid\":2,\"tid\":3,\"vote\":0,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:V>\"},{\"pid\":2,\"tid\":3,\"vote\":-1,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:V>\"},{\"pid\":2,\"tid\":3,\"vote\":1,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:V>\"},{\"pid\":2,\"tid\":5,\"vote\":1,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:V>\"}]"
+  },
+  "V/X/votes-mypid": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":2,\"tid\":0,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":2,\"tid\":1,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":2,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":2,\"tid\":3,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":2,\"tid\":5,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"}]"
+  },
+  "V/X/votes-famous": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"adppaad\"}}"
+  },
+  "V/X/participationInit-after-votes": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"user\":{\"uid\":\"<uid#2>\",\"email\":null,\"hname\":null,\"hasXid\":true,\"xInfo\":{\"uid\":\"<uid#2>\",\"xid\":\"<run>-xid-1\",\"x_profile_image_url\":null,\"x_name\":null,\"x_email\":null,\"modified\":\"<ms>\",\"zid\":\"<zid#1>\",\"pid\":2},\"finishedTutorial\":false,\"site_ids\":[\"<site-id>\"],\"created\":<ms>},\"ptpt\":{\"pid\":2,\"uid\":\"<uid#2>\",\"vote_count\":7,\"last_interaction\":\"<ms>\",\"subscribed\":0,\"last_notified\":\"0\",\"nsli\":0,\"mod\":0,\"created\":\"<ms>\"},\"nextComment\":{\"txt\":\"Vote path statement c6-seed-explicit-agree\",\"tid\":6,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":1,\"remaining\":2,\"total\":6,\"translations\":[],\"currentPid\":2},\"conversation\":{\"topic\":\"Vote path V <run>\",\"description\":\"Vote path recording: V\",\"link_url\":null,\"parent_url\":null,\"upvotes\":1,\"participant_count\":4,\"is_anon\":false,\"is_active\":true,\"is_draft\":false,\"is_public\":true,\"is_data_open\":false,\"profanity_filter\":false,\"spam_filter\":false,\"strict_moderation\":false,\"prioritize_seed\":false,\"vis_type\":0,\"write_type\":1,\"help_type\":1,\"write_hint_type\":1,\"style_btn\":null,\"socialbtn_type\":0,\"subscribe_type\":1,\"branding_type\":1,\"bgcolor\":null,\"help_bgcolor\":null,\"help_color\":null,\"email_domain\":null,\"use_xid_whitelist\":false,\"owner\":\"<uid#1>\",\"org_id\":\"<uid#1>\",\"context\":null,\"course_id\":null,\"owner_sees_participation_stats\":false,\"auth_needed_to_vote\":false,\"auth_needed_to_write\":false,\"auth_opt_fb\":null,\"auth_opt_tw\":null,\"auth_opt_allow_3rdparty\":true,\"modified\":\"<modified>\",\"created\":\"<ms>\",\"importance_enabled\":true,\"treevite_enabled\":false,\"xid_required\":false,\"topics_enabled\":false,\"site_id\":\"<site-id>\",\"translations\":[],\"ownername\":\"Test User 41\",\"is_mod\":false,\"is_owner\":false,\"conversation_id\":\"<conv:V>\"},\"votes\":[{\"pid\":2,\"tid\":0,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":2,\"tid\":1,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":2,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":2,\"tid\":3,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":2,\"tid\":5,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\"}],\"pca\":{\"asPOJO\":{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,6],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":<ms>,\"comment-priorities\":{},\"math_tick\":0},\"asJSON\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":6,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0,0,0,0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1,2,3,4,6],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\",\"asBufferOfGzippedJson\":{\"$gunzip\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":6,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0,0,0,0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1,2,3,4,6],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\"},\"expiration\":<ms>,\"consensus\":{\"agree\":[],\"disagree\":[]},\"repness\":{}},\"famous\":{},\"acceptLanguage\":\"en-US\"}"
+  },
+  "V/X/nextComment": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"txt\":\"Vote path statement c6-seed-explicit-agree\",\"tid\":6,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":1,\"remaining\":2,\"total\":6,\"translations\":[],\"currentPid\":2}"
+  },
+  "V/B/votes-me": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":3,\"tid\":1,\"vote\":-1,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:V>\"},{\"pid\":3,\"tid\":99,\"vote\":-1,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:V>\"}]"
+  },
+  "V/B/votes-mypid": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":3,\"tid\":1,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":3,\"tid\":99,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"}]"
+  },
+  "V/B/votes-famous": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"adppaad\"}}"
+  },
+  "V/B/participationInit-after-votes": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"user\":{\"uid\":\"<uid#4>\",\"email\":null,\"hname\":null,\"hasXid\":false,\"finishedTutorial\":false,\"site_ids\":[\"<site-id>\"],\"created\":<ms>},\"ptpt\":{\"pid\":3,\"uid\":\"<uid#4>\",\"vote_count\":2,\"last_interaction\":\"<ms>\",\"subscribed\":0,\"last_notified\":\"0\",\"nsli\":0,\"mod\":0,\"created\":\"<ms>\"},\"nextComment\":{\"txt\":\"Vote path statement c3-owner-pass\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":2.5,\"remaining\":5,\"total\":6,\"translations\":[],\"currentPid\":3},\"conversation\":{\"topic\":\"Vote path V <run>\",\"description\":\"Vote path recording: V\",\"link_url\":null,\"parent_url\":null,\"upvotes\":1,\"participant_count\":4,\"is_anon\":false,\"is_active\":true,\"is_draft\":false,\"is_public\":true,\"is_data_open\":false,\"profanity_filter\":false,\"spam_filter\":false,\"strict_moderation\":false,\"prioritize_seed\":false,\"vis_type\":0,\"write_type\":1,\"help_type\":1,\"write_hint_type\":1,\"style_btn\":null,\"socialbtn_type\":0,\"subscribe_type\":1,\"branding_type\":1,\"bgcolor\":null,\"help_bgcolor\":null,\"help_color\":null,\"email_domain\":null,\"use_xid_whitelist\":false,\"owner\":\"<uid#1>\",\"org_id\":\"<uid#1>\",\"context\":null,\"course_id\":null,\"owner_sees_participation_stats\":false,\"auth_needed_to_vote\":false,\"auth_needed_to_write\":false,\"auth_opt_fb\":null,\"auth_opt_tw\":null,\"auth_opt_allow_3rdparty\":true,\"modified\":\"<modified>\",\"created\":\"<ms>\",\"importance_enabled\":true,\"treevite_enabled\":false,\"xid_required\":false,\"topics_enabled\":false,\"site_id\":\"<site-id>\",\"translations\":[],\"ownername\":\"Test User 41\",\"is_mod\":false,\"is_owner\":false,\"conversation_id\":\"<conv:V>\"},\"votes\":[{\"pid\":3,\"tid\":1,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":3,\"tid\":99,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\"}],\"pca\":{\"asPOJO\":{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,6],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":<ms>,\"comment-priorities\":{},\"math_tick\":0},\"asJSON\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":6,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0,0,0,0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1,2,3,4,6],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\",\"asBufferOfGzippedJson\":{\"$gunzip\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":6,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0,0,0,0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1,2,3,4,6],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\"},\"expiration\":<ms>,\"consensus\":{\"agree\":[],\"disagree\":[]},\"repness\":{}},\"famous\":{},\"acceptLanguage\":\"en-US\"}"
+  },
+  "V/B/nextComment": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"txt\":\"Vote path statement c3-owner-pass\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":2.5,\"remaining\":5,\"total\":6,\"translations\":[],\"currentPid\":3}"
+  },
+  "V/C/votes-me": {
+    "status": 401,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"error\":\"No authentication token found\"}"
+  },
+  "V/C/votes-mypid": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "V/C/votes-famous": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"adppaad\"}}"
+  },
+  "V/C/participationInit-after-votes": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"user\":{},\"ptpt\":null,\"nextComment\":{\"txt\":\"Vote path statement c3-owner-pass\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":3,\"remaining\":6,\"total\":6,\"translations\":[],\"currentPid\":-1},\"conversation\":{\"topic\":\"Vote path V <run>\",\"description\":\"Vote path recording: V\",\"link_url\":null,\"parent_url\":null,\"upvotes\":1,\"participant_count\":4,\"is_anon\":false,\"is_active\":true,\"is_draft\":false,\"is_public\":true,\"is_data_open\":false,\"profanity_filter\":false,\"spam_filter\":false,\"strict_moderation\":false,\"prioritize_seed\":false,\"vis_type\":0,\"write_type\":1,\"help_type\":1,\"write_hint_type\":1,\"style_btn\":null,\"socialbtn_type\":0,\"subscribe_type\":1,\"branding_type\":1,\"bgcolor\":null,\"help_bgcolor\":null,\"help_color\":null,\"email_domain\":null,\"use_xid_whitelist\":false,\"owner\":\"<uid#1>\",\"org_id\":\"<uid#1>\",\"context\":null,\"course_id\":null,\"owner_sees_participation_stats\":false,\"auth_needed_to_vote\":false,\"auth_needed_to_write\":false,\"auth_opt_fb\":null,\"auth_opt_tw\":null,\"auth_opt_allow_3rdparty\":true,\"modified\":\"<modified>\",\"created\":\"<ms>\",\"importance_enabled\":true,\"treevite_enabled\":false,\"xid_required\":false,\"topics_enabled\":false,\"site_id\":\"<site-id>\",\"translations\":[],\"ownername\":\"Test User 41\",\"is_mod\":false,\"is_owner\":false,\"conversation_id\":\"<conv:V>\"},\"votes\":[],\"pca\":{\"asPOJO\":{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,6],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":<ms>,\"comment-priorities\":{},\"math_tick\":0},\"asJSON\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":6,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0,0,0,0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1,2,3,4,6],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\",\"asBufferOfGzippedJson\":{\"$gunzip\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":6,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0,0,0,0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1,2,3,4,6],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\"},\"expiration\":<ms>,\"consensus\":{\"agree\":[],\"disagree\":[]},\"repness\":{}},\"famous\":{},\"acceptLanguage\":\"en-US\"}"
+  },
+  "V/C/nextComment": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"txt\":\"Vote path statement c3-owner-pass\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":3,\"remaining\":6,\"total\":6,\"translations\":[]}"
+  },
+  "V/owner/votes-me": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "V/owner/votes-mypid": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "V/owner/votes-famous": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"adppaad\"}}"
+  },
+  "V/owner/participationInit-after-votes": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"user\":{\"uid\":\"<uid#1>\",\"email\":\"test.user.41@polis.test\",\"hname\":\"Test User 41\",\"hasXid\":false,\"finishedTutorial\":false,\"site_ids\":[\"<site-id>\"],\"created\":<ms>},\"ptpt\":{\"pid\":0,\"uid\":\"<uid#1>\",\"vote_count\":7,\"last_interaction\":\"<ms>\",\"subscribed\":0,\"last_notified\":\"0\",\"nsli\":0,\"mod\":0,\"created\":\"<ms>\"},\"nextComment\":null,\"conversation\":{\"topic\":\"Vote path V <run>\",\"description\":\"Vote path recording: V\",\"link_url\":null,\"parent_url\":null,\"upvotes\":1,\"participant_count\":4,\"is_anon\":false,\"is_active\":true,\"is_draft\":false,\"is_public\":true,\"is_data_open\":false,\"profanity_filter\":false,\"spam_filter\":false,\"strict_moderation\":false,\"prioritize_seed\":false,\"vis_type\":0,\"write_type\":1,\"help_type\":1,\"write_hint_type\":1,\"style_btn\":null,\"socialbtn_type\":0,\"subscribe_type\":1,\"branding_type\":1,\"bgcolor\":null,\"help_bgcolor\":null,\"help_color\":null,\"email_domain\":null,\"use_xid_whitelist\":false,\"owner\":\"<uid#1>\",\"org_id\":\"<uid#1>\",\"context\":null,\"course_id\":null,\"owner_sees_participation_stats\":false,\"auth_needed_to_vote\":false,\"auth_needed_to_write\":false,\"auth_opt_fb\":null,\"auth_opt_tw\":null,\"auth_opt_allow_3rdparty\":true,\"modified\":\"<modified>\",\"created\":\"<ms>\",\"importance_enabled\":true,\"treevite_enabled\":false,\"xid_required\":false,\"topics_enabled\":false,\"site_id\":\"<site-id>\",\"translations\":[],\"ownername\":\"Test User 41\",\"is_mod\":true,\"is_owner\":true,\"conversation_id\":\"<conv:V>\"},\"votes\":[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":0,\"tid\":1,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":0,\"tid\":2,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":0,\"tid\":3,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":0,\"tid\":4,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":0,\"tid\":5,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":0,\"tid\":6,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\"}],\"pca\":{\"asPOJO\":{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,6],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":<ms>,\"comment-priorities\":{},\"math_tick\":0},\"asJSON\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":6,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0,0,0,0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1,2,3,4,6],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\",\"asBufferOfGzippedJson\":{\"$gunzip\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":6,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0,0,0,0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1,2,3,4,6],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\"},\"expiration\":<ms>,\"consensus\":{\"agree\":[],\"disagree\":[]},\"repness\":{}},\"famous\":{},\"acceptLanguage\":\"en-US\"}"
+  },
+  "V/owner/nextComment": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"txt\":\"Vote path statement c3-owner-pass\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":3,\"remaining\":6,\"total\":6,\"translations\":[]}"
+  },
+  "V/unauthenticated/votes-me": {
+    "status": 401,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"error\":\"No authentication token found\"}"
+  },
+  "V/unauthenticated/votes-famous": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"adppaad\"}}"
+  },
+  "V/owner/votes-pid-0": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":0,\"tid\":1,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":0,\"tid\":2,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":0,\"tid\":3,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":0,\"tid\":4,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":0,\"tid\":5,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":0,\"tid\":6,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"}]"
+  },
+  "V/owner/votes-pid-0-tid-3": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":0,\"tid\":3,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"}]"
+  },
+  "V/owner/votes-pid-1": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":3,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":4,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":5,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":6,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"}]"
+  },
+  "V/owner/votes-pid-1-tid-3": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":1,\"tid\":3,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"}]"
+  },
+  "V/owner/votes-pid-2": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":2,\"tid\":0,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":2,\"tid\":1,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":2,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":2,\"tid\":3,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":2,\"tid\":5,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"}]"
+  },
+  "V/owner/votes-pid-2-tid-3": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":2,\"tid\":3,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"}]"
+  },
+  "V/owner/votes-pid-3": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":3,\"tid\":1,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":3,\"tid\":99,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"}]"
+  },
+  "V/owner/votes-pid-3-tid-3": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "V/owner/votes-pid-4": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "V/owner/votes-pid-4-tid-3": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "V/owner/votes-no-pid": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "V/unauthenticated/votes-pid-1": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":3,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":4,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":5,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"},{\"pid\":1,\"tid\":6,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:V>\"}]"
+  },
+  "V/owner/votes-famous-math-tick-0": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{}"
+  },
+  "V/comments/moderation-voting-patterns": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path statement c0-seed-default-vote\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":1,\"disagree_count\":1,\"pass_count\":1,\"count\":3,\"conversation_id\":\"<conv:V>\"},{\"txt\":\"Vote path statement c1-owner-agree\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":3,\"disagree_count\":1,\"pass_count\":0,\"count\":4,\"conversation_id\":\"<conv:V>\"},{\"txt\":\"Vote path statement c2-owner-disagree\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":1,\"pass_count\":2,\"count\":3,\"conversation_id\":\"<conv:V>\"},{\"txt\":\"Vote path statement c3-owner-pass\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":1,\"pass_count\":2,\"count\":3,\"conversation_id\":\"<conv:V>\"},{\"txt\":\"Vote path statement c4-no-vote\",\"tid\":4,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":2,\"disagree_count\":0,\"pass_count\":0,\"count\":2,\"conversation_id\":\"<conv:V>\"},{\"txt\":\"Vote path statement c5-to-moderate-out\",\"tid\":5,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":-1,\"active\":true,\"agree_count\":1,\"disagree_count\":2,\"pass_count\":0,\"count\":3,\"conversation_id\":\"<conv:V>\"},{\"txt\":\"Vote path statement c6-seed-explicit-agree\",\"tid\":6,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":1,\"disagree_count\":1,\"pass_count\":0,\"count\":2,\"conversation_id\":\"<conv:V>\"}]"
+  },
+  "V/comments/moderation-voting-patterns-mod-out": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path statement c5-to-moderate-out\",\"tid\":5,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":-1,\"active\":true,\"agree_count\":1,\"disagree_count\":2,\"pass_count\":0,\"count\":3,\"conversation_id\":\"<conv:V>\"}]"
+  },
+  "V/comments/moderation-voting-patterns-mod-in": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path statement c0-seed-default-vote\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":1,\"disagree_count\":1,\"pass_count\":1,\"count\":3,\"conversation_id\":\"<conv:V>\"},{\"txt\":\"Vote path statement c1-owner-agree\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":3,\"disagree_count\":1,\"pass_count\":0,\"count\":4,\"conversation_id\":\"<conv:V>\"},{\"txt\":\"Vote path statement c2-owner-disagree\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":1,\"pass_count\":2,\"count\":3,\"conversation_id\":\"<conv:V>\"},{\"txt\":\"Vote path statement c3-owner-pass\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":1,\"pass_count\":2,\"count\":3,\"conversation_id\":\"<conv:V>\"},{\"txt\":\"Vote path statement c4-no-vote\",\"tid\":4,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":2,\"disagree_count\":0,\"pass_count\":0,\"count\":2,\"conversation_id\":\"<conv:V>\"},{\"txt\":\"Vote path statement c6-seed-explicit-agree\",\"tid\":6,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":1,\"disagree_count\":1,\"pass_count\":0,\"count\":2,\"conversation_id\":\"<conv:V>\"}]"
+  },
+  "V/comments/moderation-no-voting-patterns": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path statement c0-seed-default-vote\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"conversation_id\":\"<conv:V>\"},{\"txt\":\"Vote path statement c1-owner-agree\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"conversation_id\":\"<conv:V>\"},{\"txt\":\"Vote path statement c2-owner-disagree\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"conversation_id\":\"<conv:V>\"},{\"txt\":\"Vote path statement c3-owner-pass\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"conversation_id\":\"<conv:V>\"},{\"txt\":\"Vote path statement c4-no-vote\",\"tid\":4,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"conversation_id\":\"<conv:V>\"},{\"txt\":\"Vote path statement c5-to-moderate-out\",\"tid\":5,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":-1,\"active\":true,\"conversation_id\":\"<conv:V>\"},{\"txt\":\"Vote path statement c6-seed-explicit-agree\",\"tid\":6,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"conversation_id\":\"<conv:V>\"}]"
+  },
+  "V/comments/comments-plain": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path statement c0-seed-default-vote\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null},{\"txt\":\"Vote path statement c1-owner-agree\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null},{\"txt\":\"Vote path statement c2-owner-disagree\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null},{\"txt\":\"Vote path statement c3-owner-pass\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null},{\"txt\":\"Vote path statement c4-no-vote\",\"tid\":4,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null},{\"txt\":\"Vote path statement c6-seed-explicit-agree\",\"tid\":6,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null}]"
+  },
+  "V/owner/conversationStats": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"voteTimes\":[<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>],\"firstVoteTimes\":[<ms>,<ms>,<ms>,<ms>],\"commentTimes\":[<ms>,<ms>,<ms>,<ms>,<ms>,<ms>,<ms>],\"firstCommentTimes\":[<ms>],\"votesHistogram\":[{\"n_votes\":2,\"n_ptpts\":1},{\"n_votes\":9,\"n_ptpts\":1},{\"n_votes\":7,\"n_ptpts\":2}],\"burstHistogram\":[{\"n_ptpts\":4,\"n_bursts\":1}]}"
+  },
+  "V/reportExport/summary.csv": {
+    "status": 200,
+    "contentType": "text/csv; charset=utf-8",
+    "text": "topic,\"Vote path V <run>\"\nurl,<local-origin>/<conv:V>\nvoters,0\nvoters-in-conv,0\ncommenters,1\ncomments,6\ngroups,0\nconversation-description,\"Vote path recording: V\""
+  },
+  "V/reportExport/comments.csv": {
+    "status": 200,
+    "contentType": "text/csv; charset=utf-8",
+    "text": "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,importance,comment-body\n<s>,<datetime>,0,0,1,1,1,0,\"Vote path statement c0-seed-default-vote\"\n<s>,<datetime>,1,0,3,1,1,0,\"Vote path statement c1-owner-agree\"\n<s>,<datetime>,2,0,0,1,1,0,\"Vote path statement c2-owner-disagree\"\n<s>,<datetime>,3,0,2,2,1,0,\"Vote path statement c3-owner-pass\"\n<s>,<datetime>,4,0,2,0,1,1,\"Vote path statement c4-no-vote\"\n<s>,<datetime>,5,0,1,2,-1,0,\"Vote path statement c5-to-moderate-out\"\n<s>,<datetime>,6,0,1,1,1,0,\"Vote path statement c6-seed-explicit-agree\"\n"
+  },
+  "V/reportExport/votes.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "timestamp,datetime,comment-id,voter-id,vote,important\n<s>,<datetime>,0,0,0,0\n<s>,<datetime>,0,1,1,0\n<s>,<datetime>,0,2,-1,0\n<s>,<datetime>,1,0,1,0\n<s>,<datetime>,1,1,-1,0\n<s>,<datetime>,1,2,1,0\n<s>,<datetime>,1,3,1,0\n<s>,<datetime>,2,0,-1,0\n<s>,<datetime>,2,1,0,0\n<s>,<datetime>,2,2,0,0\n<s>,<datetime>,3,0,0,0\n<s>,<datetime>,3,1,1,0\n<s>,<datetime>,3,1,-1,0\n<s>,<datetime>,3,1,0,0\n<s>,<datetime>,3,2,0,0\n<s>,<datetime>,3,2,1,0\n<s>,<datetime>,3,2,-1,0\n<s>,<datetime>,4,0,1,0\n<s>,<datetime>,4,1,1,1\n<s>,<datetime>,5,0,-1,0\n<s>,<datetime>,5,1,1,0\n<s>,<datetime>,5,2,-1,0\n<s>,<datetime>,6,0,1,0\n<s>,<datetime>,6,1,-1,0\n<s>,<datetime>,99,3,1,0\n"
+  },
+  "V/reportExport/participant-votes.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "participant,group-id,n-comments,n-votes,n-agree,n-disagree,0,1,2,3,4,5,6\n0,,7,7,3,2,0,1,-1,0,1,-1,1\n1,,0,7,<counts:consistent>,<counts:consistent>,1,-1,0,<changed-vote:in-history>,1,1,-1\n2,,0,5,<counts:consistent>,<counts:consistent>,-1,1,0,<changed-vote:in-history>,,-1,\n3,,0,2,2,0,,1,,,,,\n"
+  },
+  "V/reportExport/participant-importance.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "participant,group-id,n-comments,n-votes,n-important,0,1,2,3,4,5,6\n0,,7,7,0,0,0,0,0,0,0,0\n1,,0,7,1,0,0,0,0,1,0,0\n2,,0,5,0,0,0,0,0,,0,\n3,,0,1,0,,0,,,,,\n"
+  },
+  "V/reportExport/comment-groups.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "comment-id,comment,total-votes,total-agrees,total-disagrees,total-passes\n"
+  },
+  "V/reportExport/comment-clusters.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "comment-id,moderated,active,comment-body\n0,1,1,\"Vote path statement c0-seed-default-vote\"\n1,1,1,\"Vote path statement c1-owner-agree\"\n2,1,1,\"Vote path statement c2-owner-disagree\"\n3,1,1,\"Vote path statement c3-owner-pass\"\n4,1,1,\"Vote path statement c4-no-vote\"\n5,-1,1,\"Vote path statement c5-to-moderate-out\"\n6,1,1,\"Vote path statement c6-seed-explicit-agree\"\n"
+  },
+  "V/reportExport/format.json": {
+    "status": 404,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"error\":\"polis_error_data_unknown_report\",\"message\":\"polis_error_data_unknown_report\",\"status\":404}"
+  },
+  "V/xid-report": {
+    "status": 200,
+    "contentType": "text/csv; charset=utf-8",
+    "text": "participant,xid\n2,\"<run>-xid-1\"\n"
+  },
+  "V/collectiveStatement/response": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"status\":\"error\",\"message\":\"Not enough qualifying comments. Need at least 3 comments with ≥0.8 consensus and ≥5% participation from every group. Only 1 qualify.\"}"
+  },
+  "V/collectiveStatement/topic-query": {
+    "status": 0,
+    "contentType": "db/query",
+    "text": "[{\"sql\":\"\\n      SELECT \\n        c.tid as comment_id,\\n        c.txt as comment_text,\\n        COALESCE(COUNT(DISTINCT v.pid), 0) as total_votes,\\n        COALESCE(SUM(CASE WHEN v.vote = 1 THEN 1 ELSE 0 END), 0) as disagrees,\\n        COALESCE(SUM(CASE WHEN v.vote = -1 THEN 1 ELSE 0 END), 0) as agrees,\\n        COALESCE(SUM(CASE WHEN v.vote = 0 THEN 1 ELSE 0 END), 0) as passes\\n      FROM comments c\\n      LEFT JOIN votes_latest_unique v ON c.tid = v.tid AND c.zid = v.zid\\n      WHERE c.zid = $1 AND c.tid = ANY($2::int[])\\n      GROUP BY c.tid, c.txt\\n      ORDER BY total_votes DESC\\n    \",\"rows\":[{\"comment_id\":1,\"comment_text\":\"Vote path statement c1-owner-agree\",\"total_votes\":\"4\",\"disagrees\":\"1\",\"agrees\":\"3\",\"passes\":\"0\"},{\"comment_id\":2,\"comment_text\":\"Vote path statement c2-owner-disagree\",\"total_votes\":\"3\",\"disagrees\":\"1\",\"agrees\":\"0\",\"passes\":\"2\"},{\"comment_id\":0,\"comment_text\":\"Vote path statement c0-seed-default-vote\",\"total_votes\":\"3\",\"disagrees\":\"1\",\"agrees\":\"1\",\"passes\":\"1\"},{\"comment_id\":3,\"comment_text\":\"Vote path statement c3-owner-pass\",\"total_votes\":\"3\",\"disagrees\":\"1\",\"agrees\":\"0\",\"passes\":\"2\"},{\"comment_id\":5,\"comment_text\":\"Vote path statement c5-to-moderate-out\",\"total_votes\":\"3\",\"disagrees\":\"2\",\"agrees\":\"1\",\"passes\":\"0\"},{\"comment_id\":6,\"comment_text\":\"Vote path statement c6-seed-explicit-agree\",\"total_votes\":\"2\",\"disagrees\":\"1\",\"agrees\":\"1\",\"passes\":\"0\"},{\"comment_id\":4,\"comment_text\":\"Vote path statement c4-no-vote\",\"total_votes\":\"2\",\"disagrees\":\"0\",\"agrees\":\"2\",\"passes\":\"0\"}]}]"
+  },
+  "E/create-conversation": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"url\":\"<local-origin>/<conv:E>\",\"conversation_id\":\"<conv:E>\"}"
+  },
+  "E/anonymous/participationInit": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"user\":{},\"ptpt\":null,\"nextComment\":null,\"conversation\":{\"topic\":\"Vote path E <run>\",\"description\":\"Vote path recording: E\",\"link_url\":null,\"parent_url\":null,\"upvotes\":1,\"participant_count\":0,\"is_anon\":false,\"is_active\":true,\"is_draft\":false,\"is_public\":true,\"is_data_open\":false,\"profanity_filter\":false,\"spam_filter\":false,\"strict_moderation\":false,\"prioritize_seed\":false,\"vis_type\":0,\"write_type\":1,\"help_type\":1,\"write_hint_type\":1,\"style_btn\":null,\"socialbtn_type\":0,\"subscribe_type\":1,\"branding_type\":1,\"bgcolor\":null,\"help_bgcolor\":null,\"help_color\":null,\"email_domain\":null,\"use_xid_whitelist\":false,\"owner\":\"<uid#1>\",\"org_id\":\"<uid#1>\",\"context\":null,\"course_id\":null,\"owner_sees_participation_stats\":false,\"auth_needed_to_vote\":false,\"auth_needed_to_write\":false,\"auth_opt_fb\":null,\"auth_opt_tw\":null,\"auth_opt_allow_3rdparty\":true,\"modified\":\"<modified>\",\"created\":\"<ms>\",\"importance_enabled\":false,\"treevite_enabled\":false,\"xid_required\":false,\"topics_enabled\":false,\"site_id\":\"<site-id>\",\"translations\":[],\"ownername\":\"Test User 41\",\"is_mod\":false,\"is_owner\":false,\"conversation_id\":\"<conv:E>\"},\"votes\":[],\"pca\":{\"asPOJO\":{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":0,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[],\"comment-projection\":{}},\"tids\":[],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":<ms>,\"comment-priorities\":{},\"math_tick\":0},\"asJSON\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":0,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[],\\\"comment-projection\\\":{}},\\\"tids\\\":[],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\",\"asBufferOfGzippedJson\":{\"$gunzip\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":0,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[],\\\"comment-projection\\\":{}},\\\"tids\\\":[],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\"},\"expiration\":<ms>,\"consensus\":{\"agree\":[],\"disagree\":[]},\"repness\":{}},\"famous\":{},\"acceptLanguage\":\"en-US\"}"
+  },
+  "E/anonymous/votes-me": {
+    "status": 401,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"error\":\"No authentication token found\"}"
+  },
+  "E/anonymous/votes-famous": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{}"
+  },
+  "E/anonymous/nextComment": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{}"
+  },
+  "E/owner/votes-me": {
+    "status": 500,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"error\":\"polis_err_getting_pid\",\"message\":\"polis_err_getting_pid\",\"status\":500}"
+  },
+  "E/owner/votes-pid-0": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "E/owner/votes-famous": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{}"
+  },
+  "E/owner/participationInit": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"user\":{\"uid\":\"<uid#1>\",\"email\":\"test.user.41@polis.test\",\"hname\":\"Test User 41\",\"hasXid\":false,\"finishedTutorial\":false,\"site_ids\":[\"<site-id>\"],\"created\":<ms>},\"nextComment\":null,\"conversation\":{\"topic\":\"Vote path E <run>\",\"description\":\"Vote path recording: E\",\"link_url\":null,\"parent_url\":null,\"upvotes\":1,\"participant_count\":0,\"is_anon\":false,\"is_active\":true,\"is_draft\":false,\"is_public\":true,\"is_data_open\":false,\"profanity_filter\":false,\"spam_filter\":false,\"strict_moderation\":false,\"prioritize_seed\":false,\"vis_type\":0,\"write_type\":1,\"help_type\":1,\"write_hint_type\":1,\"style_btn\":null,\"socialbtn_type\":0,\"subscribe_type\":1,\"branding_type\":1,\"bgcolor\":null,\"help_bgcolor\":null,\"help_color\":null,\"email_domain\":null,\"use_xid_whitelist\":false,\"owner\":\"<uid#1>\",\"org_id\":\"<uid#1>\",\"context\":null,\"course_id\":null,\"owner_sees_participation_stats\":false,\"auth_needed_to_vote\":false,\"auth_needed_to_write\":false,\"auth_opt_fb\":null,\"auth_opt_tw\":null,\"auth_opt_allow_3rdparty\":true,\"modified\":\"<modified>\",\"created\":\"<ms>\",\"importance_enabled\":false,\"treevite_enabled\":false,\"xid_required\":false,\"topics_enabled\":false,\"site_id\":\"<site-id>\",\"translations\":[],\"ownername\":\"Test User 41\",\"is_mod\":true,\"is_owner\":true,\"conversation_id\":\"<conv:E>\"},\"votes\":[],\"pca\":{\"asPOJO\":{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":0,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[],\"comment-projection\":{}},\"tids\":[],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":<ms>,\"comment-priorities\":{},\"math_tick\":0},\"asJSON\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":0,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[],\\\"comment-projection\\\":{}},\\\"tids\\\":[],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\",\"asBufferOfGzippedJson\":{\"$gunzip\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":0,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[],\\\"comment-projection\\\":{}},\\\"tids\\\":[],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\"},\"expiration\":<ms>,\"consensus\":{\"agree\":[],\"disagree\":[]},\"repness\":{}},\"famous\":{},\"acceptLanguage\":\"en-US\"}"
+  },
+  "E/owner/conversationStats": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"voteTimes\":[],\"firstVoteTimes\":[],\"commentTimes\":[],\"firstCommentTimes\":[],\"votesHistogram\":[],\"burstHistogram\":[]}"
+  },
+  "E/comments/moderation-voting-patterns": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "E/comments/moderation-voting-patterns-mod-out": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "E/comments/moderation-voting-patterns-mod-in": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "E/comments/moderation-no-voting-patterns": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "E/comments/comments-plain": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "E/reportExport/summary.csv": {
+    "status": 200,
+    "contentType": "text/csv; charset=utf-8",
+    "text": "topic,\"Vote path E <run>\"\nurl,<local-origin>/<conv:E>\nvoters,0\nvoters-in-conv,0\ncommenters,0\ncomments,0\ngroups,0\nconversation-description,\"Vote path recording: E\""
+  },
+  "E/reportExport/comments.csv": {
+    "status": 200,
+    "contentType": "text/csv; charset=utf-8",
+    "text": "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,comment-body\n"
+  },
+  "E/reportExport/votes.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "timestamp,datetime,comment-id,voter-id,vote\n"
+  },
+  "E/reportExport/participant-votes.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "participant,group-id,n-comments,n-votes,n-agree,n-disagree\n"
+  },
+  "E/reportExport/participant-importance.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "participant,group-id,n-comments,n-votes,n-important\n"
+  },
+  "E/reportExport/comment-groups.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "comment-id,comment,total-votes,total-agrees,total-disagrees,total-passes\n"
+  },
+  "E/reportExport/comment-clusters.csv": {
+    "status": 200,
+    "contentType": "text/csv; charset=utf-8",
+    "text": "No comments found for this conversation"
+  },
+  "E/db/votes": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[]"
+  },
+  "E/db/votes_latest_unique": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[]"
+  },
+  "E/anonymous/vote-no-such-comment": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"currentPid\":0,\"auth\":{\"token\":\"<jwt>\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}"
+  },
+  "E/after-vote-on-missing-comment/db/votes": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":0,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false}]"
+  },
+  "E/after-vote-on-missing-comment/db/votes_latest_unique": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":0,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0}]"
+  },
+  "E/after-vote-on-missing-comment/votes.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "timestamp,datetime,comment-id,voter-id,vote\n<s>,<datetime>,0,0,1\n"
+  },
+  "Z/create-conversation": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"url\":\"<local-origin>/<conv:Z>\",\"conversation_id\":\"<conv:Z>\"}"
+  },
+  "Z/post-comment/z0-no-vote": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"tid\":0,\"currentPid\":0}"
+  },
+  "Z/post-comment/z1-no-vote": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"tid\":1,\"currentPid\":0}"
+  },
+  "Z/anonymous/participationInit": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"user\":{},\"ptpt\":null,\"nextComment\":{\"txt\":\"Vote path zero-vote statement z1\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":1,\"remaining\":2,\"total\":2,\"translations\":[],\"currentPid\":-1},\"conversation\":{\"topic\":\"Vote path Z <run>\",\"description\":\"Vote path recording: Z\",\"link_url\":null,\"parent_url\":null,\"upvotes\":1,\"participant_count\":1,\"is_anon\":false,\"is_active\":true,\"is_draft\":false,\"is_public\":true,\"is_data_open\":false,\"profanity_filter\":false,\"spam_filter\":false,\"strict_moderation\":false,\"prioritize_seed\":false,\"vis_type\":0,\"write_type\":1,\"help_type\":1,\"write_hint_type\":1,\"style_btn\":null,\"socialbtn_type\":0,\"subscribe_type\":1,\"branding_type\":1,\"bgcolor\":null,\"help_bgcolor\":null,\"help_color\":null,\"email_domain\":null,\"use_xid_whitelist\":false,\"owner\":\"<uid#1>\",\"org_id\":\"<uid#1>\",\"context\":null,\"course_id\":null,\"owner_sees_participation_stats\":false,\"auth_needed_to_vote\":false,\"auth_needed_to_write\":false,\"auth_opt_fb\":null,\"auth_opt_tw\":null,\"auth_opt_allow_3rdparty\":true,\"modified\":\"<modified>\",\"created\":\"<ms>\",\"importance_enabled\":false,\"treevite_enabled\":false,\"xid_required\":false,\"topics_enabled\":false,\"site_id\":\"<site-id>\",\"translations\":[],\"ownername\":\"Test User 41\",\"is_mod\":false,\"is_owner\":false,\"conversation_id\":\"<conv:Z>\"},\"votes\":[],\"pca\":{\"asPOJO\":{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":2,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0],\"comment-projection\":{}},\"tids\":[0,1],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":<ms>,\"comment-priorities\":{},\"math_tick\":0},\"asJSON\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":2,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\",\"asBufferOfGzippedJson\":{\"$gunzip\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":2,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\"},\"expiration\":<ms>,\"consensus\":{\"agree\":[],\"disagree\":[]},\"repness\":{}},\"famous\":{},\"acceptLanguage\":\"en-US\"}"
+  },
+  "Z/owner/votes-me": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "Z/owner/votes-pid-0": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "Z/owner/votes-famous": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{}"
+  },
+  "Z/comments/moderation-voting-patterns": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path zero-vote statement z0\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":0,\"count\":0,\"conversation_id\":\"<conv:Z>\"},{\"txt\":\"Vote path zero-vote statement z1\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":0,\"count\":0,\"conversation_id\":\"<conv:Z>\"}]"
+  },
+  "Z/comments/moderation-voting-patterns-mod-out": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "Z/comments/moderation-voting-patterns-mod-in": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path zero-vote statement z0\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":0,\"count\":0,\"conversation_id\":\"<conv:Z>\"},{\"txt\":\"Vote path zero-vote statement z1\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":0,\"count\":0,\"conversation_id\":\"<conv:Z>\"}]"
+  },
+  "Z/comments/moderation-no-voting-patterns": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path zero-vote statement z0\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"conversation_id\":\"<conv:Z>\"},{\"txt\":\"Vote path zero-vote statement z1\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"conversation_id\":\"<conv:Z>\"}]"
+  },
+  "Z/comments/comments-plain": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path zero-vote statement z0\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null},{\"txt\":\"Vote path zero-vote statement z1\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null}]"
+  },
+  "Z/reportExport/summary.csv": {
+    "status": 200,
+    "contentType": "text/csv; charset=utf-8",
+    "text": "topic,\"Vote path Z <run>\"\nurl,<local-origin>/<conv:Z>\nvoters,0\nvoters-in-conv,0\ncommenters,1\ncomments,2\ngroups,0\nconversation-description,\"Vote path recording: Z\""
+  },
+  "Z/reportExport/comments.csv": {
+    "status": 200,
+    "contentType": "text/csv; charset=utf-8",
+    "text": "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,comment-body\n<s>,<datetime>,0,0,0,0,1,\"Vote path zero-vote statement z0\"\n<s>,<datetime>,1,0,0,0,1,\"Vote path zero-vote statement z1\"\n"
+  },
+  "Z/reportExport/votes.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "timestamp,datetime,comment-id,voter-id,vote\n"
+  },
+  "Z/reportExport/participant-votes.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "participant,group-id,n-comments,n-votes,n-agree,n-disagree,0,1\n"
+  },
+  "Z/reportExport/participant-importance.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "participant,group-id,n-comments,n-votes,n-important,0,1\n"
+  },
+  "Z/reportExport/comment-groups.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "comment-id,comment,total-votes,total-agrees,total-disagrees,total-passes\n"
+  },
+  "Z/reportExport/comment-clusters.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "comment-id,moderated,active,comment-body\n0,1,1,\"Vote path zero-vote statement z0\"\n1,1,1,\"Vote path zero-vote statement z1\"\n"
+  },
+  "Z/db/votes": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[]"
+  },
+  "Z/db/votes_latest_unique": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[]"
+  },
+  "I/create-conversation": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"url\":\"<local-origin>/<conv:I>\",\"conversation_id\":\"<conv:I>\"}"
+  },
+  "I/comments-bulk-seed": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"results\":[{\"txt\":\"Vote path import statement a\",\"status\":\"success\",\"tid\":0,\"original_id\":\"<orig:a>\"},{\"txt\":\"Vote path import statement b\",\"status\":\"success\",\"tid\":1,\"original_id\":\"<orig:b>\"},{\"txt\":\"Vote path import statement c\",\"status\":\"success\",\"tid\":2,\"original_id\":\"<orig:c>\"}],\"currentPid\":0}"
+  },
+  "I/votes-bulk-route-owner": {
+    "status": 403,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"error\":\"polis_err_votes_bulk_delphi_disabled\",\"message\":\"polis_err_votes_bulk_delphi_disabled\",\"status\":403}"
+  },
+  "I/after-comments-bulk/db/votes": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false}]"
+  },
+  "I/after-comments-bulk/db/votes_latest_unique": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0}]"
+  },
+  "I/changed-vote-in-one-file/import-job": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "{\"outcome\":\"threw: ON CONFLICT DO UPDATE command cannot affect row a second time\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"ON CONFLICT DO UPDATE command cannot affect row a second time\"}}"
+  },
+  "I/file-u1/import-job": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "{\"outcome\":\"completed\",\"state\":{\"status\":\"completed\",\"stage\":\"finished\",\"error_message\":null}}"
+  },
+  "I/file-u2/import-job": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "{\"outcome\":\"completed\",\"state\":{\"status\":\"completed\",\"stage\":\"finished\",\"error_message\":null}}"
+  },
+  "I/file-u3/import-job": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "{\"outcome\":\"completed\",\"state\":{\"status\":\"completed\",\"stage\":\"finished\",\"error_message\":null}}"
+  },
+  "I/file-changed-votes/import-job": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "{\"outcome\":\"completed\",\"state\":{\"status\":\"completed\",\"stage\":\"finished\",\"error_message\":null}}"
+  },
+  "I/after-import/db/votes": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":0,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":1,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":3,\"tid\":2,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":3,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false}]"
+  },
+  "I/after-import/db/votes_latest_unique": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0},{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":2,\"vote\":0,\"weight_x_32767\":0},{\"pid\":2,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":2,\"tid\":1,\"vote\":0,\"weight_x_32767\":0},{\"pid\":3,\"tid\":2,\"vote\":0,\"weight_x_32767\":0}]"
+  },
+  "I/owner/votes-pid-0": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:I>\"},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:I>\"},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:I>\"}]"
+  },
+  "I/owner/votes-pid-1": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:I>\"},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:I>\"},{\"pid\":1,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:I>\"}]"
+  },
+  "I/owner/votes-pid-2": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":2,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:I>\"},{\"pid\":2,\"tid\":1,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:I>\"}]"
+  },
+  "I/owner/votes-pid-3": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":3,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:I>\"}]"
+  },
+  "I/owner/votes-me": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "I/owner/votes-famous": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"0\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":0,\"isSelf\":true,\"votes\":\"ppp\"}}"
+  },
+  "I/comments/moderation-voting-patterns": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path import statement a\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:a>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":2,\"disagree_count\":0,\"pass_count\":1,\"count\":3,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:b>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":1,\"pass_count\":2,\"count\":3,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement c\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:c>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":3,\"count\":3,\"conversation_id\":\"<conv:I>\"}]"
+  },
+  "I/comments/moderation-voting-patterns-mod-out": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "I/comments/moderation-voting-patterns-mod-in": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path import statement a\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:a>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":2,\"disagree_count\":0,\"pass_count\":1,\"count\":3,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:b>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":1,\"pass_count\":2,\"count\":3,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement c\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:c>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":3,\"count\":3,\"conversation_id\":\"<conv:I>\"}]"
+  },
+  "I/comments/moderation-no-voting-patterns": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path import statement a\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:a>\",\"velocity\":1,\"mod\":1,\"active\":true,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:b>\",\"velocity\":1,\"mod\":1,\"active\":true,\"conversation_id\":\"<conv:I>\"},{\"txt\":\"Vote path import statement c\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:c>\",\"velocity\":1,\"mod\":1,\"active\":true,\"conversation_id\":\"<conv:I>\"}]"
+  },
+  "I/comments/comments-plain": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path import statement a\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:a>\"},{\"txt\":\"Vote path import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:b>\"},{\"txt\":\"Vote path import statement c\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":true,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:c>\"}]"
+  },
+  "I/reportExport/summary.csv": {
+    "status": 200,
+    "contentType": "text/csv; charset=utf-8",
+    "text": "topic,\"Vote path I <run>\"\nurl,<local-origin>/<conv:I>\nvoters,0\nvoters-in-conv,0\ncommenters,1\ncomments,3\ngroups,0\nconversation-description,\"Vote path recording: I\""
+  },
+  "I/reportExport/comments.csv": {
+    "status": 200,
+    "contentType": "text/csv; charset=utf-8",
+    "text": "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,comment-body\n<s>,<datetime>,0,0,2,1,1,\"Vote path import statement a\"\n<s>,<datetime>,1,0,0,1,1,\"Vote path import statement b\"\n<s>,<datetime>,2,0,1,0,1,\"Vote path import statement c\"\n"
+  },
+  "I/reportExport/votes.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "timestamp,datetime,comment-id,voter-id,vote\n<s>,<datetime>,0,0,0\n<s>,<datetime>,0,1,1\n<s>,<datetime>,0,2,-1\n<s>,<datetime>,0,2,1\n<s>,<datetime>,1,0,0\n<s>,<datetime>,1,1,-1\n<s>,<datetime>,1,2,0\n<s>,<datetime>,2,0,0\n<s>,<datetime>,2,1,0\n<s>,<datetime>,2,3,1\n<s>,<datetime>,2,3,0\n"
+  },
+  "I/reportExport/participant-votes.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "participant,group-id,n-comments,n-votes,n-agree,n-disagree,0,1,2\n0,,3,3,0,0,0,0,0\n1,,0,3,1,1,1,-1,0\n2,,0,2,<counts:consistent>,<counts:consistent>,<changed-vote:in-history>,0,\n3,,0,1,<counts:consistent>,<counts:consistent>,,,<changed-vote:in-history>\n"
+  },
+  "I/reportExport/participant-importance.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "participant,group-id,n-comments,n-votes,n-important,0,1,2\n0,,3,3,0,0,0,0\n1,,0,3,0,0,0,0\n2,,0,2,0,0,0,\n3,,0,1,0,,,0\n"
+  },
+  "I/reportExport/comment-groups.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "comment-id,comment,total-votes,total-agrees,total-disagrees,total-passes\n"
+  },
+  "I/reportExport/comment-clusters.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "comment-id,moderated,active,comment-body\n0,1,1,\"Vote path import statement a\"\n1,1,1,\"Vote path import statement b\"\n2,1,1,\"Vote path import statement c\"\n"
+  },
+  "I2/create-conversation": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"url\":\"<local-origin>/<conv:I2>\",\"conversation_id\":\"<conv:I2>\"}"
+  },
+  "I2/out-of-range/import-job": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "{\"outcome\":\"completed\",\"state\":{\"status\":\"completed\",\"stage\":\"finished\",\"error_message\":null}}"
+  },
+  "I2/unparseable/import-job": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "{\"outcome\":\"threw: invalid input syntax for type integer: \\\"NaN\\\"\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"invalid input syntax for type integer: \\\"NaN\\\"\"}}"
+  },
+  "I2/after-import/db/votes": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":1,\"tid\":0,\"vote\":2,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":1,\"vote\":-2,\"weight_x_32767\":0,\"high_priority\":false}]"
+  },
+  "I2/after-import/db/votes_latest_unique": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":1,\"tid\":0,\"vote\":2,\"weight_x_32767\":0},{\"pid\":1,\"tid\":1,\"vote\":-2,\"weight_x_32767\":0}]"
+  },
+  "I2/owner/votes-pid-0": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "I2/comments/moderation-voting-patterns": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path irregular import statement a\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:i2a>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":0,\"count\":0,\"conversation_id\":\"<conv:I2>\"},{\"txt\":\"Vote path irregular import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:i2b>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":0,\"count\":0,\"conversation_id\":\"<conv:I2>\"}]"
+  },
+  "I2/comments/moderation-voting-patterns-mod-out": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "I2/comments/moderation-voting-patterns-mod-in": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path irregular import statement a\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:i2a>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":0,\"count\":0,\"conversation_id\":\"<conv:I2>\"},{\"txt\":\"Vote path irregular import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:i2b>\",\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":0,\"count\":0,\"conversation_id\":\"<conv:I2>\"}]"
+  },
+  "I2/comments/moderation-no-voting-patterns": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path irregular import statement a\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:i2a>\",\"velocity\":1,\"mod\":1,\"active\":true,\"conversation_id\":\"<conv:I2>\"},{\"txt\":\"Vote path irregular import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:i2b>\",\"velocity\":1,\"mod\":1,\"active\":true,\"conversation_id\":\"<conv:I2>\"}]"
+  },
+  "I2/comments/comments-plain": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path irregular import statement a\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:i2a>\"},{\"txt\":\"Vote path irregular import statement b\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":\"<orig:i2b>\"}]"
+  },
+  "I2/reportExport/summary.csv": {
+    "status": 200,
+    "contentType": "text/csv; charset=utf-8",
+    "text": "topic,\"Vote path I2 <run>\"\nurl,<local-origin>/<conv:I2>\nvoters,0\nvoters-in-conv,0\ncommenters,1\ncomments,2\ngroups,0\nconversation-description,\"Vote path recording: I2\""
+  },
+  "I2/reportExport/comments.csv": {
+    "status": 200,
+    "contentType": "text/csv; charset=utf-8",
+    "text": "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,comment-body\n<s>,<datetime>,0,0,0,0,1,\"Vote path irregular import statement a\"\n<s>,<datetime>,1,0,0,0,1,\"Vote path irregular import statement b\"\n"
+  },
+  "I2/reportExport/votes.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "timestamp,datetime,comment-id,voter-id,vote\n<s>,<datetime>,0,1,-2\n<s>,<datetime>,1,1,2\n"
+  },
+  "I2/reportExport/participant-votes.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "participant,group-id,n-comments,n-votes,n-agree,n-disagree,0,1\n1,,0,2,0,0,-2,2\n"
+  },
+  "I2/reportExport/participant-importance.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "participant,group-id,n-comments,n-votes,n-important,0,1\n1,,0,2,0,0,0\n"
+  },
+  "I2/reportExport/comment-groups.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "comment-id,comment,total-votes,total-agrees,total-disagrees,total-passes\n"
+  },
+  "I2/reportExport/comment-clusters.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "comment-id,moderated,active,comment-body\n0,1,1,\"Vote path irregular import statement a\"\n1,1,1,\"Vote path irregular import statement b\"\n"
+  },
+  "I/votes-bulk-route-admin": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}"
+  },
+  "I/votes-bulk-route-admin/queued-message": {
+    "status": 0,
+    "contentType": "sqs/message",
+    "text": "[{\"keys\":[\"jobId\",\"zid\",\"s3Key\",\"email\"],\"zidMatches\":true,\"jobIdIsNumber\":true,\"s3KeyShape\":true,\"email\":\"admin@polis.test\",\"attributes\":{\"JobType\":{\"DataType\":\"String\",\"StringValue\":\"ImportMapping\"}}}]"
+  },
+  "I/votes-bulk-route-admin/job": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "{\"job\":{\"status\":\"pending\",\"stage\":\"mapping\",\"error_message\":null,\"s3_key_shape\":true},\"object\":\"uploaded, bytes equal to the posted csv\"}"
+  },
+  "I/votes-bulk-declared/line-export-convention": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}"
+  },
+  "I/votes-bulk-declared/line-storage-convention": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}"
+  },
+  "I/votes-bulk-declared/line-unknown-format": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}"
+  },
+  "I/votes-bulk-declared/line-malformed": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}"
+  },
+  "I/votes-bulk-declared/format-object-export-convention": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}"
+  },
+  "I/votes-bulk-declared/format-field-string": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}"
+  },
+  "I/votes-bulk-declared/format-object-wire-convention": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"status\":\"processing\",\"message\":\"Vote import started. This may take a few minutes.\"}"
+  },
+  "I/votes-bulk-declared/queued": {
+    "status": 0,
+    "contentType": "sqs/message",
+    "text": "{\"messages\":7}"
+  },
+  "I/after-votes-bulk-route/db/votes": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":0,\"vote\":1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":2,\"tid\":1,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":3,\"tid\":2,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":3,\"tid\":2,\"vote\":0,\"weight_x_32767\":0,\"high_priority\":false}]"
+  },
+  "I/after-votes-bulk-route/db/votes_latest_unique": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":0,\"tid\":0,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":1,\"vote\":0,\"weight_x_32767\":0},{\"pid\":0,\"tid\":2,\"vote\":0,\"weight_x_32767\":0},{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":1,\"vote\":1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":2,\"vote\":0,\"weight_x_32767\":0},{\"pid\":2,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":2,\"tid\":1,\"vote\":0,\"weight_x_32767\":0},{\"pid\":3,\"tid\":2,\"vote\":0,\"weight_x_32767\":0}]"
+  },
+  "I3/create-conversation": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"url\":\"<local-origin>/<conv:I3>\",\"conversation_id\":\"<conv:I3>\"}"
+  },
+  "I3/declared-export-convention/import-job": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "{\"outcome\":\"threw: Invalid Record Length: columns length is 1, got 5 on line 2\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"Invalid Record Length: columns length is 1, got 5 on line 2\"}}"
+  },
+  "I3/declared-storage-convention/import-job": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "{\"outcome\":\"threw: Invalid Record Length: columns length is 1, got 5 on line 2\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"Invalid Record Length: columns length is 1, got 5 on line 2\"}}"
+  },
+  "I3/declared-malformed/import-job": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "{\"outcome\":\"threw: Invalid Record Length: columns length is 1, got 5 on line 2\",\"state\":{\"status\":\"failed\",\"stage\":\"mapping\",\"error_message\":\"Invalid Record Length: columns length is 1, got 5 on line 2\"}}"
+  },
+  "I3/after-import/db/votes": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[]"
+  },
+  "I3/after-import/db/votes_latest_unique": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[]"
+  },
+  "CL/create-conversation": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"url\":\"<local-origin>/<conv:CL>\",\"conversation_id\":\"<conv:CL>\"}"
+  },
+  "CL/anonymous/vote-before-close": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"currentPid\":1,\"auth\":{\"token\":\"<jwt>\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}"
+  },
+  "CL/close": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"topic\":\"Vote path CL <run>\",\"description\":\"Vote path recording: CL\",\"link_url\":null,\"parent_url\":null,\"upvotes\":1,\"participant_count\":2,\"is_anon\":false,\"is_active\":false,\"is_draft\":false,\"is_public\":true,\"is_data_open\":false,\"profanity_filter\":false,\"spam_filter\":false,\"strict_moderation\":false,\"prioritize_seed\":false,\"vis_type\":0,\"write_type\":1,\"help_type\":1,\"write_hint_type\":1,\"style_btn\":null,\"socialbtn_type\":0,\"subscribe_type\":1,\"branding_type\":1,\"bgcolor\":null,\"help_bgcolor\":null,\"help_color\":null,\"email_domain\":null,\"use_xid_whitelist\":false,\"owner\":\"<uid#1>\",\"org_id\":\"<uid#1>\",\"context\":null,\"course_id\":null,\"owner_sees_participation_stats\":false,\"auth_needed_to_vote\":false,\"auth_needed_to_write\":false,\"auth_opt_fb\":null,\"auth_opt_tw\":null,\"auth_opt_allow_3rdparty\":true,\"modified\":\"<modified>\",\"created\":\"<ms>\",\"importance_enabled\":false,\"treevite_enabled\":false,\"xid_required\":false,\"topics_enabled\":false,\"is_mod\":true,\"conversation_id\":\"<conv:CL>\"}"
+  },
+  "CL/anonymous/vote-after-close": {
+    "status": 403,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"error\":\"polis_err_conversation_is_closed\",\"message\":\"polis_err_conversation_is_closed\",\"status\":403}"
+  },
+  "CL/owner/vote-after-close": {
+    "status": 403,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"error\":\"polis_err_conversation_is_closed\",\"message\":\"polis_err_conversation_is_closed\",\"status\":403}"
+  },
+  "CL/db/votes": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false}]"
+  },
+  "CL/db/votes_latest_unique": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0}]"
+  },
+  "R/create-conversation": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"url\":\"<local-origin>/<conv:R>\",\"conversation_id\":\"<conv:R>\"}"
+  },
+  "R/RA/vote/t0-agree": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"nextComment\":{\"txt\":\"Vote path irregular statement r2\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"randomN\":1.5,\"remaining\":3,\"total\":4,\"translations\":[]},\"currentPid\":1,\"auth\":{\"token\":\"<jwt>\",\"token_type\":\"Bearer\",\"expires_in\":31536000}}"
+  },
+  "R/db/votes": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":1,\"vote\":null,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":2,\"vote\":2,\"weight_x_32767\":0,\"high_priority\":false},{\"pid\":1,\"tid\":3,\"vote\":-2,\"weight_x_32767\":0,\"high_priority\":false}]"
+  },
+  "R/db/votes_latest_unique": {
+    "status": 0,
+    "contentType": "db/rows",
+    "text": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0},{\"pid\":1,\"tid\":1,\"vote\":null,\"weight_x_32767\":0},{\"pid\":1,\"tid\":2,\"vote\":2,\"weight_x_32767\":0},{\"pid\":1,\"tid\":3,\"vote\":-2,\"weight_x_32767\":0}]"
+  },
+  "R/RA/votes-me": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:R>\"},{\"pid\":1,\"tid\":1,\"vote\":null,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:R>\"},{\"pid\":1,\"tid\":2,\"vote\":2,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:R>\"},{\"pid\":1,\"tid\":3,\"vote\":-2,\"weight_x_32767\":0,\"created\":\"<ms>\",\"high_priority\":false,\"weight\":null,\"conversation_id\":\"<conv:R>\"}]"
+  },
+  "R/RA/votes-mypid": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:R>\"},{\"pid\":1,\"tid\":1,\"vote\":null,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:R>\"},{\"pid\":1,\"tid\":2,\"vote\":2,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:R>\"},{\"pid\":1,\"tid\":3,\"vote\":-2,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:R>\"}]"
+  },
+  "R/RA/votes-famous": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"auuu\"}}"
+  },
+  "R/RA/participationInit": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"user\":{\"uid\":\"<uid#5>\",\"email\":null,\"hname\":null,\"hasXid\":false,\"finishedTutorial\":false,\"site_ids\":[\"<site-id>\"],\"created\":<ms>},\"ptpt\":{\"pid\":1,\"uid\":\"<uid#5>\",\"vote_count\":4,\"last_interaction\":\"<ms>\",\"subscribed\":0,\"last_notified\":\"0\",\"nsli\":0,\"mod\":0,\"created\":\"<ms>\"},\"nextComment\":null,\"conversation\":{\"topic\":\"Vote path R <run>\",\"description\":\"Vote path recording: R\",\"link_url\":null,\"parent_url\":null,\"upvotes\":1,\"participant_count\":2,\"is_anon\":false,\"is_active\":true,\"is_draft\":false,\"is_public\":true,\"is_data_open\":false,\"profanity_filter\":false,\"spam_filter\":false,\"strict_moderation\":false,\"prioritize_seed\":false,\"vis_type\":0,\"write_type\":1,\"help_type\":1,\"write_hint_type\":1,\"style_btn\":null,\"socialbtn_type\":0,\"subscribe_type\":1,\"branding_type\":1,\"bgcolor\":null,\"help_bgcolor\":null,\"help_color\":null,\"email_domain\":null,\"use_xid_whitelist\":false,\"owner\":\"<uid#1>\",\"org_id\":\"<uid#1>\",\"context\":null,\"course_id\":null,\"owner_sees_participation_stats\":false,\"auth_needed_to_vote\":false,\"auth_needed_to_write\":false,\"auth_opt_fb\":null,\"auth_opt_tw\":null,\"auth_opt_allow_3rdparty\":true,\"modified\":\"<modified>\",\"created\":\"<ms>\",\"importance_enabled\":false,\"treevite_enabled\":false,\"xid_required\":false,\"topics_enabled\":false,\"site_id\":\"<site-id>\",\"translations\":[],\"ownername\":\"Test User 41\",\"is_mod\":false,\"is_owner\":false,\"conversation_id\":\"<conv:R>\"},\"votes\":[{\"pid\":1,\"tid\":0,\"vote\":-1,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":1,\"tid\":1,\"vote\":null,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":1,\"tid\":2,\"vote\":2,\"weight_x_32767\":0,\"modified\":\"<ms>\"},{\"pid\":1,\"tid\":3,\"vote\":-2,\"weight_x_32767\":0,\"modified\":\"<ms>\"}],\"pca\":{\"asPOJO\":{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":4,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":<ms>,\"comment-priorities\":{},\"math_tick\":0},\"asJSON\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":4,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0,0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1,2,3],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\",\"asBufferOfGzippedJson\":{\"$gunzip\":\"{\\\"group-clusters\\\":[],\\\"base-clusters\\\":{\\\"x\\\":[],\\\"y\\\":[],\\\"id\\\":[],\\\"count\\\":[],\\\"members\\\":[]},\\\"group-votes\\\":{},\\\"group-aware-consensus\\\":{},\\\"user-vote-counts\\\":{},\\\"in-conv\\\":[],\\\"n-cmts\\\":4,\\\"pca\\\":{\\\"comps\\\":[[],[]],\\\"center\\\":[0,0],\\\"comment-extremity\\\":[0,0,0,0],\\\"comment-projection\\\":{}},\\\"tids\\\":[0,1,2,3],\\\"n\\\":0,\\\"repness\\\":{},\\\"consensus\\\":{\\\"agree\\\":[],\\\"disagree\\\":[]},\\\"votes-base\\\":{},\\\"lastModTimestamp\\\":null,\\\"lastVoteTimestamp\\\":<ms>,\\\"comment-priorities\\\":{},\\\"math_tick\\\":0}\"},\"expiration\":<ms>,\"consensus\":{\"agree\":[],\"disagree\":[]},\"repness\":{}},\"famous\":{\"1\":{\"priority\":1000,\"x_profile_image_url\":null,\"xid\":null,\"x_name\":null,\"x_email\":null,\"pid\":1,\"isSelf\":true,\"votes\":\"auuu\"}},\"acceptLanguage\":\"en-US\"}"
+  },
+  "R/RA/nextComment": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "{\"currentPid\":1}"
+  },
+  "R/owner/votes-pid-1-tid-1": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":1,\"tid\":1,\"vote\":null,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:R>\"}]"
+  },
+  "R/owner/votes-pid-1-tid-2": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":1,\"tid\":2,\"vote\":2,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:R>\"}]"
+  },
+  "R/owner/votes-pid-1-tid-3": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"pid\":1,\"tid\":3,\"vote\":-2,\"weight_x_32767\":0,\"modified\":\"<ms>\",\"conversation_id\":\"<conv:R>\"}]"
+  },
+  "R/comments/moderation-voting-patterns": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path irregular statement r0\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":1,\"disagree_count\":0,\"pass_count\":0,\"count\":1,\"conversation_id\":\"<conv:R>\"},{\"txt\":\"Vote path irregular statement r1\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":0,\"count\":0,\"conversation_id\":\"<conv:R>\"},{\"txt\":\"Vote path irregular statement r2\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":0,\"count\":0,\"conversation_id\":\"<conv:R>\"},{\"txt\":\"Vote path irregular statement r3\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":0,\"count\":0,\"conversation_id\":\"<conv:R>\"}]"
+  },
+  "R/comments/moderation-voting-patterns-mod-out": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[]"
+  },
+  "R/comments/moderation-voting-patterns-mod-in": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path irregular statement r0\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":1,\"disagree_count\":0,\"pass_count\":0,\"count\":1,\"conversation_id\":\"<conv:R>\"},{\"txt\":\"Vote path irregular statement r1\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":0,\"count\":0,\"conversation_id\":\"<conv:R>\"},{\"txt\":\"Vote path irregular statement r2\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":0,\"count\":0,\"conversation_id\":\"<conv:R>\"},{\"txt\":\"Vote path irregular statement r3\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"agree_count\":0,\"disagree_count\":0,\"pass_count\":0,\"count\":0,\"conversation_id\":\"<conv:R>\"}]"
+  },
+  "R/comments/moderation-no-voting-patterns": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path irregular statement r0\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"conversation_id\":\"<conv:R>\"},{\"txt\":\"Vote path irregular statement r1\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"conversation_id\":\"<conv:R>\"},{\"txt\":\"Vote path irregular statement r2\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"conversation_id\":\"<conv:R>\"},{\"txt\":\"Vote path irregular statement r3\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null,\"velocity\":1,\"mod\":1,\"active\":true,\"conversation_id\":\"<conv:R>\"}]"
+  },
+  "R/comments/comments-plain": {
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "text": "[{\"txt\":\"Vote path irregular statement r0\",\"tid\":0,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null},{\"txt\":\"Vote path irregular statement r1\",\"tid\":1,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null},{\"txt\":\"Vote path irregular statement r2\",\"tid\":2,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null},{\"txt\":\"Vote path irregular statement r3\",\"tid\":3,\"created\":\"<ms>\",\"quote_src_url\":null,\"is_seed\":false,\"is_meta\":false,\"lang\":null,\"pid\":0,\"original_id\":null}]"
+  },
+  "R/reportExport/summary.csv": {
+    "status": 200,
+    "contentType": "text/csv; charset=utf-8",
+    "text": "topic,\"Vote path R <run>\"\nurl,<local-origin>/<conv:R>\nvoters,0\nvoters-in-conv,0\ncommenters,1\ncomments,4\ngroups,0\nconversation-description,\"Vote path recording: R\""
+  },
+  "R/reportExport/comments.csv": {
+    "status": 200,
+    "contentType": "text/csv; charset=utf-8",
+    "text": "timestamp,datetime,comment-id,author-id,agrees,disagrees,moderated,comment-body\n<s>,<datetime>,0,0,1,0,1,\"Vote path irregular statement r0\"\n<s>,<datetime>,1,0,0,0,1,\"Vote path irregular statement r1\"\n<s>,<datetime>,2,0,0,0,1,\"Vote path irregular statement r2\"\n<s>,<datetime>,3,0,0,0,1,\"Vote path irregular statement r3\"\n"
+  },
+  "R/reportExport/votes.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "timestamp,datetime,comment-id,voter-id,vote\n<s>,<datetime>,0,1,1\n<s>,<datetime>,1,1,0\n<s>,<datetime>,2,1,-2\n<s>,<datetime>,3,1,2\n"
+  },
+  "R/reportExport/participant-votes.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "participant,group-id,n-comments,n-votes,n-agree,n-disagree,0,1,2,3\n1,,0,4,1,0,1,0,-2,2\n"
+  },
+  "R/reportExport/participant-importance.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "participant,group-id,n-comments,n-votes,n-important,0,1,2,3\n1,,0,4,0,0,0,0,0\n"
+  },
+  "R/reportExport/comment-groups.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "comment-id,comment,total-votes,total-agrees,total-disagrees,total-passes\n"
+  },
+  "R/reportExport/comment-clusters.csv": {
+    "status": 200,
+    "contentType": "text/csv",
+    "text": "comment-id,moderated,active,comment-body\n0,1,1,\"Vote path irregular statement r0\"\n1,1,1,\"Vote path irregular statement r1\"\n2,1,1,\"Vote path irregular statement r2\"\n3,1,1,\"Vote path irregular statement r3\"\n"
+  }
+}

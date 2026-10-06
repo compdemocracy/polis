@@ -58,6 +58,12 @@ if [ -d "$DEPLOY_DIR" ]; then
     echo "Stopping delphi service..."
     /usr/local/bin/docker-compose stop delphi || echo "Warning: Failed to stop delphi service, might already be stopped."
 
+  elif [ "$SERVICE_TYPE" == "delphi-large" ]; then
+    # The large memory class box (P-073) runs only math-python-large
+    # (AfterInstall starts nothing else there).
+    echo "Stopping math-python-large service..."
+    /usr/local/bin/docker-compose stop math-python-large || echo "Warning: Failed to stop math-python-large service, might already be stopped."
+
   else
     echo "Warning: Unknown service type '$SERVICE_TYPE' found in $SERVICE_TYPE_FILE. No specific services stopped."
     # Avoid running a generic 'down' as it might affect unrelated containers if any exist

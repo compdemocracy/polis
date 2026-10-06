@@ -843,7 +843,15 @@ describe("Treevite API endpoints", () => {
       );
 
       expect(nextCommentResponse.status).toBe(200);
-      expect(nextCommentResponse.body).toHaveProperty("tid");
+      // The owner is this conversation's first participant (pid 0). Its seed
+      // comments record no vote for the owner (a seed gets no automatic
+      // vote), so the owner is offered one of them with all of them
+      // remaining (issue #2952: pid 0 is not "no participant").
+      expect(nextCommentResponse.body.currentPid).toBe(0);
+      expect(commentIds).toContain(nextCommentResponse.body.tid);
+      expect(nextCommentResponse.body.is_seed).toBe(true);
+      expect(nextCommentResponse.body.remaining).toBe(commentIds.length);
+      expect(nextCommentResponse.body.total).toBe(commentIds.length);
 
       // Verify owner can vote (requires being a participant)
       // Use one of the seed comments we created

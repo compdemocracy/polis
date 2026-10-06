@@ -36,6 +36,7 @@ import time
 
 from coordinator.conftest import ROOT, connect, rows, seed
 from coordinator._node_gate import require_node
+from tests.vote_fixtures import AGREE, DISAGREE, PASS, seed_vote
 
 HARNESS = ROOT / "coordinator-rs/tools/bundle_reader.cjs"
 EVIDENCE = ROOT / "coordinator-rs/evidence"
@@ -76,11 +77,11 @@ def expected_pids_for_gid(db, env="rustproto", gids=GIDS):
     return out
 
 
-def add_vote(db, created, pid=0, tid=0, vote=1):
+def add_vote(db, created, pid=0, tid=0, vote=DISAGREE):
     c = connect(db)
     with c.cursor() as cur:
         cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,%s,%s,%s,%s)",
-                    (pid, tid, vote, created))
+                    (pid, tid, seed_vote(vote), created))
     c.close()
 
 
@@ -93,21 +94,21 @@ def add_participant_like(db, new_pid, model_pid, n_cmts=4):
         cur.execute("INSERT INTO participants(zid,pid,uid,mod) VALUES(1,%s,%s,0)",
                     (new_pid, 100000 + new_pid))
         for tid in range(n_cmts):
-            value = [-1, 1, 0][(model_pid + tid) % 3]
+            value = seed_vote((AGREE, DISAGREE, PASS)[(model_pid + tid) % 3])
             cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,%s,%s,%s,%s)",
                         (new_pid, tid, value, 5000 + new_pid * n_cmts + tid))
     c.close()
 
 
 def break_seed_tie(db):
-    """Change one seeded vote (pid 1, tid 2: -1 -> 1). The public seed has only
+    """Change one seeded vote (pid 1, tid 2: agree -> disagree). The public seed has only
     three distinct vote rows, and the third is exactly equidistant from the
     other two, so the two-group k-means split was an exact tie that a one-ulp
     BLAS difference could flip. With four distinct rows every assignment in
     both generations is decided by a margin of about 1.3."""
     c = connect(db)
     with c.cursor() as cur:
-        cur.execute("UPDATE votes SET vote=1 WHERE zid=1 AND pid=1 AND tid=2")
+        cur.execute("UPDATE votes SET vote=%s WHERE zid=1 AND pid=1 AND tid=2", (seed_vote(DISAGREE),))
         assert cur.rowcount == 1
     c.close()
 

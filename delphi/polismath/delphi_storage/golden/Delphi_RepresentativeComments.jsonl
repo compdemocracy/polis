@@ -1,0 +1,3 @@
+{"codec":"delphi-storage-codec/1","family":"Delphi_RepresentativeComments","key":["zid_tick_gid","comment_id"]}
+{"comment_id":{"S":"0"},"group_id":{"N":"0"},"repness":{"N":"1.5"},"zid":{"S":"9001"},"zid_tick_gid":{"S":"9001:7:0"}}
+{"comment_id":{"S":"1"},"group_id":{"N":"0"},"repness":{"N":"2.5"},"zid":{"S":"9001"},"zid_tick_gid":{"S":"9001:7:0"}}

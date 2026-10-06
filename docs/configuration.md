@@ -2,6 +2,8 @@
 
 Most application settings are environment variables. Copy the repository-root `example.env` to `.env` and modify it for your launch path; example values are not universal runtime defaults. CDK context and explicit CLI/config arguments are separate configuration inputs.
 
+The data export and vote import file formats, including the vote sign every file declares, are described in [export and import file formats](export-format.md).
+
 The [environment read reference](configuration-env-reference.md) records all 233 named inputs and 680 read sites in the scoped API, Delphi, coordinator and CDK source, including file:line, fallback and secret status. The [deployment reference](deployment-configuration.md) connects those settings to all 153 P065 service entries and explains dynamic/SDK input limits.
 
 </br>
@@ -158,6 +160,22 @@ The admin console can show read-only, aggregate operations pages at `/ops` (serv
 
 A request is let through only when, in this order: `OPS_ENABLED=true`; it carries an OIDC access token that passes the server's issuer, audience and signature checks (participant, XID and anonymous tokens do not); the token's `${AUTH_NAMESPACE}connection_strategy` claim is `google-oauth2`; `${AUTH_NAMESPACE}email_verified` is `true`; `${AUTH_NAMESPACE}email` is printable ASCII and matches `OPS_EMAIL_DOMAINS` with no deny entry matching; and `${AUTH_NAMESPACE}hd` equals the email's domain (required when the email is admitted by a domain entry, optional for an address entry). The identity provider must add the `connection_strategy` claim (and `hd` when the login has one); until it does, every request is refused. Refusals answer 403 `polis_err_ops_forbidden`. Refused page reads with a token are logged as `ops_access` lines with the reason; other refusals (mostly the admin console's `whoami` check for logins without access) are counted and summarised in at most one `ops_refused` info line per minute per process. An ops request does not create or update any user record.
 
+What the pages read, all from the server process (nothing is read while nobody has a page open, and each panel is cached for at least 60 s and shared by every viewer):
+
+- **Activity now** and **Activity over time**: platform-wide counts from `votes` and `comments`, on the `votes(created)` and `comments(modified)` indexes, per hour (48 h), per day (90 d), and conversations started per month (one pass over `conversations`).
+- **What people are talking about** and **What consensus they found**: the most active conversations of the last 7 days with their topic, Delphi topic names (DynamoDB `Delphi_CommentClustersLLMTopicNames`), and the common-ground and group-distinctive statements from the published math (`math_main`, label `python`), with statement text only for statements visible to participants.
+- **Database**: Postgres statistics views (`pg_stat_activity` without query text, user or client address; `pg_stat_user_tables`; `pg_stat_database`). The `pg_read_all_stats` role is optional: without it, sessions of other database roles are still counted but their state shows as "not visible (counts only)". (On RDS the master user has it.)
+- **Where visitors come from**: the Simple Analytics Stats API (below).
+- **Math engine**, **Serving**, **Boxes and deploys** and **Cost**, and the RDS panel of **Database**: AWS reads, only with `OPS_DATA_SOURCE=aws` (below). The Postgres parts of Math engine and Serving (the math poller's single-writer lock in `pg_locks`, publications in `math_ticks`, and how far live conversations' `math_main.last_vote_timestamp` is behind their newest vote, on the `votes(created)` index) run either way.
+
+Every database read runs in a `READ ONLY` transaction with a 3 s statement timeout, one at a time per server process, with a client-side timeout so a lost connection cannot hold the pages' one connection.
+
+- **`OPS_MIN_VOTERS_FOR_TEXT`** The topics and consensus pages show a conversation's topic, its Delphi topic names and statement text only when it had at least this many distinct voters in the last 7 days; below that it is counted, never named. A whole number, at least 1. Default `20`. Any other value is logged once as an `ops_config_invalid` error and `20` is used, so a typo cannot lower it. Read at [config](../server/src/config.ts) as `opsMinVotersForText`.
+- **`SIMPLE_ANALYTICS_API_KEY`** A Simple Analytics API key (Simple Analytics account settings) for the "Where visitors come from" page, which shows pageviews of the participation, admin and report apps by country and by referring site over the last 30 days. Sent only as the `Api-Key` header to `simpleanalytics.com`, never logged or returned. Unset (the default): the page says so and reads nothing.
+- **`SIMPLE_ANALYTICS_HOSTNAME`** The site name the apps report under in Simple Analytics. Default `pol.is`. The three apps share it and are told apart by the paths the server serves each one on.
+- **`OPS_DATA_SOURCE`** Set to `aws` to let the system pages read AWS: CloudWatch Logs (`FilterLogEvents` on the `delphi` and `server` streams of `AWS_LOG_GROUP_NAME`: the math poller's readiness, capacity and lock lines, publications per minute, memory-admission and failure lines, and the server's math refusal lines, all counted or checked against the poller's closed schema), CloudWatch metrics and alarms (`GetMetricData`, `ListMetrics`, `DescribeAlarms` for names starting `Polis-`), Auto Scaling (`DescribeAutoScalingGroups`), CodeDeploy (`ListDeployments`, `BatchGetDeployments` for `PolisApplication`/`PolisDeploymentGroup`) and, with `OPS_COST_EXPLORER`, Cost Explorer. Unset or anything else (the default): those panels are left out, each page says why, and nothing is requested from AWS. Read at [config](../server/src/config.ts) as `opsDataSource`. The reads always use the EC2 instance role through the instance metadata service, never `AWS_ACCESS_KEY_ID`, so the role must carry the read actions above (logs reads are already in its managed policies; the rest are one CDK statement behind `-c enableOpsDashboards=true`). Until it does, each affected panel shows "not permitted" and the rest of the page still works. Every request has a 5 s timeout and every panel a 12 s deadline, after which its remaining requests are aborted; a 24-hour log count whose scan hit its page limit is marked partial; a failure is shown as a short reason code, never AWS error text. The log group is `AWS_LOG_GROUP_NAME` (written by the deploy hook); with it unset or `docker`, the log panels are left out. The RDS panel reads the instance whose endpoint `DATABASE_URL` names, and is left out when that is not an RDS endpoint. The load balancer panel reads only the stack's load balancer (the `Lb` construct, named `<stack>-Lb…`). The AWS SDK clients are loaded on the first AWS read, so a server with these pages off loads none of them.
+- **`OPS_COST_EXPLORER`** Set to `1` (or `true`) to show the Cost page: daily unblended cost by service for this AWS account over the last 30 days, and month to date against last month. Off by default because every Cost Explorer request is billed ($0.01). Read only when `OPS_DATA_SOURCE=aws`; each server process makes at most one read per 12 hours, failed or not, and only while someone has the page open. A read is one request, or two when Cost Explorer pages its answer, so the bound is two billed requests per web process per 12 hours. The request's end date is tomorrow (exclusive), so today's partial day is included. Needs `ce:GetCostAndUsage` on the instance role. Read at [config](../server/src/config.ts) as `opsCostExplorer`.
+
 ### Third Party API Credentials
 
 (Requirements depend on the selected integration and launch path. Missing values do not universally disable a feature cleanly; constructors and request paths can fail. See the [service inventory](deployment-configuration.md#external-service-touchpoints).)
@@ -196,6 +214,27 @@ The `delphi` service has no `env_file`, so it sees only the keys its `environmen
 - **`TOPIC_BATCH_MAX_WAIT_SECONDS`** Longest wait, in seconds, for one layer's Anthropic topic-naming batch. Compose fallback `1800`.
 - **`SENTENCE_TRANSFORMER_MODEL`** Local embedding model for the narrative pipeline. Compose fallback `all-MiniLM-L6-v2`.
 - **`OLLAMA_HOST`**, **`OLLAMA_ENDPOINT`**, **`OLLAMA_MODEL`** Used only when `LLM_PROVIDER=ollama`. `OLLAMA_ENDPOINT` is the older name for `OLLAMA_HOST`. Compose fallbacks are empty.
+
+### Large Memory Class (math-python-large)
+
+Off by default; nothing here changes behaviour until `MATH_CAPACITY_ROUTING=1`. The design is in [MATH_POLLER_DESIGN.md §7-§8](../delphi/docs/MATH_POLLER_DESIGN.md). Compose lists every setting explicitly (neither poller service has an `env_file`), so a value set in `.env` or the deployment env document reaches a container only through these lines.
+
+| Service | Role | Label (`math_env`) and lock | Memory limit |
+|---|---|---|---|
+| `math-python` | small poller, the single writer of the served label; routes, writes the manifest, promotes | `MATH_PYTHON_ENV` (`python`) | `DELPHI_POLLER_CONTAINER_MEMORY` (16g) |
+| `math-python-large` (profile `math-python-large`) | large worker (`math-large`): computes only manifest conversations, writes only its own label | `python-large` (a literal, not a setting) | `MATH_LARGE_CONTAINER_MEMORY` (52g) |
+
+- **`MATH_CAPACITY_ROUTING`** (`math-python`, default `0`) `1` sizes each cold touch before computing it and hands a conversation above `MATH_CAPACITY_ROUTE_FRACTION` (0.9; `MATH_CAPACITY_KEEP_FRACTION` 0.7 once routed) of the small compute capacity to the large class. A routed conversation is not computed by the small poller at all, so do not set it without a running large worker. `MATH_CAPACITY_RESIZE_S` (3600) bounds re-sizing; `MATH_CAPACITY_STATE_PATH` (unset) keeps the records across restarts.
+- **`MATH_CAPACITY_PROMOTE`** (`math-python`, default `0`; needs routing) promotes staged `python-large` bundles into `python`.
+- **`MATH_CAPACITY_RESTAGE`** (`math-python`, unset) a 16-64 hex nonce that marks every routed conversation for one rebuild; remove it after use.
+- **`MATH_CAPACITY_MANIFEST_URI`** (both, unset) `s3://<bucket>/<key>` (the client reads `AWS_REGION` and `AWS_S3_ENDPOINT` and signs as the instance role: neither poller receives the `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` pair the env document holds for Delphi) or `file:///<path>`. The large worker refuses to start without it.
+- **`MATH_CAPACITY_LARGE_BUDGET_MB`** (both, unset) the large class's budget; the large worker refuses to start if it exceeds 0.85 of its own memory limit.
+- The large worker's label and lock are the literal `python-large` in both services (the label the small poller promotes from), so no env document can point it at a served label; the worker also refuses to start under `prod` or `python`.
+- **`MATH_LARGE_CONTAINER_MEMORY`**, **`MATH_LARGE_WORKER_POOL_SIZE`** (2), **`MATH_LARGE_CONV_CACHE_CAP`** (10), **`MATH_LARGE_CONV_CACHE_MB`** (unset) the large worker's own limit, pool and cache; the small poller's values do not move them.
+
+The large worker pins what it must never take from a shared env document: `MATH_CAPACITY_CLASS=large`, routing, promotion, the nonce, the state path, `MATH_BACKFILL=0`, no sharding and no served-label override. `math-python` pins `MATH_CAPACITY_CLASS=small`.
+
+Deploy hooks: a box whose `/etc/app-info/service_type.txt` says `delphi-large` starts only `math-python-large` ([after_install.sh](../scripts/after_install.sh)), with the same readiness identity lines as the Delphi box; `application_stop.sh` stops it. A `delphi` box is unchanged (`delphi` and `math-python`).
 
 ### Datadog Tracing (Delphi)
 

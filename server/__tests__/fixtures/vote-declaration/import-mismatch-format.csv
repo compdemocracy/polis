@@ -1,0 +1,5 @@
+# vote-convention: agree=+1;disagree=-1;pass=0;format=polis-export/2
+vote_id,user_id,vote_value,timestamp,comment_id
+v1,public-one,1,2024-01-01T00:00:00Z,comment-one
+v2,public-two,-1,2024-01-02T00:00:00Z,comment-one
+v3,public-three,0,2024-01-03T00:00:00Z,comment-one

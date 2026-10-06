@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "running/topicMod-topics/job-00000067-0000-4000-8000-000000000001",
+ "state": "running",
+ "route": "GET /api/v3/topicMod/topics",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/topicMod/topics?conversation_id=8p2z103&job_id=00000067-0000-4000-8000-000000000001",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "82"
+   ],
+   [
+    "etag",
+    "W/\"52-62/I8yxkTTWrr7O5PAmVKg\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"No topics found for this conversation\",\"topics\":[]}",
+  "bodySha256": "10217ed373f1cfd5606bfb8adf29072a43c1cee1f046bf4a7bd3d836c790a2bc"
+ }
+}

@@ -12,6 +12,7 @@ import Utils from "./utils/common";
 import { isProConvo } from "./routes/comments";
 import { UUID } from "crypto";
 import logger from "./utils/logger";
+import { storageToSemantic } from "./votes/convention";
 
 export type CommentRow = {
   tid: number;
@@ -305,11 +306,12 @@ function _getCommentsForModerationList(o: {
                 disagree_count: 0,
                 pass_count: 0,
               });
-              if (row.vote === Utils.polisTypes.reactions.pull) {
+              const vote = storageToSemantic(row.vote, { onInvalid: "skip" });
+              if (vote === "agree") {
                 o.agree_count = Number(row.count);
-              } else if (row.vote === Utils.polisTypes.reactions.push) {
+              } else if (vote === "disagree") {
                 o.disagree_count = Number(row.count);
-              } else if (row.vote === Utils.polisTypes.reactions.pass) {
+              } else if (vote === "pass") {
                 o.pass_count = Number(row.count);
               }
             }

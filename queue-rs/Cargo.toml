@@ -1,15 +1,32 @@
+[workspace]
+# The root package (the polis-queue/1 adapter and the polis-jobs daemon) and the
+# polis-api route server share one lockfile, one toolchain and one CI job.
+members = [".", "polis-api"]
+resolver = "3"
+
 [package]
 name = "polis-queue-adapter"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
 publish = false
+default-run = "polis-queue-adapter"
+
+[features]
+default = []
+# Integration tests that need a throwaway PostgreSQL 17 (see README, "polis-jobs").
+# With the feature on, a missing POLIS_JOBS_TEST_DATABASE_URL fails the run.
+jobs-integration = []
 
 [dependencies]
 anyhow = "1"
+libc = "0.2"
+native-tls = "=0.2.14"
 postgres = { version = "0.19", features = ["with-serde_json-1", "with-uuid-1"] }
+postgres-native-tls = "=0.5.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 uuid = { version = "1", features = ["v4"] }
 
 [lints.clippy]

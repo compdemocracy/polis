@@ -1,0 +1,55 @@
+{
+ "format": "delphi-characterization/1",
+ "case": "zero_vote/delphi-reports/section-fuzzy",
+ "state": "zero_vote",
+ "route": "GET /api/v3/delphi/reports",
+ "request": {
+  "method": "GET",
+  "path": "/api/v3/delphi/reports?report_id=r2p2zero109&section=global_uncertainty",
+  "auth": "none"
+ },
+ "response": {
+  "status": 200,
+  "headers": [
+   [
+    "content-type",
+    "application/json; charset=utf-8"
+   ],
+   [
+    "cache-control",
+    "no-cache"
+   ],
+   [
+    "access-control-allow-origin",
+    "http://localhost"
+   ],
+   [
+    "access-control-allow-credentials",
+    "true"
+   ],
+   [
+    "access-control-allow-headers",
+    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+   ],
+   [
+    "access-control-allow-methods",
+    "GET, PUT, POST, DELETE, OPTIONS"
+   ],
+   [
+    "content-length",
+    "892"
+   ],
+   [
+    "etag",
+    "W/\"37c-mA0yElS/DPVlx4MW3zkFHQ\""
+   ],
+   [
+    "vary",
+    "Accept-Encoding"
+   ]
+  ],
+  "bodyEncoding": "utf8",
+  "body": "{\"status\":\"success\",\"message\":\"Reports retrieved successfully\",\"request_report_id\":\"r2p2zero109\",\"queried_gsi_report_id\":\"r2p2zero109\",\"reports\":{\"global_uncertainty\":{\"section\":\"batch_report_r2p2zero109_1699990001_1091_global_uncertainty\",\"model\":\"generated-model-alpha\",\"timestamp\":\"2023-11-14T19:51:01.000008+00:00\",\"report_data\":\"{\\\"id\\\":\\\"polis_narrative_error_message\\\",\\\"title\\\":\\\"No votes\\\",\\\"paragraphs\\\":[{\\\"id\\\":\\\"polis_narrative_error_message\\\",\\\"title\\\":\\\"No votes\\\",\\\"sentences\\\":[{\\\"clauses\\\":[{\\\"text\\\":\\\"There are no votes yet.\\\",\\\"citations\\\":[]}]}]}]}\",\"job_id\":\"batch_check_r2p2zero109_1699990101_1091\",\"metadata\":null}},\"current_job_id\":\"batch_check_r2p2zero109_1699990101_1091\",\"available_runs\":[{\"job_id\":\"batch_check_r2p2zero109_1699990101_1091\",\"latest_timestamp\":\"2023-11-14T19:51:01.000008+00:00\",\"model\":\"generated-model-alpha\",\"sectionCount\":8,\"isCurrent\":true}]}",
+  "bodySha256": "322d7f7e294c3933435b29fc7b025d8e4b4a6b9e42e2db55900fdcb42ae3ce04"
+ }
+}

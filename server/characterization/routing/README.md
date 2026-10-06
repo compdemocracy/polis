@@ -1,0 +1,9 @@
+# Routing recordings
+
+Run locally with an isolated PostgreSQL 17.11: set COMPOSE_PROJECT_NAME and both recovery-port variables, then `docker compose -f server/characterization/routing/compose.yml up -d --wait`. Run `sh server/characterization/routing/check.sh`; remove only that compose project afterwards.
+
+80 direct cases and 24 actual HTTP transport/handler cases pin choice, pool weights, requests and math JSON bytes. Authentication/parameter middleware is a fixed fixture boundary; HTTP runs unchanged AST-extracted handler and helper functions, not the complete application. SQL is real against a generated minimal schema. Vote history-to-latest maintenance uses a fixture trigger. SDKs are generated stand-ins. Counted SQL excludes observer-only pool/seed SQL; deferred vote writes are flushed and counted after the HTTP response. These are handler-request costs, not total authenticated production-request costs.
+
+Recording requires ROUTING_RECORD_BASE to equal the base commit named in main.cjs, and the source hashes in baseline-source.json to be unchanged. Re-record twice and compare before proposing a golden update. Product edits cannot share a change with golden/rule edits. Expected differences require exact before/after bodies and `ruled:<reference>`, validated using the vote-path rule module. No pending entries may pass. Product regressions that throw are killed only by the specifically declared remaining-assignment error; setup/missing anchors are fatal.
+
+The 12 MiB generated padding exercises full math read/process/gzip work. It is not production content and highly compressible; it establishes decoded reload volume, not a production CPU/network forecast. A stale-cache case publishes a newer database generation inside the existing three-second process lifetime, preserving today's behavior.

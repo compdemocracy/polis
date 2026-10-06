@@ -24,6 +24,7 @@ import pytest
 
 from polismath.poller.worker_pool import REBUILD, CoalescedBatch
 from tests.conftest import require_polis_postgres
+from tests.vote_fixtures import AGREE, DISAGREE, seed_vote
 
 pytestmark = pytest.mark.integration
 
@@ -140,7 +141,7 @@ def seed_conversation(conn, zid, *, participants, comments, voters=None, votes=T
                 if (p + t) % 3 == 0:
                     continue
                 ts += 1
-                raw = -1 if (p % 2 == 0) == (t % 2 == 0) else 1
+                raw = seed_vote(AGREE if (p % 2 == 0) == (t % 2 == 0) else DISAGREE)
                 q(conn, "INSERT INTO votes (zid, pid, tid, vote, created) "
                         "VALUES (%s, %s, %s, %s, %s)", (zid, p, t, raw, ts))
         last = ts
@@ -332,8 +333,8 @@ class TestRunningPoller:
             first = generations(db, zid, tgt)
             assert coherent(db, zid, tgt) and first[4] == lvt
             now = int(time.time() * 1000)
-            q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 0, 3, -1, %s)",
-              (zid, now))
+            q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 0, 3, %s, %s)",
+              (zid, seed_vote(AGREE), now))
             svc.poll_once()
             after = generations(db, zid, tgt)
             assert coherent(db, zid, tgt)
@@ -702,15 +703,15 @@ class TestCatchUp:
         (zid,) = fresh_zids(1)
         seed_conversation(db, zid, participants=6, comments=4)
         now = int(time.time() * 1000)
-        q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 1, 0, -1, %s)",
-          (zid, now - 10_000))
+        q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 1, 0, %s, %s)",
+          (zid, seed_vote(AGREE), now - 10_000))
         svc, pg = make_service(pg_url, src, tgt)
         try:
             publish_real(svc, zid)
             assert generations(db, zid, tgt)[4] == now - 10_000
             # A later vote the target has not consumed yet; the source saw it.
-            q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 2, 0, 1, %s)",
-              (zid, now - 5_000))
+            q(db, "INSERT INTO votes (zid, pid, tid, vote, created) VALUES (%s, 2, 0, %s, %s)",
+              (zid, seed_vote(DISAGREE), now - 5_000))
             put_main(db, zid, src, now - 5_000)
             v = run_verification(db, src, tgt, now - 60_000)
             assert (v[1][0]["live_lag"], v[1][0]["behind_source_stale"],

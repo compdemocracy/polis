@@ -1,0 +1,4 @@
+{"codec":"delphi-storage-codec/1","family":"Delphi_CommentEmbeddings","key":["conversation_id","comment_id"]}
+{"comment_id":{"N":"0"},"conversation_id":{"S":"9001"},"embedding":{"M":{"dimensions":{"N":"3"},"model":{"S":"generated-embedding-model"},"vector":{"L":[{"N":"0.0123456789"},{"N":"-0.5"},{"N":"1"}]}}}}
+{"comment_id":{"N":"1"},"conversation_id":{"S":"9001"},"embedding":{"M":{"dimensions":{"N":"3"},"model":{"S":"generated-embedding-model"},"vector":{"L":[{"N":"0.0123456789"},{"N":"-0.5"},{"N":"1"}]}}}}
+{"comment_id":{"N":"2"},"conversation_id":{"S":"9001"},"embedding":{"M":{"dimensions":{"N":"3"},"model":{"S":"generated-embedding-model"},"vector":{"L":[{"N":"0.0123456789"},{"N":"-0.5"},{"N":"1"}]}}}}

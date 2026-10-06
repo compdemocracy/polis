@@ -99,6 +99,29 @@ if [ -f "/etc/app-info/log_group_name.txt" ]; then
   printf "\nAWS_LOG_GROUP_NAME=%s\n" "$LOG_GROUP_NAME" | sudo tee -a .env > /dev/null
 fi
 
+# Readiness identity (P-072), for every box that runs a math poller (the
+# Delphi box's math-python, the large box's math-python-large): the poller
+# logs the source commit and a digest of this instance's id in its readiness
+# lines, so the operator's readiness record names the holder, and the large
+# worker's version-skew guard compares the commit with the small poller's.
+# Never fatal here: a missing commit makes the collector refuse to build a
+# record, and a missing instance id makes the poller itself refuse to start
+# (exit 2; the heartbeat alarm then fires) rather than name the holder by
+# container hostname.
+poller_identity() {
+  POLLER_COMMIT=$(sudo git rev-parse HEAD 2>/dev/null || true)
+  POLLER_INSTANCE=""
+  for attempt in 1 2 3; do
+    IMDS_TOKEN=$(curl -s -m 2 -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60" || true)
+    POLLER_INSTANCE=$(curl -s -m 2 -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/instance-id || true)
+    case "$POLLER_INSTANCE" in i-*) break ;; *) POLLER_INSTANCE=""; sleep 1 ;; esac
+  done
+  if [ -z "$POLLER_INSTANCE" ]; then
+    echo "WARNING: no EC2 instance id from IMDS; the math poller will refuse to start (P-072)"
+  fi
+  printf "\nMATH_POLLER_SOURCE_COMMIT=%s\nMATH_POLLER_INSTANCE_ID=%s\n" "$POLLER_COMMIT" "$POLLER_INSTANCE" | sudo tee -a .env > /dev/null
+}
+
 if [ "$SERVICE_FROM_FILE" == "server" ]; then
   echo "Starting docker-compose up for 'server', 'nginx-proxy', and 'client-participation-alpha' services"
   sudo /usr/local/bin/docker-compose up -d server nginx-proxy client-participation-alpha --build --force-recreate
@@ -229,24 +252,21 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   #      math_env='python' no longer advances.
   #   5. Make it durable (remove `math-python` here and redeploy) before
   #      resuming deploys or ASG launches.
-  # Readiness identity (P-072): the math poller logs the source commit and a
-  # digest of this instance's id in its readiness lines, so the operator's
-  # readiness record names the holder. Never fatal here: a missing commit
-  # makes the collector refuse to build a record, and a missing instance id
-  # makes the poller itself refuse to start (exit 2; the heartbeat alarm
-  # then fires) rather than name the holder by container hostname.
-  POLLER_COMMIT=$(sudo git rev-parse HEAD 2>/dev/null || true)
-  POLLER_INSTANCE=""
-  for attempt in 1 2 3; do
-    IMDS_TOKEN=$(curl -s -m 2 -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60" || true)
-    POLLER_INSTANCE=$(curl -s -m 2 -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/instance-id || true)
-    case "$POLLER_INSTANCE" in i-*) break ;; *) POLLER_INSTANCE=""; sleep 1 ;; esac
-  done
-  if [ -z "$POLLER_INSTANCE" ]; then
-    echo "WARNING: no EC2 instance id from IMDS; the math poller will refuse to start (P-072)"
-  fi
-  printf "\nMATH_POLLER_SOURCE_COMMIT=%s\nMATH_POLLER_INSTANCE_ID=%s\n" "$POLLER_COMMIT" "$POLLER_INSTANCE" | sudo tee -a .env > /dev/null
+  poller_identity
   sudo /usr/local/bin/docker-compose up -d delphi math-python --build --force-recreate
+elif [ "$SERVICE_FROM_FILE" == "delphi-large" ]; then
+  # The large memory class box (P-073; role `math-large`). It starts ONLY the
+  # large worker: no Delphi job poller (the report role stays on the Delphi
+  # box) and no small poller (`math-python` is the single writer of the
+  # `python` label and runs on the Delphi box). math-python-large writes only
+  # its own label (`python-large`) under its own lock; the small poller
+  # promotes what it stages. Everything is off until the env document sets
+  # MATH_CAPACITY_MANIFEST_URI: without it the worker refuses to start
+  # (exit 2) and computes nothing. Its memory limit is
+  # MATH_LARGE_CONTAINER_MEMORY (compose default 52g, for a 64 GiB box).
+  echo "Starting docker-compose up for 'math-python-large' (large memory class, P-073)"
+  poller_identity
+  sudo /usr/local/bin/docker-compose up -d math-python-large --build --force-recreate
 else
   echo "Error: Unknown service type: [$SERVICE_FROM_FILE]. Starting all services (default docker-compose up -d)"
   sudo /usr/local/bin/docker-compose up -d --build --force-recreate

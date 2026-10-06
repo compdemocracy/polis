@@ -1,4 +1,4 @@
-"""Public seed controls: raw signs, local identity and role metrics."""
+"""Public seed controls: declared signs, local identity and role metrics."""
 import csv
 import json
 from pathlib import Path
@@ -9,6 +9,7 @@ ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'ci/probe_box/local'))
 sys.path.insert(0,str(ROOT/'delphi'))
 from pipeline_seed import exported,measured,BASE_MS
+from vote_fixtures import read_vote
 
 
 class PipelineSeedTests(unittest.TestCase):
@@ -16,7 +17,8 @@ class PipelineSeedTests(unittest.TestCase):
         (votes,_,_),_=exported('vw')
         path=next(next((ROOT/'delphi/real_data').glob('*-vw')).glob('*votes.csv'))
         with path.open(newline='') as stream:source=list(csv.DictReader(stream))
-        self.assertEqual([v['vote'] for v in votes],[-int(r['vote']) for r in source])
+        # Stored values read back by meaning are the export's votes (agree = +1).
+        self.assertEqual([read_vote(v['vote']) for v in votes],[int(r['vote']) for r in source])
         self.assertEqual([v['created'] for v in votes],list(range(BASE_MS+1000,BASE_MS+1000+len(votes))))
 
     def test_public_id_rebase_is_contiguous_and_unique(self):

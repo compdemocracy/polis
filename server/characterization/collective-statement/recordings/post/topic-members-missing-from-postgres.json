@@ -1,0 +1,88 @@
+{
+ "format": "collective-statement-recording/1",
+ "case": "post/topic-members-missing-from-postgres",
+ "about": "the topic's only member has no comment row",
+ "requests": [
+  {
+   "method": "POST",
+   "path": "/api/v3/collectiveStatement",
+   "auth": "owner",
+   "body": {
+    "report_id": "r1csrec201",
+    "topic_key": "0000c5a1-0000-0000-0000-0000000000b2#0#4",
+    "topic_name": "Generated topic: shared spaces",
+    "qualifying_tids": [
+     0,
+     1,
+     2,
+     4
+    ],
+    "group_consensus": {
+     "0": 0.92,
+     "1": 0.88,
+     "2": 0.85,
+     "3": 0.9,
+     "4": 0.81,
+     "5": 0.83,
+     "7": 0.95
+    }
+   }
+  }
+ ],
+ "responses": [
+  {
+   "status": 200,
+   "headers": [
+    [
+     "content-type",
+     "application/json; charset=utf-8"
+    ],
+    [
+     "cache-control",
+     "no-cache"
+    ],
+    [
+     "access-control-allow-origin",
+     "http://localhost"
+    ],
+    [
+     "access-control-allow-credentials",
+     "true"
+    ],
+    [
+     "access-control-allow-headers",
+     "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+    ],
+    [
+     "access-control-allow-methods",
+     "GET, PUT, POST, DELETE, OPTIONS"
+    ],
+    [
+     "content-length",
+     "63"
+    ],
+    [
+     "vary",
+     "Accept-Encoding"
+    ]
+   ],
+   "body": "{\"status\":\"error\",\"message\":\"No comments found for this topic\"}"
+  }
+ ],
+ "provider": [],
+ "unusedProviderReplies": 0,
+ "stored": {
+  "added": [],
+  "removed": [],
+  "changed": []
+ },
+ "logs": [
+  "info: CollectiveStatement API request received",
+  "info: Retrieved 13 cluster assignments for conversation 201",
+  "info: Found 1 comments in layer 0, cluster 4 for conversation 201",
+  "info: Comment IDs for topic 0000c5a1-0000-0000-0000-0000000000b2#0#4: [12]",
+  "info: SQL query returned 0 comments for topic 0000c5a1-0000-0000-0000-0000000000b2#0#4",
+  "warn: Mismatch: Found 1 comment IDs in DynamoDB but only 0 in PostgreSQL",
+  "info: Found 0 comments for topic 0000c5a1-0000-0000-0000-0000000000b2#0#4"
+ ]
+}

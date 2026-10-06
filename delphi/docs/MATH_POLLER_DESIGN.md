@@ -314,3 +314,25 @@ input); `queued`: those behind their input.
 
 On the small poller a bad value turns routing off and is logged (§7); on the large worker
 it refuses to start.
+
+### 8.5 Compose and the deploy hooks (P-073 PR4)
+
+`docker-compose.yml` forwards every setting above to `math-python` (which pins
+`MATH_CAPACITY_CLASS=small`) and runs the large worker as its own service,
+`math-python-large`: same image and entrypoint, profile `math-python-large` (so
+`make start`, the dev overlay and `--profile math-python` never run it),
+the literal label `python-large` for both `MATH_ENV` and the staged label,
+`MATH_CAPACITY_PROMOTE_INTO=${MATH_PYTHON_ENV}`, its own state volume and its own
+memory limit `MATH_LARGE_CONTAINER_MEMORY` (52g). It pins off everything it refuses
+(routing, promotion, the nonce, the state path, backfill, sharding, the served-label
+override), so one shared env document configures both. Neither poller receives the
+env document's AWS key pair: the manifest client signs as the instance role.
+`docs/configuration.md` lists
+the knobs; `tests/test_compose_math_env.py` pins the forwarding.
+
+A box whose service type is `delphi-large` starts only `math-python-large`
+(`scripts/after_install.sh`, with the same readiness identity lines as the Delphi box);
+`scripts/application_stop.sh` stops it. `tests/poller/test_compose_large_parity.py`
+(opt-in, docker) runs both services from `docker-compose.yml` on a throwaway Postgres,
+configured only through an env file: route, stage, promote, a warm update promoted
+again, and no heartbeat phrase in the large worker's lines.
