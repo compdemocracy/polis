@@ -15,6 +15,7 @@ pub mod manifest;
 pub mod outcome;
 pub mod readiness;
 pub mod reaper;
+pub mod scope;
 pub mod rpc;
 pub mod shutdown;
 pub mod task;

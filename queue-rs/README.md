@@ -136,10 +136,28 @@ in the frame; design `P-073 r2`), and starts only on `polis-queue/3`
 (migration 000024, sealed in `down/000024-files.sha256`): on a `/2` database
 it exits 3 naming the contract it needs. `POLIS_JOBS_STAGES` must be a subset
 of the class's stages; a stage of another class is refused before any
-connection (exit 2). A rebuild's output manifest lists no DynamoDB outputs:
-its staged bundle is in Postgres under the staged label and is named by the
-manifest's `inputs`. No deployment runs a large worker yet; the math poller's
-job entry is a later change.
+connection (exit 2). A rebuild's admission carries a typed math config
+(`staged_label`, `target_label`, `need_bytes`, `input_through_ms`, `binding`,
+`source_commit`; `schemas/job-frame-v1.json`), which the daemon checks whole
+before any child spawns (an admission without it is `math_config_invalid`,
+permanent, no child) and carries whole into the frame, so the child checks
+every key of it before it computes. A rebuild's output manifest lists no
+DynamoDB outputs: its staged bundle is in Postgres under the staged label and
+is named by the manifest's `inputs`. No deployment runs a large worker yet;
+the math poller's job entry is a later change.
+
+**Scope release.** `pd_enqueue` holds one guard per scope until an explicit,
+safe release; nothing released it, so the first terminal job occupied its
+conversation forever. The daemon now releases it: after a terminal reply
+(succeeded, dead, cancelled) for an attempt whose exit it proved, including
+the journal-recovery and reaper paths, it reads the scope from `pd_job_view`
+(`scope_key`, polis-queue/3) and calls `pd_release_scope`, which re-checks
+every condition (every job of the root's tree terminal, every exit proven, no
+open provider request) and refuses otherwise. One transition says what
+happened (`scope_released`, or `scope_held` with the reason; `scope_unknown`
+on a `/2` database), and the readiness line counts `released_total`. Terminal
+status alone releases nothing. The poison latch is the contract's: three dead
+jobs of one scope under one code image make the next admission `poisoned`.
 
 Configuration is by environment; `POLIS_JOBS_ENABLED` must be exactly `1` or
 the daemon exits 0 at once. Transports: `tls` (default; CA file and exact host
