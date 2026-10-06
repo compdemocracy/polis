@@ -89,11 +89,11 @@ build: ## Build package
 # Docker commands (see docs/DOCKER_BUILD_OPTIMIZATION.md for details)
 docker-build: ## Build Docker image (with BuildKit cache - ~30s for code changes)
 	@echo "Building with optimized layer caching (see docs/DOCKER_BUILD_OPTIMIZATION.md)"
-	DOCKER_BUILDKIT=1 docker build -t polis/delphi:latest .
+	DOCKER_BUILDKIT=1 docker build --build-context queue-rs=../queue-rs -t polis/delphi:latest .
 
 docker-build-no-cache: ## Build Docker image without cache (clean build)
 	@echo "Building from scratch (no cache)..."
-	DOCKER_BUILDKIT=1 docker build --no-cache -t polis/delphi:latest .
+	DOCKER_BUILDKIT=1 docker build --no-cache --build-context queue-rs=../queue-rs -t polis/delphi:latest .
 
 docker-run: ## Run Docker container
 	docker run --rm --name polis-dev-delphi-1 --env-file .env polis/delphi:latest
