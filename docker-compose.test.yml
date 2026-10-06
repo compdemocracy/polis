@@ -94,6 +94,8 @@ services:
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
     build:
       context: ./delphi
+      additional_contexts:
+        queue-rs: ./queue-rs  # the polis-jobs stage (delphi/Dockerfile)
       target: test
       args:
         USE_CPU_TORCH: "true"
@@ -235,6 +237,8 @@ services:
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
     build:
       context: ./delphi
+      additional_contexts:
+        queue-rs: ./queue-rs  # the polis-jobs stage (delphi/Dockerfile)
       target: test
       args:
         USE_CPU_TORCH: "true"
