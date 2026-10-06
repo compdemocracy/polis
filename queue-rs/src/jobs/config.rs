@@ -433,9 +433,16 @@ mod tests {
         pairs.push(("POLIS_JOBS_SWEEP_CHECK_SECONDS", "2"));
         let c = ready(&pairs);
         assert!(c.sweep);
-        assert_eq!((c.sweep_max_pages, c.sweep_check), (7, Duration::from_secs(2)));
+        assert_eq!(
+            (c.sweep_max_pages, c.sweep_check),
+            (7, Duration::from_secs(2))
+        );
         for (k, v, msg) in [
-            ("POLIS_JOBS_SWEEP", "true", "POLIS_JOBS_SWEEP must be 0 or 1"),
+            (
+                "POLIS_JOBS_SWEEP",
+                "true",
+                "POLIS_JOBS_SWEEP must be 0 or 1",
+            ),
             (
                 "POLIS_JOBS_SWEEP_MAX_PAGES",
                 "0",

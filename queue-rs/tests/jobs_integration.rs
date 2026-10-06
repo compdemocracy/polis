@@ -1723,7 +1723,9 @@ fn the_built_in_sweep_removes_expired_history_and_keeps_the_latest() {
         Opts::new("sweep-run", "success").set("POLIS_JOBS_WORKER_CLASS", "large"),
     );
     db.wait_state(old, "succeeded", 60);
-    db.wait("the first scope released", 30, |d| d.guard(&scope).is_none());
+    db.wait("the first scope released", 30, |d| {
+        d.guard(&scope).is_none()
+    });
     let (new, _) = db.enqueue("math_rebuild", 1, None, math(), 3);
     db.wait_state(new, "succeeded", 60);
     assert_eq!(worker.stop(), Some(0));
@@ -1746,7 +1748,10 @@ fn the_built_in_sweep_removes_expired_history_and_keeps_the_latest() {
             .collect()
     };
     assert!(streams(&mut db, new_attempt).contains(&"manifest".to_owned()));
-    assert!(streams(&mut db, new_attempt).len() > 1, "the child wrote output");
+    assert!(
+        streams(&mut db, new_attempt).len() > 1,
+        "the child wrote output"
+    );
     let sweeper = start(
         &db,
         Opts::new("sweeper", "success")
@@ -1769,10 +1774,7 @@ fn the_built_in_sweep_removes_expired_history_and_keeps_the_latest() {
     assert_eq!(line["attempts_deleted"], 1, "{line}");
     let jobs: Vec<Uuid> = db
         .sql
-        .query(
-            "SELECT job_id FROM polis_queue_jobs WHERE env=$1",
-            &[&ENV],
-        )
+        .query("SELECT job_id FROM polis_queue_jobs WHERE env=$1", &[&ENV])
         .unwrap()
         .iter()
         .map(|r| r.get(0))
@@ -1814,7 +1816,10 @@ fn the_sweep_turns_itself_off_without_000026() {
             .contains("polis_jobs sweep off: the database has no pq_sweep")
     });
     std::thread::sleep(Duration::from_secs(2));
-    assert!(d.child.try_wait().unwrap().is_none(), "the worker kept running");
+    assert!(
+        d.child.try_wait().unwrap().is_none(),
+        "the worker kept running"
+    );
     assert_eq!(
         d.log().matches("polis_jobs sweep off").count(),
         1,
