@@ -309,7 +309,7 @@ class TestTheContract:
         router.set_queue_depth(depth)
         counts = router.counts()
         validate_counts(counts)
-        assert (counts["large_demand"], counts["large_leased"]) == (1, 1)
+        assert (counts["large_demand"], counts["large_leased"], counts["large_parked"]) == (1, 1, 0)
 
     def test_a_cancelled_job_frees_its_scope_and_a_fresh_job_is_admitted(self, queue_db, db, env,
                                                                         labels):

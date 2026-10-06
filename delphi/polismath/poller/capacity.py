@@ -71,10 +71,12 @@ is refused, P-084) in the namespace ``MATH_CAPACITY_QUEUE_ENV``; the large box's
 promotes it (``MATH_CAPACITY_PROMOTE``, 1 needs routing on;
 ``MATH_CAPACITY_PROMOTE_INTO`` names the target label on the child's side;
 ``MATH_CAPACITY_RESTAGE`` is a 16-64 hex nonce; unset). With a queue DSN,
-``large_demand`` and the new ``large_leased`` on the line are the queue's
-counts of class ``large`` (``pq_class_depth``: ``queued`` and ``leased``);
-without one ``large_demand`` is the records' count as before and
-``large_leased`` is null. ``large_poisoned`` counts the routed records the
+``large_demand``, ``large_leased`` and ``large_parked`` on the line are the
+queue's counts of class ``large`` (``pq_class_depth``: ``queued``, ``leased``
+and ``parked``); without one ``large_demand`` is the records' count as before
+and ``large_leased`` and ``large_parked`` are null. The scale-in alarm sums
+demand, leased and parked and needs every term reported (cdk/workerClasses.ts),
+so without ``large_parked`` the large group never scales in. ``large_poisoned`` counts the routed records the
 queue refused as poisoned (their last jobs died under this source commit),
 parked here until a new deploy or a ruling.
 ``MATH_CAPACITY_CLASS`` is ``small``; ``large`` is refused at start (the
@@ -112,13 +114,14 @@ CLASSES = (CLASS_SMALL, CLASS_LARGE)
 # The capacity line's keys, closed (tests pin them), and the counts it shares
 # with the readiness line's ``capacity`` object. ``promoted_total`` was added
 # with the promotion loop (P-073 PR3), ``large_leased`` and ``large_poisoned``
-# with the queue (r2).
-COUNT_KEYS = ("routing", "large_demand", "large_leased", "large_poisoned", "pending_promotion",
-              "exceeds_largest", "fits_small", "oldest_unresolved_age_ms", "refusals_total",
-              "routed_total", "promoted_total")
+# with the queue (r2), ``large_parked`` for the scale-in alarm.
+COUNT_KEYS = ("routing", "large_demand", "large_leased", "large_parked", "large_poisoned",
+              "pending_promotion", "exceeds_largest", "fits_small", "oldest_unresolved_age_ms",
+              "refusals_total", "routed_total", "promoted_total")
 # Nullable on a primary: ``oldest_unresolved_age_ms`` with nothing unresolved,
-# ``large_leased`` with no queue read (no DSN, or the read failed this tick).
-NULLABLE_COUNT_KEYS = frozenset(("oldest_unresolved_age_ms", "large_leased"))
+# ``large_leased`` and ``large_parked`` with no queue read (no DSN, or the read
+# failed this tick).
+NULLABLE_COUNT_KEYS = frozenset(("oldest_unresolved_age_ms", "large_leased", "large_parked"))
 # Admission (cost-reduction plan P-084): ``queue_full`` is 1 while the last
 # admission was refused at the queued-job cap; ``queue_unreachable`` is 1
 # while routing is configured on and refused because the queue is missing,
@@ -729,14 +732,15 @@ class CapacityRouter:
         oldest = min((r.first_unresolved_ms for r in unresolved
                       if r.first_unresolved_ms is not None), default=None)
         # With a queue, demand and leased are the queue's counts of class
-        # large (000024: queued = queued + retry_wait, leased = running);
-        # without one, demand is the records' count as before and leased is
-        # unknown (null, never 0). Poisoned records are parked here, so they
+        # large (000024: queued = queued + retry_wait, leased = running,
+        # parked = parked); without one, demand is the records' count as
+        # before and leased and parked are unknown (null, never 0). Poisoned records are parked here, so they
         # are neither demand nor pending promotion.
         return {
             "routing": int(self.settings.routing),
             "large_demand": len(demand) if depth is None else int(depth["queued"]),
             "large_leased": None if depth is None else int(depth["leased"]),
+            "large_parked": None if depth is None else int(depth["parked"]),
             "large_poisoned": sum(1 for r in recs
                                   if r.disposition == LARGE and r.poisoned_commit is not None),
             "pending_promotion": sum(1 for r in unresolved if r.zid in waiting),
