@@ -41,6 +41,7 @@ from polismath.poller.readiness import (
     check_identity_source,
     identity,
 )
+from polismath.job_child import EXIT_JOB_ENV_INVALID
 from polismath.poller.service import MathPollerService, PollerConfig, PoolDrainTimeout
 from polismath.utils.vote_convention_boot import (
     VoteConventionRefusal,
@@ -403,6 +404,17 @@ def _memory_admission(config: PollerConfig, log):
     return admission
 
 
+def _require_convention(pg, component: str, log, exit_code: int) -> None:
+    """The database must declare its stored vote sign, and it must be the sign
+    this build is built for (P-078; docs/vote-convention-upgrade.md). A refusal
+    exits ``exit_code`` with the operator message before any vote is read."""
+    try:
+        declared = require_declared_convention(lambda sql: pg.query(sql), component)
+    except VoteConventionRefusal as exc:
+        refuse_and_exit(exc, log, exit_code=exit_code)
+    log.info("vote convention: version %s, agree stored as %s", declared.version, declared.agree_value)
+
+
 def _build_service(config: PollerConfig) -> MathPollerService:
     if not config.database_url:
         print("DATABASE_URL is required", file=sys.stderr)
@@ -411,14 +423,8 @@ def _build_service(config: PollerConfig) -> MathPollerService:
     admission = _memory_admission(config, log)
     pg = PostgresClient(PostgresConfig(url=config.database_url, math_env=config.math_env))
     pg.initialize()
-    # The database must declare its stored vote sign, and it must be the sign
-    # this build is built for (P-078; docs/vote-convention-upgrade.md). The
-    # poller refuses to start otherwise; readiness never reaches primary/ok.
-    try:
-        declared = require_declared_convention(lambda sql: pg.query(sql), "math poller")
-    except VoteConventionRefusal as exc:
-        refuse_and_exit(exc, log, exit_code=2)
-    log.info("vote convention: version %s, agree stored as %s", declared.version, declared.agree_value)
+    # The poller refuses to start otherwise; readiness never reaches primary/ok.
+    _require_convention(pg, "math poller", log, exit_code=2)
     return MathPollerService(
         pg, config, backfill_config=_backfill_config(log), admission=admission,
         # One run id for the readiness lines and the backfill's report lines.
@@ -439,6 +445,9 @@ def _run_job(job_arg: str, config: PollerConfig, log) -> int:
     def build(admission):
         pg = PostgresClient(PostgresConfig(url=config.database_url, math_env=config.math_env))
         pg.initialize()
+        # The same check as the poller's, before the rebuild reads a vote; a
+        # refusal is an environment the job cannot run in (exit 2).
+        _require_convention(pg, "math rebuild job", log, exit_code=EXIT_JOB_ENV_INVALID)
         service = MathPollerService(
             pg, config, backfill_config=None, admission=admission,
             capacity=CapacityRouter(admission, CapacitySettings()),
