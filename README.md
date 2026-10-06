@@ -230,7 +230,7 @@ if you are running in "detached mode".
 If you want to update the system, you may need to handle the following:
 
 - [⬆️ Run database migrations](docs/migrations.md), if there are new such
-  - Migration 000023 also needs a one-time declaration of your database's stored vote sign: see [the vote convention upgrade guide](docs/vote-convention-upgrade.md)
+  - Migration 000025 also needs a one-time declaration of your database's stored vote sign: see [the vote convention upgrade guide](docs/vote-convention-upgrade.md)
 - Update docker images by running with `--build` if there have been changes to the Dockerfiles
   - consider using `--no-cache` if you'd like to rebuild from scratch, but note that this will take much longer
 

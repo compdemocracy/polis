@@ -82,7 +82,7 @@ def test_no_table_names_the_migration_the_declare_command_and_the_guide():
     refusal = judge_database_convention(DatabaseConvention(NO_TABLE), "math poller")
     assert refusal.code == "vote_convention_not_installed"
     assert refusal.message.startswith("Polis cannot start (math poller):")
-    assert "000023_vote_convention.sql" in refusal.message
+    assert "000025_vote_convention.sql" in refusal.message
     assert declare_command() in refusal.message
     assert "Nothing has been changed" in refusal.message
     assert f"{VOTE_CONVENTION_GUIDE}#guard" in refusal.message

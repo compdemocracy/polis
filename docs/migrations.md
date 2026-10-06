@@ -39,11 +39,11 @@ You'd do this for each new file, in numeric order.
 
    [`server/postgres/migrations/`]: /server/postgres/migrations
 
-## The migration ledger (`schema_migrations`, from 000023 on)
+## The migration ledger (`schema_migrations`, from 000025 on)
 
-Migration `000023_vote_convention.sql` adds `public.schema_migrations`: one row
+Migration `000025_vote_convention.sql` adds `public.schema_migrations`: one row
 per applied migration file. The rows for 000000–000022 are backfilled with the
-checksum `pre-ledger`. **Every migration file from 000023 on inserts its own row
+checksum `pre-ledger`. **Every migration file from 000025 on inserts its own row
 as its last statement**, carrying the sha256 of the file with exactly one line
 removed: the line holding the `-- ledger-self-checksum` marker (the INSERT
 itself, so the hash can live inside the file it hashes):
@@ -57,7 +57,7 @@ A copy whose ledger stops early is older than the files it is missing. See
 depends on it.
 
 `server/postgres/check_ledger_checksums.py` recomputes this checksum for every
-migration from 000023 on (including `held/`) and fails on a mismatch, a
+migration from 000025 on (including `held/`) and fails on a mismatch, a
 missing or duplicate marker, or a row naming another file. CI runs it on every
 pull request that touches `server/postgres/` (`.github/workflows/migration-ledger.yml`).
 Run it before applying a migration by hand.
@@ -68,15 +68,15 @@ An *operation* is a SQL file an operator runs on purpose, once, through its
 own `make` target; the migration runner and the Docker initialisation never
 apply it. The first is `vote_convention_declare.sql`
 (`make vote-convention-declare AGREE=-1`), which declares the stored vote
-sign of a database that already held votes when migration 000023 ran. See
+sign of a database that already held votes when migration 000025 ran. See
 [vote-convention-upgrade.md](vote-convention-upgrade.md). An operation records
 itself in `public.vote_convention_history` (not in `schema_migrations`), with
 its own ledger checksum computed by the same rule; the checker above verifies
 operation files too.
 
-## Migration 000023 and existing databases
+## Migration 000025 and existing databases
 
-000023 writes the `vote_convention` row only when the database holds no
+000025 writes the `vote_convention` row only when the database holds no
 votes. On an existing database it prints `DECLARE_NEEDED`, and every
 component of the release that reads the row refuses to start until you run
 `make vote-convention-declare AGREE=-1`. Old containers keep working

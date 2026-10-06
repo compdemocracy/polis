@@ -1,7 +1,7 @@
 //! The database's declaration of the stored vote sign, read at startup and
 //! at every source snapshot (P-078).
 //!
-//! Migration 000023 gives the database one row, `public.vote_convention`,
+//! Migration 000025 gives the database one row, `public.vote_convention`,
 //! naming which stored value means "agree". The coordinator reads votes
 //! raw and normalizes them with `STORAGE_AGREE_VALUE` (`config.rs`), so a
 //! build made for one sign must refuse a database that declares none, a
@@ -20,7 +20,7 @@ use std::fmt;
 /// The installed-surface contracts this build understands.
 pub const SUPPORTED_CONTRACTS: &[i32] = &[1];
 pub const GUIDE: &str = "docs/vote-convention-upgrade.md";
-pub const MIGRATION: &str = "server/postgres/migrations/000023_vote_convention.sql";
+pub const MIGRATION: &str = "server/postgres/migrations/000025_vote_convention.sql";
 
 const PRESENT_SQL: &str = "SELECT to_regclass('public.vote_convention') IS NOT NULL AND to_regprocedure('public.vote_convention_current()') IS NOT NULL AS present";
 const ROW_SQL: &str =
@@ -29,7 +29,7 @@ const ROW_SQL: &str =
 /// What the database declares, before it is judged.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DatabaseConvention {
-    /// No table or no function: migration 000023 is not applied.
+    /// No table or no function: migration 000025 is not applied.
     NoTable,
     /// The table exists and holds no row: the operator has not declared the sign.
     NoRow,
@@ -116,7 +116,7 @@ pub fn judge(found: DatabaseConvention, component: &str, built_for: i64) -> Resu
     match found {
         DatabaseConvention::NoTable => Err(Refusal::NotInstalled(format!(
             "{prefix} this database has no vote_convention table, so it does not record which stored vote value means \"agree\". \
-Migration 000023 has not been applied. Nothing has been changed. Next: back up the database, apply {MIGRATION} (see docs/migrations.md), \
+Migration 000025 has not been applied. Nothing has been changed. Next: back up the database, apply {MIGRATION} (see docs/migrations.md), \
 then, if the database already holds votes, run \"{}\". Guide: {GUIDE}#guard",
             declare_command(built_for)
         ))),

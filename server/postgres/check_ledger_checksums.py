@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Check the ledger self-checksum of every migration from 000023 on, and of
+"""Check the ledger self-checksum of every migration from 000025 on, and of
 every operation file.
 
-Rule (docs/migrations.md): each migration file numbered 000023 or later ends
+Rule (docs/migrations.md): each migration file numbered 000025 or later ends
 with an INSERT of its own public.schema_migrations row, on the one line that
 carries the marker comment below. Each operation file in
 server/postgres/operations/ (run by an operator, never by the runner) carries

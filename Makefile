@@ -236,7 +236,7 @@ vote-convention-gate: ## P-078: load the vote fixtures at both storage signs and
 vote-sign-lint: ## P-078: fail on a new vote-sign literal outside the chokepoint modules
 	python3 ci/vote_convention/sign_lint.py
 
-# The stored vote sign: the database must declare it (migration 000023). A
+# The stored vote sign: the database must declare it (migration 000025). A
 # database that already held votes when the migration ran is undeclared until
 # its operator runs the declare target once (docs/vote-convention-upgrade.md).
 # With POSTGRES_DOCKER=true it runs inside the compose postgres container;

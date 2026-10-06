@@ -18,7 +18,7 @@
 -- No vote is read for writing, updated or deleted. No vote value changes.
 --
 -- Refuses, changing nothing:
---   P0796  no vote_convention table: apply migration 000023 first
+--   P0796  no vote_convention table: apply migration 000025 first
 --   P0797  AGREE is not -1 or +1, or the reason is empty
 --   P0798  the database already declares its convention (a declaration is
 --          changed only by the flip tool, never by declaring again)
@@ -43,7 +43,7 @@ DECLARE
   v_have_agree smallint;
 BEGIN
   IF to_regclass('public.vote_convention') IS NULL THEN
-    RAISE EXCEPTION 'vote_convention_declare: this database has no vote_convention table: migration 000023 has not been applied. Nothing has been changed. Next: apply server/postgres/migrations/000023_vote_convention.sql, then declare. Guide: docs/vote-convention-upgrade.md#guard'
+    RAISE EXCEPTION 'vote_convention_declare: this database has no vote_convention table: migration 000025 has not been applied. Nothing has been changed. Next: apply server/postgres/migrations/000025_vote_convention.sql, then declare. Guide: docs/vote-convention-upgrade.md#guard'
       USING ERRCODE = 'P0796';
   END IF;
   BEGIN
@@ -70,7 +70,7 @@ BEGIN
   END IF;
   v_version := CASE WHEN v_agree = -1 THEN 0 ELSE 1 END;
   INSERT INTO public.vote_convention (version, agree_value, reason, operation, operation_checksum)
-  VALUES (v_version, v_agree, v_reason, 'vote_convention_declare', '0ca639b1339b84c201f2be3a6571fc860a096625cac40dbe3cec08a943e366b1'); -- ledger-self-checksum
+  VALUES (v_version, v_agree, v_reason, 'vote_convention_declare', '60e17ec16e1e035c1645575978f1028c0f4f08c253880f6c51222f3377ece20c'); -- ledger-self-checksum
   RAISE NOTICE 'vote convention: GUARDED v% agree % (declared by %)', v_version, v_agree, session_user;
 END
 $declare$;

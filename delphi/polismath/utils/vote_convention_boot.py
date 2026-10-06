@@ -1,12 +1,12 @@
 """The database's declaration of the stored vote sign, read at startup (P-078).
 
-Migration 000023 gives the database one row, ``public.vote_convention``, that
+Migration 000025 gives the database one row, ``public.vote_convention``, that
 names which stored value means "agree". Every Python process that reads votes
 (the math poller, the math pipeline stage, the Delphi job child and its
 poller) calls :func:`require_declared_convention` before its first vote read
 and refuses to run against:
 
-- no table or function: migration 000023 is not applied;
+- no table or function: migration 000025 is not applied;
 - a table with no row: the database holds votes and nobody has declared its
   sign (the message names the one command that declares it);
 - a contract this build does not know: a newer release changed the database;
@@ -36,7 +36,7 @@ from polismath.utils.vote_convention import (
 #: The installed-surface contracts this build understands.
 SUPPORTED_VOTE_CONTRACTS: tuple = (1,)
 VOTE_CONVENTION_GUIDE = "docs/vote-convention-upgrade.md"
-VOTE_CONVENTION_MIGRATION = "server/postgres/migrations/000023_vote_convention.sql"
+VOTE_CONVENTION_MIGRATION = "server/postgres/migrations/000025_vote_convention.sql"
 
 PRESENT_SQL = (
     "SELECT to_regclass('public.vote_convention') IS NOT NULL"
@@ -130,7 +130,7 @@ def judge_database_convention(
         return VoteConventionRefusal(
             "vote_convention_not_installed",
             f"{prefix} this database has no vote_convention table, so it does not record which stored vote "
-            f"value means \"agree\". Migration 000023 has not been applied. Nothing has been changed. "
+            f"value means \"agree\". Migration 000025 has not been applied. Nothing has been changed. "
             f"Next: back up the database, apply {VOTE_CONVENTION_MIGRATION} (see docs/migrations.md), "
             f"then, if the database already holds votes, run \"{declare_command(built_for)}\". "
             f"Guide: {VOTE_CONVENTION_GUIDE}#guard")

@@ -34,7 +34,7 @@ function row(version: number, agreeValue: number, contractVersion = CONTRACT) {
 }
 
 describe("readDatabaseConvention", () => {
-  test("no table: migration 000023 not applied", async () => {
+  test("no table: migration 000025 not applied", async () => {
     const log: string[] = [];
     expect(await readDatabaseConvention(fakeQuery(false, [], log))).toEqual({
       state: "no-table",
@@ -90,7 +90,7 @@ describe("judgeDatabaseConvention", () => {
     if (verdict.ok) return;
     expect(verdict.code).toBe("vote_convention_not_installed");
     expect(verdict.message).toContain("Polis cannot start (server)");
-    expect(verdict.message).toContain("000023_vote_convention.sql");
+    expect(verdict.message).toContain("000025_vote_convention.sql");
     expect(verdict.message).toContain(declareCommand());
     expect(verdict.message).toContain("Nothing has been changed");
     expect(verdict.message).toContain(`${VOTE_CONVENTION_GUIDE}#guard`);

@@ -1,12 +1,12 @@
 /**
  * The database's declaration of the stored vote sign, read at startup.
  *
- * Migration 000023 gives the database one row, public.vote_convention, that
+ * Migration 000025 gives the database one row, public.vote_convention, that
  * names which stored value means "agree". This module reads it through
  * public.vote_convention_current() and decides whether THIS build of the
  * server may run against it:
  *
- *   - no table / no function  -> migration 000023 is not applied: refuse
+ *   - no table / no function  -> migration 000025 is not applied: refuse
  *   - table, no row           -> the database holds votes and nobody has
  *                                declared its sign: refuse, naming the one
  *                                command that declares it
@@ -35,7 +35,7 @@ export const SUPPORTED_VOTE_CONTRACTS: readonly number[] = Object.freeze([1]);
 
 export const VOTE_CONVENTION_GUIDE = "docs/vote-convention-upgrade.md";
 export const VOTE_CONVENTION_MIGRATION =
-  "server/postgres/migrations/000023_vote_convention.sql";
+  "server/postgres/migrations/000025_vote_convention.sql";
 
 /** A `query(sql)` that resolves to the rows, as pg-query's queryP does. */
 export type ConventionQuery = (
@@ -145,7 +145,7 @@ export function judgeDatabaseConvention(
         code: "vote_convention_not_installed",
         message:
           `${prefix} this database has no vote_convention table, so it does not record which stored vote value means "agree". ` +
-          `Migration 000023 has not been applied. Nothing has been changed. ` +
+          `Migration 000025 has not been applied. Nothing has been changed. ` +
           `Next: back up the database, apply ${VOTE_CONVENTION_MIGRATION} (see docs/migrations.md), ` +
           `then, if the database already holds votes, run "${declareCommand()}". ` +
           `Guide: ${VOTE_CONVENTION_GUIDE}#guard`,

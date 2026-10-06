@@ -1,8 +1,8 @@
-# The vote convention in the database (migration 000023, P-078 PR-A)
+# The vote convention in the database (migration 000025, P-078 PR-A)
 
 `votes.vote` and `votes_latest_unique.vote` store **agree as -1, disagree as +1,
 pass as 0**. That has been true since 2012 and is the opposite of the CSV
-exports (agree = +1). Until 000023 nothing stored said so. 000023 puts the sign
+exports (agree = +1). Until 000025 nothing stored said so. 000025 puts the sign
 next to the data, and every component refuses to run without it:
 
 - `public.vote_convention`: **at most one row**, `(version, agree_value)`.
@@ -26,7 +26,7 @@ next to the data, and every component refuses to run without it:
   `operation` that wrote it and, for an operation file, its ledger checksum
   (trigger; append-only: UPDATE, DELETE and TRUNCATE refuse with P0781).
 - `public.schema_migrations`: the migration ledger (see
-  [migrations.md](migrations.md#the-migration-ledger-schema_migrations-from-000023-on)).
+  [migrations.md](migrations.md#the-migration-ledger-schema_migrations-from-000025-on)).
 
 **What refuses without the row.** The server (`server/index.ts`), the import
 worker, the math poller (`delphi/scripts/math_poller.py`), the Delphi job
@@ -56,7 +56,7 @@ that consults the row at version 0 computes exactly what it computes today.
 object by schema. `lock_timeout` on `vote_insert` is a function `SET` clause:
 the caller's own setting is restored when the function returns.
 
-Named SQLSTATEs: P0780 (000023 refuses: already applied, partial copy, or
+Named SQLSTATEs: P0780 (000025 refuses: already applied, partial copy, or
 PostgreSQL < 13), P0781, P0782, P0783, P0784 as above, P0790 (DELETE or
 TRUNCATE of the convention row), P0791 (`vote_insert` found no convention
 row; nothing is written), P0785–P0788 (the held un-flip), P0789 (the down file
@@ -93,14 +93,14 @@ instead of re-reading the row.
   on that table, which no role but the owner holds; so EXECUTE is the only
   write grant such a login needs, and it needs no INSERT on `votes`. Granting
   EXECUTE on `vote_insert` is therefore the same as granting INSERT on `votes`.
-- `polis_probe_reader` gets no direct grant from 000023:
+- `polis_probe_reader` gets no direct grant from 000025:
   `ci/probe_box/provision_login.py` refuses a reader holding a direct grant on
   any object outside its fixed table list. It reads the convention through
   PUBLIC EXECUTE on `vote_convention_current()`. Its table and view grants land
   together with the change to that allowlist.
 - The coordinator grants are made only when the roles exist and are recorded
-  in the ledger row's `note`. They are all on objects 000023 creates, so the
-  down file's DROPs remove exactly them. Run the 000023 down before the 000021
+  in the ledger row's `note`. They are all on objects 000025 creates, so the
+  down file's DROPs remove exactly them. Run the 000025 down before the 000021
   down: 000021's down refuses to drop a role that still holds a grant.
 - Views run with their owner's rights: SELECT on `votes_semantic` reads vote
   rows even without SELECT on `votes`. That is why no coordinator role gets
@@ -116,7 +116,7 @@ has no `%_vote_sign_unflip` row. First check the table exists:
 SELECT to_regclass('public.vote_convention') IS NOT NULL AS has_convention;
 ```
 
-`false`: the copy is older than 000023. Apply 000023, declare the sign (the
+`false`: the copy is older than 000025. Apply 000025, declare the sign (the
 copy holds votes, so the migration seeds nothing), then classify. `true`:
 
 <!-- restore-rule -->
@@ -147,9 +147,9 @@ declaration): **stop**.
 The rule knows these states only. Before anyone makes a second change
 (version 2), this rule (and the down file's guard) must be extended first.
 
-The `pre-ledger` rows for 000000–000022 are asserted by 000023, not observed:
-000023 cannot tell whether a copy that predates, say, 000021 really ran it.
-The ledger's evidence starts at 000023.
+The `pre-ledger` rows for 000000–000022 are asserted by 000025, not observed:
+000025 cannot tell whether a copy that predates, say, 000021 really ran it.
+The ledger's evidence starts at 000025.
 
 ## Production runbook (ruling R-A, 2026-10-05)
 
@@ -164,7 +164,7 @@ refuse to start until the row exists; the running images never read it).
    ```
    As the migration (owner) role, from inside the VPC, in one session:
    ```sh
-   psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f server/postgres/migrations/000023_vote_convention.sql
+   psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f server/postgres/migrations/000025_vote_convention.sql
    ```
    Production holds votes, so this prints `DECLARE_NEEDED` and writes no row.
 2. Declare the sign (one row, one transaction, no vote touched):
@@ -178,14 +178,14 @@ refuse to start until the row exists; the running images never read it).
    SELECT * FROM public.vote_convention;                 -- (true, 0, -1, ..., contract_version 1, 'vote_convention_declare', <checksum>)
    SELECT * FROM public.vote_convention_current();       -- (0, -1, 1)
    SELECT count(*) FROM public.vote_convention_history;  -- 1
-   SELECT name, checksum, note FROM public.schema_migrations ORDER BY name;  -- 22 pre-ledger + 000023
+   SELECT name, checksum, note FROM public.schema_migrations ORDER BY name;  -- 22 pre-ledger + 000025
    BEGIN;                                                -- a vote_insert dry run, rolled back
    SELECT * FROM public.vote_insert(<zid>, <pid>, <tid>, 1::smallint);   -- vote = -1, convention_version 0
    ROLLBACK;
    ```
    Then deploy the release.
 4. Rollback: stop the components that read the row, then
-   `psql -X -v ON_ERROR_STOP=1 -f server/postgres/migrations/down/000023_drop_vote_convention.sql`.
+   `psql -X -v ON_ERROR_STOP=1 -f server/postgres/migrations/down/000025_drop_vote_convention.sql`.
    It drops the objects and touches no vote; it refuses (P0789) once the
    convention has moved past (0, -1) or a later migration is in the ledger.
 
@@ -241,7 +241,7 @@ SELECT v.zid, v.pid, v.tid, v.vote, v.created,
  WHERE ...;
 ```
 
-At 000023 the probe starts finding the function, reads (0, -1) and computes
+At 000025 the probe starts finding the function, reads (0, -1) and computes
 the same values as before. (The per-cycle source still treats a database
 whose function is absent as version 0; the startup check above is what
 refuses such a database before the first cycle.) The math and Delphi logins read it through PUBLIC
@@ -306,12 +306,12 @@ the row present. It never flips data.
 
 ## Tests
 
-`server/postgres/migrations/down/test_000023_down.sh` runs
-`test_000023_down.py` against a disposable PostgreSQL 17 container of its own:
+`server/postgres/migrations/down/test_000025_down.sh` runs
+`test_000025_down.py` against a disposable PostgreSQL 17 container of its own:
 
 ```sh
 COMPOSE_PROJECT_NAME=p078a POLIS_RECOVERY_PG_PORT=5476 \
-  server/postgres/migrations/down/test_000023_down.sh
+  server/postgres/migrations/down/test_000025_down.sh
 ```
 
 It pins the seed rule (empty database only), the undeclared state, the declare

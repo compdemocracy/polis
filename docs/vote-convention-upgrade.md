@@ -1,4 +1,4 @@
-# Upgrading to the vote convention guard (migration 000023)
+# Upgrading to the vote convention guard (migration 000025)
 
 This page is for anyone who runs their own Polis: what changes when you take
 this release, what you will see, and the two commands that get you through it.
@@ -37,7 +37,7 @@ the row itself (version 0, agree -1).
 An **existing deployment** (a database that already holds votes) sees two
 things, in this order:
 
-1. The migration `000023_vote_convention.sql` creates the table and leaves it
+1. The migration `000025_vote_convention.sql` creates the table and leaves it
    **empty**, printing:
 
    ```
@@ -62,7 +62,7 @@ If you start the new containers before applying the migration at all, the
 message names that instead:
 
 ```
-Polis cannot start (server): this database has no vote_convention table, so it does not record which stored vote value means "agree". Migration 000023 has not been applied. Nothing has been changed. Next: back up the database, apply server/postgres/migrations/000023_vote_convention.sql (see docs/migrations.md), then, if the database already holds votes, run "make vote-convention-declare AGREE=-1". Guide: docs/vote-convention-upgrade.md#guard
+Polis cannot start (server): this database has no vote_convention table, so it does not record which stored vote value means "agree". Migration 000025 has not been applied. Nothing has been changed. Next: back up the database, apply server/postgres/migrations/000025_vote_convention.sql (see docs/migrations.md), then, if the database already holds votes, run "make vote-convention-declare AGREE=-1". Guide: docs/vote-convention-upgrade.md#guard
 ```
 
 ## The procedure
@@ -87,13 +87,13 @@ Back up the database (`pg_dump -Fc`, schema and data). Then apply the
 migration the way [migrations.md](migrations.md) describes, for example:
 
 ```sh
-docker exec -i polis-dev-postgres-1 psql -U postgres -d polis-dev -v ON_ERROR_STOP=1 < server/postgres/migrations/000023_vote_convention.sql
+docker exec -i polis-dev-postgres-1 psql -U postgres -d polis-dev -v ON_ERROR_STOP=1 < server/postgres/migrations/000025_vote_convention.sql
 ```
 
 or, outside Docker:
 
 ```sh
-psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f server/postgres/migrations/000023_vote_convention.sql
+psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f server/postgres/migrations/000025_vote_convention.sql
 ```
 
 Applying it twice is harmless: the second run refuses (`P0780`) and changes
@@ -179,7 +179,7 @@ classifies a restored copy.
 
 ## Reversal
 
-`server/postgres/migrations/down/000023_drop_vote_convention.sql` drops
+`server/postgres/migrations/down/000025_drop_vote_convention.sql` drops
 everything the migration created and touches no vote. It refuses once the
 convention has moved past version 0 / agree -1, when a later migration is in
 the ledger, or on a partial copy (`P0789`). Stop the new containers first; the

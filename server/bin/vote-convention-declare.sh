@@ -11,7 +11,7 @@
 #   make vote-convention-status).
 # It runs server/postgres/operations/vote_convention_declare.sql once, in one
 # transaction; the operation refuses (and changes nothing) when migration
-# 000023 is not applied, when the database already declares a convention, or
+# 000025 is not applied, when the database already declares a convention, or
 # when AGREE is not -1 or +1. docs/vote-convention-upgrade.md explains the
 # upgrade an operator sees.
 set -euo pipefail
@@ -42,7 +42,7 @@ status() {
   local present row
   present="$(run_psql -At -c "SELECT to_regclass('public.vote_convention') IS NOT NULL" </dev/null)"
   if [ "$present" != "t" ]; then
-    echo "GUARD_NEEDED: this database has no vote_convention table (migration 000023 is not applied). Next: apply server/postgres/migrations/000023_vote_convention.sql, then \"make vote-convention-declare AGREE=-1\" if the database already holds votes. Guide: $GUIDE#guard"
+    echo "GUARD_NEEDED: this database has no vote_convention table (migration 000025 is not applied). Next: apply server/postgres/migrations/000025_vote_convention.sql, then \"make vote-convention-declare AGREE=-1\" if the database already holds votes. Guide: $GUIDE#guard"
     return 1
   fi
   row="$(run_psql -At -c "SELECT c.version || '|' || c.agree_value || '|' || c.contract_version || '|' || c.operation || '|' || c.changed_by || '|' || c.reason FROM public.vote_convention c WHERE c.singleton" </dev/null)"

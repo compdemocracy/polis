@@ -35,7 +35,7 @@ fn no_table_names_the_migration_the_declare_command_and_the_guide() {
     assert_eq!(err.token(), "vote_convention_not_installed");
     let m = err.message();
     assert!(m.starts_with("Polis cannot start (coordinator):"));
-    assert!(m.contains("000023_vote_convention.sql"));
+    assert!(m.contains("000025_vote_convention.sql"));
     assert!(m.contains(&declare_command(built_for())));
     assert!(m.contains("Nothing has been changed"));
     assert!(m.contains(&format!("{GUIDE}#guard")));

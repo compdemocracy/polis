@@ -553,7 +553,7 @@ async function main() {
   if (command === "seed") {
     if (new URL(process.env.DATABASE_URL).pathname !== "/p027")
       throw Error("seed only accepts disposable p027 database");
-    // The vote convention row, its history and the migration ledger (000023)
+    // The vote convention row, its history and the migration ledger (000025)
     // are not application data and refuse TRUNCATE; they stay as seeded.
     const permanent = new Set([
       "vote_convention",

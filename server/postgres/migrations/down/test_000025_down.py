@@ -1,7 +1,7 @@
-"""000023 (vote convention) controls on a real PostgreSQL 17; only the wrapper's own container.
+"""000025 (vote convention) controls on a real PostgreSQL 17; only the wrapper's own container.
 
 No DATABASE_URL is accepted. Every case runs in a disposable database cloned
-from the full pre-000023 migration chain. All rows written are generated
+from the full pre-000025 migration chain. All rows written are generated
 fixtures (zid 990001 and up); no application data exists in the container.
 
 What is pinned here (P-078, ruling R-A):
@@ -36,13 +36,13 @@ if not re.fullmatch(r"[0-9a-f]{64}|p078a(-[a-z0-9-]+)?-postgres-1", CONTAINER):
     raise SystemExit("wrapper-owned container required")
 ROOT = Path(__file__).resolve().parent.parent
 REPO = ROOT.parent.parent.parent
-UP = ROOT / "000023_vote_convention.sql"
-DOWN = ROOT / "down/000023_drop_vote_convention.sql"
+UP = ROOT / "000025_vote_convention.sql"
+DOWN = ROOT / "down/000025_drop_vote_convention.sql"
 DECLARE = REPO / "server/postgres/operations/vote_convention_declare.sql"
 DECLARE_SH = REPO / "server/bin/vote-convention-declare.sh"
 CHECKER = REPO / "server/postgres/check_ledger_checksums.py"
 DOCS = REPO / "docs/vote-convention.md"
-NAME = "000023_vote_convention"
+NAME = "000025_vote_convention"
 MARKER = b"-- ledger-self-checksum"
 LOGINS = ("vc_exec_only", "vc_writer")
 RESULTS: list = []
@@ -165,7 +165,7 @@ def declare_sh(db, *args, ok=True):
 
 
 def hold_votes(db, zid=990000):
-    """Make the database one that holds votes (a raw row, as every writer before 000023 wrote)."""
+    """Make the database one that holds votes (a raw row, as every writer before 000025 wrote)."""
     sql(db, f"INSERT INTO votes (zid, pid, tid, vote) VALUES ({zid}, 1, 1, -1);")
 
 
@@ -261,7 +261,7 @@ def main():
         fails(db, UP.read_text(), "P0780")
         assert dump(db) == first, "a refused re-apply changed the catalog"
         down(db)
-        assert dump(db) == baseline, "down did not restore the pre-000023 catalog"
+        assert dump(db) == baseline, "down did not restore the pre-000025 catalog"
         (WORK / "post-down.sql").write_text(dump(db))
         down(db)
         assert dump(db) == baseline, "a second down changed the catalog"
@@ -550,7 +550,7 @@ def main():
     case("flip under a waiting writer: vote_insert blocks on FOR SHARE, then writes +1 under version 1; no vote double-flipped", writer_across_flip)
 
     # 5c. Restore detection with the real held un-flip migration, when it is in the tree (or HELD_UNFLIP_SQL names it).
-    held = Path(os.environ.get("HELD_UNFLIP_SQL") or ROOT / "held/000024_vote_sign_unflip.sql")
+    held = Path(os.environ.get("HELD_UNFLIP_SQL") or ROOT / "held/000026_vote_sign_unflip.sql")
 
     def real_unflip(db):
         if not held.is_file():
@@ -676,11 +676,11 @@ def main():
         eq(val(db, restore_sql), "undeclared", "a database that held votes: declare it")
         declare(db, "-1")
         eq(val(db, restore_sql), "pre-flip", "declared -1")
-        sql(db, "INSERT INTO public.schema_migrations (name, checksum) VALUES ('000024_vote_sign_unflip', repeat('a', 64));")
+        sql(db, "INSERT INTO public.schema_migrations (name, checksum) VALUES ('000026_vote_sign_unflip', repeat('a', 64));")
         eq(val(db, restore_sql), "corrupt", "the un-flip row at version 0")
         flip(db)
         eq(val(db, restore_sql), "post-flip", "flip and row")
-        sql(db, "DELETE FROM public.schema_migrations WHERE name = '000024_vote_sign_unflip';")
+        sql(db, "DELETE FROM public.schema_migrations WHERE name = '000026_vote_sign_unflip';")
         eq(val(db, restore_sql), "corrupt", "version 1 without the row, not a declaration")
         sql(db, "ALTER TABLE public.vote_convention DISABLE TRIGGER USER; DELETE FROM public.vote_convention; ALTER TABLE public.vote_convention ENABLE TRIGGER USER;")
         eq(val(db, restore_sql), "undeclared", "no row at all: the components refuse until it is declared")
@@ -705,9 +705,9 @@ def main():
 
     def down_later(db):
         apply(db)
-        sql(db, "INSERT INTO public.schema_migrations (name, checksum) VALUES ('000025_something_later', repeat('b', 64));")
+        sql(db, "INSERT INTO public.schema_migrations (name, checksum) VALUES ('000027_something_later', repeat('b', 64));")
         fails(db, DOWN.read_text(), "P0789")
-        sql(db, "DELETE FROM public.schema_migrations WHERE name = '000025_something_later';")
+        sql(db, "DELETE FROM public.schema_migrations WHERE name = '000027_something_later';")
         sql(db, "DROP VIEW public.votes_semantic;")
         fails(db, DOWN.read_text(), "P0789")   # a partial copy
     case("down refuses P0789 with a later ledger row, and on a partial copy", down_later)
@@ -753,7 +753,7 @@ def main():
                 assert val(name, "SELECT count(*) FROM public.schema_migrations;") == str(len(everything))
                 if how == "file":
                     # run-migrations.sh replays the directory without ON_ERROR_STOP (the CI path):
-                    # 000023 refuses and rolls back; the convention and ledger are unchanged.
+                    # 000025 refuses and rolls back; the convention and ledger are unchanged.
                     before = val(name, "SELECT row_to_json(c)::text FROM public.vote_convention c;") + \
                         val(name, "SELECT string_agg(name || checksum, ',' ORDER BY name) FROM public.schema_migrations;")
                     p = sql(name, UP.read_text(), ok=False, stop=False)
@@ -763,7 +763,7 @@ def main():
                     assert before == after
             finally:
                 sql("postgres", f"DROP DATABASE {name} WITH (FORCE);")
-    case("chain: 000000..000022 then 000023 on an empty database (psql -f and one driver call) seeds v0; on a database "
+    case("chain: 000000..000022 then 000025 on an empty database (psql -f and one driver call) seeds v0; on a database "
          "holding votes it leaves the row for the declaration; replay without ON_ERROR_STOP is harmless", chain)
 
     for login in LOGINS:
@@ -774,10 +774,10 @@ def main():
 
     summary = {"schema": "polis-vote-convention-migration-test/2", "passed": len(RESULTS) - len(FAILURES) - len(SKIPPED),
                "failed": len(FAILURES), "failures": FAILURES, "skipped": len(SKIPPED), "skip_reasons": SKIPPED, "cases": RESULTS,
-               "migration_count_before_000023": len(migrations),
+               "migration_count_before_000025": len(migrations),
                "source_sha256": {str(p.relative_to(REPO)): hashlib.sha256(p.read_bytes()).hexdigest()
-                                 for p in [UP, DOWN, DECLARE, DECLARE_SH, CHECKER, Path(__file__), ROOT / "down/test_000023_down.sh",
-                                           ROOT / "down/test_000023.compose.yml"]},
+                                 for p in [UP, DOWN, DECLARE, DECLARE_SH, CHECKER, Path(__file__), ROOT / "down/test_000025_down.sh",
+                                           ROOT / "down/test_000025.compose.yml"]},
                "ledger_checksum": ledger_checksum(UP.read_bytes()),
                "declare_checksum": declare_checksum,
                "baseline_sha256": hashlib.sha256(baseline.encode()).hexdigest()}

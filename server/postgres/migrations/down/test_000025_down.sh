@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# 000023 (vote convention) up/down/up and behaviour tests on a disposable
+# 000025 (vote convention) up/down/up and behaviour tests on a disposable
 # PostgreSQL 17 of its own. No target connection string is accepted.
 #   COMPOSE_PROJECT_NAME=p078a-local POLIS_RECOVERY_PG_PORT=5476 \
-#     server/postgres/migrations/down/test_000023_down.sh
+#     server/postgres/migrations/down/test_000025_down.sh
 set -euo pipefail
 : "${COMPOSE_PROJECT_NAME:?set a unique project name}"
 : "${POLIS_RECOVERY_PG_PORT:?set a unique port}"
 case "$COMPOSE_PROJECT_NAME" in p078a|p078a-*) ;; *) echo 'project must be p078a or start p078a-' >&2; exit 2;; esac
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORK="${VOTE_CONVENTION_DOWN_EVIDENCE_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/000023-down.XXXXXX")}"
+WORK="${VOTE_CONVENTION_DOWN_EVIDENCE_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/000025-down.XXXXXX")}"
 mkdir -p "$WORK"
-COMPOSE=(docker compose -f "$HERE/test_000023.compose.yml")
+COMPOSE=(docker compose -f "$HERE/test_000025.compose.yml")
 # Refuse an existing project rather than adopting or removing its resources.
 if [ -n "$(docker ps -aq --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME")" ] ||
    [ -n "$(docker network ls -q --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME")" ] ||
@@ -31,4 +31,4 @@ cleanup() {
 trap cleanup EXIT
 "${COMPOSE[@]}" up -d --wait > "$WORK/startup.log" 2>&1
 CONTAINER="$("${COMPOSE[@]}" ps -q postgres)"
-python3 -B "$HERE/test_000023_down.py" "$CONTAINER" "$WORK"
+python3 -B "$HERE/test_000025_down.py" "$CONTAINER" "$WORK"

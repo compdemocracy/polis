@@ -77,11 +77,11 @@ class SignLintPatterns(unittest.TestCase):
         self.assertFalse(sign_lint.in_scope("server/src/votes/convention.ts"))
         self.assertFalse(sign_lint.in_scope("ci/vote_convention/provision.py"))
         # The database's own declaration and the test that pins it (PR-A).
-        self.assertFalse(sign_lint.in_scope("server/postgres/migrations/000023_vote_convention.sql"))
-        self.assertFalse(sign_lint.in_scope("server/postgres/migrations/down/000023_drop_vote_convention.sql"))
+        self.assertFalse(sign_lint.in_scope("server/postgres/migrations/000025_vote_convention.sql"))
+        self.assertFalse(sign_lint.in_scope("server/postgres/migrations/down/000025_drop_vote_convention.sql"))
         self.assertFalse(sign_lint.in_scope("server/postgres/operations/vote_convention_declare.sql"))
         self.assertFalse(sign_lint.in_scope("server/bin/vote-convention-declare.sh"))
-        self.assertFalse(sign_lint.in_scope("server/postgres/migrations/down/test_000023_down.py"))
+        self.assertFalse(sign_lint.in_scope("server/postgres/migrations/down/test_000025_down.py"))
         # Every other migration, and the startup checks that read the row, stay in scope.
         self.assertTrue(sign_lint.in_scope("server/postgres/migrations/000006_update_votes_rule.sql"))
         self.assertTrue(sign_lint.in_scope("server/src/votes/dbConvention.ts"))

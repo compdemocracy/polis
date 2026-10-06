@@ -1,4 +1,4 @@
--- 000023_vote_convention.sql: the vote storage convention lives in the database.
+-- 000025_vote_convention.sql: the vote storage convention lives in the database.
 --
 -- SCHEMA CHANGE. NO DATA CHANGE: no existing row is read for
 -- writing, updated or deleted. No vote value changes.
@@ -57,7 +57,7 @@
 -- the sha256 of the file's bytes with exactly one line removed: the line that
 -- carries the ledger marker comment (the INSERT at the end of this file).
 -- Recompute it with
---   grep -v -e '-- ledger-self''-checksum' 000023_vote_convention.sql | shasum -a 256
+--   grep -v -e '-- ledger-self''-checksum' 000025_vote_convention.sql | shasum -a 256
 -- (the quote pair keeps this comment line from matching; the shell joins it).
 --
 -- Restore detection (runbook): a restored copy is pre-flip iff
@@ -72,14 +72,14 @@
 -- server/bin/run-migrations.sh (both seed version 0, the database being
 -- empty); an existing database by the operator, by hand, as the migration
 -- (owner) role, in one session, followed by the declaration:
---   psql -X -v ON_ERROR_STOP=1 -f server/postgres/migrations/000023_vote_convention.sql
+--   psql -X -v ON_ERROR_STOP=1 -f server/postgres/migrations/000025_vote_convention.sql
 --   make vote-convention-declare AGREE=-1
 -- The file carries its own BEGIN/COMMIT; it also works as one driver call
 -- (the test harnesses and the probe-box rehearsal). No CONCURRENTLY, no
 -- superuser, no extension. Requires PostgreSQL >= 13; production is 17.
 -- A second application refuses (P0780) and changes nothing.
 --
--- Reversal: down/000023_drop_vote_convention.sql. Test: down/test_000023_down.sh.
+-- Reversal: down/000025_drop_vote_convention.sql. Test: down/test_000025_down.sh.
 
 BEGIN;
 SET LOCAL lock_timeout = '5s';
@@ -87,7 +87,7 @@ SET LOCAL lock_timeout = '5s';
 DO $pre$
 BEGIN
   IF current_setting('server_version_num')::integer < 130000 THEN
-    RAISE EXCEPTION '000023: refusing: PostgreSQL 13 or newer is required' USING ERRCODE = 'P0780';
+    RAISE EXCEPTION '000025: refusing: PostgreSQL 13 or newer is required' USING ERRCODE = 'P0780';
   END IF;
   IF to_regclass('public.vote_convention') IS NOT NULL
      OR to_regclass('public.vote_convention_history') IS NOT NULL
@@ -99,7 +99,7 @@ BEGIN
                    AND p.proname IN ('vote_convention_current', 'vote_semantic', 'vote_storage', 'vote_insert',
                                      'vote_convention_record_history', 'vote_convention_history_immutable',
                                      'vote_convention_monotonic', 'vote_convention_permanent')) THEN
-    RAISE EXCEPTION '000023: refusing: the vote convention objects or the ledger already exist; nothing changed'
+    RAISE EXCEPTION '000025: refusing: the vote convention objects or the ledger already exist; nothing changed'
       USING ERRCODE = 'P0780',
             HINT = 'Already applied, or a partial copy. Inspect: SELECT * FROM public.vote_convention_current(); SELECT * FROM public.schema_migrations ORDER BY name;';
   END IF;
@@ -124,7 +124,7 @@ CREATE TABLE public.vote_convention (
   operation_checksum text      CHECK (operation_checksum IS NULL OR length(operation_checksum) = 64)
 );
 COMMENT ON TABLE public.vote_convention IS
-  'The storage sign of votes.vote and votes_latest_unique.vote: at most one row. agree_value is the raw value that means AGREE; disagree is -agree_value; pass is 0. Written by migration 000023 on an empty database or by the operator''s declaration; changed in place by the flip tool only. Every component refuses to start without it.';
+  'The storage sign of votes.vote and votes_latest_unique.vote: at most one row. agree_value is the raw value that means AGREE; disagree is -agree_value; pass is 0. Written by migration 000025 on an empty database or by the operator''s declaration; changed in place by the flip tool only. Every component refuses to start without it.';
 
 -- 1.2 Append-only history.
 CREATE TABLE public.vote_convention_history (
@@ -249,7 +249,7 @@ CREATE TABLE public.schema_migrations (
   note        text        NOT NULL DEFAULT ''
 );
 COMMENT ON TABLE public.schema_migrations IS
-  'One row per applied migration file from 000023 on (sha256 of the file without its ledger line). Rows for earlier files are backfilled as pre-ledger. A restored copy whose rows stop early is older than its missing migrations.';
+  'One row per applied migration file from 000025 on (sha256 of the file without its ledger line). Rows for earlier files are backfilled as pre-ledger. A restored copy whose rows stop early is older than its missing migrations.';
 -- Backfill: every top-level migration file on edge before this one, assumed
 -- applied. (There is no 000020.)
 INSERT INTO public.schema_migrations (name, checksum, note)
@@ -440,5 +440,5 @@ $grants$;
 
 -- The ledger row for this file, as its last statement (the checksum is the
 -- sha256 of this file without the next line).
-INSERT INTO public.schema_migrations (name, checksum, note) VALUES ('000023_vote_convention', '4be1197e0fa037beffb407b125dffcf318afdb8075cf1196626b4cee114b6043', 'vote storage convention; grants: ' || current_setting('polis.vote_convention_grants')); -- ledger-self-checksum
+INSERT INTO public.schema_migrations (name, checksum, note) VALUES ('000025_vote_convention', '7619d9e00f8cb23c46a2aa446477b7db08737dfa84fcbb348ae046fa4dc86ae0', 'vote storage convention; grants: ' || current_setting('polis.vote_convention_grants')); -- ledger-self-checksum
 COMMIT;
