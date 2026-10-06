@@ -266,9 +266,10 @@ def request_key(env: str, scope: str, staged_label: str, target_label: str,
     """The stable identity of one intent (P-084): the same unresolved demand
     asked again is the same binding row, not a new row per ask; a newer input
     watermark is a new intent. ``basis`` is the job the poller already knows
-    for the conversation (empty for none), or ``after:<job>`` for the one
-    re-ask after a terminal job's scope was released: so a fresh job gets a
-    fresh key while every routine re-ask of a known job reuses one row."""
+    for the conversation (empty for none), or ``after:<job>`` /
+    ``after-release:<job>`` for the re-ask that follows a finished job (the
+    second when that ask released its guard): so a fresh job gets a fresh key
+    while every routine re-ask of a known job reuses one row."""
     return sha256_hex(canonical_bytes([env, scope, staged_label, target_label,
                                        input_through_ms, basis]))
 
@@ -562,14 +563,19 @@ class QueueClient:
             # asked again under a key bound to that job (P-084), so the guard
             # decides: a fresh job, the active one, or the same unproven one.
             hops += 1
-            if self.release_scope(target_label, zid):
+            released = self.release_scope(target_label, zid)
+            if released:
                 logger.info("capacity: zid=%s released the scope of %s job %s; asking again",
                             zid, reply["state"], str(reply["job_id"])[:8])
             previous = str(reply["job_id"])
+            # The re-ask's key says whether this ask released the guard, so a
+            # binding made while the guard still held the job (exit unproven)
+            # never answers the ask that follows its release.
             outcome, reply = self._admit(zid, config=config, staged_label=staged_label,
                                          target_label=target_label, priority=policy.lane,
                                          max_attempts=policy.max_attempts,
-                                         basis="after:" + previous)
+                                         basis=("after-release:" if released else "after:")
+                                         + previous)
             if str(reply["job_id"]) == previous:
                 logger.warning("capacity: zid=%s %s job %s still holds its scope (exit "
                                "unproven or provider work open); left to the daemon",
