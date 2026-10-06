@@ -532,6 +532,14 @@ class MathPollerService:
         if queue is None:
             logger.error("capacity: routing is on without MATH_CAPACITY_QUEUE_DSN; routed "
                          "conversations are not enqueued")
+        else:
+            from polismath.poller.readiness import COMMIT_ENV, identity
+
+            if identity()["source_commit"] is None:
+                # The admission carries this poller's commit and the child
+                # refuses any other or none: nothing is enqueued without it.
+                logger.error("capacity: routing is on without %s; routed conversations are "
+                             "not enqueued (the queue child would refuse them)", COMMIT_ENV)
         return queue
 
     def _build_capacity_loop(self):

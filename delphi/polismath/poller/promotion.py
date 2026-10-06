@@ -19,13 +19,20 @@ logged by class and the next step still runs.
    and this poller's label's bundle are fingerprinted (no payload read). A
    complete staged bundle newer than the target is promoted when
    ``MATH_CAPACITY_PROMOTE=1`` (``PostgresClient.promote_bundle``: one
-   transaction, compare-and-set, payloads stay in Postgres). A staged bundle
-   that covers the record's newest input is ``pending_promotion`` while it is
-   newer than the target, and resolves the record once the target carries it.
-   A record whose staged bundle is missing, incomplete or behind its input
-   is enqueued as a ``math_rebuild`` job of class ``large``
+   transaction, compare-and-set, payloads stay in Postgres) and only on the
+   receipt of the job that produced it: the record's job is ``succeeded`` and
+   finalized, and its manifest names the staged bundle's label, tick and
+   newest vote (``QueueClient.receipt``). A bundle the child committed before
+   the daemon finalized the attempt, or whose job failed, has no receipt and
+   is not served; without a queue nothing is promoted. A staged bundle that
+   covers the record's newest input is ``pending_promotion`` while it is newer
+   than the target, and resolves the record once the target carries it. A
+   record whose staged bundle is missing, incomplete or behind its input is
+   enqueued as a ``math_rebuild`` job of class ``large``
    (``polismath.poller.capacity_queue``; idempotent under the queue's
    one-active-job-per-scope guard, so an active job is simply found again).
+   A record the queue refused as poisoned is parked (not asked again under
+   this source commit) and counted as ``large_poisoned``.
 
 The queue rows are the truth of the hand-off; the records here are a cache
 of sizes and marks. Nothing is restored from the queue at start: a routed
@@ -133,7 +140,8 @@ class SmallCapacityLoop:
                 logger.info("capacity: zid=%s no longer routed; staged bundle not promoted",
                             rec.zid)
                 continue
-            if usable and self.settings.promote and staged_newer(staged, target):
+            if (usable and self.settings.promote and staged_newer(staged, target)
+                    and self._receipt_binds(rec, staged)):
                 try:
                     pg.promote_bundle(rec.zid, from_env=staged_label, to_env=own,
                                       expected_target=target, expected_staged=staged)
@@ -152,11 +160,42 @@ class SmallCapacityLoop:
             self._router.settle(rec.zid, waiting=bool(covers and newer),
                                 resolved=bool(covers and not newer and target is not None),
                                 through_ms=rec.input_through_ms)
-            if not covers and asked < MAX_ENQUEUE_PER_TICK:
+            if (not covers and asked < MAX_ENQUEUE_PER_TICK
+                    and not self._router.poisoned(rec.zid, self._source_commit)):
                 # Nothing staged for its newest input: ask the queue (an
-                # active job for the scope is found, not duplicated).
+                # active job for the scope is found, not duplicated). A
+                # poisoned record waits for a new deploy or a ruling.
                 asked += 1
                 self._enqueue(rec.zid)
+
+    def _receipt_binds(self, rec: Any, staged: Any) -> bool:
+        """Finding 4: a staged bundle is served only on the receipt of the job
+        that produced it. Contained: a queue failure is no receipt."""
+        if self._queue is None:
+            logger.info("capacity: zid=%s staged bundle not promoted: no queue, so no receipt",
+                        rec.zid)
+            return False
+        if rec.job_id is None:
+            logger.info("capacity: zid=%s staged bundle not promoted: no job known for it",
+                        rec.zid)
+            return False
+        try:
+            receipt = self._queue.receipt(rec.job_id)
+        except Exception as exc:  # noqa: BLE001 - retried next pass
+            logger.error("capacity: receipt of zid=%s job %s unavailable (%s)", rec.zid,
+                         rec.job_id[:8], exc.__class__.__name__)
+            return False
+        if receipt.binds(staged, self.settings.staged_label):
+            return True
+        if not receipt.finalized:
+            logger.info("capacity: zid=%s staged bundle not promoted: job %s is %s, not "
+                        "finalized", rec.zid, rec.job_id[:8], receipt.state)
+        else:
+            logger.warning("capacity: zid=%s staged bundle not promoted: job %s finalized "
+                           "tick=%s newest_vote=%s under %s, staged is tick=%s newest_vote=%s",
+                           rec.zid, rec.job_id[:8], receipt.math_tick, receipt.vote_hwm,
+                           receipt.math_env, staged.math_tick, staged.lvt)
+        return False
 
     def _enqueue(self, zid: int) -> Optional[str]:
         """Contained: a queue failure never stops the pass."""

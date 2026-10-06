@@ -86,6 +86,7 @@ export const COUNT_KEYS = [
   "routing",
   "large_demand",
   "large_leased",
+  "large_poisoned",
   "pending_promotion",
   "exceeds_largest",
   "fits_small",

@@ -76,8 +76,33 @@ class FakePg:
         return tick
 
 
+class ReceiptQueue:
+    """A queue whose every job is finalized naming whatever is staged for its
+    conversation (the receipt gate is exercised in test_capacity_queue.py;
+    here it always agrees, so the promotion mechanics can be tested alone).
+    Job ids are ``job-<zid>``."""
+
+    def __init__(self, pg):
+        self.pg = pg
+        self.calls = []
+
+    def enqueue_math_rebuild(self, zid, *, config, staged_label, target_label):
+        self.calls.append(zid)
+        return "enqueued", f"job-{zid}"
+
+    def receipt(self, job_id):
+        from polismath.poller.capacity_queue import Receipt
+
+        zid = int(job_id.split("-", 1)[1])
+        fp = self.pg.fps.get((zid, STAGED))
+        return Receipt(job_id=job_id, state="succeeded", output_sha256="0" * 64,
+                       math_env=STAGED, math_tick=getattr(fp, "math_tick", None),
+                       vote_hwm=getattr(fp, "lvt", None))
+
+
 def make(tmp_path=None, *, clock=None, sizes_by_zid=None, adm=None, **kw):
-    """A loop without a queue (the queue side is test_capacity_queue.py)."""
+    """A loop with a queue that finalizes every job it is asked for (the
+    real contract is test_capacity_queue.py and the Postgres tests)."""
     clock = clock or Clock()
     adm = adm or MemoryAdmission(1000 * MB, MODEL, headroom=0.0, base_bytes=100 * MB)
     s = settings(**kw)
@@ -87,15 +112,18 @@ def make(tmp_path=None, *, clock=None, sizes_by_zid=None, adm=None, **kw):
     svc.config = PollerConfig(math_env=SMALL_LABEL)
     svc._pg = pg
     svc._pool = None
-    loop = SmallCapacityLoop(svc, router, s, queue=None, source_commit="a" * 40,
+    queue = ReceiptQueue(pg)
+    loop = SmallCapacityLoop(svc, router, s, queue=queue, source_commit="a" * 40,
                              run="0123456789ab", clock_ms=clock,
                              sizes_fn=lambda pg_, zid: (sizes_by_zid or {})[zid])
-    return loop, router, pg, svc, None, clock
+    return loop, router, pg, svc, queue, clock
 
 
 def route(router, zid, need_mb=850, input_ms=T0):
     assert router.observe(zid, sizes=sizes(need_mb), input_ms=input_ms) in (LARGE,
                                                                             EXCEEDS_LARGEST)
+    # The job the record's staged bundle will be received under.
+    router.set_job(zid, f"job-{zid}")
 
 
 # --------------------------------------------------------------------------- #
@@ -206,12 +234,23 @@ class TestRouterHandOff:
 # The loop
 # --------------------------------------------------------------------------- #
 class TestWithoutAQueue:
-    def test_without_a_queue_the_loop_still_promotes(self):
+    def test_without_a_queue_nothing_is_promoted(self):
+        """Finding 4: a staged bundle is served only on its job's receipt,
+        and without a queue there is none."""
         loop, router, pg, *_ = make()
+        loop._queue = None
         route(router, 7)
         pg.fps[(7, STAGED)] = Fingerprint(1, T0, T0 + 5)
         loop.tick()
-        assert pg.promoted == [7]
+        assert pg.promoted == [] and router.counts()["pending_promotion"] == 1
+
+    def test_a_record_without_a_job_is_not_promoted(self):
+        loop, router, pg, *_ = make()
+        route(router, 7)
+        router.set_job(7, None)
+        pg.fps[(7, STAGED)] = Fingerprint(1, T0, T0 + 5)
+        loop.tick()
+        assert pg.promoted == []
 
 
 class TestPromotionPass:

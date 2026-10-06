@@ -7,11 +7,16 @@ the environment, the frame at ``DELPHI_FRAME``, the output manifest at
 ``DELPHI_OUTPUT_MANIFEST``). The child:
 
 * binds to the frame: the stage is ``math_rebuild``; the frame's zid is the
-  one conversation it computes; the frame's ``inputs.math_env`` (the staged
-  label the small poller named) must equal this process's ``MATH_ENV``; a
-  frame whose ``config.source_commit`` differs from this checkout's is
+  one conversation it computes; the frame's ``config`` is the typed math
+  config the daemon carried whole from the admission (``MathConfig``: exactly
+  ``staged_label``, ``target_label``, ``need_bytes``, ``input_through_ms``,
+  ``binding``, ``source_commit``, each of its type), and every key is checked
+  before anything runs: ``staged_label`` and ``inputs.math_env`` must equal
+  this process's ``MATH_ENV``; ``target_label`` is never written here; a
+  ``source_commit`` that differs from this checkout's (or is missing) is
   refused (exit 2, the version-skew guard: the attempt fails and the job
-  waits for the deploy);
+  waits for the deploy); ``need_bytes`` above this worker's capacity is a
+  failed attempt (exit 1);
 * refuses (exit 2, before any connection) a label that is served (``prod``,
   ``python``), empty, or the small poller's target label; the small poller's
   settings (routing, promotion, the restage nonce, the backfill) in its
@@ -42,7 +47,9 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
+from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional, Tuple
 
 from polismath.job_child import (
@@ -77,6 +84,60 @@ SERVED_LABELS = frozenset({"prod", "python"})
 
 class ChildRefused(ValueError):
     """The child must not run: a label, setting or frame it cannot accept."""
+
+
+MATH_CONFIG_KEYS = ("staged_label", "target_label", "need_bytes", "input_through_ms", "binding",
+                    "source_commit")
+_LABEL = re.compile(r"[A-Za-z0-9_.-]{1,64}")
+_COMMIT = re.compile(r"[0-9a-f]{7,64}")
+
+
+@dataclass(frozen=True)
+class MathConfig:
+    """The typed math config of a rebuild's frame (queue-rs ``child.rs``
+    ``MathConfig``): what the small poller admitted the job with."""
+
+    staged_label: str
+    target_label: str
+    need_bytes: int
+    input_through_ms: Optional[int]
+    binding: str
+    source_commit: str
+
+
+def check_math_config(frame_config: Any, *, label: str, input_label: Any) -> MathConfig:
+    """Every key of the typed config, present and of its type; the staged
+    label is this process's label and the frame's input label. Raises
+    ChildRefused before anything runs."""
+    if not isinstance(frame_config, dict) or set(frame_config) != set(MATH_CONFIG_KEYS):
+        raise ChildRefused("frame config is not the typed math config "
+                           f"(keys {sorted(MATH_CONFIG_KEYS)})")
+    staged, target = frame_config["staged_label"], frame_config["target_label"]
+    for name, value in (("staged_label", staged), ("target_label", target)):
+        if not isinstance(value, str) or _LABEL.fullmatch(value) is None:
+            raise ChildRefused(f"frame config {name} is not a label")
+    if staged == target:
+        raise ChildRefused("frame config staged_label equals target_label")
+    if staged != label:
+        raise ChildRefused(f"frame config staged_label {staged!r} is not this process's "
+                           f"MATH_ENV {label!r}")
+    if input_label != label:
+        raise ChildRefused(f"frame inputs.math_env {input_label!r} is not this process's "
+                           f"MATH_ENV {label!r}")
+    need = frame_config["need_bytes"]
+    if type(need) is not int or need <= 0:
+        raise ChildRefused("frame config need_bytes is not a positive integer")
+    through = frame_config["input_through_ms"]
+    if through is not None and (type(through) is not int or through < 0):
+        raise ChildRefused("frame config input_through_ms is not an integer or null")
+    binding = frame_config["binding"]
+    if not isinstance(binding, str) or not binding or len(binding) > 128:
+        raise ChildRefused("frame config binding is not a non-empty string")
+    commit = frame_config["source_commit"]
+    if not isinstance(commit, str) or _COMMIT.fullmatch(commit) is None:
+        raise ChildRefused("frame config source_commit is not a commit")
+    return MathConfig(staged_label=staged, target_label=target, need_bytes=need,
+                      input_through_ms=through, binding=binding, source_commit=commit)
 
 
 def _say(message: str) -> None:
@@ -117,16 +178,16 @@ def check_large_budget(settings: CapacitySettings, admission: Any) -> None:
 
 def check_skew(frame_config: Mapping[str, Any], source_commit: Optional[str]) -> None:
     """The version-skew guard: a frame admitted by a small poller on another
-    source commit is refused (a set and an unset commit are skew too). A
-    frame without the key is admitted: the daemon forwards a closed set of
-    config keys, and the row's code_version is its own guard."""
-    if "source_commit" not in frame_config:
-        logger.warning("frame carries no source_commit; skew is not checked here")
-        return
+    source commit is refused, and so is one without a commit (the daemon
+    carries the typed config whole, so a missing key is a broken frame, not
+    an older daemon): a set and an unset commit are skew too."""
     theirs = frame_config.get("source_commit")
+    if not isinstance(theirs, str) or not theirs:
+        raise ChildRefused("the frame carries no source_commit; refusing to compute under an "
+                           "unchecked version")
     if theirs != source_commit:
         raise ChildRefused(
-            f"version skew: the job was admitted at {(theirs or 'unknown')[:12]}, this worker "
+            f"version skew: the job was admitted at {theirs[:12]}, this worker "
             f"runs {(source_commit or 'unknown')[:12]}; waiting for the deploy")
 
 
@@ -155,14 +216,14 @@ def run(job_arg: Optional[str], *, label: str, environ: Optional[Mapping[str, st
     except JobEnvError as exc:
         _say(f"refused: {exc}")
         return EXIT_JOB_ENV_INVALID
-    frame_config = ctx.frame.get("config")
-    if not isinstance(frame_config, dict):
-        frame_config = {}
+    inputs = ctx.frame.get("inputs")
     try:
-        check_skew(frame_config, source_commit)
-        target = frame_config.get("target_label")
-        check_child_label(label, served_env=served_env,
-                          target_label=target if isinstance(target, str) else None, env=environ)
+        config = check_math_config(ctx.frame.get("config"), label=label,
+                                   input_label=inputs.get("math_env")
+                                   if isinstance(inputs, dict) else None)
+        check_skew({"source_commit": config.source_commit}, source_commit)
+        check_child_label(label, served_env=served_env, target_label=config.target_label,
+                          env=environ)
         settings = settings if settings is not None else CapacitySettings.from_env(environ)
     except (ChildRefused, ValueError) as exc:
         _say(f"refused: {exc}")
@@ -173,12 +234,15 @@ def run(job_arg: Optional[str], *, label: str, environ: Optional[Mapping[str, st
     except ChildRefused as exc:
         _say(f"refused: {exc}")
         return EXIT_JOB_ENV_INVALID
-    need = frame_config.get("need_bytes")
+    need = config.need_bytes
     capacity = adm.compute_capacity_bytes()
-    if type(need) is int and capacity is not None and need > capacity:
+    if capacity is not None and need > capacity:
         _say(f"rebuild of zid={zid} does not fit: needs {need / MB:.0f} MiB above the base, "
              f"this worker can give {capacity / MB:.0f} MiB")
         return EXIT_STAGE_FAILED
+    _say(f"frame checked: zid={zid} staged={config.staged_label} target={config.target_label} "
+         f"need={need / MB:.0f}MiB input_through_ms={config.input_through_ms} "
+         f"binding={config.binding} source_commit={config.source_commit[:12]}")
     lock = lock_fn()  # noqa: F841 - held (and referenced) until the process exits
     service, pg = build_fn(adm)
     _say(f"rebuilding zid={zid} under label={label} job={ctx.job_id[:8]}")
@@ -207,5 +271,5 @@ def run(job_arg: Optional[str], *, label: str, environ: Optional[Mapping[str, st
     return EXIT_OK
 
 
-__all__ = ["SERVED_LABELS", "ChildRefused", "check_child_label", "check_large_budget",
-           "check_skew", "run"]
+__all__ = ["MATH_CONFIG_KEYS", "SERVED_LABELS", "ChildRefused", "MathConfig",
+           "check_child_label", "check_large_budget", "check_math_config", "check_skew", "run"]

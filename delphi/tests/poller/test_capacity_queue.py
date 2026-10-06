@@ -31,7 +31,13 @@ from polismath.poller.capacity import (
     validate_counts,
 )
 from polismath.poller.promotion import MAX_ENQUEUE_PER_TICK, SmallCapacityLoop
-from polismath.poller.rebuild_child import ChildRefused, check_child_label, check_skew, run
+from polismath.poller.rebuild_child import (
+    ChildRefused,
+    check_child_label,
+    check_math_config,
+    check_skew,
+    run,
+)
 from polismath.poller.service import MathPollerService, PollerConfig
 from polismath.poller.worker_pool import CoalescedBatch
 
@@ -44,19 +50,38 @@ MODEL = MemoryModel(base_mb=100, per_mcell_mb=0, per_vote_row_bytes=MB, safety=1
 COMMIT = "a" * 40
 
 
+@pytest.fixture(autouse=True)
+def _source_commit(monkeypatch):
+    """The poller's own source commit: the admission config carries it and
+    the child refuses any other (or none)."""
+    from polismath.poller.readiness import COMMIT_ENV
+
+    monkeypatch.setenv(COMMIT_ENV, COMMIT)
+
+
 def sizes(need_mb):
     return (need_mb, 7, 3)
 
 
+def cq_child_keys():
+    from polismath.poller.rebuild_child import MATH_CONFIG_KEYS
+
+    return MATH_CONFIG_KEYS
+
+
 class FakeQueue:
     """The closed contract, in memory: one active job per scope, the
-    existing one returned until it is finished; the class depth."""
+    existing one returned until it is finished (a finished job's scope is
+    released, as the daemon does); the poison latch; the class depth in
+    000024's shape; the receipt of a finished job."""
 
     def __init__(self):
         self.calls = []
         self.jobs = {}          # job_id -> {"scope", "state", "config", "staged_label"}
         self.fail = None
-        self.depth = {"queued": 0, "running": 0, "dead": 0}
+        self.depth = {"queued": 0, "leased": 0, "parked": 0, "dead": 0}
+        self.receipts = {}      # job_id -> Receipt, once finalized
+        self.poisoned = {}      # scope -> the latest dead job id
 
     def enqueue_math_rebuild(self, zid, *, config, staged_label, target_label):
         self.calls.append((zid, dict(config), staged_label, target_label))
@@ -66,19 +91,42 @@ class FakeQueue:
         for job_id, job in self.jobs.items():
             if job["scope"] == scope and job["state"] in cq.ACTIVE_STATES:
                 return ("existing" if job["config"] == config else "conflict"), job_id
+        if scope in self.poisoned:
+            return "poisoned", self.poisoned[scope]
         job_id = str(uuid.uuid4())
         self.jobs[job_id] = {"scope": scope, "state": "queued", "config": dict(config),
                              "staged_label": staged_label}
         self.depth["queued"] += 1
         return "enqueued", job_id
 
-    def finish(self, job_id):
-        self.jobs[job_id]["state"] = "succeeded"
+    def finish(self, job_id, fp=None):
+        """The job succeeded and was finalized; ``fp`` is the staged bundle's
+        fingerprint the manifest names (none: a receipt that binds nothing)."""
+        job = self.jobs[job_id]
+        job["state"] = "succeeded"
         self.depth["queued"] -= 1
+        self.receipts[job_id] = cq.Receipt(
+            job_id=job_id, state="succeeded", output_sha256="0" * 64,
+            math_env=job["staged_label"], math_tick=getattr(fp, "math_tick", None),
+            vote_hwm=getattr(fp, "lvt", None))
+
+    def die(self, job_id):
+        self.jobs[job_id]["state"] = "dead"
+        self.depth["queued"] -= 1
+        self.depth["dead"] += 1
+        scope = self.jobs[job_id]["scope"]
+        if sum(1 for j in self.jobs.values() if j["scope"] == scope and j["state"] == "dead") >= 3:
+            self.poisoned[scope] = job_id
+
+    def receipt(self, job_id):
+        if job_id in self.receipts:
+            return self.receipts[job_id]
+        return cq.Receipt(job_id=job_id, state=self.jobs[job_id]["state"], output_sha256=None)
 
     def class_depth(self, worker_class="large"):
-        return {"schema_version": "polis-queue/2", "outcome": "class_depth", "env": "test",
-                "worker_class": worker_class, "oldest_created_at": None, **self.depth}
+        return {"schema_version": "polis-queue/3", "outcome": "class_depth", "env": "test",
+                "worker_class": worker_class, "oldest_unresolved_created_at": None,
+                **self.depth}
 
 
 class FakePg:
@@ -224,9 +272,10 @@ class TestIdempotence:
         (job_id,) = q.jobs
         svc.capacity_loop.tick()                                   # still active: found again
         assert len(q.calls) == 2 and set(q.jobs) == {job_id}
-        # The child staged it covering the input: no job is asked for.
-        q.finish(job_id)
+        # The child staged it covering the input and the daemon finalized
+        # the job: no job is asked for.
         pg.fps[(7, STAGED)] = Fingerprint(1, T0, T0 + 5)
+        q.finish(job_id, pg.fps[(7, STAGED)])
         svc.capacity_loop.tick()
         assert len(q.calls) == 2
         # Promotion is off here: the covering bundle waits (pending), not demand.
@@ -376,7 +425,61 @@ class TestTheChild:
         assert child(d, commit=None)[0] == EXIT_JOB_ENV_INVALID      # set vs unset is skew
         with pytest.raises(ChildRefused):
             check_skew({"source_commit": None}, COMMIT)
-        check_skew({}, COMMIT)                                     # absent: admitted (logged)
+        with pytest.raises(ChildRefused, match="no source_commit"):
+            check_skew({}, COMMIT)                                 # absent: refused (finding 3)
+
+    @pytest.mark.parametrize("mutation", [
+        ("drop", "source_commit"), ("drop", "target_label"), ("drop", "need_bytes"),
+        ("drop", "binding"), ("drop", "input_through_ms"), ("set", "need_bytes", 0),
+        ("set", "need_bytes", "850"), ("set", "input_through_ms", -1), ("set", "binding", ""),
+        ("set", "source_commit", "not-a-commit"), ("set", "target_label", STAGED),
+        ("set", "staged_label", "other"), ("add", "manifest_uri", "s3://x"),
+        ("delphi",), ("untyped",),
+    ])
+    def test_the_typed_math_config_is_checked_whole_before_anything_runs(self, tmp_path,
+                                                                          mutation, capsys):
+        """Finding 3: every key the daemon carries is checked by the child;
+        a frame without the typed config never computes."""
+        base = {"staged_label": STAGED, "target_label": SMALL_LABEL, "need_bytes": 850 * MB,
+                "input_through_ms": T0, "binding": "0" * 16, "source_commit": COMMIT}
+        config = dict(base)
+        if mutation[0] == "drop":
+            del config[mutation[1]]
+        elif mutation[0] == "set":
+            config[mutation[1]] = mutation[2]
+        elif mutation[0] == "add":
+            config[mutation[1]] = mutation[2]
+        elif mutation[0] == "delphi":
+            config = {"include_moderation": False, "exclude_comment_selections": True,
+                      "model": None, "batch_size": None}
+        else:
+            config = {"need_bytes": 1, "staged_label": STAGED}
+        d = FakeDaemon(tmp_path, config=config)
+        code, svc, locks = child(d)
+        assert code == EXIT_JOB_ENV_INVALID and svc.rebuilt == [] and locks == []
+        assert "refused:" in capsys.readouterr().err and not d.manifest.exists()
+        with pytest.raises(ChildRefused):
+            check_math_config(config, label=STAGED, input_label=STAGED)
+        ok = check_math_config(base, label=STAGED, input_label=STAGED)
+        assert (ok.need_bytes, ok.source_commit, ok.target_label) == (850 * MB, COMMIT, SMALL_LABEL)
+        with pytest.raises(ChildRefused, match="inputs.math_env"):
+            check_math_config(base, label=STAGED, input_label="python")
+        null_mark = check_math_config({**base, "input_through_ms": None}, label=STAGED,
+                                      input_label=STAGED)
+        assert null_mark.input_through_ms is None
+
+    def test_the_frame_the_daemon_writes_drives_the_child(self, tmp_path):
+        """The golden frame (fixtures/queue/math_rebuild_frame.json) is what
+        queue-rs ``child::frame`` writes for a rebuild (its unit test pins it
+        to the same file): the child accepts it as is."""
+        from pathlib import Path
+
+        golden = json.loads((Path(__file__).parent / "fixtures" / "queue"
+                             / "math_rebuild_frame.json").read_text())
+        assert set(golden["config"]) == set(cq_child_keys())
+        d = FakeDaemon(tmp_path, zid=golden["zid"], config=golden["config"])
+        code, svc, _ = child(d, commit=golden["config"]["source_commit"])
+        assert code == EXIT_OK and svc.rebuilt == [golden["zid"]]
 
     def test_the_label_is_bound_to_the_frame_and_never_a_served_one(self, tmp_path):
         d = FakeDaemon(tmp_path, math_env="python-large")
@@ -449,14 +552,85 @@ class TestCapacityLineCounts:
     def test_the_counts_come_from_the_queue_when_there_is_one(self):
         svc = service()
         svc.capacity.observe(7, sizes=sizes(850), input_ms=T0)   # one record, demand 1
-        svc.capacity_queue.depth = {"queued": 3, "running": 2, "dead": 0}
+        svc.capacity_queue.depth = {"queued": 3, "leased": 2, "parked": 1, "dead": 4}
         snap = svc.readiness_snapshot()
         c = snap["capacity"]
-        assert (c["large_demand"], c["large_leased"]) == (3, 2)
+        assert (c["large_demand"], c["large_leased"], c["large_poisoned"]) == (3, 2, 0)
         assert set(c) == set(COUNT_KEYS) and "capacity_line" not in snap
         validate_counts(c)
         line = parse_line(build_line("primary", SMALL_LABEL, c))
         assert (line["large_demand"], line["large_leased"]) == (3, 2)
+
+    def test_the_real_depth_reply_is_decoded_and_counted(self):
+        """Finding 1: the reply 000024's pq_class_depth actually returns
+        (leased, parked, oldest_unresolved_created_at), decoded and
+        published; the stand-in's shape (running, oldest_created_at) is
+        refused as a protocol error."""
+        real = {"schema_version": "polis-queue/3", "outcome": "class_depth", "env": "test",
+                "worker_class": "large", "queued": 2, "leased": 1, "parked": 0, "dead": 3,
+                "oldest_unresolved_created_at": "2026-10-06T18:00:00+00:00"}
+        assert cq.validate_depth(real) is real
+        stand_in = {"schema_version": "polis-queue/2", "outcome": "class_depth", "env": "test",
+                    "worker_class": "large", "queued": 2, "running": 1, "dead": 3,
+                    "oldest_created_at": "2026-10-06T18:00:00+00:00"}
+        with pytest.raises(cq.QueueProtocolError, match="queue_wire_depth_fields"):
+            cq.validate_depth(stand_in)
+        svc = service()
+        svc.capacity.observe(7, sizes=sizes(850), input_ms=T0)
+        svc.capacity_queue.class_depth = lambda worker_class="large": cq.validate_depth(real)
+        c = svc.readiness_snapshot()["capacity"]
+        assert (c["large_demand"], c["large_leased"]) == (2, 1)
+
+    def test_a_poisoned_record_is_parked_and_counted(self, caplog):
+        svc = service()
+        router, q = svc.capacity, svc.capacity_queue
+        svc.capacity_loop._source_commit = COMMIT            # the deploy this poller runs
+        router.observe(7, sizes=sizes(850), input_ms=T0)
+        for _ in range(3):
+            svc.capacity_loop.tick()
+            (job_id,) = [j for j, job in q.jobs.items() if job["state"] == "queued"]
+            q.die(job_id)
+        with caplog.at_level(logging.WARNING):
+            svc.capacity_loop.tick()                               # the fourth ask: poisoned
+        assert "zid=7 is poisoned" in caplog.text
+        rec = router.record(7)
+        assert rec.poisoned_commit == COMMIT and rec.job_id == job_id
+        assert router.poisoned(7, COMMIT) and not router.poisoned(7, "b" * 40)
+        asked = len(q.calls)
+        svc.capacity_loop.tick()                                   # parked: not asked again
+        assert len(q.calls) == asked and len(q.jobs) == 3
+        c = svc.readiness_snapshot()["capacity"]
+        assert (c["large_poisoned"], c["large_demand"]) == (1, 0)
+        validate_counts(c)
+        # A new deploy (another source commit) asks the queue again; the
+        # queue still says poisoned: parked again, under the new commit.
+        svc.capacity_loop._source_commit = "b" * 40
+        svc.capacity_loop.tick()
+        assert len(q.calls) == asked + 1 and router.record(7).poisoned_commit == "b" * 40
+        svc.capacity_loop.tick()
+        assert len(q.calls) == asked + 1
+        # An operator's ruling: the restage nonce un-parks it; a job
+        # admitted clears the park for good.
+        q.poisoned.clear()
+        svc.capacity.settings = CapacitySettings(routing=True, staged_label=STAGED,
+                                                 restage="cd" * 8)
+        svc.capacity_loop.settings = svc.capacity.settings
+        svc.capacity_loop.tick()
+        assert router.record(7).poisoned_commit is None and len(q.jobs) == 4
+        assert svc.readiness_snapshot()["capacity"]["large_poisoned"] == 0
+
+    def test_the_poison_park_survives_the_state_file(self, tmp_path):
+        adm = MemoryAdmission(1000 * MB, MODEL, headroom=0.0, base_bytes=100 * MB)
+        path = str(tmp_path / "capacity.json")
+        router = CapacityRouter(adm, CapacitySettings(routing=True, state_path=path))
+        router.observe(7, sizes=sizes(850), input_ms=T0)
+        router.park_poisoned(7, "1" * 32, COMMIT)
+        again = CapacityRouter(adm, CapacitySettings(routing=True, state_path=path))
+        assert again.poisoned(7, COMMIT) and again.record(7).job_id == "1" * 32
+        assert again.counts()["large_poisoned"] == 1
+        with pytest.raises(ValueError):
+            Disposition.from_dict({"zid": 7, "disposition": LARGE, "need_bytes": 1,
+                                   "poisoned_commit": 5})
 
     def test_without_a_queue_demand_is_the_records_and_leased_is_null(self):
         svc = service(queue=None)
@@ -469,7 +643,7 @@ class TestCapacityLineCounts:
     def test_a_failed_depth_read_is_missing_data_never_zero(self, caplog):
         svc = service()
         svc.capacity.observe(7, sizes=sizes(850), input_ms=T0)
-        svc.capacity_queue.depth = {"queued": 3, "running": 2, "dead": 0}
+        svc.capacity_queue.depth = {"queued": 3, "leased": 2, "parked": 0, "dead": 0}
         assert svc.readiness_snapshot()["capacity"]["large_leased"] == 2
         svc.capacity_queue.class_depth = MagicMock(side_effect=RuntimeError("down"))
         with caplog.at_level(logging.ERROR):
@@ -500,8 +674,9 @@ class TestCapacityLineCounts:
 # --------------------------------------------------------------------------- #
 class TestClientWire:
     def test_the_inventory_is_closed(self):
-        assert set(cq.RPC) == {"pd_enqueue", "pq_class_depth", "pq_job_status", "pq_cancel"}
-        assert len(cq.RPC["pd_enqueue"]) == 18
+        assert set(cq.RPC) == {"pd_enqueue", "pd_release_scope", "pq_class_depth",
+                               "pq_job_status", "pq_cancel", "pq_attempt_logs"}
+        assert len(cq.RPC["pd_enqueue"]) == 18 and set(cq.TABLE_RPC) == {"pq_attempt_logs"}
         client = cq.QueueClient(cq.QueueSettings("postgresql://x@127.0.0.1:1/x", "test"))
         with pytest.raises(KeyError):
             client.call("pq_claim", [])
@@ -544,9 +719,10 @@ class TestClientWire:
             def fetchone(self):
                 if len(seen) == 2:
                     return self.boundary
-                return [{"schema_version": "polis-queue/2", "outcome": "class_depth",
-                         "env": "test", "worker_class": "large", "queued": 1, "running": 0,
-                         "dead": 0, "oldest_created_at": "2026-10-06T00:00:00+00:00"}]
+                return [{"schema_version": "polis-queue/3", "outcome": "class_depth",
+                         "env": "test", "worker_class": "large", "queued": 1, "leased": 0,
+                         "parked": 0, "dead": 0,
+                         "oldest_unresolved_created_at": "2026-10-06T00:00:00+00:00"}]
 
         class Conn:
             def __init__(self, boundary):
@@ -625,14 +801,111 @@ class TestClientWire:
             cq.validate_job({"outcome": "enqueued"})
         with pytest.raises(cq.QueueProtocolError):
             cq.validate_depth({k: None for k in cq.DEPTH_FIELDS})
-        good = {"schema_version": "polis-queue/2", "outcome": "class_depth", "env": "t",
-                "worker_class": "large", "queued": 0, "running": 0, "dead": 0,
-                "oldest_created_at": None}
+        good = {"schema_version": "polis-queue/3", "outcome": "class_depth", "env": "t",
+                "worker_class": "large", "queued": 0, "leased": 0, "parked": 0, "dead": 0,
+                "oldest_unresolved_created_at": None}
         assert cq.validate_depth(good) is good
         with pytest.raises(cq.QueueProtocolError):
             cq.validate_depth({**good, "queued": -1})
         with pytest.raises(cq.QueueProtocolError):
-            cq.validate_depth({**good, "schema_version": "polis-queue/1"})
+            cq.validate_depth({**good, "schema_version": "polis-queue/2"})
+        with pytest.raises(cq.QueueProtocolError):
+            cq.validate_depth({**good, "worker_class": "noop"})
+        with pytest.raises(cq.QueueProtocolError):
+            cq.validate_release("t")
+        assert cq.validate_release(True) is True
+        with pytest.raises(cq.QueueProtocolError):
+            cq.validate_log_rows([{"seq": "1", "stream": "manifest", "line": "{}"}])
+
+    def test_the_receipt_binds_the_manifest_to_the_job_and_the_bundle(self):
+        job = str(uuid.uuid4())
+        staged = Fingerprint(7, T0 + 1, T0 + 9)
+        manifest = json.dumps({"schema": cq.MANIFEST_SCHEMA, "job_id": job,
+                               "stage": "math_rebuild", "outcome": "succeeded",
+                               "inputs": {"math_env": STAGED, "math_tick": 7,
+                                          "vote_hwm": T0 + 1}}, sort_keys=True)
+        sha = cq.sha256_hex(manifest.encode())
+        status = {"state": "succeeded", "output_sha256": sha, "attempt_id": str(uuid.uuid4())}
+        r = cq.receipt_of(job, status, manifest)
+        assert r.finalized and r.binds(staged, STAGED)
+        assert not r.binds(Fingerprint(8, T0 + 1, T0 + 9), STAGED)     # another tick
+        assert not r.binds(staged, "python")                           # another label
+        # No manifest row, a row that does not hash to the digest, a row
+        # naming another job: no receipt.
+        assert not cq.receipt_of(job, status, None).finalized
+        assert not cq.receipt_of(job, status, manifest + " ").finalized
+        other = manifest.replace(job, str(uuid.uuid4()))
+        assert not cq.receipt_of(job, {**status, "output_sha256": cq.sha256_hex(other.encode())},
+                                 other).finalized
+        for state in ("running", "queued", "dead", "cancelled"):
+            r = cq.receipt_of(job, {**status, "state": state}, manifest)
+            assert r.state == state and not r.finalized and not r.binds(staged, STAGED)
+
+    def test_the_client_pages_the_attempt_logs_for_the_manifest_row(self, monkeypatch):
+        job, attempt = str(uuid.uuid4()), str(uuid.uuid4())
+        line = json.dumps({"schema": cq.MANIFEST_SCHEMA, "job_id": job, "stage": "math_rebuild",
+                           "outcome": "succeeded", "inputs": {"math_env": STAGED, "math_tick": 3,
+                                                              "vote_hwm": T0}})
+        sha = cq.sha256_hex(line.encode())
+        calls = []
+
+        def call(name, args):
+            calls.append((name, args))
+            if name == "pq_job_status":
+                return {k: None for k in cq.JOB_FIELDS} | {
+                    "schema_version": "polis-queue/3", "outcome": "job_status", "env": "test",
+                    "job_id": job, "state": "succeeded", "stage": "math_rebuild",
+                    "attempt_id": attempt, "output_sha256": sha}
+            after = args[2]
+            if after is None:
+                return [{"seq": i, "stream": "stdout", "line": "x"} for i in range(cq.LOG_PAGE)]
+            return [{"seq": cq.LOG_PAGE, "stream": "stderr", "line": "y"},
+                    {"seq": cq.LOG_PAGE + 1, "stream": "manifest", "line": line}]
+
+        client = cq.QueueClient(cq.QueueSettings("postgresql://x@127.0.0.1:1/x", "test"))
+        monkeypatch.setattr(client, "call", call)
+        r = client.receipt(job)
+        assert r.binds(Fingerprint(3, T0, T0 + 1), STAGED)
+        assert [c[0] for c in calls] == ["pq_job_status", "pq_attempt_logs", "pq_attempt_logs"]
+        assert calls[2][1] == ["test", attempt, cq.LOG_PAGE - 1, cq.LOG_PAGE]
+
+    def test_a_terminal_job_holding_its_guard_is_released_and_asked_again(self, monkeypatch):
+        """Finding 2, the poller's side: the admission finds a cancelled job
+        still holding the scope; the guarded release is called and the
+        admission asked once more. A refused release leaves it alone."""
+        calls = []
+        held = {"state": "cancelled", "release": True}
+
+        def call(name, args):
+            calls.append(name)
+            if name == "pd_release_scope":
+                assert args == ["test", "math:python:7"]
+                return held["release"]
+            fresh = held["state"] is None or calls.count("pd_enqueue") > 1
+            return {k: None for k in cq.JOB_FIELDS} | {
+                "schema_version": "polis-queue/3", "env": "test", "stage": "math_rebuild",
+                "outcome": "enqueued" if fresh else "existing",
+                "job_id": args[7] if fresh else "0" * 32,
+                "state": "queued" if fresh else held["state"]}
+
+        client = cq.QueueClient(cq.QueueSettings("postgresql://x@127.0.0.1:1/x", "test"))
+        monkeypatch.setattr(client, "call", call)
+        config = {"staged_label": STAGED, "target_label": SMALL_LABEL, "need_bytes": 5,
+                  "input_through_ms": T0, "binding": "0" * 16, "source_commit": COMMIT}
+        outcome, job_id = client.enqueue_math_rebuild(7, config=config, staged_label=STAGED,
+                                                      target_label=SMALL_LABEL)
+        assert (outcome, calls) == ("enqueued", ["pd_enqueue", "pd_release_scope", "pd_enqueue"])
+        assert job_id != "0" * 32
+        calls.clear()
+        held["release"] = False                                  # exit unproven: refused
+        outcome, job_id = client.enqueue_math_rebuild(7, config=config, staged_label=STAGED,
+                                                      target_label=SMALL_LABEL)
+        assert (outcome, job_id, calls) == ("existing", "0" * 32, ["pd_enqueue", "pd_release_scope"])
+        calls.clear()
+        held["state"] = "running"                                # active: no release asked
+        outcome, _ = client.enqueue_math_rebuild(7, config=config, staged_label=STAGED,
+                                                 target_label=SMALL_LABEL)
+        assert (outcome, calls) == ("existing", ["pd_enqueue"])
 
     def test_the_frame_uri_round_trips_unpadded(self):
         for n in range(1, 8):
@@ -644,9 +917,9 @@ class TestClientWire:
 
 
 # --------------------------------------------------------------------------- #
-# 6. The loop without a queue keeps promoting (the existing path)
+# 6. Promotion is gated by the job's receipt (finding 4)
 # --------------------------------------------------------------------------- #
-def test_the_loop_promotes_without_a_queue():
+def loop_with(queue):
     adm = MemoryAdmission(1000 * MB, MODEL, headroom=0.0, base_bytes=100 * MB)
     s = CapacitySettings(routing=True, promote=True, staged_label=STAGED)
     router = CapacityRouter(adm, s)
@@ -655,10 +928,55 @@ def test_the_loop_promotes_without_a_queue():
     svc.config = PollerConfig(math_env=SMALL_LABEL)
     svc._pg = pg
     svc._pool = None
-    loop = SmallCapacityLoop(svc, router, s, queue=None, source_commit=COMMIT)
+    loop = SmallCapacityLoop(svc, router, s, queue=queue, source_commit=COMMIT)
     router.observe(7, sizes=sizes(850), input_ms=T0)
+    return loop, router, pg
+
+
+def test_without_a_queue_nothing_is_promoted(caplog):
+    loop, router, pg = loop_with(None)
     pg.fps[(7, STAGED)] = Fingerprint(3, T0, T0 + 5)
-    loop.tick()
-    assert pg.promoted == [7] and loop.state() == {"queue": False, "enqueued_total": 0}
+    with caplog.at_level(logging.INFO):
+        loop.tick()
+    assert pg.promoted == [] and "no queue, so no receipt" in caplog.text
     c = router.counts()
-    assert (c["large_demand"], c["pending_promotion"], c["promoted_total"]) == (0, 0, 1)
+    assert (c["large_demand"], c["pending_promotion"], c["promoted_total"]) == (0, 1, 0)
+
+
+def test_a_staged_bundle_is_promoted_only_on_its_jobs_receipt(caplog):
+    q = FakeQueue()
+    loop, router, pg = loop_with(q)
+    loop.tick()                                                # nothing staged: a job
+    (job_id,) = q.jobs
+    # The child committed the staged bundle; the daemon has not finalized
+    # the attempt (the job is still running): no receipt, no promotion.
+    pg.fps[(7, STAGED)] = Fingerprint(3, T0, T0 + 5)
+    q.jobs[job_id]["state"] = "running"
+    with caplog.at_level(logging.INFO):
+        loop.tick()
+    assert pg.promoted == [] and "is running, not finalized" in caplog.text
+    assert router.counts()["pending_promotion"] == 1
+    # Finalized naming another tick (a stale manifest): not this bundle.
+    q.finish(job_id, Fingerprint(2, T0, T0 + 4))
+    with caplog.at_level(logging.WARNING):
+        loop.tick()
+    assert pg.promoted == [] and "finalized tick=2" in caplog.text
+    # Finalized naming the staged bundle: promoted.
+    q.finish(job_id, pg.fps[(7, STAGED)])
+    q.depth["queued"] += 2                                       # finish decremented twice
+    loop.tick()
+    assert pg.promoted == [7] and router.counts()["promoted_total"] == 1
+
+
+def test_a_receipt_read_failure_is_contained(caplog):
+    q = FakeQueue()
+    loop, router, pg = loop_with(q)
+    loop.tick()
+    (job_id,) = q.jobs
+    pg.fps[(7, STAGED)] = Fingerprint(3, T0, T0 + 5)
+    q.finish(job_id, pg.fps[(7, STAGED)])
+    q.receipt = MagicMock(side_effect=RuntimeError("down"))
+    with caplog.at_level(logging.ERROR):
+        loop.tick()
+    assert pg.promoted == [] and "unavailable (RuntimeError)" in caplog.text
+    assert router.disposition(7) == LARGE

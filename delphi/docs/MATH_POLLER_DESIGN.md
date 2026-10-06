@@ -149,7 +149,7 @@ The demand line, once per readiness interval, is a bare JSON event (no log prefi
 
 ```json
 {"class":"small","exceeds_largest":0,"fits_small":0,"label":"python","large_demand":1,
- "large_leased":null,"oldest_unresolved_age_ms":412000,"pending_promotion":0,
+ "large_leased":null,"large_poisoned":0,"oldest_unresolved_age_ms":412000,"pending_promotion":0,
  "promoted_total":0,"refusals_total":3,"role":"primary","routed_total":0,"routing":0,
  "schema":"math_poller.capacity/1"}
 ```
@@ -158,9 +158,11 @@ The demand line, once per readiness interval, is a bare JSON event (no log prefi
 input and is newer than this label's bundle; `promoted_total` counts promotions since
 the process started; `oldest_unresolved_age_ms` covers every unresolved `large` record,
 pending promotion included (§8). With the job queue configured (§8), `large_demand` and
-`large_leased` are the queue's counts of worker class `large` (queued + waiting, and
-running), read once per readiness interval; without it `large_demand` is the records'
-count above and `large_leased` is null (never a false 0).
+`large_leased` are the queue's counts of worker class `large` (`pq_class_depth`,
+migration 000024: `queued` = queued + waiting, `leased` = running), read once per
+readiness interval; without it `large_demand` is the records' count above and
+`large_leased` is null (never a false 0). `large_poisoned` counts the routed records
+the queue refused as poisoned (§8.1), parked until a new deploy or a ruling.
 
 Counts and closed labels only. A primary always reports counts (0 with no demand); a
 standby reports `role=standby` with null counts; a primary whose snapshot failed logs
@@ -210,8 +212,9 @@ schema change on the math side: `python-large` is a third value of the existing
 ### 8.1 The job
 
 `polismath/poller/capacity_queue.py`. The small poller reaches the queue only through a
-closed inventory of SQL functions (`pd_enqueue`, `pq_class_depth`, `pq_job_status`,
-`pq_cancel`), one short transaction per call on its own connection, every value bound
+closed inventory of SQL functions (`pd_enqueue`, `pd_release_scope`, `pq_class_depth`,
+`pq_job_status`, `pq_cancel`, `pq_attempt_logs`), one short transaction per call on its
+own connection, every value bound
 with a fixed cast, over `MATH_CAPACITY_QUEUE_DSN`: a login that is a member of
 `polis_queue_executor` with no table access and no path to the owner role, re-checked
 on every connection. The publication path keeps `DATABASE_URL`.
@@ -220,12 +223,23 @@ A job is admitted the moment a cold touch, rebuild or memory refusal classifies
 `large` (§7), and again by the promotion pass (§8.2) whenever a `large` record has no
 staged bundle covering its newest input. Both are idempotent: the scope
 `math:<label>:<zid>` admits one active job (queued, waiting or running); a second
-admission returns it. A finished job releases the scope, so new input after it is a
-new job. The run's `input_uri` carries the admission frame (`frame://inline/` +
-base64url, bound by `input_sha256`): the zid, `inputs.math_env` = the staged label,
-and a config of the two labels, the estimated need, the input mark, the sizing binding
-and the small poller's source commit. The record keeps the job id (in the state file
-when set). `exceeds_largest` is never a job.
+admission returns it. The scope is released by the daemon after a terminal attempt
+whose exit it proved (`pd_release_scope`, which re-checks every condition: every job
+of the scope terminal, every exit proven, no provider work); when an admission hands
+the poller a terminal job still holding its guard (a cancel nobody ran, a daemon lost
+before its release) the poller calls the same guarded function and asks once more.
+Terminal status alone releases nothing. New input after a finished job is a new job.
+The poison latch is the contract's (migration 000024): when a scope's last three jobs
+all died under the code image being admitted now, `pd_enqueue` answers `poisoned`
+(naming the latest dead job) and admits nothing; the poller parks the record with
+that reason (not asked again under this source commit; `large_poisoned` on the line)
+until a new deploy, or the restage nonce (the operator's ruling), un-parks it. The run's `input_uri` carries the admission frame
+(`frame://inline/` + base64url, bound by `input_sha256`): the zid, `inputs.math_env` =
+the staged label, and the typed math config (`staged_label`, `target_label`,
+`need_bytes`, `input_through_ms`, `binding`, `source_commit`), which the daemon checks
+whole before any child spawns and carries whole into the child's frame, where every
+key is checked again before anything runs. The record keeps the job id (in the state
+file when set). `exceeds_largest` is never a job.
 
 ### 8.2 The small poller's loop
 
@@ -243,8 +257,14 @@ when set). `exceeds_largest` is never a job.
 3. **Promotion** (`MATH_CAPACITY_PROMOTE=1`) and the jobs: every `large` record's staged
    and target bundles are fingerprinted (`math_fingerprints`: tick, newest vote, write
    time, completeness; no payload read). A complete staged bundle newer than the target
-   is promoted with `PostgresClient.promote_bundle`; a record whose staged bundle is
-   missing, incomplete or behind its input is enqueued (at most a page per tick).
+   is promoted with `PostgresClient.promote_bundle`, and only on the receipt of the job
+   that produced it: the record's job is `succeeded` and finalized (`pq_job_status`),
+   and the attempt's manifest row (`pq_attempt_logs`) hashes to the job's output digest,
+   names the job and names the staged bundle's label, tick and newest vote. A bundle
+   the child committed before the daemon finalized the attempt, or whose job failed,
+   has no receipt and is not served; without a queue nothing is promoted. A record
+   whose staged bundle is missing, incomplete or behind its input is enqueued (at most
+   a page per tick); a poisoned record is not.
 
 Nothing is restored from the queue at start: a routed conversation this process has no
 record of is sized again on its next cold touch and enqueued again, which the guard

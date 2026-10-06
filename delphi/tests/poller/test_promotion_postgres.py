@@ -19,6 +19,7 @@ conversations, the backfill skipping them, and a re-size after a binding
 change handing a conversation back.
 """
 
+import json
 import os
 import threading
 import time
@@ -27,7 +28,9 @@ import uuid
 import psycopg2
 import pytest
 
+from polismath.database.postgres import Fingerprint
 from tests.conftest import require_polis_postgres
+from tests.poller.test_capacity_queue_postgres import COMMIT
 from tests.poller.test_backfill_postgres import (
     _TABLES,
     coherent,
@@ -38,6 +41,15 @@ from tests.poller.test_backfill_postgres import (
 from tests.vote_fixtures import AGREE, DISAGREE, seed_vote
 
 pytestmark = pytest.mark.integration
+
+
+@pytest.fixture(autouse=True)
+def _source_commit(monkeypatch):
+    """The poller's own source commit: the admission config carries it and
+    the child refuses any other (or none)."""
+    from polismath.poller.readiness import COMMIT_ENV
+
+    monkeypatch.setenv(COMMIT_ENV, COMMIT)
 
 MB = 1024 * 1024
 
@@ -446,13 +458,16 @@ def small_service(url, small, large, *, zids, limit_mb=40, restage=None, state_p
                             run_id="0123456789ab")
     svc.capacity_queue = queue if queue is not None else FakeQueue()
     svc.capacity_loop._queue = svc.capacity_queue
+    # The source commit the admission config carries and the child checks.
+    svc.capacity_loop._source_commit = COMMIT
     return svc, pg
 
 
 def stage_with_the_child(url, queue, small, large, zid, tmp_path):
     """Run the queue child for the active job of ``zid`` as the daemon would:
-    the frame carries the config the small poller enqueued. Marks the job
-    finished afterwards."""
+    the frame carries the typed config the small poller enqueued. Marks the
+    job finalized afterwards with the receipt the manifest gives (the staged
+    bundle's tick and newest vote), as the daemon's pq_finalize does."""
     from tests.poller.test_capacity_queue_postgres import daemon_env, run_child
 
     (job_id,) = [j for j, job in queue.jobs.items()
@@ -463,8 +478,9 @@ def stage_with_the_child(url, queue, small, large, zid, tmp_path):
                                   config=config)
     result = run_child(url, large, daemon)
     assert result.returncode == 0, result.stderr[-3000:]
-    assert manifest.exists()
-    queue.finish(job_id)
+    m = json.loads(manifest.read_text())
+    assert m["job_id"] == daemon["DELPHI_JOB_ID"]
+    queue.finish(job_id, Fingerprint(m["inputs"]["math_tick"], m["inputs"]["vote_hwm"], 0))
     return job_id
 
 

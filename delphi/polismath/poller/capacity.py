@@ -71,8 +71,11 @@ promotes it (``MATH_CAPACITY_PROMOTE``, 1 needs routing on;
 ``MATH_CAPACITY_PROMOTE_INTO`` names the target label on the child's side;
 ``MATH_CAPACITY_RESTAGE`` is a 16-64 hex nonce; unset). With a queue DSN,
 ``large_demand`` and the new ``large_leased`` on the line are the queue's
-counts of class ``large`` (``pq_class_depth``); without one ``large_demand``
-is the records' count as before and ``large_leased`` is null.
+counts of class ``large`` (``pq_class_depth``: ``queued`` and ``leased``);
+without one ``large_demand`` is the records' count as before and
+``large_leased`` is null. ``large_poisoned`` counts the routed records the
+queue refused as poisoned (their last jobs died under this source commit),
+parked here until a new deploy or a ruling.
 ``MATH_CAPACITY_CLASS`` is ``small``; ``large`` is refused at start (the
 large class runs only as a queue child).
 """
@@ -107,10 +110,11 @@ CLASSES = (CLASS_SMALL, CLASS_LARGE)
 
 # The capacity line's keys, closed (tests pin them), and the counts it shares
 # with the readiness line's ``capacity`` object. ``promoted_total`` was added
-# with the promotion loop (P-073 PR3), ``large_leased`` with the queue (r2).
-COUNT_KEYS = ("routing", "large_demand", "large_leased", "pending_promotion", "exceeds_largest",
-              "fits_small", "oldest_unresolved_age_ms", "refusals_total", "routed_total",
-              "promoted_total")
+# with the promotion loop (P-073 PR3), ``large_leased`` and ``large_poisoned``
+# with the queue (r2).
+COUNT_KEYS = ("routing", "large_demand", "large_leased", "large_poisoned", "pending_promotion",
+              "exceeds_largest", "fits_small", "oldest_unresolved_age_ms", "refusals_total",
+              "routed_total", "promoted_total")
 # Nullable on a primary: ``oldest_unresolved_age_ms`` with nothing unresolved,
 # ``large_leased`` with no queue read (no DSN, or the read failed this tick).
 NULLABLE_COUNT_KEYS = frozenset(("oldest_unresolved_age_ms", "large_leased"))
@@ -280,6 +284,11 @@ class Disposition:
     refusals: int = 0
     # The active math_rebuild job for a ``large`` record (P-073 r2), or None.
     job_id: Optional[str] = None
+    # Set when the queue refused the record as poisoned (its last jobs died
+    # under this source commit): the commit it happened under, so a new
+    # deploy asks again and the same one does not. ``job_id`` then names the
+    # latest dead job.
+    poisoned_commit: Optional[str] = None
 
     @classmethod
     def from_dict(cls, raw: Any) -> "Disposition":
@@ -297,6 +306,8 @@ class Disposition:
             raise ValueError("bad capacity record field binding")
         if raw.get("job_id") is not None and not isinstance(raw["job_id"], str):
             raise ValueError("bad capacity record field job_id")
+        if raw.get("poisoned_commit") is not None and not isinstance(raw["poisoned_commit"], str):
+            raise ValueError("bad capacity record field poisoned_commit")
         if "zid" not in raw or "need_bytes" not in raw or raw.get("disposition") not in DISPOSITIONS:
             raise ValueError("bad capacity record")
         return cls(**{k: raw[k] for k in cls.__dataclass_fields__ if k in raw})
@@ -525,8 +536,11 @@ class CapacityRouter:
         value: every ``large`` record gets an input mark of ``mark_ms`` (the
         database clock, which stamps the staged bundle's write time; this
         process's clock when not given), so the promotion pass enqueues a
-        fresh rebuild and promotes the result. Returns how many records were
-        marked (0 when this nonce was already applied)."""
+        fresh rebuild and promotes the result. A record parked as poisoned is
+        un-parked by it (the nonce is the operator's ruling: the queue is
+        asked again, and answers ``poisoned`` again unless the code image
+        changed). Returns how many records were marked (0 when this nonce
+        was already applied)."""
         now = self._clock()
         mark = now if mark_ms is None else int(mark_ms)
         with self._lock:
@@ -539,6 +553,7 @@ class CapacityRouter:
                 rec.input_through_ms = max(rec.input_through_ms or 0, mark)
                 if rec.first_unresolved_ms is None:
                     rec.first_unresolved_ms = now
+                rec.poisoned_commit = None
                 self._waiting.discard(rec.zid)
                 marked += 1
             self.restage_applied = nonce
@@ -580,16 +595,38 @@ class CapacityRouter:
             return None if rec is None else Disposition(**asdict(rec))
 
     def set_job(self, zid: int, job_id: Optional[str]) -> None:
-        """The math_rebuild job admitted for a routed conversation."""
+        """The math_rebuild job admitted for a routed conversation (a job
+        admitted means the record is not poisoned)."""
         with self._lock:
             rec = self._records.get(zid)
-            if rec is not None and rec.job_id != job_id:
+            if rec is not None and (rec.job_id != job_id or rec.poisoned_commit is not None):
                 rec.job_id = job_id
+                rec.poisoned_commit = None
                 self._save_locked()
 
+    def park_poisoned(self, zid: int, job_id: Optional[str], source_commit: Optional[str]) -> None:
+        """The queue refused the record as poisoned under ``source_commit``:
+        parked with the reason; ``job_id`` is the latest dead job."""
+        with self._lock:
+            rec = self._records.get(zid)
+            if rec is None:
+                return
+            rec.job_id = job_id
+            rec.poisoned_commit = source_commit or "unknown"
+            self._save_locked()
+
+    def poisoned(self, zid: int, source_commit: Optional[str]) -> bool:
+        """Parked as poisoned under this very source commit (a new deploy
+        asks the queue again)."""
+        with self._lock:
+            rec = self._records.get(zid)
+            return (rec is not None and rec.poisoned_commit is not None
+                    and rec.poisoned_commit == (source_commit or "unknown"))
+
     def set_queue_depth(self, depth: Optional[Dict[str, Any]]) -> None:
-        """The queue's counts of class large for this tick (``queued``,
-        ``running``), or None when there is no queue or the read failed."""
+        """The queue's counts of class large for this tick (000024's
+        ``queued`` and ``leased``), or None when there is no queue or the read
+        failed."""
         with self._lock:
             self._queue_depth = None if depth is None else dict(depth)
 
@@ -612,12 +649,16 @@ class CapacityRouter:
         oldest = min((r.first_unresolved_ms for r in unresolved
                       if r.first_unresolved_ms is not None), default=None)
         # With a queue, demand and leased are the queue's counts of class
-        # large (queued + retry_wait, running); without one, demand is the
-        # records' count as before and leased is unknown (null, never 0).
+        # large (000024: queued = queued + retry_wait, leased = running);
+        # without one, demand is the records' count as before and leased is
+        # unknown (null, never 0). Poisoned records are parked here, so they
+        # are neither demand nor pending promotion.
         return {
             "routing": int(self.settings.routing),
             "large_demand": len(demand) if depth is None else int(depth["queued"]),
-            "large_leased": None if depth is None else int(depth["running"]),
+            "large_leased": None if depth is None else int(depth["leased"]),
+            "large_poisoned": sum(1 for r in recs
+                                  if r.disposition == LARGE and r.poisoned_commit is not None),
             "pending_promotion": sum(1 for r in unresolved if r.zid in waiting),
             "exceeds_largest": sum(1 for r in recs if r.disposition == EXCEEDS_LARGEST),
             "fits_small": sum(1 for r in recs if r.disposition == SMALL),

@@ -35,10 +35,35 @@ the child checks and what the operator reads on the row: the two labels, the
 estimated need, the input mark, the sizing binding and the small poller's
 source commit.
 
-The depth read. ``pq_class_depth(env, 'large')`` gives the counts the scale
-alarms watch (``large_demand`` = queued + retry_wait, ``large_leased`` =
-running), read once per readiness interval and published on the small
-poller's capacity line.
+The depth read. ``pq_class_depth(env, 'large')`` (000024) answers
+``{queued, leased, parked, dead, oldest_unresolved_created_at}``: the counts
+the scale alarms watch (``large_demand`` = queued + retry_wait, ``large_leased``
+= leased), read once per readiness interval and published on the small
+poller's capacity line. The decoder accepts exactly that reply; anything else
+is a protocol error, which the readiness tick reports as missing data.
+
+Scope release. The guard a job holds is released by the daemon after a
+terminal attempt whose exit it proved (``pd_release_scope``, which re-checks
+every condition). When an admission hands this poller a terminal job still
+holding its guard (a cancel of a job nobody claimed, a daemon lost between its
+terminal reply and the release), the poller calls the same guarded function
+and asks once more. Terminal status alone releases nothing: a refused release
+leaves the job as it is, and the daemon's recovery finishes it.
+
+The poison latch is the contract's: when a scope's last three jobs all died
+under the code image being admitted now, ``pd_enqueue`` answers ``poisoned``
+(naming the latest dead job) and admits nothing; the poller parks the record
+with that reason (``CapacityRouter.park_poisoned``) and stops asking until
+the source commit changes or the restage nonce (the operator's ruling)
+un-parks it. ``large_poisoned`` on the capacity line counts those records.
+
+The receipt. A staged bundle is promoted only on the receipt of the job that
+produced it: ``pq_job_status`` says ``succeeded`` with an ``output_sha256``,
+the attempt's manifest row (``pq_attempt_logs``, stream ``manifest``) hashes
+to that digest, names the job, and its ``inputs`` (``math_env``, ``math_tick``,
+``vote_hwm``) are the staged bundle's fingerprint. A bundle a child committed
+before the daemon finalized the attempt, or whose manifest failed, has no
+receipt and is not served.
 
 Nothing here runs unless ``MATH_CAPACITY_ROUTING=1`` and a queue DSN is set.
 """
@@ -64,21 +89,36 @@ ADMISSION_SCHEMA = "polis-jobs.admission/1"
 FRAME_URI_PREFIX = "frame://inline/"
 DEPTH_OUTCOME = "class_depth"
 
-#: Reply schema versions the contract may answer with: 000023 answers
-#: ``polis-queue/2`` for every non-noop stage; the /3 migration may bump it.
+#: Reply schema versions a job reply may carry: 000024 answers
+#: ``polis-queue/3`` for a math_rebuild job; ``/2`` is the Delphi stages'.
 REPLY_VERSIONS = frozenset(("polis-queue/2", "polis-queue/3"))
+#: The depth read exists only from 000024 and answers its own version.
+DEPTH_VERSION = "polis-queue/3"
 
 #: The closed statement inventory with fixed casts (``executor.RPC`` pattern).
-#: ``pd_enqueue`` is the one admission RPC of 000023; ``pq_class_depth`` is the
-#: /3 read; ``pq_job_status`` and ``pq_cancel`` are the 000019 management reads.
+#: ``pd_enqueue`` is the one admission RPC (000023, admitting math_rebuild
+#: from 000024); ``pd_release_scope`` the guarded release (000023);
+#: ``pq_class_depth`` the /3 read; ``pq_job_status`` and ``pq_cancel`` the
+#: 000019 management reads; ``pq_attempt_logs`` (000023) the manifest row.
 RPC: Dict[str, Tuple[str, ...]] = {
     "pd_enqueue": ("text", "integer", "text", "text", "text", "text", "uuid", "uuid", "text",
                    "text", "text", "text", "smallint", "integer", "text", "text", "text",
                    "jsonb"),
+    "pd_release_scope": ("text", "text"),
     "pq_class_depth": ("text", "text"),
     "pq_job_status": ("text", "uuid"),
     "pq_cancel": ("text", "uuid", "bigint"),
+    "pq_attempt_logs": ("text", "uuid", "bigint", "integer"),
 }
+#: Set-returning functions, read with ``SELECT <columns> FROM``; the rest
+#: answer one jsonb (or, for ``pd_release_scope``, one boolean).
+TABLE_RPC: Dict[str, Tuple[str, ...]] = {"pq_attempt_logs": ("seq", "stream", "line")}
+#: The manifest row's log stream (queue-rs ``logs.rs``) and its schema.
+MANIFEST_STREAM = "manifest"
+MANIFEST_SCHEMA = "polis-jobs.output-manifest/1"
+#: Log rows read per page when looking for the manifest row, and the pages.
+LOG_PAGE = 1000
+LOG_PAGES = 64
 
 #: Closed field set of an ordinary job reply (``pq_result``).
 JOB_FIELDS = frozenset(
@@ -87,13 +127,17 @@ JOB_FIELDS = frozenset(
     "stage_instance attempt_count max_attempts parked_attempt_count eligible_at "
     "first_parked_at last_error_code input".split()
 )
-#: Closed field set of the depth reply (the plan's ``pq_class_depth``).
+#: Closed field set of the depth reply: 000024's ``pq_class_depth``, exactly.
 DEPTH_FIELDS = frozenset(
-    "schema_version outcome env worker_class queued running dead oldest_created_at".split()
+    "schema_version outcome env worker_class queued leased parked dead "
+    "oldest_unresolved_created_at".split()
 )
-ENQUEUE_OUTCOMES = frozenset(("enqueued", "existing", "conflict"))
+DEPTH_COUNTS = ("queued", "leased", "parked", "dead")
+ENQUEUE_OUTCOMES = frozenset(("enqueued", "existing", "conflict", "poisoned"))
 #: Job states the guard counts as active (the scope is occupied).
 ACTIVE_STATES = frozenset(("queued", "retry_wait", "running", "parked"))
+#: Job states after which nothing more happens to the job.
+TERMINAL_STATES = frozenset(("succeeded", "dead", "cancelled"))
 
 #: The queue env namespace: the daemon's ``QUEUE_ENV`` shape.
 _ENV_NAMESPACE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
@@ -204,19 +248,91 @@ def validate_job(reply: Any) -> Dict[str, Any]:
 
 
 def validate_depth(reply: Any) -> Dict[str, Any]:
-    """Reject a reply that is not the closed depth envelope."""
+    """Reject a reply that is not 000024's depth envelope, exactly."""
     if not isinstance(reply, dict) or set(reply) != DEPTH_FIELDS:
         raise QueueProtocolError("queue_wire_depth_fields")
-    if reply["schema_version"] not in REPLY_VERSIONS or reply["outcome"] != DEPTH_OUTCOME:
+    if reply["schema_version"] != DEPTH_VERSION or reply["outcome"] != DEPTH_OUTCOME:
         raise QueueProtocolError("queue_wire_depth_version")
-    for key in ("queued", "running", "dead"):
+    if reply["worker_class"] not in ("delphi", "large") or not isinstance(reply["env"], str):
+        raise QueueProtocolError("queue_wire_depth_class")
+    for key in DEPTH_COUNTS:
         value = reply[key]
         if type(value) is not int or value < 0:
             raise QueueProtocolError("queue_wire_depth_count")
-    oldest = reply["oldest_created_at"]
+    oldest = reply["oldest_unresolved_created_at"]
     if oldest is not None and not isinstance(oldest, str):
         raise QueueProtocolError("queue_wire_depth_timestamp")
     return reply
+
+
+def validate_release(reply: Any) -> bool:
+    """``pd_release_scope`` answers one boolean."""
+    if type(reply) is not bool:
+        raise QueueProtocolError("queue_wire_release")
+    return reply
+
+
+def validate_log_rows(rows: Any) -> List[Dict[str, Any]]:
+    """``pq_attempt_logs`` rows: (seq, stream, line), each typed."""
+    out = []
+    for row in rows:
+        if (not isinstance(row, dict) or set(row) != set(TABLE_RPC["pq_attempt_logs"])
+                or type(row["seq"]) is not int or not isinstance(row["stream"], str)
+                or not isinstance(row["line"], str)):
+            raise QueueProtocolError("queue_wire_log_row")
+        out.append(row)
+    return out
+
+
+@dataclass(frozen=True)
+class Receipt:
+    """What authorizes serving a staged bundle: the job's terminal state and,
+    when it succeeded, the finalized manifest's naming of the bundle."""
+
+    job_id: str
+    state: str
+    output_sha256: Optional[str]
+    math_env: Optional[str] = None
+    math_tick: Optional[int] = None
+    vote_hwm: Optional[int] = None
+
+    @property
+    def finalized(self) -> bool:
+        return self.state == "succeeded" and self.output_sha256 is not None and \
+            self.math_tick is not None
+
+    def binds(self, staged: Any, label: str) -> bool:
+        """The receipt names exactly this staged bundle (its label, tick and
+        newest vote)."""
+        return (self.finalized and self.math_env == label
+                and self.math_tick == getattr(staged, "math_tick", None)
+                and self.vote_hwm == getattr(staged, "lvt", None))
+
+
+def receipt_of(job_id: str, status: Dict[str, Any], manifest_line: Optional[str]) -> Receipt:
+    """The receipt from a job status reply and the manifest row that hashes
+    to its output digest (None when there is none). A manifest that does not
+    hash to the digest, name the job or carry typed inputs is no receipt."""
+    state, sha = str(status["state"]), status.get("output_sha256")
+    bare = Receipt(job_id=job_id, state=state, output_sha256=sha)
+    if state != "succeeded" or not isinstance(sha, str) or manifest_line is None:
+        return bare
+    if sha256_hex(manifest_line.encode("utf-8")) != sha:
+        return bare
+    try:
+        m = json.loads(manifest_line)
+    except ValueError:
+        return bare
+    inputs = m.get("inputs") if isinstance(m, dict) else None
+    if (not isinstance(m, dict) or m.get("schema") != MANIFEST_SCHEMA
+            or m.get("job_id") != job_id or m.get("stage") != STAGE_MATH_REBUILD
+            or m.get("outcome") != "succeeded" or not isinstance(inputs, dict)):
+        return bare
+    tick, hwm, env = inputs.get("math_tick"), inputs.get("vote_hwm"), inputs.get("math_env")
+    if type(tick) is not int or type(hwm) is not int or not isinstance(env, str):
+        return bare
+    return Receipt(job_id=job_id, state=state, output_sha256=sha, math_env=env,
+                   math_tick=tick, vote_hwm=hwm)
 
 
 @dataclass(frozen=True)
@@ -260,7 +376,12 @@ class QueueClient:
         if len(args) != len(casts):
             raise ValueError("queue_rpc_arity")
         placeholders = ",".join("%s::" + cast for cast in casts)
-        statement = "SELECT public." + name + "(" + placeholders + ")"
+        columns = TABLE_RPC.get(name)
+        if columns is None:
+            statement = "SELECT public." + name + "(" + placeholders + ")"
+        else:
+            statement = ("SELECT " + ",".join(columns) + " FROM public." + name + "("
+                         + placeholders + ")")
         conn = psycopg2.connect(
             self.settings.dsn,
             connect_timeout=self.settings.connect_timeout,
@@ -279,11 +400,18 @@ class QueueClient:
                 if owner_escape:
                     raise QueueRefused("queue_login_can_become_queue_owner")
                 cur.execute(statement, args)
-                reply = cur.fetchone()[0]
+                if columns is None:
+                    reply = cur.fetchone()[0]
+                else:
+                    reply = [dict(zip(columns, row)) for row in cur.fetchall()]
             if reply is None:
                 raise QueueProtocolError("queue_unexpected_null_reply")
             if name == "pq_class_depth":
                 validate_depth(reply)
+            elif name == "pd_release_scope":
+                validate_release(reply)
+            elif name == "pq_attempt_logs":
+                validate_log_rows(reply)
             else:
                 validate_job(reply)
             conn.commit()
@@ -297,9 +425,33 @@ class QueueClient:
                              max_attempts: int = DEFAULT_MAX_ATTEMPTS) -> Tuple[str, str]:
         """One ``math_rebuild`` job of class ``large`` for ``zid``, idempotent
         under the scope guard. Returns ``(outcome, job_id)``: ``enqueued`` a
-        new job, ``existing``/``conflict`` the active one."""
+        new job; ``existing``/``conflict`` the active one; ``poisoned`` the
+        latest dead job, nothing admitted. A terminal job still holding the
+        guard is released through the guarded ``pd_release_scope`` and the
+        admission asked once more; a refused release leaves it to the daemon."""
         if not _LABEL.fullmatch(staged_label or "") or not _LABEL.fullmatch(target_label or ""):
             raise ValueError("queue_label")
+        outcome, reply = self._admit(zid, config=config, staged_label=staged_label,
+                                     target_label=target_label, priority=priority,
+                                     max_attempts=max_attempts)
+        if outcome in ("existing", "conflict") and reply["state"] in TERMINAL_STATES:
+            # Finding 2: the guard outlived its job (a cancel nobody ran, a
+            # daemon lost before its release). The SQL re-checks every
+            # condition; a refusal is the daemon's recovery to finish.
+            if self.release_scope(target_label, zid):
+                logger.info("capacity: zid=%s released the scope of %s job %s; asking again",
+                            zid, reply["state"], str(reply["job_id"])[:8])
+                outcome, reply = self._admit(zid, config=config, staged_label=staged_label,
+                                             target_label=target_label, priority=priority,
+                                             max_attempts=max_attempts)
+            else:
+                logger.warning("capacity: zid=%s %s job %s still holds its scope (exit "
+                               "unproven or provider work open); left to the daemon",
+                               zid, reply["state"], str(reply["job_id"])[:8])
+        return outcome, str(reply["job_id"])
+
+    def _admit(self, zid: int, *, config: Dict[str, Any], staged_label: str,
+               target_label: str, priority: int, max_attempts: int) -> Tuple[str, Dict[str, Any]]:
         body = canonical_bytes(admission(zid, staged_label=staged_label, config=config))
         job_id, run_id = str(uuid.uuid4()), str(uuid.uuid4())
         scope = scope_key(target_label, zid)
@@ -316,7 +468,42 @@ class QueueClient:
         if outcome == "enqueued" and (reply["job_id"] != job_id
                                       or reply["stage"] != STAGE_MATH_REBUILD):
             raise QueueProtocolError("queue_enqueue_identity")
-        return outcome, str(reply["job_id"])
+        return outcome, reply
+
+    def release_scope(self, target_label: str, zid: int) -> bool:
+        """The guarded release of ``math:<label>:<zid>``: true when the
+        database agreed (every job of the scope terminal, every exit proven,
+        no provider work), false when it refused or there was nothing."""
+        return bool(self.call("pd_release_scope", [self.settings.env,
+                                                   scope_key(target_label, zid)]))
+
+    def receipt(self, job_id: str) -> Receipt:
+        """The job's receipt (finding 4): its state, and when it succeeded
+        and was finalized, the manifest row that hashes to its output digest
+        with the staged bundle it names."""
+        status = self.job_status(job_id)
+        state = str(status["state"])
+        attempt = status.get("attempt_id")
+        if state != "succeeded" or not isinstance(status.get("output_sha256"), str) \
+                or not isinstance(attempt, str):
+            return receipt_of(job_id, status, None)
+        return receipt_of(job_id, status, self._manifest_line(attempt, status["output_sha256"]))
+
+    def _manifest_line(self, attempt_id: str, sha: str) -> Optional[str]:
+        """The manifest row of the attempt that hashes to ``sha``, paging the
+        attempt's log rows; None when no row does."""
+        after: Optional[int] = None
+        for _ in range(LOG_PAGES):
+            rows = self.call("pq_attempt_logs", [self.settings.env, str(uuid.UUID(attempt_id)),
+                                                 after, LOG_PAGE])
+            for row in rows:
+                if row["stream"] == MANIFEST_STREAM and sha256_hex(
+                        row["line"].encode("utf-8")) == sha:
+                    return row["line"]
+            if len(rows) < LOG_PAGE:
+                return None
+            after = int(rows[-1]["seq"])
+        return None
 
     def class_depth(self, worker_class: str = WORKER_CLASS_LARGE) -> Dict[str, Any]:
         """The counts of one worker class in this env."""
@@ -344,6 +531,10 @@ def enqueue_routed(queue: Any, router: Any, zid: int, *, staged_label: str,
     rec = router.record(zid)
     if rec is None or rec.disposition != LARGE:
         return None
+    if not isinstance(source_commit, str) or not source_commit:
+        # The child refuses a frame without a commit and the daemon refuses
+        # an admission without one: asking would only make dead jobs.
+        raise QueueRefused("queue_source_commit_missing")
     config = {
         "staged_label": staged_label,
         "target_label": target_label,
@@ -354,15 +545,24 @@ def enqueue_routed(queue: Any, router: Any, zid: int, *, staged_label: str,
     }
     outcome, job_id = queue.enqueue_math_rebuild(zid, config=config, staged_label=staged_label,
                                                  target_label=target_label)
+    if outcome == "poisoned":
+        # The scope's last jobs all died under this source commit: parked
+        # with the reason, not asked again until the commit changes.
+        router.park_poisoned(zid, job_id, source_commit)
+        logger.warning("capacity: zid=%s is poisoned (its last math_rebuild jobs died under "
+                       "this source commit, latest %s); parked until a new deploy or a ruling",
+                       zid, job_id[:8])
+        return job_id
     router.set_job(zid, job_id)
     logger.info("capacity: zid=%s math_rebuild job %s (%s)", zid, outcome, job_id[:8])
     return job_id
 
 
 __all__ = [
-    "ACTIVE_STATES", "ADMISSION_SCHEMA", "DEPTH_FIELDS", "JOB_FIELDS", "QueueClient",
-    "QueueProtocolError", "QueueRefused", "QueueSettings", "RPC", "STAGE_MATH_REBUILD",
-    "WORKER_CLASS_LARGE", "admission", "canonical_bytes", "decode_frame_uri",
-    "encode_frame_uri", "enqueue_routed", "scope_key", "sha256_hex", "validate_depth",
-    "validate_job",
+    "ACTIVE_STATES", "ADMISSION_SCHEMA", "DEPTH_COUNTS", "DEPTH_FIELDS", "DEPTH_VERSION",
+    "JOB_FIELDS", "MANIFEST_SCHEMA", "MANIFEST_STREAM", "QueueClient", "QueueProtocolError",
+    "QueueRefused", "QueueSettings", "RPC", "Receipt", "STAGE_MATH_REBUILD", "TABLE_RPC",
+    "TERMINAL_STATES", "WORKER_CLASS_LARGE", "admission", "canonical_bytes",
+    "decode_frame_uri", "encode_frame_uri", "enqueue_routed", "receipt_of", "scope_key",
+    "sha256_hex", "validate_depth", "validate_job", "validate_log_rows", "validate_release",
 ]
