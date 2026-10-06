@@ -1707,3 +1707,120 @@ fn schema_invalid_manifests_never_finalize() {
         assert_eq!(d.stop(), Some(0));
     }
 }
+
+/// The built-in sweep (000026, P-083): with `POLIS_JOBS_SWEEP=1` an idle
+/// large worker runs one sweep, deletes the older finished rebuild of a
+/// product (its attempts and logs with it), keeps the latest one (the
+/// promotion's receipt and the head's run) and its manifest row, drops that
+/// one's output lines after 7 days, prints one `polis_jobs.sweep/1` line,
+/// and is told not_due inside the next 24 hours.
+#[test]
+fn the_built_in_sweep_removes_expired_history_and_keeps_the_latest() {
+    let mut db = Db::new("jobs_v4");
+    let (old, scope) = db.enqueue("math_rebuild", 1, None, math(), 3);
+    let worker = start(
+        &db,
+        Opts::new("sweep-run", "success").set("POLIS_JOBS_WORKER_CLASS", "large"),
+    );
+    db.wait_state(old, "succeeded", 60);
+    db.wait("the first scope released", 30, |d| d.guard(&scope).is_none());
+    let (new, _) = db.enqueue("math_rebuild", 1, None, math(), 3);
+    db.wait_state(new, "succeeded", 60);
+    assert_eq!(worker.stop(), Some(0));
+    let (old_attempt, new_attempt) = (db.attempts(old)[0].0, db.attempts(new)[0].0);
+    db.sql
+        .batch_execute(&format!(
+            "UPDATE polis_queue_jobs SET updated_at=now()-interval '31 days' WHERE env='{ENV}';
+             UPDATE polis_queue_attempts SET ended_at=now()-interval '31 days' WHERE env='{ENV}'"
+        ))
+        .unwrap();
+    let streams = |d: &mut Db, attempt: Uuid| -> Vec<String> {
+        d.sql
+            .query(
+                "SELECT DISTINCT stream FROM polis_queue_logs WHERE env=$1 AND attempt_id=$2 ORDER BY 1",
+                &[&ENV, &attempt],
+            )
+            .unwrap()
+            .iter()
+            .map(|r| r.get(0))
+            .collect()
+    };
+    assert!(streams(&mut db, new_attempt).contains(&"manifest".to_owned()));
+    assert!(streams(&mut db, new_attempt).len() > 1, "the child wrote output");
+    let sweeper = start(
+        &db,
+        Opts::new("sweeper", "success")
+            .set("POLIS_JOBS_WORKER_CLASS", "large")
+            .set("POLIS_JOBS_SWEEP", "1")
+            .set("POLIS_JOBS_SWEEP_CHECK_SECONDS", "1"),
+    );
+    let sweep_lines = |d: &Daemon| -> Vec<Value> {
+        d.log()
+            .lines()
+            .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+            .filter(|v| v["schema"] == "polis_jobs.sweep/1")
+            .collect()
+    };
+    db.wait("a sweep line", 30, |_| !sweep_lines(&sweeper).is_empty());
+    let line = sweep_lines(&sweeper).remove(0);
+    assert_eq!(line["env"], ENV, "{line}");
+    assert_eq!(line["stopped_by"], "", "{line}");
+    assert_eq!(line["jobs_deleted"], 1, "{line}");
+    assert_eq!(line["attempts_deleted"], 1, "{line}");
+    let jobs: Vec<Uuid> = db
+        .sql
+        .query(
+            "SELECT job_id FROM polis_queue_jobs WHERE env=$1",
+            &[&ENV],
+        )
+        .unwrap()
+        .iter()
+        .map(|r| r.get(0))
+        .collect();
+    assert_eq!(jobs, vec![new], "the older success went, the latest stayed");
+    assert!(streams(&mut db, old_attempt).is_empty());
+    assert_eq!(streams(&mut db, new_attempt), vec!["manifest".to_owned()]);
+    let ledger: (i32, String) = {
+        let r = db
+            .sql
+            .query_one(
+                "SELECT pages,stopped_by FROM polis_queue_sweeps WHERE env=$1 AND finished_at IS NOT NULL",
+                &[&ENV],
+            )
+            .unwrap();
+        (r.get(0), r.get(1))
+    };
+    assert_eq!(ledger, (1, String::new()));
+    // Inside 24 hours the next checks are not_due: still one sweep.
+    std::thread::sleep(Duration::from_secs(3));
+    assert_eq!(sweep_lines(&sweeper).len(), 1);
+    assert_eq!(sweeper.stop(), Some(0));
+}
+
+/// A database without 000026 has no `pq_sweep`: the sweep turns itself off
+/// for the process with one line, and the worker keeps running.
+#[test]
+fn the_sweep_turns_itself_off_without_000026() {
+    let mut db = Db::new("jobs_v3");
+    let mut d = start(
+        &db,
+        Opts::new("no-sweep", "success")
+            .set("POLIS_JOBS_WORKER_CLASS", "large")
+            .set("POLIS_JOBS_SWEEP", "1")
+            .set("POLIS_JOBS_SWEEP_CHECK_SECONDS", "1"),
+    );
+    db.wait("the sweep-off line", 30, |_| {
+        d.log()
+            .contains("polis_jobs sweep off: the database has no pq_sweep")
+    });
+    std::thread::sleep(Duration::from_secs(2));
+    assert!(d.child.try_wait().unwrap().is_none(), "the worker kept running");
+    assert_eq!(
+        d.log().matches("polis_jobs sweep off").count(),
+        1,
+        "said once"
+    );
+    let (job, _) = db.enqueue("math_rebuild", 1, None, math(), 3);
+    db.wait_state(job, "succeeded", 60);
+    assert_eq!(d.stop(), Some(0));
+}

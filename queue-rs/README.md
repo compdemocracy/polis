@@ -198,3 +198,21 @@ of it to another (`jobs_v2`) and 000024 on top of that to a third (`jobs_v3`,
 the large class), then run real daemon processes against copies of them with
 a generated fixture child (`tests/fixtures/fake_delphi`) in place of the
 Delphi scripts and the math poller's job entry.
+
+### The built-in queue sweep (off by default)
+
+Retention for the queue's own history (cost-reduction plan P-083) runs inside
+the daemon when `POLIS_JOBS_SWEEP=1` and the database carries migration
+000026. It starts no child and hands out no connection: the daemon asks
+`pq_sweep` for one bounded page at a time, only when its claim pass has
+nothing to start, so a sweep never goes ahead of a job. The SQL decides the
+rest: one sweep per 24 hours per queue env, one sweeper at a time, what may
+be deleted and how much per page (finished jobs after 30 days, dead ones
+after 90, a succeeded attempt's output lines after 7 days, any other's after
+30, expired request bindings after a day; pinned, aliased, held, unproven,
+still-referenced and latest-succeeded jobs are kept). Each finished sweep is
+one `polis_jobs.sweep/1` line with its counts, and a row in
+`polis_queue_sweeps`. `POLIS_JOBS_SWEEP_MAX_PAGES` (100) bounds the pages of
+one sweep; `POLIS_JOBS_SWEEP_CHECK_SECONDS` (900) is how often an idle
+daemon asks whether a sweep is due. Without 000026 the sweep says so once
+and turns itself off; the daemon keeps working.

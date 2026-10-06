@@ -12,6 +12,7 @@ use super::{
     reaper::Reaper,
     rpc::{CONTRACTS, Rpc},
     shutdown,
+    sweep::Sweeper,
     task::{self, Ctx, Pending},
     transport::Connector,
 };
@@ -338,6 +339,9 @@ pub fn run(cfg: Config) -> i32 {
     let mut next_poll = Instant::now();
     let mut wake = true;
     let mut db_failures = 0u32;
+    let mut sweeper = Sweeper::new(cfg.sweep, cfg.sweep_max_pages, cfg.sweep_check);
+    // The last claim pass found nothing to start: the sweep may take a page.
+    let mut claim_idle = false;
     while !shutdown::requested() {
         let before = jobs.len();
         jobs.retain(|h| !h.is_finished());
@@ -352,6 +356,7 @@ pub fn run(cfg: Config) -> i32 {
             match claim_one(&mut rpc, &ctx, &cfg, &owner) {
                 Ok(Some((claim, reply))) => {
                     db_failures = 0;
+                    claim_idle = false;
                     Counters::bump(&ctx.counters.claimed);
                     if !cfg.stages.contains(&claim.stage) {
                         // Map 1 D8: refused at claim; no child is spawned.
@@ -376,6 +381,7 @@ pub fn run(cfg: Config) -> i32 {
                 Ok(None) => {
                     db_failures = 0;
                     wake = false;
+                    claim_idle = true;
                 }
                 Err(e) => {
                     db_failures += 1;
@@ -383,6 +389,10 @@ pub fn run(cfg: Config) -> i32 {
                     wake = false;
                 }
             }
+        }
+        // P-083: retention never goes ahead of a job; one page per pass.
+        if sweeper.enabled() && !shutdown::requested() {
+            sweeper.tick(&mut rpc, claim_idle || jobs.len() >= cfg.concurrency);
         }
         if Instant::now() >= next_reap {
             next_reap = Instant::now() + cfg.reap_interval;
