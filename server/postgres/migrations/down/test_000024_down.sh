@@ -30,7 +30,10 @@
 #       never sees the rebuild and a large worker's claim never sees the
 #       Delphi job; a claim or reap with another class is refused; the rebuild
 #       completes through exit proof, a manifest row and pq_finalize, its
-#       scope releases and can be admitted again; the noop /1 path still runs.
+#       scope releases and can be admitted again; pd_job_view names the scope
+#       an active root job holds and null once released; three dead jobs of
+#       one scope under one image make a fourth admission `poisoned` (no job,
+#       no guard) and a new image admits again; the noop /1 path still runs.
 #   (f) /3 data present (a queued rebuild): the down is REFUSED and every
 #       object survives; once the rows are deleted it runs.
 #   (d) the down restores the catalog: the schema dump after it is identical
@@ -288,6 +291,38 @@ out="$(ex a "SELECT public.pq_finalize('$ENVN','$j1'::uuid,'$own_l'::uuid,'$att_
 out="$(adm a math_rebuild 1 'math:rebuild:1' k6 "$SHA2" "$r3" "$j3" NULL 'math:python-large:1')"
 printf '%s' "$out" | grep -q '"outcome": *"enqueued"' || fail "(h) re-admission after release: $out"
 [ "$(depth a large)" = "1/0/0/0/true" ] || fail "(h) large depth after re-admission: $(depth a large)"
+# The job view names the scope its root job holds, and null once released.
+[ "$(ex a "SELECT public.pd_job_view('$ENVN','$j3'::uuid)->>'scope_key'")" = "math:python-large:1" ] || fail "(h) pd_job_view scope_key of the active rebuild"
+[ -z "$(ex a "SELECT public.pd_job_view('$ENVN','$j1'::uuid)->>'scope_key'")" ] || fail "(h) pd_job_view scope_key of the released rebuild is not null"
+# The poison latch: three dead jobs of one scope under one image refuse a
+# fourth admission (outcome poisoned, naming the latest dead job); a new
+# image admits again. Each death: claim as large, permanent failure with exit
+# proof (max_attempts 1), then the safe release.
+adm1() { # db zid product key sha run job scope image
+  ex "$1" "SELECT public.pd_enqueue('$ENVN',$2,'$3','poller','$4','$5','$6'::uuid,'$7'::uuid,'public-fixture-input','$SHA1','$SHA1','$9',0::smallint,1,'math_rebuild',NULL,'$8','{\"need_bytes\":1}'::jsonb)"
+}
+last_dead=""
+for n in 1 2 3; do
+  rp="$(scalar a "SELECT gen_random_uuid()")"; jp="$(scalar a "SELECT gen_random_uuid()")"
+  own_p="$(scalar a "SELECT gen_random_uuid()")"; att_p="$(scalar a "SELECT gen_random_uuid()")"
+  out="$(adm1 a 2 'math:rebuild:2' "kp$n" "$SHA1" "$rp" "$jp" 'math:python-large:2' 'fixture-image')"
+  printf '%s' "$out" | grep -q '"outcome": *"enqueued"' || fail "(h) poison witness admission $n: $out"
+  out="$(ex a "SELECT public.pq_claim('$ENVN',0::smallint,'$own_p'::uuid,'$att_p'::uuid,60,'large')->>'job_id'")"
+  [ "$out" = "$jp" ] || fail "(h) poison witness claim $n took $out"
+  out="$(ex a "SELECT public.pq_fail('$ENVN','$jp'::uuid,'$own_p'::uuid,'$att_p'::uuid,1,true,'stage_failed:1',true)->>'state'")"
+  [ "$out" = "dead" ] || fail "(h) poison witness death $n: $out"
+  [ "$(ex a "SELECT public.pd_release_scope('$ENVN','math:python-large:2')")" = "t" ] || fail "(h) poison witness release $n"
+  last_dead="$jp"
+done
+rp="$(scalar a "SELECT gen_random_uuid()")"; jp="$(scalar a "SELECT gen_random_uuid()")"
+out="$(adm1 a 2 'math:rebuild:2' kp4 "$SHA1" "$rp" "$jp" 'math:python-large:2' 'fixture-image')"
+printf '%s' "$out" | grep -q '"outcome": *"poisoned"' || fail "(h) fourth admission after three deaths was not poisoned: $out"
+printf '%s' "$out" | grep -q "\"job_id\": *\"$last_dead\"" || fail "(h) poisoned reply does not name the latest dead job: $out"
+[ "$(scalar a "SELECT count(*) FROM public.polis_queue_jobs WHERE worker_class='large' AND state='dead'")" = "3" ] || fail "(h) a poisoned admission made a job"
+[ -z "$(scalar a "SELECT root_job_id FROM public.delphi_job_guards WHERE env='$ENVN' AND scope_key='math:python-large:2'")" ] || fail "(h) a poisoned admission left a guard"
+out="$(adm1 a 2 'math:rebuild:2' kp5 "$SHA1" "$rp" "$jp" 'math:python-large:2' 'fixture-image-next')"
+printf '%s' "$out" | grep -q '"outcome": *"enqueued"' || fail "(h) a new image did not reset the poison latch: $out"
+[ "$(depth a large)" = "2/0/0/3/true" ] || fail "(h) large depth after the poison witness: $(depth a large)"
 # The noop /1 path still works on /3.
 rn="$(scalar a "SELECT gen_random_uuid()")"; jn="$(scalar a "SELECT gen_random_uuid()")"
 own_n="$(scalar a "SELECT gen_random_uuid()")"; att_n="$(scalar a "SELECT gen_random_uuid()")"
@@ -311,7 +346,7 @@ printf '%s' "$msg" | grep -q "refusing reversal: /3 data" || fail "(f) down refu
 for t in $JOB_TABLES polis_queue_large_class_install delphi_foundation_install; do
   [ "$(scalar a "SELECT to_regclass('public.$t')::text")" = "$t" ] || fail "(f) $t did not survive a refused down"
 done
-[ "$(scalar a "SELECT count(*) FROM public.polis_queue_jobs WHERE worker_class='large'")" = "2" ] || fail "(f) the rebuild rows did not survive a refused down"
+[ "$(scalar a "SELECT count(*) FROM public.polis_queue_jobs WHERE worker_class='large'")" = "6" ] || fail "(f) the rebuild rows did not survive a refused down"
 [ "$(scalar a "SELECT contract_version FROM public.polis_queue_install")" = "polis-queue/3" ] || fail "(f) contract changed by a refused down"
 psql_su -d a -c "DELETE FROM public.delphi_job_guards; DELETE FROM public.polis_queue_logs; DELETE FROM public.delphi_jobs; DELETE FROM public.polis_queue_requests; DELETE FROM public.polis_queue_attempts; DELETE FROM public.polis_queue_jobs; DELETE FROM public.polis_queue_heads; DELETE FROM public.polis_queue_runs; DELETE FROM public.conversations WHERE zid IN (1,2)" >/dev/null
 pass "(f) down refused with /3 data; everything survived"

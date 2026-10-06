@@ -449,7 +449,18 @@ kind, class and contract; `pq_result` reports `polis-queue/3` for a rebuild.
 One new read, `pq_class_depth(env, worker_class)`, returns the counts of
 queued (queued + retry_wait), leased (running), parked and dead jobs of a
 class and the oldest unresolved `created_at`: the small poller's capacity line
-is made of it, so no table grant is needed. `polis_queue_large_class_install`
+is made of it, so no table grant is needed. `pd_enqueue` gains the poison
+latch: when a scope's last three jobs all died under the code image being
+admitted now, the reply is outcome `poisoned` naming the latest dead job and
+no job is made; a different image (a deploy), or a succeeded or cancelled job
+among the last three, admits again. `pd_job_view` gains `scope_key`, the guard
+the job's root holds (null once released). Who releases a scope, and when: the
+`polis-jobs` daemon, after a terminal reply (succeeded, dead, cancelled) whose
+attempt exit it proved, through `pd_release_scope`, which still refuses while
+any job of the root's tree is not terminal, lacks exit proof or has an open
+provider request; the small poller as a fallback, through the same function,
+when an admission hands it a terminal job still holding its guard. Terminal
+status alone never releases anything. `polis_queue_large_class_install`
 holds the catalog baseline the down script restores. The `/1` noop path and
 the `/2` Delphi path are unchanged; a class-`delphi` worker never sees a
 rebuild and a class-`large` worker never sees a Delphi job.
@@ -474,7 +485,9 @@ force override). After it, 000023's own down applies as if 000024 had never
 been. Both files are sealed in `down/000024-files.sha256`. The proof is
 `bash server/postgres/migrations/down/test_000024_down.sh` (docker only):
 forward against the real chain, refused replays, the rebuild admitted, guarded,
-claimed by its class only, finalized and released, a refused down with /3 data,
+claimed by its class only, finalized and released, the job view naming the
+scope, three deaths making the fourth admission `poisoned` and a new image
+admitting again, a refused down with /3 data,
 the down restoring a byte-identical schema dump, apply again after the down,
 the down failing cleanly where 000024 (or 000023) was never applied, and
 000023's down unwinding the chain after it.
