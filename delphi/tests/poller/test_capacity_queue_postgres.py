@@ -397,9 +397,11 @@ class TestTheContract:
                                                 target_label=small)
         assert outcome == "enqueued" and fresh != job_id
 
-    def test_three_deaths_poison_the_scope_and_park_the_record(self, queue_db, db, env, labels):
+    def test_three_deaths_poison_the_scope_and_park_the_record(self, queue_db, db, env, labels,
+                                                                monkeypatch):
         """Finding 2: dead x3 -> poisoned, no unlimited re-admission; a new
         source commit admits again."""
+        monkeypatch.setattr(cq, "SCOPE_DAILY_CAP", 1000)     # four jobs in one day here
         small, large = labels
         (zid,) = fresh_zids(1)
         seed_conversation(db, zid, participants=3, comments=3)
