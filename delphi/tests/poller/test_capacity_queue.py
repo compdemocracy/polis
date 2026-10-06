@@ -672,6 +672,50 @@ class TestCapacityLineCounts:
 # --------------------------------------------------------------------------- #
 # 5. The client's wire: closed inventory, settings, frame encoding
 # --------------------------------------------------------------------------- #
+class TestSchedulingTable:
+    """P-082 day one: one closed table of scheduling constants. A change to a
+    lane, a budget or a class is a change to this test."""
+
+    def test_the_table_is_pinned(self):
+        assert dict(cq.STAGE_POLICY) == {
+            "math_rebuild": cq.StagePolicy(lane=1, max_attempts=3, worker_class="large"),
+        }
+        with pytest.raises(TypeError):
+            cq.STAGE_POLICY["math_rebuild"] = cq.StagePolicy(0, 1, "large")  # read-only
+        with pytest.raises(AttributeError):
+            cq.STAGE_POLICY["math_rebuild"].lane = 0  # frozen
+
+    def test_no_caller_can_choose_a_lane_or_a_budget(self):
+        import inspect
+
+        params = inspect.signature(cq.QueueClient.enqueue_math_rebuild).parameters
+        assert "priority" not in params and "max_attempts" not in params
+        assert not hasattr(cq, "DEFAULT_PRIORITY") and not hasattr(cq, "DEFAULT_MAX_ATTEMPTS")
+
+    def test_the_admission_carries_the_tables_lane_and_budget(self, monkeypatch):
+        """What reaches pd_enqueue: lane 1 (priority), 3 attempts, the
+        math_rebuild stage (class large is the stage's, in the SQL)."""
+        sent = []
+
+        def call(self, name, args):
+            sent.append((name, list(args)))
+            return {"outcome": "enqueued", "job_id": args[7], "stage": "math_rebuild",
+                    "state": "queued"}
+
+        monkeypatch.setattr(cq.QueueClient, "call", call)
+        client = cq.QueueClient(cq.QueueSettings("postgresql://x@127.0.0.1:1/x", "test"))
+        outcome, _ = client.enqueue_math_rebuild(7, config={"source_commit": "c" * 40},
+                                                 staged_label="python-large",
+                                                 target_label="python")
+        assert outcome == "enqueued"
+        (name, args), = sent
+        assert name == "pd_enqueue"
+        casts = cq.RPC["pd_enqueue"]
+        assert (casts[12], args[12]) == ("smallint", 1)
+        assert (casts[13], args[13]) == ("integer", 3)
+        assert args[14] == "math_rebuild"
+
+
 class TestClientWire:
     def test_the_inventory_is_closed(self):
         assert set(cq.RPC) == {"pd_enqueue", "pd_release_scope", "pq_class_depth",
