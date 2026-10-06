@@ -441,20 +441,22 @@ class MathPollerService:
         # this process instead of refusing them over and over.
         self.capacity = capacity if capacity is not None else CapacityRouter(
             self.admission, CapacitySettings.from_env_or_off())
-        # The large memory class (P-073 PR3). The large worker's driver sets
-        # a dynamic allowlist (None: no such filter; an empty set: nothing)
+        # The large memory class (P-073 PR3/r2). The queue child sets a
+        # dynamic allowlist (None: no such filter; an empty set: nothing)
         # and makes every live reservation exclusive. The small poller's
-        # promotion loop runs on the reconciler's cadence when routing is on.
+        # promotion loop runs on the reconciler's cadence when routing is on,
+        # and oversized conversations become math_rebuild jobs on the queue
+        # (``capacity_queue``; None without MATH_CAPACITY_QUEUE_DSN).
         self._dynamic_allow: Optional[frozenset] = None
         self.exclusive_live = False
-        self.large_driver: Any = None
         self._start_hooks: List[Any] = []
+        self.capacity_queue: Any = None
         self.capacity_loop = None
         if (self.capacity.routing and not self.capacity.settings.large
                 and publisher is None):
+            self.capacity_queue = self._open_capacity_queue()
             self.capacity_loop = self._build_capacity_loop()
-            # Once at start (restore the manifest's records without waiting
-            # a reconcile interval), then on the reconciler's cadence.
+            # Once at start, then on the reconciler's cadence.
             self._start_hooks.append(self._capacity_tick)
         self._writer = MathWriter(pg_client, publisher=publisher)
         self._bridge_stage = publisher.stage if publisher is not None else lambda stage: None
@@ -516,26 +518,51 @@ class MathPollerService:
                              exc.__class__.__name__)
                 self.backfill = None
 
+    def _open_capacity_queue(self):
+        """The queue client (never connects here), or None without a DSN:
+        routing still works, but no routed conversation is enqueued."""
+        from polismath.poller.capacity_queue import QueueClient
+
+        try:
+            queue = QueueClient.from_capacity(self.capacity.settings)
+        except Exception as exc:  # noqa: BLE001 - no hand-off, routing still works
+            logger.error("capacity: queue settings unusable (%s); routed conversations are "
+                         "not enqueued", exc.__class__.__name__)
+            return None
+        if queue is None:
+            logger.error("capacity: routing is on without MATH_CAPACITY_QUEUE_DSN; routed "
+                         "conversations are not enqueued")
+        return queue
+
     def _build_capacity_loop(self):
-        from polismath.poller.capacity_manifest import open_store
         from polismath.poller.promotion import SmallCapacityLoop
         from polismath.poller.readiness import identity
 
-        settings = self.capacity.settings
-        store = None
-        if settings.manifest_uri:
-            try:
-                store = open_store(settings.manifest_uri)
-            except Exception as exc:  # noqa: BLE001 - no hand-off, routing still works
-                logger.error("capacity: manifest store unusable (%s); no manifest is written",
-                             exc.__class__.__name__)
-        return SmallCapacityLoop(self, self.capacity, settings, store=store,
+        return SmallCapacityLoop(self, self.capacity, self.capacity.settings,
+                                 queue=self.capacity_queue,
                                  source_commit=identity()["source_commit"], run=self.run_id)
 
-    # -- filters and pool access (the large-class driver, P-073 PR3) ----------- #
+    def _enqueue_routed(self, zid: int) -> None:
+        """One math_rebuild job for a conversation just routed (P-073 r2).
+        Contained: a queue failure never changes the routing outcome; the
+        promotion pass asks again on its next tick."""
+        if self.capacity_queue is None:
+            return
+        from polismath.poller.capacity_queue import enqueue_routed
+        from polismath.poller.readiness import identity
+
+        try:
+            enqueue_routed(self.capacity_queue, self.capacity, zid,
+                           staged_label=self.capacity.settings.staged_label,
+                           target_label=self.config.math_env,
+                           source_commit=identity()["source_commit"])
+        except Exception as exc:  # noqa: BLE001
+            logger.error("capacity: enqueue of zid=%s failed (%s)", zid, exc.__class__.__name__)
+
+    # -- filters and pool access (the queue child, P-073 PR3/r2) --------------- #
     def _accepts(self, zid: int) -> bool:
-        """The static filter (allow/block lists, shard) and, on the large
-        worker, the dynamic allowlist from the capacity manifest."""
+        """The static filter (allow/block lists, shard) and, in the queue
+        child, the dynamic allowlist (its one conversation)."""
         c = self.config
         if not should_process_zid(zid, c.allowlist, c.blocklist, c.shard_index, c.shard_count):
             return False
@@ -565,10 +592,19 @@ class MathPollerService:
     def submit_rebuild(self, zid: int) -> bool:
         """A full-history rebuild of one conversation (cold first touch).
         Creates the runtime when called before start() (the ``--once`` path;
-        in a daemon the driver's start hook runs after it exists)."""
+        in a daemon a start hook runs after it exists)."""
         if self._pool is None:
             self._ensure_runtime()
         return self._pool.submit(zid, REBUILD, [])
+
+    def rebuild_one(self, zid: int) -> None:
+        """A cold full-history rebuild and publication of one conversation on
+        the calling thread (the queue child, P-073 r2): the ordinary engine
+        path (reserve, load from authoritative history, write the bundle,
+        remember), raising whatever it raises. Routing is off in the child,
+        so the work is never routed away."""
+        if self._run_engine(zid, CoalescedBatch(rebuild=True)):
+            raise RuntimeError("capacity: rebuild_one routed the conversation away")
 
     def add_start_hook(self, hook) -> None:
         """Called at the end of start(), once the pool exists."""
@@ -802,23 +838,24 @@ class MathPollerService:
             config = self.backfill.config.digest()
         # The capacity counts (P-073) in their own try: a fault there means no
         # capacity object and no capacity line, never a degraded readiness line.
-        capacity_line = None
         try:
-            if self.large_driver is not None:
-                # The large worker: its own counts on its capacity line; the
-                # readiness body's capacity object is the small poller's.
-                capacity, capacity_line = None, self.large_driver.counts()
-            else:
-                capacity = self.capacity.counts()
+            if self.capacity_queue is not None:
+                # The queue's counts of class large (r2), once per tick; a
+                # failed read is missing data (large_leased null, demand from
+                # the records), never a false 0.
+                depth = None
+                try:
+                    depth = self.capacity_queue.class_depth()
+                except Exception as exc:  # noqa: BLE001
+                    logger.error("capacity: queue depth unavailable (%s)", exc.__class__.__name__)
+                self.capacity.set_queue_depth(depth)
+            capacity = self.capacity.counts()
         except Exception as exc:  # noqa: BLE001
             logger.error("capacity: counts unavailable (%s)", exc.__class__.__name__)
             capacity = None
-        snap = {"discovery": discovery, "queue": queue, "sweep": sweep, "drain": drain,
+        return {"discovery": discovery, "queue": queue, "sweep": sweep, "drain": drain,
                 "admission": admission, "config": config, "capacity": capacity,
                 "loop_marks": tuple(h["successes"] for h in loops)}
-        if self.large_driver is not None:
-            snap["capacity_line"] = capacity_line
-        return snap
 
     def _live_poll_health(self):
         """(mean ms of the recent successful vote polls or None, seconds since
@@ -890,8 +927,8 @@ class MathPollerService:
             self._unpark(zid)  # clears park + invalidates cache
             self._pool.submit(zid, REBUILD, [])
         if self.capacity_loop is not None:
-            # P-073 PR3: restore, restage, re-size on a binding change,
-            # promotion and the manifest.
+            # P-073 PR3/r2: restage, re-size on a binding change, promotion
+            # and the queue.
             self._capacity_tick()
 
     def _capacity_tick(self) -> None:
@@ -1081,6 +1118,7 @@ class MathPollerService:
             return False
         self._cache_drop(zid)
         self.capacity.note_routed()
+        self._enqueue_routed(zid)
         return True
 
     def _route_before_reserve(self, zid: int, coalesced: CoalescedBatch, cold: bool) -> bool:
@@ -1110,6 +1148,7 @@ class MathPollerService:
             return False
         self._cache_drop(zid)
         cap.note_routed()
+        self._enqueue_routed(zid)
         return True
 
     def _reserve(self, zid: int, conv: Optional[Conversation], coalesced: CoalescedBatch):
@@ -1135,7 +1174,7 @@ class MathPollerService:
                 len(batch) + len(coalesced.moderation), voters + new_voters,
                 comments + new_comments)
             kind = "live_update"
-        # The large worker (P-073): one computation at a time.
+        # The queue child (P-073): one computation at a time.
         return adm.reserve(zid, need, kind=kind, exclusive=self.exclusive_live, stop=self._stop)
 
     def _run_engine(self, zid: int, coalesced: CoalescedBatch) -> bool:

@@ -99,11 +99,12 @@ if [ -f "/etc/app-info/log_group_name.txt" ]; then
   printf "\nAWS_LOG_GROUP_NAME=%s\n" "$LOG_GROUP_NAME" | sudo tee -a .env > /dev/null
 fi
 
-# Readiness identity (P-072), for every box that runs a math poller (the
-# Delphi box's math-python, the large box's math-python-large): the poller
-# logs the source commit and a digest of this instance's id in its readiness
-# lines, so the operator's readiness record names the holder, and the large
-# worker's version-skew guard compares the commit with the small poller's.
+# Readiness identity (P-072), for every box that runs the math poller or its
+# queue child (the Delphi box's math-python; the large box's math_rebuild
+# jobs, P-073 r2): the poller logs the source commit and a digest of this
+# instance's id in its readiness lines, so the operator's readiness record
+# names the holder, and the queue child's version-skew guard compares the
+# commit with the one the small poller put on the job.
 # Never fatal here: a missing commit makes the collector refuse to build a
 # record, and a missing instance id makes the poller itself refuse to start
 # (exit 2; the heartbeat alarm then fires) rather than name the holder by
@@ -255,18 +256,16 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   poller_identity
   sudo /usr/local/bin/docker-compose up -d delphi math-python --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "delphi-large" ]; then
-  # The large memory class box (P-073; role `math-large`). It starts ONLY the
-  # large worker: no Delphi job poller (the report role stays on the Delphi
-  # box) and no small poller (`math-python` is the single writer of the
-  # `python` label and runs on the Delphi box). math-python-large writes only
-  # its own label (`python-large`) under its own lock; the small poller
-  # promotes what it stages. Everything is off until the env document sets
-  # MATH_CAPACITY_MANIFEST_URI: without it the worker refuses to start
-  # (exit 2) and computes nothing. Its memory limit is
-  # MATH_LARGE_CONTAINER_MEMORY (compose default 52g, for a 64 GiB box).
-  echo "Starting docker-compose up for 'math-python-large' (large memory class, P-073)"
+  # The large memory class box (P-073 r2). Its worker is the polis-jobs
+  # daemon run as worker class `large`, which starts `math_poller.py --job`
+  # for one conversation at a time; that daemon's compose service lands with
+  # the daemon, so this branch starts no compose service yet. The readiness
+  # identity is written for it (the child's version-skew guard reads
+  # MATH_POLLER_SOURCE_COMMIT). No Delphi job poller and no small poller run
+  # here: `math-python` is the single writer of the `python` label and runs on
+  # the Delphi box.
+  echo "Service type 'delphi-large': no compose service to start (the large class runs as queue jobs under the polis-jobs daemon)"
   poller_identity
-  sudo /usr/local/bin/docker-compose up -d math-python-large --build --force-recreate
 else
   echo "Error: Unknown service type: [$SERVICE_FROM_FILE]. Starting all services (default docker-compose up -d)"
   sudo /usr/local/bin/docker-compose up -d --build --force-recreate

@@ -149,15 +149,18 @@ The demand line, once per readiness interval, is a bare JSON event (no log prefi
 
 ```json
 {"class":"small","exceeds_largest":0,"fits_small":0,"label":"python","large_demand":1,
- "oldest_unresolved_age_ms":412000,"pending_promotion":0,"promoted_total":0,
- "refusals_total":3,"role":"primary","routed_total":0,"routing":0,
+ "large_leased":null,"oldest_unresolved_age_ms":412000,"pending_promotion":0,
+ "promoted_total":0,"refusals_total":3,"role":"primary","routed_total":0,"routing":0,
  "schema":"math_poller.capacity/1"}
 ```
 
 `pending_promotion` counts unresolved `large` records whose staged bundle covers their
 input and is newer than this label's bundle; `promoted_total` counts promotions since
 the process started; `oldest_unresolved_age_ms` covers every unresolved `large` record,
-pending promotion included (§8).
+pending promotion included (§8). With the job queue configured (§8), `large_demand` and
+`large_leased` are the queue's counts of worker class `large` (queued + waiting, and
+running), read once per readiness interval; without it `large_demand` is the records'
+count above and `large_leased` is null (never a false 0).
 
 Counts and closed labels only. A primary always reports counts (0 with no demand); a
 standby reports `role=standby` with null counts; a primary whose snapshot failed logs
@@ -172,70 +175,80 @@ The same counts ride on the `math_poller readiness/1` line as `capacity` (null o
 standby; optional on parse, so earlier lines still validate). The heartbeat phrase and
 every other readiness key are unchanged.
 
-## 8. The large memory class (P-073 PR3)
+## 8. The large memory class (P-073 PR3, r2)
 
-Conversations the small poller routes away (§7) are computed by a second process of the
-same image, the **large worker**, and published into the small poller's label by the small
-poller itself. Everything here is off by default: nothing changes until
-`MATH_CAPACITY_ROUTING=1` on the small poller and a large worker runs.
+Conversations the small poller routes away (§7) are jobs on the Postgres job queue
+(`polis-queue`: migrations 000019 and 000023, and the `polis-queue/3` functions that
+admit worker class `large` and stage `math_rebuild`). The large box runs the `polis-jobs`
+daemon as a worker of class `large`; for each job it runs this entrypoint as a child
+for one conversation, which stages the bundle under its own label; the small poller
+promotes it into its own label itself. Everything here is off by default: nothing
+changes until `MATH_CAPACITY_ROUTING=1` on the small poller, and nothing is enqueued
+without `MATH_CAPACITY_QUEUE_DSN`.
 
 ```
-small poller (MATH_ENV=python)            large worker (MATH_ENV=python-large,
-  routes by size, never computes a          MATH_CAPACITY_CLASS=large)
-  routed conversation                         reads the manifest each readiness interval
-  writes the capacity manifest  ───────►      computes only the manifest's conversations
-  (private store, conditional put)            publishes them under python-large (its own
-                                              lock, the ordinary writer)
-  promotes python-large -> python  ◄──────    never writes python
-  (one transaction, compare-and-set)
+small poller (MATH_ENV=python)                 the large box
+  routes by size, never computes a               polis-jobs daemon, POLIS_JOBS_WORKER_CLASS=large
+  routed conversation                              claims one math_rebuild job, leases it, runs
+  inserts one math_rebuild job per   ───────►      scripts/math_poller.py --job as a child:
+  routed conversation (pd_enqueue,                   exactly the frame's zid, a cold full-history
+  scope math:<label>:<zid>, one                      rebuild under its own budget, published
+  active job per scope)                              under python-large (its lock, the ordinary
+  reads pq_class_depth each readiness                writer); never writes python
+  tick: large_demand, large_leased
+  promotes python-large -> python   ◄──────      the job's output manifest names the staged
+  (one transaction, compare-and-set)             bundle's tick and newest vote
 ```
 
 One writer per label holds: the small poller is the only writer of `python` (its own
-publications and promotions, both under the target tick lock), the large worker the only
-writer of `python-large` (lock key `polis-math-python:python-large`). No schema change:
-`python-large` is a third value of the existing `math_env` column.
+publications and promotions, both under the target tick lock), the child the only
+writer of `python-large` while it runs (lock key `polis-math-python:python-large`,
+taken once; held by another writer, the attempt fails and the daemon retries). No
+schema change on the math side: `python-large` is a third value of the existing
+`math_env` column.
 
-### 8.1 The capacity manifest
+### 8.1 The job
 
-`polismath/poller/capacity_manifest.py`. One private JSON object
-(`polis-math-capacity-manifest/1`), written only by the small primary, read by the large
-worker: the routed records (zid, sizes, need, input mark, first-unresolved time,
-`exceeds_largest`), the writer's label, run, source commit, binding, small compute
-capacity and declared large budget, the staged label and the applied restage nonce. It
-names zids, so it lives only in a private store, never in a log line, metric or receipt.
+`polismath/poller/capacity_queue.py`. The small poller reaches the queue only through a
+closed inventory of SQL functions (`pd_enqueue`, `pq_class_depth`, `pq_job_status`,
+`pq_cancel`), one short transaction per call on its own connection, every value bound
+with a fixed cast, over `MATH_CAPACITY_QUEUE_DSN`: a login that is a member of
+`polis_queue_executor` with no table access and no path to the owner role, re-checked
+on every connection. The publication path keeps `DATABASE_URL`.
 
-| `MATH_CAPACITY_MANIFEST_URI` | Backend |
-|---|---|
-| `s3://<bucket>/<key>` | an object in the bucket the Delphi service already uses (`AWS_S3_BUCKET_NAME`), recommended key `math-capacity/<label>/manifest.json`; `AWS_S3_ENDPOINT` (MinIO under docker) and `AWS_REGION` as the rest of Delphi; credentials from the environment or the instance role |
-| `file:///<path>` or an absolute path | a local file (tests; docker runs sharing a volume) |
-
-Writes are conditional (`If-Match` on the last-read ETag, `If-None-Match: *` to create);
-a lost precondition writes nothing and the writer re-reads before its next write. The
-pinned boto3 predates the `IfMatch` parameter, so the S3 backend sets the two headers
-through botocore's event hooks (signed with the request; S3 and MinIO answer 412). The
-large worker reads with `If-None-Match` and reuses its last manifest when unchanged.
+A job is admitted the moment a cold touch, rebuild or memory refusal classifies
+`large` (§7), and again by the promotion pass (§8.2) whenever a `large` record has no
+staged bundle covering its newest input. Both are idempotent: the scope
+`math:<label>:<zid>` admits one active job (queued, waiting or running); a second
+admission returns it. A finished job releases the scope, so new input after it is a
+new job. The run's `input_uri` carries the admission frame (`frame://inline/` +
+base64url, bound by `input_sha256`): the zid, `inputs.math_env` = the staged label,
+and a config of the two labels, the estimated need, the input mark, the sizing binding
+and the small poller's source commit. The record keeps the job id (in the state file
+when set). `exceeds_largest` is never a job.
 
 ### 8.2 The small poller's loop
 
 `polismath/poller/promotion.py`, once at start and then on the reconciler's cadence
 (`MATH_POLLER_RECONCILE_INTERVAL_MS`), only with routing on:
 
-1. **Restore** (once, retried until the store answers): routed records the state file
-   lacks are read back from the manifest. A manifest written for another label is never
-   overwritten; an unreadable one is replaced.
-2. **Restage** (`MATH_CAPACITY_RESTAGE=<16-64 hex>`, once per value, kept in the state
-   file and the manifest): every `large` record gets an input mark of the database clock,
-   so the large worker rebuilds it and the loop promotes the result (same votes, later
-   write). Remove the nonce after use.
-3. **Re-size on a binding change**: a routed record classified under another binding (a
+1. **Restage** (`MATH_CAPACITY_RESTAGE=<16-64 hex>`, once per value, kept in the state
+   file): every `large` record gets an input mark of the database clock, so the pass
+   below asks for a fresh job and promotes the result (same votes, later write). Remove
+   the nonce after use.
+2. **Re-size on a binding change**: a routed record classified under another binding (a
    resized box, a recalibrated model, changed fractions or large budget) is sized again
    without waiting for new input; one that now fits is un-routed and submitted as a
    REBUILD, so the small poller computes it at once.
-4. **Promotion** (`MATH_CAPACITY_PROMOTE=1`): every `large` record's staged and target
-   bundles are fingerprinted (`math_fingerprints`: tick, newest vote, write time,
-   completeness; no payload read). A complete staged bundle newer than the target is
-   promoted with `PostgresClient.promote_bundle`.
-5. **Manifest**: written when its content changed.
+3. **Promotion** (`MATH_CAPACITY_PROMOTE=1`) and the jobs: every `large` record's staged
+   and target bundles are fingerprinted (`math_fingerprints`: tick, newest vote, write
+   time, completeness; no payload read). A complete staged bundle newer than the target
+   is promoted with `PostgresClient.promote_bundle`; a record whose staged bundle is
+   missing, incomplete or behind its input is enqueued (at most a page per tick).
+
+Nothing is restored from the queue at start: a routed conversation this process has no
+record of is sized again on its next cold touch and enqueued again, which the guard
+makes idempotent; the records are a cache of sizes and marks, the queue rows the truth.
 
 `promote_bundle` is one transaction: mint the target tick (row-locks `(zid, python)`),
 take the staged tick row `FOR SHARE` (a staged publication in progress is waited for; the
@@ -252,87 +265,54 @@ newest input) and the target is not older than it. The backfill skips routed
 conversations (`_BackfillHost.accepts`), and a backfill job admitted before a
 conversation was routed is not run.
 
-### 8.3 The large worker
+### 8.3 The queue child
 
-`polismath/poller/large_class.py`, `MATH_CAPACITY_CLASS=large`. Each readiness interval
-the driver reads the manifest and either refuses to compute anything (empty dynamic
-allowlist; the reason on its capacity line) or drives the pool:
+`polismath/poller/rebuild_child.py`, `scripts/math_poller.py --job`, started by the
+daemon under its child contract (`polismath.job_child`: the attempt's identity in the
+environment, the frame at `DELPHI_FRAME`, the output manifest at
+`DELPHI_OUTPUT_MANIFEST`). It binds to the frame (stage `math_rebuild`; the one zid; the
+frame's `inputs.math_env` must equal its `MATH_ENV`), takes the label's single-writer
+lock once, runs one cold full-history rebuild under an exclusive reservation against its
+own budget through the ordinary engine path, publishes the three-table bundle under the
+staged label with the ordinary writer, and writes the manifest (`inputs.math_env`,
+`inputs.math_tick` and `inputs.vote_hwm` = the staged bundle's label, tick and newest
+vote; no stores outside Postgres). It starts no readiness reporter and prints no
+readiness or capacity line, so nothing it logs contains the heartbeat, discovery-stale or
+alert-test phrases.
 
-| `refusal` | When |
-|---|---|
-| `manifest_missing` / `manifest_unreadable` | no manifest yet, or not the closed shape |
-| `label` | written for another label pair (writer label is not `MATH_CAPACITY_PROMOTE_INTO`, or staged label is not this worker's `MATH_ENV`) |
-| `skew` | the version-skew guard: the small poller's source commit (`MATH_POLLER_SOURCE_COMMIT`) differs from this worker's; it waits for the deploy |
-| `budget` | the manifest declares a large budget above this worker's own memory budget |
-
-Otherwise the dynamic allowlist is the manifest's conversations that fit this worker's
-compute capacity (`exceeds_largest` and oversized entries are never attempted; the
-latter count as `unfit`); the ordinary vote and moderation loops update them warm; a
-conversation whose staged bundle is missing, incomplete or older than its input is
-submitted as a REBUILD (cold full history) when it is not cached, when the restage nonce
-changed, or when its input is older than two readiness intervals; cached conversations
-that left the manifest are dropped. Every reservation is exclusive. A transient store
-failure keeps the last allowlist.
-
-Startup refusals (exit 2, before any connection): `MATH_CAPACITY_CLASS` other than
-`small`/`large`; for `large`, any unparsable `MATH_CAPACITY_*` value, no manifest URI, no
-`MATH_CAPACITY_PROMOTE_INTO`, `MATH_ENV` equal to it or to the served label or different
-from `MATH_CAPACITY_STAGED_LABEL`, `MATH_POLLER_ALLOW_SERVED_ENV=1`, `MATH_BACKFILL=1`,
-routing/promotion/restage set (small-poller settings), sharding, and a declared
-`MATH_CAPACITY_LARGE_BUDGET_MB` above this worker's own budget.
-
-Its readiness lines carry a class token before the line kind, so no large line contains
-the heartbeat, discovery-stale or alert-test phrases (the P-072 filters match them across
-the whole log group) and the readiness collector never selects them:
-
-```
-math_poller class=large readiness/1 role=primary progress=ok {...}
-math_poller class=large discovery_stale/1 {...}
-```
-
-The JSON bodies are unchanged (`capacity` is null). Its capacity line:
-
-```json
-{"allowlisted":1,"busy":1,"class":"large","label":"python-large","queued":1,
- "refusal":null,"role":"primary","schema":"math_poller.capacity/1","skew":0,"unfit":0}
-```
-
-`busy`: allowlisted conversations queued, running or behind their input (the scale-in
-input); `queued`: those behind their input.
+Refusals, exit 2 before any connection: a frame whose `config.source_commit` differs
+from `MATH_POLLER_SOURCE_COMMIT` (the version-skew guard; a set and an unset commit are
+skew; a frame without the key is admitted and logged, the row's `code_version` being
+the daemon's guard); a served label (`prod`, `python`), an empty one, or the job's target
+label; `MATH_POLLER_ALLOW_SERVED_ENV=1`, `MATH_BACKFILL=1`, or routing, promotion or the
+restage nonce in its environment (small-poller settings); a declared
+`MATH_CAPACITY_LARGE_BUDGET_MB` above its own budget. Failed attempts, exit 1: a
+conversation above its compute capacity, another writer holding the label, an engine
+error. Exit 5: the bundle published but the manifest could not be built.
 
 ### 8.4 Settings
 
 | Setting | Default | Where | Effect |
 |---|---|---|---|
-| `MATH_CAPACITY_CLASS` | `small` | both | `large` runs the large worker |
-| `MATH_CAPACITY_MANIFEST_URI` | unset | both | unset: no hand-off (small); refused (large) |
+| `MATH_CAPACITY_CLASS` | `small` | small | `large` refuses to start: the large class is a child, not a poller |
+| `MATH_CAPACITY_QUEUE_DSN` | unset | small | the queue login (an executor member); unset: routed conversations are not enqueued |
+| `MATH_CAPACITY_QUEUE_ENV` | unset | small | the queue env namespace; required with the DSN |
 | `MATH_CAPACITY_PROMOTE` | `0` | small | `1` (needs routing): promote staged bundles |
-| `MATH_CAPACITY_STAGED_LABEL` | `python-large` | both | the large worker's label |
-| `MATH_CAPACITY_PROMOTE_INTO` | unset | large | the small poller's label; required |
+| `MATH_CAPACITY_STAGED_LABEL` | `python-large` | small | the label the child writes (its `MATH_ENV`) |
 | `MATH_CAPACITY_RESTAGE` | unset | small | a 16-64 hex nonce; a malformed one is ignored and logged |
-| `MATH_CAPACITY_LARGE_BUDGET_MB` | unset | both | small: the `exceeds_largest` line and the manifest's declared budget; large: refused when above its own budget |
+| `MATH_CAPACITY_LARGE_BUDGET_MB` | unset | both | small: the `exceeds_largest` line; child: refused when above its own budget |
 
-On the small poller a bad value turns routing off and is logged (§7); on the large worker
-it refuses to start.
+On the small poller a bad value turns routing off and is logged (§7); in the child it
+refuses the job.
 
-### 8.5 Compose and the deploy hooks (P-073 PR4)
+### 8.5 Compose and the deploy hooks
 
 `docker-compose.yml` forwards every setting above to `math-python` (which pins
-`MATH_CAPACITY_CLASS=small`) and runs the large worker as its own service,
-`math-python-large`: same image and entrypoint, profile `math-python-large` (so
-`make start`, the dev overlay and `--profile math-python` never run it),
-the literal label `python-large` for both `MATH_ENV` and the staged label,
-`MATH_CAPACITY_PROMOTE_INTO=${MATH_PYTHON_ENV}`, its own state volume and its own
-memory limit `MATH_LARGE_CONTAINER_MEMORY` (52g). It pins off everything it refuses
-(routing, promotion, the nonce, the state path, backfill, sharding, the served-label
-override), so one shared env document configures both. Neither poller receives the
-env document's AWS key pair: the manifest client signs as the instance role.
-`docs/configuration.md` lists
-the knobs; `tests/test_compose_math_env.py` pins the forwarding.
-
-A box whose service type is `delphi-large` starts only `math-python-large`
-(`scripts/after_install.sh`, with the same readiness identity lines as the Delphi box);
-`scripts/application_stop.sh` stops it. `tests/poller/test_compose_large_parity.py`
-(opt-in, docker) runs both services from `docker-compose.yml` on a throwaway Postgres,
-configured only through an env file: route, stage, promote, a warm update promoted
-again, and no heartbeat phrase in the large worker's lines.
+`MATH_CAPACITY_CLASS=small` and the literal staged label). There is no large poller
+service: the large box's worker is the `polis-jobs` daemon run with
+`POLIS_JOBS_WORKER_CLASS=large` inside the Delphi image, whose compose service lands with
+the daemon; until then a box whose service type is `delphi-large` writes the readiness
+identity (`scripts/after_install.sh`) and starts nothing, and `scripts/application_stop.sh`
+stops nothing there. `docs/configuration.md` lists the knobs;
+`tests/test_compose_math_env.py` pins the forwarding; `tests/poller/test_capacity_queue.py`
+and `test_capacity_queue_postgres.py` cover the queue side.

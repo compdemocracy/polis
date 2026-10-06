@@ -85,6 +85,7 @@ export const STALE_KEYS = [
 export const COUNT_KEYS = [
   "routing",
   "large_demand",
+  "large_leased",
   "pending_promotion",
   "exceeds_largest",
   "fits_small",
@@ -282,11 +283,15 @@ export function parseStale(line: string): Json | null {
   return body;
 }
 
+/** capacity.py NULLABLE_COUNT_KEYS: null on a primary with nothing unresolved,
+ * or with no queue read this tick (large_leased, P-073 r2). */
+const NULLABLE_COUNT_KEYS = ["oldest_unresolved_age_ms", "large_leased"] as const;
+
 /** capacity.py validate_counts. */
 export function validateCounts(counts: unknown, nullable = false): void {
   closed(counts, COUNT_KEYS);
   for (const k of COUNT_KEYS) {
-    count(counts[k], nullable || k === "oldest_unresolved_age_ms");
+    count(counts[k], nullable || (NULLABLE_COUNT_KEYS as readonly string[]).includes(k));
   }
   if (![null, 0, 1].includes(counts.routing)) fail("routing");
 }

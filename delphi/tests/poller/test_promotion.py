@@ -1,8 +1,8 @@
 """The small poller's large-class loop (polismath/poller/promotion.py) and
-the router bookkeeping it uses (polismath/poller/capacity.py), P-073 PR3.
+the router bookkeeping it uses (polismath/poller/capacity.py), P-073 PR3/r2.
 Generated fixtures only; the database is a fake that answers fingerprints
 and records promotions (the real SQL is covered in
-test_promotion_postgres.py)."""
+test_promotion_postgres.py); the queue side is in test_capacity_queue.py."""
 
 import json
 from unittest.mock import MagicMock
@@ -16,12 +16,6 @@ from polismath.poller.capacity import (
     LARGE,
     CapacityRouter,
     CapacitySettings,
-)
-from polismath.poller.capacity_manifest import (
-    FileManifestStore,
-    Manifest,
-    Writer,
-    parse,
 )
 from polismath.poller.promotion import MAX_RESIZE_PER_TICK, SmallCapacityLoop
 from polismath.poller.service import MathPollerService, PollerConfig, _BackfillHost
@@ -82,7 +76,8 @@ class FakePg:
         return tick
 
 
-def make(tmp_path=None, *, clock=None, manifest=True, sizes_by_zid=None, adm=None, **kw):
+def make(tmp_path=None, *, clock=None, sizes_by_zid=None, adm=None, **kw):
+    """A loop without a queue (the queue side is test_capacity_queue.py)."""
     clock = clock or Clock()
     adm = adm or MemoryAdmission(1000 * MB, MODEL, headroom=0.0, base_bytes=100 * MB)
     s = settings(**kw)
@@ -92,21 +87,15 @@ def make(tmp_path=None, *, clock=None, manifest=True, sizes_by_zid=None, adm=Non
     svc.config = PollerConfig(math_env=SMALL_LABEL)
     svc._pg = pg
     svc._pool = None
-    store = FileManifestStore(str(tmp_path / "m.json")) if manifest and tmp_path else None
-    loop = SmallCapacityLoop(svc, router, s, store=store, source_commit="a" * 40,
+    loop = SmallCapacityLoop(svc, router, s, queue=None, source_commit="a" * 40,
                              run="0123456789ab", clock_ms=clock,
                              sizes_fn=lambda pg_, zid: (sizes_by_zid or {})[zid])
-    return loop, router, pg, svc, store, clock
+    return loop, router, pg, svc, None, clock
 
 
 def route(router, zid, need_mb=850, input_ms=T0):
     assert router.observe(zid, sizes=sizes(need_mb), input_ms=input_ms) in (LARGE,
                                                                             EXCEEDS_LARGEST)
-
-
-def read_manifest(store):
-    raw, _ = store.read()
-    return parse(raw)
 
 
 # --------------------------------------------------------------------------- #
@@ -216,98 +205,9 @@ class TestRouterHandOff:
 # --------------------------------------------------------------------------- #
 # The loop
 # --------------------------------------------------------------------------- #
-class TestManifest:
-    def test_created_then_written_only_on_change(self, tmp_path):
-        loop, router, _, _, store, _ = make(tmp_path)
-        loop.tick()
-        m = read_manifest(store)
-        assert m.generation == 1 and m.entries == () and m.writer.label == SMALL_LABEL
-        assert m.writer.source_commit == "a" * 40 and m.writer.run == "0123456789ab"
-        assert m.writer.small_capacity_bytes == 900 * MB and m.staged_label == STAGED
-        loop.tick()
-        assert read_manifest(store).generation == 1                 # unchanged: no write
-        route(router, 7)
-        route(router, 9, need_mb=10**6)  # still LARGE: no large budget set
-        loop.tick()
-        m = read_manifest(store)
-        assert m.generation == 2 and [e.zid for e in m.entries] == [7, 9]
-        assert m.entries[0].need_bytes == 850 * MB and not m.entries[0].exceeds_largest
-
-    def test_exceeds_largest_is_carried_but_marked(self, tmp_path):
-        loop, router, _, _, store, _ = make(tmp_path, large_budget_mb=1200)
-        route(router, 7, need_mb=850)       # the large capacity is 1200 - 100 (model base)
-        route(router, 8, need_mb=1101)
-        loop.tick()
-        m = read_manifest(store)
-        assert [(e.zid, e.exceeds_largest) for e in m.entries] == [(7, False), (8, True)]
-        assert m.writer.large_budget_bytes == 1200 * MB
-
-    def test_small_records_are_not_carried(self, tmp_path):
-        loop, router, _, _, store, _ = make(tmp_path)
-        router.observe(3, sizes=sizes(10), refused=True)
-        loop.tick()
-        assert read_manifest(store).entries == ()
-
-    def test_a_restart_restores_routed_records_and_the_nonce(self, tmp_path):
-        loop, router, _, _, store, _ = make(tmp_path, restage="ab" * 8)
-        route(router, 7)
-        loop.tick()
-        assert read_manifest(store).restage == "ab" * 8
-        # A new process with no state file.
-        loop2, router2, *_ = make(tmp_path, restage="ab" * 8)
-        assert router2.routed_records() == []
-        loop2.tick()
-        assert router2.is_routed(7) and router2.restage_applied == "ab" * 8
-        assert router2.routed_records()[0].input_through_ms is not None
-        assert loop2.state()["generation"] == 1                   # nothing changed: no write
-
-    def test_a_manifest_of_another_label_is_never_overwritten(self, tmp_path):
-        store = FileManifestStore(str(tmp_path / "m.json"))
-        other = Manifest(generation=4, written_ms=T0,
-                         writer=Writer(label="other", binding="0" * 16),
-                         staged_label=STAGED, entries=())
-        store.write(other.encode(), None)
-        loop, router, *_ = make(tmp_path)
-        route(router, 7)
-        loop.tick()
-        loop.tick()
-        assert read_manifest(store).writer.label == "other" and loop.state()["foreign"]
-
-    def test_a_corrupt_manifest_is_replaced(self, tmp_path):
-        store = FileManifestStore(str(tmp_path / "m.json"))
-        store.write(b"{not json", None)
-        loop, router, *_ = make(tmp_path)
-        route(router, 7)
-        loop.tick()
-        assert [e.zid for e in read_manifest(store).entries] == [7]
-
-    def test_an_unreachable_store_writes_nothing_until_it_is_read(self, tmp_path):
-        loop, router, _, _, store, _ = make(tmp_path)
-        real_read = store.read
-        store.read = MagicMock(side_effect=OSError("down"))
-        route(router, 7)
-        loop.tick()
-        assert real_read() == (None, None) and not loop.state()["restored"]
-        store.read = real_read
-        loop.tick()
-        assert [e.zid for e in read_manifest(store).entries] == [7]
-
-    def test_a_conflict_re_reads_before_the_next_write(self, tmp_path):
-        loop, router, _, _, store, _ = make(tmp_path)
-        loop.tick()
-        # Someone else writes (never expected: only this primary writes).
-        current = read_manifest(store)
-        store.write(Manifest(generation=9, written_ms=T0, writer=current.writer,
-                             staged_label=STAGED, entries=()).encode(), store.read()[1])
-        route(router, 7)
-        loop.tick()                                      # conflict: nothing written
-        assert read_manifest(store).generation == 9 and not loop.state()["restored"]
-        loop.tick()                                      # re-read, then written
-        m = read_manifest(store)
-        assert m.generation == 10 and [e.zid for e in m.entries] == [7]
-
-    def test_without_a_store_the_loop_still_runs(self):
-        loop, router, pg, *_ = make(manifest=False)
+class TestWithoutAQueue:
+    def test_without_a_queue_the_loop_still_promotes(self):
+        loop, router, pg, *_ = make()
         route(router, 7)
         pg.fps[(7, STAGED)] = Fingerprint(1, T0, T0 + 5)
         loop.tick()
@@ -414,7 +314,7 @@ class TestPromotionPass:
         pg.math_fingerprints = MagicMock(side_effect=RuntimeError("db down"))
         loop.tick()
         assert "promotion_pass failed (RuntimeError)" in caplog.text
-        assert [e.zid for e in read_manifest(loop._store).entries] == [7]
+        assert router.disposition(7) == LARGE                   # the record is untouched
 
 
 class TestResizeOnABindingChange:
@@ -430,7 +330,7 @@ class TestResizeOnABindingChange:
         loop.tick()
         assert router.disposition(7) is None
         svc.submit_rebuild.assert_called_once_with(7)
-        assert read_manifest(store).entries == ()
+        assert router.routed_records() == []
 
     def test_still_large_after_a_resize_keeps_its_input_marks(self, tmp_path):
         adm = MemoryAdmission(1000 * MB, MODEL, headroom=0.0, base_bytes=100 * MB)
@@ -493,13 +393,13 @@ class TestBackfillSkipsRouted:
         assert make_svc(CapacitySettings(capacity_class="large",
                                          promote_into="python")).capacity_loop is None
 
-    def test_a_bad_manifest_uri_leaves_routing_working(self, caplog):
+    def test_without_a_queue_dsn_routing_still_works(self, caplog):
         adm = MemoryAdmission(1000 * MB, MODEL)
         svc = MathPollerService(MagicMock(), PollerConfig(), admission=adm,
-                                capacity=CapacityRouter(adm, CapacitySettings(
-                                    routing=True, manifest_uri="relative/path")))
-        assert svc.capacity_loop is not None and svc.capacity_loop._store is None
-        assert "manifest store unusable" in caplog.text
+                                capacity=CapacityRouter(adm, CapacitySettings(routing=True)))
+        assert svc.capacity_loop is not None and svc.capacity_queue is None
+        assert svc.capacity_loop.state()["queue"] is False
+        assert "routing is on without MATH_CAPACITY_QUEUE_DSN" in caplog.text
 
     def test_the_loop_ticks_once_at_start(self):
         adm = MemoryAdmission(1000 * MB, MODEL)
