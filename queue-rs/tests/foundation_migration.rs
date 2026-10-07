@@ -87,9 +87,12 @@ fn the_retention_migration_is_in_the_repository_chain_and_sealed() {
 }
 
 /// 000026 leaves the contract at /3 and the stage and class sets alone; it
-/// adds the parked read, the usage read and the bounded sweep.
+/// adds the parked read, the usage read, the sweep by reachability (its
+/// policy table, tombstones, mark and candidates), the dead-job breaker
+/// (decision #729: its table, trigger and pd_enqueue's latch), and its own
+/// ledger row after 000025's.
 #[test]
-fn the_retention_up_script_adds_reads_and_the_sweep_only() {
+fn the_retention_up_script_adds_reads_the_sweep_and_the_breaker_only() {
     let text = fs::read_to_string(migrations().join(UP_RETENTION)).unwrap();
     assert!(!text.contains("contract_version='polis-queue/4'"));
     assert!(!text.contains("CHECK(stage IN"));
@@ -98,9 +101,20 @@ fn the_retention_up_script_adds_reads_and_the_sweep_only() {
         "CREATE FUNCTION public.pq_class_parked(p_env text,p_worker_class text,p_after_job uuid,p_limit integer)",
         "CREATE FUNCTION public.pq_queue_usage(p_env text)",
         "CREATE FUNCTION public.pq_sweep(p_env text,p_sweep uuid,p_page integer,p_max_pages integer)",
+        "CREATE FUNCTION public.pq_retention_reached(p_env text)",
+        "CREATE FUNCTION public.pq_retention_candidates(p_env text)",
+        "CREATE FUNCTION public.pq_breaker_record()",
+        "CREATE OR REPLACE FUNCTION public.pd_enqueue(",
+        "CREATE TABLE public.polis_queue_breakers (",
+        "CREATE TABLE public.polis_queue_retention_policy (",
+        "CREATE TABLE public.polis_queue_tombstones (",
+        "INSERT INTO public.schema_migrations (name, checksum, note) VALUES ('000026_create_polis_queue_retention', '",
+        "name='000025_vote_convention'",
     ] {
         assert!(text.contains(f), "missing {f}");
     }
+    // Every retention kind ships as a dry run.
+    assert!(text.contains("action text NOT NULL DEFAULT 'dry_run'"));
 }
 
 #[test]

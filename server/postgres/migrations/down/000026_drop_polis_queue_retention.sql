@@ -4,12 +4,26 @@
 -- caller of the new functions first (a daemon with the sweep on; a poller
 -- reading pq_queue_usage). In one transaction it locks every polis_queue_* and
 -- delphi_* table ACCESS EXCLUSIVE, verifies the installed catalog is exactly
--- what 000026 recorded, refuses while polis_queue_sweeps holds a row (a sweep
--- has run; what it deleted cannot be restored, and the ledger is the record of
--- it) - there is no force override - and then drops pq_class_parked,
--- pq_queue_usage, pq_sweep, the sweep ledger and the three indexes, restores
--- every /3 function from the recorded baseline (pq_class_depth's /3 reply),
--- and checks the result against the baseline.
+-- what 000026 recorded, refuses once a sweep has purged a row
+-- (polis_queue_retention_install.rows_purged above zero: what a purge deleted
+-- cannot be restored) - there is no force override - and then drops
+-- pq_class_parked, pq_queue_usage, pq_sweep, the sweep ledger, the retention
+-- policy, the tombstones (every tombstoned row still exists, so dropping
+-- them restores it), pq_retention_reached, pq_retention_candidates, the three
+-- indexes, the dead-job breaker (its trigger, pq_breaker_record and
+-- polis_queue_breakers), restores every /3 function from the recorded
+-- baseline (pq_class_depth's /3 reply, 000024's pd_enqueue), checks the
+-- result against the baseline, and removes 000026's row from
+-- public.schema_migrations.
+--
+-- The ledger: it refuses, changing nothing, when 000026's row is missing
+-- (the catalog and the ledger disagree: inspect by hand) or when the ledger
+-- records a later migration (reverse that first). 000025's down refuses while
+-- 000026's row is there, so the order is 000026, then 000025, then 000024.
+-- The breaker's rows go with its table: with nothing ever purged (the
+-- refusal above), every dead job it counted is still in the queue, and
+-- 000024's latch, which reads those rows, holds the same scopes (with no
+-- 24-hour probe).
 --
 -- Run it the same way as the up script:
 --
@@ -22,6 +36,20 @@
 -- test_000026_down.sh.
 BEGIN;
 SET LOCAL lock_timeout='5s';
+-- The ledger, read as the login running the down (the queue owner has no
+-- grant on it).
+DO $ledger$ BEGIN
+ IF to_regclass('public.schema_migrations') IS NULL THEN
+  RAISE EXCEPTION 'refusing reversal: the ledger does not record 000026_create_polis_queue_retention (there is no ledger)';
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.schema_migrations WHERE name='000026_create_polis_queue_retention' AND length(checksum)=64) THEN
+  RAISE EXCEPTION 'refusing reversal: the ledger does not record 000026_create_polis_queue_retention';
+ END IF;
+ IF EXISTS(SELECT 1 FROM public.schema_migrations WHERE name>'000026_create_polis_queue_retention' AND length(checksum)=64) THEN
+  RAISE EXCEPTION 'refusing reversal: the ledger records later migrations (%); reverse them first',
+   (SELECT string_agg(name,', ' ORDER BY name) FROM public.schema_migrations WHERE name>'000026_create_polis_queue_retention' AND length(checksum)=64);
+ END IF;
+END $ledger$;
 SET LOCAL ROLE polis_queue_owner;
 SET LOCAL search_path=pg_catalog,pg_temp;
 CREATE OR REPLACE FUNCTION pg_temp.pq_catalog(p_table oid) RETURNS jsonb
@@ -50,8 +78,14 @@ DO $$ DECLARE t record; BEGIN
   EXECUTE format('LOCK TABLE %s IN ACCESS EXCLUSIVE MODE',t.name);
  END LOOP;
  IF NOT EXISTS(SELECT 1 FROM public.polis_queue_retention_install WHERE installed=pg_temp.pq4_state()) THEN RAISE EXCEPTION 'retention catalog drift'; END IF;
- IF EXISTS(SELECT 1 FROM public.polis_queue_sweeps) THEN RAISE EXCEPTION 'refusing reversal: sweep ledger rows'; END IF;
+ IF EXISTS(SELECT 1 FROM public.polis_queue_retention_install WHERE rows_purged>0) THEN
+  RAISE EXCEPTION 'refusing reversal: a sweep has purged % rows', (SELECT rows_purged FROM public.polis_queue_retention_install);
+ END IF;
 END $$;
+DROP TRIGGER pq_breaker_record ON public.polis_queue_jobs;
+DROP TABLE public.polis_queue_breakers;
+DROP TABLE public.polis_queue_tombstones;
+DROP TABLE public.polis_queue_retention_policy;
 DROP INDEX public.polis_queue_jobs_terminal_age;
 DROP INDEX public.polis_queue_attempts_ended;
 DROP INDEX public.polis_queue_requests_expiry;
@@ -70,4 +104,6 @@ DO $$ BEGIN
  IF NOT EXISTS(SELECT 1 FROM public.polis_queue_retention_install WHERE baseline=pg_temp.pq4_state()) THEN RAISE EXCEPTION 'baseline restoration mismatch'; END IF;
 END $$;
 DROP TABLE public.polis_queue_retention_install;
+RESET ROLE;
+DELETE FROM public.schema_migrations WHERE name='000026_create_polis_queue_retention';
 COMMIT;

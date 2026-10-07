@@ -335,7 +335,18 @@ def test_bridge_inventory_preserves_every_baseline_identity():
         "schema_every_dynamo_item_roundtrips",
     }
     assert schema_tests <= set(extended["rust_tests"])
-    assert len(extended["rust_tests"])==34+len(schema_tests)
+    # tests/vote_convention.rs: the startup decision on the declared vote convention (migration 000025).
+    vote_convention_tests={
+        "an_unknown_contract_refuses_before_the_sign_is_judged",
+        "no_row_names_the_exact_declare_command",
+        "no_table_names_the_migration_the_declare_command_and_the_guide",
+        "the_declare_command_carries_the_sign",
+        "the_other_sign_refuses_because_this_build_would_invert_every_vote",
+        "the_sign_this_build_is_built_for_starts",
+        "the_display_form_carries_the_token_and_the_message",
+    }
+    assert vote_convention_tests <= set(extended["rust_tests"])
+    assert len(extended["rust_tests"])==34+len(schema_tests)+len(vote_convention_tests)
     assert extended["jest_cases"]==INV["jest_cases"]
     assert extended["stages"]==INV["stages"]
 

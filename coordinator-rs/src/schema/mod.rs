@@ -1,7 +1,7 @@
 //! Descriptive storage types only. No runtime caller adopts these rows.
 //!
 //! Source inventory: server/postgres/migrations/000000_initial.sql through
-//! 000022_add_poll_timestamp_indexes.sql. The adjacent catalog was measured on
+//! 000025_vote_convention.sql. The adjacent catalog was measured on
 //! PostgreSQL 17.11; tests bind it to every migration's bytes. A changed or new
 //! migration requires a fresh isolated census and review, even for a change
 //! that does not alter columns. This intentionally avoids parsing PL/pgSQL DDL.

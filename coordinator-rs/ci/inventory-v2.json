@@ -1501,7 +1501,14 @@
     "schema_lossless_scalar_binary_controls",
     "schema_job_contracts_preserve_legacy_shapes",
     "schema_dynamo_decimal_null_and_extension_controls",
-    "schema_every_dynamo_item_roundtrips"
+    "schema_every_dynamo_item_roundtrips",
+    "an_unknown_contract_refuses_before_the_sign_is_judged",
+    "no_row_names_the_exact_declare_command",
+    "no_table_names_the_migration_the_declare_command_and_the_guide",
+    "the_declare_command_carries_the_sign",
+    "the_other_sign_refuses_because_this_build_would_invert_every_vote",
+    "the_sign_this_build_is_built_for_starts",
+    "the_display_form_carries_the_token_and_the_message"
   ],
   "jest_cases": [
     [
