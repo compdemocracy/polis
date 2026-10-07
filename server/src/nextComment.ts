@@ -1,4 +1,5 @@
 import _ from "underscore";
+import LruCache from "lru-cache";
 import { DynamoDBClient, DynamoDBClientConfig } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 
@@ -324,6 +325,8 @@ export async function getNextTopicalComment(
       txt: r.txt,
     };
 
+    // Source language is internal metadata; preserve the topical response shape.
+    Object.defineProperty(comment, "lang", { value: r.lang });
     return comment;
   } catch (err) {
     logger.error("polis_err_next_topical_comment", err);
@@ -388,6 +391,44 @@ export async function getNextComment(
   return next;
 }
 
+// Best-effort translation must not hold either nextComment or participationInit.
+// These bounded, process-local caches coalesce concurrent requests and suppress
+// failures for ten minutes. Restart/eviction permits an earlier retry.
+const translationFailures = new LruCache<string, boolean>({
+  max: 10000,
+  maxAge: 10 * 60 * 1000,
+});
+const translationsInFlight = new LruCache<
+  string,
+  Promise<CommentTranslationRow | null>
+>({ max: 10000 });
+
+function translateForNextComment(
+  zid: number,
+  next: GetCommentsParams,
+  lang: string
+): Promise<CommentTranslationRow | null> {
+  const key = JSON.stringify([zid, next.tid, lang]);
+  if (translationFailures.get(key)) return Promise.resolve(null);
+  const pending = translationsInFlight.get(key);
+  if (pending) return pending;
+
+  const work = Promise.resolve()
+    .then(() => translateAndStoreComment(zid, next.tid!, next.txt, lang))
+    .catch(() => {
+      // Translation/storage is optional; do not log provider payloads or text.
+      logger.warn("polis_warn_next_comment_translation_failed");
+      return null;
+    })
+    .then((translation) => {
+      if (!translation) translationFailures.set(key, true);
+      translationsInFlight.del(key);
+      return translation;
+    });
+  translationsInFlight.set(key, work);
+  return work;
+}
+
 async function ensureTranslations(
   zid: number,
   next: GetCommentsParams & { translations?: CommentTranslationRow[] },
@@ -400,24 +441,38 @@ async function ensureTranslations(
     return;
   }
 
-  const firstTwo = lang.slice(0, 2);
-  const translations = await getCommentTranslations(zid, next.tid!);
-  next.translations = translations;
-  logger.debug("polis_debug_getCommentTranslations_results", {
-    lang,
-    translations,
+  const firstTwo = lang.slice(0, 2).toLowerCase();
+  let available: CommentTranslationRow[] = [];
+  const work = (async () => {
+    available = await getCommentTranslations(zid, next.tid!);
+    const sameLanguage =
+      (next as GetCommentsParams & { lang?: string }).lang
+        ?.slice(0, 2)
+        .toLowerCase() === firstTwo;
+    const hasMatch = available.some((t) =>
+      t.lang.toLowerCase().startsWith(firstTwo)
+    );
+    if (!sameLanguage && !hasMatch) {
+      const translation = await translateForNextComment(zid, next, lang);
+      if (translation) return [...available, translation];
+    }
+    return available;
+  })().catch(() => {
+    logger.warn("polis_warn_next_comment_translations_unavailable");
+    return available;
   });
 
-  const hasMatch = translations.some((t) => t.lang.startsWith(firstTwo));
-  if (!hasMatch) {
-    const translation = await translateAndStoreComment(
-      zid,
-      next.tid as number,
-      next.txt,
-      lang
-    );
-    if (translation) {
-      next.translations.push(translation);
-    }
+  let timer: ReturnType<typeof setTimeout>;
+  try {
+    next.translations = await Promise.race([
+      work,
+      new Promise<CommentTranslationRow[]>((resolve) => {
+        timer = setTimeout(() => resolve(available), 300);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
   }
+  // work keeps running and stores successful translations for the next request.
+  // It never mutates the returned comment after this response budget expires.
 }
