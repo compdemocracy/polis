@@ -120,6 +120,11 @@ class FakeQueue:
         if sum(1 for j in self.jobs.values() if j["scope"] == scope and j["state"] == "dead") >= 3:
             self.poisoned[scope] = job_id
 
+    def job_status(self, job_id):
+        if self.fail is not None:
+            raise self.fail
+        return {"job_id": job_id, "state": self.jobs[job_id]["state"]}
+
     def receipt(self, job_id):
         if job_id in self.receipts:
             return self.receipts[job_id]
@@ -612,6 +617,8 @@ class TestCapacityLineCounts:
 
     def test_a_poisoned_record_is_parked_and_counted(self, caplog, monkeypatch):
         monkeypatch.setattr(cq, "SCOPE_DAILY_CAP", 1000)     # four jobs in one day here
+        from polismath.poller import capacity as capacity_module
+        monkeypatch.setattr(capacity_module, "BACKOFF_BASE_MS", 0)   # TestBackoff spaces them
         svc = service()
         router, q = svc.capacity, svc.capacity_queue
         svc.capacity_loop._source_commit = COMMIT            # the deploy this poller runs
@@ -902,6 +909,107 @@ class TestAdmission:
         for bad in ("not json", json.dumps({"username": "u"}), json.dumps({"password": ""})):
             with pytest.raises(cq.QueueRefused, match="queue_login_secret_shape"):
                 cq.dsn_with_secret_password("postgresql://u@h/d", "n", client=Secrets(bad))
+
+
+class TestBackoff:
+    """Decision #729: after the n-th dead job in a row for a conversation the
+    poller waits min(2**n x 5 min, 6 h) before asking for another; a success
+    or a new source commit resets it."""
+
+    MIN = 60 * 1000
+
+    def setup(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(cq, "SCOPE_DAILY_CAP", 1000)      # the daily cap is not under test
+        self.clock = [T0]
+        adm = MemoryAdmission(1000 * MB, MODEL, headroom=0.0, base_bytes=100 * MB)
+        self.settings = CapacitySettings(routing=True, staged_label=STAGED,
+                                         state_path=str(tmp_path / "capacity.json"))
+        self.adm = adm
+        self.router = CapacityRouter(adm, self.settings, clock_ms=lambda: self.clock[0])
+        self.router.observe(7, sizes=sizes(850), input_ms=T0)
+        self.q = FakeQueue()
+
+    def ask(self, commit=COMMIT):
+        return cq.enqueue_routed(self.q, self.router, 7, staged_label=STAGED,
+                                 target_label=SMALL_LABEL, source_commit=commit)
+
+    def test_the_wait_doubles_from_ten_minutes_to_six_hours(self):
+        from polismath.poller.capacity import BACKOFF_CAP_MS, backoff_ms
+
+        assert [backoff_ms(n) // self.MIN for n in range(9)] == [0, 10, 20, 40, 80, 160, 320, 360, 360]
+        assert backoff_ms(10 ** 6) == BACKOFF_CAP_MS
+
+    def test_each_dead_job_waits_longer(self, tmp_path, monkeypatch, caplog):
+        self.setup(tmp_path, monkeypatch)
+        first = self.ask()
+        self.q.die(first)
+        with caplog.at_level(logging.WARNING):
+            assert self.ask() is None                         # seen dead: 10 min
+        assert "backing off: 1 dead" in caplog.text and len(self.q.calls) == 1
+        self.clock[0] += 10 * self.MIN - 1
+        assert self.ask() is None and len(self.q.calls) == 1
+        self.clock[0] += 1
+        second = self.ask()
+        assert second not in (None, first) and len(self.q.calls) == 2
+        self.q.die(second)
+        assert self.ask() is None                             # 20 min now
+        self.clock[0] += 20 * self.MIN - 1
+        assert self.ask() is None
+        self.clock[0] += 1
+        assert self.ask() not in (None, second)
+        assert self.router.record(7).dead_streak == 2
+
+    def test_a_dead_job_counts_once(self, tmp_path, monkeypatch):
+        self.setup(tmp_path, monkeypatch)
+        job = self.ask()
+        self.q.die(job)
+        for _ in range(3):
+            assert self.ask() is None
+        assert self.router.record(7).dead_streak == 1
+
+    def test_a_success_resets_it(self, tmp_path, monkeypatch):
+        self.setup(tmp_path, monkeypatch)
+        job = self.ask()
+        self.q.die(job)
+        assert self.ask() is None
+        self.clock[0] += 10 * self.MIN
+        job = self.ask()
+        self.q.finish(job)
+        assert self.ask() not in (None, job)                  # no wait after a success
+        rec = self.router.record(7)
+        assert (rec.dead_streak, rec.last_dead_job, rec.dead_commit) == (0, None, None)
+
+    def test_a_new_build_resets_it(self, tmp_path, monkeypatch):
+        self.setup(tmp_path, monkeypatch)
+        job = self.ask()
+        self.q.die(job)
+        assert self.ask() is None
+        other = "d" * 40
+        fresh = self.ask(commit=other)                        # a deploy: asked at once
+        assert fresh not in (None, job)
+        self.q.die(fresh)
+        assert self.ask(commit=other) is None
+        rec = self.router.record(7)
+        assert (rec.dead_streak, rec.dead_commit) == (1, other)  # counted from 1 again
+
+    def test_the_streak_survives_a_restart(self, tmp_path, monkeypatch):
+        self.setup(tmp_path, monkeypatch)
+        job = self.ask()
+        self.q.die(job)
+        assert self.ask() is None
+        again = CapacityRouter(self.adm, self.settings, clock_ms=lambda: self.clock[0])
+        assert again.backoff_remaining_ms(7, COMMIT) == 10 * self.MIN
+        assert again.backoff_remaining_ms(7, "e" * 40) == 0
+
+    def test_an_unread_status_keeps_the_streak(self, tmp_path, monkeypatch, caplog):
+        self.setup(tmp_path, monkeypatch)
+        job = self.ask()
+        self.q.die(job)
+        assert self.ask() is None
+        self.q.job_status = MagicMock(side_effect=psycopg2.OperationalError("down"))
+        with caplog.at_level(logging.INFO):
+            assert self.ask() is None                         # still backing off, no crash
+        assert "unread" in caplog.text and self.router.record(7).dead_streak == 1
 
 
 class TestClientWire:
