@@ -1649,9 +1649,12 @@ describe("P-024 queue substrate protocol", () => {
       "pq_reap(text,uuid,integer,text)",
       "pq_release(text,uuid,uuid,uuid,bigint,boolean)",
     ];
+    // 000026 adds pq_class_parked, pq_queue_usage, pq_sweep, the breaker's
+    // trigger function and the retention mark and candidates: six, all
+    // pinning both.
     expect(functions).toHaveLength(
       retentionInstalled
-        ? 32
+        ? 35
         : largeClassInstalled
           ? 29
           : foundationInstalled

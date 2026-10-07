@@ -276,7 +276,7 @@ SELECT env,zid,product_key,image,n,last_job,CASE WHEN n>=3 THEN died_at END FROM
 -- The count, as each job ends (an UPDATE of state into succeeded, dead or
 -- cancelled). Concurrent ends of one scope serialize on the breaker row.
 CREATE FUNCTION public.pq_breaker_record() RETURNS trigger
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET TimeZone='UTC' AS $$
 DECLARE r public.polis_queue_runs; b public.polis_queue_breakers;
 BEGIN
  SELECT * INTO r FROM public.polis_queue_runs WHERE env=NEW.env AND run_id=NEW.run_id;
@@ -496,7 +496,7 @@ REVOKE ALL ON public.polis_queue_tombstones FROM PUBLIC,polis_queue_executor;
 -- without exit proof or an open provider request; dead under an open
 -- breaker (#729); or an input or the parent of a reached job (transitively).
 CREATE FUNCTION public.pq_retention_reached(p_env text) RETURNS TABLE(job_id uuid,reason text)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET TimeZone='UTC' AS $$
 WITH RECURSIVE root(job_id,reason) AS (
  SELECT q.job_id,'active' FROM public.polis_queue_jobs q WHERE q.env=p_env AND q.state NOT IN ('succeeded','dead','cancelled')
  UNION SELECT d.job_id,'pinned' FROM public.delphi_jobs d WHERE d.env=p_env AND d.pinned
@@ -744,5 +744,5 @@ REVOKE ALL ON public.polis_queue_retention_install FROM PUBLIC,polis_queue_execu
 INSERT INTO public.polis_queue_retention_install(singleton,baseline,installed) VALUES(true,current_setting('queue4.baseline')::jsonb,pg_temp.pq4_state());
 -- The ledger row, written as the applying login.
 RESET ROLE;
-INSERT INTO public.schema_migrations (name, checksum, note) VALUES ('000026_create_polis_queue_retention', '787ecd1406298d5cda944f4554166bdb6ed382b667bcf366f604b5ca154b70b3', 'queue retention, the parked and usage reads, the dead-job breaker; install stays polis-queue/3, replies /4'); -- ledger-self-checksum
+INSERT INTO public.schema_migrations (name, checksum, note) VALUES ('000026_create_polis_queue_retention', '7c9e7e60a121f931a7957a0f6183f003f1626f509ddd45bac77f818c193bf622', 'queue retention, the parked and usage reads, the dead-job breaker; install stays polis-queue/3, replies /4'); -- ledger-self-checksum
 COMMIT;

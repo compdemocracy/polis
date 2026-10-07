@@ -176,7 +176,7 @@ adm() { # zid scope key sha run job image max_attempts product (default: the sco
   ex "$D" "SELECT public.pd_enqueue('$ENVN',$1,'${9:-$2}','poller','$3','$4','$5'::uuid,'$6'::uuid,'public-fixture-input','$SHA1','$SHA1','${7:-fixture-image}',1::smallint,${8:-3},'math_rebuild',NULL,'$2','{\"need_bytes\":1}'::jsonb)"
 }
 outcome_of() { printf '%s' "$1" | grep -oE '"outcome": *"[a-z_]+"' | grep -oE '"[a-z_]+"$' | tr -d '"'; }
-job_of() { printf '%s' "$1" | grep -oE '"job_id": *"[0-9a-f-]+"' | head -1 | grep -oE '[0-9a-f-]{36}'; }
+job_of() { printf '%s' "$1" | grep -oE '"job_id": *"[0-9a-f-]+"' | sed -n 1p | grep -oE '[0-9a-f-]{36}'; }
 manifest() { # job attempt
   echo "{\"schema\":\"polis-jobs.output-manifest/1\",\"job_id\":\"$1\",\"attempt_id\":\"$2\",\"stage\":\"math_rebuild\",\"phase\":\"run\",\"outcome\":\"succeeded\",\"inputs\":{\"math_env\":\"python-large\",\"math_tick\":7,\"vote_hwm\":12},\"outputs\":[],\"models\":{},\"cost\":{}}"
 }
