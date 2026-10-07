@@ -281,14 +281,14 @@ class Proof:
 
     def stop_unit(self) -> None:
         self.box_sh("systemctl stop polis-jobs.service", check_rc=False)
-        sh("docker", "rm", "-f", "polis-jobs", check_rc=False)
+        sh("docker", "rm", "-f", "-v", "polis-jobs", check_rc=False)
 
     def cleanup(self) -> None:
         if self.args.keep:
             say("cleanup", "kept (--keep)")
             return
         self.stop_unit()
-        sh("docker", "rm", "-f", self.box, self.pg, check_rc=False)
+        sh("docker", "rm", "-f", "-v", self.box, self.pg, check_rc=False)   # -v: the image volumes
         if hasattr(self, "vm_dirs"):
             vols = sum((["-v", f"{d}:/x{i}"] for i, d in enumerate(self.vm_dirs)), [])
             sh("docker", "run", "--rm", *vols, "alpine", "sh", "-c", "rm -rf /x0/* /x1/* /x2/*",
