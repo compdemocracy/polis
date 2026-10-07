@@ -504,6 +504,10 @@ class TestTheChild:
             assert (m["stage"], m["outcome"], m["job_id"]) == ("math_rebuild", "succeeded", job_id)
             assert m["inputs"]["math_env"] == large and m["inputs"]["math_tick"] == staged.math_tick
             assert m["inputs"]["vote_hwm"] == staged.lvt and m["outputs"] == []
+            # #677: the manifest binds the whole fingerprint and the admission.
+            assert m["inputs"]["math_modified_ms"] == staged.modified
+            assert m["inputs"]["target_label"] == small
+            assert len(m["inputs"]["source_commit"]) == 40
             assert not any(p in result.stderr for p in (HEARTBEAT_PHRASE,) + STALE_PHRASES)
 
             # The interruption: the staged bundle is committed, the daemon has
@@ -530,6 +534,7 @@ class TestTheChild:
             assert done["outcome"] == "succeeded", done
             receipt = c.receipt(job_id)
             assert receipt.finalized and receipt.binds(staged, large)
+            assert receipt.admitted_for(small, m["inputs"]["source_commit"])
             assert receipt.output_sha256 == cq.sha256_hex(text.encode("utf-8"))
             loop.tick()
             assert coherent(db, big, small)

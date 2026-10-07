@@ -112,7 +112,12 @@ DYNAMODB_FAMILIES = (
     "report_narrative_store",
 )
 
-INPUT_KEYS = ("math_env", "math_tick", "math_caching_tick", "comment_set_sha256", "vote_hwm")
+# ``math_modified_ms``, ``target_label`` and ``source_commit`` (a math rebuild's
+# staged bundle's modified time, the label it is staged for and the commit it
+# was admitted at) bind its receipt to exactly that bundle and admission
+# (capacity_queue.Receipt); null for every other stage.
+INPUT_KEYS = ("math_env", "math_tick", "math_caching_tick", "comment_set_sha256", "vote_hwm",
+              "math_modified_ms", "target_label", "source_commit")
 MODEL_KEYS = ("embed", "topic", "narrative")
 MANIFEST_KEYS = (
     "schema", "job_id", "attempt_id", "stage", "phase", "outcome", "inputs",
@@ -121,6 +126,7 @@ MANIFEST_KEYS = (
 
 _DECIMAL = re.compile(r"^(0|[1-9][0-9]*)$")
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
+_HEX40 = re.compile(r"^[0-9a-f]{40}$")
 
 
 class JobEnvError(Exception):
@@ -388,7 +394,10 @@ def validate_manifest(m: Any) -> None:
     if not isinstance(inputs, dict) or set(inputs) != set(INPUT_KEYS):
         raise ManifestError(f"inputs keys must be exactly {sorted(INPUT_KEYS)}")
     _nullable(inputs["math_env"], str, "inputs.math_env")
-    for key in ("math_tick", "math_caching_tick", "vote_hwm"):
+    _nullable(inputs["target_label"], str, "inputs.target_label")
+    if inputs["source_commit"] is not None and not _HEX40.match(str(inputs["source_commit"])):
+        raise ManifestError("inputs.source_commit must be 40 lowercase hex characters or null")
+    for key in ("math_tick", "math_caching_tick", "vote_hwm", "math_modified_ms"):
         _nullable(inputs[key], int, f"inputs.{key}")
     if inputs["comment_set_sha256"] is not None and not _HEX64.match(str(inputs["comment_set_sha256"])):
         raise ManifestError("inputs.comment_set_sha256 must be 64 lowercase hex characters or null")

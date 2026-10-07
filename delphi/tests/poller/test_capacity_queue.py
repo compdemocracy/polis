@@ -108,7 +108,9 @@ class FakeQueue:
         self.receipts[job_id] = cq.Receipt(
             job_id=job_id, state="succeeded", output_sha256="0" * 64,
             math_env=job["staged_label"], math_tick=getattr(fp, "math_tick", None),
-            vote_hwm=getattr(fp, "lvt", None))
+            vote_hwm=getattr(fp, "lvt", None), modified_ms=getattr(fp, "modified", None),
+            target_label=job["config"].get("target_label"),
+            source_commit=job["config"].get("source_commit"))
 
     def die(self, job_id):
         self.jobs[job_id]["state"] = "dead"
@@ -400,7 +402,10 @@ class TestTheChild:
         assert (m["stage"], m["phase"], m["outcome"]) == ("math_rebuild", "run", "succeeded")
         assert m["job_id"] == d.job_id and m["attempt_id"] == d.attempt_id
         assert m["inputs"] == {"math_env": STAGED, "math_tick": 4, "math_caching_tick": None,
-                               "comment_set_sha256": None, "vote_hwm": T0 + 1}
+                               "comment_set_sha256": None, "vote_hwm": T0 + 1,
+                               # #677: the whole fingerprint and the admission.
+                               "math_modified_ms": T0 + 9, "target_label": SMALL_LABEL,
+                               "source_commit": COMMIT}
         assert m["outputs"] == [] and m["recheck_after"] is None
         err = capsys.readouterr().err
         assert "staged zid=7 under python-large: tick=4" in err
@@ -848,13 +853,30 @@ class TestClientWire:
         manifest = json.dumps({"schema": cq.MANIFEST_SCHEMA, "job_id": job,
                                "stage": "math_rebuild", "outcome": "succeeded",
                                "inputs": {"math_env": STAGED, "math_tick": 7,
-                                          "vote_hwm": T0 + 1}}, sort_keys=True)
+                                          "vote_hwm": T0 + 1, "math_modified_ms": T0 + 9,
+                                          "target_label": SMALL_LABEL,
+                                          "source_commit": COMMIT}}, sort_keys=True)
         sha = cq.sha256_hex(manifest.encode())
         status = {"state": "succeeded", "output_sha256": sha, "attempt_id": str(uuid.uuid4())}
         r = cq.receipt_of(job, status, manifest)
         assert r.finalized and r.binds(staged, STAGED)
         assert not r.binds(Fingerprint(8, T0 + 1, T0 + 9), STAGED)     # another tick
         assert not r.binds(staged, "python")                           # another label
+        # #677: the same tick and newest vote written again (another modified)
+        # is another bundle; the receipt names only the one the job staged.
+        assert not r.binds(Fingerprint(7, T0 + 1, T0 + 10), STAGED)
+        assert r.admitted_for(SMALL_LABEL, COMMIT)
+        assert not r.admitted_for("prod", COMMIT)                      # another target
+        assert not r.admitted_for(SMALL_LABEL, "b" * 40)               # another deploy
+        assert not r.admitted_for(SMALL_LABEL, None)
+        # A manifest from before the binding (no modified, target or commit)
+        # binds nothing: its bundle is left for the next job.
+        old = json.dumps({"schema": cq.MANIFEST_SCHEMA, "job_id": job, "stage": "math_rebuild",
+                          "outcome": "succeeded", "inputs": {"math_env": STAGED, "math_tick": 7,
+                                                             "vote_hwm": T0 + 1}})
+        r_old = cq.receipt_of(job, {**status, "output_sha256": cq.sha256_hex(old.encode())}, old)
+        assert r_old.finalized and not r_old.binds(staged, STAGED)
+        assert not r_old.admitted_for(SMALL_LABEL, COMMIT)
         # No manifest row, a row that does not hash to the digest, a row
         # naming another job: no receipt.
         assert not cq.receipt_of(job, status, None).finalized
@@ -870,7 +892,8 @@ class TestClientWire:
         job, attempt = str(uuid.uuid4()), str(uuid.uuid4())
         line = json.dumps({"schema": cq.MANIFEST_SCHEMA, "job_id": job, "stage": "math_rebuild",
                            "outcome": "succeeded", "inputs": {"math_env": STAGED, "math_tick": 3,
-                                                              "vote_hwm": T0}})
+                                                              "vote_hwm": T0,
+                                                              "math_modified_ms": T0 + 1}})
         sha = cq.sha256_hex(line.encode())
         calls = []
 

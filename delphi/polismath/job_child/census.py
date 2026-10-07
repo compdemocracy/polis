@@ -82,6 +82,9 @@ def observe_inputs(zid: Any, math_env: str, pg_query: PgQuery) -> Dict[str, Any]
         "math_caching_tick": _int_or_none(math_row.get("caching_tick")),
         "comment_set_sha256": comment_set_sha256(comments),
         "vote_hwm": _int_or_none(votes[0].get("hwm")) if votes else None,
+        "math_modified_ms": None,
+        "target_label": None,
+        "source_commit": None,
     }
 
 

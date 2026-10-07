@@ -480,7 +480,8 @@ def stage_with_the_child(url, queue, small, large, zid, tmp_path):
     assert result.returncode == 0, result.stderr[-3000:]
     m = json.loads(manifest.read_text())
     assert m["job_id"] == daemon["DELPHI_JOB_ID"]
-    queue.finish(job_id, Fingerprint(m["inputs"]["math_tick"], m["inputs"]["vote_hwm"], 0))
+    queue.finish(job_id, Fingerprint(m["inputs"]["math_tick"], m["inputs"]["vote_hwm"],
+                                     m["inputs"]["math_modified_ms"]))
     return job_id
 
 

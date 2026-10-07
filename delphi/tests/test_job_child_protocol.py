@@ -87,6 +87,10 @@ FIXTURE_INPUTS = {
     "math_caching_tick": 7,
     "comment_set_sha256": hashlib.sha256(b"generated fixture comments").hexdigest(),
     "vote_hwm": 1700000000123,
+    # A math rebuild's receipt binding (#677); null for the Delphi stages.
+    "math_modified_ms": None,
+    "target_label": None,
+    "source_commit": None,
 }
 FIXTURE_OUTPUTS = [
     {"store": "dynamodb", "family": "Delphi_PCAResults", "table": "Delphi_PCAResults",
@@ -412,6 +416,11 @@ def test_write_manifest_is_atomic_and_leaves_nothing_on_failure(tmp_path, monkey
                                        "table": "Delphi_PCAResults", "key_prefix": {"zid": 1}, "rows": 1}),
         lambda m: m["inputs"].update(math_tick="41"),
         lambda m: m["inputs"].pop("vote_hwm"),
+        lambda m: m["inputs"].pop("math_modified_ms"),
+        lambda m: m["inputs"].__setitem__("source_commit", "abc123"),
+        lambda m: m["inputs"].__setitem__("source_commit", "A" * 40),
+        lambda m: m["inputs"].__setitem__("target_label", 7),
+        lambda m: m["inputs"].__setitem__("math_modified_ms", "1"),
         lambda m: m["cost"].update(provider_batches=[{"provider": "anthropic", "batch_id": ""}]),
         lambda m: m.update(duration_ms=-1),
         lambda m: m.update(job_id="not-a-uuid"),
@@ -518,7 +527,8 @@ def test_observe_inputs_digest_and_marks():
     lines = "polis-jobs.comment-set/1\n" + "".join(
         f"{t}\t{m}\t{a}\t{hashlib.sha256(x.encode()).hexdigest()}\n" for t, m, a, x in [(1, 0, 0, "a"), (2, 1, 1, "b")])
     assert got == {"math_env": "python", "math_tick": 41, "math_caching_tick": 7,
-                   "comment_set_sha256": hashlib.sha256(lines.encode()).hexdigest(), "vote_hwm": 1700000000123}
+                   "comment_set_sha256": hashlib.sha256(lines.encode()).hexdigest(), "vote_hwm": 1700000000123,
+                   "math_modified_ms": None, "target_label": None, "source_commit": None}
     assert all(p["zid"] == 7 for _, p in calls)
 
     def broken(sql, params):
