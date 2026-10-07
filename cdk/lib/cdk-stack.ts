@@ -248,7 +248,11 @@ export class CdkStack extends cdk.Stack {
       ollamaKeyPair,
       ollamaSecurityGroup,
       enableOllama,
-      workerClasses && workerRoles ? { settings: workerClasses, roles: workerRoles } : undefined
+      workerClasses && workerRoles ? {
+        settings: workerClasses,
+        roles: workerRoles,
+        queueHosts: workerClasses.queueHostAllowlist ?? db.dbInstanceEndpointAddress,
+      } : undefined
     );
 
     // Auto Scaling Groups and alarms

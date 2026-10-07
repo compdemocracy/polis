@@ -6,10 +6,15 @@ import {
   LARGE_BUSY_METRIC, LARGE_CLASS_CONTEXT, LARGE_DEMAND_METRIC, LARGE_SERVICE_TYPE, LONG_RUNNING_ALARM_NAME,
   MATH_LARGE_CLASS, OLDEST_UNRESOLVED_METRIC, PENDING_PROMOTION_METRIC, QUEUE_BYTES_ALARM_NAME,
   QUEUE_FULL_ALARM_NAME, QUEUE_SWEEP_LAG_ALARM_NAME, QUEUE_UNREACHABLE_ALARM_NAME, SCALE_IN_ALARM_NAME,
-  SCALE_OUT_ALARM_NAME, WORKER_DISK_METRIC, WORKER_HEARTBEAT_METRIC, WORKER_HEARTBEAT_PHRASE, capacityFilter,
+  SCALE_OUT_ALARM_NAME, STAGED_LABEL, WORKER_DISK_METRIC, WORKER_HEARTBEAT_METRIC, WORKER_HEARTBEAT_PHRASE, capacityFilter,
   largeClassEnabled, workerClassTable,
 } from '../workerClasses';
 import { HEARTBEAT_PHRASE, STALE_PHRASES } from '../mathPollerAlarms';
+import {
+  APP_ENV_FILE, RDS_CA_BUNDLE_URL, WORKER_CA_FILE, workerEnvDocument, workerStartScript, workerUnit,
+} from '../launchTemplates';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // The whole production stack, synthesized the way it is deployed
 // (`-c enableCiEc2=true`). Asset bundling is skipped so the backup
@@ -197,11 +202,10 @@ describe('enableLargeClass on', () => {
       expect(ud).toContain(`echo \\"${klass}\\" | sudo tee /etc/app-info/worker_class.txt`);
       expect(ud).toContain('echo \\"52g\\" | sudo tee /etc/app-info/worker_memory.txt');
       expect(ud).toContain('echo \\"polis-queue-login\\" | sudo tee /etc/app-info/queue_login_secret.txt');
-      expect(ud).toContain('POLIS_JOBS_WORKER_CLASS=%s');
-      expect(ud).toContain('POLIS_JOBS_CONTAINER_MEMORY=%s');
-      expect(ud).toContain('POLIS_JOBS_LOGIN_SECRET_NAME=%s');
       expect(ud).toContain(
-        `\\"${klass}\\" \\"52g\\" \\"polis-queue-login\\" \\"123456789012.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest\\" | sudo tee /etc/app-info/polis-jobs.env`);
+        `POLIS_JOBS_WORKER_CLASS \\"${klass}\\" POLIS_JOBS_CONTAINER_MEMORY \\"52g\\" POLIS_JOBS_LOGIN_SECRET_NAME \\"polis-queue-login\\" ` +
+        'POLIS_JOBS_IMAGE \\"123456789012.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest\\" ' +
+        `POLIS_JOBS_CA_FILE \\"${WORKER_CA_FILE}\\" POLIS_JOBS_HOST_ALLOWLIST \\"`);
       // The daemon starts with that class as a systemd unit; the login's password is
       // read by the secret's NAME at each start and never appears in the template.
       expect(ud).toContain('sudo tee /etc/systemd/system/polis-jobs.service');
@@ -226,6 +230,79 @@ describe('enableLargeClass on', () => {
       expect(ud).not.toContain('polis-jobs.env');
       expect(ud).not.toContain('polis-jobs.service');
     }
+  });
+
+  // The user data with each CloudFormation token shown as <<token>>.
+  const renderedUserData = (lt: any): string => {
+    const render = (v: any): string => {
+      if (typeof v === 'string') return v;
+      if (v && v['Fn::Join']) return v['Fn::Join'][1].map(render).join(v['Fn::Join'][0]);
+      if (v && v['Fn::Base64']) return render(v['Fn::Base64']);
+      if (v && v['Fn::GetAtt']) return `<<GetAtt:${v['Fn::GetAtt'].join('.')}>>`;
+      if (v && v.Ref) return `<<Ref:${v.Ref}>>`;
+      return `<<${JSON.stringify(v).replace(/"/g, "'")}>>`;
+    };
+    return render(lt.Properties.LaunchTemplateData.UserData);
+  };
+  const envDocOf = (ud: string): Record<string, string> => {
+    const m = /printf '%s=%s\n' (.*) \| sudo tee \/etc\/app-info\/polis-jobs\.env/.exec(ud);
+    expect(m).not.toBeNull();
+    const out: Record<string, string> = {};
+    for (const [, k, v] of m![1].matchAll(/([A-Z_]+) "([^"]*)"/g)) out[k] = v;
+    return out;
+  };
+
+  test('the large child gets its staged label, the small poller settings off, a CA and the DB host', () => {
+    const doc = envDocOf(renderedUserData(largeLt));
+    expect(doc).toEqual({
+      POLIS_JOBS_WORKER_CLASS: 'large',
+      POLIS_JOBS_CONTAINER_MEMORY: '52g',
+      POLIS_JOBS_LOGIN_SECRET_NAME: 'polis-queue-login',
+      POLIS_JOBS_IMAGE: '123456789012.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest',
+      POLIS_JOBS_CA_FILE: WORKER_CA_FILE,
+      POLIS_JOBS_HOST_ALLOWLIST: expect.stringMatching(/^<<GetAtt:Database[0-9A-F]{8}\.Endpoint\.Address>>$/),
+      POLIS_JOBS_REQUIRE_SOURCE_COMMIT: '1',
+      MATH_ENV: STAGED_LABEL,
+      MATH_CAPACITY_ROUTING: '0',
+      MATH_CAPACITY_PROMOTE: '0',
+      MATH_CAPACITY_RESTAGE: '',
+    });
+    // The delphi class: no math child, so no staged label and no commit requirement.
+    const delphi = envDocOf(renderedUserData(delphiLt));
+    expect(delphi).not.toHaveProperty('MATH_ENV');
+    expect(delphi.POLIS_JOBS_REQUIRE_SOURCE_COMMIT).toBe('0');
+    expect(delphi.POLIS_JOBS_CA_FILE).toBe(WORKER_CA_FILE);
+  });
+
+  test('the staged label is the small poller\'s default staged label', () => {
+    const capacity = fs.readFileSync(
+      path.join(__dirname, '../../delphi/polismath/poller/capacity.py'), 'utf8');
+    expect(/^DEFAULT_STAGED_LABEL = "([^"]+)"$/m.exec(capacity)![1]).toBe(STAGED_LABEL);
+  });
+
+  test('the user data installs exactly the exported start script and unit', () => {
+    const ud = renderedUserData(largeLt);
+    expect(ud).toContain(
+      `cat << 'POLIS_JOBS_START' | sudo tee /usr/local/bin/polis-jobs-start\n${workerStartScript('us-east-1', '/etc/app-info').join('\n')}\nPOLIS_JOBS_START`);
+    expect(ud).toContain(
+      `cat << 'POLIS_JOBS_UNIT' | sudo tee /etc/systemd/system/polis-jobs.service\n${workerUnit().join('\n')}\nPOLIS_JOBS_UNIT`);
+    const start = workerStartScript('us-east-1', '/etc/app-info').join('\n');
+    // The env document comes after the shared app .env, so it wins.
+    expect(start.indexOf(`--env-file ${APP_ENV_FILE}`)).toBeLessThan(start.indexOf('--env-file /etc/app-info/polis-jobs.env'));
+    expect(start).toContain('-v "$POLIS_JOBS_CA_FILE:$POLIS_JOBS_CA_FILE:ro"');
+    expect(start).toContain(RDS_CA_BUNDLE_URL);
+    expect(start).toContain('refusing: no MATH_POLLER_SOURCE_COMMIT');
+  });
+
+  test('a queueHostAllowlist context replaces the DB endpoint', () => {
+    const t = synth({ [LARGE_CLASS_CONTEXT]: 'true', queueHostAllowlist: 'db.example.internal' }).toJSON().Resources;
+    const lt = Object.entries(t).find(([id]: [string, any]) => id.startsWith('DelphiLargeLaunchTemplate') &&
+      (t as any)[id].Type === 'AWS::EC2::LaunchTemplate')![1];
+    expect(envDocOf(renderedUserData(lt)).POLIS_JOBS_HOST_ALLOWLIST).toBe('db.example.internal');
+    const row = workerClassTable(new cdk.Stack(new cdk.App(), 'S')).find((c) => c.workerClass === 'large')!;
+    expect(workerEnvDocument(row, { loginSecretName: 'n', image: 'i', queueHosts: 'h' }).map(([k]) => k).slice(0, 7))
+      .toEqual(['POLIS_JOBS_WORKER_CLASS', 'POLIS_JOBS_CONTAINER_MEMORY', 'POLIS_JOBS_LOGIN_SECRET_NAME',
+        'POLIS_JOBS_IMAGE', 'POLIS_JOBS_CA_FILE', 'POLIS_JOBS_HOST_ALLOWLIST', 'POLIS_JOBS_REQUIRE_SOURCE_COMMIT']);
   });
 
   test('the worker boxes read their own agent config, with disk free rolled up by group', () => {

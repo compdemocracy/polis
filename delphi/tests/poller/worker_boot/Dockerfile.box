@@ -1,0 +1,28 @@
+# A stand-in worker BOX for delphi/tests/poller/worker_boot_proof.py — PROOF ONLY.
+#
+# systemd as PID 1, so the real polis-jobs.service (from the launch template,
+# cdk/scripts/emit-worker-files.ts) runs under real systemd, its start script
+# at its real path. The box has the docker CLI only: the build VM's docker
+# daemon serves it over the mounted socket, and the stand-in docker.service
+# below exists only so the unit's Requires=docker.service is met. `aws` is a
+# stand-in that reads a local secret store (aws-standin). Nothing here is
+# used outside the proof.
+FROM ubuntu:24.04
+ARG TARGETARCH
+ARG DOCKER_CLI_VERSION=27.5.1
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      systemd systemd-sysv jq curl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+RUN arch=$([ "$TARGETARCH" = arm64 ] && echo aarch64 || echo x86_64) \
+ && curl -fsSL "https://download.docker.com/linux/static/stable/${arch}/docker-${DOCKER_CLI_VERSION}.tgz" \
+    | tar -xz -C /tmp docker/docker \
+ && mv /tmp/docker/docker /usr/bin/docker && /usr/bin/docker --version
+COPY aws-standin /usr/local/bin/aws
+RUN printf '%s\n' '[Unit]' 'Description=STAND-IN: the build VM docker daemon, reached over /var/run/docker.sock' \
+      '[Service]' 'Type=oneshot' 'RemainAfterExit=yes' 'ExecStart=/usr/bin/docker version' \
+      '[Install]' 'WantedBy=multi-user.target' > /etc/systemd/system/docker.service \
+ && systemctl enable docker.service \
+ && mkdir -p /etc/app-info /opt/polis/polis /srv/standin-secret-store
+STOPSIGNAL SIGRTMIN+3
+CMD ["/sbin/init"]
