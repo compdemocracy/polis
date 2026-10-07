@@ -77,7 +77,8 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from types import MappingProxyType
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 import psycopg2
 
@@ -93,7 +94,10 @@ DEPTH_OUTCOME = "class_depth"
 #: ``polis-queue/3`` for a math_rebuild job; ``/2`` is the Delphi stages'.
 REPLY_VERSIONS = frozenset(("polis-queue/2", "polis-queue/3"))
 #: The depth read exists only from 000024 and answers its own version.
+#: 000026 adds ``oldest_eligible_at`` and answers ``polis-queue/4``; both are
+#: read, so this poller keeps its depth when 000026 is applied under it.
 DEPTH_VERSION = "polis-queue/3"
+DEPTH_VERSION_4 = "polis-queue/4"
 
 #: The closed statement inventory with fixed casts (``executor.RPC`` pattern).
 #: ``pd_enqueue`` is the one admission RPC (000023, admitting math_rebuild
@@ -132,8 +136,21 @@ DEPTH_FIELDS = frozenset(
     "schema_version outcome env worker_class queued leased parked dead "
     "oldest_unresolved_created_at".split()
 )
+#: 000026's depth reply: the same, plus the eligible_at of the oldest job a
+#: worker of the class could claim now (null when there is none).
+DEPTH_FIELDS_4 = DEPTH_FIELDS | {"oldest_eligible_at"}
 DEPTH_COUNTS = ("queued", "leased", "parked", "dead")
 ENQUEUE_OUTCOMES = frozenset(("enqueued", "existing", "conflict", "poisoned"))
+#: Admission caps (cost-reduction plan P-084). The SQL does not enforce
+#: them; the poller does, before it asks. ``queue_full``: at least this many
+#: jobs of class large are queued or waiting to retry in this env.
+#: ``scope_daily_cap``: the queue already admitted this many new jobs for the
+#: conversation in the last 24 hours.
+QUEUE_CAP_LARGE = 20
+SCOPE_DAILY_CAP = 2
+#: Re-asks after a finished job, per admission: each one follows the job the
+#: previous answer named (``request_key`` basis ``after:<job>``).
+MAX_TERMINAL_HOPS = 8
 #: Job states the guard counts as active (the scope is occupied).
 ACTIVE_STATES = frozenset(("queued", "retry_wait", "running", "parked"))
 #: Job states after which nothing more happens to the job.
@@ -179,8 +196,25 @@ _BOUNDARY_SQL = (
     "  OR pg_has_role(current_user,'polis_queue_owner','MEMBER') AS owner_escape"
 )
 
-DEFAULT_PRIORITY = 1
-DEFAULT_MAX_ATTEMPTS = 3
+@dataclass(frozen=True)
+class StagePolicy:
+    """What the queue is told about a stage at admission (P-082): the lane
+    (``priority`` 0-2; a worker claims lane 0, then 1, then 2), the attempt
+    budget (``max_attempts``, the row's own ceiling) and the worker class."""
+
+    lane: int
+    max_attempts: int
+    worker_class: str
+
+
+#: The one closed table of scheduling constants (cost-reduction P-082, day
+#: one). Math rebuilds ride lane 1 (lane 0 is kept for operator re-runs, lane
+#: 2 for bulk work), three attempts per job, class large. Nothing else in the
+#: poller chooses a lane or a budget; a stage not in this table cannot be
+#: enqueued. tests/poller/test_capacity_queue.py pins it.
+STAGE_POLICY: Mapping[str, StagePolicy] = MappingProxyType({
+    STAGE_MATH_REBUILD: StagePolicy(lane=1, max_attempts=3, worker_class=WORKER_CLASS_LARGE),
+})
 
 
 class QueueProtocolError(ValueError):
@@ -220,8 +254,22 @@ def scope_key(target_label: str, zid: int) -> str:
     return f"math:{target_label}:{int(zid)}"
 
 
-def actor_scope(target_label: str) -> str:
-    return f"math-poller:{target_label}"
+def actor_scope(env: str) -> str:
+    """The one actor the small poller asks as, per env (P-084)."""
+    return f"math-poller:{env}"
+
+
+def request_key(env: str, scope: str, staged_label: str, target_label: str,
+                input_through_ms: Any, basis: str = "") -> str:
+    """The stable identity of one intent (P-084): the same unresolved demand
+    asked again is the same binding row, not a new row per ask; a newer input
+    watermark is a new intent. ``basis`` is the job the poller already knows
+    for the conversation (empty for none), or ``after:<job>`` /
+    ``after-release:<job>`` for the re-ask that follows a finished job (the
+    second when that ask released its guard): so a fresh job gets a fresh key
+    while every routine re-ask of a known job reuses one row."""
+    return sha256_hex(canonical_bytes([env, scope, staged_label, target_label,
+                                       input_through_ms, basis]))
 
 
 def admission(zid: int, *, staged_label: str, config: Dict[str, Any]) -> Dict[str, Any]:
@@ -248,10 +296,15 @@ def validate_job(reply: Any) -> Dict[str, Any]:
 
 
 def validate_depth(reply: Any) -> Dict[str, Any]:
-    """Reject a reply that is not 000024's depth envelope, exactly."""
-    if not isinstance(reply, dict) or set(reply) != DEPTH_FIELDS:
+    """Reject a reply that is not exactly 000024's depth envelope (version
+    ``/3``) or 000026's (version ``/4``, with ``oldest_eligible_at``)."""
+    if not isinstance(reply, dict):
         raise QueueProtocolError("queue_wire_depth_fields")
-    if reply["schema_version"] != DEPTH_VERSION or reply["outcome"] != DEPTH_OUTCOME:
+    version = reply.get("schema_version")
+    fields = DEPTH_FIELDS_4 if version == DEPTH_VERSION_4 else DEPTH_FIELDS
+    if set(reply) != fields:
+        raise QueueProtocolError("queue_wire_depth_fields")
+    if version not in (DEPTH_VERSION, DEPTH_VERSION_4) or reply["outcome"] != DEPTH_OUTCOME:
         raise QueueProtocolError("queue_wire_depth_version")
     if reply["worker_class"] not in ("delphi", "large") or not isinstance(reply["env"], str):
         raise QueueProtocolError("queue_wire_depth_class")
@@ -259,9 +312,10 @@ def validate_depth(reply: Any) -> Dict[str, Any]:
         value = reply[key]
         if type(value) is not int or value < 0:
             raise QueueProtocolError("queue_wire_depth_count")
-    oldest = reply["oldest_unresolved_created_at"]
-    if oldest is not None and not isinstance(oldest, str):
-        raise QueueProtocolError("queue_wire_depth_timestamp")
+    for key in ("oldest_unresolved_created_at", "oldest_eligible_at"):
+        stamp = reply.get(key)
+        if stamp is not None and not isinstance(stamp, str):
+            raise QueueProtocolError("queue_wire_depth_timestamp")
     return reply
 
 
@@ -351,6 +405,43 @@ class QueueSettings:
             raise QueueRefused("queue_env_namespace")
 
 
+def _secrets_client() -> Any:
+    """A Secrets Manager client in this process's region: boto3's own
+    resolution (AWS_REGION, AWS_DEFAULT_REGION, its config), else the
+    instance metadata's region. The small poller's container gets no AWS
+    settings, so on a box the metadata is the usual answer."""
+    import boto3
+
+    session = boto3.session.Session()
+    region = session.region_name
+    if not region:
+        from botocore.utils import InstanceMetadataRegionFetcher
+
+        region = InstanceMetadataRegionFetcher(timeout=2, num_attempts=2).retrieve_region()
+    if not region:
+        raise QueueRefused("queue_login_secret_region")
+    return session.client("secretsmanager", region_name=region)
+
+
+def dsn_with_secret_password(dsn: str, secret_name: str, *, client: Any = None) -> str:
+    """The DSN with the password of the login held in the secret
+    ``secret_name`` (a JSON object with ``password``, the shape the daemon's
+    start script reads). The env document names the secret, never the
+    password; the result is kept in memory and never logged."""
+    from psycopg2.extensions import make_dsn
+
+    if client is None:
+        client = _secrets_client()
+    raw = client.get_secret_value(SecretId=secret_name)["SecretString"]
+    try:
+        password = json.loads(raw)["password"]
+    except (ValueError, KeyError, TypeError):
+        raise QueueRefused("queue_login_secret_shape") from None
+    if not isinstance(password, str) or not password:
+        raise QueueRefused("queue_login_secret_shape")
+    return make_dsn(dsn, password=password)
+
+
 class QueueClient:
     """One short transaction per call, on its own connection, never pooled."""
 
@@ -364,6 +455,9 @@ class QueueClient:
         dsn = getattr(settings, "queue_dsn", None)
         if not dsn:
             return None
+        secret = getattr(settings, "queue_login_secret", None)
+        if secret:
+            dsn = dsn_with_secret_password(dsn, secret)
         return cls(QueueSettings(dsn=dsn, env=getattr(settings, "queue_env", None) or ""))
 
     def describe(self) -> str:
@@ -421,43 +515,67 @@ class QueueClient:
 
     # -- the calls ---------------------------------------------------------- #
     def enqueue_math_rebuild(self, zid: int, *, config: Dict[str, Any], staged_label: str,
-                             target_label: str, priority: int = DEFAULT_PRIORITY,
-                             max_attempts: int = DEFAULT_MAX_ATTEMPTS) -> Tuple[str, str]:
+                             target_label: str, known_job: Optional[str] = None
+                             ) -> Tuple[str, str]:
         """One ``math_rebuild`` job of class ``large`` for ``zid``, idempotent
         under the scope guard. Returns ``(outcome, job_id)``: ``enqueued`` a
         new job; ``existing``/``conflict`` the active one; ``poisoned`` the
-        latest dead job, nothing admitted. A terminal job still holding the
-        guard is released through the guarded ``pd_release_scope`` and the
-        admission asked once more; a refused release leaves it to the daemon."""
+        latest dead job, nothing admitted; ``queue_full`` (P-084) nothing
+        asked. A finished job in the answer is released through the guarded
+        ``pd_release_scope`` and the intent asked again under a key bound to
+        it; a refused release leaves it to the daemon. ``known_job`` is the
+        job the caller already holds for the conversation (the request key's
+        basis)."""
         if not _LABEL.fullmatch(staged_label or "") or not _LABEL.fullmatch(target_label or ""):
             raise ValueError("queue_label")
+        # P-084: no new job while QUEUE_CAP_LARGE jobs of the class wait.
+        if int(self.class_depth()["queued"]) >= QUEUE_CAP_LARGE:
+            return "queue_full", ""
+        policy = STAGE_POLICY[STAGE_MATH_REBUILD]
         outcome, reply = self._admit(zid, config=config, staged_label=staged_label,
-                                     target_label=target_label, priority=priority,
-                                     max_attempts=max_attempts)
-        if outcome in ("existing", "conflict") and reply["state"] in TERMINAL_STATES:
-            # Finding 2: the guard outlived its job (a cancel nobody ran, a
-            # daemon lost before its release). The SQL re-checks every
-            # condition; a refusal is the daemon's recovery to finish.
-            if self.release_scope(target_label, zid):
+                                     target_label=target_label, priority=policy.lane,
+                                     max_attempts=policy.max_attempts, basis=known_job or "")
+        hops = 0
+        while (outcome in ("existing", "conflict") and reply["state"] in TERMINAL_STATES
+               and hops < MAX_TERMINAL_HOPS):
+            # Finding 2: the answer is a finished job (its guard outlived it,
+            # or the intent's binding names a job that has since ended). The
+            # guarded release is tried (the SQL re-checks every condition; a
+            # refusal is the daemon's recovery to finish), then the intent is
+            # asked again under a key bound to that job (P-084), so the guard
+            # decides: a fresh job, the active one, or the same unproven one.
+            hops += 1
+            released = self.release_scope(target_label, zid)
+            if released:
                 logger.info("capacity: zid=%s released the scope of %s job %s; asking again",
                             zid, reply["state"], str(reply["job_id"])[:8])
-                outcome, reply = self._admit(zid, config=config, staged_label=staged_label,
-                                             target_label=target_label, priority=priority,
-                                             max_attempts=max_attempts)
-            else:
+            previous = str(reply["job_id"])
+            # The re-ask's key says whether this ask released the guard, so a
+            # binding made while the guard still held the job (exit unproven)
+            # never answers the ask that follows its release.
+            outcome, reply = self._admit(zid, config=config, staged_label=staged_label,
+                                         target_label=target_label, priority=policy.lane,
+                                         max_attempts=policy.max_attempts,
+                                         basis=("after-release:" if released else "after:")
+                                         + previous)
+            if str(reply["job_id"]) == previous:
                 logger.warning("capacity: zid=%s %s job %s still holds its scope (exit "
                                "unproven or provider work open); left to the daemon",
-                               zid, reply["state"], str(reply["job_id"])[:8])
+                               zid, reply["state"], previous[:8])
+                break
         return outcome, str(reply["job_id"])
 
     def _admit(self, zid: int, *, config: Dict[str, Any], staged_label: str,
-               target_label: str, priority: int, max_attempts: int) -> Tuple[str, Dict[str, Any]]:
+               target_label: str, priority: int, max_attempts: int,
+               basis: str = "") -> Tuple[str, Dict[str, Any]]:
         body = canonical_bytes(admission(zid, staged_label=staged_label, config=config))
         job_id, run_id = str(uuid.uuid4()), str(uuid.uuid4())
         scope = scope_key(target_label, zid)
         image = config.get("source_commit") or "unknown"
+        key = request_key(self.settings.env, scope, staged_label, target_label,
+                          config.get("input_through_ms"), basis)
         reply = self.call("pd_enqueue", [
-            self.settings.env, int(zid), scope, actor_scope(target_label), job_id,
+            self.settings.env, int(zid), scope, actor_scope(self.settings.env), key,
             sha256_hex(body), run_id, job_id, encode_frame_uri(body), sha256_hex(body),
             sha256_hex(canonical_bytes(dict(config))), image, int(priority), int(max_attempts),
             STAGE_MATH_REBUILD, None, scope, json.dumps(config, sort_keys=True),
@@ -543,8 +661,25 @@ def enqueue_routed(queue: Any, router: Any, zid: int, *, staged_label: str,
         "binding": rec.binding,
         "source_commit": source_commit,
     }
+    if router.admissions_today(zid) >= SCOPE_DAILY_CAP:
+        # P-084: the hard stop on re-admission; the record stays routed.
+        logger.warning("capacity: zid=%s already had %d math_rebuild jobs admitted in 24 h; "
+                       "not asking again today", zid, SCOPE_DAILY_CAP)
+        return None
     outcome, job_id = queue.enqueue_math_rebuild(zid, config=config, staged_label=staged_label,
-                                                 target_label=target_label)
+                                                 target_label=target_label,
+                                                 known_job=rec.job_id)
+    if outcome == "queue_full":
+        # P-084: the class's queued-job cap; the record stays routed (no
+        # compute here, no park), the line says queue_full until an admission
+        # goes through.
+        router.set_queue_full(True)
+        logger.warning("capacity: zid=%s not enqueued: %d or more math_rebuild jobs are "
+                       "queued (queue_full)", zid, QUEUE_CAP_LARGE)
+        return None
+    router.set_queue_full(False)
+    if outcome == "enqueued":
+        router.note_admitted(zid)
     if outcome == "poisoned":
         # The scope's last jobs all died under this source commit: parked
         # with the reason, not asked again until the commit changes.
@@ -559,10 +694,14 @@ def enqueue_routed(queue: Any, router: Any, zid: int, *, staged_label: str,
 
 
 __all__ = [
-    "ACTIVE_STATES", "ADMISSION_SCHEMA", "DEPTH_COUNTS", "DEPTH_FIELDS", "DEPTH_VERSION",
+    "ACTIVE_STATES", "ADMISSION_SCHEMA", "DEPTH_COUNTS", "DEPTH_FIELDS", "DEPTH_FIELDS_4",
+    "DEPTH_VERSION", "DEPTH_VERSION_4",
     "JOB_FIELDS", "MANIFEST_SCHEMA", "MANIFEST_STREAM", "QueueClient", "QueueProtocolError",
-    "QueueRefused", "QueueSettings", "RPC", "Receipt", "STAGE_MATH_REBUILD", "TABLE_RPC",
+    "QUEUE_CAP_LARGE", "QueueRefused", "QueueSettings", "RPC", "Receipt", "SCOPE_DAILY_CAP",
+    "STAGE_MATH_REBUILD", "STAGE_POLICY",
+    "StagePolicy", "TABLE_RPC",
     "TERMINAL_STATES", "WORKER_CLASS_LARGE", "admission", "canonical_bytes",
-    "decode_frame_uri", "encode_frame_uri", "enqueue_routed", "receipt_of", "scope_key",
+    "decode_frame_uri", "dsn_with_secret_password", "encode_frame_uri", "enqueue_routed",
+    "receipt_of", "request_key", "scope_key",
     "sha256_hex", "validate_depth", "validate_job", "validate_log_rows", "validate_release",
 ]

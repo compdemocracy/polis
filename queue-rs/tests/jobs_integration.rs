@@ -381,6 +381,7 @@ fn base_env(db: &Db, o: &Opts, journal: &Path) -> Vec<(String, String)> {
         ("POLIS_JOBS_LEASE_SECONDS", "10".into()),
         ("POLIS_JOBS_HEARTBEAT_SECONDS", "2".into()),
         ("POLIS_JOBS_POLL_SECONDS", "1".into()),
+        ("POLIS_JOBS_IDLE_POLL_SECONDS", "1".into()),
         ("POLIS_JOBS_REAP_SECONDS", "1".into()),
         ("POLIS_JOBS_READINESS_SECONDS", "1".into()),
         ("POLIS_JOBS_KILL_GRACE_SECONDS", "2".into()),
@@ -1574,6 +1575,7 @@ fn offline_profile_over_a_unix_socket_finalizes() {
         .env("POLIS_JOBS_LEASE_SECONDS", "10")
         .env("POLIS_JOBS_HEARTBEAT_SECONDS", "2")
         .env("POLIS_JOBS_POLL_SECONDS", "1")
+        .env("POLIS_JOBS_IDLE_POLL_SECONDS", "1")
         .env("POLIS_JOBS_JOURNAL_DIR", journal.display().to_string())
         .env(
             "POLIS_JOBS_WORK_DIR",

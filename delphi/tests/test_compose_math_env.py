@@ -542,7 +542,7 @@ CAPACITY_KEYS = {
     "MATH_CAPACITY_ROUTING", "MATH_CAPACITY_ROUTE_FRACTION", "MATH_CAPACITY_KEEP_FRACTION",
     "MATH_CAPACITY_RESIZE_S", "MATH_CAPACITY_STATE_PATH", "MATH_CAPACITY_LARGE_BUDGET_MB",
     "MATH_CAPACITY_PROMOTE", "MATH_CAPACITY_RESTAGE", "MATH_CAPACITY_QUEUE_DSN",
-    "MATH_CAPACITY_QUEUE_ENV",
+    "MATH_CAPACITY_QUEUE_ENV", "MATH_CAPACITY_QUEUE_LOGIN_SECRET",
 }
 # Read only by the queue child (its own side of the hand-off), never a
 # small-poller setting.
@@ -631,6 +631,8 @@ def test_there_is_no_large_poller_service_and_no_manifest():
     raw = _raw_environment("math-python")
     assert raw["MATH_CAPACITY_QUEUE_DSN"] == "${MATH_CAPACITY_QUEUE_DSN:-}"
     assert raw["MATH_CAPACITY_QUEUE_ENV"] == "${MATH_CAPACITY_QUEUE_ENV:-}"
+    # P-084: the login's password comes from a secret named here, never the DSN.
+    assert raw["MATH_CAPACITY_QUEUE_LOGIN_SECRET"] == "${MATH_CAPACITY_QUEUE_LOGIN_SECRET:-}"
     forwarded = _environment("docker-compose.yml", "math-python",
                              {k: f"probe-{k.lower()}" for k in AWS_KEYS})
     assert not set(AWS_KEYS) & set(forwarded)

@@ -352,10 +352,13 @@ services:
       # conversation becomes one math_rebuild job of worker class large,
       # inserted through the queue's SQL functions over this second DSN (a
       # login that is a member of polis_queue_executor; never the broad
-      # DATABASE_URL login) in this queue env namespace. Unset: routed
-      # conversations are not enqueued (logged at start).
+      # DATABASE_URL login) in this queue env namespace. The DSN carries no
+      # password: MATH_CAPACITY_QUEUE_LOGIN_SECRET names the Secrets Manager
+      # secret that holds it (P-084). Unset, unreachable, or without a source
+      # commit: routing is refused and the line says queue_unreachable=1.
       - MATH_CAPACITY_QUEUE_DSN=${MATH_CAPACITY_QUEUE_DSN:-}
       - MATH_CAPACITY_QUEUE_ENV=${MATH_CAPACITY_QUEUE_ENV:-}
+      - MATH_CAPACITY_QUEUE_LOGIN_SECRET=${MATH_CAPACITY_QUEUE_LOGIN_SECRET:-}
     volumes:
       # Backfill retry/gate/pause/report state across restarts on this host.
       # The database stays the progress record; losing this only re-arms the
