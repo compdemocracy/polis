@@ -3,10 +3,15 @@
 //! Postgres queue. Exits 0 immediately unless `POLIS_JOBS_ENABLED=1`. Exit 2:
 //! invalid configuration or an unwritable journal. Exit 3: the database lacks
 //! a contract the class may run on (`polis-queue/2` or `/3` for `delphi`,
-//! `/3` for `large`).
+//! `/3` for `large`). `polis-jobs --version` prints the name and the crate
+//! version and exits 0 without reading the environment.
 use polis_queue_adapter::jobs::{claim, config};
 
 fn main() {
+    if std::env::args().nth(1).as_deref() == Some("--version") {
+        println!("polis-jobs {}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
     match config::load(|k| std::env::var(k).ok()) {
         Ok(config::Load::Disabled) => std::process::exit(0),
         Ok(config::Load::Ready(cfg)) => std::process::exit(claim::run(*cfg)),

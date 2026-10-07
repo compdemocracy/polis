@@ -568,11 +568,27 @@ class TestCapacityLineCounts:
         svc.capacity_queue.depth = {"queued": 3, "leased": 2, "parked": 1, "dead": 4}
         snap = svc.readiness_snapshot()
         c = snap["capacity"]
-        assert (c["large_demand"], c["large_leased"], c["large_poisoned"]) == (3, 2, 0)
+        assert (c["large_demand"], c["large_leased"], c["large_parked"], c["large_poisoned"]) \
+            == (3, 2, 1, 0)
         assert set(c) == set(COUNT_KEYS) and "capacity_line" not in snap
         validate_counts(c)
         line = parse_line(build_line("primary", SMALL_LABEL, c))
-        assert (line["large_demand"], line["large_leased"]) == (3, 2)
+        assert (line["large_demand"], line["large_leased"], line["large_parked"]) == (3, 2, 1)
+
+    def test_an_empty_queue_reports_every_scale_in_term_as_zero(self):
+        """The scale-in alarm (cdk/workerClasses.ts) sums the metric filters
+        on $.large_demand, $.large_leased and $.large_parked and fires only
+        when every term is reported: an idle queue must put all three on the
+        line as numbers, 0, not null and not absent."""
+        svc = service()
+        svc.capacity_queue.depth = {"queued": 0, "leased": 0, "parked": 0, "dead": 2}
+        body = json.loads(build_line("primary", SMALL_LABEL, svc.readiness_snapshot()["capacity"]))
+        terms = [body[k] for k in ("large_demand", "large_leased", "large_parked")]
+        assert terms == [0, 0, 0] and all(type(t) is int for t in terms)
+        # One parked job holds the group up, as the alarm's sum says it must.
+        svc.capacity_queue.depth = {"queued": 0, "leased": 0, "parked": 1, "dead": 2}
+        body = json.loads(build_line("primary", SMALL_LABEL, svc.readiness_snapshot()["capacity"]))
+        assert body["large_demand"] + body["large_leased"] + body["large_parked"] == 1
 
     def test_the_real_depth_reply_is_decoded_and_counted(self):
         """Finding 1: the reply 000024's pq_class_depth actually returns
@@ -592,7 +608,7 @@ class TestCapacityLineCounts:
         svc.capacity.observe(7, sizes=sizes(850), input_ms=T0)
         svc.capacity_queue.class_depth = lambda worker_class="large": cq.validate_depth(real)
         c = svc.readiness_snapshot()["capacity"]
-        assert (c["large_demand"], c["large_leased"]) == (2, 1)
+        assert (c["large_demand"], c["large_leased"], c["large_parked"]) == (2, 1, 0)
 
     def test_a_poisoned_record_is_parked_and_counted(self, caplog, monkeypatch):
         monkeypatch.setattr(cq, "SCOPE_DAILY_CAP", 1000)     # four jobs in one day here
@@ -650,7 +666,7 @@ class TestCapacityLineCounts:
         svc = service(queue=None)
         svc.capacity.observe(7, sizes=sizes(850), input_ms=T0)
         c = svc.readiness_snapshot()["capacity"]
-        assert (c["large_demand"], c["large_leased"]) == (1, None)
+        assert (c["large_demand"], c["large_leased"], c["large_parked"]) == (1, None, None)
         validate_counts(c)
         parse_line(build_line("primary", SMALL_LABEL, c))
 
@@ -662,7 +678,7 @@ class TestCapacityLineCounts:
         svc.capacity_queue.class_depth = MagicMock(side_effect=RuntimeError("down"))
         with caplog.at_level(logging.ERROR):
             c = svc.readiness_snapshot()["capacity"]
-        assert (c["large_demand"], c["large_leased"]) == (1, None)
+        assert (c["large_demand"], c["large_leased"], c["large_parked"]) == (1, None, None)
         assert "queue depth unavailable (RuntimeError)" in caplog.text
 
     def test_routing_off_reports_as_before_plus_the_null_key(self):
@@ -672,13 +688,22 @@ class TestCapacityLineCounts:
         assert c["routing"] == 0 and c["large_demand"] == 1 and c["large_leased"] is None
         body = json.loads(build_line("primary", SMALL_LABEL, c))
         assert body["large_leased"] is None and "large_leased" in NULLABLE_COUNT_KEYS
+        assert body["large_parked"] is None and "large_parked" in NULLABLE_COUNT_KEYS
         standby = parse_line(build_line("standby", SMALL_LABEL, None))
         assert standby["large_leased"] is None and standby["large_demand"] is None
+        assert standby["large_parked"] is None
 
     def test_a_line_without_the_new_key_no_longer_parses(self):
         c = CapacityRouter(MemoryAdmission(1000 * MB, MODEL), CapacitySettings()).counts()
         old = json.loads(build_line("primary", SMALL_LABEL, c))
         del old["large_leased"]
+        with pytest.raises(ValueError):
+            parse_line(json.dumps(old, sort_keys=True))
+
+    def test_a_line_without_large_parked_no_longer_parses(self):
+        c = CapacityRouter(MemoryAdmission(1000 * MB, MODEL), CapacitySettings()).counts()
+        old = json.loads(build_line("primary", SMALL_LABEL, c))
+        del old["large_parked"]
         with pytest.raises(ValueError):
             parse_line(json.dumps(old, sort_keys=True))
 
