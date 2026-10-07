@@ -6,6 +6,90 @@ import {
   ByClass, WORKER_AGENT_CONFIG, WorkerClassSpec, WorkerClassesSettings, mathLargeRow,
 } from './workerClasses';
 
+/** Where a worker box keeps the RDS CA bundle the daemon's TLS trusts (mounted read-only). */
+export const WORKER_CA_FILE = '/etc/polis-jobs/rds-ca-bundle.pem';
+/** AWS's published bundle of every RDS certificate authority, fetched when the file is missing. */
+export const RDS_CA_BUNDLE_URL = 'https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem';
+/** The shared app env document the deploy writes; the worker env document comes after it. */
+export const APP_ENV_FILE = '/opt/polis/polis/.env';
+
+/**
+ * A worker box's env document (/etc/app-info/polis-jobs.env), in order. The
+ * unit sources it and passes it to `docker run` AFTER the shared app .env, so
+ * every key here wins over the same key there (the large child's MATH_ENV
+ * over the served label).
+ */
+export const workerEnvDocument = (spec: WorkerClassSpec, opts: {
+  loginSecretName: string; image: string; queueHosts: string;
+}): [string, string][] => [
+  ['POLIS_JOBS_WORKER_CLASS', spec.workerClass],
+  ['POLIS_JOBS_CONTAINER_MEMORY', spec.containerMemory],
+  ['POLIS_JOBS_LOGIN_SECRET_NAME', opts.loginSecretName],
+  ['POLIS_JOBS_IMAGE', opts.image],
+  ['POLIS_JOBS_CA_FILE', WORKER_CA_FILE],
+  ['POLIS_JOBS_HOST_ALLOWLIST', opts.queueHosts],
+  ['POLIS_JOBS_REQUIRE_SOURCE_COMMIT', spec.requiresSourceCommit ? '1' : '0'],
+  ...Object.entries(spec.childEnv ?? {}),
+];
+
+/** The script polis-jobs.service runs (/usr/local/bin/polis-jobs-start). */
+export const workerStartScript = (region: string, configDir: string): string[] => [
+  '#!/bin/bash',
+  '# Starts the queue worker daemon with this box\'s class (written by the launch template).',
+  'set -euo pipefail',
+  `. ${configDir}/polis-jobs.env`,
+  `test -f ${APP_ENV_FILE}  # the env document; the deploy writes it, systemd retries until then`,
+  'umask 077',
+  'mkdir -p /run/polis-jobs /var/lib/polis-jobs/journal',
+  // The child refuses a frame admitted at another source commit, and with no
+  // commit at all; without one in .env every job would be claimed only to
+  // fail its attempt, so the daemon does not start.
+  'if [ "${POLIS_JOBS_REQUIRE_SOURCE_COMMIT:-0}" = 1 ]; then',
+  // (`|| true`: no line is the refusal below, not a pipefail exit without a message.)
+  `  commit=$({ grep -E '^MATH_POLLER_SOURCE_COMMIT=' ${APP_ENV_FILE} || true; } | tail -n 1 | cut -d= -f2-)`,
+  '  if ! [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; then',
+  `    echo "polis-jobs-start: refusing: no MATH_POLLER_SOURCE_COMMIT in ${APP_ENV_FILE} (the deploy hook writes it)" >&2`,
+  '    exit 1',
+  '  fi',
+  'fi',
+  // TLS to the queue trusts only this bundle (the daemon disables built-in roots).
+  'if [ ! -s "$POLIS_JOBS_CA_FILE" ]; then',
+  '  mkdir -p "$(dirname "$POLIS_JOBS_CA_FILE")"',
+  `  curl -fsS --retry 3 --max-time 60 ${RDS_CA_BUNDLE_URL} -o "$POLIS_JOBS_CA_FILE.tmp"`,
+  '  grep -q -- "-----BEGIN CERTIFICATE-----" "$POLIS_JOBS_CA_FILE.tmp"',
+  '  chmod 644 "$POLIS_JOBS_CA_FILE.tmp"',
+  '  mv "$POLIS_JOBS_CA_FILE.tmp" "$POLIS_JOBS_CA_FILE"',
+  'fi',
+  `aws secretsmanager get-secret-value --region ${region} --secret-id "$POLIS_JOBS_LOGIN_SECRET_NAME" ` +
+    '--query SecretString --output text | jq -er .password > /run/polis-jobs/password',
+  'exec docker run --rm --name polis-jobs --memory "$POLIS_JOBS_CONTAINER_MEMORY" \\',
+  `  --env-file ${APP_ENV_FILE} --env-file ${configDir}/polis-jobs.env \\`,
+  '  -e POLIS_JOBS_ENABLED=1 -e POLIS_JOBS_PASSWORD_FILE=/run/secrets/queue-login \\',
+  '  -e POLIS_JOBS_JOURNAL_DIR=/var/lib/polis-jobs/journal \\',
+  '  -v /run/polis-jobs/password:/run/secrets/queue-login:ro -v /var/lib/polis-jobs:/var/lib/polis-jobs \\',
+  '  -v "$POLIS_JOBS_CA_FILE:$POLIS_JOBS_CA_FILE:ro" \\',
+  '  "$POLIS_JOBS_IMAGE" polis-jobs',
+];
+
+/** The systemd unit (/etc/systemd/system/polis-jobs.service). */
+export const workerUnit = (): string[] => [
+  '[Unit]',
+  'Description=Polis queue worker daemon (class in /etc/app-info/polis-jobs.env)',
+  'After=docker.service network-online.target',
+  'Wants=network-online.target',
+  'Requires=docker.service',
+  '[Service]',
+  'ExecStartPre=-/usr/bin/docker rm -f polis-jobs',
+  'ExecStart=/usr/local/bin/polis-jobs-start',
+  // Drain: the daemon stops claiming on SIGTERM and lets its child finish.
+  'ExecStop=/usr/bin/docker stop -t 900 polis-jobs',
+  'TimeoutStopSec=960',
+  'Restart=always',
+  'RestartSec=60',
+  '[Install]',
+  'WantedBy=multi-user.target',
+];
+
 export default (
   self: Construct,
   logGroup: cdk.aws_logs.LogGroup,
@@ -37,45 +121,12 @@ export default (
   // template per row of the class table, each with its own instance type and
   // role; the math-large row is the Delphi large template. Undefined: the
   // Delphi large template is unchanged and no worker template exists.
-  workers?: { settings: WorkerClassesSettings; roles: ByClass<cdk.aws_iam.IRole> }
+  workers?: { settings: WorkerClassesSettings; roles: ByClass<cdk.aws_iam.IRole>; queueHosts: string }
 ) => {
   // The jobs daemon of a worker box, started with the box's class (see usrdata).
   const workerDaemonCommands = (configDir: string): string[] => {
-    const region = cdk.Stack.of(self).region;
-    const start = [
-      '#!/bin/bash',
-      '# Starts the queue worker daemon with this box\'s class (written by the launch template).',
-      'set -euo pipefail',
-      `. ${configDir}/polis-jobs.env`,
-      'test -f /opt/polis/polis/.env  # the env document; the deploy writes it, systemd retries until then',
-      'umask 077',
-      'mkdir -p /run/polis-jobs /var/lib/polis-jobs/journal',
-      `aws secretsmanager get-secret-value --region ${region} --secret-id "$POLIS_JOBS_LOGIN_SECRET_NAME" ` +
-        '--query SecretString --output text | jq -er .password > /run/polis-jobs/password',
-      'exec docker run --rm --name polis-jobs --memory "$POLIS_JOBS_CONTAINER_MEMORY" \\',
-      `  --env-file /opt/polis/polis/.env --env-file ${configDir}/polis-jobs.env \\`,
-      '  -e POLIS_JOBS_ENABLED=1 -e POLIS_JOBS_PASSWORD_FILE=/run/secrets/queue-login \\',
-      '  -e POLIS_JOBS_JOURNAL_DIR=/var/lib/polis-jobs/journal \\',
-      '  -v /run/polis-jobs/password:/run/secrets/queue-login:ro -v /var/lib/polis-jobs:/var/lib/polis-jobs \\',
-      '  "$POLIS_JOBS_IMAGE" polis-jobs',
-    ];
-    const unit = [
-      '[Unit]',
-      'Description=Polis queue worker daemon (class in /etc/app-info/polis-jobs.env)',
-      'After=docker.service network-online.target',
-      'Wants=network-online.target',
-      'Requires=docker.service',
-      '[Service]',
-      'ExecStartPre=-/usr/bin/docker rm -f polis-jobs',
-      'ExecStart=/usr/local/bin/polis-jobs-start',
-      // Drain: the daemon stops claiming on SIGTERM and lets its child finish.
-      'ExecStop=/usr/bin/docker stop -t 900 polis-jobs',
-      'TimeoutStopSec=960',
-      'Restart=always',
-      'RestartSec=60',
-      '[Install]',
-      'WantedBy=multi-user.target',
-    ];
+    const start = workerStartScript(cdk.Stack.of(self).region, configDir);
+    const unit = workerUnit();
     return [
       `cat << 'POLIS_JOBS_START' | sudo tee /usr/local/bin/polis-jobs-start\n${start.join('\n')}\nPOLIS_JOBS_START`,
       'sudo chmod 755 /usr/local/bin/polis-jobs-start',
@@ -86,16 +137,21 @@ export default (
     ];
   };
   // A worker box's user data records what its jobs daemon runs with (the
-  // worker class, the cgroup memory limit, the image and the NAME of the
-  // restricted queue login's secret; the login is provisioned by the owner)
-  // under /etc/app-info, and starts the daemon with that class as the systemd
-  // unit polis-jobs.service. The unit reads the login's password from Secrets
-  // Manager by name at each start (never baked into the template), takes the
-  // queue DSN and environment from the env document the deploy writes, and
-  // retries every minute until the deploy has written that document and built
-  // the image. A box whose daemon is not running raises MissingWorker.
+  // worker class, the cgroup memory limit, the image, the NAME of the
+  // restricted queue login's secret (the login is provisioned by the owner),
+  // the TLS CA file and host allowlist, and the row's child settings) in the
+  // env document /etc/app-info/polis-jobs.env (workerEnvDocument), and starts
+  // the daemon with that class as the systemd unit polis-jobs.service. The
+  // unit reads the login's password from Secrets Manager by name at each
+  // start (never baked into the template), fetches the RDS CA bundle if it is
+  // missing, takes the queue DSN and environment from the app .env the deploy
+  // writes (the env document after it wins), and retries every minute until
+  // the deploy has written that .env and built the image. A box whose daemon
+  // is not running raises MissingWorker. Rehearsed end to end by
+  // delphi/tests/poller/worker_boot_proof.py.
   const usrdata = (CLOUDWATCH_LOG_GROUP_NAME: string, service: string, instanceSize?: string,
-    worker?: { spec: WorkerClassSpec; loginSecretName: string; agentConfigUrl: string; image: string }) => {
+    worker?: { spec: WorkerClassSpec; loginSecretName: string; agentConfigUrl: string; image: string;
+      queueHosts: string }) => {
     let ld: ec2.UserData;
     ld = ec2.UserData.forLinux();
     const persistentConfigDir = '/etc/app-info';
@@ -115,9 +171,8 @@ export default (
         `echo "${worker.spec.workerClass}" | sudo tee ${persistentConfigDir}/worker_class.txt`,
         `echo "${worker.spec.containerMemory}" | sudo tee ${persistentConfigDir}/worker_memory.txt`,
         `echo "${worker.loginSecretName}" | sudo tee ${persistentConfigDir}/queue_login_secret.txt`,
-        `printf 'POLIS_JOBS_WORKER_CLASS=%s\nPOLIS_JOBS_CONTAINER_MEMORY=%s\nPOLIS_JOBS_LOGIN_SECRET_NAME=%s\nPOLIS_JOBS_IMAGE=%s\n' ` +
-          `"${worker.spec.workerClass}" "${worker.spec.containerMemory}" "${worker.loginSecretName}" "${worker.image}" ` +
-          `| sudo tee ${persistentConfigDir}/polis-jobs.env`,
+        `printf '%s=%s\n' ${workerEnvDocument(worker.spec, worker)
+          .map(([k, v]) => `${k} "${v}"`).join(' ')} | sudo tee ${persistentConfigDir}/polis-jobs.env`,
         `sudo chmod 644 ${persistentConfigDir}/polis-jobs.env`,
       ] : []),
       'sudo yum update -y',
@@ -302,6 +357,7 @@ if (enableOllama) {
       loginSecretName: workers!.settings.queueLoginSecretName,
       agentConfigUrl: workerAgentConfigAsset!.s3ObjectUrl,
       image: workers!.settings.workerImage,
+      queueHosts: workers!.queueHosts,
     }),
     instanceType: spec.instanceType,
     securityGroup: delphiSecurityGroup,
