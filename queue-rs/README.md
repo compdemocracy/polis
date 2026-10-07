@@ -156,8 +156,11 @@ every condition (every job of the root's tree terminal, every exit proven, no
 open provider request) and refuses otherwise. One transition says what
 happened (`scope_released`, or `scope_held` with the reason; `scope_unknown`
 on a `/2` database), and the readiness line counts `released_total`. Terminal
-status alone releases nothing. The poison latch is the contract's: three dead
-jobs of one scope under one code image make the next admission `poisoned`.
+status alone releases nothing. The dead-job breaker is the contract's
+(000026, replacing 000024's latch): three dead jobs of one scope in a row under
+one code image open it and the next admissions are `poisoned`; after 24 hours
+one probe job is admitted (success closes it, death re-opens it for 24 hours);
+a new image resets it.
 
 Configuration is by environment; `POLIS_JOBS_ENABLED` must be exactly `1` or
 the daemon exits 0 at once. Transports: `tls` (default; CA file and exact host
@@ -206,12 +209,20 @@ the daemon when `POLIS_JOBS_SWEEP=1` and the database carries migration
 000026. It starts no child and hands out no connection: the daemon asks
 `pq_sweep` for one bounded page at a time, only when its claim pass has
 nothing to start, so a sweep never goes ahead of a job. The SQL decides the
-rest: one sweep per 24 hours per queue env, one sweeper at a time, what may
-be deleted and how much per page (finished jobs after 30 days, dead ones
-after 90, a succeeded attempt's output lines after 7 days, any other's after
-30, expired request bindings after a day; pinned, aliased, held, unproven,
-still-referenced and latest-succeeded jobs are kept). Each finished sweep is
-one `polis_jobs.sweep/1` line with its counts, and a row in
+rest: one sweep per 24 hours per queue env, one sweeper at a time, and what
+may go, by reachability: a job stays while something that matters reaches it
+(unfinished, pinned, aliased, a current pointer, a held guard, a head's run,
+an unproven exit, an open provider request, dead under an open breaker, or an
+input or parent of a reached job); the rest is judged by the rules in
+`polis_queue_retention_policy` (finished jobs after 30 days keeping the newest
+success of a product, dead ones after 90, a succeeded attempt's output lines
+after 7 days, any other's after 30, expired request bindings after a day).
+Every rule ships as a dry run: the line reports `would` counts and nothing is
+deleted until an operator updates the policy table (no migration). A rule set
+to delete works in two phases: the sweep tombstones a row (restorable) and a
+later sweep purges it after the grace. Each finished sweep is
+one `polis_jobs.sweep/1` line with its counts (deleted, tombstoned, restored,
+and `would` for the dry-run kinds), and a row in
 `polis_queue_sweeps`. `POLIS_JOBS_SWEEP_MAX_PAGES` (100) bounds the pages of
 one sweep; `POLIS_JOBS_SWEEP_CHECK_SECONDS` (900) is how often an idle
 daemon asks whether a sweep is due. Without 000026 the sweep says so once

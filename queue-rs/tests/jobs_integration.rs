@@ -1714,14 +1714,17 @@ fn schema_invalid_manifests_never_finalize() {
     }
 }
 
-/// The built-in sweep (000026, P-083): with `POLIS_JOBS_SWEEP=1` an idle
-/// large worker runs one sweep, deletes the older finished rebuild of a
-/// product (its attempts and logs with it), keeps the latest one (the
-/// promotion's receipt and the head's run) and its manifest row, drops that
-/// one's output lines after 7 days, prints one `polis_jobs.sweep/1` line,
-/// and is told not_due inside the next 24 hours.
+/// The built-in sweep (000026, P-083, retention by reachability): with
+/// `POLIS_JOBS_SWEEP=1` an idle large worker sweeps once a day. As shipped
+/// every kind is a dry run: the line says what it would delete (the older
+/// finished rebuild of a product) and nothing goes. An UPDATE of the policy
+/// table, no migration, turns deletion on: the next sweep tombstones the
+/// older rebuild and deletes nothing; the one after the grace purges it with
+/// its attempts and logs, keeps the latest (the promotion's receipt and the
+/// head's run) and its manifest row, and drops that one's output lines.
+/// Inside the next 24 hours the checks are not_due.
 #[test]
-fn the_built_in_sweep_removes_expired_history_and_keeps_the_latest() {
+fn the_built_in_sweep_dry_runs_then_tombstones_then_purges() {
     let mut db = Db::new("jobs_v4");
     let (old, scope) = db.enqueue("math_rebuild", 1, None, math(), 3);
     let worker = start(
@@ -1754,6 +1757,19 @@ fn the_built_in_sweep_removes_expired_history_and_keeps_the_latest() {
             .map(|r| r.get(0))
             .collect()
     };
+    let jobs = |d: &mut Db| -> Vec<Uuid> {
+        d.sql
+            .query(
+                "SELECT job_id FROM polis_queue_jobs WHERE env=$1 ORDER BY job_id",
+                &[&ENV],
+            )
+            .unwrap()
+            .iter()
+            .map(|r| r.get(0))
+            .collect()
+    };
+    let mut both = vec![old, new];
+    both.sort();
     assert!(streams(&mut db, new_attempt).contains(&"manifest".to_owned()));
     assert!(
         streams(&mut db, new_attempt).len() > 1,
@@ -1773,36 +1789,69 @@ fn the_built_in_sweep_removes_expired_history_and_keeps_the_latest() {
             .filter(|v| v["schema"] == "polis_jobs.sweep/1")
             .collect()
     };
+    // 1. The shipped dry run.
     db.wait("a sweep line", 30, |_| !sweep_lines(&sweeper).is_empty());
     let line = sweep_lines(&sweeper).remove(0);
     assert_eq!(line["env"], ENV, "{line}");
     assert_eq!(line["stopped_by"], "", "{line}");
+    assert_eq!(line["dry_run"], true, "{line}");
+    assert_eq!(line["would"]["would_job_succeeded"], 1, "{line}");
+    assert_eq!(line["jobs_deleted"], 0, "{line}");
+    assert_eq!(line["jobs_tombstoned"], 0, "{line}");
+    assert_eq!(jobs(&mut db), both, "a dry run deletes nothing");
+    // 2. Deletion on by an UPDATE of the policy; the next day's sweep tombstones.
+    db.sql
+        .batch_execute(&format!(
+            "BEGIN;
+             UPDATE polis_queue_retention_policy SET action='delete';
+             UPDATE polis_queue_sweeps SET started_at=started_at-interval '25 hours', finished_at=finished_at-interval '25 hours' WHERE env='{ENV}';
+             COMMIT;"
+        ))
+        .unwrap();
+    db.wait("a second sweep line", 30, |_| {
+        sweep_lines(&sweeper).len() >= 2
+    });
+    let line = sweep_lines(&sweeper).remove(1);
+    assert_eq!(line["dry_run"], false, "{line}");
+    assert_eq!(line["jobs_tombstoned"], 1, "{line}");
+    assert_eq!(line["jobs_deleted"], 0, "{line}");
+    assert_eq!(jobs(&mut db), both, "a tombstone deletes nothing");
+    // 3. After the grace the purge.
+    db.sql
+        .batch_execute(&format!(
+            "BEGIN;
+             UPDATE polis_queue_tombstones SET tombstoned_at=tombstoned_at-interval '8 days' WHERE env='{ENV}';
+             UPDATE polis_queue_sweeps SET started_at=started_at-interval '25 hours', finished_at=finished_at-interval '25 hours' WHERE env='{ENV}';
+             COMMIT;"
+        ))
+        .unwrap();
+    db.wait("a third sweep line", 30, |_| {
+        sweep_lines(&sweeper).len() >= 3
+    });
+    let line = sweep_lines(&sweeper).remove(2);
     assert_eq!(line["jobs_deleted"], 1, "{line}");
     assert_eq!(line["attempts_deleted"], 1, "{line}");
-    let jobs: Vec<Uuid> = db
-        .sql
-        .query("SELECT job_id FROM polis_queue_jobs WHERE env=$1", &[&ENV])
-        .unwrap()
-        .iter()
-        .map(|r| r.get(0))
-        .collect();
-    assert_eq!(jobs, vec![new], "the older success went, the latest stayed");
+    assert_eq!(
+        jobs(&mut db),
+        vec![new],
+        "the older success went, the latest stayed"
+    );
     assert!(streams(&mut db, old_attempt).is_empty());
     assert_eq!(streams(&mut db, new_attempt), vec!["manifest".to_owned()]);
-    let ledger: (i32, String) = {
+    let ledger: (i64, i64) = {
         let r = db
             .sql
             .query_one(
-                "SELECT pages,stopped_by FROM polis_queue_sweeps WHERE env=$1 AND finished_at IS NOT NULL",
+                "SELECT count(*), count(*) FILTER (WHERE pages=1 AND stopped_by='') FROM polis_queue_sweeps WHERE env=$1 AND finished_at IS NOT NULL",
                 &[&ENV],
             )
             .unwrap();
         (r.get(0), r.get(1))
     };
-    assert_eq!(ledger, (1, String::new()));
-    // Inside 24 hours the next checks are not_due: still one sweep.
+    assert_eq!(ledger, (3, 3));
+    // Inside 24 hours the next checks are not_due: still three sweeps.
     std::thread::sleep(Duration::from_secs(3));
-    assert_eq!(sweep_lines(&sweeper).len(), 1);
+    assert_eq!(sweep_lines(&sweeper).len(), 3);
     assert_eq!(sweeper.stop(), Some(0));
 }
 
