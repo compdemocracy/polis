@@ -711,6 +711,19 @@ row! {
 }
 
 row! {
+    PolisQueueBreakersRow, "polis_queue_breakers", "server/postgres/migrations/000026_create_polis_queue_retention.sql:245";
+    env: String => ("env", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:246"),
+    zid: i32 => ("zid", "int4", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:246"),
+    product_key: String => ("product_key", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:246"),
+    code_image_digest: String => ("code_image_digest", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:247"),
+    consecutive_dead: i32 => ("consecutive_dead", "int4", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:248"),
+    last_dead_job_id: Option<PgUuid> => ("last_dead_job_id", "uuid", true, "server/postgres/migrations/000026_create_polis_queue_retention.sql:249"),
+    opened_at: Option<PgTimestamp> => ("opened_at", "timestamptz", true, "server/postgres/migrations/000026_create_polis_queue_retention.sql:249"),
+    probe_job_id: Option<PgUuid> => ("probe_job_id", "uuid", true, "server/postgres/migrations/000026_create_polis_queue_retention.sql:249"),
+    updated_at: PgTimestamp => ("updated_at", "timestamptz", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:250"),
+}
+
+row! {
     PolisQueueHeadsRow, "polis_queue_heads", "server/postgres/migrations/000019_create_polis_queue.sql:266";
     env: String => ("env", "text", false, "server/postgres/migrations/000019_create_polis_queue.sql:267"),
     product_key: String => ("product_key", "text", false, "server/postgres/migrations/000019_create_polis_queue.sql:267"),
@@ -793,6 +806,24 @@ row! {
 }
 
 row! {
+    PolisQueueRetentionInstallRow, "polis_queue_retention_install", "server/postgres/migrations/000026_create_polis_queue_retention.sql:739";
+    singleton: bool => ("singleton", "bool", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:740"),
+    baseline: PgJson => ("baseline", "jsonb", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:740"),
+    installed: PgJson => ("installed", "jsonb", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:740"),
+    rows_purged: i64 => ("rows_purged", "int8", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:741"),
+}
+
+row! {
+    PolisQueueRetentionPolicyRow, "polis_queue_retention_policy", "server/postgres/migrations/000026_create_polis_queue_retention.sql:462";
+    kind: String => ("kind", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:463"),
+    keep_days: i32 => ("keep_days", "int4", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:464"),
+    keep_last: i32 => ("keep_last", "int4", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:465"),
+    action: String => ("action", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:466"),
+    updated_at: PgTimestamp => ("updated_at", "timestamptz", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:467"),
+    updated_by: String => ("updated_by", "name", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:468"),
+}
+
+row! {
     PolisQueueRunsRow, "polis_queue_runs", "server/postgres/migrations/000019_create_polis_queue.sql:250";
     env: String => ("env", "text", false, "server/postgres/migrations/000019_create_polis_queue.sql:251"),
     run_id: PgUuid => ("run_id", "uuid", false, "server/postgres/migrations/000019_create_polis_queue.sql:251"),
@@ -809,6 +840,27 @@ row! {
     state: String => ("state", "text", false, "server/postgres/migrations/000019_create_polis_queue.sql:260"),
     output_sha256: Option<String> => ("output_sha256", "text", true, "server/postgres/migrations/000019_create_polis_queue.sql:261"),
     created_at: PgTimestamp => ("created_at", "timestamptz", false, "server/postgres/migrations/000019_create_polis_queue.sql:261"),
+}
+
+row! {
+    PolisQueueSweepsRow, "polis_queue_sweeps", "server/postgres/migrations/000026_create_polis_queue_retention.sql:221";
+    env: String => ("env", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:222"),
+    sweep_id: PgUuid => ("sweep_id", "uuid", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:222"),
+    started_at: PgTimestamp => ("started_at", "timestamptz", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:223"),
+    finished_at: Option<PgTimestamp> => ("finished_at", "timestamptz", true, "server/postgres/migrations/000026_create_polis_queue_retention.sql:223"),
+    pages: i32 => ("pages", "int4", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:224"),
+    stopped_by: Option<String> => ("stopped_by", "text", true, "server/postgres/migrations/000026_create_polis_queue_retention.sql:225"),
+    counts: PgJson => ("counts", "jsonb", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:226"),
+}
+
+row! {
+    PolisQueueTombstonesRow, "polis_queue_tombstones", "server/postgres/migrations/000026_create_polis_queue_retention.sql:481";
+    env: String => ("env", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:482"),
+    kind: String => ("kind", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:483"),
+    ref: String => ("ref", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:484"),
+    policy_kind: String => ("policy_kind", "text", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:485"),
+    sweep_id: PgUuid => ("sweep_id", "uuid", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:486"),
+    tombstoned_at: PgTimestamp => ("tombstoned_at", "timestamptz", false, "server/postgres/migrations/000026_create_polis_queue_retention.sql:487"),
 }
 
 row! {
@@ -1474,6 +1526,12 @@ pub const TABLES: &[Table] = &[
         decode: decode::<PolisQueueAttemptsRow>,
     },
     Table {
+        name: "polis_queue_breakers",
+        columns: PolisQueueBreakersRow::COLUMNS,
+        roundtrip: roundtrip::<PolisQueueBreakersRow>,
+        decode: decode::<PolisQueueBreakersRow>,
+    },
+    Table {
         name: "polis_queue_heads",
         columns: PolisQueueHeadsRow::COLUMNS,
         roundtrip: roundtrip::<PolisQueueHeadsRow>,
@@ -1510,10 +1568,34 @@ pub const TABLES: &[Table] = &[
         decode: decode::<PolisQueueRequestsRow>,
     },
     Table {
+        name: "polis_queue_retention_install",
+        columns: PolisQueueRetentionInstallRow::COLUMNS,
+        roundtrip: roundtrip::<PolisQueueRetentionInstallRow>,
+        decode: decode::<PolisQueueRetentionInstallRow>,
+    },
+    Table {
+        name: "polis_queue_retention_policy",
+        columns: PolisQueueRetentionPolicyRow::COLUMNS,
+        roundtrip: roundtrip::<PolisQueueRetentionPolicyRow>,
+        decode: decode::<PolisQueueRetentionPolicyRow>,
+    },
+    Table {
         name: "polis_queue_runs",
         columns: PolisQueueRunsRow::COLUMNS,
         roundtrip: roundtrip::<PolisQueueRunsRow>,
         decode: decode::<PolisQueueRunsRow>,
+    },
+    Table {
+        name: "polis_queue_sweeps",
+        columns: PolisQueueSweepsRow::COLUMNS,
+        roundtrip: roundtrip::<PolisQueueSweepsRow>,
+        decode: decode::<PolisQueueSweepsRow>,
+    },
+    Table {
+        name: "polis_queue_tombstones",
+        columns: PolisQueueTombstonesRow::COLUMNS,
+        roundtrip: roundtrip::<PolisQueueTombstonesRow>,
+        decode: decode::<PolisQueueTombstonesRow>,
     },
     Table {
         name: "pwreset_tokens",

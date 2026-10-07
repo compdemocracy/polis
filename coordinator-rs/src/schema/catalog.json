@@ -7253,6 +7253,11 @@
       "indexes": [
         {
           "table": "polis_queue_attempts",
+          "name": "polis_queue_attempts_ended",
+          "definition": "CREATE INDEX polis_queue_attempts_ended ON public.polis_queue_attempts USING btree (env, ended_at, attempt_id) WHERE (ended_at IS NOT NULL)"
+        },
+        {
+          "table": "polis_queue_attempts",
           "name": "polis_queue_attempts_env_job_id_lease_epoch_key",
           "definition": "CREATE UNIQUE INDEX polis_queue_attempts_env_job_id_lease_epoch_key ON public.polis_queue_attempts USING btree (env, job_id, lease_epoch)"
         },
@@ -7297,6 +7302,155 @@
           "table": "polis_queue_attempts",
           "name": "pq_attempt_binding",
           "definition": "UNIQUE (env, job_id, attempt_id)"
+        }
+      ]
+    },
+    {
+      "table": "polis_queue_breakers",
+      "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:245",
+      "columns": [
+        {
+          "table": "polis_queue_breakers",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:246"
+        },
+        {
+          "table": "polis_queue_breakers",
+          "name": "zid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:246"
+        },
+        {
+          "table": "polis_queue_breakers",
+          "name": "product_key",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:246"
+        },
+        {
+          "table": "polis_queue_breakers",
+          "name": "code_image_digest",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:247"
+        },
+        {
+          "table": "polis_queue_breakers",
+          "name": "consecutive_dead",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": "0",
+          "ordinal": 5,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:248"
+        },
+        {
+          "table": "polis_queue_breakers",
+          "name": "last_dead_job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:249"
+        },
+        {
+          "table": "polis_queue_breakers",
+          "name": "opened_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 7,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:249"
+        },
+        {
+          "table": "polis_queue_breakers",
+          "name": "probe_job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 8,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:249"
+        },
+        {
+          "table": "polis_queue_breakers",
+          "name": "updated_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 9,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:250"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "polis_queue_breakers",
+          "name": "polis_queue_breakers_pkey",
+          "definition": "CREATE UNIQUE INDEX polis_queue_breakers_pkey ON public.polis_queue_breakers USING btree (env, zid, product_key)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "polis_queue_breakers",
+          "name": "polis_queue_breakers_check",
+          "definition": "CHECK (((opened_at IS NOT NULL) = (consecutive_dead >= 3)))"
+        },
+        {
+          "table": "polis_queue_breakers",
+          "name": "polis_queue_breakers_check1",
+          "definition": "CHECK (((probe_job_id IS NULL) OR (opened_at IS NOT NULL)))"
+        },
+        {
+          "table": "polis_queue_breakers",
+          "name": "polis_queue_breakers_check2",
+          "definition": "CHECK (((consecutive_dead = 0) OR (last_dead_job_id IS NOT NULL)))"
+        },
+        {
+          "table": "polis_queue_breakers",
+          "name": "polis_queue_breakers_consecutive_dead_check",
+          "definition": "CHECK ((consecutive_dead >= 0))"
+        },
+        {
+          "table": "polis_queue_breakers",
+          "name": "polis_queue_breakers_env_check",
+          "definition": "CHECK ((env <> ''::text))"
+        },
+        {
+          "table": "polis_queue_breakers",
+          "name": "polis_queue_breakers_pkey",
+          "definition": "PRIMARY KEY (env, zid, product_key)"
+        },
+        {
+          "table": "polis_queue_breakers",
+          "name": "polis_queue_breakers_product_key_check",
+          "definition": "CHECK ((product_key <> ''::text))"
         }
       ]
     },
@@ -7853,6 +8007,11 @@
         },
         {
           "table": "polis_queue_jobs",
+          "name": "polis_queue_jobs_terminal_age",
+          "definition": "CREATE INDEX polis_queue_jobs_terminal_age ON public.polis_queue_jobs USING btree (env, updated_at, job_id) WHERE (state = ANY (ARRAY['succeeded'::text, 'dead'::text, 'cancelled'::text]))"
+        },
+        {
+          "table": "polis_queue_jobs",
           "name": "polis_queue_parked",
           "definition": "CREATE INDEX polis_queue_parked ON public.polis_queue_jobs USING btree (env, eligible_at, job_id) WHERE (state = 'parked'::text)"
         },
@@ -8231,6 +8390,11 @@
       "indexes": [
         {
           "table": "polis_queue_requests",
+          "name": "polis_queue_requests_expiry",
+          "definition": "CREATE INDEX polis_queue_requests_expiry ON public.polis_queue_requests USING btree (env, binding_expires_at) WHERE (binding_expires_at IS NOT NULL)"
+        },
+        {
+          "table": "polis_queue_requests",
           "name": "polis_queue_requests_job",
           "definition": "CREATE INDEX polis_queue_requests_job ON public.polis_queue_requests USING btree (env, job_id)"
         },
@@ -8270,6 +8434,191 @@
           "table": "polis_queue_requests",
           "name": "polis_queue_requests_request_sha256_check",
           "definition": "CHECK ((request_sha256 ~ '^[0-9a-f]{64}$'::text))"
+        }
+      ]
+    },
+    {
+      "table": "polis_queue_retention_install",
+      "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:739",
+      "columns": [
+        {
+          "table": "polis_queue_retention_install",
+          "name": "singleton",
+          "sql_type": "boolean",
+          "udt": "bool",
+          "nullable": "NO",
+          "default": "true",
+          "ordinal": 1,
+          "definition_type": "boolean",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:740"
+        },
+        {
+          "table": "polis_queue_retention_install",
+          "name": "baseline",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:740"
+        },
+        {
+          "table": "polis_queue_retention_install",
+          "name": "installed",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:740"
+        },
+        {
+          "table": "polis_queue_retention_install",
+          "name": "rows_purged",
+          "sql_type": "bigint",
+          "udt": "int8",
+          "nullable": "NO",
+          "default": "0",
+          "ordinal": 4,
+          "definition_type": "bigint",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:741"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "polis_queue_retention_install",
+          "name": "polis_queue_retention_install_pkey",
+          "definition": "CREATE UNIQUE INDEX polis_queue_retention_install_pkey ON public.polis_queue_retention_install USING btree (singleton)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "polis_queue_retention_install",
+          "name": "polis_queue_retention_install_pkey",
+          "definition": "PRIMARY KEY (singleton)"
+        },
+        {
+          "table": "polis_queue_retention_install",
+          "name": "polis_queue_retention_install_rows_purged_check",
+          "definition": "CHECK ((rows_purged >= 0))"
+        },
+        {
+          "table": "polis_queue_retention_install",
+          "name": "polis_queue_retention_install_singleton_check",
+          "definition": "CHECK (singleton)"
+        }
+      ]
+    },
+    {
+      "table": "polis_queue_retention_policy",
+      "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:462",
+      "columns": [
+        {
+          "table": "polis_queue_retention_policy",
+          "name": "kind",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:463"
+        },
+        {
+          "table": "polis_queue_retention_policy",
+          "name": "keep_days",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:464"
+        },
+        {
+          "table": "polis_queue_retention_policy",
+          "name": "keep_last",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": "0",
+          "ordinal": 3,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:465"
+        },
+        {
+          "table": "polis_queue_retention_policy",
+          "name": "action",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": "'dry_run'::text",
+          "ordinal": 4,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:466"
+        },
+        {
+          "table": "polis_queue_retention_policy",
+          "name": "updated_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 5,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:467"
+        },
+        {
+          "table": "polis_queue_retention_policy",
+          "name": "updated_by",
+          "sql_type": "name",
+          "udt": "name",
+          "nullable": "NO",
+          "default": "SESSION_USER",
+          "ordinal": 6,
+          "definition_type": "name",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:468"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "polis_queue_retention_policy",
+          "name": "polis_queue_retention_policy_pkey",
+          "definition": "CREATE UNIQUE INDEX polis_queue_retention_policy_pkey ON public.polis_queue_retention_policy USING btree (kind)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "polis_queue_retention_policy",
+          "name": "polis_queue_retention_policy_action_check",
+          "definition": "CHECK ((action = ANY (ARRAY['dry_run'::text, 'delete'::text])))"
+        },
+        {
+          "table": "polis_queue_retention_policy",
+          "name": "polis_queue_retention_policy_check",
+          "definition": "CHECK (((keep_last = 0) OR starts_with(kind, 'job_'::text)))"
+        },
+        {
+          "table": "polis_queue_retention_policy",
+          "name": "polis_queue_retention_policy_keep_days_check",
+          "definition": "CHECK (((keep_days >= 1) AND (keep_days <= 3650)))"
+        },
+        {
+          "table": "polis_queue_retention_policy",
+          "name": "polis_queue_retention_policy_keep_last_check",
+          "definition": "CHECK (((keep_last >= 0) AND (keep_last <= 1000)))"
+        },
+        {
+          "table": "polis_queue_retention_policy",
+          "name": "polis_queue_retention_policy_kind_check",
+          "definition": "CHECK ((kind = ANY (ARRAY['job_succeeded'::text, 'job_cancelled'::text, 'job_dead'::text, 'logs_succeeded'::text, 'logs_failed'::text, 'binding'::text, 'tombstone'::text, 'sweep_history'::text])))"
+        },
+        {
+          "table": "polis_queue_retention_policy",
+          "name": "polis_queue_retention_policy_pkey",
+          "definition": "PRIMARY KEY (kind)"
         }
       ]
     },
@@ -8540,6 +8889,234 @@
           "table": "polis_queue_runs",
           "name": "polis_queue_runs_zid_fkey",
           "definition": "FOREIGN KEY (zid) REFERENCES conversations(zid)"
+        }
+      ]
+    },
+    {
+      "table": "polis_queue_sweeps",
+      "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:221",
+      "columns": [
+        {
+          "table": "polis_queue_sweeps",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:222"
+        },
+        {
+          "table": "polis_queue_sweeps",
+          "name": "sweep_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:222"
+        },
+        {
+          "table": "polis_queue_sweeps",
+          "name": "started_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 3,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:223"
+        },
+        {
+          "table": "polis_queue_sweeps",
+          "name": "finished_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:223"
+        },
+        {
+          "table": "polis_queue_sweeps",
+          "name": "pages",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": "0",
+          "ordinal": 5,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:224"
+        },
+        {
+          "table": "polis_queue_sweeps",
+          "name": "stopped_by",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:225"
+        },
+        {
+          "table": "polis_queue_sweeps",
+          "name": "counts",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": "'{}'::jsonb",
+          "ordinal": 7,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:226"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "polis_queue_sweeps",
+          "name": "polis_queue_sweeps_finished",
+          "definition": "CREATE INDEX polis_queue_sweeps_finished ON public.polis_queue_sweeps USING btree (env, finished_at)"
+        },
+        {
+          "table": "polis_queue_sweeps",
+          "name": "polis_queue_sweeps_pkey",
+          "definition": "CREATE UNIQUE INDEX polis_queue_sweeps_pkey ON public.polis_queue_sweeps USING btree (env, sweep_id)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "polis_queue_sweeps",
+          "name": "polis_queue_sweeps_check",
+          "definition": "CHECK (((finished_at IS NULL) = (stopped_by IS NULL)))"
+        },
+        {
+          "table": "polis_queue_sweeps",
+          "name": "polis_queue_sweeps_counts_check",
+          "definition": "CHECK ((jsonb_typeof(counts) = 'object'::text))"
+        },
+        {
+          "table": "polis_queue_sweeps",
+          "name": "polis_queue_sweeps_env_check",
+          "definition": "CHECK ((env <> ''::text))"
+        },
+        {
+          "table": "polis_queue_sweeps",
+          "name": "polis_queue_sweeps_pages_check",
+          "definition": "CHECK ((pages >= 0))"
+        },
+        {
+          "table": "polis_queue_sweeps",
+          "name": "polis_queue_sweeps_pkey",
+          "definition": "PRIMARY KEY (env, sweep_id)"
+        },
+        {
+          "table": "polis_queue_sweeps",
+          "name": "polis_queue_sweeps_stopped_by_check",
+          "definition": "CHECK ((stopped_by = ANY (ARRAY[''::text, 'budget'::text, 'abandoned'::text])))"
+        }
+      ]
+    },
+    {
+      "table": "polis_queue_tombstones",
+      "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:481",
+      "columns": [
+        {
+          "table": "polis_queue_tombstones",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:482"
+        },
+        {
+          "table": "polis_queue_tombstones",
+          "name": "kind",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:483"
+        },
+        {
+          "table": "polis_queue_tombstones",
+          "name": "ref",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:484"
+        },
+        {
+          "table": "polis_queue_tombstones",
+          "name": "policy_kind",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:485"
+        },
+        {
+          "table": "polis_queue_tombstones",
+          "name": "sweep_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:486"
+        },
+        {
+          "table": "polis_queue_tombstones",
+          "name": "tombstoned_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 6,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000026_create_polis_queue_retention.sql:487"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "polis_queue_tombstones",
+          "name": "polis_queue_tombstones_age",
+          "definition": "CREATE INDEX polis_queue_tombstones_age ON public.polis_queue_tombstones USING btree (env, tombstoned_at)"
+        },
+        {
+          "table": "polis_queue_tombstones",
+          "name": "polis_queue_tombstones_pkey",
+          "definition": "CREATE UNIQUE INDEX polis_queue_tombstones_pkey ON public.polis_queue_tombstones USING btree (env, kind, ref)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "polis_queue_tombstones",
+          "name": "polis_queue_tombstones_env_check",
+          "definition": "CHECK ((env <> ''::text))"
+        },
+        {
+          "table": "polis_queue_tombstones",
+          "name": "polis_queue_tombstones_kind_check",
+          "definition": "CHECK ((kind = ANY (ARRAY['job'::text, 'logs'::text, 'binding'::text])))"
+        },
+        {
+          "table": "polis_queue_tombstones",
+          "name": "polis_queue_tombstones_pkey",
+          "definition": "PRIMARY KEY (env, kind, ref)"
         }
       ]
     },
@@ -11444,6 +12021,10 @@
     {
       "path": "server/postgres/migrations/000025_vote_convention.sql",
       "sha256": "cfff57e4f416744d90d1beddc6daa48f730a6c0538cc9400a84a19bafc60c812"
+    },
+    {
+      "path": "server/postgres/migrations/000026_create_polis_queue_retention.sql",
+      "sha256": "c1ce41dd7e28977eb42c708079d9c107948386db46b72dacc929f0937c3856d7"
     }
   ]
 }

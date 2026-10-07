@@ -77,6 +77,21 @@ exists yet, that no old transaction is open and the free disk, then sends the
 statement, transaction and idle budgets ahead of the file. The guide:
 [vote-convention-upgrade.md](vote-convention-upgrade.md#guard).
 
+### The order on an existing database: 000019, 000023, 000024, 000025, 000026
+
+The wrapper covers 000019, 000023, 000024, 000025 and 000026, and an existing
+database takes them in that order. 000026 (queue retention, the parked read and
+the dead-job breaker) records itself in the ledger, so it needs 000025 first:
+its own guard and the wrapper's chain check refuse it otherwise. The reversals
+run the other way: `down/000026_drop_polis_queue_retention.sql` first (it
+removes 000026's ledger row), then 000025's down (which refuses while the
+ledger records a later migration), then 000024's (which refuses the catalog
+000026 leaves). For each file the wrapper verifies every file its seal lists
+(the up and its down) and, for 000025 and 000026, the ledger self-checksum.
+`server/postgres/migrations/down/test_000026_down.sh` proves the chain one file
+at a time, up, down and up again, byte for byte, and on a populated database
+through the wrapper with each step's lock held by another session.
+
 ## Operations are not migrations (`server/postgres/operations/`)
 
 An *operation* is a SQL file an operator runs on purpose, once, through its
