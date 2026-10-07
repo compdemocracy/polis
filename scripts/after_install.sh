@@ -85,7 +85,14 @@ echo "DEBUG: Service type read from /etc/app-info/service_type.txt: [$SERVICE_FR
 # Original Docker cleanup/start logic
 echo "Stopping and removing existing Docker containers..."
 sudo /usr/local/bin/docker-compose down || true
-sudo docker rm -f $(docker ps -aq) || true
+if [ "$SERVICE_FROM_FILE" == "delphi-large" ] || [ "$SERVICE_FROM_FILE" == "delphi-worker" ]; then
+  # A queue worker box keeps its polis-jobs container (started by the unit
+  # polis-jobs.service, not by compose): removing it would kill a job
+  # mid-attempt. worker_daemon below restarts the unit, which drains it.
+  sudo docker rm -f $(docker ps -aq | grep -vxF -e "$(docker ps -aq --filter 'name=^/?polis-jobs$')") || true
+else
+  sudo docker rm -f $(docker ps -aq) || true
+fi
 echo "Docker containers stopped and removed."
 
 yes | sudo docker system prune -a --filter "until=72h"
@@ -121,6 +128,31 @@ poller_identity() {
     echo "WARNING: no EC2 instance id from IMDS; the math poller will refuse to start (P-072)"
   fi
   printf "\nMATH_POLLER_SOURCE_COMMIT=%s\nMATH_POLLER_INSTANCE_ID=%s\n" "$POLLER_COMMIT" "$POLLER_INSTANCE" | sudo tee -a .env > /dev/null
+}
+
+# A queue worker box (service types delphi-large and delphi-worker, written by
+# the worker launch templates, cdk/workerClasses.ts) runs ONE thing: the
+# polis-jobs daemon of its class, as the systemd unit polis-jobs.service that
+# its user data installed (cdk/launchTemplates.ts). The deploy builds the
+# image that unit runs (the Delphi image, which carries the daemon) and
+# restarts that unit only; it starts no compose service. The restart is queued
+# (--no-block): the unit's stop drains the running job (docker stop -t 900),
+# which can outlast this hook, and then starts the new image. Refuses, failing
+# the deploy, when the box's class or unit is not what the service type says.
+worker_daemon() {
+  local want_class="$1" have_class=""
+  if [ -f /etc/app-info/worker_class.txt ]; then have_class=$(cat /etc/app-info/worker_class.txt); fi
+  if [ "$have_class" != "$want_class" ]; then
+    echo "Error: service type '$SERVICE_FROM_FILE' runs worker class '$want_class', but /etc/app-info/worker_class.txt says '$have_class'"
+    exit 1
+  fi
+  if [ ! -f /etc/systemd/system/polis-jobs.service ]; then
+    echo "Error: service type '$SERVICE_FROM_FILE' runs the polis-jobs daemon, but /etc/systemd/system/polis-jobs.service is missing (the worker launch template installs it)"
+    exit 1
+  fi
+  echo "Building the Delphi image (it carries polis-jobs) and restarting polis-jobs.service for worker class '$want_class'"
+  sudo /usr/local/bin/docker-compose build delphi
+  sudo systemctl restart --no-block polis-jobs.service
 }
 
 if [ "$SERVICE_FROM_FILE" == "server" ]; then
@@ -258,14 +290,20 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
 elif [ "$SERVICE_FROM_FILE" == "delphi-large" ]; then
   # The large memory class box (P-073 r2). Its worker is the polis-jobs
   # daemon run as worker class `large`, which starts `math_poller.py --job`
-  # for one conversation at a time; that daemon's compose service lands with
-  # the daemon, so this branch starts no compose service yet. The readiness
-  # identity is written for it (the child's version-skew guard reads
+  # for one conversation at a time; it starts no compose service. The
+  # readiness identity is written for it (the child's version-skew guard reads
   # MATH_POLLER_SOURCE_COMMIT). No Delphi job poller and no small poller run
   # here: `math-python` is the single writer of the `python` label and runs on
   # the Delphi box.
   echo "Service type 'delphi-large': no compose service to start (the large class runs as queue jobs under the polis-jobs daemon)"
   poller_identity
+  worker_daemon large
+elif [ "$SERVICE_FROM_FILE" == "delphi-worker" ]; then
+  # A Delphi queue worker box: the polis-jobs daemon run as worker class
+  # `delphi` (the Delphi stages). It starts no compose service: no Delphi job
+  # poller and no math poller run here.
+  echo "Service type 'delphi-worker': no compose service to start (the Delphi stages run as queue jobs under the polis-jobs daemon)"
+  worker_daemon delphi
 else
   echo "Error: Unknown service type: [$SERVICE_FROM_FILE]. Starting all services (default docker-compose up -d)"
   sudo /usr/local/bin/docker-compose up -d --build --force-recreate
