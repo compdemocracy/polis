@@ -55,11 +55,21 @@ import { Construct } from 'constructs';
  *                 policy with EXACT_CAPACITY: one worker per `jobsPerWorker`
  *                 queued jobs, up to the row's maximum.
  *   ScaleIn       demand + leased + parked = 0, every term reported, for
- *                 `largeClassInPeriods` (6) periods -> exact capacity 0. A
- *                 missing term never reads as 0. Parked is in the sum (P-086): a
+ *                 `largeClassInPeriods` (6) periods -> exact capacity 0.
+ *                 CloudWatch metric math treats a missing datapoint as 0 in
+ *                 arithmetic, so a bare `demand + leased + parked` WOULD read a
+ *                 missing term as 0; the expression therefore tests each term
+ *                 with FILL(term, -1) >= 0 (counts are never negative) and
+ *                 yields 1, which cannot breach, unless all three are present
+ *                 (scaleInExpression). Parked is in the sum (P-086): a
  *                 terminated box loses its journal, so a job parked on it could
  *                 never prove its exit. The demand term keeps ScaleOut and
  *                 ScaleIn mutually exclusive, so the group never flaps.
+ *   CapacityIncomplete  a scaling term (demand, leased or parked) is missing
+ *                 while another is reported or an instance is in service, for
+ *                 3 periods: scale-in is blocked (and scale-out may be blind)
+ *                 until every term is reported again. A class with no
+ *                 instance and no term at all (never routed) stays quiet.
  *   DemandUnmet   (rows with a promotion step) pending_promotion >= 1 or
  *                 oldest_unresolved_age_ms >= `largeClassUnmetAgeMs` (3 h) for
  *                 `largeClassUnmetPeriods` (6) periods.
@@ -131,6 +141,22 @@ export const QUEUE_UNREACHABLE_ALARM_NAME = 'Polis-Queue-Unreachable';
 export const QUEUE_BYTES_ALARM_NAME = 'Polis-Queue-Bytes';
 export const QUEUE_SWEEP_LAG_ALARM_NAME = 'Polis-Queue-SweepLag';
 export const QUEUE_FULL_ALARM_NAME = 'Polis-Queue-Full';
+
+/**
+ * Scale-in's metric math. CloudWatch evaluates a missing datapoint as 0 in
+ * arithmetic (AWS "Using metric math"), so the sum alone would let
+ * demand=0, leased=0 and parked MISSING read as idle and stop a box holding a
+ * parked job. Every term is tested present first (FILL(x, -1) >= 0; the
+ * counts are never negative); while any is missing the expression is 1, which
+ * the `<= 0` threshold can never breach.
+ */
+export const scaleInExpression = (terms: readonly string[]) =>
+  `IF(${terms.map((t) => `FILL(${t}, -1) >= 0`).join(' && ')}, ${terms.join(' + ')}, 1)`;
+
+/** 1 while some scaling term is missing and the class is not wholly dark (CapacityIncomplete). */
+export const capacityIncompleteExpression = (terms: readonly string[], instances: string) =>
+  `IF((${terms.map((t) => `FILL(${t}, -1) < 0`).join(' || ')}) && ` +
+  `(FILL(${instances}, 0) >= 1 || ${terms.map((t) => `FILL(${t}, -1) >= 0`).join(' || ')}), 1, 0)`;
 
 /** The JSON filter for the small poller's primary capacity line. */
 export const capacityFilter = (klass: 'small' | 'large' = 'small') =>
@@ -427,10 +453,11 @@ export const createWorkerClasses = (scope: Construct, props: WorkerClassesProps)
     scaleOutAlarm.addAlarmAction(new cw_actions.AutoScalingAction(scaleOut));
 
     // Scale in: exact capacity 0 once nothing is queued, running or parked,
-    // each term REPORTED (P-086). A missing series is not a 0: with the small
-    // poller down, or before it emits the parked key, parked is unknown and a
-    // terminated box could strand a parked job, so the group stays up and
-    // LongRunning is the cost guard.
+    // each term REPORTED (P-086). Metric math reads a missing datapoint as 0,
+    // so the sum alone is NOT enough: scaleInExpression yields 1 (no breach)
+    // unless all three terms are present. With the small poller down, or
+    // before it emits the parked key, the group stays up, CapacityIncomplete
+    // says why and LongRunning is the cost guard.
     const scaleIn = new autoscaling.StepScalingAction(scope, `${c.id}ScaleInPolicy`, {
       autoScalingGroup: asg,
       adjustmentType: autoscaling.AdjustmentType.EXACT_CAPACITY,
@@ -443,10 +470,10 @@ export const createWorkerClasses = (scope: Construct, props: WorkerClassesProps)
         `${c.workerClass}. Stops the workers (exact capacity 0). Parked blocks scale-in: a ` +
         'terminated box loses its journal and a job parked on it could never prove its exit.',
       metric: new cloudwatch.MathExpression({
-        expression: 'demand + leased + parked',
+        expression: scaleInExpression(['demand', 'leased', 'parked']),
         usingMetrics: { demand, leased, parked },
         period,
-        label: `${c.name} queued + leased + parked`,
+        label: `${c.name} queued + leased + parked (1 while a term is missing)`,
       }),
       threshold: 0,
       comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
@@ -457,6 +484,26 @@ export const createWorkerClasses = (scope: Construct, props: WorkerClassesProps)
     scaleInAlarm.addAlarmAction(new cw_actions.AutoScalingAction(scaleIn));
 
     const alarms: Record<string, cloudwatch.Alarm> = { scaleOut: scaleOutAlarm, scaleIn: scaleInAlarm };
+
+    alarms.capacityIncomplete = notify(new cloudwatch.Alarm(scope, `${c.id}CapacityIncompleteAlarm`, {
+      alarmName: alarmName('CapacityIncomplete'),
+      alarmDescription:
+        `Queue class ${c.name}: one of ${c.keys.demand}, ${c.keys.leased}, ${c.keys.parked} is ` +
+        'missing from the capacity line while another is reported or a worker is in service. ' +
+        'ScaleIn cannot fire until all three are reported (a missing term is never read as 0), so ' +
+        'a worker stays up; check the small poller (routing, queue DSN, the depth read).',
+      metric: new cloudwatch.MathExpression({
+        expression: capacityIncompleteExpression(['demand', 'leased', 'parked'], 'instances'),
+        usingMetrics: { demand, leased, parked, instances: inService },
+        period,
+        label: `${c.name} scaling term missing`,
+      }),
+      threshold: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      evaluationPeriods: 3,
+      datapointsToAlarm: 3,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    }));
 
     if (c.promotion) {
       const pending = filterOf('PendingPromotion', PENDING_PROMOTION_METRIC, c.promotion.pendingKey);

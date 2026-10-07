@@ -5397,6 +5397,92 @@ exports[`enableLargeClass on the DelphiLarge class its resources match the snaps
     },
     "Type": "AWS::Logs::MetricFilter",
   },
+  "DelphiLargeCapacityIncompleteAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "AlarmDescription": "Queue class math-large: one of large_demand, large_leased, large_parked is missing from the capacity line while another is reported or a worker is in service. ScaleIn cannot fire until all three are reported (a missing term is never read as 0), so a worker stays up; check the small poller (routing, queue DSN, the depth read).",
+      "AlarmName": "Polis-LargeClass-CapacityIncomplete",
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+      "DatapointsToAlarm": 3,
+      "EvaluationPeriods": 3,
+      "Metrics": [
+        {
+          "Expression": "IF((FILL(demand, -1) < 0 || FILL(leased, -1) < 0 || FILL(parked, -1) < 0) && (FILL(instances, 0) >= 1 || FILL(demand, -1) >= 0 || FILL(leased, -1) >= 0 || FILL(parked, -1) >= 0), 1, 0)",
+          "Id": "expr_1",
+          "Label": "math-large scaling term missing",
+          "ReturnData": true,
+        },
+        {
+          "Id": "demand",
+          "MetricStat": {
+            "Metric": {
+              "MetricName": "LargeDemand",
+              "Namespace": "Polis/MathCapacity",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+        {
+          "Id": "leased",
+          "MetricStat": {
+            "Metric": {
+              "MetricName": "LargeBusy",
+              "Namespace": "Polis/MathCapacity",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+        {
+          "Id": "parked",
+          "MetricStat": {
+            "Metric": {
+              "MetricName": "LargeParked",
+              "Namespace": "Polis/MathCapacity",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+        {
+          "Id": "instances",
+          "MetricStat": {
+            "Metric": {
+              "Dimensions": [
+                {
+                  "Name": "AutoScalingGroupName",
+                  "Value": {
+                    "Ref": "AsgDelphiLargeASG487476CC",
+                  },
+                },
+              ],
+              "MetricName": "GroupInServiceInstances",
+              "Namespace": "AWS/AutoScaling",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+      ],
+      "OKActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "Threshold": 1,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
+  },
   "DelphiLargeDeadAlarm": {
     "Properties": {
       "AlarmActions": [
@@ -6246,9 +6332,9 @@ rm -fr $TMP_DIR",
       "EvaluationPeriods": 6,
       "Metrics": [
         {
-          "Expression": "demand + leased + parked",
+          "Expression": "IF(FILL(demand, -1) >= 0 && FILL(leased, -1) >= 0 && FILL(parked, -1) >= 0, demand + leased + parked, 1)",
           "Id": "expr_1",
-          "Label": "math-large queued + leased + parked",
+          "Label": "math-large queued + leased + parked (1 while a term is missing)",
           "ReturnData": true,
         },
         {
@@ -6457,6 +6543,92 @@ exports[`enableLargeClass on the WorkerDelphi class its resources match the snap
       ],
     },
     "Type": "AWS::Logs::MetricFilter",
+  },
+  "WorkerDelphiCapacityIncompleteAlarm": {
+    "Properties": {
+      "AlarmActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "AlarmDescription": "Queue class delphi: one of delphi_demand, delphi_leased, delphi_parked is missing from the capacity line while another is reported or a worker is in service. ScaleIn cannot fire until all three are reported (a missing term is never read as 0), so a worker stays up; check the small poller (routing, queue DSN, the depth read).",
+      "AlarmName": "Polis-DelphiClass-CapacityIncomplete",
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+      "DatapointsToAlarm": 3,
+      "EvaluationPeriods": 3,
+      "Metrics": [
+        {
+          "Expression": "IF((FILL(demand, -1) < 0 || FILL(leased, -1) < 0 || FILL(parked, -1) < 0) && (FILL(instances, 0) >= 1 || FILL(demand, -1) >= 0 || FILL(leased, -1) >= 0 || FILL(parked, -1) >= 0), 1, 0)",
+          "Id": "expr_1",
+          "Label": "delphi scaling term missing",
+          "ReturnData": true,
+        },
+        {
+          "Id": "demand",
+          "MetricStat": {
+            "Metric": {
+              "MetricName": "DelphiDemand",
+              "Namespace": "Polis/MathCapacity",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+        {
+          "Id": "leased",
+          "MetricStat": {
+            "Metric": {
+              "MetricName": "DelphiBusy",
+              "Namespace": "Polis/MathCapacity",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+        {
+          "Id": "parked",
+          "MetricStat": {
+            "Metric": {
+              "MetricName": "DelphiParked",
+              "Namespace": "Polis/MathCapacity",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+        {
+          "Id": "instances",
+          "MetricStat": {
+            "Metric": {
+              "Dimensions": [
+                {
+                  "Name": "AutoScalingGroupName",
+                  "Value": {
+                    "Ref": "AsgWorkerDelphiASGB84F6A99",
+                  },
+                },
+              ],
+              "MetricName": "GroupInServiceInstances",
+              "Namespace": "AWS/AutoScaling",
+            },
+            "Period": 300,
+            "Stat": "Maximum",
+          },
+          "ReturnData": false,
+        },
+      ],
+      "OKActions": [
+        {
+          "Ref": "AlarmTopicD01E77F9",
+        },
+      ],
+      "Threshold": 1,
+      "TreatMissingData": "notBreaching",
+    },
+    "Type": "AWS::CloudWatch::Alarm",
   },
   "WorkerDelphiDeadAlarm": {
     "Properties": {
@@ -7082,9 +7254,9 @@ sudo systemctl enable --now polis-jobs.service || echo "polis-jobs unit failed t
       "EvaluationPeriods": 6,
       "Metrics": [
         {
-          "Expression": "demand + leased + parked",
+          "Expression": "IF(FILL(demand, -1) >= 0 && FILL(leased, -1) >= 0 && FILL(parked, -1) >= 0, demand + leased + parked, 1)",
           "Id": "expr_1",
-          "Label": "delphi queued + leased + parked",
+          "Label": "delphi queued + leased + parked (1 while a term is missing)",
           "ReturnData": true,
         },
         {
