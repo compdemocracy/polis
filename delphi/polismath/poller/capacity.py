@@ -122,21 +122,44 @@ COUNT_KEYS = ("routing", "large_demand", "large_leased", "large_parked", "large_
 # ``large_leased`` and ``large_parked`` with no queue read (no DSN, or the read
 # failed this tick).
 NULLABLE_COUNT_KEYS = frozenset(("oldest_unresolved_age_ms", "large_leased", "large_parked"))
-# Admission (cost-reduction plan P-084): ``queue_full`` is 1 while the last
-# admission was refused at the queued-job cap; ``queue_unreachable`` is 1
-# while routing is configured on and refused because the queue is missing,
-# unproven or failing (the small poller then computes as with routing off).
-COUNT_KEYS = COUNT_KEYS + ("queue_full", "queue_unreachable")
-# Observability (cost-reduction plan P-086, migration 000026), every one null
-# without its read this tick: ``large_dead`` (dead jobs of class large, a
-# ruling is owed), ``oldest_queued_age_ms`` (how long the oldest claimable
-# job has waited since it became eligible; null before 000026 too),
-# ``queue_bytes`` (the queue and job tables' size) and ``sweep_age_ms`` (since
-# this env's last finished sweep; null before the first one).
-COUNT_KEYS = COUNT_KEYS + ("large_dead", "oldest_queued_age_ms", "queue_bytes", "sweep_age_ms")
-NULLABLE_COUNT_KEYS = NULLABLE_COUNT_KEYS | {"large_dead", "oldest_queued_age_ms",
-                                             "queue_bytes", "sweep_age_ms"}
-LINE_KEYS = ("schema", "class", "role", "label") + COUNT_KEYS
+# The capacity line's REVISION (``rev``), a minor version under the same
+# schema string. Each revision only ADDS keys to the counts; the table says
+# which keys each one added, and ``CAPACITY_REV`` is the revision this emitter
+# writes. Revision 1 is production's line (P-073 PR3, nine counts); revision 2
+# added the queue's ``large_leased``, ``large_poisoned`` (r2) and
+# ``large_parked``. Lines logged before revisioning carry no ``rev``: they are
+# revision 1 or 2, told apart by their keys (``UNREVISIONED``). During a mixed
+# deploy, and for retained log history, decoders read every revision from 1 to
+# ``CAPACITY_REV + REV_FORWARD``: a line of an older revision carries exactly
+# its own keys (the newer ones decode as null); a line of a newer revision
+# must carry every key this decoder knows, and the keys its newer revision
+# declared are checked as counts and dropped, never relayed (``decode_counts``).
+CAPACITY_REV_KEYS: Dict[int, Tuple[str, ...]] = {
+    1: ("routing", "large_demand", "pending_promotion", "exceeds_largest", "fits_small",
+        "oldest_unresolved_age_ms", "refusals_total", "routed_total", "promoted_total"),
+    2: ("large_leased", "large_poisoned", "large_parked"),
+}
+UNREVISIONED = (1, 2)
+CAPACITY_REV = max(CAPACITY_REV_KEYS)
+REV_FORWARD = 8
+# Admission (cost-reduction plan P-084), revision 3: ``queue_full`` is 1 while
+# the last admission was refused at the queued-job cap; ``queue_unreachable``
+# is 1 while routing is configured on and refused because the queue is
+# missing, unproven or failing (the small poller then computes as with
+# routing off).
+CAPACITY_REV_KEYS[3] = ("queue_full", "queue_unreachable")
+COUNT_KEYS = COUNT_KEYS + CAPACITY_REV_KEYS[3]
+# Observability (cost-reduction plan P-086, migration 000026), revision 4,
+# every one null without its read this tick: ``large_dead`` (dead jobs of
+# class large, a ruling is owed), ``oldest_queued_age_ms`` (how long the
+# oldest claimable job has waited since it became eligible; null before 000026
+# too), ``queue_bytes`` (the queue and job tables' size) and ``sweep_age_ms``
+# (since this env's last finished sweep; null before the first one).
+CAPACITY_REV_KEYS[4] = ("large_dead", "oldest_queued_age_ms", "queue_bytes", "sweep_age_ms")
+COUNT_KEYS = COUNT_KEYS + CAPACITY_REV_KEYS[4]
+NULLABLE_COUNT_KEYS = NULLABLE_COUNT_KEYS | set(CAPACITY_REV_KEYS[4])
+CAPACITY_REV = max(CAPACITY_REV_KEYS)
+LINE_KEYS = ("schema", "class", "role", "label", "rev") + COUNT_KEYS
 # The former large worker's line (``class=large``, P-073 PR3): its closed
 # counts, kept so recorded lines still parse. Nothing emits it since r2: the
 # large class runs as a queue child, which prints no capacity line.
@@ -772,6 +795,7 @@ class CapacityRouter:
         # before and leased and parked are unknown (null, never 0). Poisoned records are parked here, so they
         # are neither demand nor pending promotion.
         return {
+            "rev": CAPACITY_REV,
             "routing": int(self.settings.routing),
             "large_demand": len(demand) if depth is None else int(depth["queued"]),
             "large_leased": None if depth is None else int(depth["leased"]),
@@ -898,6 +922,8 @@ def build_line(role: str, label: str, counts: Optional[Dict[str, Any]], *,
     keys = LARGE_COUNT_KEYS if klass == CLASS_LARGE else COUNT_KEYS
     body: Dict[str, Any] = {"schema": LINE_SCHEMA, "class": klass, "role": role,
                             "label": label}
+    if klass != CLASS_LARGE:
+        body["rev"] = CAPACITY_REV
     for k in keys:
         body[k] = None if counts is None else counts.get(k)
     return json.dumps(body, sort_keys=True, separators=(",", ":"), allow_nan=False)
@@ -910,14 +936,60 @@ def _count(v: Any, nullable: bool) -> None:
         raise ValueError("expected a non-negative integer")
 
 
-def validate_counts(counts: Any, *, nullable: bool = False) -> None:
-    """The closed counts object (readiness ``capacity`` and the line's fields)."""
-    if not isinstance(counts, dict) or set(counts) != set(COUNT_KEYS):
-        raise ValueError(f"expected keys {sorted(COUNT_KEYS)}")
-    for k in COUNT_KEYS:
+_FORWARD_KEY = re.compile(r"[a-z][a-z0-9_]{0,63}\Z")
+
+
+def keys_through(rev: int) -> Tuple[str, ...]:
+    """The count keys a line of revision ``rev`` carries (up to this
+    decoder's own revision)."""
+    out: Tuple[str, ...] = ()
+    for r in sorted(CAPACITY_REV_KEYS):
+        if r <= rev:
+            out += CAPACITY_REV_KEYS[r]
+    return out
+
+
+def decode_counts(counts: Any, *, nullable: bool = False) -> Dict[str, Any]:
+    """The counts object (readiness ``capacity`` and the line's fields) of any
+    revision from 1 to ``CAPACITY_REV + REV_FORWARD``, validated, as this
+    decoder's closed shape: every key of COUNT_KEYS (null where the line's
+    older revision lacks it) plus ``rev``. Keys a newer revision declared are
+    validated as counts and dropped."""
+    if not isinstance(counts, dict):
+        raise ValueError("expected an object")
+    if "rev" in counts:
+        rev = counts["rev"]
+    else:
+        keys = set(counts)
+        rev = next((r for r in UNREVISIONED if set(keys_through(r)) == keys), UNREVISIONED[-1])
+    if type(rev) is not int or not 1 <= rev <= CAPACITY_REV + REV_FORWARD:
+        raise ValueError(f"capacity revision must be 1..{CAPACITY_REV + REV_FORWARD}")
+    expected = keys_through(rev)
+    have = set(counts) - {"rev"}
+    missing = set(expected) - have
+    if missing:
+        raise ValueError(f"revision {rev} lacks {sorted(missing)}")
+    extra = have - set(expected)
+    if extra and rev <= CAPACITY_REV:
+        raise ValueError(f"revision {rev} does not declare {sorted(extra)}")
+    for k in extra:
+        if not _FORWARD_KEY.match(k):
+            raise ValueError("bad key")
+        _count(counts[k], True)
+    for k in expected:
         _count(counts[k], nullable or k in NULLABLE_COUNT_KEYS)
     if counts["routing"] not in (None, 0, 1):
         raise ValueError("routing must be 0 or 1")
+    out: Dict[str, Any] = {"rev": rev}
+    for k in COUNT_KEYS:
+        out[k] = counts.get(k)
+    return out
+
+
+def validate_counts(counts: Any, *, nullable: bool = False) -> None:
+    """The counts object (readiness ``capacity`` and the line's fields), of
+    any revision ``decode_counts`` reads."""
+    decode_counts(counts, nullable=nullable)
 
 
 def validate_large_counts(counts: Any, *, nullable: bool = False) -> None:
@@ -945,20 +1017,23 @@ def parse_line(line: str) -> Optional[Dict[str, Any]]:
     if body.get("class") not in CLASSES or body.get("role") not in ("primary", "standby"):
         raise ValueError("bad class or role")
     large = body["class"] == CLASS_LARGE
-    if set(body) != set(LARGE_LINE_KEYS if large else LINE_KEYS):
-        raise ValueError(f"expected keys {sorted(LARGE_LINE_KEYS if large else LINE_KEYS)}")
-    if not isinstance(body["label"], str):
+    if not isinstance(body.get("label"), str):
         raise ValueError("bad label")
     nullable = body["role"] != "primary"
     if large:
+        if set(body) != set(LARGE_LINE_KEYS):
+            raise ValueError(f"expected keys {sorted(LARGE_LINE_KEYS)}")
         validate_large_counts({k: body[k] for k in LARGE_COUNT_KEYS}, nullable=nullable)
-    else:
-        validate_counts({k: body[k] for k in COUNT_KEYS}, nullable=nullable)
-    return body
+        return body
+    head = {k: body[k] for k in ("schema", "class", "role", "label")}
+    counts = {k: v for k, v in body.items() if k not in head}
+    return {**head, **decode_counts(counts, nullable=nullable)}
 
 
 __all__ = [
-    "CLASS_LARGE", "CLASS_SMALL", "COUNT_KEYS", "CapacityConfigError", "CapacityRouter",
+    "CAPACITY_REV", "CAPACITY_REV_KEYS", "CLASS_LARGE", "CLASS_SMALL", "COUNT_KEYS",
+    "CapacityConfigError", "CapacityRouter", "REV_FORWARD", "UNREVISIONED", "decode_counts",
+    "keys_through",
     "CapacitySettings", "DISPOSITIONS", "Disposition", "EXCEEDS_LARGEST", "LARGE",
     "LARGE_COUNT_KEYS", "LARGE_LINE_KEYS", "LINE_KEYS", "LINE_SCHEMA", "NULLABLE_COUNT_KEYS",
     "REFUSALS", "SMALL", "build_line", "emit_line", "parse_line", "validate_counts",

@@ -581,7 +581,7 @@ class TestCapacityLineCounts:
         c = snap["capacity"]
         assert (c["large_demand"], c["large_leased"], c["large_parked"], c["large_poisoned"]) \
             == (3, 2, 1, 0)
-        assert set(c) == set(COUNT_KEYS) and "capacity_line" not in snap
+        assert set(c) == set(COUNT_KEYS) | {"rev"} and "capacity_line" not in snap
         validate_counts(c)
         line = parse_line(build_line("primary", SMALL_LABEL, c))
         assert (line["large_demand"], line["large_leased"], line["large_parked"]) == (3, 2, 1)

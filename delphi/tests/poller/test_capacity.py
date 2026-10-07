@@ -148,8 +148,8 @@ class TestRecords:
         assert r.observe(13, sizes=sizes(5000), refused=True) == EXCEEDS_LARGEST
         clock.t += 4000
         c = r.counts()
-        assert set(c) == set(COUNT_KEYS)
-        assert c == {"routing": 0, "large_demand": 1, "large_leased": None, "large_parked": None,
+        assert set(c) == set(COUNT_KEYS) | {"rev"}
+        assert c == {"rev": 4, "routing": 0, "large_demand": 1, "large_leased": None, "large_parked": None,
                      "large_poisoned": 0,
                      "pending_promotion": 0, "exceeds_largest": 1, "fits_small": 1,
                      "oldest_unresolved_age_ms": 4000, "refusals_total": 3, "routed_total": 0,
@@ -325,7 +325,7 @@ class TestReadiness:
         assert out[-1].startswith(HEARTBEAT)  # the heartbeat itself is unchanged
         line = parse_line(caps[-1])
         assert line["role"] == "primary" and line["label"] == "python"
-        assert {k: line[k] for k in COUNT_KEYS} == counts
+        assert {k: line[k] for k in ("rev",) + COUNT_KEYS} == counts
 
     def test_standby_tick_logs_null_counts(self):
         r, out, caps = _reporter()

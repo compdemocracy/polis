@@ -93,8 +93,9 @@ DEPTH_OUTCOME = "class_depth"
 #: Reply schema versions a job reply may carry: 000024 answers
 #: ``polis-queue/3`` for a math_rebuild job; ``/2`` is the Delphi stages'.
 REPLY_VERSIONS = frozenset(("polis-queue/2", "polis-queue/3"))
-#: The depth read exists only from 000024 and answers its own version;
-#: 000026 adds ``oldest_eligible_at`` and answers ``polis-queue/4``.
+#: The depth read exists only from 000024 and answers its own version.
+#: 000026 adds ``oldest_eligible_at`` and answers ``polis-queue/4``; both are
+#: read, so this poller keeps its depth when 000026 is applied under it.
 DEPTH_VERSION = "polis-queue/3"
 DEPTH_VERSION_4 = "polis-queue/4"
 
