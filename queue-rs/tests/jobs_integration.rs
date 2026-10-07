@@ -1733,6 +1733,7 @@ fn the_built_in_sweep_removes_expired_history_and_keeps_the_latest() {
     db.sql
         .batch_execute(&format!(
             "UPDATE polis_queue_jobs SET updated_at=now()-interval '31 days' WHERE env='{ENV}';
+             UPDATE polis_queue_jobs SET updated_at=now()-interval '32 days' WHERE env='{ENV}' AND job_id='{old}';
              UPDATE polis_queue_attempts SET ended_at=now()-interval '31 days' WHERE env='{ENV}'"
         ))
         .unwrap();
