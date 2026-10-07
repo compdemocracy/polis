@@ -246,9 +246,9 @@ printf '%s' "$out" | grep -q '"oldest_eligible_at": *null' || fail "(h) empty de
 out="$(ex a "SELECT public.pq_queue_usage('$ENVN')")"
 printf '%s' "$out" | grep -q '"last_sweep_finished_at": *null' || fail "(h) usage before any sweep: $out"
 [ "$(ex a "SELECT (public.pq_queue_usage('$ENVN')->>'queue_bytes')::bigint > 0")" = "t" ] || fail "(h) queue_bytes not positive"
-ex_refused a "SELECT public.pq_queue_usage('')" "(h) usage without an env" | grep -q "invalid usage read" || fail "(h) usage refusal text"
-ex_refused a "SELECT public.pq_class_parked('$ENVN','noop',NULL,10)" "(h) parked of class noop" | grep -q "invalid parked read" || fail "(h) parked refusal text"
-ex_refused a "SELECT public.pq_class_parked('$ENVN','large',NULL,101)" "(h) parked page over 100" | grep -q "invalid parked read" || fail "(h) parked bound text"
+msg="$(ex_refused a "SELECT public.pq_queue_usage('')" "(h) usage without an env")"; printf '%s' "$msg" | grep -q "invalid usage read" || fail "(h) usage refusal text: $msg"
+msg="$(ex_refused a "SELECT public.pq_class_parked('$ENVN','noop',NULL,10)" "(h) parked of class noop")"; printf '%s' "$msg" | grep -q "invalid parked read" || fail "(h) parked refusal text: $msg"
+msg="$(ex_refused a "SELECT public.pq_class_parked('$ENVN','large',NULL,101)" "(h) parked page over 100")"; printf '%s' "$msg" | grep -q "invalid parked read" || fail "(h) parked bound text: $msg"
 
 # Parked rediscovery: a lapsed lease parks the job; the read lists its
 # unproven attempt; exit proof takes it off the list.
@@ -320,8 +320,8 @@ before_jobs="$(scalar a "SELECT count(*) FROM public.polis_queue_jobs")"
 
 # The sweep: page order is enforced; one page does it all here.
 s1="$(uuid a)"
-ex_refused a "SELECT public.pq_sweep('$ENVN','$s1'::uuid,2,10)" "(h) page 2 first" | grep -q "sweep sequence" || fail "(h) out-of-order page refusal text"
-ex_refused a "SELECT public.pq_sweep('$ENVN','$s1'::uuid,11,10)" "(h) page over budget" | grep -q "invalid sweep page" || fail "(h) page bound text"
+msg="$(ex_refused a "SELECT public.pq_sweep('$ENVN','$s1'::uuid,2,10)" "(h) page 2 first")"; printf '%s' "$msg" | grep -q "sweep sequence" || fail "(h) out-of-order page refusal text: $msg"
+msg="$(ex_refused a "SELECT public.pq_sweep('$ENVN','$s1'::uuid,11,10)" "(h) page over budget")"; printf '%s' "$msg" | grep -q "invalid sweep page" || fail "(h) page bound text: $msg"
 out="$(ex a "SELECT public.pq_sweep('$ENVN','$s1'::uuid,1,10)")"
 printf '%s' "$out" | grep -q '"outcome": *"sweep_done"' || fail "(h) sweep outcome: $out"
 printf '%s' "$out" | grep -q '"stopped_by": *""' || fail "(h) sweep stopped_by: $out"
