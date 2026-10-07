@@ -122,6 +122,8 @@ services:
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
     build:
       context: ./delphi
+      additional_contexts:
+        queue-rs: ./queue-rs  # the polis-jobs stage (delphi/Dockerfile)
       target: final
     labels:
       polis_tag: ${TAG:-dev}
@@ -203,6 +205,8 @@ services:
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
     build:
       context: ./delphi
+      additional_contexts:
+        queue-rs: ./queue-rs  # the polis-jobs stage (delphi/Dockerfile)
       target: final
     labels:
       polis_tag: ${TAG:-dev}
@@ -608,8 +612,6 @@ networks:
 
 volumes:
   math-backfill-state:
-    labels:
-      polis_tag: ${TAG:-dev}
     labels:
       polis_tag: ${TAG:-dev}
   postgres_data:
