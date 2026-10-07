@@ -109,11 +109,14 @@ fn ensure_templates() {
         let head: Vec<u32> = numbers.iter().copied().filter(|n| *n <= 24).collect();
         assert_eq!(head, expected, "complete 000000-000024 chain required");
         assert!(
-            numbers.contains(&26),
-            "000026 (queue retention) required for jobs_v4"
+            numbers.contains(&25) && numbers.contains(&26),
+            "000025 (the vote convention and the migration ledger) and 000026 (queue retention) required for jobs_v4"
         );
         // `jobs_base` stops before the foundation: it is the polis-queue/1
         // shape the "contract missing" start refusal is proven against.
+        // `jobs_v4` alone carries the files after 000024: 000025 (the vote
+        // convention and the migration ledger 000026 records itself in) and
+        // 000026.
         for (m, n) in chain.iter().zip(&numbers).filter(|(_, n)| **n <= 22) {
             base.batch_execute(&fs::read_to_string(m).unwrap())
                 .unwrap_or_else(|e| panic!("{n:06}: {e}"));
@@ -147,11 +150,14 @@ fn ensure_templates() {
         )
         .unwrap();
         drop(v3);
-        // `jobs_v4`: 000026, queue retention and the parked read, on /3.
+        // `jobs_v4`: 000025 (the ledger) then 000026, queue retention, the
+        // parked read and the dead-job breaker, on /3.
         admin
             .batch_execute("CREATE DATABASE jobs_v4 TEMPLATE jobs_v3")
             .unwrap();
         let mut v4 = Client::connect(&url_for("jobs_v4", "postgres"), NoTls).unwrap();
+        v4.batch_execute(&fs::read_to_string(dir.join("000025_vote_convention.sql")).unwrap())
+            .unwrap();
         v4.batch_execute(
             &fs::read_to_string(dir.join("000026_create_polis_queue_retention.sql")).unwrap(),
         )

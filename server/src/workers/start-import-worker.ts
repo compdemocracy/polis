@@ -2,7 +2,12 @@ import { Consumer } from "sqs-consumer";
 import { sqsClient } from "../utils/sqs";
 import { processImportJob } from "./import-processor";
 import Config from "../config";
+import pg from "../db/pg-query";
 import logger from "../utils/logger";
+import {
+  VoteConventionStartupError,
+  requireDeclaredConvention,
+} from "../votes/dbConvention";
 
 const queueUrl = Config.SQS_QUEUE_URL;
 
@@ -42,4 +47,26 @@ app.on("processing_error", (err) =>
   logger.error("[Worker] Processing Error:", err.message)
 );
 
-app.start();
+// The worker writes votes: the database must declare its stored vote sign,
+// and it must be the sign this build is built for (P-078;
+// docs/vote-convention-upgrade.md). No message is consumed until it does.
+requireDeclaredConvention(
+  (sql: string) =>
+    pg.queryP(sql) as Promise<Array<Record<string, unknown>>>,
+  "import worker"
+).then(
+  (convention) => {
+    logger.info(
+      `[Worker] vote convention: version ${convention.version}, agree stored as ${convention.agreeValue}`
+    );
+    app.start();
+  },
+  (err: unknown) => {
+    if (err instanceof VoteConventionStartupError) {
+      logger.error(err.message);
+    } else {
+      logger.error("[Worker] failed to read the database's vote convention", err);
+    }
+    process.exit(1);
+  }
+);

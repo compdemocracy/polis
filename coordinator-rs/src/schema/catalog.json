@@ -1724,6 +1724,1065 @@
       "constraints": []
     },
     {
+      "table": "delphi_current",
+      "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:265",
+      "columns": [
+        {
+          "table": "delphi_current",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:266"
+        },
+        {
+          "table": "delphi_current",
+          "name": "zid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:266"
+        },
+        {
+          "table": "delphi_current",
+          "name": "scope",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:267"
+        },
+        {
+          "table": "delphi_current",
+          "name": "job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:268"
+        },
+        {
+          "table": "delphi_current",
+          "name": "requested_generation",
+          "sql_type": "bigint",
+          "udt": "int8",
+          "nullable": "NO",
+          "default": "0",
+          "ordinal": 5,
+          "definition_type": "bigint",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:268"
+        },
+        {
+          "table": "delphi_current",
+          "name": "published_generation",
+          "sql_type": "bigint",
+          "udt": "int8",
+          "nullable": "NO",
+          "default": "0",
+          "ordinal": 6,
+          "definition_type": "bigint",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:269"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_current",
+          "name": "delphi_current_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_current_pkey ON public.delphi_current USING btree (env, zid, scope)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_current",
+          "name": "delphi_current_check",
+          "definition": "CHECK ((published_generation <= requested_generation))"
+        },
+        {
+          "table": "delphi_current",
+          "name": "delphi_current_check1",
+          "definition": "CHECK (((job_id IS NOT NULL) OR (published_generation = 0)))"
+        },
+        {
+          "table": "delphi_current",
+          "name": "delphi_current_env_zid_job_id_fkey",
+          "definition": "FOREIGN KEY (env, zid, job_id) REFERENCES delphi_jobs(env, zid, job_id) ON DELETE RESTRICT"
+        },
+        {
+          "table": "delphi_current",
+          "name": "delphi_current_pkey",
+          "definition": "PRIMARY KEY (env, zid, scope)"
+        },
+        {
+          "table": "delphi_current",
+          "name": "delphi_current_published_generation_check",
+          "definition": "CHECK ((published_generation >= 0))"
+        },
+        {
+          "table": "delphi_current",
+          "name": "delphi_current_requested_generation_check",
+          "definition": "CHECK ((requested_generation >= 0))"
+        },
+        {
+          "table": "delphi_current",
+          "name": "delphi_current_scope_check",
+          "definition": "CHECK (((scope = 'pipeline'::text) OR (scope ~ '^narrative:.+'::text)))"
+        },
+        {
+          "table": "delphi_current",
+          "name": "delphi_current_zid_fkey",
+          "definition": "FOREIGN KEY (zid) REFERENCES conversations(zid)"
+        }
+      ]
+    },
+    {
+      "table": "delphi_foundation_install",
+      "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:819",
+      "columns": [
+        {
+          "table": "delphi_foundation_install",
+          "name": "singleton",
+          "sql_type": "boolean",
+          "udt": "bool",
+          "nullable": "NO",
+          "default": "true",
+          "ordinal": 1,
+          "definition_type": "boolean",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:820"
+        },
+        {
+          "table": "delphi_foundation_install",
+          "name": "baseline",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:820"
+        },
+        {
+          "table": "delphi_foundation_install",
+          "name": "installed",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:820"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_foundation_install",
+          "name": "delphi_foundation_install_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_foundation_install_pkey ON public.delphi_foundation_install USING btree (singleton)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_foundation_install",
+          "name": "delphi_foundation_install_pkey",
+          "definition": "PRIMARY KEY (singleton)"
+        },
+        {
+          "table": "delphi_foundation_install",
+          "name": "delphi_foundation_install_singleton_check",
+          "definition": "CHECK (singleton)"
+        }
+      ]
+    },
+    {
+      "table": "delphi_job_aliases",
+      "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:249",
+      "columns": [
+        {
+          "table": "delphi_job_aliases",
+          "name": "public_id",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:250"
+        },
+        {
+          "table": "delphi_job_aliases",
+          "name": "job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:251"
+        },
+        {
+          "table": "delphi_job_aliases",
+          "name": "source",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:252"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_job_aliases",
+          "name": "delphi_job_aliases_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_job_aliases_pkey ON public.delphi_job_aliases USING btree (public_id)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_job_aliases",
+          "name": "delphi_job_aliases_job_id_fkey",
+          "definition": "FOREIGN KEY (job_id) REFERENCES delphi_jobs(job_id) ON DELETE RESTRICT"
+        },
+        {
+          "table": "delphi_job_aliases",
+          "name": "delphi_job_aliases_pkey",
+          "definition": "PRIMARY KEY (public_id)"
+        },
+        {
+          "table": "delphi_job_aliases",
+          "name": "delphi_job_aliases_public_id_check",
+          "definition": "CHECK (((length(public_id) >= 1) AND (length(public_id) <= 512)))"
+        },
+        {
+          "table": "delphi_job_aliases",
+          "name": "delphi_job_aliases_public_id_check1",
+          "definition": "CHECK ((public_id !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text))"
+        },
+        {
+          "table": "delphi_job_aliases",
+          "name": "delphi_job_aliases_source_check",
+          "definition": "CHECK ((source <> ''::text))"
+        }
+      ]
+    },
+    {
+      "table": "delphi_job_guards",
+      "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:275",
+      "columns": [
+        {
+          "table": "delphi_job_guards",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:276"
+        },
+        {
+          "table": "delphi_job_guards",
+          "name": "scope_key",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:276"
+        },
+        {
+          "table": "delphi_job_guards",
+          "name": "zid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:276"
+        },
+        {
+          "table": "delphi_job_guards",
+          "name": "root_job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:277"
+        },
+        {
+          "table": "delphi_job_guards",
+          "name": "request_sha256",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:277"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_job_guards",
+          "name": "delphi_job_guards_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_job_guards_pkey ON public.delphi_job_guards USING btree (env, scope_key)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_job_guards",
+          "name": "delphi_job_guards_env_zid_root_job_id_fkey",
+          "definition": "FOREIGN KEY (env, zid, root_job_id) REFERENCES delphi_jobs(env, zid, job_id)"
+        },
+        {
+          "table": "delphi_job_guards",
+          "name": "delphi_job_guards_pkey",
+          "definition": "PRIMARY KEY (env, scope_key)"
+        },
+        {
+          "table": "delphi_job_guards",
+          "name": "delphi_job_guards_request_sha256_check",
+          "definition": "CHECK ((request_sha256 ~ '^[0-9a-f]{64}$'::text))"
+        },
+        {
+          "table": "delphi_job_guards",
+          "name": "delphi_job_guards_scope_key_check",
+          "definition": "CHECK ((scope_key <> ''::text))"
+        }
+      ]
+    },
+    {
+      "table": "delphi_job_inputs",
+      "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:255",
+      "columns": [
+        {
+          "table": "delphi_job_inputs",
+          "name": "zid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:256"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "consumer_job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:256"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "input_role",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:257"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "ordinal",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:257"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "producer_job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:258"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "producer_output_digest",
+          "sql_type": "bytea",
+          "udt": "bytea",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "bytea",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:258"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_job_inputs",
+          "name": "delphi_job_inputs_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_job_inputs_pkey ON public.delphi_job_inputs USING btree (zid, consumer_job_id, input_role, ordinal)"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "delphi_job_inputs_producer",
+          "definition": "CREATE INDEX delphi_job_inputs_producer ON public.delphi_job_inputs USING btree (zid, producer_job_id)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_job_inputs",
+          "name": "delphi_job_inputs_check",
+          "definition": "CHECK ((consumer_job_id <> producer_job_id))"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "delphi_job_inputs_input_role_check",
+          "definition": "CHECK ((input_role <> ''::text))"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "delphi_job_inputs_ordinal_check",
+          "definition": "CHECK ((ordinal >= 0))"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "delphi_job_inputs_pkey",
+          "definition": "PRIMARY KEY (zid, consumer_job_id, input_role, ordinal)"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "delphi_job_inputs_producer_output_digest_check",
+          "definition": "CHECK ((octet_length(producer_output_digest) = 32))"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "delphi_job_inputs_zid_consumer_job_id_fkey",
+          "definition": "FOREIGN KEY (zid, consumer_job_id) REFERENCES delphi_jobs(zid, job_id) ON DELETE CASCADE"
+        },
+        {
+          "table": "delphi_job_inputs",
+          "name": "delphi_job_inputs_zid_producer_job_id_fkey",
+          "definition": "FOREIGN KEY (zid, producer_job_id) REFERENCES delphi_jobs(zid, job_id) ON DELETE RESTRICT"
+        }
+      ]
+    },
+    {
+      "table": "delphi_jobs",
+      "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:221",
+      "columns": [
+        {
+          "table": "delphi_jobs",
+          "name": "job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:222"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:222"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "zid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:223"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "report_id",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:223"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "kind",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:224"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "parent_job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:226"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "run_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 7,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:226"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "origin",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 8,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:227"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "replayable",
+          "sql_type": "boolean",
+          "udt": "bool",
+          "nullable": "NO",
+          "default": "false",
+          "ordinal": 9,
+          "definition_type": "boolean",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:228"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "reuse_eligible",
+          "sql_type": "boolean",
+          "udt": "bool",
+          "nullable": "NO",
+          "default": "false",
+          "ordinal": 10,
+          "definition_type": "boolean",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:228"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "status",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 11,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:229"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "inputs_digest",
+          "sql_type": "bytea",
+          "udt": "bytea",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 12,
+          "definition_type": "bytea",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:230"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "math_env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 13,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:230"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "math_tick",
+          "sql_type": "bigint",
+          "udt": "int8",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 14,
+          "definition_type": "bigint",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:230"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "math_caching_tick",
+          "sql_type": "bigint",
+          "udt": "int8",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 15,
+          "definition_type": "bigint",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:231"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "math_snapshot_key",
+          "sql_type": "bytea",
+          "udt": "bytea",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 16,
+          "definition_type": "bytea",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:231"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "config_effective",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": "'{}'::jsonb",
+          "ordinal": 17,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:232"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "code_version",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 18,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:233"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "model_versions",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": "'{}'::jsonb",
+          "ordinal": 19,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:233"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "cost",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": "'{}'::jsonb",
+          "ordinal": 20,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:234"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "output_manifest_digest",
+          "sql_type": "bytea",
+          "udt": "bytea",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 21,
+          "definition_type": "bytea",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:235"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "pinned",
+          "sql_type": "boolean",
+          "udt": "bool",
+          "nullable": "NO",
+          "default": "false",
+          "ordinal": 22,
+          "definition_type": "boolean",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:236"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "label",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 23,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:236"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "created_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 24,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:237"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "completed_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 25,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:237"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "error",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 26,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:237"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_env_job_id_key",
+          "definition": "CREATE UNIQUE INDEX delphi_jobs_env_job_id_key ON public.delphi_jobs USING btree (env, job_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_env_zid_job_id_key",
+          "definition": "CREATE UNIQUE INDEX delphi_jobs_env_zid_job_id_key ON public.delphi_jobs USING btree (env, zid, job_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_history",
+          "definition": "CREATE INDEX delphi_jobs_history ON public.delphi_jobs USING btree (env, zid, created_at, job_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_parent",
+          "definition": "CREATE INDEX delphi_jobs_parent ON public.delphi_jobs USING btree (parent_job_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_jobs_pkey ON public.delphi_jobs USING btree (job_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_zid_job_id_key",
+          "definition": "CREATE UNIQUE INDEX delphi_jobs_zid_job_id_key ON public.delphi_jobs USING btree (zid, job_id)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_check",
+          "definition": "CHECK ((parent_job_id IS DISTINCT FROM job_id))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_check1",
+          "definition": "CHECK (((origin <> 'legacy_import'::text) OR ((NOT replayable) AND (NOT reuse_eligible) AND (run_id IS NULL) AND (status = ANY (ARRAY['succeeded'::text, 'dead'::text, 'cancelled'::text])))))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_config_effective_check",
+          "definition": "CHECK ((jsonb_typeof(config_effective) = 'object'::text))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_cost_check",
+          "definition": "CHECK ((jsonb_typeof(cost) = 'object'::text))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_env_check",
+          "definition": "CHECK ((env <> ''::text))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_env_job_id_key",
+          "definition": "UNIQUE (env, job_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_env_run_id_fkey",
+          "definition": "FOREIGN KEY (env, run_id) REFERENCES polis_queue_runs(env, run_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_env_zid_job_id_key",
+          "definition": "UNIQUE (env, zid, job_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_env_zid_parent_job_id_fkey",
+          "definition": "FOREIGN KEY (env, zid, parent_job_id) REFERENCES delphi_jobs(env, zid, job_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_inputs_digest_check",
+          "definition": "CHECK ((octet_length(inputs_digest) = 32))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_kind_check",
+          "definition": "CHECK ((kind = ANY (ARRAY['full_pipeline'::text, 'embed'::text, 'snapshot'::text, 'umap'::text, 'cluster'::text, 'keywords'::text, 'topic_name'::text, 'narrative'::text, 'collective_statement'::text, 'visualize'::text, 'legacy_import'::text, 'legacy_queue_record'::text, 'math_rebuild'::text])))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_math_snapshot_key_check",
+          "definition": "CHECK ((octet_length(math_snapshot_key) = 32))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_model_versions_check",
+          "definition": "CHECK ((jsonb_typeof(model_versions) = 'object'::text))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_origin_check",
+          "definition": "CHECK ((origin = ANY (ARRAY['queued'::text, 'legacy_import'::text])))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_output_manifest_digest_check",
+          "definition": "CHECK ((octet_length(output_manifest_digest) = 32))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_pkey",
+          "definition": "PRIMARY KEY (job_id)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_status_check",
+          "definition": "CHECK ((status = ANY (ARRAY['queued'::text, 'running'::text, 'retry_wait'::text, 'parked'::text, 'succeeded'::text, 'dead'::text, 'cancelled'::text])))"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_zid_fkey",
+          "definition": "FOREIGN KEY (zid) REFERENCES conversations(zid)"
+        },
+        {
+          "table": "delphi_jobs",
+          "name": "delphi_jobs_zid_job_id_key",
+          "definition": "UNIQUE (zid, job_id)"
+        }
+      ]
+    },
+    {
+      "table": "delphi_provider_requests",
+      "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:280",
+      "columns": [
+        {
+          "table": "delphi_provider_requests",
+          "name": "request_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:281"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:281"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "job_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:281"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "attempt_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:281"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "provider",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:282"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "provider_batch_id",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:282"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "state",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 7,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:283"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "request_digest",
+          "sql_type": "bytea",
+          "udt": "bytea",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 8,
+          "definition_type": "bytea",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:284"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "created_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 9,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:285"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "updated_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 10,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:285"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_open",
+          "definition": "CREATE INDEX delphi_provider_open ON public.delphi_provider_requests USING btree (env, job_id) WHERE (state = ANY (ARRAY['intent'::text, 'submission_unknown'::text, 'submitted'::text]))"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_provider_requests_pkey ON public.delphi_provider_requests USING btree (request_id)"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_provider_provider_batch_id_key",
+          "definition": "CREATE UNIQUE INDEX delphi_provider_requests_provider_provider_batch_id_key ON public.delphi_provider_requests USING btree (provider, provider_batch_id)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_check",
+          "definition": "CHECK (((state <> ALL (ARRAY['submitted'::text, 'completed'::text])) OR (provider_batch_id IS NOT NULL)))"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_env_job_id_attempt_id_fkey",
+          "definition": "FOREIGN KEY (env, job_id, attempt_id) REFERENCES polis_queue_attempts(env, job_id, attempt_id)"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_env_job_id_fkey",
+          "definition": "FOREIGN KEY (env, job_id) REFERENCES delphi_jobs(env, job_id)"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_pkey",
+          "definition": "PRIMARY KEY (request_id)"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_provider_check",
+          "definition": "CHECK ((provider <> ''::text))"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_provider_provider_batch_id_key",
+          "definition": "UNIQUE (provider, provider_batch_id)"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_request_digest_check",
+          "definition": "CHECK ((octet_length(request_digest) = 32))"
+        },
+        {
+          "table": "delphi_provider_requests",
+          "name": "delphi_provider_requests_state_check",
+          "definition": "CHECK ((state = ANY (ARRAY['intent'::text, 'submission_unknown'::text, 'submitted'::text, 'completed'::text, 'failed'::text])))"
+        }
+      ]
+    },
+    {
       "table": "demographic_data",
       "introduced": "server/postgres/migrations/000000_initial.sql:949",
       "columns": [
@@ -6178,6 +7237,17 @@
           "ordinal": 10,
           "definition_type": "text",
           "introduced": "server/postgres/migrations/000019_create_polis_queue.sql:303"
+        },
+        {
+          "table": "polis_queue_attempts",
+          "name": "process_exit_confirmed_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 11,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:217"
         }
       ],
       "indexes": [
@@ -6190,6 +7260,11 @@
           "table": "polis_queue_attempts",
           "name": "polis_queue_attempts_pkey",
           "definition": "CREATE UNIQUE INDEX polis_queue_attempts_pkey ON public.polis_queue_attempts USING btree (env, attempt_id)"
+        },
+        {
+          "table": "polis_queue_attempts",
+          "name": "pq_attempt_binding",
+          "definition": "CREATE UNIQUE INDEX pq_attempt_binding ON public.polis_queue_attempts USING btree (env, job_id, attempt_id)"
         }
       ],
       "constraints": [
@@ -6217,6 +7292,11 @@
           "table": "polis_queue_attempts",
           "name": "polis_queue_attempts_pkey",
           "definition": "PRIMARY KEY (env, attempt_id)"
+        },
+        {
+          "table": "polis_queue_attempts",
+          "name": "pq_attempt_binding",
+          "definition": "UNIQUE (env, job_id, attempt_id)"
         }
       ]
     },
@@ -6448,6 +7528,17 @@
           "ordinal": 6,
           "definition_type": "text",
           "introduced": "server/postgres/migrations/000019_create_polis_queue.sql:338"
+        },
+        {
+          "table": "polis_queue_install",
+          "name": "contract_version",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": "'polis-queue/3'::text",
+          "ordinal": 7,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:205"
         }
       ],
       "indexes": [
@@ -6458,6 +7549,11 @@
         }
       ],
       "constraints": [
+        {
+          "table": "polis_queue_install",
+          "name": "polis_queue_install_contract_version_check",
+          "definition": "CHECK ((contract_version = 'polis-queue/3'::text))"
+        },
         {
           "table": "polis_queue_install",
           "name": "polis_queue_install_pkey",
@@ -6726,6 +7822,17 @@
           "ordinal": 23,
           "definition_type": "text",
           "introduced": "server/postgres/migrations/000019_create_polis_queue.sql:292"
+        },
+        {
+          "table": "polis_queue_jobs",
+          "name": "worker_class",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": "'noop'::text",
+          "ordinal": 24,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:213"
         }
       ],
       "indexes": [
@@ -6761,6 +7868,11 @@
         }
       ],
       "constraints": [
+        {
+          "table": "polis_queue_jobs",
+          "name": "pd_queue_binding",
+          "definition": "TRIGGER DEFERRABLE INITIALLY DEFERRED"
+        },
         {
           "table": "polis_queue_jobs",
           "name": "polis_queue_jobs_attempt_count_check",
@@ -6819,7 +7931,7 @@
         {
           "table": "polis_queue_jobs",
           "name": "polis_queue_jobs_stage_check",
-          "definition": "CHECK ((stage = 'noop'::text))"
+          "definition": "CHECK ((stage = ANY (ARRAY['noop'::text, 'delphi_full_pipeline'::text, 'delphi_narrative'::text, 'math_rebuild'::text])))"
         },
         {
           "table": "polis_queue_jobs",
@@ -6830,6 +7942,185 @@
           "table": "polis_queue_jobs",
           "name": "polis_queue_jobs_version_check",
           "definition": "CHECK ((version >= 0))"
+        },
+        {
+          "table": "polis_queue_jobs",
+          "name": "polis_queue_jobs_worker_class_check",
+          "definition": "CHECK ((worker_class = ANY (ARRAY['noop'::text, 'delphi'::text, 'large'::text])))"
+        },
+        {
+          "table": "polis_queue_jobs",
+          "name": "pq_stage_large",
+          "definition": "CHECK (((stage = 'math_rebuild'::text) = (worker_class = 'large'::text)))"
+        },
+        {
+          "table": "polis_queue_jobs",
+          "name": "pq_stage_worker",
+          "definition": "CHECK (((stage = 'noop'::text) = (worker_class = 'noop'::text)))"
+        }
+      ]
+    },
+    {
+      "table": "polis_queue_large_class_install",
+      "introduced": "server/postgres/migrations/000024_create_polis_queue_large_class.sql:368",
+      "columns": [
+        {
+          "table": "polis_queue_large_class_install",
+          "name": "singleton",
+          "sql_type": "boolean",
+          "udt": "bool",
+          "nullable": "NO",
+          "default": "true",
+          "ordinal": 1,
+          "definition_type": "boolean",
+          "introduced": "server/postgres/migrations/000024_create_polis_queue_large_class.sql:369"
+        },
+        {
+          "table": "polis_queue_large_class_install",
+          "name": "baseline",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000024_create_polis_queue_large_class.sql:369"
+        },
+        {
+          "table": "polis_queue_large_class_install",
+          "name": "installed",
+          "sql_type": "jsonb",
+          "udt": "jsonb",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "jsonb",
+          "introduced": "server/postgres/migrations/000024_create_polis_queue_large_class.sql:369"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "polis_queue_large_class_install",
+          "name": "polis_queue_large_class_install_pkey",
+          "definition": "CREATE UNIQUE INDEX polis_queue_large_class_install_pkey ON public.polis_queue_large_class_install USING btree (singleton)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "polis_queue_large_class_install",
+          "name": "polis_queue_large_class_install_pkey",
+          "definition": "PRIMARY KEY (singleton)"
+        },
+        {
+          "table": "polis_queue_large_class_install",
+          "name": "polis_queue_large_class_install_singleton_check",
+          "definition": "CHECK (singleton)"
+        }
+      ]
+    },
+    {
+      "table": "polis_queue_logs",
+      "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:292",
+      "columns": [
+        {
+          "table": "polis_queue_logs",
+          "name": "env",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:293"
+        },
+        {
+          "table": "polis_queue_logs",
+          "name": "attempt_id",
+          "sql_type": "uuid",
+          "udt": "uuid",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "uuid",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:293"
+        },
+        {
+          "table": "polis_queue_logs",
+          "name": "seq",
+          "sql_type": "bigint",
+          "udt": "int8",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "bigint",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:293"
+        },
+        {
+          "table": "polis_queue_logs",
+          "name": "ts",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 4,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:294"
+        },
+        {
+          "table": "polis_queue_logs",
+          "name": "stream",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:295"
+        },
+        {
+          "table": "polis_queue_logs",
+          "name": "line",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:296"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "polis_queue_logs",
+          "name": "polis_queue_logs_pkey",
+          "definition": "CREATE UNIQUE INDEX polis_queue_logs_pkey ON public.polis_queue_logs USING btree (env, attempt_id, seq)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "polis_queue_logs",
+          "name": "polis_queue_logs_env_attempt_id_fkey",
+          "definition": "FOREIGN KEY (env, attempt_id) REFERENCES polis_queue_attempts(env, attempt_id)"
+        },
+        {
+          "table": "polis_queue_logs",
+          "name": "polis_queue_logs_line_check",
+          "definition": "CHECK ((octet_length(line) <= 1048576))"
+        },
+        {
+          "table": "polis_queue_logs",
+          "name": "polis_queue_logs_pkey",
+          "definition": "PRIMARY KEY (env, attempt_id, seq)"
+        },
+        {
+          "table": "polis_queue_logs",
+          "name": "polis_queue_logs_seq_check",
+          "definition": "CHECK ((seq >= 0))"
+        },
+        {
+          "table": "polis_queue_logs",
+          "name": "polis_queue_logs_stream_check",
+          "definition": "CHECK ((stream = ANY (ARRAY['stdout'::text, 'stderr'::text, 'manifest'::text, 'truncated'::text])))"
         }
       ]
     },
@@ -6924,6 +8215,17 @@
           "ordinal": 8,
           "definition_type": "timestamp with time zone",
           "introduced": "server/postgres/migrations/000019_create_polis_queue.sql:310"
+        },
+        {
+          "table": "polis_queue_requests",
+          "name": "binding_expires_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 9,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:219"
         }
       ],
       "indexes": [
@@ -7177,7 +8479,7 @@
         {
           "table": "polis_queue_runs",
           "name": "polis_queue_runs_contract_version_check",
-          "definition": "CHECK ((contract_version = 'polis-queue/1'::text))"
+          "definition": "CHECK ((contract_version = ANY (ARRAY['polis-queue/1'::text, 'polis-queue/2'::text, 'polis-queue/3'::text])))"
         },
         {
           "table": "polis_queue_runs",
@@ -7647,6 +8949,91 @@
           "table": "reports",
           "name": "reports_zid_fkey",
           "definition": "FOREIGN KEY (zid) REFERENCES conversations(zid)"
+        }
+      ]
+    },
+    {
+      "table": "schema_migrations",
+      "introduced": "server/postgres/migrations/000025_vote_convention.sql:276",
+      "columns": [
+        {
+          "table": "schema_migrations",
+          "name": "name",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:277"
+        },
+        {
+          "table": "schema_migrations",
+          "name": "applied_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 2,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:278"
+        },
+        {
+          "table": "schema_migrations",
+          "name": "applied_by",
+          "sql_type": "name",
+          "udt": "name",
+          "nullable": "NO",
+          "default": "SESSION_USER",
+          "ordinal": 3,
+          "definition_type": "name",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:279"
+        },
+        {
+          "table": "schema_migrations",
+          "name": "checksum",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:284"
+        },
+        {
+          "table": "schema_migrations",
+          "name": "note",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": "''::text",
+          "ordinal": 5,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:285"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "schema_migrations",
+          "name": "schema_migrations_pkey",
+          "definition": "CREATE UNIQUE INDEX schema_migrations_pkey ON public.schema_migrations USING btree (name)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "schema_migrations",
+          "name": "schema_migrations_checksum_check",
+          "definition": "CHECK (((length(checksum) = 64) OR (checksum = ANY (ARRAY['verified'::text, 'unverified'::text]))))"
+        },
+        {
+          "table": "schema_migrations",
+          "name": "schema_migrations_name_check",
+          "definition": "CHECK ((name ~ '^[0-9]{6}_[a-z0-9_]+$'::text))"
+        },
+        {
+          "table": "schema_migrations",
+          "name": "schema_migrations_pkey",
+          "definition": "PRIMARY KEY (name)"
         }
       ]
     },
@@ -9075,6 +10462,273 @@
       ]
     },
     {
+      "table": "vote_convention",
+      "introduced": "server/postgres/migrations/000025_vote_convention.sql:144",
+      "columns": [
+        {
+          "table": "vote_convention",
+          "name": "singleton",
+          "sql_type": "boolean",
+          "udt": "bool",
+          "nullable": "NO",
+          "default": "true",
+          "ordinal": 1,
+          "definition_type": "boolean",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:145"
+        },
+        {
+          "table": "vote_convention",
+          "name": "version",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:146"
+        },
+        {
+          "table": "vote_convention",
+          "name": "agree_value",
+          "sql_type": "smallint",
+          "udt": "int2",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "smallint",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:147"
+        },
+        {
+          "table": "vote_convention",
+          "name": "changed_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": "clock_timestamp()",
+          "ordinal": 4,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:148"
+        },
+        {
+          "table": "vote_convention",
+          "name": "changed_by",
+          "sql_type": "name",
+          "udt": "name",
+          "nullable": "NO",
+          "default": "SESSION_USER",
+          "ordinal": 5,
+          "definition_type": "name",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:149"
+        },
+        {
+          "table": "vote_convention",
+          "name": "reason",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:150"
+        },
+        {
+          "table": "vote_convention",
+          "name": "contract_version",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": "1",
+          "ordinal": 7,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:151"
+        },
+        {
+          "table": "vote_convention",
+          "name": "operation",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 8,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:155"
+        },
+        {
+          "table": "vote_convention",
+          "name": "operation_checksum",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 9,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:156"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "vote_convention",
+          "name": "vote_convention_pkey",
+          "definition": "CREATE UNIQUE INDEX vote_convention_pkey ON public.vote_convention USING btree (singleton)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "vote_convention",
+          "name": "vote_convention_agree_value_check",
+          "definition": "CHECK ((agree_value = ANY (ARRAY['-1'::integer, 1])))"
+        },
+        {
+          "table": "vote_convention",
+          "name": "vote_convention_contract_version_check",
+          "definition": "CHECK ((contract_version = 1))"
+        },
+        {
+          "table": "vote_convention",
+          "name": "vote_convention_operation_check",
+          "definition": "CHECK ((length(operation) > 0))"
+        },
+        {
+          "table": "vote_convention",
+          "name": "vote_convention_operation_checksum_check",
+          "definition": "CHECK (((operation_checksum IS NULL) OR (length(operation_checksum) = 64)))"
+        },
+        {
+          "table": "vote_convention",
+          "name": "vote_convention_pkey",
+          "definition": "PRIMARY KEY (singleton)"
+        },
+        {
+          "table": "vote_convention",
+          "name": "vote_convention_reason_check",
+          "definition": "CHECK ((length(reason) > 0))"
+        },
+        {
+          "table": "vote_convention",
+          "name": "vote_convention_singleton_check",
+          "definition": "CHECK (singleton)"
+        },
+        {
+          "table": "vote_convention",
+          "name": "vote_convention_version_check",
+          "definition": "CHECK ((version >= 0))"
+        }
+      ]
+    },
+    {
+      "table": "vote_convention_history",
+      "introduced": "server/postgres/migrations/000025_vote_convention.sql:162",
+      "columns": [
+        {
+          "table": "vote_convention_history",
+          "name": "version",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:163"
+        },
+        {
+          "table": "vote_convention_history",
+          "name": "agree_value",
+          "sql_type": "smallint",
+          "udt": "int2",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 2,
+          "definition_type": "smallint",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:164"
+        },
+        {
+          "table": "vote_convention_history",
+          "name": "changed_at",
+          "sql_type": "timestamp with time zone",
+          "udt": "timestamptz",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "timestamp with time zone",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:165"
+        },
+        {
+          "table": "vote_convention_history",
+          "name": "changed_by",
+          "sql_type": "name",
+          "udt": "name",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "name",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:166"
+        },
+        {
+          "table": "vote_convention_history",
+          "name": "reason",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 5,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:167"
+        },
+        {
+          "table": "vote_convention_history",
+          "name": "contract_version",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 6,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:168"
+        },
+        {
+          "table": "vote_convention_history",
+          "name": "operation",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 7,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:169"
+        },
+        {
+          "table": "vote_convention_history",
+          "name": "operation_checksum",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 8,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000025_vote_convention.sql:170"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "vote_convention_history",
+          "name": "vote_convention_history_pkey",
+          "definition": "CREATE UNIQUE INDEX vote_convention_history_pkey ON public.vote_convention_history USING btree (version)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "vote_convention_history",
+          "name": "vote_convention_history_agree_value_check",
+          "definition": "CHECK ((agree_value = ANY (ARRAY['-1'::integer, 1])))"
+        },
+        {
+          "table": "vote_convention_history",
+          "name": "vote_convention_history_pkey",
+          "definition": "PRIMARY KEY (version)"
+        }
+      ]
+    },
+    {
       "table": "votes",
       "introduced": "server/postgres/migrations/000000_initial.sql:737",
       "columns": [
@@ -9778,6 +11432,18 @@
     {
       "path": "server/postgres/migrations/000022_add_poll_timestamp_indexes.sql",
       "sha256": "14efc95b14787b52d70680ea06cfef020cd2224e82495258fd8eb324501b7b3e"
+    },
+    {
+      "path": "server/postgres/migrations/000023_create_delphi_foundation.sql",
+      "sha256": "97437ea57d90c51cc664385ebb6e8ec3d8684ac0f8e7b0c60e84df1a010531f7"
+    },
+    {
+      "path": "server/postgres/migrations/000024_create_polis_queue_large_class.sql",
+      "sha256": "68261afb81f286bed45fdff6ab52e052392d1dd32abdb1e78579f72644116697"
+    },
+    {
+      "path": "server/postgres/migrations/000025_vote_convention.sql",
+      "sha256": "cfff57e4f416744d90d1beddc6daa48f730a6c0538cc9400a84a19bafc60c812"
     }
   ]
 }

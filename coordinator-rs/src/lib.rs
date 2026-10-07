@@ -11,6 +11,7 @@ pub mod ordering;
 pub mod probe;
 pub mod reader;
 pub mod store;
+pub mod vote_convention;
 pub mod wire;
 
 pub mod database;

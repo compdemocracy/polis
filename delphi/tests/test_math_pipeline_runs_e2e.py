@@ -1,6 +1,7 @@
 import os
 import time
 import pytest
+from polismath.utils.vote_convention import STORAGE_AGREE_VALUE
 import boto3
 import csv
 import decimal
@@ -168,8 +169,16 @@ def test_run_math_pipeline_e2e(mock_connect, dynamodb_resource, mock_comments_da
     # Define the behavior of the mock cursor
     def mock_execute(sql, params=None):
         sql = sql.strip()
-        # 0. The vote-convention probe: a database before P-078 PR-A.
-        if "to_regprocedure" in sql:
+        # 0a. The startup check (P-078 PR-A): the database declares this
+        #     build's sign, so the stage may run.
+        if "to_regclass" in sql:
+            sql_results['last'] = 'boot_probe'
+            mock_cursor.description = [("present",)]
+        elif "FROM public.vote_convention_current()" in sql and "contract_version" in sql:
+            sql_results['last'] = 'boot_row'
+            mock_cursor.description = [("version",), ("agree_value",), ("contract_version",)]
+        # 0b. The per-read probe: the vote read keeps its pre-join shape here.
+        elif "to_regprocedure" in sql:
             sql_results['last'] = 'convention_probe'
             mock_cursor.description = [("present",)]
         # 1. Mock COUNT(*) query
@@ -214,6 +223,10 @@ def test_run_math_pipeline_e2e(mock_connect, dynamodb_resource, mock_comments_da
         return None
 
     def mock_fetchall():
+        if sql_results.get('last') == 'boot_probe':
+            return [(True,)]
+        if sql_results.get('last') == 'boot_row':
+            return [(0, STORAGE_AGREE_VALUE, 1)]
         if sql_results.get('last') == 'convention_probe':
             return [(False,)]
         if sql_results.get('last') == 'batch':

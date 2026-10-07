@@ -45,7 +45,7 @@ Budget bounds: 600 seconds per statement, 1 second lock wait, 1800 seconds per t
 4. Owner publishes admitted images, rebakes the worker with updated `contracts.py`, `receipt.py`, and new `vote_census.py` (the normal bake copy-list includes it), and rolls the same source/policy into the operator. SQL and entrypoints belong only in image closures; no reader SQL needs installing on the host. Existing sealing, CLEAN/wipe, provenance and launch-template admission still apply. Roll forward as one reviewed group; an older host/operator refuses the new kind.
 5. Owner verifies the actual replica endpoint, role grants and load budget; Colin approves launch after independent review. Run through the existing `ci/probe_box/run.py` publish/launch/watch/receipt lifecycle and the established probe operator runbook. No raw SQL execution or data download from the laptop; no primary fallback.
 6. Revalidate saved receipt with `receipt.decode_receipt(raw, admitted_job)`. Require `kind`, version, job/source/SQL/image pins, every control true, `status=COMPLETE`, `verdict=COMPLETE`. Otherwise retain the closed incomplete status; do not infer absent data. Export only this bounded receipt through the existing result path. Keep all normal cleanup/CLEAN evidence.
-7. Use counts to propose witness thresholds and resolve NULL questions in separate decisions. This census does not amend migration 000023, loaders, the flip tool, or any existing hold.
+7. Use counts to propose witness thresholds and resolve NULL questions in separate decisions. This census does not amend migration 000025 (the vote convention), loaders, the flip tool, or any existing hold.
 
 ## Read-location decision (separate from source acceptance)
 
