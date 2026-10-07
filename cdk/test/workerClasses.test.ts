@@ -10,6 +10,7 @@ import {
   largeClassEnabled, workerClassTable,
 } from '../workerClasses';
 import { HEARTBEAT_PHRASE, STALE_PHRASES } from '../mathPollerAlarms';
+import { Missing, breaches, evaluate } from './metricMath';
 
 // The whole production stack, synthesized the way it is deployed
 // (`-c enableCiEc2=true`). Asset bundling is skipped so the backup
@@ -116,6 +117,7 @@ describe('enableLargeClass on', () => {
     const perClass = (id: string, promotion: boolean) => [
       `AWS::AutoScaling::ScalingPolicy ${id}ScaleInPolicy`,
       `AWS::AutoScaling::ScalingPolicy ${id}ScaleOutPolicy`,
+      `AWS::CloudWatch::Alarm ${id}CapacityIncompleteAlarm`,
       `AWS::CloudWatch::Alarm ${id}DeadAlarm`,
       ...(promotion ? [`AWS::CloudWatch::Alarm ${id}DemandUnmetAlarm`] : []),
       `AWS::CloudWatch::Alarm ${id}LongRunningAlarm`,
@@ -344,7 +346,7 @@ describe('enableLargeClass on', () => {
     const offNames = Object.values(off).filter((x: any) => x.Type === 'AWS::CloudWatch::Alarm')
       .map((x: any) => x.Properties.AlarmName).filter(Boolean);
     const perClass = (prefix: string, promotion: boolean) => [
-      'ScaleOut', 'ScaleIn', ...(promotion ? ['DemandUnmet'] : []), 'LongRunning',
+      'ScaleOut', 'ScaleIn', 'CapacityIncomplete', ...(promotion ? ['DemandUnmet'] : []), 'LongRunning',
       'Parked', 'Dead', 'OldestQueued', 'MissingWorker', 'WorkerDisk',
     ].map((n) => `${prefix}-${n}`);
     expect(names).toEqual([
@@ -376,10 +378,79 @@ describe('enableLargeClass on', () => {
         Threshold: 0, ComparisonOperator: 'LessThanOrEqualToThreshold',
         EvaluationPeriods: 6, DatapointsToAlarm: 6, TreatMissingData: 'notBreaching',
       });
-      // No FILL: a missing term (the poller down, or not yet emitting parked) is unknown, not 0.
-      expect(exprOf(a)).toBe('demand + leased + parked');
+      // Every term tested present before the sum: metric math reads a missing datapoint as 0.
+      expect(exprOf(a)).toBe(
+        'IF(FILL(demand, -1) >= 0 && FILL(leased, -1) >= 0 && FILL(parked, -1) >= 0, demand + leased + parked, 1)');
       expect(inputsOf(a)).toEqual({ demand: `${prefix}Demand`, leased: `${prefix}Busy`, parked: `${prefix}Parked` });
       expect(a.AlarmActions).toEqual([policyRef(asgId, 0)]);
+    }
+  });
+
+  // The synthesized expression, evaluated for one datapoint, under both
+  // missing-data models (test/metricMath.ts): a term that is missing must
+  // never let ScaleIn breach, whatever the other terms read.
+  const TERMS = ['demand', 'leased', 'parked'] as const;
+  const MODELS: Missing[] = ['zero', 'propagate'];
+  const combos = () => {
+    const out: Record<string, number | undefined>[] = [];
+    for (let mask = 0; mask < 8; mask += 1) {
+      for (const level of [0, 1]) {
+        out.push(Object.fromEntries(TERMS.map((t, i) => [t, (mask >> i) & 1 ? undefined : level])));
+      }
+    }
+    return out;
+  };
+  const scaleInBreaches = (name: string, env: Record<string, number | undefined>, model: Missing) => {
+    const a = alarm(name);
+    return breaches(evaluate(exprOf(a), env, model), a.ComparisonOperator, a.Threshold);
+  };
+
+  test('scale-in cannot fire while any term is missing (all seven missing patterns, both models)', () => {
+    for (const name of [SCALE_IN_ALARM_NAME, 'Polis-DelphiClass-ScaleIn']) {
+      for (const model of MODELS) {
+        for (const env of combos()) {
+          const anyMissing = TERMS.some((t) => env[t] === undefined);
+          const idle = TERMS.every((t) => env[t] === 0);
+          expect({ name, model, env, fires: scaleInBreaches(name, env, model) })
+            .toEqual({ name, model, env, fires: !anyMissing && idle });
+        }
+      }
+    }
+  });
+
+  test('the bare sum (the expression this replaced) would scale in with parked missing', () => {
+    // The control: the evaluator does model the hazard the guard closes.
+    const bare = 'demand + leased + parked';
+    const env = { demand: 0, leased: 0, parked: undefined };
+    expect(breaches(evaluate(bare, env, 'zero'), 'LessThanOrEqualToThreshold', 0)).toBe(true);
+    expect(scaleInBreaches(SCALE_IN_ALARM_NAME, env, 'zero')).toBe(false);
+  });
+
+  test('CapacityIncomplete fires when a term is missing and the class is not wholly dark', () => {
+    for (const [name, asgId, prefix] of [['Polis-LargeClass-CapacityIncomplete', largeAsgId, 'Large'], ['Polis-DelphiClass-CapacityIncomplete', delphiAsgId, 'Delphi']] as const) {
+      const a = alarm(name);
+      expect(a).toMatchObject({
+        Threshold: 1, ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+        EvaluationPeriods: 3, DatapointsToAlarm: 3, TreatMissingData: 'notBreaching',
+      });
+      expect(inputsOf(a)).toEqual({
+        demand: `${prefix}Demand`, leased: `${prefix}Busy`, parked: `${prefix}Parked`, instances: 'GroupInServiceInstances',
+      });
+      const inst = a.Metrics.find((m: any) => m.Id === 'instances').MetricStat.Metric;
+      expect(inst.Dimensions).toEqual([{ Name: 'AutoScalingGroupName', Value: { Ref: asgId } }]);
+      expect(a.AlarmActions).toEqual(topic);
+      expect(a.OKActions).toEqual(topic);
+      for (const model of MODELS) {
+        for (const env of combos()) {
+          for (const instances of [undefined, 0, 1]) {
+            const missing = TERMS.filter((t) => env[t] === undefined).length;
+            const dark = missing === 3 && !instances;
+            const v = evaluate(exprOf(a), { ...env, instances }, model);
+            expect({ model, env, instances, fires: breaches(v, a.ComparisonOperator, a.Threshold) })
+              .toEqual({ model, env, instances, fires: missing > 0 && !dark });
+          }
+        }
+      }
     }
   });
 
