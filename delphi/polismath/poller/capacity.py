@@ -180,6 +180,21 @@ _QUEUE_ENV = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
 
 MB = 1024 * 1024
 DAY_MS = 86_400_000
+#: Backoff between successive jobs for one conversation (decision #729, P-082):
+#: after the n-th dead job in a row under the same source commit, the next job
+#: is not asked for until min(2**n * BACKOFF_BASE_MS, BACKOFF_CAP_MS) after
+#: the poller saw that death (10 min, 20, 40 .. 6 h). A succeeded job or a new
+#: source commit (a deploy) resets it. The queue's poison latch (three dead in
+#: a row) still stops admission outright; this spaces the attempts before it.
+BACKOFF_BASE_MS = 5 * 60 * 1000
+BACKOFF_CAP_MS = 6 * 60 * 60 * 1000
+
+
+def backoff_ms(dead_streak: int) -> int:
+    """The wait after the ``dead_streak``-th dead job in a row (0 for none)."""
+    if dead_streak <= 0:
+        return 0
+    return min((2 ** min(dead_streak, 32)) * BACKOFF_BASE_MS, BACKOFF_CAP_MS)
 MAX_RECORDS = 1000
 
 
@@ -338,6 +353,12 @@ class Disposition:
     # Wall clock of each job the queue admitted for this record in the last
     # 24 hours (P-084: at most 2 a day per scope; older ones are dropped).
     admitted_ms: List[int] = field(default_factory=list)
+    # The backoff (decision #729): dead jobs in a row under ``dead_commit``,
+    # the latest one (counted once) and when the poller saw it die.
+    dead_streak: int = 0
+    last_dead_job: Optional[str] = None
+    last_dead_ms: Optional[int] = None
+    dead_commit: Optional[str] = None
 
     @classmethod
     def from_dict(cls, raw: Any) -> "Disposition":
@@ -345,18 +366,20 @@ class Disposition:
         anything else raises ValueError (the loader drops that record)."""
         if not isinstance(raw, dict):
             raise ValueError("bad capacity record")
-        for k in ("zid", "need_bytes", "sized_ms", "refusals"):
+        for k in ("zid", "need_bytes", "sized_ms", "refusals", "dead_streak"):
             if k in raw and not _is_count(raw[k]):
                 raise ValueError(f"bad capacity record field {k}")
-        for k in ("votes", "voters", "comments", "input_through_ms", "first_unresolved_ms"):
+        for k in ("votes", "voters", "comments", "input_through_ms", "first_unresolved_ms",
+                  "last_dead_ms"):
             if raw.get(k) is not None and not _is_count(raw[k]):
                 raise ValueError(f"bad capacity record field {k}")
         if not isinstance(raw.get("binding", ""), str):
             raise ValueError("bad capacity record field binding")
         if raw.get("job_id") is not None and not isinstance(raw["job_id"], str):
             raise ValueError("bad capacity record field job_id")
-        if raw.get("poisoned_commit") is not None and not isinstance(raw["poisoned_commit"], str):
-            raise ValueError("bad capacity record field poisoned_commit")
+        for k in ("poisoned_commit", "last_dead_job", "dead_commit"):
+            if raw.get(k) is not None and not isinstance(raw[k], str):
+                raise ValueError(f"bad capacity record field {k}")
         admitted = raw.get("admitted_ms", [])
         if not isinstance(admitted, list) or not all(_is_count(v) for v in admitted):
             raise ValueError("bad capacity record field admitted_ms")
@@ -720,6 +743,37 @@ class CapacityRouter:
             rec.poisoned_commit = source_commit or "unknown"
             self._save_locked()
 
+    def note_job_state(self, zid: int, job_id: Optional[str], state: Optional[str],
+                       source_commit: Optional[str]) -> None:
+        """What the queue says of the record's latest job, for the backoff
+        (decision #729): ``succeeded`` resets it; ``dead`` (each job counted
+        once) lengthens it, starting again at 1 under a new source commit."""
+        now = self._clock()
+        commit = source_commit or "unknown"
+        with self._lock:
+            rec = self._records.get(zid)
+            if rec is None or job_id is None:
+                return
+            if state == "succeeded" and rec.dead_streak:
+                rec.dead_streak, rec.last_dead_job = 0, None
+                rec.last_dead_ms, rec.dead_commit = None, None
+                self._save_locked()
+            elif state == "dead" and job_id != rec.last_dead_job:
+                rec.dead_streak = rec.dead_streak + 1 if rec.dead_commit == commit else 1
+                rec.dead_commit, rec.last_dead_job, rec.last_dead_ms = commit, job_id, now
+                self._save_locked()
+
+    def backoff_remaining_ms(self, zid: int, source_commit: Optional[str]) -> int:
+        """How long before the next job for ``zid`` may be asked for: 0 with
+        no dead streak, or once the source commit has changed (a new build)."""
+        now = self._clock()
+        with self._lock:
+            rec = self._records.get(zid)
+            if (rec is None or rec.dead_streak <= 0 or rec.last_dead_ms is None
+                    or rec.dead_commit != (source_commit or "unknown")):
+                return 0
+            return max(0, rec.last_dead_ms + backoff_ms(rec.dead_streak) - now)
+
     def poisoned(self, zid: int, source_commit: Optional[str]) -> bool:
         """Parked as poisoned under this very source commit (a new deploy
         asks the queue again)."""
@@ -990,7 +1044,8 @@ def parse_line(line: str) -> Optional[Dict[str, Any]]:
 
 
 __all__ = [
-    "CAPACITY_REV", "CAPACITY_REV_KEYS", "CLASS_LARGE", "CLASS_SMALL", "COUNT_KEYS",
+    "BACKOFF_BASE_MS", "BACKOFF_CAP_MS", "CAPACITY_REV", "CAPACITY_REV_KEYS", "backoff_ms",
+    "CLASS_LARGE", "CLASS_SMALL", "COUNT_KEYS",
     "CapacityConfigError", "CapacityRouter", "REV_FORWARD", "UNREVISIONED", "decode_counts",
     "keys_through",
     "CapacitySettings", "DISPOSITIONS", "Disposition", "EXCEEDS_LARGEST", "LARGE",

@@ -169,14 +169,15 @@ def fp(db, zid, label):
         pg.shutdown()
 
 
-def router_for(large, *, zid=None):
+def router_for(large, *, zid=None, clock_ms=None):
     from polismath.poller.admission import MemoryAdmission, MemoryModel
     from polismath.poller.capacity import CapacityRouter, CapacitySettings
 
     model = MemoryModel(base_mb=100, per_mcell_mb=0, per_vote_row_bytes=MB, safety=1.0,
                         job_floor_mb=0)
     router = CapacityRouter(MemoryAdmission(1000 * MB, model, headroom=0.0, base_bytes=100 * MB),
-                            CapacitySettings(routing=True, staged_label=large))
+                            CapacitySettings(routing=True, staged_label=large),
+                            **({} if clock_ms is None else {"clock_ms": clock_ms}))
     if zid is not None:
         assert router.observe(zid, need=850 * MB, input_ms=1) == "large"
     return router
@@ -400,19 +401,33 @@ class TestTheContract:
     def test_three_deaths_poison_the_scope_and_park_the_record(self, queue_db, db, env, labels,
                                                                 monkeypatch):
         """Finding 2: dead x3 -> poisoned, no unlimited re-admission; a new
-        source commit admits again."""
+        source commit admits again. Decision #729: each ask after a death
+        backs off first (10 min, 20, 40), read from the real job status."""
+        from polismath.poller.capacity import backoff_ms
+
         monkeypatch.setattr(cq, "SCOPE_DAILY_CAP", 1000)     # four jobs in one day here
         small, large = labels
         (zid,) = fresh_zids(1)
         seed_conversation(db, zid, participants=3, comments=3)
         c = client(queue_db, env)
-        router = router_for(large, zid=zid)
+        clock = [int(time.time() * 1000)]
+        router = router_for(large, zid=zid, clock_ms=lambda: clock[0])
         daemon = Daemon(queue_db[1], env)
         dead = []
+
+        def ask(commit=COMMIT):
+            return cq.enqueue_routed(c, router, zid, staged_label=large, target_label=small,
+                                     source_commit=commit)
+
+        def after_backoff():
+            assert ask() is None                              # backing off: nothing asked
+            assert jobs(db, env) == len(dead)
+            clock[0] += backoff_ms(len(dead))
+            return ask()
+
         try:
             for _ in range(3):
-                job_id = cq.enqueue_routed(c, router, zid, staged_label=large, target_label=small,
-                                           source_commit=COMMIT)
+                job_id = after_backoff() if dead else ask()
                 assert job_id not in dead
                 claim = daemon.claim()
                 assert claim["job_id"] == job_id
@@ -420,9 +435,9 @@ class TestTheContract:
                 # The daemon releases the scope after the terminal attempt.
                 assert daemon.release(f"math:{small}:{zid}") is True
                 dead.append(job_id)
-            latest = cq.enqueue_routed(c, router, zid, staged_label=large, target_label=small,
-                                       source_commit=COMMIT)
-            assert latest == dead[-1]
+            assert router.record(zid).job_id == dead[-1]
+            latest = after_backoff()
+            assert latest == dead[-1] and router.record(zid).dead_streak == 3
             rec = router.record(zid)
             assert rec.poisoned_commit == COMMIT and rec.job_id == dead[-1]
             assert router.poisoned(zid, COMMIT) and router.counts()["large_poisoned"] == 1

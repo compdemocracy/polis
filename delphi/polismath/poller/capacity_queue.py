@@ -661,6 +661,23 @@ def enqueue_routed(queue: Any, router: Any, zid: int, *, staged_label: str,
         "binding": rec.binding,
         "source_commit": source_commit,
     }
+    if rec.job_id is not None:
+        # The backoff (decision #729) learns the latest job's end here: a
+        # failed read leaves it as it was (the next pass asks again).
+        try:
+            state = queue.job_status(rec.job_id).get("state")
+        except Exception as exc:  # noqa: BLE001 - contained; the streak stands
+            logger.info("capacity: zid=%s status of job %s unread (%s)", zid, rec.job_id[:8],
+                        exc.__class__.__name__)
+        else:
+            router.note_job_state(zid, rec.job_id, state, source_commit)
+    wait_ms = router.backoff_remaining_ms(zid, source_commit)
+    if wait_ms > 0:
+        streak = router.record(zid).dead_streak
+        logger.warning("capacity: zid=%s backing off: %d dead math_rebuild job(s) in a row under "
+                       "this source commit; the next is asked for in %d s", zid, streak,
+                       wait_ms // 1000)
+        return None
     if router.admissions_today(zid) >= SCOPE_DAILY_CAP:
         # P-084: the hard stop on re-admission; the record stays routed.
         logger.warning("capacity: zid=%s already had %d math_rebuild jobs admitted in 24 h; "
