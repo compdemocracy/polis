@@ -877,7 +877,10 @@ def main():
 
     # 10. The full chain on an empty database, three ways; and on a database holding votes.
     def chain(_db):
-        everything = [p for p in sorted(ROOT.glob("0*.sql"))]
+        # The chain through 000025; later files (000026 on) follow it and are
+        # proven by their own down tests (test_000026_down.sh runs the whole
+        # chain up, down and up).
+        everything = [p for p in sorted(ROOT.glob("0*.sql")) if int(p.name[:6]) <= 25]
         assert everything[-1] == UP, [p.name for p in everything[-3:]]
         assert [int(p.name[:6]) for p in everything] == [n for n in range(25) if n != 20] + [25], [p.name for p in everything]
         for name, how in (("vc_chain_f", "file"), ("vc_chain_c", "single-call"), ("vc_chain_v", "with-votes")):
