@@ -43,6 +43,14 @@ WINDOW = 3
 #: Paths that do not exist yet are the chokepoints their PRs create (plan §1b).
 CHOKEPOINTS: Dict[str, str] = {
     "server/src/votes/convention.ts": "server chokepoints 1 and 2 (PR-B, in flight)",
+    # The database's own declaration (chokepoint 0, P-078 PR-A): the row that
+    # names the sign, the file that reverses it, the operator's declaration,
+    # and the test that pins what they store.
+    "server/postgres/migrations/000025_vote_convention.sql": "migration 000025: the vote_convention row and its functions declare the storage sign",
+    "server/postgres/migrations/down/000025_drop_vote_convention.sql": "its reversal (refuses once the sign has moved)",
+    "server/postgres/operations/vote_convention_declare.sql": "the operator's declaration of an existing database's sign",
+    "server/bin/vote-convention-declare.sh": "the operator's entry point to that declaration (it names the sign it writes)",
+    "server/postgres/migrations/down/test_000025_down.py": "pins the database chokepoint's seed, declaration, conversions and reversal (PR-A)",
     "delphi/polismath/utils/vote_convention.py": "the Python storage convention (chokepoint 3)",
     "coordinator-rs/src/vote_convention.rs": "the Rust StorageConvention (chokepoint 5, PR-C)",
     "client-participation/js/util/voteConvention.js": "legacy client helper (chokepoint 7, PR-D)",

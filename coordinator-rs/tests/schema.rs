@@ -166,7 +166,7 @@ fn schema_all_columns_types_nullability_and_serde() -> Result<()> {
         value.insert("unreviewed_column".into(), json!(1));
         assert!((row.roundtrip)(Value::Object(value)).is_err());
     }
-    assert_eq!(total, 603);
+    assert_eq!(total, 729);
     Ok(())
 }
 

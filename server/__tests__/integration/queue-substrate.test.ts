@@ -135,6 +135,12 @@ let foundationInstalled = false;
  * one more pq_ function (pq_class_depth) exists and is granted.
  */
 let largeClassInstalled = false;
+/**
+ * True when the test database also carries migration 000026 (queue retention
+ * on top of 000024): three more pq_ functions (pq_class_parked,
+ * pq_queue_usage, pq_sweep) exist and are granted; the contract stays /3.
+ */
+let retentionInstalled = false;
 /** Public-fixture parent zid inside the scratch database. */
 const SCRATCH_ZID = 1;
 
@@ -666,6 +672,10 @@ beforeAll(async () => {
   largeClassInstalled = await sql(
     mainPool,
     "SELECT to_regclass('public.polis_queue_large_class_install') IS NOT NULL"
+  );
+  retentionInstalled = await sql(
+    mainPool,
+    "SELECT to_regclass('public.polis_queue_retention_install') IS NOT NULL"
   );
   if (foundationInstalled) {
     await expect(runMigration(mainPool)).rejects.toThrow(/queue catalog drift/);
@@ -1639,8 +1649,17 @@ describe("P-024 queue substrate protocol", () => {
       "pq_reap(text,uuid,integer,text)",
       "pq_release(text,uuid,uuid,uuid,bigint,boolean)",
     ];
+    // 000026 adds pq_class_parked, pq_queue_usage, pq_sweep, the breaker's
+    // trigger function and the retention mark and candidates: six, all
+    // pinning both.
     expect(functions).toHaveLength(
-      largeClassInstalled ? 29 : foundationInstalled ? 28 : 21
+      retentionInstalled
+        ? 35
+        : largeClassInstalled
+          ? 29
+          : foundationInstalled
+            ? 28
+            : 21
     );
     const utcUnpinned: string[] = [];
     for (const fn of functions) {
@@ -1660,7 +1679,7 @@ describe("P-024 queue substrate protocol", () => {
     ).toBe(false);
   }, 30000);
 
-  it("40. grants EXECUTE to the executor on exactly the twelve RPCs (plus the three /2 names once 000023 is in place, plus pq_class_depth once 000024 is)", async () => {
+  it("40. grants EXECUTE to the executor on exactly the twelve RPCs (plus the three /2 names once 000023 is in place, plus pq_class_depth once 000024 is, plus three once 000026 is)", async () => {
     const acl = await rows(
       mainPool,
       "SELECT p.proname, has_function_privilege('polis_queue_executor', p.oid, 'EXECUTE') AS granted " +
@@ -1692,6 +1711,10 @@ describe("P-024 queue substrate protocol", () => {
           : []),
         // 000024 grants the class depth read.
         ...(largeClassInstalled ? ["pq_class_depth"] : []),
+        // 000026 grants the parked read, the usage read and the sweep.
+        ...(retentionInstalled
+          ? ["pq_class_parked", "pq_queue_usage", "pq_sweep"]
+          : []),
       ].sort()
     );
     expect(acl.length).toBeGreaterThan(granted.length);

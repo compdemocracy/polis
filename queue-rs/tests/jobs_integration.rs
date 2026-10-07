@@ -70,16 +70,16 @@ fn exists(admin: &mut Client, db: &str) -> bool {
         .is_some()
 }
 
-/// Build `jobs_base` (chain to 000022), `jobs_v2` (+ the repository's 000023)
-/// and `jobs_v3` (+ the repository's 000024) once.
+/// Build `jobs_base` (chain to 000022), `jobs_v2` (+ the repository's 000023),
+/// `jobs_v3` (+ the repository's 000024) and `jobs_v4` (+ 000026) once.
 fn ensure_templates() {
     let mut done = TEMPLATE.lock().unwrap();
     if *done {
         return;
     }
     let mut admin = Client::connect(&admin_url(), NoTls).unwrap();
-    if !exists(&mut admin, "jobs_v3") {
-        for db in ["jobs_v3", "jobs_v2", "jobs_base"] {
+    if !exists(&mut admin, "jobs_v4") {
+        for db in ["jobs_v4", "jobs_v3", "jobs_v2", "jobs_base"] {
             admin
                 .batch_execute(&format!("DROP DATABASE IF EXISTS {db}"))
                 .unwrap();
@@ -106,9 +106,17 @@ fn ensure_templates() {
             })
             .collect();
         let expected: Vec<u32> = (0..=24).filter(|n| *n != 20).collect();
-        assert_eq!(numbers, expected, "complete 000000-000024 chain required");
+        let head: Vec<u32> = numbers.iter().copied().filter(|n| *n <= 24).collect();
+        assert_eq!(head, expected, "complete 000000-000024 chain required");
+        assert!(
+            numbers.contains(&25) && numbers.contains(&26),
+            "000025 (the vote convention and the migration ledger) and 000026 (queue retention) required for jobs_v4"
+        );
         // `jobs_base` stops before the foundation: it is the polis-queue/1
         // shape the "contract missing" start refusal is proven against.
+        // `jobs_v4` alone carries the files after 000024: 000025 (the vote
+        // convention and the migration ledger 000026 records itself in) and
+        // 000026.
         for (m, n) in chain.iter().zip(&numbers).filter(|(_, n)| **n <= 22) {
             base.batch_execute(&fs::read_to_string(m).unwrap())
                 .unwrap_or_else(|e| panic!("{n:06}: {e}"));
@@ -139,6 +147,19 @@ fn ensure_templates() {
         let mut v3 = Client::connect(&url_for("jobs_v3", "postgres"), NoTls).unwrap();
         v3.batch_execute(
             &fs::read_to_string(dir.join("000024_create_polis_queue_large_class.sql")).unwrap(),
+        )
+        .unwrap();
+        drop(v3);
+        // `jobs_v4`: 000025 (the ledger) then 000026, queue retention, the
+        // parked read and the dead-job breaker, on /3.
+        admin
+            .batch_execute("CREATE DATABASE jobs_v4 TEMPLATE jobs_v3")
+            .unwrap();
+        let mut v4 = Client::connect(&url_for("jobs_v4", "postgres"), NoTls).unwrap();
+        v4.batch_execute(&fs::read_to_string(dir.join("000025_vote_convention.sql")).unwrap())
+            .unwrap();
+        v4.batch_execute(
+            &fs::read_to_string(dir.join("000026_create_polis_queue_retention.sql")).unwrap(),
         )
         .unwrap();
     }
@@ -1691,4 +1712,176 @@ fn schema_invalid_manifests_never_finalize() {
         assert!(digest.is_none(), "{mode}: no manifest receipt");
         assert_eq!(d.stop(), Some(0));
     }
+}
+
+/// The built-in sweep (000026, P-083, retention by reachability): with
+/// `POLIS_JOBS_SWEEP=1` an idle large worker sweeps once a day. As shipped
+/// every kind is a dry run: the line says what it would delete (the older
+/// finished rebuild of a product) and nothing goes. An UPDATE of the policy
+/// table, no migration, turns deletion on: the next sweep tombstones the
+/// older rebuild and deletes nothing; the one after the grace purges it with
+/// its attempts and logs, keeps the latest (the promotion's receipt and the
+/// head's run) and its manifest row, and drops that one's output lines.
+/// Inside the next 24 hours the checks are not_due.
+#[test]
+fn the_built_in_sweep_dry_runs_then_tombstones_then_purges() {
+    let mut db = Db::new("jobs_v4");
+    let (old, scope) = db.enqueue("math_rebuild", 1, None, math(), 3);
+    let worker = start(
+        &db,
+        Opts::new("sweep-run", "success").set("POLIS_JOBS_WORKER_CLASS", "large"),
+    );
+    db.wait_state(old, "succeeded", 60);
+    db.wait("the first scope released", 30, |d| {
+        d.guard(&scope).is_none()
+    });
+    let (new, _) = db.enqueue("math_rebuild", 1, None, math(), 3);
+    db.wait_state(new, "succeeded", 60);
+    assert_eq!(worker.stop(), Some(0));
+    let (old_attempt, new_attempt) = (db.attempts(old)[0].0, db.attempts(new)[0].0);
+    db.sql
+        .batch_execute(&format!(
+            "UPDATE polis_queue_jobs SET updated_at=now()-interval '31 days' WHERE env='{ENV}';
+             UPDATE polis_queue_jobs SET updated_at=now()-interval '32 days' WHERE env='{ENV}' AND job_id='{old}';
+             UPDATE polis_queue_attempts SET ended_at=now()-interval '31 days' WHERE env='{ENV}'"
+        ))
+        .unwrap();
+    let streams = |d: &mut Db, attempt: Uuid| -> Vec<String> {
+        d.sql
+            .query(
+                "SELECT DISTINCT stream FROM polis_queue_logs WHERE env=$1 AND attempt_id=$2 ORDER BY 1",
+                &[&ENV, &attempt],
+            )
+            .unwrap()
+            .iter()
+            .map(|r| r.get(0))
+            .collect()
+    };
+    let jobs = |d: &mut Db| -> Vec<Uuid> {
+        d.sql
+            .query(
+                "SELECT job_id FROM polis_queue_jobs WHERE env=$1 ORDER BY job_id",
+                &[&ENV],
+            )
+            .unwrap()
+            .iter()
+            .map(|r| r.get(0))
+            .collect()
+    };
+    let mut both = vec![old, new];
+    both.sort();
+    assert!(streams(&mut db, new_attempt).contains(&"manifest".to_owned()));
+    assert!(
+        streams(&mut db, new_attempt).len() > 1,
+        "the child wrote output"
+    );
+    let sweeper = start(
+        &db,
+        Opts::new("sweeper", "success")
+            .set("POLIS_JOBS_WORKER_CLASS", "large")
+            .set("POLIS_JOBS_SWEEP", "1")
+            .set("POLIS_JOBS_SWEEP_CHECK_SECONDS", "1"),
+    );
+    let sweep_lines = |d: &Daemon| -> Vec<Value> {
+        d.log()
+            .lines()
+            .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+            .filter(|v| v["schema"] == "polis_jobs.sweep/1")
+            .collect()
+    };
+    // 1. The shipped dry run.
+    db.wait("a sweep line", 30, |_| !sweep_lines(&sweeper).is_empty());
+    let line = sweep_lines(&sweeper).remove(0);
+    assert_eq!(line["env"], ENV, "{line}");
+    assert_eq!(line["stopped_by"], "", "{line}");
+    assert_eq!(line["dry_run"], true, "{line}");
+    assert_eq!(line["would"]["would_job_succeeded"], 1, "{line}");
+    assert_eq!(line["jobs_deleted"], 0, "{line}");
+    assert_eq!(line["jobs_tombstoned"], 0, "{line}");
+    assert_eq!(jobs(&mut db), both, "a dry run deletes nothing");
+    // 2. Deletion on by an UPDATE of the policy; the next day's sweep tombstones.
+    db.sql
+        .batch_execute(&format!(
+            "BEGIN;
+             UPDATE polis_queue_retention_policy SET action='delete';
+             UPDATE polis_queue_sweeps SET started_at=started_at-interval '25 hours', finished_at=finished_at-interval '25 hours' WHERE env='{ENV}';
+             COMMIT;"
+        ))
+        .unwrap();
+    db.wait("a second sweep line", 30, |_| {
+        sweep_lines(&sweeper).len() >= 2
+    });
+    let line = sweep_lines(&sweeper).remove(1);
+    assert_eq!(line["dry_run"], false, "{line}");
+    assert_eq!(line["jobs_tombstoned"], 1, "{line}");
+    assert_eq!(line["jobs_deleted"], 0, "{line}");
+    assert_eq!(jobs(&mut db), both, "a tombstone deletes nothing");
+    // 3. After the grace the purge.
+    db.sql
+        .batch_execute(&format!(
+            "BEGIN;
+             UPDATE polis_queue_tombstones SET tombstoned_at=tombstoned_at-interval '8 days' WHERE env='{ENV}';
+             UPDATE polis_queue_sweeps SET started_at=started_at-interval '25 hours', finished_at=finished_at-interval '25 hours' WHERE env='{ENV}';
+             COMMIT;"
+        ))
+        .unwrap();
+    db.wait("a third sweep line", 30, |_| {
+        sweep_lines(&sweeper).len() >= 3
+    });
+    let line = sweep_lines(&sweeper).remove(2);
+    assert_eq!(line["jobs_deleted"], 1, "{line}");
+    assert_eq!(line["attempts_deleted"], 1, "{line}");
+    assert_eq!(
+        jobs(&mut db),
+        vec![new],
+        "the older success went, the latest stayed"
+    );
+    assert!(streams(&mut db, old_attempt).is_empty());
+    assert_eq!(streams(&mut db, new_attempt), vec!["manifest".to_owned()]);
+    let ledger: (i64, i64) = {
+        let r = db
+            .sql
+            .query_one(
+                "SELECT count(*), count(*) FILTER (WHERE pages=1 AND stopped_by='') FROM polis_queue_sweeps WHERE env=$1 AND finished_at IS NOT NULL",
+                &[&ENV],
+            )
+            .unwrap();
+        (r.get(0), r.get(1))
+    };
+    assert_eq!(ledger, (3, 3));
+    // Inside 24 hours the next checks are not_due: still three sweeps.
+    std::thread::sleep(Duration::from_secs(3));
+    assert_eq!(sweep_lines(&sweeper).len(), 3);
+    assert_eq!(sweeper.stop(), Some(0));
+}
+
+/// A database without 000026 has no `pq_sweep`: the sweep turns itself off
+/// for the process with one line, and the worker keeps running.
+#[test]
+fn the_sweep_turns_itself_off_without_000026() {
+    let mut db = Db::new("jobs_v3");
+    let mut d = start(
+        &db,
+        Opts::new("no-sweep", "success")
+            .set("POLIS_JOBS_WORKER_CLASS", "large")
+            .set("POLIS_JOBS_SWEEP", "1")
+            .set("POLIS_JOBS_SWEEP_CHECK_SECONDS", "1"),
+    );
+    db.wait("the sweep-off line", 30, |_| {
+        d.log()
+            .contains("polis_jobs sweep off: the database has no pq_sweep")
+    });
+    std::thread::sleep(Duration::from_secs(2));
+    assert!(
+        d.child.try_wait().unwrap().is_none(),
+        "the worker kept running"
+    );
+    assert_eq!(
+        d.log().matches("polis_jobs sweep off").count(),
+        1,
+        "said once"
+    );
+    let (job, _) = db.enqueue("math_rebuild", 1, None, math(), 3);
+    db.wait_state(job, "succeeded", 60);
+    assert_eq!(d.stop(), Some(0));
 }

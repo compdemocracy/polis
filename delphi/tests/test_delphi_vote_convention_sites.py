@@ -16,6 +16,7 @@ import pytest
 
 import polismath.utils.vote_convention as vc
 from polismath.utils.vote_convention import (
+    StorageConvention,
     SEMANTIC_AGREE,
     SEMANTIC_DISAGREE,
     SEMANTIC_PASS,
@@ -85,17 +86,31 @@ def test_math_stage_keeps_pass_as_pass(run_main):
     assert [v["vote"] for v in fed] == [SEMANTIC_PASS]
 
 
-def test_math_stage_reads_the_database_convention(run_main):
+def test_math_stage_reads_the_database_convention(run_main, monkeypatch):
     """With the vote_convention row (P-078 PR-A) at the other sign, the stage
-    converts each page by the row read in the same statement."""
+    converts each page by the row read in the same statement. The startup
+    check is stood down here (a build made for this sign refuses the other
+    sign before reading a vote; test_run_math_pipeline_main pins that), so
+    the per-page conversion itself is what this test observes."""
+    import polismath.run_math_pipeline as rmp
+
     other = vc.flipped(STORAGE_AGREE_VALUE)
+    monkeypatch.setattr(rmp, "require_vote_convention", lambda conn: StorageConvention(other, 1, "database"))
     rows = [
         (1000, 7, 1, storage_vote(SEMANTIC_AGREE, other)),
         (2000, 7, 2, storage_vote(SEMANTIC_DISAGREE, other)),
     ]
-    exit_code, fed = run_main(rows, convention_row=(1, other))
+    exit_code, fed = run_main(rows, convention_row=(1, other, 1))
     assert exit_code == 0
     assert {v["pid"]: v["vote"] for v in fed} == {"1": SEMANTIC_AGREE, "2": SEMANTIC_DISAGREE}
+
+
+def test_math_stage_refuses_a_database_declared_for_the_other_sign(run_main, capsys):
+    """A build made for this sign never reads a database declared for the other one."""
+    other = vc.flipped(STORAGE_AGREE_VALUE)
+    exit_code, fed = run_main([(1000, 7, 1, storage_vote(SEMANTIC_AGREE, other))], convention_row=(1, other, 1))
+    assert exit_code == 1 and fed is None
+    assert "every vote inverted" in capsys.readouterr().err
 
 
 def test_math_stage_fails_on_a_null_vote(run_main):

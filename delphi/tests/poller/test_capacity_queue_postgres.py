@@ -281,7 +281,10 @@ class TestTheContract:
             seed_conversation(db, zid, participants=3, comments=3)
         c = client(queue_db, env)
         depth = c.class_depth()
-        assert set(depth) == cq.DEPTH_FIELDS and depth["schema_version"] == "polis-queue/3"
+        # 000024 answers /3; 000026 (when the image bakes it) answers /4 with
+        # oldest_eligible_at.
+        assert (set(depth), depth["schema_version"]) in (
+            (cq.DEPTH_FIELDS, "polis-queue/3"), (cq.DEPTH_FIELDS_4, "polis-queue/4"))
         assert {k: depth[k] for k in cq.DEPTH_COUNTS} == {"queued": 0, "leased": 0, "parked": 0,
                                                           "dead": 0}
         assert depth["oldest_unresolved_created_at"] is None
@@ -291,6 +294,8 @@ class TestTheContract:
         depth = c.class_depth()
         assert (depth["queued"], depth["leased"], depth["dead"]) == (2, 0, 0)
         assert depth["oldest_unresolved_created_at"] is not None and depth["worker_class"] == "large"
+        if depth["schema_version"] == "polis-queue/4":
+            assert depth["oldest_eligible_at"] is not None
         assert (c.class_depth("delphi")["queued"], c.class_depth("delphi")["leased"]) == (0, 0)
         # The daemon claims one as worker class large: leased.
         daemon = Daemon(queue_db[1], env)

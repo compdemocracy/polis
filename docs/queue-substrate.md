@@ -492,6 +492,40 @@ the down restoring a byte-identical schema dump, apply again after the down,
 the down failing cleanly where 000024 (or 000023) was never applied, and
 000023's down unwinding the chain after it.
 
+## Retention, the parked read and the dead-job breaker (migration 000026)
+
+000026 follows 000025 (it records itself in the migration ledger) and keeps
+the install at `polis-queue/3`; `pq_class_depth`, `pq_class_parked`,
+`pq_queue_usage` and `pq_sweep` reply `polis-queue/4`.
+
+**Retention is by reachability.** A job is kept while something that matters
+reaches it: it is unfinished, pinned, an alias, a `delphi_current` pointer, the
+root of a held scope guard, on a head's run, holds an attempt without exit
+proof or an open provider request, is dead under an open breaker, or is an
+input or the parent of a reached job (`pq_retention_reached`). The rules are
+data in `polis_queue_retention_policy` (kind, keep_days, keep_last, action);
+changing retention is an UPDATE of that table, not a migration. Every kind
+ships as `dry_run`: `pq_sweep` reports `would_<kind>` counts and deletes
+nothing. A kind set to `delete` is deleted in two phases: the sweep first
+tombstones the row (`polis_queue_tombstones`; the row still exists, and
+removing the tombstone, or the row becoming reachable again, restores it),
+and purges it only after the `tombstone` kind's keep_days and only when that
+kind's action is `delete` too. Each page is bounded; the daemon runs it with
+`POLIS_JOBS_SWEEP=1`.
+
+**The dead-job breaker replaces 000024's latch** (same `poisoned` reply). It is
+a durable count per (env, zid, product), kept by a trigger as jobs end and
+never derived from rows retention may delete. Three consecutive dead jobs
+under one code image open it; for 24 hours admission answers `poisoned`;
+then it admits one probe job; the probe succeeding closes it, the probe dying
+re-opens it for 24 hours, a cancelled probe frees the slot. A new image
+resets it. The dead jobs it counts are reached, so the sweep keeps them while
+it is open. Apply-time history seeds it.
+
+Reversal: `down/000026_drop_polis_queue_retention.sql`, before 000025's and
+000024's downs; it refuses once a sweep has purged a row. Proven by
+`server/postgres/migrations/down/test_000026_down.sh`.
+
 ## Gates still open
 
 None of the eight acceptance gates has been earned. They must run from both

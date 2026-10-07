@@ -107,6 +107,13 @@ pub struct Config {
     pub shutdown_grace: Duration,
     pub kill_grace: Duration,
     pub reap_interval: Duration,
+    /// The built-in queue sweep (000026, P-083): off unless
+    /// `POLIS_JOBS_SWEEP=1`; at most `sweep_max_pages` pages per sweep; page 1
+    /// asked every `sweep_check` while idle (the SQL answers not_due within
+    /// 24 h of the last sweep).
+    pub sweep: bool,
+    pub sweep_max_pages: u32,
+    pub sweep_check: Duration,
     pub boot_id: String,
     pub container_id: String,
 }
@@ -234,6 +241,13 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
     let shutdown_grace = number(&get, "POLIS_JOBS_SHUTDOWN_GRACE_SECONDS", 30, 0, 3600)?;
     let kill_grace = number(&get, "POLIS_JOBS_KILL_GRACE_SECONDS", 10, 0, 3600)?;
     let reap = number(&get, "POLIS_JOBS_REAP_SECONDS", lease, 1, 3600)?;
+    let sweep = match get("POLIS_JOBS_SWEEP").as_deref() {
+        None | Some("0") => false,
+        Some("1") => true,
+        Some(_) => return err("POLIS_JOBS_SWEEP must be 0 or 1"),
+    };
+    let sweep_max_pages = number(&get, "POLIS_JOBS_SWEEP_MAX_PAGES", 100, 1, 1000)?;
+    let sweep_check = number(&get, "POLIS_JOBS_SWEEP_CHECK_SECONDS", 900, 1, 86400)?;
     let journal_dir = PathBuf::from(
         get("POLIS_JOBS_JOURNAL_DIR").unwrap_or_else(|| "/var/lib/polis-jobs/journal".into()),
     );
@@ -280,6 +294,9 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
         shutdown_grace: Duration::from_secs(shutdown_grace),
         kill_grace: Duration::from_secs(kill_grace),
         reap_interval: Duration::from_secs(reap),
+        sweep,
+        sweep_max_pages: sweep_max_pages as u32,
+        sweep_check: Duration::from_secs(sweep_check),
         boot_id,
         container_id,
     })))
@@ -399,10 +416,48 @@ mod tests {
         assert_eq!(c.shutdown_grace, Duration::from_secs(30));
         assert_eq!(c.kill_grace, Duration::from_secs(10));
         assert_eq!(c.reap_interval, Duration::from_secs(120));
+        assert!(!c.sweep);
+        assert_eq!(c.sweep_max_pages, 100);
+        assert_eq!(c.sweep_check, Duration::from_secs(900));
         assert_eq!(
             c.stages.iter().map(String::as_str).collect::<Vec<_>>(),
             vec!["delphi_full_pipeline", "delphi_narrative"]
         );
+    }
+
+    #[test]
+    fn the_sweep_is_off_unless_exactly_one_and_bounded() {
+        let mut pairs = BASE.to_vec();
+        pairs.push(("POLIS_JOBS_SWEEP", "1"));
+        pairs.push(("POLIS_JOBS_SWEEP_MAX_PAGES", "7"));
+        pairs.push(("POLIS_JOBS_SWEEP_CHECK_SECONDS", "2"));
+        let c = ready(&pairs);
+        assert!(c.sweep);
+        assert_eq!(
+            (c.sweep_max_pages, c.sweep_check),
+            (7, Duration::from_secs(2))
+        );
+        for (k, v, msg) in [
+            (
+                "POLIS_JOBS_SWEEP",
+                "true",
+                "POLIS_JOBS_SWEEP must be 0 or 1",
+            ),
+            (
+                "POLIS_JOBS_SWEEP_MAX_PAGES",
+                "0",
+                "POLIS_JOBS_SWEEP_MAX_PAGES must be an integer in 1..=1000",
+            ),
+            (
+                "POLIS_JOBS_SWEEP_CHECK_SECONDS",
+                "0",
+                "POLIS_JOBS_SWEEP_CHECK_SECONDS must be an integer in 1..=86400",
+            ),
+        ] {
+            let mut pairs = BASE.to_vec();
+            pairs.push((k, v));
+            assert_eq!(with(&pairs).err().map(|e| e.0), Some(msg.into()), "{k}={v}");
+        }
     }
 
     #[test]
