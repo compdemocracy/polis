@@ -124,14 +124,21 @@ NULLABLE_COUNT_KEYS = frozenset(("oldest_unresolved_age_ms", "large_leased", "la
 # The capacity line's REVISION (``rev``), a minor version under the same
 # schema string. Each revision only ADDS keys to the counts; the table says
 # which keys each one added, and ``CAPACITY_REV`` is the revision this emitter
-# writes. A line (or readiness ``capacity`` object) without ``rev`` predates
-# revisioning and is revision 1. During a mixed deploy, and for retained log
-# history, decoders read every revision from 1 to ``CAPACITY_REV +
-# REV_FORWARD``: a line of an older revision carries exactly its own keys (the
-# newer ones decode as null); a line of a newer revision must carry every key
-# this decoder knows, and the keys its newer revision declared are checked as
-# counts and dropped, never relayed (``decode_counts``).
-CAPACITY_REV_KEYS: Dict[int, Tuple[str, ...]] = {1: COUNT_KEYS}
+# writes. Revision 1 is production's line (P-073 PR3, nine counts); revision 2
+# added the queue's ``large_leased``, ``large_poisoned`` (r2) and
+# ``large_parked``. Lines logged before revisioning carry no ``rev``: they are
+# revision 1 or 2, told apart by their keys (``UNREVISIONED``). During a mixed
+# deploy, and for retained log history, decoders read every revision from 1 to
+# ``CAPACITY_REV + REV_FORWARD``: a line of an older revision carries exactly
+# its own keys (the newer ones decode as null); a line of a newer revision
+# must carry every key this decoder knows, and the keys its newer revision
+# declared are checked as counts and dropped, never relayed (``decode_counts``).
+CAPACITY_REV_KEYS: Dict[int, Tuple[str, ...]] = {
+    1: ("routing", "large_demand", "pending_promotion", "exceeds_largest", "fits_small",
+        "oldest_unresolved_age_ms", "refusals_total", "routed_total", "promoted_total"),
+    2: ("large_leased", "large_poisoned", "large_parked"),
+}
+UNREVISIONED = (1, 2)
 CAPACITY_REV = max(CAPACITY_REV_KEYS)
 REV_FORWARD = 8
 LINE_KEYS = ("schema", "class", "role", "label", "rev") + COUNT_KEYS
@@ -824,7 +831,11 @@ def decode_counts(counts: Any, *, nullable: bool = False) -> Dict[str, Any]:
     validated as counts and dropped."""
     if not isinstance(counts, dict):
         raise ValueError("expected an object")
-    rev = counts.get("rev", 1)
+    if "rev" in counts:
+        rev = counts["rev"]
+    else:
+        keys = set(counts)
+        rev = next((r for r in UNREVISIONED if set(keys_through(r)) == keys), UNREVISIONED[-1])
     if type(rev) is not int or not 1 <= rev <= CAPACITY_REV + REV_FORWARD:
         raise ValueError(f"capacity revision must be 1..{CAPACITY_REV + REV_FORWARD}")
     expected = keys_through(rev)
@@ -895,7 +906,8 @@ def parse_line(line: str) -> Optional[Dict[str, Any]]:
 
 __all__ = [
     "CAPACITY_REV", "CAPACITY_REV_KEYS", "CLASS_LARGE", "CLASS_SMALL", "COUNT_KEYS",
-    "CapacityConfigError", "CapacityRouter", "REV_FORWARD", "decode_counts", "keys_through",
+    "CapacityConfigError", "CapacityRouter", "REV_FORWARD", "UNREVISIONED", "decode_counts",
+    "keys_through",
     "CapacitySettings", "DISPOSITIONS", "Disposition", "EXCEEDS_LARGEST", "LARGE",
     "LARGE_COUNT_KEYS", "LARGE_LINE_KEYS", "LINE_KEYS", "LINE_SCHEMA", "NULLABLE_COUNT_KEYS",
     "REFUSALS", "SMALL", "build_line", "emit_line", "parse_line", "validate_counts",
