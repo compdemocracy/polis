@@ -9,7 +9,7 @@
 //     readiness.py: STALE_KEYS, parse_stale.
 //   {"schema":"math_poller.capacity/1", ...}
 //     delphi/polismath/poller/capacity.py: LINE_KEYS, LARGE_LINE_KEYS,
-//     validate_counts, validate_large_counts, parse_line.
+//     CAPACITY_REV_KEYS, decode_counts, validate_large_counts, parse_line.
 //
 // A line that does not match its closed shape throws, and the caller counts
 // it as malformed; it is never relayed. Every value that leaves is a count, a
@@ -95,7 +95,47 @@ export const COUNT_KEYS = [
   "refusals_total",
   "routed_total",
   "promoted_total",
+  // P-084 (admission): the queued-job cap and the queue's reachability.
+  "queue_full",
+  "queue_unreachable",
+  // P-086 (observability, migration 000026): null without their read.
+  "large_dead",
+  "oldest_queued_age_ms",
+  "queue_bytes",
+  "sweep_age_ms",
 ] as const;
+/**
+ * capacity.py CAPACITY_REV_KEYS: the capacity line's revision (`rev`, a minor
+ * version under the same schema string) and the keys each revision ADDED.
+ * Revision 1 is production's nine counts; revision 2 added large_leased,
+ * large_poisoned and large_parked. A line or readiness `capacity` object
+ * without `rev` predates revisioning: revision 1 or 2, told apart by its keys
+ * (UNREVISIONED). decodeCounts reads revisions 1..CAPACITY_REV + REV_FORWARD,
+ * so a rolling deploy (old and new pollers logging at once) and retained log
+ * history keep parsing on either side.
+ */
+export const CAPACITY_REV_KEYS: Record<number, readonly string[]> = {
+  1: [
+    "routing",
+    "large_demand",
+    "pending_promotion",
+    "exceeds_largest",
+    "fits_small",
+    "oldest_unresolved_age_ms",
+    "refusals_total",
+    "routed_total",
+    "promoted_total",
+  ],
+  2: ["large_leased", "large_poisoned", "large_parked"],
+  3: ["queue_full", "queue_unreachable"], // P-084 (admission)
+  // P-086 (observability, migration 000026)
+  4: ["large_dead", "oldest_queued_age_ms", "queue_bytes", "sweep_age_ms"],
+};
+export const UNREVISIONED = [1, 2] as const;
+export const CAPACITY_REV = Math.max(
+  ...Object.keys(CAPACITY_REV_KEYS).map(Number)
+);
+export const REV_FORWARD = 8;
 export const LARGE_COUNT_KEYS = [
   "busy",
   "queued",
@@ -254,7 +294,7 @@ export function validateLine(body: unknown): asserts body is Json {
     for (const k of ADMISSION_KEYS) count(b.admission[k], k === "budget_mb");
   }
   if (b.capacity !== undefined && b.capacity !== null) {
-    validateCounts(b.capacity);
+    b.capacity = decodeCounts(b.capacity);
   }
 }
 
@@ -291,18 +331,76 @@ const NULLABLE_COUNT_KEYS = [
   "oldest_unresolved_age_ms",
   "large_leased",
   "large_parked",
+  "large_dead",
+  "oldest_queued_age_ms",
+  "queue_bytes",
+  "sweep_age_ms",
 ] as const;
 
-/** capacity.py validate_counts. */
-export function validateCounts(counts: unknown, nullable = false): void {
-  closed(counts, COUNT_KEYS);
-  for (const k of COUNT_KEYS) {
+const FORWARD_KEY_RE = /^[a-z][a-z0-9_]{0,63}$/;
+
+/** capacity.py keys_through: the count keys a line of revision `rev` carries. */
+export function keysThrough(rev: number): string[] {
+  return Object.keys(CAPACITY_REV_KEYS)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .filter((r) => r <= rev)
+    .flatMap((r) => [...CAPACITY_REV_KEYS[r]]);
+}
+
+/**
+ * capacity.py decode_counts: the counts of any revision 1..CAPACITY_REV +
+ * REV_FORWARD, validated, as this parser's closed shape: every COUNT_KEYS key
+ * (null where the line's older revision lacks it) plus `rev`. A newer
+ * revision must still carry every key this parser knows; the keys it declared
+ * beyond them are checked as counts and dropped, never relayed.
+ */
+export function decodeCounts(counts: unknown, nullable = false): Json {
+  if (!counts || typeof counts !== "object" || Array.isArray(counts)) {
+    fail("object");
+  }
+  const c = counts as Json;
+  const keys = Object.keys(c).sort().join(",");
+  const rev =
+    "rev" in c
+      ? c.rev
+      : UNREVISIONED.find(
+          (r) => [...keysThrough(r)].sort().join(",") === keys
+        ) ?? UNREVISIONED[UNREVISIONED.length - 1];
+  if (
+    typeof rev !== "number" ||
+    !Number.isSafeInteger(rev) ||
+    rev < 1 ||
+    rev > CAPACITY_REV + REV_FORWARD
+  ) {
+    fail("rev");
+  }
+  const expected = keysThrough(rev);
+  const have = Object.keys(c).filter((k) => k !== "rev");
+  if (expected.some((k) => !have.includes(k)))
+    fail(`keys ${expected.join(",")}`);
+  const extra = have.filter((k) => !expected.includes(k));
+  if (extra.length && rev <= CAPACITY_REV)
+    fail(`undeclared ${extra.join(",")}`);
+  for (const k of extra) {
+    if (!FORWARD_KEY_RE.test(k)) fail("key");
+    count(c[k], true);
+  }
+  for (const k of expected) {
     count(
-      counts[k],
+      c[k],
       nullable || (NULLABLE_COUNT_KEYS as readonly string[]).includes(k)
     );
   }
-  if (![null, 0, 1].includes(counts.routing)) fail("routing");
+  if (![null, 0, 1].includes(c.routing)) fail("routing");
+  const out: Json = { rev };
+  for (const k of COUNT_KEYS) out[k] = k in c ? c[k] : null;
+  return out;
+}
+
+/** capacity.py validate_counts. */
+export function validateCounts(counts: unknown, nullable = false): void {
+  decodeCounts(counts, nullable);
 }
 
 /** capacity.py validate_large_counts. */
@@ -329,13 +427,25 @@ export function parseCapacity(line: string): Json | null {
   oneOf(b.class, ["small", "large"]);
   oneOf(b.role, ROLES);
   const large = b.class === "large";
-  closed(b, [...CAPACITY_HEAD, ...(large ? LARGE_COUNT_KEYS : COUNT_KEYS)]);
   if (typeof b.label !== "string") fail("label");
   const nullable = b.role !== "primary";
-  const counts: Json = {};
-  for (const k of large ? LARGE_COUNT_KEYS : COUNT_KEYS) counts[k] = b[k];
-  if (large) validateLargeCounts(counts, nullable);
-  else validateCounts(counts, nullable);
   // The label is a free string in the schema; only a plain label is shown.
-  return { ...b, label: LABEL_RE.test(b.label) ? b.label : "other" };
+  const head: Json = {
+    schema: b.schema,
+    class: b.class,
+    role: b.role,
+    label: LABEL_RE.test(b.label) ? b.label : "other",
+  };
+  if (large) {
+    closed(b, [...CAPACITY_HEAD, ...LARGE_COUNT_KEYS]);
+    const counts: Json = {};
+    for (const k of LARGE_COUNT_KEYS) counts[k] = b[k];
+    validateLargeCounts(counts, nullable);
+    return { ...b, label: head.label };
+  }
+  const counts: Json = {};
+  for (const [k, v] of Object.entries(b)) {
+    if (!(CAPACITY_HEAD as readonly string[]).includes(k)) counts[k] = v;
+  }
+  return { ...head, ...decodeCounts(counts, nullable) };
 }

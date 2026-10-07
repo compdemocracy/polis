@@ -281,7 +281,10 @@ class TestTheContract:
             seed_conversation(db, zid, participants=3, comments=3)
         c = client(queue_db, env)
         depth = c.class_depth()
-        assert set(depth) == cq.DEPTH_FIELDS and depth["schema_version"] == "polis-queue/3"
+        # 000024 answers /3; 000026 (when the image bakes it) answers /4 with
+        # oldest_eligible_at.
+        assert (set(depth), depth["schema_version"]) in (
+            (cq.DEPTH_FIELDS, "polis-queue/3"), (cq.DEPTH_FIELDS_4, "polis-queue/4"))
         assert {k: depth[k] for k in cq.DEPTH_COUNTS} == {"queued": 0, "leased": 0, "parked": 0,
                                                           "dead": 0}
         assert depth["oldest_unresolved_created_at"] is None
@@ -291,6 +294,18 @@ class TestTheContract:
         depth = c.class_depth()
         assert (depth["queued"], depth["leased"], depth["dead"]) == (2, 0, 0)
         assert depth["oldest_unresolved_created_at"] is not None and depth["worker_class"] == "large"
+        if depth["schema_version"] == "polis-queue/4":
+            assert depth["oldest_eligible_at"] is not None
+            # 000026's usage read through the closed inventory (P-086).
+            usage = c.queue_usage()
+            assert set(usage) == cq.USAGE_FIELDS and usage["queue_bytes"] > 0
+            router = router_for(large)
+            router.set_queue_depth(depth)
+            router.set_queue_usage(usage)
+            counts = router.counts()
+            validate_counts(counts)
+            assert counts["queue_bytes"] == usage["queue_bytes"]
+            assert counts["oldest_queued_age_ms"] is not None and counts["large_dead"] == 0
         assert (c.class_depth("delphi")["queued"], c.class_depth("delphi")["leased"]) == (0, 0)
         # The daemon claims one as worker class large: leased.
         daemon = Daemon(queue_db[1], env)
@@ -336,6 +351,40 @@ class TestTheContract:
         assert c.job_status(first[1])["state"] == "cancelled"
         assert not c.receipt(first[1]).finalized
 
+    def test_one_binding_per_intent_however_often_it_is_asked(self, queue_db, db, env, labels):
+        """P-084: the request key is the intent's digest. Asking the same
+        unresolved demand again and again keeps one binding row (two once the
+        producer knows its job: the first ask's and the known job's), never a
+        row per ask; a newer watermark is a new intent and, while the job is
+        active, a conflict that writes no row."""
+        small, large = labels
+        (zid,) = fresh_zids(1)
+        seed_conversation(db, zid, participants=3, comments=3)
+        c = client(queue_db, env)
+        cfg = config_for(zid, small, large, input_ms=5)
+        rows = lambda: q(db, "SELECT count(*) FROM polis_queue_requests WHERE env=%s",
+                         (env,))[0][0]
+        outcome, job_id = c.enqueue_math_rebuild(zid, config=cfg, staged_label=large,
+                                                 target_label=small)
+        assert outcome == "enqueued" and rows() == 1
+        for _ in range(5):
+            assert c.enqueue_math_rebuild(zid, config=cfg, staged_label=large,
+                                          target_label=small) == ("existing", job_id)
+        assert rows() == 1
+        for _ in range(5):
+            assert c.enqueue_math_rebuild(zid, config=cfg, staged_label=large, target_label=small,
+                                          known_job=job_id) == ("existing", job_id)
+        assert rows() == 2
+        newer = config_for(zid, small, large, input_ms=9)
+        for _ in range(3):
+            assert c.enqueue_math_rebuild(zid, config=newer, staged_label=large,
+                                          target_label=small,
+                                          known_job=job_id) == ("conflict", job_id)
+        assert rows() == 2 and jobs(db, env) == 1
+        actors = q(db, "SELECT DISTINCT actor_scope FROM polis_queue_requests WHERE env=%s",
+                   (env,))
+        assert actors == [(f"math-poller:{env}",)]
+
     def test_a_running_jobs_scope_is_kept_until_its_exit_is_proven(self, queue_db, db, env,
                                                                    labels):
         """A cancelled job the daemon still runs keeps its guard: the release
@@ -363,9 +412,11 @@ class TestTheContract:
                                                 target_label=small)
         assert outcome == "enqueued" and fresh != job_id
 
-    def test_three_deaths_poison_the_scope_and_park_the_record(self, queue_db, db, env, labels):
+    def test_three_deaths_poison_the_scope_and_park_the_record(self, queue_db, db, env, labels,
+                                                                monkeypatch):
         """Finding 2: dead x3 -> poisoned, no unlimited re-admission; a new
         source commit admits again."""
+        monkeypatch.setattr(cq, "SCOPE_DAILY_CAP", 1000)     # four jobs in one day here
         small, large = labels
         (zid,) = fresh_zids(1)
         seed_conversation(db, zid, participants=3, comments=3)

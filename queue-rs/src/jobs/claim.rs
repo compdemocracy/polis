@@ -346,7 +346,14 @@ pub fn run(cfg: Config) -> i32 {
         }
         if Instant::now() >= next_poll {
             wake = true;
-            next_poll = Instant::now() + cfg.poll;
+            // P-082: with the LISTEN connection up a NOTIFY wakes the pass,
+            // so the fallback poll is the idle one; without it, every poll.
+            next_poll = Instant::now()
+                + if listener.is_some() {
+                    cfg.idle_poll
+                } else {
+                    cfg.poll
+                };
         }
         while wake && jobs.len() < cfg.concurrency && !shutdown::requested() {
             match claim_one(&mut rpc, &ctx, &cfg, &owner) {

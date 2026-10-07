@@ -82,9 +82,13 @@ class FakeQueue:
         self.depth = {"queued": 0, "leased": 0, "parked": 0, "dead": 0}
         self.receipts = {}      # job_id -> Receipt, once finalized
         self.poisoned = {}      # scope -> the latest dead job id
+        self.known = []         # known_job of each ask
+        self.oldest_eligible_at = None   # set: a 000026 depth reply
+        self.usage = None                # set: 000026's pq_queue_usage reply
 
-    def enqueue_math_rebuild(self, zid, *, config, staged_label, target_label):
+    def enqueue_math_rebuild(self, zid, *, config, staged_label, target_label, known_job=None):
         self.calls.append((zid, dict(config), staged_label, target_label))
+        self.known.append(known_job)
         if self.fail is not None:
             raise self.fail
         scope = cq.scope_key(target_label, zid)
@@ -124,9 +128,18 @@ class FakeQueue:
         return cq.Receipt(job_id=job_id, state=self.jobs[job_id]["state"], output_sha256=None)
 
     def class_depth(self, worker_class="large"):
-        return {"schema_version": "polis-queue/3", "outcome": "class_depth", "env": "test",
-                "worker_class": worker_class, "oldest_unresolved_created_at": None,
-                **self.depth}
+        reply = {"schema_version": "polis-queue/3", "outcome": "class_depth", "env": "test",
+                 "worker_class": worker_class, "oldest_unresolved_created_at": None,
+                 **self.depth}
+        if self.oldest_eligible_at is not None:
+            reply.update(schema_version="polis-queue/4",
+                         oldest_eligible_at=self.oldest_eligible_at)
+        return reply
+
+    def queue_usage(self):
+        if self.usage is None:
+            raise psycopg2.errors.UndefinedFunction("pq_queue_usage does not exist")
+        return dict(self.usage)
 
 
 class FakePg:
@@ -159,6 +172,9 @@ def service(*, routing=True, queue="fake", limit_mb=1000, dsn=None):
         svc.capacity_queue = FakeQueue()
         if svc.capacity_loop is not None:
             svc.capacity_loop._queue = svc.capacity_queue
+        # The fake answers, so routing is allowed (P-084: the service refuses
+        # it until the queue has answered once).
+        svc.capacity.set_queue_refused(None)
     return svc
 
 
@@ -211,6 +227,7 @@ class TestEnqueueOnWouldNotFit:
                                 capacity=CapacityRouter(adm, CapacitySettings(
                                     routing=True, staged_label=STAGED, large_budget_mb=600)))
         svc.capacity_queue = FakeQueue()
+        svc.capacity.set_queue_refused(None)
         assert cold_touch(svc, 7, 850, monkeypatch) is True
         assert svc.capacity_queue.calls == []
         assert svc.capacity.counts()["exceeds_largest"] == 1
@@ -233,16 +250,23 @@ class TestEnqueueOnWouldNotFit:
         assert "enqueue of zid=7 failed (OperationalError)" in caplog.text
         assert "down" not in caplog.text                          # the class only
 
-    def test_without_a_queue_dsn_routing_still_works_and_says_so(self, monkeypatch, caplog):
+    def test_without_a_queue_dsn_routing_is_refused_and_says_so(self, monkeypatch, caplog):
+        """P-084: no queue, no routing. The conversation is computed here
+        (as with routing off) and the line says queue_unreachable=1."""
         with caplog.at_level(logging.ERROR):
             svc = service(queue=None)
         assert svc.capacity_queue is None and svc.capacity_loop is not None
-        assert "routing is on without MATH_CAPACITY_QUEUE_DSN" in caplog.text
-        assert cold_touch(svc, 7, 850, monkeypatch) is True
-        assert svc.capacity.record(7).job_id is None
+        assert "routing is on without MATH_CAPACITY_QUEUE_DSN; routing refused" in caplog.text
+        assert svc.capacity.routing is False
+        assert svc.capacity.queue_refused == "queue_dsn_missing"
+        assert cold_touch(svc, 7, 850, monkeypatch) is False       # computed here
+        svc._compute_and_publish.assert_called_once()
+        counts = svc.capacity.counts()
+        validate_counts(counts)
+        assert (counts["routing"], counts["queue_unreachable"]) == (1, 1)
 
     def test_a_queue_dsn_builds_a_client_that_never_connects_at_construction(self):
-        svc = service(queue=None, dsn="postgresql://generated:generated@127.0.0.1:1/generated")
+        svc = service(queue=None, dsn="postgresql://generated@127.0.0.1:1/generated")
         assert isinstance(svc.capacity_queue, cq.QueueClient)
         assert svc.capacity_queue.describe() == "env=test"
         assert svc.capacity_loop._queue is svc.capacity_queue
@@ -557,10 +581,46 @@ class TestCapacityLineCounts:
         c = snap["capacity"]
         assert (c["large_demand"], c["large_leased"], c["large_parked"], c["large_poisoned"]) \
             == (3, 2, 1, 0)
-        assert set(c) == set(COUNT_KEYS) and "capacity_line" not in snap
+        assert set(c) == set(COUNT_KEYS) | {"rev"} and "capacity_line" not in snap
         validate_counts(c)
         line = parse_line(build_line("primary", SMALL_LABEL, c))
         assert (line["large_demand"], line["large_leased"], line["large_parked"]) == (3, 2, 1)
+
+    def test_the_observability_keys_come_from_the_queue(self):
+        """P-086, the keys the CDK filters read (cdk/workerClasses.ts):
+        large_dead from the depth, oldest_queued_age_ms from 000026's
+        oldest_eligible_at, queue_bytes and sweep_age_ms from
+        pq_queue_usage; every one null without its read, never 0."""
+        from datetime import datetime, timezone
+
+        svc = service()
+        now = svc.capacity._clock()
+        stamp = lambda ms: datetime.fromtimestamp((now - ms) / 1000, tz=timezone.utc).isoformat()
+        q = svc.capacity_queue
+        q.depth = {"queued": 1, "leased": 0, "parked": 0, "dead": 2}
+        q.oldest_eligible_at = stamp(90_000)
+        q.usage = {"schema_version": "polis-queue/4", "outcome": "queue_usage", "env": "test",
+                   "queue_bytes": 811_008, "last_sweep_finished_at": stamp(3_600_000)}
+        c = svc.readiness_snapshot()["capacity"]
+        validate_counts(c)
+        assert c["large_dead"] == 2 and c["queue_bytes"] == 811_008
+        assert 90_000 <= c["oldest_queued_age_ms"] < 91_000
+        assert 3_600_000 <= c["sweep_age_ms"] < 3_601_000
+        line = parse_line(build_line("primary", SMALL_LABEL, c))
+        assert (line["large_dead"], line["queue_bytes"]) == (2, 811_008)
+        # Before 000026: the /3 depth has no oldest_eligible_at and the usage
+        # read does not exist. Null, and the depth keys still come through.
+        q.oldest_eligible_at = None
+        q.usage = None
+        c = svc.readiness_snapshot()["capacity"]
+        validate_counts(c)
+        assert (c["large_dead"], c["oldest_queued_age_ms"], c["queue_bytes"],
+                c["sweep_age_ms"]) == (2, None, None, None)
+        assert svc.capacity.routing is True             # a missing usage read refuses nothing
+        # No queue read at all: every one null.
+        svc.capacity.set_queue_depth(None)
+        c = svc.capacity.counts()
+        assert all(c[k] is None for k in ("large_dead", "oldest_queued_age_ms"))
 
     def test_an_empty_queue_reports_every_scale_in_term_as_zero(self):
         """The scale-in alarm (cdk/workerClasses.ts) sums the metric filters
@@ -597,7 +657,8 @@ class TestCapacityLineCounts:
         c = svc.readiness_snapshot()["capacity"]
         assert (c["large_demand"], c["large_leased"], c["large_parked"]) == (2, 1, 0)
 
-    def test_a_poisoned_record_is_parked_and_counted(self, caplog):
+    def test_a_poisoned_record_is_parked_and_counted(self, caplog, monkeypatch):
+        monkeypatch.setattr(cq, "SCOPE_DAILY_CAP", 1000)     # four jobs in one day here
         svc = service()
         router, q = svc.capacity, svc.capacity_queue
         svc.capacity_loop._source_commit = COMMIT            # the deploy this poller runs
@@ -697,10 +758,204 @@ class TestCapacityLineCounts:
 # --------------------------------------------------------------------------- #
 # 5. The client's wire: closed inventory, settings, frame encoding
 # --------------------------------------------------------------------------- #
+class TestSchedulingTable:
+    """P-082 day one: one closed table of scheduling constants. A change to a
+    lane, a budget or a class is a change to this test."""
+
+    def test_the_table_is_pinned(self):
+        assert dict(cq.STAGE_POLICY) == {
+            "math_rebuild": cq.StagePolicy(lane=1, max_attempts=3, worker_class="large"),
+        }
+        with pytest.raises(TypeError):
+            cq.STAGE_POLICY["math_rebuild"] = cq.StagePolicy(0, 1, "large")  # read-only
+        with pytest.raises(AttributeError):
+            cq.STAGE_POLICY["math_rebuild"].lane = 0  # frozen
+
+    def test_no_caller_can_choose_a_lane_or_a_budget(self):
+        import inspect
+
+        params = inspect.signature(cq.QueueClient.enqueue_math_rebuild).parameters
+        assert "priority" not in params and "max_attempts" not in params
+        assert not hasattr(cq, "DEFAULT_PRIORITY") and not hasattr(cq, "DEFAULT_MAX_ATTEMPTS")
+
+    def test_the_admission_carries_the_tables_lane_and_budget(self, monkeypatch):
+        """What reaches pd_enqueue: lane 1 (priority), 3 attempts, the
+        math_rebuild stage (class large is the stage's, in the SQL)."""
+        sent = []
+
+        def call(self, name, args):
+            if name == "pq_class_depth":
+                return {"queued": 0}
+            sent.append((name, list(args)))
+            return {"outcome": "enqueued", "job_id": args[7], "stage": "math_rebuild",
+                    "state": "queued"}
+
+        monkeypatch.setattr(cq.QueueClient, "call", call)
+        client = cq.QueueClient(cq.QueueSettings("postgresql://x@127.0.0.1:1/x", "test"))
+        outcome, _ = client.enqueue_math_rebuild(7, config={"source_commit": "c" * 40},
+                                                 staged_label="python-large",
+                                                 target_label="python")
+        assert outcome == "enqueued"
+        (name, args), = sent
+        assert name == "pd_enqueue"
+        casts = cq.RPC["pd_enqueue"]
+        assert (casts[12], args[12]) == ("smallint", 1)
+        assert (casts[13], args[13]) == ("integer", 3)
+        assert args[14] == "math_rebuild"
+
+
+class TestAdmission:
+    """P-084 day one: a stable request key per intent, the queued-job cap,
+    two new jobs per conversation per day, routing refused while the queue is
+    missing or unreachable, and the login named by its secret only."""
+
+    @staticmethod
+    def wire(monkeypatch, depth=0, outcome="enqueued"):
+        sent = []
+
+        def call(self, name, args):
+            sent.append((name, list(args)))
+            if name == "pq_class_depth":
+                return {"queued": depth}
+            return {"outcome": outcome, "job_id": args[7], "stage": "math_rebuild",
+                    "state": "queued"}
+
+        monkeypatch.setattr(cq.QueueClient, "call", call)
+        return sent, cq.QueueClient(cq.QueueSettings("postgresql://x@127.0.0.1:1/x", "test"))
+
+    def test_the_request_key_is_one_per_intent(self, monkeypatch):
+        sent, client = self.wire(monkeypatch)
+        cfg = {"source_commit": "c" * 40, "input_through_ms": 5}
+
+        def key(**kw):
+            sent.clear()
+            client.enqueue_math_rebuild(7, staged_label=STAGED, target_label=SMALL_LABEL, **kw)
+            (args,) = [a for n, a in sent if n == "pd_enqueue"]
+            assert args[3] == "math-poller:test"                    # one actor per env
+            return args[4]
+
+        first = key(config=cfg)
+        assert first == key(config=cfg) == key(config=dict(cfg, need_bytes=1))
+        assert len(first) == 64 and first != key(config=dict(cfg, input_through_ms=6))
+        assert key(config=cfg, known_job="j1") == key(config=cfg, known_job="j1") != first
+        assert first == cq.request_key("test", "math:python:7", STAGED, SMALL_LABEL, 5)
+
+    def test_the_queued_job_cap_asks_nothing(self, monkeypatch, caplog):
+        sent, client = self.wire(monkeypatch, depth=cq.QUEUE_CAP_LARGE)
+        outcome = client.enqueue_math_rebuild(7, config={"source_commit": "c" * 40},
+                                              staged_label=STAGED, target_label=SMALL_LABEL)
+        assert outcome == ("queue_full", "")
+        assert [n for n, _ in sent] == ["pq_class_depth"]
+        # Through the producer: the record stays routed, the line says so,
+        # and the next admission that goes through clears it.
+        svc = service()
+        svc.capacity.observe(7, sizes=sizes(850), input_ms=T0)
+        q = svc.capacity_queue
+        q.enqueue_math_rebuild = lambda zid, **kw: ("queue_full", "")
+        with caplog.at_level(logging.WARNING):
+            assert cq.enqueue_routed(q, svc.capacity, 7, staged_label=STAGED,
+                                     target_label=SMALL_LABEL, source_commit=COMMIT) is None
+        assert "queue_full" in caplog.text
+        assert svc.capacity.is_routed(7) and svc.capacity.counts()["queue_full"] == 1
+        del q.enqueue_math_rebuild
+        assert cq.enqueue_routed(q, svc.capacity, 7, staged_label=STAGED,
+                                 target_label=SMALL_LABEL, source_commit=COMMIT)
+        assert svc.capacity.counts()["queue_full"] == 0
+
+    def test_two_new_jobs_per_conversation_per_day(self, monkeypatch, tmp_path):
+        clock = [T0]
+        adm = MemoryAdmission(1000 * MB, MODEL, headroom=0.0, base_bytes=100 * MB)
+        state = str(tmp_path / "capacity.json")
+        router = CapacityRouter(adm, CapacitySettings(routing=True, staged_label=STAGED,
+                                                      state_path=state),
+                                clock_ms=lambda: clock[0])
+        router.observe(7, sizes=sizes(850), input_ms=T0)
+        q = FakeQueue()
+
+        def ask():
+            return cq.enqueue_routed(q, router, 7, staged_label=STAGED,
+                                     target_label=SMALL_LABEL, source_commit=COMMIT)
+
+        first = ask()
+        q.finish(first)
+        q.jobs[first]["state"] = "succeeded"
+        second = ask()
+        assert second != first and router.admissions_today(7) == 2
+        assert q.known == [None, first]                     # the key's basis
+        q.finish(second)
+        assert ask() is None and len(q.calls) == 2          # the hard stop: not asked
+        # The admissions survive the state file.
+        again = CapacityRouter(adm, router.settings, clock_ms=lambda: clock[0])
+        assert again.admissions_today(7) == 2
+        clock[0] += 24 * 3600 * 1000
+        assert ask() is not None and router.admissions_today(7) == 1
+
+    def test_an_unreachable_queue_refuses_routing_until_it_answers(self, monkeypatch, caplog):
+        svc = service()
+        q = svc.capacity_queue
+        q.class_depth = MagicMock(side_effect=psycopg2.OperationalError("down"))
+        with caplog.at_level(logging.ERROR):
+            svc._note_queue_depth()
+        assert svc.capacity.routing is False and "routing refused until it does" in caplog.text
+        assert svc.capacity.counts()["queue_unreachable"] == 1
+        assert cold_touch(svc, 7, 850, monkeypatch) is False        # computed here
+        q.class_depth = MagicMock(return_value={**q.depth, "schema_version": "polis-queue/3",
+                                                "outcome": "class_depth", "env": "test",
+                                                "worker_class": "large",
+                                                "oldest_unresolved_created_at": None})
+        svc._note_queue_depth()
+        assert svc.capacity.routing is True and svc.capacity.counts()["queue_unreachable"] == 0
+        assert cold_touch(svc, 8, 850, monkeypatch) is True         # routed again
+
+    def test_routing_waits_for_the_first_answer_at_start(self):
+        svc = service(queue=None, dsn="postgresql://generated@127.0.0.1:1/generated")
+        assert svc.capacity.queue_refused == "queue_unproven" and svc.capacity.routing is False
+        assert svc._check_capacity_queue in svc._start_hooks
+
+    def test_a_missing_source_commit_refuses_routing(self, monkeypatch):
+        from polismath.poller.readiness import COMMIT_ENV
+
+        monkeypatch.delenv(COMMIT_ENV, raising=False)
+        svc = service(queue=None, dsn="postgresql://generated@127.0.0.1:1/generated")
+        assert svc.capacity.queue_refused == "source_commit_missing"
+        svc.capacity_queue.class_depth = MagicMock(return_value={})
+        svc._note_queue_depth()                    # an answer does not lift this one
+        assert svc.capacity.queue_refused == "source_commit_missing"
+
+    def test_the_login_is_named_by_its_secret_only(self):
+        with pytest.raises(CapacityConfigError, match="must not carry a password"):
+            CapacitySettings(queue_dsn="postgresql://u:pw@h/d", queue_env="test")
+        with pytest.raises(CapacityConfigError, match="must not carry a password"):
+            CapacitySettings(queue_dsn="host=h user=u password=pw dbname=d", queue_env="test")
+        with pytest.raises(CapacityConfigError, match="secret name"):
+            CapacitySettings(queue_login_secret="polis-queue-login")        # no DSN
+        s = CapacitySettings.from_env({"MATH_CAPACITY_QUEUE_DSN": "postgresql://u@h/d",
+                                       "MATH_CAPACITY_QUEUE_ENV": "prod",
+                                       "MATH_CAPACITY_QUEUE_LOGIN_SECRET": "polis-queue-login"})
+        assert s.queue_login_secret == "polis-queue-login"
+
+        class Secrets:
+            def __init__(self, raw):
+                self.raw, self.asked = raw, []
+
+            def get_secret_value(self, SecretId):
+                self.asked.append(SecretId)
+                return {"SecretString": self.raw}
+
+        fake = Secrets(json.dumps({"username": "u", "password": "generated-pw"}))
+        dsn = cq.dsn_with_secret_password("postgresql://u@h/d", "polis-queue-login", client=fake)
+        assert fake.asked == ["polis-queue-login"]
+        assert psycopg2.extensions.parse_dsn(dsn)["password"] == "generated-pw"
+        for bad in ("not json", json.dumps({"username": "u"}), json.dumps({"password": ""})):
+            with pytest.raises(cq.QueueRefused, match="queue_login_secret_shape"):
+                cq.dsn_with_secret_password("postgresql://u@h/d", "n", client=Secrets(bad))
+
+
 class TestClientWire:
     def test_the_inventory_is_closed(self):
         assert set(cq.RPC) == {"pd_enqueue", "pd_release_scope", "pq_class_depth",
-                               "pq_job_status", "pq_cancel", "pq_attempt_logs"}
+                               "pq_queue_usage", "pq_job_status", "pq_cancel",
+                               "pq_attempt_logs"}
         assert len(cq.RPC["pd_enqueue"]) == 18 and set(cq.TABLE_RPC) == {"pq_attempt_logs"}
         client = cq.QueueClient(cq.QueueSettings("postgresql://x@127.0.0.1:1/x", "test"))
         with pytest.raises(KeyError):
@@ -792,6 +1047,8 @@ class TestClientWire:
         calls = []
 
         def call(name, args):
+            if name == "pq_class_depth":
+                return {"queued": 0}
             calls.append((name, args))
             return {k: None for k in cq.JOB_FIELDS} | {
                 "schema_version": "polis-queue/2", "outcome": "enqueued", "env": "test",
@@ -809,7 +1066,9 @@ class TestClientWire:
             image, priority, attempts, stage, report, scope, config_json = args
         assert (name, env, zid, product, scope) == ("pd_enqueue", "test", 7, "math:python:7",
                                                     "math:python:7")
-        assert actor == "math-poller:python" and key == job == job_id and run != job
+        # P-084: one actor per env, the request key is the intent's digest.
+        assert actor == "math-poller:test" and job == job_id and run != job
+        assert key == cq.request_key("test", "math:python:7", STAGED, SMALL_LABEL, T0)
         assert (stage, report, priority, attempts, image) == ("math_rebuild", None, 1, 3, COMMIT)
         body = cq.decode_frame_uri(uri)
         assert cq.sha256_hex(body) == input_sha == request_sha
@@ -836,6 +1095,25 @@ class TestClientWire:
             cq.validate_depth({**good, "schema_version": "polis-queue/2"})
         with pytest.raises(cq.QueueProtocolError):
             cq.validate_depth({**good, "worker_class": "noop"})
+        # 000026: version /4 carries oldest_eligible_at, exactly; neither
+        # shape is accepted under the other's version.
+        good4 = {**good, "schema_version": "polis-queue/4",
+                 "oldest_eligible_at": "2026-10-06T18:00:00+00:00"}
+        assert cq.validate_depth(good4) is good4
+        assert cq.validate_depth({**good4, "oldest_eligible_at": None})
+        with pytest.raises(cq.QueueProtocolError):
+            cq.validate_depth({**good, "schema_version": "polis-queue/4"})
+        with pytest.raises(cq.QueueProtocolError):
+            cq.validate_depth({**good4, "schema_version": "polis-queue/3"})
+        with pytest.raises(cq.QueueProtocolError):
+            cq.validate_depth({**good4, "oldest_eligible_at": 5})
+        usage = {"schema_version": "polis-queue/4", "outcome": "queue_usage", "env": "t",
+                 "queue_bytes": 1, "last_sweep_finished_at": None}
+        assert cq.validate_usage(usage) is usage
+        for bad in ({**usage, "queue_bytes": -1}, {**usage, "schema_version": "polis-queue/3"},
+                    {**usage, "extra": 1}, {**usage, "last_sweep_finished_at": 5}):
+            with pytest.raises(cq.QueueProtocolError):
+                cq.validate_usage(bad)
         with pytest.raises(cq.QueueProtocolError):
             cq.validate_release("t")
         assert cq.validate_release(True) is True
@@ -902,11 +1180,15 @@ class TestClientWire:
         held = {"state": "cancelled", "release": True}
 
         def call(name, args):
+            if name == "pq_class_depth":
+                return {"queued": 0}
             calls.append(name)
             if name == "pd_release_scope":
                 assert args == ["test", "math:python:7"]
                 return held["release"]
-            fresh = held["state"] is None or calls.count("pd_enqueue") > 1
+            # The re-ask is keyed after the finished job: the guard decides,
+            # a fresh job once released, the same job while it holds.
+            fresh = held["state"] is None or (calls.count("pd_enqueue") > 1 and held["release"])
             return {k: None for k in cq.JOB_FIELDS} | {
                 "schema_version": "polis-queue/3", "env": "test", "stage": "math_rebuild",
                 "outcome": "enqueued" if fresh else "existing",
@@ -925,7 +1207,8 @@ class TestClientWire:
         held["release"] = False                                  # exit unproven: refused
         outcome, job_id = client.enqueue_math_rebuild(7, config=config, staged_label=STAGED,
                                                       target_label=SMALL_LABEL)
-        assert (outcome, job_id, calls) == ("existing", "0" * 32, ["pd_enqueue", "pd_release_scope"])
+        assert (outcome, job_id, calls) == ("existing", "0" * 32,
+                                            ["pd_enqueue", "pd_release_scope", "pd_enqueue"])
         calls.clear()
         held["state"] = "running"                                # active: no release asked
         outcome, _ = client.enqueue_math_rebuild(7, config=config, staged_label=STAGED,
